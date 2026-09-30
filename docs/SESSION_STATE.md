@@ -4,12 +4,12 @@ Update this file before every checkpoint push. Keep it short, factual and suffic
 
 - Current phase: Phase 1 — Production foundation
 - Current branch: `work/phase-1-foundation`
-- Last completed task: Verified clean `main`, read the required handoff/architecture/Phase 1 documents, inspected the Phase 0 spike/tests, and created the remote Phase 1 branch
-- Work in progress: Pre-edit Phase 0 baseline build/test verification
-- Build status: Not run in this clean sandbox yet; JDK 17, Gradle and Android SDK 35 are not installed
-- Known failure/blocker: Runtime direct/HLS/DASH playback still requires an Android device/emulator; local build toolchain must be bootstrapped before the baseline build
-- Next exact action: Install an isolated JDK 17/Gradle/Android SDK 35 toolchain, then run `gradle -p spikes/phase0-media --no-daemon lintDebug testDebugUnitTest assembleDebug` before changing production code
-- Last pushed checkpoint: `d0e13945` — Phase 1 branch initialization and baseline-verification handoff
+- Last completed task: Verified the unchanged Phase 0 baseline locally with JDK 17.0.20.1, Gradle 8.9 and Android SDK 35
+- Work in progress: Production Gradle wrapper and module/package foundation
+- Build status: PASS — `gradle -p spikes/phase0-media --no-daemon lintDebug testDebugUnitTest assembleDebug` completed successfully in 3m 37s (49 tasks)
+- Known failure/blocker: Runtime direct/HLS/DASH playback still requires an Android device/emulator; no production code has been added yet
+- Next exact action: Create the production Gradle wrapper/settings/build logic and the nine modules defined in `docs/ARCHITECTURE.md`, then run a compile-focused checkpoint validation
+- Last pushed checkpoint: `4fc5424` — confirmed the remote Phase 1 branch before baseline verification
 - Last updated: 2026-10-01
 
 ## Checkpoint note template
