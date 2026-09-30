@@ -1,20 +1,35 @@
 package com.alal.yft.ui
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.alal.yft.core.data.preferences.SettingsRepository
 import com.alal.yft.core.model.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 @HiltViewModel
-class AppViewModel @Inject constructor() : ViewModel() {
-    private val mutableUiState = MutableStateFlow(AppUiState())
-    val uiState: StateFlow<AppUiState> = mutableUiState.asStateFlow()
+class AppViewModel @Inject constructor(
+    private val settingsRepository: SettingsRepository,
+) : ViewModel() {
+    val uiState: StateFlow<AppUiState> = settingsRepository.themeMode
+        .map(::AppUiState)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = AppUiState(),
+        )
 
     fun onAction(action: AppAction) {
-        mutableUiState.value = mutableUiState.value.reduce(action)
+        when (action) {
+            is AppAction.ThemeModeChanged -> viewModelScope.launch {
+                settingsRepository.setThemeMode(action.themeMode)
+            }
+        }
     }
 
     fun setThemeMode(themeMode: ThemeMode) {

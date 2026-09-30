@@ -15,6 +15,7 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     testOptions { unitTests.isIncludeAndroidResources = true }
+    sourceSets["test"].assets.srcDir("$projectDir/schemas")
 }
 
 kapt {
@@ -40,4 +41,5 @@ dependencies {
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.robolectric)
     testImplementation(libs.room.testing)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

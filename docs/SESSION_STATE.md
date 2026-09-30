@@ -4,12 +4,12 @@ Update this file before every checkpoint push. Keep it short, factual and suffic
 
 - Current phase: Phase 1 — Production foundation
 - Current branch: `work/phase-1-foundation`
-- Last completed task: Implemented the navigable Compose app shell with Home, Browser, Detected Media, Preview, Downloads, Library, Settings and About screens, back navigation, theme switching and ViewModel/StateFlow actions
-- Work in progress: Room/DataStore/OkHttp/Media3 foundation wiring, error/result model and secret-redacting logger
-- Build status: PASS — `./gradlew --no-daemon :core-model:test :app:testDebugUnitTest :app:assembleDebug` completed successfully in 1m 31s (141 tasks); module checkpoint CI run `36789450519` also passed
-- Known failure/blocker: Runtime navigation and playback still require a device/emulator; current theme selection is in-memory until the DataStore milestone
-- Next exact action: Add core result/error/redaction models and tests, wire Hilt providers for Room v2 with a tested v1→v2 migration, DataStore settings, OkHttp and Media3
-- Last pushed checkpoint: `916c58c` — handed off from the remotely validated production module foundation to the app shell
+- Last completed task: Wired Room v2 with a validated v1→v2 migration, DataStore-backed theme settings, default-TLS OkHttp, an injectable Media3 player factory, Hilt bindings, structured result/error types and secret-redacting logging
+- Work in progress: Production CI/static checks, release-build validation and Phase 1 documentation
+- Build status: PASS — model/redaction tests; Room DAO/migration, DataStore and network tests; persisted AppViewModel tests; `:app:assembleDebug` (combined run completed in 3m 50s), followed by a clean Room test run in 44s
+- Known failure/blocker: Device/emulator UI navigation and direct/HLS/DASH runtime playback remain unexecuted; KAPT reports its expected Kotlin 2.0 language fallback warning
+- Next exact action: Add a Phase 1 CI workflow for lint, all unit tests and debug build; run local lint/tests/debug and release builds; then update architecture/test/status/handoff docs
+- Last pushed checkpoint: `5fa48fd` — navigable Compose app shell with ViewModel/StateFlow and theme foundation
 - Last updated: 2026-10-01
 
 ## Checkpoint note template
