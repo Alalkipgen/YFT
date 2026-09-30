@@ -5,5 +5,16 @@ local.properties
 *.iml
 *.jks
 *.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+secrets.properties
+signing.properties
+keystore.properties
+credentials.json
 *.properties.local
 .DS_Store

@@ -11,6 +11,17 @@ YFT is the repository for an ad-free Android video downloader that detects and d
 - Phase progress and cross-chat handoff details are recorded in:
   - [`docs/PHASE_STATUS.md`](docs/PHASE_STATUS.md)
   - [`docs/HANDOFF.md`](docs/HANDOFF.md)
+  - [`docs/SESSION_STATE.md`](docs/SESSION_STATE.md)
+
+## Cross-chat continuity
+
+Development happens on `work/phase-*` branches. Agents must read [`AGENTS.md`](AGENTS.md), update `SESSION_STATE.md`, and create a remote checkpoint after every logical milestone:
+
+```bash
+bash scripts/checkpoint.sh "short checkpoint description"
+```
+
+See [`docs/CONTINUITY_PROTOCOL.md`](docs/CONTINUITY_PROTOCOL.md). Local commits and stashes are not treated as durable handoffs.
 
 ## Product boundaries
 

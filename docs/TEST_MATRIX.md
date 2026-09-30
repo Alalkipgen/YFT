@@ -13,6 +13,11 @@
 | Media3 direct/HLS/DASH sources compile | Android debug build | Build succeeds | PASS |
 | Android lint | Local Android toolchain | No blocking errors | PASS |
 | Phase 0 CI workflow | GitHub Actions, JDK 17, SDK 35, Gradle 8.9 | Lint, tests and debug build pass | PASS — run 36783628412 |
+| Checkpoint script syntax | Local Bash | `bash -n` succeeds | PASS |
+| Remote checkpoint flow | Temporary local/bare Git remotes | Work-branch commit and push succeed | PASS |
+| Main branch safeguard | Temporary Git repository | Checkpoint is refused | PASS |
+| Sensitive-file safeguard | Temporary Git repository | `.jks` checkpoint is refused | PASS |
+| Checkpoint workflow YAML | PyYAML parse | Valid workflow structure | PASS |
 
 ## Device tests required before Phase 0 is fully closed
 

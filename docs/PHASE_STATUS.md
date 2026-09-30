@@ -23,6 +23,7 @@ Phase 0 is complete. Phase 1 is the next permitted phase.
 - Added a Media3/WebView feasibility harness.
 - Added unit tests and GitHub Actions validation.
 - Documented support, risks, test requirements and future phases.
+- Installed milestone-based remote checkpoints, work-branch CI and cross-chat session-state handoff before Phase 1.
 
 ## Phase 0 validation
 
@@ -30,4 +31,4 @@ Phase 0 is complete. Phase 1 is the next permitted phase.
 - The same lint/test/debug-build workflow passed in GitHub Actions run `36783628412`.
 - Direct/HLS/DASH Media3 source construction and WebView request-context code compile successfully.
 - Runtime playback on a real Android device/emulator remains a Phase 1 entry test and is explicitly tracked in `TEST_MATRIX.md`.
-- The final commit SHA must be recorded in `HANDOFF.md` after the repository commit is created.
+- Phase 1 must start on `work/phase-1-foundation` and use the checkpoint protocol recorded in `AGENTS.md`.

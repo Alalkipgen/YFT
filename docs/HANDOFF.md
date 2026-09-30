@@ -17,6 +17,8 @@
   - WebView DOM media probing
   - Browser Cookie/Referer/User-Agent/header replay context
 - Added JVM tests and CI validation.
+- Added mandatory cross-chat continuity rules, a remote checkpoint script, session-state handoff and work-branch CI.
+- Added a short Burmese generic prompt for future chats.
 
 ## Important decisions
 
@@ -36,6 +38,11 @@
 - `docs/prompts/`
 - `spikes/phase0-media/`
 - `.github/workflows/phase0-validation.yml`
+- `.github/workflows/checkpoint-validation.yml`
+- `AGENTS.md`
+- `docs/SESSION_STATE.md`
+- `docs/CONTINUITY_PROTOCOL.md`
+- `scripts/checkpoint.sh`
 
 ## Validation
 
@@ -50,6 +57,8 @@ Result: **BUILD SUCCESSFUL**. All Phase 0 JVM unit tests passed, lint had no blo
 GitHub Actions also passed the same validation in run `36783628412`:
 `https://github.com/Alalkipgen/YFT/actions/runs/36783628412`
 
+Continuity safeguards were validated with `bash -n`, a temporary work-branch commit/push to a local bare remote, main-branch refusal, sensitive `.jks` refusal and YAML parsing.
+
 ## Known limitations
 
 - The initial sandbox had no preinstalled Android SDK or Gradle.
@@ -59,7 +68,8 @@ GitHub Actions also passed the same validation in run `36783628412`:
 
 ## Next-phase prerequisites
 
-- Read all Phase 0 documents before changing project structure.
+- Read `AGENTS.md` and all Phase 0 documents before changing project structure.
+- Create and push `work/phase-1-foundation`; do not develop Phase 1 directly on `main`.
 - Add the production Gradle wrapper and app/module foundation.
 - Run direct/HLS/DASH runtime preview checks on an Android device/emulator as the first Phase 1 entry test.
 - Preserve generic-first architecture and the no-DRM boundary.
