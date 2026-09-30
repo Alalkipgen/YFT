@@ -4,12 +4,12 @@ Update this file before every checkpoint push. Keep it short, factual and suffic
 
 - Current phase: Phase 1 — Production foundation
 - Current branch: `work/phase-1-foundation`
-- Last completed task: Added and remotely validated the production Gradle 8.9 wrapper, version catalog, all nine architecture modules and a minimal Compose/Hilt app entry point
-- Work in progress: Navigable Compose app shell, light/dark theme and ViewModel/StateFlow event-state foundation
-- Build status: PASS locally — production unit-test tasks and `:app:assembleDebug`; PASS remotely — checkpoint workflow run `36789450519`
-- Known failure/blocker: Runtime media playback still requires a device/emulator; navigation, persistence providers and foundation tests remain to be implemented
-- Next exact action: Implement Home, Browser, Detected Media, Preview, Downloads, Library, Settings and About routes with back navigation, then add app-shell tests
-- Last pushed checkpoint: `43d8c36` — production module foundation with official wrapper and successful remote validation
+- Last completed task: Implemented the navigable Compose app shell with Home, Browser, Detected Media, Preview, Downloads, Library, Settings and About screens, back navigation, theme switching and ViewModel/StateFlow actions
+- Work in progress: Room/DataStore/OkHttp/Media3 foundation wiring, error/result model and secret-redacting logger
+- Build status: PASS — `./gradlew --no-daemon :core-model:test :app:testDebugUnitTest :app:assembleDebug` completed successfully in 1m 31s (141 tasks); module checkpoint CI run `36789450519` also passed
+- Known failure/blocker: Runtime navigation and playback still require a device/emulator; current theme selection is in-memory until the DataStore milestone
+- Next exact action: Add core result/error/redaction models and tests, wire Hilt providers for Room v2 with a tested v1→v2 migration, DataStore settings, OkHttp and Media3
+- Last pushed checkpoint: `916c58c` — handed off from the remotely validated production module foundation to the app shell
 - Last updated: 2026-10-01
 
 ## Checkpoint note template
