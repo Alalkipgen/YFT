@@ -4,12 +4,12 @@ Update this file before every checkpoint push. Keep it short, factual and suffic
 
 - Current phase: Phase 1 — Production foundation
 - Current branch: `work/phase-1-foundation`
-- Last completed task: Expanded CI to the full Phase 1 lint/test/debug matrix, pinned the Gradle wrapper checksum, passed local debug and minified release builds, and confirmed GitHub Actions run `36791877079` passed
-- Work in progress: Robolectric Compose smoke test for Home start route, all eight destinations and back navigation, followed by Phase 1 completion documentation
-- Build status: PASS — full local debug/release validation completed in 4m 31s (467 tasks); remote full CI passed
-- Known failure/blocker: No Android device/emulator is attached and `/dev/kvm` is unavailable; release APK is intentionally unsigned
-- Next exact action: Add and run an executable Compose navigation smoke test under Robolectric, then update Phase 1 status, handoff, architecture, support, test matrix and README
-- Last pushed checkpoint: `aa6478d` — expanded CI and release-build hardening with green remote run `36791877079`
+- Last completed task: Added and passed a Robolectric Compose runtime smoke test that starts on Home, opens all seven other required destinations and verifies back navigation returns Home
+- Work in progress: Phase 1 completion documentation and final full validation
+- Build status: PASS — navigation smoke test `./gradlew --no-daemon :app:testDebugUnitTest --tests com.alal.yft.ui.navigation.YftNavigationSmokeTest` completed in 1m 12s; full local validation and GitHub Actions run `36791877079` also pass
+- Known failure/blocker: No physical Android device/emulator is attached and `/dev/kvm` is unavailable, so on-device rendering and direct/HLS/DASH playback remain unexecuted; release APK is intentionally unsigned
+- Next exact action: Update README, Phase Status, Handoff, Architecture, Support Matrix and Test Matrix; run the complete Phase 1 validation again; push the phase-completion commit
+- Last pushed checkpoint: `e10c6e4` — prepared the navigation runtime smoke test after green full CI
 - Last updated: 2026-10-01
 
 ## Checkpoint note template

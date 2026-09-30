@@ -16,6 +16,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.alal.yft.ui.components.YftTopBar
 import com.alal.yft.ui.navigation.YftDestination
@@ -34,6 +35,7 @@ fun HomeScreen(onOpenDestination: (YftDestination) -> Unit) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .testTag("home-list")
                 .padding(padding),
             contentPadding = PaddingValues(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -73,7 +75,9 @@ fun HomeScreen(onOpenDestination: (YftDestination) -> Unit) {
             ) { destination ->
                 OutlinedButton(
                     onClick = { onOpenDestination(destination) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("destination-${destination.route}"),
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(text = destination.title)
