@@ -47,6 +47,9 @@ gradle -p spikes/phase0-media --no-daemon lintDebug testDebugUnitTest assembleDe
 
 Result: **BUILD SUCCESSFUL**. All Phase 0 JVM unit tests passed, lint had no blocking findings after the Media3 opt-in correction, and the debug APK was assembled.
 
+GitHub Actions also passed the same validation in run `36783628412`:
+`https://github.com/Alalkipgen/YFT/actions/runs/36783628412`
+
 ## Known limitations
 
 - The initial sandbox had no preinstalled Android SDK or Gradle.
@@ -61,6 +64,9 @@ Result: **BUILD SUCCESSFUL**. All Phase 0 JVM unit tests passed, lint had no blo
 - Run direct/HLS/DASH runtime preview checks on an Android device/emulator as the first Phase 1 entry test.
 - Preserve generic-first architecture and the no-DRM boundary.
 
-## Last commit
+## Commits
 
-Pending initial repository commit.
+- Phase 0 implementation/docs: `99fb71889dde7800760fac2ee451a0765f7b55c0`
+- CI compatibility corrections: `b9d4ff9cfae785e5296b417f4a530a7c1cd13d93`
+
+The final documentation-only handoff commit may be newer than the implementation commits above.

@@ -27,6 +27,7 @@ Phase 0 is complete. Phase 1 is the next permitted phase.
 ## Phase 0 validation
 
 - `lintDebug`, `testDebugUnitTest` and `assembleDebug` passed locally with JDK 17, Android SDK 35 and Gradle 8.10.2.
+- The same lint/test/debug-build workflow passed in GitHub Actions run `36783628412`.
 - Direct/HLS/DASH Media3 source construction and WebView request-context code compile successfully.
 - Runtime playback on a real Android device/emulator remains a Phase 1 entry test and is explicitly tracked in `TEST_MATRIX.md`.
 - The final commit SHA must be recorded in `HANDOFF.md` after the repository commit is created.

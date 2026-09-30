@@ -12,6 +12,7 @@
 | DOM probe targets HTML media elements | JVM unit test | Read-only script structure | PASS |
 | Media3 direct/HLS/DASH sources compile | Android debug build | Build succeeds | PASS |
 | Android lint | Local Android toolchain | No blocking errors | PASS |
+| Phase 0 CI workflow | GitHub Actions, JDK 17, SDK 35, Gradle 8.9 | Lint, tests and debug build pass | PASS — run 36783628412 |
 
 ## Device tests required before Phase 0 is fully closed
 
