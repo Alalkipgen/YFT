@@ -1,42 +1,50 @@
 # YFT — Video Downloader
 
-YFT is the repository for an ad-free Android video downloader that detects and downloads authorized, non-DRM media from direct links, HTML5 players, HLS and DASH streams.
+YFT is an ad-free Android application foundation for detecting and downloading authorized, non-DRM media from direct links, HTML5 players, HLS and DASH streams.
 
-**Phase 0: technical discovery and feasibility is complete.** Production features begin in Phase 1 and are not implemented yet.
+**Phase 1: production foundation is complete on `work/phase-1-foundation`.** Media detection and browser behavior begin in Phase 2; full download engines are not implemented yet.
 
 ## Current state
 
-- Architecture and support boundaries are documented under [`docs/`](docs/).
-- A compileable Media3/WebView feasibility harness lives in [`spikes/phase0-media`](spikes/phase0-media/).
-- Phase progress and cross-chat handoff details are recorded in:
-  - [`docs/PHASE_STATUS.md`](docs/PHASE_STATUS.md)
-  - [`docs/HANDOFF.md`](docs/HANDOFF.md)
-  - [`docs/SESSION_STATE.md`](docs/SESSION_STATE.md)
+- A production Android app with application ID `com.alal.yft` and a debug suffix of `.debug`.
+- Nine modules matching the architecture in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+- A Compose/Material 3 app shell with Home, Browser, Detected Media, Preview, Downloads, Library, Settings and About routes.
+- ViewModel/StateFlow UI state with a persisted light/dark/system theme preference.
+- Hilt foundations for Room, DataStore, OkHttp and Media3.
+- Room schema export plus tested baseline DAO and v1→v2 migration.
+- Structured result/error types and a logger that redacts sensitive headers, credentials and signed query values.
+- Gradle 8.9 wrapper, debug/release variants and GitHub Actions validation.
+- The Phase 0 feasibility harness remains under [`spikes/phase0-media`](spikes/phase0-media/).
 
 ## Cross-chat continuity
 
-Development happens on `work/phase-*` branches. Agents must read [`AGENTS.md`](AGENTS.md), update `SESSION_STATE.md`, and create a remote checkpoint after every logical milestone:
+Development happens on `work/phase-*` branches. Agents must read [`AGENTS.md`](AGENTS.md), update [`docs/SESSION_STATE.md`](docs/SESSION_STATE.md), and create a remote checkpoint after every logical milestone.
 
-```bash
-bash scripts/checkpoint.sh "short checkpoint description"
-```
-
-See [`docs/CONTINUITY_PROTOCOL.md`](docs/CONTINUITY_PROTOCOL.md). Local commits and stashes are not treated as durable handoffs.
+See [`docs/CONTINUITY_PROTOCOL.md`](docs/CONTINUITY_PROTOCOL.md). Local commits and stashes are not durable handoffs.
 
 ## Product boundaries
 
-YFT will not attempt to bypass DRM, payment protection, private access controls or authentication restrictions. Website-specific support will be isolated behind adapters and claimed only when backed by tests.
+YFT will not attempt to bypass DRM, payment protection, private access controls or authentication restrictions. Website-specific support remains isolated behind adapters and may only be claimed when backed by tests.
 
 ## Reference implementation
 
-The existing [AlalDownloader](https://github.com/Alalkipgen/AlalDownloader) project is an MIT-licensed reference for browser request context, segmented direct downloads, queueing, pause/resume and recovery. YFT will remain an independent application and repository.
+The existing [AlalDownloader](https://github.com/Alalkipgen/AlalDownloader) project is an MIT-licensed reference for browser request context, segmented direct downloads, queueing, pause/resume and recovery. YFT remains independently buildable and does not depend on that repository at runtime.
 
 ## Validation
 
-Phase 0 CI runs:
+Use JDK 17 and Android SDK 35:
 
 ```bash
-gradle -p spikes/phase0-media --no-daemon lintDebug testDebugUnitTest assembleDebug
+./gradlew --no-daemon \
+  lintDebug \
+  testDebugUnitTest \
+  :core-model:test \
+  :extractor-api:test \
+  :extractor-generic:test \
+  :extractor-sites:test \
+  :app:assembleDebug
 ```
 
-See [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md) before continuing development.
+A local release check can additionally run `:app:assembleRelease`; the output is intentionally unsigned until Phase 7.
+
+See [`docs/PHASE_STATUS.md`](docs/PHASE_STATUS.md), [`docs/TEST_MATRIX.md`](docs/TEST_MATRIX.md) and [`docs/HANDOFF.md`](docs/HANDOFF.md) before continuing.

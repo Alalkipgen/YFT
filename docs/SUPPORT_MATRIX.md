@@ -4,11 +4,15 @@ Status values:
 
 - **Planned** — architecture includes the capability, not yet implemented
 - **Spike** — compile-time feasibility harness exists
+- **Foundation** — production infrastructure is wired and tested, but the user-facing capability is not implemented yet
 - **Blocked** — known unresolved blocker
 - **Unsupported** — intentionally outside product scope
 
 | Source or capability | Phase 0 status | Target phase | Notes |
 | --- | --- | --- | --- |
+| Production Compose app shell/navigation | Foundation | 1 | Eight required routes, theme state and back navigation validated |
+| Room/DataStore/OkHttp/Media3 wiring | Foundation | 1 | Hilt providers, schemas/migration and foundation tests pass |
+| Secret-redacting application logging | Foundation | 1 | Sensitive headers, credentials and signed query values are redacted |
 | HTTPS direct MP4/WebM/audio | Spike | 3–4 | Media3 preview source and direct engine plan |
 | HTML5 `video` / `audio` / `source` | Spike | 2 | Read-only DOM probe exists |
 | WebView DownloadListener | Reference verified | 2 | Adapt from AlalDownloader design |

@@ -2,9 +2,9 @@
 
 | Phase | Status | Summary |
 | --- | --- | --- |
-| 0 — Discovery and feasibility | COMPLETE | Architecture, support matrix, ADRs and compileable Media3/WebView spike validated locally |
-| 1 — Foundation | NOT STARTED | Blocked until Phase 0 handoff is accepted |
-| 2 — Browser/detection | NOT STARTED | — |
+| 0 — Discovery and feasibility | COMPLETE | Architecture, support matrix, ADRs and compileable Media3/WebView spike validated locally and in CI |
+| 1 — Foundation | COMPLETE | Production modules, Compose navigation shell, DI/data/media foundations, tests and CI validated on the work branch |
+| 2 — Browser/detection | NOT STARTED | Next permitted phase; explicitly authorized by the user after Phase 1 completion |
 | 3 — Preview/variants | NOT STARTED | — |
 | 4 — Download engines | NOT STARTED | — |
 | 5 — Site adapters | NOT STARTED | — |
@@ -13,22 +13,48 @@
 
 ## Current phase
 
-Phase 0 is complete. Phase 1 is the next permitted phase.
+Phase 1 is complete on `work/phase-1-foundation`. Phase 2 is the next permitted phase and must start on `work/phase-2-browser-detection` from the Phase 1 completion commit. Do not merge either branch into `main` without explicit approval and a green validation.
 
-## Completed in Phase 0 so far
+## Completed in Phase 1
 
-- Audited the AlalDownloader reference architecture and tests.
-- Recorded product boundaries and technology decisions.
-- Defined production module boundaries and core interfaces.
-- Added a Media3/WebView feasibility harness.
-- Added unit tests and GitHub Actions validation.
-- Documented support, risks, test requirements and future phases.
-- Installed milestone-based remote checkpoints, work-branch CI and cross-chat session-state handoff before Phase 1.
+- Added the Gradle 8.9 wrapper with a pinned distribution checksum.
+- Created the production modules defined in `ARCHITECTURE.md`:
+  - `:app`
+  - `:core-model`
+  - `:core-data`
+  - `:core-browser`
+  - `:core-media`
+  - `:core-download`
+  - `:extractor-api`
+  - `:extractor-generic`
+  - `:extractor-sites`
+- Added the `com.alal.yft` production app and `.debug` debug application suffix.
+- Implemented a Compose/Material 3 shell with all eight required routes and back navigation.
+- Added light/dark/system themes with ViewModel/StateFlow events and DataStore persistence.
+- Wired Hilt providers and boundaries for Room, DataStore, OkHttp and Media3.
+- Added Room schema export, a DAO baseline test and a validated v1→v2 migration.
+- Added structured `AppResult`/`AppError` types and secret-redacting logging.
+- Added a Robolectric Compose smoke test for Home, every destination and back navigation.
+- Expanded GitHub Actions to run Android lint, all Android/JVM unit tests and the debug build for work branches and pull requests.
+- Configured and locally validated debug and minified release builds.
 
-## Phase 0 validation
+## Phase 1 validation
 
-- `lintDebug`, `testDebugUnitTest` and `assembleDebug` passed locally with JDK 17, Android SDK 35 and Gradle 8.10.2.
-- The same lint/test/debug-build workflow passed in GitHub Actions run `36783628412`.
-- Direct/HLS/DASH Media3 source construction and WebView request-context code compile successfully.
-- Runtime playback on a real Android device/emulator remains a Phase 1 entry test and is explicitly tracked in `TEST_MATRIX.md`.
-- Phase 1 must start on `work/phase-1-foundation` and use the checkpoint protocol recorded in `AGENTS.md`.
+- Full local command passed with JDK 17.0.20.1, Android SDK 35 and Gradle 8.9:
+
+```bash
+./gradlew --no-daemon \
+  lintDebug \
+  testDebugUnitTest \
+  :core-model:test \
+  :extractor-api:test \
+  :extractor-generic:test \
+  :extractor-sites:test \
+  :app:assembleDebug \
+  :app:assembleRelease
+```
+
+- Result: **BUILD SUCCESSFUL** in 4m 31s; debug and unsigned minified release APKs assembled.
+- GitHub Actions full checkpoint validation passed in run `36791877079`.
+- The Compose navigation smoke test passed separately and is included in subsequent `testDebugUnitTest` runs.
+- No physical Android device/emulator was available, so direct/HLS/DASH playback and on-device rendering remain tracked runtime tests rather than claimed support.

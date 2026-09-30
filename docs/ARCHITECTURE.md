@@ -180,3 +180,57 @@ Offline/export behavior is separate from preview:
 ## Reuse strategy
 
 AlalDownloader is MIT licensed and owned by the same GitHub account. YFT may adapt its tested download-engine concepts, preserving applicable license notices. The production YFT code should use YFT models/interfaces and remain independently buildable.
+
+## Phase 1 implemented foundation
+
+The production project now implements the planned nine-module graph. Dependency direction is intentionally one-way:
+
+```text
+:app
+  -> Android core modules and extractor implementations
+:core-download
+  -> :core-data -> :core-model
+:core-browser, :core-media
+  -> :core-model
+:extractor-generic, :extractor-sites
+  -> :extractor-api -> :core-model
+```
+
+The current feature packages under `:app` are:
+
+```text
+feature/home
+feature/browser
+feature/detectedmedia
+feature/preview
+feature/downloads
+feature/library
+feature/settings
+feature/about
+```
+
+All eight routes are real Compose destinations. Phase-specific behavior remains placeholder-only so the foundation does not cross into browser detection, preview resolution or download engines prematurely.
+
+### State and settings
+
+`AppViewModel` exposes immutable `StateFlow<AppUiState>` and accepts explicit UI actions. The selected system/light/dark theme is persisted through a `SettingsRepository` backed by Preferences DataStore. UI code depends on the repository interface rather than DataStore directly.
+
+### Persistence and migrations
+
+`AppDatabase` is a Room v2 database with exported schemas. Its baseline `download_records` table stores non-sensitive lifecycle metadata. Migration `1→2` adds a nullable structured error code and is validated against the exported schemas. Database construction registers the migration explicitly and does not use destructive fallback.
+
+### Dependency injection and service foundations
+
+Hilt provides the Room database/DAO, singleton Preferences DataStore, default OkHttp client, logger bindings and Media3 player factory. OkHttp retains platform certificate and hostname verification and has no request/response logging interceptor. `MediaPlayerFactory` creates players lazily; it does not keep a process-wide player alive.
+
+### Logging and error boundaries
+
+Shared `AppResult` and `AppError` types provide structured success/failure handling. `SensitiveValueRedactor` removes sensitive headers, bearer credentials, passwords, tokens and signed query values before Android logging. Throwable messages and stack traces are not forwarded by the production logger because they may contain request secrets.
+
+### Build variants and CI
+
+- Debug application ID: `com.alal.yft.debug`
+- Release application ID: `com.alal.yft`
+- Release minification/resource shrinking: enabled
+- Release signing: intentionally absent until Phase 7
+- CI: Android lint, Android/JVM unit tests and debug assembly on `work/**` pushes and pull requests to `main`
