@@ -4,12 +4,12 @@ Update this file before every checkpoint push. Keep it short, factual and suffic
 
 - Current phase: Phase 1 — Production foundation
 - Current branch: `work/phase-1-foundation`
-- Last completed task: Expanded work-branch/PR CI to all Android lint and unit tasks plus pure JVM module tests and debug assembly; pinned the Gradle 8.9 distribution checksum; validated debug and minified release builds locally
-- Work in progress: Remote CI verification and Phase 1 completion documentation
-- Build status: PASS — full local command `./gradlew --no-daemon lintDebug testDebugUnitTest :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test :app:assembleDebug :app:assembleRelease` completed in 4m 31s (467 tasks)
-- Known failure/blocker: No Android device/emulator is attached, so app launch/navigation and direct/HLS/DASH runtime playback remain unexecuted; release APK is intentionally unsigned
-- Next exact action: Push the CI/checksum checkpoint, confirm the GitHub Actions run passes, then update Phase 1 status, handoff, architecture, support and test documentation before final validation
-- Last pushed checkpoint: `938f78a` — Room/DataStore/OkHttp/Media3, error/result and redacting-logger foundations with passing tests
+- Last completed task: Expanded CI to the full Phase 1 lint/test/debug matrix, pinned the Gradle wrapper checksum, passed local debug and minified release builds, and confirmed GitHub Actions run `36791877079` passed
+- Work in progress: Robolectric Compose smoke test for Home start route, all eight destinations and back navigation, followed by Phase 1 completion documentation
+- Build status: PASS — full local debug/release validation completed in 4m 31s (467 tasks); remote full CI passed
+- Known failure/blocker: No Android device/emulator is attached and `/dev/kvm` is unavailable; release APK is intentionally unsigned
+- Next exact action: Add and run an executable Compose navigation smoke test under Robolectric, then update Phase 1 status, handoff, architecture, support, test matrix and README
+- Last pushed checkpoint: `aa6478d` — expanded CI and release-build hardening with green remote run `36791877079`
 - Last updated: 2026-10-01
 
 ## Checkpoint note template
