@@ -4,12 +4,12 @@ Update this file before every checkpoint push. Keep it short, factual and suffic
 
 - Current phase: Phase 1 — Production foundation
 - Current branch: `work/phase-1-foundation`
-- Last completed task: Verified the unchanged Phase 0 baseline locally with JDK 17.0.20.1, Gradle 8.9 and Android SDK 35
-- Work in progress: Production Gradle wrapper and module/package foundation
-- Build status: PASS — `gradle -p spikes/phase0-media --no-daemon lintDebug testDebugUnitTest assembleDebug` completed successfully in 3m 37s (49 tasks)
-- Known failure/blocker: Runtime direct/HLS/DASH playback still requires an Android device/emulator; no production code has been added yet
-- Next exact action: Create the production Gradle wrapper/settings/build logic and the nine modules defined in `docs/ARCHITECTURE.md`, then run a compile-focused checkpoint validation
-- Last pushed checkpoint: `4fc5424` — confirmed the remote Phase 1 branch before baseline verification
+- Last completed task: Added the production Gradle build, version catalog, all nine architecture modules, a minimal Compose/Hilt app entry point and the Gradle 8.9 wrapper
+- Work in progress: Remote module-foundation checkpoint; an approved one-time workflow will commit the binary wrapper JAR and executable bit because GitHub MCP accepts text files only
+- Build status: PASS — `./gradlew --no-daemon testDebugUnitTest :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test :app:assembleDebug` completed successfully in 4m 10s (159 tasks)
+- Known failure/blocker: Runtime media playback still requires a device/emulator; full navigation, persistence providers and foundation tests are not implemented yet
+- Next exact action: Confirm wrapper bootstrap and checkpoint validation succeed remotely, remove the temporary bootstrap workflow, then implement the navigable Compose app shell and theme/state foundation
+- Last pushed checkpoint: `9088c93` — verified the unchanged Phase 0 baseline before production edits
 - Last updated: 2026-10-01
 
 ## Checkpoint note template
