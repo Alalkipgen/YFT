@@ -4,12 +4,12 @@ Update this file before every checkpoint push. Keep it short, factual and suffic
 
 - Current phase: Phase 1 — Production foundation
 - Current branch: `work/phase-1-foundation`
-- Last completed task: Wired Room v2 with a validated v1→v2 migration, DataStore-backed theme settings, default-TLS OkHttp, an injectable Media3 player factory, Hilt bindings, structured result/error types and secret-redacting logging
-- Work in progress: Production CI/static checks, release-build validation and Phase 1 documentation
-- Build status: PASS — model/redaction tests; Room DAO/migration, DataStore and network tests; persisted AppViewModel tests; `:app:assembleDebug` (combined run completed in 3m 50s), followed by a clean Room test run in 44s
-- Known failure/blocker: Device/emulator UI navigation and direct/HLS/DASH runtime playback remain unexecuted; KAPT reports its expected Kotlin 2.0 language fallback warning
-- Next exact action: Add a Phase 1 CI workflow for lint, all unit tests and debug build; run local lint/tests/debug and release builds; then update architecture/test/status/handoff docs
-- Last pushed checkpoint: `5fa48fd` — navigable Compose app shell with ViewModel/StateFlow and theme foundation
+- Last completed task: Expanded work-branch/PR CI to all Android lint and unit tasks plus pure JVM module tests and debug assembly; pinned the Gradle 8.9 distribution checksum; validated debug and minified release builds locally
+- Work in progress: Remote CI verification and Phase 1 completion documentation
+- Build status: PASS — full local command `./gradlew --no-daemon lintDebug testDebugUnitTest :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test :app:assembleDebug :app:assembleRelease` completed in 4m 31s (467 tasks)
+- Known failure/blocker: No Android device/emulator is attached, so app launch/navigation and direct/HLS/DASH runtime playback remain unexecuted; release APK is intentionally unsigned
+- Next exact action: Push the CI/checksum checkpoint, confirm the GitHub Actions run passes, then update Phase 1 status, handoff, architecture, support and test documentation before final validation
+- Last pushed checkpoint: `938f78a` — Room/DataStore/OkHttp/Media3, error/result and redacting-logger foundations with passing tests
 - Last updated: 2026-10-01
 
 ## Checkpoint note template

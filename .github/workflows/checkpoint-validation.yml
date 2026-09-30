@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - "work/**"
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -29,11 +32,18 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
-      - name: Validate checkpoint
+      - name: Validate production checkpoint
         shell: bash
         run: |
           if [[ -x ./gradlew ]]; then
-            ./gradlew --no-daemon lintDebug testDebugUnitTest assembleDebug
+            ./gradlew --no-daemon \
+              lintDebug \
+              testDebugUnitTest \
+              :core-model:test \
+              :extractor-api:test \
+              :extractor-generic:test \
+              :extractor-sites:test \
+              :app:assembleDebug
           elif [[ -f spikes/phase0-media/settings.gradle.kts ]]; then
             gradle -p spikes/phase0-media --no-daemon lintDebug testDebugUnitTest assembleDebug
           else
