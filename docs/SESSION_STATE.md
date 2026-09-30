@@ -2,15 +2,15 @@
 
 Update this file before every checkpoint push. Keep it short, factual and sufficient for a new chat to resume without guessing.
 
-- Current phase: Phase 0 complete; Phase 1 is next
-- Current branch: `main` (create `work/phase-1-foundation` before Phase 1 edits)
-- Last completed task: Added the remote checkpoint and cross-chat continuity protocol
-- Work in progress: None
-- Build status: Phase 0 lint, unit tests and debug build pass locally and in GitHub Actions
-- Known failure/blocker: Runtime direct/HLS/DASH playback still requires a device/emulator entry test in Phase 1
-- Next exact action: Create `work/phase-1-foundation`, read Phase 0 docs, run entry validation, then begin Phase 1 foundation work
-- Last pushed checkpoint: Resolve with `git log -1 --oneline`
-- Last updated: 2026-09-30
+- Current phase: Phase 1 — Production foundation
+- Current branch: `work/phase-1-foundation`
+- Last completed task: Verified clean `main`, read the required handoff/architecture/Phase 1 documents, and inspected the Phase 0 spike and tests
+- Work in progress: Pre-edit Phase 0 baseline build/test verification
+- Build status: Not run in this clean sandbox yet; JDK 17, Gradle and Android SDK 35 are not installed
+- Known failure/blocker: Runtime direct/HLS/DASH playback still requires an Android device/emulator; local build toolchain must be bootstrapped before the baseline build
+- Next exact action: Install an isolated JDK 17/Gradle/Android SDK 35 toolchain, then run `gradle -p spikes/phase0-media --no-daemon lintDebug testDebugUnitTest assembleDebug` before changing production code
+- Last pushed checkpoint: `582f3cc` on `main`; Phase 1 branch initialization is pending push
+- Last updated: 2026-10-01
 
 ## Checkpoint note template
 
