@@ -18,3 +18,5 @@ keystore.properties
 credentials.json
 *.properties.local
 .DS_Store
+
+.kotlin/
