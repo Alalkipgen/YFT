@@ -9,7 +9,7 @@ fun DetectedMediaScreen(onNavigateBack: () -> Unit) {
     PhasePlaceholderScreen(
         title = YftDestination.DETECTED_MEDIA.title,
         summary = YftDestination.DETECTED_MEDIA.summary,
-        phaseNote = "Candidate collection and normalization are Phase 2 work.",
+        phaseNote = "Current-page candidates are available from the browser button. A cross-session catalog is not part of Phase 2.",
         onNavigateBack = onNavigateBack,
     )
 }

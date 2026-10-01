@@ -1,4 +1,4 @@
 package com.alal.yft.core.browser
 
-/** Browser policies and detection implementations are introduced in Phase 2. */
+/** Namespace marker for the Phase 2 browser policy, observation and session components. */
 object BrowserFoundation

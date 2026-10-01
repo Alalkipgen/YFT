@@ -51,7 +51,7 @@ fun HomeScreen(onOpenDestination: (YftDestination) -> Unit) {
                             style = MaterialTheme.typography.titleLarge,
                         )
                         Text(
-                            text = "Paste-link and media detection workflows are added in later phases. The production navigation foundation is ready now.",
+                            text = "Use the secure browser to find generic direct, HTML5, HLS and DASH media. Preview and download actions are added in later phases.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Button(onClick = { onOpenDestination(YftDestination.BROWSER) }) {

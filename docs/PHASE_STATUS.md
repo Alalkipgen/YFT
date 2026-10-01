@@ -4,16 +4,16 @@
 | --- | --- | --- |
 | 0 — Discovery and feasibility | COMPLETE | Architecture, support matrix, ADRs and compileable Media3/WebView spike validated locally and in CI |
 | 1 — Foundation | COMPLETE | Production modules, Compose navigation shell, DI/data/media foundations, tests and CI validated on the work branch |
-| 2 — Browser/detection | IN PROGRESS | Secure browser and generic detection work started from the green Phase 1 completion commit |
+| 2 — Browser/detection | COMPLETE | Secure browser, layered generic detection, bounded probes, page-scoped normalization, fixtures and candidate UI validated |
 | 3 — Preview/variants | NOT STARTED | — |
 | 4 — Download engines | NOT STARTED | — |
 | 5 — Site adapters | NOT STARTED | — |
 | 6 — Hardening/UI | NOT STARTED | — |
 | 7 — Signed beta/release | NOT STARTED | — |
 
-## Current phase
+## Current phase state
 
-Phase 2 is active on `work/phase-2-browser-detection`, created from Phase 1 completion commit `4f5e06a`. Work is limited to the secure browser and generic detection scope. Do not start Phase 3 or merge a work branch into `main` without explicit approval and green validation.
+Phase 2 is complete on `work/phase-2-browser-detection`, created from Phase 1 completion commit `4f5e06a`. Phase 3 has not started. Do not begin preview/variant work or merge a work branch into `main` without explicit approval and green validation.
 
 ## Completed in Phase 1
 
@@ -61,11 +61,32 @@ Phase 2 is active on `work/phase-2-browser-detection`, created from Phase 1 comp
 - No physical Android device/emulator was available, so direct/HLS/DASH playback and on-device rendering remain tracked runtime tests rather than claimed support.
 
 
-## Phase 2 active scope
+## Completed in Phase 2
 
-- Secure WebView URL/address controls, navigation, loading/error state and page-scoped sessions.
-- Generic observations from DownloadListener, read-only DOM probing and HTTP(S) request URLs/headers.
-- Direct-media, HLS and DASH hints plus bounded metadata probes.
-- Candidate normalization, deduplication, limits, debounce and navigation cleanup.
-- Floating media-found affordance and an honest candidate bottom sheet.
-- No site adapters, preview/variant implementation or download engines.
+- Added a hardened WebView with HTTPS-only top-level navigation, safe browsing, mixed-content blocking, first-party cookies, file/content access disabled and explicit TLS/HTTP/insecure-navigation error states.
+- Added address, back/forward, reload/stop, progress and page-title controls with ViewModel/StateFlow state.
+- Added generic observations from `DownloadListener`, a read-only DOM script and HTTP(S) GET request URLs/headers.
+- Added direct-media, HLS and DASH URL/MIME classification while rejecting literal `blob:` URLs.
+- Added bounded/cancellable metadata probing:
+  - `HEAD` first and one-byte range fallback
+  - 10-second call timeout
+  - five redirects maximum
+  - 20 unique strongly hinted URLs and two concurrent probes per page
+  - same-origin browser context replay with cross-origin credential stripping
+- Added candidate models with source, kind, MIME, title, thumbnail, duration, size, request context, confidence, expiry and DRM hints.
+- Added page-scoped normalization with signed-URL deduplication, a 200-observation/50-candidate bound, debounce, tiny/tracking asset rejection and immediate navigation cleanup.
+- Added the media-found floating button and an honest bottom sheet; unavailable metadata remains visibly unknown.
+- Added committed generic HTML/golden fixtures, MockWebServer redirect/header fixtures, a complete detector-pipeline regression and Compose/ViewModel tests.
+- Kept site adapters, preview/variant resolution and download engines out of Phase 2.
+
+## Phase 2 validation
+
+- The exact production DOM script ran against the committed HTML fixture in headless Chromium: 10 observations, 6 unique expected URLs and 0 missing URLs.
+- `:core-browser:testDebugUnitTest` currently contains 27 passing tests; `:app:testDebugUnitTest` contains 10 passing tests.
+- Core browser lint reports no issues; the app lint task has no errors.
+- The debug APK assembles successfully.
+- Fresh full lint/tests/debug validation passed in 3m 39s with all 294 tasks executed.
+- Fresh minified release assembly passed separately in 4m 27s with all 207 tasks executed.
+- Across the executed test suites, 56 tests passed with 0 failures, errors or skips.
+- Completion-commit remote CI is confirmed after the documentation checkpoint is pushed.
+- No physical Android device/emulator was available, so real Android WebView callback/rendering behavior remains an explicit runtime verification item rather than a claimed on-device result.

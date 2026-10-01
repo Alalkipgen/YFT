@@ -35,6 +35,35 @@
 | Minified release build | Local JDK 17/SDK 35 | Unsigned release APK assembled | PASS |
 | Full work-branch CI | GitHub Actions | Lint, all Android/JVM tests and debug build pass | PASS — final run 36793372961 |
 
+## Phase 2 automated checks
+
+| Test | Environment | Expected | Current result |
+| --- | --- | --- | --- |
+| HTTPS address policy | JVM/Robolectric | Auto-prefix HTTPS; reject HTTP, scripts, malformed/user-info URLs | PASS |
+| Hardened WebView settings | Robolectric | Mixed content/file access/popups/third-party cookies disabled | PASS |
+| Main-frame navigation/errors | Robolectric | Block insecure URLs; surface HTTP/TLS/network failures safely | PASS |
+| Read-only DOM probe structure | Robolectric | Read `video`/`audio`/`source`/metadata without page mutation | PASS |
+| Production DOM script vs committed page | Headless Chromium | All fixture MP4/WebM/audio/HLS/DASH/blob URLs observed | PASS — 10 observations, 6 unique URLs, 0 missing |
+| DownloadListener mapping | JVM | MIME/name/size/context become a high-confidence candidate | PASS |
+| Request URL/header mapping | JVM | GET media/manifests map; ordinary assets and POST are ignored | PASS |
+| Opaque request probe gate | JVM | Strong media hints accepted; deduplicated 20-URL page budget | PASS |
+| Metadata MIME and size | MockWebServer | HEAD or one-byte range fallback enriches without body download | PASS |
+| Redirect safety | MockWebServer | Five-hop bound; same-origin context retained; cross-origin secrets stripped | PASS |
+| Probe cancellation | MockWebServer/coroutines | Navigation cancellation closes an in-flight call | PASS |
+| Direct/HLS/DASH classification | JVM | Extension and MIME hints classify accurately | PASS |
+| Blob-backed playback rule | Fixture pipeline | Literal blob rejected; underlying request/manifest wins | PASS |
+| Candidate normalization | JVM/coroutines | Dedupe, limits, debounce, tiny/tracking rejection and metadata merge | PASS |
+| Navigation cleanup | JVM/ViewModel | Candidate/probe state clears immediately; stale observations ignored | PASS |
+| Generic pipeline fixture | Robolectric | MP4/WebM/audio/HLS/DASH/redirect/blob/context merge to five candidates | PASS |
+| Browser UI state | Robolectric Compose | Media button only with candidates; sheet labels unknown data honestly | PASS |
+| Browser app integration | Hilt/Kotlin/Android build | Shared OkHttp injection and WebView route compile | PASS |
+| Phase 2 core-browser tests | JUnit/Robolectric/MockWebServer | No failures | PASS — 27 tests |
+| Phase 2 app tests | JUnit/Robolectric Compose | No failures | PASS — 10 tests |
+| Android lint | Local JDK 17/SDK 35 | No blocking errors | PASS |
+| Debug build | Local JDK 17/SDK 35 | APK assembled | PASS |
+| Fresh full lint/tests/debug matrix | Local JDK 17/SDK 35 | Every task executes successfully | PASS — 294 tasks in 3m 39s; 56 tests, 0 failures |
+| Fresh minified release build | Local JDK 17/SDK 35 | Unsigned release APK assembled | PASS — 207 tasks in 4m 27s |
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |
@@ -43,7 +72,8 @@
 | Direct HTTPS MP4 preview | Android API 24+ device/emulator | Player reaches ready and renders | NOT RUN |
 | Non-DRM HLS preview | Android API 24+ device/emulator | Selected stream reaches ready | NOT RUN |
 | Non-DRM DASH preview | Android API 24+ device/emulator | Selected stream reaches ready | NOT RUN |
-| DOM candidate extraction | WebView test page | URLs returned without page mutation | NOT RUN — Phase 2 implementation pending |
+| Secure browser load/history | Android API 24+ device/emulator | HTTPS page loads; history/progress/errors behave | NOT RUN — no device/KVM; policy and UI tests pass |
+| DOM candidate extraction | Android WebView test page | URLs returned without page mutation | NOT RUN on Android — exact script passes committed fixture in headless Chromium |
 | Cookie/header preview | Controlled authenticated fixture | Preview succeeds with session context | NOT RUN |
 | DRM fixture | Known encrypted manifest | Structured unsupported result | NOT RUN |
 

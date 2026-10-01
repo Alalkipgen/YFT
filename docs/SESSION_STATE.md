@@ -4,12 +4,12 @@ Update this file before every checkpoint push. Keep it short, factual and suffic
 
 - Current phase: Phase 2 — Built-in browser and generic media detection
 - Current branch: `work/phase-2-browser-detection`
-- Last completed task: Added cancellable page-scoped probes, hardened blocked/HTTP/TLS browser error handling, committed generic HTML/golden fixtures and an end-to-end pipeline regression covering MP4/WebM/audio/HLS/DASH/redirect/blob/dedupe/navigation/cookie-header context
-- Work in progress: Checkpointing fixture hardening, then updating Phase 2 README/status/handoff/test docs and running the full debug/release validation matrix plus remote CI
-- Build status: PASS — exact DOM script executed against the committed HTML in headless Chromium (10 observations, 6 unique URLs, 0 missing); `./gradlew --no-daemon :core-browser:testDebugUnitTest :core-browser:lintDebug` completed in 58s with 27 tests, 0 failures and no lint issues; prior app matrix remains 10 tests/0 failures with debug APK assembled
+- Last completed task: Completed Phase 2 implementation, user-facing/docs handoff and fresh full debug/release validation
+- Work in progress: Preparing and pushing the Phase 2 completion checkpoint, then confirming its remote GitHub Actions result
+- Build status: PASS — exact DOM script produced 10 observations/6 unique URLs/0 missing in Chromium; fresh lint/all tests/debug completed in 3m 39s with 294/294 tasks; fresh minified release completed in 4m 27s with 207/207 tasks; 56 tests passed with 0 failures/errors/skips
 - Known failure/blocker: No physical Android device/emulator is attached; real Android WebView rendering/callback behavior still needs later on-device confirmation. GitHub Advanced Security secret scanning is unavailable for this repository, so local structured-secret scans remain required before pushes
-- Next exact action: Checkpoint the fixture/hardening milestone, update all Phase 2 completion docs and user-facing phase copy, then run the full lint/unit/debug matrix and separate minified release assembly before checking remote CI
-- Last pushed checkpoint: `f91c8d4` — secure browser app UI, bounded request probing and candidate sheet integration
+- Next exact action: Secret/diff-check the completion files, push the Phase 2 completion commit, confirm its GitHub Actions run is green, report results and stop without starting Phase 3
+- Last pushed checkpoint: `9e4a053` — committed generic fixture regression plus cancellable probes and browser error hardening
 - Last updated: 2026-10-01
 
 ## Checkpoint note template

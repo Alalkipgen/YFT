@@ -6,7 +6,7 @@ enum class YftDestination(
     val summary: String,
 ) {
     HOME("home", "Home", "Start with a link or choose a workspace."),
-    BROWSER("browser", "Browser", "Browse securely; media detection begins in Phase 2."),
+    BROWSER("browser", "Browser", "Browse securely and review media found on the current page."),
     DETECTED_MEDIA("detected-media", "Detected Media", "Review media candidates found on the current page."),
     PREVIEW("preview", "Preview", "Inspect real media variants before downloading."),
     DOWNLOADS("downloads", "Downloads", "Track active and queued transfers."),

@@ -136,6 +136,15 @@ A literal `blob:` URL is not a downloadable file. The detector must find the und
 
 Android WebView exposes observed request URLs and request headers through `shouldInterceptRequest`, but not a convenient passive response-body/MIME stream. Phase 2 should combine URL/DOM observations with bounded OkHttp probes rather than proxying every WebView response.
 
+The Phase 2 implementation applies those bounds explicitly:
+
+- at most 200 raw observations and 50 normalized candidates are retained per page;
+- metadata probing is limited to 20 unique strongly hinted URLs per page and two concurrent calls;
+- each probe has a 10-second call timeout and at most five manual redirects;
+- `HEAD` is preferred, with a one-byte range `GET` fallback only when necessary;
+- navigation cancels in-flight probes and immediately clears stale candidates;
+- browser credentials are replayed only on the original origin; cross-origin redirects retain only non-sensitive negotiation headers.
+
 ## Request context
 
 Preview and download must be able to replay only the required values:

@@ -3,88 +3,80 @@
 ## Current handoff
 
 - Date: 2026-10-01
-- Phase: 1 — Production foundation
-- Status: COMPLETE
-- Active branch: `work/phase-1-foundation`
+- Phase: 2 — Built-in browser and generic media detection
+- Status: COMPLETE — local completion validation green; completion-commit CI pending
+- Active branch: `work/phase-2-browser-detection`
+- Phase 2 base: Phase 1 completion commit `4f5e06a`
 - Target repository: `Alalkipgen/YFT`
 - Reference repository: `Alalkipgen/AlalDownloader`
 
 ## Work completed
 
-- Preserved and revalidated the complete Phase 0 Media3/WebView spike before editing production code.
-- Added a canonical Gradle 8.9 wrapper with a pinned SHA-256 distribution checksum.
-- Created all nine production modules and the `com.alal.yft` Android application.
-- Added a Compose/Material 3 shell with Home, Browser, Detected Media, Preview, Downloads, Library, Settings and About routes.
-- Added executable navigation coverage that starts at Home, opens every route and verifies back navigation.
-- Added ViewModel/StateFlow action-state handling and DataStore-backed system/light/dark theme settings.
-- Wired Hilt foundations for:
-  - Room database and DAO
-  - Preferences DataStore
-  - OkHttp client using platform TLS verification and no logging interceptor
-  - Media3 `ExoPlayer` factory
-- Added a Room v2 baseline, exported schemas, DAO coverage and a v1→v2 migration test.
-- Added structured result/error models and centralized redaction for cookies, authorization, bearer credentials, passwords, tokens and signed query values.
-- Configured debug and minified release variants.
-- Expanded work-branch and pull-request CI to run lint, Android/JVM unit tests and debug assembly.
+- Preserved the complete Phase 1 app, module graph, DI/data/media foundations and CI checks.
+- Added shared media-candidate models for source, kind, MIME, title, thumbnail, duration, size, request context, confidence, expiry and DRM hints.
+- Added replay-safe browser request context that strips hop-by-hop and app-owned range headers and redacts sensitive `toString()` output.
+- Added direct-media, HLS and DASH URL/MIME classification.
+- Added page-scoped candidate normalization with:
+  - signed/volatile query deduplication without mutating the real request URL
+  - metadata, context and source merging
+  - 200 raw-observation and 50 normalized-candidate limits
+  - debounced publication
+  - tiny/tracking/non-media rejection
+  - immediate navigation cleanup and stale-page rejection
+- Added hardened browser policy:
+  - HTTPS-only top-level addresses plus `about:blank`
+  - safe browsing and mixed-content blocking
+  - file/content/universal-file access disabled
+  - JavaScript popups and multiple windows disabled
+  - first-party cookies accepted and third-party cookies blocked
+  - default TLS validation preserved; SSL errors are explicitly cancelled
+- Added browser observations from `DownloadListener`, HTTP(S) GET requests and a read-only DOM probe covering `video`, `audio`, nested `source` and common social media metadata.
+- Literal `blob:` URLs are rejected; their underlying HTTP(S) request, source or manifest can still produce a candidate.
+- Added a cancellable metadata probe using shared OkHttp:
+  - `HEAD` first with one-byte range `GET` fallback
+  - 10-second call timeout and five-redirect limit
+  - MIME/content-length enrichment
+  - same-origin browser-context replay
+  - cross-origin cookie, authorization, referer and custom-header stripping
+- Added a per-page probe budget of 20 deduplicated strongly hinted URLs and two concurrent probes; navigation cancels active probe coroutines.
+- Replaced the Browser placeholder with a production Compose/WebView screen containing address, back/forward, reload/stop, progress, page-title and safe error controls.
+- Added a media-found floating button and bottom sheet. No preview or download action was added; unavailable metadata is shown as unknown.
+- Added committed generic HTML/golden fixtures and end-to-end coverage for MP4, WebM, audio, HLS, DASH, redirects, blob-backed playback, duplicates, navigation cleanup and cookie/header context.
+- Updated user-facing copy and Phase 2 architecture, support, status and test documentation.
 
 ## Important decisions
 
-- Production application ID remains `com.alal.yft`; debug builds use `com.alal.yft.debug`.
-- minSdk 24, compile/target SDK 35, Java toolchain 17 and Gradle 8.9 remain unchanged.
-- Hilt, Room, DataStore, OkHttp, Media3 and Compose are the only selected frameworks for their respective concerns; no duplicate alternatives were added.
-- Theme preference is the only user setting persisted in Phase 1.
-- The baseline download table stores lifecycle metadata only; it intentionally does not store cookies, tokens or signed URLs.
-- No HTTP logging interceptor is installed. Application log messages pass through `SensitiveValueRedactor`.
-- Browser detection remains unimplemented until Phase 2; download engines remain unimplemented until Phase 4.
+- Phase 2 remains generic. No website-specific adapters, preview resolver or download engine was introduced.
+- A literal `blob:` URL is never a downloadable candidate.
+- WebView traffic is observed, not proxied. Only known or strongly hinted URLs receive a bounded metadata probe.
+- Browser credentials may be replayed only to the original media origin. Cross-origin redirects retain only safe negotiation headers.
+- Metadata probing never intentionally consumes a media body; it closes after headers and uses `Range: bytes=0-0` only as fallback.
+- Candidate URLs keep their real query values for later use, while deduplication keys omit volatile signing fields.
+- Candidate/UI logging uses redacted representations; cookies, tokens, full signed URLs, keys and credentials are not logged.
+- Candidate state is page-scoped and intentionally not persisted because browser context and signed links can be sensitive or stale.
+- Android WebView runtime behavior is not claimed as device-tested because no emulator/device is available in this environment.
 
 ## Main files and areas
 
-- Root Gradle build: `settings.gradle.kts`, `build.gradle.kts`, `gradle/libs.versions.toml`, `gradle/wrapper/`
-- Application/navigation/theme: `app/src/main/java/com/alal/yft/`
-- Persistence/network/logging: `core-data/src/main/`
-- Room schemas/tests: `core-data/schemas/`, `core-data/src/test/`
-- Shared result/error/redaction models: `core-model/src/main/`, `core-model/src/test/`
-- Media3 factory: `core-media/src/main/java/com/alal/yft/core/media/player/`
-- CI: `.github/workflows/checkpoint-validation.yml`
+- Browser UI and state: `app/src/main/java/com/alal/yft/feature/browser/`
+- Secure WebView policy/callbacks: `core-browser/src/main/java/com/alal/yft/core/browser/policy/`, `core-browser/src/main/java/com/alal/yft/core/browser/webview/`
+- Observation and probing: `core-browser/src/main/java/com/alal/yft/core/browser/detection/`
+- Page-scoped limits/state: `core-browser/src/main/java/com/alal/yft/core/browser/session/`
+- Candidate models/context: `core-model/src/main/kotlin/com/alal/yft/core/model/media/`
+- Generic classification/normalization: `extractor-generic/src/main/kotlin/com/alal/yft/extractor/generic/`
+- Fixtures: `core-browser/src/test/resources/fixtures/`
+- Browser/pipeline/UI tests: `core-browser/src/test/`, `app/src/test/java/com/alal/yft/feature/browser/`
+- Phase continuity: `README.md`, `docs/PHASE_STATUS.md`, `docs/TEST_MATRIX.md`, `docs/SESSION_STATE.md`
 
 ## Validation
 
-Pre-edit Phase 0 baseline:
+Phase 1 was green before Phase 2 began. The exact production DOM script was executed against the committed HTML fixture in headless Chromium:
 
-```bash
-gradle -p spikes/phase0-media --no-daemon lintDebug testDebugUnitTest assembleDebug
+```text
+10 observations, 6 unique URLs, 0 expected URLs missing
 ```
 
-Result: **BUILD SUCCESSFUL** in 3m 37s.
-
-Full Phase 1 local validation:
-
-```bash
-./gradlew --no-daemon \
-  lintDebug \
-  testDebugUnitTest \
-  :core-model:test \
-  :extractor-api:test \
-  :extractor-generic:test \
-  :extractor-sites:test \
-  :app:assembleDebug \
-  :app:assembleRelease
-```
-
-Result: **BUILD SUCCESSFUL** in 4m 31s (467 tasks). Produced a debug APK and an intentionally unsigned minified release APK.
-
-Navigation runtime smoke test:
-
-```bash
-./gradlew --no-daemon :app:testDebugUnitTest \
-  --tests com.alal.yft.ui.navigation.YftNavigationSmokeTest
-```
-
-Result: **BUILD SUCCESSFUL** in 1m 12s. Home start, all seven other destinations and back navigation passed under Robolectric Compose.
-
-Final GitHub Actions validation: **PASS**, run `36793372961`.
-
-Forced fresh final validation was split to respect the 4.2 GiB/no-swap sandbox:
+Fresh full Phase 2 validation:
 
 ```bash
 ./gradlew --no-daemon --rerun-tasks \
@@ -94,40 +86,41 @@ Forced fresh final validation was split to respect the 4.2 GiB/no-swap sandbox:
 ./gradlew --no-daemon --rerun-tasks :app:assembleRelease
 ```
 
-Results: Part 1 **BUILD SUCCESSFUL** in 2m 55s (279 tasks; 20 tests, 0 failures); Part 2 **BUILD SUCCESSFUL** in 3m 58s (207 tasks).
+Results:
+
+- lint/tests/debug: **BUILD SUCCESSFUL** in 3m 39s; 294/294 tasks executed.
+- minified release: **BUILD SUCCESSFUL** in 4m 27s; 207/207 tasks executed.
+- 56 tests total, 0 failures, 0 errors and 0 skipped.
+- debug APK: 14,785,313 bytes; SHA-256 `3affe513b28daeccc785a2cea3fab19232f9e4f4674c68390e6aaa38b459109a`.
+- unsigned minified release APK: 1,650,024 bytes; SHA-256 `3a72f918fd96c049f4e7afc9e6ff18c93088d88de082518ca86c58b4e3e52ec3`.
+- The completion commit must still be pushed and its GitHub Actions run confirmed before final handoff.
 
 ## Known limitations
 
-- No physical Android device or emulator was attached; `/dev/kvm` was unavailable.
-- Direct MP4, non-DRM HLS and non-DRM DASH runtime playback still require device/emulator execution.
-- Feature screens are intentionally functional navigation placeholders; media browsing/detection starts in Phase 2.
+- No physical Android device/emulator is attached and `/dev/kvm` is unavailable. Real Android WebView rendering, history and callbacks still require on-device confirmation.
+- Headless Chromium validates the exact read-only DOM script against the committed page, but it is not a substitute for Android WebView runtime testing.
+- Candidate detection does not resolve playable variants or prove that an observed URL remains valid; that is Phase 3.
+- Preview, DRM inspection and playback are not implemented in the production flow; Media3 remains foundation/spike code only.
+- No download, storage export, background service or recovery engine is implemented; those belong to Phase 4.
+- The separate Detected Media route is not a cross-session catalog; Phase 2 candidates are shown from the current browser page.
 - The release APK is unsigned; signing and publication remain Phase 7 and require explicit approval.
-- KAPT emits a Kotlin 2.0 language fallback warning while generating Hilt/Room code; compilation, tests, lint and release minification pass.
-- A single forced all-task rerun exceeded the 4.2 GiB/no-swap sandbox during R8. Gradle/Kotlin memory and workers are now bounded; split fresh validation passes and normal CI passes.
-- No branch was merged into `main`, and no release was published.
+- GitHub Advanced Security secret scanning is not enabled for this repository. Local structured-secret checks run before every MCP push.
+- KAPT emits a Kotlin 2.0 language fallback warning while generating Hilt/Room code; compilation and tests pass.
+- No work branch was merged into `main`, and no release was published.
 
-## Phase 2 prerequisites and exact next action
+## Next exact action
 
-1. Confirm the final Phase 1 work-branch validation is green.
-2. Create `work/phase-2-browser-detection` from the Phase 1 completion commit, not from the older `main` branch.
-3. Update `SESSION_STATE.md` before the first Phase 2 implementation checkpoint.
-4. Implement only Phase 2 browser and generic detection scope:
-   - secure WebView defaults and navigation policy
-   - paste/open URL state flow
-   - `DownloadListener` observations
-   - read-only DOM media probe
-   - request URL/header observations
-   - manifest recognition and candidate normalization
-   - bounded metadata probing with safe request-context replay
-5. Keep literal `blob:` URLs non-downloadable, preserve generic fallback behavior, and do not start preview/download engines.
+1. Push the Phase 2 completion commit.
+2. Confirm its GitHub Actions run is green.
+3. Stop. Phase 3 is not started and requires explicit authorization.
 
-## Phase 1 checkpoint commits
+## Phase 2 checkpoint commits
 
-- Module foundation: `2ed5008a014bfb593167dd7e8b8810264f61cc73`
-- Official wrapper completion: `709da0eedef091a4ed4948cdbac87914aeabbcb7`
-- Compose app shell: `5fa48fdbe0a69f426ad92d373ce9982aee2f9b83`
-- Data/network/media foundations: `938f78a4f1298806b173edcdc28e328a2f7b45e1`
-- CI/release hardening: `aa6478da33e16ab79c8c2aaedae87132577ed2a1`
-- Navigation runtime test: `eedb7d4de179809b47ba970a67bb031a61b4b193`
+- Kickoff from the green Phase 1 base: `73d7423`
+- Candidate model/classification/normalization foundation: `cb4f3fd`
+- Secure WebView policy and observation/session core: `fe91576`
+- Bounded metadata probe: `f175fd4`
+- Browser UI and bounded request-probe integration: `f91c8d4`
+- Generic fixture regression and cancellation/error hardening: `9e4a053`
 
-The final documentation/phase-completion commit is newer; resolve it with `git log -1 --oneline` on `work/phase-1-foundation`.
+The final documentation/phase-completion commit is newer; resolve it with `git log -1 --oneline` on `work/phase-2-browser-detection`.
