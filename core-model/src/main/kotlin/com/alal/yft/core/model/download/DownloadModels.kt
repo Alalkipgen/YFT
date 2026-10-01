@@ -421,3 +421,60 @@ sealed interface DashTransferResult {
         val checkpoint: DashTransferCheckpoint,
     ) : DashTransferResult
 }
+
+enum class AudioVideoMuxStage {
+    DOWNLOADING_TRACKS,
+    READY_TO_MUX,
+    MUXING,
+    COMPLETED,
+}
+
+data class AudioVideoMuxCheckpoint(
+    val video: DashTransferCheckpoint? = null,
+    val audio: DashTransferCheckpoint? = null,
+    val videoReady: Boolean = false,
+    val audioReady: Boolean = false,
+    val stage: AudioVideoMuxStage = AudioVideoMuxStage.DOWNLOADING_TRACKS,
+) {
+    init {
+        require(!videoReady || video.isComplete())
+        require(!audioReady || audio.isComplete())
+        if (stage != AudioVideoMuxStage.DOWNLOADING_TRACKS) {
+            require(videoReady && audioReady)
+        }
+    }
+
+    val downloadedBytes: Long
+        get() = (video?.downloadedBytes ?: 0) + (audio?.downloadedBytes ?: 0)
+
+    override fun toString(): String = buildString {
+        append("AudioVideoMuxCheckpoint(videoPresent=")
+        append(video != null)
+        append(", audioPresent=")
+        append(audio != null)
+        append(", videoReady=")
+        append(videoReady)
+        append(", audioReady=")
+        append(audioReady)
+        append(", stage=")
+        append(stage)
+        append(", downloadedBytes=")
+        append(downloadedBytes)
+        append(')')
+    }
+
+    private fun DashTransferCheckpoint?.isComplete(): Boolean =
+        this != null && chunks.isNotEmpty() && completedChunkCount == chunks.size
+}
+
+sealed interface AudioVideoMuxResult {
+    data class Completed(
+        val bytesWritten: Long,
+        val checkpoint: AudioVideoMuxCheckpoint,
+    ) : AudioVideoMuxResult
+
+    data class Failure(
+        val failure: DownloadFailure,
+        val checkpoint: AudioVideoMuxCheckpoint,
+    ) : AudioVideoMuxResult
+}
