@@ -5,11 +5,11 @@ Update this file before every checkpoint push. Keep it short, factual and suffic
 - Current phase: Phase 4 — Download engines and recovery
 - Current branch: `work/phase-4-download-engines`
 - Last completed task: Implemented the bounded selected-track HLS VOD transfer engine with retryable manifest/chunk fetching, deterministic resumable workspaces, fsynced per-chunk checkpoints, ordered assembly, atomic destination commit, strict discard/cleanup and MockWebServer coverage for ordering, init maps, byte ranges, DRM, resume, discard and expiry
-- Work in progress: Focused HLS transfer tests are green locally; the implementation and fixtures are ready for the milestone checkpoint before full module/app validation
-- Build status: PASS — `./gradlew --no-daemon :core-download:testDebugUnitTest --tests 'com.alal.yft.core.download.HlsTransferEngineTest'`; 6 tests, 0 failures/errors/skips
-- Known failure/blocker: No physical Android device/emulator is attached, so foreground-service, MediaStore/SAF and real playback/transfer runtime behavior need later device confirmation. GitHub Advanced Security secret scanning is unavailable, so local structured-secret scans remain required
-- Next exact action: Run full core-model/core-download tests, core-download lint and app assembly; then implement the bounded selected-track DASH transfer and explicit audio/video mux compatibility path
-- Last pushed checkpoint: `849fb1d` — bounded HLS transfer plan checkpoint
+- Work in progress: Full core-model/core-download tests and core-download lint are green; app assembly needs one clean retry after a stale sandbox-path transform artifact blocked dex merging
+- Build status: PARTIAL PASS — `./gradlew --no-daemon :core-model:test :core-download:testDebugUnitTest :core-download:lintDebug :app:assembleDebug`; 19 core-model tests and 53 core-download tests passed with 0 failures/errors/skips, `:core-download:lintDebug` passed, but `:app:mergeLibDexDebug` failed because cached class paths under `/vercel/sandbox/data/...` were reported outside the `/data/...` transform root
+- Known failure/blocker: Clean rebuild is pending for the recoverable canonical-path cache mismatch. No physical Android device/emulator is attached, so foreground-service, MediaStore/SAF and real playback/transfer runtime behavior need later device confirmation. GitHub Advanced Security secret scanning is unavailable, so local structured-secret scans remain required
+- Next exact action: Run `./gradlew --no-daemon clean`, rerun full HLS milestone validation, then implement the bounded selected-track DASH transfer and explicit audio/video mux compatibility path
+- Last pushed checkpoint: `d532988` — HLS transfer recovery fixtures
 - Last updated: 2026-10-01
 
 ## Checkpoint note template
