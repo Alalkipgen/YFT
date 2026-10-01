@@ -4,12 +4,12 @@ Update this file before every checkpoint push. Keep it short, factual and suffic
 
 - Current phase: Phase 2 — Built-in browser and generic media detection
 - Current branch: `work/phase-2-browser-detection`
-- Last completed task: Closed Phase 1 at commit `4f5e06a` with final GitHub Actions run `36794085493` passing, then created this Phase 2 branch from that exact commit and read the Phase 2 scope
-- Work in progress: Phase 2 domain/request-context model and candidate-normalization foundation
-- Build status: Green inherited baseline — fresh lint/tests/debug and fresh minified release builds pass; Phase 1 completion CI passes
-- Known failure/blocker: No physical Android device/emulator is attached and `/dev/kvm` is unavailable; WebView/device fixtures will need Robolectric/local-server coverage plus later on-device confirmation
-- Next exact action: Add page-scoped media candidate, detector source, manifest/request-context models and a bounded deterministic candidate normalizer with unit tests; do not implement preview or downloading
-- Last pushed checkpoint: `4f5e06a` — Phase 1 completion and green handoff
+- Last completed task: Added sensitive-safe browser request context, media candidate/source/kind/confidence models, URL/MIME classification and a page-scoped bounded candidate normalizer with signed-URL deduplication and metadata/context merging
+- Work in progress: Secure WebView policy, DOM/DownloadListener/request observation mapping and debounced page session store
+- Build status: PASS — `./gradlew --no-daemon :core-model:test :extractor-generic:test` completed in 31s; classifier/normalizer/request-context tests pass
+- Known failure/blocker: No physical Android device/emulator is attached; WebView behavior must use Robolectric/unit fixtures plus later on-device confirmation
+- Next exact action: Implement secure WebView settings/navigation policy, read-only DOM probe and parser, DownloadListener/request observation mappers and page-scoped candidate store with navigation cleanup/debounce tests
+- Last pushed checkpoint: `73d7423` — Phase 2 kickoff from the green Phase 1 completion commit
 - Last updated: 2026-10-01
 
 ## Checkpoint note template
