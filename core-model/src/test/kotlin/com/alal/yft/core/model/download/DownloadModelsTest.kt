@@ -201,6 +201,49 @@ class DownloadModelsTest {
         }
     }
 
+    @Test
+    fun `mux checkpoint requires complete ready tracks and reports combined bytes`() {
+        val video = DashTransferCheckpoint(
+            manifestFingerprint = "c".repeat(64),
+            chunks = listOf(
+                StreamChunkCheckpoint(index = 0, downloadedBytes = 10, completed = true),
+            ),
+        )
+        val audio = DashTransferCheckpoint(
+            manifestFingerprint = "d".repeat(64),
+            chunks = listOf(
+                StreamChunkCheckpoint(index = 0, downloadedBytes = 4, completed = true),
+            ),
+        )
+        val checkpoint = AudioVideoMuxCheckpoint(
+            video = video,
+            audio = audio,
+            videoReady = true,
+            audioReady = true,
+            stage = AudioVideoMuxStage.READY_TO_MUX,
+        )
+
+        assertEquals(14L, checkpoint.downloadedBytes)
+        assertFalse(checkpoint.toString().contains("c".repeat(64)))
+        assertThrows(IllegalArgumentException::class.java) {
+            AudioVideoMuxCheckpoint(stage = AudioVideoMuxStage.MUXING)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            AudioVideoMuxCheckpoint(
+                video = video.copy(
+                    chunks = listOf(
+                        StreamChunkCheckpoint(
+                            index = 0,
+                            downloadedBytes = 0,
+                            completed = false,
+                        ),
+                    ),
+                ),
+                videoReady = true,
+            )
+        }
+    }
+
     private fun dashPlan(
         taskId: String,
         representationId: String,
