@@ -4,12 +4,12 @@ Update this file before every checkpoint push. Keep it short, factual and suffic
 
 - Current phase: Phase 4 — Download engines and recovery
 - Current branch: `work/phase-4-download-engines`
-- Last completed task: Reverified the clean Phase 4 foreground-service head `1061c1f` on a fresh checkout with the required JDK 17 and Android SDK 35 toolchain
-- Work in progress: Baseline is green; public-storage destination adapters are the next isolated Phase 4 milestone
-- Build status: PASS — `./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug`; 236 tasks, 18 app tests, 0 failures/errors/skips, clean lint, debug APK SHA-256 `2abe21c946c57eba68d5e0b098cfdd3f58d0713fef157e29c3a0b3b1f0ef0898`
+- Last completed task: Added safe public-storage destinations: pending MediaStore rows on Android 10+, temporary SAF sibling documents, seekable content output, idempotent publish/discard, recovery-to-published URI persistence and prepare-time low-storage mapping
+- Work in progress: Green public-storage source/tests are remotely backed up; this state update is the final milestone checkpoint before HLS work
+- Build status: PASS — `./gradlew --no-daemon :core-download:testDebugUnitTest :core-download:lintDebug :app:assembleDebug`; 181 tasks, 42 core-download tests, 0 failures/errors/skips, clean lint, debug APK SHA-256 `1e1f180cee4832332294631eb73b33cb194c7928d97b71653aeca9ade25b08ff`
 - Known failure/blocker: No physical Android device/emulator is attached, so foreground-service, MediaStore/SAF and real playback/transfer runtime behavior need later device confirmation. GitHub Advanced Security secret scanning is unavailable, so local structured-secret scans remain required
-- Next exact action: Add MediaStore pending-item and SAF temporary-document destination adapters with publish/discard tests, then proceed to non-DRM HLS/DASH export
-- Last pushed checkpoint: `1061c1f` — foreground-service queue execution and controls
+- Next exact action: Implement bounded non-DRM HLS selected-track planning/transfer with temporary segment cleanup and fixture tests, then add DASH and explicit mux compatibility
+- Last pushed checkpoint: `f0a664d` — safe public-storage lifecycle regression tests
 - Last updated: 2026-10-01
 
 ## Checkpoint note template
