@@ -4,12 +4,12 @@ Update this file before every checkpoint push. Keep it short, factual and suffic
 
 - Current phase: Phase 4 — Download engines and recovery
 - Current branch: `work/phase-4-download-engines`
-- Last completed task: Implemented bounded selected-representation DASH transfer with secure context replay, manifest/chunk retries, deterministic resumable workspaces, fsynced checkpoints, ordered assembly, atomic destination commit, strict cleanup/discard and fixtures for concurrent ordering, SegmentList ranges, DRM, resume, discard and expiry
-- Work in progress: DASH parser and transfer regression suites are green locally; the engine and fixtures are ready for the milestone checkpoint before audio/video mux implementation
-- Build status: PASS — `./gradlew --no-daemon :core-model:test :core-download:testDebugUnitTest`; 21 core-model tests and 66 core-download tests, 0 failures/errors/skips
-- Known failure/blocker: DASH `SegmentBase`/SIDX and dynamic/live MPDs are intentionally unsupported. No physical Android device/emulator is attached, so MediaExtractor/MediaMuxer device behavior, foreground-service, MediaStore/SAF and real playback/transfer runtime behavior need later device confirmation. GitHub Advanced Security secret scanning is unavailable, so local structured-secret scans remain required
-- Next exact action: Add explicit MP4 audio/video mux compatibility decisions and Android MediaExtractor/MediaMuxer execution with deterministic orchestration/failure/cleanup tests
-- Last pushed checkpoint: `97917ce` — DASH selected-track parser fixtures
+- Last completed task: Added an explicit no-FFmpeg mux path: conservative AVC/AAC ISO-BMFF compatibility decisions, resumable concurrent DASH video/audio orchestration, platform MediaExtractor/MediaMuxer execution, atomic publish, fatal/retryable cleanup behavior and deterministic compatibility/success/resume/failure/expiry tests
+- Work in progress: Direct, HLS, DASH and compatible separate-track mux engines are green and remotely checkpoint-ready; queue/foreground integration still targets the direct-only boundary
+- Build status: PASS — `./gradlew --no-daemon :core-model:test :core-download:testDebugUnitTest`; 22 core-model tests and 73 core-download tests, 0 failures/errors/skips
+- Known failure/blocker: Platform muxing intentionally accepts only separate AVC/AAC MP4/fMP4 tracks; WebM, HEVC and unknown codecs fail explicitly and no FFmpeg dependency is bundled. DASH `SegmentBase`/SIDX and dynamic/live MPDs are unsupported. No device/emulator is attached, so actual MediaExtractor/MediaMuxer behavior and foreground-service/runtime storage flows need later device confirmation. GitHub Advanced Security secret scanning is unavailable, so local structured-secret scans remain required
+- Next exact action: Generalize persisted queue execution across direct/HLS/DASH/mux plans, add foreground-service notification/network recovery integration and cover process restart/cancellation/concurrency without persisting URLs or request context
+- Last pushed checkpoint: `84f0b40` — DASH transfer recovery fixtures
 - Last updated: 2026-10-01
 
 ## Checkpoint note template
