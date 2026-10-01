@@ -4,7 +4,7 @@
 | --- | --- | --- |
 | 0 — Discovery and feasibility | COMPLETE | Architecture, support matrix, ADRs and compileable Media3/WebView spike validated locally and in CI |
 | 1 — Foundation | COMPLETE | Production modules, Compose navigation shell, DI/data/media foundations, tests and CI validated on the work branch |
-| 2 — Browser/detection | NOT STARTED | Next permitted phase; explicitly authorized by the user after Phase 1 completion |
+| 2 — Browser/detection | IN PROGRESS | Secure browser and generic detection work started from the green Phase 1 completion commit |
 | 3 — Preview/variants | NOT STARTED | — |
 | 4 — Download engines | NOT STARTED | — |
 | 5 — Site adapters | NOT STARTED | — |
@@ -13,7 +13,7 @@
 
 ## Current phase
 
-Phase 1 is complete on `work/phase-1-foundation`. Phase 2 is the next permitted phase and must start on `work/phase-2-browser-detection` from the Phase 1 completion commit. Do not merge either branch into `main` without explicit approval and a green validation.
+Phase 2 is active on `work/phase-2-browser-detection`, created from Phase 1 completion commit `4f5e06a`. Work is limited to the secure browser and generic detection scope. Do not start Phase 3 or merge a work branch into `main` without explicit approval and green validation.
 
 ## Completed in Phase 1
 
@@ -59,3 +59,13 @@ Phase 1 is complete on `work/phase-1-foundation`. Phase 2 is the next permitted 
 - A forced fresh split validation also passed: lint/tests/debug ran 279 tasks with 20 tests and zero failures; release assembly ran 207 tasks.
 - The Compose navigation smoke test is included in `testDebugUnitTest`.
 - No physical Android device/emulator was available, so direct/HLS/DASH playback and on-device rendering remain tracked runtime tests rather than claimed support.
+
+
+## Phase 2 active scope
+
+- Secure WebView URL/address controls, navigation, loading/error state and page-scoped sessions.
+- Generic observations from DownloadListener, read-only DOM probing and HTTP(S) request URLs/headers.
+- Direct-media, HLS and DASH hints plus bounded metadata probes.
+- Candidate normalization, deduplication, limits, debounce and navigation cleanup.
+- Floating media-found affordance and an honest candidate bottom sheet.
+- No site adapters, preview/variant implementation or download engines.
