@@ -1,3 +1,11 @@
 <resources>
     <string name="app_name">Video Downloader</string>
+    <string name="download_notification_channel">Active downloads</string>
+    <string name="download_notification_channel_description">Download progress and controls</string>
+    <string name="download_notification_preparing">Preparing downloads…</string>
+    <string name="download_notification_pause_all">Pause all</string>
+    <plurals name="download_notification_active">
+        <item quantity="one">%d active download</item>
+        <item quantity="other">%d active downloads</item>
+    </plurals>
 </resources>
