@@ -12,6 +12,7 @@ import com.alal.yft.core.browser.policy.BrowserAddressResult
 import com.alal.yft.core.browser.session.PageCandidateStore
 import com.alal.yft.core.browser.session.PageProbeBudget
 import com.alal.yft.core.browser.webview.BrowserObservationSink
+import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.model.media.MediaCandidate
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -29,6 +30,7 @@ import okhttp3.OkHttpClient
 @HiltViewModel
 class BrowserViewModel @Inject constructor(
     okHttpClient: OkHttpClient,
+    private val previewSelectionStore: PreviewSelectionStore = PreviewSelectionStore(),
 ) : ViewModel(), BrowserObservationSink {
     private val mutableUiState = MutableStateFlow(BrowserUiState())
     val uiState: StateFlow<BrowserUiState> = mutableUiState.asStateFlow()
@@ -73,6 +75,12 @@ class BrowserViewModel @Inject constructor(
                 null
             }
         }
+    }
+
+    fun selectForPreview(candidate: MediaCandidate): Boolean {
+        if (candidate !in mutableUiState.value.candidates) return false
+        previewSelectionStore.select(candidate)
+        return true
     }
 
     override fun onPageStarted(url: String) {

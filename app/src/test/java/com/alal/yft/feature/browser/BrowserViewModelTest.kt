@@ -1,5 +1,6 @@
 package com.alal.yft.feature.browser
 
+import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.testing.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
@@ -7,6 +8,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -36,7 +38,8 @@ class BrowserViewModelTest {
 
     @Test
     fun domCandidatesAppearAfterDebounceAndClearImmediatelyOnNavigation() = runTest {
-        val viewModel = BrowserViewModel(OkHttpClient())
+        val selectionStore = PreviewSelectionStore()
+        val viewModel = BrowserViewModel(OkHttpClient(), selectionStore)
         val firstPage = "https://example.test/one"
         viewModel.onPageStarted(firstPage)
         viewModel.onDomProbeResult(
@@ -49,10 +52,14 @@ class BrowserViewModelTest {
 
         assertEquals(1, viewModel.uiState.value.candidates.size)
         assertEquals("Fixture", viewModel.uiState.value.candidates.single().title)
+        val candidate = viewModel.uiState.value.candidates.single()
+        assertTrue(viewModel.selectForPreview(candidate))
+        assertEquals(candidate, selectionStore.selection.value)
 
         viewModel.onPageStarted("https://example.test/two")
 
         assertTrue(viewModel.uiState.value.candidates.isEmpty())
+        assertFalse(viewModel.selectForPreview(candidate))
     }
 
     @Test

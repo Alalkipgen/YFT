@@ -80,6 +80,8 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.hilt.android)
     implementation(libs.okhttp)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui)
     kapt(libs.hilt.compiler)
 
     implementation(platform(libs.androidx.compose.bom))

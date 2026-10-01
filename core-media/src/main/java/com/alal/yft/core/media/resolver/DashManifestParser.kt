@@ -6,7 +6,6 @@ import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.VariantSupport
 import java.io.StringReader
-import java.time.Duration
 import java.util.Locale
 import javax.xml.parsers.DocumentBuilderFactory
 import org.w3c.dom.Element
@@ -167,9 +166,21 @@ internal object DashManifestParser {
         .orEmpty()
 
     private fun String?.toDurationMillis(): Long? = this?.let { value ->
-        runCatching { Duration.parse(value).toMillis() }
-            .getOrNull()
-            ?.takeIf { it >= 0 }
+        val match = ISO_8601_DURATION.matchEntire(value) ?: return null
+        if (match.groupValues.drop(1).none(String::isNotEmpty)) return null
+        val days = match.groupValues[1].toDoubleOrNull() ?: 0.0
+        val hours = match.groupValues[2].toDoubleOrNull() ?: 0.0
+        val minutes = match.groupValues[3].toDoubleOrNull() ?: 0.0
+        val seconds = match.groupValues[4].toDoubleOrNull() ?: 0.0
+        val totalMillis = (
+            days * MILLIS_PER_DAY +
+                hours * MILLIS_PER_HOUR +
+                minutes * MILLIS_PER_MINUTE +
+                seconds * MILLIS_PER_SECOND
+            )
+        totalMillis
+            .takeIf { it.isFinite() && it >= 0 && it <= Long.MAX_VALUE }
+            ?.toLong()
     }
 
     private fun String?.toFrameRate(): Double? {
@@ -189,4 +200,11 @@ internal object DashManifestParser {
     }
 
     private const val DASH_MIME_TYPE = "application/dash+xml"
+    private const val MILLIS_PER_SECOND = 1_000.0
+    private const val MILLIS_PER_MINUTE = 60 * MILLIS_PER_SECOND
+    private const val MILLIS_PER_HOUR = 60 * MILLIS_PER_MINUTE
+    private const val MILLIS_PER_DAY = 24 * MILLIS_PER_HOUR
+    private val ISO_8601_DURATION = Regex(
+        """^P(?:(\d+(?:\.\d+)?)D)?(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?)?$""",
+    )
 }

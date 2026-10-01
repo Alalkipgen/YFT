@@ -1,6 +1,7 @@
 package com.alal.yft.feature.browser
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -8,12 +9,15 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performScrollTo
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.ui.theme.YftTheme
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,6 +32,7 @@ class BrowserScreenTest {
 
     @Test
     fun mediaButtonOnlyAppearsWhenCandidatesExistAndOpensHonestSheet() {
+        var selected: MediaCandidate? = null
         composeRule.setContent {
             YftTheme(themeMode = ThemeMode.LIGHT) {
                 BrowserScreen(
@@ -43,6 +48,7 @@ class BrowserScreenTest {
                     onBrowserForward = {},
                     onReload = {},
                     onStop = {},
+                    onPreviewCandidate = { selected = it },
                     onNavigateBack = {},
                     browserSurface = { Box(modifier = it) },
                 )
@@ -52,10 +58,16 @@ class BrowserScreenTest {
         composeRule.onNodeWithTag("media-found-button").assertIsDisplayed().performClick()
         composeRule.onNodeWithText("Detected media").assertIsDisplayed()
         composeRule.onNodeWithText(
-            "Detection only. Preview and download actions are added in later phases.",
+            "Resolve real variants and preview supported non-DRM media.",
         ).assertIsDisplayed()
         composeRule.onNodeWithText("Fixture stream").assertIsDisplayed()
         composeRule.onNodeWithText("DRM: Unknown").fetchSemanticsNode()
+        composeRule.onNodeWithTag("preview-candidate")
+            .performScrollTo()
+            .performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.runOnIdle {
+            assertEquals("Fixture stream", selected?.title)
+        }
     }
 
     @Test
@@ -72,6 +84,7 @@ class BrowserScreenTest {
                     onBrowserForward = {},
                     onReload = {},
                     onStop = {},
+                    onPreviewCandidate = {},
                     onNavigateBack = {},
                     browserSurface = { Box(modifier = it) },
                 )

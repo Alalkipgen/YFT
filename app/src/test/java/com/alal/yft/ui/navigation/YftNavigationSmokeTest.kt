@@ -36,10 +36,18 @@ class YftNavigationSmokeTest {
                     navController = rememberNavController(),
                     themeMode = themeMode,
                     onThemeModeChanged = { themeMode = it },
-                    browserContent = { onNavigateBack ->
+                    browserContent = { onNavigateBack, _ ->
                         PhasePlaceholderScreen(
                             title = YftDestination.BROWSER.title,
                             summary = YftDestination.BROWSER.summary,
+                            phaseNote = "Navigation-only test surface",
+                            onNavigateBack = onNavigateBack,
+                        )
+                    },
+                    previewContent = { onNavigateBack ->
+                        PhasePlaceholderScreen(
+                            title = YftDestination.PREVIEW.title,
+                            summary = YftDestination.PREVIEW.summary,
                             phaseNote = "Navigation-only test surface",
                             onNavigateBack = onNavigateBack,
                         )

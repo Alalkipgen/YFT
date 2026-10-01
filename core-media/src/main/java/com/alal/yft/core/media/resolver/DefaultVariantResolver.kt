@@ -10,9 +10,13 @@ import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.media.VariantSupport
+import java.io.ByteArrayOutputStream
 import java.io.IOException
-import java.time.Instant
+import java.io.InputStream
+import java.text.ParsePosition
+import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.TimeZone
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -227,7 +231,8 @@ class DefaultVariantResolver(
                     VariantResolutionFailure.MANIFEST_TOO_LARGE,
                 )
             }
-            val bytes = responseBody.byteStream().readNBytes(policy.maxManifestBytes + 1)
+            val bytes = responseBody.byteStream()
+                .readAtMost(policy.maxManifestBytes + 1)
             if (bytes.size > policy.maxManifestBytes) {
                 return VariantResolutionResult.Failure(
                     VariantResolutionFailure.MANIFEST_TOO_LARGE,
@@ -396,7 +401,7 @@ class DefaultVariantResolver(
                 numeric
             }
         }
-        return runCatching { Instant.parse(value).toEpochMilli() }.getOrNull()
+        return value.parseIsoInstantMillis()
     }
 
     private fun String.toSafeHttpUrl(): HttpUrl? = toHttpUrlOrNull()
@@ -479,6 +484,32 @@ class DefaultVariantResolver(
             ?.uppercase(Locale.US)
     }
 
+    private fun InputStream.readAtMost(maxBytes: Int): ByteArray {
+        val output = ByteArrayOutputStream(minOf(maxBytes, BUFFER_SIZE))
+        val buffer = ByteArray(BUFFER_SIZE)
+        var remaining = maxBytes
+        while (remaining > 0) {
+            val read = read(buffer, 0, minOf(buffer.size, remaining))
+            if (read < 0) break
+            output.write(buffer, 0, read)
+            remaining -= read
+        }
+        return output.toByteArray()
+    }
+
+    private fun String.parseIsoInstantMillis(): Long? {
+        ISO_INSTANT_PATTERNS.forEach { pattern ->
+            val parser = SimpleDateFormat(pattern, Locale.US).apply {
+                isLenient = false
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+            val position = ParsePosition(0)
+            val parsed = parser.parse(this, position)
+            if (parsed != null && position.index == length) return parsed.time
+        }
+        return null
+    }
+
     private enum class RequestMethod {
         HEAD,
         RANGE_GET,
@@ -505,6 +536,7 @@ class DefaultVariantResolver(
     private companion object {
         const val HTTP_METHOD_NOT_ALLOWED = 405
         const val HTTP_NOT_IMPLEMENTED = 501
+        const val BUFFER_SIZE = 8_192
         const val RANGE_FIRST_BYTE = "bytes=0-0"
         const val DASH_MIME_TYPE = "application/dash+xml"
         const val DASH_ACCEPT = "application/dash+xml, application/xml;q=0.9, */*;q=0.1"
@@ -514,6 +546,10 @@ class DefaultVariantResolver(
         val SUCCESS_CODES = 200..299
         val REDIRECT_CODES = setOf(300, 301, 302, 303, 307, 308)
         val EXPIRY_QUERY_NAMES = setOf("exp", "expire", "expires", "expiration")
+        val ISO_INSTANT_PATTERNS = listOf(
+            "yyyy-MM-dd'T'HH:mm:ss.SSSX",
+            "yyyy-MM-dd'T'HH:mm:ssX",
+        )
         val CROSS_ORIGIN_HEADER_ALLOWLIST = setOf(
             "accept",
             "accept-encoding",

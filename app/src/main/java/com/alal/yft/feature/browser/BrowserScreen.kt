@@ -62,6 +62,7 @@ import java.util.Locale
 @Composable
 fun BrowserRoute(
     onNavigateBack: () -> Unit,
+    onOpenPreview: () -> Unit,
     viewModel: BrowserViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -110,6 +111,9 @@ fun BrowserRoute(
             webView?.stopLoading()
             refreshHistoryState()
         },
+        onPreviewCandidate = { candidate ->
+            if (viewModel.selectForPreview(candidate)) onOpenPreview()
+        },
         onNavigateBack = onNavigateBack,
         browserSurface = { modifier ->
             BrowserWebView(
@@ -136,6 +140,7 @@ fun BrowserScreen(
     onBrowserForward: () -> Unit,
     onReload: () -> Unit,
     onStop: () -> Unit,
+    onPreviewCandidate: (MediaCandidate) -> Unit,
     onNavigateBack: () -> Unit,
     browserSurface: @Composable (Modifier) -> Unit,
 ) {
@@ -147,6 +152,10 @@ fun BrowserScreen(
     if (showCandidates && uiState.candidates.isNotEmpty()) {
         CandidateBottomSheet(
             candidates = uiState.candidates,
+            onPreviewCandidate = {
+                showCandidates = false
+                onPreviewCandidate(it)
+            },
             onDismiss = { showCandidates = false },
         )
     }
@@ -336,6 +345,7 @@ private fun BrowserWebView(
 @Composable
 private fun CandidateBottomSheet(
     candidates: List<MediaCandidate>,
+    onPreviewCandidate: (MediaCandidate) -> Unit,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(
@@ -352,7 +362,7 @@ private fun CandidateBottomSheet(
                     style = MaterialTheme.typography.headlineSmall,
                 )
                 Text(
-                    text = "Detection only. Preview and download actions are added in later phases.",
+                    text = "Resolve real variants and preview supported non-DRM media.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -363,6 +373,7 @@ private fun CandidateBottomSheet(
             ) { index, candidate ->
                 CandidateCard(
                     candidate = candidate,
+                    onPreview = { onPreviewCandidate(candidate) },
                     modifier = Modifier.testTag("candidate-$index"),
                 )
             }
@@ -373,6 +384,7 @@ private fun CandidateBottomSheet(
 @Composable
 private fun CandidateCard(
     candidate: MediaCandidate,
+    onPreview: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(modifier = modifier.fillMaxWidth()) {
@@ -414,6 +426,15 @@ private fun CandidateCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )
+            Button(
+                onClick = onPreview,
+                enabled = candidate.drmHint != true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("preview-candidate"),
+            ) {
+                Text(if (candidate.drmHint == true) "DRM not supported" else "Preview")
+            }
         }
     }
 }
