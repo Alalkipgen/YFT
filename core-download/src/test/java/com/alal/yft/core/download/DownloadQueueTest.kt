@@ -153,6 +153,43 @@ class DownloadQueueTest {
         assertEquals(DownloadTaskStatus.COMPLETED, queue.tasks.value.single().status)
     }
 
+    @Test
+    fun `public destination persists recovery URI then published URI`() = runTest {
+        val store = InMemoryStore()
+        val runner = ControlledRunner()
+        val destination = RecordingDestination(
+            recoveryUri = "content://media/pending/1",
+            publishedUri = "content://media/completed/1",
+        )
+        val queue = DownloadQueue(store, runner, backgroundScope, maxConcurrentDownloads = 1)
+
+        queue.enqueue(
+            plan = plan("public"),
+            metadata = metadata(),
+            destination = destination,
+            destinationSpec = DownloadDestinationSpec(DownloadDestinationKind.MEDIA_STORE),
+        )
+        runCurrent()
+
+        assertEquals(
+            "content://media/pending/1",
+            queue.tasks.value.single().destinationUri,
+        )
+
+        runner.complete("public")
+        runCurrent()
+
+        assertEquals(DownloadTaskStatus.COMPLETED, queue.tasks.value.single().status)
+        assertEquals(
+            "content://media/completed/1",
+            queue.tasks.value.single().destinationUri,
+        )
+        assertEquals(
+            "content://media/completed/1",
+            store.snapshot().single().destinationUri,
+        )
+    }
+
     private fun plan(id: String): DirectDownloadPlan = DirectDownloadPlan(
         taskId = id,
         sourceUrl = "http://localhost/file.bin",
@@ -272,7 +309,10 @@ class DownloadQueueTest {
         }
     }
 
-    private class RecordingDestination : DownloadDestination {
+    private class RecordingDestination(
+        override val recoveryUri: String? = null,
+        override val publishedUri: String? = recoveryUri,
+    ) : DownloadDestination {
         val discarded = AtomicBoolean(false)
 
         override fun prepare(expectedLength: Long?) = Unit
