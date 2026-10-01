@@ -7,6 +7,21 @@ import java.io.RandomAccessFile
 
 /** Seekable temporary destination that is published only after verified completion. */
 interface DownloadDestination {
+    /**
+     * Stable, non-sensitive URI used to reopen an incomplete public destination after recovery.
+     *
+     * App-private file destinations intentionally return null.
+     */
+    val recoveryUri: String?
+        get() = null
+
+    /**
+     * URI of the published item after [commit]. This may differ from [recoveryUri] when a
+     * document provider assigns a new URI while renaming a temporary SAF document.
+     */
+    val publishedUri: String?
+        get() = recoveryUri
+
     fun prepare(expectedLength: Long?)
     fun temporaryLength(): Long?
     fun open(): SeekableDownloadOutput
