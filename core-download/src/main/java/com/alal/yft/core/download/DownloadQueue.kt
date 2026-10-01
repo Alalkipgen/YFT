@@ -87,7 +87,7 @@ class DownloadQueue(
             downloadedBytes = 0,
             mimeType = metadata.contentType ?: plan.mimeType,
             destinationKind = destinationSpec.kind,
-            destinationUri = destinationSpec.uri,
+            destinationUri = destination.recoveryUri ?: destinationSpec.uri,
             preferredSegmentCount = plan.preferredSegmentCount,
             requiresLinkRefresh = false,
             failureReason = null,
@@ -124,6 +124,7 @@ class DownloadQueue(
                 DownloadTaskStatus.WAITING_FOR_NETWORK
             },
             mimeType = metadata.contentType ?: plan.mimeType,
+            destinationUri = destination.recoveryUri ?: current.destinationUri,
             preferredSegmentCount = plan.preferredSegmentCount,
             requiresLinkRefresh = false,
             failureReason = null,
@@ -431,12 +432,14 @@ class DownloadQueue(
         result: DirectTransferResult.Completed,
     ) = gate.withLock {
         val current = taskLocked(id) ?: return@withLock
+        val publishedUri = runtimeTasks[id]?.destination?.publishedUri
         val completed = current.copy(
             status = DownloadTaskStatus.COMPLETED,
             totalBytes = result.checkpoint.totalBytes ?: result.bytesWritten,
             downloadedBytes = result.bytesWritten,
             requiresLinkRefresh = false,
             failureReason = null,
+            destinationUri = publishedUri ?: current.destinationUri,
             checkpoint = result.checkpoint,
             updatedAtEpochMs = clock(),
         )
