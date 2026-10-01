@@ -88,5 +88,5 @@ Phase 2 is complete on `work/phase-2-browser-detection`, created from Phase 1 co
 - Fresh full lint/tests/debug validation passed in 3m 39s with all 294 tasks executed.
 - Fresh minified release assembly passed separately in 4m 27s with all 207 tasks executed.
 - Across the executed test suites, 56 tests passed with 0 failures, errors or skips.
-- Completion-commit remote CI is confirmed after the documentation checkpoint is pushed.
+- Phase 2 completion commit `d7d25b6` passed GitHub Actions run `36799479295`.
 - No physical Android device/emulator was available, so real Android WebView callback/rendering behavior remains an explicit runtime verification item rather than a claimed on-device result.
