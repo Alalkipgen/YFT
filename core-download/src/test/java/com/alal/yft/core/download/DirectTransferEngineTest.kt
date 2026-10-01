@@ -324,6 +324,36 @@ class DirectTransferEngineTest {
         assertEquals(DownloadFailureReason.INSUFFICIENT_STORAGE, result.failure.reason)
     }
 
+    @Test
+    fun `preallocation ENOSPC maps to insufficient storage without requesting media`() = runTest {
+        val destination = object : DownloadDestination {
+            override fun prepare(expectedLength: Long?) {
+                throw IOException("No space left on device")
+            }
+
+            override fun temporaryLength(): Long? = null
+            override fun open(): SeekableDownloadOutput = error("must not open")
+            override fun commit() = error("must not commit")
+            override fun discard() = Unit
+        }
+
+        val result = engine.transfer(
+            plan = plan(
+                url = server.url("/preallocation-full.bin").toString(),
+                expectedBytes = 16,
+            ),
+            metadata = metadata(
+                url = server.url("/preallocation-full.bin").toString(),
+                totalBytes = 16,
+                supportsRanges = true,
+            ),
+            destination = destination,
+        ) as DirectTransferResult.Failure
+
+        assertEquals(DownloadFailureReason.INSUFFICIENT_STORAGE, result.failure.reason)
+        assertEquals(0, server.requestCount)
+    }
+
     private fun rangeDispatcher(content: ByteArray): Dispatcher = object : Dispatcher() {
         override fun dispatch(request: RecordedRequest): MockResponse {
             val range = requireNotNull(request.getHeader("Range"))
