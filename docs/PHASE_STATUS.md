@@ -6,14 +6,14 @@
 | 1 — Foundation | COMPLETE | Production modules, Compose navigation shell, DI/data/media foundations, tests and CI validated on the work branch |
 | 2 — Browser/detection | COMPLETE | Secure browser, layered generic detection, bounded probes, page-scoped normalization, fixtures and candidate UI validated |
 | 3 — Preview/variants | COMPLETE | Bounded direct/HLS/DASH resolution, honest variants and secure Media3 preview validated |
-| 4 — Download engines | NOT STARTED | — |
+| 4 — Download engines | IN PROGRESS | Download planning, reliable transfer, recovery and safe export started from the green Phase 3 head |
 | 5 — Site adapters | NOT STARTED | — |
 | 6 — Hardening/UI | NOT STARTED | — |
 | 7 — Signed beta/release | NOT STARTED | — |
 
 ## Current phase state
 
-Phase 3 is complete on `work/phase-3-preview-variants`, created from final Phase 2 head `eedae3b`. The full lint/test/debug/release matrix is green. The user explicitly authorized Phase 4 to begin immediately after the Phase 3 completion checkpoint; do not merge work branches into `main`.
+Phase 4 is active on `work/phase-4-download-engines`, created from Phase 3 completion head `8941430`. The Phase 3 resolver/preview baseline was reverified before transfer edits. Work is limited to download plans, direct/HLS/DASH engines, mux compatibility, foreground execution, persistence/recovery and safe storage export; do not start Phase 5 or merge a work branch into `main`.
 
 ## Completed in Phase 1
 
@@ -119,3 +119,13 @@ Phase 3 is complete on `work/phase-3-preview-variants`, created from final Phase
 - Debug APK: 15,089,630 bytes; SHA-256 `328fd782adf9f3c924b07dba7588b462472f48f85a7c886d2e1fd7edff86b874`.
 - Unsigned minified release APK: 2,595,334 bytes; SHA-256 `c51a449fb095d9f04c2fca8ef36b01b106dbfaf9b3e8178aa89b6ae424651c98`.
 - No device/emulator was available, so actual Android WebView and Media3 rendering/playback remain explicit runtime checks rather than claimed device validation.
+
+## Phase 4 active scope
+
+- Define durable download-plan, task-state, progress, failure and recovery boundaries using YFT models.
+- Implement direct range/no-range transfer first with bounded concurrency, temp parts, pause/resume/retry/cancel and integrity checks.
+- Preserve replay-safe request context while handling redirect and expiry failures.
+- Add selected-track HLS/DASH transfer and explicit audio/video mux compatibility after the direct engine is green.
+- Add foreground execution, Room recovery and MediaStore/SAF export without using WorkManager as the sole large-transfer engine.
+- Test incomplete-file safety, process restart, network changes, duplicates, low storage, corruption, cancellation and cleanup.
+- Do not start site adapters or Phase 5.

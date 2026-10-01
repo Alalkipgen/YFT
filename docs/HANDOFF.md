@@ -3,10 +3,10 @@
 ## Current handoff
 
 - Date: 2026-10-01
-- Phase: 3 — Preview and variant resolution
-- Status: COMPLETE — full local lint/test/debug/release validation green
-- Active branch: `work/phase-3-preview-variants`
-- Phase 3 base: final Phase 2 documentation head `eedae3b`
+- Phase: 4 — Download engines and recovery
+- Status: IN PROGRESS — Phase 3 completion baseline reverified; no transfer code added yet
+- Active branch: `work/phase-4-download-engines`
+- Phase 4 base: Phase 3 completion commit `8941430`
 - Target repository: `Alalkipgen/YFT`
 - Reference repository: `Alalkipgen/AlalDownloader`
 
@@ -33,6 +33,13 @@
 - Added honest format, resolution, FPS, codec, bitrate, duration and exact/estimated/unknown size labels.
 - Added model, resolver, redirect, manifest, source-factory, ViewModel and Compose regression coverage.
 - Kept download plans, transfer engines, foreground services, muxing, recovery and storage export out of Phase 3.
+
+## Phase 4 kickoff status
+
+- Created `work/phase-4-download-engines` from exact Phase 3 completion head `8941430`.
+- Reread `docs/prompts/05_PHASE_4.md`.
+- Reverified `:core-media:testDebugUnitTest`, `:app:testDebugUnitTest` and `:app:assembleDebug` on the new branch: 30 tests and debug assembly passed.
+- No Phase 4 production code has been added yet.
 
 ## Important decisions
 
@@ -103,11 +110,12 @@ Results:
 
 ## Next exact action
 
-1. Push the final Phase 3 documentation/completion commit and verify the remote head.
-2. Create `work/phase-4-download-engines` from that exact Phase 3 completion head.
-3. Read `docs/prompts/05_PHASE_4.md` and verify the Phase 3 resolver/preview baseline on the new branch.
-4. Inspect the existing `:core-download`/Room foundation and the approved concepts in `Alalkipgen/AlalDownloader`.
-5. Design YFT download-plan/task models and direct-engine boundaries first; do not begin Phase 5.
+1. Push the Phase 4 kickoff documentation checkpoint.
+2. Inspect the existing `:core-download` and Room entity/DAO/migration foundations.
+3. Inspect only the approved direct-engine, queue and recovery concepts/tests in `Alalkipgen/AlalDownloader`.
+4. Define minimal YFT download-plan, task-state, progress, failure and recovery models.
+5. Implement and fixture-test the direct range/no-range engine before HLS/DASH, foreground execution or storage export.
+6. Do not begin Phase 5.
 
 ## Phase 3 checkpoint commits
 
