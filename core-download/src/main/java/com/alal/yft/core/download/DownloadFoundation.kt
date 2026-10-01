@@ -1,4 +1,4 @@
 package com.alal.yft.core.download
 
-/** Download engine behavior is intentionally deferred to Phase 4. */
+/** Stable namespace marker for the download-engine module. */
 object DownloadFoundation

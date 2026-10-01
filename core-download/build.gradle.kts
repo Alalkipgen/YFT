@@ -18,6 +18,10 @@ dependencies {
     implementation(project(":core-model"))
     implementation(project(":core-data"))
     implementation(libs.androidx.core.ktx)
+    implementation(libs.okhttp)
+    implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
     testImplementation(libs.junit)
+    testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.kotlinx.coroutines.test)
 }
