@@ -48,3 +48,5 @@ Use JDK 17 and Android SDK 35:
 A local release check can additionally run `:app:assembleRelease`; the output is intentionally unsigned until Phase 7.
 
 See [`docs/PHASE_STATUS.md`](docs/PHASE_STATUS.md), [`docs/TEST_MATRIX.md`](docs/TEST_MATRIX.md) and [`docs/HANDOFF.md`](docs/HANDOFF.md) before continuing.
+
+On machines with about 4 GiB RAM and no swap, run the fresh lint/test/debug matrix and `:app:assembleRelease` as separate Gradle invocations to avoid R8 competing with test/compiler workers.

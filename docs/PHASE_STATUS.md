@@ -55,6 +55,7 @@ Phase 1 is complete on `work/phase-1-foundation`. Phase 2 is the next permitted 
 ```
 
 - Result: **BUILD SUCCESSFUL** in 4m 31s; debug and unsigned minified release APKs assembled.
-- GitHub Actions full checkpoint validation passed in run `36791877079`.
-- The Compose navigation smoke test passed separately and is included in subsequent `testDebugUnitTest` runs.
+- GitHub Actions final checkpoint validation passed in run `36793372961`.
+- A forced fresh split validation also passed: lint/tests/debug ran 279 tasks with 20 tests and zero failures; release assembly ran 207 tasks.
+- The Compose navigation smoke test is included in `testDebugUnitTest`.
 - No physical Android device/emulator was available, so direct/HLS/DASH playback and on-device rendering remain tracked runtime tests rather than claimed support.

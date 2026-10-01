@@ -33,7 +33,7 @@
 | Android lint | Local JDK 17/SDK 35 | No blocking findings across Android modules | PASS |
 | Debug build | Local JDK 17/SDK 35 | APK assembled | PASS |
 | Minified release build | Local JDK 17/SDK 35 | Unsigned release APK assembled | PASS |
-| Full work-branch CI | GitHub Actions | Lint, all Android/JVM tests and debug build pass | PASS — run 36791877079 |
+| Full work-branch CI | GitHub Actions | Lint, all Android/JVM tests and debug build pass | PASS — final run 36793372961 |
 
 ## Runtime tests still requiring a device/emulator
 

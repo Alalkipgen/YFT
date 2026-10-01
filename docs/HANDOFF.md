@@ -82,7 +82,19 @@ Navigation runtime smoke test:
 
 Result: **BUILD SUCCESSFUL** in 1m 12s. Home start, all seven other destinations and back navigation passed under Robolectric Compose.
 
-GitHub Actions full validation: **PASS**, run `36791877079`.
+Final GitHub Actions validation: **PASS**, run `36793372961`.
+
+Forced fresh final validation was split to respect the 4.2 GiB/no-swap sandbox:
+
+```bash
+./gradlew --no-daemon --rerun-tasks \
+  lintDebug testDebugUnitTest \
+  :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test \
+  :app:assembleDebug
+./gradlew --no-daemon --rerun-tasks :app:assembleRelease
+```
+
+Results: Part 1 **BUILD SUCCESSFUL** in 2m 55s (279 tasks; 20 tests, 0 failures); Part 2 **BUILD SUCCESSFUL** in 3m 58s (207 tasks).
 
 ## Known limitations
 
@@ -91,6 +103,7 @@ GitHub Actions full validation: **PASS**, run `36791877079`.
 - Feature screens are intentionally functional navigation placeholders; media browsing/detection starts in Phase 2.
 - The release APK is unsigned; signing and publication remain Phase 7 and require explicit approval.
 - KAPT emits a Kotlin 2.0 language fallback warning while generating Hilt/Room code; compilation, tests, lint and release minification pass.
+- A single forced all-task rerun exceeded the 4.2 GiB/no-swap sandbox during R8. Gradle/Kotlin memory and workers are now bounded; split fresh validation passes and normal CI passes.
 - No branch was merged into `main`, and no release was published.
 
 ## Phase 2 prerequisites and exact next action
