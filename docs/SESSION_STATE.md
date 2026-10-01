@@ -4,12 +4,12 @@ Update this file before every checkpoint push. Keep it short, factual and suffic
 
 - Current phase: Phase 3 — Preview and variant resolution
 - Current branch: `work/phase-3-preview-variants`
-- Last completed task: Added secret-redacting asset/variant/result models plus bounded direct, HLS and DASH resolution with redirect, range, expiry, DRM, codec, separate-track and honest size handling
-- Work in progress: Wire replay-safe Media3 source construction, then the browser-to-preview flow, player lifecycle, video/audio tabs and variant selector
-- Build status: PASS — `./gradlew --no-daemon :core-model:test :core-media:testDebugUnitTest` completed in 44s; 21 tests passed with zero failures, errors or skips
+- Last completed task: Added explicit Media3 progressive/HLS/DASH source construction with HTTPS-only URLs and an origin-aware OkHttp header policy that strips browser credentials on cross-origin requests
+- Work in progress: Wire the browser candidate action to an in-memory preview session, then add resolver UI state, player lifecycle, video/audio tabs and variant selection
+- Build status: PASS — `./gradlew --no-daemon :core-media:testDebugUnitTest` completed in 1m 10s; all 14 core-media tests passed
 - Known failure/blocker: No physical Android device/emulator is attached, so Media3 playback must use unit/fixture coverage plus later on-device confirmation. GitHub Advanced Security secret scanning is unavailable, so local structured-secret scans remain required
-- Next exact action: Push this resolver milestone, then add Media3 direct/HLS/DASH source construction with replay-safe headers and fixture tests
-- Last pushed checkpoint: `697ffb4` — Phase 3 kickoff from the green Phase 2 baseline
+- Next exact action: Push this Media3 source milestone, then implement the browser-to-preview selection flow and complete the Phase 3 preview UI
+- Last pushed checkpoint: `f53be1c` — bounded direct/HLS/DASH resolver and model milestone
 - Last updated: 2026-10-01
 
 ## Checkpoint note template
