@@ -1,6 +1,8 @@
 package com.alal.yft.core.browser.webview
 
 import android.graphics.Bitmap
+import android.net.http.SslError
+import android.webkit.SslErrorHandler
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -18,7 +20,11 @@ class SecureBrowserWebViewClient(
 ) : WebViewClient() {
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
         if (!request.isForMainFrame) return false
-        return !BrowserAddressNormalizer.isAllowedTopLevelUrl(request.url.toString())
+        val blocked = !BrowserAddressNormalizer.isAllowedTopLevelUrl(request.url.toString())
+        if (blocked) {
+            sink.onMainFrameError(request.url.toString(), "Blocked insecure navigation")
+        }
+        return blocked
     }
 
     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
@@ -65,5 +71,24 @@ class SecureBrowserWebViewClient(
         if (request.isForMainFrame) {
             sink.onMainFrameError(request.url?.toString(), error.description?.toString().orEmpty())
         }
+    }
+
+    override fun onReceivedHttpError(
+        view: WebView,
+        request: WebResourceRequest,
+        errorResponse: WebResourceResponse,
+    ) {
+        if (request.isForMainFrame && errorResponse.statusCode >= 400) {
+            sink.onMainFrameError(request.url?.toString(), "HTTP ${errorResponse.statusCode}")
+        }
+    }
+
+    override fun onReceivedSslError(
+        view: WebView,
+        handler: SslErrorHandler,
+        error: SslError,
+    ) {
+        handler.cancel()
+        sink.onMainFrameError(error.url, "TLS certificate validation failed")
     }
 }

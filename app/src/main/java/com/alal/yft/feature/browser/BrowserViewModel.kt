@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -36,6 +38,7 @@ class BrowserViewModel @Inject constructor(
     private val metadataProbe = MediaMetadataProbe(okHttpClient)
     private val probeBudget = PageProbeBudget()
     private val probePermits = Semaphore(permits = 2)
+    private var pageProbeJob: Job = SupervisorJob(viewModelScope.coroutineContext[Job])
 
     @Volatile
     private var activePageUrl: String? = null
@@ -74,6 +77,8 @@ class BrowserViewModel @Inject constructor(
 
     override fun onPageStarted(url: String) {
         activePageUrl = url
+        pageProbeJob.cancel()
+        pageProbeJob = SupervisorJob(viewModelScope.coroutineContext[Job])
         candidateStore.beginPage(url)
         probeBudget.beginPage(url)
         mutableUiState.update {
@@ -145,7 +150,7 @@ class BrowserViewModel @Inject constructor(
 
     private fun scheduleProbe(candidate: MediaCandidate) {
         if (!probeBudget.tryAcquire(candidate.pageUrl, candidate.mediaUrl)) return
-        viewModelScope.launch {
+        viewModelScope.launch(pageProbeJob) {
             probePermits.withPermit {
                 when (val result = metadataProbe.probe(candidate)) {
                     is MediaMetadataProbe.Result.Detected -> candidateStore.submit(result.candidate)

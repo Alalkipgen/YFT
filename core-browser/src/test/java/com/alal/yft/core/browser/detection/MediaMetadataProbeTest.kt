@@ -5,10 +5,16 @@ import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -189,6 +195,22 @@ class MediaMetadataProbeTest {
             (result as MediaMetadataProbe.Result.Failed).reason,
         )
         assertEquals(6, server.requestCount)
+    }
+
+    @Suppress("DEPRECATION")
+    @Test
+    fun cancellationClosesAnInFlightProbe() = runBlocking {
+        server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+        val probeJob = async {
+            probe.probe(candidate(server.url("/never-responds").toString()))
+        }
+        withTimeout(2_000) {
+            while (server.requestCount == 0) delay(10)
+        }
+
+        probeJob.cancelAndJoin()
+
+        assertTrue(probeJob.isCancelled)
     }
 
     private fun candidate(

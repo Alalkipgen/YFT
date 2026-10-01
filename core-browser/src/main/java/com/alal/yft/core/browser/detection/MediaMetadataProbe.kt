@@ -9,13 +9,16 @@ import com.alal.yft.extractor.generic.classifier.MediaUrlClassifier
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
  * Enriches an observed candidate from response headers without downloading the media body.
@@ -63,19 +66,17 @@ class MediaMetadataProbe(
         .callTimeout(policy.callTimeoutSeconds, TimeUnit.SECONDS)
         .build()
 
-    suspend fun probe(candidate: MediaCandidate): Result = withContext(Dispatchers.IO) {
-        try {
-            probeBlocking(candidate)
-        } catch (cancellation: CancellationException) {
-            throw cancellation
-        } catch (_: IOException) {
-            Result.Failed(FailureReason.NETWORK)
-        } catch (_: IllegalArgumentException) {
-            Result.NotMedia(NotMediaReason.INVALID_URL)
-        }
+    suspend fun probe(candidate: MediaCandidate): Result = try {
+        probeNetwork(candidate)
+    } catch (cancellation: CancellationException) {
+        throw cancellation
+    } catch (_: IOException) {
+        Result.Failed(FailureReason.NETWORK)
+    } catch (_: IllegalArgumentException) {
+        Result.NotMedia(NotMediaReason.INVALID_URL)
     }
 
-    private fun probeBlocking(candidate: MediaCandidate): Result {
+    private suspend fun probeNetwork(candidate: MediaCandidate): Result {
         val initialUrl = candidate.mediaUrl.toSafeHttpUrl()
             ?: return Result.NotMedia(NotMediaReason.INVALID_URL)
         var currentUrl = initialUrl
@@ -161,7 +162,7 @@ class MediaMetadataProbe(
         }
     }
 
-    private fun execute(
+    private suspend fun execute(
         url: HttpUrl,
         headers: Map<String, String>,
         method: Method,
@@ -175,8 +176,27 @@ class MediaMetadataProbe(
             Method.RANGE_GET -> request.get().header("Range", RANGE_FIRST_BYTE)
         }
 
-        return probeClient.newCall(request.build()).execute().use { response ->
-            response.toMetadata()
+        return suspendCancellableCoroutine { continuation ->
+            val call = probeClient.newCall(request.build())
+            continuation.invokeOnCancellation { call.cancel() }
+            call.enqueue(
+                object : Callback {
+                    override fun onFailure(call: Call, error: IOException) {
+                        if (continuation.isActive) continuation.resumeWithException(error)
+                    }
+
+                    override fun onResponse(call: Call, response: Response) {
+                        val result = runCatching {
+                            response.use { it.toMetadata() }
+                        }
+                        if (!continuation.isActive) return
+                        result.fold(
+                            onSuccess = continuation::resume,
+                            onFailure = continuation::resumeWithException,
+                        )
+                    }
+                },
+            )
         }
     }
 

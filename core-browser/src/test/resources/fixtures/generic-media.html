@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta property="og:video" content="https://media.fixture.test/direct/movie.mp4">
+  <title>Generic media fixture</title>
+</head>
+<body>
+  <h1>Generic media fixture</h1>
+
+  <video
+    id="direct"
+    src="https://media.fixture.test/direct/movie.mp4"
+    poster="https://media.fixture.test/poster.jpg"
+    preload="none"
+    controls>
+    <source
+      src="https://media.fixture.test/direct/movie.webm"
+      type="video/webm">
+  </video>
+
+  <audio id="audio" preload="none" controls>
+    <source
+      src="https://media.fixture.test/direct/audio.mp3"
+      type="audio/mpeg">
+  </audio>
+
+  <video id="hls" preload="none" controls>
+    <source
+      src="https://media.fixture.test/hls/master.m3u8"
+      type="application/vnd.apple.mpegurl">
+  </video>
+
+  <video id="dash" preload="none" controls>
+    <source
+      src="https://media.fixture.test/dash/manifest.mpd"
+      type="application/dash+xml">
+  </video>
+
+  <video
+    id="blob-backed"
+    src="blob:https://fixture.test/test-only-object"
+    preload="none"
+    controls>
+  </video>
+</body>
+</html>
