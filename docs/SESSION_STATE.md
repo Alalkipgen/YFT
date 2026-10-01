@@ -4,12 +4,12 @@ Update this file before every checkpoint push. Keep it short, factual and suffic
 
 - Current phase: Phase 2 — Built-in browser and generic media detection
 - Current branch: `work/phase-2-browser-detection`
-- Last completed task: Added sensitive-safe browser request context, media candidate/source/kind/confidence models, URL/MIME classification and a page-scoped bounded candidate normalizer with signed-URL deduplication and metadata/context merging
-- Work in progress: Secure WebView policy, DOM/DownloadListener/request observation mapping and debounced page session store
-- Build status: PASS — `./gradlew --no-daemon :core-model:test :extractor-generic:test` completed in 31s; classifier/normalizer/request-context tests pass
+- Last completed task: Added secure WebView/address policy, read-only DOM media probing, request/download/redirect observation mapping, WebView callback clients and a debounced page-scoped candidate store with immediate navigation cleanup
+- Work in progress: Bounded HTTP metadata/redirect probing with local fixtures, followed by the app browser UI and candidate sheet
+- Build status: PASS — `./gradlew --no-daemon :core-browser:testDebugUnitTest :core-browser:assembleDebug` completed in 30s; 48 tasks and all browser-core tests passed
 - Known failure/blocker: No physical Android device/emulator is attached; WebView behavior must use Robolectric/unit fixtures plus later on-device confirmation
-- Next exact action: Implement secure WebView settings/navigation policy, read-only DOM probe and parser, DownloadListener/request observation mappers and page-scoped candidate store with navigation cleanup/debounce tests
-- Last pushed checkpoint: `73d7423` — Phase 2 kickoff from the green Phase 1 completion commit
+- Next exact action: Checkpoint the secure browser observation core, then implement a bounded metadata probe with local MockWebServer coverage for MIME-only media, manifests, redirects and replay-safe request headers
+- Last pushed checkpoint: `cb4f3fd` — candidate models, classification and page-scoped normalization foundation
 - Last updated: 2026-10-01
 
 ## Checkpoint note template
