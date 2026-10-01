@@ -5,7 +5,7 @@
 | 0 — Discovery and feasibility | COMPLETE | Architecture, support matrix, ADRs and compileable Media3/WebView spike validated locally and in CI |
 | 1 — Foundation | COMPLETE | Production modules, Compose navigation shell, DI/data/media foundations, tests and CI validated on the work branch |
 | 2 — Browser/detection | COMPLETE | Secure browser, layered generic detection, bounded probes, page-scoped normalization, fixtures and candidate UI validated |
-| 3 — Preview/variants | NOT STARTED | — |
+| 3 — Preview/variants | IN PROGRESS | Honest asset/variant resolution and Media3 preview work started from the green Phase 2 head |
 | 4 — Download engines | NOT STARTED | — |
 | 5 — Site adapters | NOT STARTED | — |
 | 6 — Hardening/UI | NOT STARTED | — |
@@ -13,7 +13,7 @@
 
 ## Current phase state
 
-Phase 2 is complete on `work/phase-2-browser-detection`, created from Phase 1 completion commit `4f5e06a`. Phase 3 has not started. Do not begin preview/variant work or merge a work branch into `main` without explicit approval and green validation.
+Phase 3 is active on `work/phase-3-preview-variants`, created from final Phase 2 head `eedae3b`. Work is limited to candidate validation, honest variant resolution and non-DRM Media3 preview. Do not merge a work branch into `main`; Phase 4 may begin only after Phase 3 is complete and validated.
 
 ## Completed in Phase 1
 
@@ -90,3 +90,13 @@ Phase 2 is complete on `work/phase-2-browser-detection`, created from Phase 1 co
 - Across the executed test suites, 56 tests passed with 0 failures, errors or skips.
 - Phase 2 completion commit `d7d25b6` passed GitHub Actions run `36799479295`.
 - No physical Android device/emulator was available, so real Android WebView callback/rendering behavior remains an explicit runtime verification item rather than a claimed on-device result.
+
+## Phase 3 active scope
+
+- Direct MP4/WebM/audio validation without downloading whole files.
+- Bounded HLS and DASH manifest parsing with redirect, expiry and DRM checks.
+- Honest video/audio/separate-track variants with known resolution, FPS, codec, bitrate, duration and estimated-size fields only.
+- Clear expired, malformed, DRM and unsupported-codec failures.
+- Media3 preview using the candidate's replay-safe browser request context.
+- Video/audio tabs, variant selection and explicit unknown/estimated labels.
+- No download planning, transfer service, storage export or recovery engine until Phase 4.
