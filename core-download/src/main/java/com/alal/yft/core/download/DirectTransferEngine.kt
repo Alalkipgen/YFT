@@ -25,12 +25,23 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Response
 
+interface DirectTransferRunner {
+    suspend fun transfer(
+        plan: DirectDownloadPlan,
+        metadata: RemoteFileMetadata,
+        destination: DownloadDestination,
+        resumeFrom: DirectTransferCheckpoint? = null,
+        onProgress: suspend (DownloadProgress) -> Unit = {},
+        onCheckpoint: suspend (DirectTransferCheckpoint) -> Unit = {},
+    ): DirectTransferResult
+}
+
 /** Streams direct media into temporary seekable storage and publishes only verified output. */
 class DirectTransferEngine(
     client: OkHttpClient,
     private val policy: Policy = Policy(),
     private val clock: () -> Long = System::currentTimeMillis,
-) {
+) : DirectTransferRunner {
     data class Policy(
         val maxRedirects: Int = 5,
         val callTimeoutSeconds: Long = 60,
@@ -55,13 +66,13 @@ class DirectTransferEngine(
         callTimeoutSeconds = policy.callTimeoutSeconds,
     )
 
-    suspend fun transfer(
+    override suspend fun transfer(
         plan: DirectDownloadPlan,
         metadata: RemoteFileMetadata,
         destination: DownloadDestination,
-        resumeFrom: DirectTransferCheckpoint? = null,
-        onProgress: suspend (DownloadProgress) -> Unit = {},
-        onCheckpoint: suspend (DirectTransferCheckpoint) -> Unit = {},
+        resumeFrom: DirectTransferCheckpoint?,
+        onProgress: suspend (DownloadProgress) -> Unit,
+        onCheckpoint: suspend (DirectTransferCheckpoint) -> Unit,
     ): DirectTransferResult = withContext(Dispatchers.IO) {
         val emptyCheckpoint = metadata.checkpoint(emptyList())
         val credentialOrigin = plan.sourceUrl.toSafeDownloadUrl()

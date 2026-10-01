@@ -16,6 +16,10 @@ abstract class DownloadRecordDao {
     @Query("SELECT * FROM download_records ORDER BY created_at_epoch_ms DESC")
     abstract fun observeAllWithSegments(): Flow<List<DownloadRecordWithSegments>>
 
+    @Transaction
+    @Query("SELECT * FROM download_records ORDER BY created_at_epoch_ms ASC")
+    abstract suspend fun loadAllWithSegments(): List<DownloadRecordWithSegments>
+
     @Query("SELECT * FROM download_records WHERE id = :id LIMIT 1")
     abstract suspend fun findById(id: String): DownloadRecordEntity?
 
