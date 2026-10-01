@@ -1,6 +1,7 @@
 package com.alal.yft.core.model.download
 
 import com.alal.yft.core.model.media.BrowserRequestContext
+import com.alal.yft.core.model.media.MediaTrackType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -49,6 +50,43 @@ class DownloadModelsTest {
         assertFalse(rendered.contains("session=private"))
         assertFalse(rendered.contains("cdn.example.test"))
         assertTrue(rendered.contains("[REDACTED]"))
+    }
+
+    @Test
+    fun `DASH and mux plan strings redact manifests selections and browser context`() {
+        val video = dashPlan(
+            taskId = "dash-video",
+            representationId = "video-private-selection",
+            trackType = MediaTrackType.VIDEO,
+            expiresAtEpochMs = 200,
+        )
+        val audio = dashPlan(
+            taskId = "dash-audio",
+            representationId = "audio-private-selection",
+            trackType = MediaTrackType.AUDIO,
+            expiresAtEpochMs = 100,
+        )
+
+        val renderedTrack = video.toString()
+        val renderedMux = AudioVideoMuxDownloadPlan(
+            taskId = "mux-1",
+            video = video,
+            audio = audio,
+            suggestedFileName = "movie.mp4",
+        ).toString()
+
+        listOf(renderedTrack, renderedMux).forEach { rendered ->
+            assertFalse(rendered.contains("secret"))
+            assertFalse(rendered.contains("session=private"))
+            assertFalse(rendered.contains("private-selection"))
+            assertTrue(rendered.contains("[REDACTED]"))
+        }
+        assertEquals(100L, AudioVideoMuxDownloadPlan(
+            taskId = "mux-1",
+            video = video,
+            audio = audio,
+            suggestedFileName = "movie.mp4",
+        ).expiresAtEpochMs)
     }
 
     @Test
@@ -144,4 +182,47 @@ class DownloadModelsTest {
             )
         }
     }
+
+    @Test
+    fun `DASH checkpoint reports completed chunks without exposing fingerprint`() {
+        val checkpoint = DashTransferCheckpoint(
+            manifestFingerprint = "b".repeat(64),
+            chunks = listOf(
+                StreamChunkCheckpoint(index = 0, downloadedBytes = 8, completed = true),
+                StreamChunkCheckpoint(index = 1, downloadedBytes = 3, completed = true),
+            ),
+        )
+
+        assertEquals(11L, checkpoint.downloadedBytes)
+        assertEquals(2, checkpoint.completedChunkCount)
+        assertFalse(checkpoint.toString().contains("b".repeat(64)))
+        assertThrows(IllegalArgumentException::class.java) {
+            checkpoint.copy(manifestFingerprint = "not-a-fingerprint")
+        }
+    }
+
+    private fun dashPlan(
+        taskId: String,
+        representationId: String,
+        trackType: MediaTrackType,
+        expiresAtEpochMs: Long?,
+    ): DashDownloadPlan = DashDownloadPlan(
+        taskId = taskId,
+        manifestUrl = "https://cdn.example.test/manifest.mpd?token=secret",
+        representationId = representationId,
+        trackType = trackType,
+        suggestedFileName = "$taskId.mp4",
+        requestContext = BrowserRequestContext(
+            pageUrl = "https://example.test/watch",
+            userAgent = "fixture",
+            cookie = "session=private",
+        ),
+        mimeType = if (trackType == MediaTrackType.AUDIO) "audio/mp4" else "video/mp4",
+        codecs = if (trackType == MediaTrackType.AUDIO) {
+            listOf("mp4a.40.2")
+        } else {
+            listOf("avc1.4d401f")
+        },
+        expiresAtEpochMs = expiresAtEpochMs,
+    )
 }
