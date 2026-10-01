@@ -9,15 +9,8 @@ import com.alal.yft.core.model.media.BrowserRequestContext
 import java.io.IOException
 import java.net.URLDecoder
 import java.util.Locale
-import java.util.concurrent.TimeUnit
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.suspendCancellableCoroutine
-import okhttp3.Call
-import okhttp3.Callback
 import okhttp3.HttpUrl
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -43,11 +36,11 @@ class DirectRangeProbe(
         }
     }
 
-    private val probeClient = client.newBuilder()
-        .followRedirects(false)
-        .followSslRedirects(false)
-        .callTimeout(policy.callTimeoutSeconds, TimeUnit.SECONDS)
-        .build()
+    private val http = SecureDownloadHttp(
+        client = client,
+        maxRedirects = policy.maxRedirects,
+        callTimeoutSeconds = policy.callTimeoutSeconds,
+    )
 
     suspend fun probe(plan: DirectDownloadPlan): DirectProbeResult = try {
         probeSafely(plan)
@@ -60,7 +53,7 @@ class DirectRangeProbe(
     }
 
     private suspend fun probeSafely(plan: DirectDownloadPlan): DirectProbeResult {
-        val initialUrl = plan.sourceUrl.toSafeHttpUrl()
+        val initialUrl = plan.sourceUrl.toSafeDownloadUrl()
             ?: return failure(DownloadFailureReason.INVALID_URL)
         if (plan.expiresAtEpochMs?.let { it <= clock() } == true) {
             return failure(DownloadFailureReason.EXPIRED_URL)
@@ -149,46 +142,26 @@ class DirectRangeProbe(
         initialUrl: HttpUrl,
         context: BrowserRequestContext,
         method: ProbeMethod,
-    ): Execution {
-        var currentUrl = initialUrl
-        var redirectCount = 0
-        while (true) {
-            val request = Request.Builder()
-                .url(currentUrl)
-                .apply {
-                    context.headersForTarget(credentialOrigin, currentUrl)
-                        .forEach { (name, value) ->
-                            runCatching { header(name, value) }
-                        }
-                    header("Accept-Encoding", "identity")
-                    when (method) {
-                        ProbeMethod.HEAD -> head()
-                        ProbeMethod.RANGE_GET -> {
-                            get()
-                            header("Range", FIRST_BYTE_RANGE)
-                        }
-                    }
+    ): Execution = when (
+        val execution = http.execute(
+            credentialOrigin = credentialOrigin,
+            initialUrl = initialUrl,
+            context = context,
+        ) {
+            when (method) {
+                ProbeMethod.HEAD -> head()
+                ProbeMethod.RANGE_GET -> {
+                    get()
+                    header("Range", FIRST_BYTE_RANGE)
                 }
-                .build()
-
-            val response = probeClient.newCall(request).await()
-            if (response.code !in REDIRECT_CODES) {
-                return Execution.Completed(response, currentUrl)
             }
-            if (redirectCount >= policy.maxRedirects) {
-                response.close()
-                return Execution.Failed(DownloadFailureReason.TOO_MANY_REDIRECTS)
-            }
-            val target = response.header("Location")
-                ?.let(currentUrl::resolve)
-                ?.takeIf { it.isSafeHttpUrl() }
-            response.close()
-            if (target == null || currentUrl.isHttps && !target.isHttps) {
-                return Execution.Failed(DownloadFailureReason.UNSAFE_REDIRECT)
-            }
-            currentUrl = target
-            redirectCount += 1
         }
+    ) {
+        is SecureDownloadHttp.Result.Completed -> Execution.Completed(
+            response = execution.response,
+            finalUrl = execution.finalUrl,
+        )
+        is SecureDownloadHttp.Result.Failed -> Execution.Failed(execution.reason)
     }
 
     private fun Response.toMetadata(
@@ -269,31 +242,6 @@ class DirectRangeProbe(
         DownloadFailure(reason, statusCode),
     )
 
-    private fun BrowserRequestContext.headersForTarget(
-        credentialOrigin: HttpUrl,
-        targetUrl: HttpUrl,
-    ): Map<String, String> {
-        val replayable = replayHeaders()
-        if (targetUrl.hasSameOrigin(credentialOrigin)) return replayable
-        return replayable.filterKeys { name ->
-            name.lowercase(Locale.US) in CROSS_ORIGIN_HEADER_ALLOWLIST
-        }
-    }
-
-    private fun HttpUrl.hasSameOrigin(other: HttpUrl): Boolean =
-        scheme == other.scheme && host == other.host && port == other.port
-
-    private fun String.toSafeHttpUrl(): HttpUrl? = toHttpUrlOrNull()
-        ?.takeIf { it.isSafeHttpUrl() }
-
-    private fun HttpUrl.isSafeHttpUrl(): Boolean =
-        username.isEmpty() &&
-            password.isEmpty() &&
-            (isHttps || scheme == "http" && host.isLoopbackHost())
-
-    private fun String.isLoopbackHost(): Boolean =
-        equals("localhost", ignoreCase = true) || this == "127.0.0.1" || this == "::1"
-
     private fun String?.supportsBytes(): Boolean = this
         ?.split(',')
         ?.any { it.trim().equals("bytes", ignoreCase = true) }
@@ -349,25 +297,6 @@ class DirectRangeProbe(
         return sanitized.takeIf { it.isNotBlank() && it != "." && it != ".." }
     }
 
-    private suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation ->
-        continuation.invokeOnCancellation { cancel() }
-        enqueue(
-            object : Callback {
-                override fun onFailure(call: Call, error: IOException) {
-                    if (continuation.isActive) continuation.resumeWithException(error)
-                }
-
-                override fun onResponse(call: Call, response: Response) {
-                    if (continuation.isActive) {
-                        continuation.resume(response)
-                    } else {
-                        response.close()
-                    }
-                }
-            },
-        )
-    }
-
     private enum class ProbeMethod {
         HEAD,
         RANGE_GET,
@@ -407,13 +336,6 @@ class DirectRangeProbe(
 
         val SUCCESS_CODES = 200..299
         val HEAD_FALLBACK_CODES = setOf(405, 501)
-        val REDIRECT_CODES = setOf(301, 302, 303, 307, 308)
-        val CROSS_ORIGIN_HEADER_ALLOWLIST = setOf(
-            "accept",
-            "accept-encoding",
-            "accept-language",
-            "user-agent",
-        )
         val SATISFIED_CONTENT_RANGE =
             Regex("""(?i)^bytes\s+(\d+)-(\d+)/(\d+|\*)$""")
         val UNSATISFIED_CONTENT_RANGE =

@@ -83,4 +83,22 @@ class DownloadModelsTest {
         assertFalse(rendered.contains("private-validator"))
         assertTrue(rendered.contains("entityTagPresent=true"))
     }
+
+    @Test
+    fun `checkpoint requires ordered unique segment indexes`() {
+        val first = DownloadSegment(0, 0, 9, downloadedBytes = 4)
+        val second = DownloadSegment(1, 10, 19, downloadedBytes = 3)
+        val checkpoint = DirectTransferCheckpoint(
+            totalBytes = 20,
+            entityTag = "\"private\"",
+            lastModified = null,
+            segments = listOf(first, second),
+        )
+
+        assertEquals(7L, checkpoint.downloadedBytes)
+        assertFalse(checkpoint.toString().contains("\"private\""))
+        assertThrows(IllegalArgumentException::class.java) {
+            checkpoint.copy(segments = listOf(second, first))
+        }
+    }
 }

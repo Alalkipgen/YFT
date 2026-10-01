@@ -180,3 +180,45 @@ sealed interface DirectProbeResult {
 
     data class Failure(val failure: DownloadFailure) : DirectProbeResult
 }
+
+data class DirectTransferCheckpoint(
+    val totalBytes: Long?,
+    val entityTag: String?,
+    val lastModified: String?,
+    val segments: List<DownloadSegment>,
+) {
+    init {
+        require(totalBytes == null || totalBytes >= 0)
+        require(segments.map(DownloadSegment::index).distinct().size == segments.size)
+        require(segments.zipWithNext().all { (left, right) -> left.index < right.index })
+    }
+
+    val downloadedBytes: Long
+        get() = segments.sumOf(DownloadSegment::downloadedBytes)
+
+    override fun toString(): String = buildString {
+        append("DirectTransferCheckpoint(totalBytes=")
+        append(totalBytes)
+        append(", entityTagPresent=")
+        append(!entityTag.isNullOrBlank())
+        append(", lastModifiedPresent=")
+        append(!lastModified.isNullOrBlank())
+        append(", segmentCount=")
+        append(segments.size)
+        append(", downloadedBytes=")
+        append(downloadedBytes)
+        append(')')
+    }
+}
+
+sealed interface DirectTransferResult {
+    data class Completed(
+        val bytesWritten: Long,
+        val checkpoint: DirectTransferCheckpoint,
+    ) : DirectTransferResult
+
+    data class Failure(
+        val failure: DownloadFailure,
+        val checkpoint: DirectTransferCheckpoint,
+    ) : DirectTransferResult
+}
