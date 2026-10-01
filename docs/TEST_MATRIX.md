@@ -65,6 +65,32 @@
 | Fresh minified release build | Local JDK 17/SDK 35 | Unsigned release APK assembled | PASS — 207 tasks in 4m 27s |
 | Phase 2 completion CI | GitHub Actions, JDK 17/SDK 35 | Work-branch lint/tests/debug workflow passes | PASS — run 36799479295 on `d7d25b6` |
 
+## Phase 3 automated checks
+
+| Test | Environment | Expected | Current result |
+| --- | --- | --- | --- |
+| Asset/variant invariants | JVM | Unique IDs, valid numeric metadata and paired size accuracy | PASS |
+| Sensitive model rendering | JVM | Signed playback URLs and cookies absent from `toString()` | PASS |
+| Direct MP4 validation | MockWebServer/coroutines | HEAD metadata produces direct variant and exact size | PASS |
+| Range/no-total fallback | MockWebServer/coroutines | One-byte GET used; total size remains unknown | PASS |
+| Redirect context safety | Two MockWebServer origins | Same-origin cookie retained; cross-origin cookie removed | PASS |
+| Expired candidate | MockWebServer/coroutines | Structured expiry failure before network access | PASS |
+| Cookie-protected candidate | MockWebServer | Browser cookie replayed only to original media origin | PASS |
+| Multi-variant HLS | MockWebServer/parser | Real resolution/FPS/bitrate variants and separate audio track | PASS |
+| DASH representations | MockWebServer/secure XML parser | Video/audio tracks, duration, FPS and estimated sizes | PASS |
+| Unsupported codec | HLS fixture | Explicit unsupported-codec failure | PASS |
+| DRM manifest | HLS fixture | Explicit DRM failure; no playback source | PASS |
+| Malformed manifest | HLS fixture | Explicit malformed-manifest failure; no invented variant | PASS |
+| Explicit Media3 source kind | Robolectric | Progressive, HLS and DASH source classes selected correctly | PASS |
+| Preview request policy | JVM/Robolectric | HTTPS only; cross-origin browser credentials stripped | PASS |
+| In-memory selection boundary | ViewModel/Robolectric | Current candidate selected without route/database persistence; stale candidate rejected | PASS |
+| Preview state/errors | ViewModel/coroutines | Resolution, retry, tab switching and DRM/network messages deterministic | PASS |
+| Preview Compose surface | Robolectric Compose | Honest metadata, estimated/unknown labels, audio/video tabs and DRM state | PASS |
+| Player lifecycle/build integration | Hilt/Android build | Player is lazy, non-autoplaying and released with composition | PASS |
+| Phase 3 core-media tests | JUnit/Robolectric/MockWebServer | No failures | PASS — 14 tests |
+| Phase 3 app tests | JUnit/Robolectric Compose | No failures | PASS — 16 tests |
+| Full Phase 3 matrix | Local JDK 17/SDK 35 | Lint, Android/JVM tests, debug and minified release build pass | PASS — 497 tasks in 4m 12s; 79 tests, 0 failures |
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |
@@ -78,12 +104,10 @@
 | Cookie/header preview | Controlled authenticated fixture | Preview succeeds with session context | NOT RUN |
 | DRM fixture | Known encrypted manifest | Structured unsupported result | NOT RUN |
 
-## Later regression categories
+## Phase 4 and later regression categories
 
-- Redirects and URL expiry
 - Process death and task recovery
 - Range/no-range direct servers
-- HLS/DASH malformed manifests
 - Separate audio/video muxing
 - Low storage
 - Network switching

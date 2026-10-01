@@ -5,7 +5,7 @@
 | 0 — Discovery and feasibility | COMPLETE | Architecture, support matrix, ADRs and compileable Media3/WebView spike validated locally and in CI |
 | 1 — Foundation | COMPLETE | Production modules, Compose navigation shell, DI/data/media foundations, tests and CI validated on the work branch |
 | 2 — Browser/detection | COMPLETE | Secure browser, layered generic detection, bounded probes, page-scoped normalization, fixtures and candidate UI validated |
-| 3 — Preview/variants | IN PROGRESS | Honest asset/variant resolution and Media3 preview work started from the green Phase 2 head |
+| 3 — Preview/variants | COMPLETE | Bounded direct/HLS/DASH resolution, honest variants and secure Media3 preview validated |
 | 4 — Download engines | NOT STARTED | — |
 | 5 — Site adapters | NOT STARTED | — |
 | 6 — Hardening/UI | NOT STARTED | — |
@@ -13,7 +13,7 @@
 
 ## Current phase state
 
-Phase 3 is active on `work/phase-3-preview-variants`, created from final Phase 2 head `eedae3b`. Work is limited to candidate validation, honest variant resolution and non-DRM Media3 preview. Do not merge a work branch into `main`; Phase 4 may begin only after Phase 3 is complete and validated.
+Phase 3 is complete on `work/phase-3-preview-variants`, created from final Phase 2 head `eedae3b`. The full lint/test/debug/release matrix is green. The user explicitly authorized Phase 4 to begin immediately after the Phase 3 completion checkpoint; do not merge work branches into `main`.
 
 ## Completed in Phase 1
 
@@ -91,12 +91,31 @@ Phase 3 is active on `work/phase-3-preview-variants`, created from final Phase 2
 - Phase 2 completion commit `d7d25b6` passed GitHub Actions run `36799479295`.
 - No physical Android device/emulator was available, so real Android WebView callback/rendering behavior remains an explicit runtime verification item rather than a claimed on-device result.
 
-## Phase 3 active scope
+## Completed in Phase 3
 
-- Direct MP4/WebM/audio validation without downloading whole files.
-- Bounded HLS and DASH manifest parsing with redirect, expiry and DRM checks.
-- Honest video/audio/separate-track variants with known resolution, FPS, codec, bitrate, duration and estimated-size fields only.
-- Clear expired, malformed, DRM and unsupported-codec failures.
-- Media3 preview using the candidate's replay-safe browser request context.
-- Video/audio tabs, variant selection and explicit unknown/estimated labels.
-- No download planning, transfer service, storage export or recovery engine until Phase 4.
+- Added redacting asset/variant/result models with explicit direct/HLS/DASH, video/audio/separate-track, support and size-accuracy state.
+- Added a cancellable resolver with a 10-second timeout, five redirects, HTTPS production policy and a 1 MiB manifest bound.
+- Added direct HEAD/range validation without consuming full media bodies.
+- Added HLS master/media parsing and secure DASH XML parsing for real resolution, FPS, codec, bitrate, duration, language and track data.
+- Added exact direct sizes and clearly marked bitrate/duration estimates; unavailable metadata remains unknown.
+- Added explicit expiry, DRM, malformed-manifest, oversized-manifest, unsafe-redirect, HTTP/network and unsupported-codec failures.
+- Added HTTPS-only Media3 Progressive/HLS/DASH sources with origin-aware browser-context replay and cross-origin credential stripping.
+- Added an in-memory-only browser-to-preview selection boundary so sensitive media URLs never enter navigation or persistence.
+- Added lifecycle-safe, non-autoplaying preview playback with video/audio tabs, variant selection, retry and safe errors.
+- Kept download planning, transfer services, storage export and recovery out of Phase 3.
+
+## Phase 3 validation
+
+- Full command passed:
+
+```bash
+./gradlew --no-daemon \
+  lintDebug testDebugUnitTest \
+  :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test \
+  :app:assembleDebug :app:assembleRelease
+```
+
+- Result: **BUILD SUCCESSFUL** in 4m 12s; 497 tasks, 79 tests, 0 failures, 0 errors and 0 skipped.
+- Debug APK: 15,089,630 bytes; SHA-256 `328fd782adf9f3c924b07dba7588b462472f48f85a7c886d2e1fd7edff86b874`.
+- Unsigned minified release APK: 2,595,334 bytes; SHA-256 `c51a449fb095d9f04c2fca8ef36b01b106dbfaf9b3e8178aa89b6ae424651c98`.
+- No device/emulator was available, so actual Android WebView and Media3 rendering/playback remain explicit runtime checks rather than claimed device validation.

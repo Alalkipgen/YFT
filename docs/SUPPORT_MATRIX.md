@@ -19,14 +19,16 @@ Status values:
 | WebView DownloadListener | Implemented | 2 | Captures MIME, filename, size and secure request context |
 | WebView request URL/headers | Implemented | 2 | Observes GET requests; strongly hinted URLs receive bounded metadata probes |
 | Literal `blob:` URL | Unsupported as a file | 2 | Literal is rejected; underlying HTTP(S) source/manifest observations are detected |
-| HLS `.m3u8` preview | Spike | 3 | Media3 HLS source compiles; device playback remains to be exercised |
+| Direct MP4/WebM/audio preview | Implemented | 3 | Bounded metadata validation and explicit Media3 progressive source; device playback remains to be exercised |
+| HLS `.m3u8` preview | Implemented | 3 | Bounded master/media parsing, real variants and explicit Media3 HLS source; device playback remains to be exercised |
 | HLS download/export | Planned | 4 | Non-DRM only |
-| DASH `.mpd` preview | Spike | 3 | Media3 DASH source compiles; device playback remains to be exercised |
+| DASH `.mpd` preview | Implemented | 3 | Secure MPD parsing, real representations and explicit Media3 DASH source; device playback remains to be exercised |
 | DASH download/export | Planned | 4 | Non-DRM only |
-| Separate video/audio tracks | Planned | 3–4 | Requires track selection and muxing |
-| Signed/expiring URL | Planned | 3–5 | Resolver refresh callback |
+| Separate video/audio tracks | Implemented | 3–4 | Resolution and preview tabs are explicit; offline muxing remains Phase 4 |
+| Signed/expiring URL | Implemented | 3–5 | Known expiry fails clearly; refresh callback remains Phase 4/5 work |
 | Cookie/header-protected detection | Implemented | 2 | Same-origin probe replay is tested; cross-origin credentials are stripped |
-| DRM/Widevine | Unsupported | — | Detect and reject; no circumvention |
+| Cookie/header-protected preview | Implemented | 3 | Same-origin replay and cross-origin stripping are tested; device playback remains to be exercised |
+| DRM/Widevine | Unsupported | — | Hints and manifest keys are detected and rejected; no circumvention |
 | TikTok adapter | Planned | 5A | Public/authorized non-DRM media only |
 | Facebook adapter | Planned | 5B | Public/authorized non-DRM media only |
 | Other websites | Planned | 5C | Add only with fixtures |

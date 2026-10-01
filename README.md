@@ -2,7 +2,7 @@
 
 YFT is an ad-free Android application for detecting and, in later phases, downloading authorized non-DRM media from direct links, HTML5 players, HLS and DASH streams.
 
-**Phase 2: the secure browser and generic media detection are complete on `work/phase-2-browser-detection`.** Preview, variant resolution and download engines are not implemented yet; Phase 3 has not started.
+**Phase 3: secure detection, honest direct/HLS/DASH variant resolution and Media3 preview are complete on `work/phase-3-preview-variants`.** Download engines, background recovery and storage export begin in Phase 4.
 
 ## Current state
 
@@ -11,7 +11,11 @@ YFT is an ad-free Android application for detecting and, in later phases, downlo
 - Generic detection from `DownloadListener`, read-only DOM inspection and observed HTTP(S) request URLs/headers.
 - Direct media, HLS and DASH classification plus bounded, cancellable header probes with credential-safe redirect handling.
 - Page-scoped candidate normalization, signed-URL deduplication, limits, debounce and immediate navigation cleanup.
-- A media-found floating button and bottom sheet that keeps unavailable MIME, size, duration and DRM data explicitly unknown.
+- A media-found bottom sheet whose Preview action passes sensitive candidate context through memory only, never through a route or database.
+- Bounded direct metadata validation plus HLS/DASH parsing for real video/audio variants, separate tracks, resolution, FPS, codec, bitrate, duration and exact/estimated/unknown size.
+- Explicit expired-link, DRM, unsupported-codec, malformed-manifest, unsafe-redirect and network failures without inventing metadata.
+- HTTPS-only Media3 progressive/HLS/DASH sources with same-origin browser context and cross-origin credential stripping.
+- A lifecycle-safe preview screen with video/audio tabs, selectable variants, player controls, retry states and explicit unknown/estimated labels.
 - Committed MP4/WebM/audio/HLS/DASH/blob fixtures and MockWebServer/Robolectric/Compose coverage.
 - The Phase 1 Compose, Hilt, Room, DataStore, OkHttp, Media3, redaction, CI and release-build foundations.
 - The Phase 0 feasibility harness remains under [`spikes/phase0-media`](spikes/phase0-media/).
@@ -49,7 +53,7 @@ Use JDK 17 and Android SDK 35:
 
 A local release check can additionally run `:app:assembleRelease`; the output is intentionally unsigned until Phase 7.
 
-No device/emulator was available for Phase 2, so real Android WebView rendering remains an explicit runtime verification item. The exact production DOM script was also executed against the committed HTML fixture in headless Chromium, while browser policy, parser, pipeline, ViewModel and Compose behavior are covered locally.
+The Phase 3 completion matrix passed 79 tests, Android lint, debug assembly and the minified unsigned release build. No device/emulator was available, so real Android WebView rendering and Media3 playback remain explicit runtime verification items. Browser policy, bounded network behavior, manifests, state and Compose surfaces are covered locally.
 
 See [`docs/PHASE_STATUS.md`](docs/PHASE_STATUS.md), [`docs/TEST_MATRIX.md`](docs/TEST_MATRIX.md) and [`docs/HANDOFF.md`](docs/HANDOFF.md) before continuing.
 

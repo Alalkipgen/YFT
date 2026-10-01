@@ -159,7 +159,18 @@ The application owns Range and If-Range headers. It must strip connection-specif
 
 ## Preview and stream handling
 
-Media3 is the first choice for direct preview and non-DRM HLS/DASH playback. The Phase 0 spike compiles explicit Progressive, HLS and DASH `MediaSource` creation using replay headers.
+Media3 is the production preview engine for direct and non-DRM HLS/DASH media. Phase 3 implements:
+
+- a 10-second bounded resolver with at most five manual redirects;
+- direct `HEAD` metadata with a one-byte range fallback that never intentionally reads the full media body;
+- HLS master/media parsing for real streams, audio renditions, resolution, FPS, codec and bitrate;
+- secure, external-entity-disabled DASH parsing for real video/audio representations and duration;
+- exact direct sizes and bitrate/duration estimates explicitly marked as estimated; absent data remains unknown;
+- preflight expiry, DRM, malformed-manifest and unsupported-codec failures;
+- explicit Progressive, HLS and DASH Media3 sources over HTTPS;
+- an origin-aware OkHttp policy that replays browser context to the credential origin and removes credential/custom context headers cross-origin.
+
+Candidate selection is kept only in a singleton in-memory flow. Signed URLs, cookies and browser context are not placed in navigation routes, saved state or Room. The preview screen owns a lazy player for the selected representation, disables autoplay, releases it with the composition and exposes generic playback errors without upstream diagnostics.
 
 Offline/export behavior is separate from preview:
 
@@ -218,7 +229,7 @@ feature/settings
 feature/about
 ```
 
-All eight routes are real Compose destinations. Phase-specific behavior remains placeholder-only so the foundation does not cross into browser detection, preview resolution or download engines prematurely.
+All eight routes are real Compose destinations. Browser/detection and preview/variant behavior were added in Phases 2 and 3 respectively; download, library export and site-adapter behavior remain phase-scoped.
 
 ### State and settings
 
