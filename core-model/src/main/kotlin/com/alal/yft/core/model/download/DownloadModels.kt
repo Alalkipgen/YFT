@@ -1,6 +1,7 @@
 package com.alal.yft.core.model.download
 
 import com.alal.yft.core.model.media.BrowserRequestContext
+import com.alal.yft.core.model.media.MediaTrackType
 
 /** A download plan contains transient request context and must not be persisted verbatim. */
 sealed interface DownloadPlan {
@@ -70,6 +71,74 @@ data class HlsDownloadPlan(
         append(suggestedFileName)
         append(", requestContext=[REDACTED], mimeType=")
         append(mimeType)
+        append(", expiresAtEpochMs=")
+        append(expiresAtEpochMs)
+        append(')')
+    }
+}
+
+data class DashDownloadPlan(
+    override val taskId: String,
+    val manifestUrl: String,
+    val representationId: String,
+    val trackType: MediaTrackType,
+    override val suggestedFileName: String,
+    val requestContext: BrowserRequestContext,
+    val mimeType: String? = null,
+    val codecs: List<String> = emptyList(),
+    override val expiresAtEpochMs: Long? = null,
+) : DownloadPlan {
+    init {
+        require(taskId.isNotBlank())
+        require(manifestUrl.isNotBlank())
+        require(representationId.isNotBlank())
+        require(suggestedFileName.isNotBlank())
+        require(codecs.none(String::isBlank))
+    }
+
+    override fun toString(): String = buildString {
+        append("DashDownloadPlan(taskId=")
+        append(taskId)
+        append(", manifestUrl=[REDACTED], representationId=[REDACTED], trackType=")
+        append(trackType)
+        append(", suggestedFileName=")
+        append(suggestedFileName)
+        append(", requestContext=[REDACTED], mimeType=")
+        append(mimeType)
+        append(", codecCount=")
+        append(codecs.size)
+        append(", expiresAtEpochMs=")
+        append(expiresAtEpochMs)
+        append(')')
+    }
+}
+
+data class AudioVideoMuxDownloadPlan(
+    override val taskId: String,
+    val video: DashDownloadPlan,
+    val audio: DashDownloadPlan,
+    override val suggestedFileName: String,
+    val outputMimeType: String = "video/mp4",
+) : DownloadPlan {
+    init {
+        require(taskId.isNotBlank())
+        require(video.trackType == MediaTrackType.VIDEO)
+        require(audio.trackType == MediaTrackType.AUDIO)
+        require(video.taskId != audio.taskId)
+        require(suggestedFileName.isNotBlank())
+        require(outputMimeType.isNotBlank())
+    }
+
+    override val expiresAtEpochMs: Long?
+        get() = listOfNotNull(video.expiresAtEpochMs, audio.expiresAtEpochMs).minOrNull()
+
+    override fun toString(): String = buildString {
+        append("AudioVideoMuxDownloadPlan(taskId=")
+        append(taskId)
+        append(", video=[REDACTED], audio=[REDACTED], suggestedFileName=")
+        append(suggestedFileName)
+        append(", outputMimeType=")
+        append(outputMimeType)
         append(", expiresAtEpochMs=")
         append(expiresAtEpochMs)
         append(')')
@@ -305,4 +374,50 @@ sealed interface HlsTransferResult {
         val failure: DownloadFailure,
         val checkpoint: HlsTransferCheckpoint,
     ) : HlsTransferResult
+}
+
+data class DashTransferCheckpoint(
+    val manifestFingerprint: String?,
+    val chunks: List<StreamChunkCheckpoint>,
+) {
+    init {
+        require(manifestFingerprint == null || manifestFingerprint.matches(SHA_256_PATTERN))
+        require(chunks.map(StreamChunkCheckpoint::index).distinct().size == chunks.size)
+        require(chunks.zipWithNext().all { (left, right) -> left.index < right.index })
+        require(chunks.withIndex().all { (position, chunk) -> position == chunk.index })
+    }
+
+    val downloadedBytes: Long
+        get() = chunks.sumOf(StreamChunkCheckpoint::downloadedBytes)
+
+    val completedChunkCount: Int
+        get() = chunks.count(StreamChunkCheckpoint::completed)
+
+    override fun toString(): String = buildString {
+        append("DashTransferCheckpoint(manifestFingerprintPresent=")
+        append(manifestFingerprint != null)
+        append(", chunkCount=")
+        append(chunks.size)
+        append(", completedChunkCount=")
+        append(completedChunkCount)
+        append(", downloadedBytes=")
+        append(downloadedBytes)
+        append(')')
+    }
+
+    private companion object {
+        val SHA_256_PATTERN = Regex("[0-9a-f]{64}")
+    }
+}
+
+sealed interface DashTransferResult {
+    data class Completed(
+        val bytesWritten: Long,
+        val checkpoint: DashTransferCheckpoint,
+    ) : DashTransferResult
+
+    data class Failure(
+        val failure: DownloadFailure,
+        val checkpoint: DashTransferCheckpoint,
+    ) : DashTransferResult
 }
