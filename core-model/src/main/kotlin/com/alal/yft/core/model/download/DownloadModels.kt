@@ -49,6 +49,33 @@ data class DirectDownloadPlan(
     }
 }
 
+data class HlsDownloadPlan(
+    override val taskId: String,
+    val playlistUrl: String,
+    override val suggestedFileName: String,
+    val requestContext: BrowserRequestContext,
+    val mimeType: String? = null,
+    override val expiresAtEpochMs: Long? = null,
+) : DownloadPlan {
+    init {
+        require(taskId.isNotBlank())
+        require(playlistUrl.isNotBlank())
+        require(suggestedFileName.isNotBlank())
+    }
+
+    override fun toString(): String = buildString {
+        append("HlsDownloadPlan(taskId=")
+        append(taskId)
+        append(", playlistUrl=[REDACTED], suggestedFileName=")
+        append(suggestedFileName)
+        append(", requestContext=[REDACTED], mimeType=")
+        append(mimeType)
+        append(", expiresAtEpochMs=")
+        append(expiresAtEpochMs)
+        append(')')
+    }
+}
+
 enum class DownloadTaskStatus {
     QUEUED,
     PROBING,
@@ -221,4 +248,61 @@ sealed interface DirectTransferResult {
         val failure: DownloadFailure,
         val checkpoint: DirectTransferCheckpoint,
     ) : DirectTransferResult
+}
+
+data class StreamChunkCheckpoint(
+    val index: Int,
+    val downloadedBytes: Long,
+    val completed: Boolean,
+) {
+    init {
+        require(index >= 0)
+        require(downloadedBytes >= 0)
+    }
+}
+
+data class HlsTransferCheckpoint(
+    val manifestFingerprint: String?,
+    val chunks: List<StreamChunkCheckpoint>,
+) {
+    init {
+        require(manifestFingerprint == null || manifestFingerprint.matches(SHA_256_PATTERN))
+        require(chunks.map(StreamChunkCheckpoint::index).distinct().size == chunks.size)
+        require(chunks.zipWithNext().all { (left, right) -> left.index < right.index })
+        require(chunks.withIndex().all { (position, chunk) -> position == chunk.index })
+    }
+
+    val downloadedBytes: Long
+        get() = chunks.sumOf(StreamChunkCheckpoint::downloadedBytes)
+
+    val completedChunkCount: Int
+        get() = chunks.count(StreamChunkCheckpoint::completed)
+
+    override fun toString(): String = buildString {
+        append("HlsTransferCheckpoint(manifestFingerprintPresent=")
+        append(manifestFingerprint != null)
+        append(", chunkCount=")
+        append(chunks.size)
+        append(", completedChunkCount=")
+        append(completedChunkCount)
+        append(", downloadedBytes=")
+        append(downloadedBytes)
+        append(')')
+    }
+
+    private companion object {
+        val SHA_256_PATTERN = Regex("[0-9a-f]{64}")
+    }
+}
+
+sealed interface HlsTransferResult {
+    data class Completed(
+        val bytesWritten: Long,
+        val checkpoint: HlsTransferCheckpoint,
+    ) : HlsTransferResult
+
+    data class Failure(
+        val failure: DownloadFailure,
+        val checkpoint: HlsTransferCheckpoint,
+    ) : HlsTransferResult
 }
