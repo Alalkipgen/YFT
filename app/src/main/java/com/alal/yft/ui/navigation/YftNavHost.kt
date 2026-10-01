@@ -6,7 +6,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.feature.about.AboutScreen
-import com.alal.yft.feature.browser.BrowserScreen
+import com.alal.yft.feature.browser.BrowserRoute
 import com.alal.yft.feature.detectedmedia.DetectedMediaScreen
 import com.alal.yft.feature.downloads.DownloadsScreen
 import com.alal.yft.feature.home.HomeScreen
@@ -19,6 +19,9 @@ fun YftNavHost(
     navController: NavHostController,
     themeMode: ThemeMode,
     onThemeModeChanged: (ThemeMode) -> Unit,
+    browserContent: @Composable (() -> Unit) -> Unit = { onNavigateBack ->
+        BrowserRoute(onNavigateBack = onNavigateBack)
+    },
 ) {
     val navigateBack = { navController.navigateUp(); Unit }
 
@@ -30,7 +33,7 @@ fun YftNavHost(
             HomeScreen(onOpenDestination = { navController.navigate(it.route) })
         }
         composable(YftDestination.BROWSER.route) {
-            BrowserScreen(onNavigateBack = navigateBack)
+            browserContent(navigateBack)
         }
         composable(YftDestination.DETECTED_MEDIA.route) {
             DetectedMediaScreen(onNavigateBack = navigateBack)

@@ -41,6 +41,22 @@ class BrowserObservationMapperTest {
     }
 
     @Test
+    fun metadataProbeMappingAllowsStrongOpaqueHintsButRejectsOrdinaryAssets() {
+        val opaqueStream = request("https://cdn.test/api/video/stream?id=7", method = "GET")
+        val acceptHint = opaqueStream.copy(
+            requestUrl = "https://cdn.test/api/content?id=7",
+            headers = mapOf("Accept" to "video/*"),
+        )
+        val script = request("https://cdn.test/video/player.js", method = "GET")
+        val analytics = request("https://cdn.test/analytics/video.gif", method = "GET")
+
+        assertEquals(MediaKind.UNKNOWN, BrowserObservationMapper.forMetadataProbe(opaqueStream)?.kind)
+        assertEquals(MediaKind.UNKNOWN, BrowserObservationMapper.forMetadataProbe(acceptHint)?.kind)
+        assertNull(BrowserObservationMapper.forMetadataProbe(script))
+        assertNull(BrowserObservationMapper.forMetadataProbe(analytics))
+    }
+
+    @Test
     fun downloadListenerUsesMimeAndSafeFilenameHint() {
         val candidate = BrowserObservationMapper.fromDownload(
             DownloadObservation(
