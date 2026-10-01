@@ -4,12 +4,12 @@ Update this file before every checkpoint push. Keep it short, factual and suffic
 
 - Current phase: Phase 2 — Built-in browser and generic media detection
 - Current branch: `work/phase-2-browser-detection`
-- Last completed task: Added secure WebView/address policy, read-only DOM media probing, request/download/redirect observation mapping, WebView callback clients and a debounced page-scoped candidate store with immediate navigation cleanup
-- Work in progress: Bounded HTTP metadata/redirect probing with local fixtures, followed by the app browser UI and candidate sheet
-- Build status: PASS — `./gradlew --no-daemon :core-browser:testDebugUnitTest :core-browser:assembleDebug` completed in 30s; 48 tasks and all browser-core tests passed
-- Known failure/blocker: No physical Android device/emulator is attached; WebView behavior must use Robolectric/unit fixtures plus later on-device confirmation
-- Next exact action: Checkpoint the secure browser observation core, then implement a bounded metadata probe with local MockWebServer coverage for MIME-only media, manifests, redirects and replay-safe request headers
-- Last pushed checkpoint: `cb4f3fd` — candidate models, classification and page-scoped normalization foundation
+- Last completed task: Added a body-bounded HTTP metadata probe with HEAD/range fallback, MIME and content-length enrichment, manual bounded redirects and cross-origin credential stripping; covered by local MockWebServer fixtures
+- Work in progress: Integrating browser callbacks, bounded request probing and page-scoped candidates into the app browser UI
+- Build status: PASS — with JDK 17, `./gradlew --no-daemon :core-browser:testDebugUnitTest :core-browser:assembleDebug` completed in 1m 28s; 48 tasks and 19 tests passed with 0 failures
+- Known failure/blocker: No physical Android device/emulator is attached; WebView behavior must use Robolectric/unit fixtures plus later on-device confirmation. GitHub Advanced Security secret scanning is unavailable for this repository, so local structured-secret scans remain required before pushes
+- Next exact action: Checkpoint the metadata probe, then implement the browser ViewModel/state, bounded request-probe coordinator and Compose WebView controls/loading/error/candidate button and bottom sheet with state/UI tests
+- Last pushed checkpoint: `fe91576` — secure WebView policy, DOM/request/download observation mapping and page candidate store
 - Last updated: 2026-10-01
 
 ## Checkpoint note template
