@@ -5,6 +5,7 @@ import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -50,6 +51,106 @@ class AppDatabaseMigrationTest {
             assertEquals("Sample", cursor.getString(1))
             assertEquals(25, cursor.getInt(2))
             assertNull(cursor.getString(3))
+        }
+        migrated.close()
+    }
+
+    @Test
+    fun migrationFrom2To3PreservesRowsAndMakesInterruptedWorkRefreshable() {
+        helper.createDatabase(TEST_DATABASE, 2).apply {
+            execSQL(
+                """
+                INSERT INTO download_records (
+                    id,
+                    display_name,
+                    status,
+                    progress_percent,
+                    created_at_epoch_ms,
+                    last_error_code
+                ) VALUES ('record-2', 'Interrupted', 'RUNNING', 40, 2000, NULL)
+                """.trimIndent(),
+            )
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(
+            TEST_DATABASE,
+            3,
+            true,
+            AppDatabase.MIGRATION_2_3,
+        )
+
+        migrated.query(
+            """
+            SELECT
+                id,
+                status,
+                plan_type,
+                downloaded_bytes,
+                destination_kind,
+                preferred_segment_count,
+                requires_link_refresh,
+                updated_at_epoch_ms
+            FROM download_records
+            """.trimIndent(),
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("record-2", cursor.getString(0))
+            assertEquals("NEEDS_REFRESH", cursor.getString(1))
+            assertEquals("DIRECT", cursor.getString(2))
+            assertEquals(0L, cursor.getLong(3))
+            assertEquals("APP_PRIVATE", cursor.getString(4))
+            assertEquals(4, cursor.getInt(5))
+            assertEquals(1, cursor.getInt(6))
+            assertEquals(0L, cursor.getLong(7))
+        }
+        migrated.execSQL(
+            """
+            INSERT INTO download_segments (
+                download_id,
+                segment_index,
+                start_byte,
+                end_byte_inclusive,
+                downloaded_bytes
+            ) VALUES ('record-2', 0, 0, 99, 25)
+            """.trimIndent(),
+        )
+        migrated.query(
+            "SELECT downloaded_bytes FROM download_segments WHERE download_id = 'record-2'",
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(25L, cursor.getLong(0))
+        }
+        migrated.close()
+    }
+
+    @Test
+    fun migrationFrom1To3ValidatesTheCompleteChain() {
+        helper.createDatabase(TEST_DATABASE, 1).apply {
+            execSQL(
+                """
+                INSERT INTO download_records (
+                    id, display_name, status, progress_percent, created_at_epoch_ms
+                ) VALUES ('record-3', 'Queued', 'QUEUED', 0, 3000)
+                """.trimIndent(),
+            )
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(
+            TEST_DATABASE,
+            3,
+            true,
+            AppDatabase.MIGRATION_1_2,
+            AppDatabase.MIGRATION_2_3,
+        )
+
+        migrated.query(
+            "SELECT status, last_error_code FROM download_records WHERE id = 'record-3'",
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("NEEDS_REFRESH", cursor.getString(0))
+            assertNull(cursor.getString(1))
         }
         migrated.close()
     }

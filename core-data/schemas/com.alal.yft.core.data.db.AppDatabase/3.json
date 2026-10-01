@@ -1,0 +1,203 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 3,
+    "identityHash": "867f2d8e1982a3817fa308847576e020",
+    "entities": [
+      {
+        "tableName": "download_records",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `display_name` TEXT NOT NULL, `status` TEXT NOT NULL, `progress_percent` INTEGER NOT NULL, `created_at_epoch_ms` INTEGER NOT NULL, `last_error_code` TEXT, `plan_type` TEXT NOT NULL DEFAULT 'DIRECT', `total_bytes` INTEGER, `downloaded_bytes` INTEGER NOT NULL DEFAULT 0, `mime_type` TEXT, `destination_kind` TEXT NOT NULL DEFAULT 'APP_PRIVATE', `destination_uri` TEXT, `entity_tag` TEXT, `last_modified` TEXT, `preferred_segment_count` INTEGER NOT NULL DEFAULT 4, `requires_link_refresh` INTEGER NOT NULL DEFAULT 1, `updated_at_epoch_ms` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayName",
+            "columnName": "display_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "progressPercent",
+            "columnName": "progress_percent",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtEpochMs",
+            "columnName": "created_at_epoch_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastErrorCode",
+            "columnName": "last_error_code",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "planType",
+            "columnName": "plan_type",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'DIRECT'"
+          },
+          {
+            "fieldPath": "totalBytes",
+            "columnName": "total_bytes",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "downloadedBytes",
+            "columnName": "downloaded_bytes",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "mimeType",
+            "columnName": "mime_type",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "destinationKind",
+            "columnName": "destination_kind",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'APP_PRIVATE'"
+          },
+          {
+            "fieldPath": "destinationUri",
+            "columnName": "destination_uri",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "entityTag",
+            "columnName": "entity_tag",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "lastModified",
+            "columnName": "last_modified",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "preferredSegmentCount",
+            "columnName": "preferred_segment_count",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "4"
+          },
+          {
+            "fieldPath": "requiresLinkRefresh",
+            "columnName": "requires_link_refresh",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "updatedAtEpochMs",
+            "columnName": "updated_at_epoch_ms",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "download_segments",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`download_id` TEXT NOT NULL, `segment_index` INTEGER NOT NULL, `start_byte` INTEGER NOT NULL, `end_byte_inclusive` INTEGER, `downloaded_bytes` INTEGER NOT NULL, PRIMARY KEY(`download_id`, `segment_index`), FOREIGN KEY(`download_id`) REFERENCES `download_records`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "downloadId",
+            "columnName": "download_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "segmentIndex",
+            "columnName": "segment_index",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startByte",
+            "columnName": "start_byte",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endByteInclusive",
+            "columnName": "end_byte_inclusive",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "downloadedBytes",
+            "columnName": "downloaded_bytes",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "download_id",
+            "segment_index"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_download_segments_download_id",
+            "unique": false,
+            "columnNames": [
+              "download_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_download_segments_download_id` ON `${TABLE_NAME}` (`download_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "download_records",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "download_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '867f2d8e1982a3817fa308847576e020')"
+    ]
+  }
+}
