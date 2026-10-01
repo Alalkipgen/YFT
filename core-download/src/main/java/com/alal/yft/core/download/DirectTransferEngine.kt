@@ -210,9 +210,9 @@ class DirectTransferEngine(
                 failure = DownloadFailure(failure.reason, failure.httpStatusCode),
                 checkpoint = tracker.snapshot(),
             )
-        } catch (_: IOException) {
+        } catch (failure: IOException) {
             DirectTransferResult.Failure(
-                failure = DownloadFailure(DownloadFailureReason.STORAGE_UNAVAILABLE),
+                failure = DownloadFailure(failure.storageFailureReason()),
                 checkpoint = tracker.snapshot(),
             )
         } catch (_: IllegalStateException) {
