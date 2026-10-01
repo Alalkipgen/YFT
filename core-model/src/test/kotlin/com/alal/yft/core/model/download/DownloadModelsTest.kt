@@ -31,6 +31,27 @@ class DownloadModelsTest {
     }
 
     @Test
+    fun `HLS plan string redacts signed playlist URL and browser context`() {
+        val plan = HlsDownloadPlan(
+            taskId = "hls-1",
+            playlistUrl = "https://cdn.example.test/track.m3u8?token=secret",
+            suggestedFileName = "track.ts",
+            requestContext = BrowserRequestContext(
+                pageUrl = "https://example.test/watch",
+                userAgent = "fixture",
+                cookie = "session=private",
+            ),
+        )
+
+        val rendered = plan.toString()
+
+        assertFalse(rendered.contains("secret"))
+        assertFalse(rendered.contains("session=private"))
+        assertFalse(rendered.contains("cdn.example.test"))
+        assertTrue(rendered.contains("[REDACTED]"))
+    }
+
+    @Test
     fun `segment validates progress and reports remaining bytes`() {
         val segment = DownloadSegment(
             index = 2,
@@ -99,6 +120,28 @@ class DownloadModelsTest {
         assertFalse(checkpoint.toString().contains("\"private\""))
         assertThrows(IllegalArgumentException::class.java) {
             checkpoint.copy(segments = listOf(second, first))
+        }
+    }
+
+    @Test
+    fun `HLS checkpoint reports completed chunks without exposing fingerprint`() {
+        val checkpoint = HlsTransferCheckpoint(
+            manifestFingerprint = "a".repeat(64),
+            chunks = listOf(
+                StreamChunkCheckpoint(index = 0, downloadedBytes = 4, completed = true),
+                StreamChunkCheckpoint(index = 1, downloadedBytes = 0, completed = false),
+            ),
+        )
+
+        assertEquals(4L, checkpoint.downloadedBytes)
+        assertEquals(1, checkpoint.completedChunkCount)
+        assertFalse(checkpoint.toString().contains("a".repeat(64)))
+        assertThrows(IllegalArgumentException::class.java) {
+            checkpoint.copy(
+                chunks = listOf(
+                    StreamChunkCheckpoint(index = 1, downloadedBytes = 0, completed = false),
+                ),
+            )
         }
     }
 }
