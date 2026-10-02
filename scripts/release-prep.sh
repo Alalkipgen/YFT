@@ -60,6 +60,8 @@ fi
 
 # Separate Gradle invocations keep peak memory low enough for 4 GiB machines.
 gradle=(./gradlew --no-daemon)
+# Fail in seconds, not after the test run, when signing is missing, partial or points nowhere.
+"${gradle[@]}" -q -Pyft.requireReleaseSigning=true help >/dev/null
 "${gradle[@]}" clean
 if [[ "$skip_tests" -eq 0 ]]; then
   "${gradle[@]}" lintDebug testDebugUnitTest \
