@@ -6,6 +6,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -143,6 +145,69 @@ class PreviewScreenTest {
         ).forEach { expected ->
             assertTrue(unknown.metadataLabel().contains(expected))
         }
+    }
+
+    @Test
+    fun downloadActionReportsQueuedAndRejectedStatesHonestly() {
+        val video = variant(
+            id = "video-720",
+            trackType = MediaTrackType.VIDEO,
+            label = "720p stream",
+            width = 1280,
+            height = 720,
+            fps = 30.0,
+            bitrate = 800_000,
+            size = 1_000_000,
+            sizeAccuracy = MediaSizeAccuracy.EXACT,
+        )
+        val mutableState = mutableStateOf(
+            PreviewUiState.Ready(
+                asset = asset(listOf(video)),
+                selectedTab = PreviewTab.VIDEO,
+                selectedVariantId = video.id,
+            ),
+        )
+        var downloads = 0
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                PreviewScreen(
+                    uiState = mutableState.value,
+                    onNavigateBack = {},
+                    onRetry = {},
+                    onTabSelected = {},
+                    onVariantSelected = {},
+                    playerSurface = { _, modifier -> Box(modifier) },
+                    onDownload = {
+                        downloads += 1
+                        mutableState.value = mutableState.value.copy(
+                            downloadStatus = PreviewDownloadStatus.Enqueuing,
+                        )
+                    },
+                )
+            }
+        }
+
+        composeRule.onAllNodesWithTag("preview-download-status").assertCountEquals(0)
+        composeRule.onNodeWithTag("preview-download").assertIsEnabled().performClick()
+
+        assertTrue(downloads == 1)
+        composeRule.onNodeWithTag("preview-download").assertIsNotEnabled()
+        composeRule.onNodeWithText("Queueing download", substring = true).assertIsDisplayed()
+
+        mutableState.value = mutableState.value.copy(
+            downloadStatus = PreviewDownloadStatus.Queued("Fixture asset 720p stream.mp4"),
+        )
+
+        composeRule.onNodeWithTag("preview-download-status").assertIsDisplayed()
+        composeRule.onNodeWithText("Fixture asset 720p stream.mp4", substring = true)
+            .assertIsDisplayed()
+
+        mutableState.value = mutableState.value.copy(
+            downloadStatus = PreviewDownloadStatus.Rejected("Download storage is unavailable."),
+        )
+
+        composeRule.onNodeWithText("Download storage is unavailable.").assertIsDisplayed()
+        composeRule.onNodeWithTag("preview-download").assertIsEnabled()
     }
 
     @Test

@@ -16,6 +16,7 @@ import com.alal.yft.core.model.download.TransferCheckpoint
 import java.io.IOException
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -47,6 +48,7 @@ class DownloadQueue(
     private val scope: CoroutineScope,
     maxConcurrentDownloads: Int = 2,
     private val clock: () -> Long = System::currentTimeMillis,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     constructor(
         store: DownloadTaskStore,
@@ -54,12 +56,14 @@ class DownloadQueue(
         scope: CoroutineScope,
         maxConcurrentDownloads: Int = 2,
         clock: () -> Long = System::currentTimeMillis,
+        ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     ) : this(
         store = store,
         transferDispatcher = DirectOnlyDownloadTransferDispatcher(transferRunner),
         scope = scope,
         maxConcurrentDownloads = maxConcurrentDownloads,
         clock = clock,
+        ioDispatcher = ioDispatcher,
     )
 
     private val gate = Mutex()
@@ -356,7 +360,7 @@ class DownloadQueue(
         if (!stop.shouldFinalize) return
         stop.job?.cancelAndJoin()
         val runtime = gate.withLock { runtimeTasks[id] }
-        val discardFailure = withContext(Dispatchers.IO) {
+        val discardFailure = withContext(ioDispatcher) {
             var failure: Throwable? = null
             if (runtime != null) {
                 runCatching { transferDispatcher.discard(runtime.plan) }

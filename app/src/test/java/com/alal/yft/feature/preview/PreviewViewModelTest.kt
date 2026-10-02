@@ -17,6 +17,9 @@ import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
+import com.alal.yft.download.EnqueueResult
+import com.alal.yft.download.PreviewDownloadStarter
+import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.testing.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
@@ -102,9 +105,97 @@ class PreviewViewModelTest {
         assertEquals("DRM-protected media cannot be previewed.", error.message)
     }
 
+    @Test
+    fun downloadQueuesSelectedVariantAndIgnoresRepeatTapsWhileInFlight() = runTest {
+        val store = PreviewSelectionStore().apply { select(candidate()) }
+        val video = variant("video", MediaTrackType.VIDEO)
+        val starter = FakeDownloadStarter(
+            result = EnqueueResult.Started("task-9", "Fixture.mp4"),
+        )
+        val viewModel = viewModel(
+            FakeResolver(VariantResolutionResult.Success(asset(listOf(video)))),
+            store,
+            starter,
+        )
+        runCurrent()
+
+        viewModel.download()
+
+        val enqueuing = viewModel.uiState.value as PreviewUiState.Ready
+        assertEquals(PreviewDownloadStatus.Enqueuing, enqueuing.downloadStatus)
+        assertFalse(enqueuing.canDownload)
+
+        viewModel.download()
+        runCurrent()
+
+        assertEquals(1, starter.calls)
+        assertEquals(listOf("video"), starter.requested)
+        val queued = viewModel.uiState.value as PreviewUiState.Ready
+        assertEquals(PreviewDownloadStatus.Queued("Fixture.mp4"), queued.downloadStatus)
+        assertTrue(queued.canDownload)
+    }
+
+    @Test
+    fun rejectedDownloadKeepsReasonAndSelectingAnotherVariantClearsIt() = runTest {
+        val store = PreviewSelectionStore().apply { select(candidate()) }
+        val video = variant("video", MediaTrackType.VIDEO)
+        val other = variant("video-2", MediaTrackType.VIDEO)
+        val starter = FakeDownloadStarter(
+            result = EnqueueResult.Rejected(
+                DownloadFailureReason.EXPIRED_URL,
+                "This media link already expired. Reload the page and try again.",
+            ),
+        )
+        val viewModel = viewModel(
+            FakeResolver(VariantResolutionResult.Success(asset(listOf(video, other)))),
+            store,
+            starter,
+        )
+        runCurrent()
+
+        viewModel.download()
+        runCurrent()
+
+        val rejected = viewModel.uiState.value as PreviewUiState.Ready
+        assertEquals(
+            PreviewDownloadStatus.Rejected(
+                "This media link already expired. Reload the page and try again.",
+            ),
+            rejected.downloadStatus,
+        )
+
+        viewModel.selectVariant("video-2")
+
+        val cleared = viewModel.uiState.value as PreviewUiState.Ready
+        assertEquals(PreviewDownloadStatus.Idle, cleared.downloadStatus)
+    }
+
+    @Test
+    fun unexpectedEnqueueFailureIsReportedWithoutCrashing() = runTest {
+        val store = PreviewSelectionStore().apply { select(candidate()) }
+        val video = variant("video", MediaTrackType.VIDEO)
+        val starter = FakeDownloadStarter(failure = IllegalStateException("boom"))
+        val viewModel = viewModel(
+            FakeResolver(VariantResolutionResult.Success(asset(listOf(video)))),
+            store,
+            starter,
+        )
+        runCurrent()
+
+        viewModel.download()
+        runCurrent()
+
+        val ready = viewModel.uiState.value as PreviewUiState.Ready
+        assertEquals(
+            PreviewDownloadStatus.Rejected("The download could not be queued. Try again."),
+            ready.downloadStatus,
+        )
+    }
+
     private fun viewModel(
         resolver: VariantResolver,
         store: PreviewSelectionStore,
+        starter: PreviewDownloadStarter = FakeDownloadStarter(),
     ): PreviewViewModel {
         val context = ApplicationProvider.getApplicationContext<Context>()
         return PreviewViewModel(
@@ -112,6 +203,7 @@ class PreviewViewModelTest {
             selectionStore = store,
             mediaPlayerFactory = MediaPlayerFactory(context),
             previewSourceFactory = PreviewSourceFactory(OkHttpClient()),
+            downloadStarter = starter,
         )
     }
 
@@ -148,6 +240,24 @@ class PreviewViewModelTest {
         trackType = trackType,
         requestContext = BrowserRequestContext(null, "fixture-agent", null),
     )
+
+    private class FakeDownloadStarter(
+        var result: EnqueueResult = EnqueueResult.Started("task-1", "Fixture.mp4"),
+        var failure: Throwable? = null,
+    ) : PreviewDownloadStarter {
+        var calls = 0
+        val requested = mutableListOf<String>()
+
+        override suspend fun enqueue(
+            asset: MediaAsset,
+            variant: MediaVariant,
+        ): EnqueueResult {
+            calls += 1
+            requested += variant.id
+            failure?.let { throw it }
+            return result
+        }
+    }
 
     private class FakeResolver(
         var result: VariantResolutionResult,

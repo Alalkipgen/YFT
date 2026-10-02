@@ -163,6 +163,7 @@ class DownloadsViewModelTest {
         scope = CoroutineScope(mainDispatcherRule.dispatcher),
         maxConcurrentDownloads = maxConcurrent,
         clock = { 1_000 },
+        ioDispatcher = mainDispatcherRule.dispatcher,
     )
 
     private fun directPlan(taskId: String): DirectDownloadPlan = DirectDownloadPlan(

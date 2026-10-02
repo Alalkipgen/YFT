@@ -13,6 +13,8 @@ import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
+import com.alal.yft.download.EnqueueResult
+import com.alal.yft.download.PreviewDownloadStarter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -33,6 +35,7 @@ class PreviewViewModel @Inject constructor(
     private val selectionStore: PreviewSelectionStore,
     private val mediaPlayerFactory: MediaPlayerFactory,
     private val previewSourceFactory: PreviewSourceFactory,
+    private val downloadStarter: PreviewDownloadStarter,
 ) : ViewModel() {
     private val mutableUiState = MutableStateFlow<PreviewUiState>(PreviewUiState.Empty)
     val uiState: StateFlow<PreviewUiState> = mutableUiState.asStateFlow()
@@ -61,6 +64,7 @@ class PreviewViewModel @Inject constructor(
                 selectedTab = tab,
                 selectedVariantId = selected.id,
                 playbackError = null,
+                downloadStatus = PreviewDownloadStatus.Idle,
             )
         }
     }
@@ -76,6 +80,7 @@ class PreviewViewModel @Inject constructor(
             ready.copy(
                 selectedVariantId = selected.id,
                 playbackError = null,
+                downloadStatus = PreviewDownloadStatus.Idle,
             )
         }
     }
@@ -87,6 +92,42 @@ class PreviewViewModel @Inject constructor(
             ready.copy(
                 playbackError = "This variant could not be played. Try another variant.",
             )
+        }
+    }
+
+    /**
+     * Queues the selected variant.
+     *
+     * Re-entrant taps are ignored while a request is in flight so one selection cannot create
+     * duplicate queue entries, and every rejection surfaces its own reason instead of a generic
+     * failure.
+     */
+    fun download() {
+        val ready = mutableUiState.value as? PreviewUiState.Ready ?: return
+        if (ready.downloadStatus == PreviewDownloadStatus.Enqueuing) return
+        val asset = ready.asset
+        val variant = ready.selectedVariant
+        updateDownloadStatus(variant.id, PreviewDownloadStatus.Enqueuing)
+        viewModelScope.launch {
+            val status = try {
+                when (val result = downloadStarter.enqueue(asset, variant)) {
+                    is EnqueueResult.Started -> PreviewDownloadStatus.Queued(result.fileName)
+                    is EnqueueResult.Rejected -> PreviewDownloadStatus.Rejected(result.message)
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                PreviewDownloadStatus.Rejected("The download could not be queued. Try again.")
+            }
+            updateDownloadStatus(variant.id, status)
+        }
+    }
+
+    private fun updateDownloadStatus(variantId: String, status: PreviewDownloadStatus) {
+        mutableUiState.update { current ->
+            val ready = current as? PreviewUiState.Ready ?: return@update current
+            if (ready.selectedVariantId != variantId) return@update current
+            ready.copy(downloadStatus = status)
         }
     }
 

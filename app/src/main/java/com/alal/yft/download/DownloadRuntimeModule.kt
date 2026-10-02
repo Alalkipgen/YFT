@@ -8,6 +8,7 @@ import com.alal.yft.core.download.AudioVideoMuxRunner
 import com.alal.yft.core.download.DashTransferEngine
 import com.alal.yft.core.download.DashTransferRunner
 import com.alal.yft.core.download.DefaultDownloadTransferDispatcher
+import com.alal.yft.core.download.DirectRangeProbe
 import com.alal.yft.core.download.DirectTransferEngine
 import com.alal.yft.core.download.DirectTransferRunner
 import com.alal.yft.core.download.DownloadQueue
@@ -115,4 +116,45 @@ object DownloadRuntimeModule {
         transferDispatcher = dispatcher,
         scope = scope,
     )
+
+    @Provides
+    @Singleton
+    fun provideDirectRangeProbe(client: OkHttpClient): DirectRangeProbe =
+        DirectRangeProbe(client)
+
+    @Provides
+    @Singleton
+    fun provideDirectMetadataProbe(probe: DirectRangeProbe): DirectMetadataProbe =
+        DirectRangeMetadataProbe(probe)
+
+    @Provides
+    @Singleton
+    fun provideDownloadDestinationProvider(
+        @ApplicationContext context: Context,
+    ): DownloadDestinationProvider = AndroidDownloadDestinationProvider(context)
+
+    @Provides
+    @Singleton
+    fun provideDownloadServiceStarter(
+        @ApplicationContext context: Context,
+    ): DownloadServiceStarter = ForegroundDownloadServiceStarter(context)
+
+    @Provides
+    @Singleton
+    fun provideDownloadEnqueuer(
+        queue: DownloadQueue,
+        probe: DirectMetadataProbe,
+        destinations: DownloadDestinationProvider,
+        serviceStarter: DownloadServiceStarter,
+    ): DownloadEnqueuer = DownloadEnqueuer(
+        queue = queue,
+        probe = probe,
+        destinations = destinations,
+        serviceStarter = serviceStarter,
+    )
+
+    @Provides
+    @Singleton
+    fun providePreviewDownloadStarter(enqueuer: DownloadEnqueuer): PreviewDownloadStarter =
+        enqueuer
 }

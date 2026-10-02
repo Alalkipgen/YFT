@@ -10,6 +10,19 @@ enum class PreviewTab {
     AUDIO,
 }
 
+/**
+ * Outcome of the preview download action.
+ *
+ * [Queued] only means the task reached the persisted queue; transfer progress lives on the
+ * downloads screen so this state never claims a file is finished.
+ */
+sealed interface PreviewDownloadStatus {
+    data object Idle : PreviewDownloadStatus
+    data object Enqueuing : PreviewDownloadStatus
+    data class Queued(val fileName: String) : PreviewDownloadStatus
+    data class Rejected(val message: String) : PreviewDownloadStatus
+}
+
 sealed interface PreviewUiState {
     data object Empty : PreviewUiState
     data object Loading : PreviewUiState
@@ -19,7 +32,11 @@ sealed interface PreviewUiState {
         val selectedTab: PreviewTab,
         val selectedVariantId: String,
         val playbackError: String? = null,
+        val downloadStatus: PreviewDownloadStatus = PreviewDownloadStatus.Idle,
     ) : PreviewUiState {
+        val canDownload: Boolean
+            get() = downloadStatus != PreviewDownloadStatus.Enqueuing
+
         val visibleVariants: List<MediaVariant>
             get() = asset.variants.filter { it.belongsTo(selectedTab) }
 

@@ -59,6 +59,7 @@ fun PreviewRoute(
         onRetry = viewModel::retry,
         onTabSelected = viewModel::selectTab,
         onVariantSelected = viewModel::selectVariant,
+        onDownload = viewModel::download,
         playerSurface = { variant, modifier ->
             PreviewPlayerSurface(
                 variant = variant,
@@ -77,6 +78,7 @@ fun PreviewScreen(
     onTabSelected: (PreviewTab) -> Unit,
     onVariantSelected: (String) -> Unit,
     playerSurface: @Composable (MediaVariant, Modifier) -> Unit,
+    onDownload: () -> Unit = {},
 ) {
     Scaffold(
         topBar = {
@@ -111,6 +113,7 @@ fun PreviewScreen(
                 state = uiState,
                 onTabSelected = onTabSelected,
                 onVariantSelected = onVariantSelected,
+                onDownload = onDownload,
                 playerSurface = playerSurface,
                 modifier = Modifier.padding(contentPadding),
             )
@@ -123,6 +126,7 @@ private fun ReadyPreview(
     state: PreviewUiState.Ready,
     onTabSelected: (PreviewTab) -> Unit,
     onVariantSelected: (String) -> Unit,
+    onDownload: () -> Unit,
     playerSurface: @Composable (MediaVariant, Modifier) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -175,6 +179,10 @@ private fun ReadyPreview(
                 )
             }
         }
+        DownloadAction(
+            state = state,
+            onDownload = onDownload,
+        )
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -192,6 +200,53 @@ private fun ReadyPreview(
                     onClick = { onVariantSelected(variant.id) },
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun DownloadAction(
+    state: PreviewUiState.Ready,
+    onDownload: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Button(
+            onClick = onDownload,
+            enabled = state.canDownload,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("preview-download"),
+        ) {
+            Text(
+                when (state.downloadStatus) {
+                    PreviewDownloadStatus.Enqueuing -> "Queueing download…"
+                    else -> "Download ${state.selectedVariant.displayTitle()}"
+                },
+            )
+        }
+        val status = state.downloadStatus
+        val statusMessage = when (status) {
+            PreviewDownloadStatus.Idle, PreviewDownloadStatus.Enqueuing -> null
+            is PreviewDownloadStatus.Queued ->
+                "Queued ${status.fileName}. Track progress on the Downloads screen."
+            is PreviewDownloadStatus.Rejected -> status.message
+        }
+        statusMessage?.let { message ->
+            Text(
+                text = message,
+                color = if (status is PreviewDownloadStatus.Rejected) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.testTag("preview-download-status"),
+            )
         }
     }
 }
