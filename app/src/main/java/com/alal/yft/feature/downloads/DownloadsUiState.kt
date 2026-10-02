@@ -5,6 +5,7 @@ import com.alal.yft.core.download.DownloadPlanType
 import com.alal.yft.core.download.StoredDownloadTask
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DownloadTaskStatus
+import com.alal.yft.download.policy.TransferNetworkState
 
 /** Queue control a user can invoke for a single stored task. */
 enum class DownloadAction {
@@ -86,6 +87,8 @@ data class DownloadRowUiState(
 /** Observable state of the whole queue, ordered so unfinished work stays on top. */
 data class DownloadsUiState(
     val rows: List<DownloadRowUiState> = emptyList(),
+    /** Why queued work is not moving, when the network policy holds it back. */
+    val network: TransferNetworkState = TransferNetworkState.ALLOWED,
 ) {
     val isEmpty: Boolean = rows.isEmpty()
 

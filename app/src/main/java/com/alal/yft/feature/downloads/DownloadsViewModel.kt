@@ -3,11 +3,13 @@ package com.alal.yft.feature.downloads
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.alal.yft.core.download.DownloadQueue
+import com.alal.yft.download.policy.DownloadNetworkStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /**
@@ -19,15 +21,26 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class DownloadsViewModel @Inject constructor(
     private val queue: DownloadQueue,
+    private val networkStatus: DownloadNetworkStatus,
 ) : ViewModel() {
+    /** Without a network policy, for tests that only exercise the queue. */
+    constructor(queue: DownloadQueue) : this(queue, DownloadNetworkStatus.AlwaysAllowed)
+
     private val mutableUiState = MutableStateFlow(DownloadsUiState.Empty)
     val uiState: StateFlow<DownloadsUiState> = mutableUiState.asStateFlow()
 
     init {
         viewModelScope.launch {
+            // Applying the policy here also covers work resumed from this screen before anything
+            // new was queued in this process.
+            networkStatus.ensureApplied()
+        }
+        viewModelScope.launch {
             queue.restore()
-            queue.tasks.collect { tasks ->
-                mutableUiState.value = DownloadsUiState.from(tasks)
+            combine(queue.tasks, networkStatus.state) { tasks, network ->
+                DownloadsUiState.from(tasks).copy(network = network)
+            }.collect { state ->
+                mutableUiState.value = state
             }
         }
     }

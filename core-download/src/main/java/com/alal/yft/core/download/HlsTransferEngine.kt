@@ -12,7 +12,6 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.io.InputStream
-import java.security.MessageDigest
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -568,14 +567,8 @@ class HlsTransferEngine(
         return workspace
     }
 
-    private fun workspaceFor(taskId: String): File {
-        val digest = MessageDigest.getInstance("SHA-256")
-            .digest(taskId.toByteArray(Charsets.UTF_8))
-            .joinToString(separator = "") { byte ->
-                (byte.toInt() and 0xff).toString(16).padStart(2, '0')
-            }
-        return File(workspaceRoot, "hls-${digest.take(WORKSPACE_HASH_CHARS)}")
-    }
+    private fun workspaceFor(taskId: String): File =
+        File(workspaceRoot, DownloadWorkspaces.nameFor(DownloadWorkspaces.HLS_PREFIX, taskId))
 
     private fun clearChunkFiles(workspace: File) {
         workspace.listFiles().orEmpty().forEach { file ->
@@ -715,7 +708,6 @@ class HlsTransferEngine(
     }
 
     private companion object {
-        const val WORKSPACE_HASH_CHARS = 24
         const val CHUNK_INDEX_DIGITS = 5
         const val HLS_ACCEPT =
             "application/vnd.apple.mpegurl, application/x-mpegurl, */*;q=0.1"

@@ -12,7 +12,6 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.io.InputStream
-import java.security.MessageDigest
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -570,14 +569,8 @@ class DashTransferEngine(
         return workspace
     }
 
-    private fun workspaceFor(taskId: String): File {
-        val digest = MessageDigest.getInstance("SHA-256")
-            .digest(taskId.toByteArray(Charsets.UTF_8))
-            .joinToString(separator = "") { byte ->
-                (byte.toInt() and 0xff).toString(16).padStart(2, '0')
-            }
-        return File(workspaceRoot, "dash-${digest.take(WORKSPACE_HASH_CHARS)}")
-    }
+    private fun workspaceFor(taskId: String): File =
+        File(workspaceRoot, DownloadWorkspaces.nameFor(DownloadWorkspaces.DASH_PREFIX, taskId))
 
     private fun clearChunkFiles(workspace: File) {
         workspace.listFiles().orEmpty().forEach { file ->
@@ -717,7 +710,6 @@ class DashTransferEngine(
     }
 
     private companion object {
-        const val WORKSPACE_HASH_CHARS = 24
         const val CHUNK_INDEX_DIGITS = 5
         const val DASH_ACCEPT =
             "application/dash+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.1"

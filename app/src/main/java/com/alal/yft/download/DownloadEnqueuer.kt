@@ -7,6 +7,7 @@ import com.alal.yft.core.model.download.DirectDownloadPlan
 import com.alal.yft.core.model.download.DirectProbeResult
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.media.MediaAsset
+import com.alal.yft.core.model.media.MediaSizeAccuracy
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.download.policy.DownloadPolicyGate
@@ -14,6 +15,7 @@ import com.alal.yft.feature.downloads.DownloadPlanFactory
 import com.alal.yft.feature.downloads.DownloadPlanResult
 import com.alal.yft.feature.downloads.DownloadRequest
 import java.io.IOException
+import java.util.Locale
 import java.util.UUID
 
 /** Staging destination plus the non-sensitive recovery description persisted with the task. */
@@ -77,6 +79,7 @@ class DownloadEnqueuer(
     private val location: suspend () -> DownloadLocation = { DownloadLocation.SHARED_DOWNLOADS },
     private val taskIds: () -> String = { UUID.randomUUID().toString() },
     private val clock: () -> Long = System::currentTimeMillis,
+    private val storage: StorageSpace = StorageSpace.Unknown,
 ) : PreviewDownloadStarter {
     override suspend fun enqueue(asset: MediaAsset, variant: MediaVariant): EnqueueResult {
         val taskId = taskIds()
@@ -93,19 +96,28 @@ class DownloadEnqueuer(
             is DownloadPlanResult.Ready -> planned.request
         }
 
+        val target = location()
+        // A streaming size is only trusted when the manifest stated it exactly.
+        val exactStreamBytes = variant.sizeBytes
+            ?.takeIf { variant.sizeAccuracy == MediaSizeAccuracy.EXACT }
         return when (request) {
-            is DownloadRequest.Direct -> enqueueDirect(request)
-            is DownloadRequest.Hls -> enqueueStream(request) { name, destination, spec ->
-                queue.enqueue(request.plan.copy(suggestedFileName = name), destination, spec)
-            }
+            is DownloadRequest.Direct -> enqueueDirect(request, target)
+            is DownloadRequest.Hls ->
+                enqueueStream(request, target, exactStreamBytes) { name, destination, spec ->
+                    queue.enqueue(request.plan.copy(suggestedFileName = name), destination, spec)
+                }
 
-            is DownloadRequest.Dash -> enqueueStream(request) { name, destination, spec ->
-                queue.enqueue(request.plan.copy(suggestedFileName = name), destination, spec)
-            }
+            is DownloadRequest.Dash ->
+                enqueueStream(request, target, exactStreamBytes) { name, destination, spec ->
+                    queue.enqueue(request.plan.copy(suggestedFileName = name), destination, spec)
+                }
         }
     }
 
-    private suspend fun enqueueDirect(request: DownloadRequest.Direct): EnqueueResult {
+    private suspend fun enqueueDirect(
+        request: DownloadRequest.Direct,
+        target: DownloadLocation,
+    ): EnqueueResult {
         val metadata = when (val result = probe.probe(request.plan)) {
             is DirectProbeResult.Failure -> return EnqueueResult.Rejected(
                 result.failure.reason,
@@ -114,8 +126,9 @@ class DownloadEnqueuer(
 
             is DirectProbeResult.Success -> result.metadata
         }
+        insufficientSpace(metadata.totalBytes, target)?.let { return it }
 
-        val prepared = prepare(request.fileName, request.mimeType ?: metadata.contentType)
+        val prepared = prepare(request.fileName, request.mimeType ?: metadata.contentType, target)
             ?: return storageUnavailable()
 
         policy.ensureApplied()
@@ -131,9 +144,12 @@ class DownloadEnqueuer(
 
     private suspend fun enqueueStream(
         request: DownloadRequest,
+        target: DownloadLocation,
+        exactBytes: Long?,
         enqueue: suspend (String, DownloadDestination, DownloadDestinationSpec) -> String,
     ): EnqueueResult {
-        val prepared = prepare(request.fileName, request.mimeType)
+        insufficientSpace(exactBytes, target)?.let { return it }
+        val prepared = prepare(request.fileName, request.mimeType, target)
             ?: return storageUnavailable()
 
         policy.ensureApplied()
@@ -142,13 +158,30 @@ class DownloadEnqueuer(
         return EnqueueResult.Started(taskId, prepared.fileName)
     }
 
-    private suspend fun prepare(fileName: String, mimeType: String?): PreparedDestination? {
-        val target = location()
-        return try {
+    private fun prepare(
+        fileName: String,
+        mimeType: String?,
+        target: DownloadLocation,
+    ): PreparedDestination? =
+        try {
             destinations.prepare(fileName, mimeType, target)
         } catch (_: IOException) {
             null
         }
+
+    /**
+     * Rejects work of a known size that cannot fit, before any destination exists (R3). Unknown
+     * sizes and unmeasurable volumes pass; the engines still report a full disk if a write fails.
+     */
+    private fun insufficientSpace(requiredBytes: Long?, target: DownloadLocation): EnqueueResult? {
+        val required = requiredBytes?.takeIf { it > 0 } ?: return null
+        val available = storage.availableBytes(target) ?: return null
+        if (required + STORAGE_HEADROOM_BYTES <= available) return null
+        return EnqueueResult.Rejected(
+            DownloadFailureReason.INSUFFICIENT_STORAGE,
+            "There is not enough free storage. This download needs ${formatSize(required)} " +
+                "and ${formatSize(available.coerceAtLeast(0))} is free.",
+        )
     }
 
     private fun storageUnavailable(): EnqueueResult = EnqueueResult.Rejected(
@@ -184,5 +217,22 @@ class DownloadEnqueuer(
         DownloadFailureReason.STORAGE_UNAVAILABLE -> "Download storage is unavailable."
         DownloadFailureReason.INSUFFICIENT_STORAGE -> "There is not enough free storage."
         DownloadFailureReason.INTEGRITY_MISMATCH -> "The downloaded data failed verification."
+    }
+
+    companion object {
+        /** Room kept free for the database, checkpoints and the rest of the system. */
+        const val STORAGE_HEADROOM_BYTES: Long = 32L * 1_024 * 1_024
+
+        internal fun formatSize(bytes: Long): String {
+            if (bytes < 1_024) return "$bytes B"
+            val units = arrayOf("KB", "MB", "GB", "TB")
+            var value = bytes.toDouble()
+            var unit = -1
+            while (value >= 1_024 && unit < units.lastIndex) {
+                value /= 1_024
+                unit += 1
+            }
+            return String.format(Locale.US, "%.1f %s", value, units[unit])
+        }
     }
 }

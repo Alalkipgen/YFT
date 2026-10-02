@@ -24,6 +24,21 @@ fun interface DownloadPolicyGate {
     }
 }
 
+/** What the downloads screen reads from the policy: the verdict, applied on first use. */
+interface DownloadNetworkStatus : DownloadPolicyGate {
+    val state: StateFlow<TransferNetworkState>
+
+    companion object {
+        /** No policy: transfers are always allowed. For previews and tests. */
+        val AlwaysAllowed: DownloadNetworkStatus = object : DownloadNetworkStatus {
+            override val state: StateFlow<TransferNetworkState> =
+                MutableStateFlow(TransferNetworkState.ALLOWED).asStateFlow()
+
+            override suspend fun ensureApplied() = Unit
+        }
+    }
+}
+
 /**
  * Keeps the download queue in line with the network and the user's download preferences.
  *
@@ -36,13 +51,13 @@ class DownloadPolicyController(
     private val network: NetworkStatusSource,
     private val preferences: DownloadPreferencesRepository,
     private val scope: CoroutineScope,
-) : DownloadPolicyGate {
+) : DownloadNetworkStatus {
     private val startLock = Mutex()
     private var started = false
     private val mutableState = MutableStateFlow(TransferNetworkState.ALLOWED)
 
     /** The policy's current verdict, for the downloads screen. */
-    val state: StateFlow<TransferNetworkState> = mutableState.asStateFlow()
+    override val state: StateFlow<TransferNetworkState> = mutableState.asStateFlow()
 
     override suspend fun ensureApplied() {
         startLock.withLock {

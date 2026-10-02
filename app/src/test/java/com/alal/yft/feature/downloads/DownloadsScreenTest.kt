@@ -1,9 +1,14 @@
 package com.alal.yft.feature.downloads
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -12,6 +17,7 @@ import com.alal.yft.core.download.DownloadPlanType
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DownloadTaskStatus
+import com.alal.yft.download.policy.TransferNetworkState
 import com.alal.yft.ui.theme.YftTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -135,6 +141,33 @@ class DownloadsScreenTest {
         composeRule.onNodeWithTag("downloads-pause-all").performClick()
 
         assertEquals(1, pauseAllCount)
+    }
+
+    @Test
+    fun networkBannerExplainsWhyWorkWaitsAndDisappearsWhenAllowed() {
+        var state by mutableStateOf(
+            DownloadsUiState(network = TransferNetworkState.WAITING_FOR_UNMETERED),
+        )
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                DownloadsScreen(
+                    uiState = state,
+                    onNavigateBack = {},
+                    onAction = { _, _ -> },
+                    onPauseAll = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("downloads-network-banner").assertIsDisplayed()
+        composeRule.onNodeWithText("Waiting for Wi-Fi", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("downloads-empty").assertIsDisplayed()
+
+        state = state.copy(network = TransferNetworkState.OFFLINE)
+        composeRule.onNodeWithText("No connection", substring = true).assertIsDisplayed()
+
+        state = state.copy(network = TransferNetworkState.ALLOWED)
+        composeRule.onAllNodesWithTag("downloads-network-banner").assertCountEquals(0)
     }
 
     private fun setScreen(

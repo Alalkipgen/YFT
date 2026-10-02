@@ -23,6 +23,7 @@ import com.alal.yft.core.model.download.TransferCheckpoint
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.MediaSizeAccuracy
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.VariantSupport
@@ -189,9 +190,76 @@ class DownloadEnqueuerTest {
         )
     }
 
+    @Test
+    fun `a known size that cannot fit is rejected before any destination exists`() = runTest {
+        val harness = Harness(this, storage = { 100L * MIB })
+        harness.probe.result = DirectProbeResult.Success(metadata(totalBytes = 200L * MIB))
+
+        val result = harness.enqueuer.enqueue(asset(), variant()) as EnqueueResult.Rejected
+
+        assertEquals(DownloadFailureReason.INSUFFICIENT_STORAGE, result.reason)
+        assertTrue(result.message, "needs 200.0 MB and 100.0 MB is free" in result.message)
+        assertTrue(harness.destinations.prepared.isEmpty())
+        assertTrue(harness.queue.tasks.value.isEmpty())
+        assertEquals(0, harness.serviceStarter.starts)
+    }
+
+    @Test
+    fun `headroom is kept while unknown sizes and volumes still start`() = runTest {
+        val headroom = DownloadEnqueuer.STORAGE_HEADROOM_BYTES
+        val fits = Harness(this, storage = { 10 + headroom })
+        fits.probe.result = DirectProbeResult.Success(metadata(totalBytes = 10))
+        assertTrue(fits.enqueuer.enqueue(asset(), variant()) is EnqueueResult.Started)
+
+        val short = Harness(this, storage = { 10 + headroom - 1 })
+        short.probe.result = DirectProbeResult.Success(metadata(totalBytes = 10))
+        assertTrue(short.enqueuer.enqueue(asset(), variant()) is EnqueueResult.Rejected)
+
+        val unknownSize = Harness(this, storage = { 0 })
+        unknownSize.probe.result = DirectProbeResult.Success(metadata(totalBytes = null))
+        assertTrue(unknownSize.enqueuer.enqueue(asset(), variant()) is EnqueueResult.Started)
+
+        val unknownVolume = Harness(this, storage = StorageSpace.Unknown)
+        unknownVolume.probe.result = DirectProbeResult.Success(metadata(totalBytes = 1L shl 40))
+        assertTrue(unknownVolume.enqueuer.enqueue(asset(), variant()) is EnqueueResult.Started)
+    }
+
+    @Test
+    fun `exact stream sizes are checked on the chosen volume but estimates are not`() = runTest {
+        val measured = mutableListOf<DownloadLocation>()
+        val harness = Harness(
+            this,
+            location = DownloadLocation.APP_STORAGE,
+            storage = { location ->
+                measured += location
+                100L * MIB
+            },
+        )
+        val stream = variant(id = "hls", kind = MediaKind.HLS, container = null)
+
+        val exact = harness.enqueuer.enqueue(
+            asset(),
+            stream.copy(sizeBytes = 1_024L * MIB, sizeAccuracy = MediaSizeAccuracy.EXACT),
+        )
+        val estimated = harness.enqueuer.enqueue(
+            asset(),
+            stream.copy(sizeBytes = 1_024L * MIB, sizeAccuracy = MediaSizeAccuracy.ESTIMATED),
+        )
+
+        assertEquals(
+            DownloadFailureReason.INSUFFICIENT_STORAGE,
+            (exact as EnqueueResult.Rejected).reason,
+        )
+        assertTrue(estimated is EnqueueResult.Started)
+        assertEquals(listOf(DownloadLocation.APP_STORAGE), measured)
+        assertEquals(0, harness.probe.calls)
+        assertEquals(1, harness.destinations.prepared.size)
+    }
+
     private class Harness(
         scope: kotlinx.coroutines.test.TestScope,
         location: DownloadLocation = DownloadLocation.SHARED_DOWNLOADS,
+        storage: StorageSpace = StorageSpace.Unknown,
         onPolicy: suspend (DownloadQueue) -> Unit = {},
     ) {
         val probe = FakeProbe()
@@ -220,6 +288,7 @@ class DownloadEnqueuerTest {
                 location = { location },
                 taskIds = { "task-${next++}" },
                 clock = { 1_000 },
+                storage = storage,
             )
         }
     }
@@ -359,4 +428,8 @@ class DownloadEnqueuerTest {
         container = container,
         support = support,
     )
+
+    private companion object {
+        const val MIB = 1_024L * 1_024
+    }
 }

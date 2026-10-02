@@ -12,6 +12,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -19,6 +20,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -27,6 +31,7 @@ import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.download.DownloadPlanType
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DownloadTaskStatus
+import com.alal.yft.download.policy.TransferNetworkState
 import com.alal.yft.ui.components.YftTopBar
 import com.alal.yft.ui.navigation.YftDestination
 import java.util.Locale
@@ -67,6 +72,7 @@ fun DownloadsScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp),
         ) {
+            NetworkBanner(network = uiState.network)
             if (uiState.isEmpty) {
                 EmptyQueue()
                 return@Column
@@ -103,6 +109,38 @@ fun DownloadsScreen(
                     DownloadRow(row = row, onAction = onAction)
                 }
             }
+        }
+    }
+}
+
+/** Explains why queued work is not moving; nothing is shown while transfers may run. */
+@Composable
+private fun NetworkBanner(network: TransferNetworkState) {
+    val (title, body) = when (network) {
+        TransferNetworkState.ALLOWED -> return
+        TransferNetworkState.WAITING_FOR_UNMETERED ->
+            "Waiting for Wi-Fi" to "Downloads start on Wi-Fi or another unmetered network. " +
+                "Turn off \"Download over Wi-Fi only\" in Settings to use mobile data."
+
+        TransferNetworkState.OFFLINE ->
+            "No connection" to "Downloads continue automatically when the device is back online."
+    }
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+            .testTag("downloads-network-banner")
+            .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(text = title, style = MaterialTheme.typography.titleSmall)
+            Text(text = body, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }

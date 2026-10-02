@@ -20,10 +20,13 @@ import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.download.TransferCheckpoint
 import com.alal.yft.core.model.media.BrowserRequestContext
+import com.alal.yft.download.policy.DownloadNetworkStatus
+import com.alal.yft.download.policy.TransferNetworkState
 import com.alal.yft.testing.MainDispatcherRule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -152,6 +155,30 @@ class DownloadsViewModelTest {
             viewModel.uiState.value.rows.all { it.status == DownloadTaskStatus.PAUSED },
         )
         assertEquals(0, viewModel.uiState.value.occupyingCount)
+    }
+
+    @Test
+    fun networkVerdictReachesTheScreenAndThePolicyIsAppliedOnOpen() = runTest {
+        val status = FakeNetworkStatus()
+        val viewModel = DownloadsViewModel(queue(InMemoryDownloadTaskStore()), status)
+
+        runCurrent()
+        assertEquals(1, status.applied)
+        assertEquals(TransferNetworkState.ALLOWED, viewModel.uiState.value.network)
+
+        status.state.value = TransferNetworkState.WAITING_FOR_UNMETERED
+        runCurrent()
+        assertEquals(TransferNetworkState.WAITING_FOR_UNMETERED, viewModel.uiState.value.network)
+        assertTrue(viewModel.uiState.value.isEmpty)
+    }
+
+    private class FakeNetworkStatus : DownloadNetworkStatus {
+        override val state = MutableStateFlow(TransferNetworkState.ALLOWED)
+        var applied = 0
+
+        override suspend fun ensureApplied() {
+            applied += 1
+        }
     }
 
     private fun queue(

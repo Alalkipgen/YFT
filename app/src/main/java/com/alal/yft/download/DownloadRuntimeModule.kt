@@ -1,6 +1,8 @@
 package com.alal.yft.download
 
 import android.content.Context
+import android.os.Process
+import android.os.SystemClock
 import com.alal.yft.core.data.db.DownloadRecordDao
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.download.AndroidMp4AudioVideoMuxer
@@ -15,11 +17,13 @@ import com.alal.yft.core.download.DirectTransferRunner
 import com.alal.yft.core.download.DownloadQueue
 import com.alal.yft.core.download.DownloadTaskStore
 import com.alal.yft.core.download.DownloadTransferDispatcher
+import com.alal.yft.core.download.DownloadWorkspaces
 import com.alal.yft.core.download.HlsTransferEngine
 import com.alal.yft.core.download.HlsTransferRunner
 import com.alal.yft.core.download.LocalAudioVideoMuxer
 import com.alal.yft.core.download.RoomDownloadTaskStore
 import com.alal.yft.download.policy.ConnectivityNetworkMonitor
+import com.alal.yft.download.policy.DownloadNetworkStatus
 import com.alal.yft.download.policy.DownloadPolicyController
 import com.alal.yft.download.policy.DownloadPolicyGate
 import com.alal.yft.download.policy.NetworkStatusSource
@@ -61,7 +65,7 @@ object DownloadRuntimeModule {
         @ApplicationContext context: Context,
     ): HlsTransferRunner = HlsTransferEngine(
         client = client,
-        workspaceRoot = File(context.noBackupFilesDir, "download-hls"),
+        workspaceRoot = File(context.noBackupFilesDir, HLS_WORKSPACE_DIRECTORY),
     )
 
     @Provides
@@ -71,7 +75,7 @@ object DownloadRuntimeModule {
         @ApplicationContext context: Context,
     ): DashTransferRunner = DashTransferEngine(
         client = client,
-        workspaceRoot = File(context.noBackupFilesDir, "download-dash"),
+        workspaceRoot = File(context.noBackupFilesDir, DASH_WORKSPACE_DIRECTORY),
     )
 
     @Provides
@@ -88,7 +92,7 @@ object DownloadRuntimeModule {
     ): AudioVideoMuxRunner = AudioVideoMuxEngine(
         dashTransfer = dash,
         muxer = muxer,
-        workspaceRoot = File(context.noBackupFilesDir, "download-mux"),
+        workspaceRoot = File(context.noBackupFilesDir, MUX_WORKSPACE_DIRECTORY),
     )
 
     @Provides
@@ -170,6 +174,10 @@ object DownloadRuntimeModule {
         controller
 
     @Provides
+    fun provideDownloadNetworkStatus(controller: DownloadPolicyController): DownloadNetworkStatus =
+        controller
+
+    @Provides
     @Singleton
     fun provideDownloadEnqueuer(
         queue: DownloadQueue,
@@ -178,6 +186,7 @@ object DownloadRuntimeModule {
         serviceStarter: DownloadServiceStarter,
         policy: DownloadPolicyGate,
         preferences: DownloadPreferencesRepository,
+        @ApplicationContext context: Context,
     ): DownloadEnqueuer = DownloadEnqueuer(
         queue = queue,
         probe = probe,
@@ -185,10 +194,44 @@ object DownloadRuntimeModule {
         serviceStarter = serviceStarter,
         policy = policy,
         location = { preferences.preferences.first().location },
+        storage = StatFsStorageSpace(context),
     )
 
     @Provides
     @Singleton
     fun providePreviewDownloadStarter(enqueuer: DownloadEnqueuer): PreviewDownloadStarter =
         enqueuer
+
+    @Provides
+    @Singleton
+    fun provideDownloadStorageJanitor(
+        queue: DownloadQueue,
+        @ApplicationContext context: Context,
+        @DownloadApplicationScope scope: CoroutineScope,
+    ): DownloadStorageJanitor {
+        val storage = context.noBackupFilesDir
+        return DownloadStorageJanitor(
+            queue = queue,
+            appDownloadsRoot = File(
+                storage,
+                AndroidDownloadDestinationProvider.APP_PRIVATE_DIRECTORY,
+            ),
+            workspaceRoots = listOf(
+                HLS_WORKSPACE_DIRECTORY to DownloadWorkspaces.HLS_PREFIX,
+                DASH_WORKSPACE_DIRECTORY to DownloadWorkspaces.DASH_PREFIX,
+                MUX_WORKSPACE_DIRECTORY to DownloadWorkspaces.MUX_PREFIX,
+            ).map { (directory, prefix) -> WorkspaceRoot(File(storage, directory), prefix) },
+            processStartEpochMs = ::processStartEpochMs,
+            scope = scope,
+        )
+    }
+
+    /** Wall-clock time this process started; files older than this belong to a dead process. */
+    private fun processStartEpochMs(): Long =
+        System.currentTimeMillis() -
+            (SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime())
 }
+
+internal const val HLS_WORKSPACE_DIRECTORY = "download-hls"
+internal const val DASH_WORKSPACE_DIRECTORY = "download-dash"
+internal const val MUX_WORKSPACE_DIRECTORY = "download-mux"
