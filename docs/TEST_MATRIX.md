@@ -91,6 +91,37 @@
 | Phase 3 app tests | JUnit/Robolectric Compose | No failures | PASS — 16 tests |
 | Full Phase 3 matrix | Local JDK 17/SDK 35 | Lint, Android/JVM tests, debug and minified release build pass | PASS — 497 tasks in 4m 12s; 79 tests, 0 failures |
 
+## Phase 4 automated checks
+
+| Test | Environment | Expected | Current result |
+| --- | --- | --- | --- |
+| Download plan/task invariants | JVM | Valid byte counts, segment ranges, checkpoint/plan-type pairing and redacted plan rendering | PASS |
+| Direct ranged transfer | MockWebServer/coroutines | Parallel ranged segments write the exact verified length | PASS |
+| Range refusal fallback | MockWebServer/coroutines | Single-stream transfer completes without ranges | PASS |
+| Validator mismatch | MockWebServer/coroutines | Resume is refused and the transfer restarts instead of stitching bytes | PASS |
+| Length/integrity mismatch | MockWebServer/coroutines | Explicit integrity failure; partial file never published | PASS |
+| HLS segment transfer and resume | MockWebServer/parser | Selected track downloads and resumes from the last verified segment | PASS |
+| DASH segment transfer and resume | MockWebServer/secure XML parser | Selected representation downloads and resumes from its checkpoint | PASS |
+| Mux compatibility gate | JVM/Robolectric | AVC+AAC MP4/fMP4 accepted; WebM, HEVC and unknown codecs fail explicitly | PASS |
+| Encrypted sample rejection | JVM | Encrypted extractor samples are refused before muxing | PASS |
+| Bounded concurrency | Coroutines/test scheduler | Capacity respected and the queue drains as slots free | PASS |
+| Pause/resume/retry/cancel | Coroutines/test scheduler | Deterministic status transitions and correct action sets | PASS |
+| Cancellation cleanup | Coroutines/test scheduler | Engine workspace and destination discarded; record stays removable | PASS |
+| Network-change behavior | Coroutines/test scheduler | Active work suspends on loss and resumes on validated connectivity | PASS |
+| Process restart recovery | Room/in-memory store | Incomplete tasks become `NEEDS_REFRESH` with the verified checkpoint retained | PASS |
+| Duplicate URLs | Coroutines/test scheduler | Independent queue records, no silent merge | PASS |
+| Room v3→v4 migration | Room/Robolectric | Schema migrates with checkpoint and segment data preserved | PASS |
+| Incomplete-file safety | Robolectric | Bytes stage in a partial file; final name appears only after commit | PASS |
+| Low storage | JVM/injected failure | Storage failure reported as `STORAGE_UNAVAILABLE`; nothing queued | PASS |
+| Download plan rejection | JVM | Unsupported codec, non-HTTPS, expired and unaddressable DASH rejected explicitly | PASS |
+| File-name safety | JVM | Names built only from title/label metadata; no URL fragments and no traversal segment | PASS |
+| Preview enqueue path | ViewModel/Robolectric | Direct sources probed first; repeat taps cannot double-queue; rejections surface their reason | PASS |
+| Downloads Compose surface | Robolectric Compose | Honest determinate/indeterminate progress and per-status actions | PASS |
+| Notification content | Robolectric | Progress, paused and failed notifications carry no sensitive URL | PASS |
+| Phase 4 core-download tests | JUnit/MockWebServer/coroutines | No failures | PASS — 79 tests |
+| Phase 4 app tests | JUnit/Robolectric Compose | No failures | PASS — 58 tests |
+| Full Phase 4 matrix | Local JDK 17/SDK 35 | Lint, Android/JVM tests, debug and minified release build pass | PASS — 500 tasks in 16m 57s; 216 tests, 0 failures |
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |
@@ -103,13 +134,14 @@
 | DOM candidate extraction | Android WebView test page | URLs returned without page mutation | NOT RUN on Android — exact script passes committed fixture in headless Chromium |
 | Cookie/header preview | Controlled authenticated fixture | Preview succeeds with session context | NOT RUN |
 | DRM fixture | Known encrypted manifest | Structured unsupported result | NOT RUN |
+| Audio/video mux on device | Android API 24+ device/emulator | `MediaExtractor`/`MediaMuxer` produce a playable MP4 | NOT RUN — compatibility gate and recovery logic covered locally |
+| Foreground download lifecycle | Android API 24+ device/emulator | Service survives backgrounding, shows progress and self-stops | NOT RUN |
+| MediaStore publication | Android 10+ device/emulator | Pending item becomes visible in Downloads only after verification | NOT RUN — app-private staging covered locally |
+| Real low-storage transfer | Device with a nearly full volume | Transfer fails cleanly without a corrupt published file | NOT RUN — covered only through an injected failure |
 
-## Phase 4 and later regression categories
+## Phase 5 and later regression categories
 
-- Process death and task recovery
-- Range/no-range direct servers
-- Separate audio/video muxing
-- Low storage
-- Network switching
 - Site-adapter fixture drift
+- Adapter-to-generic fallback
 - Secret-redaction tests
+- Re-run of the Phase 4 transfer and recovery suite on every change

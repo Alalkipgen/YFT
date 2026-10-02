@@ -6,14 +6,14 @@
 | 1 — Foundation | COMPLETE | Production modules, Compose navigation shell, DI/data/media foundations, tests and CI validated on the work branch |
 | 2 — Browser/detection | COMPLETE | Secure browser, layered generic detection, bounded probes, page-scoped normalization, fixtures and candidate UI validated |
 | 3 — Preview/variants | COMPLETE | Bounded direct/HLS/DASH resolution, honest variants and secure Media3 preview validated |
-| 4 — Download engines | IN PROGRESS | Download planning, reliable transfer, recovery and safe export started from the green Phase 3 head |
-| 5 — Site adapters | NOT STARTED | — |
+| 4 — Download engines | COMPLETE | Typed download plans, direct/HLS/DASH transfer, mux compatibility, foreground execution, Room recovery and safe export validated |
+| 5 — Site adapters | IN PROGRESS | Per-site extractors behind the extractor API, started from the green Phase 4 head |
 | 6 — Hardening/UI | NOT STARTED | — |
 | 7 — Signed beta/release | NOT STARTED | — |
 
 ## Current phase state
 
-Phase 4 is active on `work/phase-4-download-engines`, created from Phase 3 completion head `8941430`. The Phase 3 resolver/preview baseline was reverified before transfer edits. Work is limited to download plans, direct/HLS/DASH engines, mux compatibility, foreground execution, persistence/recovery and safe storage export; do not start Phase 5 or merge a work branch into `main`.
+Phase 5 is active on `work/phase-5-site-adapters`, created from the Phase 4 completion head. Work is limited to site adapters behind `:extractor-api`, adapter selection/fallback to the generic detector, and adapter fixtures/tests; do not change the download engines and do not merge a work branch into `main`.
 
 ## Completed in Phase 1
 
@@ -129,3 +129,43 @@ Phase 4 is active on `work/phase-4-download-engines`, created from Phase 3 compl
 - Add foreground execution, Room recovery and MediaStore/SAF export without using WorkManager as the sole large-transfer engine.
 - Test incomplete-file safety, process restart, network changes, duplicates, low storage, corruption, cancellation and cleanup.
 - Do not start site adapters or Phase 5.
+
+## Completed in Phase 4
+
+- Added durable download boundaries in `:core-model`: typed `DirectDownloadPlan`, `HlsDownloadPlan`, `DashDownloadPlan` and `AudioVideoMuxDownloadPlan`, a `DownloadTaskStatus` lifecycle, segment/progress models, a closed `DownloadFailureReason` set and per-engine `TransferCheckpoint` types.
+- Added a direct transfer engine with HEAD/one-byte-range probing, bounded parallel ranged segments, a single-stream fallback when the server refuses ranges, strong-validator resume (`ETag`/`Last-Modified`), partial-file staging and verified length/integrity checks.
+- Added HLS and DASH segment engines with bounded manifest parsing, selected-track transfer, per-segment checkpoints and resume from the last verified segment.
+- Added platform audio/video muxing with an explicit compatibility gate: only separate AVC video plus AAC audio in MP4/fMP4 containers are accepted, and encrypted samples are rejected. Extractor sample flags are translated into muxer buffer flags instead of being forwarded, because the two constant sets overlap numerically with different meanings.
+- Added `DownloadQueue` with bounded concurrency, pause/resume/retry/cancel, pause-all, network-aware suspension, duplicate-safe independent records and an injectable IO dispatcher so cancellation is deterministic under tests.
+- Added Room schema v4 with a covered v3→v4 migration, a `RoomDownloadTaskStore` and typed checkpoint persistence. Only non-sensitive recovery state is stored: URLs, cookies and headers stay in memory, so after process death every incomplete task becomes `NEEDS_REFRESH` while its verified checkpoint remains usable.
+- Added `DownloadForegroundService` with a notification channel, progress/paused/failed notifications, a pause-all action, `registerDefaultNetworkCallback` network tracking and self-stop when no foreground work remains.
+- Added the downloads surface: `DownloadsUiState`/`DownloadRowUiState` with honest determinate and indeterminate progress, per-status action sets, and a Compose screen with pause/resume/retry/cancel/remove plus bulk pause.
+- Added the preview-to-queue path: a pure `DownloadPlanFactory` that produces typed plans and explicitly rejects unsupported codecs, non-HTTPS links, expired links and DASH representations it cannot address, plus a `DownloadEnqueuer` behind a narrow `PreviewDownloadStarter` boundary that probes direct sources before queueing and creates no destination for rejected work.
+- Added safe export: `AndroidDownloadDestinationProvider` stages a pending `MediaStore` item on API 29+ and falls back to app-private storage on older releases, so a half-written file is never published under its final name.
+- Derived output file names only from title and label metadata, never from the signed playback URL, and dropped dots from the base name so a hostile title cannot produce a traversal segment.
+- Kept site adapters and Phase 5 out of Phase 4.
+
+## Phase 4 validation
+
+- Full command passed:
+
+```bash
+./gradlew --no-daemon \
+  lintDebug testDebugUnitTest \
+  :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test \
+  :app:assembleDebug :app:assembleRelease
+```
+
+- Result: **BUILD SUCCESSFUL** in 16m 57s; 500 tasks, 216 tests, 0 failures, 0 errors and 0 skipped.
+- Test totals by module: app 58, core-browser 27, core-data 9, core-download 79, core-media 14, core-model 22, extractor-generic 7.
+- Debug APK: 15,377,631 bytes; SHA-256 `553c5125b1fb91bde50ca83631281b5c986aec5d5d69993e9d9e2a01411bf944`.
+- Unsigned minified release APK: 2,736,866 bytes; SHA-256 `435b0a03981642f8f0555c7b7128e824d6d4bf9cf260bbcd877706f4ce6ed0ed`.
+- Covered by tests: incomplete-file safety and partial staging, process-restart recovery to `NEEDS_REFRESH` with a retained checkpoint, network-change suspension and resumption, duplicate URLs as independent records, range refusal fallback, validator mismatch restart, corruption/length mismatch rejection, cancellation cleanup of engine workspaces and destinations, and mux compatibility rejection.
+- No device/emulator was available, so `MediaExtractor`/`MediaMuxer` behavior, foreground-service lifecycle under real Android process policy, notification rendering and `MediaStore` publication remain explicit runtime checks rather than claimed device validation. Low-storage behavior is covered only through the injected failure path, not a real full-disk device.
+
+## Phase 5 active scope
+
+- Add per-site extractors behind `:extractor-api` in `:extractor-sites`, selected by host with a clean fallback to the existing generic detector.
+- Keep adapters free of credential capture, DRM circumvention and paywall bypass; a site that requires sign-in must reuse the user's own browser session only.
+- Add committed offline fixtures and regression tests per adapter; no live network calls in tests.
+- Do not change the download engines, and keep any site-specific behavior out of `:core-browser` and `:core-download`.

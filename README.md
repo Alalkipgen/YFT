@@ -2,7 +2,7 @@
 
 YFT is an ad-free Android application for detecting and, in later phases, downloading authorized non-DRM media from direct links, HTML5 players, HLS and DASH streams.
 
-**Phase 3: secure detection, honest direct/HLS/DASH variant resolution and Media3 preview are complete on `work/phase-3-preview-variants`.** Download engines, background recovery and storage export begin in Phase 4.
+**Phase 4: direct/HLS/DASH download engines, audio/video mux compatibility, foreground execution, persisted recovery and safe storage export are complete on `work/phase-4-download-engines`.** Per-site extractors begin in Phase 5.
 
 ## Current state
 
@@ -53,7 +53,7 @@ Use JDK 17 and Android SDK 35:
 
 A local release check can additionally run `:app:assembleRelease`; the output is intentionally unsigned until Phase 7.
 
-The Phase 3 completion matrix passed 79 tests, Android lint, debug assembly and the minified unsigned release build. No device/emulator was available, so real Android WebView rendering and Media3 playback remain explicit runtime verification items. Browser policy, bounded network behavior, manifests, state and Compose surfaces are covered locally.
+The Phase 4 completion matrix passed 216 tests, Android lint, debug assembly and the minified unsigned release build. No device/emulator was available, so real Android WebView rendering, Media3 playback, `MediaExtractor`/`MediaMuxer` behavior, foreground-service lifecycle and `MediaStore` publication remain explicit runtime verification items. Browser policy, bounded network behavior, manifests, transfer/recovery logic, state and Compose surfaces are covered locally.
 
 See [`docs/PHASE_STATUS.md`](docs/PHASE_STATUS.md), [`docs/TEST_MATRIX.md`](docs/TEST_MATRIX.md) and [`docs/HANDOFF.md`](docs/HANDOFF.md) before continuing.
 

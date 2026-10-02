@@ -229,12 +229,28 @@ class AndroidMp4AudioVideoMuxer(
                 0,
                 sampleBytes,
                 presentationTimeUs,
-                source.extractor.sampleFlags,
+                bufferFlagsFor(source.extractor.sampleFlags),
             )
             muxer.writeSampleData(source.outputTrack, buffer, info)
             if (!source.extractor.advance()) source.finished = true
         }
     }
+
+    /**
+     * Translates extractor sample flags into muxer buffer flags.
+     *
+     * The two constant sets overlap numerically but do not mean the same thing:
+     * `SAMPLE_FLAG_ENCRYPTED` shares a value with `BUFFER_FLAG_CODEC_CONFIG` and
+     * `SAMPLE_FLAG_PARTIAL_FRAME` shares a value with `BUFFER_FLAG_END_OF_STREAM`, so forwarding
+     * the raw value could mark a normal sample as codec config or end of stream. Encrypted samples
+     * are already rejected before this point, and only the key-frame flag is carried over.
+     */
+    private fun bufferFlagsFor(sampleFlags: Int): Int =
+        if (sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC != 0) {
+            MediaCodec.BUFFER_FLAG_KEY_FRAME
+        } else {
+            0
+        }
 
     private fun MediaExtractor.findTrack(mimePrefix: String): InputTrack? {
         repeat(trackCount) { index ->
