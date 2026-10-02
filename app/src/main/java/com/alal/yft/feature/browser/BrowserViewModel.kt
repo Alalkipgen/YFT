@@ -13,7 +13,10 @@ import com.alal.yft.core.browser.session.PageCandidateStore
 import com.alal.yft.core.browser.session.PageProbeBudget
 import com.alal.yft.core.browser.webview.BrowserObservationSink
 import com.alal.yft.core.media.session.PreviewSelectionStore
+import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.detection.SiteAdapterCoordinator
+import com.alal.yft.detection.SiteAdapterOutcome
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,10 +31,23 @@ import kotlinx.coroutines.sync.withPermit
 import okhttp3.OkHttpClient
 
 @HiltViewModel
-class BrowserViewModel @Inject constructor(
+class BrowserViewModel(
     okHttpClient: OkHttpClient,
+    private val siteAdapters: SiteAdapterCoordinator,
     private val previewSelectionStore: PreviewSelectionStore = PreviewSelectionStore(),
+    private val clock: () -> Long = System::currentTimeMillis,
 ) : ViewModel(), BrowserObservationSink {
+    /**
+     * Production entry point. Dagger has no sensible binding for the test clock lambda, so the
+     * injected constructor pins it to the wall clock and only tests override it.
+     */
+    @Inject
+    constructor(
+        okHttpClient: OkHttpClient,
+        siteAdapters: SiteAdapterCoordinator,
+        previewSelectionStore: PreviewSelectionStore,
+    ) : this(okHttpClient, siteAdapters, previewSelectionStore, System::currentTimeMillis)
+
     private val mutableUiState = MutableStateFlow(BrowserUiState())
     val uiState: StateFlow<BrowserUiState> = mutableUiState.asStateFlow()
 
@@ -44,6 +60,9 @@ class BrowserViewModel @Inject constructor(
 
     @Volatile
     private var activePageUrl: String? = null
+
+    @Volatile
+    private var browserContext: BrowserRequestContext? = null
 
     init {
         viewModelScope.launch {
@@ -85,6 +104,7 @@ class BrowserViewModel @Inject constructor(
 
     override fun onPageStarted(url: String) {
         activePageUrl = url
+        browserContext = null
         pageProbeJob.cancel()
         pageProbeJob = SupervisorJob(viewModelScope.coroutineContext[Job])
         candidateStore.beginPage(url)
@@ -98,6 +118,7 @@ class BrowserViewModel @Inject constructor(
                 progress = 0,
                 errorMessage = null,
                 candidates = emptyList(),
+                siteNotice = null,
             )
         }
     }
@@ -110,6 +131,43 @@ class BrowserViewModel @Inject constructor(
                 isLoading = false,
                 progress = 100,
             )
+        }
+        runSiteAdapters(url, title)
+    }
+
+    /**
+     * Consults the site adapters once the page has settled.
+     *
+     * The adapter runs after load so the browser session the user already has is available, and
+     * its candidates are merged into the same page store as generic observations. A failure only
+     * adds a notice: generic detection keeps running so one stale adapter cannot hide media the
+     * page exposes anyway.
+     */
+    private fun runSiteAdapters(pageUrl: String, title: String?) {
+        viewModelScope.launch(pageProbeJob) {
+            val outcome = siteAdapters.inspect(
+                pageUrl = pageUrl,
+                requestContext = browserContext ?: BrowserRequestContext(pageUrl, null, null),
+                nowEpochMs = clock(),
+            )
+            if (pageUrl != activePageUrl) return@launch
+            when (outcome) {
+                SiteAdapterOutcome.NotHandled -> Unit
+
+                is SiteAdapterOutcome.Detected -> candidateStore.submitAll(
+                    outcome.candidates.map { candidate ->
+                        if (candidate.title != null) {
+                            candidate
+                        } else {
+                            candidate.copy(title = title?.trim()?.take(MAX_TITLE_LENGTH))
+                        }
+                    },
+                )
+
+                is SiteAdapterOutcome.Failed -> mutableUiState.update {
+                    it.copy(siteNotice = outcome.message)
+                }
+            }
         }
     }
 
@@ -125,6 +183,7 @@ class BrowserViewModel @Inject constructor(
 
     override fun onRequest(observation: RequestObservation) {
         if (observation.pageUrl != activePageUrl) return
+        rememberBrowserContext(observation)
         BrowserObservationMapper.fromRequest(observation)?.let(candidateStore::submit)
         val probeCandidate = BrowserObservationMapper.forMetadataProbe(observation) ?: return
         scheduleProbe(probeCandidate)
@@ -154,6 +213,21 @@ class BrowserViewModel @Inject constructor(
                 errorMessage = "Page could not be loaded. Check the address and connection.",
             )
         }
+    }
+
+    /**
+     * Keeps the newest session context the page actually used.
+     *
+     * The context stays in memory only and is never logged or persisted; adapters receive it so
+     * they can read the same page the user is already authorized to see.
+     */
+    private fun rememberBrowserContext(observation: RequestObservation) {
+        if (observation.userAgent == null && observation.cookie == null) return
+        browserContext = BrowserRequestContext(
+            pageUrl = observation.pageUrl,
+            userAgent = observation.userAgent,
+            cookie = observation.cookie,
+        )
     }
 
     private fun scheduleProbe(candidate: MediaCandidate) {

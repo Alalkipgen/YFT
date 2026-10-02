@@ -6,6 +6,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import com.alal.yft.detection.SiteAdapterCoordinator
+import com.alal.yft.extractor.api.SiteExtractorRegistry
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -26,7 +28,7 @@ class BrowserViewModelTest {
 
     @Test
     fun addressInputIsHttpsNormalizedAndInvalidSchemesStayLocal() {
-        val viewModel = BrowserViewModel(OkHttpClient())
+        val viewModel = BrowserViewModel(OkHttpClient(), noAdapters())
         viewModel.onAddressChanged("example.test/watch")
 
         assertEquals("https://example.test/watch", viewModel.addressForLoading())
@@ -39,7 +41,7 @@ class BrowserViewModelTest {
     @Test
     fun domCandidatesAppearAfterDebounceAndClearImmediatelyOnNavigation() = runTest {
         val selectionStore = PreviewSelectionStore()
-        val viewModel = BrowserViewModel(OkHttpClient(), selectionStore)
+        val viewModel = BrowserViewModel(OkHttpClient(), noAdapters(), selectionStore)
         val firstPage = "https://example.test/one"
         viewModel.onPageStarted(firstPage)
         viewModel.onDomProbeResult(
@@ -64,7 +66,7 @@ class BrowserViewModelTest {
 
     @Test
     fun mainFrameErrorsDoNotExposeWebViewDescriptions() {
-        val viewModel = BrowserViewModel(OkHttpClient())
+        val viewModel = BrowserViewModel(OkHttpClient(), noAdapters())
         val page = "https://example.test/watch"
         viewModel.onPageStarted(page)
 
@@ -75,4 +77,7 @@ class BrowserViewModelTest {
             viewModel.uiState.value.errorMessage,
         )
     }
+
+    private fun noAdapters(): SiteAdapterCoordinator =
+        SiteAdapterCoordinator(SiteExtractorRegistry(emptyList()))
 }
