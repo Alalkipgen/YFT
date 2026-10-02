@@ -2,14 +2,14 @@
 
 Update this file before every checkpoint push. Keep it short, factual and sufficient for a new chat to resume without guessing.
 
-- Current phase: Phase 6 — Hardening, privacy, performance and UI polish (COMPLETE, 100%). Phase 5E is complete at `c608b01`. Phase 7 (signed beta and GitHub release preparation) starts next on `work/phase-7-release`
-- Current branch: `work/phase-6-hardening` (created from `c608b01`)
-- Last completed task: Phase 6 completion — docs (`docs/HARDENING_AUDIT.md` all findings closed + Phase 6 result, `docs/TEST_MATRIX.md` Phase 6 automated checks and device rows, `docs/PHASE_STATUS.md`, `docs/HANDOFF.md`, `README.md`) and the full validation matrix. Before that: 6E (free-space pre-check, network banner, storage janitor), 6D (Library, Home link/Paste, icons, About, palette, Detected Media), 6B, 6C
+- Current phase: Phase 7 — Signed beta and GitHub release preparation (IN PROGRESS, about 60%). Phase 6 is complete at `4bdad07`
+- Current branch: `work/phase-7-release` (created from `4bdad07`)
+- Last completed task: 7A — version `1.0.0-beta.1`/versionCode 1 in `gradle.properties`; original adaptive launcher icon (+ monochrome, legacy PNGs from `scripts/generate-launcher-icons.py`) and launch screen (`Theme.Yft.Launch`, Android 12+ splash attributes); release signing from `YFT_RELEASE_*` env vars or untracked `keystore.properties` (fails when partial, `-Pyft.requireReleaseSigning=true` fails when missing, never debug-key fallback); `scripts/verify-release-apk.sh`, `scripts/release-prep.sh`, `scripts/device-smoke-test.sh`; draft-only `.github/workflows/release-draft.yml`; CI builds and checks the unsigned release APK; `CHANGELOG.md`, `docs/release/1.0.0-beta.1.md`, `docs/RELEASE.md`, README
 - Work in progress: none uncommitted. Phase 7 prompt: `docs/prompts/08_PHASE_7.md`
-- Build status: PASS — `./gradlew --no-daemon lintDebug testDebugUnitTest :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test :app:assembleDebug` (454 tests, 0 failures; lint 0 errors, 63 dependency/AGP-version warnings) and `./gradlew --no-daemon :app:assembleRelease` (unsigned release APK 2,976,324 bytes, SHA-256 `efc35d59823fbfedaff6288b254451bc6485b5fc49bf4e9b391cfd1806050ef8`; R8 kept the solver bridge `post`)
+- Build status: PASS — `./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug` (app 180 tests incl. `AppIdentityTest`, lint 0 errors, no new warnings); `./gradlew --no-daemon :app:assembleRelease` (unsigned, 2,999,336 bytes) checked by `scripts/verify-release-apk.sh --allow-unsigned`; actionlint + shellcheck clean
 - Known failure/blocker: no device/emulator (`/dev/kvm` unavailable); Robolectric jars cached for SDK 28 and 35 only. Build env: `export JAVA_HOME=/data/toolchains/jdk17 ANDROID_HOME=/data/android-sdk ANDROID_SDK_ROOT=/data/android-sdk`; kill stale daemons with `pkill -f "[G]radleDaemon"`
-- Next exact action: create `work/phase-7-release` from this checkpoint and follow `docs/prompts/08_PHASE_7.md` (version/identity, launcher icon and splash, signing config from env/ignored properties, CHANGELOG and release notes, checksum script, draft-only release workflow gated by `ALLOW_RELEASE`)
-- Last pushed checkpoint: `465b1c8` — Phase 6E; this Phase 6 completion checkpoint follows
+- Next exact action: run `scripts/release-prep.sh` with a throwaway key from `/tmp` (clean, lint, tests, signed release, verification, checksum), the versionCode-2 upgrade-compatibility check and negative signer checks, then Phase 7 docs (TEST_MATRIX, PHASE_STATUS, HANDOFF) and the `phase-7:` commit. Owner keystore is still required for a real signed beta
+- Last pushed checkpoint: `4bdad07` — Phase 6 complete; this 7A checkpoint follows
 - Last updated: 2026-10-02
 
 ## Checkpoint note template

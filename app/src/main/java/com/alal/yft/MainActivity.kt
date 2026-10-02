@@ -15,6 +15,8 @@ class MainActivity : ComponentActivity() {
     lateinit var storageJanitor: DownloadStorageJanitor
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // The manifest theme only styles the launch window; the app runs on Theme.Yft.
+        setTheme(R.style.Theme_Yft)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent { YftApp() }

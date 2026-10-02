@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- YFT primary; shared by the adaptive launcher icon and the launch screen. -->
+    <color name="ic_launcher_background">#00696B</color>
+    <color name="yft_launch_background">#00696B</color>
+</resources>

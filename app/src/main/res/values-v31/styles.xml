@@ -1,0 +1,9 @@
+<resources>
+    <!-- Android 12+ system splash screen: YFT mark on the YFT primary colour. -->
+    <style name="Theme.Yft.Launch">
+        <item name="android:windowBackground">@drawable/yft_launch_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowSplashScreenBackground">@color/yft_launch_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+    </style>
+</resources>

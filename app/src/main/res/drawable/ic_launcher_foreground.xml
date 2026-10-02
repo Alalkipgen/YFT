@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Original YFT mark: a media "play" triangle turned downward over a tray bar.
+     Geometry stays inside the 66 dp adaptive-icon safe zone; keep it in sync with
+     scripts/generate-launcher-icons.py, which renders the legacy PNGs. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,36L72,36L54,60Z"
+        android:strokeWidth="6"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineJoin="round" />
+    <path
+        android:fillColor="#FFDBCA"
+        android:pathData="M37.5,68L70.5,68A3.5,3.5 0,0 1,70.5 75L37.5,75A3.5,3.5 0,0 1,37.5 68Z" />
+</vector>

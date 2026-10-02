@@ -1,0 +1,135 @@
+name: Release draft
+
+# Builds the signed beta APK with the owner's keystore from repository secrets, verifies it and
+# creates or refreshes a DRAFT GitHub release. Nothing is published unless the repository
+# variable ALLOW_RELEASE is "true" and a manual run asks for it. See docs/RELEASE.md.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish after drafting (also needs repository variable ALLOW_RELEASE=true)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-draft
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Android SDK 35
+        shell: bash
+        run: |
+          SDKMANAGER="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}" -path '*/bin/sdkmanager' -type f | head -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Resolve version and tag
+        id: version
+        shell: bash
+        run: |
+          version="$(sed -n 's/^yft\.versionName=//p' gradle.properties | tail -n 1)"
+          test -n "$version"
+          tag="v$version"
+          if [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_REF_NAME" != "$tag" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match yft.versionName ($tag)."
+            exit 1
+          fi
+          prerelease=false
+          [[ "$version" != *-* ]] || prerelease=true
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "prerelease=$prerelease"
+          } >>"$GITHUB_OUTPUT"
+      - name: Restore the release keystore
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.YFT_RELEASE_KEYSTORE_BASE64 }}
+          EXPECTED_CERT: ${{ vars.YFT_RELEASE_CERT_SHA256 }}
+        run: |
+          if [[ -z "$KEYSTORE_BASE64" ]]; then
+            echo "::error::Secret YFT_RELEASE_KEYSTORE_BASE64 is not set; no signed APK can be built."
+            exit 1
+          fi
+          if [[ -z "$EXPECTED_CERT" ]]; then
+            echo "::error::Variable YFT_RELEASE_CERT_SHA256 is not set; the signer cannot be checked."
+            exit 1
+          fi
+          keystore="$RUNNER_TEMP/yft-release.keystore"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode >"$keystore"
+          chmod 600 "$keystore"
+          echo "YFT_RELEASE_STORE_FILE=$keystore" >>"$GITHUB_ENV"
+      - name: Build, test and verify the signed APK
+        shell: bash
+        env:
+          YFT_RELEASE_STORE_PASSWORD: ${{ secrets.YFT_RELEASE_STORE_PASSWORD }}
+          YFT_RELEASE_KEY_ALIAS: ${{ secrets.YFT_RELEASE_KEY_ALIAS }}
+          YFT_RELEASE_KEY_PASSWORD: ${{ secrets.YFT_RELEASE_KEY_PASSWORD }}
+          YFT_EXPECTED_CERT_SHA256: ${{ vars.YFT_RELEASE_CERT_SHA256 }}
+        run: bash scripts/release-prep.sh --out-dir dist/release
+      - name: Remove the keystore
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/yft-release.keystore"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yft-release-${{ steps.version.outputs.version }}
+          path: dist/release/
+          retention-days: 30
+          if-no-files-found: error
+      - name: Create or refresh the draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+        run: |
+          assets=(dist/release/*.apk dist/release/SHA256SUMS)
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            if [[ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" != "true" ]]; then
+              echo "::error::Release $TAG is already published; it is never modified here."
+              exit 1
+            fi
+            gh release upload "$TAG" "${assets[@]}" --clobber
+            gh release edit "$TAG" --notes-file dist/release/release-notes.md
+          else
+            flags=(--draft --target "$GITHUB_SHA" --title "Video Downloader $VERSION")
+            [[ "$PRERELEASE" != "true" ]] || flags+=(--prerelease)
+            gh release create "$TAG" "${flags[@]}" \
+              --notes-file dist/release/release-notes.md "${assets[@]}"
+          fi
+          echo "Draft release $TAG is ready for review."
+      - name: Publish the release
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish && vars.ALLOW_RELEASE == 'true' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: gh release edit "$TAG" --draft=false
+      - name: Keep the release as a draft
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.publish && vars.ALLOW_RELEASE == 'true') }}
+        shell: bash
+        run: echo "Left as a draft. Publishing needs a manual run with publish=true and ALLOW_RELEASE=true."
