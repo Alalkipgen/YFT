@@ -10,6 +10,10 @@ sealed interface DownloadPlan {
     val expiresAtEpochMs: Long?
 }
 
+sealed interface TransferCheckpoint {
+    val downloadedBytes: Long
+}
+
 data class DirectDownloadPlan(
     override val taskId: String,
     val sourceUrl: String,
@@ -282,14 +286,14 @@ data class DirectTransferCheckpoint(
     val entityTag: String?,
     val lastModified: String?,
     val segments: List<DownloadSegment>,
-) {
+) : TransferCheckpoint {
     init {
         require(totalBytes == null || totalBytes >= 0)
         require(segments.map(DownloadSegment::index).distinct().size == segments.size)
         require(segments.zipWithNext().all { (left, right) -> left.index < right.index })
     }
 
-    val downloadedBytes: Long
+    override val downloadedBytes: Long
         get() = segments.sumOf(DownloadSegment::downloadedBytes)
 
     override fun toString(): String = buildString {
@@ -333,7 +337,7 @@ data class StreamChunkCheckpoint(
 data class HlsTransferCheckpoint(
     val manifestFingerprint: String?,
     val chunks: List<StreamChunkCheckpoint>,
-) {
+) : TransferCheckpoint {
     init {
         require(manifestFingerprint == null || manifestFingerprint.matches(SHA_256_PATTERN))
         require(chunks.map(StreamChunkCheckpoint::index).distinct().size == chunks.size)
@@ -341,7 +345,7 @@ data class HlsTransferCheckpoint(
         require(chunks.withIndex().all { (position, chunk) -> position == chunk.index })
     }
 
-    val downloadedBytes: Long
+    override val downloadedBytes: Long
         get() = chunks.sumOf(StreamChunkCheckpoint::downloadedBytes)
 
     val completedChunkCount: Int
@@ -379,7 +383,7 @@ sealed interface HlsTransferResult {
 data class DashTransferCheckpoint(
     val manifestFingerprint: String?,
     val chunks: List<StreamChunkCheckpoint>,
-) {
+) : TransferCheckpoint {
     init {
         require(manifestFingerprint == null || manifestFingerprint.matches(SHA_256_PATTERN))
         require(chunks.map(StreamChunkCheckpoint::index).distinct().size == chunks.size)
@@ -387,7 +391,7 @@ data class DashTransferCheckpoint(
         require(chunks.withIndex().all { (position, chunk) -> position == chunk.index })
     }
 
-    val downloadedBytes: Long
+    override val downloadedBytes: Long
         get() = chunks.sumOf(StreamChunkCheckpoint::downloadedBytes)
 
     val completedChunkCount: Int
@@ -435,7 +439,7 @@ data class AudioVideoMuxCheckpoint(
     val videoReady: Boolean = false,
     val audioReady: Boolean = false,
     val stage: AudioVideoMuxStage = AudioVideoMuxStage.DOWNLOADING_TRACKS,
-) {
+) : TransferCheckpoint {
     init {
         require(!videoReady || video.isComplete())
         require(!audioReady || audio.isComplete())
@@ -444,7 +448,7 @@ data class AudioVideoMuxCheckpoint(
         }
     }
 
-    val downloadedBytes: Long
+    override val downloadedBytes: Long
         get() = (video?.downloadedBytes ?: 0) + (audio?.downloadedBytes ?: 0)
 
     override fun toString(): String = buildString {

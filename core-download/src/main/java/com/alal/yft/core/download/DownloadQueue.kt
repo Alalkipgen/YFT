@@ -1,11 +1,18 @@
 package com.alal.yft.core.download
 
+import com.alal.yft.core.model.download.AudioVideoMuxCheckpoint
+import com.alal.yft.core.model.download.AudioVideoMuxDownloadPlan
+import com.alal.yft.core.model.download.DashDownloadPlan
+import com.alal.yft.core.model.download.DashTransferCheckpoint
 import com.alal.yft.core.model.download.DirectDownloadPlan
 import com.alal.yft.core.model.download.DirectTransferCheckpoint
-import com.alal.yft.core.model.download.DirectTransferResult
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.DownloadPlan
 import com.alal.yft.core.model.download.DownloadTaskStatus
+import com.alal.yft.core.model.download.HlsDownloadPlan
+import com.alal.yft.core.model.download.HlsTransferCheckpoint
 import com.alal.yft.core.model.download.RemoteFileMetadata
+import com.alal.yft.core.model.download.TransferCheckpoint
 import java.io.IOException
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
@@ -36,11 +43,25 @@ data class DownloadDestinationSpec(
  */
 class DownloadQueue(
     private val store: DownloadTaskStore,
-    private val transferRunner: DirectTransferRunner,
+    private val transferDispatcher: DownloadTransferDispatcher,
     private val scope: CoroutineScope,
     maxConcurrentDownloads: Int = 2,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
+    constructor(
+        store: DownloadTaskStore,
+        transferRunner: DirectTransferRunner,
+        scope: CoroutineScope,
+        maxConcurrentDownloads: Int = 2,
+        clock: () -> Long = System::currentTimeMillis,
+    ) : this(
+        store = store,
+        transferDispatcher = DirectOnlyDownloadTransferDispatcher(transferRunner),
+        scope = scope,
+        maxConcurrentDownloads = maxConcurrentDownloads,
+        clock = clock,
+    )
+
     private val gate = Mutex()
     private var capacity = maxConcurrentDownloads.also { require(it in 1..10) }
     private var restored = false
@@ -63,39 +84,105 @@ class DownloadQueue(
         destinationSpec: DownloadDestinationSpec = DownloadDestinationSpec(
             DownloadDestinationKind.APP_PRIVATE,
         ),
-    ): String = gate.withLock {
-        restoreLocked()
-        require(mutableTasks.value.none { it.id == plan.taskId }) {
-            "A task with this ID already exists"
-        }
-        val now = clock()
-        val checkpoint = DirectTransferCheckpoint(
+    ): String = enqueueRuntime(
+        runtime = RuntimeTask(plan, metadata, destination),
+        planType = DownloadPlanType.DIRECT,
+        checkpoint = DirectTransferCheckpoint(
             totalBytes = metadata.totalBytes,
             entityTag = metadata.entityTag,
             lastModified = metadata.lastModified,
             segments = emptyList(),
-        )
+        ),
+        totalBytes = metadata.totalBytes,
+        mimeType = metadata.contentType ?: plan.mimeType,
+        preferredSegmentCount = plan.preferredSegmentCount,
+        destinationSpec = destinationSpec,
+    )
+
+    suspend fun enqueue(
+        plan: HlsDownloadPlan,
+        destination: DownloadDestination,
+        destinationSpec: DownloadDestinationSpec = DownloadDestinationSpec(
+            DownloadDestinationKind.APP_PRIVATE,
+        ),
+    ): String = enqueueRuntime(
+        runtime = RuntimeTask(plan, null, destination),
+        planType = DownloadPlanType.HLS,
+        checkpoint = HlsTransferCheckpoint(null, emptyList()),
+        totalBytes = null,
+        mimeType = plan.mimeType,
+        preferredSegmentCount = DEFAULT_STREAM_SEGMENT_COUNT,
+        destinationSpec = destinationSpec,
+    )
+
+    suspend fun enqueue(
+        plan: DashDownloadPlan,
+        destination: DownloadDestination,
+        destinationSpec: DownloadDestinationSpec = DownloadDestinationSpec(
+            DownloadDestinationKind.APP_PRIVATE,
+        ),
+    ): String = enqueueRuntime(
+        runtime = RuntimeTask(plan, null, destination),
+        planType = DownloadPlanType.DASH,
+        checkpoint = DashTransferCheckpoint(null, emptyList()),
+        totalBytes = null,
+        mimeType = plan.mimeType,
+        preferredSegmentCount = DEFAULT_STREAM_SEGMENT_COUNT,
+        destinationSpec = destinationSpec,
+    )
+
+    suspend fun enqueue(
+        plan: AudioVideoMuxDownloadPlan,
+        destination: DownloadDestination,
+        destinationSpec: DownloadDestinationSpec = DownloadDestinationSpec(
+            DownloadDestinationKind.APP_PRIVATE,
+        ),
+    ): String = enqueueRuntime(
+        runtime = RuntimeTask(plan, null, destination),
+        planType = DownloadPlanType.AUDIO_VIDEO_MUX,
+        checkpoint = AudioVideoMuxCheckpoint(),
+        totalBytes = null,
+        mimeType = plan.outputMimeType,
+        preferredSegmentCount = DEFAULT_STREAM_SEGMENT_COUNT,
+        destinationSpec = destinationSpec,
+    )
+
+    private suspend fun enqueueRuntime(
+        runtime: RuntimeTask,
+        planType: DownloadPlanType,
+        checkpoint: TransferCheckpoint,
+        totalBytes: Long?,
+        mimeType: String?,
+        preferredSegmentCount: Int,
+        destinationSpec: DownloadDestinationSpec,
+    ): String = gate.withLock {
+        restoreLocked()
+        require(mutableTasks.value.none { it.id == runtime.plan.taskId }) {
+            "A task with this ID already exists"
+        }
+        val now = clock()
         val task = StoredDownloadTask(
-            id = plan.taskId,
-            displayName = plan.suggestedFileName,
+            id = runtime.plan.taskId,
+            displayName = runtime.plan.suggestedFileName,
             status = if (networkAvailable) {
                 DownloadTaskStatus.QUEUED
             } else {
                 DownloadTaskStatus.WAITING_FOR_NETWORK
             },
-            totalBytes = metadata.totalBytes,
-            downloadedBytes = 0,
-            mimeType = metadata.contentType ?: plan.mimeType,
+            planType = planType,
+            totalBytes = totalBytes,
+            downloadedBytes = checkpoint.downloadedBytes,
+            mimeType = mimeType,
             destinationKind = destinationSpec.kind,
-            destinationUri = destination.recoveryUri ?: destinationSpec.uri,
-            preferredSegmentCount = plan.preferredSegmentCount,
+            destinationUri = runtime.destination.recoveryUri ?: destinationSpec.uri,
+            preferredSegmentCount = preferredSegmentCount,
             requiresLinkRefresh = false,
             failureReason = null,
             checkpoint = checkpoint,
             createdAtEpochMs = now,
             updatedAtEpochMs = now,
         )
-        runtimeTasks[task.id] = RuntimeTask(plan, metadata, destination)
+        runtimeTasks[task.id] = runtime
         saveAndPublishLocked(task)
         if (networkAvailable) {
             pending.addLast(task.id)
@@ -109,25 +196,96 @@ class DownloadQueue(
         plan: DirectDownloadPlan,
         metadata: RemoteFileMetadata,
         destination: DownloadDestination,
+    ) = refreshRuntime(
+        id = id,
+        runtime = RuntimeTask(plan, metadata, destination),
+        planType = DownloadPlanType.DIRECT,
+        emptyCheckpoint = DirectTransferCheckpoint(
+            totalBytes = metadata.totalBytes,
+            entityTag = metadata.entityTag,
+            lastModified = metadata.lastModified,
+            segments = emptyList(),
+        ),
+        totalBytes = metadata.totalBytes,
+        mimeType = metadata.contentType ?: plan.mimeType,
+        preferredSegmentCount = plan.preferredSegmentCount,
+    )
+
+    suspend fun refresh(
+        id: String,
+        plan: HlsDownloadPlan,
+        destination: DownloadDestination,
+    ) = refreshRuntime(
+        id = id,
+        runtime = RuntimeTask(plan, null, destination),
+        planType = DownloadPlanType.HLS,
+        emptyCheckpoint = HlsTransferCheckpoint(null, emptyList()),
+        totalBytes = null,
+        mimeType = plan.mimeType,
+        preferredSegmentCount = DEFAULT_STREAM_SEGMENT_COUNT,
+    )
+
+    suspend fun refresh(
+        id: String,
+        plan: DashDownloadPlan,
+        destination: DownloadDestination,
+    ) = refreshRuntime(
+        id = id,
+        runtime = RuntimeTask(plan, null, destination),
+        planType = DownloadPlanType.DASH,
+        emptyCheckpoint = DashTransferCheckpoint(null, emptyList()),
+        totalBytes = null,
+        mimeType = plan.mimeType,
+        preferredSegmentCount = DEFAULT_STREAM_SEGMENT_COUNT,
+    )
+
+    suspend fun refresh(
+        id: String,
+        plan: AudioVideoMuxDownloadPlan,
+        destination: DownloadDestination,
+    ) = refreshRuntime(
+        id = id,
+        runtime = RuntimeTask(plan, null, destination),
+        planType = DownloadPlanType.AUDIO_VIDEO_MUX,
+        emptyCheckpoint = AudioVideoMuxCheckpoint(),
+        totalBytes = null,
+        mimeType = plan.outputMimeType,
+        preferredSegmentCount = DEFAULT_STREAM_SEGMENT_COUNT,
+    )
+
+    private suspend fun refreshRuntime(
+        id: String,
+        runtime: RuntimeTask,
+        planType: DownloadPlanType,
+        emptyCheckpoint: TransferCheckpoint,
+        totalBytes: Long?,
+        mimeType: String?,
+        preferredSegmentCount: Int,
     ) = gate.withLock {
         restoreLocked()
-        require(plan.taskId == id)
+        require(runtime.plan.taskId == id)
         val current = taskLocked(id) ?: error("Download task does not exist")
         check(current.status != DownloadTaskStatus.COMPLETED)
-        runtimeTasks[id] = RuntimeTask(plan, metadata, destination)
+        runtimeTasks[id] = runtime
         pending.remove(id)
+        val checkpoint = current.checkpoint.takeIf { current.planType == planType }
+            ?: emptyCheckpoint
         val refreshed = current.copy(
-            displayName = plan.suggestedFileName,
+            displayName = runtime.plan.suggestedFileName,
             status = if (networkAvailable) {
                 DownloadTaskStatus.QUEUED
             } else {
                 DownloadTaskStatus.WAITING_FOR_NETWORK
             },
-            mimeType = metadata.contentType ?: plan.mimeType,
-            destinationUri = destination.recoveryUri ?: current.destinationUri,
-            preferredSegmentCount = plan.preferredSegmentCount,
+            planType = planType,
+            totalBytes = totalBytes?.takeIf { it >= checkpoint.downloadedBytes },
+            downloadedBytes = checkpoint.downloadedBytes,
+            mimeType = mimeType,
+            destinationUri = runtime.destination.recoveryUri ?: current.destinationUri,
+            preferredSegmentCount = preferredSegmentCount,
             requiresLinkRefresh = false,
             failureReason = null,
+            checkpoint = checkpoint,
             updatedAtEpochMs = clock(),
         )
         saveAndPublishLocked(refreshed)
@@ -199,7 +357,14 @@ class DownloadQueue(
         stop.job?.cancelAndJoin()
         val runtime = gate.withLock { runtimeTasks[id] }
         val discardFailure = withContext(Dispatchers.IO) {
-            runCatching { runtime?.destination?.discard() }.exceptionOrNull()
+            var failure: Throwable? = null
+            if (runtime != null) {
+                runCatching { transferDispatcher.discard(runtime.plan) }
+                    .onFailure { failure = it }
+                runCatching { runtime.destination.discard() }
+                    .onFailure { if (failure == null) failure = it }
+            }
+            failure
         }
         gate.withLock {
             val current = taskLocked(id) ?: return@withLock
@@ -377,7 +542,7 @@ class DownloadQueue(
         val ownJob = kotlin.coroutines.coroutineContext[Job]
         try {
             when (
-                val result = transferRunner.transfer(
+                val result = transferDispatcher.transfer(
                     plan = runtime.plan,
                     metadata = runtime.metadata,
                     destination = runtime.destination,
@@ -387,8 +552,8 @@ class DownloadQueue(
                     },
                 )
             ) {
-                is DirectTransferResult.Completed -> completeTask(initial.id, result)
-                is DirectTransferResult.Failure -> failTask(initial.id, result)
+                is QueueTransferResult.Completed -> completeTask(initial.id, result)
+                is QueueTransferResult.Failure -> failTask(initial.id, result)
             }
         } catch (cancellation: CancellationException) {
             throw cancellation
@@ -415,11 +580,15 @@ class DownloadQueue(
 
     private suspend fun persistCheckpoint(
         id: String,
-        checkpoint: DirectTransferCheckpoint,
+        checkpoint: TransferCheckpoint,
     ) = gate.withLock {
         val current = taskLocked(id) ?: return@withLock
+        if (!current.planType.accepts(checkpoint)) return@withLock
+        val checkpointTotal = (checkpoint as? DirectTransferCheckpoint)?.totalBytes
         val updated = current.copy(
-            totalBytes = checkpoint.totalBytes ?: current.totalBytes,
+            totalBytes = checkpointTotal
+                ?.takeIf { it >= checkpoint.downloadedBytes }
+                ?: current.totalBytes?.takeIf { it >= checkpoint.downloadedBytes },
             downloadedBytes = checkpoint.downloadedBytes,
             checkpoint = checkpoint,
             updatedAtEpochMs = clock(),
@@ -429,14 +598,20 @@ class DownloadQueue(
 
     private suspend fun completeTask(
         id: String,
-        result: DirectTransferResult.Completed,
+        result: QueueTransferResult.Completed,
     ) = gate.withLock {
         val current = taskLocked(id) ?: return@withLock
         val publishedUri = runtimeTasks[id]?.destination?.publishedUri
+        val checkpointBytes = result.checkpoint.downloadedBytes
+        val totalBytes = when (current.planType) {
+            DownloadPlanType.AUDIO_VIDEO_MUX -> null
+            else -> (current.totalBytes ?: result.bytesWritten)
+                .coerceAtLeast(checkpointBytes)
+        }
         val completed = current.copy(
             status = DownloadTaskStatus.COMPLETED,
-            totalBytes = result.checkpoint.totalBytes ?: result.bytesWritten,
-            downloadedBytes = result.bytesWritten,
+            totalBytes = totalBytes,
+            downloadedBytes = checkpointBytes,
             requiresLinkRefresh = false,
             failureReason = null,
             destinationUri = publishedUri ?: current.destinationUri,
@@ -449,17 +624,22 @@ class DownloadQueue(
 
     private suspend fun failTask(
         id: String,
-        result: DirectTransferResult.Failure,
+        result: QueueTransferResult.Failure,
     ) = gate.withLock {
         val current = taskLocked(id) ?: return@withLock
         val needsRefresh = result.failure.reason in REFRESH_FAILURES
+        val checkpointTotal = (result.checkpoint as? DirectTransferCheckpoint)?.totalBytes
         val failed = current.copy(
             status = if (needsRefresh) {
                 DownloadTaskStatus.NEEDS_REFRESH
             } else {
                 DownloadTaskStatus.FAILED
             },
-            totalBytes = result.checkpoint.totalBytes ?: current.totalBytes,
+            totalBytes = checkpointTotal
+                ?.takeIf { it >= result.checkpoint.downloadedBytes }
+                ?: current.totalBytes?.takeIf {
+                    it >= result.checkpoint.downloadedBytes
+                },
             downloadedBytes = result.checkpoint.downloadedBytes,
             requiresLinkRefresh = needsRefresh,
             failureReason = result.failure.reason,
@@ -496,8 +676,8 @@ class DownloadQueue(
     }
 
     private data class RuntimeTask(
-        val plan: DirectDownloadPlan,
-        val metadata: RemoteFileMetadata,
+        val plan: DownloadPlan,
+        val metadata: RemoteFileMetadata?,
         val destination: DownloadDestination,
     )
 
@@ -507,6 +687,8 @@ class DownloadQueue(
     )
 
     private companion object {
+        const val DEFAULT_STREAM_SEGMENT_COUNT = 1
+
         val TERMINAL_STATUSES = setOf(
             DownloadTaskStatus.COMPLETED,
             DownloadTaskStatus.FAILED,

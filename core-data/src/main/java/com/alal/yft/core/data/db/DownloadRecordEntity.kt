@@ -39,6 +39,8 @@ data class DownloadRecordEntity(
     val preferredSegmentCount: Int = 4,
     @ColumnInfo(name = "requires_link_refresh", defaultValue = "1")
     val requiresLinkRefresh: Boolean = true,
+    @ColumnInfo(name = "checkpoint_payload")
+    val checkpointPayload: String? = null,
     @ColumnInfo(name = "updated_at_epoch_ms", defaultValue = "0")
     val updatedAtEpochMs: Long = createdAtEpochMs,
 ) {
@@ -73,6 +75,8 @@ data class DownloadRecordEntity(
         append(!destinationUri.isNullOrBlank())
         append(", validatorPresent=")
         append(!entityTag.isNullOrBlank() || !lastModified.isNullOrBlank())
+        append(", checkpointPayloadPresent=")
+        append(!checkpointPayload.isNullOrBlank())
         append(", requiresLinkRefresh=")
         append(requiresLinkRefresh)
         append(')')

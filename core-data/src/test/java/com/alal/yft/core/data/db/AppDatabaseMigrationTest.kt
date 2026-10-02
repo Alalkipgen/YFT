@@ -125,7 +125,49 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
-    fun migrationFrom1To3ValidatesTheCompleteChain() {
+    fun migrationFrom3To4PreservesRowsAndAddsNullableCheckpointPayload() {
+        helper.createDatabase(TEST_DATABASE, 3).apply {
+            execSQL(
+                """
+                INSERT INTO download_records (
+                    id,
+                    display_name,
+                    status,
+                    progress_percent,
+                    created_at_epoch_ms,
+                    plan_type,
+                    downloaded_bytes
+                ) VALUES ('record-stream', 'Stream', 'PAUSED', 40, 2500, 'HLS', 400)
+                """.trimIndent(),
+            )
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(
+            TEST_DATABASE,
+            4,
+            true,
+            AppDatabase.MIGRATION_3_4,
+        )
+
+        migrated.query(
+            """
+            SELECT id, plan_type, downloaded_bytes, checkpoint_payload
+            FROM download_records
+            WHERE id = 'record-stream'
+            """.trimIndent(),
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("record-stream", cursor.getString(0))
+            assertEquals("HLS", cursor.getString(1))
+            assertEquals(400L, cursor.getLong(2))
+            assertNull(cursor.getString(3))
+        }
+        migrated.close()
+    }
+
+    @Test
+    fun migrationFrom1To4ValidatesTheCompleteChain() {
         helper.createDatabase(TEST_DATABASE, 1).apply {
             execSQL(
                 """
@@ -139,18 +181,24 @@ class AppDatabaseMigrationTest {
 
         val migrated = helper.runMigrationsAndValidate(
             TEST_DATABASE,
-            3,
+            4,
             true,
             AppDatabase.MIGRATION_1_2,
             AppDatabase.MIGRATION_2_3,
+            AppDatabase.MIGRATION_3_4,
         )
 
         migrated.query(
-            "SELECT status, last_error_code FROM download_records WHERE id = 'record-3'",
+            """
+            SELECT status, last_error_code, checkpoint_payload
+            FROM download_records
+            WHERE id = 'record-3'
+            """.trimIndent(),
         ).use { cursor ->
             assertTrue(cursor.moveToFirst())
             assertEquals("NEEDS_REFRESH", cursor.getString(0))
             assertNull(cursor.getString(1))
+            assertNull(cursor.getString(2))
         }
         migrated.close()
     }

@@ -17,7 +17,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun downloadRecordDao(): DownloadRecordDao
 
     companion object {
-        const val VERSION = 3
+        const val VERSION = 4
         const val NAME = "yft.db"
 
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -100,6 +100,15 @@ abstract class AppDatabase : RoomDatabase() {
                         'VERIFYING'
                     )
                     """.trimIndent(),
+                )
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE download_records " +
+                        "ADD COLUMN checkpoint_payload TEXT DEFAULT NULL",
                 )
             }
         }
