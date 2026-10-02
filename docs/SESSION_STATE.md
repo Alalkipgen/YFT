@@ -2,14 +2,14 @@
 
 Update this file before every checkpoint push. Keep it short, factual and sufficient for a new chat to resume without guessing.
 
-- Current phase: Phase 6 — Hardening, privacy, performance and UI polish (IN PROGRESS, about 85%). Phase 5E is complete at `c608b01`
+- Current phase: Phase 6 — Hardening, privacy, performance and UI polish (COMPLETE, 100%). Phase 5E is complete at `c608b01`. Phase 7 (signed beta and GitHub release preparation) starts next on `work/phase-7-release`
 - Current branch: `work/phase-6-hardening` (created from `c608b01`)
-- Last completed task: 6E — free-space pre-check (R3: `StorageSpace`/`StatFsStorageSpace`, exact sizes + 32 MiB headroom, rejected as `INSUFFICIENT_STORAGE` before any destination exists); Downloads network banner (`DownloadNetworkStatus`, "Waiting for Wi-Fi"/"No connection", policy applied when Downloads opens); `DownloadStorageJanitor` (P2: stale `.part` files and orphan HLS/DASH/mux workspaces from earlier processes, newest 200 finished records kept; started once from `MainActivity`); shared `DownloadWorkspaces` naming in core-download. Before that: 6D (Library, Home link/Paste, icons, About, palette, Detected Media), 6B, 6C
-- Work in progress: none uncommitted. Next agent prompt (Burmese): `docs/prompts/10_PHASE_6_CONTINUE_MM.md`
-- Build status: PASS — `./gradlew --no-daemon :core-download:testDebugUnitTest :app:testDebugUnitTest` (app 175, core-download 81 tests, 0 failures; core-model 26 and core-data 11 unchanged). Full lint/release matrix not yet re-run in Phase 6
+- Last completed task: Phase 6 completion — docs (`docs/HARDENING_AUDIT.md` all findings closed + Phase 6 result, `docs/TEST_MATRIX.md` Phase 6 automated checks and device rows, `docs/PHASE_STATUS.md`, `docs/HANDOFF.md`, `README.md`) and the full validation matrix. Before that: 6E (free-space pre-check, network banner, storage janitor), 6D (Library, Home link/Paste, icons, About, palette, Detected Media), 6B, 6C
+- Work in progress: none uncommitted. Phase 7 prompt: `docs/prompts/08_PHASE_7.md`
+- Build status: PASS — `./gradlew --no-daemon lintDebug testDebugUnitTest :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test :app:assembleDebug` (454 tests, 0 failures; lint 0 errors, 63 dependency/AGP-version warnings) and `./gradlew --no-daemon :app:assembleRelease` (unsigned release APK 2,976,324 bytes, SHA-256 `efc35d59823fbfedaff6288b254451bc6485b5fc49bf4e9b391cfd1806050ef8`; R8 kept the solver bridge `post`)
 - Known failure/blocker: no device/emulator (`/dev/kvm` unavailable); Robolectric jars cached for SDK 28 and 35 only. Build env: `export JAVA_HOME=/data/toolchains/jdk17 ANDROID_HOME=/data/android-sdk ANDROID_SDK_ROOT=/data/android-sdk`; kill stale daemons with `pkill -f "[G]radleDaemon"`
-- Next exact action: docs (TEST_MATRIX Phase 6 section, HARDENING_AUDIT statuses, PHASE_STATUS, HANDOFF, README), then the full validation matrix (lint, all tests, debug + release, R8 bridge check), Phase 6 completion checkpoint; then Phase 7 (owner approved continuing) per `docs/prompts/08_PHASE_7.md`
-- Last pushed checkpoint: `d992cd7` — Phase 6D part 2; this checkpoint follows
+- Next exact action: create `work/phase-7-release` from this checkpoint and follow `docs/prompts/08_PHASE_7.md` (version/identity, launcher icon and splash, signing config from env/ignored properties, CHANGELOG and release notes, checksum script, draft-only release workflow gated by `ALLOW_RELEASE`)
+- Last pushed checkpoint: `465b1c8` — Phase 6E; this Phase 6 completion checkpoint follows
 - Last updated: 2026-10-02
 
 ## Checkpoint note template

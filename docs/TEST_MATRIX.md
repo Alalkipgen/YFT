@@ -168,6 +168,31 @@ All adapter tests run offline against committed fixtures; no test performs a liv
 | Bundled solver vectors | Node (`scripts/verify-youtube-solver.mjs`) | The unmodified bundled solver answers the public ejs vectors on the main and phone player builds, and solves today's live player | PASS — 34 vectors; live player `8ab5c328` solved |
 | Solver in a browser engine | Headless Chromium 153 harness | The exact solver page, worker and CSP solve player `74edf1a3` (5/5) and six more players with no outside request and no navigation | PASS — 0.68 s cold, 0.21 s with the preprocessed player |
 
+## Phase 6 automated checks (hardening and UI)
+
+| Check | Type | Success criterion | Result |
+| --- | --- | --- | --- |
+| Backup and transfer exclusion | Lint/resources | `data_extraction_rules.xml` excludes every domain, `fullBackupContent=false`, lint reports no `DataExtractionRules` issue | PASS |
+| Network security | Manifest review | No cleartext and system CAs only for every build type | Reviewed — no automated test |
+| Notification privacy | Robolectric | Download notifications are `VISIBILITY_PRIVATE` with a count-only public version | PASS |
+| File-name hardening | JVM | Bidirectional and zero-width controls never reach an output name | PASS |
+| Download preferences | JVM/DataStore | Quality, location, Wi-Fi only, mobile-data confirmation and concurrency persist and fall back to defaults | PASS |
+| Wi-Fi-only policy | JVM | Mobile data holds work as waiting, Wi-Fi releases it, the first enqueue applies the policy synchronously | PASS |
+| Unique app-storage names | JVM/Robolectric | A taken name gets a " (n)" suffix that follows the task into the queue and result | PASS |
+| Settings screen | Robolectric/Compose | Every preference is shown and forwarded; clearing data asks first | PASS |
+| Preview defaults | Robolectric/Compose | The preferred quality is preselected; mobile data asks for confirmation; Wi-Fi only explains the wait | PASS |
+| Library | Robolectric/Compose | MediaStore `Download/YFT` items and app-storage files are listed (no `.part`), play in app, open/share through a chooser with a read grant, delete only after confirmation | PASS |
+| App-storage provider | Robolectric | Read-only, not exported, confined to app-storage downloads, refuses staging files and writes | PASS |
+| Home link entry | Robolectric/Compose | The clipboard is read only on Paste; the first HTTPS link is extracted; the link reaches the browser route intact | PASS |
+| Accessibility labels | Robolectric/Compose | Back, history, reload/stop and media buttons expose content descriptions; existing test tags still resolve | PASS |
+| About and notices | Robolectric/Compose + JVM | Version, scope and privacy shown; every bundled notice matches `THIRD_PARTY_NOTICES.md` and opens its license text | PASS |
+| Palette contrast | JVM | Light and dark text/background pairs ≥ 4.5:1, outline ≥ 3:1, not the Material default | PASS |
+| Detected Media | JVM/Robolectric/Compose | The browser publishes the current page; only listed, non-DRM candidates reach Preview; only the page host is shown; clearing browsing data empties it | PASS |
+| Free-space pre-check | JVM | A known size that cannot fit (with 32 MiB headroom) is rejected as `INSUFFICIENT_STORAGE` before a destination exists; estimates and unmeasurable volumes start | PASS |
+| Network banner | JVM/Robolectric/Compose | "Waiting for Wi-Fi" and "No connection" follow the policy and disappear when transfers may run | PASS |
+| Storage janitor | JVM | Stale `.part` files and orphan workspaces from earlier processes are removed, current and unfinished work is kept, finished records are capped at 200, one pass per process | PASS |
+| Workspace naming | JVM | Workspace names are stable SHA-256 prefixes that never contain the task id | PASS |
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |
@@ -186,6 +211,11 @@ All adapter tests run offline against committed fixtures; no test performs a liv
 | Real low-storage transfer | Device with a nearly full volume | Transfer fails cleanly without a corrupt published file | NOT RUN — covered only through an injected failure |
 | YouTube download on a device | Phone on a residential or mobile network, current Android System WebView | An embeddable public video lists progressive and M4A candidates, the solver WebView answers within the timeout, and the file downloads and plays | NOT RUN — no device/KVM; the sandbox's datacenter IP gets bot checks and "video unavailable" |
 | YouTube non-embeddable video | Same as above | The page client's streams are offered; a 403 at download time fails clearly instead of hanging | NOT RUN |
+| Notification permission | Android 13+ device/emulator | `POST_NOTIFICATIONS` is requested before the first download and progress shows once granted | NOT RUN — request flow in `ui/components/NotificationPermission.kt` has no automated test |
+| Library on a device | Android 10+ device/emulator | `Download/YFT` items and app-storage files play in app, open and share in other apps, and delete after confirmation | NOT RUN — Robolectric repository, provider and screen tests pass |
+| Clear browsing data on a device | Android API 24+ device/emulator | Sites opened in YFT are signed out and storage/cache are empty afterwards | NOT RUN — cleaner composition covered locally |
+| Wi-Fi-only switching on a device | Device with Wi-Fi and mobile data | Transfers pause on mobile data, the banner explains it, and they resume on Wi-Fi | NOT RUN — policy and banner covered locally |
+| Storage janitor on a device | Android API 24+ device/emulator | After a forced stop, stale `.part` files and workspaces disappear on the next launch | NOT RUN — covered with temporary folders locally |
 
 ## Phase 5 and later regression categories
 

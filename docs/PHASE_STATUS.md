@@ -9,16 +9,16 @@
 | 4 — Download engines | COMPLETE | Typed download plans, direct/HLS/DASH transfer, mux compatibility, foreground execution, Room recovery and safe export validated |
 | 5 — Site adapters | COMPLETE | TikTok, Facebook and Vimeo adapters behind the extractor API with offline fixtures, registry fallback to generic detection, and the YouTube blocker reported |
 | 5E — YouTube (owner override) | COMPLETE | YouTube adapter by owner decision (ADR-005): embedded-first lookup, progressive MP4 plus M4A audio, bundled ejs solver in a sandboxed WebView, offline fixtures and tests |
-| 6 — Hardening/UI | IN PROGRESS | Hardening, privacy, performance and UI polish on `work/phase-6-hardening`; findings tracked in `docs/HARDENING_AUDIT.md` |
+| 6 — Hardening/UI | COMPLETE | Privacy and backup hardening, download preferences and Wi-Fi-only policy, Library, Detected Media, Home link entry, About notices, original palette, free-space check and storage janitor; every audit finding closed or device-only (`docs/HARDENING_AUDIT.md`) |
 | 7 — Signed beta/release | NOT STARTED | — |
 
 ## Current phase state
 
-Phase 5E is complete on `work/phase-5e-youtube` at `c608b01`. Phase 6 is in progress on `work/phase-6-hardening`, created from that head and following `docs/prompts/07_PHASE_6.md`; its findings and their status are tracked in `docs/HARDENING_AUDIT.md`. No work branch has been merged into `main`.
+Phase 6 is complete on `work/phase-6-hardening`, created from the Phase 5E head `c608b01` and following `docs/prompts/07_PHASE_6.md`; its findings and their status are tracked in `docs/HARDENING_AUDIT.md`. The owner approved continuing into Phase 7 (signed beta and release preparation, `docs/prompts/08_PHASE_7.md`). No work branch has been merged into `main`.
 
 ## Phase 6 active scope
 
-> 6B/6C checkpoint: 6A done; 6B security/privacy and 6C settings/reliability implemented with tests (S1–S5, S9, R1, R2, R6 closed in `HARDENING_AUDIT.md`). Remaining: 6D UI finalization, 6E performance/free-space/pruning, full validation. Continue with `docs/prompts/10_PHASE_6_CONTINUE_MM.md`.
+> Complete: 6A audit, 6B security/privacy, 6C settings/reliability, 6D UI finalization and 6E free-space/pruning are implemented with tests; the full validation matrix is recorded below.
 
 - 6A Kickoff: branch, audit and plan (this checkpoint).
 - 6B Security and privacy: backup and device-transfer exclusion, network security configuration, browsing-data clearing, notification privacy and runtime notification permission, file-name hardening.
@@ -238,3 +238,19 @@ Phase 5E is complete on `work/phase-5e-youtube` at `c608b01`. Phase 6 is in prog
 - Unsigned minified release APK: 2,837,516 bytes; SHA-256 `aaed2108ef23afc173cd847c5213ab9aa257743bc00aa4cfbd3a40b49c393d3a`.
 - Bundled solver: 34 public vectors passed and today's live player was solved by `scripts/verify-youtube-solver.mjs`; the exact solver page ran in headless Chromium 153 with no outside request.
 - Not verified: the solver WebView and live YouTube stream URLs on a device. This sandbox has no `/dev/kvm`, and its datacenter IP receives bot checks. Owner test steps are in `docs/HANDOFF.md`.
+
+## Completed in Phase 6
+
+- 6A: hardening audit with severities and statuses in `docs/HARDENING_AUDIT.md`; no High finding.
+- 6B security and privacy: backup and device-transfer exclusion, no-cleartext network security configuration, private notifications with a public count-only version, runtime notification permission, bidi-safe file names, Clear browsing data (also clearing in-memory media lists).
+- 6C settings and reliability: DataStore download preferences (quality, location, Wi-Fi only, mobile-data confirmation, 1–4 concurrent downloads) applied by `DownloadPolicyController`; unique app-storage names; Preview quality preselection and mobile-data confirmation.
+- 6D UI: Library with in-app playback, open/share and confirmed delete through a read-only app-storage provider; Home link field with tap-only Paste; icon buttons with content descriptions; Detected Media backed by a memory-only store; About with scope, privacy and third-party license texts; an original light/dark palette with a contrast test.
+- 6E reliability and performance: free-space pre-check for known sizes, Downloads network banner, a once-per-process storage janitor for stale `.part` files, orphan workspaces and finished-record growth, and a shared workspace-name helper.
+
+## Phase 6 validation
+
+- `./gradlew --no-daemon lintDebug testDebugUnitTest :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test :app:assembleDebug`, then `./gradlew --no-daemon :app:assembleRelease` (separate invocations on a 4 GiB machine): **BUILD SUCCESSFUL**.
+- 454 tests, 0 failures: app 175, core-browser 27, core-data 11, core-download 81, core-media 14, core-model 26, extractor-api 22, extractor-generic 7, extractor-sites 91.
+- Lint: 0 errors, 63 warnings (`GradleDependency` 57, `AndroidGradlePluginVersion` 6).
+- Debug APK 15,848,398 bytes, SHA-256 `0e33d98aa4f59e539c9d0211fc197af6b0484f1ebc566f451d6fe9fbeef5d5a9`; unsigned minified release APK 2,976,324 bytes, SHA-256 `efc35d59823fbfedaff6288b254451bc6485b5fc49bf4e9b391cfd1806050ef8`; R8 kept the `@JavascriptInterface` solver bridge method name `post` (class renamed to `r3.l`).
+- No device/emulator was available (`/dev/kvm` missing); device-only checks are listed in `docs/TEST_MATRIX.md`.

@@ -3,16 +3,113 @@
 ## Current handoff
 
 - Date: 2026-10-02
-- Phase: 6 — Hardening, privacy, performance and UI polish (IN PROGRESS on
-  `work/phase-6-hardening`, created from the Phase 5E head `c608b01`; findings in
+- Phase: 6 — Hardening, privacy, performance and UI polish, COMPLETE on
+  `work/phase-6-hardening` (created from the Phase 5E head `c608b01`; findings in
   `docs/HARDENING_AUDIT.md`)
-- Previous phase: 5E — YouTube adapter by owner decision
-  ([ADR-005](decisions/ADR-005-youtube-owner-override.md), superseding ADR-004), COMPLETE on
-  `work/phase-5e-youtube` at `c608b01`, created from the Phase 5 completion commit `d7efebe`
+- Next phase: 7 — Signed beta and GitHub release preparation (`docs/prompts/08_PHASE_7.md`); the
+  owner approved continuing into it
 - Target repository: `Alalkipgen/YFT`
 - Reference repository: `Alalkipgen/AlalDownloader`
 
-## Work completed in Phase 5E
+## Work completed in Phase 6
+
+- **6A audit.** `docs/HARDENING_AUDIT.md` lists every security (S), reliability (R),
+  performance (P) and UI (U) finding with severity and status. None was High; all are now fixed,
+  compliant or device-only.
+- **6B security and privacy.** `data_extraction_rules.xml` and `fullBackupContent=false` keep app
+  data out of cloud backup and device transfer; `network_security_config.xml` allows no cleartext
+  and only system CAs; download notifications are private with a count-only public version;
+  `POST_NOTIFICATIONS` is requested before the first download on Android 13+; output names drop
+  bidirectional and zero-width controls; Settings › Clear browsing data also drops the in-memory
+  detected-media list and preview selection.
+- **6C settings and reliability.** DataStore download preferences (default quality, location,
+  Wi-Fi only, mobile-data confirmation, 1–4 concurrent downloads) applied to the queue by
+  `DownloadPolicyController`; app-storage names are reserved with a " (n)" suffix; Preview
+  preselects the preferred quality and confirms mobile data.
+- **6D UI.**
+  - Library (`feature/library/`): MediaStore `Download/YFT` items and app-storage files, in-app
+    Media3 playback, open/share through a chooser with a read grant, delete after confirmation;
+    `AppPrivateDownloadProvider` serves app-storage files read-only.
+  - Home: link field and a Paste button that reads the clipboard only when tapped; the link opens
+    the browser through the optional `browser?link=` route argument.
+  - Browser and top bar: icon buttons with content descriptions; the media button has an icon.
+  - Detected Media: the last page's candidates from the memory-only `DetectedMediaStore`, shown
+    with the shared `MediaCandidateCard` and handed to Preview; only the page host is displayed.
+  - About: version, scope, privacy and every third-party notice with its license text
+    (`OpenSourceNotices`, checked against `THIRD_PARTY_NOTICES.md` by a test).
+  - Theme: original teal/copper light and dark schemes with a WCAG AA contrast test.
+- **6E reliability and performance.** `DownloadEnqueuer` rejects a known size that does not fit
+  (`StatFsStorageSpace`, 32 MiB headroom) as `INSUFFICIENT_STORAGE` before any destination exists;
+  Downloads shows "Waiting for Wi-Fi" or "No connection" from `DownloadNetworkStatus`;
+  `DownloadStorageJanitor` (started once from `MainActivity`) removes stale `.part` files and orphan
+  HLS/DASH/mux workspaces from earlier processes and keeps the newest 200 finished records;
+  `DownloadWorkspaces` in `:core-download` is the single source of workspace names.
+- No new site adapters or download sources were added; the engines changed only to share the
+  workspace-name helper.
+
+## Phase 6 validation
+
+- Full matrix, run as two invocations on this 4 GiB machine:
+
+```bash
+./gradlew --no-daemon lintDebug testDebugUnitTest :core-model:test :extractor-api:test \
+  :extractor-generic:test :extractor-sites:test :app:assembleDebug
+./gradlew --no-daemon :app:assembleRelease
+```
+
+- Result: **BUILD SUCCESSFUL** for both; 454 tests, 0 failures, 0 errors.
+- Test totals by module: app 175, core-browser 27, core-data 11, core-download 81, core-media 14,
+  core-model 26, extractor-api 22, extractor-generic 7, extractor-sites 91.
+- Lint: 0 errors, 63 warnings, all dependency-version or toolchain advisories (`GradleDependency`
+  57, `AndroidGradlePluginVersion` 6); the `DataExtractionRules` warning of Phase 5E is gone.
+- Debug APK: 15,848,398 bytes; SHA-256
+  `0e33d98aa4f59e539c9d0211fc197af6b0484f1ebc566f451d6fe9fbeef5d5a9`.
+- Unsigned minified release APK: 2,976,324 bytes; SHA-256
+  `efc35d59823fbfedaff6288b254451bc6485b5fc49bf4e9b391cfd1806050ef8`.
+- R8 kept the solver bridge method name `post` (`WebViewSolverEngine$SolverBridge` is renamed
+  to `r3.l`, but `void post(java.lang.String)` keeps its name) through the
+  `@JavascriptInterface` keep rule in `app/proguard-rules.pro`.
+- Not verified on a device (no `/dev/kvm`): see the device rows in `docs/TEST_MATRIX.md`.
+
+## Known limitations
+
+- **YouTube.** Progressive MP4 (usually up to 360p) plus one M4A audio stream only; no PO
+  tokens, so non-embeddable videos may fail with HTTP 403; some networks get bot checks; client
+  profiles and the bundled solver need regular maintenance; the WebView solver and live YouTube
+  were never run on a device.
+- **Downloads.** Platform muxing accepts only separate AVC/AAC MP4/fMP4 tracks; DASH
+  `SegmentBase`/SIDX and live MPDs are unsupported; SAF tree export is not wired; after process
+  death unfinished work needs a fresh link (there is no in-place link refresh yet).
+- **Free-space check.** Only exact sizes are checked; estimated stream sizes and unknown sizes
+  start and fail cleanly if the disk fills.
+- **Device-only checks.** Library open/share/delete, Clear browsing data, Wi-Fi-only switching,
+  notification permission, the storage janitor after a forced stop, MediaStore publication and
+  the foreground service were verified only with JVM/Robolectric tests.
+- **Build.** The release APK is unsigned until Phase 7 provides the owner's keystore; the KAPT
+  language-version warning remains; TikTok, Facebook and Vimeo are verified only against
+  fixtures.
+
+## Next exact action
+
+1. Create `work/phase-7-release` from the Phase 6 completion head and follow
+   `docs/prompts/08_PHASE_7.md`.
+2. Signing needs the owner's permanent keystore through secure local or CI configuration; never
+   commit or print it. Without it, stop before claiming a signed beta.
+3. Publish a GitHub Release only with explicit `ALLOW_RELEASE=true`; do not merge into `main`.
+
+## Phase 6 checkpoint commits
+
+- Kickoff and hardening audit: `b503e30`
+- 6B/6C privacy, preferences, Wi-Fi-only policy, settings: `a92b8ab`
+- 6C Preview tests: `11e0ae1`
+- 6D part 1 — Library, Home link and Paste, accessibility labels: `122e080`
+- 6D part 2 — About notices, palette, Detected Media: `d992cd7`
+- 6E — free-space check, network banner, storage janitor: `465b1c8`
+- Phase 6 completion (docs and full validation): this checkpoint
+
+## Previous handoff — Phase 5E
+
+### Work completed in Phase 5E
 
 - **Owner override recorded.** The owner decided YFT must download YouTube videos for offline
   viewing, GitHub-only. ADR-005 records the decision and its constraints; ADR-004 is marked
@@ -50,7 +147,7 @@
   this handoff.
 - `:core-browser`, `:core-download` and the download engines are unchanged.
 
-## Owner device test (YouTube)
+### Owner device test (YouTube)
 
 No device or emulator is available here, and this sandbox's datacenter network receives
 YouTube bot checks, so the live stream path must be checked on a phone:
@@ -69,7 +166,7 @@ YouTube bot checks, so the live stream path must be checked on a phone:
    video (expected: a clear sign-in or unavailable message, never a bypass).
 6. Report what each case showed, roughly how long detection took, and any crash.
 
-## Phase 5E validation
+### Phase 5E validation
 
 Run with JDK 17, Android SDK 35 and Gradle 8.9:
 
@@ -108,7 +205,7 @@ Run with JDK 17, Android SDK 35 and Gradle 8.9:
 - GitHub Actions: checkpoint `1d84811` passed. `6a41808` failed because the app's failure-message
   `when` was not yet exhaustive for the new failure; `1d84811` fixed it.
 
-## Known limitations
+### Known limitations
 
 - **YouTube quality.** Only progressive MP4 streams with audio (usually up to 360p) and one AAC
   M4A audio stream are offered. Adaptive HD video is not offered, because adapter candidates
@@ -130,7 +227,7 @@ Run with JDK 17, Android SDK 35 and Gradle 8.9:
   release APK is unsigned until Phase 7; the KAPT language-version warning remains; TikTok,
   Facebook and Vimeo are verified only against fixtures.
 
-## Next exact action
+### Next exact action
 
 1. Create `work/phase-6-hardening` from the Phase 5E completion head and push the kickoff
    checkpoint.
@@ -138,7 +235,7 @@ Run with JDK 17, Android SDK 35 and Gradle 8.9:
 3. Do not add site adapters or change the download engines as part of starting Phase 6.
 4. Do not merge a work branch into `main`.
 
-## Phase 5E checkpoint commits
+### Phase 5E checkpoint commits
 
 - Adapter core rebuilt (WIP): `04d1fea`
 - Parser, profiles, URLs and player-script contract (WIP): `cf54347`
