@@ -1,52 +1,64 @@
 package com.alal.yft.extractor.sites.youtube
 
 /**
- * One InnerTube client the adapter is willing to ask as YouTube's own web surfaces do.
+ * One YouTube player client the adapter asks, exactly as one of YouTube's own browser surfaces.
  *
  * Client identifiers change often and a working one can stop working without notice, so every
  * profile lives in this single file. Replacing a broken profile is a one-file edit and needs no
  * change to the parser, the adapter or the app.
  *
- * No profile claims to be a phone, a TV box or any device the user does not have. These are the
- * same client names the watch page and the embedded player send from a browser, so the request
- * stays something the user's own session could have made.
+ * No profile claims to be a phone app, a TV or any device the user does not have, and the
+ * user's own user agent is always sent unchanged.
  */
 internal data class YouTubeClientProfile(
     val id: String,
     val clientName: String,
-    /** Fallback version used only when the page does not state its own. */
-    val fallbackClientVersion: String,
-    /** Whether this client is expected to answer with unprotected stream URLs. */
-    val expectsPlainUrls: Boolean,
-    /** Whether the user's own cookie and user agent are replayed for this client. */
+    /** The numeric client ID YouTube's own player sends in its client-name header. */
+    val clientNameId: Int,
+    val clientVersion: String,
+    /** Whether the user's cookie is replayed for this client. */
     val replaysSession: Boolean,
-    val referer: String,
+    /** The embedding page, set only for the embedded player. */
+    val thirdPartyEmbedUrl: String?,
 ) {
     /**
      * Builds the player request body.
      *
-     * Content-gate acknowledgements are deliberately absent: YFT does not tell YouTube that an
-     * age or sensitivity check is satisfied, so a gated video fails with a structured reason
-     * instead of being unlocked.
+     * Content-gate acknowledgements are deliberately absent: YFT never tells YouTube that an age
+     * or sensitivity check is satisfied, so a gated video fails with a structured reason instead
+     * of being unlocked. The signature timestamp names the player version the response must
+     * match, so the values that version computes are the ones YouTube accepts.
      */
     fun playerRequestBody(
         videoId: String,
-        clientVersion: String?,
         visitorData: String?,
+        signatureTimestamp: Int?,
     ): String = buildString {
         append("{\"context\":{\"client\":{\"clientName\":\"")
         append(escape(clientName))
         append("\",\"clientVersion\":\"")
-        append(escape(clientVersion?.takeIf { it.isNotBlank() } ?: fallbackClientVersion))
-        append("\",\"hl\":\"en\",\"gl\":\"US\"")
+        append(escape(clientVersion))
+        append("\",\"hl\":\"en\"")
         if (!visitorData.isNullOrBlank()) {
             append(",\"visitorData\":\"")
             append(escape(visitorData))
             append('"')
         }
-        append("}},\"videoId\":\"")
+        append('}')
+        if (thirdPartyEmbedUrl != null) {
+            append(",\"thirdParty\":{\"embedUrl\":\"")
+            append(escape(thirdPartyEmbedUrl))
+            append("\"}")
+        }
+        append("},\"videoId\":\"")
         append(escape(videoId))
-        append("\"}")
+        append("\",\"playbackContext\":{\"contentPlaybackContext\":{")
+        append("\"html5Preference\":\"HTML5_PREF_WANTS\"")
+        if (signatureTimestamp != null) {
+            append(",\"signatureTimestamp\":")
+            append(signatureTimestamp)
+        }
+        append("}}}")
     }
 
     private fun escape(value: String): String = buildString(value.length) {
@@ -63,42 +75,58 @@ internal data class YouTubeClientProfile(
 
 internal object YouTubeClientProfiles {
     /**
-     * The watch page's own client.
+     * The embedding page the embedded player reports.
      *
-     * It sees exactly what the signed-in user sees, which is the only client that can reach an
-     * unlisted or members-only video the user legitimately has access to. Its streams are
-     * normally protected, so it usually needs a player-script host.
+     * YouTube expects an embedded player to name a non-YouTube page, and YFT itself is the page
+     * embedding the player, so it names its own project rather than inventing a third party.
      */
-    val WEB = YouTubeClientProfile(
-        id = "web",
-        clientName = "WEB",
-        fallbackClientVersion = "2.20240711.01.00",
-        expectsPlainUrls = false,
-        replaysSession = true,
-        referer = "https://www.youtube.com/",
-    )
+    const val YFT_EMBED_URL: String = "https://github.com/Alalkipgen/YFT"
+
+    /** Used only when the watch page does not state its own client version. */
+    const val FALLBACK_CLIENT_VERSION: String = "2.20260708.00.00"
+
+    private const val EMBEDDED_CLIENT_NAME = "WEB_EMBEDDED_PLAYER"
+    private const val EMBEDDED_CLIENT_ID = 56
+
+    /** Browser clients a watch page may report for itself, with their numeric IDs. */
+    private val PAGE_CLIENT_IDS = mapOf("WEB" to 1, "MWEB" to 2)
+
+    private val CLIENT_VERSION = Regex("^2\\.\\d{8}\\.\\d{2}\\.\\d{2}$")
 
     /**
-     * The client YouTube serves to an embedded player.
+     * YouTube's embedded player.
      *
-     * Embeds historically receive unprotected URLs because an embed cannot run the full player
-     * script, which makes this the profile most likely to produce a directly usable link. It is
-     * asked without the user's cookie so a public embed stays a public request.
+     * It is the one browser client that YouTube currently serves stream URLs to without a
+     * per-session proof token, but only for videos their owners allow to be embedded. It is
+     * asked without the user's cookie, so a public embed stays a public request.
      */
-    val EMBEDDED = YouTubeClientProfile(
+    fun embedded(signals: YouTubePageSignals): YouTubeClientProfile = YouTubeClientProfile(
         id = "embedded",
-        clientName = "WEB_EMBEDDED_PLAYER",
-        fallbackClientVersion = "1.20240711.01.00",
-        expectsPlainUrls = true,
+        clientName = EMBEDDED_CLIENT_NAME,
+        clientNameId = EMBEDDED_CLIENT_ID,
+        clientVersion = signals.clientVersion?.takeIf(CLIENT_VERSION::matches)
+            ?: FALLBACK_CLIENT_VERSION,
         replaysSession = false,
-        referer = "https://www.youtube.com/",
+        thirdPartyEmbedUrl = YFT_EMBED_URL,
     )
 
     /**
-     * Order the adapter tries.
+     * The client the watch page itself runs, with the user's own session.
      *
-     * The embedded client goes first because a plain URL needs no player script at all; the web
-     * client follows so private-to-the-user videos still resolve when a script host exists.
+     * It sees exactly what the user's browser sees, so its verdict about a video is
+     * authoritative. YouTube now also requires a per-session proof token before it streams to
+     * this client, which YFT does not generate, so its links can be refused at download time.
      */
-    val DEFAULT_ORDER: List<YouTubeClientProfile> = listOf(EMBEDDED, WEB)
+    fun page(signals: YouTubePageSignals): YouTubeClientProfile {
+        val name = signals.clientName?.takeIf { it in PAGE_CLIENT_IDS } ?: "WEB"
+        return YouTubeClientProfile(
+            id = "page",
+            clientName = name,
+            clientNameId = PAGE_CLIENT_IDS.getValue(name),
+            clientVersion = signals.clientVersion?.takeIf(CLIENT_VERSION::matches)
+                ?: FALLBACK_CLIENT_VERSION,
+            replaysSession = true,
+            thirdPartyEmbedUrl = null,
+        )
+    }
 }

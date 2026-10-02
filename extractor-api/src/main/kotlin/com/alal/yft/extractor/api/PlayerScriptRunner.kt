@@ -3,13 +3,14 @@ package com.alal.yft.extractor.api
 /**
  * Narrow bridge to the player script a site already serves to its own web player.
  *
- * Some sites hand their player a short JavaScript transform and expect the client to apply it to
- * a stream URL before use. YFT does not reimplement those transforms, and it never ships a copy
- * of them: the host evaluates the site's own script in the user's own session and returns only
- * the resulting values.
+ * Some sites hand their player short JavaScript transforms and expect the client to apply them
+ * to a stream URL before use. YFT never reimplements those transforms and never ships a copy of
+ * them: the host fetches the site's own current script, runs the site's own functions in an
+ * isolated script engine that has no network access and no cookies, and returns only the
+ * resulting values.
  *
  * The interface lives here so adapters stay pure JVM code with a fake in tests, while the real
- * implementation lives in the Android app next to the browser session that owns the script.
+ * implementation lives in the Android app, which owns a script engine.
  */
 interface PlayerScriptRunner {
     /** Whether a host is wired at all, so an adapter can fail early without a round trip. */
@@ -23,7 +24,7 @@ enum class PlayerScriptChallengeKind {
     /** A stream signature the site expects appended to the media URL. */
     SIGNATURE,
 
-    /** A delivery-rate parameter the site expects echoed back in the media URL. */
+    /** A delivery-rate parameter the site expects rewritten in the media URL. */
     RATE_PARAM,
 }
 
@@ -50,36 +51,21 @@ data class PlayerScriptChallenge(
 data class PlayerScriptRequest(
     /** Absolute HTTPS address of the site's own player script. */
     val playerScriptUrl: String,
-    /** Page the script belongs to, used as the script's origin and referer. */
+    /** Page the script belongs to, sent as the referer when the script is fetched. */
     val pageUrl: String,
     val challenges: List<PlayerScriptChallenge>,
-    /**
-     * True when the site additionally requires a per-session proof token for media delivery.
-     *
-     * The token is read from the same session; it is never hardcoded and never persisted.
-     */
-    val requiresSessionToken: Boolean = false,
 ) {
     init {
         require(playerScriptUrl.startsWith("https://")) { "A player script URL must be HTTPS" }
         require(pageUrl.startsWith("https://")) { "A player page URL must be HTTPS" }
-        require(challenges.isNotEmpty() || requiresSessionToken) {
-            "A player script request must ask for something"
-        }
+        require(challenges.isNotEmpty()) { "A player script request must ask for something" }
         require(challenges.map(PlayerScriptChallenge::key).toSet().size == challenges.size) {
             "Challenge keys must be unique"
         }
     }
 
-    override fun toString(): String = buildString {
-        append("PlayerScriptRequest(playerScriptUrl=")
-        append(playerScriptUrl)
-        append(", challenges=")
-        append(challenges.size)
-        append(", requiresSessionToken=")
-        append(requiresSessionToken)
-        append(')')
-    }
+    override fun toString(): String =
+        "PlayerScriptRequest(playerScriptUrl=$playerScriptUrl, challenges=${challenges.size})"
 }
 
 sealed interface PlayerScriptResult {
@@ -87,16 +73,11 @@ sealed interface PlayerScriptResult {
      * Values the site's script produced, keyed by [PlayerScriptChallenge.key].
      *
      * A missing key means the script did not answer that challenge; the adapter drops that
-     * stream rather than shipping an unsigned URL.
+     * stream rather than shipping a URL the site's own player would never request.
      */
-    data class Success(
-        val resolved: Map<String, String>,
-        val sessionToken: String? = null,
-    ) : PlayerScriptResult {
-        /** Resolved values are session secrets, so only their shape is printable. */
-        override fun toString(): String =
-            "PlayerScriptResult.Success(resolved=${resolved.keys}, sessionToken=" +
-                "${if (sessionToken == null) "absent" else "present"})"
+    data class Success(val resolved: Map<String, String>) : PlayerScriptResult {
+        /** Resolved values are session secrets, so only their keys are printable. */
+        override fun toString(): String = "PlayerScriptResult.Success(resolved=${resolved.keys})"
     }
 
     /** No host is wired, or the host cannot run a script in this build. */

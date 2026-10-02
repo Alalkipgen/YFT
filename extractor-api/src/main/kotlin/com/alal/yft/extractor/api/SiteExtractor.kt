@@ -86,11 +86,13 @@ enum class SiteExtractionFailure {
     RESPONSE_CHANGED,
 
     /**
-     * The site only exposes this media behind a value its own player script computes.
+     * The site only exposes this media behind values its own player script computes, and those
+     * values could not be computed here.
      *
-     * YFT does not reimplement those scripts. When no player-script host is available the
-     * adapter reports this instead of guessing a URL, and the generic detector cannot help
-     * either because the same protection applies to it.
+     * YFT does not reimplement those scripts. When no player-script host is available, or the
+     * host could not run the site's current script, the adapter reports this instead of
+     * guessing a URL. The generic detector cannot help either, because the same protection
+     * applies to it.
      */
     PLAYER_SCRIPT_REQUIRED,
 

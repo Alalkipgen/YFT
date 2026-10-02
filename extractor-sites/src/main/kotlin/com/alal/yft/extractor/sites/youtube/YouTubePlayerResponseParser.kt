@@ -10,20 +10,14 @@ import com.alal.yft.extractor.api.json.asStringOrNull
 import com.alal.yft.extractor.api.json.get
 import com.alal.yft.extractor.api.json.path
 
-/** Whether a stream URL is usable as read, or still needs the site's own player script. */
-internal enum class YouTubeProtection {
-    NONE,
-    PLAYER_SCRIPT,
-}
-
 internal data class YouTubeStream(
     val itag: Int,
+    /** The address exactly as YouTube sent it, or null when only a protected descriptor exists. */
     val url: String?,
-    /** Raw protected descriptor, kept opaque; only a player-script host interprets it. */
+    /** Protected descriptor, kept opaque until the extractor splits it. */
     val protectedDescriptor: String?,
-    val protection: YouTubeProtection,
     val mimeType: String?,
-    val codecs: String?,
+    val codecs: List<String>,
     val qualityLabel: String?,
     val bitrate: Long?,
     val width: Int?,
@@ -31,11 +25,18 @@ internal data class YouTubeStream(
     val contentLengthBytes: Long?,
     val hasVideo: Boolean,
     val hasAudio: Boolean,
+    /** Whether this is the original audio track; null when the response does not say. */
+    val isDefaultAudio: Boolean?,
+    /** Dynamic-range-compressed audio that YouTube offers next to the original mix. */
+    val isDrc: Boolean,
 ) {
-    /** Protected descriptors carry session-derived values, so they never print verbatim. */
+    val isProtected: Boolean
+        get() = url == null
+
+    /** Stream addresses and descriptors carry session-bound values, so they never print. */
     override fun toString(): String =
-        "YouTubeStream(itag=$itag, protection=$protection, qualityLabel=$qualityLabel, " +
-            "hasVideo=$hasVideo, hasAudio=$hasAudio)"
+        "YouTubeStream(itag=$itag, protected=$isProtected, mimeType=$mimeType, " +
+            "qualityLabel=$qualityLabel, hasVideo=$hasVideo, hasAudio=$hasAudio)"
 }
 
 internal data class YouTubeVideo(
@@ -44,32 +45,44 @@ internal data class YouTubeVideo(
     val author: String?,
     val durationMillis: Long?,
     val thumbnailUrl: String?,
-    /** Progressive streams already carry both tracks and need no muxing. */
+    /** Progressive streams already carry both tracks and need no merge step. */
     val progressive: List<YouTubeStream>,
-    /** Adaptive streams carry one track each and need pairing before they are usable. */
+    /** Adaptive streams carry one track each. */
     val adaptive: List<YouTubeStream>,
+    /** Expiry YouTube states for the whole response, independent of any one address. */
     val expiresAtEpochMs: Long?,
 )
 
-/** Signals the watch page exposes about its own player, read without executing any script. */
+/** What the watch page states about its own player, read without executing any script. */
 internal data class YouTubePageSignals(
     val playerResponseJson: String?,
-    val playerScriptUrl: String?,
+    val playerId: String?,
     val apiKey: String?,
+    val clientName: String?,
     val clientVersion: String?,
     val visitorData: String?,
+    val signatureTimestamp: Int?,
 ) {
     /** Visitor data identifies the session, so only its presence is printable. */
     override fun toString(): String =
-        "YouTubePageSignals(playerResponse=${playerResponseJson != null}, " +
-            "playerScriptUrl=$playerScriptUrl, apiKey=${apiKey != null}, " +
-            "clientVersion=$clientVersion, visitorData=${visitorData != null})"
+        "YouTubePageSignals(playerResponse=${playerResponseJson != null}, playerId=$playerId, " +
+            "apiKey=${apiKey != null}, clientName=$clientName, clientVersion=$clientVersion, " +
+            "visitorData=${visitorData != null}, signatureTimestamp=$signatureTimestamp)"
 }
 
 internal sealed interface YouTubeParseResult {
     data class Success(val video: YouTubeVideo) : YouTubeParseResult
 
-    data class Failure(val reason: SiteExtractionFailure) : YouTubeParseResult
+    /**
+     * A response that produced no streams.
+     *
+     * [definite] is true when the verdict describes the video itself, such as a private,
+     * removed, region-locked, age-gated or DRM-protected video, rather than this one request.
+     */
+    data class Failure(
+        val reason: SiteExtractionFailure,
+        val definite: Boolean,
+    ) : YouTubeParseResult
 }
 
 /**
@@ -80,42 +93,56 @@ internal sealed interface YouTubeParseResult {
  * computation and no DRM handling; a protected stream is reported as protected.
  */
 internal object YouTubePlayerResponseParser {
-    private const val PLAYER_RESPONSE_MARKER = "ytInitialPlayerResponse"
     private const val MAX_JSON_NODES = 400_000
+    private const val MAX_REASON_DEPTH = 8
+    private const val MAX_REASON_PARTS = 32
 
-    private val JS_URL_PATTERN = Regex("\"jsUrl\"\\s*:\\s*\"([^\"]{1,400})\"")
-    private val API_KEY_PATTERN = Regex("\"INNERTUBE_API_KEY\"\\s*:\\s*\"([A-Za-z0-9_-]{10,80})\"")
-    private val CLIENT_VERSION_PATTERN =
-        Regex("\"INNERTUBE_CLIENT_VERSION\"\\s*:\\s*\"([0-9A-Za-z.\\-]{3,40})\"")
-    private val VISITOR_DATA_PATTERN =
-        Regex("\"visitorData\"\\s*:\\s*\"([A-Za-z0-9_\\-%=+/]{5,400})\"")
+    private val PLAYER_RESPONSE_ASSIGNMENT =
+        Regex("ytInitialPlayerResponse[\"']?]?\\s*=\\s*\\{")
+    private val JS_URL = Regex("\"(?:jsUrl|PLAYER_JS_URL)\"\\s*:\\s*\"([^\"]{1,400})\"")
+    private val API_KEY = Regex("\"INNERTUBE_API_KEY\"\\s*:\\s*\"([A-Za-z0-9_-]{10,80})\"")
+    private val CLIENT_NAME = Regex("\"INNERTUBE_CLIENT_NAME\"\\s*:\\s*\"([A-Z_]{2,40})\"")
+    private val CLIENT_VERSION =
+        Regex("\"INNERTUBE_CLIENT_VERSION\"\\s*:\\s*\"([0-9.]{3,40})\"")
+    private val VISITOR_DATA =
+        Regex("\"(?:VISITOR_DATA|visitorData)\"\\s*:\\s*\"([A-Za-z0-9_\\-%=+/]{5,2000})\"")
+    private val SIGNATURE_TIMESTAMP =
+        Regex("\"(?:STS|signatureTimestamp)\"\\s*:\\s*(\\d{4,7})\\b")
+
+    private val TEXT_KEYS = setOf("reason", "subreason", "messages", "simpleText", "text")
+    private val AGE_GATE = Regex("\\bage\\b", RegexOption.IGNORE_CASE)
+    private val REGION_LOCK = Regex("in your (country|region)", RegexOption.IGNORE_CASE)
+    private val EMBED_REFUSAL = Regex("other websites|embedd", RegexOption.IGNORE_CASE)
 
     fun pageSignals(html: String): YouTubePageSignals = YouTubePageSignals(
         playerResponseJson = slicePlayerResponse(html),
-        playerScriptUrl = YouTubeUrls.playerScriptUrl(JS_URL_PATTERN.find(html)?.groupValues?.get(1)),
-        apiKey = API_KEY_PATTERN.find(html)?.groupValues?.get(1),
-        clientVersion = CLIENT_VERSION_PATTERN.find(html)?.groupValues?.get(1),
-        visitorData = VISITOR_DATA_PATTERN.find(html)?.groupValues?.get(1),
+        playerId = YouTubeUrls.playerId(JS_URL.find(html)?.groupValues?.get(1)),
+        apiKey = API_KEY.find(html)?.groupValues?.get(1),
+        clientName = CLIENT_NAME.find(html)?.groupValues?.get(1),
+        clientVersion = CLIENT_VERSION.find(html)?.groupValues?.get(1),
+        visitorData = VISITOR_DATA.find(html)?.groupValues?.get(1),
+        signatureTimestamp = SIGNATURE_TIMESTAMP.find(html)?.groupValues?.get(1)?.toIntOrNull(),
     )
 
     /**
      * Slices the inline player response out of the page.
      *
-     * The assignment is followed by minified JavaScript, so the object is located by brace
-     * balance rather than by a terminator guess, and string contents are skipped so a brace
-     * inside a title cannot end the slice early.
+     * Pages declare the variable as `null` before assigning the real object, so only an
+     * assignment of an object literal is accepted. The object is then located by brace balance
+     * rather than by a terminator guess, and string contents are skipped so a brace inside a
+     * title cannot end the slice early.
      */
-    fun slicePlayerResponse(html: String): String? {
-        val marker = html.indexOf(PLAYER_RESPONSE_MARKER)
-        if (marker < 0) return null
-        val start = html.indexOf('{', marker)
-        if (start < 0) return null
+    fun slicePlayerResponse(html: String): String? =
+        PLAYER_RESPONSE_ASSIGNMENT.findAll(html).firstNotNullOfOrNull { match ->
+            balancedObject(html, match.range.last)
+        }
+
+    private fun balancedObject(text: String, start: Int): String? {
         var depth = 0
-        var index = start
         var inString = false
         var escaped = false
-        while (index < html.length) {
-            val character = html[index]
+        for (index in start until text.length) {
+            val character = text[index]
             when {
                 escaped -> escaped = false
                 inString && character == '\\' -> escaped = true
@@ -124,65 +151,58 @@ internal object YouTubePlayerResponseParser {
                 character == '{' -> depth++
                 character == '}' -> {
                     depth--
-                    if (depth == 0) return html.substring(start, index + 1)
+                    if (depth == 0) return text.substring(start, index + 1)
                 }
             }
-            index++
         }
         return null
     }
 
     fun parse(json: String, nowEpochMs: Long): YouTubeParseResult {
         val root = BoundedJsonParser.parse(json, maxNodes = MAX_JSON_NODES)
-            ?: return YouTubeParseResult.Failure(SiteExtractionFailure.MALFORMED_RESPONSE)
+            ?: return failure(SiteExtractionFailure.MALFORMED_RESPONSE, definite = false)
+        playability(root["playabilityStatus"])?.let { return it }
 
-        val status = root.path("playabilityStatus", "status").asStringOrNull
-        val reasonText = buildString {
-            append(root.path("playabilityStatus", "reason").asStringOrNull.orEmpty())
-            append(' ')
-            append(
-                root.path("playabilityStatus", "errorScreen").toString()
-                    .takeIf { status != null } ?: "",
-            )
-        }
-        playabilityFailure(status, reasonText)?.let { return YouTubeParseResult.Failure(it) }
-
+        // An OK status without streaming data means YouTube accepted the request but withheld
+        // delivery, which is what its bot check does to requests it does not trust.
         val streamingData = root["streamingData"]
-        if (streamingData == null) {
-            // A status of OK with no streaming data means YouTube accepted the request but
-            // withheld delivery, which is what its bot checks do on datacenter networks.
-            return YouTubeParseResult.Failure(SiteExtractionFailure.LOGIN_REQUIRED)
-        }
+            ?: return failure(SiteExtractionFailure.LOGIN_REQUIRED, definite = false)
         if (isDrmProtected(root, streamingData)) {
-            return YouTubeParseResult.Failure(SiteExtractionFailure.DRM_PROTECTED)
+            return failure(SiteExtractionFailure.DRM_PROTECTED, definite = true)
         }
         // A running live stream has no finite file to write, so it is reported as having no
         // downloadable media rather than being queued and never finishing.
-        if (root.path("videoDetails", "isLiveContent").asBooleanOrNull == true &&
-            root.path("videoDetails", "isLive").asBooleanOrNull == true
-        ) {
-            return YouTubeParseResult.Failure(SiteExtractionFailure.NO_MEDIA_FOUND)
+        if (root.path("videoDetails", "isLive").asBooleanOrNull == true) {
+            return failure(SiteExtractionFailure.NO_MEDIA_FOUND, definite = true)
         }
 
         val progressive = streamingData["formats"].asArrayOrEmpty.mapNotNull(::readStream)
         val adaptive = streamingData["adaptiveFormats"].asArrayOrEmpty.mapNotNull(::readStream)
         if (progressive.isEmpty() && adaptive.isEmpty()) {
-            return YouTubeParseResult.Failure(SiteExtractionFailure.RESPONSE_CHANGED)
+            // Without any address YouTube only streams through its own player protocol.
+            val reason = if (streamingData["serverAbrStreamingUrl"].asStringOrNull != null) {
+                SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED
+            } else {
+                SiteExtractionFailure.RESPONSE_CHANGED
+            }
+            return failure(reason, definite = false)
         }
 
+        val details = root["videoDetails"]
         return YouTubeParseResult.Success(
             YouTubeVideo(
-                videoId = root.path("videoDetails", "videoId").asStringOrNull,
-                title = root.path("videoDetails", "title").asStringOrNull?.trim()
-                    ?.takeIf(String::isNotEmpty),
-                author = root.path("videoDetails", "author").asStringOrNull?.trim()
-                    ?.takeIf(String::isNotEmpty),
-                durationMillis = root.path("videoDetails", "lengthSeconds").asStringOrNull
-                    ?.toLongOrNull()?.takeIf { it > 0 }?.times(1_000),
-                thumbnailUrl = largestThumbnail(root),
+                videoId = details["videoId"].asStringOrNull,
+                title = details["title"].asStringOrNull?.trim()?.takeIf(String::isNotEmpty),
+                author = details["author"].asStringOrNull?.trim()?.takeIf(String::isNotEmpty),
+                durationMillis = details["lengthSeconds"].asStringOrNull?.toLongOrNull()
+                    ?.takeIf { it > 0 }?.times(1_000),
+                thumbnailUrl = largestThumbnail(details),
                 progressive = progressive,
                 adaptive = adaptive,
-                expiresAtEpochMs = expiry(streamingData, progressive + adaptive, nowEpochMs),
+                expiresAtEpochMs = streamingData["expiresInSeconds"].asStringOrNull
+                    ?.toLongOrNull()
+                    ?.takeIf { it > 0 }
+                    ?.let { nowEpochMs + it * 1_000 },
             ),
         )
     }
@@ -190,33 +210,70 @@ internal object YouTubePlayerResponseParser {
     /**
      * Maps YouTube's own playability verdict onto the closed failure set.
      *
-     * Age and content gates are reported as unavailable instead of being acknowledged, so the
-     * adapter never tells YouTube that a check it did not satisfy is satisfied.
+     * Age and content gates are reported, never acknowledged, so the adapter never tells YouTube
+     * that a check it did not satisfy is satisfied. A bot check and an embed refusal describe
+     * one request rather than the video, so they are not definite.
      */
-    private fun playabilityFailure(status: String?, reason: String): SiteExtractionFailure? =
-        when (status) {
-            null -> SiteExtractionFailure.RESPONSE_CHANGED
+    private fun playability(status: JsonValue?): YouTubeParseResult.Failure? {
+        val reason = reasonText(status)
+        return when (status["status"].asStringOrNull) {
+            null -> failure(SiteExtractionFailure.RESPONSE_CHANGED, definite = false)
             "OK" -> null
-            "LOGIN_REQUIRED" -> if (reason.contains("private", ignoreCase = true)) {
-                SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE
-            } else {
-                SiteExtractionFailure.LOGIN_REQUIRED
+            "LOGIN_REQUIRED" -> when {
+                reason.contains("private", ignoreCase = true) ->
+                    failure(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, definite = true)
+
+                AGE_GATE.containsMatchIn(reason) ->
+                    failure(SiteExtractionFailure.LOGIN_REQUIRED, definite = true)
+
+                else -> failure(SiteExtractionFailure.LOGIN_REQUIRED, definite = false)
             }
 
-            "AGE_VERIFICATION_REQUIRED", "CONTENT_CHECK_REQUIRED" ->
-                SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE
+            "AGE_VERIFICATION_REQUIRED", "AGE_CHECK_REQUIRED", "CONTENT_CHECK_REQUIRED" ->
+                failure(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, definite = true)
 
-            "LIVE_STREAM_OFFLINE" -> SiteExtractionFailure.NO_MEDIA_FOUND
+            "LIVE_STREAM_OFFLINE" -> failure(SiteExtractionFailure.NO_MEDIA_FOUND, definite = true)
             "UNPLAYABLE", "ERROR" -> when {
-                reason.contains("not available in your country", ignoreCase = true) ||
-                    reason.contains("uploader has not made", ignoreCase = true) ->
-                    SiteExtractionFailure.GEO_RESTRICTED
+                REGION_LOCK.containsMatchIn(reason) ->
+                    failure(SiteExtractionFailure.GEO_RESTRICTED, definite = true)
 
-                else -> SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE
+                EMBED_REFUSAL.containsMatchIn(reason) ->
+                    failure(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, definite = false)
+
+                else -> failure(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, definite = true)
             }
 
-            else -> SiteExtractionFailure.RESPONSE_CHANGED
+            else -> failure(SiteExtractionFailure.RESPONSE_CHANGED, definite = false)
         }
+    }
+
+    /** Collects the human-readable reason strings YouTube attaches to a verdict. */
+    private fun reasonText(status: JsonValue?): String {
+        val parts = mutableListOf<String>()
+        collectText(status, key = null, depth = 0, into = parts)
+        return parts.joinToString(" ")
+    }
+
+    private fun collectText(
+        value: JsonValue?,
+        key: String?,
+        depth: Int,
+        into: MutableList<String>,
+    ) {
+        if (depth > MAX_REASON_DEPTH || into.size >= MAX_REASON_PARTS) return
+        when (value) {
+            is JsonValue.Text -> if (key in TEXT_KEYS) into += value.value
+            is JsonValue.Array -> value.items.forEach { collectText(it, key, depth + 1, into) }
+            is JsonValue.Object -> value.entries.forEach { (childKey, child) ->
+                collectText(child, childKey, depth + 1, into)
+            }
+
+            else -> Unit
+        }
+    }
+
+    private fun failure(reason: SiteExtractionFailure, definite: Boolean) =
+        YouTubeParseResult.Failure(reason, definite)
 
     private fun isDrmProtected(root: JsonValue?, streamingData: JsonValue?): Boolean {
         if (streamingData["drmParams"].asStringOrNull != null) return true
@@ -234,43 +291,41 @@ internal object YouTubePlayerResponseParser {
         val plainUrl = format["url"].asStringOrNull?.takeIf { it.startsWith("https://") }
         val descriptor = format["signatureCipher"].asStringOrNull
             ?: format["cipher"].asStringOrNull
-        if (plainUrl == null && descriptor == null) return null
+        val protectedDescriptor = descriptor
+            ?.takeIf(String::isNotBlank)
+        if (plainUrl == null && protectedDescriptor == null) return null
 
-        val mimeType = format["mimeType"].asStringOrNull
-        val codecs = mimeType?.substringAfter("codecs=\"", "")?.substringBefore('"')
+        val rawMime = format["mimeType"].asStringOrNull
+        val mimeType = rawMime?.substringBefore(';')?.trim()?.lowercase()
             ?.takeIf(String::isNotEmpty)
-        val bareMime = mimeType?.substringBefore(';')?.trim()?.takeIf(String::isNotEmpty)
-        val hasVideo = format["height"].asLongOrNull != null ||
-            format["qualityLabel"].asStringOrNull != null
-        val hasAudio = format["audioQuality"].asStringOrNull != null ||
-            format["audioSampleRate"].asStringOrNull != null ||
-            format["audioChannels"].asLongOrNull != null
+        val codecs = rawMime?.substringAfter("codecs=\"", "")?.substringBefore('"')
+            ?.split(',')?.map(String::trim)?.filter(String::isNotEmpty).orEmpty()
+        val hasVideo = mimeType?.startsWith("video/") == true
+        val hasAudio = mimeType?.startsWith("audio/") == true ||
+            format["audioQuality"].asStringOrNull != null ||
+            format["audioSampleRate"].asStringOrNull != null
 
         return YouTubeStream(
             itag = itag,
             url = plainUrl,
-            protectedDescriptor = descriptor,
-            protection = if (plainUrl != null) {
-                YouTubeProtection.NONE
-            } else {
-                YouTubeProtection.PLAYER_SCRIPT
-            },
-            mimeType = bareMime,
+            protectedDescriptor = if (plainUrl == null) protectedDescriptor else null,
+            mimeType = mimeType,
             codecs = codecs,
-            qualityLabel = format["qualityLabel"].asStringOrNull
-                ?: format["audioQuality"].asStringOrNull,
-            bitrate = format["bitrate"].asLongOrNull,
+            qualityLabel = format["qualityLabel"].asStringOrNull,
+            bitrate = format["averageBitrate"].asLongOrNull ?: format["bitrate"].asLongOrNull,
             width = format["width"].asLongOrNull?.toInt(),
             height = format["height"].asLongOrNull?.toInt(),
             contentLengthBytes = format["contentLength"].asStringOrNull?.toLongOrNull()
                 ?: format["contentLength"].asLongOrNull,
             hasVideo = hasVideo,
             hasAudio = hasAudio,
+            isDefaultAudio = format.path("audioTrack", "audioIsDefault").asBooleanOrNull,
+            isDrc = format["isDrc"].asBooleanOrNull == true,
         )
     }
 
-    private fun largestThumbnail(root: JsonValue?): String? = root
-        .path("videoDetails", "thumbnail", "thumbnails")
+    private fun largestThumbnail(details: JsonValue?): String? = details
+        .path("thumbnail", "thumbnails")
         .asArrayOrEmpty
         .mapNotNull { entry ->
             val url = entry["url"].asStringOrNull?.takeIf { it.startsWith("https://") }
@@ -279,25 +334,4 @@ internal object YouTubePlayerResponseParser {
         }
         .maxByOrNull { it.first }
         ?.second
-
-    /**
-     * Reads the shortest expiry the response states.
-     *
-     * YouTube stamps every stream URL with an `expire` second, so a queued download that would
-     * start after that point is rejected up front instead of failing mid-transfer.
-     */
-    private fun expiry(
-        streamingData: JsonValue?,
-        streams: List<YouTubeStream>,
-        nowEpochMs: Long,
-    ): Long? {
-        val fromUrls = streams.mapNotNull { stream ->
-            val query = stream.url?.substringAfter('?', "") ?: return@mapNotNull null
-            YouTubeUrls.queryParam(query, "expire")?.toLongOrNull()?.times(1_000)
-        }.minOrNull()
-        val relative = streamingData["expiresInSeconds"].asStringOrNull?.toLongOrNull()
-            ?: streamingData["expiresInSeconds"].asLongOrNull
-        val fromRelative = relative?.takeIf { it > 0 }?.let { nowEpochMs + it * 1_000 }
-        return listOfNotNull(fromUrls, fromRelative).minOrNull()
-    }
 }

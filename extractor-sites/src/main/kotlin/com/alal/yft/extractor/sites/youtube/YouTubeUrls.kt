@@ -2,18 +2,35 @@ package com.alal.yft.extractor.sites.youtube
 
 import com.alal.yft.extractor.api.SitePageIdentity
 import java.net.URI
+import java.net.URLEncoder
 
 /**
- * Pure URL matching for YouTube watch pages.
+ * Pure URL handling for YouTube.
  *
- * Selection must stay offline, so only the shapes YouTube itself links to are accepted and a
- * video ID is never invented from a channel, playlist or search address.
+ * Selection must stay offline, so only the single-video shapes YouTube itself links to are
+ * accepted, and a video ID is never invented from a channel, playlist or search address.
  */
 internal object YouTubeUrls {
     const val SITE_ID: String = "youtube"
 
+    /**
+     * The phone build of YouTube's player script.
+     *
+     * It is the smallest current build, and it is one of the variants the bundled solver's own
+     * test vectors cover. Every build of one player version computes identical values.
+     */
+    const val PHONE_PLAYER_VARIANT: String = "player-plasma-ias-phone-en_US.vflset/base.js"
+
+    /** The desktop build, used only when the phone build cannot be fetched. */
+    const val MAIN_PLAYER_VARIANT: String = "player_ias.vflset/en_US/base.js"
+
+    private const val ORIGIN = "https://www.youtube.com"
+    private const val PLAYER_SCRIPT_PREFIX = "/s/player/"
+
     /** YouTube video IDs have been 11 URL-safe base64 characters for the platform's lifetime. */
-    private val ID_PATTERN = Regex("^[A-Za-z0-9_-]{11}$")
+    private val VIDEO_ID = Regex("^[A-Za-z0-9_-]{11}$")
+    private val PLAYER_ID = Regex("^[A-Za-z0-9_-]{4,32}$")
+    private val API_KEY = Regex("^[A-Za-z0-9_-]{10,80}$")
 
     private val WATCH_HOSTS = setOf(
         "youtube.com",
@@ -29,13 +46,10 @@ internal object YouTubeUrls {
     /** Single-video paths YouTube serves a player on. */
     private val VIDEO_PATH_PREFIXES = listOf("/shorts/", "/embed/", "/live/", "/v/")
 
-    private const val INNERTUBE_HOST = "www.youtube.com"
-    private const val INNERTUBE_PATH = "/youtubei/v1/player"
-    private const val PLAYER_SCRIPT_PREFIX = "/s/player/"
-
     fun identify(pageUrl: String): SitePageIdentity? {
         val uri = runCatching { URI(pageUrl) }.getOrNull() ?: return null
         if (uri.scheme?.lowercase() != "https") return null
+        if (uri.rawUserInfo != null) return null
         val host = uri.host?.lowercase() ?: return null
         val path = uri.path.orEmpty()
 
@@ -50,7 +64,7 @@ internal object YouTubeUrls {
 
             else -> null
         }
-        if (videoId == null || !ID_PATTERN.matches(videoId)) return null
+        if (videoId == null || !VIDEO_ID.matches(videoId)) return null
 
         return SitePageIdentity(
             siteId = SITE_ID,
@@ -60,36 +74,42 @@ internal object YouTubeUrls {
     }
 
     /** Every recognized shape collapses onto the one address YouTube treats as canonical. */
-    fun canonicalUrl(videoId: String): String = "https://www.youtube.com/watch?v=$videoId"
+    fun canonicalUrl(videoId: String): String = "$ORIGIN/watch?v=$videoId"
 
-    fun innerTubeUrl(apiKey: String?): String = buildString {
-        append("https://")
-        append(INNERTUBE_HOST)
-        append(INNERTUBE_PATH)
-        if (!apiKey.isNullOrBlank() && apiKey.all { it.isLetterOrDigit() || it == '-' || it == '_' }) {
-            append("?key=")
-            append(apiKey)
-        }
+    /** The address YouTube's own embedded player is served from. */
+    fun embedUrl(videoId: String): String = "$ORIGIN/embed/$videoId"
+
+    fun innerTubeUrl(apiKey: String?): String {
+        val base = "$ORIGIN/youtubei/v1/player?prettyPrint=false"
+        return if (apiKey != null && API_KEY.matches(apiKey)) "$base&key=$apiKey" else base
     }
 
     /**
-     * Accepts only YouTube's own player script address.
+     * Reads the player version from the script address a page names.
      *
-     * The script address comes out of page markup, so it is treated as untrusted input: a changed
-     * page must not be able to point script execution at a third-party origin.
+     * The address comes out of page markup, so it is untrusted: only YouTube's own hosts and its
+     * `/s/player/<version>/` path are accepted, which keeps a changed page from pointing script
+     * evaluation at a third-party origin.
      */
-    fun playerScriptUrl(rawJsUrl: String?): String? {
-        val value = rawJsUrl?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    fun playerId(rawJsUrl: String?): String? {
+        val value = rawJsUrl?.trim()?.replace("\\/", "/")?.takeIf { it.isNotEmpty() }
+            ?: return null
         val absolute = when {
-            value.startsWith(PLAYER_SCRIPT_PREFIX) -> "https://$INNERTUBE_HOST$value"
+            value.startsWith(PLAYER_SCRIPT_PREFIX) -> ORIGIN + value
             value.startsWith("https://") -> value
             else -> return null
         }
-        val uri = runCatching { URI(absolute) }.getOrNull() ?: return null
-        if (uri.host?.lowercase() !in WATCH_HOSTS) return null
-        if (!uri.path.orEmpty().startsWith(PLAYER_SCRIPT_PREFIX)) return null
-        if (!uri.path.orEmpty().endsWith(".js")) return null
-        return absolute
+        val uri = runCatching { URI(absolute).normalize() }.getOrNull() ?: return null
+        if (uri.host?.lowercase() !in WATCH_HOSTS || uri.rawUserInfo != null) return null
+        val path = uri.path.orEmpty()
+        if (!path.startsWith(PLAYER_SCRIPT_PREFIX) || !path.endsWith(".js")) return null
+        return path.removePrefix(PLAYER_SCRIPT_PREFIX).substringBefore('/')
+            .takeIf(PLAYER_ID::matches)
+    }
+
+    fun playerScriptUrl(playerId: String, variant: String = PHONE_PLAYER_VARIANT): String {
+        require(PLAYER_ID.matches(playerId)) { "Not a YouTube player version" }
+        return "$ORIGIN$PLAYER_SCRIPT_PREFIX$playerId/$variant"
     }
 
     fun queryParam(rawQuery: String?, name: String): String? = rawQuery
@@ -102,4 +122,25 @@ internal object YouTubeUrls {
                 pair.substring(separator + 1).takeIf { it.isNotEmpty() }
             }
         }
+
+    fun queryParamOf(url: String, name: String): String? =
+        queryParam(url.substringAfter('?', "").substringBefore('#'), name)
+
+    /** Replaces every [name] parameter in [url]; other parameters keep their order and bytes. */
+    fun replaceQueryParam(url: String, name: String, value: String): String {
+        val separator = url.indexOf('?')
+        if (separator < 0) return url
+        val encoded = encode(value)
+        val query = url.substring(separator + 1).split('&').joinToString("&") { pair ->
+            if (pair.substringBefore('=') == name) "$name=$encoded" else pair
+        }
+        return url.substring(0, separator + 1) + query
+    }
+
+    fun appendQueryParam(url: String, name: String, value: String): String {
+        val joiner = if (url.contains('?')) '&' else '?'
+        return "$url$joiner$name=${encode(value)}"
+    }
+
+    private fun encode(value: String): String = URLEncoder.encode(value, Charsets.UTF_8.name())
 }
