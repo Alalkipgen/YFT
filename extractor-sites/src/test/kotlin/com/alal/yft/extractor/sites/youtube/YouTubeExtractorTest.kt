@@ -470,7 +470,7 @@ class YouTubeExtractorTest {
         const val COOKIE = "PREF=fixture; SID=fixture-session"
         const val VISITOR_DATA = "CgtGaXh0dXJlVmlzaXRvcijAgICABg%3D%3D"
         const val PLAYER_ENDPOINT = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false" +
-            "&key=AIzaSyFixtureKeyNotARealKey000000000"
+            "&key=yft-fixture-innertube-key-not-real"
         const val PHONE_PLAYER =
             "https://www.youtube.com/s/player/f1x7ure0/player-plasma-ias-phone-en_US.vflset/base.js"
         const val EMBED_HOST = "rr1---sn-fixture.googlevideo.example-cdn.test"

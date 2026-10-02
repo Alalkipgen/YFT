@@ -9,7 +9,8 @@
 | WebView lacks passive response MIME access | False positives/negatives | DOM + URL hints + bounded OkHttp probes |
 | Cookies/tokens leak to logs | Account/privacy compromise | Central redaction and no sensitive test fixtures |
 | Large FFmpeg dependency | APK size/license/maintenance cost | Do not add without Phase 4 ADR |
-| Embedded yt-dlp/Python | Size, updates and distribution risk | No approval in Phase 0; native isolated adapters first |
+| Embedded yt-dlp/Python | Size, updates and distribution risk | Not embedded. Native isolated adapters; only the yt-dlp ejs JavaScript solver is bundled, pinned by SHA-256, for YouTube (ADR-005) |
 | Over-modularization | Slow and fragile builds | Small core-module set; UI features remain packages |
 | Background restrictions | Transfers stop | Foreground service and persisted recovery |
 | Store policy/website terms | Distribution risk | GitHub-first beta, truthful support scope, authorized media only |
+| YouTube adapter (owner override, ADR-005) | Frequent breakage; PO-token 403s; bot checks; GitHub DMCA exposure; Play policy conflict | Embedded client first, sandboxed bundled solver, one-file client profiles, update/verify scripts, build flag to disable, GitHub-only distribution, structured failure reasons |

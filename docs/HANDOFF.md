@@ -3,15 +3,151 @@
 ## Current handoff
 
 - Date: 2026-10-02
-- Phase: 5 — Website-specific extractor adapters
+- Phase: 5E — YouTube adapter by owner decision
+  ([ADR-005](decisions/ADR-005-youtube-owner-override.md), superseding ADR-004)
 - Status: COMPLETE — full lint/test/debug/release validation passed on the work branch
-- Active branch: `work/phase-5-site-adapters`
-- Next branch: `work/phase-6-hardening`
-- Phase 5 base: Phase 4 completion commit `377d52d`
+- Active branch: `work/phase-5e-youtube`, created from the Phase 5 completion commit `d7efebe`
+- Next branch: `work/phase-6-hardening`, created from the Phase 5E completion head
 - Target repository: `Alalkipgen/YFT`
 - Reference repository: `Alalkipgen/AlalDownloader`
 
-## Work completed in Phase 5
+## Work completed in Phase 5E
+
+- **Owner override recorded.** The owner decided YFT must download YouTube videos for offline
+  viewing, GitHub-only. ADR-005 records the decision and its constraints; ADR-004 is marked
+  superseded; `docs/YOUTUBE_RISK_REVIEW.md` keeps the original analysis as the risk record and
+  gains an "Owner override" section.
+- **`:extractor-api`.** Added `SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED`,
+  `ExtractorHttpClient.postJson` and the `PlayerScriptRunner` boundary (challenge keys in,
+  solved values out), with `NoPlayerScriptRunner` as the default.
+- **`:extractor-sites` `youtube/`.**
+  - `YouTubeUrls`: single-video URL shapes only, canonical page identity, and player-script
+    addresses accepted only from `www.youtube.com/s/player/…`.
+  - `YouTubeClientProfile`: every client identifier in one file; embedded player and the
+    page's own `WEB`/`MWEB` client; no content-gate acknowledgement.
+  - `YouTubePlayerResponseParser`: page signals, inline player response, playability verdicts,
+    progressive/adaptive streams and opaque cipher descriptors.
+  - `YouTubeExtractor`: embedded client first without the cookie, then the page client with the
+    session; tiered verdicts; progressive MP4 plus one AAC M4A stream; expiry and plausibility
+    checks; transforms through the runner.
+- **App.**
+  - `detection/script/`: `YouTubePlayerScriptRunner` (validated player fetch, phone build
+    first, one-entry preprocessed cache, 45 s timeout), `EjsSolverProtocol`,
+    `SolverPageRoutes` and `WebViewSolverEngine` (fresh offscreen WebView per run, app-served
+    pages only, strict CSP, blob worker, no cookies/storage/files/navigation).
+  - Bundled the unmodified yt-dlp ejs 0.8.0 solver in `app/src/main/assets/youtube-solver/`
+    with YFT's own page and worker.
+  - `SiteScope` and `OkHttpExtractorClient` now drop `Cookie`/`Authorization` on redirects
+    that leave the original site.
+  - `SiteAdapterModule` registers the adapter behind `BuildConfig.YOUTUBE_ADAPTER_ENABLED`
+    (default `true`).
+- **Scripts.** `scripts/update-youtube-solver.sh` (pinned-wheel refresh) and
+  `scripts/verify-youtube-solver.mjs` (public vectors plus today's live player).
+- **CI.** The checkpoint workflow uploads the debug APK as the `yft-debug-apk` artifact for
+  sideload testing.
+- **Docs.** `THIRD_PARTY_NOTICES.md` (new), support-matrix YouTube row, test matrix, risks and
+  this handoff.
+- `:core-browser`, `:core-download` and the download engines are unchanged.
+
+## Owner device test (YouTube)
+
+No device or emulator is available here, and this sandbox's datacenter network receives
+YouTube bot checks, so the live stream path must be checked on a phone:
+
+1. Download the `yft-debug-apk` artifact from the latest green "Work-branch checkpoint
+   validation" run of this branch on GitHub Actions (or build it with
+   `./gradlew :app:assembleDebug`). Each CI build has its own debug key, so uninstall an older
+   YFT debug build before installing a newer one.
+2. Install it on an Android 7.0+ phone with Android System WebView or Chrome updated from the
+   Play Store. Use home Wi-Fi or mobile data, not a VPN.
+3. In YFT's browser open `https://m.youtube.com/watch?v=aqz-KE-bpKQ` (an embeddable public
+   video). Expected: candidates named `… — 360p` (or similar) and `… — Audio … kbps`.
+4. Download both and play them from Downloads.
+5. Also try a `youtube.com/shorts/…` link, a `youtu.be/…` link, a music video whose owner
+   disables embedding (may fail at download time with HTTP 403), and a private or age-restricted
+   video (expected: a clear sign-in or unavailable message, never a bypass).
+6. Report what each case showed, roughly how long detection took, and any crash.
+
+## Phase 5E validation
+
+Run with JDK 17, Android SDK 35 and Gradle 8.9:
+
+```bash
+./gradlew --no-daemon \
+  lintDebug testDebugUnitTest \
+  :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test \
+  :app:assembleDebug :app:assembleRelease
+```
+
+- **BUILD SUCCESSFUL**: 505 actionable tasks, fresh run in 8m 52s; the final re-run after the
+  last test was added took 1m 3s.
+- 359 tests, 0 failures, 0 errors and 0 skipped:
+  - app: 88
+  - core-browser: 27
+  - core-data: 9
+  - core-download: 79
+  - core-media: 14
+  - core-model: 22
+  - extractor-api: 22
+  - extractor-generic: 7
+  - extractor-sites: 91
+- Lint: 0 errors and 64 warnings, all dependency-version or toolchain advisories
+  (`GradleDependency` 57, `AndroidGradlePluginVersion` 6, `DataExtractionRules` 1). None comes
+  from Phase 5E code.
+- Debug APK: 15,617,519 bytes; SHA-256
+  `9a3394cca543008c4b66e78a6df46a75e6c523c757597cdc3e6f260162fdc3f9`.
+- Unsigned minified release APK: 2,837,516 bytes; SHA-256
+  `aaed2108ef23afc173cd847c5213ab9aa257743bc00aa4cfbd3a40b49c393d3a`. The release APK contains
+  the five solver assets, and R8 keeps the bridge's `post` method name.
+- `node scripts/verify-youtube-solver.mjs`: 34 public vectors passed on the main and phone player
+  builds, and today's live player `8ab5c328` was solved.
+- The exact solver page, worker and CSP were run in headless Chromium 153: player `74edf1a3`
+  5/5 vectors in 0.68 s (0.21 s with the preprocessed player), six more players 2/2 each, with no
+  outside request and no navigation.
+- GitHub Actions: checkpoint `1d84811` passed. `6a41808` failed because the app's failure-message
+  `when` was not yet exhaustive for the new failure; `1d84811` fixed it.
+
+## Known limitations
+
+- **YouTube quality.** Only progressive MP4 streams with audio (usually up to 360p) and one AAC
+  M4A audio stream are offered. Adaptive HD video is not offered, because adapter candidates
+  cannot yet be paired into a video+audio mux plan.
+- **PO tokens.** YFT generates none. Videos that disallow embedding fall back to the page client,
+  whose links may be refused with HTTP 403 at download time.
+- **Bot checks.** Some networks (datacenters, some VPNs) get "Sign in to confirm you're not a
+  bot" for every request; YFT reports sign-in required and does not work around it.
+- **Maintenance.** YouTube changes its player and client requirements often. Client identifiers
+  live in `YouTubeClientProfile.kt`; the solver is refreshed with
+  `scripts/update-youtube-solver.sh` and checked with `scripts/verify-youtube-solver.mjs`.
+- **Throughput.** Large downloads from `googlevideo.com` without ranged requests may be throttled.
+- **Device verification.** The WebView solver host has not run on a device (no `/dev/kvm`); it
+  needs a current Android System WebView with blob-URL workers and modern JavaScript. From this
+  sandbox's datacenter IP, `WEB`/`MWEB` answered with bot checks and the embedded client with
+  "video unavailable", so live stream URLs were not verified end to end.
+- **Carried over.** Platform muxing accepts only separate AVC/AAC MP4/fMP4 tracks; DASH
+  `SegmentBase`/SIDX and dynamic/live MPDs are unsupported; SAF tree export is not wired; the
+  release APK is unsigned until Phase 7; the KAPT language-version warning remains; TikTok,
+  Facebook and Vimeo are verified only against fixtures.
+
+## Next exact action
+
+1. Create `work/phase-6-hardening` from the Phase 5E completion head and push the kickoff
+   checkpoint.
+2. Read `docs/prompts/07_PHASE_6.md` before changing any code.
+3. Do not add site adapters or change the download engines as part of starting Phase 6.
+4. Do not merge a work branch into `main`.
+
+## Phase 5E checkpoint commits
+
+- Adapter core rebuilt (WIP): `04d1fea`
+- Parser, profiles, URLs and player-script contract (WIP): `cf54347`
+- Embedded-first extractor with offline fixtures and tests: `6a41808`
+- Sandboxed WebView player-script host with the bundled solver: `1d84811`
+- Phase 5E completion (docs, ADR-005, notices, CI artifact, client tests): this checkpoint
+
+## Previous handoff — Phase 5
+
+### Work completed in Phase 5
 
 - Finalized the adapter contract in `:extractor-api`: `SiteExtractor` with a pure offline
   `identify()` and a suspending `extract()`, typed `SitePageIdentity`, `SiteExtractionResult`,
@@ -39,7 +175,7 @@
   removed content, region blocks, media-free pages and changed markup.
 - Left `:core-browser`, `:core-download` and the download engines unchanged.
 
-## Important decisions
+### Important decisions
 
 - Adapters read only pages the user's own browser can already load. No adapter signs in, stores
   credentials, bypasses DRM or a paywall, or calls a private API with impersonated client keys.
@@ -57,7 +193,7 @@
   the shipped adapter set so it cannot be reversed silently.
 - No work branch was merged into `main`, and no release was signed or published.
 
-## Main files and areas
+### Main files and areas
 
 - Adapter contract, registry and bounded JSON: `extractor-api/src/main/kotlin/com/alal/yft/extractor/api/`
 - Adapters: `extractor-sites/src/main/kotlin/com/alal/yft/extractor/sites/{tiktok,facebook,vimeo}/`
@@ -67,7 +203,7 @@
 - YouTube decision: `docs/YOUTUBE_RISK_REVIEW.md`, `docs/decisions/ADR-004-youtube-adapter.md`
 - Phase continuity: `docs/PHASE_STATUS.md`, `docs/SUPPORT_MATRIX.md`, `docs/TEST_MATRIX.md`, `docs/SESSION_STATE.md`
 
-## Validation
+### Validation
 
 Phase 5 completion used JDK 17, Android SDK 35 and Gradle 8.9:
 
@@ -104,7 +240,7 @@ Results:
 - Local structured-secret scan passed before the remote checkpoint.
 - GitHub Advanced Security secret scanning is not enabled for this repository.
 
-## Known limitations
+### Known limitations
 
 - Adapters are verified only against committed fixtures. Any of the three sites can change its
   markup without notice; the structured `changed markup` failure is the designed response.
@@ -122,14 +258,14 @@ Results:
 - GitHub MCP write tools are blocked by the automated safety reviewer, so pushes use an SSH key
   held only in the sandbox.
 
-## Next exact action
+### Next exact action
 
 1. Create `work/phase-6-hardening` from the Phase 5 completion head and push the kickoff checkpoint.
 2. Read `docs/prompts/07_PHASE_6.md` before changing any code.
 3. Do not add site adapters or change the download engines as part of starting Phase 6.
 4. Do not merge a work branch into `main`.
 
-## Phase 5 checkpoint commits
+### Phase 5 checkpoint commits
 
 - Adapter contract and registry: `b08675b`
 - TikTok adapter: `66b284a`

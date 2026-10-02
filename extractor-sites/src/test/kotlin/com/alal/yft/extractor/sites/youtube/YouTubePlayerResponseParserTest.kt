@@ -16,7 +16,7 @@ class YouTubePlayerResponseParserTest {
         )
 
         assertEquals("f1x7ure0", signals.playerId)
-        assertEquals("AIzaSyFixtureKeyNotARealKey000000000", signals.apiKey)
+        assertEquals("yft-fixture-innertube-key-not-real", signals.apiKey)
         assertEquals("MWEB", signals.clientName)
         assertEquals("2.20261002.01.00", signals.clientVersion)
         assertEquals("CgtGaXh0dXJlVmlzaXRvcijAgICABg%3D%3D", signals.visitorData)

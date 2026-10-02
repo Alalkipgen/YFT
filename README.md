@@ -2,7 +2,7 @@
 
 YFT is an ad-free Android application for detecting and, in later phases, downloading authorized non-DRM media from direct links, HTML5 players, HLS and DASH streams.
 
-**Phase 5: isolated TikTok, Facebook and Vimeo extractors behind the extractor API, with offline fixtures and a clean fallback to generic detection, are complete on `work/phase-5-site-adapters`.** No YouTube adapter ships; the reasons are documented in [`docs/YOUTUBE_RISK_REVIEW.md`](docs/YOUTUBE_RISK_REVIEW.md). Hardening, privacy, performance and UI polish begin in Phase 6.
+**Phase 5 and Phase 5E are complete.** TikTok, Facebook, Vimeo and — by owner decision ([ADR-005](docs/decisions/ADR-005-youtube-owner-override.md)) — YouTube extractors run behind the extractor API with offline fixtures and a clean fallback to generic detection. YouTube support covers single videos as progressive MP4 (usually up to 360p) plus M4A audio; its risks and limits are recorded in [`docs/YOUTUBE_RISK_REVIEW.md`](docs/YOUTUBE_RISK_REVIEW.md). YFT is distributed through GitHub only. Hardening, privacy, performance and UI polish follow in Phase 6.
 
 ## Current state
 
@@ -18,7 +18,8 @@ YFT is an ad-free Android application for detecting and, in later phases, downlo
 - A lifecycle-safe preview screen with video/audio tabs, selectable variants, player controls, retry states and explicit unknown/estimated labels.
 - Committed MP4/WebM/audio/HLS/DASH/blob fixtures and MockWebServer/Robolectric/Compose coverage.
 - Site adapters for TikTok, Facebook and Vimeo, each isolated behind `:extractor-api`, selected by host, and failing with their own reason for private, login-required, region-blocked, DRM, expired, media-free or changed pages. Supported link patterns and limits are listed in [`docs/SUPPORT_MATRIX.md`](docs/SUPPORT_MATRIX.md).
-- Any other site, including YouTube, stays on the generic detection path; no adapter signs in, stores credentials or bypasses an access control.
+- A YouTube adapter for single videos: YouTube's embedded-player client is asked first, then the page's own client with the user's session; signature and `n` transforms are solved by the bundled yt-dlp ejs solver in a sandboxed offscreen WebView. Private, age-gated, region-blocked and DRM videos fail with their own reason. Third-party code and licenses are listed in [`docs/THIRD_PARTY_NOTICES.md`](docs/THIRD_PARTY_NOTICES.md).
+- Any other site stays on the generic detection path; no adapter signs in, stores credentials or bypasses an access control.
 - The Phase 1 Compose, Hilt, Room, DataStore, OkHttp, Media3, redaction, CI and release-build foundations.
 - The Phase 0 feasibility harness remains under [`spikes/phase0-media`](spikes/phase0-media/).
 
@@ -55,7 +56,7 @@ Use JDK 17 and Android SDK 35:
 
 A local release check can additionally run `:app:assembleRelease`; the output is intentionally unsigned until Phase 7.
 
-The Phase 5 completion matrix passed 293 tests, Android lint with no errors, debug assembly and the minified unsigned release build. `lintDebug` needs network access the first time, because `lint-gradle` is not in the offline cache; every other task in the matrix runs with `--offline`. No device/emulator was available, so real Android WebView rendering, Media3 playback, `MediaExtractor`/`MediaMuxer` behavior, foreground-service lifecycle and `MediaStore` publication remain explicit runtime verification items. Browser policy, bounded network behavior, manifests, transfer/recovery logic, state and Compose surfaces are covered locally.
+The Phase 5E completion matrix passed 359 tests, Android lint with no errors, debug assembly and the minified unsigned release build. `lintDebug` needs network access the first time, because `lint-gradle` is not in the offline cache; every other task in the matrix runs with `--offline`. No device/emulator was available, so real Android WebView rendering, Media3 playback, `MediaExtractor`/`MediaMuxer` behavior, foreground-service lifecycle and `MediaStore` publication remain explicit runtime verification items. Browser policy, bounded network behavior, manifests, transfer/recovery logic, state and Compose surfaces are covered locally. The YouTube path still needs a device check on a residential or mobile network; the owner test steps are in [`docs/HANDOFF.md`](docs/HANDOFF.md), and each work-branch CI run uploads the debug APK as the `yft-debug-apk` artifact.
 
 See [`docs/PHASE_STATUS.md`](docs/PHASE_STATUS.md), [`docs/TEST_MATRIX.md`](docs/TEST_MATRIX.md) and [`docs/HANDOFF.md`](docs/HANDOFF.md) before continuing.
 

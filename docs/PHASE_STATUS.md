@@ -8,12 +8,13 @@
 | 3 — Preview/variants | COMPLETE | Bounded direct/HLS/DASH resolution, honest variants and secure Media3 preview validated |
 | 4 — Download engines | COMPLETE | Typed download plans, direct/HLS/DASH transfer, mux compatibility, foreground execution, Room recovery and safe export validated |
 | 5 — Site adapters | COMPLETE | TikTok, Facebook and Vimeo adapters behind the extractor API with offline fixtures, registry fallback to generic detection, and the YouTube blocker reported |
+| 5E — YouTube (owner override) | COMPLETE | YouTube adapter by owner decision (ADR-005): embedded-first lookup, progressive MP4 plus M4A audio, bundled ejs solver in a sandboxed WebView, offline fixtures and tests |
 | 6 — Hardening/UI | NOT STARTED | — |
 | 7 — Signed beta/release | NOT STARTED | — |
 
 ## Current phase state
 
-Phase 5 is complete on `work/phase-5-site-adapters`, validated with lint, the full test suite and the debug and release builds. Phase 6 has not started; it begins on `work/phase-6-hardening` from the Phase 5 completion head, following `docs/prompts/07_PHASE_6.md`. No work branch has been merged into `main`.
+Phase 5E is complete on `work/phase-5e-youtube` (created from the Phase 5 completion commit `d7efebe`), validated with lint, the full test suite and the debug and release builds. Phase 6 begins on `work/phase-6-hardening` from the Phase 5E completion head, following `docs/prompts/07_PHASE_6.md`. No work branch has been merged into `main`.
 
 ## Completed in Phase 1
 
@@ -197,3 +198,32 @@ Phase 5 is complete on `work/phase-5-site-adapters`, validated with lint, the fu
 - The command needs network access because `lintDebug` resolves `com.android.tools.lint:lint-gradle`, which is not in the offline cache; every other task in it passes with `--offline`.
 - Every adapter test runs offline against committed fixtures; no test performs a live network call.
 - Phase 5 definition of done: registry and generic fallback work, each claimed site has real fixtures and tests, broken pages fail clearly and independently, the YouTube blocker is reported with sources, and tests, lint, debug and release builds pass. Phase 6 is not started.
+
+## Completed in Phase 5E
+
+- Recorded the owner's decision to support YouTube downloads (GitHub-only distribution) in `docs/decisions/ADR-005-youtube-owner-override.md`, superseding ADR-004, and added an "Owner override" section to `docs/YOUTUBE_RISK_REVIEW.md`, which stays the risk record.
+- `:extractor-api`: `SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED`, `ExtractorHttpClient.postJson` and the `PlayerScriptRunner` boundary.
+- `:extractor-sites` `youtube/`: single-video URL matching, one-file client profiles, a player-response parser and an embedded-first extractor that returns progressive MP4 streams with audio plus one AAC M4A stream, with tiered verdicts, expiry checks and plausibility checks on solved values. Covered by 13 player-response fixtures, two page fixtures and 39 tests.
+- App: `YouTubePlayerScriptRunner`, `EjsSolverProtocol`, `SolverPageRoutes` and `WebViewSolverEngine` run the unmodified, SHA-256-pinned yt-dlp ejs 0.8.0 solver in a fresh, sandboxed offscreen WebView; `OkHttpExtractorClient` drops credentials on cross-site redirects; the adapter is registered behind `BuildConfig.YOUTUBE_ADAPTER_ENABLED`.
+- `scripts/update-youtube-solver.sh` and `scripts/verify-youtube-solver.mjs` keep the solver current; `docs/THIRD_PARTY_NOTICES.md` lists its licenses and hashes.
+- The checkpoint workflow uploads the debug APK as `yft-debug-apk` so the owner can sideload-test.
+- `:core-browser`, `:core-download` and the download engines are unchanged.
+
+## Phase 5E validation
+
+- Full command passed:
+
+```bash
+./gradlew --no-daemon \
+  lintDebug testDebugUnitTest \
+  :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test \
+  :app:assembleDebug :app:assembleRelease
+```
+
+- Result: **BUILD SUCCESSFUL**; 505 tasks (fresh run 8m 52s); 359 tests, 0 failures, 0 errors and 0 skipped.
+- Test totals by module: app 88, core-browser 27, core-data 9, core-download 79, core-media 14, core-model 22, extractor-api 22, extractor-generic 7, extractor-sites 91.
+- Lint: 0 errors, 64 warnings, all dependency-version or toolchain advisories (`GradleDependency` 57, `AndroidGradlePluginVersion` 6, `DataExtractionRules` 1).
+- Debug APK: 15,617,519 bytes; SHA-256 `9a3394cca543008c4b66e78a6df46a75e6c523c757597cdc3e6f260162fdc3f9`.
+- Unsigned minified release APK: 2,837,516 bytes; SHA-256 `aaed2108ef23afc173cd847c5213ab9aa257743bc00aa4cfbd3a40b49c393d3a`.
+- Bundled solver: 34 public vectors passed and today's live player was solved by `scripts/verify-youtube-solver.mjs`; the exact solver page ran in headless Chromium 153 with no outside request.
+- Not verified: the solver WebView and live YouTube stream URLs on a device. This sandbox has no `/dev/kvm`, and its datacenter IP receives bot checks. Owner test steps are in `docs/HANDOFF.md`.

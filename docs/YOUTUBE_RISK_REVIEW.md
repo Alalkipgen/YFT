@@ -1,10 +1,54 @@
 # YouTube Adapter Risk Review (Phase 5D)
 
-- Status: **Blocked — no YouTube adapter ships**
+- Status: **Overridden by the owner — a YouTube adapter ships (Phase 5E,
+  [ADR-005](decisions/ADR-005-youtube-owner-override.md))**. This review is kept unchanged below
+  as the project's risk record.
 - Reviewed: 2026-10-02
 - Scope: whether `:extractor-sites` should contain a `youtube` adapter in Phase 5
 - Phase 5 required this review to either produce an adapter or report a blocker honestly. This is
   the blocker report.
+
+## Owner override
+
+On 2026-10-02 the project owner decided that YFT must download YouTube videos for offline
+viewing, comparable to Snaptube or VidMate, with distribution on GitHub only, and accepted the
+maintenance and distribution exposure this review describes. ADR-005 records the decision and
+supersedes ADR-004. The decision is final for this project; the analysis below is not withdrawn,
+and every risk in it still applies.
+
+Against the reopening conditions at the end of this review:
+
+1. **Not met.** The adapter executes YouTube's own player script, and it presents itself to
+   YouTube as YouTube's embedded web player. It does not impersonate a phone app, a TV or any
+   device, and it always sends the user's own user agent.
+2. **Partly met.** Committed fixtures pin URL matching, page parsing, verdict ordering, cipher
+   handling and the solver protocol. They cannot pin YouTube's live behavior, so breakage is
+   detected by `scripts/verify-youtube-solver.mjs` against the live player and by users, not by
+   the test suite.
+3. **Met.** The owner accepted the release cadence and the distribution exposure in ADR-005.
+
+How the implementation contains the risks that remain:
+
+| Risk from this review | Containment in Phase 5E |
+| --- | --- |
+| Remote executable code (item 1) | The solver is bundled, unmodified and SHA-256 pinned. Only YouTube's player script is fetched, only from `www.youtube.com/s/player/…/base.js`, and it runs only in a fresh offscreen WebView with app-served pages, a strict CSP, a blob worker, no cookies, storage, files or navigation, and one size-limited string output. Implausible results are discarded |
+| PO tokens (item 2) | No token is generated. The embedded-player client, which YouTube currently serves without a token, is asked first and without the user's cookie. The page client's links can be refused at download time; videos that disallow embedding are the ones affected |
+| SABR/UMP (item 3) | Not implemented. Only progressive MP4 streams with audio (usually up to 360p) and one AAC M4A audio stream are offered |
+| Client impersonation (item 4) | Browser clients only (`WEB_EMBEDDED_PLAYER`, and `WEB`/`MWEB` as the page reports itself). No Android, iOS or TV client, no `SAPISIDHASH`, no content-gate acknowledgement: age, private, region and DRM gates fail with their own reason |
+| Maintenance cadence | Client identifiers live in one file (`YouTubeClientProfile.kt`); `scripts/update-youtube-solver.sh` refreshes the solver from its pinned wheel; `BuildConfig.YOUTUBE_ADAPTER_ENABLED` switches the adapter off without code changes |
+| Breakage invisible to fixtures | `scripts/verify-youtube-solver.mjs` runs the bundled solver against public vectors and today's live player; failures surface as `PLAYER_SCRIPT_REQUIRED`, `LOGIN_REQUIRED` or `RATE_LIMITED`, not as a generic error |
+| Credential exposure | The user's cookie goes only to `www.youtube.com` page and page-client requests, never to the embedded client or `googlevideo.com`, and is dropped on any redirect that leaves the site |
+| Distribution and legal exposure | Accepted by the owner. GitHub-only distribution; the Play policy conflict stands and a Play build would need the flag off and a new ADR. The 2020 youtube-dl DMCA precedent applies to the GitHub repository and releases |
+| Authorized-media scope (`RISKS.md`) | Unchanged in principle: YFT does not unlock private, age-gated, region-blocked, paid or DRM content. Whether a given download is permitted remains the user's responsibility |
+
+Observed while building Phase 5E from a datacenter network on 2026-10-02: the `WEB` and `MWEB`
+clients answered "Sign in to confirm you're not a bot" and the embedded client answered "This
+video is unavailable" for every video tried, including with the reference client versions. The
+end-to-end stream path is therefore verified only against fixtures and the solver against live
+player scripts, not against live stream URLs; it must be checked on a phone on a residential or
+mobile network.
+
+## Original Phase 5D review
 
 ## Recommendation
 
@@ -72,7 +116,7 @@ exactly the mechanism a working YouTube adapter needs.
   only". General YouTube content is not authorized media, and claiming support for it would make
   that row untrue.
 
-## What ships instead
+## What shipped in Phase 5D (superseded by ADR-005)
 
 - No `youtube` package exists in `:extractor-sites`, and `ShippedAdaptersTest` asserts both that
   the shipped adapter set is exactly `tiktok`, `facebook`, `vimeo` and that `youtube.com` and
@@ -84,7 +128,7 @@ exactly the mechanism a working YouTube adapter needs.
   remote code execution are involved.
 - [SUPPORT_MATRIX.md](SUPPORT_MATRIX.md) records the YouTube row as Blocked and points here.
 
-## What would reopen the decision
+## What would reopen the decision (see Owner override for the outcome)
 
 All three conditions would have to hold:
 

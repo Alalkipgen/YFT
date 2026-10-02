@@ -1,6 +1,6 @@
 # ADR-004: Ship no YouTube adapter
 
-- Status: Accepted for Phase 5
+- Status: Superseded by [ADR-005](ADR-005-youtube-owner-override.md) on 2026-10-02 (owner decision)
 - Date: 2026-10-02
 
 ## Context

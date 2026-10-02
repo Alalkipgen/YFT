@@ -143,10 +143,30 @@ All adapter tests run offline against committed fixtures; no test performs a liv
 | Request context | JVM | The browser session is replayed only to the site's own hosts; Vimeo follows only `player.vimeo.com` configuration addresses and no sign-in is performed | PASS |
 | Generic fallback | JVM | Unclaimed pages return `SiteAdapterSelection.None` so the generic detector runs | PASS |
 | Adapter kill switch | JVM | A disabled adapter reports itself instead of silently matching, and other adapters keep working | PASS |
-| YouTube decision guard | JVM | The shipped adapter set is exactly `tiktok`, `facebook`, `vimeo`, and `youtube.com`/`youtu.be` links stay unclaimed | PASS |
+| YouTube decision guard | JVM | The shipped adapter set is exactly `tiktok`, `facebook`, `vimeo`, and `youtube.com`/`youtu.be` links stay unclaimed | PASS at Phase 5; superseded in Phase 5E by the owner override (ADR-005) |
 | App-side coordination | Robolectric | The browser surfaces adapter results and falls back to generic detection without site parsing in the UI | PASS |
 | Phase 5 extractor-sites tests | JUnit | No failures | PASS — 52 tests |
 | Full Phase 5 matrix | Local JDK 17/SDK 35 | Lint, Android/JVM tests, debug and minified release build pass | PASS — 505 tasks in 7m; 293 tests, 0 failures; lint 0 errors |
+
+## Phase 5E automated checks (YouTube, owner override)
+
+| Check | Type | Success criterion | Result |
+| --- | --- | --- | --- |
+| URL matching | JVM | `watch?v=`, `/shorts/`, `/embed/`, `/live/`, `/v/`, `youtu.be/`, `m.`, `music.` and `youtube-nocookie.com` single-video links are claimed with an 11-character ID; channel, playlist, search, insecure and credential-bearing links are not | PASS |
+| Shipped adapter guard | JVM | The shipped set is exactly `tiktok`, `facebook`, `vimeo`, `youtube`; channel/playlist/search URLs stay unclaimed | PASS |
+| Client profiles | JVM | Request bodies carry no content-gate acknowledgement, name YFT's own page as the embedder, escape untrusted values, and fall back to a fixed client version only when the page states none | PASS |
+| Page and player parsing | JVM/fixtures | Page signals (API key, client, version, visitor data, signature timestamp, player version) and the inline player response are read from committed fixtures; foreign player-script origins are rejected | PASS |
+| Embedded-first lookup | JVM/fixtures | The embedded client is asked first without the user's cookie; the page client is asked with the session only when the page has no inline response; an embed refusal falls back to the page's own streams | PASS |
+| Verdict ordering | JVM/fixtures | Private, age-gated (sign-in), region, DRM and live verdicts from the watch page are final; a bot check with nothing embeddable asks the user to sign in; SABR-only responses report the player-script requirement | PASS |
+| Stream selection | JVM/fixtures | Progressive MP4 streams with audio are returned highest first plus one AAC audio stream (default track, non-DRC, highest bitrate) | PASS |
+| Cipher and `n` handling | JVM/fixtures | Signature ciphers are decoded and both transforms applied through the script runner; implausible answers drop the stream; expired links are refused before any script runs | PASS |
+| Player-script runner | JVM | Only `www.youtube.com/s/player/…/base.js` is fetched, the phone build first; the preprocessed player is cached per version and rebuilt after a failed run; timeouts and empty answers fail with `PLAYER_SCRIPT_REQUIRED` | PASS |
+| Solver protocol | JVM | Requests are ASCII-escaped and ordered; replies keep only answers that were asked for and are size-limited | PASS |
+| Solver page routes | JVM | Only the reserved asset host's four files and the input route are served; every other request is refused | PASS |
+| Credential scope | JVM | `Cookie` and `Authorization` survive same-site redirects, are dropped on a redirect that leaves the original site and stay dropped for the rest of the chain; IP hosts match exactly | PASS |
+| Extractor HTTP client | JVM | HTTPS-only with no inline credentials, downgrade redirects refused, 303 turns a JSON POST into a GET while 307 keeps it, redirect loops and oversized bodies fail instead of truncating, status codes map onto structured failures | PASS |
+| Bundled solver vectors | Node (`scripts/verify-youtube-solver.mjs`) | The unmodified bundled solver answers the public ejs vectors on the main and phone player builds, and solves today's live player | PASS — 34 vectors; live player `8ab5c328` solved |
+| Solver in a browser engine | Headless Chromium 153 harness | The exact solver page, worker and CSP solve player `74edf1a3` (5/5) and six more players with no outside request and no navigation | PASS — 0.68 s cold, 0.21 s with the preprocessed player |
 
 ## Runtime tests still requiring a device/emulator
 
@@ -164,6 +184,8 @@ All adapter tests run offline against committed fixtures; no test performs a liv
 | Foreground download lifecycle | Android API 24+ device/emulator | Service survives backgrounding, shows progress and self-stops | NOT RUN |
 | MediaStore publication | Android 10+ device/emulator | Pending item becomes visible in Downloads only after verification | NOT RUN — app-private staging covered locally |
 | Real low-storage transfer | Device with a nearly full volume | Transfer fails cleanly without a corrupt published file | NOT RUN — covered only through an injected failure |
+| YouTube download on a device | Phone on a residential or mobile network, current Android System WebView | An embeddable public video lists progressive and M4A candidates, the solver WebView answers within the timeout, and the file downloads and plays | NOT RUN — no device/KVM; the sandbox's datacenter IP gets bot checks and "video unavailable" |
+| YouTube non-embeddable video | Same as above | The page client's streams are offered; a 403 at download time fails clearly instead of hanging | NOT RUN |
 
 ## Phase 5 and later regression categories
 

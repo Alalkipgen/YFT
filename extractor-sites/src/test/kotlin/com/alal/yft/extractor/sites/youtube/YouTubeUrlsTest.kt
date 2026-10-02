@@ -91,7 +91,7 @@ class YouTubeUrlsTest {
         val base = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
         assertEquals(base, YouTubeUrls.innerTubeUrl(null))
         assertEquals(base, YouTubeUrls.innerTubeUrl("bad key&x=1"))
-        assertEquals("$base&key=AIzaSyFixture0000", YouTubeUrls.innerTubeUrl("AIzaSyFixture0000"))
+        assertEquals("$base&key=yftFixtureKey0000", YouTubeUrls.innerTubeUrl("yftFixtureKey0000"))
     }
 
     @Test

@@ -67,7 +67,7 @@ The application ID must be reconfirmed before the first production release becau
 - Playlist/batch downloads
 - Audio transcoding
 - Cloud accounts or sync
-- Remote executable extractor scripts
+- Remote executable extractor scripts. The YouTube solver is bundled in the APK, not downloaded; only YouTube's own player script is fetched, and it runs only in a sandboxed offscreen WebView ([ADR-005](decisions/ADR-005-youtube-owner-override.md))
 - A general-purpose desktop-class browser
 
 ## Reference-repository findings
