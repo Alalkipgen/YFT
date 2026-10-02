@@ -57,10 +57,11 @@ produces `app-release-unsigned.apk` and never falls back to the debug key.
 
 1. checks that `CHANGELOG.md` has a `## [<versionName>]` section and that
    `docs/release/<versionName>.md` exists, and warns about uncommitted changes;
-2. runs `clean`, then `lintDebug testDebugUnitTest :core-model:test :extractor-api:test
-   :extractor-generic:test :extractor-sites:test` (skip with `--skip-tests` only right after
-   a green CI run), then `:app:assembleRelease -Pyft.requireReleaseSigning=true`, as separate
-   Gradle invocations so a 4 GiB machine copes;
+2. fails within seconds when signing is missing or partial, then runs `clean`,
+   `lintDebug testDebugUnitTest :core-model:test :extractor-api:test :extractor-generic:test
+   :extractor-sites:test` (skip with `--skip-tests` only right after a green CI run) and
+   `:app:assembleRelease -Pyft.requireReleaseSigning=true` as separate Gradle invocations (so a
+   4 GiB machine copes) with `--no-build-cache`, so tests really run and nothing is reused;
 3. runs `scripts/verify-release-apk.sh`: package `com.alal.yft`, versionName, not debuggable,
    zip alignment, `apksigner verify` with v2/v3, exactly one signer, not the Android debug
    certificate, the expected certificate fingerprint and, with `--previous-apk`, the upgrade

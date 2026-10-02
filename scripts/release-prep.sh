@@ -58,8 +58,9 @@ if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   echo "WARNING: tracked files have uncommitted changes; the APK will not match a commit." >&2
 fi
 
-# Separate Gradle invocations keep peak memory low enough for 4 GiB machines.
-gradle=(./gradlew --no-daemon)
+# Separate Gradle invocations keep peak memory low enough for 4 GiB machines. A release never
+# reuses build-cache entries: the tests really run and the APK is built from this source tree.
+gradle=(./gradlew --no-daemon --no-build-cache)
 # Fail in seconds, not after the test run, when signing is missing, partial or points nowhere.
 "${gradle[@]}" -q -Pyft.requireReleaseSigning=true help >/dev/null
 "${gradle[@]}" clean
