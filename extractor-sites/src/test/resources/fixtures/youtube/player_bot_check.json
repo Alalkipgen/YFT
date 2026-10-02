@@ -1,0 +1,12 @@
+{
+  "playabilityStatus": {
+    "status": "LOGIN_REQUIRED",
+    "reason": "Sign in to confirm you’re not a bot",
+    "errorScreen": {
+      "playerErrorMessageRenderer": {
+        "subreason": {"runs": [{"text": "This helps protect our community. "}, {"text": "Learn more"}]}
+      }
+    }
+  },
+  "videoDetails": {"videoId": "Yft0Fixture", "title": "Fixture video title"}
+}

@@ -1,0 +1,11 @@
+{
+  "playabilityStatus": {
+    "status": "UNPLAYABLE",
+    "reason": "Video unavailable",
+    "errorScreen": {
+      "playerErrorMessageRenderer": {
+        "subreason": {"simpleText": "The uploader has not made this video available in your country"}
+      }
+    }
+  }
+}

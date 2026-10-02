@@ -1,0 +1,16 @@
+{
+  "playabilityStatus": {"status": "OK"},
+  "streamingData": {
+    "expiresInSeconds": "21540",
+    "drmParams": "fixture-drm-params",
+    "adaptiveFormats": [
+      {
+        "itag": 399,
+        "url": "https://rr1---sn-fixture.googlevideo.example-cdn.test/videoplayback?itag=399",
+        "mimeType": "video/mp4; codecs=\"av01.0.08M.08\"",
+        "drmFamilies": ["WIDEVINE"]
+      }
+    ]
+  },
+  "videoDetails": {"videoId": "Yft0Fixture", "title": "Fixture rental"}
+}

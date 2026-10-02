@@ -1,0 +1,8 @@
+{
+  "playabilityStatus": {"status": "OK"},
+  "streamingData": {
+    "expiresInSeconds": "21540",
+    "serverAbrStreamingUrl": "https://rr1---sn-fixture.googlevideo.example-cdn.test/videoplayback?sabr=1"
+  },
+  "videoDetails": {"videoId": "Yft0Fixture", "title": "Fixture video title"}
+}

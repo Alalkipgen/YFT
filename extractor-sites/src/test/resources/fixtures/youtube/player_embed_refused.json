@@ -1,0 +1,12 @@
+{
+  "playabilityStatus": {
+    "status": "UNPLAYABLE",
+    "reason": "Video unavailable",
+    "errorScreen": {
+      "playerErrorMessageRenderer": {
+        "subreason": {"runs": [{"text": "Playback on other websites has been disabled by the video owner"}]}
+      }
+    },
+    "playableInEmbed": false
+  }
+}

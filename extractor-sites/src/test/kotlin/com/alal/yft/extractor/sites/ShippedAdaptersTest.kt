@@ -7,6 +7,7 @@ import com.alal.yft.extractor.sites.facebook.FacebookExtractor
 import com.alal.yft.extractor.sites.testing.FakeExtractorHttpClient
 import com.alal.yft.extractor.sites.tiktok.TikTokExtractor
 import com.alal.yft.extractor.sites.vimeo.VimeoExtractor
+import com.alal.yft.extractor.sites.youtube.YouTubeExtractor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -53,18 +54,32 @@ class ShippedAdaptersTest {
     }
 
     /**
-     * Pins the Phase 5D decision in `docs/YOUTUBE_RISK_REVIEW.md`: no YouTube adapter ships, so
-     * YouTube pages stay on the generic detector and the adapter set cannot grow silently.
+     * Pins the owner decision in ADR-005: YouTube single-video pages are claimed by the YouTube
+     * adapter, while channels, playlists and searches stay on the generic detector.
      */
     @Test
-    fun `youtube is intentionally unclaimed`() {
-        assertEquals(listOf("tiktok", "facebook", "vimeo"), registry.adapterIds)
+    fun `youtube single-video pages are claimed by the youtube adapter`() {
+        assertEquals(listOf("tiktok", "facebook", "vimeo", "youtube"), registry.adapterIds)
 
         listOf(
-            "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            "https://m.youtube.com/watch?v=dQw4w9WgXcQ",
-            "https://youtu.be/dQw4w9WgXcQ",
-            "https://www.youtube.com/shorts/dQw4w9WgXcQ",
+            "https://www.youtube.com/watch?v=Yft0Fixture",
+            "https://m.youtube.com/watch?v=Yft0Fixture",
+            "https://youtu.be/Yft0Fixture",
+            "https://www.youtube.com/shorts/Yft0Fixture",
+        ).forEach { url ->
+            val selection = registry.select(url) as SiteAdapterSelection.Matched
+            assertEquals(url, "youtube", selection.extractor.id)
+            assertEquals(
+                url,
+                "https://www.youtube.com/watch?v=Yft0Fixture",
+                selection.identity.canonicalPageUrl,
+            )
+        }
+
+        listOf(
+            "https://www.youtube.com/@FixtureChannel",
+            "https://www.youtube.com/playlist?list=PLfixture",
+            "https://www.youtube.com/results?search_query=fixture",
         ).forEach { url ->
             assertTrue(url, registry.select(url) is SiteAdapterSelection.None)
         }
@@ -86,6 +101,11 @@ class ShippedAdaptersTest {
     }
 
     private fun shippedAdapters() = FakeExtractorHttpClient().let { http ->
-        listOf(TikTokExtractor(http), FacebookExtractor(http), VimeoExtractor(http))
+        listOf(
+            TikTokExtractor(http),
+            FacebookExtractor(http),
+            VimeoExtractor(http),
+            YouTubeExtractor(http),
+        )
     }
 }

@@ -1,0 +1,8 @@
+{
+  "playabilityStatus": {"status": "OK"},
+  "streamingData": {
+    "expiresInSeconds": "21540",
+    "hlsManifestUrl": "https://manifest.googlevideo.example-cdn.test/api/manifest/hls_variant/id/fixture/index.m3u8"
+  },
+  "videoDetails": {"videoId": "Yft0Fixture", "title": "Fixture live stream", "isLive": true}
+}

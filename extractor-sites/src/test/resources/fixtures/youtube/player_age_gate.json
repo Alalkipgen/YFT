@@ -1,0 +1,11 @@
+{
+  "playabilityStatus": {
+    "status": "LOGIN_REQUIRED",
+    "reason": "Sign in to confirm your age",
+    "errorScreen": {
+      "playerErrorMessageRenderer": {
+        "subreason": {"simpleText": "This video may be inappropriate for some users."}
+      }
+    }
+  }
+}
