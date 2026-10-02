@@ -52,6 +52,24 @@ class ShippedAdaptersTest {
         }
     }
 
+    /**
+     * Pins the Phase 5D decision in `docs/YOUTUBE_RISK_REVIEW.md`: no YouTube adapter ships, so
+     * YouTube pages stay on the generic detector and the adapter set cannot grow silently.
+     */
+    @Test
+    fun `youtube is intentionally unclaimed`() {
+        assertEquals(listOf("tiktok", "facebook", "vimeo"), registry.adapterIds)
+
+        listOf(
+            "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            "https://m.youtube.com/watch?v=dQw4w9WgXcQ",
+            "https://youtu.be/dQw4w9WgXcQ",
+            "https://www.youtube.com/shorts/dQw4w9WgXcQ",
+        ).forEach { url ->
+            assertTrue(url, registry.select(url) is SiteAdapterSelection.None)
+        }
+    }
+
     @Test
     fun `a disabled adapter reports itself instead of silently matching`() {
         val flags = SiteAdapterFlags { adapterId -> adapterId != "facebook" }
