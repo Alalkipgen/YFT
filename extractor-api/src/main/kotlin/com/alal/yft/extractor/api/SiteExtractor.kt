@@ -85,6 +85,15 @@ enum class SiteExtractionFailure {
     /** The page parsed, but its structure no longer matches what the adapter understands. */
     RESPONSE_CHANGED,
 
+    /**
+     * The site only exposes this media behind a value its own player script computes.
+     *
+     * YFT does not reimplement those scripts. When no player-script host is available the
+     * adapter reports this instead of guessing a URL, and the generic detector cannot help
+     * either because the same protection applies to it.
+     */
+    PLAYER_SCRIPT_REQUIRED,
+
     /** The site asked the client to slow down. */
     RATE_LIMITED,
 
@@ -131,6 +140,7 @@ sealed interface SiteExtractionResult {
                 SiteExtractionFailure.LOGIN_REQUIRED,
                 SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
                 SiteExtractionFailure.GEO_RESTRICTED,
+                SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED,
                 -> false
 
                 else -> true

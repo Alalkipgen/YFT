@@ -14,6 +14,20 @@ interface ExtractorHttpClient {
         maxBodyBytes: Long = DEFAULT_MAX_BODY_BYTES,
     ): ExtractorHttpResult
 
+    /**
+     * Posts a JSON document to [url] under the same transport rules as [get].
+     *
+     * Some sites answer their own web player through a JSON endpoint rather than the page, so an
+     * adapter needs a POST to read what the user's browser already receives. Implementations must
+     * apply the identical HTTPS, redirect, timeout and size limits; adapters never see a socket.
+     */
+    suspend fun postJson(
+        url: String,
+        body: String,
+        headers: Map<String, String> = emptyMap(),
+        maxBodyBytes: Long = DEFAULT_MAX_BODY_BYTES,
+    ): ExtractorHttpResult
+
     companion object {
         const val DEFAULT_MAX_BODY_BYTES: Long = 2L * 1024 * 1024
     }

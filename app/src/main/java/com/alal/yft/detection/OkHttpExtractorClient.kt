@@ -11,8 +11,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okio.BufferedSource
 
 /**
@@ -50,7 +52,23 @@ class OkHttpExtractorClient(
     ): ExtractorHttpResult {
         require(maxBodyBytes > 0)
         return try {
-            withContext(Dispatchers.IO) { fetch(url, headers, maxBodyBytes) }
+            withContext(Dispatchers.IO) { fetch(url, headers, maxBodyBytes, jsonBody = null) }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: IOException) {
+            ExtractorHttpResult.Failure(SiteExtractionFailure.NETWORK)
+        }
+    }
+
+    override suspend fun postJson(
+        url: String,
+        body: String,
+        headers: Map<String, String>,
+        maxBodyBytes: Long,
+    ): ExtractorHttpResult {
+        require(maxBodyBytes > 0)
+        return try {
+            withContext(Dispatchers.IO) { fetch(url, headers, maxBodyBytes, jsonBody = body) }
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (_: IOException) {
@@ -62,15 +80,26 @@ class OkHttpExtractorClient(
         url: String,
         headers: Map<String, String>,
         maxBodyBytes: Long,
+        jsonBody: String?,
     ): ExtractorHttpResult {
         var current = url.toSecureHttpUrl()
             ?: return ExtractorHttpResult.Failure(SiteExtractionFailure.UNSUPPORTED_URL)
+        // A JSON POST that is redirected with 301/302/303 continues as a GET, as browsers do;
+        // 307/308 explicitly preserve the method and body.
+        var pendingBody = jsonBody
         var redirects = 0
 
         while (true) {
+            val bodyForHop = pendingBody
             val request = Request.Builder()
                 .url(current)
-                .get()
+                .apply {
+                    if (bodyForHop == null) {
+                        get()
+                    } else {
+                        post(bodyForHop.toRequestBody(JSON_MEDIA_TYPE))
+                    }
+                }
                 .apply {
                     headers.forEach { (name, value) ->
                         if (name.isNotBlank() && value.isNotBlank()) header(name, value)
@@ -99,6 +128,7 @@ class OkHttpExtractorClient(
                                 response.code,
                             )
                         }
+                        if (response.code !in METHOD_PRESERVING_REDIRECTS) pendingBody = null
                         next
                     }
 
@@ -157,5 +187,7 @@ class OkHttpExtractorClient(
 
     private companion object {
         const val HTTP_PERMANENT_REDIRECT = 308
+        val METHOD_PRESERVING_REDIRECTS = setOf(307, 308)
+        val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
     }
 }
