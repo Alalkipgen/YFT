@@ -4,6 +4,7 @@ import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.SiteAdapterFlags
 import com.alal.yft.extractor.api.SiteExtractor
 import com.alal.yft.extractor.api.SiteExtractorRegistry
+import com.alal.yft.extractor.sites.facebook.FacebookExtractor
 import com.alal.yft.extractor.sites.tiktok.TikTokExtractor
 import dagger.Module
 import dagger.Provides
@@ -34,6 +35,7 @@ object SiteAdapterModule {
     @Singleton
     fun provideSiteExtractors(http: ExtractorHttpClient): List<SiteExtractor> = listOf(
         TikTokExtractor(http),
+        FacebookExtractor(http),
     )
 
     @Provides

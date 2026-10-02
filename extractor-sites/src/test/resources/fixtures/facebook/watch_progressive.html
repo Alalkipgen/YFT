@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Fixture watch video</title>
+<meta property="og:title" content="Fixture watch video &amp; friends" />
+<meta property="og:image" content="https://scontent.example-cdn.test/og-thumb.jpg" />
+</head>
+<body>
+<div id="mount"></div>
+<script type="application/json" data-sjs>{"require":[["ScheduledServerJS","handle",null,[{"__bbox":{"result":{"data":{"video":{
+"__typename":"Video",
+"id":"9988776655443322",
+"video_id":"9988776655443322",
+"title":{"text":"Suggested fixture video"},
+"videoDeliveryLegacyFields":{"browser_native_sd_url":"https://video.example-cdn.test/v/suggested-sd.mp4?oe=F2A52380&oh=fixture"}
+}}}}}]]]}</script>
+<script type="application/json" data-sjs>{"require":[["ScheduledServerJS","handle",null,[{"__bbox":{"result":{"data":{"video":{
+"__typename":"Video",
+"id":"1234567890123456",
+"video_id":"1234567890123456",
+"title":{"text":"Fixture watch video"},
+"owner":{"__typename":"Page","name":"Fixture Page","id":"5550001112223"},
+"preferred_thumbnail":{"image":{"uri":"https://scontent.example-cdn.test/thumb-1280.jpg"}},
+"playable_duration_in_ms":128000,
+"is_drm_protected":false,
+"videoDeliveryResponseFragment":{"videoDeliveryResponseResult":{
+"progressive_urls":[
+{"metadata":{"quality":"FULL_HD"},"progressive_url":"https://video.example-cdn.test/v/fixture-1080.mp4?oe=F2A52380&oh=fixture"},
+{"metadata":{"quality":"HD"},"progressive_url":"https://video.example-cdn.test/v/fixture-720.mp4?oe=F2A52380&oh=fixture"},
+{"metadata":{"quality":"SD"},"progressive_url":"https://video.example-cdn.test/v/fixture-480.mp4?oe=F2A52380&oh=fixture"}
+],
+"dash_manifest_urls":[{"manifest_url":"https://video.example-cdn.test/v/fixture-dash.mpd?oe=F2A52380&oh=fixture"}]
+}},
+"videoDeliveryLegacyFields":{
+"browser_native_hd_url":"https://video.example-cdn.test/v/fixture-720.mp4?oe=F2A52380&oh=fixture",
+"browser_native_sd_url":"https://video.example-cdn.test/v/fixture-legacy-sd.mp4?oe=F2A52380&oh=fixture"
+}
+}}}}}]]]}</script>
+</body>
+</html>

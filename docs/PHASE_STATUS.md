@@ -169,3 +169,11 @@ Phase 5 is active on `work/phase-5-site-adapters`, created from the Phase 4 comp
 - Keep adapters free of credential capture, DRM circumvention and paywall bypass; a site that requires sign-in must reuse the user's own browser session only.
 - Add committed offline fixtures and regression tests per adapter; no live network calls in tests.
 - Do not change the download engines, and keep any site-specific behavior out of `:core-browser` and `:core-download`.
+
+## Phase 5 progress
+
+- 5A TikTok: implemented in `:extractor-sites` with offline fixtures for the current and legacy payloads, photo posts, private/login/region outcomes, DRM flags and changed markup.
+- 5B Facebook: implemented for watch, `video.php`, `/{handle}/videos/{id}`, reels, `fb.watch` and `/share/v|r/` links. Progressive MP4 renditions and the page's own DASH manifest URL are returned with CDN expiry attached; a page whose links already expired fails as expired. The parser prefers the video node whose ID matches the requested page, so a suggested video on the same page is never returned instead.
+- Both adapters are registered explicitly in `SiteAdapterModule` and covered by `ShippedAdaptersTest`, which asserts that each adapter claims only its own pages, that unclaimed pages fall through to the generic detector, and that a disabled adapter reports itself.
+- Validation after 5B: `./gradlew --no-daemon --offline :extractor-api:test :extractor-generic:test :extractor-sites:test :app:testDebugUnitTest :app:assembleDebug` — **BUILD SUCCESSFUL** in 3m 30s; 124 tests, 0 failures; debug APK assembled.
+- 5C (another justified public site) and 5D (YouTube risk review) are still open.
