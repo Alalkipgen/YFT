@@ -118,6 +118,10 @@ class SiteAdapterCoordinator @Inject constructor(
         SiteExtractionFailure.RESPONSE_CHANGED ->
             "$site changed its page format. Falling back to generic detection."
 
+        SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED ->
+            "$site protects this video's links with its player script, and YFT could not run " +
+                "it. Try again, or update YFT if this keeps happening."
+
         SiteExtractionFailure.RATE_LIMITED ->
             "$site is rate limiting this device. Wait a moment and try again."
 

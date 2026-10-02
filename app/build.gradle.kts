@@ -17,6 +17,9 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // The YouTube adapter can be switched off per build without touching the adapter list.
+        buildConfigField("boolean", "YOUTUBE_ADAPTER_ENABLED", "true")
     }
 
     buildTypes {

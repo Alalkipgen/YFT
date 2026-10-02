@@ -88,6 +88,10 @@ class OkHttpExtractorClient(
         // 307/308 explicitly preserve the method and body.
         var pendingBody = jsonBody
         var redirects = 0
+        // Credentials belong to the site they were captured for. A redirect that leaves that
+        // site continues without them, as a browser's cookie scoping would.
+        val credentialHost = current.host
+        var forwardCredentials = true
 
         while (true) {
             val bodyForHop = pendingBody
@@ -102,7 +106,8 @@ class OkHttpExtractorClient(
                 }
                 .apply {
                     headers.forEach { (name, value) ->
-                        if (name.isNotBlank() && value.isNotBlank()) header(name, value)
+                        val allowed = forwardCredentials || !SiteScope.isCredentialHeader(name)
+                        if (allowed && name.isNotBlank() && value.isNotBlank()) header(name, value)
                     }
                 }
                 .build()
@@ -129,6 +134,9 @@ class OkHttpExtractorClient(
                             )
                         }
                         if (response.code !in METHOD_PRESERVING_REDIRECTS) pendingBody = null
+                        if (!SiteScope.sameSite(credentialHost, next.host)) {
+                            forwardCredentials = false
+                        }
                         next
                     }
 
