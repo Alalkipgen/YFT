@@ -23,6 +23,7 @@ import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.testing.MainDispatcherRule
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.model.settings.DownloadPreferences
+import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.download.policy.NetworkSnapshot
 import com.alal.yft.download.policy.NetworkStatusSource
 import kotlinx.coroutines.flow.Flow
@@ -199,10 +200,119 @@ class PreviewViewModelTest {
         )
     }
 
+    @Test
+    fun defaultQualityPreselectsTheTallestVariantWithinTheCeiling() = runTest {
+        val store = PreviewSelectionStore().apply { select(candidate()) }
+        val variants = listOf(
+            variant("video-1080", height = 1_080),
+            variant("video-480", height = 480),
+            variant("video-720", height = 720),
+        )
+        val viewModel = viewModel(
+            FakeResolver(VariantResolutionResult.Success(asset(variants))),
+            store,
+            prefs = DownloadPreferences(defaultQuality = QualityPreference.UP_TO_720P),
+        )
+
+        runCurrent()
+
+        val ready = viewModel.uiState.value as PreviewUiState.Ready
+        assertEquals(PreviewTab.VIDEO, ready.selectedTab)
+        assertEquals("video-720", ready.selectedVariantId)
+    }
+
+    @Test
+    fun mobileDataAsksFirstAndConfirmingQueuesTheDownload() = runTest {
+        val store = PreviewSelectionStore().apply { select(candidate()) }
+        val starter = FakeDownloadStarter()
+        val viewModel = viewModel(
+            FakeResolver(VariantResolutionResult.Success(asset(listOf(variant())))),
+            store,
+            starter,
+            prefs = DownloadPreferences(confirmOnMeteredNetwork = true),
+            networkSnapshot = MOBILE_DATA,
+        )
+        runCurrent()
+
+        viewModel.confirmMeteredDownload()
+        runCurrent()
+        assertEquals(0, starter.calls)
+
+        viewModel.download()
+        runCurrent()
+
+        val asking = viewModel.uiState.value as PreviewUiState.Ready
+        assertEquals(PreviewDownloadStatus.ConfirmMetered, asking.downloadStatus)
+        assertFalse(asking.canDownload)
+        viewModel.download()
+        runCurrent()
+        assertEquals(0, starter.calls)
+
+        viewModel.confirmMeteredDownload()
+        runCurrent()
+
+        assertEquals(1, starter.calls)
+        val queued = viewModel.uiState.value as PreviewUiState.Ready
+        assertEquals(
+            PreviewDownloadStatus.Queued("Fixture.mp4", waitingForUnmetered = false),
+            queued.downloadStatus,
+        )
+    }
+
+    @Test
+    fun dismissingTheMobileDataPromptReturnsToIdleWithoutQueueing() = runTest {
+        val store = PreviewSelectionStore().apply { select(candidate()) }
+        val starter = FakeDownloadStarter()
+        val viewModel = viewModel(
+            FakeResolver(VariantResolutionResult.Success(asset(listOf(variant())))),
+            store,
+            starter,
+            prefs = DownloadPreferences(confirmOnMeteredNetwork = true),
+            networkSnapshot = MOBILE_DATA,
+        )
+        runCurrent()
+
+        viewModel.download()
+        runCurrent()
+        viewModel.dismissMeteredDownload()
+        runCurrent()
+
+        val idle = viewModel.uiState.value as PreviewUiState.Ready
+        assertEquals(PreviewDownloadStatus.Idle, idle.downloadStatus)
+        assertTrue(idle.canDownload)
+        assertEquals(0, starter.calls)
+    }
+
+    @Test
+    fun wifiOnlyQueuesWithoutAskingAndReportsTheWaitForWifi() = runTest {
+        val store = PreviewSelectionStore().apply { select(candidate()) }
+        val starter = FakeDownloadStarter()
+        val viewModel = viewModel(
+            FakeResolver(VariantResolutionResult.Success(asset(listOf(variant())))),
+            store,
+            starter,
+            prefs = DownloadPreferences(unmeteredOnly = true, confirmOnMeteredNetwork = true),
+            networkSnapshot = MOBILE_DATA,
+        )
+        runCurrent()
+
+        viewModel.download()
+        runCurrent()
+
+        assertEquals(1, starter.calls)
+        val queued = viewModel.uiState.value as PreviewUiState.Ready
+        assertEquals(
+            PreviewDownloadStatus.Queued("Fixture.mp4", waitingForUnmetered = true),
+            queued.downloadStatus,
+        )
+    }
+
     private fun viewModel(
         resolver: VariantResolver,
         store: PreviewSelectionStore,
         starter: PreviewDownloadStarter = FakeDownloadStarter(),
+        prefs: DownloadPreferences = DownloadPreferences(confirmOnMeteredNetwork = false),
+        networkSnapshot: NetworkSnapshot = WIFI,
     ): PreviewViewModel {
         val context = ApplicationProvider.getApplicationContext<Context>()
         return PreviewViewModel(
@@ -212,17 +322,15 @@ class PreviewViewModelTest {
             previewSourceFactory = PreviewSourceFactory(OkHttpClient()),
             downloadStarter = starter,
             downloadPreferences = object : DownloadPreferencesRepository {
-                override val preferences: Flow<DownloadPreferences> =
-                    MutableStateFlow(DownloadPreferences(confirmOnMeteredNetwork = false))
+                override val preferences: Flow<DownloadPreferences> = MutableStateFlow(prefs)
 
                 override suspend fun update(
                     transform: (DownloadPreferences) -> DownloadPreferences,
                 ) = Unit
             },
             network = object : NetworkStatusSource {
-                override val snapshot: StateFlow<NetworkSnapshot> = MutableStateFlow(
-                    NetworkSnapshot(connected = true, validated = true, unmetered = true),
-                )
+                override val snapshot: StateFlow<NetworkSnapshot> =
+                    MutableStateFlow(networkSnapshot)
             },
         )
     }
@@ -253,12 +361,14 @@ class PreviewViewModelTest {
     private fun variant(
         id: String = "video",
         trackType: MediaTrackType = MediaTrackType.VIDEO,
+        height: Int? = null,
     ) = MediaVariant(
         id = id,
         playbackUrl = "https://media.example.test/$id.m3u8",
         kind = MediaKind.HLS,
         trackType = trackType,
         requestContext = BrowserRequestContext(null, "fixture-agent", null),
+        height = height,
     )
 
     private class FakeDownloadStarter(
@@ -288,5 +398,10 @@ class PreviewViewModelTest {
             calls += 1
             return result
         }
+    }
+
+    private companion object {
+        val WIFI = NetworkSnapshot(connected = true, validated = true, unmetered = true)
+        val MOBILE_DATA = NetworkSnapshot(connected = true, validated = true, unmetered = false)
     }
 }

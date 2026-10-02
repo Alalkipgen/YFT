@@ -23,6 +23,7 @@ import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.ui.theme.YftTheme
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -208,6 +209,76 @@ class PreviewScreenTest {
 
         composeRule.onNodeWithText("Download storage is unavailable.").assertIsDisplayed()
         composeRule.onNodeWithTag("preview-download").assertIsEnabled()
+    }
+
+    @Test
+    fun mobileDataPromptConfirmsOrDismissesAndWifiOnlyWaitIsExplained() {
+        val video = variant(
+            id = "video-720",
+            trackType = MediaTrackType.VIDEO,
+            label = "720p stream",
+            height = 720,
+        )
+        val mutableState = mutableStateOf(
+            PreviewUiState.Ready(
+                asset = asset(listOf(video)),
+                selectedTab = PreviewTab.VIDEO,
+                selectedVariantId = video.id,
+                downloadStatus = PreviewDownloadStatus.ConfirmMetered,
+            ),
+        )
+        var confirmed = 0
+        var dismissed = 0
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                PreviewScreen(
+                    uiState = mutableState.value,
+                    onNavigateBack = {},
+                    onRetry = {},
+                    onTabSelected = {},
+                    onVariantSelected = {},
+                    playerSurface = { _, modifier -> Box(modifier) },
+                    onConfirmMetered = {
+                        confirmed += 1
+                        mutableState.value = mutableState.value.copy(
+                            downloadStatus = PreviewDownloadStatus.Enqueuing,
+                        )
+                    },
+                    onDismissMetered = {
+                        dismissed += 1
+                        mutableState.value = mutableState.value.copy(
+                            downloadStatus = PreviewDownloadStatus.Idle,
+                        )
+                    },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Download on mobile data?").assertIsDisplayed()
+        composeRule.onNodeWithTag("metered-dismiss").performClick()
+
+        assertEquals(1, dismissed)
+        assertEquals(0, confirmed)
+        composeRule.onAllNodesWithTag("metered-confirm").assertCountEquals(0)
+        composeRule.onNodeWithTag("preview-download").assertIsEnabled()
+
+        mutableState.value = mutableState.value.copy(
+            downloadStatus = PreviewDownloadStatus.ConfirmMetered,
+        )
+        composeRule.onNodeWithTag("metered-confirm").performClick()
+
+        assertEquals(1, confirmed)
+        composeRule.onAllNodesWithTag("metered-confirm").assertCountEquals(0)
+        composeRule.onNodeWithTag("preview-download").assertIsNotEnabled()
+
+        mutableState.value = mutableState.value.copy(
+            downloadStatus = PreviewDownloadStatus.Queued(
+                fileName = "Fixture asset.mp4",
+                waitingForUnmetered = true,
+            ),
+        )
+        composeRule.onNodeWithText("starts when Wi-Fi is available", substring = true)
+            .assertIsDisplayed()
     }
 
     @Test
