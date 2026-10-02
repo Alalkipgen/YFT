@@ -15,6 +15,13 @@ data class SitePageIdentity(
     val siteId: String,
     val contentId: String,
     val canonicalPageUrl: String,
+    /**
+     * True when [contentId] is a short-link code, so the real content address is still unknown.
+     *
+     * Short links cannot be expanded offline, and guessing the numeric ID would be fabrication.
+     * The adapter resolves the redirect during extraction instead.
+     */
+    val requiresCanonicalResolution: Boolean = false,
 ) {
     init {
         require(siteId.isNotBlank())

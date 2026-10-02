@@ -7,7 +7,8 @@ kotlin {
 }
 
 dependencies {
+    api(project(":extractor-api"))
     implementation(project(":core-model"))
-    implementation(project(":extractor-api"))
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

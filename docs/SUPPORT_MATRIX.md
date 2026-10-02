@@ -29,7 +29,7 @@ Status values:
 | Cookie/header-protected detection | Implemented | 2 | Same-origin probe replay is tested; cross-origin credentials are stripped |
 | Cookie/header-protected preview | Implemented | 3 | Same-origin replay and cross-origin stripping are tested; device playback remains to be exercised |
 | DRM/Widevine | Unsupported | — | Hints and manifest keys are detected and rejected; no circumvention |
-| TikTok adapter | Planned | 5A | Public/authorized non-DRM media only |
+| TikTok adapter | Implemented | 5A | `tiktok.com/@user/video/{id}`, `tiktok.com/video/{id}`, `m.tiktok.com/v/{id}.html`, `vm.tiktok.com/{code}`, `vt.tiktok.com/{code}`. Progressive MP4 only, every exposed bitrate rendition, exact size when the page states it. Photo posts, private/removed posts, login walls, region blocks, DRM flags and changed markup fail with their own reason. No sign-in is performed; the user's own browser session is replayed to tiktok.com. Verified 2026-10-02 against committed offline fixtures |
 | Facebook adapter | Planned | 5B | Public/authorized non-DRM media only |
 | Other websites | Planned | 5C | Add only with fixtures |
 | YouTube adapter | Risk review required | 5D | Isolated adapter, maintenance and distribution constraints |
