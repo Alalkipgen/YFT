@@ -8,13 +8,21 @@ import androidx.media3.exoplayer.source.MediaSource
 import com.alal.yft.core.media.player.MediaPlayerFactory
 import com.alal.yft.core.media.player.PreviewSourceFactory
 import com.alal.yft.core.media.resolver.VariantResolver
+import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
+import com.alal.yft.core.model.settings.DownloadPreferences
+import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.core.model.settings.pick
 import com.alal.yft.download.EnqueueResult
 import com.alal.yft.download.PreviewDownloadStarter
+import com.alal.yft.download.policy.DownloadNetworkPolicy
+import com.alal.yft.download.policy.NetworkStatusSource
+import com.alal.yft.download.policy.TransferNetworkState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -23,6 +31,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.update
@@ -36,8 +45,11 @@ class PreviewViewModel @Inject constructor(
     private val mediaPlayerFactory: MediaPlayerFactory,
     private val previewSourceFactory: PreviewSourceFactory,
     private val downloadStarter: PreviewDownloadStarter,
+    private val downloadPreferences: DownloadPreferencesRepository,
+    private val network: NetworkStatusSource,
 ) : ViewModel() {
     private val mutableUiState = MutableStateFlow<PreviewUiState>(PreviewUiState.Empty)
+    private var quality = QualityPreference.HIGHEST
     val uiState: StateFlow<PreviewUiState> = mutableUiState.asStateFlow()
     private val retryEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
@@ -57,9 +69,7 @@ class PreviewViewModel @Inject constructor(
     fun selectTab(tab: PreviewTab) {
         mutableUiState.update { current ->
             val ready = current as? PreviewUiState.Ready ?: return@update current
-            val selected = ready.asset.variants.firstOrNull {
-                it.belongsTo(tab) && it.isPreviewable
-            } ?: return@update current
+            val selected = ready.asset.preferredVariant(tab) ?: return@update current
             ready.copy(
                 selectedTab = tab,
                 selectedVariantId = selected.id,
@@ -100,27 +110,71 @@ class PreviewViewModel @Inject constructor(
      *
      * Re-entrant taps are ignored while a request is in flight so one selection cannot create
      * duplicate queue entries, and every rejection surfaces its own reason instead of a generic
-     * failure.
+     * failure. On mobile data the user is asked first when they chose to be.
      */
     fun download() {
         val ready = mutableUiState.value as? PreviewUiState.Ready ?: return
-        if (ready.downloadStatus == PreviewDownloadStatus.Enqueuing) return
+        if (!ready.canDownload) return
         val asset = ready.asset
         val variant = ready.selectedVariant
         updateDownloadStatus(variant.id, PreviewDownloadStatus.Enqueuing)
         viewModelScope.launch {
-            val status = try {
-                when (val result = downloadStarter.enqueue(asset, variant)) {
-                    is EnqueueResult.Started -> PreviewDownloadStatus.Queued(result.fileName)
-                    is EnqueueResult.Rejected -> PreviewDownloadStatus.Rejected(result.message)
-                }
-            } catch (cancellation: CancellationException) {
-                throw cancellation
-            } catch (_: Exception) {
-                PreviewDownloadStatus.Rejected("The download could not be queued. Try again.")
+            val preferences = currentPreferences()
+            val snapshot = network.snapshot.value
+            if (DownloadNetworkPolicy.needsMeteredConfirmation(snapshot, preferences)) {
+                updateDownloadStatus(variant.id, PreviewDownloadStatus.ConfirmMetered)
+            } else {
+                enqueue(asset, variant, preferences)
             }
-            updateDownloadStatus(variant.id, status)
         }
+    }
+
+    /** Starts the download the user confirmed for mobile data. */
+    fun confirmMeteredDownload() {
+        val ready = mutableUiState.value as? PreviewUiState.Ready ?: return
+        if (ready.downloadStatus != PreviewDownloadStatus.ConfirmMetered) return
+        val variant = ready.selectedVariant
+        updateDownloadStatus(variant.id, PreviewDownloadStatus.Enqueuing)
+        viewModelScope.launch { enqueue(ready.asset, variant, currentPreferences()) }
+    }
+
+    fun dismissMeteredDownload() {
+        val ready = mutableUiState.value as? PreviewUiState.Ready ?: return
+        if (ready.downloadStatus != PreviewDownloadStatus.ConfirmMetered) return
+        updateDownloadStatus(ready.selectedVariantId, PreviewDownloadStatus.Idle)
+    }
+
+    private suspend fun enqueue(
+        asset: MediaAsset,
+        variant: MediaVariant,
+        preferences: DownloadPreferences,
+    ) {
+        val status = try {
+            when (val result = downloadStarter.enqueue(asset, variant)) {
+                is EnqueueResult.Started -> PreviewDownloadStatus.Queued(
+                    fileName = result.fileName,
+                    waitingForUnmetered = DownloadNetworkPolicy.stateFor(
+                        network.snapshot.value,
+                        preferences,
+                    ) == TransferNetworkState.WAITING_FOR_UNMETERED,
+                )
+
+                is EnqueueResult.Rejected -> PreviewDownloadStatus.Rejected(result.message)
+            }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Exception) {
+            PreviewDownloadStatus.Rejected("The download could not be queued. Try again.")
+        }
+        updateDownloadStatus(variant.id, status)
+    }
+
+    private suspend fun currentPreferences(): DownloadPreferences = try {
+        downloadPreferences.preferences.first()
+    } catch (cancellation: CancellationException) {
+        throw cancellation
+    } catch (_: Exception) {
+        DownloadPreferences()
     }
 
     private fun updateDownloadStatus(variantId: String, status: PreviewDownloadStatus) {
@@ -145,6 +199,7 @@ class PreviewViewModel @Inject constructor(
             return
         }
         mutableUiState.value = PreviewUiState.Loading
+        quality = currentPreferences().defaultQuality
         val result = try {
             resolver.resolve(candidate)
         } catch (cancellation: CancellationException) {
@@ -158,13 +213,31 @@ class PreviewViewModel @Inject constructor(
         }
     }
 
+    /** The variant the user's quality preference points at within one tab. */
+    private fun MediaAsset.preferredVariant(tab: PreviewTab): MediaVariant? {
+        val choices = variants.filter { it.belongsTo(tab) && it.isPreviewable }
+        return when (tab) {
+            PreviewTab.VIDEO -> quality.pick(
+                choices,
+                MediaVariant::height,
+                MediaVariant::bitrateBitsPerSecond,
+            )
+
+            PreviewTab.AUDIO -> {
+                val rated = choices.filter { it.bitrateBitsPerSecond != null }
+                when {
+                    rated.isEmpty() -> choices.firstOrNull()
+                    quality == QualityPreference.LOWEST ->
+                        rated.minByOrNull { it.bitrateBitsPerSecond ?: 0L }
+                    else -> rated.maxByOrNull { it.bitrateBitsPerSecond ?: 0L }
+                }
+            }
+        }
+    }
+
     private fun MediaAsset.toReadyState(): PreviewUiState {
-        val video = variants.firstOrNull {
-            it.belongsTo(PreviewTab.VIDEO) && it.isPreviewable
-        }
-        val audio = variants.firstOrNull {
-            it.belongsTo(PreviewTab.AUDIO) && it.isPreviewable
-        }
+        val video = preferredVariant(PreviewTab.VIDEO)
+        val audio = preferredVariant(PreviewTab.AUDIO)
         val initial = video ?: audio ?: return PreviewUiState.Error(
             reason = VariantResolutionFailure.UNSUPPORTED_CODEC,
             message = messageFor(VariantResolutionFailure.UNSUPPORTED_CODEC),

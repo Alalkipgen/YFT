@@ -21,6 +21,13 @@ import com.alal.yft.download.EnqueueResult
 import com.alal.yft.download.PreviewDownloadStarter
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.testing.MainDispatcherRule
+import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
+import com.alal.yft.core.model.settings.DownloadPreferences
+import com.alal.yft.download.policy.NetworkSnapshot
+import com.alal.yft.download.policy.NetworkStatusSource
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -204,6 +211,19 @@ class PreviewViewModelTest {
             mediaPlayerFactory = MediaPlayerFactory(context),
             previewSourceFactory = PreviewSourceFactory(OkHttpClient()),
             downloadStarter = starter,
+            downloadPreferences = object : DownloadPreferencesRepository {
+                override val preferences: Flow<DownloadPreferences> =
+                    MutableStateFlow(DownloadPreferences(confirmOnMeteredNetwork = false))
+
+                override suspend fun update(
+                    transform: (DownloadPreferences) -> DownloadPreferences,
+                ) = Unit
+            },
+            network = object : NetworkStatusSource {
+                override val snapshot: StateFlow<NetworkSnapshot> = MutableStateFlow(
+                    NetworkSnapshot(connected = true, validated = true, unmetered = true),
+                )
+            },
         )
     }
 

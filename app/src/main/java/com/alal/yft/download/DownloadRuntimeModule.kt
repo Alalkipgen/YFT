@@ -2,6 +2,7 @@ package com.alal.yft.download
 
 import android.content.Context
 import com.alal.yft.core.data.db.DownloadRecordDao
+import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.download.AndroidMp4AudioVideoMuxer
 import com.alal.yft.core.download.AudioVideoMuxEngine
 import com.alal.yft.core.download.AudioVideoMuxRunner
@@ -18,6 +19,10 @@ import com.alal.yft.core.download.HlsTransferEngine
 import com.alal.yft.core.download.HlsTransferRunner
 import com.alal.yft.core.download.LocalAudioVideoMuxer
 import com.alal.yft.core.download.RoomDownloadTaskStore
+import com.alal.yft.download.policy.ConnectivityNetworkMonitor
+import com.alal.yft.download.policy.DownloadPolicyController
+import com.alal.yft.download.policy.DownloadPolicyGate
+import com.alal.yft.download.policy.NetworkStatusSource
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -29,6 +34,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
 import okhttp3.OkHttpClient
 
 @Qualifier
@@ -141,16 +147,44 @@ object DownloadRuntimeModule {
 
     @Provides
     @Singleton
+    fun provideNetworkStatusSource(
+        @ApplicationContext context: Context,
+    ): NetworkStatusSource = ConnectivityNetworkMonitor(context)
+
+    @Provides
+    @Singleton
+    fun provideDownloadPolicyController(
+        queue: DownloadQueue,
+        network: NetworkStatusSource,
+        preferences: DownloadPreferencesRepository,
+        @DownloadApplicationScope scope: CoroutineScope,
+    ): DownloadPolicyController = DownloadPolicyController(
+        queue = queue,
+        network = network,
+        preferences = preferences,
+        scope = scope,
+    )
+
+    @Provides
+    fun provideDownloadPolicyGate(controller: DownloadPolicyController): DownloadPolicyGate =
+        controller
+
+    @Provides
+    @Singleton
     fun provideDownloadEnqueuer(
         queue: DownloadQueue,
         probe: DirectMetadataProbe,
         destinations: DownloadDestinationProvider,
         serviceStarter: DownloadServiceStarter,
+        policy: DownloadPolicyGate,
+        preferences: DownloadPreferencesRepository,
     ): DownloadEnqueuer = DownloadEnqueuer(
         queue = queue,
         probe = probe,
         destinations = destinations,
         serviceStarter = serviceStarter,
+        policy = policy,
+        location = { preferences.preferences.first().location },
     )
 
     @Provides

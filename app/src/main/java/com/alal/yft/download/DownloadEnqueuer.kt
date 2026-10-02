@@ -8,6 +8,8 @@ import com.alal.yft.core.model.download.DirectProbeResult
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaVariant
+import com.alal.yft.core.model.settings.DownloadLocation
+import com.alal.yft.download.policy.DownloadPolicyGate
 import com.alal.yft.feature.downloads.DownloadPlanFactory
 import com.alal.yft.feature.downloads.DownloadPlanResult
 import com.alal.yft.feature.downloads.DownloadRequest
@@ -18,11 +20,18 @@ import java.util.UUID
 data class PreparedDestination(
     val destination: DownloadDestination,
     val spec: DownloadDestinationSpec,
+    /** The name the file is published under; differs from the request when it was taken. */
+    val fileName: String,
 )
 
 /** Creates a safe staging destination that stays unpublished until the transfer is verified. */
 interface DownloadDestinationProvider {
-    fun prepare(fileName: String, mimeType: String?): PreparedDestination
+    @Throws(IOException::class)
+    fun prepare(
+        fileName: String,
+        mimeType: String?,
+        location: DownloadLocation = DownloadLocation.SHARED_DOWNLOADS,
+    ): PreparedDestination
 }
 
 /** Narrow probe boundary so enqueue logic stays testable without network access. */
@@ -55,12 +64,17 @@ sealed interface EnqueueResult {
  * Direct sources are probed first so the queue records a real size and range capability instead of
  * guessing. Streaming sources skip the probe because their size is only known after parsing.
  * Every failure is reported explicitly and no destination is created for rejected work.
+ *
+ * The network policy is applied before anything is queued, so a download requested on mobile data
+ * while the user allows only Wi-Fi waits instead of starting for a moment.
  */
 class DownloadEnqueuer(
     private val queue: DownloadQueue,
     private val probe: DirectMetadataProbe,
     private val destinations: DownloadDestinationProvider,
     private val serviceStarter: DownloadServiceStarter,
+    private val policy: DownloadPolicyGate = DownloadPolicyGate.None,
+    private val location: suspend () -> DownloadLocation = { DownloadLocation.SHARED_DOWNLOADS },
     private val taskIds: () -> String = { UUID.randomUUID().toString() },
     private val clock: () -> Long = System::currentTimeMillis,
 ) : PreviewDownloadStarter {
@@ -81,12 +95,12 @@ class DownloadEnqueuer(
 
         return when (request) {
             is DownloadRequest.Direct -> enqueueDirect(request)
-            is DownloadRequest.Hls -> enqueueStream(request) { destination, spec ->
-                queue.enqueue(request.plan, destination, spec)
+            is DownloadRequest.Hls -> enqueueStream(request) { name, destination, spec ->
+                queue.enqueue(request.plan.copy(suggestedFileName = name), destination, spec)
             }
 
-            is DownloadRequest.Dash -> enqueueStream(request) { destination, spec ->
-                queue.enqueue(request.plan, destination, spec)
+            is DownloadRequest.Dash -> enqueueStream(request) { name, destination, spec ->
+                queue.enqueue(request.plan.copy(suggestedFileName = name), destination, spec)
             }
         }
     }
@@ -101,42 +115,46 @@ class DownloadEnqueuer(
             is DirectProbeResult.Success -> result.metadata
         }
 
-        val prepared = try {
-            destinations.prepare(request.fileName, request.mimeType ?: metadata.contentType)
-        } catch (_: IOException) {
-            return EnqueueResult.Rejected(
-                DownloadFailureReason.STORAGE_UNAVAILABLE,
-                messageFor(DownloadFailureReason.STORAGE_UNAVAILABLE),
-            )
-        }
+        val prepared = prepare(request.fileName, request.mimeType ?: metadata.contentType)
+            ?: return storageUnavailable()
 
+        policy.ensureApplied()
         queue.enqueue(
-            plan = request.plan,
+            plan = request.plan.copy(suggestedFileName = prepared.fileName),
             metadata = metadata,
             destination = prepared.destination,
             destinationSpec = prepared.spec,
         )
         serviceStarter.start()
-        return EnqueueResult.Started(request.plan.taskId, request.fileName)
+        return EnqueueResult.Started(request.plan.taskId, prepared.fileName)
     }
 
     private suspend fun enqueueStream(
         request: DownloadRequest,
-        enqueue: suspend (DownloadDestination, DownloadDestinationSpec) -> String,
+        enqueue: suspend (String, DownloadDestination, DownloadDestinationSpec) -> String,
     ): EnqueueResult {
-        val prepared = try {
-            destinations.prepare(request.fileName, request.mimeType)
-        } catch (_: IOException) {
-            return EnqueueResult.Rejected(
-                DownloadFailureReason.STORAGE_UNAVAILABLE,
-                messageFor(DownloadFailureReason.STORAGE_UNAVAILABLE),
-            )
-        }
+        val prepared = prepare(request.fileName, request.mimeType)
+            ?: return storageUnavailable()
 
-        val taskId = enqueue(prepared.destination, prepared.spec)
+        policy.ensureApplied()
+        val taskId = enqueue(prepared.fileName, prepared.destination, prepared.spec)
         serviceStarter.start()
-        return EnqueueResult.Started(taskId, request.fileName)
+        return EnqueueResult.Started(taskId, prepared.fileName)
     }
+
+    private suspend fun prepare(fileName: String, mimeType: String?): PreparedDestination? {
+        val target = location()
+        return try {
+            destinations.prepare(fileName, mimeType, target)
+        } catch (_: IOException) {
+            null
+        }
+    }
+
+    private fun storageUnavailable(): EnqueueResult = EnqueueResult.Rejected(
+        DownloadFailureReason.STORAGE_UNAVAILABLE,
+        messageFor(DownloadFailureReason.STORAGE_UNAVAILABLE),
+    )
 
     private fun messageFor(reason: DownloadFailureReason): String = when (reason) {
         DownloadFailureReason.INVALID_URL -> "This media link is not valid."

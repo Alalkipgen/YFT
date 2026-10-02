@@ -13,6 +13,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.navigation.compose.rememberNavController
 import com.alal.yft.core.model.ThemeMode
+import com.alal.yft.feature.settings.SettingsScreen
+import com.alal.yft.feature.settings.SettingsUiState
 import com.alal.yft.ui.components.PhasePlaceholderScreen
 import com.alal.yft.ui.theme.YftTheme
 import org.junit.Rule
@@ -57,6 +59,16 @@ class YftNavigationSmokeTest {
                             title = YftDestination.DOWNLOADS.title,
                             summary = YftDestination.DOWNLOADS.summary,
                             phaseNote = "Navigation-only test surface",
+                            onNavigateBack = onNavigateBack,
+                        )
+                    },
+                    settingsContent = { onNavigateBack ->
+                        SettingsScreen(
+                            state = SettingsUiState(),
+                            themeMode = themeMode,
+                            sharedDownloadsSupported = true,
+                            onAction = {},
+                            onThemeModeChanged = { themeMode = it },
                             onNavigateBack = onNavigateBack,
                         )
                     },

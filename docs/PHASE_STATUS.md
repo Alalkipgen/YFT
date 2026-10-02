@@ -18,6 +18,8 @@ Phase 5E is complete on `work/phase-5e-youtube` at `c608b01`. Phase 6 is in prog
 
 ## Phase 6 active scope
 
+> 6B/6C checkpoint: 6A done; 6B security/privacy and 6C settings/reliability implemented with tests (S1–S5, S9, R1, R2, R6 closed in `HARDENING_AUDIT.md`). Remaining: 6D UI finalization, 6E performance/free-space/pruning, full validation. Continue with `docs/prompts/10_PHASE_6_CONTINUE_MM.md`.
+
 - 6A Kickoff: branch, audit and plan (this checkpoint).
 - 6B Security and privacy: backup and device-transfer exclusion, network security configuration, browsing-data clearing, notification privacy and runtime notification permission, file-name hardening.
 - 6C Settings: default quality, destination, Wi-Fi-only, concurrency, mobile-data warning, theme, and data/history clearing, persisted in DataStore and applied to the queue.

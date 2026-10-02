@@ -22,6 +22,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -44,6 +46,7 @@ import com.alal.yft.core.model.media.MediaSizeAccuracy
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.ui.components.YftTopBar
+import com.alal.yft.ui.components.rememberNotificationPermissionRequest
 import java.util.Locale
 
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -53,13 +56,19 @@ fun PreviewRoute(
     viewModel: PreviewViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val requestNotificationPermission = rememberNotificationPermissionRequest()
     PreviewScreen(
         uiState = uiState,
         onNavigateBack = onNavigateBack,
         onRetry = viewModel::retry,
         onTabSelected = viewModel::selectTab,
         onVariantSelected = viewModel::selectVariant,
-        onDownload = viewModel::download,
+        onDownload = {
+            requestNotificationPermission()
+            viewModel.download()
+        },
+        onConfirmMetered = viewModel::confirmMeteredDownload,
+        onDismissMetered = viewModel::dismissMeteredDownload,
         playerSurface = { variant, modifier ->
             PreviewPlayerSurface(
                 variant = variant,
@@ -79,7 +88,33 @@ fun PreviewScreen(
     onVariantSelected: (String) -> Unit,
     playerSurface: @Composable (MediaVariant, Modifier) -> Unit,
     onDownload: () -> Unit = {},
+    onConfirmMetered: () -> Unit = {},
+    onDismissMetered: () -> Unit = {},
 ) {
+    val ready = uiState as? PreviewUiState.Ready
+    if (ready?.downloadStatus == PreviewDownloadStatus.ConfirmMetered) {
+        AlertDialog(
+            onDismissRequest = onDismissMetered,
+            title = { Text(text = "Download on mobile data?") },
+            text = {
+                Text(
+                    text = "You are not on Wi-Fi. This download may use your mobile data plan.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = onConfirmMetered,
+                    modifier = Modifier.testTag("metered-confirm"),
+                ) { Text(text = "Download") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = onDismissMetered,
+                    modifier = Modifier.testTag("metered-dismiss"),
+                ) { Text(text = "Cancel") }
+            },
+        )
+    }
     Scaffold(
         topBar = {
             YftTopBar(
@@ -231,9 +266,16 @@ private fun DownloadAction(
         }
         val status = state.downloadStatus
         val statusMessage = when (status) {
-            PreviewDownloadStatus.Idle, PreviewDownloadStatus.Enqueuing -> null
-            is PreviewDownloadStatus.Queued ->
+            PreviewDownloadStatus.Idle,
+            PreviewDownloadStatus.Enqueuing,
+            PreviewDownloadStatus.ConfirmMetered,
+            -> null
+
+            is PreviewDownloadStatus.Queued -> if (status.waitingForUnmetered) {
+                "Queued ${status.fileName}. It starts when Wi-Fi is available."
+            } else {
                 "Queued ${status.fileName}. Track progress on the Downloads screen."
+            }
             is PreviewDownloadStatus.Rejected -> status.message
         }
         statusMessage?.let { message ->

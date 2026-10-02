@@ -116,6 +116,16 @@ class DownloadPlanFactoryTest {
     }
 
     @Test
+    fun `invisible and direction-changing characters cannot disguise the extension`() {
+        val asset = asset("clip\u202Egnp.exe\u200B\u0000 \uD83C\uDFAC")
+
+        val name = DownloadPlanFactory.fileName(asset, variant(label = null, container = "mp4"))
+
+        assertEquals("clip gnp exe.mp4", name)
+        assertTrue(name.all { it.code in 0x20..0x7E })
+    }
+
+    @Test
     fun `file names stay bounded and fall back when metadata is unusable`() {
         val longTitle = asset("x".repeat(400))
         val bounded = DownloadPlanFactory.fileName(

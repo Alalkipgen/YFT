@@ -3,6 +3,7 @@ package com.alal.yft.download
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.alal.yft.core.download.DownloadDestinationKind
+import com.alal.yft.core.model.settings.DownloadLocation
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -61,7 +62,7 @@ class AndroidDownloadDestinationProviderTest {
     }
 
     @Test
-    fun `concurrent downloads of the same name use distinct partial files`() {
+    fun `concurrent downloads of the same name reserve distinct names`() {
         var index = 0
         val provider = AndroidDownloadDestinationProvider(context) { "id-${index++}" }
 
@@ -70,10 +71,55 @@ class AndroidDownloadDestinationProviderTest {
         first.destination.prepare(null)
         second.destination.prepare(null)
 
+        assertEquals("Same.mp4", first.fileName)
+        assertEquals("Same (1).mp4", second.fileName)
         val names = File(context.noBackupFilesDir, "downloads")
             .listFiles()!!
             .map { it.name }
             .sorted()
-        assertEquals(listOf("Same.mp4.id0.part", "Same.mp4.id1.part"), names)
+        assertEquals(listOf("Same (1).mp4.id1.part", "Same.mp4.id0.part"), names)
+
+        first.destination.commit()
+        second.destination.commit()
+        val published = File(context.noBackupFilesDir, "downloads").list()!!.sorted()
+        assertEquals(listOf("Same (1).mp4", "Same.mp4"), published)
+    }
+
+    @Test
+    fun `a name that is already published gets the next free suffix`() {
+        val root = File(context.noBackupFilesDir, "downloads").apply { mkdirs() }
+        File(root, "Clip.mp4").writeText("old")
+        File(root, "Clip (1).mp4").writeText("older")
+        val provider = AndroidDownloadDestinationProvider(context) { "n" }
+
+        val prepared = provider.prepare("Clip.mp4", "video/mp4")
+        prepared.destination.prepare(null)
+        prepared.destination.commit()
+
+        assertEquals("Clip (2).mp4", prepared.fileName)
+        assertEquals("old", File(root, "Clip.mp4").readText())
+        assertTrue(File(root, "Clip (2).mp4").isFile)
+    }
+
+    @Test
+    @Config(sdk = [35])
+    fun `app storage is used when the user chooses it on newer releases`() {
+        val provider = AndroidDownloadDestinationProvider(context) { "p" }
+
+        val prepared = provider.prepare("Private.mp4", "video/mp4", DownloadLocation.APP_STORAGE)
+
+        assertEquals(DownloadDestinationKind.APP_PRIVATE, prepared.spec.kind)
+        assertNull(prepared.destination.recoveryUri)
+        val root = File(context.noBackupFilesDir, "downloads")
+        assertEquals(listOf("Private.mp4.p.part"), root.list()!!.toList())
+    }
+
+    @Test
+    fun `names without an extension are numbered too`() {
+        val taken = setOf("notes", "notes (1).abc.part")
+
+        assertEquals("notes (2)", AppPrivateNames.unique("notes", taken + "notes (1)"))
+        assertEquals("notes (1)", AppPrivateNames.unique("notes", setOf("notes")))
+        assertEquals("fresh.mp4", AppPrivateNames.unique("fresh.mp4", taken))
     }
 }

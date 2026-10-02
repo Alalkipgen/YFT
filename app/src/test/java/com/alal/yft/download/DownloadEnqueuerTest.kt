@@ -26,6 +26,8 @@ import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.VariantSupport
+import com.alal.yft.core.model.settings.DownloadLocation
+import com.alal.yft.download.policy.DownloadPolicyGate
 import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -139,10 +141,63 @@ class DownloadEnqueuerTest {
         assertFalse(direct.message.contains("no space"))
     }
 
-    private class Harness(scope: kotlinx.coroutines.test.TestScope) {
+    @Test
+    fun `a taken name follows the task into the queue and the result`() = runTest {
+        val harness = Harness(this)
+        harness.destinations.rename = { name -> name.replace(".mp4", " (1).mp4") }
+        harness.probe.result = DirectProbeResult.Success(metadata(totalBytes = 8))
+
+        val direct = harness.enqueuer.enqueue(
+            asset(),
+            variant(kind = MediaKind.DIRECT, label = "720p"),
+        ) as EnqueueResult.Started
+        val hls = harness.enqueuer.enqueue(
+            asset(),
+            variant(id = "hls", kind = MediaKind.HLS, label = "480p"),
+        ) as EnqueueResult.Started
+
+        assertEquals("Fixture 720p (1).mp4", direct.fileName)
+        assertEquals("Fixture 480p (1).mp4", hls.fileName)
+        val names = harness.queue.tasks.value.associate { it.id to it.displayName }
+        assertEquals("Fixture 720p (1).mp4", names.getValue(direct.taskId))
+        assertEquals("Fixture 480p (1).mp4", names.getValue(hls.taskId))
+    }
+
+    @Test
+    fun `the network policy is applied before work is queued`() = runTest {
+        val harness = Harness(this) { queue -> queue.setNetworkAvailable(false) }
+        harness.probe.result = DirectProbeResult.Success(metadata(totalBytes = 8))
+
+        harness.enqueuer.enqueue(asset(), variant(kind = MediaKind.DIRECT))
+
+        val task = harness.queue.tasks.value.single()
+        assertEquals(DownloadTaskStatus.WAITING_FOR_NETWORK, task.status)
+        assertEquals(1, harness.policyCalls)
+    }
+
+    @Test
+    fun `the chosen download location reaches the destination provider`() = runTest {
+        val harness = Harness(this, location = DownloadLocation.APP_STORAGE)
+        harness.probe.result = DirectProbeResult.Success(metadata(totalBytes = 8))
+
+        harness.enqueuer.enqueue(asset(), variant(kind = MediaKind.DIRECT))
+        harness.enqueuer.enqueue(asset(), variant(id = "hls", kind = MediaKind.HLS))
+
+        assertEquals(
+            listOf(DownloadLocation.APP_STORAGE, DownloadLocation.APP_STORAGE),
+            harness.destinations.locations,
+        )
+    }
+
+    private class Harness(
+        scope: kotlinx.coroutines.test.TestScope,
+        location: DownloadLocation = DownloadLocation.SHARED_DOWNLOADS,
+        onPolicy: suspend (DownloadQueue) -> Unit = {},
+    ) {
         val probe = FakeProbe()
         val destinations = FakeDestinations()
         val serviceStarter = CountingServiceStarter()
+        var policyCalls = 0
         val queue = DownloadQueue(
             store = InMemoryStore(),
             transferDispatcher = NeverFinishingDispatcher(),
@@ -158,6 +213,11 @@ class DownloadEnqueuerTest {
                 probe = probe,
                 destinations = destinations,
                 serviceStarter = serviceStarter,
+                policy = DownloadPolicyGate {
+                    policyCalls += 1
+                    onPolicy(queue)
+                },
+                location = { location },
                 taskIds = { "task-${next++}" },
                 clock = { 1_000 },
             )
@@ -187,14 +247,22 @@ class DownloadEnqueuerTest {
 
     private class FakeDestinations : DownloadDestinationProvider {
         val prepared = mutableListOf<Pair<String, String?>>()
+        val locations = mutableListOf<DownloadLocation>()
         var failure: IOException? = null
+        var rename: (String) -> String = { it }
 
-        override fun prepare(fileName: String, mimeType: String?): PreparedDestination {
+        override fun prepare(
+            fileName: String,
+            mimeType: String?,
+            location: DownloadLocation,
+        ): PreparedDestination {
             failure?.let { throw it }
             prepared += fileName to mimeType
+            locations += location
             return PreparedDestination(
                 destination = NoOpDestination(),
                 spec = DownloadDestinationSpec(DownloadDestinationKind.APP_PRIVATE),
+                fileName = rename(fileName),
             )
         }
     }

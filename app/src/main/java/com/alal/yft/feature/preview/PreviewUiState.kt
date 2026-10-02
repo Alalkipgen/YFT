@@ -19,7 +19,16 @@ enum class PreviewTab {
 sealed interface PreviewDownloadStatus {
     data object Idle : PreviewDownloadStatus
     data object Enqueuing : PreviewDownloadStatus
-    data class Queued(val fileName: String) : PreviewDownloadStatus
+
+    /** The device is on mobile data and the user asked to confirm such downloads. */
+    data object ConfirmMetered : PreviewDownloadStatus
+
+    data class Queued(
+        val fileName: String,
+        /** The download waits because the user allows transfers on Wi-Fi only. */
+        val waitingForUnmetered: Boolean = false,
+    ) : PreviewDownloadStatus
+
     data class Rejected(val message: String) : PreviewDownloadStatus
 }
 
@@ -35,7 +44,8 @@ sealed interface PreviewUiState {
         val downloadStatus: PreviewDownloadStatus = PreviewDownloadStatus.Idle,
     ) : PreviewUiState {
         val canDownload: Boolean
-            get() = downloadStatus != PreviewDownloadStatus.Enqueuing
+            get() = downloadStatus != PreviewDownloadStatus.Enqueuing &&
+                downloadStatus != PreviewDownloadStatus.ConfirmMetered
 
         val visibleVariants: List<MediaVariant>
             get() = asset.variants.filter { it.belongsTo(selectedTab) }

@@ -1,0 +1,23 @@
+package com.alal.yft.feature.settings
+
+import android.content.Context
+import com.alal.yft.core.download.DownloadQueue
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Singleton
+
+@Module
+@InstallIn(SingletonComponent::class)
+object SettingsModule {
+    @Provides
+    @Singleton
+    fun provideBrowsingDataCleaner(@ApplicationContext context: Context): BrowsingDataCleaner =
+        WebViewBrowsingDataCleaner(context)
+
+    @Provides
+    @Singleton
+    fun provideDownloadHistory(queue: DownloadQueue): DownloadHistory = QueueDownloadHistory(queue)
+}

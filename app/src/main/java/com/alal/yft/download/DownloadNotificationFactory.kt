@@ -31,6 +31,8 @@ class DownloadNotificationFactory @Inject constructor(
             ).apply {
                 description = context.getString(R.string.download_notification_channel_description)
                 setShowBadge(false)
+                // Titles name what the user is saving, so a secure lock screen shows only counts.
+                lockscreenVisibility = Notification.VISIBILITY_PRIVATE
             },
         )
     }
@@ -49,19 +51,24 @@ class DownloadNotificationFactory @Inject constructor(
         val progress = knownTotal
             ?.takeIf { it > 0 }
             ?.let { ((downloaded * 100.0) / it).toInt().coerceIn(0, 100) }
+        val summary = context.resources.getQuantityString(
+            R.plurals.download_notification_active,
+            active.size,
+            active.size,
+        )
         return builder()
-            .setContentTitle(
-                context.resources.getQuantityString(
-                    R.plurals.download_notification_active,
-                    active.size,
-                    active.size,
-                ),
-            )
+            .setContentTitle(summary)
             .setContentText(
                 active.firstOrNull()?.displayName
                     ?: context.getString(R.string.download_notification_preparing),
             )
             .setProgress(100, progress ?: 0, progress == null)
+            .setPublicVersion(
+                builder()
+                    .setContentTitle(summary)
+                    .setProgress(100, progress ?: 0, progress == null)
+                    .build(),
+            )
             .addAction(
                 0,
                 context.getString(R.string.download_notification_pause_all),
@@ -78,6 +85,7 @@ class DownloadNotificationFactory @Inject constructor(
         .setOnlyAlertOnce(true)
         .setOngoing(true)
         .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+        .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
         .setContentIntent(openAppIntent())
 
     private fun openAppIntent(): PendingIntent = PendingIntent.getActivity(

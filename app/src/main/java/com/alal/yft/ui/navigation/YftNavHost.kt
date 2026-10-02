@@ -12,7 +12,7 @@ import com.alal.yft.feature.downloads.DownloadsRoute
 import com.alal.yft.feature.home.HomeScreen
 import com.alal.yft.feature.library.LibraryScreen
 import com.alal.yft.feature.preview.PreviewRoute
-import com.alal.yft.feature.settings.SettingsScreen
+import com.alal.yft.feature.settings.SettingsRoute
 
 @Composable
 fun YftNavHost(
@@ -33,6 +33,13 @@ fun YftNavHost(
     },
     downloadsContent: @Composable (onNavigateBack: () -> Unit) -> Unit = { onNavigateBack ->
         DownloadsRoute(onNavigateBack = onNavigateBack)
+    },
+    settingsContent: @Composable (onNavigateBack: () -> Unit) -> Unit = { onNavigateBack ->
+        SettingsRoute(
+            themeMode = themeMode,
+            onThemeModeChanged = onThemeModeChanged,
+            onNavigateBack = onNavigateBack,
+        )
     },
 ) {
     val navigateBack = { navController.navigateUp(); Unit }
@@ -63,11 +70,7 @@ fun YftNavHost(
             LibraryScreen(onNavigateBack = navigateBack)
         }
         composable(YftDestination.SETTINGS.route) {
-            SettingsScreen(
-                themeMode = themeMode,
-                onThemeModeChanged = onThemeModeChanged,
-                onNavigateBack = navigateBack,
-            )
+            settingsContent(navigateBack)
         }
         composable(YftDestination.ABOUT.route) {
             AboutScreen(onNavigateBack = navigateBack)

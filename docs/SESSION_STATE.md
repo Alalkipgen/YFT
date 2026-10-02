@@ -2,14 +2,14 @@
 
 Update this file before every checkpoint push. Keep it short, factual and sufficient for a new chat to resume without guessing.
 
-- Current phase: Phase 6 — Hardening, privacy, performance and UI polish (IN PROGRESS). Phase 5E is complete at `c608b01`
+- Current phase: Phase 6 — Hardening, privacy, performance and UI polish (IN PROGRESS, about 45%). Phase 5E is complete at `c608b01`
 - Current branch: `work/phase-6-hardening` (created from `c608b01`)
-- Last completed task: Phase 6 kickoff — read `docs/prompts/07_PHASE_6.md`, wrote `docs/HARDENING_AUDIT.md` and the Phase 6 scope in `docs/PHASE_STATUS.md`
-- Work in progress: 6B security and privacy fixes (S1–S5, S9 in the audit)
-- Build status: last full PASS is Phase 5E at `c608b01` (359 tests, 0 failures, lint 0 errors); this kickoff changes docs only
-- Known failure/blocker: no device/emulator (`/dev/kvm` unavailable), so device-only checks stay listed as such. Build environment in this sandbox: `export JAVA_HOME=/data/toolchains/jdk17 ANDROID_HOME=/data/android-sdk ANDROID_SDK_ROOT=/data/android-sdk`; run Gradle with network; kill stale daemons with `pkill -f "[G]radleDaemon"` before a full run (4 GB RAM)
-- Next exact action: add data-extraction rules and a network security configuration, then browsing-data clearing
-- Last pushed checkpoint: `c608b01` — Phase 5E completion; this checkpoint follows
+- Last completed task: 6B security/privacy (S1–S5, S9) and 6C settings/reliability (R1, R2, R6): download preferences, network policy controller, Wi-Fi-only, concurrency, location, unique app-private names, Settings screen, Preview quality preselect and mobile-data confirmation
+- Work in progress: none uncommitted. Next agent prompt (Burmese): `docs/prompts/10_PHASE_6_CONTINUE_MM.md`
+- Build status: PASS — `./gradlew --no-daemon :core-model:test :core-data:testDebugUnitTest :app:testDebugUnitTest` (app 113, core-model 26, core-data 11 tests, 0 failures). Full lint/release matrix not yet re-run in Phase 6
+- Known failure/blocker: no device/emulator (`/dev/kvm` unavailable); Robolectric jars cached for SDK 28 and 35 only. Build env: `export JAVA_HOME=/data/toolchains/jdk17 ANDROID_HOME=/data/android-sdk ANDROID_SDK_ROOT=/data/android-sdk`; kill stale daemons with `pkill -f "[G]radleDaemon"`
+- Next exact action: add PreviewViewModel tests for quality preselect and metered confirmation, then 6D (Library, Home paste, icons, About), 6E (free-space check, Wi-Fi banner, pruning), docs, full validation
+- Last pushed checkpoint: `b503e30` — Phase 6 kickoff; this checkpoint follows
 - Last updated: 2026-10-02
 
 ## Checkpoint note template

@@ -12,6 +12,7 @@ import com.alal.yft.core.model.download.DownloadTaskStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -60,6 +61,23 @@ class DownloadNotificationFactoryTest {
 
         assertEquals("1 active download", notification.extras.getString(Notification.EXTRA_TITLE))
         assertEquals(true, notification.extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE))
+    }
+
+    @Test
+    fun `secure lock screens see counts but never titles`() {
+        factory.createChannel()
+        val channel = context.getSystemService(NotificationManager::class.java)
+            .getNotificationChannel(DownloadNotificationFactory.CHANNEL_ID)
+
+        val notification = factory.active(listOf(task("holiday", downloaded = 10)))
+        val public = notification.publicVersion
+
+        assertEquals(Notification.VISIBILITY_PRIVATE, channel.lockscreenVisibility)
+        assertEquals(Notification.VISIBILITY_PRIVATE, notification.visibility)
+        assertEquals("holiday.bin", notification.extras.getString(Notification.EXTRA_TEXT))
+        assertNotNull(public)
+        assertEquals("1 active download", public.extras.getString(Notification.EXTRA_TITLE))
+        assertNull(public.extras.getCharSequence(Notification.EXTRA_TEXT))
     }
 
     private fun task(id: String, downloaded: Long): StoredDownloadTask {

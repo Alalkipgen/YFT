@@ -10,7 +10,9 @@ import com.alal.yft.core.data.db.AppDatabase
 import com.alal.yft.core.data.db.DownloadRecordDao
 import com.alal.yft.core.data.logging.AndroidAppLogger
 import com.alal.yft.core.data.network.NetworkConfiguration
+import com.alal.yft.core.data.preferences.DataStoreDownloadPreferencesRepository
 import com.alal.yft.core.data.preferences.DataStoreSettingsRepository
+import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.data.preferences.SettingsRepository
 import com.alal.yft.core.model.logging.AppLogger
 import dagger.Binds
@@ -28,6 +30,12 @@ abstract class DataBindingsModule {
     @Binds
     @Singleton
     abstract fun bindSettingsRepository(implementation: DataStoreSettingsRepository): SettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindDownloadPreferencesRepository(
+        implementation: DataStoreDownloadPreferencesRepository,
+    ): DownloadPreferencesRepository
 
     @Binds
     @Singleton
