@@ -58,6 +58,8 @@ class BrowserViewModel(
     private val probePermits = Semaphore(permits = 2)
     private var pageProbeJob: Job = SupervisorJob(viewModelScope.coroutineContext[Job])
 
+    private var initialLinkHandled = false
+
     @Volatile
     private var activePageUrl: String? = null
 
@@ -82,10 +84,13 @@ class BrowserViewModel(
     }
 
     fun addressForLoading(): String? {
-        return when (val result = BrowserAddressNormalizer.normalize(mutableUiState.value.address)) {
+        val address = mutableUiState.value.address
+        return when (val result = BrowserAddressNormalizer.normalize(address)) {
             is BrowserAddressResult.Valid -> {
                 mutableUiState.update {
-                    it.copy(address = result.url.takeUnless { url -> url == "about:blank" }.orEmpty())
+                    it.copy(
+                        address = result.url.takeUnless { url -> url == "about:blank" }.orEmpty(),
+                    )
                 }
                 result.url
             }
@@ -94,6 +99,18 @@ class BrowserViewModel(
                 null
             }
         }
+    }
+
+    /**
+     * Loads the link Home handed over, once per browser session, so returning to the browser or
+     * recreating its view never reloads it. Returns the address to load, or null when the link
+     * was already handled or is not a valid address (the reason is shown like a typed one).
+     */
+    fun openInitialLink(link: String): String? {
+        if (initialLinkHandled) return null
+        initialLinkHandled = true
+        onAddressChanged(link)
+        return addressForLoading()
     }
 
     fun selectForPreview(candidate: MediaCandidate): Boolean {

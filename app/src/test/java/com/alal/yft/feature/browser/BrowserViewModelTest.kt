@@ -78,6 +78,22 @@ class BrowserViewModelTest {
         )
     }
 
+    @Test
+    fun linkFromHomeLoadsOnceAndInvalidLinksAreExplained() {
+        val viewModel = BrowserViewModel(OkHttpClient(), noAdapters())
+
+        assertEquals(
+            "https://example.com/watch?v=1",
+            viewModel.openInitialLink("example.com/watch?v=1"),
+        )
+        assertEquals("https://example.com/watch?v=1", viewModel.uiState.value.address)
+        assertEquals(null, viewModel.openInitialLink("https://example.com/again"))
+
+        val insecure = BrowserViewModel(OkHttpClient(), noAdapters())
+        assertEquals(null, insecure.openInitialLink("http://example.com/plain"))
+        assertEquals("Only HTTPS pages are supported", insecure.uiState.value.errorMessage)
+    }
+
     private fun noAdapters(): SiteAdapterCoordinator =
         SiteAdapterCoordinator(SiteExtractorRegistry(emptyList()))
 }

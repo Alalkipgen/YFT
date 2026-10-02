@@ -11,12 +11,16 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextInput
 import androidx.navigation.compose.rememberNavController
 import com.alal.yft.core.model.ThemeMode
+import com.alal.yft.feature.library.LibraryScreen
+import com.alal.yft.feature.library.LibraryUiState
 import com.alal.yft.feature.settings.SettingsScreen
 import com.alal.yft.feature.settings.SettingsUiState
 import com.alal.yft.ui.components.PhasePlaceholderScreen
 import com.alal.yft.ui.theme.YftTheme
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -38,7 +42,7 @@ class YftNavigationSmokeTest {
                     navController = rememberNavController(),
                     themeMode = themeMode,
                     onThemeModeChanged = { themeMode = it },
-                    browserContent = { onNavigateBack, _ ->
+                    browserContent = { onNavigateBack, _, _ ->
                         PhasePlaceholderScreen(
                             title = YftDestination.BROWSER.title,
                             summary = YftDestination.BROWSER.summary,
@@ -59,6 +63,12 @@ class YftNavigationSmokeTest {
                             title = YftDestination.DOWNLOADS.title,
                             summary = YftDestination.DOWNLOADS.summary,
                             phaseNote = "Navigation-only test surface",
+                            onNavigateBack = onNavigateBack,
+                        )
+                    },
+                    libraryContent = { onNavigateBack ->
+                        LibraryScreen(
+                            uiState = LibraryUiState.Ready(items = emptyList()),
                             onNavigateBack = onNavigateBack,
                         )
                     },
@@ -89,5 +99,38 @@ class YftNavigationSmokeTest {
             composeRule.onNodeWithTag("navigate-back").performClick()
             composeRule.onNodeWithTag("home-list").assertIsDisplayed()
         }
+    }
+
+    @Test
+    fun homeLinkReachesTheBrowserIntactAndPlainBrowserOpensEmpty() {
+        val received = mutableListOf<String?>()
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                YftNavHost(
+                    navController = rememberNavController(),
+                    themeMode = ThemeMode.LIGHT,
+                    onThemeModeChanged = {},
+                    browserContent = { onNavigateBack, _, link ->
+                        received += link
+                        PhasePlaceholderScreen(
+                            title = YftDestination.BROWSER.title,
+                            summary = "link=$link",
+                            phaseNote = "Navigation-only test surface",
+                            onNavigateBack = onNavigateBack,
+                        )
+                    },
+                )
+            }
+        }
+        val link = "https://example.com/a b?c=1&d=é#part"
+
+        composeRule.onNodeWithTag("home-link").performTextInput(link)
+        composeRule.onNodeWithTag("home-open-link").performClick()
+
+        composeRule.onNodeWithText("link=$link").assertIsDisplayed()
+        assertEquals(link, received.last())
+        composeRule.onNodeWithTag("navigate-back").performClick()
+        composeRule.onNodeWithTag("home-open-browser").performClick()
+        composeRule.onNodeWithText("link=null").assertIsDisplayed()
     }
 }

@@ -18,14 +18,21 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -63,6 +70,7 @@ import java.util.Locale
 fun BrowserRoute(
     onNavigateBack: () -> Unit,
     onOpenPreview: () -> Unit,
+    initialLink: String? = null,
     viewModel: BrowserViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -77,6 +85,10 @@ fun BrowserRoute(
 
     LaunchedEffect(uiState.currentUrl, uiState.isLoading) {
         refreshHistoryState()
+    }
+    LaunchedEffect(webView, initialLink) {
+        val browser = webView ?: return@LaunchedEffect
+        initialLink?.let(viewModel::openInitialLink)?.let(browser::loadUrl)
     }
     DisposableEffect(Unit) {
         onDispose {
@@ -170,19 +182,22 @@ fun BrowserScreen(
         },
         floatingActionButton = {
             if (uiState.candidates.isNotEmpty()) {
-                FloatingActionButton(
+                ExtendedFloatingActionButton(
                     onClick = { showCandidates = true },
+                    icon = {
+                        Icon(imageVector = Icons.Filled.PlayArrow, contentDescription = null)
+                    },
+                    text = {
+                        Text(
+                            text = if (uiState.candidates.size == 1) {
+                                "1 media found"
+                            } else {
+                                "${uiState.candidates.size} media found"
+                            },
+                        )
+                    },
                     modifier = Modifier.testTag("media-found-button"),
-                ) {
-                    Text(
-                        text = if (uiState.candidates.size == 1) {
-                            "1 media found"
-                        } else {
-                            "${uiState.candidates.size} media found"
-                        },
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                    )
-                }
+                )
             }
         },
     ) { contentPadding ->
@@ -226,26 +241,36 @@ fun BrowserScreen(
                     .padding(horizontal = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                OutlinedButton(
+                IconButton(
                     onClick = onBrowserBack,
                     enabled = canGoBack,
                     modifier = Modifier.testTag("browser-history-back"),
                 ) {
-                    Text("←")
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Previous page",
+                    )
                 }
-                OutlinedButton(
+                IconButton(
                     onClick = onBrowserForward,
                     enabled = canGoForward,
                     modifier = Modifier.testTag("browser-history-forward"),
                 ) {
-                    Text("→")
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "Next page",
+                    )
                 }
-                OutlinedButton(
+                IconButton(
                     onClick = if (uiState.isLoading) onStop else onReload,
                     enabled = uiState.currentUrl != null,
                     modifier = Modifier.testTag("browser-reload-stop"),
                 ) {
-                    Text(if (uiState.isLoading) "Stop" else "Reload")
+                    if (uiState.isLoading) {
+                        Icon(imageVector = Icons.Filled.Close, contentDescription = "Stop loading")
+                    } else {
+                        Icon(imageVector = Icons.Filled.Refresh, contentDescription = "Reload page")
+                    }
                 }
                 uiState.pageTitle?.let { title ->
                     Text(
@@ -386,7 +411,9 @@ private fun CandidateBottomSheet(
             }
             itemsIndexed(
                 items = candidates,
-                key = { index, candidate -> "${candidate.kind}-$index-${candidate.observedAtEpochMs}" },
+                key = { index, candidate ->
+                    "${candidate.kind}-$index-${candidate.observedAtEpochMs}"
+                },
             ) { index, candidate ->
                 CandidateCard(
                     candidate = candidate,

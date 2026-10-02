@@ -1,16 +1,19 @@
 package com.alal.yft.ui.navigation
 
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.feature.about.AboutScreen
 import com.alal.yft.feature.browser.BrowserRoute
 import com.alal.yft.feature.detectedmedia.DetectedMediaScreen
 import com.alal.yft.feature.downloads.DownloadsRoute
 import com.alal.yft.feature.home.HomeScreen
-import com.alal.yft.feature.library.LibraryScreen
+import com.alal.yft.feature.library.LibraryRoute
 import com.alal.yft.feature.preview.PreviewRoute
 import com.alal.yft.feature.settings.SettingsRoute
 
@@ -22,10 +25,12 @@ fun YftNavHost(
     browserContent: @Composable (
         onNavigateBack: () -> Unit,
         onOpenPreview: () -> Unit,
-    ) -> Unit = { onNavigateBack, onOpenPreview ->
+        initialLink: String?,
+    ) -> Unit = { onNavigateBack, onOpenPreview, initialLink ->
         BrowserRoute(
             onNavigateBack = onNavigateBack,
             onOpenPreview = onOpenPreview,
+            initialLink = initialLink,
         )
     },
     previewContent: @Composable (onNavigateBack: () -> Unit) -> Unit = { onNavigateBack ->
@@ -33,6 +38,9 @@ fun YftNavHost(
     },
     downloadsContent: @Composable (onNavigateBack: () -> Unit) -> Unit = { onNavigateBack ->
         DownloadsRoute(onNavigateBack = onNavigateBack)
+    },
+    libraryContent: @Composable (onNavigateBack: () -> Unit) -> Unit = { onNavigateBack ->
+        LibraryRoute(onNavigateBack = onNavigateBack)
     },
     settingsContent: @Composable (onNavigateBack: () -> Unit) -> Unit = { onNavigateBack ->
         SettingsRoute(
@@ -49,12 +57,25 @@ fun YftNavHost(
         startDestination = YftDestination.HOME.route,
     ) {
         composable(YftDestination.HOME.route) {
-            HomeScreen(onOpenDestination = { navController.navigate(it.route) })
+            HomeScreen(
+                onOpenDestination = { navController.navigate(it.route) },
+                onOpenLink = { link -> navController.navigate(browserRouteFor(link)) },
+            )
         }
-        composable(YftDestination.BROWSER.route) {
+        composable(
+            route = BROWSER_ROUTE_PATTERN,
+            arguments = listOf(
+                navArgument(BROWSER_LINK_ARGUMENT) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+            ),
+        ) { entry ->
             browserContent(
                 navigateBack,
                 { navController.navigate(YftDestination.PREVIEW.route) },
+                entry.arguments?.getString(BROWSER_LINK_ARGUMENT),
             )
         }
         composable(YftDestination.DETECTED_MEDIA.route) {
@@ -67,7 +88,7 @@ fun YftNavHost(
             downloadsContent(navigateBack)
         }
         composable(YftDestination.LIBRARY.route) {
-            LibraryScreen(onNavigateBack = navigateBack)
+            libraryContent(navigateBack)
         }
         composable(YftDestination.SETTINGS.route) {
             settingsContent(navigateBack)
@@ -77,3 +98,11 @@ fun YftNavHost(
         }
     }
 }
+
+/** Optional link handed from Home to the browser; plain "browser" still opens it empty. */
+internal const val BROWSER_LINK_ARGUMENT = "link"
+internal val BROWSER_ROUTE_PATTERN =
+    "${YftDestination.BROWSER.route}?$BROWSER_LINK_ARGUMENT={$BROWSER_LINK_ARGUMENT}"
+
+internal fun browserRouteFor(link: String): String =
+    "${YftDestination.BROWSER.route}?$BROWSER_LINK_ARGUMENT=${Uri.encode(link)}"
