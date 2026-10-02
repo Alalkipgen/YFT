@@ -193,6 +193,30 @@ All adapter tests run offline against committed fixtures; no test performs a liv
 | Storage janitor | JVM | Stale `.part` files and orphan workspaces from earlier processes are removed, current and unfinished work is kept, finished records are capped at 200, one pass per process | PASS |
 | Workspace naming | JVM | Workspace names are stable SHA-256 prefixes that never contain the task id | PASS |
 
+## Phase 7 automated checks (release preparation)
+
+Throwaway keys were generated in `/tmp` for these checks (`CN=YFT THROWAWAY TEST KEY A/B - NOT
+FOR DISTRIBUTION`, 30-day validity), never committed and deleted afterwards. No APK built with
+them is a release artifact.
+
+| Check | Type | Success criterion | Result |
+| --- | --- | --- | --- |
+| App identity | Robolectric | Label "Video Downloader"; `@mipmap/ic_launcher` and `ic_launcher_round` are adaptive icons on API 28 and 35; legacy PNGs exist at 48/72/96/144/192 px; `MainActivity` starts on `Theme.Yft.Launch` while the app theme is `Theme.Yft`; semver versionName | PASS (`AppIdentityTest`, 5 tests) |
+| Launcher/launch resources | Lint | Adaptive, monochrome, legacy and `values-v31` splash resources add no lint error or warning | PASS |
+| Version source | Gradle | `yft.versionName`/`yft.versionCode` from `gradle.properties` are validated; `-Pyft.versionCode=2` overrides for tests | PASS |
+| Unsigned default | Gradle + script | Without configuration `assembleRelease` writes `app-release-unsigned.apk` (no debug-key fallback); `verify-release-apk.sh --allow-unsigned` reports UNSIGNED and the strict mode fails | PASS |
+| Signing required but missing | Gradle | `-Pyft.requireReleaseSigning=true` fails during configuration with a clear message; `release-prep.sh` stops after 9 s, before clean and tests | PASS |
+| Partial signing / missing keystore | Gradle | "only partly configured" and "Release keystore not found" failures | PASS |
+| `keystore.properties` | Gradle `signingReport` | The file is ignored by Git; the release config uses its keystore and alias (key A fingerprint); no password in the output; file removed afterwards | PASS |
+| Signed release via environment | `scripts/release-prep.sh` | Uncached clean, lint, tests, signed release; `apksigner` verifies v2 + v3 with one signer and the expected certificate; staging writes the APK, `SHA256SUMS`, `release-info.txt` and `release-notes.md`; no password in the log | PASS (key A) |
+| Checksum file | `sha256sum -c` | `SHA256SUMS` verifies the staged APK | PASS |
+| R8 bridge in the signed APK | dexdump + mapping | `WebViewSolverEngine$SolverBridge` → `r3.l` keeps `post` | PASS |
+| Upgrade compatibility | `verify-release-apk.sh --previous-apk` | versionCode 2 over versionCode 1 with the same package and signer passes | PASS — static check only (signed versionCode 2 build with `-Pyft.versionCode=2`, 210 s); on-device upgrade NOT RUN |
+| Verification negatives | Shell | A lower or equal versionCode, a previous APK re-signed with key B, an unexpected certificate, an APK re-signed with the Android debug key, the debug package, a wrong versionName, and an unsigned APK with `--allow-unsigned` plus certificate or upgrade checks all fail | PASS — all 9 (a first run fed a signed APK to the `--allow-unsigned` case, which correctly verified it; the case was rerun with an unsigned copy) |
+| Workflow and script lint | actionlint 1.7.7 + shellcheck 0.10.0 | `release-draft.yml`, `checkpoint-validation.yml` and every script are clean | PASS |
+| CI unsigned release check | GitHub Actions `validate` | `assembleRelease` + `verify-release-apk.sh --allow-unsigned` after the full matrix | PASS on `b5797de` |
+| Release workflow run | GitHub Actions `Release draft` | Signed draft pre-release with APK, `SHA256SUMS` and notes | NOT RUN — needs the owner's secrets and a tag or manual run; the agent's deploy key cannot dispatch workflows or create releases |
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |
@@ -216,6 +240,9 @@ All adapter tests run offline against committed fixtures; no test performs a liv
 | Clear browsing data on a device | Android API 24+ device/emulator | Sites opened in YFT are signed out and storage/cache are empty afterwards | NOT RUN — cleaner composition covered locally |
 | Wi-Fi-only switching on a device | Device with Wi-Fi and mobile data | Transfers pause on mobile data, the banner explains it, and they resume on Wi-Fi | NOT RUN — policy and banner covered locally |
 | Storage janitor on a device | Android API 24+ device/emulator | After a forced stop, stale `.part` files and workspaces disappear on the next launch | NOT RUN — covered with temporary folders locally |
+| Signed beta fresh install | Android 7.0+ device/emulator, owner-signed APK | `scripts/device-smoke-test.sh --fresh` passes: install, launch screen, Home, no crash | NOT RUN — no device/KVM and no owner-signed APK yet |
+| Signed beta upgrade | Same, with the previous signed beta | `scripts/device-smoke-test.sh --fresh --upgrade-from` keeps the installation, settings and downloads | NOT RUN — static upgrade-compatibility check passes |
+| Launcher icon and launch screen | Android 7.x, 8+, 12+ and 13+ (themed icons) launchers | Legacy PNG, adaptive and monochrome icons and the launch/splash screen render correctly | NOT RUN — resources resolve in Robolectric |
 
 ## Phase 5 and later regression categories
 

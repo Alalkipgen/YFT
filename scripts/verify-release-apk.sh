@@ -18,8 +18,9 @@ Options:
                               certificate and a higher versionCode (upgrade compatibility).
   --out-dir DIR               Copy the APK to DIR/video-downloader-<version>.apk and write
                               DIR/SHA256SUMS and DIR/release-info.txt.
-  --allow-unsigned            Accept an unsigned APK (CI smoke check). Signature checks are
-                              skipped and the result is reported as UNSIGNED, never as verified.
+  --allow-unsigned            Accept an APK without a signature (CI smoke check); it is reported
+                              as UNSIGNED, never as verified, and cannot be combined with the
+                              certificate or upgrade checks. A signed APK is still fully checked.
 USAGE
   exit 2
 }

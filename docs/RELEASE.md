@@ -3,6 +3,7 @@
 This is the owner's path from a work branch to a signed GitHub release. Phase 7 built and
 verified the pipeline with a throwaway key; the permanent release keystore has not been provided
 yet, so **no signed beta exists** and nothing has been published (`ALLOW_RELEASE` is false).
+The verification results are in the Phase 7 table of `docs/TEST_MATRIX.md`.
 
 ## Release identity
 

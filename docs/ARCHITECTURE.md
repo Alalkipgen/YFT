@@ -197,6 +197,13 @@ Offline/export behavior is separate from preview:
 - DRM manifests produce a structured unsupported result.
 - Site adapters cannot execute unsigned remote code.
 
+## Release build and signing
+
+- `yft.versionName` and `yft.versionCode` in `gradle.properties` are the single version source for Gradle, `scripts/release-prep.sh` and the release workflow; the Git tag is `v<versionName>`.
+- The release build type is minified and resource-shrunk; `app/proguard-rules.pro` keeps `@JavascriptInterface` methods so the solver bridge keeps its `post` name.
+- Release signing is resolved at configuration time from `YFT_RELEASE_*` environment variables, then per key from the untracked `keystore.properties`. A partial configuration or a missing keystore fails the build, `-Pyft.requireReleaseSigning=true` fails when signing is absent, and an unconfigured build stays unsigned: the debug key is never used for release. Signatures are APK Signature Scheme v2 + v3.
+- `scripts/verify-release-apk.sh` is the gate for every distributed APK (package, version, not debuggable, alignment, one non-debug signer, certificate pin, upgrade rules, SHA-256). The `Release draft` workflow only drafts; publishing needs `ALLOW_RELEASE=true` and a manual request. Details: `docs/RELEASE.md`.
+
 ## Reuse strategy
 
 AlalDownloader is MIT licensed and owned by the same GitHub account. YFT may adapt its tested download-engine concepts, preserving applicable license notices. The production YFT code should use YFT models/interfaces and remain independently buildable.

@@ -3,6 +3,133 @@
 ## Current handoff
 
 - Date: 2026-10-02
+- Phase: 7 — Signed beta and GitHub release preparation, **PARTIAL** on `work/phase-7-release`
+  (created from the Phase 6 head `4bdad07`). Everything that does not need the owner's
+  permanent keystore is done and verified; the signed beta, the draft release and the device
+  checks wait for the owner.
+- Release candidate: Video Downloader `1.0.0-beta.1`, versionCode 1, `com.alal.yft`, Android
+  7.0+ (minSdk 24), targetSdk 35.
+- Flags: `ALLOW_RELEASE` is false — nothing was tagged, drafted or published.
+- Target repository: `Alalkipgen/YFT`
+- Reference repository: `Alalkipgen/AlalDownloader`
+
+## Work completed in Phase 7
+
+- **Phase 6 verified first.** The Phase 6 head `4bdad07` passed the full local matrix and CI
+  (`validate` success); every Phase 6 known issue is carried into `CHANGELOG.md` and the release
+  notes.
+- **Identity and version.** `yft.versionName=1.0.0-beta.1` and `yft.versionCode=1` live in
+  `gradle.properties` (validated in `app/build.gradle.kts`, overridable with `-P` for tests);
+  the About screen shows them. Display name `Video Downloader` and application ID
+  `com.alal.yft` are unchanged; the owner must reconfirm the ID before the first publication.
+- **Launcher icon and launch screen.** An original mark (a downward "play" triangle over a tray
+  bar on the YFT primary colour): adaptive icon with a themed monochrome layer
+  (`mipmap-anydpi-v26`), legacy PNGs for Android 7.x at five densities rendered by
+  `scripts/generate-launcher-icons.py`, `roundIcon`, and a launch window
+  (`Theme.Yft.Launch` + `drawable/yft_launch_background.xml`; `values-v31` sets the Android 12+
+  splash attributes). `MainActivity` switches to `Theme.Yft` before its first frame. No new
+  dependency.
+- **Release signing.** `app/build.gradle.kts` reads `YFT_RELEASE_STORE_FILE`,
+  `YFT_RELEASE_STORE_PASSWORD`, `YFT_RELEASE_KEY_ALIAS` and `YFT_RELEASE_KEY_PASSWORD`, or the
+  same keys from the untracked `keystore.properties` (`keystore.properties.example` documents
+  it). Partial configuration and a missing keystore fail the build;
+  `-Pyft.requireReleaseSigning=true` fails when signing is absent; without configuration the
+  release APK stays unsigned and never falls back to the debug key. Signing uses v2 + v3.
+- **Scripts.** `scripts/verify-release-apk.sh` (package, version, not debuggable, alignment,
+  `apksigner` v2/v3 with one non-debug signer, expected certificate, upgrade compatibility,
+  SHA-256 and staging), `scripts/release-prep.sh` (fail-fast signing check, clean, lint, tests,
+  signed release without build cache, verification, `dist/<version>/` with APK, `SHA256SUMS`,
+  `release-info.txt`, `release-notes.md`) and `scripts/device-smoke-test.sh` (adb fresh
+  install, launch/crash check, in-place upgrade check).
+- **Workflows.** `.github/workflows/release-draft.yml` builds the signed APK from repository
+  secrets on a `v*` tag or a manual run, checks the certificate against
+  `YFT_RELEASE_CERT_SHA256`, uploads the artifact and creates or refreshes a draft pre-release;
+  it never edits a published release and publishes only on a manual run with `publish` and
+  `ALLOW_RELEASE=true`. `checkpoint-validation.yml` now also builds the unsigned release APK and
+  runs `verify-release-apk.sh --allow-unsigned` on every work-branch push.
+- **Docs.** `CHANGELOG.md`, release notes `docs/release/1.0.0-beta.1.md` (requirements,
+  install, verification, features, privacy, known issues, testing status), the owner release
+  process `docs/RELEASE.md` (key creation and backup, local/CI signing, device checklist,
+  publishing gate), README install section, this handoff, `docs/PHASE_STATUS.md`,
+  `docs/TEST_MATRIX.md` and `docs/SESSION_STATE.md`.
+
+## Phase 7 validation
+
+- Phase 6 head `4bdad07`: CI `validate` success; Phase 7A `b5797de`: CI `validate` success,
+  including the new unsigned release build and `verify-release-apk.sh --allow-unsigned` step.
+- `bash scripts/release-prep.sh --expected-cert-sha256 <throwaway key A> --out-dir /tmp/…` on
+  the clean tree at `36f3395`, with throwaway key A passed through `YFT_RELEASE_*`: signing
+  pre-check, `clean` (11 s), `lintDebug testDebugUnitTest :core-model:test :extractor-api:test
+  :extractor-generic:test :extractor-sites:test` (**BUILD SUCCESSFUL** 4m 5s, 270 tasks
+  executed, none from cache) and `:app:assembleRelease -Pyft.requireReleaseSigning=true`
+  (**BUILD SUCCESSFUL** 4m 40s); 550 s in total; no password in the log.
+- 459 tests, 0 failures: app 180, core-browser 27, core-data 11, core-download 81, core-media
+  14, core-model 26, extractor-api 22, extractor-generic 7, extractor-sites 91.
+- Lint: 0 errors; warnings unchanged from Phase 6 (app `GradleDependency` 57,
+  `AndroidGradlePluginVersion` 6; core-data `KaptUsageInsteadOfKsp` 1).
+- Signed test APK: 3,011,624 bytes, SHA-256
+  `77a5fde4f37efcc9d596cc5277adbd056cab3244952e94361a021344de89d60f`; v2 + v3, one signer,
+  expected certificate, not debuggable, zip-aligned; `sha256sum -c SHA256SUMS` OK; R8 kept the
+  solver bridge method `post` (`r3.l`). Unsigned release APK: 2,999,336 bytes. None of these
+  APKs is a release artifact, and the throwaway keys were deleted.
+- Signing configuration: required-but-missing, partial, missing keystore and
+  `keystore.properties` (`signingReport`) paths behave as designed; `release-prep.sh` stops
+  after 9 s without signing.
+- Upgrade compatibility (static): a signed versionCode 2 build passes `--previous-apk` against
+  versionCode 1; lower/equal versionCodes, another signer, an unexpected certificate and the
+  Android debug key all fail.
+- actionlint 1.7.7 and shellcheck 0.10.0 (downloaded to `/tmp`, not committed) report nothing
+  for both workflows and every script.
+- Not run: the owner-signed build, the `Release draft` workflow, every device check (no
+  `/dev/kvm`, no device). Full table: `docs/TEST_MATRIX.md`, "Phase 7 automated checks".
+
+## Known limitations
+
+- **No signed beta yet.** The owner's permanent keystore was not available, so the pipeline was
+  verified only with throwaway keys and no installable release APK exists. Per the Phase 7
+  prompt the work stops here instead of claiming a signed beta.
+- **No draft release.** The agent's deploy key cannot create tags, releases, secrets or
+  workflow runs; `release-draft.yml` has never run on GitHub. Its "Run workflow" button appears
+  only once the file is on the default branch; a pushed `v1.0.0-beta.1` tag works from the work
+  branch.
+- **Device checks.** Fresh install, signed upgrade, launcher icon and launch screen rendering,
+  and every Phase 2–6 device row in `docs/TEST_MATRIX.md` are NOT RUN; the upgrade check is
+  static only.
+- **Reproducibility.** Two signed builds of identical app sources (one restored from the
+  Gradle build cache, one uncached) had the same size but different SHA-256 values; the cause
+  was not investigated, so builds are not shown to be reproducible. Publish the checksum of the
+  APK that is actually uploaded (`release-prep.sh` and the workflow do this).
+- **Identity.** `com.alal.yft` still needs the owner's reconfirmation before the first
+  publication, because it can never change afterwards.
+- **Product.** Unchanged from Phase 6: YouTube progressive MP4 (usually up to 360p) plus M4A
+  only, no PO tokens (HTTP 403 on some videos), bot checks, solver maintenance; AVC/AAC-only
+  muxing; no DASH `SegmentBase`/SIDX or live; no SAF folder export; no in-place link refresh
+  after process death; free-space check for exact sizes only; TikTok, Facebook and Vimeo
+  verified only against fixtures; the KAPT language-version warning remains.
+
+## Next exact action
+
+1. Owner: reconfirm `com.alal.yft`, create and back up the permanent keystore, and add the
+   `YFT_RELEASE_KEYSTORE_BASE64`, `YFT_RELEASE_STORE_PASSWORD`, `YFT_RELEASE_KEY_ALIAS` and
+   `YFT_RELEASE_KEY_PASSWORD` secrets plus the `YFT_RELEASE_CERT_SHA256` variable
+   (`docs/RELEASE.md` §1 and §3). Never send them through chat or commit them.
+2. Push tag `v1.0.0-beta.1` (or sign locally with `scripts/release-prep.sh`) to get the signed
+   APK and the draft pre-release.
+3. Run `scripts/device-smoke-test.sh` and the manual checklist (`docs/RELEASE.md` §4) on real
+   devices; record the results in `docs/TEST_MATRIX.md`.
+4. Publish only after review, with `ALLOW_RELEASE=true`; then merge the work branches into
+   `main`.
+
+## Phase 7 checkpoint commits
+
+- 7A — version, icon and launch screen, signing, scripts, workflows, release docs: `b5797de`
+- `release-prep.sh` fails fast without signing: `c95f44b`
+- `release-prep.sh` bypasses the Gradle build cache: `36f3395`
+- Phase 7 completion (validation results and handoff): the `phase-7:` commit after `36f3395`
+
+## Previous handoff — Phase 6
+
+- Date: 2026-10-02
 - Phase: 6 — Hardening, privacy, performance and UI polish, COMPLETE on
   `work/phase-6-hardening` (created from the Phase 5E head `c608b01`; findings in
   `docs/HARDENING_AUDIT.md`)
@@ -11,7 +138,7 @@
 - Target repository: `Alalkipgen/YFT`
 - Reference repository: `Alalkipgen/AlalDownloader`
 
-## Work completed in Phase 6
+### Work completed in Phase 6
 
 - **6A audit.** `docs/HARDENING_AUDIT.md` lists every security (S), reliability (R),
   performance (P) and UI (U) finding with severity and status. None was High; all are now fixed,
@@ -47,7 +174,7 @@
 - No new site adapters or download sources were added; the engines changed only to share the
   workspace-name helper.
 
-## Phase 6 validation
+### Phase 6 validation
 
 - Full matrix, run as two invocations on this 4 GiB machine:
 
@@ -71,7 +198,7 @@
   `@JavascriptInterface` keep rule in `app/proguard-rules.pro`.
 - Not verified on a device (no `/dev/kvm`): see the device rows in `docs/TEST_MATRIX.md`.
 
-## Known limitations
+### Known limitations
 
 - **YouTube.** Progressive MP4 (usually up to 360p) plus one M4A audio stream only; no PO
   tokens, so non-embeddable videos may fail with HTTP 403; some networks get bot checks; client
@@ -89,7 +216,7 @@
   language-version warning remains; TikTok, Facebook and Vimeo are verified only against
   fixtures.
 
-## Next exact action
+### Next exact action
 
 1. Create `work/phase-7-release` from the Phase 6 completion head and follow
    `docs/prompts/08_PHASE_7.md`.
@@ -97,7 +224,7 @@
    commit or print it. Without it, stop before claiming a signed beta.
 3. Publish a GitHub Release only with explicit `ALLOW_RELEASE=true`; do not merge into `main`.
 
-## Phase 6 checkpoint commits
+### Phase 6 checkpoint commits
 
 - Kickoff and hardening audit: `b503e30`
 - 6B/6C privacy, preferences, Wi-Fi-only policy, settings: `a92b8ab`
@@ -105,7 +232,7 @@
 - 6D part 1 — Library, Home link and Paste, accessibility labels: `122e080`
 - 6D part 2 — About notices, palette, Detected Media: `d992cd7`
 - 6E — free-space check, network banner, storage janitor: `465b1c8`
-- Phase 6 completion (docs and full validation): this checkpoint
+- Phase 6 completion (docs and full validation): `4bdad07`
 
 ## Previous handoff — Phase 5E
 
