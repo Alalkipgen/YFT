@@ -8,6 +8,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.extractor.api.SiteExtractorRegistry
+import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -46,7 +47,8 @@ class BrowserViewModelTest {
         viewModel.onPageStarted(firstPage)
         viewModel.onDomProbeResult(
             pageUrl = firstPage,
-            result = """[{"url":"https://cdn.test/video.mp4","type":"video/mp4","title":"Fixture"}]""",
+            result = """[{"url":"https://cdn.test/video.mp4","type":"video/mp4",""" +
+                """"title":"Fixture"}]""",
         )
 
         advanceTimeBy(250)
@@ -92,6 +94,40 @@ class BrowserViewModelTest {
         val insecure = BrowserViewModel(OkHttpClient(), noAdapters())
         assertEquals(null, insecure.openInitialLink("http://example.com/plain"))
         assertEquals("Only HTTPS pages are supported", insecure.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun currentPageIsPublishedForDetectedMediaAndOutlivesTheBrowser() = runTest {
+        val detected = DetectedMediaStore()
+        val viewModel = BrowserViewModel(
+            OkHttpClient(),
+            noAdapters(),
+            PreviewSelectionStore(),
+            detected,
+        )
+        val page = "https://example.test/one"
+
+        viewModel.onPageStarted(page)
+        runCurrent()
+        assertEquals(page, detected.page.value?.pageUrl)
+        assertTrue(detected.page.value!!.candidates.isEmpty())
+
+        viewModel.onDomProbeResult(
+            pageUrl = page,
+            result = """[{"url":"https://cdn.test/a.mp4","type":"video/mp4","title":"Clip"}]""",
+        )
+        advanceTimeBy(250)
+        runCurrent()
+        viewModel.onPageFinished(page, "Fixture page")
+        runCurrent()
+
+        val published = detected.page.value!!
+        assertEquals("Fixture page", published.pageTitle)
+        assertEquals("Clip", published.candidates.single().title)
+
+        BrowserViewModel(OkHttpClient(), noAdapters(), PreviewSelectionStore(), detected)
+        runCurrent()
+        assertEquals(published, detected.page.value)
     }
 
     private fun noAdapters(): SiteAdapterCoordinator =

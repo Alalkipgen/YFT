@@ -7,7 +7,9 @@ import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewDatabase
 import com.alal.yft.core.download.DownloadQueue
+import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.model.download.DownloadTaskStatus
+import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -45,6 +47,26 @@ class WebViewBrowsingDataCleaner(
         } finally {
             webView.destroy()
         }
+    }
+}
+
+/** Runs [cleaners] in order, so web data and in-memory media lists are cleared together. */
+class CompositeBrowsingDataCleaner(
+    private val cleaners: List<BrowsingDataCleaner>,
+) : BrowsingDataCleaner {
+    override suspend fun clear() {
+        cleaners.forEach { it.clear() }
+    }
+}
+
+/** Drops media found while browsing; its URLs can carry signed tokens of the cleared session. */
+class SessionMediaCleaner(
+    private val detectedMedia: DetectedMediaStore,
+    private val previewSelection: PreviewSelectionStore,
+) : BrowsingDataCleaner {
+    override suspend fun clear() {
+        detectedMedia.clear()
+        previewSelection.clear()
     }
 }
 

@@ -14,6 +14,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.navigation.compose.rememberNavController
 import com.alal.yft.core.model.ThemeMode
+import com.alal.yft.feature.detectedmedia.DetectedMediaScreen
 import com.alal.yft.feature.library.LibraryScreen
 import com.alal.yft.feature.library.LibraryUiState
 import com.alal.yft.feature.settings.SettingsScreen
@@ -49,6 +50,9 @@ class YftNavigationSmokeTest {
                             phaseNote = "Navigation-only test surface",
                             onNavigateBack = onNavigateBack,
                         )
+                    },
+                    detectedMediaContent = { onNavigateBack, _, _ ->
+                        DetectedMediaScreen(page = null, onNavigateBack = onNavigateBack)
                     },
                     previewContent = { onNavigateBack ->
                         PhasePlaceholderScreen(

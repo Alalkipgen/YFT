@@ -2,6 +2,8 @@ package com.alal.yft.feature.settings
 
 import android.content.Context
 import com.alal.yft.core.download.DownloadQueue
+import com.alal.yft.core.media.session.PreviewSelectionStore
+import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -14,8 +16,16 @@ import javax.inject.Singleton
 object SettingsModule {
     @Provides
     @Singleton
-    fun provideBrowsingDataCleaner(@ApplicationContext context: Context): BrowsingDataCleaner =
-        WebViewBrowsingDataCleaner(context)
+    fun provideBrowsingDataCleaner(
+        @ApplicationContext context: Context,
+        detectedMedia: DetectedMediaStore,
+        previewSelection: PreviewSelectionStore,
+    ): BrowsingDataCleaner = CompositeBrowsingDataCleaner(
+        listOf(
+            WebViewBrowsingDataCleaner(context),
+            SessionMediaCleaner(detectedMedia, previewSelection),
+        ),
+    )
 
     @Provides
     @Singleton

@@ -233,7 +233,7 @@ private fun PrivacySection(
     )
     ActionRow(
         title = "Clear browsing data",
-        summary = "Cookies, site storage, cache and saved sign-ins of the in-app browser.",
+        summary = "Cookies, site storage, cache, saved sign-ins and the detected media list.",
         actionLabel = "Clear",
         enabled = !state.working,
         tag = "clear-browsing-data",

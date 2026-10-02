@@ -10,7 +10,7 @@ import androidx.navigation.navArgument
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.feature.about.AboutScreen
 import com.alal.yft.feature.browser.BrowserRoute
-import com.alal.yft.feature.detectedmedia.DetectedMediaScreen
+import com.alal.yft.feature.detectedmedia.DetectedMediaRoute
 import com.alal.yft.feature.downloads.DownloadsRoute
 import com.alal.yft.feature.home.HomeScreen
 import com.alal.yft.feature.library.LibraryRoute
@@ -31,6 +31,17 @@ fun YftNavHost(
             onNavigateBack = onNavigateBack,
             onOpenPreview = onOpenPreview,
             initialLink = initialLink,
+        )
+    },
+    detectedMediaContent: @Composable (
+        onNavigateBack: () -> Unit,
+        onOpenPreview: () -> Unit,
+        onOpenBrowser: () -> Unit,
+    ) -> Unit = { onNavigateBack, onOpenPreview, onOpenBrowser ->
+        DetectedMediaRoute(
+            onNavigateBack = onNavigateBack,
+            onOpenPreview = onOpenPreview,
+            onOpenBrowser = onOpenBrowser,
         )
     },
     previewContent: @Composable (onNavigateBack: () -> Unit) -> Unit = { onNavigateBack ->
@@ -79,7 +90,11 @@ fun YftNavHost(
             )
         }
         composable(YftDestination.DETECTED_MEDIA.route) {
-            DetectedMediaScreen(onNavigateBack = navigateBack)
+            detectedMediaContent(
+                navigateBack,
+                { navController.navigate(YftDestination.PREVIEW.route) },
+                { navController.navigate(YftDestination.BROWSER.route) },
+            )
         }
         composable(YftDestination.PREVIEW.route) {
             previewContent(navigateBack)

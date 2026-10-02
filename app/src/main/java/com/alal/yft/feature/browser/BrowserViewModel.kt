@@ -17,11 +17,14 @@ import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
+import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -35,6 +38,7 @@ class BrowserViewModel(
     okHttpClient: OkHttpClient,
     private val siteAdapters: SiteAdapterCoordinator,
     private val previewSelectionStore: PreviewSelectionStore = PreviewSelectionStore(),
+    private val detectedMediaStore: DetectedMediaStore = DetectedMediaStore(),
     private val clock: () -> Long = System::currentTimeMillis,
 ) : ViewModel(), BrowserObservationSink {
     /**
@@ -46,7 +50,14 @@ class BrowserViewModel(
         okHttpClient: OkHttpClient,
         siteAdapters: SiteAdapterCoordinator,
         previewSelectionStore: PreviewSelectionStore,
-    ) : this(okHttpClient, siteAdapters, previewSelectionStore, System::currentTimeMillis)
+        detectedMediaStore: DetectedMediaStore,
+    ) : this(
+        okHttpClient,
+        siteAdapters,
+        previewSelectionStore,
+        detectedMediaStore,
+        System::currentTimeMillis,
+    )
 
     private val mutableUiState = MutableStateFlow(BrowserUiState())
     val uiState: StateFlow<BrowserUiState> = mutableUiState.asStateFlow()
@@ -72,6 +83,18 @@ class BrowserViewModel(
                 mutableUiState.update { it.copy(candidates = candidates) }
             }
         }
+        viewModelScope.launch {
+            // Mirrors the current page for the Detected Media screen. A fresh browser has no page
+            // yet, so the list from the previous visit stays until another page starts.
+            uiState
+                .map { state -> Triple(state.currentUrl, state.pageTitle, state.candidates) }
+                .distinctUntilChanged()
+                .collect { (pageUrl, title, candidates) ->
+                    if (pageUrl != null && pageUrl != BLANK_PAGE) {
+                        detectedMediaStore.publish(pageUrl, title, candidates)
+                    }
+                }
+        }
     }
 
     fun onAddressChanged(value: String) {
@@ -89,7 +112,7 @@ class BrowserViewModel(
             is BrowserAddressResult.Valid -> {
                 mutableUiState.update {
                     it.copy(
-                        address = result.url.takeUnless { url -> url == "about:blank" }.orEmpty(),
+                        address = result.url.takeUnless { url -> url == BLANK_PAGE }.orEmpty(),
                     )
                 }
                 result.url
@@ -128,7 +151,7 @@ class BrowserViewModel(
         probeBudget.beginPage(url)
         mutableUiState.update {
             it.copy(
-                address = url.takeUnless { value -> value == "about:blank" }.orEmpty(),
+                address = url.takeUnless { value -> value == BLANK_PAGE }.orEmpty(),
                 currentUrl = url,
                 pageTitle = null,
                 isLoading = true,
@@ -264,5 +287,6 @@ class BrowserViewModel(
     private companion object {
         const val MAX_ADDRESS_LENGTH = 2_048
         const val MAX_TITLE_LENGTH = 200
+        const val BLANK_PAGE = "about:blank"
     }
 }
