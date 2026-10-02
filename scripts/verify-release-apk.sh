@@ -108,7 +108,8 @@ badging="$(read_badging "$apk")"
 package_name="$(badging_value "$badging" "s/^package: name='\([^']*\)'.*/\1/p")"
 version_code="$(badging_value "$badging" "s/^package: .* versionCode='\([^']*\)'.*/\1/p")"
 version_name="$(badging_value "$badging" "s/^package: .* versionName='\([^']*\)'.*/\1/p")"
-min_sdk="$(badging_value "$badging" "s/^sdkVersion:'\([^']*\)'.*/\1/p")"
+# Older aapt2 prints sdkVersion:'24', newer releases print minSdkVersion:'24'.
+min_sdk="$(badging_value "$badging" "s/^\(min\)\{0,1\}[sS]dkVersion:'\([^']*\)'.*/\2/p")"
 target_sdk="$(badging_value "$badging" "s/^targetSdkVersion:'\([^']*\)'.*/\1/p")"
 app_label="$(badging_value "$badging" "s/^application-label:'\([^']*\)'.*/\1/p")"
 
@@ -127,16 +128,19 @@ ok "not debuggable"
 ok "zip-aligned"
 
 # Prints "<schemes>|<signers>|<cert sha256>|<cert DN>" or fails.
+# apksigner up to 36.x labels the first signer "Signer #1 certificate ..."; build-tools 37+
+# labels it per scheme, e.g. "V3.0 Signer: certificate ...". Both forms are accepted.
 signer_info() {
-  local output schemes
+  local output schemes label
   output="$("$apksigner" verify --verbose --print-certs "$1" 2>&1)" || return 1
   schemes="$(printf '%s\n' "$output" \
     | sed -n 's/^Verified using \(v[0-9.]*\) scheme.*: true$/\1/p' | paste -sd, -)"
+  label='^(Signer #1|V[0-9.]+ Signer:) certificate'
   printf '%s|%s|%s|%s\n' \
     "$schemes" \
     "$(printf '%s\n' "$output" | sed -n 's/^Number of signers: //p' | head -n 1)" \
-    "$(printf '%s\n' "$output" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1)" \
-    "$(printf '%s\n' "$output" | sed -n 's/^Signer #1 certificate DN: //p' | head -n 1)"
+    "$(printf '%s\n' "$output" | sed -nE "s/$label SHA-256 digest: //p" | head -n 1)" \
+    "$(printf '%s\n' "$output" | sed -nE "s/$label DN: //p" | head -n 1)"
 }
 
 signature="UNSIGNED"
