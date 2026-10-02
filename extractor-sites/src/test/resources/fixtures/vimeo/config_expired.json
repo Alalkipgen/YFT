@@ -1,0 +1,16 @@
+{
+  "video": { "id": 123456789, "title": "Expired fixture clip", "duration": 42 },
+  "request": {
+    "expires": 1699000000,
+    "files": {
+      "progressive": [
+        {
+          "quality": "720p",
+          "height": 720,
+          "mime": "video/mp4",
+          "url": "https://vod-progressive.example-cdn.test/v/expired-720.mp4?token=fixture"
+        }
+      ]
+    }
+  }
+}

@@ -6,6 +6,7 @@ import com.alal.yft.extractor.api.SiteExtractorRegistry
 import com.alal.yft.extractor.sites.facebook.FacebookExtractor
 import com.alal.yft.extractor.sites.testing.FakeExtractorHttpClient
 import com.alal.yft.extractor.sites.tiktok.TikTokExtractor
+import com.alal.yft.extractor.sites.vimeo.VimeoExtractor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -27,6 +28,9 @@ class ShippedAdaptersTest {
             "https://www.facebook.com/watch/?v=1234567890123456" to "facebook",
             "https://www.facebook.com/reel/7180001112223334" to "facebook",
             "https://fb.watch/aBc123dEf" to "facebook",
+            "https://vimeo.com/123456789" to "vimeo",
+            "https://vimeo.com/123456789/abcdef1234" to "vimeo",
+            "https://player.vimeo.com/video/123456789" to "vimeo",
         )
 
         expectations.forEach { (url, adapterId) ->
@@ -41,6 +45,7 @@ class ShippedAdaptersTest {
         listOf(
             "https://www.facebook.com/FixturePage/posts/1234567890123456",
             "https://www.tiktok.com/@fixture_user",
+            "https://vimeo.com/ondemand/fixture-film",
             "https://media.example.test/video.mp4",
         ).forEach { url ->
             assertTrue(url, registry.select(url) is SiteAdapterSelection.None)
@@ -63,6 +68,6 @@ class ShippedAdaptersTest {
     }
 
     private fun shippedAdapters() = FakeExtractorHttpClient().let { http ->
-        listOf(TikTokExtractor(http), FacebookExtractor(http))
+        listOf(TikTokExtractor(http), FacebookExtractor(http), VimeoExtractor(http))
     }
 }

@@ -1,0 +1,74 @@
+{
+  "cdn_url": "https://f.vimeocdn.test",
+  "video": {
+    "id": 123456789,
+    "title": "Fixture clip title",
+    "duration": 65.4,
+    "owner": { "id": 4242, "name": "Fixture Studio" },
+    "thumbs": {
+      "base": "https://i.vimeocdn.test/video/fixture",
+      "640": "https://i.vimeocdn.test/video/fixture_640.jpg",
+      "1280": "https://i.vimeocdn.test/video/fixture_1280.jpg",
+      "960": "https://i.vimeocdn.test/video/fixture_960.jpg"
+    }
+  },
+  "request": {
+    "expires": 4070908800,
+    "files": {
+      "progressive": [
+        {
+          "profile": "174",
+          "quality": "720p",
+          "width": 1280,
+          "height": 720,
+          "fps": 30,
+          "mime": "video/mp4",
+          "size": 24117248,
+          "url": "https://vod-progressive.example-cdn.test/v/fixture-720.mp4?token=fixture"
+        },
+        {
+          "profile": "175",
+          "quality": "1080p",
+          "width": 1920,
+          "height": 1080,
+          "fps": 30,
+          "mime": "video/mp4",
+          "size": 48234496,
+          "url": "https://vod-progressive.example-cdn.test/v/fixture-1080.mp4?token=fixture"
+        },
+        {
+          "profile": "164",
+          "quality": "540p",
+          "width": 960,
+          "height": 540,
+          "fps": 30,
+          "mime": "video/mp4",
+          "size": 12058624,
+          "url": "https://vod-progressive.example-cdn.test/v/fixture-540.mp4?token=fixture"
+        }
+      ],
+      "hls": {
+        "default_cdn": "akfire_interconnect_quic",
+        "cdns": {
+          "fastly_skyfire": {
+            "origin": "fastly",
+            "url": "https://skyfire.example-cdn.test/v/fixture.m3u8?token=fixture"
+          },
+          "akfire_interconnect_quic": {
+            "origin": "akamai",
+            "url": "https://akfire.example-cdn.test/v/fixture.m3u8?token=fixture"
+          }
+        }
+      },
+      "dash": {
+        "default_cdn": "akfire_interconnect_quic",
+        "cdns": {
+          "akfire_interconnect_quic": {
+            "origin": "akamai",
+            "url": "https://akfire.example-cdn.test/v/fixture.mpd?token=fixture"
+          }
+        }
+      }
+    }
+  }
+}

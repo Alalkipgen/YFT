@@ -1,0 +1,17 @@
+{
+  "video": { "id": 123456789, "title": "Licensed fixture clip", "duration": 90 },
+  "request": {
+    "expires": 4070908800,
+    "files": {
+      "drm": { "fairplay": { "license_url": "https://player.vimeo.com/video/123456789/license" } },
+      "dash": {
+        "default_cdn": "akfire_interconnect_quic",
+        "cdns": {
+          "akfire_interconnect_quic": {
+            "url": "https://akfire.example-cdn.test/v/licensed.mpd?token=fixture"
+          }
+        }
+      }
+    }
+  }
+}

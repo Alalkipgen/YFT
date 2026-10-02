@@ -1,0 +1,7 @@
+{
+  "video": { "id": 123456789, "title": "Audio-less fixture clip", "duration": 5 },
+  "request": {
+    "expires": 4070908800,
+    "files": { "progressive": [], "hls": { "cdns": {} }, "dash": { "cdns": {} } }
+  }
+}
