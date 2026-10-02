@@ -2,7 +2,7 @@
 
 YFT is an ad-free Android application for detecting and, in later phases, downloading authorized non-DRM media from direct links, HTML5 players, HLS and DASH streams.
 
-**Phase 4: direct/HLS/DASH download engines, audio/video mux compatibility, foreground execution, persisted recovery and safe storage export are complete on `work/phase-4-download-engines`.** Per-site extractors begin in Phase 5.
+**Phase 5: isolated TikTok, Facebook and Vimeo extractors behind the extractor API, with offline fixtures and a clean fallback to generic detection, are complete on `work/phase-5-site-adapters`.** No YouTube adapter ships; the reasons are documented in [`docs/YOUTUBE_RISK_REVIEW.md`](docs/YOUTUBE_RISK_REVIEW.md). Hardening, privacy, performance and UI polish begin in Phase 6.
 
 ## Current state
 
@@ -17,6 +17,8 @@ YFT is an ad-free Android application for detecting and, in later phases, downlo
 - HTTPS-only Media3 progressive/HLS/DASH sources with same-origin browser context and cross-origin credential stripping.
 - A lifecycle-safe preview screen with video/audio tabs, selectable variants, player controls, retry states and explicit unknown/estimated labels.
 - Committed MP4/WebM/audio/HLS/DASH/blob fixtures and MockWebServer/Robolectric/Compose coverage.
+- Site adapters for TikTok, Facebook and Vimeo, each isolated behind `:extractor-api`, selected by host, and failing with their own reason for private, login-required, region-blocked, DRM, expired, media-free or changed pages. Supported link patterns and limits are listed in [`docs/SUPPORT_MATRIX.md`](docs/SUPPORT_MATRIX.md).
+- Any other site, including YouTube, stays on the generic detection path; no adapter signs in, stores credentials or bypasses an access control.
 - The Phase 1 Compose, Hilt, Room, DataStore, OkHttp, Media3, redaction, CI and release-build foundations.
 - The Phase 0 feasibility harness remains under [`spikes/phase0-media`](spikes/phase0-media/).
 
@@ -53,7 +55,7 @@ Use JDK 17 and Android SDK 35:
 
 A local release check can additionally run `:app:assembleRelease`; the output is intentionally unsigned until Phase 7.
 
-The Phase 4 completion matrix passed 216 tests, Android lint, debug assembly and the minified unsigned release build. No device/emulator was available, so real Android WebView rendering, Media3 playback, `MediaExtractor`/`MediaMuxer` behavior, foreground-service lifecycle and `MediaStore` publication remain explicit runtime verification items. Browser policy, bounded network behavior, manifests, transfer/recovery logic, state and Compose surfaces are covered locally.
+The Phase 5 completion matrix passed 293 tests, Android lint with no errors, debug assembly and the minified unsigned release build. `lintDebug` needs network access the first time, because `lint-gradle` is not in the offline cache; every other task in the matrix runs with `--offline`. No device/emulator was available, so real Android WebView rendering, Media3 playback, `MediaExtractor`/`MediaMuxer` behavior, foreground-service lifecycle and `MediaStore` publication remain explicit runtime verification items. Browser policy, bounded network behavior, manifests, transfer/recovery logic, state and Compose surfaces are covered locally.
 
 See [`docs/PHASE_STATUS.md`](docs/PHASE_STATUS.md), [`docs/TEST_MATRIX.md`](docs/TEST_MATRIX.md) and [`docs/HANDOFF.md`](docs/HANDOFF.md) before continuing.
 

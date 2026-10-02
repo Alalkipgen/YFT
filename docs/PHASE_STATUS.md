@@ -7,13 +7,13 @@
 | 2 — Browser/detection | COMPLETE | Secure browser, layered generic detection, bounded probes, page-scoped normalization, fixtures and candidate UI validated |
 | 3 — Preview/variants | COMPLETE | Bounded direct/HLS/DASH resolution, honest variants and secure Media3 preview validated |
 | 4 — Download engines | COMPLETE | Typed download plans, direct/HLS/DASH transfer, mux compatibility, foreground execution, Room recovery and safe export validated |
-| 5 — Site adapters | IN PROGRESS | Per-site extractors behind the extractor API, started from the green Phase 4 head |
+| 5 — Site adapters | COMPLETE | TikTok, Facebook and Vimeo adapters behind the extractor API with offline fixtures, registry fallback to generic detection, and the YouTube blocker reported |
 | 6 — Hardening/UI | NOT STARTED | — |
 | 7 — Signed beta/release | NOT STARTED | — |
 
 ## Current phase state
 
-Phase 5 is active on `work/phase-5-site-adapters`, created from the Phase 4 completion head. Work is limited to site adapters behind `:extractor-api`, adapter selection/fallback to the generic detector, and adapter fixtures/tests; do not change the download engines and do not merge a work branch into `main`.
+Phase 5 is complete on `work/phase-5-site-adapters`, validated with lint, the full test suite and the debug and release builds. Phase 6 has not started; it begins on `work/phase-6-hardening` from the Phase 5 completion head, following `docs/prompts/07_PHASE_6.md`. No work branch has been merged into `main`.
 
 ## Completed in Phase 1
 
@@ -170,10 +170,30 @@ Phase 5 is active on `work/phase-5-site-adapters`, created from the Phase 4 comp
 - Add committed offline fixtures and regression tests per adapter; no live network calls in tests.
 - Do not change the download engines, and keep any site-specific behavior out of `:core-browser` and `:core-download`.
 
-## Phase 5 progress
+## Completed in Phase 5
 
 - 5A TikTok: implemented in `:extractor-sites` with offline fixtures for the current and legacy payloads, photo posts, private/login/region outcomes, DRM flags and changed markup.
 - 5B Facebook: implemented for watch, `video.php`, `/{handle}/videos/{id}`, reels, `fb.watch` and `/share/v|r/` links. Progressive MP4 renditions and the page's own DASH manifest URL are returned with CDN expiry attached; a page whose links already expired fails as expired. The parser prefers the video node whose ID matches the requested page, so a suggested video on the same page is never returned instead.
 - Both adapters are registered explicitly in `SiteAdapterModule` and covered by `ShippedAdaptersTest`, which asserts that each adapter claims only its own pages, that unclaimed pages fall through to the generic detector, and that a disabled adapter reports itself.
-- Validation after 5B: `./gradlew --no-daemon --offline :extractor-api:test :extractor-generic:test :extractor-sites:test :app:testDebugUnitTest :app:assembleDebug` — **BUILD SUCCESSFUL** in 3m 30s; 124 tests, 0 failures; debug APK assembled.
-- 5C (another justified public site) and 5D (YouTube risk review) are still open.
+- 5C Vimeo: implemented for `vimeo.com/{id}`, unlisted `vimeo.com/{id}/{hash}`, channel, group, album/showcase and `player.vimeo.com/video/{id}` links. The adapter reads the clip page, follows the page's own `config_url` on `player.vimeo.com` only when the page does not inline the configuration, and falls back to that same configuration when the markup changes. Progressive MP4 files are returned with the exact stated size, together with the HLS and DASH manifests of the configuration's default CDN; password-protected, private, deleted, region-blocked, DRM-protected, file-less and expired configurations each fail with their own reason. On-demand, event and other paid or live surfaces are deliberately not claimed.
+- 5D YouTube: reported as a blocker instead of an adapter. `docs/YOUTUBE_RISK_REVIEW.md` and `docs/decisions/ADR-004-youtube-adapter.md` record why page-only extraction is not available (player-JavaScript transforms, per-session proof-of-origin tokens and server-driven streaming), why the behavior cannot be pinned by committed fixtures, and why the distribution exposure is the project's highest. The support-matrix row is Blocked, YouTube links stay on the generic detector, and `ShippedAdaptersTest` pins both the shipped adapter set and the unclaimed YouTube hosts.
+
+## Phase 5 validation
+
+- Full command passed:
+
+```bash
+./gradlew --no-daemon \
+  lintDebug testDebugUnitTest \
+  :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test \
+  :app:assembleDebug :app:assembleRelease
+```
+
+- Result: **BUILD SUCCESSFUL** in 7m; 505 tasks (200 executed, 41 from cache, 264 up-to-date); 293 tests, 0 failures, 0 errors and 0 skipped.
+- Test totals by module: app 64, core-browser 27, core-data 9, core-download 79, core-media 14, core-model 22, extractor-api 19, extractor-generic 7, extractor-sites 52.
+- Lint: 0 errors, 65 warnings, all dependency-version or toolchain advisories (`GradleDependency` 57, `AndroidGradlePluginVersion` 6, `DataExtractionRules` 1, `KaptUsageInsteadOfKsp` 1).
+- Debug APK: 15,507,771 bytes; SHA-256 `a5666d135ad4a26b485f1a10ba99d3580d8a440fed8f95e8ce3477f5cf35d84e`.
+- Unsigned minified release APK: 2,769,634 bytes; SHA-256 `5bb335218d971e351f6d03f27e41f870588307ef630d78384ad3113a5d6faf79`.
+- The command needs network access because `lintDebug` resolves `com.android.tools.lint:lint-gradle`, which is not in the offline cache; every other task in it passes with `--offline`.
+- Every adapter test runs offline against committed fixtures; no test performs a live network call.
+- Phase 5 definition of done: registry and generic fallback work, each claimed site has real fixtures and tests, broken pages fail clearly and independently, the YouTube blocker is reported with sources, and tests, lint, debug and release builds pass. Phase 6 is not started.

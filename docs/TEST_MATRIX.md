@@ -122,6 +122,32 @@
 | Phase 4 app tests | JUnit/Robolectric Compose | No failures | PASS — 58 tests |
 | Full Phase 4 matrix | Local JDK 17/SDK 35 | Lint, Android/JVM tests, debug and minified release build pass | PASS — 500 tasks in 16m 57s; 216 tests, 0 failures |
 
+## Phase 5 automated checks
+
+All adapter tests run offline against committed fixtures; no test performs a live network call.
+
+| Test | Environment | Expected | Current result |
+| --- | --- | --- | --- |
+| Standard and short URL matching | JVM | TikTok, Facebook and Vimeo long, mobile, embed and short links are claimed; short links are marked unresolved until the redirect is followed | PASS |
+| Canonical page identity | JVM | Variant links for one video collapse onto a single canonical address, and tracking parameters are dropped | PASS |
+| Unrelated and malformed URLs | JVM | Non-video, insecure and malformed links are not claimed | PASS |
+| Multiple qualities | JVM/fixtures | Every rendition the page exposes is returned with its label, resolution and stated size | PASS |
+| Separate tracks | JVM/fixtures | Facebook's DASH manifest and Vimeo's HLS/DASH manifests are handed to the existing resolver; adapters never split tracks themselves | PASS |
+| Expired link | JVM/fixtures | A page or configuration whose links already expired fails as expired instead of being queued | PASS |
+| No media | JVM/fixtures | Photo posts, media-free posts and file-less configurations fail with their own reason | PASS |
+| Deleted, private and login-required | JVM/fixtures | Private, removed, password-protected pages, login walls and checkpoint redirects each fail with their own reason | PASS |
+| Region block and DRM | JVM/fixtures | Region blocks and DRM-protected files fail explicitly; no circumvention is attempted | PASS |
+| Response changes | JVM/fixtures | Changed markup fails as changed and still allows the generic detector to try; access failures never fall back | PASS |
+| Transport failures | JVM | HTTP status codes and I/O failures surface as structured failures | PASS |
+| Wrong-video safety | JVM/fixtures | A suggested video on the same Facebook page is never returned instead of the requested one | PASS |
+| Request context | JVM | The browser session is replayed only to the site's own hosts; Vimeo follows only `player.vimeo.com` configuration addresses and no sign-in is performed | PASS |
+| Generic fallback | JVM | Unclaimed pages return `SiteAdapterSelection.None` so the generic detector runs | PASS |
+| Adapter kill switch | JVM | A disabled adapter reports itself instead of silently matching, and other adapters keep working | PASS |
+| YouTube decision guard | JVM | The shipped adapter set is exactly `tiktok`, `facebook`, `vimeo`, and `youtube.com`/`youtu.be` links stay unclaimed | PASS |
+| App-side coordination | Robolectric | The browser surfaces adapter results and falls back to generic detection without site parsing in the UI | PASS |
+| Phase 5 extractor-sites tests | JUnit | No failures | PASS — 52 tests |
+| Full Phase 5 matrix | Local JDK 17/SDK 35 | Lint, Android/JVM tests, debug and minified release build pass | PASS — 505 tasks in 7m; 293 tests, 0 failures; lint 0 errors |
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |
