@@ -2,7 +2,7 @@
 
 YFT is an ad-free Android application for detecting and, in later phases, downloading authorized non-DRM media from direct links, HTML5 players, HLS and DASH streams.
 
-**Phase 5 and Phase 5E are complete.** TikTok, Facebook, Vimeo and — by owner decision ([ADR-005](docs/decisions/ADR-005-youtube-owner-override.md)) — YouTube extractors run behind the extractor API with offline fixtures and a clean fallback to generic detection. YouTube support covers single videos as progressive MP4 (usually up to 360p) plus M4A audio; its risks and limits are recorded in [`docs/YOUTUBE_RISK_REVIEW.md`](docs/YOUTUBE_RISK_REVIEW.md). YFT is distributed through GitHub only. Hardening, privacy, performance and UI polish follow in Phase 6.
+**Phase 5 and Phase 5E are complete.** TikTok, Facebook, Vimeo and — by owner decision ([ADR-005](docs/decisions/ADR-005-youtube-owner-override.md)) — YouTube extractors run behind the extractor API with offline fixtures and a clean fallback to generic detection. YouTube support covers single videos as progressive MP4 (usually up to 360p) plus M4A audio; its risks and limits are recorded in [`docs/YOUTUBE_RISK_REVIEW.md`](docs/YOUTUBE_RISK_REVIEW.md). YFT is distributed through GitHub only. Phase 6 — hardening, privacy, performance and UI polish — is in progress on `work/phase-6-hardening`.
 
 ## Current state
 

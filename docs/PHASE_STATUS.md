@@ -9,12 +9,21 @@
 | 4 — Download engines | COMPLETE | Typed download plans, direct/HLS/DASH transfer, mux compatibility, foreground execution, Room recovery and safe export validated |
 | 5 — Site adapters | COMPLETE | TikTok, Facebook and Vimeo adapters behind the extractor API with offline fixtures, registry fallback to generic detection, and the YouTube blocker reported |
 | 5E — YouTube (owner override) | COMPLETE | YouTube adapter by owner decision (ADR-005): embedded-first lookup, progressive MP4 plus M4A audio, bundled ejs solver in a sandboxed WebView, offline fixtures and tests |
-| 6 — Hardening/UI | NOT STARTED | — |
+| 6 — Hardening/UI | IN PROGRESS | Hardening, privacy, performance and UI polish on `work/phase-6-hardening`; findings tracked in `docs/HARDENING_AUDIT.md` |
 | 7 — Signed beta/release | NOT STARTED | — |
 
 ## Current phase state
 
-Phase 5E is complete on `work/phase-5e-youtube` (created from the Phase 5 completion commit `d7efebe`), validated with lint, the full test suite and the debug and release builds. Phase 6 begins on `work/phase-6-hardening` from the Phase 5E completion head, following `docs/prompts/07_PHASE_6.md`. No work branch has been merged into `main`.
+Phase 5E is complete on `work/phase-5e-youtube` at `c608b01`. Phase 6 is in progress on `work/phase-6-hardening`, created from that head and following `docs/prompts/07_PHASE_6.md`; its findings and their status are tracked in `docs/HARDENING_AUDIT.md`. No work branch has been merged into `main`.
+
+## Phase 6 active scope
+
+- 6A Kickoff: branch, audit and plan (this checkpoint).
+- 6B Security and privacy: backup and device-transfer exclusion, network security configuration, browsing-data clearing, notification privacy and runtime notification permission, file-name hardening.
+- 6C Settings: default quality, destination, Wi-Fi-only, concurrency, mobile-data warning, theme, and data/history clearing, persisted in DataStore and applied to the queue.
+- 6D UI: Home, Browser, floating detector, candidate sheet, Preview and quality picker, Downloads, Library, Settings and About, with light/dark themes, empty/loading/error states, accessibility labels and confirmations.
+- 6E Reliability and performance: free-space pre-checks, network policy, recovery and list/DB behavior.
+- No new download sources and no new site adapters; the download engines change only where a hardening finding requires it.
 
 ## Completed in Phase 1
 

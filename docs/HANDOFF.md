@@ -3,11 +3,12 @@
 ## Current handoff
 
 - Date: 2026-10-02
-- Phase: 5E — YouTube adapter by owner decision
-  ([ADR-005](decisions/ADR-005-youtube-owner-override.md), superseding ADR-004)
-- Status: COMPLETE — full lint/test/debug/release validation passed on the work branch
-- Active branch: `work/phase-5e-youtube`, created from the Phase 5 completion commit `d7efebe`
-- Next branch: `work/phase-6-hardening`, created from the Phase 5E completion head
+- Phase: 6 — Hardening, privacy, performance and UI polish (IN PROGRESS on
+  `work/phase-6-hardening`, created from the Phase 5E head `c608b01`; findings in
+  `docs/HARDENING_AUDIT.md`)
+- Previous phase: 5E — YouTube adapter by owner decision
+  ([ADR-005](decisions/ADR-005-youtube-owner-override.md), superseding ADR-004), COMPLETE on
+  `work/phase-5e-youtube` at `c608b01`, created from the Phase 5 completion commit `d7efebe`
 - Target repository: `Alalkipgen/YFT`
 - Reference repository: `Alalkipgen/AlalDownloader`
 
