@@ -52,6 +52,14 @@ class YftNavigationSmokeTest {
                             onNavigateBack = onNavigateBack,
                         )
                     },
+                    downloadsContent = { onNavigateBack ->
+                        PhasePlaceholderScreen(
+                            title = YftDestination.DOWNLOADS.title,
+                            summary = YftDestination.DOWNLOADS.summary,
+                            phaseNote = "Navigation-only test surface",
+                            onNavigateBack = onNavigateBack,
+                        )
+                    },
                 )
             }
         }
