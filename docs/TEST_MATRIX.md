@@ -308,7 +308,7 @@ cache is saved before test browsing; adb keys and app-session data are not cache
 Slow media discovery on the public Wikimedia page emits a warning; the HTTPS navigation check
 remains mandatory. T02 is DONE on `e9e1a09`; F2 records the result without claiming phone/pixel proof.
 
-### T03 — Deferred browser/start page (IN PROGRESS, 2026-10-03)
+### T03 — Deferred browser/start page (OWNER CHECK, 2026-10-03)
 
 | Check | Result |
 | --- | --- |
@@ -316,9 +316,16 @@ remains mandatory. T02 is DONE on `e9e1a09`; F2 records the result without claim
 | Empty-page regression | FAILED on the old code: `browser-surface` existed when no page was open. PASSED in the first repaired browser run |
 | First browser run / APK compile | PASS — 26 tests, 0 failures/errors; native-view creation/identity, valid/invalid/blank navigation, initial-link readiness, metadata-only clipboard hint/tap, saved-site navigation and empty saved-list propagation |
 | First full validation | PASS — core-browser 53, app 403 (45 render skips), 0 failures/errors; lint 0 errors / 95 warnings |
-| Largest-text badge regression | FAILED on the old header: badge bounds were only 5 px wide. Heading/count reservation repaired; retest pending |
-| Rendering / visual inspection | 8 browser PNGs rendered and individually inspected. Start Day/Night and 130%/200% passed; loaded 200% exposed the count bug. Replacement loaded renders pending |
-| Native Chromium / phone | T03 CI pending; no local KVM. Native PNG download requires authentication, so no native pixel-review claim |
+| Largest-text badge regression | FAILED on the old header: badge bounds were only 5 px wide. PASSED after reserving heading/count space |
+| Final full validation / native APK compile | PASS — core-browser 53, app 405 (45 render skips), 0 failures/errors; lint 0 errors / 95 warnings; instrumentation APK compiled |
+| Rendering / visual inspection | PASS — all 8 final PNGs inspected individually: start and loaded Day/Night/130%/200%. Loaded 200% first exposed the count bug; all 4 replacement loaded images passed after repair |
+| Native Chromium | PASS — `9be6b43`, API 34 CI: 3/3 tests, 0 fatal exceptions, 3 PNGs collected; empty WebView absent; real Example Domain content and native top-control bounds asserted |
+| Phone / native pixels | OWNER CHECK — no local KVM; native PNG download requires authentication, so no native pixel-review claim |
+
+CI: https://github.com/Alalkipgen/YFT/actions/runs/37146164024 (emulator) and
+https://github.com/Alalkipgen/YFT/actions/runs/37146164049 (checkpoint/debug APK).
+Address bounds in all three cases are `[92,33][254,81]`; loaded/found WebView bounds
+are `[0,90][320,583]`; the empty WebView is absent.
 
 Commands use the T01 memory flags:
 `:core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug`,

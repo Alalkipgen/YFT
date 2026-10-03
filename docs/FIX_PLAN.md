@@ -130,7 +130,7 @@ Agents update the **Status** column in every task checkpoint.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | T01 | [Browser crash: WebView used off the main thread](#t01--browser-crash-webview-used-off-the-main-thread) | 8 | P0 | Easy–Medium | 0.5 d | — | OWNER CHECK |
 | T02 | [Real-WebView smoke test on a CI emulator](#t02--real-webview-smoke-test-on-a-ci-emulator) | 8 | P0 | Medium | 1 d | T01, D4 | DONE (2026-10-03) |
-| T03 | [Browser start page; WebView only when a page is open](#t03--browser-start-page-webview-only-when-a-page-is-open) | 8 | P0 | Medium | 1 d | T01 | IN PROGRESS |
+| T03 | [Browser start page; WebView only when a page is open](#t03--browser-start-page-webview-only-when-a-page-is-open) | 8 | P0 | Medium | 1 d | T01 | OWNER CHECK |
 | T04 | [Local crash report and lookup details](#t04--local-crash-report-and-lookup-details) | 8 | P0 | Easy–Medium | 0.5–1 d | — | TODO |
 | T05 | [Browser-like request identity for Home lookups](#t05--browser-like-request-identity-for-home-lookups) | 8 | P1 | Easy–Medium | 0.5 d | — | TODO |
 | T06 | [Facebook public reels and videos without sign-in](#t06--facebook-public-reels-and-videos-without-sign-in) | 8 | P1 | Medium | 1 d | T05 | TODO |
@@ -258,14 +258,20 @@ Phase 8 tasks in plan order, with a checkpoint and CI check per task. `ALLOW_PUS
   Artifact download returned HTTP 401 without authentication, so the agent has not reviewed
   the native PNGs; owner review remains. Do not call the phone cause confirmed.
 
-- T03 implementation (2026-10-03, IN PROGRESS): no WebView on `browser-start`; first
+- T03 implementation (2026-10-03, OWNER CHECK, `9be6b43`): no WebView on `browser-start`; first
   navigation creates it and later updates retain it. The page is clipped below an opaque
   higher-z-index bar. The idle field hides its ink rather than using alpha zero, so native
   accessibility can still find it. CI now checks the real Example Domain content, native
   top-control bounds and the absence of an empty WebView, not just Compose semantics.
   Local empty-surface regression FAILED before the change. Visual QA also found the count
   badge squeezed to 5 px at 200% text; its regression FAILED before the heading-wrap repair.
-  Repaired full validation, replacement loaded renders and native CI are still pending.
+  Repaired full validation passed: core-browser 53/app 405 (45 render skips), 0 failures/errors,
+  lint 0 errors/95 warnings. All 8 final browser renders passed individual visual inspection,
+  including the replaced loaded Day/Night/130%/200% images. API 34 emulator CI is GREEN:
+  https://github.com/Alalkipgen/YFT/actions/runs/37146164024 — 3/3 tests, 0 fatal exceptions,
+  3 PNGs collected. Empty WebView is absent; loaded/found address bounds now appear at
+  `[92,33][254,81]`, above the native WebView `[0,90][320,583]`.
+  Checkpoint CI is GREEN: https://github.com/Alalkipgen/YFT/actions/runs/37146164049.
   The phone's original pixel-overlay cause remains unconfirmed, not re-labelled as fact.
 
 ### F3 — Facebook asks to sign in for a public reel (P1) — confirmed live
