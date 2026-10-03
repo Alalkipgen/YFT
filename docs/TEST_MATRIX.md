@@ -236,6 +236,39 @@ Robolectric (SDK 35) with Compose UI tests; class names and test counts in brack
 | Signed release `1.0.0-beta.2` | GitHub Actions `Release draft` | Tag `v1.0.0-beta.2` on `39ea049`: `release-prep.sh` runs the full matrix, signs with the owner's key from the secrets, checks the certificate pin and stages the APK, `SHA256SUMS` and notes; a draft pre-release is created and nothing is published | PASS — run 37129636676 (2026-10-03, 9 min): `video-downloader-1.0.0-beta.2.apk` 3,376,449 bytes, SHA-256 `3f5b4c74b02e61bf2572a7248aef3a35b92ece3c6f7cf8e0770bc661cee53a95`, certificate `3A:EB:30:64:91:E2:DD:6F:F7:6D:C5:A8:68:E6:FC:C9:D3:30:BB:99:85:BF:4D:15:B3:4A:67:04:EC:78:98:8F` (the same as beta.1); artifact `yft-release-1.0.0-beta.2`; draft not published |
 | Full matrix after merging `main` | Gradle | `testDebugUnitTest lintDebug :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test :app:assembleDebug :app:assembleRelease`, then `verify-release-apk.sh --allow-unsigned`: every test passes (app 384 including `AppIdentityTest` 5, 41 render tests skipped without `YFT_RENDER_DIR`; core-browser 46, core-data 12, core-download 81, core-media 14, core-model 30, extractor-api 22, extractor-generic 7, extractor-sites 91), lint has no error, and the minified `1.0.0-beta.2` (versionCode 2) APK passes the metadata checks | PASS — 687 tests; lint 0 errors (app 83 warnings: `GradleDependency` 57, `VectorPath` 20, `AndroidGradlePluginVersion` 6; core-data 1); unsigned release APK 3,360,065 bytes |
 
+## Phase 8 automated checks
+
+### T01 — Browser main-thread access (2026-10-03)
+
+| Check | Type | Success criterion | Result |
+| --- | --- | --- | --- |
+| Off-main request interception | Robolectric + background executor | A WebView subclass rejects `getUrl` and `getSettings` off the main looper; interception still records the cached page URL and User-Agent | PASS — regression failed on the old client, then passed on the fix |
+| Navigation snapshot | Robolectric | Explicit load before callbacks, page start, redirect, history update and cleared history use the correct atomic URL | PASS |
+| Request headers | Robolectric | A case-insensitive observed User-Agent overrides the cached default; request headers are preserved | PASS |
+| Parallel request callbacks | Robolectric + four workers | 32 requests return normally without WebView access and keep the same page snapshot | PASS |
+| Observation ownership | ViewModel/coroutines + four workers | 32 download observations are retained; a queued request from the previous page is ignored after navigation | PASS |
+| Background entry-point audit | Source inspection | `git grep -n -E '@JavascriptInterface|shouldInterceptRequest' -- '*.kt'` identifies every callback; browser, solver bridge/client and prototype use no off-main WebView/WebSettings method | PASS |
+| Task validation | JDK 17 / SDK 35 | Core-browser/app tests and app lint remain green | PASS — core-browser 53, app 386 (41 render tests skipped), 0 failures/errors; app lint 0 errors, 83 existing warnings |
+| Kotlin line width / whitespace | Git diff + untracked-source check | Added Kotlin lines at most 100 characters; `git diff --check` clean | PASS |
+| Real browser on a phone | Owner device | Your sites, Home's Open in browser and typed Go load without closing the app; found media still appear | OWNER CHECK — emulator coverage comes in T02 |
+
+Exact validation:
+
+```bash
+source /data/yft-env.sh
+./gradlew --no-daemon -q --max-workers=1 \
+  -Dorg.gradle.jvmargs='-Xmx1024m -XX:MaxMetaspaceSize=384m -Dfile.encoding=UTF-8' \
+  -Pkotlin.compiler.execution.strategy=in-process \
+  :core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug
+```
+
+The unchanged baseline passed with core-browser 46 and app 384 tests, lint 0 errors. The first
+default-memory attempt lost its Gradle daemon (the 4 GiB sandbox recorded an OOM kill); no
+complete result was claimed. The low-memory retry passed, and the orphaned worker was stopped.
+The old-code regression command used the same memory flags and
+`--tests 'com.alal.yft.core.browser.webview.SecureBrowserWebViewClientTest.interceptsRequestsOffMainWithoutTouchingWebViewOrSettings'`;
+it failed with the expected main-looper guard, not a compilation failure.
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |

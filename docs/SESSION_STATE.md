@@ -2,14 +2,16 @@
 
 Update this file before every checkpoint push. Keep it short, factual and sufficient for a new chat to resume without guessing.
 
-- Current phase: Phase 8 — field fixes, PLANNED (`docs/FIX_PLAN.md`). Phases 0–7, 5E and the UI redesign are complete; `1.0.0-beta.1` published 2026-10-02; `1.0.0-beta.2` is a signed DRAFT pre-release (tag `v1.0.0-beta.2` on `39ea049`, APK 3,376,449 bytes, SHA-256 `3f5b4c74b02e61bf2572a7248aef3a35b92ece3c6f7cf8e0770bc661cee53a95`)
-- Current branch: `work/phase-8-field-fixes`, created from `main` at `28930cf`
-- Last completed task: Phase 8–10 plan after the owner's beta.2 phone test — `docs/FIX_PLAN.md` (problems P1–P5, findings F1–F8 with evidence, decisions D1–D5, tasks T01–T19 with a status board, owner checklists, backlog), prompts in `docs/prompts/` (generic `MASTER_PROMPT.md`, `00_NEXT_TASK.md` plus one file per task), old phase prompts, `HARDENING_AUDIT.md` and `CONTINUITY_PROTOCOL.md` removed (resume steps moved to `AGENTS.md`), `PHASE_STATUS.md` and `HANDOFF.md` condensed (history: `git show 28930cf:<file>`). Documentation only; no code changed
-- Work in progress: none
-- Build status: code unchanged since `28930cf` (GREEN: 687 tests, 0 failures; lint 0 errors). This checkpoint ran a Markdown link check; CI runs the full Gradle validation on the push
-- Known failure/blocker: beta.2 browser crash (T01). Decisions D1, D2 and D3 are PENDING (they block T11, T16/T17 and T18). No device/emulator in the sandbox (`/dev/kvm` unavailable). Build env: `source /data/yft-env.sh`; stop stale daemons with `pkill -f "[G]radleDaemon"`
-- Next exact action: agent — T01 (`docs/prompts/T01-browser-crash.md`, or `00_NEXT_TASK.md`). Owner — answer D1–D3 in `docs/FIX_PLAN.md` §3; beta.2 can stay a draft
-- Last pushed checkpoint: Phase 8 plan (this commit)
+- Current phase: Phase 8 — field fixes, IN PROGRESS (`docs/FIX_PLAN.md`). beta.2 is unchanged; main merges, tags and releases are not authorized.
+- Current branch: `work/phase-8-field-fixes` (tracking origin, opened from `f18d924`).
+- Last completed task: T01 — fix off-main WebView access. Atomic page-URL snapshot, main-thread User-Agent cache and main-dispatcher observation handling; status OWNER CHECK.
+- Work in progress: no unfinished code; checkpoint CI and the real-WebView/phone check remain.
+- Build status: GREEN — `source /data/yft-env.sh && ./gradlew --no-daemon -q --max-workers=1 -Dorg.gradle.jvmargs='-Xmx1024m -XX:MaxMetaspaceSize=384m -Dfile.encoding=UTF-8' -Pkotlin.compiler.execution.strategy=in-process :core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug`: core-browser 53, app 386 (41 render tests skipped), 0 failures/errors; lint 0 errors, 83 existing warnings; added Kotlin width and whitespace checks pass.
+- Regression proof: `interceptsRequestsOffMainWithoutTouchingWebViewOrSettings` failed on the old client with the main-looper guard and passes on the fix. Navigation/history/redirects, 32 concurrent callbacks and stale observations covered. Audit grep recorded in FIX_PLAN F1 and the commit message.
+- Known failure/blocker: no local device/emulator (`/dev/kvm` unavailable). Initial default-memory baseline lost its daemon to an OOM kill; low-memory retry passed and orphaned worker stopped. T03 and site fixes still pending. D1–D3 remain PENDING.
+- Environment: `source /data/yft-env.sh` sets JDK 17 (`/data/toolchains/jdk17`), SDK 35 (`/data/android-sdk`), Gradle cache (`/data/gradle-home`) and the repository SSH key/verified host file. Temporary logs/helpers are outside the repo.
+- Next exact action: check T01 CI, then T02 (`docs/prompts/T02-ci-emulator-smoke.md`). Continue eligible Phase 8 tasks in order as the owner requested. Phone: Your sites, Home's Open in browser and typed Go; pages load and found media appear.
+- Last pushed checkpoint: T01 (this commit); previous `f18d924`. Push work branch only; do not merge main, push tags or publish.
 - Last updated: 2026-10-03
 
 ## Checkpoint note template

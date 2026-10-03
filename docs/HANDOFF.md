@@ -2,7 +2,8 @@
 
 ## Current handoff (2026-10-03)
 
-- **Phase:** 8 — field fixes, PLANNED. Plan, status board and decisions:
+- **Phase:** 8 — field fixes, in progress. T01 is implemented and locally validated; real-WebView
+  and owner checks remain. Plan, status board and decisions:
   [`FIX_PLAN.md`](FIX_PLAN.md). Prompts: [`prompts/`](prompts/README.md).
 - **Branch:** `work/phase-8-field-fixes`, created from `main` at `28930cf`.
 - **Releases:** `1.0.0-beta.1` published 2026-10-02. `1.0.0-beta.2` (versionCode 2) is a signed
@@ -15,10 +16,15 @@
   empty browser hides the address bar; P3 every page load in the browser closes the app; P4 YouTube
   fails with a sign-in message; P5 a TikTok video is found but the download fails. Causes with
   evidence: FIX_PLAN §4 (F1–F8).
-- **Next action — agent:** T01 ([`prompts/T01-browser-crash.md`](prompts/T01-browser-crash.md)),
+- **Next action — agent:** check T01 checkpoint CI, then T02
+  ([`prompts/T02-ci-emulator-smoke.md`](prompts/T02-ci-emulator-smoke.md)),
   or [`prompts/00_NEXT_TASK.md`](prompts/00_NEXT_TASK.md) for whatever is next.
 - **Next action — owner:** answer D1 (clipboard check on open), D2 (YouTube strategy A or B) and D3
   (MP3) in FIX_PLAN §3. beta.2 can stay a draft; beta.3 replaces it.
+- **T01 validation (2026-10-03):** core-browser 53 tests, app 386 (41 renders skipped), 0 failures;
+  lint 0 errors, 83 existing warnings. The strict off-main regression failed on the old code and
+  passed on the fix. Use the memory-safe command in `TEST_MATRIX.md` on this 4 GiB sandbox.
+  Phone check: Your sites, Open in browser and typed Go load without closing the app.
 
 ## Known limitations (beta.2)
 

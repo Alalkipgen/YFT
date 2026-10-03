@@ -88,6 +88,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alal.yft.core.browser.policy.SecureWebViewPolicy
 import com.alal.yft.core.browser.webview.BrowserDownloadListener
 import com.alal.yft.core.browser.webview.BrowserObservationSink
+import com.alal.yft.core.browser.webview.BrowserPageUrl
 import com.alal.yft.core.browser.webview.SecureBrowserChromeClient
 import com.alal.yft.core.browser.webview.SecureBrowserWebViewClient
 import com.alal.yft.core.model.media.MediaCandidate
@@ -117,9 +118,15 @@ fun BrowserRoute(
     viewModel: BrowserViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val pageUrlState = remember { BrowserPageUrl() }
     var webView by remember { mutableStateOf<WebView?>(null) }
     var canGoBack by remember { mutableStateOf(false) }
     var canGoForward by remember { mutableStateOf(false) }
+
+    fun loadPage(browser: WebView, url: String) {
+        pageUrlState.update(url)
+        browser.loadUrl(url)
+    }
 
     fun refreshHistoryState() {
         canGoBack = webView?.canGoBack() == true
@@ -131,7 +138,7 @@ fun BrowserRoute(
     }
     LaunchedEffect(webView, initialLink) {
         val browser = webView ?: return@LaunchedEffect
-        initialLink?.let(viewModel::openInitialLink)?.let(browser::loadUrl)
+        initialLink?.let(viewModel::openInitialLink)?.let { url -> loadPage(browser, url) }
     }
     DisposableEffect(Unit) {
         onDispose {
@@ -150,7 +157,7 @@ fun BrowserRoute(
         onAddressChanged = viewModel::onAddressChanged,
         onGo = {
             viewModel.addressForLoading()?.let { url ->
-                webView?.loadUrl(url)
+                webView?.let { browser -> loadPage(browser, url) }
             }
         },
         onBrowserBack = {
@@ -175,6 +182,7 @@ fun BrowserRoute(
             BrowserWebView(
                 modifier = modifier,
                 sink = viewModel,
+                pageUrlState = pageUrlState,
                 onWebViewReady = {
                     webView = it
                     refreshHistoryState()
@@ -798,6 +806,7 @@ private val DRAG_THRESHOLD = 24.dp
 private fun BrowserWebView(
     modifier: Modifier,
     sink: BrowserObservationSink,
+    pageUrlState: BrowserPageUrl,
     onWebViewReady: (WebView) -> Unit,
 ) {
     AndroidView(
@@ -806,15 +815,17 @@ private fun BrowserWebView(
             val browser = WebView(context)
             SecureWebViewPolicy.apply(browser)
             val cookieManager = CookieManager.getInstance()
+            val cachedUserAgent = browser.settings.userAgentString
             browser.webViewClient = SecureBrowserWebViewClient(
                 sink = sink,
                 cookieProvider = cookieManager::getCookie,
-                userAgentProvider = { browser.settings.userAgentString },
+                userAgentProvider = { cachedUserAgent },
+                pageUrlState = pageUrlState,
             )
             browser.webChromeClient = SecureBrowserChromeClient(sink)
             browser.setDownloadListener(
                 BrowserDownloadListener(
-                    pageUrlProvider = { browser.url },
+                    pageUrlProvider = pageUrlState::get,
                     cookieProvider = cookieManager::getCookie,
                     sink = sink,
                 ),
@@ -823,6 +834,7 @@ private fun BrowserWebView(
             browser
         },
         onRelease = { browser ->
+            pageUrlState.update(null)
             browser.stopLoading()
             browser.setDownloadListener(null)
             browser.webChromeClient = null

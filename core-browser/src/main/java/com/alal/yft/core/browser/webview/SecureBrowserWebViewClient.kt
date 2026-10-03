@@ -17,6 +17,7 @@ class SecureBrowserWebViewClient(
     private val cookieProvider: (String) -> String?,
     private val userAgentProvider: () -> String?,
     private val clock: () -> Long = System::currentTimeMillis,
+    private val pageUrlState: BrowserPageUrl = BrowserPageUrl(),
 ) : WebViewClient() {
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
         if (!request.isForMainFrame) return false
@@ -28,7 +29,12 @@ class SecureBrowserWebViewClient(
     }
 
     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+        pageUrlState.update(url)
         url?.let(sink::onPageStarted)
+    }
+
+    override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
+        pageUrlState.update(url)
     }
 
     override fun onPageFinished(view: WebView, url: String?) {
@@ -43,7 +49,7 @@ class SecureBrowserWebViewClient(
         view: WebView,
         request: WebResourceRequest,
     ): WebResourceResponse? {
-        val pageUrl = view.url ?: return null
+        val pageUrl = pageUrlState.get() ?: return null
         val requestUrl = request.url.toString()
         if (request.url.scheme !in setOf("http", "https")) return null
         sink.onRequest(

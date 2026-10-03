@@ -1,6 +1,8 @@
 package com.alal.yft.feature.browser
 
 import com.alal.yft.core.media.session.PreviewSelectionStore
+import com.alal.yft.core.browser.detection.DownloadObservation
+import com.alal.yft.core.browser.detection.RequestObservation
 import com.alal.yft.testing.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
@@ -9,6 +11,8 @@ import kotlinx.coroutines.test.runTest
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.extractor.api.SiteExtractorRegistry
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -128,6 +132,75 @@ class BrowserViewModelTest {
         BrowserViewModel(OkHttpClient(), noAdapters(), PreviewSelectionStore(), detected)
         runCurrent()
         assertEquals(published, detected.page.value)
+    }
+
+    @Test
+    fun parallelDownloadCallbacksKeepEveryCurrentPageObservation() = runTest {
+        val viewModel = BrowserViewModel(OkHttpClient(), noAdapters())
+        val page = "https://example.test/watch"
+        viewModel.onPageStarted(page)
+        runCurrent()
+        val executor = Executors.newFixedThreadPool(4)
+        try {
+            val callbacks = (0 until 32).map { index ->
+                executor.submit {
+                    viewModel.onDownload(
+                        DownloadObservation(
+                            pageUrl = page,
+                            mediaUrl = "https://cdn.test/clip-$index.mp4",
+                            userAgent = "YFT-Test",
+                            contentDisposition = null,
+                            mimeType = "video/mp4",
+                            contentLengthBytes = 1_048_576,
+                            cookie = null,
+                            observedAtEpochMs = 1_000,
+                        ),
+                    )
+                }
+            }
+            callbacks.forEach { it.get(5, TimeUnit.SECONDS) }
+        } finally {
+            executor.shutdownNow()
+        }
+        runCurrent()
+        advanceTimeBy(250)
+        runCurrent()
+
+        assertEquals(32, viewModel.uiState.value.candidates.size)
+        assertTrue(viewModel.uiState.value.candidates.all { it.pageUrl == page })
+    }
+
+    @Test
+    fun backgroundRequestQueuedBeforeNavigationIsDiscardedOnMain() = runTest {
+        val viewModel = BrowserViewModel(OkHttpClient(), noAdapters())
+        val firstPage = "https://example.test/one"
+        viewModel.onPageStarted(firstPage)
+        runCurrent()
+        val executor = Executors.newSingleThreadExecutor()
+        try {
+            executor.submit {
+                viewModel.onRequest(
+                    RequestObservation(
+                        pageUrl = firstPage,
+                        requestUrl = "https://cdn.test/old.mp4",
+                        method = "GET",
+                        headers = emptyMap(),
+                        userAgent = "YFT-Test",
+                        cookie = null,
+                        observedAtEpochMs = 1_000,
+                    ),
+                )
+            }.get(5, TimeUnit.SECONDS)
+        } finally {
+            executor.shutdownNow()
+        }
+        viewModel.onPageStarted("https://example.test/two")
+        runCurrent()
+        advanceTimeBy(250)
+        runCurrent()
+
+        assertEquals("https://example.test/two", viewModel.uiState.value.currentUrl)
+        assertTrue(viewModel.uiState.value.candidates.isEmpty())
     }
 
     private fun noAdapters(): SiteAdapterCoordinator =

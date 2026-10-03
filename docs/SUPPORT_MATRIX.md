@@ -17,7 +17,7 @@ Status values:
 | HTTPS direct MP4/WebM/audio detection | Implemented | 2 | Extension/MIME/DOM/request/download observations normalize per page |
 | HTML5 `video` / `audio` / `source` | Implemented | 2 | Production read-only DOM probe plus committed Chromium-validated fixture |
 | WebView DownloadListener | Implemented | 2 | Captures MIME, filename, size and secure request context |
-| In-app browser on a real WebView | Blocked in beta.2 | 8 | Every page load closes the app (FIX_PLAN F1 → T01); the empty browser hides the address bar (F2 → T03) |
+| In-app browser on a real WebView | OWNER CHECK (Phase 8 branch fix) | 8 | T01 caches the page URL and User-Agent without off-main WebView/WebSettings calls; strict-thread, navigation and parallel-observation tests pass. Real-WebView verification is T02 and the owner's phone check. beta.2 remains affected; empty-browser layout is still T03. |
 | WebView request URL/headers | Implemented | 2 | Observes GET requests; strongly hinted URLs receive bounded metadata probes |
 | Literal `blob:` URL | Unsupported as a file | 2 | Literal is rejected; underlying HTTP(S) source/manifest observations are detected |
 | Direct MP4/WebM/audio preview | Implemented | 3 | Bounded metadata validation and explicit Media3 progressive source; device playback remains to be exercised |

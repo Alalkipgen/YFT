@@ -222,16 +222,22 @@ class BrowserViewModel(
     }
 
     override fun onRequest(observation: RequestObservation) {
-        if (observation.pageUrl != activePageUrl) return
-        rememberBrowserContext(observation)
-        BrowserObservationMapper.fromRequest(observation)?.let(candidateStore::submit)
-        val probeCandidate = BrowserObservationMapper.forMetadataProbe(observation) ?: return
-        scheduleProbe(probeCandidate)
+        // WebView calls this concurrently off-main. Serialize with navigation and job ownership.
+        viewModelScope.launch {
+            if (observation.pageUrl != activePageUrl) return@launch
+            rememberBrowserContext(observation)
+            BrowserObservationMapper.fromRequest(observation)?.let(candidateStore::submit)
+            val probeCandidate = BrowserObservationMapper.forMetadataProbe(observation)
+                ?: return@launch
+            scheduleProbe(probeCandidate)
+        }
     }
 
     override fun onDownload(observation: DownloadObservation) {
-        if (observation.pageUrl != activePageUrl) return
-        BrowserObservationMapper.fromDownload(observation)?.let(candidateStore::submit)
+        viewModelScope.launch {
+            if (observation.pageUrl != activePageUrl) return@launch
+            BrowserObservationMapper.fromDownload(observation)?.let(candidateStore::submit)
+        }
     }
 
     override fun onDomProbeResult(pageUrl: String, result: String?) {

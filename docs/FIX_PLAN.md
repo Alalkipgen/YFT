@@ -128,7 +128,7 @@ Agents update the **Status** column in every task checkpoint.
 
 | ID | Task | Phase | Priority | Difficulty | Estimate | Needs | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T01 | [Browser crash: WebView used off the main thread](#t01--browser-crash-webview-used-off-the-main-thread) | 8 | P0 | Easy–Medium | 0.5 d | — | TODO |
+| T01 | [Browser crash: WebView used off the main thread](#t01--browser-crash-webview-used-off-the-main-thread) | 8 | P0 | Easy–Medium | 0.5 d | — | OWNER CHECK |
 | T02 | [Real-WebView smoke test on a CI emulator](#t02--real-webview-smoke-test-on-a-ci-emulator) | 8 | P0 | Medium | 1 d | T01, D4 | TODO |
 | T03 | [Browser start page; WebView only when a page is open](#t03--browser-start-page-webview-only-when-a-page-is-open) | 8 | P0 | Medium | 1 d | T01 | TODO |
 | T04 | [Local crash report and lookup details](#t04--local-crash-report-and-lookup-details) | 8 | P0 | Easy–Medium | 0.5–1 d | — | TODO |
@@ -189,11 +189,16 @@ Agents read this table before starting a task and record the owner's answers her
 | D4 | Run an Android emulator job on GitHub Actions (free for public repositories) | Yes | T02 | Assumed YES unless the owner says no |
 | D5 | Release cadence: beta.3 after Phase 8, beta.4 after Phase 9, beta.5 after Phase 10 | Yes; publishing still needs `ALLOW_RELEASE=true` | T10, T15, T19 | Assumed YES |
 
+Session instructions (2026-10-03): `OWNER ANSWERS: none`; D1–D3 remain PENDING. Continue eligible
+Phase 8 tasks in plan order, with a checkpoint and CI check per task. `ALLOW_PUSH=true`,
+`ALLOW_MERGE_MAIN=false`, `ALLOW_RELEASE=false`; no permission to merge, tag or publish.
+
 ## 4. Findings and root causes
 
 ### F1 — Every page load crashes the app (P3) — confirmed in code
 
-- `core-browser/src/main/java/com/alal/yft/core/browser/webview/SecureBrowserWebViewClient.kt`:
+- Beta.2 (`28930cf`, before T01):
+  `core-browser/src/main/java/com/alal/yft/core/browser/webview/SecureBrowserWebViewClient.kt`:
   - line 46, inside `shouldInterceptRequest` (line 42): `val pageUrl = view.url ?: return null`;
   - line 58: `?: userAgentProvider()`, which
     `app/src/main/java/com/alal/yft/feature/browser/BrowserScreen.kt:812` implements as
@@ -208,6 +213,18 @@ Agents read this table before starting a task and record the owner's answers her
 - Not affected: the YouTube solver WebView
   (`app/src/main/java/com/alal/yft/detection/script/WebViewSolverEngine.kt`) does not touch the
   WebView in its `shouldInterceptRequest`.
+- T01 (2026-10-03, `work/phase-8-field-fixes`): `BrowserPageUrl` uses an `AtomicReference`;
+  explicit loads, page starts and history callbacks update it on main. The configured User-Agent
+  is read once on main; interception and the DownloadListener read snapshots only. Request and
+  download observations are queued on `viewModelScope` so navigation and probe-job ownership are
+  serialized. Existing candidate-store and probe-budget locks remain unchanged.
+- Regression proof: the strict WebView subclass throws from `getUrl`/`getSettings` off-main;
+  the background-executor test failed on the old client and passes on the fix. Navigation,
+  redirects, 32 parallel requests/downloads and stale queued observations are covered.
+  Validation: core-browser 53 tests, app 386 (41 render tests skipped), 0 failures, lint 0 errors.
+  Audit: `git grep -n -E '@JavascriptInterface|shouldInterceptRequest' -- '*.kt'`, then inspect
+  each production callback (and the Phase 0 prototype); no off-main WebView/WebSettings call.
+  A real-WebView check remains T02 and the owner's phone check; beta.2 itself is unchanged.
 
 ### F2 — The empty browser hides the address bar (P2) — likely cause, not yet confirmed
 
@@ -906,6 +923,10 @@ Not scheduled. Agents add new items here instead of widening a task.
 - Earlier limitations: playlists and batch downloads, background playback, SAF folder export,
   refreshing an expired link in place after the process was killed.
 - Remove `spikes/phase0-media` and `.github/workflows/phase0-validation.yml` if the owner agrees.
+- SPA history-only navigation: the URL snapshot follows `doUpdateVisitedHistory`, but
+  `BrowserViewModel.activePageUrl` changes only on `onPageStarted`. Review history-only page
+  changes separately so observations from a new SPA URL are not discarded (existing behaviour;
+  found during the T01 audit, not widened into its threading fix).
 
 ## 10. References
 

@@ -7,6 +7,13 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ## [Unreleased]
 
+### Fixed
+
+- Browser page-load crash caused by background request interception reading `WebView.url` and
+  `WebSettings`. Navigation now supplies an atomic page-URL snapshot and the configured
+  User-Agent is cached on the main thread. Concurrent observations are serialized with
+  navigation in the ViewModel; stale requests cannot populate the next page.
+
 ### Changed
 
 - Documentation: `docs/FIX_PLAN.md` plans Phases 8–10 task by task after the beta.2 phone test,
