@@ -6,6 +6,7 @@ status board) က [`docs/FIX_PLAN.md`](../FIX_PLAN.md) မှာ ရှိပါ
 
 ## သုံးနည်း
 
+0. **Agent တိုင်းအတွက် generic:** [`MASTER_PROMPT.md`](MASTER_PROMPT.md) ကို paste လုပ်ပါ (`TASK: auto` သို့ `TASK: T05`)။
 1. **အလွယ်ဆုံး:** [`00_NEXT_TASK.md`](00_NEXT_TASK.md) ထဲက code block ကို agent chat အသစ်ထဲ
    paste လုပ်ပါ။ Agent က status board ကိုကြည့်ပြီး နောက်လုပ်ရမယ့် task ကို သူ့ဘာသာ ရွေးပါမယ်။
 2. **Task တစ်ခုကို တိတိကျကျ:** အောက်ဇယားထဲက task ဖိုင်ကိုဖွင့်ပြီး code block ကို paste လုပ်ပါ။
