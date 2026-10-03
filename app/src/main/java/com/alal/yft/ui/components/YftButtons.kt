@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -124,11 +125,17 @@ fun YftTonalButton(
     @DrawableRes icon: Int? = null,
     enabled: Boolean = true,
     containerColor: Color = YftTheme.colors.chip,
+    compact: Boolean = false,
 ) {
     val colors = YftTheme.colors
     Button(
         onClick = onClick,
-        modifier = modifier.heightIn(min = 48.dp),
+        // Compact is the Promptbox chip size: a 36dp pill inside a 48dp touch target.
+        modifier = if (compact) {
+            modifier.minimumInteractiveComponentSize().height(36.dp)
+        } else {
+            modifier.heightIn(min = 48.dp)
+        },
         enabled = enabled,
         shape = YftShapes.pill,
         colors = ButtonDefaults.buttonColors(
@@ -138,9 +145,20 @@ fun YftTonalButton(
             disabledContentColor = colors.textSecondary,
         ),
         elevation = null,
-        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
+        contentPadding = if (compact) {
+            PaddingValues(start = 12.dp, end = 14.dp)
+        } else {
+            PaddingValues(horizontal = 18.dp, vertical = 10.dp)
+        },
     ) {
-        ButtonContent(text = text, icon = icon, large = false, weight = FontWeight.Medium)
+        ButtonContent(
+            text = text,
+            icon = icon,
+            large = false,
+            weight = FontWeight.Medium,
+            iconSize = if (compact) 18.dp else 20.dp,
+            gap = if (compact) 6.dp else 8.dp,
+        )
     }
 }
 
@@ -230,12 +248,14 @@ private fun ButtonContent(
     @DrawableRes icon: Int?,
     large: Boolean,
     weight: FontWeight = FontWeight.SemiBold,
+    iconSize: Dp = 20.dp,
+    gap: Dp = 8.dp,
 ) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(gap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (icon != null) YftIcon(icon = icon, contentDescription = null, size = 20.dp)
+        if (icon != null) YftIcon(icon = icon, contentDescription = null, size = iconSize)
         Text(
             text = text,
             style = if (large) {

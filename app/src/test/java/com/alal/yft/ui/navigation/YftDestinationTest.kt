@@ -19,7 +19,7 @@ class YftDestinationTest {
 
         assertEquals(routes.size, routes.toSet().size)
         assertEquals("home", YftDestination.HOME.route)
-        assertTrue(YftDestination.homeActions.none { it == YftDestination.HOME })
+        assertTrue(YftDestination.fullScreen.none { it == YftDestination.HOME })
     }
 
     @Test
@@ -40,7 +40,7 @@ class YftDestinationTest {
                 YftDestination.PREVIEW,
                 YftDestination.ABOUT,
             ),
-            YftDestination.homeActions,
+            YftDestination.fullScreen,
         )
         assertEquals(YftDestination.LIBRARY, YftDestination.topLevelFor("library"))
         assertEquals(null, YftDestination.topLevelFor("browser?link={link}"))

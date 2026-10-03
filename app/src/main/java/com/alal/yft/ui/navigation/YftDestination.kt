@@ -10,7 +10,7 @@ enum class YftDestination(
     val summary: String,
     val isTopLevel: Boolean = false,
 ) {
-    HOME("home", "Home", "Start with a link or choose a workspace.", isTopLevel = true),
+    HOME("home", "Home", "Paste a link or open a site to find media.", isTopLevel = true),
     BROWSER("browser", "Browser", "Browse securely and review media found on the current page."),
     DETECTED_MEDIA(
         "detected-media",
@@ -43,8 +43,8 @@ enum class YftDestination(
         /** Bottom-bar order: Home, Downloads, Library, Settings. */
         val topLevel: List<YftDestination> = entries.filter { it.isTopLevel }
 
-        /** Full-screen destinations Home can still open directly. */
-        val homeActions: List<YftDestination> = entries.filterNot { it.isTopLevel }
+        /** Destinations that open over a tab and hide the bottom bar. */
+        val fullScreen: List<YftDestination> = entries.filterNot { it.isTopLevel }
 
         /** The tab a route belongs to, or null for full-screen routes. */
         fun topLevelFor(route: String?): YftDestination? =

@@ -24,15 +24,29 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.alal.yft.core.data.preferences.HomeSitesRepository
 import com.alal.yft.core.model.ThemeMode
+import com.alal.yft.core.model.media.CandidateSource
+import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.settings.HomeSite
+import com.alal.yft.core.model.settings.HomeSites
 import com.alal.yft.feature.detectedmedia.DetectedMediaScreen
+import com.alal.yft.feature.detectedmedia.DetectedMediaStore
+import com.alal.yft.feature.home.HomeRoute
+import com.alal.yft.feature.home.HomeViewModel
+import com.alal.yft.feature.home.LinkInspection
+import com.alal.yft.feature.library.LibraryItem
+import com.alal.yft.feature.library.LibraryRepository
 import com.alal.yft.feature.library.LibraryScreen
 import com.alal.yft.feature.library.LibraryUiState
 import com.alal.yft.feature.settings.SettingsScreen
 import com.alal.yft.feature.settings.SettingsUiState
 import com.alal.yft.ui.YftAppShell
 import com.alal.yft.ui.components.PhasePlaceholderScreen
+import com.alal.yft.ui.components.PromptboxStatus
 import com.alal.yft.ui.theme.YftTheme
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -89,18 +103,21 @@ class YftNavigationSmokeTest {
     fun fullScreenDestinationsHideTheBarAndBackReturnsToTheTab() {
         setShell()
 
-        YftDestination.homeActions.forEach { destination ->
-            val destinationTag = "destination-${destination.route}"
-            composeRule.onNodeWithTag("home-list")
-                .performScrollToNode(hasTestTag(destinationTag))
-            composeRule.onNodeWithTag(destinationTag).performClick()
+        composeRule.onNodeWithTag("home-open-browser").performClick()
+        composeRule.onNodeWithText(YftDestination.BROWSER.title).assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-home").assertDoesNotExist()
+        composeRule.onNodeWithTag("navigate-back").performClick()
+        composeRule.onNodeWithTag("home-list").assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-home").assertIsSelected()
 
-            composeRule.onNodeWithText(destination.title).assertIsDisplayed()
-            composeRule.onNodeWithTag("nav-home").assertDoesNotExist()
-            composeRule.onNodeWithTag("navigate-back").performClick()
-            composeRule.onNodeWithTag("home-list").assertIsDisplayed()
-            composeRule.onNodeWithTag("nav-home").assertIsSelected()
-        }
+        composeRule.onNodeWithTag("home-link").performTextInput("https://a.test/found")
+        composeRule.onNodeWithTag("home-open-link").performClick()
+        composeRule.onNodeWithTag("home-view-media").performClick()
+        composeRule.onNodeWithText(YftDestination.DETECTED_MEDIA.title).assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-home").assertDoesNotExist()
+        composeRule.onNodeWithTag("navigate-back").performClick()
+        composeRule.onNodeWithTag("home-found").assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-home").assertIsSelected()
 
         composeRule.onNodeWithTag("nav-settings").performClick()
         composeRule.onNodeWithTag("settings-list")
@@ -112,6 +129,20 @@ class YftNavigationSmokeTest {
         composeRule.onNodeWithTag("navigate-back").performClick()
         composeRule.onNodeWithTag("settings-list").assertIsDisplayed()
         composeRule.onNodeWithTag("nav-settings").assertIsSelected()
+    }
+
+    @Test
+    fun recentSeeAllOpensTheLibraryTab() {
+        setShell()
+
+        composeRule.onNodeWithTag("home-list")
+            .performScrollToNode(hasTestTag("home-recent-all"))
+        composeRule.onNodeWithTag("home-recent-all").performClick()
+
+        screenTitle(YftDestination.LIBRARY).assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-library").assertIsSelected()
+        composeRule.runOnUiThread { composeRule.activity.onBackPressedDispatcher.onBackPressed() }
+        composeRule.onNodeWithTag("nav-home").assertIsSelected()
     }
 
     @Test
@@ -135,12 +166,21 @@ class YftNavigationSmokeTest {
     @Test
     fun homeLinkReachesTheBrowserIntactAndPlainBrowserOpensEmpty() {
         val received = mutableListOf<String?>()
+        val home = homeViewModel()
         composeRule.setContent {
             YftTheme(themeMode = ThemeMode.LIGHT) {
                 YftNavHost(
                     navController = rememberNavController(),
                     themeMode = ThemeMode.LIGHT,
                     onThemeModeChanged = {},
+                    homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary ->
+                        HomeRoute(
+                            onOpenBrowser = onOpenBrowser,
+                            onOpenDetectedMedia = onOpenDetectedMedia,
+                            onOpenLibrary = onOpenLibrary,
+                            viewModel = home,
+                        )
+                    },
                     browserContent = { onNavigateBack, _, link ->
                         received += link
                         PhasePlaceholderScreen(
@@ -157,10 +197,13 @@ class YftNavigationSmokeTest {
 
         composeRule.onNodeWithTag("home-link").performTextInput(link)
         composeRule.onNodeWithTag("home-open-link").performClick()
+        composeRule.onNodeWithTag("home-open-in-browser").performClick()
 
         composeRule.onNodeWithText("link=$link").assertIsDisplayed()
         assertEquals(link, received.last())
         composeRule.onNodeWithTag("navigate-back").performClick()
+        composeRule.onNodeWithTag("home-not-found").performClick()
+        composeRule.onNodeWithTag("home-link-clear").performClick()
         composeRule.onNodeWithTag("home-open-browser").performClick()
         composeRule.onNodeWithText("link=null").assertIsDisplayed()
     }
@@ -174,6 +217,7 @@ class YftNavigationSmokeTest {
         SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, value)
 
     private fun setShell(activeDownloads: () -> Int = { 0 }) {
+        val home = homeViewModel()
         composeRule.setContent {
             var themeMode by remember { mutableStateOf(ThemeMode.SYSTEM) }
             YftTheme(themeMode = themeMode) {
@@ -181,6 +225,7 @@ class YftNavigationSmokeTest {
                 YftAppShell(navController = navController, activeDownloads = activeDownloads()) {
                     TestNavHost(
                         navController = navController,
+                        home = home,
                         themeMode = themeMode,
                         onThemeModeChanged = { mode -> themeMode = mode },
                         modifier = it,
@@ -194,6 +239,7 @@ class YftNavigationSmokeTest {
 @Composable
 private fun TestNavHost(
     navController: NavHostController,
+    home: HomeViewModel,
     themeMode: ThemeMode,
     onThemeModeChanged: (ThemeMode) -> Unit,
     modifier: Modifier,
@@ -203,6 +249,14 @@ private fun TestNavHost(
         themeMode = themeMode,
         onThemeModeChanged = onThemeModeChanged,
         modifier = modifier,
+        homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary ->
+            HomeRoute(
+                onOpenBrowser = onOpenBrowser,
+                onOpenDetectedMedia = onOpenDetectedMedia,
+                onOpenLibrary = onOpenLibrary,
+                viewModel = home,
+            )
+        },
         browserContent = { onNavigateBack, _, _ ->
             Placeholder(YftDestination.BROWSER, onNavigateBack)
         },
@@ -242,3 +296,41 @@ private fun Placeholder(destination: YftDestination, onNavigateBack: () -> Unit)
         onNavigateBack = onNavigateBack,
     )
 }
+
+/**
+ * Home with fakes: links containing "found" have one video, anything else has none, the
+ * library is empty and the default sites are shown.
+ */
+private fun homeViewModel(): HomeViewModel = HomeViewModel(
+    inspector = { link ->
+        if ("found" in link) {
+            LinkInspection.Found(
+                pageUrl = link,
+                pageTitle = "Fixture page",
+                candidates = listOf(
+                    MediaCandidate(
+                        pageUrl = link,
+                        mediaUrl = "https://cdn.a.test/clip.mp4",
+                        sources = setOf(CandidateSource.DOM),
+                        kind = MediaKind.DIRECT,
+                    ),
+                ),
+            )
+        } else {
+            LinkInspection.NotFound(PromptboxStatus.NO_MEDIA_MESSAGE)
+        }
+    },
+    sitesRepository = object : HomeSitesRepository {
+        override val sites = MutableStateFlow(HomeSites.DEFAULTS)
+
+        override suspend fun update(transform: (List<HomeSite>) -> List<HomeSite>) {
+            sites.value = transform(sites.value)
+        }
+    },
+    library = object : LibraryRepository {
+        override suspend fun items(): List<LibraryItem> = emptyList()
+
+        override suspend fun delete(item: LibraryItem): Boolean = false
+    },
+    detectedMediaStore = DetectedMediaStore(),
+)

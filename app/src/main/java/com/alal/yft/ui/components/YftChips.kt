@@ -145,15 +145,15 @@ fun YftOutlinedChip(
     val color = YftTheme.colors.link
     Row(
         modifier = modifier
-            .heightIn(min = 36.dp)
+            .heightIn(min = 30.dp)
             .widthIn(min = 48.dp)
             .border(1.dp, color, YftShapes.pill)
-            .padding(horizontal = 14.dp, vertical = 6.dp),
+            .padding(horizontal = 12.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
-            YftIcon(icon = icon, contentDescription = null, tint = color, size = 18.dp)
+            YftIcon(icon = icon, contentDescription = null, tint = color, size = 16.dp)
         }
         Text(text = text, color = color, style = MaterialTheme.typography.labelLarge)
     }

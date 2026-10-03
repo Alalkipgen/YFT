@@ -14,7 +14,7 @@ import com.alal.yft.feature.about.AboutScreen
 import com.alal.yft.feature.browser.BrowserRoute
 import com.alal.yft.feature.detectedmedia.DetectedMediaRoute
 import com.alal.yft.feature.downloads.DownloadsRoute
-import com.alal.yft.feature.home.HomeScreen
+import com.alal.yft.feature.home.HomeRoute
 import com.alal.yft.feature.library.LibraryRoute
 import com.alal.yft.feature.preview.PreviewRoute
 import com.alal.yft.feature.settings.SettingsRoute
@@ -25,6 +25,17 @@ fun YftNavHost(
     themeMode: ThemeMode,
     onThemeModeChanged: (ThemeMode) -> Unit,
     modifier: Modifier = Modifier,
+    homeContent: @Composable (
+        onOpenBrowser: (link: String?) -> Unit,
+        onOpenDetectedMedia: () -> Unit,
+        onOpenLibrary: () -> Unit,
+    ) -> Unit = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary ->
+        HomeRoute(
+            onOpenBrowser = onOpenBrowser,
+            onOpenDetectedMedia = onOpenDetectedMedia,
+            onOpenLibrary = onOpenLibrary,
+        )
+    },
     browserContent: @Composable (
         onNavigateBack: () -> Unit,
         onOpenPreview: () -> Unit,
@@ -76,9 +87,14 @@ fun YftNavHost(
         modifier = modifier,
     ) {
         composable(YftDestination.HOME.route) {
-            HomeScreen(
-                onOpenDestination = navController::open,
-                onOpenLink = { link -> navController.navigate(browserRouteFor(link)) },
+            homeContent(
+                { link ->
+                    navController.navigate(
+                        if (link == null) YftDestination.BROWSER.route else browserRouteFor(link),
+                    )
+                },
+                { navController.navigate(YftDestination.DETECTED_MEDIA.route) },
+                { navController.navigateToTab(YftDestination.LIBRARY) },
             )
         }
         composable(
@@ -140,9 +156,4 @@ internal fun NavHostController.navigateToTab(destination: YftDestination) {
         launchSingleTop = true
         restoreState = true
     }
-}
-
-/** Opens a tab the way the bottom bar does, or pushes a full-screen destination. */
-internal fun NavHostController.open(destination: YftDestination) {
-    if (destination.isTopLevel) navigateToTab(destination) else navigate(destination.route)
 }

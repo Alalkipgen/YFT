@@ -57,7 +57,11 @@ sealed interface PromptboxStatus {
 
     data class Found(val count: Int) : PromptboxStatus
 
-    data class NotFound(val message: String = NO_MEDIA_MESSAGE) : PromptboxStatus
+    /** [canOpenInBrowser] is false when the address itself is unusable. */
+    data class NotFound(
+        val message: String = NO_MEDIA_MESSAGE,
+        val canOpenInBrowser: Boolean = true,
+    ) : PromptboxStatus
 
     companion object {
         const val NO_MEDIA_MESSAGE = "No downloadable media on this page"
@@ -122,7 +126,7 @@ fun YftPromptbox(
                 )
                 is PromptboxStatus.NotFound -> NotFoundRow(
                     message = status.message,
-                    onOpenInBrowser = onOpenInBrowser,
+                    onOpenInBrowser = onOpenInBrowser.takeIf { status.canOpenInBrowser },
                     onEdit = onEdit,
                 )
             }
@@ -145,7 +149,7 @@ private fun ClipboardSuggestion(onUseClipboard: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .background(colors.chip)
-            .padding(start = 18.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+            .padding(start = 14.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -186,8 +190,8 @@ private fun EditingRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 64.dp)
-            .padding(start = 18.dp, end = 8.dp),
+            .heightIn(min = ROW_HEIGHT)
+            .padding(start = 14.dp, end = 0.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         YftIcon(icon = YftIcons.Link, contentDescription = null, tint = colors.textPrimary)
@@ -196,7 +200,7 @@ private fun EditingRow(
             onValueChange = onTextChange,
             modifier = Modifier
                 .weight(1f)
-                .padding(horizontal = 12.dp)
+                .padding(horizontal = 10.dp)
                 .focusRequester(focusRequester)
                 .onFocusChanged { onFocusChanged(it.isFocused) }
                 .testTag("home-link"),
@@ -239,6 +243,7 @@ private fun EditingRow(
         YftCircleButton(
             icon = YftIcons.ArrowForward,
             contentDescription = "Find media",
+            size = 40.dp,
             onClick = {
                 if (text.isBlank()) focusRequester.requestFocus() else onSubmit()
             },
@@ -253,8 +258,8 @@ private fun SearchingRow(onCancelSearch: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 64.dp)
-            .padding(start = 18.dp, end = 8.dp),
+            .heightIn(min = ROW_HEIGHT)
+            .padding(start = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         YftIcon(icon = YftIcons.Link, contentDescription = null, tint = colors.textPrimary)
@@ -262,7 +267,7 @@ private fun SearchingRow(onCancelSearch: () -> Unit) {
             text = "Looking for media…",
             modifier = Modifier
                 .weight(1f)
-                .padding(horizontal = 12.dp)
+                .padding(horizontal = 10.dp)
                 .semantics { liveRegion = LiveRegionMode.Polite },
             color = colors.textPrimary,
             style = MaterialTheme.typography.bodyLarge,
@@ -270,7 +275,7 @@ private fun SearchingRow(onCancelSearch: () -> Unit) {
         Box(
             modifier = Modifier
                 .minimumInteractiveComponentSize()
-                .size(48.dp)
+                .size(40.dp)
                 .clip(CircleShape)
                 .background(colors.accent)
                 .clickable(role = Role.Button, onClick = onCancelSearch)
@@ -279,7 +284,7 @@ private fun SearchingRow(onCancelSearch: () -> Unit) {
             contentAlignment = Alignment.Center,
         ) {
             CircularProgressIndicator(
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(20.dp),
                 color = colors.onAccent,
                 strokeWidth = 2.5.dp,
                 trackColor = colors.onAccent.copy(alpha = 0.2f),
@@ -294,9 +299,9 @@ private fun FoundRow(count: Int, onView: () -> Unit, onEdit: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 64.dp)
+            .heightIn(min = ROW_HEIGHT)
             .clickable(onClickLabel = "Edit link", onClick = onEdit)
-            .padding(start = 18.dp, end = 8.dp)
+            .padding(start = 14.dp, end = 4.dp)
             .testTag("home-found"),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -319,13 +324,18 @@ private fun FoundRow(count: Int, onView: () -> Unit, onEdit: () -> Unit) {
 }
 
 @Composable
-private fun NotFoundRow(message: String, onOpenInBrowser: () -> Unit, onEdit: () -> Unit) {
+private fun NotFoundRow(message: String, onOpenInBrowser: (() -> Unit)?, onEdit: () -> Unit) {
     val colors = YftTheme.colors
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClickLabel = "Edit link", onClick = onEdit)
-            .padding(start = 18.dp, end = 8.dp, top = 14.dp, bottom = 4.dp)
+            .padding(
+                start = 14.dp,
+                end = 8.dp,
+                top = 12.dp,
+                bottom = if (onOpenInBrowser == null) 14.dp else 4.dp,
+            )
             .testTag("home-not-found"),
     ) {
         Row(
@@ -340,13 +350,18 @@ private fun NotFoundRow(message: String, onOpenInBrowser: () -> Unit, onEdit: ()
                 style = MaterialTheme.typography.bodyLarge,
             )
         }
-        YftTextButton(
-            text = "Open in browser",
-            onClick = onOpenInBrowser,
-            underline = true,
-            modifier = Modifier
-                .padding(start = 24.dp)
-                .testTag("home-open-in-browser"),
-        )
+        if (onOpenInBrowser != null) {
+            YftTextButton(
+                text = "Open in browser",
+                onClick = onOpenInBrowser,
+                underline = true,
+                modifier = Modifier
+                    .padding(start = 24.dp)
+                    .testTag("home-open-in-browser"),
+            )
+        }
     }
 }
+
+/** One Promptbox row: the design's 44dp field, raised to the 48dp touch target. */
+private val ROW_HEIGHT = 48.dp

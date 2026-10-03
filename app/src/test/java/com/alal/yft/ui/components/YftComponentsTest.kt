@@ -13,7 +13,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTouchHeightIsEqualTo
-import androidx.compose.ui.test.assertWidthIsAtLeast
+import androidx.compose.ui.test.assertTouchWidthIsEqualTo
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -131,9 +131,10 @@ class YftComponentsTest {
 
         composeRule.onNodeWithText("Paste a page or media link").assertIsDisplayed()
         composeRule.onNodeWithTag("home-link-clear").assertDoesNotExist()
+        // The arrow is drawn at 40dp like the design; its touch target stays 48dp.
         composeRule.onNodeWithTag("home-open-link")
-            .assertHeightIsAtLeast(48.dp)
-            .assertWidthIsAtLeast(48.dp)
+            .assertTouchHeightIsEqualTo(48.dp)
+            .assertTouchWidthIsEqualTo(48.dp)
             .performClick()
         assertEquals("a blank link is never submitted", 0, submitted)
 

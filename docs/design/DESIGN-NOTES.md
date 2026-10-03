@@ -147,3 +147,17 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
 4. **Text on Coral and Mint is Ink**, never white.
 5. The launcher label stays "Video Downloader" (the documented working name); the Home
    wordmark shows "YFT" as in the images.
+6. **Checking a link from Home.** The Promptbox looks for media without opening the browser:
+   a direct media or manifest link is probed, a page a site adapter supports goes through that
+   adapter, and any other page is fetched once *without* cookies or the browser session (YFT
+   user agent, at most 5 redirects, never HTTPS → HTTP, 2 MiB of markup, 25 s overall). The
+   markup is scanned for `<video>`/`<audio>`/`<source>`, `og:video`/`og:audio`,
+   `twitter:player:stream`, JSON-LD `contentUrl` and plain media addresses inside scripts.
+   Results go to the same memory-only Detected media list the browser fills, so **View** opens
+   it. Pages that need sign-in or build their player with scripts end in "No downloadable media
+   on this page" with **Open in browser**, which opens the same link in the full browser.
+7. **Paste** fills the field and waits, so the link can be checked first; **Use** on the
+   clipboard row fills the field and searches at once, as the Clipboard state implies.
+8. **Recent** shows the two newest Library items as "format · size": a saved file does not
+   record its resolution, so "720p" from the image is not invented. Until Task 7 adds local
+   thumbnails the cards use the gradient tile.
