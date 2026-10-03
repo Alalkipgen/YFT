@@ -14,6 +14,7 @@ on:
       - "scripts/ci-emulator-smoke.sh"
       - "scripts/ci-smoke-diagnostics.py"
       - "scripts/tests/test_ci_smoke_diagnostics.py"
+      - "scripts/tests/test_ci_emulator_smoke.py"
       - ".github/workflows/emulator-smoke.yml"
   workflow_dispatch:
 
@@ -49,7 +50,7 @@ jobs:
         run: |
           bash -n scripts/ci-emulator-smoke.sh
           PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
-            -s scripts/tests -p test_ci_smoke_diagnostics.py -v
+            -s scripts/tests -p 'test_ci_*smoke*.py' -v
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \

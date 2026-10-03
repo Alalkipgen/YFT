@@ -16,7 +16,7 @@
   empty browser hides the address bar; P3 every page load in the browser closes the app; P4 YouTube
   fails with a sign-in message; P5 a TikTok video is found but the download fails. Causes with
   evidence: FIX_PLAN §4 (F1–F8).
-- **Next action — agent:** T02 implementation is locally green; verify its first CI emulator run
+- **Next action — agent:** T02's collector repair is locally green; verify its next CI emulator run
   ([`prompts/T02-ci-emulator-smoke.md`](prompts/T02-ci-emulator-smoke.md)),
   or [`prompts/00_NEXT_TASK.md`](prompts/00_NEXT_TASK.md) for whatever is next.
 - **Next action — owner:** answer D1 (clipboard check on open), D2 (YouTube strategy A or B) and D3
@@ -28,8 +28,11 @@
 - **T01 CI:** `7179637` passed the full checkpoint workflow:
   https://github.com/Alalkipgen/YFT/actions/runs/37139803672 (`yft-debug-apk`).
 - **T02 implementation:** instrumentation APK compiled; app 386 tests, 0 failures, lint 0 errors
-  (95 warnings); diagnostic tests 6/6 and workflow/collector lint pass. First emulator result
-  still pending; keep T02 IN PROGRESS until green and update F2. Artifact: `yft-emulator-smoke`.
+  (95 warnings); diagnostic/collector tests 10/10 and workflow/collector lint pass.
+  First emulator run on `8151813` passed 3 tests with 0 fatal exceptions but failed collection:
+  https://github.com/Alalkipgen/YFT/actions/runs/37141758594. Keep APKs installed until pull,
+  then uninstall; regression FAILED on the old collector, PASSED on the repair.
+  Keep T02 IN PROGRESS until the repaired CI is green; artifact: `yft-emulator-smoke`.
 
 ## Known limitations (beta.2)
 

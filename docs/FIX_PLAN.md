@@ -238,11 +238,16 @@ Phase 8 tasks in plan order, with a checkpoint and CI check per task. `ALLOW_PUS
   reproduced without a device; T02's emulator screenshot of the empty browser decides it.
 - T03's fix does not depend on the exact cause: no WebView until a page is opened, a Compose start
   page instead, and a top bar drawn above and outside the WebView.
-- T02 implementation (2026-10-03): the real-activity instrumentation APK compiles locally;
-  the first API 34 emulator result is PENDING. The job captures `01-browser-empty.png` and
-  emits address/WebView bounds from a temporary UIAutomator hierarchy (then deletes it).
-  Semantics/bounds alone do not prove that pixels are unobscured; do not claim visual
-  confirmation without reviewing the screenshot.
+- T02 first API 34 run (2026-10-03, `8151813`):
+  https://github.com/Alalkipgen/YFT/actions/runs/37141758594 — all 3 instrumentation tests
+  passed and logcat had 0 `FATAL EXCEPTION`; the empty-page address/close display assertions
+  passed. The job was RED because all three screenshot files were missing after AGP's APK
+  cleanup. The repaired collector keeps APKs installed until pull, checks pull failures,
+  then uninstalls them. A regression fails on the old collector and passes on the repair;
+  the repaired emulator run is PENDING.
+- The job extracts address/WebView bounds from a temporary UIAutomator hierarchy (then deletes
+  it). Semantics/bounds alone do not prove that pixels are unobscured; visual review of the
+  screenshot is still required to confirm/reject the native-surface hypothesis.
 
 ### F3 — Facebook asks to sign in for a public reel (P1) — confirmed live
 
@@ -456,6 +461,9 @@ browser test tags (`browser-address`, `browser-close`, `browser-surface`, `brows
    `api-level: 34`, `target: google_apis`, `arch: x86_64`, `disable-animations: true` and the script
    `./gradlew :app:connectedDebugAndroidTest`. Collect screenshots and logcat **inside** the
    runner's script before it shuts down the emulator (`scripts/ci-emulator-smoke.sh`).
+   Set `-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true` for this command:
+   otherwise APK cleanup removes the app's external files before `adb pull`. Uninstall the
+   test and debug APKs after collection; treat a failed pull as an error, not a silent skip.
    Sanitize logcat and text/XML test reports before upload; never upload the raw log or binary
    result payload. Cache the clean AVD before installing the app, not test browsing data or adb keys.
 4. Upload the screenshots, `logcat.txt` and the test report as an artifact (for the owner). Agents

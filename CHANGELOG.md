@@ -16,6 +16,9 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Fixed
 
+- CI emulator screenshot collection now keeps the test APKs installed until `adb pull`
+  finishes, then uninstalls them. Missing captures and pull/logcat failures remain errors;
+  a collector regression reproduces the old post-test external-file deletion.
 - Browser page-load crash caused by background request interception reading `WebView.url` and
   `WebSettings`. Navigation now supplies an atomic page-URL snapshot and the configured
   User-Agent is cached on the main thread. Concurrent observations are serialized with

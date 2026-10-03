@@ -7,25 +7,36 @@ cd "$root" || exit 1
 temporary="${RUNNER_TEMP:-/tmp}"
 output="$temporary/yft-smoke"
 raw="$temporary/yft-smoke-raw-logcat.txt"
-mkdir -p "$output"
+application_id="com.alal.yft.debug"
+device_screenshots="/sdcard/Android/data/$application_id/files/smoke-screenshots"
+mkdir -p "$output/screenshots" || exit 1
 adb logcat -c || true
-adb shell rm -rf /sdcard/Android/data/com.alal.yft.debug/files/smoke-screenshots || true
+adb shell rm -rf "$device_screenshots" || true
 
-./gradlew --no-daemon :app:connectedDebugAndroidTest
+# AGP normally uninstalls the APKs, deleting their external files before adb can pull them.
+# Keep them installed only until diagnostics are collected; the AVD cache is already clean.
+./gradlew --no-daemon -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true \
+  :app:connectedDebugAndroidTest
 test_result=$?
 
 adb logcat -d >"$raw"
 log_result=$?
-adb pull /sdcard/Android/data/com.alal.yft.debug/files/smoke-screenshots \
-  "$output/screenshots" >/dev/null 2>&1 || true
+adb pull "$device_screenshots/." "$output/screenshots"
+pull_result=$?
 python3 scripts/ci-smoke-diagnostics.py --raw-log "$raw" --output-dir "$output" \
   --reports app/build/reports/androidTests/connected \
   --reports app/build/outputs/androidTest-results/connected
 diagnostic_result=$?
 
+adb uninstall "$application_id.test" >/dev/null 2>&1 || true
+adb uninstall "$application_id" >/dev/null 2>&1 || true
+if [[ "$pull_result" -ne 0 ]]; then
+  echo '::error::Could not collect emulator screenshots'
+fi
 if [[ "$test_result" -ne 0 ]]; then exit "$test_result"; fi
 if [[ "$log_result" -ne 0 ]]; then
   echo '::error::Could not capture emulator logcat'
   exit "$log_result"
 fi
+if [[ "$pull_result" -ne 0 ]]; then exit "$pull_result"; fi
 exit "$diagnostic_result"
