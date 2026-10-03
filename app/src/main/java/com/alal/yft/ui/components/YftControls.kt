@@ -19,6 +19,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
@@ -103,7 +107,10 @@ fun YftProgressBar(
     }
 }
 
-/** − value + stepper, e.g. "Downloads at the same time". */
+/**
+ * − value + stepper, e.g. "Downloads at the same time". Both buttons keep 48dp touch targets;
+ * the grey pill behind them is drawn smaller than the targets, as compact as the design draws it.
+ */
 @Composable
 fun YftStepper(
     value: Int,
@@ -116,10 +123,19 @@ fun YftStepper(
     testTagPrefix: String? = null,
 ) {
     val colors = YftTheme.colors
+    val pill = colors.chip
     Row(
-        modifier = modifier
-            .clip(YftShapes.pill)
-            .background(colors.chip),
+        modifier = modifier.drawBehind {
+            val insetX = STEPPER_PILL_INSET_X.toPx()
+            val insetY = STEPPER_PILL_INSET_Y.toPx()
+            val height = size.height - insetY * 2
+            drawRoundRect(
+                color = pill,
+                topLeft = Offset(insetX, insetY),
+                size = Size(size.width - insetX * 2, height),
+                cornerRadius = CornerRadius(height / 2),
+            )
+        },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         YftIconButton(
@@ -128,14 +144,16 @@ fun YftStepper(
             onClick = { onValueChange(value - 1) },
             enabled = value > range.first,
             modifier = testTagPrefix?.let { Modifier.testTag("$it-decrease") } ?: Modifier,
+            iconSize = 20.dp,
         )
         Text(
             text = value.toString(),
             modifier = Modifier
-                .widthIn(min = 20.dp)
-                .semantics { contentDescription = valueDescription },
+                .widthIn(min = 16.dp)
+                .semantics { contentDescription = valueDescription }
+                .then(testTagPrefix?.let { Modifier.testTag("$it-value") } ?: Modifier),
             color = colors.textPrimary,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.labelLarge,
             textAlign = TextAlign.Center,
         )
         YftIconButton(
@@ -144,9 +162,13 @@ fun YftStepper(
             onClick = { onValueChange(value + 1) },
             enabled = value < range.last,
             modifier = testTagPrefix?.let { Modifier.testTag("$it-increase") } ?: Modifier,
+            iconSize = 20.dp,
         )
     }
 }
+
+private val STEPPER_PILL_INSET_X = 6.dp
+private val STEPPER_PILL_INSET_Y = 8.dp
 
 /**
  * Round selection mark for list rows (quality choices): a filled Deep Teal (Mint on Night)

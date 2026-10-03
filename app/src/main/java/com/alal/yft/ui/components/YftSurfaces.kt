@@ -23,10 +23,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import com.alal.yft.ui.theme.YftShapes
 import com.alal.yft.ui.theme.YftTheme
 
@@ -143,16 +145,22 @@ fun YftSectionHeader(
     }
 }
 
-/** Uppercase group label above a settings card (APPEARANCE, DOWNLOADS…). */
+/**
+ * Small uppercase group label above a settings card (APPEARANCE, DOWNLOADS…), lined up with the
+ * row icons inside the card. TalkBack reads it as a heading in its normal case.
+ */
 @Composable
 fun YftGroupLabel(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text.uppercase(),
         modifier = modifier
-            .padding(start = 8.dp, top = 16.dp, bottom = 8.dp)
-            .semantics { heading() },
+            .padding(start = 12.dp, top = 14.dp, bottom = 6.dp)
+            .semantics {
+                heading()
+                contentDescription = text
+            },
         color = YftTheme.colors.textSecondary,
-        style = MaterialTheme.typography.labelLarge,
+        style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.04.em),
     )
 }
 

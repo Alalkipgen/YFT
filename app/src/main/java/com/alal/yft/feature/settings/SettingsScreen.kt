@@ -1,54 +1,78 @@
 package com.alal.yft.feature.settings
 
 import android.os.Build
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.alal.yft.BuildConfig
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
-import com.alal.yft.ui.components.YftTopBar
+import com.alal.yft.ui.components.YftCard
+import com.alal.yft.ui.components.YftDivider
+import com.alal.yft.ui.components.YftGroupLabel
+import com.alal.yft.ui.components.YftIcon
+import com.alal.yft.ui.components.YftRadioMark
+import com.alal.yft.ui.components.YftScreenHeader
+import com.alal.yft.ui.components.YftSegmentedControl
+import com.alal.yft.ui.components.YftStepper
+import com.alal.yft.ui.components.YftSwitch
+import com.alal.yft.ui.components.YftTextButton
+import com.alal.yft.ui.theme.YftIcons
+import com.alal.yft.ui.theme.YftTheme
 
 @Composable
 fun SettingsRoute(
     themeMode: ThemeMode,
     onThemeModeChanged: (ThemeMode) -> Unit,
-    onNavigateBack: () -> Unit,
     onOpenAbout: () -> Unit = {},
+    onOpenLicenses: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -58,11 +82,19 @@ fun SettingsRoute(
         sharedDownloadsSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q,
         onAction = viewModel::onAction,
         onThemeModeChanged = onThemeModeChanged,
-        onNavigateBack = onNavigateBack,
         onOpenAbout = onOpenAbout,
+        onOpenLicenses = onOpenLicenses,
     )
 }
 
+/** The list a choice dialog offers; Save files to and Preferred quality open one each. */
+private enum class SettingsPicker { LOCATION, QUALITY }
+
+/**
+ * The Settings tab (`06`): APPEARANCE, DOWNLOADS, PRIVACY and ABOUT cards with one row per
+ * setting, and the "No ads · No tracking · No account" promise at the end. As a tab it has no
+ * back arrow.
+ */
 @Composable
 fun SettingsScreen(
     state: SettingsUiState,
@@ -70,50 +102,114 @@ fun SettingsScreen(
     sharedDownloadsSupported: Boolean,
     onAction: (SettingsAction) -> Unit,
     onThemeModeChanged: (ThemeMode) -> Unit,
-    onNavigateBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    versionName: String = BuildConfig.VERSION_NAME,
     onOpenAbout: () -> Unit = {},
+    onOpenLicenses: () -> Unit = {},
 ) {
+    val colors = YftTheme.colors
     val snackbar = remember { SnackbarHostState() }
+    var picker by rememberSaveable { mutableStateOf<SettingsPicker?>(null) }
     LaunchedEffect(state.message) {
         val message = state.message ?: return@LaunchedEffect
         snackbar.showSnackbar(message)
         onAction(SettingsAction.MessageShown)
     }
+    // Android 9 and older cannot add files to the shared Downloads folder without a permission
+    // YFT does not ask for, so they always save to app storage.
+    val location = if (sharedDownloadsSupported) {
+        state.download.location
+    } else {
+        DownloadLocation.APP_STORAGE
+    }
 
-    Scaffold(
-        topBar = {
-            YftTopBar(
-                title = "Settings",
-                canNavigateBack = true,
-                onNavigateBack = onNavigateBack,
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbar) },
-    ) { padding ->
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(colors.background)
+            .windowInsetsPadding(WindowInsets.statusBars),
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
                 .verticalScroll(rememberScrollState())
                 .testTag("settings-list")
-                .padding(vertical = 8.dp),
+                .padding(bottom = 16.dp),
         ) {
-            DownloadSection(state.download, sharedDownloadsSupported, onAction)
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            AppearanceSection(themeMode, onThemeModeChanged)
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            PrivacySection(state, onAction)
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            SectionHeader("About")
-            ActionRow(
-                title = "About YFT",
-                summary = "Version, privacy, product scope and open-source licenses.",
-                actionLabel = "Open",
-                enabled = true,
-                tag = "settings-open-about",
-                onClick = onOpenAbout,
-            )
+            YftScreenHeader(title = "Settings")
+            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                SettingsGroup(title = "Appearance") {
+                    ThemeRow(themeMode = themeMode, onThemeModeChanged = onThemeModeChanged)
+                }
+                SettingsGroup(title = "Downloads") {
+                    DownloadRows(
+                        preferences = state.download,
+                        location = location,
+                        onAction = onAction,
+                        onPick = { picker = it },
+                    )
+                }
+                SettingsGroup(title = "Privacy") {
+                    PrivacyRows(state = state, onAction = onAction)
+                }
+                SettingsGroup(title = "About") {
+                    ValueRow(
+                        icon = YftIcons.Info,
+                        title = "Version",
+                        value = versionName,
+                        tag = "settings-open-about",
+                        onClickLabel = "Open About",
+                        onClick = onOpenAbout,
+                    )
+                    RowDivider()
+                    ValueRow(
+                        icon = YftIcons.Document,
+                        title = "Licenses",
+                        tag = "settings-open-licenses",
+                        onClick = onOpenLicenses,
+                    )
+                }
+                Footer()
+            }
         }
+        SnackbarHost(hostState = snackbar, modifier = Modifier.align(Alignment.BottomCenter))
+    }
+
+    when (picker) {
+        SettingsPicker.LOCATION -> ChoiceDialog(
+            title = "Save files to",
+            description = null,
+            options = DownloadLocation.entries,
+            selected = location,
+            label = { it.label() },
+            summary = { it.summary(sharedDownloadsSupported) },
+            isEnabled = { sharedDownloadsSupported || it != DownloadLocation.SHARED_DOWNLOADS },
+            tag = { "location-${it.name}" },
+            onSelect = {
+                picker = null
+                onAction(SettingsAction.SetLocation(it))
+            },
+            onDismiss = { picker = null },
+            modifier = Modifier.testTag("location-dialog"),
+        )
+
+        SettingsPicker.QUALITY -> ChoiceDialog(
+            title = "Preferred quality",
+            description = "Download as starts on this quality when a page offers it.",
+            options = QualityPreference.entries,
+            selected = state.download.defaultQuality,
+            label = { it.label() },
+            summary = { null },
+            tag = { "quality-${it.name}" },
+            onSelect = {
+                picker = null
+                onAction(SettingsAction.SetQuality(it))
+            },
+            onDismiss = { picker = null },
+            modifier = Modifier.testTag("quality-dialog"),
+        )
+
+        null -> Unit
     }
 
     state.confirmation?.let { confirmation ->
@@ -127,201 +223,410 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun DownloadSection(
+private fun SettingsGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
+    YftGroupLabel(text = title)
+    YftCard(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(0.dp),
+        content = content,
+    )
+}
+
+@Composable
+private fun ThemeRow(themeMode: ThemeMode, onThemeModeChanged: (ThemeMode) -> Unit) {
+    val colors = YftTheme.colors
+    BesideOrBelow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = THEME_ROW_MIN_HEIGHT)
+            .padding(horizontal = ROW_PADDING),
+        belowIndent = ICON_SIZE + ICON_GAP,
+        label = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                YftIcon(
+                    icon = YftIcons.Theme,
+                    contentDescription = null,
+                    tint = colors.icon,
+                    size = ICON_SIZE,
+                )
+                Text(
+                    text = "Theme",
+                    modifier = Modifier.padding(
+                        start = ICON_GAP,
+                        end = 8.dp,
+                        top = 12.dp,
+                        bottom = 12.dp,
+                    ),
+                    color = colors.textPrimary,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        },
+        control = {
+            YftSegmentedControl(
+                options = ThemeMode.entries,
+                selected = themeMode,
+                onSelect = onThemeModeChanged,
+                label = { it.label() },
+                fillWidth = false,
+                testTag = { "theme-${it.name}" },
+                compact = true,
+            )
+        },
+    )
+}
+
+@Composable
+private fun DownloadRows(
     preferences: DownloadPreferences,
-    sharedDownloadsSupported: Boolean,
+    location: DownloadLocation,
     onAction: (SettingsAction) -> Unit,
+    onPick: (SettingsPicker) -> Unit,
 ) {
-    SectionHeader("Downloads")
-    GroupLabel("Quality selected first in Preview")
-    Column(modifier = Modifier.selectableGroup()) {
-        QualityPreference.entries.forEach { quality ->
-            ChoiceRow(
-                title = quality.label(),
-                summary = null,
-                selected = preferences.defaultQuality == quality,
-                enabled = true,
-                tag = "quality-${quality.name}",
-                onSelect = { onAction(SettingsAction.SetQuality(quality)) },
-            )
-        }
-    }
-
-    GroupLabel("Save finished files to")
-    Column(modifier = Modifier.selectableGroup()) {
-        val effective = if (sharedDownloadsSupported) {
-            preferences.location
-        } else {
-            DownloadLocation.APP_STORAGE
-        }
-        DownloadLocation.entries.forEach { location ->
-            val available = sharedDownloadsSupported ||
-                location != DownloadLocation.SHARED_DOWNLOADS
-            ChoiceRow(
-                title = location.label(),
-                summary = if (available) {
-                    location.summary()
-                } else {
-                    "Needs Android 10 or newer. This device saves to app storage."
-                },
-                selected = effective == location,
-                enabled = available,
-                tag = "location-${location.name}",
-                onSelect = { onAction(SettingsAction.SetLocation(location)) },
-            )
-        }
-    }
-
-    ToggleRow(
+    ValueRow(
+        icon = YftIcons.Folder,
+        title = "Save files to",
+        value = location.label(),
+        tag = "settings-location",
+        onClick = { onPick(SettingsPicker.LOCATION) },
+    )
+    RowDivider()
+    SwitchRow(
+        icon = YftIcons.Wifi,
         title = "Download over Wi-Fi only",
-        summary = "Transfers wait for Wi-Fi or another unmetered network.",
         checked = preferences.unmeteredOnly,
-        enabled = true,
         tag = "unmetered-only",
         onToggle = { onAction(SettingsAction.SetUnmeteredOnly(it)) },
     )
-    ToggleRow(
+    RowDivider()
+    // While downloads wait for Wi-Fi they never use mobile data, so the question is moot; the
+    // switch keeps its own value for when Wi-Fi only is turned off again.
+    SwitchRow(
+        icon = YftIcons.CellTower,
         title = "Ask before using mobile data",
-        summary = if (preferences.unmeteredOnly) {
-            "Not needed while downloads wait for Wi-Fi."
-        } else {
-            "Confirm each download that starts on a metered network."
-        },
-        checked = preferences.confirmOnMeteredNetwork && !preferences.unmeteredOnly,
-        enabled = !preferences.unmeteredOnly,
+        checked = preferences.confirmOnMeteredNetwork,
         tag = "confirm-metered",
+        enabled = !preferences.unmeteredOnly,
+        supporting = if (preferences.unmeteredOnly) "Not needed while Wi-Fi only is on" else null,
         onToggle = { onAction(SettingsAction.SetConfirmMetered(it)) },
     )
-
-    GroupLabel("Downloads at the same time")
-    Row(
-        modifier = Modifier
-            .padding(horizontal = 16.dp)
-            .selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    RowDivider()
+    SettingsRow(
+        icon = YftIcons.Stacks,
+        title = "Downloads at the same time",
+        // The stepper draws its pill inside its touch targets, so less end padding lines the
+        // pill up with the switches above.
+        endPadding = ROW_PADDING - 6.dp,
     ) {
-        DownloadPreferences.CONCURRENT_DOWNLOAD_RANGE.forEach { count ->
-            FilterChip(
-                selected = preferences.maxConcurrentDownloads == count,
-                onClick = { onAction(SettingsAction.SetConcurrency(count)) },
-                label = { Text(text = count.toString()) },
-                modifier = Modifier.testTag("concurrency-$count"),
-            )
-        }
+        YftStepper(
+            value = preferences.maxConcurrentDownloads,
+            range = DownloadPreferences.CONCURRENT_DOWNLOAD_RANGE,
+            onValueChange = { onAction(SettingsAction.SetConcurrency(it)) },
+            valueDescription = "${preferences.maxConcurrentDownloads} at the same time",
+            decrementLabel = "Fewer downloads at the same time",
+            incrementLabel = "More downloads at the same time",
+            testTagPrefix = "concurrency",
+        )
     }
-}
-
-@Composable
-private fun AppearanceSection(
-    themeMode: ThemeMode,
-    onThemeModeChanged: (ThemeMode) -> Unit,
-) {
-    SectionHeader("Appearance")
-    Column(modifier = Modifier.selectableGroup()) {
-        ThemeMode.entries.forEach { mode ->
-            ChoiceRow(
-                title = mode.label(),
-                summary = null,
-                selected = themeMode == mode,
-                enabled = true,
-                tag = "theme-${mode.name}",
-                onSelect = { onThemeModeChanged(mode) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun PrivacySection(
-    state: SettingsUiState,
-    onAction: (SettingsAction) -> Unit,
-) {
-    SectionHeader("Privacy")
-    Text(
-        text = "YFT has no ads, analytics, accounts or crash reporting. It only contacts the " +
-            "sites you open and the media servers they point to.",
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    RowDivider()
+    ValueRow(
+        icon = YftIcons.Star,
+        title = "Preferred quality",
+        value = preferences.defaultQuality.label(),
+        tag = "settings-quality",
+        onClick = { onPick(SettingsPicker.QUALITY) },
     )
-    ActionRow(
+}
+
+@Composable
+private fun PrivacyRows(state: SettingsUiState, onAction: (SettingsAction) -> Unit) {
+    ValueRow(
+        icon = YftIcons.Delete,
         title = "Clear browsing data",
-        summary = "Cookies, site storage, cache, saved sign-ins and the detected media list.",
-        actionLabel = "Clear",
-        enabled = !state.working,
         tag = "clear-browsing-data",
+        enabled = !state.working,
         onClick = { onAction(SettingsAction.Request(SettingsConfirmation.CLEAR_BROWSING_DATA)) },
     )
-    ActionRow(
+    RowDivider()
+    ValueRow(
+        icon = YftIcons.History,
         title = "Clear download history",
-        summary = when (state.finishedDownloads) {
-            0 -> "No finished downloads in the list."
-            1 -> "1 finished download in the list. Saved files are kept."
-            else -> "${state.finishedDownloads} finished downloads in the list. " +
-                "Saved files are kept."
-        },
-        actionLabel = "Clear",
-        enabled = !state.working && state.finishedDownloads > 0,
         tag = "clear-download-history",
+        enabled = !state.working && state.finishedDownloads > 0,
+        supporting = if (state.finishedDownloads == 0) NOTHING_TO_CLEAR else null,
         onClick = {
             onAction(SettingsAction.Request(SettingsConfirmation.CLEAR_DOWNLOAD_HISTORY))
         },
     )
 }
 
+/** Leading icon, title (and an optional grey line under it) and a trailing control. */
 @Composable
-private fun ConfirmationDialog(
-    confirmation: SettingsConfirmation,
-    finishedDownloads: Int,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
+private fun SettingsRow(
+    @DrawableRes icon: Int,
+    title: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    supporting: String? = null,
+    endPadding: Dp = ROW_PADDING,
+    trailing: @Composable RowScope.() -> Unit = {},
 ) {
-    val (title, body) = when (confirmation) {
-        SettingsConfirmation.CLEAR_BROWSING_DATA ->
-            "Clear browsing data?" to "You will be signed out of every site opened in YFT. " +
-                "Downloads and settings are not affected."
-
-        SettingsConfirmation.CLEAR_DOWNLOAD_HISTORY ->
-            "Clear download history?" to "Removes $finishedDownloads finished " +
-                "${if (finishedDownloads == 1) "entry" else "entries"} from Downloads. " +
-                "Files you already saved stay on the device."
+    val colors = YftTheme.colors
+    val alpha = if (enabled) 1f else DISABLED_ALPHA
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = ROW_MIN_HEIGHT)
+            .padding(start = ROW_PADDING, end = endPadding),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        YftIcon(
+            icon = icon,
+            contentDescription = null,
+            tint = colors.icon.copy(alpha = alpha),
+            size = ICON_SIZE,
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = ICON_GAP, end = 8.dp, top = 12.dp, bottom = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = title,
+                color = colors.textPrimary.copy(alpha = alpha),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            if (supporting != null) {
+                Text(
+                    text = supporting,
+                    color = colors.textSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+        trailing()
     }
+}
+
+/** A row that opens something: its current value, if any, and a chevron. */
+@Composable
+private fun ValueRow(
+    @DrawableRes icon: Int,
+    title: String,
+    tag: String,
+    onClick: () -> Unit,
+    value: String? = null,
+    enabled: Boolean = true,
+    supporting: String? = null,
+    onClickLabel: String? = null,
+) {
+    val colors = YftTheme.colors
+    val alpha = if (enabled) 1f else DISABLED_ALPHA
+    SettingsRow(
+        icon = icon,
+        title = title,
+        modifier = Modifier
+            .clickable(
+                enabled = enabled,
+                onClickLabel = onClickLabel,
+                role = Role.Button,
+                onClick = onClick,
+            )
+            .testTag(tag),
+        enabled = enabled,
+        supporting = supporting,
+        // The chevron glyph sits inside its box, so a smaller end padding lines it up with the
+        // switches.
+        endPadding = ROW_PADDING - 6.dp,
+    ) {
+        if (value != null) {
+            Text(
+                text = value,
+                modifier = Modifier
+                    .widthIn(max = VALUE_MAX_WIDTH)
+                    .padding(end = 2.dp),
+                color = colors.textPrimary.copy(alpha = alpha),
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.End,
+            )
+        }
+        YftIcon(
+            icon = YftIcons.ChevronRight,
+            contentDescription = null,
+            tint = colors.textSecondary.copy(alpha = alpha),
+            size = ICON_SIZE,
+        )
+    }
+}
+
+@Composable
+private fun SwitchRow(
+    @DrawableRes icon: Int,
+    title: String,
+    checked: Boolean,
+    tag: String,
+    onToggle: (Boolean) -> Unit,
+    enabled: Boolean = true,
+    supporting: String? = null,
+) {
+    SettingsRow(
+        icon = icon,
+        title = title,
+        modifier = Modifier
+            .toggleable(
+                value = checked,
+                enabled = enabled,
+                role = Role.Switch,
+                onValueChange = onToggle,
+            )
+            .testTag(tag),
+        enabled = enabled,
+        supporting = supporting,
+    ) {
+        YftSwitch(checked = checked, onCheckedChange = null, enabled = enabled)
+    }
+}
+
+/** Divider between rows, starting under the titles as drawn. */
+@Composable
+private fun RowDivider() {
+    YftDivider(modifier = Modifier.padding(start = ROW_PADDING + ICON_SIZE + ICON_GAP))
+}
+
+/**
+ * Puts [control] beside [label] when both fit on one line and under it (lined up with the
+ * label's text) when they do not, e.g. with large fonts on a narrow phone.
+ */
+@Composable
+private fun BesideOrBelow(
+    label: @Composable () -> Unit,
+    control: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    belowIndent: Dp = 0.dp,
+) {
+    Layout(
+        content = {
+            label()
+            control()
+        },
+        modifier = modifier,
+    ) { measurables, constraints ->
+        val (labelPart, controlPart) = measurables
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val width = if (constraints.hasBoundedWidth) constraints.maxWidth else Constraints.Infinity
+        val beside = !constraints.hasBoundedWidth ||
+            labelPart.maxIntrinsicWidth(Constraints.Infinity) +
+            controlPart.maxIntrinsicWidth(Constraints.Infinity) <= width
+        if (beside) {
+            val control = controlPart.measure(loose)
+            val label = labelPart.measure(
+                loose.copy(maxWidth = (loose.maxWidth - control.width).coerceAtLeast(0)),
+            )
+            val layoutWidth = if (constraints.hasBoundedWidth) {
+                width
+            } else {
+                label.width + control.width
+            }
+            val height = maxOf(label.height, control.height, constraints.minHeight)
+            layout(layoutWidth, height) {
+                label.placeRelative(0, (height - label.height) / 2)
+                control.placeRelative(layoutWidth - control.width, (height - control.height) / 2)
+            }
+        } else {
+            val indent = belowIndent.roundToPx()
+            val label = labelPart.measure(loose)
+            val control = controlPart.measure(
+                loose.copy(maxWidth = (width - indent).coerceAtLeast(0)),
+            )
+            val height = maxOf(label.height + control.height, constraints.minHeight)
+            layout(width, height) {
+                label.placeRelative(0, 0)
+                control.placeRelative(indent, label.height)
+            }
+        }
+    }
+}
+
+@Composable
+private fun Footer() {
+    val colors = YftTheme.colors
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp, bottom = 8.dp)
+            .semantics(mergeDescendants = true) {}
+            .testTag("settings-footer"),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        YftIcon(
+            icon = YftIcons.Shield,
+            contentDescription = null,
+            tint = colors.textSecondary,
+            size = 14.dp,
+        )
+        Text(
+            text = "No ads · No tracking · No account",
+            modifier = Modifier.padding(start = 6.dp),
+            color = colors.textSecondary,
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
+}
+
+/** A single choice that applies as soon as it is tapped, like the platform's list settings. */
+@Composable
+private fun <T> ChoiceDialog(
+    title: String,
+    description: String?,
+    options: List<T>,
+    selected: T,
+    label: (T) -> String,
+    summary: (T) -> String?,
+    tag: (T) -> String,
+    onSelect: (T) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    isEnabled: (T) -> Boolean = { true },
+) {
+    val colors = YftTheme.colors
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(text = title) },
-        text = { Text(text = body) },
         confirmButton = {
-            TextButton(onClick = onConfirm, modifier = Modifier.testTag("confirm-action")) {
-                Text(text = "Clear")
+            YftTextButton(
+                text = "Cancel",
+                onClick = onDismiss,
+                modifier = Modifier.testTag("choice-cancel"),
+            )
+        },
+        modifier = modifier,
+        title = { Text(text = title, color = colors.textPrimary) },
+        text = {
+            Column {
+                if (description != null) {
+                    Text(
+                        text = description,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                        color = colors.textSecondary,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                Column(modifier = Modifier.selectableGroup()) {
+                    options.forEach { option ->
+                        ChoiceRow(
+                            title = label(option),
+                            summary = summary(option),
+                            selected = option == selected,
+                            enabled = isEnabled(option),
+                            tag = tag(option),
+                            onSelect = { onSelect(option) },
+                        )
+                    }
+                }
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.testTag("dismiss-action")) {
-                Text(text = "Cancel")
-            }
-        },
-        modifier = Modifier.testTag("confirm-dialog"),
-    )
-}
-
-@Composable
-private fun SectionHeader(text: String) {
-    Text(
-        text = text,
-        modifier = Modifier
-            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp)
-            .semantics { heading() },
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.primary,
-    )
-}
-
-@Composable
-private fun GroupLabel(text: String) {
-    Text(
-        text = text,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
-        style = MaterialTheme.typography.labelLarge,
+        containerColor = colors.card,
     )
 }
 
@@ -334,9 +639,12 @@ private fun ChoiceRow(
     tag: String,
     onSelect: () -> Unit,
 ) {
+    val colors = YftTheme.colors
+    val alpha = if (enabled) 1f else DISABLED_ALPHA
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 48.dp)
             .selectable(
                 selected = selected,
                 enabled = enabled,
@@ -344,94 +652,82 @@ private fun ChoiceRow(
                 onClick = onSelect,
             )
             .testTag(tag)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        RadioButton(selected = selected, onClick = null, enabled = enabled)
-        RowText(title = title, summary = summary, enabled = enabled)
-    }
-}
-
-@Composable
-private fun ToggleRow(
-    title: String,
-    summary: String,
-    checked: Boolean,
-    enabled: Boolean,
-    tag: String,
-    onToggle: (Boolean) -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .toggleable(
-                value = checked,
-                enabled = enabled,
-                role = Role.Switch,
-                onValueChange = onToggle,
-            )
-            .testTag(tag)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            RowText(title = title, summary = summary, enabled = enabled)
-        }
-        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
-    }
-}
-
-@Composable
-private fun ActionRow(
-    title: String,
-    summary: String,
-    actionLabel: String,
-    enabled: Boolean,
-    tag: String,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            RowText(title = title, summary = summary, enabled = true)
-        }
-        OutlinedButton(
-            onClick = onClick,
-            enabled = enabled,
-            modifier = Modifier.testTag(tag),
+        YftRadioMark(selected = selected, modifier = Modifier.alpha(alpha))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            Text(text = actionLabel)
+            Text(
+                text = title,
+                color = colors.textPrimary.copy(alpha = alpha),
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            if (summary != null) {
+                Text(
+                    text = summary,
+                    color = colors.textSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun RowText(title: String, summary: String?, enabled: Boolean) {
-    val alpha = if (enabled) 1f else DISABLED_ALPHA
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
-        )
-        if (summary != null) {
-            Text(
-                text = summary,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
-            )
-        }
+private fun ConfirmationDialog(
+    confirmation: SettingsConfirmation,
+    finishedDownloads: Int,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val colors = YftTheme.colors
+    val (title, body) = when (confirmation) {
+        SettingsConfirmation.CLEAR_BROWSING_DATA ->
+            "Clear browsing data?" to "Removes cookies, site storage, the cache, saved " +
+                "sign-ins and the found media list. You will be signed out of every site " +
+                "opened in YFT. Downloads and settings are not affected."
+
+        SettingsConfirmation.CLEAR_DOWNLOAD_HISTORY ->
+            "Clear download history?" to "Removes $finishedDownloads finished " +
+                "${if (finishedDownloads == 1) "entry" else "entries"} from Downloads. " +
+                "Files you already saved stay on the device."
     }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = title, color = colors.textPrimary) },
+        text = { Text(text = body, color = colors.textSecondary) },
+        confirmButton = {
+            YftTextButton(
+                text = "Clear",
+                onClick = onConfirm,
+                modifier = Modifier.testTag("confirm-action"),
+                color = colors.coralText,
+            )
+        },
+        dismissButton = {
+            YftTextButton(
+                text = "Cancel",
+                onClick = onDismiss,
+                modifier = Modifier.testTag("dismiss-action"),
+            )
+        },
+        modifier = Modifier.testTag("confirm-dialog"),
+        containerColor = colors.card,
+    )
 }
 
+private val ROW_MIN_HEIGHT = 48.dp
+private val THEME_ROW_MIN_HEIGHT = 56.dp
+private val ROW_PADDING = 12.dp
+private val ICON_SIZE = 20.dp
+private val ICON_GAP = 12.dp
+private val VALUE_MAX_WIDTH = 160.dp
 private const val DISABLED_ALPHA = 0.38f
+private const val NOTHING_TO_CLEAR = "No finished downloads in the list"
 
 internal fun QualityPreference.label(): String = when (this) {
     QualityPreference.HIGHEST -> "Highest available"
@@ -442,17 +738,22 @@ internal fun QualityPreference.label(): String = when (this) {
 }
 
 internal fun DownloadLocation.label(): String = when (this) {
-    DownloadLocation.SHARED_DOWNLOADS -> "Downloads folder"
+    DownloadLocation.SHARED_DOWNLOADS -> "Download/YFT"
     DownloadLocation.APP_STORAGE -> "App storage"
 }
 
-private fun DownloadLocation.summary(): String = when (this) {
-    DownloadLocation.SHARED_DOWNLOADS -> "Download/YFT, visible to your file manager and players."
+private fun DownloadLocation.summary(sharedDownloadsSupported: Boolean): String = when (this) {
+    DownloadLocation.SHARED_DOWNLOADS -> if (sharedDownloadsSupported) {
+        "The Downloads folder, where your file manager and players find the files."
+    } else {
+        "Needs Android 10 or newer. This device saves to app storage."
+    }
+
     DownloadLocation.APP_STORAGE -> "Only YFT can open these files. They are removed with the app."
 }
 
 private fun ThemeMode.label(): String = when (this) {
-    ThemeMode.SYSTEM -> "Follow system"
+    ThemeMode.SYSTEM -> "System"
     ThemeMode.LIGHT -> "Light"
     ThemeMode.DARK -> "Dark"
 }

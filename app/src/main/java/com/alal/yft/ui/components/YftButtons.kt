@@ -244,6 +244,7 @@ fun YftIconButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     tint: Color = YftTheme.colors.textPrimary,
+    iconSize: Dp = 24.dp,
 ) {
     IconButton(
         onClick = onClick,
@@ -254,7 +255,7 @@ fun YftIconButton(
             disabledContentColor = tint.copy(alpha = DISABLED_ALPHA),
         ),
     ) {
-        YftIcon(icon = icon, contentDescription = contentDescription)
+        YftIcon(icon = icon, contentDescription = contentDescription, size = iconSize)
     }
 }
 

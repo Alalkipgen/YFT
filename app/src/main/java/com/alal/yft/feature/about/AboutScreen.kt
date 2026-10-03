@@ -1,37 +1,52 @@
 package com.alal.yft.feature.about
 
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.alal.yft.BuildConfig
+import com.alal.yft.R
+import com.alal.yft.ui.components.YftCard
+import com.alal.yft.ui.components.YftDivider
+import com.alal.yft.ui.components.YftGroupLabel
+import com.alal.yft.ui.components.YftIcon
 import com.alal.yft.ui.components.YftTopBar
 import com.alal.yft.ui.navigation.YftDestination
+import com.alal.yft.ui.theme.YftIcons
+import com.alal.yft.ui.theme.YftTheme
 
+/**
+ * About YFT, opened from Settings → Version: who the app is, what it does and does not do, and
+ * its privacy promises, in the same grouped cards as Settings. Licenses have their own page.
+ */
 @Composable
 fun AboutScreen(
     onNavigateBack: () -> Unit,
+    onOpenLicenses: () -> Unit = {},
     versionName: String = BuildConfig.VERSION_NAME,
     versionCode: Int = BuildConfig.VERSION_CODE,
 ) {
+    val colors = YftTheme.colors
     Scaffold(
         topBar = {
             YftTopBar(
@@ -40,113 +55,148 @@ fun AboutScreen(
                 onNavigateBack = onNavigateBack,
             )
         },
+        containerColor = colors.background,
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp)
                 .testTag("about-content"),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = "Video Downloader",
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.semantics { heading() },
+            Identity(versionName = versionName, versionCode = versionCode)
+            PromiseGroup(
+                title = "What YFT does",
+                lines = DOES,
+                icon = YftIcons.Check,
+                tag = "about-does",
             )
-            Text(
-                text = "Version $versionName ($versionCode)",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag("about-version"),
+            PromiseGroup(
+                title = "What YFT does not do",
+                lines = DOES_NOT,
+                icon = YftIcons.Block,
+                tag = "about-does-not",
             )
-            Text(
-                text = "YFT is an ad-free downloader for media you are allowed to save. It works " +
-                    "with ordinary, non-DRM media and never tries to get around protection.",
+            PromiseGroup(
+                title = "Privacy",
+                lines = PRIVACY,
+                icon = YftIcons.Shield,
+                tag = "about-privacy",
             )
-            BulletSection(title = "What YFT does", lines = DOES, tag = "about-does")
-            BulletSection(title = "What YFT does not do", lines = DOES_NOT, tag = "about-does-not")
-            BulletSection(title = "Privacy", lines = PRIVACY, tag = "about-privacy")
-            SectionTitle("Open-source licenses")
-            Text(
-                text = "Bundled code",
-                style = MaterialTheme.typography.titleSmall,
-            )
-            OpenSourceNotices.bundled.forEach { NoticeCard(it) }
-            Text(
-                text = "Libraries",
-                style = MaterialTheme.typography.titleSmall,
-            )
-            OpenSourceNotices.libraries.forEach { NoticeCard(it) }
-            Text(
-                text = "The solver files keep their original license headers. Each library " +
-                    "remains under its own license.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-    }
-}
-
-@Composable
-private fun SectionTitle(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier
-            .padding(top = 8.dp)
-            .semantics { heading() },
-    )
-}
-
-@Composable
-private fun BulletSection(title: String, lines: List<String>, tag: String) {
-    Column(
-        modifier = Modifier.testTag(tag),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        SectionTitle(title)
-        lines.forEach { line ->
-            Text(text = "• $line", style = MaterialTheme.typography.bodyMedium)
-        }
-    }
-}
-
-@Composable
-private fun NoticeCard(notice: OpenSourceNotice) {
-    var expanded by rememberSaveable(notice.id) { mutableStateOf(false) }
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = listOfNotNull(notice.name, notice.version).joinToString(" "),
-                style = MaterialTheme.typography.titleSmall,
-            )
-            Text(text = notice.license, style = MaterialTheme.typography.bodyMedium)
-            Text(
-                text = notice.usage,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-            )
-            if (expanded) {
-                Text(
-                    text = notice.noticeText,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.testTag("about-license-text-${notice.id}"),
+            YftGroupLabel(text = "Open source")
+            YftCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("about-open-licenses"),
+                onClick = onOpenLicenses,
+                contentPadding = PaddingValues(0.dp),
+            ) {
+                LineRow(
+                    icon = YftIcons.Document,
+                    text = "Licenses",
+                    trailingIcon = YftIcons.ChevronRight,
                 )
             }
-            TextButton(
-                onClick = { expanded = !expanded },
-                modifier = Modifier.testTag("about-license-${notice.id}"),
+        }
+    }
+}
+
+@Composable
+private fun Identity(versionName: String, versionCode: Int) {
+    val colors = YftTheme.colors
+    YftCard(modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Image(
+                painter = painterResource(R.drawable.yft_logo),
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+            )
+            Column(
+                modifier = Modifier.padding(start = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                Text(if (expanded) "Hide license" else "Show license")
+                Text(
+                    text = "YFT · Video Downloader",
+                    modifier = Modifier.semantics { heading() },
+                    color = colors.textPrimary,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = "Version $versionName ($versionCode)",
+                    modifier = Modifier.testTag("about-version"),
+                    color = colors.textSecondary,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+        Text(
+            text = "YFT is an ad-free downloader for media you are allowed to save. It works " +
+                "with ordinary, non-DRM media and never tries to get around protection.",
+            modifier = Modifier.padding(top = 12.dp),
+            color = colors.textPrimary,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+@Composable
+private fun PromiseGroup(
+    title: String,
+    lines: List<String>,
+    @DrawableRes icon: Int,
+    tag: String,
+) {
+    Column(modifier = Modifier.testTag(tag)) {
+        YftGroupLabel(text = title)
+        YftCard(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(0.dp),
+        ) {
+            lines.forEachIndexed { index, line ->
+                if (index > 0) YftDivider(modifier = Modifier.padding(start = LINE_TEXT_START))
+                LineRow(icon = icon, text = line)
             }
         }
     }
 }
+
+/** One line of a card: a small leading icon and text that wraps, as in the Settings rows. */
+@Composable
+private fun LineRow(
+    @DrawableRes icon: Int,
+    text: String,
+    @DrawableRes trailingIcon: Int? = null,
+) {
+    val colors = YftTheme.colors
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .padding(start = 12.dp, end = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        YftIcon(icon = icon, contentDescription = null, tint = colors.icon, size = 20.dp)
+        Text(
+            text = text,
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 12.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+            color = colors.textPrimary,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        if (trailingIcon != null) {
+            YftIcon(
+                icon = trailingIcon,
+                contentDescription = null,
+                tint = colors.textSecondary,
+                size = 20.dp,
+            )
+        }
+    }
+}
+
+private val LINE_TEXT_START = 44.dp
 
 private val DOES = listOf(
     "Opens HTTPS pages in a private in-app browser.",
