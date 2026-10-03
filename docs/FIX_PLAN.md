@@ -129,7 +129,7 @@ Agents update the **Status** column in every task checkpoint.
 | ID | Task | Phase | Priority | Difficulty | Estimate | Needs | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | T01 | [Browser crash: WebView used off the main thread](#t01--browser-crash-webview-used-off-the-main-thread) | 8 | P0 | Easy–Medium | 0.5 d | — | OWNER CHECK |
-| T02 | [Real-WebView smoke test on a CI emulator](#t02--real-webview-smoke-test-on-a-ci-emulator) | 8 | P0 | Medium | 1 d | T01, D4 | IN PROGRESS |
+| T02 | [Real-WebView smoke test on a CI emulator](#t02--real-webview-smoke-test-on-a-ci-emulator) | 8 | P0 | Medium | 1 d | T01, D4 | DONE (2026-10-03) |
 | T03 | [Browser start page; WebView only when a page is open](#t03--browser-start-page-webview-only-when-a-page-is-open) | 8 | P0 | Medium | 1 d | T01 | TODO |
 | T04 | [Local crash report and lookup details](#t04--local-crash-report-and-lookup-details) | 8 | P0 | Easy–Medium | 0.5–1 d | — | TODO |
 | T05 | [Browser-like request identity for Home lookups](#t05--browser-like-request-identity-for-home-lookups) | 8 | P1 | Easy–Medium | 0.5 d | — | TODO |
@@ -244,10 +244,19 @@ Phase 8 tasks in plan order, with a checkpoint and CI check per task. `ALLOW_PUS
   passed. The job was RED because all three screenshot files were missing after AGP's APK
   cleanup. The repaired collector keeps APKs installed until pull, checks pull failures,
   then uninstalls them. A regression fails on the old collector and passes on the repair;
-  the repaired emulator run is PENDING.
+  the repaired emulator run on `e9e1a09` is GREEN:
+  https://github.com/Alalkipgen/YFT/actions/runs/37143005734 — 3/3 tests passed, 0 fatal
+  exceptions, all 3 required PNGs collected (`yft-emulator-smoke`).
+- API 34's empty-page address/close assertions pass; address bounds `[92,33][254,81]`
+  are outside WebView bounds `[0,90][320,583]`. The phone's empty-page problem is not
+  reproduced by these assertions. Loaded-page/found-sheet dumps omit the address node
+  (and the expanded sheet hides the WebView from the accessibility tree); absent bounds are
+  not evidence of missing pixels. T03 must retain the field's accessibility semantics.
 - The job extracts address/WebView bounds from a temporary UIAutomator hierarchy (then deletes
   it). Semantics/bounds alone do not prove that pixels are unobscured; visual review of the
   screenshot is still required to confirm/reject the native-surface hypothesis.
+  Artifact download returned HTTP 401 without authentication, so the agent has not reviewed
+  the native PNGs; owner review remains. Do not call the phone cause confirmed.
 
 ### F3 — Facebook asks to sign in for a public reel (P1) — confirmed live
 

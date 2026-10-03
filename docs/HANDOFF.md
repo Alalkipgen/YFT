@@ -16,8 +16,8 @@
   empty browser hides the address bar; P3 every page load in the browser closes the app; P4 YouTube
   fails with a sign-in message; P5 a TikTok video is found but the download fails. Causes with
   evidence: FIX_PLAN §4 (F1–F8).
-- **Next action — agent:** T02's collector repair is locally green; verify its next CI emulator run
-  ([`prompts/T02-ci-emulator-smoke.md`](prompts/T02-ci-emulator-smoke.md)),
+- **Next action — agent:** T02 is DONE; T03's starting core-browser/app tests and lint passed.
+  Implement the browser start page ([`prompts/T03-browser-start-page.md`](prompts/T03-browser-start-page.md)),
   or [`prompts/00_NEXT_TASK.md`](prompts/00_NEXT_TASK.md) for whatever is next.
 - **Next action — owner:** answer D1 (clipboard check on open), D2 (YouTube strategy A or B) and D3
   (MP3) in FIX_PLAN §3. beta.2 can stay a draft; beta.3 replaces it.
@@ -32,7 +32,11 @@
   First emulator run on `8151813` passed 3 tests with 0 fatal exceptions but failed collection:
   https://github.com/Alalkipgen/YFT/actions/runs/37141758594. Keep APKs installed until pull,
   then uninstall; regression FAILED on the old collector, PASSED on the repair.
-  Keep T02 IN PROGRESS until the repaired CI is green; artifact: `yft-emulator-smoke`.
+- **T02 CI GREEN (`e9e1a09`):** https://github.com/Alalkipgen/YFT/actions/runs/37143005734 —
+  3/3 real-WebView tests, 0 fatal exceptions, 3 required PNGs collected. Debug APK:
+  https://github.com/Alalkipgen/YFT/actions/runs/37143005667. Native PNG download needs
+  authentication (HTTP 401); no pixel-review claim. Empty-page controls pass on API 34;
+  loaded/found address bounds are missing from UIAutomator, so T03 must retain field semantics.
 
 ## Known limitations (beta.2)
 

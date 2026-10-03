@@ -269,7 +269,7 @@ The old-code regression command used the same memory flags and
 `--tests 'com.alal.yft.core.browser.webview.SecureBrowserWebViewClientTest.interceptsRequestsOffMainWithoutTouchingWebViewOrSettings'`;
 it failed with the expected main-looper guard, not a compilation failure.
 
-### T02 — Real-WebView CI smoke (collector repair checkpoint, 2026-10-03)
+### T02 — Real-WebView CI smoke (DONE, 2026-10-03)
 
 | Check | Environment | Result |
 | --- | --- | --- |
@@ -282,7 +282,9 @@ it failed with the expected main-looper guard, not a compilation failure.
 | Workflow / collector lint | actionlint 1.7.7 / shellcheck 0.10.0 / `bash -n` | PASS — initial SC2164 collector warning fixed with guarded `cd` |
 | Kotlin width / whitespace | Git diff and untracked-source check | PASS — new Kotlin lines at most 100 characters |
 | Public HTML5 fixture check | HTTPS GET, 2026-10-03 | HTTP 200; host `commons.wikimedia.org`; path `/wiki/File:Big_Buck_Bunny_4K.webm`; markers `video`, `source`, `webm` found. No body/cookies/complete media addresses retained |
-| Actual Chromium / first run | GitHub API 34 emulator, `8151813` | 3/3 instrumentation tests PASS, 0 fatal exceptions; job RED because APK cleanup removed all 3 screenshots before pull. [Run](https://github.com/Alalkipgen/YFT/actions/runs/37141758594). Repaired collector CI PENDING |
+| Actual Chromium / first run | GitHub API 34 emulator, `8151813` | 3/3 instrumentation tests PASS, 0 fatal exceptions; job RED because APK cleanup removed all 3 screenshots before pull. [Run](https://github.com/Alalkipgen/YFT/actions/runs/37141758594). Repaired collector subsequently GREEN (row below) |
+| Actual Chromium / repaired run | GitHub API 34 emulator, `e9e1a09` | PASS — 3/3 instrumentation tests, 0 failures/errors/skips, 0 fatal exceptions, all 3 required screenshots collected. [Emulator run](https://github.com/Alalkipgen/YFT/actions/runs/37143005734); [checkpoint GREEN / debug APK](https://github.com/Alalkipgen/YFT/actions/runs/37143005667) |
+| Native visual review | `yft-emulator-smoke`, 1,039,015 bytes | Not reviewed by agent: download requires authentication (HTTP 401). Empty address bounds `[92,33][254,81]`, WebView `[0,90][320,583]`; loaded/found address bounds missing, not proof of hidden pixels. Owner can review artifact |
 
 Local Gradle validation uses the T01 memory flags with
 `:app:assembleDebugAndroidTest :app:testDebugUnitTest :app:lintDebug`. Other checks:
@@ -296,25 +298,25 @@ actionlint .github/workflows/emulator-smoke.yml
 ```
 
 The independent `Android emulator smoke` workflow boots API 34 (`google_apis`, x86_64), then runs
-`./gradlew --no-daemon -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
-:app:connectedDebugAndroidTest`. The collector executes while the emulator
+`./gradlew --no-daemon -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true :app:connectedDebugAndroidTest`.
+The collector executes while the emulator
 is still running and uninstalls the APKs after pulling their external captures.
 The `yft-emulator-smoke` artifact must contain three required PNGs, coordinate-only
 bounds, sanitized logcat and text/XML reports. Raw logcat, UI hierarchy and binary test-result
 payloads are not uploaded. A missing screenshot or any `FATAL EXCEPTION` fails the job. The AVD
 cache is saved before test browsing; adb keys and app-session data are not cached.
 Slow media discovery on the public Wikimedia page emits a warning; the HTTPS navigation check
-remains mandatory. Do not mark T02 DONE until the emulator job is green and record F2's first result.
+remains mandatory. T02 is DONE on `e9e1a09`; F2 records the result without claiming phone/pixel proof.
 
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |
 | --- | --- | --- | --- |
-| On-device app launch/navigation | Android API 24+ device/emulator | App launches to Home and routes render | NOT RUN — no device/KVM; Robolectric navigation smoke test passes |
+| On-device app launch/navigation | Android API 24+ device/emulator | App launches to Home and routes render | PARTIAL — T02 real CI API 34 Home → Browser passes; other devices/routes remain OWNER CHECK |
 | Direct HTTPS MP4 preview | Android API 24+ device/emulator | Player reaches ready and renders | NOT RUN |
 | Non-DRM HLS preview | Android API 24+ device/emulator | Selected stream reaches ready | NOT RUN |
 | Non-DRM DASH preview | Android API 24+ device/emulator | Selected stream reaches ready | NOT RUN |
-| Secure browser load/history | Android API 24+ device/emulator | HTTPS page loads; history/progress/errors behave | NOT RUN — no device/KVM; policy and UI tests pass |
+| Secure browser load/history | Android API 24+ device/emulator | HTTPS page loads; history/progress/errors behave | PARTIAL — T02 real CI API 34 public HTTPS load passes without crash; full history/error/device matrix remains OWNER CHECK |
 | DOM candidate extraction | Android WebView test page | URLs returned without page mutation | NOT RUN on Android — exact script passes committed fixture in headless Chromium |
 | Cookie/header preview | Controlled authenticated fixture | Preview succeeds with session context | NOT RUN |
 | DRM fixture | Known encrypted manifest | Structured unsupported result | NOT RUN |
