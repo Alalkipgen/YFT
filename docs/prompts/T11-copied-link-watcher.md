@@ -13,7 +13,7 @@ Material 3, Hilt, Media3). Do exactly one task, then stop.
 
 Repository: https://github.com/Alalkipgen/YFT
 Task: T11 — Check the copied link when YFT opens
-Branch: work/phase-9-copied-link-flow
+Branch: work/phase-8-field-fixes   (owner change 2026-10-03)
 ALLOW_PUSH: true          (checkpoint pushes to this branch only)
 ALLOW_MERGE_MAIN: false
 ALLOW_RELEASE: false
@@ -24,9 +24,8 @@ disagree (moved lines, renamed files), the verified code wins: adapt and correct
 
 START
 1. Follow AGENTS.md: git fetch --all --prune; git status; git log -5 --oneline.
-   Check out work/phase-9-copied-link-flow and pull it. If it does not exist, create it from origin/main,
-   but only when `git merge-base --is-ancestor v1.0.0-beta.3 origin/main` succeeds; otherwise
-   stop and report that the previous release is not merged yet.
+   Check out work/phase-8-field-fixes and pull it (owner change 2026-10-03: nothing is merged
+   or released before T19, so every task stays on this branch).
 2. Read docs/FIX_PLAN.md §0, §3, task T11; then docs/SESSION_STATE.md and
    every file under "Read first" in T11.
 3. D1 must be YES. PENDING -> ask the D1 question (FIX_PLAN §3) in Burmese and stop.

@@ -15,17 +15,20 @@ Do not rely on chat history. At the beginning of a session:
    - `docs/SESSION_STATE.md`
    - `docs/FIX_PLAN.md` (Phases 8–10: status board, decisions, findings and tasks)
 3. Verify the existing build before editing.
-4. Work only on the current phase. Never start the next phase automatically.
+4. Follow the task order in `docs/FIX_PLAN.md` §3. Owner instruction (2026-10-03): continue task
+   after task through T19; stop only for a `PENDING` decision or a failure you cannot fix.
 
 ## Task workflow (Phases 8–10)
 
-- Do one `docs/FIX_PLAN.md` task per session, following its prompt in `docs/prompts/`
+- Do the `docs/FIX_PLAN.md` tasks one at a time, each following its prompt in `docs/prompts/`
   (`00_NEXT_TASK.md` picks the next one). Update the status board in every task checkpoint.
 - A task that needs an owner decision still `PENDING` in FIX_PLAN §3 is blocked: ask the owner
   in Burmese and stop instead of guessing.
 - Site tasks need a live check of a public page (`scripts/live-check.sh` once T05 lands). Report
   status, host, path and markers only, never bodies, cookies or signed URLs.
 - Final reports to the owner are written in Burmese (FIX_PLAN §0.5). The app text stays English.
+- Product rules: [ADR-006](docs/decisions/ADR-006-owner-override-any-working-method.md) (owner, 2026-10-03) — any working technique
+  for public videos; no DRM, paid, private-content or age-gate bypass; adapters never sign in.
 - Anything outside the task goes to FIX_PLAN §9 Backlog.
 
 ## Resuming work
@@ -52,8 +55,8 @@ If documentation and verified code disagree, build/test results take priority an
   - `work/phase-1-foundation`
   - `work/phase-2-browser-detection`
 - Checkpoint pushes to `work/phase-*` branches are pre-authorized.
-- Merging or pushing phase-completion changes to `main` requires a green full validation and explicit user approval.
-- Publishing releases always requires explicit user approval.
+- Merging or pushing phase-completion changes to `main` requires a green full validation and explicit user approval. The owner gave it for T19 only (2026-10-03, `docs/FIX_PLAN.md` §3): nothing is merged before T19.
+- Publishing releases always requires explicit user approval. The owner approved the signed release after T19 (2026-10-03); T10 and T15 are skipped.
 
 ## Mandatory checkpoint protocol
 

@@ -48,6 +48,11 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Changed
 
+- Project rules (owner decision, ADR-006, 2026-10-03): for public videos YFT may use any
+  technique that works — app or device client identities, proof-of-origin tokens, bot-check
+  workarounds and the user's own browser session. DRM, paid, private and age-restricted
+  content stay out of scope. The beta.3 and beta.4 releases are skipped; one signed release
+  follows the last task (T19).
 - YouTube lookups tell a bot check from a real sign-in. "Confirm you're not a bot" now says
   that YouTube wants to check that this is not a bot, and suggests opening the video in YFT's
   browser, letting it play for a moment, then tapping Download. A response that offers only

@@ -1,6 +1,7 @@
 # ADR-005: Ship a YouTube adapter by owner decision
 
-- Status: Accepted for Phase 5E; supersedes [ADR-004](ADR-004-youtube-adapter.md)
+- Status: Accepted for Phase 5E; supersedes [ADR-004](ADR-004-youtube-adapter.md). Item 4 and the
+  bot-check consequence are superseded by [ADR-006](ADR-006-owner-override-any-working-method.md) (owner, 2026-10-03).
 - Date: 2026-10-02
 - Decided by: the project owner
 
@@ -51,6 +52,8 @@ Ship a `youtube` adapter in `:extractor-sites`, enabled by default behind
    enforced and fail with their own reason), no impersonation of the Android, iOS or TV apps or of
    any device, no DRM circumvention, no SABR/UMP streaming, and no remote code other than
    YouTube's own player script inside the sandbox above.
+   *Superseded on 2026-10-03 by ADR-006: the owner allows device clients, PO tokens, SABR and
+   bot-check workarounds; DRM, paid, private and age-restricted content stay out of scope.*
 5. **Credential scope.** The user's cookie is sent to `www.youtube.com` page and page-client
    requests only. It is never sent to the embedded client, to `googlevideo.com` stream hosts, or
    across sites: `OkHttpExtractorClient` drops `Cookie` and `Authorization` on any redirect hop
@@ -71,7 +74,8 @@ Ship a `youtube` adapter in `:extractor-sites`, enabled by default behind
   public vectors and the current live player; `scripts/update-youtube-solver.sh` refreshes it.
 - Videos whose owners disable embedding fall back to the page client and may fail at download
   time with HTTP 403. Some networks receive "Sign in to confirm you're not a bot" for every
-  request; YFT reports that as sign-in required and does not work around it.
+  request; YFT reports that as sign-in required and does not work around it. (Since T08 it is
+  reported as a bot check; ADR-006 allows working around it.)
 - `ShippedAdaptersTest` pins the shipped adapter set as `tiktok`, `facebook`, `vimeo`, `youtube`
   and pins that channel, playlist and search URLs stay unclaimed.
 - Distribution stays GitHub-only. Google Play's Device and Network Abuse policy would reject this

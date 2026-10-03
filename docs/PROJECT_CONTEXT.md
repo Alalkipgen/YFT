@@ -17,7 +17,8 @@ This file and the other files under `docs/` are the continuity source for future
 - Honest metadata: never invent file size, quality, codec or support.
 - Generic direct/HLS/DASH capability before website-specific adapters.
 - Site adapters fail independently and fall back to generic detection.
-- No DRM, payment, private-access or authentication-control bypass.
+- No DRM, payment, private-access, age-check or account sign-in bypass. For public videos any
+  working technique is allowed (owner, [ADR-006](decisions/ADR-006-owner-override-any-working-method.md), 2026-10-03).
 - Browser cookies and signed URLs are sensitive and must never be logged.
 
 ## Privacy diagnostics
@@ -74,10 +75,12 @@ hardening and UI polish (plus the UI redesign), and the signed beta. See `docs/P
 
 Planned, task by task in `docs/FIX_PLAN.md`:
 
-- Phase 8 — Field fixes from the beta.2 phone test → `1.0.0-beta.3`
+- Phase 8 — Field fixes from the beta.2 phone test
 - Phase 9 — Copied-link flow ("Video you copied" sheet, Search to download, floating Download
-  button) → `1.0.0-beta.4`
-- Phase 10 — Formats and YouTube (client strategy, merged video and audio, MP3) → `1.0.0-beta.5`
+  button)
+- Phase 10 — Formats and YouTube (client strategy, merged video and audio, MP3)
+- One signed release after Phase 10 (T19 → `1.0.0-beta.3`): the owner skipped the beta.3 and
+  beta.4 releases (T10, T15) on 2026-10-03
 
 ## Out of scope for the MVP
 
@@ -87,7 +90,7 @@ Planned, task by task in `docs/FIX_PLAN.md`:
 - Playlist/batch downloads
 - Audio transcoding
 - Cloud accounts or sync
-- Remote executable extractor scripts. The YouTube solver is bundled in the APK, not downloaded; only YouTube's own player script is fetched, and it runs only in a sandboxed offscreen WebView ([ADR-005](decisions/ADR-005-youtube-owner-override.md))
+- Remote executable extractor scripts. The YouTube solver is bundled in the APK, not downloaded; only YouTube's own player script is fetched, and it runs only in a sandboxed offscreen WebView ([ADR-005](decisions/ADR-005-youtube-owner-override.md)); from T16 also YouTube's own BotGuard script for proof-of-origin tokens ([ADR-006](decisions/ADR-006-owner-override-any-working-method.md))
 - A general-purpose desktop-class browser
 
 ## Reference-repository findings

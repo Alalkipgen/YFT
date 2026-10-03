@@ -43,19 +43,28 @@ check it in and hand over.
 9. Update the docs the task lists and `CHANGELOG.md` (`## [Unreleased]`), set the task to
    `DONE (date)` (or `OWNER CHECK`), update `docs/SESSION_STATE.md` and checkpoint with
    `scripts/checkpoint.sh "T0x: summary"`. Check CI for the pushed commit.
-10. Report to the owner in Burmese (§0.5). Stop after the task unless the prompt says otherwise.
-    Never start the next phase on your own.
+10. Report to the owner in Burmese (§0.5). Owner instruction (2026-10-03): then continue with the
+    next task in the order of the §3 session note, through T19. Stop only for a `PENDING`
+    decision or a failure you cannot fix.
 
 | Phase | Branch | Release |
 | --- | --- | --- |
-| 8 — Field fixes | `work/phase-8-field-fixes` | `1.0.0-beta.3`, versionCode 3 |
-| 9 — Copied-link flow | `work/phase-9-copied-link-flow` (from `main` after beta.3) | `1.0.0-beta.4`, versionCode 4 |
-| 10 — Formats and YouTube | `work/phase-10-formats` (from `main` after beta.4) | `1.0.0-beta.5`, versionCode 5 |
+| 8 — Field fixes | `work/phase-8-field-fixes` | none (T10 SKIPPED by the owner) |
+| 9 — Copied-link flow | `work/phase-8-field-fixes` (owner change: no new branch) | none (T15 SKIPPED by the owner) |
+| 10 — Formats and YouTube | `work/phase-8-field-fixes` (owner change: no new branch) | T19: one signed release, `1.0.0-beta.3`, versionCode 3 |
+
+Owner change (2026-10-03): T10 and T15 are skipped, so nothing is released or merged between
+phases and every remaining task stays on `work/phase-8-field-fixes`. After T19 the branch is
+merged into `main`, pushed and tagged, and the release APK is built with the release signing key.
+The release takes the next unused version, `1.0.0-beta.3`.
 
 ### 0.2 Rules for every task
 
-- Product boundaries do not change: no DRM, paywall, private-content or sign-in bypass, and no
-  adapter ever signs in.
+- Product boundaries, changed by the owner on 2026-10-03
+  ([ADR-006](decisions/ADR-006-owner-override-any-working-method.md)): for public videos any
+  working technique is allowed — app or device client identities, proof-of-origin tokens,
+  bot-check workarounds and the user's own browser session. Still no DRM, paywall,
+  private-content or age-gate bypass, and no adapter ever signs in.
 - Never log, print, commit or put into fixtures: cookies, tokens, `Authorization` values or signed
   media URLs (the query strings of CDN links). Sanitize fixtures: keep hosts and paths, replace
   signed query values with `REDACTED`.
@@ -119,8 +128,8 @@ Commit / branch / CI: <sha> · <branch> · <run link> (debug APK: Artifacts › 
 Every green checkpoint run on a `work/**` branch uploads the artifact `yft-debug-apk` (kept 14
 days). The debug app has its own application id (`com.alal.yft.debug`) and installs next to the
 beta, so the owner can do a task's owner check before a release: GitHub › Actions › the run ›
-Artifacts › `yft-debug-apk`, unzip, install. Put the run link in the report. Signed betas come only
-from the release tasks (T10, T15, T19).
+Artifacts › `yft-debug-apk`, unzip, install. Put the run link in the report. The signed release
+comes only from T19 (the owner skipped T10 and T15).
 
 ## 1. Status board
 
@@ -137,16 +146,16 @@ Agents update the **Status** column in every task checkpoint.
 | T07 | [TikTok media cookies for Home lookups](#t07--tiktok-media-cookies-for-home-lookups) | 8 | P1 | Medium | 0.5 d | T05 | OWNER CHECK |
 | T08 | [YouTube: honest messages, identity and details](#t08--youtube-honest-messages-identity-and-details) | 8 | P1 | Easy | 0.5 d | T04, T05 | OWNER CHECK |
 | T09 | [Your sites: YouTube, Facebook, TikTok with logos](#t09--your-sites-youtube-facebook-tiktok-with-logos) | 8 | P1 | Easy | 0.5 d | — | TODO |
-| T10 | [Release 1.0.0-beta.3](#t10--release-100-beta3) | 8 | P1 | Easy | 0.5 d | T01–T09, owner | TODO |
+| T10 | [Release 1.0.0-beta.3](#t10--release-100-beta3) | 8 | P1 | Easy | 0.5 d | T01–T09, owner | SKIPPED (owner, 2026-10-03: one release after T19) |
 | T11 | [Check the copied link when YFT opens](#t11--check-the-copied-link-when-yft-opens) | 9 | P2 | Medium | 1 d | D1 | TODO |
 | T12 | ["Video you copied" quick download sheet](#t12--video-you-copied-quick-download-sheet) | 9 | P2 | Medium–Hard | 1.5–2 d | — | TODO |
 | T13 | ["Search to download" page](#t13--search-to-download-page) | 9 | P2 | Medium | 1 d | T03, T09 | TODO |
 | T14 | [Floating Download button in the browser](#t14--floating-download-button-in-the-browser) | 9 | P2 | Easy–Medium | 0.5–1 d | T12 | TODO |
-| T15 | [Release 1.0.0-beta.4](#t15--release-100-beta4) | 9 | P2 | Easy | 0.5 d | T11–T14, owner | TODO |
-| T16 | [YouTube client strategy](#t16--youtube-client-strategy) | 10 | P3 | Hard (B) / Very hard (A) | 2–3 d (B) / 5–8 d (A) | D2, T08 | TODO |
+| T15 | [Release 1.0.0-beta.4](#t15--release-100-beta4) | 9 | P2 | Easy | 0.5 d | T11–T14, owner | SKIPPED (owner, 2026-10-03: one release after T19) |
+| T16 | [YouTube client strategy](#t16--youtube-client-strategy) | 10 | P1 (owner) | Very hard (A + B + C) | 6–9 d | D2 = A + B + C, T08 | IN PROGRESS |
 | T17 | [Higher qualities: merge video and audio](#t17--higher-qualities-merge-video-and-audio) | 10 | P3 | Hard | 2–3 d | T16 | TODO |
 | T18 | [MP3 audio](#t18--mp3-audio) | 10 | P3 | Hard | 2–3 d | D3 | TODO |
-| T19 | [Release 1.0.0-beta.5](#t19--release-100-beta5) | 10 | P3 | Easy | 0.5 d | T16–T18, owner | TODO |
+| T19 | [Signed release 1.0.0-beta.3](#t19--signed-release-100-beta3) | 10 | P3 | Easy | 0.5 d | T09, T11–T18; merge, tag and signing approved by the owner | TODO |
 
 Estimates are agent working days and leave out the owner's phone checks. Totals: Phase 8 about
 6 days, Phase 9 about 4–5 days, Phase 10 about 4–6 days with option B or 7–11 days with option A,
@@ -184,14 +193,29 @@ Agents read this table before starting a task and record the owner's answers her
 | ID | Question | Proposal | Blocks | Answer |
 | --- | --- | --- | --- | --- |
 | D1 | May YFT check the clipboard by itself whenever it opens? Android 12+ then shows "YFT pasted from your clipboard" each time. | Yes, on by default, with a Settings switch; only http(s) links are used and the text is never stored | T11 (until then T12/T13 use tap-to-paste) | PENDING |
-| D2 | YouTube strategy. **A**: keep the "no device impersonation" rule and mint PO tokens with YouTube's own BotGuard in a hidden WebView (very hard, fragile). **B**: add a device client like yt-dlp's `visionos` (easier, more formats, overrides the rule in `YouTubeClientProfile.kt`, breaks whenever YouTube changes it) | B first; A only if B stops working | T16, T17 | PENDING |
+| D2 | YouTube strategy. **A**: keep the "no device impersonation" rule and mint PO tokens with YouTube's own BotGuard in a hidden WebView (very hard, fragile). **B**: add a device client like yt-dlp's `visionos` (easier, more formats, overrides the rule in `YouTubeClientProfile.kt`, breaks whenever YouTube changes it) | B first; A only if B stops working | T16, T17 | **A + B + C** (owner, 2026-10-03): build A and B and use both where needed, plus **C** — play the video for a moment in YFT's browser, then Download; one fallback chain, whatever works ([ADR-006](decisions/ADR-006-owner-override-any-working-method.md)) |
 | D3 | Music: M4A now and MP3 later (LAME, LGPL, about 1 MB more APK)? | M4A now; MP3 in Phase 10 | T18 | PENDING |
 | D4 | Run an Android emulator job on GitHub Actions (free for public repositories) | Yes | T02 | Assumed YES unless the owner says no |
-| D5 | Release cadence: beta.3 after Phase 8, beta.4 after Phase 9, beta.5 after Phase 10 | Yes; publishing still needs `ALLOW_RELEASE=true` | T10, T15, T19 | Assumed YES |
+| D5 | Release cadence: beta.3 after Phase 8, beta.4 after Phase 9, beta.5 after Phase 10 | Yes; publishing still needs `ALLOW_RELEASE=true` | T10, T15, T19 | **NO** (owner, 2026-10-03): skip T10 and T15; only after T19 merge into `main`, push and tag, then build the release APK with the signing key |
 
 Session instructions (2026-10-03): `OWNER ANSWERS: none`; D1–D3 remain PENDING. Continue eligible
 Phase 8 tasks in plan order, with a checkpoint and CI check per task. `ALLOW_PUSH=true`,
 `ALLOW_MERGE_MAIN=false`, `ALLOW_RELEASE=false`; no permission to merge, tag or publish.
+
+Owner instructions (2026-10-03, later the same day; the owner asked that they be recorded as his
+change):
+
+1. Rules and policy changed: "use whatever method works" for public videos —
+   [ADR-006](decisions/ADR-006-owner-override-any-working-method.md) replaces the earlier
+   no-impersonation and no-PO-token rules.
+2. D2 = A + B + C (above).
+3. T10 and T15 are SKIPPED. Nothing is merged or released between phases; all tasks stay on
+   `work/phase-8-field-fixes`.
+4. After T19: merge into `main`, push and tag, and build the release APK with the signing key.
+   `ALLOW_MERGE_MAIN=true` and `ALLOW_RELEASE=true` apply to T19 only, never earlier.
+5. YouTube first, then the rest, task after task without waiting: T16 → T17 (so YouTube video
+   has sound) → T09 → T12 → T11 → T13 → T14 → T18 → T19. D1 and D3 stay PENDING, so T11 and T18
+   wait for those answers; the other tasks go ahead.
 
 ## 4. Findings and root causes
 
@@ -412,6 +436,7 @@ Changing `DEFAULTS` alone changes nothing for him; a one-time migration is neede
 Branch `work/phase-8-field-fixes`. Order: T01 → T02 → T03 → T04 → T05 → T06 → T07 → T08 → T09 →
 T10. T04, T05 and T09 do not depend on the browser tasks and may move earlier if the browser work is
 blocked.
+Owner change (2026-10-03): T10 is SKIPPED, and T16 and T17 run before T09 (§3).
 
 ### T01 — Browser crash: WebView used off the main thread
 
@@ -765,6 +790,8 @@ not duplicated.
 
 P1 · Easy · 0.5 day · needs T01–T09 and the owner's approval to merge and tag
 
+**SKIPPED (owner, 2026-10-03):** no release after Phase 8; the only release is T19.
+
 **Steps:** full validation (§0.3); in `gradle.properties` set `yft.versionName=1.0.0-beta.3` and
 `yft.versionCode=3`; turn `CHANGELOG.md` `[Unreleased]` into `## [1.0.0-beta.3] - <date>`; write
 `docs/release/1.0.0-beta.3.md` (fixes, known issues and the §8 checklist); update the README status,
@@ -775,8 +802,9 @@ SHA-256 and certificate. Only the owner publishes (`ALLOW_RELEASE=true`, `docs/R
 
 ## 6. Phase 9 — copied-link flow → 1.0.0-beta.4
 
-Branch `work/phase-9-copied-link-flow`, created from `main` after beta.3. Order: T12 → T11 → T13 →
-T14 → T15 (T12 works without T11, so it can start while D1 is open).
+Branch `work/phase-8-field-fixes` (owner change, 2026-10-03: there is no beta.3 to branch from).
+Order: T12 → T11 → T13 → T14 (T12 works without T11, so it can start while D1 is open); T15 is
+SKIPPED.
 
 ### T11 — Check the copied link when YFT opens
 
@@ -869,29 +897,45 @@ N found".
 
 P2 · Easy · 0.5 day · as T10, with `yft.versionCode=4` and `docs/release/1.0.0-beta.4.md`.
 
+**SKIPPED (owner, 2026-10-03):** no release after Phase 9; the only release is T19.
+
 ## 7. Phase 10 — formats and YouTube → 1.0.0-beta.5
 
-Branch `work/phase-10-formats`, created from `main` after beta.4.
+Branch `work/phase-8-field-fixes` (owner change, 2026-10-03). Order: T16 → T17 (both moved ahead of
+T09 at the owner's request) → T18 → T19.
 
 ### T16 — YouTube client strategy
 
 **Prompt:** [`docs/prompts/T16-youtube-client-strategy.md`](prompts/T16-youtube-client-strategy.md)
 
-P3 · Hard (option B) / Very hard (option A) · needs D2 and T08's details from the owner's phone
+P1 for the owner · Very hard · needs D2 (answered: A + B + C) and T08; the owner's Copy details
+help but do not block
 
-**Option B — device client.** Add a `visionos`-style profile to `YouTubeClientProfile.kt` (all client
-identifiers stay in that one file; copy the values from yt-dlp's `INNERTUBE_CLIENTS` at the time of
-the work), ask it first, then `WEB_EMBEDDED_PLAYER`, then the page's client. Its streams carry
-direct URLs and need no player script. Progressive formats are usually missing, so HD video needs
-T17; until then offer audio plus whatever progressive stream exists. Write ADR-006 (it overrides
-"no device impersonation" for YouTube only) and update `docs/YOUTUBE_RISK_REVIEW.md`.
+The owner chose all three options as one fallback chain
+([ADR-006](decisions/ADR-006-owner-override-any-working-method.md)): what works live decides the
+order, and a failure of one option falls through to the next.
+
+**Option B — device client.** Add a `visionos`-style profile, and any other device client that
+works live, to `YouTubeClientProfile.kt` (all client identifiers stay in that one file; copy the
+values from yt-dlp's `INNERTUBE_CLIENTS` at the time of the work and note the yt-dlp version), ask
+it first, then `WEB_EMBEDDED_PLAYER`, then the page's client. Its streams carry direct URLs and
+need no player script. Progressive formats are usually missing, so HD video needs T17; until then
+offer audio plus whatever progressive stream exists. ADR-006 (owner, 2026-10-03) already allows
+this; record the client order and the yt-dlp version there and update
+`docs/YOUTUBE_RISK_REVIEW.md`.
 
 **Option A — PO token.** An offscreen WebView loads YouTube's BotGuard the way the web player does,
 mints the GVS/player PO token bound to the visitor data, and attaches it to the `MWEB`/`WEB`
-requests and to the media URLs (`pot=`). Write it independently (NewPipe's version is GPL-3.0). It
-needs device testing on a home or mobile network.
+requests and to the media URLs (`pot=`). Write it independently (NewPipe's version is GPL-3.0;
+MIT-licensed references may be used with a notice). It needs device testing on a home or mobile
+network.
 
-**Both options:** keep T08's bot-check and SABR handling; refresh the fixtures; keep
+**Option C — play, then download.** When a headless lookup meets a bot check, the user plays the
+video for a moment in YFT's browser and taps Download. The lookup then uses the browser's own
+session (cookies, visitor data) and any token the page's player used, so the page's client can
+answer without YFT minting a token. T08's bot-check message already points there.
+
+**All options:** keep T08's bot-check and SABR handling; refresh the fixtures; keep
 `scripts/verify-youtube-solver.mjs` passing; check live on the owner's phone with Copy details;
 update `docs/SUPPORT_MATRIX.md` and `docs/RISKS.md`.
 
@@ -931,13 +975,22 @@ Measure and record the APK size change (about +1 MB expected).
 **Tests:** JVM tests for the control logic; an instrumentation test on the T02 emulator that encodes
 a short AAC fixture. Owner check: the MP3 plays in another app.
 
-### T19 — Release 1.0.0-beta.5
+### T19 — Signed release 1.0.0-beta.3
 
 **Prompt:** [`docs/prompts/T19-release-beta5.md`](prompts/T19-release-beta5.md)
 
-P3 · Easy · 0.5 day · as T10, with `yft.versionCode=5` and `docs/release/1.0.0-beta.5.md`.
+P3 · Easy · 0.5 day · as T10, with `yft.versionName=1.0.0-beta.3`, `yft.versionCode=3` (the next
+unused version, because the owner skipped T10 and T15) and `docs/release/1.0.0-beta.3.md`.
+
+Owner approval (2026-10-03): after a green full validation, merge `work/phase-8-field-fixes` into
+`main`, push, tag `v1.0.0-beta.3` and let `release-draft.yml` build the APK signed with the release
+key; then release it (`ALLOW_MERGE_MAIN=true` and `ALLOW_RELEASE=true` for T19 only,
+`docs/RELEASE.md` §5). The release notes cover Phases 8–10 and the three §8 checklists.
 
 ## 8. Owner device checklists
+
+Owner change (2026-10-03): there is one release, after T19. Its phone check runs all three lists
+below; between tasks the owner checks the `yft-debug-apk` builds.
 
 ### beta.3 (after Phase 8)
 

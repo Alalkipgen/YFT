@@ -13,7 +13,7 @@ Material 3, Hilt, Media3). Do exactly one task, then stop.
 
 Repository: https://github.com/Alalkipgen/YFT
 Task: T17 — Higher qualities: merge video and audio
-Branch: work/phase-10-formats
+Branch: work/phase-8-field-fixes   (owner change 2026-10-03)
 ALLOW_PUSH: true          (checkpoint pushes to this branch only)
 ALLOW_MERGE_MAIN: false
 ALLOW_RELEASE: false
@@ -23,9 +23,8 @@ disagree (moved lines, renamed files), the verified code wins: adapt and correct
 
 START
 1. Follow AGENTS.md: git fetch --all --prune; git status; git log -5 --oneline.
-   Check out work/phase-10-formats and pull it. If it does not exist, create it from origin/main,
-   but only when `git merge-base --is-ancestor v1.0.0-beta.4 origin/main` succeeds; otherwise
-   stop and report that the previous release is not merged yet.
+   Check out work/phase-8-field-fixes and pull it (owner change 2026-10-03: nothing is merged
+   or released before T19, so every task stays on this branch).
 2. Read docs/FIX_PLAN.md §0, §3, finding F4, task T17; then docs/SESSION_STATE.md and
    every file under "Read first" in T17.
 3. T16 must be DONE or OWNER CHECK in the status board; otherwise stop and

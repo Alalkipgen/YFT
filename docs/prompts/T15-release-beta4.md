@@ -1,5 +1,9 @@
 # T15 — Release 1.0.0-beta.4
 
+> **SKIPPED — owner ပြောင်းခိုင်းချက် (2026-10-03).** ဒီ release ကို မထုတ်တော့ပါ။ Release တစ်ခုတည်းကို
+> T19 ([`T19-release-beta5.md`](T19-release-beta5.md)) မှာပဲ main merge + tag + signing key နဲ့ ထုတ်ပါမယ်။
+> English: T15 is SKIPPED by the owner; do not run this prompt. The only release is T19.
+
 **ရည်ရွယ်ချက်:** Phase 9 ပြီးရင် 1.0.0-beta.4 ကို ပြင်ဆင်ပြီး signed draft release ထုတ်ပါမယ်။ main ကို merge လုပ်ဖို့နဲ့ tag တင်ဖို့ owner ခွင့်ပြုချက် (`ALLOW_MERGE_MAIN: true`) လိုပါတယ်။
 
 **အချက်အလက်:** Phase 9 · Easy · ၀.၅ ရက် · လိုအပ်ချက်: T11–T14 ပြီးရမယ် (DONE / OWNER CHECK / SKIPPED)

@@ -70,7 +70,7 @@ Docs: [`PROJECT_CONTEXT`](docs/PROJECT_CONTEXT.md) (goals, privacy) ·
 
 ## Product boundaries
 
-YFT will not attempt to bypass DRM, payment protection, private access controls or authentication restrictions. Website-specific support remains isolated behind adapters and may only be claimed when backed by tests.
+YFT will not attempt to bypass DRM, payment protection, private access controls, age checks or account sign-in. For public videos the owner allows any technique that works ([ADR-006](docs/decisions/ADR-006-owner-override-any-working-method.md)): app or device client identities, proof-of-origin tokens, bot-check workarounds and the user's own browser session. Website-specific support remains isolated behind adapters and may only be claimed when backed by tests.
 
 A literal `blob:` URL is never treated as a downloadable file. Detection must find its underlying HTTP(S) request, source or manifest.
 

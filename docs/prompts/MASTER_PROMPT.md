@@ -12,8 +12,8 @@ CONFIG
 Repository: https://github.com/Alalkipgen/YFT
 TASK: auto                (auto = pick the next task; or a task ID such as T05)
 ALLOW_PUSH: true          (checkpoint pushes to work/phase-* branches only)
-ALLOW_MERGE_MAIN: false   (merge into main / push tags only when true)
-ALLOW_RELEASE: false      (publishing a GitHub release; only the owner sets this)
+ALLOW_MERGE_MAIN: false   (true for T19 only: owner-approved 2026-10-03)
+ALLOW_RELEASE: false      (true for T19 only: owner-approved 2026-10-03)
 OWNER ANSWERS: none       (example: D1=YES D2=B D3=YES)
 
 The repository is the source of truth. Do not rely on chat history. If docs and verified
@@ -28,7 +28,7 @@ code disagree, the build and test results win and you correct the docs.
 
 2. PICK ONE TASK
    - TASK set: do that task. TASK auto: resume a task marked IN PROGRESS, otherwise take the
-     first TODO task in the phase order (the "Order:" line in FIX_PLAN §5–§7) whose needed
+     first TODO task in the owner's order (FIX_PLAN §3, owner instructions) whose needed
      tasks are DONE or OWNER CHECK and whose decisions are answered.
    - A needed decision still PENDING: ask the owner that question in Burmese and stop.
    - Open the task's prompt in docs/prompts/ (table in docs/prompts/README.md) and follow it.
@@ -38,7 +38,8 @@ code disagree, the build and test results win and you correct the docs.
    - Run the task's validation BEFORE editing to know the starting state.
    - Set the task to IN PROGRESS. Do its steps in order. Stay inside the task; put anything
      else in FIX_PLAN §9 Backlog.
-   - Rules: no DRM, paywall, private-content or sign-in bypass. Never log, print or commit
+   - Rules (ADR-006, owner 2026-10-03): any working technique for public videos; no DRM,
+     paywall, private-content or age-gate bypass; adapters never sign in. Never log, print or commit
      passwords, tokens, cookies, signed media URLs, keystores, local.properties or .env.
      WebView/WebSettings calls run on the main thread only. New Kotlin lines stay within
      100 characters. Keep every existing testTag. No unrelated refactors.
@@ -55,11 +56,12 @@ code disagree, the build and test results win and you correct the docs.
    - Keep temporary files outside the repo, then run:
      CHECKPOINT_TEST_COMMAND="<validation command>" bash scripts/checkpoint.sh "Txx: summary"
    - Check CI for the pushed commit; fix a red run. A failed push = stop and report.
-   - Release tasks (T10/T15/T19): merge into main and push the tag only when ALLOW_MERGE_MAIN
-     is true; publish only when ALLOW_RELEASE is true (docs/RELEASE.md).
+   - Release: T10 and T15 are SKIPPED. Only T19 merges into main, pushes the tag and releases
+     the APK signed with the release key (owner-approved; docs/RELEASE.md).
 
 6. REPORT to the owner in Burmese (FIX_PLAN §0.5): task and result (DONE/PARTIAL/BLOCKED),
    what changed, exact commands and test results, commit SHA, branch, CI link (debug APK:
    Artifacts > yft-debug-apk), what the owner should check on the phone, open problems, and
-   the next task. Then STOP. Never start the next task or phase on your own.
+   the next task. Then continue with the next task in the owner's order (FIX_PLAN §3) unless
+   a PENDING decision blocks it.
 ```

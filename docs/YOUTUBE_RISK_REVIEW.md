@@ -2,7 +2,9 @@
 
 - Status: **Overridden by the owner — a YouTube adapter ships (Phase 5E,
   [ADR-005](decisions/ADR-005-youtube-owner-override.md))**. This review is kept unchanged below
-  as the project's risk record.
+  as the project's risk record. Since 2026-10-03 the owner also allows device clients, PO tokens
+  and bot-check workarounds ([ADR-006](decisions/ADR-006-owner-override-any-working-method.md));
+  the containment table below describes the adapter before T16.
 - Reviewed: 2026-10-02
 - Scope: whether `:extractor-sites` should contain a `youtube` adapter in Phase 5
 - Phase 5 required this review to either produce an adapter or report a blocker honestly. This is

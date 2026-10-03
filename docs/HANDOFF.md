@@ -16,16 +16,25 @@
   empty browser hides the address bar; P3 every page load in the browser closes the app; P4 YouTube
   fails with a sign-in message; P5 a TikTok video is found but the download fails. Causes with
   evidence: FIX_PLAN §4 (F1–F8).
-- **Next action — agent:** check the T08 checkpoint CI, then T09 — Your sites with logos
-  ([`prompts/T09-your-sites-logos.md`](prompts/T09-your-sites-logos.md)); stop before T10
-  (release). T08 is OWNER CHECK (paste a YouTube link → found or the bot-check message → Copy
-  details → send them); T07 is
-  OWNER CHECK (TikTok Home and browser download/playback on the phone); T06 is OWNER CHECK
-  (Facebook Home download/playback on the phone); T05 is DONE; T04 is OWNER CHECK:
-  final tests, all 9 individually inspected renders and the actual release debug-action guard
-  pass. Use [`prompts/00_NEXT_TASK.md`](prompts/00_NEXT_TASK.md) for subsequent eligible tasks.
-- **Next action — owner:** answer D1 (clipboard check on open), D2 (YouTube strategy A or B) and D3
-  (MP3) in FIX_PLAN §3. beta.2 can stay a draft; beta.3 replaces it.
+- **Owner change (2026-10-03, recorded at his request):** rules and policy changed —
+  [ADR-006](decisions/ADR-006-owner-override-any-working-method.md) allows any working technique
+  for public videos (device clients, PO tokens, bot-check workarounds, the browser session); DRM,
+  paid, private and age-restricted content stay out. D2 = A + B + C. T10 and T15 are SKIPPED: no
+  merge or release between phases; all tasks stay on `work/phase-8-field-fixes`. After T19: merge
+  into `main`, push, tag `v1.0.0-beta.3` and release the APK signed with the release key
+  (approved for T19 only). Order: T16 → T17 → T09 → T12 → T11 → T13 → T14 → T18 → T19, task
+  after task without waiting.
+- **Next action — agent:** T16 — YouTube client strategy A + B + C
+  ([`prompts/T16-youtube-client-strategy.md`](prompts/T16-youtube-client-strategy.md)), IN
+  PROGRESS; then continue in the owner's order. T08 is OWNER CHECK (CI green: checkpoint
+  https://github.com/Alalkipgen/YFT/actions/runs/37159270955, emulator
+  https://github.com/Alalkipgen/YFT/actions/runs/37159270920; phone: paste a YouTube link →
+  found or the bot-check message → Copy details → send them); T07 is OWNER CHECK (TikTok Home
+  and browser download/playback on the phone); T06 is OWNER CHECK (Facebook Home
+  download/playback on the phone); T05 is DONE; T04 is OWNER CHECK: final tests, all 9
+  individually inspected renders and the actual release debug-action guard pass.
+- **Next action — owner:** answer D1 (clipboard check on open, T11) and D3 (MP3, T18) in
+  FIX_PLAN §3; D2 is answered. beta.2 stays a draft; the T19 release replaces it.
 - **T01 validation (2026-10-03):** core-browser 53 tests, app 386 (41 renders skipped), 0 failures;
   lint 0 errors, 83 existing warnings. The strict off-main regression failed on the old code and
   passed on the fix. Use the memory-safe command in `TEST_MATRIX.md` on this 4 GiB sandbox.
@@ -104,8 +113,8 @@
   formats with URLs, protected count, SABR flag, outcome), sanitized. The old code failed 8 tests;
   fixed: extractor-api 29, extractor-sites 123, app 441 (54 render skips), lint 0 errors. Live
   (sandbox IP): dQw4w9WgXcQ needs the player script (WEB: 1 protected format + SABR, embedded
-  refused 152-18); aqz-KE-bpKQ gets the bot check and the new message. YFT does not bypass bot
-  checks; the client strategy is T16 (D2).
+  refused 152-18); aqz-KE-bpKQ gets the bot check and the new message. aa915ff CI GREEN
+  (links above). The owner then allowed working around bot checks (ADR-006); that is T16.
 
 ## Known limitations (beta.2)
 
