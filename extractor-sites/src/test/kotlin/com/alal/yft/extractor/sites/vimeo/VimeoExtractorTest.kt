@@ -5,6 +5,7 @@ import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.PageNavigationHeaders
 import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionRequest
@@ -15,6 +16,7 @@ import com.alal.yft.extractor.sites.testing.Fixtures
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -122,12 +124,15 @@ class VimeoExtractorTest {
             assertEquals("fixture-agent", pageHeaders["User-Agent"])
             assertEquals("vimeo=fixture-cookie", pageHeaders["Cookie"])
             assertEquals("https://vimeo.com/", pageHeaders["Referer"])
+            assertEquals(PageNavigationHeaders.ACCEPT, pageHeaders["Accept"])
+            assertEquals("navigate", pageHeaders["Sec-Fetch-Mode"])
 
             val configHeaders = http.requestedHeaders.last()
             assertEquals("fixture-agent", configHeaders["User-Agent"])
             assertEquals("vimeo=fixture-cookie", configHeaders["Cookie"])
             assertEquals(CLIP_URL, configHeaders["Referer"])
             assertTrue(configHeaders["Accept"].orEmpty().contains("application/json"))
+            assertNull(configHeaders["Sec-Fetch-Mode"])
 
             assertEquals(
                 listOf(

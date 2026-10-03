@@ -5,6 +5,7 @@ import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.PageNavigationHeaders
 import com.alal.yft.extractor.api.PlayerScriptChallengeKind
 import com.alal.yft.extractor.api.PlayerScriptResult
 import com.alal.yft.extractor.api.SiteExtractionFailure
@@ -100,11 +101,15 @@ class YouTubeExtractorTest {
 
         val pageHeaders = http.requestedHeaders.single()
         assertEquals(COOKIE, pageHeaders["Cookie"])
+        assertEquals(PageNavigationHeaders.ACCEPT, pageHeaders["Accept"])
+        assertEquals("navigate", pageHeaders["Sec-Fetch-Mode"])
         assertEquals(USER_AGENT, pageHeaders["User-Agent"])
         assertEquals(YouTubeExtractor.DEFAULT_MAX_PAGE_BYTES, http.requestedBodyLimits.single())
 
         val headers = http.postedHeaders.single()
         assertFalse(headers.containsKey("Cookie"))
+        assertEquals("application/json", headers["Accept"])
+        assertNull(headers["Sec-Fetch-Mode"])
         assertEquals(USER_AGENT, headers["User-Agent"])
         assertEquals("56", headers["X-YouTube-Client-Name"])
         assertEquals("2.20261002.01.00", headers["X-YouTube-Client-Version"])

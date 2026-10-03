@@ -1,5 +1,6 @@
 package com.alal.yft.core.browser.detection
 
+import com.alal.yft.core.model.media.PageNavigationHeaders
 import kotlinx.coroutines.test.runTest
 import okhttp3.Cookie
 import okhttp3.CookieJar
@@ -55,7 +56,34 @@ class HeadlessPageFetcherTest {
         val request = server.takeRequest()
         assertEquals("GET", request.method)
         assertEquals(USER_AGENT, request.getHeader("User-Agent"))
+        PageNavigationHeaders.DEFAULTS.forEach { (name, value) ->
+            assertEquals(value, request.getHeader(name))
+        }
         assertNull(request.getHeader("Cookie"))
+    }
+
+    @Test
+    fun customNavigationValuesCannotInjectCookiesOrAccountHeaders() = runTest {
+        server.enqueue(html("fixture"))
+        val fetcher = HeadlessPageFetcher(
+            OkHttpClient(),
+            USER_AGENT,
+            navigationHeaders = mapOf(
+                "accept" to "text/html",
+                "Accept-Language" to "fr-FR",
+                "Cookie" to "fixture-only",
+                "Authorization" to "fixture-only",
+            ),
+        )
+
+        fetcher.fetch(server.url("/page").toString())
+
+        val request = server.takeRequest()
+        assertEquals("text/html", request.getHeader("Accept"))
+        assertEquals("fr-FR", request.getHeader("Accept-Language"))
+        assertEquals("navigate", request.getHeader("Sec-Fetch-Mode"))
+        assertNull(request.getHeader("Cookie"))
+        assertNull(request.getHeader("Authorization"))
     }
 
     @Test
@@ -134,6 +162,14 @@ class HeadlessPageFetcherTest {
             result,
         )
         assertEquals(3, server.requestCount)
+        repeat(3) {
+            val request = server.takeRequest()
+            assertEquals(USER_AGENT, request.getHeader("User-Agent"))
+            PageNavigationHeaders.DEFAULTS.forEach { (name, value) ->
+                assertEquals(value, request.getHeader(name))
+            }
+            assertNull(request.getHeader("Cookie"))
+        }
     }
 
     @Test

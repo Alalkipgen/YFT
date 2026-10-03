@@ -1,7 +1,5 @@
 package com.alal.yft.feature.home
 
-import android.os.Build
-import com.alal.yft.BuildConfig
 import com.alal.yft.core.browser.detection.HeadlessPageFetcher
 import com.alal.yft.core.browser.detection.HtmlMediaScanner
 import com.alal.yft.core.browser.detection.MediaMetadataProbe
@@ -13,6 +11,7 @@ import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.detection.HeadlessIdentity
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.extractor.generic.classifier.MediaUrlClassifier
@@ -61,7 +60,11 @@ class HeadlessLinkInspector internal constructor(
 ) : LinkInspector {
     @Inject
     constructor(client: OkHttpClient, siteAdapters: SiteAdapterCoordinator) : this(
-        fetchPage = HeadlessPageFetcher(client, userAgent = USER_AGENT)::fetch,
+        fetchPage = HeadlessPageFetcher(
+            client,
+            userAgent = HeadlessIdentity.USER_AGENT,
+            navigationHeaders = HeadlessIdentity.NAVIGATION_HEADERS,
+        )::fetch,
         probeMedia = MediaMetadataProbe(client)::probe,
         siteAdapters = siteAdapters,
     )
@@ -102,7 +105,11 @@ class HeadlessLinkInspector internal constructor(
         when (
             val outcome = siteAdapters.inspect(
                 pageUrl = url,
-                requestContext = BrowserRequestContext(url, null, null),
+                requestContext = BrowserRequestContext(
+                    url,
+                    HeadlessIdentity.USER_AGENT,
+                    cookie = null,
+                ),
                 nowEpochMs = now,
             )
         ) {
@@ -156,8 +163,13 @@ class HeadlessLinkInspector internal constructor(
                         pageUrl = page.url,
                         pageTitle = scan.title,
                         candidates = scan.candidates.map { candidate ->
-                            candidate.takeIf { it.title != null }
-                                ?: candidate.copy(title = scan.title)
+                            candidate.copy(
+                                title = candidate.title ?: scan.title,
+                                requestContext = candidate.requestContext.copy(
+                                    userAgent = HeadlessIdentity.USER_AGENT,
+                                    cookie = null,
+                                ),
+                            )
                         },
                     )
                 }
@@ -187,7 +199,7 @@ class HeadlessLinkInspector internal constructor(
         kind = kind,
         mimeType = mimeType,
         contentLengthBytes = length,
-        requestContext = BrowserRequestContext(url, null, null),
+        requestContext = BrowserRequestContext(url, HeadlessIdentity.USER_AGENT, cookie = null),
         confidence = CandidateConfidence.MEDIUM,
         observedAtEpochMs = now,
     )
@@ -208,9 +220,5 @@ class HeadlessLinkInspector internal constructor(
     internal companion object {
         const val TIMEOUT_MILLIS = 25_000L
         const val MAX_CANDIDATES = 50
-
-        /** Honest about being YFT; the Mozilla token is what servers expect from any client. */
-        val USER_AGENT: String =
-            "Mozilla/5.0 (Linux; Android ${Build.VERSION.RELEASE}) YFT/${BuildConfig.VERSION_NAME}"
     }
 }

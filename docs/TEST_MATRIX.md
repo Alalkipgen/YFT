@@ -360,16 +360,36 @@ in UIAutomator, no empty WebView, Example Domain page content, and page bounds b
 | First visual QA | 8 captures inspected: Home 200% truncates Open browser (responsive flow repair added); dialog's nominal 200% capture was actually 100% (native resource font-scale guard added); largest About actions need a scrolled capture |
 | Replacement renders / final validation | PASS — all 9 final PNGs individually inspected; full command: core-model 35, extractor-api 24, extractor-sites 91, app 434 (54 render skips), 0 failures/errors; lint 0 errors / 95 warnings; instrumentation APK compiled |
 | Largest text | PASS — full Open browser label wraps below Paste; all four About report actions have a scrolled 200% capture; dialog uses real Android resource fontScale=2, not just the parent composition density. The layout test initially failed with legacy Robolectric text metrics; Native graphics fixes the test environment and it passes |
-| Native CI | PASS on 3b9224c — both workflows green, API 34 native controls/content and 0 fatal exceptions. Final UI polish checkpoint still needs its CI |
+| Native CI | PASS on final ce881f7 — both workflows green; native API 34: 3 tests, 0 failures/errors, 0 fatal exceptions, 3 PNGs; empty WebView absent and loaded/found address bounds above the WebView |
 
 Full command: T01 memory flags plus
 `:core-model:test :extractor-api:test :extractor-sites:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest`.
 `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -v`.
 Release check: `:app:assembleRelease` in a separate call, then
 `bash scripts/verify-release-apk.sh --allow-unsigned --expected-version 1.0.0-beta.2 app/build/outputs/apk/release/app-release-unsigned.apk`.
-CI: https://github.com/Alalkipgen/YFT/actions/runs/37149137785 (emulator) and
-https://github.com/Alalkipgen/YFT/actions/runs/37149137767 (checkpoint/debug APK).
+Final CI: https://github.com/Alalkipgen/YFT/actions/runs/37151155280 (emulator) and
+https://github.com/Alalkipgen/YFT/actions/runs/37151155259 (checkpoint/debug APK).
 Reports stay local; About Share opens a text chooser only after a tap, with no file-provider grant.
+
+### T05 — Headless identity / navigation headers (DONE, 2026-10-03)
+
+| Check | Result |
+| --- | --- |
+| Starting state | PASS — core-model 35, core-browser 53, extractor-generic 7, extractor-sites 91, app 434 (54 render skips), no failures/errors; lint 0 errors / 95 warnings |
+| User-Agent regression | FAILED old: Home adapter context had no user-agent; PASSED fixed in the full run |
+| Identity propagation | PASS — adapter context, production generic fetcher and direct/markup candidates use the same honest non-Android desktop YFT identity with no browser cookie |
+| Navigation-only defaults | PASS — all four adapters supply page GET headers; explicit casing/values preserved, mutable input snapshotted, redirects retain defaults; generic fetcher cannot inject account headers |
+| JSON/API and browser identity | PASS — Vimeo config and YouTube player requests keep their JSON Accept and no navigation mode; existing browser user-agent/cookie replay fixture tests pass |
+| Full validation / instrumentation APK | PASS — core-model 38, core-browser 54, extractor-api 24, extractor-generic 7, extractor-sites 95, app 436 (54 render skips), 0 failures/errors; lint 0 errors / 95 warnings; instrumentation APK compiled |
+| Script checks / style | PASS — 22 Python tests; live checker bash-n/shellcheck; diff-check and new Kotlin lines <=100 |
+| Public Facebook live check | PASS — HTTP 200, host www.facebook.com, path /reel/1603698891196107/, 609875 bytes; browser_native_hd_url=yes, TikTok/YouTube markers=no; no cookies or raw page/query output |
+| CI / owner check | This task checkpoint's two workflows must be checked; no separate phone check yet (T06–T08 consume this). Native pixels still require authenticated artifact access |
+
+Full command: T01 memory flags plus
+`:core-model:test :core-browser:testDebugUnitTest :extractor-api:test :extractor-generic:test :extractor-sites:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest`.
+Script command: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -q`.
+Live command: `bash scripts/live-check.sh https://www.facebook.com/share/v/1Q3kAyptrS/`.
+Public page delivery is not yet successful Facebook extraction: its DRM parser is T06.
 
 ## Runtime tests still requiring a device/emulator
 

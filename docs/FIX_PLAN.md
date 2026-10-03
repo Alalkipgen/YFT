@@ -132,7 +132,7 @@ Agents update the **Status** column in every task checkpoint.
 | T02 | [Real-WebView smoke test on a CI emulator](#t02--real-webview-smoke-test-on-a-ci-emulator) | 8 | P0 | Medium | 1 d | T01, D4 | DONE (2026-10-03) |
 | T03 | [Browser start page; WebView only when a page is open](#t03--browser-start-page-webview-only-when-a-page-is-open) | 8 | P0 | Medium | 1 d | T01 | OWNER CHECK |
 | T04 | [Local crash report and lookup details](#t04--local-crash-report-and-lookup-details) | 8 | P0 | Easy–Medium | 0.5–1 d | — | OWNER CHECK |
-| T05 | [Browser-like request identity for Home lookups](#t05--browser-like-request-identity-for-home-lookups) | 8 | P1 | Easy–Medium | 0.5 d | — | TODO |
+| T05 | [Browser-like request identity for Home lookups](#t05--browser-like-request-identity-for-home-lookups) | 8 | P1 | Easy–Medium | 0.5 d | — | DONE (2026-10-03) |
 | T06 | [Facebook public reels and videos without sign-in](#t06--facebook-public-reels-and-videos-without-sign-in) | 8 | P1 | Medium | 1 d | T05 | TODO |
 | T07 | [TikTok media cookies for Home lookups](#t07--tiktok-media-cookies-for-home-lookups) | 8 | P1 | Medium | 0.5 d | T05 | TODO |
 | T08 | [YouTube: honest messages, identity and details](#t08--youtube-honest-messages-identity-and-details) | 8 | P1 | Easy | 0.5 d | T04, T05 | TODO |
@@ -319,6 +319,13 @@ curl -s -L --max-redirs 5 -o /tmp/fb.html -w '%{http_code} %{num_redirects}\n' \
   'https://www.facebook.com/share/v/1Q3kAyptrS/'
 grep -c browser_native_hd_url /tmp/fb.html   # 1 or more means the video data is there
 ```
+
+T05 (2026-10-03): Home now supplies the honest desktop YFT identity to adapters, generic
+page fetches, direct candidates and scanned markup candidates. Shared navigation defaults apply
+only to page GETs; explicit values survive case-insensitively, JSON/API headers and browser
+session identity remain unchanged. The safe live checker returned HTTP 200 on
+`www.facebook.com/reel/1603698891196107/` (609,875 bytes, HD marker present, no browser cookies).
+This does not claim Facebook extraction/download is fixed yet: the DRM parser is T06.
 
 ### F4 — YouTube fails the same way (P4) — three causes
 
@@ -590,9 +597,9 @@ P1 · Easy–Medium · 0.5 day · fixes part of P1 and P4
 ([F3](#f3--facebook-asks-to-sign-in-for-a-public-reel-p1--confirmed-live).1,
 [F4](#f4--youtube-fails-the-same-way-p4--three-causes).1)
 
-**Read first:** `LinkInspector.kt` (`USER_AGENT` line 197, contexts at lines 101 and 174);
-`HeadlessPageFetcher.kt`; `OkHttpExtractorClient.kt`; the `pageHeaders` of the Facebook (138–143),
-TikTok (114–117), YouTube and Vimeo extractors; the F3 matrix.
+**Read first:** `LinkInspector.kt`, `HeadlessIdentity.kt`, shared `PageNavigationHeaders.kt`;
+`HeadlessPageFetcher.kt`; `OkHttpExtractorClient.kt`; the `pageHeaders` of the Facebook, TikTok,
+YouTube and Vimeo extractors; the F3 matrix.
 
 **Steps**
 

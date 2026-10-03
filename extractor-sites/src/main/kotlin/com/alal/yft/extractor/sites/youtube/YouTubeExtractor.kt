@@ -5,6 +5,7 @@ import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.PageNavigationHeaders
 import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.NoPlayerScriptRunner
@@ -341,11 +342,14 @@ class YouTubeExtractor(
         return if (label == null) base else "$base — $label"
     }
 
-    private fun pageHeaders(context: BrowserRequestContext): Map<String, String> = buildMap {
-        context.userAgent?.takeIf(String::isNotBlank)?.let { put("User-Agent", it) }
-        context.cookie?.takeIf(String::isNotBlank)?.let { put("Cookie", it) }
-        put("Accept-Language", ACCEPT_LANGUAGE)
-    }
+    private fun pageHeaders(context: BrowserRequestContext): Map<String, String> =
+        PageNavigationHeaders.withDefaults(
+            buildMap {
+                context.userAgent?.takeIf(String::isNotBlank)?.let { put("User-Agent", it) }
+                context.cookie?.takeIf(String::isNotBlank)?.let { put("Cookie", it) }
+                put("Accept-Language", ACCEPT_LANGUAGE)
+            },
+        )
 
     /**
      * Headers for the player request, matching what YouTube's own player sends.

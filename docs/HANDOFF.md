@@ -16,8 +16,9 @@
   empty browser hides the address bar; P3 every page load in the browser closes the app; P4 YouTube
   fails with a sign-in message; P5 a TikTok video is found but the download fails. Causes with
   evidence: FIX_PLAN §4 (F1–F8).
-- **Next action — agent:** verify the final T04 checkpoint CI, then T05 — Home request identity
-  ([`prompts/T05-headless-identity.md`](prompts/T05-headless-identity.md)). T04 is OWNER CHECK:
+- **Next action — agent:** check the T05 checkpoint CI, then T06 — Facebook public video
+  ([`prompts/T06-facebook-public-video.md`](prompts/T06-facebook-public-video.md)). T05 is DONE;
+  T04 is OWNER CHECK:
   final tests, all 9 individually inspected renders and the actual release debug-action guard
   pass. Use [`prompts/00_NEXT_TASK.md`](prompts/00_NEXT_TASK.md) for subsequent eligible tasks.
 - **Next action — owner:** answer D1 (clipboard check on open), D2 (YouTube strategy A or B) and D3
@@ -57,11 +58,20 @@
   line audit pass. Copy details regression failed old/passes fixed. All 9 final native-canvas
   PNGs pass individual visual inspection; 200% Home actions wrap, and dialog fontScale is real.
   Separate final unsigned release build passes metadata/alignment/debug-action checks; not
-  installable or published. Milestone 3b9224c CI GREEN: emulator
-  https://github.com/Alalkipgen/YFT/actions/runs/37149137785 and checkpoint/debug APK
-  https://github.com/Alalkipgen/YFT/actions/runs/37149137767. Final polish CI still needs its check.
+  installable or published. Final ce881f7 CI GREEN: emulator
+  https://github.com/Alalkipgen/YFT/actions/runs/37151155280 (3 tests, 0 failures/fatal exceptions)
+  and checkpoint/debug APK https://github.com/Alalkipgen/YFT/actions/runs/37151155259.
   Phone: debug About version long press → confirm crash → restart → View/Copy/Share/Delete;
   on an unexpected app closure, explicitly Share the local report. No automatic upload.
+
+- **T05 DONE:** shared honest desktop YFT identity, navigation-only header defaults, no borrowed
+  browser cookies, and the same identity on direct/scanned candidates. JSON/API and browser
+  session headers are unchanged. Old non-null-UA regression failed, fixed passes. Full tests:
+  core-model 38, core-browser 54, extractor-api 24, extractor-generic 7, extractor-sites 95,
+  app 436 (54 render skips), 0 failures/errors; lint 0 errors/95 warnings; instrumentation APK
+  compiled; Python 22/22, shell/style checks pass. Public live check: HTTP 200 on
+  www.facebook.com/reel/1603698891196107/, 609875 bytes, HD marker present, no cookies or query
+  output. This proves page delivery, not Facebook extraction/download (T06). No phone check yet.
 
 ## Known limitations (beta.2)
 

@@ -39,6 +39,10 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Changed
 
+- Home lookups use an honest desktop-class YFT user-agent and shared HTML-navigation headers,
+  without borrowing a browser session. Direct/scanned media keep that identity; JSON/API calls
+  and the browser's own user-agent/cookies are unchanged. A bounded public-page checker reports
+  only status, host/path, size and known markers, never page bodies or signed query strings.
 - Documentation: `docs/FIX_PLAN.md` plans Phases 8–10 task by task after the beta.2 phone test,
   with ready-to-paste prompts in `docs/prompts/`. The old phase prompts, the hardening audit and
   the continuity protocol were removed (they stay in Git history); `PHASE_STATUS.md` and

@@ -5,6 +5,7 @@ import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.PageNavigationHeaders
 import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.SiteExtractionFailure
@@ -152,12 +153,15 @@ class VimeoExtractor(
         return if (label.isNullOrBlank()) base else "$base — $label"
     }
 
-    private fun pageHeaders(context: BrowserRequestContext): Map<String, String> = buildMap {
-        context.userAgent?.takeIf(String::isNotBlank)?.let { put("User-Agent", it) }
-        context.cookie?.takeIf(String::isNotBlank)?.let { put("Cookie", it) }
-        put("Accept-Language", "en-US,en;q=0.9")
-        put("Referer", "https://vimeo.com/")
-    }
+    private fun pageHeaders(context: BrowserRequestContext): Map<String, String> =
+        PageNavigationHeaders.withDefaults(
+            buildMap {
+                context.userAgent?.takeIf(String::isNotBlank)?.let { put("User-Agent", it) }
+                context.cookie?.takeIf(String::isNotBlank)?.let { put("Cookie", it) }
+                put("Accept-Language", "en-US,en;q=0.9")
+                put("Referer", "https://vimeo.com/")
+            },
+        )
 
     /** The configuration request is anchored to the clip page, as the embedded player does. */
     private fun configHeaders(

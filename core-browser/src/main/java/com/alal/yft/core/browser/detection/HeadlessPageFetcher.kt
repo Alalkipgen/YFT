@@ -1,5 +1,6 @@
 package com.alal.yft.core.browser.detection
 
+import com.alal.yft.core.model.media.PageNavigationHeaders
 import java.io.IOException
 import java.nio.charset.Charset
 import java.util.concurrent.TimeUnit
@@ -31,6 +32,7 @@ class HeadlessPageFetcher(
     client: OkHttpClient,
     private val userAgent: String,
     private val policy: Policy = Policy(),
+    navigationHeaders: Map<String, String> = PageNavigationHeaders.DEFAULTS,
 ) {
     data class Policy(
         val maxRedirects: Int = 5,
@@ -66,6 +68,13 @@ class HeadlessPageFetcher(
         TOO_MANY_REDIRECTS,
         NOT_A_PAGE,
     }
+
+    // Only navigation roles can be customized; callers cannot add cookies or account headers.
+    private val pageHeaders = PageNavigationHeaders.withDefaults(
+        navigationHeaders.filterKeys { name ->
+            PageNavigationHeaders.DEFAULTS.keys.any { it.equals(name, ignoreCase = true) }
+        },
+    )
 
     private val fetchClient = client.newBuilder()
         .followRedirects(false)
@@ -111,7 +120,7 @@ class HeadlessPageFetcher(
             .url(url)
             .get()
             .header("User-Agent", userAgent)
-            .header("Accept", ACCEPT)
+            .apply { pageHeaders.forEach { (name, value) -> header(name, value) } }
             .build()
         val response = suspendCancellableCoroutine { continuation ->
             val call = fetchClient.newCall(request)
@@ -184,7 +193,6 @@ class HeadlessPageFetcher(
 
     private companion object {
         const val CHUNK_BYTES = 64L * 1024
-        const val ACCEPT = "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5"
         val SUCCESS_CODES = 200..299
         val REDIRECT_CODES = setOf(300, 301, 302, 303, 307, 308)
         val PAGE_TYPES = setOf("text/html", "application/xhtml+xml", "text/plain")

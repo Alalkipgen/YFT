@@ -17,7 +17,8 @@ Status values:
 | HTTPS direct MP4/WebM/audio detection | Implemented | 2 | Extension/MIME/DOM/request/download observations normalize per page |
 | HTML5 `video` / `audio` / `source` | Implemented | 2 | Production read-only DOM probe plus committed Chromium-validated fixture |
 | WebView DownloadListener | Implemented | 2 | Captures MIME, filename, size and secure request context |
-| In-app browser on a real WebView | OWNER CHECK (Phase 8 branch fix) | 8 | T01 caches the page URL and User-Agent without off-main WebView/WebSettings calls; strict-thread, navigation and parallel-observation tests pass. Real-WebView verification is T02 and the owner's phone check. beta.2 remains affected; empty-browser layout is still T03. |
+| In-app browser on a real WebView | OWNER CHECK (Phase 8 branch fix) | 8 | T01 caches the page URL/User-Agent without off-main calls. T02/T03 real CI API 34 empty controls, deferred WebView and public navigation pass; beta.2 remains affected. Phone checks and authenticated native pixel review remain. |
+| Home session-free page identity | Implemented (Phase 8 branch) | 8 | T05 uses honest desktop-class YFT identity without the Android token or browser cookies; shared Accept/language/navigation-mode defaults on page GETs only. JSON/API and browser session identity remain unchanged. Facebook parser/download remains T06; TikTok cookies T07; YouTube blockers T08/T16. |
 | WebView request URL/headers | Implemented | 2 | Observes GET requests; strongly hinted URLs receive bounded metadata probes |
 | Literal `blob:` URL | Unsupported as a file | 2 | Literal is rejected; underlying HTTP(S) source/manifest observations are detected |
 | Direct MP4/WebM/audio preview | Implemented | 3 | Bounded metadata validation and explicit Media3 progressive source; device playback remains to be exercised |
@@ -40,3 +41,19 @@ Status values:
 | Playlist/batch download | Deferred | Post-MVP | Not part of initial release |
 | Android versions | Implemented | 1–7 | Android 7.0 (API 24) or newer, target and compile SDK 35 (Android 15). Verified with Robolectric on API 28 and 35 only; no device run |
 | Signed GitHub release | Implemented | 7 | Version `1.0.0-beta.1`, release signing, APK verification, checksums and a draft-only workflow are in place and were verified with a throwaway key on 2026-10-02. No owner-signed APK exists and nothing is published until the owner provides the keystore and sets `ALLOW_RELEASE=true`; distribution is GitHub-only `1.0.0-beta.1` published 2026-10-02; `1.0.0-beta.2` signed draft 2026-10-03. |
+
+## Headless lookup identity (T05, 2026-10-03)
+
+`HeadlessIdentity` supplies `Mozilla/5.0 (X11; Linux x86_64) YFT/<app version>` without claiming
+Chrome or another device. `PageNavigationHeaders` defines the HTML navigation Accept value,
+`en-US,en;q=0.9` and `Sec-Fetch-Mode: navigate`. Top-level adapter and generic page requests use
+these defaults; Vimeo configuration and YouTube player JSON keep their existing API headers.
+Home does not borrow the WebView's user-agent, cookies or account. Its direct/scanned candidates
+keep the same headless user-agent for subsequent probes/preview. The browser keeps its own session.
+
+`bash scripts/live-check.sh <public-https-url>` prints only status, final host/path, byte count
+and known markers. It disables curl user configuration and cookies, permits HTTPS redirects only,
+bounds time/size, and cleans its temporary page without emitting bodies, queries or raw errors.
+The owner's public Facebook share link returned HTTP 200, host `www.facebook.com`, path
+`/reel/1603698891196107/`, 609,875 bytes, `browser_native_hd_url` present. No full app extraction
+or download claim: the false DRM classification still needs T06.

@@ -2,9 +2,11 @@ package com.alal.yft.feature.home
 
 import com.alal.yft.core.browser.detection.HeadlessPageFetcher
 import com.alal.yft.core.browser.detection.MediaMetadataProbe
+import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.detection.HeadlessIdentity
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionRequest
@@ -14,9 +16,16 @@ import com.alal.yft.extractor.api.SiteExtractorRegistry
 import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.ui.components.PromptboxStatus
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -49,6 +58,35 @@ class HeadlessLinkInspectorTest {
     )
 
     @Test
+    fun productionFetcherUsesTheSameIdentityAndNavigationHeaders() = runBlocking {
+        val requests = mutableListOf<Request>()
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            requests += chain.request()
+            Response.Builder()
+                .request(chain.request())
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .header("Content-Type", "text/html")
+                .body("<title>Fixture</title>".toResponseBody())
+                .build()
+        }.build()
+        val inspector = HeadlessLinkInspector(
+            client,
+            SiteAdapterCoordinator(SiteExtractorRegistry(emptyList())),
+        )
+
+        inspector.inspect("https://fixture.test/article")
+
+        val request = requests.single()
+        assertEquals(HeadlessIdentity.USER_AGENT, request.header("User-Agent"))
+        HeadlessIdentity.NAVIGATION_HEADERS.forEach { (name, value) ->
+            assertEquals(value, request.header(name))
+        }
+        assertNull(request.header("Cookie"))
+    }
+
+    @Test
     fun unusableAddressesAreRejectedWithoutTheNetwork() = runTest {
         assertNotFound(
             LinkInspection.NotFound("Only HTTPS pages are supported", canOpenInBrowser = false),
@@ -78,6 +116,8 @@ class HeadlessLinkInspectorTest {
         assertEquals("video/mp4", candidate.mimeType)
         assertEquals(2_048L, candidate.contentLengthBytes)
         assertEquals(setOf(CandidateSource.PASTED_URL), probed.single().sources)
+        assertEquals(HeadlessIdentity.USER_AGENT, candidate.requestContext.userAgent)
+        assertNull(candidate.requestContext.cookie)
         assertEquals(NOW, probed.single().observedAtEpochMs)
         assertTrue(fetched.isEmpty())
     }
@@ -101,6 +141,28 @@ class HeadlessLinkInspectorTest {
         assertEquals("Fixture clip", found.pageTitle)
         assertEquals("https://cdn.fixture.test/42.mp4", found.candidates.single().mediaUrl)
         assertTrue(fetched.isEmpty())
+    }
+
+    @Test
+    fun headlessAdapterRequestsCarryAnHonestDesktopIdentityWithoutCookies() = runTest {
+        val delegate = FixtureExtractor()
+        var received: BrowserRequestContext? = null
+        val recording = object : SiteExtractor by delegate {
+            override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
+                received = request.requestContext
+                return delegate.extract(request)
+            }
+        }
+
+        inspector(recording).inspect("https://fixture.test/video/42")
+
+        val context = requireNotNull(received)
+        assertEquals("https://fixture.test/video/42", context.pageUrl)
+        assertNotNull("Home adapters need the headless User-Agent", context.userAgent)
+        val userAgent = requireNotNull(context.userAgent)
+        assertTrue(userAgent.startsWith("Mozilla/5.0 (X11; Linux x86_64) YFT/"))
+        assertFalse(userAgent.contains("Android", ignoreCase = true))
+        assertNull(context.cookie)
     }
 
     @Test
@@ -152,6 +214,8 @@ class HeadlessLinkInspectorTest {
         val candidate = result.candidates.single()
         assertEquals("https://cdn.a.test/sunset.mp4", candidate.mediaUrl)
         assertEquals("Sunset timelapse", candidate.title)
+        assertEquals(HeadlessIdentity.USER_AGENT, candidate.requestContext.userAgent)
+        assertNull(candidate.requestContext.cookie)
     }
 
     @Test
@@ -173,6 +237,8 @@ class HeadlessLinkInspectorTest {
         assertEquals(MediaKind.DIRECT, candidate.kind)
         assertEquals("audio/mpeg", candidate.mimeType)
         assertEquals(4_096L, candidate.contentLengthBytes)
+        assertEquals(HeadlessIdentity.USER_AGENT, candidate.requestContext.userAgent)
+        assertNull(candidate.requestContext.cookie)
         assertNull(result.pageTitle)
     }
 
