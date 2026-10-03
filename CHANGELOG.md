@@ -16,6 +16,11 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Fixed
 
+- Empty browser now uses a Compose start page with tap-to-paste and saved Your sites.
+  The WebView is created on the first valid navigation and retained across later navigation
+  and recomposition. Web content is clipped below an opaque, higher-layer address/close bar.
+  The idle address stays accessible instead of hiding its entire node with alpha zero.
+  Found-media headings wrap to keep their count badge visible with the largest text.
 - CI emulator screenshot collection now keeps the test APKs installed until `adb pull`
   finishes, then uninstalls them. Missing captures and pull/logcat failures remain errors;
   a collector regression reproduces the old post-test external-file deletion.

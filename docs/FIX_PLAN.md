@@ -130,7 +130,7 @@ Agents update the **Status** column in every task checkpoint.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | T01 | [Browser crash: WebView used off the main thread](#t01--browser-crash-webview-used-off-the-main-thread) | 8 | P0 | Easy–Medium | 0.5 d | — | OWNER CHECK |
 | T02 | [Real-WebView smoke test on a CI emulator](#t02--real-webview-smoke-test-on-a-ci-emulator) | 8 | P0 | Medium | 1 d | T01, D4 | DONE (2026-10-03) |
-| T03 | [Browser start page; WebView only when a page is open](#t03--browser-start-page-webview-only-when-a-page-is-open) | 8 | P0 | Medium | 1 d | T01 | TODO |
+| T03 | [Browser start page; WebView only when a page is open](#t03--browser-start-page-webview-only-when-a-page-is-open) | 8 | P0 | Medium | 1 d | T01 | IN PROGRESS |
 | T04 | [Local crash report and lookup details](#t04--local-crash-report-and-lookup-details) | 8 | P0 | Easy–Medium | 0.5–1 d | — | TODO |
 | T05 | [Browser-like request identity for Home lookups](#t05--browser-like-request-identity-for-home-lookups) | 8 | P1 | Easy–Medium | 0.5 d | — | TODO |
 | T06 | [Facebook public reels and videos without sign-in](#t06--facebook-public-reels-and-videos-without-sign-in) | 8 | P1 | Medium | 1 d | T05 | TODO |
@@ -228,7 +228,7 @@ Phase 8 tasks in plan order, with a checkpoint and CI check per task. `ALLOW_PUS
 
 ### F2 — The empty browser hides the address bar (P2) — likely cause, not yet confirmed
 
-- `BrowserScreen.kt` (`BrowserScreen`, line 194) is a Column: the top row (close `browser-close`
+- Before T03, `BrowserScreen.kt` (`BrowserScreen`) is a Column: the top row (close `browser-close`
   and `BrowserAddressField` `browser-address`), progress and notices, then a weighted box that
   **always** composes `BrowserWebView` (an `AndroidView`, lines 798–812) with `BrowserEmptyHint`
   (`browser-empty`, line 536) drawn over it, then `BrowserToolbar` (line 710).
@@ -257,6 +257,16 @@ Phase 8 tasks in plan order, with a checkpoint and CI check per task. `ALLOW_PUS
   screenshot is still required to confirm/reject the native-surface hypothesis.
   Artifact download returned HTTP 401 without authentication, so the agent has not reviewed
   the native PNGs; owner review remains. Do not call the phone cause confirmed.
+
+- T03 implementation (2026-10-03, IN PROGRESS): no WebView on `browser-start`; first
+  navigation creates it and later updates retain it. The page is clipped below an opaque
+  higher-z-index bar. The idle field hides its ink rather than using alpha zero, so native
+  accessibility can still find it. CI now checks the real Example Domain content, native
+  top-control bounds and the absence of an empty WebView, not just Compose semantics.
+  Local empty-surface regression FAILED before the change. Visual QA also found the count
+  badge squeezed to 5 px at 200% text; its regression FAILED before the heading-wrap repair.
+  Repaired full validation, replacement loaded renders and native CI are still pending.
+  The phone's original pixel-overlay cause remains unconfirmed, not re-labelled as fact.
 
 ### F3 — Facebook asks to sign in for a public reel (P1) — confirmed live
 

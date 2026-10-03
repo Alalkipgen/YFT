@@ -147,6 +147,16 @@ class DesignRenderTest {
     }
 
     @Test
+    fun browserStart() = render("02-browser-start", ThemeMode.LIGHT) {
+        BrowserPreview(startPage = true)
+    }
+
+    @Test
+    fun browserStartDark() = render("02-browser-start-dark", ThemeMode.DARK) {
+        BrowserPreview(startPage = true)
+    }
+
+    @Test
     fun downloadAs() = render("03-download-as", ThemeMode.LIGHT) { DownloadAsPreview() }
 
     @Test
@@ -220,6 +230,7 @@ internal val DESIGN_SCREENS: List<DesignScreen> = listOf(
     DesignScreen("01-home") { ShellPreview(activeDownloads = 2) },
     DesignScreen("09-promptbox-states") { PromptboxStatesPreview() },
     DesignScreen("02-browser-found-media") { BrowserPreview() },
+    DesignScreen("02-browser-start") { BrowserPreview(startPage = true) },
     DesignScreen("02-found-media-screen") { FoundMediaPreview() },
     DesignScreen("03-download-as") { DownloadAsPreview() },
     DesignScreen("04-downloads") { DownloadsShellPreview() },
@@ -353,15 +364,15 @@ private fun PromptboxSample(
 
 /** `02`: a page standing in for the WebView, with the found-media sheet open. */
 @Composable
-internal fun BrowserPreview() {
+internal fun BrowserPreview(startPage: Boolean = false) {
     BrowserScreen(
-        uiState = BrowserUiState(
+        uiState = if (startPage) BrowserUiState() else BrowserUiState(
             address = "https://archive.org/details/ocean-waves",
             currentUrl = "https://archive.org/details/ocean-waves",
             pageTitle = "Ocean Waves – Public Domain Footage",
             candidates = SAMPLE_CANDIDATES,
         ),
-        canGoBack = true,
+        canGoBack = !startPage,
         canGoForward = false,
         onAddressChanged = {},
         onGo = {},
@@ -371,7 +382,8 @@ internal fun BrowserPreview() {
         onStop = {},
         onPreviewCandidate = {},
         onNavigateBack = {},
-        initialSheetExpanded = true,
+        initialSheetExpanded = !startPage,
+        copiedLinkHint = startPage,
         browserSurface = { SamplePage(it) },
     )
 }

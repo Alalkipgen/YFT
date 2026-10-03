@@ -308,6 +308,36 @@ cache is saved before test browsing; adb keys and app-session data are not cache
 Slow media discovery on the public Wikimedia page emits a warning; the HTTPS navigation check
 remains mandatory. T02 is DONE on `e9e1a09`; F2 records the result without claiming phone/pixel proof.
 
+### T03 — Deferred browser/start page (IN PROGRESS, 2026-10-03)
+
+| Check | Result |
+| --- | --- |
+| Starting state | PASS — core-browser 53, app 386 (41 render skips), 0 failures/errors; lint 0 errors / 95 warnings |
+| Empty-page regression | FAILED on the old code: `browser-surface` existed when no page was open. PASSED in the first repaired browser run |
+| First browser run / APK compile | PASS — 26 tests, 0 failures/errors; native-view creation/identity, valid/invalid/blank navigation, initial-link readiness, metadata-only clipboard hint/tap, saved-site navigation and empty saved-list propagation |
+| First full validation | PASS — core-browser 53, app 403 (45 render skips), 0 failures/errors; lint 0 errors / 95 warnings |
+| Largest-text badge regression | FAILED on the old header: badge bounds were only 5 px wide. Heading/count reservation repaired; retest pending |
+| Rendering / visual inspection | 8 browser PNGs rendered and individually inspected. Start Day/Night and 130%/200% passed; loaded 200% exposed the count bug. Replacement loaded renders pending |
+| Native Chromium / phone | T03 CI pending; no local KVM. Native PNG download requires authentication, so no native pixel-review claim |
+
+Commands use the T01 memory flags:
+`:core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug`,
+plus `:app:assembleDebugAndroidTest`. Rendering:
+
+```bash
+YFT_RENDER_DIR=/data/yft-t03-renders ./gradlew --no-daemon -q \
+  --max-workers=1 \
+  -Dorg.gradle.jvmargs='-Xmx1024m -XX:MaxMetaspaceSize=384m -Dfile.encoding=UTF-8' \
+  -Pkotlin.compiler.execution.strategy=in-process \
+  :app:testDebugUnitTest --rerun \
+  --tests 'com.alal.yft.design.DesignRenderTest.browser*' \
+  --tests 'com.alal.yft.design.LargeTextRenderTest.*02-browser*'
+```
+
+`DESIGN_SCREENS` now includes the start page, so its Day target-size/labels and Night 200%
+labels are audited. Native smoke keeps the three screenshot names and asserts top controls
+in UIAutomator, no empty WebView, Example Domain page content, and page bounds below the bar.
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |

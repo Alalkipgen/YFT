@@ -311,11 +311,12 @@ private fun SitesSection(
 }
 
 @Composable
-private fun SiteTile(
+internal fun SiteTile(
     site: HomeSite,
     editing: Boolean,
     onOpen: () -> Unit,
     onRemove: () -> Unit,
+    tag: String = "home-site-${site.url}",
 ) {
     val colors = YftTheme.colors
     Column(
@@ -330,7 +331,7 @@ private fun SiteTile(
             .semantics {
                 contentDescription = if (editing) "Remove ${site.name}" else site.name
             }
-            .testTag("home-site-${site.url}"),
+            .testTag(tag),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(modifier = Modifier.size(SITE_CIRCLE)) {

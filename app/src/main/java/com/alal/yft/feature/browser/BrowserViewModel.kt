@@ -12,6 +12,7 @@ import com.alal.yft.core.browser.policy.BrowserAddressResult
 import com.alal.yft.core.browser.session.PageCandidateStore
 import com.alal.yft.core.browser.session.PageProbeBudget
 import com.alal.yft.core.browser.webview.BrowserObservationSink
+import com.alal.yft.core.data.preferences.HomeSitesRepository
 import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.MediaCandidate
@@ -40,6 +41,7 @@ class BrowserViewModel(
     private val previewSelectionStore: PreviewSelectionStore = PreviewSelectionStore(),
     private val detectedMediaStore: DetectedMediaStore = DetectedMediaStore(),
     private val clock: () -> Long = System::currentTimeMillis,
+    private val homeSitesRepository: HomeSitesRepository? = null,
 ) : ViewModel(), BrowserObservationSink {
     /**
      * Production entry point. Dagger has no sensible binding for the test clock lambda, so the
@@ -51,12 +53,14 @@ class BrowserViewModel(
         siteAdapters: SiteAdapterCoordinator,
         previewSelectionStore: PreviewSelectionStore,
         detectedMediaStore: DetectedMediaStore,
+        homeSitesRepository: HomeSitesRepository,
     ) : this(
         okHttpClient,
         siteAdapters,
         previewSelectionStore,
         detectedMediaStore,
         System::currentTimeMillis,
+        homeSitesRepository,
     )
 
     private val mutableUiState = MutableStateFlow(BrowserUiState())
@@ -78,6 +82,13 @@ class BrowserViewModel(
     private var browserContext: BrowserRequestContext? = null
 
     init {
+        homeSitesRepository?.let { repository ->
+            viewModelScope.launch {
+                repository.sites.collect { sites ->
+                    mutableUiState.update { it.copy(sites = sites) }
+                }
+            }
+        }
         viewModelScope.launch {
             candidateStore.candidates.collect { candidates ->
                 mutableUiState.update { it.copy(candidates = candidates) }

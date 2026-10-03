@@ -1,6 +1,8 @@
 package com.alal.yft.feature.browser
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -19,11 +21,14 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.ui.components.ALLOWED_MEDIA_NOTE
 import com.alal.yft.ui.theme.YftTheme
 import org.junit.Assert.assertEquals
@@ -105,13 +110,76 @@ class BrowserScreenTest {
     }
 
     @Test
-    fun withoutAPageThereIsAHintAndNoSheet() {
+    fun withoutAPageStartPageDoesNotCreateBrowserSurface() {
         setScreen(uiState = BrowserUiState())
 
+        composeRule.onAllNodesWithTag("browser-surface").assertCountEquals(0)
+        composeRule.onNodeWithTag("browser-start").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-close").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-address").assertIsDisplayed()
         composeRule.onAllNodesWithTag("media-found-button").assertCountEquals(0)
-        composeRule.onNodeWithTag("browser-empty").assertIsDisplayed()
         composeRule.onNodeWithTag("browser-history-back").assertIsNotEnabled()
         composeRule.onNodeWithTag("browser-reload-stop").assertIsNotEnabled()
+    }
+
+    @Test
+    fun copiedLinkIsAnExplicitActionAndNeverAPreviewOrAutomaticNavigation() {
+        var pasted = 0
+        setScreen(
+            uiState = BrowserUiState(),
+            copiedLinkHint = true,
+            onUseCopiedLink = { pasted++ },
+        )
+
+        composeRule.onNodeWithText("Link you copied").assertIsDisplayed()
+        composeRule.onNodeWithText("Use copied link").assertIsDisplayed()
+        composeRule.runOnIdle { assertEquals(0, pasted) }
+        composeRule.onAllNodesWithTag("browser-surface").assertCountEquals(0)
+        composeRule.onNodeWithTag("browser-use-copied-link").performClick()
+        composeRule.runOnIdle { assertEquals(1, pasted) }
+    }
+
+    @Test
+    fun startPageUsesSavedSitesInsteadOfASeparateHardcodedList() {
+        val savedSite = HomeSite("My site", "https://example.test")
+        var selected: HomeSite? = null
+        setScreen(
+            uiState = BrowserUiState(sites = listOf(savedSite)),
+            onOpenSite = { selected = it },
+        )
+
+        composeRule.onAllNodesWithText("Archive").assertCountEquals(0)
+        composeRule.onNodeWithTag("browser-site-${savedSite.url}").performClick()
+        composeRule.runOnIdle { assertEquals(savedSite, selected) }
+    }
+
+    @Test
+    fun loadedPageKeepsAddressAndCloseAboveTheBrowserSurface() {
+        setScreen(uiState = BrowserUiState(address = PAGE, currentUrl = PAGE))
+
+        composeRule.onAllNodesWithTag("browser-start").assertCountEquals(0)
+        composeRule.onNodeWithTag("browser-close").assertIsDisplayed()
+        val address = composeRule.onNodeWithTag("browser-address").assertIsDisplayed()
+            .fetchSemanticsNode().boundsInRoot
+        val surface = composeRule.onNodeWithTag("browser-surface").assertIsDisplayed()
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue("The page must stay below the address bar", address.bottom <= surface.top)
+    }
+
+    @Test
+    fun largestTextKeepsTheCountBadgeInsideTheSheet() {
+        setScreen(
+            uiState = BrowserUiState(currentUrl = PAGE, candidates = listOf(stream())),
+            initialSheetExpanded = true,
+            fontScale = 2f,
+        )
+
+        val badge = composeRule.onNodeWithTag("found-count", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        val sheet = composeRule.onNodeWithTag("found-sheet").fetchSemanticsNode().boundsInRoot
+        val minimum = with(composeRule.density) { 34.dp.toPx() }
+        assertTrue("Count badge needs its circle plus gap, got $badge", badge.width >= minimum)
+        assertTrue("Count must stay inside the sheet", badge.right <= sheet.right)
     }
 
     @Test
@@ -207,25 +275,37 @@ class BrowserScreenTest {
         onNavigateBack: () -> Unit = {},
         onGoHome: () -> Unit = {},
         initialSheetExpanded: Boolean = false,
+        copiedLinkHint: Boolean = false,
+        onUseCopiedLink: () -> Unit = {},
+        onOpenSite: (HomeSite) -> Unit = {},
+        fontScale: Float = 1f,
     ) {
         composeRule.setContent {
-            YftTheme(themeMode = ThemeMode.LIGHT) {
-                BrowserScreen(
-                    uiState = uiState,
-                    canGoBack = canGoBack,
-                    canGoForward = false,
-                    onAddressChanged = onAddressChanged,
-                    onGo = onGo,
-                    onBrowserBack = onBrowserBack,
-                    onBrowserForward = onBrowserForward,
-                    onReload = onReload,
-                    onStop = onStop,
-                    onPreviewCandidate = onPreviewCandidate,
-                    onNavigateBack = onNavigateBack,
-                    onGoHome = onGoHome,
-                    initialSheetExpanded = initialSheetExpanded,
-                    browserSurface = { Box(modifier = it) },
-                )
+            val density = LocalDensity.current
+            CompositionLocalProvider(
+                LocalDensity provides Density(density.density, fontScale = fontScale),
+            ) {
+                YftTheme(themeMode = ThemeMode.LIGHT) {
+                    BrowserScreen(
+                        uiState = uiState,
+                        canGoBack = canGoBack,
+                        canGoForward = false,
+                        onAddressChanged = onAddressChanged,
+                        onGo = onGo,
+                        onBrowserBack = onBrowserBack,
+                        onBrowserForward = onBrowserForward,
+                        onReload = onReload,
+                        onStop = onStop,
+                        onPreviewCandidate = onPreviewCandidate,
+                        onNavigateBack = onNavigateBack,
+                        onGoHome = onGoHome,
+                        initialSheetExpanded = initialSheetExpanded,
+                        copiedLinkHint = copiedLinkHint,
+                        onUseCopiedLink = onUseCopiedLink,
+                        onOpenSite = onOpenSite,
+                        browserSurface = { Box(modifier = it) },
+                    )
+                }
             }
         }
     }

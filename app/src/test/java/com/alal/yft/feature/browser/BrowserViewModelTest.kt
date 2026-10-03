@@ -3,11 +3,14 @@ package com.alal.yft.feature.browser
 import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.browser.detection.DownloadObservation
 import com.alal.yft.core.browser.detection.RequestObservation
+import com.alal.yft.core.data.preferences.HomeSitesRepository
+import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.testing.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.flow.MutableStateFlow
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.extractor.api.SiteExtractorRegistry
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
@@ -41,6 +44,33 @@ class BrowserViewModelTest {
         viewModel.onAddressChanged("http://example.test")
         assertNull(viewModel.addressForLoading())
         assertEquals("Only HTTPS pages are supported", viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun startPageFollowsSavedSitesIncludingAnIntentionallyEmptyList() = runTest {
+        val saved = listOf(HomeSite("Saved site", "https://example.test"))
+        val siteFlow = MutableStateFlow(saved)
+        val repository = object : HomeSitesRepository {
+            override val sites = siteFlow
+            var writes = 0
+
+            override suspend fun update(transform: (List<HomeSite>) -> List<HomeSite>) {
+                writes++
+                siteFlow.value = transform(siteFlow.value)
+            }
+        }
+        val viewModel = BrowserViewModel(
+            OkHttpClient(),
+            noAdapters(),
+            homeSitesRepository = repository,
+        )
+        runCurrent()
+        assertEquals(saved, viewModel.uiState.value.sites)
+
+        siteFlow.value = emptyList()
+        runCurrent()
+        assertTrue(viewModel.uiState.value.sites.isEmpty())
+        assertEquals(0, repository.writes)
     }
 
     @Test

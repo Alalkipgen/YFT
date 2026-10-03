@@ -14,6 +14,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.Until
 import com.alal.yft.MainActivity
 import java.io.File
 import org.junit.After
@@ -45,19 +47,33 @@ class BrowserSmokeTest {
     fun emptyBrowserKeepsAddressAndCloseVisible() {
         composeRule.onNodeWithTag("browser-address").assertIsDisplayed()
         composeRule.onNodeWithTag("browser-close").assertIsDisplayed()
-        composeRule.onNodeWithTag("browser-empty").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-start").assertIsDisplayed()
+        assertTopControlsInAccessibilityTree()
+        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        check(device.findObjects(By.clazz("android.webkit.WebView")).isEmpty()) {
+            "The empty browser must not create a WebView"
+        }
     }
 
     @Test
     fun publicPageLoadsWithoutClosingTheApp() {
         navigateTo("https://example.com/")
         composeRule.waitUntil(30_000) {
-            !hasNode("browser-empty") && !hasNode("browser-progress")
+            hasNode("browser-surface") && !hasNode("browser-start")
         }
+        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        check(device.wait(Until.hasObject(By.text("Example Domain")), 30_000) == true) {
+            "The public HTTPS page content did not appear"
+        }
+        composeRule.waitUntil(10_000) { !hasNode("browser-progress") }
         composeRule.onNodeWithTag("browser-address")
             .assertTextContains("example.com", substring = true)
         composeRule.onNodeWithTag("browser-close").assertIsDisplayed()
         composeRule.onNodeWithTag("browser-surface").assertIsDisplayed()
+        assertTopControlsInAccessibilityTree()
+        val address = checkNotNull(device.findObject(By.res("browser-address"))).visibleBounds
+        val page = checkNotNull(device.findObject(By.clazz("android.webkit.WebView"))).visibleBounds
+        check(address.bottom <= page.top) { "The WebView must remain below the address bar" }
         composeRule.onAllNodesWithTag("browser-error").fetchSemanticsNodes().let { nodes ->
             check(nodes.isEmpty()) { "The public HTTPS page did not load successfully" }
         }
@@ -76,6 +92,7 @@ class BrowserSmokeTest {
         } else {
             Log.w(LOG_TAG, "Public HTML5 media was not found within 20 s; slow-site warning")
         }
+        assertTopControlsInAccessibilityTree()
     }
 
     @After
@@ -119,6 +136,19 @@ class BrowserSmokeTest {
 
     private fun hasNode(tag: String): Boolean =
         composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+
+    private fun assertTopControlsInAccessibilityTree() {
+        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        for (tag in listOf("browser-address", "browser-close")) {
+            check(device.wait(Until.hasObject(By.res(tag)), 5_000) == true) {
+                "Browser top control is absent from the accessibility tree: $tag"
+            }
+            val bounds = checkNotNull(device.findObject(By.res(tag))).visibleBounds
+            check(bounds.width() > 0 && bounds.height() > 0) {
+                "Browser top control has no visible bounds: $tag"
+            }
+        }
+    }
 
     private fun readSafeBounds(hierarchy: File): String {
         var address = "missing"

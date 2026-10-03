@@ -16,8 +16,10 @@
   empty browser hides the address bar; P3 every page load in the browser closes the app; P4 YouTube
   fails with a sign-in message; P5 a TikTok video is found but the download fails. Causes with
   evidence: FIX_PLAN §4 (F1–F8).
-- **Next action — agent:** T02 is DONE; T03's starting core-browser/app tests and lint passed.
-  Implement the browser start page ([`prompts/T03-browser-start-page.md`](prompts/T03-browser-start-page.md)),
+- **Next action — agent:** T03 is IN PROGRESS: start/deferred WebView, clipboard/sites and
+  idle-field accessibility implemented. Complete the repaired count-header validation,
+  replacement loaded renders and native CI before T04
+  ([`prompts/T03-browser-start-page.md`](prompts/T03-browser-start-page.md)),
   or [`prompts/00_NEXT_TASK.md`](prompts/00_NEXT_TASK.md) for whatever is next.
 - **Next action — owner:** answer D1 (clipboard check on open), D2 (YouTube strategy A or B) and D3
   (MP3) in FIX_PLAN §3. beta.2 can stay a draft; beta.3 replaces it.
@@ -37,6 +39,11 @@
   https://github.com/Alalkipgen/YFT/actions/runs/37143005667. Native PNG download needs
   authentication (HTTP 401); no pixel-review claim. Empty-page controls pass on API 34;
   loaded/found address bounds are missing from UIAutomator, so T03 must retain field semantics.
+
+- **T03 local:** first browser run 26/26, then full core-browser 53/app 403 (45 render skips),
+  0 failures/errors, lint 0 errors/95 warnings. Empty-surface regression failed on old code.
+  Eight PNGs inspected; 200% loaded-page QA found a 5 px count badge, reproduced by a failing
+  regression. Repaired heading, retained-URL recreation test, retest/rerender/CI pending.
 
 ## Known limitations (beta.2)
 

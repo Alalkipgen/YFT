@@ -120,6 +120,8 @@ that opened it. While audio plays, the mini player sits right above the bottom b
 - **Browser (02):** close X, address pill (lock + URL), reload; "Found on this page" sheet with a
   Coral count, items with thumbnail, format chips and a Mint Preview pill; footer "Only media
   you're allowed to save is shown. No DRM."; bottom toolbar back / forward / reload / home.
+  Before a page is opened, a Compose start page shows "Link you copied" and the saved Your
+  sites instead of a native WebView. Paste reads only on tap; there is no clipboard preview.
 - **Download as (03):** handle, "Download as", thumbnail with duration, title, "site · Video +
   audio", Video/Audio segmented control, quality list with sizes (selected row tinted), Wi-Fi
   only switch, "Download · 96 MB" Mint button, caption "Saves to Download/YFT".
@@ -291,6 +293,20 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
     grid gap). At large sizes text wraps rather than clips; long titles and the bottom-bar labels
     shorten with "…", and TalkBack still reads them in full. Icons and a text component nothing
     used any more were removed, and the old phase placeholder screen moved to the tests.
+
+16. **Browser start page (Phase 8, T03).** An empty browser never composes a WebView.
+    "Link you copied" uses Home's description-only clipboard hint and link extraction;
+    Paste/Use copied link reads the text only after a tap, never stores or previews it,
+    and normalizes it with the browser's HTTPS policy. Your sites observes the same saved
+    repository as Home, including an intentionally empty list, and reuses its tiles.
+    The first valid navigation creates the WebView; a remembered latch retains it through
+    navigation, progress/error updates and recomposition. A recreated screen loads the
+    current URL retained in its ViewModel; this is not native-history persistence.
+    The opaque top bar draws above the clipped page container, with top/safe insets once.
+    The idle field hides only its text ink under the styled host/path, not its accessibility
+    node. At 200% text the found heading wraps before its reserved count/chevron rather than
+    squeezing the badge out of the row. `browser-start` intentionally replaces
+    `browser-empty`; all other existing tags stay.
 
 ## Remaining differences from the images
 

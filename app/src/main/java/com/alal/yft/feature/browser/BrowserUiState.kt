@@ -1,6 +1,8 @@
 package com.alal.yft.feature.browser
 
 import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.settings.HomeSite
+import com.alal.yft.core.model.settings.HomeSites
 
 data class BrowserUiState(
     val address: String = "",
@@ -10,6 +12,7 @@ data class BrowserUiState(
     val progress: Int = 0,
     val errorMessage: String? = null,
     val candidates: List<MediaCandidate> = emptyList(),
+    val sites: List<HomeSite> = HomeSites.DEFAULTS,
     /**
      * Explanation from a site adapter that matched this page but could not extract media.
      *

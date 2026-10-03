@@ -33,7 +33,6 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -55,8 +54,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -65,6 +64,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -78,11 +78,11 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alal.yft.core.browser.policy.SecureWebViewPolicy
@@ -92,6 +92,9 @@ import com.alal.yft.core.browser.webview.BrowserPageUrl
 import com.alal.yft.core.browser.webview.SecureBrowserChromeClient
 import com.alal.yft.core.browser.webview.SecureBrowserWebViewClient
 import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.settings.HomeSite
+import com.alal.yft.feature.home.HomeLinks
+import com.alal.yft.feature.home.rememberCopiedLinkHint
 import com.alal.yft.ui.components.FoundMediaDividerInset
 import com.alal.yft.ui.components.SHEET_SCRIM_ALPHA
 import com.alal.yft.ui.components.YftAllowedMediaNote
@@ -118,14 +121,29 @@ fun BrowserRoute(
     viewModel: BrowserViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val clipboard = LocalClipboardManager.current
+    val copiedLinkHint = rememberCopiedLinkHint()
     val pageUrlState = remember { BrowserPageUrl() }
     var webView by remember { mutableStateOf<WebView?>(null) }
+    // Latch on the first navigation; redirects and later empty/failed pages never recreate it.
+    var browserRequested by remember { mutableStateOf(uiState.currentUrl != null) }
+    var pendingUrl by remember { mutableStateOf(uiState.currentUrl) }
     var canGoBack by remember { mutableStateOf(false) }
     var canGoForward by remember { mutableStateOf(false) }
 
     fun loadPage(browser: WebView, url: String) {
         pageUrlState.update(url)
         browser.loadUrl(url)
+    }
+
+    fun requestNavigation(url: String) {
+        if (url == EMPTY_BROWSER_PAGE && !browserRequested) return
+        pendingUrl = url
+        browserRequested = true
+    }
+
+    fun submitAddress() {
+        viewModel.addressForLoading()?.let(::requestNavigation)
     }
 
     fun refreshHistoryState() {
@@ -136,9 +154,14 @@ fun BrowserRoute(
     LaunchedEffect(uiState.currentUrl, uiState.isLoading) {
         refreshHistoryState()
     }
-    LaunchedEffect(webView, initialLink) {
+    LaunchedEffect(initialLink) {
+        initialLink?.let(viewModel::openInitialLink)?.let(::requestNavigation)
+    }
+    LaunchedEffect(webView, pendingUrl) {
         val browser = webView ?: return@LaunchedEffect
-        initialLink?.let(viewModel::openInitialLink)?.let { url -> loadPage(browser, url) }
+        val url = pendingUrl ?: return@LaunchedEffect
+        loadPage(browser, url)
+        pendingUrl = null
     }
     DisposableEffect(Unit) {
         onDispose {
@@ -155,11 +178,7 @@ fun BrowserRoute(
         canGoBack = canGoBack,
         canGoForward = canGoForward,
         onAddressChanged = viewModel::onAddressChanged,
-        onGo = {
-            viewModel.addressForLoading()?.let { url ->
-                webView?.let { browser -> loadPage(browser, url) }
-            }
-        },
+        onGo = ::submitAddress,
         onBrowserBack = {
             webView?.goBack()
             refreshHistoryState()
@@ -178,6 +197,19 @@ fun BrowserRoute(
         },
         onNavigateBack = onNavigateBack,
         onGoHome = onGoHome,
+        hasBrowserPage = browserRequested,
+        copiedLinkHint = copiedLinkHint,
+        onUseCopiedLink = {
+            // The description above is safe to inspect; payload is read only after this tap.
+            HomeLinks.fromClipboard(clipboard.getText()?.text)?.let { link ->
+                viewModel.onAddressChanged(link)
+                submitAddress()
+            }
+        },
+        onOpenSite = { site ->
+            viewModel.onAddressChanged(site.url)
+            submitAddress()
+        },
         browserSurface = { modifier ->
             BrowserWebView(
                 modifier = modifier,
@@ -213,6 +245,10 @@ fun BrowserScreen(
     onNavigateBack: () -> Unit,
     onGoHome: () -> Unit = onNavigateBack,
     initialSheetExpanded: Boolean = false,
+    hasBrowserPage: Boolean = uiState.currentUrl != null || uiState.isLoading,
+    copiedLinkHint: Boolean = false,
+    onUseCopiedLink: () -> Unit = {},
+    onOpenSite: (HomeSite) -> Unit = {},
     browserSurface: @Composable (Modifier) -> Unit,
 ) {
     val colors = YftTheme.colors
@@ -237,6 +273,8 @@ fun BrowserScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .zIndex(1f)
+                .background(colors.card)
                 .padding(start = 4.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -290,7 +328,7 @@ fun BrowserScreen(
                 modifier = Modifier.testTag("browser-site-notice"),
             )
         }
-        if (savable.isEmpty()) {
+        if (hasBrowserPage && savable.isEmpty()) {
             protectedHiddenLabel(hiddenCount)?.let { note ->
                 BrowserBanner(
                     text = note,
@@ -304,20 +342,29 @@ fun BrowserScreen(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f),
+                .weight(1f)
+                .clipToBounds(),
         ) {
             val sheetMaxHeight = maxHeight * SHEET_MAX_FRACTION
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .testTag("browser-surface"),
-            ) {
-                browserSurface(Modifier.fillMaxSize())
+            if (hasBrowserPage) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clipToBounds()
+                        .testTag("browser-surface"),
+                ) {
+                    browserSurface(Modifier.fillMaxSize())
+                }
+            } else {
+                BrowserStartPage(
+                    sites = uiState.sites,
+                    copiedLinkHint = copiedLinkHint,
+                    onUseCopiedLink = onUseCopiedLink,
+                    onOpenSite = onOpenSite,
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
-            if (uiState.currentUrl == null && !uiState.isLoading) {
-                BrowserEmptyHint(modifier = Modifier.align(Alignment.Center))
-            }
-            val showSheet = savable.isNotEmpty() && !editingAddress
+            val showSheet = hasBrowserPage && savable.isNotEmpty() && !editingAddress
             // Qualified so the outer Column's scoped overload is not picked up implicitly.
             androidx.compose.animation.AnimatedVisibility(
                 visible = showSheet && sheetExpanded,
@@ -422,7 +469,6 @@ private fun BrowserAddressField(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .alpha(if (focused || display == null) 1f else 0f)
                     .focusRequester(focusRequester)
                     .onFocusChanged { state ->
                         if (state.isFocused != focused) {
@@ -431,7 +477,15 @@ private fun BrowserAddressField(
                         }
                     }
                     .testTag("browser-address"),
-                textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.textPrimary),
+                // Alpha-zero hides the entire node from Android's accessibility tree.
+                // Hide only the ink; the editable field stays reachable under its styled URL.
+                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                    color = if (focused || display == null) {
+                        colors.textPrimary
+                    } else {
+                        Color.Transparent
+                    },
+                ),
                 singleLine = true,
                 cursorBrush = SolidColor(colors.textPrimary),
                 keyboardOptions = KeyboardOptions(
@@ -540,33 +594,6 @@ private fun BrowserBanner(
     }
 }
 
-@Composable
-private fun BrowserEmptyHint(modifier: Modifier = Modifier) {
-    val colors = YftTheme.colors
-    Column(
-        modifier = modifier
-            .widthIn(max = 320.dp)
-            .padding(horizontal = 32.dp)
-            .testTag("browser-empty"),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        YftIcon(icon = YftIcons.Globe, contentDescription = null, tint = colors.icon, size = 40.dp)
-        Text(
-            text = "Open a page",
-            color = colors.textPrimary,
-            style = MaterialTheme.typography.titleMedium,
-            textAlign = TextAlign.Center,
-        )
-        Text(
-            text = "Type a web address above. Media YFT can save shows up here as the page loads.",
-            color = colors.textSecondary,
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center,
-        )
-    }
-}
-
 /** The docked sheet from `02`: a peek header that expands into the savable media list. */
 @Composable
 private fun FoundMediaSheet(
@@ -631,23 +658,33 @@ private fun FoundMediaSheet(
                         .padding(start = 20.dp, end = 16.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        text = FOUND_TITLE,
-                        modifier = Modifier.semantics {
-                            heading()
-                            contentDescription = foundCountLabel(candidates.size)
-                        },
-                        color = colors.textPrimary,
-                        style = MaterialTheme.typography.titleLarge,
-                    )
-                    YftCountBadge(
-                        count = candidates.size,
-                        modifier = Modifier
-                            .padding(start = 10.dp)
-                            .clearAndSetSemantics {},
-                        minSize = 24.dp,
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = FOUND_TITLE,
+                            modifier = Modifier
+                                .weight(1f, fill = false)
+                                .semantics {
+                                    heading()
+                                    contentDescription = foundCountLabel(candidates.size)
+                                },
+                            color = colors.textPrimary,
+                            style = MaterialTheme.typography.titleLarge,
+                        )
+                        Box(
+                            modifier = Modifier
+                                .testTag("found-count")
+                                .padding(start = 10.dp),
+                        ) {
+                            YftCountBadge(
+                                count = candidates.size,
+                                modifier = Modifier.clearAndSetSemantics {},
+                                minSize = 24.dp,
+                            )
+                        }
+                    }
                     if (!expanded) {
                         YftIcon(
                             icon = YftIcons.ExpandMore,
@@ -796,6 +833,7 @@ internal fun foundCountLabel(count: Int): String = when (count) {
 
 private const val FOUND_TITLE = "Found on this page"
 private const val ADDRESS_PLACEHOLDER = "Enter a web address"
+private const val EMPTY_BROWSER_PAGE = "about:blank"
 private const val SHEET_MAX_FRACTION = 0.72f
 private val SHEET_SCRIM = Color.Black.copy(alpha = SHEET_SCRIM_ALPHA)
 private val ADDRESS_HEIGHT = 44.dp
