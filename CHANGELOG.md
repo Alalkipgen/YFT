@@ -7,6 +7,13 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ## [Unreleased]
 
+### Added
+
+- A separate Android 14 CI emulator smoke job for the real browser: empty-page controls,
+  public HTTPS navigation and best-effort HTML5 media detection. It captures three screenshots,
+  safe address/WebView bounds and redacted logcat/test reports without storing UI hierarchies,
+  raw request addresses, cookies or tokens in the artifacts.
+
 ### Fixed
 
 - Browser page-load crash caused by background request interception reading `WebView.url` and

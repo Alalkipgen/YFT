@@ -269,6 +269,40 @@ The old-code regression command used the same memory flags and
 `--tests 'com.alal.yft.core.browser.webview.SecureBrowserWebViewClientTest.interceptsRequestsOffMainWithoutTouchingWebViewOrSettings'`;
 it failed with the expected main-looper guard, not a compilation failure.
 
+### T02 — Real-WebView CI smoke (implementation checkpoint, 2026-10-03)
+
+| Check | Environment | Result |
+| --- | --- | --- |
+| Starting-state validation | JDK 17 / SDK 35 | PASS — `:app:assembleDebugAndroidTest :app:testDebugUnitTest :app:lintDebug` before changes |
+| Instrumentation compilation | JDK 17 / SDK 35 | PASS — three production-activity smoke scenarios; `app-debug-androidTest.apk` 1,098,734 bytes |
+| App regression tests | Robolectric/Compose | PASS — 386 tests, 0 failures/errors, 41 render tests skipped |
+| Android lint | SDK 35 | PASS — 0 errors, 95 warnings (`GradleDependency` 69, `VectorPath` 20, `AndroidGradlePluginVersion` 6); adding instrumentation dependencies adds 12 version warnings |
+| Diagnostic redaction / artifacts | Python unittest | PASS — 6 tests: credential and URL redaction, coordinate-only annotations, fatal exceptions, slow-site warnings, valid redacted JUnit XML, missing-screenshot gate |
+| Workflow / collector lint | actionlint 1.7.7 / shellcheck 0.10.0 / `bash -n` | PASS — initial SC2164 collector warning fixed with guarded `cd` |
+| Kotlin width / whitespace | Git diff and untracked-source check | PASS — new Kotlin lines at most 100 characters |
+| Public HTML5 fixture check | HTTPS GET, 2026-10-03 | HTTP 200; host `commons.wikimedia.org`; path `/wiki/File:Big_Buck_Bunny_4K.webm`; markers `video`, `source`, `webm` found. No body/cookies/complete media addresses retained |
+| Actual Chromium / screenshots | GitHub API 34 emulator | PENDING first pushed run; no local emulator/KVM |
+
+Local Gradle validation uses the T01 memory flags with
+`:app:assembleDebugAndroidTest :app:testDebugUnitTest :app:lintDebug`. Other checks:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
+  -s scripts/tests -p test_ci_smoke_diagnostics.py -v
+bash -n scripts/ci-emulator-smoke.sh
+shellcheck scripts/ci-emulator-smoke.sh
+actionlint .github/workflows/emulator-smoke.yml
+```
+
+The independent `Android emulator smoke` workflow boots API 34 (`google_apis`, x86_64), then runs
+`./gradlew --no-daemon :app:connectedDebugAndroidTest`. The collector executes while the emulator
+is still running. The `yft-emulator-smoke` artifact contains three required PNGs, coordinate-only
+bounds, sanitized logcat and text/XML reports. Raw logcat, UI hierarchy and binary test-result
+payloads are not uploaded. A missing screenshot or any `FATAL EXCEPTION` fails the job. The AVD
+cache is saved before test browsing; adb keys and app-session data are not cached.
+Slow media discovery on the public Wikimedia page emits a warning; the HTTPS navigation check
+remains mandatory. Do not mark T02 DONE until the emulator job is green and record F2's first result.
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |

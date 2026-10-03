@@ -16,8 +16,11 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -25,6 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.alal.yft.BuildConfig
 import com.alal.yft.feature.library.LibraryPlayback
 import com.alal.yft.feature.library.LocalLibraryPlayback
 import com.alal.yft.feature.library.LocalMediaDetailsSource
@@ -82,6 +86,7 @@ fun YftApp(
  * and nowhere else. [content] gets the padding both take so screens never draw under them.
  */
 @Composable
+@OptIn(ExperimentalComposeUiApi::class)
 internal fun YftAppShell(
     navController: NavHostController,
     activeDownloads: Int,
@@ -95,6 +100,8 @@ internal fun YftAppShell(
     }
 
     Scaffold(
+        // Debug-only IDs let the CI emulator report actual accessibility-tree bounds.
+        modifier = Modifier.semantics { testTagsAsResourceId = BuildConfig.DEBUG },
         containerColor = YftTheme.colors.background,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {

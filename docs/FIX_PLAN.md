@@ -129,7 +129,7 @@ Agents update the **Status** column in every task checkpoint.
 | ID | Task | Phase | Priority | Difficulty | Estimate | Needs | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | T01 | [Browser crash: WebView used off the main thread](#t01--browser-crash-webview-used-off-the-main-thread) | 8 | P0 | Easy–Medium | 0.5 d | — | OWNER CHECK |
-| T02 | [Real-WebView smoke test on a CI emulator](#t02--real-webview-smoke-test-on-a-ci-emulator) | 8 | P0 | Medium | 1 d | T01, D4 | TODO |
+| T02 | [Real-WebView smoke test on a CI emulator](#t02--real-webview-smoke-test-on-a-ci-emulator) | 8 | P0 | Medium | 1 d | T01, D4 | IN PROGRESS |
 | T03 | [Browser start page; WebView only when a page is open](#t03--browser-start-page-webview-only-when-a-page-is-open) | 8 | P0 | Medium | 1 d | T01 | TODO |
 | T04 | [Local crash report and lookup details](#t04--local-crash-report-and-lookup-details) | 8 | P0 | Easy–Medium | 0.5–1 d | — | TODO |
 | T05 | [Browser-like request identity for Home lookups](#t05--browser-like-request-identity-for-home-lookups) | 8 | P1 | Easy–Medium | 0.5 d | — | TODO |
@@ -238,6 +238,11 @@ Phase 8 tasks in plan order, with a checkpoint and CI check per task. `ALLOW_PUS
   reproduced without a device; T02's emulator screenshot of the empty browser decides it.
 - T03's fix does not depend on the exact cause: no WebView until a page is opened, a Compose start
   page instead, and a top bar drawn above and outside the WebView.
+- T02 implementation (2026-10-03): the real-activity instrumentation APK compiles locally;
+  the first API 34 emulator result is PENDING. The job captures `01-browser-empty.png` and
+  emits address/WebView bounds from a temporary UIAutomator hierarchy (then deletes it).
+  Semantics/bounds alone do not prove that pixels are unobscured; do not claim visual
+  confirmation without reviewing the screenshot.
 
 ### F3 — Facebook asks to sign in for a public reel (P1) — confirmed live
 
@@ -449,8 +454,10 @@ browser test tags (`browser-address`, `browser-close`, `browser-surface`, `brows
    `workflow_dispatch`. Steps: checkout, JDK 17, Gradle cache, enable KVM (the udev rule from the
    runner's README), AVD cache, then `reactivecircus/android-emulator-runner@v2` with
    `api-level: 34`, `target: google_apis`, `arch: x86_64`, `disable-animations: true` and the script
-   `./gradlew :app:connectedDebugAndroidTest`. Afterwards `adb pull` the screenshots and save
-   `adb logcat -d > logcat.txt`.
+   `./gradlew :app:connectedDebugAndroidTest`. Collect screenshots and logcat **inside** the
+   runner's script before it shuts down the emulator (`scripts/ci-emulator-smoke.sh`).
+   Sanitize logcat and text/XML test reports before upload; never upload the raw log or binary
+   result payload. Cache the clean AVD before installing the app, not test browsing data or adb keys.
 4. Upload the screenshots, `logcat.txt` and the test report as an artifact (for the owner). Agents
    usually cannot download artifacts, so also print the results as annotations: `::error::` for
    every `FATAL EXCEPTION` in logcat, and `::notice::` with the screen bounds of `browser-address`

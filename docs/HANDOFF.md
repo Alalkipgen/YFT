@@ -16,7 +16,7 @@
   empty browser hides the address bar; P3 every page load in the browser closes the app; P4 YouTube
   fails with a sign-in message; P5 a TikTok video is found but the download fails. Causes with
   evidence: FIX_PLAN §4 (F1–F8).
-- **Next action — agent:** check T01 checkpoint CI, then T02
+- **Next action — agent:** T02 implementation is locally green; verify its first CI emulator run
   ([`prompts/T02-ci-emulator-smoke.md`](prompts/T02-ci-emulator-smoke.md)),
   or [`prompts/00_NEXT_TASK.md`](prompts/00_NEXT_TASK.md) for whatever is next.
 - **Next action — owner:** answer D1 (clipboard check on open), D2 (YouTube strategy A or B) and D3
@@ -25,6 +25,11 @@
   lint 0 errors, 83 existing warnings. The strict off-main regression failed on the old code and
   passed on the fix. Use the memory-safe command in `TEST_MATRIX.md` on this 4 GiB sandbox.
   Phone check: Your sites, Open in browser and typed Go load without closing the app.
+- **T01 CI:** `7179637` passed the full checkpoint workflow:
+  https://github.com/Alalkipgen/YFT/actions/runs/37139803672 (`yft-debug-apk`).
+- **T02 implementation:** instrumentation APK compiled; app 386 tests, 0 failures, lint 0 errors
+  (95 warnings); diagnostic tests 6/6 and workflow/collector lint pass. First emulator result
+  still pending; keep T02 IN PROGRESS until green and update F2. Artifact: `yft-emulator-smoke`.
 
 ## Known limitations (beta.2)
 
