@@ -129,6 +129,8 @@ class YftThemeContrastTest {
         "success on card" to (colors.success to colors.card),
         "fieldOutline on card" to (colors.fieldOutline.compositeOver(colors.card) to colors.card),
         "link icon on card" to (colors.link to colors.card),
+        "icon on card" to (colors.icon to colors.card),
+        "icon on chip" to (colors.icon to colors.chip),
     )
 
     private fun assertRatio(label: String, pair: Pair<Color, Color>, minimum: Double) {

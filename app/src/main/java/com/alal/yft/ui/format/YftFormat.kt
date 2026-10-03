@@ -8,7 +8,7 @@ object YftFormat {
     private const val MAX_EXTENSION_WITH_DOT = 6
     private val SIZE_UNITS = listOf("KB", "MB", "GB", "TB")
 
-    /** One decimal below 10 of a unit, none above, as in the design ("7.4 MB", "96 MB"). */
+    /** One decimal below 10 of a unit, none above and no ".0": "7.4 MB", "7 MB", "96 MB". */
     fun bytes(bytes: Long): String {
         if (bytes < UNIT) return "$bytes B"
         var value = bytes / UNIT
@@ -17,8 +17,9 @@ object YftFormat {
             value /= UNIT
             index++
         }
-        val pattern = if (value < 10) "%.1f %s" else "%.0f %s"
-        return String.format(Locale.US, pattern, value, SIZE_UNITS[index])
+        val pattern = if (value < 10) "%.1f" else "%.0f"
+        val number = String.format(Locale.US, pattern, value).removeSuffix(".0")
+        return "$number ${SIZE_UNITS[index]}"
     }
 
     /** Media length as m:ss, or h:mm:ss from an hour. */

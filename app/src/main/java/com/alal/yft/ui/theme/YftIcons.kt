@@ -20,7 +20,7 @@ object YftIcons {
     val ArrowForward = R.drawable.ic_arrow_forward
     val ArrowBack = R.drawable.ic_arrow_back
     val Paste = R.drawable.ic_content_paste
-    val Globe = R.drawable.ic_public
+    val Globe = R.drawable.ic_language
     val Close = R.drawable.ic_close
     val Add = R.drawable.ic_add
     val Remove = R.drawable.ic_remove

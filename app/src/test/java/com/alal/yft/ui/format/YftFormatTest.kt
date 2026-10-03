@@ -8,7 +8,8 @@ class YftFormatTest {
     @Test
     fun sizesUseOneDecimalOnlyBelowTen() {
         assertEquals("512 B", YftFormat.bytes(512))
-        assertEquals("1.0 KB", YftFormat.bytes(1_024))
+        assertEquals("1 KB", YftFormat.bytes(1_024))
+        assertEquals("7 MB", YftFormat.bytes(7L * 1_024 * 1_024))
         assertEquals("7.4 MB", YftFormat.bytes(7_759_462))
         assertEquals("96 MB", YftFormat.bytes(96L * 1_024 * 1_024))
         assertEquals("1.2 GB", YftFormat.bytes(1_288_490_189))

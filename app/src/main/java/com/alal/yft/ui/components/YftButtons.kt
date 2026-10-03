@@ -158,6 +158,7 @@ fun YftTonalButton(
             weight = FontWeight.Medium,
             iconSize = if (compact) 18.dp else 20.dp,
             gap = if (compact) 6.dp else 8.dp,
+            iconTint = if (enabled) colors.icon else colors.textSecondary,
         )
     }
 }
@@ -250,12 +251,15 @@ private fun ButtonContent(
     weight: FontWeight = FontWeight.SemiBold,
     iconSize: Dp = 20.dp,
     gap: Dp = 8.dp,
+    iconTint: Color = LocalContentColor.current,
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(gap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (icon != null) YftIcon(icon = icon, contentDescription = null, size = iconSize)
+        if (icon != null) {
+            YftIcon(icon = icon, contentDescription = null, tint = iconTint, size = iconSize)
+        }
         Text(
             text = text,
             style = if (large) {

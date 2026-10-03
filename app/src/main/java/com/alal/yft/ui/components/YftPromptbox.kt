@@ -28,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -156,7 +157,7 @@ private fun ClipboardSuggestion(onUseClipboard: () -> Unit) {
         YftIcon(
             icon = YftIcons.Paste,
             contentDescription = null,
-            tint = colors.textPrimary,
+            tint = colors.icon,
             size = 20.dp,
         )
         Text(
@@ -191,16 +192,16 @@ private fun EditingRow(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = ROW_HEIGHT)
-            .padding(start = 14.dp, end = 0.dp),
+            .padding(start = 12.dp, end = 0.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        YftIcon(icon = YftIcons.Link, contentDescription = null, tint = colors.textPrimary)
+        LinkGlyph()
         BasicTextField(
             value = text,
             onValueChange = onTextChange,
             modifier = Modifier
                 .weight(1f)
-                .padding(horizontal = 10.dp)
+                .padding(start = 10.dp, end = 4.dp)
                 .focusRequester(focusRequester)
                 .onFocusChanged { onFocusChanged(it.isFocused) }
                 .testTag("home-link"),
@@ -259,10 +260,10 @@ private fun SearchingRow(onCancelSearch: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = ROW_HEIGHT)
-            .padding(start = 14.dp),
+            .padding(start = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        YftIcon(icon = YftIcons.Link, contentDescription = null, tint = colors.textPrimary)
+        LinkGlyph()
         Text(
             text = "Looking for media…",
             modifier = Modifier
@@ -361,6 +362,17 @@ private fun NotFoundRow(message: String, onOpenInBrowser: (() -> Unit)?, onEdit:
             )
         }
     }
+}
+
+/** The chain-link glyph, tilted 45° as in the design and tinted like the chip icons. */
+@Composable
+private fun LinkGlyph() {
+    YftIcon(
+        icon = YftIcons.Link,
+        contentDescription = null,
+        modifier = Modifier.rotate(-45f),
+        tint = YftTheme.colors.icon,
+    )
 }
 
 /** One Promptbox row: the design's 44dp field, raised to the 48dp touch target. */

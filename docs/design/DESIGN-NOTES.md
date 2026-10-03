@@ -161,3 +161,10 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
 8. **Recent** shows the two newest Library items as "format · size": a saved file does not
    record its resolution, so "720p" from the image is not invented. Until Task 7 adds local
    thumbnails the cards use the gradient tile.
+9. **Home polish after comparing renders with `01`, `07` and `09`.** Glyphs inside the
+   Promptbox and the tonal chips use a new `icon` color (Deep Teal on light, soft grey on
+   Night); the link glyph is tilted 45° and the globe is the outlined Material Symbols
+   `language`, as drawn. The idle field outline is Deep Teal instead of Ink (the focused Typing
+   state stays Mint 2dp), the dashed Add circle uses the grey outline role, Night site letters
+   are a paler Mint, and sizes drop a trailing ".0" ("7 MB"). The field's inner padding is a
+   little tighter so the whole placeholder fits at 360dp.

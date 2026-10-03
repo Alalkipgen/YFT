@@ -34,6 +34,8 @@ data class YftColors(
     val onNavIndicator: Color,
     /** Links, text buttons and leading row icons. */
     val link: Color,
+    /** Glyphs inside fields and tonal chips: Deep Teal on light, soft grey on Night (01, 07). */
+    val icon: Color,
     val coral: Color,
     val onCoral: Color,
     /** Error text; Coral itself is too light for text on light surfaces. */
@@ -67,6 +69,7 @@ internal val YftLightPalette = YftColors(
     navIndicator = YftPalette.MintSoft,
     onNavIndicator = YftPalette.Ink,
     link = YftPalette.DeepTeal,
+    icon = YftPalette.DeepTeal,
     coral = YftPalette.Coral,
     onCoral = YftPalette.Ink,
     coralText = YftPalette.CoralDeep,
@@ -74,7 +77,7 @@ internal val YftLightPalette = YftColors(
     waiting = YftPalette.Slate,
     onWaiting = YftPalette.White,
     success = YftPalette.SuccessLight,
-    fieldOutline = YftPalette.Ink,
+    fieldOutline = YftPalette.DeepTeal,
     scrim = Color(0x99000000),
     onScrim = YftPalette.White,
     audioTileStart = YftPalette.MintTeal,
@@ -98,6 +101,7 @@ internal val YftDarkPalette = YftColors(
     navIndicator = YftPalette.MintTeal,
     onNavIndicator = YftPalette.Ink,
     link = YftPalette.MintTeal,
+    icon = YftPalette.NightTextSecondary,
     coral = YftPalette.Coral,
     onCoral = YftPalette.Ink,
     coralText = YftPalette.Coral,

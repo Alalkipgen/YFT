@@ -39,6 +39,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
@@ -340,7 +341,12 @@ private fun SiteTile(
             ) {
                 Text(
                     text = site.initial,
-                    color = colors.link,
+                    // Night uses a paler Mint for the letter, as in `07-home-dark`.
+                    color = if (colors.isDark) {
+                        lerp(colors.accent, colors.textPrimary, NIGHT_LETTER_LIGHTEN)
+                    } else {
+                        colors.link
+                    },
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.Medium,
                     ),
@@ -379,7 +385,7 @@ private fun AddSiteTile(onClick: () -> Unit) {
             .testTag("home-site-add"),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        val outline = colors.fieldOutline
+        val outline = MaterialTheme.colorScheme.outline
         Box(
             modifier = Modifier
                 .size(SITE_CIRCLE)
@@ -558,5 +564,6 @@ private fun AddSiteDialog(dialog: SiteDialogState, onAction: (HomeAction) -> Uni
 
 private val SITE_TILE_WIDTH = 72.dp
 private val SITE_CIRCLE = 64.dp
+private const val NIGHT_LETTER_LIGHTEN = 0.6f
 private const val VISIBLE_TILES = 4
 private const val THUMBNAIL_RATIO = 16f / 9f
