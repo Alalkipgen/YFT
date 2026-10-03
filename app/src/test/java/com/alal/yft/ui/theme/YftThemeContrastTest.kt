@@ -2,34 +2,66 @@ package com.alal.yft.ui.theme
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
-import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class YftThemeContrastTest {
+    private val themes = listOf(
+        Triple("light", YftLightColors, YftLightPalette),
+        Triple("dark", YftDarkColors, YftDarkPalette),
+    )
+
     @Test
-    fun everyTextPairMeetsWcagAaInBothThemes() {
-        listOf("light" to YftLightColors, "dark" to YftDarkColors).forEach { (name, scheme) ->
-            textPairs(scheme).forEach { (label, pair) ->
-                val ratio = contrast(pair.first, pair.second)
-                assertTrue("$name $label is ${"%.2f".format(ratio)}:1", ratio >= TEXT_MINIMUM)
+    fun everyMaterialTextPairMeetsWcagAaInBothThemes() {
+        themes.forEach { (name, scheme, _) ->
+            materialTextPairs(scheme).forEach { (label, pair) ->
+                assertRatio("$name $label", pair, TEXT_MINIMUM)
             }
-            val outline = contrast(scheme.outline, scheme.surface)
-            assertTrue("$name outline is ${"%.2f".format(outline)}:1", outline >= NON_TEXT_MINIMUM)
+            assertRatio("$name outline", scheme.outline to scheme.surface, NON_TEXT_MINIMUM)
         }
     }
 
     @Test
-    fun paletteIsYftsOwnRatherThanTheMaterialDefault() {
-        assertNotEquals(Color(0xFF6750A4), YftLightColors.primary)
-        assertNotEquals(Color(0xFFD0BCFF), YftDarkColors.primary)
-        assertNotEquals(YftLightColors.surface, YftDarkColors.surface)
+    fun everyYftSemanticPairMeetsItsMinimumInBothThemes() {
+        themes.forEach { (name, _, colors) ->
+            yftTextPairs(colors).forEach { (label, pair) ->
+                assertRatio("$name $label", pair, TEXT_MINIMUM)
+            }
+            yftNonTextPairs(colors).forEach { (label, pair) ->
+                assertRatio("$name $label", pair, NON_TEXT_MINIMUM)
+            }
+        }
     }
 
-    private fun textPairs(scheme: ColorScheme): List<Pair<String, Pair<Color, Color>>> {
+    @Test
+    fun brandTokensMatchTheDesignBrief() {
+        assertEquals(Color(0xFF19C9A9), YftPalette.MintTeal)
+        assertEquals(Color(0xFF0F1C1E), YftPalette.Ink)
+        assertEquals(Color(0xFF007A6E), YftPalette.DeepTeal)
+        assertEquals(Color(0xFF5B6B6E), YftPalette.Slate)
+        assertEquals(Color(0xFFF2F7F7), YftPalette.Surface)
+        assertEquals(Color(0xFFE2EAEA), YftPalette.Border)
+        assertEquals(Color(0xFFFF7452), YftPalette.Coral)
+        assertEquals(Color(0xFF0B1416), YftPalette.Night)
+
+        // Mint fills carry Ink in both themes, Coral carries Ink, and dark mode sits on Night.
+        themes.forEach { (name, _, colors) ->
+            assertEquals(name, YftPalette.MintTeal, colors.accent)
+            assertEquals(name, YftPalette.Ink, colors.onAccent)
+            assertEquals(name, YftPalette.Coral, colors.coral)
+            assertEquals(name, YftPalette.Ink, colors.onCoral)
+        }
+        assertEquals(YftPalette.Night, YftDarkColors.background)
+        assertEquals(YftPalette.Surface, YftLightColors.background)
+        assertEquals(YftPalette.DeepTeal, YftLightPalette.link)
+    }
+
+    private fun materialTextPairs(scheme: ColorScheme): List<Pair<String, Pair<Color, Color>>> {
         val surfaces = listOf(
             "surface" to scheme.surface,
             "surfaceDim" to scheme.surfaceDim,
@@ -62,6 +94,46 @@ class YftThemeContrastTest {
             "inverseOnSurface" to (scheme.inverseOnSurface to scheme.inverseSurface),
             "inversePrimary" to (scheme.inversePrimary to scheme.inverseSurface),
         )
+    }
+
+    private fun yftTextPairs(colors: YftColors): List<Pair<String, Pair<Color, Color>>> {
+        val grounds = listOf(
+            "background" to colors.background,
+            "card" to colors.card,
+            "chip" to colors.chip,
+        )
+        val text = grounds.flatMap { (label, ground) ->
+            listOf(
+                "textPrimary on $label" to (colors.textPrimary to ground),
+                "textSecondary on $label" to (colors.textSecondary to ground),
+                "link on $label" to (colors.link to ground),
+                "coralText on $label" to (colors.coralText to ground),
+            )
+        }
+        val scrimOverLight = colors.scrim.compositeOver(Color.White)
+        return text + listOf(
+            "textPrimary on chipOnBackground" to (colors.textPrimary to colors.chipOnBackground),
+            "textSecondary on chipOnBackground" to
+                (colors.textSecondary to colors.chipOnBackground),
+            "textPrimary on accentSoft" to (colors.textPrimary to colors.accentSoft),
+            "onAccent on accent" to (colors.onAccent to colors.accent),
+            "onNavIndicator on navIndicator" to (colors.onNavIndicator to colors.navIndicator),
+            "onCoral on coral" to (colors.onCoral to colors.coral),
+            "coralText on coralSoft" to (colors.coralText to colors.coralSoft),
+            "onWaiting on waiting" to (colors.onWaiting to colors.waiting),
+            "onScrim on scrim over white" to (colors.onScrim to scrimOverLight),
+        )
+    }
+
+    private fun yftNonTextPairs(colors: YftColors): List<Pair<String, Pair<Color, Color>>> = listOf(
+        "success on card" to (colors.success to colors.card),
+        "fieldOutline on card" to (colors.fieldOutline.compositeOver(colors.card) to colors.card),
+        "link icon on card" to (colors.link to colors.card),
+    )
+
+    private fun assertRatio(label: String, pair: Pair<Color, Color>, minimum: Double) {
+        val ratio = contrast(pair.first, pair.second)
+        assertTrue("$label is ${"%.2f".format(ratio)}:1", ratio >= minimum)
     }
 
     private fun contrast(first: Color, second: Color): Double {

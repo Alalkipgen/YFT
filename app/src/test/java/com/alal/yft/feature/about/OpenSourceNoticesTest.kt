@@ -34,5 +34,9 @@ class OpenSourceNoticesTest {
         assertTrue("Copyright (c) 2019 and later, KFlash and others." in meriyah.noticeText)
         val astring = notices.single { it.id == "astring" }
         assertTrue("Copyright (c) 2015, David Bonnet" in astring.noticeText)
+        val font = notices.single { it.id == "plus-jakarta-sans" }
+        assertTrue("Copyright 2020 The Plus Jakarta Sans Project Authors" in font.noticeText)
+        assertTrue("SIL OPEN FONT LICENSE Version 1.1" in font.noticeText)
+        assertTrue("Apache License" in notices.single { it.id == "material-symbols" }.noticeText)
     }
 }
