@@ -1,5 +1,6 @@
 package com.alal.yft.feature.preview
 
+import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.util.UnstableApi
@@ -15,6 +16,7 @@ import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
+import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.core.model.settings.pick
@@ -28,12 +30,15 @@ import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -52,6 +57,26 @@ class PreviewViewModel @Inject constructor(
     private var quality = QualityPreference.HIGHEST
     val uiState: StateFlow<PreviewUiState> = mutableUiState.asStateFlow()
     private val retryEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val sharedDownloadsSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+    private val defaultOptions = PreviewDownloadOptions(
+        savesToSharedDownloads = sharedDownloadsSupported,
+    )
+
+    /** Wi-Fi only and the save location, shown next to the Download button. */
+    val downloadOptions: StateFlow<PreviewDownloadOptions> = downloadPreferences.preferences
+        .map { preferences ->
+            PreviewDownloadOptions(
+                wifiOnly = preferences.unmeteredOnly,
+                savesToSharedDownloads = sharedDownloadsSupported &&
+                    preferences.location == DownloadLocation.SHARED_DOWNLOADS,
+            )
+        }
+        .catch { emit(defaultOptions) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(OPTIONS_STOP_TIMEOUT_MS),
+            initialValue = defaultOptions,
+        )
 
     init {
         viewModelScope.launch {
@@ -64,6 +89,19 @@ class PreviewViewModel @Inject constructor(
 
     fun retry() {
         retryEvents.tryEmit(Unit)
+    }
+
+    /** The sheet's Wi-Fi only switch writes the global download preference. */
+    fun setWifiOnly(enabled: Boolean) {
+        viewModelScope.launch {
+            try {
+                downloadPreferences.update { it.copy(unmeteredOnly = enabled) }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                // The switch keeps showing the stored value, so a failed write is visible.
+            }
+        }
     }
 
     fun selectTab(tab: PreviewTab) {
@@ -281,5 +319,9 @@ class PreviewViewModel @Inject constructor(
             "The detected media address is invalid or insecure."
         VariantResolutionFailure.NO_VARIANTS ->
             "No playable media variants were found."
+    }
+
+    private companion object {
+        const val OPTIONS_STOP_TIMEOUT_MS = 5_000L
     }
 }

@@ -1,6 +1,9 @@
 package com.alal.yft.ui.navigation
 
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -8,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
@@ -53,12 +57,15 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class YftNavigationSmokeTest {
     @get:Rule
     val composeRule = createAndroidComposeRule<ComponentActivity>()
+
+    private lateinit var shellNavController: NavHostController
 
     @Test
     fun bottomBarSwitchesTabsAndShowsWhichOneIsSelected() {
@@ -129,6 +136,40 @@ class YftNavigationSmokeTest {
         composeRule.onNodeWithTag("navigate-back").performClick()
         composeRule.onNodeWithTag("settings-list").assertIsDisplayed()
         composeRule.onNodeWithTag("nav-settings").assertIsSelected()
+    }
+
+    // Native graphics hit-tests the sheet's top-rounded shape, so taps inside it land.
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Test
+    fun downloadAsRisesAsASheetOverThePageThatOpenedIt() {
+        setShell()
+        composeRule.onNodeWithTag("home-link").performTextInput("https://a.test/found")
+        composeRule.onNodeWithTag("home-open-link").performClick()
+        composeRule.onNodeWithTag("home-view-media").performClick()
+
+        composeRule.runOnUiThread { shellNavController.navigate(YftDestination.PREVIEW.route) }
+
+        composeRule.onNodeWithTag("modal-sheet").assertExists()
+        composeRule.onNodeWithText(YftDestination.PREVIEW.summary).assertIsDisplayed()
+        // The page stays composed under the sheet and the bar stays hidden.
+        composeRule.onNodeWithText(YftDestination.DETECTED_MEDIA.title).assertExists()
+        composeRule.onNodeWithTag("nav-home").assertDoesNotExist()
+
+        composeRule.onNodeWithTag("sheet-close").performClick()
+
+        composeRule.onNodeWithTag("modal-sheet").assertDoesNotExist()
+        composeRule.onNodeWithText(YftDestination.DETECTED_MEDIA.title).assertIsDisplayed()
+        assertEquals(
+            YftDestination.DETECTED_MEDIA.route,
+            shellNavController.currentDestination?.route,
+        )
+
+        composeRule.runOnUiThread { shellNavController.navigate(YftDestination.PREVIEW.route) }
+        composeRule.onNodeWithTag("sheet-open-downloads").performClick()
+
+        composeRule.onNodeWithTag("modal-sheet").assertDoesNotExist()
+        composeRule.onNodeWithTag("nav-downloads").assertIsSelected()
+        assertEquals(YftDestination.DOWNLOADS.route, shellNavController.currentDestination?.route)
     }
 
     @Test
@@ -221,7 +262,7 @@ class YftNavigationSmokeTest {
         composeRule.setContent {
             var themeMode by remember { mutableStateOf(ThemeMode.SYSTEM) }
             YftTheme(themeMode = themeMode) {
-                val navController = rememberNavController()
+                val navController = rememberNavController().also { shellNavController = it }
                 YftAppShell(navController = navController, activeDownloads = activeDownloads()) {
                     TestNavHost(
                         navController = navController,
@@ -263,7 +304,19 @@ private fun TestNavHost(
         detectedMediaContent = { onNavigateBack, _, _ ->
             DetectedMediaScreen(page = null, onNavigateBack = onNavigateBack)
         },
-        previewContent = { onNavigateBack -> Placeholder(YftDestination.PREVIEW, onNavigateBack) },
+        previewContent = { onNavigateBack, onOpenDownloads ->
+            Column {
+                Text(text = YftDestination.PREVIEW.summary)
+                TextButton(
+                    onClick = onNavigateBack,
+                    modifier = Modifier.testTag("sheet-close"),
+                ) { Text(text = "Close") }
+                TextButton(
+                    onClick = onOpenDownloads,
+                    modifier = Modifier.testTag("sheet-open-downloads"),
+                ) { Text(text = "View downloads") }
+            }
+        },
         downloadsContent = { onNavigateBack ->
             Placeholder(YftDestination.DOWNLOADS, onNavigateBack)
         },

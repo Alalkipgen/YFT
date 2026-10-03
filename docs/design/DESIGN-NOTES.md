@@ -99,8 +99,8 @@ Touch targets are at least 48dp; small visuals (40dp chips, 36dp compact pills) 
 
 Bottom bar with Home · Downloads · Library · Settings. The selected tab has a Mint pill behind
 the icon (Mint Soft on light, Mint on Night) and a bold label; Downloads carries a Coral badge
-with the number of active downloads. Browser, Download as (Preview), Detected media and About
-open as full screens without the bottom bar.
+with the number of active downloads. Browser, Detected media and About open as full screens
+without the bottom bar; Download as (Preview) rises as a sheet over the screen that opened it.
 
 ## Screens
 
@@ -181,3 +181,22 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
     or fragment, which can carry tokens; tapping it edits the full address with everything
     selected. The reload button appears in both the pill and the toolbar, as drawn, and the
     toolbar's house returns to YFT Home. The Found media screen reuses the same rows.
+11. **Download as (`03`).** Preview opens as a modal sheet over the page that chose it: a
+    navigation dialog destination holding Material's bottom sheet, so Back, dragging down and
+    tapping the dimmed page close it, and its ViewModel and player are released with it. As
+    drawn there is no close X; the empty and error states carry a Close button. The thumbnail
+    spot is the real preview player (176dp, 16:9) with YFT's own controls: a play button and
+    the length ("4:12") while paused, elapsed / total and a Mint seek line (tap or drag, and a
+    progress action for TalkBack) while playing. Qualities run highest first and are named from
+    the resolved height ("1080p · Full HD", "720p · HD", "480p", "360p · Data saver", 60 fps as
+    "720p60"); audio rows read "128 kbps · English"; rows that would read the same add their
+    bitrate. A size appears only when known — exact as "96 MB", estimated as "~96 MB" — and the
+    Download button repeats it. Variants the device cannot play stay listed but disabled with
+    "Unsupported codec", and Audio is disabled when the page has no separate audio. "Download
+    over Wi-Fi only" is the same setting as in Settings, so switching it here changes it
+    everywhere. The caption says where the file goes: "Saves to Download/YFT", or "Saves to app
+    storage" on Android 9 and older or when Settings picks app storage. The info button beside
+    "Quality" shows the chosen variant's details (resolution, fps, codec, bitrate, duration,
+    size, format, language) with unknowns spelled out, and after queueing "View downloads" opens
+    the Downloads tab. Rows keep 48dp touch targets, so the sheet is a little taller than the
+    image; it never grows past 48dp below the status bar and scrolls on short screens.

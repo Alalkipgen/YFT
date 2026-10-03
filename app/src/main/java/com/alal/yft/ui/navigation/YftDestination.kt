@@ -2,7 +2,8 @@ package com.alal.yft.ui.navigation
 
 /**
  * Every screen in the app. The four [isTopLevel] destinations are the bottom-bar tabs; the rest
- * open full screen on top of a tab and hide the bar until the user goes back.
+ * open on top of a tab and hide the bar until the user goes back. Download as ([PREVIEW]) is a
+ * sheet over the page that opened it rather than a screen of its own.
  */
 enum class YftDestination(
     val route: String,
@@ -17,7 +18,7 @@ enum class YftDestination(
         "Found on this page",
         "Review media found on the page the browser showed last.",
     ),
-    PREVIEW("preview", "Preview", "Inspect real media variants before downloading."),
+    PREVIEW("preview", "Download as", "Pick a quality, try it and download it."),
     DOWNLOADS(
         "downloads",
         "Downloads",

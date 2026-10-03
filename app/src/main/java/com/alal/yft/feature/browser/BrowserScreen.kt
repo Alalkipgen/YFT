@@ -92,6 +92,7 @@ import com.alal.yft.core.browser.webview.SecureBrowserChromeClient
 import com.alal.yft.core.browser.webview.SecureBrowserWebViewClient
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.ui.components.FoundMediaDividerInset
+import com.alal.yft.ui.components.SHEET_SCRIM_ALPHA
 import com.alal.yft.ui.components.YftAllowedMediaNote
 import com.alal.yft.ui.components.YftCountBadge
 import com.alal.yft.ui.components.YftDivider
@@ -787,7 +788,7 @@ internal fun foundCountLabel(count: Int): String = when (count) {
 private const val FOUND_TITLE = "Found on this page"
 private const val ADDRESS_PLACEHOLDER = "Enter a web address"
 private const val SHEET_MAX_FRACTION = 0.72f
-private val SHEET_SCRIM = Color(0x52000000)
+private val SHEET_SCRIM = Color.Black.copy(alpha = SHEET_SCRIM_ALPHA)
 private val ADDRESS_HEIGHT = 44.dp
 private val PROGRESS_HEIGHT = 2.dp
 private val DRAG_THRESHOLD = 24.dp

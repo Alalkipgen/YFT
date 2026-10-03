@@ -29,7 +29,8 @@ import com.alal.yft.ui.theme.YftTheme
  * with a bold Ink label; each segment is a 48dp radio button for accessibility services.
  *
  * With [fillWidth] the segments share the available width equally; otherwise each one wraps its
- * label, which suits a trailing control inside a settings row.
+ * label, which suits a trailing control inside a settings row. [isEnabled] greys out single
+ * segments, such as Audio when a page has no separate audio track.
  */
 @Composable
 fun <T> YftSegmentedControl(
@@ -42,6 +43,7 @@ fun <T> YftSegmentedControl(
     enabled: Boolean = true,
     containerColor: Color = YftTheme.colors.chip,
     testTag: ((T) -> String)? = null,
+    isEnabled: (T) -> Boolean = { true },
 ) {
     val colors = YftTheme.colors
     Row(
@@ -55,6 +57,7 @@ fun <T> YftSegmentedControl(
     ) {
         options.forEach { option ->
             val isSelected = option == selected
+            val optionEnabled = enabled && isEnabled(option)
             // The whole 48dp cell is the touch target; the Mint pill is drawn 4dp inside it.
             Box(
                 modifier = Modifier
@@ -63,7 +66,7 @@ fun <T> YftSegmentedControl(
                     .widthIn(min = 64.dp)
                     .selectable(
                         selected = isSelected,
-                        enabled = enabled,
+                        enabled = optionEnabled,
                         role = Role.RadioButton,
                         onClick = { onSelect(option) },
                     )
@@ -78,7 +81,7 @@ fun <T> YftSegmentedControl(
                     text = label(option),
                     color = when {
                         isSelected -> colors.onAccent
-                        enabled -> colors.textPrimary
+                        optionEnabled -> colors.textPrimary
                         else -> colors.textSecondary
                     },
                     style = MaterialTheme.typography.labelLarge.copy(

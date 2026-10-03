@@ -32,6 +32,16 @@ sealed interface PreviewDownloadStatus {
     data class Rejected(val message: String) : PreviewDownloadStatus
 }
 
+/**
+ * The download settings "Download as" shows under the quality list. [wifiOnly] is the same
+ * preference as Settings → Wi-Fi only, so switching it here changes it everywhere.
+ */
+data class PreviewDownloadOptions(
+    val wifiOnly: Boolean = false,
+    /** False when files go to app storage: chosen in Settings, or Android 9 and older. */
+    val savesToSharedDownloads: Boolean = true,
+)
+
 sealed interface PreviewUiState {
     data object Empty : PreviewUiState
     data object Loading : PreviewUiState

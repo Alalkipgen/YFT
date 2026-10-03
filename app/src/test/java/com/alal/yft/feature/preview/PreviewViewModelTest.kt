@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
@@ -307,12 +308,45 @@ class PreviewViewModelTest {
         )
     }
 
+    @Test
+    fun downloadOptionsFollowTheWifiOnlySettingAndTheSheetSwitchWritesIt() = runTest {
+        val store = PreviewSelectionStore().apply { select(candidate()) }
+        val preferences = FakePreferences(DownloadPreferences(unmeteredOnly = false))
+        val viewModel = viewModel(
+            FakeResolver(VariantResolutionResult.Success(asset(listOf(variant())))),
+            store,
+            preferences = preferences,
+        )
+        backgroundScope.launch { viewModel.downloadOptions.collect {} }
+        runCurrent()
+
+        // SDK 28 has no shared Download/YFT folder for YFT, so files stay in app storage.
+        assertEquals(
+            PreviewDownloadOptions(wifiOnly = false, savesToSharedDownloads = false),
+            viewModel.downloadOptions.value,
+        )
+
+        viewModel.setWifiOnly(true)
+        runCurrent()
+
+        assertTrue(preferences.state.value.unmeteredOnly)
+        assertTrue(viewModel.downloadOptions.value.wifiOnly)
+
+        viewModel.setWifiOnly(false)
+        runCurrent()
+
+        assertFalse(preferences.state.value.unmeteredOnly)
+        assertFalse(viewModel.downloadOptions.value.wifiOnly)
+        assertEquals(2, preferences.updates)
+    }
+
     private fun viewModel(
         resolver: VariantResolver,
         store: PreviewSelectionStore,
         starter: PreviewDownloadStarter = FakeDownloadStarter(),
         prefs: DownloadPreferences = DownloadPreferences(confirmOnMeteredNetwork = false),
         networkSnapshot: NetworkSnapshot = WIFI,
+        preferences: DownloadPreferencesRepository = FakePreferences(prefs),
     ): PreviewViewModel {
         val context = ApplicationProvider.getApplicationContext<Context>()
         return PreviewViewModel(
@@ -321,13 +355,7 @@ class PreviewViewModelTest {
             mediaPlayerFactory = MediaPlayerFactory(context),
             previewSourceFactory = PreviewSourceFactory(OkHttpClient()),
             downloadStarter = starter,
-            downloadPreferences = object : DownloadPreferencesRepository {
-                override val preferences: Flow<DownloadPreferences> = MutableStateFlow(prefs)
-
-                override suspend fun update(
-                    transform: (DownloadPreferences) -> DownloadPreferences,
-                ) = Unit
-            },
+            downloadPreferences = preferences,
             network = object : NetworkStatusSource {
                 override val snapshot: StateFlow<NetworkSnapshot> =
                     MutableStateFlow(networkSnapshot)
@@ -370,6 +398,18 @@ class PreviewViewModelTest {
         requestContext = BrowserRequestContext(null, "fixture-agent", null),
         height = height,
     )
+
+    private class FakePreferences(initial: DownloadPreferences) : DownloadPreferencesRepository {
+        val state = MutableStateFlow(initial)
+        var updates = 0
+
+        override val preferences: Flow<DownloadPreferences> = state
+
+        override suspend fun update(transform: (DownloadPreferences) -> DownloadPreferences) {
+            updates += 1
+            state.value = transform(state.value)
+        }
+    }
 
     private class FakeDownloadStarter(
         var result: EnqueueResult = EnqueueResult.Started("task-1", "Fixture.mp4"),

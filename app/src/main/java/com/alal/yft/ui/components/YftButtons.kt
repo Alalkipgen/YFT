@@ -58,7 +58,7 @@ fun YftIcon(
     )
 }
 
-/** Mint pill with Ink text: Download, Use, View, Preview. [large] is the 56dp sheet action. */
+/** Mint pill with Ink text: Download, Use, View, Preview. [large] is the 52dp sheet action. */
 @Composable
 fun YftPrimaryButton(
     text: String,
@@ -72,7 +72,7 @@ fun YftPrimaryButton(
     val colors = YftTheme.colors
     Button(
         onClick = onClick,
-        modifier = modifier.heightIn(min = if (large) 56.dp else if (compact) 36.dp else 48.dp),
+        modifier = modifier.heightIn(min = if (large) 52.dp else if (compact) 36.dp else 48.dp),
         enabled = enabled,
         shape = YftShapes.pill,
         colors = ButtonDefaults.buttonColors(

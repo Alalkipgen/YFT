@@ -170,7 +170,7 @@ Media3 is the production preview engine for direct and non-DRM HLS/DASH media. P
 - explicit Progressive, HLS and DASH Media3 sources over HTTPS;
 - an origin-aware OkHttp policy that replays browser context to the credential origin and removes credential/custom context headers cross-origin.
 
-Candidate selection is kept only in a singleton in-memory flow. Signed URLs, cookies and browser context are not placed in navigation routes, saved state or Room. The preview screen owns a lazy player for the selected representation, disables autoplay, releases it with the composition and exposes generic playback errors without upstream diagnostics.
+Candidate selection is kept only in a singleton in-memory flow. Signed URLs, cookies and browser context are not placed in navigation routes, saved state or Room. The "Download as" preview sheet (a navigation dialog destination holding a Material modal bottom sheet) owns a lazy player for the selected representation, disables autoplay, releases it with the composition and exposes generic playback errors without upstream diagnostics.
 
 Offline/export behavior is separate from preview:
 

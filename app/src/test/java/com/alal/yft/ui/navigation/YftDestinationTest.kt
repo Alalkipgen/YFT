@@ -8,7 +8,16 @@ class YftDestinationTest {
     @Test
     fun containsEveryRequiredPhaseOneScreen() {
         assertEquals(
-            setOf("Home", "Browser", "Found on this page", "Preview", "Downloads", "Library", "Settings", "About"),
+            setOf(
+                "Home",
+                "Browser",
+                "Found on this page",
+                "Download as",
+                "Downloads",
+                "Library",
+                "Settings",
+                "About",
+            ),
             YftDestination.entries.map(YftDestination::title).toSet(),
         )
     }

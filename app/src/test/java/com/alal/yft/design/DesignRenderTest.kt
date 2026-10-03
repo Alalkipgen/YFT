@@ -14,20 +14,30 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.rememberNavController
 import com.alal.yft.core.model.ThemeMode
+import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.CandidateSource
+import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.MediaSizeAccuracy
+import com.alal.yft.core.model.media.MediaTrackType
+import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.settings.HomeSites
 import com.alal.yft.feature.browser.BrowserScreen
 import com.alal.yft.feature.browser.BrowserUiState
@@ -35,10 +45,18 @@ import com.alal.yft.feature.home.HomeScreen
 import com.alal.yft.feature.home.HomeUiState
 import com.alal.yft.feature.library.LibraryItem
 import com.alal.yft.feature.library.LibraryLocation
+import com.alal.yft.feature.preview.PreviewDownloadOptions
+import com.alal.yft.feature.preview.PreviewPlayerControls
+import com.alal.yft.feature.preview.PreviewScreen
+import com.alal.yft.feature.preview.PreviewTab
+import com.alal.yft.feature.preview.PreviewUiState
 import com.alal.yft.ui.YftAppShell
 import com.alal.yft.ui.components.PromptboxStatus
+import com.alal.yft.ui.components.SHEET_SCRIM_ALPHA
 import com.alal.yft.ui.components.YftPromptbox
+import com.alal.yft.ui.components.YftSheetHandle
 import com.alal.yft.ui.navigation.YftNavHost
+import com.alal.yft.ui.theme.YftShapes
 import com.alal.yft.ui.theme.YftTheme
 import java.io.File
 import org.junit.Assume.assumeTrue
@@ -89,6 +107,12 @@ class DesignRenderTest {
     fun browserFoundMediaDark() = render("02-browser-found-media-dark", ThemeMode.DARK) {
         BrowserPreview()
     }
+
+    @Test
+    fun downloadAs() = render("03-download-as", ThemeMode.LIGHT) { DownloadAsPreview() }
+
+    @Test
+    fun downloadAsDark() = render("03-download-as-dark", ThemeMode.DARK) { DownloadAsPreview() }
 
     private fun render(name: String, themeMode: ThemeMode, content: @Composable () -> Unit) {
         composeRule.setContent { YftTheme(themeMode = themeMode) { content() } }
@@ -227,6 +251,165 @@ private fun SamplePage(modifier: Modifier) {
         )
     }
 }
+
+/**
+ * `03`: the page's player under the 32% scrim with the "Download as" sheet drawn over it (the
+ * real sheet is its own window, which a window snapshot does not include).
+ */
+@Composable
+private fun DownloadAsPreview() {
+    val colors = YftTheme.colors
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(300.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            LandscapePoster(modifier = Modifier.fillMaxSize())
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(Color(0x99000000)),
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = SHEET_SCRIM_ALPHA)),
+        )
+        Surface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth(),
+            shape = YftShapes.sheet,
+            color = colors.card,
+            contentColor = colors.textPrimary,
+        ) {
+            Column {
+                YftSheetHandle()
+                PreviewScreen(
+                    uiState = SAMPLE_DOWNLOAD_AS,
+                    onNavigateBack = {},
+                    onRetry = {},
+                    onTabSelected = {},
+                    onVariantSelected = {},
+                    playerSurface = { _, modifier ->
+                        Box(modifier = modifier) {
+                            LandscapePoster(modifier = Modifier.fillMaxSize())
+                            PreviewPlayerControls(
+                                playing = false,
+                                positionMs = 0,
+                                durationMs = SAMPLE_DURATION_MS,
+                                onPlayPause = {},
+                                onSeek = {},
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                    },
+                    options = PreviewDownloadOptions(wifiOnly = true),
+                )
+            }
+        }
+    }
+}
+
+/** A painted stand-in for the design's mountain-lake still: sky, lit peaks, trees and water. */
+@Composable
+private fun LandscapePoster(modifier: Modifier) {
+    Box(modifier = modifier.drawBehind {
+        val w = size.width
+        val h = size.height
+        drawRect(Brush.verticalGradient(listOf(Color(0xFF7FA3C8), Color(0xFFE2CFAF))))
+        val peaks = Path().apply {
+            moveTo(0f, h * 0.60f)
+            lineTo(0f, h * 0.20f)
+            lineTo(w * 0.14f, h * 0.30f)
+            lineTo(w * 0.30f, h * 0.16f)
+            lineTo(w * 0.46f, h * 0.34f)
+            lineTo(w * 0.62f, h * 0.20f)
+            lineTo(w * 0.80f, h * 0.36f)
+            lineTo(w, h * 0.30f)
+            lineTo(w, h * 0.60f)
+            close()
+        }
+        drawPath(
+            path = peaks,
+            brush = Brush.verticalGradient(
+                colors = listOf(Color(0xFFD08B55), Color(0xFF6B6F78), Color(0xFF3C474F)),
+                startY = h * 0.16f,
+                endY = h * 0.60f,
+            ),
+        )
+        drawRect(
+            color = Color(0xFF1F4636),
+            topLeft = Offset(0f, h * 0.54f),
+            size = Size(w, h * 0.10f),
+        )
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(Color(0xFF39B3CC), Color(0xFF17677E)),
+                startY = h * 0.64f,
+                endY = h,
+            ),
+            topLeft = Offset(0f, h * 0.64f),
+            size = Size(w, h * 0.36f),
+        )
+    })
+}
+
+private const val SAMPLE_DURATION_MS = 252_000L
+private const val SAMPLE_PAGE = "https://archive.org/details/mountain-lake-4k"
+
+private val SAMPLE_DOWNLOAD_AS = PreviewUiState.Ready(
+    asset = MediaAsset(
+        sourcePageUrl = SAMPLE_PAGE,
+        title = "Mountain Lake 4K",
+        thumbnailUrl = null,
+        durationMillis = SAMPLE_DURATION_MS,
+        variants = listOf(
+            sampleVariant("1080", width = 1_920, height = 1_080, mebibytes = 186),
+            sampleVariant("720", width = 1_280, height = 720, mebibytes = 96),
+            sampleVariant("480", width = 854, height = 480, mebibytes = 54),
+            sampleVariant("360", width = 640, height = 360, mebibytes = 31),
+            MediaVariant(
+                id = "audio",
+                playbackUrl = "https://ia800.us.archive.org/mountain-lake/audio.m4a",
+                kind = MediaKind.DIRECT,
+                trackType = MediaTrackType.AUDIO,
+                requestContext = BrowserRequestContext(SAMPLE_PAGE, "fixture-agent", null),
+                label = "English",
+                bitrateBitsPerSecond = 128_000,
+                language = "en",
+            ),
+        ),
+        resolvedAtEpochMs = 1,
+    ),
+    selectedTab = PreviewTab.VIDEO,
+    selectedVariantId = "720",
+)
+
+private fun sampleVariant(id: String, width: Int, height: Int, mebibytes: Long) = MediaVariant(
+    id = id,
+    playbackUrl = "https://ia800.us.archive.org/mountain-lake/$id.mp4",
+    kind = MediaKind.DIRECT,
+    trackType = MediaTrackType.AUDIO_VIDEO,
+    requestContext = BrowserRequestContext(SAMPLE_PAGE, "fixture-agent", null),
+    mimeType = "video/mp4",
+    container = "MP4",
+    codecs = listOf("avc1.640028", "mp4a.40.2"),
+    width = width,
+    height = height,
+    framesPerSecond = 30.0,
+    durationMillis = SAMPLE_DURATION_MS,
+    sizeBytes = mebibytes * 1_024 * 1_024,
+    sizeAccuracy = MediaSizeAccuracy.EXACT,
+)
 
 private val SAMPLE_CANDIDATES = listOf(
     sampleCandidate(1, "Ocean Waves", "ocean-waves.mp4", MediaKind.DIRECT, "video/mp4")

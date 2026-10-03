@@ -3,11 +3,13 @@ package com.alal.yft.ui.navigation
 import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.dialog
 import androidx.navigation.navArgument
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.feature.about.AboutScreen
@@ -18,6 +20,7 @@ import com.alal.yft.feature.home.HomeRoute
 import com.alal.yft.feature.library.LibraryRoute
 import com.alal.yft.feature.preview.PreviewRoute
 import com.alal.yft.feature.settings.SettingsRoute
+import com.alal.yft.ui.components.YftModalSheet
 
 @Composable
 fun YftNavHost(
@@ -60,8 +63,11 @@ fun YftNavHost(
             onOpenBrowser = onOpenBrowser,
         )
     },
-    previewContent: @Composable (onNavigateBack: () -> Unit) -> Unit = { onNavigateBack ->
-        PreviewRoute(onNavigateBack = onNavigateBack)
+    previewContent: @Composable (
+        onNavigateBack: () -> Unit,
+        onOpenDownloads: () -> Unit,
+    ) -> Unit = { onNavigateBack, onOpenDownloads ->
+        PreviewRoute(onNavigateBack = onNavigateBack, onOpenDownloads = onOpenDownloads)
     },
     downloadsContent: @Composable (onNavigateBack: () -> Unit) -> Unit = { onNavigateBack ->
         DownloadsRoute(onNavigateBack = onNavigateBack)
@@ -82,6 +88,9 @@ fun YftNavHost(
     },
 ) {
     val navigateBack = { navController.navigateUp(); Unit }
+    val openPreview = {
+        navController.navigate(YftDestination.PREVIEW.route) { launchSingleTop = true }
+    }
 
     NavHost(
         navController = navController,
@@ -111,7 +120,7 @@ fun YftNavHost(
         ) { entry ->
             browserContent(
                 navigateBack,
-                { navController.navigate(YftDestination.PREVIEW.route) },
+                openPreview,
                 entry.arguments?.getString(BROWSER_LINK_ARGUMENT),
                 {
                     if (!navController.popBackStack(YftDestination.HOME.route, inclusive = false)) {
@@ -123,12 +132,27 @@ fun YftNavHost(
         composable(YftDestination.DETECTED_MEDIA.route) {
             detectedMediaContent(
                 navigateBack,
-                { navController.navigate(YftDestination.PREVIEW.route) },
+                openPreview,
                 { navController.navigate(YftDestination.BROWSER.route) },
             )
         }
-        composable(YftDestination.PREVIEW.route) {
-            previewContent(navigateBack)
+        // "Download as" rises as a sheet over the page that opened it. The dialog destination
+        // keeps that page composed underneath and owns the Preview back stack entry.
+        dialog(
+            route = YftDestination.PREVIEW.route,
+            dialogProperties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            YftModalSheet(onDismissRequest = navigateBack) { hide ->
+                previewContent(
+                    { hide(navigateBack) },
+                    {
+                        hide {
+                            navController.popBackStack()
+                            navController.navigateToTab(YftDestination.DOWNLOADS)
+                        }
+                    },
+                )
+            }
         }
         composable(YftDestination.DOWNLOADS.route) {
             downloadsContent(navigateBack)
