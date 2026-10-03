@@ -126,6 +126,9 @@ fi
 ok "not debuggable"
 "$zipalign" -c 4 "$apk" >/dev/null 2>&1 || fail "APK is not zip-aligned"
 ok "zip-aligned"
+command -v python3 >/dev/null || fail "python3 is required for the debug-action safety check"
+python3 "$(dirname "$0")/verify-release-debug-actions.py" "$apk" \
+  || fail "debug crash action check failed"
 
 # Prints "<schemes>|<signers>|<cert sha256>|<cert DN>" or fails.
 # apksigner up to 36.x labels the first signer "Signer #1 certificate ..."; build-tools 37+

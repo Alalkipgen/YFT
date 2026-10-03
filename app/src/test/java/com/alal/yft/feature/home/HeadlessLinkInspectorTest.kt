@@ -16,6 +16,7 @@ import com.alal.yft.ui.components.PromptboxStatus
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -49,11 +50,11 @@ class HeadlessLinkInspectorTest {
 
     @Test
     fun unusableAddressesAreRejectedWithoutTheNetwork() = runTest {
-        assertEquals(
+        assertNotFound(
             LinkInspection.NotFound("Only HTTPS pages are supported", canOpenInBrowser = false),
             inspector().inspect("http://a.test/watch"),
         )
-        assertEquals(
+        assertNotFound(
             LinkInspection.NotFound("Enter a web address", canOpenInBrowser = false),
             inspector().inspect("about:blank"),
         )
@@ -110,7 +111,7 @@ class HeadlessLinkInspectorTest {
 
         val result = inspector(extractor).inspect("https://fixture.test/video/42")
 
-        assertEquals(
+        assertNotFound(
             LinkInspection.NotFound("Sign in to Fixture Site on this page first, then try again."),
             result,
         )
@@ -125,7 +126,7 @@ class HeadlessLinkInspectorTest {
 
         val result = inspector(extractor).inspect("https://fixture.test/video/42")
 
-        assertEquals(
+        assertNotFound(
             LinkInspection.NotFound("This Fixture Site post has no downloadable video."),
             result,
         )
@@ -157,7 +158,7 @@ class HeadlessLinkInspectorTest {
     fun pageWithoutMediaOffersTheBrowser() = runTest {
         val result = inspector().inspect("https://a.test/article")
 
-        assertEquals(LinkInspection.NotFound(PromptboxStatus.NO_MEDIA_MESSAGE), result)
+        assertNotFound(LinkInspection.NotFound(PromptboxStatus.NO_MEDIA_MESSAGE), result)
         assertTrue((result as LinkInspection.NotFound).canOpenInBrowser)
     }
 
@@ -181,7 +182,7 @@ class HeadlessLinkInspectorTest {
 
         val result = inspector().inspect("https://a.test/offline")
 
-        assertEquals(
+        assertNotFound(
             LinkInspection.NotFound(
                 "The page could not be reached. Check the connection or try the browser.",
             ),
@@ -195,7 +196,7 @@ class HeadlessLinkInspectorTest {
 
         val result = inspector(timeoutMillis = 1_000).inspect("https://a.test/slow")
 
-        assertEquals(
+        assertNotFound(
             LinkInspection.NotFound("The page took too long to answer. Try it in the browser."),
             result,
         )
@@ -225,6 +226,46 @@ class HeadlessLinkInspectorTest {
                     ),
                 ),
             )
+    }
+
+    @Test
+    fun failedAdapterStepsRemainInOrderWhenGenericLookupAlsoFails() = runTest {
+        page = { HeadlessPageFetcher.Result.Failed(HeadlessPageFetcher.FailureReason.NETWORK) }
+        val result = inspector(
+            FixtureExtractor(
+                SiteExtractionResult.Failure(
+                    SiteExtractionFailure.HTTP_STATUS,
+                    503,
+                    details = listOf("page GET 503", "Cookie: redaction-fixture"),
+                ),
+            ),
+        ).inspect("https://fixture.test/video/42") as LinkInspection.NotFound
+
+        assertEquals(
+            listOf("adapter fixture: HTTP_STATUS", "adapter HTTP 503", "page GET 503",
+                "page GET failed: NETWORK"),
+            result.details,
+        )
+        assertFalse(result.details.joinToString("\n").contains("Cookie"))
+    }
+
+    @Test
+    fun markupFailureAndTimeoutReportOnlyObservedStages() = runTest {
+        val noMedia = inspector().inspect("https://a.test/article") as LinkInspection.NotFound
+        assertTrue(noMedia.details.first().startsWith("page GET: HTML ("))
+        assertEquals("markup: no media", noMedia.details.last())
+        page = { awaitCancellation() }
+        val timeout = inspector(timeoutMillis = 1_000)
+            .inspect("https://a.test/slow") as LinkInspection.NotFound
+        assertEquals(listOf("lookup: timed out after 1000 ms"), timeout.details)
+    }
+
+    /** Original behavior assertions; new stage details are checked separately above. */
+    private fun assertNotFound(expected: LinkInspection.NotFound, actual: LinkInspection) {
+        assertTrue(actual is LinkInspection.NotFound)
+        actual as LinkInspection.NotFound
+        assertEquals(expected.message, actual.message)
+        assertEquals(expected.canOpenInBrowser, actual.canOpenInBrowser)
     }
 
     private companion object {

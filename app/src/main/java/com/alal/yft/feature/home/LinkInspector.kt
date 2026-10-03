@@ -7,6 +7,7 @@ import com.alal.yft.core.browser.detection.HtmlMediaScanner
 import com.alal.yft.core.browser.detection.MediaMetadataProbe
 import com.alal.yft.core.browser.policy.BrowserAddressNormalizer
 import com.alal.yft.core.browser.policy.BrowserAddressResult
+import com.alal.yft.core.model.logging.DiagnosticTextSanitizer
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
@@ -35,6 +36,7 @@ sealed interface LinkInspection {
     data class NotFound(
         val message: String,
         val canOpenInBrowser: Boolean = true,
+        val details: List<String> = emptyList(),
     ) : LinkInspection
 }
 
@@ -78,6 +80,7 @@ class HeadlessLinkInspector internal constructor(
         return withTimeoutOrNull(timeoutMillis) { inspectUrl(url) }
             ?: LinkInspection.NotFound(
                 "The page took too long to answer. Try it in the browser.",
+                details = listOf("lookup: timed out after $timeoutMillis ms"),
             )
     }
 
@@ -95,6 +98,7 @@ class HeadlessLinkInspector internal constructor(
         }
 
         var adapterMessage: String? = null
+        var adapterDetails: List<String> = emptyList()
         when (
             val outcome = siteAdapters.inspect(
                 pageUrl = url,
@@ -112,9 +116,10 @@ class HeadlessLinkInspector internal constructor(
             }
             is SiteAdapterOutcome.Failed -> {
                 if (!outcome.allowsGenericFallback) {
-                    return LinkInspection.NotFound(outcome.message)
+                    return LinkInspection.NotFound(outcome.message, details = outcome.details)
                 }
                 adapterMessage = outcome.message
+                adapterDetails = outcome.details
             }
         }
 
@@ -137,7 +142,15 @@ class HeadlessLinkInspector internal constructor(
             is HeadlessPageFetcher.Result.Page -> {
                 val scan = scanner.scan(page.html, page.url, now)
                 if (scan.candidates.isEmpty()) {
-                    LinkInspection.NotFound(adapterMessage ?: PromptboxStatus.NO_MEDIA_MESSAGE)
+                    LinkInspection.NotFound(
+                        adapterMessage ?: PromptboxStatus.NO_MEDIA_MESSAGE,
+                        details = DiagnosticTextSanitizer.details(
+                            adapterDetails + listOf(
+                                "page GET: HTML (${page.html.length} characters)",
+                                "markup: no media",
+                            ),
+                        ),
+                    )
                 } else {
                     LinkInspection.Found(
                         pageUrl = page.url,
@@ -151,7 +164,10 @@ class HeadlessLinkInspector internal constructor(
             }
 
             is HeadlessPageFetcher.Result.Failed ->
-                LinkInspection.NotFound(adapterMessage ?: page.reason.message())
+                LinkInspection.NotFound(
+                    adapterMessage ?: page.reason.message(),
+                    details = adapterDetails + "page GET failed: ${page.reason}",
+                )
         }
     }
 

@@ -139,6 +139,35 @@ class SiteAdapterCoordinatorTest {
     private fun coordinator(extractor: SiteExtractor) =
         SiteAdapterCoordinator(SiteExtractorRegistry(listOf(extractor)))
 
+    @Test
+    fun `failure details preserve stage and HTTP status but never session data`() = runTest {
+        val outcome = coordinator(
+            FakeExtractor(
+                SiteExtractionResult.Failure(
+                    SiteExtractionFailure.HTTP_STATUS,
+                    httpStatusCode = 403,
+                    details = listOf(
+                        "page GET 403",
+                        "Cookie: redaction-fixture",
+                        "signature=redaction-fixture",
+                        "pot=redaction-fixture",
+                        "media https://cdn.test/private?opaque=redaction-fixture",
+                    ),
+                ),
+            ),
+        ).inspect("https://fixture.test/video/42", context(), 1L) as SiteAdapterOutcome.Failed
+
+        assertEquals(
+            listOf("adapter fixture: HTTP_STATUS", "adapter HTTP 403", "page GET 403",
+                "media https://cdn.test"),
+            outcome.details,
+        )
+        val copied = outcome.details.joinToString("\n")
+        listOf("?", "Cookie", "signature=", "pot=", "redaction-fixture").forEach {
+            assertFalse(copied.contains(it))
+        }
+    }
+
     private fun context() = BrowserRequestContext(
         pageUrl = "https://fixture.test/video/42",
         userAgent = "fixture-agent",

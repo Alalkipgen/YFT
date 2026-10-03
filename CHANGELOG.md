@@ -9,6 +9,12 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Added
 
+- One redacted, size-limited local crash report outside backups, with About actions to View,
+  Copy, Share text or Delete it. Reports are never sent automatically. Debug builds alone
+  have a confirmed long-press crash test; release APK checks reject that action.
+- Home **Copy details** for failed lookups: bounded adapter/status/markup/timeout steps kept
+  in memory and cleared on edit or a new lookup. Query strings and session values are removed
+  before copy/share.
 - A separate Android 14 CI emulator smoke job for the real browser: empty-page controls,
   public HTTPS navigation and best-effort HTML5 media detection. It captures three screenshots,
   safe address/WebView bounds and redacted logcat/test reports without storing UI hierarchies,

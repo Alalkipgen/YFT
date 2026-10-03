@@ -12,7 +12,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.dialog
 import androidx.navigation.navArgument
 import com.alal.yft.core.model.ThemeMode
-import com.alal.yft.feature.about.AboutScreen
+import com.alal.yft.feature.about.AboutRoute
 import com.alal.yft.feature.about.LicensesScreen
 import com.alal.yft.feature.browser.BrowserRoute
 import com.alal.yft.feature.detectedmedia.DetectedMediaRoute
@@ -184,7 +184,7 @@ fun YftNavHost(
             settingsContent(openAbout, openLicenses)
         }
         composable(YftDestination.ABOUT.route) {
-            AboutScreen(onNavigateBack = navigateBack, onOpenLicenses = openLicenses)
+            AboutRoute(onNavigateBack = navigateBack, onOpenLicenses = openLicenses)
         }
         composable(YftDestination.LICENSES.route) {
             LicensesScreen(onNavigateBack = navigateBack)

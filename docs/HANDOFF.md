@@ -18,6 +18,8 @@
   evidence: FIX_PLAN §4 (F1–F8).
 - **Next action — agent:** T04 — local crash report and lookup details
   ([`prompts/T04-crash-report-details.md`](prompts/T04-crash-report-details.md)),
+  IN PROGRESS: implementation/full tests are green. Complete its 8-render visual inspection,
+  actual release APK/debug-action verification and checkpoint CI before T05,
   or [`prompts/00_NEXT_TASK.md`](prompts/00_NEXT_TASK.md) for whatever is next.
 - **Next action — owner:** answer D1 (clipboard check on open), D2 (YouTube strategy A or B) and D3
   (MP3) in FIX_PLAN §3. beta.2 can stay a draft; beta.3 replaces it.
@@ -47,6 +49,14 @@
   loaded/found address bounds restored above the WebView. Debug APK:
   https://github.com/Alalkipgen/YFT/actions/runs/37146164049. Phone checks and native pixel
   review remain; artifact download still requires authentication.
+
+- **T04 implementation milestone:** local no-backup 64 KiB crash report, previous-handler
+  delegation, About manual View/Copy/Share/Delete, debug-only confirmed long press, release
+  DEX guard, optional adapter failure steps and memory-only Home Copy details.
+  Full local tests: core-model 35, extractor-api 24, extractor-sites 91, app 432 (53 render
+  skips), 0 failures/errors; app lint 0 errors/95 warnings; instrumentation APK compiled.
+  Python 13/13 plus shell checks and Kotlin line audit pass. The Copy details regression
+  failed before implementation and now passes. Renders/release APK/native CI remain to check.
 
 ## Known limitations (beta.2)
 

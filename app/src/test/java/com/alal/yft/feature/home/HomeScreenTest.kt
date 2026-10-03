@@ -166,6 +166,51 @@ class HomeScreenTest {
     }
 
     @Test
+    fun notFoundDetailsAreCopiedOnlyWhenTapped() {
+        clipboard().setPrimaryClip(ClipData.newPlainText("copied", "original clipboard"))
+        setContent(
+            HomeUiState(
+                link = "https://a.test/page",
+                status = PromptboxStatus.NotFound(PromptboxStatus.NO_MEDIA_MESSAGE),
+            ),
+        )
+
+        assertEquals("original clipboard", clipboard().primaryClip!!.getItemAt(0).text)
+        composeRule.onNodeWithTag("home-copy-details").assertIsDisplayed().performClick()
+
+        assertEquals(
+            "lookup: ${PromptboxStatus.NO_MEDIA_MESSAGE}",
+            clipboard().primaryClip!!.getItemAt(0).text,
+        )
+        assertTrue(actions.isEmpty())
+    }
+
+    @Test
+    fun copiedFailureDetailsExcludeUrlsAndSessionValuesAndHideWhenFound() {
+        setContent(
+            HomeUiState(
+                link = "https://a.test/page",
+                status = PromptboxStatus.NotFound("No media"),
+                failureDetails = listOf(
+                    "page GET 403",
+                    "Cookie: redaction-fixture",
+                    "media https://a.test/private?opaque=redaction-fixture",
+                    "pot=redaction-fixture",
+                ),
+            ),
+        )
+        composeRule.onNodeWithTag("home-copy-details").performClick()
+        assertEquals(
+            "page GET 403\nmedia https://a.test",
+            clipboard().primaryClip!!.getItemAt(0).text,
+        )
+        state = state.copy(status = PromptboxStatus.Found(1))
+        composeRule.onNodeWithTag("home-copy-details").assertDoesNotExist()
+        state = state.copy(status = PromptboxStatus.Searching)
+        composeRule.onNodeWithTag("home-copy-details").assertDoesNotExist()
+    }
+
+    @Test
     fun sitesOpenInTheBrowserAndEditModeRemovesThem() {
         val archive = HomeSite("Archive", "https://archive.org")
         setContent(HomeUiState(sites = listOf(archive)))

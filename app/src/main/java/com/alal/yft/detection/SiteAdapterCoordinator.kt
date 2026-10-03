@@ -1,5 +1,6 @@
 package com.alal.yft.detection
 
+import com.alal.yft.core.model.logging.DiagnosticTextSanitizer
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.extractor.api.SiteAdapterSelection
@@ -25,6 +26,7 @@ sealed interface SiteAdapterOutcome {
         val reason: SiteExtractionFailure,
         val message: String,
         val allowsGenericFallback: Boolean,
+        val details: List<String> = emptyList(),
     ) : SiteAdapterOutcome
 }
 
@@ -77,6 +79,13 @@ class SiteAdapterCoordinator @Inject constructor(
                 reason = result.reason,
                 message = messageFor(matched.extractor.displayName, result.reason),
                 allowsGenericFallback = result.allowsGenericFallback,
+                details = DiagnosticTextSanitizer.details(
+                    buildList {
+                        add("adapter ${matched.extractor.id}: ${result.reason}")
+                        result.httpStatusCode?.let { add("adapter HTTP $it") }
+                        addAll(result.details)
+                    },
+                ),
             )
         }
     }

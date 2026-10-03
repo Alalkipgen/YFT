@@ -20,6 +20,24 @@ This file and the other files under `docs/` are the continuity source for future
 - No DRM, payment, private-access or authentication-control bypass.
 - Browser cookies and signed URLs are sensitive and must never be logged.
 
+## Privacy diagnostics
+
+- A crash handler keeps only the last redacted report in the app's private
+  `noBackupFilesDir/diagnostics/last-crash.txt`, capped at 64 KiB. It records UTC time, app
+  version, SDK, manufacturer/model (no unique device identifiers), thread and exception frames.
+  Saving is best effort; Android's previous handler still receives the original exception.
+- Reports are outside backups. No report is uploaded, attached to a request or sent on startup.
+  About shows **Last crash report** only when one exists: View/select text, Copy, Share text
+  through the system chooser, or Delete. Export happens only after the owner's explicit tap.
+- Diagnostic text passes through `SensitiveValueRedactor` and the stricter
+  `DiagnosticTextSanitizer`: URLs become origins, queries disappear, and credential-bearing
+  lines are omitted. Raw page bodies, cookies and response headers are not diagnostic steps.
+- Home's **Copy details** uses bounded, sanitized lookup steps kept only in memory. Editing,
+  cancelling or starting a new lookup clears the old steps; neither DataStore nor Room stores
+  them. Clipboard reads remain tap-only.
+- Only debug builds have a confirmed crash-test action on a long press of the About version.
+  The release source set has no such action; APK verification rejects its debug-only markers.
+
 ## Working identity
 
 | Decision | Phase 0 choice |

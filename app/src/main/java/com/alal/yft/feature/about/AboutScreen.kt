@@ -4,6 +4,8 @@ import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,17 +14,25 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.alal.yft.BuildConfig
 import com.alal.yft.R
@@ -30,6 +40,7 @@ import com.alal.yft.ui.components.YftCard
 import com.alal.yft.ui.components.YftDivider
 import com.alal.yft.ui.components.YftGroupLabel
 import com.alal.yft.ui.components.YftIcon
+import com.alal.yft.ui.components.YftTextButton
 import com.alal.yft.ui.components.YftTopBar
 import com.alal.yft.ui.navigation.YftDestination
 import com.alal.yft.ui.theme.YftIcons
@@ -45,8 +56,13 @@ fun AboutScreen(
     onOpenLicenses: () -> Unit = {},
     versionName: String = BuildConfig.VERSION_NAME,
     versionCode: Int = BuildConfig.VERSION_CODE,
+    crashReport: String? = null,
+    onCopyCrash: () -> Unit = {},
+    onShareCrash: () -> Unit = {},
+    onDeleteCrash: () -> Unit = {},
 ) {
     val colors = YftTheme.colors
+    var viewingCrash by remember { mutableStateOf(false) }
     Scaffold(
         topBar = {
             YftTopBar(
@@ -66,6 +82,14 @@ fun AboutScreen(
                 .testTag("about-content"),
         ) {
             Identity(versionName = versionName, versionCode = versionCode)
+            if (!crashReport.isNullOrBlank()) {
+                CrashReportCard(
+                    onView = { viewingCrash = true },
+                    onCopy = onCopyCrash,
+                    onShare = onShareCrash,
+                    onDelete = onDeleteCrash,
+                )
+            }
             PromiseGroup(
                 title = "What YFT does",
                 lines = DOES,
@@ -100,6 +124,9 @@ fun AboutScreen(
             }
         }
     }
+    if (viewingCrash && !crashReport.isNullOrBlank()) {
+        CrashReportDialog(report = crashReport, onDismiss = { viewingCrash = false })
+    }
 }
 
 @Composable
@@ -122,12 +149,14 @@ private fun Identity(versionName: String, versionCode: Int) {
                     color = colors.textPrimary,
                     style = MaterialTheme.typography.titleMedium,
                 )
-                Text(
-                    text = "Version $versionName ($versionCode)",
-                    modifier = Modifier.testTag("about-version"),
-                    color = colors.textSecondary,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                CrashTestTrigger { trigger ->
+                    Text(
+                        text = "Version $versionName ($versionCode)",
+                        modifier = trigger.testTag("about-version"),
+                        color = colors.textSecondary,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
             }
         }
         Text(
@@ -138,6 +167,70 @@ private fun Identity(versionName: String, versionCode: Int) {
             style = MaterialTheme.typography.bodyMedium,
         )
     }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CrashReportCard(
+    onView: () -> Unit,
+    onCopy: () -> Unit,
+    onShare: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val colors = YftTheme.colors
+    YftGroupLabel(text = "Diagnostics")
+    YftCard(modifier = Modifier.fillMaxWidth().testTag("about-crash-report")) {
+        Text(
+            text = "Last crash report",
+            modifier = Modifier.semantics { heading() },
+            color = colors.textPrimary,
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Text(
+            text = "Stored on this device. Nothing is sent automatically.",
+            modifier = Modifier.padding(top = 6.dp, bottom = 8.dp),
+            color = colors.textSecondary,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            YftTextButton("View", onView, Modifier.testTag("about-crash-view"))
+            YftTextButton("Copy", onCopy, Modifier.testTag("about-crash-copy"))
+            YftTextButton("Share", onShare, Modifier.testTag("about-crash-share"))
+            YftTextButton("Delete", onDelete, Modifier.testTag("about-crash-delete"))
+        }
+    }
+}
+
+@Composable
+internal fun CrashReportDialog(report: String, onDismiss: () -> Unit) {
+    val colors = YftTheme.colors
+    val reportHeight = (LocalConfiguration.current.screenHeightDp * 0.4f).dp
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.testTag("about-crash-dialog"),
+        title = { Text("Last crash report", color = colors.textPrimary) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = reportHeight)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                SelectionContainer {
+                    Text(
+                        text = report,
+                        modifier = Modifier.testTag("about-crash-text"),
+                        color = colors.textPrimary,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            YftTextButton("Close", onDismiss, Modifier.testTag("about-crash-close"))
+        },
+        containerColor = colors.card,
+    )
 }
 
 @Composable
@@ -208,7 +301,7 @@ private val DOES = listOf(
 private val DOES_NOT = listOf(
     "Bypass DRM: protected media is reported as unsupported.",
     "Get around payment walls, sign-ins or other private access controls.",
-    "Show ads, use analytics, require an account or send crash reports.",
+    "Show ads, use analytics, require an account or send crash reports automatically.",
 )
 
 private val PRIVACY = listOf(
@@ -219,4 +312,6 @@ private val PRIVACY = listOf(
     "The clipboard is read only when you tap Paste.",
     "App data is excluded from cloud backup and device-to-device transfer.",
     "On a secure lock screen, download notifications hide media titles.",
+    "One redacted crash report stays on this device, outside backups, until you delete it.",
+    "Lookup failure details stay in memory. Copy or Share only happens when you ask.",
 )

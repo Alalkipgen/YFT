@@ -131,7 +131,7 @@ Agents update the **Status** column in every task checkpoint.
 | T01 | [Browser crash: WebView used off the main thread](#t01--browser-crash-webview-used-off-the-main-thread) | 8 | P0 | Easy–Medium | 0.5 d | — | OWNER CHECK |
 | T02 | [Real-WebView smoke test on a CI emulator](#t02--real-webview-smoke-test-on-a-ci-emulator) | 8 | P0 | Medium | 1 d | T01, D4 | DONE (2026-10-03) |
 | T03 | [Browser start page; WebView only when a page is open](#t03--browser-start-page-webview-only-when-a-page-is-open) | 8 | P0 | Medium | 1 d | T01 | OWNER CHECK |
-| T04 | [Local crash report and lookup details](#t04--local-crash-report-and-lookup-details) | 8 | P0 | Easy–Medium | 0.5–1 d | — | TODO |
+| T04 | [Local crash report and lookup details](#t04--local-crash-report-and-lookup-details) | 8 | P0 | Easy–Medium | 0.5–1 d | — | IN PROGRESS |
 | T05 | [Browser-like request identity for Home lookups](#t05--browser-like-request-identity-for-home-lookups) | 8 | P1 | Easy–Medium | 0.5 d | — | TODO |
 | T06 | [Facebook public reels and videos without sign-in](#t06--facebook-public-reels-and-videos-without-sign-in) | 8 | P1 | Medium | 1 d | T05 | TODO |
 | T07 | [TikTok media cookies for Home lookups](#t07--tiktok-media-cookies-for-home-lookups) | 8 | P1 | Medium | 0.5 d | T05 | TODO |
@@ -381,7 +381,8 @@ Changing `DEFAULTS` alone changes nothing for him; a one-time migration is neede
   `DashDownloadPlan` tracks; queue entry `core-download/.../DownloadQueue.kt:139`),
   `HlsTransferEngine` and `DashTransferEngine`.
 - `SensitiveValueRedactor` (`core-model/src/main/kotlin/com/alal/yft/core/model/logging/`) for any
-  text that may contain URLs or cookies.
+  text that may contain URLs or cookies. T04 adds `DiagnosticTextSanitizer` for bounded
+  copy/share steps: origins only, no queries, and no credential-bearing lines.
 
 ### F8 — Research notes
 

@@ -1,5 +1,6 @@
 package com.alal.yft.feature.home
 
+import com.alal.yft.core.model.logging.DiagnosticTextSanitizer
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.feature.library.LibraryItem
 import com.alal.yft.ui.components.PromptboxStatus
@@ -12,7 +13,16 @@ data class HomeUiState(
     val siteDialog: SiteDialogState? = null,
     /** The newest finished downloads, at most [HomeViewModel.RECENT_COUNT]. */
     val recent: List<LibraryItem> = emptyList(),
+    /** Sanitized, memory-only steps for the last failed lookup; cleared on edit/new lookup. */
+    val failureDetails: List<String> = emptyList(),
 )
+
+internal fun HomeUiState.lookupDetailsText(): String {
+    val failure = status as? PromptboxStatus.NotFound ?: return ""
+    val steps = failureDetails.ifEmpty { listOf("lookup: ${failure.message}") }
+    return DiagnosticTextSanitizer.details(steps).joinToString("\n")
+        .ifEmpty { "lookup: diagnostics unavailable" }
+}
 
 /** The Add site dialog's fields and the problem with each, if any. */
 data class SiteDialogState(

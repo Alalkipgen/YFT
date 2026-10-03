@@ -1,5 +1,6 @@
 package com.alal.yft.extractor.api
 
+import com.alal.yft.core.model.logging.DiagnosticTextSanitizer
 import com.alal.yft.core.model.logging.SensitiveValueRedactor
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.MediaCandidate
@@ -130,10 +131,16 @@ sealed interface SiteExtractionResult {
     data class Failure(
         val reason: SiteExtractionFailure,
         val httpStatusCode: Int? = null,
+        /** Short diagnostic steps only. Consumers sanitize again before copy/share. */
+        val details: List<String> = emptyList(),
     ) : SiteExtractionResult {
         init {
             require(httpStatusCode == null || httpStatusCode in 100..599)
         }
+
+        override fun toString(): String =
+            "Failure(reason=$reason, httpStatusCode=$httpStatusCode, " +
+                "details=${DiagnosticTextSanitizer.details(details)})"
 
         /** Whether falling back to the generic detector is worth attempting. */
         val allowsGenericFallback: Boolean

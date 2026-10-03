@@ -319,6 +319,42 @@ class HomeViewModelTest {
         },
     )
 
+    @Test
+    fun lastFailureDetailsAreSanitizedAndClearedOnEditOrNewLookup() = runTest {
+        inspector.answer = {
+            LinkInspection.NotFound(
+                "not found",
+                details = listOf("page GET 403", "Cookie: redaction-fixture"),
+            )
+        }
+        val viewModel = viewModel()
+        val edits = listOf(
+            HomeAction.EditLink,
+            HomeAction.ClearLink,
+            HomeAction.CancelSearch,
+            HomeAction.Pasted("https://a.test/replacement"),
+            HomeAction.LinkChanged("replacement"),
+        )
+        edits.forEach { action ->
+            viewModel.onAction(HomeAction.LinkChanged("https://a.test/page"))
+            viewModel.onAction(HomeAction.Submit)
+            advanceUntilIdle()
+            assertEquals(listOf("page GET 403"), viewModel.uiState.value.failureDetails)
+            viewModel.onAction(action)
+            assertTrue(viewModel.uiState.value.failureDetails.isEmpty())
+        }
+
+        val answer = CompletableDeferred<LinkInspection>()
+        inspector.answer = { answer.await() }
+        viewModel.onAction(HomeAction.UseCopied("https://a.test/new"))
+        runCurrent()
+        assertEquals(PromptboxStatus.Searching, viewModel.uiState.value.status)
+        assertTrue(viewModel.uiState.value.failureDetails.isEmpty())
+        answer.complete(found(1))
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.failureDetails.isEmpty())
+    }
+
     private fun item(id: String) = LibraryItem(
         id = id,
         displayName = "Clip $id.mp4",

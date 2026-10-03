@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -12,9 +13,13 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
+import com.alal.yft.BuildConfig
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.ui.theme.YftTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -62,9 +67,58 @@ class AboutScreenTest {
         assertEquals(1, opened)
     }
 
+    @Test
+    fun reportIsHiddenUntilOneExists() {
+        setContent()
+        composeRule.onNodeWithTag("about-crash-report").assertDoesNotExist()
+        composeRule.onNodeWithTag("about-crash-dialog").assertDoesNotExist()
+    }
+
+    @Test
+    fun reportActionsAreExplicitAndViewIsDismissible() {
+        var copies = 0
+        var shares = 0
+        var deletes = 0
+        setContent(
+            crashReport = "local crash fixture",
+            onCopyCrash = { copies++ },
+            onShareCrash = { shares++ },
+            onDeleteCrash = { deletes++ },
+        )
+        assertEquals(0, copies + shares + deletes)
+        composeRule.onNodeWithTag("about-crash-view").performScrollTo().performClick()
+        composeRule.onNodeWithTag("about-crash-text").assertIsDisplayed()
+        composeRule.onNodeWithText("local crash fixture").assertIsDisplayed()
+        assertEquals(0, copies + shares + deletes)
+        composeRule.onNodeWithTag("about-crash-close").performClick()
+        composeRule.onNodeWithTag("about-crash-dialog").assertDoesNotExist()
+        composeRule.onNodeWithTag("about-crash-copy").performScrollTo().performClick()
+        composeRule.onNodeWithTag("about-crash-share").performClick()
+        composeRule.onNodeWithTag("about-crash-delete").performClick()
+        assertEquals(1, copies)
+        assertEquals(1, shares)
+        assertEquals(1, deletes)
+    }
+
+    @Test
+    fun debugCrashRequiresLongPressAndConfirmation() {
+        assumeTrue(BuildConfig.DEBUG)
+        setContent()
+        composeRule.onNodeWithText("Crash now").assertDoesNotExist()
+        composeRule.onNodeWithTag("about-version").performTouchInput { longClick() }
+        composeRule.onNodeWithText("Crash now?").assertIsDisplayed()
+        composeRule.onNodeWithText("Cancel").performClick()
+        composeRule.onNodeWithText("Crash now?").assertDoesNotExist()
+        assertTrue(BuildConfig.DEBUG)
+    }
+
     private fun setContent(
         themeMode: ThemeMode = ThemeMode.LIGHT,
         onOpenLicenses: () -> Unit = {},
+        crashReport: String? = null,
+        onCopyCrash: () -> Unit = {},
+        onShareCrash: () -> Unit = {},
+        onDeleteCrash: () -> Unit = {},
     ) {
         composeRule.setContent {
             YftTheme(themeMode = themeMode) {
@@ -73,6 +127,10 @@ class AboutScreenTest {
                     onOpenLicenses = onOpenLicenses,
                     versionName = "9.8.7",
                     versionCode = 42,
+                    crashReport = crashReport,
+                    onCopyCrash = onCopyCrash,
+                    onShareCrash = onShareCrash,
+                    onDeleteCrash = onDeleteCrash,
                 )
             }
         }

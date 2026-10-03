@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.alal.yft.core.browser.policy.BrowserAddressNormalizer
 import com.alal.yft.core.browser.policy.BrowserAddressResult
 import com.alal.yft.core.data.preferences.HomeSitesRepository
+import com.alal.yft.core.model.logging.DiagnosticTextSanitizer
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.core.model.settings.HomeSites
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
@@ -47,11 +48,17 @@ class HomeViewModel @Inject constructor(
     fun onAction(action: HomeAction) {
         when (action) {
             is HomeAction.LinkChanged -> local.update {
-                it.copy(link = action.text.take(HomeLinks.MAX_LENGTH))
+                it.copy(link = action.text.take(HomeLinks.MAX_LENGTH), failureDetails = emptyList())
             }
             is HomeAction.Pasted -> HomeLinks.fromClipboard(action.clipboardText)?.let { link ->
                 stopInspection()
-                local.update { it.copy(link = link, status = PromptboxStatus.Editing) }
+                local.update {
+                    it.copy(
+                        link = link,
+                        status = PromptboxStatus.Editing,
+                        failureDetails = emptyList(),
+                    )
+                }
             }
             is HomeAction.UseCopied -> HomeLinks.fromClipboard(action.clipboardText)?.let { link ->
                 local.update { it.copy(link = link) }
@@ -60,11 +67,19 @@ class HomeViewModel @Inject constructor(
             HomeAction.Submit -> submit()
             HomeAction.CancelSearch, HomeAction.EditLink -> {
                 stopInspection()
-                local.update { it.copy(status = PromptboxStatus.Editing) }
+                local.update {
+                    it.copy(status = PromptboxStatus.Editing, failureDetails = emptyList())
+                }
             }
             HomeAction.ClearLink -> {
                 stopInspection()
-                local.update { it.copy(link = "", status = PromptboxStatus.Editing) }
+                local.update {
+                    it.copy(
+                        link = "",
+                        status = PromptboxStatus.Editing,
+                        failureDetails = emptyList(),
+                    )
+                }
             }
             HomeAction.ToggleEditSites -> local.update { it.copy(editingSites = !it.editingSites) }
             HomeAction.AddSite -> local.update { it.copy(siteDialog = SiteDialogState()) }
@@ -98,8 +113,11 @@ class HomeViewModel @Inject constructor(
         val link = local.value.link.trim()
         if (link.isEmpty()) return
         stopInspection()
-        local.update { it.copy(link = link, status = PromptboxStatus.Searching) }
+        local.update {
+            it.copy(link = link, status = PromptboxStatus.Searching, failureDetails = emptyList())
+        }
         inspection = viewModelScope.launch {
+            var details = emptyList<String>()
             val status = when (val result = inspector.inspect(link)) {
                 is LinkInspection.Found -> {
                     detectedMediaStore.publish(
@@ -115,15 +133,21 @@ class HomeViewModel @Inject constructor(
                     if (savable > 0) {
                         PromptboxStatus.Found(count = savable)
                     } else {
+                        details = listOf("media check: DRM only")
                         PromptboxStatus.NotFound(message = PROTECTED_ONLY_MESSAGE)
                     }
                 }
-                is LinkInspection.NotFound -> PromptboxStatus.NotFound(
-                    message = result.message,
-                    canOpenInBrowser = result.canOpenInBrowser,
-                )
+                is LinkInspection.NotFound -> {
+                    details = DiagnosticTextSanitizer.details(
+                        result.details.ifEmpty { listOf("lookup: ${result.message}") },
+                    )
+                    PromptboxStatus.NotFound(
+                        message = result.message,
+                        canOpenInBrowser = result.canOpenInBrowser,
+                    )
+                }
             }
-            local.update { it.copy(status = status) }
+            local.update { it.copy(status = status, failureDetails = details) }
         }
     }
 

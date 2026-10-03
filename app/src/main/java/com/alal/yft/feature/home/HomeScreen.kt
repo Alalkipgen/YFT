@@ -245,6 +245,21 @@ private fun LinkCard(
             onCancelSearch = { onAction(HomeAction.CancelSearch) },
             onEdit = { onAction(HomeAction.EditLink) },
         )
+        if (state.status is PromptboxStatus.NotFound) {
+            YftTonalButton(
+                text = "Copy details",
+                icon = YftIcons.Document,
+                onClick = {
+                    clipboard.setText(
+                        androidx.compose.ui.text.AnnotatedString(state.lookupDetailsText()),
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp)
+                    .testTag("home-copy-details"),
+            )
+        }
         Row(
             modifier = Modifier.padding(top = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
