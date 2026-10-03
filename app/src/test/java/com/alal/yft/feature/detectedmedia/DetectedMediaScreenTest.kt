@@ -2,7 +2,6 @@ package com.alal.yft.feature.detectedmedia
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -71,19 +70,45 @@ class DetectedMediaScreenTest {
             }
         }
 
+        composeRule.onNodeWithText("Found on this page").assertIsDisplayed()
         composeRule.onNodeWithText("Fixture page").assertIsDisplayed()
-        composeRule.onNodeWithText("video.example.test").assertIsDisplayed()
-        composeRule.onNodeWithText("2 media items found").assertIsDisplayed()
+        composeRule.onNodeWithText("video.example.test · 1 media item found").assertIsDisplayed()
         composeRule.onAllNodesWithText("secret-value", substring = true).assertCountEquals(0)
+        composeRule.onNodeWithText("MP4").assertIsDisplayed()
 
         composeRule.onNodeWithTag("detected-preview-0").performClick()
         assertEquals(playable, previewed)
+        // DRM-protected media is never offered, only counted in a note.
+        composeRule.onAllNodesWithText("Protected clip").assertCountEquals(0)
+        composeRule.onAllNodesWithTag("detected-preview-1").assertCountEquals(0)
         composeRule.onNodeWithTag("detected-list")
-            .performScrollToNode(hasTestTag("detected-preview-1"))
-        composeRule.onNodeWithTag("detected-preview-1").assertIsNotEnabled()
+            .performScrollToNode(hasTestTag("detected-protected-note"))
+        composeRule.onNodeWithTag("detected-protected-note").assertIsDisplayed()
 
         composeRule.onNodeWithContentDescription("Clear list").performClick()
         assertTrue(cleared)
+    }
+
+    @Test
+    fun aPageWithOnlyProtectedMediaOffersTheBrowserInstead() {
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                DetectedMediaScreen(
+                    page = DetectedPage(
+                        pageUrl = "https://example.test/film",
+                        pageTitle = "Film",
+                        candidates = listOf(candidate(0, "Protected film").copy(drmHint = true)),
+                    ),
+                    onNavigateBack = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("example.test · No media found").assertIsDisplayed()
+        composeRule.onNodeWithText("protected item is not listed", substring = true)
+            .assertIsDisplayed()
+        composeRule.onAllNodesWithText("Protected film").assertCountEquals(0)
+        composeRule.onNodeWithTag("detected-open-browser").assertIsDisplayed()
     }
 
     @Test
@@ -102,7 +127,7 @@ class DetectedMediaScreenTest {
         }
 
         composeRule.onNodeWithText("Untitled page").assertIsDisplayed()
-        composeRule.onNodeWithText("No media found").assertIsDisplayed()
+        composeRule.onNodeWithText("example.test · No media found").assertIsDisplayed()
         composeRule.onNodeWithTag("detected-none").assertIsDisplayed()
         composeRule.onNodeWithTag("detected-open-browser").assertIsDisplayed()
     }

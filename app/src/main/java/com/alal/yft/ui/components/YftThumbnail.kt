@@ -1,5 +1,6 @@
 package com.alal.yft.ui.components
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -26,8 +27,10 @@ enum class YftMediaKind { Video, Audio }
 
 /**
  * Media tile: the real [image] when one is available, otherwise a Mint/Deep Teal (audio) or
- * dark teal (video) gradient with a white glyph. An optional duration badge sits bottom-left.
- * The tile is decorative; the title next to it carries the meaning for accessibility services.
+ * dark teal (video) gradient with a white glyph. [muted] swaps the gradient for the quiet chip
+ * tile with a Slate glyph, as the audio row of `02` shows; [glyph] overrides the default
+ * note/film icon. An optional duration badge sits bottom-left. The tile is decorative; the
+ * title next to it carries the meaning for accessibility services.
  */
 @Composable
 fun YftThumbnail(
@@ -37,11 +40,14 @@ fun YftThumbnail(
     shape: Shape = YftShapes.thumbnail,
     durationLabel: String? = null,
     iconSize: Dp = 32.dp,
+    @DrawableRes glyph: Int? = null,
+    muted: Boolean = false,
 ) {
     val colors = YftTheme.colors
-    val gradient = when (kind) {
-        YftMediaKind.Audio -> listOf(colors.audioTileStart, colors.audioTileEnd)
-        YftMediaKind.Video -> listOf(colors.videoTileStart, colors.videoTileEnd)
+    val gradient = when {
+        muted -> listOf(colors.chip, colors.chip)
+        kind == YftMediaKind.Audio -> listOf(colors.audioTileStart, colors.audioTileEnd)
+        else -> listOf(colors.videoTileStart, colors.videoTileEnd)
     }
     Box(
         modifier = modifier
@@ -57,10 +63,11 @@ fun YftThumbnail(
                 contentScale = ContentScale.Crop,
             )
         } else {
+            val fallback = if (kind == YftMediaKind.Audio) YftIcons.MusicNote else YftIcons.Movie
             YftIcon(
-                icon = if (kind == YftMediaKind.Audio) YftIcons.MusicNote else YftIcons.Movie,
+                icon = glyph ?: fallback,
                 contentDescription = null,
-                tint = colors.onScrim.copy(alpha = 0.92f),
+                tint = if (muted) colors.textSecondary else colors.onScrim.copy(alpha = 0.92f),
                 size = iconSize,
             )
         }

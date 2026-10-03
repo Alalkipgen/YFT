@@ -181,7 +181,7 @@ class YftNavigationSmokeTest {
                             viewModel = home,
                         )
                     },
-                    browserContent = { onNavigateBack, _, link ->
+                    browserContent = { onNavigateBack, _, link, _ ->
                         received += link
                         PhasePlaceholderScreen(
                             title = YftDestination.BROWSER.title,
@@ -257,7 +257,7 @@ private fun TestNavHost(
                 viewModel = home,
             )
         },
-        browserContent = { onNavigateBack, _, _ ->
+        browserContent = { onNavigateBack, _, _, _ ->
             Placeholder(YftDestination.BROWSER, onNavigateBack)
         },
         detectedMediaContent = { onNavigateBack, _, _ ->

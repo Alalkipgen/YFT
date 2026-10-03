@@ -10,6 +10,7 @@ import com.alal.yft.core.model.settings.HomeSites
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import com.alal.yft.feature.library.LibraryRepository
 import com.alal.yft.ui.components.PromptboxStatus
+import com.alal.yft.ui.components.isSavable
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -106,9 +107,16 @@ class HomeViewModel @Inject constructor(
                         pageTitle = result.pageTitle,
                         candidates = result.candidates,
                     )
-                    val shown = result.candidates.size
-                        .coerceAtMost(DetectedMediaStore.MAX_CANDIDATES)
-                    PromptboxStatus.Found(count = shown)
+                    // Only media YFT may save is counted; DRM-protected candidates are never
+                    // offered, so a page with nothing else reads as "not found".
+                    val savable = result.candidates
+                        .take(DetectedMediaStore.MAX_CANDIDATES)
+                        .count { it.isSavable }
+                    if (savable > 0) {
+                        PromptboxStatus.Found(count = savable)
+                    } else {
+                        PromptboxStatus.NotFound(message = PROTECTED_ONLY_MESSAGE)
+                    }
                 }
                 is LinkInspection.NotFound -> PromptboxStatus.NotFound(
                     message = result.message,
@@ -169,5 +177,6 @@ class HomeViewModel @Inject constructor(
 
     internal companion object {
         const val RECENT_COUNT = 2
+        const val PROTECTED_ONLY_MESSAGE = "Protected media (DRM) can't be saved"
     }
 }

@@ -63,6 +63,35 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun protectedMediaIsNeitherCountedNorOffered() = runTest {
+        val viewModel = viewModel()
+        val mixed = found(count = 3).let { result ->
+            result.copy(
+                candidates = result.candidates.mapIndexed { index, candidate ->
+                    if (index == 0) candidate.copy(drmHint = true) else candidate
+                },
+            )
+        }
+        inspector.answer = { mixed }
+
+        viewModel.onAction(HomeAction.LinkChanged("https://a.test/mixed"))
+        viewModel.onAction(HomeAction.Submit)
+        advanceUntilIdle()
+        assertEquals(PromptboxStatus.Found(2), viewModel.uiState.value.status)
+
+        val protectedOnly = found(count = 2).let { result ->
+            result.copy(candidates = result.candidates.map { it.copy(drmHint = true) })
+        }
+        inspector.answer = { protectedOnly }
+        viewModel.onAction(HomeAction.Submit)
+        advanceUntilIdle()
+        assertEquals(
+            PromptboxStatus.NotFound(HomeViewModel.PROTECTED_ONLY_MESSAGE),
+            viewModel.uiState.value.status,
+        )
+    }
+
+    @Test
     fun foundCountNeverExceedsWhatTheListKeeps() = runTest {
         val viewModel = viewModel()
         inspector.answer = { found(count = DetectedMediaStore.MAX_CANDIDATES + 5) }

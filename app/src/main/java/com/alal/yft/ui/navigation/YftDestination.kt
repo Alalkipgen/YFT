@@ -14,7 +14,7 @@ enum class YftDestination(
     BROWSER("browser", "Browser", "Browse securely and review media found on the current page."),
     DETECTED_MEDIA(
         "detected-media",
-        "Detected Media",
+        "Found on this page",
         "Review media found on the page the browser showed last.",
     ),
     PREVIEW("preview", "Preview", "Inspect real media variants before downloading."),

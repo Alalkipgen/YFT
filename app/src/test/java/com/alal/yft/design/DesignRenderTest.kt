@@ -5,18 +5,32 @@ import android.graphics.Canvas
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.rememberNavController
 import com.alal.yft.core.model.ThemeMode
+import com.alal.yft.core.model.media.CandidateSource
+import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.settings.HomeSites
+import com.alal.yft.feature.browser.BrowserScreen
+import com.alal.yft.feature.browser.BrowserUiState
 import com.alal.yft.feature.home.HomeScreen
 import com.alal.yft.feature.home.HomeUiState
 import com.alal.yft.feature.library.LibraryItem
@@ -64,6 +78,16 @@ class DesignRenderTest {
     @Test
     fun promptboxStates() = render("09-promptbox-states", ThemeMode.LIGHT) {
         PromptboxStatesPreview()
+    }
+
+    @Test
+    fun browserFoundMedia() = render("02-browser-found-media", ThemeMode.LIGHT) {
+        BrowserPreview()
+    }
+
+    @Test
+    fun browserFoundMediaDark() = render("02-browser-found-media-dark", ThemeMode.DARK) {
+        BrowserPreview()
     }
 
     private fun render(name: String, themeMode: ThemeMode, content: @Composable () -> Unit) {
@@ -150,6 +174,88 @@ private fun PromptboxSample(
         showClipboardSuggestion = clipboard,
     )
 }
+
+/** `02`: a page standing in for the WebView, with the found-media sheet open. */
+@Composable
+private fun BrowserPreview() {
+    BrowserScreen(
+        uiState = BrowserUiState(
+            address = "https://archive.org/details/ocean-waves",
+            currentUrl = "https://archive.org/details/ocean-waves",
+            pageTitle = "Ocean Waves – Public Domain Footage",
+            candidates = SAMPLE_CANDIDATES,
+        ),
+        canGoBack = true,
+        canGoForward = false,
+        onAddressChanged = {},
+        onGo = {},
+        onBrowserBack = {},
+        onBrowserForward = {},
+        onReload = {},
+        onStop = {},
+        onPreviewCandidate = {},
+        onNavigateBack = {},
+        initialSheetExpanded = true,
+        browserSurface = { SamplePage(it) },
+    )
+}
+
+@Composable
+private fun SamplePage(modifier: Modifier) {
+    Column(modifier = modifier.background(Color.White)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(220.dp)
+                .background(
+                    Brush.verticalGradient(listOf(Color(0xFF0B1418), Color(0xFF2E4B57))),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(Color(0x99000000)),
+            )
+        }
+        Text(
+            text = "Ocean Waves – Public Domain Footage",
+            modifier = Modifier.padding(16.dp),
+            color = Color(0xFF111111),
+            style = MaterialTheme.typography.titleLarge,
+        )
+    }
+}
+
+private val SAMPLE_CANDIDATES = listOf(
+    sampleCandidate(1, "Ocean Waves", "ocean-waves.mp4", MediaKind.DIRECT, "video/mp4")
+        .copy(contentLengthBytes = 186L * 1_024 * 1_024),
+    sampleCandidate(
+        2,
+        "Ocean Waves (stream)",
+        "master.m3u8",
+        MediaKind.HLS,
+        "application/vnd.apple.mpegurl",
+    ),
+    sampleCandidate(3, "Ocean Waves – audio", "ocean-waves.m4a", MediaKind.DIRECT, "audio/mp4"),
+)
+
+private fun sampleCandidate(
+    index: Int,
+    title: String,
+    file: String,
+    kind: MediaKind,
+    mimeType: String,
+) = MediaCandidate(
+    pageUrl = "https://archive.org/details/ocean-waves",
+    mediaUrl = "https://ia800.us.archive.org/ocean-waves/$file",
+    sources = setOf(CandidateSource.DOM),
+    kind = kind,
+    mimeType = mimeType,
+    title = title,
+    observedAtEpochMs = index.toLong(),
+)
 
 private val SAMPLE_HOME = HomeUiState(
     sites = HomeSites.DEFAULTS,

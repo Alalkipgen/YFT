@@ -40,11 +40,13 @@ fun YftNavHost(
         onNavigateBack: () -> Unit,
         onOpenPreview: () -> Unit,
         initialLink: String?,
-    ) -> Unit = { onNavigateBack, onOpenPreview, initialLink ->
+        onGoHome: () -> Unit,
+    ) -> Unit = { onNavigateBack, onOpenPreview, initialLink, onGoHome ->
         BrowserRoute(
             onNavigateBack = onNavigateBack,
             onOpenPreview = onOpenPreview,
             initialLink = initialLink,
+            onGoHome = onGoHome,
         )
     },
     detectedMediaContent: @Composable (
@@ -111,6 +113,11 @@ fun YftNavHost(
                 navigateBack,
                 { navController.navigate(YftDestination.PREVIEW.route) },
                 entry.arguments?.getString(BROWSER_LINK_ARGUMENT),
+                {
+                    if (!navController.popBackStack(YftDestination.HOME.route, inclusive = false)) {
+                        navController.navigateToTab(YftDestination.HOME)
+                    }
+                },
             )
         }
         composable(YftDestination.DETECTED_MEDIA.route) {

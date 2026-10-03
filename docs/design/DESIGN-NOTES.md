@@ -168,3 +168,16 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
    state stays Mint 2dp), the dashed Add circle uses the grey outline role, Night site letters
    are a paler Mint, and sizes drop a trailing ".0" ("7 MB"). The field's inner padding is a
    little tighter so the whole placeholder fits at 360dp.
+10. **Browser and "Found on this page" (`02`).** DRM-protected candidates are never listed or
+    counted: the sheet, the Found media screen and the Home "N media found" count only media
+    YFT may save, and a short note says how many protected items were left out (a page with
+    nothing else shows a notice instead of the sheet, and Home reads "Protected media (DRM)
+    can't be saved"). The sheet docks above the toolbar as a peek ("Found on this page" + Coral
+    count) so the page stays usable; tapping or dragging it up opens the list with a light
+    scrim, as drawn, and tapping the scrim, dragging down or Back closes it. Rows show only
+    what detection knows — format, "Auto quality" for HLS/DASH, size and length when the page
+    reports them — so "1080p" and "128 kbps" appear later in Download as, once the variants are
+    resolved. The address pill shows the host in Ink and the path in Slate but never the query
+    or fragment, which can carry tokens; tapping it edits the full address with everything
+    selected. The reload button appears in both the pill and the toolbar, as drawn, and the
+    toolbar's house returns to YFT Home. The Found media screen reuses the same rows.

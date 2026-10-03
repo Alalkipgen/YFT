@@ -4,33 +4,41 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alal.yft.core.model.media.MediaCandidate
-import com.alal.yft.ui.components.MediaCandidateCard
+import com.alal.yft.ui.components.FoundMediaDividerInset
+import com.alal.yft.ui.components.YftAllowedMediaNote
+import com.alal.yft.ui.components.YftCard
+import com.alal.yft.ui.components.YftDivider
+import com.alal.yft.ui.components.YftFoundMediaRow
+import com.alal.yft.ui.components.YftIcon
+import com.alal.yft.ui.components.YftIconButton
+import com.alal.yft.ui.components.YftPrimaryButton
 import com.alal.yft.ui.components.YftTopBar
+import com.alal.yft.ui.components.isSavable
+import com.alal.yft.ui.components.protectedHiddenLabel
 import com.alal.yft.ui.navigation.YftDestination
+import com.alal.yft.ui.theme.YftIcons
+import com.alal.yft.ui.theme.YftTheme
 import java.net.URI
 
 @Composable
@@ -52,6 +60,11 @@ fun DetectedMediaRoute(
     )
 }
 
+/**
+ * "Found on this page" as a full screen, opened from the Home link check: the page by title and
+ * host, then the same rows as the browser sheet (`02`). DRM-protected candidates are never
+ * offered; a note says how many were left out.
+ */
 @Composable
 fun DetectedMediaScreen(
     page: DetectedPage?,
@@ -60,7 +73,10 @@ fun DetectedMediaScreen(
     onOpenBrowser: () -> Unit = {},
     onClear: () -> Unit = {},
 ) {
+    val colors = YftTheme.colors
     Scaffold(
+        containerColor = colors.background,
+        contentColor = colors.textPrimary,
         topBar = {
             YftTopBar(
                 title = YftDestination.DETECTED_MEDIA.title,
@@ -68,15 +84,12 @@ fun DetectedMediaScreen(
                 onNavigateBack = onNavigateBack,
                 actions = {
                     if (page != null) {
-                        IconButton(
+                        YftIconButton(
+                            icon = YftIcons.Delete,
+                            contentDescription = "Clear list",
                             onClick = onClear,
                             modifier = Modifier.testTag("detected-clear"),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Delete,
-                                contentDescription = "Clear list",
-                            )
-                        }
+                        )
                     }
                 },
             )
@@ -105,6 +118,7 @@ private fun NothingDetected(
     onOpenBrowser: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val colors = YftTheme.colors
     Column(
         modifier = modifier
             .padding(horizontal = 32.dp)
@@ -112,24 +126,28 @@ private fun NothingDetected(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
     ) {
+        YftIcon(icon = YftIcons.Search, contentDescription = null, tint = colors.icon, size = 40.dp)
         Text(
-            text = "No media detected yet",
+            text = "No media found yet",
+            color = colors.textPrimary,
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.semantics { heading() },
         )
         Text(
             text = "Open a page in the browser. Media the page plays or links to is listed " +
                 "here until you leave the app or clear browsing data.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = colors.textSecondary,
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
         )
-        Button(
+        YftPrimaryButton(
+            text = "Open browser",
             onClick = onOpenBrowser,
-            modifier = Modifier.testTag("detected-open-browser"),
-        ) {
-            Text("Open browser")
-        }
+            icon = YftIcons.Globe,
+            modifier = Modifier
+                .padding(top = 4.dp)
+                .testTag("detected-open-browser"),
+        )
     }
 }
 
@@ -140,69 +158,95 @@ private fun DetectedList(
     onOpenBrowser: () -> Unit,
     contentPadding: PaddingValues,
 ) {
+    val colors = YftTheme.colors
+    val savable = remember(page.candidates) { page.candidates.filter { it.isSavable } }
+    val hiddenNote = protectedHiddenLabel(page.candidates.size - savable.size)
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(contentPadding)
             .testTag("detected-list"),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 32.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
             Column(
-                modifier = Modifier.testTag("detected-page"),
+                modifier = Modifier
+                    .padding(horizontal = 4.dp)
+                    .testTag("detected-page"),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
                     text = page.pageTitle?.takeIf(String::isNotBlank) ?: "Untitled page",
-                    style = MaterialTheme.typography.titleLarge,
+                    color = colors.textPrimary,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                    ),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.semantics { heading() },
                 )
                 Text(
                     // Only the host is shown: the full page address can carry session tokens.
-                    text = pageHost(page.pageUrl),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    text = candidateCountLabel(page.candidates.size),
+                    text = "${pageHost(page.pageUrl)} · ${candidateCountLabel(savable.size)}",
+                    color = colors.textSecondary,
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
         }
-        if (page.candidates.isEmpty()) {
+        if (savable.isEmpty()) {
             item {
-                Column(
-                    modifier = Modifier.testTag("detected-none"),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
+                YftCard(modifier = Modifier.fillMaxWidth().testTag("detected-none")) {
                     Text(
-                        text = "Nothing playable was found on this page yet. Start the video in " +
-                            "the browser, then check again.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = hiddenNote?.let { "$it Try another page." }
+                            ?: ("Nothing playable was found on this page yet. Start the video in " +
+                                "the browser, then check again."),
+                        color = colors.textSecondary,
                         style = MaterialTheme.typography.bodyMedium,
                     )
-                    Button(
+                    YftPrimaryButton(
+                        text = "Open browser",
                         onClick = onOpenBrowser,
-                        modifier = Modifier.testTag("detected-open-browser"),
-                    ) {
-                        Text("Open browser")
+                        icon = YftIcons.Globe,
+                        compact = true,
+                        modifier = Modifier
+                            .padding(top = 12.dp)
+                            .testTag("detected-open-browser"),
+                    )
+                }
+            }
+        } else {
+            item {
+                YftCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(vertical = 4.dp),
+                ) {
+                    savable.forEachIndexed { index, candidate ->
+                        if (index > 0) {
+                            YftDivider(modifier = Modifier.padding(start = FoundMediaDividerInset))
+                        }
+                        YftFoundMediaRow(
+                            candidate = candidate,
+                            onPreview = { onPreview(candidate) },
+                            modifier = Modifier.testTag("detected-item-$index"),
+                            previewTag = "detected-preview-$index",
+                        )
                     }
                 }
             }
-        }
-        itemsIndexed(
-            items = page.candidates,
-            key = { index, candidate -> "${candidate.kind}-$index-${candidate.observedAtEpochMs}" },
-        ) { index, candidate ->
-            MediaCandidateCard(
-                candidate = candidate,
-                onPreview = { onPreview(candidate) },
-                modifier = Modifier.testTag("detected-item-$index"),
-                previewTag = "detected-preview-$index",
-            )
+            hiddenNote?.let { note ->
+                item {
+                    Text(
+                        text = note,
+                        modifier = Modifier
+                            .padding(horizontal = 4.dp)
+                            .testTag("detected-protected-note"),
+                        color = colors.textSecondary,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+            item { YftAllowedMediaNote() }
         }
     }
 }
