@@ -6,6 +6,7 @@ import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.extractor.api.ExtractorHttpResult
+import com.alal.yft.extractor.api.ResponseCookie
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionRequest
 import com.alal.yft.extractor.api.SiteExtractionResult
@@ -105,6 +106,78 @@ class TikTokExtractorTest {
             "https://www.tiktok.com/@fixture_user/video/7311234567890123456",
             result.candidates.first().pageUrl,
         )
+    }
+
+    @Test
+    fun `a home lookup gives media requests only the tiktok cookies its page set`() = runTest {
+        val identity = identity("7311234567890123456")
+        val http = FakeExtractorHttpClient.serving(
+            url = identity.canonicalPageUrl,
+            body = tiktokHostedPage(),
+            cookies = PAGE_COOKIES,
+        )
+
+        val result = TikTokExtractor(http).extract(homeRequest(identity))
+            as SiteExtractionResult.Success
+
+        assertNull(http.requestedHeaders.single()["Cookie"])
+        assertEquals(5, result.candidates.size)
+        result.candidates.forEach { candidate ->
+            assertTrue(candidate.mediaUrl.startsWith("https://$TIKTOK_MEDIA_HOST/"))
+            assertEquals(
+                "tt_chain_token=chain-fixture; ttwid=wid-fixture; tt_csrf_token=csrf-fixture",
+                candidate.requestContext.cookie,
+            )
+            assertEquals("fixture-home-agent", candidate.requestContext.userAgent)
+        }
+        val printed = listOf(
+            result.toString(),
+            result.candidates.toString(),
+            result.candidates.map { it.requestContext }.toString(),
+            PAGE_COOKIES.toString(),
+        ).joinToString()
+        listOf("chain-fixture", "wid-fixture", "csrf-fixture", "www-fixture", "cdn-fixture")
+            .forEach { value -> assertFalse(value, printed.contains(value)) }
+    }
+
+    @Test
+    fun `a home lookup carries no cookie when the page set none or media leaves tiktok`() =
+        runTest {
+            val identity = identity("7311234567890123456")
+            val noCookies = FakeExtractorHttpClient.serving(
+                url = identity.canonicalPageUrl,
+                body = tiktokHostedPage(),
+            )
+            val otherHost = FakeExtractorHttpClient.serving(
+                url = identity.canonicalPageUrl,
+                body = Fixtures.read("tiktok/universal_video.html"),
+                cookies = PAGE_COOKIES,
+            )
+
+            listOf(noCookies, otherHost).forEach { http ->
+                val result = TikTokExtractor(http).extract(homeRequest(identity))
+                    as SiteExtractionResult.Success
+                result.candidates.forEach { candidate ->
+                    assertNull(candidate.mediaUrl, candidate.requestContext.cookie)
+                }
+            }
+        }
+
+    @Test
+    fun `the browser path keeps the webview cookie instead of the page cookies`() = runTest {
+        val identity = identity("7311234567890123456")
+        val http = FakeExtractorHttpClient.serving(
+            url = identity.canonicalPageUrl,
+            body = tiktokHostedPage(),
+            cookies = PAGE_COOKIES,
+        )
+
+        val result = TikTokExtractor(http).extract(request(identity))
+            as SiteExtractionResult.Success
+
+        result.candidates.forEach { candidate ->
+            assertEquals("sessionid=fixture-cookie", candidate.requestContext.cookie)
+        }
     }
 
     @Test
@@ -222,6 +295,20 @@ class TikTokExtractorTest {
         canonicalPageUrl = "https://www.tiktok.com/@fixture_user/video/$videoId",
     )
 
+    private fun homeRequest(identity: SitePageIdentity) = SiteExtractionRequest(
+        identity = identity,
+        requestContext = BrowserRequestContext(
+            pageUrl = identity.canonicalPageUrl,
+            userAgent = "fixture-home-agent",
+            cookie = null,
+        ),
+        nowEpochMs = 1_700_000_000_000,
+    )
+
+    /** The committed fixture with its media on TikTok's own media host, as live pages serve. */
+    private fun tiktokHostedPage(): String = Fixtures.read("tiktok/universal_video.html")
+        .replace("v16-webapp.example-cdn.test", TIKTOK_MEDIA_HOST)
+
     private fun request(identity: SitePageIdentity) = SiteExtractionRequest(
         identity = identity,
         requestContext = BrowserRequestContext(
@@ -231,4 +318,17 @@ class TikTokExtractorTest {
         ),
         nowEpochMs = 1_700_000_000_000,
     )
+
+    private companion object {
+        const val TIKTOK_MEDIA_HOST = "v16-webapp-prime.us.tiktok.com"
+
+        /** TikTok's own cookies, a host-only page cookie and another site's cookie. */
+        val PAGE_COOKIES = listOf(
+            ResponseCookie("tt_chain_token", "chain-fixture", "tiktok.com", hostOnly = false),
+            ResponseCookie("ttwid", "wid-fixture", "tiktok.com", hostOnly = false),
+            ResponseCookie("tt_csrf_token", "csrf-fixture", "tiktok.com", hostOnly = false),
+            ResponseCookie("www_only", "www-fixture", "www.tiktok.com", hostOnly = true),
+            ResponseCookie("cdn_cookie", "cdn-fixture", "example-cdn.test", hostOnly = false),
+        )
+    }
 }

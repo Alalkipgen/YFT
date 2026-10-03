@@ -2,6 +2,7 @@ package com.alal.yft.detection
 
 import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.ExtractorHttpResult
+import com.alal.yft.extractor.api.ResponseCookie
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import java.io.IOException
 import java.net.URI
@@ -9,6 +10,8 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.Cookie
+import okhttp3.Headers
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
@@ -24,6 +27,9 @@ import okio.BufferedSource
  * the policy the media resolver already uses. The body is read with an explicit cap and an
  * oversized response fails instead of being silently truncated, because a truncated page would
  * look like a changed site rather than a budget problem.
+ *
+ * There is no cookie jar: a lookup never sends a cookie it was not given. The cookies its own
+ * responses set are only reported in [ExtractorHttpResult.Success.cookies], in memory.
  */
 class OkHttpExtractorClient(
     client: OkHttpClient,
@@ -92,6 +98,8 @@ class OkHttpExtractorClient(
         // site continues without them, as a browser's cookie scoping would.
         val credentialHost = current.host
         var forwardCredentials = true
+        // Keyed by name, domain and path, as a browser keys them; later responses replace values.
+        val cookies = LinkedHashMap<Triple<String, String, String>, ResponseCookie>()
 
         while (true) {
             val bodyForHop = pendingBody
@@ -113,6 +121,7 @@ class OkHttpExtractorClient(
                 .build()
 
             val hop = extractorClient.newCall(request).execute().use { response ->
+                cookies.collect(current, response.headers)
                 when {
                     response.isRedirect || response.code == HTTP_PERMANENT_REDIRECT -> {
                         val location = response.header("Location")
@@ -167,6 +176,7 @@ class OkHttpExtractorClient(
                             body = text,
                             finalUrl = current.toString(),
                             contentType = response.header("Content-Type"),
+                            cookies = cookies.values.toList(),
                         )
                     }
                 }
@@ -178,6 +188,33 @@ class OkHttpExtractorClient(
     /** Reads at most [maxBodyBytes]; a longer body returns null so the caller can fail cleanly. */
     private fun BufferedSource.readBounded(maxBodyBytes: Long): String? =
         if (request(maxBodyBytes + 1)) null else readUtf8()
+
+    /**
+     * Keeps the name and value of every cookie [url]'s response set. OkHttp's parser already
+     * rejects a cookie whose domain does not match [url] or is a public suffix. A deletion or an
+     * expired value removes an earlier copy; oversized and surplus cookies are ignored.
+     */
+    private fun MutableMap<Triple<String, String, String>, ResponseCookie>.collect(
+        url: HttpUrl,
+        headers: Headers,
+    ) {
+        val now = System.currentTimeMillis()
+        Cookie.parseAll(url, headers).forEach { cookie ->
+            val key = Triple(cookie.name, cookie.domain, cookie.path)
+            when {
+                cookie.expiresAt <= now -> remove(key)
+                cookie.name.length + cookie.value.length > MAX_COOKIE_CHARS -> Unit
+                key !in this && size >= MAX_COOKIES -> Unit
+                else -> this[key] = ResponseCookie(
+                    name = cookie.name,
+                    value = cookie.value,
+                    domain = cookie.domain,
+                    hostOnly = cookie.hostOnly,
+                    path = cookie.path,
+                )
+            }
+        }
+    }
 
     /** Rejects non-HTTPS addresses and any address carrying inline authority information. */
     private fun String.toSecureHttpUrl(): HttpUrl? {
@@ -195,6 +232,8 @@ class OkHttpExtractorClient(
 
     private companion object {
         const val HTTP_PERMANENT_REDIRECT = 308
+        const val MAX_COOKIES = 50
+        const val MAX_COOKIE_CHARS = 4_096
         val METHOD_PRESERVING_REDIRECTS = setOf(307, 308)
         val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
     }

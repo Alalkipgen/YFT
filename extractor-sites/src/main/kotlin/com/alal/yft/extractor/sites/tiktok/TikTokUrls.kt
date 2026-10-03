@@ -13,6 +13,7 @@ import java.util.Locale
  */
 internal object TikTokUrls {
     const val SITE_ID = "tiktok"
+    private const val COOKIE_DOMAIN = "tiktok.com"
 
     private val LONG_HOSTS = setOf("tiktok.com", "www.tiktok.com", "m.tiktok.com")
     private val SHORT_HOSTS = setOf("vm.tiktok.com", "vt.tiktok.com")
@@ -66,6 +67,12 @@ internal object TikTokUrls {
     /** True when the canonical address describes a photo post rather than a video. */
     fun isPhotoPost(canonicalPageUrl: String): Boolean =
         canonicalPageUrl.contains("/${PostKind.PHOTO.pathSegment}/")
+
+    /** True for `tiktok.com` and its subdomains, the only cookie domains TikTok media may use. */
+    fun isTikTokDomain(domain: String): Boolean {
+        val host = domain.lowercase(Locale.US).removePrefix(".")
+        return host == COOKIE_DOMAIN || host.endsWith(".$COOKIE_DOMAIN")
+    }
 
     private data class Post(val author: String?, val id: String, val kind: PostKind)
 

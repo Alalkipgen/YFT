@@ -8,6 +8,7 @@ import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.PageNavigationHeaders
 import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.ExtractorHttpResult
+import com.alal.yft.extractor.api.ResponseCookie
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionRequest
 import com.alal.yft.extractor.api.SiteExtractionResult
@@ -68,6 +69,8 @@ class TikTokExtractor(
         }
 
         val pageUrl = TikTokUrls.canonicalUrl(post.authorHandle, post.videoId)
+        // Only TikTok's own cookies may follow the media; another site's cookie never does.
+        val pageCookies = response.cookies.filter { TikTokUrls.isTikTokDomain(it.domain) }
         val candidates = post.renditions.map { rendition ->
             MediaCandidate(
                 pageUrl = pageUrl,
@@ -79,7 +82,9 @@ class TikTokExtractor(
                 thumbnailUrl = post.thumbnailUrl,
                 durationMillis = post.durationMillis,
                 contentLengthBytes = rendition.sizeBytes,
-                requestContext = mediaContext(pageUrl, request.requestContext),
+                requestContext = mediaContext(
+                    pageUrl, request.requestContext, rendition.url, pageCookies,
+                ),
                 confidence = CandidateConfidence.HIGH,
                 drmHint = false,
                 observedAtEpochMs = request.nowEpochMs,
@@ -122,18 +127,26 @@ class TikTokExtractor(
         )
 
     /**
-     * Media requests keep the user agent and cookie but are re-anchored to the canonical page.
+     * Media requests keep the user agent and are re-anchored to the canonical page.
      *
-     * The downstream resolver strips these again for cross-origin hops, so a CDN on another origin
-     * never receives the session cookie.
+     * The browser path keeps the WebView's cookie. A Home lookup has none, and TikTok's media
+     * host refuses a request without the cookies the page just set, so the media request gets
+     * the page's TikTok cookies that a browser would send to that media address. The resolver
+     * and the downloader send them to the media URL's own origin only and drop them on any
+     * cross-origin redirect, so a CDN on another origin never receives them.
      */
     private fun mediaContext(
         pageUrl: String,
         context: BrowserRequestContext,
+        mediaUrl: String,
+        pageCookies: List<ResponseCookie>,
     ): BrowserRequestContext = BrowserRequestContext(
         pageUrl = pageUrl,
         userAgent = context.userAgent,
-        cookie = context.cookie,
+        cookie = context.cookie?.takeIf(String::isNotBlank)
+            ?: pageCookies.filter { it.matches(mediaUrl) }
+                .joinToString("; ") { it.pair }
+                .takeIf(String::isNotEmpty),
     )
 
     companion object {

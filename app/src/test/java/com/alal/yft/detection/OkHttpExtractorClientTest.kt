@@ -1,6 +1,7 @@
 package com.alal.yft.detection
 
 import com.alal.yft.extractor.api.ExtractorHttpResult
+import com.alal.yft.extractor.api.ResponseCookie
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import kotlinx.coroutines.test.runTest
 import okhttp3.Interceptor
@@ -12,6 +13,7 @@ import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import okio.Buffer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -200,6 +202,64 @@ class OkHttpExtractorClientTest {
             assertEquals("navigate", request.header("Sec-Fetch-Mode"))
             assertNull(request.header("Cookie"))
         }
+    }
+
+    @Test
+    fun aLookupReportsOnlyDomainCheckedCookiesFromItsHopsAndNeverSendsThem() = runTest {
+        val seen = mutableListOf<Request>()
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            val request = chain.request()
+            seen += request
+            val cookies = if (request.url.host == "vm.tiktok.com") {
+                listOf(
+                    "tt_chain_token=chain-value; Domain=.tiktok.com; Path=/; Secure; HttpOnly",
+                    "stale=stale-value; Domain=tiktok.com; Path=/",
+                )
+            } else {
+                listOf(
+                    "ttwid=wid-value; Domain=tiktok.com; Path=/; Max-Age=3600",
+                    "tt_csrf_token=csrf-value; Path=/",
+                    "stale=; Domain=tiktok.com; Path=/; Max-Age=0",
+                    "foreign=foreign-value; Domain=other.test; Path=/",
+                    "suffix=suffix-value; Domain=com; Path=/",
+                    "huge=" + "x".repeat(5_000) + "; Domain=tiktok.com; Path=/",
+                )
+            }
+            val redirect = request.url.host == "vm.tiktok.com"
+            Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
+                .code(if (redirect) 302 else 200).message("Fixture")
+                .apply { if (redirect) header("Location", "https://www.tiktok.com/@a/video/1") }
+                .apply { cookies.forEach { addHeader("Set-Cookie", it) } }
+                .body("<title>Fixture</title>".toResponseBody())
+                .build()
+        }.build()
+
+        val result = OkHttpExtractorClient(client).get(
+            "https://vm.tiktok.com/ZMfixture/",
+            mapOf("User-Agent" to "FixtureAgent/1.0"),
+        ) as ExtractorHttpResult.Success
+
+        assertEquals(
+            listOf(
+                ResponseCookie("tt_chain_token", "chain-value", "tiktok.com", hostOnly = false),
+                ResponseCookie("ttwid", "wid-value", "tiktok.com", hostOnly = false),
+                ResponseCookie("tt_csrf_token", "csrf-value", "www.tiktok.com", hostOnly = true),
+            ),
+            result.cookies,
+        )
+        assertEquals(2, seen.size)
+        seen.forEach { request -> assertNull(request.header("Cookie")) }
+        assertFalse(result.toString().contains("-value"))
+    }
+
+    @Test
+    fun aPageWithoutSetCookieReportsNoCookies() = runTest {
+        val server = FakeServer("https://site.test/page" to ok("<title>Fixture</title>"))
+
+        val result = server.client().get("https://site.test/page", session)
+            as ExtractorHttpResult.Success
+
+        assertEquals(emptyList<ResponseCookie>(), result.cookies)
     }
 
 }

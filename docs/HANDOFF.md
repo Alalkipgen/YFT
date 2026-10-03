@@ -16,9 +16,11 @@
   empty browser hides the address bar; P3 every page load in the browser closes the app; P4 YouTube
   fails with a sign-in message; P5 a TikTok video is found but the download fails. Causes with
   evidence: FIX_PLAN §4 (F1–F8).
-- **Next action — agent:** check the T06 checkpoint CI, then T07 — TikTok media cookies
-  ([`prompts/T07-tiktok-media-cookies.md`](prompts/T07-tiktok-media-cookies.md)). T06 is OWNER
-  CHECK (Facebook Home download/playback on the phone); T05 is DONE; T04 is OWNER CHECK:
+- **Next action — agent:** check the T07 checkpoint CI, then T08 — YouTube: honest messages,
+  identity and details
+  ([`prompts/T08-youtube-messages-details.md`](prompts/T08-youtube-messages-details.md)). T07 is
+  OWNER CHECK (TikTok Home and browser download/playback on the phone); T06 is OWNER CHECK
+  (Facebook Home download/playback on the phone); T05 is DONE; T04 is OWNER CHECK:
   final tests, all 9 individually inspected renders and the actual release debug-action guard
   pass. Use [`prompts/00_NEXT_TASK.md`](prompts/00_NEXT_TASK.md) for subsequent eligible tasks.
 - **Next action — owner:** answer D1 (clipboard check on open), D2 (YouTube strategy A or B) and D3
@@ -81,6 +83,17 @@
   extractor-sites 109 (110 after the og:image fix), app 437 (54 render skips), 0 failures;
   lint 0 errors/95 warnings; instrumentation APK compiled. Live: the owner's share link parsed
   to HD, SD and DASH; ranged SD GET 206. Phone: paste the link on Home → download → it plays.
+  af55f34 CI GREEN: checkpoint/debug APK https://github.com/Alalkipgen/YFT/actions/runs/37155542368
+  and emulator https://github.com/Alalkipgen/YFT/actions/runs/37155542372.
+- **T07 OWNER CHECK:** a Home lookup keeps the cookies its own responses set (domain-checked,
+  in memory only, no cookie jar). Without a WebView cookie, TikTok media gets the page's
+  `tiktok.com` cookies that a browser would send to that media address; the browser path keeps
+  the WebView cookie, and downloads still send cookies only to the media URL's own origin.
+  The old code failed the regression, fixed passes. Full tests: extractor-api 29,
+  extractor-sites 113, core-download 81, app 439 (54 render skips), 0 failures; lint 0
+  errors/95 warnings; instrumentation APK compiled. Live: the public scout2015 video gave 5
+  candidates; ranged media GET 206 with the cookies, 403 without. Phone: paste a TikTok link →
+  download → it plays; the same from the browser.
 
 ## Known limitations (beta.2)
 

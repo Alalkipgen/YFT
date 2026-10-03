@@ -403,12 +403,32 @@ Public page delivery is not yet successful Facebook extraction: its DRM parser i
 | Login walls | PASS — a login/checkpoint redirect or a login form fails as LOGIN_REQUIRED; a login phrase cannot downgrade a playable public page |
 | Full validation / instrumentation APK | PASS — extractor-api 26, extractor-sites 109, app 437 (54 render skips), 0 failures/errors; lint 0 errors / 95 warnings; instrumentation APK compiled; 22 Python tests; diff-check and new Kotlin lines <=100. After the `og:image` decoding fix: extractor-sites 110, 0 failures |
 | Public live check | PASS — owner's share link → HTTP 200, `www.facebook.com/reel/1603698891196107/`, 610752 bytes; parser Success with 2 progressive (HD, SD) and 1 DASH; ranged SD GET → 206. No body, cookie or signed URL printed |
-| CI / owner check | This checkpoint's two workflows are checked before T07. Owner check: paste the Facebook link on Home → found → download → it plays |
+| CI / owner check | PASS on af55f34 — both workflows green; checkpoint/debug APK https://github.com/Alalkipgen/YFT/actions/runs/37155542368 and emulator https://github.com/Alalkipgen/YFT/actions/runs/37155542372. Owner check: paste the Facebook link on Home → found → download → it plays |
 
 Full command: T01 memory flags plus
 `:extractor-api:test :extractor-sites:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest`.
 Live parser run: the sanitized-output harness outside the repository on the page fetched by
 `scripts/live-check.sh`; it prints only the result type, counts and the ranged-GET status.
+
+### T07 — TikTok media cookies for Home lookups (OWNER CHECK, 2026-10-03)
+
+| Check | Result |
+| --- | --- |
+| Starting state | PASS — core-download 81 on this branch; extractor-api 26, extractor-sites 110, app 437 (54 render skips), lint 0 errors / 95 warnings from the T06 checkpoint run |
+| Media-cookie regression | FAILED old: with only the new cookie field, a Home lookup whose page set TikTok cookies still gave the media request no cookie (`TikTokExtractorTest`, 12 tests, 1 failure); PASSED fixed |
+| Lookup cookies | PASS — `OkHttpExtractorClient` reports the `Set-Cookie` pairs of every hop in memory only, after OkHttp's domain and public-suffix checks; deletions and expired values remove earlier copies; oversized (>4096 chars) and surplus (>50) cookies are ignored; no cookie jar, so no hop sends a cookie it was not given |
+| TikTok scoping | PASS — only `tiktok.com` and subdomain cookies that a browser would send to that media address (host-only, domain and path rules) join the media context; none when the page set none or the media is not on TikTok; the browser path keeps the WebView's cookie |
+| Download rule / storage | Unchanged — the resolver and downloader send the cookie only to the media URL's own origin and drop it on cross-origin redirects; stored tasks keep no URL, cookie or header (runtime-only, NEEDS_REFRESH after process death) |
+| Redaction | PASS — `ResponseCookie` and `BrowserRequestContext` `toString()` show `[REDACTED]`, never the value |
+| Full validation / instrumentation APK | PASS — extractor-api 29, extractor-sites 113, core-download 81, app 439 (54 render skips), 0 failures/errors; lint 0 errors / 95 warnings; instrumentation APK compiled; 22 Python tests; new Kotlin lines <=100 |
+| Public live check | PASS — Home lookup of `@scout2015/video/6718335390845095173` → Success, 5 candidates on a `tiktok.com` media host; media cookie names `ttwid`, `tt_csrf_token`, `tt_chain_token`; ranged GET through `SecureDownloadHttp` with the candidate context → 206; the same request without the cookie → 403. No body, cookie value or signed URL printed |
+| CI / owner check | This checkpoint's two workflows are checked before T08. Owner check: paste a TikTok link on Home → download → it plays; the same from the browser |
+
+Full command: T01 memory flags plus
+`:extractor-api:test :extractor-sites:test :core-download:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest`.
+Live run: a sanitized-output harness outside the repository using the app's `OkHttpExtractorClient`,
+`TikTokExtractor` and `SecureDownloadHttp`; it prints only the result type, counts, cookie names
+and HTTP status codes.
 
 ## Runtime tests still requiring a device/emulator
 

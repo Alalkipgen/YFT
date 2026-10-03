@@ -6,6 +6,7 @@ import com.alal.yft.extractor.api.PlayerScriptChallengeKind
 import com.alal.yft.extractor.api.PlayerScriptRequest
 import com.alal.yft.extractor.api.PlayerScriptResult
 import com.alal.yft.extractor.api.PlayerScriptRunner
+import com.alal.yft.extractor.api.ResponseCookie
 import com.alal.yft.extractor.api.SiteExtractionFailure
 
 /** Loads a committed fixture so adapter tests never touch the network. */
@@ -72,19 +73,22 @@ internal class FakeExtractorHttpClient(
             body: String,
             finalUrl: String = url,
             statusCode: Int = 200,
+            cookies: List<ResponseCookie> = emptyList(),
         ): FakeExtractorHttpClient = FakeExtractorHttpClient(
-            mapOf(url to html(body, finalUrl, statusCode)),
+            mapOf(url to html(body, finalUrl, statusCode, cookies)),
         )
 
         fun html(
             body: String,
             finalUrl: String,
             statusCode: Int = 200,
+            cookies: List<ResponseCookie> = emptyList(),
         ): ExtractorHttpResult.Success = ExtractorHttpResult.Success(
             statusCode = statusCode,
             body = body,
             finalUrl = finalUrl,
             contentType = "text/html; charset=utf-8",
+            cookies = cookies,
         )
 
         fun json(body: String, finalUrl: String): ExtractorHttpResult.Success =

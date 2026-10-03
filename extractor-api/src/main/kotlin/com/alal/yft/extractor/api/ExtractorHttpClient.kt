@@ -39,6 +39,11 @@ sealed interface ExtractorHttpResult {
         val body: String,
         val finalUrl: String,
         val contentType: String? = null,
+        /**
+         * Cookies this lookup's responses set, redirects included, in memory only. They are
+         * never sent back automatically; an adapter decides which ones a media request needs.
+         */
+        val cookies: List<ResponseCookie> = emptyList(),
     ) : ExtractorHttpResult {
         init {
             require(statusCode in 200..299)

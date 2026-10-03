@@ -22,6 +22,10 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Fixed
 
+- TikTok videos found from a pasted link no longer fail with HTTP 403 when the download
+  starts. The lookup keeps the cookies TikTok's page sets in memory only and sends them
+  with the media request to TikTok's own media address; they are never stored, logged or
+  sent to another site. Browser downloads keep the WebView's cookie.
 - Facebook public reels and videos no longer fail as DRM-protected when the page carries only
   a playback certificate. DRM needs an explicit flag, a non-empty licence map or a graph
   licence URI; unreadable DRM metadata becomes a lookup details warning. Share links use the
