@@ -21,4 +21,29 @@ class YftDestinationTest {
         assertEquals("home", YftDestination.HOME.route)
         assertTrue(YftDestination.homeActions.none { it == YftDestination.HOME })
     }
+
+    @Test
+    fun bottomBarHasFourTabsAndEverythingElseOpensFullScreen() {
+        assertEquals(
+            listOf(
+                YftDestination.HOME,
+                YftDestination.DOWNLOADS,
+                YftDestination.LIBRARY,
+                YftDestination.SETTINGS,
+            ),
+            YftDestination.topLevel,
+        )
+        assertEquals(
+            listOf(
+                YftDestination.BROWSER,
+                YftDestination.DETECTED_MEDIA,
+                YftDestination.PREVIEW,
+                YftDestination.ABOUT,
+            ),
+            YftDestination.homeActions,
+        )
+        assertEquals(YftDestination.LIBRARY, YftDestination.topLevelFor("library"))
+        assertEquals(null, YftDestination.topLevelFor("browser?link={link}"))
+        assertEquals(null, YftDestination.topLevelFor(null))
+    }
 }

@@ -39,6 +39,20 @@ class AppUiStateTest {
         assertEquals(ThemeMode.LIGHT, viewModel.uiState.value.themeMode)
     }
 
+    @Test
+    fun viewModelFollowsTheActiveDownloadCountForTheTabBadge() = runTest {
+        val active = MutableStateFlow(0)
+        val viewModel = AppViewModel(FakeSettingsRepository(), active)
+        advanceUntilIdle()
+        assertEquals(0, viewModel.uiState.value.activeDownloads)
+
+        active.value = 3
+        advanceUntilIdle()
+
+        assertEquals(3, viewModel.uiState.value.activeDownloads)
+        assertEquals(ThemeMode.SYSTEM, viewModel.uiState.value.themeMode)
+    }
+
     private class FakeSettingsRepository : SettingsRepository {
         override val themeMode = MutableStateFlow(ThemeMode.SYSTEM)
 

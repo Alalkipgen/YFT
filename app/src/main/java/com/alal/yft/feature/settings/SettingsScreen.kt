@@ -48,6 +48,7 @@ fun SettingsRoute(
     themeMode: ThemeMode,
     onThemeModeChanged: (ThemeMode) -> Unit,
     onNavigateBack: () -> Unit,
+    onOpenAbout: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -58,6 +59,7 @@ fun SettingsRoute(
         onAction = viewModel::onAction,
         onThemeModeChanged = onThemeModeChanged,
         onNavigateBack = onNavigateBack,
+        onOpenAbout = onOpenAbout,
     )
 }
 
@@ -69,6 +71,7 @@ fun SettingsScreen(
     onAction: (SettingsAction) -> Unit,
     onThemeModeChanged: (ThemeMode) -> Unit,
     onNavigateBack: () -> Unit,
+    onOpenAbout: () -> Unit = {},
 ) {
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(state.message) {
@@ -100,6 +103,16 @@ fun SettingsScreen(
             AppearanceSection(themeMode, onThemeModeChanged)
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             PrivacySection(state, onAction)
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            SectionHeader("About")
+            ActionRow(
+                title = "About YFT",
+                summary = "Version, privacy, product scope and open-source licenses.",
+                actionLabel = "Open",
+                enabled = true,
+                tag = "settings-open-about",
+                onClick = onOpenAbout,
+            )
         }
     }
 

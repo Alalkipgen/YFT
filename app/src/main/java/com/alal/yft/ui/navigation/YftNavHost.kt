@@ -2,6 +2,8 @@ package com.alal.yft.ui.navigation
 
 import android.net.Uri
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -22,6 +24,7 @@ fun YftNavHost(
     navController: NavHostController,
     themeMode: ThemeMode,
     onThemeModeChanged: (ThemeMode) -> Unit,
+    modifier: Modifier = Modifier,
     browserContent: @Composable (
         onNavigateBack: () -> Unit,
         onOpenPreview: () -> Unit,
@@ -53,11 +56,15 @@ fun YftNavHost(
     libraryContent: @Composable (onNavigateBack: () -> Unit) -> Unit = { onNavigateBack ->
         LibraryRoute(onNavigateBack = onNavigateBack)
     },
-    settingsContent: @Composable (onNavigateBack: () -> Unit) -> Unit = { onNavigateBack ->
+    settingsContent: @Composable (
+        onNavigateBack: () -> Unit,
+        onOpenAbout: () -> Unit,
+    ) -> Unit = { onNavigateBack, onOpenAbout ->
         SettingsRoute(
             themeMode = themeMode,
             onThemeModeChanged = onThemeModeChanged,
             onNavigateBack = onNavigateBack,
+            onOpenAbout = onOpenAbout,
         )
     },
 ) {
@@ -66,10 +73,11 @@ fun YftNavHost(
     NavHost(
         navController = navController,
         startDestination = YftDestination.HOME.route,
+        modifier = modifier,
     ) {
         composable(YftDestination.HOME.route) {
             HomeScreen(
-                onOpenDestination = { navController.navigate(it.route) },
+                onOpenDestination = navController::open,
                 onOpenLink = { link -> navController.navigate(browserRouteFor(link)) },
             )
         }
@@ -106,7 +114,7 @@ fun YftNavHost(
             libraryContent(navigateBack)
         }
         composable(YftDestination.SETTINGS.route) {
-            settingsContent(navigateBack)
+            settingsContent(navigateBack) { navController.navigate(YftDestination.ABOUT.route) }
         }
         composable(YftDestination.ABOUT.route) {
             AboutScreen(onNavigateBack = navigateBack)
@@ -121,3 +129,20 @@ internal val BROWSER_ROUTE_PATTERN =
 
 internal fun browserRouteFor(link: String): String =
     "${YftDestination.BROWSER.route}?$BROWSER_LINK_ARGUMENT=${Uri.encode(link)}"
+
+/**
+ * Tabs keep one copy each: switching saves the tab being left and restores the one chosen, and
+ * going back from any tab returns to Home before leaving the app.
+ */
+internal fun NavHostController.navigateToTab(destination: YftDestination) {
+    navigate(destination.route) {
+        popUpTo(graph.findStartDestination().id) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
+
+/** Opens a tab the way the bottom bar does, or pushes a full-screen destination. */
+internal fun NavHostController.open(destination: YftDestination) {
+    if (destination.isTopLevel) navigateToTab(destination) else navigate(destination.route)
+}

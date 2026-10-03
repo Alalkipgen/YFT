@@ -23,6 +23,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.alal.yft.ui.theme.YftShapes
 import com.alal.yft.ui.theme.YftTheme
@@ -160,12 +161,12 @@ fun YftOutlinedChip(
 
 /** Coral count bubble with Ink digits; nothing is drawn for zero. */
 @Composable
-fun YftCountBadge(count: Int, modifier: Modifier = Modifier) {
+fun YftCountBadge(count: Int, modifier: Modifier = Modifier, minSize: Dp = 20.dp) {
     if (count <= 0) return
     val colors = YftTheme.colors
     Box(
         modifier = modifier
-            .defaultMinSize(minWidth = 20.dp, minHeight = 20.dp)
+            .defaultMinSize(minWidth = minSize, minHeight = minSize)
             .clip(YftShapes.pill)
             .background(colors.coral)
             .padding(horizontal = 5.dp),

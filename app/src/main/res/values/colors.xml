@@ -1,0 +1,4 @@
+<resources>
+    <!-- Surface #F2F7F7; the Compose theme draws the same color. -->
+    <color name="yft_window_background">#FFF2F7F7</color>
+</resources>

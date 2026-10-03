@@ -169,6 +169,25 @@ class DownloadsUiStateTest {
         assertTrue(state.canPauseAll)
     }
 
+    @Test
+    fun activeCountForTheTabBadgeIncludesOnlyMovingTransfers() {
+        val tasks = DownloadTaskStatus.entries.mapIndexed { index, status ->
+            directTask(id = "t$index", status = status, downloaded = 10, total = 100)
+        }
+
+        assertEquals(4, tasks.activeDownloadCount())
+        assertEquals(
+            setOf(
+                DownloadTaskStatus.PROBING,
+                DownloadTaskStatus.RUNNING,
+                DownloadTaskStatus.PAUSING,
+                DownloadTaskStatus.VERIFYING,
+            ),
+            ACTIVE_STATUSES,
+        )
+        assertEquals(0, emptyList<StoredDownloadTask>().activeDownloadCount())
+    }
+
     private fun singleRow(task: StoredDownloadTask): DownloadRowUiState =
         DownloadsUiState.from(listOf(task)).rows.single()
 

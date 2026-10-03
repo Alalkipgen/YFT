@@ -36,6 +36,21 @@ internal val TERMINAL_STATUSES = setOf(
     DownloadTaskStatus.NEEDS_REFRESH,
 )
 
+/**
+ * Statuses counted as active on the Downloads tab badge and filter: work that is moving now.
+ * Queued and network-held tasks are counted separately as queued.
+ */
+internal val ACTIVE_STATUSES = setOf(
+    DownloadTaskStatus.PROBING,
+    DownloadTaskStatus.RUNNING,
+    DownloadTaskStatus.PAUSING,
+    DownloadTaskStatus.VERIFYING,
+)
+
+/** Number of [ACTIVE_STATUSES] tasks, shown as the Coral badge on the Downloads tab. */
+internal fun List<StoredDownloadTask>.activeDownloadCount(): Int =
+    count { it.status in ACTIVE_STATUSES }
+
 /** Statuses that can still be paused. `PAUSING` is already stopping. */
 internal val PAUSABLE_STATUSES = setOf(
     DownloadTaskStatus.QUEUED,
