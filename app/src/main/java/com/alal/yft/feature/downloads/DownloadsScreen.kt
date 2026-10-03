@@ -1,336 +1,828 @@
 package com.alal.yft.feature.downloads
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alal.yft.core.download.DownloadDestinationKind
-import com.alal.yft.core.download.DownloadPlanType
-import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.download.policy.TransferNetworkState
-import com.alal.yft.ui.components.YftTopBar
+import com.alal.yft.feature.library.AppPrivateDownloadProvider
+import com.alal.yft.feature.library.LibraryIntents
+import com.alal.yft.feature.library.LibraryMimeTypes
+import com.alal.yft.ui.components.YftCard
+import com.alal.yft.ui.components.YftCircleButton
+import com.alal.yft.ui.components.YftFilterChip
+import com.alal.yft.ui.components.YftIcon
+import com.alal.yft.ui.components.YftMediaKind
+import com.alal.yft.ui.components.YftOutlinedButton
+import com.alal.yft.ui.components.YftProgressBar
+import com.alal.yft.ui.components.YftScreenHeader
+import com.alal.yft.ui.components.YftStatusChip
+import com.alal.yft.ui.components.YftStatusTone
+import com.alal.yft.ui.components.YftTextButton
+import com.alal.yft.ui.components.YftThumbnail
 import com.alal.yft.ui.navigation.YftDestination
+import com.alal.yft.ui.theme.YftIcons
+import com.alal.yft.ui.theme.YftShapes
+import com.alal.yft.ui.theme.YftTheme
+import java.util.Calendar
 import java.util.Locale
+import java.util.TimeZone
 
 @Composable
 fun DownloadsRoute(
-    onNavigateBack: () -> Unit,
+    onOpenSettings: () -> Unit = {},
     viewModel: DownloadsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     DownloadsScreen(
         uiState = uiState,
-        onNavigateBack = onNavigateBack,
         onAction = viewModel::onAction,
         onPauseAll = viewModel::pauseAll,
+        onOpen = { row ->
+            val intent = DownloadIntents.view(context, row)
+            if (intent == null || !LibraryIntents.start(context, intent)) {
+                Toast.makeText(
+                    context,
+                    "No app on this device can open ${row.title}.",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+        },
+        onOpenSettings = onOpenSettings,
     )
 }
 
+/**
+ * Downloads from the design (`04-downloads`): the title with Pause all, filter chips, one card
+ * per task with its progress or status, finished downloads under "Completed today" and
+ * "Earlier", and the save location with its free space above the bottom bar.
+ *
+ * Tapping a card opens a menu with every control the task allows, and accessibility services
+ * get the same controls as custom actions. Finished downloads open in another app.
+ */
 @Composable
 fun DownloadsScreen(
     uiState: DownloadsUiState,
-    onNavigateBack: () -> Unit,
     onAction: (DownloadAction, String) -> Unit,
     onPauseAll: () -> Unit,
+    modifier: Modifier = Modifier,
+    onOpen: (DownloadRowUiState) -> Unit = {},
+    onOpenSettings: () -> Unit = {},
+    todayStartEpochMs: Long = remember { startOfDayEpochMs(System.currentTimeMillis()) },
 ) {
-    Scaffold(
-        topBar = {
-            YftTopBar(
-                title = YftDestination.DOWNLOADS.title,
-                canNavigateBack = true,
-                onNavigateBack = onNavigateBack,
-            )
-        },
-    ) { padding ->
-        Column(
+    val colors = YftTheme.colors
+    var filter by rememberSaveable { mutableStateOf(DownloadsFilter.ALL) }
+    val storage = uiState.storage
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(colors.background)
+            .windowInsetsPadding(WindowInsets.statusBars),
+    ) {
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
+                .testTag("downloads-list"),
+            contentPadding = PaddingValues(bottom = if (storage != null) 80.dp else 16.dp),
         ) {
-            NetworkBanner(network = uiState.network)
-            if (uiState.isEmpty) {
-                EmptyQueue()
-                return@Column
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "${uiState.occupyingCount} active of ${uiState.rows.size}",
-                    modifier = Modifier.testTag("downloads-summary"),
-                    style = MaterialTheme.typography.labelLarge,
-                )
-                TextButton(
-                    onClick = onPauseAll,
-                    enabled = uiState.canPauseAll,
-                    modifier = Modifier.testTag("downloads-pause-all"),
+            item(key = "header") {
+                YftScreenHeader(
+                    title = YftDestination.DOWNLOADS.title,
+                    contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp),
                 ) {
-                    Text(text = "Pause all")
+                    YftOutlinedButton(
+                        text = "Pause all",
+                        onClick = onPauseAll,
+                        modifier = Modifier.testTag("downloads-pause-all"),
+                        icon = YftIcons.Pause,
+                        enabled = uiState.canPauseAll,
+                        compact = true,
+                    )
                 }
             }
-
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .testTag("downloads-list"),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(items = uiState.rows, key = { it.id }) { row ->
-                    DownloadRow(row = row, onAction = onAction)
+            if (!uiState.isEmpty) {
+                item(key = "filters") {
+                    FilterRow(
+                        uiState = uiState,
+                        selected = filter,
+                        onSelect = { filter = it },
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
                 }
             }
+            val holdsWork = uiState.rows.any { it.status in NETWORK_HELD_STATUSES }
+            if (uiState.network != TransferNetworkState.ALLOWED && holdsWork) {
+                item(key = "network") {
+                    NetworkNotice(
+                        network = uiState.network,
+                        onOpenSettings = onOpenSettings,
+                        modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp),
+                    )
+                }
+            }
+            if (uiState.isEmpty) {
+                item(key = "empty") { EmptyQueue(Modifier.fillParentMaxHeight(EMPTY_HEIGHT)) }
+            } else {
+                downloadItems(
+                    uiState = uiState,
+                    filter = filter,
+                    todayStartEpochMs = todayStartEpochMs,
+                    onAction = onAction,
+                    onOpen = onOpen,
+                )
+            }
+        }
+        if (storage != null) {
+            StoragePill(
+                storage = storage,
+                onOpenSettings = onOpenSettings,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
         }
     }
 }
 
-/** Explains why queued work is not moving; nothing is shown while transfers may run. */
-@Composable
-private fun NetworkBanner(network: TransferNetworkState) {
-    val (title, body) = when (network) {
-        TransferNetworkState.ALLOWED -> return
-        TransferNetworkState.WAITING_FOR_UNMETERED ->
-            "Waiting for Wi-Fi" to "Downloads start on Wi-Fi or another unmetered network. " +
-                "Turn off \"Download over Wi-Fi only\" in Settings to use mobile data."
-
-        TransferNetworkState.OFFLINE ->
-            "No connection" to "Downloads continue automatically when the device is back online."
+private fun LazyListScope.downloadItems(
+    uiState: DownloadsUiState,
+    filter: DownloadsFilter,
+    todayStartEpochMs: Long,
+    onAction: (DownloadAction, String) -> Unit,
+    onOpen: (DownloadRowUiState) -> Unit,
+) {
+    val visible = uiState.rowsFor(filter)
+    if (visible.isEmpty()) {
+        item(key = "filter-empty") { FilterEmpty(filter) }
+        return
     }
-    Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        shape = MaterialTheme.shapes.medium,
-        modifier = Modifier
+    val (finished, unfinished) = visible.partition { it.status == DownloadTaskStatus.COMPLETED }
+    val (today, earlier) = finished.partition { it.updatedAtEpochMs >= todayStartEpochMs }
+    val cards: LazyListScope.(List<DownloadRowUiState>) -> Unit = { rows ->
+        items(items = rows, key = { "row-${it.id}" }) { row ->
+            DownloadCard(
+                row = row,
+                network = uiState.network,
+                onAction = onAction,
+                onOpen = onOpen,
+                modifier = Modifier.padding(start = 16.dp, top = 8.dp, end = 16.dp),
+            )
+        }
+    }
+    cards(unfinished)
+    if (today.isNotEmpty()) {
+        item(key = "completed-today") { SectionLabel("Completed today") }
+        cards(today)
+    }
+    if (earlier.isNotEmpty()) {
+        item(key = "completed-earlier") { SectionLabel("Earlier") }
+        cards(earlier)
+    }
+}
+
+@Composable
+private fun FilterRow(
+    uiState: DownloadsUiState,
+    selected: DownloadsFilter,
+    onSelect: (DownloadsFilter) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
             .fillMaxWidth()
-            .padding(top = 8.dp)
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp)
+            .selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        DownloadsFilter.entries.forEach { option ->
+            val count = when (option) {
+                DownloadsFilter.ALL, DownloadsFilter.DONE -> null
+                else -> uiState.count(option).takeIf { it > 0 }
+            }
+            YftFilterChip(
+                label = option.label,
+                selected = option == selected,
+                onClick = { onSelect(option) },
+                modifier = Modifier.testTag("downloads-filter-${option.name.lowercase(Locale.US)}"),
+                count = count,
+            )
+        }
+    }
+}
+
+/** One line on why queued work is not moving; nothing is shown while transfers may run. */
+/** One line on why queued work waits; with Wi-Fi only on, tapping it opens Settings. */
+@Composable
+private fun NetworkNotice(
+    network: TransferNetworkState,
+    onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = YftTheme.colors
+    val wifiOnly = when (network) {
+        TransferNetworkState.ALLOWED -> return
+        TransferNetworkState.WAITING_FOR_UNMETERED -> true
+        TransferNetworkState.OFFLINE -> false
+    }
+    val text = buildAnnotatedString {
+        withStyle(SpanStyle(color = colors.textPrimary, fontWeight = FontWeight.SemiBold)) {
+            append(if (wifiOnly) "Wi-Fi only is on" else "No connection")
+        }
+        if (!wifiOnly) {
+            withStyle(SpanStyle(color = colors.textSecondary)) {
+                append(" · Downloads resume when you're online")
+            }
+        }
+    }
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .minimumInteractiveComponentSize()
+            .heightIn(min = NOTICE_HEIGHT)
+            .clip(YftShapes.card)
+            .background(colors.chipOnBackground)
+            .then(
+                if (wifiOnly) {
+                    Modifier.clickable(
+                        onClickLabel = "Open Settings",
+                        role = Role.Button,
+                        onClick = onOpenSettings,
+                    )
+                } else {
+                    Modifier
+                },
+            )
+            .padding(horizontal = 14.dp, vertical = 8.dp)
             .testTag("downloads-network-banner")
             .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(text = title, style = MaterialTheme.typography.titleSmall)
-            Text(text = body, style = MaterialTheme.typography.bodyMedium)
+        YftIcon(
+            icon = if (wifiOnly) YftIcons.Wifi else YftIcons.WifiOff,
+            contentDescription = null,
+            tint = colors.icon,
+            size = 18.dp,
+        )
+        Text(
+            text = text,
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 10.dp),
+            style = MaterialTheme.typography.labelLarge,
+        )
+        if (wifiOnly) {
+            Text(
+                text = "Settings",
+                modifier = Modifier.padding(start = 8.dp),
+                color = colors.link,
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+            )
         }
     }
 }
 
 @Composable
-private fun EmptyQueue() {
+private fun EmptyQueue(modifier: Modifier = Modifier) {
+    val colors = YftTheme.colors
     Column(
-        modifier = Modifier
-            .fillMaxSize()
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 32.dp)
             .testTag("downloads-empty"),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(text = "No downloads yet", style = MaterialTheme.typography.titleMedium)
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(colors.accentSoft),
+            contentAlignment = Alignment.Center,
+        ) {
+            YftIcon(
+                icon = YftIcons.Download,
+                contentDescription = null,
+                tint = colors.link,
+                size = 32.dp,
+            )
+        }
+        Text(
+            text = "No downloads yet",
+            modifier = Modifier.padding(top = 16.dp),
+            color = colors.textPrimary,
+            style = MaterialTheme.typography.titleMedium,
+        )
         Text(
             text = "Open a page in the browser, preview the media and start a download.",
-            modifier = Modifier.padding(top = 8.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 6.dp),
+            color = colors.textSecondary,
             style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
         )
     }
 }
 
 @Composable
-private fun DownloadRow(
+private fun FilterEmpty(filter: DownloadsFilter) {
+    Text(
+        text = when (filter) {
+            DownloadsFilter.ALL -> "No downloads yet"
+            DownloadsFilter.ACTIVE -> "Nothing is downloading right now."
+            DownloadsFilter.QUEUED -> "Nothing is waiting to start."
+            DownloadsFilter.DONE -> "Finished downloads appear here."
+            DownloadsFilter.FAILED -> "No failed downloads."
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 32.dp)
+            .testTag("downloads-filter-empty"),
+        color = YftTheme.colors.textSecondary,
+        style = MaterialTheme.typography.bodyMedium,
+        textAlign = TextAlign.Center,
+    )
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text = text,
+        modifier = Modifier
+            .padding(start = 16.dp, top = 16.dp, end = 16.dp)
+            .semantics { heading() },
+        color = YftTheme.colors.textSecondary,
+        style = MaterialTheme.typography.labelMedium,
+    )
+}
+
+/** One control in a card's menu and in its accessibility actions. */
+private class CardAction(
+    val label: String,
+    val tag: String,
+    @DrawableRes val icon: Int,
+    val run: () -> Unit,
+)
+
+private fun cardActions(
     row: DownloadRowUiState,
     onAction: (DownloadAction, String) -> Unit,
+    onOpen: (DownloadRowUiState) -> Unit,
+): List<CardAction> = buildList {
+    if (row.status == DownloadTaskStatus.COMPLETED) {
+        add(CardAction("Open", "download-menu-open-${row.id}", YftIcons.OpenInNew) { onOpen(row) })
+    }
+    DownloadAction.entries
+        .filter { it in row.availableActions }
+        .forEach { action ->
+            add(
+                CardAction(menuLabel(action), menuTag(action, row.id), actionIcon(action)) {
+                    onAction(action, row.id)
+                },
+            )
+        }
+}
+
+@DrawableRes
+private fun actionIcon(action: DownloadAction): Int = when (action) {
+    DownloadAction.PAUSE -> YftIcons.Pause
+    DownloadAction.RESUME -> YftIcons.Play
+    DownloadAction.RETRY -> YftIcons.Replay
+    DownloadAction.CANCEL -> YftIcons.Close
+    DownloadAction.DELETE -> YftIcons.Delete
+}
+
+@Composable
+private fun DownloadCard(
+    row: DownloadRowUiState,
+    network: TransferNetworkState,
+    onAction: (DownloadAction, String) -> Unit,
+    onOpen: (DownloadRowUiState) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Card(modifier = Modifier.fillMaxWidth().testTag("download-${row.id}")) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = row.displayName,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.titleSmall,
-            )
-            Text(
-                text = statusLabel(row),
-                modifier = Modifier
-                    .padding(top = 2.dp)
-                    .testTag("download-status-${row.id}"),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-            )
-
-            val fraction = row.progressFraction
-            if (fraction != null) {
-                LinearProgressIndicator(
-                    progress = { fraction },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                        .testTag("download-progress-${row.id}"),
-                )
-            } else if (row.isOccupyingQueue) {
-                LinearProgressIndicator(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                        .testTag("download-progress-indeterminate-${row.id}"),
-                )
-            }
-
-            Text(
-                text = sizeLabel(row),
-                modifier = Modifier
-                    .padding(top = 6.dp)
-                    .testTag("download-size-${row.id}"),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-            )
-
-            if (row.requiresLinkRefresh) {
-                Text(
-                    text = "Media link expired. Re-open the page in the browser to refresh it.",
-                    modifier = Modifier
-                        .padding(top = 6.dp)
-                        .testTag("download-refresh-note-${row.id}"),
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-
-            Row(
-                modifier = Modifier.padding(top = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                DownloadAction.entries
-                    .filter { it in row.availableActions }
-                    .forEach { action ->
-                        TextButton(
-                            onClick = { onAction(action, row.id) },
-                            modifier = Modifier.testTag(actionTag(action, row.id)),
-                        ) {
-                            Text(text = actionLabel(action))
+    val colors = YftTheme.colors
+    var menuOpen by remember { mutableStateOf(false) }
+    val actions = cardActions(row, onAction, onOpen)
+    Box(modifier = modifier.fillMaxWidth()) {
+        YftCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("download-${row.id}")
+                .semantics {
+                    customActions = actions.map { action ->
+                        CustomAccessibilityAction(action.label) {
+                            action.run()
+                            true
                         }
                     }
+                },
+            onClick = { menuOpen = true },
+            contentPadding = PaddingValues(10.dp),
+        ) {
+            when (row.status) {
+                DownloadTaskStatus.COMPLETED -> FinishedRow(row = row, onOpen = onOpen)
+                in PROGRESS_STATUSES -> ProgressRow(row = row, onAction = onAction)
+                else -> StatusRow(row = row, network = network, onAction = onAction)
+            }
+        }
+        Box(modifier = Modifier.align(Alignment.BottomEnd)) {
+            DropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+                shape = YftShapes.card,
+                containerColor = colors.card,
+            ) {
+                actions.forEach { action ->
+                    DropdownMenuItem(
+                        text = { Text(text = action.label, color = colors.textPrimary) },
+                        onClick = {
+                            menuOpen = false
+                            action.run()
+                        },
+                        modifier = Modifier.testTag(action.tag),
+                        leadingIcon = {
+                            YftIcon(icon = action.icon, contentDescription = null, tint = colors.icon)
+                        },
+                    )
+                }
             }
         }
     }
 }
 
-internal fun actionTag(action: DownloadAction, id: String): String =
-    "download-action-${action.name.lowercase(Locale.US)}-$id"
-
-internal fun actionLabel(action: DownloadAction): String = when (action) {
-    DownloadAction.PAUSE -> "Pause"
-    DownloadAction.RESUME -> "Resume"
-    DownloadAction.RETRY -> "Retry"
-    DownloadAction.CANCEL -> "Cancel"
-    DownloadAction.DELETE -> "Remove"
+/** Running, paused or finishing: meta and percent, the bar, then amount, speed and time left. */
+@Composable
+private fun ProgressRow(
+    row: DownloadRowUiState,
+    onAction: (DownloadAction, String) -> Unit,
+) {
+    val colors = YftTheme.colors
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        RowThumbnail(row = row, modifier = Modifier.size(THUMBNAIL_SIZE))
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 12.dp),
+        ) {
+            CardTitle(row.title)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                MetaText(
+                    text = metaLabel(row),
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("download-meta-${row.id}"),
+                )
+                percentLabel(row)?.let { percent ->
+                    Text(
+                        text = percent,
+                        modifier = Modifier.padding(start = 8.dp),
+                        color = colors.textPrimary,
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = FontWeight.SemiBold,
+                        ),
+                    )
+                }
+            }
+            val fraction = row.progressFraction
+            val stopped = row.status == DownloadTaskStatus.PAUSED ||
+                row.status == DownloadTaskStatus.PAUSING
+            YftProgressBar(
+                progress = fraction ?: if (stopped) 0f else null,
+                modifier = Modifier
+                    .padding(top = 6.dp)
+                    .testTag(
+                        if (fraction != null || stopped) {
+                            "download-progress-${row.id}"
+                        } else {
+                            "download-progress-indeterminate-${row.id}"
+                        },
+                    ),
+            )
+            val detail = progressDetail(row)
+            var tooLong by remember(detail) { mutableStateOf(false) }
+            Text(
+                text = if (tooLong) progressDetail(row, withSpeed = false) else detail,
+                modifier = Modifier
+                    .padding(top = 6.dp)
+                    .testTag("download-detail-${row.id}"),
+                color = colors.textSecondary,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                onTextLayout = { if (!tooLong && it.hasVisualOverflow) tooLong = true },
+            )
+        }
+        val primary = when {
+            DownloadAction.PAUSE in row.availableActions -> DownloadAction.PAUSE
+            DownloadAction.RESUME in row.availableActions -> DownloadAction.RESUME
+            else -> null
+        }
+        if (primary != null) {
+            YftCircleButton(
+                icon = if (primary == DownloadAction.PAUSE) YftIcons.Pause else YftIcons.Play,
+                contentDescription = "${actionLabel(primary)} ${row.title}",
+                onClick = { onAction(primary, row.id) },
+                modifier = Modifier
+                    .padding(start = 4.dp)
+                    .testTag(actionTag(primary, row.id)),
+                size = CIRCLE_SIZE,
+            )
+        }
+    }
 }
 
-internal fun statusLabel(row: DownloadRowUiState): String {
-    val status = when (row.status) {
-        DownloadTaskStatus.QUEUED -> "Queued"
-        DownloadTaskStatus.PROBING -> "Checking source"
-        DownloadTaskStatus.RUNNING -> "Downloading"
-        DownloadTaskStatus.PAUSING -> "Pausing"
-        DownloadTaskStatus.PAUSED -> "Paused"
-        DownloadTaskStatus.WAITING_FOR_NETWORK -> "Waiting for network"
-        DownloadTaskStatus.NEEDS_REFRESH -> "Needs a refreshed link"
-        DownloadTaskStatus.VERIFYING -> "Verifying"
-        DownloadTaskStatus.COMPLETED -> "Completed"
-        DownloadTaskStatus.FAILED -> "Failed"
-        DownloadTaskStatus.CANCELLED -> "Cancelled"
+/** Queued, waiting, failed or cancelled: meta, the status pill and Retry or Remove. */
+@Composable
+private fun StatusRow(
+    row: DownloadRowUiState,
+    network: TransferNetworkState,
+    onAction: (DownloadAction, String) -> Unit,
+) {
+    val colors = YftTheme.colors
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        RowThumbnail(row = row, modifier = Modifier.size(THUMBNAIL_SIZE))
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 12.dp),
+        ) {
+            CardTitle(row.title)
+            val chip = statusChip(row, network)
+            if (chip?.tone != YftStatusTone.Failed) {
+                MetaText(
+                    text = metaLabel(row),
+                    modifier = Modifier.testTag("download-meta-${row.id}"),
+                )
+            }
+            if (chip != null) {
+                YftStatusChip(
+                    text = chip.text,
+                    tone = chip.tone,
+                    modifier = Modifier
+                        .padding(top = 6.dp)
+                        .testTag("download-status-${row.id}"),
+                    icon = chip.icon,
+                )
+            }
+            if (row.requiresLinkRefresh || row.status == DownloadTaskStatus.NEEDS_REFRESH) {
+                Text(
+                    text = "Reopen the page in the browser to get a fresh link.",
+                    modifier = Modifier
+                        .padding(top = 6.dp)
+                        .testTag("download-refresh-note-${row.id}"),
+                    color = colors.coralText,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+        val textAction = when {
+            DownloadAction.RETRY in row.availableActions -> DownloadAction.RETRY
+            row.status != DownloadTaskStatus.QUEUED &&
+                row.status != DownloadTaskStatus.WAITING_FOR_NETWORK &&
+                DownloadAction.DELETE in row.availableActions -> DownloadAction.DELETE
+            else -> null
+        }
+        if (textAction != null) {
+            YftTextButton(
+                text = actionLabel(textAction),
+                onClick = { onAction(textAction, row.id) },
+                modifier = Modifier
+                    .align(Alignment.Bottom)
+                    .testTag(actionTag(textAction, row.id)),
+            )
+        }
     }
-    val details = listOfNotNull(
-        planLabel(row.planType),
-        destinationLabel(row.destinationKind),
-        row.failureReason?.let(::failureLabel),
+}
+
+/** A finished download: smaller tile, the green check and Play, which opens the file. */
+@Composable
+private fun FinishedRow(
+    row: DownloadRowUiState,
+    onOpen: (DownloadRowUiState) -> Unit,
+) {
+    val colors = YftTheme.colors
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        RowThumbnail(
+            row = row,
+            modifier = Modifier.size(width = 48.dp, height = 44.dp),
+            iconSize = 22.dp,
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 12.dp),
+        ) {
+            CardTitle(row.title)
+            MetaText(
+                text = metaLabel(row),
+                modifier = Modifier.testTag("download-meta-${row.id}"),
+            )
+        }
+        YftIcon(
+            icon = YftIcons.CheckCircle,
+            contentDescription = "Completed",
+            modifier = Modifier.padding(start = 8.dp),
+            tint = colors.success,
+            size = 22.dp,
+        )
+        YftCircleButton(
+            icon = YftIcons.Play,
+            contentDescription = "Open ${row.title}",
+            onClick = { onOpen(row) },
+            modifier = Modifier.testTag("download-open-${row.id}"),
+            size = CIRCLE_SIZE,
+        )
+    }
+}
+
+@Composable
+private fun RowThumbnail(row: DownloadRowUiState, modifier: Modifier, iconSize: Dp = 28.dp) {
+    YftThumbnail(
+        image = null,
+        kind = if (row.isAudio) YftMediaKind.Audio else YftMediaKind.Video,
+        modifier = modifier,
+        shape = YftShapes.thumbnailSmall,
+        iconSize = iconSize,
     )
-    return "$status · ${details.joinToString(" · ")}"
 }
 
-internal fun planLabel(planType: DownloadPlanType): String = when (planType) {
-    DownloadPlanType.DIRECT -> "Direct file"
-    DownloadPlanType.HLS -> "HLS stream"
-    DownloadPlanType.DASH -> "DASH stream"
-    DownloadPlanType.AUDIO_VIDEO_MUX -> "Audio + video"
+@Composable
+private fun CardTitle(text: String) {
+    Text(
+        text = text,
+        color = YftTheme.colors.textPrimary,
+        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
-internal fun destinationLabel(kind: DownloadDestinationKind): String = when (kind) {
-    DownloadDestinationKind.APP_PRIVATE -> "App storage"
-    DownloadDestinationKind.MEDIA_STORE -> "Device media"
-    DownloadDestinationKind.SAF_DOCUMENT -> "Chosen folder"
+@Composable
+private fun MetaText(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        modifier = modifier,
+        color = YftTheme.colors.textSecondary,
+        style = MaterialTheme.typography.bodyMedium,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
-internal fun failureLabel(reason: DownloadFailureReason): String = when (reason) {
-    DownloadFailureReason.INVALID_URL -> "invalid link"
-    DownloadFailureReason.EXPIRED_URL -> "link expired"
-    DownloadFailureReason.DRM_PROTECTED -> "protected content"
-    DownloadFailureReason.UNSUPPORTED_SOURCE -> "unsupported source"
-    DownloadFailureReason.INCOMPATIBLE_TRACKS -> "incompatible tracks"
-    DownloadFailureReason.UNSAFE_REDIRECT -> "unsafe redirect"
-    DownloadFailureReason.TOO_MANY_REDIRECTS -> "too many redirects"
-    DownloadFailureReason.AUTHENTICATION_REQUIRED -> "sign-in required"
-    DownloadFailureReason.ACCESS_DENIED -> "access denied"
-    DownloadFailureReason.NOT_FOUND -> "not found"
-    DownloadFailureReason.GONE -> "no longer available"
-    DownloadFailureReason.RANGE_NOT_SATISFIABLE -> "resume not supported"
-    DownloadFailureReason.SERVER_ERROR -> "server error"
-    DownloadFailureReason.HTTP_STATUS -> "unexpected HTTP status"
-    DownloadFailureReason.MALFORMED_RESPONSE -> "malformed response"
-    DownloadFailureReason.NETWORK -> "network error"
-    DownloadFailureReason.STORAGE_UNAVAILABLE -> "storage unavailable"
-    DownloadFailureReason.INSUFFICIENT_STORAGE -> "not enough storage"
-    DownloadFailureReason.INTEGRITY_MISMATCH -> "integrity mismatch"
-}
-
-internal fun sizeLabel(row: DownloadRowUiState): String {
-    val downloaded = formatBytes(row.downloadedBytes)
-    val total = row.totalBytes
-    return if (total == null) {
-        "$downloaded downloaded · total size unknown"
-    } else {
-        "$downloaded of ${formatBytes(total)} · ${row.progressPercent}%"
+/** Where downloads go and the room left; tapping it opens Settings to change the location. */
+@Composable
+private fun StoragePill(
+    storage: DownloadStorageSummary,
+    onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = YftTheme.colors
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(
+                Brush.verticalGradient(
+                    0f to colors.background.copy(alpha = 0f),
+                    FADE_STOP to colors.background,
+                ),
+            )
+            .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 4.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .minimumInteractiveComponentSize()
+                .height(STORAGE_PILL_HEIGHT)
+                .clip(YftShapes.pill)
+                .background(colors.chipOnBackground)
+                .border(1.dp, colors.border, YftShapes.pill)
+                .clickable(
+                    onClickLabel = "Change in Settings",
+                    role = Role.Button,
+                    onClick = onOpenSettings,
+                )
+                .padding(horizontal = 16.dp)
+                .testTag("downloads-storage"),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            YftIcon(
+                icon = YftIcons.Folder,
+                contentDescription = null,
+                tint = colors.textPrimary,
+                size = 18.dp,
+            )
+            Text(
+                text = storageLabel(storage),
+                modifier = Modifier.padding(start = 8.dp),
+                color = colors.textPrimary,
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 
-internal fun formatBytes(bytes: Long): String {
-    if (bytes < UNIT) return "$bytes B"
-    val units = listOf("KB", "MB", "GB", "TB")
-    var value = bytes.toDouble() / UNIT
-    var index = 0
-    while (value >= UNIT && index < units.lastIndex) {
-        value /= UNIT
-        index++
+/** Hands one finished download to another app with a read grant for that file only. */
+internal object DownloadIntents {
+    private const val ANY_TYPE = "*/*"
+
+    fun view(context: Context, row: DownloadRowUiState): Intent? {
+        val uri = when (row.destinationKind) {
+            DownloadDestinationKind.APP_PRIVATE ->
+                AppPrivateDownloadProvider.uriFor(context, row.displayName)
+
+            DownloadDestinationKind.MEDIA_STORE, DownloadDestinationKind.SAF_DOCUMENT ->
+                row.destinationUri?.let(Uri::parse)
+        } ?: return null
+        val type = row.mimeType ?: LibraryMimeTypes.forFileName(row.displayName) ?: ANY_TYPE
+        return Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, type)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
     }
-    return String.format(Locale.US, "%.1f %s", value, units[index])
 }
 
-private const val UNIT = 1024
+/** Local midnight before [nowEpochMs], which splits "Completed today" from "Earlier". */
+internal fun startOfDayEpochMs(nowEpochMs: Long, zone: TimeZone = TimeZone.getDefault()): Long =
+    Calendar.getInstance(zone).apply {
+        timeInMillis = nowEpochMs
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+private val THUMBNAIL_SIZE = 68.dp
+private val CIRCLE_SIZE = 40.dp
+private val NOTICE_HEIGHT = 40.dp
+private val STORAGE_PILL_HEIGHT = 34.dp
+
+/** Statuses the network rule holds back, which is when the notice explains why. */
+private val NETWORK_HELD_STATUSES = setOf(
+    DownloadTaskStatus.QUEUED,
+    DownloadTaskStatus.WAITING_FOR_NETWORK,
+)
+private const val EMPTY_HEIGHT = 0.7f
+private const val FADE_STOP = 0.35f

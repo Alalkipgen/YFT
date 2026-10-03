@@ -41,8 +41,6 @@ data class YftColors(
     /** Error text; Coral itself is too light for text on light surfaces. */
     val coralText: Color,
     val coralSoft: Color,
-    val waiting: Color,
-    val onWaiting: Color,
     val success: Color,
     /** Strong 1.5dp outline of the idle Promptbox field. */
     val fieldOutline: Color,
@@ -74,8 +72,6 @@ internal val YftLightPalette = YftColors(
     onCoral = YftPalette.Ink,
     coralText = YftPalette.CoralDeep,
     coralSoft = YftPalette.CoralSoft,
-    waiting = YftPalette.Slate,
-    onWaiting = YftPalette.White,
     success = YftPalette.SuccessLight,
     fieldOutline = YftPalette.DeepTeal,
     scrim = Color(0x99000000),
@@ -106,8 +102,6 @@ internal val YftDarkPalette = YftColors(
     onCoral = YftPalette.Ink,
     coralText = YftPalette.Coral,
     coralSoft = YftPalette.NightCoralSoft,
-    waiting = YftPalette.NightWaiting,
-    onWaiting = YftPalette.NightText,
     success = YftPalette.NightSuccess,
     fieldOutline = YftPalette.MintTeal.copy(alpha = 0.6f),
     scrim = Color(0x99000000),

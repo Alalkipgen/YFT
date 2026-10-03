@@ -45,12 +45,12 @@ fun YftFilterChip(
     Row(
         modifier = modifier
             .minimumInteractiveComponentSize()
-            .heightIn(min = 40.dp)
+            .heightIn(min = 34.dp)
             .clip(YftShapes.pill)
             .background(if (selected) colors.accent else unselectedColor)
             .selectable(selected = selected, role = Role.Tab, onClick = onClick)
-            .padding(horizontal = 18.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -64,16 +64,16 @@ fun YftFilterChip(
         if (count != null) {
             Box(
                 modifier = Modifier
-                    .defaultMinSize(minWidth = 22.dp, minHeight = 22.dp)
+                    .defaultMinSize(minWidth = 18.dp, minHeight = 18.dp)
                     .clip(YftShapes.pill)
                     .background(colors.textPrimary.copy(alpha = 0.08f))
-                    .padding(horizontal = 6.dp),
+                    .padding(horizontal = 5.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = count.toString(),
                     color = if (selected) colors.onAccent else colors.textPrimary,
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelSmall,
                     textAlign = TextAlign.Center,
                 )
             }
@@ -83,7 +83,7 @@ fun YftFilterChip(
 
 enum class YftStatusTone { Active, Waiting, Failed, Neutral }
 
-/** Status pill: Downloading (Mint), Waiting for Wi-Fi (Slate), Failed (Coral). */
+/** Small status pill: Downloading (Mint), Waiting for Wi-Fi and Queued (grey), Failed (Coral). */
 @Composable
 fun YftStatusChip(
     text: String,
@@ -94,26 +94,26 @@ fun YftStatusChip(
     val colors = YftTheme.colors
     val (container, content) = when (tone) {
         YftStatusTone.Active -> colors.accent to colors.onAccent
-        YftStatusTone.Waiting -> colors.waiting to colors.onWaiting
+        YftStatusTone.Waiting -> colors.chipOnBackground to colors.textPrimary
         YftStatusTone.Failed -> colors.coral to colors.onCoral
         YftStatusTone.Neutral -> colors.chipOnBackground to colors.textPrimary
     }
     Row(
         modifier = modifier
-            .heightIn(min = 32.dp)
+            .heightIn(min = 24.dp)
             .clip(YftShapes.pill)
             .background(container)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+            .padding(horizontal = 10.dp, vertical = 3.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
-            YftIcon(icon = icon, contentDescription = null, tint = content, size = 18.dp)
+            YftIcon(icon = icon, contentDescription = null, tint = content, size = 14.dp)
         }
         Text(
             text = text,
             color = content,
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

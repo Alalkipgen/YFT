@@ -47,8 +47,8 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.PlayerView
-import com.alal.yft.feature.downloads.formatBytes
 import com.alal.yft.ui.components.YftTopBar
+import com.alal.yft.ui.format.YftFormat
 import com.alal.yft.ui.navigation.YftDestination
 import java.text.DateFormat
 import java.util.Date
@@ -365,7 +365,7 @@ internal fun LibraryItem.metadataLabel(): String = buildList {
             else -> "File"
         },
     )
-    sizeBytes?.let { add(formatBytes(it)) }
+    sizeBytes?.let { add(YftFormat.bytes(it)) }
     add(location.label)
     modifiedAtEpochMs?.let { add(DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(it))) }
 }.joinToString(separator = " · ")

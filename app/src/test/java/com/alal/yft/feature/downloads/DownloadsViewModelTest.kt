@@ -20,12 +20,15 @@ import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.download.TransferCheckpoint
 import com.alal.yft.core.model.media.BrowserRequestContext
+import com.alal.yft.core.model.settings.DownloadLocation
+import com.alal.yft.download.DownloadStorageSource
 import com.alal.yft.download.policy.DownloadNetworkStatus
 import com.alal.yft.download.policy.TransferNetworkState
 import com.alal.yft.testing.MainDispatcherRule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -178,6 +181,66 @@ class DownloadsViewModelTest {
 
         override suspend fun ensureApplied() {
             applied += 1
+        }
+    }
+
+    @Test
+    fun storageSummaryFollowsTheSaveLocation() = runTest {
+        val storage = FakeStorageSource(DownloadLocation.SHARED_DOWNLOADS)
+        val viewModel = DownloadsViewModel(
+            queue(InMemoryDownloadTaskStore()),
+            DownloadNetworkStatus.AlwaysAllowed,
+            storage,
+        )
+
+        runCurrent()
+        assertEquals(
+            DownloadStorageSummary(DownloadLocation.SHARED_DOWNLOADS, freeBytes = 1_000),
+            viewModel.uiState.value.storage,
+        )
+
+        storage.current.value = DownloadLocation.APP_STORAGE
+        runCurrent()
+        assertEquals(
+            DownloadStorageSummary(DownloadLocation.APP_STORAGE, freeBytes = 2_000),
+            viewModel.uiState.value.storage,
+        )
+
+        storage.current.value = null
+        runCurrent()
+        assertNull(viewModel.uiState.value.storage)
+    }
+
+    @Test
+    fun rowsDoNotWaitForStorageAndCarryTheirFile() = runTest {
+        val store = InMemoryDownloadTaskStore(
+            listOf(storedTask("done", DownloadTaskStatus.COMPLETED, downloaded = 100, total = 100)),
+        )
+        val viewModel = DownloadsViewModel(
+            queue(store),
+            DownloadNetworkStatus.AlwaysAllowed,
+            DownloadStorageSource.None,
+        )
+
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertNull(state.storage)
+        val row = state.rows.single()
+        assertEquals("video/mp4", row.mimeType)
+        assertEquals("done", row.title)
+        assertEquals(1, state.count(DownloadsFilter.DONE))
+    }
+
+    private class FakeStorageSource(initial: DownloadLocation?) : DownloadStorageSource {
+        val current = MutableStateFlow(initial)
+        private var measurements = 0
+
+        override val location: Flow<DownloadLocation?> = current
+
+        override suspend fun freeBytes(location: DownloadLocation): Long? {
+            measurements += 1
+            return measurements * 1_000L
         }
     }
 

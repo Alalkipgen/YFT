@@ -29,9 +29,10 @@ private fun style(size: Int, line: Int, weight: FontWeight, tracking: Double = 0
 )
 
 /**
- * The brief's four roles: Display 32 Bold (`headlineLarge`, screen titles), Title 22 SemiBold
- * (`titleLarge`, sections and sheets), Body 16 Regular (`bodyLarge`) and Label 14 Medium
- * (`labelLarge`). The remaining Material roles are scaled from those.
+ * The brief's four roles: Display 32 Bold (`headlineLarge`; screen titles use `headlineMedium`
+ * 28 Bold, as measured in the images), Title 22 SemiBold (`titleLarge`, sections and sheets),
+ * Body 16 Regular (`bodyLarge`) and Label 14 Medium (`labelLarge`). The remaining Material
+ * roles are scaled from those.
  */
 val YftTypography = Typography(
     displayLarge = style(48, 56, FontWeight.Bold, -0.02),

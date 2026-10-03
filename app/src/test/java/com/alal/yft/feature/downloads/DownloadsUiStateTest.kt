@@ -188,6 +188,74 @@ class DownloadsUiStateTest {
         assertEquals(0, emptyList<StoredDownloadTask>().activeDownloadCount())
     }
 
+    @Test
+    fun everyStatusFallsUnderAllAndAtMostOneOtherFilter() {
+        val expected = mapOf(
+            DownloadTaskStatus.QUEUED to DownloadsFilter.QUEUED,
+            DownloadTaskStatus.PROBING to DownloadsFilter.ACTIVE,
+            DownloadTaskStatus.RUNNING to DownloadsFilter.ACTIVE,
+            DownloadTaskStatus.PAUSING to DownloadsFilter.ACTIVE,
+            DownloadTaskStatus.PAUSED to DownloadsFilter.ACTIVE,
+            DownloadTaskStatus.WAITING_FOR_NETWORK to DownloadsFilter.QUEUED,
+            DownloadTaskStatus.NEEDS_REFRESH to DownloadsFilter.FAILED,
+            DownloadTaskStatus.VERIFYING to DownloadsFilter.ACTIVE,
+            DownloadTaskStatus.COMPLETED to DownloadsFilter.DONE,
+            DownloadTaskStatus.FAILED to DownloadsFilter.FAILED,
+            DownloadTaskStatus.CANCELLED to null,
+        )
+
+        DownloadTaskStatus.entries.forEach { status ->
+            assertTrue(DownloadsFilter.ALL.matches(status))
+            val others = DownloadsFilter.entries
+                .filter { it != DownloadsFilter.ALL && it.matches(status) }
+            assertEquals(status.name, listOfNotNull(expected.getValue(status)), others)
+        }
+    }
+
+    @Test
+    fun filterCountsAndRowsFollowTheStatuses() {
+        val state = DownloadsUiState.from(
+            listOf(
+                directTask("run", DownloadTaskStatus.RUNNING, downloaded = 10, total = 100),
+                directTask("held", DownloadTaskStatus.PAUSED, downloaded = 10, total = 100),
+                directTask("next", DownloadTaskStatus.QUEUED, downloaded = 0, total = 100),
+                directTask("done", DownloadTaskStatus.COMPLETED, downloaded = 100, total = 100),
+                directTask("gone", DownloadTaskStatus.CANCELLED, downloaded = 0, total = 100),
+            ),
+        )
+
+        assertEquals(5, state.count(DownloadsFilter.ALL))
+        assertEquals(2, state.count(DownloadsFilter.ACTIVE))
+        assertEquals(1, state.count(DownloadsFilter.QUEUED))
+        assertEquals(1, state.count(DownloadsFilter.DONE))
+        assertEquals(0, state.count(DownloadsFilter.FAILED))
+        assertEquals(
+            setOf("run", "held"),
+            state.rowsFor(DownloadsFilter.ACTIVE).map { it.id }.toSet(),
+        )
+    }
+
+    @Test
+    fun rowsCarryNameFormatSpeedAndTimeLeft() {
+        val task = directTask("a", DownloadTaskStatus.RUNNING, downloaded = 1_000, total = 4_000)
+            .copy(displayName = "Forest Rain Sounds.m4a", mimeType = "audio/mp4")
+
+        val row = DownloadsUiState.from(listOf(task), mapOf("a" to 1_000L)).rows.single()
+
+        assertEquals("Forest Rain Sounds", row.title)
+        assertEquals("M4A", row.format)
+        assertTrue(row.isAudio)
+        assertEquals(1_000L, row.bytesPerSecond)
+        assertEquals(3L, row.secondsLeft)
+        assertEquals(1_000L, row.updatedAtEpochMs)
+        assertNull(singleRow(task).secondsLeft)
+        assertNull(
+            DownloadsUiState.from(listOf(task.copy(status = DownloadTaskStatus.PAUSED)))
+                .rows.single().secondsLeft,
+        )
+        assertFalse(singleRow(directTask("v", DownloadTaskStatus.QUEUED, 0, null)).isAudio)
+    }
+
     private fun singleRow(task: StoredDownloadTask): DownloadRowUiState =
         DownloadsUiState.from(listOf(task)).rows.single()
 

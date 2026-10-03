@@ -317,8 +317,8 @@ private fun TestNavHost(
                 ) { Text(text = "View downloads") }
             }
         },
-        downloadsContent = { onNavigateBack ->
-            Placeholder(YftDestination.DOWNLOADS, onNavigateBack)
+        downloadsContent = { _ ->
+            Placeholder(YftDestination.DOWNLOADS, onNavigateBack = {})
         },
         libraryContent = { onNavigateBack ->
             LibraryScreen(

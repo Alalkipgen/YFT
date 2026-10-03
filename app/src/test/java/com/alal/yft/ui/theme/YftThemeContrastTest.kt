@@ -120,7 +120,6 @@ class YftThemeContrastTest {
             "onNavIndicator on navIndicator" to (colors.onNavIndicator to colors.navIndicator),
             "onCoral on coral" to (colors.onCoral to colors.coral),
             "coralText on coralSoft" to (colors.coralText to colors.coralSoft),
-            "onWaiting on waiting" to (colors.onWaiting to colors.waiting),
             "onScrim on scrim over white" to (colors.onScrim to scrimOverLight),
         )
     }

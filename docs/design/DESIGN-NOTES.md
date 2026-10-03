@@ -63,7 +63,7 @@ Plus Jakarta Sans (SIL OFL 1.1), bundled as Latin subsets in `app/src/main/res/f
 
 | Brief | Material role | Use |
 | --- | --- | --- |
-| Display 32 Bold | `headlineLarge` | Screen titles: Downloads, Library, Settings, Home headline |
+| Display 32 Bold | `headlineMedium` 28 Bold | Screen titles, Home headline (28 as measured) |
 | Title 22 SemiBold | `titleLarge` | Sections ("Your sites", "Recent"), sheet titles |
 | Body 16 Regular | `bodyLarge` | Body text, fields |
 | Label 14 Medium | `labelLarge` | Buttons, chips, captions |
@@ -117,10 +117,10 @@ without the bottom bar; Download as (Preview) rises as a sheet over the screen t
 - **Download as (03):** handle, "Download as", thumbnail with duration, title, "site · Video +
   audio", Video/Audio segmented control, quality list with sizes (selected row tinted), Wi-Fi
   only switch, "Download · 96 MB" Mint button, caption "Saves to Download/YFT".
-- **Downloads (04):** title + "Pause all"; All / Active / Queued / Done filters with counts;
-  cards with thumbnail, title, format, percentage, progress, "61 of 96 MB · 2.4 MB/s · 15 s
-  left" and a Mint pause button; Waiting for Wi-Fi and "Failed · reason" chips with Retry;
-  "Completed today"; storage pill "Download/YFT · 18.2 GB free".
+- **Downloads (04):** title + "Pause all"; All / Active / Queued / Done (+ Failed) filters with
+  counts; cards with thumbnail, title, format, percentage, progress, "61 of 96 MB · 2.4 MB/s ·
+  15 s left" and a Mint pause button; Waiting for Wi-Fi and "Failed · reason" chips with Retry;
+  "Completed today"; storage pill "Download/YFT · 18 GB free" (tap → Settings).
 - **Library (05):** title + search and sort; All / Video / Audio; two-column grid with duration
   badges and a ⋯ menu (Play, Share, Delete); mini player above the bottom bar.
 - **Settings (06):** grouped bordered cards under APPEARANCE / DOWNLOADS / PRIVACY / ABOUT,
@@ -200,3 +200,28 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
     size, format, language) with unknowns spelled out, and after queueing "View downloads" opens
     the Downloads tab. Rows keep 48dp touch targets, so the sheet is a little taller than the
     image; it never grows past 48dp below the status bar and scrolls on short screens.
+12. **Downloads (`04`).** Filters are All / Active / Queued / Done plus Failed (the row
+    scrolls sideways when it does not fit); Active, Queued and Failed show their counts. Active
+    also lists paused downloads, while the Downloads tab badge still counts only moving ones.
+    A download does not record its resolution, so the line under the title shows what is known
+    — "MP4", "HLS · MP4", and for finished or waiting files the size ("M4A · 12 MB") — instead
+    of the image's "1080p". Speed and time left ("61 of 96 MB · 2.4 MB/s · 15 s left") are
+    measured in memory from the progress updates while the screen is open (a smoothed average;
+    nothing is stored), and are left out until there is enough to measure. Status chips name
+    the state and why: "Queued", "Waiting for Wi-Fi" (or "Waiting for network"), "Failed ·
+    Link expired", "Link expired", "Cancelled"; failed rows offer Retry, expired-link and
+    cancelled rows offer Remove (which removes the entry, never the file). Tapping a card opens
+    its menu (Pause, Resume, Retry, Cancel download, Remove from list, Open), and TalkBack gets
+    the same choices as custom actions. Finished downloads sit under "Completed today" and
+    "Earlier"; their play button opens the file in another app until the Library mini player
+    arrives in Task 7. The storage pill docks above the bottom bar and reads "Download/YFT ·
+    18 GB free" (sizes follow the app-wide rule, so not "18.2 GB"); tapping it opens Settings.
+    When the network rule holds queued work back, one compact line under the filters says why
+    — "Wi-Fi only is on" with a Settings link, or "No connection" — because the Wi-Fi-only
+    setting applies to every download at once (the image's running-next-to-waiting mix cannot
+    happen otherwise); it is not shown when nothing waits. As drawn, failed cards show only the
+    title and the Coral chip, and status chips are small (24dp) grey or Coral pills. When the
+    detail line does not fit a narrow card the speed is dropped first, keeping the time left.
+    Screen titles measure 28sp in the images (not the brief's 32), so `YftScreenHeader` uses
+    `headlineMedium` 28 Bold. The thumbnails stay gradient tiles until Task 7, and as a
+    top-level tab the screen has no back arrow.

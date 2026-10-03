@@ -54,5 +54,4 @@ object YftPalette {
     internal val NightMintSoft = Color(0xFF17403A)
     internal val NightCoralSoft = Color(0xFF4A1F15)
     internal val NightSuccess = Color(0xFF5BD69A)
-    internal val NightWaiting = Color(0xFF3A4A4D)
 }

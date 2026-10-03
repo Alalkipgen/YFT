@@ -69,8 +69,8 @@ fun YftNavHost(
     ) -> Unit = { onNavigateBack, onOpenDownloads ->
         PreviewRoute(onNavigateBack = onNavigateBack, onOpenDownloads = onOpenDownloads)
     },
-    downloadsContent: @Composable (onNavigateBack: () -> Unit) -> Unit = { onNavigateBack ->
-        DownloadsRoute(onNavigateBack = onNavigateBack)
+    downloadsContent: @Composable (onOpenSettings: () -> Unit) -> Unit = { onOpenSettings ->
+        DownloadsRoute(onOpenSettings = onOpenSettings)
     },
     libraryContent: @Composable (onNavigateBack: () -> Unit) -> Unit = { onNavigateBack ->
         LibraryRoute(onNavigateBack = onNavigateBack)
@@ -155,7 +155,7 @@ fun YftNavHost(
             }
         }
         composable(YftDestination.DOWNLOADS.route) {
-            downloadsContent(navigateBack)
+            downloadsContent { navController.navigateToTab(YftDestination.SETTINGS) }
         }
         composable(YftDestination.LIBRARY.route) {
             libraryContent(navigateBack)

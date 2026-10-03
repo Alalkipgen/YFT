@@ -5,7 +5,10 @@ import com.alal.yft.core.download.DownloadPlanType
 import com.alal.yft.core.download.StoredDownloadTask
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DownloadTaskStatus
+import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.download.policy.TransferNetworkState
+import com.alal.yft.feature.library.LibraryMimeTypes
+import com.alal.yft.ui.format.YftFormat
 
 /** Queue control a user can invoke for a single stored task. */
 enum class DownloadAction {
@@ -61,6 +64,43 @@ internal val PAUSABLE_STATUSES = setOf(
 )
 
 /**
+ * The Downloads filter chips. Every task is under [ALL] and under at most one other filter;
+ * cancelled tasks are only under [ALL].
+ */
+enum class DownloadsFilter(val label: String) {
+    ALL("All"),
+
+    /** Moving now, or paused part-way. */
+    ACTIVE("Active"),
+
+    /** Waiting for a free slot or for an allowed network. */
+    QUEUED("Queued"),
+
+    DONE("Done"),
+
+    /** Stopped by an error or an expired link. */
+    FAILED("Failed"),
+    ;
+
+    fun matches(status: DownloadTaskStatus): Boolean = when (this) {
+        ALL -> true
+        ACTIVE -> status in ACTIVE_STATUSES || status == DownloadTaskStatus.PAUSED
+        QUEUED -> status == DownloadTaskStatus.QUEUED ||
+            status == DownloadTaskStatus.WAITING_FOR_NETWORK
+        DONE -> status == DownloadTaskStatus.COMPLETED
+        FAILED -> status == DownloadTaskStatus.FAILED ||
+            status == DownloadTaskStatus.NEEDS_REFRESH
+    }
+}
+
+/** Where new downloads are saved and the free space there, for the footer pill. */
+data class DownloadStorageSummary(
+    val location: DownloadLocation,
+    /** Null when the volume cannot be measured. */
+    val freeBytes: Long?,
+)
+
+/**
  * Presentation state for one persisted download.
  *
  * Only non-sensitive fields are exposed; source URLs, cookies and request headers stay inside the
@@ -77,7 +117,22 @@ data class DownloadRowUiState(
     val progressPercent: Int,
     val requiresLinkRefresh: Boolean,
     val failureReason: DownloadFailureReason?,
+    val mimeType: String? = null,
+    /** MediaStore or document URI of the result; null in app storage, which is opened by name. */
+    val destinationUri: String? = null,
+    val updatedAtEpochMs: Long = 0L,
+    /** Smoothed speed while running, measured in memory by this process only. */
+    val bytesPerSecond: Long? = null,
 ) {
+    /** The file name without its extension, as the cards show it. */
+    val title: String = YftFormat.title(displayName)
+
+    /** "MP4", "M4A": the container, from the file name or the MIME type. */
+    val format: String? = YftFormat.format(displayName, mimeType)
+
+    val isAudio: Boolean =
+        (mimeType ?: LibraryMimeTypes.forFileName(displayName))?.startsWith("audio/") == true
+
     /**
      * Determinate fraction, or null when the remote size is unknown so the UI must not invent a
      * determinate bar.
@@ -89,6 +144,17 @@ data class DownloadRowUiState(
     val isOccupyingQueue: Boolean = status in OCCUPYING_STATUSES
 
     val isTerminal: Boolean = status in TERMINAL_STATUSES
+
+    /** Seconds left at the current speed; null unless running with a known size and speed. */
+    val secondsLeft: Long? = run {
+        val total = totalBytes
+        val speed = bytesPerSecond?.takeIf { it > 0L }
+        if (status != DownloadTaskStatus.RUNNING || total == null || speed == null) {
+            null
+        } else {
+            ((total - downloadedBytes).coerceAtLeast(0L) + speed - 1L) / speed
+        }
+    }
 
     val availableActions: Set<DownloadAction> = buildSet {
         if (status in PAUSABLE_STATUSES) add(DownloadAction.PAUSE)
@@ -104,6 +170,8 @@ data class DownloadsUiState(
     val rows: List<DownloadRowUiState> = emptyList(),
     /** Why queued work is not moving, when the network policy holds it back. */
     val network: TransferNetworkState = TransferNetworkState.ALLOWED,
+    /** Save location and free space, or null until measured. */
+    val storage: DownloadStorageSummary? = null,
 ) {
     val isEmpty: Boolean = rows.isEmpty()
 
@@ -111,10 +179,19 @@ data class DownloadsUiState(
 
     val canPauseAll: Boolean = rows.any { DownloadAction.PAUSE in it.availableActions }
 
+    fun rowsFor(filter: DownloadsFilter): List<DownloadRowUiState> =
+        rows.filter { filter.matches(it.status) }
+
+    fun count(filter: DownloadsFilter): Int = rows.count { filter.matches(it.status) }
+
     companion object {
         val Empty = DownloadsUiState()
 
-        fun from(tasks: List<StoredDownloadTask>): DownloadsUiState = DownloadsUiState(
+        /** Rows for [tasks]; [bytesPerSecond] holds the measured speed of running tasks by id. */
+        fun from(
+            tasks: List<StoredDownloadTask>,
+            bytesPerSecond: Map<String, Long> = emptyMap(),
+        ): DownloadsUiState = DownloadsUiState(
             rows = tasks
                 .sortedWith(
                     compareBy<StoredDownloadTask> { it.status in TERMINAL_STATUSES }
@@ -133,6 +210,10 @@ data class DownloadsUiState(
                         progressPercent = task.progressPercent,
                         requiresLinkRefresh = task.requiresLinkRefresh,
                         failureReason = task.failureReason,
+                        mimeType = task.mimeType,
+                        destinationUri = task.destinationUri,
+                        updatedAtEpochMs = task.updatedAtEpochMs,
+                        bytesPerSecond = bytesPerSecond[task.id],
                     )
                 },
         )

@@ -90,7 +90,7 @@ fun YftPrimaryButton(
     }
 }
 
-/** Outlined pill such as "Pause all". */
+/** Outlined pill such as "Pause all"; [compact] is a 36dp pill inside a 48dp touch target. */
 @Composable
 fun YftOutlinedButton(
     text: String,
@@ -98,11 +98,16 @@ fun YftOutlinedButton(
     modifier: Modifier = Modifier,
     @DrawableRes icon: Int? = null,
     enabled: Boolean = true,
+    compact: Boolean = false,
 ) {
     val colors = YftTheme.colors
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier.heightIn(min = 48.dp),
+        modifier = if (compact) {
+            modifier.minimumInteractiveComponentSize().height(36.dp)
+        } else {
+            modifier.heightIn(min = 48.dp)
+        },
         enabled = enabled,
         shape = YftShapes.pill,
         border = BorderStroke(1.dp, if (enabled) colors.link else colors.border),
@@ -110,9 +115,19 @@ fun YftOutlinedButton(
             contentColor = colors.link,
             disabledContentColor = colors.textSecondary,
         ),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
+        contentPadding = if (compact) {
+            PaddingValues(start = 12.dp, end = 14.dp)
+        } else {
+            PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+        },
     ) {
-        ButtonContent(text = text, icon = icon, large = false)
+        ButtonContent(
+            text = text,
+            icon = icon,
+            large = false,
+            iconSize = if (compact) 18.dp else 20.dp,
+            gap = if (compact) 6.dp else 8.dp,
+        )
     }
 }
 

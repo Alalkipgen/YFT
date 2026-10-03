@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,7 +30,11 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.rememberNavController
+import com.alal.yft.core.download.DownloadDestinationKind
+import com.alal.yft.core.download.DownloadPlanType
 import com.alal.yft.core.model.ThemeMode
+import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaAsset
@@ -38,9 +43,15 @@ import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaSizeAccuracy
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
+import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.HomeSites
+import com.alal.yft.download.policy.TransferNetworkState
 import com.alal.yft.feature.browser.BrowserScreen
 import com.alal.yft.feature.browser.BrowserUiState
+import com.alal.yft.feature.downloads.DownloadRowUiState
+import com.alal.yft.feature.downloads.DownloadStorageSummary
+import com.alal.yft.feature.downloads.DownloadsScreen
+import com.alal.yft.feature.downloads.DownloadsUiState
 import com.alal.yft.feature.home.HomeScreen
 import com.alal.yft.feature.home.HomeUiState
 import com.alal.yft.feature.library.LibraryItem
@@ -55,10 +66,13 @@ import com.alal.yft.ui.components.PromptboxStatus
 import com.alal.yft.ui.components.SHEET_SCRIM_ALPHA
 import com.alal.yft.ui.components.YftPromptbox
 import com.alal.yft.ui.components.YftSheetHandle
+import com.alal.yft.ui.navigation.YftDestination
 import com.alal.yft.ui.navigation.YftNavHost
+import com.alal.yft.ui.navigation.navigateToTab
 import com.alal.yft.ui.theme.YftShapes
 import com.alal.yft.ui.theme.YftTheme
 import java.io.File
+import kotlinx.coroutines.flow.first
 import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
@@ -114,6 +128,12 @@ class DesignRenderTest {
     @Test
     fun downloadAsDark() = render("03-download-as-dark", ThemeMode.DARK) { DownloadAsPreview() }
 
+    @Test
+    fun downloads() = render("04-downloads", ThemeMode.LIGHT) { DownloadsShellPreview() }
+
+    @Test
+    fun downloadsDark() = render("04-downloads-dark", ThemeMode.DARK) { DownloadsShellPreview() }
+
     private fun render(name: String, themeMode: ThemeMode, content: @Composable () -> Unit) {
         composeRule.setContent { YftTheme(themeMode = themeMode) { content() } }
         composeRule.waitForIdle()
@@ -150,6 +170,42 @@ private fun ShellPreview(activeDownloads: Int) {
                 )
             },
         )
+    }
+}
+
+/** The Downloads tab (`04-downloads`) in the shell, with the design's five downloads. */
+@Composable
+private fun DownloadsShellPreview() {
+    val navController = rememberNavController()
+    YftAppShell(navController = navController, activeDownloads = 2) {
+        YftNavHost(
+            navController = navController,
+            themeMode = ThemeMode.SYSTEM,
+            onThemeModeChanged = {},
+            modifier = it,
+            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary ->
+                HomeScreen(
+                    state = SAMPLE_HOME,
+                    onAction = {},
+                    onOpenBrowser = onOpenBrowser,
+                    onOpenDetectedMedia = onOpenDetectedMedia,
+                    onOpenLibrary = onOpenLibrary,
+                )
+            },
+            downloadsContent = { _ ->
+                DownloadsScreen(
+                    uiState = SAMPLE_DOWNLOADS,
+                    onAction = { _, _ -> },
+                    onPauseAll = {},
+                    todayStartEpochMs = 0,
+                )
+            },
+        )
+    }
+    LaunchedEffect(navController) {
+        // The shell composes the NavHost during layout, so wait for its graph first.
+        navController.currentBackStackEntryFlow.first()
+        navController.navigateToTab(YftDestination.DOWNLOADS)
     }
 }
 
@@ -438,6 +494,82 @@ private fun sampleCandidate(
     mimeType = mimeType,
     title = title,
     observedAtEpochMs = index.toLong(),
+)
+
+private const val MIB = 1_048_576L
+
+private val SAMPLE_DOWNLOADS = DownloadsUiState(
+    rows = listOf(
+        sampleDownload(
+            id = "lake",
+            name = "Mountain Lake 4K.mp4",
+            status = DownloadTaskStatus.RUNNING,
+            downloaded = 64_382_566,
+            total = 96 * MIB,
+            percent = 64,
+            bytesPerSecond = 2_516_582,
+        ),
+        sampleDownload(
+            id = "city",
+            name = "City Lights Timelapse.mp4",
+            status = DownloadTaskStatus.RUNNING,
+            downloaded = 46 * MIB,
+            total = 210 * MIB,
+            percent = 22,
+            planType = DownloadPlanType.HLS,
+            bytesPerSecond = 1_887_437,
+        ),
+        sampleDownload(
+            id = "rain",
+            name = "Forest Rain Sounds.m4a",
+            status = DownloadTaskStatus.WAITING_FOR_NETWORK,
+            downloaded = 0,
+            total = 12 * MIB,
+        ),
+        sampleDownload(
+            id = "desert",
+            name = "Desert Drive.mp4",
+            status = DownloadTaskStatus.FAILED,
+            downloaded = 30 * MIB,
+            total = 140 * MIB,
+            failure = DownloadFailureReason.EXPIRED_URL,
+        ),
+        sampleDownload(
+            id = "waves",
+            name = "Ocean Waves.m4a",
+            status = DownloadTaskStatus.COMPLETED,
+            downloaded = 7 * MIB,
+            total = 7 * MIB,
+            percent = 100,
+        ),
+    ),
+    network = TransferNetworkState.WAITING_FOR_UNMETERED,
+    storage = DownloadStorageSummary(DownloadLocation.SHARED_DOWNLOADS, freeBytes = 19_541_180_006),
+)
+
+private fun sampleDownload(
+    id: String,
+    name: String,
+    status: DownloadTaskStatus,
+    downloaded: Long,
+    total: Long,
+    percent: Int = (downloaded * 100 / total).toInt(),
+    planType: DownloadPlanType = DownloadPlanType.DIRECT,
+    bytesPerSecond: Long? = null,
+    failure: DownloadFailureReason? = null,
+) = DownloadRowUiState(
+    id = id,
+    displayName = name,
+    status = status,
+    planType = planType,
+    destinationKind = DownloadDestinationKind.MEDIA_STORE,
+    downloadedBytes = downloaded,
+    totalBytes = total,
+    progressPercent = percent,
+    requiresLinkRefresh = false,
+    failureReason = failure,
+    updatedAtEpochMs = 1,
+    bytesPerSecond = bytesPerSecond,
 )
 
 private val SAMPLE_HOME = HomeUiState(

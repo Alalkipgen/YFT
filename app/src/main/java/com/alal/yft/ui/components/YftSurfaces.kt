@@ -66,18 +66,24 @@ fun YftCard(
     }
 }
 
-/** Big Display 32 Bold screen title (Downloads, Library, Settings) with trailing actions. */
+/**
+ * Big Display 32 Bold screen title (Downloads, Library, Settings) with trailing actions. The
+ * default end padding suits 48dp icon buttons; pills such as Pause all pass a wider one so their
+ * edge lines up with the cards below.
+ */
 @Composable
 fun YftScreenHeader(
     title: String,
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues =
+        PaddingValues(start = 16.dp, top = 12.dp, end = 8.dp, bottom = 4.dp),
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 64.dp)
-            .padding(start = 20.dp, end = 12.dp, top = 12.dp, bottom = 4.dp),
+            .padding(contentPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -86,7 +92,7 @@ fun YftScreenHeader(
                 .weight(1f)
                 .semantics { heading() },
             color = YftTheme.colors.textPrimary,
-            style = MaterialTheme.typography.headlineLarge,
+            style = MaterialTheme.typography.headlineMedium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

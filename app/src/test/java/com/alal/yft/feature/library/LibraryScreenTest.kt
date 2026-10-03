@@ -89,7 +89,7 @@ class LibraryScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Video · 2.0 MB · Download/YFT").assertIsDisplayed()
+        composeRule.onNodeWithText("Video · 2 MB · Download/YFT").assertIsDisplayed()
         composeRule.onNodeWithText("File · App storage").assertIsDisplayed()
         composeRule.onAllNodesWithTag("library-play-app:notes.bin").assertCountEquals(0)
 

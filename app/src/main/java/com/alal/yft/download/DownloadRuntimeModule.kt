@@ -179,6 +179,18 @@ object DownloadRuntimeModule {
 
     @Provides
     @Singleton
+    fun provideStorageSpace(@ApplicationContext context: Context): StorageSpace =
+        StatFsStorageSpace(context)
+
+    @Provides
+    @Singleton
+    fun provideDownloadStorageSource(
+        preferences: DownloadPreferencesRepository,
+        space: StorageSpace,
+    ): DownloadStorageSource = PreferencesDownloadStorageSource(preferences, space)
+
+    @Provides
+    @Singleton
     fun provideDownloadEnqueuer(
         queue: DownloadQueue,
         probe: DirectMetadataProbe,
@@ -186,7 +198,7 @@ object DownloadRuntimeModule {
         serviceStarter: DownloadServiceStarter,
         policy: DownloadPolicyGate,
         preferences: DownloadPreferencesRepository,
-        @ApplicationContext context: Context,
+        storage: StorageSpace,
     ): DownloadEnqueuer = DownloadEnqueuer(
         queue = queue,
         probe = probe,
@@ -194,7 +206,7 @@ object DownloadRuntimeModule {
         serviceStarter = serviceStarter,
         policy = policy,
         location = { preferences.preferences.first().location },
-        storage = StatFsStorageSpace(context),
+        storage = storage,
     )
 
     @Provides
