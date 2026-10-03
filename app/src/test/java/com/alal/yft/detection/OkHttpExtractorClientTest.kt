@@ -170,6 +170,38 @@ class OkHttpExtractorClientTest {
                 .build()
         }
     }
+    @Test
+    fun shareRedirectChainKeepsNavigationHeadersAndNeverAddsCookies() = runTest {
+        val seen = mutableListOf<Request>()
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            val request = chain.request()
+            seen += request
+            val location = when (request.url.encodedPath) {
+                "/share/v/fixtureCode" -> "/share/r/fixtureCode"
+                "/share/r/fixtureCode" -> "/reel/1603698891196107"
+                else -> null
+            }
+            Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
+                .code(if (location == null) 200 else 302).message("Fixture")
+                .apply { if (location != null) header("Location", location) }
+                .body("<title>Fixture</title>".toResponseBody())
+                .build()
+        }.build()
+
+        val result = OkHttpExtractorClient(client).get(
+            "https://www.facebook.com/share/v/fixtureCode",
+            HeadlessIdentity.NAVIGATION_HEADERS + ("User-Agent" to HeadlessIdentity.USER_AGENT),
+        ) as ExtractorHttpResult.Success
+
+        assertEquals("https://www.facebook.com/reel/1603698891196107", result.finalUrl)
+        assertEquals(3, seen.size)
+        seen.forEach { request ->
+            assertEquals(HeadlessIdentity.USER_AGENT, request.header("User-Agent"))
+            assertEquals("navigate", request.header("Sec-Fetch-Mode"))
+            assertNull(request.header("Cookie"))
+        }
+    }
+
 }
 
 private typealias Failure = ExtractorHttpResult.Failure

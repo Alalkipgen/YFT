@@ -120,12 +120,19 @@ sealed interface SiteExtractionResult {
      * An adapter must never return a guessed or unrelated URL to avoid an empty result; an empty
      * extraction is reported as [SiteExtractionFailure.NO_MEDIA_FOUND] instead.
      */
-    data class Success(val candidates: List<MediaCandidate>) : SiteExtractionResult {
+    data class Success(
+        val candidates: List<MediaCandidate>,
+        /** Non-sensitive lookup steps, including warnings that do not prevent extraction. */
+        val details: List<String> = emptyList(),
+    ) : SiteExtractionResult {
         init {
             require(candidates.isNotEmpty()) {
                 "A successful extraction must contain at least one candidate"
             }
         }
+
+        override fun toString(): String =
+            "Success(candidates=$candidates, details=${DiagnosticTextSanitizer.details(details)})"
     }
 
     data class Failure(

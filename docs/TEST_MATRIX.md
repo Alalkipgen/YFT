@@ -383,13 +383,32 @@ Reports stay local; About Share opens a text chooser only after a tap, with no f
 | Full validation / instrumentation APK | PASS — core-model 38, core-browser 54, extractor-api 24, extractor-generic 7, extractor-sites 95, app 436 (54 render skips), 0 failures/errors; lint 0 errors / 95 warnings; instrumentation APK compiled |
 | Script checks / style | PASS — 22 Python tests; live checker bash-n/shellcheck; diff-check and new Kotlin lines <=100 |
 | Public Facebook live check | PASS — HTTP 200, host www.facebook.com, path /reel/1603698891196107/, 609875 bytes; browser_native_hd_url=yes, TikTok/YouTube markers=no; no cookies or raw page/query output |
-| CI / owner check | This task checkpoint's two workflows must be checked; no separate phone check yet (T06–T08 consume this). Native pixels still require authenticated artifact access |
+| CI / owner check | PASS on cbc92e5 — both workflows green; emulator https://github.com/Alalkipgen/YFT/actions/runs/37152854933 and checkpoint/debug APK https://github.com/Alalkipgen/YFT/actions/runs/37152854989. No separate phone check yet (T06–T08 consume this); native pixel review requires authentication |
 
 Full command: T01 memory flags plus
 `:core-model:test :core-browser:testDebugUnitTest :extractor-api:test :extractor-generic:test :extractor-sites:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest`.
 Script command: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -q`.
 Live command: `bash scripts/live-check.sh https://www.facebook.com/share/v/1Q3kAyptrS/`.
 Public page delivery is not yet successful Facebook extraction: its DRM parser is T06.
+
+### T06 — Facebook public reels without sign-in (OWNER CHECK, 2026-10-03)
+
+| Check | Result |
+| --- | --- |
+| Starting state | PASS — extractor-api 24, extractor-sites 95, app 436 (54 render skips), no failures/errors; lint 0 errors / 95 warnings |
+| Public-reel regression | FAILED old: a certificate-only `drm_info` with an empty licence map returned DRM_PROTECTED (1 test, 1 failure); PASSED fixed with HD, SD and DASH candidates |
+| Real DRM | PASS — explicit flags (direct or legacy node), a non-empty licence map and a graph licence URI still fail as DRM_PROTECTED; unreadable `drm_info` adds only `drm_info: unreadable metadata` and never copies its value |
+| Share links | PASS — `/share/v/` and `/share/r/` accept the redirected reel/watch ID without selecting a suggested video; the OkHttp redirect chain keeps navigation headers and adds no cookies |
+| Metadata | PASS — decimal, hex and named entities decoded once in title, owner and meta fallbacks; trailing Facebook suffix trimmed; the `og:image` fallback decodes `&amp;` once; heights come only from DASH or rendition metadata, never from HD/SD |
+| Login walls | PASS — a login/checkpoint redirect or a login form fails as LOGIN_REQUIRED; a login phrase cannot downgrade a playable public page |
+| Full validation / instrumentation APK | PASS — extractor-api 26, extractor-sites 109, app 437 (54 render skips), 0 failures/errors; lint 0 errors / 95 warnings; instrumentation APK compiled; 22 Python tests; diff-check and new Kotlin lines <=100. After the `og:image` decoding fix: extractor-sites 110, 0 failures |
+| Public live check | PASS — owner's share link → HTTP 200, `www.facebook.com/reel/1603698891196107/`, 610752 bytes; parser Success with 2 progressive (HD, SD) and 1 DASH; ranged SD GET → 206. No body, cookie or signed URL printed |
+| CI / owner check | This checkpoint's two workflows are checked before T07. Owner check: paste the Facebook link on Home → found → download → it plays |
+
+Full command: T01 memory flags plus
+`:extractor-api:test :extractor-sites:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest`.
+Live parser run: the sanitized-output harness outside the repository on the page fetched by
+`scripts/live-check.sh`; it prints only the result type, counts and the ranged-GET status.
 
 ## Runtime tests still requiring a device/emulator
 

@@ -38,9 +38,15 @@ internal data class FacebookPost(
 )
 
 internal sealed interface FacebookParseResult {
-    data class Success(val post: FacebookPost) : FacebookParseResult
+    data class Success(
+        val post: FacebookPost,
+        val details: List<String> = emptyList(),
+    ) : FacebookParseResult
 
-    data class Failure(val reason: SiteExtractionFailure) : FacebookParseResult
+    data class Failure(
+        val reason: SiteExtractionFailure,
+        val details: List<String> = emptyList(),
+    ) : FacebookParseResult
 }
 
 /**
@@ -58,6 +64,7 @@ internal object FacebookPageParser {
     private const val MAX_SCRIPTS = 80
     private const val MAX_SCRIPT_CHARS = 2_000_000
     private const val MAX_SEARCH_NODES = 300_000
+    private const val MAX_DRM_INFO_CHARS = 16_384
 
     /** Delivery fields that mark a node as the video node rather than a related entity. */
     private val MEDIA_KEYS = listOf(
@@ -110,17 +117,19 @@ internal object FacebookPageParser {
             ?: return FacebookParseResult.Failure(
                 accessFailure(html) ?: SiteExtractionFailure.RESPONSE_CHANGED,
             )
-        if (isDrmProtected(node)) {
-            return FacebookParseResult.Failure(SiteExtractionFailure.DRM_PROTECTED)
+        val drm = drmAssessment(node)
+        if (drm.isProtected) {
+            return FacebookParseResult.Failure(SiteExtractionFailure.DRM_PROTECTED, drm.details)
         }
 
         val renditions = renditions(node)
         if (renditions.isEmpty()) {
             return FacebookParseResult.Failure(
                 accessFailure(html) ?: SiteExtractionFailure.NO_MEDIA_FOUND,
+                drm.details,
             )
         }
-        return FacebookParseResult.Success(post(node, html, renditions))
+        return FacebookParseResult.Success(post(node, html, renditions), drm.details)
     }
 
     /**
@@ -187,6 +196,15 @@ internal object FacebookPageParser {
      */
     private fun renditions(node: JsonValue.Object): List<FacebookRendition> {
         val collected = LinkedHashMap<String, FacebookRendition>()
+        val heights = FacebookQualityMetadata.heightsByUrl(
+            listOfNotNull(
+                node["dash_manifest"].asStringOrNull,
+                node.path("videoDeliveryLegacyFields", "dash_manifest").asStringOrNull,
+                node.path(
+                    "videoDeliveryResponseFragment", "videoDeliveryResponseResult", "dash_manifest",
+                ).asStringOrNull,
+            ),
+        )
 
         progressiveEntries(node).forEach { entry ->
             val url = entry["progressive_url"].asStringOrNull?.httpsOrNull() ?: return@forEach
@@ -194,7 +212,12 @@ internal object FacebookPageParser {
                 url,
                 FacebookRendition(
                     url = url,
-                    label = qualityLabel(entry.path("metadata", "quality").asStringOrNull),
+                    label = FacebookQualityMetadata.label(
+                        qualityLabel(entry.path("metadata", "quality").asStringOrNull),
+                        url,
+                        heights,
+                        entry.path("metadata", "height").asLongOrNull,
+                    ),
                     delivery = FacebookDelivery.PROGRESSIVE,
                 ),
             )
@@ -207,7 +230,11 @@ internal object FacebookPageParser {
                 ?: return@forEach
             collected.putIfAbsent(
                 url,
-                FacebookRendition(url, label, FacebookDelivery.PROGRESSIVE),
+                FacebookRendition(
+                    url,
+                    FacebookQualityMetadata.label(label, url, heights),
+                    FacebookDelivery.PROGRESSIVE,
+                ),
             )
         }
 
@@ -250,10 +277,42 @@ internal object FacebookPageParser {
         }
     }
 
-    private fun isDrmProtected(node: JsonValue.Object): Boolean =
-        node["is_drm_protected"].asBooleanOrNull == true ||
-            node.path("videoDeliveryLegacyFields", "is_drm_protected").asBooleanOrNull == true ||
-            (node["drm_info"].asStringOrNull != null)
+    private data class DrmAssessment(val isProtected: Boolean, val details: List<String>)
+
+    private fun drmAssessment(node: JsonValue.Object): DrmAssessment {
+        if (node["is_drm_protected"].asBooleanOrNull == true ||
+            node.path("videoDeliveryLegacyFields", "is_drm_protected").asBooleanOrNull == true
+        ) return DrmAssessment(true, listOf("DRM: explicit protection flag"))
+
+        val details = mutableListOf<String>()
+        val values = listOf(node["drm_info"], node.path("videoDeliveryLegacyFields", "drm_info"))
+        for (value in values) {
+            if (value == null || value == JsonValue.Null) continue
+            val info = when (value) {
+                is JsonValue.Object -> value
+                is JsonValue.Text -> value.value.takeIf { it.length <= MAX_DRM_INFO_CHARS }
+                    ?.let { BoundedJsonParser.parse(it, maxDepth = 16, maxNodes = 1_000) }
+                    as? JsonValue.Object
+                else -> null
+            }
+            if (info == null) {
+                details += "drm_info: unreadable metadata"
+                continue
+            }
+            val licences = info["video_license_uri_map"]
+            val hasLicences = when (licences) {
+                is JsonValue.Object -> licences.entries.isNotEmpty()
+                is JsonValue.Array -> licences.items.isNotEmpty()
+                is JsonValue.Text -> licences.value.isNotBlank()
+                else -> false
+            }
+            val graphLicence = info["graph_api_video_license_uri"]
+            if (hasLicences || (graphLicence != null && graphLicence != JsonValue.Null)) {
+                return DrmAssessment(true, details + "DRM: licence metadata present")
+            }
+        }
+        return DrmAssessment(false, details.distinct())
+    }
 
     private fun post(
         node: JsonValue.Object,
@@ -261,12 +320,18 @@ internal object FacebookPageParser {
         renditions: List<FacebookRendition>,
     ): FacebookPost = FacebookPost(
         videoId = videoId(node),
-        ownerName = node.path("owner", "name").asStringOrNull,
-        title = node.path("title", "text").asStringOrNull
-            ?: node["title"].asStringOrNull
-            ?: node.path("savable_description", "text").asStringOrNull
-            ?: node.path("message", "text").asStringOrNull
-            ?: metaContent(html, "og:title"),
+        ownerName = node.path("owner", "name").asStringOrNull?.decodeHtmlEntities()?.trim(),
+        title = (
+            (
+                node.path("title", "text").asStringOrNull
+                    ?: node["title"].asStringOrNull
+                    ?: node.path("savable_description", "text").asStringOrNull
+                    ?: node.path("message", "text").asStringOrNull
+                )?.decodeHtmlEntities()
+                // An attribute value is decoded once by metaContent.
+                ?: metaContent(html, "og:title")
+            )?.replace(FACEBOOK_SUFFIX, "")?.trim()
+            ?.takeIf(String::isNotEmpty),
         thumbnailUrl = listOf(
             node.path("preferred_thumbnail", "image", "uri").asStringOrNull,
             node.path("thumbnailImage", "uri").asStringOrNull,
@@ -310,7 +375,10 @@ internal object FacebookPageParser {
         }
     }
 
-    /** Reads a single `<meta property="...">` value, used only as a metadata fallback. */
+    /**
+     * Reads a single `<meta property="...">` value, used only as a metadata fallback. Attribute
+     * values are HTML-encoded, so `&amp;` in an `og:image` query must become `&` exactly once.
+     */
     private fun metaContent(html: String, property: String): String? {
         val tag = Regex(
             "<meta[^>]*?(?:property|name)=[\"']${Regex.escape(property)}[\"'][^>]*?>",
@@ -321,15 +389,28 @@ internal object FacebookPageParser {
         return content.decodeHtmlEntities().trim().takeIf(String::isNotEmpty)
     }
 
-    private fun String.decodeHtmlEntities(): String = this
-        .replace("&quot;", "\"")
-        .replace("&#039;", "'")
-        .replace("&#39;", "'")
-        .replace("&apos;", "'")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&nbsp;", " ")
-        .replace("&amp;", "&")
+    private fun String.decodeHtmlEntities(): String = ENTITY.replace(this) { match ->
+        val token = match.groupValues[1]
+        if (!token.startsWith('#')) {
+            NAMED_ENTITIES[token.lowercase(Locale.US)] ?: match.value
+        } else {
+            val hex = token.startsWith("#x", ignoreCase = true)
+            val value = token.drop(if (hex) 2 else 1).toLongOrNull(if (hex) 16 else 10)
+            if (value != null && value in 1L..0x10FFFFL && value !in 0xD800L..0xDFFFL) {
+                String(Character.toChars(value.toInt()))
+            } else {
+                match.value
+            }
+        }
+    }
+
+    private val ENTITY = Regex("&(#x[0-9a-f]+|#[0-9]+|[a-z]+);", RegexOption.IGNORE_CASE)
+    private val FACEBOOK_SUFFIX = Regex("\\s*\\|\\s*Facebook\\s*$", RegexOption.IGNORE_CASE)
+    private val NAMED_ENTITIES = mapOf(
+        "quot" to "\"", "apos" to "'", "lt" to "<", "gt" to ">", "amp" to "&",
+        "nbsp" to " ", "middot" to "·", "copy" to "©", "reg" to "®", "ndash" to "–",
+        "mdash" to "—", "hellip" to "…",
+    )
 
     private fun String.httpsOrNull(): String? =
         takeIf { it.startsWith("https://", ignoreCase = true) }

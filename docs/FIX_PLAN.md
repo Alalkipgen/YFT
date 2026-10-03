@@ -133,7 +133,7 @@ Agents update the **Status** column in every task checkpoint.
 | T03 | [Browser start page; WebView only when a page is open](#t03--browser-start-page-webview-only-when-a-page-is-open) | 8 | P0 | Medium | 1 d | T01 | OWNER CHECK |
 | T04 | [Local crash report and lookup details](#t04--local-crash-report-and-lookup-details) | 8 | P0 | Easy–Medium | 0.5–1 d | — | OWNER CHECK |
 | T05 | [Browser-like request identity for Home lookups](#t05--browser-like-request-identity-for-home-lookups) | 8 | P1 | Easy–Medium | 0.5 d | — | DONE (2026-10-03) |
-| T06 | [Facebook public reels and videos without sign-in](#t06--facebook-public-reels-and-videos-without-sign-in) | 8 | P1 | Medium | 1 d | T05 | TODO |
+| T06 | [Facebook public reels and videos without sign-in](#t06--facebook-public-reels-and-videos-without-sign-in) | 8 | P1 | Medium | 1 d | T05 | OWNER CHECK |
 | T07 | [TikTok media cookies for Home lookups](#t07--tiktok-media-cookies-for-home-lookups) | 8 | P1 | Medium | 0.5 d | T05 | TODO |
 | T08 | [YouTube: honest messages, identity and details](#t08--youtube-honest-messages-identity-and-details) | 8 | P1 | Easy | 0.5 d | T04, T05 | TODO |
 | T09 | [Your sites: YouTube, Facebook, TikTok with logos](#t09--your-sites-youtube-facebook-tiktok-with-logos) | 8 | P1 | Easy | 0.5 d | — | TODO |

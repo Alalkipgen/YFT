@@ -16,9 +16,9 @@
   empty browser hides the address bar; P3 every page load in the browser closes the app; P4 YouTube
   fails with a sign-in message; P5 a TikTok video is found but the download fails. Causes with
   evidence: FIX_PLAN §4 (F1–F8).
-- **Next action — agent:** check the T05 checkpoint CI, then T06 — Facebook public video
-  ([`prompts/T06-facebook-public-video.md`](prompts/T06-facebook-public-video.md)). T05 is DONE;
-  T04 is OWNER CHECK:
+- **Next action — agent:** check the T06 checkpoint CI, then T07 — TikTok media cookies
+  ([`prompts/T07-tiktok-media-cookies.md`](prompts/T07-tiktok-media-cookies.md)). T06 is OWNER
+  CHECK (Facebook Home download/playback on the phone); T05 is DONE; T04 is OWNER CHECK:
   final tests, all 9 individually inspected renders and the actual release debug-action guard
   pass. Use [`prompts/00_NEXT_TASK.md`](prompts/00_NEXT_TASK.md) for subsequent eligible tasks.
 - **Next action — owner:** answer D1 (clipboard check on open), D2 (YouTube strategy A or B) and D3
@@ -72,6 +72,15 @@
   compiled; Python 22/22, shell/style checks pass. Public live check: HTTP 200 on
   www.facebook.com/reel/1603698891196107/, 609875 bytes, HD marker present, no cookies or query
   output. This proves page delivery, not Facebook extraction/download (T06). No phone check yet.
+  cbc92e5 CI GREEN: emulator https://github.com/Alalkipgen/YFT/actions/runs/37152854933 and
+  checkpoint/debug APK https://github.com/Alalkipgen/YFT/actions/runs/37152854989.
+- **T06 OWNER CHECK:** Facebook public reels no longer fail as DRM when `drm_info` carries only a
+  certificate; licence maps, graph licence URIs and explicit flags still block. Share redirects,
+  single entity decoding, the Facebook suffix trim and DASH/rendition-only heights are tested.
+  The old certificate-only regression failed, fixed passes. Full tests: extractor-api 26,
+  extractor-sites 109 (110 after the og:image fix), app 437 (54 render skips), 0 failures;
+  lint 0 errors/95 warnings; instrumentation APK compiled. Live: the owner's share link parsed
+  to HD, SD and DASH; ranged SD GET 206. Phone: paste the link on Home → download → it plays.
 
 ## Known limitations (beta.2)
 

@@ -50,23 +50,33 @@ class FacebookExtractor(
             is ExtractorHttpResult.Success -> result
         }
 
+        val pageDetails = listOf(
+            "page GET ${response.statusCode} (${response.body.length} characters)",
+        )
+
         // Facebook answers a gated page with a redirect to its login or checkpoint flow.
         if (FacebookUrls.isAccessWall(response.finalUrl)) {
-            return SiteExtractionResult.Failure(SiteExtractionFailure.LOGIN_REQUIRED)
+            return SiteExtractionResult.Failure(
+                SiteExtractionFailure.LOGIN_REQUIRED,
+                details = pageDetails + "page: login/checkpoint wall",
+            )
         }
 
         // A short or share link resolves to the real video, so the identity is only known now.
         val resolvedIdentity = resolvedIdentity(request.identity, response.finalUrl)
-        val post = when (
-            val parsed = FacebookPageParser.parse(
-                html = response.body,
-                expectedVideoId = resolvedIdentity.contentId
-                    .takeUnless { resolvedIdentity.requiresCanonicalResolution },
+        val parsed = FacebookPageParser.parse(
+            html = response.body,
+            expectedVideoId = resolvedIdentity.contentId
+                .takeUnless { resolvedIdentity.requiresCanonicalResolution },
+        )
+        if (parsed is FacebookParseResult.Failure) {
+            return SiteExtractionResult.Failure(
+                parsed.reason, details = pageDetails + parsed.details,
             )
-        ) {
-            is FacebookParseResult.Failure -> return SiteExtractionResult.Failure(parsed.reason)
-            is FacebookParseResult.Success -> parsed.post
         }
+        parsed as FacebookParseResult.Success
+        val post = parsed.post
+        val details = pageDetails + parsed.details
 
         val pageUrl = pageUrl(resolvedIdentity, post)
         val candidates = post.renditions.mapNotNull { rendition ->
@@ -101,9 +111,13 @@ class FacebookExtractor(
         // The parser only returns a post with renditions, so an empty list means every link the
         // page exposed had already expired and the page has to be reloaded.
         if (candidates.isEmpty()) {
-            return SiteExtractionResult.Failure(SiteExtractionFailure.EXPIRED_LINK)
+            return SiteExtractionResult.Failure(
+                SiteExtractionFailure.EXPIRED_LINK, details = details,
+            )
         }
-        return SiteExtractionResult.Success(candidates)
+        return SiteExtractionResult.Success(
+            candidates, details + "parsed ${candidates.size} renditions",
+        )
     }
 
     /**

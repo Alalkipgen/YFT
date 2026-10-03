@@ -22,6 +22,11 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Fixed
 
+- Facebook public reels and videos no longer fail as DRM-protected when the page carries only
+  a playback certificate. DRM needs an explicit flag, a non-empty licence map or a graph
+  licence URI; unreadable DRM metadata becomes a lookup details warning. Share links use the
+  redirected reel/watch ID, titles decode HTML entities once and drop the trailing Facebook
+  suffix, and HD/SD labels gain a height only when the DASH manifest or rendition states it.
 - Home Paste/Open browser actions wrap at large text sizes rather than truncating the browser
   label. About privacy text includes both explicit clipboard actions.
 - Empty browser now uses a Compose start page with tap-to-paste and saved Your sites.
