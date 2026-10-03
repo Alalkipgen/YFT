@@ -1,0 +1,38 @@
+# 00 — နောက် Task ကို ဆက်လုပ်ရန်
+
+**ရည်ရွယ်ချက်:** Agent က `docs/FIX_PLAN.md` status board ကိုကြည့်ပြီး နောက်လုပ်ရမယ့် task တစ်ခုကို
+ရွေးလုပ်ပြီး ရပ်ပါမယ်။ ဘာလုပ်ရမလဲ မသေချာရင် ဒီ prompt ကိုပဲ သုံးပါ။
+
+**သုံးနည်း:** code block တစ်ခုလုံးကို agent chat အသစ်ထဲ paste လုပ်ပါ။ D1–D3 ကို ဖြေပြီးရင်
+`OWNER ANSWERS:` line မှာ ထည့်ပါ။ Release ကို merge/tag လုပ်စေချင်မှ `ALLOW_MERGE_MAIN: true` ပေးပါ။
+
+```text
+You are a coding agent on YFT, an ad-free Android video downloader (Kotlin, Jetpack Compose,
+Material 3, Hilt, Media3). Do exactly one task from the fix plan, then stop.
+
+Repository: https://github.com/Alalkipgen/YFT
+ALLOW_PUSH: true          (checkpoint pushes to work/phase-* branches only)
+ALLOW_MERGE_MAIN: false   (release tasks: merge into main and push the tag only when true)
+ALLOW_RELEASE: false      (publishing; only the owner sets this)
+OWNER ANSWERS: none       (example: D1=YES D2=B D3=YES)
+
+The repository is the source of truth; do not rely on chat history.
+
+1. Follow AGENTS.md: git fetch --all --prune; git status; git log -5 --oneline. Read
+   docs/SESSION_STATE.md and docs/FIX_PLAN.md §0, §1 (status board) and §3 (decisions).
+2. If OWNER ANSWERS has values, record them in FIX_PLAN §3 as `YES/NO/A/B (date)`.
+3. Choose the task:
+   a. A task that is IN PROGRESS: resume it (SESSION_STATE says where it stopped).
+   b. Otherwise the first TODO task in the phase order (the "Order:" line at the top of
+      FIX_PLAN §5, §6 and §7) whose needs are met: every task it needs is DONE or OWNER CHECK,
+      and every decision it needs is answered.
+   c. A task blocked by a PENDING decision is passed over when another task of the same phase
+      can go first (for example T12 before T11). If nothing can start, ask the owner the
+      pending question(s) in Burmese, checkpoint nothing, and stop.
+   d. A release task (T10, T15, T19) comes last in its phase and merges or tags only when
+      ALLOW_MERGE_MAIN is true.
+4. Open the task's prompt file (table in docs/prompts/README.md) and follow it exactly from its
+   START section: branch, reading, starting validation, work, tests, validation, docs,
+   checkpoint, CI check, Burmese report.
+5. Stop after that one task. Do not start the next one.
+```

@@ -13,8 +13,35 @@ Do not rely on chat history. At the beginning of a session:
    - `docs/PHASE_STATUS.md`
    - `docs/HANDOFF.md`
    - `docs/SESSION_STATE.md`
+   - `docs/FIX_PLAN.md` (Phases 8–10: status board, decisions, findings and tasks)
 3. Verify the existing build before editing.
 4. Work only on the current phase. Never start the next phase automatically.
+
+## Task workflow (Phases 8–10)
+
+- Do one `docs/FIX_PLAN.md` task per session, following its prompt in `docs/prompts/`
+  (`00_NEXT_TASK.md` picks the next one). Update the status board in every task checkpoint.
+- A task that needs an owner decision still `PENDING` in FIX_PLAN §3 is blocked: ask the owner
+  in Burmese and stop instead of guessing.
+- Site tasks need a live check of a public page (`scripts/live-check.sh` once T05 lands). Report
+  status, host, path and markers only, never bodies, cookies or signed URLs.
+- Final reports to the owner are written in Burmese (FIX_PLAN §0.5). The app text stays English.
+- Anything outside the task goes to FIX_PLAN §9 Backlog.
+
+## Resuming work
+
+A pushed branch is the only durable handoff; a local commit or a stash is not. A new chat runs:
+
+```bash
+git fetch --all --prune
+git status
+git branch --show-current
+git log -5 --oneline
+```
+
+Then it reads the files above, checks out the branch recorded in `docs/SESSION_STATE.md`, pulls
+it and runs the recorded validation before editing. A `wip` checkpoint must be repaired before
+its task is marked done.
 
 If documentation and verified code disagree, build/test results take priority and the documentation must be corrected.
 

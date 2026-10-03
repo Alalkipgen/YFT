@@ -48,16 +48,18 @@ The application ID must be reconfirmed before the first production release becau
 9. Run the plan in a foreground service with persisted state.
 10. Export the completed file through MediaStore or the Storage Access Framework.
 
-## Planned phases
+## Phases
 
-- Phase 0 — Discovery, architecture and feasibility spikes
-- Phase 1 — Production foundation and CI
-- Phase 2 — Browser and generic detection
-- Phase 3 — Preview and variant resolution
-- Phase 4 — Download engines and recovery
-- Phase 5 — Site adapters
-- Phase 6 — Hardening and UI polish
-- Phase 7 — Signed beta and release preparation
+Phases 0–7 are complete: discovery, foundation and CI, browser and generic detection, preview and
+variants, download engines and recovery, site adapters (plus 5E, YouTube by owner decision),
+hardening and UI polish (plus the UI redesign), and the signed beta. See `docs/PHASE_STATUS.md`.
+
+Planned, task by task in `docs/FIX_PLAN.md`:
+
+- Phase 8 — Field fixes from the beta.2 phone test → `1.0.0-beta.3`
+- Phase 9 — Copied-link flow ("Video you copied" sheet, Search to download, floating Download
+  button) → `1.0.0-beta.4`
+- Phase 10 — Formats and YouTube (client strategy, merged video and audio, MP3) → `1.0.0-beta.5`
 
 ## Out of scope for the MVP
 

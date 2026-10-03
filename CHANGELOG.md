@@ -5,6 +5,15 @@ All notable changes to Video Downloader (YFT) are recorded here. The format foll
 [Semantic Versioning](https://semver.org/). `yft.versionCode` in `gradle.properties` rises by one
 for every APK given to users, because Android refuses to install a lower one.
 
+## [Unreleased]
+
+### Changed
+
+- Documentation: `docs/FIX_PLAN.md` plans Phases 8–10 task by task after the beta.2 phone test,
+  with ready-to-paste prompts in `docs/prompts/`. The old phase prompts, the hardening audit and
+  the continuity protocol were removed (they stay in Git history); `PHASE_STATUS.md` and
+  `HANDOFF.md` were condensed.
+
 ## [1.0.0-beta.2] - 2026-10-03
 
 Second beta, with the redesigned interface from the owner's design images (`docs/design/`).

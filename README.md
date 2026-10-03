@@ -2,19 +2,31 @@
 
 YFT is an ad-free Android application for detecting, previewing and downloading authorized non-DRM media from direct links, HTML5 players, HLS and DASH streams.
 
-**Phase 5 and Phase 5E are complete.** TikTok, Facebook, Vimeo and — by owner decision ([ADR-005](docs/decisions/ADR-005-youtube-owner-override.md)) — YouTube extractors run behind the extractor API with offline fixtures and a clean fallback to generic detection. YouTube support covers single videos as progressive MP4 (usually up to 360p) plus M4A audio; its risks and limits are recorded in [`docs/YOUTUBE_RISK_REVIEW.md`](docs/YOUTUBE_RISK_REVIEW.md). YFT is distributed through GitHub only.
+## Status
 
-**Phase 6 — hardening, privacy, performance and UI polish — is complete**; every finding in [`docs/HARDENING_AUDIT.md`](docs/HARDENING_AUDIT.md) is fixed, compliant or device-only.
-
-**Phase 7 — signed beta and GitHub release — is complete.** Version `1.0.0-beta.1` was signed by the release workflow with the owner's key and published as a GitHub pre-release on 2026-10-02 (original launcher icon and launch screen, release signing from environment variables or an untracked `keystore.properties`, APK verification and checksum scripts, a device install/upgrade script and a draft-only release workflow; [`docs/RELEASE.md`](docs/RELEASE.md)).
-
-**The UI redesign is complete** and merged into `main`: every screen follows the owner's design images ([`docs/design/DESIGN-NOTES.md`](docs/design/DESIGN-NOTES.md)) — Mint and Deep Teal with a light and a Night theme, Plus Jakarta Sans, a new app icon, Home with the Promptbox, the Browser's "Found on this page" sheet, the "Download as" sheet, Downloads, the Library with a mini player, Settings, About and Licenses — with every feature kept. `1.0.0-beta.2` is the first release with it. All behavior below is verified with JVM, Robolectric and fixture tests; on-device checks that this environment cannot run are listed in [`docs/TEST_MATRIX.md`](docs/TEST_MATRIX.md).
+- `1.0.0-beta.1` is published (2026-10-02). `1.0.0-beta.2`, the first build with the redesigned
+  interface, is a signed draft pre-release (2026-10-03).
+- The owner's phone test of beta.2 found blocking problems: the in-app browser closes the app on
+  every page load, the empty browser hides its address bar, and Home lookups fail for a public
+  Facebook reel (asks to sign in), TikTok (download refused) and YouTube (bot check). Causes and
+  the fix plan: [`docs/FIX_PLAN.md`](docs/FIX_PLAN.md).
+- Next: Phase 8 field fixes → `1.0.0-beta.3`; Phase 9 copied-link flow ("Video you copied" sheet,
+  Search to download, floating Download button) → beta.4; Phase 10 formats and YouTube (merged
+  720p/1080p, MP3) → beta.5.
+- Complete: Phases 0–7, 5E (YouTube by owner decision,
+  [ADR-005](docs/decisions/ADR-005-youtube-owner-override.md)) and the UI redesign
+  ([`docs/design/DESIGN-NOTES.md`](docs/design/DESIGN-NOTES.md)); see
+  [`docs/PHASE_STATUS.md`](docs/PHASE_STATUS.md). YouTube risks and limits:
+  [`docs/YOUTUBE_RISK_REVIEW.md`](docs/YOUTUBE_RISK_REVIEW.md). YFT is distributed through GitHub
+  only.
 
 ## Install the beta
 
 Requires Android 7.0 (API 24) or newer; the app targets Android 15 (API 35). Once the owner publishes a release, download `video-downloader-<version>.apk` and `SHA256SUMS` from the repository's GitHub Releases page, check the file with `sha256sum -c SHA256SUMS` (or `Get-FileHash` on Windows), open the APK on the phone and allow your browser or file manager to install unknown apps when Android asks. Later releases signed with the same key update in place. Details and known issues: [`docs/release/1.0.0-beta.2.md`](docs/release/1.0.0-beta.2.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Current state
+
+Verified with JVM, Robolectric and fixture tests; on-device checks that the agent environment cannot run are listed in [`docs/TEST_MATRIX.md`](docs/TEST_MATRIX.md). The beta.2 field problems above are not fixed yet.
 
 - A production Android app with application ID `com.alal.yft` and a `.debug` debug suffix.
 - A hardened HTTPS WebView with address, back/forward, reload/stop, progress and safe error states.
@@ -41,11 +53,20 @@ Requires Android 7.0 (API 24) or newer; the app targets Android 15 (API 35). Onc
 - The Phase 1 Compose, Hilt, Room, DataStore, OkHttp, Media3, redaction, CI and release-build foundations.
 - The Phase 0 feasibility harness remains under [`spikes/phase0-media`](spikes/phase0-media/).
 
-## Cross-chat continuity
+## For agents
 
-Development happens on `work/phase-*` branches. Agents must read [`AGENTS.md`](AGENTS.md), update [`docs/SESSION_STATE.md`](docs/SESSION_STATE.md), and create a remote checkpoint after every logical milestone.
+Read [`AGENTS.md`](AGENTS.md) first. Work is planned task by task in
+[`docs/FIX_PLAN.md`](docs/FIX_PLAN.md); ready-to-paste prompts are in
+[`docs/prompts/`](docs/prompts/README.md) (start with `00_NEXT_TASK.md`). Development happens on
+`work/phase-*` branches with a remote checkpoint (`scripts/checkpoint.sh`) after every task; local
+commits and stashes are not handoffs.
 
-See [`docs/CONTINUITY_PROTOCOL.md`](docs/CONTINUITY_PROTOCOL.md). Local commits and stashes are not durable handoffs.
+Docs: [`PROJECT_CONTEXT`](docs/PROJECT_CONTEXT.md) (goals, privacy) ·
+[`ARCHITECTURE`](docs/ARCHITECTURE.md) · [`PHASE_STATUS`](docs/PHASE_STATUS.md) ·
+[`HANDOFF`](docs/HANDOFF.md) · [`SESSION_STATE`](docs/SESSION_STATE.md) ·
+[`SUPPORT_MATRIX`](docs/SUPPORT_MATRIX.md) · [`TEST_MATRIX`](docs/TEST_MATRIX.md) ·
+[`RISKS`](docs/RISKS.md) · [`RELEASE`](docs/RELEASE.md) · [`decisions/`](docs/decisions/) ·
+[`design/`](docs/design/DESIGN-NOTES.md) · [`THIRD_PARTY_NOTICES`](docs/THIRD_PARTY_NOTICES.md).
 
 ## Product boundaries
 
