@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launch window shown before the first Compose frame on Android 7.0 to 11. Android 12 and newer
+     use the system splash screen attributes in values-v31/styles.xml instead. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/yft_launch_background" />
+    <item
+        android:width="144dp"
+        android:height="144dp"
+        android:drawable="@drawable/ic_launcher_foreground"
+        android:gravity="center" />
+</layer-list>

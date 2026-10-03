@@ -193,6 +193,48 @@ All adapter tests run offline against committed fixtures; no test performs a liv
 | Storage janitor | JVM | Stale `.part` files and orphan workspaces from earlier processes are removed, current and unfinished work is kept, finished records are capped at 200, one pass per process | PASS |
 | Workspace naming | JVM | Workspace names are stable SHA-256 prefixes that never contain the task id | PASS |
 
+## Phase 7 automated checks (release preparation)
+
+Throwaway keys were generated in `/tmp` for these checks (`CN=YFT THROWAWAY TEST KEY A/B - NOT
+FOR DISTRIBUTION`, 30-day validity), never committed and deleted afterwards. No APK built with
+them is a release artifact.
+
+| Check | Type | Success criterion | Result |
+| --- | --- | --- | --- |
+| App identity | Robolectric | Label "Video Downloader"; `@mipmap/ic_launcher` and `ic_launcher_round` are adaptive icons on API 28 and 35; legacy PNGs exist at 48/72/96/144/192 px; `MainActivity` starts on `Theme.Yft.Launch` while the app theme is `Theme.Yft`; semver versionName | PASS (`AppIdentityTest`, 5 tests) |
+| Launcher/launch resources | Lint | Adaptive, monochrome, legacy and `values-v31` splash resources add no lint error or warning | PASS |
+| Version source | Gradle | `yft.versionName`/`yft.versionCode` from `gradle.properties` are validated; `-Pyft.versionCode=2` overrides for tests | PASS |
+| Unsigned default | Gradle + script | Without configuration `assembleRelease` writes `app-release-unsigned.apk` (no debug-key fallback); `verify-release-apk.sh --allow-unsigned` reports UNSIGNED and the strict mode fails | PASS |
+| Signing required but missing | Gradle | `-Pyft.requireReleaseSigning=true` fails during configuration with a clear message; `release-prep.sh` stops after 9 s, before clean and tests | PASS |
+| Partial signing / missing keystore | Gradle | "only partly configured" and "Release keystore not found" failures | PASS |
+| `keystore.properties` | Gradle `signingReport` | The file is ignored by Git; the release config uses its keystore and alias (key A fingerprint); no password in the output; file removed afterwards | PASS |
+| Signed release via environment | `scripts/release-prep.sh` | Uncached clean, lint, tests, signed release; `apksigner` verifies v2 + v3 with one signer and the expected certificate; staging writes the APK, `SHA256SUMS`, `release-info.txt` and `release-notes.md`; no password in the log | PASS (key A) |
+| Checksum file | `sha256sum -c` | `SHA256SUMS` verifies the staged APK | PASS |
+| R8 bridge in the signed APK | dexdump + mapping | `WebViewSolverEngine$SolverBridge` → `r3.l` keeps `post` | PASS |
+| Upgrade compatibility | `verify-release-apk.sh --previous-apk` | versionCode 2 over versionCode 1 with the same package and signer passes | PASS — static check only (signed versionCode 2 build with `-Pyft.versionCode=2`, 210 s); on-device upgrade NOT RUN |
+| Verification negatives | Shell | A lower or equal versionCode, a previous APK re-signed with key B, an unexpected certificate, an APK re-signed with the Android debug key, the debug package, a wrong versionName, and an unsigned APK with `--allow-unsigned` plus certificate or upgrade checks all fail | PASS — all 9 (a first run fed a signed APK to the `--allow-unsigned` case, which correctly verified it; the case was rerun with an unsigned copy) |
+| Workflow and script lint | actionlint 1.7.7 + shellcheck 0.10.0 | `release-draft.yml`, `checkpoint-validation.yml` and every script are clean | PASS |
+| CI unsigned release check | GitHub Actions `validate` | `assembleRelease` + `verify-release-apk.sh --allow-unsigned` after the full matrix | PASS on `b5797de` |
+| Release workflow run | GitHub Actions `Release draft` | Signed draft pre-release with APK, `SHA256SUMS` and notes | PASS — the `v1.0.0-beta.1` run on `a6bd059` signed it with the owner's key; the owner published it on 2026-10-02 |
+
+## UI redesign automated checks
+
+Robolectric (SDK 35) with Compose UI tests; class names and test counts in brackets.
+
+| Check | Type | Success criterion | Result |
+| --- | --- | --- | --- |
+| Design system | Robolectric/Compose + JVM | Segmented control, filter chips, count badge, Promptbox states, thumbnails and status chips behave and keep full-size targets; Plus Jakarta Sans is bundled and used by every role (`YftComponentsTest`, 7); light and Night text pairs meet WCAG AA and the brand tokens match the brief (`YftThemeContrastTest`, 3); sizes, lengths, formats and titles (`YftFormatTest`, 4) | PASS |
+| Home and Promptbox | Robolectric/Compose + JVM | Promptbox states; the clipboard is read only on Paste or Use; links are checked without the browser; Your sites; Recent (`HomeScreenTest` 12, `HomeViewModelTest` 16, `HeadlessLinkInspectorTest` 11, `CopiedLinkHintTest` 2) | PASS |
+| Browser and "Found on this page" | Robolectric/Compose | The sheet peeks with the savable count, expands, collapses on the scrim or a drag and previews the tapped media; protected-only pages explain instead; the address shows host and path but never the query (`BrowserScreenTest` 8, `DetectedMediaScreenTest` 4) | PASS |
+| Download as | Robolectric/Compose + JVM | Sheet states, quality names and sizes, Wi-Fi only and the save-location caption (`PreviewScreenTest` 10, `PreviewViewModelTest` 11, `PreviewLabelsTest` 6) | PASS |
+| Downloads | Robolectric/Compose + JVM | Filters and counts, status chips with reasons, card menu actions, speed and time left, storage pill (`DownloadsScreenTest` 18, `DownloadsUiStateTest` 14, `DownloadsViewModelTest` 8, `DownloadLabelsTest` 7, `TransferRateTrackerTest` 5, `DownloadStorageSourceTest` 3) | PASS |
+| Library and playback | Robolectric/Compose + JVM | Grid, search, sort, ⋯ menu, mini player, full-screen player and file details (`LibraryScreenTest` 9, `LibraryViewModelTest` 8, `LibraryArrangementTest` 4, `MediaDetailsTest` 3, `PlayerTest` 7) | PASS |
+| Settings, About and Licenses | Robolectric/Compose | Every setting shown and forwarded, About content, every notice listed under its group with its text on demand (`SettingsScreenTest` 10, `AboutScreenTest` 2, `LicensesScreenTest` 3, `OpenSourceNoticesTest` 2) | PASS |
+| Navigation | Robolectric | Bottom bar, Downloads badge and full-screen routes (`YftNavigationSmokeTest` 10, `YftDestinationTest` 3, `AppUiStateTest` 3) | PASS |
+| Accessibility audit | Robolectric/Compose | On 11 screens in light and Night every control TalkBack reaches has a name and a touch target of at least 48dp; Night at 200% text keeps every label (`AccessibilityAuditTest`, 22) | PASS |
+| Renders | Robolectric native graphics | PNGs of every screen in light and Night (`DesignRenderTest`, 19) and at 130% and 200% text (`LargeTextRenderTest`, 22) with `YFT_RENDER_DIR` set, compared by eye with `docs/design/reference/01`–`09` | Reviewed locally on 2026-10-03; skipped in CI |
+| Full matrix after merging `main` | Gradle | `testDebugUnitTest lintDebug :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test :app:assembleDebug :app:assembleRelease`, then `verify-release-apk.sh --allow-unsigned`: every test passes (app 384 including `AppIdentityTest` 5, 41 render tests skipped without `YFT_RENDER_DIR`; core-browser 46, core-data 12, core-download 81, core-media 14, core-model 30, extractor-api 22, extractor-generic 7, extractor-sites 91), lint has no error, and the minified `1.0.0-beta.2` (versionCode 2) APK passes the metadata checks | PASS — 687 tests; lint 0 errors (app 83 warnings: `GradleDependency` 57, `VectorPath` 20, `AndroidGradlePluginVersion` 6; core-data 1); unsigned release APK 3,360,065 bytes |
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |
@@ -216,6 +258,12 @@ All adapter tests run offline against committed fixtures; no test performs a liv
 | Clear browsing data on a device | Android API 24+ device/emulator | Sites opened in YFT are signed out and storage/cache are empty afterwards | NOT RUN — cleaner composition covered locally |
 | Wi-Fi-only switching on a device | Device with Wi-Fi and mobile data | Transfers pause on mobile data, the banner explains it, and they resume on Wi-Fi | NOT RUN — policy and banner covered locally |
 | Storage janitor on a device | Android API 24+ device/emulator | After a forced stop, stale `.part` files and workspaces disappear on the next launch | NOT RUN — covered with temporary folders locally |
+| Signed beta fresh install | Android 7.0+ device/emulator, owner-signed APK | `scripts/device-smoke-test.sh --fresh` passes: install, launch screen, Home, no crash | NOT RUN — no device/KVM |
+| Signed beta upgrade | Same, with the previous signed beta | `scripts/device-smoke-test.sh --fresh --upgrade-from` keeps the installation, settings and downloads | NOT RUN — static upgrade-compatibility check passes |
+| Launcher icon and launch screen | Android 7.x, 8+, 12+ and 13+ (themed icons) launchers | Legacy PNG, adaptive and monochrome icons and the launch/splash screen render correctly | NOT RUN — resources resolve in Robolectric |
+| Redesigned screens on a device | Android 7.0+ phone, light and dark system theme | Every screen matches the renders; Night has no white flash; the mini player and sheets behave | NOT RUN — Robolectric renders and tests pass |
+| TalkBack and large text on a device | Android device with TalkBack and the largest font size | Every control is announced by name; nothing is cut off at 200% | NOT RUN — `AccessibilityAuditTest` passes in Robolectric |
+| Update from 1.0.0-beta.1 | Phone with the published beta.1 | beta.2 installs over it and keeps settings and downloads | NOT RUN — same release key and a higher versionCode |
 
 ## Phase 5 and later regression categories
 

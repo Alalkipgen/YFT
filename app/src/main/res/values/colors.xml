@@ -1,4 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Surface #F2F7F7; the Compose theme draws the same color. -->
     <color name="yft_window_background">#FFF2F7F7</color>
+    <!-- Deep Teal, the dark end of the app icon's gradient: the launch screen behind the mark. -->
+    <color name="yft_launch_background">#FF007A6E</color>
 </resources>

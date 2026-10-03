@@ -50,6 +50,13 @@ jobs:
             echo "No supported Gradle project was found." >&2
             exit 1
           fi
+      - name: Build and check the unsigned release APK
+        shell: bash
+        run: |
+          ./gradlew --no-daemon :app:assembleRelease
+          version="$(sed -n 's/^yft\.versionName=//p' gradle.properties | tail -n 1)"
+          bash scripts/verify-release-apk.sh --allow-unsigned --expected-version "$version" \
+            app/build/outputs/apk/release/app-release-unsigned.apk
       - name: Upload debug APK for sideload testing
         if: success()
         uses: actions/upload-artifact@v4

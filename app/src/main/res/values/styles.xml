@@ -6,4 +6,11 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
     </style>
+
+    <!-- Manifest theme of MainActivity: only the launch window uses it. MainActivity switches to
+         Theme.Yft before its first frame. -->
+    <style name="Theme.Yft.Launch">
+        <item name="android:windowBackground">@drawable/yft_launch_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
 </resources>
