@@ -38,6 +38,7 @@ enum class YftDestination(
         isTopLevel = true,
     ),
     ABOUT("about", "About", "Product scope, privacy, licenses and version information."),
+    PLAYER("player", "Player", "Watch a saved video full screen."),
     ;
 
     companion object {

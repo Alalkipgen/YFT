@@ -90,7 +90,9 @@ arrow, pause/play), `YftIconButton`, `YftFilterChip` (with count bubble), `YftSt
 `YftOutlinedChip` ("No ads"), `YftCountBadge` (Coral, Ink digits), `YftSegmentedControl`,
 `YftCard` (bordered), `YftScreenHeader`, `YftSectionHeader`, `YftGroupLabel`, `YftDivider`,
 `YftSheetHandle`, `YftThumbnail` (image or gradient tile with duration badge), `YftSwitch`,
-`YftProgressBar`, `YftStepper`, `YftRadioMark` and `YftPromptbox`.
+`YftProgressBar`, `YftSeekBar` (Mint line with an optional thumb, seeks on tap or drag),
+`YftStepper`, `YftRadioMark` and `YftPromptbox`. `YftFilterChip` also comes outlined, as the
+Library draws it.
 
 Touch targets are at least 48dp; small visuals (40dp chips, 36dp compact pills) sit inside a
 48dp touch area.
@@ -99,8 +101,9 @@ Touch targets are at least 48dp; small visuals (40dp chips, 36dp compact pills) 
 
 Bottom bar with Home · Downloads · Library · Settings. The selected tab has a Mint pill behind
 the icon (Mint Soft on light, Mint on Night) and a bold label; Downloads carries a Coral badge
-with the number of active downloads. Browser, Detected media and About open as full screens
-without the bottom bar; Download as (Preview) rises as a sheet over the screen that opened it.
+with the number of active downloads. Browser, Detected media, About and the video player open
+as full screens without the bottom bar; Download as (Preview) rises as a sheet over the screen
+that opened it. While audio plays, the mini player sits right above the bottom bar on every tab.
 
 ## Screens
 
@@ -121,8 +124,9 @@ without the bottom bar; Download as (Preview) rises as a sheet over the screen t
   counts; cards with thumbnail, title, format, percentage, progress, "61 of 96 MB · 2.4 MB/s ·
   15 s left" and a Mint pause button; Waiting for Wi-Fi and "Failed · reason" chips with Retry;
   "Completed today"; storage pill "Download/YFT · 18 GB free" (tap → Settings).
-- **Library (05):** title + search and sort; All / Video / Audio; two-column grid with duration
-  badges and a ⋯ menu (Play, Share, Delete); mini player above the bottom bar.
+- **Library (05):** title + search and sort; All / Video / Audio; two-column grid with the
+  file's own frame, duration badges, "720p · 96 MB" and a ⋯ menu (Play, Open with…, Share,
+  Delete); mini player above the bottom bar; videos play full screen.
 - **Settings (06):** grouped bordered cards under APPEARANCE / DOWNLOADS / PRIVACY / ABOUT,
   rows with leading icons; footer "No ads · No tracking · No account".
 
@@ -139,8 +143,9 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
 2. **Your sites** is a list stored on the device (DataStore), preloaded with Archive
    (archive.org), Wikimedia (commons.wikimedia.org) and NASA (images.nasa.gov). Add asks for a
    name and an HTTPS address; Edit mode removes sites; tapping a site opens it in the Browser.
-3. **Thumbnails.** Saved files use local thumbnails (MediaStore `loadThumbnail`, or
-   `MediaMetadataRetriever` for app-private files). Remote thumbnails are shown only for
+3. **Thumbnails.** Saved files use local thumbnails read with `MediaMetadataRetriever`, the
+   one reader that works for both shared and app-private files and also gives the length and
+   picture size (see 13). Remote thumbnails are shown only for
    `thumbnailUrl`s that detection already found, fetched with the existing hardened OkHttp
    client (HTTPS only, size-capped, memory cache) — no new image library. Everything else uses
    the gradient placeholder tile with a video or music glyph.
@@ -158,9 +163,9 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
    on this page" with **Open in browser**, which opens the same link in the full browser.
 7. **Paste** fills the field and waits, so the link can be checked first; **Use** on the
    clipboard row fills the field and searches at once, as the Clipboard state implies.
-8. **Recent** shows the two newest Library items as "format · size": a saved file does not
-   record its resolution, so "720p" from the image is not invented. Until Task 7 adds local
-   thumbnails the cards use the gradient tile.
+8. **Recent** shows the two newest Library items with their own frame (or the gradient tile),
+   length badge and "720p · 96 MB", read from the file itself (see 13); a file that cannot be
+   read, and audio, show "format · size" ("M4A · 7 MB"), so no resolution is ever invented.
 9. **Home polish after comparing renders with `01`, `07` and `09`.** Glyphs inside the
    Promptbox and the tonal chips use a new `icon` color (Deep Teal on light, soft grey on
    Night); the link glyph is tilted 45° and the globe is the outlined Material Symbols
@@ -213,8 +218,9 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
     cancelled rows offer Remove (which removes the entry, never the file). Tapping a card opens
     its menu (Pause, Resume, Retry, Cancel download, Remove from list, Open), and TalkBack gets
     the same choices as custom actions. Finished downloads sit under "Completed today" and
-    "Earlier"; their play button opens the file in another app until the Library mini player
-    arrives in Task 7. The storage pill docks above the bottom bar and reads "Download/YFT ·
+    "Earlier"; their play button plays the file in the app like the Library does (audio in the
+    mini player, video full screen) and their menu adds Play and Open with…, which hands the
+    file to another app. The storage pill docks above the bottom bar and reads "Download/YFT ·
     18 GB free" (sizes follow the app-wide rule, so not "18.2 GB"); tapping it opens Settings.
     When the network rule holds queued work back, one compact line under the filters says why
     — "Wi-Fi only is on" with a Settings link, or "No connection" — because the Wi-Fi-only
@@ -223,5 +229,27 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
     title and the Coral chip, and status chips are small (24dp) grey or Coral pills. When the
     detail line does not fit a narrow card the speed is dropped first, keeping the time left.
     Screen titles measure 28sp in the images (not the brief's 32), so `YftScreenHeader` uses
-    `headlineMedium` 28 Bold. The thumbnails stay gradient tiles until Task 7, and as a
-    top-level tab the screen has no back arrow.
+    `headlineMedium` 28 Bold. Finished downloads show the file's own frame and, for video, its
+    picture size ("720p · 96 MB", read from the file as in 13); downloads still in progress
+    keep the gradient tile. As a top-level tab the screen has no back arrow.
+13. **Library (`05`).** Saved files show what they say about themselves: a frame a tenth of
+    the way in (at most 10 s), or an audio file's cover art, the length badge, and
+    "720p · 96 MB" from the picture's short side ("4K" from 2160, "8K" from 4320). Audio, and
+    files that cannot be read, show "M4A · 7 MB" on the gradient tile. Details are read with
+    `MediaMetadataRetriever`, two files at a time, and kept only in a memory cache sized to the
+    pictures it holds — no disk cache and no image library. Home's Recent cards and finished
+    Downloads use the same reader. The filter chips are outlined as drawn in `05` (Mint Soft
+    when selected), where the Downloads chips are filled as in `04`. The magnifier opens a
+    search field under the title that matches names as you type; the sort button offers Newest
+    first (the default), Oldest first, Name and Largest first. Tapping a tile plays it: audio in
+    the mini player above the bottom bar, which stays on every tab while it plays (Pause or
+    Play, a seek line with a thumb, and X, which stops it), and video full screen with the
+    system bars hidden (tap to pause, a seek line, X or Back closes and stops it). Files YFT
+    cannot play open in another app, and a file that fails to play says so and suggests Open
+    with…. The ⋯ menu offers Play, Open with…, Share and Delete (after a confirmation), and
+    TalkBack gets the same choices as actions on the tile. As drawn, the tile that is playing
+    has no badge (the mini player says what plays; TalkBack hears "Playing"), and audio tiles
+    use the beamed-notes glyph from the image. There is no background playback
+    service, so playback pauses when YFT leaves the screen (not when it rotates). The list
+    re-reads itself when a download finishes and whenever the app comes back, so there is no
+    refresh button; as a top-level tab it has no back arrow.

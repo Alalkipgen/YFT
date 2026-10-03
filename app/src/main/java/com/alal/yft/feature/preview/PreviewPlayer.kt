@@ -2,12 +2,8 @@ package com.alal.yft.feature.preview
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -20,21 +16,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -47,6 +38,7 @@ import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.ui.components.YftIcon
 import com.alal.yft.ui.components.YftMediaKind
+import com.alal.yft.ui.components.YftSeekBar
 import com.alal.yft.ui.components.YftThumbnail
 import com.alal.yft.ui.format.YftFormat
 import com.alal.yft.ui.theme.YftIcons
@@ -211,72 +203,19 @@ internal fun PreviewPlayerControls(
             )
         }
         if (started && durationMs > 0) {
-            SeekLine(
+            YftSeekBar(
                 fraction = (positionMs.toFloat() / durationMs).coerceIn(0f, 1f),
                 onSeek = onSeek,
-                modifier = Modifier.align(Alignment.BottomCenter),
+                contentDescription = "Preview position",
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .testTag("preview-seek"),
+                trackColor = Color.White.copy(alpha = TRACK_ALPHA),
+                lineAtBottom = true,
             )
         }
     }
 }
-
-/** A 3dp progress line inside a 24dp strip that seeks on tap or at the end of a drag. */
-@Composable
-private fun SeekLine(
-    fraction: Float,
-    onSeek: (Float) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val currentOnSeek by rememberUpdatedState(onSeek)
-    var scrub by remember { mutableStateOf<Float?>(null) }
-    val shown = scrub ?: fraction
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(24.dp)
-            .pointerInput(Unit) {
-                detectTapGestures { offset -> currentOnSeek(fractionOf(offset.x, size.width)) }
-            }
-            .pointerInput(Unit) {
-                detectHorizontalDragGestures(
-                    onDragStart = { offset -> scrub = fractionOf(offset.x, size.width) },
-                    onDragEnd = {
-                        scrub?.let(currentOnSeek)
-                        scrub = null
-                    },
-                    onDragCancel = { scrub = null },
-                ) { change, _ ->
-                    scrub = fractionOf(change.position.x, size.width)
-                }
-            }
-            .semantics(mergeDescendants = true) {
-                contentDescription = "Preview position"
-                progressBarRangeInfo = ProgressBarRangeInfo(shown, 0f..1f)
-                setProgress { target ->
-                    currentOnSeek(target.coerceIn(0f, 1f))
-                    true
-                }
-            }
-            .testTag("preview-seek"),
-        contentAlignment = Alignment.BottomStart,
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(3.dp)
-                .background(Color.White.copy(alpha = TRACK_ALPHA)),
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(shown)
-                .height(3.dp)
-                .background(YftTheme.colors.accent),
-        )
-    }
-}
-
-private fun fractionOf(x: Float, width: Int): Float =
-    if (width <= 0) 0f else (x / width).coerceIn(0f, 1f)
 
 /** "4:12" before playback, "0:12 / 4:12" once it started, or just the elapsed time. */
 internal fun timeLabel(started: Boolean, positionMs: Long, durationMs: Long): String? = when {

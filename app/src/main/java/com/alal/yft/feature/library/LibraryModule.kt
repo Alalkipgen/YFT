@@ -15,4 +15,12 @@ object LibraryModule {
     @Singleton
     fun provideLibraryRepository(@ApplicationContext context: Context): LibraryRepository =
         AndroidLibraryRepository(context)
+
+    @Provides
+    @Singleton
+    fun provideMediaDetailsSource(source: RetrieverMediaDetailsSource): MediaDetailsSource = source
+
+    @Provides
+    @Singleton
+    fun provideLibraryPlayback(playback: ExoLibraryPlayback): LibraryPlayback = playback
 }

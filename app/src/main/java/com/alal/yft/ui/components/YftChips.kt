@@ -31,6 +31,7 @@ import com.alal.yft.ui.theme.YftTheme
 /**
  * Mutually exclusive filter such as All / Active / Queued / Done. Selected chips are Mint with a
  * bold label, so the state never relies on color alone; an optional [count] sits in a bubble.
+ * [outlined] is the Library's lighter style: Mint Soft when selected, a hairline otherwise.
  */
 @Composable
 fun YftFilterChip(
@@ -40,14 +41,34 @@ fun YftFilterChip(
     modifier: Modifier = Modifier,
     count: Int? = null,
     unselectedColor: Color = YftTheme.colors.chipOnBackground,
+    outlined: Boolean = false,
 ) {
     val colors = YftTheme.colors
+    val container = when {
+        selected && outlined -> colors.accentSoft
+        selected -> colors.accent
+        outlined -> Color.Transparent
+        else -> unselectedColor
+    }
+    val content = when {
+        selected && outlined -> colors.textPrimary
+        selected -> colors.onAccent
+        outlined -> colors.textSecondary
+        else -> colors.textPrimary
+    }
     Row(
         modifier = modifier
             .minimumInteractiveComponentSize()
             .heightIn(min = 34.dp)
             .clip(YftShapes.pill)
-            .background(if (selected) colors.accent else unselectedColor)
+            .background(container)
+            .then(
+                if (outlined && !selected) {
+                    Modifier.border(1.dp, colors.border, YftShapes.pill)
+                } else {
+                    Modifier
+                },
+            )
             .selectable(selected = selected, role = Role.Tab, onClick = onClick)
             .padding(horizontal = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -55,7 +76,7 @@ fun YftFilterChip(
     ) {
         Text(
             text = label,
-            color = if (selected) colors.onAccent else colors.textPrimary,
+            color = content,
             style = MaterialTheme.typography.labelLarge.copy(
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
             ),
@@ -72,7 +93,7 @@ fun YftFilterChip(
             ) {
                 Text(
                     text = count.toString(),
-                    color = if (selected) colors.onAccent else colors.textPrimary,
+                    color = content,
                     style = MaterialTheme.typography.labelSmall,
                     textAlign = TextAlign.Center,
                 )

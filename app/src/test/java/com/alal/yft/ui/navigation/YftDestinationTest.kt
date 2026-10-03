@@ -17,6 +17,7 @@ class YftDestinationTest {
                 "Library",
                 "Settings",
                 "About",
+                "Player",
             ),
             YftDestination.entries.map(YftDestination::title).toSet(),
         )
@@ -48,6 +49,7 @@ class YftDestinationTest {
                 YftDestination.DETECTED_MEDIA,
                 YftDestination.PREVIEW,
                 YftDestination.ABOUT,
+                YftDestination.PLAYER,
             ),
             YftDestination.fullScreen,
         )

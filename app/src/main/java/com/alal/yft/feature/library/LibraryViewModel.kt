@@ -2,14 +2,19 @@ package com.alal.yft.feature.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.media3.exoplayer.ExoPlayer
-import com.alal.yft.core.media.player.MediaPlayerFactory
+import com.alal.yft.core.download.DownloadQueue
+import com.alal.yft.core.model.download.DownloadTaskStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -20,8 +25,6 @@ sealed interface LibraryUiState {
         val items: List<LibraryItem>,
         /** The item whose deletion waits for the user's confirmation. */
         val pendingDelete: LibraryItem? = null,
-        /** The item open in the in-app player. */
-        val playing: LibraryItem? = null,
         /** A one-line outcome of the user's last action. */
         val message: String? = null,
     ) : LibraryUiState
@@ -30,38 +33,66 @@ sealed interface LibraryUiState {
 }
 
 @HiltViewModel
-class LibraryViewModel @Inject constructor(
+class LibraryViewModel internal constructor(
     private val repository: LibraryRepository,
-    private val mediaPlayerFactory: MediaPlayerFactory,
+    private val playback: LibraryPlayback,
+    finishedDownloads: Flow<Int>,
 ) : ViewModel() {
+    /** The list is re-read whenever the number of finished downloads changes. */
+    @Inject
+    constructor(
+        repository: LibraryRepository,
+        playback: LibraryPlayback,
+        queue: DownloadQueue,
+    ) : this(
+        repository = repository,
+        playback = playback,
+        finishedDownloads = queue.tasks.map { tasks ->
+            tasks.count { it.status == DownloadTaskStatus.COMPLETED }
+        },
+    )
+
+    /** Without a download queue, for tests of the list and playback. */
+    constructor(repository: LibraryRepository, playback: LibraryPlayback) :
+        this(repository, playback, emptyFlow())
+
     private val mutableUiState = MutableStateFlow<LibraryUiState>(LibraryUiState.Loading)
     val uiState: StateFlow<LibraryUiState> = mutableUiState.asStateFlow()
 
-    /** Reloads the list, keeping the open player and message when the item still exists. */
+    /** What the app-wide player has loaded, so the screen can mark it. */
+    val playing: StateFlow<PlaybackState?> = playback.state
+
+    init {
+        viewModelScope.launch {
+            finishedDownloads.distinctUntilChanged().drop(1).collect { refresh() }
+        }
+    }
+
+    /**
+     * Reloads the list, keeping the message. Playback of a listed file that has gone is stopped;
+     * a file started from Downloads is left alone until the list shows it.
+     */
     fun refresh() {
         viewModelScope.launch {
             val previous = mutableUiState.value as? LibraryUiState.Ready
-            mutableUiState.value = when (val items = loadItems()) {
+            val items = loadItems()
+            mutableUiState.value = when (items) {
                 null -> previous?.copy(message = READ_FAILED) ?: LibraryUiState.Error(READ_FAILED)
-                else -> LibraryUiState.Ready(
-                    items = items,
-                    playing = previous?.playing?.takeIf { open -> items.any { it.id == open.id } },
-                    message = previous?.message,
-                )
+                else -> LibraryUiState.Ready(items = items, message = previous?.message)
+            }
+            val loaded = playback.state.value?.item
+            val wasListed = previous?.items.orEmpty().any { it.isSameFileAs(loaded) }
+            if (items != null && wasListed && items.none { it.isSameFileAs(loaded) }) {
+                playback.stop()
             }
         }
     }
 
-    fun play(item: LibraryItem) = updateReady { it.copy(playing = item, message = null) }
-
-    fun stopPlayback() = updateReady { it.copy(playing = null) }
-
-    fun onPlaybackError(item: LibraryItem) = updateReady { ready ->
-        if (ready.playing?.id != item.id) return@updateReady ready
-        ready.copy(
-            playing = null,
-            message = "${item.displayName} could not be played here. Try Open instead.",
-        )
+    /** Plays [item] in the app-wide player; videos are shown by the full-screen player. */
+    fun play(item: LibraryItem) {
+        if (!item.isPlayable) return
+        updateReady { it.copy(message = null) }
+        playback.play(item)
     }
 
     fun requestDelete(item: LibraryItem) = updateReady { it.copy(pendingDelete = item) }
@@ -72,10 +103,8 @@ class LibraryViewModel @Inject constructor(
     fun confirmDelete() {
         val ready = mutableUiState.value as? LibraryUiState.Ready ?: return
         val item = ready.pendingDelete ?: return
-        mutableUiState.value = ready.copy(
-            pendingDelete = null,
-            playing = ready.playing?.takeUnless { it.id == item.id },
-        )
+        mutableUiState.value = ready.copy(pendingDelete = null)
+        if (item.isSameFileAs(playback.state.value?.item)) playback.stop()
         viewModelScope.launch {
             val deleted = try {
                 repository.delete(item)
@@ -100,7 +129,7 @@ class LibraryViewModel @Inject constructor(
 
     fun showMessage(message: String) = updateReady { it.copy(message = message) }
 
-    fun createPlayer(): ExoPlayer = mediaPlayerFactory.create()
+    fun dismissMessage() = updateReady { it.copy(message = null) }
 
     private suspend fun loadItems(): List<LibraryItem>? = try {
         repository.items()

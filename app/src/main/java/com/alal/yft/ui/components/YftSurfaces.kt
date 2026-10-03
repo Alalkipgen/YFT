@@ -67,7 +67,7 @@ fun YftCard(
 }
 
 /**
- * Big Display 32 Bold screen title (Downloads, Library, Settings) with trailing actions. The
+ * Big 28 Bold screen title (Downloads, Library, Settings) with trailing actions. The
  * default end padding suits 48dp icon buttons; pills such as Pause all pass a wider one so their
  * edge lines up with the cards below.
  */

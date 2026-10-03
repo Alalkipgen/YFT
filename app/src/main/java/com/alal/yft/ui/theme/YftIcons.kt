@@ -41,7 +41,7 @@ object YftIcons {
     val Search = R.drawable.ic_search
     val Sort = R.drawable.ic_swap_vert
     val MoreHoriz = R.drawable.ic_more_horiz
-    val MusicNote = R.drawable.ic_music_note_filled
+    val MusicNote = R.drawable.ic_music_notes_filled
     val Movie = R.drawable.ic_movie_filled
     val Waveform = R.drawable.ic_graphic_eq
     val Share = R.drawable.ic_share

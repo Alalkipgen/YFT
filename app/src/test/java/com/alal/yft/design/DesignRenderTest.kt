@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,8 +27,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.rememberNavController
 import com.alal.yft.core.download.DownloadDestinationKind
@@ -56,6 +62,13 @@ import com.alal.yft.feature.home.HomeScreen
 import com.alal.yft.feature.home.HomeUiState
 import com.alal.yft.feature.library.LibraryItem
 import com.alal.yft.feature.library.LibraryLocation
+import com.alal.yft.feature.library.LibraryScreen
+import com.alal.yft.feature.library.LibraryUiState
+import com.alal.yft.feature.library.LocalMediaDetailsSource
+import com.alal.yft.feature.library.MediaDetails
+import com.alal.yft.feature.library.MediaDetailsSource
+import com.alal.yft.feature.library.MiniPlayer
+import com.alal.yft.feature.library.PlaybackState
 import com.alal.yft.feature.preview.PreviewDownloadOptions
 import com.alal.yft.feature.preview.PreviewPlayerControls
 import com.alal.yft.feature.preview.PreviewScreen
@@ -134,8 +147,20 @@ class DesignRenderTest {
     @Test
     fun downloadsDark() = render("04-downloads-dark", ThemeMode.DARK) { DownloadsShellPreview() }
 
+    @Test
+    fun library() = render("05-library", ThemeMode.LIGHT) { LibraryShellPreview() }
+
+    @Test
+    fun libraryDark() = render("05-library-dark", ThemeMode.DARK) { LibraryShellPreview() }
+
     private fun render(name: String, themeMode: ThemeMode, content: @Composable () -> Unit) {
-        composeRule.setContent { YftTheme(themeMode = themeMode) { content() } }
+        composeRule.setContent {
+            YftTheme(themeMode = themeMode) {
+                CompositionLocalProvider(LocalMediaDetailsSource provides SampleStills) {
+                    content()
+                }
+            }
+        }
         composeRule.waitForIdle()
         // Drawing the window ourselves avoids waiting for a frame callback Robolectric's paused
         // looper never delivers to captureToImage.
@@ -192,7 +217,7 @@ private fun DownloadsShellPreview() {
                     onOpenLibrary = onOpenLibrary,
                 )
             },
-            downloadsContent = { _ ->
+            downloadsContent = { _, _ ->
                 DownloadsScreen(
                     uiState = SAMPLE_DOWNLOADS,
                     onAction = { _, _ -> },
@@ -375,10 +400,62 @@ private fun DownloadAsPreview() {
     }
 }
 
+/** The Library tab (`05-library`) in the shell, with Ocean Waves in the mini player. */
+@Composable
+private fun LibraryShellPreview() {
+    val navController = rememberNavController()
+    YftAppShell(
+        navController = navController,
+        activeDownloads = 2,
+        miniPlayer = {
+            MiniPlayer(
+                state = PlaybackState(
+                    item = SAMPLE_LIBRARY[1],
+                    positionMs = 84_000,
+                    durationMs = 178_000,
+                ),
+                onPlayPause = {},
+                onSeek = {},
+                onClose = {},
+            )
+        },
+    ) {
+        YftNavHost(
+            navController = navController,
+            themeMode = ThemeMode.SYSTEM,
+            onThemeModeChanged = {},
+            modifier = it,
+            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary ->
+                HomeScreen(
+                    state = SAMPLE_HOME,
+                    onAction = {},
+                    onOpenBrowser = onOpenBrowser,
+                    onOpenDetectedMedia = onOpenDetectedMedia,
+                    onOpenLibrary = onOpenLibrary,
+                )
+            },
+            libraryContent = { _ ->
+                LibraryScreen(
+                    uiState = LibraryUiState.Ready(items = SAMPLE_LIBRARY),
+                    playingId = SAMPLE_LIBRARY[1].id,
+                )
+            },
+        )
+    }
+    LaunchedEffect(navController) {
+        navController.currentBackStackEntryFlow.first()
+        navController.navigateToTab(YftDestination.LIBRARY)
+    }
+}
+
 /** A painted stand-in for the design's mountain-lake still: sky, lit peaks, trees and water. */
 @Composable
 private fun LandscapePoster(modifier: Modifier) {
-    Box(modifier = modifier.drawBehind {
+    Box(modifier = modifier.drawBehind { drawLandscape() })
+}
+
+private fun DrawScope.drawLandscape() {
+    run {
         val w = size.width
         val h = size.height
         drawRect(Brush.verticalGradient(listOf(Color(0xFF7FA3C8), Color(0xFFE2CFAF))))
@@ -416,7 +493,135 @@ private fun LandscapePoster(modifier: Modifier) {
             topLeft = Offset(0f, h * 0.64f),
             size = Size(w, h * 0.36f),
         )
-    })
+    }
+}
+
+/** Night skyline: dark towers with lit windows under a navy sky. */
+private fun DrawScope.drawCityNight() {
+    val w = size.width
+    val h = size.height
+    drawRect(Brush.verticalGradient(listOf(Color(0xFF0A1428), Color(0xFF1E2F52))))
+    var x = 0f
+    var index = 0
+    while (x < w) {
+        val towerWidth = w * (0.05f + (index * 37 % 5) * 0.012f)
+        val top = h * (0.30f + (index * 53 % 7) * 0.06f)
+        drawRect(Color(0xFF0E1726), Offset(x, top), Size(towerWidth, h - top))
+        var y = top + 4f
+        while (y < h - 4f) {
+            var wx = x + 3f
+            while (wx < x + towerWidth - 4f) {
+                if (((wx + y + index).toInt() / 3) % 3 != 0) {
+                    drawRect(Color(0xFFFFD36B).copy(alpha = 0.85f), Offset(wx, y), Size(2f, 2f))
+                }
+                wx += 5f
+            }
+            y += 6f
+        }
+        x += towerWidth + 2f
+        index += 1
+    }
+}
+
+/** Green aurora curtains over a dark ridge and snow. */
+private fun DrawScope.drawAurora() {
+    val w = size.width
+    val h = size.height
+    drawRect(Brush.verticalGradient(listOf(Color(0xFF041019), Color(0xFF0D2B36))))
+    listOf(0.18f to 0.55f, 0.32f to 0.40f).forEach { (top, alpha) ->
+        val band = Path().apply {
+            moveTo(w * 0.10f, h * 0.80f)
+            cubicTo(w * 0.30f, h * top, w * 0.55f, h * (top + 0.35f), w * 0.95f, h * top)
+            lineTo(w * 0.95f, h * (top + 0.18f))
+            cubicTo(w * 0.60f, h * (top + 0.50f), w * 0.35f, h * (top + 0.20f), w * 0.18f, h)
+            close()
+        }
+        drawPath(
+            path = band,
+            brush = Brush.verticalGradient(
+                listOf(Color(0xFF7CFFC4).copy(alpha = alpha), Color(0xFF16C784).copy(alpha = 0f)),
+                startY = h * top,
+                endY = h * 0.9f,
+            ),
+        )
+    }
+    val ridge = Path().apply {
+        moveTo(0f, h)
+        lineTo(0f, h * 0.78f)
+        lineTo(w * 0.25f, h * 0.70f)
+        lineTo(w * 0.45f, h * 0.80f)
+        lineTo(w * 0.70f, h * 0.72f)
+        lineTo(w, h * 0.82f)
+        lineTo(w, h)
+        close()
+    }
+    drawPath(ridge, Color(0xFF0A1C24))
+    drawRect(Color(0xFF2F4B57), Offset(0f, h * 0.90f), Size(w, h * 0.10f))
+}
+
+/** A straight desert road running to the horizon under a pale sky. */
+private fun DrawScope.drawDesertRoad() {
+    val w = size.width
+    val h = size.height
+    drawRect(Brush.verticalGradient(listOf(Color(0xFF5E9BD6), Color(0xFFDDEBF6))))
+    drawRect(Color(0xFFB9825E), Offset(0f, h * 0.36f), Size(w, h * 0.06f))
+    drawRect(
+        brush = Brush.verticalGradient(
+            listOf(Color(0xFFE2B07A), Color(0xFFC98A52)),
+            startY = h * 0.42f,
+            endY = h,
+        ),
+        topLeft = Offset(0f, h * 0.42f),
+        size = Size(w, h * 0.58f),
+    )
+    val road = Path().apply {
+        moveTo(w * 0.47f, h * 0.42f)
+        lineTo(w * 0.53f, h * 0.42f)
+        lineTo(w * 0.95f, h)
+        lineTo(w * 0.15f, h)
+        close()
+    }
+    drawPath(road, Color(0xFF3B3B3F))
+    drawLine(
+        color = Color(0xFFF2C14E),
+        start = Offset(w * 0.50f, h * 0.44f),
+        end = Offset(w * 0.55f, h),
+        strokeWidth = 3f,
+    )
+}
+
+/** A painted still as a file's frame would be, 320 x 200 like a scaled-down video picture. */
+private fun paintedStill(scene: DrawScope.() -> Unit): ImageBitmap {
+    val image = ImageBitmap(STILL_WIDTH, STILL_HEIGHT)
+    CanvasDrawScope().draw(
+        density = Density(1f),
+        layoutDirection = LayoutDirection.Ltr,
+        canvas = androidx.compose.ui.graphics.Canvas(image),
+        size = Size(STILL_WIDTH.toFloat(), STILL_HEIGHT.toFloat()),
+    ) { scene() }
+    return image
+}
+
+private const val STILL_WIDTH = 320
+private const val STILL_HEIGHT = 200
+
+/** What the sample files would say about themselves: the design's lengths, sizes and stills. */
+private object SampleStills : MediaDetailsSource {
+    private val details: Map<String, MediaDetails> by lazy {
+        mapOf(
+            sampleUri("1") to MediaDetails(252_000, 1_280, 720, paintedStill { drawLandscape() }),
+            sampleUri("2") to MediaDetails(durationMs = 178_000),
+            sampleUri("3") to MediaDetails(365_000, 1_920, 1_080, paintedStill { drawCityNight() }),
+            sampleUri("4") to MediaDetails(durationMs = 600_000),
+            sampleUri("5") to MediaDetails(210_000, 3_840, 2_160, paintedStill { drawAurora() }),
+            sampleUri("6") to MediaDetails(312_000, 1_280, 720, paintedStill { drawDesertRoad() }),
+        )
+    }
+
+    override fun cached(uri: String): MediaDetails? = details[uri]
+
+    override suspend fun load(uri: String, isAudio: Boolean): MediaDetails =
+        details[uri] ?: MediaDetails.Unknown
 }
 
 private const val SAMPLE_DURATION_MS = 252_000L
@@ -580,10 +785,21 @@ private val SAMPLE_HOME = HomeUiState(
     ),
 )
 
+private val SAMPLE_LIBRARY = listOf(
+    sampleItem("1", "Mountain Lake 4K.mp4", "video/mp4", 96L * 1_024 * 1_024),
+    sampleItem("2", "Ocean Waves.m4a", "audio/mp4", 7L * 1_024 * 1_024),
+    sampleItem("3", "City Lights.mp4", "video/mp4", 186L * 1_024 * 1_024),
+    sampleItem("4", "Forest Rain.m4a", "audio/mp4", 12L * 1_024 * 1_024),
+    sampleItem("5", "Northern Lights.mp4", "video/mp4", 412L * 1_024 * 1_024),
+    sampleItem("6", "Desert Drive.mp4", "video/mp4", 88L * 1_024 * 1_024),
+).mapIndexed { index, item -> item.copy(modifiedAtEpochMs = 100L - index) }
+
+private fun sampleUri(id: String) = "content://media/external/downloads/$id"
+
 private fun sampleItem(id: String, name: String, mimeType: String, size: Long) = LibraryItem(
     id = id,
     displayName = name,
-    uri = "content://media/external/downloads/$id",
+    uri = sampleUri(id),
     mimeType = mimeType,
     sizeBytes = size,
     modifiedAtEpochMs = id.toLong(),

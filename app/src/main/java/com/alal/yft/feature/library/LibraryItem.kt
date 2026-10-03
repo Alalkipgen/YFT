@@ -30,9 +30,16 @@ data class LibraryItem(
     val isAudio: Boolean
         get() = mimeType?.startsWith("audio/") == true
 
+    val isVideo: Boolean
+        get() = mimeType?.startsWith("video/") == true
+
     /** Whether the in-app player is offered; unknown types are left to other apps. */
     val isPlayable: Boolean
-        get() = mimeType != null && (mimeType.startsWith("video/") || isAudio)
+        get() = isVideo || isAudio
+
+    /** The same file, whether it was listed here or started from Downloads. */
+    fun isSameFileAs(other: LibraryItem?): Boolean =
+        other != null && (other.id == id || other.uri == uri)
 }
 
 /** MIME types for the file names YFT produces, with the platform table as a fallback. */

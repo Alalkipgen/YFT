@@ -18,6 +18,7 @@ import com.alal.yft.feature.detectedmedia.DetectedMediaRoute
 import com.alal.yft.feature.downloads.DownloadsRoute
 import com.alal.yft.feature.home.HomeRoute
 import com.alal.yft.feature.library.LibraryRoute
+import com.alal.yft.feature.library.PlayerRoute
 import com.alal.yft.feature.preview.PreviewRoute
 import com.alal.yft.feature.settings.SettingsRoute
 import com.alal.yft.ui.components.YftModalSheet
@@ -69,11 +70,17 @@ fun YftNavHost(
     ) -> Unit = { onNavigateBack, onOpenDownloads ->
         PreviewRoute(onNavigateBack = onNavigateBack, onOpenDownloads = onOpenDownloads)
     },
-    downloadsContent: @Composable (onOpenSettings: () -> Unit) -> Unit = { onOpenSettings ->
-        DownloadsRoute(onOpenSettings = onOpenSettings)
+    downloadsContent: @Composable (
+        onOpenSettings: () -> Unit,
+        onOpenPlayer: () -> Unit,
+    ) -> Unit = { onOpenSettings, onOpenPlayer ->
+        DownloadsRoute(onOpenSettings = onOpenSettings, onOpenPlayer = onOpenPlayer)
     },
-    libraryContent: @Composable (onNavigateBack: () -> Unit) -> Unit = { onNavigateBack ->
-        LibraryRoute(onNavigateBack = onNavigateBack)
+    libraryContent: @Composable (onOpenPlayer: () -> Unit) -> Unit = { onOpenPlayer ->
+        LibraryRoute(onOpenPlayer = onOpenPlayer)
+    },
+    playerContent: @Composable (onClose: () -> Unit) -> Unit = { onClose ->
+        PlayerRoute(onClose = onClose)
     },
     settingsContent: @Composable (
         onNavigateBack: () -> Unit,
@@ -90,6 +97,9 @@ fun YftNavHost(
     val navigateBack = { navController.navigateUp(); Unit }
     val openPreview = {
         navController.navigate(YftDestination.PREVIEW.route) { launchSingleTop = true }
+    }
+    val openPlayer = {
+        navController.navigate(YftDestination.PLAYER.route) { launchSingleTop = true }
     }
 
     NavHost(
@@ -155,10 +165,13 @@ fun YftNavHost(
             }
         }
         composable(YftDestination.DOWNLOADS.route) {
-            downloadsContent { navController.navigateToTab(YftDestination.SETTINGS) }
+            downloadsContent({ navController.navigateToTab(YftDestination.SETTINGS) }, openPlayer)
         }
         composable(YftDestination.LIBRARY.route) {
-            libraryContent(navigateBack)
+            libraryContent(openPlayer)
+        }
+        composable(YftDestination.PLAYER.route) {
+            playerContent(navigateBack)
         }
         composable(YftDestination.SETTINGS.route) {
             settingsContent(navigateBack) { navController.navigate(YftDestination.ABOUT.route) }

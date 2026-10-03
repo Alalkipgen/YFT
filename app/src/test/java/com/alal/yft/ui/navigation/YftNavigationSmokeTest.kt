@@ -18,6 +18,7 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -41,6 +42,7 @@ import com.alal.yft.feature.home.HomeRoute
 import com.alal.yft.feature.home.HomeViewModel
 import com.alal.yft.feature.home.LinkInspection
 import com.alal.yft.feature.library.LibraryItem
+import com.alal.yft.feature.library.LibraryLocation
 import com.alal.yft.feature.library.LibraryRepository
 import com.alal.yft.feature.library.LibraryScreen
 import com.alal.yft.feature.library.LibraryUiState
@@ -52,6 +54,7 @@ import com.alal.yft.ui.components.PromptboxStatus
 import com.alal.yft.ui.theme.YftTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -136,6 +139,39 @@ class YftNavigationSmokeTest {
         composeRule.onNodeWithTag("navigate-back").performClick()
         composeRule.onNodeWithTag("settings-list").assertIsDisplayed()
         composeRule.onNodeWithTag("nav-settings").assertIsSelected()
+    }
+
+    @Test
+    fun aLibraryVideoPlaysFullScreenAndBackReturnsToTheLibrary() {
+        setShell()
+        composeRule.onNodeWithTag("nav-library").performClick()
+        composeRule.onNodeWithTag("library-item-${SAVED_VIDEO.id}").performClick()
+
+        composeRule.onNodeWithText(YftDestination.PLAYER.summary).assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-library").assertDoesNotExist()
+        assertEquals(YftDestination.PLAYER.route, shellNavController.currentDestination?.route)
+
+        composeRule.onNodeWithTag("navigate-back").performClick()
+        composeRule.onNodeWithTag("library-grid").assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-library").assertIsSelected()
+    }
+
+    @Test
+    fun theMiniPlayerSitsAboveTheBarOnEveryTabOnly() {
+        setShell(miniPlayer = { Text("Now playing", Modifier.testTag("mini")) })
+
+        composeRule.onNodeWithTag("mini").assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-library").performClick()
+        composeRule.onNodeWithTag("mini").assertIsDisplayed()
+        val mini = composeRule.onNodeWithTag("mini").getUnclippedBoundsInRoot()
+        val bar = composeRule.onNodeWithTag("nav-library").getUnclippedBoundsInRoot()
+        assertTrue(mini.bottom <= bar.top)
+
+        composeRule.onNodeWithTag("nav-home").performClick()
+        composeRule.onNodeWithTag("home-open-browser").performClick()
+        composeRule.onNodeWithTag("mini").assertDoesNotExist()
+        composeRule.onNodeWithTag("navigate-back").performClick()
+        composeRule.onNodeWithTag("mini").assertIsDisplayed()
     }
 
     // Native graphics hit-tests the sheet's top-rounded shape, so taps inside it land.
@@ -257,13 +293,20 @@ class YftNavigationSmokeTest {
     private fun stateDescription(value: String) =
         SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, value)
 
-    private fun setShell(activeDownloads: () -> Int = { 0 }) {
+    private fun setShell(
+        activeDownloads: () -> Int = { 0 },
+        miniPlayer: @Composable () -> Unit = {},
+    ) {
         val home = homeViewModel()
         composeRule.setContent {
             var themeMode by remember { mutableStateOf(ThemeMode.SYSTEM) }
             YftTheme(themeMode = themeMode) {
                 val navController = rememberNavController().also { shellNavController = it }
-                YftAppShell(navController = navController, activeDownloads = activeDownloads()) {
+                YftAppShell(
+                    navController = navController,
+                    activeDownloads = activeDownloads(),
+                    miniPlayer = miniPlayer,
+                ) {
                     TestNavHost(
                         navController = navController,
                         home = home,
@@ -317,15 +360,16 @@ private fun TestNavHost(
                 ) { Text(text = "View downloads") }
             }
         },
-        downloadsContent = { _ ->
+        downloadsContent = { _, _ ->
             Placeholder(YftDestination.DOWNLOADS, onNavigateBack = {})
         },
-        libraryContent = { onNavigateBack ->
+        libraryContent = { onOpenPlayer ->
             LibraryScreen(
-                uiState = LibraryUiState.Ready(items = emptyList()),
-                onNavigateBack = onNavigateBack,
+                uiState = LibraryUiState.Ready(items = listOf(SAVED_VIDEO)),
+                onPlay = { onOpenPlayer() },
             )
         },
+        playerContent = { onClose -> Placeholder(YftDestination.PLAYER, onClose) },
         settingsContent = { onNavigateBack, onOpenAbout ->
             SettingsScreen(
                 state = SettingsUiState(),
@@ -386,4 +430,14 @@ private fun homeViewModel(): HomeViewModel = HomeViewModel(
         override suspend fun delete(item: LibraryItem): Boolean = false
     },
     detectedMediaStore = DetectedMediaStore(),
+)
+
+private val SAVED_VIDEO = LibraryItem(
+    id = "media:1",
+    displayName = "Clip.mp4",
+    uri = "content://media/external_primary/downloads/1",
+    mimeType = "video/mp4",
+    sizeBytes = 2_097_152,
+    modifiedAtEpochMs = 1L,
+    location = LibraryLocation.SHARED_DOWNLOADS,
 )

@@ -1,40 +1,37 @@
 package com.alal.yft.feature.library
 
-import android.content.Context
-import androidx.test.core.app.ApplicationProvider
-import com.alal.yft.core.media.player.MediaPlayerFactory
 import com.alal.yft.testing.MainDispatcherRule
 import java.io.IOException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 
 @OptIn(ExperimentalCoroutinesApi::class)
-@RunWith(RobolectricTestRunner::class)
-@Config(sdk = [28])
 class LibraryViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
+    private val playback = FakeLibraryPlayback()
+
     @Test
     fun startsLoadingThenShowsItemsOrAnEmptyLibrary() = runTest {
         val repository = FakeRepository(mutableListOf())
-        val viewModel = viewModel(repository)
+        val viewModel = LibraryViewModel(repository, playback)
         assertEquals(LibraryUiState.Loading, viewModel.uiState.value)
 
         viewModel.refresh()
         runCurrent()
         assertEquals(LibraryUiState.Ready(items = emptyList()), viewModel.uiState.value)
 
-        repository.items += item("a")
+        repository.items += libraryItem("a")
         viewModel.refresh()
         runCurrent()
         assertEquals(listOf("a"), ready(viewModel).items.map(LibraryItem::id))
@@ -42,8 +39,8 @@ class LibraryViewModelTest {
 
     @Test
     fun readFailureIsExplainedAndRetryRecovers() = runTest {
-        val repository = FakeRepository(mutableListOf(item("a")), failReads = true)
-        val viewModel = viewModel(repository)
+        val repository = FakeRepository(mutableListOf(libraryItem("a")), failReads = true)
+        val viewModel = LibraryViewModel(repository, playback)
 
         viewModel.refresh()
         runCurrent()
@@ -57,11 +54,62 @@ class LibraryViewModelTest {
     }
 
     @Test
-    fun deleteWaitsForConfirmationAndDismissKeepsTheFile() = runTest {
-        val repository = FakeRepository(mutableListOf(item("a")))
+    fun aFinishedDownloadRereadsTheList() = runTest {
+        val repository = FakeRepository(mutableListOf(libraryItem("a")))
+        val finished = MutableStateFlow(3)
+        val viewModel = LibraryViewModel(repository, playback, finished)
+        runCurrent()
+        // The count it starts with is not news.
+        assertEquals(LibraryUiState.Loading, viewModel.uiState.value)
+
+        viewModel.refresh()
+        runCurrent()
+        repository.items += libraryItem("b")
+        finished.value = 4
+        runCurrent()
+
+        assertEquals(listOf("a", "b"), ready(viewModel).items.map(LibraryItem::id))
+    }
+
+    @Test
+    fun playStartsOnlyPlayableFilesAndClearsTheLastMessage() = runTest {
+        val viewModel = loaded(FakeRepository(mutableListOf(libraryItem("a"))))
+        viewModel.showMessage("Deleted b.mp4.")
+
+        viewModel.play(libraryItem("notes", name = "notes.bin"))
+        assertEquals(emptyList<String>(), playback.calls)
+        assertEquals("Deleted b.mp4.", ready(viewModel).message)
+
+        viewModel.play(libraryItem("a"))
+        assertEquals(listOf("play:a"), playback.calls)
+        assertNull(ready(viewModel).message)
+        assertSame(playback.state, viewModel.playing)
+    }
+
+    @Test
+    fun aListedFileThatHasGoneStopsPlayingButOneFromDownloadsDoesNot() = runTest {
+        val repository = FakeRepository(mutableListOf(libraryItem("a"), libraryItem("b")))
         val viewModel = loaded(repository)
 
-        viewModel.requestDelete(item("a"))
+        playback.play(libraryItem("download-7", name = "elsewhere.mp4"))
+        viewModel.refresh()
+        runCurrent()
+        assertEquals("download-7", playback.state.value?.item?.id)
+
+        viewModel.play(libraryItem("a"))
+        repository.items.removeAll { it.id == "a" }
+        viewModel.refresh()
+        runCurrent()
+        assertNull(playback.state.value)
+        assertEquals(listOf("b"), ready(viewModel).items.map(LibraryItem::id))
+    }
+
+    @Test
+    fun deleteWaitsForConfirmationAndDismissKeepsTheFile() = runTest {
+        val repository = FakeRepository(mutableListOf(libraryItem("a")))
+        val viewModel = loaded(repository)
+
+        viewModel.requestDelete(libraryItem("a"))
         assertEquals("a", ready(viewModel).pendingDelete?.id)
         assertEquals(0, repository.deleted.size)
 
@@ -74,14 +122,14 @@ class LibraryViewModelTest {
 
     @Test
     fun confirmedDeleteRemovesTheFileStopsItsPlaybackAndReportsIt() = runTest {
-        val repository = FakeRepository(mutableListOf(item("a"), item("b")))
+        val repository = FakeRepository(mutableListOf(libraryItem("a"), libraryItem("b")))
         val viewModel = loaded(repository)
-        viewModel.play(item("a"))
-        viewModel.requestDelete(item("a"))
+        viewModel.play(libraryItem("a"))
+        viewModel.requestDelete(libraryItem("a"))
 
         viewModel.confirmDelete()
         assertNull(ready(viewModel).pendingDelete)
-        assertNull(ready(viewModel).playing)
+        assertNull(playback.state.value)
         runCurrent()
 
         assertEquals(listOf("a"), repository.deleted)
@@ -91,64 +139,35 @@ class LibraryViewModelTest {
     }
 
     @Test
-    fun failedDeleteKeepsTheItemAndSaysSo() = runTest {
-        val repository = FakeRepository(mutableListOf(item("a")), deleteResult = false)
+    fun deletingAnotherFileKeepsPlaybackAndAFailedDeleteSaysSo() = runTest {
+        val repository = FakeRepository(
+            mutableListOf(libraryItem("a"), libraryItem("b")),
+            deleteResult = false,
+        )
         val viewModel = loaded(repository)
-        viewModel.requestDelete(item("a"))
+        viewModel.play(libraryItem("b"))
+        viewModel.requestDelete(libraryItem("a"))
 
         viewModel.confirmDelete()
         runCurrent()
 
         val state = ready(viewModel)
-        assertEquals(listOf("a"), state.items.map(LibraryItem::id))
+        assertEquals(listOf("a", "b"), state.items.map(LibraryItem::id))
         assertEquals("a.mp4 could not be deleted.", state.message)
+        assertEquals("b", playback.state.value?.item?.id)
+
+        viewModel.dismissMessage()
+        assertNull(ready(viewModel).message)
     }
 
-    @Test
-    fun playbackErrorClosesThePlayerWithAHint() = runTest {
-        val repository = FakeRepository(mutableListOf(item("a"), item("b")))
-        val viewModel = loaded(repository)
-        viewModel.play(item("a"))
-
-        viewModel.onPlaybackError(item("b"))
-        assertEquals("a", ready(viewModel).playing?.id)
-
-        viewModel.onPlaybackError(item("a"))
-        val state = ready(viewModel)
-        assertNull(state.playing)
-        assertTrue(state.message!!.contains("Try Open"))
-
-        viewModel.refresh()
-        runCurrent()
-        assertTrue(ready(viewModel).message!!.contains("Try Open"))
-    }
-
-    private fun kotlinx.coroutines.test.TestScope.loaded(
-        repository: FakeRepository,
-    ): LibraryViewModel = viewModel(repository).also {
-        it.refresh()
-        runCurrent()
-    }
-
-    private fun viewModel(repository: LibraryRepository) = LibraryViewModel(
-        repository = repository,
-        mediaPlayerFactory = MediaPlayerFactory(
-            ApplicationProvider.getApplicationContext<Context>(),
-        ),
-    )
+    private fun TestScope.loaded(repository: FakeRepository): LibraryViewModel =
+        LibraryViewModel(repository, playback).also {
+            it.refresh()
+            runCurrent()
+        }
 
     private fun ready(viewModel: LibraryViewModel) =
         viewModel.uiState.value as LibraryUiState.Ready
-
-    private fun item(id: String) = LibraryItem(
-        id = id,
-        displayName = "$id.mp4",
-        uri = "content://example/$id.mp4",
-        mimeType = "video/mp4",
-        sizeBytes = 1,
-        modifiedAtEpochMs = 1,
-        location = LibraryLocation.APP_STORAGE,
-    )
 
     private class FakeRepository(
         val items: MutableList<LibraryItem>,

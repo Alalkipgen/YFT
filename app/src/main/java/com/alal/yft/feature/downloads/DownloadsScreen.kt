@@ -44,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -68,7 +69,11 @@ import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.download.policy.TransferNetworkState
 import com.alal.yft.feature.library.AppPrivateDownloadProvider
 import com.alal.yft.feature.library.LibraryIntents
+import com.alal.yft.feature.library.LibraryItem
+import com.alal.yft.feature.library.LibraryLocation
 import com.alal.yft.feature.library.LibraryMimeTypes
+import com.alal.yft.feature.library.LocalLibraryPlayback
+import com.alal.yft.feature.library.rememberMediaDetails
 import com.alal.yft.ui.components.YftCard
 import com.alal.yft.ui.components.YftCircleButton
 import com.alal.yft.ui.components.YftFilterChip
@@ -92,22 +97,35 @@ import java.util.TimeZone
 @Composable
 fun DownloadsRoute(
     onOpenSettings: () -> Unit = {},
+    onOpenPlayer: () -> Unit = {},
     viewModel: DownloadsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val playback = LocalLibraryPlayback.current
+    val openElsewhere: (DownloadRowUiState) -> Unit = { row ->
+        val intent = DownloadIntents.view(context, row)
+        if (intent == null || !LibraryIntents.start(context, intent)) {
+            Toast.makeText(
+                context,
+                "No app on this device can open ${row.title}.",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
     DownloadsScreen(
         uiState = uiState,
         onAction = viewModel::onAction,
         onPauseAll = viewModel::pauseAll,
-        onOpen = { row ->
-            val intent = DownloadIntents.view(context, row)
-            if (intent == null || !LibraryIntents.start(context, intent)) {
-                Toast.makeText(
-                    context,
-                    "No app on this device can open ${row.title}.",
-                    Toast.LENGTH_SHORT,
-                ).show()
+        onOpen = openElsewhere,
+        // The Library's player: audio in the mini player, video full screen.
+        onPlay = { row ->
+            val item = DownloadIntents.libraryItemOf(context, row)?.takeIf { it.isPlayable }
+            if (playback == null || item == null) {
+                openElsewhere(row)
+            } else {
+                playback.play(item)
+                if (item.isVideo) onOpenPlayer()
             }
         },
         onOpenSettings = onOpenSettings,
@@ -120,7 +138,8 @@ fun DownloadsRoute(
  * "Earlier", and the save location with its free space above the bottom bar.
  *
  * Tapping a card opens a menu with every control the task allows, and accessibility services
- * get the same controls as custom actions. Finished downloads open in another app.
+ * get the same controls as custom actions. A finished download's play button plays it in the
+ * app ([onPlay]); its menu can also hand it to another app ([onOpen]).
  */
 @Composable
 fun DownloadsScreen(
@@ -129,6 +148,7 @@ fun DownloadsScreen(
     onPauseAll: () -> Unit,
     modifier: Modifier = Modifier,
     onOpen: (DownloadRowUiState) -> Unit = {},
+    onPlay: (DownloadRowUiState) -> Unit = onOpen,
     onOpenSettings: () -> Unit = {},
     todayStartEpochMs: Long = remember { startOfDayEpochMs(System.currentTimeMillis()) },
 ) {
@@ -191,6 +211,7 @@ fun DownloadsScreen(
                     todayStartEpochMs = todayStartEpochMs,
                     onAction = onAction,
                     onOpen = onOpen,
+                    onPlay = onPlay,
                 )
             }
         }
@@ -210,6 +231,7 @@ private fun LazyListScope.downloadItems(
     todayStartEpochMs: Long,
     onAction: (DownloadAction, String) -> Unit,
     onOpen: (DownloadRowUiState) -> Unit,
+    onPlay: (DownloadRowUiState) -> Unit,
 ) {
     val visible = uiState.rowsFor(filter)
     if (visible.isEmpty()) {
@@ -225,6 +247,7 @@ private fun LazyListScope.downloadItems(
                 network = uiState.network,
                 onAction = onAction,
                 onOpen = onOpen,
+                onPlay = onPlay,
                 modifier = Modifier.padding(start = 16.dp, top = 8.dp, end = 16.dp),
             )
         }
@@ -428,9 +451,15 @@ private fun cardActions(
     row: DownloadRowUiState,
     onAction: (DownloadAction, String) -> Unit,
     onOpen: (DownloadRowUiState) -> Unit,
+    onPlay: (DownloadRowUiState) -> Unit,
 ): List<CardAction> = buildList {
     if (row.status == DownloadTaskStatus.COMPLETED) {
-        add(CardAction("Open", "download-menu-open-${row.id}", YftIcons.OpenInNew) { onOpen(row) })
+        add(CardAction("Play", "download-menu-play-${row.id}", YftIcons.Play) { onPlay(row) })
+        add(
+            CardAction("Open with…", "download-menu-open-${row.id}", YftIcons.OpenInNew) {
+                onOpen(row)
+            },
+        )
     }
     DownloadAction.entries
         .filter { it in row.availableActions }
@@ -458,11 +487,12 @@ private fun DownloadCard(
     network: TransferNetworkState,
     onAction: (DownloadAction, String) -> Unit,
     onOpen: (DownloadRowUiState) -> Unit,
+    onPlay: (DownloadRowUiState) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = YftTheme.colors
     var menuOpen by remember { mutableStateOf(false) }
-    val actions = cardActions(row, onAction, onOpen)
+    val actions = cardActions(row, onAction, onOpen, onPlay)
     Box(modifier = modifier.fillMaxWidth()) {
         YftCard(
             modifier = Modifier
@@ -480,7 +510,7 @@ private fun DownloadCard(
             contentPadding = PaddingValues(10.dp),
         ) {
             when (row.status) {
-                DownloadTaskStatus.COMPLETED -> FinishedRow(row = row, onOpen = onOpen)
+                DownloadTaskStatus.COMPLETED -> FinishedRow(row = row, onPlay = onPlay)
                 in PROGRESS_STATUSES -> ProgressRow(row = row, onAction = onAction)
                 else -> StatusRow(row = row, network = network, onAction = onAction)
             }
@@ -501,7 +531,11 @@ private fun DownloadCard(
                         },
                         modifier = Modifier.testTag(action.tag),
                         leadingIcon = {
-                            YftIcon(icon = action.icon, contentDescription = null, tint = colors.icon)
+                            YftIcon(
+                                icon = action.icon,
+                                contentDescription = null,
+                                tint = colors.icon,
+                            )
                         },
                     )
                 }
@@ -654,18 +688,27 @@ private fun StatusRow(
     }
 }
 
-/** A finished download: smaller tile, the green check and Play, which opens the file. */
+/**
+ * A finished download: the file's own frame or cover in a smaller tile, its picture size when
+ * known, the green check and Play, which plays it in the app.
+ */
 @Composable
 private fun FinishedRow(
     row: DownloadRowUiState,
-    onOpen: (DownloadRowUiState) -> Unit,
+    onPlay: (DownloadRowUiState) -> Unit,
 ) {
     val colors = YftTheme.colors
+    val context = LocalContext.current
+    val uri = remember(row.destinationKind, row.destinationUri, row.displayName) {
+        DownloadIntents.uriOf(context, row)?.toString()
+    }
+    val details = rememberMediaDetails(uri, row.isAudio)
     Row(verticalAlignment = Alignment.CenterVertically) {
         RowThumbnail(
             row = row,
             modifier = Modifier.size(width = 48.dp, height = 44.dp),
             iconSize = 22.dp,
+            image = details?.image,
         )
         Column(
             modifier = Modifier
@@ -674,7 +717,7 @@ private fun FinishedRow(
         ) {
             CardTitle(row.title)
             MetaText(
-                text = metaLabel(row),
+                text = metaLabel(row, quality = details?.qualityLabel),
                 modifier = Modifier.testTag("download-meta-${row.id}"),
             )
         }
@@ -687,8 +730,8 @@ private fun FinishedRow(
         )
         YftCircleButton(
             icon = YftIcons.Play,
-            contentDescription = "Open ${row.title}",
-            onClick = { onOpen(row) },
+            contentDescription = "Play ${row.title}",
+            onClick = { onPlay(row) },
             modifier = Modifier.testTag("download-open-${row.id}"),
             size = CIRCLE_SIZE,
         )
@@ -696,9 +739,14 @@ private fun FinishedRow(
 }
 
 @Composable
-private fun RowThumbnail(row: DownloadRowUiState, modifier: Modifier, iconSize: Dp = 28.dp) {
+private fun RowThumbnail(
+    row: DownloadRowUiState,
+    modifier: Modifier,
+    iconSize: Dp = 28.dp,
+    image: ImageBitmap? = null,
+) {
     YftThumbnail(
-        image = null,
+        image = image,
         kind = if (row.isAudio) YftMediaKind.Audio else YftMediaKind.Video,
         modifier = modifier,
         shape = YftShapes.thumbnailSmall,
@@ -788,20 +836,43 @@ private fun StoragePill(
 internal object DownloadIntents {
     private const val ANY_TYPE = "*/*"
 
-    fun view(context: Context, row: DownloadRowUiState): Intent? {
-        val uri = when (row.destinationKind) {
-            DownloadDestinationKind.APP_PRIVATE ->
-                AppPrivateDownloadProvider.uriFor(context, row.displayName)
+    /** The saved file's `content://` address, or null when the task recorded none. */
+    fun uriOf(context: Context, row: DownloadRowUiState): Uri? = when (row.destinationKind) {
+        DownloadDestinationKind.APP_PRIVATE ->
+            AppPrivateDownloadProvider.uriFor(context, row.displayName)
 
-            DownloadDestinationKind.MEDIA_STORE, DownloadDestinationKind.SAF_DOCUMENT ->
-                row.destinationUri?.let(Uri::parse)
-        } ?: return null
-        val type = row.mimeType ?: LibraryMimeTypes.forFileName(row.displayName) ?: ANY_TYPE
+        DownloadDestinationKind.MEDIA_STORE, DownloadDestinationKind.SAF_DOCUMENT ->
+            row.destinationUri?.let(Uri::parse)
+    }
+
+    fun view(context: Context, row: DownloadRowUiState): Intent? {
+        val uri = uriOf(context, row) ?: return null
         return Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, type)
+            setDataAndType(uri, mimeTypeOf(row) ?: ANY_TYPE)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
     }
+
+    /** The finished file as the Library's player takes it, or null when it has no address. */
+    fun libraryItemOf(context: Context, row: DownloadRowUiState): LibraryItem? {
+        val uri = uriOf(context, row) ?: return null
+        return LibraryItem(
+            id = "download-${row.id}",
+            displayName = row.displayName,
+            uri = uri.toString(),
+            mimeType = mimeTypeOf(row),
+            sizeBytes = row.totalBytes ?: row.downloadedBytes.takeIf { it > 0L },
+            modifiedAtEpochMs = row.updatedAtEpochMs.takeIf { it > 0L },
+            location = if (row.destinationKind == DownloadDestinationKind.APP_PRIVATE) {
+                LibraryLocation.APP_STORAGE
+            } else {
+                LibraryLocation.SHARED_DOWNLOADS
+            },
+        )
+    }
+
+    private fun mimeTypeOf(row: DownloadRowUiState): String? =
+        row.mimeType ?: LibraryMimeTypes.forFileName(row.displayName)
 }
 
 /** Local midnight before [nowEpochMs], which splits "Completed today" from "Earlier". */

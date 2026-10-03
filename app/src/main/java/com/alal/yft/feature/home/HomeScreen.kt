@@ -62,6 +62,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alal.yft.R
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.feature.library.LibraryItem
+import com.alal.yft.feature.library.libraryMeta
+import com.alal.yft.feature.library.rememberMediaDetails
 import com.alal.yft.ui.components.PromptboxStatus
 import com.alal.yft.ui.components.YftCard
 import com.alal.yft.ui.components.YftIcon
@@ -468,9 +470,11 @@ private fun RecentSection(
     }
 }
 
+/** One of the two newest saved files with its own frame or cover, length and "720p · 96 MB". */
 @Composable
 private fun RecentCard(item: LibraryItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = YftTheme.colors
+    val details = rememberMediaDetails(item.uri, item.isAudio)
     Column(
         modifier = modifier
             .clip(YftShapes.thumbnail)
@@ -478,11 +482,12 @@ private fun RecentCard(item: LibraryItem, onClick: () -> Unit, modifier: Modifie
             .testTag("home-recent-${item.id}"),
     ) {
         YftThumbnail(
-            image = null,
+            image = details?.image,
             kind = if (item.isAudio) YftMediaKind.Audio else YftMediaKind.Video,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(THUMBNAIL_RATIO),
+            durationLabel = details?.durationMs?.let(YftFormat::duration),
         )
         Text(
             text = YftFormat.title(item.displayName),
@@ -493,11 +498,10 @@ private fun RecentCard(item: LibraryItem, onClick: () -> Unit, modifier: Modifie
             overflow = TextOverflow.Ellipsis,
         )
         Text(
-            text = listOfNotNull(
-                YftFormat.format(item.displayName, item.mimeType),
-                item.sizeBytes?.let(YftFormat::bytes),
-            ).joinToString(" · "),
-            modifier = Modifier.padding(top = 2.dp),
+            text = libraryMeta(item, details),
+            modifier = Modifier
+                .padding(top = 2.dp)
+                .testTag("home-recent-meta-${item.id}"),
             color = colors.textSecondary,
             style = MaterialTheme.typography.bodyMedium,
             maxLines = 1,

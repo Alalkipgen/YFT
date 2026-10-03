@@ -1,18 +1,22 @@
 package com.alal.yft.feature.downloads
 
+import android.content.Context
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyChild
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -23,6 +27,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
+import androidx.test.core.app.ApplicationProvider
 import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.download.DownloadPlanType
 import com.alal.yft.core.model.ThemeMode
@@ -30,6 +35,11 @@ import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.download.policy.TransferNetworkState
+import com.alal.yft.feature.library.AppPrivateDownloadProvider
+import com.alal.yft.feature.library.FixedMediaDetails
+import com.alal.yft.feature.library.LocalMediaDetailsSource
+import com.alal.yft.feature.library.MediaDetails
+import com.alal.yft.feature.library.MediaDetailsSource
 import com.alal.yft.ui.theme.YftTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -331,8 +341,8 @@ class DownloadsScreenTest {
     }
 
     @Test
-    fun finishedDownloadsAreGroupedByDayAndOpen() {
-        val opened = mutableListOf<String>()
+    fun finishedDownloadsAreGroupedByDayAndPlay() {
+        val played = mutableListOf<String>()
         setScreen(
             DownloadsUiState(
                 listOf(
@@ -355,7 +365,7 @@ class DownloadsScreenTest {
                     ),
                 ),
             ),
-            onOpen = { opened += it.id },
+            onPlay = { played += it.id },
             todayStartEpochMs = 1_000,
         )
 
@@ -363,9 +373,37 @@ class DownloadsScreenTest {
         composeRule.onNodeWithText("Earlier").assertIsDisplayed()
         composeRule.onNodeWithText("M4A · 7 MB").assertIsDisplayed()
 
-        composeRule.onNodeWithTag("download-open-new").performClick()
+        composeRule.onNodeWithTag("download-open-new")
+            .assertContentDescriptionEquals("Play Ocean Waves")
+            .performClick()
 
-        assertEquals(listOf("new"), opened)
+        assertEquals(listOf("new"), played)
+    }
+
+    @Test
+    fun aFinishedVideoShowsThePictureSizeReadFromTheFile() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val uri = AppPrivateDownloadProvider.uriFor(context, "Mountain Lake.mp4").toString()
+        setScreen(
+            DownloadsUiState(
+                listOf(
+                    row(
+                        id = "lake",
+                        status = DownloadTaskStatus.COMPLETED,
+                        downloaded = 100_663_296,
+                        total = 100_663_296,
+                        progressPercent = 100,
+                        name = "Mountain Lake.mp4",
+                    ),
+                ),
+            ),
+            mediaDetails = FixedMediaDetails(
+                mapOf(uri to MediaDetails(durationMs = 252_000, width = 1280, height = 720)),
+            ),
+        )
+
+        composeRule.onNodeWithTag("download-meta-lake", useUnmergedTree = true)
+            .assertTextEquals("720p · 96 MB")
     }
 
     @Test
@@ -388,21 +426,24 @@ class DownloadsScreenTest {
     }
 
     @Test
-    fun finishedCardMenuOpensOrRemovesTheRecord() {
+    fun finishedCardMenuPlaysOpensOrRemovesTheRecord() {
         val actions = mutableListOf<Pair<DownloadAction, String>>()
         val opened = mutableListOf<String>()
         setScreen(
             DownloadsUiState(listOf(row("done", DownloadTaskStatus.COMPLETED, 100, 100, 100))),
             onAction = { action, id -> actions += action to id },
-            onOpen = { opened += it.id },
+            onOpen = { opened += "open:${it.id}" },
+            onPlay = { opened += "play:${it.id}" },
         )
 
         composeRule.onNodeWithTag("download-done").performClick()
-        composeRule.onNodeWithTag("download-menu-open-done").performClick()
+        composeRule.onNodeWithTag("download-menu-play-done").performClick()
+        composeRule.onNodeWithTag("download-done").performClick()
+        composeRule.onNodeWithText("Open with…").performClick()
         composeRule.onNodeWithTag("download-done").performClick()
         composeRule.onNodeWithText("Remove from list").performClick()
 
-        assertEquals(listOf("done"), opened)
+        assertEquals(listOf("play:done", "open:done"), opened)
         assertEquals(listOf(DownloadAction.DELETE to "done"), actions)
     }
 
@@ -491,19 +532,24 @@ class DownloadsScreenTest {
         onAction: (DownloadAction, String) -> Unit = { _, _ -> },
         onPauseAll: () -> Unit = {},
         onOpen: (DownloadRowUiState) -> Unit = {},
+        onPlay: (DownloadRowUiState) -> Unit = {},
         onOpenSettings: () -> Unit = {},
         todayStartEpochMs: Long = 0,
+        mediaDetails: MediaDetailsSource = MediaDetailsSource.None,
     ) {
         composeRule.setContent {
             YftTheme(themeMode = ThemeMode.LIGHT) {
-                DownloadsScreen(
-                    uiState = uiState,
-                    onAction = onAction,
-                    onPauseAll = onPauseAll,
-                    onOpen = onOpen,
-                    onOpenSettings = onOpenSettings,
-                    todayStartEpochMs = todayStartEpochMs,
-                )
+                CompositionLocalProvider(LocalMediaDetailsSource provides mediaDetails) {
+                    DownloadsScreen(
+                        uiState = uiState,
+                        onAction = onAction,
+                        onPauseAll = onPauseAll,
+                        onOpen = onOpen,
+                        onPlay = onPlay,
+                        onOpenSettings = onOpenSettings,
+                        todayStartEpochMs = todayStartEpochMs,
+                    )
+                }
             }
         }
     }
