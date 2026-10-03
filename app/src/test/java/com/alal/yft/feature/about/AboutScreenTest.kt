@@ -43,7 +43,9 @@ class AboutScreenTest {
         composeRule.onNodeWithContentDescription("What YFT does not do")
             .performScrollTo()
             .assertIsDisplayed()
-        composeRule.onNodeWithText("The clipboard is read only when you tap Paste.")
+        composeRule.onNodeWithText(
+            "The clipboard is read only when you tap Paste or Use copied link.",
+        )
             .performScrollTo()
             .assertIsDisplayed()
         composeRule.onNodeWithText("Logs never contain cookies, tokens or signed links.")

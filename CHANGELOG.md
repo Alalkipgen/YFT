@@ -22,6 +22,8 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Fixed
 
+- Home Paste/Open browser actions wrap at large text sizes rather than truncating the browser
+  label. About privacy text includes both explicit clipboard actions.
 - Empty browser now uses a Compose start page with tap-to-paste and saved Your sites.
   The WebView is created on the first valid navigation and retained across later navigation
   and recomposition. Web content is clipped below an opaque, higher-layer address/close bar.

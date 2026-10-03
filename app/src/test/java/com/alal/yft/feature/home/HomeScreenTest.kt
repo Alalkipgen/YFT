@@ -3,11 +3,14 @@ package com.alal.yft.feature.home
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -16,6 +19,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.settings.HomeSite
@@ -30,6 +35,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w360dp-h780dp")
@@ -44,21 +50,28 @@ class HomeScreenTest {
     private var openedDetectedMedia = 0
     private var openedLibrary = 0
 
-    private fun setContent(initial: HomeUiState = HomeUiState()) {
+    private fun setContent(initial: HomeUiState = HomeUiState(), fontScale: Float = 1f) {
         state = initial
         composeRule.setContent {
-            YftTheme(themeMode = ThemeMode.LIGHT) {
-                HomeScreen(
-                    state = state,
-                    onAction = { action ->
-                        actions += action
-                        if (action is HomeAction.LinkChanged) state = state.copy(link = action.text)
-                    },
-                    onOpenBrowser = { openedBrowser += it },
-                    onOpenDetectedMedia = { openedDetectedMedia++ },
-                    onOpenLibrary = { openedLibrary++ },
-                    copiedLinkHint = copiedLinkHint,
-                )
+            val density = LocalDensity.current
+            CompositionLocalProvider(
+                LocalDensity provides Density(density.density, fontScale),
+            ) {
+                YftTheme(themeMode = ThemeMode.LIGHT) {
+                    HomeScreen(
+                        state = state,
+                        onAction = { action ->
+                            actions += action
+                            if (action is HomeAction.LinkChanged) {
+                                state = state.copy(link = action.text)
+                            }
+                        },
+                        onOpenBrowser = { openedBrowser += it },
+                        onOpenDetectedMedia = { openedDetectedMedia++ },
+                        onOpenLibrary = { openedLibrary++ },
+                        copiedLinkHint = copiedLinkHint,
+                    )
+                }
             }
         }
     }
@@ -208,6 +221,23 @@ class HomeScreenTest {
         composeRule.onNodeWithTag("home-copy-details").assertDoesNotExist()
         state = state.copy(status = PromptboxStatus.Searching)
         composeRule.onNodeWithTag("home-copy-details").assertDoesNotExist()
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun largeFontActionsWrapInsteadOfTruncatingTheBrowserLabel() {
+        setContent(
+            HomeUiState(
+                link = "https://a.test/page",
+                status = PromptboxStatus.NotFound("No media"),
+            ),
+            fontScale = 2f,
+        )
+        composeRule.onNodeWithTag("home-open-browser").assertWidthIsAtLeast(200.dp)
+        val paste = composeRule.onNodeWithTag("home-paste").fetchSemanticsNode().boundsInRoot
+        val browser = composeRule.onNodeWithTag("home-open-browser")
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue(browser.top >= paste.bottom)
     }
 
     @Test

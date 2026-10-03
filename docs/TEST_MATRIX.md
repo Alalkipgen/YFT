@@ -345,6 +345,32 @@ YFT_RENDER_DIR=/data/yft-t03-renders ./gradlew --no-daemon -q \
 labels are audited. Native smoke keeps the three screenshot names and asserts top controls
 in UIAutomator, no empty WebView, Example Domain page content, and page bounds below the bar.
 
+### T04 — Local crash report / lookup diagnostics (OWNER CHECK, 2026-10-03)
+
+| Check | Result |
+| --- | --- |
+| Starting state | PASS — core-model 30, extractor-api 22, extractor-sites 91, app 405 (45 render skips); lint 0 errors / 95 warnings |
+| Copy details regression | FAILED before implementation (control absent), PASSED in the full repaired run |
+| Handler/store | PASS — metadata/chain/frames, overwrite/delete, 64 KiB UTF-8 cap, redaction, cycle limit, IO-failure delegation and idempotent install |
+| About / Home diagnostics | PASS — report visibility, explicit View/Copy/Share/Delete, safe text chooser (no file URI), confirmed debug-only trigger, bounded step snapshots and clearing on edit/new lookup |
+| Initial failures | Wrong theme field caused a compile failure, repaired. Focused run: 75/76 passed; chooser text ClipData null assertion corrected to sanitized text/no URI; full run passes |
+| First full validation / instrumentation APK | PASS — core-model 35, extractor-api 24, extractor-sites 91, app 432 (53 render skips), 0 failures/errors; lint 0 errors / 95 warnings; instrumentation APK compiled |
+| Script tests / style | PASS — 13 Python tests; release verifier bash-n/shellcheck; all new Kotlin lines <=100 at implementation checkpoint |
+| Release APK safety | PASS on the final T04 working tree — separate unsigned beta.2 build; package/version/not-debuggable/alignment and debug-action DEX guard pass; SHA-256 16e14897a6e1444a0da8946a250535c48edefd8e481dd226f714e69913076f10; not published or installable |
+| First visual QA | 8 captures inspected: Home 200% truncates Open browser (responsive flow repair added); dialog's nominal 200% capture was actually 100% (native resource font-scale guard added); largest About actions need a scrolled capture |
+| Replacement renders / final validation | PASS — all 9 final PNGs individually inspected; full command: core-model 35, extractor-api 24, extractor-sites 91, app 434 (54 render skips), 0 failures/errors; lint 0 errors / 95 warnings; instrumentation APK compiled |
+| Largest text | PASS — full Open browser label wraps below Paste; all four About report actions have a scrolled 200% capture; dialog uses real Android resource fontScale=2, not just the parent composition density. The layout test initially failed with legacy Robolectric text metrics; Native graphics fixes the test environment and it passes |
+| Native CI | PASS on 3b9224c — both workflows green, API 34 native controls/content and 0 fatal exceptions. Final UI polish checkpoint still needs its CI |
+
+Full command: T01 memory flags plus
+`:core-model:test :extractor-api:test :extractor-sites:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest`.
+`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -v`.
+Release check: `:app:assembleRelease` in a separate call, then
+`bash scripts/verify-release-apk.sh --allow-unsigned --expected-version 1.0.0-beta.2 app/build/outputs/apk/release/app-release-unsigned.apk`.
+CI: https://github.com/Alalkipgen/YFT/actions/runs/37149137785 (emulator) and
+https://github.com/Alalkipgen/YFT/actions/runs/37149137767 (checkpoint/debug APK).
+Reports stay local; About Share opens a text chooser only after a tap, with no file-provider grant.
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |

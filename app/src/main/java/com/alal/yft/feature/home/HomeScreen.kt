@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -211,6 +213,7 @@ private fun Intro(modifier: Modifier = Modifier) {
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun LinkCard(
     state: HomeUiState,
     onAction: (HomeAction) -> Unit,
@@ -260,7 +263,7 @@ private fun LinkCard(
                     .testTag("home-copy-details"),
             )
         }
-        Row(
+        FlowRow(
             modifier = Modifier.padding(top = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {

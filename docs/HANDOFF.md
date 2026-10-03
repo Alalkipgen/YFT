@@ -2,8 +2,8 @@
 
 ## Current handoff (2026-10-03)
 
-- **Phase:** 8 — field fixes, in progress. T01/T03 are implemented and pass real-WebView CI;
-  their phone checks remain. T02 is DONE. Plan, status board and decisions:
+- **Phase:** 8 — field fixes, in progress. T01/T03/T04 are implemented; their phone checks
+  remain. T01/T03 and the T04 milestone pass real-WebView CI. T02 is DONE. Plan, status board and decisions:
   [`FIX_PLAN.md`](FIX_PLAN.md). Prompts: [`prompts/`](prompts/README.md).
 - **Branch:** `work/phase-8-field-fixes`, created from `main` at `28930cf`.
 - **Releases:** `1.0.0-beta.1` published 2026-10-02. `1.0.0-beta.2` (versionCode 2) is a signed
@@ -16,11 +16,10 @@
   empty browser hides the address bar; P3 every page load in the browser closes the app; P4 YouTube
   fails with a sign-in message; P5 a TikTok video is found but the download fails. Causes with
   evidence: FIX_PLAN §4 (F1–F8).
-- **Next action — agent:** T04 — local crash report and lookup details
-  ([`prompts/T04-crash-report-details.md`](prompts/T04-crash-report-details.md)),
-  IN PROGRESS: implementation/full tests are green. Complete its 8-render visual inspection,
-  actual release APK/debug-action verification and checkpoint CI before T05,
-  or [`prompts/00_NEXT_TASK.md`](prompts/00_NEXT_TASK.md) for whatever is next.
+- **Next action — agent:** verify the final T04 checkpoint CI, then T05 — Home request identity
+  ([`prompts/T05-headless-identity.md`](prompts/T05-headless-identity.md)). T04 is OWNER CHECK:
+  final tests, all 9 individually inspected renders and the actual release debug-action guard
+  pass. Use [`prompts/00_NEXT_TASK.md`](prompts/00_NEXT_TASK.md) for subsequent eligible tasks.
 - **Next action — owner:** answer D1 (clipboard check on open), D2 (YouTube strategy A or B) and D3
   (MP3) in FIX_PLAN §3. beta.2 can stay a draft; beta.3 replaces it.
 - **T01 validation (2026-10-03):** core-browser 53 tests, app 386 (41 renders skipped), 0 failures;
@@ -50,13 +49,19 @@
   https://github.com/Alalkipgen/YFT/actions/runs/37146164049. Phone checks and native pixel
   review remain; artifact download still requires authentication.
 
-- **T04 implementation milestone:** local no-backup 64 KiB crash report, previous-handler
-  delegation, About manual View/Copy/Share/Delete, debug-only confirmed long press, release
-  DEX guard, optional adapter failure steps and memory-only Home Copy details.
-  Full local tests: core-model 35, extractor-api 24, extractor-sites 91, app 432 (53 render
-  skips), 0 failures/errors; app lint 0 errors/95 warnings; instrumentation APK compiled.
-  Python 13/13 plus shell checks and Kotlin line audit pass. The Copy details regression
-  failed before implementation and now passes. Renders/release APK/native CI remain to check.
+- **T04 OWNER CHECK:** local no-backup 64 KiB crash report, previous-handler delegation,
+  About manual View/Copy/Share/Delete, debug-only confirmed long press, release DEX guard,
+  optional adapter failure steps and memory-only Home Copy details. Final tests: core-model 35,
+  extractor-api 24, extractor-sites 91, app 434 (54 render skips), 0 failures/errors; app lint
+  0 errors/95 warnings; instrumentation APK compiled. Python 13/13, shell checks and new Kotlin
+  line audit pass. Copy details regression failed old/passes fixed. All 9 final native-canvas
+  PNGs pass individual visual inspection; 200% Home actions wrap, and dialog fontScale is real.
+  Separate final unsigned release build passes metadata/alignment/debug-action checks; not
+  installable or published. Milestone 3b9224c CI GREEN: emulator
+  https://github.com/Alalkipgen/YFT/actions/runs/37149137785 and checkpoint/debug APK
+  https://github.com/Alalkipgen/YFT/actions/runs/37149137767. Final polish CI still needs its check.
+  Phone: debug About version long press → confirm crash → restart → View/Copy/Share/Delete;
+  on an unexpected app closure, explicitly Share the local report. No automatic upload.
 
 ## Known limitations (beta.2)
 

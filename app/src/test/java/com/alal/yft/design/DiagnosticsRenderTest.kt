@@ -1,10 +1,13 @@
 package com.alal.yft.design
 
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollTo
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.feature.about.AboutScreen
 import com.alal.yft.feature.about.CrashReportDialog
@@ -12,6 +15,7 @@ import com.alal.yft.feature.home.HomeScreen
 import com.alal.yft.feature.home.HomeUiState
 import com.alal.yft.ui.components.PromptboxStatus
 import java.io.File
+import org.junit.Assert.assertEquals
 import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
@@ -46,6 +50,11 @@ class DiagnosticsRenderTest {
     fun aboutLarge() = render("font200-12-about-report", ThemeMode.LIGHT, 2f) { About() }
 
     @Test
+    fun aboutLargeActions() = render(
+        "font200-12-about-report-actions", ThemeMode.LIGHT, 2f, scrollToReport = true,
+    ) { About() }
+
+    @Test
     fun dialogLight() = render("12-report-dialog", ThemeMode.LIGHT, dialog = true) {
         CrashReportDialog(REPORT, onDismiss = {})
     }
@@ -71,15 +80,28 @@ class DiagnosticsRenderTest {
         mode: ThemeMode,
         scale: Float = 1f,
         dialog: Boolean = false,
+        scrollToReport: Boolean = false,
         content: @Composable () -> Unit,
     ) {
+        // Dialogs own another AndroidComposeView and do not inherit DesignStage's density.
+        // Set the real resource configuration too, so their "200%" capture is not actually 100%.
+        composeRule.runOnUiThread {
+            val resources = composeRule.activity.resources
+            val configuration = Configuration(resources.configuration).apply { fontScale = scale }
+            @Suppress("DEPRECATION")
+            resources.updateConfiguration(configuration, resources.displayMetrics)
+        }
         composeRule.setContent { DesignStage(mode, scale, content) }
+        if (scrollToReport) {
+            composeRule.onNodeWithTag("about-crash-report").performScrollTo()
+        }
         val file = File(requireNotNull(outputDir), "$name.png")
         if (!dialog) {
             composeRule.saveWindow(file)
         } else {
             composeRule.waitForIdle()
             val view = requireNotNull(ShadowDialog.getLatestDialog().window).decorView
+            assertEquals(scale, view.resources.configuration.fontScale, 0.001f)
             val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
             composeRule.runOnUiThread { view.draw(Canvas(bitmap)) }
             file.parentFile?.mkdirs()
