@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
@@ -29,7 +28,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.alal.yft.ui.theme.YftIcons
@@ -202,15 +200,4 @@ fun YftRadioMark(selected: Boolean, modifier: Modifier = Modifier) {
             )
         }
     }
-}
-
-/** Short bold inline label, e.g. a percentage beside a progress bar. */
-@Composable
-fun YftValueText(text: String, modifier: Modifier = Modifier, color: Color = YftTheme.colors.link) {
-    Text(
-        text = text,
-        modifier = modifier.padding(start = 8.dp),
-        color = color,
-        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-    )
 }

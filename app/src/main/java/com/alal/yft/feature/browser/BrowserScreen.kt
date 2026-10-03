@@ -454,16 +454,17 @@ private fun BrowserAddressField(
                         append(display.host)
                         withStyle(SpanStyle(color = colors.textSecondary)) { append(display.path) }
                     },
+                    // Cleared before the click handler, so TalkBack skips this layer entirely.
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clearAndSetSemantics {}
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                         ) {
                             field = field.copy(selection = TextRange(0, field.text.length))
                             focusRequester.requestFocus()
-                        }
-                        .clearAndSetSemantics {},
+                        },
                     color = colors.textPrimary,
                     style = MaterialTheme.typography.bodyLarge,
                     maxLines = 1,

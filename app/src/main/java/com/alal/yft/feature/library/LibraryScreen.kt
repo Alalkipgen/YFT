@@ -672,7 +672,12 @@ private fun noMatchText(filter: LibraryFilter, query: String): String = when {
 private const val TILE_RATIO = 16f / 10f
 private val GRID_GAP = 12.dp
 private val GRID_ROW_GAP = 8.dp
-private val MORE_BUTTON_OFFSET = 14.dp
+
+/**
+ * How far the ⋯ button's 48dp touch area reaches past the tile's edge: the whole gap between
+ * the columns and no further, so it never takes touches from the tile beside it.
+ */
+private val MORE_BUTTON_OFFSET = GRID_GAP
 
 /** Lifts the ⋯ button from the tile's bottom so its centre lines up with the title's. */
 private val MORE_BUTTON_LIFT = (-11).dp

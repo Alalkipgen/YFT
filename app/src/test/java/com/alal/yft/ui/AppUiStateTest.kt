@@ -4,7 +4,6 @@ import com.alal.yft.core.data.preferences.SettingsRepository
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.testing.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest

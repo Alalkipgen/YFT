@@ -55,12 +55,6 @@ object YftIcons {
     val Document = R.drawable.ic_description
     val ChevronRight = R.drawable.ic_chevron_right
     val ExpandMore = R.drawable.ic_expand_more
-    val Fullscreen = R.drawable.ic_fullscreen
-    val FullscreenExit = R.drawable.ic_fullscreen_exit
     val Schedule = R.drawable.ic_schedule
-    val Edit = R.drawable.ic_edit
-    val Notifications = R.drawable.ic_notifications
-    val Privacy = R.drawable.ic_privacy_tip
     val Block = R.drawable.ic_block
-    val CloudOff = R.drawable.ic_cloud_off
 }

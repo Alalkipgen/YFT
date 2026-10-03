@@ -134,6 +134,9 @@ that opened it. While audio plays, the mini player sits right above the bottom b
   rows with leading Deep Teal icons, inset dividers, values in Ink with grey chevrons, a
   compact System / Light / Dark control, switches, a − 3 + stepper; footer "No ads · No
   tracking · No account". Version opens About, Licenses its own page.
+- **About and Licenses (no image):** the Settings cards and back arrow; About tells who YFT is
+  (icon, name, version), what it does and does not do, and its privacy rules; Licenses lists
+  bundled code and libraries, and each row opens its full license text.
 
 Product rules: no ads, no trending feed, no cleaner tools; only media the user is allowed to
 save is shown, no DRM bypass; 48dp touch targets; readable contrast.
@@ -277,3 +280,29 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
     YFT is with its version, What YFT does, What YFT does not do, Privacy and a Licenses row —
     and the license list moved to Licenses: Bundled code and Libraries cards whose rows show
     name, version, license and use, and open the full license text on tap.
+15. **Night, large text and accessibility.** Every screen is rendered on Day and Night and at
+    130% and 200% font size (`DesignRenderTest`, `LargeTextRenderTest`), and
+    `AccessibilityAuditTest` checks every screen in both themes: each control TalkBack can reach
+    has a name, and each tap target is at least 48dp (the area Compose adds around small
+    controls, stopped where a neighbouring control starts); on Night at 200% every label is
+    still there. The audit found two problems, both fixed: the Browser address pill's text layer
+    was a second, unnamed tap target on top of the address field (TalkBack now reaches only the
+    field), and the Library ⋯ button's touch area reached into the next tile (it now ends at the
+    grid gap). At large sizes text wraps rather than clips; long titles and the bottom-bar labels
+    shorten with "…", and TalkBack still reads them in full. Icons and a text component nothing
+    used any more were removed, and the old phase placeholder screen moved to the tests.
+
+## Remaining differences from the images
+
+- Rows keep 48dp touch targets, so Settings, Download as and the "Found on this page" list are
+  taller than drawn and scroll on small phones; at 360dp "Downloads at the same time" wraps.
+- Settings: while Wi-Fi only is on, "Ask before using mobile data" is greyed (the image shows
+  both switches on); Version has a chevron because it opens About.
+- Switches show a check in the white thumb while on — `08` marks the thumb "ON", `06` draws it
+  plain — so on and off do not depend on colour alone.
+- Downloads shows what a download records ("MP4", "HLS · MP4") instead of "1080p" while it
+  runs, and speed and time left only while the screen is open (see 12).
+- Thumbnails and posters in the renders are drawn stand-ins; the app shows the file's own
+  frame, the page's thumbnail or the gradient tile (see 3 and 13).
+- Bottom-bar labels shorten with "…" from about 130% font size; the images show only the
+  default size.

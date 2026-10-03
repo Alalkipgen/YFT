@@ -31,6 +31,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -54,8 +56,12 @@ import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.HomeSites
 import com.alal.yft.download.policy.TransferNetworkState
+import com.alal.yft.feature.about.AboutScreen
+import com.alal.yft.feature.about.LicensesScreen
 import com.alal.yft.feature.browser.BrowserScreen
 import com.alal.yft.feature.browser.BrowserUiState
+import com.alal.yft.feature.detectedmedia.DetectedMediaScreen
+import com.alal.yft.feature.detectedmedia.DetectedPage
 import com.alal.yft.feature.downloads.DownloadRowUiState
 import com.alal.yft.feature.downloads.DownloadStorageSummary
 import com.alal.yft.feature.downloads.DownloadsScreen
@@ -71,6 +77,7 @@ import com.alal.yft.feature.library.MediaDetails
 import com.alal.yft.feature.library.MediaDetailsSource
 import com.alal.yft.feature.library.MiniPlayer
 import com.alal.yft.feature.library.PlaybackState
+import com.alal.yft.feature.library.PlayerScreen
 import com.alal.yft.feature.preview.PreviewDownloadOptions
 import com.alal.yft.feature.preview.PreviewPlayerControls
 import com.alal.yft.feature.preview.PreviewScreen
@@ -163,31 +170,85 @@ class DesignRenderTest {
     @Test
     fun settingsDark() = render("06-settings-dark", ThemeMode.DARK) { SettingsShellPreview() }
 
-    private fun render(name: String, themeMode: ThemeMode, content: @Composable () -> Unit) {
-        composeRule.setContent {
-            YftTheme(themeMode = themeMode) {
-                CompositionLocalProvider(LocalMediaDetailsSource provides SampleStills) {
-                    content()
-                }
-            }
-        }
-        composeRule.waitForIdle()
-        // Drawing the window ourselves avoids waiting for a frame callback Robolectric's paused
-        // looper never delivers to captureToImage.
-        val view = composeRule.activity.window.decorView
-        val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
-        composeRule.runOnUiThread { view.draw(Canvas(bitmap)) }
-        val dir = requireNotNull(outputDir).apply { mkdirs() }
-        File(dir, "$name.png").outputStream().use {
-            bitmap.compress(Bitmap.CompressFormat.PNG, PNG_QUALITY, it)
-        }
+    @Test
+    fun foundMedia() = render("02-found-media-screen", ThemeMode.LIGHT) { FoundMediaPreview() }
+
+    @Test
+    fun foundMediaDark() = render("02-found-media-screen-dark", ThemeMode.DARK) {
+        FoundMediaPreview()
     }
+
+    @Test
+    fun about() = render("10-about", ThemeMode.LIGHT) { AboutPreview() }
+
+    @Test
+    fun aboutDark() = render("10-about-dark", ThemeMode.DARK) { AboutPreview() }
+
+    @Test
+    fun licenses() = render("11-licenses", ThemeMode.LIGHT) { LicensesScreen(onNavigateBack = {}) }
+
+    @Test
+    fun licensesDark() = render("11-licenses-dark", ThemeMode.DARK) {
+        LicensesScreen(onNavigateBack = {})
+    }
+
+    private fun render(name: String, themeMode: ThemeMode, content: @Composable () -> Unit) {
+        composeRule.setContent { DesignStage(themeMode = themeMode, content = content) }
+        composeRule.saveWindow(File(requireNotNull(outputDir), "$name.png"))
+    }
+}
+
+/** Draws the test activity's window into [file] as a PNG once the content has settled. */
+internal fun AndroidComposeTestRule<*, ComponentActivity>.saveWindow(file: File) {
+    waitForIdle()
+    // Drawing the window ourselves avoids waiting for a frame callback Robolectric's paused
+    // looper never delivers to captureToImage.
+    val view = activity.window.decorView
+    val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+    runOnUiThread { view.draw(Canvas(bitmap)) }
+    file.parentFile?.mkdirs()
+    file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, PNG_QUALITY, it) }
 }
 
 private const val PNG_QUALITY = 100
 
+/** A design screen with the sample data it is rendered and audited with. */
+internal class DesignScreen(val name: String, val content: @Composable () -> Unit)
+
+/** Every screen of the redesign, in the shell or over its page where the design puts it. */
+internal val DESIGN_SCREENS: List<DesignScreen> = listOf(
+    DesignScreen("01-home") { ShellPreview(activeDownloads = 2) },
+    DesignScreen("09-promptbox-states") { PromptboxStatesPreview() },
+    DesignScreen("02-browser-found-media") { BrowserPreview() },
+    DesignScreen("02-found-media-screen") { FoundMediaPreview() },
+    DesignScreen("03-download-as") { DownloadAsPreview() },
+    DesignScreen("04-downloads") { DownloadsShellPreview() },
+    DesignScreen("05-library") { LibraryShellPreview() },
+    DesignScreen("05-player") { PlayerPreview() },
+    DesignScreen("06-settings") { SettingsShellPreview() },
+    DesignScreen("10-about") { AboutPreview() },
+    DesignScreen("11-licenses") { LicensesScreen(onNavigateBack = {}) },
+)
+
+/** The theme, the painted stand-ins for saved files' frames and an optional text scale. */
 @Composable
-private fun ShellPreview(activeDownloads: Int) {
+internal fun DesignStage(
+    themeMode: ThemeMode,
+    fontScale: Float = 1f,
+    content: @Composable () -> Unit,
+) {
+    val density = LocalDensity.current
+    YftTheme(themeMode = themeMode) {
+        CompositionLocalProvider(
+            LocalMediaDetailsSource provides SampleStills,
+            LocalDensity provides Density(density.density, fontScale),
+            content = content,
+        )
+    }
+}
+
+@Composable
+internal fun ShellPreview(activeDownloads: Int) {
     val navController = rememberNavController()
     YftAppShell(navController = navController, activeDownloads = activeDownloads) {
         YftNavHost(
@@ -210,7 +271,7 @@ private fun ShellPreview(activeDownloads: Int) {
 
 /** The Downloads tab (`04-downloads`) in the shell, with the design's five downloads. */
 @Composable
-private fun DownloadsShellPreview() {
+internal fun DownloadsShellPreview() {
     val navController = rememberNavController()
     YftAppShell(navController = navController, activeDownloads = 2) {
         YftNavHost(
@@ -246,7 +307,7 @@ private fun DownloadsShellPreview() {
 
 /** The design's Promptbox board (`09-promptbox-states`), one state under another. */
 @Composable
-private fun PromptboxStatesPreview() {
+internal fun PromptboxStatesPreview() {
     val colors = YftTheme.colors
     Column(
         modifier = Modifier
@@ -292,7 +353,7 @@ private fun PromptboxSample(
 
 /** `02`: a page standing in for the WebView, with the found-media sheet open. */
 @Composable
-private fun BrowserPreview() {
+internal fun BrowserPreview() {
     BrowserScreen(
         uiState = BrowserUiState(
             address = "https://archive.org/details/ocean-waves",
@@ -348,7 +409,7 @@ private fun SamplePage(modifier: Modifier) {
  * real sheet is its own window, which a window snapshot does not include).
  */
 @Composable
-private fun DownloadAsPreview() {
+internal fun DownloadAsPreview() {
     val colors = YftTheme.colors
     Box(
         modifier = Modifier
@@ -412,7 +473,7 @@ private fun DownloadAsPreview() {
 
 /** The Library tab (`05-library`) in the shell, with Ocean Waves in the mini player. */
 @Composable
-private fun LibraryShellPreview() {
+internal fun LibraryShellPreview() {
     val navController = rememberNavController()
     YftAppShell(
         navController = navController,
@@ -458,9 +519,48 @@ private fun LibraryShellPreview() {
     }
 }
 
+/** The full-screen list of media found on the page, opened from Home or the browser. */
+@Composable
+internal fun FoundMediaPreview() {
+    DetectedMediaScreen(
+        page = DetectedPage(
+            pageUrl = "https://archive.org/details/ocean-waves",
+            pageTitle = "Ocean Waves – Public Domain Footage",
+            candidates = SAMPLE_CANDIDATES,
+        ),
+        onNavigateBack = {},
+    )
+}
+
+/** About, opened from Settings → Version, with the release version the design shows. */
+@Composable
+internal fun AboutPreview() {
+    AboutScreen(
+        onNavigateBack = {},
+        versionName = BuildConfig.VERSION_NAME.removeSuffix(DEBUG_SUFFIX),
+    )
+}
+
+/** A Library video playing full screen, paused at 1:24 over its painted frame. */
+@Composable
+internal fun PlayerPreview() {
+    PlayerScreen(
+        state = PlaybackState(
+            item = SAMPLE_LIBRARY[0],
+            isPlaying = false,
+            positionMs = 84_000,
+            durationMs = SAMPLE_DURATION_MS,
+        ),
+        onPlayPause = {},
+        onSeek = {},
+        onClose = {},
+        surface = { LandscapePoster(it) },
+    )
+}
+
 /** The Settings tab (`06-settings`) in the shell: Wi-Fi only on, three at a time. */
 @Composable
-private fun SettingsShellPreview() {
+internal fun SettingsShellPreview() {
     val navController = rememberNavController()
     YftAppShell(navController = navController, activeDownloads = 2) {
         YftNavHost(
@@ -661,7 +761,7 @@ private const val STILL_WIDTH = 320
 private const val STILL_HEIGHT = 200
 
 /** What the sample files would say about themselves: the design's lengths, sizes and stills. */
-private object SampleStills : MediaDetailsSource {
+internal object SampleStills : MediaDetailsSource {
     private val details: Map<String, MediaDetails> by lazy {
         mapOf(
             sampleUri("1") to MediaDetails(252_000, 1_280, 720, paintedStill { drawLandscape() }),
