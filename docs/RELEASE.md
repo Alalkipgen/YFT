@@ -94,7 +94,9 @@ never edits a release that is already published. Publishing happens only in a ma
 `publish` ticked **and** `ALLOW_RELEASE=true`. The `release` environment can be given required
 reviewers in the repository settings for an extra approval step.
 
-The agent's deploy key cannot create tags, releases or secrets, so these steps are the owner's.
+The agent's deploy key can push the version tag, which starts this workflow (it did for
+`v1.0.0-beta.2`), but it cannot create, edit or publish releases, approve the `release`
+environment or change secrets; those stay with the owner.
 
 ## 4. Device checks before publishing
 

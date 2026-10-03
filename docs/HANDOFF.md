@@ -7,9 +7,12 @@
   from the Phase 6 head `4bdad07`) and merged with Phase 7 into `main`. Phase 7 is complete:
   `1.0.0-beta.1` was signed by the release workflow and published by the owner on 2026-10-02.
 - Release candidate: Video Downloader `1.0.0-beta.2`, versionCode 2, `com.alal.yft`, Android
-  7.0+ (minSdk 24), targetSdk 35 — the first build with the redesign. The tag
-  `v1.0.0-beta.2` runs `release-draft.yml`, which signs it with the key in the repository
-  secrets and creates a draft pre-release; only the owner publishes (`ALLOW_RELEASE`).
+  7.0+ (minSdk 24), targetSdk 35 — the first build with the redesign. Tag `v1.0.0-beta.2` on
+  `39ea049` ran `release-draft.yml` (run 37129636676, success): signed with the key in the
+  repository secrets (certificate `3A:EB:30:64:…:98:8F`, the same as beta.1), APK
+  `video-downloader-1.0.0-beta.2.apk` 3,376,449 bytes, SHA-256
+  `3f5b4c74b02e61bf2572a7248aef3a35b92ece3c6f7cf8e0770bc661cee53a95`. It is a **draft** pre-release; only the owner
+  publishes (`ALLOW_RELEASE`).
 - Target repository: `Alalkipgen/YFT`
 - Reference repository: `Alalkipgen/AlalDownloader`
 
