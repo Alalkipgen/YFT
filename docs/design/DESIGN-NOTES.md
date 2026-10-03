@@ -92,7 +92,10 @@ arrow, pause/play), `YftIconButton`, `YftFilterChip` (with count bubble), `YftSt
 `YftSheetHandle`, `YftThumbnail` (image or gradient tile with duration badge), `YftSwitch`,
 `YftProgressBar`, `YftSeekBar` (Mint line with an optional thumb, seeks on tap or drag),
 `YftStepper`, `YftRadioMark` and `YftPromptbox`. `YftFilterChip` also comes outlined, as the
-Library draws it.
+Library draws it. `YftSegmentedControl` has a compact form for a row's end (a 36dp bordered
+track with a Mint pill that fills it, inside 48dp touch areas), `YftStepper` draws its grey pill
+inside its two 48dp buttons, and `YftGroupLabel` is drawn in small grey capitals but read out in
+normal case as a heading.
 
 Touch targets are at least 48dp; small visuals (40dp chips, 36dp compact pills) sit inside a
 48dp touch area.
@@ -128,7 +131,9 @@ that opened it. While audio plays, the mini player sits right above the bottom b
   file's own frame, duration badges, "720p · 96 MB" and a ⋯ menu (Play, Open with…, Share,
   Delete); mini player above the bottom bar; videos play full screen.
 - **Settings (06):** grouped bordered cards under APPEARANCE / DOWNLOADS / PRIVACY / ABOUT,
-  rows with leading icons; footer "No ads · No tracking · No account".
+  rows with leading Deep Teal icons, inset dividers, values in Ink with grey chevrons, a
+  compact System / Light / Dark control, switches, a − 3 + stepper; footer "No ads · No
+  tracking · No account". Version opens About, Licenses its own page.
 
 Product rules: no ads, no trending feed, no cleaner tools; only media the user is allowed to
 save is shown, no DRM bypass; 48dp touch targets; readable contrast.
@@ -253,3 +258,22 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
     service, so playback pauses when YFT leaves the screen (not when it rotates). The list
     re-reads itself when a download finishes and whenever the app comes back, so there is no
     refresh button; as a top-level tab it has no back arrow.
+14. **Settings, About and Licenses (`06`).** Settings keeps every setting it had, regrouped as
+    drawn: Appearance (Theme), Downloads (Save files to, Download over Wi-Fi only, Ask before
+    using mobile data, Downloads at the same time, Preferred quality), Privacy (Clear browsing
+    data, Clear download history) and About (Version, Licenses). Rows are 48dp tall rather
+    than the image's tighter rows, so the page scrolls on small phones and the footer sits
+    under the last card. "Save files to" and "Preferred quality" show their value and open a
+    short list that applies the tapped choice (Cancel leaves it); on Android 9 and older the
+    Download/YFT choice is greyed with "Needs Android 10 or newer". The concurrency stepper
+    replaces the old 1–4 chips (same range, TalkBack hears "3 at the same time"). While Wi-Fi
+    only is on, "Ask before using mobile data" is greyed with "Not needed while Wi-Fi only is
+    on" but keeps its own value, because no download uses mobile data then; the image shows both
+    switches on. Clearing still asks first: browsing data now lists what goes (cookies, site
+    storage, the cache, saved sign-ins and the found media list), and Clear download history
+    is greyed with "No finished downloads in the list" when there is nothing to remove. Version
+    shows the app's version with a chevron because it opens About; Licenses opens its own
+    page. Settings is a tab, so it has no back arrow. About uses the same grouped cards — who
+    YFT is with its version, What YFT does, What YFT does not do, Privacy and a Licenses row —
+    and the license list moved to Licenses: Bundled code and Libraries cards whose rows show
+    name, version, license and use, and open the full license text on tap.

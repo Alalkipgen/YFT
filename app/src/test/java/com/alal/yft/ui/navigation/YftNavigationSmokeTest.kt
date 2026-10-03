@@ -142,6 +142,34 @@ class YftNavigationSmokeTest {
     }
 
     @Test
+    fun licensesOpenFromSettingsAndFromAboutAndBackRetracesTheWay() {
+        setShell()
+        composeRule.onNodeWithTag("nav-settings").performClick()
+        composeRule.onNodeWithTag("settings-list")
+            .performScrollToNode(hasTestTag("settings-open-licenses"))
+        composeRule.onNodeWithTag("settings-open-licenses").performClick()
+        composeRule.onNodeWithTag("licenses-content").assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-settings").assertDoesNotExist()
+        assertEquals(YftDestination.LICENSES.route, shellNavController.currentDestination?.route)
+        composeRule.onNodeWithTag("navigate-back").performClick()
+        composeRule.onNodeWithTag("settings-list").assertIsDisplayed()
+
+        composeRule.onNodeWithTag("settings-list")
+            .performScrollToNode(hasTestTag("settings-open-about"))
+        composeRule.onNodeWithTag("settings-open-about").performClick()
+        composeRule.onNodeWithTag("about-content")
+            .performScrollToNode(hasTestTag("about-open-licenses"))
+        composeRule.onNodeWithTag("about-open-licenses").performClick()
+        composeRule.onNodeWithTag("licenses-content").assertIsDisplayed()
+
+        composeRule.onNodeWithTag("navigate-back").performClick()
+        composeRule.onNodeWithTag("about-content").assertIsDisplayed()
+        composeRule.onNodeWithTag("navigate-back").performClick()
+        composeRule.onNodeWithTag("settings-list").assertIsDisplayed()
+        composeRule.onNodeWithTag("nav-settings").assertIsSelected()
+    }
+
+    @Test
     fun aLibraryVideoPlaysFullScreenAndBackReturnsToTheLibrary() {
         setShell()
         composeRule.onNodeWithTag("nav-library").performClick()
@@ -370,15 +398,15 @@ private fun TestNavHost(
             )
         },
         playerContent = { onClose -> Placeholder(YftDestination.PLAYER, onClose) },
-        settingsContent = { onNavigateBack, onOpenAbout ->
+        settingsContent = { onOpenAbout, onOpenLicenses ->
             SettingsScreen(
                 state = SettingsUiState(),
                 themeMode = themeMode,
                 sharedDownloadsSupported = true,
                 onAction = {},
                 onThemeModeChanged = onThemeModeChanged,
-                onNavigateBack = onNavigateBack,
                 onOpenAbout = onOpenAbout,
+                onOpenLicenses = onOpenLicenses,
             )
         },
     )

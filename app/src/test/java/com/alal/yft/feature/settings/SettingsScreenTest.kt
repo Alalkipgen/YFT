@@ -1,17 +1,29 @@
 package com.alal.yft.feature.settings
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.Density
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.ui.theme.YftTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -26,92 +38,111 @@ class SettingsScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    @Test
-    fun `choices report the action the user picked`() {
-        val actions = mutableListOf<SettingsAction>()
-        var theme = ThemeMode.SYSTEM
-        composeRule.setContent {
-            SettingsScreen(
-                state = SettingsUiState(),
-                themeMode = ThemeMode.SYSTEM,
-                sharedDownloadsSupported = true,
-                onAction = { actions += it },
-                onThemeModeChanged = { theme = it },
-                onNavigateBack = {},
-            )
-        }
+    private val shown = mutableStateOf(SettingsUiState())
+    private val actions = mutableListOf<SettingsAction>()
+    private var theme = ThemeMode.SYSTEM
+    private var aboutOpened = 0
+    private var licensesOpened = 0
 
+    @Test
+    fun `theme, switches and the stepper report what the user picked`() {
+        setContent()
+
+        composeRule.onNodeWithTag("theme-SYSTEM").assertIsSelected()
+        composeRule.onNodeWithTag("theme-DARK").performClick()
+        composeRule.onNodeWithTag("unmetered-only").performScrollTo().performClick()
+        composeRule.onNodeWithTag("confirm-metered").performScrollTo().assertIsOn().performClick()
+        composeRule.onNodeWithTag("concurrency-value", useUnmergedTree = true)
+            .performScrollTo()
+            .assert(hasText("${DownloadPreferences.DEFAULT_CONCURRENT_DOWNLOADS}"))
+        composeRule.onNodeWithTag("concurrency-increase").performClick()
+        composeRule.onNodeWithTag("concurrency-decrease").performClick()
+
+        assertEquals(ThemeMode.DARK, theme)
+        assertEquals(
+            listOf(
+                SettingsAction.SetUnmeteredOnly(true),
+                SettingsAction.SetConfirmMetered(false),
+                SettingsAction.SetConcurrency(DownloadPreferences.DEFAULT_CONCURRENT_DOWNLOADS + 1),
+                SettingsAction.SetConcurrency(DownloadPreferences.DEFAULT_CONCURRENT_DOWNLOADS - 1),
+            ),
+            actions,
+        )
+    }
+
+    @Test
+    fun `quality and location open a dialog that applies the tapped choice`() {
+        setContent()
+
+        composeRule.onNodeWithTag("settings-quality").performScrollTo()
+            .assert(hasText("Highest available"))
+            .performClick()
+        composeRule.onNodeWithTag("quality-dialog").assertIsDisplayed()
+        composeRule.onNodeWithText("Download as starts on this quality when a page offers it.")
+            .assertIsDisplayed()
         composeRule.onNodeWithTag("quality-HIGHEST").assertIsSelected()
         composeRule.onNodeWithTag("quality-UP_TO_720P").performClick()
-        composeRule.onNodeWithTag("location-APP_STORAGE").performScrollTo().performClick()
-        composeRule.onNodeWithTag("unmetered-only").performScrollTo().performClick()
-        composeRule.onNodeWithTag("concurrency-3").performScrollTo().performClick()
-        composeRule.onNodeWithTag("theme-DARK").performScrollTo().performClick()
+        composeRule.onAllNodesWithTag("quality-dialog").assertCountEquals(0)
+
+        composeRule.onNodeWithTag("settings-location").performScrollTo()
+            .assert(hasText("Download/YFT"))
+            .performClick()
+        composeRule.onNodeWithTag("location-SHARED_DOWNLOADS").assertIsSelected()
+        composeRule.onNodeWithTag("location-APP_STORAGE").performClick()
+        composeRule.onAllNodesWithTag("location-dialog").assertCountEquals(0)
+
+        composeRule.onNodeWithTag("settings-quality").performClick()
+        composeRule.onNodeWithTag("choice-cancel").performClick()
+        composeRule.onAllNodesWithTag("quality-dialog").assertCountEquals(0)
 
         assertEquals(
             listOf(
                 SettingsAction.SetQuality(QualityPreference.UP_TO_720P),
                 SettingsAction.SetLocation(DownloadLocation.APP_STORAGE),
-                SettingsAction.SetUnmeteredOnly(true),
-                SettingsAction.SetConcurrency(3),
             ),
             actions,
         )
-        assertEquals(ThemeMode.DARK, theme)
     }
 
     @Test
     fun `wifi only makes the mobile data question moot`() {
-        composeRule.setContent {
-            SettingsScreen(
-                state = SettingsUiState(download = DownloadPreferences(unmeteredOnly = true)),
-                themeMode = ThemeMode.SYSTEM,
-                sharedDownloadsSupported = true,
-                onAction = {},
-                onThemeModeChanged = {},
-                onNavigateBack = {},
-            )
-        }
+        setContent(
+            state = SettingsUiState(
+                download = DownloadPreferences(
+                    unmeteredOnly = true,
+                    confirmOnMeteredNetwork = true,
+                ),
+            ),
+        )
 
+        composeRule.onNodeWithTag("unmetered-only").performScrollTo().assertIsOn()
         composeRule.onNodeWithTag("confirm-metered").performScrollTo()
             .assertIsNotEnabled()
-            .assertIsOff()
+            .assertIsOn()
+            .assert(hasText("Not needed while Wi-Fi only is on"))
     }
 
     @Test
     fun `older releases can only save to app storage`() {
-        composeRule.setContent {
-            SettingsScreen(
-                state = SettingsUiState(),
-                themeMode = ThemeMode.SYSTEM,
-                sharedDownloadsSupported = false,
-                onAction = {},
-                onThemeModeChanged = {},
-                onNavigateBack = {},
-            )
-        }
+        setContent(sharedDownloadsSupported = false)
 
-        composeRule.onNodeWithTag("location-SHARED_DOWNLOADS").performScrollTo()
+        composeRule.onNodeWithTag("settings-location").performScrollTo()
+            .assert(hasText("App storage"))
+            .performClick()
+        composeRule.onNodeWithTag("location-SHARED_DOWNLOADS")
             .assertIsNotEnabled()
+            .assert(hasText("Needs Android 10 or newer. This device saves to app storage."))
         composeRule.onNodeWithTag("location-APP_STORAGE").assertIsSelected()
     }
 
     @Test
     fun `clearing asks for confirmation first`() {
-        val actions = mutableListOf<SettingsAction>()
-        composeRule.setContent {
-            SettingsScreen(
-                state = SettingsUiState(
-                    finishedDownloads = 2,
-                    confirmation = SettingsConfirmation.CLEAR_DOWNLOAD_HISTORY,
-                ),
-                themeMode = ThemeMode.SYSTEM,
-                sharedDownloadsSupported = true,
-                onAction = { actions += it },
-                onThemeModeChanged = {},
-                onNavigateBack = {},
-            )
-        }
+        setContent(
+            state = SettingsUiState(
+                finishedDownloads = 2,
+                confirmation = SettingsConfirmation.CLEAR_DOWNLOAD_HISTORY,
+            ),
+        )
 
         composeRule.onNodeWithText("Clear download history?").assertExists()
         composeRule.onNodeWithText(
@@ -124,19 +155,97 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun `clearing browsing data says what goes`() {
+        setContent()
+
+        composeRule.onNodeWithTag("clear-browsing-data").performScrollTo().performClick()
+        assertEquals(
+            listOf(SettingsAction.Request(SettingsConfirmation.CLEAR_BROWSING_DATA)),
+            actions,
+        )
+
+        shown.value = SettingsUiState(confirmation = SettingsConfirmation.CLEAR_BROWSING_DATA)
+        composeRule.onNodeWithText("Clear browsing data?").assertExists()
+        composeRule.onNodeWithText(
+            "Removes cookies, site storage, the cache, saved sign-ins and the found media " +
+                "list. You will be signed out of every site opened in YFT. Downloads and " +
+                "settings are not affected.",
+        ).assertExists()
+        composeRule.onNodeWithTag("dismiss-action").performClick()
+        assertEquals(SettingsAction.Dismiss, actions.last())
+    }
+
+    @Test
     fun `history cannot be cleared when nothing finished`() {
-        composeRule.setContent {
-            SettingsScreen(
-                state = SettingsUiState(finishedDownloads = 0),
-                themeMode = ThemeMode.SYSTEM,
-                sharedDownloadsSupported = true,
-                onAction = {},
-                onThemeModeChanged = {},
-                onNavigateBack = {},
-            )
-        }
+        setContent(state = SettingsUiState(finishedDownloads = 0))
 
         composeRule.onNodeWithTag("clear-download-history").performScrollTo()
             .assertIsNotEnabled()
+            .assert(hasText("No finished downloads in the list"))
+        composeRule.onNodeWithTag("clear-browsing-data").assertIsEnabled()
+    }
+
+    @Test
+    fun `version and licenses open their own pages`() {
+        setContent()
+
+        composeRule.onNodeWithTag("settings-open-about").performScrollTo()
+            .assert(hasText("Version"))
+            .assert(hasText("9.8.7"))
+            .performClick()
+        composeRule.onNodeWithTag("settings-open-licenses").performScrollTo().performClick()
+        composeRule.onNodeWithTag("settings-footer").performScrollTo()
+            .assert(hasText("No ads · No tracking · No account"))
+        // Settings is a tab: there is no way back, only the bottom bar.
+        composeRule.onAllNodesWithTag("navigate-back").assertCountEquals(0)
+
+        assertEquals(1, aboutOpened)
+        assertEquals(1, licensesOpened)
+    }
+
+    @Test
+    fun `group labels read in normal case`() {
+        setContent()
+
+        composeRule.onNodeWithText("APPEARANCE").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Appearance").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Privacy").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `theme choices stay on screen with the largest text`() {
+        setContent(fontScale = 2f)
+
+        ThemeMode.entries.forEach { mode ->
+            composeRule.onNodeWithTag("theme-${mode.name}").performScrollTo().assertIsDisplayed()
+        }
+        composeRule.onNodeWithTag("concurrency-increase").performScrollTo().assertIsDisplayed()
+    }
+
+    private fun setContent(
+        state: SettingsUiState = SettingsUiState(),
+        sharedDownloadsSupported: Boolean = true,
+        fontScale: Float = 1f,
+    ) {
+        shown.value = state
+        composeRule.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(
+                LocalDensity provides Density(density.density, fontScale = fontScale),
+            ) {
+                YftTheme(themeMode = ThemeMode.LIGHT) {
+                    SettingsScreen(
+                        state = shown.value,
+                        themeMode = theme,
+                        sharedDownloadsSupported = sharedDownloadsSupported,
+                        onAction = { actions += it },
+                        onThemeModeChanged = { theme = it },
+                        versionName = "9.8.7",
+                        onOpenAbout = { aboutOpened++ },
+                        onOpenLicenses = { licensesOpened++ },
+                    )
+                }
+            }
+        }
     }
 }

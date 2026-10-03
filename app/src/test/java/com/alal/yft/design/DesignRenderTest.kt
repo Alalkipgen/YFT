@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.rememberNavController
+import com.alal.yft.BuildConfig
 import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.download.DownloadPlanType
 import com.alal.yft.core.model.ThemeMode
@@ -50,6 +51,7 @@ import com.alal.yft.core.model.media.MediaSizeAccuracy
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.settings.DownloadLocation
+import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.HomeSites
 import com.alal.yft.download.policy.TransferNetworkState
 import com.alal.yft.feature.browser.BrowserScreen
@@ -74,6 +76,8 @@ import com.alal.yft.feature.preview.PreviewPlayerControls
 import com.alal.yft.feature.preview.PreviewScreen
 import com.alal.yft.feature.preview.PreviewTab
 import com.alal.yft.feature.preview.PreviewUiState
+import com.alal.yft.feature.settings.SettingsScreen
+import com.alal.yft.feature.settings.SettingsUiState
 import com.alal.yft.ui.YftAppShell
 import com.alal.yft.ui.components.PromptboxStatus
 import com.alal.yft.ui.components.SHEET_SCRIM_ALPHA
@@ -152,6 +156,12 @@ class DesignRenderTest {
 
     @Test
     fun libraryDark() = render("05-library-dark", ThemeMode.DARK) { LibraryShellPreview() }
+
+    @Test
+    fun settings() = render("06-settings", ThemeMode.LIGHT) { SettingsShellPreview() }
+
+    @Test
+    fun settingsDark() = render("06-settings-dark", ThemeMode.DARK) { SettingsShellPreview() }
 
     private fun render(name: String, themeMode: ThemeMode, content: @Composable () -> Unit) {
         composeRule.setContent {
@@ -447,6 +457,51 @@ private fun LibraryShellPreview() {
         navController.navigateToTab(YftDestination.LIBRARY)
     }
 }
+
+/** The Settings tab (`06-settings`) in the shell: Wi-Fi only on, three at a time. */
+@Composable
+private fun SettingsShellPreview() {
+    val navController = rememberNavController()
+    YftAppShell(navController = navController, activeDownloads = 2) {
+        YftNavHost(
+            navController = navController,
+            themeMode = ThemeMode.SYSTEM,
+            onThemeModeChanged = {},
+            modifier = it,
+            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary ->
+                HomeScreen(
+                    state = SAMPLE_HOME,
+                    onAction = {},
+                    onOpenBrowser = onOpenBrowser,
+                    onOpenDetectedMedia = onOpenDetectedMedia,
+                    onOpenLibrary = onOpenLibrary,
+                )
+            },
+            settingsContent = { _, _ ->
+                SettingsScreen(
+                    state = SettingsUiState(
+                        download = DownloadPreferences(
+                            unmeteredOnly = true,
+                            maxConcurrentDownloads = 3,
+                        ),
+                        finishedDownloads = 6,
+                    ),
+                    themeMode = ThemeMode.SYSTEM,
+                    sharedDownloadsSupported = true,
+                    onAction = {},
+                    onThemeModeChanged = {},
+                    versionName = BuildConfig.VERSION_NAME.removeSuffix(DEBUG_SUFFIX),
+                )
+            },
+        )
+    }
+    LaunchedEffect(navController) {
+        navController.currentBackStackEntryFlow.first()
+        navController.navigateToTab(YftDestination.SETTINGS)
+    }
+}
+
+private const val DEBUG_SUFFIX = "-debug"
 
 /** A painted stand-in for the design's mountain-lake still: sky, lit peaks, trees and water. */
 @Composable

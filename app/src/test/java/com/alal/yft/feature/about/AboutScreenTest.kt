@@ -6,12 +6,15 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.ui.theme.YftTheme
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,43 +31,49 @@ class AboutScreenTest {
     fun showsVersionScopeAndPrivacyPromises() {
         setContent()
 
-        composeRule.onNodeWithTag("about-version")
-            .assertIsDisplayed()
+        composeRule.onNodeWithTag("about-version").assertIsDisplayed()
         composeRule.onNodeWithText("Version 9.8.7 (42)").assertIsDisplayed()
-        composeRule.onNodeWithText("What YFT does not do").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("• The clipboard is read only when you tap Paste.")
+        composeRule.onNodeWithText("YFT · Video Downloader").assertIsDisplayed()
+        // Group labels are drawn in capitals but read out in normal case.
+        composeRule.onNodeWithContentDescription("What YFT does not do")
             .performScrollTo()
             .assertIsDisplayed()
-        composeRule.onNodeWithText("• Logs never contain cookies, tokens or signed links.")
+        composeRule.onNodeWithText("The clipboard is read only when you tap Paste.")
             .performScrollTo()
             .assertIsDisplayed()
+        composeRule.onNodeWithText("Logs never contain cookies, tokens or signed links.")
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onAllNodesWithText("•", substring = true).assertCountEquals(0)
     }
 
     @Test
-    fun everyNoticeIsListedAndItsLicenseTextOpensOnDemand() {
-        setContent(themeMode = ThemeMode.DARK)
+    fun licensesHaveTheirOwnPage() {
+        var opened = 0
+        setContent(themeMode = ThemeMode.DARK, onOpenLicenses = { opened++ })
 
-        OpenSourceNotices.all.forEach { notice ->
-            composeRule.onNodeWithTag("about-license-${notice.id}").performScrollTo()
-            composeRule.onNodeWithText(notice.usage).assertIsDisplayed()
-        }
-        composeRule.onNodeWithText("meriyah 6.1.4").performScrollTo().assertIsDisplayed()
-        composeRule.onAllNodesWithTag("about-license-text-meriyah").assertCountEquals(0)
-
-        composeRule.onNodeWithTag("about-license-meriyah").performScrollTo().performClick()
-        composeRule.onNodeWithTag("about-license-text-meriyah")
+        composeRule.onAllNodesWithTag("license-meriyah").assertCountEquals(0)
+        composeRule.onNodeWithTag("about-open-licenses")
             .performScrollTo()
             .assertIsDisplayed()
-            .assert(hasText("KFlash", substring = true))
+            .assert(hasText("Licenses"))
+            .performClick()
 
-        composeRule.onNodeWithTag("about-license-meriyah").performScrollTo().performClick()
-        composeRule.onAllNodesWithTag("about-license-text-meriyah").assertCountEquals(0)
+        assertEquals(1, opened)
     }
 
-    private fun setContent(themeMode: ThemeMode = ThemeMode.LIGHT) {
+    private fun setContent(
+        themeMode: ThemeMode = ThemeMode.LIGHT,
+        onOpenLicenses: () -> Unit = {},
+    ) {
         composeRule.setContent {
             YftTheme(themeMode = themeMode) {
-                AboutScreen(onNavigateBack = {}, versionName = "9.8.7", versionCode = 42)
+                AboutScreen(
+                    onNavigateBack = {},
+                    onOpenLicenses = onOpenLicenses,
+                    versionName = "9.8.7",
+                    versionCode = 42,
+                )
             }
         }
     }

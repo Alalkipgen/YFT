@@ -13,6 +13,7 @@ import androidx.navigation.compose.dialog
 import androidx.navigation.navArgument
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.feature.about.AboutScreen
+import com.alal.yft.feature.about.LicensesScreen
 import com.alal.yft.feature.browser.BrowserRoute
 import com.alal.yft.feature.detectedmedia.DetectedMediaRoute
 import com.alal.yft.feature.downloads.DownloadsRoute
@@ -83,14 +84,14 @@ fun YftNavHost(
         PlayerRoute(onClose = onClose)
     },
     settingsContent: @Composable (
-        onNavigateBack: () -> Unit,
         onOpenAbout: () -> Unit,
-    ) -> Unit = { onNavigateBack, onOpenAbout ->
+        onOpenLicenses: () -> Unit,
+    ) -> Unit = { onOpenAbout, onOpenLicenses ->
         SettingsRoute(
             themeMode = themeMode,
             onThemeModeChanged = onThemeModeChanged,
-            onNavigateBack = onNavigateBack,
             onOpenAbout = onOpenAbout,
+            onOpenLicenses = onOpenLicenses,
         )
     },
 ) {
@@ -100,6 +101,12 @@ fun YftNavHost(
     }
     val openPlayer = {
         navController.navigate(YftDestination.PLAYER.route) { launchSingleTop = true }
+    }
+    val openAbout = {
+        navController.navigate(YftDestination.ABOUT.route) { launchSingleTop = true }
+    }
+    val openLicenses = {
+        navController.navigate(YftDestination.LICENSES.route) { launchSingleTop = true }
     }
 
     NavHost(
@@ -174,10 +181,13 @@ fun YftNavHost(
             playerContent(navigateBack)
         }
         composable(YftDestination.SETTINGS.route) {
-            settingsContent(navigateBack) { navController.navigate(YftDestination.ABOUT.route) }
+            settingsContent(openAbout, openLicenses)
         }
         composable(YftDestination.ABOUT.route) {
-            AboutScreen(onNavigateBack = navigateBack)
+            AboutScreen(onNavigateBack = navigateBack, onOpenLicenses = openLicenses)
+        }
+        composable(YftDestination.LICENSES.route) {
+            LicensesScreen(onNavigateBack = navigateBack)
         }
     }
 }

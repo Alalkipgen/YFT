@@ -37,7 +37,12 @@ enum class YftDestination(
         "Download preferences, privacy controls and appearance.",
         isTopLevel = true,
     ),
-    ABOUT("about", "About", "Product scope, privacy, licenses and version information."),
+    ABOUT("about", "About", "Product scope, privacy promises and version information."),
+    LICENSES(
+        "licenses",
+        "Licenses",
+        "Open-source licenses for the code YFT bundles and uses.",
+    ),
     PLAYER("player", "Player", "Watch a saved video full screen."),
     ;
 
