@@ -75,6 +75,7 @@ class SiteExtractorRegistryTest {
         val blocked = listOf(
             SiteExtractionFailure.DRM_PROTECTED,
             SiteExtractionFailure.LOGIN_REQUIRED,
+            SiteExtractionFailure.BOT_CHECK,
             SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
             SiteExtractionFailure.GEO_RESTRICTED,
         )

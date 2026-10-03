@@ -112,6 +112,12 @@ class SiteAdapterCoordinator @Inject constructor(
         SiteExtractionFailure.LOGIN_REQUIRED ->
             "Sign in to $site on this page first, then try again."
 
+        // The site's own browser player can usually answer a bot check, so the message sends
+        // the user there instead of suggesting a sign-in that would not help.
+        SiteExtractionFailure.BOT_CHECK ->
+            "$site wants to check that this is not a bot. Open the video in YFT's browser, " +
+                "let it play for a moment, then tap Download."
+
         SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE ->
             "This $site post is private or no longer available."
 

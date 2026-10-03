@@ -181,6 +181,34 @@ class HeadlessLinkInspectorTest {
     }
 
     @Test
+    fun botCheckOffersTheBrowserWithItsOwnMessageAndDetails() = runTest {
+        val extractor = FixtureExtractor(
+            SiteExtractionResult.Failure(
+                SiteExtractionFailure.BOT_CHECK,
+                details = listOf("client WEB: LOGIN_REQUIRED; with URLs: 0 progressive"),
+            ),
+        )
+
+        val result = inspector(extractor).inspect("https://fixture.test/video/42")
+            as LinkInspection.NotFound
+
+        assertEquals(
+            "Fixture Site wants to check that this is not a bot. Open the video in YFT's " +
+                "browser, let it play for a moment, then tap Download.",
+            result.message,
+        )
+        assertTrue(result.canOpenInBrowser)
+        assertEquals(
+            listOf(
+                "adapter fixture: BOT_CHECK",
+                "client WEB: LOGIN_REQUIRED; with URLs: 0 progressive",
+            ),
+            result.details,
+        )
+        assertTrue(fetched.isEmpty())
+    }
+
+    @Test
     fun adapterFailureWithFallbackStillReadsThePage() = runTest {
         val extractor = FixtureExtractor(
             SiteExtractionResult.Failure(SiteExtractionFailure.NO_MEDIA_FOUND),

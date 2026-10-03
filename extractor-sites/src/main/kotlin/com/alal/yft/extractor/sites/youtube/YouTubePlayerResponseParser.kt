@@ -70,6 +70,72 @@ internal data class YouTubePageSignals(
             "visitorData=${visitorData != null}, signatureTimestamp=$signatureTimestamp)"
 }
 
+/**
+ * What one player response said, reduced to values that are safe to copy into lookup details.
+ *
+ * It never holds a stream address, a protected descriptor, visitor data or any other
+ * session-bound value: only YouTube's verdict, its own short explanation and format counts.
+ */
+internal data class YouTubeResponseSummary(
+    /** YouTube's playability status, or a plain description when there is none to show. */
+    val status: String,
+    /** YouTube's own explanation, whitespace-collapsed and bounded, or null when it gave none. */
+    val reason: String?,
+    /** Progressive formats that carry a direct HTTPS address. */
+    val progressiveWithUrl: Int,
+    /** Adaptive formats that carry a direct HTTPS address. */
+    val adaptiveWithUrl: Int,
+    /** Formats whose address exists only inside a protected descriptor. */
+    val protectedFormats: Int,
+    /** Whether the response offers YouTube's own SABR streaming protocol. */
+    val sabr: Boolean,
+    val readable: Boolean = true,
+) {
+    /** SABR is the only delivery: no format carries an address of any kind. */
+    val sabrOnly: Boolean
+        get() = sabr && progressiveWithUrl + adaptiveWithUrl + protectedFormats == 0
+
+    /** One status line and, when YouTube explained itself, one reason line for [client]. */
+    fun lines(client: String): List<String> {
+        if (!readable) return listOf("$client: unreadable response")
+        val protected = if (protectedFormats > 0) "; protected: $protectedFormats" else ""
+        val sabrFlag = when {
+            sabrOnly -> "only"
+            sabr -> "yes"
+            else -> "no"
+        }
+        return listOfNotNull(
+            "$client: $status; with URLs: $progressiveWithUrl progressive, " +
+                "$adaptiveWithUrl adaptive$protected; SABR $sabrFlag",
+            reason?.let { "$client reason: $it" },
+        )
+    }
+
+    /** The reason is the site's own text, so only its presence is printable. */
+    override fun toString(): String =
+        "YouTubeResponseSummary(status=$status, reason=${reason != null}, " +
+            "progressiveWithUrl=$progressiveWithUrl, adaptiveWithUrl=$adaptiveWithUrl, " +
+            "protectedFormats=$protectedFormats, sabr=$sabr, readable=$readable)"
+
+    companion object {
+        val UNREADABLE = YouTubeResponseSummary(
+            status = "unreadable response",
+            reason = null,
+            progressiveWithUrl = 0,
+            adaptiveWithUrl = 0,
+            protectedFormats = 0,
+            sabr = false,
+            readable = false,
+        )
+    }
+}
+
+/** A parsed player response together with what it is safe to say about it. */
+internal data class YouTubePlayerResponse(
+    val result: YouTubeParseResult,
+    val summary: YouTubeResponseSummary,
+)
+
 internal sealed interface YouTubeParseResult {
     data class Success(val video: YouTubeVideo) : YouTubeParseResult
 
@@ -96,6 +162,7 @@ internal object YouTubePlayerResponseParser {
     private const val MAX_JSON_NODES = 400_000
     private const val MAX_REASON_DEPTH = 8
     private const val MAX_REASON_PARTS = 32
+    private const val MAX_REASON_CHARS = 400
 
     private val PLAYER_RESPONSE_ASSIGNMENT =
         Regex("ytInitialPlayerResponse[\"']?]?\\s*=\\s*\\{")
@@ -113,6 +180,13 @@ internal object YouTubePlayerResponseParser {
     private val AGE_GATE = Regex("\\bage\\b", RegexOption.IGNORE_CASE)
     private val REGION_LOCK = Regex("in your (country|region)", RegexOption.IGNORE_CASE)
     private val EMBED_REFUSAL = Regex("other websites|embedd", RegexOption.IGNORE_CASE)
+
+    /** YouTube words its bot check as a sign-in prompt; either apostrophe may appear. */
+    private val BOT_CHECK =
+        Regex("confirm\\s+you['\u2019]re\\s+not\\s+a\\s+bot", RegexOption.IGNORE_CASE)
+    private val STATUS_NAME = Regex("^[A-Z][A-Z_]{1,39}$")
+    private val MARKUP_TAG = Regex("<[^<>]{0,400}>")
+    private val WHITESPACE = Regex("\\s+")
 
     fun pageSignals(html: String): YouTubePageSignals = YouTubePageSignals(
         playerResponseJson = slicePlayerResponse(html),
@@ -158,9 +232,20 @@ internal object YouTubePlayerResponseParser {
         return null
     }
 
-    fun parse(json: String, nowEpochMs: Long): YouTubeParseResult {
+    fun parse(json: String, nowEpochMs: Long): YouTubeParseResult =
+        inspect(json, nowEpochMs).result
+
+    /** Parses [json] and summarizes it for lookup details in the same pass over the document. */
+    fun inspect(json: String, nowEpochMs: Long): YouTubePlayerResponse {
         val root = BoundedJsonParser.parse(json, maxNodes = MAX_JSON_NODES)
-            ?: return failure(SiteExtractionFailure.MALFORMED_RESPONSE, definite = false)
+            ?: return YouTubePlayerResponse(
+                result = failure(SiteExtractionFailure.MALFORMED_RESPONSE, definite = false),
+                summary = YouTubeResponseSummary.UNREADABLE,
+            )
+        return YouTubePlayerResponse(result = verdict(root, nowEpochMs), summary = summarize(root))
+    }
+
+    private fun verdict(root: JsonValue, nowEpochMs: Long): YouTubeParseResult {
         playability(root["playabilityStatus"])?.let { return it }
 
         // An OK status without streaming data means YouTube accepted the request but withheld
@@ -179,9 +264,10 @@ internal object YouTubePlayerResponseParser {
         val progressive = streamingData["formats"].asArrayOrEmpty.mapNotNull(::readStream)
         val adaptive = streamingData["adaptiveFormats"].asArrayOrEmpty.mapNotNull(::readStream)
         if (progressive.isEmpty() && adaptive.isEmpty()) {
-            // Without any address YouTube only streams through its own player protocol.
+            // Without any address YouTube only streams through its own SABR protocol, which no
+            // single-file download can use. It describes this client's answer, not the video.
             val reason = if (streamingData["serverAbrStreamingUrl"].asStringOrNull != null) {
-                SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED
+                SiteExtractionFailure.NO_MEDIA_FOUND
             } else {
                 SiteExtractionFailure.RESPONSE_CHANGED
             }
@@ -212,7 +298,8 @@ internal object YouTubePlayerResponseParser {
      *
      * Age and content gates are reported, never acknowledged, so the adapter never tells YouTube
      * that a check it did not satisfy is satisfied. A bot check and an embed refusal describe
-     * one request rather than the video, so they are not definite.
+     * one request rather than the video, so they are not definite. YouTube words its bot check
+     * as a sign-in prompt, so it is told apart from a real sign-in by its reason or error screen.
      */
     private fun playability(status: JsonValue?): YouTubeParseResult.Failure? {
         val reason = reasonText(status)
@@ -220,6 +307,9 @@ internal object YouTubePlayerResponseParser {
             null -> failure(SiteExtractionFailure.RESPONSE_CHANGED, definite = false)
             "OK" -> null
             "LOGIN_REQUIRED" -> when {
+                BOT_CHECK.containsMatchIn(reason) ->
+                    failure(SiteExtractionFailure.BOT_CHECK, definite = false)
+
                 reason.contains("private", ignoreCase = true) ->
                     failure(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, definite = true)
 
@@ -246,6 +336,38 @@ internal object YouTubePlayerResponseParser {
             else -> failure(SiteExtractionFailure.RESPONSE_CHANGED, definite = false)
         }
     }
+
+    private fun summarize(root: JsonValue): YouTubeResponseSummary {
+        val status = root["playabilityStatus"]
+        val streamingData = root["streamingData"]
+        val progressive = streamingData["formats"].asArrayOrEmpty
+        val adaptive = streamingData["adaptiveFormats"].asArrayOrEmpty
+        val statusName = status["status"].asStringOrNull
+        return YouTubeResponseSummary(
+            status = when {
+                statusName == null -> "no status"
+                STATUS_NAME.matches(statusName) -> statusName
+                else -> "unrecognized status"
+            },
+            // The embedded player's reason can carry a link as markup; only its words are kept.
+            reason = reasonText(status).replace(MARKUP_TAG, " ").replace(WHITESPACE, " ").trim()
+                .take(MAX_REASON_CHARS)
+                .takeIf(String::isNotEmpty),
+            progressiveWithUrl = progressive.count(::hasDirectUrl),
+            adaptiveWithUrl = adaptive.count(::hasDirectUrl),
+            protectedFormats = (progressive + adaptive).count { format ->
+                !hasDirectUrl(format) && protectedDescriptorOf(format) != null
+            },
+            sabr = streamingData["serverAbrStreamingUrl"].asStringOrNull != null,
+        )
+    }
+
+    private fun hasDirectUrl(format: JsonValue?): Boolean =
+        format["url"].asStringOrNull?.startsWith("https://") == true
+
+    private fun protectedDescriptorOf(format: JsonValue?): String? =
+        (format["signatureCipher"].asStringOrNull ?: format["cipher"].asStringOrNull)
+            ?.takeIf(String::isNotBlank)
 
     /** Collects the human-readable reason strings YouTube attaches to a verdict. */
     private fun reasonText(status: JsonValue?): String {
@@ -289,10 +411,7 @@ internal object YouTubePlayerResponseParser {
     private fun readStream(format: JsonValue?): YouTubeStream? {
         val itag = format["itag"].asLongOrNull?.toInt() ?: return null
         val plainUrl = format["url"].asStringOrNull?.takeIf { it.startsWith("https://") }
-        val descriptor = format["signatureCipher"].asStringOrNull
-            ?: format["cipher"].asStringOrNull
-        val protectedDescriptor = descriptor
-            ?.takeIf(String::isNotBlank)
+        val protectedDescriptor = protectedDescriptorOf(format)
         if (plainUrl == null && protectedDescriptor == null) return null
 
         val rawMime = format["mimeType"].asStringOrNull

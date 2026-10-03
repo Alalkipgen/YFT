@@ -94,7 +94,7 @@ class YouTubePlayerResponseParserTest {
     @Test
     fun `playability verdicts map onto structured failures`() {
         mapOf(
-            "player_bot_check.json" to (SiteExtractionFailure.LOGIN_REQUIRED to false),
+            "player_bot_check.json" to (SiteExtractionFailure.BOT_CHECK to false),
             "player_private.json" to (SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE to true),
             "player_age_gate.json" to (SiteExtractionFailure.LOGIN_REQUIRED to true),
             "player_geo.json" to (SiteExtractionFailure.GEO_RESTRICTED to true),
@@ -102,13 +102,120 @@ class YouTubePlayerResponseParserTest {
             "player_unavailable.json" to (SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE to true),
             "player_drm.json" to (SiteExtractionFailure.DRM_PROTECTED to true),
             "player_live.json" to (SiteExtractionFailure.NO_MEDIA_FOUND to true),
-            "player_sabr_only.json" to (SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED to false),
+            "player_sabr_only.json" to (SiteExtractionFailure.NO_MEDIA_FOUND to false),
             "player_no_status.json" to (SiteExtractionFailure.RESPONSE_CHANGED to false),
             "player_malformed.json" to (SiteExtractionFailure.MALFORMED_RESPONSE to false),
         ).forEach { (name, expected) ->
             val (reason, definite) = expected
             assertEquals(name, YouTubeParseResult.Failure(reason, definite), parse(name))
         }
+    }
+
+    @Test
+    fun `bot checks are recognised in the reason or on the error screen`() {
+        listOf(
+            status("\"reason\":\"Sign in to confirm you’re not a bot\""),
+            status("\"reason\":\"Sign in to confirm you're not a bot\""),
+            status("\"reason\":\"SIGN IN TO CONFIRM YOU'RE NOT A BOT\""),
+            status(
+                "\"errorScreen\":{\"playerErrorMessageRenderer\":{\"reason\":" +
+                    "{\"runs\":[{\"text\":\"Sign in to confirm \"}," +
+                    "{\"text\":\"you’re not a bot\"}]}}}",
+            ),
+            status(
+                "\"errorScreen\":{\"playerErrorMessageRenderer\":{\"reason\":" +
+                    "{\"simpleText\":\"Sign in to confirm you're not a bot\"}}}",
+            ),
+        ).forEach { json ->
+            assertEquals(
+                json,
+                YouTubeParseResult.Failure(SiteExtractionFailure.BOT_CHECK, definite = false),
+                YouTubePlayerResponseParser.parse(json, NOW),
+            )
+        }
+    }
+
+    @Test
+    fun `real sign-in prompts and age gates keep their own verdicts`() {
+        assertEquals(
+            YouTubeParseResult.Failure(SiteExtractionFailure.LOGIN_REQUIRED, definite = false),
+            YouTubePlayerResponseParser.parse(status("\"reason\":\"Please sign in\""), NOW),
+        )
+        assertEquals(
+            YouTubeParseResult.Failure(SiteExtractionFailure.LOGIN_REQUIRED, definite = true),
+            YouTubePlayerResponseParser.parse(
+                status("\"reason\":\"Sign in to confirm your age\""),
+                NOW,
+            ),
+        )
+        assertEquals(
+            YouTubeParseResult.Failure(
+                SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
+                definite = true,
+            ),
+            YouTubePlayerResponseParser.parse(status("\"reason\":\"Private video\""), NOW),
+        )
+    }
+
+    @Test
+    fun `summaries count addressed formats and flag SABR without keeping an address`() {
+        val ok = inspect("player_ok.json").summary
+        assertEquals(
+            listOf("client WEB: OK; with URLs: 2 progressive, 5 adaptive; SABR no"),
+            ok.lines("client WEB"),
+        )
+        assertEquals(
+            listOf("client WEB: OK; with URLs: 0 progressive, 0 adaptive; protected: 3; SABR no"),
+            inspect("player_cipher.json").summary.lines("client WEB"),
+        )
+        val sabr = inspect("player_sabr_only.json").summary
+        assertTrue(sabr.sabr)
+        assertTrue(sabr.sabrOnly)
+        assertEquals(
+            listOf("client WEB: OK; with URLs: 0 progressive, 0 adaptive; SABR only"),
+            sabr.lines("client WEB"),
+        )
+        assertEquals(
+            listOf("client WEB: unreadable response"),
+            inspect("player_malformed.json").summary.lines("client WEB"),
+        )
+        val bot = inspect("player_bot_check.json").summary
+        assertEquals("LOGIN_REQUIRED", bot.status)
+        assertEquals(
+            "Sign in to confirm you’re not a bot This helps protect our community. Learn more",
+            bot.reason,
+        )
+        listOf(ok, sabr, bot).map(YouTubeResponseSummary::toString).forEach { text ->
+            assertFalse(text, text.contains("https"))
+            assertFalse(text, text.contains("bot"))
+        }
+    }
+
+    @Test
+    fun `summary reasons keep the words of markup but not its tags`() {
+        val json = "{\"playabilityStatus\":{\"status\":\"ERROR\",\"reason\":" +
+            "\"This video is unavailable <a href='https://www.youtube.com/watch?v=x' " +
+            "target='_blank'>Watch video on YouTube</a>\"}}"
+
+        assertEquals(
+            "This video is unavailable Watch video on YouTube",
+            YouTubePlayerResponseParser.inspect(json, NOW).summary.reason,
+        )
+    }
+
+    @Test
+    fun `summaries name only well-formed statuses`() {
+        assertEquals(
+            "no status",
+            YouTubePlayerResponseParser.inspect("{\"playabilityStatus\":{}}", NOW).summary.status,
+        )
+        assertEquals(
+            "unrecognized status",
+            YouTubePlayerResponseParser.inspect(
+                "{\"playabilityStatus\":{\"status\":\"<b>odd</b>\"}}",
+                NOW,
+            ).summary.status,
+        )
     }
 
     @Test
@@ -135,6 +242,13 @@ class YouTubePlayerResponseParserTest {
 
     private fun parse(name: String): YouTubeParseResult =
         YouTubePlayerResponseParser.parse(fixture(name), NOW)
+
+    private fun inspect(name: String): YouTubePlayerResponse =
+        YouTubePlayerResponseParser.inspect(fixture(name), NOW)
+
+    /** A sign-in verdict with the given extra fields, the shape YouTube uses for its gates. */
+    private fun status(fields: String): String =
+        "{\"playabilityStatus\":{\"status\":\"LOGIN_REQUIRED\",$fields}}"
 
     private fun fixture(name: String): String = Fixtures.read("youtube/$name")
 

@@ -48,6 +48,12 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Changed
 
+- YouTube lookups tell a bot check from a real sign-in. "Confirm you're not a bot" now says
+  that YouTube wants to check that this is not a bot, and suggests opening the video in YFT's
+  browser, letting it play for a moment, then tapping Download. A response that offers only
+  YouTube's SABR streaming fails as no downloadable media with a "SABR only" detail. Copy
+  details lists every client asked (name, status, reason, formats with addresses, SABR flag)
+  without addresses, cookies or visitor data.
 - Home lookups use an honest desktop-class YFT user-agent and shared HTML-navigation headers,
   without borrowing a browser session. Direct/scanned media keep that identity; JSON/API calls
   and the browser's own user-agent/cookies are unchanged. A bounded public-page checker reports

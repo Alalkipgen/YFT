@@ -71,6 +71,14 @@ enum class SiteExtractionFailure {
     /** The site requires the user to be signed in on the page first. */
     LOGIN_REQUIRED,
 
+    /**
+     * The site asked this request to prove that it is not automated, a bot check.
+     *
+     * It describes the request rather than the content, so it is never a verdict about the
+     * video: the user's own browser can usually answer it, which signing in does not require.
+     */
+    BOT_CHECK,
+
     /** The content is private, age-restricted or removed. */
     PRIVATE_OR_UNAVAILABLE,
 
@@ -154,6 +162,7 @@ sealed interface SiteExtractionResult {
             get() = when (reason) {
                 SiteExtractionFailure.DRM_PROTECTED,
                 SiteExtractionFailure.LOGIN_REQUIRED,
+                SiteExtractionFailure.BOT_CHECK,
                 SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
                 SiteExtractionFailure.GEO_RESTRICTED,
                 SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED,

@@ -75,6 +75,7 @@ class SiteAdapterCoordinatorTest {
             SiteExtractionFailure.RESPONSE_CHANGED to true,
             SiteExtractionFailure.RATE_LIMITED to true,
             SiteExtractionFailure.LOGIN_REQUIRED to false,
+            SiteExtractionFailure.BOT_CHECK to false,
             SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE to false,
             SiteExtractionFailure.GEO_RESTRICTED to false,
             SiteExtractionFailure.DRM_PROTECTED to false,
@@ -99,6 +100,30 @@ class SiteAdapterCoordinatorTest {
         }
 
         assertEquals(expected.size, messages.size)
+    }
+
+    @Test
+    fun `a bot check asks for the browser instead of a sign-in`() = runTest {
+        val outcome = coordinator(
+            FakeExtractor(
+                result = SiteExtractionResult.Failure(
+                    SiteExtractionFailure.BOT_CHECK,
+                    details = listOf("client WEB: LOGIN_REQUIRED; SABR no"),
+                ),
+            ),
+        ).inspect("https://fixture.test/video/42", context(), 1L) as SiteAdapterOutcome.Failed
+
+        assertEquals(
+            "Fixture Site wants to check that this is not a bot. Open the video in YFT's " +
+                "browser, let it play for a moment, then tap Download.",
+            outcome.message,
+        )
+        assertFalse(outcome.message.contains("Sign in"))
+        assertFalse(outcome.allowsGenericFallback)
+        assertEquals(
+            listOf("adapter fixture: BOT_CHECK", "client WEB: LOGIN_REQUIRED; SABR no"),
+            outcome.details,
+        )
     }
 
     @Test

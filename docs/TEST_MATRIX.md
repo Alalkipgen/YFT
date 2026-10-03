@@ -422,13 +422,33 @@ Live parser run: the sanitized-output harness outside the repository on the page
 | Redaction | PASS — `ResponseCookie` and `BrowserRequestContext` `toString()` show `[REDACTED]`, never the value |
 | Full validation / instrumentation APK | PASS — extractor-api 29, extractor-sites 113, core-download 81, app 439 (54 render skips), 0 failures/errors; lint 0 errors / 95 warnings; instrumentation APK compiled; 22 Python tests; new Kotlin lines <=100 |
 | Public live check | PASS — Home lookup of `@scout2015/video/6718335390845095173` → Success, 5 candidates on a `tiktok.com` media host; media cookie names `ttwid`, `tt_csrf_token`, `tt_chain_token`; ranged GET through `SecureDownloadHttp` with the candidate context → 206; the same request without the cookie → 403. No body, cookie value or signed URL printed |
-| CI / owner check | This checkpoint's two workflows are checked before T08. Owner check: paste a TikTok link on Home → download → it plays; the same from the browser |
+| CI / owner check | PASS on ba165c5 — both workflows green; checkpoint/debug APK https://github.com/Alalkipgen/YFT/actions/runs/37156848673 and emulator https://github.com/Alalkipgen/YFT/actions/runs/37156848739 (the owner also reported the GitHub runs green). Owner check still open: paste a TikTok link on Home → download → it plays; the same from the browser |
 
 Full command: T01 memory flags plus
 `:extractor-api:test :extractor-sites:test :core-download:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest`.
 Live run: a sanitized-output harness outside the repository using the app's `OkHttpExtractorClient`,
 `TikTokExtractor` and `SecureDownloadHttp`; it prints only the result type, counts, cookie names
 and HTTP status codes.
+
+### T08 — YouTube bot check, SABR and lookup details (OWNER CHECK, 2026-10-03)
+
+| Check | Result |
+| --- | --- |
+| Starting state | PASS — the T07 checkpoint run on the same tree `ba165c5`: extractor-api 29, extractor-sites 113, app 439 (54 render skips), 0 failures; lint 0 errors / 95 warnings |
+| Regression | FAILED old: with only the new `BOT_CHECK` reason added, 8 YouTube tests failed (bot checks returned LOGIN_REQUIRED, SABR-only returned PLAYER_SCRIPT_REQUIRED, details were empty); PASSED fixed |
+| Bot check | PASS — `LOGIN_REQUIRED` whose reason or error screen says "confirm you're not a bot" (straight or curly apostrophe, any case, split text runs) → `BOT_CHECK`, not definite, no generic fallback. Message: "YouTube wants to check that this is not a bot. Open the video in YFT's browser, let it play for a moment, then tap Download."; Home keeps **Open in browser**. "Please sign in", age gates and private videos keep their own reasons and messages |
+| SABR only | PASS — `streamingData` with only `serverAbrStreamingUrl` → `NO_MEDIA_FOUND` (not definite); the client's details line ends "SABR only" |
+| Lookup details | PASS — watch page GET status and size, whether an inline response exists, then for each client asked: name, status, reason (markup tags removed, whitespace collapsed, bounded), formats with direct URLs (progressive/adaptive), protected-format count and SABR flag, plus each client's download outcome. Sanitized in the adapter and again by the coordinator |
+| Redaction | PASS — details never contain the cookie, visitor data, API key, media host, SABR address or any query; a URL inside YouTube's reason becomes its origin; the summary's `toString()` prints no reason text or address |
+| Home identity | PASS — with Home's context the watch page GET carries the desktop YFT user agent and navigation headers without a cookie; both player POSTs carry the same user agent with JSON `Accept`, no cookie and no navigation mode. Client order unchanged (embedded, then the page's own client) |
+| Full validation / instrumentation APK | PASS — extractor-api 29, extractor-sites 122 (123 after the markup-tag fix), app 441 (54 render skips), 0 failures/errors; lint 0 errors / 95 warnings; instrumentation APK compiled; 22 Python tests; new Kotlin lines <=100 |
+| Public live check | `scripts/live-check.sh` on `dQw4w9WgXcQ` → HTTP 200, `www.youtube.com/watch`, 1352799 bytes, `playabilityStatus` marker. Adapter harness with Home's identity through the real coordinator (no player-script host on the JVM): `dQw4w9WgXcQ` → PLAYER_SCRIPT_REQUIRED; the watch page's `WEB` response was OK with 0 direct-URL formats, 1 protected and SABR; `WEB_EMBEDDED_PLAYER` answered ERROR "This video is unavailable Error code: 152 - 18". `aqz-KE-bpKQ` → BOT_CHECK with the new message ("Sign in to confirm you’re not a bot"). Only outcome, message and sanitized details printed |
+| CI / owner check | This checkpoint's two workflows are checked before T09. Owner check: paste a YouTube link → found, or the new message → **Copy details** → send them (T16 needs what the phone receives) |
+
+Full command: T01 memory flags plus
+`:extractor-api:test :extractor-sites:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest`.
+Live run: `bash scripts/live-check.sh https://www.youtube.com/watch?v=dQw4w9WgXcQ`, then a harness outside
+the repository using the app's `OkHttpExtractorClient`, `YouTubeExtractor` and `SiteAdapterCoordinator`.
 
 ## Runtime tests still requiring a device/emulator
 

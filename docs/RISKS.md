@@ -14,7 +14,7 @@
 | Background restrictions | Transfers stop | Foreground service and persisted recovery |
 | Store policy/website terms | Distribution risk | GitHub-first beta, truthful support scope, authorized media only |
 | YouTube adapter (owner override, ADR-005) | Frequent breakage; PO-token 403s; bot checks; GitHub DMCA exposure; Play policy conflict | Embedded client first, sandboxed bundled solver, one-file client profiles, update/verify scripts, build flag to disable, GitHub-only distribution, structured failure reasons |
-| YouTube bot checks, PO tokens and SABR-only responses (2025–2026) | Lookups fail or offer few formats | Honest bot-check and SABR messages with lookup details (T08); client strategy by owner decision D2 (T16); support claimed only after a phone check |
+| YouTube bot checks, PO tokens and SABR-only responses (2025–2026) | Lookups fail or offer few formats | Honest bot-check message, SABR-only detail and per-client lookup details (T08, Phase 8 branch; live from the sandbox IP: one of two public videos got the bot check, the embedded client was refused for both); client strategy by owner decision D2 (T16); support claimed only after a phone check |
 | Real WebView behaviour is not covered by Robolectric | Crashes and layout bugs reach the phone (beta.2) | WebView calls on the main thread only (T01); CI emulator smoke test (T02) |
 | Reading the clipboard when the app opens | Privacy concern; Android 12+ shows a paste message | Owner decision D1, a Settings switch, only http(s) links used, the text never stored (T11) |
 | MP3 encoding (LAME, LGPL) and the archived FFmpegKit | Licence duties, APK size, maintenance | M4A first; MP3 only with D3, as a shared library with notices (T18); FFmpegKit is not used |

@@ -173,7 +173,7 @@ class YouTubeExtractorTest {
 
                 val result = YouTubeExtractor(http).extract(request())
 
-                assertEquals(name, failure(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED), result)
+                assertFailure(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED, result, name)
             }
         }
 
@@ -192,7 +192,7 @@ class YouTubeExtractorTest {
 
             val result = YouTubeExtractor(http, runner).extract(request())
 
-            assertEquals(failure(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED), result)
+            assertFailure(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED, result)
         }
 
         val partial = FakePlayerScriptRunner {
@@ -213,7 +213,7 @@ class YouTubeExtractorTest {
 
         val result = YouTubeExtractor(http, runner).extract(request())
 
-        assertEquals(failure(SiteExtractionFailure.NETWORK), result)
+        assertFailure(SiteExtractionFailure.NETWORK, result)
     }
 
     @Test
@@ -223,7 +223,7 @@ class YouTubeExtractorTest {
 
         val result = YouTubeExtractor(http, runner).extract(request())
 
-        assertEquals(failure(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED), result)
+        assertFailure(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED, result)
         assertTrue(runner.requests.isEmpty())
     }
 
@@ -239,7 +239,7 @@ class YouTubeExtractorTest {
     }
 
     @Test
-    fun `a bot check with no embeddable streams asks the user to sign in`() = runTest {
+    fun `a bot check with no embeddable streams is reported as a bot check`() = runTest {
         val http = client(
             page = watchPage(BOT_CHECK),
             embedded = fixture("player_unavailable.json"),
@@ -247,9 +247,126 @@ class YouTubeExtractorTest {
 
         val result = YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request())
 
-        assertEquals(failure(SiteExtractionFailure.LOGIN_REQUIRED), result)
+        assertFailure(SiteExtractionFailure.BOT_CHECK, result)
         assertEquals(1, http.postedUrls.size)
     }
+
+    @Test
+    fun `a bot check worded with a straight apostrophe is still a bot check`() = runTest {
+        val straight = BOT_CHECK.replace("you’re", "you're")
+        val http = client(
+            page = watchPage(straight),
+            embedded = fixture("player_unavailable.json"),
+        )
+
+        val result = YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request())
+
+        assertFailure(SiteExtractionFailure.BOT_CHECK, result)
+    }
+
+    @Test
+    fun `lookup details name every client asked and its verdict`() = runTest {
+        val page = watchPage(BOT_CHECK)
+        val http = client(page = page, embedded = fixture("player_unavailable.json"))
+
+        val result = YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request())
+            as SiteExtractionResult.Failure
+
+        assertEquals(
+            listOf(
+                "watch page GET 200 (${page.length} characters)",
+                "client MWEB (watch page response): LOGIN_REQUIRED; with URLs: " +
+                    "0 progressive, 0 adaptive; SABR no",
+                "client MWEB (watch page response) reason: Sign in to confirm you’re not a bot " +
+                    "This helps protect our community. Learn more",
+                "client WEB_EMBEDDED_PLAYER: ERROR; with URLs: 0 progressive, 0 adaptive; SABR no",
+                "client WEB_EMBEDDED_PLAYER reason: This video is unavailable",
+            ),
+            result.details,
+        )
+    }
+
+    @Test
+    fun `lookup details count the formats each client offered`() = runTest {
+        val own = fixture("player_ok.json").replace(EMBED_HOST, PAGE_HOST)
+        val http = client(
+            page = watchPage(null),
+            embedded = fixture("player_embed_refused.json"),
+            own = own,
+        )
+
+        val result = YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request())
+            as SiteExtractionResult.Success
+
+        assertTrue(result.details.contains("watch page: no inline player response"))
+        assertTrue(
+            result.details.contains(
+                "client WEB_EMBEDDED_PLAYER: UNPLAYABLE; with URLs: 0 progressive, " +
+                    "0 adaptive; SABR no",
+            ),
+        )
+        assertTrue(
+            result.details.contains(
+                "client MWEB: OK; with URLs: 2 progressive, 5 adaptive; SABR no",
+            ),
+        )
+        assertTrue(result.details.contains("client MWEB: 3 downloads offered"))
+    }
+
+    @Test
+    fun `lookup details never carry session values or media addresses`() = runTest {
+        val reason = "Sign in to confirm you’re not a bot. Verify at " +
+            "https://www.youtube.com/verify?visitor=$VISITOR_DATA&session=fixture-session"
+        val inline = BOT_CHECK.replace("Sign in to confirm you’re not a bot", reason)
+        val sabr = fixture("player_sabr_only.json")
+        val http = client(page = watchPage(inline), embedded = sabr)
+
+        val result = YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request())
+            as SiteExtractionResult.Failure
+
+        val copied = result.details.joinToString("\n")
+        assertTrue(copied, copied.contains("https://www.youtube.com"))
+        listOf(
+            "?", "visitor=", VISITOR_DATA, "fixture-session", COOKIE, "SID=", "googlevideo",
+            "videoplayback", "sabr=1", "yft-fixture-innertube-key-not-real",
+        ).forEach { secret ->
+            assertFalse(secret, copied.contains(secret))
+        }
+        assertEquals(result.details, result.details.filter { it.length <= 240 })
+    }
+
+    @Test
+    fun `Home lookups use the desktop identity for the page and every player request`() =
+        runTest {
+            val own = fixture("player_ok.json").replace(EMBED_HOST, PAGE_HOST)
+            val http = client(
+                page = watchPage(null),
+                embedded = fixture("player_embed_refused.json"),
+                own = own,
+            )
+            val home = SiteExtractionRequest(
+                identity = requireNotNull(YouTubeUrls.identify(SHARED_LINK)),
+                requestContext = BrowserRequestContext(SHARED_LINK, HOME_USER_AGENT, null),
+                nowEpochMs = NOW,
+            )
+
+            YouTubeExtractor(http, FakePlayerScriptRunner()).extract(home)
+                as SiteExtractionResult.Success
+
+            val page = http.requestedHeaders.single()
+            assertEquals(HOME_USER_AGENT, page["User-Agent"])
+            PageNavigationHeaders.DEFAULTS.forEach { (name, value) ->
+                assertEquals(name, value, page[name])
+            }
+            assertNull(page["Cookie"])
+            assertEquals(2, http.postedHeaders.size)
+            http.postedHeaders.forEach { headers ->
+                assertEquals(HOME_USER_AGENT, headers["User-Agent"])
+                assertEquals("application/json", headers["Accept"])
+                assertNull(headers["Cookie"])
+                assertNull(headers["Sec-Fetch-Mode"])
+            }
+        }
 
     @Test
     fun `a verdict about the video ends the lookup on the watch page`() = runTest {
@@ -265,7 +382,7 @@ class YouTubeExtractorTest {
 
             val result = YouTubeExtractor(http, runner).extract(request())
 
-            assertEquals(name, failure(reason), result)
+            assertFailure(reason, result, name)
             assertTrue(name, http.postedUrls.isEmpty())
             assertTrue(name, runner.requests.isEmpty())
         }
@@ -320,7 +437,7 @@ class YouTubeExtractorTest {
 
         val result = YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request())
 
-        assertEquals(failure(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE), result)
+        assertFailure(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, result)
     }
 
     @Test
@@ -329,18 +446,29 @@ class YouTubeExtractorTest {
 
         val result = YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request())
 
-        assertEquals(failure(SiteExtractionFailure.HTTP_STATUS), result)
+        assertFailure(SiteExtractionFailure.HTTP_STATUS, result)
     }
 
     @Test
-    fun `streaming only through YouTube's own protocol reports the player script requirement`() =
+    fun `streaming only through YouTube's SABR protocol is no media with a SABR detail`() =
         runTest {
             val sabr = fixture("player_sabr_only.json")
             val http = client(page = watchPage(sabr), embedded = sabr)
 
             val result = YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request())
+                as SiteExtractionResult.Failure
 
-            assertEquals(failure(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED), result)
+            assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, result.reason)
+            assertEquals(
+                listOf(
+                    "client MWEB (watch page response): OK; with URLs: 0 progressive, " +
+                        "0 adaptive; SABR only",
+                    "client WEB_EMBEDDED_PLAYER: OK; with URLs: 0 progressive, 0 adaptive; " +
+                        "SABR only",
+                ),
+                result.details.filter { it.startsWith("client ") },
+            )
+            assertTrue(result.allowsGenericFallback)
         }
 
     @Test
@@ -350,7 +478,7 @@ class YouTubeExtractorTest {
 
         val result = YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request())
 
-        assertEquals(failure(SiteExtractionFailure.RESPONSE_CHANGED), result)
+        assertFailure(SiteExtractionFailure.RESPONSE_CHANGED, result)
         assertEquals(
             List(2) { "https://www.youtube.com/youtubei/v1/player?prettyPrint=false" },
             http.postedUrls,
@@ -378,7 +506,7 @@ class YouTubeExtractorTest {
 
         val result = YouTubeExtractor(http, runner).extract(request())
 
-        assertEquals(failure(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED), result)
+        assertFailure(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED, result)
         assertTrue(runner.requests.isEmpty())
     }
 
@@ -389,7 +517,7 @@ class YouTubeExtractorTest {
 
         val result = YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request())
 
-        assertEquals(failure(SiteExtractionFailure.MALFORMED_RESPONSE), result)
+        assertFailure(SiteExtractionFailure.MALFORMED_RESPONSE, result)
     }
 
     @Test
@@ -400,7 +528,7 @@ class YouTubeExtractorTest {
 
         val result = YouTubeExtractor(http, runner).extract(request())
 
-        assertEquals(failure(SiteExtractionFailure.EXPIRED_LINK), result)
+        assertFailure(SiteExtractionFailure.EXPIRED_LINK, result)
         assertTrue(runner.requests.isEmpty())
     }
 
@@ -410,7 +538,14 @@ class YouTubeExtractorTest {
 
         val result = YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request())
 
-        assertEquals(SiteExtractionResult.Failure(SiteExtractionFailure.HTTP_STATUS, 404), result)
+        assertEquals(
+            SiteExtractionResult.Failure(
+                SiteExtractionFailure.HTTP_STATUS,
+                404,
+                details = listOf("watch page GET failed (HTTP_STATUS)"),
+            ),
+            result,
+        )
         assertTrue(http.postedUrls.isEmpty())
     }
 
@@ -425,7 +560,7 @@ class YouTubeExtractorTest {
 
         val result = YouTubeExtractor(http).extract(request(identity))
 
-        assertEquals(failure(SiteExtractionFailure.UNSUPPORTED_URL), result)
+        assertFailure(SiteExtractionFailure.UNSUPPORTED_URL, result)
         assertTrue(http.requestedUrls.isEmpty())
     }
 
@@ -455,7 +590,16 @@ class YouTubeExtractorTest {
         nowEpochMs = NOW,
     )
 
-    private fun failure(reason: SiteExtractionFailure) = SiteExtractionResult.Failure(reason)
+    /** Compares the reason only; the lookup details have their own tests. */
+    private fun assertFailure(
+        expected: SiteExtractionFailure,
+        result: SiteExtractionResult,
+        message: String? = null,
+    ) {
+        val failure = result as? SiteExtractionResult.Failure
+            ?: throw AssertionError("${message.orEmpty()} expected $expected but was $result")
+        assertEquals(message, expected, failure.reason)
+    }
 
     private fun watchPage(playerResponse: String?): String =
         fixture("watch_page.html").replace("__PLAYER_RESPONSE__", playerResponse.orEmpty())
@@ -483,6 +627,7 @@ class YouTubeExtractorTest {
         const val MEDIA = "https://$EMBED_HOST/videoplayback"
         const val RATE_INPUT = "Fx7nInput0"
         const val SOLVED_RATE = "N0tupnIn7xF"
+        const val HOME_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) YFT/fixture"
         val BOT_CHECK: String = Fixtures.read("youtube/player_bot_check.json")
     }
 }

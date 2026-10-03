@@ -16,9 +16,10 @@
   empty browser hides the address bar; P3 every page load in the browser closes the app; P4 YouTube
   fails with a sign-in message; P5 a TikTok video is found but the download fails. Causes with
   evidence: FIX_PLAN §4 (F1–F8).
-- **Next action — agent:** check the T07 checkpoint CI, then T08 — YouTube: honest messages,
-  identity and details
-  ([`prompts/T08-youtube-messages-details.md`](prompts/T08-youtube-messages-details.md)). T07 is
+- **Next action — agent:** check the T08 checkpoint CI, then T09 — Your sites with logos
+  ([`prompts/T09-your-sites-logos.md`](prompts/T09-your-sites-logos.md)); stop before T10
+  (release). T08 is OWNER CHECK (paste a YouTube link → found or the bot-check message → Copy
+  details → send them); T07 is
   OWNER CHECK (TikTok Home and browser download/playback on the phone); T06 is OWNER CHECK
   (Facebook Home download/playback on the phone); T05 is DONE; T04 is OWNER CHECK:
   final tests, all 9 individually inspected renders and the actual release debug-action guard
@@ -93,7 +94,18 @@
   extractor-sites 113, core-download 81, app 439 (54 render skips), 0 failures; lint 0
   errors/95 warnings; instrumentation APK compiled. Live: the public scout2015 video gave 5
   candidates; ranged media GET 206 with the cookies, 403 without. Phone: paste a TikTok link →
-  download → it plays; the same from the browser.
+  download → it plays; the same from the browser. ba165c5 CI GREEN: checkpoint/debug APK
+  https://github.com/Alalkipgen/YFT/actions/runs/37156848673 and emulator
+  https://github.com/Alalkipgen/YFT/actions/runs/37156848739.
+- **T08 OWNER CHECK:** YouTube's "confirm you're not a bot" is `BOT_CHECK` (not definite, no
+  generic fallback) with the message to open the video in YFT's browser, let it play, then tap
+  Download; real sign-in, age and private verdicts are unchanged. SABR-only answers are
+  NO_MEDIA_FOUND with "SABR only". Copy details lists each client asked (name, status, reason,
+  formats with URLs, protected count, SABR flag, outcome), sanitized. The old code failed 8 tests;
+  fixed: extractor-api 29, extractor-sites 123, app 441 (54 render skips), lint 0 errors. Live
+  (sandbox IP): dQw4w9WgXcQ needs the player script (WEB: 1 protected format + SABR, embedded
+  refused 152-18); aqz-KE-bpKQ gets the bot check and the new message. YFT does not bypass bot
+  checks; the client strategy is T16 (D2).
 
 ## Known limitations (beta.2)
 
