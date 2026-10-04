@@ -64,6 +64,47 @@ class AudioVideoMuxEngineTest {
     }
 
     @Test
+    fun `AV1 video merges only from Android 14 and HE-AAC sound always`() {
+        val av1 = plan().copy(
+            video = plan().video.copy(codecs = listOf("av01.0.08M.08")),
+            audio = plan().audio.copy(codecs = listOf("mp4a.40.5")),
+        )
+
+        assertEquals(
+            MuxCompatibility.Incompatible(MuxIncompatibilityReason.VIDEO_CODEC),
+            AudioVideoMuxCompatibility.evaluate(av1, sdkInt = 33),
+        )
+        assertEquals(MuxCompatibility.Compatible, AudioVideoMuxCompatibility.evaluate(av1, 34))
+        assertEquals(MuxCompatibility.Compatible, AudioVideoMuxCompatibility.evaluate(av1, 35))
+        assertTrue(AudioVideoMuxCompatibility.canWriteVideo("avc1.4d001e", sdkInt = 24))
+        assertTrue(AudioVideoMuxCompatibility.canWriteVideo(" AV01.0.05M.08", sdkInt = 34))
+        assertFalse(AudioVideoMuxCompatibility.canWriteVideo("av01.0.05M.08", sdkInt = 33))
+        assertFalse(AudioVideoMuxCompatibility.canWriteVideo("vp09.00.31.08", sdkInt = 35))
+        assertFalse(AudioVideoMuxCompatibility.canWriteVideo("hvc1.1.6.L93.B0", sdkInt = 35))
+    }
+
+    @Test
+    fun `an AV1 merge is refused before any transfer on a phone before Android 14`() = runTest {
+        val av1 = plan().copy(video = plan().video.copy(codecs = listOf("av01.0.08M.08")))
+        val oldRunner = FakeDashRunner()
+        val oldMuxer = FakeMuxer()
+        val newRunner = FakeDashRunner()
+        val newMuxer = FakeMuxer()
+
+        val refused = engine(oldRunner, oldMuxer, directory.newFolder("av1-33"), sdkInt = 33)
+            .transfer(plan = av1, destination = files("av1-33.mp4").destination)
+            as AudioVideoMuxResult.Failure
+        val merged = engine(newRunner, newMuxer, directory.newFolder("av1-34"), sdkInt = 34)
+            .transfer(plan = av1, destination = files("av1-34.mp4").destination)
+
+        assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, refused.failure.reason)
+        assertEquals(0, oldRunner.totalCalls())
+        assertEquals(0, oldMuxer.calls.get())
+        assertTrue(merged is AudioVideoMuxResult.Completed)
+        assertEquals(1, newMuxer.calls.get())
+    }
+
+    @Test
     fun `incompatible tracks fail before transfer or destination work`() = runTest {
         val runner = FakeDashRunner()
         val muxer = FakeMuxer()
@@ -228,11 +269,13 @@ class AudioVideoMuxEngineTest {
         runner: FakeDashRunner,
         muxer: FakeMuxer,
         workspace: File,
+        sdkInt: Int = 24,
     ): AudioVideoMuxEngine = AudioVideoMuxEngine(
         dashTransfer = runner,
         muxer = muxer,
         workspaceRoot = workspace,
         clock = { 100 },
+        sdkInt = sdkInt,
     )
 
     private fun plan(

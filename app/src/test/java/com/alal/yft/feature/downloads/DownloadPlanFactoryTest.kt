@@ -172,6 +172,23 @@ class DownloadPlanFactoryTest {
     }
 
     @Test
+    fun `an AV1 video merges with HE-AAC from Android 14 and is refused before`() {
+        val av1 = variant(container = "mp4").copy(
+            codecs = listOf("av01.0.08M.08"),
+            audioCompanion = companion().copy(codecs = listOf("mp4a.40.5")),
+        )
+
+        val android13 = factory(av1, sdkInt = 33) as DownloadPlanResult.Rejected
+        val android14 = (factory(av1, sdkInt = 34) as DownloadPlanResult.Ready).request
+            as DownloadRequest.Mux
+
+        assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, android13.reason)
+        assertEquals(listOf("av01.0.08M.08"), android14.plan.video.codecs)
+        assertEquals(listOf("mp4a.40.5"), android14.plan.audio.codecs)
+        assertEquals("video/mp4", android14.plan.outputMimeType)
+    }
+
+    @Test
     fun `youtube media files are fetched in bounded requests`() {
         val youTube = variant(url = "https://rr1---sn-b.googlevideo.com/videoplayback?itag=18")
         val elsewhere = variant(url = "https://googlevideo.com.example.test/clip.mp4")
@@ -317,12 +334,13 @@ class DownloadPlanFactoryTest {
         expiresAtEpochMs = expiresAt,
     )
 
-    private fun factory(variant: MediaVariant): DownloadPlanResult =
+    private fun factory(variant: MediaVariant, sdkInt: Int = 24): DownloadPlanResult =
         DownloadPlanFactory.create(
             asset = asset(),
             variant = variant,
             taskId = "task-1",
             nowEpochMs = 1_000L,
+            sdkInt = sdkInt,
         )
 
     private fun asset(title: String? = "Fixture") = MediaAsset(

@@ -3,6 +3,7 @@ package com.alal.yft.extractor.sites.facebook
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
+import com.alal.yft.core.model.media.CompanionAudio
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.PageNavigationHeaders
@@ -80,7 +81,9 @@ class FacebookExtractor(
         val details = pageDetails + parsed.details
 
         val pageUrl = pageUrl(resolvedIdentity, post)
-        val candidates = post.renditions.mapNotNull { rendition ->
+        val avc = avcLadder(pageUrl, post)
+        val tracks = (post.dashTracks + avc.tracks).distinctBy(FacebookDashTrack::url)
+        val progressive = post.renditions.mapNotNull { rendition ->
             val expiresAtEpochMs = FacebookUrls.mediaExpiryEpochMs(rendition.url)
             // Handing an already-expired link to the download engine would only fail later.
             if (expiresAtEpochMs != null && expiresAtEpochMs <= request.nowEpochMs) {
@@ -108,17 +111,163 @@ class FacebookExtractor(
                 observedAtEpochMs = request.nowEpochMs,
             )
         }
+        val candidates = progressive + trackCandidates(post, tracks, pageUrl, request)
+        val trackDetails = listOfNotNull(
+            "manifest: ${post.dashTracks.size} whole-file tracks".takeIf {
+                post.dashTracks.isNotEmpty()
+            },
+            avc.detail,
+        )
 
-        // The parser only returns a post with renditions, so an empty list means every link the
-        // page exposed had already expired and the page has to be reloaded.
+        // The parser only returns a post with media: with nothing left, either every link the
+        // page exposed had already expired and the page has to be reloaded, or no track was one
+        // the phone can save.
         if (candidates.isEmpty()) {
+            val expired = (post.renditions.map(FacebookRendition::url) + tracks.map { it.url })
+                .any { isExpired(it, request.nowEpochMs) }
             return SiteExtractionResult.Failure(
-                SiteExtractionFailure.EXPIRED_LINK, details = details,
+                if (expired) {
+                    SiteExtractionFailure.EXPIRED_LINK
+                } else {
+                    SiteExtractionFailure.NO_MEDIA_FOUND
+                },
+                details = details + trackDetails,
             )
         }
         return SiteExtractionResult.Success(
-            candidates, details + "parsed ${candidates.size} renditions",
+            candidates,
+            details + trackDetails + "parsed ${candidates.size} renditions",
         )
+    }
+
+    /**
+     * The manifest's tracks as download rows (P4): every mergeable picture size as one MP4 with
+     * the best AAC track as its sound, like YouTube's merged rows, and that AAC track alone for
+     * Audio (M4A, MP3). A merged size is estimated from both bitrates over the duration; the
+     * audio file's exact size comes from its own lookup.
+     */
+    private fun trackCandidates(
+        post: FacebookPost,
+        tracks: List<FacebookDashTrack>,
+        pageUrl: String,
+        request: SiteExtractionRequest,
+    ): List<MediaCandidate> {
+        val now = request.nowEpochMs
+        val audio = FacebookDashOffers.audio(tracks)
+            ?.takeUnless { isExpired(it.url, now) } ?: return emptyList()
+        val context = mediaContext(pageUrl, request.requestContext)
+        val companion = CompanionAudio(
+            mediaUrl = audio.url,
+            mimeType = audio.mimeType,
+            codecs = listOf(audio.codec),
+            requestContext = context,
+            bitrateBitsPerSecond = audio.bandwidthBitsPerSecond,
+            expiresAtEpochMs = FacebookUrls.mediaExpiryEpochMs(audio.url),
+        )
+        val merged = FacebookDashOffers.videos(tracks)
+            .filterNot { isExpired(it.url, now) }
+            .map { video ->
+                MediaCandidate(
+                    pageUrl = pageUrl,
+                    mediaUrl = video.url,
+                    sources = setOf(CandidateSource.MANIFEST),
+                    kind = MediaKind.DIRECT,
+                    mimeType = video.mimeType,
+                    title = displayTitle(post, FacebookDashOffers.qualityName(video)),
+                    thumbnailUrl = post.thumbnailUrl,
+                    durationMillis = post.durationMillis,
+                    contentLengthBytes = estimatedBytes(video, audio, post.durationMillis),
+                    requestContext = context,
+                    confidence = CandidateConfidence.HIGH,
+                    expiresAtEpochMs = listOfNotNull(
+                        FacebookUrls.mediaExpiryEpochMs(video.url),
+                        companion.expiresAtEpochMs,
+                    ).minOrNull(),
+                    drmHint = false,
+                    observedAtEpochMs = now,
+                    codecs = listOf(video.codec),
+                    audioCompanion = companion,
+                    width = video.width,
+                    height = video.height,
+                    framesPerSecond = video.framesPerSecond,
+                    bitrateBitsPerSecond = video.bandwidthBitsPerSecond,
+                )
+            }
+        val sound = MediaCandidate(
+            pageUrl = pageUrl,
+            mediaUrl = audio.url,
+            sources = setOf(CandidateSource.MANIFEST),
+            kind = MediaKind.DIRECT,
+            mimeType = audio.mimeType,
+            title = displayTitle(post, AUDIO_LABEL),
+            thumbnailUrl = post.thumbnailUrl,
+            durationMillis = post.durationMillis,
+            requestContext = context,
+            confidence = CandidateConfidence.HIGH,
+            expiresAtEpochMs = companion.expiresAtEpochMs,
+            drmHint = false,
+            observedAtEpochMs = now,
+            codecs = listOf(audio.codec),
+            bitrateBitsPerSecond = audio.bandwidthBitsPerSecond,
+        )
+        return merged + sound
+    }
+
+    private class AvcLadder(val tracks: List<FacebookDashTrack>, val detail: String?)
+
+    /**
+     * Reads the AVC ladder from the page Facebook serves Safari when the first page listed AV1 or
+     * VP9 video only ([FacebookPageIdentity.AVC_LADDER_USER_AGENT]). The request carries no
+     * session: a public video gets its AVC tracks, a video only the signed-in user may see keeps
+     * the first page's tracks, and the cookie never travels with a second identity. Only tracks
+     * of the same video ID are taken.
+     */
+    private suspend fun avcLadder(pageUrl: String, post: FacebookPost): AvcLadder {
+        if (!FacebookDashOffers.lacksAvcVideo(post.dashTracks)) return AvcLadder(emptyList(), null)
+        val videoId = post.videoId?.takeIf(FacebookUrls::isNumericId)
+            ?: return AvcLadder(emptyList(), "AVC page: skipped without a video ID")
+        val response = when (
+            val result = http.get(
+                url = pageUrl,
+                headers = PageNavigationHeaders.withDefaults(
+                    mapOf(
+                        "User-Agent" to FacebookPageIdentity.AVC_LADDER_USER_AGENT,
+                        "Accept-Language" to "en-US,en;q=0.9",
+                        "Referer" to "https://www.facebook.com/",
+                    ),
+                ),
+                maxBodyBytes = maxPageBytes,
+            )
+        ) {
+            is ExtractorHttpResult.Failure ->
+                return AvcLadder(emptyList(), "AVC page: ${result.reason}")
+
+            is ExtractorHttpResult.Success -> result
+        }
+        if (FacebookUrls.isAccessWall(response.finalUrl)) {
+            return AvcLadder(emptyList(), "AVC page: login/checkpoint wall")
+        }
+        val parsed = FacebookPageParser.parse(response.body, videoId)
+        val tracks = (parsed as? FacebookParseResult.Success)?.post
+            ?.takeIf { it.videoId == videoId }
+            ?.dashTracks.orEmpty()
+            .filter(FacebookDashOffers::isAvc)
+        return AvcLadder(tracks, "AVC page GET ${response.statusCode}: ${tracks.size} AVC tracks")
+    }
+
+    private fun isExpired(url: String, nowEpochMs: Long): Boolean =
+        FacebookUrls.mediaExpiryEpochMs(url)?.let { it <= nowEpochMs } == true
+
+    /** Both tracks' stated bitrates over the duration; null when one of them is unknown. */
+    private fun estimatedBytes(
+        video: FacebookDashTrack,
+        audio: FacebookDashTrack,
+        durationMillis: Long?,
+    ): Long? {
+        val millis = durationMillis?.takeIf { it > 0 } ?: return null
+        val videoBits = video.bandwidthBitsPerSecond ?: return null
+        val audioBits = audio.bandwidthBitsPerSecond ?: return null
+        return ((videoBits + audioBits) * millis / BITS_PER_BYTE_MILLIS).takeIf { it > 0 }
     }
 
     /**
@@ -196,5 +345,7 @@ class FacebookExtractor(
         const val DEFAULT_MAX_PAGE_BYTES: Long = 6L * 1024 * 1024
         private const val MP4_MIME_TYPE = "video/mp4"
         private const val DASH_MIME_TYPE = "application/dash+xml"
+        private const val AUDIO_LABEL = "Audio"
+        private const val BITS_PER_BYTE_MILLIS = 8_000L
     }
 }

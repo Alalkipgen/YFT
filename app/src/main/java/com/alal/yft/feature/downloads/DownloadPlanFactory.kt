@@ -1,5 +1,6 @@
 package com.alal.yft.feature.downloads
 
+import android.os.Build
 import com.alal.yft.core.download.AudioVideoMuxCompatibility
 import com.alal.yft.core.download.MuxCompatibility
 import com.alal.yft.core.model.download.AudioVideoMuxDownloadPlan
@@ -73,6 +74,7 @@ object DownloadPlanFactory {
         variant: MediaVariant,
         taskId: String,
         nowEpochMs: Long,
+        sdkInt: Int = Build.VERSION.SDK_INT,
     ): DownloadPlanResult {
         require(taskId.isNotBlank())
 
@@ -99,7 +101,7 @@ object DownloadPlanFactory {
         val fileName = fileName(asset, variant)
         val context = variant.requestContext
         variant.audioCompanion?.let { companion ->
-            return mergedRequest(variant, companion, taskId, fileName, nowEpochMs)
+            return mergedRequest(variant, companion, taskId, fileName, nowEpochMs, sdkInt)
         }
 
         return when (variant.kind) {
@@ -189,6 +191,7 @@ object DownloadPlanFactory {
         taskId: String,
         fileName: String,
         nowEpochMs: Long,
+        sdkInt: Int,
     ): DownloadPlanResult {
         if (variant.kind != MediaKind.DIRECT) {
             return rejected(
@@ -238,7 +241,7 @@ object DownloadPlanFactory {
             ),
             suggestedFileName = fileName,
         )
-        if (AudioVideoMuxCompatibility.evaluate(plan) is MuxCompatibility.Incompatible) {
+        if (AudioVideoMuxCompatibility.evaluate(plan, sdkInt) is MuxCompatibility.Incompatible) {
             return rejected(
                 DownloadFailureReason.INCOMPATIBLE_TRACKS,
                 "This video and its audio cannot be combined on this phone.",

@@ -143,6 +143,41 @@ class DefaultVariantResolverTest {
     }
 
     @Test
+    fun `a stated sound track stays audio when the server labels the mp4 as video`() = runTest {
+        // Facebook's CDN serves a DASH manifest's sound-only track as video/mp4 (P4).
+        repeat(2) {
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "video/mp4")
+                    .setHeader("Content-Length", "4096"),
+            )
+        }
+        server.enqueue(MockResponse().setResponseCode(403))
+
+        val sound = resolver.resolve(
+            candidate(server.url("/sound.mp4").toString())
+                .copy(mimeType = "audio/mp4", codecs = listOf("mp4a.40.5")),
+        ) as VariantResolutionResult.Success
+
+        val audio = sound.asset.variants.single()
+        assertEquals("audio/mp4", audio.mimeType)
+        assertEquals(MediaTrackType.AUDIO, audio.trackType)
+        assertEquals(4_096L, audio.sizeBytes)
+        assertEquals(MediaSizeAccuracy.EXACT, audio.sizeAccuracy)
+        // Its type is known, so no MP4 header is read.
+        assertEquals("HEAD", server.takeRequest().method)
+        assertEquals(1, server.requestCount)
+
+        // A stated audio type in another container keeps the server's word (and its probe).
+        val webm = resolver.resolve(
+            candidate(server.url("/sound.webm").toString()).copy(mimeType = "audio/webm"),
+        ) as VariantResolutionResult.Success
+        assertEquals("video/mp4", webm.asset.variants.single().mimeType)
+        assertEquals(3, server.requestCount)
+    }
+
+    @Test
     fun `video with a companion audio track resolves to one merged variant`() = runTest {
         server.enqueue(
             MockResponse()

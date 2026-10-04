@@ -13,3 +13,27 @@ Update this file before every checkpoint push. Keep it short, factual and suffic
 - Next exact action: P4 (Facebook inline MPD qualities), then P5, P6 per `docs/prompts/CONTINUE-P4-TO-P6.md`. Not P7/P8.
 - Last pushed checkpoint: P3-FIX (this commit); handoff commits `9fcaa56`, `6a4930f` (docs only); P3 `56f0c79`; P2 `8421700`; P1 `9afd965`; P0 `99efca6`; T19 `2f6284f`; earlier in `git show 2f6284f:docs/SESSION_STATE.md`.
 - Last updated: 2026-10-05
+
+## P4 work in progress (WIP commit, not a checkpoint)
+
+Saved at the owner's request before the session budget ran out. P4 is not finished and has not
+been through the full checkpoint.
+
+In this commit: Facebook DASH manifest parsing (`FacebookDashManifest`, `FacebookDashOffers`),
+merged 360p/720p/1080p rows plus an Audio row, the anonymous Safari page for the AVC ladder,
+the AV1 merge gate (Android 14+, `MergeSupport`), quick-download order (a complete file before
+a merge), `AudioVideoMuxerInstrumentedTest` with its assets, and the resolver keeping a stated
+`audio/mp4` when the CDN says `video/mp4` (its new test has not run yet).
+Last runs: extractor-sites 166 tests / 0 failures, core-download 109 / 0, app (targeted) 86 / 0.
+
+Next:
+1. `FacebookExtractor.trackCandidates`: leave a merged row's `contentLengthBytes` null (AVC
+   bandwidth is a peak, about 3.5x the real size) and set `companion.contentLengthBytes` to
+   audio bandwidth x duration / 8000; update `FacebookDashExtractorTest` (5_502_152 -> null,
+   companion 225_902).
+2. `DownloadPlanFactory.extensionFor`: an audio track in an MP4 container should be `.m4a`
+   (today a direct `audio/mp4` variant with container "MP4" is saved as `.mp4`).
+3. Run core-media tests, the full checkpoint tasks, line-length and mutation checks.
+4. Docs (SUPPORT_MATRIX, TEST_MATRIX P4 plus P3-FIX CI links: checkpoint #149 run 37234905286,
+   emulator #26 run 37234905207), CHANGELOG, FIX_ADD_PLAN, HANDOFF, PHASE_STATUS; checkpoint
+   "P4: ...", CI green; then P5 and P6 per `docs/prompts/CONTINUE-P4-TO-P6.md`.

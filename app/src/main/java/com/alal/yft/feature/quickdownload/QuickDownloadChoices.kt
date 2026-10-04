@@ -81,8 +81,10 @@ data class QuickChoices(
  * Video offers one row per standard resolution (240p, 360p, 480p, 720p, 1080p and higher):
  * a row is named after the nearest standard height of the picture's short side, so 848 × 478 is
  * "480p" while its detail keeps the real "848 × 478 · 30 fps". Of the files at one resolution
- * the row is the one with sound, a whole file before a stream, MP4 before other containers,
- * then the higher frame rate and bitrate. Labels never come from the page title.
+ * the row is the one with sound, a complete file before one merged on the phone (P4: Facebook's
+ * HD file before its 720p video and audio tracks), a whole file before a stream, MP4 before
+ * other containers, then the higher frame rate and bitrate. Labels never come from the page
+ * title.
  */
 object QuickDownloadChoices {
     /** The heights rows are named after, from 144p to 8K. */
@@ -323,12 +325,13 @@ object QuickDownloadChoices {
     }
 
     /**
-     * Highest resolution first. At one resolution: with sound before silent, whole files before
-     * streams, MP4 before other containers, then the taller real picture, the higher frame rate
-     * and the higher bitrate.
+     * Highest resolution first. At one resolution: with sound before silent, a complete file
+     * before a merge, whole files before streams, MP4 before other containers, then the taller
+     * real picture, the higher frame rate and the higher bitrate.
      */
     private val VIDEO_ORDER = compareByDescending<SheetOption> { it.rankHeight ?: -1 }
         .thenBy { if (it.variant.trackType == MediaTrackType.AUDIO_VIDEO) 0 else 1 }
+        .thenBy { if (it.variant.audioCompanion == null) 0 else 1 }
         .thenBy { kindRank(it.variant.kind) }
         .thenBy { if (formatName(it.variant) == "MP4") 0 else 1 }
         .thenByDescending { it.variant.height ?: 0 }

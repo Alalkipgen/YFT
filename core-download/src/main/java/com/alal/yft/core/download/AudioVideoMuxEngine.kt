@@ -4,6 +4,7 @@ import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
+import android.os.Build
 import com.alal.yft.core.model.download.AudioVideoMuxCheckpoint
 import com.alal.yft.core.model.download.AudioVideoMuxDownloadPlan
 import com.alal.yft.core.model.download.AudioVideoMuxResult
@@ -46,9 +47,17 @@ sealed interface MuxCompatibility {
  *
  * YFT does not bundle FFmpeg. Phase 4 therefore accepts only separate AVC/AAC ISO-BMFF tracks
  * that MediaExtractor can read and MediaMuxer can write on the minimum supported Android API.
+ * AV1 video is accepted from [AV1_MP4_MIN_SDK], the first release whose MP4 muxer writes it
+ * (Phase 11 P4: Facebook's desktop ladder is AV1).
  */
 object AudioVideoMuxCompatibility {
-    fun evaluate(plan: AudioVideoMuxDownloadPlan): MuxCompatibility {
+    /** Android 14: MediaMuxer writes AV1 into MPEG-4 from this API level on. */
+    const val AV1_MP4_MIN_SDK = 34
+
+    fun evaluate(
+        plan: AudioVideoMuxDownloadPlan,
+        sdkInt: Int = Build.VERSION.SDK_INT,
+    ): MuxCompatibility {
         if (plan.outputMimeType.normalizedMime() != MP4_OUTPUT_MIME) {
             return MuxCompatibility.Incompatible(MuxIncompatibilityReason.OUTPUT_CONTAINER)
         }
@@ -60,9 +69,7 @@ object AudioVideoMuxCompatibility {
         }
         if (
             plan.video.codecs.isEmpty() ||
-            plan.video.codecs.any { codec ->
-                VIDEO_CODEC_PREFIXES.none(codec.lowercase(Locale.US)::startsWith)
-            }
+            plan.video.codecs.any { codec -> !canWriteVideo(codec, sdkInt) }
         ) {
             return MuxCompatibility.Incompatible(MuxIncompatibilityReason.VIDEO_CODEC)
         }
@@ -77,9 +84,17 @@ object AudioVideoMuxCompatibility {
         return MuxCompatibility.Compatible
     }
 
+    /** Whether the MP4 muxer of Android [sdkInt] writes video in [codec], such as `avc1.64001f`. */
+    fun canWriteVideo(codec: String, sdkInt: Int = Build.VERSION.SDK_INT): Boolean {
+        val normalized = codec.trim().lowercase(Locale.US)
+        return VIDEO_CODEC_PREFIXES.any(normalized::startsWith) ||
+            (normalized.startsWith(AV1_CODEC_PREFIX) && sdkInt >= AV1_MP4_MIN_SDK)
+    }
+
     private fun String?.normalizedMime(): String? =
         this?.substringBefore(';')?.trim()?.lowercase(Locale.US)
 
+    private const val AV1_CODEC_PREFIX = "av01"
     private const val MP4_OUTPUT_MIME = "video/mp4"
     private val VIDEO_MP4_MIMES = setOf("video/mp4", "video/iso.segment")
     private val AUDIO_MP4_MIMES = setOf("audio/mp4", "audio/iso.segment")
@@ -313,6 +328,7 @@ class AudioVideoMuxEngine(
     private val workspaceRoot: File,
     private val bufferBytes: Int = 64 * 1_024,
     private val clock: () -> Long = System::currentTimeMillis,
+    private val sdkInt: Int = Build.VERSION.SDK_INT,
 ) : AudioVideoMuxRunner {
     init {
         require(bufferBytes in 1_024..1024 * 1_024)
@@ -332,7 +348,7 @@ class AudioVideoMuxEngine(
                 emptyCheckpoint,
             )
         }
-        if (AudioVideoMuxCompatibility.evaluate(plan) !is MuxCompatibility.Compatible) {
+        if (AudioVideoMuxCompatibility.evaluate(plan, sdkInt) !is MuxCompatibility.Compatible) {
             return@withContext failure(
                 DownloadFailureReason.INCOMPATIBLE_TRACKS,
                 emptyCheckpoint,

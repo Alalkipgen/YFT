@@ -56,10 +56,12 @@ sealed interface SiteAdapterOutcome {
  * This layer orchestrates only. It never parses site markup, so a site change stays contained in
  * its adapter. Adapter candidates are re-anchored to the URL the browser is actually showing,
  * because the page store groups candidates by the live page address while an adapter reports the
- * canonical one.
+ * canonical one. A merged quality this phone cannot write or play, such as AV1 before Android
+ * 14, is left out here so no sheet offers it (P4).
  */
 class SiteAdapterCoordinator @Inject constructor(
     private val registry: SiteExtractorRegistry,
+    private val mergeSupport: MergeSupport = DeviceMergeSupport(),
 ) {
     suspend fun inspect(
         pageUrl: String,
@@ -73,7 +75,7 @@ class SiteAdapterCoordinator @Inject constructor(
             is SiteAdapterSelection.Matched -> selection
         }
 
-        val result = try {
+        val extracted = try {
             matched.extractor.extract(
                 SiteExtractionRequest(
                     identity = matched.identity,
@@ -87,6 +89,7 @@ class SiteAdapterCoordinator @Inject constructor(
             // An adapter crash must not take the page down; generic detection still runs.
             SiteExtractionResult.Failure(SiteExtractionFailure.RESPONSE_CHANGED)
         }
+        val result = playableOnThisPhone(extracted)
 
         return when (result) {
             is SiteExtractionResult.Success -> SiteAdapterOutcome.Detected(
@@ -118,6 +121,23 @@ class SiteAdapterCoordinator @Inject constructor(
                     },
                 ),
             )
+        }
+    }
+
+    /** Drops merges this phone cannot make; nothing left is a video without a usable quality. */
+    private fun playableOnThisPhone(result: SiteExtractionResult): SiteExtractionResult {
+        if (result !is SiteExtractionResult.Success) return result
+        val kept = result.candidates.filter(mergeSupport::canMerge)
+        val dropped = result.candidates.size - kept.size
+        if (dropped == 0) return result
+        val note = "merges this phone cannot make: $dropped"
+        return if (kept.isEmpty()) {
+            SiteExtractionResult.Failure(
+                SiteExtractionFailure.NO_MEDIA_FOUND,
+                details = result.details + note,
+            )
+        } else {
+            SiteExtractionResult.Success(kept, result.details + note)
         }
     }
 

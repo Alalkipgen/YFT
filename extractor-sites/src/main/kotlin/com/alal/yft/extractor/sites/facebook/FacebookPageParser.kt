@@ -5,11 +5,13 @@ import com.alal.yft.extractor.api.json.BoundedJsonParser
 import com.alal.yft.extractor.api.json.JsonValue
 import com.alal.yft.extractor.api.json.asArrayOrEmpty
 import com.alal.yft.extractor.api.json.asBooleanOrNull
+import com.alal.yft.extractor.api.json.asDoubleOrNull
 import com.alal.yft.extractor.api.json.asLongOrNull
 import com.alal.yft.extractor.api.json.asStringOrNull
 import com.alal.yft.extractor.api.json.get
 import com.alal.yft.extractor.api.json.path
 import java.util.Locale
+import kotlin.math.roundToLong
 
 /** How a Facebook rendition is delivered, which decides how the resolver has to treat it. */
 internal enum class FacebookDelivery {
@@ -35,6 +37,8 @@ internal data class FacebookPost(
     val thumbnailUrl: String?,
     val durationMillis: Long?,
     val renditions: List<FacebookRendition>,
+    /** The whole-file tracks of the page's inline DASH manifest (P4). */
+    val dashTracks: List<FacebookDashTrack> = emptyList(),
 )
 
 internal sealed interface FacebookParseResult {
@@ -65,6 +69,7 @@ internal object FacebookPageParser {
     private const val MAX_SCRIPT_CHARS = 2_000_000
     private const val MAX_SEARCH_NODES = 300_000
     private const val MAX_DRM_INFO_CHARS = 16_384
+    private const val MAX_DURATION_SECONDS = 1_000_000.0
 
     /** Delivery fields that mark a node as the video node rather than a related entity. */
     private val MEDIA_KEYS = listOf(
@@ -122,14 +127,48 @@ internal object FacebookPageParser {
             return FacebookParseResult.Failure(SiteExtractionFailure.DRM_PROTECTED, drm.details)
         }
 
-        val renditions = renditions(node)
-        if (renditions.isEmpty()) {
+        val manifests = inlineManifests(node)
+        val dash = manifests.mapNotNull(FacebookDashManifests::parse)
+        val tracks = dash.flatMap(FacebookDashManifest::tracks).distinctBy(FacebookDashTrack::url)
+        // The manifest's own files replace its address, which only lists streams (P4).
+        val renditions = renditions(node, manifests).filter { rendition ->
+            tracks.isEmpty() || rendition.delivery != FacebookDelivery.DASH_MANIFEST
+        }
+        if (renditions.isEmpty() && tracks.isEmpty()) {
             return FacebookParseResult.Failure(
                 accessFailure(html) ?: SiteExtractionFailure.NO_MEDIA_FOUND,
                 drm.details,
             )
         }
-        return FacebookParseResult.Success(post(node, html, renditions), drm.details)
+        val post = post(node, html, renditions).let { post ->
+            post.copy(
+                durationMillis = post.durationMillis
+                    ?: dash.firstNotNullOfOrNull(FacebookDashManifest::durationMillis),
+                dashTracks = tracks,
+            )
+        }
+        return FacebookParseResult.Success(post, drm.details)
+    }
+
+    /**
+     * The DASH manifests the node carries inline: the desktop page's
+     * `dash_manifest_xml_string`, older `dash_manifest` copies and the delivery result's list.
+     */
+    private fun inlineManifests(node: JsonValue.Object): List<String> {
+        val legacy = node["videoDeliveryLegacyFields"]
+        val result = node.path("videoDeliveryResponseFragment", "videoDeliveryResponseResult")
+        val listed = result["dash_manifests"].asArrayOrEmpty.mapNotNull { entry ->
+            entry["manifest_xml"].asStringOrNull
+        }
+        return (
+            listOfNotNull(
+                node["dash_manifest_xml_string"].asStringOrNull,
+                legacy["dash_manifest_xml_string"].asStringOrNull,
+                node["dash_manifest"].asStringOrNull,
+                legacy["dash_manifest"].asStringOrNull,
+                result["dash_manifest"].asStringOrNull,
+            ) + listed
+            ).filter(String::isNotBlank).distinct()
     }
 
     /**
@@ -194,17 +233,12 @@ internal object FacebookPageParser {
      * single-URL fields, then the DASH manifest. Only HTTPS URLs survive and duplicates collapse on
      * first occurrence, so the highest-quality entry keeps its label.
      */
-    private fun renditions(node: JsonValue.Object): List<FacebookRendition> {
+    private fun renditions(
+        node: JsonValue.Object,
+        manifests: List<String>,
+    ): List<FacebookRendition> {
         val collected = LinkedHashMap<String, FacebookRendition>()
-        val heights = FacebookQualityMetadata.heightsByUrl(
-            listOfNotNull(
-                node["dash_manifest"].asStringOrNull,
-                node.path("videoDeliveryLegacyFields", "dash_manifest").asStringOrNull,
-                node.path(
-                    "videoDeliveryResponseFragment", "videoDeliveryResponseResult", "dash_manifest",
-                ).asStringOrNull,
-            ),
-        )
+        val heights = FacebookQualityMetadata.heightsByUrl(manifests)
 
         progressiveEntries(node).forEach { entry ->
             val url = entry["progressive_url"].asStringOrNull?.httpsOrNull() ?: return@forEach
@@ -338,11 +372,17 @@ internal object FacebookPageParser {
             node.path("image", "uri").asStringOrNull,
             metaContent(html, "og:image"),
         ).firstNotNullOfOrNull { it?.httpsOrNull() },
+        // Seconds can be decimal: a reel states `"length_in_second":625.452` (live, 2026-10-05).
         durationMillis = node["playable_duration_in_ms"].asLongOrNull?.takeIf { it > 0 }
-            ?: node["length_in_second"].asLongOrNull?.takeIf { it > 0 }?.let { it * 1_000 }
-            ?: node["playable_duration"].asLongOrNull?.takeIf { it > 0 }?.let { it * 1_000 },
+            ?: seconds(node["length_in_second"])
+            ?: seconds(node["playable_duration"]),
         renditions = renditions,
     )
+
+    private fun seconds(value: JsonValue?): Long? = value.asDoubleOrNull
+        ?.takeIf { it > 0 && it < MAX_DURATION_SECONDS }
+        ?.let { (it * 1_000).roundToLong() }
+        ?.takeIf { it > 0 }
 
     private fun accessFailure(html: String): SiteExtractionFailure? =
         ACCESS_MARKERS.firstOrNull { (marker, _) -> html.contains(marker, ignoreCase = true) }

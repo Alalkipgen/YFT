@@ -26,7 +26,8 @@ internal object Fixtures {
  * Responses are keyed by URL so a redirect fixture can return a different final URL than the one
  * requested, which is how short-link resolution is exercised offline. Posted documents are
  * answered by [postResponder], which sees the body, so two clients asking the same endpoint can
- * receive different answers.
+ * receive different answers. [getResponder] sees the request headers, so one page address can
+ * answer two identities differently.
  */
 internal class FakeExtractorHttpClient(
     private val responses: Map<String, ExtractorHttpResult> = emptyMap(),
@@ -35,6 +36,8 @@ internal class FakeExtractorHttpClient(
         404,
     ),
     private val postResponder: (url: String, body: String) -> ExtractorHttpResult? =
+        { _, _ -> null },
+    private val getResponder: (url: String, headers: Map<String, String>) -> ExtractorHttpResult? =
         { _, _ -> null },
 ) : ExtractorHttpClient {
     val requestedUrls = mutableListOf<String>()
@@ -54,7 +57,7 @@ internal class FakeExtractorHttpClient(
         requestedUrls += url
         requestedHeaders += headers
         requestedBodyLimits += maxBodyBytes
-        return responses[url] ?: fallback
+        return getResponder(url, headers) ?: responses[url] ?: fallback
     }
 
     override suspend fun postJson(

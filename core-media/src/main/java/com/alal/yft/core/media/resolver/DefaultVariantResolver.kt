@@ -165,7 +165,9 @@ class DefaultVariantResolver(
             )
         }
 
-        val mimeType = metadata.mimeType ?: candidate.mimeType?.normalizedMimeType()
+        val mimeType = soundMimeType(candidate, metadata.mimeType)
+            ?: metadata.mimeType
+            ?: candidate.mimeType?.normalizedMimeType()
         val support = if (mimeType.isKnownUnsupportedMediaMime()) {
             VariantSupport.UNSUPPORTED_CODEC
         } else {
@@ -550,6 +552,18 @@ class DefaultVariantResolver(
     private fun String.normalizedMimeType(): String =
         substringBefore(';').trim().lowercase(Locale.US)
 
+    /**
+     * A sound track its source states as `audio/mp4` stays audio when the server calls the same
+     * container `video/mp4`: Facebook's CDN labels every MP4 that way, sound-only tracks
+     * included (P4). Another container, or a merge's video, keeps the server's type.
+     */
+    private fun soundMimeType(candidate: MediaCandidate, serverMime: String?): String? {
+        if (candidate.audioCompanion != null || serverMime == null) return null
+        val stated = candidate.mimeType?.normalizedMimeType() ?: return null
+        if (!stated.startsWith(AUDIO_PREFIX)) return null
+        return stated.takeIf { serverMime == VIDEO_PREFIX + stated.removePrefix(AUDIO_PREFIX) }
+    }
+
     private fun String?.isKnownUnsupportedMediaMime(): Boolean {
         val mime = this ?: return false
         if (!mime.startsWith("video/") && !mime.startsWith("audio/")) return false
@@ -624,6 +638,8 @@ class DefaultVariantResolver(
         const val HTTP_PARTIAL_CONTENT = 206
         const val PROBE_TIMEOUT_MS = 8_000L
         val PROBED_VIDEO_MIME_TYPES = setOf("video/mp4", "video/quicktime", "video/x-m4v")
+        const val AUDIO_PREFIX = "audio/"
+        const val VIDEO_PREFIX = "video/"
         const val HTTP_METHOD_NOT_ALLOWED = 405
         const val HTTP_NOT_IMPLEMENTED = 501
         const val BUFFER_SIZE = 8_192

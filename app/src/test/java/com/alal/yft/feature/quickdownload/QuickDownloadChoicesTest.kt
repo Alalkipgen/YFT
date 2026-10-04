@@ -111,6 +111,24 @@ class QuickDownloadChoicesTest {
     }
 
     @Test
+    fun aCompleteFileBeatsAMergeAtTheSameResolution() {
+        // Facebook (P4): the HD file and the 720p video track merged with the audio track.
+        val hdFile = video(720, 30 * MIB, index = 1, label = "HD")
+        val merged720 = video(720, 40 * MIB, merged = true, index = 2)
+            .copy(bitrateBitsPerSecond = 2_749_477)
+        val merged1080 = video(1080, 60 * MIB, merged = true, index = 3)
+            .copy(codecs = listOf("av01.0.08M.08"), bitrateBitsPerSecond = 1_340_000)
+        val candidates = listOf(merged1080, merged720, hdFile, audio(57, 2 * MIB))
+
+        val choices = choices(candidates)!!
+
+        assertEquals(listOf("1080p · Full HD", "720p · HD"), choices.video.map(SheetOption::title))
+        assertSame(merged1080, choices.video[0].source.candidate)
+        assertSame(hdFile, choices.video[1].source.candidate)
+        assertEquals("M4A · 57 kbps", choices.audio.first().title)
+    }
+
+    @Test
     fun aVideoWithoutAnAudioFileOffersItsOwnSoundAsM4aAndMp3() {
         // Facebook-style: one MP4 with AAC sound and no audio-only file.
         val file = video(360, 11 * MIB)
