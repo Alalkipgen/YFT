@@ -233,6 +233,19 @@ class YftNavigationSmokeTest {
         )
     }
 
+    @Test
+    fun browserDownloadButtonRaisesVideoYouCopiedOverTheBrowser() {
+        setShell()
+        composeRule.onNodeWithTag("home-open-browser").performClick()
+
+        composeRule.onNodeWithTag("browser-download-fab").performClick()
+
+        composeRule.onNodeWithTag("modal-sheet").assertExists()
+        composeRule.onNodeWithText(YftDestination.QUICK_DOWNLOAD.summary).assertIsDisplayed()
+        // The browser stays composed under the sheet.
+        composeRule.onNodeWithTag("browser-copied-download").assertExists()
+    }
+
     // Native graphics hit-tests the sheet's top-rounded shape, so taps inside it land.
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
     @Test
@@ -345,7 +358,7 @@ class YftNavigationSmokeTest {
                             viewModel = home,
                         )
                     },
-                    browserContent = { onNavigateBack, _, link, _, _, _ ->
+                    browserContent = { onNavigateBack, _, link, _, _, _, _ ->
                         received += link
                         PhasePlaceholderScreen(
                             title = YftDestination.BROWSER.title,
@@ -430,9 +443,13 @@ private fun TestNavHost(
                 viewModel = home,
             )
         },
-        browserContent = { onNavigateBack, _, _, _, searchMode, onDownloadLink ->
+        browserContent = { onNavigateBack, _, _, _, searchMode, onDownloadLink, onOpenQuick ->
             Column {
                 if (searchMode) Text(text = "search mode")
+                TextButton(
+                    onClick = onOpenQuick,
+                    modifier = Modifier.testTag("browser-download-fab"),
+                ) { Text(text = "Download video") }
                 TextButton(
                     onClick = { onDownloadLink("https://a.test/copied") },
                     modifier = Modifier.testTag("browser-copied-download"),

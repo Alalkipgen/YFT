@@ -542,6 +542,18 @@ repository that asks each client and prints only verdicts and counts.
 | Full validation | PASS — core-model 49, core-download 89, core-media 17, core-data 16, extractor-api 32, extractor-generic 8, extractor-sites 150, app 524 (62 render skips), 0 failures; lint 0 errors / 95 warnings; instrumentation APK compiled; Python 22/22; new Kotlin lines <=100 |
 | Owner check | Home › Search to download: type words → the YouTube and web rows; type a link → it opens; View sites opens each site |
 
+### T14 — Floating Download button in the browser (OWNER CHECK, 2026-10-04)
+
+| Check | Result |
+| --- | --- |
+| Starting state | PASS — the T13 checkpoint `f627757` (CI green) |
+| Regression | `BrowserScreenTest.downloadButtonOpensVideoYouCopiedForOneVideoAndHidesWhileTheSheetIsOpen`, `severalItemsShowACountBadgeAndOpenFoundOnThisPage`, `noDownloadButtonForDrmOnlyPagesOrTheStartPage` and `YftNavigationSmokeTest.browserDownloadButtonRaisesVideoYouCopiedOverTheBrowser` fail on the old code (no `browser-download-fab`) and pass now |
+| Visibility | PASS — `BrowserDownloadFabTest`: shown only with a page and at least one savable item; hidden on the start page, for DRM-only pages, while the found sheet is expanded and while the address is edited; label "Download video, N found" |
+| Tap | PASS — one video (or one video and its audio) opens T12's "Video you copied" sheet over the browser; several items expand "Found on this page"; the count badge shows only for more than one and is visual only (the count is in the label) |
+| Accessibility / renders | The audit covers `02-browser-download`; renders `02-browser-download` Day and Night added (skipped without `YFT_RENDER_DIR`) |
+| Full validation | PASS — core-model 49, core-download 89, core-media 17, core-data 16, extractor-api 32, extractor-generic 8, extractor-sites 150, app 536 (66 skipped, render/image-only), 0 failures; lint 0 errors / 95 warnings; `assembleDebugAndroidTest` OK; Python 22/22 |
+| Owner check | Open a video page in the browser → the Mint Download button at the bottom right (a count badge when there are several) → tap opens "Video you copied" (one video) or the Found list |
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |

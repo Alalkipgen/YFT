@@ -159,6 +159,16 @@ class DesignRenderTest {
     }
 
     @Test
+    fun browserDownloadButton() = render("02-browser-download", ThemeMode.LIGHT) {
+        BrowserPreview(sheetExpanded = false)
+    }
+
+    @Test
+    fun browserDownloadButtonDark() = render("02-browser-download-dark", ThemeMode.DARK) {
+        BrowserPreview(sheetExpanded = false)
+    }
+
+    @Test
     fun browserSearch() = render("02-browser-search", ThemeMode.LIGHT) {
         BrowserPreview(startPage = true, query = SAMPLE_SEARCH)
     }
@@ -252,6 +262,7 @@ internal val DESIGN_SCREENS: List<DesignScreen> = listOf(
     DesignScreen("02-browser-found-media") { BrowserPreview() },
     DesignScreen("02-browser-start") { BrowserPreview(startPage = true) },
     DesignScreen("02-browser-search") { BrowserPreview(startPage = true, query = SAMPLE_SEARCH) },
+    DesignScreen("02-browser-download") { BrowserPreview(sheetExpanded = false) },
     DesignScreen("02-found-media-screen") { FoundMediaPreview() },
     DesignScreen("03-download-as") { DownloadAsPreview() },
     DesignScreen("12-quick-download") { QuickDownloadPreview() },
@@ -389,7 +400,11 @@ internal const val SAMPLE_SEARCH = "ocean waves"
 
 /** `02`: a page standing in for the WebView, with the found-media sheet open. */
 @Composable
-internal fun BrowserPreview(startPage: Boolean = false, query: String = "") {
+internal fun BrowserPreview(
+    startPage: Boolean = false,
+    query: String = "",
+    sheetExpanded: Boolean = !startPage,
+) {
     BrowserScreen(
         uiState = if (startPage) BrowserUiState(address = query) else BrowserUiState(
             address = "https://archive.org/details/ocean-waves",
@@ -407,7 +422,7 @@ internal fun BrowserPreview(startPage: Boolean = false, query: String = "") {
         onStop = {},
         onPreviewCandidate = {},
         onNavigateBack = {},
-        initialSheetExpanded = !startPage,
+        initialSheetExpanded = sheetExpanded,
         copiedLinkHint = startPage,
         browserSurface = { SamplePage(it) },
     )

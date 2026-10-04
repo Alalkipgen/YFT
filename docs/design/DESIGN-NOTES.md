@@ -122,7 +122,8 @@ that opened it. While audio plays, the mini player sits right above the bottom b
   you're allowed to save is shown. No DRM."; bottom toolbar back / forward / reload / home.
   Before a page is opened, a Compose start page, "Search to download" (T13), shows search rows
   for typed words, "Link you copied" (Download, Use copied link) and View sites instead of a
-  native WebView. Paste and Download read only on tap; there is no clipboard preview.
+  native WebView. Paste and Download read only on tap; there is no clipboard preview. While a
+  page has media YFT may save, a Mint floating Download button (T14) sits above the found handle.
 - **Download as (03):** handle, "Download as", thumbnail with duration, title, "site · Video +
   audio", Video/Audio segmented control, quality list with sizes (selected row tinted), Wi-Fi
   only switch, "Download · 96 MB" Mint button, caption "Saves to Download/YFT".
@@ -340,6 +341,12 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
     one video opens "Video you copied"). View sites is fixed (YouTube, Facebook, TikTok,
     Instagram, X with the bundled logos); View all lists the saved Your sites and Add or edit
     sites goes to Home. The placeholder reads "Search or enter a web address".
+
+19. **Floating Download button (Phase 9, T14).** Bottom end, above the "Found on this page"
+    handle, Mint with the download icon, labelled "Download video, N found"; a Coral count badge
+    for more than one item (visual only). It appears once the page has savable media and hides
+    on the start page, for DRM-only pages, while the found sheet is expanded and while the
+    address is edited. One video opens "Video you copied"; several open the Found list.
 
 ## Remaining differences from the images
 

@@ -95,6 +95,7 @@ import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.feature.home.HomeLinks
 import com.alal.yft.feature.home.rememberCopiedLinkHint
+import com.alal.yft.feature.quickdownload.QuickDownloadChoices
 import com.alal.yft.ui.components.FoundMediaDividerInset
 import com.alal.yft.ui.components.SHEET_SCRIM_ALPHA
 import com.alal.yft.ui.components.YftAllowedMediaNote
@@ -121,6 +122,7 @@ fun BrowserRoute(
     onGoHome: () -> Unit = onNavigateBack,
     searchMode: Boolean = false,
     onDownloadLink: (String) -> Unit = {},
+    onOpenQuickDownload: () -> Unit = {},
     viewModel: BrowserViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -201,6 +203,7 @@ fun BrowserRoute(
         onNavigateBack = onNavigateBack,
         onGoHome = onGoHome,
         hasBrowserPage = browserRequested,
+        onOpenQuickDownload = onOpenQuickDownload,
         searchMode = searchMode,
         onSearch = { url ->
             viewModel.onAddressChanged(url)
@@ -259,6 +262,7 @@ fun BrowserScreen(
     onGoHome: () -> Unit = onNavigateBack,
     initialSheetExpanded: Boolean = false,
     hasBrowserPage: Boolean = uiState.currentUrl != null || uiState.isLoading,
+    onOpenQuickDownload: () -> Unit = {},
     searchMode: Boolean = false,
     onSearch: (url: String) -> Unit = {},
     copiedLinkHint: Boolean = false,
@@ -417,16 +421,41 @@ fun BrowserScreen(
                 )
             }
             if (showSheet) {
-                FoundMediaSheet(
-                    candidates = savable,
-                    hiddenCount = hiddenCount,
-                    expanded = sheetExpanded,
-                    onExpandedChange = { sheetExpanded = it },
-                    onPreviewCandidate = onPreviewCandidate,
+                Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .heightIn(max = sheetMaxHeight),
-                )
+                        .fillMaxWidth(),
+                    horizontalAlignment = Alignment.End,
+                ) {
+                    val fabVisible = BrowserDownloadFab.isVisible(
+                        hasPage = hasBrowserPage,
+                        savableCount = savable.size,
+                        sheetExpanded = sheetExpanded,
+                        editingAddress = editingAddress,
+                    )
+                    if (fabVisible) {
+                        BrowserDownloadButton(
+                            savableCount = savable.size,
+                            onClick = {
+                                // One video opens "Video you copied"; anything else the list.
+                                if (QuickDownloadChoices.of(savable) != null) {
+                                    onOpenQuickDownload()
+                                } else {
+                                    sheetExpanded = true
+                                }
+                            },
+                            modifier = Modifier.padding(end = 16.dp, bottom = 12.dp),
+                        )
+                    }
+                    FoundMediaSheet(
+                        candidates = savable,
+                        hiddenCount = hiddenCount,
+                        expanded = sheetExpanded,
+                        onExpandedChange = { sheetExpanded = it },
+                        onPreviewCandidate = onPreviewCandidate,
+                        modifier = Modifier.heightIn(max = sheetMaxHeight),
+                    )
+                }
             }
         }
         BrowserToolbar(

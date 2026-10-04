@@ -9,6 +9,8 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Added
 
+- Browser Download button: a Mint button appears when the page has a video you can save. One
+  video opens "Video you copied"; several open "Found on this page", with a count badge.
 - Search to download: Home opens the browser's start page ready to type. Words offer "Search
   YouTube" and "Search the web" (DuckDuckGo); a link opens. "Link you copied" has Download, and
   View sites shows YouTube, Facebook, TikTok, Instagram and X, with View all for your sites.

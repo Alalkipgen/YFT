@@ -150,7 +150,7 @@ Agents update the **Status** column in every task checkpoint.
 | T11 | [Check the copied link when YFT opens](#t11--check-the-copied-link-when-yft-opens) | 9 | P2 | Medium | 1 d | D1 (YES) | OWNER CHECK (2026-10-04) |
 | T12 | ["Video you copied" quick download sheet](#t12--video-you-copied-quick-download-sheet) | 9 | P2 | Medium–Hard | 1.5–2 d | — | OWNER CHECK (2026-10-04) |
 | T13 | ["Search to download" page](#t13--search-to-download-page) | 9 | P2 | Medium | 1 d | T03, T09 | OWNER CHECK (2026-10-04) |
-| T14 | [Floating Download button in the browser](#t14--floating-download-button-in-the-browser) | 9 | P2 | Easy–Medium | 0.5–1 d | T12 | TODO |
+| T14 | [Floating Download button in the browser](#t14--floating-download-button-in-the-browser) | 9 | P2 | Easy–Medium | 0.5–1 d | T12 | OWNER CHECK (2026-10-04) |
 | T15 | [Release 1.0.0-beta.4](#t15--release-100-beta4) | 9 | P2 | Easy | 0.5 d | T11–T14, owner | SKIPPED (owner, 2026-10-03: one release after T19) |
 | T16 | [YouTube client strategy](#t16--youtube-client-strategy) | 10 | P1 (owner) | Very hard (A + B + C) | 6–9 d | D2 = A + B + C, T08 | OWNER CHECK |
 | T17 | [Higher qualities: merge video and audio](#t17--higher-qualities-merge-video-and-audio) | 10 | P3 | Hard | 2–3 d | T16 | OWNER CHECK (2026-10-04) |
@@ -924,6 +924,13 @@ expanded. Keep the existing found sheet and its handle.
 
 **Tests:** visibility rules (unit tests), a Compose test, the accessibility label "Download video,
 N found".
+
+**Done (2026-10-04):** `BrowserDownloadFab` holds the rules: shown with a page and at least one
+savable (non-DRM) item, hidden on the start page, while the found sheet is expanded and while the
+address is edited. The Mint button sits at the bottom end above the found handle; the count badge
+shows for more than one item and is visual only. A tap uses `QuickDownloadChoices`: one video (or
+one video plus its audio) opens "Video you copied" (`quick_download`) over the browser; anything
+else expands "Found on this page". Only the phone check is left.
 
 ### T15 — Release 1.0.0-beta.4
 

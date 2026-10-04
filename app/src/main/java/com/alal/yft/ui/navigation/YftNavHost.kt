@@ -55,14 +55,16 @@ fun YftNavHost(
         onGoHome: () -> Unit,
         searchMode: Boolean,
         onDownloadLink: (String) -> Unit,
-    ) -> Unit = { onNavigateBack, onOpenPreview, initialLink, onGoHome, search, onDownloadLink ->
+        onOpenQuickDownload: () -> Unit,
+    ) -> Unit = { onNavigateBack, onOpenPreview, link, onGoHome, search, onDownloadLink, onQuick ->
         BrowserRoute(
             onNavigateBack = onNavigateBack,
             onOpenPreview = onOpenPreview,
-            initialLink = initialLink,
+            initialLink = link,
             onGoHome = onGoHome,
             searchMode = search,
             onDownloadLink = onDownloadLink,
+            onOpenQuickDownload = onQuick,
         )
     },
     detectedMediaContent: @Composable (
@@ -130,6 +132,9 @@ fun YftNavHost(
     val openLicenses = {
         navController.navigate(YftDestination.LICENSES.route) { launchSingleTop = true }
     }
+    val openQuickDownload = {
+        navController.navigate(YftDestination.QUICK_DOWNLOAD.route) { launchSingleTop = true }
+    }
 
     NavHost(
         navController = navController,
@@ -145,11 +150,7 @@ fun YftNavHost(
                 },
                 { navController.navigate(YftDestination.DETECTED_MEDIA.route) },
                 { navController.navigateToTab(YftDestination.LIBRARY) },
-                {
-                    navController.navigate(YftDestination.QUICK_DOWNLOAD.route) {
-                        launchSingleTop = true
-                    }
-                },
+                openQuickDownload,
                 { navController.navigate(BROWSER_SEARCH_ROUTE) },
             )
         }
@@ -186,6 +187,7 @@ fun YftNavHost(
                         ?.set(HOME_DOWNLOAD_LINK_KEY, link)
                     goHome()
                 },
+                openQuickDownload,
             )
         }
         composable(YftDestination.DETECTED_MEDIA.route) {

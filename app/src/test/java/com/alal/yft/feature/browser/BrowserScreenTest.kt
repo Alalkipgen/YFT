@@ -119,6 +119,8 @@ class BrowserScreenTest {
     fun withoutAPageStartPageDoesNotCreateBrowserSurface() {
         setScreen(uiState = BrowserUiState())
 
+        composeRule.onAllNodesWithTag("browser-download-fab").assertCountEquals(0)
+
         composeRule.onAllNodesWithTag("browser-surface").assertCountEquals(0)
         composeRule.onNodeWithTag("browser-start").assertIsDisplayed()
         composeRule.onNodeWithTag("browser-close").assertIsDisplayed()
@@ -173,6 +175,63 @@ class BrowserScreenTest {
         composeRule.runOnIdle { assertEquals(savedSite, selected) }
         composeRule.onNodeWithTag("browser-edit-sites").performScrollTo().performClick()
         composeRule.runOnIdle { assertEquals(1, home) }
+    }
+
+    @Test
+    fun downloadButtonOpensVideoYouCopiedForOneVideoAndHidesWhileTheSheetIsOpen() {
+        var quick = 0
+        setScreen(
+            uiState = BrowserUiState(
+                address = PAGE,
+                currentUrl = PAGE,
+                candidates = listOf(clip()),
+            ),
+            onOpenQuickDownload = { quick++ },
+        )
+
+        composeRule.onNodeWithContentDescription("Download video, 1 found").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("browser-download-fab-badge").assertCountEquals(0)
+        composeRule.onNodeWithTag("browser-download-fab").performClick()
+        composeRule.runOnIdle { assertEquals(1, quick) }
+
+        composeRule.onNodeWithTag("media-found-button").performClick()
+        composeRule.onNodeWithTag("found-list").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("browser-download-fab").assertCountEquals(0)
+    }
+
+    @Test
+    fun severalItemsShowACountBadgeAndOpenFoundOnThisPage() {
+        var quick = 0
+        setScreen(
+            uiState = BrowserUiState(
+                address = PAGE,
+                currentUrl = PAGE,
+                candidates = listOf(clip(), stream()),
+            ),
+            onOpenQuickDownload = { quick++ },
+        )
+
+        composeRule.onNodeWithContentDescription("Download video, 2 found").assertIsDisplayed()
+        // Visual only: the count is already in the button's label.
+        composeRule.onNodeWithTag("browser-download-fab-badge", useUnmergedTree = true)
+            .assertExists()
+        composeRule.onAllNodesWithTag("found-list").assertCountEquals(0)
+        composeRule.onNodeWithTag("browser-download-fab").performClick()
+        composeRule.onNodeWithTag("found-list").assertIsDisplayed()
+        composeRule.runOnIdle { assertEquals(0, quick) }
+    }
+
+    @Test
+    fun noDownloadButtonForDrmOnlyPagesOrTheStartPage() {
+        setScreen(
+            uiState = BrowserUiState(
+                address = PAGE,
+                currentUrl = PAGE,
+                candidates = listOf(clip().copy(drmHint = true)),
+            ),
+        )
+
+        composeRule.onAllNodesWithTag("browser-download-fab").assertCountEquals(0)
     }
 
     @Test
@@ -398,6 +457,7 @@ class BrowserScreenTest {
         searchMode: Boolean = false,
         onSearch: (String) -> Unit = {},
         onDownloadCopiedLink: () -> Unit = {},
+        onOpenQuickDownload: () -> Unit = {},
     ) {
         composeRule.setContent {
             val density = LocalDensity.current
@@ -425,12 +485,24 @@ class BrowserScreenTest {
                         searchMode = searchMode,
                         onSearch = onSearch,
                         onDownloadCopiedLink = onDownloadCopiedLink,
+                        onOpenQuickDownload = onOpenQuickDownload,
                         browserSurface = { Box(modifier = it) },
                     )
                 }
             }
         }
     }
+
+    private fun clip() = MediaCandidate(
+        pageUrl = PAGE,
+        mediaUrl = "https://cdn.test/clip.mp4",
+        sources = setOf(CandidateSource.DOM),
+        kind = MediaKind.DIRECT,
+        mimeType = "video/mp4",
+        title = "Fixture clip",
+        confidence = CandidateConfidence.HIGH,
+        observedAtEpochMs = 1,
+    )
 
     private fun stream() = MediaCandidate(
         pageUrl = PAGE,
