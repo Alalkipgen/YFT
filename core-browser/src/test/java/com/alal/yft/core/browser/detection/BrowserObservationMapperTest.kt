@@ -41,6 +41,19 @@ class BrowserObservationMapperTest {
     }
 
     @Test
+    fun aByteRangeRequestIsTheWholeFileAndItsProbeAsksForTheWholeFile() {
+        // P3-FIX: one candidate and one size per file, not one per piece the player fetched.
+        val piece = request(
+            "https://video.cdn.test/v/t42/abc_n.mp4?_nc_cat=1&bytestart=812&byteend=1907&oh=x",
+            method = "GET",
+        )
+
+        val whole = "https://video.cdn.test/v/t42/abc_n.mp4?_nc_cat=1&oh=x"
+        assertEquals(whole, BrowserObservationMapper.fromRequest(piece)?.mediaUrl)
+        assertEquals(whole, BrowserObservationMapper.forMetadataProbe(piece)?.mediaUrl)
+    }
+
+    @Test
     fun metadataProbeMappingAllowsStrongOpaqueHintsButRejectsOrdinaryAssets() {
         val opaqueStream = request("https://cdn.test/api/video/stream?id=7", method = "GET")
         val acceptHint = opaqueStream.copy(

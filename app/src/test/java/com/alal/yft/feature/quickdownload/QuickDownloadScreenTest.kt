@@ -14,14 +14,17 @@ import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.alal.yft.core.model.ThemeMode
+import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.feature.preview.PreviewDownloadStatus
 import com.alal.yft.ui.theme.YftTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,7 +38,8 @@ class QuickDownloadScreenTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun showsTitleSiteLengthMusicAndVideoRowsAndSelectsOne() {
+    fun showsTitleSiteLengthThenAudioAndVideoSectionsAndSelectsOne() {
+        // P3-FIX (owner's phone): two sections only, Audio then Video, one row per resolution.
         var state by mutableStateOf(SAMPLE_QUICK_DOWNLOAD)
         val selected = mutableListOf<String>()
         composeRule.setContent {
@@ -50,78 +54,114 @@ class QuickDownloadScreenTest {
                 )
             }
         }
+        val choices = SAMPLE_QUICK_DOWNLOAD.choices!!
+        val tallest = choices.video.first()
+        val sd = choices.video.single { it.title == "480p" }
 
         composeRule.onNodeWithText(SHEET_TITLE).assertExists()
         composeRule.onNodeWithText("Ocean waves").assertExists()
         composeRule.onNodeWithTag("quick-source").assert(hasText("youtube.com · "))
         composeRule.onNodeWithTag("quick-length").assert(hasText("4:12"))
-        composeRule.onNodeWithText("M4A · Fast").assertExists()
-        composeRule.onNodeWithText("128 kbps · 4 MB").assertExists()
-        composeRule.onNodeWithTag("quick-row-mp3").assertIsNotSelected()
+        val audioTop = composeRule.onNodeWithTag("quick-section-audio").assert(hasText("Audio"))
+            .fetchSemanticsNode().positionInRoot.y
+        val videoTop = composeRule.onNodeWithTag("quick-section-video").assert(hasText("Video"))
+            .fetchSemanticsNode().positionInRoot.y
+        assertTrue(audioTop < videoTop)
+        composeRule.onNodeWithText("M4A · 128 kbps").assertExists()
+        listOf("MP3 · 320 kbps", "MP3 · 192 kbps", "MP3 · 128 kbps").forEach {
+            composeRule.onNodeWithText(it).assertExists()
+        }
+        composeRule.onNodeWithTag("quick-option-${choices.audio.first().id}").assertIsNotSelected()
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
-        composeRule.onNodeWithText("480p · 30 fps · ~18 MB").assertExists()
-        composeRule.onNodeWithText("720p · 30 fps · ~42 MB").assertExists()
-        composeRule.onNodeWithTag("quick-row-high").assertIsSelected()
+        listOf("1080p · Full HD", "720p · HD", "480p", "360p").forEach {
+            composeRule.onNodeWithText(it).assertExists()
+        }
+        composeRule.onNodeWithText("1920 × 1080 · 30 fps · MP4").assertExists()
+        // Nothing is listed twice: no Music/Fast/High rows and no More formats list.
+        listOf("Music", "M4A · Fast", "More formats").forEach {
+            composeRule.onAllNodesWithText(it).assertCountEquals(0)
+        }
+        // Highest, the default quality, preselects the tallest row with sound.
+        composeRule.onNodeWithTag("quick-option-${tallest.id}").assertIsSelected()
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
         composeRule.onNodeWithTag("quick-download").performScrollTo()
-            .assert(hasText("Download · ~42 MB"))
-        composeRule.onNodeWithTag("quick-row-fast").performScrollTo().assertIsNotSelected()
+            .assert(hasText("Download · ~80 MB"))
+        composeRule.onNodeWithTag("quick-option-${sd.id}").performScrollTo().assertIsNotSelected()
             .performClick()
 
-        assertEquals(listOf("fast"), selected)
-        composeRule.onNodeWithTag("quick-row-fast").assertIsSelected()
+        assertEquals(listOf(sd.id), selected)
+        composeRule.onNodeWithTag("quick-option-${sd.id}").assertIsSelected()
+        composeRule.onNodeWithTag("quick-option-${tallest.id}").assertIsNotSelected()
         composeRule.onNodeWithTag("quick-download").performScrollTo().assertIsEnabled()
             .assert(hasText("Download · ~18 MB"))
     }
 
     @Test
-    fun moreFormatsOpensInsideTheSheetWithEveryFormatAndDetails() {
+    fun anMp3RowIsChosenLikeAnyOtherAndDetailsCallsBack() {
         var state by mutableStateOf(SAMPLE_QUICK_DOWNLOAD)
-        val selected = mutableListOf<String>()
         var details = 0
         composeRule.setContent {
             YftTheme(themeMode = ThemeMode.LIGHT) {
                 QuickDownloadScreen(
                     state = state,
-                    onSelect = { id ->
-                        selected += id
-                        state = state.copy(selectedId = id)
-                    },
+                    onSelect = { id -> state = state.copy(selectedId = id) },
                     onDownload = {},
-                    onToggleMoreFormats = {
-                        state = state.copy(moreFormatsExpanded = !state.moreFormatsExpanded)
-                    },
                     onOpenDetails = { details += 1 },
                 )
             }
         }
-        val choices = SAMPLE_QUICK_DOWNLOAD.choices!!
-        val tallest = choices.more.first()
-        val mp3 = choices.more.first { it.title == "MP3 · 320 kbps" }
+        val mp3 = SAMPLE_QUICK_DOWNLOAD.choices!!.audio.single { it.title == "MP3 · 320 kbps" }
 
-        composeRule.onAllNodesWithTag("quick-more-list").assertCountEquals(0)
-        composeRule.onNodeWithTag("quick-more-formats").performScrollTo().performClick()
-
-        // Still the same sheet: the rows stay and the list opens under them.
-        composeRule.onNodeWithTag("quick-row-high").assertExists()
-        composeRule.onNodeWithTag("quick-more-list").assertExists()
-        composeRule.onNodeWithTag("quick-option-${tallest.id}").performScrollTo()
-            .assertIsNotSelected()
-        composeRule.onNodeWithText("1080p · Full HD").assertExists()
-        composeRule.onNodeWithText("1920 × 1080 · 30 fps · MP4").assertExists()
-        // The 720p option is the High row's file, so it reads as chosen too.
-        val high = choices.video.last().option
-        composeRule.onNodeWithTag("quick-option-${high.id}").performScrollTo().assertIsSelected()
         composeRule.onNodeWithTag("quick-option-${mp3.id}").performScrollTo().performClick()
-        assertEquals(listOf(QuickChoices.moreId(mp3)), selected)
         composeRule.onNodeWithTag("quick-option-${mp3.id}").assertIsSelected()
+        composeRule.onAllNodesWithText("Made on the phone").assertCountEquals(3)
         composeRule.onNodeWithTag("quick-download").performScrollTo()
             .assert(hasText("Download · ${mp3.size}"))
 
         composeRule.onNodeWithTag("quick-details").performScrollTo().performClick()
         assertEquals(1, details)
-        composeRule.onNodeWithTag("quick-more-formats").performScrollTo().performClick()
-        composeRule.onAllNodesWithTag("quick-more-list").assertCountEquals(0)
+    }
+
+    @Test
+    fun aSilentFileOfUnknownSizeSaysSoAndKeepsItsRealPicture() {
+        // The owner's Facebook reel: a 848 × 478 picture with no sound and no stated size.
+        val silent = QuickDownloadFixtures.video(478, width = 848, index = 1)
+        val choices = QuickDownloadChoices.of(
+            QuickDownloadFixtures.group(listOf(silent)),
+            listOf(
+                SheetSource(
+                    silent,
+                    QuickDownloadFixtures.resolvedAsset(silent, silent = true),
+                    resolved = true,
+                ),
+            ),
+        )!!
+        val row = choices.video.single()
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(
+                    state = QuickDownloadUiState(
+                        header = SheetHeader(
+                            title = choices.title,
+                            source = choices.source,
+                            durationMillis = null,
+                            audioOnly = false,
+                        ),
+                        choices = choices,
+                        selectedId = row.id,
+                    ),
+                    onSelect = {},
+                    onDownload = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("480p").assertExists()
+        composeRule.onNodeWithText("848 × 478 · 30 fps · MP4").assertExists()
+        composeRule.onNodeWithText(QuickDownloadChoices.NO_SOUND).assertExists()
+        composeRule.onNodeWithText("Size unknown").assertExists()
+        composeRule.onAllNodesWithTag("quick-section-audio").assertCountEquals(0)
+        composeRule.onNodeWithTag("quick-download").performScrollTo().assert(hasText("Download"))
     }
 
     @Test
@@ -145,7 +185,8 @@ class QuickDownloadScreenTest {
 
         state = state.copy(downloadStatus = PreviewDownloadStatus.Enqueuing)
         composeRule.onNodeWithTag("quick-download").assertIsNotEnabled()
-        composeRule.onNodeWithTag("quick-row-fast").assertIsNotEnabled()
+        composeRule.onNodeWithTag("quick-option-${state.choices!!.video.last().id}")
+            .assertIsNotEnabled()
 
         state = state.copy(downloadStatus = PreviewDownloadStatus.Queued("Ocean waves.mp4"))
         composeRule.onNodeWithTag("quick-download-status").performScrollTo()
@@ -215,7 +256,10 @@ class QuickDownloadScreenTest {
     )
 }
 
-/** The sheet a YouTube lookup gives, with High preselected; shared with the design renders. */
+/**
+ * The sheet a YouTube lookup gives, with the default quality's row preselected; shared with the
+ * design renders.
+ */
 internal val SAMPLE_QUICK_DOWNLOAD: QuickDownloadUiState = run {
     val choices = QuickDownloadFixtures.choices(QuickDownloadFixtures.youtube())!!
     QuickDownloadUiState(
@@ -226,6 +270,6 @@ internal val SAMPLE_QUICK_DOWNLOAD: QuickDownloadUiState = run {
             audioOnly = choices.isAudioOnly,
         ),
         choices = choices,
-        selectedId = "high",
+        selectedId = QuickDownloadChoices.preselect(choices, QualityPreference.HIGHEST)?.id,
     )
 }

@@ -71,7 +71,8 @@ class FacebookExtractor(
         )
         if (parsed is FacebookParseResult.Failure) {
             return SiteExtractionResult.Failure(
-                parsed.reason, details = pageDetails + parsed.details,
+                failureFor(parsed.reason, resolvedIdentity),
+                details = pageDetails + parsed.details,
             )
         }
         parsed as FacebookParseResult.Success
@@ -134,6 +135,20 @@ class FacebookExtractor(
         return FacebookUrls.identify(finalUrl)?.takeUnless { it.requiresCanonicalResolution }
             ?: identity
     }
+
+    /**
+     * A post whose page did not lead to a video holds no video: that is not a changed page
+     * format. A post with a video redirects to the video's own page and resolves above.
+     */
+    private fun failureFor(
+        reason: SiteExtractionFailure,
+        identity: SitePageIdentity,
+    ): SiteExtractionFailure =
+        if (reason == SiteExtractionFailure.RESPONSE_CHANGED && FacebookUrls.isPost(identity)) {
+            SiteExtractionFailure.NO_MEDIA_FOUND
+        } else {
+            reason
+        }
 
     /** Prefers the ID the page itself reported, keeping the surface the request resolved to. */
     private fun pageUrl(identity: SitePageIdentity, post: FacebookPost): String {

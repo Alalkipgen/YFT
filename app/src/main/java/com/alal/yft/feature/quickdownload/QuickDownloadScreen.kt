@@ -1,7 +1,6 @@
 package com.alal.yft.feature.quickdownload
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -26,7 +25,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
@@ -34,7 +32,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,8 +40,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alal.yft.feature.preview.MeteredDownloadDialog
 import com.alal.yft.feature.preview.PreviewDownloadStatus
-import com.alal.yft.ui.components.YftGroupLabel
-import com.alal.yft.ui.components.YftIcon
 import com.alal.yft.ui.components.YftMediaKind
 import com.alal.yft.ui.components.YftMetaChip
 import com.alal.yft.ui.components.YftPrimaryButton
@@ -76,7 +71,6 @@ fun QuickDownloadRoute(
         },
         onConfirmMetered = viewModel::confirmMeteredDownload,
         onDismissMetered = viewModel::dismissMeteredDownload,
-        onToggleMoreFormats = viewModel::toggleMoreFormats,
         onOpenDetails = { if (viewModel.openDetails()) onOpenDetails() },
         onRetry = viewModel::retry,
         onOpenDownloads = onOpenDownloads,
@@ -85,12 +79,12 @@ fun QuickDownloadRoute(
 }
 
 /**
- * The download sheet (P3): every way to download a video opens it — Home's View, Preview in the
- * found lists and the browser's Download button. A placeholder thumbnail (YFT never fetches
- * remote images), the title, site and length; **Music** (M4A, MP3) and **Video** (Fast ≈ 480p,
- * High ≈ 720p) rows with their real quality and size; **More formats** opens inside the sheet
- * with every quality and audio option and a Details link to Download as; one Download button
- * with the size.
+ * The download sheet (P3, P3-FIX): every way to download a video opens it — Home's View, Preview
+ * in the found lists and the browser's Download button. A placeholder thumbnail (YFT never
+ * fetches remote images), the title, site and length; exactly two sections, **Audio** (M4A, MP3
+ * at each bitrate) and **Video** (one row per resolution, named 240p … 1080p and higher, with the
+ * real picture and size), the default quality preselected; a Details link to Download as; one
+ * Download button with the size.
  */
 @Composable
 fun QuickDownloadScreen(
@@ -100,7 +94,6 @@ fun QuickDownloadScreen(
     modifier: Modifier = Modifier,
     onConfirmMetered: () -> Unit = {},
     onDismissMetered: () -> Unit = {},
-    onToggleMoreFormats: () -> Unit = {},
     onOpenDetails: () -> Unit = {},
     onRetry: () -> Unit = {},
     onOpenDownloads: () -> Unit = {},
@@ -163,13 +156,13 @@ fun QuickDownloadScreen(
         val choices = state.choices
         when {
             choices != null -> {
-                QuickRows(choices = choices, state = state, onSelect = onSelect)
-                MoreFormats(
-                    choices = choices,
-                    state = state,
-                    onSelect = onSelect,
-                    onToggle = onToggleMoreFormats,
-                    onOpenDetails = onOpenDetails,
+                Sections(choices = choices, state = state, onSelect = onSelect)
+                YftTextButton(
+                    text = "Details",
+                    onClick = onOpenDetails,
+                    modifier = Modifier
+                        .padding(top = 4.dp)
+                        .testTag("quick-details"),
                 )
                 DownloadAction(
                     state = state,
@@ -238,133 +231,42 @@ private fun Header(header: SheetHeader) {
     }
 }
 
+/** Audio, then Video: each row one format with its real quality and size (P3-FIX). */
 @Composable
-private fun QuickRows(
+private fun Sections(
     choices: QuickChoices,
     state: QuickDownloadUiState,
     onSelect: (String) -> Unit,
 ) {
     val selected = state.selectedOption?.id
     Column(modifier = Modifier.selectableGroup()) {
-        if (choices.music.isNotEmpty()) {
-            SectionLabel("Music")
-            choices.music.forEach { row ->
-                FormatRow(
-                    title = row.title,
-                    detail = row.detail,
-                    chips = row.chips,
-                    size = null,
-                    selected = row.option.id == selected,
-                    enabled = state.canChooseRow,
-                    onClick = { onSelect(row.id) },
-                    modifier = Modifier.testTag("quick-row-${row.id}"),
-                )
-            }
-        }
-        if (choices.video.isNotEmpty()) {
-            SectionLabel("Video")
-            choices.video.forEach { row ->
-                FormatRow(
-                    title = row.title,
-                    detail = row.detail,
-                    chips = row.chips,
-                    size = null,
-                    selected = row.option.id == selected,
-                    enabled = state.canChooseRow,
-                    onClick = { onSelect(row.id) },
-                    modifier = Modifier.testTag("quick-row-${row.id}"),
-                )
-            }
-        }
-    }
-}
-
-/** More formats: every quality and audio option, opened inside the sheet. */
-@Composable
-private fun MoreFormats(
-    choices: QuickChoices,
-    state: QuickDownloadUiState,
-    onSelect: (String) -> Unit,
-    onToggle: () -> Unit,
-    onOpenDetails: () -> Unit,
-) {
-    val colors = YftTheme.colors
-    val expanded = state.moreFormatsExpanded
-    Row(
-        modifier = Modifier
-            .padding(top = 4.dp)
-            .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .clip(YftShapes.pill)
-            .clickable(
-                role = Role.Button,
-                onClickLabel = if (expanded) "Hide more formats" else "Show more formats",
-                onClick = onToggle,
-            )
-            .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" }
-            .testTag("quick-more-formats")
-            .padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = "More formats",
-            modifier = Modifier.weight(1f),
-            color = colors.link,
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-        )
-        Text(
-            text = formatCount(choices.more.size),
-            modifier = Modifier.padding(end = 6.dp),
-            color = colors.textSecondary,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        YftIcon(
-            icon = YftIcons.ExpandMore,
-            contentDescription = null,
-            tint = colors.textSecondary,
-            modifier = if (expanded) Modifier.rotate(180f) else Modifier,
-        )
-    }
-    if (!expanded) return
-    val selected = state.selectedOption?.id
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .selectableGroup()
-            .testTag("quick-more-list"),
-    ) {
-        OptionSection.entries.forEach { section ->
-            val options = choices.more.filter { it.section == section }
+        listOf(
+            Triple("Audio", "quick-section-audio", choices.audio),
+            Triple("Video", "quick-section-video", choices.video),
+        ).forEach { (label, tag, options) ->
             if (options.isEmpty()) return@forEach
-            YftGroupLabel(if (section == OptionSection.VIDEO) "Video" else "Audio")
+            SectionLabel(label, Modifier.testTag(tag))
             options.forEach { option ->
                 FormatRow(
                     title = option.title,
                     detail = option.detail,
                     chips = option.chips,
-                    size = option.size ?: "Size unknown",
+                    size = option.size ?: SIZE_UNKNOWN,
                     selected = option.id == selected,
                     enabled = state.canChooseRow,
-                    onClick = { onSelect(QuickChoices.moreId(option)) },
+                    onClick = { onSelect(option.id) },
                     modifier = Modifier.testTag("quick-option-${option.id}"),
                 )
             }
         }
-        YftTextButton(
-            text = "Details",
-            onClick = onOpenDetails,
-            modifier = Modifier
-                .padding(top = 4.dp)
-                .testTag("quick-details"),
-        )
     }
 }
 
 @Composable
-private fun SectionLabel(text: String) {
+private fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
-        modifier = Modifier
+        modifier = modifier
             .padding(top = 12.dp, bottom = 4.dp)
             .semantics { heading() },
         color = YftTheme.colors.textSecondary,
@@ -553,12 +455,11 @@ private fun ColumnScope.DownloadAction(
 internal fun downloadLabel(option: SheetOption?): String =
     option?.size?.let { "Download · $it" } ?: "Download"
 
-internal fun formatCount(count: Int): String = if (count == 1) "1 format" else "$count formats"
-
 private val QuickDownloadUiState.canChooseRow: Boolean
     get() = downloadStatus != PreviewDownloadStatus.Enqueuing &&
         downloadStatus != PreviewDownloadStatus.ConfirmMetered
 
 internal const val SHEET_TITLE = "Download"
+private const val SIZE_UNKNOWN = "Size unknown"
 private val SHEET_TOP_GAP = 48.dp
 private val THUMBNAIL = 64.dp

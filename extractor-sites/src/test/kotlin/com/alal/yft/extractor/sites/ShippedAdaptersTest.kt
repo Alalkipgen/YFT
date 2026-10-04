@@ -44,7 +44,8 @@ class ShippedAdaptersTest {
     @Test
     fun `unclaimed pages fall through to the generic detector`() {
         listOf(
-            "https://www.facebook.com/FixturePage/posts/1234567890123456",
+            // Posts are claimed since P3-FIX (they may hold a video); a photo page is not.
+            "https://www.facebook.com/photo/?fbid=1234567890123456",
             "https://www.tiktok.com/@fixture_user",
             "https://vimeo.com/ondemand/fixture-film",
             "https://media.example.test/video.mp4",

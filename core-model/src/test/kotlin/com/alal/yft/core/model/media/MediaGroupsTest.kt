@@ -86,6 +86,30 @@ class MediaGroupsTest {
     }
 
     @Test
+    fun aNamedVideoIsThePagesOnlyVideoAndThePlayersOwnFilesDoNotCount() {
+        // P3-FIX: Facebook's story page; the player fetched the video's picture and sound
+        // tracks, which generic detection saw as two more files of unknown length.
+        val id = "facebook:post:1234567890123456"
+        val named = listOf(
+            candidate("https://video.example.test/hd.mp4", videoId = id),
+            candidate("https://video.example.test/sd.mp4", "Morning swim — SD", videoId = id),
+        )
+        val played = listOf(
+            candidate("https://cdn.example.test/v/track-video.mp4", title = null),
+            candidate("https://cdn.example.test/v/track-audio.mp4", title = null),
+        )
+
+        val videos = MediaGroups.pageVideos(played + named)
+
+        assertEquals(1, videos.size)
+        assertEquals(named, videos.single().candidates)
+        assertEquals(3, MediaGroups.of(played + named).size)
+        // Without a named video every file is still its own video.
+        assertEquals(2, MediaGroups.pageVideos(played).size)
+        assertEquals(emptyList<MediaGroup>(), MediaGroups.pageVideos(emptyList()))
+    }
+
+    @Test
     fun titlesSplitIntoTheVideoAndTheAdaptersLabel() {
         assertEquals("Ocean waves", MediaGroups.baseTitle("Ocean waves — 720p"))
         assertEquals("720p", MediaGroups.titleLabel("Ocean waves — 720p"))

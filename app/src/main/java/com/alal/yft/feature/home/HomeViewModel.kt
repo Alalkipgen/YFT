@@ -154,7 +154,7 @@ class HomeViewModel @Inject constructor(
                     // Only media YFT may save is counted, once per video; DRM-protected
                     // candidates are never offered, so a page with nothing else reads as "not
                     // found".
-                    val videos = MediaGroups.of(
+                    val videos = MediaGroups.pageVideos(
                         result.candidates
                             .take(DetectedMediaStore.MAX_CANDIDATES)
                             .filter { it.isSavable },

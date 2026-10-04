@@ -54,16 +54,18 @@ class QuickDownloadViewModelTest {
         select(QuickDownloadFixtures.youtube())
 
         val state = viewModel().uiState.value
-        assertEquals("high", state.selectedId)
+        // Highest (the default) preselects the tallest row with sound.
+        assertEquals(state.choices!!.video.first().id, state.selectedId)
+        assertEquals("1080p · Full HD", state.selectedOption?.title)
         assertEquals("Ocean waves", state.header?.title)
         assertEquals("youtube.com", state.header?.source)
         assertFalse(state.loading)
         // Every file stated its type, size and height: nothing was requested to show them.
         assertTrue(resolver.requested.isEmpty())
         assertEquals(
-            "fast",
+            "480p",
             viewModel(DownloadPreferences(defaultQuality = QualityPreference.UP_TO_480P))
-                .uiState.value.selectedId,
+                .uiState.value.selectedOption?.title,
         )
     }
 
@@ -79,8 +81,8 @@ class QuickDownloadViewModelTest {
         assertNotNull(resolved.audioCompanion)
         val queued = starter.variants.single()
         assertNotNull(queued.audioCompanion)
-        assertEquals("720p", queued.label)
-        assertEquals(720, queued.height)
+        assertEquals("1080p", queued.label)
+        assertEquals(1080, queued.height)
         assertEquals("Ocean waves", starter.assets.single().title)
         assertEquals(
             PreviewDownloadStatus.Queued("Ocean waves.mp4"),
@@ -93,7 +95,8 @@ class QuickDownloadViewModelTest {
         select(QuickDownloadFixtures.youtube())
         val viewModel = viewModel()
 
-        viewModel.select("mp3")
+        val mp3 = viewModel.uiState.value.choices!!.audio.single { it.title == "MP3 · 192 kbps" }
+        viewModel.select(mp3.id)
         viewModel.download()
         advanceUntilIdle()
 
@@ -113,7 +116,9 @@ class QuickDownloadViewModelTest {
         select(listOf(file))
         val viewModel = viewModel()
 
-        viewModel.select("music")
+        val m4a = viewModel.uiState.value.choices!!.audio.first()
+        assertEquals("The video's own sound", m4a.detail)
+        viewModel.select(m4a.id)
         viewModel.download()
         advanceUntilIdle()
 
@@ -134,10 +139,11 @@ class QuickDownloadViewModelTest {
         val state = viewModel().uiState.value
 
         assertEquals(listOf(hd), resolver.requested)
-        val high = state.choices!!.video.single()
-        assertEquals(QuickRowKind.HIGH, high.kind)
-        assertEquals("720p · 25 MB", high.detail)
-        assertEquals("high", state.selectedId)
+        val hdRow = state.choices!!.video.single()
+        assertEquals("720p · HD", hdRow.title)
+        assertEquals("720p · MP4", hdRow.detail)
+        assertEquals("25 MB", hdRow.size)
+        assertEquals(hdRow.id, state.selectedId)
     }
 
     @Test
@@ -162,22 +168,21 @@ class QuickDownloadViewModelTest {
     }
 
     @Test
-    fun moreFormatsOpensInsideTheSheetAndAnyFormatCanBeChosen() = runTest {
+    fun anyRowOfEitherSectionCanBeChosenAndAnUnknownIdIsIgnored() = runTest {
         select(QuickDownloadFixtures.youtube())
         val viewModel = viewModel()
         val choices = viewModel.uiState.value.choices!!
-        val tallest = choices.more.first()
+        val lowest = choices.video.last()
+        val mp3 = choices.audio.last()
 
-        viewModel.toggleMoreFormats()
-        viewModel.select(QuickChoices.moreId(tallest))
-
-        assertTrue(viewModel.uiState.value.moreFormatsExpanded)
-        assertSame(tallest, viewModel.uiState.value.selectedOption)
-        assertEquals("1080p · Full HD", tallest.title)
-        viewModel.select("more:missing")
-        assertSame(tallest, viewModel.uiState.value.selectedOption)
-        viewModel.toggleMoreFormats()
-        assertFalse(viewModel.uiState.value.moreFormatsExpanded)
+        viewModel.select(lowest.id)
+        assertSame(lowest, viewModel.uiState.value.selectedOption)
+        assertEquals("360p", lowest.title)
+        viewModel.select("missing")
+        assertSame(lowest, viewModel.uiState.value.selectedOption)
+        viewModel.select(mp3.id)
+        assertSame(mp3, viewModel.uiState.value.selectedOption)
+        assertEquals("MP3 · 128 kbps", mp3.title)
     }
 
     @Test
@@ -186,7 +191,7 @@ class QuickDownloadViewModelTest {
         select(candidates)
         val viewModel = viewModel()
 
-        viewModel.select("fast")
+        viewModel.select(viewModel.uiState.value.choices!!.video.single { it.title == "480p" }.id)
 
         assertTrue(viewModel.openDetails())
         assertSame(candidates[2], selection.selection.value)
@@ -197,13 +202,15 @@ class QuickDownloadViewModelTest {
         select(QuickDownloadFixtures.youtube())
         val asking = viewModel(DownloadPreferences(confirmOnMeteredNetwork = true), MOBILE)
 
-        asking.select("music")
+        val choices = asking.uiState.value.choices!!
+        val m4a = choices.audio.first()
+        asking.select(m4a.id)
         asking.download()
         advanceUntilIdle()
         assertEquals(PreviewDownloadStatus.ConfirmMetered, asking.uiState.value.downloadStatus)
         assertTrue(starter.variants.isEmpty())
-        asking.select("fast")
-        assertEquals("music", asking.uiState.value.selectedId)
+        asking.select(choices.video.last().id)
+        assertEquals(m4a.id, asking.uiState.value.selectedId)
 
         asking.confirmMeteredDownload()
         advanceUntilIdle()

@@ -359,7 +359,8 @@ fun BrowserScreen(
     val savable = remember(uiState.candidates) { uiState.candidates.filter { it.isSavable } }
     val hiddenCount = uiState.candidates.size - savable.size
     // One row, one count and one sheet per video: its qualities and audio are inside (P3).
-    val videos = remember(savable) { MediaGroups.of(savable) }
+    // A video a site adapter named is the page's video; its player's files are not more (P3-FIX).
+    val videos = remember(savable) { MediaGroups.pageVideos(savable) }
     var sheetExpanded by rememberSaveable { mutableStateOf(initialSheetExpanded) }
     var editingAddress by remember { mutableStateOf(false) }
     LaunchedEffect(savable.isEmpty()) {

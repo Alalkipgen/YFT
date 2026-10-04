@@ -81,6 +81,69 @@ class CandidateNormalizerTest {
     }
 
     @Test
+    fun byteRangePiecesOfOneFileAreTheWholeFileOnce() {
+        // P3-FIX regression: Facebook's player fetched each track in byte ranges, and every
+        // piece was listed as another "Video file" (26 rows in pairs).
+        val track = "https://video.cdn.test/v/t42/abc_n.mp4?_nc_cat=1&oh=fake"
+        val audio = "https://video.cdn.test/v/t42/def_n.mp4?_nc_cat=1&oh=fake"
+        val pieces = (0 until 13).flatMap { index ->
+            val range = "bytestart=${index * 1000}&byteend=${index * 1000 + 999}"
+            listOf(
+                candidate("$track&$range", contentLengthBytes = 1_000, observedAt = index * 2L),
+                candidate("$audio&$range", contentLengthBytes = 1_000, observedAt = index * 2L + 1),
+            )
+        } + candidate("https://cdn.test/movie.mp4?range=0-4095", contentLengthBytes = 4_096)
+
+        val result = CandidateNormalizer().normalize(pageUrl, pieces)
+
+        assertEquals(
+            setOf(track, audio, "https://cdn.test/movie.mp4"),
+            result.map(MediaCandidate::mediaUrl).toSet(),
+        )
+        // A piece's length is not the file's.
+        assertTrue(result.all { it.contentLengthBytes == null })
+    }
+
+    @Test
+    fun requestsForOneOpaqueCdnFileWithOtherPerRequestValuesAreOneFile() {
+        val file = "https://video.cdn.test/o1/v/t2/AQOfixtureOpaqueName0123456789_abc.mp4"
+        val result = CandidateNormalizer().normalize(
+            pageUrl,
+            listOf(
+                candidate("$file?_nc_gid=first&_nc_zt=1", observedAt = 1),
+                candidate("$file?_nc_gid=second&_nc_zt=2", observedAt = 2),
+            ),
+        )
+
+        assertEquals(listOf("$file?_nc_gid=second&_nc_zt=2"), result.map(MediaCandidate::mediaUrl))
+    }
+
+    @Test
+    fun hlsPiecesAreOneStreamAndDistinctVideosStayApart() {
+        val pieces = (1..5).map { candidate("https://cdn.test/hls/720/seg-$it.ts?token=t$it") }
+        val manifest = candidate(
+            "https://cdn.test/hls/master.m3u8",
+            kind = MediaKind.HLS,
+            confidence = CandidateConfidence.HIGH,
+        )
+        val clips = (1..3).map { candidate("https://cdn.test/clips/clip-$it.mp4") }
+        val normalizer = CandidateNormalizer()
+
+        // Next to the manifest the pieces drop out; the numbered clips are three videos.
+        assertEquals(
+            listOf("https://cdn.test/hls/master.m3u8") + clips.map(MediaCandidate::mediaUrl),
+            normalizer.normalize(pageUrl, pieces + manifest + clips)
+                .map(MediaCandidate::mediaUrl)
+                .sortedBy { !it.endsWith(".m3u8") },
+        )
+        // Without it the series keeps its first piece.
+        assertEquals(
+            listOf("https://cdn.test/hls/720/seg-1.ts?token=t1"),
+            normalizer.normalize(pageUrl, pieces).map(MediaCandidate::mediaUrl),
+        )
+    }
+
+    @Test
     fun rejectsBlobTrackingTinyAndWrongPageObservations() {
         val candidates = listOf(
             candidate("blob:https://example.test/id", kind = MediaKind.UNKNOWN, sources = setOf(CandidateSource.DOM)),

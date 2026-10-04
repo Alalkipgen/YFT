@@ -266,7 +266,7 @@ class YftNavigationSmokeTest {
         composeRule.onNodeWithTag("modal-sheet").assertDoesNotExist()
         composeRule.onNodeWithTag("home-found").assertIsDisplayed()
 
-        // View reopens the sheet; More formats › Details swaps it for Download as.
+        // View reopens the sheet; Details swaps it for Download as.
         composeRule.onNodeWithTag("home-view-media").performClick()
         composeRule.onNodeWithTag("sheet-details").performClick()
         composeRule.onNodeWithText(YftDestination.PREVIEW.summary).assertIsDisplayed()

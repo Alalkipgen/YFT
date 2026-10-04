@@ -111,7 +111,7 @@ AI agent time includes builds and CI waits on a 4 GiB sandbox.
 | P0 | [Plan, prompts and docs for Phase 11](#p0--plan-prompts-and-docs) | Easy | 1–2 h | owner approval | DONE (2026-10-04) |
 | P1 | [Browser follows in-page navigation (YouTube Download button)](#p1--browser-follows-in-page-navigation) | Medium | 3–5 h | — | OWNER CHECK (2026-10-04) |
 | P2 | [Facebook/TikTok black page in the browser](#p2--facebook-and-tiktok-black-page-in-the-browser) | Medium–Hard | 4–8 h | P1 | OWNER CHECK (2026-10-04) |
-| P3 | [One download sheet, Snaptube style](#p3--one-download-sheet-snaptube-style) | Hard | 10–14 h | P1 | IN PROGRESS — P3-FIX after the owner check (2026-10-05) |
+| P3 | [One download sheet, Snaptube style](#p3--one-download-sheet-snaptube-style) | Hard | 10–14 h | P1 | OWNER CHECK — P3-FIX done (2026-10-05) |
 | P4 | [Facebook: one video, every quality](#p4--facebook-one-video-every-quality) | Medium–Hard | 5–8 h | P3 | TODO |
 | P5 | [Download button on feeds (focused video)](#p5--download-button-on-feeds) | Hard | 6–10 h | P1, P3 | TODO |
 | P6 | [2K and 4K](#p6--2k-and-4k) | Hard | 8–12 h | P3 | TODO |
@@ -305,7 +305,9 @@ MP4-only video, More formats inside the sheet, navigation from View/Preview/FAB,
 sheet and preview tests updated.
 
 **Owner check:** Facebook and YouTube: View or Download → one sheet with Music/Video rows, real
-resolutions and sizes; More formats opens inside it; Audio works.
+resolutions and sizes; More formats opens inside it; Audio works. After P3-FIX: one sheet with
+exactly two sections, Audio (M4A, MP3 320/192/128) and Video (one row per resolution, "480p",
+"720p · HD"); the browser's Download button on a Facebook story/post page opens that sheet.
 
 **Docs:** SUPPORT_MATRIX, TEST_MATRIX, design notes, CHANGELOG, SESSION_STATE.
 
@@ -327,6 +329,26 @@ track. Shared links from other apps: YFT has no share target yet (backlog); copi
 the sheet through Home. Facebook's DASH qualities are listed under More formats ("No sound");
 downloading them needs P4, which reads their `SegmentBase` whole files. Tests: TEST_MATRIX P3.
 
+**P3-FIX (2026-10-05, OWNER CHECK):** the owner's phone check of `56f0c79` found three causes.
+(1) The sheet listed formats twice (Music quick rows + Fast/High + More formats): it now has
+exactly two sections, **Audio** (best M4A file, else the MP4's own sound as M4A; MP3 320/192/128)
+and **Video** (one row per standard resolution, named after the nearest of
+144/240/360/480/720/1080/1440/2160/4320 for the picture's short side, so 848 × 478 is "480p"
+with "848 × 478 · 30 fps · MP4" as its detail); no Fast/High names; the default quality
+preselects a row. (2) `FacebookUrls` did not identify `story.php`, `permalink.php`,
+`/{page}/posts/{id}` or `/groups/{g}/posts|permalink/{id}`, so no adapter ran, no candidate had
+a video ID and the browser's button opened the Found list with every player file. These pages
+now map to the canonical `https://www.facebook.com/{id}/posts/{story_fbid}`; a post without a
+video says "no media" instead of "page changed". (3) The page player's byte-range pieces
+(`bytestart`/`byteend`, `range=`) each became a "Video file · MP4"; the generic normalizer and
+the browser mapper now strip them (`MediaFileUrls.wholeFile`), and a page whose adapter named
+its video counts only that video (`MediaGroups.pageVideos`), so the Download button opens the
+sheet. Live check (sandbox, public reel 1603698891196107, 2026-10-05): desktop `story.php` and
+`permalink.php` → 302 to `/login/`; `/{owner}/posts/{story_fbid}` → 200, redirected to
+`/{owner}/videos/…/{video_id}/` with `browser_native_hd_url`, `dash_manifest_xml_string` and
+the video ID 19 times (markers only); `m.facebook.com/story.php` with a phone user agent → the
+app-login page, so the adapter reads the desktop posts path. Tests: TEST_MATRIX P3-FIX.
+
 ### P4 — Facebook: one video, every quality
 
 Medium–Hard · 5–8 h · findings G2, G3 · prompt [`P4-facebook-all-qualities.md`](prompts/P4-facebook-all-qualities.md)
@@ -341,14 +363,15 @@ Medium–Hard · 5–8 h · findings G2, G3 · prompt [`P4-facebook-all-qualitie
 2. Offer every video height the page has (360p … 1080p and higher when present) merged with the
    AAC audio representation (AVC + AAC → MP4, existing muxer); keep the progressive SD/HD MP4s
    as "Video + audio" rows with their probed height.
-3. Music rows from the audio representation (M4A, MP3).
+3. Audio rows from the audio representation (M4A, MP3); P3-FIX: the DASH qualities are rows of
+   the same Video section.
 4. Sizes: `Content-Length` from a ranged request, else bandwidth × duration (estimated).
 
 **Tests:** parser tests on a sanitized Facebook DASH fixture (heights, audio, whole-file URLs),
 plan tests (merge choice), live check of a public reel (status, heights, markers only).
 
 **Owner check:** Facebook link → sheet shows 360p/720p/1080p (when the video has them) and
-Music → each downloads and plays with sound.
+Audio → each downloads and plays with sound.
 
 **Docs:** SUPPORT_MATRIX (Facebook), TEST_MATRIX, CHANGELOG, SESSION_STATE.
 
@@ -424,8 +447,8 @@ With `yft-preview-apk` (P7):
 1. YouTube in the browser: tap a video → the address shows `/watch`, the Download button appears.
 2. YouTube feed: Download on a video in focus → the sheet is for that video.
 3. Facebook share link in the browser → the reel plays; full screen; Download button.
-4. Facebook and YouTube: Home View / Download → one sheet with Music and Video rows, real
-   resolutions and sizes; More formats inside the sheet; Audio (M4A, MP3) works.
+4. Facebook and YouTube: Home View / Download → one sheet with two sections, Audio (M4A, MP3)
+   and Video (one row per resolution with real size); Audio (M4A, MP3) works.
 5. A Facebook 1080p row and a YouTube 1080p row download and play with sound.
 6. A YouTube 2K/4K row downloads and plays (or says it may not play on this phone).
 7. About › Last crash report: none.

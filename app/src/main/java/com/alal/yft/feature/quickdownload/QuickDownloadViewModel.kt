@@ -59,7 +59,6 @@ data class QuickDownloadUiState(
     /** Why no format could be read; Try again reads them once more. */
     val failure: String? = null,
     val selectedId: String? = null,
-    val moreFormatsExpanded: Boolean = false,
     val downloadStatus: PreviewDownloadStatus = PreviewDownloadStatus.Idle,
 ) {
     val selectedOption: SheetOption? get() = choices?.option(selectedId)
@@ -71,8 +70,8 @@ data class QuickDownloadUiState(
 }
 
 /**
- * The download sheet (P3): one video, its Music and Video rows and every other format inside the
- * same sheet.
+ * The download sheet (P3, P3-FIX): one video with an Audio section (M4A, MP3) and a Video section
+ * (one row per resolution).
  *
  * The video is the group [DetectedMediaStore] selected (Home's lookup, the found list or the
  * browser's Download button), else the page's only video. Each of its candidates is resolved
@@ -93,7 +92,7 @@ class QuickDownloadViewModel @Inject constructor(
     private val group: MediaGroup? = store.selection.value ?: store.page.value?.candidates
         ?.take(DetectedMediaStore.MAX_CANDIDATES)
         ?.filter { it.isSavable }
-        ?.let(MediaGroups::of)
+        ?.let(MediaGroups::pageVideos)
         ?.singleOrNull()
     private val mutableUiState = MutableStateFlow(QuickDownloadUiState(header = group?.header()))
     val uiState: StateFlow<QuickDownloadUiState> = mutableUiState.asStateFlow()
@@ -117,18 +116,13 @@ class QuickDownloadViewModel @Inject constructor(
         }
     }
 
-    /** More formats opens and closes inside the sheet. */
-    fun toggleMoreFormats() {
-        mutableUiState.update { it.copy(moreFormatsExpanded = !it.moreFormatsExpanded) }
-    }
-
     /**
-     * More formats › Details: hands the selected format's candidate to Download as. Returns false
-     * when there is nothing to show, so nothing navigates.
+     * Details: hands the selected format's candidate to Download as. Returns false when there is
+     * nothing to show, so nothing navigates.
      */
     fun openDetails(): Boolean {
         val state = mutableUiState.value
-        val option = state.selectedOption ?: state.choices?.more?.firstOrNull() ?: return false
+        val option = state.selectedOption ?: state.choices?.options?.firstOrNull() ?: return false
         selectionStore.select(option.source.candidate)
         return true
     }

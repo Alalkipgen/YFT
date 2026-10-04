@@ -10,8 +10,9 @@ import java.util.Locale
  *
  * Matching never performs network access, so adapter selection stays cheap and side-effect free.
  * Facebook addresses the same video through several surfaces, so every recognized form collapses
- * onto one canonical page address. Short links and share links cannot be expanded offline, so they
- * produce an identity that is explicitly marked as unresolved instead of a guessed numeric ID.
+ * onto one canonical page address. Short links, share links and posts cannot be expanded offline,
+ * so they produce an identity that is explicitly marked as unresolved instead of a guessed
+ * numeric ID.
  */
 internal object FacebookUrls {
     const val SITE_ID = "facebook"
@@ -30,11 +31,26 @@ internal object FacebookUrls {
     private val NUMERIC_ID = Regex("^[0-9]{6,25}$")
     private val SHORT_CODE = Regex("^[A-Za-z0-9_-]{4,32}$")
 
+    /** A post's ID: numeric, or the opaque `pfbid…` form Facebook uses in post links. */
+    private val POST_ID = Regex("^(?:[0-9]{6,25}|pfbid[0-9A-Za-z]{10,100})$")
+
+    /** A profile, page or group name as it appears in a path. */
+    private val HANDLE = Regex("^[A-Za-z0-9._-]{1,80}$")
+
+    private const val DESKTOP = "https://www.facebook.com"
+    private const val POST_PREFIX = "post:"
+
     /** Watch surfaces that carry the video ID in the `v` query parameter. */
     private val WATCH_SEGMENTS = setOf("watch", "watch.php", "video", "video.php")
 
-    /** Share links that wrap a video or a reel without exposing its real ID. */
-    private val SHARE_SEGMENTS = setOf("v", "r")
+    /** Share links that wrap a video, a reel or a post without exposing its real ID. */
+    private val SHARE_SEGMENTS = setOf("v", "r", "p")
+
+    /** Post pages that name the post and its owner in the query: `?story_fbid=…&id=…`. */
+    private val STORY_SEGMENTS = setOf("story.php", "permalink.php")
+
+    /** A group's post paths: /groups/{group}/posts/{id} and /groups/{group}/permalink/{id}. */
+    private val GROUP_POST_SEGMENTS = setOf("posts", "permalink")
 
     /**
      * Path heads that are Facebook surfaces rather than profile handles.
@@ -97,7 +113,11 @@ internal object FacebookUrls {
         shareCode(segments)?.let { (segment, code) ->
             return unresolvedIdentity(code, "https://www.facebook.com/share/$segment/$code")
         }
-        val post = postFrom(segments, queryParameters(uri.rawQuery)) ?: return null
+        val query = queryParameters(uri.rawQuery)
+        postAddress(segments, query)?.let { (postId, address) ->
+            return unresolvedIdentity("$POST_PREFIX$postId", address)
+        }
+        val post = postFrom(segments, query) ?: return null
         return SitePageIdentity(
             siteId = SITE_ID,
             contentId = post.id,
@@ -119,6 +139,14 @@ internal object FacebookUrls {
         }
 
     fun isNumericId(value: String): Boolean = NUMERIC_ID.matches(value)
+
+    /**
+     * True for a post or a post's share link: the page may hold no video at all, so a page
+     * without one is a post without a video rather than a changed page format.
+     */
+    fun isPost(identity: SitePageIdentity): Boolean =
+        identity.contentId.startsWith(POST_PREFIX) ||
+            identity.canonicalPageUrl.startsWith("$DESKTOP/share/p/")
 
     /** True when Facebook answered with a login or checkpoint wall instead of the page. */
     fun isAccessWall(url: String): Boolean {
@@ -158,6 +186,39 @@ internal object FacebookUrls {
         )
 
     private data class Post(val id: String, val kind: PostKind)
+
+    /**
+     * The address of a post that may hold a video, with the post's ID (P3-FIX).
+     *
+     * story.php and permalink.php need the owner's `id`, profiles and pages use /posts/, groups
+     * /posts/ or /permalink/. Only the post's page names its video, so the identity stays
+     * unresolved. Facebook's desktop page sends story.php and permalink.php to its login wall
+     * but redirects /{owner}/posts/{id} to the video's own page (sandbox live check,
+     * 2026-10-05), so that is the address the adapter asks.
+     */
+    private fun postAddress(
+        segments: List<String>,
+        query: Map<String, String>,
+    ): Pair<String, String>? {
+        val head = segments.firstOrNull()?.lowercase(Locale.US) ?: return null
+        if (head in STORY_SEGMENTS) {
+            if (segments.size != 1) return null
+            val story = query["story_fbid"]?.takeIf(POST_ID::matches) ?: return null
+            val owner = query["id"]?.takeIf(NUMERIC_ID::matches) ?: return null
+            return story to "$DESKTOP/$owner/posts/$story"
+        }
+        if (head == "groups") {
+            val group = segments.getOrNull(1)?.takeIf(HANDLE::matches) ?: return null
+            if (segments.getOrNull(2)?.lowercase(Locale.US) !in GROUP_POST_SEGMENTS) return null
+            val story = segments.getOrNull(3)?.takeIf(POST_ID::matches) ?: return null
+            return story to "$DESKTOP/groups/$group/posts/$story"
+        }
+        if (head in RESERVED_HANDLES) return null
+        if (segments.getOrNull(1)?.lowercase(Locale.US) != "posts") return null
+        val handle = segments[0].takeIf(HANDLE::matches) ?: return null
+        val story = segments.getOrNull(2)?.takeIf(POST_ID::matches) ?: return null
+        return story to "$DESKTOP/$handle/posts/$story"
+    }
 
     private fun postFrom(segments: List<String>, query: Map<String, String>): Post? {
         val head = segments.firstOrNull()?.lowercase(Locale.US) ?: return null

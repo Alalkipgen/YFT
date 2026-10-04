@@ -14,6 +14,7 @@ import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.feature.preview.sizeText
 import java.net.URI
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /** One candidate of the video the sheet shows, with the variants its lookup found. */
@@ -32,101 +33,61 @@ enum class OptionSection { VIDEO, AUDIO }
 data class SheetOption(
     val id: String,
     val section: OptionSection,
-    /** "720p · HD", "M4A · 128 kbps", "MP3 · 320 kbps"; never the page title. */
+    /** "480p", "720p · HD", "M4A · 128 kbps", "MP3 · 320 kbps"; never the page title. */
     val title: String,
-    /** "1280 × 720 · 30 fps · MP4", "From the video's sound"; may be empty. */
+    /** The real picture, "848 × 478 · 30 fps · MP4", or "The video's own sound"; may be empty. */
     val detail: String,
     /** "25 MB", "~4.6 MB", or null when unknown. */
     val size: String?,
-    /** "Video + audio", "No sound", "Slow" (made on the phone). */
+    /** "No sound" for a silent video, "Slow" for audio made on the phone. */
     val chips: List<String>,
     val source: SheetSource,
     val variant: MediaVariant,
-    /** "720p", "1080p60", or a site's own "HD"/"SD" for a file it could not be measured. */
+    /** "480p", "1080p60", or a site's own "HD"/"SD" for a file it could not be measured. */
     val quality: String? = null,
-    /** The height Fast/High and the order use: the real one, else the site's HD 720 / SD 480. */
+    /** The standard height the row is named after and ordered by; HD ranks 720, SD 480. */
     val rankHeight: Int? = null,
 )
 
-enum class QuickRowKind {
-    /** The highest video with sound at or below 480p. */
-    FAST,
-
-    /** The highest video with sound above 480p and at or below 720p. */
-    HIGH,
-
-    /** The video, when no quality falls in the Fast or High range or none is known. */
-    VIDEO,
-
-    /** The audio: an M4A file, else the video's own sound kept as M4A. */
-    MUSIC,
-
-    /** The Music row's AAC converted to MP3 on the phone at [QuickDownloadChoices.MP3_KBPS]. */
-    MP3,
-}
-
-/** One quick row of the sheet: a shortcut to one [SheetOption]. */
-data class QuickRow(
-    val kind: QuickRowKind,
-    /** "Fast", "High", "Video", "M4A · Fast" or "MP3". */
-    val title: String,
-    /** The real quality and size, for example "480p · 30 fps · 18 MB". */
-    val detail: String,
-    val option: SheetOption,
-) {
-    val id: String get() = kind.name.lowercase(Locale.US)
-
-    /** Only "Slow" is worth a chip on a quick row; More formats shows every chip. */
-    val chips: List<String> get() = option.chips.filter { it == QuickDownloadChoices.SLOW }
-}
-
-/** The sheet's content for one video. */
+/**
+ * The sheet's content for one video (P3-FIX, owner's phone check): exactly two sections.
+ * **Audio** holds an M4A and MP3 at each bitrate; **Video** one row per standard resolution.
+ */
 data class QuickChoices(
     val title: String,
     /** The site, for example "facebook.com". */
     val source: String?,
     val durationMillis: Long?,
-    val music: List<QuickRow>,
-    val video: List<QuickRow>,
-    /** Every format, video first: More formats lists them inside the sheet. */
-    val more: List<SheetOption>,
+    /** An M4A (a file, else the video's own sound), then MP3 at each bitrate. */
+    val audio: List<SheetOption>,
+    /** One row per standard resolution, highest first. */
+    val video: List<SheetOption>,
 ) {
-    val rows: List<QuickRow> get() = music + video
+    val options: List<SheetOption> get() = audio + video
 
-    val isAudioOnly: Boolean get() = more.none { it.section == OptionSection.VIDEO }
+    val isAudioOnly: Boolean get() = video.isEmpty()
 
-    /** The option behind a quick row id ("fast") or a More formats id ("more:…"). */
-    fun option(selectionId: String?): SheetOption? {
-        if (selectionId == null) return null
-        rows.firstOrNull { it.id == selectionId }?.let { return it.option }
-        if (!selectionId.startsWith(MORE_PREFIX)) return null
-        val id = selectionId.removePrefix(MORE_PREFIX)
-        return more.firstOrNull { it.id == id }
-    }
-
-    companion object {
-        const val MORE_PREFIX = "more:"
-
-        fun moreId(option: SheetOption): String = MORE_PREFIX + option.id
-    }
+    /** The option with [id], or null. */
+    fun option(id: String?): SheetOption? =
+        id?.let { wanted -> options.firstOrNull { it.id == wanted } }
 }
 
 /**
- * Builds the download sheet from the resolved candidates of one video (P3). Pure, so the table
- * of cases is unit-tested.
+ * Builds the download sheet from the resolved candidates of one video. Pure, so the table of
+ * cases is unit-tested.
  *
- * Music offers an M4A file, else the sound of an MP4 kept as M4A, plus MP3; Video offers Fast
- * (≈ 480p) and High (≈ 720p) with sound. More formats lists every quality and audio option.
- * Labels come from the variants' real heights and bitrates, never from the page title.
+ * Audio offers the best M4A file, else the sound of an MP4 kept as M4A, and that AAC converted
+ * to MP3 at every [Mp3Variants.BITRATES_KBPS]; another audio file only when there is no M4A.
+ * Video offers one row per standard resolution (240p, 360p, 480p, 720p, 1080p and higher):
+ * a row is named after the nearest standard height of the picture's short side, so 848 × 478 is
+ * "480p" while its detail keeps the real "848 × 478 · 30 fps". Of the files at one resolution
+ * the row is the one with sound, a whole file before a stream, MP4 before other containers,
+ * then the higher frame rate and bitrate. Labels never come from the page title.
  */
 object QuickDownloadChoices {
-    const val FAST_MAX_HEIGHT = 480
-    const val HIGH_MAX_HEIGHT = 720
+    /** The heights rows are named after, from 144p to 8K. */
+    val STANDARD_HEIGHTS = listOf(144, 240, 360, 480, 720, 1_080, 1_440, 2_160, 4_320)
 
-    /** The quick MP3 row's bitrate; More formats offers every [Mp3Variants.BITRATES_KBPS]. */
-    const val MP3_KBPS = 192
-
-    const val VIDEO_AND_AUDIO = "Video + audio"
     const val NO_SOUND = "No sound"
     const val SLOW = "Slow"
 
@@ -145,13 +106,8 @@ object QuickDownloadChoices {
                     }
                 }
         }
-        val videos = video.sortedWith(VIDEO_ORDER)
-        val files = audio.sortedWith(AUDIO_ORDER)
-        val wholeFiles = files.filter { it.variant.kind == MediaKind.DIRECT }
-        val fromVideo = if (wholeFiles.isEmpty()) soundOf(videos) else null
-        val aac = wholeFiles.firstOrNull { Mp3Variants.isAacSource(it.variant) } ?: fromVideo
-        val mp3 = aac?.let(::mp3Options).orEmpty()
-        val audios = wholeFiles + listOfNotNull(fromVideo) + mp3 + (files - wholeFiles.toSet())
+        val videos = videoRows(video)
+        val audios = audioRows(audio, video)
         if (videos.isEmpty() && audios.isEmpty()) return null
         val durationMillis = group.durationMillis
             ?: sources.firstNotNullOfOrNull { it.asset?.durationMillis?.takeIf { d -> d > 0 } }
@@ -161,75 +117,97 @@ object QuickDownloadChoices {
                 ?: if (videos.isEmpty()) "Audio" else "Video",
             source = host(group.pageUrl),
             durationMillis = durationMillis,
-            music = musicRows(wholeFiles.firstOrNull() ?: fromVideo ?: files.firstOrNull(), mp3),
-            video = videoRows(videos),
-            more = videos + audios,
+            audio = audios,
+            video = videos,
         )
     }
 
-    /** The row the user's default quality points at; Music only when there is no video. */
-    fun preselect(choices: QuickChoices, quality: QualityPreference): QuickRow? {
-        val ceiling = quality.maxHeight
-        val fast = choices.video.firstOrNull { it.kind == QuickRowKind.FAST }
-        val high = choices.video.firstOrNull { it.kind == QuickRowKind.HIGH }
-        val preferred = if (ceiling != null && ceiling <= FAST_MAX_HEIGHT) fast else high
-        return preferred ?: choices.video.firstOrNull() ?: choices.music.firstOrNull()
-    }
-
-    private fun videoRows(videos: List<SheetOption>): List<QuickRow> {
-        val withSound = videos.filter { it.variant.trackType == MediaTrackType.AUDIO_VIDEO }
-            .ifEmpty { videos }
-        if (withSound.isEmpty()) return emptyList()
-        val known = withSound.filter { it.rankHeight != null }
-        val fast = known.firstOrNull { it.height() <= FAST_MAX_HEIGHT }
-        val high = known.firstOrNull { it.height() in (FAST_MAX_HEIGHT + 1)..HIGH_MAX_HEIGHT }
-        if (fast == null && high == null) {
-            // Every known quality is above 720p: the smallest of them, else the first file.
-            val only = known.minByOrNull { it.height() } ?: withSound.first()
-            return listOf(QuickRow(QuickRowKind.VIDEO, "Video", rowDetail(only), only))
+    /**
+     * The row the user's default quality points at: the highest resolution at or below its
+     * ceiling, else the lowest; a row with sound before a silent one. Audio only when there is
+     * no video.
+     */
+    fun preselect(choices: QuickChoices, quality: QualityPreference): SheetOption? {
+        val videos = choices.video
+        if (videos.isEmpty()) return choices.audio.firstOrNull()
+        val ceiling = quality.maxHeight ?: return withSound(videos)
+        val known = videos.filter { it.rankHeight != null }
+        val fitting = known.filter { (it.rankHeight ?: 0) <= ceiling }
+        return when {
+            fitting.isNotEmpty() -> withSound(fitting)
+            known.isNotEmpty() -> known.last()
+            else -> videos.first()
         }
-        return listOfNotNull(
-            fast?.let { QuickRow(QuickRowKind.FAST, "Fast", rowDetail(it), it) },
-            high?.let { QuickRow(QuickRowKind.HIGH, "High", rowDetail(it), it) },
-        )
     }
 
-    private fun musicRows(music: SheetOption?, mp3: List<SheetOption>): List<QuickRow> {
-        music ?: return emptyList()
-        val format = formatName(music.variant) ?: "Audio"
-        val quick = mp3.firstOrNull { it.variant.mp3?.bitrateKbps == MP3_KBPS }
-        return listOfNotNull(
-            QuickRow(QuickRowKind.MUSIC, "$format · Fast", audioDetail(music), music),
-            quick?.let { QuickRow(QuickRowKind.MP3, "MP3", audioDetail(it), it) },
-        )
+    /** The standard height for a picture of [width] × [height]: nearest to its short side. */
+    fun standardHeight(width: Int?, height: Int): Int {
+        val side = if (width != null && width > 0) minOf(width, height) else height
+        // On a tie the lower name wins, so a row never claims more than the picture has.
+        return STANDARD_HEIGHTS.minBy { standard -> abs(standard - side) }
+    }
+
+    private fun withSound(options: List<SheetOption>): SheetOption =
+        options.firstOrNull { it.variant.trackType == MediaTrackType.AUDIO_VIDEO }
+            ?: options.first()
+
+    /** One row per standard resolution, highest first; files of unknown quality stay apart. */
+    private fun videoRows(options: List<SheetOption>): List<SheetOption> {
+        val rows = LinkedHashMap<String, SheetOption>()
+        options.sortedWith(VIDEO_ORDER).forEach { option ->
+            val key = option.rankHeight?.let { "height:$it" } ?: "file:${option.id}"
+            rows.putIfAbsent(key, option)
+        }
+        return rows.values.toList()
+    }
+
+    /**
+     * The best M4A file, else the video's own sound kept as M4A, then MP3 made from it at every
+     * bitrate; with no AAC at all the best other audio file alone.
+     */
+    private fun audioRows(audio: List<SheetOption>, video: List<SheetOption>): List<SheetOption> {
+        val files = audio.sortedWith(AUDIO_ORDER)
+        val m4a = files.firstOrNull {
+            it.variant.kind == MediaKind.DIRECT && Mp3Variants.isAacSource(it.variant)
+        } ?: soundOf(video)
+        if (m4a == null) return listOfNotNull(files.firstOrNull())
+        return listOf(m4a) + mp3Options(m4a)
     }
 
     private fun videoOption(index: Int, source: SheetSource, variant: MediaVariant): SheetOption {
-        val height = variant.height
-        val hint = if (height == null) qualityHint(source.candidate) else null
-        val quality = height?.let { "${it}p${variant.highFrameRate()}" } ?: hint
+        val height = variant.height?.takeIf { it > 0 }
+        val standard = height?.let { standardHeight(variant.width, it) }
+        val hint = if (standard == null) qualityHint(source.candidate) else null
+        val quality = standard?.let { "${it}p${variant.highFrameRate()}" } ?: hint
         val title = when {
-            height != null -> listOfNotNull(quality, resolutionName(height)).joinToString(" · ")
-            hint != null -> listOfNotNull(hint, formatName(variant)).joinToString(" · ")
-            else -> listOfNotNull(formatName(variant), "Quality unknown").joinToString(" · ")
+            standard != null -> listOfNotNull(quality, resolutionName(standard)).joinToString(" · ")
+            hint != null -> hint
+            else -> QUALITY_UNKNOWN
+        }
+        // The real picture: a row named 480p for 848 × 478 still says 848 × 478.
+        val width = variant.width?.takeIf { it > 0 }
+        val picture = when {
+            height == null -> null
+            width != null -> "$width × $height"
+            else -> "${height}p"
         }
         val detail = listOfNotNull(
-            if (variant.width != null && height != null) "${variant.width} × $height" else null,
-            variant.framesPerSecond?.let { "${it.roundToInt()} fps" },
-            formatName(variant).takeIf { height != null },
+            picture,
+            variant.framesPerSecond?.takeIf { it > 0 }?.let { "${it.roundToInt()} fps" },
+            formatName(variant),
         ).joinToString(" · ")
-        val chips = if (variant.trackType == MediaTrackType.VIDEO) NO_SOUND else VIDEO_AND_AUDIO
+        val silent = variant.trackType == MediaTrackType.VIDEO
         return SheetOption(
             id = optionId(index, variant),
             section = OptionSection.VIDEO,
             title = title,
             detail = detail,
             size = variant.sizeText(),
-            chips = listOf(chips),
+            chips = if (silent) listOf(NO_SOUND) else emptyList(),
             source = source,
             variant = variant,
             quality = quality,
-            rankHeight = height ?: hint?.let(::hintHeight),
+            rankHeight = standard ?: hint?.let(::hintHeight),
         )
     }
 
@@ -245,9 +223,10 @@ object QuickDownloadChoices {
 
     /** HD and SD rank as 720 and 480 without being shown as a height. */
     private fun hintHeight(hint: String): Int? = when (hint.uppercase(Locale.US)) {
-        "HD" -> HIGH_MAX_HEIGHT
-        "SD" -> FAST_MAX_HEIGHT
+        "HD" -> HD_HEIGHT
+        "SD" -> SD_HEIGHT
         else -> hint.lowercase(Locale.US).substringBefore('p').toIntOrNull()
+            ?.let { standardHeight(null, it) }
     }
 
     private fun audioOption(index: Int, source: SheetSource, variant: MediaVariant): SheetOption {
@@ -297,26 +276,11 @@ object QuickDownloadChoices {
 
     private fun optionId(index: Int, variant: MediaVariant): String = "s$index-${variant.id}"
 
-    private fun rowDetail(option: SheetOption): String {
-        val variant = option.variant
-        val quality = option.quality
-        return listOfNotNull(
-            quality ?: formatName(variant),
-            variant.framesPerSecond?.takeIf { quality != null }?.let { "${it.roundToInt()} fps" },
-            option.size ?: SIZE_UNKNOWN,
-        ).joinToString(" · ")
-    }
-
-    private fun audioDetail(option: SheetOption): String =
-        listOfNotNull(option.variant.kbpsText(), option.size ?: SIZE_UNKNOWN).joinToString(" · ")
-
     private fun MediaVariant.kbpsText(): String? =
         bitrateBitsPerSecond?.takeIf { it > 0 }?.let { "${(it / 1_000.0).roundToInt()} kbps" }
 
     private fun MediaVariant.highFrameRate(): String =
         framesPerSecond?.takeIf { it > HIGH_FRAME_RATE }?.roundToInt()?.toString().orEmpty()
-
-    private fun SheetOption.height(): Int = rankHeight ?: 0
 
     /** "MP4", "M4A", "MP3", "WebM"; the stream kind for adaptive tracks. */
     internal fun formatName(variant: MediaVariant): String? {
@@ -336,6 +300,7 @@ object QuickDownloadChoices {
     }
 
     private fun resolutionName(height: Int): String? = when {
+        height >= 4_320 -> "8K"
         height >= 2_160 -> "4K"
         height >= 1_440 -> "2K"
         height >= 1_080 -> "Full HD"
@@ -357,11 +322,17 @@ object QuickDownloadChoices {
         MediaKind.UNKNOWN -> 3
     }
 
-    /** Highest picture first; with sound before silent, whole files before streams. */
+    /**
+     * Highest resolution first. At one resolution: with sound before silent, whole files before
+     * streams, MP4 before other containers, then the taller real picture, the higher frame rate
+     * and the higher bitrate.
+     */
     private val VIDEO_ORDER = compareByDescending<SheetOption> { it.rankHeight ?: -1 }
-        .thenByDescending { it.variant.framesPerSecond ?: 0.0 }
         .thenBy { if (it.variant.trackType == MediaTrackType.AUDIO_VIDEO) 0 else 1 }
         .thenBy { kindRank(it.variant.kind) }
+        .thenBy { if (formatName(it.variant) == "MP4") 0 else 1 }
+        .thenByDescending { it.variant.height ?: 0 }
+        .thenByDescending { it.variant.framesPerSecond ?: 0.0 }
         .thenByDescending { it.variant.bitrateBitsPerSecond ?: -1L }
 
     /** M4A files first, then the highest bitrate. */
@@ -370,6 +341,8 @@ object QuickDownloadChoices {
         .thenByDescending { it.variant.bitrateBitsPerSecond ?: -1L }
 
     private const val HIGH_FRAME_RATE = 31.0
-    private const val SIZE_UNKNOWN = "Size unknown"
+    private const val HD_HEIGHT = 720
+    private const val SD_HEIGHT = 480
+    private const val QUALITY_UNKNOWN = "Quality unknown"
     private val QUALITY_WORD = Regex("(?i)hd|sd|\\d{3,4}p\\d{0,3}")
 }

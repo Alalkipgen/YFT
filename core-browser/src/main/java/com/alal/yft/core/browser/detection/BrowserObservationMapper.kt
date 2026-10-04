@@ -5,16 +5,22 @@ import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.extractor.generic.classifier.MediaFileUrls
 import com.alal.yft.extractor.generic.classifier.MediaUrlClassifier
 import java.net.URI
 
+/**
+ * Turns what the browser saw into candidates. A player that fetches one file in byte ranges
+ * (`bytestart`/`byteend`, `range=`) makes one candidate for the whole file, not one per piece,
+ * and its size is probed for the whole file (P3-FIX).
+ */
 object BrowserObservationMapper {
     fun fromRequest(observation: RequestObservation): MediaCandidate? {
         if (!observation.method.equals("GET", ignoreCase = true)) return null
         val kind = MediaUrlClassifier.classify(observation.requestUrl) ?: return null
         return MediaCandidate(
             pageUrl = observation.pageUrl,
-            mediaUrl = observation.requestUrl,
+            mediaUrl = MediaFileUrls.wholeFile(observation.requestUrl),
             sources = buildSet {
                 add(CandidateSource.REQUEST)
                 if (kind == MediaKind.HLS || kind == MediaKind.DASH) add(CandidateSource.MANIFEST)
@@ -42,7 +48,7 @@ object BrowserObservationMapper {
         if (kind == null && !observation.hasStrongMediaHint(uri)) return null
         return fromRequest(observation) ?: MediaCandidate(
             pageUrl = observation.pageUrl,
-            mediaUrl = observation.requestUrl,
+            mediaUrl = MediaFileUrls.wholeFile(observation.requestUrl),
             sources = setOf(CandidateSource.REQUEST),
             kind = MediaKind.UNKNOWN,
             requestContext = observation.requestContext(),
@@ -95,7 +101,7 @@ object BrowserObservationMapper {
         val kind = MediaUrlClassifier.classify(observation.toUrl) ?: return null
         return MediaCandidate(
             pageUrl = observation.pageUrl,
-            mediaUrl = observation.toUrl,
+            mediaUrl = MediaFileUrls.wholeFile(observation.toUrl),
             sources = buildSet {
                 add(CandidateSource.REDIRECT)
                 if (kind == MediaKind.HLS || kind == MediaKind.DASH) add(CandidateSource.MANIFEST)

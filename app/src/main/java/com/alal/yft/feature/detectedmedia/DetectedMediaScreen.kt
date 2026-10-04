@@ -162,7 +162,7 @@ private fun DetectedList(
 ) {
     val colors = YftTheme.colors
     val savable = remember(page.candidates) { page.candidates.filter { it.isSavable } }
-    val videos = remember(savable) { MediaGroups.of(savable) }
+    val videos = remember(savable) { MediaGroups.pageVideos(savable) }
     val hiddenNote = protectedHiddenLabel(page.candidates.size - savable.size)
     LazyColumn(
         modifier = Modifier

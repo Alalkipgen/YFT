@@ -523,7 +523,7 @@ internal fun DownloadAsPreview() {
     }
 }
 
-/** The download sheet (`12-quick-download`) over Home: Music, Fast 480p and High 720p. */
+/** The download sheet (`12-quick-download`) over Home: Audio, then one Video row per quality. */
 @Composable
 internal fun QuickDownloadPreview() {
     val colors = YftTheme.colors

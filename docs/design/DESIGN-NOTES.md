@@ -129,8 +129,9 @@ that opened it. While audio plays, the mini player sits right above the bottom b
   only switch, "Download · 96 MB" Mint button, caption "Saves to Download/YFT".
 - **Download sheet (12, no image; formerly "Video you copied"):** one sheet for one video, over
   Home, the Found list or the browser: title "Download", the video's title, site and length;
-  Music "M4A · Fast" and MP3; Video Fast (≤ 480p) and High (≤ 720p) with real resolutions,
-  frame rates and sizes; More formats opens inside the sheet; Details; one Mint Download button.
+  two sections only (P3-FIX): **Audio** (M4A, then MP3 320/192/128 kbps) and **Video** (one row
+  per standard resolution, "480p", "720p · HD", "1080p · Full HD", with the real picture, frame
+  rate and size); Details; one Mint Download button.
 - **Downloads (04):** title + "Pause all"; All / Active / Queued / Done (+ Failed) filters with
   counts; cards with thumbnail, title, format, percentage, progress, "61 of 96 MB · 2.4 MB/s ·
   15 s left" and a Mint pause button; Waiting for Wi-Fi and "Failed · reason" chips with Retry;
@@ -323,26 +324,35 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
     squeezing the badge out of the row. `browser-start` intentionally replaces
     `browser-empty`; all other existing tags stay.
 
-17. **Download sheet (Phase 9, T12; P3).** P3 replaced "Video you copied" with one sheet, titled
-    "Download", for every path: Home's View (one video found), Preview in the Found list and the
-    browser's Download button (one video). A video is a `MediaGroup` (`MediaGroups.of`): the
-    candidates that share the adapter's video id (or, without one, the page and length), so
-    Facebook's HD, SD and DASH or a YouTube video's qualities are one row and one count.
-    The header shows the title, site and length (`quick-header`, `quick-source`,
+17. **Download sheet (Phase 9, T12; P3; P3-FIX).** P3 replaced "Video you copied" with one
+    sheet, titled "Download", for every path: Home's View (one video found), Preview in the Found
+    list and the browser's Download button (one video). A video is a `MediaGroup`
+    (`MediaGroups.of`): the candidates that share the adapter's video id (or, without one, the
+    page and length), so Facebook's HD, SD and DASH or a YouTube video's qualities are one row and
+    one count. The header shows the title, site and length (`quick-header`, `quick-source`,
     `quick-length`). Each candidate is resolved in parallel; a whole file that already states its
     type, size and height (YouTube) is used without a request, and one without a height is
-    measured from its MP4 header. Music: the best whole audio file, else the MP4's own AAC sound
-    kept as M4A ("M4A · Fast"), then **MP3** (192 kbps, never preselected). Video: Fast is the
-    highest at or below 480p and High the highest above 480p up to 720p, with real resolution,
-    frame rate and size; HD/SD from the adapter's " — label" rank as 720/480 without inventing a
-    height; the page title is never a quality ("Quality unknown" instead); the lowest is offered
-    as Video when every height is above 720p. The default quality preselects High (Fast for
-    480p/Lowest). More formats expands inside the sheet (`quick-more-formats`,
-    `quick-more-list`, `quick-option-<id>`): every quality with chips "Video + audio", "No
-    sound", "Slow", and every audio option (M4A, MP3 320/192/128). Details (`quick-details`)
-    opens Download as for the same video. Download uses the Download as queue rules (Wi-Fi only,
-    the mobile data question) and shows its status with Open Downloads. Loading, error with
-    Retry and empty states have their own tags.
+    measured from its MP4 header.
+    **P3-FIX (owner's phone check):** the Music quick rows, Fast/High and More formats listed the
+    same formats two or three times, so the sheet now has exactly two sections, Audio then Video
+    (`quick-section-audio`, `quick-section-video`; every row `quick-option-<id>`, a radio
+    button). **Audio:** the best whole M4A file, else the MP4's own AAC sound kept as M4A ("The
+    video's own sound"), then MP3 320, 192 and 128 kbps made from it ("Made on the phone", chip
+    "Slow"); with no AAC at all, the best other audio file alone. **Video:** one row per standard
+    resolution, named after the nearest standard height of the picture's short side (144p, 240p,
+    360p, 480p, 720p · HD, 1080p · Full HD, 2K, 4K, 8K; on a tie the lower name), so 848 × 478 is
+    "480p" and its detail keeps the real "848 × 478 · 30 fps · MP4". Of several files at one
+    resolution the row is the one with sound, a whole file before a stream, MP4 before other
+    containers, then the higher frame rate and bitrate. HD/SD from the adapter's " — label"
+    rank as 720/480 without inventing a height; the page title is never a quality ("Quality
+    unknown" instead). The only chip on a video row is "No sound"; the size, or "Size unknown",
+    sits at the end. The default quality preselects the highest row at or below its ceiling
+    (Highest: the tallest), a row with sound before a silent one, else the lowest; audio only when
+    there is no video. Details (`quick-details`) opens Download as for the same video. Download
+    uses the Download as queue rules (Wi-Fi only, the mobile data question) and shows its status
+    with Open Downloads. Loading, error with Retry and empty states have their own tags.
+    Removed in P3-FIX: the quick rows `quick-row-music`, `quick-row-mp3`, `quick-row-fast`,
+    `quick-row-high` and `quick-row-video`, `quick-more-formats` and `quick-more-list`.
 
 18. **Search to download (Phase 9, T13).** Home's Search to download opens the browser start
     page with the address field focused (`browser?search=true`); Open browser opens the same
@@ -358,13 +368,15 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
     handle, Mint with the download icon, labelled "Download video, N found"; a Coral count badge
     for more than one item (visual only). It appears once the page has savable media and hides
     on the start page, for DRM-only pages, while the found sheet is expanded and while the
-    address is edited. The label counts videos (P3: one video's qualities count once). One
-    video opens the Download sheet; several open the Found list.
+    address is edited. The label counts videos (P3: one video's qualities count once; P3-FIX:
+    when a site adapter named the page's video, the player's own files and byte-range pieces are
+    not extra videos, `MediaGroups.pageVideos`). One video opens the Download sheet; several open
+    the Found list.
 
-20. **MP3 (Phase 10, T18; P3).** The Download sheet lists **MP3** ("192 kbps · ~size") under
-    Music after the M4A row when that audio is AAC (a whole file or, since P3, the MP4's own
-    sound); it is never preselected. More formats and Download as list MP3 320, 192 and 128 kbps
-    after the M4A with an estimated size; Preview plays the M4A. The progress bar shows the M4A download; the MP3 appears in Downloads only after the
+20. **MP3 (Phase 10, T18; P3; P3-FIX).** The Download sheet lists **MP3** 320, 192 and 128 kbps
+    (each "~size") under Audio after the M4A row when that audio is AAC (a whole file or, since
+    P3, the MP4's own sound); MP3 is never preselected. Download as lists the same MP3 rows after
+    the M4A with an estimated size; Preview plays the M4A. The progress bar shows the M4A download; the MP3 appears in Downloads only after the
     conversion has finished.
 
 ## Remaining differences from the images

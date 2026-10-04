@@ -5,6 +5,7 @@ import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.extractor.generic.classifier.MediaFileUrls
 import com.alal.yft.extractor.generic.classifier.MediaUrlClassifier
 import java.net.URI
 
@@ -14,10 +15,13 @@ class CandidateNormalizer(
     data class Policy(
         val maxCandidates: Int = 50,
         val tinyDirectAssetBytes: Long = 12 * 1024,
+        /** How many numbered files make a stream's pieces rather than separate videos. */
+        val minStreamPieces: Int = 3,
     ) {
         init {
             require(maxCandidates > 0)
             require(tinyDirectAssetBytes >= 0)
+            require(minStreamPieces >= 2)
         }
     }
 
@@ -32,7 +36,7 @@ class CandidateNormalizer(
             merged[key] = merged[key]?.let { existing -> merge(existing, candidate) } ?: candidate
         }
 
-        return merged.values
+        return withoutStreamPieces(merged.values.toList())
             .sortedWith(
                 compareByDescending<MediaCandidate> { it.confidence.ordinal }
                     .thenByDescending { it.observedAtEpochMs },
@@ -40,7 +44,33 @@ class CandidateNormalizer(
             .take(policy.maxCandidates)
     }
 
-    private fun sanitize(candidate: MediaCandidate): MediaCandidate? {
+    /**
+     * Numbered HLS pieces (`seg-1.ts`, `seg-2.ts`, …) are one stream, not videos (P3-FIX).
+     * Next to the page's HLS or DASH manifest they drop out; without one the series keeps its
+     * first piece. Numbered whole files, such as `clip-1.mp4` and `clip-2.mp4`, stay apart.
+     */
+    private fun withoutStreamPieces(candidates: List<MediaCandidate>): List<MediaCandidate> {
+        val series = candidates.indices
+            .filter { candidates[it].kind == MediaKind.DIRECT }
+            .groupBy { MediaFileUrls.segmentFamily(candidates[it].mediaUrl) }
+            .filter { (family, pieces) -> family != null && pieces.size >= policy.minStreamPieces }
+            .values
+        if (series.isEmpty()) return candidates
+        val hasManifest = candidates.any { it.kind == MediaKind.HLS || it.kind == MediaKind.DASH }
+        val dropped = series.flatMap { pieces -> if (hasManifest) pieces else pieces.drop(1) }
+            .toSet()
+        return candidates.filterIndexed { index, _ -> index !in dropped }
+    }
+
+    private fun sanitize(raw: MediaCandidate): MediaCandidate? {
+        // A byte range names a piece of the file: the candidate is the whole file, and a length
+        // read for the piece is not the file's.
+        val wholeFile = MediaFileUrls.wholeFile(raw.mediaUrl)
+        val candidate = if (wholeFile == raw.mediaUrl) {
+            raw
+        } else {
+            raw.copy(mediaUrl = wholeFile, contentLengthBytes = null)
+        }
         val uri = runCatching { URI(candidate.mediaUrl) }.getOrNull() ?: return null
         if (uri.scheme?.lowercase() !in setOf("http", "https")) return null
         if (uri.userInfo != null) return null
@@ -85,6 +115,11 @@ class CandidateNormalizer(
             durationMillis = newest.durationMillis ?: oldest.durationMillis,
             codecs = newest.codecs.ifEmpty { oldest.codecs },
             audioCompanion = newest.audioCompanion ?: oldest.audioCompanion,
+            videoId = newest.videoId ?: oldest.videoId,
+            width = newest.width ?: oldest.width,
+            height = newest.height ?: oldest.height,
+            framesPerSecond = newest.framesPerSecond ?: oldest.framesPerSecond,
+            bitrateBitsPerSecond = newest.bitrateBitsPerSecond ?: oldest.bitrateBitsPerSecond,
             contentLengthBytes = listOfNotNull(first.contentLengthBytes, second.contentLengthBytes).maxOrNull(),
             requestContext = first.requestContext.mergedWith(second.requestContext),
             confidence = maxOf(first.confidence, second.confidence),
@@ -123,7 +158,9 @@ class CandidateNormalizer(
         val port = uri.normalizedPort(scheme)
         val authority = if (port == -1) host else "$host:$port"
         val path = uri.rawPath?.ifBlank { "/" } ?: "/"
-        val stableQuery = uri.rawQuery
+        // An opaque CDN file name is the file; its query only carries per-request values.
+        val query = uri.rawQuery?.takeUnless { MediaFileUrls.isOpaqueFile(rawUrl) }
+        val stableQuery = query
             ?.split('&')
             ?.filter(String::isNotBlank)
             ?.filterNot { parameter -> parameter.substringBefore('=').isVolatileParameter() }

@@ -9,15 +9,21 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Added
 
-- Audio from MP4: when a video has no separate audio file (Facebook, TikTok), Music keeps the
-  video's own sound as M4A (copied, not re-encoded) and MP3 converts it. MP3 now offers 320, 192
-  and 128 kbps in More formats.
+- Audio from MP4: when a video has no separate audio file (Facebook, TikTok), the sheet's Audio
+  section keeps the video's own sound as M4A (copied, not re-encoded) and MP3 converts it. MP3
+  offers 320, 192 and 128 kbps.
+- Facebook posts: `story.php`, `permalink.php`, a page's or group's `/posts/` links with a video
+  are looked up like a reel, so the browser's Download button opens the sheet for the post's
+  video.
 
 ### Changed
 
 - One download sheet: View, Download and the browser's Download button all open the same
-  "Download" sheet with Music and Video rows (Fast up to 480p, High up to 720p). More formats
-  opens inside the sheet with every quality and audio option; Details opens Download as.
+  "Download" sheet with exactly two sections: Audio (M4A, then MP3 320/192/128 kbps) and Video
+  (one row per resolution — "480p", "720p · HD", "1080p · Full HD" — with the real picture,
+  frame rate and size). The default quality is preselected; Details opens Download as. The
+  former Music rows, Fast/High names and More formats list are gone (they repeated the same
+  formats).
 - One row per video: Facebook's HD, SD and DASH items, and a YouTube video's qualities, show as
   one video everywhere (Home, the found lists, the Download button count).
 - Real qualities: the sheet shows a video's real resolution, frame rate and size (read from the
@@ -29,6 +35,9 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Fixed
 
+- Browser: a page's video player that fetches one file in byte-range pieces no longer fills the
+  Found list with dozens of "Video file" rows; the pieces count as one file, and a page whose
+  video a site adapter found counts that video once.
 - Browser: a video opened inside a page (YouTube's mobile site, Facebook, TikTok) is looked up
   like a new page, so the Download button follows it; the previous video's media no longer shows.
 - Browser: Facebook reels and share links no longer show a black page, and TikTok videos play. The

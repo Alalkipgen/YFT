@@ -232,6 +232,35 @@ class BrowserScreenTest {
     }
 
     @Test
+    fun aFacebookPostsVideoOpensTheSheetAndThePlayersOwnFilesAreNotMoreVideos() {
+        // P3-FIX regression: story.php listed the player's track files as 26 "Video file" rows
+        // and the button opened that list instead of the video's sheet.
+        val id = "facebook:post:1234567890123456"
+        val video = listOf(
+            clip().copy(title = "Post — HD", videoId = id),
+            clip().copy(mediaUrl = "https://cdn.test/sd.mp4", title = "Post — SD", videoId = id),
+        )
+        val played = listOf(
+            clip().copy(mediaUrl = "https://cdn.test/v/track-1.mp4", title = null),
+            clip().copy(mediaUrl = "https://cdn.test/v/track-2.mp4", title = null),
+        )
+        val opened = mutableListOf<MediaGroup>()
+        setScreen(
+            uiState = BrowserUiState(
+                address = PAGE,
+                currentUrl = PAGE,
+                candidates = played + video,
+            ),
+            onDownloadGroup = { opened += it },
+        )
+
+        composeRule.onNodeWithContentDescription("Download video, 1 found").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-download-fab").performClick()
+        composeRule.runOnIdle { assertEquals(video, opened.single().candidates) }
+        composeRule.onAllNodesWithTag("found-list").assertCountEquals(0)
+    }
+
+    @Test
     fun severalItemsShowACountBadgeAndOpenFoundOnThisPage() {
         var quick = 0
         setScreen(

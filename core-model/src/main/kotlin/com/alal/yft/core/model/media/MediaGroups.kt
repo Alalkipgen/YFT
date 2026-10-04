@@ -46,6 +46,20 @@ object MediaGroups {
         }
     }
 
+    /**
+     * The videos a page offers: what the Download button, the found lists and the sheet count.
+     *
+     * When a site adapter named the page's video, only named videos count. The files the site's
+     * own player fetched while playing it (byte ranges, its separate picture and sound tracks)
+     * are parts of that video, not more videos (P3-FIX: Facebook's story page listed 26 of them
+     * instead of opening the sheet). A page no adapter named keeps every group.
+     */
+    fun pageVideos(candidates: List<MediaCandidate>): List<MediaGroup> {
+        val groups = of(candidates)
+        val named = groups.filter { group -> group.candidates.any { it.videoId != null } }
+        return named.ifEmpty { groups }
+    }
+
     /** The group that holds [candidate], when it is one of [candidates]. */
     fun containing(candidates: List<MediaCandidate>, candidate: MediaCandidate): MediaGroup? =
         of(candidates).firstOrNull { group -> candidate in group.candidates }

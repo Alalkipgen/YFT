@@ -32,6 +32,7 @@ internal object QuickDownloadFixtures {
         videoId: String? = VIDEO_ID,
         index: Int = height ?: label.hashCode(),
         page: String = PAGE,
+        width: Int? = height?.let { it * 16 / 9 },
     ) = MediaCandidate(
         pageUrl = page,
         mediaUrl = "https://media.example.test/video-$index.mp4",
@@ -45,7 +46,7 @@ internal object QuickDownloadFixtures {
         drmHint = drm,
         audioCompanion = if (merged) companion() else null,
         videoId = videoId,
-        width = height?.let { it * 16 / 9 },
+        width = width,
         height = height,
         framesPerSecond = fps,
     )
@@ -102,13 +103,18 @@ internal object QuickDownloadFixtures {
         candidate: MediaCandidate,
         height: Int? = candidate.height,
         audioBitrate: Long? = null,
+        silent: Boolean = false,
     ): MediaAsset {
         val audio = candidate.mimeType?.startsWith("audio/") == true
         val variant = MediaVariant(
             id = "direct-0",
             playbackUrl = candidate.mediaUrl,
             kind = candidate.kind,
-            trackType = if (audio) MediaTrackType.AUDIO else MediaTrackType.AUDIO_VIDEO,
+            trackType = when {
+                audio -> MediaTrackType.AUDIO
+                silent -> MediaTrackType.VIDEO
+                else -> MediaTrackType.AUDIO_VIDEO
+            },
             requestContext = candidate.requestContext,
             mimeType = candidate.mimeType,
             codecs = candidate.codecs,

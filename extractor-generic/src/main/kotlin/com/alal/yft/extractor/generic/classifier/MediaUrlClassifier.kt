@@ -15,6 +15,9 @@ object MediaUrlClassifier {
         "audio/x-mpegurl",
     )
 
+    /** True for the extension of a whole audio or video file, such as `mp4` or `M4A`. */
+    fun isDirectExtension(extension: String): Boolean = extension.lowercase() in directExtensions
+
     fun classify(url: String, mimeType: String? = null): MediaKind? {
         val uri = runCatching { URI(url) }.getOrNull() ?: return null
         if (uri.scheme?.lowercase() !in setOf("http", "https")) return null

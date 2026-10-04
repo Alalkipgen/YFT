@@ -1,6 +1,6 @@
 # Handoff
 
-## Current handoff (2026-10-04)
+## Current handoff (2026-10-05)
 
 - **Phase:** 11 — download flow like Snaptube. Plan, status board, decisions and findings:
   [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md); one prompt per task in [`prompts/`](prompts/README.md).
@@ -25,8 +25,14 @@
   P2 OWNER CHECK (2026-10-04) — Facebook and TikTok pages render and play in the browser, and the
   Facebook lookup asks for the desktop page (owner's phone: reel plays, Download button shown);
   P3 OWNER CHECK (2026-10-04) — one "Download" sheet for every path (Home View, Found list,
-  browser button) with Music and Video rows, real resolutions and sizes, More formats inside the
-  sheet, audio from MP4 (M4A/MP3) and one row per video.
+  browser button) with real resolutions and sizes, audio from MP4 (M4A/MP3) and one row per
+  video; P3-FIX OWNER CHECK (2026-10-05) — after the owner's phone check the sheet has exactly
+  two sections, Audio (M4A, MP3 320/192/128) and Video (one row per standard resolution,
+  "480p" for 848 × 478), Facebook `story.php`/`permalink.php`/posts pages are identified, and a
+  player's byte-range pieces count as one file, so the browser's Download button opens the
+  sheet instead of the Found list.
+- **Owner instruction (2026-10-05):** P3-FIX, then P4, P5, P6 without stopping or asking
+  ([`prompts/CONTINUE-P4-TO-P6.md`](prompts/CONTINUE-P4-TO-P6.md)); not P7/P8.
 - **Next action — agent:** P4 — Facebook: one video, every quality
   ([`prompts/P4-facebook-all-qualities.md`](prompts/P4-facebook-all-qualities.md)), then P5, P6.
 - **Next action — owner:** publish the beta.3 draft when ready; phone checks per task from the

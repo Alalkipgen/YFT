@@ -65,16 +65,56 @@ class FacebookUrlsTest {
     }
 
     @Test
+    fun `story, permalink, post and group post pages are posts asked on their posts path`() {
+        // P3-FIX: the owner's phone opened story.php; no identity meant no adapter and no sheet.
+        val owner = "100012345678901"
+        val cases = listOf(
+            "https://m.facebook.com/story.php?story_fbid=1234567890123456&id=$owner&mibextid=x"
+                to "https://www.facebook.com/$owner/posts/1234567890123456",
+            "https://www.facebook.com/permalink.php?story_fbid=pfbid0AbCdEfGhIjKlMn&id=$owner"
+                to "https://www.facebook.com/$owner/posts/pfbid0AbCdEfGhIjKlMn",
+            "https://www.facebook.com/Fixture.Page/posts/1234567890123456/?__tn__=R"
+                to "https://www.facebook.com/Fixture.Page/posts/1234567890123456",
+            "https://mbasic.facebook.com/groups/fixture.group/permalink/1234567890123456/"
+                to "https://www.facebook.com/groups/fixture.group/posts/1234567890123456",
+            "https://www.facebook.com/groups/123456789/posts/1234567890123456"
+                to "https://www.facebook.com/groups/123456789/posts/1234567890123456",
+        )
+        cases.forEach { (url, address) ->
+            val identity = FacebookUrls.identify(url)
+            assertEquals(url, address, identity?.canonicalPageUrl)
+            assertTrue(url, identity!!.requiresCanonicalResolution)
+            assertTrue(url, FacebookUrls.isPost(identity))
+        }
+        assertEquals(
+            "post:1234567890123456",
+            FacebookUrls.identify(cases.first().first)?.contentId,
+        )
+        val share = FacebookUrls.identify("https://www.facebook.com/share/p/aBc123dEf/")!!
+        assertEquals("https://www.facebook.com/share/p/aBc123dEf", share.canonicalPageUrl)
+        assertTrue(share.requiresCanonicalResolution)
+        assertTrue(FacebookUrls.isPost(share))
+        val video = FacebookUrls.identify("https://www.facebook.com/share/v/aBc123dEf/")!!
+        assertFalse(FacebookUrls.isPost(video))
+        val watch = FacebookUrls.identify("https://www.facebook.com/watch/?v=1234567890123456")!!
+        assertFalse(FacebookUrls.isPost(watch))
+    }
+
+    @Test
     fun `unrelated, non-video and malformed urls are not claimed`() {
         listOf(
             "http://www.facebook.com/watch/?v=1234567890123456",
             "https://www.facebook.com/watch/?v=123",
             "https://www.facebook.com/watch/",
-            "https://www.facebook.com/FixturePage/posts/1234567890123456",
             "https://www.facebook.com/photo/?fbid=1234567890123456",
             "https://www.facebook.com/groups/1234567890/videos/9876543210987",
+            "https://www.facebook.com/groups/1234567890/about",
             "https://www.facebook.com/profile.php?id=1234567890123456",
-            "https://www.facebook.com/share/p/aBc123dEf/",
+            // A post needs its owner, and IDs have to look like IDs.
+            "https://www.facebook.com/story.php?story_fbid=1234567890123456",
+            "https://www.facebook.com/story.php?story_fbid=123&id=100012345678901",
+            "https://www.facebook.com/story.php/extra?story_fbid=1234567890123456&id=1000123456",
+            "https://www.facebook.com/FixturePage/posts/not-an-id",
             "https://www.facebook.com/",
             "https://www.tiktok.com/@fixture_user/video/7311234567890123456",
             "https://evil.example/www.facebook.com/watch/?v=1234567890123456",

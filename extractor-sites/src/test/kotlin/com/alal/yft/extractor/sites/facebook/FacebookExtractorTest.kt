@@ -165,6 +165,47 @@ class FacebookExtractorTest {
     }
 
     @Test
+    fun `a story page is asked on the owner's posts path and resolves to its video`() = runTest {
+        // P3-FIX: Facebook's desktop story.php is a login wall; /{owner}/posts/{id} redirects to
+        // the video's own page, whose ID then picks the right video node.
+        val story =
+            "https://m.facebook.com/story.php?story_fbid=9876543210987654&id=100012345678901"
+        val identity = FacebookUrls.identify(story)!!
+        val http = FakeExtractorHttpClient.serving(
+            url = "https://www.facebook.com/100012345678901/posts/9876543210987654",
+            body = Fixtures.read("facebook/watch_progressive.html"),
+            finalUrl = "https://www.facebook.com/100012345678901/videos/fixture/1234567890123456/",
+        )
+
+        val result = FacebookExtractor(http).extract(request(identity))
+            as SiteExtractionResult.Success
+
+        assertEquals(listOf(identity.canonicalPageUrl), http.requestedUrls)
+        assertEquals(
+            "https://www.facebook.com/watch/?v=1234567890123456",
+            result.candidates.first().pageUrl,
+        )
+        assertEquals("Fixture watch video — Full HD", result.candidates.first().title)
+    }
+
+    @Test
+    fun `a post without a video says so instead of a changed page format`() = runTest {
+        val identity = FacebookUrls.identify(
+            "https://www.facebook.com/FixturePage/posts/9876543210987654",
+        )!!
+        val http = FakeExtractorHttpClient.serving(
+            url = identity.canonicalPageUrl,
+            body = Fixtures.read("facebook/changed_markup.html"),
+        )
+
+        val failure = FacebookExtractor(http).extract(request(identity))
+            as SiteExtractionResult.Failure
+
+        assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, failure.reason)
+        assertTrue(failure.allowsGenericFallback)
+    }
+
+    @Test
     fun `a reel falls back to the legacy delivery fields`() = runTest {
         val identity = FacebookUrls.identify("https://www.facebook.com/reel/7180001112223334")!!
         val http = FakeExtractorHttpClient.serving(
