@@ -617,7 +617,8 @@ repository that asks each client and prints only verdicts and counts.
 | Navigation | `YftNavigationSmokeTest`: Home View → sheet; Found list Preview → sheet over the list; browser Download (one video) → sheet; sheet Details → Download as |
 | Audio extraction | `AudioExtractorInstrumentedTest` (CI emulator): copies the AAC track of a small MP4 asset into an M4A that `MediaExtractor` reads as `audio/mp4a-latm`, same duration |
 | Local validation | app 563 tests (66 render tests skipped as usual), core-download 107, core-media 24, core-model 62, extractor-sites 152 — 0 failures; `:app:lintDebug` 0 errors; `:app:compileDebugAndroidTestKotlin` |
-| CI | Checkpoint and emulator runs on the P3 commit (SESSION_STATE) |
+| CI | PASS — checkpoint `56f0c79` run https://github.com/Alalkipgen/YFT/actions/runs/37224812846, emulator run https://github.com/Alalkipgen/YFT/actions/runs/37224812796 (includes `AudioExtractorInstrumentedTest`) |
+| Owner phone check 2026-10-05 | PARTLY — the sheet opens with real heights, but Music and Audio read as duplicates; the browser Download button on `facebook.com/story.php` opened the old Found list (26 duplicate "Video file" rows); generic web the same → P3-FIX |
 | Owner check | Facebook reel and a YouTube video: View (Home) or the browser's Download button → one "Download" sheet with Music and Video rows, real resolutions and sizes; More formats opens inside; Music (M4A) and MP3 play |
 
 ## Runtime tests still requiring a device/emulator

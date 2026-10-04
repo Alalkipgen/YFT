@@ -111,7 +111,7 @@ AI agent time includes builds and CI waits on a 4 GiB sandbox.
 | P0 | [Plan, prompts and docs for Phase 11](#p0--plan-prompts-and-docs) | Easy | 1–2 h | owner approval | DONE (2026-10-04) |
 | P1 | [Browser follows in-page navigation (YouTube Download button)](#p1--browser-follows-in-page-navigation) | Medium | 3–5 h | — | OWNER CHECK (2026-10-04) |
 | P2 | [Facebook/TikTok black page in the browser](#p2--facebook-and-tiktok-black-page-in-the-browser) | Medium–Hard | 4–8 h | P1 | OWNER CHECK (2026-10-04) |
-| P3 | [One download sheet, Snaptube style](#p3--one-download-sheet-snaptube-style) | Hard | 10–14 h | P1 | OWNER CHECK (2026-10-04) |
+| P3 | [One download sheet, Snaptube style](#p3--one-download-sheet-snaptube-style) | Hard | 10–14 h | P1 | IN PROGRESS — P3-FIX after the owner check (2026-10-05) |
 | P4 | [Facebook: one video, every quality](#p4--facebook-one-video-every-quality) | Medium–Hard | 5–8 h | P3 | TODO |
 | P5 | [Download button on feeds (focused video)](#p5--download-button-on-feeds) | Hard | 6–10 h | P1, P3 | TODO |
 | P6 | [2K and 4K](#p6--2k-and-4k) | Hard | 8–12 h | P3 | TODO |
