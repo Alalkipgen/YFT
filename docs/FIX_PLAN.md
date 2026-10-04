@@ -147,7 +147,7 @@ Agents update the **Status** column in every task checkpoint.
 | T08 | [YouTube: honest messages, identity and details](#t08--youtube-honest-messages-identity-and-details) | 8 | P1 | Easy | 0.5 d | T04, T05 | DONE (2026-10-03) |
 | T09 | [Your sites: YouTube, Facebook, TikTok with logos](#t09--your-sites-youtube-facebook-tiktok-with-logos) | 8 | P1 | Easy | 0.5 d | — | OWNER CHECK (2026-10-04) |
 | T10 | [Release 1.0.0-beta.3](#t10--release-100-beta3) | 8 | P1 | Easy | 0.5 d | T01–T09, owner | SKIPPED (owner, 2026-10-03: one release after T19) |
-| T11 | [Check the copied link when YFT opens](#t11--check-the-copied-link-when-yft-opens) | 9 | P2 | Medium | 1 d | D1 (YES) | TODO |
+| T11 | [Check the copied link when YFT opens](#t11--check-the-copied-link-when-yft-opens) | 9 | P2 | Medium | 1 d | D1 (YES) | OWNER CHECK (2026-10-04) |
 | T12 | ["Video you copied" quick download sheet](#t12--video-you-copied-quick-download-sheet) | 9 | P2 | Medium–Hard | 1.5–2 d | — | OWNER CHECK (2026-10-04) |
 | T13 | ["Search to download" page](#t13--search-to-download-page) | 9 | P2 | Medium | 1 d | T03, T09 | TODO |
 | T14 | [Floating Download button in the browser](#t14--floating-download-button-in-the-browser) | 9 | P2 | Easy–Medium | 0.5–1 d | T12 | TODO |
@@ -841,6 +841,12 @@ P2 · Medium · 1 day · needs D1 = YES
 
 **Tests:** setting off → no read; a non-link clip → no read on API 31+; the same clip twice → one
 lookup; no read without window focus; no text stored.
+
+**Done (2026-10-04):** `CopiedLinkWatcher` (`feature/home/`, a singleton) keeps only the clip's
+timestamp and a hash in memory. `HomeRoute` asks it on every resume and when the window regains
+focus (`HomeAction.CheckCopiedLink`); a found link fills the Promptbox and is looked up like
+**Use**, so one video opens the T12 sheet. Settings › Privacy › "Check copied links when YFT
+opens" (`check_copied_links`, on by default per D1). Only the phone check is left.
 
 ### T12 — "Video you copied" quick download sheet
 

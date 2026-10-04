@@ -148,11 +148,14 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
 
 ## Decisions taken during implementation
 
-1. **Clipboard privacy.** YFT never reads the clipboard by itself. The "Use copied link" row
-   appears only when the clip *description* says it holds text (on Android 12+ the system's
-   URL-confidence score is used when available), and it shows no preview of the copied text.
-   The text is read only when the user taps **Use** or **Paste**, through
-   `HomeLinks.fromClipboard`.
+1. **Clipboard privacy.** The "Use copied link" row appears only when the clip *description*
+   says it holds text (on Android 12+ the system's URL-confidence score is used when available),
+   and it shows no preview of the copied text. The text is read when the user taps **Use** or
+   **Paste**, through `HomeLinks.fromClipboard`, and — with Settings › Privacy › "Check copied
+   links when YFT opens" (on by default, D1, T11) — once per new clip when Home is shown with
+   window focus. Clips Android 12+ classifies as not a link are skipped; only the first
+   http(s) link is used; YFT keeps only the clip's timestamp and a hash in memory and never
+   stores or logs the text. Android 12+ shows its own "pasted from your clipboard" message.
 2. **Your sites** is a list stored on the device (DataStore), preloaded with YouTube
    (m.youtube.com), Facebook (m.facebook.com) and TikTok (www.tiktok.com) since Phase 8 (T09).
    Add asks for a name and an HTTPS address; Edit mode removes sites; tapping a site opens it in

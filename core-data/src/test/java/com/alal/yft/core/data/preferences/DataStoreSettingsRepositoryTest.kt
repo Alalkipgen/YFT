@@ -28,4 +28,18 @@ class DataStoreSettingsRepositoryTest {
 
         assertEquals(ThemeMode.DARK, repository.themeMode.first())
     }
+
+    @Test
+    fun copiedLinkCheckIsOnByDefaultAndPersistsWhenTurnedOff() = runTest {
+        val store = PreferenceDataStoreFactory.create(
+            scope = backgroundScope,
+            produceFile = { File(temporaryFolder.root, "settings.preferences_pb") },
+        )
+        val repository = DataStoreSettingsRepository(store)
+
+        assertEquals(true, repository.checkCopiedLinks.first())
+        repository.setCheckCopiedLinks(false)
+        assertEquals(false, repository.checkCopiedLinks.first())
+        assertEquals(ThemeMode.SYSTEM, repository.themeMode.first())
+    }
 }

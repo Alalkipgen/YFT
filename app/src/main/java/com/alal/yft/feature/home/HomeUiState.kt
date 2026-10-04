@@ -58,4 +58,7 @@ sealed interface HomeAction {
     data class RemoveSite(val site: HomeSite) : HomeAction
 
     data object RefreshRecent : HomeAction
+
+    /** Home is resumed; with window focus the copied-link check may read the clipboard. */
+    data class CheckCopiedLink(val windowFocused: Boolean) : HomeAction
 }

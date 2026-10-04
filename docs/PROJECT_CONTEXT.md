@@ -35,7 +35,9 @@ This file and the other files under `docs/` are the continuity source for future
   lines are omitted. Raw page bodies, cookies and response headers are not diagnostic steps.
 - Home's **Copy details** uses bounded, sanitized lookup steps kept only in memory. Editing,
   cancelling or starting a new lookup clears the old steps; neither DataStore nor Room stores
-  them. Clipboard reads remain tap-only.
+  them. The clipboard is read on Paste or Use, or once per new clip when Settings › Privacy ›
+  "Check copied links when YFT opens" is on (default, T11); only a hash of the last clip is
+  kept in memory.
 - Only debug builds have a confirmed crash-test action on a long press of the About version.
   The release source set has no such action; APK verification rejects its debug-only markers.
 

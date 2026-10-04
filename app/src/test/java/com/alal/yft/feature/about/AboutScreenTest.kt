@@ -44,7 +44,8 @@ class AboutScreenTest {
             .performScrollTo()
             .assertIsDisplayed()
         composeRule.onNodeWithText(
-            "The clipboard is read only when you tap Paste or Use copied link.",
+            "The clipboard is read on Paste or Use, or once per new clip if Check copied " +
+                "links is on.",
         )
             .performScrollTo()
             .assertIsDisplayed()

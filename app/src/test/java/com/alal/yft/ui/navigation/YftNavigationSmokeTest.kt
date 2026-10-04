@@ -30,6 +30,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.alal.yft.core.data.preferences.HomeSitesRepository
+import com.alal.yft.core.data.preferences.SettingsRepository
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
@@ -38,6 +39,9 @@ import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.core.model.settings.HomeSites
 import com.alal.yft.feature.detectedmedia.DetectedMediaScreen
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
+import com.alal.yft.feature.home.ClipPeek
+import com.alal.yft.feature.home.ClipboardAccess
+import com.alal.yft.feature.home.CopiedLinkWatcher
 import com.alal.yft.feature.home.HomeRoute
 import com.alal.yft.feature.home.HomeViewModel
 import com.alal.yft.feature.home.LinkInspection
@@ -503,6 +507,21 @@ private fun homeViewModel(): HomeViewModel = HomeViewModel(
         override suspend fun delete(item: LibraryItem): Boolean = false
     },
     detectedMediaStore = DetectedMediaStore(),
+    settings = object : SettingsRepository {
+        override val themeMode = MutableStateFlow(ThemeMode.SYSTEM)
+        override val checkCopiedLinks = MutableStateFlow(false)
+
+        override suspend fun setThemeMode(themeMode: ThemeMode) = Unit
+
+        override suspend fun setCheckCopiedLinks(enabled: Boolean) = Unit
+    },
+    copiedLinks = CopiedLinkWatcher(
+        object : ClipboardAccess {
+            override fun peek(): ClipPeek? = null
+
+            override fun readText(): CharSequence? = null
+        },
+    ),
 )
 
 private val SAVED_VIDEO = LibraryItem(

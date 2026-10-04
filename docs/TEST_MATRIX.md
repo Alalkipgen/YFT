@@ -517,6 +517,18 @@ repository that asks each client and prints only verdicts and counts.
 | Not verified | Pixel renders not regenerated in the sandbox (render tests skip without `YFT_RENDER_DIR`) |
 | Owner check | Paste a YouTube link → Go → the sheet shows Music, Fast and High rows → Download → it plays with sound |
 
+### T11 — Check the copied link when YFT opens (OWNER CHECK, 2026-10-04)
+
+| Check | Result |
+| --- | --- |
+| Starting state | PASS — the T12 checkpoint `1f39a67` |
+| Regression | `HomeViewModelTest.aCopiedLinkIsLookedUpOnceWhenTheCheckIsOnAndTheWindowHasFocus` and `CopiedLinkWatcherTest` fail on the old code (Home never read the clipboard by itself) and pass now |
+| Watcher | PASS — `CopiedLinkWatcherTest`: setting off or no window focus → nothing read; non-text clips and clips Android 12+ classifies as not a link → not read; the first web link is emitted once per clip (same clip again → nothing; a new clip → emitted); text without a link is read once and never looked up; only the clip's timestamp and a hash are kept, never the text |
+| Setting | PASS — `DataStoreSettingsRepositoryTest.copiedLinkCheckIsOnByDefaultAndPersistsWhenTurnedOff`; `SettingsViewModelTest.theCopiedLinkSwitchWritesTheSetting`; `SettingsScreenTest` (Privacy switch on by default, toggles); `AboutScreenTest` privacy line |
+| Full validation | PASS — core-model 49, core-download 89, core-media 17, core-data 16, extractor-api 32, extractor-generic 8, extractor-sites 150, app 508 (58 render skips), 0 failures; lint 0 errors / 95 warnings; instrumentation APK compiled; Python 22/22; new Kotlin lines <=100 |
+| Not verified | The Android 12+ "YFT pasted from your clipboard" message and Android 10+ focus timing need the phone |
+| Owner check | Copy a YouTube link, open YFT → the link is looked up and the "Video you copied" sheet opens; Settings › Privacy › Check copied links off → nothing is read |
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |

@@ -309,7 +309,7 @@ private val PRIVACY = listOf(
     "Cookies and site data stay in the in-app browser until you clear them in Settings.",
     "Detected media and the preview selection live in memory and are never saved.",
     "Logs never contain cookies, tokens or signed links.",
-    "The clipboard is read only when you tap Paste or Use copied link.",
+    "The clipboard is read on Paste or Use, or once per new clip if Check copied links is on.",
     "App data is excluded from cloud backup and device-to-device transfer.",
     "On a secure lock screen, download notifications hide media titles.",
     "One redacted crash report stays on this device, outside backups, until you delete it.",

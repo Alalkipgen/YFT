@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.alal.yft.core.browser.policy.BrowserAddressNormalizer
 import com.alal.yft.core.browser.policy.BrowserAddressResult
 import com.alal.yft.core.data.preferences.HomeSitesRepository
+import com.alal.yft.core.data.preferences.SettingsRepository
 import com.alal.yft.core.model.logging.DiagnosticTextSanitizer
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.core.model.settings.HomeSites
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -41,6 +43,8 @@ class HomeViewModel @Inject constructor(
     private val sitesRepository: HomeSitesRepository,
     private val library: LibraryRepository,
     private val detectedMediaStore: DetectedMediaStore,
+    private val settings: SettingsRepository,
+    private val copiedLinks: CopiedLinkWatcher,
 ) : ViewModel() {
     private val local = MutableStateFlow(HomeUiState())
     private val quickDownloads = Channel<Unit>(Channel.CONFLATED)
@@ -115,6 +119,7 @@ class HomeViewModel @Inject constructor(
             }
             // Sent by Home each time it comes into view, so Recent follows the library.
             HomeAction.RefreshRecent -> refreshRecent()
+            is HomeAction.CheckCopiedLink -> checkCopiedLink(action.windowFocused)
         }
     }
 
@@ -167,6 +172,26 @@ class HomeViewModel @Inject constructor(
                 it.copy(status = status, failureDetails = details, quickDownload = quick)
             }
             if (quick) quickDownloads.trySend(Unit)
+        }
+    }
+
+    /**
+     * "Check copied links when YFT opens": a link copied since the last check fills the
+     * Promptbox and is looked up like Use. The watcher reads the clip only when allowed.
+     */
+    private fun checkCopiedLink(windowFocused: Boolean) {
+        if (!windowFocused) return
+        viewModelScope.launch {
+            val enabled = try {
+                settings.checkCopiedLinks.first()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                false
+            }
+            val link = copiedLinks.poll(enabled = enabled, windowFocused = true) ?: return@launch
+            local.update { it.copy(link = link) }
+            submit()
         }
     }
 

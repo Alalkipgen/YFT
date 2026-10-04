@@ -20,6 +20,13 @@ internal object HomeLinks {
             .takeIf { it.isNotEmpty() }
     }
 
+    /** Only the first http(s) link in [text], or null when it has none (copied-link check). */
+    fun firstWebLink(text: CharSequence?): String? =
+        text?.let { webLink.find(it) }?.value
+            ?.let(::trimTrailingPunctuation)
+            ?.take(MAX_LENGTH)
+            ?.takeIf { it.isNotEmpty() }
+
     private fun trimTrailingPunctuation(link: String): String {
         var end = link.length
         while (end > 0) {

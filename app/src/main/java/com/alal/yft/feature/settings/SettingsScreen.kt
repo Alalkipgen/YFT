@@ -340,6 +340,15 @@ private fun DownloadRows(
 
 @Composable
 private fun PrivacyRows(state: SettingsUiState, onAction: (SettingsAction) -> Unit) {
+    SwitchRow(
+        icon = YftIcons.Paste,
+        title = "Check copied links when YFT opens",
+        checked = state.checkCopiedLinks,
+        tag = "check-copied-links",
+        supporting = "Android shows a short \"pasted\" message when YFT reads a copied link.",
+        onToggle = { onAction(SettingsAction.SetCheckCopiedLinks(it)) },
+    )
+    RowDivider()
     ValueRow(
         icon = YftIcons.Delete,
         title = "Clear browsing data",

@@ -3,6 +3,7 @@ package com.alal.yft.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
+import com.alal.yft.core.data.preferences.SettingsRepository
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
@@ -29,6 +30,8 @@ data class SettingsUiState(
     val confirmation: SettingsConfirmation? = null,
     val working: Boolean = false,
     val message: String? = null,
+    /** "Check copied links when YFT opens" (decision D1, on by default). */
+    val checkCopiedLinks: Boolean = true,
 )
 
 sealed interface SettingsAction {
@@ -37,6 +40,7 @@ sealed interface SettingsAction {
     data class SetUnmeteredOnly(val enabled: Boolean) : SettingsAction
     data class SetConfirmMetered(val enabled: Boolean) : SettingsAction
     data class SetConcurrency(val count: Int) : SettingsAction
+    data class SetCheckCopiedLinks(val enabled: Boolean) : SettingsAction
     data class Request(val confirmation: SettingsConfirmation) : SettingsAction
     data object Confirm : SettingsAction
     data object Dismiss : SettingsAction
@@ -54,6 +58,7 @@ class SettingsViewModel @Inject constructor(
     private val preferences: DownloadPreferencesRepository,
     private val browsingData: BrowsingDataCleaner,
     private val history: DownloadHistory,
+    private val settings: SettingsRepository,
 ) : ViewModel() {
     private val transient = MutableStateFlow(Transient())
 
@@ -61,13 +66,15 @@ class SettingsViewModel @Inject constructor(
         preferences.preferences,
         history.finishedCount,
         transient,
-    ) { download, finished, local ->
+        settings.checkCopiedLinks,
+    ) { download, finished, local, checkCopiedLinks ->
         SettingsUiState(
             download = download,
             finishedDownloads = finished,
             confirmation = local.confirmation,
             working = local.working,
             message = local.message,
+            checkCopiedLinks = checkCopiedLinks,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), SettingsUiState())
 
@@ -83,6 +90,10 @@ class SettingsViewModel @Inject constructor(
                 if (action.count in DownloadPreferences.CONCURRENT_DOWNLOAD_RANGE) {
                     edit { it.copy(maxConcurrentDownloads = action.count) }
                 }
+            }
+
+            is SettingsAction.SetCheckCopiedLinks -> viewModelScope.launch {
+                settings.setCheckCopiedLinks(action.enabled)
             }
 
             is SettingsAction.Request -> transient.update {

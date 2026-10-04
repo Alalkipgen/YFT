@@ -71,6 +71,19 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun `the copied link switch is on by default and reports a toggle`() {
+        setContent()
+
+        composeRule.onNodeWithTag("check-copied-links").performScrollTo().assertIsOn()
+            .performClick()
+        composeRule.onNodeWithText(
+            "Android shows a short \"pasted\" message when YFT reads a copied link.",
+        ).assertExists()
+
+        assertEquals(listOf<SettingsAction>(SettingsAction.SetCheckCopiedLinks(false)), actions)
+    }
+
+    @Test
     fun `quality and location open a dialog that applies the tapped choice`() {
         setContent()
 

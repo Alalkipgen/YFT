@@ -9,6 +9,9 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Added
 
+- Check copied links: when YFT opens with a new copied link, Home looks it up straight away
+  (one video opens "Video you copied"). Settings › Privacy has a switch to turn it off; only the
+  first web link is used and the copied text is never stored.
 - "Video you copied": when a link pasted on Home finds one video, a sheet offers Music
   (M4A), Fast (up to 480p) and High (up to 720p) with real sizes, More formats and one Download
   button. Merged YouTube rows keep their sound; Wi-Fi only and the mobile data question apply.

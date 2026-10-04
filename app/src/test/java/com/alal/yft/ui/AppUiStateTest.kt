@@ -58,5 +58,11 @@ class AppUiStateTest {
         override suspend fun setThemeMode(themeMode: ThemeMode) {
             this.themeMode.value = themeMode
         }
+
+        override val checkCopiedLinks = MutableStateFlow(true)
+
+        override suspend fun setCheckCopiedLinks(enabled: Boolean) {
+            checkCopiedLinks.value = enabled
+        }
     }
 }

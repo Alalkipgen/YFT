@@ -1,6 +1,8 @@
 package com.alal.yft.feature.settings
 
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
+import com.alal.yft.core.data.preferences.SettingsRepository
+import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
@@ -28,6 +30,19 @@ class SettingsViewModelTest {
     private val preferences = FakePreferences()
     private val cleaner = FakeCleaner()
     private val history = FakeHistory()
+    private val settings = FakeSettings()
+
+    @Test
+    fun theCopiedLinkSwitchWritesTheSetting() = runTest {
+        val viewModel = subscribed()
+        assertTrue(viewModel.uiState.value.checkCopiedLinks)
+
+        viewModel.onAction(SettingsAction.SetCheckCopiedLinks(false))
+        runCurrent()
+
+        assertFalse(settings.checkCopiedLinks.value)
+        assertFalse(viewModel.uiState.value.checkCopiedLinks)
+    }
 
     @Test
     fun `download preferences are saved as they change`() = runTest {
@@ -122,10 +137,21 @@ class SettingsViewModelTest {
     }
 
     private fun TestScope.subscribed(): SettingsViewModel {
-        val viewModel = SettingsViewModel(preferences, cleaner, history)
+        val viewModel = SettingsViewModel(preferences, cleaner, history, settings)
         backgroundScope.launch { viewModel.uiState.collect {} }
         runCurrent()
         return viewModel
+    }
+
+    private class FakeSettings : SettingsRepository {
+        override val themeMode = MutableStateFlow(ThemeMode.SYSTEM)
+        override val checkCopiedLinks = MutableStateFlow(true)
+
+        override suspend fun setThemeMode(themeMode: ThemeMode) = Unit
+
+        override suspend fun setCheckCopiedLinks(enabled: Boolean) {
+            checkCopiedLinks.value = enabled
+        }
     }
 
     private class FakePreferences : DownloadPreferencesRepository {

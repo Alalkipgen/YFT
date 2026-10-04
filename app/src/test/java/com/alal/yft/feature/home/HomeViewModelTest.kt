@@ -1,6 +1,8 @@
 package com.alal.yft.feature.home
 
 import com.alal.yft.core.data.preferences.HomeSitesRepository
+import com.alal.yft.core.data.preferences.SettingsRepository
+import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
@@ -38,7 +40,11 @@ class HomeViewModelTest {
     private val library = FakeLibrary()
     private val store = DetectedMediaStore()
 
-    private fun viewModel() = HomeViewModel(inspector, sites, library, store)
+    private val settings = FakeSettings()
+    private val clipboard = FakeClipboard()
+    private val watcher = CopiedLinkWatcher(clipboard)
+
+    private fun viewModel() = HomeViewModel(inspector, sites, library, store, settings, watcher)
 
     @Test
     fun foundMediaIsSharedWithTheDetectedListAndCounted() = runTest {
@@ -388,6 +394,57 @@ class HomeViewModelTest {
         modifiedAtEpochMs = id.toLong(),
         location = LibraryLocation.SHARED_DOWNLOADS,
     )
+
+    @Test
+    fun aCopiedLinkIsLookedUpOnceWhenTheCheckIsOnAndTheWindowHasFocus() = runTest {
+        inspector.answer = { found(2) }
+        clipboard.text = "Look: https://a.test/watch?v=1"
+        val viewModel = viewModel()
+
+        viewModel.onAction(HomeAction.CheckCopiedLink(windowFocused = false))
+        advanceUntilIdle()
+        assertEquals(0, clipboard.reads)
+
+        settings.checkCopiedLinks.value = false
+        viewModel.onAction(HomeAction.CheckCopiedLink(windowFocused = true))
+        advanceUntilIdle()
+        assertEquals(0, clipboard.reads)
+        assertEquals("", viewModel.uiState.value.link)
+
+        settings.checkCopiedLinks.value = true
+        viewModel.onAction(HomeAction.CheckCopiedLink(windowFocused = true))
+        advanceUntilIdle()
+        assertEquals("https://a.test/watch?v=1", viewModel.uiState.value.link)
+        assertEquals(PromptboxStatus.Found(2), viewModel.uiState.value.status)
+        assertEquals(listOf("https://a.test/watch?v=1"), inspector.links)
+
+        viewModel.onAction(HomeAction.CheckCopiedLink(windowFocused = true))
+        advanceUntilIdle()
+        assertEquals(1, inspector.links.size)
+    }
+
+    private class FakeSettings : SettingsRepository {
+        override val themeMode = MutableStateFlow(ThemeMode.SYSTEM)
+        override val checkCopiedLinks = MutableStateFlow(true)
+
+        override suspend fun setThemeMode(themeMode: ThemeMode) = Unit
+
+        override suspend fun setCheckCopiedLinks(enabled: Boolean) {
+            checkCopiedLinks.value = enabled
+        }
+    }
+
+    private class FakeClipboard : ClipboardAccess {
+        var text: String? = null
+        var reads = 0
+
+        override fun peek(): ClipPeek? = text?.let { ClipPeek(isText = true, timestamp = 1) }
+
+        override fun readText(): CharSequence? {
+            reads += 1
+            return text
+        }
+    }
 
     private class FakeInspector : LinkInspector {
         val links = mutableListOf<String>()

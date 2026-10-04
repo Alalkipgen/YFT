@@ -47,6 +47,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -104,6 +105,12 @@ fun HomeRoute(
     // Recent follows the library: refreshed each time Home comes back into view.
     LifecycleResumeEffect(viewModel) {
         viewModel.onAction(HomeAction.RefreshRecent)
+        onPauseOrDispose {}
+    }
+    // Android 10+ shows the clipboard only to the focused app, so focus restarts the check.
+    val windowFocused = LocalWindowInfo.current.isWindowFocused
+    LifecycleResumeEffect(viewModel, windowFocused) {
+        viewModel.onAction(HomeAction.CheckCopiedLink(windowFocused))
         onPauseOrDispose {}
     }
     HomeScreen(

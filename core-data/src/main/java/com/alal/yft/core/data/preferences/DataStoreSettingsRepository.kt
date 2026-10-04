@@ -2,7 +2,9 @@ package com.alal.yft.core.data.preferences
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.alal.yft.core.model.ThemeMode
 import java.io.IOException
@@ -30,7 +32,16 @@ class DataStoreSettingsRepository @Inject constructor(
         dataStore.edit { preferences -> preferences[THEME_MODE] = themeMode.name }
     }
 
+    override val checkCopiedLinks: Flow<Boolean> = dataStore.data
+        .catch { error -> if (error is IOException) emit(emptyPreferences()) else throw error }
+        .map { preferences -> preferences[CHECK_COPIED_LINKS] ?: true }
+
+    override suspend fun setCheckCopiedLinks(enabled: Boolean) {
+        dataStore.edit { preferences -> preferences[CHECK_COPIED_LINKS] = enabled }
+    }
+
     private companion object {
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        val CHECK_COPIED_LINKS = booleanPreferencesKey("check_copied_links")
     }
 }
