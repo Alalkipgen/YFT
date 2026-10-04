@@ -569,6 +569,17 @@ repository that asks each client and prints only verdicts and counts.
 | Full validation | PASS — core-model 54, core-download 104, core-media 17, core-data 16, extractor-api 32, extractor-generic 8, extractor-sites 150, app 542 (66 skipped, render/image-only), 0 failures; lint 0 errors / 95 warnings; `assembleDebug` and `assembleDebugAndroidTest` OK; Python 22/22 |
 | Owner check | "Video you copied" or Download as → **MP3** → download → the MP3 plays in another app (with its title) |
 
+### T19 — Release 1.0.0-beta.3 (2026-10-04)
+
+| Check | Result |
+| --- | --- |
+| Starting state | PASS — T18 checkpoint `0ec1e46`, CI green (checkpoint https://github.com/Alalkipgen/YFT/actions/runs/37199023973, emulator https://github.com/Alalkipgen/YFT/actions/runs/37199023965); T09 and T11–T18 OWNER CHECK, T10 and T15 SKIPPED |
+| Version | `yft.versionName=1.0.0-beta.3`, `yft.versionCode=3`; CHANGELOG `[1.0.0-beta.3] - 2026-10-04`; notes `docs/release/1.0.0-beta.3.md` with the three FIX_PLAN §8 lists |
+| Local validation | PASS (2026-10-04, same version and docs change, run before a sandbox reset) — app 542 (66 skipped), 0 failures; lint 0 errors / 95 warnings; `:app:assembleRelease` OK; `verify-release-apk.sh --allow-unsigned --expected-version 1.0.0-beta.3`: unsigned APK 6,317,824 bytes, versionCode 3, minSdk 24, targetSdk 35, not debuggable, zip-aligned, no debug crash action |
+| CI | Checkpoint and emulator runs on the T19 commit (recorded at DONE) |
+| Signed release | `release-draft.yml` on tag `v1.0.0-beta.3`: lint, unit tests, signed minified build, signature, certificate and checksum checks, draft pre-release (recorded at DONE) |
+| Owner check | FIX_PLAN §8 / release notes Phone checklist: all three lists with the signed APK |
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |

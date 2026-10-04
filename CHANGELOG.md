@@ -7,6 +7,8 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ## [Unreleased]
 
+## [1.0.0-beta.3] - 2026-10-04
+
 ### Added
 
 - MP3: save a video's audio as MP3 (192 or 128 kbps) from "Video you copied" or Download as. The
@@ -87,8 +89,8 @@ for every APK given to users, because Android refuses to install a lower one.
 - Project rules (owner decision, ADR-006, 2026-10-03): for public videos YFT may use any
   technique that works — app or device client identities, proof-of-origin tokens, bot-check
   workarounds and the user's own browser session. DRM, paid, private and age-restricted
-  content stay out of scope. The beta.3 and beta.4 releases are skipped; one signed release
-  follows the last task (T19).
+  content stay out of scope. The separate Phase 8 and Phase 9 releases are skipped; this one
+  signed release follows the last task (T19).
 - YouTube lookups tell a bot check from a real sign-in. "Confirm you're not a bot" now says
   that YouTube wants to check that this is not a bot, and suggests opening the video in YFT's
   browser and letting it play for a moment. A response that offers only

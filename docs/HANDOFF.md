@@ -1,9 +1,9 @@
 # Handoff
 
-## Current handoff (2026-10-03)
+## Current handoff (2026-10-04)
 
-- **Phase:** 8 — field fixes, in progress. T01/T03/T04 are implemented; their phone checks
-  remain. T01/T03 and the T04 milestone pass real-WebView CI. T02 is DONE. Plan, status board and decisions:
+- **Phase:** 8–10 complete on the branch (T01–T18; T10 and T15 skipped by the owner); T19
+  releases `1.0.0-beta.3`. Phone checks: FIX_PLAN §8 and [`release/1.0.0-beta.3.md`](release/1.0.0-beta.3.md). Plan, status board and decisions:
   [`FIX_PLAN.md`](FIX_PLAN.md). Prompts: [`prompts/`](prompts/README.md).
 - **Branch:** `work/phase-8-field-fixes`, created from `main` at `28930cf`.
 - **Releases:** `1.0.0-beta.1` published 2026-10-02. `1.0.0-beta.2` (versionCode 2) is a signed
@@ -27,8 +27,9 @@
 - **Owner delegation (2026-10-03, later):** "D1 and D3 — do as you see fit; do not stop until
   everything is finished; commit and push after every task." D1 = YES and D3 = YES (FIX_PLAN §3);
   no task waits for the owner any more.
-- **Next action — agent:** T19 — signed release 1.0.0-beta.3
-  ([`prompts/T19-release-beta5.md`](prompts/T19-release-beta5.md)). T18 is OWNER CHECK
+- **Next action — agent:** T19 in progress (2026-10-04): version `1.0.0-beta.3` (versionCode 3)
+  and the notes are committed; next CI → merge into `main` → tag `v1.0.0-beta.3` → signed draft
+  release ([`prompts/T19-release-beta5.md`](prompts/T19-release-beta5.md)). T18 is OWNER CHECK
   (2026-10-04): MP3 audio with LAME. T14 is OWNER CHECK (2026-10-04):
   floating Download button in the browser. T13 is OWNER
   CHECK (2026-10-04): Search to download. T11 is OWNER CHECK (2026-10-04): copied links are checked when YFT opens. T12 is OWNER CHECK (2026-10-04): "Video you copied" sheet. T09 is OWNER CHECK (2026-10-04): Your sites defaults YouTube, Facebook and

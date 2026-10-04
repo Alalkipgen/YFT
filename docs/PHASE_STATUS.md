@@ -12,9 +12,9 @@
 | 6 — Hardening/UI | COMPLETE | Privacy and backup hardening, download preferences and Wi-Fi-only policy, Library, Detected Media, Home link entry, About notices, original palette, free-space check and storage janitor; every audit finding closed or device-only |
 | 7 — Signed beta/release | COMPLETE | Version `1.0.0-beta.1`, original launcher icon and launch screen, release signing from env/untracked properties, verification/checksum/device scripts, draft-only release workflow, changelog, release notes and release process; signed by the release workflow with the owner's key and published as a pre-release on 2026-10-02. Device checks still wait for a device |
 | 6R — UI redesign | COMPLETE | Every screen rebuilt to the owner's design images (`docs/design/DESIGN-NOTES.md`) on `work/phase-6-ui-redesign`, Tasks 0–9, with every feature kept; merged with Phase 7 into `main` and released as `1.0.0-beta.2` |
-| 8 — Field fixes | OWNER CHECK (T01–T09 code done, phone checks left) | Fixes from the owner's beta.2 phone test: browser crash, start page, crash report, Home lookup identity, Facebook, TikTok, YouTube messages, Your sites; CI emulator smoke test. Tasks T01–T09 in `docs/FIX_PLAN.md`; T10 (beta.3 release) SKIPPED by the owner on 2026-10-03 — one release after T19 |
-| 9 — Copied-link flow | OWNER CHECK (T11–T14, 2026-10-04) | Copied-link check, "Video you copied" quick sheet, Search to download, floating Download button. Tasks T11–T14; T15 (release) SKIPPED by the owner |
-| 10 — Formats and YouTube | OWNER CHECK (T16–T18, 2026-10-04; T19 releases) | YouTube client strategy (D2 = A + B + C, ADR-006), merged 720p/1080p video and audio, MP3. Tasks T16–T18; T19 merges, tags and signs the one release, `1.0.0-beta.3` |
+| 8 — Field fixes | COMPLETE | Fixes from the owner's beta.2 phone test: browser crash, start page, crash report, Home lookup identity, Facebook, TikTok, YouTube messages, Your sites; CI emulator smoke test. Tasks T01–T09 in `docs/FIX_PLAN.md` (phone checks in §8); T10 SKIPPED by the owner — released with Phases 9–10 as `1.0.0-beta.3` (T19) |
+| 9 — Copied-link flow | COMPLETE | Copied-link check, "Video you copied" quick sheet, Search to download, floating Download button. Tasks T11–T14; T15 SKIPPED by the owner — released in `1.0.0-beta.3` (T19) |
+| 10 — Formats and YouTube | COMPLETE | YouTube client strategy (D2 = A + B + C, ADR-006), merged 480p/720p/1080p video and audio, MP3. Tasks T16–T18; T19 merges the branch into `main`, tags `v1.0.0-beta.3` and signs `1.0.0-beta.3` (versionCode 3, 2026-10-04) |
 
 ## Current phase state
 
@@ -22,10 +22,10 @@ Phases 0–7, 5E (YouTube, owner override) and 6R (UI redesign) are complete and
 `main`. `1.0.0-beta.1` was published on 2026-10-02; `1.0.0-beta.2` (the redesign) is a signed draft
 pre-release from 2026-10-03 (tag `v1.0.0-beta.2` on `39ea049`).
 
-Phase 8 is planned on `work/phase-8-field-fixes`. Tasks, status board, owner decisions and
-findings for Phases 8–10 live in [`FIX_PLAN.md`](FIX_PLAN.md); ready-to-paste prompts are in
-[`prompts/`](prompts/README.md). Agents update the status board there, not this file, until a
-phase is complete.
+Phases 8–10 are complete on `work/phase-8-field-fixes` (T01–T18; T10 and T15 skipped by the
+owner). T19 merges them into `main` and releases `1.0.0-beta.3`. Tasks, owner decisions, findings
+and the phone checklists live in [`FIX_PLAN.md`](FIX_PLAN.md); prompts are in
+[`prompts/`](prompts/README.md).
 
 ## History
 

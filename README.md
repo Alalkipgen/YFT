@@ -6,14 +6,14 @@ YFT is an ad-free Android application for detecting, previewing and downloading 
 
 - `1.0.0-beta.1` is published (2026-10-02). `1.0.0-beta.2`, the first build with the redesigned
   interface, is a signed draft pre-release (2026-10-03).
-- The owner's phone test of beta.2 found blocking problems: the in-app browser closes the app on
-  every page load, the empty browser hides its address bar, and Home lookups fail for a public
-  Facebook reel (asks to sign in), TikTok (download refused) and YouTube (bot check). Causes and
-  the fix plan: [`docs/FIX_PLAN.md`](docs/FIX_PLAN.md).
-- Next: Phase 8 field fixes → `1.0.0-beta.3`; Phase 9 copied-link flow ("Video you copied" sheet,
-  Search to download, floating Download button) → beta.4; Phase 10 formats and YouTube (merged
-  720p/1080p, MP3) → beta.5.
-- Complete: Phases 0–7, 5E (YouTube by owner decision,
+- `1.0.0-beta.3` (2026-10-04, versionCode 3) completes Phases 8–10: the fixes from the owner's
+  beta.2 phone test (browser crash, start page, Facebook, TikTok, YouTube messages), the
+  copied-link flow ("Video you copied", Search to download, the floating Download button) and
+  YouTube 480p–1080p with sound plus MP3. Notes and the phone checklist:
+  [`docs/release/1.0.0-beta.3.md`](docs/release/1.0.0-beta.3.md); causes and tasks:
+  [`docs/FIX_PLAN.md`](docs/FIX_PLAN.md).
+- Next: the owner's phone check of beta.3; no further tasks are planned.
+- Complete: Phases 0–10, 5E (YouTube by owner decision,
   [ADR-005](docs/decisions/ADR-005-youtube-owner-override.md)) and the UI redesign
   ([`docs/design/DESIGN-NOTES.md`](docs/design/DESIGN-NOTES.md)); see
   [`docs/PHASE_STATUS.md`](docs/PHASE_STATUS.md). YouTube risks and limits:
@@ -22,11 +22,11 @@ YFT is an ad-free Android application for detecting, previewing and downloading 
 
 ## Install the beta
 
-Requires Android 7.0 (API 24) or newer; the app targets Android 15 (API 35). Once the owner publishes a release, download `video-downloader-<version>.apk` and `SHA256SUMS` from the repository's GitHub Releases page, check the file with `sha256sum -c SHA256SUMS` (or `Get-FileHash` on Windows), open the APK on the phone and allow your browser or file manager to install unknown apps when Android asks. Later releases signed with the same key update in place. Details and known issues: [`docs/release/1.0.0-beta.2.md`](docs/release/1.0.0-beta.2.md) and [`CHANGELOG.md`](CHANGELOG.md).
+Requires Android 7.0 (API 24) or newer; the app targets Android 15 (API 35). Once the owner publishes a release, download `video-downloader-<version>.apk` and `SHA256SUMS` from the repository's GitHub Releases page, check the file with `sha256sum -c SHA256SUMS` (or `Get-FileHash` on Windows), open the APK on the phone and allow your browser or file manager to install unknown apps when Android asks. Later releases signed with the same key update in place. Details and known issues: [`docs/release/1.0.0-beta.3.md`](docs/release/1.0.0-beta.3.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Current state
 
-Verified with JVM, Robolectric and fixture tests; on-device checks that the agent environment cannot run are listed in [`docs/TEST_MATRIX.md`](docs/TEST_MATRIX.md). The beta.2 field problems above are not fixed yet.
+Verified with JVM, Robolectric and fixture tests; on-device checks that the agent environment cannot run are listed in [`docs/TEST_MATRIX.md`](docs/TEST_MATRIX.md). The beta.2 field problems are fixed in `1.0.0-beta.3`; its phone checks are still open.
 
 - A production Android app with application ID `com.alal.yft` and a `.debug` debug suffix.
 - A hardened HTTPS WebView with address, back/forward, reload/stop, progress and safe error states.

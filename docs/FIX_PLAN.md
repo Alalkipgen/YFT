@@ -155,7 +155,7 @@ Agents update the **Status** column in every task checkpoint.
 | T16 | [YouTube client strategy](#t16--youtube-client-strategy) | 10 | P1 (owner) | Very hard (A + B + C) | 6–9 d | D2 = A + B + C, T08 | OWNER CHECK |
 | T17 | [Higher qualities: merge video and audio](#t17--higher-qualities-merge-video-and-audio) | 10 | P3 | Hard | 2–3 d | T16 | OWNER CHECK (2026-10-04) |
 | T18 | [MP3 audio](#t18--mp3-audio) | 10 | P3 | Hard | 2–3 d | D3 (YES) | OWNER CHECK (2026-10-04) |
-| T19 | [Signed release 1.0.0-beta.3](#t19--signed-release-100-beta3) | 10 | P3 | Easy | 0.5 d | T09, T11–T18; merge, tag and signing approved by the owner | TODO |
+| T19 | [Signed release 1.0.0-beta.3](#t19--signed-release-100-beta3) | 10 | P3 | Easy | 0.5 d | T09, T11–T18; merge, tag and signing approved by the owner | IN PROGRESS (2026-10-04) |
 
 Estimates are agent working days and leave out the owner's phone checks. Totals: Phase 8 about
 6 days, Phase 9 about 4–5 days, Phase 10 about 4–6 days with option B or 7–11 days with option A,

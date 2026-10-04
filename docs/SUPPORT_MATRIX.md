@@ -41,7 +41,7 @@ Status values:
 | Live-stream recording | Deferred | Post-MVP | Not part of initial release |
 | Playlist/batch download | Deferred | Post-MVP | Not part of initial release |
 | Android versions | Implemented | 1–7 | Android 7.0 (API 24) or newer, target and compile SDK 35 (Android 15). Verified with Robolectric on API 28 and 35 only; no device run |
-| Signed GitHub release | Implemented | 7 | Version `1.0.0-beta.1`, release signing, APK verification, checksums and a draft-only workflow are in place and were verified with a throwaway key on 2026-10-02. No owner-signed APK exists and nothing is published until the owner provides the keystore and sets `ALLOW_RELEASE=true`; distribution is GitHub-only `1.0.0-beta.1` published 2026-10-02; `1.0.0-beta.2` signed draft 2026-10-03. |
+| Signed GitHub release | Implemented | 7, 10 | Release signing, APK verification, checksums and a draft-only workflow (verified with a throwaway key on 2026-10-02). `release-draft.yml` signs with the owner's key from repository secrets and creates a draft; nothing is published until the owner sets `ALLOW_RELEASE=true`. Distribution is GitHub-only. `1.0.0-beta.1` published 2026-10-02; `1.0.0-beta.2` signed draft 2026-10-03; `1.0.0-beta.3` (versionCode 3, Phases 8–10) tagged `v1.0.0-beta.3` on 2026-10-04 (T19). |
 
 ## Headless lookup identity (T05, 2026-10-03)
 
