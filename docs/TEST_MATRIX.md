@@ -588,8 +588,22 @@ repository that asks each client and prints only verdicts and counts.
 | WebView client | `SecureBrowserWebViewClientTest`: an in-page address is reported once (not for the document's own commit or a reload), requests then carry the new address, the DOM probe runs 1.5 s later only for the address the page stayed on |
 | ViewModel | `BrowserViewModelTest`: feed → video A → video B (address, empty scope, one lookup each after 500 ms, the site's cookie carried over, Download button shown then hidden), observations after the change belong to the new video, a late answer for A never shows on B, quick scrolling looks up only the video that stays, the same post with `?pp=`/`#t=` keeps its candidates and title, a fragment change keeps generic media |
 | Local validation | core-browser 57 tests (new `PageCandidateStoreTest` move case), 0 failures; app browser and detection suites 105 tests, 0 failures; `:app:lintDebug`; full app suite in CI |
-| CI | Checkpoint and emulator runs on the P1 commit |
+| CI | PASS — checkpoint run https://github.com/Alalkipgen/YFT/actions/runs/37212263487, emulator run https://github.com/Alalkipgen/YFT/actions/runs/37212263477 |
 | Owner check | m.youtube.com → tap a video → the address shows `/watch` → Download button → sheet; scroll to another video → the button follows it |
+
+### P2 — Facebook and TikTok black page in the browser (OWNER CHECK, 2026-10-04)
+
+| Check | Result |
+| --- | --- |
+| Reproduction | `SitePageDiagnosticTest` (CI emulator, API 34, real WebView) logs safe `YFT-DIAG` numbers; `ci-smoke-diagnostics.py` turns them into one notice per case. It never fails a run (live sites change) |
+| Cause 1: zero-height page | Emulator run 21 (`9b124df`): `fb-share` video box `320x0`, `doc=320x493`; Compose's default wrap-content parameters gave the WebView a zero viewport height. With `MATCH_PARENT` (run 23, `8023c3b`, https://github.com/Alalkipgen/YFT/actions/runs/37214874452): video box `320x493`, `readyState 4`, playing, dark pixels 64 %, Download button after 1 s, the tap stays on the reel |
+| Cause 2: WebView identity | TikTok gave the WebView identity a video error (`MEDIA_ERR_SRC_NOT_SUPPORTED`) and the Chrome-like identity a playing video (`readyState 4`); the browser now uses the Chrome-like identity (`BrowserUserAgent`). The comparison case `tt-video-ua` was dropped because the production browser is that identity now |
+| Facebook lookup on phone pages | Owner phone 2026-10-04: the reel plays and the Download button appears, but "Facebook changed its page format" showed. Live check: a phone identity gets the mobile page without JSON payloads; the adapter now asks with a desktop identity. Regression `FacebookExtractorTest` "a phone identity asks for the desktop page" failed on the old code (expected the desktop agent, was the phone agent) and passes |
+| Layout regression | `BrowserRouteTest.theBrowserWebViewFillsItsBoxInsteadOfWrappingItsContent` failed without the `MATCH_PARENT` parameters and passes |
+| Policy tests | `AppLinkPolicyTest` (http error, `intent://` fallback once, other schemes ignored), `BrowserUserAgentTest`, `SecureBrowserChromeClientTest` (full screen show/hide), `SecureWebViewPolicyTest`, `BrowserRouteTest` full-screen case |
+| Local validation | See the P2 checkpoint in SESSION_STATE: extractor-sites, core-browser and app unit tests, app lint, androidTest compile, `scripts/tests` |
+| CI | Checkpoint and emulator runs on the P2 commit (SESSION_STATE) |
+| Owner check | Facebook share link → Open in browser → the reel shows and plays, full screen works, the Download button appears and no "changed its page format" notice; TikTok on the CI emulator only |
 
 ## Runtime tests still requiring a device/emulator
 

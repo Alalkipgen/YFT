@@ -11,6 +11,11 @@ for every APK given to users, because Android refuses to install a lower one.
 
 - Browser: a video opened inside a page (YouTube's mobile site, Facebook, TikTok) is looked up
   like a new page, so the Download button follows it; the previous video's media no longer shows.
+- Browser: Facebook reels and share links no longer show a black page, and TikTok videos play. The
+  page fills the browser, the browser introduces itself like Chrome on the phone, "Open app"
+  links keep the page, and a video's full-screen button works (Back leaves full screen).
+- Facebook in the browser: the lookup asks Facebook for its desktop page, so a reel opened in the
+  browser no longer shows "Facebook changed its page format" and finds the video's qualities.
 
 ### Changed
 

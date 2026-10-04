@@ -118,6 +118,33 @@ class FacebookExtractorTest {
     }
 
     @Test
+    fun `a phone identity asks for the desktop page and media keep the phone identity`() =
+        runTest {
+            val identity = identity("1234567890123456")
+            val http = FakeExtractorHttpClient.serving(
+                url = identity.canonicalPageUrl,
+                body = Fixtures.read("facebook/watch_progressive.html"),
+            )
+
+            val result = FacebookExtractor(http).extract(request(identity, PHONE_AGENT))
+                as SiteExtractionResult.Success
+
+            assertEquals(DESKTOP_AGENT, http.requestedHeaders.single()["User-Agent"])
+            assertTrue(result.candidates.all { it.requestContext.userAgent == PHONE_AGENT })
+        }
+
+    @Test
+    fun `the page identity keeps desktop and unknown agents and has a version fallback`() {
+        assertEquals("fixture-agent", FacebookPageIdentity.forPageRequest("fixture-agent"))
+        assertEquals(null, FacebookPageIdentity.forPageRequest(null))
+        assertEquals(
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) " +
+                "Chrome/130.0.0.0 Safari/537.36",
+            FacebookPageIdentity.forPageRequest("Mozilla/5.0 (iPhone) Mobile/15E148"),
+        )
+    }
+
+    @Test
     fun `a share link resolves through the redirect and keeps the real page identity`() = runTest {
         val shareUrl = "https://www.facebook.com/share/v/aBc123dEf/"
         val identity = FacebookUrls.identify(shareUrl)!!
@@ -280,11 +307,14 @@ class FacebookExtractorTest {
         canonicalPageUrl = "https://www.facebook.com/watch/?v=$videoId",
     )
 
-    private fun request(identity: SitePageIdentity) = SiteExtractionRequest(
+    private fun request(
+        identity: SitePageIdentity,
+        userAgent: String = "fixture-agent",
+    ) = SiteExtractionRequest(
         identity = identity,
         requestContext = BrowserRequestContext(
             pageUrl = identity.canonicalPageUrl,
-            userAgent = "fixture-agent",
+            userAgent = userAgent,
             cookie = "c_user=0; xs=fixture-cookie",
         ),
         nowEpochMs = NOW_EPOCH_MS,
@@ -292,5 +322,11 @@ class FacebookExtractorTest {
 
     private companion object {
         const val NOW_EPOCH_MS = 1_700_000_000_000
+
+        /** The production browser's identity: the WebView's without `; wv` and `Version/4.0`. */
+        const val PHONE_AGENT = "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) Chrome/129.0.6668.100 Mobile Safari/537.36"
+        const val DESKTOP_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) Chrome/129.0.6668.100 Safari/537.36"
     }
 }

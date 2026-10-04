@@ -62,6 +62,23 @@ def site_diagnostics(sanitized):
     return lines, errors
 
 
+ANCESTORS = re.compile(r" p[abc]=\S*")
+
+
+def site_cases(lines):
+    """Groups diagnostic lines by case, without the video ancestor chains.
+
+    GitHub cuts an annotation at about 4 KB, which hid the TikTok lines behind Facebook's, so
+    every case gets its own notice. The ancestor chains found the 0-height reel box (P2) and are
+    no longer needed.
+    """
+    cases = {}
+    for line in lines:
+        compact = ANCESTORS.sub("", line)
+        cases.setdefault(compact.split(" ", 1)[0], []).append(compact)
+    return list(cases.items())
+
+
 def sanitize_reports(folders):
     totals = dict(tests=0, failures=0, errors=0, skipped=0)
     for folder in folders:
@@ -105,8 +122,9 @@ def diagnostics(raw, output, emit=print, require_screenshots=False):
         emit("::warning::Public HTML5 page was slow; media-found assertion is best effort")
     emit(f"::notice::Emulator logcat FATAL EXCEPTION count: {len(fatal)}")
     site_lines, console_errors = site_diagnostics(sanitized)
-    if site_lines:
-        emit("::notice::Site page diagnostics%0A" + escape_annotation("\n".join(site_lines[:40])))
+    for case, lines in site_cases(site_lines):
+        body = escape_annotation("\n".join(lines[:12]))
+        emit(f"::notice::Site page diagnostics {case}%0A{body}")
     if console_errors:
         emit("::notice::Page console errors: " + ", ".join(
             f"{name}={count}" for name, count in sorted(console_errors.items())

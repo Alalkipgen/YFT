@@ -153,7 +153,9 @@ class FacebookExtractor(
     private fun pageHeaders(context: BrowserRequestContext): Map<String, String> =
         PageNavigationHeaders.withDefaults(
             buildMap {
-                context.userAgent?.takeIf(String::isNotBlank)?.let { put("User-Agent", it) }
+                FacebookPageIdentity.forPageRequest(context.userAgent)
+                    ?.takeIf(String::isNotBlank)
+                    ?.let { put("User-Agent", it) }
                 context.cookie?.takeIf(String::isNotBlank)?.let { put("Cookie", it) }
                 put("Accept-Language", "en-US,en;q=0.9")
                 put("Referer", "https://www.facebook.com/")

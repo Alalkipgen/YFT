@@ -52,13 +52,18 @@ class SmokeDiagnosticsTest(unittest.TestCase):
             raw = root / "raw.txt"
             output = root / "artifact"
             raw.write_text(
-                "YFT-DIAG fb-share load dark=97pc\nYFT-DIAG fb-share tap dark=10pc\n"
+                "YFT-DIAG fb-share load dark=97pc pa=DIV0blocabs\n"
+                "YFT-DIAG tt-video load ready=4\nYFT-DIAG fb-share tap dark=10pc\n"
             )
             messages = []
             self.assertEqual(0, smoke.diagnostics(raw, output, messages.append))
             self.assertIn(
-                "::notice::Site page diagnostics%0Afb-share load dark=97pc%0Afb-share tap dark=10pc",
+                "::notice::Site page diagnostics fb-share%0A"
+                "fb-share load dark=97pc%0Afb-share tap dark=10pc",
                 messages,
+            )
+            self.assertIn(
+                "::notice::Site page diagnostics tt-video%0Att-video load ready=4", messages
             )
 
     def test_fatal_log_is_redacted_removed_and_returns_failure(self):

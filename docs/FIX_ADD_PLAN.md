@@ -110,7 +110,7 @@ AI agent time includes builds and CI waits on a 4 GiB sandbox.
 | --- | --- | --- | --- | --- | --- |
 | P0 | [Plan, prompts and docs for Phase 11](#p0--plan-prompts-and-docs) | Easy | 1–2 h | owner approval | DONE (2026-10-04) |
 | P1 | [Browser follows in-page navigation (YouTube Download button)](#p1--browser-follows-in-page-navigation) | Medium | 3–5 h | — | OWNER CHECK (2026-10-04) |
-| P2 | [Facebook/TikTok black page in the browser](#p2--facebook-and-tiktok-black-page-in-the-browser) | Medium–Hard | 4–8 h | P1 | TODO |
+| P2 | [Facebook/TikTok black page in the browser](#p2--facebook-and-tiktok-black-page-in-the-browser) | Medium–Hard | 4–8 h | P1 | OWNER CHECK (2026-10-04) |
 | P3 | [One download sheet, Snaptube style](#p3--one-download-sheet-snaptube-style) | Hard | 10–14 h | P1 | TODO |
 | P4 | [Facebook: one video, every quality](#p4--facebook-one-video-every-quality) | Medium–Hard | 5–8 h | P3 | TODO |
 | P5 | [Download button on feeds (focused video)](#p5--download-button-on-feeds) | Hard | 6–10 h | P1, P3 | TODO |
@@ -175,6 +175,14 @@ Checked in the code at `2f6284f` (2026-10-04).
   user agent (`; wv`) gets an app-redirect page; `fb://`/`intent://` app-open navigations are
   blocked by `shouldOverrideUrlLoading` and leave a blank page; `mediaPlaybackRequiresUserGesture`
   keeps the reel unloaded; `SecureBrowserChromeClient` has no `onShowCustomView` (full screen).
+  **Found in P2 (CI emulator):** Compose's default wrap-content layout gave the WebView a zero
+  viewport height (Facebook's reel video box was 320x0), and TikTok gave the WebView identity a
+  video its engine could not load. Fixed with `MATCH_PARENT` and a Chrome-like identity.
+- **G7 — Facebook's mobile page (P2 owner phone test).** Facebook answers a phone identity with
+  its mobile page: no JSON payloads, the video in `data-extra` attributes with an inline DASH
+  manifest (one `Representation` per height plus audio, each a whole file at its `BaseURL` with a
+  `SegmentBase` index), and share links resolved by a script. The adapter's page request now uses
+  a desktop identity (P2); the inline manifest is the same data P4 needs from the DASH manifest.
 - **G6 — 1080p cap (item 5).** YouTube merged rows are `MERGED_QUALITIES = {480, 720, 1080}` and
   AVC only (`YouTubeExtractor`); `AudioVideoMuxEngine` writes MPEG-4 only. YouTube's 1440p and
   2160p exist only as VP9 or AV1.
@@ -252,6 +260,18 @@ emulator test that the Facebook and TikTok pages are not blank (pixel check) and
 full screen works, the Download button appears.
 
 **Docs:** SUPPORT_MATRIX (browser, Facebook, TikTok), TEST_MATRIX, CHANGELOG, SESSION_STATE.
+
+**Result (2026-10-04, OWNER CHECK):** reproduced on the CI emulator with safe page diagnostics
+(`SitePageDiagnosticTest`, one notice per case, never failing). Fixes: the WebView fills its box
+(`MATCH_PARENT`; the reel video was 320x0), a Chrome-like browser identity (`BrowserUserAgent`;
+TikTok plays), app-open links keep the page (`AppLinkPolicy`), the player's full screen
+(`BrowserFullscreen`, Back leaves it), and an early site lookup 1.5 s after the page starts. The
+owner's phone (2026-10-04) showed the reel playing with the Download button, plus a "Facebook
+changed its page format" notice: the adapter fetched the page with the browser's phone identity
+and got Facebook's mobile page (G7); its page request now uses a desktop identity with the same
+engine version. Media playback still needs the user's tap (`mediaPlaybackRequiresUserGesture`
+stays on: the reel already plays muted and the owner saw it play); third-party cookies stay off
+(no evidence needed them). Tests: TEST_MATRIX P2.
 
 ### P3 — One download sheet, Snaptube style
 

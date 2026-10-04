@@ -53,15 +53,7 @@ class SitePageDiagnosticTest {
     @Test
     fun tiktokVideo() = diagnose("tt-video", TIKTOK_VIDEO)
 
-    @Test
-    fun tiktokVideoChromeIdentity() = diagnose("tt-video-ua", TIKTOK_VIDEO, chromeLike = true)
-
-    private fun diagnose(
-        case: String,
-        url: String,
-        chromeLike: Boolean = false,
-        wideViewport: Boolean = false,
-    ) {
+    private fun diagnose(case: String, url: String, wideViewport: Boolean = false) {
         runCatching {
             composeRule.waitUntil(20_000) { hasNode("home-open-browser") }
             composeRule.onNodeWithTag("home-open-browser").performClick()
@@ -69,12 +61,8 @@ class SitePageDiagnosticTest {
             composeRule.waitUntil(30_000) { findWebView() != null }
             val webView = checkNotNull(findWebView())
             SystemClock.sleep(3_000)
-            instrumentation.runOnMainSync {
-                if (chromeLike) {
-                    webView.settings.userAgentString =
-                        chromeLikeUserAgent(webView.settings.userAgentString)
-                }
-                if (wideViewport) {
+            if (wideViewport) {
+                instrumentation.runOnMainSync {
                     webView.settings.useWideViewPort = true
                     webView.settings.loadWithOverviewMode = true
                 }
@@ -101,7 +89,8 @@ class SitePageDiagnosticTest {
                 case,
                 "load",
                 "chain=${chain.joinToString(">")} fabAt=${fabAt}s " +
-                    "found=${hasNode("media-found-button")} ${pixelStats(webView)} " +
+                    "found=${hasNode("media-found-button")} " +
+                    "notice=${hasNode("browser-site-notice")} ${pixelStats(webView)} " +
                     evaluate(webView),
             )
             saveScreenshot("p2-$case")
@@ -111,7 +100,8 @@ class SitePageDiagnosticTest {
                 case,
                 "tap",
                 "url=${safeAddress(mainFrameUrl(webView))} " +
-                    "fab=${hasNode("browser-download-fab")} ${pixelStats(webView)} " +
+                    "fab=${hasNode("browser-download-fab")} " +
+                    "notice=${hasNode("browser-site-notice")} ${pixelStats(webView)} " +
                     evaluate(webView),
             )
             saveScreenshot("p2-$case-tap")
@@ -258,10 +248,6 @@ class SitePageDiagnosticTest {
             val path = (uri.encodedPath ?: "").replace(Regex("[^A-Za-z0-9._/-]"), "_").take(48)
             return "${uri.host}$path"
         }
-
-        /** The WebView identity without the `; wv` token and `Version/4.0`, like Chrome. */
-        fun chromeLikeUserAgent(webViewAgent: String): String =
-            webViewAgent.replace("; wv)", ")").replace(Regex("""Version/\d+(\.\d+)* """), "")
 
         val PAGE_PROBE = """
             (function () {

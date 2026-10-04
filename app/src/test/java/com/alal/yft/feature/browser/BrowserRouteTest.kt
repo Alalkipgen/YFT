@@ -93,6 +93,20 @@ class BrowserRouteTest {
     }
 
     @Test
+    fun theBrowserWebViewFillsItsBoxInsteadOfWrappingItsContent() {
+        showRoute()
+        navigate("example.test/one")
+
+        // With wrap-content parameters a real WebView lays pages out with a zero viewport
+        // height: Facebook's reel video got a 320x0 box (P2 emulator diagnostics).
+        composeRule.runOnIdle {
+            val params = webViews().single().layoutParams
+            assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, params.width)
+            assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, params.height)
+        }
+    }
+
+    @Test
     fun homeLinkCanCreateAndLoadTheFirstWebViewWithoutAReadinessDeadlock() {
         showRoute(initialLink = "example.test/one")
 
