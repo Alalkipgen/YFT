@@ -128,6 +128,17 @@ class SiteAdapterCoordinator @Inject constructor(
         }
 
     /**
+     * Whether two addresses show the same post of the same site, for example when the site adds
+     * a tracking or start-time parameter to the address after the video opened.
+     */
+    fun sameContent(firstUrl: String, secondUrl: String): Boolean {
+        val first = registry.select(firstUrl) as? SiteAdapterSelection.Matched ?: return false
+        val second = registry.select(secondUrl) as? SiteAdapterSelection.Matched ?: return false
+        return first.identity.siteId == second.identity.siteId &&
+            first.identity.contentId == second.identity.contentId
+    }
+
+    /**
      * Re-anchors a candidate to the live page address.
      *
      * Only the grouping key changes. The request context keeps the canonical page the adapter

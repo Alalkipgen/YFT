@@ -2,6 +2,8 @@ package com.alal.yft.core.browser.webview
 
 import android.graphics.Bitmap
 import android.net.http.SslError
+import android.os.Handler
+import android.os.Looper
 import android.webkit.SslErrorHandler
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -19,6 +21,9 @@ class SecureBrowserWebViewClient(
     private val clock: () -> Long = System::currentTimeMillis,
     private val pageUrlState: BrowserPageUrl = BrowserPageUrl(),
 ) : WebViewClient() {
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var pendingDomProbe: Runnable? = null
+
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
         if (!request.isForMainFrame) return false
         val blocked = !BrowserAddressNormalizer.isAllowedTopLevelUrl(request.url.toString())
@@ -34,7 +39,26 @@ class SecureBrowserWebViewClient(
     }
 
     override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
+        val previous = pageUrlState.get()
         pageUrlState.update(url)
+        // A new document already reported its address from onPageStarted; only an address the
+        // page changed by itself (single-page navigation) is new here.
+        if (url == null || url == previous) return
+        sink.onUrlChanged(url)
+        // A single-page site renders the next video after the address changed, and no
+        // onPageFinished follows, so the DOM probe runs once the new view has had time to render.
+        // Only the newest address keeps its pending probe.
+        pendingDomProbe?.let(mainHandler::removeCallbacks)
+        val probe = Runnable {
+            pendingDomProbe = null
+            if (pageUrlState.get() == url) {
+                view.evaluateJavascript(DomMediaProbe.script) { result ->
+                    sink.onDomProbeResult(url, result)
+                }
+            }
+        }
+        pendingDomProbe = probe
+        mainHandler.postDelayed(probe, IN_PAGE_DOM_PROBE_DELAY_MS)
     }
 
     override fun onPageFinished(view: WebView, url: String?) {
@@ -96,5 +120,10 @@ class SecureBrowserWebViewClient(
     ) {
         handler.cancel()
         sink.onMainFrameError(error.url, "TLS certificate validation failed")
+    }
+
+    internal companion object {
+        /** How long after an in-page address change the DOM probe looks for the new player. */
+        const val IN_PAGE_DOM_PROBE_DELAY_MS = 1_500L
     }
 }

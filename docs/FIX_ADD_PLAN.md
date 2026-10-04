@@ -109,7 +109,7 @@ AI agent time includes builds and CI waits on a 4 GiB sandbox.
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
 | P0 | [Plan, prompts and docs for Phase 11](#p0--plan-prompts-and-docs) | Easy | 1–2 h | owner approval | DONE (2026-10-04) |
-| P1 | [Browser follows in-page navigation (YouTube Download button)](#p1--browser-follows-in-page-navigation) | Medium | 3–5 h | — | TODO |
+| P1 | [Browser follows in-page navigation (YouTube Download button)](#p1--browser-follows-in-page-navigation) | Medium | 3–5 h | — | OWNER CHECK (2026-10-04) |
 | P2 | [Facebook/TikTok black page in the browser](#p2--facebook-and-tiktok-black-page-in-the-browser) | Medium–Hard | 4–8 h | P1 | TODO |
 | P3 | [One download sheet, Snaptube style](#p3--one-download-sheet-snaptube-style) | Hard | 10–14 h | P1 | TODO |
 | P4 | [Facebook: one video, every quality](#p4--facebook-one-video-every-quality) | Medium–Hard | 5–8 h | P3 | TODO |
@@ -213,6 +213,14 @@ FAB visibility after an in-page change; the old code fails them.
 
 **Owner check:** m.youtube.com → tap a video → the address shows `/watch` and the Download button
 appears → it opens the sheet.
+
+**Result (2026-10-04, OWNER CHECK):** the client reports every address change it did not load
+(fragments too, because requests carry the new address); the ViewModel keeps the same page
+(fragment, or the same post with another parameter via `SiteAdapterCoordinator.sameContent`) and
+starts a new scope for another video: candidates, notice and retry reset, old lookups cancelled
+and ignored by page generation, the site's cookie context carried over, adapters after 500 ms of
+a stable address, DOM probe after 1.5 s. Tests: core-browser 57, app browser/detection suites 105
+(TEST_MATRIX P1).
 
 **Docs:** SUPPORT_MATRIX (browser row), TEST_MATRIX, CHANGELOG, SESSION_STATE, this board.
 

@@ -26,6 +26,13 @@ class PageProbeBudget(
         }
     }
 
+    /** Keeps the spent budget when the same page only changed the address it shows. */
+    fun movePage(pageUrl: String) {
+        synchronized(lock) {
+            if (currentPageUrl != null) currentPageUrl = pageUrl
+        }
+    }
+
     fun tryAcquire(pageUrl: String, requestUrl: String): Boolean = synchronized(lock) {
         if (pageUrl != currentPageUrl || seenKeys.size >= maxUniqueUrls) return false
         val key = requestUrl.budgetKey() ?: return false

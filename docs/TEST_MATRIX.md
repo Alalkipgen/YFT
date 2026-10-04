@@ -580,6 +580,17 @@ repository that asks each client and prints only verdicts and counts.
 | Signed release | `release-draft.yml` on tag `v1.0.0-beta.3`: lint, unit tests, signed minified build, signature, certificate and checksum checks, draft pre-release — PASS, https://github.com/Alalkipgen/YFT/actions/runs/37204457527: `video-downloader-1.0.0-beta.3.apk` 6,334,176 bytes, SHA-256 `8fe466f17b62e88cdd5deb08482f7dc4c70a1a3dba7182bf94b93c6d1604e955`, certificate `3A:EB:30:64:…:EC:78:98:8F` (same key as beta.1/beta.2) |
 | Owner check | Release notes Phone checklist: all three lists with the signed APK |
 
+### P1 — Browser follows in-page navigation (OWNER CHECK, 2026-10-04)
+
+| Check | Result |
+| --- | --- |
+| Regression | PASS — with `BrowserViewModel.onUrlChanged` emptied (old behaviour) the in-page tests fail; with the fix they pass |
+| WebView client | `SecureBrowserWebViewClientTest`: an in-page address is reported once (not for the document's own commit or a reload), requests then carry the new address, the DOM probe runs 1.5 s later only for the address the page stayed on |
+| ViewModel | `BrowserViewModelTest`: feed → video A → video B (address, empty scope, one lookup each after 500 ms, the site's cookie carried over, Download button shown then hidden), observations after the change belong to the new video, a late answer for A never shows on B, quick scrolling looks up only the video that stays, the same post with `?pp=`/`#t=` keeps its candidates and title, a fragment change keeps generic media |
+| Local validation | core-browser 57 tests (new `PageCandidateStoreTest` move case), 0 failures; app browser and detection suites 105 tests, 0 failures; `:app:lintDebug`; full app suite in CI |
+| CI | Checkpoint and emulator runs on the P1 commit |
+| Owner check | m.youtube.com → tap a video → the address shows `/watch` → Download button → sheet; scroll to another video → the button follows it |
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |

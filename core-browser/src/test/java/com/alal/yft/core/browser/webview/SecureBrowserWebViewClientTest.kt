@@ -8,6 +8,7 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import androidx.test.core.app.ApplicationProvider
+import com.alal.yft.core.browser.detection.DomMediaProbe
 import com.alal.yft.core.browser.detection.DownloadObservation
 import com.alal.yft.core.browser.detection.RequestObservation
 import java.io.ByteArrayInputStream
@@ -22,6 +23,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
@@ -68,6 +70,45 @@ class SecureBrowserWebViewClientTest {
         val observation = sink.requests.single()
         assertEquals(pageUrl, observation.pageUrl)
         assertEquals("YFT-Test", observation.userAgent)
+    }
+
+    @Test
+    fun inPageAddressChangesAreReportedOnceAndRequestsFollowTheNewAddress() {
+        val feed = "https://m.example.test/"
+        val video = "https://m.example.test/watch?v=abc"
+        client.onPageStarted(webView, feed, null)
+        // A new document commits the address onPageStarted already reported.
+        client.doUpdateVisitedHistory(webView, feed, false)
+        assertTrue(sink.urlChanges.isEmpty())
+
+        client.doUpdateVisitedHistory(webView, video, false)
+        client.doUpdateVisitedHistory(webView, video, true)
+
+        assertEquals(listOf(video), sink.urlChanges)
+        client.shouldInterceptRequest(
+            webView,
+            request("https://cdn.test/next.mp4", isForMainFrame = false),
+        )
+        assertEquals(video, sink.requests.single().pageUrl)
+    }
+
+    @Test
+    fun domProbeRunsForTheNewAddressOnlyWhileThePageStaysThere() {
+        val feed = "https://m.example.test/"
+        val first = "https://m.example.test/watch?v=first"
+        val second = "https://m.example.test/watch?v=second"
+        client.onPageStarted(webView, feed, null)
+        client.doUpdateVisitedHistory(webView, first, false)
+        shadowOf(Looper.getMainLooper()).idleFor(500, TimeUnit.MILLISECONDS)
+        client.doUpdateVisitedHistory(webView, second, false)
+        shadowOf(Looper.getMainLooper()).idleFor(1_000, TimeUnit.MILLISECONDS)
+        // The first address was left before its probe was due.
+        assertNull(shadowOf(webView).lastEvaluatedJavascript)
+
+        shadowOf(Looper.getMainLooper()).idleFor(500, TimeUnit.MILLISECONDS)
+        assertEquals(DomMediaProbe.script, shadowOf(webView).lastEvaluatedJavascript)
+        shadowOf(webView).lastEvaluatedJavascriptCallback.onReceiveValue("[]")
+        assertEquals(listOf(second to "[]"), sink.domResults)
     }
 
     @Test
@@ -226,15 +267,22 @@ class SecureBrowserWebViewClientTest {
     private class RecordingSink : BrowserObservationSink {
         val errors = mutableListOf<Pair<String?, String>>()
         val requests = CopyOnWriteArrayList<RequestObservation>()
+        val urlChanges = mutableListOf<String>()
+        val domResults = mutableListOf<Pair<String, String?>>()
 
         override fun onPageStarted(url: String) = Unit
         override fun onPageFinished(url: String, title: String?) = Unit
+        override fun onUrlChanged(url: String) {
+            urlChanges += url
+        }
         override fun onProgressChanged(progress: Int) = Unit
         override fun onRequest(observation: RequestObservation) {
             requests += observation
         }
         override fun onDownload(observation: DownloadObservation) = Unit
-        override fun onDomProbeResult(pageUrl: String, result: String?) = Unit
+        override fun onDomProbeResult(pageUrl: String, result: String?) {
+            domResults += pageUrl to result
+        }
 
         override fun onMainFrameError(url: String?, description: String) {
             errors += url to description

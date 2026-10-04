@@ -34,6 +34,29 @@ class PageCandidateStore(
         }
     }
 
+    /**
+     * Keeps the current page's candidates under a new address of the same page, for example when
+     * the site adds a parameter or a fragment to the address it shows. Only the grouping key
+     * changes; anything submitted for the old address afterwards is ignored.
+     */
+    fun movePage(pageUrl: String) {
+        synchronized(lock) {
+            if (currentPageUrl == null || currentPageUrl == pageUrl) return
+            currentPageUrl = pageUrl
+            val moved = rawCandidates.map { it.copy(pageUrl = pageUrl) }
+            rawCandidates.clear()
+            rawCandidates.addAll(moved)
+            mutableCandidates.value = mutableCandidates.value.map { it.copy(pageUrl = pageUrl) }
+            if (normalizeJob?.isActive == true) {
+                normalizeJob?.cancel()
+                normalizeJob = scope.launch {
+                    delay(debounceMillis)
+                    publishSnapshot(pageUrl)
+                }
+            }
+        }
+    }
+
     fun submit(candidate: MediaCandidate) {
         synchronized(lock) {
             if (candidate.pageUrl != currentPageUrl) return

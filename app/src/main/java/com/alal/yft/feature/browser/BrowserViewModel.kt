@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -90,6 +91,14 @@ class BrowserViewModel(
     /** Whether this page already had its one automatic retry. */
     @Volatile
     private var autoRetried = false
+
+    /** Counts page scopes, so a lookup that finishes after the page changed is dropped. */
+    @Volatile
+    private var pageGeneration = 0L
+
+    /** Whether the site adapters were already asked about the current page scope. */
+    @Volatile
+    private var siteLookupStarted = false
 
     init {
         homeSitesRepository?.let { repository ->
@@ -166,14 +175,8 @@ class BrowserViewModel(
     }
 
     override fun onPageStarted(url: String) {
-        activePageUrl = url
+        beginPageScope(url)
         browserContext = null
-        awaitingPlayback = false
-        autoRetried = false
-        pageProbeJob.cancel()
-        pageProbeJob = SupervisorJob(viewModelScope.coroutineContext[Job])
-        candidateStore.beginPage(url)
-        probeBudget.beginPage(url)
         mutableUiState.update {
             it.copy(
                 address = url.takeUnless { value -> value == BLANK_PAGE }.orEmpty(),
@@ -198,8 +201,75 @@ class BrowserViewModel(
                 progress = 100,
             )
         }
-        runSiteAdapters(url, title)
+        if (!siteLookupStarted) runSiteAdapters(url, title)
     }
+
+    /**
+     * Follows an address the page changed by itself, such as YouTube's mobile site opening a
+     * video from its feed with `history.pushState` (P1).
+     *
+     * Another video is a new page: its candidates, notice and retry state start empty, the old
+     * page's lookups are cancelled, and the site adapters are asked once the address has stayed
+     * the same for [IN_PAGE_LOOKUP_DELAY_MS], so scrolling through several videos does not start
+     * a lookup for each. The same page under a new address (a fragment, or the same post with
+     * another parameter) keeps what was already found.
+     */
+    override fun onUrlChanged(url: String) {
+        val previous = activePageUrl
+        if (url == previous) return
+        if (previous != null && isSamePage(previous, url)) {
+            activePageUrl = url
+            candidateStore.movePage(url)
+            probeBudget.movePage(url)
+            browserContext = browserContext?.copy(pageUrl = url)
+            mutableUiState.update {
+                it.copy(
+                    address = url.takeUnless { value -> value == BLANK_PAGE }.orEmpty(),
+                    currentUrl = url,
+                )
+            }
+            return
+        }
+        // The site's session carries over to its next page; another site's never does.
+        val siteContext = browserContext?.takeIf { context ->
+            context.pageUrl?.let { previousPage -> isSameSite(url, previousPage) } == true
+        }
+        beginPageScope(url)
+        browserContext = siteContext?.copy(pageUrl = url)
+        mutableUiState.update {
+            it.copy(
+                address = url.takeUnless { value -> value == BLANK_PAGE }.orEmpty(),
+                currentUrl = url,
+                pageTitle = null,
+                errorMessage = null,
+                candidates = emptyList(),
+                siteNotice = null,
+                canRetrySiteLookup = false,
+            )
+        }
+        val generation = pageGeneration
+        viewModelScope.launch(pageProbeJob) {
+            delay(IN_PAGE_LOOKUP_DELAY_MS)
+            if (generation == pageGeneration && !siteLookupStarted) runSiteAdapters(url, null)
+        }
+    }
+
+    /** Starts an empty scope for a new page and cancels everything the previous page started. */
+    private fun beginPageScope(url: String) {
+        pageGeneration++
+        activePageUrl = url
+        awaitingPlayback = false
+        autoRetried = false
+        siteLookupStarted = false
+        pageProbeJob.cancel()
+        pageProbeJob = SupervisorJob(viewModelScope.coroutineContext[Job])
+        candidateStore.beginPage(url)
+        probeBudget.beginPage(url)
+    }
+
+    private fun isSamePage(previous: String, next: String): Boolean =
+        previous.substringBefore('#') == next.substringBefore('#') ||
+            siteAdapters.sameContent(previous, next)
 
     /**
      * Consults the site adapters once the page has settled.
@@ -210,13 +280,17 @@ class BrowserViewModel(
      * page exposes anyway.
      */
     private fun runSiteAdapters(pageUrl: String, title: String?) {
+        siteLookupStarted = true
+        val generation = pageGeneration
         viewModelScope.launch(pageProbeJob) {
             val outcome = siteAdapters.inspect(
                 pageUrl = pageUrl,
                 requestContext = browserContext ?: BrowserRequestContext(pageUrl, null, null),
                 nowEpochMs = clock(),
             )
-            if (pageUrl != activePageUrl) return@launch
+            if (generation != pageGeneration) return@launch
+            // The same page may have changed its address meanwhile; group under the live one.
+            val livePageUrl = activePageUrl ?: return@launch
             if (outcome !is SiteAdapterOutcome.Failed) {
                 awaitingPlayback = false
                 mutableUiState.update { it.copy(siteNotice = null, canRetrySiteLookup = false) }
@@ -226,11 +300,12 @@ class BrowserViewModel(
 
                 is SiteAdapterOutcome.Detected -> candidateStore.submitAll(
                     outcome.candidates.map { candidate ->
-                        if (candidate.title != null) {
+                        val titled = if (candidate.title != null) {
                             candidate
                         } else {
                             candidate.copy(title = title?.trim()?.take(MAX_TITLE_LENGTH))
                         }
+                        if (titled.pageUrl == livePageUrl) titled else titled.copy(pageUrl = livePageUrl)
                     },
                 )
 
@@ -380,5 +455,8 @@ class BrowserViewModel(
         const val MAX_TITLE_LENGTH = 200
         const val BLANK_PAGE = "about:blank"
         const val RETRY_NOTICE = "Checking this page again…"
+
+        /** How long an in-page address must stay before the site adapters are asked about it. */
+        const val IN_PAGE_LOOKUP_DELAY_MS = 500L
     }
 }

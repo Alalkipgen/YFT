@@ -6,7 +6,11 @@ import com.alal.yft.core.browser.detection.RequestObservation
 import com.alal.yft.core.data.preferences.HomeSitesRepository
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.testing.MainDispatcherRule
+import com.alal.yft.ui.components.isSavable
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -351,6 +355,196 @@ class BrowserViewModelTest {
         assertTrue(viewModel.uiState.value.canRetrySiteLookup)
     }
 
+    @Test
+    fun inPageNavigationFromAFeedLooksUpEachVideoAsANewPage() = runTest {
+        val extractor = ScriptedExtractor(
+            SiteExtractionResult.Success(listOf(fixtureCandidate(VIDEO_A, "a.mp4"))),
+            SiteExtractionResult.Success(listOf(fixtureCandidate(VIDEO_B, "b.mp4"))),
+        )
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor))
+        viewModel.onPageStarted(FEED_PAGE)
+        viewModel.onRequest(request("https://fixture.test/api/feed", "SID=own", FEED_PAGE))
+        viewModel.onDomProbeResult(
+            pageUrl = FEED_PAGE,
+            result = """[{"url":"https://cdn.test/feed-preview.mp4","type":"video/mp4"}]""",
+        )
+        viewModel.onPageFinished(FEED_PAGE, "Feed")
+        advanceTimeBy(250)
+        runCurrent()
+        assertEquals(listOf("https://cdn.test/feed-preview.mp4"), mediaUrls(viewModel))
+        assertTrue(extractor.requests.isEmpty())
+
+        // YouTube's mobile site opens a video with history.pushState: no page load follows.
+        viewModel.onUrlChanged(VIDEO_A)
+        assertTrue(viewModel.uiState.value.candidates.isEmpty())
+        assertEquals(VIDEO_A, viewModel.uiState.value.address)
+        assertEquals(VIDEO_A, viewModel.uiState.value.currentUrl)
+        advanceTimeBy(499)
+        runCurrent()
+        assertTrue(extractor.requests.isEmpty())
+        advanceTimeBy(1)
+        runCurrent()
+        advanceTimeBy(250)
+        runCurrent()
+        assertEquals(listOf("1"), extractor.requests.map { it.identity.contentId })
+        // The site's own session carries over to its next page.
+        assertEquals(listOf("SID=own"), extractor.cookies())
+        assertEquals(listOf("https://cdn.fixture.test/a.mp4"), mediaUrls(viewModel))
+        assertEquals(VIDEO_A, viewModel.uiState.value.candidates.single().pageUrl)
+        assertTrue(downloadButtonVisible(viewModel))
+
+        viewModel.onUrlChanged(VIDEO_B)
+        assertTrue(viewModel.uiState.value.candidates.isEmpty())
+        assertFalse(downloadButtonVisible(viewModel))
+        advanceTimeBy(500)
+        runCurrent()
+        advanceTimeBy(250)
+        runCurrent()
+        assertEquals(listOf("1", "2"), extractor.requests.map { it.identity.contentId })
+        assertEquals(listOf("https://cdn.fixture.test/b.mp4"), mediaUrls(viewModel))
+        assertEquals(VIDEO_B, viewModel.uiState.value.candidates.single().pageUrl)
+    }
+
+    @Test
+    fun observationsAfterAnInPageChangeBelongToTheNewVideo() = runTest {
+        val extractor = ScriptedExtractor(
+            SiteExtractionResult.Success(listOf(fixtureCandidate(VIDEO_A, "a.mp4"))),
+        )
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor))
+        viewModel.onPageStarted(FEED_PAGE)
+        viewModel.onPageFinished(FEED_PAGE, "Feed")
+        runCurrent()
+
+        viewModel.onUrlChanged(VIDEO_A)
+        viewModel.onRequest(request("https://fixture.test/api/player", "SID=new", VIDEO_A))
+        // Anything still arriving for the feed is the old page's.
+        viewModel.onDomProbeResult(
+            pageUrl = FEED_PAGE,
+            result = """[{"url":"https://cdn.test/feed-preview.mp4","type":"video/mp4"}]""",
+        )
+        viewModel.onDomProbeResult(
+            pageUrl = VIDEO_A,
+            result = """[{"url":"https://cdn.test/player.mp4","type":"video/mp4"}]""",
+        )
+        advanceTimeBy(500)
+        runCurrent()
+        advanceTimeBy(250)
+        runCurrent()
+
+        assertEquals(listOf("SID=new"), extractor.cookies())
+        assertEquals(
+            listOf("https://cdn.fixture.test/a.mp4", "https://cdn.test/player.mp4"),
+            mediaUrls(viewModel).sorted(),
+        )
+    }
+
+    @Test
+    fun aLookupForAnEarlierVideoNeverShowsOnTheNextOne() = runTest {
+        val gate = CompletableDeferred<SiteExtractionResult>()
+        val extractor = GatedExtractor(
+            gates = mapOf("1" to gate),
+            results = mapOf(
+                "2" to SiteExtractionResult.Success(listOf(fixtureCandidate(VIDEO_B, "b.mp4"))),
+            ),
+        )
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor))
+        viewModel.onPageStarted(FEED_PAGE)
+        viewModel.onPageFinished(FEED_PAGE, "Feed")
+        viewModel.onUrlChanged(VIDEO_A)
+        advanceTimeBy(500)
+        runCurrent()
+        assertEquals(listOf("1"), extractor.asked)
+
+        viewModel.onUrlChanged(VIDEO_B)
+        // The first video's answer arrives after the user moved on to the next one.
+        gate.complete(SiteExtractionResult.Success(listOf(fixtureCandidate(VIDEO_A, "a.mp4"))))
+        runCurrent()
+        advanceTimeBy(500)
+        runCurrent()
+        advanceTimeBy(250)
+        runCurrent()
+
+        assertEquals(listOf("1", "2"), extractor.asked)
+        assertEquals(listOf("https://cdn.fixture.test/b.mp4"), mediaUrls(viewModel))
+    }
+
+    @Test
+    fun scrollingPastVideosLooksUpOnlyTheOneThatStays() = runTest {
+        val extractor = ScriptedExtractor()
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor))
+        viewModel.onPageStarted(FEED_PAGE)
+        viewModel.onPageFinished(FEED_PAGE, "Feed")
+
+        viewModel.onUrlChanged(VIDEO_A)
+        advanceTimeBy(300)
+        viewModel.onUrlChanged(VIDEO_B)
+        advanceTimeBy(300)
+        viewModel.onUrlChanged(VIDEO_C)
+        advanceTimeBy(500)
+        runCurrent()
+
+        assertEquals(listOf("3"), extractor.requests.map { it.identity.contentId })
+    }
+
+    @Test
+    fun theSamePageUnderANewAddressKeepsWhatWasFound() = runTest {
+        val extractor = ScriptedExtractor(
+            SiteExtractionResult.Success(listOf(fixtureCandidate(VIDEO_A, "a.mp4"))),
+        )
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor))
+        viewModel.onPageStarted(VIDEO_A)
+        viewModel.onPageFinished(VIDEO_A, "Clip")
+        runCurrent()
+        advanceTimeBy(250)
+        runCurrent()
+        assertEquals(listOf("https://cdn.fixture.test/a.mp4"), mediaUrls(viewModel))
+
+        // The site adds a parameter, then a fragment, to the address of the same video.
+        val shared = "$VIDEO_A?pp=share"
+        viewModel.onUrlChanged(shared)
+        viewModel.onUrlChanged("$shared#t=10")
+        viewModel.onPageFinished("$shared#t=10", "Clip")
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        assertEquals(1, extractor.requests.size)
+        assertEquals("$shared#t=10", viewModel.uiState.value.address)
+        assertEquals(listOf("https://cdn.fixture.test/a.mp4"), mediaUrls(viewModel))
+        assertEquals("$shared#t=10", viewModel.uiState.value.candidates.single().pageUrl)
+        assertEquals("Clip", viewModel.uiState.value.pageTitle)
+    }
+
+    @Test
+    fun aFragmentChangeOnAnyPageKeepsItsMedia() = runTest {
+        val viewModel = BrowserViewModel(OkHttpClient(), noAdapters())
+        val page = "https://example.test/article"
+        viewModel.onPageStarted(page)
+        viewModel.onDomProbeResult(
+            pageUrl = page,
+            result = """[{"url":"https://cdn.test/clip.mp4","type":"video/mp4"}]""",
+        )
+        advanceTimeBy(250)
+        runCurrent()
+
+        viewModel.onUrlChanged("$page#comments")
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        assertEquals(listOf("https://cdn.test/clip.mp4"), mediaUrls(viewModel))
+        assertEquals("$page#comments", viewModel.uiState.value.currentUrl)
+    }
+
+    private fun downloadButtonVisible(viewModel: BrowserViewModel): Boolean =
+        BrowserDownloadFab.isVisible(
+            hasPage = viewModel.uiState.value.currentUrl != null,
+            savableCount = viewModel.uiState.value.candidates.count { it.isSavable },
+            sheetExpanded = false,
+            editingAddress = false,
+        )
+
+    private fun mediaUrls(viewModel: BrowserViewModel): List<String> =
+        viewModel.uiState.value.candidates.map { it.mediaUrl }
+
     private fun noAdapters(): SiteAdapterCoordinator =
         SiteAdapterCoordinator(SiteExtractorRegistry(emptyList()))
 
@@ -371,12 +565,42 @@ class BrowserViewModelTest {
         observedAtEpochMs = 1_000,
     )
 
-    private fun fixtureCandidate(): MediaCandidate = MediaCandidate(
-        pageUrl = FIXTURE_PAGE,
-        mediaUrl = "https://cdn.fixture.test/42.mp4",
+    private fun fixtureCandidate(
+        page: String = FIXTURE_PAGE,
+        file: String = "42.mp4",
+    ): MediaCandidate = MediaCandidate(
+        pageUrl = page,
+        mediaUrl = "https://cdn.fixture.test/$file",
         sources = setOf(CandidateSource.MANIFEST),
         kind = MediaKind.DIRECT,
     )
+
+    /** Holds the answer for some videos until the test releases it, even after cancellation. */
+    private class GatedExtractor(
+        private val gates: Map<String, CompletableDeferred<SiteExtractionResult>>,
+        private val results: Map<String, SiteExtractionResult>,
+    ) : SiteExtractor {
+        override val id: String = "fixture"
+        override val displayName: String = "Fixture Site"
+        val asked = mutableListOf<String>()
+
+        override fun identify(pageUrl: String): SitePageIdentity? {
+            if (!pageUrl.startsWith(FIXTURE_PREFIX)) return null
+            val contentId = pageUrl.removePrefix(FIXTURE_PREFIX).substringBefore('?')
+            return SitePageIdentity("fixture", contentId, "$FIXTURE_PREFIX$contentId")
+        }
+
+        override fun isPlayerMediaRequest(requestUrl: String): Boolean = false
+
+        override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
+            val contentId = request.identity.contentId
+            asked += contentId
+            val gate = gates[contentId]
+                ?: return results[contentId]
+                    ?: SiteExtractionResult.Failure(SiteExtractionFailure.NO_MEDIA_FOUND)
+            return withContext(NonCancellable) { gate.await() }
+        }
+    }
 
     /** Answers each lookup with the next scripted result and records what it was asked. */
     private class ScriptedExtractor(vararg results: SiteExtractionResult) : SiteExtractor {
@@ -407,5 +631,9 @@ class BrowserViewModelTest {
         const val FIXTURE_PREFIX = "https://fixture.test/video/"
         const val FIXTURE_PAGE = "${FIXTURE_PREFIX}42"
         const val MEDIA_REQUEST = "https://media.fixture.test/stream?part=1"
+        const val FEED_PAGE = "https://fixture.test/feed"
+        const val VIDEO_A = "${FIXTURE_PREFIX}1"
+        const val VIDEO_B = "${FIXTURE_PREFIX}2"
+        const val VIDEO_C = "${FIXTURE_PREFIX}3"
     }
 }

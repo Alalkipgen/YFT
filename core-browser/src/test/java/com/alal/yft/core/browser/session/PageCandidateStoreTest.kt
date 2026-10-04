@@ -44,6 +44,31 @@ class PageCandidateStoreTest {
     }
 
     @Test
+    fun movingThePageKeepsPublishedAndPendingCandidatesUnderTheNewAddress() = runTest {
+        val page = "https://example.test/watch?v=1"
+        val moved = "https://example.test/watch?v=1&pp=share"
+        val store = PageCandidateStore(scope = this, debounceMillis = 100)
+        store.beginPage(page)
+        store.submit(candidate(page, "https://cdn.test/first.mp4", 1))
+        advanceTimeBy(100)
+        runCurrent()
+        store.submit(candidate(page, "https://cdn.test/second.mp4", 2))
+
+        // The second candidate is still waiting for the debounce when the address changes.
+        store.movePage(moved)
+        assertEquals(listOf(moved), store.candidates.value.map { it.pageUrl })
+        store.submit(candidate(page, "https://cdn.test/stale.mp4", 3))
+        advanceTimeBy(100)
+        runCurrent()
+
+        assertEquals(
+            listOf("https://cdn.test/first.mp4", "https://cdn.test/second.mp4"),
+            store.candidates.value.map { it.mediaUrl }.sorted(),
+        )
+        assertTrue(store.candidates.value.all { it.pageUrl == moved })
+    }
+
+    @Test
     fun rawObservationBufferIsBounded() = runTest {
         val page = "https://example.test/watch"
         val store = PageCandidateStore(

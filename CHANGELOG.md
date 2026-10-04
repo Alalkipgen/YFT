@@ -7,6 +7,11 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ## [Unreleased]
 
+### Fixed
+
+- Browser: a video opened inside a page (YouTube's mobile site, Facebook, TikTok) is looked up
+  like a new page, so the Download button follows it; the previous video's media no longer shows.
+
 ### Changed
 
 - Documentation: `docs/FIX_ADD_PLAN.md` plans Phase 11 (download flow like Snaptube) task by task

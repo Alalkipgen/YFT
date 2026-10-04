@@ -20,8 +20,10 @@
   download choices are split, Facebook shows only some qualities, and 2K/4K are missing.
 - **Owner instruction (2026-10-04):** "Do P0 first, then P1; don't stop, don't ask." Continue P1 →
   P7 task after task with a checkpoint push and a short Burmese report after each.
-- **Next action — agent:** P1 — the browser follows in-page navigation
-  ([`prompts/P1-browser-spa-navigation.md`](prompts/P1-browser-spa-navigation.md)).
+- **Done in Phase 11:** P0 plan and docs (`99efca6`); P1 OWNER CHECK (2026-10-04) — the browser
+  follows in-page navigation, so the Download button follows a video opened inside the page.
+- **Next action — agent:** P2 — Facebook/TikTok black page in the browser
+  ([`prompts/P2-facebook-black-page.md`](prompts/P2-facebook-black-page.md)).
 - **Next action — owner:** publish the beta.3 draft when ready; phone checks per task from the
   `yft-debug-apk` builds (FIX_ADD_PLAN §6); the P7 preview APK installs next to the release app.
 - **Earlier handoffs:** the Phases 8–10 task log (T01–T19 validation, CI runs, decisions) is in Git
