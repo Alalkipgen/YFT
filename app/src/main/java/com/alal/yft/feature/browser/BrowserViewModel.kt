@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.alal.yft.core.browser.detection.BrowserObservationMapper
 import com.alal.yft.core.browser.detection.DomProbeResultParser
 import com.alal.yft.core.browser.detection.DownloadObservation
+import com.alal.yft.core.browser.detection.FocusedVideoProbe
 import com.alal.yft.core.browser.detection.MediaMetadataProbe
 import com.alal.yft.core.browser.detection.RequestObservation
 import com.alal.yft.core.browser.policy.BrowserAddressNormalizer
@@ -16,18 +17,23 @@ import com.alal.yft.core.data.preferences.HomeSitesRepository
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaGroup
+import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.detection.SiteScope
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
+import com.alal.yft.ui.components.isSavable
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.net.URI
 import javax.inject.Inject
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -65,6 +71,15 @@ class BrowserViewModel(
 
     private val mutableUiState = MutableStateFlow(BrowserUiState())
     val uiState: StateFlow<BrowserUiState> = mutableUiState.asStateFlow()
+
+    private val quickDownloads = Channel<Unit>(Channel.CONFLATED)
+
+    /** P5: one event each time the video in focus on a feed was found and its sheet may open. */
+    val quickDownloadRequests: Flow<Unit> = quickDownloads.receiveAsFlow()
+
+    /** The running lookup of the video in focus; a new tap replaces it. */
+    private var focusLookup: Job? = null
+    private var focusNoticeTimer: Job? = null
 
     private val candidateStore = PageCandidateStore(scope = viewModelScope)
     private val domParser = DomProbeResultParser()
@@ -191,7 +206,7 @@ class BrowserViewModel(
                 candidates = emptyList(),
                 siteNotice = null,
                 canRetrySiteLookup = false,
-            )
+            ).withFeedOf(url)
         }
     }
 
@@ -229,7 +244,7 @@ class BrowserViewModel(
                 it.copy(
                     address = url.takeUnless { value -> value == BLANK_PAGE }.orEmpty(),
                     currentUrl = url,
-                )
+                ).withFeedOf(url, samePage = true)
             }
             return
         }
@@ -248,7 +263,7 @@ class BrowserViewModel(
                 candidates = emptyList(),
                 siteNotice = null,
                 canRetrySiteLookup = false,
-            )
+            ).withFeedOf(url)
         }
         val generation = pageGeneration
         viewModelScope.launch(pageProbeJob) {
@@ -271,6 +286,106 @@ class BrowserViewModel(
         }
     }
 
+    /**
+     * P5: the script that finds the video in focus, for the Download button on a YouTube,
+     * Facebook or TikTok page. Null on every other site, so no script runs there.
+     */
+    fun focusedVideoScript(): String? {
+        val pageUrl = activePageUrl ?: return null
+        if (!FocusedVideoProbe.isFeedSite(pageUrl)) return null
+        focusNoticeTimer?.cancel()
+        mutableUiState.update { it.copy(findingFocusedVideo = true, focusNotice = FINDING_NOTICE) }
+        // A page that never answers the script must not leave the button waiting.
+        val generation = pageGeneration
+        focusNoticeTimer = viewModelScope.launch {
+            delay(FOCUS_SCRIPT_TIMEOUT_MS)
+            if (generation == pageGeneration && focusLookup?.isActive != true) {
+                finishFocusLookup(NO_FOCUSED_VIDEO_NOTICE)
+            }
+        }
+        return FocusedVideoProbe.script
+    }
+
+    /**
+     * P5: looks up the video the [focusedVideoScript] found with its site adapter and asks the
+     * route to open its download sheet. A page with no video in focus, or a video the adapter
+     * cannot read, gets a short notice instead. A result for a page the browser left is dropped.
+     */
+    fun onFocusedVideoResult(javascriptResult: String?) {
+        if (!mutableUiState.value.findingFocusedVideo) return
+        val pageUrl = activePageUrl ?: return
+        val generation = pageGeneration
+        focusNoticeTimer?.cancel()
+        focusLookup?.cancel()
+        val focused = FocusedVideoProbe.parse(javascriptResult, pageUrl)
+            ?.takeIf { siteAdapters.handles(it.url) }
+        if (focused == null) {
+            finishFocusLookup(NO_FOCUSED_VIDEO_NOTICE)
+            return
+        }
+        focusLookup = viewModelScope.launch(pageProbeJob) {
+            // The site's own session reads the video's page as the feed did; another's never.
+            val context = browserContext?.takeIf { context ->
+                context.pageUrl?.let { page -> isSameSite(focused.url, page) } == true
+            }
+            val outcome = siteAdapters.inspect(
+                pageUrl = focused.url,
+                requestContext = context?.copy(pageUrl = focused.url)
+                    ?: BrowserRequestContext(focused.url, null, null),
+                nowEpochMs = clock(),
+            )
+            if (generation != pageGeneration) return@launch
+            when (outcome) {
+                is SiteAdapterOutcome.Detected -> {
+                    val video = MediaGroups.pageVideos(outcome.candidates.filter { it.isSavable })
+                        .firstOrNull()
+                    if (video == null) {
+                        finishFocusLookup(PROTECTED_FOCUSED_VIDEO_NOTICE)
+                    } else {
+                        detectedMediaStore.select(video)
+                        finishFocusLookup(notice = null)
+                        quickDownloads.trySend(Unit)
+                    }
+                }
+
+                is SiteAdapterOutcome.Failed -> finishFocusLookup(outcome.message)
+                SiteAdapterOutcome.NotHandled -> finishFocusLookup(NO_FOCUSED_VIDEO_NOTICE)
+            }
+        }
+    }
+
+    /** Ends the focused-video lookup with [notice], which clears itself after a few seconds. */
+    private fun finishFocusLookup(notice: String?) {
+        focusNoticeTimer?.cancel()
+        mutableUiState.update { it.copy(findingFocusedVideo = false, focusNotice = notice) }
+        if (notice == null) return
+        focusNoticeTimer = viewModelScope.launch {
+            delay(FOCUS_NOTICE_MS)
+            mutableUiState.update { state ->
+                if (state.focusNotice == notice) state.copy(focusNotice = null) else state
+            }
+        }
+    }
+
+    /**
+     * The page's feed state (P5): whether the Download button may look for the video in focus,
+     * and whether the page is a feed rather than one video's own page. A new page forgets the
+     * previous page's focused-video lookup and notice; the same page under a new address keeps
+     * them.
+     */
+    private fun BrowserUiState.withFeedOf(
+        url: String,
+        samePage: Boolean = false,
+    ): BrowserUiState {
+        val feedSite = FocusedVideoProbe.isFeedSite(url)
+        return copy(
+            findsFocusedVideo = feedSite,
+            feedPage = feedSite && !siteAdapters.handles(url),
+            findingFocusedVideo = findingFocusedVideo && samePage,
+            focusNotice = focusNotice.takeIf { samePage },
+        )
+    }
+
     /** Starts an empty scope for a new page and cancels everything the previous page started. */
     private fun beginPageScope(url: String) {
         pageGeneration++
@@ -280,6 +395,9 @@ class BrowserViewModel(
         siteLookupStarted = false
         pageProbeJob.cancel()
         pageProbeJob = SupervisorJob(viewModelScope.coroutineContext[Job])
+        // The focused-video lookup ran in the old page's job; its notice goes with the page.
+        focusLookup = null
+        focusNoticeTimer?.cancel()
         candidateStore.beginPage(url)
         probeBudget.beginPage(url)
     }
@@ -482,6 +600,17 @@ class BrowserViewModel(
         const val MAX_TITLE_LENGTH = 200
         const val BLANK_PAGE = "about:blank"
         const val RETRY_NOTICE = "Checking this page again…"
+        const val FINDING_NOTICE = "Finding the video on screen…"
+        const val NO_FOCUSED_VIDEO_NOTICE =
+            "No video on screen to download. Scroll to a video and tap Download again."
+        const val PROTECTED_FOCUSED_VIDEO_NOTICE =
+            "This video is protected, so YFT can't save it."
+
+        /** How long a focused-video notice stays before it clears itself. */
+        const val FOCUS_NOTICE_MS = 4_000L
+
+        /** How long the page has to answer the focused-video script. */
+        const val FOCUS_SCRIPT_TIMEOUT_MS = 5_000L
 
         /** How long an in-page address must stay before the site adapters are asked about it. */
         const val IN_PAGE_LOOKUP_DELAY_MS = 500L

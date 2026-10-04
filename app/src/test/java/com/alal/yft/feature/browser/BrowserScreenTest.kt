@@ -283,6 +283,59 @@ class BrowserScreenTest {
     }
 
     @Test
+    fun aFeedShowsTheButtonWithNothingFoundAndATapLooksForTheVideoOnScreen() {
+        var focused = 0
+        val opened = mutableListOf<MediaGroup>()
+        var state by mutableStateOf(
+            BrowserUiState(
+                address = FEED,
+                currentUrl = FEED,
+                findsFocusedVideo = true,
+                feedPage = true,
+            ),
+        )
+        setScreen(
+            uiStateProvider = { state },
+            onDownloadGroup = { opened += it },
+            onDownloadFocused = { focused += 1 },
+        )
+
+        composeRule.onNodeWithContentDescription("Download the video on screen").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-download-fab").performClick()
+        composeRule.runOnIdle { assertEquals(1, focused) }
+
+        // A feed's own finds may be any video's: the tap still looks for the one on screen.
+        state = state.copy(candidates = listOf(clip(), stream()))
+        composeRule.onAllNodesWithTag("browser-download-fab-badge", useUnmergedTree = true)
+            .assertCountEquals(0)
+        composeRule.onNodeWithTag("browser-download-fab").performClick()
+        composeRule.runOnIdle {
+            assertEquals(2, focused)
+            assertTrue(opened.isEmpty())
+        }
+
+        // While it looks, another tap waits; the notice says what is happening.
+        state = state.copy(findingFocusedVideo = true, focusNotice = "Finding the video on screen…")
+        composeRule.onNodeWithTag("browser-focus-notice").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-download-fab").performClick()
+        composeRule.runOnIdle { assertEquals(2, focused) }
+    }
+
+    @Test
+    fun noFocusedVideoNoticeShowsWithoutAButtonOnOtherSites() {
+        setScreen(
+            uiState = BrowserUiState(
+                address = PAGE,
+                currentUrl = PAGE,
+                focusNotice = "No video on screen to download.",
+            ),
+        )
+
+        composeRule.onNodeWithTag("browser-focus-notice").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("browser-download-fab").assertCountEquals(0)
+    }
+
+    @Test
     fun noDownloadButtonForDrmOnlyPagesOrTheStartPage() {
         setScreen(
             uiState = BrowserUiState(
@@ -499,7 +552,9 @@ class BrowserScreenTest {
     }
 
     private fun setScreen(
-        uiState: BrowserUiState,
+        uiState: BrowserUiState = BrowserUiState(),
+        uiStateProvider: (() -> BrowserUiState)? = null,
+        onDownloadFocused: () -> Unit = {},
         canGoBack: Boolean = false,
         onAddressChanged: (String) -> Unit = {},
         onGo: () -> Unit = {},
@@ -526,7 +581,7 @@ class BrowserScreenTest {
             ) {
                 YftTheme(themeMode = ThemeMode.LIGHT) {
                     BrowserScreen(
-                        uiState = uiState,
+                        uiState = uiStateProvider?.invoke() ?: uiState,
                         canGoBack = canGoBack,
                         canGoForward = false,
                         onAddressChanged = onAddressChanged,
@@ -545,6 +600,7 @@ class BrowserScreenTest {
                         searchMode = searchMode,
                         onSearch = onSearch,
                         onDownloadCopiedLink = onDownloadCopiedLink,
+                        onDownloadFocused = onDownloadFocused,
                         browserSurface = { Box(modifier = it) },
                     )
                 }
@@ -576,5 +632,6 @@ class BrowserScreenTest {
 
     private companion object {
         const val PAGE = "https://example.test/watch"
+        const val FEED = "https://m.youtube.com/"
     }
 }

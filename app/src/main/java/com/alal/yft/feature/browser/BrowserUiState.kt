@@ -22,4 +22,18 @@ data class BrowserUiState(
     val siteNotice: String? = null,
     /** Whether the notice offers Try again, because asking again can change the answer. */
     val canRetrySiteLookup: Boolean = false,
+    /**
+     * P5: the page is on YouTube, Facebook or TikTok, so the Download button shows even before a
+     * file was found and can look for the video on screen.
+     */
+    val findsFocusedVideo: Boolean = false,
+    /**
+     * P5: the page is one of those sites' feeds, not one video's own page, so whatever it found
+     * may belong to any video in the feed and the button looks for the one on screen.
+     */
+    val feedPage: Boolean = false,
+    /** P5: the video on screen is being looked for or looked up. */
+    val findingFocusedVideo: Boolean = false,
+    /** P5: a short message about the video on screen, such as none being in view. */
+    val focusNotice: String? = null,
 )

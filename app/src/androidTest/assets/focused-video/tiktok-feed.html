@@ -1,0 +1,23 @@
+<!doctype html>
+<!-- Sanitized fixture of TikTok's mobile For You feed: invented users and IDs. -->
+<html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { margin: 0; }
+  section { display: block; height: 100vh; }
+  video { display: block; width: 100%; height: 80vh; }
+</style></head>
+<body>
+<section>
+  <div class="player"><video muted playsinline></video></div>
+  <a href="/@fixture.user/video/7300000000000000001?is_from_webapp=1&amp;sender_device=pc">
+    @fixture.user</a>
+</section>
+<section>
+  <div class="player"><video muted playsinline></video></div>
+  <a href="/@second_user/video/7300000000000000002">@second_user</a>
+</section>
+<script>
+  // Nothing plays yet: the video in the middle of the screen is the one in focus.
+  window.scrollTo(0, document.querySelectorAll('section')[1].offsetTop);
+</script>
+</body></html>

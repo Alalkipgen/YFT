@@ -1,0 +1,34 @@
+<!doctype html>
+<!-- Sanitized fixture of YouTube's mobile home feed: invented video IDs, no real titles. -->
+<html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { margin: 0; }
+  ytm-rich-item-renderer { display: block; height: 420px; border-bottom: 8px solid #eee; }
+  .media-item-thumbnail-container { display: block; height: 300px; background: #ccc; }
+  .chips a { display: inline-block; height: 40px; }
+</style></head>
+<body>
+<div class="chips"><a href="/feed/subscriptions">Subscriptions</a> <a href="/@channel">Channel</a></div>
+<ytm-rich-item-renderer>
+  <a class="media-item-thumbnail-container" href="/watch?v=AAAAAAAAAA1&pp=tracking"></a>
+  <a class="title" href="/watch?v=AAAAAAAAAA1">First video</a>
+</ytm-rich-item-renderer>
+<ytm-rich-item-renderer id="centre">
+  <a class="media-item-thumbnail-container" href="/watch?v=BBBBBBBBBB2&pp=tracking"></a>
+  <a class="title" href="/watch?v=BBBBBBBBBB2">Second video</a>
+</ytm-rich-item-renderer>
+<ytm-rich-item-renderer>
+  <a class="media-item-thumbnail-container" href="/watch?v=CCCCCCCCCC3"></a>
+  <a class="title" href="/watch?v=CCCCCCCCCC3">Third video</a>
+</ytm-rich-item-renderer>
+<ytm-rich-item-renderer>
+  <a class="media-item-thumbnail-container" href="/shorts/DDDDDDDDDD4"></a>
+  <a class="title" href="https://www.facebook.com/reel/1234567890">Another site's link</a>
+</ytm-rich-item-renderer>
+<div style="height: 2000px"></div>
+<script>
+  // The second video sits in the middle of the screen.
+  const item = document.getElementById('centre').getBoundingClientRect();
+  window.scrollTo(0, item.top + window.scrollY + item.height / 2 - window.innerHeight / 2);
+</script>
+</body></html>

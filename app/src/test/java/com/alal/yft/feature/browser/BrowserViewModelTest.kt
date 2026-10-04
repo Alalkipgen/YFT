@@ -1,6 +1,7 @@
 package com.alal.yft.feature.browser
 
 import com.alal.yft.core.browser.detection.DownloadObservation
+import com.alal.yft.core.browser.detection.FocusedVideoProbe
 import com.alal.yft.core.browser.detection.RequestObservation
 import com.alal.yft.core.data.preferences.HomeSitesRepository
 import com.alal.yft.core.model.settings.HomeSite
@@ -9,6 +10,8 @@ import com.alal.yft.ui.components.isSavable
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -29,8 +32,10 @@ import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -582,13 +587,177 @@ class BrowserViewModelTest {
         assertEquals(listOf("https://cdn.fixture.test/b.mp4"), mediaUrls(viewModel))
     }
 
+    @Test
+    fun aFeedTapLooksUpTheVideoOnScreenAndOpensItsDownloadSheet() = runTest {
+        val extractor = FeedVideoExtractor()
+        val store = DetectedMediaStore()
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor), store, { 7_000L })
+        val opened = mutableListOf<Unit>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.quickDownloadRequests.collect { opened += it }
+        }
+        viewModel.onPageStarted(YOUTUBE_FEED)
+        viewModel.onRequest(request(FEED_API, "SID=own", YOUTUBE_FEED))
+        viewModel.onPageFinished(YOUTUBE_FEED, "YouTube")
+        runCurrent()
+
+        // Nothing was found, yet the button shows and looks for the video on screen.
+        val state = viewModel.uiState.value
+        assertTrue(state.findsFocusedVideo)
+        assertTrue(state.feedPage)
+        assertTrue(downloadButtonVisible(viewModel))
+        assertEquals(
+            BrowserDownloadFab.Action.FIND_VIDEO_ON_SCREEN,
+            BrowserDownloadFab.action(0, state.findsFocusedVideo, state.feedPage),
+        )
+        assertTrue(extractor.requests.isEmpty())
+
+        assertEquals(FocusedVideoProbe.script, viewModel.focusedVideoScript())
+        assertTrue(viewModel.uiState.value.findingFocusedVideo)
+        assertEquals("Finding the video on screen…", viewModel.uiState.value.focusNotice)
+        viewModel.onFocusedVideoResult(answer("https://m.youtube.com/watch?v=BBBBBBBBBB2&pp=x"))
+        runCurrent()
+
+        val asked = extractor.requests.single()
+        assertEquals("BBBBBBBBBB2", asked.identity.contentId)
+        assertEquals(FOCUSED_VIDEO, asked.requestContext.pageUrl)
+        // The site's own session reads the video as the feed did.
+        assertEquals("SID=own", asked.requestContext.cookie)
+        assertEquals(7_000L, asked.nowEpochMs)
+        val selected = store.selection.value!!
+        assertEquals(listOf("https://cdn.fixture.test/BBBBBBBBBB2.mp4"), selected.candidates.map {
+            it.mediaUrl
+        })
+        assertEquals(listOf(FOCUSED_VIDEO), selected.candidates.map { it.pageUrl })
+        assertEquals(1, opened.size)
+        assertFalse(viewModel.uiState.value.findingFocusedVideo)
+        assertNull(viewModel.uiState.value.focusNotice)
+        // The feed itself still lists only what it found.
+        assertTrue(viewModel.uiState.value.candidates.isEmpty())
+        assertEquals(YOUTUBE_FEED, viewModel.uiState.value.currentUrl)
+    }
+
+    @Test
+    fun noVideoOnScreenOrAnUnreadableOneShowsAShortNoticeThatClearsItself() = runTest {
+        val extractor = FeedVideoExtractor(
+            failing = mapOf("FFFFFFFFFF7" to SiteExtractionFailure.NO_MEDIA_FOUND),
+        )
+        val store = DetectedMediaStore()
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor), store)
+        val opened = mutableListOf<Unit>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.quickDownloadRequests.collect { opened += it }
+        }
+        viewModel.onPageStarted(YOUTUBE_FEED)
+        viewModel.onPageFinished(YOUTUBE_FEED, "YouTube")
+        runCurrent()
+
+        viewModel.focusedVideoScript()
+        viewModel.onFocusedVideoResult(JSONObject.quote("""{"url":null,"source":"none"}"""))
+        runCurrent()
+        assertTrue(extractor.requests.isEmpty())
+        assertEquals(
+            "No video on screen to download. Scroll to a video and tap Download again.",
+            viewModel.uiState.value.focusNotice,
+        )
+        assertFalse(viewModel.uiState.value.findingFocusedVideo)
+        advanceTimeBy(3_999)
+        runCurrent()
+        assertNotNull(viewModel.uiState.value.focusNotice)
+        advanceTimeBy(1)
+        runCurrent()
+        assertNull(viewModel.uiState.value.focusNotice)
+
+        viewModel.focusedVideoScript()
+        viewModel.onFocusedVideoResult(answer("https://m.youtube.com/watch?v=FFFFFFFFFF7", "page"))
+        runCurrent()
+        assertEquals(listOf("FFFFFFFFFF7"), extractor.requests.map { it.identity.contentId })
+        assertEquals(
+            "This YouTube post has no downloadable video.",
+            viewModel.uiState.value.focusNotice,
+        )
+        assertTrue(opened.isEmpty())
+        assertNull(store.selection.value)
+
+        // A page that never answers the script does not leave the button waiting.
+        advanceTimeBy(4_000)
+        runCurrent()
+        viewModel.focusedVideoScript()
+        advanceTimeBy(5_000)
+        runCurrent()
+        assertFalse(viewModel.uiState.value.findingFocusedVideo)
+        assertEquals(
+            "No video on screen to download. Scroll to a video and tap Download again.",
+            viewModel.uiState.value.focusNotice,
+        )
+    }
+
+    @Test
+    fun noScriptRunsOnOtherSitesAndTheirButtonWaitsForAFind() = runTest {
+        val extractor = FeedVideoExtractor()
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor))
+        viewModel.onPageStarted("https://example.org/videos")
+        viewModel.onPageFinished("https://example.org/videos", "Videos")
+        runCurrent()
+
+        assertFalse(viewModel.uiState.value.findsFocusedVideo)
+        assertFalse(viewModel.uiState.value.feedPage)
+        assertFalse(downloadButtonVisible(viewModel))
+        assertNull(viewModel.focusedVideoScript())
+        viewModel.onFocusedVideoResult(answer("https://m.youtube.com/watch?v=BBBBBBBBBB2", "page"))
+        runCurrent()
+        assertTrue(extractor.requests.isEmpty())
+        assertNull(viewModel.uiState.value.focusNotice)
+    }
+
+    @Test
+    fun aVideoPageOfAFeedSiteIsNoFeedAndALeftFeedDropsItsLookup() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val extractor = FeedVideoExtractor(gate = gate)
+        val store = DetectedMediaStore()
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor), store)
+        val opened = mutableListOf<Unit>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.quickDownloadRequests.collect { opened += it }
+        }
+        viewModel.onPageStarted(YOUTUBE_FEED)
+        viewModel.onPageFinished(YOUTUBE_FEED, "YouTube")
+        runCurrent()
+        viewModel.focusedVideoScript()
+        viewModel.onFocusedVideoResult(answer("https://m.youtube.com/watch?v=BBBBBBBBBB2"))
+        runCurrent()
+        assertEquals(1, extractor.requests.size)
+
+        // The user opened a video before the lookup answered: its sheet must not open.
+        viewModel.onUrlChanged("https://m.youtube.com/watch?v=AAAAAAAAAA1")
+        assertTrue(viewModel.uiState.value.findsFocusedVideo)
+        assertFalse(viewModel.uiState.value.feedPage)
+        assertFalse(viewModel.uiState.value.findingFocusedVideo)
+        assertNull(viewModel.uiState.value.focusNotice)
+        gate.complete(Unit)
+        runCurrent()
+        assertTrue(opened.isEmpty())
+        assertNull(store.selection.value)
+        // A late answer of the old page's script is dropped too.
+        viewModel.onFocusedVideoResult(answer("https://m.youtube.com/watch?v=BBBBBBBBBB2"))
+        runCurrent()
+        assertEquals(listOf("BBBBBBBBBB2"), extractor.requests.map { it.identity.contentId }
+            .filter { it == "BBBBBBBBBB2" })
+        assertTrue(opened.isEmpty())
+    }
+
     private fun downloadButtonVisible(viewModel: BrowserViewModel): Boolean =
         BrowserDownloadFab.isVisible(
             hasPage = viewModel.uiState.value.currentUrl != null,
             savableCount = viewModel.uiState.value.candidates.count { it.isSavable },
             sheetExpanded = false,
             editingAddress = false,
+            findsFocusedVideo = viewModel.uiState.value.findsFocusedVideo,
         )
+
+    /** The focused-video script's answer as `WebView.evaluateJavascript` hands it back. */
+    private fun answer(url: String, source: String = "centre"): String =
+        JSONObject.quote(JSONObject().put("url", url).put("source", source).toString())
 
     private fun mediaUrls(viewModel: BrowserViewModel): List<String> =
         viewModel.uiState.value.candidates.map { it.mediaUrl }
@@ -650,6 +819,43 @@ class BrowserViewModelTest {
         }
     }
 
+    /** A YouTube-shaped adapter for the feed tests: watch pages only, one file per video. */
+    private class FeedVideoExtractor(
+        private val failing: Map<String, SiteExtractionFailure> = emptyMap(),
+        private val gate: CompletableDeferred<Unit>? = null,
+    ) : SiteExtractor {
+        override val id: String = "youtube"
+        override val displayName: String = "YouTube"
+        val requests = mutableListOf<SiteExtractionRequest>()
+
+        override fun identify(pageUrl: String): SitePageIdentity? {
+            val videoId = WATCH.matchEntire(pageUrl)?.groupValues?.get(1) ?: return null
+            return SitePageIdentity("youtube", videoId, "https://www.youtube.com/watch?v=$videoId")
+        }
+
+        override fun isPlayerMediaRequest(requestUrl: String): Boolean = false
+
+        override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
+            requests += request
+            gate?.let { withContext(NonCancellable) { it.await() } }
+            val videoId = request.identity.contentId
+            failing[videoId]?.let { return SiteExtractionResult.Failure(it) }
+            val candidate = MediaCandidate(
+                pageUrl = request.identity.canonicalPageUrl,
+                mediaUrl = "https://cdn.fixture.test/$videoId.mp4",
+                sources = setOf(CandidateSource.MANIFEST),
+                kind = MediaKind.DIRECT,
+                mimeType = "video/mp4",
+            )
+            return SiteExtractionResult.Success(listOf(candidate))
+        }
+
+        private companion object {
+            val WATCH =
+                Regex("https://(?:www|m)\\.youtube\\.com/watch\\?v=([A-Za-z0-9_-]{11})(?:&.*)?")
+        }
+    }
+
     /** Answers each lookup with the next scripted result and records what it was asked. */
     private class ScriptedExtractor(vararg results: SiteExtractionResult) : SiteExtractor {
         private val script = ArrayDeque(results.toList())
@@ -683,5 +889,8 @@ class BrowserViewModelTest {
         const val VIDEO_A = "${FIXTURE_PREFIX}1"
         const val VIDEO_B = "${FIXTURE_PREFIX}2"
         const val VIDEO_C = "${FIXTURE_PREFIX}3"
+        const val YOUTUBE_FEED = "https://m.youtube.com/"
+        const val FEED_API = "https://m.youtube.com/youtubei/v1/browse"
+        const val FOCUSED_VIDEO = "https://www.youtube.com/watch?v=BBBBBBBBBB2"
     }
 }

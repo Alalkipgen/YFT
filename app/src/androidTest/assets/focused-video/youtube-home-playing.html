@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- Sanitized fixture of YouTube's mobile home feed while an inline preview plays. -->
+<html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { margin: 0; }
+  ytm-rich-item-renderer { display: block; height: 420px; border-bottom: 8px solid #eee; }
+  .media-item-thumbnail-container { display: block; height: 300px; background: #ccc; }
+  video { display: block; width: 100%; height: 300px; }
+</style></head>
+<body>
+<ytm-rich-item-renderer>
+  <a class="media-item-thumbnail-container" href="/watch?v=AAAAAAAAAA1"></a>
+  <a class="title" href="/watch?v=AAAAAAAAAA1">First video</a>
+</ytm-rich-item-renderer>
+<ytm-rich-item-renderer>
+  <div class="inline-player"><video muted playsinline></video></div>
+  <a class="title" href="/watch?v=PPPPPPPPPP5&pp=tracking">Playing preview</a>
+</ytm-rich-item-renderer>
+<ytm-rich-item-renderer>
+  <a class="media-item-thumbnail-container" href="/watch?v=CCCCCCCCCC3"></a>
+  <a class="title" href="/watch?v=CCCCCCCCCC3">Third video</a>
+</ytm-rich-item-renderer>
+<div style="height: 2000px"></div>
+<script>
+  // The fixture cannot play media, so the preview reports what a playing video reports.
+  const video = document.querySelector('video');
+  Object.defineProperty(video, 'paused', { get: () => false });
+  Object.defineProperty(video, 'readyState', { get: () => 4 });
+  window.scrollTo(0, 260);
+</script>
+</body></html>

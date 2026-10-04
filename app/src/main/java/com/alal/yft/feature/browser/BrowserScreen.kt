@@ -188,6 +188,11 @@ fun BrowserRoute(
     LaunchedEffect(initialLink) {
         initialLink?.let(viewModel::openInitialLink)?.let(::requestNavigation)
     }
+    // P5: the video on screen was found and selected; its download sheet opens.
+    val openQuickDownload by rememberUpdatedState(onOpenQuickDownload)
+    LaunchedEffect(viewModel) {
+        viewModel.quickDownloadRequests.collect { openQuickDownload() }
+    }
     LaunchedEffect(webView, pendingUrl) {
         val browser = webView ?: return@LaunchedEffect
         val url = pendingUrl ?: return@LaunchedEffect
@@ -225,6 +230,14 @@ fun BrowserRoute(
             },
             onDownloadGroup = { group ->
                 if (viewModel.selectForDownload(group)) onOpenQuickDownload()
+            },
+            onDownloadFocused = {
+                // P5: the page script runs on the main thread; the view model never sees the page.
+                val browser = webView
+                val script = browser?.let { viewModel.focusedVideoScript() }
+                if (browser != null && script != null) {
+                    browser.evaluateJavascript(script, viewModel::onFocusedVideoResult)
+                }
             },
             onNavigateBack = onNavigateBack,
             onGoHome = onGoHome,
@@ -353,6 +366,7 @@ fun BrowserScreen(
     onUseCopiedLink: () -> Unit = {},
     onOpenSite: (HomeSite) -> Unit = {},
     onRetrySiteLookup: () -> Unit = {},
+    onDownloadFocused: () -> Unit = {},
     browserSurface: @Composable (Modifier) -> Unit,
 ) {
     val colors = YftTheme.colors
@@ -506,38 +520,65 @@ fun BrowserScreen(
                         .testTag("found-sheet-scrim"),
                 )
             }
-            if (showSheet) {
+            val fabAction = BrowserDownloadFab.action(
+                savableCount = videos.size,
+                findsFocusedVideo = uiState.findsFocusedVideo,
+                feedPage = uiState.feedPage,
+            )
+            val fabVisible = BrowserDownloadFab.isVisible(
+                hasPage = hasBrowserPage,
+                savableCount = videos.size,
+                sheetExpanded = sheetExpanded,
+                editingAddress = editingAddress,
+                findsFocusedVideo = uiState.findsFocusedVideo,
+            ) && fabAction != null
+            val findsOnScreen = fabAction == BrowserDownloadFab.Action.FIND_VIDEO_ON_SCREEN
+            val focusNotice = uiState.focusNotice?.takeIf { hasBrowserPage }
+            if (showSheet || fabVisible || focusNotice != null) {
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth(),
                     horizontalAlignment = Alignment.End,
                 ) {
-                    val fabVisible = BrowserDownloadFab.isVisible(
-                        hasPage = hasBrowserPage,
-                        savableCount = videos.size,
-                        sheetExpanded = sheetExpanded,
-                        editingAddress = editingAddress,
-                    )
+                    focusNotice?.let { notice ->
+                        BrowserBanner(
+                            text = notice,
+                            icon = YftIcons.Info,
+                            container = colors.chip,
+                            content = colors.textPrimary,
+                            modifier = Modifier.testTag("browser-focus-notice"),
+                        )
+                    }
                     if (fabVisible) {
                         BrowserDownloadButton(
                             savableCount = videos.size,
+                            findsOnScreen = findsOnScreen,
                             onClick = {
-                                // One video opens the download sheet; several the list.
-                                val only = videos.singleOrNull()
-                                if (only != null) onDownloadGroup(only) else sheetExpanded = true
+                                // One video opens the download sheet; several the list; a feed
+                                // looks for the video on screen (P5).
+                                when (fabAction) {
+                                    BrowserDownloadFab.Action.OPEN_VIDEO ->
+                                        videos.singleOrNull()?.let(onDownloadGroup)
+                                    BrowserDownloadFab.Action.SHOW_LIST -> sheetExpanded = true
+                                    BrowserDownloadFab.Action.FIND_VIDEO_ON_SCREEN ->
+                                        if (!uiState.findingFocusedVideo) onDownloadFocused()
+                                    null -> Unit
+                                }
                             },
                             modifier = Modifier.padding(end = 16.dp, bottom = 12.dp),
                         )
                     }
-                    FoundMediaSheet(
-                        videos = videos,
-                        hiddenCount = hiddenCount,
-                        expanded = sheetExpanded,
-                        onExpandedChange = { sheetExpanded = it },
-                        onDownloadGroup = onDownloadGroup,
-                        modifier = Modifier.heightIn(max = sheetMaxHeight),
-                    )
+                    if (showSheet) {
+                        FoundMediaSheet(
+                            videos = videos,
+                            hiddenCount = hiddenCount,
+                            expanded = sheetExpanded,
+                            onExpandedChange = { sheetExpanded = it },
+                            onDownloadGroup = onDownloadGroup,
+                            modifier = Modifier.heightIn(max = sheetMaxHeight),
+                        )
+                    }
                 }
             }
         }

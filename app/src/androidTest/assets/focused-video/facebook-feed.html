@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- Sanitized fixture of Facebook's mobile news feed: invented IDs and names. -->
+<html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { margin: 0; }
+  article { display: block; height: 560px; border-bottom: 8px solid #eee; }
+  video { display: block; width: 100%; height: 360px; }
+</style></head>
+<body>
+<article>
+  <a href="/fixture.page.one?__cft__[0]=tracking">Fixture Page One</a>
+  <a href="/story.php?story_fbid=pfbid0Fixture1Abc&amp;id=100000000000001&amp;__tn__=-R">2h</a>
+  <div><video muted playsinline></video></div>
+</article>
+<article>
+  <a href="/fixture.page.two">Fixture Page Two</a>
+  <a href="/story.php?story_fbid=pfbid0Fixture2Def&amp;id=100000000000002&amp;__cft__[0]=x">3h</a>
+  <div><div><video id="playing" muted playsinline></video></div></div>
+  <a href="/fixture.page.two/photos/1">Photo</a>
+</article>
+<article>
+  <a href="https://m.facebook.com/reel/1000000000000003/?s=tracking">Reel</a>
+</article>
+<div style="height: 2000px"></div>
+<script>
+  const video = document.getElementById('playing');
+  Object.defineProperty(video, 'paused', { get: () => false });
+  Object.defineProperty(video, 'readyState', { get: () => 4 });
+  window.scrollTo(0, 500);
+</script>
+</body></html>

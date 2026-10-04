@@ -32,11 +32,14 @@
   player's byte-range pieces count as one file, so the browser's Download button opens the
   sheet instead of the Found list; P4 OWNER CHECK (2026-10-05) — Facebook's DASH picture sizes
   are merged Video rows with their AAC sound, the AAC track is Audio, the AVC ladder comes from
-  Safari's page without the session; AV1 merges are off (the API 34 emulator's muxer failed).
+  Safari's page without the session; AV1 merges are off (the API 34 emulator's muxer failed);
+  P5 OWNER CHECK (2026-10-05) — on YouTube, Facebook and TikTok feeds the browser's Download
+  button finds the video on screen (the playing one, else the one in the middle), looks it up
+  and opens its Download sheet; no video on screen gives a short notice.
 - **Owner instruction (2026-10-05):** P3-FIX, then P4, P5, P6 without stopping or asking
   ([`prompts/CONTINUE-P4-TO-P6.md`](prompts/CONTINUE-P4-TO-P6.md)); not P7/P8.
-- **Next action — agent:** P5 — Download button on feeds (focused video)
-  ([`prompts/P5-feed-focused-video.md`](prompts/P5-feed-focused-video.md)), then P6.
+- **Next action — agent:** P6 — 2K and 4K ([`prompts/P6-2k-4k-webm.md`](prompts/P6-2k-4k-webm.md)).
+  Not P7/P8 (owner, 2026-10-05).
 - **Next action — owner:** publish the beta.3 draft when ready; phone checks per task from the
   `yft-debug-apk` builds (FIX_ADD_PLAN §6); the P7 preview APK installs next to the release app.
 - **Earlier handoffs:** the Phases 8–10 task log (T01–T19 validation, CI runs, decisions) is in Git

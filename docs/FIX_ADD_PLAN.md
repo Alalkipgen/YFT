@@ -113,7 +113,7 @@ AI agent time includes builds and CI waits on a 4 GiB sandbox.
 | P2 | [Facebook/TikTok black page in the browser](#p2--facebook-and-tiktok-black-page-in-the-browser) | Medium–Hard | 4–8 h | P1 | OWNER CHECK (2026-10-04) |
 | P3 | [One download sheet, Snaptube style](#p3--one-download-sheet-snaptube-style) | Hard | 10–14 h | P1 | OWNER CHECK — P3-FIX done (2026-10-05) |
 | P4 | [Facebook: one video, every quality](#p4--facebook-one-video-every-quality) | Medium–Hard | 5–8 h | P3 | OWNER CHECK (2026-10-05) |
-| P5 | [Download button on feeds (focused video)](#p5--download-button-on-feeds) | Hard | 6–10 h | P1, P3 | TODO |
+| P5 | [Download button on feeds (focused video)](#p5--download-button-on-feeds) | Hard | 6–10 h | P1, P3 | OWNER CHECK (2026-10-05) |
 | P6 | [2K and 4K](#p6--2k-and-4k) | Hard | 8–12 h | P3 | TODO |
 | P7 | [Preview APK for the owner's test](#p7--preview-apk) | Easy | 1–2 h | P1–P6 | TODO |
 | P8 | [Signed release 1.0.0-beta.4](#p8--signed-release-100-beta4) | Easy | 1–2 h | P7, owner OK | TODO |
@@ -413,6 +413,23 @@ flow (tap → lookup → sheet), no script on other sites.
 **Owner check:** YouTube home feed → scroll to a video → Download → the sheet is for that video.
 
 **Docs:** SUPPORT_MATRIX, TEST_MATRIX, CHANGELOG, SESSION_STATE.
+
+**Result (OWNER CHECK, 2026-10-05):** `FocusedVideoProbe` (core-browser) holds the read-only
+script and its parser. The script answers one link of the page's own site: the page's address
+when it is a video, else the link beside the playing `<video>` (walking up to 15 ancestors,
+nearest anchor first; Facebook post links only when no video link is near), else beside the
+visible `<video>` nearest the middle, else the video link nearest the middle. The parser accepts
+only HTTPS links of the page's site in a known video or post shape and rebuilds them on
+`www.youtube.com`, `www.facebook.com` or `www.tiktok.com` without tracking parameters (Facebook's
+`__cft__[0]` brackets are percent-encoded first). `BrowserUiState` gains `findsFocusedVideo`,
+`feedPage`, `findingFocusedVideo` and `focusNotice`; `BrowserDownloadFab.action` decides between
+the one video's sheet, the list and the video on screen (a feed always looks; a video page looks
+only while nothing is found). `BrowserRoute` runs the script with `evaluateJavascript` on the main
+thread; `BrowserViewModel` looks the link up through `SiteAdapterCoordinator.inspect` with the
+site's own session, selects the video in `DetectedMediaStore` and sends one open-sheet event. A
+new page cancels the lookup; a page that never answers ends after 5 s. Plan adapted: posts on
+Facebook feeds are often the only link beside a video, so the adapter's P3-FIX post support is
+used for them. Tests: TEST_MATRIX P5.
 
 ### P6 — 2K and 4K
 

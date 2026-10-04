@@ -19,6 +19,9 @@ for every APK given to users, because Android refuses to install a lower one.
   is a Video row, merged on the phone with its sound into one MP4, and the sound alone is the
   Audio row (M4A, MP3). When Facebook's page lists only AV1/VP9, YFT asks once more for the AVC
   tracks without your session. AV1 rows stay off until the merge is proven on a phone.
+- Download button on feeds: on YouTube, Facebook and TikTok the browser's Download button shows
+  even on a feed. Tapping it finds the video on screen (the one playing, else the one in the
+  middle), looks it up and opens its Download sheet; with no video on screen it says so.
 
 ### Changed
 
