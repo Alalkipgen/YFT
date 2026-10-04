@@ -34,6 +34,33 @@ class SmokeDiagnosticsTest(unittest.TestCase):
             ["browser-address bounds=[12,48][940,110]", "WebView bounds=absent"], lines
         )
 
+    def test_site_diagnostics_keep_only_whitelisted_pairs_and_console_error_types(self):
+        sanitized = smoke.sanitize_logcat(
+            "I YFTSmoke: YFT-DIAG fb-share load chain=www.facebook.com/share/v/x dark=97pc\n"
+            "I YFTSmoke: YFT-DIAG fb-share tap title=::error::injected text\n"
+            "I YFTSmoke: YFT-DIAG tt-video load url=https://www.tiktok.com/@a/video/1?sig=s\n"
+            'I chromium: [INFO:CONSOLE(3)] "Uncaught TypeError: secret detail", source: x\n'
+            'I chromium: [INFO:CONSOLE(9)] "Uncaught TypeError: other", source: x\n'
+        )
+        lines, errors = smoke.site_diagnostics(sanitized)
+        self.assertEqual(["fb-share load chain=www.facebook.com/share/v/x dark=97pc"], lines)
+        self.assertEqual({"Uncaught TypeError": 2}, errors)
+
+    def test_site_diagnostics_become_one_escaped_notice(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = pathlib.Path(folder)
+            raw = root / "raw.txt"
+            output = root / "artifact"
+            raw.write_text(
+                "YFT-DIAG fb-share load dark=97pc\nYFT-DIAG fb-share tap dark=10pc\n"
+            )
+            messages = []
+            self.assertEqual(0, smoke.diagnostics(raw, output, messages.append))
+            self.assertIn(
+                "::notice::Site page diagnostics%0Afb-share load dark=97pc%0Afb-share tap dark=10pc",
+                messages,
+            )
+
     def test_fatal_log_is_redacted_removed_and_returns_failure(self):
         with tempfile.TemporaryDirectory() as folder:
             root = pathlib.Path(folder)

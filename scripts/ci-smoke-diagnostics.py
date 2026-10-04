@@ -14,6 +14,11 @@ SENSITIVE = re.compile(
     r"x-yt-identity-token|x-csrf-token|token)[\"']?\s*[:=].*",
     re.IGNORECASE,
 )
+DIAGNOSTIC = re.compile(
+    r"YFT-DIAG ([a-z0-9-]{1,24} [a-z]{1,8}"
+    r"(?: [A-Za-z]{1,16}=[A-Za-z0-9._/:>-]{0,240}){0,40})\s*$"
+)
+CONSOLE_ERROR = re.compile(r"CONSOLE\(\d+\)\] \"(Uncaught [A-Za-z]*Error)")
 BOUNDS = re.compile(
     r"^(browser-address|WebView) bounds="
     r"(\[-?\d+,-?\d+\]\[-?\d+,-?\d+\]|missing|absent)$"
@@ -36,6 +41,25 @@ def sanitize_logcat(text):
 
 def safe_bounds(text):
     return [line for line in text.splitlines() if BOUNDS.fullmatch(line)]
+
+
+def escape_annotation(text):
+    return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def site_diagnostics(sanitized):
+    """P2 page diagnostics: only whitelisted key=value lines and console error types."""
+    lines = []
+    for line in sanitized.splitlines():
+        match = DIAGNOSTIC.search(line)
+        if match:
+            lines.append(match.group(1))
+    errors = {}
+    for line in sanitized.splitlines():
+        match = CONSOLE_ERROR.search(line)
+        if match:
+            errors[match.group(1)] = errors.get(match.group(1), 0) + 1
+    return lines, errors
 
 
 def sanitize_reports(folders):
@@ -80,6 +104,13 @@ def diagnostics(raw, output, emit=print, require_screenshots=False):
     if "slow-site warning" in sanitized:
         emit("::warning::Public HTML5 page was slow; media-found assertion is best effort")
     emit(f"::notice::Emulator logcat FATAL EXCEPTION count: {len(fatal)}")
+    site_lines, console_errors = site_diagnostics(sanitized)
+    if site_lines:
+        emit("::notice::Site page diagnostics%0A" + escape_annotation("\n".join(site_lines[:40])))
+    if console_errors:
+        emit("::notice::Page console errors: " + ", ".join(
+            f"{name}={count}" for name, count in sorted(console_errors.items())
+        ))
     missing = []
     if require_screenshots:
         for name in ["01-browser-empty.png", "02-browser-page.png", "03-found.png"]:
