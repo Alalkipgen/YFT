@@ -38,5 +38,8 @@ class OpenSourceNoticesTest {
         assertTrue("Copyright 2020 The Plus Jakarta Sans Project Authors" in font.noticeText)
         assertTrue("SIL OPEN FONT LICENSE Version 1.1" in font.noticeText)
         assertTrue("Apache License" in notices.single { it.id == "material-symbols" }.noticeText)
+        val icons = notices.single { it.id == "simple-icons" }.noticeText
+        assertTrue("CC0 1.0" in icons)
+        assertTrue("YFT is not affiliated with them." in icons)
     }
 }

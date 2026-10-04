@@ -232,7 +232,7 @@ class HomeViewModelTest {
         assertNull(dialog.nameError)
         assertEquals("Only HTTPS pages are supported", dialog.addressError)
 
-        viewModel.onAction(HomeAction.SiteAddressChanged("archive.org"))
+        viewModel.onAction(HomeAction.SiteAddressChanged("m.youtube.com"))
         viewModel.onAction(HomeAction.SaveSite)
         assertEquals(
             "This site is already on Home",

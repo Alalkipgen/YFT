@@ -55,6 +55,10 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Changed
 
+- Your sites now start with YouTube, Facebook and TikTok, shown with their logos (Simple Icons,
+  CC0) on Home and the browser start page; other sites keep their letter. A saved list is updated
+  once: the old Internet Archive, Wikimedia Commons and NASA defaults are replaced, sites you
+  added stay, and a YouTube entry you already had is not duplicated.
 - Downloads from YouTube's media servers (`googlevideo.com`) ask for at most 10 MiB per request,
   because YouTube slows down larger requests (T17).
 - YouTube lookups ask more of YouTube's clients (T16, owner decision D2 = A + B + C): first

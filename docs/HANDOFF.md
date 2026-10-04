@@ -27,9 +27,10 @@
 - **Owner delegation (2026-10-03, later):** "D1 and D3 — do as you see fit; do not stop until
   everything is finished; commit and push after every task." D1 = YES and D3 = YES (FIX_PLAN §3);
   no task waits for the owner any more.
-- **Next action — agent:** T09 — Your sites defaults YouTube, Facebook, TikTok with logos
-  ([`prompts/T09-your-sites-logos.md`](prompts/T09-your-sites-logos.md)), then T12 → T11 → T13 →
-  T14 → T18 → T19. T17 is OWNER CHECK (2026-10-04): YouTube 480p/720p/1080p rows download a
+- **Next action — agent:** T12 — "Video you copied" quick download sheet
+  ([`prompts/T12-quick-download-sheet.md`](prompts/T12-quick-download-sheet.md)), then T11 → T13 →
+  T14 → T18 → T19. T09 is OWNER CHECK (2026-10-04): Your sites defaults YouTube, Facebook and
+  TikTok with logos. T17 is OWNER CHECK (2026-10-04): YouTube 480p/720p/1080p rows download a
   video-only MP4 and an M4A and merge them on the phone (**Video + audio** chip). T16 is OWNER
   CHECK: device clients (`VISIONOS`, `ANDROID`, yt-dlp 2026.08.19), BotGuard PO tokens in an
   offscreen WebView and browser **Try again**/auto-retry after playback (ADR-006 §
@@ -39,7 +40,8 @@
   and browser download/playback on the phone); T06 is OWNER CHECK (Facebook Home
   download/playback on the phone); T05 is DONE; T04 is OWNER CHECK: final tests, all 9
   individually inspected renders and the actual release debug-action guard pass.
-- **Next action — owner:** phone checks from the `yft-debug-apk` builds (FIX_PLAN §8); for T17
+- **Next action — owner:** phone checks from the `yft-debug-apk` builds (FIX_PLAN §8); for T09
+  Home shows YouTube, Facebook and TikTok with logos and his YouTube is not duplicated; for T17
   download a YouTube 720p **Video + audio** row — the MP4 plays with sound; for T16
   paste two YouTube links on Home (found → download plays, or **Copy details**), and play a
   bot-checked video in YFT's browser (it retries by itself, or tap **Try again**). beta.2 stays a

@@ -16,6 +16,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.lifecycle.ViewModelStore
 import com.alal.yft.core.model.ThemeMode
+import com.alal.yft.core.model.settings.HomeSites
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.extractor.api.SiteExtractorRegistry
 import com.alal.yft.ui.theme.YftTheme
@@ -161,11 +162,12 @@ class BrowserRouteTest {
     @Test
     fun siteShortcutCreatesTheFirstWebView() {
         showRoute()
-        composeRule.onNodeWithTag("browser-site-https://archive.org").performClick()
+        val site = HomeSites.DEFAULTS.first().url
+        composeRule.onNodeWithTag("browser-site-$site").performClick()
 
         assertBrowserPage()
         composeRule.runOnIdle {
-            assertEquals("https://archive.org", Shadows.shadowOf(webViews().single()).lastLoadedUrl)
+            assertEquals(site, Shadows.shadowOf(webViews().single()).lastLoadedUrl)
         }
     }
 

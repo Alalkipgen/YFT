@@ -145,7 +145,7 @@ Agents update the **Status** column in every task checkpoint.
 | T06 | [Facebook public reels and videos without sign-in](#t06--facebook-public-reels-and-videos-without-sign-in) | 8 | P1 | Medium | 1 d | T05 | OWNER CHECK |
 | T07 | [TikTok media cookies for Home lookups](#t07--tiktok-media-cookies-for-home-lookups) | 8 | P1 | Medium | 0.5 d | T05 | OWNER CHECK |
 | T08 | [YouTube: honest messages, identity and details](#t08--youtube-honest-messages-identity-and-details) | 8 | P1 | Easy | 0.5 d | T04, T05 | DONE (2026-10-03) |
-| T09 | [Your sites: YouTube, Facebook, TikTok with logos](#t09--your-sites-youtube-facebook-tiktok-with-logos) | 8 | P1 | Easy | 0.5 d | — | TODO |
+| T09 | [Your sites: YouTube, Facebook, TikTok with logos](#t09--your-sites-youtube-facebook-tiktok-with-logos) | 8 | P1 | Easy | 0.5 d | — | OWNER CHECK (2026-10-04) |
 | T10 | [Release 1.0.0-beta.3](#t10--release-100-beta3) | 8 | P1 | Easy | 0.5 d | T01–T09, owner | SKIPPED (owner, 2026-10-03: one release after T19) |
 | T11 | [Check the copied link when YFT opens](#t11--check-the-copied-link-when-yft-opens) | 9 | P2 | Medium | 1 d | D1 (YES) | TODO |
 | T12 | ["Video you copied" quick download sheet](#t12--video-you-copied-quick-download-sheet) | 9 | P2 | Medium–Hard | 1.5–2 d | — | TODO |
@@ -787,6 +787,11 @@ site name).
 not duplicated.
 
 **Docs:** DESIGN-NOTES decision 2, `docs/THIRD_PARTY_NOTICES.md`.
+
+**Done (2026-10-04):** defaults YouTube, Facebook, TikTok; one-time migration (`home_sites_defaults_version` = 2)
+in `DataStoreHomeSitesRepository`; Simple Icons 16.34.0 logos for YouTube, Facebook, TikTok, Instagram
+and X (`SiteBrand`, `SiteLogos.kt`), also on the browser start page, which shares the tile. Only the
+owner's phone check is left.
 
 ### T10 — Release 1.0.0-beta.3
 

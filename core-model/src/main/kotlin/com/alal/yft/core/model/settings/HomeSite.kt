@@ -16,12 +16,42 @@ object HomeSites {
     const val MAX_NAME_LENGTH = 24
     const val MAX_URL_LENGTH = 2_048
 
-    /** Shown until the user changes the list: public sites with freely licensed media. */
+    /** Shown until the user changes the list. */
     val DEFAULTS: List<HomeSite> = listOf(
+        HomeSite("YouTube", "https://m.youtube.com"),
+        HomeSite("Facebook", "https://m.facebook.com"),
+        HomeSite("TikTok", "https://www.tiktok.com"),
+    )
+
+    /** Version of [DEFAULTS]; lists stored by an older version go through [migrateDefaults]. */
+    const val DEFAULTS_VERSION = 2
+
+    /** The first-run sites of 1.0.0-beta.1 and beta.2 (version 1). */
+    val LEGACY_DEFAULTS: List<HomeSite> = listOf(
         HomeSite("Archive", "https://archive.org"),
         HomeSite("Wikimedia", "https://commons.wikimedia.org"),
         HomeSite("NASA", "https://images.nasa.gov"),
     )
+
+    /**
+     * Moves a stored list from the version 1 defaults to [DEFAULTS]. A list that still holds a
+     * version 1 default loses those entries and gets the new defaults first, in their order; a
+     * site of the same brand the user added takes its default's place, so nothing is doubled.
+     * Every other site the user added is kept, and defaults are only added while there is room
+     * under [MAX_SITES]. A list without any version 1 default, including an empty one, is the
+     * user's own and stays as it is.
+     */
+    fun migrateDefaults(stored: List<HomeSite>): List<HomeSite> {
+        if (stored.none { it in LEGACY_DEFAULTS }) return stored
+        val kept = stored.filterNot { it in LEGACY_DEFAULTS }
+        var room = MAX_SITES - kept.size
+        val front = DEFAULTS.mapNotNull { default ->
+            val brand = SiteBrand.of(default.url)
+            kept.firstOrNull { brand != null && SiteBrand.of(it.url) == brand }
+                ?: default.takeIf { room > 0 }?.also { room-- }
+        }
+        return (front + kept).distinctBy { it.url }.take(MAX_SITES)
+    }
 
     /** Collapses whitespace and drops control characters so a name stays on one short line. */
     fun cleanName(name: String): String = name

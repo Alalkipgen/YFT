@@ -32,6 +32,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -63,6 +64,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alal.yft.R
 import com.alal.yft.core.model.settings.HomeSite
+import com.alal.yft.core.model.settings.SiteBrand
 import com.alal.yft.feature.library.LibraryItem
 import com.alal.yft.feature.library.libraryMeta
 import com.alal.yft.feature.library.rememberMediaDetails
@@ -76,6 +78,8 @@ import com.alal.yft.ui.components.YftSectionHeader
 import com.alal.yft.ui.components.YftTextButton
 import com.alal.yft.ui.components.YftThumbnail
 import com.alal.yft.ui.components.YftTonalButton
+import com.alal.yft.ui.components.logoRes
+import com.alal.yft.ui.components.siteLogoTint
 import com.alal.yft.ui.format.YftFormat
 import com.alal.yft.ui.theme.YftIcons
 import com.alal.yft.ui.theme.YftShapes
@@ -360,18 +364,30 @@ internal fun SiteTile(
                     .background(colors.accentSoft),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text = site.initial,
-                    // Night uses a paler Mint for the letter, as in `07-home-dark`.
-                    color = if (colors.isDark) {
-                        lerp(colors.accent, colors.textPrimary, NIGHT_LETTER_LIGHTEN)
-                    } else {
-                        colors.link
-                    },
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Medium,
-                    ),
-                )
+                val brand = remember(site.url) { SiteBrand.of(site.url) }
+                if (brand != null) {
+                    // Bundled logo; the tile's description already names the site.
+                    YftIcon(
+                        icon = brand.logoRes(),
+                        contentDescription = null,
+                        tint = siteLogoTint(brand, colors),
+                        size = SITE_LOGO,
+                        modifier = Modifier.testTag("site-logo-${brand.slug}"),
+                    )
+                } else {
+                    Text(
+                        text = site.initial,
+                        // Night uses a paler Mint for the letter, as in `07-home-dark`.
+                        color = if (colors.isDark) {
+                            lerp(colors.accent, colors.textPrimary, NIGHT_LETTER_LIGHTEN)
+                        } else {
+                            colors.link
+                        },
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Medium,
+                        ),
+                    )
+                }
             }
             if (editing) {
                 Box(
@@ -587,6 +603,7 @@ private fun AddSiteDialog(dialog: SiteDialogState, onAction: (HomeAction) -> Uni
 
 private val SITE_TILE_WIDTH = 72.dp
 private val SITE_CIRCLE = 64.dp
+private val SITE_LOGO = 30.dp
 private const val NIGHT_LETTER_LIGHTEN = 0.6f
 private const val VISIBLE_TILES = 4
 private const val THUMBNAIL_RATIO = 16f / 9f

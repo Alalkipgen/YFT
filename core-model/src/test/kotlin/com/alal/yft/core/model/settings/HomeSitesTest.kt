@@ -43,6 +43,6 @@ class HomeSitesTest {
         assertEquals(HomeSites.MAX_SITES, HomeSites.decode(HomeSites.encode(many)).size)
         assertEquals("A", HomeSite("archive", "https://archive.org").initial)
         assertEquals("9", HomeSite("(9gag)", "https://9gag.example").initial)
-        assertEquals(listOf("A", "W", "N"), HomeSites.DEFAULTS.map(HomeSite::initial))
+        assertEquals(listOf("Y", "F", "T"), HomeSites.DEFAULTS.map(HomeSite::initial))
     }
 }

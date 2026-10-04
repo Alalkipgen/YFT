@@ -487,7 +487,21 @@ repository that asks each client and prints only verdicts and counts.
 | YouTube rows | PASS — `YouTubeExtractorTest`: 480p, 720p and 1080p `avc1` video-only rows are paired with the same answer's AAC audio; VP9 and AV1 are skipped; progressive and audio-only rows are kept |
 | Full validation / instrumentation APK | PASS — core-model 40, core-download 89, core-media 17, extractor-api 32, extractor-generic 8, extractor-sites 150, app 470 (54 render skips), 0 failures; lint 0 errors / 95 warnings; instrumentation APK compiled; Python 22/22; new Kotlin lines <=100 |
 | Not verified | No live or on-device mux: no merged file has been produced from real YouTube tracks on a phone or emulator yet |
-| CI / owner check | Checked after this checkpoint (see `SESSION_STATE.md`). Owner check: on YouTube, download a 720p row marked "Video + audio" → the saved MP4 plays with sound; Preview of that row plays with sound |
+| CI | PASS on `210814b` — checkpoint https://github.com/Alalkipgen/YFT/actions/runs/37178339187 (yft-debug-apk), emulator https://github.com/Alalkipgen/YFT/actions/runs/37178339186 |
+| Owner check | On YouTube, download a 720p row marked "Video + audio" → the saved MP4 plays with sound; Preview of that row plays with sound |
+
+### T09 — Your sites: YouTube, Facebook, TikTok with logos (OWNER CHECK, 2026-10-04)
+
+| Check | Result |
+| --- | --- |
+| Starting state | PASS — the T17 checkpoint `210814b` with both CI workflows green |
+| Regression | `HomeSitesMigrationTest` and `DataStoreHomeSitesRepositoryTest` fail on the old code: it kept Internet Archive, Wikimedia Commons and NASA and had no `home_sites_defaults_version` migration (the new tests do not even compile against it). They pass on the fix |
+| Migration | PASS — untouched old defaults → YouTube, Facebook, TikTok; the owner's case (old defaults + his YouTube) → his YouTube first, then Facebook and TikTok, no duplicate; a custom list stays unchanged; an empty list stays empty; a second run changes nothing; `MAX_SITES` is kept; an unreadable store still shows the defaults |
+| Logos | PASS — `SiteBrand.of` matches hosts and subdomains only (no look-alike domains); `SiteLogosTest`: every bundled logo tint has at least 3:1 contrast on the tile in Day and Night; Home and the browser start page show the logo with tag `site-logo-<slug>`, the tile stays described by the site name, other sites keep the letter |
+| Notices | PASS — `OpenSourceNoticesTest`: Simple Icons 16.34.0 (CC0-1.0) is in About licences and `docs/THIRD_PARTY_NOTICES.md`, with "Site names and logos belong to their owners; YFT is not affiliated with them." |
+| Full validation / instrumentation APK | PASS — core-model 49, core-data 15, app 474 (54 render skips), 0 failures; lint 0 errors / 95 warnings; instrumentation APK compiled; other modules unchanged since T17 (core-download 89, core-media 17, extractor-api 32, extractor-generic 8, extractor-sites 150); Python 22/22; new Kotlin lines <=100 |
+| Not verified | Pixel renders were not regenerated in the sandbox (render tests skip without `YFT_RENDER_DIR`) |
+| Owner check | Home shows YouTube, Facebook and TikTok with logos, and his own YouTube entry is not duplicated |
 
 ## Runtime tests still requiring a device/emulator
 

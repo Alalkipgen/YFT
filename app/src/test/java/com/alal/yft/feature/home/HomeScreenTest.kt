@@ -8,7 +8,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.hasTestTag
@@ -24,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.settings.HomeSite
+import com.alal.yft.core.model.settings.HomeSites
 import com.alal.yft.feature.library.LibraryItem
 import com.alal.yft.feature.library.LibraryLocation
 import com.alal.yft.ui.components.PromptboxStatus
@@ -256,6 +259,19 @@ class HomeScreenTest {
         composeRule.onNodeWithTag("home-site-https://archive.org").performClick()
         assertEquals(HomeAction.RemoveSite(archive), actions.last())
         assertEquals(1, openedBrowser.size)
+    }
+
+    @Test
+    fun knownSitesShowTheirLogoAndOtherSitesTheirLetter() {
+        val docs = HomeSite("Docs", "https://docs.test")
+        setContent(HomeUiState(sites = HomeSites.DEFAULTS + docs))
+
+        listOf("youtube", "facebook", "tiktok").forEach { slug ->
+            composeRule.onNodeWithTag("site-logo-$slug", useUnmergedTree = true).assertExists()
+        }
+        composeRule.onNodeWithTag("home-site-https://m.youtube.com")
+            .assert(hasContentDescription("YouTube"))
+        composeRule.onNodeWithText("D", useUnmergedTree = true).assertExists()
     }
 
     @Test

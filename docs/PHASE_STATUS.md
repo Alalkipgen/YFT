@@ -12,9 +12,9 @@
 | 6 — Hardening/UI | COMPLETE | Privacy and backup hardening, download preferences and Wi-Fi-only policy, Library, Detected Media, Home link entry, About notices, original palette, free-space check and storage janitor; every audit finding closed or device-only |
 | 7 — Signed beta/release | COMPLETE | Version `1.0.0-beta.1`, original launcher icon and launch screen, release signing from env/untracked properties, verification/checksum/device scripts, draft-only release workflow, changelog, release notes and release process; signed by the release workflow with the owner's key and published as a pre-release on 2026-10-02. Device checks still wait for a device |
 | 6R — UI redesign | COMPLETE | Every screen rebuilt to the owner's design images (`docs/design/DESIGN-NOTES.md`) on `work/phase-6-ui-redesign`, Tasks 0–9, with every feature kept; merged with Phase 7 into `main` and released as `1.0.0-beta.2` |
-| 8 — Field fixes | IN PROGRESS | Fixes from the owner's beta.2 phone test: browser crash, start page, crash report, Home lookup identity, Facebook, TikTok, YouTube messages, Your sites; CI emulator smoke test. Tasks T01–T09 in `docs/FIX_PLAN.md`; T10 (beta.3 release) SKIPPED by the owner on 2026-10-03 — one release after T19 |
-| 9 — Copied-link flow | PLANNED | Copied-link check, "Video you copied" quick sheet, Search to download, floating Download button. Tasks T11–T14; T15 (release) SKIPPED by the owner |
-| 10 — Formats and YouTube | IN PROGRESS (T16, T17 OWNER CHECK; T09 next) | YouTube client strategy (D2 = A + B + C, ADR-006), merged 720p/1080p video and audio, MP3. Tasks T16–T18; T19 merges, tags and signs the one release, `1.0.0-beta.3` |
+| 8 — Field fixes | OWNER CHECK (T01–T09 code done, phone checks left) | Fixes from the owner's beta.2 phone test: browser crash, start page, crash report, Home lookup identity, Facebook, TikTok, YouTube messages, Your sites; CI emulator smoke test. Tasks T01–T09 in `docs/FIX_PLAN.md`; T10 (beta.3 release) SKIPPED by the owner on 2026-10-03 — one release after T19 |
+| 9 — Copied-link flow | IN PROGRESS (T12 next) | Copied-link check, "Video you copied" quick sheet, Search to download, floating Download button. Tasks T11–T14; T15 (release) SKIPPED by the owner |
+| 10 — Formats and YouTube | IN PROGRESS (T16, T17 OWNER CHECK; T18 left) | YouTube client strategy (D2 = A + B + C, ADR-006), merged 720p/1080p video and audio, MP3. Tasks T16–T18; T19 merges, tags and signs the one release, `1.0.0-beta.3` |
 
 ## Current phase state
 

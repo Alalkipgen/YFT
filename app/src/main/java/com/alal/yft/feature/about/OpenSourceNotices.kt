@@ -57,6 +57,14 @@ object OpenSourceNotices {
             usage = "Rounded interface icons, as Android vector drawables.",
             noticeText = "Copyright Google LLC.\n\n$APACHE_2",
         ),
+        OpenSourceNotice(
+            id = "simple-icons",
+            name = "Simple Icons",
+            version = "16.34.0",
+            license = "CC0-1.0",
+            usage = "Logos of YouTube, Facebook, TikTok, Instagram and X in Your sites.",
+            noticeText = SIMPLE_ICONS_CC0,
+        ),
     )
 
     val libraries: List<OpenSourceNotice> = listOf(
@@ -79,6 +87,11 @@ object OpenSourceNotices {
         noticeText = APACHE_2,
     )
 }
+
+private const val SIMPLE_ICONS_CC0 =
+    "Simple Icons by the Simple Icons contributors, dedicated to the public domain under " +
+        "CC0 1.0 Universal: <https://creativecommons.org/publicdomain/zero/1.0/>.\n\n" +
+        "Site names and logos belong to their owners; YFT is not affiliated with them."
 
 private const val UNLICENSE =
     "This is free and unencumbered software released into the public domain.\n\n" +

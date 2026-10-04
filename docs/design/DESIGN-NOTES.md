@@ -150,9 +150,15 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
    URL-confidence score is used when available), and it shows no preview of the copied text.
    The text is read only when the user taps **Use** or **Paste**, through
    `HomeLinks.fromClipboard`.
-2. **Your sites** is a list stored on the device (DataStore), preloaded with Archive
-   (archive.org), Wikimedia (commons.wikimedia.org) and NASA (images.nasa.gov). Add asks for a
-   name and an HTTPS address; Edit mode removes sites; tapping a site opens it in the Browser.
+2. **Your sites** is a list stored on the device (DataStore), preloaded with YouTube
+   (m.youtube.com), Facebook (m.facebook.com) and TikTok (www.tiktok.com) since Phase 8 (T09).
+   Add asks for a name and an HTTPS address; Edit mode removes sites; tapping a site opens it in
+   the Browser. YouTube, Facebook, TikTok, Instagram and X show their bundled Simple Icons logo
+   (CC0) in the brand colour (lightened in Night, black marks use the Night text colour, all at
+   least 3:1 on the circle); other sites keep their letter. Logos are never fetched. A list saved
+   by beta.1/beta.2 moves once (`home_sites_defaults_version` = 2): the old defaults are removed,
+   the new ones come first (a site of the same brand the user added takes its place), the user's
+   own sites stay and nothing exceeds 12; a list without the old defaults, or empty, stays as is.
 3. **Thumbnails.** Saved files use local thumbnails read with `MediaMetadataRetriever`, the
    one reader that works for both shared and app-private files and also gives the length and
    picture size (see 13). Remote thumbnails are shown only for

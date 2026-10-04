@@ -47,13 +47,19 @@ The BotGuard program itself is YouTube's: it is downloaded at run time and never
 | Component | Version | License | Source |
 | --- | --- | --- | --- |
 | Plus Jakarta Sans (`app/src/main/res/font/plus_jakarta_sans_*.ttf`) | 2.071 | SIL Open Font License 1.1, Copyright 2020 The Plus Jakarta Sans Project Authors | <https://github.com/tokotype/PlusJakartaSans> |
-| Material Symbols (Rounded, `app/src/main/res/drawable/ic_*.xml`) | master 737e332 | Apache License 2.0, Copyright Google LLC | <https://github.com/google/material-design-icons> |
+| Material Symbols (Rounded, `app/src/main/res/drawable/ic_*.xml` except `ic_site_*`) | master 737e332 | Apache License 2.0, Copyright Google LLC | <https://github.com/google/material-design-icons> |
+| Simple Icons (`app/src/main/res/drawable/ic_site_*.xml`: YouTube, Facebook, TikTok, Instagram, X) | 16.34.0 | CC0-1.0 | <https://github.com/simple-icons/simple-icons> |
 
 - Plus Jakarta Sans: the Regular, Medium, SemiBold and Bold static TTFs from the upstream
   repository, subset to Latin with fontTools
   (`pyftsubset --unicodes="U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2190-2193,U+2212,U+2215,U+FEFF,U+FFFD" --layout-features='kern,liga,calt,tnum,lnum,pnum,case' --name-IDs='*'`).
   The font declares no Reserved Font Name; the license text is shown in the app (About →
   Licenses) and reproduced below.
+- Simple Icons: the single 24×24 path of `icons/{youtube,facebook,tiktok,instagram,x}.svg` from
+  the `simple-icons` 16.34.0 npm package, converted to Android vector drawables without other
+  changes; the brand colours come from its `data/simple-icons.json` and are applied at draw time.
+  CC0-1.0 needs no attribution; it is listed for clarity. Site names and logos belong to their
+  owners; YFT is not affiliated with them. YFT never fetches a site's icon from the network.
 - Material Symbols: Android vector drawables from `symbols/android/<name>/materialsymbolsrounded/`
   of commit `737e3324305806514d7909874fa1818ae1808232`. Change made: the
   `android:tint="?attr/colorControlNormal"` attribute was removed so the app tints them at draw
