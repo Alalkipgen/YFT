@@ -61,8 +61,8 @@ class FacebookDashExtractorTest {
             assertEquals(30.0, fullHd.framesPerSecond!!, 0.001)
             assertEquals(1_340_000L, fullHd.bitrateBitsPerSecond)
             assertEquals(31_500L, fullHd.durationMillis)
-            // Both bitrates over 31.5 s: (1 340 000 + 57 372) bit/s × 31.5 s / 8.
-            assertEquals(5_502_152L, fullHd.contentLengthBytes)
+            // No size: the video bandwidth can be a peak, so the CDN states the file's length.
+            assertNull(fullHd.contentLengthBytes)
             assertEquals(4_070_908_800_000L, fullHd.expiresAtEpochMs)
             val companion = fullHd.audioCompanion!!
             assertEquals(
@@ -72,7 +72,8 @@ class FacebookDashExtractorTest {
             assertEquals("audio/mp4", companion.mimeType)
             assertEquals(listOf("mp4a.40.5"), companion.codecs)
             assertEquals(57_372L, companion.bitrateBitsPerSecond)
-            assertNull(companion.contentLengthBytes)
+            // The sound's bitrate over 31.5 s: 57 372 bit/s × 31.5 s / 8.
+            assertEquals(225_902L, companion.contentLengthBytes)
             assertEquals(fullHd.requestContext, companion.requestContext)
 
             val sound = result.candidates.last()

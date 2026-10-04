@@ -47,16 +47,24 @@ sealed interface MuxCompatibility {
  *
  * YFT does not bundle FFmpeg. Phase 4 therefore accepts only separate AVC/AAC ISO-BMFF tracks
  * that MediaExtractor can read and MediaMuxer can write on the minimum supported Android API.
- * AV1 video is accepted from [AV1_MP4_MIN_SDK], the first release whose MP4 muxer writes it
- * (Phase 11 P4: Facebook's desktop ladder is AV1).
+ * AV1 video would be accepted from [AV1_MP4_MIN_SDK] (Phase 11 P4: Facebook's desktop ladder is
+ * AV1), but [AV1_MP4_ENABLED] keeps it off until a phone proves the merge works.
  */
 object AudioVideoMuxCompatibility {
-    /** Android 14: MediaMuxer writes AV1 into MPEG-4 from this API level on. */
+    /** Android 14: the first release whose MediaMuxer may write AV1 into MPEG-4. */
     const val AV1_MP4_MIN_SDK = 34
+
+    /**
+     * AV1 merges are off (P4, 2026-10-05): on the CI emulator (API 34) Android's muxer did not
+     * merge the AV1 test track with its AAC sound (`AudioVideoMuxerInstrumentedTest`, emulator
+     * smoke #27 and #28: `LocalMuxResult.Failure`). Turn on only after a phone proves it works.
+     */
+    const val AV1_MP4_ENABLED = false
 
     fun evaluate(
         plan: AudioVideoMuxDownloadPlan,
         sdkInt: Int = Build.VERSION.SDK_INT,
+        av1Enabled: Boolean = AV1_MP4_ENABLED,
     ): MuxCompatibility {
         if (plan.outputMimeType.normalizedMime() != MP4_OUTPUT_MIME) {
             return MuxCompatibility.Incompatible(MuxIncompatibilityReason.OUTPUT_CONTAINER)
@@ -69,7 +77,7 @@ object AudioVideoMuxCompatibility {
         }
         if (
             plan.video.codecs.isEmpty() ||
-            plan.video.codecs.any { codec -> !canWriteVideo(codec, sdkInt) }
+            plan.video.codecs.any { codec -> !canWriteVideo(codec, sdkInt, av1Enabled) }
         ) {
             return MuxCompatibility.Incompatible(MuxIncompatibilityReason.VIDEO_CODEC)
         }
@@ -84,11 +92,18 @@ object AudioVideoMuxCompatibility {
         return MuxCompatibility.Compatible
     }
 
-    /** Whether the MP4 muxer of Android [sdkInt] writes video in [codec], such as `avc1.64001f`. */
-    fun canWriteVideo(codec: String, sdkInt: Int = Build.VERSION.SDK_INT): Boolean {
+    /**
+     * Whether the MP4 muxer of Android [sdkInt] writes video in [codec], such as `avc1.64001f`;
+     * AV1 only while [av1Enabled] ([AV1_MP4_ENABLED]) and from [AV1_MP4_MIN_SDK].
+     */
+    fun canWriteVideo(
+        codec: String,
+        sdkInt: Int = Build.VERSION.SDK_INT,
+        av1Enabled: Boolean = AV1_MP4_ENABLED,
+    ): Boolean {
         val normalized = codec.trim().lowercase(Locale.US)
         return VIDEO_CODEC_PREFIXES.any(normalized::startsWith) ||
-            (normalized.startsWith(AV1_CODEC_PREFIX) && sdkInt >= AV1_MP4_MIN_SDK)
+            (av1Enabled && normalized.startsWith(AV1_CODEC_PREFIX) && sdkInt >= AV1_MP4_MIN_SDK)
     }
 
     private fun String?.normalizedMime(): String? =

@@ -69,22 +69,33 @@ class AudioVideoMuxEngineTest {
             video = plan().video.copy(codecs = listOf("av01.0.08M.08")),
             audio = plan().audio.copy(codecs = listOf("mp4a.40.5")),
         )
+        val avcHeAac = plan().copy(audio = plan().audio.copy(codecs = listOf("mp4a.40.5")))
+        val incompatibleVideo = MuxCompatibility.Incompatible(MuxIncompatibilityReason.VIDEO_CODEC)
 
+        // Off by default: the API 34 emulator's muxer failed the AV1 merge (P4 CI).
+        assertFalse(AudioVideoMuxCompatibility.AV1_MP4_ENABLED)
+        assertEquals(incompatibleVideo, AudioVideoMuxCompatibility.evaluate(av1, sdkInt = 34))
+        assertEquals(incompatibleVideo, AudioVideoMuxCompatibility.evaluate(av1, sdkInt = 35))
+        assertEquals(MuxCompatibility.Compatible, AudioVideoMuxCompatibility.evaluate(avcHeAac, 24))
+        assertFalse(AudioVideoMuxCompatibility.canWriteVideo("av01.0.05M.08", sdkInt = 35))
+        // When turned on, AV1 merges from Android 14 only.
         assertEquals(
-            MuxCompatibility.Incompatible(MuxIncompatibilityReason.VIDEO_CODEC),
-            AudioVideoMuxCompatibility.evaluate(av1, sdkInt = 33),
+            incompatibleVideo,
+            AudioVideoMuxCompatibility.evaluate(av1, sdkInt = 33, av1Enabled = true),
         )
-        assertEquals(MuxCompatibility.Compatible, AudioVideoMuxCompatibility.evaluate(av1, 34))
-        assertEquals(MuxCompatibility.Compatible, AudioVideoMuxCompatibility.evaluate(av1, 35))
+        assertEquals(
+            MuxCompatibility.Compatible,
+            AudioVideoMuxCompatibility.evaluate(av1, sdkInt = 34, av1Enabled = true),
+        )
         assertTrue(AudioVideoMuxCompatibility.canWriteVideo("avc1.4d001e", sdkInt = 24))
-        assertTrue(AudioVideoMuxCompatibility.canWriteVideo(" AV01.0.05M.08", sdkInt = 34))
-        assertFalse(AudioVideoMuxCompatibility.canWriteVideo("av01.0.05M.08", sdkInt = 33))
+        assertTrue(AudioVideoMuxCompatibility.canWriteVideo(" AV01.0.05M.08", 34, true))
+        assertFalse(AudioVideoMuxCompatibility.canWriteVideo("av01.0.05M.08", 33, true))
         assertFalse(AudioVideoMuxCompatibility.canWriteVideo("vp09.00.31.08", sdkInt = 35))
         assertFalse(AudioVideoMuxCompatibility.canWriteVideo("hvc1.1.6.L93.B0", sdkInt = 35))
     }
 
     @Test
-    fun `an AV1 merge is refused before any transfer on a phone before Android 14`() = runTest {
+    fun `an AV1 merge is refused before any transfer while AV1 merges are off`() = runTest {
         val av1 = plan().copy(video = plan().video.copy(codecs = listOf("av01.0.08M.08")))
         val oldRunner = FakeDashRunner()
         val oldMuxer = FakeMuxer()
@@ -94,14 +105,16 @@ class AudioVideoMuxEngineTest {
         val refused = engine(oldRunner, oldMuxer, directory.newFolder("av1-33"), sdkInt = 33)
             .transfer(plan = av1, destination = files("av1-33.mp4").destination)
             as AudioVideoMuxResult.Failure
-        val merged = engine(newRunner, newMuxer, directory.newFolder("av1-34"), sdkInt = 34)
+        val android14 = engine(newRunner, newMuxer, directory.newFolder("av1-34"), sdkInt = 34)
             .transfer(plan = av1, destination = files("av1-34.mp4").destination)
+            as AudioVideoMuxResult.Failure
 
         assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, refused.failure.reason)
         assertEquals(0, oldRunner.totalCalls())
         assertEquals(0, oldMuxer.calls.get())
-        assertTrue(merged is AudioVideoMuxResult.Completed)
-        assertEquals(1, newMuxer.calls.get())
+        assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, android14.failure.reason)
+        assertEquals(0, newRunner.totalCalls())
+        assertEquals(0, newMuxer.calls.get())
     }
 
     @Test

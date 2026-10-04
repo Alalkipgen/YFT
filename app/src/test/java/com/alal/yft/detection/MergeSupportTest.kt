@@ -26,9 +26,11 @@ class MergeSupportTest {
 
     @Test
     fun avcMergesEverywhereAndAv1OnlyFromAndroid14WithADecoder() {
-        val android13 = DeviceMergeSupport(sdkInt = 33, hasDecoder = { true })
-        val android14NoDecoder = DeviceMergeSupport(sdkInt = 34, hasDecoder = { false })
-        val android14 = DeviceMergeSupport(sdkInt = 34, hasDecoder = { it == "video/av01" })
+        val android13 = DeviceMergeSupport(sdkInt = 33, hasDecoder = { true }, av1Enabled = true)
+        val android14NoDecoder =
+            DeviceMergeSupport(sdkInt = 34, hasDecoder = { false }, av1Enabled = true)
+        val android14 =
+            DeviceMergeSupport(sdkInt = 34, hasDecoder = { it == "video/av01" }, av1Enabled = true)
 
         assertTrue(android13.canMerge(file))
         assertTrue(android13.canMerge(avc))
@@ -40,9 +42,20 @@ class MergeSupportTest {
     }
 
     @Test
+    fun av1MergesAreOffUntilAPhoneProvesThem() {
+        // The API 34 emulator's muxer failed the AV1 merge (P4 CI), so no phone offers it.
+        val android15 = DeviceMergeSupport(sdkInt = 35, hasDecoder = { true })
+
+        assertFalse(android15.canMerge(av1))
+        assertTrue(android15.canMerge(avc))
+        assertTrue(android15.canMerge(file))
+    }
+
+    @Test
     fun theDecoderListIsReadOnceAndOnlyForAv1() {
         var lookups = 0
-        val support = DeviceMergeSupport(sdkInt = 35, hasDecoder = { lookups += 1; true })
+        val support =
+            DeviceMergeSupport(sdkInt = 35, hasDecoder = { lookups += 1; true }, av1Enabled = true)
 
         support.canMerge(avc)
         assertEquals(0, lookups)

@@ -15,20 +15,21 @@ fun interface MergeSupport {
 }
 
 /**
- * The phone's own answer. AVC merges everywhere. AV1 merges from Android 14, whose MP4 muxer
- * writes it ([AudioVideoMuxCompatibility.AV1_MP4_MIN_SDK]), and only when the phone has an AV1
- * decoder to play the result; Facebook's desktop ladder is AV1 (live check, 2026-10-05).
+ * The phone's own answer. AVC merges everywhere. AV1 would merge from Android 14
+ * ([AudioVideoMuxCompatibility.AV1_MP4_MIN_SDK]) and only with an AV1 decoder to play the result,
+ * but is off ([AudioVideoMuxCompatibility.AV1_MP4_ENABLED]): the API 34 emulator's muxer failed.
  */
 class DeviceMergeSupport(
     private val sdkInt: Int = Build.VERSION.SDK_INT,
     private val hasDecoder: (mimeType: String) -> Boolean = ::platformHasDecoder,
+    private val av1Enabled: Boolean = AudioVideoMuxCompatibility.AV1_MP4_ENABLED,
 ) : MergeSupport {
     private val playsAv1: Boolean by lazy { hasDecoder(AV1_MIME_TYPE) }
 
     override fun canMerge(candidate: MediaCandidate): Boolean {
         if (candidate.audioCompanion == null) return true
         return candidate.codecs.all { codec ->
-            AudioVideoMuxCompatibility.canWriteVideo(codec, sdkInt) &&
+            AudioVideoMuxCompatibility.canWriteVideo(codec, sdkInt, av1Enabled) &&
                 (!codec.trim().lowercase(Locale.US).startsWith(AV1_CODEC_PREFIX) || playsAv1)
         }
     }

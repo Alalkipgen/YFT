@@ -15,6 +15,10 @@ for every APK given to users, because Android refuses to install a lower one.
 - Facebook posts: `story.php`, `permalink.php`, a page's or group's `/posts/` links with a video
   are looked up like a reel, so the browser's Download button opens the sheet for the post's
   video.
+- Facebook qualities: every picture size of the video's DASH tracks (for example 360p and 720p)
+  is a Video row, merged on the phone with its sound into one MP4, and the sound alone is the
+  Audio row (M4A, MP3). When Facebook's page lists only AV1/VP9, YFT asks once more for the AVC
+  tracks without your session. AV1 rows stay off until the merge is proven on a phone.
 
 ### Changed
 
@@ -35,6 +39,9 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Fixed
 
+- Audio files saved from an MP4 track (Facebook, YouTube M4A) are named `.m4a` instead of `.mp4`.
+- Merged Facebook rows show the real video size from the server plus the sound's estimate
+  instead of a peak-bitrate guess (720p showed 219 MB for a 63 MB file).
 - Browser: a page's video player that fetches one file in byte-range pieces no longer fills the
   Found list with dozens of "Video file" rows; the pieces count as one file, and a page whose
   video a site adapter found counts that video once.

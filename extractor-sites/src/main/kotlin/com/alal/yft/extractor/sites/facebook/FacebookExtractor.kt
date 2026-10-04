@@ -143,8 +143,9 @@ class FacebookExtractor(
     /**
      * The manifest's tracks as download rows (P4): every mergeable picture size as one MP4 with
      * the best AAC track as its sound, like YouTube's merged rows, and that AAC track alone for
-     * Audio (M4A, MP3). A merged size is estimated from both bitrates over the duration; the
-     * audio file's exact size comes from its own lookup.
+     * Audio (M4A, MP3). A merged row states no size: the resolver reads the video file's length
+     * from the CDN and adds the sound's estimate (audio bitrate over the duration), because an
+     * AVC track's bandwidth is a peak value. The Audio row's exact size comes from its own lookup.
      */
     private fun trackCandidates(
         post: FacebookPost,
@@ -161,6 +162,9 @@ class FacebookExtractor(
             mimeType = audio.mimeType,
             codecs = listOf(audio.codec),
             requestContext = context,
+            // The audio track's stated bitrate matches its file; the resolver adds it to the
+            // video file's own length into one estimated size.
+            contentLengthBytes = estimatedBytes(audio, post.durationMillis),
             bitrateBitsPerSecond = audio.bandwidthBitsPerSecond,
             expiresAtEpochMs = FacebookUrls.mediaExpiryEpochMs(audio.url),
         )
@@ -176,7 +180,9 @@ class FacebookExtractor(
                     title = displayTitle(post, FacebookDashOffers.qualityName(video)),
                     thumbnailUrl = post.thumbnailUrl,
                     durationMillis = post.durationMillis,
-                    contentLengthBytes = estimatedBytes(video, audio, post.durationMillis),
+                    // Unknown on purpose: an AVC track's bandwidth is a peak (about 3.5 times the
+                    // real file), so the resolver asks the CDN for the video file's length.
+                    contentLengthBytes = null,
                     requestContext = context,
                     confidence = CandidateConfidence.HIGH,
                     expiresAtEpochMs = listOfNotNull(
@@ -258,16 +264,15 @@ class FacebookExtractor(
     private fun isExpired(url: String, nowEpochMs: Long): Boolean =
         FacebookUrls.mediaExpiryEpochMs(url)?.let { it <= nowEpochMs } == true
 
-    /** Both tracks' stated bitrates over the duration; null when one of them is unknown. */
-    private fun estimatedBytes(
-        video: FacebookDashTrack,
-        audio: FacebookDashTrack,
-        durationMillis: Long?,
-    ): Long? {
+    /**
+     * A track's stated bitrate over the duration; null when either is unknown. Used for the audio
+     * track only: Facebook's audio bandwidth matched the real file in the live check, while a
+     * video track's bandwidth can be a peak value.
+     */
+    private fun estimatedBytes(track: FacebookDashTrack, durationMillis: Long?): Long? {
         val millis = durationMillis?.takeIf { it > 0 } ?: return null
-        val videoBits = video.bandwidthBitsPerSecond ?: return null
-        val audioBits = audio.bandwidthBitsPerSecond ?: return null
-        return ((videoBits + audioBits) * millis / BITS_PER_BYTE_MILLIS).takeIf { it > 0 }
+        val bits = track.bandwidthBitsPerSecond ?: return null
+        return (bits * millis / BITS_PER_BYTE_MILLIS).takeIf { it > 0 }
     }
 
     /**

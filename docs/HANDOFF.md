@@ -30,11 +30,13 @@
   two sections, Audio (M4A, MP3 320/192/128) and Video (one row per standard resolution,
   "480p" for 848 × 478), Facebook `story.php`/`permalink.php`/posts pages are identified, and a
   player's byte-range pieces count as one file, so the browser's Download button opens the
-  sheet instead of the Found list.
+  sheet instead of the Found list; P4 OWNER CHECK (2026-10-05) — Facebook's DASH picture sizes
+  are merged Video rows with their AAC sound, the AAC track is Audio, the AVC ladder comes from
+  Safari's page without the session; AV1 merges are off (the API 34 emulator's muxer failed).
 - **Owner instruction (2026-10-05):** P3-FIX, then P4, P5, P6 without stopping or asking
   ([`prompts/CONTINUE-P4-TO-P6.md`](prompts/CONTINUE-P4-TO-P6.md)); not P7/P8.
-- **Next action — agent:** P4 — Facebook: one video, every quality
-  ([`prompts/P4-facebook-all-qualities.md`](prompts/P4-facebook-all-qualities.md)), then P5, P6.
+- **Next action — agent:** P5 — Download button on feeds (focused video)
+  ([`prompts/P5-feed-focused-video.md`](prompts/P5-feed-focused-video.md)), then P6.
 - **Next action — owner:** publish the beta.3 draft when ready; phone checks per task from the
   `yft-debug-apk` builds (FIX_ADD_PLAN §6); the P7 preview APK installs next to the release app.
 - **Earlier handoffs:** the Phases 8–10 task log (T01–T19 validation, CI runs, decisions) is in Git
@@ -45,8 +47,8 @@
 - The browser's Download button follows only full page loads, not videos opened inside a page
   (P1, fixed on the branch); some Facebook pages show black in the browser (P2, fixed on the
   branch); the download choices are split over several screens (P3, fixed on the branch).
-- Facebook offers only the qualities in the page's progressive and DASH lists (P4); YouTube stops
-  at 1080p AVC (2K/4K WebM is P6).
+- Facebook's AV1-only sizes (often 1080p) are not offered while AV1 merges are off (P4);
+  YouTube stops at 1080p AVC (2K/4K WebM is P6).
 - YouTube lookups from datacenter networks can stay bot-checked; the phone on a home or mobile
   network is the real test.
 - No playlists or batch downloads, background playback or folder export; an expired link cannot

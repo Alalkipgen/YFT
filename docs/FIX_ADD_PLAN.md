@@ -112,7 +112,7 @@ AI agent time includes builds and CI waits on a 4 GiB sandbox.
 | P1 | [Browser follows in-page navigation (YouTube Download button)](#p1--browser-follows-in-page-navigation) | Medium | 3–5 h | — | OWNER CHECK (2026-10-04) |
 | P2 | [Facebook/TikTok black page in the browser](#p2--facebook-and-tiktok-black-page-in-the-browser) | Medium–Hard | 4–8 h | P1 | OWNER CHECK (2026-10-04) |
 | P3 | [One download sheet, Snaptube style](#p3--one-download-sheet-snaptube-style) | Hard | 10–14 h | P1 | OWNER CHECK — P3-FIX done (2026-10-05) |
-| P4 | [Facebook: one video, every quality](#p4--facebook-one-video-every-quality) | Medium–Hard | 5–8 h | P3 | TODO |
+| P4 | [Facebook: one video, every quality](#p4--facebook-one-video-every-quality) | Medium–Hard | 5–8 h | P3 | OWNER CHECK (2026-10-05) |
 | P5 | [Download button on feeds (focused video)](#p5--download-button-on-feeds) | Hard | 6–10 h | P1, P3 | TODO |
 | P6 | [2K and 4K](#p6--2k-and-4k) | Hard | 8–12 h | P3 | TODO |
 | P7 | [Preview APK for the owner's test](#p7--preview-apk) | Easy | 1–2 h | P1–P6 | TODO |
@@ -374,6 +374,23 @@ plan tests (merge choice), live check of a public reel (status, heights, markers
 Audio → each downloads and plays with sound.
 
 **Docs:** SUPPORT_MATRIX (Facebook), TEST_MATRIX, CHANGELOG, SESSION_STATE.
+
+**Result (OWNER CHECK, 2026-10-05):** `FacebookDashManifest` reads the inline MPD's whole-file
+tracks; `FacebookDashOffers` keeps the best bitrate per picture size (AVC first, at most six)
+and the best AAC track; `FacebookExtractor` emits each size as a merged MP4 row (video +
+`audioCompanion`, like YouTube's T17 rows) and the AAC track as Audio, keeps HD/SD, and asks
+Safari's page once without the session when the first page has no AVC. A complete file is listed
+before a merge of the same resolution. Sizes: AVC `bandwidth` is a peak (720p estimated 219 MB,
+real 63.2 MB), so a merged row states no size — the resolver's request gives the video file's
+length and the sound adds bitrate × duration (exact in the live check). Audio-only MP4 → `.m4a`;
+the resolver keeps a stated `audio/mp4` when the CDN says `video/mp4`. AV1: Android 14 would be
+the first MP4 muxer for AV1, but the API 34 CI emulator failed the AV1 + AAC merge (emulator
+smoke #27, #28), so `AV1_MP4_ENABLED = false` and the 1080p AV1 row is not offered (VP9 cannot
+merge with AAC in MP4); the instrumented probe logs the failing step. Live (public reel,
+2026-10-05): Chrome page 9 whole-file tracks, video AV1/VP9 only, audio HE-AAC; Safari page AVC
+552×358 and 1108×720 plus audio; CDN sizes HD 67 984 016 B, SD 19 895 260 B, AV1 1080p
+104 714 303 B, AVC 720p 63 245 496 B, AVC 360p 15 946 354 B, audio 4 489 974 B; the audio file
+is served as `video/mp4`. Tests: TEST_MATRIX P4.
 
 ### P5 — Download button on feeds
 

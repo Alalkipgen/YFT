@@ -287,6 +287,8 @@ object DownloadPlanFactory {
     internal fun extensionFor(variant: MediaVariant): String {
         // Merged downloads are always written as MP4.
         if (variant.audioCompanion != null) return "mp4"
+        // Sound alone in an MP4 container is an M4A file (Facebook's and YouTube's audio tracks).
+        if (variant.trackType == MediaTrackType.AUDIO && variant.isMp4Container()) return "m4a"
         variant.container?.takeIf { it.isNotBlank() }?.let { container ->
             return container.lowercase(Locale.US).trimStart('.').sanitizeForFileSystem()
                 .ifBlank { defaultExtension(variant) }
@@ -302,6 +304,11 @@ object DownloadPlanFactory {
             "audio/ogg" -> "ogg"
             else -> defaultExtension(variant)
         }
+    }
+
+    private fun MediaVariant.isMp4Container(): Boolean {
+        val box = container?.trim()?.trimStart('.')?.lowercase(Locale.US)
+        return box == "mp4" || (box.isNullOrEmpty() && mimeType.equals("audio/mp4", true))
     }
 
     private fun defaultExtension(variant: MediaVariant): String =

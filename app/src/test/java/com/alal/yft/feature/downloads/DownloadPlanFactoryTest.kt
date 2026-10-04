@@ -172,20 +172,23 @@ class DownloadPlanFactoryTest {
     }
 
     @Test
-    fun `an AV1 video merges with HE-AAC from Android 14 and is refused before`() {
+    fun `an AV1 merge is refused while AV1 merges are off and AVC with HE-AAC merges`() {
         val av1 = variant(container = "mp4").copy(
             codecs = listOf("av01.0.08M.08"),
             audioCompanion = companion().copy(codecs = listOf("mp4a.40.5")),
         )
+        val avc = av1.copy(codecs = listOf("avc1.64001f"))
 
         val android13 = factory(av1, sdkInt = 33) as DownloadPlanResult.Rejected
-        val android14 = (factory(av1, sdkInt = 34) as DownloadPlanResult.Ready).request
+        val android14 = factory(av1, sdkInt = 34) as DownloadPlanResult.Rejected
+        val merged = (factory(avc, sdkInt = 34) as DownloadPlanResult.Ready).request
             as DownloadRequest.Mux
 
         assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, android13.reason)
-        assertEquals(listOf("av01.0.08M.08"), android14.plan.video.codecs)
-        assertEquals(listOf("mp4a.40.5"), android14.plan.audio.codecs)
-        assertEquals("video/mp4", android14.plan.outputMimeType)
+        assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, android14.reason)
+        assertEquals(listOf("avc1.64001f"), merged.plan.video.codecs)
+        assertEquals(listOf("mp4a.40.5"), merged.plan.audio.codecs)
+        assertEquals("video/mp4", merged.plan.outputMimeType)
     }
 
     @Test
@@ -318,6 +321,41 @@ class DownloadPlanFactoryTest {
         assertEquals(
             "mp4",
             DownloadPlanFactory.extensionFor(variant(container = null, mimeType = null)),
+        )
+    }
+
+    @Test
+    fun `sound alone in an mp4 container is saved as m4a and a video stays mp4`() {
+        // Facebook's and YouTube's audio tracks: a direct audio/mp4 file whose container is MP4.
+        assertEquals(
+            "m4a",
+            DownloadPlanFactory.extensionFor(
+                variant(
+                    container = "MP4",
+                    mimeType = "audio/mp4",
+                    trackType = MediaTrackType.AUDIO,
+                ),
+            ),
+        )
+        assertEquals(
+            "m4a",
+            DownloadPlanFactory.extensionFor(
+                variant(container = "mp4", mimeType = null, trackType = MediaTrackType.AUDIO),
+            ),
+        )
+        assertEquals(
+            "mp4",
+            DownloadPlanFactory.extensionFor(variant(container = "MP4", mimeType = "video/mp4")),
+        )
+        assertEquals(
+            "weba",
+            DownloadPlanFactory.extensionFor(
+                variant(
+                    container = null,
+                    mimeType = "audio/webm",
+                    trackType = MediaTrackType.AUDIO,
+                ),
+            ),
         )
     }
 
