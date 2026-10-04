@@ -79,7 +79,7 @@ def site_cases(lines):
     return list(cases.items())
 
 
-def sanitize_reports(folders):
+def sanitize_reports(folders, failed=None):
     totals = dict(tests=0, failures=0, errors=0, skipped=0)
     for folder in folders:
         for path in sorted(folder.rglob("*")):
@@ -99,6 +99,18 @@ def sanitize_reports(folders):
                     if node.tail:
                         node.tail = sanitize_logcat(node.tail)
                 tree.write(path, encoding="utf-8", xml_declaration=True)
+                if failed is not None:
+                    for case in root.iter("testcase"):
+                        problem = case.find("failure")
+                        if problem is None:
+                            problem = case.find("error")
+                        if problem is None:
+                            continue
+                        text = (problem.get("message") or problem.text or "").strip()
+                        first = text.splitlines()[0][:300] if text else ""
+                        failed.append(
+                            f"{case.get('classname', '')}.{case.get('name', '')}: {first}"
+                        )
             elif path.suffix in {".txt", ".log", ".html", ".json", ".js", ".css"}:
                 path.write_text(sanitize_logcat(path.read_text(errors="replace")))
     return totals
@@ -144,10 +156,14 @@ def main():
     parser.add_argument("--output-dir", type=pathlib.Path, required=True)
     parser.add_argument("--reports", type=pathlib.Path, action="append", default=[])
     args = parser.parse_args()
-    totals = sanitize_reports(args.reports)
+    failed = []
+    totals = sanitize_reports(args.reports, failed)
     print("::notice::Instrumentation results: " + " ".join(
         f"{key}={value}" for key, value in totals.items()
     ))
+    # The failing test names, already sanitized, so a red run says what failed.
+    for line in failed[:10]:
+        print("::error::Instrumentation failure " + escape_annotation(line))
     return diagnostics(args.raw_log, args.output_dir, require_screenshots=True)
 
 
