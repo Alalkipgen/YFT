@@ -420,7 +420,7 @@ internal fun BrowserPreview(
         onBrowserForward = {},
         onReload = {},
         onStop = {},
-        onPreviewCandidate = {},
+        onDownloadGroup = {},
         onNavigateBack = {},
         initialSheetExpanded = sheetExpanded,
         copiedLinkHint = startPage,
@@ -523,7 +523,7 @@ internal fun DownloadAsPreview() {
     }
 }
 
-/** "Video you copied" (`12-quick-download`) over Home: Music, Fast 480p and High 720p. */
+/** The download sheet (`12-quick-download`) over Home: Music, Fast 480p and High 720p. */
 @Composable
 internal fun QuickDownloadPreview() {
     val colors = YftTheme.colors

@@ -40,6 +40,7 @@
         "bitrate": 4400000,
         "width": 1920,
         "height": 1080,
+        "fps": 30,
         "contentLength": "88000000",
         "qualityLabel": "1080p"
       },

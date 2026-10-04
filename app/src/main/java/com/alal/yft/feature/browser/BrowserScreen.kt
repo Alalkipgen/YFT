@@ -102,11 +102,11 @@ import com.alal.yft.core.browser.webview.BrowserObservationSink
 import com.alal.yft.core.browser.webview.BrowserPageUrl
 import com.alal.yft.core.browser.webview.SecureBrowserChromeClient
 import com.alal.yft.core.browser.webview.SecureBrowserWebViewClient
-import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.media.MediaGroup
+import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.feature.home.HomeLinks
 import com.alal.yft.feature.home.rememberCopiedLinkHint
-import com.alal.yft.feature.quickdownload.QuickDownloadChoices
 import com.alal.yft.ui.components.FoundMediaDividerInset
 import com.alal.yft.ui.components.SHEET_SCRIM_ALPHA
 import com.alal.yft.ui.components.YftAllowedMediaNote
@@ -128,7 +128,6 @@ import java.util.Locale
 @Composable
 fun BrowserRoute(
     onNavigateBack: () -> Unit,
-    onOpenPreview: () -> Unit,
     initialLink: String? = null,
     onGoHome: () -> Unit = onNavigateBack,
     searchMode: Boolean = false,
@@ -224,13 +223,12 @@ fun BrowserRoute(
                 webView?.stopLoading()
                 refreshHistoryState()
             },
-            onPreviewCandidate = { candidate ->
-                if (viewModel.selectForPreview(candidate)) onOpenPreview()
+            onDownloadGroup = { group ->
+                if (viewModel.selectForDownload(group)) onOpenQuickDownload()
             },
             onNavigateBack = onNavigateBack,
             onGoHome = onGoHome,
             hasBrowserPage = browserRequested,
-            onOpenQuickDownload = onOpenQuickDownload,
             searchMode = searchMode,
             onSearch = { url ->
                 viewModel.onAddressChanged(url)
@@ -238,7 +236,7 @@ fun BrowserRoute(
             },
             copiedLinkHint = copiedLinkHint,
             onDownloadCopiedLink = {
-                // Read only after this tap; Home looks the link up and offers Video you copied.
+                // Read only after this tap; Home looks the link up and opens its sheet.
                 HomeLinks.fromClipboard(clipboard.getText()?.text)?.let(onDownloadLink)
             },
             onUseCopiedLink = {
@@ -343,12 +341,11 @@ fun BrowserScreen(
     onBrowserForward: () -> Unit,
     onReload: () -> Unit,
     onStop: () -> Unit,
-    onPreviewCandidate: (MediaCandidate) -> Unit,
+    onDownloadGroup: (MediaGroup) -> Unit,
     onNavigateBack: () -> Unit,
     onGoHome: () -> Unit = onNavigateBack,
     initialSheetExpanded: Boolean = false,
     hasBrowserPage: Boolean = uiState.currentUrl != null || uiState.isLoading,
-    onOpenQuickDownload: () -> Unit = {},
     searchMode: Boolean = false,
     onSearch: (url: String) -> Unit = {},
     copiedLinkHint: Boolean = false,
@@ -361,6 +358,8 @@ fun BrowserScreen(
     val colors = YftTheme.colors
     val savable = remember(uiState.candidates) { uiState.candidates.filter { it.isSavable } }
     val hiddenCount = uiState.candidates.size - savable.size
+    // One row, one count and one sheet per video: its qualities and audio are inside (P3).
+    val videos = remember(savable) { MediaGroups.of(savable) }
     var sheetExpanded by rememberSaveable { mutableStateOf(initialSheetExpanded) }
     var editingAddress by remember { mutableStateOf(false) }
     LaunchedEffect(savable.isEmpty()) {
@@ -515,30 +514,27 @@ fun BrowserScreen(
                 ) {
                     val fabVisible = BrowserDownloadFab.isVisible(
                         hasPage = hasBrowserPage,
-                        savableCount = savable.size,
+                        savableCount = videos.size,
                         sheetExpanded = sheetExpanded,
                         editingAddress = editingAddress,
                     )
                     if (fabVisible) {
                         BrowserDownloadButton(
-                            savableCount = savable.size,
+                            savableCount = videos.size,
                             onClick = {
-                                // One video opens "Video you copied"; anything else the list.
-                                if (QuickDownloadChoices.of(savable) != null) {
-                                    onOpenQuickDownload()
-                                } else {
-                                    sheetExpanded = true
-                                }
+                                // One video opens the download sheet; several the list.
+                                val only = videos.singleOrNull()
+                                if (only != null) onDownloadGroup(only) else sheetExpanded = true
                             },
                             modifier = Modifier.padding(end = 16.dp, bottom = 12.dp),
                         )
                     }
                     FoundMediaSheet(
-                        candidates = savable,
+                        videos = videos,
                         hiddenCount = hiddenCount,
                         expanded = sheetExpanded,
                         onExpandedChange = { sheetExpanded = it },
-                        onPreviewCandidate = onPreviewCandidate,
+                        onDownloadGroup = onDownloadGroup,
                         modifier = Modifier.heightIn(max = sheetMaxHeight),
                     )
                 }
@@ -761,11 +757,11 @@ private fun BrowserBanner(
 /** The docked sheet from `02`: a peek header that expands into the savable media list. */
 @Composable
 private fun FoundMediaSheet(
-    candidates: List<MediaCandidate>,
+    videos: List<MediaGroup>,
     hiddenCount: Int,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
-    onPreviewCandidate: (MediaCandidate) -> Unit,
+    onDownloadGroup: (MediaGroup) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = YftTheme.colors
@@ -832,7 +828,7 @@ private fun FoundMediaSheet(
                                 .weight(1f, fill = false)
                                 .semantics {
                                     heading()
-                                    contentDescription = foundCountLabel(candidates.size)
+                                    contentDescription = foundCountLabel(videos.size)
                                 },
                             color = colors.textPrimary,
                             style = MaterialTheme.typography.titleLarge,
@@ -843,7 +839,7 @@ private fun FoundMediaSheet(
                                 .padding(start = 10.dp),
                         ) {
                             YftCountBadge(
-                                count = candidates.size,
+                                count = videos.size,
                                 modifier = Modifier.clearAndSetSemantics {},
                                 minSize = 24.dp,
                             )
@@ -871,19 +867,17 @@ private fun FoundMediaSheet(
                             .testTag("found-list"),
                     ) {
                         itemsIndexed(
-                            items = candidates,
-                            key = { index, candidate ->
-                                "${candidate.kind}-$index-${candidate.observedAtEpochMs}"
-                            },
-                        ) { index, candidate ->
+                            items = videos,
+                            key = { index, video -> "$index-${video.key}" },
+                        ) { index, video ->
                             if (index > 0) {
                                 YftDivider(
                                     modifier = Modifier.padding(start = FoundMediaDividerInset),
                                 )
                             }
                             YftFoundMediaRow(
-                                candidate = candidate,
-                                onPreview = { onPreviewCandidate(candidate) },
+                                video = video,
+                                onPreview = { onDownloadGroup(video) },
                                 modifier = Modifier.testTag("found-item-$index"),
                                 previewTag = "found-preview-$index",
                             )

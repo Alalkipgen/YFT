@@ -120,6 +120,8 @@ object DownloadPlanFactory {
                                 title = asset.title?.trim()?.takeIf(String::isNotEmpty),
                             )
                         },
+                        // An MP3 reads the video's AAC track itself; an M4A copies it (P3).
+                        audioOnly = variant.audioFromVideo && variant.mp3 == null,
                     ),
                     fileName = fileName,
                     mimeType = variant.mimeType,

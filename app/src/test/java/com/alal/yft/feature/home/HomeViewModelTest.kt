@@ -315,7 +315,7 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun oneVideoFoundOpensVideoYouCopiedAndSeveralKeepTheList() = runTest {
+    fun oneVideoFoundOpensItsSheetAndSeveralKeepTheList() = runTest {
         val viewModel = viewModel()
         val opened = mutableListOf<Unit>()
         val collector = launch { viewModel.quickDownloadRequests.collect { opened += it } }
@@ -326,6 +326,7 @@ class HomeViewModelTest {
         advanceUntilIdle()
         assertTrue(viewModel.uiState.value.quickDownload)
         assertEquals(1, opened.size)
+        assertEquals(store.page.value?.candidates, store.selection.value?.candidates)
 
         inspector.answer = { found(2) }
         viewModel.onAction(HomeAction.Submit)
@@ -333,6 +334,34 @@ class HomeViewModelTest {
         assertEquals(PromptboxStatus.Found(2), viewModel.uiState.value.status)
         assertFalse(viewModel.uiState.value.quickDownload)
         assertEquals(1, opened.size)
+        collector.cancel()
+    }
+
+    @Test
+    fun theQualitiesOfOneVideoCountOnceAndViewShowsThatVideoAgain() = runTest {
+        val viewModel = viewModel()
+        val opened = mutableListOf<Unit>()
+        val collector = launch { viewModel.quickDownloadRequests.collect { opened += it } }
+        // Facebook's HD, SD and DASH items of one reel (P3 regression: "3 media found").
+        val reel = found(3).let { result ->
+            result.copy(candidates = result.candidates.map { it.copy(videoId = "facebook:1") })
+        }
+        inspector.answer = { reel }
+
+        viewModel.onAction(HomeAction.LinkChanged("https://a.test/watch"))
+        viewModel.onAction(HomeAction.Submit)
+        advanceUntilIdle()
+
+        assertEquals(PromptboxStatus.Found(1), viewModel.uiState.value.status)
+        assertTrue(viewModel.uiState.value.quickDownload)
+        assertEquals(1, opened.size)
+        assertEquals(reel.candidates, store.selection.value?.candidates)
+
+        // The browser found another page since; View hands the reel to the sheet again.
+        store.publish("https://b.test/other", "Other", found(1).candidates)
+        assertNull(store.selection.value)
+        viewModel.selectFoundVideo()
+        assertEquals(reel.candidates, store.selection.value?.candidates)
         collector.cancel()
     }
 

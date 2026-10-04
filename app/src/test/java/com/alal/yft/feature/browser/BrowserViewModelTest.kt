@@ -1,6 +1,5 @@
 package com.alal.yft.feature.browser
 
-import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.browser.detection.DownloadObservation
 import com.alal.yft.core.browser.detection.RequestObservation
 import com.alal.yft.core.data.preferences.HomeSitesRepository
@@ -18,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionRequest
@@ -96,8 +96,8 @@ class BrowserViewModelTest {
 
     @Test
     fun domCandidatesAppearAfterDebounceAndClearImmediatelyOnNavigation() = runTest {
-        val selectionStore = PreviewSelectionStore()
-        val viewModel = BrowserViewModel(OkHttpClient(), noAdapters(), selectionStore)
+        val detected = DetectedMediaStore()
+        val viewModel = BrowserViewModel(OkHttpClient(), noAdapters(), detected)
         val firstPage = "https://example.test/one"
         viewModel.onPageStarted(firstPage)
         viewModel.onDomProbeResult(
@@ -111,14 +111,17 @@ class BrowserViewModelTest {
 
         assertEquals(1, viewModel.uiState.value.candidates.size)
         assertEquals("Fixture", viewModel.uiState.value.candidates.single().title)
-        val candidate = viewModel.uiState.value.candidates.single()
-        assertTrue(viewModel.selectForPreview(candidate))
-        assertEquals(candidate, selectionStore.selection.value)
+        val video = MediaGroups.of(viewModel.uiState.value.candidates).single()
+        assertTrue(viewModel.selectForDownload(video))
+        assertEquals(video, detected.selection.value)
 
         viewModel.onPageStarted("https://example.test/two")
+        runCurrent()
 
         assertTrue(viewModel.uiState.value.candidates.isEmpty())
-        assertFalse(viewModel.selectForPreview(candidate))
+        // The new page also drops the video chosen on the old one.
+        assertEquals(null, detected.selection.value)
+        assertFalse(viewModel.selectForDownload(video))
     }
 
     @Test
@@ -157,7 +160,6 @@ class BrowserViewModelTest {
         val viewModel = BrowserViewModel(
             OkHttpClient(),
             noAdapters(),
-            PreviewSelectionStore(),
             detected,
         )
         val page = "https://example.test/one"
@@ -180,7 +182,7 @@ class BrowserViewModelTest {
         assertEquals("Fixture page", published.pageTitle)
         assertEquals("Clip", published.candidates.single().title)
 
-        BrowserViewModel(OkHttpClient(), noAdapters(), PreviewSelectionStore(), detected)
+        BrowserViewModel(OkHttpClient(), noAdapters(), detected)
         runCurrent()
         assertEquals(published, detected.page.value)
     }

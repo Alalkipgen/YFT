@@ -51,6 +51,8 @@ class SiteAdapterCoordinatorTest {
             "https://fixture.test/video/42",
             outcome.candidates.single().requestContext.pageUrl,
         )
+        // Every file of one extraction is one video, so the found lists show one row (P3).
+        assertEquals("fixture:42", outcome.candidates.single().videoId)
     }
 
     @Test

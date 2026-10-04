@@ -43,6 +43,16 @@ data class MediaCandidate(
     val codecs: List<String> = emptyList(),
     /** Set when [mediaUrl] is video only: the audio that is merged with it on the phone. */
     val audioCompanion: CompanionAudio? = null,
+    /**
+     * The site's own name for the video, for example `youtube:dQw4w9WgXcQ`. Candidates with the
+     * same value are qualities of one video and share one download sheet ([MediaGroups]).
+     */
+    val videoId: String? = null,
+    /** The picture size and rate the source states; null when unknown, never guessed. */
+    val width: Int? = null,
+    val height: Int? = null,
+    val framesPerSecond: Double? = null,
+    val bitrateBitsPerSecond: Long? = null,
 ) {
     override fun toString(): String = buildString {
         append("MediaCandidate(pageUrl=")
@@ -61,6 +71,8 @@ data class MediaCandidate(
         append(codecs)
         append(", audioCompanion=")
         append(audioCompanion != null)
+        append(", height=")
+        append(height)
         append(')')
     }
 }

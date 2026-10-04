@@ -24,7 +24,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.media.MediaGroup
+import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.ui.components.FoundMediaDividerInset
 import com.alal.yft.ui.components.YftAllowedMediaNote
 import com.alal.yft.ui.components.YftCard
@@ -44,7 +45,7 @@ import java.net.URI
 @Composable
 fun DetectedMediaRoute(
     onNavigateBack: () -> Unit,
-    onOpenPreview: () -> Unit,
+    onOpenQuickDownload: () -> Unit,
     onOpenBrowser: () -> Unit,
     viewModel: DetectedMediaViewModel = hiltViewModel(),
 ) {
@@ -52,8 +53,8 @@ fun DetectedMediaRoute(
     DetectedMediaScreen(
         page = page,
         onNavigateBack = onNavigateBack,
-        onPreview = { candidate ->
-            if (viewModel.selectForPreview(candidate)) onOpenPreview()
+        onPreview = { video ->
+            if (viewModel.selectForDownload(video)) onOpenQuickDownload()
         },
         onOpenBrowser = onOpenBrowser,
         onClear = viewModel::clear,
@@ -62,14 +63,15 @@ fun DetectedMediaRoute(
 
 /**
  * "Found on this page" as a full screen, opened from the Home link check: the page by title and
- * host, then the same rows as the browser sheet (`02`). DRM-protected candidates are never
- * offered; a note says how many were left out.
+ * host, then the same rows as the browser sheet (`02`), one per video; Preview opens its
+ * download sheet. DRM-protected candidates are never offered; a note says how many were left
+ * out.
  */
 @Composable
 fun DetectedMediaScreen(
     page: DetectedPage?,
     onNavigateBack: () -> Unit,
-    onPreview: (MediaCandidate) -> Unit = {},
+    onPreview: (MediaGroup) -> Unit = {},
     onOpenBrowser: () -> Unit = {},
     onClear: () -> Unit = {},
 ) {
@@ -154,12 +156,13 @@ private fun NothingDetected(
 @Composable
 private fun DetectedList(
     page: DetectedPage,
-    onPreview: (MediaCandidate) -> Unit,
+    onPreview: (MediaGroup) -> Unit,
     onOpenBrowser: () -> Unit,
     contentPadding: PaddingValues,
 ) {
     val colors = YftTheme.colors
     val savable = remember(page.candidates) { page.candidates.filter { it.isSavable } }
+    val videos = remember(savable) { MediaGroups.of(savable) }
     val hiddenNote = protectedHiddenLabel(page.candidates.size - savable.size)
     LazyColumn(
         modifier = Modifier
@@ -188,7 +191,7 @@ private fun DetectedList(
                 )
                 Text(
                     // Only the host is shown: the full page address can carry session tokens.
-                    text = "${pageHost(page.pageUrl)} · ${candidateCountLabel(savable.size)}",
+                    text = "${pageHost(page.pageUrl)} · ${candidateCountLabel(videos.size)}",
                     color = colors.textSecondary,
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -221,13 +224,13 @@ private fun DetectedList(
                     modifier = Modifier.fillMaxWidth(),
                     contentPadding = PaddingValues(vertical = 4.dp),
                 ) {
-                    savable.forEachIndexed { index, candidate ->
+                    videos.forEachIndexed { index, video ->
                         if (index > 0) {
                             YftDivider(modifier = Modifier.padding(start = FoundMediaDividerInset))
                         }
                         YftFoundMediaRow(
-                            candidate = candidate,
-                            onPreview = { onPreview(candidate) },
+                            video = video,
+                            onPreview = { onPreview(video) },
                             modifier = Modifier.testTag("detected-item-$index"),
                             previewTag = "detected-preview-$index",
                         )

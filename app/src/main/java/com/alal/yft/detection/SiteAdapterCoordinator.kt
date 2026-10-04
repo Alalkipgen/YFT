@@ -91,7 +91,18 @@ class SiteAdapterCoordinator @Inject constructor(
         return when (result) {
             is SiteExtractionResult.Success -> SiteAdapterOutcome.Detected(
                 adapterId = matched.extractor.id,
-                candidates = result.candidates.map { it.anchoredTo(pageUrl) },
+                // One extraction is one video: its qualities share one download sheet (P3).
+                candidates = result.candidates.map { candidate ->
+                    candidate.anchoredTo(pageUrl).let { anchored ->
+                        if (anchored.videoId != null) {
+                            anchored
+                        } else {
+                            anchored.copy(
+                                videoId = "${matched.extractor.id}:${matched.identity.contentId}",
+                            )
+                        }
+                    }
+                },
             )
 
             is SiteExtractionResult.Failure -> SiteAdapterOutcome.Failed(

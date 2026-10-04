@@ -602,8 +602,23 @@ repository that asks each client and prints only verdicts and counts.
 | Layout regression | `BrowserRouteTest.theBrowserWebViewFillsItsBoxInsteadOfWrappingItsContent` failed without the `MATCH_PARENT` parameters and passes |
 | Policy tests | `AppLinkPolicyTest` (http error, `intent://` fallback once, other schemes ignored), `BrowserUserAgentTest`, `SecureBrowserChromeClientTest` (full screen show/hide), `SecureWebViewPolicyTest`, `BrowserRouteTest` full-screen case |
 | Local validation | See the P2 checkpoint in SESSION_STATE: extractor-sites, core-browser and app unit tests, app lint, androidTest compile, `scripts/tests` |
-| CI | Checkpoint and emulator runs on the P2 commit (SESSION_STATE) |
+| CI | PASS — checkpoint `8421700` run https://github.com/Alalkipgen/YFT/actions/runs/37218051422, emulator run https://github.com/Alalkipgen/YFT/actions/runs/37218051449 (9 instrumented tests; `fb-video` `readyState 4` without the notice, `tt-video` `readyState 4`) |
 | Owner check | Facebook share link → Open in browser → the reel shows and plays, full screen works, the Download button appears and no "changed its page format" notice; TikTok on the CI emulator only |
+
+### P3 — One download sheet with real qualities (OWNER CHECK, 2026-10-04)
+
+| Check | Result |
+| --- | --- |
+| Regression (old behaviour simulated) | With one group per candidate, the candidate's title as its quality and no sound from the MP4 put back into the new code, 19 of the 68 targeted tests fail, among them `HomeViewModelTest.theQualitiesOfOneVideoCountOnceAndViewShowsThatVideoAgain` (Facebook HD, SD and DASH counted 3, expected 1), `DetectedMediaScreenTest`/`BrowserScreenTest` `theQualitiesOfOneVideoAreOneRow…` (3 rows), `QuickDownloadChoicesTest.aQualityLabelNeverComesFromThePageTitle`, `…aVideoWithoutAnAudioFileOffersItsOwnSoundAsM4aAndMp3` and `QuickDownloadViewModelTest.musicOfAnMp4OnlyVideoQueuesTheVideosSoundKeptAsM4a`; with the fix all pass |
+| Grouping | `MediaGroupsTest`: groups by the adapter's video id, then by page and length, never merges two videos of one page; the base title drops the " — HD" label |
+| Audio for MP4-only videos | `DownloadPlanFactoryTest` plans the MP4 download with `audioOnly`; `Mp3ConvertingTransferDispatcherTest` extracts the AAC track before converting; `AudioFromVideoTest` (only AAC MP4 with sound) |
+| Real qualities | `Mp4HeaderParserTest` (fixtures: `moov` at the start/end, `tkhd` size, `stsd` avc1/mp4a, `esds`, truncated files, ≤ 6 ranged reads); `DefaultVariantResolverTest` probes a whole MP4 for height, width, frame rate; YouTube candidates carry height/fps/bitrate (`YouTubeExtractor`) so they show without a request |
+| Sheet | `QuickDownloadScreenTest`: header (title, site, length), loading, error + Retry, empty, Music/Video rows, More formats opens inside the sheet (every quality, MP3 320/192/128, chips), Details, Download · size, status, Open Downloads; every testTag kept |
+| Navigation | `YftNavigationSmokeTest`: Home View → sheet; Found list Preview → sheet over the list; browser Download (one video) → sheet; sheet Details → Download as |
+| Audio extraction | `AudioExtractorInstrumentedTest` (CI emulator): copies the AAC track of a small MP4 asset into an M4A that `MediaExtractor` reads as `audio/mp4a-latm`, same duration |
+| Local validation | app 563 tests (66 render tests skipped as usual), core-download 107, core-media 24, core-model 62, extractor-sites 152 — 0 failures; `:app:lintDebug` 0 errors; `:app:compileDebugAndroidTestKotlin` |
+| CI | Checkpoint and emulator runs on the P3 commit (SESSION_STATE) |
+| Owner check | Facebook reel and a YouTube video: View (Home) or the browser's Download button → one "Download" sheet with Music and Video rows, real resolutions and sizes; More formats opens inside; Music (M4A) and MP3 play |
 
 ## Runtime tests still requiring a device/emulator
 

@@ -23,9 +23,12 @@
 - **Done in Phase 11:** P0 plan and docs (`99efca6`); P1 OWNER CHECK (2026-10-04) — the browser
   follows in-page navigation, so the Download button follows a video opened inside the page;
   P2 OWNER CHECK (2026-10-04) — Facebook and TikTok pages render and play in the browser, and the
-  Facebook lookup asks for the desktop page (owner's phone: reel plays, Download button shown).
-- **Next action — agent:** P3 — one download sheet, Snaptube style
-  ([`prompts/P3-one-download-sheet.md`](prompts/P3-one-download-sheet.md)), then P4, P5, P6.
+  Facebook lookup asks for the desktop page (owner's phone: reel plays, Download button shown);
+  P3 OWNER CHECK (2026-10-04) — one "Download" sheet for every path (Home View, Found list,
+  browser button) with Music and Video rows, real resolutions and sizes, More formats inside the
+  sheet, audio from MP4 (M4A/MP3) and one row per video.
+- **Next action — agent:** P4 — Facebook: one video, every quality
+  ([`prompts/P4-facebook-all-qualities.md`](prompts/P4-facebook-all-qualities.md)), then P5, P6.
 - **Next action — owner:** publish the beta.3 draft when ready; phone checks per task from the
   `yft-debug-apk` builds (FIX_ADD_PLAN §6); the P7 preview APK installs next to the release app.
 - **Earlier handoffs:** the Phases 8–10 task log (T01–T19 validation, CI runs, decisions) is in Git
@@ -35,7 +38,7 @@
 
 - The browser's Download button follows only full page loads, not videos opened inside a page
   (P1, fixed on the branch); some Facebook pages show black in the browser (P2, fixed on the
-  branch).
+  branch); the download choices are split over several screens (P3, fixed on the branch).
 - Facebook offers only the qualities in the page's progressive and DASH lists (P4); YouTube stops
   at 1080p AVC (2K/4K WebM is P6).
 - YouTube lookups from datacenter networks can stay bot-checked; the phone on a home or mobile

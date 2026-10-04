@@ -1,8 +1,9 @@
 package com.alal.yft.feature.detectedmedia
 
-import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.media.MediaGroup
+import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.core.model.media.MediaKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -31,34 +32,51 @@ class DetectedMediaViewModelTest {
     }
 
     @Test
-    fun onlyListedCandidatesWithoutDrmHintsReachPreview() {
+    fun onlyListedVideosWithoutDrmHintsReachTheDownloadSheet() {
         val store = DetectedMediaStore()
-        val selection = PreviewSelectionStore()
         val playable = candidate(1)
         val drmProtected = candidate(2).copy(drmHint = true)
         store.publish(page, "Fixture", listOf(playable, drmProtected))
-        val viewModel = DetectedMediaViewModel(store, selection)
+        val viewModel = DetectedMediaViewModel(store)
 
-        assertFalse(viewModel.selectForPreview(candidate(3)))
-        assertFalse(viewModel.selectForPreview(drmProtected))
-        assertNull(selection.selection.value)
-        assertTrue(viewModel.selectForPreview(playable))
-        assertEquals(playable, selection.selection.value)
+        assertFalse(viewModel.selectForDownload(video(candidate(3))))
+        assertFalse(viewModel.selectForDownload(video(drmProtected)))
+        assertNull(store.selection.value)
+        assertTrue(viewModel.selectForDownload(video(playable)))
+        assertEquals(listOf(playable), store.selection.value?.candidates)
+    }
+
+    @Test
+    fun aChosenVideoStaysWithItsPageAndGoesWithTheNextPage() {
+        val store = DetectedMediaStore()
+        val playable = candidate(1)
+        store.publish(page, "Fixture", listOf(playable))
+        store.select(video(playable))
+
+        // More media found on the same page keeps the choice; another page drops it.
+        store.publish(page, "Fixture", listOf(playable, candidate(2)))
+        assertEquals(listOf(playable), store.selection.value?.candidates)
+        store.publish("https://example.test/next", null, listOf(candidate(3)))
+        assertNull(store.selection.value)
     }
 
     @Test
     fun clearEmptiesTheScreenAndLaterSelectionsFail() {
         val store = DetectedMediaStore()
-        val selection = PreviewSelectionStore()
         val playable = candidate(1)
         store.publish(page, "Fixture", listOf(playable))
-        val viewModel = DetectedMediaViewModel(store, selection)
+        val viewModel = DetectedMediaViewModel(store)
+        assertTrue(viewModel.selectForDownload(video(playable)))
 
         viewModel.clear()
 
         assertNull(viewModel.page.value)
-        assertFalse(viewModel.selectForPreview(playable))
+        assertNull(store.selection.value)
+        assertFalse(viewModel.selectForDownload(video(playable)))
     }
+
+    private fun video(candidate: MediaCandidate): MediaGroup =
+        MediaGroups.of(listOf(candidate)).single()
 
     private fun candidate(index: Int) = MediaCandidate(
         pageUrl = page,

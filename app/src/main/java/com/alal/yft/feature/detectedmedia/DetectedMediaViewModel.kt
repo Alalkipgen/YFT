@@ -1,8 +1,7 @@
 package com.alal.yft.feature.detectedmedia
 
 import androidx.lifecycle.ViewModel
-import com.alal.yft.core.media.session.PreviewSelectionStore
-import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.media.MediaGroup
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.StateFlow
@@ -10,18 +9,17 @@ import kotlinx.coroutines.flow.StateFlow
 @HiltViewModel
 class DetectedMediaViewModel @Inject constructor(
     private val store: DetectedMediaStore,
-    private val previewSelectionStore: PreviewSelectionStore,
 ) : ViewModel() {
     val page: StateFlow<DetectedPage?> = store.page
 
     /**
-     * Hands [candidate] to Preview through the in-memory selection. Returns false when the
-     * candidate is no longer listed or carries a DRM hint, so nothing navigates.
+     * Hands [video] to the download sheet. Returns false when the page no longer lists every
+     * one of its candidates, or one carries a DRM hint, so nothing navigates.
      */
-    fun selectForPreview(candidate: MediaCandidate): Boolean {
+    fun selectForDownload(video: MediaGroup): Boolean {
         val listed = store.page.value?.candidates.orEmpty()
-        if (candidate !in listed || candidate.drmHint == true) return false
-        previewSelectionStore.select(candidate)
+        if (video.candidates.any { it !in listed || it.drmHint == true }) return false
+        store.select(video)
         return true
     }
 

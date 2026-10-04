@@ -227,7 +227,6 @@ class BrowserRouteTest {
             YftTheme(themeMode = ThemeMode.LIGHT) {
                 BrowserRoute(
                     onNavigateBack = {},
-                    onOpenPreview = {},
                     initialLink = initialLink,
                     viewModel = viewModel,
                 )

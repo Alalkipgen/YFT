@@ -1,6 +1,7 @@
 package com.alal.yft.feature.detectedmedia
 
 import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.media.MediaGroup
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,8 +26,14 @@ data class DetectedPage(
 class DetectedMediaStore @Inject constructor() {
     private val mutablePage = MutableStateFlow<DetectedPage?>(null)
     val page: StateFlow<DetectedPage?> = mutablePage.asStateFlow()
+    private val mutableSelection = MutableStateFlow<MediaGroup?>(null)
+
+    /** The video the download sheet shows (P3): a snapshot, so new finds do not move it. */
+    val selection: StateFlow<MediaGroup?> = mutableSelection.asStateFlow()
 
     fun publish(pageUrl: String, pageTitle: String?, candidates: List<MediaCandidate>) {
+        // A video chosen on another page is not this page's: the sheet must not show it.
+        if (mutablePage.value?.pageUrl != pageUrl) mutableSelection.value = null
         mutablePage.value = DetectedPage(
             pageUrl = pageUrl,
             pageTitle = pageTitle,
@@ -34,8 +41,13 @@ class DetectedMediaStore @Inject constructor() {
         )
     }
 
+    fun select(group: MediaGroup) {
+        mutableSelection.value = group
+    }
+
     fun clear() {
         mutablePage.value = null
+        mutableSelection.value = null
     }
 
     companion object {

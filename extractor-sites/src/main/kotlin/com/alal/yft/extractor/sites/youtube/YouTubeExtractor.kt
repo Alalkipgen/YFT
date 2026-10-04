@@ -523,6 +523,11 @@ class YouTubeExtractor(
         observedAtEpochMs = lookup.nowEpochMs,
         codecs = stream.codecs,
         audioCompanion = audioCompanion,
+        // The picture YouTube states, so the download sheet never has to guess it (P3).
+        width = stream.width?.takeIf { stream.hasVideo && it > 0 },
+        height = stream.height?.takeIf { stream.hasVideo && it > 0 },
+        framesPerSecond = stream.fps?.takeIf { stream.hasVideo }?.toDouble(),
+        bitrateBitsPerSecond = stream.bitrate?.takeIf { it > 0 },
     )
 
     private fun companionAudio(

@@ -15,7 +15,7 @@
 | 8 — Field fixes | COMPLETE | Fixes from the owner's beta.2 phone test: browser crash, start page, crash report, Home lookup identity, Facebook, TikTok, YouTube messages, Your sites; CI emulator smoke test. Tasks T01–T09 in the former `docs/FIX_PLAN.md` (Git history) (phone checks in §8); T10 SKIPPED by the owner — released with Phases 9–10 as `1.0.0-beta.3` (T19) |
 | 9 — Copied-link flow | COMPLETE | Copied-link check, "Video you copied" quick sheet, Search to download, floating Download button. Tasks T11–T14; T15 SKIPPED by the owner — released in `1.0.0-beta.3` (T19) |
 | 10 — Formats and YouTube | COMPLETE | YouTube client strategy (D2 = A + B + C, ADR-006), merged 480p/720p/1080p video and audio, MP3. Tasks T16–T18; T19 merged the branch into `main` (`2f6284f`), tagged `v1.0.0-beta.3` and created the signed draft pre-release `1.0.0-beta.3` (versionCode 3, 2026-10-04; APK SHA-256 `8fe466f1…988f` in HANDOFF) |
-| 11 — Download flow (Snaptube style) | IN PROGRESS (P0 done; P1, P2 owner check) | Browser follows in-page navigation, Facebook pages, one download sheet, all Facebook qualities, the focused feed video, 2K/4K as WebM; test-key preview APK (P7), then the signed `1.0.0-beta.4` (P8). Plan: [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md) |
+| 11 — Download flow (Snaptube style) | IN PROGRESS (P0 done; P1–P3 owner check) | Browser follows in-page navigation, Facebook pages, one download sheet, all Facebook qualities, the focused feed video, 2K/4K as WebM; test-key preview APK (P7), then the signed `1.0.0-beta.4` (P8). Plan: [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md) |
 
 ## Current phase state
 

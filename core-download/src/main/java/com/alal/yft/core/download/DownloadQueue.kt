@@ -100,7 +100,9 @@ class DownloadQueue(
             segments = emptyList(),
         ),
         totalBytes = metadata.totalBytes,
-        mimeType = plan.mp3?.let { Mp3Encoding.MIME_TYPE } ?: metadata.contentType ?: plan.mimeType,
+        mimeType = plan.mp3?.let { Mp3Encoding.MIME_TYPE }
+            ?: AUDIO_ONLY_MIME_TYPE.takeIf { plan.audioOnly }
+            ?: metadata.contentType ?: plan.mimeType,
         preferredSegmentCount = plan.preferredSegmentCount,
         destinationSpec = destinationSpec,
     )
@@ -213,7 +215,9 @@ class DownloadQueue(
             segments = emptyList(),
         ),
         totalBytes = metadata.totalBytes,
-        mimeType = plan.mp3?.let { Mp3Encoding.MIME_TYPE } ?: metadata.contentType ?: plan.mimeType,
+        mimeType = plan.mp3?.let { Mp3Encoding.MIME_TYPE }
+            ?: AUDIO_ONLY_MIME_TYPE.takeIf { plan.audioOnly }
+            ?: metadata.contentType ?: plan.mimeType,
         preferredSegmentCount = plan.preferredSegmentCount,
     )
 
@@ -700,6 +704,9 @@ class DownloadQueue(
 
     private companion object {
         const val DEFAULT_STREAM_SEGMENT_COUNT = 1
+
+        /** An M4A kept from a video's sound (P3). */
+        const val AUDIO_ONLY_MIME_TYPE = "audio/mp4"
 
         val TERMINAL_STATUSES = setOf(
             DownloadTaskStatus.COMPLETED,

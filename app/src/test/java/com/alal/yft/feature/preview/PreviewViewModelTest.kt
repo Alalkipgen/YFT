@@ -92,7 +92,8 @@ class PreviewViewModelTest {
 
         val ready = viewModel.uiState.value as PreviewUiState.Ready
         assertEquals(
-            listOf("m4a", "m4a-mp3-192", "m4a-mp3-128"),
+            // P3: 320 kbps joins 192 and 128.
+            listOf("m4a", "m4a-mp3-320", "m4a-mp3-192", "m4a-mp3-128"),
             ready.asset.variants.map(MediaVariant::id),
         )
         assertEquals(PreviewTab.AUDIO, ready.selectedTab)

@@ -131,8 +131,15 @@ fun HomeRoute(
         state = state,
         onAction = viewModel::onAction,
         onOpenBrowser = onOpenBrowser,
-        // One video found: View reopens "Video you copied"; several keep the Found list.
-        onOpenDetectedMedia = if (state.quickDownload) onOpenQuickDownload else onOpenDetectedMedia,
+        // One video found: View reopens its download sheet; several keep the Found list.
+        onOpenDetectedMedia = if (state.quickDownload) {
+            {
+                viewModel.selectFoundVideo()
+                onOpenQuickDownload()
+            }
+        } else {
+            onOpenDetectedMedia
+        },
         onOpenLibrary = onOpenLibrary,
         copiedLinkHint = rememberCopiedLinkHint(),
         modifier = modifier,

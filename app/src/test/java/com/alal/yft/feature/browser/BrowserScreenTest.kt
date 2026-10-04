@@ -33,6 +33,7 @@ import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.ui.components.ALLOWED_MEDIA_NOTE
@@ -60,7 +61,7 @@ class BrowserScreenTest {
 
     @Test
     fun sheetPeeksWithSavableCountExpandsAndPreviewsTheTappedMedia() {
-        var selected: MediaCandidate? = null
+        var selected: MediaGroup? = null
         setScreen(
             uiState = BrowserUiState(
                 address = PAGE,
@@ -70,7 +71,7 @@ class BrowserScreenTest {
                     stream().copy(title = "Protected clip", drmHint = true),
                 ),
             ),
-            onPreviewCandidate = { selected = it },
+            onDownloadGroup = { selected = it },
         )
 
         // Collapsed: only the peek header, counting the one savable item.
@@ -90,6 +91,7 @@ class BrowserScreenTest {
         composeRule.onNodeWithTag("found-preview-0")
             .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.runOnIdle { assertEquals("Fixture stream", selected?.title) }
+        composeRule.runOnIdle { assertEquals(1, selected?.candidates?.size) }
     }
 
     @Test
@@ -178,25 +180,55 @@ class BrowserScreenTest {
     }
 
     @Test
-    fun downloadButtonOpensVideoYouCopiedForOneVideoAndHidesWhileTheSheetIsOpen() {
-        var quick = 0
+    fun downloadButtonOpensTheSheetForOneVideoAndHidesWhileTheSheetIsOpen() {
+        val opened = mutableListOf<MediaGroup>()
         setScreen(
             uiState = BrowserUiState(
                 address = PAGE,
                 currentUrl = PAGE,
                 candidates = listOf(clip()),
             ),
-            onOpenQuickDownload = { quick++ },
+            onDownloadGroup = { opened += it },
         )
 
         composeRule.onNodeWithContentDescription("Download video, 1 found").assertIsDisplayed()
         composeRule.onAllNodesWithTag("browser-download-fab-badge").assertCountEquals(0)
         composeRule.onNodeWithTag("browser-download-fab").performClick()
-        composeRule.runOnIdle { assertEquals(1, quick) }
+        composeRule.runOnIdle { assertEquals(listOf(listOf(clip())), opened.map { it.candidates }) }
 
         composeRule.onNodeWithTag("media-found-button").performClick()
         composeRule.onNodeWithTag("found-list").assertIsDisplayed()
         composeRule.onAllNodesWithTag("browser-download-fab").assertCountEquals(0)
+    }
+
+    @Test
+    fun theQualitiesOfOneVideoAreOneRowAndTheButtonOpensThemTogether() {
+        // Facebook's HD, SD and DASH items of one reel (P3 regression: three rows).
+        val id = "facebook:1603698891196107"
+        val items = listOf(
+            clip().copy(title = "Reel — HD", videoId = id),
+            clip().copy(mediaUrl = "https://cdn.test/sd.mp4", title = "Reel — SD", videoId = id),
+            stream().copy(title = "Reel — DASH", kind = MediaKind.DASH, videoId = id),
+        )
+        val opened = mutableListOf<MediaGroup>()
+        setScreen(
+            uiState = BrowserUiState(address = PAGE, currentUrl = PAGE, candidates = items),
+            onDownloadGroup = { opened += it },
+        )
+
+        composeRule.onNodeWithContentDescription("Download video, 1 found").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-download-fab").performClick()
+        composeRule.runOnIdle { assertEquals(items, opened.single().candidates) }
+
+        composeRule.onNodeWithTag("media-found-button").performClick()
+        composeRule.onNodeWithContentDescription("Found on this page, 1 item").assertExists()
+        composeRule.onNodeWithTag("found-item-0").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("found-item-1").assertCountEquals(0)
+        composeRule.onNodeWithText("Reel").assertIsDisplayed()
+        composeRule.onNodeWithText("Several qualities").assertIsDisplayed()
+        composeRule.onNodeWithTag("found-preview-0")
+            .performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.runOnIdle { assertEquals(2, opened.size) }
     }
 
     @Test
@@ -208,7 +240,7 @@ class BrowserScreenTest {
                 currentUrl = PAGE,
                 candidates = listOf(clip(), stream()),
             ),
-            onOpenQuickDownload = { quick++ },
+            onDownloadGroup = { quick++ },
         )
 
         composeRule.onNodeWithContentDescription("Download video, 2 found").assertIsDisplayed()
@@ -402,7 +434,7 @@ class BrowserScreenTest {
                     onBrowserForward = {},
                     onReload = {},
                     onStop = {},
-                    onPreviewCandidate = {},
+                    onDownloadGroup = {},
                     onNavigateBack = {},
                     onRetrySiteLookup = { retried += 1 },
                     browserSurface = { Box(modifier = it) },
@@ -446,7 +478,7 @@ class BrowserScreenTest {
         onBrowserForward: () -> Unit = {},
         onReload: () -> Unit = {},
         onStop: () -> Unit = {},
-        onPreviewCandidate: (MediaCandidate) -> Unit = {},
+        onDownloadGroup: (MediaGroup) -> Unit = {},
         onNavigateBack: () -> Unit = {},
         onGoHome: () -> Unit = {},
         initialSheetExpanded: Boolean = false,
@@ -457,7 +489,6 @@ class BrowserScreenTest {
         searchMode: Boolean = false,
         onSearch: (String) -> Unit = {},
         onDownloadCopiedLink: () -> Unit = {},
-        onOpenQuickDownload: () -> Unit = {},
     ) {
         composeRule.setContent {
             val density = LocalDensity.current
@@ -475,7 +506,7 @@ class BrowserScreenTest {
                         onBrowserForward = onBrowserForward,
                         onReload = onReload,
                         onStop = onStop,
-                        onPreviewCandidate = onPreviewCandidate,
+                        onDownloadGroup = onDownloadGroup,
                         onNavigateBack = onNavigateBack,
                         onGoHome = onGoHome,
                         initialSheetExpanded = initialSheetExpanded,
@@ -485,7 +516,6 @@ class BrowserScreenTest {
                         searchMode = searchMode,
                         onSearch = onSearch,
                         onDownloadCopiedLink = onDownloadCopiedLink,
-                        onOpenQuickDownload = onOpenQuickDownload,
                         browserSurface = { Box(modifier = it) },
                     )
                 }

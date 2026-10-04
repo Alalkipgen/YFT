@@ -57,15 +57,89 @@ class DefaultVariantResolverTest {
                 .setHeader("Content-Length", "4096"),
         )
 
-        val result = resolver.resolve(candidate(server.url("/movie.mp4").toString()))
-            as VariantResolutionResult.Success
+        // The source states the picture, so nothing more is read.
+        val stated = candidate(server.url("/movie.mp4").toString())
+            .copy(title = "Movie — 720p", width = 1280, height = 720, framesPerSecond = 30.0)
+        val result = resolver.resolve(stated) as VariantResolutionResult.Success
 
         val variant = result.asset.variants.single()
         assertEquals(MediaKind.DIRECT, variant.kind)
         assertEquals(4_096L, variant.sizeBytes)
         assertEquals(MediaSizeAccuracy.EXACT, variant.sizeAccuracy)
+        assertEquals(720, variant.height)
+        assertEquals(1280, variant.width)
+        assertEquals(30.0, variant.framesPerSecond!!, 0.0)
+        // The page title is never a quality label (P3, finding G2).
+        assertNull(variant.label)
         assertEquals("HEAD", server.takeRequest().method)
         assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `an MP4 that does not state its picture is read from its header`() = runTest {
+        val file = Mp4Fixtures.file(width = 640, height = 360, audioKbps = 96)
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "video/mp4")
+                .setHeader("Content-Length", file.size.toString()),
+        )
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(206)
+                .setHeader("Content-Type", "video/mp4")
+                .setHeader("Content-Range", "bytes 0-${file.size - 1}/${file.size}")
+                .setBody(okio.Buffer().write(file)),
+        )
+
+        val result = resolver.resolve(
+            candidate(server.url("/sd.mp4").toString()).copy(title = "Reel — SD"),
+        ) as VariantResolutionResult.Success
+
+        val variant = result.asset.variants.single()
+        assertEquals(360, variant.height)
+        assertEquals(640, variant.width)
+        assertEquals(MediaTrackType.AUDIO_VIDEO, variant.trackType)
+        assertEquals(listOf("avc1", "mp4a.40.2"), variant.codecs)
+        assertEquals(96_000L, variant.audioBitrateBitsPerSecond)
+        assertEquals(61_000L, variant.durationMillis)
+        assertNull(variant.label)
+        assertEquals(file.size.toLong(), variant.sizeBytes)
+        assertEquals("HEAD", server.takeRequest().method)
+        val range = server.takeRequest()
+        assertEquals("GET", range.method)
+        assertEquals("bytes=0-${file.size - 1}", range.getHeader("Range"))
+    }
+
+    @Test
+    fun `a silent MP4 is a video without sound and a failed probe changes nothing`() = runTest {
+        val silent = Mp4Fixtures.file(audio = false)
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "video/mp4")
+                .setHeader("Content-Length", silent.size.toString()),
+        )
+        server.enqueue(MockResponse().setResponseCode(206).setBody(okio.Buffer().write(silent)))
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "video/mp4")
+                .setHeader("Content-Length", "4096"),
+        )
+        server.enqueue(MockResponse().setResponseCode(403))
+
+        val muted = resolver.resolve(candidate(server.url("/muted.mp4").toString()))
+            as VariantResolutionResult.Success
+        val refused = resolver.resolve(candidate(server.url("/refused.mp4").toString()))
+            as VariantResolutionResult.Success
+
+        assertEquals(MediaTrackType.VIDEO, muted.asset.variants.single().trackType)
+        assertEquals(720, muted.asset.variants.single().height)
+        val unknown = refused.asset.variants.single()
+        assertEquals(MediaTrackType.AUDIO_VIDEO, unknown.trackType)
+        assertNull(unknown.height)
+        assertEquals(4_096L, unknown.sizeBytes)
     }
 
     @Test

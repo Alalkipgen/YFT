@@ -17,7 +17,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Converts direct audio downloads that ask for MP3 (T18); every other plan goes to [delegate].
+ * Converts direct audio downloads that ask for MP3 (T18) or for the sound of a video only (P3,
+ * [DirectDownloadPlan.audioOnly], kept as an M4A by [audioExtractor]); every other plan goes to
+ * [delegate].
  *
  * The AAC file is downloaded into a per-task workspace (resumable like any direct download),
  * converted there by [transcoder] and only then copied into the real destination and published,
@@ -29,6 +31,7 @@ class Mp3ConvertingTransferDispatcher(
     private val transcoder: LocalMp3Transcoder,
     private val workspaceRoot: File,
     private val bufferBytes: Int = 64 * 1_024,
+    private val audioExtractor: LocalAudioExtractor = AndroidAudioExtractor(),
 ) : DownloadTransferDispatcher {
     init {
         require(bufferBytes in 1_024..1024 * 1_024)
@@ -43,14 +46,17 @@ class Mp3ConvertingTransferDispatcher(
         onCheckpoint: suspend (TransferCheckpoint) -> Unit,
     ): QueueTransferResult {
         val direct = plan as? DirectDownloadPlan
-        val encoding = direct?.mp3 ?: return delegate.transfer(
-            plan,
-            metadata,
-            destination,
-            resumeFrom,
-            onProgress,
-            onCheckpoint,
-        )
+        if (direct == null || !direct.converts) {
+            return delegate.transfer(
+                plan,
+                metadata,
+                destination,
+                resumeFrom,
+                onProgress,
+                onCheckpoint,
+            )
+        }
+        val encoding = direct.mp3
         return withContext(Dispatchers.IO) {
             convert(
                 plan = direct,
@@ -66,14 +72,14 @@ class Mp3ConvertingTransferDispatcher(
 
     override suspend fun discard(plan: DownloadPlan) {
         runCatching { delegate.discard(plan) }
-        if ((plan as? DirectDownloadPlan)?.mp3 != null) {
+        if ((plan as? DirectDownloadPlan)?.converts == true) {
             withContext(Dispatchers.IO) { workspaceFor(plan.taskId).deleteRecursively() }
         }
     }
 
     private suspend fun convert(
         plan: DirectDownloadPlan,
-        encoding: Mp3Encoding,
+        encoding: Mp3Encoding?,
         metadata: RemoteFileMetadata?,
         destination: DownloadDestination,
         resumeFrom: DirectTransferCheckpoint?,
@@ -121,12 +127,16 @@ class Mp3ConvertingTransferDispatcher(
             return failure(DownloadFailureReason.INTEGRITY_MISMATCH, empty)
         }
 
-        val output = File(workspace, OUTPUT_NAME)
+        val output = File(workspace, if (encoding != null) OUTPUT_NAME else AUDIO_OUTPUT_NAME)
         if (output.exists() && !output.delete()) {
             return failure(DownloadFailureReason.STORAGE_UNAVAILABLE, downloaded)
         }
         val encoded = try {
-            transcoder.transcode(source, output, encoding)
+            if (encoding != null) {
+                transcoder.transcode(source, output, encoding)
+            } else {
+                audioExtractor.extract(source, output)
+            }
         } catch (cancellation: CancellationException) {
             output.delete()
             throw cancellation
@@ -225,6 +235,7 @@ class Mp3ConvertingTransferDispatcher(
         const val SOURCE_NAME = "source.m4a"
         const val SOURCE_PARTIAL_NAME = "source.m4a.part"
         const val OUTPUT_NAME = "output.mp3"
+        const val AUDIO_OUTPUT_NAME = "output.m4a"
 
         /** Space problems can clear up; the downloaded AAC file is still good. */
         val KEEP_SOURCE_FAILURES = setOf(
@@ -233,6 +244,10 @@ class Mp3ConvertingTransferDispatcher(
         )
     }
 }
+
+/** MP3 always reads the AAC track itself; only a plain M4A asks for the extraction. */
+private val DirectDownloadPlan.converts: Boolean
+    get() = mp3 != null || audioOnly
 
 private fun IOException.storageReason(): DownloadFailureReason {
     val text = message.orEmpty().lowercase(Locale.US)

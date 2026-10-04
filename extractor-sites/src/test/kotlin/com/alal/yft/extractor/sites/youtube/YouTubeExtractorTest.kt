@@ -66,6 +66,23 @@ class YouTubeExtractorTest {
             listOf("video/mp4", "video/mp4", "video/mp4", "audio/mp4"),
             result.candidates.map(MediaCandidate::mimeType),
         )
+        // The picture YouTube states reaches the download sheet without another request (P3).
+        assertEquals(
+            listOf(1920, 1280, 640, null),
+            result.candidates.map(MediaCandidate::width),
+        )
+        assertEquals(
+            listOf(1080, 720, 360, null),
+            result.candidates.map(MediaCandidate::height),
+        )
+        assertEquals(
+            listOf(30.0, null, null, null),
+            result.candidates.map(MediaCandidate::framesPerSecond),
+        )
+        assertEquals(
+            listOf(4_400_000L, 1_210_000L, 503_814L, 129_478L),
+            result.candidates.map(MediaCandidate::bitrateBitsPerSecond),
+        )
         // The merged row is as large as its video and audio files together.
         assertEquals(
             listOf(91_434_000L, null, 13_370_448L, 3_434_000L),

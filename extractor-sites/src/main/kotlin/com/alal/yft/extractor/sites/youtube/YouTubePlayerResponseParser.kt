@@ -29,6 +29,8 @@ internal data class YouTubeStream(
     val isDefaultAudio: Boolean?,
     /** Dynamic-range-compressed audio that YouTube offers next to the original mix. */
     val isDrc: Boolean,
+    /** Frames per second of a video stream, when YouTube states it. */
+    val fps: Int? = null,
 ) {
     val isProtected: Boolean
         get() = url == null
@@ -173,6 +175,7 @@ internal sealed interface YouTubeParseResult {
  */
 internal object YouTubePlayerResponseParser {
     private const val MAX_JSON_NODES = 400_000
+    private const val MAX_FPS = 240
     private const val MAX_REASON_DEPTH = 8
     private const val MAX_REASON_PARTS = 32
     private const val MAX_REASON_CHARS = 400
@@ -476,6 +479,7 @@ internal object YouTubePlayerResponseParser {
             hasAudio = hasAudio,
             isDefaultAudio = format.path("audioTrack", "audioIsDefault").asBooleanOrNull,
             isDrc = format["isDrc"].asBooleanOrNull == true,
+            fps = format["fps"].asLongOrNull?.toInt()?.takeIf { it in 1..MAX_FPS },
         )
     }
 

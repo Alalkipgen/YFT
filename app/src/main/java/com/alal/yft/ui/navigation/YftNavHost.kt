@@ -22,7 +22,6 @@ import com.alal.yft.feature.home.HomeRoute
 import com.alal.yft.feature.library.LibraryRoute
 import com.alal.yft.feature.library.PlayerRoute
 import com.alal.yft.feature.preview.PreviewRoute
-import com.alal.yft.feature.quickdownload.MoreFormatsTarget
 import com.alal.yft.feature.quickdownload.QuickDownloadRoute
 import com.alal.yft.feature.settings.SettingsRoute
 import com.alal.yft.ui.components.YftModalSheet
@@ -50,16 +49,14 @@ fun YftNavHost(
     },
     browserContent: @Composable (
         onNavigateBack: () -> Unit,
-        onOpenPreview: () -> Unit,
         initialLink: String?,
         onGoHome: () -> Unit,
         searchMode: Boolean,
         onDownloadLink: (String) -> Unit,
         onOpenQuickDownload: () -> Unit,
-    ) -> Unit = { onNavigateBack, onOpenPreview, link, onGoHome, search, onDownloadLink, onQuick ->
+    ) -> Unit = { onNavigateBack, link, onGoHome, search, onDownloadLink, onQuick ->
         BrowserRoute(
             onNavigateBack = onNavigateBack,
-            onOpenPreview = onOpenPreview,
             initialLink = link,
             onGoHome = onGoHome,
             searchMode = search,
@@ -69,12 +66,12 @@ fun YftNavHost(
     },
     detectedMediaContent: @Composable (
         onNavigateBack: () -> Unit,
-        onOpenPreview: () -> Unit,
+        onOpenQuickDownload: () -> Unit,
         onOpenBrowser: () -> Unit,
-    ) -> Unit = { onNavigateBack, onOpenPreview, onOpenBrowser ->
+    ) -> Unit = { onNavigateBack, onOpenQuickDownload, onOpenBrowser ->
         DetectedMediaRoute(
             onNavigateBack = onNavigateBack,
-            onOpenPreview = onOpenPreview,
+            onOpenQuickDownload = onOpenQuickDownload,
             onOpenBrowser = onOpenBrowser,
         )
     },
@@ -87,12 +84,12 @@ fun YftNavHost(
     quickDownloadContent: @Composable (
         onNavigateBack: () -> Unit,
         onOpenDownloads: () -> Unit,
-        onMoreFormats: (MoreFormatsTarget) -> Unit,
-    ) -> Unit = { onNavigateBack, onOpenDownloads, onMoreFormats ->
+        onOpenDetails: () -> Unit,
+    ) -> Unit = { onNavigateBack, onOpenDownloads, onOpenDetails ->
         QuickDownloadRoute(
             onNavigateBack = onNavigateBack,
             onOpenDownloads = onOpenDownloads,
-            onMoreFormats = onMoreFormats,
+            onOpenDetails = onOpenDetails,
         )
     },
     downloadsContent: @Composable (
@@ -120,9 +117,6 @@ fun YftNavHost(
     },
 ) {
     val navigateBack = { navController.navigateUp(); Unit }
-    val openPreview = {
-        navController.navigate(YftDestination.PREVIEW.route) { launchSingleTop = true }
-    }
     val openPlayer = {
         navController.navigate(YftDestination.PLAYER.route) { launchSingleTop = true }
     }
@@ -175,7 +169,6 @@ fun YftNavHost(
             }
             browserContent(
                 navigateBack,
-                openPreview,
                 entry.arguments?.getString(BROWSER_LINK_ARGUMENT),
                 goHome,
                 entry.arguments?.getBoolean(BROWSER_SEARCH_ARGUMENT) == true,
@@ -193,7 +186,7 @@ fun YftNavHost(
         composable(YftDestination.DETECTED_MEDIA.route) {
             detectedMediaContent(
                 navigateBack,
-                openPreview,
+                openQuickDownload,
                 { navController.navigate(YftDestination.BROWSER.route) },
             )
         }
@@ -215,8 +208,8 @@ fun YftNavHost(
                 )
             }
         }
-        // "Video you copied" rises over Home the same way; More formats swaps it for the Found
-        // list or, for a single file, Download as.
+        // The download sheet rises over Home, the browser or the found list the same way; More
+        // formats › Details swaps it for Download as.
         dialog(
             route = YftDestination.QUICK_DOWNLOAD.route,
             dialogProperties = DialogProperties(usePlatformDefaultWidth = false),
@@ -230,16 +223,12 @@ fun YftNavHost(
                             navController.navigateToTab(YftDestination.DOWNLOADS)
                         }
                     },
-                    { target ->
+                    {
                         hide {
                             navController.popBackStack()
-                            navController.navigate(
-                                when (target) {
-                                    MoreFormatsTarget.DOWNLOAD_AS -> YftDestination.PREVIEW.route
-                                    MoreFormatsTarget.FOUND_LIST ->
-                                        YftDestination.DETECTED_MEDIA.route
-                                },
-                            ) { launchSingleTop = true }
+                            navController.navigate(YftDestination.PREVIEW.route) {
+                                launchSingleTop = true
+                            }
                         }
                     },
                 )

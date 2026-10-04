@@ -3,6 +3,7 @@ package com.alal.yft.feature.downloads
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.Mp3Encoding
 import com.alal.yft.core.model.download.WholeFileTrack
+import com.alal.yft.core.model.media.AudioFromVideo
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.CompanionAudio
 import com.alal.yft.core.model.media.MediaAsset
@@ -66,6 +67,36 @@ class DownloadPlanFactoryTest {
         val plain = (factory(source) as DownloadPlanResult.Ready).request as DownloadRequest.Direct
         assertNull(plain.plan.mp3)
         assertEquals("Fixture.m4a", plain.fileName)
+    }
+
+    @Test
+    fun `the sound of an mp4 downloads the video and keeps its aac track as m4a`() {
+        val video = variant(
+            id = "mp4",
+            trackType = MediaTrackType.AUDIO_VIDEO,
+            container = "mp4",
+            mimeType = "video/mp4",
+            size = 9_000L,
+            sizeAccuracy = MediaSizeAccuracy.EXACT,
+        ).copy(codecs = listOf("avc1.42001e", "mp4a.40.2"), durationMillis = 10_000)
+        val m4a = AudioFromVideo.of(video)!!.copy(label = null)
+        val mp3 = Mp3Variants.of(AudioFromVideo.of(video)!!, 192)!!
+
+        val sound = (factory(m4a) as DownloadPlanResult.Ready).request as DownloadRequest.Direct
+        val converted = (factory(mp3) as DownloadPlanResult.Ready).request
+            as DownloadRequest.Direct
+        val plain = (factory(video) as DownloadPlanResult.Ready).request as DownloadRequest.Direct
+
+        assertTrue(sound.plan.audioOnly)
+        assertNull(sound.plan.mp3)
+        assertEquals(video.playbackUrl, sound.plan.sourceUrl)
+        assertEquals("Fixture.m4a", sound.fileName)
+        assertEquals("audio/mp4", sound.mimeType)
+        // MP3 reads the AAC track of the downloaded MP4 itself.
+        assertFalse(converted.plan.audioOnly)
+        assertEquals(Mp3Encoding(192, "Fixture"), converted.plan.mp3)
+        assertEquals(video.playbackUrl, converted.plan.sourceUrl)
+        assertFalse(plain.plan.audioOnly)
     }
 
     @Test

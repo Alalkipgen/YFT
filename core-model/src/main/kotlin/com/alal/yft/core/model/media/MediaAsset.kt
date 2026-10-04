@@ -53,6 +53,13 @@ data class MediaVariant(
     val audioCompanion: CompanionAudio? = null,
     /** Set when the download is this audio converted to MP3 on the phone ([Mp3Variants]). */
     val mp3: Mp3Conversion? = null,
+    /**
+     * Set when [playbackUrl] is a video file whose sound is kept as an M4A on the phone
+     * ([AudioFromVideo]); [trackType] then describes the audio result.
+     */
+    val audioFromVideo: Boolean = false,
+    /** The bitrate of the sound inside a video file, when the file states it. */
+    val audioBitrateBitsPerSecond: Long? = null,
 ) {
     init {
         require(id.isNotBlank())
@@ -64,6 +71,12 @@ data class MediaVariant(
             mp3 == null ||
                 (kind == MediaKind.DIRECT && trackType == MediaTrackType.AUDIO),
         ) { "Only a whole audio file is converted to MP3" }
+        require(
+            !audioFromVideo ||
+                (kind == MediaKind.DIRECT && trackType == MediaTrackType.AUDIO &&
+                    audioCompanion == null),
+        ) { "Only the sound of one whole video file is kept as audio" }
+        require(audioBitrateBitsPerSecond == null || audioBitrateBitsPerSecond > 0)
         require(width == null || width > 0)
         require(height == null || height > 0)
         require(framesPerSecond == null || framesPerSecond > 0)
@@ -99,6 +112,8 @@ data class MediaVariant(
         append(audioCompanion != null)
         append(", mp3Kbps=")
         append(mp3?.bitrateKbps)
+        append(", audioFromVideo=")
+        append(audioFromVideo)
         append(')')
     }
 }

@@ -15,7 +15,7 @@ data class HomeUiState(
     val recent: List<LibraryItem> = emptyList(),
     /** Sanitized, memory-only steps for the last failed lookup; cleared on edit/new lookup. */
     val failureDetails: List<String> = emptyList(),
-    /** The last lookup found one video, so View opens "Video you copied". */
+    /** The last lookup found one video, so View opens its download sheet. */
     val quickDownload: Boolean = false,
 )
 

@@ -111,7 +111,7 @@ AI agent time includes builds and CI waits on a 4 GiB sandbox.
 | P0 | [Plan, prompts and docs for Phase 11](#p0--plan-prompts-and-docs) | Easy | 1–2 h | owner approval | DONE (2026-10-04) |
 | P1 | [Browser follows in-page navigation (YouTube Download button)](#p1--browser-follows-in-page-navigation) | Medium | 3–5 h | — | OWNER CHECK (2026-10-04) |
 | P2 | [Facebook/TikTok black page in the browser](#p2--facebook-and-tiktok-black-page-in-the-browser) | Medium–Hard | 4–8 h | P1 | OWNER CHECK (2026-10-04) |
-| P3 | [One download sheet, Snaptube style](#p3--one-download-sheet-snaptube-style) | Hard | 10–14 h | P1 | TODO |
+| P3 | [One download sheet, Snaptube style](#p3--one-download-sheet-snaptube-style) | Hard | 10–14 h | P1 | OWNER CHECK (2026-10-04) |
 | P4 | [Facebook: one video, every quality](#p4--facebook-one-video-every-quality) | Medium–Hard | 5–8 h | P3 | TODO |
 | P5 | [Download button on feeds (focused video)](#p5--download-button-on-feeds) | Hard | 6–10 h | P1, P3 | TODO |
 | P6 | [2K and 4K](#p6--2k-and-4k) | Hard | 8–12 h | P3 | TODO |
@@ -305,6 +305,24 @@ resolutions and sizes; More formats opens inside it; Audio works.
 
 **Docs:** SUPPORT_MATRIX, TEST_MATRIX, design notes, CHANGELOG, SESSION_STATE.
 
+**Result (2026-10-04, OWNER CHECK):** `MediaGroups` makes one video of the candidates a site
+adapter named (`videoId`, stamped by `SiteAdapterCoordinator` as `adapter:contentId`) or of one
+page with the same length; Home counts videos, the found lists show one row per video and the
+browser's Download button opens the sheet for a page with one video. The sheet (`Download`,
+formerly "Video you copied") resolves each candidate of the video in parallel — a whole file
+that states its type, size and height (YouTube) is shown without a request — and lists Music
+(M4A, else the MP4's own sound kept as M4A; MP3 192) and Video (Fast ≤ 480p, High ≤ 720p) rows
+with real heights, frame rates and sizes; More formats opens inside the sheet with every
+quality and audio option (MP3 320/192/128, chips "Video + audio", "No sound", "Slow") and a
+Details link to Download as. Heights come from the stream data or the MP4 header
+(`Mp4HeaderParser`: ranged reads of `moov` → `tkhd`/`stsd`/`esds`, at most six requests within
+8 s); a file that cannot be measured shows the site's own "HD"/"SD" or "Quality unknown", never
+the page title. Audio from an MP4 downloads the video and copies its AAC track into an M4A
+(`AndroidAudioExtractor`, `MediaExtractor` + `MediaMuxer`, no re-encoding); MP3 reads the same
+track. Shared links from other apps: YFT has no share target yet (backlog); copied links reach
+the sheet through Home. Facebook's DASH qualities are listed under More formats ("No sound");
+downloading them needs P4, which reads their `SegmentBase` whole files. Tests: TEST_MATRIX P3.
+
 ### P4 — Facebook: one video, every quality
 
 Medium–Hard · 5–8 h · findings G2, G3 · prompt [`P4-facebook-all-qualities.md`](prompts/P4-facebook-all-qualities.md)
@@ -410,6 +428,10 @@ With `yft-preview-apk` (P7):
 
 ## 7. Backlog
 
+- Share target: open links shared from other apps (Android share sheet) in Home's lookup, so
+  they open the download sheet like a pasted link (P3 found no share target in the manifest).
+- Download sheet thumbnails: the sheet shows the placeholder tile; a page thumbnail would need a
+  remote image request, which YFT does not make today.
 - Instagram and X adapters (generic detection only today).
 - Background playback in the Library.
 - Saving to a folder chosen with the system picker.

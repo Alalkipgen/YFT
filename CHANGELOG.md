@@ -7,6 +7,26 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ## [Unreleased]
 
+### Added
+
+- Audio from MP4: when a video has no separate audio file (Facebook, TikTok), Music keeps the
+  video's own sound as M4A (copied, not re-encoded) and MP3 converts it. MP3 now offers 320, 192
+  and 128 kbps in More formats.
+
+### Changed
+
+- One download sheet: View, Download and the browser's Download button all open the same
+  "Download" sheet with Music and Video rows (Fast up to 480p, High up to 720p). More formats
+  opens inside the sheet with every quality and audio option; Details opens Download as.
+- One row per video: Facebook's HD, SD and DASH items, and a YouTube video's qualities, show as
+  one video everywhere (Home, the found lists, the Download button count).
+- Real qualities: the sheet shows a video's real resolution, frame rate and size (read from the
+  stream data or the MP4 header) or the site's own "HD"/"SD", never the page title.
+- Documentation: `docs/FIX_ADD_PLAN.md` plans Phase 11 (download flow like Snaptube) task by task
+  after the beta.3 phone test, with one prompt per task (P1–P8) and a generic master prompt in
+  `docs/prompts/`. The Phases 8–10 plan and the T01–T19 prompts were removed (they stay in Git
+  history).
+
 ### Fixed
 
 - Browser: a video opened inside a page (YouTube's mobile site, Facebook, TikTok) is looked up
@@ -16,13 +36,6 @@ for every APK given to users, because Android refuses to install a lower one.
   links keep the page, and a video's full-screen button works (Back leaves full screen).
 - Facebook in the browser: the lookup asks Facebook for its desktop page, so a reel opened in the
   browser no longer shows "Facebook changed its page format" and finds the video's qualities.
-
-### Changed
-
-- Documentation: `docs/FIX_ADD_PLAN.md` plans Phase 11 (download flow like Snaptube) task by task
-  after the beta.3 phone test, with one prompt per task (P1–P8) and a generic master prompt in
-  `docs/prompts/`. The Phases 8–10 plan and the T01–T19 prompts were removed (they stay in Git
-  history).
 
 ## [1.0.0-beta.3] - 2026-10-04
 

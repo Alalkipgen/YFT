@@ -7,11 +7,12 @@ import com.alal.yft.core.browser.policy.BrowserAddressResult
 import com.alal.yft.core.data.preferences.HomeSitesRepository
 import com.alal.yft.core.data.preferences.SettingsRepository
 import com.alal.yft.core.model.logging.DiagnosticTextSanitizer
+import com.alal.yft.core.model.media.MediaGroup
+import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.core.model.settings.HomeSites
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import com.alal.yft.feature.library.LibraryRepository
-import com.alal.yft.feature.quickdownload.QuickDownloadChoices
 import com.alal.yft.ui.components.PromptboxStatus
 import com.alal.yft.ui.components.isSavable
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -35,7 +36,8 @@ import kotlinx.coroutines.launch
  *
  * A submitted link is checked by [LinkInspector]; what it finds goes to [DetectedMediaStore],
  * the same memory-only place the browser fills, so View opens the usual Detected Media list.
- * When it found one video, Home opens "Video you copied" instead and View reopens it.
+ * Candidates of one video count once (P3). When it found one video, Home opens its download
+ * sheet instead and View reopens it.
  */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -49,9 +51,12 @@ class HomeViewModel @Inject constructor(
     private val local = MutableStateFlow(HomeUiState())
     private val quickDownloads = Channel<Unit>(Channel.CONFLATED)
 
-    /** One event per lookup that found one video: Home then opens "Video you copied". */
+    /** One event per lookup that found one video: Home then opens its download sheet. */
     val quickDownloadRequests: Flow<Unit> = quickDownloads.receiveAsFlow()
     private var inspection: Job? = null
+
+    /** The one video the last lookup found, which View hands to the sheet again. */
+    private var foundVideo: MediaGroup? = null
     private var recentJob: Job? = null
 
     val uiState: StateFlow<HomeUiState> = combine(local, sitesRepository.sites) { state, sites ->
@@ -127,6 +132,7 @@ class HomeViewModel @Inject constructor(
         val link = local.value.link.trim()
         if (link.isEmpty()) return
         stopInspection()
+        foundVideo = null
         local.update {
             it.copy(
                 link = link,
@@ -145,14 +151,18 @@ class HomeViewModel @Inject constructor(
                         pageTitle = result.pageTitle,
                         candidates = result.candidates,
                     )
-                    // Only media YFT may save is counted; DRM-protected candidates are never
-                    // offered, so a page with nothing else reads as "not found".
-                    val savable = result.candidates
-                        .take(DetectedMediaStore.MAX_CANDIDATES)
-                        .count { it.isSavable }
-                    if (savable > 0) {
-                        quick = QuickDownloadChoices.of(result.candidates) != null
-                        PromptboxStatus.Found(count = savable)
+                    // Only media YFT may save is counted, once per video; DRM-protected
+                    // candidates are never offered, so a page with nothing else reads as "not
+                    // found".
+                    val videos = MediaGroups.of(
+                        result.candidates
+                            .take(DetectedMediaStore.MAX_CANDIDATES)
+                            .filter { it.isSavable },
+                    )
+                    if (videos.isNotEmpty()) {
+                        foundVideo = videos.singleOrNull()?.also(detectedMediaStore::select)
+                        quick = foundVideo != null
+                        PromptboxStatus.Found(count = videos.size)
                     } else {
                         details = listOf("media check: DRM only")
                         PromptboxStatus.NotFound(message = PROTECTED_ONLY_MESSAGE)
@@ -193,6 +203,11 @@ class HomeViewModel @Inject constructor(
             local.update { it.copy(link = link) }
             submit()
         }
+    }
+
+    /** View on one found video: the sheet shows it again, whatever the browser found since. */
+    fun selectFoundVideo() {
+        foundVideo?.let(detectedMediaStore::select)
     }
 
     private fun stopInspection() {

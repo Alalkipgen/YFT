@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
@@ -22,6 +23,7 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -40,6 +42,7 @@ import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.core.model.settings.HomeSites
 import com.alal.yft.feature.detectedmedia.DetectedMediaScreen
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
+import com.alal.yft.feature.detectedmedia.DetectedPage
 import com.alal.yft.feature.home.ClipPeek
 import com.alal.yft.feature.home.ClipboardAccess
 import com.alal.yft.feature.home.CopiedLinkWatcher
@@ -51,7 +54,6 @@ import com.alal.yft.feature.library.LibraryLocation
 import com.alal.yft.feature.library.LibraryRepository
 import com.alal.yft.feature.library.LibraryScreen
 import com.alal.yft.feature.library.LibraryUiState
-import com.alal.yft.feature.quickdownload.MoreFormatsTarget
 import com.alal.yft.feature.settings.SettingsScreen
 import com.alal.yft.feature.settings.SettingsUiState
 import com.alal.yft.ui.YftAppShell
@@ -264,15 +266,38 @@ class YftNavigationSmokeTest {
         composeRule.onNodeWithTag("modal-sheet").assertDoesNotExist()
         composeRule.onNodeWithTag("home-found").assertIsDisplayed()
 
-        // View reopens the sheet; More formats swaps it for the Found list.
+        // View reopens the sheet; More formats › Details swaps it for Download as.
         composeRule.onNodeWithTag("home-view-media").performClick()
-        composeRule.onNodeWithTag("sheet-more-formats").performClick()
+        composeRule.onNodeWithTag("sheet-details").performClick()
+        composeRule.onNodeWithText(YftDestination.PREVIEW.summary).assertIsDisplayed()
+        composeRule.onAllNodesWithText(YftDestination.QUICK_DOWNLOAD.summary)
+            .assertCountEquals(0)
+        assertEquals(YftDestination.PREVIEW.route, shellNavController.currentDestination?.route)
+        composeRule.onNodeWithTag("sheet-close").performClick()
         composeRule.onNodeWithTag("modal-sheet").assertDoesNotExist()
+        composeRule.onNodeWithTag("home-found").assertIsDisplayed()
+    }
+
+    // Native graphics hit-tests the sheet's top-rounded shape, so taps inside it land.
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Test
+    fun previewInTheFoundListRaisesTheDownloadSheetOverTheList() {
+        setShell()
+        composeRule.onNodeWithTag("home-link").performTextInput("https://a.test/found")
+        composeRule.onNodeWithTag("home-open-link").performClick()
+        composeRule.onNodeWithTag("home-view-media").performClick()
         composeRule.onNodeWithText(YftDestination.DETECTED_MEDIA.title).assertIsDisplayed()
+
+        composeRule.onNodeWithTag("detected-preview-0").performClick()
+
+        composeRule.onNodeWithTag("modal-sheet").assertExists()
+        composeRule.onNodeWithText(YftDestination.QUICK_DOWNLOAD.summary).assertIsDisplayed()
         assertEquals(
-            YftDestination.DETECTED_MEDIA.route,
+            YftDestination.QUICK_DOWNLOAD.route,
             shellNavController.currentDestination?.route,
         )
+        // The list stays composed under the sheet.
+        composeRule.onNodeWithText(YftDestination.DETECTED_MEDIA.title).assertExists()
     }
 
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -358,7 +383,7 @@ class YftNavigationSmokeTest {
                             viewModel = home,
                         )
                     },
-                    browserContent = { onNavigateBack, _, link, _, _, _, _ ->
+                    browserContent = { onNavigateBack, link, _, _, _, _ ->
                         received += link
                         PhasePlaceholderScreen(
                             title = YftDestination.BROWSER.title,
@@ -443,7 +468,7 @@ private fun TestNavHost(
                 viewModel = home,
             )
         },
-        browserContent = { onNavigateBack, _, _, _, searchMode, onDownloadLink, onOpenQuick ->
+        browserContent = { onNavigateBack, _, _, searchMode, onDownloadLink, onOpenQuick ->
             Column {
                 if (searchMode) Text(text = "search mode")
                 TextButton(
@@ -457,7 +482,7 @@ private fun TestNavHost(
                 Placeholder(YftDestination.BROWSER, onNavigateBack)
             }
         },
-        quickDownloadContent = { onNavigateBack, _, onMoreFormats ->
+        quickDownloadContent = { onNavigateBack, _, onOpenDetails ->
             Column {
                 Text(text = YftDestination.QUICK_DOWNLOAD.summary)
                 TextButton(
@@ -465,13 +490,17 @@ private fun TestNavHost(
                     modifier = Modifier.testTag("sheet-close"),
                 ) { Text(text = "Close") }
                 TextButton(
-                    onClick = { onMoreFormats(MoreFormatsTarget.FOUND_LIST) },
-                    modifier = Modifier.testTag("sheet-more-formats"),
-                ) { Text(text = "More formats") }
+                    onClick = onOpenDetails,
+                    modifier = Modifier.testTag("sheet-details"),
+                ) { Text(text = "Details") }
             }
         },
-        detectedMediaContent = { onNavigateBack, _, _ ->
-            DetectedMediaScreen(page = null, onNavigateBack = onNavigateBack)
+        detectedMediaContent = { onNavigateBack, onOpenQuick, _ ->
+            DetectedMediaScreen(
+                page = FOUND_PAGE,
+                onNavigateBack = onNavigateBack,
+                onPreview = { onOpenQuick() },
+            )
         },
         previewContent = { onNavigateBack, onOpenDownloads ->
             Column {
@@ -522,7 +551,7 @@ private fun Placeholder(destination: YftDestination, onNavigateBack: () -> Unit)
 
 /**
  * Home with fakes: links containing "found" have two files, "copied" one video (which opens
- * Video you copied), anything else has none, the
+ * its download sheet), anything else has none, the
  * library is empty and the default sites are shown.
  */
 private fun homeViewModel(): HomeViewModel = HomeViewModel(
@@ -572,6 +601,20 @@ private fun homeViewModel(): HomeViewModel = HomeViewModel(
 
             override fun readText(): CharSequence? = null
         },
+    ),
+)
+
+/** What the fake Found list shows: one clip, whose Preview opens the download sheet. */
+private val FOUND_PAGE = DetectedPage(
+    pageUrl = "https://a.test/found",
+    pageTitle = "Fixture page",
+    candidates = listOf(
+        MediaCandidate(
+            pageUrl = "https://a.test/found",
+            mediaUrl = "https://cdn.a.test/clip.mp4",
+            sources = setOf(CandidateSource.DOM),
+            kind = MediaKind.DIRECT,
+        ),
     ),
 )
 

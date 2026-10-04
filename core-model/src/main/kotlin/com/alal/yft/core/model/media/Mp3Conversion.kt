@@ -22,15 +22,17 @@ data class Mp3Conversion(
  * Adds the MP3 choices to a resolved asset. Pure, so the rules are unit-tested.
  *
  * Only a whole AAC audio file (M4A) can be converted: the phone decodes it with MediaCodec and
- * LAME encodes the MP3. The best such file is the source of both MP3 bitrates.
+ * LAME encodes the MP3. The best such file is the source of every MP3 bitrate. An M4A kept from
+ * a video's sound ([AudioFromVideo]) is such a file too: the MP3 is made from the video's AAC
+ * track.
  */
 object Mp3Variants {
     const val MIME_TYPE = "audio/mpeg"
     const val CONTAINER = "mp3"
     const val CODEC = "mp3"
 
-    /** Offered bitrates, best first. */
-    val BITRATES_KBPS = listOf(192, 128)
+    /** Offered bitrates, best first: 320 high, 192 classic, 128 small. */
+    val BITRATES_KBPS = listOf(320, 192, 128)
 
     /** True for a supported, whole-file AAC audio variant the phone can convert. */
     fun isAacSource(variant: MediaVariant): Boolean {

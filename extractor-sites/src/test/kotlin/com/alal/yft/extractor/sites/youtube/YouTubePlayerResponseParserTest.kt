@@ -114,6 +114,8 @@ class YouTubePlayerResponseParserTest {
         val videoOnly = video.adaptive.first()
         assertTrue(videoOnly.hasVideo)
         assertFalse(videoOnly.hasAudio)
+        assertEquals(30, videoOnly.fps)
+        assertNull(progressive.fps)
 
         val (drc, dub, original) = video.adaptive.filter { it.itag == 140 }
         assertTrue(drc.isDrc)

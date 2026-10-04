@@ -13,9 +13,9 @@ import com.alal.yft.core.browser.session.PageCandidateStore
 import com.alal.yft.core.browser.session.PageProbeBudget
 import com.alal.yft.core.browser.webview.BrowserObservationSink
 import com.alal.yft.core.data.preferences.HomeSitesRepository
-import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.detection.SiteScope
@@ -41,7 +41,6 @@ import okhttp3.OkHttpClient
 class BrowserViewModel(
     okHttpClient: OkHttpClient,
     private val siteAdapters: SiteAdapterCoordinator,
-    private val previewSelectionStore: PreviewSelectionStore = PreviewSelectionStore(),
     private val detectedMediaStore: DetectedMediaStore = DetectedMediaStore(),
     private val clock: () -> Long = System::currentTimeMillis,
     private val homeSitesRepository: HomeSitesRepository? = null,
@@ -54,13 +53,11 @@ class BrowserViewModel(
     constructor(
         okHttpClient: OkHttpClient,
         siteAdapters: SiteAdapterCoordinator,
-        previewSelectionStore: PreviewSelectionStore,
         detectedMediaStore: DetectedMediaStore,
         homeSitesRepository: HomeSitesRepository,
     ) : this(
         okHttpClient,
         siteAdapters,
-        previewSelectionStore,
         detectedMediaStore,
         System::currentTimeMillis,
         homeSitesRepository,
@@ -168,9 +165,14 @@ class BrowserViewModel(
         return addressForLoading()
     }
 
-    fun selectForPreview(candidate: MediaCandidate): Boolean {
-        if (candidate !in mutableUiState.value.candidates) return false
-        previewSelectionStore.select(candidate)
+    /**
+     * Hands [video] to the download sheet. Returns false when the page no longer lists every
+     * one of its candidates, or one carries a DRM hint, so nothing opens.
+     */
+    fun selectForDownload(video: MediaGroup): Boolean {
+        val listed = mutableUiState.value.candidates
+        if (video.candidates.any { it !in listed || it.drmHint == true }) return false
+        detectedMediaStore.select(video)
         return true
     }
 

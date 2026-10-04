@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.ui.format.YftFormat
 import com.alal.yft.ui.theme.YftIcons
@@ -36,7 +37,6 @@ import java.util.Locale
  * candidate always reads the same. Only facts detection actually knows are shown; the exact
  * qualities appear in Download as once the variants are resolved.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun YftFoundMediaRow(
     candidate: MediaCandidate,
@@ -45,8 +45,54 @@ fun YftFoundMediaRow(
     thumbnail: ImageBitmap? = null,
     previewTag: String = "preview-candidate",
 ) {
+    FoundRow(
+        title = candidate.safeTitle(),
+        audio = candidate.isAudio(),
+        facts = candidate.factLabels(),
+        onPreview = onPreview,
+        modifier = modifier,
+        thumbnail = thumbnail,
+        previewTag = previewTag,
+    )
+}
+
+/**
+ * One video of "Found on this page" (P3): every quality and audio file of it is one row, and
+ * Preview opens its download sheet.
+ */
+@Composable
+fun YftFoundMediaRow(
+    video: MediaGroup,
+    onPreview: () -> Unit,
+    modifier: Modifier = Modifier,
+    thumbnail: ImageBitmap? = null,
+    previewTag: String = "preview-candidate",
+) {
+    val first = video.candidates.first()
+    FoundRow(
+        title = video.title?.trim()?.take(MAX_TITLE)?.takeIf(String::isNotEmpty)
+            ?: first.safeTitle(),
+        audio = video.candidates.all { it.isAudio() },
+        facts = video.factLabels(),
+        onPreview = onPreview,
+        modifier = modifier,
+        thumbnail = thumbnail,
+        previewTag = previewTag,
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FoundRow(
+    title: String,
+    audio: Boolean,
+    facts: List<String>,
+    onPreview: () -> Unit,
+    modifier: Modifier,
+    thumbnail: ImageBitmap?,
+    previewTag: String,
+) {
     val colors = YftTheme.colors
-    val audio = candidate.isAudio()
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -70,13 +116,12 @@ fun YftFoundMediaRow(
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
-                text = candidate.safeTitle(),
+                text = title,
                 color = colors.textPrimary,
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            val facts = candidate.factLabels()
             if (facts.isNotEmpty()) {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -168,6 +213,20 @@ fun MediaCandidate.factLabels(): List<String> = buildList {
     durationMillis?.takeIf { it > 0 }?.let { add(YftFormat.duration(it)) }
 }
 
+/**
+ * A video's facts: a lone file reads like its candidate; several read "MP4 · DASH · Several
+ * qualities · 1:02" (the sheet shows each quality and size once they are read).
+ */
+fun MediaGroup.factLabels(): List<String> {
+    candidates.singleOrNull()?.let { return it.factLabels() }
+    return buildList {
+        candidates.mapNotNull { it.formatLabel() }.distinct().take(MAX_GROUP_FORMATS)
+            .forEach(::add)
+        add(SEVERAL_QUALITIES)
+        durationMillis?.let { add(YftFormat.duration(it)) }
+    }
+}
+
 fun MediaCandidate.formatLabel(): String? = when (kind) {
     MediaKind.HLS -> "HLS"
     MediaKind.DASH -> "DASH"
@@ -194,6 +253,8 @@ private val FOUND_THUMBNAIL = 48.dp
 /** Where the dividers between rows start: under the title, past the thumbnail. */
 val FoundMediaDividerInset = 78.dp
 private const val MAX_TITLE = 120
+private const val MAX_GROUP_FORMATS = 2
+const val SEVERAL_QUALITIES = "Several qualities"
 private const val MAX_EXTENSION = 5
 private val AUDIO_EXTENSIONS = setOf("m4a", "mp3", "aac", "ogg", "oga", "opus", "wav", "flac")
 private val KNOWN_EXTENSIONS = AUDIO_EXTENSIONS + setOf("mp4", "m4v", "webm", "mov", "mkv", "3gp")

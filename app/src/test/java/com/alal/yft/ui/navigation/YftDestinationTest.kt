@@ -13,7 +13,7 @@ class YftDestinationTest {
                 "Browser",
                 "Found on this page",
                 "Download as",
-                "Video you copied",
+                "Download",
                 "Downloads",
                 "Library",
                 "Settings",

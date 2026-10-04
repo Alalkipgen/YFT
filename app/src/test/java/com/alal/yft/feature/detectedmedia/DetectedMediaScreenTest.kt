@@ -14,6 +14,7 @@ import androidx.compose.ui.test.performScrollToNode
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.ui.theme.YftTheme
 import org.junit.Assert.assertEquals
@@ -53,7 +54,7 @@ class DetectedMediaScreenTest {
     fun listsThePageByHostOnlyAndPreviewsTheTappedCandidate() {
         val playable = candidate(0, "Fixture clip")
         val drmProtected = candidate(1, "Protected clip").copy(drmHint = true)
-        var previewed: MediaCandidate? = null
+        var previewed: MediaGroup? = null
         var cleared = false
         composeRule.setContent {
             YftTheme(themeMode = ThemeMode.DARK) {
@@ -77,7 +78,7 @@ class DetectedMediaScreenTest {
         composeRule.onNodeWithText("MP4").assertIsDisplayed()
 
         composeRule.onNodeWithTag("detected-preview-0").performClick()
-        assertEquals(playable, previewed)
+        assertEquals(listOf(playable), previewed?.candidates)
         // DRM-protected media is never offered, only counted in a note.
         composeRule.onAllNodesWithText("Protected clip").assertCountEquals(0)
         composeRule.onAllNodesWithTag("detected-preview-1").assertCountEquals(0)
@@ -87,6 +88,37 @@ class DetectedMediaScreenTest {
 
         composeRule.onNodeWithContentDescription("Clear list").performClick()
         assertTrue(cleared)
+    }
+
+    @Test
+    fun theQualitiesOfOneVideoAreOneRowWhosePreviewOpensThemAll() {
+        // Same page and length: one video in two qualities and its audio (P3).
+        val qualities = listOf(
+            candidate(0, "Fixture clip — 720p"),
+            candidate(1, "Fixture clip — 480p"),
+            candidate(2, "Fixture clip — Audio").copy(mimeType = "audio/mp4"),
+        ).map { it.copy(durationMillis = 61_000) }
+        var previewed: MediaGroup? = null
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                DetectedMediaScreen(
+                    page = DetectedPage(
+                        pageUrl = "https://video.example.test/watch?token=secret-value",
+                        pageTitle = "Fixture page",
+                        candidates = qualities,
+                    ),
+                    onNavigateBack = {},
+                    onPreview = { previewed = it },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("video.example.test · 1 media item found").assertIsDisplayed()
+        composeRule.onNodeWithText("Fixture clip").assertIsDisplayed()
+        composeRule.onNodeWithText("Several qualities").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("detected-preview-1").assertCountEquals(0)
+        composeRule.onNodeWithTag("detected-preview-0").performClick()
+        assertEquals(qualities, previewed?.candidates)
     }
 
     @Test

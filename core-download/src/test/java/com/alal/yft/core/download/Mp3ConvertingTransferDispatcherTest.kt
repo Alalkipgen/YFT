@@ -32,7 +32,14 @@ class Mp3ConvertingTransferDispatcherTest {
     private val mp3 = "ID3-and-frames".toByteArray()
     private val delegate = FakeDelegate(aac)
     private val transcoder = FakeTranscoder(mp3)
-    private val dispatcher = Mp3ConvertingTransferDispatcher(delegate, transcoder, workspaces)
+    private val m4a = "ftyp-and-sound".toByteArray()
+    private val extractor = FakeExtractor(m4a)
+    private val dispatcher = Mp3ConvertingTransferDispatcher(
+        delegate = delegate,
+        transcoder = transcoder,
+        workspaceRoot = workspaces,
+        audioExtractor = extractor,
+    )
 
     @After
     fun cleanUp() {
@@ -63,6 +70,48 @@ class Mp3ConvertingTransferDispatcherTest {
         assertEquals(Mp3Encoding(192, "Song"), transcoder.encodings.single())
         assertArrayEquals(mp3, published.readBytes())
         assertFalse("The workspace is removed", workspace().exists())
+    }
+
+    @Test
+    fun audioOnlyPlansDownloadTheVideoAndPublishOnlyItsSound() = runBlocking {
+        val video = plan(mp3 = null).copy(audioOnly = true, mimeType = "audio/mp4")
+
+        val result = dispatcher.transfer(video, metadata(), destination, null, {}, {})
+
+        val completed = result as QueueTransferResult.Completed
+        assertEquals(m4a.size.toLong(), completed.bytesWritten)
+        assertFalse("The MP4 goes to a workspace", delegate.destinations.single() === destination)
+        assertArrayEquals(aac, extractor.sources.single())
+        assertEquals(0, transcoder.calls)
+        assertArrayEquals(m4a, published.readBytes())
+        assertFalse("The workspace is removed", workspace().exists())
+    }
+
+    @Test
+    fun mp3FromAVideoReadsItsSoundWithoutAnExtraction() = runBlocking {
+        val video = plan().copy(audioOnly = true)
+
+        val result = dispatcher.transfer(video, metadata(), destination, null, {}, {})
+
+        assertTrue(result is QueueTransferResult.Completed)
+        assertEquals(1, transcoder.calls)
+        assertTrue(extractor.sources.isEmpty())
+        assertArrayEquals(mp3, published.readBytes())
+    }
+
+    @Test
+    fun aVideoWithoutSoundPublishesNothing() = runBlocking {
+        extractor.failWith = DownloadFailureReason.INCOMPATIBLE_TRACKS
+        val video = plan(mp3 = null).copy(audioOnly = true)
+
+        val result = dispatcher.transfer(video, metadata(), destination, null, {}, {})
+
+        val failure = result as QueueTransferResult.Failure
+        assertEquals(DownloadFailure(DownloadFailureReason.INCOMPATIBLE_TRACKS), failure.failure)
+        assertFalse(published.exists())
+        assertFalse(workspace().exists())
+        dispatcher.discard(video)
+        assertEquals(1, delegate.discards)
     }
 
     @Test
@@ -209,6 +258,18 @@ class Mp3ConvertingTransferDispatcherTest {
             sources += source.readBytes()
             encodings += encoding
             output.writeBytes(this.output.copyOf(this.output.size / 2))
+            failWith?.let { return Mp3TranscodeResult.Failure(it) }
+            output.writeBytes(this.output)
+            return Mp3TranscodeResult.Completed(this.output.size.toLong())
+        }
+    }
+
+    private class FakeExtractor(private val output: ByteArray) : LocalAudioExtractor {
+        val sources = mutableListOf<ByteArray>()
+        var failWith: DownloadFailureReason? = null
+
+        override suspend fun extract(source: File, output: File): Mp3TranscodeResult {
+            sources += source.readBytes()
             failWith?.let { return Mp3TranscodeResult.Failure(it) }
             output.writeBytes(this.output)
             return Mp3TranscodeResult.Completed(this.output.size.toLong())

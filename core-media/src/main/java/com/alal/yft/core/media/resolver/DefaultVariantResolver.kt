@@ -23,7 +23,10 @@ import javax.inject.Singleton
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.HttpUrl
@@ -188,31 +191,91 @@ class DefaultVariantResolver(
             companion != null -> MediaSizeAccuracy.ESTIMATED
             else -> MediaSizeAccuracy.EXACT
         }
+        // A video file that does not state its picture is read from its MP4 header (P3).
+        val header = if (companion == null && candidate.height == null &&
+            mimeType in PROBED_VIDEO_MIME_TYPES
+        ) {
+            probeMp4Header(candidate, initialUrl, finalUrl, serverBytes)
+        } else {
+            null
+        }
+        val trackType = when {
+            companion != null -> MediaTrackType.AUDIO_VIDEO
+            header != null && header.hasVideo && !header.hasAudio -> MediaTrackType.VIDEO
+            header != null && !header.hasVideo && header.hasAudio -> MediaTrackType.AUDIO
+            mimeType?.startsWith("audio/") == true -> MediaTrackType.AUDIO
+            else -> MediaTrackType.AUDIO_VIDEO
+        }
+        val durationMillis = candidate.durationMillis ?: header?.durationMillis
         val variant = MediaVariant(
             id = "direct-0",
             playbackUrl = finalUrl.toString(),
             kind = MediaKind.DIRECT,
-            trackType = if (companion == null && mimeType?.startsWith("audio/") == true) {
-                MediaTrackType.AUDIO
-            } else {
-                MediaTrackType.AUDIO_VIDEO
-            },
+            trackType = trackType,
             requestContext = candidate.requestContext.forTarget(
                 credentialOrigin = initialUrl,
                 targetUrl = finalUrl,
             ),
-            label = candidate.title ?: "Direct media",
+            // Never the page title: Download as and the sheet name a quality from its height.
+            label = null,
             mimeType = mimeType,
             container = mimeType.toContainer(finalUrl),
-            codecs = candidate.codecs,
-            durationMillis = candidate.durationMillis,
+            codecs = candidate.codecs.ifEmpty {
+                listOfNotNull(header?.videoCodec, header?.audioCodec)
+            },
+            width = candidate.width ?: header?.width,
+            height = candidate.height ?: header?.height,
+            framesPerSecond = candidate.framesPerSecond ?: header?.framesPerSecond,
+            bitrateBitsPerSecond = candidate.bitrateBitsPerSecond,
+            durationMillis = durationMillis,
             sizeBytes = sizeBytes,
             sizeAccuracy = sizeAccuracy,
             support = support,
             expiresAtEpochMs = expiresAt,
             audioCompanion = companion,
+            audioBitrateBitsPerSecond = header?.audioBitrateBitsPerSecond,
         )
-        return success(candidate, listOf(variant), candidate.durationMillis)
+        return success(candidate, listOf(variant), durationMillis)
+    }
+
+    /**
+     * Reads the start of an MP4 file in a few small ranged requests and returns what its boxes
+     * state, or null when the server does not answer ranges or the file is not MP4. Sent with
+     * the same headers and redirect checks as the size lookup.
+     */
+    private suspend fun probeMp4Header(
+        candidate: MediaCandidate,
+        credentialOrigin: HttpUrl,
+        fileUrl: HttpUrl,
+        totalBytes: Long?,
+    ): Mp4Header? {
+        val reader = RangeReader { offset, length ->
+            val last = offset + length - 1
+            val execution = execute(
+                candidate = candidate,
+                credentialOrigin = credentialOrigin,
+                initialUrl = fileUrl,
+                method = RequestMethod.RANGE_GET,
+                range = "bytes=$offset-$last",
+            )
+            val completed = execution as? HttpExecution.Completed ?: return@RangeReader null
+            completed.response.use { response ->
+                val usable = response.code == HTTP_PARTIAL_CONTENT ||
+                    (response.code == HTTP_OK && offset == 0L)
+                if (!usable) return@RangeReader null
+                response.body?.byteStream()?.readAtMost(length)
+            }
+        }
+        return try {
+            // Real time, not the caller's clock: the reads are network calls.
+            withContext(Dispatchers.IO) {
+                withTimeoutOrNull(PROBE_TIMEOUT_MS) { Mp4HeaderParser.parse(reader, totalBytes) }
+            }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: IOException) {
+            null
+        }
     }
 
     private suspend fun resolveManifest(
@@ -338,6 +401,7 @@ class DefaultVariantResolver(
         initialUrl: HttpUrl,
         method: RequestMethod,
         accept: String? = null,
+        range: String? = null,
     ): HttpExecution {
         var currentUrl = initialUrl
         var redirectCount = 0
@@ -353,7 +417,7 @@ class DefaultVariantResolver(
                 RequestMethod.HEAD -> requestBuilder.head()
                 RequestMethod.RANGE_GET -> requestBuilder
                     .get()
-                    .header("Range", RANGE_FIRST_BYTE)
+                    .header("Range", range ?: RANGE_FIRST_BYTE)
                 RequestMethod.GET -> requestBuilder.get()
             }
 
@@ -556,6 +620,10 @@ class DefaultVariantResolver(
     )
 
     private companion object {
+        const val HTTP_OK = 200
+        const val HTTP_PARTIAL_CONTENT = 206
+        const val PROBE_TIMEOUT_MS = 8_000L
+        val PROBED_VIDEO_MIME_TYPES = setOf("video/mp4", "video/quicktime", "video/x-m4v")
         const val HTTP_METHOD_NOT_ALLOWED = 405
         const val HTTP_NOT_IMPLEMENTED = 501
         const val BUFFER_SIZE = 8_192

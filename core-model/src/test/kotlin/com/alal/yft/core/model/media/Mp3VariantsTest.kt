@@ -81,13 +81,15 @@ class Mp3VariantsTest {
         assertEquals(MediaSizeAccuracy.ESTIMATED, mp3.sizeAccuracy)
         assertEquals(Mp3Conversion(192, "m4a"), mp3.mp3)
         assertNull(Mp3Variants.of(audio(), 160))
+        // 320 kbps is offered too (P3): 60 s is 2.4 MB.
+        assertEquals(2_400_000L, Mp3Variants.of(audio(), 320)!!.sizeBytes)
         assertNull(Mp3Variants.of(audio(durationMillis = null), 128)!!.sizeBytes)
         val fromAsset = Mp3Variants.of(audio(durationMillis = null), 128, 60_000)
         assertEquals(960_000L, fromAsset!!.sizeBytes)
     }
 
     @Test
-    fun addToPutsBothBitratesAfterTheBestAacFile() {
+    fun addToPutsEveryBitrateAfterTheBestAacFile() {
         val low = audio(id = "low", kbps = 48)
         val best = audio(id = "best", kbps = 128)
         val opus = audio(id = "opus", mimeType = "audio/webm", codecs = listOf("opus"), kbps = 160)
@@ -95,7 +97,9 @@ class Mp3VariantsTest {
         val added = Mp3Variants.addTo(asset(video(), low, best, opus))
 
         assertEquals(
-            listOf("720p", "low", "best", "best-mp3-192", "best-mp3-128", "opus"),
+            listOf(
+                "720p", "low", "best", "best-mp3-320", "best-mp3-192", "best-mp3-128", "opus",
+            ),
             added.variants.map(MediaVariant::id),
         )
         assertSame(added, Mp3Variants.addTo(added))

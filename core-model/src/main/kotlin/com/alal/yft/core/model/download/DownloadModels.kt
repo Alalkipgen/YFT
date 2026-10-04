@@ -31,6 +31,11 @@ data class DirectDownloadPlan(
     val maxRequestBytes: Long? = null,
     /** Set when the downloaded AAC file is converted to MP3 before it is published (T18). */
     val mp3: Mp3Encoding? = null,
+    /**
+     * Set when only the sound of the downloaded MP4 is kept: its AAC track is copied into an M4A
+     * before it is published (P3). Ignored when [mp3] is set, which reads the same track.
+     */
+    val audioOnly: Boolean = false,
 ) : DownloadPlan {
     init {
         require(taskId.isNotBlank())
@@ -58,6 +63,8 @@ data class DirectDownloadPlan(
         append(maxRequestBytes)
         append(", mp3=")
         append(mp3)
+        append(", audioOnly=")
+        append(audioOnly)
         append(')')
     }
 
