@@ -9,6 +9,8 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Added
 
+- MP3: save a video's audio as MP3 (192 or 128 kbps) from "Video you copied" or Download as. The
+  M4A is converted on the phone with LAME 3.100 (LGPL, see About → Licenses) and gets its title.
 - Browser Download button: a Mint button appears when the page has a video you can save. One
   video opens "Video you copied"; several open "Found on this page", with a count badge.
 - Search to download: Home opens the browser's start page ready to type. Words offer "Search

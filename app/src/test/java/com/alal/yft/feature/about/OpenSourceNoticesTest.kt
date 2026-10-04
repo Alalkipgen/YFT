@@ -30,6 +30,12 @@ class OpenSourceNoticesTest {
         notices.forEach { notice ->
             assertTrue(notice.id, notice.noticeText.isNotBlank())
         }
+        val lame = notices.single { it.id == "lame" }
+        assertTrue("GNU Library General Public License" in lame.noticeText)
+        val asset = listOf("src/main/assets", "app/src/main/assets")
+            .map { File(it, lame.noticeAsset!!) }
+            .first(File::isFile)
+        assertTrue("Version 2, June 1991" in asset.readText())
         val meriyah = notices.single { it.id == "meriyah" }
         assertTrue("Copyright (c) 2019 and later, KFlash and others." in meriyah.noticeText)
         val astring = notices.single { it.id == "astring" }

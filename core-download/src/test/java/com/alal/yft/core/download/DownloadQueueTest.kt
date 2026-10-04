@@ -6,6 +6,7 @@ import com.alal.yft.core.model.download.DirectTransferResult
 import com.alal.yft.core.model.download.DownloadProgress
 import com.alal.yft.core.model.download.DownloadSegment
 import com.alal.yft.core.model.download.DownloadTaskStatus
+import com.alal.yft.core.model.download.Mp3Encoding
 import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.media.BrowserRequestContext
 import java.util.concurrent.ConcurrentHashMap
@@ -50,6 +51,23 @@ class DownloadQueueTest {
 
         assertEquals(setOf("one", "two"), queue.tasks.value.map { it.id }.toSet())
         assertTrue(queue.tasks.value.all { it.status == DownloadTaskStatus.WAITING_FOR_NETWORK })
+    }
+
+    @Test
+    fun `an mp3 conversion is recorded as audio mpeg, not the source type`() = runTest {
+        val queue = DownloadQueue(InMemoryStore(), ControlledRunner(), backgroundScope)
+        queue.setNetworkAvailable(false)
+
+        queue.enqueue(plan("aac"), metadata(), RecordingDestination())
+        queue.enqueue(
+            plan("mp3").copy(mp3 = Mp3Encoding(192, "Song")),
+            metadata(),
+            RecordingDestination(),
+        )
+
+        val types = queue.tasks.value.associate { it.id to it.mimeType }
+        assertEquals("application/octet-stream", types["aac"])
+        assertEquals("audio/mpeg", types["mp3"])
     }
 
     @Test

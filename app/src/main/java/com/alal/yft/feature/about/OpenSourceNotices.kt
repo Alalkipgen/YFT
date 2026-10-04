@@ -8,6 +8,8 @@ data class OpenSourceNotice(
     val license: String,
     val usage: String,
     val noticeText: String,
+    /** An app asset with the full license text, shown after [noticeText]. */
+    val noticeAsset: String? = null,
 )
 
 /**
@@ -65,6 +67,15 @@ object OpenSourceNotices {
             usage = "Logos of YouTube, Facebook, TikTok, Instagram and X in Your sites.",
             noticeText = SIMPLE_ICONS_CC0,
         ),
+        OpenSourceNotice(
+            id = "lame",
+            name = "LAME",
+            version = "3.100",
+            license = "LGPL-2.0-or-later",
+            usage = "MP3 encoder: converts M4A audio to MP3 on the phone (libmp3lame.so).",
+            noticeText = LAME_LGPL,
+            noticeAsset = LAME_LICENSE_ASSET,
+        ),
     )
 
     val libraries: List<OpenSourceNotice> = listOf(
@@ -87,6 +98,22 @@ object OpenSourceNotices {
         noticeText = APACHE_2,
     )
 }
+
+const val LAME_LICENSE_ASSET = "licenses/LAME-COPYING.txt"
+
+private const val LAME_LGPL =
+    "LAME 3.100. Copyright (c) 1999-2017 Mark Taylor, Takehiro Tominaga, Robert Hegemann, " +
+        "Gabriel Bouvigne, Alexander Leidinger and the other LAME authors.\n\n" +
+        "This library is free software; you can redistribute it and/or modify it under the " +
+        "terms of the GNU Library General Public License as published by the Free Software " +
+        "Foundation; either version 2 of the License, or (at your option) any later version. " +
+        "It is distributed WITHOUT ANY WARRANTY; without even the implied warranty of " +
+        "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n" +
+        "YFT uses LAME unmodified, built from source as its own shared library, " +
+        "libmp3lame.so, which you may replace with your own build. Source: " +
+        "https://lame.sourceforge.io (lame-3.100.tar.gz); the exact files YFT builds are in " +
+        "its repository under core-download/src/main/cpp/lame-3.100. The full license text " +
+        "follows."
 
 private const val SIMPLE_ICONS_CC0 =
     "Simple Icons by the Simple Icons contributors, dedicated to the public domain under " +

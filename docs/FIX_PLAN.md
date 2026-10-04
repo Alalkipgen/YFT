@@ -154,7 +154,7 @@ Agents update the **Status** column in every task checkpoint.
 | T15 | [Release 1.0.0-beta.4](#t15--release-100-beta4) | 9 | P2 | Easy | 0.5 d | T11–T14, owner | SKIPPED (owner, 2026-10-03: one release after T19) |
 | T16 | [YouTube client strategy](#t16--youtube-client-strategy) | 10 | P1 (owner) | Very hard (A + B + C) | 6–9 d | D2 = A + B + C, T08 | OWNER CHECK |
 | T17 | [Higher qualities: merge video and audio](#t17--higher-qualities-merge-video-and-audio) | 10 | P3 | Hard | 2–3 d | T16 | OWNER CHECK (2026-10-04) |
-| T18 | [MP3 audio](#t18--mp3-audio) | 10 | P3 | Hard | 2–3 d | D3 (YES) | TODO |
+| T18 | [MP3 audio](#t18--mp3-audio) | 10 | P3 | Hard | 2–3 d | D3 (YES) | OWNER CHECK (2026-10-04) |
 | T19 | [Signed release 1.0.0-beta.3](#t19--signed-release-100-beta3) | 10 | P3 | Easy | 0.5 d | T09, T11–T18; merge, tag and signing approved by the owner | TODO |
 
 Estimates are agent working days and leave out the owner's phone checks. Totals: Phase 8 about
@@ -1042,6 +1042,16 @@ Measure and record the APK size change (about +1 MB expected).
 
 **Tests:** JVM tests for the control logic; an instrumentation test on the T02 emulator that encodes
 a short AAC fixture. Owner check: the MP3 plays in another app.
+
+**Done (2026-10-04):** LAME 3.100 is vendored unmodified in `core-download/src/main/cpp/` and
+built by CMake as `libmp3lame.so` plus the JNI glue `libyft_mp3.so` (NDK `27.3.13750724`, CMake
+3.22.1, 16 KB page-size ready; every workflow installs both). `Mp3Variants` adds "MP3 192 kbps"
+and "MP3 128 kbps" after the best whole-file AAC variant in Download as, and the quick sheet gets
+an **MP3** row (192 kbps) under Music. The plan is a direct download with `mp3`;
+`Mp3ConvertingTransferDispatcher` downloads the AAC into a private workspace, `AndroidMp3Transcoder`
+decodes it with MediaCodec and LAME encodes CBR MP3 with an ID3v2.3 title, and only then is the
+MP3 published (`audio/mpeg`). LGPL notice, source location and full text: About → Licenses and
+`THIRD_PARTY_NOTICES.md`. APK: debug APK 16,708,773 → 19,727,067 bytes (+2.9 MB: unstripped debug `libmp3lame.so` + `libyft_mp3.so` for 3 ABIs; release builds strip them). Only the phone check is left.
 
 ### T19 — Signed release 1.0.0-beta.3
 

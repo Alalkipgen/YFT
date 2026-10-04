@@ -348,6 +348,12 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
     on the start page, for DRM-only pages, while the found sheet is expanded and while the
     address is edited. One video opens "Video you copied"; several open the Found list.
 
+20. **MP3 (Phase 10, T18).** "Video you copied" lists **MP3** ("192 kbps · ~size") under Music
+    after the M4A row when that file is AAC; it is never preselected. Download as lists "MP3 192
+    kbps" and "MP3 128 kbps" after the M4A in the Audio tab with an estimated size; Preview plays
+    the M4A. The progress bar shows the M4A download; the MP3 appears in Downloads only after the
+    conversion has finished.
+
 ## Remaining differences from the images
 
 - Rows keep 48dp touch targets, so Settings, Download as and the "Found on this page" list are

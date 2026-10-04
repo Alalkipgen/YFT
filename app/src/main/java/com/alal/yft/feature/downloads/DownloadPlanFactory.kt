@@ -7,6 +7,7 @@ import com.alal.yft.core.model.download.DashDownloadPlan
 import com.alal.yft.core.model.download.DirectDownloadPlan
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.HlsDownloadPlan
+import com.alal.yft.core.model.download.Mp3Encoding
 import com.alal.yft.core.model.download.WholeFileTrack
 import com.alal.yft.core.model.media.CompanionAudio
 import com.alal.yft.core.model.media.MediaAsset
@@ -113,6 +114,12 @@ object DownloadPlanFactory {
                         expectedBytes = variant.exactSizeBytes(),
                         expiresAtEpochMs = expiry,
                         maxRequestBytes = maxRequestBytesFor(variant.playbackUrl),
+                        mp3 = variant.mp3?.let { conversion ->
+                            Mp3Encoding(
+                                bitrateKbps = conversion.bitrateKbps,
+                                title = asset.title?.trim()?.takeIf(String::isNotEmpty),
+                            )
+                        },
                     ),
                     fileName = fileName,
                     mimeType = variant.mimeType,

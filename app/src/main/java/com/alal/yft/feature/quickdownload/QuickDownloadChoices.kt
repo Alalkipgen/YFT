@@ -8,6 +8,7 @@ import com.alal.yft.ui.components.formatLabel
 import com.alal.yft.ui.components.isAudio
 import com.alal.yft.ui.components.isSavable
 import com.alal.yft.ui.format.YftFormat
+import java.util.Locale
 
 enum class QuickRowKind {
     /** The highest video at or below 480p. */
@@ -21,6 +22,9 @@ enum class QuickRowKind {
 
     /** The audio-only stream, M4A when there is one. */
     MUSIC,
+
+    /** The M4A audio converted to MP3 on the phone (T18). */
+    MP3,
 }
 
 /** One row of "Video you copied": what the user taps and the candidate it downloads. */
@@ -31,6 +35,8 @@ data class QuickRow(
     /** The real label and size, for example "480p · 18 MB"; never a made-up height. */
     val detail: String,
     val candidate: MediaCandidate,
+    /** Set on the MP3 row: [candidate] is downloaded and converted at this bitrate. */
+    val mp3Kbps: Int? = null,
 ) {
     val id: String get() = kind.name.lowercase()
 }
@@ -43,8 +49,10 @@ data class QuickChoices(
     val video: List<QuickRow>,
     /** Savable candidates the lookup found; More formats lists them all. */
     val candidateCount: Int,
+    /** The Music row's M4A as MP3, when it is AAC the phone can convert. */
+    val mp3: QuickRow? = null,
 ) {
-    val rows: List<QuickRow> get() = listOfNotNull(music) + video
+    val rows: List<QuickRow> get() = listOfNotNull(music, mp3) + video
 }
 
 /**
@@ -59,6 +67,9 @@ object QuickDownloadChoices {
     const val FAST_MAX_HEIGHT = 480
     const val HIGH_MAX_HEIGHT = 720
 
+    /** The quick sheet's MP3 bitrate; Download as also offers 128 kbps. */
+    const val MP3_KBPS = 192
+
     fun of(candidates: List<MediaCandidate>): QuickChoices? {
         val savable = candidates.take(DetectedMediaStore.MAX_CANDIDATES).filter { it.isSavable }
         if (savable.isEmpty()) return null
@@ -70,14 +81,16 @@ object QuickDownloadChoices {
         val videoRows = videoRows(videos)
         val music = musicRow(parsed.filter { it.candidate.isAudio() })
         if (videoRows.isEmpty() && music == null) return null
+        val durationMillis = savable.firstNotNullOfOrNull { candidate ->
+            candidate.durationMillis?.takeIf { it > 0 }
+        }
         return QuickChoices(
             title = parsed.first().base ?: if (videoRows.isEmpty()) "Audio" else "Video",
-            durationMillis = savable.firstNotNullOfOrNull { candidate ->
-                candidate.durationMillis?.takeIf { it > 0 }
-            },
+            durationMillis = durationMillis,
             music = music,
             video = videoRows,
             candidateCount = savable.size,
+            mp3 = music?.let { mp3Row(it, durationMillis) },
         )
     }
 
@@ -115,6 +128,25 @@ object QuickDownloadChoices {
         return best.row(QuickRowKind.MUSIC, "$format · Fast")
     }
 
+    /** MP3 of the Music row when it is a whole AAC (M4A) file; the size is an estimate. */
+    private fun mp3Row(music: QuickRow, durationMillis: Long?): QuickRow? {
+        val candidate = music.candidate
+        if (candidate.kind != MediaKind.DIRECT || candidate.audioCompanion != null) return null
+        val mime = candidate.mimeType?.substringBefore(';')?.trim()?.lowercase(Locale.US)
+        if (mime != AAC_AUDIO_MIME) return null
+        val codecs = candidate.codecs.map { it.trim().lowercase(Locale.US) }
+        if (codecs.any { !it.startsWith(AAC_CODEC_PREFIX) }) return null
+        val estimate = durationMillis?.let { it * MP3_KBPS / BITS_PER_BYTE }
+        val facts = listOfNotNull("$MP3_KBPS kbps", estimate?.let { "~${YftFormat.bytes(it)}" })
+        return QuickRow(
+            kind = QuickRowKind.MP3,
+            title = "MP3",
+            detail = facts.joinToString(" · "),
+            candidate = candidate,
+            mp3Kbps = MP3_KBPS,
+        )
+    }
+
     /** A candidate's title split into the video title and the extractor's quality label. */
     private class Parsed(val candidate: MediaCandidate) {
         private val title = candidate.title?.trim()?.takeIf(String::isNotEmpty)
@@ -150,6 +182,9 @@ object QuickDownloadChoices {
         }
     }
 
+    private const val AAC_AUDIO_MIME = "audio/mp4"
+    private const val AAC_CODEC_PREFIX = "mp4a"
+    private const val BITS_PER_BYTE = 8
     private const val LABEL_SEPARATOR = " — "
     private const val MAX_TITLE = 120
     private const val MAX_LABEL = 40

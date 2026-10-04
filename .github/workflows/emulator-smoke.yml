@@ -38,14 +38,15 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
-      - name: Install compile SDK
+      - name: Install compile SDK, NDK and CMake
         shell: bash
         run: |
           sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
           manager="$(find "$sdk" -path '*/bin/sdkmanager' -type f -print -quit)"
           test -n "$manager"
           yes | "$manager" --licenses >/dev/null || true
-          "$manager" "platforms;android-35" "build-tools;35.0.0"
+          "$manager" "platforms;android-35" "build-tools;35.0.0" \
+            "ndk;27.3.13750724" "cmake;3.22.1"
       - name: Validate diagnostics
         run: |
           bash -n scripts/ci-emulator-smoke.sh

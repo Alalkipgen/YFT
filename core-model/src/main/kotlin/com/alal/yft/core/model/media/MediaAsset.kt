@@ -51,6 +51,8 @@ data class MediaVariant(
      * one MP4. [trackType] then describes the merged result.
      */
     val audioCompanion: CompanionAudio? = null,
+    /** Set when the download is this audio converted to MP3 on the phone ([Mp3Variants]). */
+    val mp3: Mp3Conversion? = null,
 ) {
     init {
         require(id.isNotBlank())
@@ -58,6 +60,10 @@ data class MediaVariant(
         require(audioCompanion == null || trackType == MediaTrackType.AUDIO_VIDEO) {
             "A variant with a companion audio track describes the merged video"
         }
+        require(
+            mp3 == null ||
+                (kind == MediaKind.DIRECT && trackType == MediaTrackType.AUDIO),
+        ) { "Only a whole audio file is converted to MP3" }
         require(width == null || width > 0)
         require(height == null || height > 0)
         require(framesPerSecond == null || framesPerSecond > 0)
@@ -91,6 +97,8 @@ data class MediaVariant(
         append(support)
         append(", audioCompanion=")
         append(audioCompanion != null)
+        append(", mp3Kbps=")
+        append(mp3?.bitrateKbps)
         append(')')
     }
 }

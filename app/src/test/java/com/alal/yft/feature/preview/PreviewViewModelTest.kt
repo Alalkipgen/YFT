@@ -75,6 +75,37 @@ class PreviewViewModelTest {
     }
 
     @Test
+    fun anM4aFileIsAlsoOfferedAsMp3ButTheOriginalStaysTheDefault() = runTest {
+        val store = PreviewSelectionStore().apply { select(candidate()) }
+        val m4a = variant("m4a", MediaTrackType.AUDIO).copy(
+            playbackUrl = "https://media.example.test/audio.m4a",
+            kind = MediaKind.DIRECT,
+            mimeType = "audio/mp4",
+            codecs = listOf("mp4a.40.2"),
+            bitrateBitsPerSecond = 128_000,
+        )
+        val starter = FakeDownloadStarter()
+        val resolver = FakeResolver(VariantResolutionResult.Success(asset(listOf(m4a))))
+        val viewModel = viewModel(resolver, store, starter)
+
+        runCurrent()
+
+        val ready = viewModel.uiState.value as PreviewUiState.Ready
+        assertEquals(
+            listOf("m4a", "m4a-mp3-192", "m4a-mp3-128"),
+            ready.asset.variants.map(MediaVariant::id),
+        )
+        assertEquals(PreviewTab.AUDIO, ready.selectedTab)
+        assertEquals("m4a", ready.selectedVariantId)
+
+        viewModel.selectVariant("m4a-mp3-128")
+        viewModel.download()
+        runCurrent()
+
+        assertEquals(listOf("m4a-mp3-128"), starter.requested)
+    }
+
+    @Test
     fun networkFailureIsRetryableAndRetryUsesCurrentInMemorySelection() = runTest {
         val store = PreviewSelectionStore().apply { select(candidate()) }
         val resolver = FakeResolver(

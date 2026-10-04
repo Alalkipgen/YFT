@@ -145,14 +145,17 @@ fun QuickDownloadScreen(
         }
         Header(choices)
         Column(modifier = Modifier.selectableGroup()) {
-            choices.music?.let { music ->
+            val music = listOfNotNull(choices.music, choices.mp3)
+            if (music.isNotEmpty()) {
                 SectionLabel("Music")
-                QuickRowItem(
-                    row = music,
-                    selected = music.id == state.selectedId,
-                    enabled = state.canChooseRow,
-                    onClick = { onSelect(music.id) },
-                )
+                music.forEach { row ->
+                    QuickRowItem(
+                        row = row,
+                        selected = row.id == state.selectedId,
+                        enabled = state.canChooseRow,
+                        onClick = { onSelect(row.id) },
+                    )
+                }
             }
             if (choices.video.isNotEmpty()) {
                 SectionLabel("Video")

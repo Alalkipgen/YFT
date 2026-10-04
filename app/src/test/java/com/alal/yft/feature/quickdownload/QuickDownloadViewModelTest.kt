@@ -9,6 +9,7 @@ import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
+import com.alal.yft.core.model.media.Mp3Conversion
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.settings.DownloadPreferences
@@ -71,6 +72,22 @@ class QuickDownloadViewModelTest {
             PreviewDownloadStatus.Queued("Ocean waves.mp4"),
             viewModel.uiState.value.downloadStatus,
         )
+    }
+
+    @Test
+    fun theMp3RowQueuesTheM4aConvertedToMp3() = runTest {
+        publish(QuickDownloadFixtures.youtube())
+        val viewModel = viewModel()
+
+        viewModel.select("mp3")
+        viewModel.download()
+        advanceUntilIdle()
+
+        assertEquals("Ocean waves — Audio 128 kbps", resolver.requested.single().title)
+        val queued = starter.variants.single()
+        assertEquals(Mp3Conversion(192, "direct-0"), queued.mp3)
+        assertEquals("audio/mpeg", queued.mimeType)
+        assertEquals("https://media.example.test/audio-128.m4a", queued.playbackUrl)
     }
 
     @Test
@@ -174,7 +191,11 @@ class QuickDownloadViewModelTest {
                 id = "direct-0",
                 playbackUrl = candidate.mediaUrl,
                 kind = MediaKind.DIRECT,
-                trackType = MediaTrackType.AUDIO_VIDEO,
+                trackType = if (candidate.mimeType?.startsWith("audio/") == true) {
+                    MediaTrackType.AUDIO
+                } else {
+                    MediaTrackType.AUDIO_VIDEO
+                },
                 requestContext = BrowserRequestContext(candidate.pageUrl, null, null),
                 mimeType = candidate.mimeType,
                 audioCompanion = candidate.audioCompanion,

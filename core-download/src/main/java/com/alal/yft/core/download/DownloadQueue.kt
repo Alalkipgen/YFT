@@ -11,6 +11,7 @@ import com.alal.yft.core.model.download.DownloadPlan
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.download.HlsDownloadPlan
 import com.alal.yft.core.model.download.HlsTransferCheckpoint
+import com.alal.yft.core.model.download.Mp3Encoding
 import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.download.TransferCheckpoint
 import java.io.IOException
@@ -99,7 +100,7 @@ class DownloadQueue(
             segments = emptyList(),
         ),
         totalBytes = metadata.totalBytes,
-        mimeType = metadata.contentType ?: plan.mimeType,
+        mimeType = plan.mp3?.let { Mp3Encoding.MIME_TYPE } ?: metadata.contentType ?: plan.mimeType,
         preferredSegmentCount = plan.preferredSegmentCount,
         destinationSpec = destinationSpec,
     )
@@ -212,7 +213,7 @@ class DownloadQueue(
             segments = emptyList(),
         ),
         totalBytes = metadata.totalBytes,
-        mimeType = metadata.contentType ?: plan.mimeType,
+        mimeType = plan.mp3?.let { Mp3Encoding.MIME_TYPE } ?: metadata.contentType ?: plan.mimeType,
         preferredSegmentCount = plan.preferredSegmentCount,
     )
 

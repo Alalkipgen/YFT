@@ -18,11 +18,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
@@ -153,8 +155,17 @@ private fun NoticeRow(notice: OpenSourceNotice) {
                 shape = MaterialTheme.shapes.small,
                 color = colors.background,
             ) {
+                val context = LocalContext.current
+                val fullText = remember(notice.id) {
+                    val license = notice.noticeAsset?.let { asset ->
+                        runCatching {
+                            context.assets.open(asset).bufferedReader().use { it.readText() }
+                        }.getOrNull()
+                    }
+                    listOfNotNull(notice.noticeText, license?.trim()).joinToString("\n\n")
+                }
                 Text(
-                    text = notice.noticeText,
+                    text = fullText,
                     modifier = Modifier
                         .padding(12.dp)
                         .testTag("license-text-${notice.id}"),

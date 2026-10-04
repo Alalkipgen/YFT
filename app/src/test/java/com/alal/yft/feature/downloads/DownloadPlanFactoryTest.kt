@@ -1,6 +1,7 @@
 package com.alal.yft.feature.downloads
 
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.Mp3Encoding
 import com.alal.yft.core.model.download.WholeFileTrack
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.CompanionAudio
@@ -9,6 +10,7 @@ import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaSizeAccuracy
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
+import com.alal.yft.core.model.media.Mp3Variants
 import com.alal.yft.core.model.media.VariantSupport
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -39,6 +41,31 @@ class DownloadPlanFactoryTest {
         val estimatedReady = factory(estimated) as DownloadPlanResult.Ready
         val estimatedRequest = estimatedReady.request as DownloadRequest.Direct
         assertEquals(null, estimatedRequest.plan.expectedBytes)
+    }
+
+    @Test
+    fun `an mp3 choice downloads its aac file and is named and typed as mp3`() {
+        val source = variant(
+            id = "m4a",
+            trackType = MediaTrackType.AUDIO,
+            container = "m4a",
+            mimeType = "audio/mp4",
+            size = 4_000L,
+            sizeAccuracy = MediaSizeAccuracy.EXACT,
+        ).copy(codecs = listOf("mp4a.40.2"), durationMillis = 10_000)
+        val mp3 = Mp3Variants.of(source, 192)!!
+
+        val request = (factory(mp3) as DownloadPlanResult.Ready).request as DownloadRequest.Direct
+
+        assertEquals("Fixture MP3 192 kbps.mp3", request.fileName)
+        assertEquals("audio/mpeg", request.mimeType)
+        assertEquals(Mp3Encoding(192, "Fixture"), request.plan.mp3)
+        assertEquals(source.playbackUrl, request.plan.sourceUrl)
+        // The MP3 size is an estimate; the AAC length comes from the probe.
+        assertNull(request.plan.expectedBytes)
+        val plain = (factory(source) as DownloadPlanResult.Ready).request as DownloadRequest.Direct
+        assertNull(plain.plan.mp3)
+        assertEquals("Fixture.m4a", plain.fileName)
     }
 
     @Test

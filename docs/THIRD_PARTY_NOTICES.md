@@ -42,6 +42,26 @@ Not bundled code, recorded for attribution ([ADR-006](decisions/ADR-006-owner-ov
 No GPL code, such as NewPipe's `PoTokenWebView.kt` (GPL-3.0), is used.
 The BotGuard program itself is YouTube's: it is downloaded at run time and never committed.
 
+## MP3 encoder (LAME)
+
+Built from source by the NDK in `core-download/src/main/cpp/` and shipped as its own shared
+library, `libmp3lame.so` (arm64-v8a, armeabi-v7a, x86_64), next to YFT's JNI glue
+`libyft_mp3.so` (T18). It turns the M4A audio YFT downloaded into an MP3 on the phone.
+
+| Component | Version | License | Source |
+| --- | --- | --- | --- |
+| LAME (`core-download/src/main/cpp/lame-3.100/`: `libmp3lame/*.c`, `*.h`, `vector/lame_intrin.h`, `include/lame.h`) | 3.100 | LGPL-2.0-or-later (GNU Library General Public License version 2 or later), Copyright (c) 1999-2017 Mark Taylor, Takehiro Tominaga, Robert Hegemann, Gabriel Bouvigne, Alexander Leidinger and the other LAME authors | <https://lame.sourceforge.io>, `lame-3.100.tar.gz` |
+
+- `lame-3.100.tar.gz` SHA-256:
+  `ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e`.
+- The LAME files are copied unmodified; only the encoder is built (no `mpglib` decoder, no
+  frontend, no SSE code). YFT's own files are `CMakeLists.txt`, `lame-config/config.h` (replaces
+  the autotools `config.h`) and `yft_mp3_jni.c`.
+- LAME's `COPYING`, `LICENSE` and `README` sit beside the sources; the app shows the notice and
+  the full license text (`app/src/main/assets/licenses/LAME-COPYING.txt`) under About →
+  Licenses. Because LAME stays a separate shared library, a user may replace
+  `libmp3lame.so` with a build of their own.
+
 ## Fonts and icons
 
 | Component | Version | License | Source |

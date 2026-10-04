@@ -6,14 +6,15 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.MediaSource
+import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.media.player.MediaPlayerFactory
 import com.alal.yft.core.media.player.PreviewSourceFactory
 import com.alal.yft.core.media.resolver.VariantResolver
-import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaVariant
+import com.alal.yft.core.model.media.Mp3Variants
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.settings.DownloadLocation
@@ -228,7 +229,12 @@ class PreviewViewModel @Inject constructor(
     fun createMediaSource(): MediaSource {
         val ready = mutableUiState.value as? PreviewUiState.Ready
             ?: throw IllegalStateException("No preview variant is selected")
-        return previewSourceFactory.create(ready.selectedVariant)
+        val selected = ready.selectedVariant
+        // An MP3 choice is made from its AAC file, which is what plays here.
+        val playable = selected.mp3?.let { conversion ->
+            ready.asset.variants.firstOrNull { it.id == conversion.sourceVariantId }
+        } ?: selected
+        return previewSourceFactory.create(playable)
     }
 
     private suspend fun resolve(candidate: MediaCandidate?) {
@@ -253,7 +259,9 @@ class PreviewViewModel @Inject constructor(
 
     /** The variant the user's quality preference points at within one tab. */
     private fun MediaAsset.preferredVariant(tab: PreviewTab): MediaVariant? {
-        val choices = variants.filter { it.belongsTo(tab) && it.isPreviewable }
+        val all = variants.filter { it.belongsTo(tab) && it.isPreviewable }
+        // MP3 is offered, never picked for the user: the original audio comes first.
+        val choices = all.filter { it.mp3 == null }.ifEmpty { all }
         return when (tab) {
             PreviewTab.VIDEO -> quality.pick(
                 choices,
@@ -273,7 +281,9 @@ class PreviewViewModel @Inject constructor(
         }
     }
 
-    private fun MediaAsset.toReadyState(): PreviewUiState {
+    private fun MediaAsset.toReadyState(): PreviewUiState = Mp3Variants.addTo(this).readyState()
+
+    private fun MediaAsset.readyState(): PreviewUiState {
         val video = preferredVariant(PreviewTab.VIDEO)
         val audio = preferredVariant(PreviewTab.AUDIO)
         val initial = video ?: audio ?: return PreviewUiState.Error(

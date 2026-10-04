@@ -27,8 +27,9 @@
 - **Owner delegation (2026-10-03, later):** "D1 and D3 — do as you see fit; do not stop until
   everything is finished; commit and push after every task." D1 = YES and D3 = YES (FIX_PLAN §3);
   no task waits for the owner any more.
-- **Next action — agent:** T18 — MP3 audio
-  ([`prompts/T18-mp3-audio.md`](prompts/T18-mp3-audio.md)), then T19. T14 is OWNER CHECK (2026-10-04):
+- **Next action — agent:** T19 — signed release 1.0.0-beta.3
+  ([`prompts/T19-release-beta5.md`](prompts/T19-release-beta5.md)). T18 is OWNER CHECK
+  (2026-10-04): MP3 audio with LAME. T14 is OWNER CHECK (2026-10-04):
   floating Download button in the browser. T13 is OWNER
   CHECK (2026-10-04): Search to download. T11 is OWNER CHECK (2026-10-04): copied links are checked when YFT opens. T12 is OWNER CHECK (2026-10-04): "Video you copied" sheet. T09 is OWNER CHECK (2026-10-04): Your sites defaults YouTube, Facebook and
   TikTok with logos. T17 is OWNER CHECK (2026-10-04): YouTube 480p/720p/1080p rows download a
@@ -41,7 +42,8 @@
   and browser download/playback on the phone); T06 is OWNER CHECK (Facebook Home
   download/playback on the phone); T05 is DONE; T04 is OWNER CHECK: final tests, all 9
   individually inspected renders and the actual release debug-action guard pass.
-- **Next action — owner:** phone checks from the `yft-debug-apk` builds (FIX_PLAN §8); for T14
+- **Next action — owner:** phone checks from the `yft-debug-apk` builds (FIX_PLAN §8); for T18
+  Video you copied or Download as → MP3 → it plays in another app; for T14
   open a video page in the browser → Mint Download button → Video you copied or Found; for T13
   Home › Search to download: words → YouTube/web rows, a link opens, View sites; for T11
   copy a YouTube link, open YFT → it is looked up; Settings switch off → nothing read; for T12

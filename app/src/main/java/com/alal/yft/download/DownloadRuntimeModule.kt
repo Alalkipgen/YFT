@@ -5,6 +5,7 @@ import android.os.Process
 import android.os.SystemClock
 import com.alal.yft.core.data.db.DownloadRecordDao
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
+import com.alal.yft.core.download.AndroidMp3Transcoder
 import com.alal.yft.core.download.AndroidMp4AudioVideoMuxer
 import com.alal.yft.core.download.AudioVideoMuxEngine
 import com.alal.yft.core.download.AudioVideoMuxRunner
@@ -21,6 +22,8 @@ import com.alal.yft.core.download.DownloadWorkspaces
 import com.alal.yft.core.download.HlsTransferEngine
 import com.alal.yft.core.download.HlsTransferRunner
 import com.alal.yft.core.download.LocalAudioVideoMuxer
+import com.alal.yft.core.download.LocalMp3Transcoder
+import com.alal.yft.core.download.Mp3ConvertingTransferDispatcher
 import com.alal.yft.core.download.RoomDownloadTaskStore
 import com.alal.yft.download.policy.ConnectivityNetworkMonitor
 import com.alal.yft.download.policy.DownloadNetworkStatus
@@ -30,8 +33,8 @@ import com.alal.yft.download.policy.NetworkStatusSource
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.components.SingletonComponent
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
 import java.io.File
 import javax.inject.Qualifier
 import javax.inject.Singleton
@@ -97,16 +100,26 @@ object DownloadRuntimeModule {
 
     @Provides
     @Singleton
+    fun provideLocalMp3Transcoder(): LocalMp3Transcoder = AndroidMp3Transcoder()
+
+    @Provides
+    @Singleton
     fun provideDownloadTransferDispatcher(
         direct: DirectTransferRunner,
         hls: HlsTransferRunner,
         dash: DashTransferRunner,
         mux: AudioVideoMuxRunner,
-    ): DownloadTransferDispatcher = DefaultDownloadTransferDispatcher(
-        direct = direct,
-        hls = hls,
-        dash = dash,
-        mux = mux,
+        mp3: LocalMp3Transcoder,
+        @ApplicationContext context: Context,
+    ): DownloadTransferDispatcher = Mp3ConvertingTransferDispatcher(
+        delegate = DefaultDownloadTransferDispatcher(
+            direct = direct,
+            hls = hls,
+            dash = dash,
+            mux = mux,
+        ),
+        transcoder = mp3,
+        workspaceRoot = File(context.noBackupFilesDir, MP3_WORKSPACE_DIRECTORY),
     )
 
     @Provides
@@ -232,6 +245,7 @@ object DownloadRuntimeModule {
                 HLS_WORKSPACE_DIRECTORY to DownloadWorkspaces.HLS_PREFIX,
                 DASH_WORKSPACE_DIRECTORY to DownloadWorkspaces.DASH_PREFIX,
                 MUX_WORKSPACE_DIRECTORY to DownloadWorkspaces.MUX_PREFIX,
+                MP3_WORKSPACE_DIRECTORY to DownloadWorkspaces.MP3_PREFIX,
             ).map { (directory, prefix) -> WorkspaceRoot(File(storage, directory), prefix) },
             processStartEpochMs = ::processStartEpochMs,
             scope = scope,
@@ -247,3 +261,4 @@ object DownloadRuntimeModule {
 internal const val HLS_WORKSPACE_DIRECTORY = "download-hls"
 internal const val DASH_WORKSPACE_DIRECTORY = "download-dash"
 internal const val MUX_WORKSPACE_DIRECTORY = "download-mux"
+internal const val MP3_WORKSPACE_DIRECTORY = "download-mp3"

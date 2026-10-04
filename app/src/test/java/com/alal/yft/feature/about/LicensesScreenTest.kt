@@ -71,6 +71,17 @@ class LicensesScreenTest {
     }
 
     @Test
+    fun lameShowsItsLgplNoticeSourceAndTheFullLicense() {
+        setContent()
+
+        composeRule.onNodeWithTag("license-lame").performScrollTo().performClick()
+        val text = composeRule.onNodeWithTag("license-text-lame", useUnmergedTree = true)
+        text.assert(hasText("core-download/src/main/cpp/lame-3.100", substring = true))
+        text.assert(hasText("GNU LIBRARY GENERAL PUBLIC LICENSE", substring = true))
+        text.assert(hasText("NO WARRANTY", substring = true))
+    }
+
+    @Test
     fun backLeavesThePage() {
         var back = 0
         setContent(onNavigateBack = { back++ })

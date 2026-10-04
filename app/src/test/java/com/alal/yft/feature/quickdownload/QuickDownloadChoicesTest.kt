@@ -5,6 +5,7 @@ import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.MIB
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.audio
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.video
+import com.alal.yft.ui.format.YftFormat
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -57,7 +58,30 @@ class QuickDownloadChoicesTest {
         val high = choices.video.single { it.kind == QuickRowKind.HIGH }
         assertNotNull(high.candidate.audioCompanion)
         assertEquals("Audio 128 kbps · 4 MB", choices.music!!.detail)
-        assertEquals(listOf("music", "fast", "high"), choices.rows.map(QuickRow::id))
+        assertEquals(listOf("music", "mp3", "fast", "high"), choices.rows.map(QuickRow::id))
+    }
+
+    @Test
+    fun theM4aIsAlsoOfferedAsMp3WithAnEstimatedSize() {
+        val choices = QuickDownloadChoices.of(listOf(audio(128, 4 * MIB)))!!
+
+        val mp3 = choices.mp3!!
+        assertEquals(QuickRowKind.MP3, mp3.kind)
+        assertEquals("MP3", mp3.title)
+        // 252 s at 192 kbps.
+        assertEquals("192 kbps · ~${YftFormat.bytes(6_048_000)}", mp3.detail)
+        assertEquals(192, mp3.mp3Kbps)
+        assertSame(choices.music!!.candidate, mp3.candidate)
+        assertNull(choices.music!!.mp3Kbps)
+    }
+
+    @Test
+    fun audioThatIsNotAacHasNoMp3Row() {
+        val webm = QuickDownloadChoices.of(listOf(audio(160, mimeType = "audio/webm")))!!
+
+        assertEquals("WEBM · Fast", webm.music!!.title)
+        assertNull(webm.mp3)
+        assertNull(QuickDownloadChoices.of(listOf(video("360p")))!!.mp3)
     }
 
     @Test

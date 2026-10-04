@@ -22,13 +22,14 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - name: Install Android SDK 35
+      - name: Install Android SDK 35, NDK and CMake
         shell: bash
         run: |
           SDKMANAGER="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}" -path '*/bin/sdkmanager' -type f | head -n 1)"
           test -n "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" \
+            "ndk;27.3.13750724" "cmake;3.22.1"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"

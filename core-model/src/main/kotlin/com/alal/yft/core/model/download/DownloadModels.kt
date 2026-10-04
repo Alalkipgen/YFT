@@ -29,6 +29,8 @@ data class DirectDownloadPlan(
      * in bounded ranges.
      */
     val maxRequestBytes: Long? = null,
+    /** Set when the downloaded AAC file is converted to MP3 before it is published (T18). */
+    val mp3: Mp3Encoding? = null,
 ) : DownloadPlan {
     init {
         require(taskId.isNotBlank())
@@ -54,6 +56,8 @@ data class DirectDownloadPlan(
         append(preferredSegmentCount)
         append(", maxRequestBytes=")
         append(maxRequestBytes)
+        append(", mp3=")
+        append(mp3)
         append(')')
     }
 
@@ -61,6 +65,22 @@ data class DirectDownloadPlan(
         const val DEFAULT_SEGMENT_COUNT = 4
         const val MAX_SEGMENT_COUNT = 32
         const val MIN_REQUEST_BYTES: Long = 64L * 1_024
+    }
+}
+
+/** How a downloaded AAC file is encoded as MP3: constant [bitrateKbps], ID3 [title]. */
+data class Mp3Encoding(
+    val bitrateKbps: Int,
+    val title: String? = null,
+) {
+    init {
+        require(bitrateKbps in MIN_KBPS..MAX_KBPS)
+    }
+
+    companion object {
+        const val MIME_TYPE = "audio/mpeg"
+        const val MIN_KBPS = 32
+        const val MAX_KBPS = 320
     }
 }
 

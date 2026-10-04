@@ -23,3 +23,6 @@ credentials.json
 
 # Release staging output from scripts/release-prep.sh
 dist/
+
+# NDK/CMake build output (T18)
+.cxx/

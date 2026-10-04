@@ -554,6 +554,21 @@ repository that asks each client and prints only verdicts and counts.
 | Full validation | PASS — core-model 49, core-download 89, core-media 17, core-data 16, extractor-api 32, extractor-generic 8, extractor-sites 150, app 536 (66 skipped, render/image-only), 0 failures; lint 0 errors / 95 warnings; `assembleDebugAndroidTest` OK; Python 22/22 |
 | Owner check | Open a video page in the browser → the Mint Download button at the bottom right (a count badge when there are several) → tap opens "Video you copied" (one video) or the Found list |
 
+### T18 — MP3 audio (OWNER CHECK, 2026-10-04)
+
+| Check | Result |
+| --- | --- |
+| Starting state | PASS — the T14 checkpoint `72d98dd` (CI green) |
+| Regression | `QuickDownloadChoicesTest.theM4aIsAlsoOfferedAsMp3WithAnEstimatedSize`, `QuickDownloadViewModelTest.theMp3RowQueuesTheM4aConvertedToMp3`, `PreviewViewModelTest.anM4aFileIsAlsoOfferedAsMp3ButTheOriginalStaysTheDefault`, `DownloadPlanFactoryTest` (mp3 choice) and `DownloadQueueTest` (audio/mpeg) fail on the old code (no MP3 row, variant or plan) and pass now |
+| Choices | PASS — `Mp3VariantsTest`: only a supported whole-file AAC audio variant converts (Opus/WebM, E-AC-3, HLS, video and unknown types do not); MP3 192 and 128 follow the best AAC file, reuse its address, estimate the size from the length; the original audio stays the default in Download as |
+| Control logic | PASS — `Mp3ConvertingTransferDispatcherTest`: other plans go straight through; an MP3 plan downloads the AAC into a private workspace, converts it and publishes only the MP3; a decode failure publishes nothing and frees the space; a full disk keeps the AAC so the retry only converts; a failed download is not converted; a stale checkpoint without its partial file starts over; discard removes the workspace |
+| ID3 / PCM | PASS — `Id3v2TagTest` (ID3v2.3, one UTF-16 TIT2 frame, syncsafe size, Burmese text, control characters, surrogate-safe cut); `PcmLayoutTest` (mono/stereo for LAME, 5.1 keeps front left/right) |
+| Instrumentation | `Mp3TranscoderInstrumentedTest` (API 34 emulator in CI): a 2 s stereo 44.1 kHz AAC fixture → MPEG-1 Layer III 192 kbps with the ID3 title, read back by `MediaExtractor` as `audio/mpeg`, 2 channels, about 2 s; a 1 s mono 48 kHz fixture → 128 kbps, 1 channel; a non-AAC file fails as incompatible |
+| Licence | PASS — `OpenSourceNoticesTest` (LAME 3.100, LGPL-2.0-or-later, row in `THIRD_PARTY_NOTICES.md`, asset with the full text); `LicensesScreenTest.lameShowsItsLgplNoticeSourceAndTheFullLicense` |
+| APK size | debug APK 16,708,773 → 19,727,067 bytes (+2.9 MB: unstripped debug `libmp3lame.so` + `libyft_mp3.so` for 3 ABIs; release builds strip them) |
+| Full validation | PASS — core-model 54, core-download 104, core-media 17, core-data 16, extractor-api 32, extractor-generic 8, extractor-sites 150, app 542 (66 skipped, render/image-only), 0 failures; lint 0 errors / 95 warnings; `assembleDebug` and `assembleDebugAndroidTest` OK; Python 22/22 |
+| Owner check | "Video you copied" or Download as → **MP3** → download → the MP3 plays in another app (with its title) |
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |

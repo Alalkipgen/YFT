@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.media.resolver.VariantResolver
 import com.alal.yft.core.media.session.PreviewSelectionStore
+import com.alal.yft.core.model.media.Mp3Variants
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.settings.DownloadPreferences
@@ -133,9 +134,17 @@ class QuickDownloadViewModel @Inject constructor(
                     PreviewDownloadStatus.Rejected(messageFor(resolved.reason))
 
                 is VariantResolutionResult.Success -> {
-                    val variant = resolved.asset.variants.firstOrNull { it.isPreviewable }
+                    val found = resolved.asset.variants.firstOrNull { it.isPreviewable }
+                    val variant = when (val kbps = row.mp3Kbps) {
+                        null -> found
+                        else -> found?.let {
+                            Mp3Variants.of(it, kbps, resolved.asset.durationMillis)
+                        }
+                    }
                     if (variant == null) {
-                        PreviewDownloadStatus.Rejected(messageFor(null))
+                        PreviewDownloadStatus.Rejected(
+                            if (found != null) MP3_UNAVAILABLE else messageFor(null),
+                        )
                     } else {
                         when (val result = downloadStarter.enqueue(resolved.asset, variant)) {
                             is EnqueueResult.Started -> PreviewDownloadStatus.Queued(
@@ -186,5 +195,9 @@ class QuickDownloadViewModel @Inject constructor(
         VariantResolutionFailure.UNSUPPORTED_CODEC, null ->
             "This version can't be saved. Try More formats."
         else -> "This version could not be prepared. Try again or use More formats."
+    }
+
+    private companion object {
+        const val MP3_UNAVAILABLE = "This audio can't be converted to MP3. Try M4A."
     }
 }

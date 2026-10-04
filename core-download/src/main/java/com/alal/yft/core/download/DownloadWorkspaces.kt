@@ -13,6 +13,7 @@ object DownloadWorkspaces {
     const val HLS_PREFIX = "hls"
     const val DASH_PREFIX = "dash"
     const val MUX_PREFIX = "mux"
+    const val MP3_PREFIX = "mp3"
 
     fun nameFor(prefix: String, taskId: String): String {
         val digest = MessageDigest.getInstance("SHA-256")
