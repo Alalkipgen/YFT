@@ -1,3 +1,5 @@
+> Continue with [CONTINUE-P2-TO-P6.md](CONTINUE-P2-TO-P6.md): P2 is in progress.
+
 # 00 — နောက် Task ကို ဆက်လုပ်ရန်
 
 **ရည်ရွယ်ချက်:** Agent က `docs/FIX_ADD_PLAN.md` status board ကိုကြည့်ပြီး နောက်လုပ်ရမယ့် task ကို
