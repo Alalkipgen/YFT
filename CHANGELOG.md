@@ -15,6 +15,11 @@ for every APK given to users, because Android refuses to install a lower one.
 - Home **Copy details** for failed lookups: bounded adapter/status/markup/timeout steps kept
   in memory and cleared on edit or a new lookup. Query strings and session values are removed
   before copy/share.
+- YouTube 480p, 720p and 1080p downloads with sound (T17). YouTube serves these qualities as a
+  video-only MP4 and a separate M4A audio file; YFT downloads both, in requests of at most
+  10 MiB, and merges them on the phone into one MP4. Each file resumes on its own. Such rows
+  show a **Video + audio** chip and preview with sound. Only AVC video with AAC audio is
+  offered, because the phone's muxer writes nothing else.
 - A separate Android 14 CI emulator smoke job for the real browser: empty-page controls,
   public HTTPS navigation and best-effort HTML5 media detection. It captures three screenshots,
   safe address/WebView bounds and redacted logcat/test reports without storing UI hierarchies,
@@ -48,6 +53,8 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Changed
 
+- Downloads from YouTube's media servers (`googlevideo.com`) ask for at most 10 MiB per request,
+  because YouTube slows down larger requests (T17).
 - YouTube lookups ask more of YouTube's clients (T16, owner decision D2 = A + B + C): first
   YouTube's visionOS and Android app clients (values from yt-dlp 2026.08.19, without the user's
   cookie), then the embedded player, then the page's own web client with the user's session

@@ -46,10 +46,18 @@ data class MediaVariant(
     val audioGroupId: String? = null,
     val support: VariantSupport = VariantSupport.SUPPORTED,
     val expiresAtEpochMs: Long? = null,
+    /**
+     * Set when [playbackUrl] is a video-only file: the audio downloaded with it and merged into
+     * one MP4. [trackType] then describes the merged result.
+     */
+    val audioCompanion: CompanionAudio? = null,
 ) {
     init {
         require(id.isNotBlank())
         require(playbackUrl.isNotBlank())
+        require(audioCompanion == null || trackType == MediaTrackType.AUDIO_VIDEO) {
+            "A variant with a companion audio track describes the merged video"
+        }
         require(width == null || width > 0)
         require(height == null || height > 0)
         require(framesPerSecond == null || framesPerSecond > 0)
@@ -81,6 +89,8 @@ data class MediaVariant(
         append(height)
         append(", support=")
         append(support)
+        append(", audioCompanion=")
+        append(audioCompanion != null)
         append(')')
     }
 }

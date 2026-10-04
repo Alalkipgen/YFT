@@ -21,6 +21,7 @@ import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.download.TransferCheckpoint
 import com.alal.yft.core.model.media.BrowserRequestContext
+import com.alal.yft.core.model.media.CompanionAudio
 import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaSizeAccuracy
@@ -222,6 +223,42 @@ class DownloadEnqueuerTest {
         val unknownVolume = Harness(this, storage = StorageSpace.Unknown)
         unknownVolume.probe.result = DirectProbeResult.Success(metadata(totalBytes = 1L shl 40))
         assertTrue(unknownVolume.enqueuer.enqueue(asset(), variant()) is EnqueueResult.Started)
+    }
+
+    @Test
+    fun `a merged selection is queued as one merge task without a probe`() = runTest {
+        val harness = Harness(this)
+        val merged = variant(label = "720p").copy(
+            codecs = listOf("avc1.4d401f"),
+            audioCompanion = companion(),
+        )
+
+        val result = harness.enqueuer.enqueue(asset(), merged) as EnqueueResult.Started
+
+        assertEquals("Fixture 720p.mp4", result.fileName)
+        assertEquals(0, harness.probe.calls)
+        assertEquals(listOf("Fixture 720p.mp4" to "video/mp4"), harness.destinations.prepared)
+        val task = harness.queue.tasks.value.single()
+        assertEquals(result.taskId, task.id)
+        assertEquals(DownloadPlanType.AUDIO_VIDEO_MUX, task.planType)
+        assertEquals(1, harness.serviceStarter.starts)
+    }
+
+    @Test
+    fun `a merged selection needs room for both tracks and the merged file`() = runTest {
+        val harness = Harness(this, storage = { 300L * MIB })
+        val merged = variant(label = "1080p").copy(
+            codecs = listOf("avc1.640028"),
+            audioCompanion = companion(),
+            sizeBytes = 200L * MIB,
+            sizeAccuracy = MediaSizeAccuracy.ESTIMATED,
+        )
+
+        val result = harness.enqueuer.enqueue(asset(), merged) as EnqueueResult.Rejected
+
+        assertEquals(DownloadFailureReason.INSUFFICIENT_STORAGE, result.reason)
+        assertTrue(harness.destinations.prepared.isEmpty())
+        assertTrue(harness.queue.tasks.value.isEmpty())
     }
 
     @Test
@@ -427,6 +464,17 @@ class DownloadEnqueuerTest {
         mimeType = "video/mp4",
         container = container,
         support = support,
+    )
+
+    private fun companion() = CompanionAudio(
+        mediaUrl = "https://media.example.test/audio",
+        mimeType = "audio/mp4",
+        codecs = listOf("mp4a.40.2"),
+        requestContext = BrowserRequestContext(
+            pageUrl = "https://page.example.test/watch",
+            userAgent = "fixture-agent",
+            cookie = null,
+        ),
     )
 
     private companion object {

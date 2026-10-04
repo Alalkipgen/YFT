@@ -162,6 +162,8 @@ fun MediaCandidate.isAudio(): Boolean {
 fun MediaCandidate.factLabels(): List<String> = buildList {
     formatLabel()?.let(::add)
     if (kind == MediaKind.HLS || kind == MediaKind.DASH) add("Auto quality")
+    // Video and audio arrive as two files and are merged into one MP4 on the phone.
+    if (audioCompanion != null) add("Video + audio")
     contentLengthBytes?.takeIf { it > 0 }?.let { add(YftFormat.bytes(it)) }
     durationMillis?.takeIf { it > 0 }?.let { add(YftFormat.duration(it)) }
 }

@@ -39,6 +39,10 @@ data class MediaCandidate(
     val expiresAtEpochMs: Long? = null,
     val drmHint: Boolean? = null,
     val observedAtEpochMs: Long = 0,
+    /** Codecs of [mediaUrl] when the source states them, for example `avc1.64001F`. */
+    val codecs: List<String> = emptyList(),
+    /** Set when [mediaUrl] is video only: the audio that is merged with it on the phone. */
+    val audioCompanion: CompanionAudio? = null,
 ) {
     override fun toString(): String = buildString {
         append("MediaCandidate(pageUrl=")
@@ -53,6 +57,10 @@ data class MediaCandidate(
         append(confidence)
         append(", drmHint=")
         append(drmHint)
+        append(", codecs=")
+        append(codecs)
+        append(", audioCompanion=")
+        append(audioCompanion != null)
         append(')')
     }
 }

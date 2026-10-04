@@ -177,6 +177,13 @@ Offline/export behavior is separate from preview:
 - Direct files use the reusable segmented HTTP design.
 - HLS/DASH initially use selected-track segment download.
 - Separate audio/video tracks require an explicit mux step.
+- A video-only file with a companion audio file (YouTube's adaptive streams, T17) is planned as an
+  `AudioVideoMux` of two whole-file DASH tracks (`DashDownloadPlan.wholeFile`). Each track is cut
+  into byte ranges of at most 10 MiB, kept as resumable chunks whose fingerprint names the track
+  and its length but not the address, so a refreshed address keeps finished chunks. Preview plays
+  the same pair through a `MergingMediaSource`.
+- Direct plans can bound each ranged request (`DirectDownloadPlan.maxRequestBytes`); YFT does so
+  for `googlevideo.com`, which slows down larger single requests.
 - A large FFmpeg dependency is not approved in Phase 0. Phase 4 must evaluate Android `MediaMuxer`, container compatibility and licensing/size before adding a fallback.
 
 ## Background execution

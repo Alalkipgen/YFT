@@ -76,7 +76,15 @@ class DefaultVariantResolver(
     private suspend fun resolveSafely(candidate: MediaCandidate): VariantResolutionResult {
         val initialUrl = candidate.mediaUrl.toSafeHttpUrl()
             ?: return VariantResolutionResult.Failure(VariantResolutionFailure.INVALID_URL)
-        val expiresAt = candidate.expiresAtEpochMs ?: initialUrl.expiryEpochMillis()
+        val companion = candidate.audioCompanion
+        val companionUrl = companion?.let {
+            it.mediaUrl.toSafeHttpUrl()
+                ?: return VariantResolutionResult.Failure(VariantResolutionFailure.INVALID_URL)
+        }
+        val expiresAt = listOfNotNull(
+            candidate.expiresAtEpochMs ?: initialUrl.expiryEpochMillis(),
+            companion?.let { it.expiresAtEpochMs ?: companionUrl?.expiryEpochMillis() },
+        ).minOrNull()
         if (expiresAt != null && expiresAt <= clock()) {
             return VariantResolutionResult.Failure(VariantResolutionFailure.EXPIRED_URL)
         }
@@ -165,14 +173,26 @@ class DefaultVariantResolver(
                 VariantResolutionFailure.UNSUPPORTED_CODEC,
             )
         }
-        val sizeBytes = metadata.totalLengthBytes
-            ?.takeIf { it >= 0 }
-            ?: candidate.contentLengthBytes?.takeIf { it >= 0 }
+        val companion = candidate.audioCompanion
+        val serverBytes = metadata.totalLengthBytes?.takeIf { it >= 0 }
+        val sizeBytes = if (companion == null) {
+            serverBytes ?: candidate.contentLengthBytes?.takeIf { it >= 0 }
+        } else {
+            // The merged file is about the size of both inputs; the extractor's sum is a fallback.
+            companion.contentLengthBytes
+                ?.let { audioBytes -> serverBytes?.plus(audioBytes) }
+                ?: candidate.contentLengthBytes?.takeIf { it >= 0 }
+        }
+        val sizeAccuracy = when {
+            sizeBytes == null -> null
+            companion != null -> MediaSizeAccuracy.ESTIMATED
+            else -> MediaSizeAccuracy.EXACT
+        }
         val variant = MediaVariant(
             id = "direct-0",
             playbackUrl = finalUrl.toString(),
             kind = MediaKind.DIRECT,
-            trackType = if (mimeType?.startsWith("audio/") == true) {
+            trackType = if (companion == null && mimeType?.startsWith("audio/") == true) {
                 MediaTrackType.AUDIO
             } else {
                 MediaTrackType.AUDIO_VIDEO
@@ -184,11 +204,13 @@ class DefaultVariantResolver(
             label = candidate.title ?: "Direct media",
             mimeType = mimeType,
             container = mimeType.toContainer(finalUrl),
+            codecs = candidate.codecs,
             durationMillis = candidate.durationMillis,
             sizeBytes = sizeBytes,
-            sizeAccuracy = sizeBytes?.let { MediaSizeAccuracy.EXACT },
+            sizeAccuracy = sizeAccuracy,
             support = support,
             expiresAtEpochMs = expiresAt,
+            audioCompanion = companion,
         )
         return success(candidate, listOf(variant), candidate.durationMillis)
     }

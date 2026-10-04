@@ -261,8 +261,10 @@ class DirectTransferEngine(
         ranged: Boolean,
     ) {
         var downloaded = initialSegment.downloadedBytes
-        var lastRetryFailure: RetryableTransferException? = null
-        repeat(policy.maxAttempts) { attempt ->
+        // Failed requests are retried. A request that completes resets the count, so a segment
+        // fetched in many bounded requests is not limited to that many failures overall.
+        var failures = 0
+        while (true) {
             currentCoroutineContext().ensureActive()
             if (initialSegment.lengthBytes == downloaded) return
             if (!ranged && downloaded > 0) {
@@ -270,6 +272,7 @@ class DirectTransferEngine(
                 downloaded = 0
                 tracker.update(initialSegment.index, downloaded, forceCheckpoint = true)
             }
+            val requestEnd = requestEnd(plan, initialSegment, downloaded, ranged)
             try {
                 transferAttempt(
                     plan = plan,
@@ -280,32 +283,49 @@ class DirectTransferEngine(
                     tracker = tracker,
                     segment = initialSegment,
                     alreadyDownloaded = downloaded,
+                    endByte = requestEnd,
                     ranged = ranged,
                 )
-                return
+                if (requestEnd == initialSegment.endByteInclusive) return
+                downloaded = tracker.downloadedFor(initialSegment.index)
+                failures = 0
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (rangeIgnored: RangeIgnoredException) {
                 throw rangeIgnored
             } catch (failure: RetryableTransferException) {
-                lastRetryFailure = failure
                 downloaded = tracker.downloadedFor(initialSegment.index)
-                if (attempt == policy.maxAttempts - 1) {
+                failures += 1
+                if (failures == policy.maxAttempts) {
                     throw TransferAbort(failure.reason, failure.httpStatusCode)
                 }
-                delay(backoffMillis(attempt))
+                delay(backoffMillis(failures - 1))
             } catch (_: IOException) {
                 downloaded = tracker.downloadedFor(initialSegment.index)
-                if (attempt == policy.maxAttempts - 1) {
+                failures += 1
+                if (failures == policy.maxAttempts) {
                     throw TransferAbort(DownloadFailureReason.NETWORK)
                 }
-                delay(backoffMillis(attempt))
+                delay(backoffMillis(failures - 1))
             }
         }
-        throw TransferAbort(
-            lastRetryFailure?.reason ?: DownloadFailureReason.NETWORK,
-            lastRetryFailure?.httpStatusCode,
-        )
+    }
+
+    /**
+     * The last byte the next request of [segment] asks for: the segment's end, or less when the
+     * plan bounds each request ([DirectDownloadPlan.maxRequestBytes]).
+     */
+    private fun requestEnd(
+        plan: DirectDownloadPlan,
+        segment: DownloadSegment,
+        downloaded: Long,
+        ranged: Boolean,
+    ): Long? {
+        val end = segment.endByteInclusive
+        val cap = plan.maxRequestBytes
+        if (!ranged || end == null || cap == null) return end
+        val start = segment.startByte + downloaded
+        return if (end - start >= cap) start + cap - 1 else end
     }
 
     private suspend fun transferAttempt(
@@ -317,10 +337,10 @@ class DirectTransferEngine(
         tracker: ProgressTracker,
         segment: DownloadSegment,
         alreadyDownloaded: Long,
+        endByte: Long?,
         ranged: Boolean,
     ) {
         val startByte = segment.startByte + alreadyDownloaded
-        val endByte = segment.endByteInclusive
         val execution = http.execute(
             credentialOrigin = credentialOrigin,
             initialUrl = transferUrl,
@@ -345,7 +365,7 @@ class DirectTransferEngine(
                 )
                 val body = response.body
                     ?: throw TransferAbort(DownloadFailureReason.MALFORMED_RESPONSE)
-                val expectedRemaining = segment.lengthBytes?.minus(alreadyDownloaded)
+                val expectedRemaining = endByte?.let { end -> end - startByte + 1 }
                 val advertised = response.header("Content-Length")
                     ?.toLongOrNull()
                     ?.takeIf { it >= 0 }
@@ -371,7 +391,9 @@ class DirectTransferEngine(
                                 currentCoroutineContext().ensureActive()
                                 val read = input.read(buffer)
                                 if (read == -1) break
-                                val remaining = segment.lengthBytes?.minus(downloaded)
+                                val remaining = endByte?.let { end ->
+                                    end + 1 - (segment.startByte + downloaded)
+                                }
                                 if (remaining != null && read.toLong() > remaining) {
                                     throw TransferAbort(
                                         DownloadFailureReason.INTEGRITY_MISMATCH,
@@ -392,8 +414,8 @@ class DirectTransferEngine(
                             }
                         }
                         if (
-                            segment.lengthBytes != null &&
-                            downloaded != segment.lengthBytes
+                            endByte != null &&
+                            segment.startByte + downloaded != endByte + 1
                         ) {
                             throw TransferAbort(DownloadFailureReason.INTEGRITY_MISMATCH)
                         }

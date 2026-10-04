@@ -7,11 +7,13 @@ import com.alal.yft.core.model.download.DashDownloadPlan
 import com.alal.yft.core.model.download.DashTransferCheckpoint
 import com.alal.yft.core.model.download.DashTransferResult
 import com.alal.yft.core.model.download.StreamChunkCheckpoint
+import com.alal.yft.core.model.download.WholeFileTrack
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.io.InputStream
+import java.security.MessageDigest
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -111,26 +113,9 @@ class DashTransferEngine(
 
         var tracker: DashCheckpointTracker? = null
         try {
-            val fetched = fetchManifest(plan, credentialOrigin)
-            val parsed = when (
-                val result = DashDownloadManifestParser.parse(
-                    manifest = fetched.body,
-                    manifestUrl = fetched.finalUrl,
-                    representationId = plan.representationId,
-                    expectedTrackType = plan.trackType,
-                    maxChunks = policy.maxChunks,
-                )
-            ) {
-                DashDownloadManifestParser.Result.DrmProtected ->
-                    throw DashAbort(DownloadFailureReason.DRM_PROTECTED)
-                DashDownloadManifestParser.Result.Unsupported ->
-                    throw DashAbort(DownloadFailureReason.UNSUPPORTED_SOURCE)
-                DashDownloadManifestParser.Result.TooManyChunks ->
-                    throw DashAbort(DownloadFailureReason.UNSUPPORTED_SOURCE)
-                DashDownloadManifestParser.Result.Malformed ->
-                    throw DashAbort(DownloadFailureReason.MALFORMED_RESPONSE)
-                is DashDownloadManifestParser.Result.Parsed -> result
-            }
+            val parsed = plan.wholeFile
+                ?.let { track -> wholeFileLayout(plan, track, credentialOrigin) }
+                ?: manifestLayout(plan, credentialOrigin)
             val initial = reconcileCheckpoint(
                 workspace = workspace,
                 parsed = parsed,
@@ -138,6 +123,9 @@ class DashTransferEngine(
             )
             val activeTracker = DashCheckpointTracker(
                 initial = initial,
+                totalBytes = plan.wholeFile?.let {
+                    parsed.chunks.sumOf { chunk -> chunk.byteRange?.length ?: 0L }
+                },
                 onProgress = onProgress,
                 onCheckpoint = onCheckpoint,
             )
@@ -200,6 +188,132 @@ class DashTransferEngine(
             )
         }
     }
+
+    private suspend fun manifestLayout(
+        plan: DashDownloadPlan,
+        credentialOrigin: HttpUrl,
+    ): DashDownloadManifestParser.Result.Parsed {
+        val fetched = fetchManifest(plan, credentialOrigin)
+        return when (
+            val result = DashDownloadManifestParser.parse(
+                manifest = fetched.body,
+                manifestUrl = fetched.finalUrl,
+                representationId = plan.representationId,
+                expectedTrackType = plan.trackType,
+                maxChunks = policy.maxChunks,
+            )
+        ) {
+            DashDownloadManifestParser.Result.DrmProtected ->
+                throw DashAbort(DownloadFailureReason.DRM_PROTECTED)
+            DashDownloadManifestParser.Result.Unsupported ->
+                throw DashAbort(DownloadFailureReason.UNSUPPORTED_SOURCE)
+            DashDownloadManifestParser.Result.TooManyChunks ->
+                throw DashAbort(DownloadFailureReason.UNSUPPORTED_SOURCE)
+            DashDownloadManifestParser.Result.Malformed ->
+                throw DashAbort(DownloadFailureReason.MALFORMED_RESPONSE)
+            is DashDownloadManifestParser.Result.Parsed -> result
+        }
+    }
+
+    /**
+     * Splits a track served as one file into byte ranges of at most the track's request size.
+     *
+     * The fingerprint names the track and its length, never the address: a refreshed address
+     * for the same file keeps the chunks already downloaded.
+     */
+    private suspend fun wholeFileLayout(
+        plan: DashDownloadPlan,
+        track: WholeFileTrack,
+        fileUrl: HttpUrl,
+    ): DashDownloadManifestParser.Result.Parsed {
+        val totalBytes = track.totalBytes ?: probeLength(plan, fileUrl)
+        val chunkBytes = minOf(track.maxRequestBytes, policy.maxChunkBytes)
+        val chunkCount = (totalBytes - 1) / chunkBytes + 1
+        if (chunkCount > policy.maxChunks) {
+            throw DashAbort(DownloadFailureReason.UNSUPPORTED_SOURCE)
+        }
+        val chunks = List(chunkCount.toInt()) { index ->
+            val offset = index * chunkBytes
+            DashDownloadChunk(
+                index = index,
+                url = fileUrl,
+                byteRange = ResolvedByteRange(offset, minOf(chunkBytes, totalBytes - offset)),
+                type = DashChunkType.MEDIA,
+            )
+        }
+        return DashDownloadManifestParser.Result.Parsed(
+            chunks = chunks,
+            fingerprint = sha256(
+                "whole-file|${plan.representationId}|${plan.trackType}|$totalBytes|$chunkBytes",
+            ),
+            trackType = plan.trackType,
+            mimeType = plan.mimeType,
+            codecs = plan.codecs,
+        )
+    }
+
+    /** Reads a whole file's length from the answer to a one-byte ranged request. */
+    private suspend fun probeLength(plan: DashDownloadPlan, fileUrl: HttpUrl): Long {
+        var lastReason = DownloadFailureReason.NETWORK
+        repeat(policy.maxAttempts) { attempt ->
+            try {
+                return probeLengthOnce(plan, fileUrl)
+            } catch (retry: RetryableDashFailure) {
+                lastReason = retry.reason
+                if (attempt == policy.maxAttempts - 1) {
+                    throw DashAbort(retry.reason, retry.httpStatusCode)
+                }
+                delay(backoffMillis(attempt))
+            }
+        }
+        throw DashAbort(lastReason)
+    }
+
+    private suspend fun probeLengthOnce(plan: DashDownloadPlan, fileUrl: HttpUrl): Long {
+        val execution = try {
+            http.execute(
+                credentialOrigin = fileUrl,
+                initialUrl = fileUrl,
+                context = plan.requestContext,
+            ) {
+                get()
+                header("Range", "bytes=0-0")
+            }
+        } catch (_: IOException) {
+            throw RetryableDashFailure(DownloadFailureReason.NETWORK)
+        }
+        return when (execution) {
+            is SecureDownloadHttp.Result.Failed -> throw DashAbort(execution.reason)
+            is SecureDownloadHttp.Result.Completed -> execution.response.use { response ->
+                if (response.code in 500..599) {
+                    throw RetryableDashFailure(
+                        DownloadFailureReason.SERVER_ERROR,
+                        response.code,
+                    )
+                }
+                // A server that ignores ranges cannot be fetched in chunks.
+                if (response.code == 200) {
+                    throw DashAbort(DownloadFailureReason.UNSUPPORTED_SOURCE)
+                }
+                if (response.code != 206) {
+                    throw DashAbort(response.code.toFailureReason(), response.code)
+                }
+                response.header("Content-Range")
+                    ?.trim()
+                    ?.let(FIRST_BYTE_RANGE::matchEntire)
+                    ?.groupValues
+                    ?.get(1)
+                    ?.toLongOrNull()
+                    ?.takeIf { it > 0 }
+                    ?: throw DashAbort(DownloadFailureReason.MALFORMED_RESPONSE)
+            }
+        }
+    }
+
+    private fun sha256(text: String): String =
+        MessageDigest.getInstance("SHA-256")
+            .digest(text.toByteArray(Charsets.UTF_8))
+            .joinToString(separator = "") { byte -> "%02x".format(Locale.US, byte) }
 
     override suspend fun discard(plan: DashDownloadPlan) = withContext(Dispatchers.IO) {
         val root = workspaceRoot.canonicalFile
@@ -671,6 +785,7 @@ class DashTransferEngine(
 
     private class DashCheckpointTracker(
         initial: DashTransferCheckpoint,
+        private val totalBytes: Long?,
         private val onProgress: suspend (DownloadProgress) -> Unit,
         private val onCheckpoint: suspend (DashTransferCheckpoint) -> Unit,
     ) {
@@ -698,10 +813,11 @@ class DashTransferEngine(
         suspend fun snapshot(): DashTransferCheckpoint = gate.withLock { checkpoint }
 
         private suspend fun emitLocked() {
+            val downloaded = checkpoint.downloadedBytes
             onProgress(
                 DownloadProgress(
-                    downloadedBytes = checkpoint.downloadedBytes,
-                    totalBytes = null,
+                    downloadedBytes = downloaded,
+                    totalBytes = totalBytes?.takeIf { it >= downloaded },
                     activeSegmentCount = checkpoint.chunks.count { !it.completed },
                 ),
             )
@@ -714,6 +830,7 @@ class DashTransferEngine(
         const val DASH_ACCEPT =
             "application/dash+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.1"
         val CONTENT_RANGE = Regex("""(?i)^bytes\s+(\d+)-(\d+)/(?:\d+|\*)$""")
+        val FIRST_BYTE_RANGE = Regex("""(?i)^bytes\s+0-0/(\d+)$""")
         val NON_RESUMABLE_FAILURES = setOf(
             DownloadFailureReason.INVALID_URL,
             DownloadFailureReason.DRM_PROTECTED,

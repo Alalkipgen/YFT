@@ -1,7 +1,9 @@
 package com.alal.yft.feature.downloads
 
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.WholeFileTrack
 import com.alal.yft.core.model.media.BrowserRequestContext
+import com.alal.yft.core.model.media.CompanionAudio
 import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaSizeAccuracy
@@ -10,6 +12,7 @@ import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.VariantSupport
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -55,6 +58,73 @@ class DownloadPlanFactoryTest {
             .request as DownloadRequest.Dash
         assertEquals("video-720", dashRequest.plan.representationId)
         assertEquals(listOf("avc1.64001f"), dashRequest.plan.codecs)
+    }
+
+    @Test
+    fun `video with companion audio becomes a merge of two whole-file tracks`() {
+        val merged = variant(
+            url = "https://rr3---sn-a.googlevideo.com/videoplayback?itag=136&sig=private",
+            label = "720p",
+            container = "mp4",
+            expiresAt = 9_000L,
+        ).copy(codecs = listOf("avc1.4d401f"), audioCompanion = companion(expiresAt = 5_000L))
+
+        val request = (factory(merged) as DownloadPlanResult.Ready).request as DownloadRequest.Mux
+
+        val plan = request.plan
+        assertEquals("task-1", plan.taskId)
+        assertEquals("Fixture 720p.mp4", request.fileName)
+        assertEquals("video/mp4", request.mimeType)
+        assertEquals(merged.playbackUrl, plan.video.manifestUrl)
+        assertEquals(MediaTrackType.VIDEO, plan.video.trackType)
+        assertEquals(listOf("avc1.4d401f"), plan.video.codecs)
+        assertEquals(WholeFileTrack(), plan.video.wholeFile)
+        assertEquals(companion().mediaUrl, plan.audio.manifestUrl)
+        assertEquals(MediaTrackType.AUDIO, plan.audio.trackType)
+        assertEquals(listOf("mp4a.40.2"), plan.audio.codecs)
+        assertEquals(WholeFileTrack(), plan.audio.wholeFile)
+        assertEquals(5_000L, plan.expiresAtEpochMs)
+        assertTrue(plan.video.taskId != plan.audio.taskId)
+    }
+
+    @Test
+    fun `merges the phone cannot write and expired audio are refused before queueing`() {
+        val base = variant(container = "mp4").copy(codecs = listOf("avc1.4d401f"))
+        val vp9 = base.copy(codecs = listOf("vp09.00.40.08"), audioCompanion = companion())
+        val opus = base.copy(
+            audioCompanion = companion().copy(mimeType = "audio/webm", codecs = listOf("opus")),
+        )
+        val expiredAudio = base.copy(audioCompanion = companion(expiresAt = 1_000L))
+        val insecureAudio = base.copy(
+            audioCompanion = companion().copy(mediaUrl = "http://media.example.test/audio"),
+        )
+
+        listOf(vp9, opus).forEach { incompatible ->
+            val rejected = factory(incompatible) as DownloadPlanResult.Rejected
+            assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, rejected.reason)
+        }
+        assertEquals(
+            DownloadFailureReason.EXPIRED_URL,
+            (factory(expiredAudio) as DownloadPlanResult.Rejected).reason,
+        )
+        assertEquals(
+            DownloadFailureReason.INVALID_URL,
+            (factory(insecureAudio) as DownloadPlanResult.Rejected).reason,
+        )
+    }
+
+    @Test
+    fun `youtube media files are fetched in bounded requests`() {
+        val youTube = variant(url = "https://rr1---sn-b.googlevideo.com/videoplayback?itag=18")
+        val elsewhere = variant(url = "https://googlevideo.com.example.test/clip.mp4")
+
+        val youTubePlan = ((factory(youTube) as DownloadPlanResult.Ready).request
+            as DownloadRequest.Direct).plan
+        val otherPlan = ((factory(elsewhere) as DownloadPlanResult.Ready).request
+            as DownloadRequest.Direct).plan
+
+        assertEquals(WholeFileTrack.DEFAULT_MAX_REQUEST_BYTES, youTubePlan.maxRequestBytes)
+        assertNull(otherPlan.maxRequestBytes)
     }
 
     @Test
@@ -175,6 +245,19 @@ class DownloadPlanFactoryTest {
             DownloadPlanFactory.extensionFor(variant(container = null, mimeType = null)),
         )
     }
+
+    private fun companion(expiresAt: Long? = null) = CompanionAudio(
+        mediaUrl = "https://rr3---sn-a.googlevideo.com/videoplayback?itag=140",
+        mimeType = "audio/mp4",
+        codecs = listOf("mp4a.40.2"),
+        requestContext = BrowserRequestContext(
+            pageUrl = "https://page.example.test/watch",
+            userAgent = "fixture-agent",
+            cookie = null,
+        ),
+        contentLengthBytes = 1_024,
+        expiresAtEpochMs = expiresAt,
+    )
 
     private fun factory(variant: MediaVariant): DownloadPlanResult =
         DownloadPlanFactory.create(

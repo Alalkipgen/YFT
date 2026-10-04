@@ -212,7 +212,31 @@ class StreamDownloadQueueTest {
         }
     }
 
-    private class ControlledDispatcher : DownloadTransferDispatcher {
+    @Test
+    fun `a length reported in progress becomes the running task's total`() = runTest {
+        val dispatcher = ControlledDispatcher(progressTotal = 40)
+        val queue = DownloadQueue(
+            store = InMemoryStore(),
+            transferDispatcher = dispatcher,
+            scope = backgroundScope,
+            maxConcurrentDownloads = 1,
+        )
+
+        queue.enqueue(muxPlan("merged"), RecordingDestination())
+        runCurrent()
+
+        val running = queue.tasks.value.single()
+        assertEquals(DownloadTaskStatus.RUNNING, running.status)
+        assertEquals(0L, running.downloadedBytes)
+        assertEquals(40L, running.totalBytes)
+        dispatcher.complete("merged")
+        runCurrent()
+        assertEquals(DownloadTaskStatus.COMPLETED, queue.tasks.value.single().status)
+    }
+
+    private class ControlledDispatcher(
+        private val progressTotal: Long? = null,
+    ) : DownloadTransferDispatcher {
         val active = AtomicInteger()
         val resumeCheckpoints = ConcurrentHashMap<String, TransferCheckpoint>()
         val discarded = CopyOnWriteArrayList<String>()
@@ -229,6 +253,7 @@ class StreamDownloadQueueTest {
             active.incrementAndGet()
             if (resumeFrom != null) resumeCheckpoints[plan.taskId] = resumeFrom
             val partial = resumeFrom ?: checkpoint(plan, bytes = 1, complete = false)
+            progressTotal?.let { onProgress(DownloadProgress(partial.downloadedBytes, it)) }
             onCheckpoint(partial)
             return try {
                 completions.computeIfAbsent(plan.taskId) { CompletableDeferred() }.await()

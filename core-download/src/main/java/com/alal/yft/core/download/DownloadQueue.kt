@@ -15,6 +15,7 @@ import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.download.TransferCheckpoint
 import java.io.IOException
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -544,6 +545,9 @@ class DownloadQueue(
         runtime: RuntimeTask,
     ) {
         val ownJob = kotlin.coroutines.coroutineContext[Job]
+        // Stream engines state a length only in their progress, for example a merge of two
+        // whole files; the next checkpoint gives the task that total.
+        val reportedTotal = AtomicReference<Long?>(null)
         try {
             when (
                 val result = transferDispatcher.transfer(
@@ -551,8 +555,9 @@ class DownloadQueue(
                     metadata = runtime.metadata,
                     destination = runtime.destination,
                     resumeFrom = initial.checkpoint,
+                    onProgress = { progress -> reportedTotal.set(progress.totalBytes) },
                     onCheckpoint = { checkpoint ->
-                        persistCheckpoint(initial.id, checkpoint)
+                        persistCheckpoint(initial.id, checkpoint, reportedTotal.get())
                     },
                 )
             ) {
@@ -585,10 +590,12 @@ class DownloadQueue(
     private suspend fun persistCheckpoint(
         id: String,
         checkpoint: TransferCheckpoint,
+        reportedTotal: Long? = null,
     ) = gate.withLock {
         val current = taskLocked(id) ?: return@withLock
         if (!current.planType.accepts(checkpoint)) return@withLock
         val checkpointTotal = (checkpoint as? DirectTransferCheckpoint)?.totalBytes
+            ?: reportedTotal
         val updated = current.copy(
             totalBytes = checkpointTotal
                 ?.takeIf { it >= checkpoint.downloadedBytes }

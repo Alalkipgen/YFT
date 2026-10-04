@@ -111,6 +111,12 @@ class DownloadEnqueuer(
                 enqueueStream(request, target, exactStreamBytes) { name, destination, spec ->
                     queue.enqueue(request.plan.copy(suggestedFileName = name), destination, spec)
                 }
+
+            // Both tracks and the merged file sit on the phone together before the merge ends.
+            is DownloadRequest.Mux ->
+                enqueueStream(request, target, variant.sizeBytes?.times(2)) { name, dest, spec ->
+                    queue.enqueue(request.plan.copy(suggestedFileName = name), dest, spec)
+                }
         }
     }
 

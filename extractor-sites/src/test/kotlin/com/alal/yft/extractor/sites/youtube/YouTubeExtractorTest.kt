@@ -33,26 +33,29 @@ import org.junit.Test
 
 class YouTubeExtractorTest {
     @Test
-    fun `embedded player streams become progressive and audio downloads`() = runTest {
+    fun `embedded player streams become progressive, merged and audio downloads`() = runTest {
         val http = client(page = watchPage(BOT_CHECK), embedded = fixture("player_ok.json"))
         val runner = FakePlayerScriptRunner()
 
         val result = YouTubeExtractor(http, runner).extract(request())
             as SiteExtractionResult.Success
 
+        val audioUrl = "$MEDIA?expire=4102444800&itag=140&mime=audio%2Fmp4" +
+            "&xtags=acont%3Doriginal&n=$SOLVED_RATE"
         assertEquals(
             listOf(
+                "$MEDIA?expire=4102444800&itag=137&mime=video%2Fmp4&n=$SOLVED_RATE",
                 "$MEDIA?expire=4102444800&ei=Rml4dHVyZQ&ip=203.0.113.7&itag=22&source=youtube" +
                     "&mime=video%2Fmp4&n=$SOLVED_RATE&sig=AJfixtureServerSig&lsig=AFfixture",
                 "$MEDIA?expire=4102444800&ei=Rml4dHVyZQ&ip=203.0.113.7&itag=18&source=youtube" +
                     "&mime=video%2Fmp4&n=$SOLVED_RATE&sig=AJfixtureServerSig&lsig=AFfixture",
-                "$MEDIA?expire=4102444800&itag=140&mime=audio%2Fmp4&xtags=acont%3Doriginal" +
-                    "&n=$SOLVED_RATE",
+                audioUrl,
             ),
             result.candidates.map(MediaCandidate::mediaUrl),
         )
         assertEquals(
             listOf(
+                "Fixture video title — 1080p",
                 "Fixture video title — 720p",
                 "Fixture video title — 360p",
                 "Fixture video title — Audio 129 kbps",
@@ -60,13 +63,35 @@ class YouTubeExtractorTest {
             result.candidates.map(MediaCandidate::title),
         )
         assertEquals(
-            listOf("video/mp4", "video/mp4", "audio/mp4"),
+            listOf("video/mp4", "video/mp4", "video/mp4", "audio/mp4"),
             result.candidates.map(MediaCandidate::mimeType),
         )
+        // The merged row is as large as its video and audio files together.
         assertEquals(
-            listOf(null, 13_370_448L, 3_434_000L),
+            listOf(91_434_000L, null, 13_370_448L, 3_434_000L),
             result.candidates.map(MediaCandidate::contentLengthBytes),
         )
+        assertEquals(
+            listOf(
+                listOf("avc1.640028"),
+                listOf("avc1.64001F", "mp4a.40.2"),
+                listOf("avc1.42001E", "mp4a.40.2"),
+                listOf("mp4a.40.2"),
+            ),
+            result.candidates.map(MediaCandidate::codecs),
+        )
+        // Only the video-only stream is paired with the audio track it is merged with.
+        val companion = result.candidates.first().audioCompanion
+        assertEquals(audioUrl, companion?.mediaUrl)
+        assertEquals("audio/mp4", companion?.mimeType)
+        assertEquals(listOf("mp4a.40.2"), companion?.codecs)
+        assertEquals(3_434_000L, companion?.contentLengthBytes)
+        assertEquals(NOW + 21_540_000L, companion?.expiresAtEpochMs)
+        assertEquals(
+            BrowserRequestContext(pageUrl = CANONICAL, userAgent = USER_AGENT, cookie = null),
+            companion?.requestContext,
+        )
+        assertTrue(result.candidates.drop(1).all { it.audioCompanion == null })
         result.candidates.forEach { candidate ->
             assertEquals(CANONICAL, candidate.pageUrl)
             assertEquals(MediaKind.DIRECT, candidate.kind)
@@ -91,7 +116,10 @@ class YouTubeExtractorTest {
         val solverRequest = runner.requests.single()
         assertEquals(PHONE_PLAYER, solverRequest.playerScriptUrl)
         assertEquals(CANONICAL, solverRequest.pageUrl)
-        assertEquals(listOf("n-22", "n-18", "n-140"), solverRequest.challenges.map { it.key })
+        assertEquals(
+            listOf("n-22", "n-18", "n-137", "n-140"),
+            solverRequest.challenges.map { it.key },
+        )
         solverRequest.challenges.forEach { challenge ->
             assertEquals(PlayerScriptChallengeKind.RATE_PARAM, challenge.kind)
             assertEquals(RATE_INPUT, challenge.input)
@@ -160,24 +188,41 @@ class YouTubeExtractorTest {
         val result = YouTubeExtractor(http, runner, tokens).extract(request())
             as SiteExtractionResult.Success
 
+        val audioUrl = "https://$DEVICE_HOST/videoplayback?expire=4102444800&ei=RGV2aWNl" +
+            "&itag=140&source=youtube&mime=audio%2Fmp4&c=VISIONOS&sig=AJfixtureDeviceSig" +
+            "&lsig=AFdevice"
         assertEquals(
             listOf(
+                "https://$DEVICE_HOST/videoplayback?expire=4102444800&ei=RGV2aWNl&itag=137" +
+                    "&source=youtube&mime=video%2Fmp4&c=VISIONOS&sig=AJfixtureDeviceSig" +
+                    "&lsig=AFdevice",
+                "https://$DEVICE_HOST/videoplayback?expire=4102444800&ei=RGV2aWNl&itag=136" +
+                    "&source=youtube&mime=video%2Fmp4&c=VISIONOS&sig=AJfixtureDeviceSig" +
+                    "&lsig=AFdevice",
                 "https://$ANDROID_HOST/videoplayback?expire=4102444800&ei=QW5kcm9pZA&itag=18" +
                     "&source=youtube&mime=video%2Fmp4&ratebypass=yes&c=ANDROID" +
                     "&sig=AJfixtureAndroidSig&lsig=AFandroid",
-                "https://$DEVICE_HOST/videoplayback?expire=4102444800&ei=RGV2aWNl&itag=140" +
-                    "&source=youtube&mime=audio%2Fmp4&c=VISIONOS&sig=AJfixtureDeviceSig" +
-                    "&lsig=AFdevice",
+                audioUrl,
             ),
             result.candidates.map(MediaCandidate::mediaUrl),
         )
         assertEquals(
-            listOf("Fixture video title — 360p", "Fixture video title — Audio 131 kbps"),
+            listOf(
+                "Fixture video title — 1080p",
+                "Fixture video title — 720p",
+                "Fixture video title — 360p",
+                "Fixture video title — Audio 131 kbps",
+            ),
             result.candidates.map(MediaCandidate::title),
         )
         assertEquals(
-            listOf(null, 3_449_447L),
+            listOf(84_361_446L, 29_905_327L, null, 3_449_447L),
             result.candidates.map(MediaCandidate::contentLengthBytes),
+        )
+        // The merged rows are paired with the audio track of the answer they came from.
+        assertEquals(
+            listOf(audioUrl, audioUrl, null, null),
+            result.candidates.map { it.audioCompanion?.mediaUrl },
         )
         result.candidates.forEach { candidate ->
             assertEquals(
@@ -186,14 +231,15 @@ class YouTubeExtractorTest {
             )
             assertEquals(NOW + 21_540_000L, candidate.expiresAtEpochMs)
         }
-        // The lookup has a video with sound and an audio track, so nothing else is asked.
+        // Merged rows are not a video with sound, so the next device client is asked. Then the
+        // lookup has a video with sound and an audio track, and nothing else is asked.
         assertEquals(listOf("VISIONOS", "ANDROID"), http.postedClients())
         assertTrue(runner.requests.isEmpty())
         assertTrue(tokens.requests.isEmpty())
         assertEquals(
             listOf(
                 "client VISIONOS: OK; with URLs: 0 progressive, 5 adaptive; SABR yes",
-                "client VISIONOS: 1 download offered",
+                "client VISIONOS: 3 downloads offered",
                 "client ANDROID: OK; with URLs: 1 progressive, 0 adaptive; SABR yes",
                 "client ANDROID: 1 download offered",
             ),
@@ -243,7 +289,7 @@ class YouTubeExtractorTest {
     }
 
     @Test
-    fun `an audio track alone does not end the lookup`() = runTest {
+    fun `merged rows and an audio track alone do not end the lookup`() = runTest {
         val http = client(
             page = watchPage(BOT_CHECK),
             visionOs = fixture("player_visionos.json"),
@@ -255,16 +301,22 @@ class YouTubeExtractorTest {
 
         assertEquals(
             listOf(
+                "Fixture video title — 1080p",
                 "Fixture video title — 720p",
                 "Fixture video title — 360p",
                 "Fixture video title — Audio 131 kbps",
             ),
             result.candidates.map(MediaCandidate::title),
         )
-        // The first audio track found is the one offered.
+        // The first audio track found is the one offered. A progressive stream needs no merge,
+        // so it replaces the device client's merged row of the same quality.
         assertEquals(
-            listOf(EMBED_HOST, EMBED_HOST, DEVICE_HOST),
+            listOf(DEVICE_HOST, EMBED_HOST, EMBED_HOST, DEVICE_HOST),
             result.candidates.map { it.mediaUrl.removePrefix("https://").substringBefore('/') },
+        )
+        assertEquals(
+            listOf(true, false, false, false),
+            result.candidates.map { it.audioCompanion != null },
         )
         assertEquals(
             listOf("VISIONOS", "ANDROID", "WEB_EMBEDDED_PLAYER"),
@@ -275,7 +327,30 @@ class YouTubeExtractorTest {
     }
 
     @Test
-    fun `audio is still offered when no client has a video with sound`() = runTest {
+    fun `a merged row gives way to an earlier row of its quality`() = runTest {
+        // The embedded player's 1080p stream is a different format from the device client's.
+        val embedded = fixture("player_ok.json")
+            .replace("\"itag\": 137", "\"itag\": 299")
+            .replace("itag=137", "itag=299")
+        val http = client(
+            page = watchPage(BOT_CHECK),
+            visionOs = fixture("player_visionos.json"),
+            embedded = embedded,
+        )
+
+        val result = YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request())
+            as SiteExtractionResult.Success
+
+        assertEquals(
+            listOf("1080p", "720p", "360p", "Audio 131 kbps"),
+            result.candidates.map { it.title?.substringAfterLast("— ") },
+        )
+        assertTrue(result.candidates.first().mediaUrl.contains("&itag=137&"))
+        assertTrue(result.details.contains("client WEB_EMBEDDED_PLAYER: 2 downloads offered"))
+    }
+
+    @Test
+    fun `merged rows and audio are offered when no client has a video with sound`() = runTest {
         val sabr = fixture("player_sabr_only.json")
         val http = client(
             page = watchPage(sabr),
@@ -287,10 +362,20 @@ class YouTubeExtractorTest {
         val result = YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request())
             as SiteExtractionResult.Success
 
-        val audio = result.candidates.single()
-        assertEquals("Fixture video title — Audio 131 kbps", audio.title)
+        assertEquals(
+            listOf(
+                "Fixture video title — 1080p",
+                "Fixture video title — 720p",
+                "Fixture video title — Audio 131 kbps",
+            ),
+            result.candidates.map(MediaCandidate::title),
+        )
+        val audio = result.candidates.last()
         assertEquals("audio/mp4", audio.mimeType)
-        assertTrue(audio.mediaUrl.startsWith("https://$DEVICE_HOST/"))
+        assertTrue(result.candidates.all { it.mediaUrl.startsWith("https://$DEVICE_HOST/") })
+        result.candidates.dropLast(1).forEach { merged ->
+            assertEquals(audio.mediaUrl, merged.audioCompanion?.mediaUrl)
+        }
         assertEquals(
             listOf("VISIONOS", "ANDROID", "WEB_EMBEDDED_PLAYER"),
             http.postedClients(),
@@ -344,7 +429,7 @@ class YouTubeExtractorTest {
             as SiteExtractionResult.Success
 
         // What the device client offered before the age check is dropped, too.
-        assertEquals(3, result.candidates.size)
+        assertEquals(4, result.candidates.size)
         assertTrue(result.candidates.all { it.mediaUrl.startsWith("https://$PAGE_HOST/") })
         assertEquals(listOf("VISIONOS", "ANDROID"), watchable.postedClients())
         assertTrue(
@@ -392,7 +477,7 @@ class YouTubeExtractorTest {
             val result = YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request())
                 as SiteExtractionResult.Success
 
-            assertEquals(3, result.candidates.size)
+            assertEquals(4, result.candidates.size)
             assertTrue(result.candidates.all { it.mediaUrl.startsWith("https://$PAGE_HOST/") })
             assertTrue(result.candidates.all { it.requestContext.cookie == null })
             assertEquals(
@@ -421,7 +506,7 @@ class YouTubeExtractorTest {
                         "0 adaptive; SABR only",
                 ),
             )
-            assertTrue(result.details.contains("client MWEB: 3 downloads offered"))
+            assertTrue(result.details.contains("client MWEB: 4 downloads offered"))
         }
 
     @Test
@@ -436,10 +521,13 @@ class YouTubeExtractorTest {
         val result = YouTubeExtractor(http, FakePlayerScriptRunner(), tokens).extract(request())
             as SiteExtractionResult.Success
 
-        assertEquals(3, result.candidates.size)
+        assertEquals(4, result.candidates.size)
         result.candidates.forEach { candidate ->
             assertTrue(candidate.mediaUrl.endsWith("&pot=${FakePoTokenProvider.TOKEN}"))
         }
+        // The audio track a merged row is downloaded with carries the same token.
+        val companion = result.candidates.mapNotNull { it.audioCompanion }.single()
+        assertTrue(companion.mediaUrl.endsWith("&pot=${FakePoTokenProvider.TOKEN}"))
         // One token per lookup, bound to the video, for the request and every address.
         val minted = tokens.requests.single()
         assertEquals(VIDEO_ID, minted.contentBinding)
@@ -501,8 +589,12 @@ class YouTubeExtractorTest {
             val result = YouTubeExtractor(http, FakePlayerScriptRunner(), tokens)
                 .extract(request()) as SiteExtractionResult.Success
 
-            assertEquals(detail, 3, result.candidates.size)
+            assertEquals(detail, 4, result.candidates.size)
             assertTrue(detail, result.candidates.none { it.mediaUrl.contains("pot=") })
+            assertTrue(
+                detail,
+                result.candidates.none { it.audioCompanion?.mediaUrl?.contains("pot=") == true },
+            )
             assertFalse(detail, http.postedBodies[0].contains("serviceIntegrityDimensions"))
             assertTrue(detail, result.details.contains(detail))
             assertTrue(detail, tokens.requests.size <= 1)
@@ -712,7 +804,7 @@ class YouTubeExtractorTest {
 
         val result = YouTubeExtractor(http).extract(request()) as SiteExtractionResult.Success
 
-        assertEquals(3, result.candidates.size)
+        assertEquals(4, result.candidates.size)
         assertTrue(result.candidates.none { it.mediaUrl.contains("&n=") })
     }
 
@@ -796,7 +888,7 @@ class YouTubeExtractorTest {
                 "client MWEB: OK; with URLs: 2 progressive, 5 adaptive; SABR no",
             ),
         )
-        assertTrue(result.details.contains("client MWEB: 3 downloads offered"))
+        assertTrue(result.details.contains("client MWEB: 4 downloads offered"))
     }
 
     @Test
@@ -887,7 +979,7 @@ class YouTubeExtractorTest {
         val result = YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request())
             as SiteExtractionResult.Success
 
-        assertEquals(3, result.candidates.size)
+        assertEquals(4, result.candidates.size)
         assertTrue(result.candidates.all { it.mediaUrl.startsWith("https://$PAGE_HOST/") })
         assertTrue(result.candidates.all { it.requestContext.cookie == null })
         assertEquals(listOf("VISIONOS", "ANDROID", "WEB_EMBEDDED_PLAYER"), http.postedClients())

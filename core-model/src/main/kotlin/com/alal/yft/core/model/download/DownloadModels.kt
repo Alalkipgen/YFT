@@ -23,6 +23,12 @@ data class DirectDownloadPlan(
     val expectedBytes: Long? = null,
     override val expiresAtEpochMs: Long? = null,
     val preferredSegmentCount: Int = DEFAULT_SEGMENT_COUNT,
+    /**
+     * The most bytes one ranged request asks for, or null to ask for the rest of a segment at
+     * once. YouTube's media servers slow down large single requests, so their files are fetched
+     * in bounded ranges.
+     */
+    val maxRequestBytes: Long? = null,
 ) : DownloadPlan {
     init {
         require(taskId.isNotBlank())
@@ -30,6 +36,7 @@ data class DirectDownloadPlan(
         require(suggestedFileName.isNotBlank())
         require(expectedBytes == null || expectedBytes >= 0)
         require(preferredSegmentCount in 1..MAX_SEGMENT_COUNT)
+        require(maxRequestBytes == null || maxRequestBytes >= MIN_REQUEST_BYTES)
     }
 
     override fun toString(): String = buildString {
@@ -45,12 +52,15 @@ data class DirectDownloadPlan(
         append(expiresAtEpochMs)
         append(", preferredSegmentCount=")
         append(preferredSegmentCount)
+        append(", maxRequestBytes=")
+        append(maxRequestBytes)
         append(')')
     }
 
     companion object {
         const val DEFAULT_SEGMENT_COUNT = 4
         const val MAX_SEGMENT_COUNT = 32
+        const val MIN_REQUEST_BYTES: Long = 64L * 1_024
     }
 }
 
@@ -81,6 +91,13 @@ data class HlsDownloadPlan(
     }
 }
 
+/**
+ * One track of a DASH presentation.
+ *
+ * [manifestUrl] is the DASH manifest and [representationId] the representation in it. For a
+ * [wholeFile] track, such as one of YouTube's adaptive streams, there is no manifest:
+ * [manifestUrl] is the media file itself and [representationId] only names the track.
+ */
 data class DashDownloadPlan(
     override val taskId: String,
     val manifestUrl: String,
@@ -91,6 +108,7 @@ data class DashDownloadPlan(
     val mimeType: String? = null,
     val codecs: List<String> = emptyList(),
     override val expiresAtEpochMs: Long? = null,
+    val wholeFile: WholeFileTrack? = null,
 ) : DownloadPlan {
     init {
         require(taskId.isNotBlank())
@@ -113,7 +131,33 @@ data class DashDownloadPlan(
         append(codecs.size)
         append(", expiresAtEpochMs=")
         append(expiresAtEpochMs)
+        append(", wholeFile=")
+        append(wholeFile)
         append(')')
+    }
+}
+
+/**
+ * A track served as one media file instead of manifest segments.
+ *
+ * The file is fetched in byte ranges of at most [maxRequestBytes], each kept as its own chunk,
+ * so an interrupted track resumes chunk by chunk and no single request is large (YouTube slows
+ * down large single requests). [totalBytes] is the file's length when the source stated it;
+ * otherwise the first ranged request reads it.
+ */
+data class WholeFileTrack(
+    val totalBytes: Long? = null,
+    val maxRequestBytes: Long = DEFAULT_MAX_REQUEST_BYTES,
+) {
+    init {
+        require(totalBytes == null || totalBytes > 0)
+        require(maxRequestBytes in 1..MAX_REQUEST_BYTES)
+    }
+
+    companion object {
+        /** 10 MiB, the chunk size yt-dlp uses for YouTube's media servers. */
+        const val DEFAULT_MAX_REQUEST_BYTES: Long = 10L * 1_024 * 1_024
+        const val MAX_REQUEST_BYTES: Long = 64L * 1_024 * 1_024
     }
 }
 

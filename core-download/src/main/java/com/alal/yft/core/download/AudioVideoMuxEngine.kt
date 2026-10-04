@@ -464,6 +464,7 @@ class AudioVideoMuxEngine(
                 completedFile = readyFile(workspace, kind),
             ),
             resumeFrom = resumeFrom,
+            onProgress = { progress -> tracker.recordTotal(kind, progress.totalBytes) },
             onCheckpoint = { checkpoint -> tracker.update(kind, checkpoint) },
         )
         return when (result) {
@@ -607,6 +608,12 @@ class AudioVideoMuxEngine(
         AUDIO("audio"),
     }
 
+    /**
+     * Keeps the combined checkpoint and progress of both tracks.
+     *
+     * Progress has a total only once both track lengths are known: a finished track's length is
+     * what it downloaded, and a track still downloading reports its length when it knows one.
+     */
     private class MuxCheckpointTracker(
         initial: AudioVideoMuxCheckpoint,
         private val onProgress: suspend (DownloadProgress) -> Unit,
@@ -614,6 +621,15 @@ class AudioVideoMuxEngine(
     ) {
         private val gate = Mutex()
         private var checkpoint = initial
+        private val trackTotals = mutableMapOf<TrackKind, Long>().apply {
+            if (initial.videoReady) initial.video?.let { put(TrackKind.VIDEO, it.downloadedBytes) }
+            if (initial.audioReady) initial.audio?.let { put(TrackKind.AUDIO, it.downloadedBytes) }
+        }
+
+        /** Notes a track's length; the next checkpoint update reports it. */
+        suspend fun recordTotal(kind: TrackKind, totalBytes: Long?) = gate.withLock {
+            if (totalBytes != null && totalBytes > 0) trackTotals[kind] = totalBytes
+        }
 
         suspend fun update(kind: TrackKind, track: DashTransferCheckpoint) = gate.withLock {
             checkpoint = when (kind) {
@@ -628,6 +644,8 @@ class AudioVideoMuxEngine(
                 TrackKind.VIDEO -> checkpoint.copy(videoReady = true)
                 TrackKind.AUDIO -> checkpoint.copy(audioReady = true)
             }
+            val track = if (kind == TrackKind.VIDEO) checkpoint.video else checkpoint.audio
+            track?.let { trackTotals[kind] = it.downloadedBytes }
             emitLocked()
         }
 
@@ -650,10 +668,13 @@ class AudioVideoMuxEngine(
         private suspend fun emitLocked() {
             val activeChunks = listOfNotNull(checkpoint.video, checkpoint.audio)
                 .sumOf { track -> track.chunks.count { !it.completed } }
+            val downloaded = checkpoint.downloadedBytes
+            val total = trackTotals.values.sum()
+                .takeIf { trackTotals.size == TrackKind.entries.size && it >= downloaded }
             onProgress(
                 DownloadProgress(
-                    downloadedBytes = checkpoint.downloadedBytes,
-                    totalBytes = null,
+                    downloadedBytes = downloaded,
+                    totalBytes = total,
                     activeSegmentCount = activeChunks,
                 ),
             )

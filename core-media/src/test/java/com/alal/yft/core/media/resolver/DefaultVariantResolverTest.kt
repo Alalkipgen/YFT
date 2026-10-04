@@ -3,6 +3,7 @@ package com.alal.yft.core.media.resolver
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
+import com.alal.yft.core.model.media.CompanionAudio
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaSizeAccuracy
@@ -65,6 +66,62 @@ class DefaultVariantResolverTest {
         assertEquals(MediaSizeAccuracy.EXACT, variant.sizeAccuracy)
         assertEquals("HEAD", server.takeRequest().method)
         assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `video with a companion audio track resolves to one merged variant`() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "video/mp4")
+                .setHeader("Content-Length", "4096"),
+        )
+        val audio = CompanionAudio(
+            mediaUrl = server.url("/audio.m4a?expire=${NOW / 1_000 + 600}").toString(),
+            mimeType = "audio/mp4",
+            codecs = listOf("mp4a.40.2"),
+            requestContext = BrowserRequestContext(
+                pageUrl = "https://page.example.test/watch",
+                userAgent = "YFT fixture",
+                cookie = null,
+            ),
+            contentLengthBytes = 1_024,
+            expiresAtEpochMs = NOW + 300_000,
+        )
+
+        val result = resolver.resolve(
+            candidate(
+                url = server.url("/video.mp4").toString(),
+                expiresAtEpochMs = NOW + 600_000,
+            ).copy(codecs = listOf("avc1.64001F"), audioCompanion = audio),
+        ) as VariantResolutionResult.Success
+
+        val variant = result.asset.variants.single()
+        assertEquals(MediaTrackType.AUDIO_VIDEO, variant.trackType)
+        assertEquals(listOf("avc1.64001F"), variant.codecs)
+        assertEquals(audio, variant.audioCompanion)
+        assertEquals(5_120L, variant.sizeBytes)
+        assertEquals(MediaSizeAccuracy.ESTIMATED, variant.sizeAccuracy)
+        assertEquals(NOW + 300_000, variant.expiresAtEpochMs)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `expired companion audio fails before any network request`() = runTest {
+        val audio = CompanionAudio(
+            mediaUrl = server.url("/audio.m4a").toString(),
+            mimeType = "audio/mp4",
+            codecs = listOf("mp4a.40.2"),
+            requestContext = BrowserRequestContext("https://page.example.test/watch", null, null),
+            expiresAtEpochMs = NOW - 1,
+        )
+
+        val result = resolver.resolve(
+            candidate(server.url("/video.mp4").toString()).copy(audioCompanion = audio),
+        ) as VariantResolutionResult.Failure
+
+        assertEquals(VariantResolutionFailure.EXPIRED_URL, result.reason)
+        assertEquals(0, server.requestCount)
     }
 
     @Test

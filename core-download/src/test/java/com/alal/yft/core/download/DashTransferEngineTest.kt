@@ -3,6 +3,8 @@ package com.alal.yft.core.download
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DashDownloadPlan
 import com.alal.yft.core.model.download.DashTransferResult
+import com.alal.yft.core.model.download.DownloadProgress
+import com.alal.yft.core.model.download.WholeFileTrack
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.MediaTrackType
 import java.io.File
@@ -260,6 +262,134 @@ class DashTransferEngineTest {
         assertFalse(files.partial.exists())
         assertTrue(workspaceRoot.listFiles().orEmpty().isEmpty())
     }
+
+    @Test
+    fun `whole file track downloads in bounded ranges and reports its length`() = runTest {
+        val bytes = ByteArray(2_500) { index -> (index % 251).toByte() }
+        server.dispatcher = wholeFileDispatcher(bytes)
+        val files = files("whole.mp4")
+        val progress = mutableListOf<DownloadProgress>()
+
+        val result = engine(maxConcurrentChunks = 1).transfer(
+            plan = wholeFilePlan(server.url("/video.mp4?sig=one").toString(), "whole"),
+            destination = files.destination,
+            onProgress = { progress += it },
+        ) as DashTransferResult.Completed
+
+        assertEquals(2_500L, result.bytesWritten)
+        assertEquals(3, result.checkpoint.completedChunkCount)
+        assertArrayEquals(bytes, files.completed.readBytes())
+        assertTrue(workspaceRoot.listFiles().orEmpty().isEmpty())
+        val ranges = List(server.requestCount) { server.takeRequest().getHeader("Range") }
+        assertEquals(
+            listOf("bytes=0-0", "bytes=0-999", "bytes=1000-1999", "bytes=2000-2499"),
+            ranges,
+        )
+        assertTrue(progress.all { it.totalBytes == 2_500L })
+        assertEquals(2_500L, progress.last().downloadedBytes)
+    }
+
+    @Test
+    fun `whole file track with a stated length skips the length request`() = runTest {
+        val bytes = ByteArray(1_500) { index -> (index % 13).toByte() }
+        server.dispatcher = wholeFileDispatcher(bytes)
+        val files = files("stated.mp4")
+
+        val result = engine().transfer(
+            plan = wholeFilePlan(
+                url = server.url("/video.mp4").toString(),
+                id = "stated",
+                totalBytes = 1_500,
+            ),
+            destination = files.destination,
+        ) as DashTransferResult.Completed
+
+        assertEquals(1_500L, result.bytesWritten)
+        assertArrayEquals(bytes, files.completed.readBytes())
+        val ranges = List(server.requestCount) { server.takeRequest().getHeader("Range") }
+        assertEquals(setOf("bytes=0-999", "bytes=1000-1499"), ranges.toSet())
+    }
+
+    @Test
+    fun `whole file server that ignores ranges is refused`() = runTest {
+        server.dispatcher = wholeFileDispatcher(ByteArray(2_000), ignoreRanges = true)
+        val files = files("ignored.mp4")
+
+        val result = engine().transfer(
+            plan = wholeFilePlan(server.url("/video.mp4").toString(), "ignored"),
+            destination = files.destination,
+        ) as DashTransferResult.Failure
+
+        assertEquals(DownloadFailureReason.UNSUPPORTED_SOURCE, result.failure.reason)
+        assertEquals(1, server.requestCount)
+        assertFalse(files.completed.exists())
+        assertTrue(workspaceRoot.listFiles().orEmpty().isEmpty())
+    }
+
+    @Test
+    fun `whole file track resumes finished ranges from a refreshed address`() = runTest {
+        val bytes = ByteArray(2_500) { index -> (index % 97).toByte() }
+        server.dispatcher = wholeFileDispatcher(bytes, failFrom = 2_000)
+        val files = files("resume-whole.mp4")
+        val singleAttempt = engine(maxAttempts = 1, maxConcurrentChunks = 1)
+
+        val first = singleAttempt.transfer(
+            plan = wholeFilePlan(server.url("/video.mp4?sig=old").toString(), "resume-whole"),
+            destination = files.destination,
+        ) as DashTransferResult.Failure
+
+        assertEquals(DownloadFailureReason.SERVER_ERROR, first.failure.reason)
+        assertEquals(2, first.checkpoint.completedChunkCount)
+        val firstRunRequests = server.requestCount
+        repeat(firstRunRequests) { server.takeRequest() }
+
+        server.dispatcher = wholeFileDispatcher(bytes)
+        val resumed = singleAttempt.transfer(
+            plan = wholeFilePlan(server.url("/video.mp4?sig=new").toString(), "resume-whole"),
+            destination = files.destination,
+            resumeFrom = first.checkpoint,
+        ) as DashTransferResult.Completed
+
+        assertEquals(2_500L, resumed.bytesWritten)
+        assertArrayEquals(bytes, files.completed.readBytes())
+        val ranges = List(server.requestCount - firstRunRequests) {
+            server.takeRequest().getHeader("Range")
+        }
+        assertEquals(listOf("bytes=0-0", "bytes=2000-2499"), ranges)
+    }
+
+    private fun wholeFileDispatcher(
+        bytes: ByteArray,
+        failFrom: Long? = null,
+        ignoreRanges: Boolean = false,
+    ): Dispatcher = object : Dispatcher() {
+        override fun dispatch(request: RecordedRequest): MockResponse {
+            if (request.requestUrl?.encodedPath != "/video.mp4") {
+                return MockResponse().setResponseCode(404)
+            }
+            val match = request.getHeader("Range")?.let(RANGE::matchEntire)
+            if (ignoreRanges || match == null) return bytesResponse(bytes)
+            val start = match.groupValues[1].toInt()
+            val end = minOf(match.groupValues[2].toInt(), bytes.lastIndex)
+            if (failFrom != null && start >= failFrom) {
+                return MockResponse().setResponseCode(500)
+            }
+            return MockResponse()
+                .setResponseCode(206)
+                .setHeader("Content-Type", "video/mp4")
+                .setHeader("Content-Range", "bytes $start-$end/${bytes.size}")
+                .setBody(Buffer().write(bytes, start, end - start + 1))
+        }
+    }
+
+    private fun wholeFilePlan(
+        url: String,
+        id: String,
+        totalBytes: Long? = null,
+    ): DashDownloadPlan = plan(url, id).copy(
+        representationId = "video",
+        wholeFile = WholeFileTrack(totalBytes = totalBytes, maxRequestBytes = 1_000),
+    )
 
     private fun engine(
         maxAttempts: Int = 3,

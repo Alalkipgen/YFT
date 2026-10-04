@@ -90,6 +90,36 @@ class DownloadModelsTest {
     }
 
     @Test
+    fun `whole file tracks and bounded direct requests validate their sizes`() {
+        val track = WholeFileTrack(totalBytes = 5_000)
+        assertEquals(WholeFileTrack.DEFAULT_MAX_REQUEST_BYTES, track.maxRequestBytes)
+        assertThrows(IllegalArgumentException::class.java) { WholeFileTrack(totalBytes = 0) }
+        assertThrows(IllegalArgumentException::class.java) {
+            WholeFileTrack(maxRequestBytes = WholeFileTrack.MAX_REQUEST_BYTES + 1)
+        }
+        val wholeFilePlan = dashPlan(
+            taskId = "whole-video",
+            representationId = "video",
+            trackType = MediaTrackType.VIDEO,
+            expiresAtEpochMs = null,
+        ).copy(wholeFile = track)
+        assertTrue(wholeFilePlan.toString().contains("wholeFile=WholeFileTrack(totalBytes=5000"))
+        assertFalse(wholeFilePlan.toString().contains("secret"))
+
+        val direct = DirectDownloadPlan(
+            taskId = "direct",
+            sourceUrl = "https://rr1.example.test/video.mp4?sig=secret",
+            suggestedFileName = "video.mp4",
+            requestContext = BrowserRequestContext("https://example.test/watch", null, null),
+            maxRequestBytes = WholeFileTrack.DEFAULT_MAX_REQUEST_BYTES,
+        )
+        assertTrue(direct.toString().contains("maxRequestBytes=10485760"))
+        assertThrows(IllegalArgumentException::class.java) {
+            direct.copy(maxRequestBytes = DirectDownloadPlan.MIN_REQUEST_BYTES - 1)
+        }
+    }
+
+    @Test
     fun `segment validates progress and reports remaining bytes`() {
         val segment = DownloadSegment(
             index = 2,

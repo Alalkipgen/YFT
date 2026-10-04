@@ -7,7 +7,9 @@ import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.dash.DashMediaSource
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.MediaSource
+import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaVariant
 import java.io.IOException
@@ -21,14 +23,40 @@ import okhttp3.OkHttpClient
 class PreviewSourceFactory @Inject constructor(
     private val client: OkHttpClient,
 ) {
+    /**
+     * Builds the player source for [variant]. A video-only variant with a companion audio track
+     * plays both files together, each fetched with its own request context.
+     */
     fun create(variant: MediaVariant): MediaSource {
         require(variant.isPreviewable) { "Unsupported variants cannot be previewed" }
-        val credentialOrigin = variant.playbackUrl.toHttpUrlOrNull()
+        val video = source(
+            url = variant.playbackUrl,
+            requestContext = variant.requestContext,
+            kind = variant.kind,
+            mimeType = variant.mimeType,
+        )
+        val companion = variant.audioCompanion ?: return video
+        val audio = source(
+            url = companion.mediaUrl,
+            requestContext = companion.requestContext,
+            kind = MediaKind.DIRECT,
+            mimeType = companion.mimeType,
+        )
+        return MergingMediaSource(video, audio)
+    }
+
+    private fun source(
+        url: String,
+        requestContext: BrowserRequestContext,
+        kind: MediaKind,
+        mimeType: String?,
+    ): MediaSource {
+        val credentialOrigin = url.toHttpUrlOrNull()
             ?.takeIf { it.isHttps && it.username.isEmpty() && it.password.isEmpty() }
             ?: throw IllegalArgumentException("Preview requires a credential-free HTTPS URL")
         val headerPolicy = PreviewHttpPolicy(
             credentialOrigin = credentialOrigin,
-            requestContext = variant.requestContext,
+            requestContext = requestContext,
         )
         val previewClient = client.newBuilder()
             .followRedirects(true)
@@ -47,13 +75,13 @@ class PreviewSourceFactory @Inject constructor(
             }
             .build()
         val dataSourceFactory = OkHttpDataSource.Factory(previewClient)
-            .setDefaultRequestProperties(variant.requestContext.replayHeaders())
+            .setDefaultRequestProperties(requestContext.replayHeaders())
         val mediaItem = MediaItem.Builder()
             .setUri(credentialOrigin.toString())
-            .setMimeType(variant.kind.media3MimeType(variant.mimeType))
+            .setMimeType(kind.media3MimeType(mimeType))
             .build()
 
-        return when (variant.kind) {
+        return when (kind) {
             MediaKind.HLS -> HlsMediaSource.Factory(dataSourceFactory)
                 .createMediaSource(mediaItem)
             MediaKind.DASH -> DashMediaSource.Factory(dataSourceFactory)

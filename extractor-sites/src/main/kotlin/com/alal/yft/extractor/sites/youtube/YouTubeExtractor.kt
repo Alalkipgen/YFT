@@ -4,6 +4,7 @@ import com.alal.yft.core.model.logging.DiagnosticTextSanitizer
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
+import com.alal.yft.core.model.media.CompanionAudio
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.PageNavigationHeaders
@@ -40,9 +41,12 @@ import java.net.URLDecoder
  *    through YouTube's SABR protocol.
  *
  * Downloads found along the way are combined, and the chain stops once it has a video with
- * sound and an audio track. When a lookup meets YouTube's bot check, the user plays the video
- * in YFT's browser and tries again there, so the lookup carries the browser's own session
- * (option C). The values YouTube's player computes for a stream are computed by YouTube's own
+ * sound and an audio track. Higher qualities, which YouTube serves only as separate video and
+ * audio files, are offered as 480p, 720p and 1080p AVC rows that carry their AAC audio track
+ * and are merged into one MP4 on the phone (T17). When a lookup meets YouTube's bot check, the
+ * user plays the video in YFT's browser and tries again there, so the lookup carries the
+ * browser's own session (option C). The values YouTube's player computes for a stream are
+ * computed by YouTube's own
  * current player script through a [PlayerScriptRunner]; without one, such streams fail as
  * [SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED].
  *
@@ -268,9 +272,22 @@ class YouTubeExtractor(
         }
         // The token is minted only once there is something to attach it to.
         val token = if (client.usesPoToken) poToken(lookup, TokenUse.MEDIA) else null
-        val offers = addresses.map { (pending, url, expiry) ->
+        val tracks = addresses.map { (pending, url, expiry) ->
             val mediaUrl = token?.let { YouTubeUrls.appendQueryParam(url, POT_PARAM, it) } ?: url
-            Offer(pending.stream, candidate(pending.stream, mediaUrl, expiry, video, lookup))
+            Triple(pending.stream, mediaUrl, expiry)
+        }
+        // Video-only streams are downloaded with this answer's audio track and merged on the
+        // phone; without that track they would be silent, so they are dropped.
+        val companion = tracks.firstOrNull { (stream, _, _) -> !stream.hasVideo }
+            ?.let { (stream, url, expiry) -> companionAudio(stream, url, expiry, lookup) }
+        val offers = tracks.mapNotNull { (stream, url, expiry) ->
+            if (stream.hasVideo && !stream.hasAudio) {
+                companion?.let { audio ->
+                    Offer(stream, candidate(stream, url, expiry, video, lookup, audio))
+                }
+            } else {
+                Offer(stream, candidate(stream, url, expiry, video, lookup))
+            }
         }
         return Delivery.Ready(offers)
     }
@@ -334,12 +351,13 @@ class YouTubeExtractor(
     }
 
     /**
-     * Picks the streams a single download can play.
+     * Picks the streams downloads are made of.
      *
      * Progressive MP4 streams already carry both tracks. One AAC audio stream is offered as an
      * audio-only download: the original mix when YouTube marks one, never the volume-compressed
-     * variant. Video-only adaptive streams are not offered, because a download of one would be
-     * silent.
+     * variant. The same audio track is merged on the phone with the best video-only AVC stream
+     * of each of [MERGED_QUALITIES] that no progressive stream already offers. VP9 and AV1 are
+     * left out, because the phone's merge writes AVC and AAC only.
      */
     private fun select(video: YouTubeVideo): List<YouTubeStream> {
         val progressive = video.progressive
@@ -355,7 +373,20 @@ class YouTubeExtractor(
             .maxWithOrNull(
                 compareBy<YouTubeStream>({ it.isDefaultAudio != false }, { it.bitrate ?: 0L }),
             )
-        return progressive + listOfNotNull(audio)
+            ?: return progressive
+        val offeredQualities = progressive.mapNotNull { it.quality() }.toSet()
+        val merged = video.adaptive
+            .filter { stream ->
+                stream.hasVideo && !stream.hasAudio && stream.mimeType == VIDEO_MP4 &&
+                    stream.codecs.isNotEmpty() &&
+                    stream.codecs.all { it.startsWith(AVC_CODEC_PREFIX) }
+            }
+            .groupBy { it.quality() }
+            .filterKeys { it in MERGED_QUALITIES && it !in offeredQualities }
+            .values
+            .mapNotNull { streams -> streams.maxByOrNull { it.bitrate ?: 0L } }
+            .sortedByDescending { it.quality() }
+        return progressive + merged + audio
     }
 
     /**
@@ -467,6 +498,7 @@ class YouTubeExtractor(
         expiresAtEpochMs: Long?,
         video: YouTubeVideo,
         lookup: Lookup,
+        audioCompanion: CompanionAudio? = null,
     ): MediaCandidate = MediaCandidate(
         pageUrl = lookup.pageUrl,
         mediaUrl = mediaUrl,
@@ -476,18 +508,46 @@ class YouTubeExtractor(
         title = displayTitle(video, stream),
         thumbnailUrl = video.thumbnailUrl,
         durationMillis = video.durationMillis,
-        contentLengthBytes = stream.contentLengthBytes,
-        // YouTube's cookie belongs to YouTube's pages. The media servers are a different origin
-        // and never receive it.
-        requestContext = BrowserRequestContext(
-            pageUrl = lookup.pageUrl,
-            userAgent = lookup.request.requestContext.userAgent,
-            cookie = null,
-        ),
+        contentLengthBytes = if (audioCompanion == null) {
+            stream.contentLengthBytes
+        } else {
+            stream.contentLengthBytes?.let { videoBytes ->
+                audioCompanion.contentLengthBytes?.plus(videoBytes)
+            }
+        },
+        requestContext = mediaContext(lookup),
         confidence = CandidateConfidence.HIGH,
-        expiresAtEpochMs = expiresAtEpochMs,
+        expiresAtEpochMs = listOfNotNull(expiresAtEpochMs, audioCompanion?.expiresAtEpochMs)
+            .minOrNull(),
         drmHint = false,
         observedAtEpochMs = lookup.nowEpochMs,
+        codecs = stream.codecs,
+        audioCompanion = audioCompanion,
+    )
+
+    private fun companionAudio(
+        stream: YouTubeStream,
+        mediaUrl: String,
+        expiresAtEpochMs: Long?,
+        lookup: Lookup,
+    ): CompanionAudio = CompanionAudio(
+        mediaUrl = mediaUrl,
+        mimeType = stream.mimeType ?: AUDIO_MP4,
+        codecs = stream.codecs,
+        requestContext = mediaContext(lookup),
+        contentLengthBytes = stream.contentLengthBytes?.takeIf { it > 0 },
+        bitrateBitsPerSecond = stream.bitrate?.takeIf { it > 0 },
+        expiresAtEpochMs = expiresAtEpochMs,
+    )
+
+    /**
+     * What the media servers receive. YouTube's cookie belongs to YouTube's pages; the media
+     * servers are a different origin and never receive it.
+     */
+    private fun mediaContext(lookup: Lookup): BrowserRequestContext = BrowserRequestContext(
+        pageUrl = lookup.pageUrl,
+        userAgent = lookup.request.requestContext.userAgent,
+        cookie = null,
     )
 
     /** Title stays metadata-only: the video title, then what this download contains. */
@@ -617,16 +677,25 @@ class YouTubeExtractor(
      * Downloads combined across clients.
      *
      * The first client to offer a progressive stream of a given format and the first to offer
-     * an audio track win, so the order of the chain decides which address is shipped.
+     * an audio track win, so the order of the chain decides which address is shipped. A merged
+     * row is kept only for a quality no other row offers: a progressive stream needs no merge
+     * on the phone, so it wins over a merged row of the same quality from any client.
      */
     private class Offers {
         private val videos = LinkedHashMap<Int, Offer>()
         private var audio: Offer? = null
 
+        /**
+         * Whether some client offered a progressive video, which already has sound. Merged rows
+         * do not count, so they never change which clients are asked.
+         */
         val hasVideo: Boolean
-            get() = videos.isNotEmpty()
+            get() = videos.values.any { it.stream.hasAudio }
 
-        /** A video with sound and an audio track: what one lookup can offer before T17. */
+        /**
+         * A video with sound and an audio track. The answer that brought the audio track also
+         * brought the merged rows paired with it, so asking further clients adds nothing.
+         */
         val isComplete: Boolean
             get() = hasVideo && audio != null
 
@@ -641,8 +710,17 @@ class YouTubeExtractor(
 
         /** Adds what is new and returns how many downloads that was. */
         fun add(offers: List<Offer>): Int = offers.count { offer ->
+            val stream = offer.stream
             when {
-                offer.stream.hasVideo -> videos.putIfAbsent(offer.stream.itag, offer) == null
+                stream.hasVideo && stream.hasAudio ->
+                    videos.putIfAbsent(stream.itag, offer) == null
+
+                stream.hasVideo -> {
+                    val quality = stream.quality()
+                    videos.values.none { it.stream.quality() == quality } &&
+                        videos.putIfAbsent(stream.itag, offer) == null
+                }
+
                 audio == null -> {
                     audio = offer
                     true
@@ -652,9 +730,19 @@ class YouTubeExtractor(
             }
         }
 
-        fun candidates(): List<MediaCandidate> =
-            videos.values.sortedByDescending { it.stream.height ?: 0 }.map(Offer::candidate) +
-                listOfNotNull(audio?.candidate)
+        fun candidates(): List<MediaCandidate> {
+            val progressive = videos.values
+                .filter { it.stream.hasAudio }
+                .mapNotNull { it.stream.quality() }
+                .toSet()
+            return videos.values
+                .filter { it.stream.hasAudio || it.stream.quality() !in progressive }
+                .sortedWith(
+                    compareByDescending<Offer> { it.stream.quality() ?: 0 }
+                        .thenByDescending { it.stream.height ?: 0 },
+                )
+                .map(Offer::candidate) + listOfNotNull(audio?.candidate)
+        }
     }
 
     private class PendingStream(
@@ -772,6 +860,11 @@ class YouTubeExtractor(
         private const val VIDEO_MP4 = "video/mp4"
         private const val AUDIO_MP4 = "audio/mp4"
         private const val AAC_CODEC_PREFIX = "mp4a."
+        private const val AVC_CODEC_PREFIX = "avc1"
+
+        /** Merged video-and-audio rows, by the quality YouTube names them (T17). */
+        private val MERGED_QUALITIES = setOf(480, 720, 1080)
+        private val QUALITY_LABEL = Regex("^(\\d{3,4})p")
         private const val RATE_PARAM = "n"
         private const val EXPIRE_PARAM = "expire"
         private const val POT_PARAM = "pot"
@@ -790,5 +883,10 @@ class YouTubeExtractor(
 
         /** A minted token is URL-safe base64; anything else is not attached to an address. */
         private val POT_VALUE = Regex("^[A-Za-z0-9_-]{16,4096}={0,2}$")
+
+        /** The quality YouTube names a stream by: the number in its label, else its short side. */
+        private fun YouTubeStream.quality(): Int? =
+            qualityLabel?.let(QUALITY_LABEL::find)?.groupValues?.get(1)?.toIntOrNull()
+                ?: listOfNotNull(width, height).minOrNull()
     }
 }

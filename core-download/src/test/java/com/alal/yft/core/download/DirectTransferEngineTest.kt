@@ -9,6 +9,7 @@ import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.media.BrowserRequestContext
 import java.io.File
 import java.io.IOException
+import java.util.Collections
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CompletableDeferred
@@ -352,6 +353,92 @@ class DirectTransferEngineTest {
 
         assertEquals(DownloadFailureReason.INSUFFICIENT_STORAGE, result.failure.reason)
         assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun `bounded requests split each segment into ranges of at most the cap`() = runTest {
+        val content = fixtureBytes(204_800)
+        server.dispatcher = rangeDispatcher(content)
+        val files = files("bounded.bin")
+        val url = server.url("/bounded.bin").toString()
+
+        val result = engine.transfer(
+            plan = plan(url, content.size.toLong(), segmentCount = 2)
+                .copy(maxRequestBytes = 65_536),
+            metadata = metadata(url, content.size.toLong(), supportsRanges = true),
+            destination = files.destination,
+        ) as DirectTransferResult.Completed
+
+        assertEquals(content.size.toLong(), result.bytesWritten)
+        assertArrayEquals(content, files.completed.readBytes())
+        val ranges = List(server.requestCount) { server.takeRequest().getHeader("Range") }
+        assertEquals(
+            setOf(
+                "bytes=0-65535",
+                "bytes=65536-102399",
+                "bytes=102400-167935",
+                "bytes=167936-204799",
+            ),
+            ranges.toSet(),
+        )
+        assertEquals(4, ranges.size)
+    }
+
+    @Test
+    fun `each completed bounded request resets the retry count`() = runTest {
+        val content = fixtureBytes(204_800)
+        server.dispatcher = flakyRangeDispatcher(content, failOnceAt = setOf(65_536, 196_608))
+        val files = files("flaky.bin")
+        val url = server.url("/flaky.bin").toString()
+        val twoAttempts = DirectTransferEngine(
+            client = OkHttpClient(),
+            policy = DirectTransferEngine.Policy(
+                maxAttempts = 2,
+                initialRetryDelayMillis = 0,
+                bufferBytes = 1_024,
+                checkpointIntervalBytes = 1,
+            ),
+        )
+
+        val result = twoAttempts.transfer(
+            plan = plan(url, content.size.toLong(), segmentCount = 1)
+                .copy(maxRequestBytes = 65_536),
+            metadata = metadata(url, content.size.toLong(), supportsRanges = true),
+            destination = files.destination,
+        ) as DirectTransferResult.Completed
+
+        assertEquals(content.size.toLong(), result.bytesWritten)
+        assertArrayEquals(content, files.completed.readBytes())
+        val ranges = List(server.requestCount) { server.takeRequest().getHeader("Range") }
+        assertEquals(
+            listOf(
+                "bytes=0-65535",
+                "bytes=65536-131071",
+                "bytes=65536-131071",
+                "bytes=131072-196607",
+                "bytes=196608-204799",
+                "bytes=196608-204799",
+            ),
+            ranges,
+        )
+    }
+
+    private fun flakyRangeDispatcher(content: ByteArray, failOnceAt: Set<Int>): Dispatcher {
+        val failed = Collections.synchronizedSet(mutableSetOf<Int>())
+        val ranges = rangeDispatcher(content)
+        return object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val start = request.getHeader("Range")
+                    ?.let(RANGE::matchEntire)
+                    ?.groupValues
+                    ?.get(1)
+                    ?.toInt()
+                if (start != null && start in failOnceAt && failed.add(start)) {
+                    return MockResponse().setResponseCode(500)
+                }
+                return ranges.dispatch(request)
+            }
+        }
     }
 
     private fun rangeDispatcher(content: ByteArray): Dispatcher = object : Dispatcher() {

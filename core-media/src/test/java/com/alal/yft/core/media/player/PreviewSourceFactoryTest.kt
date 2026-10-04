@@ -3,8 +3,10 @@ package com.alal.yft.core.media.player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.dash.DashMediaSource
 import androidx.media3.exoplayer.hls.HlsMediaSource
+import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import com.alal.yft.core.model.media.BrowserRequestContext
+import com.alal.yft.core.model.media.CompanionAudio
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
@@ -49,6 +51,18 @@ class PreviewSourceFactoryTest {
     }
 
     @Test
+    fun `plays a video-only variant together with its companion audio`() {
+        val merged = variant(MediaKind.DIRECT).copy(audioCompanion = companion())
+
+        assertTrue(factory.create(merged) is MergingMediaSource)
+        assertThrows(IllegalArgumentException::class.java) {
+            factory.create(
+                merged.copy(audioCompanion = companion("http://media.example.test/audio.m4a")),
+            )
+        }
+    }
+
+    @Test
     fun `rejects a variant marked with unsupported codec`() {
         assertThrows(IllegalArgumentException::class.java) {
             factory.create(
@@ -88,6 +102,19 @@ class PreviewSourceFactoryTest {
         assertEquals("fixture-agent", crossOrigin["User-Agent"])
         assertEquals("en", crossOrigin["Accept-Language"])
     }
+
+    private fun companion(
+        url: String = "https://media.example.test/audio.m4a",
+    ): CompanionAudio = CompanionAudio(
+        mediaUrl = url,
+        mimeType = "audio/mp4",
+        codecs = listOf("mp4a.40.2"),
+        requestContext = BrowserRequestContext(
+            pageUrl = "https://page.example.test/watch",
+            userAgent = "fixture-agent",
+            cookie = null,
+        ),
+    )
 
     private fun variant(
         kind: MediaKind,

@@ -19,6 +19,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -150,6 +151,37 @@ class AudioVideoMuxEngineTest {
     }
 
     @Test
+    fun `progress has a total once both track lengths are known`() = runTest {
+        val runner = FakeDashRunner(failFirstAudio = true, reportTotals = true)
+        val workspace = directory.newFolder("totals-workspace")
+        val files = files("totals.mp4")
+        val plan = plan()
+        val engine = engine(runner, FakeMuxer(), workspace)
+        val total = (VIDEO_BYTES.size + AUDIO_BYTES.size).toLong()
+        val firstProgress = mutableListOf<DownloadProgress>()
+
+        val first = engine.transfer(
+            plan = plan,
+            destination = files.destination,
+            onProgress = { firstProgress += it },
+        ) as AudioVideoMuxResult.Failure
+
+        assertNull(firstProgress.first().totalBytes)
+        assertTrue(firstProgress.any { it.totalBytes == total })
+
+        val resumedProgress = mutableListOf<DownloadProgress>()
+        engine.transfer(
+            plan = plan,
+            destination = files.destination,
+            resumeFrom = first.checkpoint,
+            onProgress = { resumedProgress += it },
+        ) as AudioVideoMuxResult.Completed
+
+        assertEquals(total, resumedProgress.last().totalBytes)
+        assertEquals(total, resumedProgress.last().downloadedBytes)
+    }
+
+    @Test
     fun `fatal mux failure never publishes and cleans track workspaces`() = runTest {
         val runner = FakeDashRunner()
         val muxer = FakeMuxer(failure = DownloadFailureReason.INCOMPATIBLE_TRACKS)
@@ -263,6 +295,7 @@ class AudioVideoMuxEngineTest {
 
     private class FakeDashRunner(
         private val failFirstAudio: Boolean = false,
+        private val reportTotals: Boolean = false,
     ) : DashTransferRunner {
         private val calls = ConcurrentHashMap<String, AtomicInteger>()
         val discarded = mutableListOf<String>()
@@ -276,6 +309,13 @@ class AudioVideoMuxEngineTest {
         ): DashTransferResult {
             val attempt = calls.computeIfAbsent(plan.taskId) { AtomicInteger() }
                 .incrementAndGet()
+            val bytes = if (plan.trackType == MediaTrackType.VIDEO) {
+                VIDEO_BYTES
+            } else {
+                AUDIO_BYTES
+            }
+            // Like a whole-file track, which knows its length before the first chunk arrives.
+            if (reportTotals) onProgress(DownloadProgress(0, bytes.size.toLong()))
             if (
                 failFirstAudio &&
                 plan.trackType == MediaTrackType.AUDIO &&
@@ -293,11 +333,6 @@ class AudioVideoMuxEngineTest {
                 )
             }
 
-            val bytes = if (plan.trackType == MediaTrackType.VIDEO) {
-                VIDEO_BYTES
-            } else {
-                AUDIO_BYTES
-            }
             destination.prepare(bytes.size.toLong())
             destination.open().use { output ->
                 output.write(0, bytes, 0, bytes.size)
