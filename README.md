@@ -10,9 +10,12 @@ YFT is an ad-free Android application for detecting, previewing and downloading 
   beta.2 phone test (browser crash, start page, Facebook, TikTok, YouTube messages), the
   copied-link flow ("Video you copied", Search to download, the floating Download button) and
   YouTube 480p–1080p with sound plus MP3. Notes and the phone checklist:
-  [`docs/release/1.0.0-beta.3.md`](docs/release/1.0.0-beta.3.md); causes and tasks:
-  [`docs/FIX_PLAN.md`](docs/FIX_PLAN.md).
-- Next: the owner's phone check of beta.3; no further tasks are planned.
+  [`docs/release/1.0.0-beta.3.md`](docs/release/1.0.0-beta.3.md); signed draft pre-release
+  2026-10-04.
+- Next: Phase 11 — download flow like Snaptube (browser follows in-page navigation, Facebook
+  pages, one download sheet, all Facebook qualities, the focused feed video, 2K/4K as WebM), then
+  a test-key preview APK for the owner and the signed `1.0.0-beta.4`. Plan:
+  [`docs/FIX_ADD_PLAN.md`](docs/FIX_ADD_PLAN.md).
 - Complete: Phases 0–10, 5E (YouTube by owner decision,
   [ADR-005](docs/decisions/ADR-005-youtube-owner-override.md)) and the UI redesign
   ([`docs/design/DESIGN-NOTES.md`](docs/design/DESIGN-NOTES.md)); see
@@ -56,7 +59,7 @@ Verified with JVM, Robolectric and fixture tests; on-device checks that the agen
 ## For agents
 
 Read [`AGENTS.md`](AGENTS.md) first. Work is planned task by task in
-[`docs/FIX_PLAN.md`](docs/FIX_PLAN.md); ready-to-paste prompts are in
+[`docs/FIX_ADD_PLAN.md`](docs/FIX_ADD_PLAN.md); ready-to-paste prompts are in
 [`docs/prompts/`](docs/prompts/README.md) (start with `00_NEXT_TASK.md`). Development happens on
 `work/phase-*` branches with a remote checkpoint (`scripts/checkpoint.sh`) after every task; local
 commits and stashes are not handoffs.

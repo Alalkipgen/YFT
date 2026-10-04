@@ -2,167 +2,52 @@
 
 ## Current handoff (2026-10-04)
 
-- **Phase:** 8–10 complete on the branch (T01–T18; T10 and T15 skipped by the owner); T19
-  releases `1.0.0-beta.3`. Phone checks: FIX_PLAN §8 and [`release/1.0.0-beta.3.md`](release/1.0.0-beta.3.md). Plan, status board and decisions:
-  [`FIX_PLAN.md`](FIX_PLAN.md). Prompts: [`prompts/`](prompts/README.md).
-- **Branch:** `work/phase-8-field-fixes`, created from `main` at `28930cf`.
-- **Releases:** `1.0.0-beta.1` published 2026-10-02. `1.0.0-beta.2` (versionCode 2) is a signed
-  draft pre-release: tag `v1.0.0-beta.2` on `39ea049`, `video-downloader-1.0.0-beta.2.apk`
-  3,376,449 bytes, SHA-256 `3f5b4c74b02e61bf2572a7248aef3a35b92ece3c6f7cf8e0770bc661cee53a95`,
-  certificate SHA-256
+- **Phase:** 11 — download flow like Snaptube. Plan, status board, decisions and findings:
+  [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md); one prompt per task in [`prompts/`](prompts/README.md).
+  Order P0 → P1 → … → P6 → P7 (test-key preview APK) → owner phone test → P8 (signed
+  `1.0.0-beta.4`). P0 (plan and docs) is DONE.
+- **Branch:** `work/phase-11-download-flow`, created from `main` at `2f6284f`.
+- **Releases:** `1.0.0-beta.1` published 2026-10-02; `1.0.0-beta.2` signed draft 2026-10-03 (tag
+  `v1.0.0-beta.2` on `39ea049`). `1.0.0-beta.3` (versionCode 3) completes Phases 8–10: `main`
+  fast-forwarded to `2f6284f`, tag `v1.0.0-beta.3`, Release draft run
+  https://github.com/Alalkipgen/YFT/actions/runs/37204457527 → draft pre-release with
+  `video-downloader-1.0.0-beta.3.apk` 6,334,176 bytes, SHA-256
+  `8fe466f17b62e88cdd5deb08482f7dc4c70a1a3dba7182bf94b93c6d1604e955`, certificate SHA-256
   `3A:EB:30:64:91:E2:DD:6F:F7:6D:C5:A8:68:E6:FC:C9:D3:30:BB:99:85:BF:4D:15:B3:4A:67:04:EC:78:98:8F`
-  (same key as beta.1).
-- **Owner's phone test of beta.2 (2026-10-03):** P1 a public Facebook reel asks to sign in; P2 the
-  empty browser hides the address bar; P3 every page load in the browser closes the app; P4 YouTube
-  fails with a sign-in message; P5 a TikTok video is found but the download fails. Causes with
-  evidence: FIX_PLAN §4 (F1–F8).
-- **Owner change (2026-10-03, recorded at his request):** rules and policy changed —
-  [ADR-006](decisions/ADR-006-owner-override-any-working-method.md) allows any working technique
-  for public videos (device clients, PO tokens, bot-check workarounds, the browser session); DRM,
-  paid, private and age-restricted content stay out. D2 = A + B + C. T10 and T15 are SKIPPED: no
-  merge or release between phases; all tasks stay on `work/phase-8-field-fixes`. After T19: merge
-  into `main`, push, tag `v1.0.0-beta.3` and release the APK signed with the release key
-  (approved for T19 only). Order: T16 → T17 → T09 → T12 → T11 → T13 → T14 → T18 → T19, task
-  after task without waiting.
-- **Owner delegation (2026-10-03, later):** "D1 and D3 — do as you see fit; do not stop until
-  everything is finished; commit and push after every task." D1 = YES and D3 = YES (FIX_PLAN §3);
-  no task waits for the owner any more.
-- **Next action — agent:** T19 in progress (2026-10-04): version `1.0.0-beta.3` (versionCode 3)
-  and the notes are committed; next CI → merge into `main` → tag `v1.0.0-beta.3` → signed draft
-  release ([`prompts/T19-release-beta5.md`](prompts/T19-release-beta5.md)). T18 is OWNER CHECK
-  (2026-10-04): MP3 audio with LAME. T14 is OWNER CHECK (2026-10-04):
-  floating Download button in the browser. T13 is OWNER
-  CHECK (2026-10-04): Search to download. T11 is OWNER CHECK (2026-10-04): copied links are checked when YFT opens. T12 is OWNER CHECK (2026-10-04): "Video you copied" sheet. T09 is OWNER CHECK (2026-10-04): Your sites defaults YouTube, Facebook and
-  TikTok with logos. T17 is OWNER CHECK (2026-10-04): YouTube 480p/720p/1080p rows download a
-  video-only MP4 and an M4A and merge them on the phone (**Video + audio** chip). T16 is OWNER
-  CHECK: device clients (`VISIONOS`, `ANDROID`, yt-dlp 2026.08.19), BotGuard PO tokens in an
-  offscreen WebView and browser **Try again**/auto-retry after playback (ADR-006 §
-  Implementation). T08 is DONE (CI green: checkpoint
-  https://github.com/Alalkipgen/YFT/actions/runs/37159270955, emulator
-  https://github.com/Alalkipgen/YFT/actions/runs/37159270920); T07 is OWNER CHECK (TikTok Home
-  and browser download/playback on the phone); T06 is OWNER CHECK (Facebook Home
-  download/playback on the phone); T05 is DONE; T04 is OWNER CHECK: final tests, all 9
-  individually inspected renders and the actual release debug-action guard pass.
-- **Next action — owner:** phone checks from the `yft-debug-apk` builds (FIX_PLAN §8); for T18
-  Video you copied or Download as → MP3 → it plays in another app; for T14
-  open a video page in the browser → Mint Download button → Video you copied or Found; for T13
-  Home › Search to download: words → YouTube/web rows, a link opens, View sites; for T11
-  copy a YouTube link, open YFT → it is looked up; Settings switch off → nothing read; for T12
-  paste a YouTube link → Go → the sheet shows Music/Fast/High → Download → it plays; for T09
-  Home shows YouTube, Facebook and TikTok with logos and his YouTube is not duplicated; for T17
-  download a YouTube 720p **Video + audio** row — the MP4 plays with sound; for T16
-  paste two YouTube links on Home (found → download plays, or **Copy details**), and play a
-  bot-checked video in YFT's browser (it retries by itself, or tap **Try again**). beta.2 stays a
-  draft; the T19 release replaces it.
-- **T01 validation (2026-10-03):** core-browser 53 tests, app 386 (41 renders skipped), 0 failures;
-  lint 0 errors, 83 existing warnings. The strict off-main regression failed on the old code and
-  passed on the fix. Use the memory-safe command in `TEST_MATRIX.md` on this 4 GiB sandbox.
-  Phone check: Your sites, Open in browser and typed Go load without closing the app.
-- **T01 CI:** `7179637` passed the full checkpoint workflow:
-  https://github.com/Alalkipgen/YFT/actions/runs/37139803672 (`yft-debug-apk`).
-- **T02 implementation:** instrumentation APK compiled; app 386 tests, 0 failures, lint 0 errors
-  (95 warnings); diagnostic/collector tests 10/10 and workflow/collector lint pass.
-  First emulator run on `8151813` passed 3 tests with 0 fatal exceptions but failed collection:
-  https://github.com/Alalkipgen/YFT/actions/runs/37141758594. Keep APKs installed until pull,
-  then uninstall; regression FAILED on the old collector, PASSED on the repair.
-- **T02 CI GREEN (`e9e1a09`):** https://github.com/Alalkipgen/YFT/actions/runs/37143005734 —
-  3/3 real-WebView tests, 0 fatal exceptions, 3 required PNGs collected. Debug APK:
-  https://github.com/Alalkipgen/YFT/actions/runs/37143005667. Native PNG download needs
-  authentication (HTTP 401); no pixel-review claim. Empty-page controls pass on API 34;
-  loaded/found address bounds are missing from UIAutomator, so T03 must retain field semantics.
+  (same key as beta.1 and beta.2). Notes: [`release/1.0.0-beta.3.md`](release/1.0.0-beta.3.md).
+- **Owner's phone test of beta.3 (2026-10-04):** FIX_ADD_PLAN §2 — the browser's Download button
+  does not follow a YouTube video opened inside the page, a Facebook page shows black, the
+  download choices are split, Facebook shows only some qualities, and 2K/4K are missing.
+- **Owner instruction (2026-10-04):** "Do P0 first, then P1; don't stop, don't ask." Continue P1 →
+  P7 task after task with a checkpoint push and a short Burmese report after each.
+- **Next action — agent:** P1 — the browser follows in-page navigation
+  ([`prompts/P1-browser-spa-navigation.md`](prompts/P1-browser-spa-navigation.md)).
+- **Next action — owner:** publish the beta.3 draft when ready; phone checks per task from the
+  `yft-debug-apk` builds (FIX_ADD_PLAN §6); the P7 preview APK installs next to the release app.
+- **Earlier handoffs:** the Phases 8–10 task log (T01–T19 validation, CI runs, decisions) is in Git
+  history: `git show 2f6284f:docs/HANDOFF.md` and `git show 2f6284f:docs/FIX_PLAN.md`.
 
-- **T03 OWNER CHECK (`9be6b43`):** final core-browser 53/app 405 (45 render skips),
-  0 failures/errors, lint 0 errors/95 warnings; instrumentation APK compiled. Empty-surface
-  and 5 px largest-text count regressions failed on old code and pass on the fix.
-  All 8 final browser PNGs passed individual visual inspection after the heading repair.
-  Native CI GREEN: https://github.com/Alalkipgen/YFT/actions/runs/37146164024 — 3/3 tests,
-  0 fatal exceptions, 3 PNGs; empty native WebView absent, Example Domain content loaded,
-  loaded/found address bounds restored above the WebView. Debug APK:
-  https://github.com/Alalkipgen/YFT/actions/runs/37146164049. Phone checks and native pixel
-  review remain; artifact download still requires authentication.
+## Known limitations (beta.3)
 
-- **T04 OWNER CHECK:** local no-backup 64 KiB crash report, previous-handler delegation,
-  About manual View/Copy/Share/Delete, debug-only confirmed long press, release DEX guard,
-  optional adapter failure steps and memory-only Home Copy details. Final tests: core-model 35,
-  extractor-api 24, extractor-sites 91, app 434 (54 render skips), 0 failures/errors; app lint
-  0 errors/95 warnings; instrumentation APK compiled. Python 13/13, shell checks and new Kotlin
-  line audit pass. Copy details regression failed old/passes fixed. All 9 final native-canvas
-  PNGs pass individual visual inspection; 200% Home actions wrap, and dialog fontScale is real.
-  Separate final unsigned release build passes metadata/alignment/debug-action checks; not
-  installable or published. Final ce881f7 CI GREEN: emulator
-  https://github.com/Alalkipgen/YFT/actions/runs/37151155280 (3 tests, 0 failures/fatal exceptions)
-  and checkpoint/debug APK https://github.com/Alalkipgen/YFT/actions/runs/37151155259.
-  Phone: debug About version long press → confirm crash → restart → View/Copy/Share/Delete;
-  on an unexpected app closure, explicitly Share the local report. No automatic upload.
-
-- **T05 DONE:** shared honest desktop YFT identity, navigation-only header defaults, no borrowed
-  browser cookies, and the same identity on direct/scanned candidates. JSON/API and browser
-  session headers are unchanged. Old non-null-UA regression failed, fixed passes. Full tests:
-  core-model 38, core-browser 54, extractor-api 24, extractor-generic 7, extractor-sites 95,
-  app 436 (54 render skips), 0 failures/errors; lint 0 errors/95 warnings; instrumentation APK
-  compiled; Python 22/22, shell/style checks pass. Public live check: HTTP 200 on
-  www.facebook.com/reel/1603698891196107/, 609875 bytes, HD marker present, no cookies or query
-  output. This proves page delivery, not Facebook extraction/download (T06). No phone check yet.
-  cbc92e5 CI GREEN: emulator https://github.com/Alalkipgen/YFT/actions/runs/37152854933 and
-  checkpoint/debug APK https://github.com/Alalkipgen/YFT/actions/runs/37152854989.
-- **T06 OWNER CHECK:** Facebook public reels no longer fail as DRM when `drm_info` carries only a
-  certificate; licence maps, graph licence URIs and explicit flags still block. Share redirects,
-  single entity decoding, the Facebook suffix trim and DASH/rendition-only heights are tested.
-  The old certificate-only regression failed, fixed passes. Full tests: extractor-api 26,
-  extractor-sites 109 (110 after the og:image fix), app 437 (54 render skips), 0 failures;
-  lint 0 errors/95 warnings; instrumentation APK compiled. Live: the owner's share link parsed
-  to HD, SD and DASH; ranged SD GET 206. Phone: paste the link on Home → download → it plays.
-  af55f34 CI GREEN: checkpoint/debug APK https://github.com/Alalkipgen/YFT/actions/runs/37155542368
-  and emulator https://github.com/Alalkipgen/YFT/actions/runs/37155542372.
-- **T07 OWNER CHECK:** a Home lookup keeps the cookies its own responses set (domain-checked,
-  in memory only, no cookie jar). Without a WebView cookie, TikTok media gets the page's
-  `tiktok.com` cookies that a browser would send to that media address; the browser path keeps
-  the WebView cookie, and downloads still send cookies only to the media URL's own origin.
-  The old code failed the regression, fixed passes. Full tests: extractor-api 29,
-  extractor-sites 113, core-download 81, app 439 (54 render skips), 0 failures; lint 0
-  errors/95 warnings; instrumentation APK compiled. Live: the public scout2015 video gave 5
-  candidates; ranged media GET 206 with the cookies, 403 without. Phone: paste a TikTok link →
-  download → it plays; the same from the browser. ba165c5 CI GREEN: checkpoint/debug APK
-  https://github.com/Alalkipgen/YFT/actions/runs/37156848673 and emulator
-  https://github.com/Alalkipgen/YFT/actions/runs/37156848739.
-- **T08 DONE:** YouTube's "confirm you're not a bot" is `BOT_CHECK` (not definite, no
-  generic fallback) with the message to open the video in YFT's browser, let it play, then tap
-  Download; real sign-in, age and private verdicts are unchanged. SABR-only answers are
-  NO_MEDIA_FOUND with "SABR only". Copy details lists each client asked (name, status, reason,
-  formats with URLs, protected count, SABR flag, outcome), sanitized. The old code failed 8 tests;
-  fixed: extractor-api 29, extractor-sites 123, app 441 (54 render skips), lint 0 errors. Live
-  (sandbox IP): dQw4w9WgXcQ needs the player script (WEB: 1 protected format + SABR, embedded
-  refused 152-18); aqz-KE-bpKQ gets the bot check and the new message. aa915ff CI GREEN
-  (links above). The owner then allowed working around bot checks (ADR-006); that is T16.
-- **T16 OWNER CHECK:** one client chain (ADR-006 § Implementation): watch page → `VISIONOS`,
-  `ANDROID` (yt-dlp 2026.08.19, no cookie) → embedded → the page's client with the session and
-  BotGuard PO tokens (player token bound to the video; `pot=` bound as the page says) → `MWEB`.
-  The token host is an offscreen WebView on the app's origin (strict CSP, no cookies); the app
-  calls the attestation endpoints itself. The browser offers **Try again** on a bot check and
-  retries once by itself after the page's player streams. Full tests: extractor-api 32, extractor-sites 149, app 465 (54 render skips), 0 failures; lint 0 errors/95 warnings; instrumentation APK compiled. Live (sandbox
-  IP): visionOS/Android/MWEB answer `dQw4w9WgXcQ`; `aqz-KE-bpKQ` stays bot-checked even with a
-  minted token; `verify-youtube-potoken.mjs` minted a token for player 8ab5c328 with 0 page
-  requests; the solver passed 34 vectors.
-
-## Known limitations (beta.2)
-
-- The in-app browser closes the app on every page load (T01) and hides its address bar while
-  empty (T03).
-- Home lookups: Facebook public reels hit a login wall (T05, T06), TikTok media answers 403
-  without TikTok's cookies (T07), YouTube answers bot checks and SABR-only streams (T08, T16).
-- YouTube offers progressive MP4 (usually up to 360p) plus M4A audio; merged HD needs T17.
+- The browser's Download button follows only full page loads, not videos opened inside a page
+  (P1); some Facebook pages show black in the browser (P2).
+- Facebook offers only the qualities in the page's progressive and DASH lists (P4); YouTube stops
+  at 1080p AVC (2K/4K WebM is P6).
+- YouTube lookups from datacenter networks can stay bot-checked; the phone on a home or mobile
+  network is the real test.
 - No playlists or batch downloads, background playback or folder export; an expired link cannot
   be refreshed in place after the process was killed.
 
 ## Device testing
 
 The agent sandbox has no emulator (`/dev/kvm` is missing) and Robolectric does not run a real
-WebView. Owner checks are listed per task and per beta in FIX_PLAN §8; device-only checks are in
+WebView. Owner checks are listed per task in FIX_ADD_PLAN §6; device-only checks are in
 [`TEST_MATRIX.md`](TEST_MATRIX.md). Every green checkpoint run uploads a debug APK
-(FIX_PLAN §0.6). T02 adds an emulator job on GitHub Actions.
+(FIX_ADD_PLAN §0.6), and an emulator smoke job runs on GitHub Actions.
 
 ## History
 
 Detailed handoffs for Phases 0–7, 5E and the UI redesign (work done, validation, decisions and
 checkpoint commits) were condensed on 2026-10-03. Read them with
-`git show 28930cf:docs/HANDOFF.md`.
+`git show 28930cf:docs/HANDOFF.md`. The Phases 8–10 log was condensed on 2026-10-04:
+`git show 2f6284f:docs/HANDOFF.md`.

@@ -7,6 +7,13 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ## [Unreleased]
 
+### Changed
+
+- Documentation: `docs/FIX_ADD_PLAN.md` plans Phase 11 (download flow like Snaptube) task by task
+  after the beta.3 phone test, with one prompt per task (P1–P8) and a generic master prompt in
+  `docs/prompts/`. The Phases 8–10 plan and the T01–T19 prompts were removed (they stay in Git
+  history).
+
 ## [1.0.0-beta.3] - 2026-10-04
 
 ### Added

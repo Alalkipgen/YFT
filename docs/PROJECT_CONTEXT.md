@@ -75,14 +75,12 @@ Phases 0–7 are complete: discovery, foundation and CI, browser and generic det
 variants, download engines and recovery, site adapters (plus 5E, YouTube by owner decision),
 hardening and UI polish (plus the UI redesign), and the signed beta. See `docs/PHASE_STATUS.md`.
 
-Planned, task by task in `docs/FIX_PLAN.md`:
+Phases 8–10 are complete and released as the `1.0.0-beta.3` draft (2026-10-04): field fixes from
+the beta.2 phone test, the copied-link flow ("Video you copied" sheet, Search to download, the
+floating Download button) and formats (YouTube client strategy, merged video and audio, MP3).
 
-- Phase 8 — Field fixes from the beta.2 phone test
-- Phase 9 — Copied-link flow ("Video you copied" sheet, Search to download, floating Download
-  button)
-- Phase 10 — Formats and YouTube (client strategy, merged video and audio, MP3)
-- One signed release after Phase 10 (T19 → `1.0.0-beta.3`): the owner skipped the beta.3 and
-  beta.4 releases (T10, T15) on 2026-10-03
+Planned, task by task in `docs/FIX_ADD_PLAN.md`: Phase 11 — download flow like Snaptube (P1–P6),
+a test-key preview APK (P7) and the signed `1.0.0-beta.4` (P8).
 
 ## Out of scope for the MVP
 

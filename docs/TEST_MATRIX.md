@@ -574,11 +574,11 @@ repository that asks each client and prints only verdicts and counts.
 | Check | Result |
 | --- | --- |
 | Starting state | PASS — T18 checkpoint `0ec1e46`, CI green (checkpoint https://github.com/Alalkipgen/YFT/actions/runs/37199023973, emulator https://github.com/Alalkipgen/YFT/actions/runs/37199023965); T09 and T11–T18 OWNER CHECK, T10 and T15 SKIPPED |
-| Version | `yft.versionName=1.0.0-beta.3`, `yft.versionCode=3`; CHANGELOG `[1.0.0-beta.3] - 2026-10-04`; notes `docs/release/1.0.0-beta.3.md` with the three FIX_PLAN §8 lists |
+| Version | `yft.versionName=1.0.0-beta.3`, `yft.versionCode=3`; CHANGELOG `[1.0.0-beta.3] - 2026-10-04`; notes `docs/release/1.0.0-beta.3.md` with the three phone-check lists |
 | Local validation | PASS (2026-10-04, same version and docs change, run before a sandbox reset) — app 542 (66 skipped), 0 failures; lint 0 errors / 95 warnings; `:app:assembleRelease` OK; `verify-release-apk.sh --allow-unsigned --expected-version 1.0.0-beta.3`: unsigned APK 6,317,824 bytes, versionCode 3, minSdk 24, targetSdk 35, not debuggable, zip-aligned, no debug crash action |
-| CI | Checkpoint and emulator runs on the T19 commit (recorded at DONE) |
-| Signed release | `release-draft.yml` on tag `v1.0.0-beta.3`: lint, unit tests, signed minified build, signature, certificate and checksum checks, draft pre-release (recorded at DONE) |
-| Owner check | FIX_PLAN §8 / release notes Phone checklist: all three lists with the signed APK |
+| CI | PASS — checkpoint https://github.com/Alalkipgen/YFT/actions/runs/37203631049 and https://github.com/Alalkipgen/YFT/actions/runs/37203674358, emulator https://github.com/Alalkipgen/YFT/actions/runs/37203631028 (`b0abe05`, `2f6284f`) |
+| Signed release | `release-draft.yml` on tag `v1.0.0-beta.3`: lint, unit tests, signed minified build, signature, certificate and checksum checks, draft pre-release — PASS, https://github.com/Alalkipgen/YFT/actions/runs/37204457527: `video-downloader-1.0.0-beta.3.apk` 6,334,176 bytes, SHA-256 `8fe466f17b62e88cdd5deb08482f7dc4c70a1a3dba7182bf94b93c6d1604e955`, certificate `3A:EB:30:64:…:EC:78:98:8F` (same key as beta.1/beta.2) |
+| Owner check | Release notes Phone checklist: all three lists with the signed APK |
 
 ## Runtime tests still requiring a device/emulator
 

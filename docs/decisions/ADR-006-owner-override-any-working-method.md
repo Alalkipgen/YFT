@@ -3,7 +3,8 @@
 - Status: Accepted. Supersedes item 4 ("What YFT does not do") of
   [ADR-005](ADR-005-youtube-owner-override.md) and the limits on client identities, proof-of-origin
   tokens, SABR and internal APIs in [YOUTUBE_RISK_REVIEW.md](../YOUTUBE_RISK_REVIEW.md),
-  [SUPPORT_MATRIX.md](../SUPPORT_MATRIX.md) and [FIX_PLAN.md](../FIX_PLAN.md) §0.2.
+  [SUPPORT_MATRIX.md](../SUPPORT_MATRIX.md) and the former `FIX_PLAN.md` §0.2 (Git history; now
+  [FIX_ADD_PLAN.md](../FIX_ADD_PLAN.md) §0.2).
 - Date: 2026-10-03
 - Decided by: the project owner
 
@@ -23,7 +24,7 @@ video for a moment and then downloads can be added too. Do all three, whatever w
 
 The earlier rules (ADR-005 item 4) forbade proof-of-origin (PO) token generation, app or device
 client identities and SABR, and reported YouTube's bot check without working around it. The field
-test (FIX_PLAN F4) and T08's lookup details show that most YouTube lookups fail under those rules.
+test (former FIX_PLAN F4, Git history) and T08's lookup details show that most YouTube lookups fail under those rules.
 
 ## Decision
 
@@ -109,4 +110,4 @@ answered for a public video, and `MWEB` downloads succeeded with and without a m
 video that got "confirm you're not a bot" got it from every client even with a minted token, so
 the bot check on that network is decided by the IP address, not by the token; a phone on a home
 or mobile network is the real test. Not done: the page player's own token is not captured from
-the browser (FIX_PLAN §9).
+the browser ([FIX_ADD_PLAN.md](../FIX_ADD_PLAN.md) §7 Backlog).
