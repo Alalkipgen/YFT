@@ -10,11 +10,15 @@ import com.alal.yft.core.model.media.PageNavigationHeaders
 import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.NoPlayerScriptRunner
+import com.alal.yft.extractor.api.NoPoTokenProvider
 import com.alal.yft.extractor.api.PlayerScriptChallenge
 import com.alal.yft.extractor.api.PlayerScriptChallengeKind
 import com.alal.yft.extractor.api.PlayerScriptRequest
 import com.alal.yft.extractor.api.PlayerScriptResult
 import com.alal.yft.extractor.api.PlayerScriptRunner
+import com.alal.yft.extractor.api.PoTokenProvider
+import com.alal.yft.extractor.api.PoTokenRequest
+import com.alal.yft.extractor.api.PoTokenResult
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionRequest
 import com.alal.yft.extractor.api.SiteExtractionResult
@@ -25,24 +29,37 @@ import java.net.URLDecoder
 /**
  * YouTube adapter for offline copies of videos the user can watch.
  *
- * It reads the watch page the user's browser receives, then asks YouTube's player endpoint the
- * way YouTube's own embedded player does. When the embedded player is refused, it falls back to
- * the response the watch page itself carries. The values YouTube's player computes for each
- * stream are computed by YouTube's own current player script through a [PlayerScriptRunner];
- * without one, such streams fail as [SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED].
+ * It reads the watch page the user's browser receives, then asks YouTube's player endpoint as a
+ * chain of clients, the order the owner chose in ADR-006 (D2 = A + B + C):
  *
- * There is no DRM handling, no age or content-gate acknowledgement, no proof-of-origin token and
- * no device impersonation. The user's cookie is sent only to YouTube's own pages, never to the
- * embedded player request and never to the media servers. A video the user cannot play fails
- * with a structured reason.
+ * 1. YouTube's own visionOS and Android apps (option B), whose streams carry direct addresses;
+ * 2. YouTube's embedded player, for videos their owners allow to be embedded;
+ * 3. the client the watch page itself runs, with the user's own session and, on its media
+ *    requests, the proof-of-origin token YouTube's web player would mint (option A);
+ * 4. YouTube's mobile site, when the page was the desktop site, which often streams only
+ *    through YouTube's SABR protocol.
+ *
+ * Downloads found along the way are combined, and the chain stops once it has a video with
+ * sound and an audio track. When a lookup meets YouTube's bot check, the user plays the video
+ * in YFT's browser and tries again there, so the lookup carries the browser's own session
+ * (option C). The values YouTube's player computes for a stream are computed by YouTube's own
+ * current player script through a [PlayerScriptRunner]; without one, such streams fail as
+ * [SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED].
+ *
+ * There is no DRM handling and no age-check bypass: a verdict about the video from the page's
+ * own client, such as private or age-restricted, ends the lookup before any other client is
+ * asked, and an age check from any other client leaves the answer to the user's own session.
+ * The user's cookie goes only to YouTube's own pages and to the clients that act for the page,
+ * never to a device or embedded client and never to the media servers.
  *
  * Every result carries lookup details: the watch page fetch and, for each client asked, its
  * name, YouTube's verdict and reason, how many formats had addresses and whether YouTube offered
- * only its SABR protocol. They hold no address, cookie or visitor data.
+ * only its SABR protocol. They hold no address, cookie, token or visitor data.
  */
 class YouTubeExtractor(
     private val http: ExtractorHttpClient,
     private val playerScripts: PlayerScriptRunner = NoPlayerScriptRunner,
+    private val poTokens: PoTokenProvider = NoPoTokenProvider,
     private val maxPageBytes: Long = DEFAULT_MAX_PAGE_BYTES,
     private val maxPlayerBytes: Long = DEFAULT_MAX_PLAYER_BYTES,
 ) : SiteExtractor {
@@ -51,6 +68,9 @@ class YouTubeExtractor(
     override val displayName: String = "YouTube"
 
     override fun identify(pageUrl: String): SitePageIdentity? = YouTubeUrls.identify(pageUrl)
+
+    override fun isPlayerMediaRequest(requestUrl: String): Boolean =
+        YouTubeUrls.isMediaServerRequest(requestUrl)
 
     override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
         require(request.identity.siteId == id) { "This adapter only handles YouTube identities" }
@@ -62,7 +82,7 @@ class YouTubeExtractor(
 
         val page = when (
             val result = http.get(
-                url = pageUrl,
+                url = YouTubeUrls.watchPageFetchUrl(videoId),
                 headers = pageHeaders(request.requestContext),
                 maxBodyBytes = maxPageBytes,
             )
@@ -88,54 +108,93 @@ class YouTubeExtractor(
         }
         if (inline == null) lookup.details += "watch page: no inline player response"
 
-        // A verdict about the video itself, such as private, removed or age-gated, ends the
-        // lookup: no other client is asked to unlock what the user's own session was refused.
-        if (inline is YouTubeParseResult.Failure && inline.definite) {
-            return lookup.failure(inline.reason)
-        }
-
-        val verdicts = Verdicts()
-
-        // The embedded player is asked first because its links need no proof-of-origin token.
-        // Its refusals describe the embed rather than the video, so they are never final here.
-        val embeddedClient = YouTubeClientProfiles.embedded(signals)
-        val embedded = askPlayer(embeddedClient, lookup)
-        attempt(Tier.FALLBACK, embedded, embeddedClient.label, lookup, verdicts)
-            ?.let { return it }
-
+        // The page's own client sees what the user's browser sees, so without an inline answer
+        // it is asked first. Its verdict about the video itself, such as private, removed or
+        // age-restricted, ends the lookup: no other client is asked to unlock what the user's
+        // own session was refused.
         val own = inline ?: askPlayer(pageClient, lookup)
         if (own is YouTubeParseResult.Failure && own.definite) {
             return lookup.failure(own.reason)
         }
         val ownLabel = if (inline != null) inlineLabel else pageClient.label
-        attempt(Tier.PAGE, own, ownLabel, lookup, verdicts)?.let { return it }
 
-        return lookup.failure(verdicts.final())
+        if (askFallbacks(signals, lookup)) return lookup.success()
+
+        collect(Tier.PAGE, pageClient, own, ownLabel, lookup)
+        if (lookup.offers.hasVideo) return lookup.success()
+
+        if (pageClient.clientName != MOBILE_CLIENT_NAME) {
+            val mobile = YouTubeClientProfiles.mobileWeb()
+            collect(Tier.PAGE, mobile, askPlayer(mobile, lookup), mobile.label, lookup)
+        }
+        return if (lookup.offers.isEmpty) {
+            lookup.failure(lookup.verdicts.final())
+        } else {
+            lookup.success()
+        }
     }
 
-    /** Turns one player response into candidates, or records why it produced none. */
-    private suspend fun attempt(
+    /**
+     * Asks the device clients, then the embedded player, and returns whether that was enough.
+     *
+     * Device clients answer with direct addresses that need neither the player script nor a
+     * token; they are asked until the lookup has a video with sound and an audio track. The
+     * embedded player ends this part once there is any video. What these clients refuse
+     * describes the client, so it is never final. An age check is the exception: only the
+     * user's own session may answer it, so no further client is asked to get around it and
+     * what earlier clients offered is dropped.
+     */
+    private suspend fun askFallbacks(signals: YouTubePageSignals, lookup: Lookup): Boolean {
+        val clients = YouTubeClientProfiles.DEVICE_CLIENTS +
+            YouTubeClientProfiles.embedded(signals)
+        for (client in clients) {
+            val parsed = askPlayer(client, lookup)
+            collect(Tier.FALLBACK, client, parsed, client.label, lookup)
+            if (parsed is YouTubeParseResult.Failure && parsed.ageCheck) {
+                lookup.offers.clear()
+                lookup.details += "${client.label}: age check, so only the user's session is asked"
+                return false
+            }
+            val enough = if (client.device != null) {
+                lookup.offers.isComplete
+            } else {
+                lookup.offers.hasVideo
+            }
+            if (enough) return true
+        }
+        return false
+    }
+
+    /** Adds one client's downloads to the lookup, or records why it produced none. */
+    private suspend fun collect(
         tier: Tier,
+        client: YouTubeClientProfile,
         parsed: YouTubeParseResult,
         label: String,
         lookup: Lookup,
-        verdicts: Verdicts,
-    ): SiteExtractionResult.Success? {
-        when (parsed) {
-            is YouTubeParseResult.Failure -> verdicts.record(tier, parsed.reason)
-            is YouTubeParseResult.Success -> when (val delivery = deliver(parsed.video, lookup)) {
-                is Delivery.Ready -> {
-                    lookup.details += "$label: ${delivery.candidates.size} downloads offered"
-                    return SiteExtractionResult.Success(delivery.candidates, lookup.safeDetails())
-                }
+    ) {
+        if (parsed is YouTubeParseResult.Failure) {
+            lookup.verdicts.record(tier, parsed.reason)
+            return
+        }
+        val video = (parsed as YouTubeParseResult.Success).video
+        when (val delivery = deliver(video, client, lookup)) {
+            is Delivery.Ready -> {
+                val added = lookup.offers.add(delivery.offers)
+                val noun = if (added == 1) "download" else "downloads"
+                lookup.details += "$label: $added $noun offered"
+            }
 
-                is Delivery.Blocked -> {
-                    lookup.details += "$label: no download (${delivery.reason})"
-                    verdicts.record(Tier.DELIVERY, delivery.reason)
-                }
+            // Streams that existed but could not become downloads say the most about this
+            // video; an answer without a usable stream describes only this client.
+            is Delivery.Blocked -> {
+                lookup.details += "$label: no download (${delivery.reason})"
+                lookup.verdicts.record(
+                    if (delivery.streamsFound) Tier.DELIVERY else tier,
+                    delivery.reason,
+                )
             }
         }
-        return null
     }
 
     /** Asks one client and records what it answered, never the answer itself. */
@@ -150,6 +209,7 @@ class YouTubeExtractor(
                 videoId = lookup.videoId,
                 visitorData = signals.visitorData,
                 signatureTimestamp = signals.signatureTimestamp,
+                poToken = if (client.usesPoToken) poToken(lookup, TokenUse.PLAYER) else null,
             ),
             headers = playerHeaders(client, lookup),
             maxBodyBytes = maxPlayerBytes,
@@ -169,12 +229,20 @@ class YouTubeExtractor(
         }
     }
 
-    private suspend fun deliver(video: YouTubeVideo, lookup: Lookup): Delivery {
+    private suspend fun deliver(
+        video: YouTubeVideo,
+        client: YouTubeClientProfile,
+        lookup: Lookup,
+    ): Delivery {
         val selected = select(video)
-        if (selected.isEmpty()) return Delivery.Blocked(SiteExtractionFailure.NO_MEDIA_FOUND)
+        if (selected.isEmpty()) {
+            return Delivery.Blocked(SiteExtractionFailure.NO_MEDIA_FOUND, streamsFound = false)
+        }
 
-        val prepared = selected.mapNotNull(::prepare)
-        if (prepared.isEmpty()) return Delivery.Blocked(SiteExtractionFailure.RESPONSE_CHANGED)
+        val prepared = selected.mapNotNull { stream -> prepare(stream, client) }
+        if (prepared.isEmpty()) {
+            return Delivery.Blocked(SiteExtractionFailure.RESPONSE_CHANGED, streamsFound = false)
+        }
 
         // Expired links are dropped before any script runs, so a stale page costs no work.
         val fresh = prepared
@@ -192,14 +260,77 @@ class YouTubeExtractor(
             }
         }
 
-        val candidates = fresh.mapNotNull { (pending, expiry) ->
-            finalUrl(pending, solved)
-                ?.let { url -> candidate(pending.stream, url, expiry, video, lookup) }
+        val addresses = fresh.mapNotNull { (pending, expiry) ->
+            finalUrl(pending, solved)?.let { url -> Triple(pending, url, expiry) }
         }
-        if (candidates.isEmpty()) {
+        if (addresses.isEmpty()) {
             return Delivery.Blocked(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED)
         }
-        return Delivery.Ready(candidates)
+        // The token is minted only once there is something to attach it to.
+        val token = if (client.usesPoToken) poToken(lookup, TokenUse.MEDIA) else null
+        val offers = addresses.map { (pending, url, expiry) ->
+            val mediaUrl = token?.let { YouTubeUrls.appendQueryParam(url, POT_PARAM, it) } ?: url
+            Offer(pending.stream, candidate(pending.stream, mediaUrl, expiry, video, lookup))
+        }
+        return Delivery.Ready(offers)
+    }
+
+    /**
+     * The proof-of-origin token for one use, minted at most once per binding and lookup.
+     *
+     * The player request's token is bound to the video. Media requests follow YouTube's own
+     * rule, read from the page: bound to the video when the page says so, otherwise to the
+     * signed-in account's data-sync identifier, or to the visitor data when signed out.
+     * Without a token the lookup continues, because YouTube still accepts some media requests
+     * without one; the details say why there was none, never the token.
+     */
+    private suspend fun poToken(lookup: Lookup, use: TokenUse): String? {
+        val signals = lookup.signals
+        val (binding, label) = when {
+            use == TokenUse.PLAYER || signals.contentBoundPoToken -> lookup.videoId to "video"
+            signals.loggedIn == true -> signals.dataSyncId to "account"
+            else -> signals.visitorData to "visitor"
+        }
+        if (binding.isNullOrBlank()) {
+            lookup.details += "proof of origin ($label): nothing to bind to"
+            return null
+        }
+        lookup.mintedTokens[binding]?.let { return it.token }
+        val playerId = signals.playerId
+        val token = when {
+            !poTokens.isAvailable ->
+                null.also { lookup.details += "proof of origin ($label): no host" }
+            playerId == null -> null.also {
+                lookup.details += "proof of origin ($label): no player version"
+            }
+
+            else -> when (
+                val result = poTokens.mint(
+                    PoTokenRequest(
+                        contentBinding = binding,
+                        playerScriptUrl = YouTubeUrls.playerScriptUrl(playerId),
+                        pageUrl = lookup.pageUrl,
+                    ),
+                )
+            ) {
+                is PoTokenResult.Minted -> result.token.takeIf(POT_VALUE::matches).also { valid ->
+                    lookup.details += if (valid != null) {
+                        "proof of origin ($label): minted"
+                    } else {
+                        "proof of origin ($label): unusable"
+                    }
+                }
+
+                PoTokenResult.Unavailable ->
+                    null.also { lookup.details += "proof of origin ($label): unavailable" }
+
+                is PoTokenResult.Failed -> null.also {
+                    lookup.details += "proof of origin ($label): failed (${result.reason})"
+                }
+            }
+        }
+        lookup.mintedTokens[binding] = MintedToken(token)
+        return token
     }
 
     /**
@@ -232,9 +363,10 @@ class YouTubeExtractor(
      *
      * A protected descriptor is a form-encoded document holding the media address, the value
      * the player must transform and the parameter that carries the result. Only HTTPS media
-     * addresses are accepted.
+     * addresses are accepted. A client that runs no player script, such as a device client,
+     * uses its addresses as YouTube sent them.
      */
-    private fun prepare(stream: YouTubeStream): PendingStream? {
+    private fun prepare(stream: YouTubeStream, client: YouTubeClientProfile): PendingStream? {
         val descriptor = stream.protectedDescriptor
         if (descriptor == null) {
             val url = stream.url ?: return null
@@ -243,7 +375,7 @@ class YouTubeExtractor(
                 baseUrl = url,
                 signatureInput = null,
                 signatureParam = DEFAULT_SIGNATURE_PARAM,
-                rateInput = rateInput(url),
+                rateInput = if (client.usesPlayerScript) rateInput(url) else null,
             )
         }
         val fields = formFields(descriptor)
@@ -381,31 +513,44 @@ class YouTubeExtractor(
         )
 
     /**
-     * Headers for the player request, matching what YouTube's own player sends.
+     * Headers for the player request, matching what that client's own player sends.
      *
-     * The embedded player is asked without the user's cookie, so a public embed request never
-     * carries the account identity.
+     * Device clients send their app's user agent and no referer. Only the clients that act for
+     * the page carry the user's cookie, with the authorization YouTube's web player adds for a
+     * signed-in session, so a device or embedded request never carries the account identity.
      */
     private fun playerHeaders(
         client: YouTubeClientProfile,
         lookup: Lookup,
     ): Map<String, String> = buildMap {
         val context = lookup.request.requestContext
-        context.userAgent?.takeIf(String::isNotBlank)?.let { put("User-Agent", it) }
+        (client.userAgent ?: context.userAgent?.takeIf(String::isNotBlank))
+            ?.let { put("User-Agent", it) }
         if (client.replaysSession) {
-            context.cookie?.takeIf(String::isNotBlank)?.let { put("Cookie", it) }
+            context.cookie?.takeIf(String::isNotBlank)?.let { cookie ->
+                put("Cookie", cookie)
+                putAll(
+                    YouTubeSessionAuth.headers(
+                        cookie = cookie,
+                        signals = lookup.signals,
+                        nowEpochSeconds = lookup.nowEpochMs / MILLIS_PER_SECOND,
+                    ),
+                )
+            }
         }
         put("Accept", "application/json")
         put("Accept-Language", ACCEPT_LANGUAGE)
         put("Origin", YOUTUBE_ORIGIN)
-        put(
-            "Referer",
-            if (client.thirdPartyEmbedUrl != null) {
-                YouTubeUrls.embedUrl(lookup.videoId)
-            } else {
-                lookup.pageUrl
-            },
-        )
+        if (client.device == null) {
+            put(
+                "Referer",
+                if (client.thirdPartyEmbedUrl != null) {
+                    YouTubeUrls.embedUrl(lookup.videoId)
+                } else {
+                    lookup.pageUrl
+                },
+            )
+        }
         put("X-YouTube-Client-Name", client.clientNameId.toString())
         put("X-YouTube-Client-Version", client.clientVersion)
         lookup.signals.visitorData?.takeIf(String::isNotBlank)
@@ -438,13 +583,78 @@ class YouTubeExtractor(
         /** Steps in the order they happened; sanitized before they leave the adapter. */
         val details = mutableListOf<String>()
 
+        val offers = Offers()
+
+        val verdicts = Verdicts()
+
+        /** Tokens by binding, kept once asked for, so one lookup mints each at most once. */
+        val mintedTokens = mutableMapOf<String, MintedToken>()
+
         val nowEpochMs: Long
             get() = request.nowEpochMs
 
         fun safeDetails(): List<String> = DiagnosticTextSanitizer.details(details)
 
+        fun success(): SiteExtractionResult.Success =
+            SiteExtractionResult.Success(offers.candidates(), safeDetails())
+
         fun failure(reason: SiteExtractionFailure): SiteExtractionResult.Failure =
             SiteExtractionResult.Failure(reason, details = safeDetails())
+    }
+
+    /** A token, or the fact that none could be had, for the rest of one lookup. */
+    private class MintedToken(val token: String?) {
+        override fun toString(): String = "MintedToken(present=${token != null})"
+    }
+
+    /** What a token is attached to: the player request, or the media addresses. */
+    private enum class TokenUse { PLAYER, MEDIA }
+
+    /** One download and the stream it came from. */
+    private class Offer(val stream: YouTubeStream, val candidate: MediaCandidate)
+
+    /**
+     * Downloads combined across clients.
+     *
+     * The first client to offer a progressive stream of a given format and the first to offer
+     * an audio track win, so the order of the chain decides which address is shipped.
+     */
+    private class Offers {
+        private val videos = LinkedHashMap<Int, Offer>()
+        private var audio: Offer? = null
+
+        val hasVideo: Boolean
+            get() = videos.isNotEmpty()
+
+        /** A video with sound and an audio track: what one lookup can offer before T17. */
+        val isComplete: Boolean
+            get() = hasVideo && audio != null
+
+        val isEmpty: Boolean
+            get() = videos.isEmpty() && audio == null
+
+        /** Forgets everything offered so far. */
+        fun clear() {
+            videos.clear()
+            audio = null
+        }
+
+        /** Adds what is new and returns how many downloads that was. */
+        fun add(offers: List<Offer>): Int = offers.count { offer ->
+            when {
+                offer.stream.hasVideo -> videos.putIfAbsent(offer.stream.itag, offer) == null
+                audio == null -> {
+                    audio = offer
+                    true
+                }
+
+                else -> false
+            }
+        }
+
+        fun candidates(): List<MediaCandidate> =
+            videos.values.sortedByDescending { it.stream.height ?: 0 }.map(Offer::candidate) +
+                listOfNotNull(audio?.candidate)
     }
 
     private class PendingStream(
@@ -471,9 +681,13 @@ class YouTubeExtractor(
     }
 
     private sealed interface Delivery {
-        class Ready(val candidates: List<MediaCandidate>) : Delivery
+        class Ready(val offers: List<Offer>) : Delivery
 
-        class Blocked(val reason: SiteExtractionFailure) : Delivery
+        /** [streamsFound] is false when the answer held no stream a download could use. */
+        class Blocked(
+            val reason: SiteExtractionFailure,
+            val streamsFound: Boolean = true,
+        ) : Delivery
     }
 
     private sealed interface Solved {
@@ -484,10 +698,10 @@ class YouTubeExtractor(
 
     /** Where a failure came from, in increasing order of how much it says about the video. */
     private enum class Tier {
-        /** The embedded player, which refuses videos that merely disallow embedding. */
+        /** Device clients and the embedded player, whose refusals describe themselves. */
         FALLBACK,
 
-        /** The watch page's own client, which sees what the user's browser sees. */
+        /** The clients that act for the page, which see what the user's browser sees. */
         PAGE,
 
         /** A response with streams that still could not become a download. */
@@ -498,13 +712,20 @@ class YouTubeExtractor(
      * Keeps the most informative failure seen so far.
      *
      * A failure from a later, more authoritative source wins; within one source, a specific
-     * reason wins over changed markup, so the user is told the real reason.
+     * reason wins over changed markup, so the user is told the real reason. A bot check counts
+     * as the page's own verdict wherever it came from, because playing the video in YFT's
+     * browser is what the user can do about it.
      */
     private class Verdicts {
         private var tier: Tier? = null
         private var reason: SiteExtractionFailure? = null
 
-        fun record(from: Tier, failure: SiteExtractionFailure) {
+        fun record(source: Tier, failure: SiteExtractionFailure) {
+            val from = if (failure == SiteExtractionFailure.BOT_CHECK) {
+                maxOf(source, Tier.PAGE)
+            } else {
+                source
+            }
             val currentTier = tier
             val currentReason = reason
             val wins = currentTier == null || currentReason == null || from > currentTier ||
@@ -521,10 +742,11 @@ class YouTubeExtractor(
             SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED,
             SiteExtractionFailure.EXPIRED_LINK,
             SiteExtractionFailure.RATE_LIMITED,
-            -> 3
+            -> 4
+
+            SiteExtractionFailure.BOT_CHECK -> 3
 
             SiteExtractionFailure.LOGIN_REQUIRED,
-            SiteExtractionFailure.BOT_CHECK,
             SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
             SiteExtractionFailure.GEO_RESTRICTED,
             SiteExtractionFailure.DRM_PROTECTED,
@@ -546,11 +768,13 @@ class YouTubeExtractor(
 
         private const val YOUTUBE_ORIGIN = "https://www.youtube.com"
         private const val ACCEPT_LANGUAGE = "en-US,en;q=0.9"
+        private const val MOBILE_CLIENT_NAME = "MWEB"
         private const val VIDEO_MP4 = "video/mp4"
         private const val AUDIO_MP4 = "audio/mp4"
         private const val AAC_CODEC_PREFIX = "mp4a."
         private const val RATE_PARAM = "n"
         private const val EXPIRE_PARAM = "expire"
+        private const val POT_PARAM = "pot"
         private const val DEFAULT_SIGNATURE_PARAM = "signature"
         private const val FAILED_RATE_PREFIX = "enhanced_except"
         private const val MIN_SIGNATURE_LENGTH = 8
@@ -563,5 +787,8 @@ class YouTubeExtractor(
         private val VIDEO_ID = Regex("^[A-Za-z0-9_-]{11}$")
         private val SIGNATURE_PARAM = Regex("^[A-Za-z]{1,16}$")
         private val RATE_OUTPUT = Regex("^[A-Za-z0-9_-]{2,128}$")
+
+        /** A minted token is URL-safe base64; anything else is not attached to an address. */
+        private val POT_VALUE = Regex("^[A-Za-z0-9_-]{16,4096}={0,2}$")
     }
 }

@@ -1,0 +1,54 @@
+{
+  "responseContext": {"visitorData": "CgtGaXh0dXJlVmlzaXRvcijAgICABg%3D%3D"},
+  "playabilityStatus": {"status": "OK", "playableInEmbed": true},
+  "streamingData": {
+    "expiresInSeconds": "21540",
+    "formats": [
+      {
+        "itag": 18,
+        "url": "https://rr4---sn-android.googlevideo.example-cdn.test/videoplayback?expire=4102444800\u0026ei=QW5kcm9pZA\u0026itag=18\u0026source=youtube\u0026mime=video%2Fmp4\u0026ratebypass=yes\u0026c=ANDROID\u0026sig=AJfixtureAndroidSig\u0026lsig=AFandroid",
+        "mimeType": "video/mp4; codecs=\"avc1.42001E, mp4a.40.2\"",
+        "bitrate": 444226,
+        "width": 640,
+        "height": 360,
+        "qualityLabel": "360p",
+        "audioQuality": "AUDIO_QUALITY_LOW",
+        "audioSampleRate": "44100",
+        "audioChannels": 2
+      }
+    ],
+    "adaptiveFormats": [
+      {
+        "itag": 136,
+        "mimeType": "video/mp4; codecs=\"avc1.4d401f\"",
+        "bitrate": 1058310,
+        "width": 1280,
+        "height": 720,
+        "contentLength": "26455880",
+        "qualityLabel": "720p"
+      },
+      {
+        "itag": 140,
+        "mimeType": "audio/mp4; codecs=\"mp4a.40.2\"",
+        "bitrate": 130677,
+        "contentLength": "3449447",
+        "audioQuality": "AUDIO_QUALITY_MEDIUM",
+        "audioSampleRate": "44100",
+        "audioChannels": 2
+      }
+    ],
+    "serverAbrStreamingUrl": "https://rr4---sn-android.googlevideo.example-cdn.test/videoplayback?expire=4102444800\u0026sabr=1"
+  },
+  "videoDetails": {
+    "videoId": "Yft0Fixture",
+    "title": "Fixture video title",
+    "lengthSeconds": "212",
+    "author": "Fixture Channel",
+    "isLiveContent": false,
+    "thumbnail": {
+      "thumbnails": [
+        {"url": "https://i.ytimg.example-cdn.test/vi/Yft0Fixture/hqdefault.jpg", "width": 480, "height": 360}
+      ]
+    }
+  }
+}

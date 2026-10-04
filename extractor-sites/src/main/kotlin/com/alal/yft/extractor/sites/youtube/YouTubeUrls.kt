@@ -26,6 +26,8 @@ internal object YouTubeUrls {
 
     private const val ORIGIN = "https://www.youtube.com"
     private const val PLAYER_SCRIPT_PREFIX = "/s/player/"
+    private const val MEDIA_HOST_SUFFIX = ".googlevideo.com"
+    private const val MEDIA_PATH = "/videoplayback"
 
     /** YouTube video IDs have been 11 URL-safe base64 characters for the platform's lifetime. */
     private val VIDEO_ID = Regex("^[A-Za-z0-9_-]{11}$")
@@ -76,6 +78,16 @@ internal object YouTubeUrls {
     /** Every recognized shape collapses onto the one address YouTube treats as canonical. */
     fun canonicalUrl(videoId: String): String = "$ORIGIN/watch?v=$videoId"
 
+    /**
+     * The address the watch page is read from.
+     *
+     * The two extra parameters are the ones YouTube's own content-warning page adds when a
+     * viewer clicks through it, so a video behind such a warning still serves its player
+     * (ADR-006). They do not lift an age check.
+     */
+    fun watchPageFetchUrl(videoId: String): String =
+        "${canonicalUrl(videoId)}&bpctr=9999999999&has_verified=1"
+
     /** The address YouTube's own embedded player is served from. */
     fun embedUrl(videoId: String): String = "$ORIGIN/embed/$videoId"
 
@@ -105,6 +117,19 @@ internal object YouTubeUrls {
         if (!path.startsWith(PLAYER_SCRIPT_PREFIX) || !path.endsWith(".js")) return null
         return path.removePrefix(PLAYER_SCRIPT_PREFIX).substringBefore('/')
             .takeIf(PLAYER_ID::matches)
+    }
+
+    /**
+     * Whether [url] is a request to YouTube's media servers for a stream, as YouTube's own
+     * player makes while a video plays. Only the address shape is checked.
+     */
+    fun isMediaServerRequest(url: String): Boolean {
+        val address = runCatching { URI(url) }.getOrNull() ?: return false
+        val host = address.host?.lowercase() ?: return false
+        return address.scheme.equals("https", ignoreCase = true) &&
+            address.userInfo == null &&
+            host.endsWith(MEDIA_HOST_SUFFIX) &&
+            address.rawPath == MEDIA_PATH
     }
 
     fun playerScriptUrl(playerId: String, variant: String = PHONE_PLAYER_VARIANT): String {

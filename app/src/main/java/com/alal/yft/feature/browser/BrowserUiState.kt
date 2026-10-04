@@ -20,4 +20,6 @@ data class BrowserUiState(
      * failure, and so the generic detector can still surface candidates alongside it.
      */
     val siteNotice: String? = null,
+    /** Whether the notice offers Try again, because asking again can change the answer. */
+    val canRetrySiteLookup: Boolean = false,
 )

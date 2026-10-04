@@ -30,6 +30,18 @@ Pinned hashes (SHA-256):
 `scripts/youtube-solver-vectors.json` contains public test vectors taken from the yt-dlp ejs test
 suite (Unlicense) and is used only by `scripts/verify-youtube-solver.mjs`; it is not shipped.
 
+## YouTube client values and proof-of-origin host
+
+Not bundled code, recorded for attribution ([ADR-006](decisions/ADR-006-owner-override-any-working-method.md), T16):
+
+| Use | Source | License |
+| --- | --- | --- |
+| Device client names, versions, user agents and device fields in `YouTubeClientProfile.kt` (`VISIONOS`, `ANDROID`), copied from `INNERTUBE_CLIENTS` | yt-dlp 2026.08.19, <https://github.com/yt-dlp/yt-dlp> | Unlicense |
+| Protocol reference for the BotGuard attestation flow (request key, `Create`/`GenerateIT` calls, challenge format) used to write `app/.../detection/potoken/` and `app/src/main/assets/youtube-potoken/` independently; no code copied | BgUtils by LuanRT, <https://github.com/LuanRT/BgUtils> | MIT |
+
+No GPL code, such as NewPipe's `PoTokenWebView.kt` (GPL-3.0), is used.
+The BotGuard program itself is YouTube's: it is downloaded at run time and never committed.
+
 ## Fonts and icons
 
 | Component | Version | License | Source |

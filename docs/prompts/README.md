@@ -54,14 +54,14 @@ Artifacts › `yft-debug-apk` ကို download လုပ်ပြီး unzip 
 | T08 | 8 | [`T08-youtube-messages-details.md`](T08-youtube-messages-details.md) | YouTube message အမှန်နဲ့ details | T04, T05 |
 | T09 | 8 | [`T09-your-sites-logos.md`](T09-your-sites-logos.md) | Your sites: YouTube/Facebook/TikTok + logo | — |
 | T10 | 8 | [`T10-release-beta3.md`](T10-release-beta3.md) | SKIPPED (owner, 2026-10-03) — 1.0.0-beta.3 release မထုတ်တော့ | — |
-| T11 | 9 | [`T11-copied-link-watcher.md`](T11-copied-link-watcher.md) | Copy ထားတဲ့ link ကို အလိုအလျောက်စစ် | D1 |
+| T11 | 9 | [`T11-copied-link-watcher.md`](T11-copied-link-watcher.md) | Copy ထားတဲ့ link ကို အလိုအလျောက်စစ် | D1 (YES, 2026-10-03) |
 | T12 | 9 | [`T12-quick-download-sheet.md`](T12-quick-download-sheet.md) | "Video you copied" quick sheet | — |
 | T13 | 9 | [`T13-search-to-download.md`](T13-search-to-download.md) | Search to download page | T03, T09 |
 | T14 | 9 | [`T14-download-fab.md`](T14-download-fab.md) | Browser floating Download ခလုတ် | T12 |
 | T15 | 9 | [`T15-release-beta4.md`](T15-release-beta4.md) | SKIPPED (owner, 2026-10-03) — 1.0.0-beta.4 release မထုတ်တော့ | — |
 | T16 | 10 | [`T16-youtube-client-strategy.md`](T16-youtube-client-strategy.md) | YouTube client strategy (A + B + C) | D2 (ဖြေပြီး), T08 |
 | T17 | 10 | [`T17-video-audio-mux.md`](T17-video-audio-mux.md) | 720p/1080p video + audio ပေါင်း | T16 |
-| T18 | 10 | [`T18-mp3-audio.md`](T18-mp3-audio.md) | MP3 audio | D3 |
+| T18 | 10 | [`T18-mp3-audio.md`](T18-mp3-audio.md) | MP3 audio | D3 (YES, 2026-10-03) |
 | T19 | 10 | [`T19-release-beta5.md`](T19-release-beta5.md) | Main merge + tag + signing key နဲ့ release 1.0.0-beta.3 | T09, T11–T18 |
 
 အစဉ်: Phase 8 = T01 → T02 → T03 → T04 → T05 → T06 → T07 → T08 → T09 → T10 · Phase 9 = T12 → T11 →

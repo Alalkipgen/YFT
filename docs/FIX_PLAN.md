@@ -144,17 +144,17 @@ Agents update the **Status** column in every task checkpoint.
 | T05 | [Browser-like request identity for Home lookups](#t05--browser-like-request-identity-for-home-lookups) | 8 | P1 | Easy–Medium | 0.5 d | — | DONE (2026-10-03) |
 | T06 | [Facebook public reels and videos without sign-in](#t06--facebook-public-reels-and-videos-without-sign-in) | 8 | P1 | Medium | 1 d | T05 | OWNER CHECK |
 | T07 | [TikTok media cookies for Home lookups](#t07--tiktok-media-cookies-for-home-lookups) | 8 | P1 | Medium | 0.5 d | T05 | OWNER CHECK |
-| T08 | [YouTube: honest messages, identity and details](#t08--youtube-honest-messages-identity-and-details) | 8 | P1 | Easy | 0.5 d | T04, T05 | OWNER CHECK |
+| T08 | [YouTube: honest messages, identity and details](#t08--youtube-honest-messages-identity-and-details) | 8 | P1 | Easy | 0.5 d | T04, T05 | DONE (2026-10-03) |
 | T09 | [Your sites: YouTube, Facebook, TikTok with logos](#t09--your-sites-youtube-facebook-tiktok-with-logos) | 8 | P1 | Easy | 0.5 d | — | TODO |
 | T10 | [Release 1.0.0-beta.3](#t10--release-100-beta3) | 8 | P1 | Easy | 0.5 d | T01–T09, owner | SKIPPED (owner, 2026-10-03: one release after T19) |
-| T11 | [Check the copied link when YFT opens](#t11--check-the-copied-link-when-yft-opens) | 9 | P2 | Medium | 1 d | D1 | TODO |
+| T11 | [Check the copied link when YFT opens](#t11--check-the-copied-link-when-yft-opens) | 9 | P2 | Medium | 1 d | D1 (YES) | TODO |
 | T12 | ["Video you copied" quick download sheet](#t12--video-you-copied-quick-download-sheet) | 9 | P2 | Medium–Hard | 1.5–2 d | — | TODO |
 | T13 | ["Search to download" page](#t13--search-to-download-page) | 9 | P2 | Medium | 1 d | T03, T09 | TODO |
 | T14 | [Floating Download button in the browser](#t14--floating-download-button-in-the-browser) | 9 | P2 | Easy–Medium | 0.5–1 d | T12 | TODO |
 | T15 | [Release 1.0.0-beta.4](#t15--release-100-beta4) | 9 | P2 | Easy | 0.5 d | T11–T14, owner | SKIPPED (owner, 2026-10-03: one release after T19) |
-| T16 | [YouTube client strategy](#t16--youtube-client-strategy) | 10 | P1 (owner) | Very hard (A + B + C) | 6–9 d | D2 = A + B + C, T08 | IN PROGRESS |
+| T16 | [YouTube client strategy](#t16--youtube-client-strategy) | 10 | P1 (owner) | Very hard (A + B + C) | 6–9 d | D2 = A + B + C, T08 | OWNER CHECK |
 | T17 | [Higher qualities: merge video and audio](#t17--higher-qualities-merge-video-and-audio) | 10 | P3 | Hard | 2–3 d | T16 | TODO |
-| T18 | [MP3 audio](#t18--mp3-audio) | 10 | P3 | Hard | 2–3 d | D3 | TODO |
+| T18 | [MP3 audio](#t18--mp3-audio) | 10 | P3 | Hard | 2–3 d | D3 (YES) | TODO |
 | T19 | [Signed release 1.0.0-beta.3](#t19--signed-release-100-beta3) | 10 | P3 | Easy | 0.5 d | T09, T11–T18; merge, tag and signing approved by the owner | TODO |
 
 Estimates are agent working days and leave out the owner's phone checks. Totals: Phase 8 about
@@ -192,9 +192,9 @@ Agents read this table before starting a task and record the owner's answers her
 
 | ID | Question | Proposal | Blocks | Answer |
 | --- | --- | --- | --- | --- |
-| D1 | May YFT check the clipboard by itself whenever it opens? Android 12+ then shows "YFT pasted from your clipboard" each time. | Yes, on by default, with a Settings switch; only http(s) links are used and the text is never stored | T11 (until then T12/T13 use tap-to-paste) | PENDING |
+| D1 | May YFT check the clipboard by itself whenever it opens? Android 12+ then shows "YFT pasted from your clipboard" each time. | Yes, on by default, with a Settings switch; only http(s) links are used and the text is never stored | T11 (until then T12/T13 use tap-to-paste) | **YES** (owner delegated, 2026-10-03: "D1 and D3 — do as you see fit"; the agent chose the proposal: on by default, Settings switch, http(s) links only, never stored) |
 | D2 | YouTube strategy. **A**: keep the "no device impersonation" rule and mint PO tokens with YouTube's own BotGuard in a hidden WebView (very hard, fragile). **B**: add a device client like yt-dlp's `visionos` (easier, more formats, overrides the rule in `YouTubeClientProfile.kt`, breaks whenever YouTube changes it) | B first; A only if B stops working | T16, T17 | **A + B + C** (owner, 2026-10-03): build A and B and use both where needed, plus **C** — play the video for a moment in YFT's browser, then Download; one fallback chain, whatever works ([ADR-006](decisions/ADR-006-owner-override-any-working-method.md)) |
-| D3 | Music: M4A now and MP3 later (LAME, LGPL, about 1 MB more APK)? | M4A now; MP3 in Phase 10 | T18 | PENDING |
+| D3 | Music: M4A now and MP3 later (LAME, LGPL, about 1 MB more APK)? | M4A now; MP3 in Phase 10 | T18 | **YES** (owner delegated, 2026-10-03, as D1; the agent chose MP3 with LAME in T18, M4A stays the fast option) |
 | D4 | Run an Android emulator job on GitHub Actions (free for public repositories) | Yes | T02 | Assumed YES unless the owner says no |
 | D5 | Release cadence: beta.3 after Phase 8, beta.4 after Phase 9, beta.5 after Phase 10 | Yes; publishing still needs `ALLOW_RELEASE=true` | T10, T15, T19 | **NO** (owner, 2026-10-03): skip T10 and T15; only after T19 merge into `main`, push and tag, then build the release APK with the signing key |
 
@@ -216,6 +216,10 @@ change):
 5. YouTube first, then the rest, task after task without waiting: T16 → T17 (so YouTube video
    has sound) → T09 → T12 → T11 → T13 → T14 → T18 → T19. D1 and D3 stay PENDING, so T11 and T18
    wait for those answers; the other tasks go ahead.
+6. Later the same day (owner, before a break): "D1 and D3 — do as you see fit; do not stop until
+   everything is finished; do not ask again; commit and push after every task." The agent
+   answered D1 = YES and D3 = YES with the proposals above, so no task waits any more: every
+   task is checkpointed, pushed and reported in Burmese, then the next one starts.
 
 ## 4. Findings and root causes
 
@@ -939,6 +943,24 @@ answer without YFT minting a token. T08's bot-check message already points there
 `scripts/verify-youtube-solver.mjs` passing; check live on the owner's phone with Copy details;
 update `docs/SUPPORT_MATRIX.md` and `docs/RISKS.md`.
 
+**Done (2026-10-03, OWNER CHECK):** the chain and its binding rules are recorded in
+[ADR-006 § Implementation](decisions/ADR-006-owner-override-any-working-method.md#implementation-t16-2026-10-03).
+
+- B: `VISIONOS` 1.02 and `ANDROID` 21.26.364 from yt-dlp 2026.08.19, asked after the watch page
+  and before the embedded player, never with the user's cookie; they stop once a video with sound
+  and an audio track are found.
+- A: `app/.../detection/potoken/` runs YouTube's BotGuard in an offscreen WebView on the app's
+  own origin and mints the player token (bound to the video) and the media token (`pot=`, bound
+  to the video, the data sync ID or the visitor data, as the page says); one session per
+  refresh period, idle close after 5 minutes, 60-second budget, 32 cached tokens.
+  `scripts/verify-youtube-potoken.mjs` checks it against today's live challenge.
+- C: a bot check in YFT's browser shows **Try again**; the lookup also runs once by itself after
+  the page's player requests media; only same-site cookies are kept for it.
+- Limits: from the sandbox's data-centre IP a bot-checked video stays bot-checked for every
+  client even with a minted token, so the phone (home or mobile network) and option C are the
+  real test. Adaptive HD needs T17. The page player's own token is not captured, and a YouTube
+  page change inside the browser without a page load does not rerun the lookup (§9).
+
 ### T17 — Higher qualities: merge video and audio
 
 **Prompt:** [`docs/prompts/T17-video-audio-mux.md`](prompts/T17-video-audio-mux.md)
@@ -1024,6 +1046,9 @@ Not scheduled. Agents add new items here instead of widening a task.
 - Earlier limitations: playlists and batch downloads, background playback, SAF folder export,
   refreshing an expired link in place after the process was killed.
 - Remove `spikes/phase0-media` and `.github/workflows/phase0-validation.yml` if the owner agrees.
+- YouTube (T16): capture the token the page's own player sends (`pot=` on its media requests)
+  for the browser lookup instead of minting one; rerun the site lookup when a YouTube page
+  changes video without a page load (`doUpdateVisitedHistory`), consider with T14.
 - SPA history-only navigation: the URL snapshot follows `doUpdateVisitedHistory`, but
   `BrowserViewModel.activePageUrl` changes only on `onPageStarted`. Review history-only page
   changes separately so observations from a new SPA URL are not discarded (existing behaviour;

@@ -4,7 +4,8 @@
   [ADR-005](decisions/ADR-005-youtube-owner-override.md))**. This review is kept unchanged below
   as the project's risk record. Since 2026-10-03 the owner also allows device clients, PO tokens
   and bot-check workarounds ([ADR-006](decisions/ADR-006-owner-override-any-working-method.md));
-  the containment table below describes the adapter before T16.
+  the first containment table below describes the adapter before T16, and the T16 section after
+  it describes the current one.
 - Reviewed: 2026-10-02
 - Scope: whether `:extractor-sites` should contain a `youtube` adapter in Phase 5
 - Phase 5 required this review to either produce an adapter or report a blocker honestly. This is
@@ -49,6 +50,22 @@ video is unavailable" for every video tried, including with the reference client
 end-to-end stream path is therefore verified only against fixtures and the solver against live
 player scripts, not against live stream URLs; it must be checked on a phone on a residential or
 mobile network.
+
+## T16 containment (ADR-006, 2026-10-03)
+
+T16 implements the owner's D2 = A + B + C as one chain (order and binding rules:
+[ADR-006 § Implementation](decisions/ADR-006-owner-override-any-working-method.md#implementation-t16-2026-10-03)).
+What changed against the table above, and how each new risk is contained:
+
+| Risk | Containment in T16 |
+| --- | --- |
+| Client impersonation (item 4, now allowed) | `VISIONOS` and `ANDROID` device clients, values copied from yt-dlp 2026.08.19 and kept in `YouTubeClientProfile.kt` only. They never carry the user's cookie, authorization or account identity; only the page's own client does. `SAPISIDHASH` is computed only from the browser session's own cookie, for the page's client |
+| PO tokens (item 2, now generated) | YouTube's BotGuard runs in a fresh offscreen WebView on an app-served origin with a strict CSP (`connect-src 'self'`), no cookies, storage, files or navigation, and only the challenge's inline interpreter (no remote script). The app itself calls the two attestation endpoints, without cookies or redirects. Tokens, bindings, visitor data and the attestation key never reach logs, lookup details, fixtures or commits (the checkpoint secret scanner rejects Google API keys) |
+| Remote executable code (item 1) | Unchanged for the solver. BotGuard's challenge program is remote code by nature: it runs only inside the sandboxed page above, with a 30-second step timeout and a 60-second budget per mint, and its only output is a bounded token string checked against a strict pattern |
+| Bot checks | Not bypassed headlessly when YouTube decides by network: from the sandbox's data-centre IP a bot-checked video stayed bot-checked for every client even with a minted token. Option C sends the user to YFT's browser, where the lookup runs again (by itself once the player starts streaming, or with **Try again**) with the browser's own YouTube session |
+| Credential exposure | The browser's YouTube cookie is kept only from YouTube's own requests; requests of other sites and requests without a cookie never replace it. Media addresses carry only the `pot=` token, never a cookie |
+| Breakage invisible to fixtures | `scripts/verify-youtube-potoken.mjs` mints a token with today's live BotGuard challenge in Chromium on the app's origin and reports requests the page tried (must be 0); `scripts/verify-youtube-solver.mjs` still checks the solver; lookup details name each client's verdict and the token state (minted, no host, unavailable, failed) |
+| Age, private, paid and DRM gates | Unchanged: a definite verdict from the page's client ends the lookup, and an age check from a fallback client clears the fallbacks' results |
 
 ## Original Phase 5D review
 

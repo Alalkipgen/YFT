@@ -24,17 +24,23 @@
   into `main`, push, tag `v1.0.0-beta.3` and release the APK signed with the release key
   (approved for T19 only). Order: T16 → T17 → T09 → T12 → T11 → T13 → T14 → T18 → T19, task
   after task without waiting.
-- **Next action — agent:** T16 — YouTube client strategy A + B + C
-  ([`prompts/T16-youtube-client-strategy.md`](prompts/T16-youtube-client-strategy.md)), IN
-  PROGRESS; then continue in the owner's order. T08 is OWNER CHECK (CI green: checkpoint
+- **Owner delegation (2026-10-03, later):** "D1 and D3 — do as you see fit; do not stop until
+  everything is finished; commit and push after every task." D1 = YES and D3 = YES (FIX_PLAN §3);
+  no task waits for the owner any more.
+- **Next action — agent:** T17 — merge video and audio
+  ([`prompts/T17-video-audio-mux.md`](prompts/T17-video-audio-mux.md)), then T09 → T12 → T11 →
+  T13 → T14 → T18 → T19. T16 is OWNER CHECK: device clients (`VISIONOS`, `ANDROID`, yt-dlp
+  2026.08.19), BotGuard PO tokens in an offscreen WebView and browser **Try again**/auto-retry
+  after playback (ADR-006 § Implementation). T08 is DONE (CI green: checkpoint
   https://github.com/Alalkipgen/YFT/actions/runs/37159270955, emulator
-  https://github.com/Alalkipgen/YFT/actions/runs/37159270920; phone: paste a YouTube link →
-  found or the bot-check message → Copy details → send them); T07 is OWNER CHECK (TikTok Home
+  https://github.com/Alalkipgen/YFT/actions/runs/37159270920); T07 is OWNER CHECK (TikTok Home
   and browser download/playback on the phone); T06 is OWNER CHECK (Facebook Home
   download/playback on the phone); T05 is DONE; T04 is OWNER CHECK: final tests, all 9
   individually inspected renders and the actual release debug-action guard pass.
-- **Next action — owner:** answer D1 (clipboard check on open, T11) and D3 (MP3, T18) in
-  FIX_PLAN §3; D2 is answered. beta.2 stays a draft; the T19 release replaces it.
+- **Next action — owner:** phone checks from the `yft-debug-apk` builds (FIX_PLAN §8); for T16
+  paste two YouTube links on Home (found → download plays, or **Copy details**), and play a
+  bot-checked video in YFT's browser (it retries by itself, or tap **Try again**). beta.2 stays a
+  draft; the T19 release replaces it.
 - **T01 validation (2026-10-03):** core-browser 53 tests, app 386 (41 renders skipped), 0 failures;
   lint 0 errors, 83 existing warnings. The strict off-main regression failed on the old code and
   passed on the fix. Use the memory-safe command in `TEST_MATRIX.md` on this 4 GiB sandbox.
@@ -106,7 +112,7 @@
   download → it plays; the same from the browser. ba165c5 CI GREEN: checkpoint/debug APK
   https://github.com/Alalkipgen/YFT/actions/runs/37156848673 and emulator
   https://github.com/Alalkipgen/YFT/actions/runs/37156848739.
-- **T08 OWNER CHECK:** YouTube's "confirm you're not a bot" is `BOT_CHECK` (not definite, no
+- **T08 DONE:** YouTube's "confirm you're not a bot" is `BOT_CHECK` (not definite, no
   generic fallback) with the message to open the video in YFT's browser, let it play, then tap
   Download; real sign-in, age and private verdicts are unchanged. SABR-only answers are
   NO_MEDIA_FOUND with "SABR only". Copy details lists each client asked (name, status, reason,
@@ -115,6 +121,15 @@
   (sandbox IP): dQw4w9WgXcQ needs the player script (WEB: 1 protected format + SABR, embedded
   refused 152-18); aqz-KE-bpKQ gets the bot check and the new message. aa915ff CI GREEN
   (links above). The owner then allowed working around bot checks (ADR-006); that is T16.
+- **T16 OWNER CHECK:** one client chain (ADR-006 § Implementation): watch page → `VISIONOS`,
+  `ANDROID` (yt-dlp 2026.08.19, no cookie) → embedded → the page's client with the session and
+  BotGuard PO tokens (player token bound to the video; `pot=` bound as the page says) → `MWEB`.
+  The token host is an offscreen WebView on the app's origin (strict CSP, no cookies); the app
+  calls the attestation endpoints itself. The browser offers **Try again** on a bot check and
+  retries once by itself after the page's player streams. Full tests: extractor-api 32, extractor-sites 149, app 465 (54 render skips), 0 failures; lint 0 errors/95 warnings; instrumentation APK compiled. Live (sandbox
+  IP): visionOS/Android/MWEB answer `dQw4w9WgXcQ`; `aqz-KE-bpKQ` stays bot-checked even with a
+  minted token; `verify-youtube-potoken.mjs` minted a token for player 8ab5c328 with 0 page
+  requests; the solver passed 34 vectors.
 
 ## Known limitations (beta.2)
 

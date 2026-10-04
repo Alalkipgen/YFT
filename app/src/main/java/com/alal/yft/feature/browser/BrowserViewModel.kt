@@ -18,8 +18,10 @@ import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
+import com.alal.yft.detection.SiteScope
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.net.URI
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -80,6 +82,14 @@ class BrowserViewModel(
 
     @Volatile
     private var browserContext: BrowserRequestContext? = null
+
+    /** The page's lookup waits for the site's own player to fetch media before trying again. */
+    @Volatile
+    private var awaitingPlayback = false
+
+    /** Whether this page already had its one automatic retry. */
+    @Volatile
+    private var autoRetried = false
 
     init {
         homeSitesRepository?.let { repository ->
@@ -156,6 +166,8 @@ class BrowserViewModel(
     override fun onPageStarted(url: String) {
         activePageUrl = url
         browserContext = null
+        awaitingPlayback = false
+        autoRetried = false
         pageProbeJob.cancel()
         pageProbeJob = SupervisorJob(viewModelScope.coroutineContext[Job])
         candidateStore.beginPage(url)
@@ -170,6 +182,7 @@ class BrowserViewModel(
                 errorMessage = null,
                 candidates = emptyList(),
                 siteNotice = null,
+                canRetrySiteLookup = false,
             )
         }
     }
@@ -202,6 +215,10 @@ class BrowserViewModel(
                 nowEpochMs = clock(),
             )
             if (pageUrl != activePageUrl) return@launch
+            if (outcome !is SiteAdapterOutcome.Failed) {
+                awaitingPlayback = false
+                mutableUiState.update { it.copy(siteNotice = null, canRetrySiteLookup = false) }
+            }
             when (outcome) {
                 SiteAdapterOutcome.NotHandled -> Unit
 
@@ -215,11 +232,38 @@ class BrowserViewModel(
                     },
                 )
 
-                is SiteAdapterOutcome.Failed -> mutableUiState.update {
-                    it.copy(siteNotice = outcome.message)
+                is SiteAdapterOutcome.Failed -> {
+                    // One automatic retry per page; after that the user decides with Try again.
+                    awaitingPlayback = outcome.retriesAfterPlayback && !autoRetried
+                    mutableUiState.update {
+                        it.copy(
+                            siteNotice = outcome.message,
+                            canRetrySiteLookup = outcome.canRetry,
+                        )
+                    }
                 }
             }
         }
+    }
+
+    /**
+     * Asks the site adapters again for the current page, from the notice's Try again.
+     *
+     * The lookup carries the browser's newest session, so a site that let its own player
+     * through, for example after a bot check, may now answer the lookup too.
+     */
+    fun retrySiteLookup() {
+        val pageUrl = activePageUrl ?: return
+        if (!mutableUiState.value.canRetrySiteLookup) return
+        retryLookup(pageUrl)
+    }
+
+    private fun retryLookup(pageUrl: String) {
+        awaitingPlayback = false
+        mutableUiState.update {
+            it.copy(siteNotice = RETRY_NOTICE, canRetrySiteLookup = false)
+        }
+        runSiteAdapters(pageUrl, mutableUiState.value.pageTitle)
     }
 
     override fun onProgressChanged(progress: Int) {
@@ -237,6 +281,7 @@ class BrowserViewModel(
         viewModelScope.launch {
             if (observation.pageUrl != activePageUrl) return@launch
             rememberBrowserContext(observation)
+            retryAfterPlayback(observation)
             BrowserObservationMapper.fromRequest(observation)?.let(candidateStore::submit)
             val probeCandidate = BrowserObservationMapper.forMetadataProbe(observation)
                 ?: return@launch
@@ -273,6 +318,21 @@ class BrowserViewModel(
     }
 
     /**
+     * Retries a lookup that waits for playback once the site's own player fetched media.
+     *
+     * Only the matched adapter can tell its site's media requests apart; the request itself is
+     * never replayed.
+     */
+    private fun retryAfterPlayback(observation: RequestObservation) {
+        if (!awaitingPlayback) return
+        if (!siteAdapters.isPlayerMediaRequest(observation.pageUrl, observation.requestUrl)) {
+            return
+        }
+        autoRetried = true
+        retryLookup(observation.pageUrl)
+    }
+
+    /**
      * Keeps the newest session context the page actually used.
      *
      * The context stays in memory only and is never logged or persisted; adapters receive it so
@@ -280,11 +340,23 @@ class BrowserViewModel(
      */
     private fun rememberBrowserContext(observation: RequestObservation) {
         if (observation.userAgent == null && observation.cookie == null) return
+        // Only the page's own site set the cookie a lookup may replay to it: another site's
+        // cookie is never kept, and neither another site's request nor a cookieless request
+        // erases the page's cookie.
+        val ownSite = isSameSite(observation.requestUrl, observation.pageUrl)
+        val previous = browserContext
+        if (!ownSite && previous != null) return
         browserContext = BrowserRequestContext(
             pageUrl = observation.pageUrl,
-            userAgent = observation.userAgent,
-            cookie = observation.cookie,
+            userAgent = observation.userAgent ?: previous?.userAgent,
+            cookie = observation.cookie.takeIf { ownSite } ?: previous?.cookie,
         )
+    }
+
+    private fun isSameSite(requestUrl: String, pageUrl: String): Boolean {
+        val request = runCatching { URI(requestUrl).host }.getOrNull() ?: return false
+        val page = runCatching { URI(pageUrl).host }.getOrNull() ?: return false
+        return SiteScope.sameSite(request, page)
     }
 
     private fun scheduleProbe(candidate: MediaCandidate) {
@@ -305,5 +377,6 @@ class BrowserViewModel(
         const val MAX_ADDRESS_LENGTH = 2_048
         const val MAX_TITLE_LENGTH = 200
         const val BLANK_PAGE = "about:blank"
+        const val RETRY_NOTICE = "Checking this page again…"
     }
 }

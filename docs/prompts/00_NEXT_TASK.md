@@ -14,7 +14,7 @@ Repository: https://github.com/Alalkipgen/YFT
 ALLOW_PUSH: true          (checkpoint pushes to work/phase-* branches only)
 ALLOW_MERGE_MAIN: false   (true for T19 only: owner-approved 2026-10-03)
 ALLOW_RELEASE: false      (true for T19 only: owner-approved 2026-10-03)
-OWNER ANSWERS: none       (example: D1=YES D2=B D3=YES)
+OWNER ANSWERS: D1=YES D2=A+B+C D3=YES   (2026-10-03, recorded in FIX_PLAN §3)
 
 The repository is the source of truth; do not rely on chat history.
 

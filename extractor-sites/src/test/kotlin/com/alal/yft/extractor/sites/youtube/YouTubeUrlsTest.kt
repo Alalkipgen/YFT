@@ -1,7 +1,9 @@
 package com.alal.yft.extractor.sites.youtube
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class YouTubeUrlsTest {
@@ -105,5 +107,22 @@ class YouTubeUrlsTest {
         assertEquals("old", YouTubeUrls.queryParamOf(url, "n"))
         assertNull(YouTubeUrls.queryParamOf(url, "missing"))
         assertNull(YouTubeUrls.queryParamOf("https://media.example-cdn.test/p", "n"))
+    }
+
+    @Test
+    fun `only stream requests to YouTube's media servers count as playback`() {
+        listOf(
+            "https://rr3---sn-fixture.googlevideo.com/videoplayback?expire=1&itag=18",
+            "https://RR1---SN-FIXTURE.GOOGLEVIDEO.COM/videoplayback?sabr=1",
+        ).forEach { assertTrue(it, YouTubeUrls.isMediaServerRequest(it)) }
+        listOf(
+            "http://rr3---sn-fixture.googlevideo.com/videoplayback?itag=18",
+            "https://rr3---sn-fixture.googlevideo.com/initplayback?itag=18",
+            "https://googlevideo.com.example.test/videoplayback",
+            "https://user@rr3---sn-fixture.googlevideo.com/videoplayback",
+            "https://www.youtube.com/videoplayback",
+            "https://i.ytimg.com/vi/Yft0Fixture/hqdefault.jpg",
+            "not a url",
+        ).forEach { assertFalse(it, YouTubeUrls.isMediaServerRequest(it)) }
     }
 }

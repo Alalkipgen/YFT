@@ -1,5 +1,6 @@
 package com.alal.yft.detection.script
 
+import com.alal.yft.detection.JsonText
 import com.alal.yft.extractor.api.json.BoundedJsonParser
 import com.alal.yft.extractor.api.json.JsonValue
 import com.alal.yft.extractor.api.json.asArrayOrEmpty
@@ -138,35 +139,7 @@ internal object EjsSolverProtocol {
         }.toMap()
     }
 
-    /**
-     * Appends [value] as a JSON string with every non-ASCII character escaped.
-     *
-     * Escaping by UTF-16 unit keeps the payload pure ASCII, so it survives any transport
-     * encoding, and keeps even unpaired surrogates in a player script byte-for-byte intact.
-     */
     private fun StringBuilder.appendJsonString(value: String) {
-        append('"')
-        value.forEach { character ->
-            when {
-                character == '"' -> append("\\\"")
-                character == '\\' -> append("\\\\")
-                character == '\n' -> append("\\n")
-                character == '\r' -> append("\\r")
-                character == '\t' -> append("\\t")
-                character.code < 0x20 || character.code > 0x7e -> {
-                    append("\\u")
-                    val code = character.code
-                    append(HEX[code shr 12 and 0xf])
-                    append(HEX[code shr 8 and 0xf])
-                    append(HEX[code shr 4 and 0xf])
-                    append(HEX[code and 0xf])
-                }
-
-                else -> append(character)
-            }
-        }
-        append('"')
+        JsonText.appendString(this, value)
     }
-
-    private val HEX = "0123456789abcdef".toCharArray()
 }

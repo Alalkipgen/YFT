@@ -104,6 +104,7 @@ import com.alal.yft.ui.components.YftFoundMediaRow
 import com.alal.yft.ui.components.YftIcon
 import com.alal.yft.ui.components.YftIconButton
 import com.alal.yft.ui.components.YftSheetHandle
+import com.alal.yft.ui.components.YftTextButton
 import com.alal.yft.ui.components.isSavable
 import com.alal.yft.ui.components.protectedHiddenLabel
 import com.alal.yft.ui.theme.YftIcons
@@ -210,6 +211,7 @@ fun BrowserRoute(
             viewModel.onAddressChanged(site.url)
             submitAddress()
         },
+        onRetrySiteLookup = viewModel::retrySiteLookup,
         browserSurface = { modifier ->
             BrowserWebView(
                 modifier = modifier,
@@ -249,6 +251,7 @@ fun BrowserScreen(
     copiedLinkHint: Boolean = false,
     onUseCopiedLink: () -> Unit = {},
     onOpenSite: (HomeSite) -> Unit = {},
+    onRetrySiteLookup: () -> Unit = {},
     browserSurface: @Composable (Modifier) -> Unit,
 ) {
     val colors = YftTheme.colors
@@ -326,6 +329,17 @@ fun BrowserScreen(
                 container = colors.chip,
                 content = colors.textPrimary,
                 modifier = Modifier.testTag("browser-site-notice"),
+                action = if (uiState.canRetrySiteLookup) {
+                    {
+                        YftTextButton(
+                            text = "Try again",
+                            onClick = onRetrySiteLookup,
+                            modifier = Modifier.testTag("browser-site-retry"),
+                        )
+                    }
+                } else {
+                    null
+                },
             )
         }
         if (hasBrowserPage && savable.isEmpty()) {
@@ -578,6 +592,7 @@ private fun BrowserBanner(
     container: Color,
     content: Color,
     modifier: Modifier = Modifier,
+    action: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
@@ -590,7 +605,13 @@ private fun BrowserBanner(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         YftIcon(icon = icon, contentDescription = null, tint = content, size = 20.dp)
-        Text(text = text, color = content, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            text = text,
+            color = content,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f),
+        )
+        action?.invoke()
     }
 }
 

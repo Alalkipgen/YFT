@@ -195,4 +195,13 @@ interface SiteExtractor {
 
     /** Resolves real candidates for an already matched page. */
     suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult
+
+    /**
+     * Whether [requestUrl], requested by a page this adapter handles, is the site's own player
+     * fetching media.
+     *
+     * After a bot check, the first such request shows the site let its own player through, so
+     * the browser retries the lookup once by itself. Only the address is read, offline.
+     */
+    fun isPlayerMediaRequest(requestUrl: String): Boolean = false
 }

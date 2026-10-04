@@ -2,10 +2,12 @@ package com.alal.yft.detection
 
 import android.content.Context
 import com.alal.yft.BuildConfig
+import com.alal.yft.detection.potoken.BotGuardPoTokenProvider
 import com.alal.yft.detection.script.WebViewSolverEngine
 import com.alal.yft.detection.script.YouTubePlayerScriptRunner
 import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.PlayerScriptRunner
+import com.alal.yft.extractor.api.PoTokenProvider
 import com.alal.yft.extractor.api.SiteAdapterFlags
 import com.alal.yft.extractor.api.SiteExtractor
 import com.alal.yft.extractor.api.SiteExtractorRegistry
@@ -62,16 +64,39 @@ object SiteAdapterModule {
         engine = WebViewSolverEngine(context),
     )
 
+    /**
+     * The YouTube proof-of-origin host (ADR-006).
+     *
+     * It reads the player script for its attestation key, so it shares the player client's
+     * longer call timeout.
+     */
+    @Provides
+    @Singleton
+    fun providePoTokenProvider(
+        @ApplicationContext context: Context,
+        client: OkHttpClient,
+    ): PoTokenProvider = BotGuardPoTokenProvider(
+        context = context,
+        client = client,
+        http = OkHttpExtractorClient(
+            client = client,
+            policy = OkHttpExtractorClient.Policy(
+                callTimeoutSeconds = PLAYER_FETCH_TIMEOUT_SECONDS,
+            ),
+        ),
+    )
+
     @Provides
     @Singleton
     fun provideSiteExtractors(
         http: ExtractorHttpClient,
         playerScripts: PlayerScriptRunner,
+        poTokens: PoTokenProvider,
     ): List<SiteExtractor> = listOf(
         TikTokExtractor(http),
         FacebookExtractor(http),
         VimeoExtractor(http),
-        YouTubeExtractor(http, playerScripts),
+        YouTubeExtractor(http, playerScripts, poTokens),
     )
 
     @Provides

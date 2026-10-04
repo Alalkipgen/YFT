@@ -2,6 +2,9 @@ package com.alal.yft.feature.browser
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
@@ -245,6 +248,49 @@ class BrowserScreenTest {
             assertEquals(1, home)
             assertEquals(1, closed)
         }
+    }
+
+    @Test
+    fun siteNoticeOffersTryAgainOnlyWhenAskingAgainCanHelp() {
+        var retried = 0
+        var state by mutableStateOf(
+            BrowserUiState(
+                address = PAGE,
+                currentUrl = PAGE,
+                siteNotice = "Fixture wants to check that this is not a bot.",
+                canRetrySiteLookup = true,
+            ),
+        )
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                BrowserScreen(
+                    uiState = state,
+                    canGoBack = false,
+                    canGoForward = false,
+                    onAddressChanged = {},
+                    onGo = {},
+                    onBrowserBack = {},
+                    onBrowserForward = {},
+                    onReload = {},
+                    onStop = {},
+                    onPreviewCandidate = {},
+                    onNavigateBack = {},
+                    onRetrySiteLookup = { retried += 1 },
+                    browserSurface = { Box(modifier = it) },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("browser-site-notice").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-site-retry").assertIsDisplayed().performClick()
+        composeRule.runOnIdle { assertEquals(1, retried) }
+
+        state = state.copy(
+            siteNotice = "This Fixture post is protected.",
+            canRetrySiteLookup = false,
+        )
+        composeRule.onNodeWithTag("browser-site-notice").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("browser-site-retry").assertCountEquals(0)
     }
 
     @Test

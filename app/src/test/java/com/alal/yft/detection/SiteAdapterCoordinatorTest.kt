@@ -115,14 +115,72 @@ class SiteAdapterCoordinatorTest {
 
         assertEquals(
             "Fixture Site wants to check that this is not a bot. Open the video in YFT's " +
-                "browser, let it play for a moment, then tap Download.",
+                "browser, let it play for a moment, then tap Try again.",
             outcome.message,
         )
         assertFalse(outcome.message.contains("Sign in"))
         assertFalse(outcome.allowsGenericFallback)
+        assertTrue(outcome.canRetry)
+        assertTrue(outcome.retriesAfterPlayback)
         assertEquals(
             listOf("adapter fixture: BOT_CHECK", "client WEB: LOGIN_REQUIRED; SABR no"),
             outcome.details,
+        )
+    }
+
+    @Test
+    fun `only failures that asking again can change offer Try again`() = runTest {
+        val retry = SiteExtractionFailure.entries.associateWith { reason ->
+            val outcome = coordinator(FakeExtractor(SiteExtractionResult.Failure(reason)))
+                .inspect("https://fixture.test/video/42", context(), 1L)
+                as SiteAdapterOutcome.Failed
+            outcome.canRetry to outcome.retriesAfterPlayback
+        }
+
+        assertEquals(
+            setOf(
+                SiteExtractionFailure.UNSUPPORTED_URL,
+                SiteExtractionFailure.ADAPTER_DISABLED,
+                SiteExtractionFailure.DRM_PROTECTED,
+                SiteExtractionFailure.GEO_RESTRICTED,
+            ),
+            retry.filterValues { (canRetry, _) -> !canRetry }.keys,
+        )
+        assertEquals(
+            setOf(SiteExtractionFailure.BOT_CHECK),
+            retry.filterValues { (_, afterPlayback) -> afterPlayback }.keys,
+        )
+    }
+
+    @Test
+    fun `the matched adapter decides what counts as its player fetching media`() {
+        val coordinator = coordinator(FakeExtractor())
+
+        assertTrue(
+            coordinator.isPlayerMediaRequest(
+                "https://fixture.test/video/42",
+                "https://media.fixture.test/stream?part=1",
+            ),
+        )
+        assertFalse(
+            coordinator.isPlayerMediaRequest(
+                "https://fixture.test/video/42",
+                "https://cdn.fixture.test/logo.png",
+            ),
+        )
+        // A page no adapter handles never counts, whatever it requests.
+        assertFalse(
+            coordinator.isPlayerMediaRequest(
+                "https://elsewhere.test/watch",
+                "https://media.fixture.test/stream?part=1",
+            ),
+        )
+        val crashing = coordinator(FakeExtractor(mediaCheckFails = true))
+        assertFalse(
+            crashing.isPlayerMediaRequest(
+                "https://fixture.test/video/42",
+                "https://media.fixture.test/stream?part=1",
+            ),
         )
     }
 
@@ -202,6 +260,7 @@ class SiteAdapterCoordinatorTest {
     private class FakeExtractor(
         private val result: SiteExtractionResult? = null,
         private val failure: Throwable? = null,
+        private val mediaCheckFails: Boolean = false,
     ) : SiteExtractor {
         override val id: String = "fixture"
         override val displayName: String = "Fixture Site"
@@ -213,6 +272,11 @@ class SiteAdapterCoordinatorTest {
             val contentId = pageUrl.removePrefix(prefix).substringBefore('?')
             if (contentId.isBlank()) return null
             return SitePageIdentity("fixture", contentId, "$prefix$contentId")
+        }
+
+        override fun isPlayerMediaRequest(requestUrl: String): Boolean {
+            check(!mediaCheckFails) { "fixture crash" }
+            return requestUrl.startsWith("https://media.fixture.test/")
         }
 
         override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {

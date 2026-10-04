@@ -61,3 +61,52 @@ test (FIX_PLAN F4) and T08's lookup details show that most YouTube lookups fail 
 - The owner accepts the extra maintenance and the legal and distribution exposure (the sites'
   terms of service, possible takedown notices against the repository).
 - Tests keep pinning behaviour with sanitized fixtures, and site tasks keep their live checks.
+
+## Implementation (T16, 2026-10-03)
+
+The YouTube adapter (`YouTubeExtractor.kt`) asks YouTube's player endpoint as one chain. Every
+client identifier lives in `YouTubeClientProfile.kt`; the device values were copied from yt-dlp
+2026.08.19 (`INNERTUBE_CLIENTS`, recorded as `YouTubeClientProfiles.DEVICE_VALUES_SOURCE`).
+
+1. **Watch page.** One GET of the watch page (with the `bpctr`/`has_verified` parameters yt-dlp
+   uses to pass content warnings every viewer can click through). Its inline player response, or
+   else one request as the page's own client, gives the first verdict. A definite verdict about
+   the video (private, removed, age-restricted, region-blocked, DRM) ends the lookup.
+2. **Option B — device clients**, without the user's cookie: `VISIONOS` 1.02, then `ANDROID`
+   21.26.364, each with its app's user agent and device fields. They stop as soon as there is a
+   video with sound and an audio track. Their streams carry direct addresses and need no player
+   script.
+3. **Embedded player** (`WEB_EMBEDDED_PLAYER`, without the cookie) until there is any video.
+   An age check from any fallback client clears what the fallbacks found and leaves the answer to
+   the user's own session.
+4. **The page's client** (`WEB` or `MWEB`, as the page reports itself) with the user's session:
+   the cookie and, for a signed-in session, the `SAPISIDHASH` authorization YouTube's web player
+   sends. **Option A** supplies its proof-of-origin tokens: a player token in
+   `serviceIntegrityDimensions.poToken`, bound to the video ID, and a media token appended as
+   `pot=` to its stream addresses. The media token is bound the way the page's player binds it:
+   to the video ID when the page sets `html5_generate_content_po_token`, otherwise to the data
+   sync ID for a signed-in page, otherwise to the visitor data. A token that cannot be minted is
+   reported in the lookup details, and the client is asked without it.
+5. **Mobile site** (`MWEB`) when the page's client was not `MWEB`.
+
+Option A runs YouTube's own BotGuard as the web player does (`app/.../detection/potoken/`): an
+offscreen WebView loads an app-served page on `appassets.androidplatform.net` (CSP
+`default-src 'none'; script-src 'self' 'unsafe-eval'; connect-src 'self'`, no cookies, storage or
+navigation) that runs only the challenge's inline interpreter. The app fetches the challenge and
+the integrity token from Google's `jnn` attestation endpoints itself (`Create`, `GenerateIT`: no
+cookies, no redirects, the API key read from the current player script, never committed). One
+BotGuard session is kept until its refresh time, closed after five idle minutes, and every mint
+has a 60-second budget; tokens are cached per binding (32 entries). Tokens and bindings never
+reach logs or lookup details.
+
+Option C is the browser: when a lookup in YFT's browser meets a bot check, the notice says to let
+the video play and offers **Try again**; the lookup also runs once by itself after the page's
+player requests media from YouTube's media servers. That lookup carries the browser's own
+YouTube cookie and user agent. Cookies from requests of other sites never replace it.
+
+Live result from the agent sandbox (data-centre IP, 2026-10-03): `VISIONOS`, `ANDROID` and `MWEB`
+answered for a public video, and `MWEB` downloads succeeded with and without a minted token. A
+video that got "confirm you're not a bot" got it from every client even with a minted token, so
+the bot check on that network is decided by the IP address, not by the token; a phone on a home
+or mobile network is the real test. Not done: the page player's own token is not captured from
+the browser (FIX_PLAN §9).

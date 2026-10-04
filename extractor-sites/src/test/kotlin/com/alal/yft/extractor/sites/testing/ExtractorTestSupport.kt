@@ -6,6 +6,9 @@ import com.alal.yft.extractor.api.PlayerScriptChallengeKind
 import com.alal.yft.extractor.api.PlayerScriptRequest
 import com.alal.yft.extractor.api.PlayerScriptResult
 import com.alal.yft.extractor.api.PlayerScriptRunner
+import com.alal.yft.extractor.api.PoTokenProvider
+import com.alal.yft.extractor.api.PoTokenRequest
+import com.alal.yft.extractor.api.PoTokenResult
 import com.alal.yft.extractor.api.ResponseCookie
 import com.alal.yft.extractor.api.SiteExtractionFailure
 
@@ -129,5 +132,23 @@ internal class FakePlayerScriptRunner(
             PlayerScriptResult.Success(
                 request.challenges.associate { it.key to transform(it.kind, it.input) },
             )
+    }
+}
+
+/** Records token requests and answers them with a fixed result. */
+internal class FakePoTokenProvider(
+    override val isAvailable: Boolean = true,
+    private val answer: (PoTokenRequest) -> PoTokenResult = { PoTokenResult.Minted(TOKEN) },
+) : PoTokenProvider {
+    val requests = mutableListOf<PoTokenRequest>()
+
+    override suspend fun mint(request: PoTokenRequest): PoTokenResult {
+        requests += request
+        return answer(request)
+    }
+
+    companion object {
+        /** A fixture token in the URL-safe alphabet a real one uses. */
+        const val TOKEN: String = "MnFixturePoToken-0123456789_abcdefghijklmnop"
     }
 }

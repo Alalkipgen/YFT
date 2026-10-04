@@ -27,7 +27,27 @@ sealed interface SiteAdapterOutcome {
         val message: String,
         val allowsGenericFallback: Boolean,
         val details: List<String> = emptyList(),
-    ) : SiteAdapterOutcome
+    ) : SiteAdapterOutcome {
+        /** Whether asking again can change the answer, so the browser offers Try again. */
+        val canRetry: Boolean
+            get() = reason !in FINAL_REASONS
+
+        /**
+         * Whether the site's own player playing the video is what the lookup waits for, so the
+         * browser retries once by itself after the page's player fetched media.
+         */
+        val retriesAfterPlayback: Boolean
+            get() = reason == SiteExtractionFailure.BOT_CHECK
+
+        private companion object {
+            val FINAL_REASONS = setOf(
+                SiteExtractionFailure.UNSUPPORTED_URL,
+                SiteExtractionFailure.ADAPTER_DISABLED,
+                SiteExtractionFailure.DRM_PROTECTED,
+                SiteExtractionFailure.GEO_RESTRICTED,
+            )
+        }
+    }
 }
 
 /**
@@ -91,6 +111,23 @@ class SiteAdapterCoordinator @Inject constructor(
     }
 
     /**
+     * Whether [requestUrl], seen on [pageUrl], is the matched site's own player fetching media.
+     *
+     * Only the adapter knows its site's media servers, so the browser asks rather than parsing
+     * addresses itself. Disabled and unmatched pages never count.
+     */
+    fun isPlayerMediaRequest(pageUrl: String, requestUrl: String): Boolean =
+        when (val selection = registry.select(pageUrl)) {
+            is SiteAdapterSelection.Matched ->
+                runCatching { selection.extractor.isPlayerMediaRequest(requestUrl) }
+                    .getOrDefault(false)
+
+            SiteAdapterSelection.None,
+            is SiteAdapterSelection.Disabled,
+            -> false
+        }
+
+    /**
      * Re-anchors a candidate to the live page address.
      *
      * Only the grouping key changes. The request context keeps the canonical page the adapter
@@ -113,10 +150,11 @@ class SiteAdapterCoordinator @Inject constructor(
             "Sign in to $site on this page first, then try again."
 
         // The site's own browser player can usually answer a bot check, so the message sends
-        // the user there instead of suggesting a sign-in that would not help.
+        // the user there instead of suggesting a sign-in that would not help. The browser also
+        // tries again by itself once the video plays.
         SiteExtractionFailure.BOT_CHECK ->
             "$site wants to check that this is not a bot. Open the video in YFT's browser, " +
-                "let it play for a moment, then tap Download."
+                "let it play for a moment, then tap Try again."
 
         SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE ->
             "This $site post is private or no longer available."

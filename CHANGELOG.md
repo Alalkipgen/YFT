@@ -48,6 +48,16 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Changed
 
+- YouTube lookups ask more of YouTube's clients (T16, owner decision D2 = A + B + C): first
+  YouTube's visionOS and Android app clients (values from yt-dlp 2026.08.19, without the user's
+  cookie), then the embedded player, then the page's own web client with the user's session
+  and a proof-of-origin token minted by YouTube's BotGuard in an offscreen WebView, and finally
+  the mobile site. Tokens, visitor data and the attestation key are never logged, shown in Copy
+  details or stored. Copy details now also says whether a token was minted.
+- In YFT's browser, a YouTube bot check offers **Try again**, and the lookup also runs once by
+  itself after the video starts playing, using the browser's own YouTube session. The bot-check
+  message now ends "then tap Try again". Cookies from other sites' requests no longer replace
+  the session kept for the page.
 - Project rules (owner decision, ADR-006, 2026-10-03): for public videos YFT may use any
   technique that works — app or device client identities, proof-of-origin tokens, bot-check
   workarounds and the user's own browser session. DRM, paid, private and age-restricted
@@ -55,7 +65,7 @@ for every APK given to users, because Android refuses to install a lower one.
   follows the last task (T19).
 - YouTube lookups tell a bot check from a real sign-in. "Confirm you're not a bot" now says
   that YouTube wants to check that this is not a bot, and suggests opening the video in YFT's
-  browser, letting it play for a moment, then tapping Download. A response that offers only
+  browser and letting it play for a moment. A response that offers only
   YouTube's SABR streaming fails as no downloadable media with a "SABR only" detail. Copy
   details lists every client asked (name, status, reason, formats with addresses, SABR flag)
   without addresses, cookies or visitor data.

@@ -12,7 +12,15 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.flow.MutableStateFlow
 import com.alal.yft.detection.SiteAdapterCoordinator
+import com.alal.yft.core.model.media.CandidateSource
+import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.extractor.api.SiteExtractionFailure
+import com.alal.yft.extractor.api.SiteExtractionRequest
+import com.alal.yft.extractor.api.SiteExtractionResult
+import com.alal.yft.extractor.api.SiteExtractor
 import com.alal.yft.extractor.api.SiteExtractorRegistry
+import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -233,6 +241,162 @@ class BrowserViewModelTest {
         assertTrue(viewModel.uiState.value.candidates.isEmpty())
     }
 
+    @Test
+    fun botCheckRetriesOnceAfterThePlayerFetchesMediaWithTheSitesOwnCookie() = runTest {
+        val extractor = ScriptedExtractor(
+            SiteExtractionResult.Failure(SiteExtractionFailure.BOT_CHECK),
+            SiteExtractionResult.Failure(SiteExtractionFailure.BOT_CHECK),
+        )
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor))
+        viewModel.onPageStarted(FIXTURE_PAGE)
+        runCurrent()
+        viewModel.onRequest(request("https://fixture.test/api/player", cookie = "SID=own"))
+        viewModel.onRequest(request("https://ads.other.test/pixel", cookie = "tracker=1"))
+        viewModel.onRequest(request("https://fixture.test/api/log", cookie = null))
+        runCurrent()
+        viewModel.onPageFinished(FIXTURE_PAGE, "Clip")
+        runCurrent()
+
+        assertEquals(listOf("SID=own"), extractor.cookies())
+        assertTrue(viewModel.uiState.value.siteNotice!!.contains("not a bot"))
+        assertTrue(viewModel.uiState.value.canRetrySiteLookup)
+
+        viewModel.onRequest(request("https://cdn.fixture.test/thumb.jpg", cookie = null))
+        runCurrent()
+        assertEquals(1, extractor.requests.size)
+
+        viewModel.onRequest(request(MEDIA_REQUEST, cookie = null))
+        runCurrent()
+        assertEquals(listOf("SID=own", "SID=own"), extractor.cookies())
+
+        // Only one automatic retry per page: later media requests leave it to Try again.
+        viewModel.onRequest(request(MEDIA_REQUEST, cookie = null))
+        runCurrent()
+        assertEquals(2, extractor.requests.size)
+        assertTrue(viewModel.uiState.value.canRetrySiteLookup)
+    }
+
+    @Test
+    fun tryAgainAsksTheAdapterAgainAndASuccessClearsTheNotice() = runTest {
+        val extractor = ScriptedExtractor(
+            SiteExtractionResult.Failure(SiteExtractionFailure.RATE_LIMITED),
+            SiteExtractionResult.Success(listOf(fixtureCandidate())),
+        )
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor))
+        viewModel.onPageStarted(FIXTURE_PAGE)
+        viewModel.onPageFinished(FIXTURE_PAGE, "Clip")
+        runCurrent()
+        assertTrue(viewModel.uiState.value.canRetrySiteLookup)
+
+        // Rate limits are not answered by playback, so media requests never retry by themselves.
+        viewModel.onRequest(request(MEDIA_REQUEST, cookie = null))
+        runCurrent()
+        assertEquals(1, extractor.requests.size)
+
+        viewModel.retrySiteLookup()
+        runCurrent()
+        advanceTimeBy(250)
+        runCurrent()
+
+        assertEquals(2, extractor.requests.size)
+        assertNull(viewModel.uiState.value.siteNotice)
+        assertFalse(viewModel.uiState.value.canRetrySiteLookup)
+        assertEquals(
+            "https://cdn.fixture.test/42.mp4",
+            viewModel.uiState.value.candidates.single().mediaUrl,
+        )
+
+        viewModel.retrySiteLookup()
+        runCurrent()
+        assertEquals(2, extractor.requests.size)
+    }
+
+    @Test
+    fun finalFailuresOfferNoRetryAndANewPageForgetsTheOldOne() = runTest {
+        val extractor = ScriptedExtractor(
+            SiteExtractionResult.Failure(SiteExtractionFailure.DRM_PROTECTED),
+            SiteExtractionResult.Failure(SiteExtractionFailure.BOT_CHECK),
+        )
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor))
+        viewModel.onPageStarted(FIXTURE_PAGE)
+        viewModel.onPageFinished(FIXTURE_PAGE, "Clip")
+        runCurrent()
+
+        assertTrue(viewModel.uiState.value.siteNotice!!.isNotBlank())
+        assertFalse(viewModel.uiState.value.canRetrySiteLookup)
+        viewModel.retrySiteLookup()
+        runCurrent()
+        assertEquals(1, extractor.requests.size)
+
+        viewModel.onPageStarted("$FIXTURE_PAGE?t=1")
+        runCurrent()
+        assertNull(viewModel.uiState.value.siteNotice)
+        assertFalse(viewModel.uiState.value.canRetrySiteLookup)
+        val nextPage = "$FIXTURE_PAGE?t=1"
+        viewModel.onRequest(request("https://ads.other.test/pixel", "tracker=1", nextPage))
+        runCurrent()
+        viewModel.onPageFinished("$FIXTURE_PAGE?t=1", "Clip")
+        runCurrent()
+
+        assertEquals(listOf(null, null), extractor.cookies())
+        assertTrue(viewModel.uiState.value.canRetrySiteLookup)
+    }
+
     private fun noAdapters(): SiteAdapterCoordinator =
         SiteAdapterCoordinator(SiteExtractorRegistry(emptyList()))
+
+    private fun adapters(extractor: SiteExtractor): SiteAdapterCoordinator =
+        SiteAdapterCoordinator(SiteExtractorRegistry(listOf(extractor)))
+
+    private fun request(
+        url: String,
+        cookie: String?,
+        page: String = FIXTURE_PAGE,
+    ): RequestObservation = RequestObservation(
+        pageUrl = page,
+        requestUrl = url,
+        method = "GET",
+        headers = emptyMap(),
+        userAgent = "YFT-Test",
+        cookie = cookie,
+        observedAtEpochMs = 1_000,
+    )
+
+    private fun fixtureCandidate(): MediaCandidate = MediaCandidate(
+        pageUrl = FIXTURE_PAGE,
+        mediaUrl = "https://cdn.fixture.test/42.mp4",
+        sources = setOf(CandidateSource.MANIFEST),
+        kind = MediaKind.DIRECT,
+    )
+
+    /** Answers each lookup with the next scripted result and records what it was asked. */
+    private class ScriptedExtractor(vararg results: SiteExtractionResult) : SiteExtractor {
+        private val script = ArrayDeque(results.toList())
+        override val id: String = "fixture"
+        override val displayName: String = "Fixture Site"
+        val requests = mutableListOf<SiteExtractionRequest>()
+
+        fun cookies(): List<String?> = requests.map { it.requestContext.cookie }
+
+        override fun identify(pageUrl: String): SitePageIdentity? {
+            if (!pageUrl.startsWith(FIXTURE_PREFIX)) return null
+            val contentId = pageUrl.removePrefix(FIXTURE_PREFIX).substringBefore('?')
+            return SitePageIdentity("fixture", contentId, "$FIXTURE_PREFIX$contentId")
+        }
+
+        override fun isPlayerMediaRequest(requestUrl: String): Boolean =
+            requestUrl.startsWith("https://media.fixture.test/")
+
+        override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
+            requests += request
+            return script.removeFirstOrNull()
+                ?: SiteExtractionResult.Failure(SiteExtractionFailure.NO_MEDIA_FOUND)
+        }
+    }
+
+    private companion object {
+        const val FIXTURE_PREFIX = "https://fixture.test/video/"
+        const val FIXTURE_PAGE = "${FIXTURE_PREFIX}42"
+        const val MEDIA_REQUEST = "https://media.fixture.test/stream?part=1"
+    }
 }

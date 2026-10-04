@@ -62,12 +62,22 @@ internal data class YouTubePageSignals(
     val clientVersion: String?,
     val visitorData: String?,
     val signatureTimestamp: Int?,
+    /** Whether the page says the user is signed in; null when it does not say. */
+    val loggedIn: Boolean? = null,
+    /** The page's data-sync identifier, which names the signed-in account's session. */
+    val dataSyncId: String? = null,
+    /** Which of the browser's signed-in accounts the page belongs to. */
+    val sessionIndex: Int? = null,
+    /** Whether the page's player binds its media proof of origin to the video itself. */
+    val contentBoundPoToken: Boolean = false,
 ) {
-    /** Visitor data identifies the session, so only its presence is printable. */
+    /** Visitor data and the data-sync identifier name the session, so only presence prints. */
     override fun toString(): String =
         "YouTubePageSignals(playerResponse=${playerResponseJson != null}, playerId=$playerId, " +
             "apiKey=${apiKey != null}, clientName=$clientName, clientVersion=$clientVersion, " +
-            "visitorData=${visitorData != null}, signatureTimestamp=$signatureTimestamp)"
+            "visitorData=${visitorData != null}, signatureTimestamp=$signatureTimestamp, " +
+            "loggedIn=$loggedIn, dataSyncId=${dataSyncId != null}, sessionIndex=$sessionIndex, " +
+            "contentBoundPoToken=$contentBoundPoToken)"
 }
 
 /**
@@ -144,10 +154,13 @@ internal sealed interface YouTubeParseResult {
      *
      * [definite] is true when the verdict describes the video itself, such as a private,
      * removed, region-locked, age-gated or DRM-protected video, rather than this one request.
+     * [ageCheck] marks YouTube asking for proof of age, which only the user's own session can
+     * give.
      */
     data class Failure(
         val reason: SiteExtractionFailure,
         val definite: Boolean,
+        val ageCheck: Boolean = false,
     ) : YouTubeParseResult
 }
 
@@ -175,6 +188,16 @@ internal object YouTubePlayerResponseParser {
         Regex("\"(?:VISITOR_DATA|visitorData)\"\\s*:\\s*\"([A-Za-z0-9_\\-%=+/]{5,2000})\"")
     private val SIGNATURE_TIMESTAMP =
         Regex("\"(?:STS|signatureTimestamp)\"\\s*:\\s*(\\d{4,7})\\b")
+    private val LOGGED_IN = Regex("\"LOGGED_IN\"\\s*:\\s*(true|false)\\b")
+    private val DATA_SYNC_ID = Regex("\"DATASYNC_ID\"\\s*:\\s*\"([A-Za-z0-9_\\-|]{1,260})\"")
+    private val SESSION_INDEX = Regex("\"SESSION_INDEX\"\\s*:\\s*\"?(\\d{1,2})\"?")
+
+    /**
+     * The player experiment that binds media proof of origin to the video, as yt-dlp reads it.
+     * Pages escape the `=` inside their JSON as `\u003d`.
+     */
+    private val CONTENT_BOUND_PO_TOKEN =
+        Regex("html5_generate_content_po_token(?:=|\\\\u003[dD])true")
 
     private val TEXT_KEYS = setOf("reason", "subreason", "messages", "simpleText", "text")
     private val AGE_GATE = Regex("\\bage\\b", RegexOption.IGNORE_CASE)
@@ -196,6 +219,10 @@ internal object YouTubePlayerResponseParser {
         clientVersion = CLIENT_VERSION.find(html)?.groupValues?.get(1),
         visitorData = VISITOR_DATA.find(html)?.groupValues?.get(1),
         signatureTimestamp = SIGNATURE_TIMESTAMP.find(html)?.groupValues?.get(1)?.toIntOrNull(),
+        loggedIn = LOGGED_IN.find(html)?.groupValues?.get(1)?.toBooleanStrictOrNull(),
+        dataSyncId = DATA_SYNC_ID.find(html)?.groupValues?.get(1),
+        sessionIndex = SESSION_INDEX.find(html)?.groupValues?.get(1)?.toIntOrNull(),
+        contentBoundPoToken = CONTENT_BOUND_PO_TOKEN.containsMatchIn(html),
     )
 
     /**
@@ -314,12 +341,18 @@ internal object YouTubePlayerResponseParser {
                     failure(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, definite = true)
 
                 AGE_GATE.containsMatchIn(reason) ->
-                    failure(SiteExtractionFailure.LOGIN_REQUIRED, definite = true)
+                    failure(SiteExtractionFailure.LOGIN_REQUIRED, definite = true, ageCheck = true)
 
                 else -> failure(SiteExtractionFailure.LOGIN_REQUIRED, definite = false)
             }
 
-            "AGE_VERIFICATION_REQUIRED", "AGE_CHECK_REQUIRED", "CONTENT_CHECK_REQUIRED" ->
+            "AGE_VERIFICATION_REQUIRED", "AGE_CHECK_REQUIRED" -> failure(
+                SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
+                definite = true,
+                ageCheck = true,
+            )
+
+            "CONTENT_CHECK_REQUIRED" ->
                 failure(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, definite = true)
 
             "LIVE_STREAM_OFFLINE" -> failure(SiteExtractionFailure.NO_MEDIA_FOUND, definite = true)
@@ -394,8 +427,11 @@ internal object YouTubePlayerResponseParser {
         }
     }
 
-    private fun failure(reason: SiteExtractionFailure, definite: Boolean) =
-        YouTubeParseResult.Failure(reason, definite)
+    private fun failure(
+        reason: SiteExtractionFailure,
+        definite: Boolean,
+        ageCheck: Boolean = false,
+    ) = YouTubeParseResult.Failure(reason, definite, ageCheck)
 
     private fun isDrmProtected(root: JsonValue?, streamingData: JsonValue?): Boolean {
         if (streamingData["drmParams"].asStringOrNull != null) return true

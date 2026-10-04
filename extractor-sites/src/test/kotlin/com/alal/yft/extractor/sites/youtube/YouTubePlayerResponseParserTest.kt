@@ -25,6 +25,49 @@ class YouTubePlayerResponseParserTest {
         assertTrue(inline.startsWith("{") && inline.endsWith("}"))
         assertTrue(inline.contains("\"Yft0Fixture\""))
         assertFalse(signals.toString().contains("CgtGaXh0"))
+        assertNull(signals.loggedIn)
+        assertNull(signals.dataSyncId)
+        assertNull(signals.sessionIndex)
+        assertTrue(signals.contentBoundPoToken)
+    }
+
+    @Test
+    fun `the content binding experiment is read in either escaping and only when on`() {
+        val page = fixture("watch_page.html")
+        val flag = "html5_generate_content_po_token\\u003dtrue"
+        assertTrue(page.contains(flag))
+        val plain = page.replace(flag, "html5_generate_content_po_token=true")
+        val off = page.replace(flag, "html5_generate_content_po_token\\u003dfalse")
+        val absent = page.replace(flag, "html5_fixture\\u003d1")
+
+        assertTrue(YouTubePlayerResponseParser.pageSignals(plain).contentBoundPoToken)
+        assertFalse(YouTubePlayerResponseParser.pageSignals(off).contentBoundPoToken)
+        assertFalse(YouTubePlayerResponseParser.pageSignals(absent).contentBoundPoToken)
+    }
+
+    @Test
+    fun `a signed-in page names its session without the session printing`() {
+        val signals = YouTubePlayerResponseParser.pageSignals(
+            fixture("watch_page.html").replace(
+                "\"HL\":\"en\",",
+                "\"HL\":\"en\",\"LOGGED_IN\":true," +
+                    "\"DATASYNC_ID\":\"Fixture0Delegated||Fixture0User\",\"SESSION_INDEX\":\"1\",",
+            ),
+        )
+
+        assertEquals(true, signals.loggedIn)
+        assertEquals("Fixture0Delegated||Fixture0User", signals.dataSyncId)
+        assertEquals(1, signals.sessionIndex)
+        assertFalse(signals.toString().contains("Fixture0"))
+
+        val anonymous = YouTubePlayerResponseParser.pageSignals(
+            fixture("watch_page.html").replace(
+                "\"HL\":\"en\",",
+                "\"HL\":\"en\",\"LOGGED_IN\":false,\"DATASYNC_ID\":\"Fixture0Visitor||\",",
+            ),
+        )
+        assertEquals(false, anonymous.loggedIn)
+        assertNull(anonymous.sessionIndex)
     }
 
     @Test
@@ -96,7 +139,6 @@ class YouTubePlayerResponseParserTest {
         mapOf(
             "player_bot_check.json" to (SiteExtractionFailure.BOT_CHECK to false),
             "player_private.json" to (SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE to true),
-            "player_age_gate.json" to (SiteExtractionFailure.LOGIN_REQUIRED to true),
             "player_geo.json" to (SiteExtractionFailure.GEO_RESTRICTED to true),
             "player_embed_refused.json" to (SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE to false),
             "player_unavailable.json" to (SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE to true),
@@ -108,6 +150,46 @@ class YouTubePlayerResponseParserTest {
         ).forEach { (name, expected) ->
             val (reason, definite) = expected
             assertEquals(name, YouTubeParseResult.Failure(reason, definite), parse(name))
+        }
+        assertEquals(
+            YouTubeParseResult.Failure(
+                SiteExtractionFailure.LOGIN_REQUIRED,
+                definite = true,
+                ageCheck = true,
+            ),
+            parse("player_age_gate.json"),
+        )
+    }
+
+    @Test
+    fun `only YouTube's age checks are marked as age checks`() {
+        listOf("AGE_VERIFICATION_REQUIRED", "AGE_CHECK_REQUIRED").forEach { name ->
+            assertEquals(
+                name,
+                YouTubeParseResult.Failure(
+                    SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
+                    definite = true,
+                    ageCheck = true,
+                ),
+                YouTubePlayerResponseParser.parse(
+                    "{\"playabilityStatus\":{\"status\":\"$name\"}}",
+                    NOW,
+                ),
+            )
+        }
+        assertEquals(
+            YouTubeParseResult.Failure(
+                SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
+                definite = true,
+            ),
+            YouTubePlayerResponseParser.parse(
+                "{\"playabilityStatus\":{\"status\":\"CONTENT_CHECK_REQUIRED\"}}",
+                NOW,
+            ),
+        )
+        listOf("player_private.json", "player_geo.json", "player_bot_check.json").forEach {
+            val failure = parse(it) as YouTubeParseResult.Failure
+            assertFalse(it, failure.ageCheck)
         }
     }
 
@@ -142,7 +224,11 @@ class YouTubePlayerResponseParserTest {
             YouTubePlayerResponseParser.parse(status("\"reason\":\"Please sign in\""), NOW),
         )
         assertEquals(
-            YouTubeParseResult.Failure(SiteExtractionFailure.LOGIN_REQUIRED, definite = true),
+            YouTubeParseResult.Failure(
+                SiteExtractionFailure.LOGIN_REQUIRED,
+                definite = true,
+                ageCheck = true,
+            ),
             YouTubePlayerResponseParser.parse(
                 status("\"reason\":\"Sign in to confirm your age\""),
                 NOW,

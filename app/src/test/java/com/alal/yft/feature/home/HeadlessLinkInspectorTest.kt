@@ -194,7 +194,7 @@ class HeadlessLinkInspectorTest {
 
         assertEquals(
             "Fixture Site wants to check that this is not a bot. Open the video in YFT's " +
-                "browser, let it play for a moment, then tap Download.",
+                "browser, let it play for a moment, then tap Try again.",
             result.message,
         )
         assertTrue(result.canOpenInBrowser)
