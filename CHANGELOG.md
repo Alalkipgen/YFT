@@ -27,6 +27,8 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Fixed
 
+- A link found twice (for example pasted, then seen again in the browser) keeps its separate
+  audio track and codecs, so a merged YouTube row no longer loses its sound.
 - TikTok videos found from a pasted link no longer fail with HTTP 403 when the download
   starts. The lookup keeps the cookies TikTok's page sets in memory only and sends them
   with the media request to TikTok's own media address; they are never stored, logged or

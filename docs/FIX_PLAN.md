@@ -153,7 +153,7 @@ Agents update the **Status** column in every task checkpoint.
 | T14 | [Floating Download button in the browser](#t14--floating-download-button-in-the-browser) | 9 | P2 | Easy–Medium | 0.5–1 d | T12 | TODO |
 | T15 | [Release 1.0.0-beta.4](#t15--release-100-beta4) | 9 | P2 | Easy | 0.5 d | T11–T14, owner | SKIPPED (owner, 2026-10-03: one release after T19) |
 | T16 | [YouTube client strategy](#t16--youtube-client-strategy) | 10 | P1 (owner) | Very hard (A + B + C) | 6–9 d | D2 = A + B + C, T08 | OWNER CHECK |
-| T17 | [Higher qualities: merge video and audio](#t17--higher-qualities-merge-video-and-audio) | 10 | P3 | Hard | 2–3 d | T16 | IN PROGRESS |
+| T17 | [Higher qualities: merge video and audio](#t17--higher-qualities-merge-video-and-audio) | 10 | P3 | Hard | 2–3 d | T16 | OWNER CHECK (2026-10-04) |
 | T18 | [MP3 audio](#t18--mp3-audio) | 10 | P3 | Hard | 2–3 d | D3 (YES) | TODO |
 | T19 | [Signed release 1.0.0-beta.3](#t19--signed-release-100-beta3) | 10 | P3 | Easy | 0.5 d | T09, T11–T18; merge, tag and signing approved by the owner | TODO |
 
@@ -865,6 +865,9 @@ dialog destination like "Download as"; Home opens it on `Found` when exactly one
 **Tests:** selection table tests (only 360p → one row "360p"; 1080/720/480/360 → Fast 480p and High
 720p; audio only → Music only); Compose tests; the accessibility audit.
 
+**Note (T17):** merged YouTube rows carry `audioCompanion`; the quick sheet must queue them with
+it so they download with sound.
+
 ### T13 — "Search to download" page
 
 **Prompt:** [`docs/prompts/T13-search-to-download.md`](prompts/T13-search-to-download.md)
@@ -982,6 +985,15 @@ P3 · Hard · 2–3 days · needs T16
 **Tests:** plan building, compatibility refusals, resuming each track, failure mapping. Owner
 check: the merged file plays with sound.
 
+**Done (2026-10-04, OWNER CHECK):** `CompanionAudio` on `MediaCandidate` and `MediaVariant`;
+`DashDownloadPlan.wholeFile` (ranged chunks of at most 10 MiB, address-independent fingerprint)
+and `DirectDownloadPlan.maxRequestBytes` (10 MiB for `googlevideo.com`); per-track totals in the
+mux and queue; a merged "Video + audio" variant in `DefaultVariantResolver`, previewed through
+`MergingMediaSource`; `DownloadPlanFactory` builds the mux plan after `AudioVideoMuxCompatibility`;
+YouTube offers merged 480p/720p/1080p `avc1` rows paired with the same answer's AAC audio.
+`CandidateNormalizer.merge` keeps an older observation's `audioCompanion` and `codecs`.
+Not verified yet: the on-device mux of real YouTube tracks (§9).
+
 ### T18 — MP3 audio
 
 **Prompt:** [`docs/prompts/T18-mp3-audio.md`](prompts/T18-mp3-audio.md)
@@ -1049,6 +1061,8 @@ Not scheduled. Agents add new items here instead of widening a task.
 - YouTube (T16): capture the token the page's own player sends (`pot=` on its media requests)
   for the browser lookup instead of minting one; rerun the site lookup when a YouTube page
   changes video without a page load (`doUpdateVisitedHistory`), consider with T14.
+- On-device mux of YouTube whole-file tracks not verified yet (T17): download a merged 720p row
+  on a phone or the T02 emulator and confirm the MP4 plays with sound.
 - SPA history-only navigation: the URL snapshot follows `doUpdateVisitedHistory`, but
   `BrowserViewModel.activePageUrl` changes only on `onPageStarted`. Review history-only page
   changes separately so observations from a new SPA URL are not discarded (existing behaviour;

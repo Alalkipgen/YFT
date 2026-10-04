@@ -83,6 +83,8 @@ class CandidateNormalizer(
             title = newest.title ?: oldest.title,
             thumbnailUrl = newest.thumbnailUrl ?: oldest.thumbnailUrl,
             durationMillis = newest.durationMillis ?: oldest.durationMillis,
+            codecs = newest.codecs.ifEmpty { oldest.codecs },
+            audioCompanion = newest.audioCompanion ?: oldest.audioCompanion,
             contentLengthBytes = listOfNotNull(first.contentLengthBytes, second.contentLengthBytes).maxOrNull(),
             requestContext = first.requestContext.mergedWith(second.requestContext),
             confidence = maxOf(first.confidence, second.confidence),

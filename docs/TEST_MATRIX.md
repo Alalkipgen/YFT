@@ -465,13 +465,29 @@ the repository using the app's `OkHttpExtractorClient`, `YouTubeExtractor` and `
 | Live: token mint | PASS — `node scripts/verify-youtube-potoken.mjs` (Playwright, Chromium on the app's origin): player 8ab5c328, token minted in 549 ms, page requests refused: 0. GenerateIT answered ttl 43200 s, refresh 100 s |
 | Live: solver | PASS — `node scripts/verify-youtube-solver.mjs`: 34 vectors passed, today's player 8ab5c328 solved |
 | Live: clients (sandbox data-centre IP) | `dQw4w9WgXcQ`: `VISIONOS` OK (27 adaptive, direct), `ANDROID` OK (itag 18 direct), `MWEB` OK (cipher), `WEB_EMBEDDED_PLAYER` ERROR unavailable; `MWEB` media itags 18/140/134 downloaded with and without `pot=`. `aqz-KE-bpKQ`: LOGIN_REQUIRED bot check from every client, also with a minted token (IP-level). `scripts/live-check.sh` → HTTP 200 with the `playabilityStatus` marker for both. Only status, counts and sanitized details printed |
-| CI / owner check | This checkpoint's two workflows are checked before T17. Owner check: paste two YouTube links on Home → found → download plays (or **Copy details**); play a bot-checked video in YFT's browser → it retries by itself, or tap **Try again** |
+| CI / owner check | PASS on `30cefd8`: checkpoint validation https://github.com/Alalkipgen/YFT/actions/runs/37169226943 and emulator smoke https://github.com/Alalkipgen/YFT/actions/runs/37169226959. Owner check: paste two YouTube links on Home → found → download plays (or **Copy details**); play a bot-checked video in YFT's browser → it retries by itself, or tap **Try again** |
 
 Full command: T01 memory flags plus
 `:extractor-api:test :extractor-sites:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest`.
 Live runs: `PLAYWRIGHT_MODULE=<playwright> CHROMIUM=<chromium> node scripts/verify-youtube-potoken.mjs`,
 `node scripts/verify-youtube-solver.mjs`, `bash scripts/live-check.sh <watch URL>` and a harness outside the
 repository that asks each client and prints only verdicts and counts.
+
+### T17 — Merged video and audio for higher qualities (OWNER CHECK, 2026-10-04)
+
+| Check | Result |
+| --- | --- |
+| Starting state | PASS — the T16 checkpoint `30cefd8` with both CI workflows green (runs 37169226943 and 37169226959) |
+| Regression | `CandidateNormalizerTest.mergeKeepsTheAudioCompanionAndCodecsOfAnOlderObservation` FAILED on the old `CandidateNormalizer.merge` (a newer browser observation of the same address dropped `audioCompanion` and `codecs`) and PASSES on the fix. The other new tests cover behaviour that did not exist before |
+| Model | PASS — `MediaAssetTest`, `DownloadModelsTest`: `CompanionAudio` validation and redacted `toString()`; `MediaCandidate.codecs`/`audioCompanion`, `MediaVariant.audioCompanion`; `DashDownloadPlan.wholeFile` tracks; `DirectDownloadPlan.maxRequestBytes` |
+| Transfers | PASS — `DirectTransferEngineTest`, `DashTransferEngineTest`: `googlevideo.com` files in ranged requests of at most 10 MiB; a whole-file track resumes from its own offset with an address-independent fingerprint; each track resumes separately; refusals and failures map to their reasons |
+| Mux and queue | PASS — `AudioVideoMuxEngineTest`, `StreamDownloadQueueTest`: per-track totals; the compatibility gate refuses non-AVC/AAC pairs before any transfer |
+| Variants and preview | PASS — `DefaultVariantResolverTest`: one merged "Video + audio" variant per paired row with the combined size; `PreviewSourceFactoryTest`: a merged variant previews through `MergingMediaSource` with both tracks |
+| Plans and queueing | PASS — `DownloadPlanFactoryTest`, `DownloadEnqueuerTest`: a merged variant becomes an `AudioVideoMuxDownloadPlan` of two whole-file tracks after `AudioVideoMuxCompatibility` passes; refusals queue nothing |
+| YouTube rows | PASS — `YouTubeExtractorTest`: 480p, 720p and 1080p `avc1` video-only rows are paired with the same answer's AAC audio; VP9 and AV1 are skipped; progressive and audio-only rows are kept |
+| Full validation / instrumentation APK | PASS — core-model 40, core-download 89, core-media 17, extractor-api 32, extractor-generic 8, extractor-sites 150, app 470 (54 render skips), 0 failures; lint 0 errors / 95 warnings; instrumentation APK compiled; Python 22/22; new Kotlin lines <=100 |
+| Not verified | No live or on-device mux: no merged file has been produced from real YouTube tracks on a phone or emulator yet |
+| CI / owner check | Checked after this checkpoint (see `SESSION_STATE.md`). Owner check: on YouTube, download a 720p row marked "Video + audio" → the saved MP4 plays with sound; Preview of that row plays with sound |
 
 ## Runtime tests still requiring a device/emulator
 
@@ -485,7 +501,7 @@ repository that asks each client and prints only verdicts and counts.
 | DOM candidate extraction | Android WebView test page | URLs returned without page mutation | NOT RUN on Android — exact script passes committed fixture in headless Chromium |
 | Cookie/header preview | Controlled authenticated fixture | Preview succeeds with session context | NOT RUN |
 | DRM fixture | Known encrypted manifest | Structured unsupported result | NOT RUN |
-| Audio/video mux on device | Android API 24+ device/emulator | `MediaExtractor`/`MediaMuxer` produce a playable MP4 | NOT RUN — compatibility gate and recovery logic covered locally |
+| Audio/video mux on device | Android API 24+ device/emulator | `MediaExtractor`/`MediaMuxer` produce a playable MP4 | NOT RUN — compatibility gate and recovery logic covered locally; T17 YouTube whole-file pairs not verified on a device |
 | Foreground download lifecycle | Android API 24+ device/emulator | Service survives backgrounding, shows progress and self-stops | NOT RUN |
 | MediaStore publication | Android 10+ device/emulator | Pending item becomes visible in Downloads only after verification | NOT RUN — app-private staging covered locally |
 | Real low-storage transfer | Device with a nearly full volume | Transfer fails cleanly without a corrupt published file | NOT RUN — covered only through an injected failure |

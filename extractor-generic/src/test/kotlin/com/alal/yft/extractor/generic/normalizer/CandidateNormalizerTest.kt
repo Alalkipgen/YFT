@@ -3,6 +3,7 @@ package com.alal.yft.extractor.generic.normalizer
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
+import com.alal.yft.core.model.media.CompanionAudio
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import org.junit.Assert.assertEquals
@@ -41,6 +42,32 @@ class CandidateNormalizerTest {
         assertEquals(60_000L, result.single().durationMillis)
         assertEquals("session=fake", result.single().requestContext.cookie)
         assertEquals("video/*", result.single().requestContext.observedHeaders["Accept"])
+    }
+
+    @Test
+    fun mergeKeepsTheAudioCompanionAndCodecsOfAnOlderObservation() {
+        val audio = CompanionAudio(
+            mediaUrl = "https://media.test/audio.m4a?token=fake",
+            mimeType = "audio/mp4",
+            codecs = listOf("mp4a.40.2"),
+            requestContext = BrowserRequestContext(pageUrl, "UA", null),
+        )
+        val fromAdapter = candidate(
+            mediaUrl = "https://media.test/video.mp4?token=old",
+            sources = setOf(CandidateSource.PASTED_URL),
+            observedAt = 10,
+        ).copy(codecs = listOf("avc1.4d401f"), audioCompanion = audio)
+        val fromBrowser = candidate(
+            mediaUrl = "https://media.test/video.mp4?token=new",
+            sources = setOf(CandidateSource.REQUEST),
+            observedAt = 20,
+        )
+
+        val merged = CandidateNormalizer().normalize(pageUrl, listOf(fromAdapter, fromBrowser))
+
+        assertEquals(1, merged.size)
+        assertEquals(audio, merged.single().audioCompanion)
+        assertEquals(listOf("avc1.4d401f"), merged.single().codecs)
     }
 
     @Test

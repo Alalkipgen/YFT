@@ -27,17 +27,20 @@
 - **Owner delegation (2026-10-03, later):** "D1 and D3 — do as you see fit; do not stop until
   everything is finished; commit and push after every task." D1 = YES and D3 = YES (FIX_PLAN §3);
   no task waits for the owner any more.
-- **Next action — agent:** T17 — merge video and audio
-  ([`prompts/T17-video-audio-mux.md`](prompts/T17-video-audio-mux.md)), then T09 → T12 → T11 →
-  T13 → T14 → T18 → T19. T16 is OWNER CHECK: device clients (`VISIONOS`, `ANDROID`, yt-dlp
-  2026.08.19), BotGuard PO tokens in an offscreen WebView and browser **Try again**/auto-retry
-  after playback (ADR-006 § Implementation). T08 is DONE (CI green: checkpoint
+- **Next action — agent:** T09 — Your sites defaults YouTube, Facebook, TikTok with logos
+  ([`prompts/T09-your-sites-logos.md`](prompts/T09-your-sites-logos.md)), then T12 → T11 → T13 →
+  T14 → T18 → T19. T17 is OWNER CHECK (2026-10-04): YouTube 480p/720p/1080p rows download a
+  video-only MP4 and an M4A and merge them on the phone (**Video + audio** chip). T16 is OWNER
+  CHECK: device clients (`VISIONOS`, `ANDROID`, yt-dlp 2026.08.19), BotGuard PO tokens in an
+  offscreen WebView and browser **Try again**/auto-retry after playback (ADR-006 §
+  Implementation). T08 is DONE (CI green: checkpoint
   https://github.com/Alalkipgen/YFT/actions/runs/37159270955, emulator
   https://github.com/Alalkipgen/YFT/actions/runs/37159270920); T07 is OWNER CHECK (TikTok Home
   and browser download/playback on the phone); T06 is OWNER CHECK (Facebook Home
   download/playback on the phone); T05 is DONE; T04 is OWNER CHECK: final tests, all 9
   individually inspected renders and the actual release debug-action guard pass.
-- **Next action — owner:** phone checks from the `yft-debug-apk` builds (FIX_PLAN §8); for T16
+- **Next action — owner:** phone checks from the `yft-debug-apk` builds (FIX_PLAN §8); for T17
+  download a YouTube 720p **Video + audio** row — the MP4 plays with sound; for T16
   paste two YouTube links on Home (found → download plays, or **Copy details**), and play a
   bot-checked video in YFT's browser (it retries by itself, or tap **Try again**). beta.2 stays a
   draft; the T19 release replaces it.
