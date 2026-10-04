@@ -44,26 +44,24 @@ class SitePageDiagnosticTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
 
     @Test
-    fun facebookShareLink() = diagnose("fb-share", FACEBOOK_SHARE, chromeLike = false)
+    fun facebookShareLink() = diagnose("fb-share", FACEBOOK_SHARE)
 
     @Test
-    fun facebookShareLinkChromeIdentity() =
-        diagnose("fb-share-ua", FACEBOOK_SHARE, chromeLike = true)
+    fun facebookShareLinkWideViewport() =
+        diagnose("fb-share-wide", FACEBOOK_SHARE, wideViewport = true)
 
     @Test
-    fun facebookMobileShareLink() = diagnose("fb-mshare", FACEBOOK_M_SHARE, chromeLike = false)
-
-    @Test
-    fun facebookMobileShareLinkChromeIdentity() =
-        diagnose("fb-mshare-ua", FACEBOOK_M_SHARE, chromeLike = true)
-
-    @Test
-    fun tiktokVideo() = diagnose("tt-video", TIKTOK_VIDEO, chromeLike = false)
+    fun tiktokVideo() = diagnose("tt-video", TIKTOK_VIDEO)
 
     @Test
     fun tiktokVideoChromeIdentity() = diagnose("tt-video-ua", TIKTOK_VIDEO, chromeLike = true)
 
-    private fun diagnose(case: String, url: String, chromeLike: Boolean) {
+    private fun diagnose(
+        case: String,
+        url: String,
+        chromeLike: Boolean = false,
+        wideViewport: Boolean = false,
+    ) {
         runCatching {
             composeRule.waitUntil(20_000) { hasNode("home-open-browser") }
             composeRule.onNodeWithTag("home-open-browser").performClick()
@@ -71,23 +69,38 @@ class SitePageDiagnosticTest {
             composeRule.waitUntil(30_000) { findWebView() != null }
             val webView = checkNotNull(findWebView())
             SystemClock.sleep(3_000)
-            if (chromeLike) {
-                instrumentation.runOnMainSync {
+            instrumentation.runOnMainSync {
+                if (chromeLike) {
                     webView.settings.userAgentString =
                         chromeLikeUserAgent(webView.settings.userAgentString)
                 }
+                if (wideViewport) {
+                    webView.settings.useWideViewPort = true
+                    webView.settings.loadWithOverviewMode = true
+                }
             }
             navigateTo(url)
+            // The compose clock only advances while the test talks to compose: poll through it,
+            // so the navigation starts at once and the Download button's first time is known.
             val chain = linkedSetOf<String>()
-            val deadline = SystemClock.uptimeMillis() + LOAD_WAIT_MS
-            while (SystemClock.uptimeMillis() < deadline) {
+            val start = SystemClock.uptimeMillis()
+            var fabAt = -1L
+            var early = ""
+            while (SystemClock.uptimeMillis() - start < LOAD_WAIT_MS) {
                 chain += safeAddress(mainFrameUrl(webView))
+                if (fabAt < 0 && hasNode("browser-download-fab")) {
+                    fabAt = (SystemClock.uptimeMillis() - start) / 1_000
+                }
+                if (early.isEmpty() && SystemClock.uptimeMillis() - start > EARLY_PROBE_MS) {
+                    early = evaluate(webView)
+                    log(case, "early", "${pixelStats(webView)} $early")
+                }
                 SystemClock.sleep(500)
             }
             log(
                 case,
                 "load",
-                "chain=${chain.joinToString(">")} fab=${hasNode("browser-download-fab")} " +
+                "chain=${chain.joinToString(">")} fabAt=${fabAt}s " +
                     "found=${hasNode("media-found-button")} ${pixelStats(webView)} " +
                     evaluate(webView),
             )
@@ -231,9 +244,10 @@ class SitePageDiagnosticTest {
         const val FACEBOOK_SHARE = "https://www.facebook.com/share/v/1Q3kAyptrS/"
         const val FACEBOOK_M_SHARE = "https://m.facebook.com/share/v/1Q3kAyptrS/"
         const val TIKTOK_VIDEO = "https://www.tiktok.com/@scout2015/video/6718335390845095173"
-        const val LOAD_WAIT_MS = 25_000L
+        const val LOAD_WAIT_MS = 20_000L
+        const val EARLY_PROBE_MS = 7_000L
         const val TAP_WAIT_MS = 6_000L
-        private const val SAFE_PAIR = """[A-Za-z]+=[A-Za-z0-9._/:-]{0,60}"""
+        private const val SAFE_PAIR = """[A-Za-z]+=[A-Za-z0-9._/:-]{0,160}"""
         val SAFE_PROBE = Regex("$SAFE_PAIR( $SAFE_PAIR)*")
 
         /** Host and path only, with anything unusual replaced: no query, fragment or user info. */
@@ -251,25 +265,39 @@ class SitePageDiagnosticTest {
 
         val PAGE_PROBE = """
             (function () {
-              function c(s) { return String(s).replace(/[^A-Za-z0-9._\/:-]/g, '_').slice(0, 60); }
+              function c(s) { return String(s).replace(/[^A-Za-z0-9._\/:-]/g, '_').slice(0, 40); }
               var b = document.body, t = (b && b.innerText) || '';
-              var v = document.querySelectorAll('video'), f = v[0];
+              var vs = document.querySelectorAll('video');
+              var vv = window.visualViewport;
               var o = ['ready=' + c(document.readyState), 'text=' + t.length,
-                'videos=' + v.length, 'iframes=' + document.querySelectorAll('iframe').length,
-                'imgs=' + document.images.length,
+                'videos=' + vs.length, 'imgs=' + document.images.length,
+                'win=' + innerWidth + 'x' + innerHeight, 'dpr=' + devicePixelRatio,
+                'vv=' + (vv ? Math.round(vv.width) + 'x' + Math.round(vv.height) : 'none'),
+                'doc=' + document.documentElement.clientWidth + 'x' +
+                  document.documentElement.clientHeight,
+                'scroll=' +
+                  (document.scrollingElement ? document.scrollingElement.scrollHeight : 0),
+                'dark=' + matchMedia('(prefers-color-scheme: dark)').matches,
                 'bg=' + c(b ? getComputedStyle(b).backgroundColor : 'none'),
                 'login=' + /log in|log into|sign in|sign up/i.test(t),
-                'openApp=' + !!document.querySelector('[aria-label="Open app"]'),
-                'unavailable=' + /isn.t available|not available|unavailable/i.test(t),
-                'unsupported=' + /unsupported browser|update your browser/i.test(t),
                 'wv=' + /; wv\)/.test(navigator.userAgent)];
-              if (f) {
-                var r = f.getBoundingClientRect(), s = f.currentSrc || f.src || '';
-                o.push('vReady=' + f.readyState, 'vNet=' + f.networkState,
-                  'vPaused=' + f.paused, 'vSize=' + f.videoWidth + 'x' + f.videoHeight,
-                  'vBox=' + Math.round(r.width) + 'x' + Math.round(r.height),
-                  'vSrc=' + c(s.split(':')[0]), 'vErr=' + (f.error ? f.error.code : 0),
-                  'vPoster=' + !!f.poster);
+              var e = document.elementFromPoint(innerWidth / 2, innerHeight / 2);
+              o.push('center=' + (e ? c(e.tagName) : 'none'));
+              var names = ['a', 'b', 'c'];
+              for (var i = 0; i < Math.min(vs.length, 3); i++) {
+                var v = vs[i], r = v.getBoundingClientRect(), st = getComputedStyle(v);
+                o.push('v' + names[i] + '=' + v.readyState + '-' + v.networkState + '-' +
+                  (v.paused ? 'P' : 'R') + '-' + v.videoWidth + 'x' + v.videoHeight + '-' +
+                  Math.round(r.width) + 'x' + Math.round(r.height) + '-' + c(st.display) + '-' +
+                  c(st.visibility) + '-' + c(st.height) + '-' + c(st.position) + '-' +
+                  (v.error ? v.error.code : 0) + '-' + c((v.currentSrc || '').split(':')[0]));
+                var a = v.parentElement, chain = [];
+                for (var k = 0; k < 6 && a; k++, a = a.parentElement) {
+                  var ar = a.getBoundingClientRect(), as = getComputedStyle(a);
+                  chain.push(c(a.tagName) + Math.round(ar.height) + c(as.display).slice(0, 4) +
+                    c(as.position).slice(0, 3));
+                }
+                o.push('p' + names[i] + '=' + chain.join('-'));
               }
               return o.join(' ');
             })()

@@ -201,6 +201,27 @@ class SecureBrowserWebViewClientTest {
     }
 
     @Test
+    fun appLinksKeepThePageAndIntentFallbacksLoadTheirHttpsPageOnce() {
+        val fallback = "https://m.example.test/share/v/abc/"
+        val intent = "intent://share/v/abc/#Intent;scheme=fb;" +
+            "S.browser_fallback_url=https%3A%2F%2Fm.example.test%2Fshare%2Fv%2Fabc%2F;end"
+        webView.loadUrl("https://m.example.test/start")
+
+        assertTrue(client.shouldOverrideUrlLoading(webView, request("fb://watch/?v=1")))
+        assertTrue(client.shouldOverrideUrlLoading(webView, request("market://details?id=x")))
+        assertEquals("https://m.example.test/start", shadowOf(webView).lastLoadedUrl)
+
+        assertTrue(client.shouldOverrideUrlLoading(webView, request(intent)))
+        assertEquals(fallback, shadowOf(webView).lastLoadedUrl)
+
+        // The page asks for its app again: the fallback is not loaded in a loop.
+        webView.loadUrl("https://m.example.test/other")
+        assertTrue(client.shouldOverrideUrlLoading(webView, request(intent)))
+        assertEquals("https://m.example.test/other", shadowOf(webView).lastLoadedUrl)
+        assertTrue(sink.errors.isEmpty())
+    }
+
+    @Test
     fun reportsMainFrameHttpErrorsButIgnoresSubresourceErrors() {
         val notFound = WebResourceResponse(
             "text/html",

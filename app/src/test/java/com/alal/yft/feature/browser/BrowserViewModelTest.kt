@@ -534,6 +534,52 @@ class BrowserViewModelTest {
         assertEquals("$page#comments", viewModel.uiState.value.currentUrl)
     }
 
+    @Test
+    fun aLoadingVideoPageIsLookedUpBeforeItFinishesAndOnlyOnce() = runTest {
+        val extractor = ScriptedExtractor(
+            SiteExtractionResult.Success(listOf(fixtureCandidate())),
+            SiteExtractionResult.Success(listOf(fixtureCandidate(VIDEO_B, "b.mp4"))),
+        )
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor))
+
+        // A page no adapter handles waits for its own finish.
+        viewModel.onPageStarted(FEED_PAGE)
+        advanceTimeBy(3_000)
+        runCurrent()
+        assertTrue(extractor.requests.isEmpty())
+
+        // Facebook keeps loading long after its video is known.
+        viewModel.onPageStarted(FIXTURE_PAGE)
+        advanceTimeBy(1_499)
+        runCurrent()
+        assertTrue(extractor.requests.isEmpty())
+        advanceTimeBy(1)
+        runCurrent()
+        advanceTimeBy(250)
+        runCurrent()
+        assertEquals(listOf("42"), extractor.requests.map { it.identity.contentId })
+        assertEquals(listOf("https://cdn.fixture.test/42.mp4"), mediaUrls(viewModel))
+        assertTrue(downloadButtonVisible(viewModel))
+
+        // Finishing later does not ask again, and keeps what was found.
+        viewModel.onPageFinished(FIXTURE_PAGE, "Video")
+        advanceTimeBy(1_000)
+        runCurrent()
+        assertEquals(1, extractor.requests.size)
+        assertEquals(listOf("https://cdn.fixture.test/42.mp4"), mediaUrls(viewModel))
+
+        // A page left before the wait ends is never asked about.
+        viewModel.onPageStarted(VIDEO_A)
+        advanceTimeBy(750)
+        viewModel.onPageStarted(VIDEO_B)
+        advanceTimeBy(1_500)
+        runCurrent()
+        advanceTimeBy(250)
+        runCurrent()
+        assertEquals(listOf("42", "2"), extractor.requests.map { it.identity.contentId })
+        assertEquals(listOf("https://cdn.fixture.test/b.mp4"), mediaUrls(viewModel))
+    }
+
     private fun downloadButtonVisible(viewModel: BrowserViewModel): Boolean =
         BrowserDownloadFab.isVisible(
             hasPage = viewModel.uiState.value.currentUrl != null,

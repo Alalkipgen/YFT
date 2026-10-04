@@ -177,6 +177,7 @@ class BrowserViewModel(
     override fun onPageStarted(url: String) {
         beginPageScope(url)
         browserContext = null
+        scheduleEarlySiteLookup(url)
         mutableUiState.update {
             it.copy(
                 address = url.takeUnless { value -> value == BLANK_PAGE }.orEmpty(),
@@ -254,6 +255,20 @@ class BrowserViewModel(
         }
     }
 
+    /**
+     * Asks the site adapters about a video page before it finished loading (P2): heavy pages such
+     * as Facebook's keep loading long after the video is known, and the Download button should not
+     * wait for them. A page that finishes first runs the lookup itself, and only once.
+     */
+    private fun scheduleEarlySiteLookup(url: String) {
+        if (!siteAdapters.handles(url)) return
+        val generation = pageGeneration
+        viewModelScope.launch(pageProbeJob) {
+            delay(EARLY_LOOKUP_DELAY_MS)
+            if (generation == pageGeneration && !siteLookupStarted) runSiteAdapters(url, null)
+        }
+    }
+
     /** Starts an empty scope for a new page and cancels everything the previous page started. */
     private fun beginPageScope(url: String) {
         pageGeneration++
@@ -298,16 +313,26 @@ class BrowserViewModel(
             when (outcome) {
                 SiteAdapterOutcome.NotHandled -> Unit
 
-                is SiteAdapterOutcome.Detected -> candidateStore.submitAll(
-                    outcome.candidates.map { candidate ->
-                        val titled = if (candidate.title != null) {
-                            candidate
-                        } else {
-                            candidate.copy(title = title?.trim()?.take(MAX_TITLE_LENGTH))
-                        }
-                        if (titled.pageUrl == livePageUrl) titled else titled.copy(pageUrl = livePageUrl)
-                    },
-                )
+                is SiteAdapterOutcome.Detected -> {
+                    // An early lookup has no title yet; the page may have one by now.
+                    val pageTitle = (title ?: mutableUiState.value.pageTitle)
+                        ?.trim()
+                        ?.take(MAX_TITLE_LENGTH)
+                    candidateStore.submitAll(
+                        outcome.candidates.map { candidate ->
+                            val titled = if (candidate.title != null) {
+                                candidate
+                            } else {
+                                candidate.copy(title = pageTitle)
+                            }
+                            if (titled.pageUrl == livePageUrl) {
+                                titled
+                            } else {
+                                titled.copy(pageUrl = livePageUrl)
+                            }
+                        },
+                    )
+                }
 
                 is SiteAdapterOutcome.Failed -> {
                     // One automatic retry per page; after that the user decides with Try again.
@@ -458,5 +483,8 @@ class BrowserViewModel(
 
         /** How long an in-page address must stay before the site adapters are asked about it. */
         const val IN_PAGE_LOOKUP_DELAY_MS = 500L
+
+        /** How long a loading video page waits for its own finish before the lookup starts. */
+        const val EARLY_LOOKUP_DELAY_MS = 1_500L
     }
 }

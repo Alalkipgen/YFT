@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertCountEquals
@@ -169,6 +170,42 @@ class BrowserRouteTest {
         composeRule.runOnIdle {
             assertEquals(site, Shadows.shadowOf(webViews().single()).lastLoadedUrl)
         }
+    }
+
+    @Test
+    fun aPlayersFullScreenViewCoversTheBrowserUntilBackOrThePageLeavesIt() {
+        showRoute()
+        navigate("example.test/one")
+        lateinit var chrome: WebChromeClient
+        composeRule.runOnIdle { chrome = checkNotNull(webViews().single().webChromeClient) }
+        var hidden = 0
+        val player = View(composeRule.activity)
+
+        composeRule.runOnIdle {
+            chrome.onShowCustomView(player, WebChromeClient.CustomViewCallback { hidden++ })
+        }
+        composeRule.onNodeWithTag("browser-fullscreen").assertIsDisplayed()
+        composeRule.runOnIdle { assertTrue(player.isAttachedToWindow) }
+
+        composeRule.runOnIdle { composeRule.activity.onBackPressedDispatcher.onBackPressed() }
+        composeRule.onAllNodesWithTag("browser-fullscreen").assertCountEquals(0)
+        composeRule.runOnIdle {
+            assertEquals(1, hidden)
+            assertTrue(!player.isAttachedToWindow)
+        }
+        assertBrowserPage()
+
+        composeRule.runOnIdle {
+            chrome.onShowCustomView(
+                View(composeRule.activity),
+                WebChromeClient.CustomViewCallback { hidden++ },
+            )
+        }
+        composeRule.onNodeWithTag("browser-fullscreen").assertIsDisplayed()
+        composeRule.runOnIdle { chrome.onHideCustomView() }
+        composeRule.onAllNodesWithTag("browser-fullscreen").assertCountEquals(0)
+        // The page left full screen itself, so it is not told again.
+        composeRule.runOnIdle { assertEquals(1, hidden) }
     }
 
     private fun showRoute(initialLink: String? = null) {

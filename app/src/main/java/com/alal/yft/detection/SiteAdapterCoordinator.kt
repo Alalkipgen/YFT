@@ -127,6 +127,10 @@ class SiteAdapterCoordinator @Inject constructor(
             -> false
         }
 
+    /** Whether an enabled site adapter handles [pageUrl], so a lookup can find its video. */
+    fun handles(pageUrl: String): Boolean =
+        registry.select(pageUrl) is SiteAdapterSelection.Matched
+
     /**
      * Whether two addresses show the same post of the same site, for example when the site adds
      * a tracking or start-time parameter to the address after the video opened.

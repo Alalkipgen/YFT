@@ -1,8 +1,14 @@
 package com.alal.yft.feature.browser
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.view.View
+import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
@@ -47,6 +53,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -63,8 +70,9 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -83,6 +91,9 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alal.yft.core.browser.policy.SecureWebViewPolicy
@@ -135,6 +146,22 @@ fun BrowserRoute(
     var pendingUrl by remember { mutableStateOf(uiState.currentUrl) }
     var canGoBack by remember { mutableStateOf(false) }
     var canGoForward by remember { mutableStateOf(false) }
+    // The site player's full-screen view (P2) and how to tell the page it was closed.
+    var fullscreenView by remember { mutableStateOf<View?>(null) }
+    var exitFullscreen by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val fullscreenHandler = remember {
+        object : SecureBrowserChromeClient.FullscreenHandler {
+            override fun show(view: View, exit: () -> Unit) {
+                fullscreenView = view
+                exitFullscreen = exit
+            }
+
+            override fun hide() {
+                fullscreenView = null
+                exitFullscreen = null
+            }
+        }
+    }
 
     fun loadPage(browser: WebView, url: String) {
         pageUrlState.update(url)
@@ -177,67 +204,126 @@ fun BrowserRoute(
         webView?.goBack()
         refreshHistoryState()
     }
-
-    BrowserScreen(
-        uiState = uiState,
-        canGoBack = canGoBack,
-        canGoForward = canGoForward,
-        onAddressChanged = viewModel::onAddressChanged,
-        onGo = ::submitAddress,
-        onBrowserBack = {
-            webView?.goBack()
-            refreshHistoryState()
-        },
-        onBrowserForward = {
-            webView?.goForward()
-            refreshHistoryState()
-        },
-        onReload = { webView?.reload() },
-        onStop = {
-            webView?.stopLoading()
-            refreshHistoryState()
-        },
-        onPreviewCandidate = { candidate ->
-            if (viewModel.selectForPreview(candidate)) onOpenPreview()
-        },
-        onNavigateBack = onNavigateBack,
-        onGoHome = onGoHome,
-        hasBrowserPage = browserRequested,
-        onOpenQuickDownload = onOpenQuickDownload,
-        searchMode = searchMode,
-        onSearch = { url ->
-            viewModel.onAddressChanged(url)
-            submitAddress()
-        },
-        copiedLinkHint = copiedLinkHint,
-        onDownloadCopiedLink = {
-            // Read only after this tap; Home looks the link up and offers Video you copied.
-            HomeLinks.fromClipboard(clipboard.getText()?.text)?.let(onDownloadLink)
-        },
-        onUseCopiedLink = {
-            // The description above is safe to inspect; payload is read only after this tap.
-            HomeLinks.fromClipboard(clipboard.getText()?.text)?.let { link ->
-                viewModel.onAddressChanged(link)
+    Box(modifier = Modifier.fillMaxSize()) {
+        BrowserScreen(
+            uiState = uiState,
+            canGoBack = canGoBack,
+            canGoForward = canGoForward,
+            onAddressChanged = viewModel::onAddressChanged,
+            onGo = ::submitAddress,
+            onBrowserBack = {
+                webView?.goBack()
+                refreshHistoryState()
+            },
+            onBrowserForward = {
+                webView?.goForward()
+                refreshHistoryState()
+            },
+            onReload = { webView?.reload() },
+            onStop = {
+                webView?.stopLoading()
+                refreshHistoryState()
+            },
+            onPreviewCandidate = { candidate ->
+                if (viewModel.selectForPreview(candidate)) onOpenPreview()
+            },
+            onNavigateBack = onNavigateBack,
+            onGoHome = onGoHome,
+            hasBrowserPage = browserRequested,
+            onOpenQuickDownload = onOpenQuickDownload,
+            searchMode = searchMode,
+            onSearch = { url ->
+                viewModel.onAddressChanged(url)
                 submitAddress()
-            }
-        },
-        onOpenSite = { site ->
-            viewModel.onAddressChanged(site.url)
-            submitAddress()
-        },
-        onRetrySiteLookup = viewModel::retrySiteLookup,
-        browserSurface = { modifier ->
-            BrowserWebView(
-                modifier = modifier,
-                sink = viewModel,
-                pageUrlState = pageUrlState,
-                onWebViewReady = {
-                    webView = it
-                    refreshHistoryState()
+            },
+            copiedLinkHint = copiedLinkHint,
+            onDownloadCopiedLink = {
+                // Read only after this tap; Home looks the link up and offers Video you copied.
+                HomeLinks.fromClipboard(clipboard.getText()?.text)?.let(onDownloadLink)
+            },
+            onUseCopiedLink = {
+                // The description above is safe to inspect; payload is read only after this tap.
+                HomeLinks.fromClipboard(clipboard.getText()?.text)?.let { link ->
+                    viewModel.onAddressChanged(link)
+                    submitAddress()
+                }
+            },
+            onOpenSite = { site ->
+                viewModel.onAddressChanged(site.url)
+                submitAddress()
+            },
+            onRetrySiteLookup = viewModel::retrySiteLookup,
+            browserSurface = { modifier ->
+                BrowserWebView(
+                    modifier = modifier,
+                    sink = viewModel,
+                    pageUrlState = pageUrlState,
+                    fullscreenHandler = fullscreenHandler,
+                    onWebViewReady = {
+                        webView = it
+                        refreshHistoryState()
+                    },
+                )
+            },
+        )
+        fullscreenView?.let { view ->
+            BrowserFullscreen(
+                view = view,
+                onExit = {
+                    val exit = exitFullscreen
+                    fullscreenView = null
+                    exitFullscreen = null
+                    exit?.invoke()
                 },
             )
-        },
-    )
+        }
+    }
+}
+
+/**
+ * The page's video in full screen: the player's own view over the whole browser on black, with
+ * the system bars hidden until a swipe shows them for a moment. Composed last, so Back leaves
+ * full screen before it goes back in the page.
+ */
+@Composable
+private fun BrowserFullscreen(view: View, onExit: () -> Unit) {
+    BackHandler(onBack = onExit)
+    val hostView = LocalView.current
+    DisposableEffect(hostView) {
+        val window = hostView.context.findActivity()?.window
+        val controller = window?.let { WindowCompat.getInsetsController(it, hostView) }
+        controller?.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller?.hide(WindowInsetsCompat.Type.systemBars())
+        onDispose { controller?.show(WindowInsetsCompat.Type.systemBars()) }
+    }
+    key(view) {
+        AndroidView(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .testTag("browser-fullscreen"),
+            factory = { context ->
+                FrameLayout(context).apply {
+                    (view.parent as? ViewGroup)?.removeView(view)
+                    addView(
+                        view,
+                        FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                        ),
+                    )
+                }
+            },
+            onRelease = { container -> container.removeAllViews() },
+        )
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 /**
@@ -923,6 +1009,7 @@ private fun BrowserWebView(
     modifier: Modifier,
     sink: BrowserObservationSink,
     pageUrlState: BrowserPageUrl,
+    fullscreenHandler: SecureBrowserChromeClient.FullscreenHandler,
     onWebViewReady: (WebView) -> Unit,
 ) {
     AndroidView(
@@ -938,7 +1025,7 @@ private fun BrowserWebView(
                 userAgentProvider = { cachedUserAgent },
                 pageUrlState = pageUrlState,
             )
-            browser.webChromeClient = SecureBrowserChromeClient(sink)
+            browser.webChromeClient = SecureBrowserChromeClient(sink, fullscreenHandler)
             browser.setDownloadListener(
                 BrowserDownloadListener(
                     pageUrlProvider = pageUrlState::get,

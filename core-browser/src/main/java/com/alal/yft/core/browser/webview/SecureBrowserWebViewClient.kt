@@ -12,6 +12,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.alal.yft.core.browser.detection.DomMediaProbe
 import com.alal.yft.core.browser.detection.RequestObservation
+import com.alal.yft.core.browser.policy.AppLinkPolicy
 import com.alal.yft.core.browser.policy.BrowserAddressNormalizer
 
 class SecureBrowserWebViewClient(
@@ -23,14 +24,29 @@ class SecureBrowserWebViewClient(
 ) : WebViewClient() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var pendingDomProbe: Runnable? = null
+    private var lastFallbackUrl: String? = null
 
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
         if (!request.isForMainFrame) return false
-        val blocked = !BrowserAddressNormalizer.isAllowedTopLevelUrl(request.url.toString())
-        if (blocked) {
-            sink.onMainFrameError(request.url.toString(), "Blocked insecure navigation")
+        val url = request.url.toString()
+        if (BrowserAddressNormalizer.isAllowedTopLevelUrl(url)) return false
+        when (val decision = AppLinkPolicy.decide(url)) {
+            AppLinkPolicy.Decision.Insecure ->
+                sink.onMainFrameError(url, "Blocked insecure navigation")
+
+            is AppLinkPolicy.Decision.Fallback -> {
+                val fallback = decision.url
+                // A site that offers its app and falls back to the page it is already on would
+                // loop; the page simply stays.
+                if (fallback != view.url && fallback != lastFallbackUrl) {
+                    lastFallbackUrl = fallback
+                    view.loadUrl(fallback)
+                }
+            }
+
+            AppLinkPolicy.Decision.Ignore -> Unit
         }
-        return blocked
+        return true
     }
 
     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
