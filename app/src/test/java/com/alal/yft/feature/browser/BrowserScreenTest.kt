@@ -10,7 +10,9 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -19,6 +21,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
@@ -143,17 +146,84 @@ class BrowserScreenTest {
     }
 
     @Test
-    fun startPageUsesSavedSitesInsteadOfASeparateHardcodedList() {
+    fun viewSitesOffersThePopularSitesAndViewAllTheSavedOnes() {
         val savedSite = HomeSite("My site", "https://example.test")
         var selected: HomeSite? = null
+        var home = 0
         setScreen(
             uiState = BrowserUiState(sites = listOf(savedSite)),
             onOpenSite = { selected = it },
+            onGoHome = { home++ },
         )
 
+        composeRule.onNodeWithText("Search to download").assertIsDisplayed()
+        composeRule.onNodeWithText("View sites").performScrollTo().assertIsDisplayed()
+        VIEW_SITES.forEach { site ->
+            composeRule.onNodeWithTag("browser-site-${site.url}").performScrollTo()
+                .assertIsDisplayed()
+        }
+        composeRule.onNodeWithTag("browser-site-https://x.com").performClick()
+        composeRule.runOnIdle { assertEquals(VIEW_SITES.last(), selected) }
+        composeRule.onAllNodesWithTag("browser-site-${savedSite.url}").assertCountEquals(0)
+
+        composeRule.onNodeWithTag("browser-sites-all").performScrollTo().performClick()
+        composeRule.onNodeWithText("Your sites").assertIsDisplayed()
         composeRule.onAllNodesWithText("Archive").assertCountEquals(0)
-        composeRule.onNodeWithTag("browser-site-${savedSite.url}").performClick()
+        composeRule.onNodeWithTag("browser-site-${savedSite.url}").performScrollTo().performClick()
         composeRule.runOnIdle { assertEquals(savedSite, selected) }
+        composeRule.onNodeWithTag("browser-edit-sites").performScrollTo().performClick()
+        composeRule.runOnIdle { assertEquals(1, home) }
+    }
+
+    @Test
+    fun wordsOfferYouTubeAndWebSearchRows() {
+        val searched = mutableListOf<String>()
+        setScreen(uiState = BrowserUiState(address = "cat videos"), onSearch = { searched += it })
+
+        composeRule.onNodeWithText("Search YouTube for “cat videos”").assertIsDisplayed()
+        composeRule.onNodeWithText("Search the web for “cat videos”").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-search-youtube").performClick()
+        composeRule.onNodeWithTag("browser-search-web").performClick()
+        composeRule.runOnIdle {
+            assertEquals(
+                listOf(
+                    "https://m.youtube.com/results?search_query=cat+videos",
+                    "https://duckduckgo.com/?q=cat+videos",
+                ),
+                searched,
+            )
+        }
+    }
+
+    @Test
+    fun aTypedLinkOffersNoSearchRows() {
+        setScreen(uiState = BrowserUiState(address = "m.youtube.com/watch?v=1"))
+
+        composeRule.onNodeWithTag("browser-start").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("browser-search-rows").assertCountEquals(0)
+    }
+
+    @Test
+    fun searchModeFocusesTheFieldAndDownloadReadsTheCopiedLinkOnlyOnTap() {
+        var downloads = 0
+        setScreen(
+            uiState = BrowserUiState(),
+            copiedLinkHint = true,
+            searchMode = true,
+            onDownloadCopiedLink = { downloads++ },
+        )
+
+        composeRule.onNodeWithTag("browser-address").assertIsFocused()
+        composeRule.runOnIdle { assertEquals(0, downloads) }
+        composeRule.onNodeWithTag("browser-copied-download").performScrollTo().performClick()
+        composeRule.runOnIdle { assertEquals(1, downloads) }
+    }
+
+    @Test
+    fun withoutSearchModeTheAddressFieldWaitsForATap() {
+        setScreen(uiState = BrowserUiState())
+
+        composeRule.onNodeWithTag("browser-address").assertIsNotFocused()
     }
 
     @Test
@@ -325,6 +395,9 @@ class BrowserScreenTest {
         onUseCopiedLink: () -> Unit = {},
         onOpenSite: (HomeSite) -> Unit = {},
         fontScale: Float = 1f,
+        searchMode: Boolean = false,
+        onSearch: (String) -> Unit = {},
+        onDownloadCopiedLink: () -> Unit = {},
     ) {
         composeRule.setContent {
             val density = LocalDensity.current
@@ -349,6 +422,9 @@ class BrowserScreenTest {
                         copiedLinkHint = copiedLinkHint,
                         onUseCopiedLink = onUseCopiedLink,
                         onOpenSite = onOpenSite,
+                        searchMode = searchMode,
+                        onSearch = onSearch,
+                        onDownloadCopiedLink = onDownloadCopiedLink,
                         browserSurface = { Box(modifier = it) },
                     )
                 }

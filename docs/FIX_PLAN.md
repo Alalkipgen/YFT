@@ -149,7 +149,7 @@ Agents update the **Status** column in every task checkpoint.
 | T10 | [Release 1.0.0-beta.3](#t10--release-100-beta3) | 8 | P1 | Easy | 0.5 d | T01–T09, owner | SKIPPED (owner, 2026-10-03: one release after T19) |
 | T11 | [Check the copied link when YFT opens](#t11--check-the-copied-link-when-yft-opens) | 9 | P2 | Medium | 1 d | D1 (YES) | OWNER CHECK (2026-10-04) |
 | T12 | ["Video you copied" quick download sheet](#t12--video-you-copied-quick-download-sheet) | 9 | P2 | Medium–Hard | 1.5–2 d | — | OWNER CHECK (2026-10-04) |
-| T13 | ["Search to download" page](#t13--search-to-download-page) | 9 | P2 | Medium | 1 d | T03, T09 | TODO |
+| T13 | ["Search to download" page](#t13--search-to-download-page) | 9 | P2 | Medium | 1 d | T03, T09 | OWNER CHECK (2026-10-04) |
 | T14 | [Floating Download button in the browser](#t14--floating-download-button-in-the-browser) | 9 | P2 | Easy–Medium | 0.5–1 d | T12 | TODO |
 | T15 | [Release 1.0.0-beta.4](#t15--release-100-beta4) | 9 | P2 | Easy | 0.5 d | T11–T14, owner | SKIPPED (owner, 2026-10-03: one release after T19) |
 | T16 | [YouTube client strategy](#t16--youtube-client-strategy) | 10 | P1 (owner) | Very hard (A + B + C) | 6–9 d | D2 = A + B + C, T08 | OWNER CHECK |
@@ -901,6 +901,14 @@ field takes a link (opens it) or words (two rows: "Search YouTube for “…”"
 (the full Your sites list with Add and Edit). Status (WhatsApp) stays in the backlog.
 
 **Tests:** Compose tests for each row and its navigation; the accessibility audit; renders.
+
+**Done (2026-10-04):** Home's **Search to download** opens `browser?search=true`: the start page
+titled "Search to download" with the address field focused. `BrowserSearch` treats input with a
+space or without a dotted host as words; Go on words searches the web. **Download** on "Link you
+copied" reads the clipboard on that tap and hands the link to Home's back stack entry
+(`home_download_link`), where it is looked up like **Use** (one video → the T12 sheet). View sites
+is a fixed grid (YouTube, Facebook, TikTok, Instagram, X); View all shows the saved Your sites
+with **Add or edit sites** going to Home, where Add and Edit live. Only the phone check is left.
 
 ### T14 — Floating Download button in the browser
 

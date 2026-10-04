@@ -529,6 +529,19 @@ repository that asks each client and prints only verdicts and counts.
 | Not verified | The Android 12+ "YFT pasted from your clipboard" message and Android 10+ focus timing need the phone |
 | Owner check | Copy a YouTube link, open YFT → the link is looked up and the "Video you copied" sheet opens; Settings › Privacy › Check copied links off → nothing is read |
 
+### T13 — "Search to download" page (OWNER CHECK, 2026-10-04)
+
+| Check | Result |
+| --- | --- |
+| Starting state | PASS — the T11 checkpoint `38d2549` |
+| Regression | `BrowserViewModelTest.wordsInTheAddressFieldSearchTheWebInsteadOfFailing`, `BrowserScreenTest.wordsOfferYouTubeAndWebSearchRows`, `HomeScreenTest.searchToDownloadOpensTheSearchPage` and the two new `YftNavigationSmokeTest` cases fail on the old code (words gave "Enter a valid HTTPS address"; no entry, rows, Download or View sites existed) and pass now |
+| Search | PASS — `BrowserSearchTest`: words (and single words without a dot) search, addresses (`example.test/watch`, `m.youtube.com?v=1`, any scheme) do not; YouTube `https://m.youtube.com/results?search_query=…` and web `https://duckduckgo.com/?q=…` URL-encode the words (`cats+%26+dogs`, `caf%C3%A9+%231%3F`) |
+| Start page | PASS — `BrowserScreenTest`: both rows and their URLs; a typed link shows no rows; search mode focuses the address field and Open browser does not; Download on "Link you copied" runs only on tap; View sites shows YouTube, Facebook, TikTok, Instagram and X and opens them; View all shows the saved Your sites, Add or edit sites goes Home |
+| Navigation | PASS — `YftNavigationSmokeTest.searchToDownloadOpensTheBrowserStartPageInSearchMode`; `browserDownloadOfTheCopiedLinkIsLookedUpOnHomeAndOpensVideoYouCopied` (the link is handed to Home's entry, looked up, and one video opens the T12 sheet) |
+| Accessibility / renders | The audit covers `02-browser-search` with `02-browser-start`; renders `02-browser-search` Day and Night added (skipped without `YFT_RENDER_DIR`) |
+| Full validation | PASS — core-model 49, core-download 89, core-media 17, core-data 16, extractor-api 32, extractor-generic 8, extractor-sites 150, app 524 (62 render skips), 0 failures; lint 0 errors / 95 warnings; instrumentation APK compiled; Python 22/22; new Kotlin lines <=100 |
+| Owner check | Home › Search to download: type words → the YouTube and web rows; type a link → it opens; View sites opens each site |
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |

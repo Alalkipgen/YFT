@@ -25,6 +25,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.navigation.NavHostController
@@ -207,6 +208,31 @@ class YftNavigationSmokeTest {
         composeRule.onNodeWithTag("mini").assertIsDisplayed()
     }
 
+    @Test
+    fun searchToDownloadOpensTheBrowserStartPageInSearchMode() {
+        setShell()
+        composeRule.onNodeWithTag("home-search").performScrollTo().performClick()
+
+        composeRule.onNodeWithText("search mode").assertIsDisplayed()
+        assertEquals(BROWSER_ROUTE_PATTERN, shellNavController.currentDestination?.route)
+    }
+
+    @Test
+    fun browserDownloadOfTheCopiedLinkIsLookedUpOnHomeAndOpensVideoYouCopied() {
+        setShell()
+        composeRule.onNodeWithTag("home-open-browser").performClick()
+        composeRule.onNodeWithText("search mode").assertDoesNotExist()
+
+        composeRule.onNodeWithTag("browser-copied-download").performClick()
+
+        composeRule.onNodeWithTag("modal-sheet").assertExists()
+        composeRule.onNodeWithText(YftDestination.QUICK_DOWNLOAD.summary).assertIsDisplayed()
+        assertEquals(
+            YftDestination.QUICK_DOWNLOAD.route,
+            shellNavController.currentDestination?.route,
+        )
+    }
+
     // Native graphics hit-tests the sheet's top-rounded shape, so taps inside it land.
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
     @Test
@@ -311,7 +337,7 @@ class YftNavigationSmokeTest {
                     navController = rememberNavController(),
                     themeMode = ThemeMode.LIGHT,
                     onThemeModeChanged = {},
-                    homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _ ->
+                    homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _, _ ->
                         HomeRoute(
                             onOpenBrowser = onOpenBrowser,
                             onOpenDetectedMedia = onOpenDetectedMedia,
@@ -319,7 +345,7 @@ class YftNavigationSmokeTest {
                             viewModel = home,
                         )
                     },
-                    browserContent = { onNavigateBack, _, link, _ ->
+                    browserContent = { onNavigateBack, _, link, _, _, _ ->
                         received += link
                         PhasePlaceholderScreen(
                             title = YftDestination.BROWSER.title,
@@ -394,17 +420,25 @@ private fun TestNavHost(
         themeMode = themeMode,
         onThemeModeChanged = onThemeModeChanged,
         modifier = modifier,
-        homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, onOpenQuick ->
+        homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, onOpenQuick, onSearch ->
             HomeRoute(
                 onOpenBrowser = onOpenBrowser,
                 onOpenDetectedMedia = onOpenDetectedMedia,
                 onOpenLibrary = onOpenLibrary,
                 onOpenQuickDownload = onOpenQuick,
+                onOpenSearch = onSearch,
                 viewModel = home,
             )
         },
-        browserContent = { onNavigateBack, _, _, _ ->
-            Placeholder(YftDestination.BROWSER, onNavigateBack)
+        browserContent = { onNavigateBack, _, _, _, searchMode, onDownloadLink ->
+            Column {
+                if (searchMode) Text(text = "search mode")
+                TextButton(
+                    onClick = { onDownloadLink("https://a.test/copied") },
+                    modifier = Modifier.testTag("browser-copied-download"),
+                ) { Text(text = "Download") }
+                Placeholder(YftDestination.BROWSER, onNavigateBack)
+            }
         },
         quickDownloadContent = { onNavigateBack, _, onMoreFormats ->
             Column {

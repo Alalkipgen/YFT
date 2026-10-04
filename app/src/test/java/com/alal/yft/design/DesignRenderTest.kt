@@ -159,6 +159,16 @@ class DesignRenderTest {
     }
 
     @Test
+    fun browserSearch() = render("02-browser-search", ThemeMode.LIGHT) {
+        BrowserPreview(startPage = true, query = SAMPLE_SEARCH)
+    }
+
+    @Test
+    fun browserSearchDark() = render("02-browser-search-dark", ThemeMode.DARK) {
+        BrowserPreview(startPage = true, query = SAMPLE_SEARCH)
+    }
+
+    @Test
     fun downloadAs() = render("03-download-as", ThemeMode.LIGHT) { DownloadAsPreview() }
 
     @Test
@@ -241,6 +251,7 @@ internal val DESIGN_SCREENS: List<DesignScreen> = listOf(
     DesignScreen("09-promptbox-states") { PromptboxStatesPreview() },
     DesignScreen("02-browser-found-media") { BrowserPreview() },
     DesignScreen("02-browser-start") { BrowserPreview(startPage = true) },
+    DesignScreen("02-browser-search") { BrowserPreview(startPage = true, query = SAMPLE_SEARCH) },
     DesignScreen("02-found-media-screen") { FoundMediaPreview() },
     DesignScreen("03-download-as") { DownloadAsPreview() },
     DesignScreen("12-quick-download") { QuickDownloadPreview() },
@@ -278,7 +289,7 @@ internal fun ShellPreview(activeDownloads: Int) {
             themeMode = ThemeMode.SYSTEM,
             onThemeModeChanged = {},
             modifier = it,
-            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _ ->
+            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _, _ ->
                 HomeScreen(
                     state = SAMPLE_HOME,
                     onAction = {},
@@ -301,7 +312,7 @@ internal fun DownloadsShellPreview() {
             themeMode = ThemeMode.SYSTEM,
             onThemeModeChanged = {},
             modifier = it,
-            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _ ->
+            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _, _ ->
                 HomeScreen(
                     state = SAMPLE_HOME,
                     onAction = {},
@@ -373,11 +384,14 @@ private fun PromptboxSample(
     )
 }
 
+/** Words typed on "Search to download" (`02-browser-search`). */
+internal const val SAMPLE_SEARCH = "ocean waves"
+
 /** `02`: a page standing in for the WebView, with the found-media sheet open. */
 @Composable
-internal fun BrowserPreview(startPage: Boolean = false) {
+internal fun BrowserPreview(startPage: Boolean = false, query: String = "") {
     BrowserScreen(
-        uiState = if (startPage) BrowserUiState() else BrowserUiState(
+        uiState = if (startPage) BrowserUiState(address = query) else BrowserUiState(
             address = "https://archive.org/details/ocean-waves",
             currentUrl = "https://archive.org/details/ocean-waves",
             pageTitle = "Ocean Waves – Public Domain Footage",
@@ -553,7 +567,7 @@ internal fun LibraryShellPreview() {
             themeMode = ThemeMode.SYSTEM,
             onThemeModeChanged = {},
             modifier = it,
-            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _ ->
+            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _, _ ->
                 HomeScreen(
                     state = SAMPLE_HOME,
                     onAction = {},
@@ -625,7 +639,7 @@ internal fun SettingsShellPreview() {
             themeMode = ThemeMode.SYSTEM,
             onThemeModeChanged = {},
             modifier = it,
-            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _ ->
+            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _, _ ->
                 HomeScreen(
                     state = SAMPLE_HOME,
                     onAction = {},

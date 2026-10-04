@@ -55,6 +55,15 @@ class BrowserViewModelTest {
     }
 
     @Test
+    fun wordsInTheAddressFieldSearchTheWebInsteadOfFailing() {
+        val viewModel = BrowserViewModel(OkHttpClient(), noAdapters())
+        viewModel.onAddressChanged("cat videos")
+
+        assertEquals("https://duckduckgo.com/?q=cat+videos", viewModel.addressForLoading())
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
     fun startPageFollowsSavedSitesIncludingAnIntentionallyEmptyList() = runTest {
         val saved = listOf(HomeSite("Saved site", "https://example.test"))
         val siteFlow = MutableStateFlow(saved)

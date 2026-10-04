@@ -119,6 +119,8 @@ fun BrowserRoute(
     onOpenPreview: () -> Unit,
     initialLink: String? = null,
     onGoHome: () -> Unit = onNavigateBack,
+    searchMode: Boolean = false,
+    onDownloadLink: (String) -> Unit = {},
     viewModel: BrowserViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -199,7 +201,16 @@ fun BrowserRoute(
         onNavigateBack = onNavigateBack,
         onGoHome = onGoHome,
         hasBrowserPage = browserRequested,
+        searchMode = searchMode,
+        onSearch = { url ->
+            viewModel.onAddressChanged(url)
+            submitAddress()
+        },
         copiedLinkHint = copiedLinkHint,
+        onDownloadCopiedLink = {
+            // Read only after this tap; Home looks the link up and offers Video you copied.
+            HomeLinks.fromClipboard(clipboard.getText()?.text)?.let(onDownloadLink)
+        },
         onUseCopiedLink = {
             // The description above is safe to inspect; payload is read only after this tap.
             HomeLinks.fromClipboard(clipboard.getText()?.text)?.let { link ->
@@ -248,7 +259,10 @@ fun BrowserScreen(
     onGoHome: () -> Unit = onNavigateBack,
     initialSheetExpanded: Boolean = false,
     hasBrowserPage: Boolean = uiState.currentUrl != null || uiState.isLoading,
+    searchMode: Boolean = false,
+    onSearch: (url: String) -> Unit = {},
     copiedLinkHint: Boolean = false,
+    onDownloadCopiedLink: () -> Unit = {},
     onUseCopiedLink: () -> Unit = {},
     onOpenSite: (HomeSite) -> Unit = {},
     onRetrySiteLookup: () -> Unit = {},
@@ -296,6 +310,7 @@ fun BrowserScreen(
                 onReload = onReload,
                 onStop = onStop,
                 onEditingChanged = { editingAddress = it },
+                focusOnStart = searchMode && !hasBrowserPage,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -371,10 +386,14 @@ fun BrowserScreen(
                 }
             } else {
                 BrowserStartPage(
+                    query = uiState.address,
                     sites = uiState.sites,
                     copiedLinkHint = copiedLinkHint,
+                    onSearch = onSearch,
+                    onDownloadCopiedLink = onDownloadCopiedLink,
                     onUseCopiedLink = onUseCopiedLink,
                     onOpenSite = onOpenSite,
+                    onEditSites = onGoHome,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -440,11 +459,20 @@ private fun BrowserAddressField(
     onStop: () -> Unit,
     onEditingChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    focusOnStart: Boolean = false,
 ) {
     val colors = YftTheme.colors
     val focusManager = LocalFocusManager.current
     val focusRequester = remember { FocusRequester() }
     var focused by remember { mutableStateOf(false) }
+    // Search to download opens with the keyboard up, once; returning keeps the user's choice.
+    var startFocusDone by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(focusOnStart) {
+        if (focusOnStart && !startFocusDone) {
+            startFocusDone = true
+            focusRequester.requestFocus()
+        }
+    }
     var field by remember { mutableStateOf(TextFieldValue(address)) }
     LaunchedEffect(address, focused) {
         // Follow the page (redirects, history) unless the user is typing a new address.
@@ -853,7 +881,7 @@ internal fun foundCountLabel(count: Int): String = when (count) {
 }
 
 private const val FOUND_TITLE = "Found on this page"
-private const val ADDRESS_PLACEHOLDER = "Enter a web address"
+private const val ADDRESS_PLACEHOLDER = "Search or enter a web address"
 private const val EMPTY_BROWSER_PAGE = "about:blank"
 private const val SHEET_MAX_FRACTION = 0.72f
 private val SHEET_SCRIM = Color.Black.copy(alpha = SHEET_SCRIM_ALPHA)

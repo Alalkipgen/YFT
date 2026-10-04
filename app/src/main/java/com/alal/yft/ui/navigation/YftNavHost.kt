@@ -15,6 +15,7 @@ import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.feature.about.AboutRoute
 import com.alal.yft.feature.about.LicensesScreen
 import com.alal.yft.feature.browser.BrowserRoute
+import com.alal.yft.feature.home.HOME_DOWNLOAD_LINK_KEY
 import com.alal.yft.feature.detectedmedia.DetectedMediaRoute
 import com.alal.yft.feature.downloads.DownloadsRoute
 import com.alal.yft.feature.home.HomeRoute
@@ -37,12 +38,14 @@ fun YftNavHost(
         onOpenDetectedMedia: () -> Unit,
         onOpenLibrary: () -> Unit,
         onOpenQuickDownload: () -> Unit,
-    ) -> Unit = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, onOpenQuickDownload ->
+        onOpenSearch: () -> Unit,
+    ) -> Unit = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, onOpenQuick, onOpenSearch ->
         HomeRoute(
             onOpenBrowser = onOpenBrowser,
             onOpenDetectedMedia = onOpenDetectedMedia,
             onOpenLibrary = onOpenLibrary,
-            onOpenQuickDownload = onOpenQuickDownload,
+            onOpenQuickDownload = onOpenQuick,
+            onOpenSearch = onOpenSearch,
         )
     },
     browserContent: @Composable (
@@ -50,12 +53,16 @@ fun YftNavHost(
         onOpenPreview: () -> Unit,
         initialLink: String?,
         onGoHome: () -> Unit,
-    ) -> Unit = { onNavigateBack, onOpenPreview, initialLink, onGoHome ->
+        searchMode: Boolean,
+        onDownloadLink: (String) -> Unit,
+    ) -> Unit = { onNavigateBack, onOpenPreview, initialLink, onGoHome, search, onDownloadLink ->
         BrowserRoute(
             onNavigateBack = onNavigateBack,
             onOpenPreview = onOpenPreview,
             initialLink = initialLink,
             onGoHome = onGoHome,
+            searchMode = search,
+            onDownloadLink = onDownloadLink,
         )
     },
     detectedMediaContent: @Composable (
@@ -143,6 +150,7 @@ fun YftNavHost(
                         launchSingleTop = true
                     }
                 },
+                { navController.navigate(BROWSER_SEARCH_ROUTE) },
             )
         }
         composable(
@@ -153,16 +161,30 @@ fun YftNavHost(
                     nullable = true
                     defaultValue = null
                 },
+                navArgument(BROWSER_SEARCH_ARGUMENT) {
+                    type = NavType.BoolType
+                    defaultValue = false
+                },
             ),
         ) { entry ->
+            val goHome = {
+                if (!navController.popBackStack(YftDestination.HOME.route, inclusive = false)) {
+                    navController.navigateToTab(YftDestination.HOME)
+                }
+            }
             browserContent(
                 navigateBack,
                 openPreview,
                 entry.arguments?.getString(BROWSER_LINK_ARGUMENT),
-                {
-                    if (!navController.popBackStack(YftDestination.HOME.route, inclusive = false)) {
-                        navController.navigateToTab(YftDestination.HOME)
-                    }
+                goHome,
+                entry.arguments?.getBoolean(BROWSER_SEARCH_ARGUMENT) == true,
+                { link ->
+                    // Home (the start destination, always in the back stack) looks it up.
+                    runCatching { navController.getBackStackEntry(YftDestination.HOME.route) }
+                        .getOrNull()
+                        ?.savedStateHandle
+                        ?.set(HOME_DOWNLOAD_LINK_KEY, link)
+                    goHome()
                 },
             )
         }
@@ -244,8 +266,13 @@ fun YftNavHost(
 
 /** Optional link handed from Home to the browser; plain "browser" still opens it empty. */
 internal const val BROWSER_LINK_ARGUMENT = "link"
+internal const val BROWSER_SEARCH_ARGUMENT = "search"
 internal val BROWSER_ROUTE_PATTERN =
-    "${YftDestination.BROWSER.route}?$BROWSER_LINK_ARGUMENT={$BROWSER_LINK_ARGUMENT}"
+    "${YftDestination.BROWSER.route}?$BROWSER_LINK_ARGUMENT={$BROWSER_LINK_ARGUMENT}" +
+        "&$BROWSER_SEARCH_ARGUMENT={$BROWSER_SEARCH_ARGUMENT}"
+
+/** "Search to download" from Home: the start page with the address field focused. */
+internal val BROWSER_SEARCH_ROUTE = "${YftDestination.BROWSER.route}?$BROWSER_SEARCH_ARGUMENT=true"
 
 internal fun browserRouteFor(link: String): String =
     "${YftDestination.BROWSER.route}?$BROWSER_LINK_ARGUMENT=${Uri.encode(link)}"

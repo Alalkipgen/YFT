@@ -65,6 +65,8 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
+import androidx.navigation.NavBackStackEntry
 import com.alal.yft.R
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.core.model.settings.SiteBrand
@@ -95,12 +97,24 @@ fun HomeRoute(
     onOpenLibrary: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenQuickDownload: () -> Unit = {},
+    onOpenSearch: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val openQuickDownload by rememberUpdatedState(onOpenQuickDownload)
     LaunchedEffect(viewModel) {
         viewModel.quickDownloadRequests.collect { openQuickDownload() }
+    }
+    // The browser's "Link you copied" Download hands its link to Home's entry to look up here.
+    val entry = LocalViewModelStoreOwner.current as? NavBackStackEntry
+    LaunchedEffect(entry, viewModel) {
+        val handle = entry?.savedStateHandle ?: return@LaunchedEffect
+        handle.getStateFlow<String?>(HOME_DOWNLOAD_LINK_KEY, null).collect { link ->
+            if (link != null) {
+                handle[HOME_DOWNLOAD_LINK_KEY] = null
+                viewModel.onAction(HomeAction.UseCopied(link))
+            }
+        }
     }
     // Recent follows the library: refreshed each time Home comes back into view.
     LifecycleResumeEffect(viewModel) {
@@ -122,6 +136,7 @@ fun HomeRoute(
         onOpenLibrary = onOpenLibrary,
         copiedLinkHint = rememberCopiedLinkHint(),
         modifier = modifier,
+        onOpenSearch = onOpenSearch,
     )
 }
 
@@ -141,6 +156,7 @@ fun HomeScreen(
     onOpenLibrary: () -> Unit,
     modifier: Modifier = Modifier,
     copiedLinkHint: Boolean = false,
+    onOpenSearch: () -> Unit = {},
 ) {
     val colors = YftTheme.colors
     LazyColumn(
@@ -160,6 +176,7 @@ fun HomeScreen(
                 onOpenBrowser = onOpenBrowser,
                 onOpenDetectedMedia = onOpenDetectedMedia,
                 copiedLinkHint = copiedLinkHint,
+                onOpenSearch = onOpenSearch,
                 modifier = Modifier.padding(top = 22.dp),
             )
         }
@@ -239,6 +256,7 @@ private fun LinkCard(
     onOpenBrowser: (link: String?) -> Unit,
     onOpenDetectedMedia: () -> Unit,
     copiedLinkHint: Boolean,
+    onOpenSearch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val clipboard = LocalClipboardManager.current
@@ -302,6 +320,13 @@ private fun LinkCard(
                     onOpenBrowser(typed.takeIf { state.status != PromptboxStatus.Searching })
                 },
                 modifier = Modifier.testTag("home-open-browser"),
+            )
+            YftTonalButton(
+                text = "Search to download",
+                icon = YftIcons.Search,
+                compact = true,
+                onClick = onOpenSearch,
+                modifier = Modifier.testTag("home-search"),
             )
         }
     }
@@ -622,3 +647,6 @@ private val SITE_LOGO = 30.dp
 private const val NIGHT_LETTER_LIGHTEN = 0.6f
 private const val VISIBLE_TILES = 4
 private const val THUMBNAIL_RATIO = 16f / 9f
+
+/** Key on Home's back stack entry for a link the browser hands over to look up (T13). */
+internal const val HOME_DOWNLOAD_LINK_KEY = "home_download_link"

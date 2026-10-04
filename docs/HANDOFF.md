@@ -27,9 +27,9 @@
 - **Owner delegation (2026-10-03, later):** "D1 and D3 — do as you see fit; do not stop until
   everything is finished; commit and push after every task." D1 = YES and D3 = YES (FIX_PLAN §3);
   no task waits for the owner any more.
-- **Next action — agent:** T13 — Search to download page
-  ([`prompts/T13-search-to-download.md`](prompts/T13-search-to-download.md)), then T14 → T18 →
-  T19. T11 is OWNER CHECK (2026-10-04): copied links are checked when YFT opens. T12 is OWNER CHECK (2026-10-04): "Video you copied" sheet. T09 is OWNER CHECK (2026-10-04): Your sites defaults YouTube, Facebook and
+- **Next action — agent:** T14 — floating Download button in the browser
+  ([`prompts/T14-download-fab.md`](prompts/T14-download-fab.md)), then T18 → T19. T13 is OWNER
+  CHECK (2026-10-04): Search to download. T11 is OWNER CHECK (2026-10-04): copied links are checked when YFT opens. T12 is OWNER CHECK (2026-10-04): "Video you copied" sheet. T09 is OWNER CHECK (2026-10-04): Your sites defaults YouTube, Facebook and
   TikTok with logos. T17 is OWNER CHECK (2026-10-04): YouTube 480p/720p/1080p rows download a
   video-only MP4 and an M4A and merge them on the phone (**Video + audio** chip). T16 is OWNER
   CHECK: device clients (`VISIONOS`, `ANDROID`, yt-dlp 2026.08.19), BotGuard PO tokens in an
@@ -40,7 +40,8 @@
   and browser download/playback on the phone); T06 is OWNER CHECK (Facebook Home
   download/playback on the phone); T05 is DONE; T04 is OWNER CHECK: final tests, all 9
   individually inspected renders and the actual release debug-action guard pass.
-- **Next action — owner:** phone checks from the `yft-debug-apk` builds (FIX_PLAN §8); for T11
+- **Next action — owner:** phone checks from the `yft-debug-apk` builds (FIX_PLAN §8); for T13
+  Home › Search to download: words → YouTube/web rows, a link opens, View sites; for T11
   copy a YouTube link, open YFT → it is looked up; Settings switch off → nothing read; for T12
   paste a YouTube link → Go → the sheet shows Music/Fast/High → Download → it plays; for T09
   Home shows YouTube, Facebook and TikTok with logos and his YouTube is not duplicated; for T17

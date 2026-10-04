@@ -120,8 +120,9 @@ that opened it. While audio plays, the mini player sits right above the bottom b
 - **Browser (02):** close X, address pill (lock + URL), reload; "Found on this page" sheet with a
   Coral count, items with thumbnail, format chips and a Mint Preview pill; footer "Only media
   you're allowed to save is shown. No DRM."; bottom toolbar back / forward / reload / home.
-  Before a page is opened, a Compose start page shows "Link you copied" and the saved Your
-  sites instead of a native WebView. Paste reads only on tap; there is no clipboard preview.
+  Before a page is opened, a Compose start page, "Search to download" (T13), shows search rows
+  for typed words, "Link you copied" (Download, Use copied link) and View sites instead of a
+  native WebView. Paste and Download read only on tap; there is no clipboard preview.
 - **Download as (03):** handle, "Download as", thumbnail with duration, title, "site · Video +
   audio", Video/Audio segmented control, quality list with sizes (selected row tinted), Wi-Fi
   only switch, "Download · 96 MB" Mint button, caption "Saves to Download/YFT".
@@ -329,6 +330,16 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
     Download resolves the candidate, keeping `audioCompanion`, and uses the Download as queue
     rules (Wi-Fi only, the mobile data question). More formats opens the Found list, or Download
     as for a single file.
+
+18. **Search to download (Phase 9, T13).** Home's Search to download opens the browser start
+    page with the address field focused (`browser?search=true`); Open browser opens the same
+    page without the keyboard. Input with a space, or without a dotted host and no scheme, is
+    words: two rows, "Search YouTube for “…”" (`m.youtube.com/results?search_query=`) and
+    "Search the web for “…”" (DuckDuckGo), with the words URL-encoded; Go on words searches the
+    web. Download on "Link you copied" hands the link to Home, which looks it up like Use (so
+    one video opens "Video you copied"). View sites is fixed (YouTube, Facebook, TikTok,
+    Instagram, X with the bundled logos); View all lists the saved Your sites and Add or edit
+    sites goes to Home. The placeholder reads "Search or enter a web address".
 
 ## Remaining differences from the images
 

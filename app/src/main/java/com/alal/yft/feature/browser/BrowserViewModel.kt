@@ -127,8 +127,10 @@ class BrowserViewModel(
         }
     }
 
+    /** The page to load for the address field; words become a web search (T13). */
     fun addressForLoading(): String? {
-        val address = mutableUiState.value.address
+        val typed = mutableUiState.value.address
+        val address = BrowserSearch.wordsOrNull(typed)?.let(BrowserSearch::webUrl) ?: typed
         return when (val result = BrowserAddressNormalizer.normalize(address)) {
             is BrowserAddressResult.Valid -> {
                 mutableUiState.update {

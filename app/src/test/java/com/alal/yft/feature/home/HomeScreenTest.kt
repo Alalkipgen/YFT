@@ -52,6 +52,7 @@ class HomeScreenTest {
     private val openedBrowser = mutableListOf<String?>()
     private var openedDetectedMedia = 0
     private var openedLibrary = 0
+    private var openedSearch = 0
 
     private fun setContent(initial: HomeUiState = HomeUiState(), fontScale: Float = 1f) {
         state = initial
@@ -73,10 +74,21 @@ class HomeScreenTest {
                         onOpenDetectedMedia = { openedDetectedMedia++ },
                         onOpenLibrary = { openedLibrary++ },
                         copiedLinkHint = copiedLinkHint,
+                        onOpenSearch = { openedSearch++ },
                     )
                 }
             }
         }
+    }
+
+    @Test
+    fun searchToDownloadOpensTheSearchPage() {
+        setContent()
+
+        composeRule.onNodeWithTag("home-search").assertIsDisplayed().performClick()
+
+        assertEquals(1, openedSearch)
+        assertEquals(emptyList<String?>(), openedBrowser)
     }
 
     @Test

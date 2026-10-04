@@ -9,6 +9,9 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Added
 
+- Search to download: Home opens the browser's start page ready to type. Words offer "Search
+  YouTube" and "Search the web" (DuckDuckGo); a link opens. "Link you copied" has Download, and
+  View sites shows YouTube, Facebook, TikTok, Instagram and X, with View all for your sites.
 - Check copied links: when YFT opens with a new copied link, Home looks it up straight away
   (one video opens "Video you copied"). Settings › Privacy has a switch to turn it off; only the
   first web link is used and the copied text is never stored.
