@@ -16,11 +16,13 @@ import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -304,6 +306,28 @@ class HomeViewModelTest {
         advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value.recent.isEmpty())
+    }
+
+    @Test
+    fun oneVideoFoundOpensVideoYouCopiedAndSeveralKeepTheList() = runTest {
+        val viewModel = viewModel()
+        val opened = mutableListOf<Unit>()
+        val collector = launch { viewModel.quickDownloadRequests.collect { opened += it } }
+
+        inspector.answer = { found(1) }
+        viewModel.onAction(HomeAction.LinkChanged("https://a.test/watch"))
+        viewModel.onAction(HomeAction.Submit)
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.quickDownload)
+        assertEquals(1, opened.size)
+
+        inspector.answer = { found(2) }
+        viewModel.onAction(HomeAction.Submit)
+        advanceUntilIdle()
+        assertEquals(PromptboxStatus.Found(2), viewModel.uiState.value.status)
+        assertFalse(viewModel.uiState.value.quickDownload)
+        assertEquals(1, opened.size)
+        collector.cancel()
     }
 
     private fun found(count: Int) = LinkInspection.Found(

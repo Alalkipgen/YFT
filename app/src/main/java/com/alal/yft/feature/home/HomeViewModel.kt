@@ -10,16 +10,20 @@ import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.core.model.settings.HomeSites
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import com.alal.yft.feature.library.LibraryRepository
+import com.alal.yft.feature.quickdownload.QuickDownloadChoices
 import com.alal.yft.ui.components.PromptboxStatus
 import com.alal.yft.ui.components.isSavable
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -29,6 +33,7 @@ import kotlinx.coroutines.launch
  *
  * A submitted link is checked by [LinkInspector]; what it finds goes to [DetectedMediaStore],
  * the same memory-only place the browser fills, so View opens the usual Detected Media list.
+ * When it found one video, Home opens "Video you copied" instead and View reopens it.
  */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -38,6 +43,10 @@ class HomeViewModel @Inject constructor(
     private val detectedMediaStore: DetectedMediaStore,
 ) : ViewModel() {
     private val local = MutableStateFlow(HomeUiState())
+    private val quickDownloads = Channel<Unit>(Channel.CONFLATED)
+
+    /** One event per lookup that found one video: Home then opens "Video you copied". */
+    val quickDownloadRequests: Flow<Unit> = quickDownloads.receiveAsFlow()
     private var inspection: Job? = null
     private var recentJob: Job? = null
 
@@ -114,10 +123,16 @@ class HomeViewModel @Inject constructor(
         if (link.isEmpty()) return
         stopInspection()
         local.update {
-            it.copy(link = link, status = PromptboxStatus.Searching, failureDetails = emptyList())
+            it.copy(
+                link = link,
+                status = PromptboxStatus.Searching,
+                failureDetails = emptyList(),
+                quickDownload = false,
+            )
         }
         inspection = viewModelScope.launch {
             var details = emptyList<String>()
+            var quick = false
             val status = when (val result = inspector.inspect(link)) {
                 is LinkInspection.Found -> {
                     detectedMediaStore.publish(
@@ -131,6 +146,7 @@ class HomeViewModel @Inject constructor(
                         .take(DetectedMediaStore.MAX_CANDIDATES)
                         .count { it.isSavable }
                     if (savable > 0) {
+                        quick = QuickDownloadChoices.of(result.candidates) != null
                         PromptboxStatus.Found(count = savable)
                     } else {
                         details = listOf("media check: DRM only")
@@ -147,7 +163,10 @@ class HomeViewModel @Inject constructor(
                     )
                 }
             }
-            local.update { it.copy(status = status, failureDetails = details) }
+            local.update {
+                it.copy(status = status, failureDetails = details, quickDownload = quick)
+            }
+            if (quick) quickDownloads.trySend(Unit)
         }
     }
 

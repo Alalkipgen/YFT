@@ -46,6 +46,7 @@ import com.alal.yft.feature.library.LibraryLocation
 import com.alal.yft.feature.library.LibraryRepository
 import com.alal.yft.feature.library.LibraryScreen
 import com.alal.yft.feature.library.LibraryUiState
+import com.alal.yft.feature.quickdownload.MoreFormatsTarget
 import com.alal.yft.feature.settings.SettingsScreen
 import com.alal.yft.feature.settings.SettingsUiState
 import com.alal.yft.ui.YftAppShell
@@ -205,6 +206,34 @@ class YftNavigationSmokeTest {
     // Native graphics hit-tests the sheet's top-rounded shape, so taps inside it land.
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
     @Test
+    fun oneCopiedVideoOpensVideoYouCopiedOverHomeAndMoreFormatsOpensTheList() {
+        setShell()
+        composeRule.onNodeWithTag("home-link").performTextInput("https://a.test/copied")
+        composeRule.onNodeWithTag("home-open-link").performClick()
+
+        composeRule.onNodeWithTag("modal-sheet").assertExists()
+        composeRule.onNodeWithText(YftDestination.QUICK_DOWNLOAD.summary).assertIsDisplayed()
+        assertEquals(
+            YftDestination.QUICK_DOWNLOAD.route,
+            shellNavController.currentDestination?.route,
+        )
+        composeRule.onNodeWithTag("sheet-close").performClick()
+        composeRule.onNodeWithTag("modal-sheet").assertDoesNotExist()
+        composeRule.onNodeWithTag("home-found").assertIsDisplayed()
+
+        // View reopens the sheet; More formats swaps it for the Found list.
+        composeRule.onNodeWithTag("home-view-media").performClick()
+        composeRule.onNodeWithTag("sheet-more-formats").performClick()
+        composeRule.onNodeWithTag("modal-sheet").assertDoesNotExist()
+        composeRule.onNodeWithText(YftDestination.DETECTED_MEDIA.title).assertIsDisplayed()
+        assertEquals(
+            YftDestination.DETECTED_MEDIA.route,
+            shellNavController.currentDestination?.route,
+        )
+    }
+
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Test
     fun downloadAsRisesAsASheetOverThePageThatOpenedIt() {
         setShell()
         composeRule.onNodeWithTag("home-link").performTextInput("https://a.test/found")
@@ -278,7 +307,7 @@ class YftNavigationSmokeTest {
                     navController = rememberNavController(),
                     themeMode = ThemeMode.LIGHT,
                     onThemeModeChanged = {},
-                    homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary ->
+                    homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _ ->
                         HomeRoute(
                             onOpenBrowser = onOpenBrowser,
                             onOpenDetectedMedia = onOpenDetectedMedia,
@@ -361,16 +390,30 @@ private fun TestNavHost(
         themeMode = themeMode,
         onThemeModeChanged = onThemeModeChanged,
         modifier = modifier,
-        homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary ->
+        homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, onOpenQuick ->
             HomeRoute(
                 onOpenBrowser = onOpenBrowser,
                 onOpenDetectedMedia = onOpenDetectedMedia,
                 onOpenLibrary = onOpenLibrary,
+                onOpenQuickDownload = onOpenQuick,
                 viewModel = home,
             )
         },
         browserContent = { onNavigateBack, _, _, _ ->
             Placeholder(YftDestination.BROWSER, onNavigateBack)
+        },
+        quickDownloadContent = { onNavigateBack, _, onMoreFormats ->
+            Column {
+                Text(text = YftDestination.QUICK_DOWNLOAD.summary)
+                TextButton(
+                    onClick = onNavigateBack,
+                    modifier = Modifier.testTag("sheet-close"),
+                ) { Text(text = "Close") }
+                TextButton(
+                    onClick = { onMoreFormats(MoreFormatsTarget.FOUND_LIST) },
+                    modifier = Modifier.testTag("sheet-more-formats"),
+                ) { Text(text = "More formats") }
+            }
         },
         detectedMediaContent = { onNavigateBack, _, _ ->
             DetectedMediaScreen(page = null, onNavigateBack = onNavigateBack)
@@ -423,23 +466,25 @@ private fun Placeholder(destination: YftDestination, onNavigateBack: () -> Unit)
 }
 
 /**
- * Home with fakes: links containing "found" have one video, anything else has none, the
+ * Home with fakes: links containing "found" have two files, "copied" one video (which opens
+ * Video you copied), anything else has none, the
  * library is empty and the default sites are shown.
  */
 private fun homeViewModel(): HomeViewModel = HomeViewModel(
     inspector = { link ->
-        if ("found" in link) {
+        if ("found" in link || "copied" in link) {
+            val files = if ("copied" in link) listOf("clip") else listOf("clip", "other")
             LinkInspection.Found(
                 pageUrl = link,
                 pageTitle = "Fixture page",
-                candidates = listOf(
+                candidates = files.map { name ->
                     MediaCandidate(
                         pageUrl = link,
-                        mediaUrl = "https://cdn.a.test/clip.mp4",
+                        mediaUrl = "https://cdn.a.test/$name.mp4",
                         sources = setOf(CandidateSource.DOM),
                         kind = MediaKind.DIRECT,
-                    ),
-                ),
+                    )
+                },
             )
         } else {
             LinkInspection.NotFound(PromptboxStatus.NO_MEDIA_MESSAGE)

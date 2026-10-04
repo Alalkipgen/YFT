@@ -9,6 +9,9 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Added
 
+- "Video you copied": when a link pasted on Home finds one video, a sheet offers Music
+  (M4A), Fast (up to 480p) and High (up to 720p) with real sizes, More formats and one Download
+  button. Merged YouTube rows keep their sound; Wi-Fi only and the mobile data question apply.
 - One redacted, size-limited local crash report outside backups, with About actions to View,
   Copy, Share text or Delete it. Reports are never sent automatically. Debug builds alone
   have a confirmed long-press crash test; release APK checks reject that action.

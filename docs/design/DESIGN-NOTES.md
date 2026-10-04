@@ -125,6 +125,9 @@ that opened it. While audio plays, the mini player sits right above the bottom b
 - **Download as (03):** handle, "Download as", thumbnail with duration, title, "site · Video +
   audio", Video/Audio segmented control, quality list with sizes (selected row tinted), Wi-Fi
   only switch, "Download · 96 MB" Mint button, caption "Saves to Download/YFT".
+- **Video you copied (12, no image):** a sheet over Home after a lookup found one video:
+  placeholder thumbnail, title and length; Music "M4A · Fast"; Video Fast (≤ 480p) and High
+  (≤ 720p) with real labels and sizes; More formats; one Mint Download button.
 - **Downloads (04):** title + "Pause all"; All / Active / Queued / Done (+ Failed) filters with
   counts; cards with thumbnail, title, format, percentage, progress, "61 of 96 MB · 2.4 MB/s ·
   15 s left" and a Mint pause button; Waiting for Wi-Fi and "Failed · reason" chips with Retry;
@@ -313,6 +316,16 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
     node. At 200% text the found heading wraps before its reserved count/chevron rather than
     squeezing the badge out of the row. `browser-start` intentionally replaces
     `browser-empty`; all other existing tags stay.
+
+17. **Video you copied (Phase 9, T12).** A Home lookup that found one video (every savable
+    candidate is a whole file sharing one title) opens the sheet and View reopens it; several
+    videos, unlabelled pairs and HLS/DASH keep the Found list. Rows come from the extractor's
+    " — label": Fast is the highest at or below 480p, High the highest above 480p up to 720p,
+    HD/SD rank as 720/480 without inventing a height, and the lowest is offered as Video when
+    every height is above 720p. The default quality preselects High (Fast for 480p/Lowest).
+    Download resolves the candidate, keeping `audioCompanion`, and uses the Download as queue
+    rules (Wi-Fi only, the mobile data question). More formats opens the Found list, or Download
+    as for a single file.
 
 ## Remaining differences from the images
 

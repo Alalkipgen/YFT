@@ -21,6 +21,8 @@ import com.alal.yft.feature.home.HomeRoute
 import com.alal.yft.feature.library.LibraryRoute
 import com.alal.yft.feature.library.PlayerRoute
 import com.alal.yft.feature.preview.PreviewRoute
+import com.alal.yft.feature.quickdownload.MoreFormatsTarget
+import com.alal.yft.feature.quickdownload.QuickDownloadRoute
 import com.alal.yft.feature.settings.SettingsRoute
 import com.alal.yft.ui.components.YftModalSheet
 
@@ -34,11 +36,13 @@ fun YftNavHost(
         onOpenBrowser: (link: String?) -> Unit,
         onOpenDetectedMedia: () -> Unit,
         onOpenLibrary: () -> Unit,
-    ) -> Unit = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary ->
+        onOpenQuickDownload: () -> Unit,
+    ) -> Unit = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, onOpenQuickDownload ->
         HomeRoute(
             onOpenBrowser = onOpenBrowser,
             onOpenDetectedMedia = onOpenDetectedMedia,
             onOpenLibrary = onOpenLibrary,
+            onOpenQuickDownload = onOpenQuickDownload,
         )
     },
     browserContent: @Composable (
@@ -70,6 +74,17 @@ fun YftNavHost(
         onOpenDownloads: () -> Unit,
     ) -> Unit = { onNavigateBack, onOpenDownloads ->
         PreviewRoute(onNavigateBack = onNavigateBack, onOpenDownloads = onOpenDownloads)
+    },
+    quickDownloadContent: @Composable (
+        onNavigateBack: () -> Unit,
+        onOpenDownloads: () -> Unit,
+        onMoreFormats: (MoreFormatsTarget) -> Unit,
+    ) -> Unit = { onNavigateBack, onOpenDownloads, onMoreFormats ->
+        QuickDownloadRoute(
+            onNavigateBack = onNavigateBack,
+            onOpenDownloads = onOpenDownloads,
+            onMoreFormats = onMoreFormats,
+        )
     },
     downloadsContent: @Composable (
         onOpenSettings: () -> Unit,
@@ -123,6 +138,11 @@ fun YftNavHost(
                 },
                 { navController.navigate(YftDestination.DETECTED_MEDIA.route) },
                 { navController.navigateToTab(YftDestination.LIBRARY) },
+                {
+                    navController.navigate(YftDestination.QUICK_DOWNLOAD.route) {
+                        launchSingleTop = true
+                    }
+                },
             )
         }
         composable(
@@ -166,6 +186,36 @@ fun YftNavHost(
                         hide {
                             navController.popBackStack()
                             navController.navigateToTab(YftDestination.DOWNLOADS)
+                        }
+                    },
+                )
+            }
+        }
+        // "Video you copied" rises over Home the same way; More formats swaps it for the Found
+        // list or, for a single file, Download as.
+        dialog(
+            route = YftDestination.QUICK_DOWNLOAD.route,
+            dialogProperties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            YftModalSheet(onDismissRequest = navigateBack) { hide ->
+                quickDownloadContent(
+                    { hide(navigateBack) },
+                    {
+                        hide {
+                            navController.popBackStack()
+                            navController.navigateToTab(YftDestination.DOWNLOADS)
+                        }
+                    },
+                    { target ->
+                        hide {
+                            navController.popBackStack()
+                            navController.navigate(
+                                when (target) {
+                                    MoreFormatsTarget.DOWNLOAD_AS -> YftDestination.PREVIEW.route
+                                    MoreFormatsTarget.FOUND_LIST ->
+                                        YftDestination.DETECTED_MEDIA.route
+                                },
+                            ) { launchSingleTop = true }
                         }
                     },
                 )

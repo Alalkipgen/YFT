@@ -148,7 +148,7 @@ Agents update the **Status** column in every task checkpoint.
 | T09 | [Your sites: YouTube, Facebook, TikTok with logos](#t09--your-sites-youtube-facebook-tiktok-with-logos) | 8 | P1 | Easy | 0.5 d | — | OWNER CHECK (2026-10-04) |
 | T10 | [Release 1.0.0-beta.3](#t10--release-100-beta3) | 8 | P1 | Easy | 0.5 d | T01–T09, owner | SKIPPED (owner, 2026-10-03: one release after T19) |
 | T11 | [Check the copied link when YFT opens](#t11--check-the-copied-link-when-yft-opens) | 9 | P2 | Medium | 1 d | D1 (YES) | TODO |
-| T12 | ["Video you copied" quick download sheet](#t12--video-you-copied-quick-download-sheet) | 9 | P2 | Medium–Hard | 1.5–2 d | — | TODO |
+| T12 | ["Video you copied" quick download sheet](#t12--video-you-copied-quick-download-sheet) | 9 | P2 | Medium–Hard | 1.5–2 d | — | OWNER CHECK (2026-10-04) |
 | T13 | ["Search to download" page](#t13--search-to-download-page) | 9 | P2 | Medium | 1 d | T03, T09 | TODO |
 | T14 | [Floating Download button in the browser](#t14--floating-download-button-in-the-browser) | 9 | P2 | Easy–Medium | 0.5–1 d | T12 | TODO |
 | T15 | [Release 1.0.0-beta.4](#t15--release-100-beta4) | 9 | P2 | Easy | 0.5 d | T11–T14, owner | SKIPPED (owner, 2026-10-03: one release after T19) |
@@ -873,6 +873,14 @@ dialog destination like "Download as"; Home opens it on `Found` when exactly one
 **Note (T17):** merged YouTube rows carry `audioCompanion`; the quick sheet must queue them with
 it so they download with sound.
 
+**Done (2026-10-04):** `QuickDownloadChoices` (pure), `QuickDownloadViewModel`,
+`QuickDownloadScreen` as the `quick-download` dialog destination. Home opens it when the lookup
+found one video (one title; whole files) and View reopens it. The candidate is resolved on
+Download like in Download as, so merged rows keep `audioCompanion`. Verified-code adaptation:
+YouTube offers each quality as its own candidate, so **More formats** opens the Found list (every
+format, each with Download as) and opens Download as directly only for a single file. YFT never
+fetches remote images, so the thumbnail is the usual placeholder. Only the phone check is left.
+
 ### T13 — "Search to download" page
 
 **Prompt:** [`docs/prompts/T13-search-to-download.md`](prompts/T13-search-to-download.md)
@@ -1068,6 +1076,8 @@ Not scheduled. Agents add new items here instead of widening a task.
   changes video without a page load (`doUpdateVisitedHistory`), consider with T14.
 - On-device mux of YouTube whole-file tracks not verified yet (T17): download a merged 720p row
   on a phone or the T02 emulator and confirm the MP4 plays with sound.
+- Quick sheet (T12): a single HLS/DASH lookup keeps the Found list; resolving it first could
+  offer Fast/High from the manifest's heights.
 - SPA history-only navigation: the URL snapshot follows `doUpdateVisitedHistory`, but
   `BrowserViewModel.activePageUrl` changes only on `onPageStarted`. Review history-only page
   changes separately so observations from a new SPA URL are not discarded (existing behaviour;

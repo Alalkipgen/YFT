@@ -3,7 +3,8 @@ package com.alal.yft.ui.navigation
 /**
  * Every screen in the app. The four [isTopLevel] destinations are the bottom-bar tabs; the rest
  * open on top of a tab and hide the bar until the user goes back. Download as ([PREVIEW]) is a
- * sheet over the page that opened it rather than a screen of its own.
+ * sheet over the page that opened it rather than a screen of its own, and so is Video you copied
+ * ([QUICK_DOWNLOAD]) over Home.
  */
 enum class YftDestination(
     val route: String,
@@ -19,6 +20,11 @@ enum class YftDestination(
         "Review media found on the page the browser showed last.",
     ),
     PREVIEW("preview", "Download as", "Pick a quality, try it and download it."),
+    QUICK_DOWNLOAD(
+        "quick-download",
+        "Video you copied",
+        "Download the video you copied, or its music, in one tap.",
+    ),
     DOWNLOADS(
         "downloads",
         "Downloads",

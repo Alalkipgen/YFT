@@ -31,8 +31,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -91,9 +93,14 @@ fun HomeRoute(
     onOpenDetectedMedia: () -> Unit,
     onOpenLibrary: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenQuickDownload: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val openQuickDownload by rememberUpdatedState(onOpenQuickDownload)
+    LaunchedEffect(viewModel) {
+        viewModel.quickDownloadRequests.collect { openQuickDownload() }
+    }
     // Recent follows the library: refreshed each time Home comes back into view.
     LifecycleResumeEffect(viewModel) {
         viewModel.onAction(HomeAction.RefreshRecent)
@@ -103,7 +110,8 @@ fun HomeRoute(
         state = state,
         onAction = viewModel::onAction,
         onOpenBrowser = onOpenBrowser,
-        onOpenDetectedMedia = onOpenDetectedMedia,
+        // One video found: View reopens "Video you copied"; several keep the Found list.
+        onOpenDetectedMedia = if (state.quickDownload) onOpenQuickDownload else onOpenDetectedMedia,
         onOpenLibrary = onOpenLibrary,
         copiedLinkHint = rememberCopiedLinkHint(),
         modifier = modifier,

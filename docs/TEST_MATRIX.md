@@ -495,6 +495,7 @@ repository that asks each client and prints only verdicts and counts.
 | Check | Result |
 | --- | --- |
 | Starting state | PASS — the T17 checkpoint `210814b` with both CI workflows green |
+| CI | GREEN for `b4ea4cc` — [checkpoint validation](https://github.com/Alalkipgen/YFT/actions/runs/37179635595) and [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37179635656) |
 | Regression | `HomeSitesMigrationTest` and `DataStoreHomeSitesRepositoryTest` fail on the old code: it kept Internet Archive, Wikimedia Commons and NASA and had no `home_sites_defaults_version` migration (the new tests do not even compile against it). They pass on the fix |
 | Migration | PASS — untouched old defaults → YouTube, Facebook, TikTok; the owner's case (old defaults + his YouTube) → his YouTube first, then Facebook and TikTok, no duplicate; a custom list stays unchanged; an empty list stays empty; a second run changes nothing; `MAX_SITES` is kept; an unreadable store still shows the defaults |
 | Logos | PASS — `SiteBrand.of` matches hosts and subdomains only (no look-alike domains); `SiteLogosTest`: every bundled logo tint has at least 3:1 contrast on the tile in Day and Night; Home and the browser start page show the logo with tag `site-logo-<slug>`, the tile stays described by the site name, other sites keep the letter |
@@ -502,6 +503,19 @@ repository that asks each client and prints only verdicts and counts.
 | Full validation / instrumentation APK | PASS — core-model 49, core-data 15, app 474 (54 render skips), 0 failures; lint 0 errors / 95 warnings; instrumentation APK compiled; other modules unchanged since T17 (core-download 89, core-media 17, extractor-api 32, extractor-generic 8, extractor-sites 150); Python 22/22; new Kotlin lines <=100 |
 | Not verified | Pixel renders were not regenerated in the sandbox (render tests skip without `YFT_RENDER_DIR`) |
 | Owner check | Home shows YouTube, Facebook and TikTok with logos, and his own YouTube entry is not duplicated |
+
+### T12 — "Video you copied" quick download sheet (OWNER CHECK, 2026-10-04)
+
+| Check | Result |
+| --- | --- |
+| Starting state | PASS — the T09 checkpoint `b4ea4cc` |
+| Regression | `HomeViewModelTest.oneVideoFoundOpensVideoYouCopiedAndSeveralKeepTheList` and `YftNavigationSmokeTest.oneCopiedVideoOpensVideoYouCopiedOverHomeAndMoreFormatsOpensTheList` fail on the old code (a Found lookup only offered View → the list; no sheet opened) and pass now |
+| Row selection | PASS — `QuickDownloadChoicesTest`: only 360p → one Fast row "360p · 11 MB"; 1080/720/480/360 → Fast 480p and High 720p; audio only → Music "M4A · Fast" only; YouTube rows keep `audioCompanion` and Music picks the best M4A; HD/SD rank without a made-up height; only tall videos → one Video row; one unlabelled file → its format; several videos, unlabelled pairs, HLS/DASH and DRM-only keep the Found list; preselection follows the default quality |
+| Download | PASS — `QuickDownloadViewModelTest`: a merged YouTube 720p row is resolved and queued with its `audioCompanion`; mobile data asks first and locks the selection; Wi-Fi only queues as waiting; a resolver failure queues nothing; More formats opens the list, or Download as for a single file; an empty store shows no rows |
+| Screen | PASS — `QuickDownloadScreenTest` (Day and Night): title, length, rows with radio role and selection, More formats, Download, Queueing lock, Queued status with View downloads, metered dialog, empty state with Close; `YftDestinationTest`; the accessibility audit includes `12-quick-download` |
+| Full validation | PASS — core-model 49, core-download 89, core-media 17, core-data 15, extractor-api 32, extractor-generic 8, extractor-sites 150, app 500 (58 render skips), 0 failures; lint 0 errors / 95 warnings; instrumentation APK compiled; Python 22/22; new Kotlin lines <=100 |
+| Not verified | Pixel renders not regenerated in the sandbox (render tests skip without `YFT_RENDER_DIR`) |
+| Owner check | Paste a YouTube link → Go → the sheet shows Music, Fast and High rows → Download → it plays with sound |
 
 ## Runtime tests still requiring a device/emulator
 

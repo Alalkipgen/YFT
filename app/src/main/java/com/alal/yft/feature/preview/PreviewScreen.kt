@@ -653,7 +653,7 @@ private fun SheetMessage(
 }
 
 @Composable
-private fun MeteredDownloadDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+internal fun MeteredDownloadDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
     val colors = YftTheme.colors
     AlertDialog(
         onDismissRequest = onDismiss,

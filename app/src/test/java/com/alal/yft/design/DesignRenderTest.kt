@@ -83,6 +83,8 @@ import com.alal.yft.feature.preview.PreviewPlayerControls
 import com.alal.yft.feature.preview.PreviewScreen
 import com.alal.yft.feature.preview.PreviewTab
 import com.alal.yft.feature.preview.PreviewUiState
+import com.alal.yft.feature.quickdownload.QuickDownloadScreen
+import com.alal.yft.feature.quickdownload.SAMPLE_QUICK_DOWNLOAD
 import com.alal.yft.feature.settings.SettingsScreen
 import com.alal.yft.feature.settings.SettingsUiState
 import com.alal.yft.ui.YftAppShell
@@ -163,6 +165,14 @@ class DesignRenderTest {
     fun downloadAsDark() = render("03-download-as-dark", ThemeMode.DARK) { DownloadAsPreview() }
 
     @Test
+    fun quickDownload() = render("12-quick-download", ThemeMode.LIGHT) { QuickDownloadPreview() }
+
+    @Test
+    fun quickDownloadDark() = render("12-quick-download-dark", ThemeMode.DARK) {
+        QuickDownloadPreview()
+    }
+
+    @Test
     fun downloads() = render("04-downloads", ThemeMode.LIGHT) { DownloadsShellPreview() }
 
     @Test
@@ -233,6 +243,7 @@ internal val DESIGN_SCREENS: List<DesignScreen> = listOf(
     DesignScreen("02-browser-start") { BrowserPreview(startPage = true) },
     DesignScreen("02-found-media-screen") { FoundMediaPreview() },
     DesignScreen("03-download-as") { DownloadAsPreview() },
+    DesignScreen("12-quick-download") { QuickDownloadPreview() },
     DesignScreen("04-downloads") { DownloadsShellPreview() },
     DesignScreen("05-library") { LibraryShellPreview() },
     DesignScreen("05-player") { PlayerPreview() },
@@ -267,7 +278,7 @@ internal fun ShellPreview(activeDownloads: Int) {
             themeMode = ThemeMode.SYSTEM,
             onThemeModeChanged = {},
             modifier = it,
-            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary ->
+            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _ ->
                 HomeScreen(
                     state = SAMPLE_HOME,
                     onAction = {},
@@ -290,7 +301,7 @@ internal fun DownloadsShellPreview() {
             themeMode = ThemeMode.SYSTEM,
             onThemeModeChanged = {},
             modifier = it,
-            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary ->
+            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _ ->
                 HomeScreen(
                     state = SAMPLE_HOME,
                     onAction = {},
@@ -483,6 +494,40 @@ internal fun DownloadAsPreview() {
     }
 }
 
+/** "Video you copied" (`12-quick-download`) over Home: Music, Fast 480p and High 720p. */
+@Composable
+internal fun QuickDownloadPreview() {
+    val colors = YftTheme.colors
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(colors.background),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = SHEET_SCRIM_ALPHA)),
+        )
+        Surface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth(),
+            shape = YftShapes.sheet,
+            color = colors.card,
+            contentColor = colors.textPrimary,
+        ) {
+            Column {
+                YftSheetHandle()
+                QuickDownloadScreen(
+                    state = SAMPLE_QUICK_DOWNLOAD,
+                    onSelect = {},
+                    onDownload = {},
+                )
+            }
+        }
+    }
+}
+
 /** The Library tab (`05-library`) in the shell, with Ocean Waves in the mini player. */
 @Composable
 internal fun LibraryShellPreview() {
@@ -508,7 +553,7 @@ internal fun LibraryShellPreview() {
             themeMode = ThemeMode.SYSTEM,
             onThemeModeChanged = {},
             modifier = it,
-            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary ->
+            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _ ->
                 HomeScreen(
                     state = SAMPLE_HOME,
                     onAction = {},
@@ -580,7 +625,7 @@ internal fun SettingsShellPreview() {
             themeMode = ThemeMode.SYSTEM,
             onThemeModeChanged = {},
             modifier = it,
-            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary ->
+            homeContent = { onOpenBrowser, onOpenDetectedMedia, onOpenLibrary, _ ->
                 HomeScreen(
                     state = SAMPLE_HOME,
                     onAction = {},
