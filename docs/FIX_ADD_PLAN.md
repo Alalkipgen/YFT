@@ -168,6 +168,10 @@ Checked in the code at `2f6284f` (2026-10-04).
 - **G3 — Facebook DASH cannot download.** `DashDownloadManifestParser` returns `Unsupported` for
   `SegmentBase`; Facebook's representations are whole files at their `BaseURL` with a
   `SegmentBase` index, so they can be downloaded as single files without parsing the index.
+  Live 2026-10-04 (desktop page): the inline MPD is `videoDeliveryLegacyFields.
+  dash_manifest_xml_string`; a Chrome/Firefox identity gets AV1 (up to 1660x1078, a bitrate
+  ladder labelled 240p–720p at 1108x720), a Safari identity gets AVC 360p/720p; audio HE-AAC.
+  Details and the P4 plan: [`prompts/CONTINUE-P4-TO-P6.md`](prompts/CONTINUE-P4-TO-P6.md).
 - **G4 — More formats and View open the item list (items 2, 4).** `QuickDownloadChoices` hands
   every savable candidate to More formats, which opens the detected-media list; Home's View
   opens the same list.
