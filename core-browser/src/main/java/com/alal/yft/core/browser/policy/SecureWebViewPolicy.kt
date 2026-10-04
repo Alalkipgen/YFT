@@ -25,6 +25,9 @@ object SecureWebViewPolicy {
             loadsImagesAutomatically = true
             cacheMode = WebSettings.LOAD_DEFAULT
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) safeBrowsingEnabled = true
+            userAgentString?.takeIf(String::isNotBlank)?.let { own ->
+                userAgentString = BrowserUserAgent.from(own)
+            }
         }
         webView.setNetworkAvailable(true)
         CookieManager.getInstance().apply {

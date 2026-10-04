@@ -1016,6 +1016,12 @@ private fun BrowserWebView(
         modifier = modifier,
         factory = { context ->
             val browser = WebView(context)
+            // Without these, the WebView treats its height as "wrap content" and lays pages out
+            // with a zero viewport height: Facebook's reel video got a 320x0 box (P2).
+            browser.layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            )
             SecureWebViewPolicy.apply(browser)
             val cookieManager = CookieManager.getInstance()
             val cachedUserAgent = browser.settings.userAgentString
