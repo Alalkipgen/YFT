@@ -55,6 +55,12 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Fixed
 
+- Quality rows appear from the site's whole-file metadata immediately, before size probes.
+  Unknown sizes are estimated from bitrate and length when possible. Two background probes
+  fill sizes without dropping rows, moving them or changing the chosen format; a failed probe
+  keeps the row. Measured DASH qualities stay in the compact view while unmeasured HD/SD
+  files stay under More formats. Download checks the selected file again with bounded retries;
+  an unavailable quality queues nothing and asks the user to choose another.
 - Slow-network lookups: 20 s idle/60 s per-attempt limits instead of 15 s total, with two
   bounded retries after 1 s and 3 s for connection/timeouts and 502/503/504 only. Home waits
   90 s overall, shows "Slow connection — still looking…" with Cancel after 10 s, and Cancel

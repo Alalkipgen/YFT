@@ -54,6 +54,22 @@ these defaults; Vimeo configuration and YouTube player JSON keep their existing 
 Home does not borrow the WebView's user-agent, cookies or account. Its direct/scanned candidates
 keep the same headless user-agent for subsequent probes/preview. The browser keeps its own session.
 
+## Stable quality rows (P11, 2026-10-05)
+
+Facebook and other adapters' real whole-file metadata makes a row without first requiring a
+HEAD/size success: codec, dimensions, frame rate and duration remain the adapter's statements.
+A bitrate × duration estimate is marked `~`; overflow or unknown inputs yield no size. At most
+two background checks fill only sizes. Failures preserve rows, IDs, names, order and selection.
+Native HD/SD files without stated dimensions remain separate under More formats; a measured
+DASH ladder wins in the compact view. Raw generic manifests still need real resolution.
+Download resolves the chosen file again; only NETWORK or 502/503/504 retry after 1 s / 3 s.
+A dead file shows "This quality is not available now — choose another" and starts no download.
+
+Public sandbox check before any media HEAD: HTTP 200, `www.facebook.com`, path
+`/reel/1603698891196107/`, 136045 bytes. The production Facebook parser found AVC heights
+358/720, one AAC track and two native files: five metadata candidates. No body, media/image
+address, cookie or signed query was printed. Playback/download on the phone remains OWNER CHECK.
+
 ## Slow-network lookup policy (P10, 2026-10-05)
 
 Adapter GETs and read-only JSON POSTs, player-script fetches and session-free page fetches allow

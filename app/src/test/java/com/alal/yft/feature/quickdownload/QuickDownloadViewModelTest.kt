@@ -26,6 +26,7 @@ import com.alal.yft.feature.preview.PreviewDownloadStatus
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.MIB
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.video
 import com.alal.yft.testing.MainDispatcherRule
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -160,8 +161,8 @@ class QuickDownloadViewModelTest {
     }
 
     @Test
-    fun aVideoWithoutAHeightIsLookedUpBeforeItIsShown() = runTest {
-        val hd = video(null, 25 * MIB, label = "HD", videoId = "facebook:1", index = 1)
+    fun aGenericVideoWithoutAHeightIsMeasuredBeforeFormatsAreShown() = runTest {
+        val hd = video(null, 25 * MIB, label = null, videoId = null, index = 1)
         resolver.heights[hd.mediaUrl] = 720
         select(listOf(hd))
 
@@ -177,7 +178,7 @@ class QuickDownloadViewModelTest {
 
     @Test
     fun aFailedLookupSaysWhyAndTryAgainReadsTheFormatsAgain() = runTest {
-        val hd = video(null, 25 * MIB, label = "HD", videoId = "facebook:1", index = 1)
+        val hd = video(null, 25 * MIB, label = null, videoId = null, index = 1)
         resolver.failure = VariantResolutionFailure.NETWORK
         select(listOf(hd))
         val viewModel = viewModel()
@@ -270,7 +271,7 @@ class QuickDownloadViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            PreviewDownloadStatus.Rejected("This link has expired. Open the page again."),
+            PreviewDownloadStatus.Rejected("This quality is not available now — choose another"),
             viewModel.uiState.value.downloadStatus,
         )
         assertTrue(starter.variants.isEmpty())
@@ -289,6 +290,76 @@ class QuickDownloadViewModelTest {
 
         store.select(MediaGroups.of(listOf(one, two)).last())
         assertEquals("Two", viewModel().uiState.value.header?.title)
+    }
+
+    @Test
+    fun everyStatedRowIsVisibleBeforeSizeChecksFinishAndOnlyTwoRunAtOnce() = runTest {
+        val candidates = listOf(1080, 720, 480, 360).map {
+            video(it, videoId = "facebook:fixture")
+        }
+        val gates = candidates.associate { it.mediaUrl to CompletableDeferred<Unit>() }
+        var active = 0
+        var maximum = 0
+        resolver.beforeResolve = { candidate ->
+            active++
+            maximum = maxOf(maximum, active)
+            try { gates.getValue(candidate.mediaUrl).await() } finally { active-- }
+        }
+        candidates.forEach { resolver.sizes[it.mediaUrl] = 5 * MIB }
+        select(candidates)
+        val viewModel = viewModel()
+        val first = viewModel.uiState.value.choices!!
+        assertEquals(listOf(1080, 720, 480, 360), first.video.map { it.rankHeight })
+        assertEquals(2, resolver.requested.size)
+        assertFalse(viewModel.uiState.value.loading)
+        val selected = viewModel.uiState.value.selectedId
+        gates.values.forEach { it.complete(Unit) }
+        advanceUntilIdle()
+        val after = viewModel.uiState.value.choices!!
+        assertEquals(first.options.map { it.id }, after.options.map { it.id })
+        assertEquals(first.options.map { it.title }, after.options.map { it.title })
+        assertEquals(selected, viewModel.uiState.value.selectedId)
+        assertTrue(after.video.all { it.size == "5 MB" })
+        assertEquals(2, maximum)
+    }
+
+    @Test
+    fun aFailedSizeCheckKeepsTheQualityAndADownloadOnADeadLinkQueuesNothing() = runTest {
+        val candidate = video(720, videoId = "facebook:fixture")
+        resolver.failure = VariantResolutionFailure.HTTP_STATUS
+        resolver.failureStatus = 404
+        select(listOf(candidate))
+        val viewModel = viewModel()
+        assertEquals("720p · HD", viewModel.uiState.value.choices!!.video.single().title)
+        assertNull(viewModel.uiState.value.choices!!.video.single().size)
+        assertTrue(viewModel.uiState.value.canDownload)
+        viewModel.download()
+        advanceUntilIdle()
+        assertEquals(
+            PreviewDownloadStatus.Rejected("This quality is not available now — choose another"),
+            viewModel.uiState.value.downloadStatus,
+        )
+        assertTrue(starter.variants.isEmpty())
+        // One background HEAD, one final check; a 404 is never retried.
+        assertEquals(2, resolver.requested.size)
+        assertEquals(1, viewModel.uiState.value.choices!!.video.size)
+    }
+
+    @Test
+    fun aFinalTransientFailureRetriesButAHealthyRowIsNeverReplaced() = runTest {
+        select(QuickDownloadFixtures.youtube())
+        resolver.beforeResolve = {
+            resolver.failure = if (resolver.requested.size == 1) VariantResolutionFailure.NETWORK
+                else null
+        }
+        val viewModel = viewModel()
+        val selected = viewModel.uiState.value.selectedId
+        viewModel.download()
+        advanceUntilIdle()
+        assertEquals(2, resolver.requested.size)
+        assertEquals(1, starter.variants.size)
+        assertEquals(selected, viewModel.uiState.value.selectedId)
+        assertEquals("720p", starter.variants.single().label)
     }
 
     private fun select(candidates: List<MediaCandidate>) {
@@ -325,10 +396,16 @@ class QuickDownloadViewModelTest {
         val requested = mutableListOf<MediaCandidate>()
         val heights = mutableMapOf<String, Int>()
         var failure: VariantResolutionFailure? = null
+        var failureStatus: Int? = null
+        val sizes = mutableMapOf<String, Long>()
+        var beforeResolve: suspend (MediaCandidate) -> Unit = {}
 
         override suspend fun resolve(candidate: MediaCandidate): VariantResolutionResult {
             requested += candidate
-            failure?.let { return VariantResolutionResult.Failure(it) }
+            beforeResolve(candidate)
+            failure?.let {
+                return VariantResolutionResult.Failure(it, httpStatusCode = failureStatus)
+            }
             val variant = MediaVariant(
                 id = "direct-0",
                 playbackUrl = candidate.mediaUrl,
@@ -342,8 +419,8 @@ class QuickDownloadViewModelTest {
                 mimeType = candidate.mimeType,
                 codecs = candidate.codecs,
                 height = heights[candidate.mediaUrl],
-                sizeBytes = candidate.contentLengthBytes,
-                sizeAccuracy = candidate.contentLengthBytes?.let {
+                sizeBytes = sizes[candidate.mediaUrl] ?: candidate.contentLengthBytes,
+                sizeAccuracy = (sizes[candidate.mediaUrl] ?: candidate.contentLengthBytes)?.let {
                     MediaSizeAccuracy.EXACT
                 },
                 audioCompanion = candidate.audioCompanion,

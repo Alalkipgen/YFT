@@ -716,6 +716,19 @@ repository that asks each client and prints only verdicts and counts.
 | P9 CI | Checkpoint `13bbf05` passed: https://github.com/Alalkipgen/YFT/actions/runs/37363825709. Preview and emulator jobs never started: GitHub annotation "The job was not acquired by Runner of type hosted even after multiple attempts". No code-test failure and no workflow changes; next code push retries these jobs automatically |
 | Owner check | On a slow mobile line, paste a YouTube link: slow status after 10 s, then formats; Cancel stops it. Browser does not show a background network banner; focused network failure offers Retry |
 
+### P11 — Rows never vanish (IN PROGRESS, 2026-10-05)
+
+| Check | Result |
+| --- | --- |
+| Metadata-first rows | `QuickDownloadChoicesTest`: every unresolved stated quality appears, honest unknown/estimated size, overflow gives no estimate; real DASH rows stay compact while separate HD/SD hints remain under More formats |
+| Size checks | `QuickDownloadViewModelTest`: rows visible before gated checks finish, at most two probes active, failed checks keep rows, and arriving sizes preserve IDs/title/order/selection |
+| Final check | 404 queues nothing and never retries; transient NETWORK retries the same chosen quality, queues once and never replaces its selection. Details/metered behavior kept |
+| Regression proof | Before sandbox reset, actual pre-P11 `bdc9f88` ViewModel and the original unresolved-source drop were put back: both `unresolvedSourcesStillGiveEveryStatedQualityWithoutASizeCheck` and `everyStatedRowIsVisibleBeforeSizeChecksFinishAndOnlyTwoRunAtOnce` failed with NullPointerException (missing rows). New files restored with cp and cmp verified. The same implementation/tests were recovered from committed session tool events after reset |
+| Public live check | Production parser, no HEAD: HTTP 200; host www.facebook.com; path /reel/1603698891196107/; 136045 bytes; AVC heights 358/720, AAC 1, native files 2 — five metadata candidates before size checks. No raw/signed addresses or body output |
+| Local validation | 44 recovered QuickDownload tests pass; P11 full validation: pending checkpoint command |
+| CI carried forward | P10 emulator passed (37367554221); checkpoint validation failed at the Validate production checkpoint step (37367554173), full log unavailable anonymously. Preview never acquired a hosted runner (37367554281). Restored P10 module-scoped baseline and all five root lint reports pass locally. Combined root task invocation stalled and was stopped; no workflow changes. Check the next checkpoint CI before declaring CI green |
+| Owner check | Facebook reel on a slow connection: every quality arrives together; sizes fill later; nothing disappears; a dead quality keeps the sheet and queues nothing |
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |

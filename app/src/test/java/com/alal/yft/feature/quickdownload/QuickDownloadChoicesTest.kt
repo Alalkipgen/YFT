@@ -313,7 +313,7 @@ class QuickDownloadChoicesTest {
 
     @Test
     fun nothingReadableGivesNoChoices() {
-        val file = video(720)
+        val file = video(720).copy(drmHint = true)
 
         assertNull(
             QuickDownloadChoices.of(
@@ -321,6 +321,59 @@ class QuickDownloadChoicesTest {
                 listOf(SheetSource(file, null, resolved = false)),
             ),
         )
+    }
+
+    @Test
+    fun unresolvedSourcesStillGiveEveryStatedQualityWithoutASizeCheck() {
+        val candidates = listOf(1080, 720, 480, 360).map { video(it, videoId = "facebook:fixture") }
+        val sources = candidates.map { SheetSource(it, null, resolved = false) }
+        val choices = QuickDownloadChoices.of(group(candidates), sources)!!
+        assertEquals(listOf(1080, 720, 480, 360), choices.video.map { it.rankHeight })
+        assertTrue(choices.video.all { it.size == null })
+        assertEquals(4, choices.audio.size)
+    }
+
+    @Test
+    fun statedSizesAreEstimatedFromTheBitrateAndLengthAndCannotOverflow() {
+        val candidate = video(720).copy(bitrateBitsPerSecond = 1_000_000, durationMillis = 8_000)
+        val source = SheetSource(candidate, null, resolved = false)
+        val choices = QuickDownloadChoices.of(group(listOf(candidate)), listOf(source))!!
+        assertEquals("~${YftFormat.bytes(1_000_000)}", choices.video.single().size)
+        val huge = candidate.copy(bitrateBitsPerSecond = Long.MAX_VALUE,
+            durationMillis = Long.MAX_VALUE)
+        assertNull(QuickDownloadMetadata.asset(huge)!!.variants.single().sizeBytes)
+    }
+
+    @Test
+    fun knownDashHeightsStayInTheShortViewAndUnmeasuredHdSdStayUnderMore() {
+        val id = "facebook:fixture"
+        val candidates = listOf(
+            video(null, label = "HD", videoId = id, index = 1),
+            video(null, label = "SD", videoId = id, index = 2),
+            video(720, merged = true, videoId = id, index = 3),
+            video(480, merged = true, videoId = id, index = 4),
+        )
+        val full = QuickDownloadChoices.of(group(candidates), candidates.map {
+            SheetSource(it, null, resolved = false)
+        })!!
+        assertEquals(listOf("720p · HD", "HD", "480p", "SD"), full.video.map { it.title })
+        assertEquals(listOf("720p · HD", "480p"),
+            QuickDownloadChoices.compact(full, QualityPreference.UP_TO_720P).video.map { it.title })
+        assertEquals(full.options.size, full.options.map { it.id }.distinct().size)
+    }
+
+    @Test
+    fun aSizeUpdateNeverChangesRowIdsTitlesOrderOrTheChosenFormats() {
+        val candidate = video(720, videoId = "facebook:fixture")
+        val initial = SheetSource(candidate, QuickDownloadMetadata.asset(candidate), false)
+        val full = QuickDownloadChoices.of(group(listOf(candidate)), listOf(initial))!!
+        val sized = initial.copy(
+            asset = resolvedAsset(candidate.copy(contentLengthBytes = 5 * MIB)),
+        )
+        val updated = QuickDownloadChoices.updateSizes(full, sized)
+        assertEquals(full.options.map { it.id }, updated.options.map { it.id })
+        assertEquals(full.options.map { it.title }, updated.options.map { it.title })
+        assertEquals("5 MB", updated.video.single().size)
     }
 
     @Test

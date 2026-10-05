@@ -30,11 +30,11 @@ import com.alal.yft.feature.preview.PreviewDownloadStatus
 import com.alal.yft.ui.components.isAudio
 import com.alal.yft.ui.components.isSavable
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,6 +43,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 /** What the sheet knows before the qualities are read: the video's title, site and length. */
 data class SheetHeader(
@@ -101,6 +103,7 @@ class QuickDownloadViewModel @Inject constructor(
     private val mutableUiState = MutableStateFlow(QuickDownloadUiState(header = group?.header()))
     val uiState: StateFlow<QuickDownloadUiState> = mutableUiState.asStateFlow()
     private var loading: Job? = null
+    private val sizeProbes = Semaphore(2)
 
     init {
         load()
@@ -170,49 +173,94 @@ class QuickDownloadViewModel @Inject constructor(
         loading = viewModelScope.launch {
             val quality = currentPreferences().defaultQuality
             mutableUiState.update { it.copy(defaultQuality = quality) }
-            val sources = coroutineScope {
-                group.candidates.take(MAX_SOURCES).map { candidate ->
-                    async { inspect(candidate) }
+            val sources = group.candidates.take(MAX_SOURCES).map { candidate ->
+                SheetSource(candidate, stated(candidate), resolved = false)
+            }.toMutableList()
+            showChoices(QuickDownloadChoices.of(group, sources, playback), sources, waiting = true)
+            coroutineScope {
+                sources.toList().mapIndexed { index, initial ->
+                    async {
+                        if (!needsSizeProbe(initial)) return@async
+                        val updated = sizeProbes.withPermit { inspectSize(initial) }
+                        sources[index] = updated
+                        val current = mutableUiState.value.choices
+                        val choices = if (initial.asset != null && current != null) {
+                            QuickDownloadChoices.updateSizes(current, updated)
+                        } else {
+                            // A generic manifest has no real formats until it is resolved.
+                            QuickDownloadChoices.of(group, sources, playback)
+                        }
+                        showChoices(choices, sources, waiting = true)
+                    }
                 }.awaitAll()
             }
-            val choices = QuickDownloadChoices.of(group, sources, playback)
-            mutableUiState.update { state ->
-                if (choices == null) {
-                    state.copy(
-                        loading = false,
-                        choices = null,
-                        failure = messageFor(sources.firstNotNullOfOrNull { it.failure }),
-                    )
+            showChoices(mutableUiState.value.choices, sources, waiting = false)
+        }
+    }
+
+    private fun needsSizeProbe(source: SheetSource): Boolean =
+        source.asset == null || source.candidate.contentLengthBytes?.takeIf { it > 0 } == null ||
+            source.candidate.videoId?.startsWith("facebook:") == true &&
+            source.candidate.bitrateBitsPerSecond != null
+
+    private fun showChoices(choices: QuickChoices?, sources: List<SheetSource>, waiting: Boolean) {
+        mutableUiState.update { state ->
+            state.copy(
+                header = choices?.let {
+                    SheetHeader(it.title, it.source, it.durationMillis, it.isAudioOnly)
+                } ?: state.header,
+                choices = choices,
+                loading = waiting && choices == null,
+                failure = if (choices == null && !waiting) {
+                    messageFor(sources.firstNotNullOfOrNull { it.failure })
                 } else {
-                    state.copy(
-                        header = SheetHeader(
-                            title = choices.title,
-                            source = choices.source,
-                            durationMillis = choices.durationMillis,
-                            audioOnly = choices.isAudioOnly,
-                        ),
-                        loading = false,
-                        choices = choices,
-                        failure = null,
-                        selectedId = state.selectedId?.takeIf { choices.option(it) != null }
-                            ?: QuickDownloadChoices.preselect(choices, quality)?.id,
-                    )
+                    null
+                },
+                selectedId = state.selectedId?.takeIf { choices?.option(it) != null }
+                    ?: choices?.let {
+                        QuickDownloadChoices.preselect(it, state.defaultQuality)?.id
+                    },
+            )
+        }
+    }
+
+    /** A failed background size check keeps the stated row, including its honest estimate. */
+    private suspend fun inspectSize(initial: SheetSource): SheetSource {
+        return when (val result = resolveSafely(initial.candidate)) {
+            is VariantResolutionResult.Failure -> initial.copy(failure = result.reason)
+            is VariantResolutionResult.Success -> {
+                val original = initial.asset
+                if (original == null) {
+                    SheetSource(initial.candidate, result.asset, resolved = true)
+                } else {
+                    val read = result.asset.variants.firstOrNull { it.isPreviewable }
+                    initial.copy(asset = original.copy(variants = original.variants.map { variant ->
+                        variant.copy(
+                            sizeBytes = read?.sizeBytes ?: variant.sizeBytes,
+                            sizeAccuracy = if (read?.sizeBytes != null) {
+                                read.sizeAccuracy
+                            } else {
+                                variant.sizeAccuracy
+                            },
+                        )
+                    }), failure = null)
                 }
             }
         }
     }
 
-    /**
-     * A whole file whose site stated its type, size and picture needs no request to be shown;
-     * anything else is resolved now, so the sheet only shows what the server confirmed.
-     */
-    private suspend fun inspect(candidate: MediaCandidate): SheetSource {
-        stated(candidate)?.let { return SheetSource(candidate, it, resolved = false) }
-        return when (val result = resolveSafely(candidate)) {
-            is VariantResolutionResult.Success -> SheetSource(candidate, result.asset, true)
-            is VariantResolutionResult.Failure ->
-                SheetSource(candidate, null, resolved = false, failure = result.reason)
+    private suspend fun resolveForDownload(candidate: MediaCandidate): VariantResolutionResult {
+        val waits = listOf(1_000L, 3_000L)
+        for (attempt in 0..waits.size) {
+            val result = resolveSafely(candidate)
+            val transient = result is VariantResolutionResult.Failure && (
+                result.reason == VariantResolutionFailure.NETWORK ||
+                    result.httpStatusCode in setOf(502, 503, 504)
+                )
+            if (!transient || attempt == waits.size) return result
+            delay(waits[attempt])
         }
+        error("Retry budget exhausted")
     }
 
     private suspend fun resolveSafely(candidate: MediaCandidate): VariantResolutionResult = try {
@@ -257,22 +305,28 @@ class QuickDownloadViewModel @Inject constructor(
      */
     private suspend fun prepare(option: SheetOption): Prepared {
         val title = mutableUiState.value.choices?.title
-        if (option.source.resolved) {
-            val asset = option.source.asset ?: return Prepared.Failed(messageFor(null))
-            return Prepared.Ready(asset.copy(title = title ?: asset.title), named(option.variant))
-        }
-        val resolved = when (val result = resolveSafely(option.source.candidate)) {
-            is VariantResolutionResult.Failure -> return Prepared.Failed(messageFor(result.reason))
+        val resolved = when (val result = resolveForDownload(option.source.candidate)) {
+            is VariantResolutionResult.Failure -> return Prepared.Failed(
+                if (result.reason == VariantResolutionFailure.DRM_PROTECTED ||
+                    result.reason == VariantResolutionFailure.UNSUPPORTED_CODEC
+                ) messageFor(result.reason) else QUALITY_UNAVAILABLE,
+            )
             is VariantResolutionResult.Success -> result.asset
         }
-        val base = resolved.variants.firstOrNull { it.isPreviewable }
-            ?: return Prepared.Failed(messageFor(null))
-        val stated = option.source.asset?.variants?.firstOrNull()
+        val wantedId = option.variant.mp3?.sourceVariantId
+            ?: option.source.asset?.variants?.firstOrNull {
+                it.playbackUrl == option.variant.playbackUrl && it.mp3 == null && !it.audioFromVideo
+            }?.id ?: option.variant.id
+        val base = resolved.variants.firstOrNull { it.id == wantedId && it.isPreviewable }
+            ?: resolved.variants.singleOrNull { it.isPreviewable && it.mp3 == null }
+            ?: return Prepared.Failed(QUALITY_UNAVAILABLE)
+        val stated = option.source.asset?.variants?.firstOrNull { it.id == wantedId }
+            ?: option.variant
         val file = base.copy(
-            width = base.width ?: stated?.width,
-            height = base.height ?: stated?.height,
-            framesPerSecond = base.framesPerSecond ?: stated?.framesPerSecond,
-            bitrateBitsPerSecond = base.bitrateBitsPerSecond ?: stated?.bitrateBitsPerSecond,
+            width = base.width ?: stated.width,
+            height = base.height ?: stated.height,
+            framesPerSecond = base.framesPerSecond ?: stated.framesPerSecond,
+            bitrateBitsPerSecond = base.bitrateBitsPerSecond ?: stated.bitrateBitsPerSecond,
         )
         val sound = if (option.variant.audioFromVideo) {
             AudioFromVideo.of(file, resolved.durationMillis)
@@ -347,59 +401,11 @@ class QuickDownloadViewModel @Inject constructor(
         const val MAX_SOURCES = 12
         const val MP3_UNAVAILABLE = "This audio can't be converted to MP3. Try M4A."
         const val AUDIO_UNAVAILABLE = "This video's sound can't be saved on its own."
+        const val QUALITY_UNAVAILABLE = "This quality is not available now — choose another"
         private const val HIGH_FRAME_RATE = 31.0
 
-        /**
-         * The variant a whole file's own statements describe, when they are enough to show it:
-         * HTTPS, not expired, its type and size known, and a video's height known.
-         */
-        fun stated(candidate: MediaCandidate, now: Long = System.currentTimeMillis()): MediaAsset? {
-            if (candidate.kind != MediaKind.DIRECT || candidate.drmHint == true) return null
-            if (!candidate.mediaUrl.startsWith("https://", ignoreCase = true)) return null
-            if (candidate.expiresAtEpochMs?.let { it <= now } == true) return null
-            val mime = candidate.mimeType?.substringBefore(';')?.trim()?.lowercase(Locale.US)
-                ?: return null
-            val size = candidate.contentLengthBytes?.takeIf { it > 0 } ?: return null
-            val audio = candidate.audioCompanion == null && mime.startsWith("audio/")
-            if (!audio && candidate.height == null) return null
-            val variant = MediaVariant(
-                id = "direct-0",
-                playbackUrl = candidate.mediaUrl,
-                kind = MediaKind.DIRECT,
-                trackType = if (audio) MediaTrackType.AUDIO else MediaTrackType.AUDIO_VIDEO,
-                requestContext = candidate.requestContext,
-                mimeType = mime,
-                container = containerOf(mime),
-                codecs = candidate.codecs,
-                width = candidate.width,
-                height = candidate.height,
-                framesPerSecond = candidate.framesPerSecond,
-                bitrateBitsPerSecond = candidate.bitrateBitsPerSecond,
-                durationMillis = candidate.durationMillis,
-                sizeBytes = size,
-                sizeAccuracy = if (candidate.audioCompanion != null) {
-                    MediaSizeAccuracy.ESTIMATED
-                } else {
-                    MediaSizeAccuracy.EXACT
-                },
-                expiresAtEpochMs = candidate.expiresAtEpochMs,
-                audioCompanion = candidate.audioCompanion,
-            )
-            return MediaAsset(
-                sourcePageUrl = candidate.pageUrl,
-                title = candidate.title,
-                thumbnailUrl = candidate.thumbnailUrl,
-                durationMillis = candidate.durationMillis,
-                variants = listOf(variant),
-                resolvedAtEpochMs = now,
-            )
-        }
-
-        private fun containerOf(mime: String): String? = when (mime) {
-            "video/mp4", "audio/mp4" -> "MP4"
-            "video/webm", "audio/webm" -> "WebM"
-            "audio/mpeg" -> "MP3"
-            else -> null
-        }
+        /** P11: show a site's stated whole file even before its size check completes. */
+        fun stated(candidate: MediaCandidate, now: Long = System.currentTimeMillis()): MediaAsset? =
+            QuickDownloadMetadata.asset(candidate, now)
     }
 }

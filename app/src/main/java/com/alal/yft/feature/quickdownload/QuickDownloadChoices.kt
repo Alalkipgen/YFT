@@ -21,7 +21,7 @@ import kotlin.math.roundToInt
 /** One candidate of the video the sheet shows, with the variants its lookup found. */
 data class SheetSource(
     val candidate: MediaCandidate,
-    /** Null when the lookup failed; [failure] then says why. */
+    /** Null before resolution; stated whole-file metadata can still make a row (P11). */
     val asset: MediaAsset?,
     /** False when [asset] was built from what the site stated: Download looks it up first. */
     val resolved: Boolean,
@@ -105,7 +105,8 @@ object QuickDownloadChoices {
         val video = mutableListOf<SheetOption>()
         val audio = mutableListOf<SheetOption>()
         sources.forEachIndexed { index, source ->
-            val asset = source.asset ?: return@forEachIndexed
+            val asset = source.asset ?: QuickDownloadMetadata.asset(source.candidate)
+                ?: return@forEachIndexed
             asset.variants
                 .filter { it.isPreviewable && it.mp3 == null && !it.audioFromVideo }
                 .forEach { variant ->
@@ -138,7 +139,8 @@ object QuickDownloadChoices {
      * no video.
      */
     fun preselect(choices: QuickChoices, quality: QualityPreference): SheetOption? {
-        val videos = choices.video
+        val videos = choices.video.filter { it.variant.height != null }
+            .ifEmpty { choices.video }
         if (videos.isEmpty()) return choices.audio.firstOrNull()
         val ceiling = quality.maxHeight ?: return withSound(videos)
         val known = videos.filter { it.rankHeight != null }
@@ -156,11 +158,14 @@ object QuickDownloadChoices {
      * If no lower video exists, the nearest higher one is the second choice.
      */
     fun compact(choices: QuickChoices, quality: QualityPreference): QuickChoices {
-        val preferred = preselect(choices, quality)?.takeIf { it.section == OptionSection.VIDEO }
+        val measured = choices.video.filter { it.variant.height != null }
+        val videos = measured.ifEmpty { choices.video }
+        val preferred = preselect(choices.copy(video = videos), quality)
+            ?.takeIf { it.section == OptionSection.VIDEO }
         val lower = preferred?.rankHeight?.let { height ->
-            choices.video.firstOrNull { (it.rankHeight ?: Int.MAX_VALUE) < height }
+            videos.firstOrNull { (it.rankHeight ?: Int.MAX_VALUE) < height }
         }
-        val next = lower ?: choices.video.filter { it.id != preferred?.id }
+        val next = lower ?: videos.filter { it.id != preferred?.id }
             .minByOrNull { it.rankHeight ?: Int.MAX_VALUE }
         return choices.copy(
             audio = listOfNotNull(
@@ -168,6 +173,36 @@ object QuickDownloadChoices {
                 choices.audio.firstOrNull { it.variant.mp3?.bitrateKbps == 128 },
             ).distinctBy(SheetOption::id),
             video = listOfNotNull(preferred, next).distinctBy(SheetOption::id),
+        )
+    }
+
+    /** P11: update only sizes/source status, never titles, IDs, row order or chosen formats. */
+    fun updateSizes(choices: QuickChoices, source: SheetSource): QuickChoices {
+        fun update(option: SheetOption): SheetOption {
+            if (option.source.candidate != source.candidate) return option
+            val asset = source.asset ?: return option.copy(source = source)
+            var variant = asset.variants.firstOrNull { it.mp3 == null && !it.audioFromVideo }
+                ?: return option.copy(source = source)
+            if (option.variant.audioFromVideo) {
+                variant = AudioFromVideo.of(variant, asset.durationMillis)
+                    ?: return option.copy(source = source)
+            }
+            option.variant.mp3?.let { mp3 ->
+                variant = Mp3Variants.of(variant, mp3.bitrateKbps, asset.durationMillis)
+                    ?: return option.copy(source = source)
+            }
+            return option.copy(
+                source = source,
+                size = variant.sizeText(),
+                variant = option.variant.copy(
+                    sizeBytes = variant.sizeBytes,
+                    sizeAccuracy = variant.sizeAccuracy,
+                ),
+            )
+        }
+        return choices.copy(
+            audio = choices.audio.map(::update),
+            video = choices.video.map(::update),
         )
     }
 
@@ -186,7 +221,12 @@ object QuickDownloadChoices {
     private fun videoRows(options: List<SheetOption>): List<SheetOption> {
         val rows = LinkedHashMap<String, SheetOption>()
         options.sortedWith(VIDEO_ORDER).forEach { option ->
-            val key = option.rankHeight?.let { "height:$it" } ?: "file:${option.id}"
+            val hint = option.quality?.uppercase(Locale.US)?.takeIf { it == "HD" || it == "SD" }
+            val key = when {
+                hint != null && option.variant.height == null -> "hint:$hint"
+                option.rankHeight != null -> "height:${option.rankHeight}"
+                else -> "file:${option.id}"
+            }
             rows.putIfAbsent(key, option)
         }
         return rows.values.toList()
@@ -366,6 +406,7 @@ object QuickDownloadChoices {
      * real picture, the higher frame rate and the higher bitrate.
      */
     private val VIDEO_ORDER = compareByDescending<SheetOption> { it.rankHeight ?: -1 }
+        .thenBy { if (it.variant.height != null) 0 else 1 }
         .thenBy { if (it.variant.trackType == MediaTrackType.AUDIO_VIDEO) 0 else 1 }
         .thenBy { if (it.variant.audioCompanion == null) 0 else 1 }
         .thenBy { kindRank(it.variant.kind) }
