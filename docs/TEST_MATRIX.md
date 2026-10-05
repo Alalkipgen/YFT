@@ -689,7 +689,7 @@ repository that asks each client and prints only verdicts and counts.
 | Local preview build | `./gradlew :app:assemblePreview -Pyft.previewBuild=1` with a local throwaway key → `app-preview.apk` 6 710 000 B; `verify-release-apk.sh --package com.alal.yft.preview --expected-version 1.0.0-beta.3-preview.1 --expected-cert-sha256 <local key>`: package `com.alal.yft.preview` ("YFT Preview"), versionCode 3, minSdk 24, targetSdk 35, not debuggable, zip-aligned, debug crash action absent, v2 + v3 with exactly the test key → VERIFIED; the default package check refuses it. Only `YFT_PREVIEW_STORE_FILE` set → Gradle stops with "Preview signing is only partly configured" |
 | Local validation | core-model 63, core-media 25, core-download 112, extractor-sites 168, extractor-generic 14, core-browser 76, app 589 (66 render tests skipped) — 0 failures; `:app:lintDebug` 0 errors, 96 warnings (unchanged); `:app:compileDebugAndroidTestKotlin`; `scripts/tests` 30 pass |
 | CI | PASS on `dacecd8` — Preview APK https://github.com/Alalkipgen/YFT/actions/runs/37294511016 (#1: test key made in the job, APK verified against it, `yft-preview-apk` artifact 11338621241, `1.0.0-beta.3-preview.1`); checkpoint https://github.com/Alalkipgen/YFT/actions/runs/37294510980 (#157); emulator https://github.com/Alalkipgen/YFT/actions/runs/37294510833 (#33, 20 tests, 0 failures) |
-| Owner check | Install YFT Preview from `yft-preview-apk` next to beta.3 (both icons stay) and run FIX_ADD_PLAN §6 |
+| Owner check | Install YFT Preview from `yft-preview-apk` next to beta.3 (both icons stay) and run the part 1 checklist (FIX_ADD_PLAN §6 at `ce3cd25`). Done by the owner on 2026-10-05; findings in FIX_ADD_PLAN §2 (part 2) |
 
 ## Runtime tests still requiring a device/emulator
 

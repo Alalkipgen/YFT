@@ -12,9 +12,12 @@ YFT is an ad-free Android application for detecting, previewing and downloading 
   YouTube 480p–1080p with sound plus MP3. Notes and the phone checklist:
   [`docs/release/1.0.0-beta.3.md`](docs/release/1.0.0-beta.3.md); signed draft pre-release
   2026-10-04.
-- Next: Phase 11 — download flow like Snaptube (browser follows in-page navigation, Facebook
-  pages, one download sheet, all Facebook qualities, the focused feed video, 2K/4K as WebM), then
-  a test-key preview APK for the owner and the signed `1.0.0-beta.4`. Plan:
+- In progress: Phase 11 — download flow like Snaptube. Part 1 (browser follows in-page
+  navigation, Facebook pages, one download sheet, all Facebook qualities, the focused feed video,
+  2K/4K as WebM, a test-key preview APK) was tested on the owner's phone on 2026-10-05. Next is
+  part 2: a short sheet with a pinned Download button, slow-network lookups, quality rows that
+  never vanish, one lookup per page, a wide Download button, real thumbnails, faster YouTube and
+  Facebook lookups and a sheet that opens at once; then the signed `1.0.0-beta.4`. Plan:
   [`docs/FIX_ADD_PLAN.md`](docs/FIX_ADD_PLAN.md).
 - Complete: Phases 0–10, 5E (YouTube by owner decision,
   [ADR-005](docs/decisions/ADR-005-youtube-owner-override.md)) and the UI redesign

@@ -15,9 +15,11 @@ Do not rely on chat history. At the beginning of a session:
    - `docs/SESSION_STATE.md`
    - `docs/FIX_ADD_PLAN.md` (Phase 11: status board, decisions, findings and tasks)
 3. Verify the existing build before editing.
-4. Follow the task order in `docs/FIX_ADD_PLAN.md` §1. Owner instruction (2026-10-04): continue
-   task after task P1 → P7 without asking; stop only for a failure you cannot fix. P8 (signed
-   release) waits for the owner's phone test of the P7 preview APK.
+4. Follow the task order in `docs/FIX_ADD_PLAN.md` §3 (E7): Phase 11 part 2, P9 → P10 → P11 →
+   P12 → P13 → P19 → Preview #2 → P14 → P15 → P16 → P17 → P18 → Preview #3. Once the owner has
+   asked for part 2, continue task after task without asking; stop only for a failure you cannot
+   fix or when the owner says stop. P8 (signed release) waits for the owner's OK after his phone
+   test of Preview #3.
 
 ## Task workflow (Phase 11)
 
@@ -56,8 +58,8 @@ If documentation and verified code disagree, build/test results take priority an
   - `work/phase-1-foundation`
   - `work/phase-2-browser-detection`
 - Checkpoint pushes to `work/phase-*` branches are pre-authorized.
-- Merging or pushing phase-completion changes to `main` requires a green full validation and explicit user approval. For Phase 11 nothing is merged before P8, and P8 runs only after the owner approves the P7 preview APK (`docs/FIX_ADD_PLAN.md` §3).
-- Publishing releases always requires explicit user approval. The owner approved the signed `1.0.0-beta.4` draft after his P7 phone test (2026-10-04, P8).
+- Merging or pushing phase-completion changes to `main` requires a green full validation and explicit user approval. For Phase 11 nothing is merged before P8, and P8 runs only after the owner approves Preview #3 (`docs/FIX_ADD_PLAN.md` §3).
+- Publishing releases always requires explicit user approval. The signed `1.0.0-beta.4` draft (P8) waits for the owner's OK after his phone test of Preview #3 (owner, 2026-10-05: no signed release yet).
 
 ## Mandatory checkpoint protocol
 

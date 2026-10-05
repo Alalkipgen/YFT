@@ -43,10 +43,10 @@ for every APK given to users, because Android refuses to install a lower one.
   one video everywhere (Home, the found lists, the Download button count).
 - Real qualities: the sheet shows a video's real resolution, frame rate and size (read from the
   stream data or the MP4 header) or the site's own "HD"/"SD", never the page title.
-- Documentation: `docs/FIX_ADD_PLAN.md` plans Phase 11 (download flow like Snaptube) task by task
-  after the beta.3 phone test, with one prompt per task (P1–P8) and a generic master prompt in
-  `docs/prompts/`. The Phases 8–10 plan and the T01–T19 prompts were removed (they stay in Git
-  history).
+- Documentation: `docs/FIX_ADD_PLAN.md` plans Phase 11 (download flow like Snaptube) task by task:
+  part 1 (P0–P7) after the beta.3 phone test, part 2 (P9–P19) after the owner's test of Preview
+  APK #1, with one prompt per task and a generic master prompt in `docs/prompts/`. The Phases
+  8–10 plan, the T01–T19 prompts and the part 1 prompts were removed (they stay in Git history).
 
 ### Fixed
 

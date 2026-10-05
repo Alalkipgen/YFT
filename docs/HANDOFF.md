@@ -4,9 +4,8 @@
 
 - **Phase:** 11 — download flow like Snaptube. Plan, status board, decisions and findings:
   [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md); one prompt per task in [`prompts/`](prompts/README.md).
-  Order P0 → P1 → … → P6 → P7 (test-key preview APK) → owner phone test → P8 (signed
-  `1.0.0-beta.4`). P0 (plan and docs) is DONE.
-- **Branch:** `work/phase-11-download-flow`, created from `main` at `2f6284f`.
+- **Branch:** `work/phase-11-download-flow`, created from `main` at `2f6284f`; part 1 ends at
+  `ce3cd25`.
 - **Releases:** `1.0.0-beta.1` published 2026-10-02; `1.0.0-beta.2` signed draft 2026-10-03 (tag
   `v1.0.0-beta.2` on `39ea049`). `1.0.0-beta.3` (versionCode 3) completes Phases 8–10: `main`
   fast-forwarded to `2f6284f`, tag `v1.0.0-beta.3`, Release draft run
@@ -15,40 +14,29 @@
   `8fe466f17b62e88cdd5deb08482f7dc4c70a1a3dba7182bf94b93c6d1604e955`, certificate SHA-256
   `3A:EB:30:64:91:E2:DD:6F:F7:6D:C5:A8:68:E6:FC:C9:D3:30:BB:99:85:BF:4D:15:B3:4A:67:04:EC:78:98:8F`
   (same key as beta.1 and beta.2). Notes: [`release/1.0.0-beta.3.md`](release/1.0.0-beta.3.md).
-- **Owner's phone test of beta.3 (2026-10-04):** FIX_ADD_PLAN §2 — the browser's Download button
-  does not follow a YouTube video opened inside the page, a Facebook page shows black, the
-  download choices are split, Facebook shows only some qualities, and 2K/4K are missing.
-- **Owner instruction (2026-10-04):** "Do P0 first, then P1; don't stop, don't ask." Continue P1 →
-  P7 task after task with a checkpoint push and a short Burmese report after each.
-- **Done in Phase 11:** P0 plan and docs (`99efca6`); P1 OWNER CHECK (2026-10-04) — the browser
-  follows in-page navigation, so the Download button follows a video opened inside the page;
-  P2 OWNER CHECK (2026-10-04) — Facebook and TikTok pages render and play in the browser, and the
-  Facebook lookup asks for the desktop page (owner's phone: reel plays, Download button shown);
-  P3 OWNER CHECK (2026-10-04) — one "Download" sheet for every path (Home View, Found list,
-  browser button) with real resolutions and sizes, audio from MP4 (M4A/MP3) and one row per
-  video; P3-FIX OWNER CHECK (2026-10-05) — after the owner's phone check the sheet has exactly
-  two sections, Audio (M4A, MP3 320/192/128) and Video (one row per standard resolution,
-  "480p" for 848 × 478), Facebook `story.php`/`permalink.php`/posts pages are identified, and a
-  player's byte-range pieces count as one file, so the browser's Download button opens the
-  sheet instead of the Found list; P4 OWNER CHECK (2026-10-05) — Facebook's DASH picture sizes
-  are merged Video rows with their AAC sound, the AAC track is Audio, the AVC ladder comes from
-  Safari's page without the session; AV1 merges are off (the API 34 emulator's muxer failed);
-  P5 OWNER CHECK (2026-10-05) — on YouTube, Facebook and TikTok feeds the browser's Download
-  button finds the video on screen (the playing one, else the one in the middle), looks it up
-  and opens its Download sheet; no video on screen gives a short notice; P6 OWNER CHECK
-  (2026-10-05) — YouTube 1440p (2K) and 2160p (4K) rows: VP9 WebM merged with the Opus track into
-  one `.webm` on Android 10+, "May not play on this phone" where no decoder takes that size;
-  P7 OWNER CHECK (2026-10-05) — `yft-preview-apk`: the release build as "YFT Preview"
-  (`com.alal.yft.preview`) signed with a fresh CI test key, never the release key.
-- **Owner instruction (2026-10-05):** P3-FIX, then P4, P5, P6 without stopping or asking
-  ([`prompts/CONTINUE-P4-TO-P6.md`](prompts/CONTINUE-P4-TO-P6.md)); not P7/P8.
-- **Next action — agent:** none until the owner's phone test of the preview APK (FIX_ADD_PLAN
-  §6); the owner then gives the next fix/add plan (owner, 2026-10-05). P8 (signed beta.4) only
-  with his OK.
-- **Next action — owner:** install `yft-preview-apk` (Preview APK workflow) next to beta.3 and run
-  FIX_ADD_PLAN §6; uninstall an older YFT Preview before a newer one (new test key per run).
+- **Part 1 (P0–P7, done):** the browser follows in-page navigation; Facebook and TikTok pages
+  render and play; one "Download" sheet with Audio and Video; every Facebook DASH quality merged
+  with its sound; the Download button on feeds finds the video on screen; YouTube 2K/4K as
+  VP9 + Opus `.webm`; `yft-preview-apk` signed with a CI test key. Commits and the short record:
+  FIX_ADD_PLAN §8; full part 1 plan: `git show ce3cd25:docs/FIX_ADD_PLAN.md`.
+- **Owner's phone test of Preview APK #1 (`1.0.0-beta.3-preview.1`, 2026-10-05):** FIX_ADD_PLAN
+  §2 — lookups fail on a slow line, the sheet is long with 4K preselected and Download scrolls
+  away, Facebook rows vanish, site pages can open "Found on this page 4", no wide Download
+  button, the sheet waits for the lookup; the owner also asked for real thumbnails.
+- **Part 2 plan (Plan Mode, 2026-10-05):** P9 → P10 → P11 → P12 → P13 → P19 → Preview #2 → P14 →
+  P15 → P16 → P17 → P18 → Preview #3 → owner phone test → P8 (FIX_ADD_PLAN §1, §3 E6–E10, §5).
+  Advice on the owner's four questions (YouTube in-page button, a YouTube page of YFT's own,
+  Facebook formats from the browser page, TikTok testing) is FIX_ADD_PLAN §7 B1–B4, waiting for
+  his decision.
+- **Next action — agent:** when the owner asks for it, P9 ([`prompts/P9-short-sheet.md`](prompts/P9-short-sheet.md)
+  or [`prompts/00_NEXT_TASK.md`](prompts/00_NEXT_TASK.md)), then task after task with a checkpoint
+  push and a short Burmese report after each; Preview #2 link after P19, Preview #3 link after
+  P18. P8 (signed beta.4) only with his OK.
+- **Next action — owner:** say when part 2 should start; decide B1–B4 when convenient (B1 after
+  Preview #2).
 - **Earlier handoffs:** the Phases 8–10 task log (T01–T19 validation, CI runs, decisions) is in Git
-  history: `git show 2f6284f:docs/HANDOFF.md` and `git show 2f6284f:docs/FIX_PLAN.md`.
+  history: `git show 2f6284f:docs/HANDOFF.md` and `git show 2f6284f:docs/FIX_PLAN.md`; the part 1
+  handoff: `git show ce3cd25:docs/HANDOFF.md`.
 
 ## Known limitations (beta.3)
 
@@ -57,6 +45,9 @@
   branch); the download choices are split over several screens (P3, fixed on the branch).
 - Facebook's AV1-only sizes (often 1080p) are not offered while AV1 merges are off (P4);
   YouTube 2K/4K needs Android 10+ (VP9 + Opus WebM, P6) and AV1-only 2K/4K stays hidden.
+- On the branch (Preview #1): lookups fail on slow lines (15 s/25 s limits), the sheet is long
+  with 4K preselected, Facebook rows can vanish, and the sheet waits for the lookup — planned
+  as part 2 (FIX_ADD_PLAN §2, P9–P19).
 - YouTube lookups from datacenter networks can stay bot-checked; the phone on a home or mobile
   network is the real test.
 - No playlists or batch downloads, background playback or folder export; an expired link cannot
