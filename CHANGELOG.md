@@ -26,6 +26,10 @@ for every APK given to users, because Android refuses to install a lower one.
   "2160p · 4K". YouTube has no AVC above 1080p, so these are its VP9 video merged on the phone
   with the Opus sound into one `.webm` (Android 10 and later). A row this phone has no decoder
   for at that size still downloads and says "May not play on this phone".
+- Preview APK for phone tests: the **Preview APK (test key)** workflow builds the release code as
+  "YFT Preview" (`com.alal.yft.preview`, version `…-preview.<run>`), signed with a test key made
+  in the job (never the release key), checked by `verify-release-apk.sh --package` and uploaded
+  as `yft-preview-apk` with its SHA-256. It installs next to the release app.
 
 ### Changed
 

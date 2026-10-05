@@ -115,7 +115,7 @@ AI agent time includes builds and CI waits on a 4 GiB sandbox.
 | P4 | [Facebook: one video, every quality](#p4--facebook-one-video-every-quality) | Medium–Hard | 5–8 h | P3 | OWNER CHECK (2026-10-05) |
 | P5 | [Download button on feeds (focused video)](#p5--download-button-on-feeds) | Hard | 6–10 h | P1, P3 | OWNER CHECK (2026-10-05) |
 | P6 | [2K and 4K](#p6--2k-and-4k) | Hard | 8–12 h | P3 | OWNER CHECK (2026-10-05) |
-| P7 | [Preview APK for the owner's test](#p7--preview-apk) | Easy | 1–2 h | P1–P6 | TODO |
+| P7 | [Preview APK for the owner's test](#p7--preview-apk) | Easy | 1–2 h | P1–P6 | OWNER CHECK (2026-10-05) |
 | P8 | [Signed release 1.0.0-beta.4](#p8--signed-release-100-beta4) | Easy | 1–2 h | P7, owner OK | TODO |
 
 Total about 40–65 h of agent time.
@@ -480,6 +480,18 @@ Easy · 1–2 h · prompt [`P7-preview-apk.md`](prompts/P7-preview-apk.md)
 3. Full validation; report the artifact link and the phone checklist (§6).
 
 **Owner check:** install `yft-preview-apk` next to beta.3 and run §6.
+
+**Result (OWNER CHECK, 2026-10-05):** owner instruction 2026-10-05: "not signed yet — a release
+APK with a test key; the phone tests use it; the next fix/add plan comes after the phone test".
+`app/build.gradle.kts` adds the `preview` build type (`initWith(release)`, `.preview`,
+`-preview.<run>` from `-Pyft.previewBuild`, `src/release/java`, label "YFT Preview") and a
+`preview` signing config read only from `YFT_PREVIEW_*` (partial settings and the release
+keystore are refused). `.github/workflows/preview-apk.yml` makes a fresh RSA 3072 test key in
+the job, builds `:app:assemblePreview`, runs `verify-release-apk.sh --package
+com.alal.yft.preview` against that key (new `--package` option) and uploads `yft-preview-apk`
+(APK, `SHA256SUMS`, `release-info.txt`). Plan adapted: the key is not kept between runs (no
+cache, no secret), so a newer preview needs the older one uninstalled first. Tests: TEST_MATRIX
+P7.
 
 ### P8 — Signed release 1.0.0-beta.4
 

@@ -65,6 +65,42 @@ if (requireReleaseSigning && releaseSigning == null) {
     )
 }
 
+// P7: the preview build (com.alal.yft.preview) is the release build signed with a throwaway test
+// key from the YFT_PREVIEW_* variables, which CI creates for preview builds only (docs/RELEASE.md).
+// It never reads the release key or keystore.properties; without the variables it stays unsigned.
+val previewSigning: ReleaseSigning? = run {
+    fun setting(name: String): String? =
+        providers.environmentVariable("YFT_PREVIEW_$name").orNull?.takeIf { it.isNotBlank() }
+    val storePath = setting("STORE_FILE")?.trim()
+    val storePassword = setting("STORE_PASSWORD")
+    val keyAlias = setting("KEY_ALIAS")?.trim()
+    val keyPassword = setting("KEY_PASSWORD")
+    val values = listOf(storePath, storePassword, keyAlias, keyPassword)
+    when {
+        values.all { it == null } -> null
+        storePath == null || storePassword == null || keyAlias == null || keyPassword == null ->
+            throw GradleException(
+                "Preview signing is only partly configured. Provide all of " +
+                    "YFT_PREVIEW_STORE_FILE, YFT_PREVIEW_STORE_PASSWORD, YFT_PREVIEW_KEY_ALIAS " +
+                    "and YFT_PREVIEW_KEY_PASSWORD (docs/RELEASE.md).",
+            )
+        else -> {
+            val store = rootProject.file(storePath)
+            if (!store.isFile) throw GradleException("Preview keystore not found: ${store.path}")
+            if (store.canonicalFile == releaseSigning?.storeFile?.canonicalFile) {
+                throw GradleException("The preview build must never use the release keystore.")
+            }
+            ReleaseSigning(store, storePassword, keyAlias, keyPassword)
+        }
+    }
+}
+
+// CI passes its run number, so each preview names the build it came from: 1.0.0-beta.3-preview.42.
+val previewBuild = providers.gradleProperty("yft.previewBuild").orNull?.trim()
+require(previewBuild == null || Regex("""\d{1,9}""").matches(previewBuild)) {
+    "yft.previewBuild must be a build number"
+}
+
 android {
     namespace = "com.alal.yft"
     compileSdk = 35
@@ -93,6 +129,16 @@ android {
                 enableV3Signing = true
             }
         }
+        if (previewSigning != null) {
+            create("preview") {
+                storeFile = previewSigning.storeFile
+                storePassword = previewSigning.storePassword
+                keyAlias = previewSigning.keyAlias
+                keyPassword = previewSigning.keyPassword
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
     }
 
     buildTypes {
@@ -109,6 +155,21 @@ android {
             )
             signingConfig = signingConfigs.findByName("release")
         }
+        // The owner's test build: release code and shrinking, its own app ID so it installs next
+        // to the release app, and only ever the test key.
+        create("preview") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-preview" + previewBuild?.let { ".$it" }.orEmpty()
+            isDebuggable = false
+            matchingFallbacks += listOf("release")
+            signingConfig = signingConfigs.findByName("preview")
+        }
+    }
+
+    sourceSets {
+        // The release build's code without debug actions (CrashTestTrigger) serves the preview.
+        getByName("preview").java.srcDir("src/release/java")
     }
 
     compileOptions {

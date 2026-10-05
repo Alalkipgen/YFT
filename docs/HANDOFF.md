@@ -37,13 +37,16 @@
   button finds the video on screen (the playing one, else the one in the middle), looks it up
   and opens its Download sheet; no video on screen gives a short notice; P6 OWNER CHECK
   (2026-10-05) — YouTube 1440p (2K) and 2160p (4K) rows: VP9 WebM merged with the Opus track into
-  one `.webm` on Android 10+, "May not play on this phone" where no decoder takes that size.
+  one `.webm` on Android 10+, "May not play on this phone" where no decoder takes that size;
+  P7 OWNER CHECK (2026-10-05) — `yft-preview-apk`: the release build as "YFT Preview"
+  (`com.alal.yft.preview`) signed with a fresh CI test key, never the release key.
 - **Owner instruction (2026-10-05):** P3-FIX, then P4, P5, P6 without stopping or asking
   ([`prompts/CONTINUE-P4-TO-P6.md`](prompts/CONTINUE-P4-TO-P6.md)); not P7/P8.
-- **Next action — agent:** none until the owner's phone checks of P1–P6 (FIX_ADD_PLAN §6).
-  P7 (preview APK) and P8 (signed beta.4) only when the owner asks (owner, 2026-10-05).
-- **Next action — owner:** publish the beta.3 draft when ready; phone checks per task from the
-  `yft-debug-apk` builds (FIX_ADD_PLAN §6); the P7 preview APK installs next to the release app.
+- **Next action — agent:** none until the owner's phone test of the preview APK (FIX_ADD_PLAN
+  §6); the owner then gives the next fix/add plan (owner, 2026-10-05). P8 (signed beta.4) only
+  with his OK.
+- **Next action — owner:** install `yft-preview-apk` (Preview APK workflow) next to beta.3 and run
+  FIX_ADD_PLAN §6; uninstall an older YFT Preview before a newer one (new test key per run).
 - **Earlier handoffs:** the Phases 8–10 task log (T01–T19 validation, CI runs, decisions) is in Git
   history: `git show 2f6284f:docs/HANDOFF.md` and `git show 2f6284f:docs/FIX_PLAN.md`.
 

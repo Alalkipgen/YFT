@@ -1,0 +1,93 @@
+name: Preview APK (test key)
+
+# P7: the owner's test build. The release code (minified, not debuggable) as
+# com.alal.yft.preview, signed with a throwaway test key made fresh in this job and deleted at
+# its end. It never sees the release key or any repository secret.
+on:
+  push:
+    branches: ["work/phase-*"]
+    paths:
+      - "app/**"
+      - "core-*/**"
+      - "extractor-*/**"
+      - "gradle/**"
+      - "gradle.properties"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "scripts/verify-release-apk.sh"
+      - "scripts/verify-release-debug-actions.py"
+      - ".github/workflows/preview-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Android SDK 35, NDK and CMake
+        shell: bash
+        run: |
+          SDKMANAGER="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}" -path '*/bin/sdkmanager' -type f | head -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" \
+            "ndk;27.3.13750724" "cmake;3.22.1"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      # Each run makes its own test key, so a newer preview does not install over an older one:
+      # uninstall the old preview first (docs/RELEASE.md).
+      - name: Build, verify and stage the preview APK with a fresh test key
+        shell: bash
+        run: |
+          key_dir="$RUNNER_TEMP/yft-preview-key"
+          trap 'rm -rf "$key_dir"' EXIT
+          umask 077
+          mkdir -p "$key_dir"
+          password="$(openssl rand -hex 24)"
+          echo "::add-mask::$password"
+          export YFT_PREVIEW_STORE_FILE="$key_dir/preview.p12"
+          export YFT_PREVIEW_STORE_PASSWORD="$password"
+          export YFT_PREVIEW_KEY_ALIAS="yft-preview"
+          export YFT_PREVIEW_KEY_PASSWORD="$password"
+          keytool -genkeypair -noprompt -keystore "$YFT_PREVIEW_STORE_FILE" -storetype PKCS12 \
+            -alias "$YFT_PREVIEW_KEY_ALIAS" -keyalg RSA -keysize 3072 -validity 3650 \
+            -dname "CN=YFT Preview Test Key, OU=Test builds only, O=YFT" \
+            -storepass:env YFT_PREVIEW_STORE_PASSWORD -keypass:env YFT_PREVIEW_KEY_PASSWORD
+          certificate="$(keytool -list -v -keystore "$YFT_PREVIEW_STORE_FILE" \
+            -alias "$YFT_PREVIEW_KEY_ALIAS" -storepass:env YFT_PREVIEW_STORE_PASSWORD \
+            | sed -n 's/^[[:space:]]*SHA256: //p' | head -n 1)"
+          test -n "$certificate"
+          ./gradlew --no-daemon :app:assemblePreview "-Pyft.previewBuild=$GITHUB_RUN_NUMBER"
+          version="$(sed -n 's/^yft\.versionName=//p' gradle.properties | tail -n 1)"
+          bash scripts/verify-release-apk.sh --package com.alal.yft.preview \
+            --expected-version "$version-preview.$GITHUB_RUN_NUMBER" \
+            --expected-cert-sha256 "$certificate" \
+            --out-dir "$RUNNER_TEMP/yft-preview-apk" \
+            app/build/outputs/apk/preview/app-preview.apk
+          {
+            echo "### YFT preview APK (test key, not the release key)"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/yft-preview-apk/release-info.txt"
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
+      - name: Upload the preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: yft-preview-apk
+          path: ${{ runner.temp }}/yft-preview-apk/*
+          retention-days: 30
+          if-no-files-found: error

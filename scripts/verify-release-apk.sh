@@ -11,6 +11,8 @@ Checks package and version, that the APK is not debuggable, zip alignment and th
 (v2 or v3, exactly one signer, not the Android debug certificate).
 
 Options:
+  --package NAME              Required package (default com.alal.yft; the owner's test build is
+                              com.alal.yft.preview, P7).
   --expected-cert-sha256 HEX  Required signer certificate SHA-256 (colons, spaces and case are
                               ignored). Defaults to $YFT_EXPECTED_CERT_SHA256 when that is set.
   --expected-version NAME     Required versionName.
@@ -35,6 +37,7 @@ ok() {
 }
 
 expected_cert="${YFT_EXPECTED_CERT_SHA256:-}"
+expected_package="com.alal.yft"
 expected_version=""
 previous_apk=""
 out_dir=""
@@ -43,6 +46,7 @@ apk=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --package) [[ $# -ge 2 ]] || usage; expected_package="$2"; shift 2 ;;
     --expected-cert-sha256) [[ $# -ge 2 ]] || usage; expected_cert="$2"; shift 2 ;;
     --expected-version) [[ $# -ge 2 ]] || usage; expected_version="$2"; shift 2 ;;
     --previous-apk) [[ $# -ge 2 ]] || usage; previous_apk="$2"; shift 2 ;;
@@ -113,7 +117,8 @@ min_sdk="$(badging_value "$badging" "s/^\(min\)\{0,1\}[sS]dkVersion:'\([^']*\)'.
 target_sdk="$(badging_value "$badging" "s/^targetSdkVersion:'\([^']*\)'.*/\1/p")"
 app_label="$(badging_value "$badging" "s/^application-label:'\([^']*\)'.*/\1/p")"
 
-[[ "$package_name" == "com.alal.yft" ]] || fail "package is '$package_name', expected com.alal.yft"
+[[ "$package_name" == "$expected_package" ]] \
+  || fail "package is '$package_name', expected $expected_package"
 ok "package $package_name ($app_label)"
 [[ "$version_code" =~ ^[0-9]+$ ]] || fail "versionCode '$version_code' is not a number"
 if [[ -n "$expected_version" && "$version_name" != "$expected_version" ]]; then
@@ -160,8 +165,8 @@ if info="$(signer_info "$apk")"; then
   ok "certificate SHA-256 $(colon_hex "$cert_sha256")"
   if [[ -n "$expected_cert" ]]; then
     [[ "$(normalize_hex "$cert_sha256")" == "$(normalize_hex "$expected_cert")" ]] \
-      || fail "signer certificate does not match the expected release certificate"
-    ok "certificate matches the expected release certificate"
+      || fail "signer certificate does not match the expected certificate"
+    ok "certificate matches the expected certificate"
   else
     echo "WARN  no expected certificate given; compare the fingerprint above with the owner's key"
   fi

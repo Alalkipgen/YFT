@@ -17,9 +17,36 @@ pre-release. The pipeline's verification results are in the Phase 7 table of
 | Android | minSdk 24 (7.0), targetSdk/compileSdk 35 (15) | |
 | Signature schemes | APK Signature Scheme v2 + v3 | v1 is unnecessary for minSdk 24; v3 allows key rotation later |
 | Debug builds | `com.alal.yft.debug`, versionName suffix `-debug` | Install next to the release app, never over it |
+| Preview builds (P7) | `com.alal.yft.preview`, versionName suffix `-preview.<run>`, test key | The owner's phone test; see below |
 
 Raise `yft.versionCode` by one for every APK that leaves the machine. Android refuses a lower
 versionCode and refuses any update signed by a different key.
+
+## Preview builds for the owner's phone test (P7)
+
+`yft-preview-apk` is the release build — minified, not debuggable, without debug actions — under
+its own application ID, so it installs next to the published release and never over it. It is
+signed with a throwaway **test key**, never with the release key.
+
+| Item | Value |
+| --- | --- |
+| Display name | YFT Preview (`app/src/preview/res/values/strings.xml`) |
+| Application ID | `com.alal.yft.preview` |
+| Version | `<yft.versionName>-preview.<CI run number>`, e.g. `1.0.0-beta.3-preview.12`; versionCode as in `gradle.properties` |
+| Signature | v2 + v3 with a fresh RSA 3072 test key made inside the job (`CN=YFT Preview Test Key`) and deleted at its end; the workflow reads no repository secret |
+| Workflow | `.github/workflows/preview-apk.yml`: on pushes to `work/phase-*` that change the app, or by hand (**Run workflow**) |
+| Checks | `scripts/verify-release-apk.sh --package com.alal.yft.preview --expected-version … --expected-cert-sha256 <test key>`: package, version, not debuggable, zip-aligned, no debug crash action, exactly one v2/v3 signer equal to the job's test key |
+| Artifact | `yft-preview-apk`: `video-downloader-<version>.apk`, `SHA256SUMS`, `release-info.txt` (30 days); the run summary shows `release-info.txt` |
+
+Install: download the artifact from the workflow run, unzip it, check the APK with
+`sha256sum -c SHA256SUMS`, open it on the phone and allow installing unknown apps. Each run
+makes its own key, so Android refuses to install a newer preview over an older one: uninstall
+YFT Preview first (its downloads and settings go with it). The release app is not touched.
+
+Locally, the same variables sign a preview: `YFT_PREVIEW_STORE_FILE`, `YFT_PREVIEW_STORE_PASSWORD`,
+`YFT_PREVIEW_KEY_ALIAS`, `YFT_PREVIEW_KEY_PASSWORD` and `./gradlew :app:assemblePreview`.
+Without them the preview stays unsigned (`app-preview-unsigned.apk`); Gradle refuses partial
+settings and the release keystore. A preview is never published as a release.
 
 ## 1. Create the permanent release key (owner, once)
 

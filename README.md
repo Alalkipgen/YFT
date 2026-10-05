@@ -27,6 +27,8 @@ YFT is an ad-free Android application for detecting, previewing and downloading 
 
 Requires Android 7.0 (API 24) or newer; the app targets Android 15 (API 35). Once the owner publishes a release, download `video-downloader-<version>.apk` and `SHA256SUMS` from the repository's GitHub Releases page, check the file with `sha256sum -c SHA256SUMS` (or `Get-FileHash` on Windows), open the APK on the phone and allow your browser or file manager to install unknown apps when Android asks. Later releases signed with the same key update in place. Details and known issues: [`docs/release/1.0.0-beta.3.md`](docs/release/1.0.0-beta.3.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
+Test builds of the next beta: the **Preview APK (test key)** workflow uploads `yft-preview-apk` — the release build as "YFT Preview" (`com.alal.yft.preview`), which installs next to the release app. It is signed with a throwaway test key, so uninstall an older preview before installing a newer one ([`docs/RELEASE.md`](docs/RELEASE.md#preview-builds-for-the-owners-phone-test-p7)).
+
 ## Current state
 
 Verified with JVM, Robolectric and fixture tests; on-device checks that the agent environment cannot run are listed in [`docs/TEST_MATRIX.md`](docs/TEST_MATRIX.md). The beta.2 field problems are fixed in `1.0.0-beta.3`; its phone checks are still open.

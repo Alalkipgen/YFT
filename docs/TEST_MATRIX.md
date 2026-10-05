@@ -681,6 +681,16 @@ repository that asks each client and prints only verdicts and counts.
 | CI | P6 `a1e99fd`: checkpoint PASS https://github.com/Alalkipgen/YFT/actions/runs/37248234059 (#154); emulator https://github.com/Alalkipgen/YFT/actions/runs/37248234047 (#31) ran 20 tests — the VP9 + Opus WebM merge passed, P5's `FocusedVideoProbeInstrumentedTest.theTikTokVideoInTheMiddleOfTheScreenIsFound` failed: the fixture scrolled while it loaded, before the WebView had its size (`100vh` was 0), so the first video was in the middle. Fix: each feed fixture exposes `window.yftFixtureSettle()` and the test calls it once the WebView is laid out (headless Chromium: all five cases unchanged). Fix `04ef622`: PASS — checkpoint https://github.com/Alalkipgen/YFT/actions/runs/37249191948 (#155), emulator https://github.com/Alalkipgen/YFT/actions/runs/37249192004 (#32, 20 instrumentation tests, 0 failures, incl. `aVp9VideoAndItsOpusSoundBecomeOneWebm`) |
 | Owner check | A YouTube video with 4K (e.g. a "4K" nature video) → Download → the sheet shows "2160p · 4K" and "1440p · 2K" (WebM) above 1080p → download 2K → the `.webm` plays with sound in the phone's player or YFT's Preview; on a phone without a VP9 decoder that large the row says "May not play on this phone" |
 
+### P7 — Preview APK with a test key (OWNER CHECK, 2026-10-05)
+
+| Check | Result |
+| --- | --- |
+| Build logic | `scripts/tests/test_preview_build.py` (6): `preview` is `initWith(release)` with `.preview`, `-preview` suffix, not debuggable, release fallbacks and shrinking kept; it signs only with `signingConfigs["preview"]`, whose four settings come from `YFT_PREVIEW_*` only (never `YFT_RELEASE_*`, `keystore.properties` or the release keystore); it uses `src/release/java` (no debug crash action) and is named "YFT Preview"; the workflow makes the key with `keytool`, masks its password, deletes it, reads no secret, verifies the APK against that key with `--package com.alal.yft.preview` and uploads `yft-preview-apk`. With the old build file and script 4 of the 6 fail. All 30 script tests pass |
+| Local preview build | `./gradlew :app:assemblePreview -Pyft.previewBuild=1` with a local throwaway key → `app-preview.apk` 6 710 000 B; `verify-release-apk.sh --package com.alal.yft.preview --expected-version 1.0.0-beta.3-preview.1 --expected-cert-sha256 <local key>`: package `com.alal.yft.preview` ("YFT Preview"), versionCode 3, minSdk 24, targetSdk 35, not debuggable, zip-aligned, debug crash action absent, v2 + v3 with exactly the test key → VERIFIED; the default package check refuses it. Only `YFT_PREVIEW_STORE_FILE` set → Gradle stops with "Preview signing is only partly configured" |
+| Local validation | core-model 63, core-media 25, core-download 112, extractor-sites 168, extractor-generic 14, core-browser 76, app 589 (66 render tests skipped) — 0 failures; `:app:lintDebug` 0 errors, 96 warnings (unchanged); `:app:compileDebugAndroidTestKotlin`; `scripts/tests` 30 pass |
+| CI | Checkpoint, emulator and the new Preview APK workflow on the P7 commit (SESSION_STATE) |
+| Owner check | Install YFT Preview from `yft-preview-apk` next to beta.3 (both icons stay) and run FIX_ADD_PLAN §6 |
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |
