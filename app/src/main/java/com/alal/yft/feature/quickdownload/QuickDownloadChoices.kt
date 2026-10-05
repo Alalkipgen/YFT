@@ -150,6 +150,27 @@ object QuickDownloadChoices {
         }
     }
 
+    /**
+     * P9: two audio and two video rows. The full choices and their IDs stay untouched, so
+     * expanding/collapsing never changes the selection or lists an option twice.
+     * If no lower video exists, the nearest higher one is the second choice.
+     */
+    fun compact(choices: QuickChoices, quality: QualityPreference): QuickChoices {
+        val preferred = preselect(choices, quality)?.takeIf { it.section == OptionSection.VIDEO }
+        val lower = preferred?.rankHeight?.let { height ->
+            choices.video.firstOrNull { (it.rankHeight ?: Int.MAX_VALUE) < height }
+        }
+        val next = lower ?: choices.video.filter { it.id != preferred?.id }
+            .minByOrNull { it.rankHeight ?: Int.MAX_VALUE }
+        return choices.copy(
+            audio = listOfNotNull(
+                choices.audio.firstOrNull(),
+                choices.audio.firstOrNull { it.variant.mp3?.bitrateKbps == 128 },
+            ).distinctBy(SheetOption::id),
+            video = listOfNotNull(preferred, next).distinctBy(SheetOption::id),
+        )
+    }
+
     /** The standard height for a picture of [width] × [height]: nearest to its short side. */
     fun standardHeight(width: Int?, height: Int): Int {
         val side = if (width != null && width > 0) minOf(width, height) else height

@@ -52,6 +52,21 @@ class DataStoreDownloadPreferencesRepositoryTest {
     }
 
     @Test
+    fun `an unset quality is 720p and every saved choice including Highest stays`() = runTest {
+        val store = PreferenceDataStoreFactory.create(
+            scope = backgroundScope,
+            produceFile = { File(temporaryFolder.root, "settings.preferences_pb") },
+        )
+        val repository = DataStoreDownloadPreferencesRepository(store)
+        assertEquals(QualityPreference.UP_TO_720P, repository.preferences.first().defaultQuality)
+        QualityPreference.entries.forEach { quality ->
+            repository.update { it.copy(defaultQuality = quality) }
+            val reopened = DataStoreDownloadPreferencesRepository(store)
+            assertEquals(quality, reopened.preferences.first().defaultQuality)
+        }
+    }
+
+    @Test
     fun `unknown or out-of-range stored values fall back to defaults`() = runTest {
         val store = PreferenceDataStoreFactory.create(
             scope = backgroundScope,

@@ -56,6 +56,61 @@ class QuickDownloadChoicesTest {
     }
 
     @Test
+    fun compactDefaultsToM4aMp3At128And720pWith480p() {
+        val full = choices(QuickDownloadFixtures.youtube())!!
+        val short = QuickDownloadChoices.compact(full, QualityPreference.UP_TO_720P)
+
+        assertEquals(listOf("M4A · 128 kbps", "MP3 · 128 kbps"), short.audio.map { it.title })
+        assertEquals(listOf("720p · HD", "480p"), short.video.map { it.title })
+        assertEquals(8, full.options.size)
+        assertEquals(4, short.options.size)
+        short.options.forEach { assertSame(it, full.option(it.id)) }
+        assertEquals(full.options.size, full.options.map { it.id }.distinct().size)
+    }
+
+    @Test
+    fun compactFallsBackToTheNearestLowerThenHigherAndDoesNotDuplicateRows() {
+        val cases = listOf(
+            listOf(1080, 720, 360) to listOf(720, 360),
+            listOf(1080, 480, 360) to listOf(480, 360),
+            listOf(2160, 1080) to listOf(1080, 2160),
+            listOf(360) to listOf(360),
+        )
+        cases.forEach { (available, wanted) ->
+            val full = choices(available.map { video(it, MIB) })!!
+            val short = QuickDownloadChoices.compact(full, QualityPreference.UP_TO_720P)
+            assertEquals(wanted, short.video.map { it.rankHeight })
+            assertEquals(short.options.size, short.options.map { it.id }.distinct().size)
+        }
+    }
+
+    @Test
+    fun compactHonorsSavedPreferencesAndWorksWithAudioOnlyAndUnknownHeights() {
+        val full = choices(QuickDownloadFixtures.youtube())!!
+        assertEquals(
+            listOf(1080, 720),
+            QuickDownloadChoices.compact(full, QualityPreference.HIGHEST).video.map {
+                it.rankHeight
+            },
+        )
+        assertEquals(
+            listOf(480, 360),
+            QuickDownloadChoices.compact(full, QualityPreference.UP_TO_480P).video.map {
+                it.rankHeight
+            },
+        )
+        val audioOnly = choices(listOf(audio(128, MIB)))!!
+        val shortAudio = QuickDownloadChoices.compact(audioOnly, QualityPreference.UP_TO_720P)
+        assertTrue(shortAudio.video.isEmpty())
+        assertEquals(2, shortAudio.audio.size)
+        val unknown = choices(listOf(video(null, MIB, label = null)))!!
+        assertEquals(
+            unknown.video,
+            QuickDownloadChoices.compact(unknown, QualityPreference.UP_TO_720P).video,
+        )
+    }
+
+    @Test
     fun rowsAreNamedAfterTheNearestStandardHeightAndKeepTheRealPicture() {
         // The owner's Facebook reel: 848 × 478 and 636 × 358 were "478p" and "358p".
         val choices = choices(

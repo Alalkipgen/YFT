@@ -55,9 +55,14 @@ class QuickDownloadViewModelTest {
         select(QuickDownloadFixtures.youtube())
 
         val state = viewModel().uiState.value
-        // Highest (the default) preselects the tallest row with sound.
-        assertEquals(state.choices!!.video.first().id, state.selectedId)
-        assertEquals("1080p · Full HD", state.selectedOption?.title)
+        // P9: 720p is the unset preference; an explicitly saved Highest still stays.
+        assertEquals(QualityPreference.UP_TO_720P, state.defaultQuality)
+        assertEquals("720p · HD", state.selectedOption?.title)
+        assertEquals(
+            "1080p · Full HD",
+            viewModel(DownloadPreferences(defaultQuality = QualityPreference.HIGHEST))
+                .uiState.value.selectedOption?.title,
+        )
         assertEquals("Ocean waves", state.header?.title)
         assertEquals("youtube.com", state.header?.source)
         assertFalse(state.loading)
@@ -82,8 +87,8 @@ class QuickDownloadViewModelTest {
         assertNotNull(resolved.audioCompanion)
         val queued = starter.variants.single()
         assertNotNull(queued.audioCompanion)
-        assertEquals("1080p", queued.label)
-        assertEquals(1080, queued.height)
+        assertEquals("720p", queued.label)
+        assertEquals(720, queued.height)
         assertEquals("Ocean waves", starter.assets.single().title)
         assertEquals(
             PreviewDownloadStatus.Queued("Ocean waves.mp4"),
@@ -106,6 +111,8 @@ class QuickDownloadViewModelTest {
         assertEquals("2160p · 4K", rows.first().title)
         assertEquals(listOf(QuickDownloadChoices.MAY_NOT_PLAY), rows.first().chips)
         assertTrue(rows.drop(1).all { it.chips.isEmpty() })
+        assertEquals("720p · HD", viewModel.uiState.value.selectedOption?.title)
+        viewModel.select(rows.first().id)
         viewModel.download()
         advanceUntilIdle()
         assertEquals("2160p", starter.variants.single().label)

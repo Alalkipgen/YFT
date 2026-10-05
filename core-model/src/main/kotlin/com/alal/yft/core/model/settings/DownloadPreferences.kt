@@ -22,7 +22,7 @@ enum class DownloadLocation {
 }
 
 data class DownloadPreferences(
-    val defaultQuality: QualityPreference = QualityPreference.HIGHEST,
+    val defaultQuality: QualityPreference = QualityPreference.UP_TO_720P,
     val location: DownloadLocation = DownloadLocation.SHARED_DOWNLOADS,
     /** Transfers run only on unmetered networks such as Wi-Fi. */
     val unmeteredOnly: Boolean = false,

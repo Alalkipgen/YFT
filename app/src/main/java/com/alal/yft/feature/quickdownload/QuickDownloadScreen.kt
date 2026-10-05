@@ -22,6 +22,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -82,9 +85,9 @@ fun QuickDownloadRoute(
  * The download sheet (P3, P3-FIX): every way to download a video opens it — Home's View, Preview
  * in the found lists and the browser's Download button. A placeholder thumbnail (YFT never
  * fetches remote images), the title, site and length; exactly two sections, **Audio** (M4A, MP3
- * at each bitrate) and **Video** (one row per resolution, named 240p … 1080p and higher, with the
- * real picture and size), the default quality preselected; a Details link to Download as; one
- * Download button with the size.
+ * at 128 kbps in the short view) and **Video** (the preferred quality and the next lower one).
+ * More formats expands the same sheet to every row, without changing the selection; only the
+ * rows scroll. Details and Download with the size stay pinned below them.
  */
 @Composable
 fun QuickDownloadScreen(
@@ -102,6 +105,9 @@ fun QuickDownloadScreen(
     if (state.downloadStatus == PreviewDownloadStatus.ConfirmMetered) {
         MeteredDownloadDialog(onConfirm = onConfirmMetered, onDismiss = onDismissMetered)
     }
+    var expanded by rememberSaveable(state.header?.title, state.header?.source) {
+        mutableStateOf(false)
+    }
     val density = LocalDensity.current
     val reservedTop = WindowInsets.statusBars.getTop(density) +
         with(density) { SHEET_TOP_GAP.roundToPx() }
@@ -117,7 +123,6 @@ fun QuickDownloadScreen(
                 val placeable = measurable.measure(constraints.copy(maxHeight = maxHeight))
                 layout(placeable.width, placeable.height) { placeable.place(0, 0) }
             }
-            .verticalScroll(rememberScrollState())
             .padding(start = 20.dp, end = 20.dp, bottom = 16.dp)
             .testTag("quick-sheet"),
     ) {
@@ -156,14 +161,40 @@ fun QuickDownloadScreen(
         val choices = state.choices
         when {
             choices != null -> {
-                Sections(choices = choices, state = state, onSelect = onSelect)
-                YftTextButton(
-                    text = "Details",
-                    onClick = onOpenDetails,
+                val compact = QuickDownloadChoices.compact(choices, state.defaultQuality)
+                Column(
                     modifier = Modifier
-                        .padding(top = 4.dp)
-                        .testTag("quick-details"),
-                )
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState())
+                        .testTag("quick-rows"),
+                ) {
+                    Sections(
+                        choices = if (expanded) choices else compact,
+                        state = state,
+                        onSelect = onSelect,
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val hidden = choices.options.size - compact.options.size
+                    if (hidden > 0) {
+                        YftTextButton(
+                            text = if (expanded) "Fewer formats" else "More formats · $hidden",
+                            onClick = { expanded = !expanded },
+                            modifier = Modifier.testTag(
+                                if (expanded) "quick-fewer-formats" else "quick-more-formats",
+                            ),
+                        )
+                    }
+                    YftTextButton(
+                        text = "Details",
+                        onClick = onOpenDetails,
+                        modifier = Modifier.testTag("quick-details"),
+                    )
+                }
                 DownloadAction(
                     state = state,
                     onDownload = onDownload,

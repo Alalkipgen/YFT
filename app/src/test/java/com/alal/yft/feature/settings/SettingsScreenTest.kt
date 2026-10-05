@@ -9,6 +9,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -88,13 +89,13 @@ class SettingsScreenTest {
         setContent()
 
         composeRule.onNodeWithTag("settings-quality").performScrollTo()
-            .assert(hasText("Highest available"))
+            .assert(hasText("Up to 720p"))
             .performClick()
         composeRule.onNodeWithTag("quality-dialog").assertIsDisplayed()
         composeRule.onNodeWithText("Download as starts on this quality when a page offers it.")
             .assertIsDisplayed()
-        composeRule.onNodeWithTag("quality-HIGHEST").assertIsSelected()
-        composeRule.onNodeWithTag("quality-UP_TO_720P").performClick()
+        composeRule.onNodeWithTag("quality-UP_TO_720P").assertIsSelected()
+        composeRule.onNodeWithTag("quality-HIGHEST").assertIsNotSelected().performClick()
         composeRule.onAllNodesWithTag("quality-dialog").assertCountEquals(0)
 
         composeRule.onNodeWithTag("settings-location").performScrollTo()
@@ -110,7 +111,7 @@ class SettingsScreenTest {
 
         assertEquals(
             listOf(
-                SettingsAction.SetQuality(QualityPreference.UP_TO_720P),
+                SettingsAction.SetQuality(QualityPreference.HIGHEST),
                 SettingsAction.SetLocation(DownloadLocation.APP_STORAGE),
             ),
             actions,

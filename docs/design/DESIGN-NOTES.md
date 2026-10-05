@@ -324,7 +324,7 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
     squeezing the badge out of the row. `browser-start` intentionally replaces
     `browser-empty`; all other existing tags stay.
 
-17. **Download sheet (Phase 9, T12; P3; P3-FIX).** P3 replaced "Video you copied" with one
+17. **Download sheet (Phase 9, T12; P3; P3-FIX; P9).** P3 replaced "Video you copied" with one
     sheet, titled "Download", for every path: Home's View (one video found), Preview in the Found
     list and the browser's Download button (one video). A video is a `MediaGroup`
     (`MediaGroups.of`): the candidates that share the adapter's video id (or, without one, the
@@ -351,8 +351,16 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
     there is no video. Details (`quick-details`) opens Download as for the same video. Download
     uses the Download as queue rules (Wi-Fi only, the mobile data question) and shows its status
     with Open Downloads. Loading, error with Retry and empty states have their own tags.
-    Removed in P3-FIX: the quick rows `quick-row-music`, `quick-row-mp3`, `quick-row-fast`,
-    `quick-row-high` and `quick-row-video`, `quick-more-formats` and `quick-more-list`.
+    **P9 (short sheet):** initially show the M4A and MP3 128 kbps, plus the preferred video
+    quality and its next lower one (720p and 480p by default, 360p if 480p is absent). Missing
+    qualities fall back to the nearest lower, then nearest higher; if no lower second row exists,
+    the nearest higher row is offered. Fewer available formats mean fewer rows. An unset default
+    is now Up to 720p; every stored choice, including Highest, stays. "More formats · N"
+    (`quick-more-formats`, N hidden options) expands the same sheet to the full Audio then Video
+    list once; "Fewer formats" (`quick-fewer-formats`) collapses it without changing selection.
+    Only the format rows (`quick-rows`) scroll; the header stays above, and Details, the toggle,
+    Download (`quick-download`) and download status/actions stay pinned below them. The old
+    duplicate quick-row tags and `quick-more-list` remain removed.
 
 18. **Search to download (Phase 9, T13).** Home's Search to download opens the browser start
     page with the address field focused (`browser?search=true`); Open browser opens the same

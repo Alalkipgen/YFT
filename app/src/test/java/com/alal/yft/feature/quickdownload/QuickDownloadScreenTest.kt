@@ -5,9 +5,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
@@ -55,7 +57,7 @@ class QuickDownloadScreenTest {
             }
         }
         val choices = SAMPLE_QUICK_DOWNLOAD.choices!!
-        val tallest = choices.video.first()
+        val preferred = choices.video.single { it.rankHeight == 720 }
         val sd = choices.video.single { it.title == "480p" }
 
         composeRule.onNodeWithText(SHEET_TITLE).assertExists()
@@ -68,6 +70,13 @@ class QuickDownloadScreenTest {
             .fetchSemanticsNode().positionInRoot.y
         assertTrue(audioTop < videoTop)
         composeRule.onNodeWithText("M4A · 128 kbps").assertExists()
+        composeRule.onNodeWithText("MP3 · 128 kbps").assertExists()
+        composeRule.onAllNodesWithText("MP3 · 320 kbps").assertCountEquals(0)
+        composeRule.onAllNodesWithText("1080p · Full HD").assertCountEquals(0)
+        composeRule.onNodeWithTag("quick-option-${preferred.id}").assertIsSelected()
+        composeRule.onNodeWithTag("quick-download").assertIsDisplayed()
+        composeRule.onNodeWithTag("quick-more-formats").assert(hasText("More formats · 4"))
+            .performClick()
         listOf("MP3 · 320 kbps", "MP3 · 192 kbps", "MP3 · 128 kbps").forEach {
             composeRule.onNodeWithText(it).assertExists()
         }
@@ -77,22 +86,22 @@ class QuickDownloadScreenTest {
             composeRule.onNodeWithText(it).assertExists()
         }
         composeRule.onNodeWithText("1920 × 1080 · 30 fps · MP4").assertExists()
-        // Nothing is listed twice: no Music/Fast/High rows and no More formats list.
-        listOf("Music", "M4A · Fast", "More formats").forEach {
+        // The expanded view is the full list once, never duplicated Music/Fast/High rows.
+        listOf("Music", "M4A · Fast").forEach {
             composeRule.onAllNodesWithText(it).assertCountEquals(0)
         }
-        // Highest, the default quality, preselects the tallest row with sound.
-        composeRule.onNodeWithTag("quick-option-${tallest.id}").assertIsSelected()
+        // Expanding preserves the P9 default selection.
+        composeRule.onNodeWithTag("quick-option-${preferred.id}").assertIsSelected()
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
-        composeRule.onNodeWithTag("quick-download").performScrollTo()
-            .assert(hasText("Download · ~80 MB"))
+        composeRule.onNodeWithTag("quick-download").assertIsDisplayed()
+            .assert(hasText("Download · ~42 MB"))
         composeRule.onNodeWithTag("quick-option-${sd.id}").performScrollTo().assertIsNotSelected()
             .performClick()
 
         assertEquals(listOf(sd.id), selected)
         composeRule.onNodeWithTag("quick-option-${sd.id}").assertIsSelected()
-        composeRule.onNodeWithTag("quick-option-${tallest.id}").assertIsNotSelected()
-        composeRule.onNodeWithTag("quick-download").performScrollTo().assertIsEnabled()
+        composeRule.onNodeWithTag("quick-option-${preferred.id}").assertIsNotSelected()
+        composeRule.onNodeWithTag("quick-download").assertIsDisplayed().assertIsEnabled()
             .assert(hasText("Download · ~18 MB"))
     }
 
@@ -111,14 +120,15 @@ class QuickDownloadScreenTest {
             }
         }
         val mp3 = SAMPLE_QUICK_DOWNLOAD.choices!!.audio.single { it.title == "MP3 · 320 kbps" }
+        composeRule.onNodeWithTag("quick-more-formats").performClick()
 
         composeRule.onNodeWithTag("quick-option-${mp3.id}").performScrollTo().performClick()
         composeRule.onNodeWithTag("quick-option-${mp3.id}").assertIsSelected()
         composeRule.onAllNodesWithText("Made on the phone").assertCountEquals(3)
-        composeRule.onNodeWithTag("quick-download").performScrollTo()
+        composeRule.onNodeWithTag("quick-download").assertIsDisplayed()
             .assert(hasText("Download · ${mp3.size}"))
 
-        composeRule.onNodeWithTag("quick-details").performScrollTo().performClick()
+        composeRule.onNodeWithTag("quick-details").assertIsDisplayed().performClick()
         assertEquals(1, details)
     }
 
@@ -161,7 +171,7 @@ class QuickDownloadScreenTest {
         composeRule.onNodeWithText(QuickDownloadChoices.NO_SOUND).assertExists()
         composeRule.onNodeWithText("Size unknown").assertExists()
         composeRule.onAllNodesWithTag("quick-section-audio").assertCountEquals(0)
-        composeRule.onNodeWithTag("quick-download").performScrollTo().assert(hasText("Download"))
+        composeRule.onNodeWithTag("quick-download").assertIsDisplayed().assert(hasText("Download"))
     }
 
     @Test
@@ -195,13 +205,14 @@ class QuickDownloadScreenTest {
             }
         }
 
+        composeRule.onNodeWithTag("quick-more-formats").performClick()
         // The row merges its texts; the warning is one of them, beside the title.
         composeRule.onNodeWithTag("quick-option-${row.id}")
             .performScrollTo()
             .assert(androidx.compose.ui.test.hasText("2160p · 4K"))
             .assert(androidx.compose.ui.test.hasText(QuickDownloadChoices.MAY_NOT_PLAY))
         composeRule.onAllNodesWithText(QuickDownloadChoices.MAY_NOT_PLAY).assertCountEquals(1)
-        composeRule.onNodeWithTag("quick-download").performScrollTo().assertIsEnabled()
+        composeRule.onNodeWithTag("quick-download").assertIsDisplayed().assertIsEnabled()
     }
 
     @Test
@@ -220,18 +231,18 @@ class QuickDownloadScreenTest {
             }
         }
 
-        composeRule.onNodeWithTag("quick-download").performScrollTo().performClick()
+        composeRule.onNodeWithTag("quick-download").assertIsDisplayed().performClick()
         assertEquals(1, downloads)
 
         state = state.copy(downloadStatus = PreviewDownloadStatus.Enqueuing)
         composeRule.onNodeWithTag("quick-download").assertIsNotEnabled()
-        composeRule.onNodeWithTag("quick-option-${state.choices!!.video.last().id}")
+        composeRule.onNodeWithTag("quick-option-${state.selectedId}")
             .assertIsNotEnabled()
 
         state = state.copy(downloadStatus = PreviewDownloadStatus.Queued("Ocean waves.mp4"))
-        composeRule.onNodeWithTag("quick-download-status").performScrollTo()
+        composeRule.onNodeWithTag("quick-download-status").assertIsDisplayed()
             .assert(hasText("Queued Ocean waves.mp4. Track progress on the Downloads screen."))
-        composeRule.onNodeWithTag("quick-open-downloads").performScrollTo().performClick()
+        composeRule.onNodeWithTag("quick-open-downloads").assertIsDisplayed().performClick()
         assertEquals(1, opened)
     }
 
@@ -290,6 +301,65 @@ class QuickDownloadScreenTest {
         assertEquals(1, closed)
     }
 
+    @Test
+    fun downloadStaysVisibleWithTwelveExpandedRowsWithoutScrolling() {
+        val candidates = listOf(2160, 1440, 1080, 720, 480, 360, 240, 144).map {
+            QuickDownloadFixtures.video(it, QuickDownloadFixtures.MIB)
+        } + QuickDownloadFixtures.audio(128, QuickDownloadFixtures.MIB)
+        val choices = QuickDownloadFixtures.choices(candidates)!!
+        assertEquals(12, choices.options.size)
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(
+                    state = SAMPLE_QUICK_DOWNLOAD.copy(
+                        choices = choices,
+                        selectedId = QuickDownloadChoices.preselect(
+                            choices,
+                            QualityPreference.UP_TO_720P,
+                        )?.id,
+                    ),
+                    onSelect = {},
+                    onDownload = {},
+                )
+            }
+        }
+        // Old P3-FIX already shows all 12 rows and has no toggle: its button is offscreen.
+        val toggles = composeRule.onAllNodesWithTag("quick-more-formats").fetchSemanticsNodes()
+        if (toggles.isNotEmpty()) {
+            composeRule.onNodeWithTag("quick-more-formats").performClick()
+        }
+        composeRule.onAllNodes(SemanticsMatcher("format row") { node ->
+            node.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("quick-option-") == true
+        }).assertCountEquals(12)
+        composeRule.onNodeWithTag("quick-download").assertIsDisplayed().assertIsEnabled()
+        composeRule.onNodeWithTag("quick-details").assertIsDisplayed()
+        composeRule.onNodeWithTag("quick-option-${choices.video.last().id}").performScrollTo()
+        composeRule.onNodeWithTag("quick-download").assertIsDisplayed()
+    }
+
+    @Test
+    fun expandingAndCollapsingNeverChangesTheSelectedFormat() {
+        var state by mutableStateOf(SAMPLE_QUICK_DOWNLOAD)
+        val chosen = state.choices!!.video.first()
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(
+                    state = state,
+                    onSelect = { state = state.copy(selectedId = it) },
+                    onDownload = {},
+                )
+            }
+        }
+        composeRule.onNodeWithTag("quick-more-formats").performClick()
+        composeRule.onNodeWithTag("quick-option-${chosen.id}").performScrollTo().performClick()
+        composeRule.onNodeWithTag("quick-fewer-formats").performClick()
+        assertEquals(chosen.id, state.selectedId)
+        composeRule.onNodeWithTag("quick-download").assertIsDisplayed()
+            .assert(hasText("Download · ${chosen.size}"))
+        composeRule.onNodeWithTag("quick-more-formats").performClick()
+        composeRule.onNodeWithTag("quick-option-${chosen.id}").performScrollTo().assertIsSelected()
+    }
+
     private fun hasText(text: String) = SemanticsMatcher.expectValue(
         SemanticsProperties.Text,
         listOf(androidx.compose.ui.text.AnnotatedString(text)),
@@ -310,6 +380,6 @@ internal val SAMPLE_QUICK_DOWNLOAD: QuickDownloadUiState = run {
             audioOnly = choices.isAudioOnly,
         ),
         choices = choices,
-        selectedId = QuickDownloadChoices.preselect(choices, QualityPreference.HIGHEST)?.id,
+        selectedId = QuickDownloadChoices.preselect(choices, QualityPreference.UP_TO_720P)?.id,
     )
 }

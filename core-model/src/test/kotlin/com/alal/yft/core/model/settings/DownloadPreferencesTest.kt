@@ -50,7 +50,8 @@ class DownloadPreferencesTest {
     fun `defaults are conservative and concurrency stays in range`() {
         val defaults = DownloadPreferences()
 
-        assertEquals(QualityPreference.HIGHEST, defaults.defaultQuality)
+        assertEquals(QualityPreference.UP_TO_720P, defaults.defaultQuality)
+        assertEquals("720p-high", defaults.defaultQuality.choose())
         assertEquals(DownloadLocation.SHARED_DOWNLOADS, defaults.location)
         assertEquals(false, defaults.unmeteredOnly)
         assertEquals(true, defaults.confirmOnMeteredNetwork)

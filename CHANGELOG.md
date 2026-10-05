@@ -33,12 +33,17 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Changed
 
+- Compact download sheet: initially two Audio rows (M4A, MP3 128 kbps) and two Video rows
+  (720p and the next lower quality by default). More formats expands the full list in place,
+  once per format; Fewer formats preserves the selection. Only the rows scroll: Download,
+  Details and the format toggle stay visible below them. The unset preferred quality is now
+  Up to 720p instead of Highest; saved choices and every Settings option stay unchanged.
 - One download sheet: View, Download and the browser's Download button all open the same
   "Download" sheet with exactly two sections: Audio (M4A, then MP3 320/192/128 kbps) and Video
   (one row per resolution — "480p", "720p · HD", "1080p · Full HD" — with the real picture,
   frame rate and size). The default quality is preselected; Details opens Download as. The
-  former Music rows, Fast/High names and More formats list are gone (they repeated the same
-  formats).
+  former duplicate Music rows and Fast/High names are gone; More formats now expands
+  the single full list instead of repeating it.
 - One row per video: Facebook's HD, SD and DASH items, and a YouTube video's qualities, show as
   one video everywhere (Home, the found lists, the Download button count).
 - Real qualities: the sheet shows a video's real resolution, frame rate and size (read from the

@@ -691,6 +691,18 @@ repository that asks each client and prints only verdicts and counts.
 | CI | PASS on `dacecd8` — Preview APK https://github.com/Alalkipgen/YFT/actions/runs/37294511016 (#1: test key made in the job, APK verified against it, `yft-preview-apk` artifact 11338621241, `1.0.0-beta.3-preview.1`); checkpoint https://github.com/Alalkipgen/YFT/actions/runs/37294510980 (#157); emulator https://github.com/Alalkipgen/YFT/actions/runs/37294510833 (#33, 20 tests, 0 failures) |
 | Owner check | Install YFT Preview from `yft-preview-apk` next to beta.3 (both icons stay) and run the part 1 checklist (FIX_ADD_PLAN §6 at `ce3cd25`). Done by the owner on 2026-10-05; findings in FIX_ADD_PLAN §2 (part 2) |
 
+### P9 — Short sheet and pinned Download (OWNER CHECK, 2026-10-05)
+
+| Check | Result |
+| --- | --- |
+| Formats | `QuickDownloadChoicesTest`: compact M4A + MP3 128, preferred 720p + 480p, 360p fallback, nearest lower/higher when 720p is absent, only 1080p/4K starts at 1080p, one available row, audio-only and unknown height, saved Highest/480p choices; full list and option IDs untouched |
+| Screen | `QuickDownloadScreenTest`: two sections, full list once after More formats, collapse/expand preserves a chosen off-compact option; Download and Details visible without scrolling with 12 expanded rows and still visible after scrolling to the last row; queue/metered/failure/empty behavior kept |
+| Settings | `DownloadPreferencesTest`, `DataStoreDownloadPreferencesRepositoryTest`, `SettingsScreenTest`: unset quality 720p, every saved quality including Highest survives reopening, Highest remains selectable in Settings |
+| Regression proof | Original `d642607` screen and preference model put back: `downloadStaysVisibleWithTwelveExpandedRowsWithoutScrolling` fails with "component is not displayed"; `defaults are conservative and concurrency stays in range` fails with HIGHEST instead of UP_TO_720P. New files backed up, restored with `cp`, and checked with `cmp` |
+| Local validation | core-model 63 tests (0 skipped); core-data 17 tests (0 skipped); app 594 tests (66 skipped); 0 failures/errors; :app:lintDebug 0 errors (low-memory helper) |
+| Device limits | No local emulator/KVM; 66 native design-render tests skipped. No native pixel-review claim |
+| Owner check | YouTube 4K video: two Audio + two Video rows, 720p selected, Download visible; More formats shows 2K/4K; a 720p and MP3 download play |
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |

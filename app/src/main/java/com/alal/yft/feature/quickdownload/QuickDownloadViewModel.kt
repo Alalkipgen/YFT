@@ -18,6 +18,7 @@ import com.alal.yft.core.model.media.Mp3Variants
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.settings.DownloadPreferences
+import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.detection.VideoPlaybackSupport
 import com.alal.yft.download.EnqueueResult
 import com.alal.yft.download.PreviewDownloadStarter
@@ -59,6 +60,7 @@ data class QuickDownloadUiState(
     val choices: QuickChoices? = null,
     /** Why no format could be read; Try again reads them once more. */
     val failure: String? = null,
+    val defaultQuality: QualityPreference = DownloadPreferences().defaultQuality,
     val selectedId: String? = null,
     val downloadStatus: PreviewDownloadStatus = PreviewDownloadStatus.Idle,
 ) {
@@ -167,6 +169,7 @@ class QuickDownloadViewModel @Inject constructor(
         mutableUiState.update { it.copy(loading = true, failure = null) }
         loading = viewModelScope.launch {
             val quality = currentPreferences().defaultQuality
+            mutableUiState.update { it.copy(defaultQuality = quality) }
             val sources = coroutineScope {
                 group.candidates.take(MAX_SOURCES).map { candidate ->
                     async { inspect(candidate) }
