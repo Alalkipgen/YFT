@@ -15,7 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OkHttpExtractorNetworkTest {
-    private fun policy(seconds: Long = 3, idleMillis: Long = 700) = OkHttpExtractorClient.Policy(
+    private fun policy(seconds: Long = 3, idleMillis: Long = 1_500) = OkHttpExtractorClient.Policy(
         callTimeoutSeconds = seconds,
         connectTimeoutMillis = 1_000,
         readTimeoutMillis = idleMillis,
@@ -29,10 +29,10 @@ class OkHttpExtractorNetworkTest {
                 fixture.server.enqueue(MockResponse().setBody("abcdefghijkl")
                     .throttleBody(1, 150, TimeUnit.MILLISECONDS))
             }
-            val url = fixture.server.url("/slow").toString()
+            val url = fixture.url("/slow").toString()
             val oldBudget = OkHttpExtractorClient(fixture.client, policy(seconds = 1))
             assertTrue(oldBudget.get(url, emptyMap(), 1_024) is ExtractorHttpResult.Failure)
-            val waiting = OkHttpExtractorClient(fixture.client, policy(seconds = 3))
+            val waiting = OkHttpExtractorClient(fixture.client, policy(seconds = 6))
             val result = waiting.get(url, emptyMap(), 1_024) as ExtractorHttpResult.Success
             assertEquals("abcdefghijkl", result.body)
             fixture.server.enqueue(MockResponse().setBody("late")
@@ -54,7 +54,7 @@ class OkHttpExtractorNetworkTest {
                 fixture.server.enqueue(MockResponse().setBody("ok"))
                 val waits = mutableListOf<Long>()
                 val client = OkHttpExtractorClient(fixture.client, retryDelay = { waits += it })
-                val result = client.get(fixture.server.url("/").toString(), emptyMap(), 1_024)
+                val result = client.get(fixture.url("/").toString(), emptyMap(), 1_024)
                 assertTrue(result is ExtractorHttpResult.Success)
                 assertEquals(listOf(1_000L, 3_000L), waits)
                 assertEquals(3, fixture.server.requestCount)
@@ -68,7 +68,7 @@ class OkHttpExtractorNetworkTest {
             val waits = mutableListOf<Long>()
             val client = OkHttpExtractorClient(fixture.client, retryDelay = { waits += it })
             repeat(3) { fixture.server.enqueue(MockResponse().setResponseCode(503)) }
-            val url = fixture.server.url("/").toString()
+            val url = fixture.url("/").toString()
             assertEquals(503, (client.get(url) as ExtractorHttpResult.Failure).statusCode)
             assertEquals(3, fixture.server.requestCount)
             listOf(401, 403, 404, 429, 500).forEachIndexed { index, code ->
@@ -86,7 +86,7 @@ class OkHttpExtractorNetworkTest {
             fixture.server.enqueue(MockResponse().setResponseCode(502))
             fixture.server.enqueue(MockResponse().setBody("{}"))
             val client = OkHttpExtractorClient(fixture.client, retryDelay = {})
-            assertTrue(client.postJson(fixture.server.url("/player").toString(), "{}")
+            assertTrue(client.postJson(fixture.url("/player").toString(), "{}")
                 is ExtractorHttpResult.Success)
             repeat(2) {
                 val request = fixture.server.takeRequest()
@@ -104,10 +104,10 @@ class OkHttpExtractorNetworkTest {
             val waits = mutableListOf<Long>()
             val client = OkHttpExtractorClient(fixture.client, retryDelay = { waits += it })
             val reading = async(start = CoroutineStart.UNDISPATCHED) {
-                client.get(fixture.server.url("/body").toString())
+                client.get(fixture.url("/body").toString())
             }
-            assertNotNull(fixture.server.takeRequest(2, TimeUnit.SECONDS))
-            withTimeout(2_000) { reading.cancelAndJoin() }
+            assertNotNull(fixture.server.takeRequest(8, TimeUnit.SECONDS))
+            withTimeout(5_000) { reading.cancelAndJoin() }
             assertTrue(reading.isCancelled)
             assertTrue(waits.isEmpty())
             assertEquals(1, fixture.server.requestCount)

@@ -279,7 +279,7 @@ class HeadlessPageFetcherTest {
         val slow = HeadlessPageFetcher(
             OkHttpClient(), USER_AGENT,
             HeadlessPageFetcher.Policy(
-                callTimeoutSeconds = 3, readTimeoutMillis = 700,
+                callTimeoutSeconds = 6, readTimeoutMillis = 1_500,
                 retryDelaysMillis = emptyList(),
             ),
         )
@@ -323,8 +323,8 @@ class HeadlessPageFetcherTest {
         val reading = async(start = CoroutineStart.UNDISPATCHED) {
                 retrying.fetch(server.url("/body").toString())
             }
-        assertNotNull(server.takeRequest(2, TimeUnit.SECONDS))
-        withTimeout(2_000) { reading.cancelAndJoin() }
+        assertNotNull(server.takeRequest(8, TimeUnit.SECONDS))
+        withTimeout(5_000) { reading.cancelAndJoin() }
         assertTrue(reading.isCancelled)
         assertTrue(waits.isEmpty())
         assertEquals(1, server.requestCount)

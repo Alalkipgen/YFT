@@ -18,7 +18,7 @@ class ExtractorRetryRegressionTest {
             )
             fixture.server.enqueue(MockResponse().setBody("fixture page"))
             val result = OkHttpExtractorClient(fixture.client).get(
-                fixture.server.url("/page").toString(),
+                fixture.url("/page").toString(),
                 emptyMap(),
                 1_024,
             )

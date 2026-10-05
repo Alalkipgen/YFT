@@ -2,6 +2,13 @@
 
 ## Current handoff (2026-10-05)
 
+**Latest owner instruction: finish P11 and STOP.** P9/P10 are pushed and P11's stable quality
+rows are locally verified (1124 tests, 66 native-render skips; no failures/lint errors). P11
+feature milestone `f82427b` passed preview and emulator CI; final validation CI retry follows
+verified loopback-fixture hardening. Actual status/stop boundary is in `SESSION_STATE.md`.
+Workflows, FIX_ADD_PLAN and prompts remain unchanged. P12/P13/P19/Preview #2 have not started;
+no task may auto-continue until the owner explicitly resumes it.
+
 - **Phase:** 11 — download flow like Snaptube. Plan, status board, decisions and findings:
   [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md); one prompt per task in [`prompts/`](prompts/README.md).
 - **Branch:** `work/phase-11-download-flow`, created from `main` at `2f6284f`; part 1 ends at
