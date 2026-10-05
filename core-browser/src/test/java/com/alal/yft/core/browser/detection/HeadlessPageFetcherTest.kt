@@ -6,10 +6,12 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.withTimeout
+import java.net.InetAddress
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.test.runTest
 import okhttp3.Cookie
 import okhttp3.CookieJar
+import okhttp3.Dns
 import okhttp3.HttpUrl
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
@@ -35,7 +37,7 @@ class HeadlessPageFetcherTest {
     @Before
     fun setUp() {
         server = MockWebServer()
-        server.start()
+        server.start(LOOPBACK, 0)
     }
 
     @After
@@ -53,7 +55,7 @@ class HeadlessPageFetcherTest {
                 Cookie.Builder().name("session").value("secret").hostOnlyDomain(url.host).build(),
             )
         }
-        val client = OkHttpClient.Builder().cookieJar(leakyJar).build()
+        val client = client().newBuilder().cookieJar(leakyJar).build()
 
         val result = HeadlessPageFetcher(client, USER_AGENT).fetch(server.url("/clip").toString())
 
@@ -73,7 +75,7 @@ class HeadlessPageFetcherTest {
     fun customNavigationValuesCannotInjectCookiesOrAccountHeaders() = runTest {
         server.enqueue(html("fixture"))
         val fetcher = HeadlessPageFetcher(
-            OkHttpClient(),
+            client(),
             USER_AGENT,
             navigationHeaders = mapOf(
                 "accept" to "text/html",
@@ -97,7 +99,7 @@ class HeadlessPageFetcherTest {
     fun largePagesAreCutAtTheSizeLimit() = runTest {
         server.enqueue(html("a".repeat(5_000)))
         val fetcher = HeadlessPageFetcher(
-            OkHttpClient(),
+            client(),
             USER_AGENT,
             HeadlessPageFetcher.Policy(maxBodyBytes = 1_024),
         )
@@ -185,7 +187,7 @@ class HeadlessPageFetcherTest {
             server.enqueue(MockResponse().setResponseCode(302).setHeader("Location", "/again"))
         }
         val fetcher = HeadlessPageFetcher(
-            OkHttpClient(),
+            client(),
             USER_AGENT,
             HeadlessPageFetcher.Policy(maxRedirects = 2),
         )
@@ -208,7 +210,7 @@ class HeadlessPageFetcherTest {
     @Test
     fun secureLinkIsNeverFollowedToAnInsecureAddress() = runTest {
         val requested = mutableListOf<String>()
-        val client = OkHttpClient.Builder()
+        val client = client().newBuilder()
             .addInterceptor(
                 Interceptor { chain ->
                     val url = chain.request().url
@@ -264,7 +266,7 @@ class HeadlessPageFetcherTest {
         server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START))
 
         val fetcher = HeadlessPageFetcher(
-            OkHttpClient(), USER_AGENT,
+            client(), USER_AGENT,
             HeadlessPageFetcher.Policy(retryDelaysMillis = emptyList()),
         )
         val result = fetcher.fetch(server.url("/drop").toString())
@@ -277,7 +279,7 @@ class HeadlessPageFetcherTest {
     fun slowProgressSucceedsButAnIdleBodyDoesNot() = runBlocking {
         server.enqueue(html("abcdefghijkl").throttleBody(1, 150, TimeUnit.MILLISECONDS))
         val slow = HeadlessPageFetcher(
-            OkHttpClient(), USER_AGENT,
+            client(), USER_AGENT,
             HeadlessPageFetcher.Policy(
                 callTimeoutSeconds = 6, readTimeoutMillis = 1_500,
                 retryDelaysMillis = emptyList(),
@@ -287,7 +289,7 @@ class HeadlessPageFetcherTest {
             as HeadlessPageFetcher.Result.Page).html)
         server.enqueue(html("late").setBodyDelay(800, TimeUnit.MILLISECONDS))
         val idle = HeadlessPageFetcher(
-            OkHttpClient(), USER_AGENT,
+            client(), USER_AGENT,
             HeadlessPageFetcher.Policy(readTimeoutMillis = 200, retryDelaysMillis = emptyList()),
         )
         assertEquals(failed(HeadlessPageFetcher.FailureReason.NETWORK),
@@ -299,7 +301,7 @@ class HeadlessPageFetcherTest {
         server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST))
         server.enqueue(html("recovered"))
         val waits = mutableListOf<Long>()
-        val retrying = HeadlessPageFetcher(OkHttpClient(), USER_AGENT, retryDelay = { waits += it })
+        val retrying = HeadlessPageFetcher(client(), USER_AGENT, retryDelay = { waits += it })
         val url = server.url("/").toString()
         assertEquals("recovered", (retrying.fetch(url) as HeadlessPageFetcher.Result.Page).html)
         assertEquals(2, server.requestCount)
@@ -319,7 +321,7 @@ class HeadlessPageFetcherTest {
     fun cancellingAHeadlessBodyReadStopsTheSocketWithoutARetry() = runBlocking {
         server.enqueue(html("x".repeat(32)).throttleBody(1, 500, TimeUnit.MILLISECONDS))
         val waits = mutableListOf<Long>()
-        val retrying = HeadlessPageFetcher(OkHttpClient(), USER_AGENT, retryDelay = { waits += it })
+        val retrying = HeadlessPageFetcher(client(), USER_AGENT, retryDelay = { waits += it })
         val reading = async(start = CoroutineStart.UNDISPATCHED) {
                 retrying.fetch(server.url("/body").toString())
             }
@@ -330,7 +332,19 @@ class HeadlessPageFetcherTest {
         assertEquals(1, server.requestCount)
     }
 
-    private fun fetcher() = HeadlessPageFetcher(OkHttpClient(), USER_AGENT)
+    private fun fetcher() = HeadlessPageFetcher(client(), USER_AGENT)
+
+    /**
+     * The server listens on 127.0.0.1 only, and so the client resolves its host: GitHub's runner
+     * also maps localhost to ::1, where a retry after a dropped connection would go, because
+     * OkHttp tries another address of the host before the one that failed.
+     */
+    private fun client(): OkHttpClient = OkHttpClient.Builder()
+        .dns(object : Dns {
+            override fun lookup(hostname: String): List<InetAddress> =
+                if (hostname == server.hostName) listOf(LOOPBACK) else Dns.SYSTEM.lookup(hostname)
+        })
+        .build()
 
     private fun html(body: String) = MockResponse()
         .setHeader("Content-Type", "text/html; charset=utf-8")
@@ -353,6 +367,7 @@ class HeadlessPageFetcherTest {
         .build()
 
     private companion object {
+        val LOOPBACK: InetAddress = InetAddress.getByName("127.0.0.1")
         const val USER_AGENT = "Mozilla/5.0 (Linux; Android 15) YFT/test"
     }
 }

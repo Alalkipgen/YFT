@@ -2,6 +2,8 @@
 
 ## Current handoff (2026-10-05)
 
+- 2026-10-06: P11 CI failure found from the owner's log and fixed in the test fixture (localhost resolves to 127.0.0.1 and ::1 on GitHub; see SESSION_STATE). P12 started at the owner's request: design only, no P12 code yet.
+
 **Latest owner instruction: finish P11 and STOP.** P9/P10 are pushed and P11's stable quality
 rows are locally verified (1124 tests, 66 native-render skips; no failures/lint errors). P11
 feature milestone `f82427b` passed preview and emulator CI; final validation CI retry follows
