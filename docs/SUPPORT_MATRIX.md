@@ -54,6 +54,18 @@ these defaults; Vimeo configuration and YouTube player JSON keep their existing 
 Home does not borrow the WebView's user-agent, cookies or account. Its direct/scanned candidates
 keep the same headless user-agent for subsequent probes/preview. The browser keeps its own session.
 
+## Slow-network lookup policy (P10, 2026-10-05)
+
+Adapter GETs and read-only JSON POSTs, player-script fetches and session-free page fetches allow
+20 s to connect and 20 s without incoming data, with a 60 s total budget per attempt (redirects
+share that budget). Existing body/redirect caps and credential scoping stay. There are at most
+two explicit retries after 1 s and 3 s for transient I/O or 502/503/504, not other HTTP statuses,
+login walls or TLS certificate-verification failures. Cancellation closes the active socket,
+including an in-progress body read, and never retries. The shared download client is unchanged.
+Home waits at most 90 s overall, shows "Slow connection — still looking…" and visible Cancel
+after 10 s, and Cancel stops the lookup. Background browser NETWORK failures have no top banner;
+a focused Download attempt shows "Couldn't reach <Site>." with Retry for that same video.
+
 `bash scripts/live-check.sh <public-https-url>` prints only status, final host/path, byte count
 and known markers. It disables curl user configuration and cookies, permits HTTPS redirects only,
 bounds time/size, and cleans its temporary page without emitting bodies, queries or raw errors.

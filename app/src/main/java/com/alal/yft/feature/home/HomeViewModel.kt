@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -142,46 +143,60 @@ class HomeViewModel @Inject constructor(
             )
         }
         inspection = viewModelScope.launch {
-            var details = emptyList<String>()
-            var quick = false
-            val status = when (val result = inspector.inspect(link)) {
-                is LinkInspection.Found -> {
-                    detectedMediaStore.publish(
-                        pageUrl = result.pageUrl,
-                        pageTitle = result.pageTitle,
-                        candidates = result.candidates,
-                    )
-                    // Only media YFT may save is counted, once per video; DRM-protected
-                    // candidates are never offered, so a page with nothing else reads as "not
-                    // found".
-                    val videos = MediaGroups.pageVideos(
-                        result.candidates
-                            .take(DetectedMediaStore.MAX_CANDIDATES)
-                            .filter { it.isSavable },
-                    )
-                    if (videos.isNotEmpty()) {
-                        foundVideo = videos.singleOrNull()?.also(detectedMediaStore::select)
-                        quick = foundVideo != null
-                        PromptboxStatus.Found(count = videos.size)
+            val slowStatus = launch {
+                delay(SLOW_CONNECTION_MILLIS)
+                local.update { state ->
+                    if (state.status == PromptboxStatus.Searching) {
+                        state.copy(status = PromptboxStatus.SlowSearching)
                     } else {
-                        details = listOf("media check: DRM only")
-                        PromptboxStatus.NotFound(message = PROTECTED_ONLY_MESSAGE)
+                        state
                     }
                 }
-                is LinkInspection.NotFound -> {
-                    details = DiagnosticTextSanitizer.details(
-                        result.details.ifEmpty { listOf("lookup: ${result.message}") },
-                    )
-                    PromptboxStatus.NotFound(
-                        message = result.message,
-                        canOpenInBrowser = result.canOpenInBrowser,
-                    )
+            }
+            try {
+                var details = emptyList<String>()
+                var quick = false
+                val status = when (val result = inspector.inspect(link)) {
+                    is LinkInspection.Found -> {
+                        detectedMediaStore.publish(
+                            pageUrl = result.pageUrl,
+                            pageTitle = result.pageTitle,
+                            candidates = result.candidates,
+                        )
+                        // Only media YFT may save is counted, once per video; DRM-protected
+                        // candidates are never offered, so a page with nothing else reads as "not
+                        // found".
+                        val videos = MediaGroups.pageVideos(
+                            result.candidates
+                                .take(DetectedMediaStore.MAX_CANDIDATES)
+                                .filter { it.isSavable },
+                        )
+                        if (videos.isNotEmpty()) {
+                            foundVideo = videos.singleOrNull()?.also(detectedMediaStore::select)
+                            quick = foundVideo != null
+                            PromptboxStatus.Found(count = videos.size)
+                        } else {
+                            details = listOf("media check: DRM only")
+                            PromptboxStatus.NotFound(message = PROTECTED_ONLY_MESSAGE)
+                        }
+                    }
+                    is LinkInspection.NotFound -> {
+                        details = DiagnosticTextSanitizer.details(
+                            result.details.ifEmpty { listOf("lookup: ${result.message}") },
+                        )
+                        PromptboxStatus.NotFound(
+                            message = result.message,
+                            canOpenInBrowser = result.canOpenInBrowser,
+                        )
+                    }
                 }
+                local.update {
+                    it.copy(status = status, failureDetails = details, quickDownload = quick)
+                }
+                if (quick) quickDownloads.trySend(Unit)
+            } finally {
+                slowStatus.cancel()
             }
-            local.update {
-                it.copy(status = status, failureDetails = details, quickDownload = quick)
-            }
-            if (quick) quickDownloads.trySend(Unit)
         }
     }
 
@@ -259,6 +274,7 @@ class HomeViewModel @Inject constructor(
     }
 
     internal companion object {
+        const val SLOW_CONNECTION_MILLIS = 10_000L
         const val RECENT_COUNT = 2
         const val PROTECTED_ONLY_MESSAGE = "Protected media (DRM) can't be saved"
     }

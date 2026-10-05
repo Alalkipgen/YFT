@@ -1,6 +1,12 @@
 package com.alal.yft.core.browser.detection
 
 import com.alal.yft.core.model.media.PageNavigationHeaders
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.async
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.withTimeout
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.test.runTest
 import okhttp3.Cookie
 import okhttp3.CookieJar
@@ -18,6 +24,7 @@ import okio.Buffer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -256,10 +263,71 @@ class HeadlessPageFetcherTest {
     fun droppedConnectionIsANetworkFailure() = runTest {
         server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START))
 
-        val result = fetcher().fetch(server.url("/drop").toString())
+        val fetcher = HeadlessPageFetcher(
+            OkHttpClient(), USER_AGENT,
+            HeadlessPageFetcher.Policy(retryDelaysMillis = emptyList()),
+        )
+        val result = fetcher.fetch(server.url("/drop").toString())
 
         assertEquals(failed(HeadlessPageFetcher.FailureReason.NETWORK), result)
         assertTrue(server.requestCount <= 1)
+    }
+
+    @Test
+    fun slowProgressSucceedsButAnIdleBodyDoesNot() = runBlocking {
+        server.enqueue(html("abcdefghijkl").throttleBody(1, 150, TimeUnit.MILLISECONDS))
+        val slow = HeadlessPageFetcher(
+            OkHttpClient(), USER_AGENT,
+            HeadlessPageFetcher.Policy(
+                callTimeoutSeconds = 3, readTimeoutMillis = 700,
+                retryDelaysMillis = emptyList(),
+            ),
+        )
+        assertEquals("abcdefghijkl", (slow.fetch(server.url("/slow").toString())
+            as HeadlessPageFetcher.Result.Page).html)
+        server.enqueue(html("late").setBodyDelay(800, TimeUnit.MILLISECONDS))
+        val idle = HeadlessPageFetcher(
+            OkHttpClient(), USER_AGENT,
+            HeadlessPageFetcher.Policy(readTimeoutMillis = 200, retryDelaysMillis = emptyList()),
+        )
+        assertEquals(failed(HeadlessPageFetcher.FailureReason.NETWORK),
+            idle.fetch(server.url("/idle").toString()))
+    }
+
+    @Test
+    fun droppedConnectionAndTransientStatusesRetryBut404DoesNot() = runBlocking {
+        server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST))
+        server.enqueue(html("recovered"))
+        val waits = mutableListOf<Long>()
+        val retrying = HeadlessPageFetcher(OkHttpClient(), USER_AGENT, retryDelay = { waits += it })
+        val url = server.url("/").toString()
+        assertEquals("recovered", (retrying.fetch(url) as HeadlessPageFetcher.Result.Page).html)
+        assertEquals(2, server.requestCount)
+        assertEquals(listOf(1_000L), waits)
+        server.enqueue(MockResponse().setResponseCode(502))
+        server.enqueue(MockResponse().setResponseCode(504))
+        server.enqueue(html("ready"))
+        assertEquals("ready", (retrying.fetch(url) as HeadlessPageFetcher.Result.Page).html)
+        assertEquals(5, server.requestCount)
+        assertEquals(listOf(1_000L, 1_000L, 3_000L), waits)
+        server.enqueue(MockResponse().setResponseCode(404))
+        assertEquals(failed(HeadlessPageFetcher.FailureReason.HTTP_STATUS), retrying.fetch(url))
+        assertEquals(6, server.requestCount)
+    }
+
+    @Test
+    fun cancellingAHeadlessBodyReadStopsTheSocketWithoutARetry() = runBlocking {
+        server.enqueue(html("x".repeat(32)).throttleBody(1, 500, TimeUnit.MILLISECONDS))
+        val waits = mutableListOf<Long>()
+        val retrying = HeadlessPageFetcher(OkHttpClient(), USER_AGENT, retryDelay = { waits += it })
+        val reading = async(start = CoroutineStart.UNDISPATCHED) {
+                retrying.fetch(server.url("/body").toString())
+            }
+        assertNotNull(server.takeRequest(2, TimeUnit.SECONDS))
+        withTimeout(2_000) { reading.cancelAndJoin() }
+        assertTrue(reading.isCancelled)
+        assertTrue(waits.isEmpty())
+        assertEquals(1, server.requestCount)
     }
 
     private fun fetcher() = HeadlessPageFetcher(OkHttpClient(), USER_AGENT)

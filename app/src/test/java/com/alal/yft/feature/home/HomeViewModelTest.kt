@@ -16,11 +16,13 @@ import com.alal.yft.testing.MainDispatcherRule
 import com.alal.yft.ui.components.PromptboxStatus
 import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -363,6 +365,30 @@ class HomeViewModelTest {
         viewModel.selectFoundVideo()
         assertEquals(reel.candidates, store.selection.value?.candidates)
         collector.cancel()
+    }
+
+    @Test
+    fun afterTenSecondsTheLookupIsStillRunningAndCancelStopsIt() = runTest {
+        var cancelled = false
+        inspector.answer = {
+            try { awaitCancellation() } finally { cancelled = true }
+        }
+        val viewModel = viewModel()
+        viewModel.onAction(HomeAction.LinkChanged("https://a.test/slow"))
+        viewModel.onAction(HomeAction.Submit)
+        advanceTimeBy(9_999)
+        runCurrent()
+        assertEquals(PromptboxStatus.Searching, viewModel.uiState.value.status)
+        advanceTimeBy(1)
+        runCurrent()
+        assertEquals(PromptboxStatus.SlowSearching, viewModel.uiState.value.status)
+        viewModel.onAction(HomeAction.CancelSearch)
+        runCurrent()
+        advanceTimeBy(90_000)
+        runCurrent()
+        assertTrue(cancelled)
+        assertEquals(PromptboxStatus.Editing, viewModel.uiState.value.status)
+        assertNull(store.page.value)
     }
 
     private fun found(count: Int) = LinkInspection.Found(

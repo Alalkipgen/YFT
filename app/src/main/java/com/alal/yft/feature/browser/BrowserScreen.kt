@@ -264,6 +264,7 @@ fun BrowserRoute(
                 submitAddress()
             },
             onRetrySiteLookup = viewModel::retrySiteLookup,
+            onRetryFocusedLookup = viewModel::retryFocusedLookup,
             browserSurface = { modifier ->
                 BrowserWebView(
                     modifier = modifier,
@@ -366,6 +367,7 @@ fun BrowserScreen(
     onUseCopiedLink: () -> Unit = {},
     onOpenSite: (HomeSite) -> Unit = {},
     onRetrySiteLookup: () -> Unit = {},
+    onRetryFocusedLookup: () -> Unit = {},
     onDownloadFocused: () -> Unit = {},
     browserSurface: @Composable (Modifier) -> Unit,
 ) {
@@ -548,6 +550,17 @@ fun BrowserScreen(
                             container = colors.chip,
                             content = colors.textPrimary,
                             modifier = Modifier.testTag("browser-focus-notice"),
+                            action = if (uiState.canRetryFocusedLookup) {
+                                {
+                                    YftTextButton(
+                                        text = "Retry",
+                                        onClick = onRetryFocusedLookup,
+                                        modifier = Modifier.testTag("browser-focus-retry"),
+                                    )
+                                }
+                            } else {
+                                null
+                            },
                         )
                     }
                     if (fabVisible) {

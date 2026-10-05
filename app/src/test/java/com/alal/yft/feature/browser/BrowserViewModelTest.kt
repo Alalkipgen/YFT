@@ -746,6 +746,51 @@ class BrowserViewModelTest {
         assertTrue(opened.isEmpty())
     }
 
+    @Test
+    fun aBackgroundNetworkFailureHasNoTopNoticeAndRetryRunsAgain() = runTest {
+        val extractor = ScriptedExtractor(
+            SiteExtractionResult.Failure(SiteExtractionFailure.NETWORK),
+            SiteExtractionResult.Success(listOf(fixtureCandidate())),
+        )
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor))
+        viewModel.onPageStarted(FIXTURE_PAGE)
+        viewModel.onPageFinished(FIXTURE_PAGE, "Clip")
+        runCurrent()
+        assertNull(viewModel.uiState.value.siteNotice)
+        assertTrue(viewModel.uiState.value.canRetrySiteLookup)
+        viewModel.retrySiteLookup()
+        runCurrent()
+        assertEquals(2, extractor.requests.size)
+        assertFalse(viewModel.uiState.value.canRetrySiteLookup)
+        assertNull(viewModel.uiState.value.siteNotice)
+    }
+
+    @Test
+    fun aFocusedNetworkFailureOffersRetryForTheSameVideoAndKeepsDownload() = runTest {
+        val extractor = FeedVideoExtractor(
+            failing = mapOf("BBBBBBBBBB2" to SiteExtractionFailure.NETWORK),
+        )
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor))
+        viewModel.onPageStarted(YOUTUBE_FEED)
+        viewModel.onPageFinished(YOUTUBE_FEED, "Feed")
+        runCurrent()
+        viewModel.focusedVideoScript()
+        viewModel.onFocusedVideoResult(answer(FOCUSED_VIDEO))
+        runCurrent()
+        assertEquals("Couldn't reach YouTube.", viewModel.uiState.value.focusNotice)
+        assertTrue(viewModel.uiState.value.canRetryFocusedLookup)
+        assertTrue(downloadButtonVisible(viewModel))
+        assertNull(viewModel.uiState.value.siteNotice)
+        viewModel.retryFocusedLookup()
+        runCurrent()
+        assertEquals(2, extractor.requests.size)
+        assertTrue(viewModel.uiState.value.canRetryFocusedLookup)
+        viewModel.onPageStarted("https://example.test/next")
+        runCurrent()
+        assertFalse(viewModel.uiState.value.canRetryFocusedLookup)
+        assertNull(viewModel.uiState.value.focusNotice)
+    }
+
     private fun downloadButtonVisible(viewModel: BrowserViewModel): Boolean =
         BrowserDownloadFab.isVisible(
             hasPage = viewModel.uiState.value.currentUrl != null,

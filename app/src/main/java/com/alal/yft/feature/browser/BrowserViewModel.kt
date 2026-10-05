@@ -20,6 +20,7 @@ import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
+import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.detection.SiteScope
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import com.alal.yft.ui.components.isSavable
@@ -111,6 +112,8 @@ class BrowserViewModel(
     /** Whether the site adapters were already asked about the current page scope. */
     @Volatile
     private var siteLookupStarted = false
+
+    private var focusedRetryPage: String? = null
 
     init {
         homeSitesRepository?.let { repository ->
@@ -294,7 +297,13 @@ class BrowserViewModel(
         val pageUrl = activePageUrl ?: return null
         if (!FocusedVideoProbe.isFeedSite(pageUrl)) return null
         focusNoticeTimer?.cancel()
-        mutableUiState.update { it.copy(findingFocusedVideo = true, focusNotice = FINDING_NOTICE) }
+        mutableUiState.update {
+            it.copy(
+                findingFocusedVideo = true,
+                focusNotice = FINDING_NOTICE,
+                canRetryFocusedLookup = false,
+            )
+        }
         // A page that never answers the script must not leave the button waiting.
         val generation = pageGeneration
         focusNoticeTimer = viewModelScope.launch {
@@ -314,7 +323,6 @@ class BrowserViewModel(
     fun onFocusedVideoResult(javascriptResult: String?) {
         if (!mutableUiState.value.findingFocusedVideo) return
         val pageUrl = activePageUrl ?: return
-        val generation = pageGeneration
         focusNoticeTimer?.cancel()
         focusLookup?.cancel()
         val focused = FocusedVideoProbe.parse(javascriptResult, pageUrl)
@@ -323,15 +331,33 @@ class BrowserViewModel(
             finishFocusLookup(NO_FOCUSED_VIDEO_NOTICE)
             return
         }
+        lookupFocusedVideo(focused.url)
+    }
+
+    fun retryFocusedLookup() {
+        val url = focusedRetryPage ?: return
+        if (!mutableUiState.value.canRetryFocusedLookup || focusLookup?.isActive == true) return
+        mutableUiState.update {
+            it.copy(
+                findingFocusedVideo = true,
+                focusNotice = FINDING_NOTICE,
+                canRetryFocusedLookup = false,
+            )
+        }
+        lookupFocusedVideo(url)
+    }
+
+    private fun lookupFocusedVideo(url: String) {
+        val generation = pageGeneration
         focusLookup = viewModelScope.launch(pageProbeJob) {
             // The site's own session reads the video's page as the feed did; another's never.
             val context = browserContext?.takeIf { context ->
-                context.pageUrl?.let { page -> isSameSite(focused.url, page) } == true
+                context.pageUrl?.let { page -> isSameSite(url, page) } == true
             }
             val outcome = siteAdapters.inspect(
-                pageUrl = focused.url,
-                requestContext = context?.copy(pageUrl = focused.url)
-                    ?: BrowserRequestContext(focused.url, null, null),
+                pageUrl = url,
+                requestContext = context?.copy(pageUrl = url)
+                    ?: BrowserRequestContext(url, null, null),
                 nowEpochMs = clock(),
             )
             if (generation != pageGeneration) return@launch
@@ -348,7 +374,15 @@ class BrowserViewModel(
                     }
                 }
 
-                is SiteAdapterOutcome.Failed -> finishFocusLookup(outcome.message)
+                is SiteAdapterOutcome.Failed -> {
+                    focusedRetryPage = url
+                    mutableUiState.update {
+                        it.copy(
+                            canRetryFocusedLookup = outcome.reason == SiteExtractionFailure.NETWORK,
+                        )
+                    }
+                    finishFocusLookup(outcome.message)
+                }
                 SiteAdapterOutcome.NotHandled -> finishFocusLookup(NO_FOCUSED_VIDEO_NOTICE)
             }
         }
@@ -358,7 +392,7 @@ class BrowserViewModel(
     private fun finishFocusLookup(notice: String?) {
         focusNoticeTimer?.cancel()
         mutableUiState.update { it.copy(findingFocusedVideo = false, focusNotice = notice) }
-        if (notice == null) return
+        if (notice == null || mutableUiState.value.canRetryFocusedLookup) return
         focusNoticeTimer = viewModelScope.launch {
             delay(FOCUS_NOTICE_MS)
             mutableUiState.update { state ->
@@ -383,6 +417,7 @@ class BrowserViewModel(
             feedPage = feedSite && !siteAdapters.handles(url),
             findingFocusedVideo = findingFocusedVideo && samePage,
             focusNotice = focusNotice.takeIf { samePage },
+            canRetryFocusedLookup = canRetryFocusedLookup && samePage,
         )
     }
 
@@ -393,6 +428,7 @@ class BrowserViewModel(
         awaitingPlayback = false
         autoRetried = false
         siteLookupStarted = false
+        focusedRetryPage = null
         pageProbeJob.cancel()
         pageProbeJob = SupervisorJob(viewModelScope.coroutineContext[Job])
         // The focused-video lookup ran in the old page's job; its notice goes with the page.
@@ -459,7 +495,9 @@ class BrowserViewModel(
                     awaitingPlayback = outcome.retriesAfterPlayback && !autoRetried
                     mutableUiState.update {
                         it.copy(
-                            siteNotice = outcome.message,
+                            siteNotice = outcome.message.takeUnless {
+                                outcome.reason == SiteExtractionFailure.NETWORK
+                            },
                             canRetrySiteLookup = outcome.canRetry,
                         )
                     }
@@ -482,8 +520,11 @@ class BrowserViewModel(
 
     private fun retryLookup(pageUrl: String) {
         awaitingPlayback = false
-        mutableUiState.update {
-            it.copy(siteNotice = RETRY_NOTICE, canRetrySiteLookup = false)
+        mutableUiState.update { state ->
+            state.copy(
+                siteNotice = RETRY_NOTICE.takeIf { state.siteNotice != null },
+                canRetrySiteLookup = false,
+            )
         }
         runSiteAdapters(pageUrl, mutableUiState.value.pageTitle)
     }

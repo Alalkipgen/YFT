@@ -36,4 +36,6 @@ data class BrowserUiState(
     val findingFocusedVideo: Boolean = false,
     /** P5: a short message about the video on screen, such as none being in view. */
     val focusNotice: String? = null,
+    /** P10: a focused lookup failed on the network; Retry repeats that video only. */
+    val canRetryFocusedLookup: Boolean = false,
 )

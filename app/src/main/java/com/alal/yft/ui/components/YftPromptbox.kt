@@ -56,6 +56,8 @@ sealed interface PromptboxStatus {
 
     data object Searching : PromptboxStatus
 
+    data object SlowSearching : PromptboxStatus
+
     data class Found(val count: Int) : PromptboxStatus
 
     /** [canOpenInBrowser] is false when the address itself is unusable. */
@@ -119,7 +121,12 @@ fun YftPromptbox(
                     focusRequester = focusRequester,
                     onFocusChanged = { focused = it },
                 )
-                PromptboxStatus.Searching -> SearchingRow(onCancelSearch = onCancelSearch)
+                PromptboxStatus.Searching,
+                PromptboxStatus.SlowSearching,
+                -> SearchingRow(
+                    onCancelSearch = onCancelSearch,
+                    slow = status == PromptboxStatus.SlowSearching,
+                )
                 is PromptboxStatus.Found -> FoundRow(
                     count = status.count,
                     onView = onView,
@@ -132,7 +139,7 @@ fun YftPromptbox(
                 )
             }
         }
-        if (status == PromptboxStatus.Searching) {
+        if (status == PromptboxStatus.Searching || status == PromptboxStatus.SlowSearching) {
             YftProgressBar(
                 progress = null,
                 modifier = Modifier
@@ -254,7 +261,7 @@ private fun EditingRow(
 }
 
 @Composable
-private fun SearchingRow(onCancelSearch: () -> Unit) {
+private fun SearchingRow(onCancelSearch: () -> Unit, slow: Boolean = false) {
     val colors = YftTheme.colors
     Row(
         modifier = Modifier
@@ -265,7 +272,7 @@ private fun SearchingRow(onCancelSearch: () -> Unit) {
     ) {
         LinkGlyph()
         Text(
-            text = "Looking for media…",
+            text = if (slow) "Slow connection — still looking…" else "Looking for media…",
             modifier = Modifier
                 .weight(1f)
                 .padding(horizontal = 10.dp)
@@ -273,23 +280,33 @@ private fun SearchingRow(onCancelSearch: () -> Unit) {
             color = colors.textPrimary,
             style = MaterialTheme.typography.bodyLarge,
         )
-        Box(
-            modifier = Modifier
-                .minimumInteractiveComponentSize()
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(colors.accent)
-                .clickable(role = Role.Button, onClick = onCancelSearch)
-                .semantics { contentDescription = "Stop looking" }
-                .testTag("home-search-cancel"),
-            contentAlignment = Alignment.Center,
-        ) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(20.dp),
-                color = colors.onAccent,
-                strokeWidth = 2.5.dp,
-                trackColor = colors.onAccent.copy(alpha = 0.2f),
+        if (slow) {
+            YftTextButton(
+                text = "Cancel",
+                onClick = onCancelSearch,
+                modifier = Modifier
+                    .semantics { contentDescription = "Stop looking" }
+                    .testTag("home-search-cancel"),
             )
+        } else {
+            Box(
+                modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(colors.accent)
+                    .clickable(role = Role.Button, onClick = onCancelSearch)
+                    .semantics { contentDescription = "Stop looking" }
+                    .testTag("home-search-cancel"),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = colors.onAccent,
+                    strokeWidth = 2.5.dp,
+                    trackColor = colors.onAccent.copy(alpha = 0.2f),
+                )
+            }
         }
     }
 }

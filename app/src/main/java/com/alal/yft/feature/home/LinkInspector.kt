@@ -218,7 +218,7 @@ class HeadlessLinkInspector internal constructor(
     }
 
     internal companion object {
-        const val TIMEOUT_MILLIS = 25_000L
+        const val TIMEOUT_MILLIS = 90_000L
         const val MAX_CANDIDATES = 50
     }
 }

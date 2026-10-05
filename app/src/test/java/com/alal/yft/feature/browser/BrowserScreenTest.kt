@@ -551,10 +551,30 @@ class BrowserScreenTest {
         assertNull(addressDisplay(""))
     }
 
+    @Test
+    fun aFocusedNetworkErrorHasRetryBesideDownloadButNoTopBanner() {
+        var retries = 0
+        setScreen(
+            uiState = BrowserUiState(
+                currentUrl = "https://m.youtube.com/",
+                findsFocusedVideo = true,
+                feedPage = true,
+                focusNotice = "Couldn't reach YouTube.",
+                canRetryFocusedLookup = true,
+            ),
+            onRetryFocusedLookup = { retries += 1 },
+        )
+        composeRule.onAllNodesWithTag("browser-site-notice").assertCountEquals(0)
+        composeRule.onNodeWithTag("browser-focus-notice").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-focus-retry").assertIsDisplayed().performClick()
+        assertEquals(1, retries)
+    }
+
     private fun setScreen(
         uiState: BrowserUiState = BrowserUiState(),
         uiStateProvider: (() -> BrowserUiState)? = null,
         onDownloadFocused: () -> Unit = {},
+        onRetryFocusedLookup: () -> Unit = {},
         canGoBack: Boolean = false,
         onAddressChanged: (String) -> Unit = {},
         onGo: () -> Unit = {},
@@ -601,6 +621,7 @@ class BrowserScreenTest {
                         onSearch = onSearch,
                         onDownloadCopiedLink = onDownloadCopiedLink,
                         onDownloadFocused = onDownloadFocused,
+                        onRetryFocusedLookup = onRetryFocusedLookup,
                         browserSurface = { Box(modifier = it) },
                     )
                 }

@@ -16,6 +16,7 @@ import com.alal.yft.extractor.api.SiteExtractorRegistry
 import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.ui.components.PromptboxStatus
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
@@ -355,6 +356,26 @@ class HeadlessLinkInspectorTest {
     }
 
     /** Original behavior assertions; new stage details are checked separately above. */
+    @Test
+    fun aPageAnswerAfterSixtySecondsStillFindsItsVideo() = runTest {
+        page = { url ->
+            delay(60_000)
+            HeadlessPageFetcher.Result.Page(url,
+                "<video src=\"https://media.example.test/clip.mp4\"></video>")
+        }
+        val result = inspector().inspect("https://a.test/slow")
+        assertTrue(result is LinkInspection.Found)
+        assertEquals(60_000L, testScheduler.currentTime)
+    }
+
+    @Test
+    fun theWholeLookupStillStopsAtNinetySeconds() = runTest {
+        page = { awaitCancellation() }
+        val result = inspector().inspect("https://a.test/idle") as LinkInspection.NotFound
+        assertEquals(90_000L, testScheduler.currentTime)
+        assertEquals(listOf("lookup: timed out after 90000 ms"), result.details)
+    }
+
     private fun assertNotFound(expected: LinkInspection.NotFound, actual: LinkInspection) {
         assertTrue(actual is LinkInspection.NotFound)
         actual as LinkInspection.NotFound

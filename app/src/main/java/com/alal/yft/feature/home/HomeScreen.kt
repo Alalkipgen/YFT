@@ -324,7 +324,9 @@ private fun LinkCard(
                 compact = true,
                 onClick = {
                     val typed = state.link.trim().takeIf { it.isNotEmpty() }
-                    onOpenBrowser(typed.takeIf { state.status != PromptboxStatus.Searching })
+                    val searching = state.status == PromptboxStatus.Searching ||
+                        state.status == PromptboxStatus.SlowSearching
+                    onOpenBrowser(typed.takeUnless { searching })
                 },
                 modifier = Modifier.testTag("home-open-browser"),
             )

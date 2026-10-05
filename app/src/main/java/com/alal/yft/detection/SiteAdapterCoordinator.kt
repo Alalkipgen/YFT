@@ -234,6 +234,6 @@ class SiteAdapterCoordinator @Inject constructor(
             "The $site page was too large to inspect safely."
 
         SiteExtractionFailure.NETWORK ->
-            "$site could not be reached. Check the connection and try again."
+            "Couldn't reach $site."
     }
 }

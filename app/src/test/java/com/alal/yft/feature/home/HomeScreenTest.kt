@@ -339,6 +339,18 @@ class HomeScreenTest {
         composeRule.onNodeWithTag("home-recent-empty").assertIsDisplayed()
     }
 
+    @Test
+    fun slowConnectionStillShowsProgressAndAVisibleCancel() {
+        setContent(HomeUiState(link = "https://a.test", status = PromptboxStatus.SlowSearching))
+        composeRule.onNodeWithText("Slow connection — still looking…").assertIsDisplayed()
+        composeRule.onNodeWithText("Cancel").assertIsDisplayed()
+        composeRule.onNodeWithTag("home-search-progress").assertIsDisplayed()
+        composeRule.onNodeWithTag("home-search-cancel").performClick()
+        assertEquals(listOf(HomeAction.CancelSearch), actions)
+        composeRule.onNodeWithTag("home-open-browser").performClick()
+        assertEquals(listOf<String?>(null), openedBrowser)
+    }
+
     private fun clipboard() = ApplicationProvider.getApplicationContext<Context>()
         .getSystemService(ClipboardManager::class.java)
 

@@ -115,5 +115,5 @@ object SiteAdapterModule {
     ): SiteExtractorRegistry = SiteExtractorRegistry(extractors, flags)
 
     private const val YOUTUBE_ADAPTER_ID = "youtube"
-    private const val PLAYER_FETCH_TIMEOUT_SECONDS = 45L
+    private const val PLAYER_FETCH_TIMEOUT_SECONDS = 60L
 }

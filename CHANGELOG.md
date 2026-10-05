@@ -55,6 +55,11 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Fixed
 
+- Slow-network lookups: 20 s idle/60 s per-attempt limits instead of 15 s total, with two
+  bounded retries after 1 s and 3 s for connection/timeouts and 502/503/504 only. Home waits
+  90 s overall, shows "Slow connection — still looking…" with Cancel after 10 s, and Cancel
+  closes pending requests/body reads. Background network failures no longer put a banner
+  above the browser page; a focused Download failure keeps the button and offers Retry.
 - Audio files saved from an MP4 track (Facebook, YouTube M4A) are named `.m4a` instead of `.mp4`.
 - Merged Facebook rows show the real video size from the server plus the sound's estimate
   instead of a peak-bitrate guess (720p showed 219 MB for a 63 MB file).

@@ -5,12 +5,26 @@ import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.ResponseCookie
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import java.io.IOException
+import java.net.ProtocolException
+import java.net.SocketTimeoutException
 import java.net.URI
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
+import java.security.cert.CertificateException
+import javax.net.ssl.SSLHandshakeException
+import javax.net.ssl.SSLPeerUnverifiedException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.Call
 import okhttp3.Cookie
+import okhttp3.CookieJar
 import okhttp3.Headers
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -34,20 +48,30 @@ import okio.BufferedSource
 class OkHttpExtractorClient(
     client: OkHttpClient,
     private val policy: Policy = Policy(),
+    private val retryDelay: suspend (Long) -> Unit = { delay(it) },
 ) : ExtractorHttpClient {
     data class Policy(
         val maxRedirects: Int = 5,
-        val callTimeoutSeconds: Long = 15,
+        val callTimeoutSeconds: Long = 60,
+        val connectTimeoutMillis: Long = 20_000,
+        val readTimeoutMillis: Long = 20_000,
+        val retryDelaysMillis: List<Long> = listOf(1_000, 3_000),
     ) {
         init {
             require(maxRedirects >= 0)
             require(callTimeoutSeconds > 0)
+            require(connectTimeoutMillis > 0 && readTimeoutMillis > 0)
+            require(retryDelaysMillis.size <= 2 && retryDelaysMillis.all { it >= 0 })
         }
     }
 
     private val extractorClient = client.newBuilder()
         .followRedirects(false)
         .followSslRedirects(false)
+        .cookieJar(CookieJar.NO_COOKIES)
+        .retryOnConnectionFailure(false)
+        .connectTimeout(policy.connectTimeoutMillis, TimeUnit.MILLISECONDS)
+        .readTimeout(policy.readTimeoutMillis, TimeUnit.MILLISECONDS)
         .callTimeout(policy.callTimeoutSeconds, TimeUnit.SECONDS)
         .build()
 
@@ -56,14 +80,7 @@ class OkHttpExtractorClient(
         headers: Map<String, String>,
         maxBodyBytes: Long,
     ): ExtractorHttpResult {
-        require(maxBodyBytes > 0)
-        return try {
-            withContext(Dispatchers.IO) { fetch(url, headers, maxBodyBytes, jsonBody = null) }
-        } catch (cancellation: CancellationException) {
-            throw cancellation
-        } catch (_: IOException) {
-            ExtractorHttpResult.Failure(SiteExtractionFailure.NETWORK)
-        }
+        return request(url, headers, maxBodyBytes, jsonBody = null)
     }
 
     override suspend fun postJson(
@@ -71,14 +88,67 @@ class OkHttpExtractorClient(
         body: String,
         headers: Map<String, String>,
         maxBodyBytes: Long,
+    ): ExtractorHttpResult = request(url, headers, maxBodyBytes, jsonBody = body)
+
+    /** Only transient transport failures and 502/503/504 get at most two retries. */
+    private suspend fun request(
+        url: String,
+        headers: Map<String, String>,
+        maxBodyBytes: Long,
+        jsonBody: String?,
     ): ExtractorHttpResult {
         require(maxBodyBytes > 0)
-        return try {
-            withContext(Dispatchers.IO) { fetch(url, headers, maxBodyBytes, jsonBody = body) }
-        } catch (cancellation: CancellationException) {
-            throw cancellation
-        } catch (_: IOException) {
-            ExtractorHttpResult.Failure(SiteExtractionFailure.NETWORK)
+        return withContext(Dispatchers.IO) {
+            for (attempt in 0..policy.retryDelaysMillis.size) {
+                ensureActive()
+                var retryableNetwork = true
+                val result = try {
+                    fetchCancellable(url, headers, maxBodyBytes, jsonBody)
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (failure: IOException) {
+                    ensureActive()
+                    retryableNetwork = failure !is SSLPeerUnverifiedException &&
+                        !(failure is SSLHandshakeException &&
+                            failure.cause is CertificateException) &&
+                        failure !is ProtocolException
+                    ExtractorHttpResult.Failure(SiteExtractionFailure.NETWORK)
+                }
+                val retryable = result is ExtractorHttpResult.Failure && (
+                    (result.reason == SiteExtractionFailure.NETWORK && retryableNetwork) ||
+                        result.statusCode in RETRYABLE_STATUS_CODES
+                    )
+                if (!retryable || attempt == policy.retryDelaysMillis.size) {
+                    return@withContext result
+                }
+                retryDelay(policy.retryDelaysMillis[attempt])
+            }
+            error("Retry budget exhausted")
+        }
+    }
+
+    /** Cancellation closes the active socket even while a response body is being read. */
+    private suspend fun fetchCancellable(
+        url: String,
+        headers: Map<String, String>,
+        maxBodyBytes: Long,
+        jsonBody: String?,
+    ): ExtractorHttpResult = coroutineScope {
+        val activeCall = AtomicReference<Call?>()
+        val canceller = launch(start = CoroutineStart.UNDISPATCHED) {
+            try {
+                awaitCancellation()
+            } finally {
+                activeCall.get()?.cancel()
+            }
+        }
+        try {
+            fetch(url, headers, maxBodyBytes, jsonBody) { call ->
+                activeCall.set(call)
+                ensureActive()
+            }
+        } finally {
+            canceller.cancel()
         }
     }
 
@@ -87,6 +157,7 @@ class OkHttpExtractorClient(
         headers: Map<String, String>,
         maxBodyBytes: Long,
         jsonBody: String?,
+        onCall: (Call) -> Unit,
     ): ExtractorHttpResult {
         var current = url.toSecureHttpUrl()
             ?: return ExtractorHttpResult.Failure(SiteExtractionFailure.UNSUPPORTED_URL)
@@ -101,7 +172,11 @@ class OkHttpExtractorClient(
         // Keyed by name, domain and path, as a browser keys them; later responses replace values.
         val cookies = LinkedHashMap<Triple<String, String, String>, ResponseCookie>()
 
+        val started = System.nanoTime()
+        val budget = TimeUnit.SECONDS.toNanos(policy.callTimeoutSeconds)
         while (true) {
+            val remaining = budget - (System.nanoTime() - started)
+            if (remaining <= 0) throw SocketTimeoutException("Request timed out")
             val bodyForHop = pendingBody
             val request = Request.Builder()
                 .url(current)
@@ -120,7 +195,10 @@ class OkHttpExtractorClient(
                 }
                 .build()
 
-            val hop = extractorClient.newCall(request).execute().use { response ->
+            val call = extractorClient.newCall(request)
+            call.timeout().timeout(remaining, TimeUnit.NANOSECONDS)
+            onCall(call)
+            val hop = call.execute().use { response ->
                 cookies.collect(current, response.headers)
                 when {
                     response.isRedirect || response.code == HTTP_PERMANENT_REDIRECT -> {
@@ -231,6 +309,7 @@ class OkHttpExtractorClient(
     }
 
     private companion object {
+        val RETRYABLE_STATUS_CODES = setOf(502, 503, 504)
         const val HTTP_PERMANENT_REDIRECT = 308
         const val MAX_COOKIES = 50
         const val MAX_COOKIE_CHARS = 4_096

@@ -2,14 +2,20 @@ package com.alal.yft.core.browser.detection
 
 import com.alal.yft.core.model.media.PageNavigationHeaders
 import java.io.IOException
+import java.net.ProtocolException
+import java.net.SocketTimeoutException
 import java.nio.charset.Charset
 import java.util.concurrent.TimeUnit
+import java.security.cert.CertificateException
+import javax.net.ssl.SSLHandshakeException
+import javax.net.ssl.SSLPeerUnverifiedException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.CookieJar
@@ -33,16 +39,22 @@ class HeadlessPageFetcher(
     private val userAgent: String,
     private val policy: Policy = Policy(),
     navigationHeaders: Map<String, String> = PageNavigationHeaders.DEFAULTS,
+    private val retryDelay: suspend (Long) -> Unit = { delay(it) },
 ) {
     data class Policy(
         val maxRedirects: Int = 5,
         val maxBodyBytes: Long = 2L * 1024 * 1024,
-        val callTimeoutSeconds: Long = 15,
+        val callTimeoutSeconds: Long = 60,
+        val connectTimeoutMillis: Long = 20_000,
+        val readTimeoutMillis: Long = 20_000,
+        val retryDelaysMillis: List<Long> = listOf(1_000, 3_000),
     ) {
         init {
             require(maxRedirects >= 0)
             require(maxBodyBytes > 0)
             require(callTimeoutSeconds > 0)
+            require(connectTimeoutMillis > 0 && readTimeoutMillis > 0)
+            require(retryDelaysMillis.size <= 2 && retryDelaysMillis.all { it >= 0 })
         }
     }
 
@@ -80,6 +92,9 @@ class HeadlessPageFetcher(
         .followRedirects(false)
         .followSslRedirects(false)
         .cookieJar(CookieJar.NO_COOKIES)
+        .retryOnConnectionFailure(false)
+        .connectTimeout(policy.connectTimeoutMillis, TimeUnit.MILLISECONDS)
+        .readTimeout(policy.readTimeoutMillis, TimeUnit.MILLISECONDS)
         .callTimeout(policy.callTimeoutSeconds, TimeUnit.SECONDS)
         .build()
 
@@ -88,13 +103,32 @@ class HeadlessPageFetcher(
             ?.takeIf { it.username.isEmpty() && it.password.isEmpty() }
             ?: return Result.Failed(FailureReason.INVALID_URL)
         var redirects = 0
+        var retry = 0
+        var started = System.nanoTime()
+        val budget = TimeUnit.SECONDS.toNanos(policy.callTimeoutSeconds)
+        suspend fun waitForRetry(): Boolean {
+            if (retry >= policy.retryDelaysMillis.size) return false
+            retryDelay(policy.retryDelaysMillis[retry++])
+            currentCoroutineContext().ensureActive()
+            started = System.nanoTime()
+            return true
+        }
         while (true) {
+            currentCoroutineContext().ensureActive()
             val outcome = try {
-                execute(current)
+                val remaining = budget - (System.nanoTime() - started)
+                if (remaining <= 0) throw SocketTimeoutException("Request timed out")
+                execute(current, remaining)
             } catch (cancellation: CancellationException) {
                 throw cancellation
-            } catch (_: IOException) {
-                return Result.Failed(FailureReason.NETWORK)
+            } catch (failure: IOException) {
+                currentCoroutineContext().ensureActive()
+                if (failure is SSLPeerUnverifiedException ||
+                    (failure is SSLHandshakeException && failure.cause is CertificateException) ||
+                    failure is ProtocolException || !waitForRetry()) {
+                    return Result.Failed(FailureReason.NETWORK)
+                }
+                continue
             }
             when (outcome) {
                 is Outcome.Redirect -> {
@@ -110,20 +144,24 @@ class HeadlessPageFetcher(
                     current = target
                     redirects += 1
                 }
+                Outcome.TransientStatus -> {
+                    if (!waitForRetry()) return Result.Failed(FailureReason.HTTP_STATUS)
+                }
                 is Outcome.Done -> return outcome.result
             }
         }
     }
 
-    private suspend fun execute(url: HttpUrl): Outcome {
+    private suspend fun execute(url: HttpUrl, remainingNanos: Long): Outcome {
         val request = Request.Builder()
             .url(url)
             .get()
             .header("User-Agent", userAgent)
             .apply { pageHeaders.forEach { (name, value) -> header(name, value) } }
             .build()
-        val response = suspendCancellableCoroutine { continuation ->
+        return suspendCancellableCoroutine { continuation ->
             val call = fetchClient.newCall(request)
+            call.timeout().timeout(remainingNanos, TimeUnit.NANOSECONDS)
             continuation.invokeOnCancellation { call.cancel() }
             call.enqueue(
                 object : Callback {
@@ -132,20 +170,27 @@ class HeadlessPageFetcher(
                     }
 
                     override fun onResponse(call: Call, response: Response) {
-                        if (continuation.isActive) {
-                            continuation.resume(response)
-                        } else {
+                        if (!continuation.isActive) {
                             response.close()
+                            return
+                        }
+                        // OkHttp's callback already runs off-main. Keep the cancellation
+                        // handler alive through the entire bounded body read, not just headers.
+                        try {
+                            val outcome = response.use { read(it) }
+                            if (continuation.isActive) continuation.resume(outcome)
+                        } catch (failure: IOException) {
+                            if (continuation.isActive) continuation.resumeWithException(failure)
                         }
                     }
                 },
             )
         }
-        return response.use { read(it) }
     }
 
-    private suspend fun read(response: Response): Outcome {
+    private fun read(response: Response): Outcome {
         if (response.code in REDIRECT_CODES) return Outcome.Redirect(response.header("Location"))
+        if (response.code in RETRYABLE_STATUS_CODES) return Outcome.TransientStatus
         if (response.code !in SUCCESS_CODES) {
             return Outcome.Done(Result.Failed(FailureReason.HTTP_STATUS))
         }
@@ -170,7 +215,7 @@ class HeadlessPageFetcher(
         val body = response.body ?: return Outcome.Done(Result.Page(finalUrl, ""))
         val charset = runCatching { body.contentType()?.charset() }.getOrNull()
             ?: Charsets.UTF_8
-        val html = withContext(Dispatchers.IO) { readBounded(body.source(), charset) }
+        val html = readBounded(body.source(), charset)
         return Outcome.Done(Result.Page(finalUrl, html))
     }
 
@@ -187,12 +232,14 @@ class HeadlessPageFetcher(
         startsWith("video/") || startsWith("audio/") || this in MANIFEST_TYPES
 
     private sealed interface Outcome {
+        data object TransientStatus : Outcome
         data class Redirect(val location: String?) : Outcome
         data class Done(val result: Result) : Outcome
     }
 
     private companion object {
         const val CHUNK_BYTES = 64L * 1024
+        val RETRYABLE_STATUS_CODES = setOf(502, 503, 504)
         val SUCCESS_CODES = 200..299
         val REDIRECT_CODES = setOf(300, 301, 302, 303, 307, 308)
         val PAGE_TYPES = setOf("text/html", "application/xhtml+xml", "text/plain")

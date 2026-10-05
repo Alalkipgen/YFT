@@ -703,6 +703,19 @@ repository that asks each client and prints only verdicts and counts.
 | Device limits | No local emulator/KVM; 66 native design-render tests skipped. No native pixel-review claim |
 | Owner check | YouTube 4K video: two Audio + two Video rows, 720p selected, Download visible; More formats shows 2K/4K; a 720p and MP3 download play |
 
+### P10 — Slow networks (OWNER CHECK, 2026-10-05)
+
+| Check | Result |
+| --- | --- |
+| Transport | Verified TLS MockWebServer (`ExtractorTlsFixture`, test-only okhttp-tls): progress beyond scaled old total budget succeeds; idle body fails; first connection drop retries once; 502/503/504 retry at most twice with injected 1000/3000 ms waits; 401/403/404/429/500 never retry; read-only POST body/method kept; cancellation of a body read closes the call and never retries. Existing HTTPS, credentials, redirects, cookies and body caps still tested |
+| Headless | `HeadlessPageFetcherTest`: slow body, idle body, dropped first connection, transient statuses, 404, cancellable body read; existing session-free navigation headers, no cookies, redirect/body caps unchanged |
+| Home | `HeadlessLinkInspectorTest`: an answer at 60 s succeeds; 90 s overall timeout. `HomeViewModelTest`: Searching before 10 s, SlowSearching at 10 s, Cancel terminates the inspector and cannot publish a late result. `HomeScreenTest`: slow text, visible Cancel and progress; browser action does not start another lookup |
+| Browser | NETWORK does not set siteNotice; manual retry calls the adapter again; a focused failure shows the short site message with Retry for that video, keeps Download and forgets the error on navigation; `BrowserScreenTest` tests the focused Retry callback with no top banner |
+| Regression proof | Actual `13bbf05` extractor client, Home inspector and Home ViewModel put back: `aDroppedFirstConnectionSucceedsOnTheSecondRequest`, `aPageAnswerAfterSixtySecondsStillFindsItsVideo`, `afterTenSecondsTheLookupIsStillRunningAndCancelStopsIt` all fail. New scaled-policy test class temporarily omitted solely to compile against the old constructor. All source/tests restored with `cp` and `cmp` verified |
+| Local validation | core-browser 79 tests; core-data 17 tests; app 607 tests (66 skipped); 0 failures/errors; :app:lintDebug 0 errors |
+| P9 CI | Checkpoint `13bbf05` passed: https://github.com/Alalkipgen/YFT/actions/runs/37363825709. Preview and emulator jobs never started: GitHub annotation "The job was not acquired by Runner of type hosted even after multiple attempts". No code-test failure and no workflow changes; next code push retries these jobs automatically |
+| Owner check | On a slow mobile line, paste a YouTube link: slow status after 10 s, then formats; Cancel stops it. Browser does not show a background network banner; focused network failure offers Retry |
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |
