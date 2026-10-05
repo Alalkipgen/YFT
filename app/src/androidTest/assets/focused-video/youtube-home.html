@@ -28,7 +28,11 @@
 <div style="height: 2000px"></div>
 <script>
   // The second video sits in the middle of the screen.
-  const item = document.getElementById('centre').getBoundingClientRect();
-  window.scrollTo(0, item.top + window.scrollY + item.height / 2 - window.innerHeight / 2);
+  // The test calls this again once the WebView has its final size.
+  window.yftFixtureSettle = () => {
+    const item = document.getElementById('centre').getBoundingClientRect();
+    window.scrollTo(0, item.top + window.scrollY + item.height / 2 - window.innerHeight / 2);
+  };
+  window.yftFixtureSettle();
 </script>
 </body></html>

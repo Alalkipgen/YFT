@@ -26,6 +26,8 @@
   const video = document.getElementById('playing');
   Object.defineProperty(video, 'paused', { get: () => false });
   Object.defineProperty(video, 'readyState', { get: () => 4 });
-  window.scrollTo(0, 500);
+  // The test calls this again once the WebView has its final size.
+  window.yftFixtureSettle = () => window.scrollTo(0, 500);
+  window.yftFixtureSettle();
 </script>
 </body></html>

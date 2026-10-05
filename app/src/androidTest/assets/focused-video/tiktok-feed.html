@@ -18,6 +18,9 @@
 </section>
 <script>
   // Nothing plays yet: the video in the middle of the screen is the one in focus.
-  window.scrollTo(0, document.querySelectorAll('section')[1].offsetTop);
+  // The test calls this again once the WebView has its final size (100vh is 0 before).
+  window.yftFixtureSettle = () =>
+    window.scrollTo(0, document.querySelectorAll('section')[1].offsetTop);
+  window.yftFixtureSettle();
 </script>
 </body></html>

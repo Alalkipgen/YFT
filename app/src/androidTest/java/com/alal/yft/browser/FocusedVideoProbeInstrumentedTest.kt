@@ -134,7 +134,12 @@ class FocusedVideoProbeInstrumentedTest {
             view.loadDataWithBaseURL(pageUrl, html, "text/html", "UTF-8", null)
         }
         assertTrue("fixture loaded", loaded.await(LOAD_TIMEOUT_S, TimeUnit.SECONDS))
-        // The fixture scrolls itself while it loads; give layout one more frame to settle.
+        // The fixture scrolls itself while it loads, possibly before the WebView has its size
+        // (P6 CI: emulator #31 found TikTok's first video). Scroll again once it is laid out.
+        Thread.sleep(SETTLE_MS)
+        instrumentation.runOnMainSync {
+            webView!!.evaluateJavascript(SETTLE_SCRIPT, null)
+        }
         Thread.sleep(SETTLE_MS)
         val answered = CountDownLatch(1)
         val answer = AtomicReference<String?>()
@@ -153,6 +158,7 @@ class FocusedVideoProbeInstrumentedTest {
         const val SHORT_PAGE = "https://m.youtube.com/shorts/SSSSSSSSSS6?feature=share"
         const val LOAD_TIMEOUT_S = 15L
         const val SETTLE_MS = 500L
+        const val SETTLE_SCRIPT = "window.yftFixtureSettle && window.yftFixtureSettle();"
         const val EMPTY_PAGE =
             "<!doctype html><html><head><meta name=\"viewport\" content=\"width=device-width\">" +
                 "</head><body><p>Nothing to watch</p><a href=\"/feed/library\">Library</a>" +
