@@ -2,12 +2,14 @@ package com.alal.yft.feature.quickdownload
 
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.detection.VideoPlaybackSupport
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.LENGTH
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.MIB
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.audio
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.choices
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.group
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.resolvedAsset
+import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.sources
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.video
 import com.alal.yft.ui.format.YftFormat
 import org.junit.Assert.assertEquals
@@ -126,6 +128,40 @@ class QuickDownloadChoicesTest {
         assertSame(merged1080, choices.video[0].source.candidate)
         assertSame(hdFile, choices.video[1].source.candidate)
         assertEquals("M4A · 57 kbps", choices.audio.first().title)
+    }
+
+    @Test
+    fun twoKAndFourKRowsThePhoneCannotDecodeAreStillOfferedWithAWarning() {
+        // P6: YouTube's 2K and 4K are VP9 WebM merged with Opus; some phones cannot play them.
+        fun webm(height: Int) = video(height, 300 * MIB, merged = true).copy(
+            mediaUrl = "https://media.example.test/video-$height.webm",
+            mimeType = "video/webm",
+            codecs = listOf("vp9"),
+        )
+        val candidates = listOf(webm(2160), webm(1440)) + QuickDownloadFixtures.youtube()
+        val asked = mutableListOf<Int?>()
+        val noVp9 = VideoPlaybackSupport { variant ->
+            asked += variant.height
+            variant.codecs.none { it == "vp9" }
+        }
+
+        val warned = QuickDownloadChoices.of(group(candidates), sources(candidates), noVp9)!!
+        val plain = QuickDownloadChoices.of(group(candidates), sources(candidates))!!
+
+        assertEquals(
+            listOf("2160p · 4K", "1440p · 2K", "1080p · Full HD", "720p · HD", "480p", "360p"),
+            warned.video.map(SheetOption::title),
+        )
+        assertEquals("3840 × 2160 · 30 fps · WebM", warned.video.first().detail)
+        assertEquals(
+            listOf(QuickDownloadChoices.MAY_NOT_PLAY),
+            warned.video.first().chips,
+        )
+        assertEquals(listOf(QuickDownloadChoices.MAY_NOT_PLAY), warned.video[1].chips)
+        assertTrue(warned.video.drop(2).all { it.chips.isEmpty() })
+        // Full HD and below are never asked about: every phone YFT runs on plays them.
+        assertEquals(listOf(2160, 1440), asked)
+        assertTrue(plain.video.all { it.chips.isEmpty() })
     }
 
     @Test

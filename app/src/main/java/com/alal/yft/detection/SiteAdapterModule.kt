@@ -43,6 +43,10 @@ object SiteAdapterModule {
 
     @Provides
     @Singleton
+    fun provideVideoPlaybackSupport(): VideoPlaybackSupport = DeviceVideoPlaybackSupport()
+
+    @Provides
+    @Singleton
     fun provideSiteAdapterFlags(): SiteAdapterFlags = SiteAdapterFlags { adapterId ->
         adapterId != YOUTUBE_ADAPTER_ID || BuildConfig.YOUTUBE_ADAPTER_ENABLED
     }

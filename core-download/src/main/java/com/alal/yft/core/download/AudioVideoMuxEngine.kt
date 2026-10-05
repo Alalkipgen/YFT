@@ -30,6 +30,9 @@ import kotlinx.coroutines.withContext
 
 enum class MuxIncompatibilityReason {
     OUTPUT_CONTAINER,
+
+    /** The phone's Android release has no muxer for this output (P6: WebM with Opus). */
+    ANDROID_VERSION,
     VIDEO_CONTAINER,
     AUDIO_CONTAINER,
     VIDEO_CODEC,
@@ -43,14 +46,28 @@ sealed interface MuxCompatibility {
 }
 
 /**
- * Deliberately conservative compatibility gate for Android's platform MP4 muxer.
+ * Deliberately conservative compatibility gate for Android's platform muxer.
  *
  * YFT does not bundle FFmpeg. Phase 4 therefore accepts only separate AVC/AAC ISO-BMFF tracks
  * that MediaExtractor can read and MediaMuxer can write on the minimum supported Android API.
  * AV1 video would be accepted from [AV1_MP4_MIN_SDK] (Phase 11 P4: Facebook's desktop ladder is
- * AV1), but [AV1_MP4_ENABLED] keeps it off until a phone proves the merge works.
+ * AV1), but [AV1_MP4_ENABLED] keeps it off until a phone proves the merge works. P6 adds WebM:
+ * VP9 video with Opus (or Vorbis) sound from WebM files, written as one WebM from
+ * [WEBM_OPUS_MIN_SDK], for YouTube's 2K and 4K.
  */
 object AudioVideoMuxCompatibility {
+    /**
+     * Android 10: the oldest release YFT merges VP9 and Opus into WebM on. MediaMuxer writes VP9
+     * WebM from Android 7, but Opus sound in its muxers is only documented with Android 10's Ogg
+     * output, so older phones are not offered 2K/4K rather than handed a merge that may fail. The
+     * merge itself is proven on the CI emulator (API 34, `AudioVideoMuxerInstrumentedTest`).
+     */
+    const val WEBM_OPUS_MIN_SDK = 29
+
+    /** The merged output types: MPEG-4 for AVC/AAC (and AV1), WebM for VP9/Opus. */
+    const val MP4_OUTPUT_MIME = "video/mp4"
+    const val WEBM_OUTPUT_MIME = "video/webm"
+
     /** Android 14: the first release whose MediaMuxer may write AV1 into MPEG-4. */
     const val AV1_MP4_MIN_SDK = 34
 
@@ -65,10 +82,65 @@ object AudioVideoMuxCompatibility {
         plan: AudioVideoMuxDownloadPlan,
         sdkInt: Int = Build.VERSION.SDK_INT,
         av1Enabled: Boolean = AV1_MP4_ENABLED,
+    ): MuxCompatibility = when (plan.outputMimeType.normalizedMime()) {
+        MP4_OUTPUT_MIME -> evaluateMp4(plan, sdkInt, av1Enabled)
+        WEBM_OUTPUT_MIME -> evaluateWebm(
+            videoMimeType = plan.video.mimeType,
+            videoCodecs = plan.video.codecs,
+            audioMimeType = plan.audio.mimeType,
+            audioCodecs = plan.audio.codecs,
+            sdkInt = sdkInt,
+        )
+        else -> MuxCompatibility.Incompatible(MuxIncompatibilityReason.OUTPUT_CONTAINER)
+    }
+
+    /**
+     * Whether a VP9 WebM video file and its WebM sound merge into one WebM on Android [sdkInt]:
+     * VP9 video (`vp9`, `vp09.…`) with Opus or Vorbis sound, from [WEBM_OPUS_MIN_SDK].
+     */
+    fun evaluateWebm(
+        videoMimeType: String?,
+        videoCodecs: List<String>,
+        audioMimeType: String?,
+        audioCodecs: List<String>,
+        sdkInt: Int = Build.VERSION.SDK_INT,
     ): MuxCompatibility {
-        if (plan.outputMimeType.normalizedMime() != MP4_OUTPUT_MIME) {
-            return MuxCompatibility.Incompatible(MuxIncompatibilityReason.OUTPUT_CONTAINER)
+        if (videoMimeType.normalizedMime() != WEBM_VIDEO_MIME) {
+            return MuxCompatibility.Incompatible(MuxIncompatibilityReason.VIDEO_CONTAINER)
         }
+        if (audioMimeType.normalizedMime() != WEBM_AUDIO_MIME) {
+            return MuxCompatibility.Incompatible(MuxIncompatibilityReason.AUDIO_CONTAINER)
+        }
+        if (videoCodecs.isEmpty() || videoCodecs.any { !isVp9(it) }) {
+            return MuxCompatibility.Incompatible(MuxIncompatibilityReason.VIDEO_CODEC)
+        }
+        if (
+            audioCodecs.isEmpty() ||
+            audioCodecs.any { it.trim().lowercase(Locale.US) !in WEBM_AUDIO_CODECS }
+        ) {
+            return MuxCompatibility.Incompatible(MuxIncompatibilityReason.AUDIO_CODEC)
+        }
+        if (sdkInt < WEBM_OPUS_MIN_SDK) {
+            return MuxCompatibility.Incompatible(MuxIncompatibilityReason.ANDROID_VERSION)
+        }
+        return MuxCompatibility.Compatible
+    }
+
+    /** Whether [codec] names VP9 video: `vp9` or the detailed `vp09.PP.LL.DD` form. */
+    fun isVp9(codec: String): Boolean {
+        val normalized = codec.trim().lowercase(Locale.US)
+        return normalized == VP9_CODEC || normalized.startsWith(VP9_CODEC_PREFIX)
+    }
+
+    /** The merged file type a video file of [videoMimeType] is written as. */
+    fun outputMimeTypeFor(videoMimeType: String?): String =
+        if (videoMimeType.normalizedMime() == WEBM_VIDEO_MIME) WEBM_OUTPUT_MIME else MP4_OUTPUT_MIME
+
+    private fun evaluateMp4(
+        plan: AudioVideoMuxDownloadPlan,
+        sdkInt: Int,
+        av1Enabled: Boolean,
+    ): MuxCompatibility {
         if (plan.video.mimeType.normalizedMime() !in VIDEO_MP4_MIMES) {
             return MuxCompatibility.Incompatible(MuxIncompatibilityReason.VIDEO_CONTAINER)
         }
@@ -110,7 +182,11 @@ object AudioVideoMuxCompatibility {
         this?.substringBefore(';')?.trim()?.lowercase(Locale.US)
 
     private const val AV1_CODEC_PREFIX = "av01"
-    private const val MP4_OUTPUT_MIME = "video/mp4"
+    private const val VP9_CODEC = "vp9"
+    private const val VP9_CODEC_PREFIX = "vp09."
+    private const val WEBM_VIDEO_MIME = "video/webm"
+    private const val WEBM_AUDIO_MIME = "audio/webm"
+    private val WEBM_AUDIO_CODECS = setOf("opus", "vorbis")
     private val VIDEO_MP4_MIMES = setOf("video/mp4", "video/iso.segment")
     private val AUDIO_MP4_MIMES = setOf("audio/mp4", "audio/iso.segment")
     private val VIDEO_CODEC_PREFIXES = setOf("avc1", "avc3")
@@ -124,15 +200,18 @@ sealed interface LocalMuxResult {
 }
 
 interface LocalAudioVideoMuxer {
+    /** Merges the two files into [outputFile], an MP4 or, for [outputMimeType] WebM, a WebM. */
     fun mux(
         videoFile: File,
         audioFile: File,
         outputFile: File,
+        outputMimeType: String = AudioVideoMuxCompatibility.MP4_OUTPUT_MIME,
     ): LocalMuxResult
 }
 
 /**
- * Platform-only remuxer. Inputs must already be complete, unencrypted ISO-BMFF tracks.
+ * Platform-only remuxer. Inputs must already be complete, unencrypted tracks: ISO-BMFF for an
+ * MP4 output, WebM for a WebM output (P6).
  *
  * MediaExtractor/MediaMuxer behavior is device-dependent and remains an explicit device test.
  */
@@ -147,7 +226,16 @@ class AndroidMp4AudioVideoMuxer(
         videoFile: File,
         audioFile: File,
         outputFile: File,
+        outputMimeType: String,
     ): LocalMuxResult {
+        val outputType = outputMimeType.substringBefore(';').trim().lowercase(Locale.US)
+        val outputFormat = when (outputType) {
+            AudioVideoMuxCompatibility.MP4_OUTPUT_MIME ->
+                MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4
+            AudioVideoMuxCompatibility.WEBM_OUTPUT_MIME ->
+                MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM
+            else -> return LocalMuxResult.Failure(DownloadFailureReason.INCOMPATIBLE_TRACKS)
+        }
         if (!videoFile.isFile || videoFile.length() <= 0) {
             return LocalMuxResult.Failure(DownloadFailureReason.INCOMPATIBLE_TRACKS)
         }
@@ -177,10 +265,7 @@ class AndroidMp4AudioVideoMuxer(
             videoExtractor.selectTrack(videoTrack.index)
             audioExtractor.selectTrack(audioTrack.index)
 
-            muxer = MediaMuxer(
-                outputFile.absolutePath,
-                MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4,
-            )
+            muxer = MediaMuxer(outputFile.absolutePath, outputFormat)
             val outputVideoTrack = muxer.addTrack(videoTrack.format)
             val outputAudioTrack = muxer.addTrack(audioTrack.format)
             muxer.start()
@@ -431,6 +516,7 @@ class AudioVideoMuxEngine(
                 videoFile = readyFile(workspace, TrackKind.VIDEO),
                 audioFile = readyFile(workspace, TrackKind.AUDIO),
                 outputFile = muxOutput,
+                outputMimeType = plan.outputMimeType,
             )
             val muxBytes = when (muxResult) {
                 is LocalMuxResult.Completed -> muxResult.bytesWritten

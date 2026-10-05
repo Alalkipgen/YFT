@@ -213,6 +213,9 @@ object DownloadPlanFactory {
             )
         }
         val stem = fileName.substringBeforeLast('.')
+        // VP9 WebM video is merged with its WebM sound into a WebM (P6), everything else into MP4.
+        val outputMimeType = AudioVideoMuxCompatibility.outputMimeTypeFor(variant.mimeType)
+        val webm = outputMimeType == AudioVideoMuxCompatibility.WEBM_OUTPUT_MIME
         val plan = AudioVideoMuxDownloadPlan(
             taskId = taskId,
             video = DashDownloadPlan(
@@ -220,7 +223,7 @@ object DownloadPlanFactory {
                 manifestUrl = variant.playbackUrl,
                 representationId = "video",
                 trackType = MediaTrackType.VIDEO,
-                suggestedFileName = "$stem.video.mp4",
+                suggestedFileName = if (webm) "$stem.video.webm" else "$stem.video.mp4",
                 requestContext = variant.requestContext,
                 mimeType = variant.mimeType,
                 codecs = variant.codecs.filter(String::isNotBlank),
@@ -232,7 +235,7 @@ object DownloadPlanFactory {
                 manifestUrl = companion.mediaUrl,
                 representationId = "audio",
                 trackType = MediaTrackType.AUDIO,
-                suggestedFileName = "$stem.audio.m4a",
+                suggestedFileName = if (webm) "$stem.audio.webm" else "$stem.audio.m4a",
                 requestContext = companion.requestContext,
                 mimeType = companion.mimeType,
                 codecs = companion.codecs,
@@ -240,6 +243,7 @@ object DownloadPlanFactory {
                 wholeFile = WholeFileTrack(),
             ),
             suggestedFileName = fileName,
+            outputMimeType = outputMimeType,
         )
         if (AudioVideoMuxCompatibility.evaluate(plan, sdkInt) is MuxCompatibility.Incompatible) {
             return rejected(
@@ -285,8 +289,11 @@ object DownloadPlanFactory {
     }
 
     internal fun extensionFor(variant: MediaVariant): String {
-        // Merged downloads are always written as MP4.
-        if (variant.audioCompanion != null) return "mp4"
+        // Merged downloads are written as MP4, VP9 WebM ones as WebM (P6).
+        if (variant.audioCompanion != null) {
+            val output = AudioVideoMuxCompatibility.outputMimeTypeFor(variant.mimeType)
+            return if (output == AudioVideoMuxCompatibility.WEBM_OUTPUT_MIME) "webm" else "mp4"
+        }
         // Sound alone in an MP4 container is an M4A file (Facebook's and YouTube's audio tracks).
         if (variant.trackType == MediaTrackType.AUDIO && variant.isMp4Container()) return "m4a"
         variant.container?.takeIf { it.isNotBlank() }?.let { container ->

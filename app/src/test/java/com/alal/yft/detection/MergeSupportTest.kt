@@ -52,6 +52,22 @@ class MergeSupportTest {
     }
 
     @Test
+    fun vp9WebmWithOpusMergesFromAndroid10() {
+        // P6: YouTube's 2K and 4K are VP9 WebM, merged with the Opus WebM track into one WebM.
+        val webm = webmCandidate(listOf("vp9"), listOf("opus"))
+        val android9 = DeviceMergeSupport(sdkInt = 28, hasDecoder = { true })
+        val android10 = DeviceMergeSupport(sdkInt = 29, hasDecoder = { false })
+
+        assertFalse(android9.canMerge(webm))
+        assertTrue(android10.canMerge(webm))
+        assertTrue(android10.canMerge(webmCandidate(listOf("vp09.00.51.08"), listOf("vorbis"))))
+        assertFalse(android10.canMerge(webmCandidate(listOf("vp9"), listOf("mp4a.40.2"))))
+        assertFalse(android10.canMerge(webmCandidate(listOf("av01.0.12M.08"), listOf("opus"))))
+        // VP9 in MPEG-4 is still not merged.
+        assertFalse(android10.canMerge(vp9))
+    }
+
+    @Test
     fun theDecoderListIsReadOnceAndOnlyForAv1() {
         var lookups = 0
         val support =
@@ -106,6 +122,19 @@ class MergeSupportTest {
 
     private companion object {
         const val PAGE = "https://fixture.test/video/42"
+
+        fun webmCandidate(codecs: List<String>, audioCodecs: List<String>) =
+            candidate("webm", codecs).let { candidate ->
+                candidate.copy(
+                    mediaUrl = "https://cdn.fixture.test/webm.webm",
+                    mimeType = "video/webm",
+                    audioCompanion = candidate.audioCompanion?.copy(
+                        mediaUrl = "https://cdn.fixture.test/audio.webm",
+                        mimeType = "audio/webm",
+                        codecs = audioCodecs,
+                    ),
+                )
+            }
 
         fun candidate(name: String, codecs: List<String>, merged: Boolean = true) =
             MediaCandidate(

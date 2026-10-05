@@ -18,6 +18,7 @@ import com.alal.yft.core.model.media.Mp3Variants
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.settings.DownloadPreferences
+import com.alal.yft.detection.VideoPlaybackSupport
 import com.alal.yft.download.EnqueueResult
 import com.alal.yft.download.PreviewDownloadStarter
 import com.alal.yft.download.policy.DownloadNetworkPolicy
@@ -88,6 +89,7 @@ class QuickDownloadViewModel @Inject constructor(
     private val downloadStarter: PreviewDownloadStarter,
     private val downloadPreferences: DownloadPreferencesRepository,
     private val network: NetworkStatusSource,
+    private val playback: VideoPlaybackSupport,
 ) : ViewModel() {
     private val group: MediaGroup? = store.selection.value ?: store.page.value?.candidates
         ?.take(DetectedMediaStore.MAX_CANDIDATES)
@@ -170,7 +172,7 @@ class QuickDownloadViewModel @Inject constructor(
                     async { inspect(candidate) }
                 }.awaitAll()
             }
-            val choices = QuickDownloadChoices.of(group, sources)
+            val choices = QuickDownloadChoices.of(group, sources, playback)
             mutableUiState.update { state ->
                 if (choices == null) {
                     state.copy(

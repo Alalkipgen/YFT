@@ -95,6 +95,88 @@ class AudioVideoMuxEngineTest {
     }
 
     @Test
+    fun `VP9 and Opus WebM files merge into one WebM from Android 10`() {
+        val webm = webmPlan()
+        val tooOld = MuxCompatibility.Incompatible(MuxIncompatibilityReason.ANDROID_VERSION)
+
+        assertEquals(MuxCompatibility.Compatible, AudioVideoMuxCompatibility.evaluate(webm, 29))
+        assertEquals(MuxCompatibility.Compatible, AudioVideoMuxCompatibility.evaluate(webm, 34))
+        assertEquals(tooOld, AudioVideoMuxCompatibility.evaluate(webm, sdkInt = 28))
+        assertEquals(tooOld, AudioVideoMuxCompatibility.evaluate(webm, sdkInt = 24))
+        val vorbis = webm.copy(audio = webm.audio.copy(codecs = listOf("vorbis")))
+        assertEquals(MuxCompatibility.Compatible, AudioVideoMuxCompatibility.evaluate(vorbis, 29))
+        val shortVp9 = webm.copy(video = webm.video.copy(codecs = listOf("vp9")))
+        assertEquals(MuxCompatibility.Compatible, AudioVideoMuxCompatibility.evaluate(shortVp9, 29))
+        assertTrue(AudioVideoMuxCompatibility.isVp9("VP09.02.51.10"))
+        assertFalse(AudioVideoMuxCompatibility.isVp9("vp8"))
+        assertEquals("video/webm", AudioVideoMuxCompatibility.outputMimeTypeFor("video/webm"))
+        assertEquals("video/mp4", AudioVideoMuxCompatibility.outputMimeTypeFor("video/mp4"))
+        assertEquals("video/mp4", AudioVideoMuxCompatibility.outputMimeTypeFor(null))
+    }
+
+    @Test
+    fun `a WebM merge takes only VP9 video and Opus or Vorbis sound from WebM files`() {
+        val webm = webmPlan()
+        fun reason(plan: AudioVideoMuxDownloadPlan): MuxIncompatibilityReason {
+            val answer = AudioVideoMuxCompatibility.evaluate(plan, sdkInt = 34)
+            return (answer as MuxCompatibility.Incompatible).reason
+        }
+
+        // AAC sound or an MP4 picture cannot go into WebM; VP9 cannot go into MP4.
+        assertEquals(
+            MuxIncompatibilityReason.AUDIO_CONTAINER,
+            reason(webm.copy(audio = plan().audio)),
+        )
+        assertEquals(
+            MuxIncompatibilityReason.VIDEO_CONTAINER,
+            reason(webm.copy(video = plan().video)),
+        )
+        assertEquals(
+            MuxIncompatibilityReason.VIDEO_CODEC,
+            reason(webm.copy(video = webm.video.copy(codecs = listOf("av01.0.12M.08")))),
+        )
+        assertEquals(
+            MuxIncompatibilityReason.VIDEO_CODEC,
+            reason(webm.copy(video = webm.video.copy(codecs = emptyList()))),
+        )
+        assertEquals(
+            MuxIncompatibilityReason.AUDIO_CODEC,
+            reason(webm.copy(audio = webm.audio.copy(codecs = listOf("mp4a.40.2")))),
+        )
+        assertEquals(
+            MuxIncompatibilityReason.VIDEO_CONTAINER,
+            reason(webm.copy(outputMimeType = "video/mp4")),
+        )
+        assertEquals(
+            MuxIncompatibilityReason.OUTPUT_CONTAINER,
+            reason(webm.copy(outputMimeType = "video/x-matroska")),
+        )
+    }
+
+    @Test
+    fun `a WebM plan is merged by the muxer as WebM`() = runTest {
+        val runner = FakeDashRunner()
+        val muxer = FakeMuxer()
+        val files = files("webm.webm")
+
+        val result = engine(runner, muxer, directory.newFolder("webm"), sdkInt = 34)
+            .transfer(plan = webmPlan(), destination = files.destination)
+
+        assertTrue(result is AudioVideoMuxResult.Completed)
+        assertEquals(listOf("video/webm"), muxer.outputTypes)
+        assertArrayEquals(muxer.outputFor(VIDEO_BYTES, AUDIO_BYTES), files.completed.readBytes())
+        // Too old a phone downloads nothing at all.
+        val oldRunner = FakeDashRunner()
+        val oldMuxer = FakeMuxer()
+        val refused = engine(oldRunner, oldMuxer, directory.newFolder("webm-28"), sdkInt = 28)
+            .transfer(plan = webmPlan(), destination = files("webm-28.webm").destination)
+            as AudioVideoMuxResult.Failure
+        assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, refused.failure.reason)
+        assertEquals(0, oldRunner.totalCalls())
+        assertEquals(0, oldMuxer.calls.get())
+    }
+
+    @Test
     fun `an AV1 merge is refused before any transfer while AV1 merges are off`() = runTest {
         val av1 = plan().copy(video = plan().video.copy(codecs = listOf("av01.0.08M.08")))
         val oldRunner = FakeDashRunner()
@@ -315,6 +397,16 @@ class AudioVideoMuxEngineTest {
         suggestedFileName = "movie.mp4",
     )
 
+    /** YouTube's 4K: a VP9 video-only WebM and the Opus WebM sound, merged into WebM (P6). */
+    private fun webmPlan(): AudioVideoMuxDownloadPlan = plan().let { base ->
+        base.copy(
+            video = base.video.copy(mimeType = "video/webm", codecs = listOf("vp09.00.51.08")),
+            audio = base.audio.copy(mimeType = "audio/webm", codecs = listOf("opus")),
+            suggestedFileName = "movie.webm",
+            outputMimeType = "video/webm",
+        )
+    }
+
     private fun trackPlan(
         taskId: String,
         representationId: String,
@@ -432,13 +524,16 @@ class AudioVideoMuxEngineTest {
         private val failure: DownloadFailureReason? = null,
     ) : LocalAudioVideoMuxer {
         val calls = AtomicInteger()
+        val outputTypes = mutableListOf<String>()
 
         override fun mux(
             videoFile: File,
             audioFile: File,
             outputFile: File,
+            outputMimeType: String,
         ): LocalMuxResult {
             calls.incrementAndGet()
+            outputTypes += outputMimeType
             failure?.let { return LocalMuxResult.Failure(it) }
             val bytes = outputFor(videoFile.readBytes(), audioFile.readBytes())
             outputFile.writeBytes(bytes)

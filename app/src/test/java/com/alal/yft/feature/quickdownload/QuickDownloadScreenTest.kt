@@ -165,6 +165,46 @@ class QuickDownloadScreenTest {
     }
 
     @Test
+    fun aFourKRowThePhoneMayNotPlayShowsTheWarningOnItsOwnRow() {
+        // P6: a 4K VP9 WebM row on a phone without a VP9 decoder that large.
+        val fourK = QuickDownloadFixtures.video(2160, 300 * QuickDownloadFixtures.MIB, true)
+            .copy(mimeType = "video/webm", codecs = listOf("vp9"))
+        val candidates = listOf(fourK) + QuickDownloadFixtures.youtube()
+        val choices = QuickDownloadChoices.of(
+            QuickDownloadFixtures.group(candidates),
+            QuickDownloadFixtures.sources(candidates),
+            playback = { "vp9" !in it.codecs },
+        )!!
+        val row = choices.video.first()
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(
+                    state = QuickDownloadUiState(
+                        header = SheetHeader(
+                            title = choices.title,
+                            source = choices.source,
+                            durationMillis = null,
+                            audioOnly = false,
+                        ),
+                        choices = choices,
+                        selectedId = row.id,
+                    ),
+                    onSelect = {},
+                    onDownload = {},
+                )
+            }
+        }
+
+        // The row merges its texts; the warning is one of them, beside the title.
+        composeRule.onNodeWithTag("quick-option-${row.id}")
+            .performScrollTo()
+            .assert(androidx.compose.ui.test.hasText("2160p · 4K"))
+            .assert(androidx.compose.ui.test.hasText(QuickDownloadChoices.MAY_NOT_PLAY))
+        composeRule.onAllNodesWithText(QuickDownloadChoices.MAY_NOT_PLAY).assertCountEquals(1)
+        composeRule.onNodeWithTag("quick-download").performScrollTo().assertIsEnabled()
+    }
+
+    @Test
     fun downloadAndQueuedStatusCallBack() {
         var state by mutableStateOf(SAMPLE_QUICK_DOWNLOAD)
         var downloads = 0

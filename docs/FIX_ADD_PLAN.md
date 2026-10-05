@@ -114,7 +114,7 @@ AI agent time includes builds and CI waits on a 4 GiB sandbox.
 | P3 | [One download sheet, Snaptube style](#p3--one-download-sheet-snaptube-style) | Hard | 10–14 h | P1 | OWNER CHECK — P3-FIX done (2026-10-05) |
 | P4 | [Facebook: one video, every quality](#p4--facebook-one-video-every-quality) | Medium–Hard | 5–8 h | P3 | OWNER CHECK (2026-10-05) |
 | P5 | [Download button on feeds (focused video)](#p5--download-button-on-feeds) | Hard | 6–10 h | P1, P3 | OWNER CHECK (2026-10-05) |
-| P6 | [2K and 4K](#p6--2k-and-4k) | Hard | 8–12 h | P3 | TODO |
+| P6 | [2K and 4K](#p6--2k-and-4k) | Hard | 8–12 h | P3 | OWNER CHECK (2026-10-05) |
 | P7 | [Preview APK for the owner's test](#p7--preview-apk) | Easy | 1–2 h | P1–P6 | TODO |
 | P8 | [Signed release 1.0.0-beta.4](#p8--signed-release-100-beta4) | Easy | 1–2 h | P7, owner OK | TODO |
 
@@ -452,6 +452,22 @@ instrumentation test on the CI emulator merging a short VP9 + Opus fixture into 
 **Owner check:** a YouTube 4K video → 2K/4K rows → download → plays (or shows the warning).
 
 **Docs:** SUPPORT_MATRIX (YouTube), TEST_MATRIX, CHANGELOG, SESSION_STATE.
+
+**Result (OWNER CHECK, 2026-10-05):** `YouTubeExtractor.select` keeps 480p–1080p as AVC + AAC and
+adds 1440p and 2160p: the best 8-bit VP9 WebM stream (`vp9` or `vp09.00.…`) with the best Opus
+WebM track (original mix, never the DRC one), else the best AV1 MP4 stream with the AAC track.
+Each video-only stream is paired with the companion of its own container; the Opus track is only
+a companion, never an Audio row. `AudioVideoMuxCompatibility.evaluate` follows the plan's output
+type: MP4 as before, WebM through `evaluateWebm` (WebM VP9 video, WebM Opus or Vorbis sound,
+Android 10+); `AndroidMp4AudioVideoMuxer` writes `MUXER_OUTPUT_WEBM` for a WebM plan.
+`DeviceMergeSupport` offers WebM rows by the same rule, `DownloadPlanFactory` names them
+`.webm` with `video/webm`, and `DeviceVideoPlaybackSupport` (`MediaCodecList`, read once) adds
+"May not play on this phone" to a 2K/4K row the phone has no decoder for at that size. Plan
+adapted: (1) WebM merges start at Android 10 (`WEBM_OPUS_MIN_SDK = 29`), not 7 — Opus in
+Android's muxers is documented only from Android 10, so older phones are not offered 2K/4K
+rather than handed a merge that may fail; (2) AV1 fallback rows stay hidden while AV1 merges are
+off (P4); (3) HDR VP9 is left out; (4) Facebook needed no change — `FacebookDashOffers` already
+takes AVC sizes above 1080p. Tests: TEST_MATRIX P6.
 
 ### P7 — Preview APK
 

@@ -16,6 +16,7 @@ import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.detection.VideoPlaybackSupport
 import com.alal.yft.download.EnqueueResult
 import com.alal.yft.download.PreviewDownloadStarter
 import com.alal.yft.download.policy.NetworkSnapshot
@@ -88,6 +89,27 @@ class QuickDownloadViewModelTest {
             PreviewDownloadStatus.Queued("Ocean waves.mp4"),
             viewModel.uiState.value.downloadStatus,
         )
+    }
+
+    @Test
+    fun aFourKRowThePhoneMayNotPlayIsWarnedAboutAndStillDownloads() = runTest {
+        // P6: the phone's decoder list decides; the file itself is fine, so it stays offered.
+        val fourK = video(2160, 300 * MIB, merged = true).copy(
+            mediaUrl = "https://media.example.test/video-2160.webm",
+            mimeType = "video/webm",
+            codecs = listOf("vp9"),
+        )
+        select(listOf(fourK) + QuickDownloadFixtures.youtube())
+        val viewModel = viewModel(playback = { variant -> "vp9" !in variant.codecs })
+
+        val rows = viewModel.uiState.value.choices!!.video
+        assertEquals("2160p · 4K", rows.first().title)
+        assertEquals(listOf(QuickDownloadChoices.MAY_NOT_PLAY), rows.first().chips)
+        assertTrue(rows.drop(1).all { it.chips.isEmpty() })
+        viewModel.download()
+        advanceUntilIdle()
+        assertEquals("2160p", starter.variants.single().label)
+        assertEquals(listOf("vp9"), starter.variants.single().codecs)
     }
 
     @Test
@@ -270,6 +292,7 @@ class QuickDownloadViewModelTest {
     private fun viewModel(
         preferences: DownloadPreferences = DownloadPreferences(confirmOnMeteredNetwork = false),
         network: NetworkSnapshot = WIFI,
+        playback: VideoPlaybackSupport = VideoPlaybackSupport.ANY,
     ) = QuickDownloadViewModel(
         store = store,
         selectionStore = selection,
@@ -284,6 +307,7 @@ class QuickDownloadViewModelTest {
         network = object : NetworkStatusSource {
             override val snapshot: StateFlow<NetworkSnapshot> = MutableStateFlow(network)
         },
+        playback = playback,
     )
 
     /**

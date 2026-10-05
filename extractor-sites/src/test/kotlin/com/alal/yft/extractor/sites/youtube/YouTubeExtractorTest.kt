@@ -144,6 +144,78 @@ class YouTubeExtractorTest {
     }
 
     @Test
+    fun `2K and 4K rows are 8-bit VP9 merged with the Opus track into WebM`() = runTest {
+        val http = client(page = watchPage(BOT_CHECK), embedded = fixture("player_4k.json"))
+        val runner = FakePlayerScriptRunner()
+
+        val result = YouTubeExtractor(http, runner).extract(request())
+            as SiteExtractionResult.Success
+
+        val candidates = result.candidates
+        // 1080p stays AVC; above it YouTube has no AVC, so 2K and 4K are VP9 (P6). The brighter
+        // HDR VP9 and the AV1 copies of the same qualities are not offered beside them.
+        assertEquals(listOf(313, 271, 137, 22, 18, 140), candidates.map(::itagOf))
+        assertEquals(
+            listOf("2160p", "1440p", "1080p", "720p", "360p", "Audio 129 kbps").map {
+                "Fixture video title — $it"
+            },
+            candidates.map(MediaCandidate::title),
+        )
+        assertEquals(
+            listOf("video/webm", "video/webm", "video/mp4", "video/mp4", "video/mp4", "audio/mp4"),
+            candidates.map(MediaCandidate::mimeType),
+        )
+        assertEquals(listOf(3840, 2560, 1920, 1280, 640, null), candidates.map { it.width })
+        assertEquals(listOf(2160, 1440, 1080, 720, 360, null), candidates.map { it.height })
+        assertEquals(listOf("vp9"), candidates[0].codecs)
+        // WebM video is merged with the Opus WebM track, MP4 video with the AAC track.
+        candidates.take(2).forEach { candidate ->
+            val companion = candidate.audioCompanion
+            assertEquals("audio/webm", companion?.mimeType)
+            assertEquals(listOf("opus"), companion?.codecs)
+            assertEquals(251, companion?.mediaUrl?.let(::itagOf))
+            assertEquals(3_800_000L, companion?.contentLengthBytes)
+            assertTrue(companion?.mediaUrl.orEmpty().endsWith("&n=$SOLVED_RATE"))
+        }
+        assertEquals(403_800_000L, candidates[0].contentLengthBytes)
+        assertEquals("audio/mp4", candidates[2].audioCompanion?.mimeType)
+        assertEquals(140, candidates[2].audioCompanion?.mediaUrl?.let(::itagOf))
+        assertTrue(candidates.drop(3).all { it.audioCompanion == null })
+        // The Opus track is only merged; the audio-only row stays the AAC one.
+        assertTrue(candidates.none { it.mimeType == "audio/webm" })
+        val asked = runner.requests.single().challenges.map { it.key }.toSet()
+        assertTrue("n-251" in asked)
+        assertTrue(asked.none { it in setOf("n-337", "n-401", "n-400", "n-248") })
+    }
+
+    @Test
+    fun `without 8-bit VP9 2K and 4K rows are AV1 merged with the AAC track`() = runTest {
+        val http = client(
+            page = watchPage(BOT_CHECK),
+            embedded = fixture("player_4k_av1_only.json"),
+        )
+        val runner = FakePlayerScriptRunner()
+
+        val result = YouTubeExtractor(http, runner).extract(request())
+            as SiteExtractionResult.Success
+
+        val candidates = result.candidates
+        assertEquals(listOf(401, 400, 137, 22, 18, 140), candidates.map(::itagOf))
+        assertEquals(
+            listOf("video/mp4", "video/mp4", "video/mp4", "video/mp4", "video/mp4", "audio/mp4"),
+            candidates.map(MediaCandidate::mimeType),
+        )
+        assertEquals(listOf("av01.0.12M.08"), candidates[0].codecs)
+        candidates.take(3).forEach { candidate ->
+            assertEquals("audio/mp4", candidate.audioCompanion?.mimeType)
+            assertEquals(140, candidate.audioCompanion?.mediaUrl?.let(::itagOf))
+        }
+        // Nothing is merged with the Opus track, so its address is never worked out.
+        val asked = runner.requests.single().challenges.map { it.key }.toSet()
+        assertTrue(asked.none { it in setOf("n-251", "n-337") })
+    }
+
+    @Test
     fun `the embedded player is asked without the user's cookie`() = runTest {
         val http = client(page = watchPage(BOT_CHECK), embedded = fixture("player_ok.json"))
 
@@ -1196,6 +1268,11 @@ class YouTubeExtractorTest {
         assertFailure(SiteExtractionFailure.UNSUPPORTED_URL, result)
         assertTrue(http.requestedUrls.isEmpty())
     }
+
+    private fun itagOf(candidate: MediaCandidate): Int = itagOf(candidate.mediaUrl)
+
+    private fun itagOf(url: String): Int =
+        Regex("[?&]itag=(\\d+)").find(url)!!.groupValues[1].toInt()
 
     /**
      * Serves [page] for the watch page and answers each client with its own document.

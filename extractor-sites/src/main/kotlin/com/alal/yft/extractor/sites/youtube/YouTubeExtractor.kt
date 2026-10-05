@@ -276,17 +276,23 @@ class YouTubeExtractor(
             val mediaUrl = token?.let { YouTubeUrls.appendQueryParam(url, POT_PARAM, it) } ?: url
             Triple(pending.stream, mediaUrl, expiry)
         }
-        // Video-only streams are downloaded with this answer's audio track and merged on the
-        // phone; without that track they would be silent, so they are dropped.
-        val companion = tracks.firstOrNull { (stream, _, _) -> !stream.hasVideo }
+        // Video-only streams are downloaded with this answer's audio track of their own container
+        // and merged on the phone: AVC and AV1 MP4 with the AAC track, VP9 WebM with the Opus
+        // track (P6). Without that track they would be silent, so they are dropped. The Opus
+        // track is only a companion; the Audio row stays the AAC one.
+        fun companionIn(mimeType: String) = tracks
+            .firstOrNull { (stream, _, _) -> !stream.hasVideo && stream.mimeType == mimeType }
             ?.let { (stream, url, expiry) -> companionAudio(stream, url, expiry, lookup) }
+        val aac = companionIn(AUDIO_MP4)
+        val opus = companionIn(AUDIO_WEBM)
         val offers = tracks.mapNotNull { (stream, url, expiry) ->
-            if (stream.hasVideo && !stream.hasAudio) {
-                companion?.let { audio ->
-                    Offer(stream, candidate(stream, url, expiry, video, lookup, audio))
+            when {
+                stream.hasVideo && !stream.hasAudio -> {
+                    val audio = if (stream.mimeType == VIDEO_WEBM) opus else aac
+                    audio?.let { Offer(stream, candidate(stream, url, expiry, video, lookup, it)) }
                 }
-            } else {
-                Offer(stream, candidate(stream, url, expiry, video, lookup))
+                !stream.hasVideo && stream.mimeType == AUDIO_WEBM -> null
+                else -> Offer(stream, candidate(stream, url, expiry, video, lookup))
             }
         }
         return Delivery.Ready(offers)
@@ -356,38 +362,73 @@ class YouTubeExtractor(
      * Progressive MP4 streams already carry both tracks. One AAC audio stream is offered as an
      * audio-only download: the original mix when YouTube marks one, never the volume-compressed
      * variant. The same audio track is merged on the phone with the best video-only AVC stream
-     * of each of [MERGED_QUALITIES] that no progressive stream already offers. VP9 and AV1 are
-     * left out, because the phone's merge writes AVC and AAC only.
+     * of each of [MERGED_QUALITIES] that no progressive stream already offers.
+     *
+     * P6: YouTube has no AVC above 1080p, so 1440p (2K) and 2160p (4K) ([HIGH_QUALITIES]) take
+     * the best 8-bit VP9 WebM stream, merged with the Opus WebM track into one WebM, else the
+     * best AV1 MP4 stream merged with the AAC track (the app offers AV1 only where the phone can
+     * merge it). HDR VP9 (profile 2) is left out: few phones play it, and none of it looks right
+     * on a screen without HDR.
      */
     private fun select(video: YouTubeVideo): List<YouTubeStream> {
         val progressive = video.progressive
             .filter { it.hasVideo && it.hasAudio && it.mimeType == VIDEO_MP4 }
             .distinctBy(YouTubeStream::itag)
             .sortedByDescending { it.height ?: 0 }
-        val audio = video.adaptive
-            .filter { stream ->
-                !stream.hasVideo && stream.mimeType == AUDIO_MP4 && !stream.isDrc &&
-                    stream.codecs.any { it.startsWith(AAC_CODEC_PREFIX) }
-            }
-            .filter { stream -> progressive.none { it.itag == stream.itag } }
-            .maxWithOrNull(
-                compareBy<YouTubeStream>({ it.isDefaultAudio != false }, { it.bitrate ?: 0L }),
-            )
-            ?: return progressive
+        val audio = bestAudio(video, AUDIO_MP4) { it.startsWith(AAC_CODEC_PREFIX) }
+            ?.takeIf { stream -> progressive.none { it.itag == stream.itag } }
+        val opus = bestAudio(video, AUDIO_WEBM) { it == OPUS_CODEC }
         val offeredQualities = progressive.mapNotNull { it.quality() }.toSet()
-        val merged = video.adaptive
-            .filter { stream ->
-                stream.hasVideo && !stream.hasAudio && stream.mimeType == VIDEO_MP4 &&
-                    stream.codecs.isNotEmpty() &&
-                    stream.codecs.all { it.startsWith(AVC_CODEC_PREFIX) }
-            }
+        val videoOnly = video.adaptive
+            .filter { stream -> stream.hasVideo && !stream.hasAudio && stream.codecs.isNotEmpty() }
             .groupBy { it.quality() }
-            .filterKeys { it in MERGED_QUALITIES && it !in offeredQualities }
-            .values
-            .mapNotNull { streams -> streams.maxByOrNull { it.bitrate ?: 0L } }
-            .sortedByDescending { it.quality() }
-        return progressive + merged + audio
+            .filterKeys { it !in offeredQualities }
+        val merged = videoOnly.mapNotNull { (quality, streams) ->
+            when (quality) {
+                in MERGED_QUALITIES -> audio?.let { best(streams, VIDEO_MP4, ::isAvc) }
+                in HIGH_QUALITIES -> opus?.let { best(streams, VIDEO_WEBM, ::isSdrVp9) }
+                    ?: audio?.let { best(streams, VIDEO_MP4, ::isAv1) }
+                else -> null
+            }
+        }.sortedByDescending { it.quality() }
+        val companions = listOfNotNull(
+            audio,
+            opus?.takeIf { merged.any { it.mimeType == VIDEO_WEBM } },
+        )
+        return if (audio == null && merged.isEmpty()) progressive else progressive + merged +
+            companions
     }
+
+    /** The original mix, never the volume-compressed one, of [mimeType] and [codec]. */
+    private fun bestAudio(
+        video: YouTubeVideo,
+        mimeType: String,
+        codec: (String) -> Boolean,
+    ): YouTubeStream? = video.adaptive
+        .filter { stream ->
+            !stream.hasVideo && stream.mimeType == mimeType && !stream.isDrc &&
+                stream.codecs.any(codec)
+        }
+        .maxWithOrNull(
+            compareBy<YouTubeStream>({ it.isDefaultAudio != false }, { it.bitrate ?: 0L }),
+        )
+
+    /** The highest-bitrate stream of [mimeType] whose every codec is [codec]. */
+    private fun best(
+        streams: List<YouTubeStream>,
+        mimeType: String,
+        codec: (String) -> Boolean,
+    ): YouTubeStream? = streams
+        .filter { stream -> stream.mimeType == mimeType && stream.codecs.all(codec) }
+        .maxByOrNull { it.bitrate ?: 0L }
+
+    private fun isAvc(codec: String): Boolean = codec.startsWith(AVC_CODEC_PREFIX)
+
+    private fun isAv1(codec: String): Boolean = codec.startsWith(AV1_CODEC_PREFIX)
+
+    /** 8-bit VP9: `vp9`, or profile 0 in the detailed `vp09.00.…` form. */
+    private fun isSdrVp9(codec: String): Boolean =
+        codec == VP9_CODEC || codec.startsWith(VP9_PROFILE_0_PREFIX)
 
     /**
      * Splits a stream into the address and the values YouTube's player computes for it.
@@ -864,11 +905,20 @@ class YouTubeExtractor(
         private const val MOBILE_CLIENT_NAME = "MWEB"
         private const val VIDEO_MP4 = "video/mp4"
         private const val AUDIO_MP4 = "audio/mp4"
+        private const val VIDEO_WEBM = "video/webm"
+        private const val AUDIO_WEBM = "audio/webm"
         private const val AAC_CODEC_PREFIX = "mp4a."
         private const val AVC_CODEC_PREFIX = "avc1"
+        private const val AV1_CODEC_PREFIX = "av01"
+        private const val VP9_CODEC = "vp9"
+        private const val VP9_PROFILE_0_PREFIX = "vp09.00."
+        private const val OPUS_CODEC = "opus"
 
         /** Merged video-and-audio rows, by the quality YouTube names them (T17). */
         private val MERGED_QUALITIES = setOf(480, 720, 1080)
+
+        /** 2K and 4K (P6): VP9 with Opus as WebM, else AV1 with AAC as MP4. */
+        private val HIGH_QUALITIES = setOf(1440, 2160)
         private val QUALITY_LABEL = Regex("^(\\d{3,4})p")
         private const val RATE_PARAM = "n"
         private const val EXPIRE_PARAM = "expire"

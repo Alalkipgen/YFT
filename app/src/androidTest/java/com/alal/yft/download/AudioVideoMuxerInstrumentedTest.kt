@@ -25,7 +25,8 @@ import org.junit.runner.RunWith
  * P4 on a real device or emulator: a one-second video-only MP4 in the DASH on-demand layout
  * (fragments behind a `sidx`, like Facebook's and YouTube's tracks) and a one-second AAC track,
  * both made with ffmpeg, become one MP4 that Android's own extractor reads back with both
- * tracks and every frame. AV1 is probed on Android 14+ and stays off while it fails.
+ * tracks and every frame. AV1 is probed on Android 14+ and stays off while it fails. P6 adds
+ * VP9 and Opus WebM tracks merged into one WebM.
  */
 @RunWith(AndroidJUnit4::class)
 class AudioVideoMuxerInstrumentedTest {
@@ -51,6 +52,27 @@ class AudioVideoMuxerInstrumentedTest {
 
         assertEquals(output.length(), (result as LocalMuxResult.Completed).bytesWritten)
         assertMerged(output, MediaFormat.MIMETYPE_VIDEO_AVC)
+    }
+
+    /**
+     * P6: YouTube's 2K and 4K are VP9 WebM with Opus WebM sound, merged into one WebM from
+     * Android 10 ([AudioVideoMuxCompatibility.WEBM_OPUS_MIN_SDK]). Both one-second tracks are made
+     * with ffmpeg (libvpx-vp9 160 × 90 at 15 fps, libopus 48 kHz).
+     */
+    @Test
+    fun aVp9VideoAndItsOpusSoundBecomeOneWebm() {
+        assumeTrue(Build.VERSION.SDK_INT >= AudioVideoMuxCompatibility.WEBM_OPUS_MIN_SDK)
+        val output = File(directory, "vp9.webm")
+
+        val result = AndroidMp4AudioVideoMuxer().mux(
+            asset("mux/video-vp9.webm"),
+            asset("mux/audio-opus.webm"),
+            output,
+            AudioVideoMuxCompatibility.WEBM_OUTPUT_MIME,
+        )
+
+        assertEquals(output.length(), (result as LocalMuxResult.Completed).bytesWritten)
+        assertMerged(output, MediaFormat.MIMETYPE_VIDEO_VP9, MediaFormat.MIMETYPE_AUDIO_OPUS)
     }
 
     /**
@@ -110,14 +132,18 @@ class AudioVideoMuxerInstrumentedTest {
         }
     }
 
-    private fun assertMerged(file: File, videoMimeType: String) {
+    private fun assertMerged(
+        file: File,
+        videoMimeType: String,
+        audioMimeType: String = MediaFormat.MIMETYPE_AUDIO_AAC,
+    ) {
         val extractor = MediaExtractor()
         try {
             extractor.setDataSource(file.path)
             val mimeTypes = (0 until extractor.trackCount).map { index ->
                 extractor.getTrackFormat(index).getString(MediaFormat.KEY_MIME)
             }
-            assertEquals(listOf(videoMimeType, MediaFormat.MIMETYPE_AUDIO_AAC), mimeTypes)
+            assertEquals(listOf(videoMimeType, audioMimeType), mimeTypes)
             val video = extractor.getTrackFormat(0)
             assertEquals(160, video.getInteger(MediaFormat.KEY_WIDTH))
             assertEquals(90, video.getInteger(MediaFormat.KEY_HEIGHT))

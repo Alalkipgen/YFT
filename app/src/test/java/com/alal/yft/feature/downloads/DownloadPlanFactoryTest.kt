@@ -192,6 +192,43 @@ class DownloadPlanFactoryTest {
     }
 
     @Test
+    fun `VP9 WebM video with its Opus track becomes a WebM merge from Android 10`() {
+        // P6: YouTube's 2K and 4K rows are VP9 WebM paired with the Opus WebM track.
+        val webm = variant(
+            url = "https://rr3---sn-a.googlevideo.com/videoplayback?itag=313&sig=private",
+            label = "2160p",
+            container = "webm",
+            mimeType = "video/webm",
+        ).copy(
+            codecs = listOf("vp9"),
+            audioCompanion = companion().copy(
+                mediaUrl = "https://rr3---sn-a.googlevideo.com/videoplayback?itag=251",
+                mimeType = "audio/webm",
+                codecs = listOf("opus"),
+            ),
+        )
+
+        val request = (factory(webm, sdkInt = 29) as DownloadPlanResult.Ready).request
+            as DownloadRequest.Mux
+        val android9 = factory(webm, sdkInt = 28) as DownloadPlanResult.Rejected
+
+        assertEquals("Fixture 2160p.webm", request.fileName)
+        assertEquals("video/webm", request.mimeType)
+        assertEquals("video/webm", request.plan.outputMimeType)
+        assertEquals("Fixture 2160p.video.webm", request.plan.video.suggestedFileName)
+        assertEquals("Fixture 2160p.audio.webm", request.plan.audio.suggestedFileName)
+        assertEquals(listOf("vp9"), request.plan.video.codecs)
+        assertEquals(listOf("opus"), request.plan.audio.codecs)
+        assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, android9.reason)
+        // WebM video with AAC sound has no output the phone can write.
+        val aac = webm.copy(audioCompanion = companion())
+        assertEquals(
+            DownloadFailureReason.INCOMPATIBLE_TRACKS,
+            (factory(aac, sdkInt = 34) as DownloadPlanResult.Rejected).reason,
+        )
+    }
+
+    @Test
     fun `youtube media files are fetched in bounded requests`() {
         val youTube = variant(url = "https://rr1---sn-b.googlevideo.com/videoplayback?itag=18")
         val elsewhere = variant(url = "https://googlevideo.com.example.test/clip.mp4")

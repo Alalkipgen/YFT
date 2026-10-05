@@ -11,6 +11,7 @@ import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.Mp3Variants
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.detection.VideoPlaybackSupport
 import com.alal.yft.feature.preview.sizeText
 import java.net.URI
 import java.util.Locale
@@ -84,7 +85,7 @@ data class QuickChoices(
  * the row is the one with sound, a complete file before one merged on the phone (P4: Facebook's
  * HD file before its 720p video and audio tracks), a whole file before a stream, MP4 before
  * other containers, then the higher frame rate and bitrate. Labels never come from the page
- * title.
+ * title. A 2K or higher row the phone has no decoder for keeps a [MAY_NOT_PLAY] chip (P6).
  */
 object QuickDownloadChoices {
     /** The heights rows are named after, from 144p to 8K. */
@@ -93,7 +94,14 @@ object QuickDownloadChoices {
     const val NO_SOUND = "No sound"
     const val SLOW = "Slow"
 
-    fun of(group: MediaGroup, sources: List<SheetSource>): QuickChoices? {
+    /** P6: on a 2K or 4K row whose picture this phone has no decoder for. */
+    const val MAY_NOT_PLAY = "May not play on this phone"
+
+    fun of(
+        group: MediaGroup,
+        sources: List<SheetSource>,
+        playback: VideoPlaybackSupport = VideoPlaybackSupport.ANY,
+    ): QuickChoices? {
         val video = mutableListOf<SheetOption>()
         val audio = mutableListOf<SheetOption>()
         sources.forEachIndexed { index, source ->
@@ -104,7 +112,7 @@ object QuickDownloadChoices {
                     if (variant.trackType == MediaTrackType.AUDIO) {
                         audio += audioOption(index, source, variant)
                     } else {
-                        video += videoOption(index, source, variant)
+                        video += videoOption(index, source, variant, playback)
                     }
                 }
         }
@@ -176,7 +184,12 @@ object QuickDownloadChoices {
         return listOf(m4a) + mp3Options(m4a)
     }
 
-    private fun videoOption(index: Int, source: SheetSource, variant: MediaVariant): SheetOption {
+    private fun videoOption(
+        index: Int,
+        source: SheetSource,
+        variant: MediaVariant,
+        playback: VideoPlaybackSupport,
+    ): SheetOption {
         val height = variant.height?.takeIf { it > 0 }
         val standard = height?.let { standardHeight(variant.width, it) }
         val hint = if (standard == null) qualityHint(source.candidate) else null
@@ -199,13 +212,15 @@ object QuickDownloadChoices {
             formatName(variant),
         ).joinToString(" · ")
         val silent = variant.trackType == MediaTrackType.VIDEO
+        // Every phone YFT runs on plays Full HD; above it only some decode VP9 or AV1 (P6).
+        val unplayable = (standard ?: 0) > FULL_HD_HEIGHT && !playback.canPlay(variant)
         return SheetOption(
             id = optionId(index, variant),
             section = OptionSection.VIDEO,
             title = title,
             detail = detail,
             size = variant.sizeText(),
-            chips = if (silent) listOf(NO_SOUND) else emptyList(),
+            chips = listOfNotNull(NO_SOUND.takeIf { silent }, MAY_NOT_PLAY.takeIf { unplayable }),
             source = source,
             variant = variant,
             quality = quality,
@@ -346,6 +361,7 @@ object QuickDownloadChoices {
     private const val HIGH_FRAME_RATE = 31.0
     private const val HD_HEIGHT = 720
     private const val SD_HEIGHT = 480
+    private const val FULL_HD_HEIGHT = 1_080
     private const val QUALITY_UNKNOWN = "Quality unknown"
     private val QUALITY_WORD = Regex("(?i)hd|sd|\\d{3,4}p\\d{0,3}")
 }

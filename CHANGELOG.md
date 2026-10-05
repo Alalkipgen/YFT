@@ -22,6 +22,10 @@ for every APK given to users, because Android refuses to install a lower one.
 - Download button on feeds: on YouTube, Facebook and TikTok the browser's Download button shows
   even on a feed. Tapping it finds the video on screen (the one playing, else the one in the
   middle), looks it up and opens its Download sheet; with no video on screen it says so.
+- YouTube 2K and 4K: when a video has 1440p or 2160p, the sheet offers "1440p · 2K" and
+  "2160p · 4K". YouTube has no AVC above 1080p, so these are its VP9 video merged on the phone
+  with the Opus sound into one `.webm` (Android 10 and later). A row this phone has no decoder
+  for at that size still downloads and says "May not play on this phone".
 
 ### Changed
 

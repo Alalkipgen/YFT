@@ -35,11 +35,13 @@
   Safari's page without the session; AV1 merges are off (the API 34 emulator's muxer failed);
   P5 OWNER CHECK (2026-10-05) — on YouTube, Facebook and TikTok feeds the browser's Download
   button finds the video on screen (the playing one, else the one in the middle), looks it up
-  and opens its Download sheet; no video on screen gives a short notice.
+  and opens its Download sheet; no video on screen gives a short notice; P6 OWNER CHECK
+  (2026-10-05) — YouTube 1440p (2K) and 2160p (4K) rows: VP9 WebM merged with the Opus track into
+  one `.webm` on Android 10+, "May not play on this phone" where no decoder takes that size.
 - **Owner instruction (2026-10-05):** P3-FIX, then P4, P5, P6 without stopping or asking
   ([`prompts/CONTINUE-P4-TO-P6.md`](prompts/CONTINUE-P4-TO-P6.md)); not P7/P8.
-- **Next action — agent:** P6 — 2K and 4K ([`prompts/P6-2k-4k-webm.md`](prompts/P6-2k-4k-webm.md)).
-  Not P7/P8 (owner, 2026-10-05).
+- **Next action — agent:** none until the owner's phone checks of P1–P6 (FIX_ADD_PLAN §6).
+  P7 (preview APK) and P8 (signed beta.4) only when the owner asks (owner, 2026-10-05).
 - **Next action — owner:** publish the beta.3 draft when ready; phone checks per task from the
   `yft-debug-apk` builds (FIX_ADD_PLAN §6); the P7 preview APK installs next to the release app.
 - **Earlier handoffs:** the Phases 8–10 task log (T01–T19 validation, CI runs, decisions) is in Git
@@ -51,7 +53,7 @@
   (P1, fixed on the branch); some Facebook pages show black in the browser (P2, fixed on the
   branch); the download choices are split over several screens (P3, fixed on the branch).
 - Facebook's AV1-only sizes (often 1080p) are not offered while AV1 merges are off (P4);
-  YouTube stops at 1080p AVC (2K/4K WebM is P6).
+  YouTube 2K/4K needs Android 10+ (VP9 + Opus WebM, P6) and AV1-only 2K/4K stays hidden.
 - YouTube lookups from datacenter networks can stay bot-checked; the phone on a home or mobile
   network is the real test.
 - No playlists or batch downloads, background playback or folder export; an expired link cannot
