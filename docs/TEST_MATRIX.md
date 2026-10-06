@@ -952,3 +952,20 @@ own heading below. Owner's Preview #3 findings (2026-10-06): FIX_ADD_PLAN §2 an
 | Audio from a video whose sound is not AAC | `DownloadLabelsTest` "audioMadeFromAVideoWhoseSoundIsNotAacSaysToDownloadTheVideo": M4A and MP3 → "Failed · Sound can't be saved as audio", Details "What to do: … Download the video instead."; an MP4 keeps "Failed · Incompatible tracks" |
 | Full validation (2026-10-06) | `./gradlew --no-daemon --continue testDebugUnitTest lintDebug :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test :app:assembleDebug` → 1292 tests, 0 failures, 66 skipped; lint 0 errors; `:app:assembleRelease` OK; line check clean |
 | Owner check | Preview #4: FIX_ADD_PLAN §6 "Preview #4" items 1–7 |
+
+## Phase 13 (Preview #4 polish)
+
+Plan: `docs/FIX_ADD_PLAN.md` (P27–P33). Each agent fills only its own subsection; P33 adds the
+summary row. Starting state (P26, `bc806f9`): 1292 tests, 0 failures, 66 skipped.
+
+### Agent A — P27
+
+- (Agent A: P27 tests, measured merge times, regression proof and CI links.)
+
+### Agent B — P28, P29
+
+- (Agent B: P28 and P29 tests, live check, regression proof and CI links.)
+
+### Agent C — P30, P31, P32
+
+- (Agent C: P30, P31 and P32 tests, migration 5 → 6, regression proof and CI links.)

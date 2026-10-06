@@ -1,9 +1,9 @@
 # P8 — Signed release 1.0.0-beta.4
 
-**ရည်ရွယ်ချက်:** Phase 12 (P20–P26) ပြီးလို့ owner က **Preview #4** ကို ဖုန်းမှာ စမ်းပြီး stable ဖြစ်ကြောင်း
+**ရည်ရွယ်ချက်:** Phase 13 (P27–P33) ပြီးလို့ owner က **Preview #5** ကို ဖုန်းမှာ စမ်းပြီး stable ဖြစ်ကြောင်း
 OK ပေးမှ release key နဲ့ signed `1.0.0-beta.4` ထုတ်မယ်။
 
-**အချက်အလက်:** Phase 12 · Easy · AI agent အချိန် 1–2 နာရီ · လိုအပ်ချက်: P26 + Preview #4 + owner OK
+**အချက်အလက်:** Phase 13 · Easy · AI agent အချိန် 1–2 နာရီ · လိုအပ်ချက်: P33 + Preview #5 + owner OK
 
 **သုံးနည်း:** Owner OK ရပြီဆိုမှ အောက်က code block တစ်ခုလုံးကို agent chat အသစ်ထဲ paste လုပ်ပြီး
 `OWNER ANSWERS: P8=OK` နဲ့ `ALLOW_MERGE_MAIN: true`၊ `ALLOW_RELEASE: true` ပြောင်းပါ။
@@ -15,25 +15,26 @@ Material 3, Hilt, Media3).
 
 Repository: https://github.com/Alalkipgen/YFT
 Task: P8 — Signed release 1.0.0-beta.4
-Branch: work/phase-12-integration
+Branch: work/phase-13-integration
 ALLOW_PUSH: true          (checkpoint pushes to this branch only)
 ALLOW_MERGE_MAIN: false   (true only after the owner's OK for P8)
 ALLOW_RELEASE: false      (true only after the owner's OK for P8: release-key signing)
-OWNER ANSWERS: none       (P8=OK after the owner's phone test of Preview #4)
+OWNER ANSWERS: none       (P8=OK after the owner's phone test of Preview #5)
 
 The repository is the source of truth; do not rely on chat history. If the plan and the code
 disagree, the verified code wins: adapt, and write "Plan adapted: ..." in the task's Result.
 
 START
 1. Follow AGENTS.md: git fetch --all --prune; git status; git log -5 --oneline.
-   git switch work/phase-12-integration && git pull --ff-only
+   git switch work/phase-13-integration && git pull --ff-only
 2. Read docs/FIX_ADD_PLAN.md sections 0, 1, 3 and task P8, docs/RELEASE.md, then
-   docs/SESSION_STATE.md. P26 must be DONE and Preview #4 sent.
+   docs/SESSION_STATE.md. P33 must be DONE and Preview #5 sent.
 3. Stop and report in Burmese unless the owner has written OK for P8 after his test of
-   Preview #4 (OWNER ANSWERS or FIX_ADD_PLAN section 3); record the OK there with the date.
+   Preview #5 (OWNER ANSWERS or FIX_ADD_PLAN section 3); record the OK there with the date.
 4. Environment (FIX_ADD_PLAN 0.3): JDK 17, Android SDK 35, NDK 27.3.13750724, CMake 3.22.1.
-   Notion sandbox: `source /data/yft-env.sh` first; stop stale daemons with
-   pkill -f "[G]radleDaemon"; full validation with 640 MiB metaspace. Starting state: the full
+   Notion sandbox: `source /data/yft-env.sh` first; stop only Gradle daemons you started; full
+   validation with 640 MiB metaspace. Push with SSH: if /data/.ssh/id_ed25519 is missing make a
+   NEW key (never search for old ones), show the owner the public line and wait for his OK. Starting state: the full
    validation below.
 5. Set P8 to IN PROGRESS in the FIX_ADD_PLAN status board.
 
@@ -61,7 +62,7 @@ VALIDATE (report only what you ran)
    git diff -U0 origin/main -- '*.kt' '*.kts' | grep '^+[^+]' | LC_ALL=C.UTF-8 awk 'length > 101'
 
 FINISH
-1. Update README.md, docs/HANDOFF.md, docs/PHASE_STATUS.md (Phases 11 and 12 COMPLETE),
+1. Update README.md, docs/HANDOFF.md, docs/PHASE_STATUS.md (Phases 11, 12 and 13 COMPLETE),
    docs/SUPPORT_MATRIX.md, docs/TEST_MATRIX.md, CHANGELOG.md, the P8 Result and status in
    FIX_ADD_PLAN (P8 -> DONE (date)) and docs/SESSION_STATE.md (last task P8, next action).
 2. Keep temporary files outside the repository, then checkpoint (Notion sandbox: start the

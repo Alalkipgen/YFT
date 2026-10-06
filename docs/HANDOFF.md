@@ -1,60 +1,57 @@
 # Handoff
 
-## Current handoff (2026-10-06)
+## Current handoff (2026-10-07)
 
-- **Phase:** 12 — Preview #3 field fixes (saving, every quality, one sheet). Plan, file ownership,
-  decisions, root causes and tasks: [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md); prompts:
-  [`prompts/`](prompts/README.md).
-- **Owner's test of Preview #3** (2026-10-06, Preview APK run
-  https://github.com/Alalkipgen/YFT/actions/runs/37455870506, `4db6c2b` = `main`): every video
-  download fails at once with "Storage unavailable" (Retry too; audio works); YouTube offers only
-  360p; Facebook gives HD/SD without Audio from Home and only 360p in the browser; another site
-  opens a 29 s preview ("50 media found"); the sheet differs per site. Root causes R1–R6
-  (FIX_ADD_PLAN §4): the direct engine reads a fresh MediaStore row before creating its file;
-  Retry repeats the same steps; YouTube's visionOS is asked without visitor data and the chain
-  stops at ANDROID's 360p; Facebook's lookup ends with HD/SD or skips the AVC ladder; other sites
-  never match an MSE player and rank previews first; the sheet shows different data per site.
-- **Plan (Plan Mode, 2026-10-06):** three agents at once — A: P20 (saving) → P21 (Retry and
-  failure details); B: P22 (YouTube every quality) → P23 (Facebook every quality); C: P24 (other
-  sites' main video) → P25 (one sheet everywhere). Then P26 (A merges A → B → C into
-  `work/phase-12-integration`, full validation, **Preview #4**) and P8 (signed `1.0.0-beta.4`)
-  with the owner's OK.
-- **Branches:** `work/phase-12-integration` (= `main` `4db6c2b` + the plan); agents branch from
-  it: `work/phase-12-download-fix` (A), `work/phase-12-site-qualities` (B),
-  `work/phase-12-generic-sheet` (C). Status per agent: `SESSION_STATE.md`.
-- **P26 (2026-10-06):** done by Agent C as integrator (the owner asked; Agent A was out of
-  tokens). `work/phase-12-integration` = A (P20, P21) → B (P22, P23) → C (P24, P25), merged
-  without conflicts, plus Agent C's three hand-offs (direct downloads ask the file again when
-  HEAD lands on a web page; another host gets the page's `Origin` and an origin-only `Referer`;
-  audio from a video whose sound is not AAC says "Download the video instead"). Full validation
-  and `:app:assembleRelease` green; `main` fast-forwarded to it with the owner's OK (no tag).
-- **Next action — owner:** install **Preview #4** (Preview APK run of the P26 checkpoint ›
-  Artifacts › `yft-preview-apk`; uninstall the older YFT Preview first) and check
-  FIX_ADD_PLAN §6 "Preview #4"; send screenshots of the sheet's or the download's **Details**
-  for anything that fails. Then P8 (signed `1.0.0-beta.4`) with the owner's OK.
+- **Phase:** 13 — Preview #4 polish (other sites' pre-roll ads, the YouTube merge at 99%, the
+  browser's search, history and pop-ups). Plan, file ownership, decisions, root causes and
+  tasks: [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md); prompts: [`prompts/`](prompts/README.md).
+- **Owner's test of Preview #4** (2026-10-07, Preview APK run
+  https://github.com/Alalkipgen/YFT/actions/runs/37530061595, `bc806f9` = `main`): "about 90%
+  fine". Open: on a free video site without an adapter, Download during the pre-roll opens the
+  ad (0:30, 1080p MP4) instead of the page's video (16:24, 720p HLS, only under Other videos),
+  and one page fails with HTTP 410 (Snaptube shows the page's title, picture, 480p and 720p);
+  long YouTube live recordings wait a long time at 99%; the browser searches DuckDuckGo, has no
+  history, and ads redirect the tab. Root causes R7–R15 (FIX_ADD_PLAN §4): the playing element
+  outranks the page's own video; the page's stated length, title and picture are dropped; free
+  video sites' ad networks are unknown; no second try after a dead address; the merge writes
+  the file twice without progress; DuckDuckGo is hard-coded; no history store; multiple windows
+  off and every top-level navigation allowed.
+- **Plan (Plan Mode, 2026-10-07):** three agents at once — A: P27 (merge progress and a direct
+  mux into Download/YFT); B: P28 (the page's video, not the ad) → P29 (the next video when one
+  fails); C: P30 (Google search) → P31 (history) → P32 (pop-ups and ad redirects). Then P33 (A
+  merges A → B → C into `work/phase-13-integration`, full validation, **Preview #5**) and P8
+  (signed `1.0.0-beta.4`) with the owner's OK.
+- **Branches:** `work/phase-13-integration` (= `main` `bc806f9` + the plan); agents branch from
+  it: `work/phase-13-merge-speed` (A), `work/phase-13-generic-main` (B), `work/phase-13-browser`
+  (C). Status per agent: `SESSION_STATE.md`.
+- **Next action — owner:** paste `prompts/A-merge-speed.md`, `prompts/B-generic-main.md` and
+  `prompts/C-browser.md` into three new agent chats; when all three say READY FOR MERGE, paste
+  `prompts/M-merge-preview5.md` into Agent A's chat. If an agent shows a new SSH public key, add
+  it under GitHub › YFT › Settings › Deploy keys with write access.
 - **Releases:** `1.0.0-beta.1` published 2026-10-02; `1.0.0-beta.2` signed draft 2026-10-03;
   `1.0.0-beta.3` (versionCode 3, tag `v1.0.0-beta.3` on `2f6284f`) signed draft 2026-10-04:
   `video-downloader-1.0.0-beta.3.apk` 6,334,176 bytes, SHA-256
   `8fe466f17b62e88cdd5deb08482f7dc4c70a1a3dba7182bf94b93c6d1604e955`, certificate SHA-256
   `3A:EB:30:64:91:E2:DD:6F:F7:6D:C5:A8:68:E6:FC:C9:D3:30:BB:99:85:BF:4D:15:B3:4A:67:04:EC:78:98:8F`
-  (notes: [`release/1.0.0-beta.3.md`](release/1.0.0-beta.3.md)). Phase 11 is merged into `main`
-  (`4db6c2b`, no tag); `1.0.0-beta.4` waits for Preview #4 (P8).
-- **Phase 11** (P0–P19, 2026-10-04 to 2026-10-06): browser navigation, Facebook pages, one sheet,
-  Facebook qualities, feeds, 2K/4K, preview APK (part 1); short sheet, slow networks, stable
-  rows, one lookup per page, wide Download button, thumbnails, visionOS first, Facebook public
-  page first, instant sheet, lookup reuse, early Download (part 2). Record: FIX_ADD_PLAN §8 and
-  `git show 4db6c2b:docs/HANDOFF.md`.
+  (notes: [`release/1.0.0-beta.3.md`](release/1.0.0-beta.3.md)). Phases 11 and 12 are merged
+  into `main` (`bc806f9`, no tag); `1.0.0-beta.4` waits for Preview #5 (P8).
+- **Phase 12** (P20–P26, 2026-10-06): video downloads save again, Retry and failure details,
+  YouTube and Facebook every quality, other sites' main video, one sheet everywhere, merge and
+  Preview #4. Record: FIX_ADD_PLAN §8 and `git show bc806f9:docs/HANDOFF.md`.
+- **Phase 11** (P0–P19, 2026-10-04 to 2026-10-06): record in `git show 4db6c2b:docs/HANDOFF.md`.
 
-## Known limitations (Preview #3, `main` `4db6c2b`)
+## Known limitations (Preview #4, `main` `bc806f9`)
 
-- Direct video downloads into `Download/YFT` fail with "Storage unavailable" (R1, P20); Retry
-  does not help (R2, P21).
-- YouTube can offer only 360p on networks where visionOS is bot-checked (R3, P22); YouTube
-  lookups from data-centre networks can stay bot-checked, so the phone is the real test.
-- Facebook can miss 720p and Audio (R4, P23); AV1-only sizes stay hidden while AV1 merges are off.
-- Other sites can open a preview clip instead of the main video (R5, P24).
-- No playlists or batch downloads, background playback or folder export; an expired link cannot
-  be refreshed in place after the process was killed.
+- Other sites without an adapter can open a pre-roll ad instead of the page's video, and a dead
+  file address (HTTP 410) ends the sheet (R7–R11, P28, P29).
+- Long merged YouTube downloads wait at 99% without progress while the file is merged and
+  copied (R12, P27). YouTube lookups from data-centre networks can stay bot-checked, so the
+  phone is the real test.
+- The browser searches DuckDuckGo only, keeps no history, and page scripts or ads can send the
+  tab to another site (R13–R15, P30–P32).
+- AV1-only sizes stay hidden while AV1 merges are off. No playlists or batch downloads,
+  background playback or folder export; an expired link cannot be refreshed in place after the
+  process was killed.
 
 ## Device testing
 

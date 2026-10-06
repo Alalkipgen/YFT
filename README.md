@@ -67,10 +67,10 @@ Verified with JVM, Robolectric and fixture tests; on-device checks that the agen
 ## For agents
 
 Read [`AGENTS.md`](AGENTS.md) first. Work is planned task by task in
-[`docs/FIX_ADD_PLAN.md`](docs/FIX_ADD_PLAN.md) (Phase 12: three agents in parallel, each with its
+[`docs/FIX_ADD_PLAN.md`](docs/FIX_ADD_PLAN.md) (Phase 13: three agents in parallel, each with its
 own branch and files); ready-to-paste prompts are in [`docs/prompts/`](docs/prompts/README.md)
-(one per agent: `A-download-fix.md`, `B-site-qualities.md`, `C-generic-and-sheet.md`, then
-`M-merge-preview4.md`). Development happens on `work/phase-*` branches with a remote checkpoint
+(one per agent: `A-merge-speed.md`, `B-generic-main.md`, `C-browser.md`, then
+`M-merge-preview5.md`). Development happens on `work/phase-*` branches with a remote checkpoint
 (`scripts/checkpoint.sh`) after every task; local commits and stashes are not handoffs.
 
 Docs: [`PROJECT_CONTEXT`](docs/PROJECT_CONTEXT.md) (goals, privacy) ·

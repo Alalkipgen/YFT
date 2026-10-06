@@ -7,6 +7,18 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ## [Unreleased]
 
+### Phase 13 — Agent A (P27)
+
+- (Agent A writes its P27 entries here; P33 folds them into Added / Changed / Fixed.)
+
+### Phase 13 — Agent B (P28, P29)
+
+- (Agent B writes its P28 and P29 entries here; P33 folds them into Added / Changed / Fixed.)
+
+### Phase 13 — Agent C (P30, P31, P32)
+
+- (Agent C writes its P30, P31 and P32 entries here; P33 folds them into Added / Changed / Fixed.)
+
 ### Added
 
 - Audio from MP4: when a video has no separate audio file (Facebook, TikTok), the sheet's Audio
@@ -107,6 +119,13 @@ for every APK given to users, because Android refuses to install a lower one.
   own branch, files and prompt (`docs/prompts/A-download-fix.md`, `B-site-qualities.md`,
   `C-generic-and-sheet.md`, `M-merge-preview4.md`). The Phase 11 prompts (P9–P19,
   `00_NEXT_TASK.md`, `MASTER_PROMPT.md`) were removed; they stay in Git history (`4db6c2b`).
+- Documentation: after the owner's test of Preview #4, `docs/FIX_ADD_PLAN.md` plans Phase 13
+  (P27–P33: the YouTube merge without a silent 99%, other sites' video instead of the pre-roll
+  ad, the next video when one fails, Google search, browser history, pop-up and ad-redirect
+  blocking, the merge and Preview #5) for three agents working at once, each with its own
+  branch, files and prompt (`docs/prompts/A-merge-speed.md`, `B-generic-main.md`,
+  `C-browser.md`, `M-merge-preview5.md`). The Phase 12 prompts were removed; they stay in Git
+  history (`bc806f9`).
 
 ### Fixed
 
