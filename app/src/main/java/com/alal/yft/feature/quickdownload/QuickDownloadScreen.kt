@@ -45,6 +45,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.feature.preview.MeteredDownloadDialog
 import com.alal.yft.feature.preview.PreviewDownloadStatus
 import com.alal.yft.thumbnail.rememberRemoteThumbnail
@@ -73,6 +74,7 @@ fun QuickDownloadRoute(
     QuickDownloadScreen(
         state = state,
         onSelect = viewModel::select,
+        onPickEarly = viewModel::pickEarly,
         onDownload = {
             requestNotificationPermission()
             viewModel.download()
@@ -114,6 +116,7 @@ fun QuickDownloadScreen(
     onOpenDownloads: () -> Unit = {},
     onClose: () -> Unit = {},
     onOpenOtherVideos: () -> Unit = {},
+    onPickEarly: (OptionSection) -> Unit = {},
 ) {
     if (state.downloadStatus == PreviewDownloadStatus.ConfirmMetered) {
         MeteredDownloadDialog(onConfirm = onConfirmMetered, onDismiss = onDismissMetered)
@@ -222,7 +225,11 @@ fun QuickDownloadScreen(
                 )
             }
 
-            state.loading -> Waiting(state = state, onDownload = onDownload)
+            state.loading -> Waiting(
+                state = state,
+                onDownload = onDownload,
+                onPickEarly = onPickEarly,
+            )
             else -> Failure(
                 message = state.failure,
                 onRetry = onRetry.takeIf { state.canRetry },
@@ -399,10 +406,16 @@ private fun FormatRow(
 
 /**
  * P16: the sheet opens before the qualities are known. "Getting qualities…", then two Audio and
- * two Video placeholder rows where the real rows will appear, and Download, which waits for them.
+ * two Video placeholder rows where the real rows will appear, and Download. P18: the first row
+ * of each section is a choice — "M4A", or the Default quality ("720p") — and Download queues it
+ * ("Starts when ready…") until the rows arrive.
  */
 @Composable
-private fun ColumnScope.Waiting(state: QuickDownloadUiState, onDownload: () -> Unit) {
+private fun ColumnScope.Waiting(
+    state: QuickDownloadUiState,
+    onDownload: () -> Unit,
+    onPickEarly: (OptionSection) -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -430,34 +443,94 @@ private fun ColumnScope.Waiting(state: QuickDownloadUiState, onDownload: () -> U
             .testTag("quick-waiting-rows"),
     ) {
         listOf(
-            "Audio" to "quick-placeholder-audio",
-            "Video" to "quick-placeholder-video",
-        ).forEach { (label, tag) ->
+            Triple("Audio", "quick-placeholder-audio", OptionSection.AUDIO),
+            Triple("Video", "quick-placeholder-video", OptionSection.VIDEO),
+        ).forEach { (label, tag, section) ->
             SectionLabel(label, Modifier.testTag(tag))
-            repeat(PLACEHOLDER_ROWS) { PlaceholderRow(Modifier.testTag("quick-placeholder-row")) }
+            repeat(PLACEHOLDER_ROWS) { index ->
+                PlaceholderRow(
+                    modifier = Modifier.testTag("quick-placeholder-row"),
+                    choice = if (index == 0) {
+                        EarlyChoice(
+                            title = earlyTitle(section, state.defaultQuality),
+                            selected = state.earlySection == section,
+                            enabled = state.canChooseRow && !state.startsWhenReady,
+                            onClick = { onPickEarly(section) },
+                            tag = "quick-early-${section.name.lowercase()}",
+                        )
+                    } else {
+                        null
+                    },
+                )
+            }
         }
     }
     DownloadAction(state = state, onDownload = onDownload, onOpenDownloads = {})
 }
 
-/** A row's shape without its text: the radio mark, the quality, its detail and the size. */
+/** P18: a waiting section's first row, which an early Download takes. */
+private class EarlyChoice(
+    val title: String,
+    val selected: Boolean,
+    val enabled: Boolean,
+    val onClick: () -> Unit,
+    val tag: String,
+)
+
+/** P18: "M4A", or the Default quality: "720p", "Highest available", "Smallest file". */
+internal fun earlyTitle(section: OptionSection, quality: QualityPreference): String =
+    when {
+        section == OptionSection.AUDIO -> "M4A"
+        quality == QualityPreference.HIGHEST -> "Highest available"
+        quality == QualityPreference.LOWEST -> "Smallest file"
+        else -> "${quality.maxHeight}p"
+    }
+
+/**
+ * A row's shape without its text: the radio mark, the quality, its detail and the size. P18: a
+ * [choice] row names what it stands for and can be picked.
+ */
 @Composable
-private fun PlaceholderRow(modifier: Modifier = Modifier) {
+private fun PlaceholderRow(modifier: Modifier = Modifier, choice: EarlyChoice? = null) {
     val bar = YftTheme.colors.chip
+    val selected = choice?.selected == true
     Row(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
+            .clip(YftShapes.thumbnailSmall)
+            .background(if (selected) YftTheme.colors.accentSoft else Color.Transparent)
+            .then(
+                if (choice == null) {
+                    Modifier
+                } else {
+                    Modifier.selectable(
+                        selected = selected,
+                        enabled = choice.enabled,
+                        role = Role.RadioButton,
+                        onClick = choice.onClick,
+                    )
+                },
+            )
+            .then(modifier)
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        YftRadioMark(selected = false)
+        YftRadioMark(selected = selected)
         Column(
             modifier = Modifier
                 .weight(1f)
                 .padding(start = 14.dp),
         ) {
-            PlaceholderBar(color = bar, modifier = Modifier.fillMaxWidth(0.45f).height(14.dp))
+            if (choice == null) {
+                PlaceholderBar(color = bar, modifier = Modifier.fillMaxWidth(0.45f).height(14.dp))
+            } else {
+                Text(
+                    text = choice.title,
+                    modifier = Modifier.testTag(choice.tag),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
             PlaceholderBar(
                 color = bar,
                 modifier = Modifier.padding(top = 8.dp).fillMaxWidth(0.3f).height(12.dp),
@@ -505,10 +578,11 @@ private fun ColumnScope.DownloadAction(
     val colors = YftTheme.colors
     val status = state.downloadStatus
     YftPrimaryButton(
-        text = if (status == PreviewDownloadStatus.Enqueuing) {
-            "Queueing download…"
-        } else {
-            downloadLabel(state.selectedOption)
+        text = when {
+            // P18: Download tapped before the qualities came.
+            state.startsWhenReady -> STARTS_WHEN_READY
+            status == PreviewDownloadStatus.Enqueuing -> "Queueing download…"
+            else -> downloadLabel(state.selectedOption)
         },
         onClick = onDownload,
         modifier = Modifier
@@ -532,6 +606,19 @@ private fun ColumnScope.DownloadAction(
         }
 
         is PreviewDownloadStatus.Rejected -> status.message
+    }
+    // P18: which quality a Download tapped before the qualities took.
+    state.startedNote?.takeIf { status is PreviewDownloadStatus.Queued }?.let { note ->
+        Text(
+            text = note,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 14.dp)
+                .testTag("quick-download-note"),
+            color = colors.textPrimary,
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+            textAlign = TextAlign.Center,
+        )
     }
     message?.let { text ->
         Text(
@@ -574,6 +661,9 @@ internal const val SHEET_TITLE = "Download"
 
 /** P16: what the waiting sheet says until the lookup and the qualities answer. */
 internal const val WAITING_MESSAGE = "Getting qualities…"
+
+/** P18: Download's label once it was tapped before the qualities came. */
+internal const val STARTS_WHEN_READY = "Starts when ready…"
 private const val PLACEHOLDER_ROWS = 2
 private const val SIZE_UNKNOWN = "Size unknown"
 private val SHEET_TOP_GAP = 48.dp

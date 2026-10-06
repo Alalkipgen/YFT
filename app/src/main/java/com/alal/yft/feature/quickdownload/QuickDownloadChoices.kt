@@ -153,6 +153,37 @@ object QuickDownloadChoices {
     }
 
     /**
+     * P18: what a Download tapped before the qualities came takes once they are in: the first
+     * Audio row when Audio was picked, else the Default quality's row as [preselect] finds it
+     * (that height, else the nearest lower, else the nearest higher one). A video without an
+     * Audio row takes its video, and audio alone takes its audio.
+     */
+    fun earlyPick(
+        choices: QuickChoices,
+        section: OptionSection,
+        quality: QualityPreference,
+    ): SheetOption? = choices.audio.firstOrNull()?.takeIf { section == OptionSection.AUDIO }
+        ?: preselect(choices, quality)
+
+    /**
+     * P18: which quality an early Download took: "Downloading 720p", or "Downloading 480p —
+     * 720p not available" when the Default quality's height (or the audio) was not there.
+     */
+    fun earlyNote(pick: SheetOption, section: OptionSection, quality: QualityPreference): String {
+        val taken = pick.quality ?: pick.title
+        val wanted = if (section == OptionSection.AUDIO) {
+            "Audio".takeIf { pick.section != OptionSection.AUDIO }
+        } else {
+            quality.maxHeight?.takeIf { it > 0 && it != pick.rankHeight }?.let { "${it}p" }
+        }
+        return if (wanted == null) {
+            "Downloading $taken"
+        } else {
+            "Downloading $taken — $wanted not available"
+        }
+    }
+
+    /**
      * P9: two audio and two video rows. The full choices and their IDs stay untouched, so
      * expanding/collapsing never changes the selection or lists an option twice.
      * If no lower video exists, the nearest higher one is the second choice.

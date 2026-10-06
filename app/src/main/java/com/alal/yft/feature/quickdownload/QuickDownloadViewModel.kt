@@ -79,11 +79,21 @@ data class QuickDownloadUiState(
     val defaultQuality: QualityPreference = DownloadPreferences().defaultQuality,
     val selectedId: String? = null,
     val downloadStatus: PreviewDownloadStatus = PreviewDownloadStatus.Idle,
+    /** P18: what Download takes while the sheet waits: the Default quality's video, or audio. */
+    val earlySection: OptionSection = OptionSection.VIDEO,
+    /** P18: Download was tapped before the qualities came; it starts as soon as they do. */
+    val startsWhenReady: Boolean = false,
+    /** P18: the quality an early Download took ("Downloading 480p — 720p not available"). */
+    val startedNote: String? = null,
 ) {
     val selectedOption: SheetOption? get() = choices?.option(selectedId)
 
+    /** P18: the sheet still says "Getting qualities…"; Download then queues [earlySection]. */
+    val waitsForQualities: Boolean
+        get() = choices == null && loading && failure == null && header != null
+
     val canDownload: Boolean
-        get() = selectedOption != null &&
+        get() = (selectedOption != null || waitsForQualities && !startsWhenReady) &&
             downloadStatus != PreviewDownloadStatus.Enqueuing &&
             downloadStatus != PreviewDownloadStatus.ConfirmMetered
 }
@@ -138,8 +148,16 @@ class QuickDownloadViewModel @Inject constructor(
     private var loading: Job? = null
     private val sizeProbes = Semaphore(2)
 
+    /** P18: the user said yes to mobile data when tapping Download before the qualities came. */
+    private var earlyMeteredConfirmed = false
+
     init {
         if (pageLookup != null) awaitPageVideo() else load()
+        // P18: the waiting sheet names the Default quality an early Download takes.
+        viewModelScope.launch {
+            val quality = currentPreferences().defaultQuality
+            mutableUiState.update { it.copy(defaultQuality = quality) }
+        }
     }
 
     /** P16: closing the sheet before its video came stops the lookup it waited on. */
@@ -172,7 +190,19 @@ class QuickDownloadViewModel @Inject constructor(
         mutableUiState.update { state ->
             if (!state.canChangeSelection) return@update state
             if (state.choices?.option(selectionId) == null) return@update state
-            state.copy(selectedId = selectionId, downloadStatus = PreviewDownloadStatus.Idle)
+            state.copy(
+                selectedId = selectionId,
+                downloadStatus = PreviewDownloadStatus.Idle,
+                startedNote = null,
+            )
+        }
+    }
+
+    /** P18: the Audio or the Video placeholder picked while the qualities are still coming. */
+    fun pickEarly(section: OptionSection) {
+        mutableUiState.update { state ->
+            if (!state.waitsForQualities || !state.canChangeSelection) return@update state
+            state.copy(earlySection = section)
         }
     }
 
@@ -189,16 +219,16 @@ class QuickDownloadViewModel @Inject constructor(
 
     fun download() {
         val state = mutableUiState.value
-        val option = state.selectedOption ?: return
         if (!state.canDownload) return
+        val option = state.selectedOption
+        if (option == null) {
+            waitForQualities()
+            return
+        }
         setStatus(PreviewDownloadStatus.Enqueuing)
         viewModelScope.launch {
             val preferences = currentPreferences()
-            val metered = DownloadNetworkPolicy.needsMeteredConfirmation(
-                network.snapshot.value,
-                preferences,
-            )
-            if (metered) {
+            if (needsMeteredConfirmation(preferences)) {
                 setStatus(PreviewDownloadStatus.ConfirmMetered)
             } else {
                 enqueue(option, preferences)
@@ -208,16 +238,93 @@ class QuickDownloadViewModel @Inject constructor(
 
     fun confirmMeteredDownload() {
         val state = mutableUiState.value
-        val option = state.selectedOption ?: return
         if (state.downloadStatus != PreviewDownloadStatus.ConfirmMetered) return
+        if (state.startsWhenReady) {
+            // P18: yes to mobile data before the qualities came; their arrival starts it.
+            earlyMeteredConfirmed = true
+            setStatus(PreviewDownloadStatus.Idle)
+            startWhenReady()
+            return
+        }
+        val option = state.selectedOption ?: return
         setStatus(PreviewDownloadStatus.Enqueuing)
         viewModelScope.launch { enqueue(option, currentPreferences()) }
     }
 
     fun dismissMeteredDownload() {
         if (mutableUiState.value.downloadStatus != PreviewDownloadStatus.ConfirmMetered) return
-        setStatus(PreviewDownloadStatus.Idle)
+        // P18: no to mobile data also drops a Download queued before the qualities came.
+        mutableUiState.update {
+            it.copy(
+                downloadStatus = PreviewDownloadStatus.Idle,
+                startsWhenReady = false,
+                startedNote = null,
+            )
+        }
     }
+
+    /**
+     * P18: Download before the qualities came. The mobile-data question is asked now, while the
+     * user looks at the sheet; the pick starts once the rows arrive ([startWhenReady]).
+     */
+    private fun waitForQualities() {
+        earlyMeteredConfirmed = false
+        mutableUiState.update {
+            it.copy(
+                startsWhenReady = true,
+                startedNote = null,
+                // Until the question is settled the rows must not start it.
+                downloadStatus = PreviewDownloadStatus.Enqueuing,
+            )
+        }
+        viewModelScope.launch {
+            if (needsMeteredConfirmation(currentPreferences())) {
+                setStatus(PreviewDownloadStatus.ConfirmMetered)
+            } else {
+                setStatus(PreviewDownloadStatus.Idle)
+                startWhenReady()
+            }
+        }
+    }
+
+    /**
+     * P18: the rows came, so the queued Download takes the Default quality (else the nearest
+     * lower, else the nearest higher one) or the audio, and goes through today's checks.
+     */
+    private fun startWhenReady() {
+        val state = mutableUiState.value
+        if (!state.startsWhenReady || state.downloadStatus != PreviewDownloadStatus.Idle) return
+        val choices = state.choices ?: return
+        val pick = QuickDownloadChoices.earlyPick(choices, state.earlySection, state.defaultQuality)
+        if (pick == null) {
+            mutableUiState.update { it.copy(startsWhenReady = false) }
+            return
+        }
+        mutableUiState.update {
+            it.copy(
+                startsWhenReady = false,
+                selectedId = pick.id,
+                startedNote = QuickDownloadChoices.earlyNote(
+                    pick,
+                    state.earlySection,
+                    state.defaultQuality,
+                ),
+                downloadStatus = PreviewDownloadStatus.Enqueuing,
+            )
+        }
+        viewModelScope.launch {
+            val preferences = currentPreferences()
+            // Wi-Fi may have gone since the tap: mobile data is asked about once.
+            if (!earlyMeteredConfirmed && needsMeteredConfirmation(preferences)) {
+                setStatus(PreviewDownloadStatus.ConfirmMetered)
+            } else {
+                enqueue(pick, preferences)
+            }
+        }
+    }
+
+    private fun needsMeteredConfirmation(preferences: DownloadPreferences): Boolean =
+        DownloadNetworkPolicy.needsMeteredConfirmation(network.snapshot.value, preferences)
 
     /**
      * P12: shows the browser's lookup until it selects the page's video, then reads that
@@ -230,7 +337,7 @@ class QuickDownloadViewModel @Inject constructor(
                 .onEach { (selection, lookup) ->
                     if (selection == null && lookup != null) {
                         pageLookup = lookup
-                        mutableUiState.update { lookupState(lookup) }
+                        mutableUiState.update { lookupState(lookup).keepingEarly(it) }
                     }
                 }
                 .first { (selection, lookup) -> selection != null || lookup == null }
@@ -240,7 +347,7 @@ class QuickDownloadViewModel @Inject constructor(
                 QuickDownloadUiState(
                     header = selected?.header(),
                     otherVideos = if (selected != null) store.otherVideos.value else 0,
-                )
+                ).keepingEarly(it)
             }
             if (selected != null) load()
         }
@@ -265,6 +372,20 @@ class QuickDownloadViewModel @Inject constructor(
         canRetry = lookup.canRetry,
         findingVideo = lookup.running,
     )
+
+    /**
+     * P18: a new waiting state keeps the user's pick and a queued Download; a failed lookup or a
+     * video that went away drops the queued Download (Try again needs a new tap).
+     */
+    private fun QuickDownloadUiState.keepingEarly(old: QuickDownloadUiState): QuickDownloadUiState {
+        val keeps = failure == null && header != null
+        return copy(
+            defaultQuality = old.defaultQuality,
+            earlySection = old.earlySection,
+            startsWhenReady = keeps && old.startsWhenReady,
+            downloadStatus = if (keeps) old.downloadStatus else PreviewDownloadStatus.Idle,
+        )
+    }
 
     private fun load() {
         val group = group ?: return
@@ -307,6 +428,8 @@ class QuickDownloadViewModel @Inject constructor(
         mutableUiState.update { state ->
             val picture = state.header?.thumbnailUrl
                 ?: sources.firstNotNullOfOrNull { ThumbnailUrls.https(it.asset?.thumbnailUrl) }
+            // P18: no format could be read: a Download queued before the qualities is dropped.
+            val failed = choices == null && !waiting
             state.copy(
                 header = choices?.let {
                     SheetHeader(it.title, it.source, it.durationMillis, it.isAudioOnly, picture)
@@ -322,8 +445,15 @@ class QuickDownloadViewModel @Inject constructor(
                     ?: choices?.let {
                         QuickDownloadChoices.preselect(it, state.defaultQuality)?.id
                     },
+                startsWhenReady = state.startsWhenReady && !failed,
+                downloadStatus = if (failed && state.startsWhenReady) {
+                    PreviewDownloadStatus.Idle
+                } else {
+                    state.downloadStatus
+                },
             )
         }
+        startWhenReady()
     }
 
     /** A failed background size check keeps the stated row, including its honest estimate. */

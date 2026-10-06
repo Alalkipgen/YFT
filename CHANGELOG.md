@@ -33,6 +33,12 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Changed
 
+- Download before the qualities arrive: while the sheet still says "Getting qualities…",
+  Download can be tapped. It takes the Default quality (the first Video row, e.g. "720p") or
+  "M4A" when that Audio row is picked, says "Starts when ready…" and starts as soon as the rows
+  come — the Default quality, else the nearest lower one, else the nearest higher one — with a
+  note such as "Downloading 480p — 720p not available". A failed lookup or closing the sheet
+  drops it; the mobile-data question, Wi-Fi only and the storage check apply as before.
 - One lookup per video: a video looked up minutes ago (Home's link, the browser's page or feed,
   a reopened sheet) opens its qualities at once instead of asking the site again. Answers are
   kept in memory only, for at most 10 minutes or until the video's links expire, up to 20

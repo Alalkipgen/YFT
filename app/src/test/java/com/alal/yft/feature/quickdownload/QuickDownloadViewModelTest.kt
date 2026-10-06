@@ -363,7 +363,8 @@ class QuickDownloadViewModelTest {
         assertEquals(YOUTUBE_PICTURE, waiting.header?.thumbnailUrl)
         assertTrue(waiting.loading)
         assertNull(waiting.choices)
-        assertFalse(waiting.canDownload)
+        // Plan adapted (P18): Download is ready while it waits; it queues the Default quality.
+        assertTrue(waiting.canDownload)
 
         // The lookup answers: the same sheet fills in with the video's rows.
         val found = QuickDownloadFixtures.youtube()
@@ -583,6 +584,187 @@ class QuickDownloadViewModelTest {
         assertNull(lookups.get(key, LOOKED_UP_AT))
     }
 
+    @Test
+    fun aDownloadTappedWhileTheSheetWaitsStartsWithTheDefaultQualityOnceTheRowsCome() = runTest {
+        // P18: Download works while the sheet still says "Getting qualities…" (was disabled).
+        val viewModel = waitingSheet()
+        val waiting = viewModel.uiState.value
+        assertTrue(waiting.waitsForQualities)
+        assertTrue(waiting.canDownload)
+        assertEquals(OptionSection.VIDEO, waiting.earlySection)
+        viewModel.download()
+        val queued = viewModel.uiState.value
+        assertTrue(queued.startsWhenReady)
+        assertFalse(queued.canDownload)
+        assertEquals(PreviewDownloadStatus.Idle, queued.downloadStatus)
+        assertTrue(starter.variants.isEmpty())
+
+        answer(QuickDownloadFixtures.youtube())
+        advanceUntilIdle()
+        val started = viewModel.uiState.value
+        assertEquals("720p", starter.variants.single().label)
+        assertEquals("720p · HD", started.selectedOption?.title)
+        assertEquals("Downloading 720p", started.startedNote)
+        assertEquals(PreviewDownloadStatus.Queued("Ocean waves.mp4"), started.downloadStatus)
+        assertFalse(started.startsWhenReady)
+    }
+
+    @Test
+    fun anEarlyDownloadTakesTheNearestLowerElseTheNearestHigherQualityOrTheAudio() = runTest {
+        val lower = waitingSheet()
+        lower.download()
+        answer(listOf(video(1080, 80 * MIB), video(480, 18 * MIB), video(360, 11 * MIB)))
+        advanceUntilIdle()
+        assertEquals("480p", starter.variants.last().label)
+        assertEquals("Downloading 480p — 720p not available", lower.uiState.value.startedNote)
+
+        val higher = waitingSheet()
+        higher.download()
+        answer(listOf(video(1080, 80 * MIB)))
+        advanceUntilIdle()
+        assertEquals("1080p", starter.variants.last().label)
+        assertEquals("Downloading 1080p — 720p not available", higher.uiState.value.startedNote)
+
+        // The user's own Default quality, there exactly.
+        val own = waitingSheet(
+            DownloadPreferences(
+                defaultQuality = QualityPreference.UP_TO_480P,
+                confirmOnMeteredNetwork = false,
+            ),
+        )
+        assertEquals(QualityPreference.UP_TO_480P, own.uiState.value.defaultQuality)
+        own.download()
+        answer(QuickDownloadFixtures.youtube())
+        advanceUntilIdle()
+        assertEquals("480p", starter.variants.last().label)
+        assertEquals("Downloading 480p", own.uiState.value.startedNote)
+
+        // The Audio placeholder picked: the M4A.
+        val audio = waitingSheet()
+        audio.pickEarly(OptionSection.AUDIO)
+        assertEquals(OptionSection.AUDIO, audio.uiState.value.earlySection)
+        audio.download()
+        answer(QuickDownloadFixtures.youtube())
+        advanceUntilIdle()
+        assertEquals(MediaTrackType.AUDIO, starter.variants.last().trackType)
+        assertEquals(OptionSection.AUDIO, audio.uiState.value.selectedOption?.section)
+        assertEquals(4, starter.variants.size)
+    }
+
+    @Test
+    fun aFailedLookupDropsTheEarlyDownloadAndClosingTheSheetCancelsIt() = runTest {
+        val viewModel = waitingSheet()
+        viewModel.download()
+        assertTrue(viewModel.uiState.value.startsWhenReady)
+        val failure = "The site did not answer. Try again."
+        store.showLookup(LOOKUP.copy(failure = failure, canRetry = true))
+        val failed = viewModel.uiState.value
+        assertEquals(failure, failed.failure)
+        assertFalse(failed.startsWhenReady)
+        assertFalse(failed.canDownload)
+
+        // Try again: the rows come, but nothing starts without a new tap.
+        viewModel.retry()
+        store.showLookup(LOOKUP)
+        assertTrue(viewModel.uiState.value.canDownload)
+        answer(QuickDownloadFixtures.youtube())
+        advanceUntilIdle()
+        assertTrue(starter.variants.isEmpty())
+        assertEquals(PreviewDownloadStatus.Idle, viewModel.uiState.value.downloadStatus)
+        assertNull(viewModel.uiState.value.startedNote)
+
+        // Closing the sheet before the rows came cancels the queued Download.
+        val sheets = ViewModelStore()
+        val closing = waitingSheet(owner = sheets)
+        closing.download()
+        assertTrue(closing.uiState.value.startsWhenReady)
+        sheets.clear()
+        answer(QuickDownloadFixtures.youtube())
+        advanceUntilIdle()
+        assertTrue(starter.variants.isEmpty())
+    }
+
+    @Test
+    fun anEarlyDownloadStillPassesTheMobileDataWiFiOnlyAndStorageChecks() = runTest {
+        // Mobile data is asked about at the tap: yes queues it and the rows start it.
+        val ask = DownloadPreferences(confirmOnMeteredNetwork = true)
+        val mobile = waitingSheet(ask, MutableStateFlow(MOBILE))
+        mobile.download()
+        assertEquals(PreviewDownloadStatus.ConfirmMetered, mobile.uiState.value.downloadStatus)
+        mobile.confirmMeteredDownload()
+        assertTrue(mobile.uiState.value.startsWhenReady)
+        answer(QuickDownloadFixtures.youtube())
+        advanceUntilIdle()
+        assertEquals(1, starter.variants.size)
+        assertTrue(mobile.uiState.value.downloadStatus is PreviewDownloadStatus.Queued)
+
+        // No drops it.
+        val declined = waitingSheet(ask, MutableStateFlow(MOBILE))
+        declined.download()
+        declined.dismissMeteredDownload()
+        assertFalse(declined.uiState.value.startsWhenReady)
+        answer(QuickDownloadFixtures.youtube())
+        advanceUntilIdle()
+        assertEquals(1, starter.variants.size)
+
+        // Wi-Fi went between the tap and the rows: asked then.
+        val network = MutableStateFlow(WIFI)
+        val moved = waitingSheet(ask, network)
+        moved.download()
+        assertEquals(PreviewDownloadStatus.Idle, moved.uiState.value.downloadStatus)
+        network.value = MOBILE
+        answer(QuickDownloadFixtures.youtube())
+        advanceUntilIdle()
+        assertEquals(PreviewDownloadStatus.ConfirmMetered, moved.uiState.value.downloadStatus)
+        assertEquals(1, starter.variants.size)
+        moved.confirmMeteredDownload()
+        advanceUntilIdle()
+        assertEquals(2, starter.variants.size)
+
+        // Wi-Fi only waits for Wi-Fi, and the download engine's storage check still refuses.
+        val wifiOnly = waitingSheet(
+            DownloadPreferences(unmeteredOnly = true),
+            MutableStateFlow(MOBILE),
+        )
+        wifiOnly.download()
+        answer(QuickDownloadFixtures.youtube())
+        advanceUntilIdle()
+        assertEquals(
+            PreviewDownloadStatus.Queued("Ocean waves.mp4", waitingForUnmetered = true),
+            wifiOnly.uiState.value.downloadStatus,
+        )
+        starter.rejection = EnqueueResult.Rejected(
+            DownloadFailureReason.INSUFFICIENT_STORAGE,
+            "Not enough free space",
+        )
+        val full = waitingSheet()
+        full.download()
+        answer(QuickDownloadFixtures.youtube())
+        advanceUntilIdle()
+        assertEquals(
+            PreviewDownloadStatus.Rejected("Not enough free space"),
+            full.uiState.value.downloadStatus,
+        )
+    }
+
+    /** P16/P18: a sheet opened on Home's lookup of a link, before the video came. */
+    private fun waitingSheet(
+        preferences: DownloadPreferences = DownloadPreferences(confirmOnMeteredNetwork = false),
+        network: StateFlow<NetworkSnapshot> = MutableStateFlow(WIFI),
+        owner: ViewModelStore? = null,
+    ): QuickDownloadViewModel {
+        store.awaitPageVideo()
+        store.showLookup(LOOKUP)
+        return owner?.let(::sheet) ?: viewModel(preferences, snapshot = network)
+    }
+
+    /** The lookup answers with [found]: the video is selected and its lookup ends. */
+    private fun answer(found: List<MediaCandidate>) {
+        store.publish(QuickDownloadFixtures.PAGE, "Ocean waves", found, adapterSite = true)
+        store.select(MediaGroups.of(found).single())
+        store.clearLookup(LookupOwner.HOME)
+    }
+
     private fun select(candidates: List<MediaCandidate>) {
         store.publish(QuickDownloadFixtures.PAGE, "Ocean waves", candidates)
         store.select(MediaGroups.of(candidates).single())
@@ -592,6 +774,7 @@ class QuickDownloadViewModelTest {
         preferences: DownloadPreferences = DownloadPreferences(confirmOnMeteredNetwork = false),
         network: NetworkSnapshot = WIFI,
         playback: VideoPlaybackSupport = VideoPlaybackSupport.ANY,
+        snapshot: StateFlow<NetworkSnapshot> = MutableStateFlow(network),
     ) = QuickDownloadViewModel(
         store = store,
         selectionStore = selection,
@@ -604,7 +787,7 @@ class QuickDownloadViewModelTest {
             ) = Unit
         },
         network = object : NetworkStatusSource {
-            override val snapshot: StateFlow<NetworkSnapshot> = MutableStateFlow(network)
+            override val snapshot: StateFlow<NetworkSnapshot> = snapshot
         },
         playback = playback,
         downloadThumbnails = thumbnails,
@@ -685,6 +868,12 @@ class QuickDownloadViewModelTest {
         val MOBILE = NetworkSnapshot(connected = true, validated = true, unmetered = false)
         const val KEY = "youtube:fixture0001"
         const val LOOKED_UP_AT = 1L
+        val LOOKUP = PageVideoLookup(
+            KEY,
+            QuickDownloadFixtures.PAGE,
+            title = null,
+            owner = LookupOwner.HOME,
+        )
         const val YOUTUBE_PICTURE = "https://i.ytimg.com/vi/fixture0001/hqdefault.jpg"
     }
 }

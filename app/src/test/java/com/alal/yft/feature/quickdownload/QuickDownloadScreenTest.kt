@@ -283,7 +283,8 @@ class QuickDownloadScreenTest {
         composeRule.onNodeWithTag("quick-placeholder-audio").assertIsDisplayed()
         composeRule.onNodeWithTag("quick-placeholder-video").assertIsDisplayed()
         composeRule.onAllNodesWithTag("quick-placeholder-row").assertCountEquals(4)
-        composeRule.onNodeWithTag("quick-download").assertIsDisplayed().assertIsNotEnabled()
+        // Plan adapted (P18): Download is ready while the sheet waits; it queues the pick.
+        composeRule.onNodeWithTag("quick-download").assertIsDisplayed().assertIsEnabled()
         composeRule.onAllNodesWithTag("quick-rows").assertCountEquals(0)
 
         // The lookup answered: the real rows take the placeholders' place.
@@ -292,6 +293,56 @@ class QuickDownloadScreenTest {
         composeRule.onAllNodesWithTag("quick-loading").assertCountEquals(0)
         composeRule.onNodeWithTag("quick-rows").assertExists()
         composeRule.onNodeWithTag("quick-download").assertIsEnabled()
+    }
+
+    @Test
+    fun aWaitingSheetOffersM4AOrTheDefaultQualityAndDownloadStartsWhenReady() {
+        // P18: the first row of each waiting section is a choice an early Download takes.
+        var state by mutableStateOf(
+            QuickDownloadUiState(
+                header = SAMPLE_QUICK_DOWNLOAD.header,
+                loading = true,
+                findingVideo = true,
+                defaultQuality = QualityPreference.UP_TO_1080P,
+            ),
+        )
+        val picked = mutableListOf<OptionSection>()
+        var downloads = 0
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(
+                    state = state,
+                    onSelect = {},
+                    onDownload = { downloads += 1 },
+                    onPickEarly = { picked += it },
+                )
+            }
+        }
+
+        val audio = composeRule.onNodeWithTag("quick-early-audio", useUnmergedTree = true)
+        audio.assert(hasText("M4A"))
+        composeRule.onNodeWithTag("quick-early-video", useUnmergedTree = true)
+            .assert(hasText("1080p"))
+        composeRule.onAllNodesWithTag("quick-placeholder-row").assertCountEquals(4)
+        audio.performClick()
+        assertEquals(listOf(OptionSection.AUDIO), picked)
+        composeRule.onNodeWithTag("quick-download").assertIsEnabled().performClick()
+        assertEquals(1, downloads)
+
+        // Tapped: it waits for the rows, and the pick can no longer change.
+        state = state.copy(startsWhenReady = true, earlySection = OptionSection.AUDIO)
+        composeRule.onNodeWithTag("quick-download").assertIsNotEnabled()
+            .assert(hasText(STARTS_WHEN_READY))
+        composeRule.onNodeWithText("Starts when ready…").assertIsDisplayed()
+
+        // The rows came and it started: the sheet says which quality it took.
+        state = SAMPLE_QUICK_DOWNLOAD.copy(
+            downloadStatus = PreviewDownloadStatus.Queued("Ocean waves.mp4"),
+            startedNote = "Downloading 480p — 720p not available",
+        )
+        composeRule.onNodeWithTag("quick-download-note")
+            .assert(hasText("Downloading 480p — 720p not available"))
+        composeRule.onNodeWithTag("quick-download-status").assertIsDisplayed()
     }
 
     @Test
@@ -313,8 +364,8 @@ class QuickDownloadScreenTest {
 
         composeRule.onNodeWithTag("quick-header").assertExists()
         composeRule.onNodeWithTag("quick-loading").assertExists()
-        // P16: Download stays in its place, waiting for the rows.
-        composeRule.onNodeWithTag("quick-download").assertIsNotEnabled()
+        // P16: Download stays in its place; P18: it can be tapped before the rows come.
+        composeRule.onNodeWithTag("quick-download").assertIsEnabled()
 
         state = state.copy(loading = false, failure = "The media could not be reached.")
         composeRule.onNodeWithTag("quick-error").assert(hasText("The media could not be reached."))
