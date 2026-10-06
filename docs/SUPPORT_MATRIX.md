@@ -54,6 +54,15 @@ these defaults; Vimeo configuration and YouTube player JSON keep their existing 
 Home does not borrow the WebView's user-agent, cookies or account. Its direct/scanned candidates
 keep the same headless user-agent for subsequent probes/preview. The browser keeps its own session.
 
+## Video pictures (P19, 2026-10-06)
+
+The sheet header, the found list and running downloads show the video's real picture: YouTube's
+from its ID (`https://i.ytimg.com/vi/<id>/hqdefault.jpg`, before the lookup ends), Facebook,
+TikTok, Vimeo and generic pages from the `thumbnailUrl` their lookup found. HTTPS only, no
+cookies, at most 2 MB; a failure keeps the placeholder. Live 2026-10-06 (sandbox, no session):
+YouTube 200 `i.ytimg.com` image/jpeg 32 KB; Vimeo 200 `i.vimeocdn.com` image/webp 25 KB;
+Facebook public reel 200 `scontent-iad3-1.xx.fbcdn.net` image/jpeg 223 KB.
+
 ## Browser Download button on site pages (P12, 2026-10-06)
 
 On a page a site adapter reads (YouTube watch/Shorts, Facebook reel/video/post, TikTok video,

@@ -69,6 +69,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.alal.yft.thumbnail.rememberFileThumbnail
 import com.alal.yft.ui.components.YftFilterChip
 import com.alal.yft.ui.components.YftIcon
 import com.alal.yft.ui.components.YftIconButton
@@ -322,6 +323,8 @@ private fun LibraryTile(
 ) {
     val colors = YftTheme.colors
     val details = rememberMediaDetails(item.uri, item.isAudio)
+    // P19: the picture saved when it was downloaded, until the file's own frame is read.
+    val saved = rememberFileThumbnail(item.uri)
     val title = YftFormat.title(item.displayName)
     var menuOpen by remember { mutableStateOf(false) }
     val actions = buildList {
@@ -361,7 +364,7 @@ private fun LibraryTile(
                 .testTag("library-item-${item.id}"),
         ) {
             YftThumbnail(
-                image = details?.image,
+                image = details?.image ?: saved,
                 kind = if (item.isAudio) YftMediaKind.Audio else YftMediaKind.Video,
                 modifier = Modifier
                     .fillMaxWidth()

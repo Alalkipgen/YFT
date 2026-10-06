@@ -1,8 +1,10 @@
 package com.alal.yft.feature.quickdownload
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -14,6 +16,9 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -24,7 +29,12 @@ import androidx.compose.ui.test.performScrollTo
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.feature.preview.PreviewDownloadStatus
+import com.alal.yft.thumbnail.LocalRemoteThumbnails
+import com.alal.yft.thumbnail.RemoteThumbnails
+import com.alal.yft.thumbnail.testPicture
+import com.alal.yft.ui.components.YFT_THUMBNAIL_IMAGE_TAG
 import com.alal.yft.ui.theme.YftTheme
+import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -398,6 +408,46 @@ class QuickDownloadScreenTest {
         composeRule.onNodeWithTag("quick-option-${chosen.id}").performScrollTo().assertIsSelected()
     }
 
+    @Test
+    fun theHeaderShowsTheVideosPictureOnceItLoads() {
+        // P19: the 16:9 header tile shows the placeholder, then the picture the loader gives.
+        val asked = mutableListOf<String>()
+        val loads = CompletableDeferred<ImageBitmap?>()
+        val thumbnails = object : RemoteThumbnails {
+            override fun cached(url: String): ImageBitmap? = null
+
+            override suspend fun load(url: String): ImageBitmap? {
+                asked += url
+                return loads.await()
+            }
+        }
+        val header = SAMPLE_QUICK_DOWNLOAD.header!!.copy(thumbnailUrl = PICTURE)
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                CompositionLocalProvider(LocalRemoteThumbnails provides thumbnails) {
+                    QuickDownloadScreen(
+                        state = SAMPLE_QUICK_DOWNLOAD.copy(header = header),
+                        onSelect = {},
+                        onDownload = {},
+                    )
+                }
+            }
+        }
+        val picture = hasTestTag(YFT_THUMBNAIL_IMAGE_TAG) and
+            hasAnyAncestor(hasTestTag("quick-thumbnail"))
+
+        val tile = composeRule.onNodeWithTag("quick-thumbnail").assertIsDisplayed()
+            .getBoundsInRoot()
+        assertEquals(16f / 9f, (tile.right - tile.left) / (tile.bottom - tile.top), 0.05f)
+        composeRule.onAllNodes(picture, useUnmergedTree = true).assertCountEquals(0)
+        loads.complete(testPicture(480, 270))
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodes(picture, useUnmergedTree = true)
+                .fetchSemanticsNodes().size == 1
+        }
+        composeRule.runOnIdle { assertEquals(listOf(PICTURE), asked) }
+    }
+
     private fun hasText(text: String) = SemanticsMatcher.expectValue(
         SemanticsProperties.Text,
         listOf(androidx.compose.ui.text.AnnotatedString(text)),
@@ -408,6 +458,8 @@ class QuickDownloadScreenTest {
  * The sheet a YouTube lookup gives, with the default quality's row preselected; shared with the
  * design renders.
  */
+private const val PICTURE = "https://i.ytimg.com/vi/fixture0001/hqdefault.jpg"
+
 internal val SAMPLE_QUICK_DOWNLOAD: QuickDownloadUiState = run {
     val choices = QuickDownloadFixtures.choices(QuickDownloadFixtures.youtube())!!
     QuickDownloadUiState(

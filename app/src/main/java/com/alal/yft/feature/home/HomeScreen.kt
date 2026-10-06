@@ -73,6 +73,7 @@ import com.alal.yft.core.model.settings.SiteBrand
 import com.alal.yft.feature.library.LibraryItem
 import com.alal.yft.feature.library.libraryMeta
 import com.alal.yft.feature.library.rememberMediaDetails
+import com.alal.yft.thumbnail.rememberFileThumbnail
 import com.alal.yft.ui.components.PromptboxStatus
 import com.alal.yft.ui.components.YftCard
 import com.alal.yft.ui.components.YftIcon
@@ -559,6 +560,7 @@ private fun RecentSection(
 private fun RecentCard(item: LibraryItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = YftTheme.colors
     val details = rememberMediaDetails(item.uri, item.isAudio)
+    val saved = rememberFileThumbnail(item.uri)
     Column(
         modifier = modifier
             .clip(YftShapes.thumbnail)
@@ -566,7 +568,7 @@ private fun RecentCard(item: LibraryItem, onClick: () -> Unit, modifier: Modifie
             .testTag("home-recent-${item.id}"),
     ) {
         YftThumbnail(
-            image = details?.image,
+            image = details?.image ?: saved,
             kind = if (item.isAudio) YftMediaKind.Audio else YftMediaKind.Video,
             modifier = Modifier
                 .fillMaxWidth()

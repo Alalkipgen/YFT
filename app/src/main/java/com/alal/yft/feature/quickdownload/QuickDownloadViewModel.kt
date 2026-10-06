@@ -28,6 +28,8 @@ import com.alal.yft.download.policy.TransferNetworkState
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import com.alal.yft.feature.detectedmedia.PageVideoLookup
 import com.alal.yft.feature.preview.PreviewDownloadStatus
+import com.alal.yft.thumbnail.DownloadThumbnails
+import com.alal.yft.thumbnail.ThumbnailUrls
 import com.alal.yft.ui.components.isAudio
 import com.alal.yft.ui.components.isSavable
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -35,9 +37,9 @@ import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -55,6 +57,8 @@ data class SheetHeader(
     val source: String?,
     val durationMillis: Long?,
     val audioOnly: Boolean,
+    /** P19: the video's picture; the header shows its placeholder until it loads. */
+    val thumbnailUrl: String? = null,
 )
 
 data class QuickDownloadUiState(
@@ -105,6 +109,7 @@ class QuickDownloadViewModel @Inject constructor(
     private val downloadPreferences: DownloadPreferencesRepository,
     private val network: NetworkStatusSource,
     private val playback: VideoPlaybackSupport,
+    private val downloadThumbnails: DownloadThumbnails = DownloadThumbnails.None,
 ) : ViewModel() {
     private var group: MediaGroup? = store.selection.value ?: store.page.value?.let { page ->
         val savable = page.candidates.take(DetectedMediaStore.MAX_CANDIDATES)
@@ -233,6 +238,8 @@ class QuickDownloadViewModel @Inject constructor(
             source = QuickDownloadChoices.host(lookup.pageUrl),
             durationMillis = null,
             audioOnly = false,
+            // P19: a YouTube video's picture follows from its ID, before the lookup ends.
+            thumbnailUrl = ThumbnailUrls.youTube(lookup.key),
         ),
         loading = lookup.running,
         failure = lookup.failure,
@@ -279,9 +286,11 @@ class QuickDownloadViewModel @Inject constructor(
 
     private fun showChoices(choices: QuickChoices?, sources: List<SheetSource>, waiting: Boolean) {
         mutableUiState.update { state ->
+            val picture = state.header?.thumbnailUrl
+                ?: sources.firstNotNullOfOrNull { ThumbnailUrls.https(it.asset?.thumbnailUrl) }
             state.copy(
                 header = choices?.let {
-                    SheetHeader(it.title, it.source, it.durationMillis, it.isAudioOnly)
+                    SheetHeader(it.title, it.source, it.durationMillis, it.isAudioOnly, picture)
                 } ?: state.header,
                 choices = choices,
                 loading = waiting && choices == null,
@@ -352,13 +361,19 @@ class QuickDownloadViewModel @Inject constructor(
                 is Prepared.Ready -> when (
                     val result = downloadStarter.enqueue(prepared.asset, prepared.variant)
                 ) {
-                    is EnqueueResult.Started -> PreviewDownloadStatus.Queued(
-                        fileName = result.fileName,
-                        waitingForUnmetered = DownloadNetworkPolicy.stateFor(
-                            network.snapshot.value,
-                            preferences,
-                        ) == TransferNetworkState.WAITING_FOR_UNMETERED,
-                    )
+                    is EnqueueResult.Started -> {
+                        // P19: Downloads shows the video's picture until the file has a frame.
+                        mutableUiState.value.header?.thumbnailUrl?.let { url ->
+                            downloadThumbnails.saveFrom(result.taskId, url)
+                        }
+                        PreviewDownloadStatus.Queued(
+                            fileName = result.fileName,
+                            waitingForUnmetered = DownloadNetworkPolicy.stateFor(
+                                network.snapshot.value,
+                                preferences,
+                            ) == TransferNetworkState.WAITING_FOR_UNMETERED,
+                        )
+                    }
 
                     is EnqueueResult.Rejected -> PreviewDownloadStatus.Rejected(result.message)
                 }
@@ -452,6 +467,7 @@ class QuickDownloadViewModel @Inject constructor(
         source = QuickDownloadChoices.host(pageUrl),
         durationMillis = durationMillis,
         audioOnly = candidates.all { it.isAudio() },
+        thumbnailUrl = ThumbnailUrls.of(candidates),
     )
 
     private fun messageFor(reason: VariantResolutionFailure?): String = when (reason) {

@@ -133,7 +133,8 @@ that opened it. While audio plays, the mini player sits right above the bottom b
   audio", Video/Audio segmented control, quality list with sizes (selected row tinted), Wi-Fi
   only switch, "Download · 96 MB" Mint button, caption "Saves to Download/YFT".
 - **Download sheet (12, no image; formerly "Video you copied"):** one sheet for one video, over
-  Home, the Found list or the browser: title "Download", the video's title, site and length;
+  Home, the Found list or the browser: title "Download", the video's 16:9 picture (P19, its
+  placeholder until it loads), title, site and length;
   two sections only (P3-FIX): **Audio** (M4A, then MP3 320/192/128 kbps) and **Video** (one row
   per standard resolution, "480p", "720p · HD", "1080p · Full HD", with the real picture, frame
   rate and size); Details; one Mint Download button.
@@ -176,10 +177,19 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
    own sites stay and nothing exceeds 12; a list without the old defaults, or empty, stays as is.
 3. **Thumbnails.** Saved files use local thumbnails read with `MediaMetadataRetriever`, the
    one reader that works for both shared and app-private files and also gives the length and
-   picture size (see 13). Remote thumbnails are shown only for
-   `thumbnailUrl`s that detection already found, fetched with the existing hardened OkHttp
-   client (HTTPS only, size-capped, memory cache) — no new image library. Everything else uses
-   the gradient placeholder tile with a video or music glyph.
+   picture size (see 13). P19: videos on the web show their real picture — the sheet header
+   (16:9, `quick-thumbnail`), the found list and running downloads. `RemoteThumbnailLoader`
+   (no new image library) uses the shared OkHttp client with no cookies or session: HTTPS only,
+   also after redirects, `Accept: image/*`, at most 2 MB read, two downloads at a time, decoded
+   with `inSampleSize` to at most 480 px wide, a memory cache of about 8 MB and a disk cache in
+   `cacheDir/thumbnails/` (20 MB, oldest removed first, files named by a hash of the address).
+   A YouTube video's picture follows from its ID (`i.ytimg.com/vi/<id>/hqdefault.jpg`) and may
+   load before the lookup ends; other sites use the `thumbnailUrl` their lookup found. When a
+   download starts its picture is saved as a small JPEG (at most 320 px wide, about 50 KB) in
+   `filesDir/thumbnails/<downloadId>.jpg`; Downloads, the Library and Home's Recent show it
+   until the file's own frame is read, and it goes with the download's record (no Room
+   migration). Failures stay silent and keep the gradient placeholder tile with a video or
+   music glyph; logs name the host only, never the address.
 4. **Text on Coral and Mint is Ink**, never white.
 5. The launcher label stays "Video Downloader" (the documented working name); the Home
    wordmark shows "YFT" as in the images.

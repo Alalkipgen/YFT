@@ -4,6 +4,7 @@ import com.alal.yft.core.download.DownloadQueue
 import com.alal.yft.core.download.DownloadWorkspaces
 import com.alal.yft.core.download.StoredDownloadTask
 import com.alal.yft.core.model.download.DownloadTaskStatus
+import com.alal.yft.thumbnail.DownloadThumbnails
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineDispatcher
@@ -40,6 +41,7 @@ class DownloadStorageJanitor(
     private val scope: CoroutineScope,
     private val keepFinishedRecords: Int = DEFAULT_KEEP_FINISHED_RECORDS,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val thumbnails: DownloadThumbnails = DownloadThumbnails.None,
 ) {
     private val started = AtomicBoolean(false)
 
@@ -56,7 +58,10 @@ class DownloadStorageJanitor(
         val unfinished = queue.tasks.value
             .filter { it.status !in WORKSPACE_FREE_STATUSES }
             .map(StoredDownloadTask::id)
+        val listed = queue.tasks.value.mapTo(mutableSetOf(), StoredDownloadTask::id)
         return withContext(ioDispatcher) {
+            // P19: pictures of downloads whose record went while nothing was watching.
+            thumbnails.keepOnly(listed, olderThanEpochMs = cutoff)
             JanitorReport(
                 partialFiles = deleteStalePartialFiles(cutoff),
                 workspaces = workspaceRoots.sumOf { root ->

@@ -23,6 +23,12 @@ This file and the other files under `docs/` are the continuity source for future
 
 ## Privacy diagnostics
 
+- Video pictures (P19): the download sheet, the found list and Downloads load a video's picture
+  over HTTPS only, without cookies or the browser's session, at most 2 MB each; YouTube's from
+  `i.ytimg.com` by the video's ID, other sites' from the address their lookup found. Pictures
+  are cached in `cacheDir/thumbnails/` (20 MB at most) and a started download keeps a small JPEG
+  in `filesDir/thumbnails/` until its record is deleted. Logs name the picture's host only.
+
 - A crash handler keeps only the last redacted report in the app's private
   `noBackupFilesDir/diagnostics/last-crash.txt`, capped at 64 KiB. It records UTC time, app
   version, SDK, manufacturer/model (no unique device identifiers), thread and exception frames.

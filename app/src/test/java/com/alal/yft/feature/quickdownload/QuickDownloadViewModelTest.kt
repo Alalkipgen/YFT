@@ -27,6 +27,7 @@ import com.alal.yft.feature.preview.PreviewDownloadStatus
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.MIB
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.video
 import com.alal.yft.testing.MainDispatcherRule
+import com.alal.yft.thumbnail.DownloadThumbnails
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,6 +53,12 @@ class QuickDownloadViewModelTest {
     private val selection = PreviewSelectionStore()
     private val resolver = FakeResolver()
     private val starter = FakeStarter()
+    private val saved = mutableListOf<Pair<String, String>>()
+    private val thumbnails = object : DownloadThumbnails by DownloadThumbnails.None {
+        override fun saveFrom(downloadId: String, thumbnailUrl: String) {
+            saved += downloadId to thumbnailUrl
+        }
+    }
 
     @Test
     fun theDefaultQualityPreselectsARowWithoutARequestForStatedFiles() = runTest {
@@ -451,6 +458,36 @@ class QuickDownloadViewModelTest {
         assertEquals("720p", starter.variants.single().label)
     }
 
+    @Test
+    fun theHeaderNamesTheVideosPictureAndAStartedDownloadSavesIt() = runTest {
+        // P19: a YouTube picture is known from the video's ID while the page lookup runs.
+        store.publish(QuickDownloadFixtures.PAGE, null, emptyList(), adapterSite = true)
+        store.showLookup(PageVideoLookup(KEY, QuickDownloadFixtures.PAGE, title = null))
+        val waiting = viewModel()
+        assertEquals(YOUTUBE_PICTURE, waiting.uiState.value.header?.thumbnailUrl)
+        store.showLookup(null)
+
+        // Other sites: the picture the lookup found, HTTPS only.
+        val reel = QuickDownloadFixtures.youtube().map {
+            it.copy(videoId = "facebook:1", thumbnailUrl = "https://scontent.example.test/t.jpg")
+        }
+        select(reel)
+        assertEquals(
+            "https://scontent.example.test/t.jpg",
+            viewModel().uiState.value.header?.thumbnailUrl,
+        )
+        select(reel.map { it.copy(thumbnailUrl = "http://scontent.example.test/t.jpg") })
+        assertNull(viewModel().uiState.value.header?.thumbnailUrl)
+
+        // Download: the started task keeps the video's picture for Downloads.
+        select(QuickDownloadFixtures.youtube())
+        val viewModel = viewModel()
+        assertEquals(YOUTUBE_PICTURE, viewModel.uiState.value.header?.thumbnailUrl)
+        viewModel.download()
+        advanceUntilIdle()
+        assertEquals(listOf("task-1" to YOUTUBE_PICTURE), saved)
+    }
+
     private fun select(candidates: List<MediaCandidate>) {
         store.publish(QuickDownloadFixtures.PAGE, "Ocean waves", candidates)
         store.select(MediaGroups.of(candidates).single())
@@ -475,6 +512,7 @@ class QuickDownloadViewModelTest {
             override val snapshot: StateFlow<NetworkSnapshot> = MutableStateFlow(network)
         },
         playback = playback,
+        downloadThumbnails = thumbnails,
     )
 
     /**
@@ -542,5 +580,6 @@ class QuickDownloadViewModelTest {
         val WIFI = NetworkSnapshot(connected = true, validated = true, unmetered = true)
         val MOBILE = NetworkSnapshot(connected = true, validated = true, unmetered = false)
         const val KEY = "youtube:fixture0001"
+        const val YOUTUBE_PICTURE = "https://i.ytimg.com/vi/fixture0001/hqdefault.jpg"
     }
 }

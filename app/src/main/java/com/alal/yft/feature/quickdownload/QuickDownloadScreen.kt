@@ -8,11 +8,13 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -43,6 +45,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alal.yft.feature.preview.MeteredDownloadDialog
 import com.alal.yft.feature.preview.PreviewDownloadStatus
+import com.alal.yft.thumbnail.rememberRemoteThumbnail
 import com.alal.yft.ui.components.YftMediaKind
 import com.alal.yft.ui.components.YftMetaChip
 import com.alal.yft.ui.components.YftPrimaryButton
@@ -87,8 +90,9 @@ fun QuickDownloadRoute(
 
 /**
  * The download sheet (P3, P3-FIX): every way to download a video opens it — Home's View, Preview
- * in the found lists and the browser's Download button. A placeholder thumbnail (YFT never
- * fetches remote images), the title, site and length; exactly two sections, **Audio** (M4A, MP3
+ * in the found lists and the browser's Download button. The video's 16:9 picture (P19: loaded
+ * over HTTPS without cookies; its placeholder until then), the title, site and length; exactly
+ * two sections, **Audio** (M4A, MP3
  * at 128 kbps in the short view) and **Video** (the preferred quality and the next lower one).
  * More formats expands the same sheet to every row, without changing the selection; only the
  * rows scroll. Details and Download with the size stay pinned below them.
@@ -233,14 +237,18 @@ private fun Header(header: SheetHeader) {
             .testTag("quick-header"),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        val picture = rememberRemoteThumbnail(header.thumbnailUrl)
         YftThumbnail(
-            image = null,
+            image = picture,
             kind = if (header.audioOnly) YftMediaKind.Audio else YftMediaKind.Video,
-            modifier = Modifier.size(THUMBNAIL),
+            modifier = Modifier
+                .width(THUMBNAIL_WIDTH)
+                .aspectRatio(THUMBNAIL_RATIO)
+                .testTag("quick-thumbnail"),
             shape = YftShapes.thumbnailSmall,
             iconSize = 28.dp,
             glyph = if (header.audioOnly) YftIcons.Waveform else null,
-            muted = header.audioOnly,
+            muted = header.audioOnly && picture == null,
         )
         Column(
             modifier = Modifier
@@ -510,4 +518,5 @@ private val QuickDownloadUiState.canChooseRow: Boolean
 internal const val SHEET_TITLE = "Download"
 private const val SIZE_UNKNOWN = "Size unknown"
 private val SHEET_TOP_GAP = 48.dp
-private val THUMBNAIL = 64.dp
+private val THUMBNAIL_WIDTH = 112.dp
+private const val THUMBNAIL_RATIO = 16f / 9f

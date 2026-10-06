@@ -74,6 +74,7 @@ import com.alal.yft.feature.library.LibraryLocation
 import com.alal.yft.feature.library.LibraryMimeTypes
 import com.alal.yft.feature.library.LocalLibraryPlayback
 import com.alal.yft.feature.library.rememberMediaDetails
+import com.alal.yft.thumbnail.rememberDownloadThumbnail
 import com.alal.yft.ui.components.YftCard
 import com.alal.yft.ui.components.YftCircleButton
 import com.alal.yft.ui.components.YftFilterChip
@@ -745,8 +746,10 @@ private fun RowThumbnail(
     iconSize: Dp = 28.dp,
     image: ImageBitmap? = null,
 ) {
+    // P19: the picture saved when the download started, until the file's own frame exists.
+    val saved = rememberDownloadThumbnail(row.id)
     YftThumbnail(
-        image = image,
+        image = image ?: saved,
         kind = if (row.isAudio) YftMediaKind.Audio else YftMediaKind.Video,
         modifier = modifier,
         shape = YftShapes.thumbnailSmall,

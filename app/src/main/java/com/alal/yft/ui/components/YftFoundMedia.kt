@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.thumbnail.ThumbnailUrls
+import com.alal.yft.thumbnail.rememberRemoteThumbnail
 import com.alal.yft.ui.format.YftFormat
 import com.alal.yft.ui.theme.YftIcons
 import com.alal.yft.ui.theme.YftShapes
@@ -65,7 +67,8 @@ fun YftFoundMediaRow(
     video: MediaGroup,
     onPreview: () -> Unit,
     modifier: Modifier = Modifier,
-    thumbnail: ImageBitmap? = null,
+    // P19: the video's own picture, the placeholder until it loads.
+    thumbnail: ImageBitmap? = rememberRemoteThumbnail(ThumbnailUrls.of(video.candidates)),
     previewTag: String = "preview-candidate",
 ) {
     val first = video.candidates.first()

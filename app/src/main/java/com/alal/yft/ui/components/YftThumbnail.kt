@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -24,6 +25,9 @@ import com.alal.yft.ui.theme.YftShapes
 import com.alal.yft.ui.theme.YftTheme
 
 enum class YftMediaKind { Video, Audio }
+
+/** The tag of a tile's real picture, absent while the placeholder shows. */
+const val YFT_THUMBNAIL_IMAGE_TAG = "thumbnail-image"
 
 /**
  * Media tile: the real [image] when one is available, otherwise a Mint/Deep Teal (audio) or
@@ -59,7 +63,10 @@ fun YftThumbnail(
             Image(
                 bitmap = image,
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
+                // P19: tests tell a loaded picture from the placeholder by this tag.
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag(YFT_THUMBNAIL_IMAGE_TAG),
                 contentScale = ContentScale.Crop,
             )
         } else {

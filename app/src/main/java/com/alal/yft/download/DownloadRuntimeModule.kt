@@ -30,6 +30,7 @@ import com.alal.yft.download.policy.DownloadNetworkStatus
 import com.alal.yft.download.policy.DownloadPolicyController
 import com.alal.yft.download.policy.DownloadPolicyGate
 import com.alal.yft.download.policy.NetworkStatusSource
+import com.alal.yft.thumbnail.DownloadThumbnails
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -233,6 +234,7 @@ object DownloadRuntimeModule {
         queue: DownloadQueue,
         @ApplicationContext context: Context,
         @DownloadApplicationScope scope: CoroutineScope,
+        thumbnails: DownloadThumbnails,
     ): DownloadStorageJanitor {
         val storage = context.noBackupFilesDir
         return DownloadStorageJanitor(
@@ -249,6 +251,7 @@ object DownloadRuntimeModule {
             ).map { (directory, prefix) -> WorkspaceRoot(File(storage, directory), prefix) },
             processStartEpochMs = ::processStartEpochMs,
             scope = scope,
+            thumbnails = thumbnails,
         )
     }
 

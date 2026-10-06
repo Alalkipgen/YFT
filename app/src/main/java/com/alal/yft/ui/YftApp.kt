@@ -35,6 +35,10 @@ import com.alal.yft.feature.library.LocalMediaDetailsSource
 import com.alal.yft.feature.library.MediaDetailsSource
 import com.alal.yft.feature.library.MiniPlayerHost
 import com.alal.yft.feature.library.playbackFailedMessage
+import com.alal.yft.thumbnail.DownloadThumbnails
+import com.alal.yft.thumbnail.LocalDownloadThumbnails
+import com.alal.yft.thumbnail.LocalRemoteThumbnails
+import com.alal.yft.thumbnail.RemoteThumbnails
 import com.alal.yft.ui.navigation.YftBottomBar
 import com.alal.yft.ui.navigation.YftDestination
 import com.alal.yft.ui.navigation.YftNavHost
@@ -44,13 +48,17 @@ import com.alal.yft.ui.theme.isDarkTheme
 
 /**
  * The whole app. [playback] is the Library's player, whose mini player sits above the bottom bar
- * on every tab while audio plays; [mediaDetails] gives saved files their real thumbnails.
+ * on every tab while audio plays; [mediaDetails] gives saved files their real thumbnails,
+ * [remoteThumbnails] videos on the web their pictures and [downloadThumbnails] downloads theirs
+ * (P19).
  */
 @Composable
 fun YftApp(
     viewModel: AppViewModel = hiltViewModel(),
     playback: LibraryPlayback? = null,
     mediaDetails: MediaDetailsSource = MediaDetailsSource.None,
+    remoteThumbnails: RemoteThumbnails = RemoteThumbnails.None,
+    downloadThumbnails: DownloadThumbnails = DownloadThumbnails.None,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val darkTheme = isDarkTheme(uiState.themeMode)
@@ -61,6 +69,8 @@ fun YftApp(
     YftTheme(themeMode = uiState.themeMode) {
         CompositionLocalProvider(
             LocalMediaDetailsSource provides mediaDetails,
+            LocalRemoteThumbnails provides remoteThumbnails,
+            LocalDownloadThumbnails provides downloadThumbnails,
             LocalLibraryPlayback provides playback,
         ) {
             val navController = rememberNavController()

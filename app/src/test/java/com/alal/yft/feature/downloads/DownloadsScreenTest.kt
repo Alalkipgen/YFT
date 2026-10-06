@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
@@ -17,7 +18,9 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasAnyChild
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -40,6 +43,10 @@ import com.alal.yft.feature.library.FixedMediaDetails
 import com.alal.yft.feature.library.LocalMediaDetailsSource
 import com.alal.yft.feature.library.MediaDetails
 import com.alal.yft.feature.library.MediaDetailsSource
+import com.alal.yft.thumbnail.DownloadThumbnails
+import com.alal.yft.thumbnail.LocalDownloadThumbnails
+import com.alal.yft.thumbnail.testPicture
+import com.alal.yft.ui.components.YFT_THUMBNAIL_IMAGE_TAG
 import com.alal.yft.ui.theme.YftTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -527,6 +534,41 @@ class DownloadsScreenTest {
         composeRule.onAllNodesWithTag("downloads-network-banner").assertCountEquals(0)
     }
 
+    @Test
+    fun aRunningDownloadShowsThePictureSavedWhenItStartedUntilTheFileHasAFrame() {
+        // P19: "run" has a saved picture, "plain" none; "done" is finished, its file has no
+        // frame (yet): the saved picture stays until it has.
+        val saved = object : DownloadThumbnails by DownloadThumbnails.None {
+            override suspend fun load(downloadId: String): ImageBitmap? =
+                testPicture(320, 180).takeIf { downloadId == "run" || downloadId == "done" }
+        }
+        setScreen(
+            DownloadsUiState(
+                listOf(
+                    row("run", DownloadTaskStatus.RUNNING, 10, 100, 10),
+                    row("plain", DownloadTaskStatus.RUNNING, 10, 100, 10),
+                    row(
+                        "done",
+                        DownloadTaskStatus.COMPLETED,
+                        100,
+                        100,
+                        100,
+                        destinationKind = DownloadDestinationKind.MEDIA_STORE,
+                    ).copy(destinationUri = "content://media/external/video/media/7"),
+                ),
+            ),
+            thumbnails = saved,
+        )
+
+        fun pictures(id: String) = composeRule.onAllNodes(
+            hasTestTag(YFT_THUMBNAIL_IMAGE_TAG) and hasAnyAncestor(hasTestTag("download-$id")),
+            useUnmergedTree = true,
+        )
+        composeRule.waitUntil(5_000) { pictures("run").fetchSemanticsNodes().size == 1 }
+        pictures("plain").assertCountEquals(0)
+        pictures("done").assertCountEquals(1)
+    }
+
     private fun setScreen(
         uiState: DownloadsUiState,
         onAction: (DownloadAction, String) -> Unit = { _, _ -> },
@@ -536,10 +578,14 @@ class DownloadsScreenTest {
         onOpenSettings: () -> Unit = {},
         todayStartEpochMs: Long = 0,
         mediaDetails: MediaDetailsSource = MediaDetailsSource.None,
+        thumbnails: DownloadThumbnails = DownloadThumbnails.None,
     ) {
         composeRule.setContent {
             YftTheme(themeMode = ThemeMode.LIGHT) {
-                CompositionLocalProvider(LocalMediaDetailsSource provides mediaDetails) {
+                CompositionLocalProvider(
+                    LocalMediaDetailsSource provides mediaDetails,
+                    LocalDownloadThumbnails provides thumbnails,
+                ) {
                     DownloadsScreen(
                         uiState = uiState,
                         onAction = onAction,

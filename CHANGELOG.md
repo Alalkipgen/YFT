@@ -33,6 +33,11 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Changed
 
+- Real video pictures: the download sheet (16:9 header), the found list and running downloads
+  show the video's own picture instead of the placeholder — YouTube's from its ID, other sites'
+  from their lookup. Loaded over HTTPS without cookies (at most 2 MB, two at a time, cached up
+  to 20 MB); a started download keeps a small copy until its record is deleted, which Downloads
+  and the Library show until the file's own frame is read. Failures keep the placeholder.
 - Wide Download button: on a site's video page and on a page with one video, a full-width
   "Download" button sits under the page (above the toolbar) instead of the round one; the page
   ends above it, it spins while the lookup runs and hides in full screen, under the download
