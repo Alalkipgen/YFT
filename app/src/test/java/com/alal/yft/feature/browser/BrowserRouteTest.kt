@@ -258,7 +258,7 @@ class BrowserRouteTest {
         // answers with this very video, as the player on screen would.
         var answered: ValueCallback<String>? = null
         repeat(2) {
-            composeRule.onNodeWithTag("browser-download-fab").performClick()
+            composeRule.onNodeWithTag("browser-download-wide").performClick()
             composeRule.runOnIdle {
                 val shadow = Shadows.shadowOf(webViews().single())
                 val callback = shadow.lastEvaluatedJavascriptCallback

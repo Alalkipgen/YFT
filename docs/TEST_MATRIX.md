@@ -777,11 +777,13 @@ repository that asks each client and prints only verdicts and counts.
 | Failure in sheet | `QuickDownloadViewModelTest`: a failed page lookup shows its message with Try again, which asks the browser for the same key; protected-only has no Try again. `QuickDownloadScreenTest`: "Looking up this video…", no Retry when it cannot help, "Other videos on this page (N)" row. `BrowserScreenTest`: spinner while the lookup runs, no badge/list on site pages, main video then list on request |
 | Owner check | YouTube watch page and Facebook reel in the browser -> Download -> that video's sheet; never "Found on this page 4" |
 
-### P13 — Wide Download button (IN PROGRESS, 2026-10-06)
+### P13 — Wide Download button (OWNER CHECK, 2026-10-06)
 
 | Check | Result |
 | --- | --- |
 | Visibility table | `BrowserDownloadFabTest.theWideButtonShowsWhereATapMeansOneVideoAndNothingCoversThePage`: site video page and generic one-video page -> wide; feed and several videos -> round; full screen, download sheet open, keyboard up, found list/address editing -> hidden |
 | Screen | `BrowserScreenTest.theWideButtonSitsUnderThePageAndOnlyOneButtonShowsAtATime`: wide button "Download this video" calls the round button's action, round hidden, page bottom <= button top, hidden in full screen / under the sheet / with the found list; P12 one-video tests now use the wide button |
-| Validation | NOT RUN YET (sandbox reset; code restored from session) |
+| Route | `BrowserRouteTest.twoDownloadTapsDuringAWatchPagesLookupAskItsAdapterOnce` taps the wide button on the watch page (it was the round one; the CI failure of `baf5124`) |
+| Regression proof | `7953c0d` BrowserScreen.kt/BrowserDownloadFab.kt put back (test helper without the two new params): `theWideButtonSitsUnderThePageAndOnlyOneButtonShowsAtATime` fails "Assert failed: The component is not displayed!" at the first `browser-download-wide` check; the visibility test does not compile (no `wideVisible`). Restored, `cmp` clean |
+| Validation | `:core-model:test :core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug :app:compileDebugAndroidTestKotlin`: core-model 65, core-browser 81, app 628 (66 skipped), 0 failures; lint 0 errors; line check printed nothing |
 | Owner check | YouTube watch page and Facebook reel -> wide Download button under the page -> the video's sheet |

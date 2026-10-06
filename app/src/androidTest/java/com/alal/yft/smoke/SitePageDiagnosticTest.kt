@@ -76,7 +76,7 @@ class SitePageDiagnosticTest {
             var early = ""
             while (SystemClock.uptimeMillis() - start < LOAD_WAIT_MS) {
                 chain += safeAddress(mainFrameUrl(webView))
-                if (fabAt < 0 && hasNode("browser-download-fab")) {
+                if (fabAt < 0 && hasDownloadButton()) {
                     fabAt = (SystemClock.uptimeMillis() - start) / 1_000
                 }
                 if (early.isEmpty() && SystemClock.uptimeMillis() - start > EARLY_PROBE_MS) {
@@ -100,7 +100,7 @@ class SitePageDiagnosticTest {
                 case,
                 "tap",
                 "url=${safeAddress(mainFrameUrl(webView))} " +
-                    "fab=${hasNode("browser-download-fab")} " +
+                    "fab=${hasDownloadButton()} " +
                     "notice=${hasNode("browser-site-notice")} ${pixelStats(webView)} " +
                     evaluate(webView),
             )
@@ -119,6 +119,10 @@ class SitePageDiagnosticTest {
 
     private fun hasNode(tag: String): Boolean =
         composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+
+    /** P13: a video page shows the wide Download button, other pages the round one. */
+    private fun hasDownloadButton(): Boolean =
+        hasNode("browser-download-fab") || hasNode("browser-download-wide")
 
     private fun findWebView(): WebView? {
         var found: WebView? = null
