@@ -52,7 +52,10 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent C — `work/phase-12-generic-sheet` (P24, P25)
 
-- Status: P24 OWNER CHECK (2026-10-06); P25 OWNER CHECK (2026-10-06) (base commit `f434724` =
+- Status: READY FOR MERGE (2026-10-06) — P24 and P25 OWNER CHECK; last code commit `7ec3884`,
+  CI green: checkpoint validation https://github.com/Alalkipgen/YFT/actions/runs/37511050371,
+  emulator smoke https://github.com/Alalkipgen/YFT/actions/runs/37511050329, Preview APK
+  https://github.com/Alalkipgen/YFT/actions/runs/37511050474 (base commit `f434724` =
   `origin/work/phase-12-integration`; folder `/data/YFT-C`)
 - Environment (Notion sandbox, fresh after a reset): JDK 17 `/data/toolchains/jdk17`, SDK
   `/data/toolchains/android-sdk` (platform 35, build-tools 35.0.0, NDK 27.3.13750724, CMake
@@ -176,4 +179,5 @@ Keep at least the heading and one blank line between sections, so Git merges the
     `INCOMPATIBLE_TRACKS`, shown as "Failed · Incompatible tracks". A clearer line for audio
     made from a video would help, e.g. "This video's sound can't be saved as audio. Download
     the video instead."
-- Next: READY FOR MERGE once the P25 checkpoint's CI is green.
+- Next: P26 — Agent A merges A → B → C into `work/phase-12-integration` (this branch's
+  three hand-offs above go to Agent A); Agent C has stopped.
