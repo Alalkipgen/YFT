@@ -2,6 +2,7 @@
 
 ## Current handoff (2026-10-05)
 
+- 2026-10-06 Track A: P19 OWNER CHECK — real video pictures in the sheet header (16:9), the found list and Downloads (HTTPS-only cookie-free loader, 2 MB cap, two at a time, memory+disk cache; saved JPEG per download deleted with its record). Next: Preview #2, P16.
 - 2026-10-06 Track A: P13 OWNER CHECK — wide "Download this video" button under the page on site video pages and one-video pages (round button hides; hidden in full screen, under the sheet, with the keyboard). Fixed the wip's compile error and the route test that still tapped the round button. Next: P19.
 - 2026-10-06 Track A: P12 OWNER CHECK — site video pages open their own video's sheet (one lookup per video, sheet waits/Retry, probes wait); generic pages open the main video with "Other videos on this page (N)". Next: P13.
 - 2026-10-06: P11 CI failure found from the owner's log and fixed in the test fixture (localhost resolves to 127.0.0.1 and ::1 on GitHub; see SESSION_STATE). P12 started at the owner's request: design only, no P12 code yet.
