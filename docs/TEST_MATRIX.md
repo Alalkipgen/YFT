@@ -765,3 +765,14 @@ repository that asks each client and prints only verdicts and counts.
 - Adapter-to-generic fallback
 - Secret-redaction tests
 - Re-run of the Phase 4 transfer and recovery suite on every change
+
+### P12 — One sheet and one lookup on site pages (OWNER CHECK, 2026-10-06)
+
+| Check | Result |
+| --- | --- |
+| Action table | `BrowserDownloadFabTest`: a site video page (YouTube-shaped and Vimeo-shaped) with 0, 1 or 4 found -> OPEN_PAGE_VIDEO, visible, label "Download this video"; a generic page with 4 -> OPEN_MAIN_VIDEO; feeds keep FIND_VIDEO_ON_SCREEN |
+| One lookup | `BrowserRouteTest.twoDownloadTapsDuringAWatchPagesLookupAskItsAdapterOnce`: two button taps during a gated watch-page lookup -> one adapter call, sheet opened twice. `BrowserViewModelTest`: the sheet waits on that same lookup and gets its video; a feed's second focused link to the same video takes the found result; Try again is a fresh ask; a new page forgets |
+| Probes wait | `BrowserViewModelTest.genericProbesWaitForTheSiteLookupAndRunOnlyWhenItFoundNothing`: no HEAD while the site lookup runs, none after it found the video, probes after NO_MEDIA_FOUND |
+| pageVideos | `MediaGroupsTest`: on an adapter site unnamed player files are never videos; main video = playing, else largest by size, height, length, earlier on tie. `QuickDownloadViewModelTest`: the sheet never offers an adapter site's unnamed files |
+| Failure in sheet | `QuickDownloadViewModelTest`: a failed page lookup shows its message with Try again, which asks the browser for the same key; protected-only has no Try again. `QuickDownloadScreenTest`: "Looking up this video…", no Retry when it cannot help, "Other videos on this page (N)" row. `BrowserScreenTest`: spinner while the lookup runs, no badge/list on site pages, main video then list on request |
+| Owner check | YouTube watch page and Facebook reel in the browser -> Download -> that video's sheet; never "Found on this page 4" |

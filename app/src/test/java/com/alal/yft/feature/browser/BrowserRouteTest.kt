@@ -2,8 +2,10 @@ package com.alal.yft.feature.browser
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import androidx.activity.ComponentActivity
@@ -17,11 +19,24 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.lifecycle.ViewModelStore
 import com.alal.yft.core.model.ThemeMode
+import com.alal.yft.core.model.media.CandidateSource
+import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.settings.HomeSites
 import com.alal.yft.detection.SiteAdapterCoordinator
+import com.alal.yft.extractor.api.SiteExtractionRequest
+import com.alal.yft.extractor.api.SiteExtractionResult
+import com.alal.yft.extractor.api.SiteExtractor
 import com.alal.yft.extractor.api.SiteExtractorRegistry
+import com.alal.yft.extractor.api.SitePageIdentity
+import java.time.Duration
+import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import com.alal.yft.ui.theme.YftTheme
 import okhttp3.OkHttpClient
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
@@ -222,12 +237,100 @@ class BrowserRouteTest {
         composeRule.runOnIdle { assertEquals(1, hidden) }
     }
 
-    private fun showRoute(initialLink: String? = null) {
+    @Test
+    fun twoDownloadTapsDuringAWatchPagesLookupAskItsAdapterOnce() {
+        val extractor = GatedWatchExtractor()
+        viewModel = BrowserViewModel(
+            OkHttpClient(),
+            SiteAdapterCoordinator(SiteExtractorRegistry(listOf(extractor))),
+        )
+        viewModelStore.put("browser", viewModel)
+        var opened = 0
+        showRoute(onOpenQuickDownload = { opened++ })
+        navigate("m.youtube.com/watch?v=AAAAAAAAAA1")
+        composeRule.runOnIdle {
+            viewModel.onPageStarted(WATCH_PAGE)
+            viewModel.onPageFinished(WATCH_PAGE, "Video A")
+        }
+        composeRule.waitUntil(5_000) { extractor.calls.get() == 1 }
+
+        // P12: two taps while the page's own lookup runs. Whatever script a tap runs, the page
+        // answers with this very video, as the player on screen would.
+        var answered: ValueCallback<String>? = null
+        repeat(2) {
+            composeRule.onNodeWithTag("browser-download-fab").performClick()
+            composeRule.runOnIdle {
+                val shadow = Shadows.shadowOf(webViews().single())
+                val callback = shadow.lastEvaluatedJavascriptCallback
+                if (callback != null && callback !== answered) {
+                    answered = callback
+                    callback.onReceiveValue(focusedAnswer(WATCH_PAGE))
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        composeRule.runOnIdle {
+            assertEquals(1, extractor.calls.get())
+            assertEquals(2, opened)
+        }
+
+        // The one lookup ends: the page has its video, and nobody asked twice.
+        extractor.gate.complete(Unit)
+        composeRule.waitUntil(5_000) {
+            // The found list settles after a short pause on the main looper's clock.
+            Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(300))
+            viewModel.uiState.value.candidates.isNotEmpty()
+        }
+        composeRule.runOnIdle { assertEquals(1, extractor.calls.get()) }
+    }
+
+    private fun focusedAnswer(url: String): String =
+        JSONObject.quote(JSONObject().put("url", url).put("source", "centre").toString())
+
+    /** A YouTube-shaped adapter whose answer waits for the test, counting its lookups. */
+    private class GatedWatchExtractor : SiteExtractor {
+        override val id: String = "youtube"
+        override val displayName: String = "YouTube"
+        val calls = AtomicInteger()
+        val gate = CompletableDeferred<Unit>()
+
+        override fun identify(pageUrl: String): SitePageIdentity? {
+            val videoId = WATCH.matchEntire(pageUrl)?.groupValues?.get(1) ?: return null
+            return SitePageIdentity("youtube", videoId, "https://www.youtube.com/watch?v=$videoId")
+        }
+
+        override fun isPlayerMediaRequest(requestUrl: String): Boolean = false
+
+        override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
+            calls.incrementAndGet()
+            withContext(NonCancellable) { gate.await() }
+            val videoId = request.identity.contentId
+            return SiteExtractionResult.Success(
+                listOf(
+                    MediaCandidate(
+                        pageUrl = request.identity.canonicalPageUrl,
+                        mediaUrl = "https://cdn.fixture.test/$videoId.mp4",
+                        sources = setOf(CandidateSource.MANIFEST),
+                        kind = MediaKind.DIRECT,
+                        mimeType = "video/mp4",
+                    ),
+                ),
+            )
+        }
+
+        private companion object {
+            val WATCH =
+                Regex("https://(?:www|m)\\.youtube\\.com/watch\\?v=([A-Za-z0-9_-]{11})(?:&.*)?")
+        }
+    }
+
+    private fun showRoute(initialLink: String? = null, onOpenQuickDownload: () -> Unit = {}) {
         composeRule.setContent {
             YftTheme(themeMode = ThemeMode.LIGHT) {
                 BrowserRoute(
                     onNavigateBack = {},
                     initialLink = initialLink,
+                    onOpenQuickDownload = onOpenQuickDownload,
                     viewModel = viewModel,
                 )
             }
@@ -273,5 +376,6 @@ class BrowserRouteTest {
     private companion object {
         const val FIRST_PAGE = "https://example.test/one"
         const val SECOND_PAGE = "https://example.test/two"
+        const val WATCH_PAGE = "https://m.youtube.com/watch?v=AAAAAAAAAA1"
     }
 }

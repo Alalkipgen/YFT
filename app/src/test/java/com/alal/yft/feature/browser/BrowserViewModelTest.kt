@@ -31,7 +31,12 @@ import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -791,6 +796,215 @@ class BrowserViewModelTest {
         assertNull(viewModel.uiState.value.focusNotice)
     }
 
+    @Test
+    fun aWatchPageAsksItsAdapterOnceAndTheSheetWaitsForThatSameLookup() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val extractor = FeedVideoExtractor(gate = gate)
+        val store = DetectedMediaStore()
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor), store)
+        viewModel.onPageStarted(WATCH_A)
+        viewModel.onPageFinished(WATCH_A, "Video A")
+        runCurrent()
+
+        // P12: the button means this page's video and spins while its lookup runs.
+        val state = viewModel.uiState.value
+        assertTrue(state.sitePage)
+        assertFalse(state.feedPage)
+        assertTrue(state.pageLookupRunning)
+        assertEquals(
+            BrowserDownloadFab.Action.OPEN_PAGE_VIDEO,
+            BrowserDownloadFab.action(0, state.findsFocusedVideo, state.feedPage, state.sitePage),
+        )
+        // Two taps during the lookup: the sheet opens and waits; nobody asks again.
+        assertTrue(viewModel.openPageVideo())
+        assertTrue(viewModel.openPageVideo())
+        runCurrent()
+        assertEquals(1, extractor.requests.size)
+        assertNull(store.selection.value)
+        val waiting = store.lookup.value!!
+        assertEquals("youtube:AAAAAAAAAA1", waiting.key)
+        assertTrue(waiting.running)
+        assertEquals("Video A", waiting.title)
+
+        gate.complete(Unit)
+        runCurrent()
+        assertEquals(1, extractor.requests.size)
+        assertEquals(
+            listOf("https://cdn.fixture.test/AAAAAAAAAA1.mp4"),
+            store.selection.value?.candidates?.map { it.mediaUrl },
+        )
+        assertNull(store.lookup.value)
+        assertFalse(viewModel.uiState.value.pageLookupRunning)
+        // Later taps open the video it found, still without another lookup.
+        assertTrue(viewModel.openPageVideo())
+        runCurrent()
+        assertEquals(1, extractor.requests.size)
+    }
+
+    @Test
+    fun aFailedPageLookupShowsInTheSheetAndItsTryAgainAsksOnceMore() = runTest {
+        val failing = mutableMapOf("AAAAAAAAAA1" to SiteExtractionFailure.NETWORK)
+        val extractor = FeedVideoExtractor(failing = failing)
+        val store = DetectedMediaStore()
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor), store)
+        viewModel.onPageStarted(WATCH_A)
+        viewModel.onPageFinished(WATCH_A, "Video A")
+        runCurrent()
+
+        assertTrue(viewModel.openPageVideo())
+        val failed = store.lookup.value!!
+        assertEquals("Couldn't reach YouTube.", failed.failure)
+        assertTrue(failed.canRetry)
+        assertNull(store.selection.value)
+        assertEquals(1, extractor.requests.size)
+
+        // The sheet's Try again: one more lookup of the same video, which fills the sheet.
+        failing.clear()
+        store.retryLookup(failed.key)
+        runCurrent()
+        assertEquals(2, extractor.requests.size)
+        assertEquals(
+            listOf("https://cdn.fixture.test/AAAAAAAAAA1.mp4"),
+            store.selection.value?.candidates?.map { it.mediaUrl },
+        )
+        assertNull(store.lookup.value)
+        // Another video's key is not this page's: nothing more is asked.
+        store.retryLookup("youtube:BBBBBBBBBB2")
+        runCurrent()
+        assertEquals(2, extractor.requests.size)
+    }
+
+    @Test
+    fun aFeedLinkToAVideoThatWasAlreadyFoundTakesThatLookup() = runTest {
+        val extractor = FeedVideoExtractor()
+        val store = DetectedMediaStore()
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor), store)
+        val opened = mutableListOf<Unit>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.quickDownloadRequests.collect { opened += it }
+        }
+        viewModel.onPageStarted(YOUTUBE_FEED)
+        viewModel.onPageFinished(YOUTUBE_FEED, "YouTube")
+        runCurrent()
+
+        repeat(2) {
+            viewModel.focusedVideoScript()
+            viewModel.onFocusedVideoResult(answer("https://m.youtube.com/watch?v=BBBBBBBBBB2"))
+            runCurrent()
+        }
+        // P12: the same video ID in this page asks the adapter once; both taps open its sheet.
+        assertEquals(1, extractor.requests.size)
+        assertEquals(2, opened.size)
+        assertEquals(
+            listOf("https://cdn.fixture.test/BBBBBBBBBB2.mp4"),
+            store.selection.value?.candidates?.map { it.mediaUrl },
+        )
+        // Try again is a fresh ask; a new page forgets what this one found.
+        viewModel.retryFocusedLookup()
+        viewModel.onPageStarted(YOUTUBE_FEED)
+        viewModel.onPageFinished(YOUTUBE_FEED, "YouTube")
+        runCurrent()
+        viewModel.focusedVideoScript()
+        viewModel.onFocusedVideoResult(answer("https://m.youtube.com/watch?v=BBBBBBBBBB2"))
+        runCurrent()
+        assertEquals(2, extractor.requests.size)
+    }
+
+    @Test
+    fun genericProbesWaitForTheSiteLookupAndRunOnlyWhenItFoundNothing() = runTest {
+        val probes = AtomicInteger()
+        val client = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                probes.incrementAndGet()
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(404)
+                    .message("Not Found")
+                    .body("".toResponseBody())
+                    .build()
+            }
+            .build()
+        val gate = CompletableDeferred<Unit>()
+        val failing = mutableMapOf<String, SiteExtractionFailure>()
+        val extractor = FeedVideoExtractor(failing = failing, gate = gate)
+        val viewModel = BrowserViewModel(client, adapters(extractor))
+        viewModel.onPageStarted(WATCH_A)
+        viewModel.onPageFinished(WATCH_A, "Video A")
+        viewModel.onRequest(request(PLAYER_FILE, null, WATCH_A))
+        runCurrent()
+        Thread.sleep(PROBE_SETTLE_MS)
+        runCurrent()
+        // P12: the site's lookup goes first; the player's file is not probed meanwhile.
+        assertEquals(0, probes.get())
+        gate.complete(Unit)
+        runCurrent()
+        Thread.sleep(PROBE_SETTLE_MS)
+        runCurrent()
+        // It found the video, so the file is never probed.
+        assertEquals(0, probes.get())
+
+        // A video it could not read: the page's own files are probed after it.
+        failing["AAAAAAAAAA1"] = SiteExtractionFailure.NO_MEDIA_FOUND
+        viewModel.onPageStarted(WATCH_B)
+        viewModel.onPageFinished(WATCH_B, "Video B")
+        failing["BBBBBBBBBB2"] = SiteExtractionFailure.NO_MEDIA_FOUND
+        viewModel.onRequest(request(PLAYER_FILE, null, WATCH_B))
+        runCurrent()
+        val deadline = System.currentTimeMillis() + 5_000
+        while (probes.get() == 0 && System.currentTimeMillis() < deadline) {
+            Thread.sleep(20)
+            runCurrent()
+        }
+        assertTrue(probes.get() > 0)
+    }
+
+    @Test
+    fun severalVideosOpenThePlayingOneElseTheLargestWithTheOthersCounted() = runTest {
+        val store = DetectedMediaStore()
+        val viewModel = BrowserViewModel(OkHttpClient(), noAdapters(), store)
+        val opened = mutableListOf<Unit>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.quickDownloadRequests.collect { opened += it }
+        }
+        val page = "https://example.test/gallery"
+        viewModel.onPageStarted(page)
+        viewModel.onPageFinished(page, "Gallery")
+        // No sizes or pictures were stated: the longest is the largest.
+        val small = "https://cdn.test/small.mp4"
+        val large = "https://cdn.test/large.mp4"
+        val playing = "https://cdn.test/playing.mp4"
+        val videos = JSONArray()
+        listOf(small to 10, large to 300, playing to 60).forEach { (url, seconds) ->
+            videos.put(
+                JSONObject().put("url", url).put("type", "video/mp4").put("duration", seconds),
+            )
+        }
+        viewModel.onDomProbeResult(page, videos.toString())
+        advanceTimeBy(2_000)
+        runCurrent()
+        assertEquals(3, MediaGroups.pageVideos(viewModel.uiState.value.candidates).size)
+
+        // The page says which video plays.
+        viewModel.mainVideoScript()
+        viewModel.onPlayingVideoResult(JSONObject.quote(playing))
+        runCurrent()
+        assertEquals(listOf(playing), store.selection.value?.candidates?.map { it.mediaUrl })
+        assertEquals(2, store.otherVideos.value)
+        assertEquals(1, opened.size)
+
+        // A page that does not answer gets its largest video.
+        viewModel.mainVideoScript()
+        advanceTimeBy(1_001)
+        runCurrent()
+        assertEquals(listOf(large), store.selection.value?.candidates?.map { it.mediaUrl })
+        assertEquals(2, opened.size)
+        // Its late answer opens nothing more.
+        viewModel.onPlayingVideoResult(JSONObject.quote(playing))
+        runCurrent()
+        assertEquals(2, opened.size)
+    }
+
     private fun downloadButtonVisible(viewModel: BrowserViewModel): Boolean =
         BrowserDownloadFab.isVisible(
             hasPage = viewModel.uiState.value.currentUrl != null,
@@ -937,5 +1151,9 @@ class BrowserViewModelTest {
         const val YOUTUBE_FEED = "https://m.youtube.com/"
         const val FEED_API = "https://m.youtube.com/youtubei/v1/browse"
         const val FOCUSED_VIDEO = "https://www.youtube.com/watch?v=BBBBBBBBBB2"
+        const val WATCH_A = "https://m.youtube.com/watch?v=AAAAAAAAAA1"
+        const val WATCH_B = "https://m.youtube.com/watch?v=BBBBBBBBBB2"
+        const val PLAYER_FILE = "https://cdn.player.test/part/clip.mp4"
+        const val PROBE_SETTLE_MS = 200L
     }
 }

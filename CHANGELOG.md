@@ -33,6 +33,12 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Changed
 
+- Site video pages (YouTube, Facebook, TikTok, Vimeo): the browser's Download button always
+  opens that video's download sheet, never "Found on this page". It shows a small spinner while
+  the page's lookup runs; a tap opens the sheet in its loading state and fills it when that same
+  lookup ends. A failed lookup shows its message with Try again in the sheet.
+- Pages with several videos open the main video's sheet (the one playing, else the largest) with
+  "Other videos on this page (N)", which opens the list.
 - Compact download sheet: initially two Audio rows (M4A, MP3 128 kbps) and two Video rows
   (720p and the next lower quality by default). More formats expands the full list in place,
   once per format; Fewer formats preserves the selection. Only the rows scroll: Download,
@@ -55,6 +61,9 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Fixed
 
+- One lookup per video: Download taps during a page's lookup and a feed's link to a video that
+  was already looked up join that lookup instead of asking the site again; generic size probes
+  wait for the site's lookup and run only when it found nothing.
 - Quality rows appear from the site's whole-file metadata immediately, before size probes.
   Unknown sizes are estimated from bitrate and length when possible. Two background probes
   fill sizes without dropping rows, moving them or changing the chosen format; a failed probe

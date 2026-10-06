@@ -54,6 +54,19 @@ these defaults; Vimeo configuration and YouTube player JSON keep their existing 
 Home does not borrow the WebView's user-agent, cookies or account. Its direct/scanned candidates
 keep the same headless user-agent for subsequent probes/preview. The browser keeps its own session.
 
+## Browser Download button on site pages (P12, 2026-10-06)
+
+On a page a site adapter reads (YouTube watch/Shorts, Facebook reel/video/post, TikTok video,
+Vimeo video) the floating Download button always means that page's video: it shows a small
+spinner while the page's own lookup runs, and a tap opens the download sheet in its loading
+state, filled when that same lookup ends. The found list never opens from it, and the player's
+own files (byte ranges, separate picture/sound tracks) never count as more videos there. A
+failed lookup shows its message in the sheet with Try again (none for protected-only videos).
+One lookup per video in a page: taps during the lookup, and a feed's focused link to a video
+already looked up, join it. Generic size probes wait for the site lookup and run only when it
+found nothing. Other pages with several videos open the main one (the one playing, else the
+largest by size, height, length) with "Other videos on this page (N)", which opens the list.
+
 ## Stable quality rows (P11, 2026-10-05)
 
 Facebook and other adapters' real whole-file metadata makes a row without first requiring a

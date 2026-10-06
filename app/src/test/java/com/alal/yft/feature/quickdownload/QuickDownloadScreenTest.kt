@@ -274,6 +274,44 @@ class QuickDownloadScreenTest {
     }
 
     @Test
+    fun aPageLookupLoadsInTheSheetAProtectedVideoHasNoTryAgainAndOthersAreOneTapAway() {
+        var state by mutableStateOf(
+            QuickDownloadUiState(
+                header = SAMPLE_QUICK_DOWNLOAD.header,
+                loading = true,
+                findingVideo = true,
+            ),
+        )
+        var others = 0
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(
+                    state = state,
+                    onSelect = {},
+                    onDownload = {},
+                    onOpenOtherVideos = { others += 1 },
+                )
+            }
+        }
+
+        // P12: the sheet waits for the page's lookup instead of listing the page.
+        composeRule.onNodeWithTag("quick-loading").assertExists()
+        composeRule.onNodeWithText("Looking up this video…").assertExists()
+        composeRule.onAllNodesWithTag("quick-other-videos").assertCountEquals(0)
+        state = state.copy(loading = false, findingVideo = false, failure = "Protected")
+        composeRule.onNodeWithTag("quick-error").assert(hasText("Protected"))
+        composeRule.onNodeWithTag("quick-retry").assertExists()
+        state = state.copy(canRetry = false)
+        composeRule.onAllNodesWithTag("quick-retry").assertCountEquals(0)
+
+        // A generic page's main video: the others are one row away.
+        state = SAMPLE_QUICK_DOWNLOAD.copy(otherVideos = 3)
+        composeRule.onNodeWithText("Other videos on this page (3)").assertExists()
+        composeRule.onNodeWithTag("quick-other-videos").performClick()
+        assertEquals(1, others)
+    }
+
+    @Test
     fun meteredDownloadsAskFirstAndNoVideoOffersClose() {
         var state by mutableStateOf(
             SAMPLE_QUICK_DOWNLOAD.copy(downloadStatus = PreviewDownloadStatus.ConfirmMetered),
