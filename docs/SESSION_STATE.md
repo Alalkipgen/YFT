@@ -52,8 +52,18 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent B — `work/phase-13-generic-main` (P28, P29)
 
-- Status: NOT STARTED
-- P28 — Other sites: the page's video, not the ad before it: TODO
+- Status: IN PROGRESS (P28) — started 2026-10-07 in `/data/YFT-B`, base commit `7873d51`
+  (`origin/work/phase-13-integration`, the Phase 13 plan on `main` `bc806f9`).
+- Environment: rebuilt after a sandbox reset (JDK 17 `/data/toolchains/jdk17`, SDK 35,
+  build-tools 35.0.0, NDK 27.3.13750724, CMake 3.22.1, 4 GiB swap); new SSH deploy key
+  (owner added it, push checked).
+- Starting state (Agent B scope, before any edit): `./gradlew --no-daemon --continue
+  :core-model:test :core-browser:testDebugUnitTest :core-media:testDebugUnitTest
+  :extractor-generic:test :app:testDebugUnitTest :app:lintDebug
+  :app:compileDebugAndroidTestKotlin` → BUILD SUCCESSFUL (9m 22s): 905 tests, 0 failures,
+  66 skipped (app 690, core-browser 88, core-media 28, core-model 80, extractor-generic 19);
+  lint 0 errors.
+- P28 — Other sites: the page's video, not the ad before it: IN PROGRESS
 - P29 — Other sites: the next video when one fails: TODO
 - Hand-offs: none
 
