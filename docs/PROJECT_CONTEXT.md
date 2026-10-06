@@ -85,11 +85,11 @@ Phases 8–10 are complete and released as the `1.0.0-beta.3` draft (2026-10-04)
 the beta.2 phone test, the copied-link flow ("Video you copied" sheet, Search to download, the
 floating Download button) and formats (YouTube client strategy, merged video and audio, MP3).
 
-Planned, task by task in `docs/FIX_ADD_PLAN.md`: Phase 11 — download flow like Snaptube. Part 1
-(P1–P7, with a test-key preview APK) is done on the branch; part 2 (P9–P19: short sheet, slow
-networks, stable quality rows, one lookup per page, wide Download button, real thumbnails,
-faster YouTube and Facebook lookups, a sheet that opens at once) comes next, then the signed
-`1.0.0-beta.4` (P8).
+Phase 11 — download flow like Snaptube (P0–P19) is merged into `main` (2026-10-06). Planned, task
+by task in `docs/FIX_ADD_PLAN.md`: Phase 12 — the fixes from the owner's test of Preview #3
+(saving video files, Retry and failure details, every YouTube and Facebook quality, other sites'
+main video, one sheet everywhere), worked on by three agents in parallel, then Preview #4 and the
+signed `1.0.0-beta.4` (P8).
 
 ## Out of scope for the MVP
 

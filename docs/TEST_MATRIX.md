@@ -867,3 +867,26 @@ repository that asks each client and prints only verdicts and counts.
 | Regression proof | P18 `QuickDownloadUiState.canDownload` put back to the old rule (a row must be selected; Download disabled while waiting): 8 tests fail — the 4 new view-model tests (AssertionError, "List is empty", "expected:<ConfirmMetered> but was:<Idle>"), P16's link test, and 3 screen tests "(is enabled)". Restored, `cmp` clean |
 | Validation | `--continue :core-download:testDebugUnitTest :core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug` passed — core-download 112, core-browser 81, app 663 tests (66 skipped), 0 failures/errors; lint 0 errors (96 warnings, as before); line check printed nothing |
 | Owner check | Paste a link and tap Download at once -> the download starts with the right quality |
+
+## Phase 12 (Preview #3 field fixes)
+
+Plan: `docs/FIX_ADD_PLAN.md` (P20–P26). Three agents work at once; each adds rows only under its
+own heading below. Owner's Preview #3 findings (2026-10-06): FIX_ADD_PLAN §2 and §4 (R1–R6).
+
+### Agent A — P20, P21
+
+| Check | Evidence |
+| --- | --- |
+| (Agent A adds rows here) | — |
+
+### Agent B — P22, P23
+
+| Check | Evidence |
+| --- | --- |
+| (Agent B adds rows here) | — |
+
+### Agent C — P24, P25
+
+| Check | Evidence |
+| --- | --- |
+| (Agent C adds rows here) | — |

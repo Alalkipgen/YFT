@@ -7,6 +7,18 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ## [Unreleased]
 
+### Phase 12 — Agent A (P20, P21)
+
+- (Agent A: replace this line with the P20 and P21 entries.)
+
+### Phase 12 — Agent B (P22, P23)
+
+- (Agent B: replace this line with the P22 and P23 entries.)
+
+### Phase 12 — Agent C (P24, P25)
+
+- (Agent C: replace this line with the P24 and P25 entries.)
+
 ### Added
 
 - Audio from MP4: when a video has no separate audio file (Facebook, TikTok), the sheet's Audio
@@ -91,6 +103,12 @@ for every APK given to users, because Android refuses to install a lower one.
   part 1 (P0–P7) after the beta.3 phone test, part 2 (P9–P19) after the owner's test of Preview
   APK #1, with one prompt per task and a generic master prompt in `docs/prompts/`. The Phases
   8–10 plan, the T01–T19 prompts and the part 1 prompts were removed (they stay in Git history).
+- Documentation: after the owner's test of Preview #3, `docs/FIX_ADD_PLAN.md` plans Phase 12
+  (P20–P26: saving video files, YouTube and Facebook qualities, other sites' main video, one
+  sheet everywhere, the merge and Preview #4) for three agents working at once, each with its
+  own branch, files and prompt (`docs/prompts/A-download-fix.md`, `B-site-qualities.md`,
+  `C-generic-and-sheet.md`, `M-merge-preview4.md`). The Phase 11 prompts (P9–P19,
+  `00_NEXT_TASK.md`, `MASTER_PROMPT.md`) were removed; they stay in Git history (`4db6c2b`).
 
 ### Fixed
 

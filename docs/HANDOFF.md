@@ -1,85 +1,67 @@
 # Handoff
 
-## Current handoff (2026-10-05)
+## Current handoff (2026-10-06)
 
-- 2026-10-06 Track A: merged Track B (`work/phase-11-extractors`, P14 + P15) into `work/phase-11-download-flow` at the owner's request, then into `main`; Preview #3 is this merge's Preview APK run. Owner phone test next; P8 only with his OK.
-- 2026-10-06 Track A: P18 OWNER CHECK — Download can be tapped while the sheet says "Getting qualities…": it queues the Default quality (or M4A when that row is picked), says "Starts when ready…" and starts when the rows come (that quality, else the nearest lower, else the nearest higher, with "Downloading 480p — 720p not available"); a failed lookup or closing drops it; mobile data, Wi-Fi only and storage checks apply. Next: wait for the owner's "Agent B finished", merge `work/phase-11-extractors`, validate, Preview #3.
-- 2026-10-06 Track A: P17 OWNER CHECK — one lookup per video: a memory-only cache (20 videos, 10 minutes or until the links expire; session/no-session apart, a session lookup may take the public answer) shared by Home, the browser and the sheet; running lookups are shared; Try again asks the site; failures are never kept; 403/410 and Clear browsing data drop answers. Next: P18.
-- 2026-10-06 Track A: Preview #2 = Preview APK run 37414773994 (`b0d1b30`, same code as the P19 checkpoint). P16 OWNER CHECK — the sheet opens at once (Home's site-video link, the browser's buttons, a feed's video on screen) with the link, "Getting qualities…" and placeholder rows; the lookup fills it, failures show with Try again, closing early stops Home's/the feed's lookup (lookup owner HOME/BROWSER). Next: P17.
-- 2026-10-06 Track A: P19 OWNER CHECK — real video pictures in the sheet header (16:9), the found list and Downloads (HTTPS-only cookie-free loader, 2 MB cap, two at a time, memory+disk cache; saved JPEG per download deleted with its record). Next: Preview #2, P16.
-- 2026-10-06 Track A: P13 OWNER CHECK — wide "Download this video" button under the page on site video pages and one-video pages (round button hides; hidden in full screen, under the sheet, with the keyboard). Fixed the wip's compile error and the route test that still tapped the round button. Next: P19.
-- 2026-10-06 Track A: P12 OWNER CHECK — site video pages open their own video's sheet (one lookup per video, sheet waits/Retry, probes wait); generic pages open the main video with "Other videos on this page (N)". Next: P13.
-- Track B (Agent B, `work/phase-11-extractors`): P14 and P15 OWNER CHECK, ready for Agent A to merge; details in SESSION_STATE "Track B (extractors)".
-- 2026-10-06: P11 CI failure found from the owner's log and fixed in the test fixture (localhost resolves to 127.0.0.1 and ::1 on GitHub; see SESSION_STATE). P12 started at the owner's request: design only, no P12 code yet.
-
-**Latest owner instruction: finish P11 and STOP.** P9/P10 are pushed and P11's stable quality
-rows are locally verified (1124 tests, 66 native-render skips; no failures/lint errors). P11
-feature milestone `f82427b` passed preview and emulator CI; final validation CI retry follows
-verified loopback-fixture hardening. Actual status/stop boundary is in `SESSION_STATE.md`.
-Workflows, FIX_ADD_PLAN and prompts remain unchanged. P12/P13/P19/Preview #2 have not started;
-no task may auto-continue until the owner explicitly resumes it.
-
-- **Phase:** 11 — download flow like Snaptube. Plan, status board, decisions and findings:
-  [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md); one prompt per task in [`prompts/`](prompts/README.md).
-- **Branch:** `work/phase-11-download-flow`, created from `main` at `2f6284f`; part 1 ends at
-  `ce3cd25`.
-- **Releases:** `1.0.0-beta.1` published 2026-10-02; `1.0.0-beta.2` signed draft 2026-10-03 (tag
-  `v1.0.0-beta.2` on `39ea049`). `1.0.0-beta.3` (versionCode 3) completes Phases 8–10: `main`
-  fast-forwarded to `2f6284f`, tag `v1.0.0-beta.3`, Release draft run
-  https://github.com/Alalkipgen/YFT/actions/runs/37204457527 → draft pre-release with
+- **Phase:** 12 — Preview #3 field fixes (saving, every quality, one sheet). Plan, file ownership,
+  decisions, root causes and tasks: [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md); prompts:
+  [`prompts/`](prompts/README.md).
+- **Owner's test of Preview #3** (2026-10-06, Preview APK run
+  https://github.com/Alalkipgen/YFT/actions/runs/37455870506, `4db6c2b` = `main`): every video
+  download fails at once with "Storage unavailable" (Retry too; audio works); YouTube offers only
+  360p; Facebook gives HD/SD without Audio from Home and only 360p in the browser; another site
+  opens a 29 s preview ("50 media found"); the sheet differs per site. Root causes R1–R6
+  (FIX_ADD_PLAN §4): the direct engine reads a fresh MediaStore row before creating its file;
+  Retry repeats the same steps; YouTube's visionOS is asked without visitor data and the chain
+  stops at ANDROID's 360p; Facebook's lookup ends with HD/SD or skips the AVC ladder; other sites
+  never match an MSE player and rank previews first; the sheet shows different data per site.
+- **Plan (Plan Mode, 2026-10-06):** three agents at once — A: P20 (saving) → P21 (Retry and
+  failure details); B: P22 (YouTube every quality) → P23 (Facebook every quality); C: P24 (other
+  sites' main video) → P25 (one sheet everywhere). Then P26 (A merges A → B → C into
+  `work/phase-12-integration`, full validation, **Preview #4**) and P8 (signed `1.0.0-beta.4`)
+  with the owner's OK.
+- **Branches:** `work/phase-12-integration` (= `main` `4db6c2b` + the plan); agents branch from
+  it: `work/phase-12-download-fix` (A), `work/phase-12-site-qualities` (B),
+  `work/phase-12-generic-sheet` (C). Status per agent: `SESSION_STATE.md`.
+- **Next action — owner:** paste [`prompts/A-download-fix.md`](prompts/A-download-fix.md),
+  [`prompts/B-site-qualities.md`](prompts/B-site-qualities.md) and
+  [`prompts/C-generic-and-sheet.md`](prompts/C-generic-and-sheet.md) into three agent chats;
+  optionally send the YouTube and other-site sheet **Details** screenshots from Preview #3 to
+  Agents B and C. When all three say `READY FOR MERGE`, paste
+  [`prompts/M-merge-preview4.md`](prompts/M-merge-preview4.md) into Agent A's chat.
+- **Releases:** `1.0.0-beta.1` published 2026-10-02; `1.0.0-beta.2` signed draft 2026-10-03;
+  `1.0.0-beta.3` (versionCode 3, tag `v1.0.0-beta.3` on `2f6284f`) signed draft 2026-10-04:
   `video-downloader-1.0.0-beta.3.apk` 6,334,176 bytes, SHA-256
   `8fe466f17b62e88cdd5deb08482f7dc4c70a1a3dba7182bf94b93c6d1604e955`, certificate SHA-256
   `3A:EB:30:64:91:E2:DD:6F:F7:6D:C5:A8:68:E6:FC:C9:D3:30:BB:99:85:BF:4D:15:B3:4A:67:04:EC:78:98:8F`
-  (same key as beta.1 and beta.2). Notes: [`release/1.0.0-beta.3.md`](release/1.0.0-beta.3.md).
-- **Part 1 (P0–P7, done):** the browser follows in-page navigation; Facebook and TikTok pages
-  render and play; one "Download" sheet with Audio and Video; every Facebook DASH quality merged
-  with its sound; the Download button on feeds finds the video on screen; YouTube 2K/4K as
-  VP9 + Opus `.webm`; `yft-preview-apk` signed with a CI test key. Commits and the short record:
-  FIX_ADD_PLAN §8; full part 1 plan: `git show ce3cd25:docs/FIX_ADD_PLAN.md`.
-- **Owner's phone test of Preview APK #1 (`1.0.0-beta.3-preview.1`, 2026-10-05):** FIX_ADD_PLAN
-  §2 — lookups fail on a slow line, the sheet is long with 4K preselected and Download scrolls
-  away, Facebook rows vanish, site pages can open "Found on this page 4", no wide Download
-  button, the sheet waits for the lookup; the owner also asked for real thumbnails.
-- **Part 2 plan (Plan Mode, 2026-10-05):** P9 → P10 → P11 → P12 → P13 → P19 → Preview #2 → P14 →
-  P15 → P16 → P17 → P18 → Preview #3 → owner phone test → P8 (FIX_ADD_PLAN §1, §3 E6–E10, §5).
-  Advice on the owner's four questions (YouTube in-page button, a YouTube page of YFT's own,
-  Facebook formats from the browser page, TikTok testing) is FIX_ADD_PLAN §7 B1–B4, waiting for
-  his decision.
-- **Next action — agent:** when the owner asks for it, P9 ([`prompts/P9-short-sheet.md`](prompts/P9-short-sheet.md)
-  or [`prompts/00_NEXT_TASK.md`](prompts/00_NEXT_TASK.md)), then task after task with a checkpoint
-  push and a short Burmese report after each; Preview #2 link after P19, Preview #3 link after
-  P18. P8 (signed beta.4) only with his OK.
-- **Next action — owner:** say when part 2 should start; decide B1–B4 when convenient (B1 after
-  Preview #2).
-- **Earlier handoffs:** the Phases 8–10 task log (T01–T19 validation, CI runs, decisions) is in Git
-  history: `git show 2f6284f:docs/HANDOFF.md` and `git show 2f6284f:docs/FIX_PLAN.md`; the part 1
-  handoff: `git show ce3cd25:docs/HANDOFF.md`.
+  (notes: [`release/1.0.0-beta.3.md`](release/1.0.0-beta.3.md)). Phase 11 is merged into `main`
+  (`4db6c2b`, no tag); `1.0.0-beta.4` waits for Preview #4 (P8).
+- **Phase 11** (P0–P19, 2026-10-04 to 2026-10-06): browser navigation, Facebook pages, one sheet,
+  Facebook qualities, feeds, 2K/4K, preview APK (part 1); short sheet, slow networks, stable
+  rows, one lookup per page, wide Download button, thumbnails, visionOS first, Facebook public
+  page first, instant sheet, lookup reuse, early Download (part 2). Record: FIX_ADD_PLAN §8 and
+  `git show 4db6c2b:docs/HANDOFF.md`.
 
-## Known limitations (beta.3)
+## Known limitations (Preview #3, `main` `4db6c2b`)
 
-- The browser's Download button follows only full page loads, not videos opened inside a page
-  (P1, fixed on the branch); some Facebook pages show black in the browser (P2, fixed on the
-  branch); the download choices are split over several screens (P3, fixed on the branch).
-- Facebook's AV1-only sizes (often 1080p) are not offered while AV1 merges are off (P4);
-  YouTube 2K/4K needs Android 10+ (VP9 + Opus WebM, P6) and AV1-only 2K/4K stays hidden.
-- On the branch (Preview #1): lookups fail on slow lines (15 s/25 s limits), the sheet is long
-  with 4K preselected, Facebook rows can vanish, and the sheet waits for the lookup — planned
-  as part 2 (FIX_ADD_PLAN §2, P9–P19).
-- YouTube lookups from datacenter networks can stay bot-checked; the phone on a home or mobile
-  network is the real test.
+- Direct video downloads into `Download/YFT` fail with "Storage unavailable" (R1, P20); Retry
+  does not help (R2, P21).
+- YouTube can offer only 360p on networks where visionOS is bot-checked (R3, P22); YouTube
+  lookups from data-centre networks can stay bot-checked, so the phone is the real test.
+- Facebook can miss 720p and Audio (R4, P23); AV1-only sizes stay hidden while AV1 merges are off.
+- Other sites can open a preview clip instead of the main video (R5, P24).
 - No playlists or batch downloads, background playback or folder export; an expired link cannot
   be refreshed in place after the process was killed.
 
 ## Device testing
 
 The agent sandbox has no emulator (`/dev/kvm` is missing) and Robolectric does not run a real
-WebView. Owner checks are listed per task in FIX_ADD_PLAN §6; device-only checks are in
-[`TEST_MATRIX.md`](TEST_MATRIX.md). Every green checkpoint run uploads a debug APK
-(FIX_ADD_PLAN §0.6), and an emulator smoke job runs on GitHub Actions.
+WebView or MediaStore. Owner checks are listed per task in FIX_ADD_PLAN §5 and §6; device-only
+checks are in [`TEST_MATRIX.md`](TEST_MATRIX.md). Every green checkpoint run uploads a debug APK
+(FIX_ADD_PLAN §0.6), and the emulator smoke job (API 34) runs the instrumented tests on GitHub
+Actions.
 
 ## History
 
-Detailed handoffs for Phases 0–7, 5E and the UI redesign (work done, validation, decisions and
-checkpoint commits) were condensed on 2026-10-03. Read them with
-`git show 28930cf:docs/HANDOFF.md`. The Phases 8–10 log was condensed on 2026-10-04:
-`git show 2f6284f:docs/HANDOFF.md`.
+Detailed handoffs for Phases 0–7, 5E and the UI redesign: `git show 28930cf:docs/HANDOFF.md`.
+Phases 8–10: `git show 2f6284f:docs/HANDOFF.md`. Phase 11 part 1: `git show ce3cd25:docs/HANDOFF.md`;
+Phase 11 part 2 and the Track A/B merge: `git show 4db6c2b:docs/HANDOFF.md`.

@@ -2,108 +2,55 @@
 
 Update this file before every checkpoint push. Keep it factual so another chat can resume.
 
-- Phase/branch: 11, Group A, `work/phase-11-download-flow` (main base `2f6284f`). P9 `13bbf05` and P10 `bdc9f88` pushed; P11 completed locally (1124 tests, 66 render skips; zero failures/errors, lint zero errors), CI retry for the final checkpoint pending. STOP AFTER P11. No main merge or signed release/P8 without owner approval.
-- Owner request (2026-10-05): start P9/Group A; do not edit workflows or Plan Doc. `.github/workflows/`, `docs/FIX_ADD_PLAN.md` and prompts remain byte-identical to `d642607`; progress is recorded here, not the protected status board. Latest owner instruction: finish P11 and stop; do not start P12.
-- Rules: ADR-006 public videos only; no DRM/paywall/private/age-gate bypass; adapters never sign in. Never print/commit cookies, tokens, signed media/image URLs or keys. Keep testTags, new Kotlin lines <=100, WebView main-thread only. No reset --hard/clean/stash. One Gradle command at a time; temporary files outside the repo.
-- Last completed task: P11 — metadata-first rows, honest estimates, two background size checks, stable IDs/order/selection even after failure, measured ladder compact and native HD/SD under More, final selected-file check with 1/3 s transient retries and unavailable-quality error. Focused and full root validation pass; phone check remains OWNER CHECK.
-- Recovery: sandbox reset during P11 full validation. P9/P10 were safely pulled from origin. P11 source/test scripts restored from session events 11542/11549/11560; original regression proof is event 11646. SDK NDK/CMake and local low-memory helper re-created. Do not claim the interrupted root build passed.
-- Validation: P11 full validation: core-model 63 tests, core-media 25 tests, extractor-sites 168 tests, app 614 tests (66 skipped); 0 failures/errors; :app:lintDebug 0 errors. Restored P10 baseline passed: model 63, data 17, browser 79, media 25, sites 168, app 607 (66 skipped); zero failures/errors. Root app/browser/data/download/media lint reports each have zero errors. Initial one-worker combined root command stalled and was stopped; explicit module tasks and the final two-worker CI-equivalent root command both pass.
-- Live P11: production parser of public Facebook reel, no media HEAD: HTTP 200, www.facebook.com, /reel/1603698891196107/, 136045 bytes; AVC heights 358/720, AAC 1, native files 2 (five candidates). No signed URL/body/session output. One earlier public response was RESPONSE_CHANGED; navigation headers + trailing slash returned parseable public media.
-- CI: P9 validation passed 37363825709; preview/emulator never acquired hosted runners. P10 emulator passed 37367554221; validation failed 37367554173 (logs require authentication; exact cause not verified); preview 37367554281 never acquired a runner. P11 f82427b validation failed 37377253562 at Validate production checkpoint; local full root equivalent passes. Public CI failure summary is being inspected. P11 f82427b preview 37377253600 and emulator 37377254034 both passed. Final CI retry uses deterministic verified localhost TLS fixtures and wider streaming/cancellation test headroom; production budgets and TLS checks unchanged. The original validation failure cause is not verified because full logs require authentication. Workflows unchanged.
-- CI fix (owner log of run 37380484743, job 112000878738): validation failed only in `HeadlessPageFetcherTest.droppedConnectionAndTransientStatusesRetryBut404DoesNot` (ClassCastException: the first fetch returned Failed). Cause: GitHub's runner maps `localhost` to 127.0.0.1 and ::1; after the dropped connection OkHttp postpones the failed 127.0.0.1 route and the explicit retries (implicit retries are off since P10) went to ::1, where MockWebServer was not listening. Reproduced locally with `JAVA_TOOL_OPTIONS=-Djdk.net.hosts.file=<CI-like hosts>`. Fix (test only): the server binds 127.0.0.1 and the test client resolves its host only there. With the CI-like hosts file: core-browser 79 pass; every unit-test task re-run with `--rerun` passes (1124 tests, 66 skipped, 0 failures); lint 0 errors. Production code unchanged. Earlier P10/P11 validation runs stopped at this task, so other modules' tests had not run on CI since P9.
-- Environment: `/data/YFT`; JDK17 `/data/toolchains/jdk17`; SDK `/data/toolchains/android-sdk`, platforms 35/36, NDK 27.3.13750724, CMake 3.22.1. Source `/data/yft-env.sh`. `/data/gw-safe.sh`: no daemon, one worker, Gradle heap 768 MiB/metaspace 384 MiB, in-process Kotlin compiler. `/data/gw-ci-safe.sh` completed full root validation with two workers, 1024 MiB heap, 384 MiB metaspace, ActiveProcessorCount=2, TieredStopAtLevel=1 and in-process Kotlin. After another reset, recreate helpers and re-install missing SDK parts; git pull --ff-only first. Push uses the existing SSH deploy key via core.sshCommand, never print it.
-- Limits: no local KVM/emulator; 66 native renders skipped, no native pixel-review claim. Datacenter YouTube bot checks require owner phone verification. Plan/status/prompts/workflows remain untouched.
-- Next: owner phone test of Preview #3 (the Preview APK run of the A+B merge); P8 only with his OK (see "## Track A").
-- Last pushed checkpoint: P11 CI fix (this checkpoint); final P11 cfad7b7; P11 feature f82427b; P10 bdc9f88; P9 13bbf05; PLAN d642607.
-- Last updated: 2026-10-06 (Track A: Track B merged, full validation green, pushed to the work branch and `main`; Preview #3 next)
+Phase 12 runs three agents at the same time. **Each agent edits only its own section below**
+(`## Agent A …`, `## Agent B …`, `## Agent C …`); `## Overview` belongs to the plan and to P26.
+Keep at least the heading and one blank line between sections, so Git merges them cleanly.
 
-## Track A
+## Overview (plan and integration — P26 only)
 
-Agent A, `work/phase-11-download-flow`: P12 -> P13 -> P19 -> Preview #2 -> P16 -> P17 -> P18, then the merge of `work/phase-11-extractors` once the owner says Agent B finished. P14/P15 belong to Agent B.
+- Phase: 12 — Preview #3 field fixes (saving, every quality, one sheet). Plan:
+  `docs/FIX_ADD_PLAN.md`; prompts: `docs/prompts/README.md`.
+- Branches: integration `work/phase-12-integration` = `main` `4db6c2b` + the plan commit. Agent A
+  `work/phase-12-download-fix` (P20, P21, later P26), Agent B `work/phase-12-site-qualities`
+  (P22, P23), Agent C `work/phase-12-generic-sheet` (P24, P25); all start from
+  `origin/work/phase-12-integration`. Merge order A → B → C (P26), then Preview #4; P8 (signed
+  `1.0.0-beta.4`) only with the owner's OK. Nobody pushes to `main` without the owner's OK.
+- Owner's test of Preview #3 (2026-10-06, run 37455870506, `4db6c2b`): video downloads fail
+  "Storage unavailable" at 0 B (Retry too), YouTube only 360p, Facebook HD/SD without Audio
+  (Home) or 360p only (browser), another site opens a 29 s preview and says "50 media found",
+  the sheet differs per site. Root causes R1–R6 in FIX_ADD_PLAN §4.
+- Rules: ADR-006 public videos only; no DRM/paywall/private/age-gate bypass; adapters never sign
+  in. Never print/commit cookies, tokens, visitor data, signed media/image URLs or keys. Keep
+  testTags, Kotlin lines ≤ 100, WebView on the main thread. No reset --hard/clean/stash. One
+  Gradle command at a time; temporary files outside the repo.
+- Environment: `/data/YFT`; JDK 17 `/data/toolchains/jdk17`; SDK `/data/toolchains/android-sdk`
+  (platform 35, NDK 27.3.13750724, CMake 3.22.1); `source /data/yft-env.sh`; full validation with
+  `GRADLE_OPTS="-Xmx1024m -XX:MaxMetaspaceSize=640m"`. After a sandbox reset recreate the helper
+  files, reinstall missing SDK parts and `git pull --ff-only` first. Push with the deploy key
+  configured in `core.sshCommand`; never print it.
+- Phase 11 record (per-task Results, validation, CI runs, Track A/B notes):
+  `git show 4db6c2b:docs/SESSION_STATE.md`.
+- Last pushed checkpoint: PLAN — Phase 12 plan and prompts (this commit).
+- Next: the owner pastes the prompts for Agents A, B and C (three chats, at the same time).
+- Last updated: 2026-10-06 (Phase 12 plan, Plan Mode; no app code changed)
 
-- P12 — OWNER CHECK (2026-10-06). Result: on a page a site adapter reads (YouTube watch/Shorts, Facebook reel/video/post, TikTok, Vimeo) the Download button is OPEN_PAGE_VIDEO ("Download this video", small spinner `browser-download-fab-spinner` while the page lookup runs) and opens that video's sheet; a tap during the lookup opens the sheet in its loading state ("Looking up this video…") and the same lookup fills it; a failed lookup shows its message with Try again in the sheet (none for protected-only). One lookup per video key (`siteId:contentId`) per page scope: taps and feed focused links join a running lookup or take the found one; Try again is fresh. Generic metadata probes wait for the site lookup and run only if it found nothing. `MediaGroups.pageVideos(adapterSite = true)` never falls back to the player's files. Generic pages with several videos: OPEN_MAIN_VIDEO (playing video via `PlayingVideoProbe`, 1 s budget, else largest by size/height/length) with "Other videos on this page (N)" (`quick-other-videos`) that opens the found list. Plan adapted: "site video page" = any page `SiteAdapterCoordinator.handles` (the same test the early lookup uses); the sheet waits through `DetectedMediaStore.lookup` (no new route) and its Try again reaches the browser via `lookupRetries`; the FIX_ADD_PLAN status board/Result are not edited (owner rule), status is recorded here.
-- P12 validation: `:core-model:test :core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug` passed — core-model 65, core-browser 81, app 626 tests (66 skipped), 0 failures/errors, lint 0 errors; line check printed nothing.
-- P12 regression proof: pre-P12 `2071342` app main/test files and core-model `MediaGroups` put back (only the new `BrowserRouteTest` kept): `twoDownloadTapsDuringAWatchPagesLookupAskItsAdapterOnce` fails "expected:<1> but was:<2>" (page lookup + focused lookup). Files backed up in `/data/bak/p12`, restored and checked with `cmp`.
-- P13 — OWNER CHECK (2026-10-06). Result: on a site video page and on a page with one video a full-width Mint "Download" button (`browser-download-wide`, "Download this video", spinner `browser-download-wide-spinner` while the page lookup runs) sits at the bottom of the page area above the toolbar and does what the round button did there (one shared `onDownloadTap`); the round button hides while it shows; feeds and pages with several videos keep the round one. Hidden in full screen (`fullscreenView != null`), while a download sheet covers the browser (route lifecycle below RESUMED) and while the keyboard is up (`WindowInsets.ime` bottom > 0); the WebView gets bottom padding = the measured button height. Plan adapted: "sheet open" = the browser route not RESUMED (the sheet is a dialog destination over it); FIX_ADD_PLAN status board/Result not edited (owner rule), status recorded here. CI fix: the `baf5124` wip did not compile (missing `LocalDensity` import) and `BrowserRouteTest` still tapped the round button on a watch page; both fixed.
-- P13 validation: `:core-model:test :core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug :app:compileDebugAndroidTestKotlin` passed — core-model 65, core-browser 81, app 628 tests (66 skipped), 0 failures/errors, lint 0 errors; line check printed nothing.
-- P13 regression proof: `7953c0d` `BrowserScreen.kt`/`BrowserDownloadFab.kt` put back (test helper without the two new params): `BrowserScreenTest.theWideButtonSitsUnderThePageAndOnlyOneButtonShowsAtATime` fails "Assert failed: The component is not displayed!" at the first `browser-download-wide` check; `BrowserDownloadFabTest`'s visibility test does not compile (no `wideVisible`). Backups in `/data/bak/P13`, restored and checked with `cmp`.
-- P13 CI (7605133): checkpoint validation 37411914761, Preview APK 37411914727 and emulator smoke 37411914920 all passed. (`a208c1f` wip validation failed on the route test fixed in `7605133`.)
-- P19 — OWNER CHECK (2026-10-06). Result: the sheet header (16:9 `quick-thumbnail`, placeholder until loaded), the found list (`YftFoundMediaRow` default) and Downloads rows show the video's real picture. `RemoteThumbnailLoader` (app `thumbnail/`, no new library) on the shared OkHttp client with `CookieJar.NO_COOKIES`, `followSslRedirects(false)` and no HTTP cache: HTTPS only, `Accept: image/*`, image content type, at most 2 MB read (stated length refused, chunked read stopped), two downloads at a time (`Semaphore(2)`), `inSampleSize` to at most 480 px wide, memory `LruCache` ~8 MB, disk cache `cacheDir/thumbnails/` (SHA-256 names, 20 MB, oldest removed first); failures silent, logs host + reason only. `ThumbnailUrls`: `youtube:<id>` -> `i.ytimg.com/vi/<id>/hqdefault.jpg` (known from the lookup key, so it loads before the lookup ends), else the lookup's HTTPS `thumbnailUrl` (candidates, then resolved assets). Started download -> `SavedDownloadThumbnails.saveFrom(taskId, url)`: JPEG <=320 px wide, quality 80/65/50 until <=50 KB, `filesDir/thumbnails/<taskId>.jpg`; Downloads rows, Library tiles and Home Recent use it until the file's own frame exists (by destination URI from the queue). Deleted when its record leaves `DownloadQueue.tasks` (Downloads Delete, Clear finished, janitor prune all covered); the janitor also removes orphans older than the process start. No Room migration. New tags `quick-thumbnail`, `thumbnail-image` (`YFT_THUMBNAIL_IMAGE_TAG`, the loaded picture inside `YftThumbnail`). Plan adapted: Library/Home use the saved picture by the record's destination URI (app-private files without a URI keep the placeholder); FIX_ADD_PLAN status/Result not edited (owner rule).
-- P19 validation: full validation (Preview #2 scope) `--continue testDebugUnitTest lintDebug :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test :app:assembleDebug` passed — 1158 tests (app 644, 66 skipped), 0 failures/errors, lint 0 errors; `:app:assembleRelease` passed; line check printed nothing.
-- P19 regression proof: `7605133` `QuickDownloadScreen.kt`/`DownloadsScreen.kt` put back: `QuickDownloadScreenTest.theHeaderShowsTheVideosPictureOnceItLoads` fails "Assert failed: The component is not displayed!" (no `quick-thumbnail`); `DownloadsScreenTest.aRunningDownloadShowsThePictureSavedWhenItStartedUntilTheFileHasAFrame` fails "Condition still not satisfied after 5000 ms" (no picture). Backups `/data/bak/P19`, restored, `cmp` clean.
-- P19 live (sandbox, no session): YouTube 200 `i.ytimg.com` image/jpeg 32195 B; Vimeo 200 `i.vimeocdn.com` image/webp 25102 B; Facebook public reel 200 `scontent-iad3-1.xx.fbcdn.net` image/jpeg 223012 B.
-- Owner reports: P12, P13 and P19 reports plus the Preview #2 link are sent together in the chat after Preview #2 (the agent works without stopping).
-- Preview #2 (2026-10-06): Preview APK run 37414773994 (`b0d1b30`, artifact `yft-preview-apk`; the P19 checkpoint `03bde3a` adds docs only, so the Preview workflow's path filter did not run again), checkpoint validation 37414773919 (`yft-debug-apk`) and emulator smoke 37414773930 all passed; `03bde3a` validation 37416376671. Link and the §6 Preview #2 list go to the owner with the P12/P13/P19 reports.
-- P16 — OWNER CHECK (2026-10-06). Result: the sheet opens at once and fills in. `PageVideoLookup` gained `owner` (`LookupOwner.BROWSER` default, `HOME`); `DetectedMediaStore` adds `clearLookup(owner)` (the browser's former `showLookup(null)` calls now clear only its own lookup, so the browser closing — e.g. Download copied link — never wipes Home's), `lookupCloses`/`closeLookup(key)` and `awaitsLookup` (set by `awaitPageVideo`, cleared by `select`/a new page/`clear`/close), so a sheet opened for a lookup never takes the page's own video. `LinkInspector.siteVideo(link)` (default null; `HeadlessLinkInspector`: normalized HTTPS, not direct media, `SiteAdapterCoordinator.videoKey`) names the video before any request; `LinkInspection.NotFound.canRetry` (adapter final reasons false). Home: a site-video link selects nothing, shows a HOME lookup, sends the sheet request at once and runs today's inspection; found -> select the video (several: the first, Promptbox lists them) and clear; NotFound/DRM-only -> lookup failure (+canRetry); `lookupRetries` re-run it, `lookupCloses` cancel it (Promptbox back to Editing; after a failure Home keeps its message). Other links unchanged (check, then sheet). Browser: a feed's focused link not yet found opens the sheet at once with a BROWSER lookup (`focusedSheet`), the lookup selects + clears without a second sheet request; failures (network, no media, protected) show in the sheet with `outcome.canRetry` instead of the notice; Try again re-asks fresh; closing cancels the focus lookup and its adapter call (the page's own lookup of the same key keeps running; a page lookup's close only ends `sheetAwaitsPageVideo`). Sheet: waiting header = lookup title, else the link without scheme/www/fragment (`QuickDownloadChoices.shownLink`, 120 chars), site, YouTube picture; `Waiting` = "Getting qualities…" (`quick-loading`), Audio/Video placeholder sections (`quick-placeholder-audio`/`-video`, 2 × `quick-placeholder-row` each, `quick-waiting-rows`), disabled `quick-download`; `onCleared` sends `closeLookup` while it still waits. Plan adapted: one waiting text "Getting qualities…" replaces P12's "Looking up this video…"/"Reading qualities and sizes…"; the waiting state shows Download disabled (P18 enables it), so the loading test expects a disabled Download instead of none; the feed's sheet opens when the page script names the video on screen (only then is the video known, normally well under a second); feed failures show in the sheet, not the focus notice (3 browser tests updated); a site page's own lookup is not stopped by closing the sheet because the page's found list and button use it.
-- P16 validation: `:core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug` passed — core-browser 81, app 650 tests (66 skipped), 0 failures/errors; lint 0 errors (96 warnings, as before); line check printed nothing.
-- P16 regression proof: `03bde3a` `HomeViewModel.kt`, `BrowserViewModel.kt`, `QuickDownloadViewModel.kt` put back (new store/inspector/tests kept): 7 tests fail — `HomeViewModelTest.aSupportedSitesLinkOpensItsSheetBeforeTheLookupEnds…` "expected:<1> but was:<0>", `aFailedLinkLookup…` NPE, `QuickDownloadViewModelTest.aSheetOpenedOnALink…` "expected:<[youtube.com/watch?v=fixture0001]> but was:<[Feed clip — 720p]>", `BrowserViewModelTest` feed tap/left feed/unreadable "expected:<1> but was:<0>", network failure NPE. Backups `/data/bak/P16`, restored, `cmp` clean.
-- P17 — OWNER CHECK (2026-10-06). Result: one lookup per video for a few minutes. `SiteLookupCache` (app `detection/`, `@Singleton`, memory only): key `SiteLookupKey(siteId, contentId, session)` (session = a non-blank cookie was sent; `toString` names no video), LRU of 20, kept until min(now + 10 min, earliest `expiresAtEpochMs` of the candidates and their audio companions); running lookups are shared and ref-counted (`join`/`leave`; the last waiter to stop cancels the adapter call, which runs on the caller's dispatcher under its own `SupervisorJob`). `SiteAdapterCoordinator.inspect(…, fresh)` answers from it (re-anchored to the caller's address), else joins/starts the adapter call; a non-empty Detected is kept, anything else drops the video. `fresh` (Try again) drops and asks: `BrowserViewModel.lookUp` passes it, `LinkInspector.inspectAgain` (default = `inspect`; `HeadlessLinkInspector` passes `fresh`) is used by Home's sheet Try again. HTTP 403/410: the sheet's final check (403/410 or EXPIRED_URL) and the engine's Rejected (ACCESS_DENIED/GONE/EXPIRED_URL) drop the video; a started download is remembered (`rememberDownload(taskId, videoId)`) and `DownloadForegroundService` drops its video when the task turns FAILED with those reasons or NEEDS_REFRESH. `SessionMediaCleaner` (Clear browsing data) clears it. Plan adapted: a lookup with the session may take the public answer of one without it (Home's link is read without cookies, the browser sends the site's cookies; the owner check needs this), never the other way round; the browser test of a new page expects 1 adapter call instead of 2.
-- P17 validation: `--continue :core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug` passed — core-browser 81, app 658 tests (66 skipped), 0 failures/errors; lint 0 errors (96 warnings, as before); line check printed nothing.
-- P17 regression proof: the P17 coordinator without the cache (straight to the adapter), `QuickDownloadViewModel` without remember/forget and `SessionMediaCleaner` without clearing: 9 tests fail — all 7 `SiteLookupCacheTest` (e.g. `aSecondLookupOfOneVideo…` "expected:<1> but was:<2>"), `QuickDownloadViewModelTest.linksThatStoppedWorking…` and `PrivacyCleanersTest.sessionMediaCleaner…` ("expected null"). Backups `/data/bak/P17/final`, restored, `cmp` clean.
-- P17 CI (`00a17c2`): checkpoint validation 37422493623, Preview APK 37422493627 and emulator smoke 37422493592 all passed.
-- P18 — OWNER CHECK (2026-10-06). Result: Download works before the qualities arrive. `QuickDownloadUiState` gained `earlySection` (VIDEO default, AUDIO), `startsWhenReady`, `startedNote` and `waitsForQualities` (no choices, loading, no failure, a header); `canDownload` is also true while it waits and nothing is queued. The waiting sheet's first row of each section is a pickable choice (`quick-early-audio` "M4A", `quick-early-video` = the Default quality, e.g. "720p", "Highest available", "Smallest file"; read from preferences when the sheet opens; the four `quick-placeholder-row` stay); `pickEarly(section)`. Download while waiting: mobile data is asked then (`ConfirmMetered`; yes -> queued, no -> dropped); otherwise queued with "Starts when ready…" (button label, disabled). When the rows arrive `startWhenReady` takes `QuickDownloadChoices.earlyPick` (Audio's first row when Audio was picked, else `preselect`: the Default quality, else the nearest lower, else the nearest higher) and `earlyNote` ("Downloading 720p" / "Downloading 480p — 720p not available"), selects it and runs today's `enqueue` (resolve, Wi-Fi only, the engine's storage check); if Wi-Fi went since the tap, mobile data is asked then. A failed lookup (store failure, no readable format) or a vanished video drops the queued Download; closing the sheet cancels it (view-model scope). Plan adapted: the sheet does not close itself after Download today — it shows the queued message and View downloads — so P18 keeps that and shows the note (`quick-download-note`) above it; "Retry" is the sheet's existing Try again, after which Download needs a new tap; P16's tests that expected a disabled Download while waiting now expect it enabled.
-- P18 validation: `--continue :core-download:testDebugUnitTest :core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug` passed — core-download 112, core-browser 81, app 663 tests (66 skipped), 0 failures/errors; lint 0 errors (96 warnings, as before); line check printed nothing.
-- P18 regression proof: `canDownload` put back to the old rule (Download disabled while waiting): 8 tests fail — `QuickDownloadViewModelTest` the 4 new P18 tests and P16's `aSheetOpenedOnALink…`, `QuickDownloadScreenTest` 3 tests "(is enabled)". Backup `/data/bak/P18/final`, restored, `cmp` clean.
-- P18 CI (`1f914fa`): checkpoint validation 37426141138, Preview APK 37426141183 and emulator smoke 37426141158 all passed.
-- Merge A+B (2026-10-06, owner: "Agent B finished … merge, push to main, test-key release (Preview) APK"): `git merge --no-ff origin/work/phase-11-extractors` (`bef1455`, P14 + P15) into `work/phase-11-download-flow`. Code merged without conflicts; `CHANGELOG.md`, `docs/HANDOFF.md` and `docs/SESSION_STATE.md` conflicted and keep both tracks (Track A entries, then Track B's). Full validation as CI (`--continue testDebugUnitTest lintDebug :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test :app:assembleDebug`; the first one-worker run hit a Gradle Metaspace OOM after the Android tests, the rest re-ran with 640 MiB metaspace): app 663 (66 skipped), core-browser 81, core-data 17, core-download 112, core-media 25, core-model 65, extractor-api 32, extractor-generic 14, extractor-sites 181 — 1190 tests, 0 failures/errors; lint 0 errors (app 96 warnings, core-data 1); debug APK built; line check printed nothing; workflows, Plan and prompts byte-identical to `d642607`. Then `main` fast-forwarded to the merge (owner's explicit OK for this merge; no tag, no signed release, P8 not started). Preview #3 = the Preview APK (test key) run of the merge commit.
-- Sandbox reset (2026-10-06, before the merge): the repo came back at `d642607`; fast-forwarded from GitHub to `1f914fa`; NDK/CMake reinstalled; `/data/gw-safe.sh` and `/data/yft-recover.sh` re-created; a new push key `/data/secure/ssh/yft_deploy_20261006_102256_ed25519` (the old key is not used).
-- P12 CI (7953c0d): checkpoint validation passed (run 37404886138); preview `10d7647` passed (37404115716); the `10d7647` emulator smoke failed before any instrumentation result (runner/emulator infrastructure).
+## Agent A — `work/phase-12-download-fix` (P20, P21; later P26)
 
-## Track B (extractors)
+- Status: NOT STARTED
+- P20 — Video downloads save again: TODO
+- P21 — Retry and failure details: TODO
+- Hand-offs: none
 
-Agent B, branch `work/phase-11-extractors` (from `work/phase-11-download-flow` `2071342`), only
-P14 then P15; Agent A works on P12, P13, P19, P16, P17, P18. The Plan's status board is not
-edited; status is recorded here.
+## Agent B — `work/phase-12-site-qualities` (P22, P23)
 
-- **P14 — YouTube asks visionOS first: OWNER CHECK (2026-10-05).** Result: the lookup asks
-  `VISIONOS` before the watch page (no cookie, authorization, visitor data or page key) and
-  stops when the answer is complete (playable, title and length, every format with a direct
-  address and `contentLength`, an AVC video with sound): one request of about 17 KB. Anything
-  else runs the T16 chain unchanged; the page's verdict stays final. Plan adapted: (1) visionOS
-  alone has no progressive 360p, so merged AVC + AAC rows now include 360p; (2) visionOS is asked
-  once per lookup and the chain reuses that answer; (3) the first request has no visitor data,
-  because no page was read. Regression proof: pre-P14 extractor and parser put back → 17 of 48
-  `YouTubeExtractorTest` tests failed (e.g. `a complete visionOS answer is the whole lookup,
-  without the watch page`); restored, `cmp` identical. Live (sandbox): `dQw4w9WgXcQ` 1 request,
-  16,677 B, 180 ms (was 4 requests, 185,088 B), rows 4K/2K VP9 + 1080–360 AVC merged + AAC;
-  4K and Short videos bot-checked on this IP (chain unchanged); age-restricted stays
-  `LOGIN_REQUIRED`. Validation: extractor-sites 173, app 614 (66 skipped), 0 failures; lint 0
-  errors. Owner check: on the slow line a YouTube link opens clearly faster; 720p, 1080p and 4K
-  download and play.
-  CI on `57663c0`: validation https://github.com/Alalkipgen/YFT/actions/runs/37393349431,
-  preview https://github.com/Alalkipgen/YFT/actions/runs/37393349360 and emulator
-  https://github.com/Alalkipgen/YFT/actions/runs/37393348990 passed.
-- **P15 — Facebook public page first: OWNER CHECK (2026-10-05).** Result: a reel or video link
-  is first asked as desktop Safari without the session; the same video ID with AVC tracks or a
-  whole file is the whole lookup (one page request). Anything else reads the session page as
-  before (desktop Chrome), and the AVC ladder reuses the public page instead of asking it again.
-  Plan adapted: (1) share, short and post links skip the public page, because Safari got a
-  623-byte page without the redirect for `share/v/` and `share/r/` (live), so they keep today's
-  2 requests; (2) a network or rate-limit failure of the public page ends the lookup (the session
-  page would wait on the same line again); other refusals (HTTP status, wall, private, another
-  video, DRM) read the session page; (3) the Chrome page's AV1 1080p track is not listed for a
-  public reel; the app never offered it (AV1 merges off). Regression proof: pre-P15 extractor put
-  back → 8 of 60 Facebook/navigation tests failed (e.g. `a public reel is one request as Safari
-  without the session`); restored, `cmp` identical. Live (sandbox, no session): reels 1 request,
-  136 KB / 128 KB (was 2 requests, 283 KB / 259 KB) with HD, SD, AVC 720/360 merged and Audio;
-  `/watch/?v=` and share links 2 requests as before. Validation: extractor-sites 181, app 614 (66
-  skipped), 0 failures; lint 0 errors. Owner check: a Facebook reel on the slow line opens
-  faster, with every quality.
-- Outside the task (for FIX_ADD_PLAN §7): Facebook `/watch/?v=` videos get no AVC rows, because
-  the AVC ladder asks `/watch/?v=`, which Safari answers with a page without the video; Safari
-  on the owner path the session page redirected to (`/NASA/videos/452499129200583/`) had AVC
-  360/720 and HD/SD (live). Asking the ladder on that final video URL would add those rows.
-  CI on `0062660`: validation https://github.com/Alalkipgen/YFT/actions/runs/37396829389,
-  preview https://github.com/Alalkipgen/YFT/actions/runs/37396829457 and emulator
-  https://github.com/Alalkipgen/YFT/actions/runs/37396829442 passed.
-- Shared files: none.
-- Merge (2026-10-06): `git merge --no-ff origin/work/phase-11-download-flow` → "Already up to
-  date" (Agent A's branch still at `2071342`, this branch's base). Full validation as CI
-  (`lintDebug testDebugUnitTest :core-model:test :extractor-api:test :extractor-generic:test
-  :extractor-sites:test :app:assembleDebug`, CI-like localhost, `--rerun`): app 614 (66
-  skipped), core-browser 79, core-data 17, core-download 112, core-media 25, core-model 63,
-  extractor-api 32, extractor-generic 14, extractor-sites 181; 0 failures; lint 0 errors;
-  debug APK built.
-- Status: **Track B ready for Agent A to merge** (`work/phase-11-extractors` into
-  `work/phase-11-download-flow`). Only extractor-sites files and docs changed; Agent A's newer
-  docs entries go next to these when merging.
+- Status: NOT STARTED
+- P22 — YouTube: every quality: TODO
+- P23 — Facebook: every quality: TODO
+- Hand-offs: none
+
+## Agent C — `work/phase-12-generic-sheet` (P24, P25)
+
+- Status: NOT STARTED
+- P24 — Other sites: main video: TODO
+- P25 — One sheet for every site: TODO
+- Hand-offs: none

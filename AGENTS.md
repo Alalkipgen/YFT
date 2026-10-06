@@ -13,18 +13,25 @@ Do not rely on chat history. At the beginning of a session:
    - `docs/PHASE_STATUS.md`
    - `docs/HANDOFF.md`
    - `docs/SESSION_STATE.md`
-   - `docs/FIX_ADD_PLAN.md` (Phase 11: status board, decisions, findings and tasks)
+   - `docs/FIX_ADD_PLAN.md` (Phase 12: status board, decisions, findings, tasks and §0.7 file
+     ownership for parallel agents)
 3. Verify the existing build before editing.
-4. Follow the task order in `docs/FIX_ADD_PLAN.md` §3 (E7): Phase 11 part 2, P9 → P10 → P11 →
-   P12 → P13 → P19 → Preview #2 → P14 → P15 → P16 → P17 → P18 → Preview #3. Once the owner has
-   asked for part 2, continue task after task without asking; stop only for a failure you cannot
-   fix or when the owner says stop. P8 (signed release) waits for the owner's OK after his phone
-   test of Preview #3.
+4. Phase 12 runs three agents at once (`docs/FIX_ADD_PLAN.md` §0.7): Agent A P20 → P21, Agent B
+   P22 → P23, Agent C P24 → P25, each on its own branch and files; then P26 (Agent A merges
+   A → B → C, Preview #4) and P8 (signed release) with the owner's OK. Do only your agent's
+   tasks, task after task without asking; stop at `READY FOR MERGE`, for a failure you cannot
+   fix, or when the owner says stop.
 
-## Task workflow (Phase 11)
+## Task workflow (Phase 12)
 
-- Do the `docs/FIX_ADD_PLAN.md` tasks one at a time, each following its prompt in `docs/prompts/`
-  (`00_NEXT_TASK.md` picks the next one). Update the status board in every task checkpoint.
+- Do your agent's `docs/FIX_ADD_PLAN.md` tasks one at a time, following its prompt in
+  `docs/prompts/` (`A-download-fix.md`, `B-site-qualities.md`, `C-generic-and-sheet.md`;
+  `M-merge-preview4.md` for P26). Change only the files §0.7 gives your agent; in shared docs
+  (`docs/SESSION_STATE.md`, `CHANGELOG.md`, `docs/TEST_MATRIX.md`) edit only your own section.
+  Agents A, B and C record status in their SESSION_STATE section; only P26 edits
+  `docs/FIX_ADD_PLAN.md` and `docs/prompts/`.
+- A change in another agent's files is a hand-off: write it in your SESSION_STATE section and
+  your report instead of making it.
 - A task that needs an owner decision still `PENDING` in FIX_ADD_PLAN §3 is blocked: ask the
   owner in Burmese and stop instead of guessing.
 - Site tasks need a live check of a public page (`scripts/live-check.sh`). Report
@@ -32,7 +39,8 @@ Do not rely on chat history. At the beginning of a session:
 - Final reports to the owner are written in Burmese (FIX_ADD_PLAN §0.5, short). The app text stays English.
 - Product rules: [ADR-006](docs/decisions/ADR-006-owner-override-any-working-method.md) (owner, 2026-10-03) — any working technique
   for public videos; no DRM, paid, private-content or age-gate bypass; adapters never sign in.
-- Anything outside the task goes to FIX_ADD_PLAN §7 Backlog.
+- Anything outside the task goes to your SESSION_STATE section as a backlog note (P26 moves it
+  to FIX_ADD_PLAN §7 Backlog).
 
 ## Resuming work
 
@@ -45,8 +53,8 @@ git branch --show-current
 git log -5 --oneline
 ```
 
-Then it reads the files above, checks out the branch recorded in `docs/SESSION_STATE.md`, pulls
-it and runs the recorded validation before editing. A `wip` checkpoint must be repaired before
+Then it reads the files above, checks out its agent's branch recorded in `docs/SESSION_STATE.md`,
+pulls it and runs the recorded validation before editing. A `wip` checkpoint must be repaired before
 its task is marked done.
 
 If documentation and verified code disagree, build/test results take priority and the documentation must be corrected.
@@ -58,8 +66,8 @@ If documentation and verified code disagree, build/test results take priority an
   - `work/phase-1-foundation`
   - `work/phase-2-browser-detection`
 - Checkpoint pushes to `work/phase-*` branches are pre-authorized.
-- Merging or pushing phase-completion changes to `main` requires a green full validation and explicit user approval. For Phase 11 nothing is merged before P8, and P8 runs only after the owner approves Preview #3 (`docs/FIX_ADD_PLAN.md` §3).
-- Publishing releases always requires explicit user approval. The signed `1.0.0-beta.4` draft (P8) waits for the owner's OK after his phone test of Preview #3 (owner, 2026-10-05: no signed release yet).
+- Merging or pushing phase-completion changes to `main` requires a green full validation and explicit user approval. In Phase 12 agents never push to `main`; P26 may fast-forward it only with the owner's `MAIN=OK`, and P8 runs only after the owner approves Preview #4 (`docs/FIX_ADD_PLAN.md` §3 E14–E15).
+- Publishing releases always requires explicit user approval. The signed `1.0.0-beta.4` draft (P8) waits for the owner's OK after his phone test of Preview #4.
 
 ## Mandatory checkpoint protocol
 
