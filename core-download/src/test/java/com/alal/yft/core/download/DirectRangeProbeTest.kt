@@ -126,7 +126,8 @@ class DirectRangeProbeTest {
     }
 
     @Test
-    fun `cross-origin redirect strips cookie and referrer`() = runTest {
+    fun `cross-origin redirect strips cookie and keeps only the page origin as referrer`() =
+        runTest {
         server.enqueue(
             MockResponse()
                 .setResponseCode(302)
@@ -150,8 +151,80 @@ class DirectRangeProbeTest {
         assertEquals("session=fixture", server.takeRequest().getHeader("Cookie"))
         val redirectedRequest = redirectTarget.takeRequest()
         assertNull(redirectedRequest.getHeader("Cookie"))
-        assertNull(redirectedRequest.getHeader("Referer"))
+        assertEquals("https://page.example.test/", redirectedRequest.getHeader("Referer"))
+        assertNull(redirectedRequest.getHeader("Origin"))
         assertEquals("fixture-agent", redirectedRequest.getHeader("User-Agent"))
+    }
+
+    @Test
+    fun `another host gets the observed page origin and an origin-only referrer`() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(302)
+                .setHeader("Location", redirectTarget.url("/cdn/piece.mp4")),
+        )
+        redirectTarget.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Accept-Ranges", "bytes")
+                .setHeader("Content-Length", "512"),
+        )
+        val base = plan(server.url("/piece.mp4").toString(), cookie = "session=fixture")
+
+        probe.probe(
+            base.copy(
+                requestContext = base.requestContext.copy(
+                    pageUrl = "https://page.example.test:8443/watch/42?t=1",
+                    observedHeaders = mapOf(
+                        "Origin" to "https://page.example.test:8443",
+                        "Authorization" to "Bearer fixture",
+                    ),
+                ),
+            ),
+        )
+
+        val first = server.takeRequest()
+        assertEquals("https://page.example.test:8443", first.getHeader("Origin"))
+        assertEquals("https://page.example.test:8443/watch/42?t=1", first.getHeader("Referer"))
+        val other = redirectTarget.takeRequest()
+        assertEquals("https://page.example.test:8443", other.getHeader("Origin"))
+        assertEquals("https://page.example.test:8443/", other.getHeader("Referer"))
+        assertNull(other.getHeader("Cookie"))
+        assertNull(other.getHeader("Authorization"))
+    }
+
+    @Test
+    fun `a HEAD sent to a web page asks the file itself again with the range GET`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(302).setHeader("Location", "/"))
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Accept-Ranges", "bytes")
+                .setHeader("Content-Length", "5120")
+                .setHeader("Content-Type", "text/html; charset=utf-8"),
+        )
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(206)
+                .setHeader("Content-Range", "bytes 0-0/13631866")
+                .setHeader("Content-Type", "video/mp4")
+                .setBody("x"),
+        )
+
+        val result = probe.probe(plan(server.url("/videos/clip.mp4").toString()))
+            as DirectProbeResult.Success
+
+        assertEquals("HEAD", server.takeRequest().method)
+        assertEquals("/", server.takeRequest().path)
+        val rangeRequest = server.takeRequest()
+        assertEquals("GET", rangeRequest.method)
+        assertEquals("/videos/clip.mp4", rangeRequest.path)
+        assertEquals("bytes=0-0", rangeRequest.getHeader("Range"))
+        assertEquals(server.url("/videos/clip.mp4").toString(), result.metadata.finalUrl)
+        assertEquals(13_631_866L, result.metadata.totalBytes)
+        assertTrue(result.metadata.supportsByteRanges)
+        assertEquals("video/mp4", result.metadata.contentType)
+        assertEquals("clip.mp4", result.metadata.suggestedFileName)
     }
 
     @Test

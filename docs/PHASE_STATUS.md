@@ -16,7 +16,7 @@
 | 9 — Copied-link flow | COMPLETE | Copied-link check, "Video you copied" quick sheet, Search to download, floating Download button. Tasks T11–T14; T15 SKIPPED by the owner — released in `1.0.0-beta.3` (T19) |
 | 10 — Formats and YouTube | COMPLETE | YouTube client strategy (D2 = A + B + C, ADR-006), merged 480p/720p/1080p video and audio, MP3. Tasks T16–T18; T19 merged the branch into `main` (`2f6284f`), tagged `v1.0.0-beta.3` and created the signed draft pre-release `1.0.0-beta.3` (versionCode 3, 2026-10-04; APK SHA-256 `8fe466f1…988f` in HANDOFF) |
 | 11 — Download flow (Snaptube style) | COMPLETE on `main` (`4db6c2b`, 2026-10-06; owner-tested with Preview #3, no tag) | Part 1 (P0–P7): browser follows in-page navigation, Facebook pages, one download sheet, all Facebook qualities, the focused feed video, 2K/4K as WebM, test-key preview APK. Part 2 (P9–P19): short sheet, slow networks, rows that never vanish, one lookup per page, wide Download button, real thumbnails, YouTube visionOS first, Facebook public page first, instant sheet, lookup reuse, early Download. The owner's Preview #3 test found the issues Phase 12 fixes; the signed `1.0.0-beta.4` (P8) moved behind Phase 12 |
-| 12 — Preview #3 field fixes | PLANNED (2026-10-06, Plan Mode; three agents in parallel) | Saving video files (P20), Retry and failure details (P21), YouTube every quality (P22), Facebook every quality (P23), other sites' main video (P24), one sheet everywhere (P25), merge and Preview #4 (P26), then the signed `1.0.0-beta.4` (P8). Plan: [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md) |
+| 12 — Preview #3 field fixes | MERGED by P26 on `main` (2026-10-06, no tag); Preview #4 OWNER CHECK | Saving video files (P20), Retry and failure details (P21), YouTube every quality (P22), Facebook every quality (P23), other sites' main video (P24), one sheet everywhere (P25), merge and Preview #4 (P26), then the signed `1.0.0-beta.4` (P8). Plan: [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md) |
 
 ## Current phase state
 
@@ -30,7 +30,10 @@ pre-release from 2026-10-04 (tag `v1.0.0-beta.3`).
 Phase 11 is complete and merged into `main` (`4db6c2b`, 2026-10-06, no tag). The owner tested
 it as Preview #3 the same day; what he found is Phase 12, planned for three agents working at
 once on their own branches from `work/phase-12-integration` (A: saving, B: YouTube and Facebook,
-C: other sites and the sheet), merged by P26 into Preview #4. Tasks, owner decisions, findings,
+C: other sites and the sheet). P26 (2026-10-06) merged A → B → C without conflicts, did Agent
+C's three hand-offs, passed the full validation and the release build, fast-forwarded `main` with
+the owner's OK and built Preview #4 (test key, not signed); `1.0.0-beta.4` (P8) waits for his
+phone test. Tasks, owner decisions, findings,
 file ownership and the phone checklist live in [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md); prompts are
 in [`prompts/`](prompts/README.md).
 

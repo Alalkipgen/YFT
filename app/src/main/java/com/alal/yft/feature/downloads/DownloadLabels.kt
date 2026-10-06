@@ -153,9 +153,12 @@ internal fun statusChip(
     }
 
     DownloadTaskStatus.FAILED -> DownloadStatusChip(
-        text = row.failureReason
-            ?.let { "Failed · ${failureLabel(it).replaceFirstChar(Char::uppercaseChar)}" }
-            ?: "Failed",
+        text = when {
+            row.isAudioFromIncompatibleSound() -> "Failed · Sound can't be saved as audio"
+            else -> row.failureReason
+                ?.let { "Failed · ${failureLabel(it).replaceFirstChar(Char::uppercaseChar)}" }
+                ?: "Failed"
+        },
         tone = YftStatusTone.Failed,
     )
 
@@ -247,9 +250,10 @@ internal fun failureDetailsText(
         "${failureLabel(reason).replaceFirstChar(Char::uppercaseChar)} (${reason.name})"
     }
     val stage = failure?.stage?.let { stage -> "${stageLabel(stage)} (${stage.name})" }
-    return listOf(
+    return listOfNotNull(
         "YFT download failure",
         "Reason: ${reason ?: UNKNOWN}",
+        "What to do: $AUDIO_FROM_VIDEO_HINT".takeIf { row.isAudioFromIncompatibleSound() },
         "Stage: ${stage ?: UNKNOWN}",
         "HTTP status: ${failure?.httpStatusCode ?: UNKNOWN}",
         "Detail: ${DownloadFailureDetails.sanitize(failure?.detail) ?: UNKNOWN}",
@@ -259,6 +263,16 @@ internal fun failureDetailsText(
         "Android: ${androidRelease.ifBlank { UNKNOWN }} (API $sdkInt)",
     ).joinToString("\n")
 }
+
+/**
+ * An M4A or MP3 made from a video whose sound is not AAC fails as INCOMPATIBLE_TRACKS: the
+ * video itself still downloads, so say that instead of "Incompatible tracks".
+ */
+internal fun DownloadRowUiState.isAudioFromIncompatibleSound(): Boolean =
+    isAudio && (failure?.reason ?: failureReason) == DownloadFailureReason.INCOMPATIBLE_TRACKS
+
+internal const val AUDIO_FROM_VIDEO_HINT =
+    "This video's sound can't be saved as audio. Download the video instead."
 
 private const val UNKNOWN = "\u2014"
 private const val SECONDS_PER_MINUTE = 60L

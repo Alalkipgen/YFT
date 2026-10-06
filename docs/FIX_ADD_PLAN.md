@@ -241,28 +241,28 @@ here. AI agent time includes builds and CI waits on a 4 GiB sandbox.
 
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
-| P20 | [Video downloads save again (no more "Storage unavailable")](#p20--video-downloads-save-again) | Medium | 3–5 h | — | TODO |
-| P21 | [Retry that recovers, honest failure reasons, failure Details](#p21--retry-and-failure-details) | Medium | 4–6 h | P20 | TODO |
+| P20 | [Video downloads save again (no more "Storage unavailable")](#p20--video-downloads-save-again) | Medium | 3–5 h | — | OWNER CHECK (merged 2026-10-06) |
+| P21 | [Retry that recovers, honest failure reasons, failure Details](#p21--retry-and-failure-details) | Medium | 4–6 h | P20 | OWNER CHECK (merged 2026-10-06) |
 
 **Agent B — `work/phase-12-site-qualities`**
 
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
-| P22 | [YouTube: every quality with sizes (144p–4K), like Snaptube](#p22--youtube-every-quality) | Hard | 8–12 h | — | TODO |
-| P23 | [Facebook: 720p and Audio from every link, Home and browser alike](#p23--facebook-every-quality) | Medium–Hard | 5–8 h | — | TODO |
+| P22 | [YouTube: every quality with sizes (144p–4K), like Snaptube](#p22--youtube-every-quality) | Hard | 8–12 h | — | OWNER CHECK (merged 2026-10-06) |
+| P23 | [Facebook: 720p and Audio from every link, Home and browser alike](#p23--facebook-every-quality) | Medium–Hard | 5–8 h | — | OWNER CHECK (merged 2026-10-06) |
 
 **Agent C — `work/phase-12-generic-sheet`**
 
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
-| P24 | [Other sites: the main video, not its previews](#p24--other-sites-main-video) | Hard | 6–10 h | — | TODO |
-| P25 | [One sheet for every site](#p25--one-sheet-for-every-site) | Medium–Hard | 5–8 h | P24 (Home part) | TODO |
+| P24 | [Other sites: the main video, not its previews](#p24--other-sites-main-video) | Hard | 6–10 h | — | OWNER CHECK (merged 2026-10-06) |
+| P25 | [One sheet for every site](#p25--one-sheet-for-every-site) | Medium–Hard | 5–8 h | P24 (Home part) | OWNER CHECK (merged 2026-10-06) |
 
 **Integration — Agent A, `work/phase-12-integration`**
 
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
-| P26 | [Merge A → B → C, full validation, Preview #4](#p26--merge-and-preview-4) | Medium | 3–5 h | P20–P25 READY FOR MERGE | TODO |
+| P26 | [Merge A → B → C, full validation, Preview #4](#p26--merge-and-preview-4) | Medium | 3–5 h | P20–P25 READY FOR MERGE | DONE (2026-10-06) — Preview #4 OWNER CHECK |
 | P8 | [Signed release 1.0.0-beta.4](#p8--signed-release-100-beta4) | Easy | 1–2 h | P26, Preview #4, owner OK | TODO |
 
 In parallel the wall time is about 15–25 h (B and C are the long tracks) plus P26; one agent
@@ -451,7 +451,9 @@ M4A and an MP3 → all finish and play in the Library.
 
 **Docs:** TEST_MATRIX, CHANGELOG, SESSION_STATE (Agent A sections).
 
-**Result:** —
+**Result:** OWNER CHECK (merged 2026-10-06, P26). A fresh direct download no longer reads the
+destination before `prepare()`; MediaStore length of a row without a file is null; instrumented
+MediaStore test. Details: SESSION_STATE › Agent A (`git show c10d8c1:docs/SESSION_STATE.md`).
 
 ### P21 — Retry and failure details
 
@@ -498,7 +500,9 @@ reconnecting finishes; Copy details pastes text without links.
 
 **Docs:** TEST_MATRIX, CHANGELOG, SESSION_STATE (Agent A sections).
 
-**Result:** —
+**Result:** OWNER CHECK (merged 2026-10-06, P26). Failure stage and cleaned detail on every engine
+(Room 5), Retry starts over in a new file after a storage failure, Downloads › Details with Copy
+details. Details: SESSION_STATE › Agent A.
 
 ### P22 — YouTube: every quality
 
@@ -557,7 +561,9 @@ Audio M4A ≈ 12 MB; 720p and 1080p download and play with sound; Details lists 
 **Docs:** YOUTUBE_RISK_REVIEW (client order), SUPPORT_MATRIX (YouTube row), TEST_MATRIX,
 CHANGELOG, SESSION_STATE (Agent B sections).
 
-**Result:** —
+**Result:** OWNER CHECK (merged 2026-10-06, P26). YouTube lookup keeps every merged AVC + AAC
+quality 144p–1080p (2K/4K when present) with sizes. Details: SESSION_STATE › Agent B (`git show
+8119f4e:docs/SESSION_STATE.md`).
 
 ### P23 — Facebook: every quality
 
@@ -605,7 +611,9 @@ the audio track; sizes and markers only.
 **Docs:** SUPPORT_MATRIX (Facebook row), TEST_MATRIX, CHANGELOG, SESSION_STATE (Agent B
 sections).
 
-**Result:** —
+**Result:** OWNER CHECK (merged 2026-10-06, P26). Facebook: the AVC ladder and the AAC track from
+every link, Home and browser alike; HD/SD state their picture and codecs. Details: SESSION_STATE ›
+Agent B.
 
 ### P24 — Other sites: main video
 
@@ -664,7 +672,9 @@ fails, a screenshot of the sheet's Details.
 
 **Docs:** DESIGN-NOTES (found list), TEST_MATRIX, CHANGELOG, SESSION_STATE (Agent C sections).
 
-**Result:** —
+**Result:** OWNER CHECK (merged 2026-10-06, P26). Other sites open the page's own video; previews
+and ads under "Other videos on this page"; honest failures with Step / Host / Status. Details:
+SESSION_STATE › Agent C (`git show 4d04e8b:docs/SESSION_STATE.md`).
 
 ### P25 — One sheet for every site
 
@@ -714,7 +724,9 @@ row.
 **Docs:** DESIGN-NOTES (download sheet), TEST_MATRIX, CHANGELOG, SESSION_STATE (Agent C
 sections).
 
-**Result:** —
+**Result:** OWNER CHECK (merged 2026-10-06, P26). One sheet for every site: names by height,
+one-line descriptions, stated or "~" sizes, HD/SD renamed in place, audio from MP4s of unknown
+codecs. Details: SESSION_STATE › Agent C.
 
 ### P26 — Merge and Preview #4
 
@@ -738,7 +750,14 @@ Medium · 3–5 h · needs P20–P25 `READY FOR MERGE` · **Agent A (integrator)
    Preview APK run → **Preview #4**: its link and the §6 list to the owner in Burmese. Then stop.
    `main` is fast-forwarded only with `MAIN=OK`; P8 only with the owner's OK.
 
-**Result:** —
+**Result:** DONE (2026-10-06) — integrator: Agent C (the owner asked, Agent A was out of tokens). A
+→ B → C merged without conflicts; Agent C's three hand-offs to Agent A done on this branch
+(DirectRangeProbe: a HEAD answered by a web page asks the file again with the range GET;
+SecureDownloadHttp: another host gets the observed `Origin` and an origin-only `Referer`, never
+cookies; Downloads: audio from a video whose sound is not AAC says "Sound can't be saved as audio"
+with "Download the video instead"); full validation, release build and CI in SESSION_STATE ›
+Overview. `main` fast-forwarded with the owner's OK (2026-10-06). Preview #4: Preview APK run of
+the P26 checkpoint.
 
 ### P8 — Signed release 1.0.0-beta.4
 

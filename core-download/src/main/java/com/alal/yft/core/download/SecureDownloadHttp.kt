@@ -88,10 +88,26 @@ internal class SecureDownloadHttp(
     ): Map<String, String> {
         val replayable = replayHeaders()
         if (targetUrl.hasSameOrigin(credentialOrigin)) return replayable
-        return replayable.filterKeys { name ->
+        val headers = replayable.filterKeys { name ->
             name.lowercase(Locale.US) in CROSS_ORIGIN_HEADER_ALLOWLIST
-        }
+        }.toMutableMap()
+        // Like a browser, another host (a playlist's CDN, a redirect's file host) still learns
+        // the page's origin: the observed Origin and an origin-only Referer, never cookies.
+        replayable.entries
+            .firstOrNull { (name, _) -> name.equals("Origin", ignoreCase = true) }
+            ?.value
+            ?.httpsOrigin()
+            ?.let { headers["Origin"] = it }
+        pageUrl?.httpsOrigin()?.let { headers["Referer"] = "$it/" }
+        return headers
     }
+
+    private fun String.httpsOrigin(): String? = toHttpUrlOrNull()
+        ?.takeIf { it.isHttps }
+        ?.let { url ->
+            val port = if (url.port == HTTPS_PORT) "" else ":${url.port}"
+            "https://${url.host}$port"
+        }
 
     private fun HttpUrl.hasSameOrigin(other: HttpUrl): Boolean =
         scheme == other.scheme && host == other.host && port == other.port
@@ -117,6 +133,7 @@ internal class SecureDownloadHttp(
 
     private companion object {
         val REDIRECT_CODES = setOf(301, 302, 303, 307, 308)
+        const val HTTPS_PORT = 443
         val CROSS_ORIGIN_HEADER_ALLOWLIST = setOf(
             "accept",
             "accept-encoding",

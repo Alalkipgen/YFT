@@ -228,6 +228,29 @@ class DownloadLabelsTest {
         )
     }
 
+    @Test
+    fun audioMadeFromAVideoWhoseSoundIsNotAacSaysToDownloadTheVideo() {
+        val audio = row(
+            DownloadTaskStatus.FAILED,
+            name = "Rain.m4a",
+            failure = DownloadFailureReason.INCOMPATIBLE_TRACKS,
+        )
+        val mp3 = audio.copy(displayName = "Rain.mp3")
+        val video = audio.copy(displayName = "Rain.mp4")
+        val network = TransferNetworkState.ALLOWED
+
+        assertEquals("Failed · Sound can't be saved as audio", statusChip(audio, network)?.text)
+        assertEquals("Failed · Sound can't be saved as audio", statusChip(mp3, network)?.text)
+        assertEquals("Failed · Incompatible tracks", statusChip(video, network)?.text)
+        val details = failureDetailsText(audio, "1.0", "15", 35).lines()
+        assertEquals(
+            "What to do: This video's sound can't be saved as audio. Download the video instead.",
+            details[2],
+        )
+        assertTrue(details[1].startsWith("Reason: Incompatible tracks"))
+        assertFalse(failureDetailsText(video, "1.0", "15", 35).contains("What to do"))
+    }
+
     private fun row(
         status: DownloadTaskStatus,
         name: String = "Mountain Lake 4K.mp4",

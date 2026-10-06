@@ -7,86 +7,6 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ## [Unreleased]
 
-### Phase 12 — Agent A (P20, P21)
-
-- **P20 — Video downloads save again (R1).** A fresh direct download (no checkpoint, or the
-  queue's empty one) no longer reads the destination before `prepare()`. A new pending
-  MediaStore row in `Download/YFT` has no file until its first "rw" open, so that read failed and
-  every direct video (YouTube 360p, Facebook HD/SD, other sites' MP4s) ended at once as "Failed ·
-  Storage unavailable" at 0 B; Retry failed the same way. A resume whose length cannot be read
-  now drops its checkpoint and starts again at byte 0 instead of failing.
-  `AndroidPublicContentStore.length()` returns null for a row without a file yet (a missing row or
-  a `SecurityException` still fails as storage). HLS, DASH, merge and MP3 already prepared first.
-  New `MediaStoreDownloadInstrumentedTest` checks the real MediaStore on the CI emulator.
-- **P21 — Retry and failure details (R2).** A failed download says what failed and where:
-  `DownloadFailure` has a `stage` (connecting, reading from the server, opening or writing the
-  file, saving the finished file, merging, converting, checking) and a short `detail` (the
-  error's class and message without links, addresses, host names or tokens; at most 120
-  characters). Every engine sets them, and the record keeps them (`last_error_detail`, Room 5,
-  migration 4 → 5). Reasons are honest: every file call is wrapped, so a file problem is
-  `STORAGE_UNAVAILABLE` or `INSUFFICIENT_STORAGE` and a source problem `NETWORK` or the HTTP
-  reason; a failed close after good writes now fails the download (the old engine retried it as
-  a dropped connection and published the file). Retry after a storage failure, or when the
-  partial file is gone or shorter than its checkpoint, discards the old file and starts again at
-  byte 0 in a new one; other failures resume as before. Downloads: a failed card has "Details"
-  (and "Failure details" in its menu) with the reason, stage, HTTP status, detail, download type,
-  where it is saved and the app and Android versions, and "Copy details".
-
-### Phase 12 — Agent B (P22, P23)
-
-- P22 — YouTube: every quality (OWNER CHECK). visionOS is asked once more with the watch page's
-  visitor data (client context and `X-Goog-Visitor-Id`, no page key) when its first answer
-  refused the request; a refusal is never reused, a failed request is not asked again.
-- P22: a lookup ends only with a separate video merged with its audio track plus that track, so
-  the Android app's progressive 360p file no longer ends it before the page's own client (BotGuard
-  token, player script) is collected; `ANDROID` is asked last, after the mobile site.
-- P22: merged AVC + AAC rows cover 144p–1080p; one row per quality, where a merged row (with
-  YouTube's sizes of both files) replaces a progressive file; Audio is `itag 140` with its size.
-- P22: details name visionOS asked again, formats signed by the player script and adaptive
-  formats only available through SABR; never visitor data.
-- P23 — Facebook: every quality (OWNER CHECK). The AVC ladder (desktop Safari, no cookie) is
-  asked when a page lists no AVC video or AVC only below another track or a whole file, on the
-  final reel or `/{page}/videos/{id}/` address, else the post's permalink — never `/watch/`; a
-  share link to a page with HD and SD files only now gets AVC 360p/720p and the audio track.
-- P23: the public page is the whole lookup only for a reel with AVC video and an AAC track;
-  `/watch/`, `video.php` and `/{page}/videos/` links read the session page first, and the
-  public page's files are kept when the session page fails. Tracks of every page read merge
-  without repeats; at most 2 page requests.
-- P23: an HD or SD file states the picture and AVC + AAC codecs of the track it was made from
-  when that track and an AAC track are listed; bitrates are the average stated in the media
-  address (`bitrate`, `efg`), never the manifest's peak, so size estimates match the files.
-- P23: details name each page read and the ladder ("public page added: …", "ladder: not needed
-  (AVC 720)", "ladder GET 200 (N characters): added …").
-
-### Phase 12 — Agent C (P24, P25)
-
-- Other sites, main video (P24): on a site YFT has no adapter for, Home and the browser open the
-  page's own video, not a preview or an ad around it. The browser matches the page's player by
-  its length, so a stream the page builds itself (a `blob:` player) is found, and reads a
-  stream's length from its list of qualities; without a match a long video beats a large file
-  and the picture height beats the size. Home reads the page's own words: `og:video`, JSON-LD
-  `VideoObject`s and a stream named in the page's scripts are its video, thumbnails' clips are
-  previews.
-- Found count (P24): "N media found", "Found on this page" and the Download button count the
-  page's videos; previews, ads and the other files a page lists follow under "Other videos on
-  this page (N)". Home with one video opens its sheet at once.
-- Honest failures (P24): when a video cannot be prepared the sheet says why ("The site refused
-  this video (HTTP 403)", a video the site no longer has, a busy site, "The site's list of
-  qualities could not be read.", an address YFT can't download) instead of "The media could not
-  be reached", and Details names the step, the host and the status. A page's HLS stream is read
-  with the page's `Referer` and `Origin`, and its sheet shows the video's length and estimated
-  sizes. A file server that answers HEAD with a web page is asked for the file itself.
-- One sheet for every site (P25): YouTube, Facebook and other sites give the same Download
-  sheet — Audio "M4A" (the original sound) and "MP3 · 128 kbps", Video the Default quality and
-  the next lower one, More formats with every row. Video rows are named by height ("1080p · Full
-  HD", "720p · HD", "480p", "360p"); a file Facebook names only HD or SD takes its height's name
-  in place once its picture is read. Each row has a one-line description ("Clear view and quick
-  play", "Original sound, fastest", "Plays everywhere") and a size, an estimate ("~54 MB") or
-  "Size unknown". The M4A kept from a video's sound is no longer marked "Slow".
-- Audio from more videos (P25): the sound of an MP4 whose codecs the site does not state (other
-  sites, Facebook's HD/SD) is offered as M4A and MP3. The found list names a file's quality and
-  size the way the sheet does.
-
 ### Added
 
 - Audio from MP4: when a video has no separate audio file (Facebook, TikTok), the sheet's Audio
@@ -113,6 +33,16 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Changed
 
+- One sheet for every site (P25): YouTube, Facebook and other sites give the same Download
+  sheet — Audio "M4A" (the original sound) and "MP3 · 128 kbps", Video the Default quality and
+  the next lower one, More formats with every row. Video rows are named by height ("1080p · Full
+  HD", "720p · HD", "480p", "360p"); a file Facebook names only HD or SD takes its height's name
+  in place once its picture is read. Each row has a one-line description ("Clear view and quick
+  play", "Original sound, fastest", "Plays everywhere") and a size, an estimate ("~54 MB") or
+  "Size unknown". The M4A kept from a video's sound is no longer marked "Slow".
+- Audio from more videos (P25): the sound of an MP4 whose codecs the site does not state (other
+  sites, Facebook's HD/SD) is offered as M4A and MP3. The found list names a file's quality and
+  size the way the sheet does.
 - Download before the qualities arrive: while the sheet still says "Getting qualities…",
   Download can be tapped. It takes the Default quality (the first Video row, e.g. "720p") or
   "M4A" when that Audio row is picked, says "Starts when ready…" and starts as soon as the rows
@@ -180,6 +110,74 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Fixed
 
+- **P20 — Video downloads save again (R1).** A fresh direct download (no checkpoint, or the
+  queue's empty one) no longer reads the destination before `prepare()`. A new pending
+  MediaStore row in `Download/YFT` has no file until its first "rw" open, so that read failed and
+  every direct video (YouTube 360p, Facebook HD/SD, other sites' MP4s) ended at once as "Failed ·
+  Storage unavailable" at 0 B; Retry failed the same way. A resume whose length cannot be read
+  now drops its checkpoint and starts again at byte 0 instead of failing.
+  `AndroidPublicContentStore.length()` returns null for a row without a file yet (a missing row or
+  a `SecurityException` still fails as storage). HLS, DASH, merge and MP3 already prepared first.
+  New `MediaStoreDownloadInstrumentedTest` checks the real MediaStore on the CI emulator.
+- **P21 — Retry and failure details (R2).** A failed download says what failed and where:
+  `DownloadFailure` has a `stage` (connecting, reading from the server, opening or writing the
+  file, saving the finished file, merging, converting, checking) and a short `detail` (the
+  error's class and message without links, addresses, host names or tokens; at most 120
+  characters). Every engine sets them, and the record keeps them (`last_error_detail`, Room 5,
+  migration 4 → 5). Reasons are honest: every file call is wrapped, so a file problem is
+  `STORAGE_UNAVAILABLE` or `INSUFFICIENT_STORAGE` and a source problem `NETWORK` or the HTTP
+  reason; a failed close after good writes now fails the download (the old engine retried it as
+  a dropped connection and published the file). Retry after a storage failure, or when the
+  partial file is gone or shorter than its checkpoint, discards the old file and starts again at
+  byte 0 in a new one; other failures resume as before. Downloads: a failed card has "Details"
+  (and "Failure details" in its menu) with the reason, stage, HTTP status, detail, download type,
+  where it is saved and the app and Android versions, and "Copy details".
+- P22 — YouTube: every quality (OWNER CHECK). visionOS is asked once more with the watch page's
+  visitor data (client context and `X-Goog-Visitor-Id`, no page key) when its first answer
+  refused the request; a refusal is never reused, a failed request is not asked again.
+- P22: a lookup ends only with a separate video merged with its audio track plus that track, so
+  the Android app's progressive 360p file no longer ends it before the page's own client (BotGuard
+  token, player script) is collected; `ANDROID` is asked last, after the mobile site.
+- P22: merged AVC + AAC rows cover 144p–1080p; one row per quality, where a merged row (with
+  YouTube's sizes of both files) replaces a progressive file; Audio is `itag 140` with its size.
+- P22: details name visionOS asked again, formats signed by the player script and adaptive
+  formats only available through SABR; never visitor data.
+- P23 — Facebook: every quality (OWNER CHECK). The AVC ladder (desktop Safari, no cookie) is
+  asked when a page lists no AVC video or AVC only below another track or a whole file, on the
+  final reel or `/{page}/videos/{id}/` address, else the post's permalink — never `/watch/`; a
+  share link to a page with HD and SD files only now gets AVC 360p/720p and the audio track.
+- P23: the public page is the whole lookup only for a reel with AVC video and an AAC track;
+  `/watch/`, `video.php` and `/{page}/videos/` links read the session page first, and the
+  public page's files are kept when the session page fails. Tracks of every page read merge
+  without repeats; at most 2 page requests.
+- P23: an HD or SD file states the picture and AVC + AAC codecs of the track it was made from
+  when that track and an AAC track are listed; bitrates are the average stated in the media
+  address (`bitrate`, `efg`), never the manifest's peak, so size estimates match the files.
+- P23: details name each page read and the ladder ("public page added: …", "ladder: not needed
+  (AVC 720)", "ladder GET 200 (N characters): added …").
+- Other sites, main video (P24): on a site YFT has no adapter for, Home and the browser open the
+  page's own video, not a preview or an ad around it. The browser matches the page's player by
+  its length, so a stream the page builds itself (a `blob:` player) is found, and reads a
+  stream's length from its list of qualities; without a match a long video beats a large file
+  and the picture height beats the size. Home reads the page's own words: `og:video`, JSON-LD
+  `VideoObject`s and a stream named in the page's scripts are its video, thumbnails' clips are
+  previews.
+- Found count (P24): "N media found", "Found on this page" and the Download button count the
+  page's videos; previews, ads and the other files a page lists follow under "Other videos on
+  this page (N)". Home with one video opens its sheet at once.
+- Honest failures (P24): when a video cannot be prepared the sheet says why ("The site refused
+  this video (HTTP 403)", a video the site no longer has, a busy site, "The site's list of
+  qualities could not be read.", an address YFT can't download) instead of "The media could not
+  be reached", and Details names the step, the host and the status. A page's HLS stream is read
+  with the page's `Referer` and `Origin`, and its sheet shows the video's length and estimated
+  sizes. A file server that answers HEAD with a web page is asked for the file itself.
+- **P26 — Agent C's hand-offs (integrator).** A direct download whose HEAD lands on the file
+  host's home page (`text/html`) asks the file's own address again with the range GET, as the
+  sheet already did, so it no longer fails where the sheet works; another host (a playlist's CDN,
+  a redirect's file host) gets the observed page `Origin` and an origin-only `Referer`, never
+  cookies; an M4A or MP3 made from a video whose sound is not AAC says "Failed · Sound can't be
+  saved as audio" and its Details add "This video's sound can't be saved as audio. Download the
+  video instead."
 - One lookup per video: Download taps during a page's lookup and a feed's link to a video that
   was already looked up join that lookup instead of asking the site again; generic size probes
   wait for the site's lookup and run only when it found nothing.

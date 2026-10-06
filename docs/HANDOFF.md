@@ -22,12 +22,16 @@
 - **Branches:** `work/phase-12-integration` (= `main` `4db6c2b` + the plan); agents branch from
   it: `work/phase-12-download-fix` (A), `work/phase-12-site-qualities` (B),
   `work/phase-12-generic-sheet` (C). Status per agent: `SESSION_STATE.md`.
-- **Next action — owner:** paste [`prompts/A-download-fix.md`](prompts/A-download-fix.md),
-  [`prompts/B-site-qualities.md`](prompts/B-site-qualities.md) and
-  [`prompts/C-generic-and-sheet.md`](prompts/C-generic-and-sheet.md) into three agent chats;
-  optionally send the YouTube and other-site sheet **Details** screenshots from Preview #3 to
-  Agents B and C. When all three say `READY FOR MERGE`, paste
-  [`prompts/M-merge-preview4.md`](prompts/M-merge-preview4.md) into Agent A's chat.
+- **P26 (2026-10-06):** done by Agent C as integrator (the owner asked; Agent A was out of
+  tokens). `work/phase-12-integration` = A (P20, P21) → B (P22, P23) → C (P24, P25), merged
+  without conflicts, plus Agent C's three hand-offs (direct downloads ask the file again when
+  HEAD lands on a web page; another host gets the page's `Origin` and an origin-only `Referer`;
+  audio from a video whose sound is not AAC says "Download the video instead"). Full validation
+  and `:app:assembleRelease` green; `main` fast-forwarded to it with the owner's OK (no tag).
+- **Next action — owner:** install **Preview #4** (Preview APK run of the P26 checkpoint ›
+  Artifacts › `yft-preview-apk`; uninstall the older YFT Preview first) and check
+  FIX_ADD_PLAN §6 "Preview #4"; send screenshots of the sheet's or the download's **Details**
+  for anything that fails. Then P8 (signed `1.0.0-beta.4`) with the owner's OK.
 - **Releases:** `1.0.0-beta.1` published 2026-10-02; `1.0.0-beta.2` signed draft 2026-10-03;
   `1.0.0-beta.3` (versionCode 3, tag `v1.0.0-beta.3` on `2f6284f`) signed draft 2026-10-04:
   `video-downloader-1.0.0-beta.3.apk` 6,334,176 bytes, SHA-256

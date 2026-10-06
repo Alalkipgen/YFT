@@ -31,9 +31,60 @@ Keep at least the heading and one blank line between sections, so Git merges the
   configured in `core.sshCommand`; never print it.
 - Phase 11 record (per-task Results, validation, CI runs, Track A/B notes):
   `git show 4db6c2b:docs/SESSION_STATE.md`.
+- P26 (2026-10-06): done by Agent C as integrator in `/data/YFT` (the owner asked; Agent A was
+  out of tokens). Gate: A `c10d8c1`, B `8119f4e`, C `4d04e8b` all READY FOR MERGE with green CI.
+  `git merge --no-ff` A → B → C: no conflicts (shared docs merged by Git; no code file is
+  changed by two agents). Agent C's three hand-offs to Agent A done here: `DirectRangeProbe`
+  (HEAD answered by a web page → the range GET asks the original address; HEAD's page metadata
+  is not merged), `SecureDownloadHttp` (another origin gets the observed `Origin` and an
+  origin-only `Referer` of an HTTPS page, never cookies or other headers), `DownloadLabels`
+  (an M4A/MP3 failing as `INCOMPATIBLE_TRACKS`: "Failed · Sound can't be saved as audio",
+  Details "What to do: This video's sound can't be saved as audio. Download the video
+  instead."). Tests: `DirectRangeProbeTest` +2 and one changed expectation (a cross-origin
+  redirect now gets the page's origin as `Referer`), `DownloadLabelsTest` +1.
+- P26 validation: `./gradlew --no-daemon --continue testDebugUnitTest lintDebug :core-model:test
+  :extractor-api:test :extractor-generic:test :extractor-sites:test :app:assembleDebug` → BUILD
+  SUCCESSFUL (12m 16s): 1292 tests, 0 failures, 66 skipped (app 690, core-browser 88, core-data
+  18, core-download 141, core-media 28, core-model 80, extractor-api 32, extractor-generic 19,
+  extractor-sites 196); lint 0 errors (app 95 warnings); `:app:assembleRelease` BUILD
+  SUCCESSFUL; line check and `git diff --check` clean. Environment rebuilt after a sandbox reset
+  (JDK 17, SDK 35, NDK 27.3.13750724, CMake 3.22.1, 4 GiB swap, new deploy key).
+- Last pushed checkpoint: P26: merge A, B, C — full validation green (this commit); `main`
+  fast-forwarded to it with the owner's OK (no tag).
+- Next: the owner installs Preview #4 (Preview APK run of this commit › `yft-preview-apk`) and
+  checks FIX_ADD_PLAN §6; then P8 (signed `1.0.0-beta.4`) only with his OK.
+- Last updated: 2026-10-06 (P26)
+
+## Agent A …`, `## Agent B …`, `## Agent C …`); `## Overview` belongs to the plan and to P26.
+Keep at least the heading and one blank line between sections, so Git merges them cleanly.
+
+## Overview (plan and integration — P26 only)
+
+- Phase: 12 — Preview #3 field fixes (saving, every quality, one sheet). Plan:
+  `docs/FIX_ADD_PLAN.md`; prompts: `docs/prompts/README.md`.
+- Branches: integration `work/phase-12-integration` = `main` `4db6c2b` + the plan commit. Agent A
+  `work/phase-12-download-fix` (P20, P21, later P26), Agent B `work/phase-12-site-qualities`
+  (P22, P23), Agent C `work/phase-12-generic-sheet` (P24, P25); all start from
+  `origin/work/phase-12-integration`. Merge order A → B → C (P26), then Preview #4; P8 (signed
+  `1.0.0-beta.4`) only with the owner's OK. Nobody pushes to `main` without the owner's OK.
+- Owner's test of Preview #3 (2026-10-06, run 37455870506, `4db6c2b`): video downloads fail
+  "Storage unavailable" at 0 B (Retry too), YouTube only 360p, Facebook HD/SD without Audio
+  (Home) or 360p only (browser), another site opens a 29 s preview and says "50 media found",
+  the sheet differs per site. Root causes R1–R6 in FIX_ADD_PLAN §4.
+- Rules: ADR-006 public videos only; no DRM/paywall/private/age-gate bypass; adapters never sign
+  in. Never print/commit cookies, tokens, visitor data, signed media/image URLs or keys. Keep
+  testTags, Kotlin lines ≤ 100, WebView on the main thread. No reset --hard/clean/stash. One
+  Gradle command at a time; temporary files outside the repo.
+- Environment: each agent in its own folder (`/data/YFT-A`, `/data/YFT-B`, `/data/YFT-C`; the
+  plan was written in `/data/YFT`); JDK 17 `/data/toolchains/jdk17`; SDK `/data/toolchains/android-sdk`
+  (platform 35, NDK 27.3.13750724, CMake 3.22.1); `source /data/yft-env.sh`; full validation with
+  `GRADLE_OPTS="-Xmx1024m -XX:MaxMetaspaceSize=640m"`. After a sandbox reset recreate the helper
+  files, reinstall missing SDK parts and `git pull --ff-only` first. Push with the deploy key
+  configured in `core.sshCommand`; never print it.
+- Phase 11 record (per-task Results, validation, CI runs, Track A/B notes):
+  `git show 4db6c2b:docs/SESSION_STATE.md`.
 - Last pushed checkpoint: PLAN — prompts: own folder per agent, push access, no killing another
   agent's Gradle (this commit); plan `b097094`.
-- Next: the owner pastes the prompts for Agents A, B and C (three chats, at the same time).
 - Last updated: 2026-10-06 (Phase 12 plan, Plan Mode; no app code changed)
 
 ## Agent A — `work/phase-12-download-fix` (P20, P21; later P26)

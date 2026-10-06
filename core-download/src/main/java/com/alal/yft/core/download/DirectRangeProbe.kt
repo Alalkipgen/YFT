@@ -82,18 +82,22 @@ class DirectRangeProbe(
             }
         }
 
+        // Some file hosts send HEAD to their home page while GET returns the file: then the
+        // HEAD answer describes a web page, so ask the original address again with the GET.
+        val headGaveWebPage = headMetadata?.contentType in WEB_PAGE_TYPES
+        val fileMetadata = headMetadata.takeUnless { headGaveWebPage }
         if (
-            headMetadata != null &&
-            headMetadata.supportsByteRanges &&
-            headMetadata.totalBytes != null
+            fileMetadata != null &&
+            fileMetadata.supportsByteRanges &&
+            fileMetadata.totalBytes != null
         ) {
-            return headMetadata.toSuccess(plan)
+            return fileMetadata.toSuccess(plan)
         }
 
         val rangeExecution = when (
             val execution = execute(
                 credentialOrigin = initialUrl,
-                initialUrl = headExecution.finalUrl,
+                initialUrl = if (headGaveWebPage) initialUrl else headExecution.finalUrl,
                 context = plan.requestContext,
                 method = ProbeMethod.RANGE_GET,
             )
@@ -133,7 +137,7 @@ class DirectRangeProbe(
         }
 
         return rangeMetadata
-            .mergeFallback(headMetadata)
+            .mergeFallback(fileMetadata)
             .toSuccess(plan)
     }
 
@@ -336,6 +340,7 @@ class DirectRangeProbe(
 
         val SUCCESS_CODES = 200..299
         val HEAD_FALLBACK_CODES = setOf(405, 501)
+        val WEB_PAGE_TYPES = setOf("text/html", "application/xhtml+xml")
         val SATISFIED_CONTENT_RANGE =
             Regex("""(?i)^bytes\s+(\d+)-(\d+)/(\d+|\*)$""")
         val UNSATISFIED_CONTENT_RANGE =
