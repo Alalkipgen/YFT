@@ -49,12 +49,17 @@ class SiteNavigationHeadersTest {
             ),
         )
 
-        val headers = http.requestedHeaders.single()
-        PageNavigationHeaders.DEFAULTS.forEach { (name, value) ->
-            assertEquals(value, headers[name])
+        // Facebook asks its public page as Safari before the page with the browser's identity
+        // (P15); every other site asks one page.
+        val pages = http.requestedHeaders
+        assertEquals(if (extractor is FacebookExtractor) 2 else 1, pages.size)
+        pages.forEach { headers ->
+            PageNavigationHeaders.DEFAULTS.forEach { (name, value) ->
+                assertEquals(value, headers[name])
+            }
+            assertNull(headers["Cookie"])
         }
-        assertEquals(USER_AGENT, headers["User-Agent"])
-        assertNull(headers["Cookie"])
+        assertEquals(USER_AGENT, pages.last()["User-Agent"])
     }
 
     private companion object {

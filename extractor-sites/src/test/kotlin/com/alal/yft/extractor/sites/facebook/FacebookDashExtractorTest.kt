@@ -93,8 +93,9 @@ class FacebookDashExtractorTest {
     @Test
     fun `a page without AVC video asks Safari's page for the AVC ladder without the session`() =
         runTest {
+            // A share link skips the public page (P15), so its session page comes first.
             val http = FakeExtractorHttpClient(
-                responses = mapOf(PAGE_URL to page("facebook/reel_inline_dash.html")),
+                responses = mapOf(SHARE_URL to page("facebook/reel_inline_dash.html")),
                 getResponder = { url, headers ->
                     if (url == PAGE_URL &&
                         headers["User-Agent"] == FacebookPageIdentity.AVC_LADDER_USER_AGENT
@@ -106,9 +107,10 @@ class FacebookDashExtractorTest {
                 },
             )
 
-            val result = FacebookExtractor(http).extract(request()) as SiteExtractionResult.Success
+            val result = FacebookExtractor(http).extract(request(share()))
+                as SiteExtractionResult.Success
 
-            assertEquals(listOf(PAGE_URL, PAGE_URL), http.requestedUrls)
+            assertEquals(listOf(SHARE_URL, PAGE_URL), http.requestedUrls)
             val second = http.requestedHeaders[1]
             assertEquals(FacebookPageIdentity.AVC_LADDER_USER_AGENT, second["User-Agent"])
             assertFalse(second.keys.any { it.equals("Cookie", ignoreCase = true) })
@@ -156,24 +158,44 @@ class FacebookDashExtractorTest {
     @Test
     fun `a failed AVC page keeps the first page's tracks`() = runTest {
         val http = FakeExtractorHttpClient(
-            responses = mapOf(PAGE_URL to page("facebook/reel_inline_dash.html")),
-            getResponder = { _, headers ->
-                if (headers["User-Agent"] == FacebookPageIdentity.AVC_LADDER_USER_AGENT) {
-                    FakeExtractorHttpClient.html(
-                        body = "<html>login</html>",
-                        finalUrl = "https://www.facebook.com/login/?next=fixture",
-                    )
-                } else {
-                    null
-                }
-            },
+            responses = mapOf(SHARE_URL to page("facebook/reel_inline_dash.html")),
+            getResponder = { _, headers -> loginWall().takeIf { isSafari(headers) } },
         )
 
-        val result = FacebookExtractor(http).extract(request()) as SiteExtractionResult.Success
+        val result = FacebookExtractor(http).extract(request(share()))
+            as SiteExtractionResult.Success
 
+        assertEquals(listOf(SHARE_URL, PAGE_URL), http.requestedUrls)
         assertEquals(5, result.candidates.size)
         assertTrue(result.details.contains("AVC page: login/checkpoint wall"))
     }
+
+    @Test
+    fun `the public page already asked as Safari is not asked again for the AVC ladder`() =
+        runTest {
+            val http = FakeExtractorHttpClient(
+                responses = mapOf(PAGE_URL to page("facebook/reel_inline_dash.html")),
+                getResponder = { _, headers -> loginWall().takeIf { isSafari(headers) } },
+            )
+
+            val result = FacebookExtractor(http).extract(request())
+                as SiteExtractionResult.Success
+
+            // The public page (Safari, no session), then the session page: no third request.
+            assertEquals(listOf(PAGE_URL, PAGE_URL), http.requestedUrls)
+            assertTrue(isSafari(http.requestedHeaders[0]))
+            assertEquals("c_user=0; xs=fixture-cookie", http.requestedHeaders[1]["Cookie"])
+            assertEquals(5, result.candidates.size)
+            assertTrue(
+                result.details.toString(),
+                result.details.containsAll(
+                    listOf(
+                        "public page: login/checkpoint wall, so the session page is read",
+                        "AVC page: the public page's 0 AVC tracks",
+                    ),
+                ),
+            )
+        }
 
     @Test
     fun `an expired audio track leaves only the progressive files`() = runTest {
@@ -194,12 +216,24 @@ class FacebookDashExtractorTest {
     private fun page(fixture: String): ExtractorHttpResult.Success =
         FakeExtractorHttpClient.html(Fixtures.read(fixture), PAGE_URL)
 
-    private fun request() = SiteExtractionRequest(
-        identity = SitePageIdentity(
+    private fun isSafari(headers: Map<String, String>): Boolean =
+        headers["User-Agent"] == FacebookPageIdentity.AVC_LADDER_USER_AGENT
+
+    private fun loginWall(): ExtractorHttpResult.Success = FakeExtractorHttpClient.html(
+        body = "<html>login</html>",
+        finalUrl = "https://www.facebook.com/login/?next=fixture",
+    )
+
+    private fun share(): SitePageIdentity = requireNotNull(FacebookUrls.identify("$SHARE_URL/"))
+
+    private fun request(
+        identity: SitePageIdentity = SitePageIdentity(
             siteId = "facebook",
             contentId = VIDEO_ID,
             canonicalPageUrl = PAGE_URL,
         ),
+    ) = SiteExtractionRequest(
+        identity = identity,
         requestContext = BrowserRequestContext(
             pageUrl = PAGE_URL,
             userAgent = "fixture-agent",
@@ -211,6 +245,7 @@ class FacebookDashExtractorTest {
     private companion object {
         const val VIDEO_ID = "7180001112223340"
         const val PAGE_URL = "https://www.facebook.com/watch/?v=$VIDEO_ID"
+        const val SHARE_URL = "https://www.facebook.com/share/v/aBc123dEf"
         const val CDN = "https://video.example-cdn.test"
         const val NOW_EPOCH_MS = 1_700_000_000_000
     }

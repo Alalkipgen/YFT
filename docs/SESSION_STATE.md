@@ -38,5 +38,28 @@ edited; status is recorded here.
   `LOGIN_REQUIRED`. Validation: extractor-sites 173, app 614 (66 skipped), 0 failures; lint 0
   errors. Owner check: on the slow line a YouTube link opens clearly faster; 720p, 1080p and 4K
   download and play.
+  CI on `57663c0`: validation https://github.com/Alalkipgen/YFT/actions/runs/37393349431,
+  preview https://github.com/Alalkipgen/YFT/actions/runs/37393349360 and emulator
+  https://github.com/Alalkipgen/YFT/actions/runs/37393348990 passed.
+- **P15 — Facebook public page first: OWNER CHECK (2026-10-05).** Result: a reel or video link
+  is first asked as desktop Safari without the session; the same video ID with AVC tracks or a
+  whole file is the whole lookup (one page request). Anything else reads the session page as
+  before (desktop Chrome), and the AVC ladder reuses the public page instead of asking it again.
+  Plan adapted: (1) share, short and post links skip the public page, because Safari got a
+  623-byte page without the redirect for `share/v/` and `share/r/` (live), so they keep today's
+  2 requests; (2) a network or rate-limit failure of the public page ends the lookup (the session
+  page would wait on the same line again); other refusals (HTTP status, wall, private, another
+  video, DRM) read the session page; (3) the Chrome page's AV1 1080p track is not listed for a
+  public reel; the app never offered it (AV1 merges off). Regression proof: pre-P15 extractor put
+  back → 8 of 60 Facebook/navigation tests failed (e.g. `a public reel is one request as Safari
+  without the session`); restored, `cmp` identical. Live (sandbox, no session): reels 1 request,
+  136 KB / 128 KB (was 2 requests, 283 KB / 259 KB) with HD, SD, AVC 720/360 merged and Audio;
+  `/watch/?v=` and share links 2 requests as before. Validation: extractor-sites 181, app 614 (66
+  skipped), 0 failures; lint 0 errors. Owner check: a Facebook reel on the slow line opens
+  faster, with every quality.
+- Outside the task (for FIX_ADD_PLAN §7): Facebook `/watch/?v=` videos get no AVC rows, because
+  the AVC ladder asks `/watch/?v=`, which Safari answers with a page without the video; Safari
+  on the owner path the session page redirected to (`/NASA/videos/452499129200583/`) had AVC
+  360/720 and HD/SD (live). Asking the ladder on that final video URL would add those rows.
 - Shared files: none.
-- Next: P15 (Facebook public page first), then merge `origin/work/phase-11-download-flow`.
+- Next: merge `origin/work/phase-11-download-flow`, full validation, push; then Agent A merges.

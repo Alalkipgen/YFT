@@ -15,6 +15,7 @@ import com.alal.yft.extractor.sites.testing.Fixtures
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -92,22 +93,20 @@ class FacebookExtractorTest {
     @Test
     fun `the page request replays the browser session only to facebook`() = runTest {
         val identity = identity("1234567890123456")
-        val http = FakeExtractorHttpClient.serving(
-            url = identity.canonicalPageUrl,
-            body = Fixtures.read("facebook/watch_progressive.html"),
-        )
+        val http = sessionOnly(identity, Fixtures.read("facebook/watch_progressive.html"))
 
         val result = FacebookExtractor(http).extract(request(identity))
             as SiteExtractionResult.Success
 
-        assertEquals(listOf(identity.canonicalPageUrl), http.requestedUrls)
-        val headers = http.requestedHeaders.single()
+        assertEquals(List(2) { identity.canonicalPageUrl }, http.requestedUrls)
+        val (public, headers) = http.requestedHeaders
+        assertNull(public["Cookie"])
         assertEquals("fixture-agent", headers["User-Agent"])
         assertEquals("c_user=0; xs=fixture-cookie", headers["Cookie"])
         assertEquals("https://www.facebook.com/", headers["Referer"])
         assertEquals(
-            FacebookExtractor.DEFAULT_MAX_PAGE_BYTES,
-            http.requestedBodyLimits.single(),
+            List(2) { FacebookExtractor.DEFAULT_MAX_PAGE_BYTES },
+            http.requestedBodyLimits,
         )
 
         val context = result.candidates.first().requestContext
@@ -121,15 +120,12 @@ class FacebookExtractorTest {
     fun `a phone identity asks for the desktop page and media keep the phone identity`() =
         runTest {
             val identity = identity("1234567890123456")
-            val http = FakeExtractorHttpClient.serving(
-                url = identity.canonicalPageUrl,
-                body = Fixtures.read("facebook/watch_progressive.html"),
-            )
+            val http = sessionOnly(identity, Fixtures.read("facebook/watch_progressive.html"))
 
             val result = FacebookExtractor(http).extract(request(identity, PHONE_AGENT))
                 as SiteExtractionResult.Success
 
-            assertEquals(DESKTOP_AGENT, http.requestedHeaders.single()["User-Agent"])
+            assertEquals(DESKTOP_AGENT, http.requestedHeaders.last()["User-Agent"])
             assertTrue(result.candidates.all { it.requestContext.userAgent == PHONE_AGENT })
         }
 
@@ -342,6 +338,21 @@ class FacebookExtractorTest {
         assertEquals(429, failure.httpStatusCode)
     }
 
+    /** A video only the user's session sees: the public page is Facebook's login wall. */
+    private fun sessionOnly(identity: SitePageIdentity, body: String) = FakeExtractorHttpClient(
+        responses = mapOf(
+            identity.canonicalPageUrl to FakeExtractorHttpClient.html(
+                body,
+                identity.canonicalPageUrl,
+            ),
+        ),
+        getResponder = { _, headers ->
+            FakeExtractorHttpClient.html("<html>login</html>", LOGIN_WALL).takeIf {
+                headers["User-Agent"] == FacebookPageIdentity.AVC_LADDER_USER_AGENT
+            }
+        },
+    )
+
     private fun identity(videoId: String) = SitePageIdentity(
         siteId = "facebook",
         contentId = videoId,
@@ -363,6 +374,7 @@ class FacebookExtractorTest {
 
     private companion object {
         const val NOW_EPOCH_MS = 1_700_000_000_000
+        const val LOGIN_WALL = "https://www.facebook.com/login/?next=fixture"
 
         /** The production browser's identity: the WebView's without `; wv` and `Version/4.0`. */
         const val PHONE_AGENT = "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 " +

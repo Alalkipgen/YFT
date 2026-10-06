@@ -16,7 +16,8 @@ internal object FacebookPageIdentity {
     private const val DEFAULT_CHROME_VERSION = "130.0.0.0"
 
     /**
-     * Desktop Safari, for the second page request that reads the AVC ladder (P4).
+     * Desktop Safari, for the public page asked first without the user's session (P15) and the
+     * page request that reads the AVC ladder (P4).
      *
      * Facebook picks a video's DASH ladder by browser: a Chromium identity gets AV1 and VP9
      * tracks only, which phones before Android 14 cannot merge into an MP4, while Safari gets

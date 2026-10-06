@@ -22,6 +22,12 @@ import com.alal.yft.extractor.api.SitePageIdentity
  * user's own session context to facebook.com. It performs no signing, no DRM handling and no
  * login, paywall or access-control bypass: a video the user cannot open in the browser fails with
  * a structured reason instead of being worked around.
+ *
+ * A reel or video link is first asked as Safari without the user's session (P15): when that
+ * public page is the requested video with AVC tracks or a whole file, it is the whole lookup,
+ * one page request instead of two. Anything else reads the page with the user's session as
+ * before. Share, short and post links skip that step: Facebook redirects them only for the
+ * desktop Chrome identity.
  */
 class FacebookExtractor(
     private val http: ExtractorHttpClient,
@@ -36,6 +42,10 @@ class FacebookExtractor(
     override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
         require(request.identity.siteId == id) { "This adapter only handles Facebook identities" }
 
+        val public = publicPage(request)
+        public?.result?.let { return it }
+        val publicDetails = public?.details.orEmpty()
+
         val response = when (
             val result = http.get(
                 url = request.identity.canonicalPageUrl,
@@ -46,12 +56,13 @@ class FacebookExtractor(
             is ExtractorHttpResult.Failure -> return SiteExtractionResult.Failure(
                 reason = result.reason,
                 httpStatusCode = result.statusCode,
+                details = publicDetails,
             )
 
             is ExtractorHttpResult.Success -> result
         }
 
-        val pageDetails = listOf(
+        val pageDetails = publicDetails + listOf(
             "page GET ${response.statusCode} (${response.body.length} characters)",
         )
 
@@ -78,10 +89,85 @@ class FacebookExtractor(
         }
         parsed as FacebookParseResult.Success
         val post = parsed.post
-        val details = pageDetails + parsed.details
-
         val pageUrl = pageUrl(resolvedIdentity, post)
-        val avc = avcLadder(pageUrl, post)
+        val avc = avcLadder(pageUrl, post, public)
+        return offers(request, post, pageUrl, pageDetails + parsed.details, avc)
+    }
+
+    /**
+     * The page asked as Safari without the user's session (P15), or null when the link is not
+     * asked that way. Its [PublicPage.result] is set only when the page is the requested video
+     * with AVC tracks or a whole file, or when the line failed: asking again would wait on the
+     * same line. Any other answer leaves the lookup to the page with the user's session.
+     */
+    private suspend fun publicPage(request: SiteExtractionRequest): PublicPage? {
+        val identity = request.identity
+        // Share, short and post links redirect to their video only for desktop Chrome: Safari
+        // got a small page without the redirect (sandbox live check, 2026-10-05).
+        if (identity.requiresCanonicalResolution) return null
+        val url = identity.canonicalPageUrl
+        val response = when (
+            val result = http.get(url, publicPageHeaders(), maxPageBytes)
+        ) {
+            is ExtractorHttpResult.Failure -> {
+                val detail = "public page GET failed (${result.reason})"
+                val final = SiteExtractionResult.Failure(
+                    reason = result.reason,
+                    httpStatusCode = result.statusCode,
+                    details = listOf(detail),
+                ).takeIf { result.reason in LINE_FAILURES }
+                return PublicPage(url, listOf(detail + SESSION_NEXT), result = final)
+            }
+
+            is ExtractorHttpResult.Success -> result
+        }
+        val read = "public page GET ${response.statusCode} (${response.body.length} characters)"
+        if (FacebookUrls.isAccessWall(response.finalUrl)) {
+            return PublicPage(url, listOf(read, "public page: login/checkpoint wall$SESSION_NEXT"))
+        }
+        val parsed = FacebookPageParser.parse(response.body, identity.contentId)
+        val post = (parsed as? FacebookParseResult.Success)?.post
+            ?.takeIf { it.videoId == identity.contentId }
+        val gap = when {
+            parsed is FacebookParseResult.Failure -> parsed.reason.name
+            post == null -> "another video"
+            !hasSavableFile(post) -> "no AVC track or whole file"
+            else -> null
+        }
+        if (gap != null || post == null) {
+            return PublicPage(url, listOf(read, "public page: $gap$SESSION_NEXT"), post)
+        }
+        val details = listOf(read) + (parsed as FacebookParseResult.Success).details +
+            "public page: the video, without the session"
+        val result = offers(request, post, pageUrl(identity, post), details, AvcLadder.NONE)
+        if (result is SiteExtractionResult.Success) return PublicPage(url, details, post, result)
+        return PublicPage(url, listOf(read, "public page: no download left$SESSION_NEXT"), post)
+    }
+
+    /** An AVC track every phone merges, or a whole file with its sound. */
+    private fun hasSavableFile(post: FacebookPost): Boolean =
+        post.dashTracks.any(FacebookDashOffers::isAvc) ||
+            post.renditions.any { it.delivery == FacebookDelivery.PROGRESSIVE }
+
+    /**
+     * What the public page answered: [post] is the requested video when the page had it, kept so
+     * the AVC ladder never asks the same page twice; [result] ends the lookup when set.
+     */
+    private class PublicPage(
+        val url: String,
+        val details: List<String>,
+        val post: FacebookPost? = null,
+        val result: SiteExtractionResult? = null,
+    )
+
+    /** The candidates of one page's [post], with the AVC ladder's tracks when it was asked. */
+    private fun offers(
+        request: SiteExtractionRequest,
+        post: FacebookPost,
+        pageUrl: String,
+        details: List<String>,
+        avc: AvcLadder,
+    ): SiteExtractionResult {
         val tracks = (post.dashTracks + avc.tracks).distinctBy(FacebookDashTrack::url)
         val progressive = post.renditions.mapNotNull { rendition ->
             val expiresAtEpochMs = FacebookUrls.mediaExpiryEpochMs(rendition.url)
@@ -219,29 +305,37 @@ class FacebookExtractor(
         return merged + sound
     }
 
-    private class AvcLadder(val tracks: List<FacebookDashTrack>, val detail: String?)
+    private class AvcLadder(val tracks: List<FacebookDashTrack>, val detail: String?) {
+        companion object {
+            val NONE = AvcLadder(emptyList(), null)
+        }
+    }
 
     /**
      * Reads the AVC ladder from the page Facebook serves Safari when the first page listed AV1 or
      * VP9 video only ([FacebookPageIdentity.AVC_LADDER_USER_AGENT]). The request carries no
      * session: a public video gets its AVC tracks, a video only the signed-in user may see keeps
      * the first page's tracks, and the cookie never travels with a second identity. Only tracks
-     * of the same video ID are taken.
+     * of the same video ID are taken. The public page already asked that way (P15) is not asked
+     * again: its own AVC tracks are used.
      */
-    private suspend fun avcLadder(pageUrl: String, post: FacebookPost): AvcLadder {
-        if (!FacebookDashOffers.lacksAvcVideo(post.dashTracks)) return AvcLadder(emptyList(), null)
+    private suspend fun avcLadder(
+        pageUrl: String,
+        post: FacebookPost,
+        public: PublicPage?,
+    ): AvcLadder {
+        if (!FacebookDashOffers.lacksAvcVideo(post.dashTracks)) return AvcLadder.NONE
         val videoId = post.videoId?.takeIf(FacebookUrls::isNumericId)
             ?: return AvcLadder(emptyList(), "AVC page: skipped without a video ID")
+        if (public != null && public.url == pageUrl) {
+            val tracks = public.post?.takeIf { it.videoId == videoId }?.dashTracks.orEmpty()
+                .filter(FacebookDashOffers::isAvc)
+            return AvcLadder(tracks, "AVC page: the public page's ${tracks.size} AVC tracks")
+        }
         val response = when (
             val result = http.get(
                 url = pageUrl,
-                headers = PageNavigationHeaders.withDefaults(
-                    mapOf(
-                        "User-Agent" to FacebookPageIdentity.AVC_LADDER_USER_AGENT,
-                        "Accept-Language" to "en-US,en;q=0.9",
-                        "Referer" to "https://www.facebook.com/",
-                    ),
-                ),
+                headers = publicPageHeaders(),
                 maxBodyBytes = maxPageBytes,
             )
         ) {
@@ -319,6 +413,15 @@ class FacebookExtractor(
         return if (label.isNullOrBlank()) base else "$base — $label"
     }
 
+    /** Desktop Safari without any session: the public page (P15) and the AVC ladder (P4). */
+    private fun publicPageHeaders(): Map<String, String> = PageNavigationHeaders.withDefaults(
+        mapOf(
+            "User-Agent" to FacebookPageIdentity.AVC_LADDER_USER_AGENT,
+            "Accept-Language" to "en-US,en;q=0.9",
+            "Referer" to "https://www.facebook.com/",
+        ),
+    )
+
     private fun pageHeaders(context: BrowserRequestContext): Map<String, String> =
         PageNavigationHeaders.withDefaults(
             buildMap {
@@ -352,5 +455,12 @@ class FacebookExtractor(
         private const val DASH_MIME_TYPE = "application/dash+xml"
         private const val AUDIO_LABEL = "Audio"
         private const val BITS_PER_BYTE_MILLIS = 8_000L
+        private const val SESSION_NEXT = ", so the session page is read"
+
+        /** A public page that failed this way ends the lookup: the line itself failed. */
+        private val LINE_FAILURES = setOf(
+            SiteExtractionFailure.NETWORK,
+            SiteExtractionFailure.RATE_LIMITED,
+        )
     }
 }

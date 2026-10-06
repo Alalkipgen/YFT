@@ -741,6 +741,19 @@ repository that asks each client and prints only verdicts and counts.
 | Local validation | `:extractor-sites:test` 173 tests, `:app:testDebugUnitTest` 614 tests (66 skipped), 0 failures; `:app:lintDebug` 0 errors (95 warnings, as before); new Kotlin lines ≤ 100 |
 | Owner check | On the slow line a YouTube link opens clearly faster; 720p, 1080p and 4K download and play |
 
+### P15 — Facebook public page first (OWNER CHECK, 2026-10-05, Track B)
+
+| Check | Result |
+| --- | --- |
+| Public page | PASS — `FacebookPublicPageTest`: a public reel is one GET as Safari with navigation headers and Referer but no `Cookie`; media keep the browser's identity; details "public page: the video, without the session" |
+| Session page | PASS — a login wall, an unavailable page, a login page and HTTP 500 on the public page each read the session page (Cookie, browser agent) and succeed; a public page showing another video reads the session page; a login wall on both is `LOGIN_REQUIRED` with both pages in the details; DRM stays `DRM_PROTECTED`; NETWORK and RATE_LIMITED on the public page end the lookup after one request |
+| Share links and AVC ladder | PASS — a `share/r/` link is one GET with the session that resolves through the redirect; `FacebookDashExtractorTest`: a share link's AV1-only session page still asks Safari's AVC ladder without the session (2 requests), a failed ladder keeps the first page's tracks, and the public page already asked as Safari is reused instead of asked again (2 requests, not 3) |
+| Updated tests | `FacebookExtractorTest` session replay and phone identity use a session-only video; `SiteNavigationHeadersTest` checks both Facebook page requests (navigation headers, no cookie in Home lookups) |
+| Regression proof | Pre-P15 `FacebookExtractor.kt` (`57663c0`) put back with the new tests: 8 of 60 failed — `a public reel is one request as Safari without the session`, `a video only the session sees is read with the session`, `a public page showing another video reads the session page`, `a login wall on both pages is login required`, `a line that fails on the public page ends the lookup there`, `the public page already asked as Safari is not asked again for the AVC ladder`, `the page request replays the browser session only to facebook`, `facebookPageHasNavigationHeadersAndNoHeadlessCookie`; restored, `cmp` identical, all pass |
+| Live (sandbox, no session) | Before: reels `1603698891196107` / `2192941138213802` 2 requests (283 KB / 259 KB); Safari alone had the same video ID, HD/SD whole files and AVC 358/720 and 640/1024. After: 1 request each (136 KB / 128 KB), rows HD, SD, AVC merged ×2, Audio. `/watch/?v=452499129200583`: 2 requests before and after (Safari 914 characters without the video, then the session page). `share/v/1Q3kAyptrS` and `share/r/1Q3kAyptrS`: Safari got a 623-byte page without the redirect; 2 requests before and after. Only status, host, path, sizes, IDs and heights recorded |
+| Local validation | `:extractor-sites:test` 181 tests, `:app:testDebugUnitTest` 614 tests (66 skipped), 0 failures; `:app:lintDebug` 0 errors; new Kotlin lines ≤ 100 |
+| Owner check | A Facebook reel on the slow line opens faster, with every quality |
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |
