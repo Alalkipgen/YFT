@@ -9,7 +9,28 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Phase 12 — Agent A (P20, P21)
 
-- (Agent A: replace this line with the P20 and P21 entries.)
+- **P20 — Video downloads save again (R1).** A fresh direct download (no checkpoint, or the
+  queue's empty one) no longer reads the destination before `prepare()`. A new pending
+  MediaStore row in `Download/YFT` has no file until its first "rw" open, so that read failed and
+  every direct video (YouTube 360p, Facebook HD/SD, other sites' MP4s) ended at once as "Failed ·
+  Storage unavailable" at 0 B; Retry failed the same way. A resume whose length cannot be read
+  now drops its checkpoint and starts again at byte 0 instead of failing.
+  `AndroidPublicContentStore.length()` returns null for a row without a file yet (a missing row or
+  a `SecurityException` still fails as storage). HLS, DASH, merge and MP3 already prepared first.
+  New `MediaStoreDownloadInstrumentedTest` checks the real MediaStore on the CI emulator.
+- **P21 — Retry and failure details (R2).** A failed download says what failed and where:
+  `DownloadFailure` has a `stage` (connecting, reading from the server, opening or writing the
+  file, saving the finished file, merging, converting, checking) and a short `detail` (the
+  error's class and message without links, addresses, host names or tokens; at most 120
+  characters). Every engine sets them, and the record keeps them (`last_error_detail`, Room 5,
+  migration 4 → 5). Reasons are honest: every file call is wrapped, so a file problem is
+  `STORAGE_UNAVAILABLE` or `INSUFFICIENT_STORAGE` and a source problem `NETWORK` or the HTTP
+  reason; a failed close after good writes now fails the download (the old engine retried it as
+  a dropped connection and published the file). Retry after a storage failure, or when the
+  partial file is gone or shorter than its checkpoint, discards the old file and starts again at
+  byte 0 in a new one; other failures resume as before. Downloads: a failed card has "Details"
+  (and "Failure details" in its menu) with the reason, stage, HTTP status, detail, download type,
+  where it is saved and the app and Android versions, and "Copy details".
 
 ### Phase 12 — Agent B (P22, P23)
 

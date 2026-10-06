@@ -3,12 +3,15 @@ package com.alal.yft.core.download
 import android.annotation.TargetApi
 import android.content.ContentResolver
 import android.content.ContentValues
+import android.database.Cursor
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.provider.OpenableColumns
+import java.io.FileNotFoundException
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
@@ -23,6 +26,8 @@ import java.util.UUID
 class MediaStoreDownloadDestination private constructor(
     private val store: PublicContentStore,
     private val pendingItemUri: String,
+    /** How the row was made, to make another one ([renew]); null for a reopened row. */
+    private val request: PendingMediaRequest? = null,
 ) : DownloadDestination {
     @Volatile
     private var lifecycle = DestinationLifecycle.ACTIVE
@@ -67,6 +72,29 @@ class MediaStoreDownloadDestination private constructor(
         lifecycle = DestinationLifecycle.DISCARDED
     }
 
+    /**
+     * Deletes this pending row first, so the new row gets the same name, then makes the new
+     * one; a row that cannot be deleted is left for the storage janitor.
+     */
+    @Synchronized
+    override fun renew(): DownloadDestination? {
+        val request = request ?: return null
+        check(lifecycle != DestinationLifecycle.COMMITTED) { "Download destination was published" }
+        runCatching { discard() }
+        return create(
+            store = store,
+            displayName = request.displayName,
+            mimeType = request.mimeType,
+            relativePath = request.relativePath,
+        )
+    }
+
+    private data class PendingMediaRequest(
+        val displayName: String,
+        val mimeType: String?,
+        val relativePath: String,
+    )
+
     companion object {
         const val DEFAULT_RELATIVE_PATH = "Download/YFT/"
 
@@ -105,7 +133,11 @@ class MediaStoreDownloadDestination private constructor(
                 mimeType = normalizeMimeType(mimeType),
                 relativePath = normalizeRelativePath(relativePath),
             )
-            return MediaStoreDownloadDestination(store, requireContentUri(uri))
+            return MediaStoreDownloadDestination(
+                store = store,
+                pendingItemUri = requireContentUri(uri),
+                request = PendingMediaRequest(displayName, mimeType, relativePath),
+            )
         }
 
         internal fun resume(
@@ -124,6 +156,8 @@ class SafDownloadDestination private constructor(
     private val store: PublicContentStore,
     private val temporaryDocumentUri: String,
     private val finalDisplayName: String,
+    /** How the document was made, to make another one ([renew]); null for a reopened one. */
+    private val request: TemporaryDocumentRequest? = null,
 ) : DownloadDestination {
     @Volatile
     private var committedUri: String? = null
@@ -177,6 +211,28 @@ class SafDownloadDestination private constructor(
         lifecycle = DestinationLifecycle.DISCARDED
     }
 
+    /** Deletes this temporary document first, so the new one gets the same name. */
+    @Synchronized
+    override fun renew(): DownloadDestination? {
+        val request = request ?: return null
+        check(lifecycle != DestinationLifecycle.COMMITTED) { "Download destination was published" }
+        runCatching { discard() }
+        return create(
+            store = store,
+            treeUri = request.treeUri,
+            displayName = request.displayName,
+            mimeType = request.mimeType,
+            temporaryId = request.temporaryId,
+        )
+    }
+
+    private data class TemporaryDocumentRequest(
+        val treeUri: String,
+        val displayName: String,
+        val mimeType: String?,
+        val temporaryId: String,
+    )
+
     companion object {
         /**
          * Creates a temporary document immediately so its URI can be persisted for recovery.
@@ -228,6 +284,7 @@ class SafDownloadDestination private constructor(
                 store = store,
                 temporaryDocumentUri = requireContentUri(uri),
                 finalDisplayName = finalName,
+                request = TemporaryDocumentRequest(treeUri, displayName, mimeType, temporaryId),
             )
         }
 
@@ -369,16 +426,16 @@ internal class AndroidPublicContentStore(
 
     override fun length(uri: String): Long? = storageCall("Cannot inspect destination") {
         val contentUri = parseContentUri(uri)
-        resolver.openFileDescriptor(contentUri, "r")?.use { descriptor ->
-            descriptor.statSize.takeIf { it >= 0 }?.let { return@storageCall it }
+        val descriptor = try {
+            resolver.openFileDescriptor(contentUri, "r")
+        } catch (_: FileNotFoundException) {
+            // A new pending MediaStore row has no file until its first "rw" open (P20).
+            return@storageCall lengthOfRowWithoutFile(contentUri)
         }
-        resolver.query(
-            contentUri,
-            arrayOf(OpenableColumns.SIZE),
-            null,
-            null,
-            null,
-        )?.use { cursor ->
+        descriptor?.use { opened ->
+            opened.statSize.takeIf { it >= 0 }?.let { return@storageCall it }
+        }
+        querySize(contentUri)?.use { cursor ->
             if (cursor.moveToFirst() && !cursor.isNull(0)) {
                 cursor.getLong(0).takeIf { it >= 0 }
             } else {
@@ -386,6 +443,49 @@ internal class AndroidPublicContentStore(
             }
         }
     }
+
+    /**
+     * A row whose file cannot be opened holds no bytes yet, so its length is null, like a
+     * [FileDownloadDestination] that was never written; its stored size is not trusted, because
+     * a resume must never count bytes that are not there. A missing row is a storage failure.
+     */
+    private fun lengthOfRowWithoutFile(contentUri: Uri): Long? {
+        val rowExists = querySize(contentUri, includePending = true)
+            ?.use { cursor -> cursor.moveToFirst() }
+            ?: false
+        if (!rowExists) throw FileNotFoundException("Destination is missing")
+        return null
+    }
+
+    private fun querySize(contentUri: Uri, includePending: Boolean = false): Cursor? {
+        val projection = arrayOf(OpenableColumns.SIZE)
+        val mediaItem = includePending && contentUri.authority == MediaStore.AUTHORITY
+        return when {
+            mediaItem && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ->
+                queryIncludingPendingOnAndroid11(contentUri, projection)
+            mediaItem && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ->
+                resolver.query(includePendingOnAndroid10(contentUri), projection, null, null, null)
+            else -> resolver.query(contentUri, projection, null, null, null)
+        }
+    }
+
+    @TargetApi(Build.VERSION_CODES.R)
+    private fun queryIncludingPendingOnAndroid11(
+        contentUri: Uri,
+        projection: Array<String>,
+    ): Cursor? = resolver.query(
+        contentUri,
+        projection,
+        Bundle().apply {
+            putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_INCLUDE)
+        },
+        null,
+    )
+
+    @Suppress("DEPRECATION")
+    @TargetApi(Build.VERSION_CODES.Q)
+    private fun includePendingOnAndroid10(contentUri: Uri): Uri =
+        MediaStore.setIncludePending(contentUri)
 
     override fun open(uri: String): SeekableDownloadOutput =
         storageCall("Cannot open destination") {

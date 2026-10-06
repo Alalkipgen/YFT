@@ -1,8 +1,12 @@
 package com.alal.yft.feature.downloads
 
 import androidx.annotation.DrawableRes
+import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.download.DownloadPlanType
+import com.alal.yft.core.model.download.DownloadFailureDetails
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.DownloadFailureStage
+import com.alal.yft.core.model.download.Mp3Encoding
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.download.policy.TransferNetworkState
@@ -200,6 +204,63 @@ internal fun failureLabel(reason: DownloadFailureReason): String = when (reason)
     DownloadFailureReason.INTEGRITY_MISMATCH -> "integrity mismatch"
 }
 
+/** The step a download failed at, for the failure details (P21). */
+internal fun stageLabel(stage: DownloadFailureStage): String = when (stage) {
+    DownloadFailureStage.CONNECT -> "Connecting to the server"
+    DownloadFailureStage.READ_SOURCE -> "Reading from the server"
+    DownloadFailureStage.OPEN_FILE -> "Opening the file"
+    DownloadFailureStage.WRITE_FILE -> "Writing the file"
+    DownloadFailureStage.PUBLISH -> "Saving the finished file"
+    DownloadFailureStage.MERGE -> "Merging video and sound"
+    DownloadFailureStage.CONVERT -> "Converting the sound"
+    DownloadFailureStage.VERIFY -> "Checking the file"
+}
+
+/** "MP3", "Direct", "HLS", "DASH", "Merge (audio + video)": how the file was fetched. */
+internal fun planKindLabel(row: DownloadRowUiState): String = when (row.planType) {
+    DownloadPlanType.DIRECT -> if (row.mimeType == Mp3Encoding.MIME_TYPE) "MP3" else "Direct"
+    DownloadPlanType.HLS -> "HLS"
+    DownloadPlanType.DASH -> "DASH"
+    DownloadPlanType.AUDIO_VIDEO_MUX -> "Merge (audio + video)"
+}
+
+/** Where the file is written: Downloads (MediaStore), a chosen folder (SAF) or the app. */
+internal fun destinationKindLabel(kind: DownloadDestinationKind): String = when (kind) {
+    DownloadDestinationKind.MEDIA_STORE -> "Downloads (MediaStore)"
+    DownloadDestinationKind.SAF_DOCUMENT -> "Chosen folder (SAF)"
+    DownloadDestinationKind.APP_PRIVATE -> "App storage"
+}
+
+/**
+ * The text of the failure Details dialog and of Copy details (P21): reason, stage, HTTP status,
+ * detail, download type, destination and versions. It names no file, link or address, and the
+ * detail is cleaned once more before it is shown.
+ */
+internal fun failureDetailsText(
+    row: DownloadRowUiState,
+    appVersion: String,
+    androidRelease: String,
+    sdkInt: Int,
+): String {
+    val failure = row.failure
+    val reason = (failure?.reason ?: row.failureReason)?.let { reason ->
+        "${failureLabel(reason).replaceFirstChar(Char::uppercaseChar)} (${reason.name})"
+    }
+    val stage = failure?.stage?.let { stage -> "${stageLabel(stage)} (${stage.name})" }
+    return listOf(
+        "YFT download failure",
+        "Reason: ${reason ?: UNKNOWN}",
+        "Stage: ${stage ?: UNKNOWN}",
+        "HTTP status: ${failure?.httpStatusCode ?: UNKNOWN}",
+        "Detail: ${DownloadFailureDetails.sanitize(failure?.detail) ?: UNKNOWN}",
+        "Download type: ${planKindLabel(row)}",
+        "Saved to: ${destinationKindLabel(row.destinationKind)}",
+        "App: YFT ${appVersion.ifBlank { UNKNOWN }}",
+        "Android: ${androidRelease.ifBlank { UNKNOWN }} (API $sdkInt)",
+    ).joinToString("\n")
+}
+
+private const val UNKNOWN = "\u2014"
 private const val SECONDS_PER_MINUTE = 60L
 private const val MINUTES_PER_HOUR = 60L
 private const val MAX_TIME_LEFT_SECONDS = 7L * 24 * 60 * 60

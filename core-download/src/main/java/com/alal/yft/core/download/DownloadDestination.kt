@@ -27,6 +27,17 @@ interface DownloadDestination {
     fun open(): SeekableDownloadOutput
     fun commit()
     fun discard()
+
+    /**
+     * Starts over (P21): discards this destination and returns a new, empty one of the same kind
+     * and name, so a Retry that cannot use the old partial file writes again from byte 0.
+     *
+     * Returns null, without discarding anything, when this destination cannot make a new one
+     * (for example one reopened from a saved address); the caller keeps using it. Throws when
+     * the new one cannot be made; this one may be discarded by then, and a later call tries
+     * again.
+     */
+    fun renew(): DownloadDestination? = null
 }
 
 interface SeekableDownloadOutput : Closeable {
@@ -84,6 +95,17 @@ class FileDownloadDestination(
         if (partialFile.exists() && !partialFile.delete()) {
             throw IOException("Cannot delete partial download")
         }
+    }
+
+    /** Empties the partial file instead of deleting it, so its name stays reserved. */
+    override fun renew(): DownloadDestination {
+        val parent = partialFile.parentFile
+            ?: throw IOException("Download destination has no parent directory")
+        if (!parent.isDirectory && !parent.mkdirs()) {
+            throw IOException("Cannot create download directory")
+        }
+        RandomAccessFile(partialFile, "rw").use { output -> output.setLength(0) }
+        return FileDownloadDestination(partialFile = partialFile, completedFile = completedFile)
     }
 }
 

@@ -4,6 +4,9 @@ import com.alal.yft.core.model.download.DirectDownloadPlan
 import com.alal.yft.core.model.download.DirectTransferCheckpoint
 import com.alal.yft.core.model.download.DownloadFailure
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.DownloadFailureStage
+import com.alal.yft.core.model.download.DownloadFailureStage.CONVERT
+import com.alal.yft.core.model.download.DownloadFailureStage.READ_SOURCE
 import com.alal.yft.core.model.download.DownloadPlan
 import com.alal.yft.core.model.download.DownloadProgress
 import com.alal.yft.core.model.download.DownloadSegment
@@ -107,7 +110,10 @@ class Mp3ConvertingTransferDispatcherTest {
         val result = dispatcher.transfer(video, metadata(), destination, null, {}, {})
 
         val failure = result as QueueTransferResult.Failure
-        assertEquals(DownloadFailure(DownloadFailureReason.INCOMPATIBLE_TRACKS), failure.failure)
+        assertEquals(
+            DownloadFailure(DownloadFailureReason.INCOMPATIBLE_TRACKS, stage = CONVERT),
+            failure.failure,
+        )
         assertFalse(published.exists())
         assertFalse(workspace().exists())
         dispatcher.discard(video)
@@ -121,10 +127,39 @@ class Mp3ConvertingTransferDispatcherTest {
         val result = dispatcher.transfer(plan(), metadata(), destination, null, {}, {})
 
         val failure = result as QueueTransferResult.Failure
-        assertEquals(DownloadFailure(DownloadFailureReason.INCOMPATIBLE_TRACKS), failure.failure)
+        assertEquals(
+            DownloadFailure(DownloadFailureReason.INCOMPATIBLE_TRACKS, stage = CONVERT),
+            failure.failure,
+        )
         assertEquals(0L, failure.checkpoint.downloadedBytes)
         assertFalse(published.exists())
         assertFalse(workspace().exists())
+    }
+
+    @Test
+    fun aConversionFailureKeepsTheConverterMessageForTheDetailsDialog() = runBlocking {
+        transcoder.failWith = DownloadFailureReason.INCOMPATIBLE_TRACKS
+        transcoder.failDetail = "IllegalStateException: no decoder for audio/mp4a-latm"
+
+        val result = dispatcher.transfer(plan(), metadata(), destination, null, {}, {})
+
+        val failure = (result as QueueTransferResult.Failure).failure
+        assertEquals(DownloadFailureReason.INCOMPATIBLE_TRACKS, failure.reason)
+        assertEquals(CONVERT, failure.stage)
+        assertEquals("IllegalStateException: no decoder for audio/mp4a-latm", failure.detail)
+    }
+
+    @Test
+    fun aFailedDownloadKeepsTheStageItFailedIn() = runBlocking {
+        delegate.failWith = DownloadFailureReason.NETWORK
+        delegate.failStage = READ_SOURCE
+
+        val result = dispatcher.transfer(plan(), metadata(), destination, null, {}, {})
+
+        val failure = (result as QueueTransferResult.Failure).failure
+        assertEquals(DownloadFailureReason.NETWORK, failure.reason)
+        assertEquals(READ_SOURCE, failure.stage)
+        assertEquals(0, transcoder.calls)
     }
 
     @Test
@@ -214,6 +249,7 @@ class Mp3ConvertingTransferDispatcherTest {
         val destinations = mutableListOf<DownloadDestination>()
         val resumes = mutableListOf<TransferCheckpoint?>()
         var failWith: DownloadFailureReason? = null
+        var failStage: DownloadFailureStage? = null
         var discards = 0
 
         override suspend fun transfer(
@@ -227,7 +263,8 @@ class Mp3ConvertingTransferDispatcherTest {
             destinations += destination
             resumes += resumeFrom
             failWith?.let {
-                return QueueTransferResult.Failure(DownloadFailure(it), checkpoint(0))
+                val failure = DownloadFailure(it, stage = failStage)
+                return QueueTransferResult.Failure(failure, checkpoint(0))
             }
             destination.prepare(bytes.size.toLong())
             destination.open().use { output ->
@@ -248,6 +285,7 @@ class Mp3ConvertingTransferDispatcherTest {
         val sources = mutableListOf<ByteArray>()
         val encodings = mutableListOf<Mp3Encoding>()
         var failWith: DownloadFailureReason? = null
+        var failDetail: String? = null
         val calls get() = sources.size
 
         override suspend fun transcode(
@@ -258,7 +296,7 @@ class Mp3ConvertingTransferDispatcherTest {
             sources += source.readBytes()
             encodings += encoding
             output.writeBytes(this.output.copyOf(this.output.size / 2))
-            failWith?.let { return Mp3TranscodeResult.Failure(it) }
+            failWith?.let { return Mp3TranscodeResult.Failure(it, failDetail) }
             output.writeBytes(this.output)
             return Mp3TranscodeResult.Completed(this.output.size.toLong())
         }

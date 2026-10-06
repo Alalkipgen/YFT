@@ -2,14 +2,18 @@ package com.alal.yft.feature.downloads
 
 import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.download.DownloadPlanType
+import com.alal.yft.core.model.download.DownloadFailure
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.DownloadFailureStage
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.download.policy.TransferNetworkState
 import com.alal.yft.ui.components.YftStatusTone
 import com.alal.yft.ui.theme.YftIcons
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DownloadLabelsTest {
@@ -146,6 +150,82 @@ class DownloadLabelsTest {
         assertEquals("Cancel download", menuLabel(DownloadAction.CANCEL))
         assertEquals("download-menu-retry-a", menuTag(DownloadAction.RETRY, "a"))
         assertEquals("download-action-pause-a", actionTag(DownloadAction.PAUSE, "a"))
+    }
+
+    /** P21: what Details shows and Copy details copies, without links or the file's name. */
+    @Test
+    fun failureDetailsNameTheReasonStageAndPhoneButNoLinks() {
+        val failed = row(DownloadTaskStatus.FAILED, failure = DownloadFailureReason.NETWORK).copy(
+            destinationKind = DownloadDestinationKind.MEDIA_STORE,
+            destinationUri = "content://media/external/downloads/42",
+            failure = DownloadFailure(
+                reason = DownloadFailureReason.NETWORK,
+                stage = DownloadFailureStage.READ_SOURCE,
+                detail = "SocketException: reset by https://rr1.example.test/v?sig=1 at 10.0.0.2",
+            ),
+        )
+
+        val text = failureDetailsText(
+            row = failed,
+            appVersion = "1.4.0",
+            androidRelease = "14",
+            sdkInt = 34,
+        )
+
+        assertEquals(
+            listOf(
+                "YFT download failure",
+                "Reason: Network error (NETWORK)",
+                "Stage: Reading from the server (READ_SOURCE)",
+                "HTTP status: \u2014",
+                "Detail: SocketException: reset by [link] at [ip]",
+                "Download type: Direct",
+                "Saved to: Downloads (MediaStore)",
+                "App: YFT 1.4.0",
+                "Android: 14 (API 34)",
+            ).joinToString("\n"),
+            text,
+        )
+        for (leak in listOf("http", "example.test", "10.0.0.2", "content://", "Mountain")) {
+            assertFalse("$leak must not be copied", text.contains(leak))
+        }
+    }
+
+    @Test
+    fun failureDetailsOfATaskSavedBeforeP21SayWhatIsNotKnown() {
+        val old = row(
+            DownloadTaskStatus.FAILED,
+            plan = DownloadPlanType.AUDIO_VIDEO_MUX,
+            failure = DownloadFailureReason.ACCESS_DENIED,
+        ).copy(failure = DownloadFailure(DownloadFailureReason.ACCESS_DENIED, 403))
+
+        val text = failureDetailsText(old, appVersion = "", androidRelease = "", sdkInt = 26)
+
+        assertTrue(text, text.contains("Reason: Access denied (ACCESS_DENIED)\n"))
+        assertTrue(text, text.contains("Stage: \u2014\nHTTP status: 403\nDetail: \u2014\n"))
+        assertTrue(text, text.contains("Download type: Merge (audio + video)\n"))
+        assertTrue(text, text.contains("Saved to: App storage\n"))
+        assertTrue(text, text.endsWith("App: YFT \u2014\nAndroid: \u2014 (API 26)"))
+    }
+
+    @Test
+    fun failureDetailsNameEachDownloadTypeAndPlace() {
+        val mp3 = row(DownloadTaskStatus.FAILED, name = "Song.mp3").copy(mimeType = "audio/mpeg")
+        val hls = row(DownloadTaskStatus.FAILED, plan = DownloadPlanType.HLS)
+        val dash = row(DownloadTaskStatus.FAILED, plan = DownloadPlanType.DASH)
+
+        assertEquals("MP3", planKindLabel(mp3))
+        assertEquals("HLS", planKindLabel(hls))
+        assertEquals("DASH", planKindLabel(dash))
+        assertEquals(
+            "Chosen folder (SAF)",
+            destinationKindLabel(DownloadDestinationKind.SAF_DOCUMENT),
+        )
+        assertEquals(
+            "8 steps, 8 names",
+            8,
+            DownloadFailureStage.entries.map(::stageLabel).toSet().size,
+        )
     }
 
     private fun row(

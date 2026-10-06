@@ -167,7 +167,74 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
-    fun migrationFrom1To4ValidatesTheCompleteChain() {
+    fun migrationFrom4To5PreservesRowsAndAddsNullableErrorDetail() {
+        helper.createDatabase(TEST_DATABASE, 4).apply {
+            execSQL(
+                """
+                INSERT INTO download_records (
+                    id,
+                    display_name,
+                    status,
+                    progress_percent,
+                    created_at_epoch_ms,
+                    last_error_code,
+                    plan_type,
+                    downloaded_bytes,
+                    checkpoint_payload
+                ) VALUES (
+                    'record-failed', 'Failed', 'FAILED', 30, 4000, 'NETWORK', 'HLS', 300,
+                    'payload'
+                )
+                """.trimIndent(),
+            )
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(
+            TEST_DATABASE,
+            5,
+            true,
+            AppDatabase.MIGRATION_4_5,
+        )
+
+        migrated.query(
+            """
+            SELECT
+                id,
+                status,
+                last_error_code,
+                plan_type,
+                downloaded_bytes,
+                checkpoint_payload,
+                last_error_detail
+            FROM download_records
+            WHERE id = 'record-failed'
+            """.trimIndent(),
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("record-failed", cursor.getString(0))
+            assertEquals("FAILED", cursor.getString(1))
+            assertEquals("NETWORK", cursor.getString(2))
+            assertEquals("HLS", cursor.getString(3))
+            assertEquals(300L, cursor.getLong(4))
+            assertEquals("payload", cursor.getString(5))
+            assertNull(cursor.getString(6))
+        }
+        migrated.execSQL(
+            "UPDATE download_records SET last_error_detail = 'READ_SOURCE||IOException' " +
+                "WHERE id = 'record-failed'",
+        )
+        migrated.query(
+            "SELECT last_error_detail FROM download_records WHERE id = 'record-failed'",
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("READ_SOURCE||IOException", cursor.getString(0))
+        }
+        migrated.close()
+    }
+
+    @Test
+    fun migrationFrom1To5ValidatesTheCompleteChain() {
         helper.createDatabase(TEST_DATABASE, 1).apply {
             execSQL(
                 """
@@ -181,16 +248,17 @@ class AppDatabaseMigrationTest {
 
         val migrated = helper.runMigrationsAndValidate(
             TEST_DATABASE,
-            4,
+            5,
             true,
             AppDatabase.MIGRATION_1_2,
             AppDatabase.MIGRATION_2_3,
             AppDatabase.MIGRATION_3_4,
+            AppDatabase.MIGRATION_4_5,
         )
 
         migrated.query(
             """
-            SELECT status, last_error_code, checkpoint_payload
+            SELECT status, last_error_code, checkpoint_payload, last_error_detail
             FROM download_records
             WHERE id = 'record-3'
             """.trimIndent(),
@@ -199,6 +267,7 @@ class AppDatabaseMigrationTest {
             assertEquals("NEEDS_REFRESH", cursor.getString(0))
             assertNull(cursor.getString(1))
             assertNull(cursor.getString(2))
+            assertNull(cursor.getString(3))
         }
         migrated.close()
     }

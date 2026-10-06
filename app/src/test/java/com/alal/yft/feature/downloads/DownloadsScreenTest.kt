@@ -1,5 +1,6 @@
 package com.alal.yft.feature.downloads
 
+import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
@@ -34,7 +35,9 @@ import androidx.test.core.app.ApplicationProvider
 import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.download.DownloadPlanType
 import com.alal.yft.core.model.ThemeMode
+import com.alal.yft.core.model.download.DownloadFailure
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.DownloadFailureStage
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.download.policy.TransferNetworkState
@@ -49,6 +52,8 @@ import com.alal.yft.thumbnail.testPicture
 import com.alal.yft.ui.components.YFT_THUMBNAIL_IMAGE_TAG
 import com.alal.yft.ui.theme.YftTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -229,6 +234,66 @@ class DownloadsScreenTest {
         composeRule.onNodeWithTag("download-action-retry-f").performClick()
 
         assertEquals(listOf(DownloadAction.RETRY to "f"), actions)
+    }
+
+    /**
+     * P21: Details shows why and where a download failed; Copy details puts the same text on
+     * the clipboard, without the link or the address it failed on.
+     */
+    @Test
+    fun failedTaskShowsItsDetailsAndCopiesThemWithoutLinks() {
+        setScreen(DownloadsUiState(listOf(failedRow())))
+
+        composeRule.onNodeWithTag("download-failure-details").performClick()
+
+        composeRule.onNodeWithTag("download-failure-dialog").assertIsDisplayed()
+        composeRule.onNodeWithText("Failure details").assertIsDisplayed()
+        composeRule.onNodeWithTag("download-failure-text", useUnmergedTree = true)
+            .assert(hasText("Reason: Network error (NETWORK)", substring = true))
+            .assert(hasText("Stage: Reading from the server (READ_SOURCE)", substring = true))
+            .assert(hasText("Saved to: Downloads (MediaStore)", substring = true))
+        composeRule.onNodeWithTag("download-failure-copy").performClick()
+
+        val copied = ApplicationProvider.getApplicationContext<Context>()
+            .getSystemService(ClipboardManager::class.java)
+            .primaryClip!!
+            .getItemAt(0)
+            .text
+            .toString()
+        assertTrue(copied, copied.startsWith("YFT download failure\nReason: Network error"))
+        assertTrue(copied, copied.contains("Detail: SocketException: reset by [link]"))
+        for (leak in listOf("http://", "https://", "example.test", "content://")) {
+            assertFalse("$leak must not be copied", copied.contains(leak))
+        }
+        composeRule.onNodeWithTag("download-failure-close").performClick()
+        composeRule.onAllNodesWithTag("download-failure-dialog").assertCountEquals(0)
+    }
+
+    @Test
+    fun theMenuOfAFailedTaskOpensItsDetails() {
+        setScreen(DownloadsUiState(listOf(failedRow())))
+
+        composeRule.onNodeWithTag("download-f").performClick()
+        composeRule.onNodeWithTag("download-menu-details-f").performClick()
+
+        composeRule.onNodeWithTag("download-failure-dialog").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("download-menu-details-f").assertCountEquals(0)
+    }
+
+    @Test
+    fun onlyAFailedTaskOffersDetails() {
+        setScreen(
+            DownloadsUiState(
+                listOf(
+                    row("q", DownloadTaskStatus.QUEUED, 0, 4_096, 0),
+                    row("c", DownloadTaskStatus.CANCELLED, 0, 4_096, 0),
+                ),
+            ),
+        )
+
+        composeRule.onAllNodesWithTag("download-failure-details").assertCountEquals(0)
+        composeRule.onNodeWithTag("download-c").performClick()
+        composeRule.onAllNodesWithTag("download-menu-details-c").assertCountEquals(0)
     }
 
     @Test
@@ -599,6 +664,23 @@ class DownloadsScreenTest {
             }
         }
     }
+
+    private fun failedRow(): DownloadRowUiState = row(
+        id = "f",
+        status = DownloadTaskStatus.FAILED,
+        downloaded = 1_024,
+        total = 4_096,
+        progressPercent = 25,
+        destinationKind = DownloadDestinationKind.MEDIA_STORE,
+        failureReason = DownloadFailureReason.NETWORK,
+    ).copy(
+        destinationUri = "content://media/external/downloads/42",
+        failure = DownloadFailure(
+            reason = DownloadFailureReason.NETWORK,
+            stage = DownloadFailureStage.READ_SOURCE,
+            detail = "SocketException: reset by https://rr1.example.test/v?sig=1",
+        ),
+    )
 
     private fun row(
         id: String,

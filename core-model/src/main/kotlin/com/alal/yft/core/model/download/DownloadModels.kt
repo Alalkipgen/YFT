@@ -259,6 +259,14 @@ enum class DownloadFailureReason {
 data class DownloadFailure(
     val reason: DownloadFailureReason,
     val httpStatusCode: Int? = null,
+    /** Where the download failed (P21); null when it is not known. */
+    val stage: DownloadFailureStage? = null,
+    /**
+     * The exception class and message behind the failure, without addresses or secrets and at
+     * most [DownloadFailureDetails.MAX_CHARS] characters ([DownloadFailureDetails.of]); null
+     * when there is none.
+     */
+    val detail: String? = null,
 ) {
     init {
         require(httpStatusCode == null || httpStatusCode in 100..599)
@@ -267,6 +275,33 @@ data class DownloadFailure(
     val isRetryable: Boolean
         get() = reason == DownloadFailureReason.NETWORK ||
             reason == DownloadFailureReason.SERVER_ERROR
+}
+
+/** The step of a download that failed, for the failure details (P21). */
+enum class DownloadFailureStage {
+    /** Asking the server for the file, or its answer. */
+    CONNECT,
+
+    /** Reading the file's bytes from the server. */
+    READ_SOURCE,
+
+    /** Creating or opening the file being written. */
+    OPEN_FILE,
+
+    /** Writing bytes into that file. */
+    WRITE_FILE,
+
+    /** Making the finished file visible, for example in Downloads. */
+    PUBLISH,
+
+    /** Merging the video and its sound into one file. */
+    MERGE,
+
+    /** Turning the sound into an MP3 or an M4A. */
+    CONVERT,
+
+    /** Checking that the file has every byte. */
+    VERIFY,
 }
 
 data class DownloadSegment(

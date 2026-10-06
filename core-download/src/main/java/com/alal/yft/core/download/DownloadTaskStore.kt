@@ -8,7 +8,10 @@ import com.alal.yft.core.model.download.AudioVideoMuxCheckpoint
 import com.alal.yft.core.model.download.AudioVideoMuxStage
 import com.alal.yft.core.model.download.DashTransferCheckpoint
 import com.alal.yft.core.model.download.DirectTransferCheckpoint
+import com.alal.yft.core.model.download.DownloadFailure
+import com.alal.yft.core.model.download.DownloadFailureDetails
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.DownloadFailureStage
 import com.alal.yft.core.model.download.DownloadSegment
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.download.HlsTransferCheckpoint
@@ -44,6 +47,12 @@ data class StoredDownloadTask(
     val checkpoint: TransferCheckpoint,
     val createdAtEpochMs: Long,
     val updatedAtEpochMs: Long,
+    /**
+     * The whole failure behind [failureReason] (P21): its stage, HTTP status and detail. Null
+     * when the task has not failed or when only the reason is known; a failure whose reason is
+     * not [failureReason] is out of date and is not shown.
+     */
+    val failure: DownloadFailure? = null,
 ) {
     init {
         require(id.isNotBlank())
@@ -86,6 +95,8 @@ data class StoredDownloadTask(
         append(requiresLinkRefresh)
         append(", failureReason=")
         append(failureReason)
+        append(", failureStage=")
+        append(failure?.stage)
         append(')')
     }
 }
@@ -132,6 +143,9 @@ class RoomDownloadTaskStore(
         }
         val downloadedBytes = checkpoint.downloadedBytes
         val totalBytes = record.totalBytes?.takeIf { it >= downloadedBytes }
+        val failureReason = record.lastErrorCode?.let {
+            enumValueOrDefault(it, DownloadFailureReason.HTTP_STATUS)
+        }
         return StoredDownloadTask(
             id = record.id,
             displayName = record.displayName,
@@ -147,12 +161,11 @@ class RoomDownloadTaskStore(
             destinationUri = record.destinationUri,
             preferredSegmentCount = record.preferredSegmentCount.coerceIn(1, 32),
             requiresLinkRefresh = record.requiresLinkRefresh,
-            failureReason = record.lastErrorCode?.let {
-                enumValueOrDefault(it, DownloadFailureReason.HTTP_STATUS)
-            },
+            failureReason = failureReason,
             checkpoint = checkpoint,
             createdAtEpochMs = record.createdAtEpochMs,
             updatedAtEpochMs = record.updatedAtEpochMs,
+            failure = FailureDetailCodec.decode(failureReason, record.lastErrorDetail),
         )
     }
 
@@ -209,6 +222,9 @@ class RoomDownloadTaskStore(
             requiresLinkRefresh = requiresLinkRefresh,
             checkpointPayload = CheckpointPayloadCodec.encode(checkpoint),
             updatedAtEpochMs = updatedAtEpochMs,
+            lastErrorDetail = FailureDetailCodec.encode(
+                failure?.takeIf { it.reason == failureReason },
+            ),
         )
     }
 
@@ -223,6 +239,38 @@ internal fun DownloadPlanType.accepts(checkpoint: TransferCheckpoint): Boolean =
     DownloadPlanType.HLS -> checkpoint is HlsTransferCheckpoint
     DownloadPlanType.DASH -> checkpoint is DashTransferCheckpoint
     DownloadPlanType.AUDIO_VIDEO_MUX -> checkpoint is AudioVideoMuxCheckpoint
+}
+
+/**
+ * The `last_error_detail` column (P21): "STAGE|HTTP status|detail", each part empty when unknown.
+ * The reason stays in `last_error_code`; the detail is cleaned again when it is read.
+ */
+internal object FailureDetailCodec {
+    fun encode(failure: DownloadFailure?): String? {
+        if (failure == null) return null
+        if (failure.stage == null && failure.httpStatusCode == null && failure.detail == null) {
+            return null
+        }
+        return listOf(
+            failure.stage?.name.orEmpty(),
+            failure.httpStatusCode?.toString().orEmpty(),
+            DownloadFailureDetails.sanitize(failure.detail).orEmpty(),
+        ).joinToString(SEPARATOR)
+    }
+
+    fun decode(reason: DownloadFailureReason?, payload: String?): DownloadFailure? {
+        if (reason == null || payload.isNullOrBlank()) return null
+        val parts = payload.take(MAX_PAYLOAD_CHARS).split(SEPARATOR, limit = 3)
+        if (parts.size != 3) return null
+        val stage = DownloadFailureStage.entries.firstOrNull { it.name == parts[0] }
+        val httpStatusCode = parts[1].toIntOrNull()?.takeIf { it in 100..599 }
+        val detail = DownloadFailureDetails.sanitize(parts[2])
+        if (stage == null && httpStatusCode == null && detail == null) return null
+        return DownloadFailure(reason, httpStatusCode, stage, detail)
+    }
+
+    private const val SEPARATOR = "|"
+    private const val MAX_PAYLOAD_CHARS = 512
 }
 
 internal object CheckpointPayloadCodec {

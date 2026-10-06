@@ -4,7 +4,9 @@ import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.download.DownloadPlanType
 import com.alal.yft.core.download.StoredDownloadTask
 import com.alal.yft.core.model.download.DirectTransferCheckpoint
+import com.alal.yft.core.model.download.DownloadFailure
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.DownloadFailureStage
 import com.alal.yft.core.model.download.DownloadSegment
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.download.HlsTransferCheckpoint
@@ -105,6 +107,38 @@ class DownloadsUiStateTest {
         assertEquals(setOf(DownloadAction.RETRY, DownloadAction.DELETE), row.availableActions)
         assertTrue(row.isTerminal)
         assertEquals(DownloadFailureReason.NETWORK, row.failureReason)
+    }
+
+    /** P21: the row carries the stored stage and detail for its Details dialog. */
+    @Test
+    fun failedTaskKeepsItsFailureDetailsForTheDialog() {
+        val failure = DownloadFailure(
+            reason = DownloadFailureReason.STORAGE_UNAVAILABLE,
+            stage = DownloadFailureStage.WRITE_FILE,
+            detail = "IOException: EIO (I/O error)",
+        )
+        val task = directTask(
+            id = "a",
+            status = DownloadTaskStatus.FAILED,
+            downloaded = 10,
+            total = 100,
+            failureReason = failure.reason,
+        )
+
+        assertEquals(failure, singleRow(task.copy(failure = failure)).failure)
+        assertEquals(
+            "A task saved before P21 has only its reason",
+            DownloadFailure(DownloadFailureReason.STORAGE_UNAVAILABLE),
+            singleRow(task).failure,
+        )
+        assertEquals(
+            "Details of another reason are not shown",
+            DownloadFailure(DownloadFailureReason.STORAGE_UNAVAILABLE),
+            singleRow(
+                task.copy(failure = failure.copy(reason = DownloadFailureReason.NETWORK)),
+            ).failure,
+        )
+        assertNull(singleRow(task.copy(failureReason = null, failure = null)).failure)
     }
 
     @Test

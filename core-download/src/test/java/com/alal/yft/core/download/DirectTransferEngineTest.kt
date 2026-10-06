@@ -4,10 +4,12 @@ import com.alal.yft.core.model.download.DirectDownloadPlan
 import com.alal.yft.core.model.download.DirectTransferCheckpoint
 import com.alal.yft.core.model.download.DirectTransferResult
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.DownloadFailureStage
 import com.alal.yft.core.model.download.DownloadSegment
 import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.media.BrowserRequestContext
 import java.io.File
+import java.io.FileNotFoundException
 import java.io.IOException
 import java.util.Collections
 import java.util.concurrent.TimeUnit
@@ -19,12 +21,19 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
+import okhttp3.MediaType
 import okhttp3.OkHttpClient
+import okhttp3.Response
+import okhttp3.ResponseBody
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
+import okhttp3.mockwebserver.SocketPolicy
 import okio.Buffer
+import okio.BufferedSource
+import okio.ForwardingSource
+import okio.buffer
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -355,6 +364,75 @@ class DirectTransferEngineTest {
         assertEquals(0, server.requestCount)
     }
 
+    /**
+     * P20 (R1): a new MediaStore row has no file until its first "rw" open, so reading its length
+     * before prepare() throws. The old engine read it first and failed every fresh video at 0 B
+     * with STORAGE_UNAVAILABLE. The queue starts a new task with an empty checkpoint, not null.
+     */
+    @Test
+    fun `a fresh download into a destination without a file until prepare completes`() = runTest {
+        val content = fixtureBytes(64)
+        server.dispatcher = rangeDispatcher(content)
+        val freshStarts = listOf(
+            null,
+            DirectTransferCheckpoint(
+                totalBytes = content.size.toLong(),
+                entityTag = ETAG,
+                lastModified = null,
+                segments = emptyList(),
+            ),
+        )
+
+        freshStarts.forEachIndexed { index, resumeFrom ->
+            val files = files("fresh-$index.bin")
+            val url = server.url("/fresh-$index.bin").toString()
+
+            val result = engine.transfer(
+                plan = plan(url, content.size.toLong()),
+                metadata = metadata(url, content.size.toLong(), supportsRanges = true),
+                destination = NoFileUntilPrepared(files.destination),
+                resumeFrom = resumeFrom,
+            )
+
+            assertTrue("fresh start $index: $result", result is DirectTransferResult.Completed)
+            assertArrayEquals(content, files.completed.readBytes())
+        }
+    }
+
+    @Test
+    fun `a resume whose length read fails starts again at byte 0 and completes`() = runTest {
+        val content = fixtureBytes(20)
+        server.dispatcher = rangeDispatcher(content)
+        val files = files("unreadable-resume.bin")
+        val checkpoint = DirectTransferCheckpoint(
+            totalBytes = content.size.toLong(),
+            entityTag = ETAG,
+            lastModified = null,
+            segments = listOf(
+                DownloadSegment(0, 0, 9, downloadedBytes = 5),
+                DownloadSegment(1, 10, 19, downloadedBytes = 0),
+            ),
+        )
+        val checkpoints = Collections.synchronizedList(mutableListOf<Long>())
+        val url = server.url("/unreadable-resume.bin").toString()
+
+        val result = engine.transfer(
+            plan = plan(url, content.size.toLong(), segmentCount = 2),
+            metadata = metadata(url, content.size.toLong(), supportsRanges = true),
+            destination = NoFileUntilPrepared(files.destination),
+            resumeFrom = checkpoint,
+            onCheckpoint = { checkpoints += it.downloadedBytes },
+        )
+
+        assertTrue(result.toString(), result is DirectTransferResult.Completed)
+        assertArrayEquals(content, files.completed.readBytes())
+        val ranges = List(server.requestCount) {
+            server.takeRequest().getHeader("Range")
+        }.toSet()
+        assertEquals(setOf("bytes=0-9", "bytes=10-19"), ranges)
+        assertEquals(0L, checkpoints.first())
+    }
+
     @Test
     fun `bounded requests split each segment into ranges of at most the cap`() = runTest {
         val content = fixtureBytes(204_800)
@@ -421,6 +499,138 @@ class DirectTransferEngineTest {
             ),
             ranges,
         )
+    }
+
+    /**
+     * P21: a failed write ends the download as a failure of the file at the write step, with the
+     * error's class and message kept for Details. It is not retried as a network error.
+     */
+    @Test
+    fun `a failed write is a storage failure of the write step with its detail`() = runTest {
+        val content = fixtureBytes(64)
+        server.dispatcher = rangeDispatcher(content)
+        val files = files("write-fails.bin")
+        val url = server.url("/write-fails.bin").toString()
+
+        val result = engine.transfer(
+            plan = plan(url, content.size.toLong(), segmentCount = 1),
+            metadata = metadata(url, content.size.toLong(), supportsRanges = true),
+            destination = FailingOutput(files.destination, failWrite = true),
+        ) as DirectTransferResult.Failure
+
+        assertEquals(DownloadFailureReason.STORAGE_UNAVAILABLE, result.failure.reason)
+        assertEquals(DownloadFailureStage.WRITE_FILE, result.failure.stage)
+        assertEquals("IOException: EIO (I/O error)", result.failure.detail)
+        assertEquals(1, server.requestCount)
+        assertFalse(files.completed.exists())
+    }
+
+    /**
+     * P21: closing the file after good writes is part of writing it. The old engine let the
+     * close error through as a dropped connection, asked the server again and ended with
+     * NETWORK.
+     */
+    @Test
+    fun `a failed close after good writes is a storage failure, not a network one`() = runTest {
+        val content = fixtureBytes(64)
+        server.dispatcher = rangeDispatcher(content)
+        val files = files("close-fails.bin")
+        val url = server.url("/close-fails.bin").toString()
+
+        val result = engine.transfer(
+            plan = plan(url, content.size.toLong(), segmentCount = 1),
+            metadata = metadata(url, content.size.toLong(), supportsRanges = true),
+            destination = FailingOutput(files.destination, failClose = true),
+        ) as DirectTransferResult.Failure
+
+        assertEquals(DownloadFailureReason.STORAGE_UNAVAILABLE, result.failure.reason)
+        assertEquals(DownloadFailureStage.WRITE_FILE, result.failure.stage)
+        assertEquals("IOException: close failed: EIO", result.failure.detail)
+        assertEquals("A file error is not asked for again", 1, server.requestCount)
+        assertFalse(files.completed.exists())
+    }
+
+    /**
+     * P21: a connection that drops while the body is read is a network failure of the read step.
+     * Its detail names the error, never the address it came from.
+     */
+    @Test
+    fun `a connection dropped during the body is a network failure of the read step`() =
+        runTest {
+            val content = fixtureBytes(4_096)
+            server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest): MockResponse = MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/octet-stream")
+                    .setBody(Buffer().write(content))
+                    .setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY)
+            }
+            val files = files("dropped.bin")
+            val url = server.url("/dropped.bin").toString()
+
+            val result = engine.transfer(
+                plan = plan(url, content.size.toLong()),
+                metadata = metadata(url, content.size.toLong(), supportsRanges = false),
+                destination = files.destination,
+            ) as DirectTransferResult.Failure
+
+            assertEquals(DownloadFailureReason.NETWORK, result.failure.reason)
+            assertEquals(DownloadFailureStage.READ_SOURCE, result.failure.stage)
+            val detail = requireNotNull(result.failure.detail)
+            assertTrue(detail, detail.contains("Exception"))
+            for (address in listOf("http", "127.0.0.1", "localhost", server.hostName)) {
+                assertFalse("$address in: $detail", detail.contains(address))
+            }
+            assertEquals("Each attempt is asked for", 3, server.requestCount)
+            assertFalse(files.completed.exists())
+        }
+
+    /**
+     * P21: an IllegalStateException while the body is read is the connection's problem, not the
+     * file's. The old engine called every IllegalStateException STORAGE_UNAVAILABLE.
+     */
+    @Test
+    fun `an illegal state of the source is a network failure, not a storage one`() = runTest {
+        val content = fixtureBytes(64)
+        server.dispatcher = rangeDispatcher(content)
+        val files = files("closed-source.bin")
+        val url = server.url("/closed-source.bin").toString()
+        val closedSource = DirectTransferEngine(
+            client = OkHttpClient.Builder()
+                .addNetworkInterceptor { chain -> chain.proceed(chain.request()).withClosedBody() }
+                .build(),
+            policy = DirectTransferEngine.Policy(
+                maxAttempts = 3,
+                initialRetryDelayMillis = 0,
+                bufferBytes = 1_024,
+                checkpointIntervalBytes = 1,
+            ),
+        )
+
+        val result = closedSource.transfer(
+            plan = plan(url, content.size.toLong(), segmentCount = 1),
+            metadata = metadata(url, content.size.toLong(), supportsRanges = true),
+            destination = files.destination,
+        ) as DirectTransferResult.Failure
+
+        assertEquals(DownloadFailureReason.NETWORK, result.failure.reason)
+        assertEquals("IllegalStateException: closed", result.failure.detail)
+        assertFalse(files.completed.exists())
+    }
+
+    /** This response, with a body that throws like a source closed under its reader. */
+    private fun Response.withClosedBody(): Response {
+        val original = requireNotNull(body)
+        val closed = object : ResponseBody() {
+            override fun contentType(): MediaType? = original.contentType()
+            override fun contentLength(): Long = original.contentLength()
+            override fun source(): BufferedSource =
+                object : ForwardingSource(original.source()) {
+                    override fun read(sink: Buffer, byteCount: Long): Long =
+                        throw IllegalStateException("closed")
+                }.buffer()
+        }
+        return newBuilder().body(closed).build()
     }
 
     private fun flakyRangeDispatcher(content: ByteArray, failOnceAt: Set<Int>): Dispatcher {
@@ -502,6 +712,55 @@ class DirectTransferEngineTest {
 
     private fun fixtureBytes(size: Int): ByteArray =
         ByteArray(size) { index -> (index % 251).toByte() }
+
+    /** Like a new MediaStore row on Android: its length cannot be read until prepare(). */
+    private class NoFileUntilPrepared(
+        private val delegate: DownloadDestination,
+    ) : DownloadDestination {
+        @Volatile
+        private var prepared = false
+
+        override fun prepare(expectedLength: Long?) {
+            delegate.prepare(expectedLength)
+            prepared = true
+        }
+
+        override fun temporaryLength(): Long? {
+            if (!prepared) throw FileNotFoundException("open failed: ENOENT")
+            return delegate.temporaryLength()
+        }
+
+        override fun open(): SeekableDownloadOutput = delegate.open()
+        override fun commit() = delegate.commit()
+        override fun discard() = delegate.discard()
+    }
+
+    /** Writes through [delegate], failing every write or every close when asked to. */
+    private class FailingOutput(
+        private val delegate: DownloadDestination,
+        private val failWrite: Boolean = false,
+        private val failClose: Boolean = false,
+    ) : DownloadDestination by delegate {
+        override fun open(): SeekableDownloadOutput {
+            val output = delegate.open()
+            return object : SeekableDownloadOutput by output {
+                override fun write(
+                    position: Long,
+                    buffer: ByteArray,
+                    offset: Int,
+                    byteCount: Int,
+                ) {
+                    if (failWrite) throw IOException("EIO (I/O error)")
+                    output.write(position, buffer, offset, byteCount)
+                }
+
+                override fun close() {
+                    output.close()
+                    if (failClose) throw IOException("close failed: EIO")
+                }
+            }
+        }
+    }
 
     private data class DestinationFiles(
         val partial: File,

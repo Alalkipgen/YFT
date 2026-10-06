@@ -4,6 +4,7 @@ import android.media.AudioFormat
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
+import com.alal.yft.core.model.download.DownloadFailureDetails
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.Mp3Encoding
 import java.io.BufferedOutputStream
@@ -18,7 +19,11 @@ import kotlinx.coroutines.ensureActive
 sealed interface Mp3TranscodeResult {
     data class Completed(val bytesWritten: Long) : Mp3TranscodeResult
 
-    data class Failure(val reason: DownloadFailureReason) : Mp3TranscodeResult
+    /** [detail]: the exception behind the failure, from [DownloadFailureDetails.of] (P21). */
+    data class Failure(
+        val reason: DownloadFailureReason,
+        val detail: String? = null,
+    ) : Mp3TranscodeResult
 }
 
 /** Converts a complete local AAC file into an MP3 file. */
@@ -158,14 +163,20 @@ class AndroidMp3Transcoder(
                 failure(DownloadFailureReason.INTEGRITY_MISMATCH)
             }
         } catch (error: IOException) {
-            Mp3TranscodeResult.Failure(error.storageReasonOrIncompatible(output))
-        } catch (_: IllegalArgumentException) {
-            Mp3TranscodeResult.Failure(DownloadFailureReason.INCOMPATIBLE_TRACKS)
-        } catch (_: IllegalStateException) {
-            Mp3TranscodeResult.Failure(DownloadFailureReason.INCOMPATIBLE_TRACKS)
-        } catch (_: LinkageError) {
+            Mp3TranscodeResult.Failure(
+                error.storageReasonOrIncompatible(output),
+                DownloadFailureDetails.of(error),
+            )
+        } catch (error: IllegalArgumentException) {
+            incompatible(error)
+        } catch (error: IllegalStateException) {
+            incompatible(error)
+        } catch (error: LinkageError) {
             // No LAME library for this ABI.
-            Mp3TranscodeResult.Failure(DownloadFailureReason.UNSUPPORTED_SOURCE)
+            Mp3TranscodeResult.Failure(
+                DownloadFailureReason.UNSUPPORTED_SOURCE,
+                DownloadFailureDetails.of(error),
+            )
         } finally {
             runCatching { encoder?.close() }
             if (started) runCatching { decoder?.stop() }
@@ -190,6 +201,11 @@ class AndroidMp3Transcoder(
     }
 
     private fun failure(reason: DownloadFailureReason) = Mp3TranscodeResult.Failure(reason)
+
+    private fun incompatible(error: Exception) = Mp3TranscodeResult.Failure(
+        DownloadFailureReason.INCOMPATIBLE_TRACKS,
+        DownloadFailureDetails.of(error),
+    )
 
     /** A read error means the source is not a readable AAC file; a write error is storage. */
     private fun IOException.storageReasonOrIncompatible(output: File): DownloadFailureReason {

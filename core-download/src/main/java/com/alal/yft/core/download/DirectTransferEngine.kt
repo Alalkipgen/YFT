@@ -4,7 +4,15 @@ import com.alal.yft.core.model.download.DirectDownloadPlan
 import com.alal.yft.core.model.download.DirectTransferCheckpoint
 import com.alal.yft.core.model.download.DirectTransferResult
 import com.alal.yft.core.model.download.DownloadFailure
+import com.alal.yft.core.model.download.DownloadFailureDetails
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.DownloadFailureStage
+import com.alal.yft.core.model.download.DownloadFailureStage.CONNECT
+import com.alal.yft.core.model.download.DownloadFailureStage.OPEN_FILE
+import com.alal.yft.core.model.download.DownloadFailureStage.PUBLISH
+import com.alal.yft.core.model.download.DownloadFailureStage.READ_SOURCE
+import com.alal.yft.core.model.download.DownloadFailureStage.VERIFY
+import com.alal.yft.core.model.download.DownloadFailureStage.WRITE_FILE
 import com.alal.yft.core.model.download.DownloadProgress
 import com.alal.yft.core.model.download.DownloadSegment
 import com.alal.yft.core.model.download.RemoteFileMetadata
@@ -77,17 +85,17 @@ class DirectTransferEngine(
         val emptyCheckpoint = metadata.checkpoint(emptyList())
         val credentialOrigin = plan.sourceUrl.toSafeDownloadUrl()
             ?: return@withContext DirectTransferResult.Failure(
-                DownloadFailure(DownloadFailureReason.INVALID_URL),
+                DownloadFailure(DownloadFailureReason.INVALID_URL, stage = CONNECT),
                 emptyCheckpoint,
             )
         val transferUrl = metadata.finalUrl.toSafeDownloadUrl()
             ?: return@withContext DirectTransferResult.Failure(
-                DownloadFailure(DownloadFailureReason.INVALID_URL),
+                DownloadFailure(DownloadFailureReason.INVALID_URL, stage = CONNECT),
                 emptyCheckpoint,
             )
         if (plan.expiresAtEpochMs?.let { it <= clock() } == true) {
             return@withContext DirectTransferResult.Failure(
-                DownloadFailure(DownloadFailureReason.EXPIRED_URL),
+                DownloadFailure(DownloadFailureReason.EXPIRED_URL, stage = CONNECT),
                 emptyCheckpoint,
             )
         }
@@ -97,7 +105,7 @@ class DirectTransferEngine(
             plan.expectedBytes != metadata.totalBytes
         ) {
             return@withContext DirectTransferResult.Failure(
-                DownloadFailure(DownloadFailureReason.INTEGRITY_MISMATCH),
+                DownloadFailure(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY),
                 emptyCheckpoint,
             )
         }
@@ -111,16 +119,17 @@ class DirectTransferEngine(
             supportsByteRanges = canUseRanges,
             preferredSegmentCount = plan.preferredSegmentCount,
         )
-        val existingLength = runCatching(destination::temporaryLength)
-            .getOrElse {
-                return@withContext DirectTransferResult.Failure(
-                    DownloadFailure(DownloadFailureReason.STORAGE_UNAVAILABLE),
-                    emptyCheckpoint,
-                )
-            }
+        // P20: a fresh download (no checkpoint, or the queue's empty one) never reads the
+        // destination before prepare(): a new MediaStore row has no file until its first "rw"
+        // open, so the read failed and every video ended as "Storage unavailable" at 0 B. A
+        // resume whose length cannot be read drops its checkpoint and starts again at byte 0.
+        val savedProgress = resumeFrom?.takeIf { it.downloadedBytes > 0 }
+        val existingLength = savedProgress?.let {
+            runCatching(destination::temporaryLength).getOrNull()
+        }
         val initialSegments = reconcileCheckpoint(
             planned = plannedSegments,
-            saved = resumeFrom,
+            saved = savedProgress,
             metadata = metadata,
             existingLength = existingLength,
             resumable = canUseRanges,
@@ -134,8 +143,10 @@ class DirectTransferEngine(
         )
 
         try {
-            destination.prepare(metadata.totalBytes)
-            if (initialSegments != plannedSegments) {
+            destinationCall(OPEN_FILE) { destination.prepare(metadata.totalBytes) }
+            // A resume records where it starts: the progress it kept, or byte 0 when it dropped
+            // a checkpoint that the destination could not confirm.
+            if (savedProgress != null) {
                 tracker.forceCheckpoint()
             }
 
@@ -188,14 +199,14 @@ class DirectTransferEngine(
             val bytesWritten = checkpoint.downloadedBytes
             val expectedBytes = metadata.totalBytes
             if (expectedBytes != null && bytesWritten != expectedBytes) {
-                throw TransferAbort(DownloadFailureReason.INTEGRITY_MISMATCH)
+                throw TransferAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
             }
-            val temporaryLength = destination.temporaryLength()
+            val temporaryLength = destinationCall(VERIFY) { destination.temporaryLength() }
             val verifiedLength = expectedBytes ?: bytesWritten
             if (temporaryLength != verifiedLength) {
-                throw TransferAbort(DownloadFailureReason.INTEGRITY_MISMATCH)
+                throw TransferAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
             }
-            destination.commit()
+            destinationCall(PUBLISH) { destination.commit() }
             DirectTransferResult.Completed(
                 bytesWritten = bytesWritten,
                 checkpoint = checkpoint.copy(totalBytes = verifiedLength),
@@ -207,20 +218,47 @@ class DirectTransferEngine(
             throw cancellation
         } catch (failure: TransferAbort) {
             DirectTransferResult.Failure(
-                failure = DownloadFailure(failure.reason, failure.httpStatusCode),
+                failure = failure.failure,
                 checkpoint = tracker.snapshot(),
             )
         } catch (failure: IOException) {
+            // P21: every destination call throws a TransferAbort with a storage reason, so an
+            // I/O error that gets here is not the file's; it keeps its class in the detail.
             DirectTransferResult.Failure(
-                failure = DownloadFailure(failure.storageFailureReason()),
+                failure = failure.toNetworkFailure(stage = null),
                 checkpoint = tracker.snapshot(),
             )
-        } catch (_: IllegalStateException) {
+        } catch (failure: IllegalStateException) {
+            // Storage only when the destination threw it (destinationCall); not this one.
             DirectTransferResult.Failure(
-                failure = DownloadFailure(DownloadFailureReason.STORAGE_UNAVAILABLE),
+                failure = failure.toNetworkFailure(stage = null),
                 checkpoint = tracker.snapshot(),
             )
         }
+    }
+
+    /**
+     * Runs one call on the destination. Whatever it throws is the file's problem, so it ends the
+     * transfer as a storage failure at [stage] and is never retried as a network error (P21).
+     */
+    private inline fun <T> destinationCall(stage: DownloadFailureStage, block: () -> T): T =
+        try {
+            block()
+        } catch (error: Exception) {
+            if (!error.isStorageError()) throw error
+            throw TransferAbort(error.toStorageFailure(stage))
+        }
+
+    /** Closes [output] after [block]; a failed close after good writes is a write failure. */
+    private inline fun <T> closeAfter(output: SeekableDownloadOutput, block: () -> T): T {
+        val result = try {
+            block()
+        } catch (error: Throwable) {
+            runCatching { output.close() }
+            throw error
+        }
+        destinationCall(WRITE_FILE) { output.close() }
+        return result
     }
 
     private suspend fun transferRanges(
@@ -297,14 +335,22 @@ class DirectTransferEngine(
                 downloaded = tracker.downloadedFor(initialSegment.index)
                 failures += 1
                 if (failures == policy.maxAttempts) {
-                    throw TransferAbort(failure.reason, failure.httpStatusCode)
+                    throw TransferAbort(failure.reason, failure.httpStatusCode, CONNECT)
                 }
                 delay(backoffMillis(failures - 1))
-            } catch (_: IOException) {
+            } catch (failure: IOException) {
+                // Only the source throws I/O errors here: destination calls throw TransferAbort.
                 downloaded = tracker.downloadedFor(initialSegment.index)
                 failures += 1
                 if (failures == policy.maxAttempts) {
-                    throw TransferAbort(DownloadFailureReason.NETWORK)
+                    val source = failure as? SourceException
+                    throw TransferAbort(
+                        DownloadFailure(
+                            reason = DownloadFailureReason.NETWORK,
+                            stage = source?.stage ?: READ_SOURCE,
+                            detail = DownloadFailureDetails.of(source?.cause ?: failure),
+                        ),
+                    )
                 }
                 delay(backoffMillis(failures - 1))
             }
@@ -341,20 +387,25 @@ class DirectTransferEngine(
         ranged: Boolean,
     ) {
         val startByte = segment.startByte + alreadyDownloaded
-        val execution = http.execute(
-            credentialOrigin = credentialOrigin,
-            initialUrl = transferUrl,
-            context = plan.requestContext,
-        ) {
-            get()
-            if (ranged) {
-                header("Range", "bytes=$startByte-$endByte")
-                (metadata.entityTag ?: metadata.lastModified)
-                    ?.let { header("If-Range", it) }
+        val execution = try {
+            http.execute(
+                credentialOrigin = credentialOrigin,
+                initialUrl = transferUrl,
+                context = plan.requestContext,
+            ) {
+                get()
+                if (ranged) {
+                    header("Range", "bytes=$startByte-$endByte")
+                    (metadata.entityTag ?: metadata.lastModified)
+                        ?.let { header("If-Range", it) }
+                }
             }
+        } catch (error: IOException) {
+            throw SourceException(CONNECT, error)
         }
         when (execution) {
-            is SecureDownloadHttp.Result.Failed -> throw TransferAbort(execution.reason)
+            is SecureDownloadHttp.Result.Failed ->
+                throw TransferAbort(execution.reason, stage = CONNECT)
             is SecureDownloadHttp.Result.Completed -> execution.response.use { response ->
                 validateResponse(
                     response = response,
@@ -364,7 +415,10 @@ class DirectTransferEngine(
                     ranged = ranged,
                 )
                 val body = response.body
-                    ?: throw TransferAbort(DownloadFailureReason.MALFORMED_RESPONSE)
+                    ?: throw TransferAbort(
+                        DownloadFailureReason.MALFORMED_RESPONSE,
+                        stage = CONNECT,
+                    )
                 val expectedRemaining = endByte?.let { end -> end - startByte + 1 }
                 val advertised = response.header("Content-Length")
                     ?.toLongOrNull()
@@ -374,22 +428,22 @@ class DirectTransferEngine(
                     advertised != null &&
                     advertised != expectedRemaining
                 ) {
-                    throw TransferAbort(DownloadFailureReason.INTEGRITY_MISMATCH)
+                    throw TransferAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = CONNECT)
                 }
 
-                val openedOutput = try {
-                    destination.open()
-                } catch (error: IOException) {
-                    throw TransferAbort(error.storageFailureReason())
-                }
-                openedOutput.use { output ->
+                val output = destinationCall(OPEN_FILE) { destination.open() }
+                closeAfter(output) {
                     var downloaded = alreadyDownloaded
                     try {
                         body.byteStream().use { input ->
                             val buffer = ByteArray(policy.bufferBytes)
                             while (true) {
                                 currentCoroutineContext().ensureActive()
-                                val read = input.read(buffer)
+                                val read = try {
+                                    input.read(buffer)
+                                } catch (error: IOException) {
+                                    throw SourceException(READ_SOURCE, error)
+                                }
                                 if (read == -1) break
                                 val remaining = endByte?.let { end ->
                                     end + 1 - (segment.startByte + downloaded)
@@ -397,17 +451,16 @@ class DirectTransferEngine(
                                 if (remaining != null && read.toLong() > remaining) {
                                     throw TransferAbort(
                                         DownloadFailureReason.INTEGRITY_MISMATCH,
+                                        stage = READ_SOURCE,
                                     )
                                 }
-                                try {
+                                destinationCall(WRITE_FILE) {
                                     output.write(
                                         position = segment.startByte + downloaded,
                                         buffer = buffer,
                                         offset = 0,
                                         byteCount = read,
                                     )
-                                } catch (error: IOException) {
-                                    throw TransferAbort(error.storageFailureReason())
                                 }
                                 downloaded += read
                                 tracker.update(segment.index, downloaded)
@@ -417,13 +470,12 @@ class DirectTransferEngine(
                             endByte != null &&
                             segment.startByte + downloaded != endByte + 1
                         ) {
-                            throw TransferAbort(DownloadFailureReason.INTEGRITY_MISMATCH)
+                            throw TransferAbort(
+                                DownloadFailureReason.INTEGRITY_MISMATCH,
+                                stage = READ_SOURCE,
+                            )
                         }
-                        try {
-                            output.sync()
-                        } catch (error: IOException) {
-                            throw TransferAbort(error.storageFailureReason())
-                        }
+                        destinationCall(WRITE_FILE) { output.sync() }
                         tracker.update(
                             index = segment.index,
                             downloadedBytes = downloaded,
@@ -471,56 +523,63 @@ class DirectTransferEngine(
         }
         if (ranged) {
             if (response.code != 206 || requestedEnd == null || metadata.totalBytes == null) {
-                throw TransferAbort(response.code.toFailureReason(), response.code)
+                throw TransferAbort(response.code.toFailureReason(), response.code, CONNECT)
             }
             val returned = response.header("Content-Range")
                 ?.parseContentRange()
-                ?: throw TransferAbort(DownloadFailureReason.MALFORMED_RESPONSE)
+                ?: throw TransferAbort(DownloadFailureReason.MALFORMED_RESPONSE, stage = CONNECT)
             if (
                 returned.startByte != requestedStart ||
                 returned.endByteInclusive != requestedEnd ||
                 returned.totalBytes != metadata.totalBytes
             ) {
-                throw TransferAbort(DownloadFailureReason.INTEGRITY_MISMATCH)
+                throw TransferAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = CONNECT)
             }
         } else if (response.code != 200) {
-            throw TransferAbort(response.code.toFailureReason(), response.code)
+            throw TransferAbort(response.code.toFailureReason(), response.code, CONNECT)
         }
         if (
             response.header("Content-Encoding")
                 ?.equals("identity", ignoreCase = true) == false
         ) {
-            throw TransferAbort(DownloadFailureReason.MALFORMED_RESPONSE)
+            throw TransferAbort(DownloadFailureReason.MALFORMED_RESPONSE, stage = CONNECT)
         }
         val contentType = response.header("Content-Type")
             ?.substringBefore(';')
             ?.trim()
             ?.lowercase(Locale.US)
         if (contentType == "text/html" || contentType == "application/xhtml+xml") {
-            throw TransferAbort(DownloadFailureReason.UNSUPPORTED_SOURCE)
+            throw TransferAbort(DownloadFailureReason.UNSUPPORTED_SOURCE, stage = CONNECT)
         }
         metadata.entityTag?.let { expected ->
             response.header("ETag")
                 ?.takeIf { it != expected }
-                ?.let { throw TransferAbort(DownloadFailureReason.INTEGRITY_MISMATCH) }
+                ?.let { throw changedFile() }
         }
         metadata.lastModified?.let { expected ->
             if (metadata.entityTag == null) {
                 response.header("Last-Modified")
                     ?.takeIf { it != expected }
-                    ?.let { throw TransferAbort(DownloadFailureReason.INTEGRITY_MISMATCH) }
+                    ?.let { throw changedFile() }
             }
         }
     }
 
-    private suspend fun resetDestination(
+    /** The server's file is not the probed one any more: another ETag or Last-Modified. */
+    private fun changedFile(): TransferAbort =
+        TransferAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = CONNECT)
+
+    private fun resetDestination(
         destination: DownloadDestination,
         expectedLength: Long?,
     ) {
-        destination.open().use { output ->
-            output.setLength(0)
-            if (expectedLength != null) output.setLength(expectedLength)
-            output.sync()
+        val output = destinationCall(OPEN_FILE) { destination.open() }
+        closeAfter(output) {
+            destinationCall(WRITE_FILE) {
+                output.setLength(0)
+                if (expectedLength != null) output.setLength(expectedLength)
+                output.sync()
+            }
         }
     }
 
@@ -583,19 +642,6 @@ class DirectTransferEngine(
         val total = match.groupValues[3].toLongOrNull() ?: return null
         if (end < start || total <= end) return null
         return ParsedContentRange(start, end, total)
-    }
-
-    private fun IOException.storageFailureReason(): DownloadFailureReason {
-        val text = message.orEmpty().lowercase(Locale.US)
-        return if (
-            "enospc" in text ||
-            "no space left" in text ||
-            "disk full" in text
-        ) {
-            DownloadFailureReason.INSUFFICIENT_STORAGE
-        } else {
-            DownloadFailureReason.STORAGE_UNAVAILABLE
-        }
     }
 
     private fun backoffMillis(attempt: Int): Long {
@@ -682,10 +728,19 @@ class DirectTransferEngine(
         val totalBytes: Long,
     )
 
-    private class TransferAbort(
-        val reason: DownloadFailureReason,
-        val httpStatusCode: Int? = null,
-    ) : Exception()
+    private class TransferAbort(val failure: DownloadFailure) : Exception() {
+        constructor(
+            reason: DownloadFailureReason,
+            httpStatusCode: Int? = null,
+            stage: DownloadFailureStage? = null,
+        ) : this(DownloadFailure(reason, httpStatusCode, stage))
+    }
+
+    /** An I/O error of the source at [stage]: connecting, or reading the body. */
+    private class SourceException(
+        val stage: DownloadFailureStage,
+        cause: IOException,
+    ) : IOException(cause)
 
     private class RetryableTransferException(
         val reason: DownloadFailureReason,

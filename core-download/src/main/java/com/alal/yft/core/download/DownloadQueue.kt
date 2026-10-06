@@ -6,7 +6,10 @@ import com.alal.yft.core.model.download.DashDownloadPlan
 import com.alal.yft.core.model.download.DashTransferCheckpoint
 import com.alal.yft.core.model.download.DirectDownloadPlan
 import com.alal.yft.core.model.download.DirectTransferCheckpoint
+import com.alal.yft.core.model.download.DownloadFailure
+import com.alal.yft.core.model.download.DownloadFailureDetails
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.DownloadFailureStage
 import com.alal.yft.core.model.download.DownloadPlan
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.download.HlsDownloadPlan
@@ -14,8 +17,6 @@ import com.alal.yft.core.model.download.HlsTransferCheckpoint
 import com.alal.yft.core.model.download.Mp3Encoding
 import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.download.TransferCheckpoint
-import java.io.IOException
-import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -295,6 +296,7 @@ class DownloadQueue(
             preferredSegmentCount = preferredSegmentCount,
             requiresLinkRefresh = false,
             failureReason = null,
+            failure = null,
             checkpoint = checkpoint,
             updatedAtEpochMs = clock(),
         )
@@ -326,13 +328,39 @@ class DownloadQueue(
             )
             return@withLock
         }
-        val resumed = current.copy(
+        val base = if (
+            current.status == DownloadTaskStatus.FAILED &&
+            withContext(ioDispatcher) { mustStartOver(current, runtime) }
+        ) {
+            val renewed = try {
+                withContext(ioDispatcher) { startOver(runtime) }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                // No new destination: the Retry fails again, with the new details.
+                val failure = error.toStorageFailure(DownloadFailureStage.OPEN_FILE)
+                saveAndPublishLocked(
+                    current.copy(
+                        failureReason = failure.reason,
+                        failure = failure,
+                        updatedAtEpochMs = clock(),
+                    ),
+                )
+                return@withLock
+            }
+            runtimeTasks[id] = renewed
+            current.startedOver(renewed)
+        } else {
+            current
+        }
+        val resumed = base.copy(
             status = if (networkAvailable) {
                 DownloadTaskStatus.QUEUED
             } else {
                 DownloadTaskStatus.WAITING_FOR_NETWORK
             },
             failureReason = null,
+            failure = null,
             updatedAtEpochMs = clock(),
         )
         saveAndPublishLocked(resumed)
@@ -341,6 +369,58 @@ class DownloadQueue(
             pending.addLast(id)
             drainLocked()
         }
+    }
+
+    /**
+     * Whether a Retry must start over from byte 0 (P21): after the storage failed, or when the
+     * partial file a direct download wrote is gone or shorter than its checkpoint. Other
+     * failures resume from the checkpoint.
+     */
+    private fun mustStartOver(task: StoredDownloadTask, runtime: RuntimeTask): Boolean {
+        if (task.failureReason in START_OVER_FAILURES) return true
+        // Streams and conversions write the destination only at the end, from their workspace.
+        val direct = runtime.plan as? DirectDownloadPlan ?: return false
+        if (direct.converts) return false
+        val checkpoint = task.checkpoint as? DirectTransferCheckpoint ?: return false
+        val written = checkpoint.segments
+            .filter { it.downloadedBytes > 0 }
+            .maxOfOrNull { it.startByte + it.downloadedBytes }
+            ?: return false
+        val length = try {
+            runtime.destination.temporaryLength()
+        } catch (error: Exception) {
+            if (!error.isStorageError()) throw error
+            return true
+        }
+        return length == null || length < written
+    }
+
+    /** A new destination in place of the old one, and no engine state left from the old. */
+    private suspend fun startOver(runtime: RuntimeTask): RuntimeTask {
+        val renewed = runtime.destination.renew()
+        runCatching { transferDispatcher.discard(runtime.plan) }
+        return runtime.copy(destination = renewed ?: runtime.destination)
+    }
+
+    private fun StoredDownloadTask.startedOver(runtime: RuntimeTask): StoredDownloadTask {
+        val metadata = runtime.metadata
+        val empty = when (planType) {
+            DownloadPlanType.DIRECT -> DirectTransferCheckpoint(
+                totalBytes = metadata?.totalBytes,
+                entityTag = metadata?.entityTag,
+                lastModified = metadata?.lastModified,
+                segments = emptyList(),
+            )
+            DownloadPlanType.HLS -> HlsTransferCheckpoint(null, emptyList())
+            DownloadPlanType.DASH -> DashTransferCheckpoint(null, emptyList())
+            DownloadPlanType.AUDIO_VIDEO_MUX -> AudioVideoMuxCheckpoint()
+        }
+        return copy(
+            totalBytes = (empty as? DirectTransferCheckpoint)?.totalBytes,
+            downloadedBytes = 0,
+            destinationUri = runtime.destination.recoveryUri ?: destinationUri,
+            checkpoint = empty,
+        )
     }
 
     suspend fun pause(id: String) {
@@ -382,12 +462,15 @@ class DownloadQueue(
                 current.copy(
                     status = DownloadTaskStatus.CANCELLED,
                     failureReason = null,
+                    failure = null,
                     updatedAtEpochMs = clock(),
                 )
             } else {
+                val failure = discardFailure.toStorageFailure(null)
                 current.copy(
                     status = DownloadTaskStatus.FAILED,
-                    failureReason = discardFailure.toStorageFailureReason(),
+                    failureReason = failure.reason,
+                    failure = failure,
                     updatedAtEpochMs = clock(),
                 )
             }
@@ -571,13 +654,19 @@ class DownloadQueue(
             }
         } catch (cancellation: CancellationException) {
             throw cancellation
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            // The reason stays as before; the details keep the error's class.
+            val failure = DownloadFailure(
+                reason = DownloadFailureReason.NETWORK,
+                detail = DownloadFailureDetails.of(error),
+            )
             gate.withLock {
                 val current = taskLocked(initial.id) ?: return@withLock
                 saveAndPublishLocked(
                     current.copy(
                         status = DownloadTaskStatus.FAILED,
-                        failureReason = DownloadFailureReason.NETWORK,
+                        failureReason = failure.reason,
+                        failure = failure,
                         updatedAtEpochMs = clock(),
                     ),
                 )
@@ -630,6 +719,7 @@ class DownloadQueue(
             downloadedBytes = checkpointBytes,
             requiresLinkRefresh = false,
             failureReason = null,
+            failure = null,
             destinationUri = publishedUri ?: current.destinationUri,
             checkpoint = result.checkpoint,
             updatedAtEpochMs = clock(),
@@ -659,6 +749,7 @@ class DownloadQueue(
             downloadedBytes = result.checkpoint.downloadedBytes,
             requiresLinkRefresh = needsRefresh,
             failureReason = result.failure.reason,
+            failure = result.failure,
             checkpoint = result.checkpoint,
             updatedAtEpochMs = clock(),
         )
@@ -678,18 +769,6 @@ class DownloadQueue(
 
     private fun taskLocked(id: String): StoredDownloadTask? =
         mutableTasks.value.firstOrNull { it.id == id }
-
-    private fun Throwable?.toStorageFailureReason(): DownloadFailureReason {
-        val message = this?.message.orEmpty().lowercase(Locale.US)
-        return if (
-            this is IOException &&
-            ("enospc" in message || "no space left" in message || "disk full" in message)
-        ) {
-            DownloadFailureReason.INSUFFICIENT_STORAGE
-        } else {
-            DownloadFailureReason.STORAGE_UNAVAILABLE
-        }
-    }
 
     private data class RuntimeTask(
         val plan: DownloadPlan,
@@ -714,6 +793,11 @@ class DownloadQueue(
             DownloadTaskStatus.CANCELLED,
             DownloadTaskStatus.NEEDS_REFRESH,
         )
+        /**
+         * A Retry after these starts over. A full device keeps its partial file: the space a
+         * Retry needs is freed by the owner, not by losing the bytes already downloaded.
+         */
+        val START_OVER_FAILURES = setOf(DownloadFailureReason.STORAGE_UNAVAILABLE)
         val REFRESH_FAILURES = setOf(
             DownloadFailureReason.EXPIRED_URL,
             DownloadFailureReason.AUTHENTICATION_REQUIRED,
