@@ -38,8 +38,14 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent A — `work/phase-12-download-fix` (P20, P21; later P26)
 
-- Status: NOT STARTED
-- P20 — Video downloads save again: TODO
+- Status: IN PROGRESS — P20 (started 2026-10-06, base `f434724` = `origin/work/phase-12-integration`)
+- Folder `/data/YFT-A`; push with the deploy key (`origin` = SSH).
+- P20 — Video downloads save again: IN PROGRESS — code and tests written; core-download tests
+  116/0 failures and `:app:compileDebugAndroidTestKotlin` pass; full validation, regression proof
+  and the CI emulator run of `MediaStoreDownloadInstrumentedTest` still to do (wip push).
+- Starting state (2026-10-06, before any edit, Agent A validation): BUILD SUCCESSFUL; app 663
+  tests (66 skipped), core-data 17, core-download 112, core-model 65, 0 failures; lint 0 errors
+  (95 warnings); `:app:compileDebugAndroidTestKotlin` OK.
 - P21 — Retry and failure details: TODO
 - Hand-offs: none
 

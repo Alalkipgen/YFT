@@ -8,6 +8,7 @@ import com.alal.yft.core.model.download.DownloadSegment
 import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.media.BrowserRequestContext
 import java.io.File
+import java.io.FileNotFoundException
 import java.io.IOException
 import java.util.Collections
 import java.util.concurrent.TimeUnit
@@ -355,6 +356,75 @@ class DirectTransferEngineTest {
         assertEquals(0, server.requestCount)
     }
 
+    /**
+     * P20 (R1): a new MediaStore row has no file until its first "rw" open, so reading its length
+     * before prepare() throws. The old engine read it first and failed every fresh video at 0 B
+     * with STORAGE_UNAVAILABLE. The queue starts a new task with an empty checkpoint, not null.
+     */
+    @Test
+    fun `a fresh download into a destination without a file until prepare completes`() = runTest {
+        val content = fixtureBytes(64)
+        server.dispatcher = rangeDispatcher(content)
+        val freshStarts = listOf(
+            null,
+            DirectTransferCheckpoint(
+                totalBytes = content.size.toLong(),
+                entityTag = ETAG,
+                lastModified = null,
+                segments = emptyList(),
+            ),
+        )
+
+        freshStarts.forEachIndexed { index, resumeFrom ->
+            val files = files("fresh-$index.bin")
+            val url = server.url("/fresh-$index.bin").toString()
+
+            val result = engine.transfer(
+                plan = plan(url, content.size.toLong()),
+                metadata = metadata(url, content.size.toLong(), supportsRanges = true),
+                destination = NoFileUntilPrepared(files.destination),
+                resumeFrom = resumeFrom,
+            )
+
+            assertTrue("fresh start $index: $result", result is DirectTransferResult.Completed)
+            assertArrayEquals(content, files.completed.readBytes())
+        }
+    }
+
+    @Test
+    fun `a resume whose length read fails starts again at byte 0 and completes`() = runTest {
+        val content = fixtureBytes(20)
+        server.dispatcher = rangeDispatcher(content)
+        val files = files("unreadable-resume.bin")
+        val checkpoint = DirectTransferCheckpoint(
+            totalBytes = content.size.toLong(),
+            entityTag = ETAG,
+            lastModified = null,
+            segments = listOf(
+                DownloadSegment(0, 0, 9, downloadedBytes = 5),
+                DownloadSegment(1, 10, 19, downloadedBytes = 0),
+            ),
+        )
+        val checkpoints = Collections.synchronizedList(mutableListOf<Long>())
+        val url = server.url("/unreadable-resume.bin").toString()
+
+        val result = engine.transfer(
+            plan = plan(url, content.size.toLong(), segmentCount = 2),
+            metadata = metadata(url, content.size.toLong(), supportsRanges = true),
+            destination = NoFileUntilPrepared(files.destination),
+            resumeFrom = checkpoint,
+            onCheckpoint = { checkpoints += it.downloadedBytes },
+        )
+
+        assertTrue(result.toString(), result is DirectTransferResult.Completed)
+        assertArrayEquals(content, files.completed.readBytes())
+        val ranges = List(server.requestCount) {
+            server.takeRequest().getHeader("Range")
+        }.toSet()
+        assertEquals(setOf("bytes=0-9", "bytes=10-19"), ranges)
+        assertEquals(0L, checkpoints.first())
+    }
+
     @Test
     fun `bounded requests split each segment into ranges of at most the cap`() = runTest {
         val content = fixtureBytes(204_800)
@@ -502,6 +572,28 @@ class DirectTransferEngineTest {
 
     private fun fixtureBytes(size: Int): ByteArray =
         ByteArray(size) { index -> (index % 251).toByte() }
+
+    /** Like a new MediaStore row on Android: its length cannot be read until prepare(). */
+    private class NoFileUntilPrepared(
+        private val delegate: DownloadDestination,
+    ) : DownloadDestination {
+        @Volatile
+        private var prepared = false
+
+        override fun prepare(expectedLength: Long?) {
+            delegate.prepare(expectedLength)
+            prepared = true
+        }
+
+        override fun temporaryLength(): Long? {
+            if (!prepared) throw FileNotFoundException("open failed: ENOENT")
+            return delegate.temporaryLength()
+        }
+
+        override fun open(): SeekableDownloadOutput = delegate.open()
+        override fun commit() = delegate.commit()
+        override fun discard() = delegate.discard()
+    }
 
     private data class DestinationFiles(
         val partial: File,

@@ -3,12 +3,15 @@ package com.alal.yft.core.download
 import android.annotation.TargetApi
 import android.content.ContentResolver
 import android.content.ContentValues
+import android.database.Cursor
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.provider.OpenableColumns
+import java.io.FileNotFoundException
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
@@ -369,16 +372,16 @@ internal class AndroidPublicContentStore(
 
     override fun length(uri: String): Long? = storageCall("Cannot inspect destination") {
         val contentUri = parseContentUri(uri)
-        resolver.openFileDescriptor(contentUri, "r")?.use { descriptor ->
-            descriptor.statSize.takeIf { it >= 0 }?.let { return@storageCall it }
+        val descriptor = try {
+            resolver.openFileDescriptor(contentUri, "r")
+        } catch (_: FileNotFoundException) {
+            // A new pending MediaStore row has no file until its first "rw" open (P20).
+            return@storageCall lengthOfRowWithoutFile(contentUri)
         }
-        resolver.query(
-            contentUri,
-            arrayOf(OpenableColumns.SIZE),
-            null,
-            null,
-            null,
-        )?.use { cursor ->
+        descriptor?.use { opened ->
+            opened.statSize.takeIf { it >= 0 }?.let { return@storageCall it }
+        }
+        querySize(contentUri)?.use { cursor ->
             if (cursor.moveToFirst() && !cursor.isNull(0)) {
                 cursor.getLong(0).takeIf { it >= 0 }
             } else {
@@ -386,6 +389,49 @@ internal class AndroidPublicContentStore(
             }
         }
     }
+
+    /**
+     * A row whose file cannot be opened holds no bytes yet, so its length is null, like a
+     * [FileDownloadDestination] that was never written; its stored size is not trusted, because
+     * a resume must never count bytes that are not there. A missing row is a storage failure.
+     */
+    private fun lengthOfRowWithoutFile(contentUri: Uri): Long? {
+        val rowExists = querySize(contentUri, includePending = true)
+            ?.use { cursor -> cursor.moveToFirst() }
+            ?: false
+        if (!rowExists) throw FileNotFoundException("Destination is missing")
+        return null
+    }
+
+    private fun querySize(contentUri: Uri, includePending: Boolean = false): Cursor? {
+        val projection = arrayOf(OpenableColumns.SIZE)
+        val mediaItem = includePending && contentUri.authority == MediaStore.AUTHORITY
+        return when {
+            mediaItem && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ->
+                queryIncludingPendingOnAndroid11(contentUri, projection)
+            mediaItem && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ->
+                resolver.query(includePendingOnAndroid10(contentUri), projection, null, null, null)
+            else -> resolver.query(contentUri, projection, null, null, null)
+        }
+    }
+
+    @TargetApi(Build.VERSION_CODES.R)
+    private fun queryIncludingPendingOnAndroid11(
+        contentUri: Uri,
+        projection: Array<String>,
+    ): Cursor? = resolver.query(
+        contentUri,
+        projection,
+        Bundle().apply {
+            putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_INCLUDE)
+        },
+        null,
+    )
+
+    @Suppress("DEPRECATION")
+    @TargetApi(Build.VERSION_CODES.Q)
+    private fun includePendingOnAndroid10(contentUri: Uri): Uri =
+        MediaStore.setIncludePending(contentUri)
 
     override fun open(uri: String): SeekableDownloadOutput =
         storageCall("Cannot open destination") {

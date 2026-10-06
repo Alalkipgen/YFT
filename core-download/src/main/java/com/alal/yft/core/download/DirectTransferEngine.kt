@@ -111,16 +111,17 @@ class DirectTransferEngine(
             supportsByteRanges = canUseRanges,
             preferredSegmentCount = plan.preferredSegmentCount,
         )
-        val existingLength = runCatching(destination::temporaryLength)
-            .getOrElse {
-                return@withContext DirectTransferResult.Failure(
-                    DownloadFailure(DownloadFailureReason.STORAGE_UNAVAILABLE),
-                    emptyCheckpoint,
-                )
-            }
+        // P20: a fresh download (no checkpoint, or the queue's empty one) never reads the
+        // destination before prepare(): a new MediaStore row has no file until its first "rw"
+        // open, so the read failed and every video ended as "Storage unavailable" at 0 B. A
+        // resume whose length cannot be read drops its checkpoint and starts again at byte 0.
+        val savedProgress = resumeFrom?.takeIf { it.downloadedBytes > 0 }
+        val existingLength = savedProgress?.let {
+            runCatching(destination::temporaryLength).getOrNull()
+        }
         val initialSegments = reconcileCheckpoint(
             planned = plannedSegments,
-            saved = resumeFrom,
+            saved = savedProgress,
             metadata = metadata,
             existingLength = existingLength,
             resumable = canUseRanges,
@@ -135,7 +136,9 @@ class DirectTransferEngine(
 
         try {
             destination.prepare(metadata.totalBytes)
-            if (initialSegments != plannedSegments) {
+            // A resume records where it starts: the progress it kept, or byte 0 when it dropped
+            // a checkpoint that the destination could not confirm.
+            if (savedProgress != null) {
                 tracker.forceCheckpoint()
             }
 
