@@ -2,12 +2,14 @@
 
 ## Current handoff (2026-10-05)
 
+- 2026-10-06 Track A: merged Track B (`work/phase-11-extractors`, P14 + P15) into `work/phase-11-download-flow` at the owner's request, then into `main`; Preview #3 is this merge's Preview APK run. Owner phone test next; P8 only with his OK.
 - 2026-10-06 Track A: P18 OWNER CHECK — Download can be tapped while the sheet says "Getting qualities…": it queues the Default quality (or M4A when that row is picked), says "Starts when ready…" and starts when the rows come (that quality, else the nearest lower, else the nearest higher, with "Downloading 480p — 720p not available"); a failed lookup or closing drops it; mobile data, Wi-Fi only and storage checks apply. Next: wait for the owner's "Agent B finished", merge `work/phase-11-extractors`, validate, Preview #3.
 - 2026-10-06 Track A: P17 OWNER CHECK — one lookup per video: a memory-only cache (20 videos, 10 minutes or until the links expire; session/no-session apart, a session lookup may take the public answer) shared by Home, the browser and the sheet; running lookups are shared; Try again asks the site; failures are never kept; 403/410 and Clear browsing data drop answers. Next: P18.
 - 2026-10-06 Track A: Preview #2 = Preview APK run 37414773994 (`b0d1b30`, same code as the P19 checkpoint). P16 OWNER CHECK — the sheet opens at once (Home's site-video link, the browser's buttons, a feed's video on screen) with the link, "Getting qualities…" and placeholder rows; the lookup fills it, failures show with Try again, closing early stops Home's/the feed's lookup (lookup owner HOME/BROWSER). Next: P17.
 - 2026-10-06 Track A: P19 OWNER CHECK — real video pictures in the sheet header (16:9), the found list and Downloads (HTTPS-only cookie-free loader, 2 MB cap, two at a time, memory+disk cache; saved JPEG per download deleted with its record). Next: Preview #2, P16.
 - 2026-10-06 Track A: P13 OWNER CHECK — wide "Download this video" button under the page on site video pages and one-video pages (round button hides; hidden in full screen, under the sheet, with the keyboard). Fixed the wip's compile error and the route test that still tapped the round button. Next: P19.
 - 2026-10-06 Track A: P12 OWNER CHECK — site video pages open their own video's sheet (one lookup per video, sheet waits/Retry, probes wait); generic pages open the main video with "Other videos on this page (N)". Next: P13.
+- Track B (Agent B, `work/phase-11-extractors`): P14 and P15 OWNER CHECK, ready for Agent A to merge; details in SESSION_STATE "Track B (extractors)".
 - 2026-10-06: P11 CI failure found from the owner's log and fixed in the test fixture (localhost resolves to 127.0.0.1 and ::1 on GitHub; see SESSION_STATE). P12 started at the owner's request: design only, no P12 code yet.
 
 **Latest owner instruction: finish P11 and STOP.** P9/P10 are pushed and P11's stable quality

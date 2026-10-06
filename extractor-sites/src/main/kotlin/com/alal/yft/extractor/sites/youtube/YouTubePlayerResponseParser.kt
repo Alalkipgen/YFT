@@ -53,6 +53,8 @@ internal data class YouTubeVideo(
     val adaptive: List<YouTubeStream>,
     /** Expiry YouTube states for the whole response, independent of any one address. */
     val expiresAtEpochMs: Long?,
+    /** Formats YouTube listed with neither an address nor a protected descriptor. */
+    val unaddressedFormats: Int = 0,
 )
 
 /** What the watch page states about its own player, read without executing any script. */
@@ -291,6 +293,8 @@ internal object YouTubePlayerResponseParser {
             return failure(SiteExtractionFailure.NO_MEDIA_FOUND, definite = true)
         }
 
+        val listedFormats = streamingData["formats"].asArrayOrEmpty.size +
+            streamingData["adaptiveFormats"].asArrayOrEmpty.size
         val progressive = streamingData["formats"].asArrayOrEmpty.mapNotNull(::readStream)
         val adaptive = streamingData["adaptiveFormats"].asArrayOrEmpty.mapNotNull(::readStream)
         if (progressive.isEmpty() && adaptive.isEmpty()) {
@@ -319,6 +323,7 @@ internal object YouTubePlayerResponseParser {
                     ?.toLongOrNull()
                     ?.takeIf { it > 0 }
                     ?.let { nowEpochMs + it * 1_000 },
+                unaddressedFormats = listedFormats - progressive.size - adaptive.size,
             ),
         )
     }

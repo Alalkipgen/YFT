@@ -13,9 +13,9 @@ Update this file before every checkpoint push. Keep it factual so another chat c
 - CI fix (owner log of run 37380484743, job 112000878738): validation failed only in `HeadlessPageFetcherTest.droppedConnectionAndTransientStatusesRetryBut404DoesNot` (ClassCastException: the first fetch returned Failed). Cause: GitHub's runner maps `localhost` to 127.0.0.1 and ::1; after the dropped connection OkHttp postpones the failed 127.0.0.1 route and the explicit retries (implicit retries are off since P10) went to ::1, where MockWebServer was not listening. Reproduced locally with `JAVA_TOOL_OPTIONS=-Djdk.net.hosts.file=<CI-like hosts>`. Fix (test only): the server binds 127.0.0.1 and the test client resolves its host only there. With the CI-like hosts file: core-browser 79 pass; every unit-test task re-run with `--rerun` passes (1124 tests, 66 skipped, 0 failures); lint 0 errors. Production code unchanged. Earlier P10/P11 validation runs stopped at this task, so other modules' tests had not run on CI since P9.
 - Environment: `/data/YFT`; JDK17 `/data/toolchains/jdk17`; SDK `/data/toolchains/android-sdk`, platforms 35/36, NDK 27.3.13750724, CMake 3.22.1. Source `/data/yft-env.sh`. `/data/gw-safe.sh`: no daemon, one worker, Gradle heap 768 MiB/metaspace 384 MiB, in-process Kotlin compiler. `/data/gw-ci-safe.sh` completed full root validation with two workers, 1024 MiB heap, 384 MiB metaspace, ActiveProcessorCount=2, TieredStopAtLevel=1 and in-process Kotlin. After another reset, recreate helpers and re-install missing SDK parts; git pull --ff-only first. Push uses the existing SSH deploy key via core.sshCommand, never print it.
 - Limits: no local KVM/emulator; 66 native renders skipped, no native pixel-review claim. Datacenter YouTube bot checks require owner phone verification. Plan/status/prompts/workflows remain untouched.
-- Next: Track A waits for the owner's "Agent B finished", then merges `work/phase-11-extractors`, validates, pushes and runs Preview #3 (see "## Track A"). Last task: P18.
+- Next: owner phone test of Preview #3 (the Preview APK run of the A+B merge); P8 only with his OK (see "## Track A").
 - Last pushed checkpoint: P11 CI fix (this checkpoint); final P11 cfad7b7; P11 feature f82427b; P10 bdc9f88; P9 13bbf05; PLAN d642607.
-- Last updated: 2026-10-06 (Track A: P18 validated, OWNER CHECK; waiting for Agent B, then merge and Preview #3)
+- Last updated: 2026-10-06 (Track A: Track B merged, full validation green, pushed to the work branch and `main`; Preview #3 next)
 
 ## Track A
 
@@ -44,5 +44,66 @@ Agent A, `work/phase-11-download-flow`: P12 -> P13 -> P19 -> Preview #2 -> P16 -
 - P18 — OWNER CHECK (2026-10-06). Result: Download works before the qualities arrive. `QuickDownloadUiState` gained `earlySection` (VIDEO default, AUDIO), `startsWhenReady`, `startedNote` and `waitsForQualities` (no choices, loading, no failure, a header); `canDownload` is also true while it waits and nothing is queued. The waiting sheet's first row of each section is a pickable choice (`quick-early-audio` "M4A", `quick-early-video` = the Default quality, e.g. "720p", "Highest available", "Smallest file"; read from preferences when the sheet opens; the four `quick-placeholder-row` stay); `pickEarly(section)`. Download while waiting: mobile data is asked then (`ConfirmMetered`; yes -> queued, no -> dropped); otherwise queued with "Starts when ready…" (button label, disabled). When the rows arrive `startWhenReady` takes `QuickDownloadChoices.earlyPick` (Audio's first row when Audio was picked, else `preselect`: the Default quality, else the nearest lower, else the nearest higher) and `earlyNote` ("Downloading 720p" / "Downloading 480p — 720p not available"), selects it and runs today's `enqueue` (resolve, Wi-Fi only, the engine's storage check); if Wi-Fi went since the tap, mobile data is asked then. A failed lookup (store failure, no readable format) or a vanished video drops the queued Download; closing the sheet cancels it (view-model scope). Plan adapted: the sheet does not close itself after Download today — it shows the queued message and View downloads — so P18 keeps that and shows the note (`quick-download-note`) above it; "Retry" is the sheet's existing Try again, after which Download needs a new tap; P16's tests that expected a disabled Download while waiting now expect it enabled.
 - P18 validation: `--continue :core-download:testDebugUnitTest :core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug` passed — core-download 112, core-browser 81, app 663 tests (66 skipped), 0 failures/errors; lint 0 errors (96 warnings, as before); line check printed nothing.
 - P18 regression proof: `canDownload` put back to the old rule (Download disabled while waiting): 8 tests fail — `QuickDownloadViewModelTest` the 4 new P18 tests and P16's `aSheetOpenedOnALink…`, `QuickDownloadScreenTest` 3 tests "(is enabled)". Backup `/data/bak/P18/final`, restored, `cmp` clean.
-- Next (Track A): P17, then P18.
+- P18 CI (`1f914fa`): checkpoint validation 37426141138, Preview APK 37426141183 and emulator smoke 37426141158 all passed.
+- Merge A+B (2026-10-06, owner: "Agent B finished … merge, push to main, test-key release (Preview) APK"): `git merge --no-ff origin/work/phase-11-extractors` (`bef1455`, P14 + P15) into `work/phase-11-download-flow`. Code merged without conflicts; `CHANGELOG.md`, `docs/HANDOFF.md` and `docs/SESSION_STATE.md` conflicted and keep both tracks (Track A entries, then Track B's). Full validation as CI (`--continue testDebugUnitTest lintDebug :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test :app:assembleDebug`; the first one-worker run hit a Gradle Metaspace OOM after the Android tests, the rest re-ran with 640 MiB metaspace): app 663 (66 skipped), core-browser 81, core-data 17, core-download 112, core-media 25, core-model 65, extractor-api 32, extractor-generic 14, extractor-sites 181 — 1190 tests, 0 failures/errors; lint 0 errors (app 96 warnings, core-data 1); debug APK built; line check printed nothing; workflows, Plan and prompts byte-identical to `d642607`. Then `main` fast-forwarded to the merge (owner's explicit OK for this merge; no tag, no signed release, P8 not started). Preview #3 = the Preview APK (test key) run of the merge commit.
+- Sandbox reset (2026-10-06, before the merge): the repo came back at `d642607`; fast-forwarded from GitHub to `1f914fa`; NDK/CMake reinstalled; `/data/gw-safe.sh` and `/data/yft-recover.sh` re-created; a new push key `/data/secure/ssh/yft_deploy_20261006_102256_ed25519` (the old key is not used).
 - P12 CI (7953c0d): checkpoint validation passed (run 37404886138); preview `10d7647` passed (37404115716); the `10d7647` emulator smoke failed before any instrumentation result (runner/emulator infrastructure).
+
+## Track B (extractors)
+
+Agent B, branch `work/phase-11-extractors` (from `work/phase-11-download-flow` `2071342`), only
+P14 then P15; Agent A works on P12, P13, P19, P16, P17, P18. The Plan's status board is not
+edited; status is recorded here.
+
+- **P14 — YouTube asks visionOS first: OWNER CHECK (2026-10-05).** Result: the lookup asks
+  `VISIONOS` before the watch page (no cookie, authorization, visitor data or page key) and
+  stops when the answer is complete (playable, title and length, every format with a direct
+  address and `contentLength`, an AVC video with sound): one request of about 17 KB. Anything
+  else runs the T16 chain unchanged; the page's verdict stays final. Plan adapted: (1) visionOS
+  alone has no progressive 360p, so merged AVC + AAC rows now include 360p; (2) visionOS is asked
+  once per lookup and the chain reuses that answer; (3) the first request has no visitor data,
+  because no page was read. Regression proof: pre-P14 extractor and parser put back → 17 of 48
+  `YouTubeExtractorTest` tests failed (e.g. `a complete visionOS answer is the whole lookup,
+  without the watch page`); restored, `cmp` identical. Live (sandbox): `dQw4w9WgXcQ` 1 request,
+  16,677 B, 180 ms (was 4 requests, 185,088 B), rows 4K/2K VP9 + 1080–360 AVC merged + AAC;
+  4K and Short videos bot-checked on this IP (chain unchanged); age-restricted stays
+  `LOGIN_REQUIRED`. Validation: extractor-sites 173, app 614 (66 skipped), 0 failures; lint 0
+  errors. Owner check: on the slow line a YouTube link opens clearly faster; 720p, 1080p and 4K
+  download and play.
+  CI on `57663c0`: validation https://github.com/Alalkipgen/YFT/actions/runs/37393349431,
+  preview https://github.com/Alalkipgen/YFT/actions/runs/37393349360 and emulator
+  https://github.com/Alalkipgen/YFT/actions/runs/37393348990 passed.
+- **P15 — Facebook public page first: OWNER CHECK (2026-10-05).** Result: a reel or video link
+  is first asked as desktop Safari without the session; the same video ID with AVC tracks or a
+  whole file is the whole lookup (one page request). Anything else reads the session page as
+  before (desktop Chrome), and the AVC ladder reuses the public page instead of asking it again.
+  Plan adapted: (1) share, short and post links skip the public page, because Safari got a
+  623-byte page without the redirect for `share/v/` and `share/r/` (live), so they keep today's
+  2 requests; (2) a network or rate-limit failure of the public page ends the lookup (the session
+  page would wait on the same line again); other refusals (HTTP status, wall, private, another
+  video, DRM) read the session page; (3) the Chrome page's AV1 1080p track is not listed for a
+  public reel; the app never offered it (AV1 merges off). Regression proof: pre-P15 extractor put
+  back → 8 of 60 Facebook/navigation tests failed (e.g. `a public reel is one request as Safari
+  without the session`); restored, `cmp` identical. Live (sandbox, no session): reels 1 request,
+  136 KB / 128 KB (was 2 requests, 283 KB / 259 KB) with HD, SD, AVC 720/360 merged and Audio;
+  `/watch/?v=` and share links 2 requests as before. Validation: extractor-sites 181, app 614 (66
+  skipped), 0 failures; lint 0 errors. Owner check: a Facebook reel on the slow line opens
+  faster, with every quality.
+- Outside the task (for FIX_ADD_PLAN §7): Facebook `/watch/?v=` videos get no AVC rows, because
+  the AVC ladder asks `/watch/?v=`, which Safari answers with a page without the video; Safari
+  on the owner path the session page redirected to (`/NASA/videos/452499129200583/`) had AVC
+  360/720 and HD/SD (live). Asking the ladder on that final video URL would add those rows.
+  CI on `0062660`: validation https://github.com/Alalkipgen/YFT/actions/runs/37396829389,
+  preview https://github.com/Alalkipgen/YFT/actions/runs/37396829457 and emulator
+  https://github.com/Alalkipgen/YFT/actions/runs/37396829442 passed.
+- Shared files: none.
+- Merge (2026-10-06): `git merge --no-ff origin/work/phase-11-download-flow` → "Already up to
+  date" (Agent A's branch still at `2071342`, this branch's base). Full validation as CI
+  (`lintDebug testDebugUnitTest :core-model:test :extractor-api:test :extractor-generic:test
+  :extractor-sites:test :app:assembleDebug`, CI-like localhost, `--rerun`): app 614 (66
+  skipped), core-browser 79, core-data 17, core-download 112, core-media 25, core-model 63,
+  extractor-api 32, extractor-generic 14, extractor-sites 181; 0 failures; lint 0 errors;
+  debug APK built.
+- Status: **Track B ready for Agent A to merge** (`work/phase-11-extractors` into
+  `work/phase-11-download-flow`). Only extractor-sites files and docs changed; Agent A's newer
+  docs entries go next to these when merging.

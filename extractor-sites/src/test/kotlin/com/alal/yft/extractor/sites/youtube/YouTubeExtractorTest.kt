@@ -129,7 +129,11 @@ class YouTubeExtractorTest {
         }
 
         assertEquals(listOf(PAGE_FETCH), http.requestedUrls)
-        assertEquals(List(3) { PLAYER_ENDPOINT }, http.postedUrls)
+        // visionOS is asked before the watch page (P14), so without the page's key.
+        assertEquals(
+            listOf(PLAYER_URL_WITHOUT_PAGE) + List(2) { PLAYER_ENDPOINT },
+            http.postedUrls,
+        )
         val solverRequest = runner.requests.single()
         assertEquals(PHONE_PLAYER, solverRequest.playerScriptUrl)
         assertEquals(CANONICAL, solverRequest.pageUrl)
@@ -268,7 +272,7 @@ class YouTubeExtractorTest {
     fun `device clients are asked first and their direct streams need no script`() = runTest {
         val http = client(
             page = watchPage(fixture("player_sabr_only.json")),
-            visionOs = fixture("player_visionos.json"),
+            visionOs = chainVisionOs(),
             android = fixture("player_android.json"),
         )
         val runner = FakePlayerScriptRunner()
@@ -340,13 +344,15 @@ class YouTubeExtractorTest {
     fun `device clients are asked as their own apps, without the user's session`() = runTest {
         val http = client(
             page = watchPage(fixture("player_sabr_only.json")),
-            visionOs = fixture("player_visionos.json"),
+            visionOs = chainVisionOs(),
             android = fixture("player_android.json"),
         )
 
         YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request(cookie = SIGNED_IN_COOKIE))
 
         YouTubeClientProfiles.DEVICE_CLIENTS.forEachIndexed { index, profile ->
+            // visionOS is asked before the watch page (P14), so it has no visitor data to send.
+            val visitor = VISITOR_DATA.takeUnless { profile == YouTubeClientProfiles.VISION_OS }
             val headers = http.postedHeaders[index]
             assertEquals(profile.id, profile.userAgent, headers["User-Agent"])
             listOf("Cookie", "Authorization", "X-Origin", "Referer", "Sec-Fetch-Mode").forEach {
@@ -360,13 +366,13 @@ class YouTubeExtractorTest {
                 headers["X-YouTube-Client-Name"],
             )
             assertEquals(profile.id, profile.clientVersion, headers["X-YouTube-Client-Version"])
-            assertEquals(profile.id, VISITOR_DATA, headers["X-Goog-Visitor-Id"])
+            assertEquals(profile.id, visitor, headers["X-Goog-Visitor-Id"])
 
             val json = BoundedJsonParser.parse(http.postedBodies[index], maxNodes = 1_000)
             assertEquals(profile.id, profile.clientName, clientOf(http.postedBodies[index]))
             assertEquals(
                 profile.id,
-                VISITOR_DATA,
+                visitor,
                 json.path("context", "client", "visitorData").text,
             )
             assertNull(
@@ -381,7 +387,7 @@ class YouTubeExtractorTest {
     fun `merged rows and an audio track alone do not end the lookup`() = runTest {
         val http = client(
             page = watchPage(BOT_CHECK),
-            visionOs = fixture("player_visionos.json"),
+            visionOs = chainVisionOs(),
             embedded = fixture("player_ok.json"),
         )
 
@@ -423,7 +429,7 @@ class YouTubeExtractorTest {
             .replace("itag=137", "itag=299")
         val http = client(
             page = watchPage(BOT_CHECK),
-            visionOs = fixture("player_visionos.json"),
+            visionOs = chainVisionOs(),
             embedded = embedded,
         )
 
@@ -443,7 +449,7 @@ class YouTubeExtractorTest {
         val sabr = fixture("player_sabr_only.json")
         val http = client(
             page = watchPage(sabr),
-            visionOs = fixture("player_visionos.json"),
+            visionOs = chainVisionOs(),
             android = sabr,
             embedded = fixture("player_embed_refused.json"),
         )
@@ -509,7 +515,7 @@ class YouTubeExtractorTest {
 
         val watchable = client(
             page = watchPage(ownStreams()),
-            visionOs = fixture("player_visionos.json"),
+            visionOs = chainVisionOs(),
             android = fixture("player_age_gate.json"),
             embedded = fixture("player_ok.json"),
         )
@@ -537,11 +543,12 @@ class YouTubeExtractorTest {
             inline.postedClients(),
         )
 
-        // Without an answer in the page, the page's own client is asked first.
+        // visionOS is asked before the page; without an answer in the page, the page's own
+        // client is asked next, and visionOS's answer is not asked for again.
         val asked = client(page = watchPage(null), own = BOT_CHECK)
         YouTubeExtractor(asked).extract(request())
         assertEquals(
-            listOf("MWEB", "VISIONOS", "ANDROID", "WEB_EMBEDDED_PLAYER"),
+            listOf("VISIONOS", "MWEB", "ANDROID", "WEB_EMBEDDED_PLAYER"),
             asked.postedClients(),
         )
 
@@ -549,7 +556,7 @@ class YouTubeExtractorTest {
         val desktop = client(page = desktopPage(null), own = BOT_CHECK)
         YouTubeExtractor(desktop).extract(request())
         assertEquals(
-            listOf("WEB", "VISIONOS", "ANDROID", "WEB_EMBEDDED_PLAYER", MOBILE_SITE),
+            listOf("VISIONOS", "WEB", "ANDROID", "WEB_EMBEDDED_PLAYER", MOBILE_SITE),
             desktop.postedClients(),
         )
     }
@@ -622,12 +629,12 @@ class YouTubeExtractorTest {
         assertEquals(VIDEO_ID, minted.contentBinding)
         assertEquals(PHONE_PLAYER, minted.playerScriptUrl)
         assertEquals(CANONICAL, minted.pageUrl)
-        val own = BoundedJsonParser.parse(http.postedBodies[0], maxNodes = 1_000)
+        val own = BoundedJsonParser.parse(http.bodyOf("MWEB"), maxNodes = 1_000)
         assertEquals(
             FakePoTokenProvider.TOKEN,
             own.path("serviceIntegrityDimensions", "poToken").text,
         )
-        http.postedBodies.drop(1).forEach { body ->
+        http.postedBodies.filter { clientOf(it) != "MWEB" }.forEach { body ->
             assertFalse(body.contains(FakePoTokenProvider.TOKEN))
         }
         assertTrue(result.details.contains("proof of origin (video): minted"))
@@ -723,7 +730,7 @@ class YouTubeExtractorTest {
                     listOfNotNull(VIDEO_ID, binding),
                     tokens.requests.map { it.contentBinding },
                 )
-                val own = BoundedJsonParser.parse(http.postedBodies[0], maxNodes = 1_000)
+                val own = BoundedJsonParser.parse(http.bodyOf("MWEB"), maxNodes = 1_000)
                 assertEquals(PLAYER_TOKEN, own.path("serviceIntegrityDimensions", "poToken").text)
                 result.candidates.forEach { candidate ->
                     assertFalse(candidate.mediaUrl.contains(PLAYER_TOKEN))
@@ -757,10 +764,11 @@ class YouTubeExtractorTest {
             as SiteExtractionResult.Success
 
         assertEquals(
-            listOf("MWEB", "VISIONOS", "ANDROID", "WEB_EMBEDDED_PLAYER"),
+            listOf("VISIONOS", "MWEB", "ANDROID", "WEB_EMBEDDED_PLAYER"),
             http.postedClients(),
         )
-        val signedIn = http.postedHeaders[0]
+        val pageClient = http.postedClients().indexOf("MWEB")
+        val signedIn = http.postedHeaders[pageClient]
         assertEquals(SIGNED_IN_COOKIE, signedIn["Cookie"])
         val authorization = requireNotNull(signedIn["Authorization"])
         val proof = "1791000000_[0-9a-f]{40}_u"
@@ -773,7 +781,7 @@ class YouTubeExtractorTest {
         assertEquals("0", signedIn["X-Goog-AuthUser"])
         assertEquals("true", signedIn["X-Youtube-Bootstrap-Logged-In"])
         assertNull(signedIn["X-Goog-PageId"])
-        http.postedHeaders.drop(1).forEach { headers ->
+        http.postedHeaders.filterIndexed { index, _ -> index != pageClient }.forEach { headers ->
             listOf(
                 "Cookie", "Authorization", "X-Origin", "X-Goog-AuthUser",
                 "X-Youtube-Bootstrap-Logged-In",
@@ -937,13 +945,14 @@ class YouTubeExtractorTest {
 
         assertEquals(
             listOf(
+                "client VISIONOS: LOGIN_REQUIRED; with URLs: 0 progressive, 0 adaptive; SABR no",
+                "client VISIONOS reason: Sign in to confirm you’re not a bot " +
+                    "This helps protect our community. Learn more",
+                "visionOS first: no playable answer, so the watch page is read",
                 "watch page GET 200 (${page.length} characters)",
                 "client MWEB (watch page response): LOGIN_REQUIRED; with URLs: " +
                     "0 progressive, 0 adaptive; SABR no",
                 "client MWEB (watch page response) reason: Sign in to confirm you’re not a bot " +
-                    "This helps protect our community. Learn more",
-                "client VISIONOS: LOGIN_REQUIRED; with URLs: 0 progressive, 0 adaptive; SABR no",
-                "client VISIONOS reason: Sign in to confirm you’re not a bot " +
                     "This helps protect our community. Learn more",
                 "client ANDROID: HTTP_STATUS (HTTP 404)",
                 "client WEB_EMBEDDED_PLAYER: ERROR; with URLs: 0 progressive, 0 adaptive; SABR no",
@@ -1027,7 +1036,7 @@ class YouTubeExtractorTest {
             }
             assertNull(page["Cookie"])
             assertEquals(
-                listOf("MWEB", "VISIONOS", "ANDROID", "WEB_EMBEDDED_PLAYER"),
+                listOf("VISIONOS", "MWEB", "ANDROID", "WEB_EMBEDDED_PLAYER"),
                 http.postedClients(),
             )
             // Device clients send their own app's agent; every other request sends Home's.
@@ -1055,7 +1064,8 @@ class YouTubeExtractorTest {
             val result = YouTubeExtractor(http, runner).extract(request())
 
             assertFailure(reason, result, name)
-            assertTrue(name, http.postedUrls.isEmpty())
+            // Only visionOS, asked before the page and without the page's key, was posted to.
+            assertEquals(name, listOf(PLAYER_URL_WITHOUT_PAGE), http.postedUrls)
             assertTrue(name, runner.requests.isEmpty())
         }
     }
@@ -1089,10 +1099,10 @@ class YouTubeExtractorTest {
 
             assertTrue(result.candidates.all { it.mediaUrl.startsWith("https://$PAGE_HOST/") })
             assertEquals(
-                listOf("MWEB", "VISIONOS", "ANDROID", "WEB_EMBEDDED_PLAYER"),
+                listOf("VISIONOS", "MWEB", "ANDROID", "WEB_EMBEDDED_PLAYER"),
                 http.postedClients(),
             )
-            val headers = http.postedHeaders[0]
+            val headers = http.postedHeaders[http.postedClients().indexOf("MWEB")]
             assertEquals(COOKIE, headers["Cookie"])
             assertEquals(USER_AGENT, headers["User-Agent"])
             assertEquals("2", headers["X-YouTube-Client-Name"])
@@ -1100,7 +1110,7 @@ class YouTubeExtractorTest {
             assertEquals(CANONICAL, headers["Referer"])
             // The fixture cookie holds no signed-in session, so there is nothing to authorize.
             assertNull(headers["Authorization"])
-            val body = BoundedJsonParser.parse(http.postedBodies[0], maxNodes = 1_000)
+            val body = BoundedJsonParser.parse(http.bodyOf("MWEB"), maxNodes = 1_000)
             assertEquals("MWEB", body.path("context", "client", "clientName").text)
             assertNull(body.path("context", "client", "userAgent"))
             assertNull(body.path("context", "thirdParty"))
@@ -1118,7 +1128,7 @@ class YouTubeExtractorTest {
         val result = YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request())
 
         assertFailure(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, result)
-        assertEquals(listOf("MWEB"), http.postedClients())
+        assertEquals(listOf("VISIONOS", "MWEB"), http.postedClients())
     }
 
     @Test
@@ -1147,9 +1157,9 @@ class YouTubeExtractorTest {
             assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, result.reason)
             assertEquals(
                 listOf(
+                    "client VISIONOS: OK; with URLs: 0 progressive, 0 adaptive; SABR only",
                     "client MWEB (watch page response): OK; with URLs: 0 progressive, " +
                         "0 adaptive; SABR only",
-                    "client VISIONOS: OK; with URLs: 0 progressive, 0 adaptive; SABR only",
                     "client ANDROID: OK; with URLs: 0 progressive, 0 adaptive; SABR only",
                     "client WEB_EMBEDDED_PLAYER: OK; with URLs: 0 progressive, 0 adaptive; " +
                         "SABR only",
@@ -1172,17 +1182,15 @@ class YouTubeExtractorTest {
         val result = YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request())
 
         assertFailure(SiteExtractionFailure.RESPONSE_CHANGED, result)
-        assertEquals(
-            List(5) { "https://www.youtube.com/youtubei/v1/player?prettyPrint=false" },
-            http.postedUrls,
-        )
+        assertEquals(List(5) { PLAYER_URL_WITHOUT_PAGE }, http.postedUrls)
         // A page that names no client of its own is treated as the desktop site.
         assertEquals(
-            listOf("WEB", "VISIONOS", "ANDROID", "WEB_EMBEDDED_PLAYER", MOBILE_SITE),
+            listOf("VISIONOS", "WEB", "ANDROID", "WEB_EMBEDDED_PLAYER", MOBILE_SITE),
             http.postedClients(),
         )
-        assertNull(http.postedHeaders[1]["X-Goog-Visitor-Id"])
-        val embeddedBody = BoundedJsonParser.parse(http.postedBodies[3], maxNodes = 1_000)
+        assertNull(http.postedHeaders[0]["X-Goog-Visitor-Id"])
+        val embedded = http.bodyOf("WEB_EMBEDDED_PLAYER")
+        val embeddedBody = BoundedJsonParser.parse(embedded, maxNodes = 1_000)
         assertEquals(
             YouTubeClientProfiles.FALLBACK_CLIENT_VERSION,
             embeddedBody.path("context", "client", "clientVersion").text,
@@ -1191,7 +1199,7 @@ class YouTubeExtractorTest {
         assertNull(
             embeddedBody.path("playbackContext", "contentPlaybackContext", "signatureTimestamp"),
         )
-        assertEquals("1", http.postedHeaders[0]["X-YouTube-Client-Name"])
+        assertEquals("1", http.postedHeaders[1]["X-YouTube-Client-Name"])
     }
 
     @Test
@@ -1247,11 +1255,15 @@ class YouTubeExtractorTest {
             SiteExtractionResult.Failure(
                 SiteExtractionFailure.HTTP_STATUS,
                 404,
-                details = listOf("watch page GET failed (HTTP_STATUS)"),
+                details = listOf(
+                    "client VISIONOS: HTTP_STATUS (HTTP 404)",
+                    "visionOS first: no playable answer, so the watch page is read",
+                    "watch page GET failed (HTTP_STATUS)",
+                ),
             ),
             result,
         )
-        assertTrue(http.postedUrls.isEmpty())
+        assertEquals(listOf(PLAYER_URL_WITHOUT_PAGE), http.postedUrls)
     }
 
     @Test
@@ -1267,6 +1279,148 @@ class YouTubeExtractorTest {
 
         assertFailure(SiteExtractionFailure.UNSUPPORTED_URL, result)
         assertTrue(http.requestedUrls.isEmpty())
+    }
+
+    @Test
+    fun `a complete visionOS answer is the whole lookup, without the watch page`() = runTest {
+        val http = client(
+            page = watchPage(ownStreams()),
+            visionOs = fixture("player_visionos.json"),
+            android = fixture("player_android.json"),
+            embedded = fixture("player_ok.json"),
+        )
+        val runner = FakePlayerScriptRunner()
+        val tokens = FakePoTokenProvider()
+
+        val result = YouTubeExtractor(http, runner, tokens).extract(request())
+            as SiteExtractionResult.Success
+
+        // One small request (P14): no watch page, no other client, no script and no token.
+        assertTrue(http.requestedUrls.isEmpty())
+        assertEquals(listOf("VISIONOS"), http.postedClients())
+        assertEquals(listOf(PLAYER_URL_WITHOUT_PAGE), http.postedUrls)
+        assertTrue(runner.requests.isEmpty())
+        assertTrue(tokens.requests.isEmpty())
+        // Asked as the app it names: no cookie, no session and no page values.
+        val headers = http.postedHeaders.single()
+        assertFalse(headers.keys.any { it.equals("Cookie", ignoreCase = true) })
+        assertFalse(headers.containsKey("Authorization"))
+        assertFalse(headers.containsKey("X-Goog-Visitor-Id"))
+        assertFalse(http.postedBodies.single().contains("visitorData"))
+        assertEquals(
+            listOf(
+                "Fixture video title — 1080p",
+                "Fixture video title — 720p",
+                "Fixture video title — Audio 131 kbps",
+            ),
+            result.candidates.map(MediaCandidate::title),
+        )
+        assertEquals(
+            listOf(84_361_446L, 29_905_327L, 3_449_447L),
+            result.candidates.map(MediaCandidate::contentLengthBytes),
+        )
+        assertTrue(result.candidates.all { it.mediaUrl.startsWith("https://$DEVICE_HOST/") })
+        assertTrue(result.candidates.all { it.requestContext.cookie == null })
+        assertEquals(
+            listOf(
+                "client VISIONOS: OK; with URLs: 0 progressive, 5 adaptive; SABR yes",
+                "client VISIONOS: 3 downloads offered",
+                "visionOS first: complete, no watch page",
+            ),
+            result.details,
+        )
+    }
+
+    @Test
+    fun `any other visionOS answer reads the watch page, whose own streams then count`() =
+        runTest {
+            val answers = mapOf(
+                "no status" to fixture("player_no_status.json"),
+                "bot check" to BOT_CHECK,
+                "age check" to fixture("player_age_gate.json"),
+                "unplayable" to fixture("player_unavailable.json"),
+                "private" to fixture("player_private.json"),
+                "live" to fixture("player_live.json"),
+                "SABR only" to fixture("player_sabr_only.json"),
+                "no answer" to null,
+            )
+            for ((name, answer) in answers) {
+                val http = client(page = watchPage(ownStreams()), visionOs = answer)
+
+                val result = YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request())
+
+                assertTrue(name, result is SiteExtractionResult.Success)
+                result as SiteExtractionResult.Success
+                assertEquals(name, listOf(PAGE_FETCH), http.requestedUrls)
+                assertEquals(name, "VISIONOS", http.postedClients().first())
+                assertTrue(name, result.candidates.isNotEmpty())
+                assertTrue(name, result.candidates.all { it.mediaUrl.startsWith(PAGE_MEDIA) })
+                assertTrue(name, result.details.any { it.startsWith("visionOS first: ") })
+            }
+        }
+
+    @Test
+    fun `an age check from visionOS first leaves the verdict to the watch page`() = runTest {
+        val http = client(
+            page = watchPage(fixture("player_age_gate.json")),
+            visionOs = fixture("player_age_gate.json"),
+            android = fixture("player_android.json"),
+            embedded = fixture("player_ok.json"),
+        )
+
+        val result = YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request())
+
+        // The page's own age check is final: no other client is asked to get around it.
+        assertFailure(SiteExtractionFailure.LOGIN_REQUIRED, result)
+        assertEquals(listOf(PAGE_FETCH), http.requestedUrls)
+        assertEquals(listOf("VISIONOS"), http.postedClients())
+    }
+
+    @Test
+    fun `a visionOS answer without a size or with a protected format reads the watch page`() =
+        runTest {
+            val complete = fixture("player_visionos.json")
+            val answers = listOf(
+                "a format without a size" to complete.replace(LOW_AUDIO_LENGTH, ""),
+                "a format without a direct address" to complete.replace(
+                    LOW_AUDIO_URL,
+                    "\"signatureCipher\": \"s=AJfixtureCipher&sp=sig&url=https%3A%2F%2F" +
+                        "$DEVICE_HOST%2Fvideoplayback%3Fitag%3D139\"",
+                ),
+                "a format without a direct address" to complete.replace(
+                    LOW_AUDIO_URL,
+                    "\"signingInfo\": {}",
+                ),
+            )
+            for ((gap, answer) in answers) {
+                assertTrue(gap, answer != complete)
+                val http = client(page = watchPage(ownStreams()), visionOs = answer)
+
+                val result = YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request())
+                    as SiteExtractionResult.Success
+
+                assertEquals(gap, listOf(PAGE_FETCH), http.requestedUrls)
+                assertTrue(
+                    gap,
+                    result.details.contains("visionOS first: $gap, so the watch page is read"),
+                )
+            }
+        }
+
+    @Test
+    fun `DRM stays refused when visionOS is asked first`() = runTest {
+        val http = client(
+            page = watchPage(fixture("player_drm.json")),
+            visionOs = fixture("player_drm.json"),
+            android = fixture("player_android.json"),
+            embedded = fixture("player_ok.json"),
+        )
+
+        val result = YouTubeExtractor(http, FakePlayerScriptRunner()).extract(request())
+
+        assertFailure(SiteExtractionFailure.DRM_PROTECTED, result)
+        assertEquals(listOf(PAGE_FETCH), http.requestedUrls)
+        assertEquals(listOf("VISIONOS"), http.postedClients())
     }
 
     private fun itagOf(candidate: MediaCandidate): Int = itagOf(candidate.mediaUrl)
@@ -1305,6 +1459,10 @@ class YouTubeExtractorTest {
     /** The clients asked, in order. */
     private fun FakeExtractorHttpClient.postedClients(): List<String> =
         postedBodies.map(::clientOf)
+
+    /** The one request body [client] was asked with. */
+    private fun FakeExtractorHttpClient.bodyOf(client: String): String =
+        postedBodies.single { clientOf(it) == client }
 
     /** The client a request names; the mobile site sends its own agent, unlike an MWEB page. */
     private fun clientOf(body: String): String {
@@ -1350,6 +1508,13 @@ class YouTubeExtractorTest {
 
     private fun fixture(name: String): String = Fixtures.read("youtube/$name")
 
+    /**
+     * visionOS's answer with one unused format (the low-bitrate audio) without a size, so it is
+     * not a lookup on its own (P14) and the chain runs with the same rows.
+     */
+    private fun chainVisionOs(): String =
+        fixture("player_visionos.json").replace(LOW_AUDIO_LENGTH, "")
+
     private val JsonValue?.text: String?
         get() = asStringOrNull
 
@@ -1382,6 +1547,13 @@ class YouTubeExtractorTest {
         const val SIGNED_IN_COOKIE = "SID=fixture-session; SAPISID=FixtureSapisid/0123456789; " +
             "__Secure-1PAPISID=Fixture1PSapisid/0123456789; " +
             "__Secure-3PAPISID=Fixture3PSapisid/0123456789"
+        const val PAGE_MEDIA = "https://$PAGE_HOST/"
+        const val PLAYER_URL_WITHOUT_PAGE =
+            "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
         val BOT_CHECK: String = Fixtures.read("youtube/player_bot_check.json")
+
+        /** The low-bitrate audio format's size and address in `player_visionos.json`. */
+        val LOW_AUDIO_LENGTH = Regex(""""contentLength":\s*"1300631",\s*""")
+        val LOW_AUDIO_URL = Regex(""""url":\s*"https://[^"]*itag=139[^"]*"""")
     }
 }

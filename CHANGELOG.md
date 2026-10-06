@@ -65,6 +65,13 @@ for every APK given to users, because Android refuses to install a lower one.
   lookup ends. A failed lookup shows its message with Try again in the sheet.
 - Pages with several videos open the main video's sheet (the one playing, else the largest) with
   "Other videos on this page (N)", which opens the list.
+- YouTube opens faster: a lookup first asks YouTube's visionOS app alone (one request of about
+  17 KB, without your session). When that answer is complete it is the whole lookup, so the
+  166 KB watch page is not loaded; any other answer reads the watch page as before, and private,
+  age-restricted and DRM videos stay refused. 360p is now a merged video + audio row.
+- Facebook reels open faster: a reel or video link is first read as a public page, without your
+  session. When that page has the video, it is the whole lookup (one page instead of two);
+  otherwise YFT reads the page with your session as before. Share links are unchanged.
 - Compact download sheet: initially two Audio rows (M4A, MP3 128 kbps) and two Video rows
   (720p and the next lower quality by default). More formats expands the full list in place,
   once per format; Fewer formats preserves the selection. Only the rows scroll: Download,
