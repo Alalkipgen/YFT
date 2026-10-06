@@ -30,6 +30,18 @@ OWNER ANSWERS: none       (example: STOP_AFTER=P20)
 The repository is the source of truth; do not rely on chat history. If the plan and the code
 disagree, the verified code wins: adapt, and write "Plan adapted: ..." in the Result.
 
+COMPUTER, FOLDER AND PUSH
+- Work only in your own folder /data/YFT-A (the three agents use /data/YFT-A, /data/YFT-B and
+  /data/YFT-C, because they may share one computer). First start, if it is missing:
+    git clone https://github.com/Alalkipgen/YFT.git /data/YFT-A
+  and, when /data/YFT exists with push access, copy it:
+    git -C /data/YFT-A remote set-url origin "$(git -C /data/YFT remote get-url origin)"
+    git -C /data/YFT-A config core.sshCommand "$(git -C /data/YFT config core.sshCommand)"
+  Otherwise push with the access your environment provides (deploy key or token); never print
+  it. A failed push: stop and tell the owner (a local commit is not a handoff).
+- Never touch another agent's folder or branch. One Gradle build at a time on this computer: if
+  pgrep -af "[G]radleDaemon" shows a build you did not start, wait for it; never kill it.
+
 YOUR FILES (docs/FIX_ADD_PLAN.md 0.7) — change nothing else
 - core-download/**; core-data/** (one Room migration at most);
   core-model/src/main/kotlin/com/alal/yft/core/model/download/**;
@@ -54,7 +66,7 @@ START
    their "Read first" files, then your section of docs/SESSION_STATE.md.
 3. Environment (FIX_ADD_PLAN 0.3): JDK 17, Android SDK 35, NDK 27.3.13750724, CMake 3.22.1.
    Notion sandbox: `source /data/yft-env.sh` first (after a reset recreate it and install what
-   is missing); stop stale daemons with pkill -f "[G]radleDaemon"; one Gradle command at a time.
+   is missing); stop only Gradle daemons you started (never another agent's); one Gradle command at a time.
    Starting state before any edit (Agent A scope):
    ./gradlew --no-daemon --continue :core-download:testDebugUnitTest :core-data:testDebugUnitTest :core-model:test :app:testDebugUnitTest :app:lintDebug :app:compileDebugAndroidTestKotlin
 4. In your SESSION_STATE section: P20 IN PROGRESS, the start date and your base commit.

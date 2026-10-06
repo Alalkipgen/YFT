@@ -23,14 +23,16 @@ Keep at least the heading and one blank line between sections, so Git merges the
   in. Never print/commit cookies, tokens, visitor data, signed media/image URLs or keys. Keep
   testTags, Kotlin lines ≤ 100, WebView on the main thread. No reset --hard/clean/stash. One
   Gradle command at a time; temporary files outside the repo.
-- Environment: `/data/YFT`; JDK 17 `/data/toolchains/jdk17`; SDK `/data/toolchains/android-sdk`
+- Environment: each agent in its own folder (`/data/YFT-A`, `/data/YFT-B`, `/data/YFT-C`; the
+  plan was written in `/data/YFT`); JDK 17 `/data/toolchains/jdk17`; SDK `/data/toolchains/android-sdk`
   (platform 35, NDK 27.3.13750724, CMake 3.22.1); `source /data/yft-env.sh`; full validation with
   `GRADLE_OPTS="-Xmx1024m -XX:MaxMetaspaceSize=640m"`. After a sandbox reset recreate the helper
   files, reinstall missing SDK parts and `git pull --ff-only` first. Push with the deploy key
   configured in `core.sshCommand`; never print it.
 - Phase 11 record (per-task Results, validation, CI runs, Track A/B notes):
   `git show 4db6c2b:docs/SESSION_STATE.md`.
-- Last pushed checkpoint: PLAN — Phase 12 plan and prompts (this commit).
+- Last pushed checkpoint: PLAN — prompts: own folder per agent, push access, no killing another
+  agent's Gradle (this commit); plan `b097094`.
 - Next: the owner pastes the prompts for Agents A, B and C (three chats, at the same time).
 - Last updated: 2026-10-06 (Phase 12 plan, Plan Mode; no app code changed)
 

@@ -33,6 +33,18 @@ OWNER ANSWERS: none       (examples: SHEET_NAMES=SNAPTUBE, STOP_AFTER=P24)
 The repository is the source of truth; do not rely on chat history. If the plan and the code
 disagree, the verified code wins: adapt, and write "Plan adapted: ..." in the Result.
 
+COMPUTER, FOLDER AND PUSH
+- Work only in your own folder /data/YFT-C (the three agents use /data/YFT-A, /data/YFT-B and
+  /data/YFT-C, because they may share one computer). First start, if it is missing:
+    git clone https://github.com/Alalkipgen/YFT.git /data/YFT-C
+  and, when /data/YFT exists with push access, copy it:
+    git -C /data/YFT-C remote set-url origin "$(git -C /data/YFT remote get-url origin)"
+    git -C /data/YFT-C config core.sshCommand "$(git -C /data/YFT config core.sshCommand)"
+  Otherwise push with the access your environment provides (deploy key or token); never print
+  it. A failed push: stop and tell the owner (a local commit is not a handoff).
+- Never touch another agent's folder or branch. One Gradle build at a time on this computer: if
+  pgrep -af "[G]radleDaemon" shows a build you did not start, wait for it; never kill it.
+
 YOUR FILES (docs/FIX_ADD_PLAN.md 0.7) — change nothing else
 - core-browser/**; core-media/**; extractor-generic/**;
   core-model/src/main/kotlin/com/alal/yft/core/model/media/** and .../settings/**;
@@ -62,7 +74,7 @@ START
    section of docs/SESSION_STATE.md.
 3. Environment (FIX_ADD_PLAN 0.3): JDK 17, Android SDK 35, NDK 27.3.13750724, CMake 3.22.1.
    Notion sandbox: `source /data/yft-env.sh` first (after a reset recreate it and install what
-   is missing); stop stale daemons with pkill -f "[G]radleDaemon"; one Gradle command at a time.
+   is missing); stop only Gradle daemons you started (never another agent's); one Gradle command at a time.
    Starting state before any edit (Agent C scope):
    ./gradlew --no-daemon --continue :core-model:test :core-browser:testDebugUnitTest :core-media:testDebugUnitTest :extractor-generic:test :app:testDebugUnitTest :app:lintDebug
 4. In your SESSION_STATE section: P24 IN PROGRESS, the start date and your base commit.

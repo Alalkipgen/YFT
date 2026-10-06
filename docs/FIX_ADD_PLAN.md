@@ -30,7 +30,9 @@ and `git show 4db6c2b:docs/prompts/` (summary in [§8](#8-done-before-phase-12))
 
 1. Follow [`AGENTS.md`](../AGENTS.md): `git fetch --all --prune`, `git status`,
    `git log -5 --oneline`.
-2. Check out **your agent's branch** (§0.7) and pull it. On the first start create it from
+2. Check out **your agent's branch** (§0.7) in **your own folder** (Notion sandbox:
+   `/data/YFT-A`, `/data/YFT-B` or `/data/YFT-C`, see the prompts) and pull it. On the first
+   start create it from
    `origin/work/phase-12-integration` (the plan commit on top of `main` `4db6c2b`). Never work on
    another agent's branch, on `work/phase-12-integration` (only P26 does) or on `main`.
 3. Read §0, §3, §4, your tasks in §5 with their **Read first** files, and your own section of
@@ -98,8 +100,11 @@ In the Notion sandbox run `source /data/yft-env.sh` first: it sets `JAVA_HOME`
 `GRADLE_USER_HOME` (`/data/gradle-home`) and `PATH`; `/data/gw.sh <tasks>` runs
 `./gradlew --no-daemon --max-workers=2` in `/data/YFT`. After a sandbox reset, recreate both
 files and install what is missing (NDK and CMake went missing twice in Phase 11; an empty
-`/data/gradle-home` only means the first build downloads its dependencies). Stop stale daemons
-with `pkill -f "[G]radleDaemon"`; on a 4 GiB machine run one Gradle command at a time. The full
+`/data/gradle-home` only means the first build downloads its dependencies). Agents may share
+one computer: each works in its own folder (`/data/YFT-A`, `-B`, `-C`; `/data/gw.sh` only runs in
+`/data/YFT`, so run `./gradlew` in your folder), stops only Gradle daemons it started (no
+`pkill` of another agent's build) and, on a 4 GiB machine, waits until no other Gradle build
+runs (`pgrep -af "[G]radleDaemon"`): one Gradle command at a time on the computer. The full
 validation needs Gradle metaspace 640 MiB (Phase 11 merge: the default hit a Metaspace OOM):
 `export GRADLE_OPTS="-Xmx1024m -XX:MaxMetaspaceSize=640m"` or
 `-Dorg.gradle.jvmargs="-Xmx1024m -XX:MaxMetaspaceSize=640m"`.

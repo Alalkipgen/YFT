@@ -31,7 +31,8 @@ OWNER ANSWERS: none       (example: MAIN=OK)
 The repository is the source of truth; do not rely on chat history.
 
 START
-1. Follow AGENTS.md: git fetch --all --prune; git status; git log -5 --oneline.
+1. Work in your own folder /data/YFT-A (Agent A's prompt, "COMPUTER, FOLDER AND PUSH").
+   Follow AGENTS.md: git fetch --all --prune; git status; git log -5 --oneline.
    git switch work/phase-12-integration && git pull --ff-only
 2. Read docs/FIX_ADD_PLAN.md sections 0 (with 0.7), 1 and P26, then all four sections of
    docs/SESSION_STATE.md on each agent branch:
@@ -40,8 +41,8 @@ START
    (checkpoint validation; emulator smoke and Preview APK where code changed; FIX_ADD_PLAN 0.3
    query with the branch name). Otherwise report in Burmese what is missing and stop.
 4. Environment (FIX_ADD_PLAN 0.3): JDK 17, Android SDK 35, NDK 27.3.13750724, CMake 3.22.1.
-   Notion sandbox: `source /data/yft-env.sh`; pkill -f "[G]radleDaemon"; one Gradle command at a
-   time; full validation with export GRADLE_OPTS="-Xmx1024m -XX:MaxMetaspaceSize=640m".
+   Notion sandbox: `source /data/yft-env.sh`; stop only Gradle daemons you started; one Gradle
+   command at a time; full validation with export GRADLE_OPTS="-Xmx1024m -XX:MaxMetaspaceSize=640m".
 
 WORK
 1. git merge --no-ff origin/work/phase-12-download-fix -m "P26: merge Agent A (P20, P21)"

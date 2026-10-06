@@ -29,6 +29,18 @@ OWNER ANSWERS: none       (example: STOP_AFTER=P22; pasted phone Details screens
 The repository is the source of truth; do not rely on chat history. If the plan and the code
 disagree, the verified code wins: adapt, and write "Plan adapted: ..." in the Result.
 
+COMPUTER, FOLDER AND PUSH
+- Work only in your own folder /data/YFT-B (the three agents use /data/YFT-A, /data/YFT-B and
+  /data/YFT-C, because they may share one computer). First start, if it is missing:
+    git clone https://github.com/Alalkipgen/YFT.git /data/YFT-B
+  and, when /data/YFT exists with push access, copy it:
+    git -C /data/YFT-B remote set-url origin "$(git -C /data/YFT remote get-url origin)"
+    git -C /data/YFT-B config core.sshCommand "$(git -C /data/YFT config core.sshCommand)"
+  Otherwise push with the access your environment provides (deploy key or token); never print
+  it. A failed push: stop and tell the owner (a local commit is not a handoff).
+- Never touch another agent's folder or branch. One Gradle build at a time on this computer: if
+  pgrep -af "[G]radleDaemon" shows a build you did not start, wait for it; never kill it.
+
 YOUR FILES (docs/FIX_ADD_PLAN.md 0.7) — change nothing else
 - extractor-sites/**; extractor-api/** (additions only, with defaults);
   app/src/main/java/com/alal/yft/detection/** (SiteAdapterCoordinator, MergeSupport, potoken/,
@@ -57,7 +69,7 @@ START
    docs/SESSION_STATE.md.
 3. Environment (FIX_ADD_PLAN 0.3): JDK 17, Android SDK 35, NDK 27.3.13750724, CMake 3.22.1.
    Notion sandbox: `source /data/yft-env.sh` first (after a reset recreate it and install what
-   is missing); stop stale daemons with pkill -f "[G]radleDaemon"; one Gradle command at a time.
+   is missing); stop only Gradle daemons you started (never another agent's); one Gradle command at a time.
    Starting state before any edit (Agent B scope):
    ./gradlew --no-daemon --continue :extractor-api:test :extractor-sites:test :app:testDebugUnitTest :app:lintDebug
 4. In your SESSION_STATE section: P22 IN PROGRESS, the start date and your base commit.
@@ -128,8 +140,8 @@ TESTS P23 (fixtures with REDACTED signed values)
 - A public page with only HD/SD is not the whole lookup (must fail on the old code).
 - Session page AVC 360 + AV1 720/1080 -> the ladder adds AVC 720 (must fail on the old code).
 - /watch/?v= redirect -> the ladder on the final URL; tracks from two pages are not duplicated.
-LIVE CHECK P23 (sandbox): bash scripts/live-check.sh for reel 1545617074260365 and one share
-link, plus a temporary parser run in /data/tmp: rows, heights, codecs, the audio track, sizes
+LIVE CHECK P23 (sandbox): bash scripts/live-check.sh https://www.facebook.com/reel/1545617074260365/
+and one share link, plus a temporary parser run in /data/tmp: rows, heights, codecs, the audio track, sizes
 and markers only (expected AVC 360/720 and mp4a.40.5 ~60.6 kbps on that reel).
 
 Rules: ADR-006 (public videos only; no DRM, paywall, private or age-gate bypass; adapters never
