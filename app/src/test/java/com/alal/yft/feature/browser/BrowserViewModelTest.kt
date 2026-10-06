@@ -971,7 +971,8 @@ class BrowserViewModelTest {
             listOf("https://cdn.fixture.test/BBBBBBBBBB2.mp4"),
             store.selection.value?.candidates?.map { it.mediaUrl },
         )
-        // Try again is a fresh ask; a new page forgets what this one found.
+        // Nothing failed, so there is no Try again. Plan adapted (P17): a new page of the same
+        // video takes the answer remembered for a few minutes instead of asking the site again.
         viewModel.retryFocusedLookup()
         viewModel.onPageStarted(YOUTUBE_FEED)
         viewModel.onPageFinished(YOUTUBE_FEED, "YouTube")
@@ -979,7 +980,11 @@ class BrowserViewModelTest {
         viewModel.focusedVideoScript()
         viewModel.onFocusedVideoResult(answer("https://m.youtube.com/watch?v=BBBBBBBBBB2"))
         runCurrent()
-        assertEquals(2, extractor.requests.size)
+        assertEquals(1, extractor.requests.size)
+        assertEquals(
+            listOf("https://cdn.fixture.test/BBBBBBBBBB2.mp4"),
+            store.selection.value?.candidates?.map { it.mediaUrl },
+        )
     }
 
     @Test

@@ -4,6 +4,9 @@ import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.detection.SiteAdapterOutcome
+import com.alal.yft.detection.SiteLookupCache
+import com.alal.yft.detection.SiteLookupKey
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -37,10 +40,16 @@ class PrivacyCleanersTest {
             publish(candidate.pageUrl, "Page", listOf(candidate))
         }
         val selection = PreviewSelectionStore().apply { select(candidate) }
+        // P17: a lookup remembered with the cleared session goes as well.
+        val key = SiteLookupKey("fixture", "1", session = true)
+        val lookups = SiteLookupCache().apply {
+            put(key, SiteAdapterOutcome.Detected("fixture", listOf(candidate)), 1L)
+        }
 
-        SessionMediaCleaner(detected, selection).clear()
+        SessionMediaCleaner(detected, selection, lookups).clear()
 
         assertNull(detected.page.value)
         assertNull(selection.selection.value)
+        assertNull(lookups.get(key, 1L))
     }
 }

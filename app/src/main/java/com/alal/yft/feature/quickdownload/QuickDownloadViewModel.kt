@@ -19,6 +19,7 @@ import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.detection.SiteLookupCache
 import com.alal.yft.detection.VideoPlaybackSupport
 import com.alal.yft.download.EnqueueResult
 import com.alal.yft.download.PreviewDownloadStarter
@@ -110,6 +111,7 @@ class QuickDownloadViewModel @Inject constructor(
     private val network: NetworkStatusSource,
     private val playback: VideoPlaybackSupport,
     private val downloadThumbnails: DownloadThumbnails = DownloadThumbnails.None,
+    private val lookups: SiteLookupCache = SiteLookupCache(),
 ) : ViewModel() {
     /**
      * P16: a sheet opened for a lookup (Home's link, a feed's video on screen) waits on it even
@@ -383,6 +385,10 @@ class QuickDownloadViewModel @Inject constructor(
                         mutableUiState.value.header?.thumbnailUrl?.let { url ->
                             downloadThumbnails.saveFrom(result.taskId, url)
                         }
+                        // P17: if its links stop working, the video is looked up afresh.
+                        option.source.candidate.videoId?.let { videoId ->
+                            lookups.rememberDownload(result.taskId, videoId)
+                        }
                         PreviewDownloadStatus.Queued(
                             fileName = result.fileName,
                             waitingForUnmetered = DownloadNetworkPolicy.stateFor(
@@ -392,7 +398,10 @@ class QuickDownloadViewModel @Inject constructor(
                         )
                     }
 
-                    is EnqueueResult.Rejected -> PreviewDownloadStatus.Rejected(result.message)
+                    is EnqueueResult.Rejected -> {
+                        if (result.reason in SiteLookupCache.LINK_FAILURES) forgetLinks(option)
+                        PreviewDownloadStatus.Rejected(result.message)
+                    }
                 }
             }
         } catch (cancellation: CancellationException) {
@@ -412,11 +421,18 @@ class QuickDownloadViewModel @Inject constructor(
     private suspend fun prepare(option: SheetOption): Prepared {
         val title = mutableUiState.value.choices?.title
         val resolved = when (val result = resolveForDownload(option.source.candidate)) {
-            is VariantResolutionResult.Failure -> return Prepared.Failed(
-                if (result.reason == VariantResolutionFailure.DRM_PROTECTED ||
-                    result.reason == VariantResolutionFailure.UNSUPPORTED_CODEC
-                ) messageFor(result.reason) else QUALITY_UNAVAILABLE,
-            )
+            is VariantResolutionResult.Failure -> {
+                if (result.httpStatusCode in LINK_GONE_STATUSES ||
+                    result.reason == VariantResolutionFailure.EXPIRED_URL
+                ) {
+                    forgetLinks(option)
+                }
+                return Prepared.Failed(
+                    if (result.reason == VariantResolutionFailure.DRM_PROTECTED ||
+                        result.reason == VariantResolutionFailure.UNSUPPORTED_CODEC
+                    ) messageFor(result.reason) else QUALITY_UNAVAILABLE,
+                )
+            }
             is VariantResolutionResult.Success -> result.asset
         }
         val wantedId = option.variant.mp3?.sourceVariantId
@@ -446,6 +462,11 @@ class QuickDownloadViewModel @Inject constructor(
                 ?: return Prepared.Failed(MP3_UNAVAILABLE)
         }
         return Prepared.Ready(resolved.copy(title = title ?: resolved.title), named(variant))
+    }
+
+    /** P17: the video's links stopped working; its next lookup asks the site again. */
+    private fun forgetLinks(option: SheetOption) {
+        option.source.candidate.videoId?.let(lookups::forgetVideo)
     }
 
     /**
@@ -512,6 +533,9 @@ class QuickDownloadViewModel @Inject constructor(
         const val MP3_UNAVAILABLE = "This audio can't be converted to MP3. Try M4A."
         const val AUDIO_UNAVAILABLE = "This video's sound can't be saved on its own."
         const val QUALITY_UNAVAILABLE = "This quality is not available now — choose another"
+
+        /** P17: HTTP 403 and 410 mean the lookup's links no longer work. */
+        private val LINK_GONE_STATUSES = setOf(403, 410)
         private const val HIGH_FRAME_RATE = 31.0
 
         /** P11: show a site's stated whole file even before its size check completes. */

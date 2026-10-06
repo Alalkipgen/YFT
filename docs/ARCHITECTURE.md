@@ -145,6 +145,25 @@ The Phase 2 implementation applies those bounds explicitly:
 - navigation cancels in-flight probes and immediately clears stale candidates;
 - browser credentials are replayed only on the original origin; cross-origin redirects retain only non-sensitive negotiation headers.
 
+### Site lookup cache (P17)
+
+`SiteLookupCache` (app `detection/`, one per process) remembers what a site adapter answered for
+a video so Home, the browser and a reopened download sheet share one lookup:
+
+- the key is the adapter's site ID and content ID plus whether the user's session (cookies) was
+  sent; `SiteAdapterCoordinator.inspect` consults it before running the adapter and re-anchors a
+  remembered answer to the address being shown;
+- at most 20 videos, each kept until the earliest expiry its links state or 10 minutes, whichever
+  comes first; memory only, never written to disk, and keys never name the video in logs;
+- a second lookup of a video while the first runs waits for it (ref-counted); the last caller to
+  stop waiting cancels the adapter call;
+- a lookup with the session may take the answer of one without it (Home's link, then the same
+  video in the browser); an answer read with the session never serves a lookup without it;
+- failures are never kept; Try again (`fresh`) always asks the site and drops the old answer;
+- HTTP 403 or 410 (or an expired link) in the sheet's final check, the engine refusing the link,
+  or a started download that later fails that way drops the video's answer, so its next lookup
+  asks the site again; Settings › Clear browsing data clears the whole cache.
+
 ## Request context
 
 Preview and download must be able to replay only the required values:

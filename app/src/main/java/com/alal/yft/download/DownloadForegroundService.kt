@@ -11,6 +11,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.alal.yft.core.download.DownloadQueue
+import com.alal.yft.detection.SiteLookupCache
 import com.alal.yft.download.policy.DownloadPolicyGate
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -33,6 +34,10 @@ class DownloadForegroundService : Service() {
     @Inject
     lateinit var policy: DownloadPolicyGate
 
+    /** P17: a download whose links stopped working drops its video's remembered lookup. */
+    @Inject
+    lateinit var lookups: SiteLookupCache
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var observer: Job? = null
 
@@ -54,6 +59,7 @@ class DownloadForegroundService : Service() {
                 queue.restore()
                 policy.ensureApplied()
                 queue.tasks.collectLatest { tasks ->
+                    lookups.forgetBrokenDownloads(tasks)
                     val foreground = tasks.filter {
                         it.status in DownloadNotificationFactory.FOREGROUND_STATUSES
                     }

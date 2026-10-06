@@ -53,6 +53,9 @@ data class SiteVideoLink(val key: String, val pageUrl: String) {
 fun interface LinkInspector {
     suspend fun inspect(link: String): LinkInspection
 
+    /** P17: Try again: like [inspect], but never answered from a remembered lookup. */
+    suspend fun inspectAgain(link: String): LinkInspection = inspect(link)
+
     /**
      * P16: the video [link] names when a site adapter reads it, so Home opens its sheet before
      * [inspect] answers; null for every other link.
@@ -96,7 +99,11 @@ class HeadlessLinkInspector internal constructor(
         return siteAdapters.videoKey(url)?.let { key -> SiteVideoLink(key, url) }
     }
 
-    override suspend fun inspect(link: String): LinkInspection {
+    override suspend fun inspect(link: String): LinkInspection = inspect(link, fresh = false)
+
+    override suspend fun inspectAgain(link: String): LinkInspection = inspect(link, fresh = true)
+
+    private suspend fun inspect(link: String, fresh: Boolean): LinkInspection {
         val url = when (val address = BrowserAddressNormalizer.normalize(link)) {
             is BrowserAddressResult.Valid -> address.url
             is BrowserAddressResult.Invalid ->
@@ -105,14 +112,14 @@ class HeadlessLinkInspector internal constructor(
         if (!url.startsWith("https://")) {
             return LinkInspection.NotFound("Enter a web address", canOpenInBrowser = false)
         }
-        return withTimeoutOrNull(timeoutMillis) { inspectUrl(url) }
+        return withTimeoutOrNull(timeoutMillis) { inspectUrl(url, fresh) }
             ?: LinkInspection.NotFound(
                 "The page took too long to answer. Try it in the browser.",
                 details = listOf("lookup: timed out after $timeoutMillis ms"),
             )
     }
 
-    private suspend fun inspectUrl(url: String): LinkInspection {
+    private suspend fun inspectUrl(url: String, fresh: Boolean): LinkInspection {
         val now = clock()
         MediaUrlClassifier.classify(url)?.let { kind ->
             val candidate = directCandidate(url, kind, mimeType = null, length = null, now)
@@ -136,6 +143,7 @@ class HeadlessLinkInspector internal constructor(
                     cookie = null,
                 ),
                 nowEpochMs = now,
+                fresh = fresh,
             )
         ) {
             SiteAdapterOutcome.NotHandled -> Unit

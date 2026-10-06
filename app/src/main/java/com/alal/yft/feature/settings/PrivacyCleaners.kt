@@ -9,6 +9,7 @@ import android.webkit.WebViewDatabase
 import com.alal.yft.core.download.DownloadQueue
 import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.model.download.DownloadTaskStatus
+import com.alal.yft.detection.SiteLookupCache
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
@@ -59,14 +60,19 @@ class CompositeBrowsingDataCleaner(
     }
 }
 
-/** Drops media found while browsing; its URLs can carry signed tokens of the cleared session. */
+/**
+ * Drops media found while browsing; its URLs can carry signed tokens of the cleared session.
+ * P17: the remembered lookups go too, as they may have been read with that session.
+ */
 class SessionMediaCleaner(
     private val detectedMedia: DetectedMediaStore,
     private val previewSelection: PreviewSelectionStore,
+    private val lookups: SiteLookupCache? = null,
 ) : BrowsingDataCleaner {
     override suspend fun clear() {
         detectedMedia.clear()
         previewSelection.clear()
+        lookups?.clear()
     }
 }
 

@@ -813,3 +813,19 @@ repository that asks each client and prints only verdicts and counts.
 | Regression proof | `03bde3a` `HomeViewModel.kt`, `BrowserViewModel.kt`, `QuickDownloadViewModel.kt` put back (new store/inspector kept): 7 tests fail — Home "expected:<1> but was:<0>" and NPE (no lookup), sheet header "Feed clip — 720p", feed tap/left feed/unreadable "expected:<1> but was:<0>", network failure NPE. Restored, `cmp` clean |
 | Validation | `:core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug` passed — core-browser 81, app 650 tests (66 skipped), 0 failures/errors; lint 0 errors (96 warnings, as before); line check printed nothing. |
 | Owner check | Paste a YouTube link -> the sheet opens at once with the link and "Getting qualities…", then the rows; the same for a Facebook reel in the browser |
+
+### P17 — Reuse lookup results (OWNER CHECK, 2026-10-06)
+
+| Check | Result |
+| --- | --- |
+| One adapter call | `SiteLookupCacheTest.aSecondLookupOfOneVideoTakesTheFirstAnswerUnderItsOwnAddress`: two addresses of one video -> one adapter call, the second answer re-anchored to its own address with video ID `fixture:42`; another video asks again |
+| Expiry | `anAnswerIsKeptUntilItsLinksExpireOrTenMinutesWhicheverComesFirst`: links expiring in 60 s -> asked again at 60 s; links lasting hours -> asked again at 10 minutes |
+| Shared running lookup | `aLookupWhileTheFirstRunsWaitsForItAndTheLastToStopStopsIt`: three lookups while one runs -> one call; one waiter cancelled, the others still get the answer and the call is not cancelled; the only waiter cancelled -> the adapter call is cancelled and nothing is kept |
+| Session apart | `answersReadWithTheSessionNeverReachALookupWithoutIt`: a session answer is not given to a lookup without the session; Plan adapted: a lookup with the session takes the public answer (cookies not passed on) |
+| Try again, failures | `tryAgainAlwaysAsksTheSiteAndAFailureForgetsTheAnswer`: `fresh` asks the site; a failed Try again drops the old answer; failures are never kept |
+| 403 / 410 | `aDownloadThatGets403Or410DropsItsVideosAnswer` (download service path: FAILED with ACCESS_DENIED/GONE or NEEDS_REFRESH drops; running, finished and NETWORK do not); `QuickDownloadViewModelTest.linksThatStoppedWorkingDropTheVideosRememberedLookup` (sheet: final check 404 keeps, 403 drops; engine Rejected GONE drops; a started download is remembered and its later failure drops) |
+| Limit, clearing | `atMostTwentyVideosAreKeptAndClearingBrowsingDataDropsThemAll`: 21 videos -> the oldest asked again; `clear()` drops all; `SiteLookupKey.toString()` names no video. `PrivacyCleanersTest.sessionMediaCleaner…` clears the cache |
+| Browser | `BrowserViewModelTest.aFeedLinkToAVideoThatWasAlreadyFoundTakesThatLookup`: a new page of the same video now takes the remembered answer (1 adapter call instead of 2; Plan adapted) |
+| Regression proof | P17 `SiteAdapterCoordinator.inspect` without the cache (straight to the adapter), `QuickDownloadViewModel` without remember/forget and `SessionMediaCleaner` without clearing: 9 tests fail — all 7 `SiteLookupCacheTest` ("expected:<1> but was:<2>" etc.), the sheet's 403 test and the privacy cleaner test ("expected null"). Restored, `cmp` clean |
+| Validation | `--continue :core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug` passed — core-browser 81, app 658 tests (66 skipped), 0 failures/errors; lint 0 errors (96 warnings, as before); line check printed nothing |
+| Owner check | Open a YouTube video's sheet from Home, close it, open the same video in the browser -> Download -> the qualities are there at once |

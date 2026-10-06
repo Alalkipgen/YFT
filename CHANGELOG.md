@@ -33,6 +33,11 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Changed
 
+- One lookup per video: a video looked up minutes ago (Home's link, the browser's page or feed,
+  a reopened sheet) opens its qualities at once instead of asking the site again. Answers are
+  kept in memory only, for at most 10 minutes or until the video's links expire, up to 20
+  videos; Try again always asks the site, failures are never kept, a download whose link gets
+  HTTP 403 or 410 makes the next lookup ask again, and Clear browsing data clears them.
 - The download sheet opens at once: a pasted YouTube, Facebook, TikTok or Vimeo link, the
   browser's Download buttons on a site's video page and a feed's video on screen open the sheet
   straight away with the link (or the page title), "Getting qualities…" and placeholder rows;

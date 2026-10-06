@@ -160,8 +160,11 @@ class HomeViewModel @Inject constructor(
         if (sheet != null) quickDownloads.trySend(Unit)
     }
 
-    /** Looks [link] up; [sheet] is the lookup an open sheet shows, null when none waits. */
-    private fun inspect(link: String, sheet: PageVideoLookup?) {
+    /**
+     * Looks [link] up; [sheet] is the lookup an open sheet shows, null when none waits. [fresh]
+     * (the sheet's Try again) skips a remembered answer (P17).
+     */
+    private fun inspect(link: String, sheet: PageVideoLookup?, fresh: Boolean = false) {
         sheetLookup = sheet
         sheetLink = link
         sheet?.let(detectedMediaStore::showLookup)
@@ -188,7 +191,8 @@ class HomeViewModel @Inject constructor(
                 var details = emptyList<String>()
                 var quick = false
                 var sheetFailure: PageVideoLookup? = null
-                val status = when (val result = inspector.inspect(link)) {
+                val result = if (fresh) inspector.inspectAgain(link) else inspector.inspect(link)
+                val status = when (result) {
                     is LinkInspection.Found -> {
                         detectedMediaStore.publish(
                             pageUrl = result.pageUrl,
@@ -289,7 +293,7 @@ class HomeViewModel @Inject constructor(
         if (sheet.key != key || shown.owner != LookupOwner.HOME || shown.key != key) return
         if (!shown.canRetry || inspection?.isActive == true) return
         val link = sheetLink ?: return
-        inspect(link, sheet)
+        inspect(link, sheet, fresh = true)
     }
 
     /** P16: the sheet closed before this link's video came; its lookup stops. */

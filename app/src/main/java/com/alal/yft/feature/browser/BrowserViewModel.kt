@@ -721,10 +721,12 @@ class BrowserViewModel(
         if (!fresh) foundLookups[key]?.let { return it }
         val lookup = runningLookups[key]?.takeIf { it.isActive }
             ?: viewModelScope.async(pageProbeJob) {
+                // P17: the shared lookup cache answers unless this is Try again.
                 siteAdapters.inspect(
                     pageUrl = url,
                     requestContext = requestContext,
                     nowEpochMs = clock(),
+                    fresh = fresh,
                 )
             }.also { runningLookups[key] = it }
         val outcome = lookup.await()

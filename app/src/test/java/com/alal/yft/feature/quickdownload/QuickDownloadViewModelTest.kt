@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.media.resolver.VariantResolver
 import com.alal.yft.core.media.session.PreviewSelectionStore
+import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaCandidate
@@ -20,6 +21,9 @@ import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.detection.SiteAdapterOutcome
+import com.alal.yft.detection.SiteLookupCache
+import com.alal.yft.detection.SiteLookupKey
 import com.alal.yft.detection.VideoPlaybackSupport
 import com.alal.yft.download.EnqueueResult
 import com.alal.yft.download.PreviewDownloadStarter
@@ -58,6 +62,7 @@ class QuickDownloadViewModelTest {
     private val selection = PreviewSelectionStore()
     private val resolver = FakeResolver()
     private val starter = FakeStarter()
+    private val lookups = SiteLookupCache()
     private val saved = mutableListOf<Pair<String, String>>()
     private val thumbnails = object : DownloadThumbnails by DownloadThumbnails.None {
         override fun saveFrom(downloadId: String, thumbnailUrl: String) {
@@ -540,6 +545,44 @@ class QuickDownloadViewModelTest {
         assertEquals(listOf("task-1" to YOUTUBE_PICTURE), saved)
     }
 
+    @Test
+    fun linksThatStoppedWorkingDropTheVideosRememberedLookup() = runTest {
+        // P17: after a 403 or 410 the next lookup of this video asks the site again.
+        val candidate = video(720, videoId = "facebook:fixture")
+        val key = SiteLookupKey("facebook", "fixture", session = false)
+        val answer = SiteAdapterOutcome.Detected("facebook", listOf(candidate))
+        lookups.put(key, answer, LOOKED_UP_AT)
+        resolver.failure = VariantResolutionFailure.HTTP_STATUS
+        resolver.failureStatus = 404
+        select(listOf(candidate))
+        viewModel().download()
+        advanceUntilIdle()
+        // A missing quality is not the video's links expiring: the answer stays.
+        assertNotNull(lookups.get(key, LOOKED_UP_AT))
+
+        resolver.failureStatus = 403
+        viewModel().download()
+        advanceUntilIdle()
+        assertNull(lookups.get(key, LOOKED_UP_AT))
+
+        // The download engine refusing the link does the same.
+        resolver.failure = null
+        lookups.put(key, answer, LOOKED_UP_AT)
+        starter.rejection = EnqueueResult.Rejected(DownloadFailureReason.GONE, "Link expired")
+        viewModel().download()
+        advanceUntilIdle()
+        assertNull(lookups.get(key, LOOKED_UP_AT))
+
+        // A started download is remembered, so its later 403 drops the answer too.
+        starter.rejection = null
+        lookups.put(key, answer, LOOKED_UP_AT)
+        viewModel().download()
+        advanceUntilIdle()
+        assertNotNull(lookups.get(key, LOOKED_UP_AT))
+        lookups.forgetDownload("task-${starter.variants.size}")
+        assertNull(lookups.get(key, LOOKED_UP_AT))
+    }
+
     private fun select(candidates: List<MediaCandidate>) {
         store.publish(QuickDownloadFixtures.PAGE, "Ocean waves", candidates)
         store.select(MediaGroups.of(candidates).single())
@@ -565,6 +608,7 @@ class QuickDownloadViewModelTest {
         },
         playback = playback,
         downloadThumbnails = thumbnails,
+        lookups = lookups,
     )
 
     /** A sheet whose [ViewModelStore] the test clears, as closing the sheet does. */
@@ -626,10 +670,12 @@ class QuickDownloadViewModelTest {
     private class FakeStarter : PreviewDownloadStarter {
         val variants = mutableListOf<MediaVariant>()
         val assets = mutableListOf<MediaAsset>()
+        var rejection: EnqueueResult.Rejected? = null
 
         override suspend fun enqueue(asset: MediaAsset, variant: MediaVariant): EnqueueResult {
             assets += asset
             variants += variant
+            rejection?.let { return it }
             return EnqueueResult.Started("task-${variants.size}", "Ocean waves.mp4")
         }
     }
@@ -638,6 +684,7 @@ class QuickDownloadViewModelTest {
         val WIFI = NetworkSnapshot(connected = true, validated = true, unmetered = true)
         val MOBILE = NetworkSnapshot(connected = true, validated = true, unmetered = false)
         const val KEY = "youtube:fixture0001"
+        const val LOOKED_UP_AT = 1L
         const val YOUTUBE_PICTURE = "https://i.ytimg.com/vi/fixture0001/hqdefault.jpg"
     }
 }

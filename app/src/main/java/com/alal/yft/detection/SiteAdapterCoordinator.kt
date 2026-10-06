@@ -10,6 +10,11 @@ import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.api.SiteExtractorRegistry
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
 
 /** What the browser layer should do after consulting the site adapters for a page. */
 sealed interface SiteAdapterOutcome {
@@ -58,15 +63,22 @@ sealed interface SiteAdapterOutcome {
  * because the page store groups candidates by the live page address while an adapter reports the
  * canonical one. A merged quality this phone cannot write or play, such as AV1 before Android
  * 14, is left out here so no sheet offers it (P4).
+ *
+ * P17: answers are shared through [SiteLookupCache]: a video found minutes ago is not asked for
+ * again, and a second lookup of a video while the first runs waits for it. A lookup with the
+ * user's session may take the public answer of one without; never the other way round.
  */
 class SiteAdapterCoordinator @Inject constructor(
     private val registry: SiteExtractorRegistry,
     private val mergeSupport: MergeSupport = DeviceMergeSupport(),
+    private val lookups: SiteLookupCache = SiteLookupCache(),
 ) {
+    /** [fresh] (Try again) always asks the site; it drops the video's remembered answer. */
     suspend fun inspect(
         pageUrl: String,
         requestContext: BrowserRequestContext,
         nowEpochMs: Long,
+        fresh: Boolean = false,
     ): SiteAdapterOutcome {
         val selection = registry.select(pageUrl)
         val matched = when (selection) {
@@ -74,7 +86,47 @@ class SiteAdapterCoordinator @Inject constructor(
             is SiteAdapterSelection.Disabled -> return SiteAdapterOutcome.NotHandled
             is SiteAdapterSelection.Matched -> selection
         }
+        val key = SiteLookupKey(
+            siteId = matched.identity.siteId,
+            contentId = matched.identity.contentId,
+            session = !requestContext.cookie.isNullOrBlank(),
+        )
+        if (fresh) {
+            lookups.forget(key)
+        } else {
+            remembered(key, nowEpochMs)?.let { return it.anchoredTo(pageUrl) }
+        }
+        // The shared lookup runs on the caller's dispatcher; the last caller to stop stops it.
+        val context = currentCoroutineContext().minusKey(Job)
+        val lookup = lookups.join(key) {
+            CoroutineScope(context + SupervisorJob()).async {
+                extract(matched, pageUrl, requestContext, nowEpochMs, key)
+            }
+        }
+        return try {
+            when (val outcome = lookup.work.await()) {
+                is SiteAdapterOutcome.Detected -> outcome.anchoredTo(pageUrl)
+                else -> outcome
+            }
+        } finally {
+            lookups.leave(key, lookup)
+        }
+    }
 
+    private fun remembered(key: SiteLookupKey, nowEpochMs: Long): SiteAdapterOutcome.Detected? =
+        lookups.get(key, nowEpochMs)
+            ?: key.takeIf { it.session }?.let { lookups.get(it.copy(session = false), nowEpochMs) }
+
+    private fun SiteAdapterOutcome.Detected.anchoredTo(pageUrl: String) =
+        copy(candidates = candidates.map { it.anchoredTo(pageUrl) })
+
+    private suspend fun extract(
+        matched: SiteAdapterSelection.Matched,
+        pageUrl: String,
+        requestContext: BrowserRequestContext,
+        nowEpochMs: Long,
+        key: SiteLookupKey,
+    ): SiteAdapterOutcome {
         val extracted = try {
             matched.extractor.extract(
                 SiteExtractionRequest(
@@ -121,6 +173,13 @@ class SiteAdapterCoordinator @Inject constructor(
                     },
                 ),
             )
+        }.also { outcome ->
+            when {
+                outcome is SiteAdapterOutcome.Detected && outcome.candidates.isNotEmpty() ->
+                    lookups.put(key, outcome, nowEpochMs)
+                // A video that cannot be read now has no answer to keep.
+                else -> lookups.forget(key)
+            }
         }
     }
 
