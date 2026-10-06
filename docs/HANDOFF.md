@@ -2,7 +2,7 @@
 
 ## Current handoff (2026-10-05)
 
-- Track B (Agent B, `work/phase-11-extractors`): P14 and P15 OWNER CHECK; details in SESSION_STATE "Track B (extractors)".
+- Track B (Agent B, `work/phase-11-extractors`): P14 and P15 OWNER CHECK, ready for Agent A to merge; details in SESSION_STATE "Track B (extractors)".
 - 2026-10-06: P11 CI failure found from the owner's log and fixed in the test fixture (localhost resolves to 127.0.0.1 and ::1 on GitHub; see SESSION_STATE). P12 started at the owner's request: design only, no P12 code yet.
 
 **Latest owner instruction: finish P11 and STOP.** P9/P10 are pushed and P11's stable quality

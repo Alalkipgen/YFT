@@ -61,5 +61,17 @@ edited; status is recorded here.
   the AVC ladder asks `/watch/?v=`, which Safari answers with a page without the video; Safari
   on the owner path the session page redirected to (`/NASA/videos/452499129200583/`) had AVC
   360/720 and HD/SD (live). Asking the ladder on that final video URL would add those rows.
+  CI on `0062660`: validation https://github.com/Alalkipgen/YFT/actions/runs/37396829389,
+  preview https://github.com/Alalkipgen/YFT/actions/runs/37396829457 and emulator
+  https://github.com/Alalkipgen/YFT/actions/runs/37396829442 passed.
 - Shared files: none.
-- Next: merge `origin/work/phase-11-download-flow`, full validation, push; then Agent A merges.
+- Merge (2026-10-06): `git merge --no-ff origin/work/phase-11-download-flow` → "Already up to
+  date" (Agent A's branch still at `2071342`, this branch's base). Full validation as CI
+  (`lintDebug testDebugUnitTest :core-model:test :extractor-api:test :extractor-generic:test
+  :extractor-sites:test :app:assembleDebug`, CI-like localhost, `--rerun`): app 614 (66
+  skipped), core-browser 79, core-data 17, core-download 112, core-media 25, core-model 63,
+  extractor-api 32, extractor-generic 14, extractor-sites 181; 0 failures; lint 0 errors;
+  debug APK built.
+- Status: **Track B ready for Agent A to merge** (`work/phase-11-extractors` into
+  `work/phase-11-download-flow`). Only extractor-sites files and docs changed; Agent A's newer
+  docs entries go next to these when merging.
