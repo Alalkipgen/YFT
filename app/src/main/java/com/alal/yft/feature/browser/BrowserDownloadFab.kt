@@ -1,9 +1,20 @@
 package com.alal.yft.feature.browser
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.runtime.Composable
@@ -19,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.alal.yft.ui.components.YftCountBadge
 import com.alal.yft.ui.components.YftIcon
 import com.alal.yft.ui.theme.YftIcons
+import com.alal.yft.ui.theme.YftShapes
 import com.alal.yft.ui.theme.YftTheme
 
 /** When the browser shows its floating Download button (T14), what it says and what it does. */
@@ -78,6 +90,22 @@ internal object BrowserDownloadFab {
         savableCount > 1 -> Action.OPEN_MAIN_VIDEO
         else -> null
     }
+
+    /**
+     * P13: the wide Download button under the page replaces the round one on a site's video
+     * page and on a page with one video, where a tap opens that video. Feeds and pages with
+     * several videos keep the round button (P5). It shows only where the round one would
+     * ([roundVisible]: a page, no found sheet open, no address being typed) and goes in full
+     * screen, while a download sheet covers the browser and while the keyboard is up.
+     */
+    fun wideVisible(
+        action: Action?,
+        roundVisible: Boolean,
+        fullScreen: Boolean = false,
+        sheetOpen: Boolean = false,
+        keyboardUp: Boolean = false,
+    ): Boolean = roundVisible && !fullScreen && !sheetOpen && !keyboardUp &&
+        (action == Action.OPEN_PAGE_VIDEO || action == Action.OPEN_VIDEO)
 
     fun label(savableCount: Int, findsOnScreen: Boolean = false, sitePage: Boolean = false) =
         when {
@@ -147,6 +175,59 @@ internal fun BrowserDownloadButton(
                     .offset(x = 4.dp, y = (-4).dp)
                     .clearAndSetSemantics { testTag = "browser-download-fab-badge" },
             )
+        }
+    }
+}
+
+/**
+ * P13: the wide Mint "Download" button at the bottom of the page area, drawn by YFT (nothing is
+ * added to the site's page). It does what the round button does there and spins while the
+ * page's own lookup runs; the page above it is shortened by its height, so the site's own
+ * controls stay reachable.
+ */
+@Composable
+internal fun BrowserWideDownloadButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    busy: Boolean = false,
+) {
+    val colors = YftTheme.colors
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(colors.card)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        Button(
+            onClick = onClick,
+            shape = YftShapes.pill,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = colors.accent,
+                contentColor = colors.onAccent,
+            ),
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .semantics {
+                    contentDescription = BrowserDownloadFab.PAGE_VIDEO_LABEL
+                    if (busy) stateDescription = BrowserDownloadFab.LOOKING_UP_STATE
+                }
+                .testTag("browser-download-wide"),
+        ) {
+            if (busy) {
+                CircularProgressIndicator(
+                    color = colors.onAccent,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier
+                        .size(18.dp)
+                        .clearAndSetSemantics { testTag = "browser-download-wide-spinner" },
+                )
+            } else {
+                YftIcon(icon = YftIcons.Download, contentDescription = null, size = 18.dp)
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(text = "Download", style = MaterialTheme.typography.labelLarge)
         }
     }
 }

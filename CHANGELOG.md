@@ -33,6 +33,10 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Changed
 
+- Wide Download button: on a site's video page and on a page with one video, a full-width
+  "Download" button sits under the page (above the toolbar) instead of the round one; the page
+  ends above it, it spins while the lookup runs and hides in full screen, under the download
+  sheet and while the keyboard is up. Feeds and pages with several videos keep the round button.
 - Site video pages (YouTube, Facebook, TikTok, Vimeo): the browser's Download button always
   opens that video's download sheet, never "Found on this page". It shows a small spinner while
   the page's lookup runs; a tap opens the sheet in its loading state and fills it when that same

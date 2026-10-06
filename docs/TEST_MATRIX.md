@@ -776,3 +776,12 @@ repository that asks each client and prints only verdicts and counts.
 | pageVideos | `MediaGroupsTest`: on an adapter site unnamed player files are never videos; main video = playing, else largest by size, height, length, earlier on tie. `QuickDownloadViewModelTest`: the sheet never offers an adapter site's unnamed files |
 | Failure in sheet | `QuickDownloadViewModelTest`: a failed page lookup shows its message with Try again, which asks the browser for the same key; protected-only has no Try again. `QuickDownloadScreenTest`: "Looking up this video…", no Retry when it cannot help, "Other videos on this page (N)" row. `BrowserScreenTest`: spinner while the lookup runs, no badge/list on site pages, main video then list on request |
 | Owner check | YouTube watch page and Facebook reel in the browser -> Download -> that video's sheet; never "Found on this page 4" |
+
+### P13 — Wide Download button (IN PROGRESS, 2026-10-06)
+
+| Check | Result |
+| --- | --- |
+| Visibility table | `BrowserDownloadFabTest.theWideButtonShowsWhereATapMeansOneVideoAndNothingCoversThePage`: site video page and generic one-video page -> wide; feed and several videos -> round; full screen, download sheet open, keyboard up, found list/address editing -> hidden |
+| Screen | `BrowserScreenTest.theWideButtonSitsUnderThePageAndOnlyOneButtonShowsAtATime`: wide button "Download this video" calls the round button's action, round hidden, page bottom <= button top, hidden in full screen / under the sheet / with the found list; P12 one-video tests now use the wide button |
+| Validation | NOT RUN YET (sandbox reset; code restored from session) |
+| Owner check | YouTube watch page and Facebook reel -> wide Download button under the page -> the video's sheet |

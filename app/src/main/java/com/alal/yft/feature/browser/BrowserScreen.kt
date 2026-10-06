@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.only
@@ -71,6 +72,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
@@ -96,7 +98,10 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.currentStateAsState
 import com.alal.yft.core.browser.policy.SecureWebViewPolicy
 import com.alal.yft.core.browser.webview.BrowserDownloadListener
 import com.alal.yft.core.browser.webview.BrowserObservationSink
@@ -209,6 +214,8 @@ fun BrowserRoute(
         webView?.goBack()
         refreshHistoryState()
     }
+    val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    val resumed = lifecycleState.isAtLeast(Lifecycle.State.RESUMED)
     Box(modifier = Modifier.fillMaxSize()) {
         BrowserScreen(
             uiState = uiState,
@@ -280,6 +287,9 @@ fun BrowserRoute(
             },
             onRetrySiteLookup = viewModel::retrySiteLookup,
             onRetryFocusedLookup = viewModel::retryFocusedLookup,
+            fullScreen = fullscreenView != null,
+            // P13: a download sheet over the browser pauses this screen; the wide button goes.
+            downloadSheetOpen = !resumed,
             browserSurface = { modifier ->
                 BrowserWebView(
                     modifier = modifier,
@@ -386,6 +396,8 @@ fun BrowserScreen(
     onDownloadFocused: () -> Unit = {},
     onDownloadPage: () -> Unit = {},
     onDownloadMain: () -> Unit = {},
+    fullScreen: Boolean = false,
+    downloadSheetOpen: Boolean = false,
     browserSurface: @Composable (Modifier) -> Unit,
 ) {
     val colors = YftTheme.colors
@@ -509,6 +521,35 @@ fun BrowserScreen(
                 .clipToBounds(),
         ) {
             val sheetMaxHeight = maxHeight * SHEET_MAX_FRACTION
+            val fabAction = BrowserDownloadFab.action(
+                savableCount = videos.size,
+                findsFocusedVideo = uiState.findsFocusedVideo,
+                feedPage = uiState.feedPage,
+                sitePage = uiState.sitePage,
+            )
+            val fabVisible = BrowserDownloadFab.isVisible(
+                hasPage = hasBrowserPage,
+                savableCount = videos.size,
+                sheetExpanded = sheetExpanded,
+                editingAddress = editingAddress,
+                findsFocusedVideo = uiState.findsFocusedVideo,
+                sitePage = uiState.sitePage,
+            ) && fabAction != null
+            // P13: one button at a time; the wide one under the page where a tap means one video.
+            val wideVisible = BrowserDownloadFab.wideVisible(
+                action = fabAction,
+                roundVisible = fabVisible,
+                fullScreen = fullScreen,
+                sheetOpen = downloadSheetOpen,
+                keyboardUp = WindowInsets.ime.getBottom(LocalDensity.current) > 0,
+            )
+            val roundVisible = fabVisible && !wideVisible
+            var wideHeight by remember { mutableIntStateOf(0) }
+            val pageBottomPadding = if (wideVisible) {
+                with(LocalDensity.current) { wideHeight.toDp() }
+            } else {
+                0.dp
+            }
             if (hasBrowserPage) {
                 Box(
                     modifier = Modifier
@@ -516,7 +557,8 @@ fun BrowserScreen(
                         .clipToBounds()
                         .testTag("browser-surface"),
                 ) {
-                    browserSurface(Modifier.fillMaxSize())
+                    // P13: the page ends above the wide button, so its own controls stay usable.
+                    browserSurface(Modifier.fillMaxSize().padding(bottom = pageBottomPadding))
                 }
             } else {
                 BrowserStartPage(
@@ -550,22 +592,23 @@ fun BrowserScreen(
                         .testTag("found-sheet-scrim"),
                 )
             }
-            val fabAction = BrowserDownloadFab.action(
-                savableCount = videos.size,
-                findsFocusedVideo = uiState.findsFocusedVideo,
-                feedPage = uiState.feedPage,
-                sitePage = uiState.sitePage,
-            )
-            val fabVisible = BrowserDownloadFab.isVisible(
-                hasPage = hasBrowserPage,
-                savableCount = videos.size,
-                sheetExpanded = sheetExpanded,
-                editingAddress = editingAddress,
-                findsFocusedVideo = uiState.findsFocusedVideo,
-                sitePage = uiState.sitePage,
-            ) && fabAction != null
             val findsOnScreen = fabAction == BrowserDownloadFab.Action.FIND_VIDEO_ON_SCREEN
             val focusNotice = uiState.focusNotice?.takeIf { hasBrowserPage }
+            val busy = uiState.sitePage && uiState.pageLookupRunning
+            val onDownloadTap = {
+                // One video opens the download sheet; several the main one's; a site's page
+                // its own video (P12); a feed looks for the video on screen (P5).
+                when (fabAction) {
+                    BrowserDownloadFab.Action.OPEN_VIDEO ->
+                        videos.singleOrNull()?.let(onDownloadGroup)
+                    BrowserDownloadFab.Action.OPEN_MAIN_VIDEO -> onDownloadMain()
+                    BrowserDownloadFab.Action.OPEN_PAGE_VIDEO -> onDownloadPage()
+                    BrowserDownloadFab.Action.FIND_VIDEO_ON_SCREEN ->
+                        if (!uiState.findingFocusedVideo) onDownloadFocused()
+                    null -> Unit
+                }
+                Unit
+            }
             if (showSheet || fabVisible || focusNotice != null) {
                 Column(
                     modifier = Modifier
@@ -593,26 +636,13 @@ fun BrowserScreen(
                             },
                         )
                     }
-                    if (fabVisible) {
+                    if (roundVisible) {
                         BrowserDownloadButton(
                             savableCount = videos.size,
                             findsOnScreen = findsOnScreen,
                             sitePage = fabAction == BrowserDownloadFab.Action.OPEN_PAGE_VIDEO,
-                            busy = uiState.sitePage && uiState.pageLookupRunning,
-                            onClick = {
-                                // One video opens the download sheet; several the main one's;
-                                // a site's page its own video (P12); a feed looks for the video
-                                // on screen (P5).
-                                when (fabAction) {
-                                    BrowserDownloadFab.Action.OPEN_VIDEO ->
-                                        videos.singleOrNull()?.let(onDownloadGroup)
-                                    BrowserDownloadFab.Action.OPEN_MAIN_VIDEO -> onDownloadMain()
-                                    BrowserDownloadFab.Action.OPEN_PAGE_VIDEO -> onDownloadPage()
-                                    BrowserDownloadFab.Action.FIND_VIDEO_ON_SCREEN ->
-                                        if (!uiState.findingFocusedVideo) onDownloadFocused()
-                                    null -> Unit
-                                }
-                            },
+                            busy = busy,
+                            onClick = onDownloadTap,
                             modifier = Modifier.padding(end = 16.dp, bottom = 12.dp),
                         )
                     }
@@ -624,6 +654,13 @@ fun BrowserScreen(
                             onExpandedChange = { sheetExpanded = it },
                             onDownloadGroup = onDownloadGroup,
                             modifier = Modifier.heightIn(max = sheetMaxHeight),
+                        )
+                    }
+                    if (wideVisible) {
+                        BrowserWideDownloadButton(
+                            onClick = onDownloadTap,
+                            busy = busy,
+                            modifier = Modifier.onSizeChanged { wideHeight = it.height },
                         )
                     }
                 }

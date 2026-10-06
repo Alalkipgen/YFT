@@ -124,6 +124,11 @@ that opened it. While audio plays, the mini player sits right above the bottom b
   for typed words, "Link you copied" (Download, Use copied link) and View sites instead of a
   native WebView. Paste and Download read only on tap; there is no clipboard preview. While a
   page has media YFT may save, a Mint floating Download button (T14) sits above the found handle.
+  On a site's video page and on a page with one video (P13) a full-width Mint "Download" pill
+  (`browser-download-wide`, "Download this video") sits at the bottom of the page area above the
+  toolbar instead; the WebView ends above it. It spins while the page's lookup runs and hides in
+  full screen, under the download sheet and while the keyboard is up. Feeds and pages with
+  several videos keep the round button.
 - **Download as (03):** handle, "Download as", thumbnail with duration, title, "site · Video +
   audio", Video/Audio segmented control, quality list with sizes (selected row tinted), Wi-Fi
   only switch, "Download · 96 MB" Mint button, caption "Saves to Download/YFT".

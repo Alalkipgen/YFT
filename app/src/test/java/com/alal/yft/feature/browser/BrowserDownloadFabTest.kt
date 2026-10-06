@@ -71,6 +71,28 @@ class BrowserDownloadFabTest {
         assertEquals("Download video, 4 found", BrowserDownloadFab.label(4))
     }
 
+    @Test
+    fun theWideButtonShowsWhereATapMeansOneVideoAndNothingCoversThePage() {
+        fun wide(
+            action: Action?,
+            round: Boolean = true,
+            fullScreen: Boolean = false,
+            sheetOpen: Boolean = false,
+            keyboardUp: Boolean = false,
+        ) = BrowserDownloadFab.wideVisible(action, round, fullScreen, sheetOpen, keyboardUp)
+
+        assertTrue("site video page", wide(Action.OPEN_PAGE_VIDEO))
+        assertTrue("generic page with one video", wide(Action.OPEN_VIDEO))
+        assertFalse("feed", wide(Action.FIND_VIDEO_ON_SCREEN))
+        assertFalse("generic page with several videos", wide(Action.OPEN_MAIN_VIDEO))
+        assertFalse("nothing to download", wide(null))
+        assertFalse("full screen", wide(Action.OPEN_PAGE_VIDEO, fullScreen = true))
+        assertFalse("download sheet open", wide(Action.OPEN_PAGE_VIDEO, sheetOpen = true))
+        assertFalse("keyboard up", wide(Action.OPEN_PAGE_VIDEO, keyboardUp = true))
+        // Found list open or an address being typed: the round button is hidden, so is this.
+        assertFalse("found list or address", wide(Action.OPEN_VIDEO, round = false))
+    }
+
     private fun action(
         count: Int,
         feedSite: Boolean,

@@ -6,7 +6,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
@@ -191,14 +195,17 @@ class BrowserScreenTest {
             onDownloadGroup = { opened += it },
         )
 
-        composeRule.onNodeWithContentDescription("Download video, 1 found").assertIsDisplayed()
+        // P13: one video gets the wide button under the page instead of the round one.
+        composeRule.onNodeWithContentDescription("Download this video").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("browser-download-fab").assertCountEquals(0)
         composeRule.onAllNodesWithTag("browser-download-fab-badge").assertCountEquals(0)
-        composeRule.onNodeWithTag("browser-download-fab").performClick()
+        composeRule.onNodeWithTag("browser-download-wide").performClick()
         composeRule.runOnIdle { assertEquals(listOf(listOf(clip())), opened.map { it.candidates }) }
 
         composeRule.onNodeWithTag("media-found-button").performClick()
         composeRule.onNodeWithTag("found-list").assertIsDisplayed()
         composeRule.onAllNodesWithTag("browser-download-fab").assertCountEquals(0)
+        composeRule.onAllNodesWithTag("browser-download-wide").assertCountEquals(0)
     }
 
     @Test
@@ -216,8 +223,8 @@ class BrowserScreenTest {
             onDownloadGroup = { opened += it },
         )
 
-        composeRule.onNodeWithContentDescription("Download video, 1 found").assertIsDisplayed()
-        composeRule.onNodeWithTag("browser-download-fab").performClick()
+        composeRule.onNodeWithContentDescription("Download this video").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-download-wide").performClick()
         composeRule.runOnIdle { assertEquals(items, opened.single().candidates) }
 
         composeRule.onNodeWithTag("media-found-button").performClick()
@@ -254,8 +261,8 @@ class BrowserScreenTest {
             onDownloadGroup = { opened += it },
         )
 
-        composeRule.onNodeWithContentDescription("Download video, 1 found").assertIsDisplayed()
-        composeRule.onNodeWithTag("browser-download-fab").performClick()
+        composeRule.onNodeWithContentDescription("Download this video").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-download-wide").performClick()
         composeRule.runOnIdle { assertEquals(video, opened.single().candidates) }
         composeRule.onAllNodesWithTag("found-list").assertCountEquals(0)
     }
@@ -313,24 +320,95 @@ class BrowserScreenTest {
             onDownloadMain = { main++ },
         )
 
-        // Nothing found yet: the button is there, says "this video" and spins.
+        // Nothing found yet: the (wide, P13) button is there, says "this video" and spins.
         composeRule.onNodeWithContentDescription("Download this video").assertIsDisplayed()
-        composeRule.onNodeWithTag("browser-download-fab-spinner", useUnmergedTree = true)
+        composeRule.onNodeWithTag("browser-download-wide-spinner", useUnmergedTree = true)
             .assertExists()
-        composeRule.onNodeWithTag("browser-download-fab").performClick()
+        composeRule.onNodeWithTag("browser-download-wide").performClick()
         composeRule.runOnIdle { assertEquals(1, page) }
         // The player's own files are not more videos of this page: no badge, no list.
         state = state.copy(pageLookupRunning = false, candidates = listOf(clip(), stream()))
-        composeRule.onAllNodesWithTag("browser-download-fab-spinner", useUnmergedTree = true)
+        composeRule.onAllNodesWithTag("browser-download-wide-spinner", useUnmergedTree = true)
             .assertCountEquals(0)
         composeRule.onAllNodesWithTag("browser-download-fab-badge", useUnmergedTree = true)
             .assertCountEquals(0)
-        composeRule.onNodeWithTag("browser-download-fab").performClick()
+        composeRule.onNodeWithTag("browser-download-wide").performClick()
         composeRule.onAllNodesWithTag("found-list").assertCountEquals(0)
         composeRule.runOnIdle {
             assertEquals(2, page)
             assertEquals(0, main)
         }
+    }
+
+    @Test
+    fun theWideButtonSitsUnderThePageAndOnlyOneButtonShowsAtATime() {
+        var page = 0
+        var main = 0
+        val opened = mutableListOf<MediaGroup>()
+        var fullScreen by mutableStateOf(false)
+        var sheetOpen by mutableStateOf(false)
+        var state by mutableStateOf(
+            BrowserUiState(
+                address = WATCH,
+                currentUrl = WATCH,
+                findsFocusedVideo = true,
+                sitePage = true,
+            ),
+        )
+        setScreen(
+            uiStateProvider = { state },
+            onDownloadPage = { page++ },
+            onDownloadMain = { main++ },
+            onDownloadGroup = { opened += it },
+            fullScreenProvider = { fullScreen },
+            downloadSheetOpenProvider = { sheetOpen },
+        )
+
+        // A site's video page: the wide button, which does what the round one did (P12).
+        composeRule.onNodeWithTag("browser-download-wide")
+            .assertIsDisplayed()
+            .assert(hasContentDescription("Download this video"))
+            .performClick()
+        composeRule.onAllNodesWithTag("browser-download-fab").assertCountEquals(0)
+        composeRule.runOnIdle { assertEquals(1, page) }
+        // The page ends where the button starts, so the site's own controls stay reachable.
+        val pageBottom = composeRule.onNodeWithTag("test-page").getBoundsInRoot().bottom
+        val wideTop = composeRule.onNodeWithTag("browser-download-wide").getBoundsInRoot().top
+        assertTrue("page $pageBottom, button $wideTop", pageBottom <= wideTop)
+
+        // Full screen and a download sheet over the browser hide it.
+        fullScreen = true
+        composeRule.onAllNodesWithTag("browser-download-wide").assertCountEquals(0)
+        fullScreen = false
+        sheetOpen = true
+        composeRule.onAllNodesWithTag("browser-download-wide").assertCountEquals(0)
+        sheetOpen = false
+        composeRule.onNodeWithTag("browser-download-wide").assertIsDisplayed()
+
+        // A feed keeps the round button.
+        state = BrowserUiState(
+            address = FEED,
+            currentUrl = FEED,
+            findsFocusedVideo = true,
+            feedPage = true,
+        )
+        composeRule.onNodeWithTag("browser-download-fab").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("browser-download-wide").assertCountEquals(0)
+        // A page with one video: the wide button opens it.
+        state = BrowserUiState(address = PAGE, currentUrl = PAGE, candidates = listOf(clip()))
+        composeRule.onAllNodesWithTag("browser-download-fab").assertCountEquals(0)
+        composeRule.onNodeWithTag("browser-download-wide").performClick()
+        composeRule.runOnIdle { assertEquals(listOf(clip()), opened.single().candidates) }
+        // Several videos: the round button with its count.
+        state = state.copy(candidates = listOf(clip(), stream()))
+        composeRule.onAllNodesWithTag("browser-download-wide").assertCountEquals(0)
+        composeRule.onNodeWithTag("browser-download-fab").performClick()
+        composeRule.runOnIdle { assertEquals(1, main) }
+        // An open found list hides both.
+        state = state.copy(candidates = listOf(clip()))
+        composeRule.onNodeWithTag("media-found-button").performClick()
+        composeRule.onAllNodesWithTag("browser-download-wide").assertCountEquals(0)
+        composeRule.onAllNodesWithTag("browser-download-fab").assertCountEquals(0)
     }
 
     @Test
@@ -646,6 +724,8 @@ class BrowserScreenTest {
         onDownloadCopiedLink: () -> Unit = {},
         onDownloadPage: () -> Unit = {},
         onDownloadMain: () -> Unit = {},
+        fullScreenProvider: () -> Boolean = { false },
+        downloadSheetOpenProvider: () -> Boolean = { false },
     ) {
         composeRule.setContent {
             val density = LocalDensity.current
@@ -677,7 +757,9 @@ class BrowserScreenTest {
                         onRetryFocusedLookup = onRetryFocusedLookup,
                         onDownloadPage = onDownloadPage,
                         onDownloadMain = onDownloadMain,
-                        browserSurface = { Box(modifier = it) },
+                        fullScreen = fullScreenProvider(),
+                        downloadSheetOpen = downloadSheetOpenProvider(),
+                        browserSurface = { Box(modifier = it.testTag("test-page")) },
                     )
                 }
             }
