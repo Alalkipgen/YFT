@@ -29,6 +29,7 @@ import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.thumbnail.ThumbnailUrls
 import com.alal.yft.thumbnail.rememberRemoteThumbnail
 import com.alal.yft.ui.format.YftFormat
+import com.alal.yft.ui.format.YftQualityNames
 import com.alal.yft.ui.theme.YftIcons
 import com.alal.yft.ui.theme.YftShapes
 import com.alal.yft.ui.theme.YftTheme
@@ -225,14 +226,50 @@ fun MediaCandidate.isAudio(): Boolean {
     return urlExtension() in AUDIO_EXTENSIONS
 }
 
-/** "MP4", "M4A", "HLS"; "Auto quality" for adaptive streams; size and length when known. */
+/**
+ * "MP4", "M4A", "HLS"; "Auto quality" for adaptive streams; size and length when known. P25: a
+ * file's quality and size read as the Download sheet names them ("720p · HD", "~54 MB").
+ */
 fun MediaCandidate.factLabels(): List<String> = buildList {
     formatLabel()?.let(::add)
-    if (kind == MediaKind.HLS || kind == MediaKind.DASH) add("Auto quality")
+    if (kind == MediaKind.HLS || kind == MediaKind.DASH) {
+        add("Auto quality")
+    } else {
+        qualityName()?.let(::add)
+    }
     // Video and audio arrive as two files and are merged into one MP4 on the phone.
     if (audioCompanion != null) add("Video + audio")
-    contentLengthBytes?.takeIf { it > 0 }?.let { add(YftFormat.bytes(it)) }
+    sizeName()?.let(::add)
     durationMillis?.takeIf { it > 0 }?.let { add(YftFormat.duration(it)) }
+}
+
+/** P25: the sheet's name for the file's stated picture, "1080p · Full HD" or "480p". */
+private fun MediaCandidate.qualityName(): String? {
+    if (isAudio()) return null
+    val picture = height?.takeIf { it > 0 } ?: return null
+    val standard = YftQualityNames.standardHeight(width, picture)
+    return YftQualityNames.videoName(standard, framesPerSecond)
+}
+
+/**
+ * P25: the size the sheet shows: a lone file's stated size; a merge's two files, or a file's
+ * bitrate × length, as an estimate ("~54 MB"); nothing when it is not known.
+ */
+private fun MediaCandidate.sizeName(): String? {
+    val known = contentLengthBytes?.takeIf { it > 0 }
+    val companion = audioCompanion
+    if (known != null && companion == null) return YftFormat.bytes(known)
+    if (kind != MediaKind.DIRECT && kind != MediaKind.UNKNOWN) return null
+    val picture = known ?: YftQualityNames.estimatedBytes(bitrateBitsPerSecond, durationMillis)
+        ?: return null
+    val sound = when {
+        companion == null -> 0L
+        else -> companion.contentLengthBytes
+            ?: YftQualityNames.estimatedBytes(companion.bitrateBitsPerSecond, durationMillis)
+            ?: if (known != null) 0L else return null
+    }
+    if (picture > Long.MAX_VALUE - sound) return null
+    return "~${YftFormat.bytes(picture + sound)}"
 }
 
 /**

@@ -33,6 +33,16 @@ for every APK given to users, because Android refuses to install a lower one.
   be reached", and Details names the step, the host and the status. A page's HLS stream is read
   with the page's `Referer` and `Origin`, and its sheet shows the video's length and estimated
   sizes. A file server that answers HEAD with a web page is asked for the file itself.
+- One sheet for every site (P25): YouTube, Facebook and other sites give the same Download
+  sheet — Audio "M4A" (the original sound) and "MP3 · 128 kbps", Video the Default quality and
+  the next lower one, More formats with every row. Video rows are named by height ("1080p · Full
+  HD", "720p · HD", "480p", "360p"); a file Facebook names only HD or SD takes its height's name
+  in place once its picture is read. Each row has a one-line description ("Clear view and quick
+  play", "Original sound, fastest", "Plays everywhere") and a size, an estimate ("~54 MB") or
+  "Size unknown". The M4A kept from a video's sound is no longer marked "Slow".
+- Audio from more videos (P25): the sound of an MP4 whose codecs the site does not state (other
+  sites, Facebook's HD/SD) is offered as M4A and MP3. The found list names a file's quality and
+  size the way the sheet does.
 
 ### Added
 

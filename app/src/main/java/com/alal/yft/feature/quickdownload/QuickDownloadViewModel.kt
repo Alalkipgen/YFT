@@ -488,11 +488,29 @@ class QuickDownloadViewModel @Inject constructor(
                             } else {
                                 variant.sizeAccuracy
                             },
-                        )
+                        ).measuredBy(read)
                     }), failure = null)
                 }
             }
         }
+    }
+
+    /**
+     * P25: what the check read from the file and the site did not state: the picture of a file
+     * named only "HD"/"SD" (its row is renamed in place), its sound's codec and bitrate (the
+     * M4A's estimate) and its length.
+     */
+    private fun MediaVariant.measuredBy(read: MediaVariant?): MediaVariant {
+        if (read == null) return this
+        val picture = height == null && read.height != null
+        return copy(
+            width = if (picture) read.width else width,
+            height = if (picture) read.height else height,
+            framesPerSecond = if (picture) read.framesPerSecond else framesPerSecond,
+            codecs = codecs.ifEmpty { read.codecs },
+            durationMillis = durationMillis ?: read.durationMillis,
+            audioBitrateBitsPerSecond = audioBitrateBitsPerSecond ?: read.audioBitrateBitsPerSecond,
+        )
     }
 
     private suspend fun resolveForDownload(candidate: MediaCandidate): VariantResolutionResult {

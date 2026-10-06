@@ -1,6 +1,7 @@
 package com.alal.yft.feature.quickdownload
 
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.MediaSizeAccuracy
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.detection.VideoPlaybackSupport
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.LENGTH
@@ -38,7 +39,9 @@ class QuickDownloadChoicesTest {
             choices.video.map(SheetOption::size),
         )
         assertEquals("1920 × 1080 · 30 fps · MP4", choices.video.first().detail)
-        assertEquals(listOf("M4A · 128 kbps") + mp3Titles, choices.audio.map(SheetOption::title))
+        // P25: the original sound is "M4A", its bitrate on the line below.
+        assertEquals(listOf("M4A") + mp3Titles, choices.audio.map(SheetOption::title))
+        assertEquals("128 kbps", choices.audio.first().detail)
         assertTrue(choices.audio.all { it.section == OptionSection.AUDIO })
         assertTrue(choices.video.all { it.section == OptionSection.VIDEO && it.chips.isEmpty() })
         assertTrue(choices.options.none { "Fast" in it.title || "High" in it.title })
@@ -60,7 +63,7 @@ class QuickDownloadChoicesTest {
         val full = choices(QuickDownloadFixtures.youtube())!!
         val short = QuickDownloadChoices.compact(full, QualityPreference.UP_TO_720P)
 
-        assertEquals(listOf("M4A · 128 kbps", "MP3 · 128 kbps"), short.audio.map { it.title })
+        assertEquals(listOf("M4A", "MP3 · 128 kbps"), short.audio.map { it.title })
         assertEquals(listOf("720p · HD", "480p"), short.video.map { it.title })
         assertEquals(8, full.options.size)
         assertEquals(4, short.options.size)
@@ -182,7 +185,8 @@ class QuickDownloadChoicesTest {
         assertEquals(listOf("1080p · Full HD", "720p · HD"), choices.video.map(SheetOption::title))
         assertSame(merged1080, choices.video[0].source.candidate)
         assertSame(hdFile, choices.video[1].source.candidate)
-        assertEquals("M4A · 57 kbps", choices.audio.first().title)
+        assertEquals("M4A", choices.audio.first().title)
+        assertEquals("57 kbps", choices.audio.first().detail)
     }
 
     @Test
@@ -227,15 +231,19 @@ class QuickDownloadChoicesTest {
 
         val choices = QuickDownloadChoices.of(group(listOf(file)), listOf(source))!!
 
-        assertEquals(listOf("M4A · 96 kbps") + mp3Titles, choices.audio.map(SheetOption::title))
+        assertEquals(listOf("M4A") + mp3Titles, choices.audio.map(SheetOption::title))
         val m4a = choices.audio.first()
         assertTrue(m4a.variant.audioFromVideo)
-        assertEquals("The video's own sound", m4a.detail)
+        assertEquals("The video's own sound · 96 kbps", m4a.detail)
         // 252 s at 96 kbps.
         assertEquals("~${YftFormat.bytes(3_024_000)}", m4a.size)
-        assertEquals(listOf(QuickDownloadChoices.SLOW), m4a.chips)
+        // P25: the sound is copied, not re-encoded: the fastest audio, so not "Slow".
+        assertTrue(m4a.chips.isEmpty())
         assertTrue(
-            choices.audio.drop(1).all { it.variant.mp3 != null && it.variant.audioFromVideo },
+            choices.audio.drop(1).all {
+                it.variant.mp3 != null && it.variant.audioFromVideo &&
+                    it.chips == listOf(QuickDownloadChoices.SLOW)
+            },
         )
         assertEquals("360p", choices.video.single().title)
         assertEquals("640 × 360 · 30 fps · MP4", choices.video.single().detail)
@@ -248,7 +256,7 @@ class QuickDownloadChoicesTest {
 
         assertTrue(choices.video.isEmpty())
         assertTrue(choices.isAudioOnly)
-        assertEquals(listOf("M4A · 128 kbps") + mp3Titles, choices.audio.map(SheetOption::title))
+        assertEquals(listOf("M4A") + mp3Titles, choices.audio.map(SheetOption::title))
         assertEquals("4 MB", choices.audio[0].size)
         // 252 s at 192 kbps.
         assertEquals("~${YftFormat.bytes(6_048_000)}", choices.audio[2].size)
@@ -401,6 +409,177 @@ class QuickDownloadChoicesTest {
     }
 
     @Test
+    fun everySiteGivesTheSameSectionsNamesAndOrder() {
+        // P25: YouTube, Facebook (DASH + HD/SD, or HD/SD alone) and another site's HLS + MP4
+        // give one sheet: Audio "M4A" then MP3, Video by height, the same short view.
+        val youtube = QuickDownloadFixtures.youtubeLadder()
+        val facebookDash = QuickDownloadFixtures.facebookDash()
+        val facebookFiles = QuickDownloadFixtures.facebookFiles()
+        val other = QuickDownloadFixtures.otherSite()
+        val sites = listOf(
+            "YouTube" to choices(youtube)!!,
+            "Facebook DASH + HD/SD" to choices(facebookDash)!!,
+            "Facebook HD/SD" to choices(facebookFiles)!!,
+            "Other site HLS + MP4" to QuickDownloadChoices.of(
+                group(other.map(SheetSource::candidate)),
+                other,
+            )!!,
+        )
+        val videos = mapOf(
+            "YouTube" to listOf(
+                "2160p · 4K", "1440p · 2K", "1080p · Full HD", "720p · HD", "480p", "360p",
+                "240p", "144p",
+            ),
+            "Facebook DASH + HD/SD" to listOf(
+                "1080p · Full HD", "720p · HD", "HD", "480p", "SD", "360p",
+            ),
+            "Facebook HD/SD" to listOf("HD", "SD"),
+            "Other site HLS + MP4" to listOf("1080p · Full HD", "720p · HD", "480p"),
+        )
+        val shortVideos = mapOf(
+            "YouTube" to listOf("720p · HD", "480p"),
+            "Facebook DASH + HD/SD" to listOf("720p · HD", "480p"),
+            "Facebook HD/SD" to listOf("HD", "SD"),
+            "Other site HLS + MP4" to listOf("720p · HD", "480p"),
+        )
+
+        sites.forEach { (site, full) ->
+            val short = QuickDownloadChoices.compact(full, QualityPreference.UP_TO_720P)
+            assertEquals(site, listOf("M4A") + mp3Titles, full.audio.map(SheetOption::title))
+            assertEquals(site, videos.getValue(site), full.video.map(SheetOption::title))
+            assertEquals(site, full.audio + full.video, full.options)
+            assertEquals(site, listOf("M4A", "MP3 · 128 kbps"), short.audio.map { it.title })
+            assertEquals(site, shortVideos.getValue(site), short.video.map { it.title })
+            assertEquals(
+                site,
+                short.video.first().id,
+                QuickDownloadChoices.preselect(full, QualityPreference.UP_TO_720P)?.id,
+            )
+        }
+        // The sound of a file whose codecs nobody stated is offered too (P25).
+        val otherSound = sites.last().second.audio.first()
+        assertTrue(otherSound.variant.audioFromVideo)
+        assertEquals(other.last().candidate, otherSound.source.candidate)
+        assertTrue(sites[2].second.audio.first().variant.audioFromVideo)
+        // The other site's 720p is its whole MP4, not the stream's 720p.
+        assertEquals(MediaKind.DIRECT, sites.last().second.video[1].variant.kind)
+    }
+
+    @Test
+    fun everyRowSaysWhatItIsForInOneLine() {
+        // P25: the line under each title (`quick-row-description`).
+        val youtube = choices(QuickDownloadFixtures.youtubeLadder())!!
+        val facebook = choices(QuickDownloadFixtures.facebookFiles())!!
+        val unknown = choices(listOf(video(null, MIB, label = null, videoId = null)))!!
+
+        assertEquals(
+            listOf(
+                "High details for big screen play",
+                "High details for big screen play",
+                "High details for full screen play",
+                "Clear view and quick play",
+                "Normal quality for quick play",
+                "Normal quality for quick play",
+                "Low quality for quick play",
+                "Low quality, smallest file",
+            ),
+            youtube.video.map(SheetOption::description),
+        )
+        assertEquals(
+            listOf("Original sound, fastest") + List(3) { "Plays everywhere" },
+            youtube.audio.map(SheetOption::description),
+        )
+        // HD reads as 720p and SD as 480p until their pictures are measured.
+        assertEquals(
+            listOf("Clear view and quick play", "Normal quality for quick play"),
+            facebook.video.map(SheetOption::description),
+        )
+        assertEquals("Quality unknown", unknown.video.single().title)
+        assertEquals("As the page plays it", unknown.video.single().description)
+        // A site's own MP3 file plays everywhere too.
+        val mp3File = choices(listOf(audio(128, MIB, mimeType = "audio/mpeg")))!!
+        assertEquals("MP3 · 128 kbps", mp3File.audio.single().title)
+        assertEquals("Plays everywhere", mp3File.audio.single().description)
+        assertTrue(mp3File.audio.single().chips.isEmpty())
+    }
+
+    @Test
+    fun anHdOrSdRowIsRenamedInPlaceOnceItsPictureIsMeasured() {
+        // P25 (P11): "HD"/"SD" until the header check reads the file's picture, then the
+        // height's name without moving, changing its rank or the short view.
+        val files = QuickDownloadFixtures.facebookFiles()
+        val stated = files.map { SheetSource(it, QuickDownloadMetadata.asset(it), false) }
+        val full = QuickDownloadChoices.of(group(files), stated)!!
+        val short = QuickDownloadChoices.compact(full, QualityPreference.UP_TO_720P)
+        assertEquals(listOf("HD", "SD"), full.video.map(SheetOption::title))
+
+        fun measured(source: SheetSource, width: Int, height: Int, bytes: Long): SheetSource {
+            val asset = requireNotNull(source.asset)
+            return source.copy(
+                asset = asset.copy(
+                    variants = asset.variants.map {
+                        it.copy(
+                            width = width,
+                            height = height,
+                            framesPerSecond = 30.0,
+                            sizeBytes = bytes,
+                            sizeAccuracy = MediaSizeAccuracy.EXACT,
+                            audioBitrateBitsPerSecond = 96_000,
+                        )
+                    },
+                ),
+            )
+        }
+        val hd = QuickDownloadChoices.updateSizes(full, measured(stated[0], 1280, 720, 25 * MIB))
+        val both = QuickDownloadChoices.updateSizes(hd, measured(stated[1], 640, 360, 9 * MIB))
+
+        assertEquals(listOf("720p · HD", "SD"), hd.video.map(SheetOption::title))
+        assertEquals(listOf("720p · HD", "360p"), both.video.map(SheetOption::title))
+        assertEquals(full.options.map(SheetOption::id), both.options.map(SheetOption::id))
+        assertEquals(listOf(720, 480), both.video.map(SheetOption::rankHeight))
+        assertEquals(listOf("720p", "360p"), both.video.map(SheetOption::quality))
+        assertEquals(
+            listOf("1280 × 720 · 30 fps · MP4", "640 × 360 · 30 fps · MP4"),
+            both.video.map(SheetOption::detail),
+        )
+        assertEquals(listOf("25 MB", "9 MB"), both.video.map(SheetOption::size))
+        assertEquals(
+            short.options.map(SheetOption::id),
+            QuickDownloadChoices.compact(both, QualityPreference.UP_TO_720P).options.map { it.id },
+        )
+        assertEquals(listOf("M4A") + mp3Titles, both.audio.map(SheetOption::title))
+        // The measured sound's bitrate sizes the M4A: 252 s at 96 kbps.
+        assertEquals("~${YftFormat.bytes(3_024_000)}", both.audio.first().size)
+        assertEquals("Normal quality for quick play", both.video.last().description)
+    }
+
+    @Test
+    fun sizesAreStatedElseEstimatedFromTheBitrateAndLengthElseUnknownAndNoRowIsDropped() {
+        // P25: a looked-up file without a size whose bitrate is known reads "~"; a merge adds
+        // its sound; nothing known keeps the row, which the sheet labels "Size unknown".
+        val stream = video(720, index = 1).copy(bitrateBitsPerSecond = 2_000_000)
+        val merged = video(1080, merged = true, index = 2).copy(bitrateBitsPerSecond = 4_000_000)
+        val bare = video(480, index = 3)
+        val music = audio(160)
+
+        val choices = choices(listOf(stream, merged, bare, music))!!
+
+        assertEquals(listOf(1080, 720, 480), choices.video.map(SheetOption::rankHeight))
+        assertEquals(
+            listOf(
+                // 252 s at 4 Mbit/s and the merge's 4 MiB sound.
+                "~${YftFormat.bytes(126_000_000 + 4 * MIB)}",
+                // 252 s at 2 Mbit/s.
+                "~${YftFormat.bytes(63_000_000)}",
+                null,
+            ),
+            choices.video.map(SheetOption::size),
+        )
+        // 252 s at 160 kbps.
+        assertEquals("~${YftFormat.bytes(5_040_000)}", choices.audio.first().size)
+    }
+
+    @Test
     fun preselectionFollowsTheDefaultQuality() {
         val choices = choices(QuickDownloadFixtures.youtube())!!
         val tall = choices(listOf(video(1080), video(720)))!!
@@ -415,6 +594,6 @@ class QuickDownloadChoicesTest {
         assertEquals("360p", pick(choices, QualityPreference.LOWEST))
         // Nothing at or below the ceiling: the lowest there is.
         assertEquals("720p · HD", pick(tall, QualityPreference.UP_TO_480P))
-        assertEquals("M4A · 128 kbps", pick(music, QualityPreference.HIGHEST))
+        assertEquals("M4A", pick(music, QualityPreference.HIGHEST))
     }
 }

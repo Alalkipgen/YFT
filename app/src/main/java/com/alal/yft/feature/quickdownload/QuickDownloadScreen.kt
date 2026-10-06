@@ -317,6 +317,7 @@ private fun Sections(
             options.forEach { option ->
                 FormatRow(
                     title = option.title,
+                    description = option.description,
                     detail = option.detail,
                     chips = option.chips,
                     size = option.size ?: SIZE_UNKNOWN,
@@ -346,6 +347,7 @@ private fun SectionLabel(text: String, modifier: Modifier = Modifier) {
 @Composable
 private fun FormatRow(
     title: String,
+    description: String?,
     detail: String,
     chips: List<String>,
     size: String?,
@@ -378,11 +380,22 @@ private fun FormatRow(
                 .padding(start = 14.dp),
         ) {
             Text(text = title, style = MaterialTheme.typography.bodyLarge)
+            // P25: one line under the title says what the quality is for.
+            description?.let { line ->
+                Text(
+                    text = line,
+                    modifier = Modifier.testTag("quick-row-description"),
+                    color = colors.textSecondary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             if (detail.isNotEmpty()) {
                 Text(
                     text = detail,
                     color = colors.textSecondary,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                 )
             }
             if (chips.isNotEmpty()) {

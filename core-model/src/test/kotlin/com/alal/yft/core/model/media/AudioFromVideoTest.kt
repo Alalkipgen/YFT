@@ -61,9 +61,18 @@ class AudioFromVideoTest {
     }
 
     @Test
-    fun onlyAnMp4WithAacSoundQualifies() {
-        assertFalse(AudioFromVideo.canExtract(video(codecs = listOf("avc1.4d401f"))))
-        assertFalse(AudioFromVideo.canExtract(video(codecs = emptyList())))
+    fun onlyAnMp4WithAacSoundOrSoundOfAnUnstatedCodecQualifies() {
+        // P25: other sites' MP4s and Facebook's HD/SD state no codecs; their sound is offered
+        // and the phone checks that it is AAC when it copies it.
+        listOf(emptyList(), listOf("avc1.4d401f")).forEach { codecs ->
+            assertTrue("$codecs", AudioFromVideo.canExtract(video(codecs = codecs)))
+            val m4a = AudioFromVideo.of(video(codecs = codecs))!!
+            assertEquals(emptyList<String>(), m4a.codecs)
+            assertNotNull(Mp3Variants.of(m4a, 128))
+        }
+        listOf("opus", "ac-3", "ec-3", "fLaC", ".mp3", "vorbis").forEach { sound ->
+            assertFalse(sound, AudioFromVideo.canExtract(video(codecs = listOf("avc1", sound))))
+        }
         val webm = video(mimeType = "video/webm").copy(container = "WebM")
         assertFalse(AudioFromVideo.canExtract(webm))
         assertFalse(AudioFromVideo.canExtract(video(trackType = MediaTrackType.VIDEO)))

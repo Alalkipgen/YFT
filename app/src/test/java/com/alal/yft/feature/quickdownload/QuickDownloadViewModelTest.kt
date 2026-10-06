@@ -197,6 +197,37 @@ class QuickDownloadViewModelTest {
     }
 
     @Test
+    fun aSitesHdAndSdFilesAreRenamedInPlaceOnceMeasuredAndOfferTheirSound() = runTest {
+        // P25: Facebook's HD/SD files state no height, codec or size. Their size check reads
+        // the pictures: the rows take their heights' names without moving, and their sound is
+        // offered as M4A and MP3 although no codec was stated.
+        val files = QuickDownloadFixtures.facebookFiles()
+        resolver.heights[files[0].mediaUrl] = 720
+        resolver.heights[files[1].mediaUrl] = 360
+        resolver.sizes[files[0].mediaUrl] = 25 * MIB
+        resolver.sizes[files[1].mediaUrl] = 9 * MIB
+        select(files)
+        val stated = QuickDownloadChoices.of(
+            QuickDownloadFixtures.group(files),
+            files.map { SheetSource(it, QuickDownloadViewModel.stated(it), resolved = false) },
+        )!!
+
+        val state = viewModel().uiState.value
+
+        val choices = state.choices!!
+        assertEquals(listOf("HD", "SD"), stated.video.map { it.title })
+        assertEquals(listOf("720p · HD", "360p"), choices.video.map { it.title })
+        assertEquals(stated.options.map { it.id }, choices.options.map { it.id })
+        assertEquals(listOf("25 MB", "9 MB"), choices.video.map { it.size })
+        assertEquals(
+            listOf("M4A", "MP3 · 320 kbps", "MP3 · 192 kbps", "MP3 · 128 kbps"),
+            choices.audio.map { it.title },
+        )
+        assertEquals(stated.video.first().id, state.selectedId)
+        assertEquals(files.toSet(), resolver.requested.toSet())
+    }
+
+    @Test
     fun aListOfQualitiesThatCannotBeReadIsNotANetworkProblem() = runTest {
         // P24: an exception from reading a page's manifest used to say "could not be reached".
         val stream = video(null, 25 * MIB, label = null, videoId = null, index = 1)

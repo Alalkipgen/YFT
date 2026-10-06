@@ -392,6 +392,27 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
     before the video came stops Home's or the feed's lookup (a site page's own lookup keeps
     running for the page). Other Home links keep the check first and open the sheet when it
     found one video.
+    **P25 (one sheet for every site):** YouTube, Facebook and every other site give the same
+    sheet from Home, the browser, a feed and the found list: Audio then Video, the same short
+    view (M4A and MP3 128 kbps; the Default quality and the next lower one) and More formats
+    with every row. Video rows are named by height everywhere ("2160p · 4K", "1440p · 2K",
+    "1080p · Full HD", "720p · HD", "480p", "360p", "240p", "144p"); a file the site names only
+    "HD"/"SD" keeps that word until its size check reads its picture, then takes its height's
+    name in place — same ID, place, rank and short view (P11). Audio: "M4A" for the original
+    sound, its bitrate on the detail line (a video's own AAC is copied, not re-encoded, so it
+    has no "Slow" chip), and "MP3 · 320/192/128 kbps" (chip "Slow"). Each row has one line
+    under its title (`quick-row-description`): 144p "Low quality, smallest file"; 240p "Low
+    quality for quick play"; 360p and 480p "Normal quality for quick play"; 720p "Clear view
+    and quick play"; 1080p "High details for full screen play"; 2K and above "High details for
+    big screen play"; M4A "Original sound, fastest"; MP3 "Plays everywhere"; a quality not known
+    yet "As the page plays it" (HD reads as 720p, SD as 480p). The detail line (picture, frame
+    rate, format) follows in a smaller style. Sizes: the stated size, else bitrate × length as
+    "~54 MB" (a merge adds its sound), else "Size unknown"; a row never disappears for lack of
+    a size. The sound of an MP4 whose codecs nobody stated (other sites' files, Facebook's
+    HD/SD) is offered as M4A and MP3 too; the phone checks for AAC when it copies it. The found
+    list names a lone file's quality and size the same way ("MP4 · 720p · HD · ~54 MB";
+    `YftQualityNames` holds the names and lines for both). `SHEET_NAMES=SNAPTUBE` (§3 E13) was
+    not asked for, so titles stay quality-first.
 
 18. **Search to download (Phase 9, T13).** Home's Search to download opens the browser start
     page with the address field focused (`browser?search=true`); Open browser opens the same

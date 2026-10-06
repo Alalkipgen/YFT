@@ -16,6 +16,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
@@ -42,6 +43,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w360dp-h780dp")
@@ -79,7 +81,7 @@ class QuickDownloadScreenTest {
         val videoTop = composeRule.onNodeWithTag("quick-section-video").assert(hasText("Video"))
             .fetchSemanticsNode().positionInRoot.y
         assertTrue(audioTop < videoTop)
-        composeRule.onNodeWithText("M4A · 128 kbps").assertExists()
+        composeRule.onNodeWithText("M4A").assertExists()
         composeRule.onNodeWithText("MP3 · 128 kbps").assertExists()
         composeRule.onAllNodesWithText("MP3 · 320 kbps").assertCountEquals(0)
         composeRule.onAllNodesWithText("1080p · Full HD").assertCountEquals(0)
@@ -519,6 +521,68 @@ class QuickDownloadScreenTest {
         composeRule.onNodeWithTag("quick-details").assertIsDisplayed()
         composeRule.onNodeWithTag("quick-option-${choices.video.last().id}").performScrollTo()
         composeRule.onNodeWithTag("quick-download").assertIsDisplayed()
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun everyRowShowsItsOneLineDescriptionAndDownloadStaysVisible() {
+        // P25: the line under each title says what the quality is for. Real text measuring
+        // (native graphics), so the rows are as tall as on a phone.
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(state = SAMPLE_QUICK_DOWNLOAD, onSelect = {}, onDownload = {})
+            }
+        }
+        val short = listOf(
+            "Original sound, fastest",
+            "Plays everywhere",
+            "Clear view and quick play",
+            "Normal quality for quick play",
+        )
+        val lines = composeRule.onAllNodesWithTag("quick-row-description", useUnmergedTree = true)
+        lines.assertCountEquals(short.size)
+        short.forEachIndexed { index, line ->
+            lines[index].assertIsDisplayed().assertTextEquals(line)
+        }
+        composeRule.onNodeWithTag("quick-download").assertIsDisplayed()
+
+        composeRule.onNodeWithTag("quick-more-formats").performClick()
+
+        composeRule.onAllNodesWithTag("quick-row-description", useUnmergedTree = true)
+            .assertCountEquals(SAMPLE_QUICK_DOWNLOAD.choices!!.options.size)
+        composeRule.onNodeWithText("High details for full screen play", useUnmergedTree = true)
+            .assertIsDisplayed()
+        composeRule.onNodeWithTag("quick-download").assertIsDisplayed()
+    }
+
+    @Test
+    @Config(qualifiers = "w320dp-h568dp")
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun onASmallPhoneDownloadStaysVisibleWithTheDescriptions() {
+        // P25: three lines a row still leave Details and Download pinned on a 568 dp screen.
+        val choices = QuickDownloadFixtures.choices(QuickDownloadFixtures.youtubeLadder())!!
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(
+                    state = SAMPLE_QUICK_DOWNLOAD.copy(
+                        choices = choices,
+                        selectedId = QuickDownloadChoices.preselect(
+                            choices,
+                            QualityPreference.UP_TO_720P,
+                        )?.id,
+                    ),
+                    onSelect = {},
+                    onDownload = {},
+                )
+            }
+        }
+        composeRule.onNodeWithTag("quick-download").assertIsDisplayed().assertIsEnabled()
+        composeRule.onNodeWithTag("quick-more-formats").performClick()
+        composeRule.onNodeWithTag("quick-option-${choices.video.last().id}").performScrollTo()
+        composeRule.onNodeWithText("Low quality, smallest file", useUnmergedTree = true)
+            .assertIsDisplayed()
+        composeRule.onNodeWithTag("quick-download").assertIsDisplayed()
+        composeRule.onNodeWithTag("quick-details").assertIsDisplayed()
     }
 
     @Test

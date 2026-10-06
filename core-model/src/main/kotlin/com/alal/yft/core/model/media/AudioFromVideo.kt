@@ -14,7 +14,11 @@ object AudioFromVideo {
     const val CONTAINER = "m4a"
     const val LABEL = "M4A"
 
-    /** True for a supported, whole MP4 video file whose sound is AAC. */
+    /**
+     * True for a supported, whole MP4 video file with sound whose sound is AAC, or (P25) whose
+     * sound's codec is not stated: other sites' files and Facebook's HD/SD rarely state codecs.
+     * The phone checks the track when it copies it and fails a file without AAC.
+     */
     fun canExtract(video: MediaVariant): Boolean {
         if (video.kind != MediaKind.DIRECT || video.trackType != MediaTrackType.AUDIO_VIDEO) {
             return false
@@ -24,7 +28,9 @@ object AudioFromVideo {
         val mime = video.mimeType?.substringBefore(';')?.trim()?.lowercase(Locale.US)
         val container = video.container?.trim()?.trimStart('.')?.lowercase(Locale.US)
         if (mime !in MP4_MIMES && container !in MP4_CONTAINERS) return false
-        return video.codecs.any { it.trim().lowercase(Locale.US).startsWith(AAC_CODEC_PREFIX) }
+        val codecs = video.codecs.map { it.trim().lowercase(Locale.US) }
+        if (codecs.any { it.startsWith(AAC_CODEC_PREFIX) }) return true
+        return codecs.none { codec -> OTHER_SOUND_CODECS.any(codec::startsWith) }
     }
 
     /**
@@ -67,4 +73,10 @@ object AudioFromVideo {
     private const val MILLIS_PER_SECOND = 1_000
     private val MP4_MIMES = setOf("video/mp4", "video/quicktime", "video/x-m4v")
     private val MP4_CONTAINERS = setOf("mp4", "m4v", "mov", "quicktime")
+
+    /** Sound codecs that are not AAC, as codec strings and MP4 sample entries name them. */
+    private val OTHER_SOUND_CODECS = listOf(
+        "opus", "vorbis", "flac", "alac", "ac-3", "ec-3", "ac-4", "mp3", ".mp3", "dts",
+        "mha1", "mhm1", "samr", "sawb", "lpcm", "ipcm", "fpcm", "sowt", "twos", "ulaw", "alaw",
+    )
 }

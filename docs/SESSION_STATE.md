@@ -52,7 +52,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent C — `work/phase-12-generic-sheet` (P24, P25)
 
-- Status: P24 OWNER CHECK (2026-10-06); P25 IN PROGRESS (base commit `f434724` =
+- Status: P24 OWNER CHECK (2026-10-06); P25 OWNER CHECK (2026-10-06) (base commit `f434724` =
   `origin/work/phase-12-integration`; folder `/data/YFT-C`)
 - Environment (Notion sandbox, fresh after a reset): JDK 17 `/data/toolchains/jdk17`, SDK
   `/data/toolchains/android-sdk` (platform 35, build-tools 35.0.0, NDK 27.3.13750724, CMake
@@ -119,7 +119,48 @@ Keep at least the heading and one blank line between sections, so Git merges the
   - Owner check: the site from Preview #3: Home → that video's sheet with its real length and
     "Other videos on this page"; the browser's Download → the same; the download finishes; if
     it fails, a screenshot of the sheet's Details.
-- P25 — One sheet for every site: IN PROGRESS
+- P25 — One sheet for every site: OWNER CHECK (2026-10-06)
+  - Result: one sheet on every site and from every entry (Home, browser, feed, found list).
+    `app/.../ui/format/YftQualityNames` (new): video names by height ("2160p · 4K", "1440p ·
+    2K", "1080p · Full HD", "720p · HD", "480p" … "144p"), the one-line descriptions, "M4A",
+    "MP3 · N kbps", bitrate × length estimates. `QuickDownloadChoices`: `SheetOption.description`
+    (default null), shown under the title (`quick-row-description`; the detail line follows in
+    a smaller style); Audio "M4A" with its bitrate in the detail and "MP3 · 320/192/128 kbps";
+    the M4A copied from a video has no "Slow" chip (MP3 keeps it); sizes: stated, else bitrate ×
+    length as "~" (a merge adds its sound), else "Size unknown"; `updateSizes` renames an HD/SD
+    (or unknown-quality) row in place once its file's picture is measured — same ID, place,
+    rank and short view; the video's sound prefers a file that states AAC.
+    `QuickDownloadViewModel.inspectSize` keeps what the size check read and the site did not
+    state (an unmeasured file's picture, its codecs, sound bitrate and length). core-model:
+    `AudioFromVideo.canExtract` also takes an MP4 with sound whose sound's codec is not stated
+    (Opus, Vorbis, FLAC, ALAC, AC-3, E-AC-3, AC-4, MP3, DTS and PCM entries stay out). Found
+    list: a lone file's facts add the sheet's quality name and size ("~" estimates, a merge's
+    two files).
+  - Plan adapted: no `SHEET_NAMES` answer, so titles stay quality-first (§3 E13); a row whose
+    quality is not known yet says "As the page plays it"; a renamed row keeps its HD/SD rank
+    (720/480), so neither the selection nor the short view changes while sizes arrive.
+  - Tests: 8 new in app (674 → 682): `QuickDownloadChoicesTest` 4 (four sites' table,
+    descriptions, rename in place, sizes), `QuickDownloadViewModelTest` 1,
+    `QuickDownloadScreenTest` 2 (native graphics: descriptions shown, Download pinned at 360 ×
+    780 and 320 × 568 dp), `YftFoundMediaTest` 1; `AudioFromVideoTest` 1 rewritten (unstated
+    codecs now qualify); changed expectations: "M4A" titles with the bitrate in the detail, no
+    "Slow" on the copied M4A.
+  - Regression proof: a copy of the old code (`git archive 5f61e87`) with the new tests (the
+    descriptions table left out: it needs the new field) → all 8 fail: the four sites' table
+    (YouTube's audio "M4A · 128 kbps"), the rename (`[HD, SD]`), the sizes (`[null, null,
+    null]`), the view model (`[HD, SD]`), both screen tests (no `quick-row-description`), the
+    found list (`[MP4, 25 MB, 0:25]`) and `AudioFromVideoTest` (a file without stated codecs
+    not offered); 7 more fail on purpose (the "M4A" titles), the other 57 of the 72 pass.
+  - Validation: `./gradlew --no-daemon --continue :core-model:test :core-browser:testDebugUnitTest
+    :core-media:testDebugUnitTest :extractor-generic:test :app:testDebugUnitTest :app:lintDebug` →
+    BUILD SUCCESSFUL (4m 13s): 886 tests, 0 failures, 66 skipped (app 682, core-browser 88,
+    core-media 28, core-model 69, extractor-generic 19); lint 0 errors, 95 warnings (unchanged).
+  - Audio check (read only): `AndroidAudioExtractor` fails a file without an AAC track as
+    `INCOMPATIBLE_TRACKS` (no broken file is kept), and MP3 reads the AAC track itself; Downloads
+    then says "Failed · Incompatible tracks" — hand-off to Agent A below.
+  - Owner check: YouTube, Facebook (Home and browser) and the other site → the same sheet:
+    Audio M4A + MP3 · 128 kbps, Video 720p selected + 480p or 360p, More formats with a
+    description on every row, a size or a "~" estimate on every row.
 - Hand-offs:
   - Hand-off to Agent A: `core-download/.../DirectRangeProbe.kt` — when HEAD lands on a web page
     (`text/html`), ask the original address with the range GET, not HEAD's final address — a
@@ -129,5 +170,10 @@ Keep at least the heading and one blank line between sections, so Git merges the
     origin-only `Referer` (never cookies) to a playlist's or segment's other host too — a page's
     HLS CDN may refuse pieces without them; since P24 the resolver keeps the page's `Origin` in
     each variant's `requestContext.observedHeaders`.
-- Next: P25 (names by height, one-line descriptions, Audio "M4A" and "MP3 · 128 kbps", sizes,
-  audio from MP4s of unknown codecs), then READY FOR MERGE.
+  - Hand-off to Agent A: `core-download/.../AudioTrackExtractor.kt` and
+    `app/.../feature/downloads/DownloadLabels.kt` — since P25 the sheet offers M4A and MP3 from
+    an MP4 whose codecs no site stated; when its sound is not AAC the copy (and MP3) fails as
+    `INCOMPATIBLE_TRACKS`, shown as "Failed · Incompatible tracks". A clearer line for audio
+    made from a video would help, e.g. "This video's sound can't be saved as audio. Download
+    the video instead."
+- Next: READY FOR MERGE once the P25 checkpoint's CI is green.
