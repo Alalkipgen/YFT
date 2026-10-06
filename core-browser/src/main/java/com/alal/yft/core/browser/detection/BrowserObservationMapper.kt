@@ -5,6 +5,7 @@ import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.PageMediaRole
 import com.alal.yft.extractor.generic.classifier.MediaFileUrls
 import com.alal.yft.extractor.generic.classifier.MediaUrlClassifier
 import java.net.URI
@@ -33,8 +34,32 @@ object BrowserObservationMapper {
                 CandidateConfidence.MEDIUM
             },
             observedAtEpochMs = observation.observedAtEpochMs,
+            pageRole = adRole(observation.requestUrl, observation.referer()),
         )
     }
+
+    /**
+     * P24: [PageMediaRole.PREVIEW] for an ad's file: its address, or the address of the frame
+     * that asked for it ([frameUrl], the request's `Referer`), names an ad server or ad words.
+     * The page's own player asks with the page as its `Referer`, so its files keep no role.
+     */
+    fun adRole(mediaUrl: String, frameUrl: String?): PageMediaRole? {
+        val ad = looksLikeAd(mediaUrl) || frameUrl?.let(::looksLikeAd) == true
+        return PageMediaRole.PREVIEW.takeIf { ad }
+    }
+
+    private fun looksLikeAd(url: String): Boolean {
+        val uri = runCatching { URI(url) }.getOrNull() ?: return false
+        val host = uri.host?.lowercase().orEmpty()
+        val labels = host.split('.')
+        if (labels.any { it in AD_HOST_LABELS } || AD_HOSTS.any { host.contains(it) }) return true
+        // Whole folders only: a video called "the-vast-ocean" is no ad.
+        return uri.path.orEmpty().lowercase().split('/').any { it in AD_FOLDERS }
+    }
+
+    private fun RequestObservation.referer(): String? =
+        headers.entries.firstOrNull { it.key.equals("Referer", ignoreCase = true) }?.value
+            ?.takeIf { it.isNotBlank() && it.substringBefore('#') != pageUrl.substringBefore('#') }
 
     /**
      * Returns a bounded-probe input for strongly hinted opaque endpoints as well as URLs that
@@ -94,6 +119,7 @@ object BrowserObservationMapper {
             requestContext = BrowserRequestContext(observation.pageUrl, null, null),
             confidence = CandidateConfidence.HIGH,
             observedAtEpochMs = observation.observedAtEpochMs,
+            pageRole = observation.pageRole ?: adRole(observation.mediaUrl, null),
         )
     }
 
@@ -165,5 +191,16 @@ object BrowserObservationMapper {
     )
     private val TRACKING_MARKERS = setOf(
         "/analytics", "/beacon", "/pixel", "/telemetry", "/tracking",
+    )
+
+    /** P24: host labels and hosts of ad servers, and the folders of ad files. */
+    private val AD_HOST_LABELS = setOf("ad", "ads", "adserver", "adservice", "adsystem", "vast")
+    private val AD_HOSTS = setOf(
+        "doubleclick", "googlesyndication", "googleadservices", "imasdk", "adnxs",
+        "amazon-adsystem", "advertising", "pubmatic", "rubiconproject", "spotxchange",
+        "springserve", "teads", "taboola", "outbrain", "criteo",
+    )
+    private val AD_FOLDERS = setOf(
+        "ad", "ads", "adserver", "adverts", "vast", "vpaid", "preroll", "midroll",
     )
 }

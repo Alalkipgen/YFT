@@ -213,6 +213,32 @@ class MediaMetadataProbeTest {
         assertTrue(probeJob.isCancelled)
     }
 
+    @Test
+    fun aStreamsLengthIsReadFromItsMasterAndItsFirstPlaylistWithThePagesOrigin() = runTest {
+        // P24: a page's HLS stream states its length only in its quality playlists.
+        server.enqueue(MockResponse().setBody(MASTER))
+        server.enqueue(MockResponse().setBody(PLAYLIST))
+        val master = candidate(server.url("/v42/master.m3u8").toString(), requestContext())
+            .copy(kind = MediaKind.HLS)
+
+        val read = probe.readManifest(master)!!
+
+        assertEquals(754_500L, read.durationMillis)
+        assertEquals(1080, read.height)
+        assertEquals(1920, read.width)
+        val first = server.takeRequest()
+        assertEquals("GET", first.method)
+        assertEquals("https://page.test/watch", first.getHeader("Referer"))
+        assertEquals("https://page.test", first.getHeader("Origin"))
+        assertEquals("/v42/720p/index.m3u8", server.takeRequest().path)
+
+        // A live stream has no length to read, and a file is not read at all.
+        server.enqueue(MockResponse().setBody("#EXTM3U\n#EXTINF:6,\na.ts"))
+        assertNull(probe.readManifest(master.copy(mediaUrl = server.url("/live.m3u8").toString())))
+        assertNull(probe.readManifest(master.copy(kind = MediaKind.DIRECT)))
+        assertEquals(3, server.requestCount)
+    }
+
     private fun candidate(
         url: String,
         context: BrowserRequestContext = BrowserRequestContext(
@@ -229,6 +255,19 @@ class MediaMetadataProbeTest {
         confidence = CandidateConfidence.LOW,
         observedAtEpochMs = 1,
     )
+
+    private companion object {
+        val MASTER = """
+            #EXTM3U
+            #EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720
+            720p/index.m3u8
+            #EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080
+            1080p/index.m3u8
+        """.trimIndent()
+        val PLAYLIST = "#EXTM3U\n#EXT-X-PLAYLIST-TYPE:VOD\n" +
+            (1..125).joinToString("") { "#EXTINF:6.0,\np$it.ts\n" } + "#EXTINF:4.5,\nlast.ts\n" +
+            "#EXT-X-ENDLIST\n"
+    }
 
     private fun requestContext() = BrowserRequestContext(
         pageUrl = "https://page.test/watch",

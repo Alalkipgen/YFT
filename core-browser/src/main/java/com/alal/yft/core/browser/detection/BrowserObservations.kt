@@ -1,5 +1,7 @@
 package com.alal.yft.core.browser.detection
 
+import com.alal.yft.core.model.media.PageMediaRole
+
 data class RequestObservation(
     val pageUrl: String,
     val requestUrl: String,
@@ -29,6 +31,8 @@ data class DomMediaObservation(
     val thumbnailUrl: String?,
     val durationMillis: Long?,
     val observedAtEpochMs: Long,
+    /** P24: what the page's markup says the file is ([PageMediaRole]); null when nothing. */
+    val pageRole: PageMediaRole? = null,
 )
 
 data class RedirectObservation(

@@ -30,11 +30,13 @@ import com.alal.yft.extractor.api.SiteExtractor
 import com.alal.yft.extractor.api.SiteExtractorRegistry
 import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
+import okhttp3.Request
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.json.JSONArray
@@ -1082,6 +1084,116 @@ class BrowserViewModelTest {
         assertEquals(2, opened.size)
     }
 
+    @Test
+    fun aVideoPageWithPreviewsAndAnAdOpensItsStreamByItsLengthWithTheRestCountedAsOthers() =
+        runTest {
+            // P24 (plan step 8): the owner's case. The page plays one HLS stream through Media
+            // Source Extensions (a blob: address); 40 muted looping previews and an ad's clip
+            // play around it. All hosts are reserved .test names.
+            val page = "https://videos.example.test/watch/42"
+            val master = "https://stream.example.test/v42/master.m3u8?token=fixture"
+            val playlist = "https://stream.example.test/v42/720p/index.m3u8"
+            val fetched = CopyOnWriteArrayList<Request>()
+            val client = OkHttpClient.Builder()
+                .addInterceptor { chain ->
+                    val asked = chain.request()
+                    fetched += asked
+                    val body = when (asked.url.encodedPath) {
+                        "/v42/master.m3u8" -> FIXTURE_MASTER
+                        "/v42/720p/index.m3u8" -> fixturePlaylist()
+                        else -> null
+                    }
+                    Response.Builder()
+                        .request(asked)
+                        .protocol(Protocol.HTTP_1_1)
+                        .code(if (body == null) 404 else 200)
+                        .message(if (body == null) "Not Found" else "OK")
+                        .header("Content-Type", "application/vnd.apple.mpegurl")
+                        .body(body.orEmpty().toResponseBody())
+                        .build()
+                }
+                .build()
+            val store = DetectedMediaStore()
+            val viewModel = BrowserViewModel(client, noAdapters(), store)
+            viewModel.onPageStarted(page)
+            viewModel.onPageFinished(page, "Long walk by the river")
+            val fromPage = mapOf("Referer" to page)
+            viewModel.onRequest(request(master, null, page).copy(headers = fromPage))
+            viewModel.onRequest(request(playlist, null, page).copy(headers = fromPage))
+            val adFrame = mapOf("Referer" to "https://ads.adnet.example.test/frame?slot=right")
+            viewModel.onRequest(
+                request("https://cdn.adnet.example.test/creative/v.mp4", null, page)
+                    .copy(headers = adFrame),
+            )
+            val previews = JSONArray()
+            repeat(40) { index ->
+                previews.put(
+                    JSONObject()
+                        .put("url", "https://media.example.test/previews/$index.mp4")
+                        .put("type", "video/mp4")
+                        .put("duration", 5 + index % 26)
+                        .put("muted", true)
+                        .put("loop", true)
+                        .put("thumbnail", true),
+                )
+            }
+            viewModel.onDomProbeResult(page, previews.toString())
+            // The stream states its length only in its manifest, read off the main thread.
+            fun streamsLengthsKnown(): Boolean {
+                val streams = viewModel.uiState.value.candidates.filter { it.kind == MediaKind.HLS }
+                return streams.any { it.mediaUrl == master } &&
+                    streams.all { it.durationMillis != null }
+            }
+            val deadline = System.currentTimeMillis() + 5_000
+            while (!streamsLengthsKnown() && System.currentTimeMillis() < deadline) {
+                Thread.sleep(20)
+                advanceTimeBy(100)
+                runCurrent()
+            }
+            advanceTimeBy(2_000)
+            runCurrent()
+
+            // The page plays a preview and its own player; the player's length names the stream.
+            val now = 1_000_000L
+            val answer = JSONObject().put("now", now).put(
+                "videos",
+                JSONArray()
+                    .put(
+                        JSONObject().put("src", "https://media.example.test/previews/3.mp4")
+                            .put("playing", true).put("duration", 8).put("time", 2)
+                            .put("width", 320).put("height", 180).put("area", 57_600)
+                            .put("muted", true).put("loop", true).put("thumbnail", true),
+                    )
+                    .put(
+                        JSONObject().put("src", "blob:https://videos.example.test/3f2a")
+                            .put("playing", true).put("duration", 754.5).put("time", 31)
+                            .put("width", 1920).put("height", 1080).put("area", 360_000)
+                            .put("muted", false).put("loop", false).put("thumbnail", false),
+                    ),
+            )
+            viewModel.mainVideoScript()
+            viewModel.onPlayingVideoResult(JSONObject.quote(answer.toString()))
+            runCurrent()
+            val selected = store.selection.value?.candidates.orEmpty()
+            val urls = selected.map { it.mediaUrl }
+            assertTrue(urls.toString(), master in urls)
+            assertTrue(selected.none { "/previews/" in it.mediaUrl || "adnet" in it.mediaUrl })
+            assertEquals(754_500L, selected.first { it.mediaUrl == master }.durationMillis)
+            assertEquals(41, store.otherVideos.value)
+
+            // A page that does not answer gets its stream too, never a preview.
+            viewModel.mainVideoScript()
+            advanceTimeBy(1_001)
+            runCurrent()
+            assertEquals(urls, store.selection.value?.candidates?.map { it.mediaUrl })
+            // The manifest was read the way the page's player reads it.
+            val read = fetched.first { asked ->
+                asked.method == "GET" && asked.url.encodedPath == "/v42/master.m3u8"
+            }
+            assertEquals(page, read.header("Referer"))
+            assertEquals("https://videos.example.test", read.header("Origin"))
+        }
+
     private fun downloadButtonVisible(viewModel: BrowserViewModel): Boolean =
         BrowserDownloadFab.isVisible(
             hasPage = viewModel.uiState.value.currentUrl != null,
@@ -1094,6 +1206,13 @@ class BrowserViewModelTest {
     /** The focused-video script's answer as `WebView.evaluateJavascript` hands it back. */
     private fun answer(url: String, source: String = "centre"): String =
         JSONObject.quote(JSONObject().put("url", url).put("source", source).toString())
+
+    /** P24: a 720p playlist of 125 six-second pieces and a last one of 4.5 s: 754.5 s. */
+    private fun fixturePlaylist(): String = buildString {
+        append("#EXTM3U\n#EXT-X-TARGETDURATION:6\n")
+        repeat(125) { index -> append("#EXTINF:6.0,\nseg$index.ts\n") }
+        append("#EXTINF:4.5,\nseg125.ts\n#EXT-X-ENDLIST\n")
+    }
 
     private fun mediaUrls(viewModel: BrowserViewModel): List<String> =
         viewModel.uiState.value.candidates.map { it.mediaUrl }
@@ -1244,5 +1363,10 @@ class BrowserViewModelTest {
         const val WATCH_B = "https://m.youtube.com/watch?v=BBBBBBBBBB2"
         const val PLAYER_FILE = "https://cdn.player.test/part/clip.mp4"
         const val PROBE_SETTLE_MS = 200L
+
+        /** P24: an HLS master of two qualities, the first one 720p. */
+        const val FIXTURE_MASTER = "#EXTM3U\n" +
+            "#EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720\n720p/index.m3u8\n" +
+            "#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080\n1080p/index.m3u8\n"
     }
 }

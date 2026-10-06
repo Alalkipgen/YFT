@@ -60,7 +60,32 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Phase 12 — Agent C (P24, P25)
 
-- (Agent C: replace this line with the P24 and P25 entries.)
+- Other sites, main video (P24): on a site YFT has no adapter for, Home and the browser open the
+  page's own video, not a preview or an ad around it. The browser matches the page's player by
+  its length, so a stream the page builds itself (a `blob:` player) is found, and reads a
+  stream's length from its list of qualities; without a match a long video beats a large file
+  and the picture height beats the size. Home reads the page's own words: `og:video`, JSON-LD
+  `VideoObject`s and a stream named in the page's scripts are its video, thumbnails' clips are
+  previews.
+- Found count (P24): "N media found", "Found on this page" and the Download button count the
+  page's videos; previews, ads and the other files a page lists follow under "Other videos on
+  this page (N)". Home with one video opens its sheet at once.
+- Honest failures (P24): when a video cannot be prepared the sheet says why ("The site refused
+  this video (HTTP 403)", a video the site no longer has, a busy site, "The site's list of
+  qualities could not be read.", an address YFT can't download) instead of "The media could not
+  be reached", and Details names the step, the host and the status. A page's HLS stream is read
+  with the page's `Referer` and `Origin`, and its sheet shows the video's length and estimated
+  sizes. A file server that answers HEAD with a web page is asked for the file itself.
+- One sheet for every site (P25): YouTube, Facebook and other sites give the same Download
+  sheet — Audio "M4A" (the original sound) and "MP3 · 128 kbps", Video the Default quality and
+  the next lower one, More formats with every row. Video rows are named by height ("1080p · Full
+  HD", "720p · HD", "480p", "360p"); a file Facebook names only HD or SD takes its height's name
+  in place once its picture is read. Each row has a one-line description ("Clear view and quick
+  play", "Original sound, fastest", "Plays everywhere") and a size, an estimate ("~54 MB") or
+  "Size unknown". The M4A kept from a video's sound is no longer marked "Slow".
+- Audio from more videos (P25): the sound of an MP4 whose codecs the site does not state (other
+  sites, Facebook's HD/SD) is offered as M4A and MP3. The found list names a file's quality and
+  size the way the sheet does.
 
 ### Added
 

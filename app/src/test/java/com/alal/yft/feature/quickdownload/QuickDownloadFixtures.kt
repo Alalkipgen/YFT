@@ -88,6 +88,60 @@ internal object QuickDownloadFixtures {
         audio(48, 2 * MIB),
     )
 
+    /** P25: YouTube's full ladder, 4K to 144p merged with M4A, the 360p file and two M4As. */
+    fun youtubeLadder(): List<MediaCandidate> =
+        listOf(2160, 1440, 1080, 720, 480, 240, 144).map { height ->
+            video(height, height / 10 * MIB, merged = true)
+        } + listOf(video(360, 11 * MIB), audio(128, 4 * MIB), audio(48, 2 * MIB))
+
+    const val FACEBOOK_ID = "facebook:fixture25"
+
+    /**
+     * P25: Facebook's HD and SD files as its page lists them: no height, no codecs, no size,
+     * named only by the site's word.
+     */
+    fun facebookFiles(): List<MediaCandidate> = listOf("HD" to 1, "SD" to 2).map { (word, at) ->
+        video(null, label = word, videoId = FACEBOOK_ID, index = at).copy(codecs = emptyList())
+    }
+
+    /** P25: Facebook's DASH tracks (1080p to 360p, merged with its M4A track) and HD/SD. */
+    fun facebookDash(): List<MediaCandidate> =
+        listOf(1080, 720, 480, 360).map { height ->
+            video(height, merged = true, videoId = FACEBOOK_ID)
+                .copy(bitrateBitsPerSecond = height * 2_000L)
+        } + facebookFiles() + audio(96, videoId = FACEBOOK_ID)
+
+    const val OTHER_PAGE = "https://videos.example.test/watch/sunrise"
+
+    /**
+     * P25: another site's page: its HLS master (1080p, 720p, 480p, sizes estimated from the
+     * bitrate) and an MP4 of the same video whose page states 720p but no codecs.
+     */
+    fun otherSite(): List<SheetSource> {
+        val master = video(null, kind = MediaKind.HLS, videoId = null, label = null, index = 1)
+            .copy(pageUrl = OTHER_PAGE)
+        val file = video(720, 30 * MIB, videoId = null, label = null, index = 2)
+            .copy(pageUrl = OTHER_PAGE, codecs = emptyList())
+        val stated = resolvedAsset(master).variants.single()
+        val ladder = listOf(1080 to 4_000_000L, 720 to 2_500_000L, 480 to 1_200_000L)
+            .map { (height, bitrate) ->
+                stated.copy(
+                    id = "hls-$height",
+                    playbackUrl = "${master.mediaUrl}?q=$height",
+                    kind = MediaKind.HLS,
+                    width = height * 16 / 9,
+                    height = height,
+                    bitrateBitsPerSecond = bitrate,
+                    sizeBytes = bitrate * LENGTH / 8_000,
+                    sizeAccuracy = MediaSizeAccuracy.ESTIMATED,
+                )
+            }
+        return listOf(
+            SheetSource(master, resolvedAsset(master).copy(variants = ladder), resolved = true),
+            SheetSource(file, resolvedAsset(file), resolved = true),
+        )
+    }
+
     fun group(candidates: List<MediaCandidate>): MediaGroup = MediaGroups.of(candidates).single()
 
     /** Each candidate looked up like the resolver does for a whole file. */

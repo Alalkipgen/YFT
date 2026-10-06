@@ -9,6 +9,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
@@ -39,6 +43,7 @@ import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.PageMediaRole
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.ui.components.ALLOWED_MEDIA_NOTE
 import com.alal.yft.ui.theme.YftTheme
@@ -299,6 +304,51 @@ class BrowserScreenTest {
         // That sheet's "Other videos on this page" opens the list.
         state = state.copy(foundListRequest = 1)
         composeRule.onNodeWithTag("found-list").assertIsDisplayed()
+    }
+
+    @Test
+    fun aPagesPreviewsAreNotCountedAndFollowItsVideoUnderOtherVideos() {
+        // P24: one stream and three preview clips: the button and the count say one video.
+        var main = 0
+        val previews = (1..3).map { number ->
+            clip().copy(
+                mediaUrl = "https://cdn.test/previews/$number.mp4",
+                title = "Preview $number",
+                pageRole = PageMediaRole.PREVIEW,
+            )
+        }
+        setScreen(
+            uiState = BrowserUiState(
+                address = PAGE,
+                currentUrl = PAGE,
+                candidates = previews.take(2) + stream() + previews.drop(2),
+            ),
+            onDownloadMain = { main++ },
+        )
+
+        composeRule.onNodeWithContentDescription("Download video, 1 found").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("browser-download-fab-badge", useUnmergedTree = true)
+            .assertCountEquals(0)
+        // Every entry still counts for the tap: the main video's sheet, the others behind it.
+        composeRule.onNodeWithTag("browser-download-fab").performClick()
+        composeRule.runOnIdle { assertEquals(1, main) }
+
+        composeRule.onNodeWithTag("media-found-button").performClick()
+        rowShows("found-item-0", "Fixture stream")
+        composeRule.onNodeWithTag("found-list")
+            .performScrollToNode(hasTestTag("found-other-videos"))
+        composeRule.onNodeWithTag("found-other-videos")
+            .assert(hasText("Other videos on this page (3)"))
+        rowShows("found-item-1", "Preview 1")
+        composeRule.onNodeWithTag("found-list").performScrollToNode(hasTestTag("found-item-3"))
+        rowShows("found-item-3", "Preview 3")
+    }
+
+    private fun rowShows(tag: String, text: String) {
+        composeRule.onNode(
+            hasAnyAncestor(hasTestTag(tag)) and hasText(text),
+            useUnmergedTree = true,
+        ).assertExists()
     }
 
     @Test

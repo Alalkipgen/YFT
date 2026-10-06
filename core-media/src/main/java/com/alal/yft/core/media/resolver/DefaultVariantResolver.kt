@@ -7,6 +7,7 @@ import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaSizeAccuracy
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
+import com.alal.yft.core.model.media.ResolutionStep
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.media.VariantSupport
@@ -66,17 +67,35 @@ class DefaultVariantResolver(
         .callTimeout(policy.callTimeoutSeconds, TimeUnit.SECONDS)
         .build()
 
-    override suspend fun resolve(candidate: MediaCandidate): VariantResolutionResult = try {
-        resolveSafely(candidate)
-    } catch (cancellation: CancellationException) {
-        throw cancellation
-    } catch (_: IOException) {
-        VariantResolutionResult.Failure(VariantResolutionFailure.NETWORK)
-    } catch (_: IllegalArgumentException) {
-        VariantResolutionResult.Failure(VariantResolutionFailure.INVALID_URL)
+    /**
+     * P24: a failure names the request it stopped at ([ResolutionStep]) and that request's host
+     * (never its path or query), so the sheet's Details can say where it went wrong.
+     */
+    override suspend fun resolve(candidate: MediaCandidate): VariantResolutionResult {
+        val trace = Trace(host = candidate.mediaUrl.toHttpUrlOrNull()?.host)
+        val result = try {
+            resolveSafely(candidate, trace)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: IOException) {
+            VariantResolutionResult.Failure(VariantResolutionFailure.NETWORK)
+        } catch (_: IllegalArgumentException) {
+            VariantResolutionResult.Failure(VariantResolutionFailure.INVALID_URL)
+        }
+        return if (result is VariantResolutionResult.Failure) {
+            result.copy(step = result.step ?: trace.step, host = result.host ?: trace.host)
+        } else {
+            result
+        }
     }
 
-    private suspend fun resolveSafely(candidate: MediaCandidate): VariantResolutionResult {
+    /** P24: where a resolution is: the step and host of its latest request. */
+    private class Trace(var host: String?, var step: ResolutionStep = ResolutionStep.ADDRESS)
+
+    private suspend fun resolveSafely(
+        candidate: MediaCandidate,
+        trace: Trace,
+    ): VariantResolutionResult {
         val initialUrl = candidate.mediaUrl.toSafeHttpUrl()
             ?: return VariantResolutionResult.Failure(VariantResolutionFailure.INVALID_URL)
         val companion = candidate.audioCompanion
@@ -96,11 +115,12 @@ class DefaultVariantResolver(
         }
 
         return when (candidate.effectiveKind()) {
-            MediaKind.HLS -> resolveManifest(candidate, initialUrl, expiresAt, MediaKind.HLS)
-            MediaKind.DASH -> resolveManifest(candidate, initialUrl, expiresAt, MediaKind.DASH)
+            MediaKind.HLS -> resolveManifest(candidate, initialUrl, expiresAt, MediaKind.HLS, trace)
+            MediaKind.DASH ->
+                resolveManifest(candidate, initialUrl, expiresAt, MediaKind.DASH, trace)
             MediaKind.DIRECT,
             MediaKind.UNKNOWN,
-            -> resolveDirect(candidate, initialUrl, expiresAt)
+            -> resolveDirect(candidate, initialUrl, expiresAt, trace)
         }
     }
 
@@ -108,6 +128,7 @@ class DefaultVariantResolver(
         candidate: MediaCandidate,
         initialUrl: HttpUrl,
         expiresAt: Long?,
+        trace: Trace,
     ): VariantResolutionResult {
         val head = when (
             val execution = execute(
@@ -115,6 +136,8 @@ class DefaultVariantResolver(
                 credentialOrigin = initialUrl,
                 initialUrl = initialUrl,
                 method = RequestMethod.HEAD,
+                trace = trace,
+                step = ResolutionStep.FILE_CHECK,
             )
         ) {
             is HttpExecution.Failed -> return execution.toResolutionFailure()
@@ -131,6 +154,12 @@ class DefaultVariantResolver(
                 httpStatusCode = metadata.code,
             )
         }
+        // P24: some file servers answer HEAD with a web page, or send it to their home page,
+        // while a range GET of the same address gets the file: the address itself is asked again.
+        if (metadata.mimeType.isWebPage()) {
+            finalUrl = initialUrl
+            metadata = DirectMetadata(code = metadata.code)
+        }
 
         if (
             metadata.code == HTTP_METHOD_NOT_ALLOWED ||
@@ -144,6 +173,8 @@ class DefaultVariantResolver(
                     credentialOrigin = initialUrl,
                     initialUrl = finalUrl,
                     method = RequestMethod.RANGE_GET,
+                    trace = trace,
+                    step = ResolutionStep.FILE_CHECK,
                 )
             ) {
                 is HttpExecution.Failed -> return execution.toResolutionFailure()
@@ -165,6 +196,10 @@ class DefaultVariantResolver(
             )
         }
 
+        // P24: a web page is not the video, whatever its address says.
+        if (metadata.mimeType.isWebPage()) {
+            return VariantResolutionResult.Failure(VariantResolutionFailure.INVALID_URL)
+        }
         val mimeType = soundMimeType(candidate, metadata.mimeType)
             ?: metadata.mimeType
             ?: candidate.mimeType?.normalizedMimeType()
@@ -285,6 +320,7 @@ class DefaultVariantResolver(
         initialUrl: HttpUrl,
         expiresAt: Long?,
         kind: MediaKind,
+        trace: Trace,
     ): VariantResolutionResult {
         val execution = when (
             val result = execute(
@@ -297,6 +333,8 @@ class DefaultVariantResolver(
                     MediaKind.DASH -> DASH_ACCEPT
                     else -> null
                 },
+                trace = trace,
+                step = ResolutionStep.MANIFEST,
             )
         ) {
             is HttpExecution.Failed -> return result.toResolutionFailure()
@@ -357,10 +395,11 @@ class DefaultVariantResolver(
                             VariantResolutionFailure.INVALID_URL,
                         )
                     variant.copy(
+                        // P24: the qualities are fetched like the manifest: Referer and Origin.
                         requestContext = candidate.requestContext.forTarget(
                             credentialOrigin = initialUrl,
                             targetUrl = target,
-                        ),
+                        ).withPageOrigin(),
                     )
                 }
                 if (variants.none(MediaVariant::isPreviewable)) {
@@ -368,14 +407,110 @@ class DefaultVariantResolver(
                         VariantResolutionFailure.UNSUPPORTED_CODEC,
                     )
                 } else {
+                    // P24: an HLS master states no length; its first quality's playlist does.
+                    val length = parsed.durationMillis ?: candidate.durationMillis
+                        ?: if (kind == MediaKind.HLS) {
+                            playlistLength(candidate, initialUrl, variants, trace)
+                        } else {
+                            null
+                        }
+                    trace.step = ResolutionStep.PREPARE
                     success(
                         candidate = candidate,
-                        variants = variants,
-                        durationMillis = parsed.durationMillis ?: candidate.durationMillis,
+                        variants = variants.map { it.withLength(length) },
+                        durationMillis = length,
                     )
                 }
             }
         }
+    }
+
+    /**
+     * P24: the length of an HLS master's video from its first video quality's own playlist (the
+     * sum of its pieces), in one bounded request sent like the master's; null when it cannot be
+     * read in time. Sizes are then estimated from each quality's bitrate.
+     */
+    private suspend fun playlistLength(
+        candidate: MediaCandidate,
+        masterUrl: HttpUrl,
+        variants: List<MediaVariant>,
+        trace: Trace,
+    ): Long? {
+        val first = variants.firstOrNull {
+            it.isPreviewable && it.trackType != MediaTrackType.AUDIO
+        } ?: variants.firstOrNull(MediaVariant::isPreviewable) ?: return null
+        val url = first.playbackUrl.toSafeHttpUrl() ?: return null
+        return try {
+            withContext(Dispatchers.IO) {
+                withTimeoutOrNull(PLAYLIST_TIMEOUT_MS) {
+                    readPlaylistLength(candidate, masterUrl, url, trace)
+                }
+            }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: IOException) {
+            null
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+    }
+
+    private suspend fun readPlaylistLength(
+        candidate: MediaCandidate,
+        masterUrl: HttpUrl,
+        playlistUrl: HttpUrl,
+        trace: Trace,
+    ): Long? {
+        val execution = execute(
+            candidate = candidate,
+            credentialOrigin = masterUrl,
+            initialUrl = playlistUrl,
+            method = RequestMethod.GET,
+            accept = HLS_ACCEPT,
+            trace = trace,
+            step = ResolutionStep.MEDIA_PLAYLIST,
+        ) as? HttpExecution.Completed ?: return null
+        val text = execution.response.use { response ->
+            if (response.code !in SUCCESS_CODES) return null
+            val bytes = response.body?.byteStream()?.readAtMost(policy.maxManifestBytes + 1)
+                ?: return null
+            if (bytes.size > policy.maxManifestBytes) return null
+            bytes.toString(Charsets.UTF_8)
+        }
+        val parsed = HlsManifestParser.parse(
+            manifest = text,
+            manifestUrl = execution.finalUrl.toString(),
+            requestContext = candidate.requestContext,
+            expiresAtEpochMs = null,
+        ) as? ManifestParseResult.Parsed ?: return null
+        return parsed.durationMillis?.takeIf { it > 0 }
+    }
+
+    /** P24: a quality of a video of [length] states it, and its size from its bitrate. */
+    private fun MediaVariant.withLength(length: Long?): MediaVariant {
+        if (length == null || length <= 0) return this
+        val estimate = if (sizeBytes == null) estimateSize(bitrateBitsPerSecond, length) else null
+        return copy(
+            durationMillis = durationMillis ?: length,
+            sizeBytes = sizeBytes ?: estimate?.bytes,
+            sizeAccuracy = sizeAccuracy ?: estimate?.accuracy,
+        )
+    }
+
+    /**
+     * P24: a manifest found on a page is fetched as the page's player fetches it: with the page as
+     * `Referer` and its `Origin`. Only where the page is HTTPS and still named (same origin).
+     */
+    private fun BrowserRequestContext.withPageOrigin(): BrowserRequestContext {
+        val origin = pageOrigin(pageUrl) ?: return this
+        if (observedHeaders.keys.any { it.equals(ORIGIN, ignoreCase = true) }) return this
+        return copy(observedHeaders = observedHeaders + (ORIGIN to origin))
+    }
+
+    private fun pageOrigin(pageUrl: String?): String? {
+        val page = pageUrl?.toHttpUrlOrNull()?.takeIf { it.isHttps } ?: return null
+        val port = if (page.port == HTTPS_PORT) "" else ":${page.port}"
+        return "https://${page.host}$port"
     }
 
     private fun success(
@@ -404,16 +539,28 @@ class DefaultVariantResolver(
         method: RequestMethod,
         accept: String? = null,
         range: String? = null,
+        trace: Trace? = null,
+        step: ResolutionStep? = null,
     ): HttpExecution {
         var currentUrl = initialUrl
         var redirectCount = 0
         while (true) {
+            trace?.let {
+                it.host = currentUrl.host
+                if (step != null) it.step = step
+            }
             val requestBuilder = Request.Builder().url(currentUrl)
-            candidate.requestContext
-                .headersForTarget(credentialOrigin, currentUrl)
-                .forEach { (name, value) ->
-                    runCatching { requestBuilder.header(name, value) }
-                }
+            val headers = candidate.requestContext.headersForTarget(credentialOrigin, currentUrl)
+            // P24: a manifest request carries the page's Origin next to its Referer.
+            val sent = if (accept != null && headers.keys.any { it.equals(REFERER, true) }) {
+                candidate.requestContext.withPageOrigin().observedHeaders
+                    .filterKeys { it.equals(ORIGIN, ignoreCase = true) } + headers
+            } else {
+                headers
+            }
+            sent.forEach { (name, value) ->
+                runCatching { requestBuilder.header(name, value) }
+            }
             if (accept != null) requestBuilder.header("Accept", accept)
             when (method) {
                 RequestMethod.HEAD -> requestBuilder.head()
@@ -552,6 +699,9 @@ class DefaultVariantResolver(
     private fun String.normalizedMimeType(): String =
         substringBefore(';').trim().lowercase(Locale.US)
 
+    private fun String?.isWebPage(): Boolean =
+        this == "text/html" || this == "application/xhtml+xml"
+
     /**
      * A sound track its source states as `audio/mp4` stays audio when the server calls the same
      * container `video/mp4`: Facebook's CDN labels every MP4 that way, sound-only tracks
@@ -634,6 +784,10 @@ class DefaultVariantResolver(
     )
 
     private companion object {
+        const val ORIGIN = "Origin"
+        const val REFERER = "Referer"
+        const val HTTPS_PORT = 443
+        const val PLAYLIST_TIMEOUT_MS = 5_000L
         const val HTTP_OK = 200
         const val HTTP_PARTIAL_CONTENT = 206
         const val PROBE_TIMEOUT_MS = 8_000L

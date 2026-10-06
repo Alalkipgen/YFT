@@ -2,6 +2,7 @@ package com.alal.yft.core.browser.detection
 
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.PageMediaRole
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -100,6 +101,27 @@ class BrowserObservationMapperTest {
 
         assertNull(blob)
         assertEquals(MediaKind.DASH, manifest?.kind)
+    }
+
+    @Test
+    fun anAdsFileIsAPreviewByItsServerItsFolderOrTheFrameThatAskedForIt() {
+        // P24: the page's player asks with the page as its Referer, so its files keep no role.
+        fun role(url: String, referer: String? = null) = BrowserObservationMapper.fromRequest(
+            request(url, method = "GET").copy(
+                headers = referer?.let { mapOf("Referer" to it) } ?: emptyMap(),
+            ),
+        )?.pageRole
+
+        assertEquals(
+            PageMediaRole.PREVIEW,
+            role("https://cdn.adnet.test/creative/v.mp4", "https://ads.adnet.test/frame?slot=1"),
+        )
+        assertEquals(PageMediaRole.PREVIEW, role("https://cdn.test/ads/clip.mp4"))
+        assertEquals(PageMediaRole.PREVIEW, role("https://pubads.g.doubleclick.net/v/1.mp4"))
+        assertNull(role("https://cdn.test/v/master.m3u8", referer = pageUrl))
+        // Whole folders only: a video about the vast ocean is no ad.
+        assertNull(role("https://cdn.test/the-vast-ocean/1.mp4"))
+        assertNull(role("https://cdn.test/downloads/1.mp4"))
     }
 
     private fun request(url: String, method: String) = RequestObservation(

@@ -6,6 +6,7 @@ import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.CompanionAudio
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.PageMediaRole
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -190,6 +191,24 @@ class CandidateNormalizerTest {
         assertEquals(3, result.size)
         assertTrue(result.first().mediaUrl.endsWith("/2.mp4"))
         assertFalse(result.any { it.mediaUrl.endsWith("/1.mp4") })
+    }
+
+    @Test
+    fun aFileThePageNamesAsItsVideoStaysItsVideoWhereverElseItShows() {
+        // P24: the page's JSON-LD names the stream; the same stream played muted is no preview.
+        val stream = "https://cdn.test/v/master.m3u8"
+        val named = candidate(stream, kind = MediaKind.HLS).copy(pageRole = PageMediaRole.MAIN)
+        val played = candidate(stream, kind = MediaKind.HLS, observedAt = 9)
+            .copy(pageRole = PageMediaRole.PREVIEW)
+        val clip = candidate("https://cdn.test/clip.mp4").copy(pageRole = PageMediaRole.PREVIEW)
+        val plain = candidate("https://cdn.test/clip.mp4", observedAt = 9)
+
+        val result = CandidateNormalizer().normalize(pageUrl, listOf(named, played, clip, plain))
+
+        assertEquals(
+            listOf(PageMediaRole.MAIN, PageMediaRole.PREVIEW),
+            result.map { it.pageRole },
+        )
     }
 
     private fun candidate(

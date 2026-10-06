@@ -16,6 +16,7 @@ import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.PageMediaRole
 import com.alal.yft.ui.theme.YftTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -119,6 +120,40 @@ class DetectedMediaScreenTest {
         composeRule.onAllNodesWithTag("detected-preview-1").assertCountEquals(0)
         composeRule.onNodeWithTag("detected-preview-0").performClick()
         assertEquals(qualities, previewed?.candidates)
+    }
+
+    @Test
+    fun aPagesPreviewsAreNotCountedAndFollowItsVideoUnderOtherVideos() {
+        // P24: the page's video comes first and is the count; its previews follow it.
+        val video = candidate(2, "Fixture clip").copy(durationMillis = 600_000)
+        val previews = (0..1).map { index ->
+            candidate(index, "Preview ${index + 1}").copy(pageRole = PageMediaRole.PREVIEW)
+        }
+        var previewed: MediaGroup? = null
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                DetectedMediaScreen(
+                    page = DetectedPage(
+                        pageUrl = "https://video.example.test/watch?token=secret-value",
+                        pageTitle = "Fixture page",
+                        candidates = previews + video,
+                    ),
+                    onNavigateBack = {},
+                    onPreview = { previewed = it },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("video.example.test · 1 media item found").assertIsDisplayed()
+        composeRule.onNodeWithTag("detected-preview-0").performClick()
+        assertEquals(listOf(video), previewed?.candidates)
+        composeRule.onNodeWithTag("detected-list")
+            .performScrollToNode(hasTestTag("detected-other-videos"))
+        composeRule.onNodeWithText("Other videos on this page (2)").assertIsDisplayed()
+        composeRule.onNodeWithTag("detected-list")
+            .performScrollToNode(hasTestTag("detected-preview-2"))
+        composeRule.onNodeWithTag("detected-preview-2").performClick()
+        assertEquals(listOf(previews[1]), previewed?.candidates)
     }
 
     @Test

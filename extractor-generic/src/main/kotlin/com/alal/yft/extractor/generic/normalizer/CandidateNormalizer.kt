@@ -5,6 +5,7 @@ import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.PageMediaRole
 import com.alal.yft.extractor.generic.classifier.MediaFileUrls
 import com.alal.yft.extractor.generic.classifier.MediaUrlClassifier
 import java.net.URI
@@ -130,7 +131,15 @@ class CandidateNormalizer(
                 else -> null
             },
             observedAtEpochMs = maxOf(first.observedAtEpochMs, second.observedAtEpochMs),
+            pageRole = mergedRole(first.pageRole, second.pageRole),
         )
+    }
+
+    /** P24: a file the page names as its own video stays its video wherever else it shows. */
+    private fun mergedRole(first: PageMediaRole?, second: PageMediaRole?): PageMediaRole? = when {
+        first == PageMediaRole.MAIN || second == PageMediaRole.MAIN -> PageMediaRole.MAIN
+        first == PageMediaRole.PREVIEW || second == PageMediaRole.PREVIEW -> PageMediaRole.PREVIEW
+        else -> null
     }
 
     private fun richerKind(first: MediaKind, second: MediaKind): MediaKind = when {

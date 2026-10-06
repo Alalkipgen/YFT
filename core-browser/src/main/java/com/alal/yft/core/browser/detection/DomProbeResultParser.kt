@@ -1,6 +1,8 @@
 package com.alal.yft.core.browser.detection
 
 import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.PageMediaRole
 import org.json.JSONArray
 import org.json.JSONTokener
 
@@ -34,8 +36,13 @@ class DomProbeResultParser(
                         ?.times(1000)
                         ?.toLong(),
                     observedAtEpochMs = observedAtEpochMs,
+                    pageRole = PageMediaRole.PREVIEW.takeIf { item.looksLikePreview() },
                 )
-                BrowserObservationMapper.fromDom(observation)?.let(::add)
+                val candidate = BrowserObservationMapper.fromDom(observation) ?: return@repeat
+                // P24: an Open Graph or Twitter stream that is a media file is the page's video.
+                val named = item.optNullableString("element") == "meta" &&
+                    candidate.kind != MediaKind.UNKNOWN && candidate.pageRole == null
+                add(if (named) candidate.copy(pageRole = PageMediaRole.MAIN) else candidate)
             }
         }
     }
@@ -51,4 +58,9 @@ class DomProbeResultParser(
 
     private fun org.json.JSONObject.optNullableString(name: String): String? =
         optString(name, "").trim().takeIf(String::isNotEmpty)
+
+    /** P24: a muted loop, or a clip in a link to another page or a thumbnail box. */
+    private fun org.json.JSONObject.looksLikePreview(): Boolean =
+        optBoolean("muted", false) && optBoolean("loop", false) ||
+            optBoolean("thumbnail", false)
 }

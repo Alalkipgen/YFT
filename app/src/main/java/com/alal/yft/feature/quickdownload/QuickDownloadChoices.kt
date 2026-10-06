@@ -10,12 +10,14 @@ import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.Mp3Variants
 import com.alal.yft.core.model.media.VariantResolutionFailure
+import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.detection.VideoPlaybackSupport
 import com.alal.yft.feature.preview.sizeText
+import com.alal.yft.ui.format.YftFormat
+import com.alal.yft.ui.format.YftQualityNames
 import java.net.URI
 import java.util.Locale
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /** One candidate of the video the sheet shows, with the variants its lookup found. */
@@ -26,6 +28,8 @@ data class SheetSource(
     /** False when [asset] was built from what the site stated: Download looks it up first. */
     val resolved: Boolean,
     val failure: VariantResolutionFailure? = null,
+    /** P24: the whole failure behind [failure], for the sheet's message and Details. */
+    val failureDetail: VariantResolutionResult.Failure? = null,
 )
 
 enum class OptionSection { VIDEO, AUDIO }
@@ -34,13 +38,13 @@ enum class OptionSection { VIDEO, AUDIO }
 data class SheetOption(
     val id: String,
     val section: OptionSection,
-    /** "480p", "720p · HD", "M4A · 128 kbps", "MP3 · 320 kbps"; never the page title. */
+    /** "480p", "720p · HD", "M4A", "MP3 · 320 kbps"; never the page title. */
     val title: String,
     /** The real picture, "848 × 478 · 30 fps · MP4", or "The video's own sound"; may be empty. */
     val detail: String,
-    /** "25 MB", "~4.6 MB", or null when unknown. */
+    /** "25 MB", else bitrate × length as "~4.6 MB", else null: the sheet says "Size unknown". */
     val size: String?,
-    /** "No sound" for a silent video, "Slow" for audio made on the phone. */
+    /** "No sound" for a silent video, "Slow" for an MP3 made on the phone. */
     val chips: List<String>,
     val source: SheetSource,
     val variant: MediaVariant,
@@ -48,6 +52,8 @@ data class SheetOption(
     val quality: String? = null,
     /** The standard height the row is named after and ordered by; HD ranks 720, SD 480. */
     val rankHeight: Int? = null,
+    /** P25: the line under the title, "Clear view and quick play" or "Plays everywhere". */
+    val description: String? = null,
 )
 
 /**
@@ -77,8 +83,10 @@ data class QuickChoices(
  * Builds the download sheet from the resolved candidates of one video. Pure, so the table of
  * cases is unit-tested.
  *
- * Audio offers the best M4A file, else the sound of an MP4 kept as M4A, and that AAC converted
- * to MP3 at every [Mp3Variants.BITRATES_KBPS]; another audio file only when there is no M4A.
+ * Audio offers the best M4A file, else the sound of an MP4 kept as M4A (P25: also when its
+ * codecs are not stated), and that AAC converted to MP3 at every [Mp3Variants.BITRATES_KBPS];
+ * another audio file only when there is no M4A. P25: every row has a one-line description and a
+ * size, an estimate ("~") or "Size unknown"; rows are named the same on every site.
  * Video offers one row per standard resolution (240p, 360p, 480p, 720p, 1080p and higher):
  * a row is named after the nearest standard height of the picture's short side, so 848 × 478 is
  * "480p" while its detail keeps the real "848 × 478 · 30 fps". Of the files at one resolution
@@ -89,9 +97,11 @@ data class QuickChoices(
  */
 object QuickDownloadChoices {
     /** The heights rows are named after, from 144p to 8K. */
-    val STANDARD_HEIGHTS = listOf(144, 240, 360, 480, 720, 1_080, 1_440, 2_160, 4_320)
+    val STANDARD_HEIGHTS = YftQualityNames.STANDARD_HEIGHTS
 
     const val NO_SOUND = "No sound"
+
+    /** On an MP3 row: the phone re-encodes the sound after the download. */
     const val SLOW = "Slow"
 
     /** P6: on a 2K or 4K row whose picture this phone has no decoder for. */
@@ -207,13 +217,18 @@ object QuickDownloadChoices {
         )
     }
 
-    /** P11: update only sizes/source status, never titles, IDs, row order or chosen formats. */
+    /**
+     * P11: update only sizes/source status, never IDs, row order or chosen formats. P25: a row
+     * the site named only "HD"/"SD" takes its height's name in place once its file's picture is
+     * measured ("720p · HD"); it keeps its place and rank, so nothing moves.
+     */
     fun updateSizes(choices: QuickChoices, source: SheetSource): QuickChoices {
         fun update(option: SheetOption): SheetOption {
             if (option.source.candidate != source.candidate) return option
             val asset = source.asset ?: return option.copy(source = source)
-            var variant = asset.variants.firstOrNull { it.mp3 == null && !it.audioFromVideo }
+            val file = asset.variants.firstOrNull { it.mp3 == null && !it.audioFromVideo }
                 ?: return option.copy(source = source)
+            var variant = file
             if (option.variant.audioFromVideo) {
                 variant = AudioFromVideo.of(variant, asset.durationMillis)
                     ?: return option.copy(source = source)
@@ -222,9 +237,9 @@ object QuickDownloadChoices {
                 variant = Mp3Variants.of(variant, mp3.bitrateKbps, asset.durationMillis)
                     ?: return option.copy(source = source)
             }
-            return option.copy(
+            return measured(option, file).copy(
                 source = source,
-                size = variant.sizeText(),
+                size = sizeOf(variant, asset.durationMillis ?: source.candidate.durationMillis),
                 variant = option.variant.copy(
                     sizeBytes = variant.sizeBytes,
                     sizeAccuracy = variant.sizeAccuracy,
@@ -238,20 +253,62 @@ object QuickDownloadChoices {
     }
 
     /** The standard height for a picture of [width] × [height]: nearest to its short side. */
-    fun standardHeight(width: Int?, height: Int): Int {
-        val side = if (width != null && width > 0) minOf(width, height) else height
-        // On a tie the lower name wins, so a row never claims more than the picture has.
-        return STANDARD_HEIGHTS.minBy { standard -> abs(standard - side) }
+    fun standardHeight(width: Int?, height: Int): Int =
+        YftQualityNames.standardHeight(width, height)
+
+    /**
+     * P25: a video row named by the site's word or unknown whose file now states its picture
+     * takes the name, detail and line of its height.
+     */
+    private fun measured(option: SheetOption, file: MediaVariant): SheetOption {
+        if (option.section != OptionSection.VIDEO || option.variant.height != null) return option
+        val height = file.height?.takeIf { it > 0 } ?: return option
+        val standard = standardHeight(file.width, height)
+        return option.copy(
+            title = YftQualityNames.videoName(standard, file.framesPerSecond),
+            detail = pictureDetail(file),
+            quality = YftQualityNames.quality(standard, file.framesPerSecond),
+            description = YftQualityNames.videoDescription(standard),
+        )
+    }
+
+    /**
+     * P25: the stated size, else an estimate from the bitrate and the length ("~54 MB", a
+     * merge's sound included), else null for "Size unknown"; a row never disappears for it.
+     */
+    private fun sizeOf(variant: MediaVariant, length: Long?): String? {
+        variant.sizeText()?.let { return it }
+        val duration = variant.durationMillis?.takeIf { it > 0 } ?: length
+        val picture = YftQualityNames.estimatedBytes(variant.bitrateBitsPerSecond, duration)
+            ?: return null
+        val companion = variant.audioCompanion
+        val sound = when {
+            companion == null -> 0L
+            else -> companion.contentLengthBytes
+                ?: YftQualityNames.estimatedBytes(companion.bitrateBitsPerSecond, duration)
+                ?: return null
+        }
+        if (picture > Long.MAX_VALUE - sound) return null
+        return "~${YftFormat.bytes(picture + sound)}"
     }
 
     private fun withSound(options: List<SheetOption>): SheetOption =
         options.firstOrNull { it.variant.trackType == MediaTrackType.AUDIO_VIDEO }
             ?: options.first()
 
-    /** One row per standard resolution, highest first; files of unknown quality stay apart. */
+    /**
+     * One row per standard resolution, highest first; files of unknown quality stay apart.
+     * P24: a page's quality playlist found beside its master is not a row of its own when the
+     * master names it with its height.
+     */
     private fun videoRows(options: List<SheetOption>): List<SheetOption> {
+        val measured = options.filter { it.variant.height != null }
+            .mapTo(HashSet()) { it.variant.playbackUrl }
         val rows = LinkedHashMap<String, SheetOption>()
         options.sortedWith(VIDEO_ORDER).forEach { option ->
+            if (option.variant.height == null && option.variant.playbackUrl in measured) {
+                return@forEach
+            }
             val hint = option.quality?.uppercase(Locale.US)?.takeIf { it == "HD" || it == "SD" }
             val key = when {
                 hint != null && option.variant.height == null -> "hint:$hint"
@@ -285,24 +342,13 @@ object QuickDownloadChoices {
         val height = variant.height?.takeIf { it > 0 }
         val standard = height?.let { standardHeight(variant.width, it) }
         val hint = if (standard == null) qualityHint(source.candidate) else null
-        val quality = standard?.let { "${it}p${variant.highFrameRate()}" } ?: hint
+        val quality = standard?.let { YftQualityNames.quality(it, variant.framesPerSecond) } ?: hint
         val title = when {
-            standard != null -> listOfNotNull(quality, resolutionName(standard)).joinToString(" · ")
+            standard != null -> YftQualityNames.videoName(standard, variant.framesPerSecond)
             hint != null -> hint
             else -> QUALITY_UNKNOWN
         }
-        // The real picture: a row named 480p for 848 × 478 still says 848 × 478.
-        val width = variant.width?.takeIf { it > 0 }
-        val picture = when {
-            height == null -> null
-            width != null -> "$width × $height"
-            else -> "${height}p"
-        }
-        val detail = listOfNotNull(
-            picture,
-            variant.framesPerSecond?.takeIf { it > 0 }?.let { "${it.roundToInt()} fps" },
-            formatName(variant),
-        ).joinToString(" · ")
+        val rank = standard ?: hint?.let(::hintHeight)
         val silent = variant.trackType == MediaTrackType.VIDEO
         // Every phone YFT runs on plays Full HD; above it only some decode VP9 or AV1 (P6).
         val unplayable = (standard ?: 0) > FULL_HD_HEIGHT && !playback.canPlay(variant)
@@ -310,15 +356,37 @@ object QuickDownloadChoices {
             id = optionId(index, variant),
             section = OptionSection.VIDEO,
             title = title,
-            detail = detail,
-            size = variant.sizeText(),
+            detail = pictureDetail(variant),
+            size = sizeOf(variant, lengthOf(source)),
             chips = listOfNotNull(NO_SOUND.takeIf { silent }, MAY_NOT_PLAY.takeIf { unplayable }),
             source = source,
             variant = variant,
             quality = quality,
-            rankHeight = standard ?: hint?.let(::hintHeight),
+            rankHeight = rank,
+            description = YftQualityNames.videoDescription(rank),
         )
     }
+
+    /** The real picture: a row named 480p for 848 × 478 still says "848 × 478 · 30 fps · MP4". */
+    private fun pictureDetail(variant: MediaVariant): String {
+        val height = variant.height?.takeIf { it > 0 }
+        val width = variant.width?.takeIf { it > 0 }
+        val picture = when {
+            height == null -> null
+            width != null -> "$width × $height"
+            else -> "${height}p"
+        }
+        return listOfNotNull(
+            picture,
+            variant.framesPerSecond?.takeIf { it > 0 }?.let { "${it.roundToInt()} fps" },
+            formatName(variant),
+        ).joinToString(" · ")
+    }
+
+    /** The video's length for size estimates: what its lookup read, else what the site said. */
+    private fun lengthOf(source: SheetSource): Long? =
+        source.asset?.durationMillis?.takeIf { it > 0 }
+            ?: source.candidate.durationMillis?.takeIf { it > 0 }
 
     /**
      * A site adapter's own quality word for a file the lookup could not measure, such as
@@ -338,35 +406,52 @@ object QuickDownloadChoices {
             ?.let { standardHeight(null, it) }
     }
 
+    /**
+     * P25: "M4A" for the original sound (a file, or the video's own AAC copied: fastest) with its
+     * bitrate in the detail; "MP3 · 128 kbps" for MP3; another file by its format and bitrate.
+     */
     private fun audioOption(index: Int, source: SheetSource, variant: MediaVariant): SheetOption {
-        val converted = variant.mp3 != null || variant.audioFromVideo
-        val title = listOfNotNull(formatName(variant) ?: "Audio", variant.kbpsText())
-            .joinToString(" · ")
+        val format = formatName(variant)
+        val kbps = variant.kbpsText()
+        val language = variant.language?.trim()?.takeIf(String::isNotEmpty)
+        val mp3 = variant.mp3
+        val title = when {
+            mp3 != null -> YftQualityNames.mp3Name(mp3.bitrateKbps)
+            format == YftQualityNames.M4A -> YftQualityNames.M4A
+            else -> listOfNotNull(format ?: "Audio", kbps).joinToString(" · ")
+        }
         val detail = when {
-            variant.mp3 != null -> "Made on the phone"
-            variant.audioFromVideo -> "The video's own sound"
-            else -> variant.language?.trim()?.takeIf(String::isNotEmpty).orEmpty()
+            mp3 != null -> "Made on the phone"
+            variant.audioFromVideo -> listOfNotNull(OWN_SOUND, kbps).joinToString(" · ")
+            format == YftQualityNames.M4A -> listOfNotNull(kbps, language).joinToString(" · ")
+            else -> language.orEmpty()
         }
         return SheetOption(
             id = optionId(index, variant),
             section = OptionSection.AUDIO,
             title = title,
             detail = detail,
-            size = variant.sizeText(),
-            chips = if (converted) listOf(SLOW) else emptyList(),
+            size = sizeOf(variant, lengthOf(source)),
+            chips = if (mp3 != null) listOf(SLOW) else emptyList(),
             source = source,
             variant = variant,
+            description = if (mp3 != null || format == "MP3") {
+                YftQualityNames.PLAYS_EVERYWHERE
+            } else {
+                YftQualityNames.ORIGINAL_SOUND
+            },
         )
     }
 
     /**
-     * The sound of a video that has no audio file: the MP4 with AAC whose sound has the highest
-     * stated bitrate, and the smallest file among equals.
+     * The sound of a video that has no audio file: an MP4 with sound whose AAC is stated before
+     * one whose sound's codec is not (P25), then the highest stated bitrate, then the smallest.
      */
     private fun soundOf(videos: List<SheetOption>): SheetOption? {
         val best = videos.filter { AudioFromVideo.canExtract(it.variant) }
             .sortedWith(
-                compareByDescending<SheetOption> { it.variant.audioBitrateBitsPerSecond ?: 0L }
+                compareBy<SheetOption> { if (it.variant.statesAac()) 0 else 1 }
+                    .thenByDescending { it.variant.audioBitrateBitsPerSecond ?: 0L }
                     .thenBy { it.variant.sizeBytes ?: Long.MAX_VALUE },
             )
             .firstOrNull() ?: return null
@@ -385,11 +470,11 @@ object QuickDownloadChoices {
 
     private fun optionId(index: Int, variant: MediaVariant): String = "s$index-${variant.id}"
 
+    private fun MediaVariant.statesAac(): Boolean =
+        codecs.any { it.trim().lowercase(Locale.US).startsWith("mp4a") }
+
     private fun MediaVariant.kbpsText(): String? =
         bitrateBitsPerSecond?.takeIf { it > 0 }?.let { "${(it / 1_000.0).roundToInt()} kbps" }
-
-    private fun MediaVariant.highFrameRate(): String =
-        framesPerSecond?.takeIf { it > HIGH_FRAME_RATE }?.roundToInt()?.toString().orEmpty()
 
     /** "MP4", "M4A", "MP3", "WebM"; the stream kind for adaptive tracks. */
     internal fun formatName(variant: MediaVariant): String? {
@@ -406,15 +491,6 @@ object QuickDownloadChoices {
             container != null -> container.uppercase(Locale.US)
             else -> null
         }
-    }
-
-    private fun resolutionName(height: Int): String? = when {
-        height >= 4_320 -> "8K"
-        height >= 2_160 -> "4K"
-        height >= 1_440 -> "2K"
-        height >= 1_080 -> "Full HD"
-        height >= 720 -> "HD"
-        else -> null
     }
 
     internal fun host(pageUrl: String): String? =
@@ -463,11 +539,11 @@ object QuickDownloadChoices {
         .thenBy { if (Mp3Variants.isAacSource(it.variant)) 0 else 1 }
         .thenByDescending { it.variant.bitrateBitsPerSecond ?: -1L }
 
-    private const val HIGH_FRAME_RATE = 31.0
     private const val MAX_SHOWN_LINK = 120
     private const val HD_HEIGHT = 720
     private const val SD_HEIGHT = 480
     private const val FULL_HD_HEIGHT = 1_080
     private const val QUALITY_UNKNOWN = "Quality unknown"
+    private const val OWN_SOUND = "The video's own sound"
     private val QUALITY_WORD = Regex("(?i)hd|sd|\\d{3,4}p\\d{0,3}")
 }
