@@ -104,6 +104,8 @@ internal data class YouTubeResponseSummary(
     /** Whether the response offers YouTube's own SABR streaming protocol. */
     val sabr: Boolean,
     val readable: Boolean = true,
+    /** Adaptive formats with neither kind of address, which only SABR can stream (P22). */
+    val adaptiveWithoutAddress: Int = 0,
 ) {
     /** SABR is the only delivery: no format carries an address of any kind. */
     val sabrOnly: Boolean
@@ -118,9 +120,11 @@ internal data class YouTubeResponseSummary(
             sabr -> "yes"
             else -> "no"
         }
+        val sabrFormats = adaptiveWithoutAddress.takeIf { sabr && !sabrOnly && it > 0 }
         return listOfNotNull(
             "$client: $status; with URLs: $progressiveWithUrl progressive, " +
                 "$adaptiveWithUrl adaptive$protected; SABR $sabrFlag",
+            sabrFormats?.let { "$client: $it adaptive formats only through SABR" },
             reason?.let { "$client reason: $it" },
         )
     }
@@ -129,7 +133,8 @@ internal data class YouTubeResponseSummary(
     override fun toString(): String =
         "YouTubeResponseSummary(status=$status, reason=${reason != null}, " +
             "progressiveWithUrl=$progressiveWithUrl, adaptiveWithUrl=$adaptiveWithUrl, " +
-            "protectedFormats=$protectedFormats, sabr=$sabr, readable=$readable)"
+            "protectedFormats=$protectedFormats, sabr=$sabr, readable=$readable, " +
+            "adaptiveWithoutAddress=$adaptiveWithoutAddress)"
 
     companion object {
         val UNREADABLE = YouTubeResponseSummary(
@@ -159,12 +164,15 @@ internal sealed interface YouTubeParseResult {
      * [definite] is true when the verdict describes the video itself, such as a private,
      * removed, region-locked, age-gated or DRM-protected video, rather than this one request.
      * [ageCheck] marks YouTube asking for proof of age, which only the user's own session can
-     * give.
+     * give. [transport] marks a request that failed before the player answered, such as a
+     * network failure or an HTTP error, which the HTTP client already retried where a retry
+     * can help (P10), so the lookup does not ask that client again.
      */
     data class Failure(
         val reason: SiteExtractionFailure,
         val definite: Boolean,
         val ageCheck: Boolean = false,
+        val transport: Boolean = false,
     ) : YouTubeParseResult
 }
 
@@ -400,6 +408,9 @@ internal object YouTubePlayerResponseParser {
                 !hasDirectUrl(format) && protectedDescriptorOf(format) != null
             },
             sabr = streamingData["serverAbrStreamingUrl"].asStringOrNull != null,
+            adaptiveWithoutAddress = adaptive.count { format ->
+                !hasDirectUrl(format) && protectedDescriptorOf(format) == null
+            },
         )
     }
 

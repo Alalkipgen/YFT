@@ -199,7 +199,12 @@ internal object YouTubeClientProfiles {
         usesPlayerScript = false,
     )
 
-    /** Device clients in the order they are asked. */
+    /**
+     * Device clients in the order they are asked (P22): visionOS first, before the watch page,
+     * and once more with the page's visitor data when its first answer was a refusal; the
+     * Android app last, after the clients that act for the page, as its only download is the
+     * progressive 360p file.
+     */
     val DEVICE_CLIENTS: List<YouTubeClientProfile> = listOf(VISION_OS, ANDROID)
 
     /**

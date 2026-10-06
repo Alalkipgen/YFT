@@ -883,7 +883,16 @@ own heading below. Owner's Preview #3 findings (2026-10-06): FIX_ADD_PLAN §2 an
 
 | Check | Evidence |
 | --- | --- |
-| (Agent B adds rows here) | — |
+| P22 visionOS asked again with the page's visitor data → every quality | `YouTubeExtractorTest` "visionOS asked again with the page's visitor data gives every quality with its size": bot check → watch page → visionOS again (visitor data in the client context and `X-Goog-Visitor-Id`, endpoint without the page key, no cookie) → rows 2160p, 1440p (VP9 + Opus), 1080p–144p (AVC + AAC) and Audio with YouTube's sizes, `itag 140` as M4A; `ANDROID` not asked; details hold no visitor data. Old code: `[360p]` only |
+| P22 visionOS refused twice → the page client's ciphered ladder | "refused twice, visionOS leaves the ladder to the page client's script-signed formats": `player_cipher_ladder.json` signed by the solver (10 formats, `pot=` token), full ladder, `ANDROID` not asked, detail "10 formats via player script". Old code: `[360p]` only |
+| P22 one row per quality | "a merged row takes a progressive file's place, never the other way round" (old code: `[360p]`); "merged rows with their audio track end the lookup before any other client" (old code: 360p from the embedded player added) |
+| P22 Android's 360p file | "the Android app's 360p file is a row only when no client streams 360p separately": itag 18 without a size only when nothing else streams; detail "client ANDROID: 2 adaptive formats only through SABR" (old code: no such line, and the 360p row stayed itag 18) |
+| P22 gates | "an age-restricted video still asks for a sign-in, and visionOS is not asked again" (guard, passes on old code too); "an age check from any client leaves the answer to the user's own session" (visionOS again and `ANDROID` last) |
+| P22 order | "clients are asked in the order the owner chose": inline bot check → `VISIONOS, WEB_EMBEDDED_PLAYER, ANDROID`; refusal → `VISIONOS, VISIONOS, …`; desktop page → `…, MWEB (mobile site), ANDROID`; 15 more chain tests updated to the new order |
+| P22 regression proof | Old `YouTubeExtractor.kt`, `YouTubePlayerResponseParser.kt` and `YouTubeClientProfile.kt` from `/data/bak/P22/orig` with the new tests: 22 of 52 `YouTubeExtractorTest` tests failed (the five above that are not guards and 17 order or detail tests); new files restored with `cp`, `cmp` equal |
+| P22 validation (2026-10-06) | `:extractor-api:test` 32, `:extractor-sites:test` 185, `:app:testDebugUnitTest` 663 (66 skipped), 0 failures; `:app:lintDebug` 0 errors, 95 warnings (four sequential Gradle invocations, `/data/tmp/validate-b.sh`); line check empty |
+| P22 live (sandbox, 2026-10-06) | Adapter itself (temporary test outside the repo): `dQw4w9WgXcQ` → visionOS first complete, 9 rows 2160p–144p + Audio with sizes (360p 11.8 MB, 1080p 84.4 MB, M4A 3.4 MB); `4pKpLX9NG_k` → bot check from every client asked. Temporary script: `8Mw9bwLTQFk`, `jNQXAC9IVRw` → bot check from visionOS with and without visitor data. Data-centre IP flagged |
+| P22 owner check | Pending: `4pKpLX9NG_k` in Home and the browser → 144p…1080p (+2K/4K) with sizes close to Snaptube's (360p ≈ 54 MB, 720p ≈ 124 MB, 1080p ≈ 380 MB), M4A ≈ 12 MB, 720p/1080p play with sound, Details screenshot |
 
 ### Agent C — P24, P25
 

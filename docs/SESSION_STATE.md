@@ -45,9 +45,37 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent B — `work/phase-12-site-qualities` (P22, P23)
 
-- Status: IN PROGRESS — P22 (started 2026-10-06 in `/data/YFT-B`; base `f434724` =
+- Status: IN PROGRESS — P23 next (started 2026-10-06 in `/data/YFT-B`; base `f434724` =
   `origin/work/phase-12-integration`)
-- P22 — YouTube: every quality: IN PROGRESS (2026-10-06)
+- P22 — YouTube: every quality: OWNER CHECK (2026-10-06)
+  - Result: visionOS is asked once more with the watch page's visitor data (client context and
+    `X-Goog-Visitor-Id`) when its first answer refused the request; a lookup ends only with a
+    separate video merged with its audio track plus that track (`Offers.isComplete`), so
+    `ANDROID`'s 360p file no longer ends it before the page client. Order: visionOS → watch
+    page → visionOS again → embedded → page client → `MWEB` (desktop page) → `ANDROID`. Merged
+    AVC rows 144p–1080p, one row per quality, Audio = `itag 140` with its size. Details: visionOS
+    again, "N formats via player script", "N adaptive formats only through SABR".
+  - Plan adapted: (1) the embedded player stays before the page client: yt-dlp gives it no
+    proof-of-origin policy, so it costs no BotGuard mint and sends no cookie; (2) `ANDROID` is
+    last, after `MWEB` too; (3) a visionOS request that failed (network, HTTP error) is not asked
+    again (P10 retried it), only a refusal is; (4) visionOS again uses the endpoint without the
+    page key, like yt-dlp; (5) a merged row replaces a progressive file from any client (not
+    only `ANDROID`'s), since YouTube sizes separate streams but often not progressive ones;
+    (6) `isComplete` is now a merged video plus the audio track (was: a video with sound plus
+    audio); (7) validation runs the same tasks as four sequential Gradle invocations (memory).
+  - Validation: `:extractor-api:test` 32, `:extractor-sites:test` 185, `:app:testDebugUnitTest`
+    663 (66 skipped), 0 failures; `:app:lintDebug` 0 errors, 95 warnings; line check empty.
+  - Regression proof: old extractor, parser and client profile from `/data/bak/P22/orig` with
+    the new tests → 22 of 52 `YouTubeExtractorTest` failed, among them "visionOS asked again with
+    the page's visitor data gives every quality with its size" and "refused twice, visionOS
+    leaves the ladder to the page client's script-signed formats" (both `[360p]` only); new
+    files restored with `cp`, `cmp` equal. Details: `docs/TEST_MATRIX.md` › Agent B.
+  - Live (sandbox, 2026-10-06): `dQw4w9WgXcQ` → 9 rows 2160p–144p + Audio with sizes from one
+    visionOS request; `4pKpLX9NG_k` → bot check from every client in the new order;
+    `8Mw9bwLTQFk`, `jNQXAC9IVRw` → bot check from visionOS with and without visitor data. The
+    data-centre IP is flagged: the owner's phone Details decide.
+  - Owner check: `4pKpLX9NG_k` in Home and the browser → 144p…1080p (+2K/4K) with sizes close
+    to Snaptube's, M4A ≈ 12 MB, 720p/1080p play with sound, a Details screenshot.
 - P23 — Facebook: every quality: TODO
 - Starting state before any edit (2026-10-06, `f434724`): `:extractor-api:test` 32 tests,
   `:extractor-sites:test` 181, `:app:testDebugUnitTest` 663 (66 skipped), 0 failures;

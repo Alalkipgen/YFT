@@ -13,7 +13,16 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Phase 12 — Agent B (P22, P23)
 
-- (Agent B: replace this line with the P22 and P23 entries.)
+- P22 — YouTube: every quality (OWNER CHECK). visionOS is asked once more with the watch page's
+  visitor data (client context and `X-Goog-Visitor-Id`, no page key) when its first answer
+  refused the request; a refusal is never reused, a failed request is not asked again.
+- P22: a lookup ends only with a separate video merged with its audio track plus that track, so
+  the Android app's progressive 360p file no longer ends it before the page's own client (BotGuard
+  token, player script) is collected; `ANDROID` is asked last, after the mobile site.
+- P22: merged AVC + AAC rows cover 144p–1080p; one row per quality, where a merged row (with
+  YouTube's sizes of both files) replaces a progressive file; Audio is `itag 140` with its size.
+- P22: details name visionOS asked again, formats signed by the player script and adaptive
+  formats only available through SABR; never visitor data.
 
 ### Phase 12 — Agent C (P24, P25)
 
