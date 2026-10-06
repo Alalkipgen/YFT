@@ -23,6 +23,19 @@ for every APK given to users, because Android refuses to install a lower one.
   YouTube's sizes of both files) replaces a progressive file; Audio is `itag 140` with its size.
 - P22: details name visionOS asked again, formats signed by the player script and adaptive
   formats only available through SABR; never visitor data.
+- P23 — Facebook: every quality (OWNER CHECK). The AVC ladder (desktop Safari, no cookie) is
+  asked when a page lists no AVC video or AVC only below another track or a whole file, on the
+  final reel or `/{page}/videos/{id}/` address, else the post's permalink — never `/watch/`; a
+  share link to a page with HD and SD files only now gets AVC 360p/720p and the audio track.
+- P23: the public page is the whole lookup only for a reel with AVC video and an AAC track;
+  `/watch/`, `video.php` and `/{page}/videos/` links read the session page first, and the
+  public page's files are kept when the session page fails. Tracks of every page read merge
+  without repeats; at most 2 page requests.
+- P23: an HD or SD file states the picture and AVC + AAC codecs of the track it was made from
+  when that track and an AAC track are listed; bitrates are the average stated in the media
+  address (`bitrate`, `efg`), never the manifest's peak, so size estimates match the files.
+- P23: details name each page read and the ladder ("public page added: …", "ladder: not needed
+  (AVC 720)", "ladder GET 200 (N characters): added …").
 
 ### Phase 12 — Agent C (P24, P25)
 

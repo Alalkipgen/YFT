@@ -45,8 +45,8 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent B — `work/phase-12-site-qualities` (P22, P23)
 
-- Status: IN PROGRESS — P23 next (started 2026-10-06 in `/data/YFT-B`; base `f434724` =
-  `origin/work/phase-12-integration`)
+- Status: IN PROGRESS — P23 done, its CI next (started 2026-10-06 in `/data/YFT-B`; base
+  `f434724` = `origin/work/phase-12-integration`)
 - P22 — YouTube: every quality: OWNER CHECK (2026-10-06)
   - Result: visionOS is asked once more with the watch page's visitor data (client context and
     `X-Goog-Visitor-Id`) when its first answer refused the request; a lookup ends only with a
@@ -76,7 +76,42 @@ Keep at least the heading and one blank line between sections, so Git merges the
     data-centre IP is flagged: the owner's phone Details decide.
   - Owner check: `4pKpLX9NG_k` in Home and the browser → 144p…1080p (+2K/4K) with sizes close
     to Snaptube's, M4A ≈ 12 MB, 720p/1080p play with sound, a Details screenshot.
-- P23 — Facebook: every quality: TODO
+  - Commit `0e0ed15`, CI green: checkpoint validation
+    https://github.com/Alalkipgen/YFT/actions/runs/37499414146 , emulator smoke
+    https://github.com/Alalkipgen/YFT/actions/runs/37499414119 , Preview APK
+    https://github.com/Alalkipgen/YFT/actions/runs/37499414196
+- P23 — Facebook: every quality: OWNER CHECK (2026-10-06)
+  - Result: the AVC ladder (desktop Safari, no cookie) is asked when a page lists no AVC video,
+    or AVC only below another track or a whole file (`needsAvcLadder`), on the final reel or
+    `/{page}/videos/{id}/` address, else the post's permalink; tracks of every page read merge
+    without repeats (`FacebookDashOffers.merged`). A share link to a page with HD and SD files
+    only now lists AVC 360p/720p and Audio. The public page is the whole lookup only for a reel
+    with AVC video and an AAC track. HD and SD files state the picture and codecs of their
+    track; bitrates come from the media address. At most 2 page requests per lookup.
+  - Plan adapted: (a) `/watch/`, `video.php` and `/{page}/videos/` links skip the public page
+    (Safari got about 1 KB without the video), so `/watch/?v=` costs 1 request instead of 2;
+    (b) the ladder is never asked on a `/watch/` link (the same 1 KB page): the final address
+    when it is a reel or videos page, else the permalink the page states, else skipped; (c) an
+    HD or SD file states its size and codecs only with its manifest track and an AAC track's
+    codec (else the resolver reads the file's header, P3), page metadata sizes stay label-only;
+    (d) bitrates are the average stated in the address (`bitrate`, or `bitrate` in the Base64
+    `efg` label): the sheet estimates bitrate × duration, and the manifest's peak bandwidth
+    made those estimates 3.5–4.4 × too high; a merged row without one has none; (e) a failed
+    session page keeps the public page's files; (f) an HD file whose picture is unknown counts
+    as 720p for the ladder rule, as the sheet ranks it.
+  - Validation: `:extractor-api:test` 32, `:extractor-sites:test` 196, `:app:testDebugUnitTest`
+    663 (66 skipped), 0 failures; `:app:lintDebug` 0 errors, 95 warnings; line check empty.
+  - Regression proof: the five old Facebook files from `/data/bak/P23/orig` with the new tests
+    → 18 of 52 failed, among them "a share link to a page with HD and SD only gets the reel's
+    AVC sizes and audio" and "AVC at 360p below AV1 sizes asks the ladder, which adds AVC 720p
+    once"; new files restored with `cp`, `cmp` equal. Details: `docs/TEST_MATRIX.md` › Agent B.
+  - Live (sandbox, no session, 2026-10-06): reel `1545617074260365` → 1 request, 720p · HD
+    (1280×720, est. 88.5 MB, CDN 88.9 MB), SD 31.8 MB, 720p 88.5 MB, 360p 34.4 MB, Audio
+    14.4 MB; `share/r/` → 1 request, ladder not needed; `/watch/?v=452499129200583` → 1
+    request; phone pages with AV1 or VP9 only → the ladder added AVC 360p/720p (2 requests).
+  - Owner check: reel `1545617074260365` (and the owner's share link) in Home and the browser
+    → the same rows in both: 720p and 360p with sizes (720p ≈ 88.5 MB, 360p ≈ 34.4 MB),
+    M4A ≈ 14 MB, MP3; 720p plays with sound; a Details screenshot.
 - Starting state before any edit (2026-10-06, `f434724`): `:extractor-api:test` 32 tests,
   `:extractor-sites:test` 181, `:app:testDebugUnitTest` 663 (66 skipped), 0 failures;
   `:app:lintDebug` 0 errors, 95 warnings. Run as four sequential `./gradlew --no-daemon

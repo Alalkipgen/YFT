@@ -30,6 +30,11 @@ internal data class FacebookDashTrack(
     val height: Int?,
     val framesPerSecond: Double?,
     val bandwidthBitsPerSecond: Long?,
+    /**
+     * The manifest's own name for the encoding, such as `1763472604929798v`: every page of one
+     * video lists the same encoding under it at a new address (P23).
+     */
+    val representationId: String? = null,
 ) {
     /** The address carries signed parameters, so it never prints. */
     override fun toString(): String =
@@ -54,6 +59,7 @@ internal object FacebookDashManifests {
     private const val MAX_MANIFEST_CHARS = 262_144
     private const val MAX_TRACKS = 64
     private const val MAX_FRAME_RATE = 300.0
+    private const val MAX_REPRESENTATION_ID_CHARS = 64
     private const val VIDEO_MP4 = "video/mp4"
     private const val AUDIO_MP4 = "audio/mp4"
     private val SEGMENT_ADDRESSING = setOf("SegmentTemplate", "SegmentList")
@@ -148,6 +154,8 @@ internal object FacebookDashManifests {
                 ?.takeIf { video }?.let(::frameRate),
             bandwidthBitsPerSecond = representation.getAttribute("bandwidth").toLongOrNull()
                 ?.takeIf { it > 0 },
+            representationId = representation.getAttribute("id").trim()
+                .takeIf { it.isNotEmpty() && it.length <= MAX_REPRESENTATION_ID_CHARS },
         )
     }
 

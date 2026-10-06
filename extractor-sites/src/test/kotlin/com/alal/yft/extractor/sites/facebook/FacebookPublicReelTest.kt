@@ -60,8 +60,12 @@ class FacebookPublicReelTest {
 
                 assertTrue(result.candidates.all { it.pageUrl == final })
                 assertFalse(result.candidates.any { it.mediaUrl.contains("suggested") })
-                assertEquals("navigate", http.requestedHeaders.single()["Sec-Fetch-Mode"])
-                assertFalse(http.requestedHeaders.single().containsKey("Cookie"))
+                assertEquals("navigate", http.requestedHeaders.first()["Sec-Fetch-Mode"])
+                assertTrue(http.requestedHeaders.none { it.containsKey("Cookie") })
+                // P23: a page with HD/SD files only asks the reel's own page for the AVC
+                // ladder, once; a /watch/ page is never asked, Safari gets it without the video.
+                val ladder = listOf(final).filter { resolved.startsWith("reel/") }
+                assertEquals(listOf(identity.canonicalPageUrl) + ladder, http.requestedUrls)
             }
         }
     }

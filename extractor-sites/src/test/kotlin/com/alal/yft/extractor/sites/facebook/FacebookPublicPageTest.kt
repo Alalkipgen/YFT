@@ -16,13 +16,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * P15: a reel or video link is first asked as Safari without the user's session; when that page
- * is the requested video, it is the whole lookup.
+ * P15, P23: a reel link is first asked as Safari without the user's session; when that page is
+ * the requested video with AVC video and an AAC track, it is the whole lookup.
  */
 class FacebookPublicPageTest {
     @Test
     fun `a public reel is one request as Safari without the session`() = runTest {
-        val http = FakeExtractorHttpClient.serving(REEL_URL, Fixtures.read(PUBLIC_REEL))
+        val http = FakeExtractorHttpClient.serving(REEL_URL, avcReel())
 
         val result = FacebookExtractor(http).extract(request(reel()))
             as SiteExtractionResult.Success
@@ -33,16 +33,69 @@ class FacebookPublicPageTest {
         assertFalse(headers.keys.any { it.equals("Cookie", ignoreCase = true) })
         assertEquals("https://www.facebook.com/", headers["Referer"])
         assertEquals("navigate", headers["Sec-Fetch-Mode"])
-        assertEquals(3, result.candidates.size)
+        assertEquals(
+            listOf("HD", "SD", "720p", "360p", "Audio"),
+            result.candidates.map { it.title.orEmpty().substringAfterLast("— ") },
+        )
         assertTrue(result.candidates.all { it.pageUrl == REEL_URL })
         // Media requests keep the browser's own identity, as before.
         assertTrue(result.candidates.all { it.requestContext.userAgent == BROWSER_AGENT })
         assertEquals(
-            listOf(
-                "public page GET 200 (${Fixtures.read(PUBLIC_REEL).length} characters)",
-                "public page: the video, without the session",
+            "public page GET 200 (${avcReel().length} characters)",
+            result.details.first(),
+        )
+        assertTrue(
+            result.details.toString(),
+            result.details.contains(
+                "public page: the video, without the session: AVC 360/720 + audio, 2 whole files",
             ),
-            result.details.take(2),
+        )
+    }
+
+    @Test
+    fun `a public reel with HD and SD files only goes on to the session page`() = runTest {
+        // P23: such a page offered HD/SD alone, without the sizes and the sound the session
+        // page's manifest has.
+        val http = twoPages(public = page(Fixtures.read(PUBLIC_REEL)), session = page(avcReel()))
+
+        val result = FacebookExtractor(http).extract(request(reel()))
+            as SiteExtractionResult.Success
+
+        assertEquals(listOf(REEL_URL, REEL_URL), http.requestedUrls)
+        assertEquals(COOKIE, http.requestedHeaders[1]["Cookie"])
+        assertEquals(
+            listOf("HD", "SD", "720p", "360p", "Audio"),
+            result.candidates.map { it.title.orEmpty().substringAfterLast("— ") },
+        )
+        assertTrue(
+            result.details.toString(),
+            result.details.containsAll(
+                listOf(
+                    "public page: HD/SD files only, so the session page is read",
+                    "ladder: not needed (AVC 720)",
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun `the public page's files are kept when the session page fails`() = runTest {
+        val http = twoPages(
+            public = page(Fixtures.read(PUBLIC_REEL)),
+            session = ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 500),
+        )
+
+        val result = FacebookExtractor(http).extract(request(reel()))
+            as SiteExtractionResult.Success
+
+        assertEquals(listOf(REEL_URL, REEL_URL), http.requestedUrls)
+        assertEquals(3, result.candidates.size)
+        assertTrue(result.candidates.all { it.pageUrl == REEL_URL })
+        assertTrue(
+            result.details.toString(),
+            result.details.contains(
+                "page GET failed (HTTP_STATUS), so the public page's files are kept",
+            ),
         )
     }
 
@@ -77,7 +130,8 @@ class FacebookPublicPageTest {
     @Test
     fun `a public page showing another video reads the session page`() = runTest {
         val watch = Fixtures.read("facebook/watch_progressive.html")
-        val identity = watch()
+        val identity =
+            requireNotNull(FacebookUrls.identify("https://www.facebook.com/reel/$WATCH_ID"))
         val http = twoPages(
             public = page(watch.replace(WATCH_ID, "1111222233334444"), identity),
             session = page(watch, identity),
@@ -87,7 +141,9 @@ class FacebookPublicPageTest {
         val result = FacebookExtractor(http).extract(request(identity))
             as SiteExtractionResult.Success
 
-        assertEquals(2, http.requestedUrls.size)
+        // The ladder would ask the public page again, so it is not asked (P23).
+        assertEquals(List(2) { identity.canonicalPageUrl }, http.requestedUrls)
+        assertTrue(result.details.contains("ladder: the public page, already read"))
         assertEquals("Fixture watch video — Full HD", result.candidates.first().title)
         assertTrue(
             result.details.contains("public page: another video, so the session page is read"),
@@ -95,7 +151,7 @@ class FacebookPublicPageTest {
     }
 
     @Test
-    fun `a share link is asked once, with the session, and resolves through the redirect`() =
+    fun `a share link is asked with the session, then its reel's ladder without it`() =
         runTest {
             val identity = requireNotNull(
                 FacebookUrls.identify("https://www.facebook.com/share/r/fixtureCode/"),
@@ -109,11 +165,16 @@ class FacebookPublicPageTest {
             val result = FacebookExtractor(http).extract(request(identity))
                 as SiteExtractionResult.Success
 
-            assertEquals(listOf(identity.canonicalPageUrl), http.requestedUrls)
-            val headers = http.requestedHeaders.single()
-            assertEquals(COOKIE, headers["Cookie"])
-            assertEquals(BROWSER_AGENT, headers["User-Agent"])
+            // P23: the page had HD/SD files only, so the reel it redirected to is asked for the
+            // AVC ladder, as Safari without the session (this fixture's server has no answer).
+            assertEquals(listOf(identity.canonicalPageUrl, REEL_URL), http.requestedUrls)
+            val (session, ladder) = http.requestedHeaders
+            assertEquals(COOKIE, session["Cookie"])
+            assertEquals(BROWSER_AGENT, session["User-Agent"])
+            assertNull(ladder["Cookie"])
+            assertEquals(FacebookPageIdentity.AVC_LADDER_USER_AGENT, ladder["User-Agent"])
             assertTrue(result.candidates.all { it.pageUrl == REEL_URL })
+            assertTrue(result.details.contains("ladder GET failed (HTTP_STATUS)"))
         }
 
     @Test
@@ -194,8 +255,9 @@ class FacebookPublicPageTest {
 
     private fun reel(): SitePageIdentity = requireNotNull(FacebookUrls.identify(REEL_URL))
 
-    private fun watch(): SitePageIdentity =
-        requireNotNull(FacebookUrls.identify("https://www.facebook.com/watch/?v=$WATCH_ID"))
+    /** This reel's page as Safari gets it: AVC 360/720, an AAC track and HD/SD files. */
+    private fun avcReel(): String = Fixtures.read("facebook/reel_inline_dash_safari.html")
+        .replace("7180001112223340", REEL_URL.substringAfterLast('/'))
 
     private fun request(identity: SitePageIdentity) = SiteExtractionRequest(
         identity = identity,

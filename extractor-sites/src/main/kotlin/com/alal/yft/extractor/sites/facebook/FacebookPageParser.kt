@@ -27,6 +27,8 @@ internal data class FacebookRendition(
     val url: String,
     val label: String?,
     val delivery: FacebookDelivery,
+    /** The page's own word for the file: `HD`, `SD`, `Full HD`; null when it names none. */
+    val quality: String? = null,
 )
 
 /** Non-sensitive description of a Facebook video plus its renditions. */
@@ -39,6 +41,8 @@ internal data class FacebookPost(
     val renditions: List<FacebookRendition>,
     /** The whole-file tracks of the page's inline DASH manifest (P4). */
     val dashTracks: List<FacebookDashTrack> = emptyList(),
+    /** The video's own page as the page states it (`permalink_url`), for the AVC ladder. */
+    val permalinkUrl: String? = null,
 )
 
 internal sealed interface FacebookParseResult {
@@ -242,17 +246,19 @@ internal object FacebookPageParser {
 
         progressiveEntries(node).forEach { entry ->
             val url = entry["progressive_url"].asStringOrNull?.httpsOrNull() ?: return@forEach
+            val quality = qualityLabel(entry.path("metadata", "quality").asStringOrNull)
             collected.putIfAbsent(
                 url,
                 FacebookRendition(
                     url = url,
                     label = FacebookQualityMetadata.label(
-                        qualityLabel(entry.path("metadata", "quality").asStringOrNull),
+                        quality,
                         url,
                         heights,
                         entry.path("metadata", "height").asLongOrNull,
                     ),
                     delivery = FacebookDelivery.PROGRESSIVE,
+                    quality = quality,
                 ),
             )
         }
@@ -268,6 +274,7 @@ internal object FacebookPageParser {
                     url,
                     FacebookQualityMetadata.label(label, url, heights),
                     FacebookDelivery.PROGRESSIVE,
+                    quality = label,
                 ),
             )
         }
@@ -377,6 +384,8 @@ internal object FacebookPageParser {
             ?: seconds(node["length_in_second"])
             ?: seconds(node["playable_duration"]),
         renditions = renditions,
+        // Only an address: the AVC ladder asks it after FacebookUrls checks it is this video.
+        permalinkUrl = node["permalink_url"].asStringOrNull?.httpsOrNull(),
     )
 
     private fun seconds(value: JsonValue?): Long? = value.asDoubleOrNull

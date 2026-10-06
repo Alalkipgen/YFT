@@ -23,11 +23,13 @@ import com.alal.yft.extractor.api.SitePageIdentity
  * login, paywall or access-control bypass: a video the user cannot open in the browser fails with
  * a structured reason instead of being worked around.
  *
- * A reel or video link is first asked as Safari without the user's session (P15): when that
- * public page is the requested video with AVC tracks or a whole file, it is the whole lookup,
- * one page request instead of two. Anything else reads the page with the user's session as
- * before. Share, short and post links skip that step: Facebook redirects them only for the
- * desktop Chrome identity.
+ * A reel is first asked as Safari without the user's session (P15): when that public page is the
+ * requested video with AVC video and an AAC track, it is the whole lookup, one page request
+ * instead of two (P23). Anything else reads the page with the user's session. Share, short and
+ * post links skip that step: Facebook redirects them only for the desktop identity. So do
+ * /watch/ links: Safari gets those without the video (sandbox live check, 2026-10-06). The
+ * tracks of every page read for the video are merged, and the AVC ladder is asked once on the
+ * video's own page when the pages lack the AVC sizes they show ([avcLadder]).
  */
 class FacebookExtractor(
     private val http: ExtractorHttpClient,
@@ -53,7 +55,11 @@ class FacebookExtractor(
                 maxBodyBytes = maxPageBytes,
             )
         ) {
-            is ExtractorHttpResult.Failure -> return SiteExtractionResult.Failure(
+            is ExtractorHttpResult.Failure -> return publicFiles(
+                request,
+                public,
+                publicDetails + "page GET failed (${result.reason})$PUBLIC_KEPT",
+            ) ?: SiteExtractionResult.Failure(
                 reason = result.reason,
                 httpStatusCode = result.statusCode,
                 details = publicDetails,
@@ -68,10 +74,12 @@ class FacebookExtractor(
 
         // Facebook answers a gated page with a redirect to its login or checkpoint flow.
         if (FacebookUrls.isAccessWall(response.finalUrl)) {
-            return SiteExtractionResult.Failure(
-                SiteExtractionFailure.LOGIN_REQUIRED,
-                details = pageDetails + "page: login/checkpoint wall",
-            )
+            val wall = "page: login/checkpoint wall"
+            return publicFiles(request, public, pageDetails + "$wall$PUBLIC_KEPT")
+                ?: SiteExtractionResult.Failure(
+                    SiteExtractionFailure.LOGIN_REQUIRED,
+                    details = pageDetails + wall,
+                )
         }
 
         // A short or share link resolves to the real video, so the identity is only known now.
@@ -82,29 +90,50 @@ class FacebookExtractor(
                 .takeUnless { resolvedIdentity.requiresCanonicalResolution },
         )
         if (parsed is FacebookParseResult.Failure) {
-            return SiteExtractionResult.Failure(
+            // A refusal of DRM is final, whatever the public page showed.
+            val kept = if (parsed.reason == SiteExtractionFailure.DRM_PROTECTED) {
+                null
+            } else {
+                val gap = "page: ${parsed.reason.name}$PUBLIC_KEPT"
+                publicFiles(request, public, pageDetails + parsed.details + gap)
+            }
+            return kept ?: SiteExtractionResult.Failure(
                 failureFor(parsed.reason, resolvedIdentity),
                 details = pageDetails + parsed.details,
             )
         }
         parsed as FacebookParseResult.Success
         val post = parsed.post
-        val pageUrl = pageUrl(resolvedIdentity, post)
-        val avc = avcLadder(pageUrl, post, public)
-        return offers(request, post, pageUrl, pageDetails + parsed.details, avc)
+        val read = mutableListOf("page: ${contents(post)}")
+        val publicPost = public?.post?.takeIf { it.videoId != null && it.videoId == post.videoId }
+        val known = FacebookDashOffers.merged(post.dashTracks, publicPost?.dashTracks.orEmpty())
+        val fromPublic = known.filterNot(post.dashTracks::contains)
+        if (fromPublic.isNotEmpty()) {
+            read += "public page added: ${FacebookDashOffers.summary(fromPublic)}"
+        }
+        val ladder = avcLadder(post, known, response.finalUrl, public)
+        val tracks = FacebookDashOffers.merged(known, ladder.tracks)
+        return offers(
+            request,
+            post.copy(dashTracks = tracks),
+            pageUrl(resolvedIdentity, post),
+            pageDetails + parsed.details + read + ladder.detail,
+        )
     }
 
     /**
      * The page asked as Safari without the user's session (P15), or null when the link is not
-     * asked that way. Its [PublicPage.result] is set only when the page is the requested video
-     * with AVC tracks or a whole file, or when the line failed: asking again would wait on the
-     * same line. Any other answer leaves the lookup to the page with the user's session.
+     * a reel. Its [PublicPage.result] is set only when the page is the requested video with AVC
+     * video and an AAC track (P23), or when the line failed: asking again would wait on the same
+     * line. Any other answer leaves the lookup to the page with the user's session; a page with
+     * only HD/SD files is kept in [PublicPage.post] for the merge and in case that page fails.
      */
     private suspend fun publicPage(request: SiteExtractionRequest): PublicPage? {
         val identity = request.identity
-        // Share, short and post links redirect to their video only for desktop Chrome: Safari
-        // got a small page without the redirect (sandbox live check, 2026-10-05).
-        if (identity.requiresCanonicalResolution) return null
+        // Share, short and post links redirect to their video only for the desktop identity:
+        // Safari got a small page without the redirect (sandbox live check, 2026-10-05), and a
+        // /watch/ page without the video (2026-10-05 and 2026-10-06).
+        if (!FacebookUrls.isReel(identity)) return null
         val url = identity.canonicalPageUrl
         val response = when (
             val result = http.get(url, publicPageHeaders(), maxPageBytes)
@@ -131,23 +160,45 @@ class FacebookExtractor(
         val gap = when {
             parsed is FacebookParseResult.Failure -> parsed.reason.name
             post == null -> "another video"
-            !hasSavableFile(post) -> "no AVC track or whole file"
-            else -> null
+            FacebookDashOffers.hasAvcWithSound(post.dashTracks) -> null
+            post.dashTracks.isEmpty() -> contents(post)
+            post.dashTracks.none(FacebookDashOffers::isAvc) -> "${contents(post)}, no AVC video"
+            else -> "${contents(post)}, no audio track"
         }
         if (gap != null || post == null) {
             return PublicPage(url, listOf(read, "public page: $gap$SESSION_NEXT"), post)
         }
         val details = listOf(read) + (parsed as FacebookParseResult.Success).details +
-            "public page: the video, without the session"
-        val result = offers(request, post, pageUrl(identity, post), details, AvcLadder.NONE)
+            "public page: the video, without the session: ${contents(post)}"
+        val result = offers(request, post, pageUrl(identity, post), details)
         if (result is SiteExtractionResult.Success) return PublicPage(url, details, post, result)
         return PublicPage(url, listOf(read, "public page: no download left$SESSION_NEXT"), post)
     }
 
-    /** An AVC track every phone merges, or a whole file with its sound. */
-    private fun hasSavableFile(post: FacebookPost): Boolean =
-        post.dashTracks.any(FacebookDashOffers::isAvc) ||
-            post.renditions.any { it.delivery == FacebookDelivery.PROGRESSIVE }
+    /**
+     * The public page's own files when the session page could not be read: the video was public
+     * there, so its HD/SD files still download (P23). Null without such a page.
+     */
+    private fun publicFiles(
+        request: SiteExtractionRequest,
+        public: PublicPage?,
+        details: List<String>,
+    ): SiteExtractionResult? {
+        val post = public?.post ?: return null
+        return offers(request, post, pageUrl(request.identity, post), details)
+            .takeIf { it is SiteExtractionResult.Success }
+    }
+
+    /** What a page held, for the details: `AVC 360/720 + audio`, `HD/SD files only`. */
+    private fun contents(post: FacebookPost): String {
+        val files = post.renditions.count { it.delivery == FacebookDelivery.PROGRESSIVE }
+        return when {
+            post.dashTracks.isNotEmpty() -> FacebookDashOffers.summary(post.dashTracks) +
+                if (files > 0) ", $files whole files" else ""
+            files > 0 -> "HD/SD files only"
+            else -> "a DASH address only"
+        }
+    }
 
     /**
      * What the public page answered: [post] is the requested video when the page had it, kept so
@@ -160,34 +211,38 @@ class FacebookExtractor(
         val result: SiteExtractionResult? = null,
     )
 
-    /** The candidates of one page's [post], with the AVC ladder's tracks when it was asked. */
+    /** The candidates of [post], whose tracks are those of every page read for the video. */
     private fun offers(
         request: SiteExtractionRequest,
         post: FacebookPost,
         pageUrl: String,
         details: List<String>,
-        avc: AvcLadder,
     ): SiteExtractionResult {
-        val tracks = (post.dashTracks + avc.tracks).distinctBy(FacebookDashTrack::url)
+        val tracks = post.dashTracks
+        val sound = FacebookDashOffers.audio(tracks)
         val progressive = post.renditions.mapNotNull { rendition ->
             val expiresAtEpochMs = FacebookUrls.mediaExpiryEpochMs(rendition.url)
             // Handing an already-expired link to the download engine would only fail later.
             if (expiresAtEpochMs != null && expiresAtEpochMs <= request.nowEpochMs) {
                 return@mapNotNull null
             }
+            val whole = rendition.delivery == FacebookDelivery.PROGRESSIVE
+            val encoding = if (whole) FacebookDashOffers.encodingOf(rendition.url, tracks) else null
+            // A file states its picture only with its sound's codec (P23): a stated size alone
+            // would stop the resolver reading the file's own header, which finds its sound (P3).
+            val codecs = if (encoding != null && sound != null) {
+                listOf(encoding.codec, sound.codec)
+            } else {
+                emptyList()
+            }
+            val described = encoding?.takeIf { codecs.isNotEmpty() }
             MediaCandidate(
                 pageUrl = pageUrl,
                 mediaUrl = rendition.url,
                 sources = setOf(CandidateSource.MANIFEST),
-                kind = when (rendition.delivery) {
-                    FacebookDelivery.PROGRESSIVE -> MediaKind.DIRECT
-                    FacebookDelivery.DASH_MANIFEST -> MediaKind.DASH
-                },
-                mimeType = when (rendition.delivery) {
-                    FacebookDelivery.PROGRESSIVE -> MP4_MIME_TYPE
-                    FacebookDelivery.DASH_MANIFEST -> DASH_MIME_TYPE
-                },
-                title = displayTitle(post, rendition.label),
+                kind = if (whole) MediaKind.DIRECT else MediaKind.DASH,
+                mimeType = if (whole) MP4_MIME_TYPE else DASH_MIME_TYPE,
+                title = displayTitle(post, fileLabel(rendition, encoding)),
                 thumbnailUrl = post.thumbnailUrl,
                 durationMillis = post.durationMillis,
                 requestContext = mediaContext(pageUrl, request.requestContext),
@@ -195,15 +250,16 @@ class FacebookExtractor(
                 expiresAtEpochMs = expiresAtEpochMs,
                 drmHint = false,
                 observedAtEpochMs = request.nowEpochMs,
+                codecs = codecs,
+                width = described?.width,
+                height = described?.height,
+                framesPerSecond = described?.framesPerSecond,
+                // The address's own bitrate matched the file; never the manifest's peak value.
+                bitrateBitsPerSecond = rendition.url.takeIf { whole }
+                    ?.let(FacebookUrls::statedBitrate),
             )
         }
         val candidates = progressive + trackCandidates(post, tracks, pageUrl, request)
-        val trackDetails = listOfNotNull(
-            "manifest: ${post.dashTracks.size} whole-file tracks".takeIf {
-                post.dashTracks.isNotEmpty()
-            },
-            avc.detail,
-        )
 
         // The parser only returns a post with media: with nothing left, either every link the
         // page exposed had already expired and the page has to be reloaded, or no track was one
@@ -217,13 +273,21 @@ class FacebookExtractor(
                 } else {
                     SiteExtractionFailure.NO_MEDIA_FOUND
                 },
-                details = details + trackDetails,
+                details = details,
             )
         }
         return SiteExtractionResult.Success(
             candidates,
-            details + trackDetails + "parsed ${candidates.size} renditions",
+            details + "parsed ${candidates.size} renditions",
         )
+    }
+
+    /** `720p · HD` for a file made from a manifest track, else the page's own label. */
+    private fun fileLabel(rendition: FacebookRendition, encoding: FacebookDashTrack?): String? {
+        val label = rendition.label
+        if (encoding == null || label != null && NAMED_HEIGHT.containsMatchIn(label)) return label
+        val name = FacebookDashOffers.qualityName(encoding)
+        return rendition.quality?.let { "$name · $it" } ?: name
     }
 
     /**
@@ -243,15 +307,16 @@ class FacebookExtractor(
         val audio = FacebookDashOffers.audio(tracks)
             ?.takeUnless { isExpired(it.url, now) } ?: return emptyList()
         val context = mediaContext(pageUrl, request.requestContext)
+        // The audio track's bandwidth matched its file, like the bitrate its address states.
+        val audioBitrate = FacebookUrls.statedBitrate(audio.url) ?: audio.bandwidthBitsPerSecond
         val companion = CompanionAudio(
             mediaUrl = audio.url,
             mimeType = audio.mimeType,
             codecs = listOf(audio.codec),
             requestContext = context,
-            // The audio track's stated bitrate matches its file; the resolver adds it to the
-            // video file's own length into one estimated size.
-            contentLengthBytes = estimatedBytes(audio, post.durationMillis),
-            bitrateBitsPerSecond = audio.bandwidthBitsPerSecond,
+            // The resolver adds this estimate to the video file's own length into one size.
+            contentLengthBytes = estimatedBytes(audioBitrate, post.durationMillis),
+            bitrateBitsPerSecond = audioBitrate,
             expiresAtEpochMs = FacebookUrls.mediaExpiryEpochMs(audio.url),
         )
         val merged = FacebookDashOffers.videos(tracks)
@@ -282,7 +347,9 @@ class FacebookExtractor(
                     width = video.width,
                     height = video.height,
                     framesPerSecond = video.framesPerSecond,
-                    bitrateBitsPerSecond = video.bandwidthBitsPerSecond,
+                    // The address's average bitrate, never the manifest's peak (P23): the sheet
+                    // estimates a size from it until the CDN states the file's length.
+                    bitrateBitsPerSecond = FacebookUrls.statedBitrate(video.url),
                 )
             }
         val sound = MediaCandidate(
@@ -300,72 +367,89 @@ class FacebookExtractor(
             drmHint = false,
             observedAtEpochMs = now,
             codecs = listOf(audio.codec),
-            bitrateBitsPerSecond = audio.bandwidthBitsPerSecond,
+            bitrateBitsPerSecond = audioBitrate,
         )
         return merged + sound
     }
 
-    private class AvcLadder(val tracks: List<FacebookDashTrack>, val detail: String?) {
-        companion object {
-            val NONE = AvcLadder(emptyList(), null)
-        }
-    }
+    private class AvcLadder(val tracks: List<FacebookDashTrack>, val detail: String)
 
     /**
-     * Reads the AVC ladder from the page Facebook serves Safari when the first page listed AV1 or
-     * VP9 video only ([FacebookPageIdentity.AVC_LADDER_USER_AGENT]). The request carries no
-     * session: a public video gets its AVC tracks, a video only the signed-in user may see keeps
-     * the first page's tracks, and the cookie never travels with a second identity. Only tracks
-     * of the same video ID are taken. The public page already asked that way (P15) is not asked
-     * again: its own AVC tracks are used.
+     * Reads the AVC ladder from the page Facebook serves Safari ([FacebookPageIdentity
+     * .AVC_LADDER_USER_AGENT]) when the pages read so far lack the AVC sizes they show
+     * ([FacebookDashOffers.needsAvcLadder]). It is asked once, without the session, on the
+     * video's own page: the page the session request ended on (a share, short or post link
+     * after its redirect, a /watch/ link at `/{page}/videos/{id}/`), else the permalink the page
+     * states. A public video gets its AVC tracks and AAC sound; a video only the signed-in user
+     * may see keeps the first page's tracks, and the cookie never travels with a second
+     * identity. Only tracks of the same video ID are taken, and the public page already asked
+     * that way (P15) is not asked again.
      */
     private suspend fun avcLadder(
-        pageUrl: String,
         post: FacebookPost,
+        known: List<FacebookDashTrack>,
+        finalUrl: String,
         public: PublicPage?,
     ): AvcLadder {
-        if (!FacebookDashOffers.lacksAvcVideo(post.dashTracks)) return AvcLadder.NONE
+        // A file shows its picture through its manifest track, else an HD file counts as 720
+        // lines, as the download sheet ranks it.
+        val files = post.renditions.filter { it.delivery == FacebookDelivery.PROGRESSIVE }
+            .mapNotNull { file ->
+                FacebookDashOffers.encodingOf(file.url, known)?.let(FacebookDashOffers::shortSide)
+                    ?: NAMED_FILE_SIDES[file.quality]
+            }
+        if (!FacebookDashOffers.needsAvcLadder(known, files)) {
+            val best = FacebookDashOffers.bestAvc(known)
+            return AvcLadder(emptyList(), "ladder: not needed ($best)")
+        }
         val videoId = post.videoId?.takeIf(FacebookUrls::isNumericId)
-            ?: return AvcLadder(emptyList(), "AVC page: skipped without a video ID")
-        if (public != null && public.url == pageUrl) {
-            val tracks = public.post?.takeIf { it.videoId == videoId }?.dashTracks.orEmpty()
-                .filter(FacebookDashOffers::isAvc)
-            return AvcLadder(tracks, "AVC page: the public page's ${tracks.size} AVC tracks")
+            ?: return AvcLadder(emptyList(), "ladder: skipped without a video ID")
+        val url = FacebookUrls.videoPage(videoId, listOf(finalUrl, post.permalinkUrl))
+            ?: return AvcLadder(emptyList(), "ladder: skipped, no reel or video page to ask")
+        if (public != null && public.url == url) {
+            return AvcLadder(emptyList(), "ladder: the public page, already read")
         }
         val response = when (
             val result = http.get(
-                url = pageUrl,
+                url = url,
                 headers = publicPageHeaders(),
                 maxBodyBytes = maxPageBytes,
             )
         ) {
             is ExtractorHttpResult.Failure ->
-                return AvcLadder(emptyList(), "AVC page: ${result.reason}")
+                return AvcLadder(emptyList(), "ladder GET failed (${result.reason})")
 
             is ExtractorHttpResult.Success -> result
         }
         if (FacebookUrls.isAccessWall(response.finalUrl)) {
-            return AvcLadder(emptyList(), "AVC page: login/checkpoint wall")
+            return AvcLadder(emptyList(), "ladder: login/checkpoint wall")
         }
+        val read = "ladder GET ${response.statusCode} (${response.body.length} characters)"
         val parsed = FacebookPageParser.parse(response.body, videoId)
         val tracks = (parsed as? FacebookParseResult.Success)?.post
             ?.takeIf { it.videoId == videoId }
             ?.dashTracks.orEmpty()
-            .filter(FacebookDashOffers::isAvc)
-        return AvcLadder(tracks, "AVC page GET ${response.statusCode}: ${tracks.size} AVC tracks")
+        val added = FacebookDashOffers.merged(known, tracks).filterNot(known::contains)
+        val answer = when {
+            parsed is FacebookParseResult.Failure -> parsed.reason.name
+            tracks.isEmpty() -> "no tracks of this video"
+            added.isEmpty() -> "nothing new (${FacebookDashOffers.summary(tracks)})"
+            else -> "added ${FacebookDashOffers.summary(added)}"
+        }
+        return AvcLadder(tracks, "$read: $answer")
     }
 
     private fun isExpired(url: String, nowEpochMs: Long): Boolean =
         FacebookUrls.mediaExpiryEpochMs(url)?.let { it <= nowEpochMs } == true
 
     /**
-     * A track's stated bitrate over the duration; null when either is unknown. Used for the audio
-     * track only: Facebook's audio bandwidth matched the real file in the live check, while a
-     * video track's bandwidth can be a peak value.
+     * An audio bitrate over the duration; null when either is unknown. Used for the audio track
+     * only: Facebook's audio bandwidth matched the real file in the live check, while a video
+     * track's bandwidth can be a peak value.
      */
-    private fun estimatedBytes(track: FacebookDashTrack, durationMillis: Long?): Long? {
+    private fun estimatedBytes(bitsPerSecond: Long?, durationMillis: Long?): Long? {
         val millis = durationMillis?.takeIf { it > 0 } ?: return null
-        val bits = track.bandwidthBitsPerSecond ?: return null
+        val bits = bitsPerSecond ?: return null
         return (bits * millis / BITS_PER_BYTE_MILLIS).takeIf { it > 0 }
     }
 
@@ -456,6 +540,9 @@ class FacebookExtractor(
         private const val AUDIO_LABEL = "Audio"
         private const val BITS_PER_BYTE_MILLIS = 8_000L
         private const val SESSION_NEXT = ", so the session page is read"
+        private const val PUBLIC_KEPT = ", so the public page's files are kept"
+        private val NAMED_HEIGHT = Regex("""^\d+p\b""")
+        private val NAMED_FILE_SIDES = mapOf("HD" to 720, "Full HD" to 1_080, "4K" to 2_160)
 
         /** A public page that failed this way ends the lookup: the line itself failed. */
         private val LINE_FAILURES = setOf(

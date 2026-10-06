@@ -59,7 +59,8 @@ class FacebookDashExtractorTest {
             assertEquals(1660, fullHd.width)
             assertEquals(1078, fullHd.height)
             assertEquals(30.0, fullHd.framesPerSecond!!, 0.001)
-            assertEquals(1_340_000L, fullHd.bitrateBitsPerSecond)
+            // The manifest's bandwidth is a peak: no bitrate without the address's own (P23).
+            assertNull(fullHd.bitrateBitsPerSecond)
             assertEquals(31_500L, fullHd.durationMillis)
             // No size: the video bandwidth can be a peak, so the CDN states the file's length.
             assertNull(fullHd.contentLengthBytes)
@@ -93,14 +94,16 @@ class FacebookDashExtractorTest {
     @Test
     fun `a page without AVC video asks Safari's page for the AVC ladder without the session`() =
         runTest {
-            // A share link skips the public page (P15), so its session page comes first.
+            // A share link skips the public page (P15), so its session page comes first; the
+            // ladder is asked on the reel it redirected to (P23).
+            val session = page("facebook/reel_inline_dash.html", "$REEL_URL/")
             val http = FakeExtractorHttpClient(
-                responses = mapOf(SHARE_URL to page("facebook/reel_inline_dash.html")),
+                responses = mapOf(SHARE_URL to session),
                 getResponder = { url, headers ->
-                    if (url == PAGE_URL &&
+                    if (url == REEL_URL &&
                         headers["User-Agent"] == FacebookPageIdentity.AVC_LADDER_USER_AGENT
                     ) {
-                        page("facebook/reel_inline_dash_safari.html")
+                        page("facebook/reel_inline_dash_safari.html", REEL_URL)
                     } else {
                         null
                     }
@@ -110,7 +113,7 @@ class FacebookDashExtractorTest {
             val result = FacebookExtractor(http).extract(request(share()))
                 as SiteExtractionResult.Success
 
-            assertEquals(listOf(SHARE_URL, PAGE_URL), http.requestedUrls)
+            assertEquals(listOf(SHARE_URL, REEL_URL), http.requestedUrls)
             val second = http.requestedHeaders[1]
             assertEquals(FacebookPageIdentity.AVC_LADDER_USER_AGENT, second["User-Agent"])
             assertFalse(second.keys.any { it.equals("Cookie", ignoreCase = true) })
@@ -134,7 +137,12 @@ class FacebookDashExtractorTest {
                 "Fixture DASH reel — 360p",
                 result.candidates[4].title,
             )
-            assertTrue(result.details.any { it.startsWith("AVC page GET 200: 2 AVC tracks") })
+            assertTrue(
+                result.details.toString(),
+                result.details.any {
+                    it.startsWith("ladder GET 200 (") && it.endsWith("): added AVC 360/720")
+                },
+            )
             // Media requests keep the browser's own identity and session.
             assertEquals("c_user=0; xs=fixture-cookie", result.candidates[3].requestContext.cookie)
         }
@@ -158,31 +166,31 @@ class FacebookDashExtractorTest {
     @Test
     fun `a failed AVC page keeps the first page's tracks`() = runTest {
         val http = FakeExtractorHttpClient(
-            responses = mapOf(SHARE_URL to page("facebook/reel_inline_dash.html")),
+            responses = mapOf(SHARE_URL to page("facebook/reel_inline_dash.html", "$REEL_URL/")),
             getResponder = { _, headers -> loginWall().takeIf { isSafari(headers) } },
         )
 
         val result = FacebookExtractor(http).extract(request(share()))
             as SiteExtractionResult.Success
 
-        assertEquals(listOf(SHARE_URL, PAGE_URL), http.requestedUrls)
+        assertEquals(listOf(SHARE_URL, REEL_URL), http.requestedUrls)
         assertEquals(5, result.candidates.size)
-        assertTrue(result.details.contains("AVC page: login/checkpoint wall"))
+        assertTrue(result.details.contains("ladder: login/checkpoint wall"))
     }
 
     @Test
     fun `the public page already asked as Safari is not asked again for the AVC ladder`() =
         runTest {
             val http = FakeExtractorHttpClient(
-                responses = mapOf(PAGE_URL to page("facebook/reel_inline_dash.html")),
+                responses = mapOf(REEL_URL to page("facebook/reel_inline_dash.html", REEL_URL)),
                 getResponder = { _, headers -> loginWall().takeIf { isSafari(headers) } },
             )
 
-            val result = FacebookExtractor(http).extract(request())
+            val result = FacebookExtractor(http).extract(request(reel()))
                 as SiteExtractionResult.Success
 
             // The public page (Safari, no session), then the session page: no third request.
-            assertEquals(listOf(PAGE_URL, PAGE_URL), http.requestedUrls)
+            assertEquals(listOf(REEL_URL, REEL_URL), http.requestedUrls)
             assertTrue(isSafari(http.requestedHeaders[0]))
             assertEquals("c_user=0; xs=fixture-cookie", http.requestedHeaders[1]["Cookie"])
             assertEquals(5, result.candidates.size)
@@ -191,7 +199,7 @@ class FacebookDashExtractorTest {
                 result.details.containsAll(
                     listOf(
                         "public page: login/checkpoint wall, so the session page is read",
-                        "AVC page: the public page's 0 AVC tracks",
+                        "ladder: the public page, already read",
                     ),
                 ),
             )
@@ -213,8 +221,8 @@ class FacebookDashExtractorTest {
         )
     }
 
-    private fun page(fixture: String): ExtractorHttpResult.Success =
-        FakeExtractorHttpClient.html(Fixtures.read(fixture), PAGE_URL)
+    private fun page(fixture: String, finalUrl: String = PAGE_URL): ExtractorHttpResult.Success =
+        FakeExtractorHttpClient.html(Fixtures.read(fixture), finalUrl)
 
     private fun isSafari(headers: Map<String, String>): Boolean =
         headers["User-Agent"] == FacebookPageIdentity.AVC_LADDER_USER_AGENT
@@ -225,6 +233,8 @@ class FacebookDashExtractorTest {
     )
 
     private fun share(): SitePageIdentity = requireNotNull(FacebookUrls.identify("$SHARE_URL/"))
+
+    private fun reel(): SitePageIdentity = requireNotNull(FacebookUrls.identify(REEL_URL))
 
     private fun request(
         identity: SitePageIdentity = SitePageIdentity(
@@ -245,6 +255,7 @@ class FacebookDashExtractorTest {
     private companion object {
         const val VIDEO_ID = "7180001112223340"
         const val PAGE_URL = "https://www.facebook.com/watch/?v=$VIDEO_ID"
+        const val REEL_URL = "https://www.facebook.com/reel/$VIDEO_ID"
         const val SHARE_URL = "https://www.facebook.com/share/v/aBc123dEf"
         const val CDN = "https://video.example-cdn.test"
         const val NOW_EPOCH_MS = 1_700_000_000_000
