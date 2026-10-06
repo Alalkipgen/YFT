@@ -45,8 +45,9 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent B — `work/phase-12-site-qualities` (P22, P23)
 
-- Status: IN PROGRESS — P23 done, its CI next (started 2026-10-06 in `/data/YFT-B`; base
-  `f434724` = `origin/work/phase-12-integration`)
+- Status: READY FOR MERGE (2026-10-06) — P22 and P23 OWNER CHECK; last task commit `c53128c`,
+  CI green (links under P23); base `f434724` = `origin/work/phase-12-integration`; worked in
+  `/data/YFT-B`
 - P22 — YouTube: every quality: OWNER CHECK (2026-10-06)
   - Result: visionOS is asked once more with the watch page's visitor data (client context and
     `X-Goog-Visitor-Id`) when its first answer refused the request; a lookup ends only with a
@@ -112,6 +113,10 @@ Keep at least the heading and one blank line between sections, so Git merges the
   - Owner check: reel `1545617074260365` (and the owner's share link) in Home and the browser
     → the same rows in both: 720p and 360p with sizes (720p ≈ 88.5 MB, 360p ≈ 34.4 MB),
     M4A ≈ 14 MB, MP3; 720p plays with sound; a Details screenshot.
+  - Commit `c53128c`, CI green: checkpoint validation
+    https://github.com/Alalkipgen/YFT/actions/runs/37516957311 , emulator smoke
+    https://github.com/Alalkipgen/YFT/actions/runs/37516957297 , Preview APK
+    https://github.com/Alalkipgen/YFT/actions/runs/37516957409
 - Starting state before any edit (2026-10-06, `f434724`): `:extractor-api:test` 32 tests,
   `:extractor-sites:test` 181, `:app:testDebugUnitTest` 663 (66 skipped), 0 failures;
   `:app:lintDebug` 0 errors, 95 warnings. Run as four sequential `./gradlew --no-daemon
