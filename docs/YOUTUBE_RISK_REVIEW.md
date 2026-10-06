@@ -67,6 +67,18 @@ What changed against the table above, and how each new risk is contained:
 | Breakage invisible to fixtures | `scripts/verify-youtube-potoken.mjs` mints a token with today's live BotGuard challenge in Chromium on the app's origin and reports requests the page tried (must be 0); `scripts/verify-youtube-solver.mjs` still checks the solver; lookup details name each client's verdict and the token state (minted, no host, unavailable, failed) |
 | Age, private, paid and DRM gates | Unchanged: a definite verdict from the page's client ends the lookup, and an age check from a fallback client clears the fallbacks' results |
 
+## P14: visionOS first (2026-10-05)
+
+The lookup now asks `VISIONOS` before the watch page and stops there when the answer is complete
+([ADR-006 § P14](decisions/ADR-006-owner-override-any-working-method.md#p14-visionos-first-2026-10-05)).
+
+| Risk | Containment in P14 |
+| --- | --- |
+| A gate decided without the page | The visionOS answer counts only when it is playable and complete; every refusal (sign-in, bot or age check, private, region, DRM, live, unplayable) and every incomplete answer runs the T16 chain unchanged, where the page's verdict is final. An age check from visionOS is never answered by another client |
+| Session exposure | The first request carries no cookie, authorization, visitor data or page API key; the user's session is still sent only by the page's own client, which runs only after a refused or incomplete visionOS answer |
+| More requests to YouTube | None for a complete answer (one request instead of up to four); otherwise visionOS is asked once, and the chain reuses that answer instead of asking again |
+| Breakage invisible to fixtures | Lookup details say "visionOS first: complete, no watch page" or why the page was read; the live check counts requests and bytes per video |
+
 ## Original Phase 5D review
 
 ## Recommendation

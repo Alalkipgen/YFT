@@ -729,6 +729,18 @@ repository that asks each client and prints only verdicts and counts.
 | CI / verified test fixtures | f82427b preview 37377253600 and emulator 37377254034 passed. Validation 37377253562 failed; full logs are not available anonymously, so exact cause unverified. TLS fixture now binds explicit loopback, pins localhost DNS to that address and verifies the localhost certificate normally; slow-stream/cancel tests have more runner headroom. Production deadlines/TLS unchanged. Local full root revalidation: 1124 tests (66 render skips), zero failures/errors, all five lint reports zero errors. Final checkpoint CI retry pending; no workflow changes |
 | Owner check | Facebook reel on a slow connection: every quality arrives together; sizes fill later; nothing disappears; a dead quality keeps the sheet and queues nothing |
 
+### P14 — YouTube asks visionOS first (OWNER CHECK, 2026-10-05, Track B)
+
+| Check | Result |
+| --- | --- |
+| visionOS alone | PASS — `YouTubeExtractorTest`: a complete visionOS fixture is the whole lookup: no watch page GET, one POST without the page key, no `Cookie`, `Authorization`, `X-Goog-Visitor-Id` or `visitorData`; rows 1080p, 720p, Audio with the fixture's sizes; details end "visionOS first: complete, no watch page" |
+| Watch page chain | PASS — no status, bot check, age check, unplayable, private, live, SABR only and no answer each read the watch page, whose own streams then count; an age check from visionOS ends `LOGIN_REQUIRED` with visionOS asked once; a missing `contentLength` or a protected (`signatureCipher`) format reads the page; DRM stays `DRM_PROTECTED`. The chain reuses visionOS's answer (asked once) |
+| Updated chain tests | Client order now `VISIONOS` first (`[VISIONOS, MWEB, ANDROID, WEB_EMBEDDED_PLAYER]` without an inline response; desktop `[VISIONOS, WEB, ANDROID, WEB_EMBEDDED_PLAYER, MWEB]`); lookup details start with visionOS's verdict and "visionOS first: …"; a failed page GET keeps those lines |
+| Regression proof | Pre-P14 `YouTubeExtractor.kt` and `YouTubePlayerResponseParser.kt` (`HEAD` 2071342) put back with the new tests: 17 of 48 failed, among them `a complete visionOS answer is the whole lookup, without the watch page`, `an age check from visionOS first leaves the verdict to the watch page`, `a visionOS answer without a size or with a protected format reads the watch page`, `DRM stays refused when visionOS is asked first`, `any other visionOS answer reads the watch page, whose own streams then count`; restored, `cmp` identical, all pass |
+| Live (sandbox, data-centre IP) | Before: `dQw4w9WgXcQ` visionOS alone 1 request 16,725 B, 27 adaptive formats all with URL and size, AVC 1080–144, VP9/AV1 to 2160, AAC + Opus; ranged GET itag 136 → 206, total = stated length; chain 4 requests 185,088 B. After: 1 request 16,677 B, 180 ms; rows 2160/1440 VP9, 1080/720/480/360 AVC merged, AAC audio. `LXb3EKWsInQ` (4K) and `ssRH9gJdJdM` (Short): bot check from every client on this IP → chain 4 requests, `BOT_CHECK`. `HtVdAasjOgU` (age): `LOGIN_REQUIRED`, 2 requests. Only status, host, path, sizes and heights recorded |
+| Local validation | `:extractor-sites:test` 173 tests, `:app:testDebugUnitTest` 614 tests (66 skipped), 0 failures; `:app:lintDebug` 0 errors (95 warnings, as before); new Kotlin lines ≤ 100 |
+| Owner check | On the slow line a YouTube link opens clearly faster; 720p, 1080p and 4K download and play |
+
 ## Runtime tests still requiring a device/emulator
 
 | Test | Required environment | Success criterion | Current result |

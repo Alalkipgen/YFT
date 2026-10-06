@@ -111,3 +111,29 @@ video that got "confirm you're not a bot" got it from every client even with a m
 the bot check on that network is decided by the IP address, not by the token; a phone on a home
 or mobile network is the real test. Not done: the page player's own token is not captured from
 the browser ([FIX_ADD_PLAN.md](../FIX_ADD_PLAN.md) §7 Backlog).
+
+### P14: visionOS first (2026-10-05)
+
+The chain gained a step 0 before the watch page; steps 1–5 are unchanged.
+
+0. **visionOS first.** One request as `VISIONOS`, asked the way step 2 asks it: its app's user
+   agent and device fields, no cookie, no authorization, no visitor data and no page key. The
+   answer is the whole lookup only when it is complete: playable (`playabilityStatus` OK, so not
+   private, age-restricted, region-blocked, DRM or live), a title and a length, every listed
+   format with a direct address (no `signatureCipher`, none protected) and a `contentLength`,
+   and at least one AVC video row with sound (a merged AVC + AAC row). Then the watch page is
+   not read: about 17 KB instead of the 166 KB page first.
+**Any other answer** (a sign-in, bot or age check, unplayable, an error, a missing size or
+address, SABR only) runs the chain from step 1 exactly as before: the watch page first, and the
+page's own verdict ends the lookup. visionOS is asked once per lookup; step 2 reuses its answer
+instead of asking again, and nothing it refused or offered unlocks what the page refused. An age
+check from visionOS is not a verdict on its own: the page decides, and an age-restricted video
+stays refused.
+
+Rows are those the chain made from the same answer: merged AVC + AAC rows now include 360p,
+because visionOS has no progressive 360p stream (the Android app's progressive 360p still wins
+when the chain runs). Live (sandbox, data-centre IP, 2026-10-05): `dQw4w9WgXcQ` took one request
+of 16,677 bytes in 180 ms (was 4 requests, 185,088 bytes), with 2160p and 1440p VP9, 1080p, 720p,
+480p and 360p AVC merged rows and the AAC track; a ranged GET of the 720p stream (itag 136) returned 206
+with the stated length. Bot-checked videos on that network still ran the whole chain (4
+requests), and the age-restricted `HtVdAasjOgU` stayed `LOGIN_REQUIRED` (2 requests).

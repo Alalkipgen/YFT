@@ -16,3 +16,27 @@ Update this file before every checkpoint push. Keep it factual so another chat c
 - Next: owner (2026-10-06) asked to continue with P12 while P11 CI finishes. P12 is IN PROGRESS: design only, no P12 code committed yet. Design notes: site video page (adapter `handles`) -> button action OPEN_PAGE_VIDEO with spinner while the page lookup runs; one page-scoped lookup per video key (site:contentId, new `SiteAdapterCoordinator.videoKey`) shared by taps and feed focused links; `DetectedMediaStore` gets a pending page video (loading/failure/Retry) that `QuickDownloadViewModel` waits on; probes await the page lookup and run only if it found nothing; `MediaGroups.pageVideos(adapterSite=true)` returns named videos only; generic pages with several videos open `MediaGroups.mainVideo` (playing via a tap-time script, else largest) with an "Other videos on this page (N)" row. Regression proof idea: BrowserRouteTest taps the FAB twice during a gated lookup and answers any evaluated script via ShadowWebView `getLastEvaluatedJavascriptCallback` (old code: two adapter calls).
 - Last pushed checkpoint: P11 CI fix (this checkpoint); final P11 cfad7b7; P11 feature f82427b; P10 bdc9f88; P9 13bbf05; PLAN d642607.
 - Last updated: 2026-10-06
+
+## Track B (extractors)
+
+Agent B, branch `work/phase-11-extractors` (from `work/phase-11-download-flow` `2071342`), only
+P14 then P15; Agent A works on P12, P13, P19, P16, P17, P18. The Plan's status board is not
+edited; status is recorded here.
+
+- **P14 — YouTube asks visionOS first: OWNER CHECK (2026-10-05).** Result: the lookup asks
+  `VISIONOS` before the watch page (no cookie, authorization, visitor data or page key) and
+  stops when the answer is complete (playable, title and length, every format with a direct
+  address and `contentLength`, an AVC video with sound): one request of about 17 KB. Anything
+  else runs the T16 chain unchanged; the page's verdict stays final. Plan adapted: (1) visionOS
+  alone has no progressive 360p, so merged AVC + AAC rows now include 360p; (2) visionOS is asked
+  once per lookup and the chain reuses that answer; (3) the first request has no visitor data,
+  because no page was read. Regression proof: pre-P14 extractor and parser put back → 17 of 48
+  `YouTubeExtractorTest` tests failed (e.g. `a complete visionOS answer is the whole lookup,
+  without the watch page`); restored, `cmp` identical. Live (sandbox): `dQw4w9WgXcQ` 1 request,
+  16,677 B, 180 ms (was 4 requests, 185,088 B), rows 4K/2K VP9 + 1080–360 AVC merged + AAC;
+  4K and Short videos bot-checked on this IP (chain unchanged); age-restricted stays
+  `LOGIN_REQUIRED`. Validation: extractor-sites 173, app 614 (66 skipped), 0 failures; lint 0
+  errors. Owner check: on the slow line a YouTube link opens clearly faster; 720p, 1080p and 4K
+  download and play.
+- Shared files: none.
+- Next: P15 (Facebook public page first), then merge `origin/work/phase-11-download-flow`.

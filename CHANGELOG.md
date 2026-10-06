@@ -33,6 +33,10 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Changed
 
+- YouTube opens faster: a lookup first asks YouTube's visionOS app alone (one request of about
+  17 KB, without your session). When that answer is complete it is the whole lookup, so the
+  166 KB watch page is not loaded; any other answer reads the watch page as before, and private,
+  age-restricted and DRM videos stay refused. 360p is now a merged video + audio row.
 - Compact download sheet: initially two Audio rows (M4A, MP3 128 kbps) and two Video rows
   (720p and the next lower quality by default). More formats expands the full list in place,
   once per format; Fewer formats preserves the selection. Only the rows scroll: Download,

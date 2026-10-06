@@ -30,7 +30,9 @@ import java.net.URLDecoder
 /**
  * YouTube adapter for offline copies of videos the user can watch.
  *
- * It reads the watch page the user's browser receives, then asks YouTube's player endpoint as a
+ * It first asks YouTube's visionOS app alone (P14): a complete answer, with every format's
+ * direct address and size, is the whole lookup, one request of about 17 KB. Any other answer
+ * reads the watch page the user's browser receives, then asks YouTube's player endpoint as a
  * chain of clients, the order the owner chose in ADR-006 (D2 = A + B + C):
  *
  * 1. YouTube's own visionOS and Android apps (option B), whose streams carry direct addresses;
@@ -42,7 +44,7 @@ import java.net.URLDecoder
  *
  * Downloads found along the way are combined, and the chain stops once it has a video with
  * sound and an audio track. Higher qualities, which YouTube serves only as separate video and
- * audio files, are offered as 480p, 720p and 1080p AVC rows that carry their AAC audio track
+ * audio files, are offered as 360p to 1080p AVC rows that carry their AAC audio track
  * and are merged into one MP4 on the phone (T17). When a lookup meets YouTube's bot check, the
  * user plays the video in YFT's browser and tries again there, so the lookup carries the
  * browser's own session (option C). The values YouTube's player computes for a stream are
@@ -84,6 +86,9 @@ class YouTubeExtractor(
         }
         val pageUrl = YouTubeUrls.canonicalUrl(videoId)
 
+        val first = Lookup(videoId, pageUrl, NO_PAGE, request)
+        if (visionOsFirst(first)) return first.success()
+
         val page = when (
             val result = http.get(
                 url = YouTubeUrls.watchPageFetchUrl(videoId),
@@ -94,7 +99,9 @@ class YouTubeExtractor(
             is ExtractorHttpResult.Failure -> return SiteExtractionResult.Failure(
                 reason = result.reason,
                 httpStatusCode = result.statusCode,
-                details = listOf("watch page GET failed (${result.reason})"),
+                details = DiagnosticTextSanitizer.details(
+                    first.details + "watch page GET failed (${result.reason})",
+                ),
             )
 
             is ExtractorHttpResult.Success -> result
@@ -102,6 +109,8 @@ class YouTubeExtractor(
 
         val signals = YouTubePlayerResponseParser.pageSignals(page.body)
         val lookup = Lookup(videoId, pageUrl, signals, request)
+        lookup.details += first.details
+        lookup.visionOsAnswer = first.visionOsAnswer
         lookup.details += "watch page GET ${page.statusCode} (${page.body.length} characters)"
         val pageClient = YouTubeClientProfiles.page(signals)
         val inlineLabel = "client ${pageClient.clientName} (watch page response)"
@@ -135,6 +144,57 @@ class YouTubeExtractor(
             lookup.failure(lookup.verdicts.final())
         } else {
             lookup.success()
+        }
+    }
+
+    /**
+     * Asks YouTube's visionOS app before anything else and returns whether its answer alone is
+     * the lookup (P14): about 17 KB instead of the 166 KB watch page first.
+     *
+     * It is asked as the chain's device step asks it, without the user's cookie. The answer is
+     * accepted only when it is complete ([gapOf]) and gives an AVC video with sound. Anything
+     * else, such as a sign-in, age or bot check, an unplayable video or a missing size, runs
+     * the watch page chain unchanged: the page's own verdict stays final, and nothing this
+     * client refused or offered decides the lookup.
+     */
+    private suspend fun visionOsFirst(lookup: Lookup): Boolean {
+        val client = YouTubeClientProfiles.VISION_OS
+        val parsed = askPlayer(client, lookup)
+        lookup.visionOsAnswer = parsed
+        val video = (parsed as? YouTubeParseResult.Success)?.video
+        val gap = when {
+            video == null -> "no playable answer"
+            else -> gapOf(video)
+                ?: "no AVC video with sound".takeUnless { select(video).any(::isAvcVideo) }
+        }
+        if (gap == null) {
+            collect(Tier.FALLBACK, client, parsed, client.label, lookup)
+            if (lookup.offers.hasVideoWithSound) {
+                lookup.details += "visionOS first: complete, no watch page"
+                return true
+            }
+        }
+        lookup.details += "visionOS first: ${gap ?: "no download"}, so the watch page is read"
+        return false
+    }
+
+    private fun isAvcVideo(stream: YouTubeStream): Boolean =
+        stream.hasVideo && stream.codecs.any(::isAvc)
+
+    /**
+     * Why a visionOS answer is not a lookup on its own, or null when it is complete: a title
+     * and a length, and every format with a direct address and a size. A verdict YouTube gives
+     * instead (private, age or sign-in check, DRM, live) never reaches this point.
+     */
+    private fun gapOf(video: YouTubeVideo): String? {
+        val streams = video.progressive + video.adaptive
+        return when {
+            video.title == null || video.durationMillis == null -> "no title or length"
+            video.unaddressedFormats > 0 || streams.any(YouTubeStream::isProtected) ->
+                "a format without a direct address"
+
+            streams.any { (it.contentLengthBytes ?: 0L) <= 0L } -> "a format without a size"
+            else -> null
         }
     }
 
@@ -201,11 +261,15 @@ class YouTubeExtractor(
         }
     }
 
-    /** Asks one client and records what it answered, never the answer itself. */
+    /**
+     * Asks one client and records what it answered, never the answer itself. visionOS is asked
+     * once per lookup: the chain reuses the answer it gave before the watch page was read.
+     */
     private suspend fun askPlayer(
         client: YouTubeClientProfile,
         lookup: Lookup,
     ): YouTubeParseResult {
+        if (client == YouTubeClientProfiles.VISION_OS) lookup.visionOsAnswer?.let { return it }
         val signals = lookup.signals
         val result = http.postJson(
             url = YouTubeUrls.innerTubeUrl(signals.apiKey),
@@ -696,6 +760,9 @@ class YouTubeExtractor(
         /** Tokens by binding, kept once asked for, so one lookup mints each at most once. */
         val mintedTokens = mutableMapOf<String, MintedToken>()
 
+        /** visionOS's answer, asked before the watch page (P14) and reused by the chain. */
+        var visionOsAnswer: YouTubeParseResult? = null
+
         val nowEpochMs: Long
             get() = request.nowEpochMs
 
@@ -747,6 +814,12 @@ class YouTubeExtractor(
 
         val isEmpty: Boolean
             get() = videos.isEmpty() && audio == null
+
+        /** A video row with sound: progressive, or merged with its audio track. */
+        val hasVideoWithSound: Boolean
+            get() = videos.values.any { offer ->
+                offer.stream.hasAudio || offer.candidate.audioCompanion != null
+            }
 
         /** Forgets everything offered so far. */
         fun clear() {
@@ -914,8 +987,11 @@ class YouTubeExtractor(
         private const val VP9_PROFILE_0_PREFIX = "vp09.00."
         private const val OPUS_CODEC = "opus"
 
-        /** Merged video-and-audio rows, by the quality YouTube names them (T17). */
-        private val MERGED_QUALITIES = setOf(480, 720, 1080)
+        /**
+         * Merged video-and-audio rows, by the quality YouTube names them (T17). 360p since P14:
+         * a visionOS answer alone has no progressive 360p stream, which the Android app gave.
+         */
+        private val MERGED_QUALITIES = setOf(360, 480, 720, 1080)
 
         /** 2K and 4K (P6): VP9 with Opus as WebM, else AV1 with AAC as MP4. */
         private val HIGH_QUALITIES = setOf(1440, 2160)
@@ -931,6 +1007,17 @@ class YouTubeExtractor(
         private const val MILLIS_PER_SECOND = 1_000L
         private const val BITS_PER_KILOBIT = 1_000L
         private const val HALF_KILOBIT = 500L
+
+        /** What a lookup knows before any watch page was read. */
+        private val NO_PAGE = YouTubePageSignals(
+            playerResponseJson = null,
+            playerId = null,
+            apiKey = null,
+            clientName = null,
+            clientVersion = null,
+            visitorData = null,
+            signatureTimestamp = null,
+        )
 
         private val VIDEO_ID = Regex("^[A-Za-z0-9_-]{11}$")
         private val SIGNATURE_PARAM = Regex("^[A-Za-z]{1,16}$")
