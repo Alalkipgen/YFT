@@ -10,6 +10,7 @@ import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.Mp3Variants
 import com.alal.yft.core.model.media.VariantResolutionFailure
+import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.detection.VideoPlaybackSupport
 import com.alal.yft.feature.preview.sizeText
@@ -26,6 +27,8 @@ data class SheetSource(
     /** False when [asset] was built from what the site stated: Download looks it up first. */
     val resolved: Boolean,
     val failure: VariantResolutionFailure? = null,
+    /** P24: the whole failure behind [failure], for the sheet's message and Details. */
+    val failureDetail: VariantResolutionResult.Failure? = null,
 )
 
 enum class OptionSection { VIDEO, AUDIO }
@@ -248,10 +251,19 @@ object QuickDownloadChoices {
         options.firstOrNull { it.variant.trackType == MediaTrackType.AUDIO_VIDEO }
             ?: options.first()
 
-    /** One row per standard resolution, highest first; files of unknown quality stay apart. */
+    /**
+     * One row per standard resolution, highest first; files of unknown quality stay apart.
+     * P24: a page's quality playlist found beside its master is not a row of its own when the
+     * master names it with its height.
+     */
     private fun videoRows(options: List<SheetOption>): List<SheetOption> {
+        val measured = options.filter { it.variant.height != null }
+            .mapTo(HashSet()) { it.variant.playbackUrl }
         val rows = LinkedHashMap<String, SheetOption>()
         options.sortedWith(VIDEO_ORDER).forEach { option ->
+            if (option.variant.height == null && option.variant.playbackUrl in measured) {
+                return@forEach
+            }
             val hint = option.quality?.uppercase(Locale.US)?.takeIf { it == "HD" || it == "SD" }
             val key = when {
                 hint != null && option.variant.height == null -> "hint:$hint"

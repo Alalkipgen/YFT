@@ -412,6 +412,52 @@ class QuickDownloadScreenTest {
     }
 
     @Test
+    fun aFailureShowsItsDetailsOnlyWhenAskedFor() {
+        // P24: the sheet's Details name the step, the host and the status.
+        val details = listOf(
+            "Step: list of qualities (manifest)",
+            "Host: stream.example.test",
+            "Status: HTTP 403",
+        )
+        var state by mutableStateOf(
+            QuickDownloadUiState(
+                header = SAMPLE_QUICK_DOWNLOAD.header,
+                failure = "The site refused this video (HTTP 403).",
+                failureDetails = details,
+            ),
+        )
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(state = state, onSelect = {}, onDownload = {})
+            }
+        }
+
+        composeRule.onNodeWithTag("quick-error")
+            .assert(hasText("The site refused this video (HTTP 403)."))
+        composeRule.onAllNodesWithTag("quick-error-detail-text").assertCountEquals(0)
+        composeRule.onNodeWithTag("quick-error-details").performClick()
+        composeRule.onNodeWithTag("quick-error-detail-text")
+            .assert(hasText(details.joinToString("\n")))
+        composeRule.onNodeWithTag("quick-error-details").performClick()
+        composeRule.onAllNodesWithTag("quick-error-detail-text").assertCountEquals(0)
+
+        // A Download the sheet could not prepare has them under its message.
+        state = SAMPLE_QUICK_DOWNLOAD.copy(
+            downloadStatus = PreviewDownloadStatus.Rejected("The site no longer has this video."),
+            downloadDetails = listOf("Step: file check", "Status: HTTP 404"),
+        )
+        composeRule.onNodeWithTag("quick-download-status")
+            .assert(hasText("The site no longer has this video."))
+        composeRule.onNodeWithTag("quick-error-details").performClick()
+        composeRule.onNodeWithTag("quick-error-detail-text")
+            .assert(hasText("Step: file check\nStatus: HTTP 404"))
+
+        // Without Details nothing more is offered.
+        state = state.copy(downloadDetails = emptyList())
+        composeRule.onAllNodesWithTag("quick-error-details").assertCountEquals(0)
+    }
+
+    @Test
     fun meteredDownloadsAskFirstAndNoVideoOffersClose() {
         var state by mutableStateOf(
             SAMPLE_QUICK_DOWNLOAD.copy(downloadStatus = PreviewDownloadStatus.ConfirmMetered),

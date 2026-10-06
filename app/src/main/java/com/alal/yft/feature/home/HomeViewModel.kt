@@ -42,7 +42,8 @@ import kotlinx.coroutines.launch
  * Candidates of one video count once (P3). When it found one video, Home opens its download
  * sheet instead and View reopens it. P16: a link to a video of a site an adapter reads opens the
  * sheet at once; the sheet waits on this lookup, shows its failure with Try again, and closing it
- * stops the lookup.
+ * stops the lookup. P24: previews and ads of a page are not counted; a page with one main video
+ * opens its sheet at once with the rest under "Other videos on this page".
  */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -62,6 +63,9 @@ class HomeViewModel @Inject constructor(
 
     /** The one video the last lookup found, which View hands to the sheet again. */
     private var foundVideo: MediaGroup? = null
+
+    /** P24: how many previews and other videos the page of [foundVideo] has. */
+    private var foundOthers = 0
     private var recentJob: Job? = null
 
     /** P16: the lookup the open sheet waits on, and the link it looks up, until it found it. */
@@ -151,6 +155,7 @@ class HomeViewModel @Inject constructor(
         if (link.isEmpty()) return
         stopInspection()
         foundVideo = null
+        foundOthers = 0
         // P16: a supported site's video opens its sheet now; the lookup below fills it.
         val sheet = inspector.siteVideo(link)?.let { video ->
             PageVideoLookup(video.key, video.pageUrl, title = null, owner = LookupOwner.HOME)
@@ -208,13 +213,19 @@ class HomeViewModel @Inject constructor(
                                 .filter { it.isSavable },
                         )
                         if (videos.isNotEmpty()) {
-                            foundVideo = videos.singleOrNull()?.also(detectedMediaStore::select)
+                            // P24: the count counts the page's videos, not its previews and
+                            // ads; one main video opens its sheet with the rest behind it.
+                            val list = MediaGroups.ofPage(videos)
+                            foundOthers = videos.size - 1
+                            foundVideo = list.videos.singleOrNull()?.also { main ->
+                                detectedMediaStore.select(main, otherVideos = foundOthers)
+                            }
                             quick = foundVideo != null
                             // P16: the open sheet shows the link's video, the list the rest.
                             if (sheet != null && foundVideo == null) {
-                                detectedMediaStore.select(videos.first())
+                                detectedMediaStore.select(list.videos.first())
                             }
-                            PromptboxStatus.Found(count = videos.size)
+                            PromptboxStatus.Found(count = list.videos.size)
                         } else {
                             details = listOf("media check: DRM only")
                             sheetFailure = sheet?.copy(failure = PROTECTED_ONLY_MESSAGE)
@@ -275,7 +286,7 @@ class HomeViewModel @Inject constructor(
 
     /** View on one found video: the sheet shows it again, whatever the browser found since. */
     fun selectFoundVideo() {
-        foundVideo?.let(detectedMediaStore::select)
+        foundVideo?.let { detectedMediaStore.select(it, otherVideos = foundOthers) }
     }
 
     private fun stopInspection() {

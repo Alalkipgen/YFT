@@ -2,7 +2,9 @@ package com.alal.yft.core.browser.detection
 
 import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
+import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.PageMediaRole
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -122,6 +124,80 @@ class HtmlMediaScannerTest {
         val result = HtmlMediaScanner(maxCandidates = 5).scan(html, page, observedAtEpochMs = 0)
 
         assertEquals(5, result.candidates.size)
+    }
+
+    @Test
+    fun aVideoPageWithPreviewThumbnailsNamesItsStreamAsItsVideo() {
+        // P24: the owner's case: the page's player config names an HLS master; 40 thumbnail
+        // links carry muted looping preview clips; an ad frame carries no file.
+        val html = fixture("p24-preview-grid.html")
+        val watch = "https://videos.example.test/watch/42"
+
+        val result = scanner.scan(html, watch, observedAtEpochMs = 0)
+
+        val master = "https://stream.example.test/v42/master.m3u8?token=fixture"
+        val main = result.candidates.filter { it.pageRole == PageMediaRole.MAIN }
+        assertEquals(listOf(master), main.map { it.mediaUrl })
+        assertEquals(MediaKind.HLS, main.single().kind)
+        assertEquals(40, result.candidates.count { it.pageRole == PageMediaRole.PREVIEW })
+        assertEquals(41, result.candidates.size)
+        assertEquals("Long walk by the river", result.title)
+        val list = MediaGroups.ofPage(MediaGroups.pageVideos(result.candidates))
+        assertEquals(listOf(master), list.videos.single().candidates.map { it.mediaUrl })
+        assertEquals(40, list.previews.size)
+
+        // A page that lists more than the cap keeps its own video first.
+        val capped = HtmlMediaScanner(maxCandidates = 10).scan(html, watch, observedAtEpochMs = 0)
+        assertEquals(10, capped.candidates.size)
+        assertEquals(master, capped.candidates.first().mediaUrl)
+    }
+
+    @Test
+    fun thePagesOwnWordsMarkItsVideoAndItsPreviews() {
+        val html = """
+            <meta property="og:video:url" content="https://cdn.example.com/v/main.mp4">
+            <script type="application/ld+json">
+            {"@type":"VideoObject","duration":"PT12M5S",
+             "contentUrl":"https://cdn.example.com/v/main-hd.mp4",
+             "embedUrl":"https://cdn.example.com/v/main.m3u8"}
+            </script>
+            <div class="card" data-preview-url="https://cdn.example.com/p/1.mp4"></div>
+            <span data-teaser="https://cdn.example.com/p/2.mp4"></span>
+            <img class="tile" data-src="https://cdn.example.com/p/3.mp4">
+            <div class="tile" data-src="https://cdn.example.com/v/other.mp4"></div>
+            <video autoplay muted loop src="https://cdn.example.com/p/4.mp4"></video>
+            <video controls src="https://cdn.example.com/v/also.mp4"></video>
+            <p>https://cdn.example.com/p/1.mp4</p>
+        """.trimIndent()
+
+        val result = scanner.scan(html, page, observedAtEpochMs = 0)
+        val roles = result.candidates.associate { candidate ->
+            candidate.mediaUrl.substringAfter(".com/") to candidate.pageRole
+        }
+
+        assertEquals(PageMediaRole.MAIN, roles["v/main.mp4"])
+        assertEquals(PageMediaRole.MAIN, roles["v/main-hd.mp4"])
+        assertEquals(PageMediaRole.MAIN, roles["v/main.m3u8"])
+        assertEquals(PageMediaRole.PREVIEW, roles["p/1.mp4"])
+        assertEquals(PageMediaRole.PREVIEW, roles["p/2.mp4"])
+        assertEquals(PageMediaRole.PREVIEW, roles["p/3.mp4"])
+        assertEquals(PageMediaRole.PREVIEW, roles["p/4.mp4"])
+        assertNull(roles["v/also.mp4"])
+        // A data-src on a box that is not a thumbnail is just a link.
+        assertNull(roles["v/other.mp4"])
+        // The VideoObject's one length is its files' length.
+        val lengths = result.candidates.associate { it.mediaUrl.substringAfter(".com/") to
+            it.durationMillis }
+        assertEquals(725_000L, lengths["v/main-hd.mp4"])
+        assertEquals(725_000L, lengths["v/main.m3u8"])
+        assertNull(lengths["v/main.mp4"])
+    }
+
+    private fun fixture(name: String): String {
+        val resource = requireNotNull(javaClass.getResourceAsStream("/fixtures/$name")) {
+            "Missing fixture $name"
+        }
+        return resource.bufferedReader().use { it.readText() }
     }
 
     @Test

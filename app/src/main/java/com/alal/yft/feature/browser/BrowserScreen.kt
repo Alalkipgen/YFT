@@ -111,6 +111,7 @@ import com.alal.yft.core.browser.webview.SecureBrowserChromeClient
 import com.alal.yft.core.browser.webview.SecureBrowserWebViewClient
 import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaGroups
+import com.alal.yft.core.model.media.PageVideoList
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.feature.home.HomeLinks
 import com.alal.yft.feature.home.rememberCopiedLinkHint
@@ -122,6 +123,7 @@ import com.alal.yft.ui.components.YftDivider
 import com.alal.yft.ui.components.YftFoundMediaRow
 import com.alal.yft.ui.components.YftIcon
 import com.alal.yft.ui.components.YftIconButton
+import com.alal.yft.ui.components.YftOtherVideosHeader
 import com.alal.yft.ui.components.YftSheetHandle
 import com.alal.yft.ui.components.YftTextButton
 import com.alal.yft.ui.components.isSavable
@@ -410,6 +412,9 @@ fun BrowserScreen(
     val videos = remember(savable, uiState.sitePage) {
         MediaGroups.pageVideos(savable, adapterSite = uiState.sitePage)
     }
+    // P24: the count and the button's label count the page's videos; its previews and ads
+    // follow them under "Other videos on this page". The tap still sees every entry.
+    val pageList = remember(videos) { MediaGroups.ofPage(videos) }
     var sheetExpanded by rememberSaveable { mutableStateOf(initialSheetExpanded) }
     // P12: "Other videos on this page" in the main video's sheet opens this list, once per ask:
     // coming back to the browser later must not open it again.
@@ -639,7 +644,7 @@ fun BrowserScreen(
                     }
                     if (roundVisible) {
                         BrowserDownloadButton(
-                            savableCount = videos.size,
+                            savableCount = pageList.videos.size,
                             findsOnScreen = findsOnScreen,
                             sitePage = fabAction == BrowserDownloadFab.Action.OPEN_PAGE_VIDEO,
                             busy = busy,
@@ -649,7 +654,7 @@ fun BrowserScreen(
                     }
                     if (showSheet) {
                         FoundMediaSheet(
-                            videos = videos,
+                            list = pageList,
                             hiddenCount = hiddenCount,
                             expanded = sheetExpanded,
                             onExpandedChange = { sheetExpanded = it },
@@ -884,7 +889,7 @@ private fun BrowserBanner(
 /** The docked sheet from `02`: a peek header that expands into the savable media list. */
 @Composable
 private fun FoundMediaSheet(
-    videos: List<MediaGroup>,
+    list: PageVideoList,
     hiddenCount: Int,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
@@ -955,7 +960,7 @@ private fun FoundMediaSheet(
                                 .weight(1f, fill = false)
                                 .semantics {
                                     heading()
-                                    contentDescription = foundCountLabel(videos.size)
+                                    contentDescription = foundCountLabel(list.videos.size)
                                 },
                             color = colors.textPrimary,
                             style = MaterialTheme.typography.titleLarge,
@@ -966,7 +971,7 @@ private fun FoundMediaSheet(
                                 .padding(start = 10.dp),
                         ) {
                             YftCountBadge(
-                                count = videos.size,
+                                count = list.videos.size,
                                 modifier = Modifier.clearAndSetSemantics {},
                                 minSize = 24.dp,
                             )
@@ -994,10 +999,17 @@ private fun FoundMediaSheet(
                             .testTag("found-list"),
                     ) {
                         itemsIndexed(
-                            items = videos,
+                            items = list.all,
                             key = { index, video -> "$index-${video.key}" },
                         ) { index, video ->
-                            if (index > 0) {
+                            if (index == list.videos.size) {
+                                YftOtherVideosHeader(
+                                    count = list.previews.size,
+                                    modifier = Modifier
+                                        .padding(start = 20.dp, end = 16.dp, top = 12.dp)
+                                        .testTag("found-other-videos"),
+                                )
+                            } else if (index > 0) {
                                 YftDivider(
                                     modifier = Modifier.padding(start = FoundMediaDividerInset),
                                 )

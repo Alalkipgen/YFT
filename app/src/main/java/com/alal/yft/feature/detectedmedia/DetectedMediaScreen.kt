@@ -33,6 +33,7 @@ import com.alal.yft.ui.components.YftDivider
 import com.alal.yft.ui.components.YftFoundMediaRow
 import com.alal.yft.ui.components.YftIcon
 import com.alal.yft.ui.components.YftIconButton
+import com.alal.yft.ui.components.YftOtherVideosHeader
 import com.alal.yft.ui.components.YftPrimaryButton
 import com.alal.yft.ui.components.YftTopBar
 import com.alal.yft.ui.components.isSavable
@@ -162,8 +163,10 @@ private fun DetectedList(
 ) {
     val colors = YftTheme.colors
     val savable = remember(page.candidates) { page.candidates.filter { it.isSavable } }
-    val videos = remember(savable, page.adapterSite) {
-        MediaGroups.pageVideos(savable, adapterSite = page.adapterSite)
+    // P24: the count counts the page's videos; previews and ads follow them under "Other
+    // videos on this page".
+    val list = remember(savable, page.adapterSite) {
+        MediaGroups.ofPage(MediaGroups.pageVideos(savable, adapterSite = page.adapterSite))
     }
     val hiddenNote = protectedHiddenLabel(page.candidates.size - savable.size)
     LazyColumn(
@@ -193,7 +196,7 @@ private fun DetectedList(
                 )
                 Text(
                     // Only the host is shown: the full page address can carry session tokens.
-                    text = "${pageHost(page.pageUrl)} · ${candidateCountLabel(videos.size)}",
+                    text = "${pageHost(page.pageUrl)} · ${candidateCountLabel(list.videos.size)}",
                     color = colors.textSecondary,
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -226,8 +229,15 @@ private fun DetectedList(
                     modifier = Modifier.fillMaxWidth(),
                     contentPadding = PaddingValues(vertical = 4.dp),
                 ) {
-                    videos.forEachIndexed { index, video ->
-                        if (index > 0) {
+                    list.all.forEachIndexed { index, video ->
+                        if (index == list.videos.size) {
+                            YftOtherVideosHeader(
+                                count = list.previews.size,
+                                modifier = Modifier
+                                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp)
+                                    .testTag("detected-other-videos"),
+                            )
+                        } else if (index > 0) {
                             YftDivider(modifier = Modifier.padding(start = FoundMediaDividerInset))
                         }
                         YftFoundMediaRow(

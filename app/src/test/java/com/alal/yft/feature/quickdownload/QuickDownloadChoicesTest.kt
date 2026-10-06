@@ -312,6 +312,30 @@ class QuickDownloadChoicesTest {
     }
 
     @Test
+    fun aQualityPlaylistFoundBesideItsMasterIsNoRowOfItsOwn() {
+        // P24: the page's player fetched its HLS master and the 720p playlist the master names;
+        // both are one video, and the playlist is the master's 720p row, not a third row.
+        val master = video(null, kind = MediaKind.HLS, videoId = null, label = null, index = 1)
+        val playlist = video(null, kind = MediaKind.HLS, videoId = null, label = null, index = 2)
+        val stated = resolvedAsset(master).variants.single()
+        val masterAsset = resolvedAsset(master).copy(
+            variants = listOf(
+                stated.copy(id = "hls-720", playbackUrl = playlist.mediaUrl, height = 720),
+                stated.copy(id = "hls-1080", playbackUrl = "${master.mediaUrl}?q=1", height = 1080),
+            ),
+        )
+        val sources = listOf(
+            SheetSource(master, masterAsset, resolved = true),
+            SheetSource(playlist, resolvedAsset(playlist), resolved = true),
+        )
+
+        val choices = QuickDownloadChoices.of(group(listOf(master, playlist)), sources)!!
+
+        assertEquals(listOf("1080p · Full HD", "720p · HD"), choices.video.map(SheetOption::title))
+        assertEquals(playlist.mediaUrl, choices.video.last().variant.playbackUrl)
+    }
+
+    @Test
     fun nothingReadableGivesNoChoices() {
         val file = video(720).copy(drmHint = true)
 

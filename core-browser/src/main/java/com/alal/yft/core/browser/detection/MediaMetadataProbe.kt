@@ -6,6 +6,7 @@ import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.extractor.generic.classifier.MediaUrlClassifier
+import com.alal.yft.extractor.generic.manifest.ManifestReader
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
@@ -74,6 +75,126 @@ class MediaMetadataProbe(
         Result.Failed(FailureReason.NETWORK)
     } catch (_: IllegalArgumentException) {
         Result.NotMedia(NotMediaReason.INVALID_URL)
+    }
+
+    /**
+     * P24: the length and tallest picture an HLS or DASH [candidate] states, read from its
+     * manifest's text and, for an HLS master (which states no length), from its first
+     * quality's playlist: so the length of a player that plays a page-built stream finds its
+     * manifest. Two small bounded text requests at most, sent like the header probe and with
+     * the page's `Origin`; null when nothing could be read. Never reads media.
+     */
+    suspend fun readManifest(candidate: MediaCandidate): MediaCandidate? = try {
+        readManifestText(candidate)
+    } catch (cancellation: CancellationException) {
+        throw cancellation
+    } catch (_: IOException) {
+        null
+    } catch (_: IllegalArgumentException) {
+        null
+    }
+
+    private suspend fun readManifestText(candidate: MediaCandidate): MediaCandidate? {
+        if (candidate.kind != MediaKind.HLS && candidate.kind != MediaKind.DASH) return null
+        val manifestUrl = candidate.mediaUrl.toSafeHttpUrl() ?: return null
+        val (finalUrl, text) = fetchText(candidate, manifestUrl, manifestUrl) ?: return null
+        val facts = if (candidate.kind == MediaKind.HLS) {
+            ManifestReader.hls(text, finalUrl.toString())
+        } else {
+            ManifestReader.dash(text)
+        } ?: return null
+        var duration = facts.durationMillis
+        val playlist = facts.firstPlaylistUrl?.toSafeHttpUrl()
+        if (duration == null && playlist != null) {
+            duration = fetchText(candidate, manifestUrl, playlist)
+                ?.let { (url, body) -> ManifestReader.hls(body, url.toString()) }
+                ?.durationMillis
+        }
+        if (duration == null && facts.height == null) return null
+        return candidate.copy(
+            durationMillis = candidate.durationMillis ?: duration,
+            width = candidate.width ?: facts.width.takeIf { candidate.height == null },
+            height = candidate.height ?: facts.height,
+        )
+    }
+
+    /**
+     * A manifest's text, at most [MAX_MANIFEST_BYTES], with redirects followed like the header
+     * probe: only to HTTPS, and without credentials to another origin than [credentialOrigin].
+     */
+    private suspend fun fetchText(
+        candidate: MediaCandidate,
+        credentialOrigin: HttpUrl,
+        target: HttpUrl,
+    ): Pair<HttpUrl, String>? {
+        var currentUrl = target
+        repeat(policy.maxRedirects + 1) {
+            val headers = candidate.requestContext
+                .probeHeaders(currentUrl.hasSameOrigin(credentialOrigin))
+                .withPageOrigin(candidate.requestContext.pageUrl)
+            val request = Request.Builder().url(currentUrl).get()
+            headers.forEach { (name, value) -> runCatching { request.header(name, value) } }
+            request.header("Accept", MANIFEST_ACCEPT)
+            val answer = suspendCancellableCoroutine { continuation ->
+                val call = probeClient.newCall(request.build())
+                continuation.invokeOnCancellation { call.cancel() }
+                call.enqueue(
+                    object : Callback {
+                        override fun onFailure(call: Call, error: IOException) {
+                            if (continuation.isActive) continuation.resumeWithException(error)
+                        }
+
+                        override fun onResponse(call: Call, response: Response) {
+                            val result = runCatching { response.use { it.toText() } }
+                            if (!continuation.isActive) return
+                            result.fold(
+                                onSuccess = continuation::resume,
+                                onFailure = continuation::resumeWithException,
+                            )
+                        }
+                    },
+                )
+            }
+            if (answer.code in REDIRECT_CODES) {
+                val next = answer.location?.let(currentUrl::resolve)
+                    ?.takeIf { it.username.isEmpty() && it.password.isEmpty() }
+                    ?: return null
+                if (currentUrl.isHttps && !next.isHttps) return null
+                currentUrl = next
+                return@repeat
+            }
+            if (answer.code !in SUCCESS_CODES) return null
+            return answer.body?.let { currentUrl to it }
+        }
+        return null
+    }
+
+    private class TextAnswer(val code: Int, val location: String?, val body: String?)
+
+    private fun Response.toText(): TextAnswer {
+        if (code !in SUCCESS_CODES) return TextAnswer(code, header("Location"), null)
+        val source = body ?: return TextAnswer(code, null, null)
+        val bytes = source.byteStream().use { stream ->
+            val buffer = java.io.ByteArrayOutputStream()
+            val chunk = ByteArray(BUFFER_SIZE)
+            while (buffer.size() <= MAX_MANIFEST_BYTES) {
+                val read = stream.read(chunk)
+                if (read < 0) break
+                buffer.write(chunk, 0, read)
+            }
+            buffer.toByteArray()
+        }
+        val text = bytes.takeIf { it.size <= MAX_MANIFEST_BYTES }?.toString(Charsets.UTF_8)
+        return TextAnswer(code, null, text)
+    }
+
+    /** P24: a page's player asks for its manifest with the page's `Origin`; so does this. */
+    private fun Map<String, String>.withPageOrigin(pageUrl: String?): Map<String, String> {
+        if (keys.any { it.equals("Origin", ignoreCase = true) }) return this
+        if (keys.none { it.equals("Referer", ignoreCase = true) }) return this
+        val page = pageUrl?.toHttpUrlOrNull()?.takeIf { it.isHttps } ?: return this
+        val port = if (page.port == HTTPS_PORT) "" else ":${page.port}"
+        return this + ("Origin" to "https://${page.host}$port")
     }
 
     private suspend fun probeNetwork(candidate: MediaCandidate): Result {
@@ -283,6 +404,11 @@ class MediaMetadataProbe(
     }
 
     private companion object {
+        const val MAX_MANIFEST_BYTES = 524_288
+        const val BUFFER_SIZE = 8_192
+        const val HTTPS_PORT = 443
+        const val MANIFEST_ACCEPT = "application/vnd.apple.mpegurl, application/x-mpegurl, " +
+            "application/dash+xml, */*;q=0.1"
         const val HTTP_METHOD_NOT_ALLOWED = 405
         const val HTTP_NOT_IMPLEMENTED = 501
         const val RANGE_FIRST_BYTE = "bytes=0-0"

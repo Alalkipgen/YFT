@@ -19,6 +19,8 @@ import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaGroups
+import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.PlayingVideo
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.extractor.api.SiteExtractionFailure
@@ -144,6 +146,9 @@ class BrowserViewModel(
     /** P16: the lookup of a feed's video on screen that the open sheet waits on. */
     private var focusedSheet: PageVideoLookup? = null
 
+    /** P24: the stream addresses whose manifest this page already read for its length. */
+    private val manifestReads = mutableSetOf<String>()
+
     init {
         homeSitesRepository?.let { repository ->
             viewModelScope.launch {
@@ -155,6 +160,7 @@ class BrowserViewModel(
         viewModelScope.launch {
             candidateStore.candidates.collect { candidates ->
                 mutableUiState.update { it.copy(candidates = candidates) }
+                readManifestLengths(candidates)
             }
         }
         viewModelScope.launch {
@@ -580,6 +586,7 @@ class BrowserViewModel(
         sheetAwaitsPageVideo = false
         mainVideoTimer = null
         focusedSheet = null
+        manifestReads.clear()
         detectedMediaStore.clearLookup(LookupOwner.BROWSER)
         candidateStore.beginPage(url)
         probeBudget.beginPage(url)
@@ -765,12 +772,14 @@ class BrowserViewModel(
      * P12: on a page with several videos and no adapter, the Download button opens the main
      * one. This script asks the page which video plays; its answer goes to
      * [onPlayingVideoResult], and a page that does not answer soon gets its largest video.
+     * P24: the answer describes the page's videos, so a muted looping preview that plays is not
+     * taken for the main video, and a player of a stream is matched by its length.
      */
     fun mainVideoScript(): String {
         mainVideoTimer?.cancel()
         mainVideoTimer = viewModelScope.launch(pageProbeJob) {
             delay(MAIN_VIDEO_SCRIPT_TIMEOUT_MS)
-            openMainVideo(playingUrl = null)
+            openMainVideo(playing = null)
         }
         return PlayingVideoProbe.script
     }
@@ -778,14 +787,14 @@ class BrowserViewModel(
     fun onPlayingVideoResult(javascriptResult: String?) {
         val timer = mainVideoTimer ?: return
         timer.cancel()
-        openMainVideo(PlayingVideoProbe.parse(javascriptResult))
+        openMainVideo(PlayingVideoProbe.playing(javascriptResult))
     }
 
     /** Selects the page's main video with the count of the others and opens its sheet. */
-    private fun openMainVideo(playingUrl: String?) {
+    private fun openMainVideo(playing: PlayingVideo?) {
         mainVideoTimer = null
         val videos = MediaGroups.pageVideos(mutableUiState.value.candidates.filter { it.isSavable })
-        val main = MediaGroups.mainVideo(videos, playingUrl) ?: return
+        val main = MediaGroups.mainVideo(videos, playing) ?: return
         detectedMediaStore.select(main, otherVideos = videos.size - 1)
         quickDownloads.trySend(Unit)
     }
@@ -925,6 +934,34 @@ class BrowserViewModel(
         }
     }
 
+    /**
+     * P24: a stream often states its length only in its manifest, so each HLS or DASH address
+     * of the page without a length is read once, at most [MAX_MANIFEST_READS] a page. The length
+     * tells the main video from the short previews and ads around it and fills the sheet's sizes.
+     */
+    private fun readManifestLengths(candidates: List<MediaCandidate>) {
+        val pageUrl = activePageUrl ?: return
+        val sitePage = siteAdapters.handles(pageUrl)
+        val lookupDone = pageLookupDone
+        for (candidate in candidates) {
+            if (manifestReads.size >= MAX_MANIFEST_READS) return
+            if (!candidate.needsManifestRead(pageUrl) || !manifestReads.add(candidate.mediaUrl)) {
+                continue
+            }
+            viewModelScope.launch(pageProbeJob) {
+                // A site's adapter states its own lengths; its streams wait like the probes.
+                if (sitePage && lookupDone.await()) return@launch
+                probePermits.withPermit {
+                    metadataProbe.readManifest(candidate)?.let(candidateStore::submit)
+                }
+            }
+        }
+    }
+
+    private fun MediaCandidate.needsManifestRead(pageUrl: String): Boolean =
+        this.pageUrl == pageUrl && durationMillis == null && videoId == null && isSavable &&
+            (kind == MediaKind.HLS || kind == MediaKind.DASH)
+
     /** What the Detected Media screen mirrors of the current page. */
     private data class PublishedPage(
         val url: String?,
@@ -952,6 +989,9 @@ class BrowserViewModel(
 
         /** P12: how long a page has to say which of its videos plays. */
         const val MAIN_VIDEO_SCRIPT_TIMEOUT_MS = 1_000L
+
+        /** P24: how many stream manifests one page may have read for their lengths. */
+        const val MAX_MANIFEST_READS = 8
 
         /** How long an in-page address must stay before the site adapters are asked about it. */
         const val IN_PAGE_LOOKUP_DELAY_MS = 500L

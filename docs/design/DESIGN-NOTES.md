@@ -418,6 +418,25 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
     the M4A with an estimated size; Preview plays the M4A. The progress bar shows the M4A download; the MP3 appears in Downloads only after the
     conversion has finished.
 
+21. **A page's own video first (P24).** On a site without an adapter, the found lists (the
+    browser's "Found on this page", the Found media screen and Home's "N media found") and the
+    Download button's "Download video, N found" count the page's videos only. What looks like a
+    preview or an ad follows them, one tap away as before, under the heading "Other videos on
+    this page (N)" (`found-other-videos`, `detected-other-videos`; the sheet's
+    `quick-other-videos` uses the same words). A preview is a clip the page marks so (a muted
+    loop, a clip in a link to another page or in a thumbnail box, a `data-preview…`,
+    `data-mediabook` or thumbnail `data-src` file), an address that names one (`preview`,
+    `thumb`, `teaser`, `sprite`), an ad server's file or one an ad frame asked for, or a clip
+    under a minute beside a video of a minute or more. When the page names its own video
+    (`og:video`, a JSON-LD `VideoObject`, a stream in its own scripts), the other files it lists
+    follow under that heading too, unless one is known to be a minute or more long. A page of
+    previews only keeps them all as its videos, and a video a site adapter named never is one.
+    Home with one video opens its sheet at once. When the sheet cannot prepare a video it says
+    why ("The site refused this video (HTTP 403)", a video the site no longer has, a busy site,
+    "The site's list of qualities could not be read.", an address YFT can't download) instead
+    of "could not be reached", and Details (`quick-error-details`, also under a refused
+    Download) names the step, the host and the status, never a path or a query.
+
 ## Remaining differences from the images
 
 - Rows keep 48dp touch targets, so Settings, Download as and the "Found on this page" list are

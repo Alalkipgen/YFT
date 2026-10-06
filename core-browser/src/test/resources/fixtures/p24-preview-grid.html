@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- P24 fixture: a video page of a site without an adapter, like the owner's Preview #3 case.
+     One HLS master (several qualities, over 10 minutes) that the page plays through Media
+     Source Extensions, 40 preview clips (5-30 s, muted loops in thumbnail links) and one ad
+     frame. All hosts are reserved .test names; no real site, no tokens. -->
+<title>Long walk by the river - Example Videos</title>
+<meta property="og:title" content="Long walk by the river">
+<meta property="og:type" content="video.other">
+<meta property="og:image" content="https://img.example.test/v42/poster.jpg">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"VideoObject","name":"Long walk by the river",
+ "duration":"PT12M34S","thumbnailUrl":"https://img.example.test/v42/poster.jpg",
+ "embedUrl":"https://videos.example.test/embed/42","uploadDate":"2026-01-02"}
+</script>
+</head>
+<body>
+<div id="player" class="player-box">
+  <video id="main-player" playsinline controls poster="https://img.example.test/v42/poster.jpg"></video>
+</div>
+<iframe class="ad-slot" src="https://ads.adnet.example.test/frame?slot=right" width="300" height="250"></iframe>
+<section class="related">
+  <a class="thumb" href="/watch/101"><img src="https://img.example.test/t/1.jpg" data-mediabook="https://media.example.test/previews/1.mp4" data-duration="12" alt="Clip 1"></a>
+  <a class="thumb" href="/watch/102"><img src="https://img.example.test/t/2.jpg" data-mediabook="https://media.example.test/previews/2.mp4" data-duration="19" alt="Clip 2"></a>
+  <a class="thumb" href="/watch/103"><img src="https://img.example.test/t/3.jpg" data-mediabook="https://media.example.test/previews/3.mp4" data-duration="26" alt="Clip 3"></a>
+  <a class="thumb" href="/watch/104"><img src="https://img.example.test/t/4.jpg" data-mediabook="https://media.example.test/previews/4.mp4" data-duration="7" alt="Clip 4"></a>
+  <a class="thumb" href="/watch/105"><img src="https://img.example.test/t/5.jpg" data-mediabook="https://media.example.test/previews/5.mp4" data-duration="14" alt="Clip 5"></a>
+  <a class="thumb" href="/watch/106"><img src="https://img.example.test/t/6.jpg" data-mediabook="https://media.example.test/previews/6.mp4" data-duration="21" alt="Clip 6"></a>
+  <a class="thumb" href="/watch/107"><img src="https://img.example.test/t/7.jpg" data-mediabook="https://media.example.test/previews/7.mp4" data-duration="28" alt="Clip 7"></a>
+  <a class="thumb" href="/watch/108"><img src="https://img.example.test/t/8.jpg" data-mediabook="https://media.example.test/previews/8.mp4" data-duration="9" alt="Clip 8"></a>
+  <a class="thumb" href="/watch/109"><img src="https://img.example.test/t/9.jpg" data-mediabook="https://media.example.test/previews/9.mp4" data-duration="16" alt="Clip 9"></a>
+  <a class="thumb" href="/watch/110"><img src="https://img.example.test/t/10.jpg" data-mediabook="https://media.example.test/previews/10.mp4" data-duration="23" alt="Clip 10"></a>
+  <a class="thumb" href="/watch/111"><img src="https://img.example.test/t/11.jpg" data-mediabook="https://media.example.test/previews/11.mp4" data-duration="30" alt="Clip 11"></a>
+  <a class="thumb" href="/watch/112"><img src="https://img.example.test/t/12.jpg" data-mediabook="https://media.example.test/previews/12.mp4" data-duration="11" alt="Clip 12"></a>
+  <a class="thumb" href="/watch/113"><img src="https://img.example.test/t/13.jpg" data-mediabook="https://media.example.test/previews/13.mp4" data-duration="18" alt="Clip 13"></a>
+  <a class="thumb" href="/watch/114"><img src="https://img.example.test/t/14.jpg" data-mediabook="https://media.example.test/previews/14.mp4" data-duration="25" alt="Clip 14"></a>
+  <a class="thumb" href="/watch/115"><img src="https://img.example.test/t/15.jpg" data-mediabook="https://media.example.test/previews/15.mp4" data-duration="6" alt="Clip 15"></a>
+  <a class="thumb" href="/watch/116"><img src="https://img.example.test/t/16.jpg" data-mediabook="https://media.example.test/previews/16.mp4" data-duration="13" alt="Clip 16"></a>
+  <a class="thumb" href="/watch/117"><img src="https://img.example.test/t/17.jpg" data-mediabook="https://media.example.test/previews/17.mp4" data-duration="20" alt="Clip 17"></a>
+  <a class="thumb" href="/watch/118"><img src="https://img.example.test/t/18.jpg" data-mediabook="https://media.example.test/previews/18.mp4" data-duration="27" alt="Clip 18"></a>
+  <a class="thumb" href="/watch/119"><img src="https://img.example.test/t/19.jpg" data-mediabook="https://media.example.test/previews/19.mp4" data-duration="8" alt="Clip 19"></a>
+  <a class="thumb" href="/watch/120"><img src="https://img.example.test/t/20.jpg" data-mediabook="https://media.example.test/previews/20.mp4" data-duration="15" alt="Clip 20"></a>
+  <a class="thumb" href="/watch/121"><video class="thumb-video" muted loop playsinline preload="none" data-src="https://media.example.test/previews/21.mp4" data-duration="22"></video></a>
+  <a class="thumb" href="/watch/122"><video class="thumb-video" muted loop playsinline preload="none" data-src="https://media.example.test/previews/22.mp4" data-duration="29"></video></a>
+  <a class="thumb" href="/watch/123"><video class="thumb-video" muted loop playsinline preload="none" data-src="https://media.example.test/previews/23.mp4" data-duration="10"></video></a>
+  <a class="thumb" href="/watch/124"><video class="thumb-video" muted loop playsinline preload="none" data-src="https://media.example.test/previews/24.mp4" data-duration="17"></video></a>
+  <a class="thumb" href="/watch/125"><video class="thumb-video" muted loop playsinline preload="none" data-src="https://media.example.test/previews/25.mp4" data-duration="24"></video></a>
+  <a class="thumb" href="/watch/126"><video class="thumb-video" muted loop playsinline preload="none" data-src="https://media.example.test/previews/26.mp4" data-duration="5"></video></a>
+  <a class="thumb" href="/watch/127"><video class="thumb-video" muted loop playsinline preload="none" data-src="https://media.example.test/previews/27.mp4" data-duration="12"></video></a>
+  <a class="thumb" href="/watch/128"><video class="thumb-video" muted loop playsinline preload="none" data-src="https://media.example.test/previews/28.mp4" data-duration="19"></video></a>
+  <a class="thumb" href="/watch/129"><video class="thumb-video" muted loop playsinline preload="none" data-src="https://media.example.test/previews/29.mp4" data-duration="26"></video></a>
+  <a class="thumb" href="/watch/130"><video class="thumb-video" muted loop playsinline preload="none" data-src="https://media.example.test/previews/30.mp4" data-duration="7"></video></a>
+  <a class="thumb" href="/watch/131"><video class="thumb-video" muted loop playsinline preload="none" data-src="https://media.example.test/previews/31.mp4" data-duration="14"></video></a>
+  <a class="thumb" href="/watch/132"><video class="thumb-video" muted loop playsinline preload="none" data-src="https://media.example.test/previews/32.mp4" data-duration="21"></video></a>
+  <a class="thumb" href="/watch/133"><video class="thumb-video" muted loop playsinline preload="none" data-src="https://media.example.test/previews/33.mp4" data-duration="28"></video></a>
+  <a class="thumb" href="/watch/134"><video class="thumb-video" muted loop playsinline preload="none" data-src="https://media.example.test/previews/34.mp4" data-duration="9"></video></a>
+  <a class="thumb" href="/watch/135"><video class="thumb-video" muted loop playsinline preload="none" data-src="https://media.example.test/previews/35.mp4" data-duration="16"></video></a>
+  <a class="thumb" href="/watch/136"><video class="thumb-video" muted loop playsinline preload="none" data-src="https://media.example.test/previews/36.mp4" data-duration="23"></video></a>
+  <a class="thumb" href="/watch/137"><video class="thumb-video" muted loop playsinline preload="none" data-src="https://media.example.test/previews/37.mp4" data-duration="30"></video></a>
+  <a class="thumb" href="/watch/138"><video class="thumb-video" muted loop playsinline preload="none" data-src="https://media.example.test/previews/38.mp4" data-duration="11"></video></a>
+  <a class="thumb" href="/watch/139"><video class="thumb-video" muted loop playsinline preload="none" data-src="https://media.example.test/previews/39.mp4" data-duration="18"></video></a>
+  <a class="thumb" href="/watch/140"><video class="thumb-video" muted loop playsinline preload="none" data-src="https://media.example.test/previews/40.mp4" data-duration="25"></video></a>
+</section>
+<script>
+  window.playerConfig = {"hls":"https:\/\/stream.example.test\/v42\/master.m3u8?token=fixture",
+    "autoplay":false,"mse":true};
+</script>
+</body>
+</html>

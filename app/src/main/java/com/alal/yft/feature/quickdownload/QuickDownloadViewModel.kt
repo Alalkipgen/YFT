@@ -15,6 +15,7 @@ import com.alal.yft.core.model.media.MediaSizeAccuracy
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.Mp3Variants
+import com.alal.yft.core.model.media.ResolutionStep
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.settings.DownloadPreferences
@@ -51,6 +52,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /** What the sheet knows before the qualities are read: the video's title, site and length. */
 data class SheetHeader(
@@ -70,6 +72,10 @@ data class QuickDownloadUiState(
     val choices: QuickChoices? = null,
     /** Why no format could be read; Try again reads them once more. */
     val failure: String? = null,
+    /** P24: [failure]'s Details: the step, the host and the status of the request that failed. */
+    val failureDetails: List<String> = emptyList(),
+    /** P24: the Details of a Download the sheet could not prepare. */
+    val downloadDetails: List<String> = emptyList(),
     /** P12: false when Try again cannot help (a protected video); the sheet hides it. */
     val canRetry: Boolean = true,
     /** P12: the sheet waits for the browser's lookup of the page's video. */
@@ -390,7 +396,9 @@ class QuickDownloadViewModel @Inject constructor(
     private fun load() {
         val group = group ?: return
         loading?.cancel()
-        mutableUiState.update { it.copy(loading = true, failure = null) }
+        mutableUiState.update {
+            it.copy(loading = true, failure = null, failureDetails = emptyList())
+        }
         loading = viewModelScope.launch {
             val quality = currentPreferences().defaultQuality
             mutableUiState.update { it.copy(defaultQuality = quality) }
@@ -430,17 +438,22 @@ class QuickDownloadViewModel @Inject constructor(
                 ?: sources.firstNotNullOfOrNull { ThumbnailUrls.https(it.asset?.thumbnailUrl) }
             // P18: no format could be read: a Download queued before the qualities is dropped.
             val failed = choices == null && !waiting
+            val failure = sources.firstNotNullOfOrNull { it.failureDetail }
             state.copy(
                 header = choices?.let {
                     SheetHeader(it.title, it.source, it.durationMillis, it.isAudioOnly, picture)
                 } ?: state.header,
                 choices = choices,
                 loading = waiting && choices == null,
-                failure = if (choices == null && !waiting) {
-                    messageFor(sources.firstNotNullOfOrNull { it.failure })
+                failure = if (failed) {
+                    val reason = sources.firstNotNullOfOrNull { it.failure }
+                    failure?.let(QuickDownloadFailures::message)
+                        ?: QuickDownloadFailures.message(reason)
                 } else {
                     null
                 },
+                failureDetails = failure?.takeIf { failed }?.let(QuickDownloadFailures::details)
+                    .orEmpty(),
                 selectedId = state.selectedId?.takeIf { choices?.option(it) != null }
                     ?: choices?.let {
                         QuickDownloadChoices.preselect(it, state.defaultQuality)?.id
@@ -459,7 +472,8 @@ class QuickDownloadViewModel @Inject constructor(
     /** A failed background size check keeps the stated row, including its honest estimate. */
     private suspend fun inspectSize(initial: SheetSource): SheetSource {
         return when (val result = resolveSafely(initial.candidate)) {
-            is VariantResolutionResult.Failure -> initial.copy(failure = result.reason)
+            is VariantResolutionResult.Failure ->
+                initial.copy(failure = result.reason, failureDetail = result)
             is VariantResolutionResult.Success -> {
                 val original = initial.asset
                 if (original == null) {
@@ -495,18 +509,37 @@ class QuickDownloadViewModel @Inject constructor(
         error("Retry budget exhausted")
     }
 
-    private suspend fun resolveSafely(candidate: MediaCandidate): VariantResolutionResult = try {
-        resolver.resolve(candidate)
-    } catch (cancellation: CancellationException) {
-        throw cancellation
-    } catch (_: Exception) {
-        VariantResolutionResult.Failure(VariantResolutionFailure.NETWORK)
+    /**
+     * P24: a failure says what went wrong. An address the phone cannot fetch (`blob:`, `data:`)
+     * is not requested at all, and an exception is mapped by its type, so a list of qualities
+     * the app could not read is never "could not be reached".
+     */
+    private suspend fun resolveSafely(candidate: MediaCandidate): VariantResolutionResult {
+        val host = QuickDownloadFailures.hostOf(candidate.mediaUrl)
+        if (candidate.mediaUrl.toHttpUrlOrNull() == null) {
+            return VariantResolutionResult.Failure(
+                VariantResolutionFailure.INVALID_URL,
+                step = ResolutionStep.ADDRESS,
+                host = host,
+            )
+        }
+        return try {
+            resolver.resolve(candidate)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (error: Exception) {
+            VariantResolutionResult.Failure(QuickDownloadFailures.reasonOf(error), host = host)
+        }
     }
 
     private suspend fun enqueue(option: SheetOption, preferences: DownloadPreferences) {
+        var details = emptyList<String>()
         val status = try {
             when (val prepared = prepare(option)) {
-                is Prepared.Failed -> PreviewDownloadStatus.Rejected(prepared.message)
+                is Prepared.Failed -> {
+                    details = prepared.details
+                    PreviewDownloadStatus.Rejected(prepared.message)
+                }
                 is Prepared.Ready -> when (
                     val result = downloadStarter.enqueue(prepared.asset, prepared.variant)
                 ) {
@@ -540,7 +573,7 @@ class QuickDownloadViewModel @Inject constructor(
             PreviewDownloadStatus.Rejected("The download could not be queued. Try again.")
         }
         // The selection is locked while queueing, so the status belongs to [option].
-        setStatus(status)
+        setStatus(status, details)
     }
 
     /**
@@ -557,10 +590,18 @@ class QuickDownloadViewModel @Inject constructor(
                 ) {
                     forgetLinks(option)
                 }
+                val siteVideo = option.source.candidate.videoId != null
                 return Prepared.Failed(
-                    if (result.reason == VariantResolutionFailure.DRM_PROTECTED ||
-                        result.reason == VariantResolutionFailure.UNSUPPORTED_CODEC
-                    ) messageFor(result.reason) else QUALITY_UNAVAILABLE,
+                    when {
+                        result.reason == VariantResolutionFailure.DRM_PROTECTED ||
+                            result.reason == VariantResolutionFailure.UNSUPPORTED_CODEC ->
+                            QuickDownloadFailures.message(result.reason)
+                        // A site's lookup has its other qualities to offer.
+                        siteVideo -> QUALITY_UNAVAILABLE
+                        // P24: another site's video says why, with the request in Details.
+                        else -> QuickDownloadFailures.message(result)
+                    },
+                    QuickDownloadFailures.details(result),
                 )
             }
             is VariantResolutionResult.Success -> result.asset
@@ -622,8 +663,14 @@ class QuickDownloadViewModel @Inject constructor(
         DownloadPreferences()
     }
 
-    private fun setStatus(status: PreviewDownloadStatus) {
-        mutableUiState.update { it.copy(downloadStatus = status) }
+    private fun setStatus(status: PreviewDownloadStatus, details: List<String> = emptyList()) {
+        mutableUiState.update {
+            it.copy(
+                downloadStatus = status,
+                downloadDetails = details.takeIf { status is PreviewDownloadStatus.Rejected }
+                    .orEmpty(),
+            )
+        }
     }
 
     private val QuickDownloadUiState.canChangeSelection: Boolean
@@ -638,20 +685,9 @@ class QuickDownloadViewModel @Inject constructor(
         thumbnailUrl = ThumbnailUrls.of(candidates),
     )
 
-    private fun messageFor(reason: VariantResolutionFailure?): String = when (reason) {
-        VariantResolutionFailure.EXPIRED_URL ->
-            "This link has expired. Open the page again."
-        VariantResolutionFailure.DRM_PROTECTED -> "Protected media (DRM) can't be saved."
-        VariantResolutionFailure.NETWORK ->
-            "The media could not be reached. Check the connection and try again."
-        VariantResolutionFailure.UNSUPPORTED_CODEC, null ->
-            "This version can't be saved. Try another format."
-        else -> "This version could not be prepared. Try again or pick another format."
-    }
-
     private sealed interface Prepared {
         data class Ready(val asset: MediaAsset, val variant: MediaVariant) : Prepared
-        data class Failed(val message: String) : Prepared
+        data class Failed(val message: String, val details: List<String> = emptyList()) : Prepared
     }
 
     internal companion object {

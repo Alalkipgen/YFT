@@ -164,11 +164,33 @@ enum class VariantResolutionFailure {
     NO_VARIANTS,
 }
 
+/** P24: which request a [VariantResolutionResult.Failure] stopped at, for the sheet's Details. */
+enum class ResolutionStep {
+    /** The address itself, before any request. */
+    ADDRESS,
+
+    /** The file's type and size (HEAD or a one-byte range). */
+    FILE_CHECK,
+
+    /** The HLS or DASH manifest: the list of the video's qualities. */
+    MANIFEST,
+
+    /** One quality's own HLS playlist, read for the video's length. */
+    MEDIA_PLAYLIST,
+
+    /** Anything after the requests: reading what came back. */
+    PREPARE,
+}
+
 sealed interface VariantResolutionResult {
     data class Success(val asset: MediaAsset) : VariantResolutionResult
 
     data class Failure(
         val reason: VariantResolutionFailure,
         val httpStatusCode: Int? = null,
+        /** P24: the request the failure came from; null when unknown. */
+        val step: ResolutionStep? = null,
+        /** P24: the host that request went to, never its path or query; null when unknown. */
+        val host: String? = null,
     ) : VariantResolutionResult
 }

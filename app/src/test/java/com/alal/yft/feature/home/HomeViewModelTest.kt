@@ -1,5 +1,6 @@
 package com.alal.yft.feature.home
 
+import com.alal.yft.core.browser.detection.HtmlMediaScanner
 import com.alal.yft.core.data.preferences.HomeSitesRepository
 import com.alal.yft.core.data.preferences.SettingsRepository
 import com.alal.yft.core.model.ThemeMode
@@ -479,6 +480,49 @@ class HomeViewModelTest {
         assertTrue(cancelled)
         assertEquals(PromptboxStatus.Editing, viewModel.uiState.value.status)
         assertNull(store.page.value)
+    }
+
+    @Test
+    fun aPageWithOneVideoAndItsPreviewsOpensThatVideoWithThePreviewsBehindIt() = runTest {
+        // P24 (plan step 8): the owner's case, a video page whose player names one stream,
+        // with 40 preview clips of other videos and an ad frame around it.
+        val viewModel = viewModel()
+        val opened = mutableListOf<Unit>()
+        val collector = launch { viewModel.quickDownloadRequests.collect { opened += it } }
+        val page = "https://videos.example.test/watch/42"
+        val master = "https://stream.example.test/v42/master.m3u8?token=fixture"
+        val scan = HtmlMediaScanner().scan(previewGridPage(master), page, observedAtEpochMs = 0)
+        inspector.answer = { LinkInspection.Found(page, scan.title, scan.candidates) }
+
+        viewModel.onAction(HomeAction.LinkChanged(page))
+        viewModel.onAction(HomeAction.Submit)
+        advanceUntilIdle()
+
+        assertEquals(PromptboxStatus.Found(1), viewModel.uiState.value.status)
+        assertTrue(viewModel.uiState.value.quickDownload)
+        assertEquals(1, opened.size)
+        assertEquals(listOf(master), store.selection.value?.candidates?.map { it.mediaUrl })
+        assertEquals(40, store.otherVideos.value)
+        // View shows that video again, still with the others behind it.
+        store.publish("https://b.test/other", "Other", found(1).candidates)
+        viewModel.selectFoundVideo()
+        assertEquals(listOf(master), store.selection.value?.candidates?.map { it.mediaUrl })
+        assertEquals(40, store.otherVideos.value)
+        collector.cancel()
+    }
+
+    /** P24: a page like the owner's: a player config naming a stream, 40 previews, an ad. */
+    private fun previewGridPage(master: String): String = buildString {
+        append("<title>Long walk by the river</title>\n")
+        append("<iframe class=\"ad-slot\" src=\"https://ads.adnet.example.test/frame\"></iframe>\n")
+        (1..40).forEach { index ->
+            append("<a class=\"thumb\" href=\"/watch/${100 + index}\">")
+            append("<img src=\"https://img.example.test/t/$index.jpg\" data-mediabook=")
+            append("\"https://media.example.test/previews/$index.mp4\"></a>\n")
+        }
+        append("<script>window.playerConfig = {\"hls\":\"")
+        append(master.replace("/", "\\/"))
+        append("\"};</script>\n")
     }
 
     private fun found(count: Int) = LinkInspection.Found(

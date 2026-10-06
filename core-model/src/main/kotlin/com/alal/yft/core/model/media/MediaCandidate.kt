@@ -24,6 +24,18 @@ enum class CandidateConfidence {
     HIGH,
 }
 
+/**
+ * P24: what a page itself says a file is, on a site without an adapter. Null when it says
+ * nothing; the file then counts as a video like before.
+ */
+enum class PageMediaRole {
+    /** The page's own video: JSON-LD, Open Graph, or a manifest its own scripts name. */
+    MAIN,
+
+    /** A preview around the page's video: a thumbnail's clip, a muted loop or an ad. */
+    PREVIEW,
+}
+
 data class MediaCandidate(
     val pageUrl: String,
     val mediaUrl: String,
@@ -53,6 +65,8 @@ data class MediaCandidate(
     val height: Int? = null,
     val framesPerSecond: Double? = null,
     val bitrateBitsPerSecond: Long? = null,
+    /** P24: the page's own word on this file ([PageMediaRole]); null when it says nothing. */
+    val pageRole: PageMediaRole? = null,
 ) {
     override fun toString(): String = buildString {
         append("MediaCandidate(pageUrl=")
@@ -73,6 +87,8 @@ data class MediaCandidate(
         append(audioCompanion != null)
         append(", height=")
         append(height)
+        append(", pageRole=")
+        append(pageRole)
         append(')')
     }
 }

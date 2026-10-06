@@ -18,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -169,6 +171,23 @@ fun YftAllowedMediaNote(modifier: Modifier = Modifier) {
         )
     }
 }
+
+/**
+ * P24: the heading above a page's previews and ads in a found list. The list's count above
+ * counts only the page's videos; these follow the heading and stay one tap away.
+ */
+@Composable
+fun YftOtherVideosHeader(count: Int, modifier: Modifier = Modifier) {
+    Text(
+        text = otherVideosLabel(count),
+        modifier = modifier.semantics { heading() },
+        color = YftTheme.colors.textSecondary,
+        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+    )
+}
+
+/** P24: the same words as the sheet's "Other videos on this page (N)". */
+fun otherVideosLabel(count: Int): String = "Other videos on this page ($count)"
 
 /** Says how many DRM-protected items were left out of a list, or null when none were. */
 fun protectedHiddenLabel(hidden: Int): String? = when {

@@ -17,6 +17,7 @@ import com.alal.yft.core.model.media.MediaSizeAccuracy
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.Mp3Conversion
+import com.alal.yft.core.model.media.ResolutionStep
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.settings.DownloadPreferences
@@ -193,6 +194,95 @@ class QuickDownloadViewModelTest {
         assertEquals("720p · MP4", hdRow.detail)
         assertEquals("25 MB", hdRow.size)
         assertEquals(hdRow.id, state.selectedId)
+    }
+
+    @Test
+    fun aListOfQualitiesThatCannotBeReadIsNotANetworkProblem() = runTest {
+        // P24: an exception from reading a page's manifest used to say "could not be reached".
+        val stream = video(null, 25 * MIB, label = null, videoId = null, index = 1)
+        resolver.thrown = NumberFormatException("For input string: \"fixture\"")
+        select(listOf(stream))
+        val viewModel = viewModel()
+
+        assertNull(viewModel.uiState.value.choices)
+        assertEquals(
+            "The site's list of qualities could not be read.",
+            viewModel.uiState.value.failure,
+        )
+
+        // A connection problem is still one.
+        resolver.thrown = java.net.SocketTimeoutException("fixture timeout")
+        viewModel.retry()
+        assertEquals(
+            "The media could not be reached. Check the connection and try again.",
+            viewModel.uiState.value.failure,
+        )
+    }
+
+    @Test
+    fun aRefusedVideoSaysSoAndItsDetailsNameTheStepTheHostAndTheStatus() = runTest {
+        // P24: the sheet that could not read the qualities.
+        val stream = video(null, 25 * MIB, label = null, videoId = null, index = 1)
+        resolver.answer = {
+            VariantResolutionResult.Failure(
+                VariantResolutionFailure.HTTP_STATUS,
+                httpStatusCode = 403,
+                step = ResolutionStep.MANIFEST,
+                host = "stream.example.test",
+            )
+        }
+        select(listOf(stream))
+        val viewModel = viewModel()
+        assertEquals("The site refused this video (HTTP 403).", viewModel.uiState.value.failure)
+        assertEquals(
+            listOf(
+                "Step: list of qualities (manifest)",
+                "Host: stream.example.test",
+                "Status: HTTP 403",
+            ),
+            viewModel.uiState.value.failureDetails,
+        )
+
+        // A page-built address is not fetched at all.
+        resolver.answer = null
+        val requests = resolver.requested.size
+        select(listOf(stream.copy(mediaUrl = "blob:https://videos.example.test/5b1c")))
+        val blob = viewModel()
+        assertEquals(requests, resolver.requested.size)
+        assertEquals(
+            "This video's address can't be downloaded. Try another video on the page.",
+            blob.uiState.value.failure,
+        )
+        assertEquals(
+            listOf("Step: video address", "Status: address not supported"),
+            blob.uiState.value.failureDetails,
+        )
+
+        // At Download, another site's video says why, with its Details; a site's video still
+        // offers its other qualities.
+        val hd = video(720, 25 * MIB, videoId = null, index = 2)
+        select(listOf(hd))
+        val sheet = viewModel()
+        assertTrue(sheet.uiState.value.failureDetails.isEmpty())
+        resolver.answer = {
+            VariantResolutionResult.Failure(
+                VariantResolutionFailure.HTTP_STATUS,
+                httpStatusCode = 404,
+                step = ResolutionStep.FILE_CHECK,
+                host = "media.example.test",
+            )
+        }
+        sheet.download()
+        advanceUntilIdle()
+        assertEquals(
+            PreviewDownloadStatus.Rejected("The site no longer has this video (HTTP 404)."),
+            sheet.uiState.value.downloadStatus,
+        )
+        assertEquals(
+            listOf("Step: file check", "Host: media.example.test", "Status: HTTP 404"),
+            sheet.uiState.value.downloadDetails,
+        )
+        assertTrue(starter.variants.isEmpty())
     }
 
     @Test
@@ -809,12 +899,20 @@ class QuickDownloadViewModelTest {
         val heights = mutableMapOf<String, Int>()
         var failure: VariantResolutionFailure? = null
         var failureStatus: Int? = null
+
+        /** P24: what the resolver throws instead of answering, like a parser that failed. */
+        var thrown: Exception? = null
+
+        /** P24: a whole answer for a candidate, when the test needs more than a reason. */
+        var answer: ((MediaCandidate) -> VariantResolutionResult?)? = null
         val sizes = mutableMapOf<String, Long>()
         var beforeResolve: suspend (MediaCandidate) -> Unit = {}
 
         override suspend fun resolve(candidate: MediaCandidate): VariantResolutionResult {
             requested += candidate
             beforeResolve(candidate)
+            thrown?.let { throw it }
+            answer?.invoke(candidate)?.let { return it }
             failure?.let {
                 return VariantResolutionResult.Failure(it, httpStatusCode = failureStatus)
             }

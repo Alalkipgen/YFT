@@ -8,6 +8,7 @@ import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaSizeAccuracy
 import com.alal.yft.core.model.media.MediaTrackType
+import com.alal.yft.core.model.media.ResolutionStep
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.media.VariantSupport
@@ -16,6 +17,7 @@ import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.QueueDispatcher
 import okhttp3.mockwebserver.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -32,6 +34,9 @@ class DefaultVariantResolverTest {
     @Before
     fun setUp() {
         server = MockWebServer()
+        // P24: an HLS master's playlist is read for its length; a test that serves none
+        // answers it with 404 at once instead of waiting.
+        server.dispatcher = QueueDispatcher().apply { setFailFast(true) }
         redirectTarget = MockWebServer()
         server.start()
         redirectTarget.start()
@@ -435,6 +440,108 @@ class DefaultVariantResolverTest {
         assertEquals(VariantResolutionFailure.MALFORMED_MANIFEST, result.reason)
     }
 
+    @Test
+    fun `a pages HLS master is read with its Referer and Origin and states its length`() = runTest {
+        // P24: the owner's case: a page's player streams an HLS master that states no length.
+        val pieces = (1..125).joinToString("") { "#EXTINF:6.0,\npiece$it.ts\n" }
+        val playlist = "#EXTM3U\n#EXT-X-TARGETDURATION:6\n$pieces#EXTINF:4.5,\nlast.ts\n" +
+            "#EXT-X-ENDLIST\n"
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when {
+                request.path == "/v/master.m3u8" -> manifestResponse(
+                    """
+                    #EXTM3U
+                    #EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720,CODECS="$AVC_720"
+                    720.m3u8
+                    #EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080,CODECS="$AVC_1080"
+                    1080.m3u8
+                    """.trimIndent(),
+                    "application/vnd.apple.mpegurl",
+                )
+                request.path.orEmpty().endsWith("0.m3u8") ->
+                    manifestResponse(playlist, "application/vnd.apple.mpegurl")
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+
+        val result = resolver.resolve(
+            candidate(server.url("/v/master.m3u8").toString(), MediaKind.HLS),
+        ) as VariantResolutionResult.Success
+
+        assertEquals(754_500L, result.asset.durationMillis)
+        val hd = result.asset.variants.single { it.height == 720 }
+        assertEquals(754_500L, hd.durationMillis)
+        // 2.5 Mbit/s for 754.5 s: an estimate the sheet shows with "~".
+        assertEquals(235_781_250L, hd.sizeBytes)
+        assertEquals(MediaSizeAccuracy.ESTIMATED, hd.sizeAccuracy)
+        assertEquals("https://page.example.test", hd.requestContext.observedHeaders["Origin"])
+        val master = server.takeRequest()
+        assertEquals("https://page.example.test/watch", master.getHeader("Referer"))
+        assertEquals("https://page.example.test", master.getHeader("Origin"))
+        val quality = server.takeRequest()
+        assertTrue(quality.path!!.endsWith("0.m3u8"))
+        assertEquals("https://page.example.test", quality.getHeader("Origin"))
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test
+    fun `a failure names the step and the host it stopped at`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(403))
+        val refused = resolver.resolve(
+            candidate(server.url("/v/master.m3u8").toString(), MediaKind.HLS),
+        ) as VariantResolutionResult.Failure
+        assertEquals(VariantResolutionFailure.HTTP_STATUS, refused.reason)
+        assertEquals(403, refused.httpStatusCode)
+        assertEquals(ResolutionStep.MANIFEST, refused.step)
+        assertEquals(server.hostName, refused.host)
+
+        server.enqueue(MockResponse().setResponseCode(404))
+        val gone = resolver.resolve(candidate(server.url("/clip.mp4").toString()))
+            as VariantResolutionResult.Failure
+        assertEquals(ResolutionStep.FILE_CHECK, gone.step)
+        assertEquals(404, gone.httpStatusCode)
+
+        val blob = resolver.resolve(candidate("blob:https://page.example.test/5b1c"))
+            as VariantResolutionResult.Failure
+        assertEquals(VariantResolutionFailure.INVALID_URL, blob.reason)
+        assertEquals(ResolutionStep.ADDRESS, blob.step)
+        assertNull(blob.host)
+    }
+
+    @Test
+    fun `a file server that answers HEAD with a web page is asked for the file itself`() =
+        runTest {
+            // P24 (live check): a file host sent HEAD to its home page, a web page, while a
+            // one-byte GET of the same address got the video.
+            server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest): MockResponse = when {
+                    request.path == "/home" || request.path == "/v/page.mp4" -> MockResponse()
+                        .setHeader("Content-Type", "text/html")
+                        .apply { if (request.method != "HEAD") setBody("<html></html>") }
+                    request.method == "HEAD" ->
+                        MockResponse().setResponseCode(301).setHeader("Location", "/home")
+                    else -> MockResponse()
+                        .setResponseCode(206)
+                        .setHeader("Content-Type", "video/mp4")
+                        .setHeader("Content-Range", "bytes 0-0/13631866")
+                        .setBody("x")
+                }
+            }
+
+            val result = resolver.resolve(candidate(server.url("/v/1080p.mp4").toString()))
+            assertTrue(result.toString(), result is VariantResolutionResult.Success)
+
+            val file = (result as VariantResolutionResult.Success).asset.variants.single()
+            assertEquals("video/mp4", file.mimeType)
+            assertEquals(13_631_866L, file.sizeBytes)
+            assertEquals(server.url("/v/1080p.mp4").toString(), file.playbackUrl)
+
+            // An address that only ever gives a web page is no video.
+            val page = resolver.resolve(candidate(server.url("/v/page.mp4").toString()))
+                as VariantResolutionResult.Failure
+            assertEquals(VariantResolutionFailure.INVALID_URL, page.reason)
+        }
+
     private fun candidate(
         url: String,
         kind: MediaKind = MediaKind.DIRECT,
@@ -463,5 +570,9 @@ class DefaultVariantResolverTest {
 
     private companion object {
         const val NOW = 2_000_000_000_000L
+
+        /** P24: the codecs of the page's HLS master's two qualities. */
+        const val AVC_720 = "avc1.4d401f,mp4a.40.2"
+        const val AVC_1080 = "avc1.640028,mp4a.40.2"
     }
 }

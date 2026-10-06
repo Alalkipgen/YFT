@@ -67,6 +67,7 @@ fun QuickDownloadRoute(
     onNavigateBack: () -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenDetails: () -> Unit,
+    onOpenOtherVideos: () -> Unit = onNavigateBack,
     viewModel: QuickDownloadViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -86,8 +87,9 @@ fun QuickDownloadRoute(
         onOpenDownloads = onOpenDownloads,
         onClose = onNavigateBack,
         onOpenOtherVideos = {
-            // P12: the browser's found list opens under this sheet, which closes.
-            if (viewModel.openOtherVideos()) onNavigateBack()
+            // P12: the browser's found list opens under this sheet, which closes. P24: over
+            // Home the found list opens instead ([onOpenOtherVideos]).
+            if (viewModel.openOtherVideos()) onOpenOtherVideos()
         },
     )
 }
@@ -233,6 +235,7 @@ fun QuickDownloadScreen(
             else -> Failure(
                 message = state.failure,
                 onRetry = onRetry.takeIf { state.canRetry },
+                details = state.failureDetails,
             )
         }
     }
@@ -546,7 +549,11 @@ private fun PlaceholderBar(color: Color, modifier: Modifier) {
 }
 
 @Composable
-private fun ColumnScope.Failure(message: String?, onRetry: (() -> Unit)?) {
+private fun ColumnScope.Failure(
+    message: String?,
+    onRetry: (() -> Unit)?,
+    details: List<String> = emptyList(),
+) {
     Text(
         text = message ?: "No format of this video could be read.",
         modifier = Modifier
@@ -557,6 +564,7 @@ private fun ColumnScope.Failure(message: String?, onRetry: (() -> Unit)?) {
         style = MaterialTheme.typography.bodyMedium,
         textAlign = TextAlign.Center,
     )
+    FailureDetails(details)
     // P12: a protected video has no Try again; asking again would not change it.
     onRetry ?: return
     YftTonalButton(
@@ -636,6 +644,7 @@ private fun ColumnScope.DownloadAction(
             textAlign = TextAlign.Center,
         )
     }
+    if (status is PreviewDownloadStatus.Rejected) FailureDetails(state.downloadDetails)
     if (status is PreviewDownloadStatus.Queued) {
         YftTonalButton(
             text = "View downloads",
@@ -645,6 +654,35 @@ private fun ColumnScope.DownloadAction(
                 .align(Alignment.CenterHorizontally)
                 .testTag("quick-open-downloads"),
             icon = YftIcons.Download,
+        )
+    }
+}
+
+/**
+ * P24: "Details" under a failure: the step, the host and the status of the request that failed,
+ * so a screenshot tells what went wrong. Hidden until asked for.
+ */
+@Composable
+private fun ColumnScope.FailureDetails(lines: List<String>) {
+    if (lines.isEmpty()) return
+    var shown by rememberSaveable(lines) { mutableStateOf(false) }
+    YftTextButton(
+        text = if (shown) "Hide details" else "Details",
+        onClick = { shown = !shown },
+        modifier = Modifier
+            .align(Alignment.CenterHorizontally)
+            .testTag("quick-error-details"),
+    )
+    if (shown) {
+        Text(
+            text = lines.joinToString("\n"),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp)
+                .testTag("quick-error-detail-text"),
+            color = YftTheme.colors.textSecondary,
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = TextAlign.Center,
         )
     }
 }
