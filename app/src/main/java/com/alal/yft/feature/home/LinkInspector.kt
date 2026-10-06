@@ -36,12 +36,28 @@ sealed interface LinkInspection {
         val message: String,
         val canOpenInBrowser: Boolean = true,
         val details: List<String> = emptyList(),
+        /** P16: false when asking again cannot change the answer (a protected video). */
+        val canRetry: Boolean = true,
     ) : LinkInspection
+}
+
+/**
+ * P16: a link to one video of a site an adapter reads, known before any request. [key] is the
+ * video's "site:contentId" and [pageUrl] the address the lookup asks for.
+ */
+data class SiteVideoLink(val key: String, val pageUrl: String) {
+    override fun toString(): String = "SiteVideoLink(site=${key.substringBefore(':')})"
 }
 
 /** Looks for downloadable media behind a link without opening the browser. */
 fun interface LinkInspector {
     suspend fun inspect(link: String): LinkInspection
+
+    /**
+     * P16: the video [link] names when a site adapter reads it, so Home opens its sheet before
+     * [inspect] answers; null for every other link.
+     */
+    fun siteVideo(link: String): SiteVideoLink? = null
 }
 
 /**
@@ -70,6 +86,15 @@ class HeadlessLinkInspector internal constructor(
     )
 
     private val scanner = HtmlMediaScanner(maxCandidates = MAX_CANDIDATES)
+
+    override fun siteVideo(link: String): SiteVideoLink? {
+        val url = (BrowserAddressNormalizer.normalize(link) as? BrowserAddressResult.Valid)?.url
+            ?.takeIf { it.startsWith("https://") }
+            ?: return null
+        // A direct media address is looked up as a file, not as a site's video page.
+        if (MediaUrlClassifier.classify(url) != null) return null
+        return siteAdapters.videoKey(url)?.let { key -> SiteVideoLink(key, url) }
+    }
 
     override suspend fun inspect(link: String): LinkInspection {
         val url = when (val address = BrowserAddressNormalizer.normalize(link)) {
@@ -123,7 +148,11 @@ class HeadlessLinkInspector internal constructor(
             }
             is SiteAdapterOutcome.Failed -> {
                 if (!outcome.allowsGenericFallback) {
-                    return LinkInspection.NotFound(outcome.message, details = outcome.details)
+                    return LinkInspection.NotFound(
+                        outcome.message,
+                        details = outcome.details,
+                        canRetry = outcome.canRetry,
+                    )
                 }
                 adapterMessage = outcome.message
                 adapterDetails = outcome.details

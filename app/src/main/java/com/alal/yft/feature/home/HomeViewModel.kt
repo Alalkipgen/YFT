@@ -12,6 +12,8 @@ import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.core.model.settings.HomeSites
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
+import com.alal.yft.feature.detectedmedia.LookupOwner
+import com.alal.yft.feature.detectedmedia.PageVideoLookup
 import com.alal.yft.feature.library.LibraryRepository
 import com.alal.yft.ui.components.PromptboxStatus
 import com.alal.yft.ui.components.isSavable
@@ -38,7 +40,9 @@ import kotlinx.coroutines.launch
  * A submitted link is checked by [LinkInspector]; what it finds goes to [DetectedMediaStore],
  * the same memory-only place the browser fills, so View opens the usual Detected Media list.
  * Candidates of one video count once (P3). When it found one video, Home opens its download
- * sheet instead and View reopens it.
+ * sheet instead and View reopens it. P16: a link to a video of a site an adapter reads opens the
+ * sheet at once; the sheet waits on this lookup, shows its failure with Try again, and closing it
+ * stops the lookup.
  */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -60,9 +64,22 @@ class HomeViewModel @Inject constructor(
     private var foundVideo: MediaGroup? = null
     private var recentJob: Job? = null
 
+    /** P16: the lookup the open sheet waits on, and the link it looks up, until it found it. */
+    private var sheetLookup: PageVideoLookup? = null
+    private var sheetLink: String? = null
+
     val uiState: StateFlow<HomeUiState> = combine(local, sitesRepository.sites) { state, sites ->
         state.copy(sites = sites)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, HomeUiState())
+
+    init {
+        viewModelScope.launch {
+            detectedMediaStore.lookupRetries.collect(::retrySheetLookup)
+        }
+        viewModelScope.launch {
+            detectedMediaStore.lookupCloses.collect(::closeSheetLookup)
+        }
+    }
 
     fun onAction(action: HomeAction) {
         when (action) {
@@ -134,6 +151,20 @@ class HomeViewModel @Inject constructor(
         if (link.isEmpty()) return
         stopInspection()
         foundVideo = null
+        // P16: a supported site's video opens its sheet now; the lookup below fills it.
+        val sheet = inspector.siteVideo(link)?.let { video ->
+            PageVideoLookup(video.key, video.pageUrl, title = null, owner = LookupOwner.HOME)
+        }
+        if (sheet != null) detectedMediaStore.awaitPageVideo()
+        inspect(link, sheet)
+        if (sheet != null) quickDownloads.trySend(Unit)
+    }
+
+    /** Looks [link] up; [sheet] is the lookup an open sheet shows, null when none waits. */
+    private fun inspect(link: String, sheet: PageVideoLookup?) {
+        sheetLookup = sheet
+        sheetLink = link
+        sheet?.let(detectedMediaStore::showLookup)
         local.update {
             it.copy(
                 link = link,
@@ -156,6 +187,7 @@ class HomeViewModel @Inject constructor(
             try {
                 var details = emptyList<String>()
                 var quick = false
+                var sheetFailure: PageVideoLookup? = null
                 val status = when (val result = inspector.inspect(link)) {
                     is LinkInspection.Found -> {
                         detectedMediaStore.publish(
@@ -174,15 +206,24 @@ class HomeViewModel @Inject constructor(
                         if (videos.isNotEmpty()) {
                             foundVideo = videos.singleOrNull()?.also(detectedMediaStore::select)
                             quick = foundVideo != null
+                            // P16: the open sheet shows the link's video, the list the rest.
+                            if (sheet != null && foundVideo == null) {
+                                detectedMediaStore.select(videos.first())
+                            }
                             PromptboxStatus.Found(count = videos.size)
                         } else {
                             details = listOf("media check: DRM only")
+                            sheetFailure = sheet?.copy(failure = PROTECTED_ONLY_MESSAGE)
                             PromptboxStatus.NotFound(message = PROTECTED_ONLY_MESSAGE)
                         }
                     }
                     is LinkInspection.NotFound -> {
                         details = DiagnosticTextSanitizer.details(
                             result.details.ifEmpty { listOf("lookup: ${result.message}") },
+                        )
+                        sheetFailure = sheet?.copy(
+                            failure = result.message,
+                            canRetry = result.canRetry,
                         )
                         PromptboxStatus.NotFound(
                             message = result.message,
@@ -193,7 +234,15 @@ class HomeViewModel @Inject constructor(
                 local.update {
                     it.copy(status = status, failureDetails = details, quickDownload = quick)
                 }
-                if (quick) quickDownloads.trySend(Unit)
+                when {
+                    sheet == null -> if (quick) quickDownloads.trySend(Unit)
+                    // The sheet that waits shows why, with Try again when that can help.
+                    sheetFailure != null -> detectedMediaStore.showLookup(sheetFailure)
+                    else -> {
+                        sheetLookup = null
+                        detectedMediaStore.clearLookup(LookupOwner.HOME)
+                    }
+                }
             } finally {
                 slowStatus.cancel()
             }
@@ -228,6 +277,31 @@ class HomeViewModel @Inject constructor(
     private fun stopInspection() {
         inspection?.cancel()
         inspection = null
+        // P16: a sheet must not wait on a lookup that no longer runs.
+        sheetLookup = null
+        detectedMediaStore.clearLookup(LookupOwner.HOME)
+    }
+
+    /** P16: the sheet's Try again after this link's lookup failed asks once more. */
+    private fun retrySheetLookup(key: String) {
+        val sheet = sheetLookup ?: return
+        val shown = detectedMediaStore.lookup.value ?: return
+        if (sheet.key != key || shown.owner != LookupOwner.HOME || shown.key != key) return
+        if (!shown.canRetry || inspection?.isActive == true) return
+        val link = sheetLink ?: return
+        inspect(link, sheet)
+    }
+
+    /** P16: the sheet closed before this link's video came; its lookup stops. */
+    private fun closeSheetLookup(key: String) {
+        if (sheetLookup?.key != key) return
+        val running = inspection?.isActive == true
+        stopInspection()
+        if (running) {
+            local.update {
+                it.copy(status = PromptboxStatus.Editing, failureDetails = emptyList())
+            }
+        }
     }
 
     private fun saveSite() {

@@ -393,6 +393,18 @@ object QuickDownloadChoices {
             ?.removePrefix("m.")
             ?.takeIf(String::isNotEmpty)
 
+    /**
+     * P16: the link as the waiting sheet shows it before the video's title is known, without
+     * its scheme, "www." or fragment ("youtube.com/watch?v=…").
+     */
+    internal fun shownLink(pageUrl: String): String? {
+        val uri = runCatching { URI(pageUrl) }.getOrNull() ?: return null
+        val site = host(pageUrl) ?: return null
+        val path = uri.rawPath.orEmpty().takeUnless { it == "/" }.orEmpty()
+        val query = uri.rawQuery?.let { "?$it" }.orEmpty()
+        return (site + path + query).take(MAX_SHOWN_LINK)
+    }
+
     private fun kindRank(kind: MediaKind): Int = when (kind) {
         MediaKind.DIRECT -> 0
         MediaKind.HLS -> 1
@@ -421,6 +433,7 @@ object QuickDownloadChoices {
         .thenByDescending { it.variant.bitrateBitsPerSecond ?: -1L }
 
     private const val HIGH_FRAME_RATE = 31.0
+    private const val MAX_SHOWN_LINK = 120
     private const val HD_HEIGHT = 720
     private const val SD_HEIGHT = 480
     private const val FULL_HD_HEIGHT = 1_080

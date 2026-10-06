@@ -7,6 +7,7 @@ import com.alal.yft.core.data.preferences.HomeSitesRepository
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.testing.MainDispatcherRule
 import com.alal.yft.ui.components.isSavable
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
@@ -40,6 +41,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -677,11 +679,14 @@ class BrowserViewModelTest {
         viewModel.onFocusedVideoResult(answer("https://m.youtube.com/watch?v=FFFFFFFFFF7", "page"))
         runCurrent()
         assertEquals(listOf("FFFFFFFFFF7"), extractor.requests.map { it.identity.contentId })
+        // P16: the sheet opened at once for that video and says why, instead of a notice.
+        assertEquals(1, opened.size)
         assertEquals(
             "This YouTube post has no downloadable video.",
-            viewModel.uiState.value.focusNotice,
+            store.lookup.value?.failure,
         )
-        assertTrue(opened.isEmpty())
+        assertNull(viewModel.uiState.value.focusNotice)
+        assertFalse(viewModel.uiState.value.findingFocusedVideo)
         assertNull(store.selection.value)
 
         // A page that never answers the script does not leave the button waiting.
@@ -733,22 +738,27 @@ class BrowserViewModelTest {
         runCurrent()
         assertEquals(1, extractor.requests.size)
 
-        // The user opened a video before the lookup answered: its sheet must not open.
+        // P16: the sheet opened at once and waits on that lookup.
+        assertEquals(1, opened.size)
+        assertEquals("youtube:BBBBBBBBBB2", store.lookup.value?.key)
+
+        // The page opened a video before the lookup answered: the sheet no longer waits.
         viewModel.onUrlChanged("https://m.youtube.com/watch?v=AAAAAAAAAA1")
         assertTrue(viewModel.uiState.value.findsFocusedVideo)
         assertFalse(viewModel.uiState.value.feedPage)
         assertFalse(viewModel.uiState.value.findingFocusedVideo)
         assertNull(viewModel.uiState.value.focusNotice)
+        assertNotEquals("youtube:BBBBBBBBBB2", store.lookup.value?.key)
         gate.complete(Unit)
         runCurrent()
-        assertTrue(opened.isEmpty())
+        assertEquals(1, opened.size)
         assertNull(store.selection.value)
         // A late answer of the old page's script is dropped too.
         viewModel.onFocusedVideoResult(answer("https://m.youtube.com/watch?v=BBBBBBBBBB2"))
         runCurrent()
         assertEquals(listOf("BBBBBBBBBB2"), extractor.requests.map { it.identity.contentId }
             .filter { it == "BBBBBBBBBB2" })
-        assertTrue(opened.isEmpty())
+        assertEquals(1, opened.size)
     }
 
     @Test
@@ -771,29 +781,91 @@ class BrowserViewModelTest {
     }
 
     @Test
-    fun aFocusedNetworkFailureOffersRetryForTheSameVideoAndKeepsDownload() = runTest {
-        val extractor = FeedVideoExtractor(
-            failing = mapOf("BBBBBBBBBB2" to SiteExtractionFailure.NETWORK),
-        )
-        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor))
+    fun aFocusedNetworkFailureShowsInTheSheetWithTryAgainForTheSameVideo() = runTest {
+        val failing = mutableMapOf("BBBBBBBBBB2" to SiteExtractionFailure.NETWORK)
+        val extractor = FeedVideoExtractor(failing = failing)
+        val store = DetectedMediaStore()
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor), store)
         viewModel.onPageStarted(YOUTUBE_FEED)
         viewModel.onPageFinished(YOUTUBE_FEED, "Feed")
         runCurrent()
         viewModel.focusedVideoScript()
         viewModel.onFocusedVideoResult(answer(FOCUSED_VIDEO))
         runCurrent()
-        assertEquals("Couldn't reach YouTube.", viewModel.uiState.value.focusNotice)
-        assertTrue(viewModel.uiState.value.canRetryFocusedLookup)
+        // P16: the open sheet says why, with Try again; the page keeps its Download button.
+        val failed = store.lookup.value!!
+        assertEquals("Couldn't reach YouTube.", failed.failure)
+        assertTrue(failed.canRetry)
+        assertNull(viewModel.uiState.value.focusNotice)
         assertTrue(downloadButtonVisible(viewModel))
         assertNull(viewModel.uiState.value.siteNotice)
-        viewModel.retryFocusedLookup()
+
+        // The sheet's Try again asks once more for the same video, which fills the sheet.
+        failing.clear()
+        store.retryLookup(failed.key)
         runCurrent()
         assertEquals(2, extractor.requests.size)
-        assertTrue(viewModel.uiState.value.canRetryFocusedLookup)
+        assertEquals("BBBBBBBBBB2", extractor.requests.last().identity.contentId)
+        assertEquals(
+            listOf("https://cdn.fixture.test/BBBBBBBBBB2.mp4"),
+            store.selection.value?.candidates?.map { it.mediaUrl },
+        )
+        assertNull(store.lookup.value)
         viewModel.onPageStarted("https://example.test/next")
         runCurrent()
         assertFalse(viewModel.uiState.value.canRetryFocusedLookup)
         assertNull(viewModel.uiState.value.focusNotice)
+    }
+
+    @Test
+    fun aFeedTapOpensTheSheetBeforeTheLookupEndsAndClosingItStopsThatLookup() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val extractor = FeedVideoExtractor(gate = gate, cancellable = true)
+        val store = DetectedMediaStore()
+        val viewModel = BrowserViewModel(OkHttpClient(), adapters(extractor), store)
+        val opened = mutableListOf<Unit>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.quickDownloadRequests.collect { opened += it }
+        }
+        viewModel.onPageStarted(YOUTUBE_FEED)
+        viewModel.onPageFinished(YOUTUBE_FEED, "YouTube")
+        runCurrent()
+
+        viewModel.focusedVideoScript()
+        viewModel.onFocusedVideoResult(answer(FOCUSED_VIDEO))
+        runCurrent()
+        // P16: the sheet is open while the adapter still answers, and waits on that lookup.
+        assertEquals(1, opened.size)
+        assertEquals(1, extractor.requests.size)
+        val waiting = store.lookup.value!!
+        assertEquals("youtube:BBBBBBBBBB2", waiting.key)
+        assertTrue(waiting.running)
+        assertTrue(store.awaitsLookup)
+
+        // Closing the sheet before the video came stops its lookup.
+        store.closeLookup(waiting.key)
+        runCurrent()
+        assertEquals(1, extractor.cancelled)
+        assertNull(store.lookup.value)
+        assertFalse(viewModel.uiState.value.findingFocusedVideo)
+        assertNull(viewModel.uiState.value.focusNotice)
+
+        // The next tap opens the sheet again and the lookup fills it: one open, no second ask.
+        gate.complete(Unit)
+        viewModel.focusedVideoScript()
+        viewModel.onFocusedVideoResult(answer(FOCUSED_VIDEO))
+        runCurrent()
+        assertEquals(2, opened.size)
+        assertEquals(2, extractor.requests.size)
+        assertEquals(
+            listOf("https://cdn.fixture.test/BBBBBBBBBB2.mp4"),
+            store.selection.value?.candidates?.map { it.mediaUrl },
+        )
+        assertNull(store.lookup.value)
+        // The sheet of a found video closes without stopping anything.
+        store.closeLookup(waiting.key)
+        runCurrent()
+        assertNotNull(store.selection.value)
     }
 
     @Test
@@ -1082,10 +1154,13 @@ class BrowserViewModelTest {
     private class FeedVideoExtractor(
         private val failing: Map<String, SiteExtractionFailure> = emptyMap(),
         private val gate: CompletableDeferred<Unit>? = null,
+        /** P16: whether a stopped lookup stops here too; [cancelled] counts those. */
+        private val cancellable: Boolean = false,
     ) : SiteExtractor {
         override val id: String = "youtube"
         override val displayName: String = "YouTube"
         val requests = mutableListOf<SiteExtractionRequest>()
+        var cancelled = 0
 
         override fun identify(pageUrl: String): SitePageIdentity? {
             val videoId = WATCH.matchEntire(pageUrl)?.groupValues?.get(1) ?: return null
@@ -1096,7 +1171,16 @@ class BrowserViewModelTest {
 
         override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
             requests += request
-            gate?.let { withContext(NonCancellable) { it.await() } }
+            if (cancellable) {
+                try {
+                    gate?.await()
+                } catch (cancellation: CancellationException) {
+                    cancelled += 1
+                    throw cancellation
+                }
+            } else {
+                gate?.let { withContext(NonCancellable) { it.await() } }
+            }
             val videoId = request.identity.contentId
             failing[videoId]?.let { return SiteExtractionResult.Failure(it) }
             val candidate = MediaCandidate(

@@ -137,7 +137,9 @@ that opened it. While audio plays, the mini player sits right above the bottom b
   placeholder until it loads), title, site and length;
   two sections only (P3-FIX): **Audio** (M4A, then MP3 320/192/128 kbps) and **Video** (one row
   per standard resolution, "480p", "720p · HD", "1080p · Full HD", with the real picture, frame
-  rate and size); Details; one Mint Download button.
+  rate and size); Details; one Mint Download button. P16: it opens at once and fills in —
+  until the qualities come it shows the link (or page title), "Getting qualities…", two Audio
+  and two Video placeholder rows and Download waiting for them.
 - **Downloads (04):** title + "Pause all"; All / Active / Queued / Done (+ Failed) filters with
   counts; cards with thumbnail, title, format, percentage, progress, "61 of 96 MB · 2.4 MB/s ·
   15 s left" and a Mint pause button; Waiting for Wi-Fi and "Failed · reason" chips with Retry;
@@ -376,6 +378,20 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
     Only the format rows (`quick-rows`) scroll; the header stays above, and Details, the toggle,
     Download (`quick-download`) and download status/actions stay pinned below them. The old
     duplicate quick-row tags and `quick-more-list` remain removed.
+    **P16 (opens at once):** as in Snaptube the sheet opens the moment the user asks — Home's
+    link of a site an adapter reads (YouTube, Facebook, TikTok, Vimeo), the browser's round and
+    wide buttons on a site's video page (P12, P13) and a feed's video on screen once the page
+    script names it — and the lookup fills it. While it waits the header is what is known (the
+    page title, else the link without its scheme, e.g. "youtube.com/watch?v=…"; the site;
+    YouTube's picture of the video ID), then "Getting qualities…" with a small spinner
+    (`quick-loading`), the Audio and Video labels with two placeholder rows each
+    (`quick-placeholder-audio`, `quick-placeholder-video`, rows `quick-placeholder-row`: an empty
+    radio mark and grey bars) and Download, disabled until a row is chosen. The same waiting
+    state covers a video whose qualities are still being read. A failed lookup shows its message
+    (`quick-error`) with Try again (`quick-retry`) when asking again can help; closing the sheet
+    before the video came stops Home's or the feed's lookup (a site page's own lookup keeps
+    running for the page). Other Home links keep the check first and open the sheet when it
+    found one video.
 
 18. **Search to download (Phase 9, T13).** Home's Search to download opens the browser start
     page with the address field focused (`browser?search=true`); Open browser opens the same

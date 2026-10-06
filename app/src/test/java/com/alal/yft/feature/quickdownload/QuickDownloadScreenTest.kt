@@ -257,6 +257,44 @@ class QuickDownloadScreenTest {
     }
 
     @Test
+    fun aWaitingSheetShowsTheLinkPlaceholderRowsAndGettingQualitiesThenItsRows() {
+        // P16: opened from a pasted link before the lookup answered.
+        var state by mutableStateOf(
+            QuickDownloadUiState(
+                header = SheetHeader(
+                    title = "youtube.com/watch?v=fixture0001",
+                    source = "youtube.com",
+                    durationMillis = null,
+                    audioOnly = false,
+                ),
+                loading = true,
+                findingVideo = true,
+            ),
+        )
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(state = state, onSelect = {}, onDownload = {})
+            }
+        }
+
+        composeRule.onNodeWithText("youtube.com/watch?v=fixture0001").assertIsDisplayed()
+        composeRule.onNodeWithTag("quick-loading").assertIsDisplayed()
+        composeRule.onNodeWithText("Getting qualities…").assertIsDisplayed()
+        composeRule.onNodeWithTag("quick-placeholder-audio").assertIsDisplayed()
+        composeRule.onNodeWithTag("quick-placeholder-video").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("quick-placeholder-row").assertCountEquals(4)
+        composeRule.onNodeWithTag("quick-download").assertIsDisplayed().assertIsNotEnabled()
+        composeRule.onAllNodesWithTag("quick-rows").assertCountEquals(0)
+
+        // The lookup answered: the real rows take the placeholders' place.
+        state = SAMPLE_QUICK_DOWNLOAD
+        composeRule.onAllNodesWithTag("quick-placeholder-row").assertCountEquals(0)
+        composeRule.onAllNodesWithTag("quick-loading").assertCountEquals(0)
+        composeRule.onNodeWithTag("quick-rows").assertExists()
+        composeRule.onNodeWithTag("quick-download").assertIsEnabled()
+    }
+
+    @Test
     fun loadingThenAFailureOffersTryAgain() {
         var state by mutableStateOf(
             QuickDownloadUiState(header = SAMPLE_QUICK_DOWNLOAD.header, loading = true),
@@ -275,7 +313,8 @@ class QuickDownloadScreenTest {
 
         composeRule.onNodeWithTag("quick-header").assertExists()
         composeRule.onNodeWithTag("quick-loading").assertExists()
-        composeRule.onAllNodesWithTag("quick-download").assertCountEquals(0)
+        // P16: Download stays in its place, waiting for the rows.
+        composeRule.onNodeWithTag("quick-download").assertIsNotEnabled()
 
         state = state.copy(loading = false, failure = "The media could not be reached.")
         composeRule.onNodeWithTag("quick-error").assert(hasText("The media could not be reached."))
@@ -306,7 +345,7 @@ class QuickDownloadScreenTest {
 
         // P12: the sheet waits for the page's lookup instead of listing the page.
         composeRule.onNodeWithTag("quick-loading").assertExists()
-        composeRule.onNodeWithText("Looking up this video…").assertExists()
+        composeRule.onNodeWithText(WAITING_MESSAGE).assertExists()
         composeRule.onAllNodesWithTag("quick-other-videos").assertCountEquals(0)
         state = state.copy(loading = false, findingVideo = false, failure = "Protected")
         composeRule.onNodeWithTag("quick-error").assert(hasText("Protected"))

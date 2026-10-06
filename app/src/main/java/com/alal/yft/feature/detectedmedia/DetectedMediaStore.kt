@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
 /** Media found on the page the browser showed last, kept for the Detected Media screen. */
 data class DetectedPage(
@@ -21,9 +22,14 @@ data class DetectedPage(
     val adapterSite: Boolean = false,
 )
 
+/** P16: who runs a [PageVideoLookup]; only its owner answers, retries, stops or clears it. */
+enum class LookupOwner { BROWSER, HOME }
+
 /**
  * P12: the lookup of a site page's own video, while it runs or after it failed, so the download
  * sheet can open for that video before the lookup ends. [key] is the video's "site:contentId".
+ * P16: Home's lookup of a pasted link and the browser's of a feed's video on screen are shown
+ * the same way.
  */
 data class PageVideoLookup(
     val key: String,
@@ -33,10 +39,12 @@ data class PageVideoLookup(
     val failure: String? = null,
     /** Whether asking again can change the answer, so the sheet offers Try again. */
     val canRetry: Boolean = false,
+    val owner: LookupOwner = LookupOwner.BROWSER,
 ) {
     val running: Boolean get() = failure == null
 
-    override fun toString(): String = "PageVideoLookup(running=$running, canRetry=$canRetry)"
+    override fun toString(): String =
+        "PageVideoLookup(running=$running, canRetry=$canRetry, owner=$owner)"
 }
 
 /**
@@ -70,8 +78,22 @@ class DetectedMediaStore @Inject constructor() {
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
 
-    /** P12: the sheet's Try again for [lookup], by video key; the browser asks again. */
+    /** P12: the sheet's Try again for [lookup], by video key; its owner asks again. */
     val lookupRetries: SharedFlow<String> = retryRequests.asSharedFlow()
+
+    private val closeRequests = MutableSharedFlow<String>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+
+    /** P16: the sheet that waited on [lookup] closed, by video key; its owner stops it. */
+    val lookupCloses: SharedFlow<String> = closeRequests.asSharedFlow()
+
+    /** P16: a sheet opens for [lookup]; nothing the page itself shows stands in for it. */
+    private var awaiting = false
+
+    /** P16: whether an opening sheet waits on [lookup] rather than taking the page's video. */
+    val awaitsLookup: Boolean get() = awaiting && mutableSelection.value == null
 
     private val foundListRequests = MutableSharedFlow<Unit>(
         extraBufferCapacity = 1,
@@ -91,6 +113,7 @@ class DetectedMediaStore @Inject constructor() {
         if (mutablePage.value?.pageUrl != pageUrl) {
             mutableSelection.value = null
             mutableOtherVideos.value = 0
+            awaiting = false
         }
         mutablePage.value = DetectedPage(
             pageUrl = pageUrl,
@@ -102,6 +125,7 @@ class DetectedMediaStore @Inject constructor() {
 
     /** [group] is the video the sheet shows; [otherVideos] more videos are on its page. */
     fun select(group: MediaGroup, otherVideos: Int = 0) {
+        awaiting = false
         mutableSelection.value = group
         mutableOtherVideos.value = otherVideos.coerceAtLeast(0)
     }
@@ -113,6 +137,7 @@ class DetectedMediaStore @Inject constructor() {
     fun awaitPageVideo() {
         mutableSelection.value = null
         mutableOtherVideos.value = 0
+        awaiting = true
     }
 
     /** P12: the browser's page lookup started, failed or ended (null). */
@@ -120,8 +145,19 @@ class DetectedMediaStore @Inject constructor() {
         mutableLookup.value = lookup
     }
 
+    /** P16: [owner]'s lookup ended; another owner's lookup stays. */
+    fun clearLookup(owner: LookupOwner) {
+        mutableLookup.update { current -> current?.takeUnless { it.owner == owner } }
+    }
+
     fun retryLookup(key: String) {
         retryRequests.tryEmit(key)
+    }
+
+    /** P16: the sheet that waited on the lookup of [key] closed before its video came. */
+    fun closeLookup(key: String) {
+        awaiting = false
+        closeRequests.tryEmit(key)
     }
 
     fun showFoundList() {
@@ -133,6 +169,7 @@ class DetectedMediaStore @Inject constructor() {
         mutableSelection.value = null
         mutableOtherVideos.value = 0
         mutableLookup.value = null
+        awaiting = false
     }
 
     companion object {

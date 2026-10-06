@@ -9,6 +9,7 @@ import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.core.model.settings.HomeSites
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
+import com.alal.yft.feature.detectedmedia.LookupOwner
 import com.alal.yft.feature.library.LibraryItem
 import com.alal.yft.feature.library.LibraryLocation
 import com.alal.yft.feature.library.LibraryRepository
@@ -27,6 +28,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -368,6 +370,94 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun aSupportedSitesLinkOpensItsSheetBeforeTheLookupEndsAndTheLookupFillsIt() = runTest {
+        val viewModel = viewModel()
+        val opened = mutableListOf<Unit>()
+        val collector = launch { viewModel.quickDownloadRequests.collect { opened += it } }
+        inspector.siteVideo = { SiteVideoLink(VIDEO_KEY, "https://a.test/watch") }
+        val answer = CompletableDeferred<LinkInspection>()
+        inspector.answer = { answer.await() }
+
+        viewModel.onAction(HomeAction.LinkChanged("https://a.test/watch"))
+        viewModel.onAction(HomeAction.Submit)
+        runCurrent()
+
+        // P16: the sheet is open while the lookup still runs, and waits on that lookup.
+        assertEquals(1, opened.size)
+        assertEquals(PromptboxStatus.Searching, viewModel.uiState.value.status)
+        val waiting = store.lookup.value!!
+        assertEquals(VIDEO_KEY, waiting.key)
+        assertEquals(LookupOwner.HOME, waiting.owner)
+        assertTrue(waiting.running)
+        assertTrue(store.awaitsLookup)
+        // The browser going away (Download copied link) leaves Home's lookup alone.
+        store.clearLookup(LookupOwner.BROWSER)
+        assertNotNull(store.lookup.value)
+
+        answer.complete(found(1))
+        advanceUntilIdle()
+
+        // The lookup fills the open sheet: its video, no second sheet, no lookup left.
+        assertEquals(1, opened.size)
+        assertEquals(listOf("https://a.test/watch"), inspector.links)
+        assertNull(store.lookup.value)
+        assertEquals(store.page.value?.candidates, store.selection.value?.candidates)
+        assertEquals(PromptboxStatus.Found(1), viewModel.uiState.value.status)
+        assertTrue(viewModel.uiState.value.quickDownload)
+        collector.cancel()
+    }
+
+    @Test
+    fun aFailedLinkLookupShowsInTheSheetTryAgainAsksOnceMoreAndClosingStopsIt() = runTest {
+        val viewModel = viewModel()
+        inspector.siteVideo = { SiteVideoLink(VIDEO_KEY, "https://a.test/watch") }
+        inspector.answer = { LinkInspection.NotFound("The site did not answer. Try again.") }
+        viewModel.onAction(HomeAction.LinkChanged("https://a.test/watch"))
+        viewModel.onAction(HomeAction.Submit)
+        advanceUntilIdle()
+
+        val failed = store.lookup.value!!
+        assertEquals("The site did not answer. Try again.", failed.failure)
+        assertTrue(failed.canRetry)
+
+        // Try again in the sheet asks once more; the sheet waits on it again.
+        var cancelled = false
+        inspector.answer = {
+            try { awaitCancellation() } finally { cancelled = true }
+        }
+        store.retryLookup(VIDEO_KEY)
+        runCurrent()
+        assertEquals(2, inspector.links.size)
+        assertTrue(store.lookup.value!!.running)
+        assertEquals(PromptboxStatus.Searching, viewModel.uiState.value.status)
+        // A second Try again while it runs asks nothing more.
+        store.retryLookup(VIDEO_KEY)
+        runCurrent()
+        assertEquals(2, inspector.links.size)
+
+        // Closing the sheet before its video came stops the lookup.
+        store.closeLookup(VIDEO_KEY)
+        runCurrent()
+        assertTrue(cancelled)
+        assertNull(store.lookup.value)
+        assertEquals(PromptboxStatus.Editing, viewModel.uiState.value.status)
+
+        // A protected video: the message in the sheet, and Try again asks nothing.
+        inspector.answer = { LinkInspection.NotFound("Protected", canRetry = false) }
+        viewModel.onAction(HomeAction.Submit)
+        advanceUntilIdle()
+        assertFalse(store.lookup.value!!.canRetry)
+        store.retryLookup(VIDEO_KEY)
+        advanceUntilIdle()
+        assertEquals(3, inspector.links.size)
+        // Closing a sheet that shows a failure keeps Home's message.
+        store.closeLookup(VIDEO_KEY)
+        runCurrent()
+        assertNull(store.lookup.value)
+        assertEquals(PromptboxStatus.NotFound("Protected"), viewModel.uiState.value.status)
+    }
+
+    @Test
     fun afterTenSecondsTheLookupIsStillRunningAndCancelStopsIt() = runTest {
         var cancelled = false
         inspector.answer = {
@@ -504,11 +594,14 @@ class HomeViewModelTest {
     private class FakeInspector : LinkInspector {
         val links = mutableListOf<String>()
         var answer: suspend () -> LinkInspection = { LinkInspection.NotFound("none") }
+        var siteVideo: (String) -> SiteVideoLink? = { null }
 
         override suspend fun inspect(link: String): LinkInspection {
             links += link
             return answer()
         }
+
+        override fun siteVideo(link: String): SiteVideoLink? = siteVideo.invoke(link)
     }
 
     private class FakeSitesRepository(initial: List<HomeSite>) : HomeSitesRepository {
@@ -530,5 +623,9 @@ class HomeViewModelTest {
         }
 
         override suspend fun delete(item: LibraryItem): Boolean = false
+    }
+
+    private companion object {
+        const val VIDEO_KEY = "fixture:watch"
     }
 }

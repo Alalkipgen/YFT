@@ -33,6 +33,12 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Changed
 
+- The download sheet opens at once: a pasted YouTube, Facebook, TikTok or Vimeo link, the
+  browser's Download buttons on a site's video page and a feed's video on screen open the sheet
+  straight away with the link (or the page title), "Getting qualities…" and placeholder rows;
+  the lookup fills it in. A failed lookup shows its message with Try again in the sheet, and
+  closing the sheet early stops Home's or the feed's lookup. Other links are checked first, as
+  before.
 - Real video pictures: the download sheet (16:9 header), the found list and running downloads
   show the video's own picture instead of the placeholder — YouTube's from its ID, other sites'
   from their lookup. Loaded over HTTPS without cookies (at most 2 MB, two at a time, cached up

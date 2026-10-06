@@ -182,6 +182,32 @@ class HeadlessLinkInspectorTest {
     }
 
     @Test
+    fun aSiteVideoLinkIsNamedBeforeAnyRequestAndAProtectedOneHasNoTryAgain() = runTest {
+        val inspector = inspector(
+            FixtureExtractor(SiteExtractionResult.Failure(SiteExtractionFailure.DRM_PROTECTED)),
+        )
+
+        // P16: Home opens this video's sheet before the lookup asks anything.
+        assertEquals(
+            SiteVideoLink("fixture:42", "https://fixture.test/video/42"),
+            inspector.siteVideo("  https://fixture.test/video/42 "),
+        )
+        assertNull(inspector.siteVideo("https://fixture.test/about"))
+        assertNull(inspector.siteVideo("https://fixture.test/video/42.mp4"))
+        assertNull(inspector.siteVideo("http://fixture.test/video/42"))
+        assertNull(inspector.siteVideo("not a link"))
+        assertTrue(fetched.isEmpty())
+        assertTrue(probed.isEmpty())
+
+        val protected = inspector.inspect("https://fixture.test/video/42")
+        assertFalse((protected as LinkInspection.NotFound).canRetry)
+        val signIn = inspector(
+            FixtureExtractor(SiteExtractionResult.Failure(SiteExtractionFailure.LOGIN_REQUIRED)),
+        ).inspect("https://fixture.test/video/42")
+        assertTrue((signIn as LinkInspection.NotFound).canRetry)
+    }
+
+    @Test
     fun botCheckOffersTheBrowserWithItsOwnMessageAndDetails() = runTest {
         val extractor = FixtureExtractor(
             SiteExtractionResult.Failure(

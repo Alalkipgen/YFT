@@ -111,13 +111,20 @@ class QuickDownloadViewModel @Inject constructor(
     private val playback: VideoPlaybackSupport,
     private val downloadThumbnails: DownloadThumbnails = DownloadThumbnails.None,
 ) : ViewModel() {
-    private var group: MediaGroup? = store.selection.value ?: store.page.value?.let { page ->
-        val savable = page.candidates.take(DetectedMediaStore.MAX_CANDIDATES)
-            .filter { it.isSavable }
-        MediaGroups.pageVideos(savable, adapterSite = page.adapterSite).singleOrNull()
-    }
+    /**
+     * P16: a sheet opened for a lookup (Home's link, a feed's video on screen) waits on it even
+     * when the page under it has a video of its own.
+     */
+    private val opensOnLookup = store.awaitsLookup && store.lookup.value != null
+    private var group: MediaGroup? = store.selection.value ?: store.page.value
+        ?.takeUnless { opensOnLookup }
+        ?.let { page ->
+            val savable = page.candidates.take(DetectedMediaStore.MAX_CANDIDATES)
+                .filter { it.isSavable }
+            MediaGroups.pageVideos(savable, adapterSite = page.adapterSite).singleOrNull()
+        }
 
-    /** P12: the browser's lookup this sheet waits on, while no video is chosen yet. */
+    /** P12: the lookup this sheet waits on, while no video is chosen yet. */
     private var pageLookup: PageVideoLookup? = store.lookup.value.takeIf { group == null }
     private val mutableUiState = MutableStateFlow(
         pageLookup?.let(::lookupState) ?: QuickDownloadUiState(
@@ -131,6 +138,11 @@ class QuickDownloadViewModel @Inject constructor(
 
     init {
         if (pageLookup != null) awaitPageVideo() else load()
+    }
+
+    /** P16: closing the sheet before its video came stops the lookup it waited on. */
+    override fun onCleared() {
+        pageLookup?.let { store.closeLookup(it.key) }
     }
 
     /** Reads the formats again after a failure; a failed page lookup is asked for again. */
@@ -232,9 +244,14 @@ class QuickDownloadViewModel @Inject constructor(
         }
     }
 
+    /**
+     * P16: the waiting sheet's header is what is known before the lookup answers: the page's
+     * title or the link itself, its site and YouTube's picture of the video ID.
+     */
     private fun lookupState(lookup: PageVideoLookup) = QuickDownloadUiState(
         header = SheetHeader(
-            title = lookup.title ?: WAITING_TITLE,
+            title = lookup.title ?: QuickDownloadChoices.shownLink(lookup.pageUrl)
+                ?: WAITING_TITLE,
             source = QuickDownloadChoices.host(lookup.pageUrl),
             durationMillis = null,
             audioOnly = false,

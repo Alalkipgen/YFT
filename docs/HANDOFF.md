@@ -2,6 +2,7 @@
 
 ## Current handoff (2026-10-05)
 
+- 2026-10-06 Track A: Preview #2 = Preview APK run 37414773994 (`b0d1b30`, same code as the P19 checkpoint). P16 OWNER CHECK — the sheet opens at once (Home's site-video link, the browser's buttons, a feed's video on screen) with the link, "Getting qualities…" and placeholder rows; the lookup fills it, failures show with Try again, closing early stops Home's/the feed's lookup (lookup owner HOME/BROWSER). Next: P17.
 - 2026-10-06 Track A: P19 OWNER CHECK — real video pictures in the sheet header (16:9), the found list and Downloads (HTTPS-only cookie-free loader, 2 MB cap, two at a time, memory+disk cache; saved JPEG per download deleted with its record). Next: Preview #2, P16.
 - 2026-10-06 Track A: P13 OWNER CHECK — wide "Download this video" button under the page on site video pages and one-video pages (round button hides; hidden in full screen, under the sheet, with the keyboard). Fixed the wip's compile error and the route test that still tapped the round button. Next: P19.
 - 2026-10-06 Track A: P12 OWNER CHECK — site video pages open their own video's sheet (one lookup per video, sheet waits/Retry, probes wait); generic pages open the main video with "Other videos on this page (N)". Next: P13.

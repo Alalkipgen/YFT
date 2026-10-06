@@ -2,6 +2,7 @@ package com.alal.yft.feature.quickdownload
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -95,7 +97,9 @@ fun QuickDownloadRoute(
  * two sections, **Audio** (M4A, MP3
  * at 128 kbps in the short view) and **Video** (the preferred quality and the next lower one).
  * More formats expands the same sheet to every row, without changing the selection; only the
- * rows scroll. Details and Download with the size stay pinned below them.
+ * rows scroll. Details and Download with the size stay pinned below them. P16: the sheet opens at
+ * once; until the lookup and the qualities answer it shows what is known, placeholder rows and
+ * "Getting qualities…".
  */
 @Composable
 fun QuickDownloadScreen(
@@ -218,7 +222,7 @@ fun QuickDownloadScreen(
                 )
             }
 
-            state.loading -> Loading(findingVideo = state.findingVideo)
+            state.loading -> Waiting(state = state, onDownload = onDownload)
             else -> Failure(
                 message = state.failure,
                 onRetry = onRetry.takeIf { state.canRetry },
@@ -393,12 +397,16 @@ private fun FormatRow(
     }
 }
 
+/**
+ * P16: the sheet opens before the qualities are known. "Getting qualities…", then two Audio and
+ * two Video placeholder rows where the real rows will appear, and Download, which waits for them.
+ */
 @Composable
-private fun Loading(findingVideo: Boolean = false) {
+private fun ColumnScope.Waiting(state: QuickDownloadUiState, onDownload: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 24.dp)
+            .padding(top = 8.dp, bottom = 4.dp)
             .testTag("quick-loading"),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
@@ -409,12 +417,59 @@ private fun Loading(findingVideo: Boolean = false) {
             strokeWidth = 3.dp,
         )
         Text(
-            text = if (findingVideo) "Looking up this video…" else "Reading qualities and sizes…",
+            text = WAITING_MESSAGE,
             modifier = Modifier.padding(start = 12.dp),
             color = YftTheme.colors.textSecondary,
             style = MaterialTheme.typography.bodyMedium,
         )
     }
+    Column(
+        modifier = Modifier
+            .weight(1f, fill = false)
+            .verticalScroll(rememberScrollState())
+            .testTag("quick-waiting-rows"),
+    ) {
+        listOf(
+            "Audio" to "quick-placeholder-audio",
+            "Video" to "quick-placeholder-video",
+        ).forEach { (label, tag) ->
+            SectionLabel(label, Modifier.testTag(tag))
+            repeat(PLACEHOLDER_ROWS) { PlaceholderRow(Modifier.testTag("quick-placeholder-row")) }
+        }
+    }
+    DownloadAction(state = state, onDownload = onDownload, onOpenDownloads = {})
+}
+
+/** A row's shape without its text: the radio mark, the quality, its detail and the size. */
+@Composable
+private fun PlaceholderRow(modifier: Modifier = Modifier) {
+    val bar = YftTheme.colors.chip
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        YftRadioMark(selected = false)
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 14.dp),
+        ) {
+            PlaceholderBar(color = bar, modifier = Modifier.fillMaxWidth(0.45f).height(14.dp))
+            PlaceholderBar(
+                color = bar,
+                modifier = Modifier.padding(top = 8.dp).fillMaxWidth(0.3f).height(12.dp),
+            )
+        }
+        PlaceholderBar(color = bar, modifier = Modifier.padding(start = 8.dp).size(48.dp, 12.dp))
+    }
+}
+
+@Composable
+private fun PlaceholderBar(color: Color, modifier: Modifier) {
+    Box(modifier = modifier.clip(YftShapes.thumbnailSmall).background(color))
 }
 
 @Composable
@@ -516,6 +571,10 @@ private val QuickDownloadUiState.canChooseRow: Boolean
         downloadStatus != PreviewDownloadStatus.ConfirmMetered
 
 internal const val SHEET_TITLE = "Download"
+
+/** P16: what the waiting sheet says until the lookup and the qualities answer. */
+internal const val WAITING_MESSAGE = "Getting qualities…"
+private const val PLACEHOLDER_ROWS = 2
 private const val SIZE_UNKNOWN = "Size unknown"
 private val SHEET_TOP_GAP = 48.dp
 private val THUMBNAIL_WIDTH = 112.dp

@@ -24,6 +24,7 @@ import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.detection.SiteScope
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
+import com.alal.yft.feature.detectedmedia.LookupOwner
 import com.alal.yft.feature.detectedmedia.PageVideoLookup
 import com.alal.yft.ui.components.isSavable
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -140,6 +141,9 @@ class BrowserViewModel(
     /** P12: the main-video script was evaluated and its answer has not come back yet. */
     private var mainVideoTimer: Job? = null
 
+    /** P16: the lookup of a feed's video on screen that the open sheet waits on. */
+    private var focusedSheet: PageVideoLookup? = null
+
     init {
         homeSitesRepository?.let { repository ->
             viewModelScope.launch {
@@ -181,12 +185,25 @@ class BrowserViewModel(
         viewModelScope.launch {
             // P12: Try again in the sheet that waits on this page's own lookup.
             detectedMediaStore.lookupRetries.collect { key ->
-                val pageUrl = activePageUrl ?: return@collect
                 val lookup = detectedMediaStore.lookup.value
                 if (lookup?.key != key || !lookup.canRetry) return@collect
+                if (lookup.owner != LookupOwner.BROWSER) return@collect
+                // P16: a feed's video on screen is asked for again in the sheet.
+                focusedSheet?.takeIf { it.key == key }?.let { sheet ->
+                    if (focusLookup?.isActive != true) {
+                        detectedMediaStore.showLookup(sheet)
+                        lookupFocusedVideo(sheet.pageUrl, fresh = true)
+                    }
+                    return@collect
+                }
+                val pageUrl = activePageUrl ?: return@collect
                 if (siteAdapters.videoKey(pageUrl) != key) return@collect
                 retryLookup(pageUrl)
             }
+        }
+        viewModelScope.launch {
+            // P16: the sheet closed before its video came.
+            detectedMediaStore.lookupCloses.collect(::closeSheetLookup)
         }
         viewModelScope.launch {
             // P12: the sheet's "Other videos on this page" opens the found list.
@@ -198,7 +215,7 @@ class BrowserViewModel(
 
     override fun onCleared() {
         // The sheet must not wait on a lookup of a browser that is gone.
-        detectedMediaStore.showLookup(null)
+        detectedMediaStore.clearLookup(LookupOwner.BROWSER)
         super.onCleared()
     }
 
@@ -377,8 +394,9 @@ class BrowserViewModel(
 
     /**
      * P5: looks up the video the [focusedVideoScript] found with its site adapter and asks the
-     * route to open its download sheet. A page with no video in focus, or a video the adapter
-     * cannot read, gets a short notice instead. A result for a page the browser left is dropped.
+     * route to open its download sheet. P16: the sheet opens before the lookup ends and waits on
+     * it; a video the adapter cannot read shows why in the sheet. A page with no video in focus
+     * gets a short notice instead. A result for a page the browser left is dropped.
      */
     fun onFocusedVideoResult(javascriptResult: String?) {
         if (!mutableUiState.value.findingFocusedVideo) return
@@ -391,7 +409,47 @@ class BrowserViewModel(
             finishFocusLookup(NO_FOCUSED_VIDEO_NOTICE)
             return
         }
+        // P16: the sheet opens now and waits on the lookup, unless this page already found it.
+        val key = siteAdapters.videoKey(focused.url)
+        if (key != null && foundLookups[key] == null) {
+            val sheet = PageVideoLookup(key, focused.url, title = null)
+            focusedSheet = sheet
+            detectedMediaStore.awaitPageVideo()
+            detectedMediaStore.showLookup(sheet)
+            quickDownloads.trySend(Unit)
+        }
         lookupFocusedVideo(focused.url)
+    }
+
+    /**
+     * P16: the sheet that waited on a lookup closed. A feed's video on screen is no longer
+     * looked up; the page's own lookup keeps running for the page, without the sheet's wait.
+     */
+    private fun closeSheetLookup(key: String) {
+        val pageKey = activePageUrl?.let(siteAdapters::videoKey)
+        if (focusedSheet?.key != key) {
+            if (pageKey == key) sheetAwaitsPageVideo = false
+            return
+        }
+        focusedSheet = null
+        focusLookup?.cancel()
+        focusLookup = null
+        if (pageKey != key) runningLookups.remove(key)?.cancel()
+        finishFocusLookup(notice = null)
+        clearSheetLookup(key)
+    }
+
+    private fun clearSheetLookup(key: String) {
+        val shown = detectedMediaStore.lookup.value ?: return
+        if (shown.key == key && shown.owner == LookupOwner.BROWSER) {
+            detectedMediaStore.clearLookup(LookupOwner.BROWSER)
+        }
+    }
+
+    /** P16: the sheet that waits on the feed's video shows why it was not found. */
+    private fun showFocusedFailure(sheet: PageVideoLookup, message: String, canRetry: Boolean) {
+        detectedMediaStore.showLookup(sheet.copy(failure = message, canRetry = canRetry))
+        finishFocusLookup(notice = null)
     }
 
     fun retryFocusedLookup() {
@@ -422,20 +480,32 @@ class BrowserViewModel(
                 fresh = fresh,
             )
             if (generation != pageGeneration) return@launch
+            // P16: the open sheet that waits on this video shows the answer.
+            val sheet = focusedSheet?.takeIf { it.key == siteAdapters.videoKey(url) }
             when (outcome) {
                 is SiteAdapterOutcome.Detected -> {
                     val video = MediaGroups.pageVideos(outcome.candidates.filter { it.isSavable })
                         .firstOrNull()
-                    if (video == null) {
-                        finishFocusLookup(PROTECTED_FOCUSED_VIDEO_NOTICE)
-                    } else {
-                        detectedMediaStore.select(video)
-                        finishFocusLookup(notice = null)
-                        quickDownloads.trySend(Unit)
+                    when {
+                        video == null && sheet != null ->
+                            showFocusedFailure(sheet, PROTECTED_FOCUSED_VIDEO_NOTICE, false)
+                        video == null -> finishFocusLookup(PROTECTED_FOCUSED_VIDEO_NOTICE)
+                        else -> {
+                            detectedMediaStore.select(video)
+                            finishFocusLookup(notice = null)
+                            if (sheet == null) {
+                                quickDownloads.trySend(Unit)
+                            } else {
+                                focusedSheet = null
+                                clearSheetLookup(sheet.key)
+                            }
+                        }
                     }
                 }
 
-                is SiteAdapterOutcome.Failed -> {
+                is SiteAdapterOutcome.Failed -> if (sheet != null) {
+                    showFocusedFailure(sheet, outcome.message, outcome.canRetry)
+                } else {
                     focusedRetryPage = url
                     mutableUiState.update {
                         it.copy(
@@ -444,7 +514,11 @@ class BrowserViewModel(
                     }
                     finishFocusLookup(outcome.message)
                 }
-                SiteAdapterOutcome.NotHandled -> finishFocusLookup(NO_FOCUSED_VIDEO_NOTICE)
+                SiteAdapterOutcome.NotHandled -> if (sheet != null) {
+                    showFocusedFailure(sheet, NO_FOCUSED_VIDEO_NOTICE, canRetry = false)
+                } else {
+                    finishFocusLookup(NO_FOCUSED_VIDEO_NOTICE)
+                }
             }
         }
     }
@@ -505,7 +579,8 @@ class BrowserViewModel(
         foundPageVideo = null
         sheetAwaitsPageVideo = false
         mainVideoTimer = null
-        detectedMediaStore.showLookup(null)
+        focusedSheet = null
+        detectedMediaStore.clearLookup(LookupOwner.BROWSER)
         candidateStore.beginPage(url)
         probeBudget.beginPage(url)
     }
@@ -547,7 +622,7 @@ class BrowserViewModel(
             }
             when (outcome) {
                 SiteAdapterOutcome.NotHandled -> {
-                    detectedMediaStore.showLookup(null)
+                    detectedMediaStore.clearLookup(LookupOwner.BROWSER)
                     pageLookupDone.complete(false)
                 }
 
@@ -628,7 +703,7 @@ class BrowserViewModel(
             sheetAwaitsPageVideo = false
             detectedMediaStore.select(video)
         }
-        detectedMediaStore.showLookup(null)
+        detectedMediaStore.clearLookup(LookupOwner.BROWSER)
     }
 
     /**

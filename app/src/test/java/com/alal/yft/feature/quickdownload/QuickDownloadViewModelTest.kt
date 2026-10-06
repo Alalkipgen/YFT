@@ -1,5 +1,9 @@
 package com.alal.yft.feature.quickdownload
 
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.media.resolver.VariantResolver
 import com.alal.yft.core.media.session.PreviewSelectionStore
@@ -22,6 +26,7 @@ import com.alal.yft.download.PreviewDownloadStarter
 import com.alal.yft.download.policy.NetworkSnapshot
 import com.alal.yft.download.policy.NetworkStatusSource
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
+import com.alal.yft.feature.detectedmedia.LookupOwner
 import com.alal.yft.feature.detectedmedia.PageVideoLookup
 import com.alal.yft.feature.preview.PreviewDownloadStatus
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.MIB
@@ -328,6 +333,53 @@ class QuickDownloadViewModelTest {
     }
 
     @Test
+    fun aSheetOpenedOnALinkShowsTheLinkThenItsRowsAndClosingItEarlyStopsTheLookup() = runTest {
+        // P16: the browser's last page has a video of its own; Home's link is another video.
+        val feed = video(720, 42 * MIB, title = "Feed clip", videoId = null, index = 9)
+        store.publish("https://m.youtube.com/", "YouTube", listOf(feed))
+        store.awaitPageVideo()
+        val lookup = PageVideoLookup(
+            KEY,
+            QuickDownloadFixtures.PAGE,
+            title = null,
+            owner = LookupOwner.HOME,
+        )
+        store.showLookup(lookup)
+        val closes = mutableListOf<String>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            store.lookupCloses.collect { closes += it }
+        }
+
+        val sheets = ViewModelStore()
+        val viewModel = sheet(sheets)
+        val waiting = viewModel.uiState.value
+        assertEquals("youtube.com/watch?v=fixture0001", waiting.header?.title)
+        assertEquals("youtube.com", waiting.header?.source)
+        assertEquals(YOUTUBE_PICTURE, waiting.header?.thumbnailUrl)
+        assertTrue(waiting.loading)
+        assertNull(waiting.choices)
+        assertFalse(waiting.canDownload)
+
+        // The lookup answers: the same sheet fills in with the video's rows.
+        val found = QuickDownloadFixtures.youtube()
+        store.publish(QuickDownloadFixtures.PAGE, "Ocean waves", found, adapterSite = true)
+        store.select(MediaGroups.of(found).single())
+        store.clearLookup(LookupOwner.HOME)
+        assertEquals("Ocean waves", viewModel.uiState.value.header?.title)
+        assertEquals("720p · HD", viewModel.uiState.value.selectedOption?.title)
+        sheets.clear()
+        assertTrue(closes.isEmpty())
+
+        // Closed before its video came: the lookup it waited on is stopped.
+        store.awaitPageVideo()
+        store.showLookup(lookup)
+        val early = ViewModelStore()
+        assertTrue(sheet(early).uiState.value.loading)
+        early.clear()
+        assertEquals(listOf(KEY), closes)
+    }
+
+    @Test
     fun aFailedPageLookupShowsItsMessageWithTryAgainInTheSheet() = runTest {
         store.publish(QuickDownloadFixtures.PAGE, "Ocean waves", emptyList(), adapterSite = true)
         store.showLookup(
@@ -514,6 +566,12 @@ class QuickDownloadViewModelTest {
         playback = playback,
         downloadThumbnails = thumbnails,
     )
+
+    /** A sheet whose [ViewModelStore] the test clears, as closing the sheet does. */
+    private fun sheet(owner: ViewModelStore): QuickDownloadViewModel = ViewModelProvider(
+        owner,
+        viewModelFactory { initializer { viewModel() } },
+    )[QuickDownloadViewModel::class.java]
 
     /**
      * Resolves like the real resolver for a whole file: one variant keeping the companion and
