@@ -38,7 +38,8 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent A — `work/phase-12-download-fix` (P20, P21; later P26)
 
-- Status: IN PROGRESS — P21 done, its CI next (started 2026-10-06, base `f434724` = `origin/work/phase-12-integration`)
+- Status: READY FOR MERGE (P20, P21) — last code commit `8cb0b74`, CI green (started 2026-10-06,
+  base `f434724` = `origin/work/phase-12-integration`)
 - Folder `/data/YFT-A`; push with the deploy key (`origin` = SSH).
 - P20 — Video downloads save again: DONE (2026-10-06) — OWNER CHECK on the phone
   - Result: `DirectTransferEngine.transfer` no longer reads the destination before `prepare()` for
@@ -144,7 +145,10 @@ Keep at least the heading and one blank line between sections, so Git merges the
     "aConversionFailureKeepsTheConverterMessageForTheDetailsDialog"; `DownloadsScreenTest`
     "failedTaskShowsItsDetailsAndCopiesThemWithoutLinks", "theMenuOfAFailedTaskOpensItsDetails"
     (no Details). Restored with `cp`, checked with `cmp`.
-  - CI: pending (this checkpoint).
+  - CI (`8cb0b74`): emulator smoke success, "Instrumentation results: tests=23 failures=0"
+    https://github.com/Alalkipgen/YFT/actions/runs/37510578505; Preview APK success
+    https://github.com/Alalkipgen/YFT/actions/runs/37510578383; checkpoint validation success
+    https://github.com/Alalkipgen/YFT/actions/runs/37510578152.
   - Owner check: airplane mode on during a download → the card fails ("Failed · Network error")
     → Details shows the reason and a stage, no link → Copy details and paste: no `http` → airplane
     mode off → Retry → the download finishes and plays.
