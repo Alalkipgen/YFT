@@ -78,6 +78,10 @@ fun QuickDownloadRoute(
         onRetry = viewModel::retry,
         onOpenDownloads = onOpenDownloads,
         onClose = onNavigateBack,
+        onOpenOtherVideos = {
+            // P12: the browser's found list opens under this sheet, which closes.
+            if (viewModel.openOtherVideos()) onNavigateBack()
+        },
     )
 }
 
@@ -101,6 +105,7 @@ fun QuickDownloadScreen(
     onRetry: () -> Unit = {},
     onOpenDownloads: () -> Unit = {},
     onClose: () -> Unit = {},
+    onOpenOtherVideos: () -> Unit = {},
 ) {
     if (state.downloadStatus == PreviewDownloadStatus.ConfirmMetered) {
         MeteredDownloadDialog(onConfirm = onConfirmMetered, onDismiss = onDismissMetered)
@@ -158,6 +163,13 @@ fun QuickDownloadScreen(
             return@Column
         }
         Header(header)
+        if (state.otherVideos > 0) {
+            YftTextButton(
+                text = "Other videos on this page (${state.otherVideos})",
+                onClick = onOpenOtherVideos,
+                modifier = Modifier.testTag("quick-other-videos"),
+            )
+        }
         val choices = state.choices
         when {
             choices != null -> {
@@ -202,8 +214,11 @@ fun QuickDownloadScreen(
                 )
             }
 
-            state.loading -> Loading()
-            else -> Failure(message = state.failure, onRetry = onRetry)
+            state.loading -> Loading(findingVideo = state.findingVideo)
+            else -> Failure(
+                message = state.failure,
+                onRetry = onRetry.takeIf { state.canRetry },
+            )
         }
     }
 }
@@ -371,7 +386,7 @@ private fun FormatRow(
 }
 
 @Composable
-private fun Loading() {
+private fun Loading(findingVideo: Boolean = false) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -386,7 +401,7 @@ private fun Loading() {
             strokeWidth = 3.dp,
         )
         Text(
-            text = "Reading qualities and sizes…",
+            text = if (findingVideo) "Looking up this video…" else "Reading qualities and sizes…",
             modifier = Modifier.padding(start = 12.dp),
             color = YftTheme.colors.textSecondary,
             style = MaterialTheme.typography.bodyMedium,
@@ -395,7 +410,7 @@ private fun Loading() {
 }
 
 @Composable
-private fun ColumnScope.Failure(message: String?, onRetry: () -> Unit) {
+private fun ColumnScope.Failure(message: String?, onRetry: (() -> Unit)?) {
     Text(
         text = message ?: "No format of this video could be read.",
         modifier = Modifier
@@ -406,6 +421,8 @@ private fun ColumnScope.Failure(message: String?, onRetry: () -> Unit) {
         style = MaterialTheme.typography.bodyMedium,
         textAlign = TextAlign.Center,
     )
+    // P12: a protected video has no Try again; asking again would not change it.
+    onRetry ?: return
     YftTonalButton(
         text = "Try again",
         onClick = onRetry,

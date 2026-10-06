@@ -52,12 +52,38 @@ object MediaGroups {
      * When a site adapter named the page's video, only named videos count. The files the site's
      * own player fetched while playing it (byte ranges, its separate picture and sound tracks)
      * are parts of that video, not more videos (P3-FIX: Facebook's story page listed 26 of them
-     * instead of opening the sheet). A page no adapter named keeps every group.
+     * instead of opening the sheet). A page no adapter named keeps every group, unless it is on
+     * a site an adapter reads ([adapterSite]): there only the adapter's video counts, even
+     * while its lookup runs or after it failed, so the page never lists its player's files
+     * (P12).
      */
-    fun pageVideos(candidates: List<MediaCandidate>): List<MediaGroup> {
+    fun pageVideos(
+        candidates: List<MediaCandidate>,
+        adapterSite: Boolean = false,
+    ): List<MediaGroup> {
         val groups = of(candidates)
         val named = groups.filter { group -> group.candidates.any { it.videoId != null } }
-        return named.ifEmpty { groups }
+        return if (adapterSite) named else named.ifEmpty { groups }
+    }
+
+    /**
+     * The video a page with several opens first (P12): the one playing ([playingUrl], the
+     * address its player reads), else the largest by stated size, then picture height, then
+     * length; the earlier one on a tie.
+     */
+    fun mainVideo(videos: List<MediaGroup>, playingUrl: String? = null): MediaGroup? {
+        playingUrl?.let { url ->
+            videos.firstOrNull { video -> video.candidates.any { it.mediaUrl == url } }
+                ?.let { return it }
+        }
+        return videos.withIndex().maxWithOrNull(
+            compareBy<IndexedValue<MediaGroup>>(
+                { (_, video) -> video.candidates.maxOf { it.contentLengthBytes ?: -1L } },
+                { (_, video) -> video.candidates.maxOf { it.height ?: -1 } },
+                { (_, video) -> video.durationMillis ?: -1L },
+                { (index, _) -> -index },
+            ),
+        )?.value
     }
 
     /** The group that holds [candidate], when it is one of [candidates]. */

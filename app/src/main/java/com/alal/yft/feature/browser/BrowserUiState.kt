@@ -38,4 +38,13 @@ data class BrowserUiState(
     val focusNotice: String? = null,
     /** P10: a focused lookup failed on the network; Retry repeats that video only. */
     val canRetryFocusedLookup: Boolean = false,
+    /**
+     * P12: a site adapter reads this page's own video (a watch, shorts, reel, video or post
+     * page), so the Download button always means that video.
+     */
+    val sitePage: Boolean = false,
+    /** P12: the page's own lookup is running; the Download button shows a small spinner. */
+    val pageLookupRunning: Boolean = false,
+    /** P12: counts the sheet's requests to open the found list ("Other videos on this page"). */
+    val foundListRequest: Int = 0,
 )

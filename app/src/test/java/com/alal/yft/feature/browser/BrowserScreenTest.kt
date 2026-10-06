@@ -261,15 +261,20 @@ class BrowserScreenTest {
     }
 
     @Test
-    fun severalItemsShowACountBadgeAndOpenFoundOnThisPage() {
+    fun severalItemsShowACountBadgeAndOpenTheMainVideoWithTheOthersOneRowAway() {
         var quick = 0
-        setScreen(
-            uiState = BrowserUiState(
+        var main = 0
+        var state by mutableStateOf(
+            BrowserUiState(
                 address = PAGE,
                 currentUrl = PAGE,
                 candidates = listOf(clip(), stream()),
             ),
+        )
+        setScreen(
+            uiStateProvider = { state },
             onDownloadGroup = { quick++ },
+            onDownloadMain = { main++ },
         )
 
         composeRule.onNodeWithContentDescription("Download video, 2 found").assertIsDisplayed()
@@ -277,9 +282,55 @@ class BrowserScreenTest {
         composeRule.onNodeWithTag("browser-download-fab-badge", useUnmergedTree = true)
             .assertExists()
         composeRule.onAllNodesWithTag("found-list").assertCountEquals(0)
+        // P12: the main video's sheet, not the found list.
         composeRule.onNodeWithTag("browser-download-fab").performClick()
+        composeRule.onAllNodesWithTag("found-list").assertCountEquals(0)
+        composeRule.runOnIdle {
+            assertEquals(1, main)
+            assertEquals(0, quick)
+        }
+        // That sheet's "Other videos on this page" opens the list.
+        state = state.copy(foundListRequest = 1)
         composeRule.onNodeWithTag("found-list").assertIsDisplayed()
-        composeRule.runOnIdle { assertEquals(0, quick) }
+    }
+
+    @Test
+    fun aSiteVideoPageButtonMeansThisVideoAndSpinsWhileItsLookupRuns() {
+        var page = 0
+        var main = 0
+        var state by mutableStateOf(
+            BrowserUiState(
+                address = WATCH,
+                currentUrl = WATCH,
+                findsFocusedVideo = true,
+                sitePage = true,
+                pageLookupRunning = true,
+            ),
+        )
+        setScreen(
+            uiStateProvider = { state },
+            onDownloadPage = { page++ },
+            onDownloadMain = { main++ },
+        )
+
+        // Nothing found yet: the button is there, says "this video" and spins.
+        composeRule.onNodeWithContentDescription("Download this video").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-download-fab-spinner", useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithTag("browser-download-fab").performClick()
+        composeRule.runOnIdle { assertEquals(1, page) }
+        // The player's own files are not more videos of this page: no badge, no list.
+        state = state.copy(pageLookupRunning = false, candidates = listOf(clip(), stream()))
+        composeRule.onAllNodesWithTag("browser-download-fab-spinner", useUnmergedTree = true)
+            .assertCountEquals(0)
+        composeRule.onAllNodesWithTag("browser-download-fab-badge", useUnmergedTree = true)
+            .assertCountEquals(0)
+        composeRule.onNodeWithTag("browser-download-fab").performClick()
+        composeRule.onAllNodesWithTag("found-list").assertCountEquals(0)
+        composeRule.runOnIdle {
+            assertEquals(2, page)
+            assertEquals(0, main)
+        }
     }
 
     @Test
@@ -593,6 +644,8 @@ class BrowserScreenTest {
         searchMode: Boolean = false,
         onSearch: (String) -> Unit = {},
         onDownloadCopiedLink: () -> Unit = {},
+        onDownloadPage: () -> Unit = {},
+        onDownloadMain: () -> Unit = {},
     ) {
         composeRule.setContent {
             val density = LocalDensity.current
@@ -622,6 +675,8 @@ class BrowserScreenTest {
                         onDownloadCopiedLink = onDownloadCopiedLink,
                         onDownloadFocused = onDownloadFocused,
                         onRetryFocusedLookup = onRetryFocusedLookup,
+                        onDownloadPage = onDownloadPage,
+                        onDownloadMain = onDownloadMain,
                         browserSurface = { Box(modifier = it) },
                     )
                 }
@@ -654,5 +709,6 @@ class BrowserScreenTest {
     private companion object {
         const val PAGE = "https://example.test/watch"
         const val FEED = "https://m.youtube.com/"
+        const val WATCH = "https://m.youtube.com/watch?v=abcdefghijk"
     }
 }

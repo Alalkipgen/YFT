@@ -7,6 +7,7 @@ import com.alal.yft.core.browser.detection.DomProbeResultParser
 import com.alal.yft.core.browser.detection.DownloadObservation
 import com.alal.yft.core.browser.detection.FocusedVideoProbe
 import com.alal.yft.core.browser.detection.MediaMetadataProbe
+import com.alal.yft.core.browser.detection.PlayingVideoProbe
 import com.alal.yft.core.browser.detection.RequestObservation
 import com.alal.yft.core.browser.policy.BrowserAddressNormalizer
 import com.alal.yft.core.browser.policy.BrowserAddressResult
@@ -23,6 +24,7 @@ import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.detection.SiteScope
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
+import com.alal.yft.feature.detectedmedia.PageVideoLookup
 import com.alal.yft.ui.components.isSavable
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.net.URI
@@ -36,8 +38,11 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
@@ -115,6 +120,26 @@ class BrowserViewModel(
 
     private var focusedRetryPage: String? = null
 
+    /**
+     * P12: this page's lookups by video key ("site:contentId"), so the page's own lookup, the
+     * Download button and a feed's focused link never ask the adapter twice for one video: a
+     * second ask joins the running lookup or takes the one that found the video.
+     */
+    private val runningLookups = mutableMapOf<String, Deferred<SiteAdapterOutcome>>()
+    private val foundLookups = mutableMapOf<String, SiteAdapterOutcome.Detected>()
+
+    /** P12: completes when the page's own lookup ends, true when it found anything. */
+    private var pageLookupDone = CompletableDeferred<Boolean>()
+
+    /** P12: the page's own video once its lookup found it. */
+    private var foundPageVideo: MediaGroup? = null
+
+    /** P12: the sheet opened before the page's lookup ended and waits for its video. */
+    private var sheetAwaitsPageVideo = false
+
+    /** P12: the main-video script was evaluated and its answer has not come back yet. */
+    private var mainVideoTimer: Job? = null
+
     init {
         homeSitesRepository?.let { repository ->
             viewModelScope.launch {
@@ -132,14 +157,49 @@ class BrowserViewModel(
             // Mirrors the current page for the Detected Media screen. A fresh browser has no page
             // yet, so the list from the previous visit stays until another page starts.
             uiState
-                .map { state -> Triple(state.currentUrl, state.pageTitle, state.candidates) }
+                .map { state ->
+                    PublishedPage(
+                        url = state.currentUrl,
+                        title = state.pageTitle,
+                        candidates = state.candidates,
+                        sitePage = state.sitePage,
+                    )
+                }
                 .distinctUntilChanged()
-                .collect { (pageUrl, title, candidates) ->
+                .collect { page ->
+                    val pageUrl = page.url
                     if (pageUrl != null && pageUrl != BLANK_PAGE) {
-                        detectedMediaStore.publish(pageUrl, title, candidates)
+                        detectedMediaStore.publish(
+                            pageUrl,
+                            page.title,
+                            page.candidates,
+                            adapterSite = page.sitePage,
+                        )
                     }
                 }
         }
+        viewModelScope.launch {
+            // P12: Try again in the sheet that waits on this page's own lookup.
+            detectedMediaStore.lookupRetries.collect { key ->
+                val pageUrl = activePageUrl ?: return@collect
+                val lookup = detectedMediaStore.lookup.value
+                if (lookup?.key != key || !lookup.canRetry) return@collect
+                if (siteAdapters.videoKey(pageUrl) != key) return@collect
+                retryLookup(pageUrl)
+            }
+        }
+        viewModelScope.launch {
+            // P12: the sheet's "Other videos on this page" opens the found list.
+            detectedMediaStore.foundList.collect {
+                mutableUiState.update { it.copy(foundListRequest = it.foundListRequest + 1) }
+            }
+        }
+    }
+
+    override fun onCleared() {
+        // The sheet must not wait on a lookup of a browser that is gone.
+        detectedMediaStore.showLookup(null)
+        super.onCleared()
     }
 
     fun onAddressChanged(value: String) {
@@ -344,21 +404,22 @@ class BrowserViewModel(
                 canRetryFocusedLookup = false,
             )
         }
-        lookupFocusedVideo(url)
+        lookupFocusedVideo(url, fresh = true)
     }
 
-    private fun lookupFocusedVideo(url: String) {
+    private fun lookupFocusedVideo(url: String, fresh: Boolean = false) {
         val generation = pageGeneration
         focusLookup = viewModelScope.launch(pageProbeJob) {
             // The site's own session reads the video's page as the feed did; another's never.
             val context = browserContext?.takeIf { context ->
                 context.pageUrl?.let { page -> isSameSite(url, page) } == true
             }
-            val outcome = siteAdapters.inspect(
-                pageUrl = url,
+            // P12: a link of a video this page already looks up, or found, joins that lookup.
+            val outcome = lookUp(
+                url = url,
                 requestContext = context?.copy(pageUrl = url)
                     ?: BrowserRequestContext(url, null, null),
-                nowEpochMs = clock(),
+                fresh = fresh,
             )
             if (generation != pageGeneration) return@launch
             when (outcome) {
@@ -412,9 +473,12 @@ class BrowserViewModel(
         samePage: Boolean = false,
     ): BrowserUiState {
         val feedSite = FocusedVideoProbe.isFeedSite(url)
+        val sitePage = siteAdapters.handles(url)
         return copy(
             findsFocusedVideo = feedSite,
-            feedPage = feedSite && !siteAdapters.handles(url),
+            feedPage = feedSite && !sitePage,
+            sitePage = sitePage,
+            pageLookupRunning = pageLookupRunning && samePage,
             findingFocusedVideo = findingFocusedVideo && samePage,
             focusNotice = focusNotice.takeIf { samePage },
             canRetryFocusedLookup = canRetryFocusedLookup && samePage,
@@ -434,6 +498,14 @@ class BrowserViewModel(
         // The focused-video lookup ran in the old page's job; its notice goes with the page.
         focusLookup = null
         focusNoticeTimer?.cancel()
+        // P12: the old page's lookups and the sheet's wait for its video end with it.
+        runningLookups.clear()
+        foundLookups.clear()
+        pageLookupDone = CompletableDeferred()
+        foundPageVideo = null
+        sheetAwaitsPageVideo = false
+        mainVideoTimer = null
+        detectedMediaStore.showLookup(null)
         candidateStore.beginPage(url)
         probeBudget.beginPage(url)
     }
@@ -450,44 +522,52 @@ class BrowserViewModel(
      * adds a notice: generic detection keeps running so one stale adapter cannot hide media the
      * page exposes anyway.
      */
-    private fun runSiteAdapters(pageUrl: String, title: String?) {
+    private fun runSiteAdapters(pageUrl: String, title: String?, fresh: Boolean = false) {
         siteLookupStarted = true
         val generation = pageGeneration
+        // P12: the sheet can open on this lookup and wait for it; the button shows a spinner.
+        val key = siteAdapters.videoKey(pageUrl)
+        if (key != null) {
+            detectedMediaStore.showLookup(PageVideoLookup(key, pageUrl, lookupTitle(title)))
+            mutableUiState.update { it.copy(pageLookupRunning = true) }
+        }
         viewModelScope.launch(pageProbeJob) {
-            val outcome = siteAdapters.inspect(
-                pageUrl = pageUrl,
+            val outcome = lookUp(
+                url = pageUrl,
                 requestContext = browserContext ?: BrowserRequestContext(pageUrl, null, null),
-                nowEpochMs = clock(),
+                fresh = fresh,
             )
             if (generation != pageGeneration) return@launch
             // The same page may have changed its address meanwhile; group under the live one.
             val livePageUrl = activePageUrl ?: return@launch
+            mutableUiState.update { it.copy(pageLookupRunning = false) }
             if (outcome !is SiteAdapterOutcome.Failed) {
                 awaitingPlayback = false
                 mutableUiState.update { it.copy(siteNotice = null, canRetrySiteLookup = false) }
             }
             when (outcome) {
-                SiteAdapterOutcome.NotHandled -> Unit
+                SiteAdapterOutcome.NotHandled -> {
+                    detectedMediaStore.showLookup(null)
+                    pageLookupDone.complete(false)
+                }
 
                 is SiteAdapterOutcome.Detected -> {
                     // An early lookup has no title yet; the page may have one by now.
-                    val pageTitle = (title ?: mutableUiState.value.pageTitle)
-                        ?.trim()
-                        ?.take(MAX_TITLE_LENGTH)
-                    candidateStore.submitAll(
-                        outcome.candidates.map { candidate ->
-                            val titled = if (candidate.title != null) {
-                                candidate
-                            } else {
-                                candidate.copy(title = pageTitle)
-                            }
-                            if (titled.pageUrl == livePageUrl) {
-                                titled
-                            } else {
-                                titled.copy(pageUrl = livePageUrl)
-                            }
-                        },
-                    )
+                    val pageTitle = lookupTitle(title)
+                    val found = outcome.candidates.map { candidate ->
+                        val titled = if (candidate.title != null) {
+                            candidate
+                        } else {
+                            candidate.copy(title = pageTitle)
+                        }
+                        if (titled.pageUrl == livePageUrl) {
+                            titled
+                        } else {
+                            titled.copy(pageUrl = livePageUrl)
+                        }
+                    }
+                    candidateStore.submitAll(found)
+                    showPageVideo(key, livePageUrl, pageTitle, found)
                 }
 
                 is SiteAdapterOutcome.Failed -> {
@@ -501,9 +581,136 @@ class BrowserViewModel(
                             canRetrySiteLookup = outcome.canRetry,
                         )
                     }
+                    // P12: the sheet shows why, with Try again, instead of the page's files.
+                    key?.let {
+                        detectedMediaStore.showLookup(
+                            PageVideoLookup(
+                                key = it,
+                                pageUrl = livePageUrl,
+                                title = lookupTitle(title),
+                                failure = outcome.message,
+                                canRetry = outcome.canRetry,
+                            ),
+                        )
+                    }
+                    pageLookupDone.complete(false)
                 }
             }
         }
+    }
+
+    private fun lookupTitle(title: String?): String? =
+        (title ?: mutableUiState.value.pageTitle)?.trim()?.take(MAX_TITLE_LENGTH)
+            ?.takeIf(String::isNotEmpty)
+
+    /**
+     * P12: the page's lookup found its video; a sheet that waits for it shows it now. A find
+     * with nothing savable (only protected media) is the sheet's failure, without Try again.
+     */
+    private fun showPageVideo(
+        key: String?,
+        pageUrl: String,
+        title: String?,
+        found: List<MediaCandidate>,
+    ) {
+        pageLookupDone.complete(found.isNotEmpty())
+        if (key == null) return
+        val video = MediaGroups.pageVideos(found.filter { it.isSavable }, adapterSite = true)
+            .firstOrNull()
+        if (video == null) {
+            detectedMediaStore.showLookup(
+                PageVideoLookup(key, pageUrl, title, failure = PROTECTED_FOCUSED_VIDEO_NOTICE),
+            )
+            return
+        }
+        foundPageVideo = video
+        if (sheetAwaitsPageVideo) {
+            sheetAwaitsPageVideo = false
+            detectedMediaStore.select(video)
+        }
+        detectedMediaStore.showLookup(null)
+    }
+
+    /**
+     * P12: one adapter lookup per video in this page scope. A second ask joins the running
+     * lookup of the same video key or takes the outcome that found the video; [fresh] (Try
+     * again) skips a finished result but still joins a running lookup, so one video is never
+     * asked for twice at once.
+     */
+    private suspend fun lookUp(
+        url: String,
+        requestContext: BrowserRequestContext,
+        fresh: Boolean,
+    ): SiteAdapterOutcome {
+        val key = siteAdapters.videoKey(url) ?: url
+        if (!fresh) foundLookups[key]?.let { return it }
+        val lookup = runningLookups[key]?.takeIf { it.isActive }
+            ?: viewModelScope.async(pageProbeJob) {
+                siteAdapters.inspect(
+                    pageUrl = url,
+                    requestContext = requestContext,
+                    nowEpochMs = clock(),
+                )
+            }.also { runningLookups[key] = it }
+        val outcome = lookup.await()
+        if (runningLookups[key] === lookup) runningLookups.remove(key)
+        if (outcome is SiteAdapterOutcome.Detected) {
+            foundLookups[key] = outcome
+        } else {
+            foundLookups.remove(key)
+        }
+        return outcome
+    }
+
+    /**
+     * P12: the Download button on a site's video page means this video. The sheet opens with
+     * the video when the page's lookup found it; while the lookup runs (it starts now when the
+     * page has not asked yet) the sheet waits for that same lookup, and after a failure it shows
+     * the message with Try again. Returns whether the sheet opens.
+     */
+    fun openPageVideo(): Boolean {
+        val pageUrl = activePageUrl ?: return false
+        if (siteAdapters.videoKey(pageUrl) == null) return false
+        val savable = mutableUiState.value.candidates.filter { it.isSavable }
+        val video = MediaGroups.pageVideos(savable, adapterSite = true).firstOrNull()
+            ?: foundPageVideo
+        if (video != null) {
+            detectedMediaStore.select(video)
+            return true
+        }
+        detectedMediaStore.awaitPageVideo()
+        sheetAwaitsPageVideo = true
+        if (!siteLookupStarted) runSiteAdapters(pageUrl, mutableUiState.value.pageTitle)
+        return true
+    }
+
+    /**
+     * P12: on a page with several videos and no adapter, the Download button opens the main
+     * one. This script asks the page which video plays; its answer goes to
+     * [onPlayingVideoResult], and a page that does not answer soon gets its largest video.
+     */
+    fun mainVideoScript(): String {
+        mainVideoTimer?.cancel()
+        mainVideoTimer = viewModelScope.launch(pageProbeJob) {
+            delay(MAIN_VIDEO_SCRIPT_TIMEOUT_MS)
+            openMainVideo(playingUrl = null)
+        }
+        return PlayingVideoProbe.script
+    }
+
+    fun onPlayingVideoResult(javascriptResult: String?) {
+        val timer = mainVideoTimer ?: return
+        timer.cancel()
+        openMainVideo(PlayingVideoProbe.parse(javascriptResult))
+    }
+
+    /** Selects the page's main video with the count of the others and opens its sheet. */
+    private fun openMainVideo(playingUrl: String?) {
+        mainVideoTimer = null
+        val videos = MediaGroups.pageVideos(mutableUiState.value.candidates.filter { it.isSavable })
+        val main = MediaGroups.mainVideo(videos, playingUrl) ?: return
+        detectedMediaStore.select(main, otherVideos = videos.size - 1)
+        quickDownloads.trySend(Unit)
     }
 
     /**
@@ -526,7 +733,7 @@ class BrowserViewModel(
                 canRetrySiteLookup = false,
             )
         }
-        runSiteAdapters(pageUrl, mutableUiState.value.pageTitle)
+        runSiteAdapters(pageUrl, mutableUiState.value.pageTitle, fresh = true)
     }
 
     override fun onProgressChanged(progress: Int) {
@@ -624,7 +831,12 @@ class BrowserViewModel(
 
     private fun scheduleProbe(candidate: MediaCandidate) {
         if (!probeBudget.tryAcquire(candidate.pageUrl, candidate.mediaUrl)) return
+        val sitePage = activePageUrl?.let(siteAdapters::handles) == true
+        val lookupDone = pageLookupDone
         viewModelScope.launch(pageProbeJob) {
+            // P12: on a site's video page its adapter's lookup goes first on the shared line;
+            // the probes run afterwards only when it found nothing.
+            if (sitePage && lookupDone.await()) return@launch
             probePermits.withPermit {
                 when (val result = metadataProbe.probe(candidate)) {
                     is MediaMetadataProbe.Result.Detected -> candidateStore.submit(result.candidate)
@@ -635,6 +847,14 @@ class BrowserViewModel(
             }
         }
     }
+
+    /** What the Detected Media screen mirrors of the current page. */
+    private data class PublishedPage(
+        val url: String?,
+        val title: String?,
+        val candidates: List<MediaCandidate>,
+        val sitePage: Boolean,
+    )
 
     private companion object {
         const val MAX_ADDRESS_LENGTH = 2_048
@@ -652,6 +872,9 @@ class BrowserViewModel(
 
         /** How long the page has to answer the focused-video script. */
         const val FOCUS_SCRIPT_TIMEOUT_MS = 5_000L
+
+        /** P12: how long a page has to say which of its videos plays. */
+        const val MAIN_VIDEO_SCRIPT_TIMEOUT_MS = 1_000L
 
         /** How long an in-page address must stay before the site adapters are asked about it. */
         const val IN_PAGE_LOOKUP_DELAY_MS = 500L

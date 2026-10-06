@@ -22,6 +22,7 @@ import com.alal.yft.download.PreviewDownloadStarter
 import com.alal.yft.download.policy.NetworkSnapshot
 import com.alal.yft.download.policy.NetworkStatusSource
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
+import com.alal.yft.feature.detectedmedia.PageVideoLookup
 import com.alal.yft.feature.preview.PreviewDownloadStatus
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.MIB
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.video
@@ -30,6 +31,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -293,6 +295,93 @@ class QuickDownloadViewModelTest {
     }
 
     @Test
+    fun aSheetOpenedDuringThePageLookupWaitsForThatLookupAndShowsItsVideo() = runTest {
+        // P12: the Download button was tapped on a watch page before its lookup ended.
+        store.publish(QuickDownloadFixtures.PAGE, null, emptyList(), adapterSite = true)
+        val lookup = PageVideoLookup(KEY, QuickDownloadFixtures.PAGE, title = null)
+        store.showLookup(lookup)
+        store.awaitPageVideo()
+
+        val viewModel = viewModel()
+        val waiting = viewModel.uiState.value
+        assertTrue(waiting.loading)
+        assertTrue(waiting.findingVideo)
+        assertEquals("youtube.com", waiting.header?.source)
+        assertNull(waiting.choices)
+
+        // The same lookup ends: the browser selects its video and the sheet reads it.
+        val found = QuickDownloadFixtures.youtube()
+        store.publish(QuickDownloadFixtures.PAGE, "Ocean waves", found, adapterSite = true)
+        store.select(MediaGroups.of(found).single())
+        store.showLookup(null)
+        val shown = viewModel.uiState.value
+        assertFalse(shown.findingVideo)
+        assertEquals("Ocean waves", shown.header?.title)
+        assertEquals("720p · HD", shown.selectedOption?.title)
+    }
+
+    @Test
+    fun aFailedPageLookupShowsItsMessageWithTryAgainInTheSheet() = runTest {
+        store.publish(QuickDownloadFixtures.PAGE, "Ocean waves", emptyList(), adapterSite = true)
+        store.showLookup(
+            PageVideoLookup(
+                KEY,
+                QuickDownloadFixtures.PAGE,
+                title = "Ocean waves",
+                failure = "The site did not answer. Try again.",
+                canRetry = true,
+            ),
+        )
+        val retries = mutableListOf<String>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            store.lookupRetries.collect { retries += it }
+        }
+
+        val viewModel = viewModel()
+        val failed = viewModel.uiState.value
+        assertFalse(failed.loading)
+        assertEquals("The site did not answer. Try again.", failed.failure)
+        assertTrue(failed.canRetry)
+        assertEquals("Ocean waves", failed.header?.title)
+
+        // Try again asks the browser for the same video; the sheet waits for it again.
+        viewModel.retry()
+        assertEquals(listOf(KEY), retries)
+        assertTrue(viewModel.uiState.value.loading)
+        store.showLookup(PageVideoLookup(KEY, QuickDownloadFixtures.PAGE, "Ocean waves"))
+        assertTrue(viewModel.uiState.value.findingVideo)
+
+        // A protected video: the message, and no Try again.
+        store.showLookup(
+            PageVideoLookup(KEY, QuickDownloadFixtures.PAGE, null, failure = "Protected"),
+        )
+        assertFalse(viewModel.uiState.value.canRetry)
+        viewModel.retry()
+        assertEquals(listOf(KEY), retries)
+    }
+
+    @Test
+    fun anAdapterSiteNeverOffersItsPlayersFilesAndTheMainVideoCountsTheOthers() = runTest {
+        // P12: unnamed files on a site's page are its player's, not the page's video.
+        val file = video(720, 42 * MIB, title = "Player part", videoId = null, index = 1)
+        store.publish(QuickDownloadFixtures.PAGE, "Page", listOf(file), adapterSite = true)
+        assertNull(viewModel().uiState.value.header)
+        store.publish(QuickDownloadFixtures.PAGE, "Page", listOf(file))
+        assertNotNull(viewModel().uiState.value.header)
+
+        // A generic page's main video with three more: the row and the list request.
+        store.select(MediaGroups.of(listOf(file)).single(), otherVideos = 3)
+        val main = viewModel()
+        assertEquals(3, main.uiState.value.otherVideos)
+        var lists = 0
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            store.foundList.collect { lists++ }
+        }
+        assertTrue(main.openOtherVideos())
+        assertEquals(1, lists)
+    }
+
+    @Test
     fun everyStatedRowIsVisibleBeforeSizeChecksFinishAndOnlyTwoRunAtOnce() = runTest {
         val candidates = listOf(1080, 720, 480, 360).map {
             video(it, videoId = "facebook:fixture")
@@ -452,5 +541,6 @@ class QuickDownloadViewModelTest {
     private companion object {
         val WIFI = NetworkSnapshot(connected = true, validated = true, unmetered = true)
         val MOBILE = NetworkSnapshot(connected = true, validated = true, unmetered = false)
+        const val KEY = "youtube:fixture0001"
     }
 }

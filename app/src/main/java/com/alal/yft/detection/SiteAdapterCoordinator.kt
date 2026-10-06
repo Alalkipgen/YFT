@@ -163,6 +163,15 @@ class SiteAdapterCoordinator @Inject constructor(
         registry.select(pageUrl) is SiteAdapterSelection.Matched
 
     /**
+     * The video [pageUrl] shows as "site:contentId", the same for every address of it, or null
+     * when no enabled adapter handles the page (P12: one lookup per video).
+     */
+    fun videoKey(pageUrl: String): String? =
+        (registry.select(pageUrl) as? SiteAdapterSelection.Matched)?.identity?.let { identity ->
+            "${identity.siteId}:${identity.contentId}"
+        }
+
+    /**
      * Whether two addresses show the same post of the same site, for example when the site adds
      * a tracking or start-time parameter to the address after the video opened.
      */

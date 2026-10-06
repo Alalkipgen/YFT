@@ -110,6 +110,53 @@ class MediaGroupsTest {
     }
 
     @Test
+    fun anAdapterSiteNeverListsItsPlayersFilesAsVideos() {
+        // P12: a YouTube or Facebook page whose lookup still runs, or failed, showed "Found on
+        // this page 4" with the player's files; on an adapter's site only its video counts.
+        val played = listOf(
+            candidate("https://cdn.example.test/v/track-video.mp4", title = null),
+            candidate("https://cdn.example.test/v/track-audio.mp4", title = null),
+        )
+        val named = candidate("https://video.example.test/hd.mp4", videoId = "youtube:abc")
+
+        assertEquals(emptyList<MediaGroup>(), MediaGroups.pageVideos(played, adapterSite = true))
+        assertEquals(
+            listOf(named),
+            MediaGroups.pageVideos(played + named, adapterSite = true).single().candidates,
+        )
+        assertEquals(2, MediaGroups.pageVideos(played, adapterSite = false).size)
+    }
+
+    @Test
+    fun theMainVideoIsThePlayingOneElseTheLargest() {
+        val small = candidate("https://cdn.example.test/small.mp4", title = "Small")
+            .copy(contentLengthBytes = 1_000, height = 1080)
+        val large = candidate("https://cdn.example.test/large.mp4", title = "Large")
+            .copy(contentLengthBytes = 9_000, height = 360)
+        val unknown = candidate("https://cdn.example.test/unknown.mp4", title = "Unknown")
+        val videos = MediaGroups.pageVideos(listOf(small, unknown, large))
+        assertEquals(3, videos.size)
+
+        assertEquals(listOf(large), MediaGroups.mainVideo(videos)!!.candidates)
+        assertEquals(
+            listOf(small),
+            MediaGroups.mainVideo(videos, playingUrl = small.mediaUrl)!!.candidates,
+        )
+        // A playing address no candidate has, such as a page-built stream, falls back.
+        assertEquals(
+            listOf(large),
+            MediaGroups.mainVideo(videos, playingUrl = "https://cdn.example.test/x")!!.candidates,
+        )
+        // Without sizes the taller picture wins, and on a full tie the earlier video.
+        val tall = candidate("https://cdn.example.test/tall.mp4", title = "Tall").copy(height = 720)
+        val plain = MediaGroups.pageVideos(listOf(unknown, tall))
+        assertEquals(listOf(tall), MediaGroups.mainVideo(plain)!!.candidates)
+        val tie = MediaGroups.pageVideos(listOf(unknown, candidate("https://cdn.example.test/b")))
+        assertEquals(listOf(unknown), MediaGroups.mainVideo(tie)!!.candidates)
+        assertEquals(null, MediaGroups.mainVideo(emptyList()))
+    }
+
+    @Test
     fun titlesSplitIntoTheVideoAndTheAdaptersLabel() {
         assertEquals("Ocean waves", MediaGroups.baseTitle("Ocean waves — 720p"))
         assertEquals("720p", MediaGroups.titleLabel("Ocean waves — 720p"))

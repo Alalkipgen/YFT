@@ -54,6 +54,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -231,6 +232,20 @@ fun BrowserRoute(
             onDownloadGroup = { group ->
                 if (viewModel.selectForDownload(group)) onOpenQuickDownload()
             },
+            onDownloadPage = {
+                // P12: this page's video, or its sheet waiting for the page's own lookup.
+                if (viewModel.openPageVideo()) onOpenQuickDownload()
+            },
+            onDownloadMain = {
+                // P12: the page says which video plays; the view model opens the main one.
+                val script = viewModel.mainVideoScript()
+                val browser = webView
+                if (browser != null) {
+                    browser.evaluateJavascript(script, viewModel::onPlayingVideoResult)
+                } else {
+                    viewModel.onPlayingVideoResult(null)
+                }
+            },
             onDownloadFocused = {
                 // P5: the page script runs on the main thread; the view model never sees the page.
                 val browser = webView
@@ -369,6 +384,8 @@ fun BrowserScreen(
     onRetrySiteLookup: () -> Unit = {},
     onRetryFocusedLookup: () -> Unit = {},
     onDownloadFocused: () -> Unit = {},
+    onDownloadPage: () -> Unit = {},
+    onDownloadMain: () -> Unit = {},
     browserSurface: @Composable (Modifier) -> Unit,
 ) {
     val colors = YftTheme.colors
@@ -376,8 +393,19 @@ fun BrowserScreen(
     val hiddenCount = uiState.candidates.size - savable.size
     // One row, one count and one sheet per video: its qualities and audio are inside (P3).
     // A video a site adapter named is the page's video; its player's files are not more (P3-FIX).
-    val videos = remember(savable) { MediaGroups.pageVideos(savable) }
+    // On a site's page they never are, even before it named one (P12).
+    val videos = remember(savable, uiState.sitePage) {
+        MediaGroups.pageVideos(savable, adapterSite = uiState.sitePage)
+    }
     var sheetExpanded by rememberSaveable { mutableStateOf(initialSheetExpanded) }
+    // P12: "Other videos on this page" in the main video's sheet opens this list, once per ask:
+    // coming back to the browser later must not open it again.
+    var shownFoundList by rememberSaveable { mutableIntStateOf(uiState.foundListRequest) }
+    LaunchedEffect(uiState.foundListRequest) {
+        if (uiState.foundListRequest == shownFoundList) return@LaunchedEffect
+        shownFoundList = uiState.foundListRequest
+        if (videos.isNotEmpty()) sheetExpanded = true
+    }
     var editingAddress by remember { mutableStateOf(false) }
     LaunchedEffect(savable.isEmpty()) {
         if (savable.isEmpty()) sheetExpanded = false
@@ -526,6 +554,7 @@ fun BrowserScreen(
                 savableCount = videos.size,
                 findsFocusedVideo = uiState.findsFocusedVideo,
                 feedPage = uiState.feedPage,
+                sitePage = uiState.sitePage,
             )
             val fabVisible = BrowserDownloadFab.isVisible(
                 hasPage = hasBrowserPage,
@@ -533,6 +562,7 @@ fun BrowserScreen(
                 sheetExpanded = sheetExpanded,
                 editingAddress = editingAddress,
                 findsFocusedVideo = uiState.findsFocusedVideo,
+                sitePage = uiState.sitePage,
             ) && fabAction != null
             val findsOnScreen = fabAction == BrowserDownloadFab.Action.FIND_VIDEO_ON_SCREEN
             val focusNotice = uiState.focusNotice?.takeIf { hasBrowserPage }
@@ -567,13 +597,17 @@ fun BrowserScreen(
                         BrowserDownloadButton(
                             savableCount = videos.size,
                             findsOnScreen = findsOnScreen,
+                            sitePage = fabAction == BrowserDownloadFab.Action.OPEN_PAGE_VIDEO,
+                            busy = uiState.sitePage && uiState.pageLookupRunning,
                             onClick = {
-                                // One video opens the download sheet; several the list; a feed
-                                // looks for the video on screen (P5).
+                                // One video opens the download sheet; several the main one's;
+                                // a site's page its own video (P12); a feed looks for the video
+                                // on screen (P5).
                                 when (fabAction) {
                                     BrowserDownloadFab.Action.OPEN_VIDEO ->
                                         videos.singleOrNull()?.let(onDownloadGroup)
-                                    BrowserDownloadFab.Action.SHOW_LIST -> sheetExpanded = true
+                                    BrowserDownloadFab.Action.OPEN_MAIN_VIDEO -> onDownloadMain()
+                                    BrowserDownloadFab.Action.OPEN_PAGE_VIDEO -> onDownloadPage()
                                     BrowserDownloadFab.Action.FIND_VIDEO_ON_SCREEN ->
                                         if (!uiState.findingFocusedVideo) onDownloadFocused()
                                     null -> Unit

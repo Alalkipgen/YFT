@@ -26,6 +26,7 @@ import com.alal.yft.download.policy.DownloadNetworkPolicy
 import com.alal.yft.download.policy.NetworkStatusSource
 import com.alal.yft.download.policy.TransferNetworkState
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
+import com.alal.yft.feature.detectedmedia.PageVideoLookup
 import com.alal.yft.feature.preview.PreviewDownloadStatus
 import com.alal.yft.ui.components.isAudio
 import com.alal.yft.ui.components.isSavable
@@ -40,7 +41,9 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
@@ -62,6 +65,12 @@ data class QuickDownloadUiState(
     val choices: QuickChoices? = null,
     /** Why no format could be read; Try again reads them once more. */
     val failure: String? = null,
+    /** P12: false when Try again cannot help (a protected video); the sheet hides it. */
+    val canRetry: Boolean = true,
+    /** P12: the sheet waits for the browser's lookup of the page's video. */
+    val findingVideo: Boolean = false,
+    /** P12: how many more videos the page has; a row opens their list. */
+    val otherVideos: Int = 0,
     val defaultQuality: QualityPreference = DownloadPreferences().defaultQuality,
     val selectedId: String? = null,
     val downloadStatus: PreviewDownloadStatus = PreviewDownloadStatus.Idle,
@@ -79,11 +88,13 @@ data class QuickDownloadUiState(
  * (one row per resolution).
  *
  * The video is the group [DetectedMediaStore] selected (Home's lookup, the found list or the
- * browser's Download button), else the page's only video. Each of its candidates is resolved
- * like Download as does, so heights, sizes and companion audio are real; a whole file whose site
- * already stated its picture and size is shown without a request and resolved on Download.
- * Download queues the option through [PreviewDownloadStarter], which applies Wi-Fi only; mobile
- * data asks first when the user chose to be asked.
+ * browser's Download button), else the page's only video. On a site's video page the sheet may
+ * open before the browser's lookup found it (P12): it waits in its loading state for that same
+ * lookup, and a failed lookup shows its message with Try again, which asks the browser again.
+ * Each of its candidates is resolved like Download as does, so heights, sizes and companion audio
+ * are real; a whole file whose site already stated its picture and size is shown without a request
+ * and resolved on Download. Download queues the option through [PreviewDownloadStarter], which
+ * applies Wi-Fi only; mobile data asks first when the user chose to be asked.
  */
 @HiltViewModel
 class QuickDownloadViewModel @Inject constructor(
@@ -95,24 +106,47 @@ class QuickDownloadViewModel @Inject constructor(
     private val network: NetworkStatusSource,
     private val playback: VideoPlaybackSupport,
 ) : ViewModel() {
-    private val group: MediaGroup? = store.selection.value ?: store.page.value?.candidates
-        ?.take(DetectedMediaStore.MAX_CANDIDATES)
-        ?.filter { it.isSavable }
-        ?.let(MediaGroups::pageVideos)
-        ?.singleOrNull()
-    private val mutableUiState = MutableStateFlow(QuickDownloadUiState(header = group?.header()))
+    private var group: MediaGroup? = store.selection.value ?: store.page.value?.let { page ->
+        val savable = page.candidates.take(DetectedMediaStore.MAX_CANDIDATES)
+            .filter { it.isSavable }
+        MediaGroups.pageVideos(savable, adapterSite = page.adapterSite).singleOrNull()
+    }
+
+    /** P12: the browser's lookup this sheet waits on, while no video is chosen yet. */
+    private var pageLookup: PageVideoLookup? = store.lookup.value.takeIf { group == null }
+    private val mutableUiState = MutableStateFlow(
+        pageLookup?.let(::lookupState) ?: QuickDownloadUiState(
+            header = group?.header(),
+            otherVideos = store.otherVideos.value.takeIf { store.selection.value != null } ?: 0,
+        ),
+    )
     val uiState: StateFlow<QuickDownloadUiState> = mutableUiState.asStateFlow()
     private var loading: Job? = null
     private val sizeProbes = Semaphore(2)
 
     init {
+        if (pageLookup != null) awaitPageVideo() else load()
+    }
+
+    /** Reads the formats again after a failure; a failed page lookup is asked for again. */
+    fun retry() {
+        val state = mutableUiState.value
+        if (state.loading) return
+        val lookup = pageLookup
+        if (lookup != null) {
+            if (!lookup.canRetry) return
+            mutableUiState.update { it.copy(loading = true, failure = null) }
+            store.retryLookup(lookup.key)
+            return
+        }
         load()
     }
 
-    /** Reads the formats again after a failure. */
-    fun retry() {
-        if (mutableUiState.value.loading) return
-        load()
+    /** P12: "Other videos on this page" asks the browser to open its found list. */
+    fun openOtherVideos(): Boolean {
+        if (mutableUiState.value.otherVideos <= 0) return false
+        store.showFoundList()
+        return true
     }
 
     fun select(selectionId: String) {
@@ -165,6 +199,46 @@ class QuickDownloadViewModel @Inject constructor(
         if (mutableUiState.value.downloadStatus != PreviewDownloadStatus.ConfirmMetered) return
         setStatus(PreviewDownloadStatus.Idle)
     }
+
+    /**
+     * P12: shows the browser's lookup until it selects the page's video, then reads that
+     * video's formats. A lookup that goes away without one (another page, the browser closed)
+     * leaves the sheet's "no longer here".
+     */
+    private fun awaitPageVideo() {
+        loading = viewModelScope.launch {
+            val (selected, _) = combine(store.selection, store.lookup, ::Pair)
+                .onEach { (selection, lookup) ->
+                    if (selection == null && lookup != null) {
+                        pageLookup = lookup
+                        mutableUiState.update { lookupState(lookup) }
+                    }
+                }
+                .first { (selection, lookup) -> selection != null || lookup == null }
+            pageLookup = null
+            group = selected
+            mutableUiState.update {
+                QuickDownloadUiState(
+                    header = selected?.header(),
+                    otherVideos = if (selected != null) store.otherVideos.value else 0,
+                )
+            }
+            if (selected != null) load()
+        }
+    }
+
+    private fun lookupState(lookup: PageVideoLookup) = QuickDownloadUiState(
+        header = SheetHeader(
+            title = lookup.title ?: WAITING_TITLE,
+            source = QuickDownloadChoices.host(lookup.pageUrl),
+            durationMillis = null,
+            audioOnly = false,
+        ),
+        loading = lookup.running,
+        failure = lookup.failure,
+        canRetry = lookup.canRetry,
+        findingVideo = lookup.running,
+    )
 
     private fun load() {
         val group = group ?: return
@@ -399,6 +473,9 @@ class QuickDownloadViewModel @Inject constructor(
     internal companion object {
         /** A video rarely has more qualities; more would only cost requests. */
         const val MAX_SOURCES = 12
+
+        /** P12: the sheet's title while the page's lookup has no title yet. */
+        const val WAITING_TITLE = "Video"
         const val MP3_UNAVAILABLE = "This audio can't be converted to MP3. Try M4A."
         const val AUDIO_UNAVAILABLE = "This video's sound can't be saved on its own."
         const val QUALITY_UNAVAILABLE = "This quality is not available now — choose another"
