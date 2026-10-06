@@ -2,6 +2,7 @@
 
 ## Current handoff (2026-10-05)
 
+- 2026-10-06 Track A: P12 OWNER CHECK — site video pages open their own video's sheet (one lookup per video, sheet waits/Retry, probes wait); generic pages open the main video with "Other videos on this page (N)". Next: P13.
 - 2026-10-06: P11 CI failure found from the owner's log and fixed in the test fixture (localhost resolves to 127.0.0.1 and ::1 on GitHub; see SESSION_STATE). P12 started at the owner's request: design only, no P12 code yet.
 
 **Latest owner instruction: finish P11 and STOP.** P9/P10 are pushed and P11's stable quality
