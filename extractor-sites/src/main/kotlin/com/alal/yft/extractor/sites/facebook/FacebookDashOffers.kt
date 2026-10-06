@@ -1,5 +1,6 @@
 package com.alal.yft.extractor.sites.facebook
 
+import java.net.URI
 import java.util.Locale
 import kotlin.math.abs
 
@@ -42,14 +43,110 @@ internal object FacebookDashOffers {
         )
         .take(MAX_VIDEO_OFFERS)
 
-    /** Whether [tracks] hold video but none an older phone can merge, so AVC is worth asking. */
-    fun lacksAvcVideo(tracks: List<FacebookDashTrack>): Boolean {
+    /**
+     * Whether Safari's AVC ladder is worth asking (P23): no AVC video at all, an empty list too,
+     * or the best AVC picture smaller than the best one offered in any codec or as a whole file
+     * ([fileSides]: the HD/SD files' short sides, from their manifest track or their name). A
+     * page with AVC 360p next to AV1 720p and 1080p lost 720p while AV1 merges are off (owner's
+     * phone, R4).
+     */
+    fun needsAvcLadder(
+        tracks: List<FacebookDashTrack>,
+        fileSides: List<Int> = emptyList(),
+    ): Boolean {
         val videos = tracks.filter { it.kind == FacebookTrackKind.VIDEO }
-        return videos.isNotEmpty() && videos.none(::isAvc)
+        val bestAvc = videos.filter(::isAvc).maxOfOrNull(::shortSide) ?: return true
+        return bestAvc < (videos.map(::shortSide) + fileSides).max()
     }
+
+    /** AVC video every phone merges and an AAC track for its sound: a page that is enough. */
+    fun hasAvcWithSound(tracks: List<FacebookDashTrack>): Boolean =
+        tracks.any(::isAvc) && audio(tracks) != null
+
+    /**
+     * The tracks of every page read for one video, each encoding once (P23). Every page lists an
+     * encoding at a new address, so a track repeats an earlier one with the same address, the
+     * same representation ID, or the same codec family, picture height and bandwidth. The page
+     * read first keeps its tracks.
+     */
+    fun merged(vararg pages: List<FacebookDashTrack>): List<FacebookDashTrack> {
+        val kept = mutableListOf<FacebookDashTrack>()
+        pages.forEach { page ->
+            page.forEach { track -> if (kept.none { repeats(it, track) }) kept += track }
+        }
+        return kept
+    }
+
+    /**
+     * The manifest video track an HD/SD file was made from (P23), or null. Facebook serves the
+     * HD file at the path of the DASH video it was made from, sound added: on reel
+     * 1545617074260365 (sandbox, 2026-10-06) the HD file's path was the 1280 × 720 AVC track's,
+     * and its stated bitrate that track's plus the audio track's. Several picture sizes at one
+     * path are ambiguous, so none is taken.
+     */
+    fun encodingOf(fileUrl: String, tracks: List<FacebookDashTrack>): FacebookDashTrack? {
+        val path = pathOf(fileUrl) ?: return null
+        val same = tracks.filter { it.kind == FacebookTrackKind.VIDEO && pathOf(it.url) == path }
+        val first = same.firstOrNull() ?: return null
+        return first.takeIf { same.all { it.width == first.width && it.height == first.height } }
+    }
+
+    /**
+     * What [tracks] hold, for the lookup's details: `AVC 360/720, AV1 1080 + audio`, `audio
+     * only`, or `no DASH tracks`.
+     */
+    fun summary(tracks: List<FacebookDashTrack>): String {
+        val videos = tracks.filter { it.kind == FacebookTrackKind.VIDEO }
+            .groupBy { family(it.codec) }
+            .map { (family, sameFamily) ->
+                val sizes = sameFamily.map { qualityName(it).removeSuffix("p").toInt() }
+                "$family ${sizes.distinct().sorted().joinToString("/")}"
+            }
+        val sound = audio(tracks) != null
+        return when {
+            videos.isEmpty() && sound -> "audio only"
+            videos.isEmpty() -> "no DASH tracks"
+            sound -> videos.joinToString(", ") + " + audio"
+            else -> videos.joinToString(", ")
+        }
+    }
+
+    /** The best AVC picture's name, such as `AVC 720`, or `no AVC`. */
+    fun bestAvc(tracks: List<FacebookDashTrack>): String =
+        tracks.filter(::isAvc).maxByOrNull(::shortSide)
+            ?.let { "AVC ${qualityName(it).removeSuffix("p")}" } ?: "no AVC"
 
     fun isAvc(track: FacebookDashTrack): Boolean =
         track.kind == FacebookTrackKind.VIDEO && familyRank(track.codec) == AVC_RANK
+
+    private fun repeats(earlier: FacebookDashTrack, track: FacebookDashTrack): Boolean {
+        if (earlier.url == track.url) return true
+        if (earlier.kind != track.kind || family(earlier.codec) != family(track.codec)) {
+            return false
+        }
+        if (track.representationId != null && track.representationId == earlier.representationId) {
+            return true
+        }
+        return track.bandwidthBitsPerSecond != null && track.height == earlier.height &&
+            track.bandwidthBitsPerSecond == earlier.bandwidthBitsPerSecond
+    }
+
+    /** The codec family a details line names: AVC, AV1, VP9, HEVC, AAC, or the codec's head. */
+    private fun family(codec: String): String {
+        val lower = codec.lower()
+        return when {
+            AVC_PREFIXES.any(lower::startsWith) -> "AVC"
+            lower.startsWith(AV1_PREFIX) -> "AV1"
+            lower.startsWith("vp09") || lower.startsWith("vp9") -> "VP9"
+            lower.startsWith("hev1") || lower.startsWith("hvc1") -> "HEVC"
+            lower.startsWith("mp4a") -> "AAC"
+            else -> lower.substringBefore('.').uppercase(Locale.US)
+        }
+    }
+
+    private fun pathOf(url: String): String? = runCatching { URI(url.trim()) }.getOrNull()
+        ?.takeIf { it.scheme.equals("https", ignoreCase = true) && it.host != null }
+        ?.rawPath?.takeIf { it.length > 1 }
 
     /** The picture's short side, which names its quality: 1660 × 1078 is a 1078-line picture. */
     fun shortSide(track: FacebookDashTrack): Int =

@@ -79,6 +79,63 @@ The lookup now asks `VISIONOS` before the watch page and stops there when the an
 | More requests to YouTube | None for a complete answer (one request instead of up to four); otherwise visionOS is asked once, and the chain reuses that answer instead of asking again |
 | Breakage invisible to fixtures | Lookup details say "visionOS first: complete, no watch page" or why the page was read; the live check counts requests and bytes per video |
 
+## P22: every quality — client order (2026-10-06)
+
+The owner's phone showed only 360p, an M4A without a size and MP3 for `4pKpLX9NG_k` (finding R3).
+Cause: visionOS was asked without visitor data and answered with the bot check; the chain reused
+that refusal, asked `ANDROID` (only the progressive 360p file `itag 18`, no size; its separate
+formats only through SABR) and stopped there because a video with sound counted as enough, so
+the page's own client — the one with the BotGuard token and the player script — was never
+collected. The chain now runs in this order, each step only while the lookup lacks a separate
+video merged with its audio track and the audio track itself:
+
+1. `VISIONOS` before the page (P14, unchanged); a complete answer is the whole lookup.
+2. The watch page.
+3. `VISIONOS` again when its first answer refused the request (bot check, a sign-in that is not
+   an age check, no formats or SABR only) and the page gave visitor data: the same request with
+   that visitor data in the client context and as `X-Goog-Visitor-Id`, at the endpoint without
+   the page's key. An answer about the video (formats, an age check, private) is used as it is;
+   a request that failed before visionOS answered is not asked again (the HTTP client already
+   retried it where a retry helps, P10).
+4. The embedded player (no cookie).
+5. The page's own client (`WEB` or `MWEB`): its inline answer, or asked with the user's session,
+   the BotGuard proof-of-origin token and the player script.
+6. `MWEB`, when the page was the desktop site.
+7. `ANDROID` last; its 360p file stays a row only when no client streams 360p separately.
+
+Every row is one quality: 144p–1080p AVC merged with the AAC track (144p and 240p are new in
+P22), 2K/4K VP9 with Opus, each with YouTube's own `contentLength` of both files; a merged row
+replaces a progressive file of its quality, never the other way round. The M4A row is the AAC
+track `itag 140` with its size, which MP3 converts.
+
+Order evidence — yt-dlp `master` as read on 2026-10-06 (`yt_dlp/extractor/youtube/_base.py`,
+`_video.py`): `_DEFAULT_CLIENTS = ('visionos', 'web')`, `('visionos',)` without a JavaScript
+runtime and `('web_embedded', 'tv_downgraded', 'web')` with cookies. yt-dlp reads the watch page
+first and sends its visitor data with every client as `X-Goog-Visitor-Id`, with no `key` query
+parameter. `visionos` needs no player script and has no proof-of-origin policy; `web` and
+`mweb` need a GVS token for HTTPS and DASH formats; `web_embedded` has none (the default policy);
+`android` needs one for its HTTPS and DASH formats (unless it has a player token) and is not a
+default client. YFT therefore keeps visionOS first and asks it again with visitor data as yt-dlp
+does, keeps the embedded player before the page client (no token mint and no cookie when the
+owner allows embedding, then yt-dlp's `web` step with the session, token and script) and moves
+`ANDROID` to the end.
+
+| Risk | Containment in P22 |
+| --- | --- |
+| Visitor data | Read from the watch page and held for one lookup only; sent only to YouTube's player endpoint, as the page itself does. Never in lookup details, logs, fixtures, commits or the lookup cache key; a test checks the details hold none |
+| More requests to YouTube | At most one more: visionOS again, only after a refusal and only when the page gave visitor data. A failed request is not asked again, and the Android app is asked only when everything before it was incomplete. A complete visionOS-first answer is still one request |
+| Age, private, paid and DRM gates | Unchanged: the page's verdict about the video ends the lookup before visionOS is asked again (test: an age-restricted video stays `LOGIN_REQUIRED`); an age check from visionOS again or `ANDROID` leaves only the page's own clients and drops what the fallback clients offered |
+| Session exposure | visionOS asked again carries no cookie, authorization or page key, like the first request; only the page's own clients carry the session |
+| Breakage invisible to fixtures | Details name each step: "client VISIONOS again, with visitor data: …", "…: N formats via player script", "client ANDROID: N adaptive formats only through SABR" |
+
+Live from the sandbox's data-centre IP (2026-10-06, temporary script and the adapter itself, no
+session): `dQw4w9WgXcQ` → visionOS first complete, 1 request, 9 rows 2160p–144p plus Audio with
+sizes (360p 11.8 MB, 720p 29.9 MB, 1080p 84.4 MB, M4A 3.4 MB). `8Mw9bwLTQFk` and `jNQXAC9IVRw`
+→ the bot check from visionOS without and with visitor data (temporary script). `4pKpLX9NG_k` →
+the bot check from every client the adapter asked, in the new order: visionOS first, the page's
+own `WEB` answer, visionOS again with visitor data, the mobile site and `ANDROID` (embedded:
+error 152-18). The sandbox's IP is flagged, so the owner's phone Details are the proof there.
+
 ## Original Phase 5D review
 
 ## Recommendation

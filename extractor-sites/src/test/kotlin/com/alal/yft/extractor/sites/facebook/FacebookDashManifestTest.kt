@@ -33,6 +33,7 @@ class FacebookDashManifestTest {
                     height = 720,
                     framesPerSecond = 30.0,
                     bandwidthBitsPerSecond = 2_749_477,
+                    representationId = "v720",
                 ),
                 FacebookDashTrack(
                     url = "https://video.example-cdn.test/v/avc-360.mp4?oe=F2A52380&oh=fixture",
@@ -43,6 +44,7 @@ class FacebookDashManifestTest {
                     height = 358,
                     framesPerSecond = 30.0,
                     bandwidthBitsPerSecond = 755_648,
+                    representationId = "v358",
                 ),
                 FacebookDashTrack(
                     url = "https://video.example-cdn.test/v/audio.mp4?oe=F2A52380&oh=fixture",
@@ -53,6 +55,7 @@ class FacebookDashManifestTest {
                     height = null,
                     framesPerSecond = null,
                     bandwidthBitsPerSecond = 57_372,
+                    representationId = "a",
                 ),
             ),
             manifest.tracks,
@@ -168,9 +171,16 @@ class FacebookDashManifestTest {
         )
         assertEquals(listOf("1080p", "720p", "360p"), videos.map(FacebookDashOffers::qualityName))
         assertEquals("https://cdn.test/aac.mp4", FacebookDashOffers.audio(tracks)?.url)
-        assertEquals(true, FacebookDashOffers.lacksAvcVideo(tracks.take(4)))
-        assertEquals(false, FacebookDashOffers.lacksAvcVideo(tracks))
-        assertEquals(false, FacebookDashOffers.lacksAvcVideo(tracks.drop(6)))
+        val avcAt720 = tracks.filterNot { (it.height ?: 0) > 1_000 }
+        assertEquals(true, FacebookDashOffers.needsAvcLadder(tracks.take(4)))
+        assertEquals(true, FacebookDashOffers.needsAvcLadder(tracks))
+        assertEquals(true, FacebookDashOffers.needsAvcLadder(tracks.drop(6)))
+        assertEquals(false, FacebookDashOffers.needsAvcLadder(avcAt720))
+        assertEquals(true, FacebookDashOffers.needsAvcLadder(avcAt720, listOf(1_080)))
+        assertEquals(true, FacebookDashOffers.hasAvcWithSound(tracks))
+        assertEquals(false, FacebookDashOffers.hasAvcWithSound(tracks.take(4)))
+        assertEquals("AVC 720", FacebookDashOffers.bestAvc(tracks))
+        assertEquals("no AVC", FacebookDashOffers.bestAvc(tracks.take(4)))
     }
 
     @Test

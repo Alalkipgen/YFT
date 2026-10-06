@@ -1,0 +1,159 @@
+{
+  "playabilityStatus": {
+    "status": "OK",
+    "playableInEmbed": true
+  },
+  "streamingData": {
+    "expiresInSeconds": "21540",
+    "formats": [
+      {
+        "itag": 18,
+        "signatureCipher": "s=REDACTED-18-sig&sp=sig&url=https%3A%2F%2Frr2---sn-page.googlevideo.example-cdn.test%2Fvideoplayback%3Fexpire%3D4102444800%26ei%3DUGFnZQ%26itag%3D18%26source%3Dyoutube%26mime%3Dvideo%252Fmp4%26n%3DFx7nInput0",
+        "mimeType": "video/mp4; codecs=\"avc1.42001E, mp4a.40.2\"",
+        "bitrate": 503814,
+        "width": 640,
+        "height": 360,
+        "qualityLabel": "360p",
+        "audioQuality": "AUDIO_QUALITY_LOW",
+        "audioSampleRate": "44100"
+      }
+    ],
+    "adaptiveFormats": [
+      {
+        "itag": 313,
+        "signatureCipher": "s=REDACTED-313-sig&sp=sig&url=https%3A%2F%2Frr2---sn-page.googlevideo.example-cdn.test%2Fvideoplayback%3Fexpire%3D4102444800%26ei%3DUGFnZQ%26itag%3D313%26source%3Dyoutube%26mime%3Dvideo%252Fwebm%26n%3DFx7nInput0",
+        "mimeType": "video/webm; codecs=\"vp9\"",
+        "bitrate": 17862316,
+        "width": 3840,
+        "height": 2160,
+        "contentLength": "1402997331",
+        "qualityLabel": "2160p",
+        "fps": 30
+      },
+      {
+        "itag": 271,
+        "signatureCipher": "s=REDACTED-271-sig&sp=sig&url=https%3A%2F%2Frr2---sn-page.googlevideo.example-cdn.test%2Fvideoplayback%3Fexpire%3D4102444800%26ei%3DUGFnZQ%26itag%3D271%26source%3Dyoutube%26mime%3Dvideo%252Fwebm%26n%3DFx7nInput0",
+        "mimeType": "video/webm; codecs=\"vp9\"",
+        "bitrate": 9105662,
+        "width": 2560,
+        "height": 1440,
+        "contentLength": "702334112",
+        "qualityLabel": "1440p",
+        "fps": 30
+      },
+      {
+        "itag": 137,
+        "signatureCipher": "s=REDACTED-137-sig&sp=sig&url=https%3A%2F%2Frr2---sn-page.googlevideo.example-cdn.test%2Fvideoplayback%3Fexpire%3D4102444800%26ei%3DUGFnZQ%26itag%3D137%26source%3Dyoutube%26mime%3Dvideo%252Fmp4%26n%3DFx7nInput0",
+        "mimeType": "video/mp4; codecs=\"avc1.640028\"",
+        "bitrate": 4412950,
+        "width": 1920,
+        "height": 1080,
+        "contentLength": "367301118",
+        "qualityLabel": "1080p",
+        "fps": 30
+      },
+      {
+        "itag": 248,
+        "signatureCipher": "s=REDACTED-248-sig&sp=sig&url=https%3A%2F%2Frr2---sn-page.googlevideo.example-cdn.test%2Fvideoplayback%3Fexpire%3D4102444800%26ei%3DUGFnZQ%26itag%3D248%26source%3Dyoutube%26mime%3Dvideo%252Fwebm%26n%3DFx7nInput0",
+        "mimeType": "video/webm; codecs=\"vp9\"",
+        "bitrate": 2876544,
+        "width": 1920,
+        "height": 1080,
+        "contentLength": "230110229",
+        "qualityLabel": "1080p",
+        "fps": 30
+      },
+      {
+        "itag": 136,
+        "signatureCipher": "s=REDACTED-136-sig&sp=sig&url=https%3A%2F%2Frr2---sn-page.googlevideo.example-cdn.test%2Fvideoplayback%3Fexpire%3D4102444800%26ei%3DUGFnZQ%26itag%3D136%26source%3Dyoutube%26mime%3Dvideo%252Fmp4%26n%3DFx7nInput0",
+        "mimeType": "video/mp4; codecs=\"avc1.4d401f\"",
+        "bitrate": 1359330,
+        "width": 1280,
+        "height": 720,
+        "contentLength": "111303552",
+        "qualityLabel": "720p",
+        "fps": 30
+      },
+      {
+        "itag": 135,
+        "signatureCipher": "s=REDACTED-135-sig&sp=sig&url=https%3A%2F%2Frr2---sn-page.googlevideo.example-cdn.test%2Fvideoplayback%3Fexpire%3D4102444800%26ei%3DUGFnZQ%26itag%3D135%26source%3Dyoutube%26mime%3Dvideo%252Fmp4%26n%3DFx7nInput0",
+        "mimeType": "video/mp4; codecs=\"avc1.4d401e\"",
+        "bitrate": 845012,
+        "width": 854,
+        "height": 480,
+        "contentLength": "68012007",
+        "qualityLabel": "480p",
+        "fps": 30
+      },
+      {
+        "itag": 134,
+        "signatureCipher": "s=REDACTED-134-sig&sp=sig&url=https%3A%2F%2Frr2---sn-page.googlevideo.example-cdn.test%2Fvideoplayback%3Fexpire%3D4102444800%26ei%3DUGFnZQ%26itag%3D134%26source%3Dyoutube%26mime%3Dvideo%252Fmp4%26n%3DFx7nInput0",
+        "mimeType": "video/mp4; codecs=\"avc1.4d401e\"",
+        "bitrate": 520144,
+        "width": 640,
+        "height": 360,
+        "contentLength": "41503321",
+        "qualityLabel": "360p",
+        "fps": 30
+      },
+      {
+        "itag": 133,
+        "signatureCipher": "s=REDACTED-133-sig&sp=sig&url=https%3A%2F%2Frr2---sn-page.googlevideo.example-cdn.test%2Fvideoplayback%3Fexpire%3D4102444800%26ei%3DUGFnZQ%26itag%3D133%26source%3Dyoutube%26mime%3Dvideo%252Fmp4%26n%3DFx7nInput0",
+        "mimeType": "video/mp4; codecs=\"avc1.4d4015\"",
+        "bitrate": 150122,
+        "width": 426,
+        "height": 240,
+        "contentLength": "9871230",
+        "qualityLabel": "240p",
+        "fps": 30
+      },
+      {
+        "itag": 160,
+        "signatureCipher": "s=REDACTED-160-sig&sp=sig&url=https%3A%2F%2Frr2---sn-page.googlevideo.example-cdn.test%2Fvideoplayback%3Fexpire%3D4102444800%26ei%3DUGFnZQ%26itag%3D160%26source%3Dyoutube%26mime%3Dvideo%252Fmp4%26n%3DFx7nInput0",
+        "mimeType": "video/mp4; codecs=\"avc1.4d400c\"",
+        "bitrate": 70011,
+        "width": 256,
+        "height": 144,
+        "contentLength": "4812344",
+        "qualityLabel": "144p",
+        "fps": 30
+      },
+      {
+        "itag": 140,
+        "signatureCipher": "s=REDACTED-140-sig&sp=sig&url=https%3A%2F%2Frr2---sn-page.googlevideo.example-cdn.test%2Fvideoplayback%3Fexpire%3D4102444800%26ei%3DUGFnZQ%26itag%3D140%26source%3Dyoutube%26mime%3Daudio%252Fmp4%26n%3DFx7nInput0",
+        "mimeType": "audio/mp4; codecs=\"mp4a.40.2\"",
+        "bitrate": 130583,
+        "contentLength": "12722101",
+        "audioQuality": "AUDIO_QUALITY_MEDIUM",
+        "audioSampleRate": "44100",
+        "audioChannels": 2
+      },
+      {
+        "itag": 251,
+        "signatureCipher": "s=REDACTED-251-sig&sp=sig&url=https%3A%2F%2Frr2---sn-page.googlevideo.example-cdn.test%2Fvideoplayback%3Fexpire%3D4102444800%26ei%3DUGFnZQ%26itag%3D251%26source%3Dyoutube%26mime%3Daudio%252Fwebm%26n%3DFx7nInput0",
+        "mimeType": "audio/webm; codecs=\"opus\"",
+        "bitrate": 135004,
+        "contentLength": "12010444",
+        "audioQuality": "AUDIO_QUALITY_MEDIUM",
+        "audioSampleRate": "48000",
+        "audioChannels": 2
+      }
+    ]
+  },
+  "videoDetails": {
+    "videoId": "Yft0Fixture",
+    "title": "Fixture video title",
+    "lengthSeconds": "786",
+    "author": "Fixture Channel",
+    "isLiveContent": false,
+    "thumbnail": {
+      "thumbnails": [
+        {
+          "url": "https://i.ytimg.example-cdn.test/vi/Yft0Fixture/hqdefault.jpg",
+          "width": 480,
+          "height": 360
+        }
+      ]
+    }
+  }
+}

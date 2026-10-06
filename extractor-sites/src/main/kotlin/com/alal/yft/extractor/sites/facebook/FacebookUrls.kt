@@ -140,6 +140,73 @@ internal object FacebookUrls {
 
     fun isNumericId(value: String): Boolean = NUMERIC_ID.matches(value)
 
+    /** True for a reel's page, the only surface Safari is asked first (P15, P23). */
+    fun isReel(identity: SitePageIdentity): Boolean =
+        !identity.requiresCanonicalResolution && kindOf(identity.canonicalPageUrl) == PostKind.REEL
+
+    /**
+     * The page Safari is asked for a video's AVC ladder (P23): the first of [addresses] (the page
+     * the session request ended on, then the permalink the page states) that is this video's
+     * reel or `/{page}/videos/{id}/` page. A /watch/ or video.php page is never asked: Safari
+     * got those without the video (about 1 KB, no redirect), while the `/{page}/videos/{id}/`
+     * page the session request was redirected to had it (sandbox live check, 2026-10-06).
+     */
+    fun videoPage(videoId: String, addresses: List<String?>): String? =
+        addresses.firstNotNullOfOrNull { address -> address?.let { videoPageOf(videoId, it) } }
+
+    private fun videoPageOf(videoId: String, address: String): String? {
+        val uri = runCatching { URI(address.trim()) }.getOrNull() ?: return null
+        val host = uri.host?.lowercase(Locale.US) ?: return null
+        if (host !in LONG_HOSTS) return null
+        val identity = identify(address) ?: return null
+        if (identity.requiresCanonicalResolution || identity.contentId != videoId) return null
+        if (kindOf(identity.canonicalPageUrl) == PostKind.REEL) return identity.canonicalPageUrl
+        val head = uri.path.orEmpty().split('/').firstOrNull(String::isNotBlank)
+            ?.lowercase(Locale.US)
+        return if (head in WATCH_SEGMENTS) null else "$DESKTOP${uri.rawPath}"
+    }
+
+    /**
+     * The average bitrate a media address states, or null: a whole file's `bitrate=373059`, a
+     * DASH track's inside `efg`, the Base64 JSON label of its encoding. Both matched the files
+     * (sandbox live check, 2026-10-06): HD 373 059 bit/s over 1 898.5 s ≈ 88.5 MB for an
+     * 88.9 MB file, the 720p track 312 410 bit/s ≈ 74.1 MB for a 74.1 MB file, while that
+     * track's manifest bandwidth (1 380 658 bit/s) was a peak.
+     */
+    fun statedBitrate(mediaUrl: String): Long? {
+        val rawQuery = runCatching { URI(mediaUrl.trim()) }.getOrNull()?.rawQuery ?: return null
+        val parameters = queryParameters(rawQuery)
+        val stated = parameters["bitrate"]?.toLongOrNull()
+            ?: parameters["efg"]?.takeIf { it.length <= MAX_LABEL_CHARS }
+                // The decoder reads a `+` as a space; Base64 has no spaces.
+                ?.let { base64Text(it.replace(' ', '+')) }
+                ?.let { LABEL_BITRATE.find(it)?.groupValues?.get(1)?.toLongOrNull() }
+        return stated?.takeIf { it in PLAUSIBLE_BITRATES }
+    }
+
+    /** Standard or URL-safe Base64 as UTF-8 text, or null; by hand, for Android 7 (API 24). */
+    private fun base64Text(value: String): String? {
+        val bytes = java.io.ByteArrayOutputStream(value.length)
+        var buffer = 0
+        var bits = 0
+        for (char in value.trimEnd('=')) {
+            val standard = BASE64_ALPHABET.indexOf(char)
+            val urlSafe = URL_SAFE_ALPHABET_END.indexOf(char)
+            val sextet = when {
+                standard >= 0 -> standard
+                urlSafe >= 0 -> BASE64_ALPHABET_END + urlSafe
+                else -> return null
+            }
+            buffer = (buffer shl BASE64_BITS or sextet) and BUFFER_MASK
+            bits += BASE64_BITS
+            if (bits >= Byte.SIZE_BITS) {
+                bits -= Byte.SIZE_BITS
+                bytes.write(buffer shr bits and BYTE_MASK)
+            }
+        }
+        return bytes.toString(Charsets.UTF_8.name())
+    }
+
     /**
      * True for a post or a post's share link: the page may hold no video at all, so a page
      * without one is a post without a video rather than a changed page format.
@@ -266,4 +333,18 @@ internal object FacebookUrls {
 
     /** 2014-05 to 2100-01: wide enough for real links, narrow enough to reject noise. */
     private val PLAUSIBLE_EXPIRY_SECONDS = 1_400_000_000L..4_102_444_800L
+
+    /** 8 kbit/s to 200 Mbit/s: any real file, never a misread parameter. */
+    private val PLAUSIBLE_BITRATES = 8_000L..200_000_000L
+
+    /** An encoding label is a short JSON object; a far longer value is not one. */
+    private const val MAX_LABEL_CHARS = 4_096
+    private val LABEL_BITRATE = Regex(""""bitrate"\s*:\s*(\d{1,10})\b""")
+    private const val BASE64_ALPHABET =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+    private const val URL_SAFE_ALPHABET_END = "-_"
+    private const val BASE64_ALPHABET_END = 62
+    private const val BASE64_BITS = 6
+    private const val BUFFER_MASK = 0xFFFF
+    private const val BYTE_MASK = 0xFF
 }

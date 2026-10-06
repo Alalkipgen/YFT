@@ -34,7 +34,29 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Phase 12 — Agent B (P22, P23)
 
-- (Agent B: replace this line with the P22 and P23 entries.)
+- P22 — YouTube: every quality (OWNER CHECK). visionOS is asked once more with the watch page's
+  visitor data (client context and `X-Goog-Visitor-Id`, no page key) when its first answer
+  refused the request; a refusal is never reused, a failed request is not asked again.
+- P22: a lookup ends only with a separate video merged with its audio track plus that track, so
+  the Android app's progressive 360p file no longer ends it before the page's own client (BotGuard
+  token, player script) is collected; `ANDROID` is asked last, after the mobile site.
+- P22: merged AVC + AAC rows cover 144p–1080p; one row per quality, where a merged row (with
+  YouTube's sizes of both files) replaces a progressive file; Audio is `itag 140` with its size.
+- P22: details name visionOS asked again, formats signed by the player script and adaptive
+  formats only available through SABR; never visitor data.
+- P23 — Facebook: every quality (OWNER CHECK). The AVC ladder (desktop Safari, no cookie) is
+  asked when a page lists no AVC video or AVC only below another track or a whole file, on the
+  final reel or `/{page}/videos/{id}/` address, else the post's permalink — never `/watch/`; a
+  share link to a page with HD and SD files only now gets AVC 360p/720p and the audio track.
+- P23: the public page is the whole lookup only for a reel with AVC video and an AAC track;
+  `/watch/`, `video.php` and `/{page}/videos/` links read the session page first, and the
+  public page's files are kept when the session page fails. Tracks of every page read merge
+  without repeats; at most 2 page requests.
+- P23: an HD or SD file states the picture and AVC + AAC codecs of the track it was made from
+  when that track and an AAC track are listed; bitrates are the average stated in the media
+  address (`bitrate`, `efg`), never the manifest's peak, so size estimates match the files.
+- P23: details name each page read and the ladder ("public page added: …", "ladder: not needed
+  (AVC 720)", "ladder GET 200 (N characters): added …").
 
 ### Phase 12 — Agent C (P24, P25)
 

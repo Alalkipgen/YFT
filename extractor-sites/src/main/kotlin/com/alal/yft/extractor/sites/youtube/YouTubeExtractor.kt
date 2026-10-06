@@ -33,24 +33,28 @@ import java.net.URLDecoder
  * It first asks YouTube's visionOS app alone (P14): a complete answer, with every format's
  * direct address and size, is the whole lookup, one request of about 17 KB. Any other answer
  * reads the watch page the user's browser receives, then asks YouTube's player endpoint as a
- * chain of clients, the order the owner chose in ADR-006 (D2 = A + B + C):
+ * chain of clients (ADR-006 D2 = A + B + C, in the order P22 compared with yt-dlp):
  *
- * 1. YouTube's own visionOS and Android apps (option B), whose streams carry direct addresses;
+ * 1. YouTube's visionOS app (option B), whose streams carry direct addresses: its first answer
+ *    when that said something about the video, else once more with the visitor data the watch
+ *    page gave, as YouTube's own apps and yt-dlp send it;
  * 2. YouTube's embedded player, for videos their owners allow to be embedded;
  * 3. the client the watch page itself runs, with the user's own session and, on its media
  *    requests, the proof-of-origin token YouTube's web player would mint (option A);
  * 4. YouTube's mobile site, when the page was the desktop site, which often streams only
- *    through YouTube's SABR protocol.
+ *    through YouTube's SABR protocol;
+ * 5. YouTube's Android app last, whose only download is its progressive 360p file: its
+ *    separate video and audio formats come only through SABR.
  *
- * Downloads found along the way are combined, and the chain stops once it has a video with
- * sound and an audio track. Higher qualities, which YouTube serves only as separate video and
- * audio files, are offered as 360p to 1080p AVC rows that carry their AAC audio track
- * and are merged into one MP4 on the phone (T17). When a lookup meets YouTube's bot check, the
- * user plays the video in YFT's browser and tries again there, so the lookup carries the
+ * Downloads found along the way are combined, and the chain stops once it has a separate video
+ * merged with its audio track and the audio track itself (P22), so a progressive file alone
+ * never ends it. YouTube serves its qualities as separate video and audio files: 144p to 1080p
+ * become AVC rows that carry their AAC audio track and are merged into one MP4 on the phone
+ * (T17), 2K and 4K VP9 rows with the Opus track (P6). When a lookup meets YouTube's bot check,
+ * the user plays the video in YFT's browser and tries again there, so the lookup carries the
  * browser's own session (option C). The values YouTube's player computes for a stream are
- * computed by YouTube's own
- * current player script through a [PlayerScriptRunner]; without one, such streams fail as
- * [SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED].
+ * computed by YouTube's own current player script through a [PlayerScriptRunner]; without
+ * one, such streams fail as [SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED].
  *
  * There is no DRM handling and no age-check bypass: a verdict about the video from the page's
  * own client, such as private or age-restricted, ends the lookup before any other client is
@@ -134,12 +138,14 @@ class YouTubeExtractor(
         if (askFallbacks(signals, lookup)) return lookup.success()
 
         collect(Tier.PAGE, pageClient, own, ownLabel, lookup)
-        if (lookup.offers.hasVideo) return lookup.success()
+        if (lookup.offers.isComplete) return lookup.success()
 
         if (pageClient.clientName != MOBILE_CLIENT_NAME) {
             val mobile = YouTubeClientProfiles.mobileWeb()
             collect(Tier.PAGE, mobile, askPlayer(mobile, lookup), mobile.label, lookup)
+            if (lookup.offers.isComplete) return lookup.success()
         }
+        askAndroidLast(lookup)
         return if (lookup.offers.isEmpty) {
             lookup.failure(lookup.verdicts.final())
         } else {
@@ -199,34 +205,86 @@ class YouTubeExtractor(
     }
 
     /**
-     * Asks the device clients, then the embedded player, and returns whether that was enough.
+     * Asks visionOS, then the embedded player, and returns whether the lookup is complete.
      *
-     * Device clients answer with direct addresses that need neither the player script nor a
-     * token; they are asked until the lookup has a video with sound and an audio track. The
-     * embedded player ends this part once there is any video. What these clients refuse
-     * describes the client, so it is never final. An age check is the exception: only the
-     * user's own session may answer it, so no further client is asked to get around it and
-     * what earlier clients offered is dropped.
+     * visionOS answers with direct addresses that need neither the player script nor a token.
+     * Each client is asked only while the lookup lacks a separate video merged with its audio
+     * track and the audio track itself (P22): a progressive file alone, which YouTube gives
+     * without a size, never ends the chain before the page's own client is heard. What these
+     * clients refuse describes the client, so it is never final. An age check is the exception:
+     * only the user's own session may answer it, so no further client is asked to get around it
+     * and what earlier clients offered is dropped.
      */
     private suspend fun askFallbacks(signals: YouTubePageSignals, lookup: Lookup): Boolean {
-        val clients = YouTubeClientProfiles.DEVICE_CLIENTS +
-            YouTubeClientProfiles.embedded(signals)
-        for (client in clients) {
-            val parsed = askPlayer(client, lookup)
-            collect(Tier.FALLBACK, client, parsed, client.label, lookup)
+        val visionOs = YouTubeClientProfiles.VISION_OS
+        for (client in listOf(visionOs, YouTubeClientProfiles.embedded(signals))) {
+            val (parsed, label) = if (client == visionOs) {
+                visionOsInChain(lookup) ?: continue
+            } else {
+                askPlayer(client, lookup) to client.label
+            }
+            collect(Tier.FALLBACK, client, parsed, label, lookup)
             if (parsed is YouTubeParseResult.Failure && parsed.ageCheck) {
-                lookup.offers.clear()
-                lookup.details += "${client.label}: age check, so only the user's session is asked"
+                lookup.offers.clearFallbacks()
+                lookup.ageChecked = true
+                lookup.details += "$label: age check, so only the user's session is asked"
                 return false
             }
-            val enough = if (client.device != null) {
-                lookup.offers.isComplete
-            } else {
-                lookup.offers.hasVideo
-            }
-            if (enough) return true
+            if (lookup.offers.isComplete) return true
         }
         return false
+    }
+
+    /**
+     * visionOS's answer for the chain and the label its details carry (P22).
+     *
+     * The answer from before the watch page is used when it said something about the video:
+     * formats, an age check (which only the user's own session may answer) or a verdict such as
+     * private. A refusal of the request itself, such as a bot check, a sign-in prompt that is not
+     * about age or an answer without formats, is never reused: visionOS is asked once more with
+     * the visitor data the watch page gave, in the request and as `X-Goog-Visitor-Id`, the way
+     * yt-dlp asks it, and otherwise exactly as before the page. Without visitor data it is not
+     * asked again, and only its refusal counts toward the lookup's verdict. A request that
+     * failed before visionOS answered is not asked again either: the HTTP client already
+     * retried it where a retry can help (P10).
+     */
+    private suspend fun visionOsInChain(lookup: Lookup): Pair<YouTubeParseResult, String>? {
+        val client = YouTubeClientProfiles.VISION_OS
+        val kept = lookup.visionOsAnswer ?: return askPlayer(client, lookup) to client.label
+        val refusal = refusalOf(kept) ?: return kept to client.label
+        val visitorData = lookup.signals.visitorData?.takeIf(String::isNotBlank)
+        if (visitorData == null) {
+            lookup.verdicts.record(Tier.FALLBACK, refusal.reason)
+            lookup.details += "visionOS again: the watch page gave no visitor data, so not asked"
+            return null
+        }
+        val signals = NO_PAGE.copy(visitorData = visitorData)
+        val again = askPlayer(client, lookup, signals, VISION_OS_AGAIN_LABEL)
+        lookup.visionOsAnswer = again
+        return again to VISION_OS_AGAIN_LABEL
+    }
+
+    /** [answer] when it refuses one request rather than judging the video or failing to come. */
+    private fun refusalOf(answer: YouTubeParseResult): YouTubeParseResult.Failure? =
+        (answer as? YouTubeParseResult.Failure)
+            ?.takeIf { !it.definite && !it.ageCheck && !it.transport }
+
+    /**
+     * Asks YouTube's Android app last (P22), unless a client met an age check. Its answer adds
+     * one progressive 360p file without a size, which stays a row only when no separate 360p
+     * video exists: its separate formats come only through SABR (live, 2026-10-06), and yt-dlp
+     * asks a proof-of-origin token for them. An age check here drops what visionOS and the
+     * embedded player offered, as in [askFallbacks]; the page's own downloads stay.
+     */
+    private suspend fun askAndroidLast(lookup: Lookup) {
+        if (lookup.ageChecked || lookup.offers.isComplete) return
+        val client = YouTubeClientProfiles.ANDROID
+        val parsed = askPlayer(client, lookup)
+        collect(Tier.FALLBACK, client, parsed, client.label, lookup)
+        if (parsed is YouTubeParseResult.Failure && parsed.ageCheck) {
+            lookup.offers.clearFallbacks()
+            lookup.details += "${client.label}: age check, so only the user's session is kept"
+        }
     }
 
     /** Adds one client's downloads to the lookup, or records why it produced none. */
@@ -242,8 +300,11 @@ class YouTubeExtractor(
             return
         }
         val video = (parsed as YouTubeParseResult.Success).video
-        when (val delivery = deliver(video, client, lookup)) {
+        when (val delivery = deliver(video, client, lookup, tier)) {
             is Delivery.Ready -> {
+                if (delivery.scripted > 0) {
+                    lookup.details += "$label: ${delivery.scripted} formats via player script"
+                }
                 val added = lookup.offers.add(delivery.offers)
                 val noun = if (added == 1) "download" else "downloads"
                 lookup.details += "$label: $added $noun offered"
@@ -262,15 +323,16 @@ class YouTubeExtractor(
     }
 
     /**
-     * Asks one client and records what it answered, never the answer itself. visionOS is asked
-     * once per lookup: the chain reuses the answer it gave before the watch page was read.
+     * Asks one client and records what it answered under [label], never the answer itself.
+     * [signals] are what the request may carry from the watch page: the page's own values, or
+     * only its visitor data when visionOS is asked again ([visionOsInChain]).
      */
     private suspend fun askPlayer(
         client: YouTubeClientProfile,
         lookup: Lookup,
+        signals: YouTubePageSignals = lookup.signals,
+        label: String = client.label,
     ): YouTubeParseResult {
-        if (client == YouTubeClientProfiles.VISION_OS) lookup.visionOsAnswer?.let { return it }
-        val signals = lookup.signals
         val result = http.postJson(
             url = YouTubeUrls.innerTubeUrl(signals.apiKey),
             body = client.playerRequestBody(
@@ -279,19 +341,23 @@ class YouTubeExtractor(
                 signatureTimestamp = signals.signatureTimestamp,
                 poToken = if (client.usesPoToken) poToken(lookup, TokenUse.PLAYER) else null,
             ),
-            headers = playerHeaders(client, lookup),
+            headers = playerHeaders(client, lookup, signals),
             maxBodyBytes = maxPlayerBytes,
         )
         return when (result) {
             is ExtractorHttpResult.Failure -> {
                 val status = result.statusCode?.let { " (HTTP $it)" }.orEmpty()
-                lookup.details += "${client.label}: ${result.reason}$status"
-                YouTubeParseResult.Failure(reason = result.reason, definite = false)
+                lookup.details += "$label: ${result.reason}$status"
+                YouTubeParseResult.Failure(
+                    reason = result.reason,
+                    definite = false,
+                    transport = true,
+                )
             }
 
             is ExtractorHttpResult.Success -> {
                 val response = YouTubePlayerResponseParser.inspect(result.body, lookup.nowEpochMs)
-                lookup.details += response.summary.lines(client.label)
+                lookup.details += response.summary.lines(label)
                 response.result
             }
         }
@@ -301,6 +367,7 @@ class YouTubeExtractor(
         video: YouTubeVideo,
         client: YouTubeClientProfile,
         lookup: Lookup,
+        tier: Tier,
     ): Delivery {
         val selected = select(video)
         if (selected.isEmpty()) {
@@ -334,6 +401,7 @@ class YouTubeExtractor(
         if (addresses.isEmpty()) {
             return Delivery.Blocked(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED)
         }
+        val scripted = addresses.count { (pending, _, _) -> pending.challenges().isNotEmpty() }
         // The token is minted only once there is something to attach it to.
         val token = if (client.usesPoToken) poToken(lookup, TokenUse.MEDIA) else null
         val tracks = addresses.map { (pending, url, expiry) ->
@@ -353,13 +421,15 @@ class YouTubeExtractor(
             when {
                 stream.hasVideo && !stream.hasAudio -> {
                     val audio = if (stream.mimeType == VIDEO_WEBM) opus else aac
-                    audio?.let { Offer(stream, candidate(stream, url, expiry, video, lookup, it)) }
+                    audio?.let {
+                        Offer(stream, candidate(stream, url, expiry, video, lookup, it), tier)
+                    }
                 }
                 !stream.hasVideo && stream.mimeType == AUDIO_WEBM -> null
-                else -> Offer(stream, candidate(stream, url, expiry, video, lookup))
+                else -> Offer(stream, candidate(stream, url, expiry, video, lookup), tier)
             }
         }
-        return Delivery.Ready(offers)
+        return Delivery.Ready(offers, scripted)
     }
 
     /**
@@ -423,10 +493,12 @@ class YouTubeExtractor(
     /**
      * Picks the streams downloads are made of.
      *
-     * Progressive MP4 streams already carry both tracks. One AAC audio stream is offered as an
-     * audio-only download: the original mix when YouTube marks one, never the volume-compressed
-     * variant. The same audio track is merged on the phone with the best video-only AVC stream
-     * of each of [MERGED_QUALITIES] that no progressive stream already offers.
+     * One AAC audio stream is offered as an audio-only download: the original mix when YouTube
+     * marks one, never the volume-compressed variant. The same audio track is merged on the
+     * phone with the best video-only AVC stream of each of [MERGED_QUALITIES]. A progressive MP4
+     * stream, which already carries both tracks, is offered only for a quality without a merged
+     * row (P22): YouTube states the size of its separate streams but often not of a progressive
+     * one, so the merged row of the same picture is the one the sheet can size.
      *
      * P6: YouTube has no AVC above 1080p, so 1440p (2K) and 2160p (4K) ([HIGH_QUALITIES]) take
      * the best 8-bit VP9 WebM stream, merged with the Opus WebM track into one WebM, else the
@@ -442,25 +514,25 @@ class YouTubeExtractor(
         val audio = bestAudio(video, AUDIO_MP4) { it.startsWith(AAC_CODEC_PREFIX) }
             ?.takeIf { stream -> progressive.none { it.itag == stream.itag } }
         val opus = bestAudio(video, AUDIO_WEBM) { it == OPUS_CODEC }
-        val offeredQualities = progressive.mapNotNull { it.quality() }.toSet()
-        val videoOnly = video.adaptive
+        val merged = video.adaptive
             .filter { stream -> stream.hasVideo && !stream.hasAudio && stream.codecs.isNotEmpty() }
             .groupBy { it.quality() }
-            .filterKeys { it !in offeredQualities }
-        val merged = videoOnly.mapNotNull { (quality, streams) ->
-            when (quality) {
-                in MERGED_QUALITIES -> audio?.let { best(streams, VIDEO_MP4, ::isAvc) }
-                in HIGH_QUALITIES -> opus?.let { best(streams, VIDEO_WEBM, ::isSdrVp9) }
-                    ?: audio?.let { best(streams, VIDEO_MP4, ::isAv1) }
-                else -> null
+            .mapNotNull { (quality, streams) ->
+                when (quality) {
+                    in MERGED_QUALITIES -> audio?.let { best(streams, VIDEO_MP4, ::isAvc) }
+                    in HIGH_QUALITIES -> opus?.let { best(streams, VIDEO_WEBM, ::isSdrVp9) }
+                        ?: audio?.let { best(streams, VIDEO_MP4, ::isAv1) }
+                    else -> null
+                }
             }
-        }.sortedByDescending { it.quality() }
+            .sortedByDescending { it.quality() }
+        val mergedQualities = merged.mapNotNull { it.quality() }.toSet()
+        val files = progressive.filter { it.quality() !in mergedQualities }
         val companions = listOfNotNull(
             audio,
             opus?.takeIf { merged.any { it.mimeType == VIDEO_WEBM } },
         )
-        return if (audio == null && merged.isEmpty()) progressive else progressive + merged +
-            companions
+        return if (audio == null && merged.isEmpty()) progressive else files + merged + companions
     }
 
     /** The original mix, never the volume-compressed one, of [mimeType] and [codec]. */
@@ -688,10 +760,12 @@ class YouTubeExtractor(
      * Device clients send their app's user agent and no referer. Only the clients that act for
      * the page carry the user's cookie, with the authorization YouTube's web player adds for a
      * signed-in session, so a device or embedded request never carries the account identity.
+     * The visitor data of [signals], as in the request body, goes in `X-Goog-Visitor-Id`.
      */
     private fun playerHeaders(
         client: YouTubeClientProfile,
         lookup: Lookup,
+        signals: YouTubePageSignals,
     ): Map<String, String> = buildMap {
         val context = lookup.request.requestContext
         (client.userAgent ?: context.userAgent?.takeIf(String::isNotBlank))
@@ -702,7 +776,7 @@ class YouTubeExtractor(
                 putAll(
                     YouTubeSessionAuth.headers(
                         cookie = cookie,
-                        signals = lookup.signals,
+                        signals = signals,
                         nowEpochSeconds = lookup.nowEpochMs / MILLIS_PER_SECOND,
                     ),
                 )
@@ -723,7 +797,7 @@ class YouTubeExtractor(
         }
         put("X-YouTube-Client-Name", client.clientNameId.toString())
         put("X-YouTube-Client-Version", client.clientVersion)
-        lookup.signals.visitorData?.takeIf(String::isNotBlank)
+        signals.visitorData?.takeIf(String::isNotBlank)
             ?.let { put("X-Goog-Visitor-Id", it) }
     }
 
@@ -760,8 +834,15 @@ class YouTubeExtractor(
         /** Tokens by binding, kept once asked for, so one lookup mints each at most once. */
         val mintedTokens = mutableMapOf<String, MintedToken>()
 
-        /** visionOS's answer, asked before the watch page (P14) and reused by the chain. */
+        /**
+         * visionOS's latest answer: asked before the watch page (P14), reused by the chain when
+         * it said something about the video, else replaced by the answer it gave when asked
+         * again with the page's visitor data (P22).
+         */
         var visionOsAnswer: YouTubeParseResult? = null
+
+        /** Set once a client met an age check: only the user's own session is asked after it. */
+        var ageChecked = false
 
         val nowEpochMs: Long
             get() = request.nowEpochMs
@@ -783,84 +864,85 @@ class YouTubeExtractor(
     /** What a token is attached to: the player request, or the media addresses. */
     private enum class TokenUse { PLAYER, MEDIA }
 
-    /** One download and the stream it came from. */
-    private class Offer(val stream: YouTubeStream, val candidate: MediaCandidate)
+    /** One download, the stream it came from and the step of the chain that offered it. */
+    private class Offer(
+        val stream: YouTubeStream,
+        val candidate: MediaCandidate,
+        val tier: Tier,
+    ) {
+        /** A separate video, merged on the phone with its audio track. */
+        val isMerged: Boolean
+            get() = candidate.audioCompanion != null
+    }
 
     /**
-     * Downloads combined across clients.
+     * Downloads combined across clients: one video row for each quality and one audio track.
      *
-     * The first client to offer a progressive stream of a given format and the first to offer
-     * an audio track win, so the order of the chain decides which address is shipped. A merged
-     * row is kept only for a quality no other row offers: a progressive stream needs no merge
-     * on the phone, so it wins over a merged row of the same quality from any client.
+     * The first client to offer a quality and the first to offer an audio track win, so the
+     * order of the chain decides which address is shipped. A progressive file is the exception
+     * (P22): YouTube often gives it without a size, so a merged row of its quality, which has
+     * one, takes its place, and it never takes the place of another row. Every offer is kept,
+     * so dropping what the fallback clients offered ([clearFallbacks]) brings back the rows
+     * the page's own clients offered for the same qualities.
      */
     private class Offers {
-        private val videos = LinkedHashMap<Int, Offer>()
-        private var audio: Offer? = null
+        private val offered = mutableListOf<Offer>()
+
+        private val audio: Offer?
+            get() = offered.firstOrNull { !it.stream.hasVideo }
 
         /**
-         * Whether some client offered a progressive video, which already has sound. Merged rows
-         * do not count, so they never change which clients are asked.
-         */
-        val hasVideo: Boolean
-            get() = videos.values.any { it.stream.hasAudio }
-
-        /**
-         * A video with sound and an audio track. The answer that brought the audio track also
-         * brought the merged rows paired with it, so asking further clients adds nothing.
+         * A separate video merged with its audio track, and the audio track itself (P22). The
+         * answer that brought them brought every quality it streams separately, so further
+         * clients could add only progressive files, of qualities already offered.
          */
         val isComplete: Boolean
-            get() = hasVideo && audio != null
+            get() = audio != null && offered.any(Offer::isMerged)
 
         val isEmpty: Boolean
-            get() = videos.isEmpty() && audio == null
+            get() = offered.isEmpty()
 
         /** A video row with sound: progressive, or merged with its audio track. */
         val hasVideoWithSound: Boolean
-            get() = videos.values.any { offer ->
-                offer.stream.hasAudio || offer.candidate.audioCompanion != null
-            }
+            get() = offered.any { it.stream.hasAudio || it.isMerged }
 
-        /** Forgets everything offered so far. */
-        fun clear() {
-            videos.clear()
-            audio = null
+        /** Forgets what visionOS, the embedded player and the Android app offered. */
+        fun clearFallbacks() {
+            offered.removeAll { it.tier == Tier.FALLBACK }
         }
 
-        /** Adds what is new and returns how many downloads that was. */
-        fun add(offers: List<Offer>): Int = offers.count { offer ->
-            val stream = offer.stream
-            when {
-                stream.hasVideo && stream.hasAudio ->
-                    videos.putIfAbsent(stream.itag, offer) == null
-
-                stream.hasVideo -> {
-                    val quality = stream.quality()
-                    videos.values.none { it.stream.quality() == quality } &&
-                        videos.putIfAbsent(stream.itag, offer) == null
-                }
-
-                audio == null -> {
-                    audio = offer
-                    true
-                }
-
-                else -> false
-            }
+        /** Adds [offers] and returns how many of them are downloads now. */
+        fun add(offers: List<Offer>): Int {
+            offered += offers
+            val kept = rows() + listOfNotNull(audio)
+            return offers.count { offer -> kept.any { it === offer } }
         }
 
-        fun candidates(): List<MediaCandidate> {
-            val progressive = videos.values
-                .filter { it.stream.hasAudio }
-                .mapNotNull { it.stream.quality() }
-                .toSet()
-            return videos.values
-                .filter { it.stream.hasAudio || it.stream.quality() !in progressive }
-                .sortedWith(
-                    compareByDescending<Offer> { it.stream.quality() ?: 0 }
-                        .thenByDescending { it.stream.height ?: 0 },
-                )
-                .map(Offer::candidate) + listOfNotNull(audio?.candidate)
+        fun candidates(): List<MediaCandidate> = rows()
+            .sortedWith(
+                compareByDescending<Offer> { it.stream.quality() ?: 0 }
+                    .thenByDescending { it.stream.height ?: 0 },
+            )
+            .map(Offer::candidate) + listOfNotNull(audio?.candidate)
+
+        /** The video rows, in the order their qualities were first offered. */
+        private fun rows(): List<Offer> {
+            val rows = mutableListOf<Offer>()
+            offered.filter { it.stream.hasVideo }.forEach { offer ->
+                val row = rows.indexOfFirst { sameRow(it.stream, offer.stream) }
+                when {
+                    row < 0 -> rows += offer
+                    offer.isMerged && !rows[row].isMerged -> rows[row] = offer
+                }
+            }
+            return rows
+        }
+
+        /** Rows are qualities; a stream without a quality is a row of its own format. */
+        private fun sameRow(kept: YouTubeStream, new: YouTubeStream): Boolean {
+            val quality = kept.quality() ?: return kept.itag == new.itag
+            val other = new.quality() ?: return kept.itag == new.itag
+            return quality == other
         }
     }
 
@@ -888,7 +970,8 @@ class YouTubeExtractor(
     }
 
     private sealed interface Delivery {
-        class Ready(val offers: List<Offer>) : Delivery
+        /** [scripted] counts the formats whose address needed YouTube's player script. */
+        class Ready(val offers: List<Offer>, val scripted: Int = 0) : Delivery
 
         /** [streamsFound] is false when the answer held no stream a download could use. */
         class Blocked(
@@ -988,14 +1071,16 @@ class YouTubeExtractor(
         private const val OPUS_CODEC = "opus"
 
         /**
-         * Merged video-and-audio rows, by the quality YouTube names them (T17). 360p since P14:
-         * a visionOS answer alone has no progressive 360p stream, which the Android app gave.
+         * Merged video-and-audio rows, by the quality YouTube names them (T17): 360p since P14,
+         * as a visionOS answer alone has no progressive 360p stream, and 144p and 240p since
+         * P22, so every quality YouTube streams separately is a row with its size.
          */
-        private val MERGED_QUALITIES = setOf(360, 480, 720, 1080)
+        private val MERGED_QUALITIES = setOf(144, 240, 360, 480, 720, 1080)
 
         /** 2K and 4K (P6): VP9 with Opus as WebM, else AV1 with AAC as MP4. */
         private val HIGH_QUALITIES = setOf(1440, 2160)
         private val QUALITY_LABEL = Regex("^(\\d{3,4})p")
+        private const val VISION_OS_AGAIN_LABEL = "client VISIONOS again, with visitor data"
         private const val RATE_PARAM = "n"
         private const val EXPIRE_PARAM = "expire"
         private const val POT_PARAM = "pot"

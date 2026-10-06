@@ -98,16 +98,15 @@ class FacebookExtractorTest {
         val result = FacebookExtractor(http).extract(request(identity))
             as SiteExtractionResult.Success
 
-        assertEquals(List(2) { identity.canonicalPageUrl }, http.requestedUrls)
-        val (public, headers) = http.requestedHeaders
-        assertNull(public["Cookie"])
+        // A /watch/ link skips the public page and the ladder (P23): Safari gets that page
+        // without the video, and this one states no reel or video page to ask instead.
+        assertEquals(listOf(identity.canonicalPageUrl), http.requestedUrls)
+        val headers = http.requestedHeaders.single()
         assertEquals("fixture-agent", headers["User-Agent"])
         assertEquals("c_user=0; xs=fixture-cookie", headers["Cookie"])
         assertEquals("https://www.facebook.com/", headers["Referer"])
-        assertEquals(
-            List(2) { FacebookExtractor.DEFAULT_MAX_PAGE_BYTES },
-            http.requestedBodyLimits,
-        )
+        assertEquals(listOf(FacebookExtractor.DEFAULT_MAX_PAGE_BYTES), http.requestedBodyLimits)
+        assertTrue(result.details.contains("ladder: skipped, no reel or video page to ask"))
 
         val context = result.candidates.first().requestContext
         assertEquals("https://www.facebook.com/watch/?v=1234567890123456", context.pageUrl)
@@ -176,7 +175,20 @@ class FacebookExtractorTest {
         val result = FacebookExtractor(http).extract(request(identity))
             as SiteExtractionResult.Success
 
-        assertEquals(listOf(identity.canonicalPageUrl), http.requestedUrls)
+        // P23: a page with HD/SD files only asks the AVC ladder once, as Safari without the
+        // session, on the video page the post redirected to.
+        assertEquals(
+            listOf(
+                identity.canonicalPageUrl,
+                "https://www.facebook.com/100012345678901/videos/fixture/1234567890123456/",
+            ),
+            http.requestedUrls,
+        )
+        assertNull(http.requestedHeaders[1]["Cookie"])
+        assertEquals(
+            FacebookPageIdentity.AVC_LADDER_USER_AGENT,
+            http.requestedHeaders[1]["User-Agent"],
+        )
         assertEquals(
             "https://www.facebook.com/watch/?v=1234567890123456",
             result.candidates.first().pageUrl,
