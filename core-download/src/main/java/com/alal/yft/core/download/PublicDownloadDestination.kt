@@ -26,6 +26,8 @@ import java.util.UUID
 class MediaStoreDownloadDestination private constructor(
     private val store: PublicContentStore,
     private val pendingItemUri: String,
+    /** How the row was made, to make another one ([renew]); null for a reopened row. */
+    private val request: PendingMediaRequest? = null,
 ) : DownloadDestination {
     @Volatile
     private var lifecycle = DestinationLifecycle.ACTIVE
@@ -70,6 +72,29 @@ class MediaStoreDownloadDestination private constructor(
         lifecycle = DestinationLifecycle.DISCARDED
     }
 
+    /**
+     * Deletes this pending row first, so the new row gets the same name, then makes the new
+     * one; a row that cannot be deleted is left for the storage janitor.
+     */
+    @Synchronized
+    override fun renew(): DownloadDestination? {
+        val request = request ?: return null
+        check(lifecycle != DestinationLifecycle.COMMITTED) { "Download destination was published" }
+        runCatching { discard() }
+        return create(
+            store = store,
+            displayName = request.displayName,
+            mimeType = request.mimeType,
+            relativePath = request.relativePath,
+        )
+    }
+
+    private data class PendingMediaRequest(
+        val displayName: String,
+        val mimeType: String?,
+        val relativePath: String,
+    )
+
     companion object {
         const val DEFAULT_RELATIVE_PATH = "Download/YFT/"
 
@@ -108,7 +133,11 @@ class MediaStoreDownloadDestination private constructor(
                 mimeType = normalizeMimeType(mimeType),
                 relativePath = normalizeRelativePath(relativePath),
             )
-            return MediaStoreDownloadDestination(store, requireContentUri(uri))
+            return MediaStoreDownloadDestination(
+                store = store,
+                pendingItemUri = requireContentUri(uri),
+                request = PendingMediaRequest(displayName, mimeType, relativePath),
+            )
         }
 
         internal fun resume(
@@ -127,6 +156,8 @@ class SafDownloadDestination private constructor(
     private val store: PublicContentStore,
     private val temporaryDocumentUri: String,
     private val finalDisplayName: String,
+    /** How the document was made, to make another one ([renew]); null for a reopened one. */
+    private val request: TemporaryDocumentRequest? = null,
 ) : DownloadDestination {
     @Volatile
     private var committedUri: String? = null
@@ -180,6 +211,28 @@ class SafDownloadDestination private constructor(
         lifecycle = DestinationLifecycle.DISCARDED
     }
 
+    /** Deletes this temporary document first, so the new one gets the same name. */
+    @Synchronized
+    override fun renew(): DownloadDestination? {
+        val request = request ?: return null
+        check(lifecycle != DestinationLifecycle.COMMITTED) { "Download destination was published" }
+        runCatching { discard() }
+        return create(
+            store = store,
+            treeUri = request.treeUri,
+            displayName = request.displayName,
+            mimeType = request.mimeType,
+            temporaryId = request.temporaryId,
+        )
+    }
+
+    private data class TemporaryDocumentRequest(
+        val treeUri: String,
+        val displayName: String,
+        val mimeType: String?,
+        val temporaryId: String,
+    )
+
     companion object {
         /**
          * Creates a temporary document immediately so its URI can be persisted for recovery.
@@ -231,6 +284,7 @@ class SafDownloadDestination private constructor(
                 store = store,
                 temporaryDocumentUri = requireContentUri(uri),
                 finalDisplayName = finalName,
+                request = TemporaryDocumentRequest(treeUri, displayName, mimeType, temporaryId),
             )
         }
 

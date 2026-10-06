@@ -12,7 +12,15 @@ import com.alal.yft.core.model.download.AudioVideoMuxStage
 import com.alal.yft.core.model.download.DashTransferCheckpoint
 import com.alal.yft.core.model.download.DashTransferResult
 import com.alal.yft.core.model.download.DownloadFailure
+import com.alal.yft.core.model.download.DownloadFailureDetails
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.DownloadFailureStage
+import com.alal.yft.core.model.download.DownloadFailureStage.CONNECT
+import com.alal.yft.core.model.download.DownloadFailureStage.MERGE
+import com.alal.yft.core.model.download.DownloadFailureStage.OPEN_FILE
+import com.alal.yft.core.model.download.DownloadFailureStage.PUBLISH
+import com.alal.yft.core.model.download.DownloadFailureStage.VERIFY
+import com.alal.yft.core.model.download.DownloadFailureStage.WRITE_FILE
 import com.alal.yft.core.model.download.DownloadProgress
 import java.io.File
 import java.io.IOException
@@ -196,7 +204,11 @@ object AudioVideoMuxCompatibility {
 sealed interface LocalMuxResult {
     data class Completed(val bytesWritten: Long) : LocalMuxResult
 
-    data class Failure(val reason: DownloadFailureReason) : LocalMuxResult
+    /** [detail]: the exception behind the failure, from [DownloadFailureDetails.of] (P21). */
+    data class Failure(
+        val reason: DownloadFailureReason,
+        val detail: String? = null,
+    ) : LocalMuxResult
 }
 
 interface LocalAudioVideoMuxer {
@@ -289,16 +301,16 @@ class AndroidMp4AudioVideoMuxer(
             }
         } catch (error: IOException) {
             outputFile.delete()
-            LocalMuxResult.Failure(error.storageFailureReason())
-        } catch (_: IllegalArgumentException) {
+            LocalMuxResult.Failure(error.toStorageReason(), DownloadFailureDetails.of(error))
+        } catch (error: IllegalArgumentException) {
             outputFile.delete()
-            LocalMuxResult.Failure(DownloadFailureReason.INCOMPATIBLE_TRACKS)
-        } catch (_: IllegalStateException) {
+            incompatible(error)
+        } catch (error: IllegalStateException) {
             outputFile.delete()
-            LocalMuxResult.Failure(DownloadFailureReason.INCOMPATIBLE_TRACKS)
-        } catch (_: SecurityException) {
+            incompatible(error)
+        } catch (error: SecurityException) {
             outputFile.delete()
-            LocalMuxResult.Failure(DownloadFailureReason.INCOMPATIBLE_TRACKS)
+            incompatible(error)
         } finally {
             if (muxerStarted) runCatching { muxer?.stop() }
             runCatching { muxer?.release() }
@@ -306,6 +318,12 @@ class AndroidMp4AudioVideoMuxer(
             audioExtractor.release()
         }
     }
+
+    private fun incompatible(error: Exception): LocalMuxResult.Failure =
+        LocalMuxResult.Failure(
+            DownloadFailureReason.INCOMPATIBLE_TRACKS,
+            DownloadFailureDetails.of(error),
+        )
 
     private fun copySamples(
         video: SampleSource,
@@ -444,25 +462,25 @@ class AudioVideoMuxEngine(
         val emptyCheckpoint = AudioVideoMuxCheckpoint()
         if (plan.expiresAtEpochMs?.let { it <= clock() } == true) {
             return@withContext failure(
-                DownloadFailureReason.EXPIRED_URL,
+                DownloadFailure(DownloadFailureReason.EXPIRED_URL, stage = CONNECT),
                 emptyCheckpoint,
             )
         }
         if (AudioVideoMuxCompatibility.evaluate(plan, sdkInt) !is MuxCompatibility.Compatible) {
             return@withContext failure(
-                DownloadFailureReason.INCOMPATIBLE_TRACKS,
+                DownloadFailure(DownloadFailureReason.INCOMPATIBLE_TRACKS, stage = MERGE),
                 emptyCheckpoint,
             )
         }
         val workspace = try {
             prepareWorkspace(plan.taskId)
         } catch (error: IOException) {
-            return@withContext failure(error.storageFailureReason(), emptyCheckpoint)
+            return@withContext failure(error.toStorageFailure(OPEN_FILE), emptyCheckpoint)
         }
         val initial = try {
             reconcileCheckpoint(workspace, resumeFrom)
         } catch (error: IOException) {
-            return@withContext failure(error.storageFailureReason(), emptyCheckpoint)
+            return@withContext failure(error.toStorageFailure(WRITE_FILE), emptyCheckpoint)
         }
         val tracker = MuxCheckpointTracker(initial, onProgress, onCheckpoint)
         try {
@@ -509,7 +527,7 @@ class AudioVideoMuxEngine(
             tracker.setStage(AudioVideoMuxStage.READY_TO_MUX)
             val muxOutput = File(workspace, MUX_OUTPUT_NAME)
             if (muxOutput.exists() && !muxOutput.delete()) {
-                throw MuxAbort(DownloadFailureReason.STORAGE_UNAVAILABLE)
+                throw MuxAbort(DownloadFailureReason.STORAGE_UNAVAILABLE, stage = MERGE)
             }
             tracker.setStage(AudioVideoMuxStage.MUXING)
             val muxResult = muxer.mux(
@@ -520,10 +538,12 @@ class AudioVideoMuxEngine(
             )
             val muxBytes = when (muxResult) {
                 is LocalMuxResult.Completed -> muxResult.bytesWritten
-                is LocalMuxResult.Failure -> throw MuxAbort(muxResult.reason)
+                is LocalMuxResult.Failure -> throw MuxAbort(
+                    DownloadFailure(muxResult.reason, stage = MERGE, detail = muxResult.detail),
+                )
             }
             if (muxBytes <= 0 || !muxOutput.isFile || muxOutput.length() != muxBytes) {
-                throw MuxAbort(DownloadFailureReason.INTEGRITY_MISMATCH)
+                throw MuxAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
             }
             val bytesWritten = publish(muxOutput, destination)
             tracker.setStage(AudioVideoMuxStage.COMPLETED)
@@ -536,17 +556,14 @@ class AudioVideoMuxEngine(
         } catch (abort: MuxAbort) {
             File(workspace, MUX_OUTPUT_NAME).delete()
             val checkpoint = tracker.resetToReadyAfterMuxFailure()
-            if (abort.reason in NON_RESUMABLE_FAILURES) {
+            if (abort.failure.reason in NON_RESUMABLE_FAILURES) {
                 cleanupAll(plan, workspace)
             }
-            AudioVideoMuxResult.Failure(
-                DownloadFailure(abort.reason),
-                checkpoint,
-            )
+            AudioVideoMuxResult.Failure(abort.failure, checkpoint)
         } catch (error: IOException) {
             File(workspace, MUX_OUTPUT_NAME).delete()
             AudioVideoMuxResult.Failure(
-                DownloadFailure(error.storageFailureReason()),
+                error.toStorageFailure(null),
                 tracker.resetToReadyAfterMuxFailure(),
             )
         }
@@ -626,10 +643,14 @@ class AudioVideoMuxEngine(
         destination: DownloadDestination,
     ): Long {
         val totalBytes = source.length().takeIf { it > 0 }
-            ?: throw MuxAbort(DownloadFailureReason.INTEGRITY_MISMATCH)
+            ?: throw MuxAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
+        // Every call below is on a file, so whatever fails is storage, at the step it reached.
+        var stage = OPEN_FILE
         try {
             destination.prepare(totalBytes)
-            destination.open().use { output ->
+            val opened = destination.open()
+            stage = WRITE_FILE
+            opened.use { output ->
                 val buffer = ByteArray(bufferBytes)
                 var position = 0L
                 source.inputStream().use { input ->
@@ -642,20 +663,23 @@ class AudioVideoMuxEngine(
                 }
                 output.sync()
                 if (position != totalBytes) {
-                    throw MuxAbort(DownloadFailureReason.INTEGRITY_MISMATCH)
+                    throw MuxAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
                 }
             }
+            stage = VERIFY
             if (destination.temporaryLength() != totalBytes) {
-                throw MuxAbort(DownloadFailureReason.INTEGRITY_MISMATCH)
+                throw MuxAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
             }
+            stage = PUBLISH
             destination.commit()
             return totalBytes
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (abort: MuxAbort) {
             throw abort
-        } catch (error: IOException) {
-            throw MuxAbort(error.storageFailureReason())
-        } catch (_: IllegalStateException) {
-            throw MuxAbort(DownloadFailureReason.STORAGE_UNAVAILABLE)
+        } catch (error: Exception) {
+            if (!error.isStorageError()) throw error
+            throw MuxAbort(error.toStorageFailure(stage))
         }
     }
 
@@ -711,14 +735,16 @@ class AudioVideoMuxEngine(
         File(workspace, "${kind.fileStem}.ready")
 
     private fun failure(
-        reason: DownloadFailureReason,
+        failure: DownloadFailure,
         checkpoint: AudioVideoMuxCheckpoint,
-    ): AudioVideoMuxResult.Failure = AudioVideoMuxResult.Failure(
-        DownloadFailure(reason),
-        checkpoint,
-    )
+    ): AudioVideoMuxResult.Failure = AudioVideoMuxResult.Failure(failure, checkpoint)
 
-    private class MuxAbort(val reason: DownloadFailureReason) : Exception()
+    private class MuxAbort(val failure: DownloadFailure) : Exception() {
+        constructor(
+            reason: DownloadFailureReason,
+            stage: DownloadFailureStage,
+        ) : this(DownloadFailure(reason, stage = stage))
+    }
 
     private enum class TrackKind(val fileStem: String) {
         VIDEO("video"),
@@ -813,16 +839,3 @@ class AudioVideoMuxEngine(
 }
 
 private fun File.isNonEmptyFile(): Boolean = isFile && length() > 0
-
-private fun IOException.storageFailureReason(): DownloadFailureReason {
-    val text = message.orEmpty().lowercase(Locale.US)
-    return if (
-        "enospc" in text ||
-        "no space left" in text ||
-        "disk full" in text
-    ) {
-        DownloadFailureReason.INSUFFICIENT_STORAGE
-    } else {
-        DownloadFailureReason.STORAGE_UNAVAILABLE
-    }
-}

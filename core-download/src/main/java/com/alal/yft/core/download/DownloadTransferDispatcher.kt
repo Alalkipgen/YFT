@@ -11,6 +11,7 @@ import com.alal.yft.core.model.download.DirectTransferCheckpoint
 import com.alal.yft.core.model.download.DirectTransferResult
 import com.alal.yft.core.model.download.DownloadFailure
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.DownloadFailureStage
 import com.alal.yft.core.model.download.DownloadPlan
 import com.alal.yft.core.model.download.DownloadProgress
 import com.alal.yft.core.model.download.HlsDownloadPlan
@@ -130,7 +131,10 @@ class DefaultDownloadTransferDispatcher(
         onCheckpoint: suspend (TransferCheckpoint) -> Unit,
     ): QueueTransferResult {
         val safeMetadata = metadata ?: return QueueTransferResult.Failure(
-            failure = DownloadFailure(DownloadFailureReason.MALFORMED_RESPONSE),
+            failure = DownloadFailure(
+                DownloadFailureReason.MALFORMED_RESPONSE,
+                stage = DownloadFailureStage.CONNECT,
+            ),
             checkpoint = resumeFrom ?: DirectTransferCheckpoint(
                 totalBytes = plan.expectedBytes,
                 entityTag = null,

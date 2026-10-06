@@ -3,6 +3,7 @@ package com.alal.yft.feature.downloads
 import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.download.DownloadPlanType
 import com.alal.yft.core.download.StoredDownloadTask
+import com.alal.yft.core.model.download.DownloadFailure
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.settings.DownloadLocation
@@ -123,6 +124,11 @@ data class DownloadRowUiState(
     val updatedAtEpochMs: Long = 0L,
     /** Smoothed speed while running, measured in memory by this process only. */
     val bytesPerSecond: Long? = null,
+    /**
+     * The failure behind [failureReason] with its stage, HTTP status and detail when they are
+     * known (P21), for the Details dialog; null when the task has not failed.
+     */
+    val failure: DownloadFailure? = failureReason?.let(::DownloadFailure),
 ) {
     /** The file name without its extension, as the cards show it. */
     val title: String = YftFormat.title(displayName)
@@ -214,6 +220,9 @@ data class DownloadsUiState(
                         destinationUri = task.destinationUri,
                         updatedAtEpochMs = task.updatedAtEpochMs,
                         bytesPerSecond = bytesPerSecond[task.id],
+                        failure = task.failure
+                            ?.takeIf { it.reason == task.failureReason }
+                            ?: task.failureReason?.let(::DownloadFailure),
                     )
                 },
         )

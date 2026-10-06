@@ -43,6 +43,12 @@ data class DownloadRecordEntity(
     val checkpointPayload: String? = null,
     @ColumnInfo(name = "updated_at_epoch_ms", defaultValue = "0")
     val updatedAtEpochMs: Long = createdAtEpochMs,
+    /**
+     * Where and why the last attempt failed, next to [lastErrorCode] (P21): the stage, the HTTP
+     * status and a short detail without addresses or tokens, as written by the download store.
+     */
+    @ColumnInfo(name = "last_error_detail")
+    val lastErrorDetail: String? = null,
 ) {
     init {
         require(id.isNotBlank())
@@ -79,6 +85,8 @@ data class DownloadRecordEntity(
         append(!checkpointPayload.isNullOrBlank())
         append(", requiresLinkRefresh=")
         append(requiresLinkRefresh)
+        append(", lastErrorDetailPresent=")
+        append(!lastErrorDetail.isNullOrBlank())
         append(')')
     }
 }

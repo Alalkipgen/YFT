@@ -4,6 +4,7 @@ import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
+import com.alal.yft.core.model.download.DownloadFailureDetails
 import com.alal.yft.core.model.download.DownloadFailureReason
 import java.io.File
 import java.io.IOException
@@ -77,11 +78,14 @@ class AndroidAudioExtractor : LocalAudioExtractor {
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (error: IOException) {
-            Mp3TranscodeResult.Failure(error.storageFailureReason())
-        } catch (_: IllegalStateException) {
-            Mp3TranscodeResult.Failure(DownloadFailureReason.INCOMPATIBLE_TRACKS)
-        } catch (_: IllegalArgumentException) {
-            Mp3TranscodeResult.Failure(DownloadFailureReason.INCOMPATIBLE_TRACKS)
+            Mp3TranscodeResult.Failure(
+                error.storageFailureReason(),
+                DownloadFailureDetails.of(error),
+            )
+        } catch (error: IllegalStateException) {
+            incompatible(error)
+        } catch (error: IllegalArgumentException) {
+            incompatible(error)
         } finally {
             muxer?.let { mux ->
                 if (started) runCatching { mux.stop() }
@@ -90,6 +94,11 @@ class AndroidAudioExtractor : LocalAudioExtractor {
             extractor.release()
         }
     }
+
+    private fun incompatible(error: Exception) = Mp3TranscodeResult.Failure(
+        DownloadFailureReason.INCOMPATIBLE_TRACKS,
+        DownloadFailureDetails.of(error),
+    )
 
     private fun IOException.storageFailureReason(): DownloadFailureReason {
         val text = message.orEmpty().lowercase(Locale.US)

@@ -61,8 +61,8 @@ class AudioExtractorInstrumentedTest {
         )
 
         assertEquals(
-            Mp3TranscodeResult.Failure(DownloadFailureReason.INCOMPATIBLE_TRACKS),
-            result,
+            DownloadFailureReason.INCOMPATIBLE_TRACKS,
+            (result as Mp3TranscodeResult.Failure).reason,
         )
     }
 

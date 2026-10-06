@@ -3,6 +3,7 @@ package com.alal.yft.feature.downloads
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.widget.Toast
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
@@ -29,6 +30,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -45,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -54,6 +59,7 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -64,6 +70,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.alal.yft.BuildConfig
 import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.download.policy.TransferNetworkState
@@ -453,6 +460,7 @@ private fun cardActions(
     onAction: (DownloadAction, String) -> Unit,
     onOpen: (DownloadRowUiState) -> Unit,
     onPlay: (DownloadRowUiState) -> Unit,
+    onDetails: () -> Unit,
 ): List<CardAction> = buildList {
     if (row.status == DownloadTaskStatus.COMPLETED) {
         add(CardAction("Play", "download-menu-play-${row.id}", YftIcons.Play) { onPlay(row) })
@@ -471,6 +479,16 @@ private fun cardActions(
                 },
             )
         }
+    if (row.status == DownloadTaskStatus.FAILED) {
+        add(
+            CardAction(
+                label = "Failure details",
+                tag = "download-menu-details-${row.id}",
+                icon = YftIcons.Info,
+                run = onDetails,
+            ),
+        )
+    }
 }
 
 @DrawableRes
@@ -493,7 +511,8 @@ private fun DownloadCard(
 ) {
     val colors = YftTheme.colors
     var menuOpen by remember { mutableStateOf(false) }
-    val actions = cardActions(row, onAction, onOpen, onPlay)
+    var detailsOpen by remember { mutableStateOf(false) }
+    val actions = cardActions(row, onAction, onOpen, onPlay) { detailsOpen = true }
     Box(modifier = modifier.fillMaxWidth()) {
         YftCard(
             modifier = Modifier
@@ -513,7 +532,12 @@ private fun DownloadCard(
             when (row.status) {
                 DownloadTaskStatus.COMPLETED -> FinishedRow(row = row, onPlay = onPlay)
                 in PROGRESS_STATUSES -> ProgressRow(row = row, onAction = onAction)
-                else -> StatusRow(row = row, network = network, onAction = onAction)
+                else -> StatusRow(
+                    row = row,
+                    network = network,
+                    onAction = onAction,
+                    onDetails = { detailsOpen = true },
+                )
             }
         }
         Box(modifier = Modifier.align(Alignment.BottomEnd)) {
@@ -543,6 +567,63 @@ private fun DownloadCard(
             }
         }
     }
+    if (detailsOpen && row.status == DownloadTaskStatus.FAILED) {
+        FailureDetailsDialog(row = row, onDismiss = { detailsOpen = false })
+    }
+}
+
+/**
+ * What failed, where and on which phone (P21), with Copy details for a bug report. The text
+ * holds no file name, link or address ([failureDetailsText]).
+ */
+@Composable
+internal fun FailureDetailsDialog(
+    row: DownloadRowUiState,
+    onDismiss: () -> Unit,
+    appVersion: String = BuildConfig.VERSION_NAME,
+    androidRelease: String = Build.VERSION.RELEASE.orEmpty(),
+    sdkInt: Int = Build.VERSION.SDK_INT,
+) {
+    val colors = YftTheme.colors
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    val text = remember(row, appVersion, androidRelease, sdkInt) {
+        failureDetailsText(row, appVersion, androidRelease, sdkInt)
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.testTag("download-failure-dialog"),
+        title = { Text("Failure details", color = colors.textPrimary) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                SelectionContainer {
+                    Text(
+                        text = text,
+                        modifier = Modifier.testTag("download-failure-text"),
+                        color = colors.textPrimary,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            YftTextButton(
+                text = "Copy details",
+                onClick = {
+                    clipboard.setText(AnnotatedString(text))
+                    // Android 13 and later confirm a copy themselves.
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                        Toast.makeText(context, "Details copied", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                modifier = Modifier.testTag("download-failure-copy"),
+            )
+        },
+        dismissButton = {
+            YftTextButton("Close", onDismiss, Modifier.testTag("download-failure-close"))
+        },
+        containerColor = colors.card,
+    )
 }
 
 /** Running, paused or finishing: meta and percent, the bar, then amount, speed and time left. */
@@ -626,12 +707,16 @@ private fun ProgressRow(
     }
 }
 
-/** Queued, waiting, failed or cancelled: meta, the status pill and Retry or Remove. */
+/**
+ * Queued, waiting, failed or cancelled: meta, the status pill and Retry or Remove; a failed
+ * download also offers its Details.
+ */
 @Composable
 private fun StatusRow(
     row: DownloadRowUiState,
     network: TransferNetworkState,
     onAction: (DownloadAction, String) -> Unit,
+    onDetails: () -> Unit,
 ) {
     val colors = YftTheme.colors
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -667,6 +752,13 @@ private fun StatusRow(
                         .testTag("download-refresh-note-${row.id}"),
                     color = colors.coralText,
                     style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            if (row.status == DownloadTaskStatus.FAILED) {
+                YftTextButton(
+                    text = "Details",
+                    onClick = onDetails,
+                    modifier = Modifier.testTag("download-failure-details"),
                 )
             }
         }

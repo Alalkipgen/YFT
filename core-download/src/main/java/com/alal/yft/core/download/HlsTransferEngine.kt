@@ -1,7 +1,15 @@
 package com.alal.yft.core.download
 
 import com.alal.yft.core.model.download.DownloadFailure
+import com.alal.yft.core.model.download.DownloadFailureDetails
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.DownloadFailureStage
+import com.alal.yft.core.model.download.DownloadFailureStage.CONNECT
+import com.alal.yft.core.model.download.DownloadFailureStage.OPEN_FILE
+import com.alal.yft.core.model.download.DownloadFailureStage.PUBLISH
+import com.alal.yft.core.model.download.DownloadFailureStage.READ_SOURCE
+import com.alal.yft.core.model.download.DownloadFailureStage.VERIFY
+import com.alal.yft.core.model.download.DownloadFailureStage.WRITE_FILE
 import com.alal.yft.core.model.download.DownloadProgress
 import com.alal.yft.core.model.download.HlsDownloadPlan
 import com.alal.yft.core.model.download.HlsTransferCheckpoint
@@ -94,19 +102,19 @@ class HlsTransferEngine(
         val emptyCheckpoint = HlsTransferCheckpoint(null, emptyList())
         val credentialOrigin = plan.playlistUrl.toSafeDownloadUrl()
             ?: return@withContext failure(
-                DownloadFailureReason.INVALID_URL,
+                DownloadFailure(DownloadFailureReason.INVALID_URL, stage = CONNECT),
                 emptyCheckpoint,
             )
         if (plan.expiresAtEpochMs?.let { it <= clock() } == true) {
             return@withContext failure(
-                DownloadFailureReason.EXPIRED_URL,
+                DownloadFailure(DownloadFailureReason.EXPIRED_URL, stage = CONNECT),
                 emptyCheckpoint,
             )
         }
         val workspace = try {
             prepareWorkspace(plan)
         } catch (error: IOException) {
-            return@withContext failure(error.storageFailureReason(), emptyCheckpoint)
+            return@withContext failure(error.toStorageFailure(OPEN_FILE), emptyCheckpoint)
         }
 
         var tracker: HlsCheckpointTracker? = null
@@ -120,13 +128,13 @@ class HlsTransferEngine(
                 )
             ) {
                 HlsDownloadManifestParser.Result.DrmProtected ->
-                    throw HlsAbort(DownloadFailureReason.DRM_PROTECTED)
+                    throw HlsAbort(DownloadFailureReason.DRM_PROTECTED, stage = READ_SOURCE)
                 HlsDownloadManifestParser.Result.Unsupported ->
-                    throw HlsAbort(DownloadFailureReason.UNSUPPORTED_SOURCE)
+                    throw HlsAbort(DownloadFailureReason.UNSUPPORTED_SOURCE, stage = READ_SOURCE)
                 HlsDownloadManifestParser.Result.TooManyChunks ->
-                    throw HlsAbort(DownloadFailureReason.UNSUPPORTED_SOURCE)
+                    throw HlsAbort(DownloadFailureReason.UNSUPPORTED_SOURCE, stage = READ_SOURCE)
                 HlsDownloadManifestParser.Result.Malformed ->
-                    throw HlsAbort(DownloadFailureReason.MALFORMED_RESPONSE)
+                    throw HlsAbort(DownloadFailureReason.MALFORMED_RESPONSE, stage = READ_SOURCE)
                 is HlsDownloadManifestParser.Result.Parsed -> result
             }
             val initial = reconcileCheckpoint(
@@ -164,7 +172,7 @@ class HlsTransferEngine(
 
             val completedCheckpoint = activeTracker.snapshot()
             if (completedCheckpoint.completedChunkCount != parsed.chunks.size) {
-                throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH)
+                throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
             }
             val bytesWritten = assemble(
                 workspace = workspace,
@@ -172,7 +180,7 @@ class HlsTransferEngine(
                 destination = destination,
             )
             if (bytesWritten != completedCheckpoint.downloadedBytes) {
-                throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH)
+                throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
             }
             cleanupWorkspace(workspace, strict = false)
             HlsTransferResult.Completed(bytesWritten, completedCheckpoint)
@@ -182,17 +190,19 @@ class HlsTransferEngine(
             }
             throw cancellation
         } catch (abort: HlsAbort) {
-            if (abort.reason in NON_RESUMABLE_FAILURES) {
+            if (abort.failure.reason in NON_RESUMABLE_FAILURES) {
                 cleanupWorkspace(workspace, strict = false)
             }
             HlsTransferResult.Failure(
-                failure = DownloadFailure(abort.reason, abort.httpStatusCode),
+                failure = abort.failure,
                 checkpoint = tracker?.snapshot()
                     ?: emptyCheckpoint,
             )
         } catch (error: IOException) {
+            // Source errors are retried and end as HlsAborts; an I/O error here comes from the
+            // chunk files of the task's workspace.
             HlsTransferResult.Failure(
-                failure = DownloadFailure(error.storageFailureReason()),
+                failure = error.toStorageFailure(WRITE_FILE),
                 checkpoint = tracker?.snapshot()
                     ?: emptyCheckpoint,
             )
@@ -216,13 +226,11 @@ class HlsTransferEngine(
                 return fetchManifestOnce(plan, credentialOrigin)
             } catch (retry: RetryableHlsFailure) {
                 lastReason = retry.reason
-                if (attempt == policy.maxAttempts - 1) {
-                    throw HlsAbort(retry.reason, retry.httpStatusCode)
-                }
+                if (attempt == policy.maxAttempts - 1) throw HlsAbort(retry.failure())
                 delay(backoffMillis(attempt))
             }
         }
-        throw HlsAbort(lastReason)
+        throw HlsAbort(lastReason, stage = CONNECT)
     }
 
     private suspend fun fetchManifestOnce(
@@ -238,11 +246,12 @@ class HlsTransferEngine(
                 get()
                 header("Accept", HLS_ACCEPT)
             }
-        } catch (_: IOException) {
-            throw RetryableHlsFailure(DownloadFailureReason.NETWORK)
+        } catch (error: IOException) {
+            throw RetryableHlsFailure.network(CONNECT, error)
         }
         return when (execution) {
-            is SecureDownloadHttp.Result.Failed -> throw HlsAbort(execution.reason)
+            is SecureDownloadHttp.Result.Failed ->
+                throw HlsAbort(execution.reason, stage = CONNECT)
             is SecureDownloadHttp.Result.Completed -> execution.response.use { response ->
                 if (response.code in 500..599) {
                     throw RetryableHlsFailure(
@@ -251,26 +260,26 @@ class HlsTransferEngine(
                     )
                 }
                 if (response.code != 200) {
-                    throw HlsAbort(response.code.toFailureReason(), response.code)
+                    throw HlsAbort(response.code.toFailureReason(), response.code, CONNECT)
                 }
                 if (
                     response.header("Content-Encoding")
                         ?.equals("identity", ignoreCase = true) == false
                 ) {
-                    throw HlsAbort(DownloadFailureReason.MALFORMED_RESPONSE)
+                    throw HlsAbort(DownloadFailureReason.MALFORMED_RESPONSE, stage = CONNECT)
                 }
                 val body = response.body
-                    ?: throw HlsAbort(DownloadFailureReason.MALFORMED_RESPONSE)
+                    ?: throw HlsAbort(DownloadFailureReason.MALFORMED_RESPONSE, stage = CONNECT)
                 if (body.contentLength() > policy.maxManifestBytes) {
-                    throw HlsAbort(DownloadFailureReason.UNSUPPORTED_SOURCE)
+                    throw HlsAbort(DownloadFailureReason.UNSUPPORTED_SOURCE, stage = CONNECT)
                 }
                 val bytes = try {
                     body.byteStream().readAtMost(policy.maxManifestBytes + 1)
-                } catch (_: IOException) {
-                    throw RetryableHlsFailure(DownloadFailureReason.NETWORK)
+                } catch (error: IOException) {
+                    throw RetryableHlsFailure.network(READ_SOURCE, error)
                 }
                 if (bytes.size > policy.maxManifestBytes) {
-                    throw HlsAbort(DownloadFailureReason.UNSUPPORTED_SOURCE)
+                    throw HlsAbort(DownloadFailureReason.UNSUPPORTED_SOURCE, stage = READ_SOURCE)
                 }
                 FetchedManifest(
                     finalUrl = execution.finalUrl,
@@ -335,13 +344,11 @@ class HlsTransferEngine(
                 )
             } catch (retry: RetryableHlsFailure) {
                 lastRetryReason = retry.reason
-                if (attempt == policy.maxAttempts - 1) {
-                    throw HlsAbort(retry.reason, retry.httpStatusCode)
-                }
+                if (attempt == policy.maxAttempts - 1) throw HlsAbort(retry.failure())
                 delay(backoffMillis(attempt))
             }
         }
-        throw HlsAbort(lastRetryReason)
+        throw HlsAbort(lastRetryReason, stage = CONNECT)
     }
 
     private suspend fun downloadChunkOnce(
@@ -369,12 +376,13 @@ class HlsTransferEngine(
                     header("Range", "bytes=${range.offset}-${range.endInclusive}")
                 }
             }
-        } catch (_: IOException) {
-            throw RetryableHlsFailure(DownloadFailureReason.NETWORK)
+        } catch (error: IOException) {
+            throw RetryableHlsFailure.network(CONNECT, error)
         }
         try {
             return when (execution) {
-                is SecureDownloadHttp.Result.Failed -> throw HlsAbort(execution.reason)
+                is SecureDownloadHttp.Result.Failed ->
+                    throw HlsAbort(execution.reason, stage = CONNECT)
                 is SecureDownloadHttp.Result.Completed -> execution.response.use { response ->
                     validateChunkResponse(response, chunk)
                     writeChunk(response, chunk, temporary)
@@ -384,7 +392,7 @@ class HlsTransferEngine(
                     throw IOException("Cannot finalize temporary HLS chunk")
                 }
                 if (ready.length() != bytes) {
-                    throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH)
+                    throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
                 }
             }
         } finally {
@@ -405,40 +413,40 @@ class HlsTransferEngine(
         val range = chunk.byteRange
         if (range == null) {
             if (response.code != 200) {
-                throw HlsAbort(response.code.toFailureReason(), response.code)
+                throw HlsAbort(response.code.toFailureReason(), response.code, CONNECT)
             }
         } else {
             if (response.code != 206) {
-                throw HlsAbort(response.code.toFailureReason(), response.code)
+                throw HlsAbort(response.code.toFailureReason(), response.code, CONNECT)
             }
             val returned = response.header("Content-Range")
                 ?.parseContentRange()
-                ?: throw HlsAbort(DownloadFailureReason.MALFORMED_RESPONSE)
+                ?: throw HlsAbort(DownloadFailureReason.MALFORMED_RESPONSE, stage = CONNECT)
             if (returned.first != range.offset || returned.second != range.endInclusive) {
-                throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH)
+                throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = CONNECT)
             }
         }
         if (
             response.header("Content-Encoding")
                 ?.equals("identity", ignoreCase = true) == false
         ) {
-            throw HlsAbort(DownloadFailureReason.MALFORMED_RESPONSE)
+            throw HlsAbort(DownloadFailureReason.MALFORMED_RESPONSE, stage = CONNECT)
         }
         val advertised = response.header("Content-Length")
             ?.toLongOrNull()
             ?.takeIf { it >= 0 }
         if (advertised != null && advertised > policy.maxChunkBytes) {
-            throw HlsAbort(DownloadFailureReason.UNSUPPORTED_SOURCE)
+            throw HlsAbort(DownloadFailureReason.UNSUPPORTED_SOURCE, stage = CONNECT)
         }
         if (range != null && advertised != null && advertised != range.length) {
-            throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH)
+            throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = CONNECT)
         }
         val mimeType = response.header("Content-Type")
             ?.substringBefore(';')
             ?.trim()
             ?.lowercase(Locale.US)
         if (mimeType == "text/html" || mimeType == "application/xhtml+xml") {
-            throw HlsAbort(DownloadFailureReason.UNSUPPORTED_SOURCE)
+            throw HlsAbort(DownloadFailureReason.UNSUPPORTED_SOURCE, stage = CONNECT)
         }
     }
 
@@ -448,9 +456,14 @@ class HlsTransferEngine(
         destination: File,
     ): Long {
         val body = response.body
-            ?: throw HlsAbort(DownloadFailureReason.MALFORMED_RESPONSE)
+            ?: throw HlsAbort(DownloadFailureReason.MALFORMED_RESPONSE, stage = CONNECT)
+        val file = try {
+            FileOutputStream(destination)
+        } catch (error: IOException) {
+            throw HlsAbort(error.toStorageFailure(OPEN_FILE))
+        }
         return try {
-            FileOutputStream(destination).use { output ->
+            file.use { output ->
                 val input = body.byteStream()
                 val buffer = ByteArray(policy.bufferBytes)
                 var written = 0L
@@ -458,32 +471,38 @@ class HlsTransferEngine(
                     currentCoroutineContext().ensureActive()
                     val read = try {
                         input.read(buffer)
-                    } catch (_: IOException) {
-                        throw RetryableHlsFailure(DownloadFailureReason.NETWORK)
+                    } catch (error: IOException) {
+                        throw RetryableHlsFailure.network(READ_SOURCE, error)
                     }
                     if (read == -1) break
                     if (written > policy.maxChunkBytes - read) {
-                        throw HlsAbort(DownloadFailureReason.UNSUPPORTED_SOURCE)
+                        throw HlsAbort(
+                            DownloadFailureReason.UNSUPPORTED_SOURCE,
+                            stage = READ_SOURCE,
+                        )
                     }
                     try {
                         output.write(buffer, 0, read)
                     } catch (error: IOException) {
-                        throw HlsAbort(error.storageFailureReason())
+                        throw HlsAbort(error.toStorageFailure(WRITE_FILE))
                     }
                     written += read
                 }
                 if (written == 0L) {
-                    throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH)
+                    throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = READ_SOURCE)
                 }
                 chunk.byteRange?.let { range ->
                     if (written != range.length) {
-                        throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH)
+                        throw HlsAbort(
+                            DownloadFailureReason.INTEGRITY_MISMATCH,
+                            stage = READ_SOURCE,
+                        )
                     }
                 }
                 try {
                     output.fd.sync()
                 } catch (error: IOException) {
-                    throw HlsAbort(error.storageFailureReason())
+                    throw HlsAbort(error.toStorageFailure(WRITE_FILE))
                 }
                 written
             }
@@ -494,7 +513,7 @@ class HlsTransferEngine(
         } catch (abort: HlsAbort) {
             throw abort
         } catch (error: IOException) {
-            throw HlsAbort(error.storageFailureReason())
+            throw HlsAbort(error.toStorageFailure(WRITE_FILE))
         }
     }
 
@@ -506,18 +525,22 @@ class HlsTransferEngine(
         val files = chunks.map { chunk ->
             readyFile(workspace, chunk.index)
                 .takeIf(File::isFile)
-                ?: throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH)
+                ?: throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
         }
         val totalBytes = files.fold(0L) { total, file ->
             val length = file.length()
             if (length <= 0 || total > Long.MAX_VALUE - length) {
-                throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH)
+                throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
             }
             total + length
         }
+        // Every call below is on a file, so whatever fails is storage, at the step it reached.
+        var stage = OPEN_FILE
         try {
             destination.prepare(totalBytes)
-            destination.open().use { output ->
+            val output = destination.open()
+            stage = WRITE_FILE
+            output.use {
                 val buffer = ByteArray(policy.bufferBytes)
                 var position = 0L
                 files.forEach { file ->
@@ -533,22 +556,23 @@ class HlsTransferEngine(
                 }
                 output.sync()
                 if (position != totalBytes) {
-                    throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH)
+                    throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
                 }
             }
+            stage = VERIFY
             if (destination.temporaryLength() != totalBytes) {
-                throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH)
+                throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
             }
+            stage = PUBLISH
             destination.commit()
             return totalBytes
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (abort: HlsAbort) {
             throw abort
-        } catch (error: IOException) {
-            throw HlsAbort(error.storageFailureReason())
-        } catch (_: IllegalStateException) {
-            throw HlsAbort(DownloadFailureReason.STORAGE_UNAVAILABLE)
+        } catch (error: Exception) {
+            if (!error.isStorageError()) throw error
+            throw HlsAbort(error.toStorageFailure(stage))
         }
     }
 
@@ -626,41 +650,42 @@ class HlsTransferEngine(
         else -> DownloadFailureReason.HTTP_STATUS
     }
 
-    private fun IOException.storageFailureReason(): DownloadFailureReason {
-        val text = message.orEmpty().lowercase(Locale.US)
-        return if (
-            "enospc" in text ||
-            "no space left" in text ||
-            "disk full" in text
-        ) {
-            DownloadFailureReason.INSUFFICIENT_STORAGE
-        } else {
-            DownloadFailureReason.STORAGE_UNAVAILABLE
-        }
-    }
-
     private fun backoffMillis(attempt: Int): Long {
         if (policy.initialRetryDelayMillis == 0L) return 0
         return policy.initialRetryDelayMillis * (1L shl attempt.coerceAtMost(4))
     }
 
     private fun failure(
-        reason: DownloadFailureReason,
+        failure: DownloadFailure,
         checkpoint: HlsTransferCheckpoint,
-    ): HlsTransferResult.Failure = HlsTransferResult.Failure(
-        DownloadFailure(reason),
-        checkpoint,
-    )
+    ): HlsTransferResult.Failure = HlsTransferResult.Failure(failure, checkpoint)
 
-    private class HlsAbort(
-        val reason: DownloadFailureReason,
-        val httpStatusCode: Int? = null,
-    ) : Exception()
+    private class HlsAbort(val failure: DownloadFailure) : Exception() {
+        constructor(
+            reason: DownloadFailureReason,
+            httpStatusCode: Int? = null,
+            stage: DownloadFailureStage? = null,
+        ) : this(DownloadFailure(reason, httpStatusCode, stage))
+    }
 
+    /** A source failure that another attempt may fix: a network error or a 5xx answer. */
     private class RetryableHlsFailure(
         val reason: DownloadFailureReason,
         val httpStatusCode: Int? = null,
-    ) : Exception()
+        val stage: DownloadFailureStage = CONNECT,
+        val detail: String? = null,
+    ) : Exception() {
+        fun failure(): DownloadFailure = DownloadFailure(reason, httpStatusCode, stage, detail)
+
+        companion object {
+            fun network(stage: DownloadFailureStage, error: IOException): RetryableHlsFailure =
+                RetryableHlsFailure(
+                    reason = DownloadFailureReason.NETWORK,
+                    stage = stage,
+                    detail = DownloadFailureDetails.of(error),
+                )
+        }
+    }
 
     private data class FetchedManifest(
         val finalUrl: HttpUrl,

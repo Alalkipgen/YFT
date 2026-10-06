@@ -38,7 +38,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent A — `work/phase-12-download-fix` (P20, P21; later P26)
 
-- Status: IN PROGRESS — P21 next (started 2026-10-06, base `f434724` = `origin/work/phase-12-integration`)
+- Status: IN PROGRESS — P21 done, its CI next (started 2026-10-06, base `f434724` = `origin/work/phase-12-integration`)
 - Folder `/data/YFT-A`; push with the deploy key (`origin` = SSH).
 - P20 — Video downloads save again: DONE (2026-10-06) — OWNER CHECK on the phone
   - Result: `DirectTransferEngine.transfer` no longer reads the destination before `prepare()` for
@@ -82,8 +82,79 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - Starting state (2026-10-06, before any edit, Agent A validation): BUILD SUCCESSFUL; app 663
   tests (66 skipped), core-data 17, core-download 112, core-model 65, 0 failures; lint 0 errors
   (95 warnings); `:app:compileDebugAndroidTestKotlin` OK.
-- P21 — Retry and failure details: TODO
-- Hand-offs: none
+- P21 — Retry and failure details: DONE (2026-10-06) — OWNER CHECK on the phone
+  - Result: `DownloadFailure` gains `stage` (`DownloadFailureStage`: `CONNECT`, `READ_SOURCE`,
+    `OPEN_FILE`, `WRITE_FILE`, `PUBLISH`, `MERGE`, `CONVERT`, `VERIFY`) and `detail`
+    (`DownloadFailureDetails`: class and message with the first cause; links, IP addresses, host
+    names, Bearer and key=value secrets and long tokens removed; one line, at most 120
+    characters), both default null. Direct, HLS, DASH, merge and MP3 set them where they catch:
+    every destination and workspace call is wrapped (storage reason + stage), source errors are
+    `NETWORK` or the HTTP reason with `CONNECT`/`READ_SOURCE`, an `IllegalStateException` is
+    storage only when a destination call threw it, and a failed close after good writes is a
+    `WRITE_FILE` storage failure. `runTask`'s unexpected exception stays `NETWORK` with its class
+    in the detail. The record keeps them in `last_error_detail` (stage, HTTP status and detail
+    in one column, cleaned again when read; Room version 5, `MIGRATION_4_5`, schema `5.json`).
+    Retry (`DownloadQueue.resume`) of a failed task starts over when the reason is
+    `STORAGE_UNAVAILABLE` or a direct (not MP3) download's partial file is gone, unreadable or
+    shorter than its checkpoint: `DownloadDestination.renew()` makes a new destination of the
+    same kind and name (MediaStore: deletes the pending row, makes a new one; SAF: a new
+    temporary document; app storage: an empty `.part`; one reopened from a saved address returns
+    null and is reused), the engine workspace is discarded, the checkpoint is emptied and the new
+    recovery URI is stored. When no new destination can be made, the task stays failed with the
+    new details (`OPEN_FILE`). Other failures resume as before. Downloads: a failed card shows
+    "Details" (`download-failure-details`) and its menu "Failure details"
+    (`download-menu-details-<id>`); the dialog (`download-failure-dialog`, text
+    `download-failure-text`) lists reason, stage, HTTP status, detail, download type (Direct,
+    MP3, HLS, DASH, Merge), where it is saved (MediaStore, SAF, app storage) and the app and
+    Android versions, never the file name or an address; "Copy details"
+    (`download-failure-copy`) copies that text; "Close" (`download-failure-close`).
+  - Plan adapted: (1) The old engine already called a connection dropped while reading the body
+    `NETWORK`; on `13b4576` that test fails on the missing stage, and "a source error counts as
+    storage" is shown by an `IllegalStateException` from the source (old: `STORAGE_UNAVAILABLE`)
+    in its own test. (2) `INSUFFICIENT_STORAGE` resumes instead of starting over: freeing space
+    fixes a full device, and starting over would throw away the bytes already downloaded.
+    (3) Found while testing: the old engine retried a failed close after good writes as a dropped
+    connection and then published the file; it now fails as `WRITE_FILE`. (4) The Details button
+    keeps the plan's tag `download-failure-details` (one per failed card); the menu item has its
+    own `download-menu-details-<id>`.
+  - Tests: `DirectTransferEngineTest` (write failure, failed close, dropped connection, source
+    `IllegalStateException`); `DownloadQueueTest` (Retry after a storage failure, after a network
+    failure, with the partial file gone, without a new destination); `PublicDownloadDestinationTest`
+    (5 `renew` tests); `Mp3ConvertingTransferDispatcherTest` (stages and the converter's message);
+    `FailureDetailCodecTest`, `RoomDownloadTaskStoreTest`; core-model `DownloadFailureDetailsTest`;
+    core-data `AppDatabaseMigrationTest` 4 → 5 and the 1 → 5 chain; app `DownloadsScreenTest`
+    (Details, Copy details without links, menu, only failed cards), `DownloadLabelsTest`,
+    `DownloadsUiStateTest`. The instrumented MP3/AAC tests now read the failure's reason.
+  - Validation (2026-10-06, Agent A command): BUILD SUCCESSFUL; app 670 tests
+    (66 skipped), core-data 18, core-download 139, core-model 76, 0 failures; lint 0 errors (95
+    warnings); `:app:compileDebugAndroidTestKotlin` OK; line check clean.
+  - Regression proof: with `DirectTransferEngine.kt`, `DownloadQueue.kt`,
+    `Mp3ConvertingTransferDispatcher.kt` and `DownloadsScreen.kt` from `13b4576` (the new model,
+    store and destination files kept so the tests compile; backup `/data/bak/P21/`), 13 new or
+    changed tests fail: `DirectTransferEngineTest` "a failed write is a storage failure of the
+    write step with its detail" (no stage), "a failed close after good writes is a storage
+    failure, not a network one" (`Completed`), "a connection dropped during the body is a network
+    failure of the read step" (no stage), "an illegal state of the source is a network failure,
+    not a storage one" (`STORAGE_UNAVAILABLE`); `DownloadQueueTest` "retry after a storage failure
+    starts over in a new destination and completes", "retry after a network failure resumes its
+    checkpoint in the same destination", "retry when the partial file is gone starts over at byte
+    0", "retry that cannot make a new destination stays failed with the new details";
+    `Mp3ConvertingTransferDispatcherTest` "aVideoWithoutSoundPublishesNothing",
+    "aFileThePhoneCannotDecodePublishesNothingAndFreesTheSpace",
+    "aConversionFailureKeepsTheConverterMessageForTheDetailsDialog"; `DownloadsScreenTest`
+    "failedTaskShowsItsDetailsAndCopiesThemWithoutLinks", "theMenuOfAFailedTaskOpensItsDetails"
+    (no Details). Restored with `cp`, checked with `cmp`.
+  - CI: pending (this checkpoint).
+  - Owner check: airplane mode on during a download → the card fails ("Failed · Network error")
+    → Details shows the reason and a stage, no link → Copy details and paste: no `http` → airplane
+    mode off → Retry → the download finishes and plays.
+- Hand-offs (P26): Room version 5 — `MIGRATION_4_5` adds the nullable
+  `download_records.last_error_detail` (schema `core-data/schemas/.../5.json`); another branch's
+  Room change must come after 5. `DownloadDestination.renew()` (default null: no new destination,
+  the old one is reused); `StoredDownloadTask.failure`; `DownloadFailure(stage, detail)` with
+  defaults; `DirectDownloadPlan.converts` is internal (was private). New testTags:
+  `download-failure-details`, `download-menu-details-<id>`, `download-failure-dialog`,
+  `download-failure-text`, `download-failure-copy`, `download-failure-close`; none removed.
 
 ## Agent B — `work/phase-12-site-qualities` (P22, P23)
 

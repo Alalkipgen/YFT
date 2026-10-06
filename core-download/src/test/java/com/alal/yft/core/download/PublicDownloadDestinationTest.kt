@@ -5,9 +5,11 @@ import com.alal.yft.core.model.download.DirectTransferCheckpoint
 import com.alal.yft.core.model.download.DirectTransferResult
 import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.media.BrowserRequestContext
+import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.net.InetAddress
+import java.nio.file.Files
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.Dispatcher
@@ -18,6 +20,7 @@ import okio.Buffer
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -153,6 +156,97 @@ class PublicDownloadDestinationTest {
             Rename("content://documents/temp/recovered", "recovered.mp4"),
             store.renames.single(),
         )
+    }
+
+    /** P21: a Retry that starts over writes into a new pending row of the same name. */
+    @Test
+    fun `renew replaces the MediaStore row with a new empty one of the same name`() {
+        val store = FakePublicContentStore()
+        val destination = MediaStoreDownloadDestination.create(
+            store = store,
+            displayName = "clip.mp4",
+            mimeType = "video/mp4",
+        )
+
+        val renewed = requireNotNull(destination.renew())
+
+        assertEquals(listOf("content://media/pending/1"), store.deletedMedia)
+        assertEquals("content://media/pending/2", renewed.recoveryUri)
+        assertEquals(store.pendingMedia[0], store.pendingMedia[1])
+        renewed.prepare(expectedLength = 4)
+        renewed.commit()
+        assertEquals(listOf("content://media/pending/2"), store.publishedMedia)
+    }
+
+    @Test
+    fun `renew replaces the SAF temporary document with a new one of the same name`() {
+        val store = FakePublicContentStore()
+        val destination = SafDownloadDestination.create(
+            store = store,
+            treeUri = "content://documents/tree/downloads",
+            displayName = "final.mp4",
+            mimeType = "video/mp4",
+            temporaryId = "task-1",
+        )
+
+        val renewed = requireNotNull(destination.renew())
+
+        assertEquals(listOf("content://documents/temp/1"), store.deletedDocuments)
+        assertEquals("content://documents/temp/2", renewed.recoveryUri)
+        assertEquals(store.temporaryDocuments[0], store.temporaryDocuments[1])
+    }
+
+    @Test
+    fun `a reopened destination is kept as it is and nothing is deleted`() {
+        val store = FakePublicContentStore()
+        val media = MediaStoreDownloadDestination.resume(
+            store = store,
+            pendingItemUri = "content://media/pending/recovered",
+        )
+        val document = SafDownloadDestination.resume(
+            store = store,
+            temporaryDocumentUri = "content://documents/temp/recovered",
+            displayName = "recovered.mp4",
+        )
+
+        assertNull(media.renew())
+        assertNull(document.renew())
+        assertTrue(store.deletedMedia.isEmpty())
+        assertTrue(store.deletedDocuments.isEmpty())
+        assertTrue(store.pendingMedia.isEmpty())
+        assertTrue(store.temporaryDocuments.isEmpty())
+    }
+
+    @Test
+    fun `a published destination is never renewed`() {
+        val store = FakePublicContentStore()
+        val destination = MediaStoreDownloadDestination.create(
+            store = store,
+            displayName = "clip.mp4",
+            mimeType = "video/mp4",
+        )
+        destination.prepare(expectedLength = 4)
+        destination.commit()
+
+        assertThrows(IllegalStateException::class.java) { destination.renew() }
+        assertTrue(store.deletedMedia.isEmpty())
+        assertEquals(1, store.pendingMedia.size)
+    }
+
+    @Test
+    fun `renew empties the partial file of an app storage download`() {
+        val folder = Files.createTempDirectory("renew").toFile()
+        try {
+            val partial = File(folder, "clip.mp4.part").apply { writeBytes(ByteArray(8)) }
+            val destination = FileDownloadDestination(partial, File(folder, "clip.mp4"))
+
+            val renewed = destination.renew()
+
+            assertEquals(0L, renewed.temporaryLength())
+            assertTrue(partial.isFile)
+        } finally {
+            folder.deleteRecursively()
+        }
     }
 
     @Test

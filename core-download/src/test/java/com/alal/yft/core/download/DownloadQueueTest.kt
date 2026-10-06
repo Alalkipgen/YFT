@@ -3,12 +3,16 @@ package com.alal.yft.core.download
 import com.alal.yft.core.model.download.DirectDownloadPlan
 import com.alal.yft.core.model.download.DirectTransferCheckpoint
 import com.alal.yft.core.model.download.DirectTransferResult
+import com.alal.yft.core.model.download.DownloadFailure
+import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.DownloadFailureStage
 import com.alal.yft.core.model.download.DownloadProgress
 import com.alal.yft.core.model.download.DownloadSegment
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.download.Mp3Encoding
 import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.media.BrowserRequestContext
+import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -20,6 +24,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -208,6 +213,119 @@ class DownloadQueueTest {
         )
     }
 
+    /**
+     * P21: a Retry after the file itself failed starts over at byte 0 in a new destination of
+     * the same name. The old queue resumed the checkpoint in the broken one and failed again.
+     */
+    @Test
+    fun `retry after a storage failure starts over in a new destination and completes`() =
+        runTest {
+            val healthy = TestDestination(recoveryUri = "content://media/pending/2")
+            val broken = TestDestination(
+                recoveryUri = "content://media/pending/1",
+                renewed = healthy,
+            )
+            val runner = ScriptedRunner { _, destination ->
+                if (destination === broken) STORAGE_FAILURE else null
+            }
+            val store = InMemoryStore()
+            val queue = DownloadQueue(store, runner, backgroundScope, maxConcurrentDownloads = 1)
+            queue.enqueue(
+                plan = plan("storage"),
+                metadata = metadata(),
+                destination = broken,
+                destinationSpec = DownloadDestinationSpec(DownloadDestinationKind.MEDIA_STORE),
+            )
+            runCurrent()
+            val failed = queue.tasks.value.single()
+            assertEquals(DownloadTaskStatus.FAILED, failed.status)
+            assertEquals(STORAGE_FAILURE, failed.failure)
+            assertEquals(STORAGE_FAILURE, store.snapshot().single().failure)
+            assertEquals(PARTIAL_BYTES, failed.downloadedBytes)
+
+            queue.resume("storage")
+            runCurrent()
+
+            val done = queue.tasks.value.single()
+            assertEquals(DownloadTaskStatus.COMPLETED, done.status)
+            assertNull(done.failureReason)
+            assertNull(done.failure)
+            assertEquals(listOf<DownloadDestination>(broken, healthy), runner.destinations)
+            assertEquals("The retry starts at byte 0", listOf(0L, 0L), runner.resumedFrom)
+            assertEquals(1, broken.renewals.get())
+            assertEquals("content://media/pending/2", done.destinationUri)
+            assertEquals("content://media/pending/2", store.snapshot().single().destinationUri)
+        }
+
+    /** P21: a dropped connection keeps its partial file, so the Retry resumes it. */
+    @Test
+    fun `retry after a network failure resumes its checkpoint in the same destination`() =
+        runTest {
+            val destination = TestDestination(length = TOTAL_BYTES)
+            val runner = ScriptedRunner { call, _ -> NETWORK_FAILURE.takeIf { call == 0 } }
+            val queue = DownloadQueue(
+                InMemoryStore(),
+                runner,
+                backgroundScope,
+                maxConcurrentDownloads = 1,
+            )
+            queue.enqueue(plan("network-retry"), metadata(), destination)
+            runCurrent()
+            assertEquals(NETWORK_FAILURE, queue.tasks.value.single().failure)
+
+            queue.resume("network-retry")
+            runCurrent()
+
+            assertEquals(DownloadTaskStatus.COMPLETED, queue.tasks.value.single().status)
+            assertNull(queue.tasks.value.single().failure)
+            assertEquals(
+                listOf<DownloadDestination>(destination, destination),
+                runner.destinations,
+            )
+            assertEquals(listOf(0L, PARTIAL_BYTES), runner.resumedFrom)
+            assertEquals(0, destination.renewals.get())
+        }
+
+    /** P21: when the partial file is gone, resuming its checkpoint cannot work; start over. */
+    @Test
+    fun `retry when the partial file is gone starts over at byte 0`() = runTest {
+        val replacement = TestDestination(length = 0)
+        val destination = TestDestination(length = null, renewed = replacement)
+        val runner = ScriptedRunner { call, _ -> NETWORK_FAILURE.takeIf { call == 0 } }
+        val queue = DownloadQueue(InMemoryStore(), runner, backgroundScope)
+        queue.enqueue(plan("gone"), metadata(), destination)
+        runCurrent()
+
+        queue.resume("gone")
+        runCurrent()
+
+        assertEquals(DownloadTaskStatus.COMPLETED, queue.tasks.value.single().status)
+        assertEquals(listOf<DownloadDestination>(destination, replacement), runner.destinations)
+        assertEquals(listOf(0L, 0L), runner.resumedFrom)
+    }
+
+    /** P21: a Retry that cannot make a new file stays failed, with the new error's details. */
+    @Test
+    fun `retry that cannot make a new destination stays failed with the new details`() =
+        runTest {
+            val denied = IOException("EACCES (Permission denied)")
+            val destination = TestDestination(renewError = denied)
+            val runner = ScriptedRunner { _, _ -> STORAGE_FAILURE }
+            val queue = DownloadQueue(InMemoryStore(), runner, backgroundScope)
+            queue.enqueue(plan("no-new-file"), metadata(), destination)
+            runCurrent()
+
+            queue.resume("no-new-file")
+            runCurrent()
+
+            val task = queue.tasks.value.single()
+            assertEquals(DownloadTaskStatus.FAILED, task.status)
+            assertEquals(DownloadFailureReason.STORAGE_UNAVAILABLE, task.failureReason)
+            assertEquals(DownloadFailureStage.OPEN_FILE, task.failure?.stage)
+            assertEquals("IOException: EACCES (Permission denied)", task.failure?.detail)
+            assertEquals("No second transfer", 1, runner.destinations.size)
+        }
+
     private fun plan(id: String): DirectDownloadPlan = DirectDownloadPlan(
         taskId = id,
         sourceUrl = "http://localhost/file.bin",
@@ -342,8 +460,81 @@ class DownloadQueueTest {
         }
     }
 
+    /**
+     * Records each transfer. A call fails with what [outcome] returns for it after writing
+     * [PARTIAL_BYTES] more bytes, or completes the file when it returns null.
+     */
+    private class ScriptedRunner(
+        private val outcome: (call: Int, destination: DownloadDestination) -> DownloadFailure?,
+    ) : DirectTransferRunner {
+        val destinations = mutableListOf<DownloadDestination>()
+        val resumedFrom = mutableListOf<Long>()
+
+        override suspend fun transfer(
+            plan: DirectDownloadPlan,
+            metadata: RemoteFileMetadata,
+            destination: DownloadDestination,
+            resumeFrom: DirectTransferCheckpoint?,
+            onProgress: suspend (DownloadProgress) -> Unit,
+            onCheckpoint: suspend (DirectTransferCheckpoint) -> Unit,
+        ): DirectTransferResult {
+            val call = destinations.size
+            destinations += destination
+            val start = resumeFrom?.downloadedBytes ?: 0L
+            resumedFrom += start
+            val failure = outcome(call, destination)
+            if (failure != null) {
+                val partial = checkpointAt(start + PARTIAL_BYTES)
+                onCheckpoint(partial)
+                return DirectTransferResult.Failure(failure, partial)
+            }
+            val completed = checkpointAt(TOTAL_BYTES)
+            onCheckpoint(completed)
+            return DirectTransferResult.Completed(TOTAL_BYTES, completed)
+        }
+    }
+
+    /** A destination whose partial file has [length] bytes and that renews into [renewed]. */
+    private class TestDestination(
+        override val recoveryUri: String? = null,
+        private val length: Long? = 0,
+        private val renewed: DownloadDestination? = null,
+        private val renewError: IOException? = null,
+    ) : DownloadDestination {
+        val renewals = AtomicInteger()
+
+        override fun prepare(expectedLength: Long?) = Unit
+        override fun temporaryLength(): Long? = length
+        override fun open(): SeekableDownloadOutput = error("Runner owns no real output")
+        override fun commit() = Unit
+        override fun discard() = Unit
+        override fun renew(): DownloadDestination? {
+            renewals.incrementAndGet()
+            renewError?.let { throw it }
+            return renewed
+        }
+    }
+
     private companion object {
         const val TOTAL_BYTES = 10L
+        const val PARTIAL_BYTES = 4L
         const val ETAG = "\"fixture\""
+        val STORAGE_FAILURE = DownloadFailure(
+            reason = DownloadFailureReason.STORAGE_UNAVAILABLE,
+            stage = DownloadFailureStage.WRITE_FILE,
+            detail = "IOException: EIO (I/O error)",
+        )
+        val NETWORK_FAILURE = DownloadFailure(
+            reason = DownloadFailureReason.NETWORK,
+            stage = DownloadFailureStage.READ_SOURCE,
+            detail = "SocketException: Connection reset",
+        )
+
+        fun checkpointAt(downloaded: Long) = DirectTransferCheckpoint(
+            totalBytes = TOTAL_BYTES,
+            entityTag = ETAG,
+            lastModified = null,
+            segments = listOf(DownloadSegment(0, 0, TOTAL_BYTES - 1, downloaded)),
+        )
     }
 }

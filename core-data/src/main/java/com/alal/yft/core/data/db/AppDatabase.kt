@@ -17,7 +17,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun downloadRecordDao(): DownloadRecordDao
 
     companion object {
-        const val VERSION = 4
+        const val VERSION = 5
         const val NAME = "yft.db"
 
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -109,6 +109,16 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL(
                     "ALTER TABLE download_records " +
                         "ADD COLUMN checkpoint_payload TEXT DEFAULT NULL",
+                )
+            }
+        }
+
+        /** P21: the stage, HTTP status and detail of the last failure. */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE download_records " +
+                        "ADD COLUMN last_error_detail TEXT DEFAULT NULL",
                 )
             }
         }
