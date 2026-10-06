@@ -52,7 +52,19 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent C — `work/phase-12-generic-sheet` (P24, P25)
 
-- Status: NOT STARTED
-- P24 — Other sites: main video: TODO
+- Status: P24 IN PROGRESS (started 2026-10-06; base commit `f434724` =
+  `origin/work/phase-12-integration`; folder `/data/YFT-C`)
+- Environment (Notion sandbox, fresh after a reset): JDK 17 `/data/toolchains/jdk17`, SDK
+  `/data/toolchains/android-sdk` (platform 35, build-tools 35.0.0, NDK 27.3.13750724, CMake
+  3.22.1), `GRADLE_USER_HOME=/data/gradle-home` with `org.gradle.jvmargs=-Xmx1536m
+  -XX:MaxMetaspaceSize=640m`, a 4 GiB swap file against out-of-memory kills.
+- Starting state (before any edit, `f434724`): Agent C scope validation `./gradlew --no-daemon
+  --continue :core-model:test :core-browser:testDebugUnitTest :core-media:testDebugUnitTest
+  :extractor-generic:test :app:testDebugUnitTest :app:lintDebug` → BUILD SUCCESSFUL (9 m 48 s):
+  848 tests, 0 failures, 66 skipped (app 663, core-browser 81, core-media 25, core-model 65,
+  extractor-generic 14); lint 0 errors, 95 warnings.
+- P24 — Other sites: main video: IN PROGRESS
 - P25 — One sheet for every site: TODO
 - Hand-offs: none
+- Next: P24 steps 1–5 (playing-video probe, ranking, Home page signals, found count, honest
+  failures), then its tests and regression proof.
