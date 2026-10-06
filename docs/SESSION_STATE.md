@@ -45,9 +45,16 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent B — `work/phase-12-site-qualities` (P22, P23)
 
-- Status: NOT STARTED
-- P22 — YouTube: every quality: TODO
+- Status: IN PROGRESS — P22 (started 2026-10-06 in `/data/YFT-B`; base `f434724` =
+  `origin/work/phase-12-integration`)
+- P22 — YouTube: every quality: IN PROGRESS (2026-10-06)
 - P23 — Facebook: every quality: TODO
+- Starting state before any edit (2026-10-06, `f434724`): `:extractor-api:test` 32 tests,
+  `:extractor-sites:test` 181, `:app:testDebugUnitTest` 663 (66 skipped), 0 failures;
+  `:app:lintDebug` 0 errors, 95 warnings. Run as four sequential `./gradlew --no-daemon
+  --continue --max-workers=1` invocations with the same tasks (Gradle heap 1280/1536/768/1536 MiB,
+  metaspace 768 MiB, Kotlin in-process): one invocation with every task was OOM-killed on the
+  4 GiB sandbox (Gradle daemon and the Robolectric test JVM together).
 - Hand-offs: none
 
 ## Agent C — `work/phase-12-generic-sheet` (P24, P25)
