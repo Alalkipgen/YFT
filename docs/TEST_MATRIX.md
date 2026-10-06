@@ -877,7 +877,11 @@ own heading below. Owner's Preview #3 findings (2026-10-06): FIX_ADD_PLAN §2 an
 
 | Check | Evidence |
 | --- | --- |
-| (Agent A adds rows here) | — |
+| P20 fresh direct download into a destination whose length cannot be read before `prepare()` (a new MediaStore row) | `DirectTransferEngineTest` "a fresh download into a destination without a file until prepare completes" (no checkpoint and the queue's empty one); fails on `f434724`: `STORAGE_UNAVAILABLE` at 0 B |
+| P20 resume whose length read fails | `DirectTransferEngineTest` "a resume whose length read fails starts again at byte 0 and completes" (asks `bytes=0-9`, `bytes=10-19`; first checkpoint 0 B); fails on `f434724`: `STORAGE_UNAVAILABLE` |
+| P20 Android-like fake store (a new MediaStore row has no file until its first "rw" open) | `PublicDownloadDestinationTest` "a new MediaStore item has no file until prepare opens it for writing"; "a direct download into a new MediaStore item completes and is published" (real `MediaStoreDownloadDestination` + `DirectTransferEngine`, 4 ranges, bytes equal; fails on `f434724`) |
+| P20 real MediaStore (CI emulator, API 34) | `MediaStoreDownloadInstrumentedTest`: (a) new row → `temporaryLength()` does not throw → `prepare(1 MiB)` → 4 out-of-order writes → `commit()` → 1 MiB, not pending, `Download/YFT/`, bytes equal; (b) real `DirectTransferEngine`, in-memory interceptor (200/206, no network) → 3 MiB in 4 ranges → `Completed`, bytes equal; (c) `discard()` removes the pending row |
+| P20 other engines and destinations | HLS, DASH, merge (`AudioVideoMuxEngine`) and MP3 call `prepare()` before any destination read; a SAF temporary document and the app-private `.part` file exist from creation (no change needed) |
 
 ### Agent B — P22, P23
 

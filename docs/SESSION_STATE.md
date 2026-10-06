@@ -38,11 +38,47 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent A — `work/phase-12-download-fix` (P20, P21; later P26)
 
-- Status: IN PROGRESS — P20 (started 2026-10-06, base `f434724` = `origin/work/phase-12-integration`)
+- Status: IN PROGRESS — P21 next (started 2026-10-06, base `f434724` = `origin/work/phase-12-integration`)
 - Folder `/data/YFT-A`; push with the deploy key (`origin` = SSH).
-- P20 — Video downloads save again: IN PROGRESS — code and tests written; core-download tests
-  116/0 failures and `:app:compileDebugAndroidTestKotlin` pass; full validation, regression proof
-  and the CI emulator run of `MediaStoreDownloadInstrumentedTest` still to do (wip push).
+- P20 — Video downloads save again: DONE (2026-10-06) — OWNER CHECK on the phone
+  - Result: `DirectTransferEngine.transfer` no longer reads the destination before `prepare()` for
+    a fresh download, so a new pending MediaStore row (no file until its first "rw" open) no
+    longer fails at 0 B with `STORAGE_UNAVAILABLE`. A resume whose length read fails drops its
+    checkpoint, records a 0 B checkpoint and starts again at byte 0.
+    `AndroidPublicContentStore.length()` catches `FileNotFoundException` from the "r" open; it
+    returns null when the row exists (queried with pending rows included: `QUERY_ARG_MATCH_PENDING`
+    on Android 11+, `setIncludePending` on 10) and throws when the row is missing; a
+    `SecurityException` still fails as storage. Other engines and destinations checked: HLS,
+    DASH, merge and MP3 call `prepare()` before any destination read; the SAF temporary
+    document and the app-private `.part` file exist from creation — no change needed.
+  - Plan adapted: (1) "fresh" also means the queue's empty checkpoint — `DownloadQueue` always
+    passes the stored checkpoint, which is empty (0 B, no segments) for a new task, so
+    `resumeFrom == null` alone would have missed every real download; the engine reads the length
+    only when the checkpoint has downloaded bytes. (2) A row without a file counts as empty (null)
+    whatever its stored `SIZE`, because a resume must not trust bytes that are not there.
+  - Tests: `DirectTransferEngineTest` "a fresh download into a destination without a file until
+    prepare completes" (no checkpoint and the queue's empty one), "a resume whose length read
+    fails starts again at byte 0 and completes"; `PublicDownloadDestinationTest` with the
+    Android-like fake (a pending row has no file until its first "rw" open, default on): "a new
+    MediaStore item has no file until prepare opens it for writing", "a direct download into a
+    new MediaStore item completes and is published"; new
+    `app/src/androidTest/.../download/MediaStoreDownloadInstrumentedTest` (a)–(c).
+  - Validation (2026-10-06, Agent A command): BUILD SUCCESSFUL; app 663 tests (66 skipped),
+    core-data 17, core-download 116, core-model 65, 0 failures; lint 0 errors (95 warnings);
+    `:app:compileDebugAndroidTestKotlin` OK; line check clean.
+  - Regression proof: with `DirectTransferEngine.kt` and `PublicDownloadDestination.kt` from
+    `f434724` (backup `/data/bak/P20/`), 3 new tests fail with `STORAGE_UNAVAILABLE` at 0 B:
+    `DirectTransferEngineTest` "a fresh download into a destination without a file until prepare
+    completes" and "a resume whose length read fails starts again at byte 0 and completes",
+    `PublicDownloadDestinationTest` "a direct download into a new MediaStore item completes and is
+    published"; restored with `cp`, checked with `cmp`.
+  - CI (`83c9c3f`, same code): emulator smoke success, "Instrumentation results: tests=23
+    failures=0" (20 before + the 3 MediaStore tests)
+    https://github.com/Alalkipgen/YFT/actions/runs/37488694513; Preview APK success
+    https://github.com/Alalkipgen/YFT/actions/runs/37488694310; checkpoint validation
+    https://github.com/Alalkipgen/YFT/actions/runs/37488694178.
+  - Owner check: YouTube 360p and a Facebook HD file (direct), YouTube 720p (merged), an M4A and an
+    MP3 → all finish and play in the Library.
 - Starting state (2026-10-06, before any edit, Agent A validation): BUILD SUCCESSFUL; app 663
   tests (66 skipped), core-data 17, core-download 112, core-model 65, 0 failures; lint 0 errors
   (95 warnings); `:app:compileDebugAndroidTestKotlin` OK.

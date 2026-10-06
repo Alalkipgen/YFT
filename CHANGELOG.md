@@ -9,7 +9,15 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Phase 12 — Agent A (P20, P21)
 
-- (Agent A: replace this line with the P20 and P21 entries.)
+- **P20 — Video downloads save again (R1).** A fresh direct download (no checkpoint, or the
+  queue's empty one) no longer reads the destination before `prepare()`. A new pending
+  MediaStore row in `Download/YFT` has no file until its first "rw" open, so that read failed and
+  every direct video (YouTube 360p, Facebook HD/SD, other sites' MP4s) ended at once as "Failed ·
+  Storage unavailable" at 0 B; Retry failed the same way. A resume whose length cannot be read
+  now drops its checkpoint and starts again at byte 0 instead of failing.
+  `AndroidPublicContentStore.length()` returns null for a row without a file yet (a missing row or
+  a `SecurityException` still fails as storage). HLS, DASH, merge and MP3 already prepared first.
+  New `MediaStoreDownloadInstrumentedTest` checks the real MediaStore on the CI emulator.
 
 ### Phase 12 — Agent B (P22, P23)
 
