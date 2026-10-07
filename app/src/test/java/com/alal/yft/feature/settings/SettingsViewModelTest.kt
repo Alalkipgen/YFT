@@ -85,6 +85,19 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `the pop-up blocking switch is kept`() = runTest {
+        val viewModel = subscribed()
+        assertTrue(viewModel.uiState.value.browser.blockPopups)
+
+        viewModel.onAction(SettingsAction.SetBlockPopups(false))
+        runCurrent()
+
+        assertFalse(browser.preferences.value.blockPopups)
+        assertFalse(viewModel.uiState.value.browser.blockPopups)
+        assertTrue(browser.preferences.value.saveHistory)
+    }
+
+    @Test
     fun `the browser history switch is kept and the history is cleared after the question`() =
         runTest {
             browserHistory.record("https://example.com/a", "A", 1_000)

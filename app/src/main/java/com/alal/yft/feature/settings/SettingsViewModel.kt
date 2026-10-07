@@ -52,6 +52,7 @@ sealed interface SettingsAction {
     data class SetCheckCopiedLinks(val enabled: Boolean) : SettingsAction
     data class SetSearchEngine(val engine: SearchEngine) : SettingsAction
     data class SetSaveHistory(val enabled: Boolean) : SettingsAction
+    data class SetBlockPopups(val enabled: Boolean) : SettingsAction
     data class Request(val confirmation: SettingsConfirmation) : SettingsAction
     data object Confirm : SettingsAction
     data object Dismiss : SettingsAction
@@ -117,6 +118,10 @@ class SettingsViewModel @Inject constructor(
 
             is SettingsAction.SetSaveHistory -> viewModelScope.launch {
                 browser.update { it.copy(saveHistory = action.enabled) }
+            }
+
+            is SettingsAction.SetBlockPopups -> viewModelScope.launch {
+                browser.update { it.copy(blockPopups = action.enabled) }
             }
 
             is SettingsAction.Request -> transient.update {

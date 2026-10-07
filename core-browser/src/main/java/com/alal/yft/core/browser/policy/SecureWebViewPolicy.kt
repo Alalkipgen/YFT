@@ -18,8 +18,10 @@ object SecureWebViewPolicy {
             allowContentAccess = false
             allowFileAccessFromFileURLs = false
             allowUniversalAccessFromFileURLs = false
+            // P32: a page's new window reaches SecureBrowserChromeClient.onCreateWindow, which
+            // opens it in the current tab or blocks it; scripts still need the user's tap.
             javaScriptCanOpenWindowsAutomatically = false
-            setSupportMultipleWindows(false)
+            setSupportMultipleWindows(true)
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             mediaPlaybackRequiresUserGesture = true
             loadsImagesAutomatically = true

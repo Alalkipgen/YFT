@@ -107,7 +107,9 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.currentStateAsState
 import com.alal.yft.core.browser.policy.SecureWebViewPolicy
+import com.alal.yft.core.browser.webview.BlockedNavigation
 import com.alal.yft.core.browser.webview.BrowserDownloadListener
+import com.alal.yft.core.browser.webview.BrowserNavigationGuard
 import com.alal.yft.core.browser.webview.BrowserObservationSink
 import com.alal.yft.core.browser.webview.BrowserPageUrl
 import com.alal.yft.core.browser.webview.SecureBrowserChromeClient
@@ -161,13 +163,18 @@ fun BrowserRoute(
     val copiedLinkHint = rememberCopiedLinkHint()
     val pageUrlState = remember { BrowserPageUrl() }
     var webView by remember { mutableStateOf<WebView?>(null) }
+    // P32: what the WebView's clients block (Settings › Browser) and the last blocked page.
+    val guard = remember { BrowserNavigationGuard() }
+    SideEffect { guard.enabled = preferences.blockPopups }
+    var blockedNotice by remember { mutableStateOf<BlockedNavigation?>(null) }
     // P31: the detection's view model stays the sink; page loads also reach the history.
     val sink = remember(viewModel, history) {
         val recorder = BrowserHistoryRecorder(
             onVisit = history::recordVisit,
             onTitle = history::renamePage,
         )
-        HistoryRecordingSink(viewModel, recorder, currentTitle = { webView?.title })
+        val recording = HistoryRecordingSink(viewModel, recorder, currentTitle = { webView?.title })
+        BlockedNavigationSink(recording) { blocked -> blockedNotice = blocked }
     }
     // Latch on the first navigation; redirects and later empty/failed pages never recreate it.
     var browserRequested by remember { mutableStateOf(uiState.currentUrl != null) }
@@ -193,6 +200,8 @@ fun BrowserRoute(
 
     fun loadPage(browser: WebView, url: String) {
         pageUrlState.update(url)
+        // Typed, picked or opened from a notice: the user chose it, so it may redirect.
+        guard.userNavigation()
         browser.loadUrl(url)
     }
 
@@ -329,6 +338,7 @@ fun BrowserRoute(
                     sink = sink,
                     pageUrlState = pageUrlState,
                     fullscreenHandler = fullscreenHandler,
+                    guard = guard,
                     onWebViewReady = {
                         webView = it
                         refreshHistoryState()
@@ -346,6 +356,24 @@ fun BrowserRoute(
                 onDelete = { page -> history.delete(page.url) },
                 onClear = history::clear,
                 onClose = { historyOpen = false },
+            )
+        }
+        blockedNotice?.let { blocked ->
+            BrowserBlockedNotice(
+                blocked = blocked,
+                onOpen = {
+                    blockedNotice = null
+                    openPage(blocked.url)
+                },
+                onDismiss = { blockedNotice = null },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .windowInsetsPadding(
+                        WindowInsets.safeDrawing.only(
+                            WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
+                        ),
+                    )
+                    .padding(start = 16.dp, top = BLOCKED_NOTICE_TOP, end = 16.dp),
             )
         }
         fullscreenView?.let { view ->
@@ -1223,12 +1251,16 @@ private val ADDRESS_HEIGHT = 44.dp
 private val PROGRESS_HEIGHT = 2.dp
 private val DRAG_THRESHOLD = 24.dp
 
+/** The blocked-page notice sits just under the address bar and its progress line. */
+private val BLOCKED_NOTICE_TOP = 68.dp
+
 @Composable
 private fun BrowserWebView(
     modifier: Modifier,
     sink: BrowserObservationSink,
     pageUrlState: BrowserPageUrl,
     fullscreenHandler: SecureBrowserChromeClient.FullscreenHandler,
+    guard: BrowserNavigationGuard,
     onWebViewReady: (WebView) -> Unit,
 ) {
     AndroidView(
@@ -1249,8 +1281,9 @@ private fun BrowserWebView(
                 cookieProvider = cookieManager::getCookie,
                 userAgentProvider = { cachedUserAgent },
                 pageUrlState = pageUrlState,
+                guard = guard,
             )
-            browser.webChromeClient = SecureBrowserChromeClient(sink, fullscreenHandler)
+            browser.webChromeClient = SecureBrowserChromeClient(sink, fullscreenHandler, guard)
             browser.setDownloadListener(
                 BrowserDownloadListener(
                     pageUrlProvider = pageUrlState::get,

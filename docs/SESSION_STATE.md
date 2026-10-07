@@ -59,7 +59,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent C — `work/phase-13-browser` (P30, P31, P32)
 
-- Status: P30, P31 OWNER CHECK; P32 IN PROGRESS
+- Status: P30, P31, P32 OWNER CHECK
 - Started 2026-10-07 in `/data/YFT-C` from `origin/work/phase-13-integration` `7873d51`.
   Starting state (`/data/tmp/validate-c.sh`: core-model, core-data, core-browser and app unit
   tests, `:app:lintDebug`, `:app:compileDebugAndroidTestKotlin`): core-model 80, core-data 18,
@@ -136,9 +136,55 @@ Keep at least the heading and one blank line between sections, so Git merges the
     lists them, newest first, under Today; a tap opens one; a row's ⋯ › Delete removes it;
     Clear history › Clear empties the list; the start page shows them under Recent;
     Settings › Browser › Save browser history off → new pages are not added.
-- P32 — Block pop-ups and ad redirects: IN PROGRESS
-- Last validation (P31, 2026-10-07): `/data/tmp/validate-c.sh` → core-model 82, core-data 32,
-  core-browser 89, app 717 (66 skipped), 0 failures; lint 0 errors, 95 warnings (unchanged);
-  `:app:compileDebugAndroidTestKotlin` OK; line check empty.
+  - Checkpoint `e9899f2`; CI: checkpoint validation
+    https://github.com/Alalkipgen/YFT/actions/runs/37555932478 and emulator smoke
+    https://github.com/Alalkipgen/YFT/actions/runs/37555932456 green. Preview APK
+    https://github.com/Alalkipgen/YFT/actions/runs/37555932462 failed 21 s into its build step,
+    before Gradle compiled anything (a runner problem; logs need a token). The same commit's
+    preview build passed here (`:app:assemblePreview`, `verify-release-apk.sh`: VERIFIED), and
+    P32's push builds the preview again.
+- P32 — Block pop-ups and ad redirects: OWNER CHECK
+  - Result: `AdRedirectPolicy` (pure, `core-browser/.../policy/`) decides where a page may
+    send the tab. Blocked: a host on YFT's own list `AdNetworks` (20 pop-up and redirect ad
+    networks, 32 hosts and their subdomains, each family with its reason; written for YFT, no
+    copied filter list) as a page navigation, a redirect hop or a new window; and a navigation
+    to another site that the page started without the user's tap (`!hasGesture()`, not a
+    server redirect) once the page has opened (finished 1.5 s ago or loading for 8 s, so a
+    page that forwards while it opens — `l.facebook.com`, `t.co`, Google's `/url` — still
+    forwards). Allowed: taps on links (also to other sites), the same site (`m.youtube.com` =
+    `youtube.com`; `bbc.co.uk`, `….com.mm`, `….github.io` known), server redirects, and what the
+    user typed or picked (`loadPage` → `BrowserNavigationGuard.userNavigation()`: that page, its
+    redirects and forwards until it opened, at most 10 s); app links as before. New windows:
+    multiple windows on (scripts still need a tap) and `SecureBrowserChromeClient.onCreateWindow`
+    hands the window a hidden WebView (`PopupWindowCatcher`: no scripts, gone after its first
+    web address or 10 s); a tap's window to the same site opens in the current tab, every
+    other window is blocked. Scripts, frames and images of the listed networks get an empty
+    answer in `shouldInterceptRequest` after the sink saw the request; ExoClick and
+    TrafficStars keep theirs because they also serve players' ads (F4: a site's own video ads
+    stay). The browser shows "Pop-up blocked" or "Blocked a redirect to `host`" with Open
+    (`browser-blocked-notice`, `browser-blocked-open`; 4 s, under the address bar); Open loads
+    it in this tab as the user's choice. Settings › Browser › "Block pop-ups and ad redirects"
+    (`settings-block-popups`, default on, DataStore `browser_block_popups`); off → windows
+    open in the current tab and every address loads as before P32. A blocked page never
+    loads, so P31 never records it.
+  - Plan adapted: contracts kept — both WebView clients take an optional `guard` (null = the
+    old behaviour), the sink gets one method with a default body (`onNavigationBlocked`), the
+    sink's calls keep their order and threads (the guard is asked after them). The emulator
+    test hosts the real WebView, policy, clients, guard and notice in a Compose test instead
+    of the whole browser screen (local fixture pages, no network page needed).
+  - Validation: see Last validation below.
+  - Regression proof: the old behaviour put back in copies (navigations never blocked, scripts
+    never emptied, windows always opened here, multiple windows off, the switch not stored)
+    → 7 tests fail: `SecureBrowserWebViewClientTest` (the page's own redirect, listed networks,
+    listed scripts), `SecureBrowserChromeClientTest` (windows), `SecureWebViewPolicyTest`,
+    `DataStoreBrowserPreferencesRepositoryTest` (pop-up switch), `BrowserRouteTest` (notice and
+    Open); files restored from `/data/bak/P32/new` with `cp`, `cmp` equal.
+  - Owner check: on the sites where ads used to jump to spam pages, taps on the page and its
+    ads no longer leave it; "Pop-up blocked · Open" opens the blocked page when wanted; a
+    normal link to another site still opens; videos still play and Download still works;
+    Settings › Browser › Block pop-ups and ad redirects off → pages behave as before.
+- Last validation (P32, 2026-10-07): `/data/tmp/validate-c.sh` → core-model 83, core-data 33,
+  core-browser 107, app 724 (66 skipped), 0 failures; lint 0 errors, 95 warnings (unchanged);
+  `:app:compileDebugAndroidTestKotlin` OK (the new emulator test runs in CI); line check empty.
 - Hand-offs: none. Note for Agent B: this branch changes line 80 of `BrowserViewModelTest`
   (expected search address DuckDuckGo → Google); keep Google when merging.

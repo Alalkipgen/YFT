@@ -358,7 +358,10 @@ private fun DownloadRows(
     )
 }
 
-/** Settings › Browser: the engine typed words search with (P30) and the history (P31). */
+/**
+ * Settings › Browser: the engine typed words search with (P30), the history (P31) and the
+ * pop-up blocking (P32).
+ */
 @Composable
 private fun BrowserRows(
     state: SettingsUiState,
@@ -388,6 +391,15 @@ private fun BrowserRows(
         tag = "settings-clear-history",
         enabled = !state.working,
         onClick = { onAction(SettingsAction.Request(SettingsConfirmation.CLEAR_BROWSER_HISTORY)) },
+    )
+    RowDivider()
+    SwitchRow(
+        icon = YftIcons.Block,
+        title = "Block pop-ups and ad redirects",
+        checked = state.browser.blockPopups,
+        tag = "settings-block-popups",
+        supporting = "Pages can't open new windows or send you to another site you didn't tap.",
+        onToggle = { onAction(SettingsAction.SetBlockPopups(it)) },
     )
 }
 

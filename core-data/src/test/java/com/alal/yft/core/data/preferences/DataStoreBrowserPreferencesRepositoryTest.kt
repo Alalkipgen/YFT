@@ -71,4 +71,25 @@ class DataStoreBrowserPreferencesRepositoryTest {
         assertEquals(false, reopened.saveHistory)
         assertEquals(SearchEngine.BING, reopened.searchEngine)
     }
+
+    @Test
+    fun `the pop-up switch is on for an older file and stays as the user sets it`() = runTest {
+        val store = PreferenceDataStoreFactory.create(
+            scope = backgroundScope,
+            produceFile = { File(temporaryFolder.root, "settings.preferences_pb") },
+        )
+        store.edit { it[booleanPreferencesKey("browser_save_history")] = false }
+        val repository = DataStoreBrowserPreferencesRepository(store)
+        assertEquals(true, repository.preferences.first().blockPopups)
+
+        repository.update { it.copy(blockPopups = false) }
+
+        val reopened = DataStoreBrowserPreferencesRepository(store).preferences.first()
+        assertEquals(false, reopened.blockPopups)
+        assertEquals(false, reopened.saveHistory)
+        assertEquals(
+            false,
+            store.data.first()[booleanPreferencesKey("browser_block_popups")],
+        )
+    }
 }

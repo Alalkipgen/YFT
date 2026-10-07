@@ -174,6 +174,22 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun `pop-ups and ad redirects are blocked until switched off`() {
+        setContent()
+
+        composeRule.onNodeWithTag("settings-block-popups").performScrollTo()
+            .assertIsOn()
+            .performClick()
+        composeRule.onNodeWithText("Block pop-ups and ad redirects").assertExists()
+        composeRule.onNodeWithText(
+            "Pages can't open new windows or send you to another site you didn't tap.",
+        ).assertExists()
+        assertEquals(listOf<SettingsAction>(SettingsAction.SetBlockPopups(false)), actions)
+        shown.value = SettingsUiState(browser = BrowserPreferences(blockPopups = false))
+        composeRule.onNodeWithTag("settings-block-popups").assertIsOff()
+    }
+
+    @Test
     fun `the browser history is saved until switched off and is cleared after a question`() {
         setContent()
 

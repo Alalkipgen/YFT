@@ -27,6 +27,12 @@ for every APK given to users, because Android refuses to install a lower one.
   most 5,000 pages. Settings › Browser › Save browser history (on by default) and Clear browser
   history; Clear browsing data clears the history too. Database version 6 (migration 5 → 6
   keeps every download).
+- Added: pop-up and ad-redirect blocking in the browser. A page can no longer open new windows to
+  other sites, send the tab to another site by itself after it opened, or send you to one of about
+  20 pop-up and redirect ad networks YFT lists (also after a tap); their scripts are not loaded.
+  Taps on normal links, the same site, sign-in redirects and pages you type or pick still open. A
+  notice says "Pop-up blocked" or "Blocked a redirect to …" (the site) for 4 seconds, with Open to
+  go there anyway. Settings › Browser › Block pop-ups and ad redirects (on by default).
 
 ### Added
 

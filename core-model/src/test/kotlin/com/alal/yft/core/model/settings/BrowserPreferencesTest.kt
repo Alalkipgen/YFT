@@ -17,4 +17,9 @@ class BrowserPreferencesTest {
     fun `the history is saved until the user turns it off`() {
         assertEquals(true, BrowserPreferences().saveHistory)
     }
+
+    @Test
+    fun `pop-ups and ad redirects are blocked until the user turns it off`() {
+        assertEquals(true, BrowserPreferences().blockPopups)
+    }
 }

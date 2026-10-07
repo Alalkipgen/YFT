@@ -2,15 +2,20 @@ package com.alal.yft.feature.browser
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.net.Uri
+import android.os.Handler
 import android.os.Looper
+import android.os.Message
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -176,6 +181,32 @@ class BrowserRouteTest {
         assertEquals(listOf(FIRST_PAGE), browserHistory.pages.value.map { it.url })
         // The detection still saw both pages.
         assertEquals(SECOND_PAGE, viewModel.uiState.value.currentUrl)
+    }
+
+    @Test
+    fun aBlockedPopUpShowsANoticeWhoseOpenLoadsItHereAndTheSwitchLetsItThrough() {
+        showRoute(initialLink = FIRST_PAGE)
+        val page = composeRule.runOnIdle { webViews().single() }
+        val chrome = composeRule.runOnIdle { checkNotNull(page.webChromeClient) }
+
+        composeRule.runOnIdle { openWindow(chrome, page, POP_UP) }
+
+        composeRule.onNodeWithTag("browser-blocked-notice").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-blocked-text", useUnmergedTree = true)
+            .assertTextEquals("Pop-up blocked")
+        composeRule.runOnIdle { assertEquals(FIRST_PAGE, Shadows.shadowOf(page).lastLoadedUrl) }
+        composeRule.onNodeWithTag("browser-blocked-open").performClick()
+        composeRule.onAllNodesWithTag("browser-blocked-notice").assertCountEquals(0)
+        composeRule.runOnIdle { assertEquals(POP_UP, Shadows.shadowOf(page).lastLoadedUrl) }
+
+        // Settings › Browser › Block pop-ups and ad redirects off: the window opens here.
+        browserPreferences.set(BrowserPreferences(blockPopups = false))
+        composeRule.waitForIdle()
+        composeRule.runOnIdle { openWindow(chrome, page, SECOND_POP_UP) }
+        composeRule.onAllNodesWithTag("browser-blocked-notice").assertCountEquals(0)
+        composeRule.runOnIdle {
+            assertEquals(SECOND_POP_UP, Shadows.shadowOf(page).lastLoadedUrl)
+        }
     }
 
     @Test
@@ -478,6 +509,24 @@ class BrowserRouteTest {
         composeRule.onNodeWithTag("browser-address").assertIsDisplayed()
     }
 
+    /** The page opens a window without a tap and the window is sent to [url]. */
+    private fun openWindow(chrome: WebChromeClient, page: WebView, url: String) {
+        val message = Message.obtain(Handler(Looper.getMainLooper()))
+        val transport = page.WebViewTransport()
+        message.obj = transport
+        assertTrue(chrome.onCreateWindow(page, false, false, message))
+        val window = checkNotNull(transport.webView)
+        val request = object : WebResourceRequest {
+            override fun getUrl(): Uri = Uri.parse(url)
+            override fun isForMainFrame(): Boolean = true
+            override fun isRedirect(): Boolean = false
+            override fun hasGesture(): Boolean = false
+            override fun getMethod(): String = "GET"
+            override fun getRequestHeaders(): MutableMap<String, String> = mutableMapOf()
+        }
+        checkNotNull(window.webViewClient).shouldOverrideUrlLoading(window, request)
+    }
+
     private fun webViews(): List<WebView> {
         val result = mutableListOf<WebView>()
         fun visit(view: View) {
@@ -494,5 +543,7 @@ class BrowserRouteTest {
         const val FIRST_PAGE = "https://example.test/one"
         const val SECOND_PAGE = "https://example.test/two"
         const val WATCH_PAGE = "https://m.youtube.com/watch?v=AAAAAAAAAA1"
+        const val POP_UP = "https://pop.other.test/win"
+        const val SECOND_POP_UP = "https://pop.other.test/again"
     }
 }

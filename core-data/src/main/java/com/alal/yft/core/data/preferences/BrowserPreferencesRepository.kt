@@ -41,6 +41,7 @@ class DataStoreBrowserPreferencesRepository @Inject constructor(
             val next = transform(read(stored))
             stored[SEARCH_ENGINE] = next.searchEngine.name
             stored[SAVE_HISTORY] = next.saveHistory
+            stored[BLOCK_POPUPS] = next.blockPopups
         }
     }
 
@@ -51,11 +52,13 @@ class DataStoreBrowserPreferencesRepository @Inject constructor(
                 ?.let { name -> SearchEngine.entries.firstOrNull { it.name == name } }
                 ?: defaults.searchEngine,
             saveHistory = stored[SAVE_HISTORY] ?: defaults.saveHistory,
+            blockPopups = stored[BLOCK_POPUPS] ?: defaults.blockPopups,
         )
     }
 
     private companion object {
         val SEARCH_ENGINE = stringPreferencesKey("browser_search_engine")
         val SAVE_HISTORY = booleanPreferencesKey("browser_save_history")
+        val BLOCK_POPUPS = booleanPreferencesKey("browser_block_popups")
     }
 }

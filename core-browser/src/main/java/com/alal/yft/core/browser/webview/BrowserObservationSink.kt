@@ -25,4 +25,10 @@ interface BrowserObservationSink {
      * Called on the main thread with the page's current address.
      */
     fun onPageTitle(url: String, title: String?) = Unit
+
+    /**
+     * P32: the page's navigation or new window was blocked and the page stays. Called on the main
+     * thread, never for an address the user typed or chose.
+     */
+    fun onNavigationBlocked(blocked: BlockedNavigation) = Unit
 }

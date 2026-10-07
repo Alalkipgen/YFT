@@ -11,12 +11,14 @@ import androidx.test.core.app.ApplicationProvider
 import com.alal.yft.core.browser.detection.DomMediaProbe
 import com.alal.yft.core.browser.detection.DownloadObservation
 import com.alal.yft.core.browser.detection.RequestObservation
+import com.alal.yft.core.browser.policy.AdRedirectPolicy.Reason
 import java.io.ByteArrayInputStream
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -33,6 +35,7 @@ class SecureBrowserWebViewClientTest {
     private lateinit var sink: RecordingSink
     private lateinit var client: SecureBrowserWebViewClient
     private lateinit var pageUrlState: BrowserPageUrl
+    private var now = 0L
 
     @Before
     fun setUp() {
@@ -242,6 +245,120 @@ class SecureBrowserWebViewClientTest {
         assertEquals(listOf("HTTP 404"), sink.errors.map { it.second })
     }
 
+    @Test
+    fun withoutAGuardAPagesOwnRedirectToAnotherSiteLoadsAsBefore() {
+        openPage(SecureBrowserWebViewClient(sink, { null }, { null }, pageUrlState = pageUrlState))
+
+        assertFalse(client.shouldOverrideUrlLoading(webView, request(OTHER_SITE)))
+        assertTrue(sink.blocked.isEmpty())
+    }
+
+    @Test
+    fun aRedirectThePageStartedByItselfIsBlockedAndThePageStays() {
+        val guard = openGuardedPage()
+        now += 3_000
+
+        assertTrue(client.shouldOverrideUrlLoading(webView, request(OTHER_SITE)))
+
+        assertEquals(
+            listOf(BlockedNavigation(OTHER_SITE, "win.other.test", false, Reason.NO_TAP)),
+            sink.blocked,
+        )
+        assertEquals(GUARDED_PAGE, shadowOf(webView).lastLoadedUrl)
+        // Settings › Browser › Block pop-ups and ad redirects off: it loads.
+        guard.enabled = false
+        assertFalse(client.shouldOverrideUrlLoading(webView, request(OTHER_SITE)))
+        assertEquals(1, sink.blocked.size)
+    }
+
+    @Test
+    fun tapsTheSameSiteServerRedirectsAndForwardingPagesStillLoad() {
+        openGuardedPage()
+        now += 3_000
+        val tap = request("https://news.other.test/story", hasGesture = true)
+        assertFalse(client.shouldOverrideUrlLoading(webView, tap))
+        assertFalse(client.shouldOverrideUrlLoading(webView, request("https://m.example.test/b")))
+        val redirect = request("https://login.other.test/", isRedirect = true)
+        assertFalse(client.shouldOverrideUrlLoading(webView, redirect))
+
+        // A page that forwards while it opens, or right after it finished, is a redirect page.
+        client.onPageStarted(webView, "https://t.example.test/l?u=1", null)
+        now += 1_000
+        assertFalse(client.shouldOverrideUrlLoading(webView, request(OTHER_SITE)))
+        client.onPageFinished(webView, "https://t.example.test/l?u=1")
+        now += 1_000
+        assertFalse(client.shouldOverrideUrlLoading(webView, request(OTHER_SITE)))
+        assertTrue(sink.blocked.isEmpty())
+    }
+
+    @Test
+    fun listedNetworksAreBlockedAfterATapAsARedirectHopAndAsAnAppFallback() {
+        openGuardedPage()
+        now += 3_000
+        val tap = request("https://www.popads.net/click", hasGesture = true)
+        assertTrue(client.shouldOverrideUrlLoading(webView, tap))
+        val hop = request("https://c2.onclkds.com/l", isRedirect = true)
+        assertTrue(client.shouldOverrideUrlLoading(webView, hop))
+        val intent = "intent://x/#Intent;scheme=x;" +
+            "S.browser_fallback_url=https%3A%2F%2Fadsterra.com%2Fl;end"
+        assertTrue(client.shouldOverrideUrlLoading(webView, request(intent, hasGesture = true)))
+
+        assertEquals(
+            listOf("www.popads.net", "c2.onclkds.com", "adsterra.com"),
+            sink.blocked.map { it.host },
+        )
+        assertTrue(sink.blocked.all { it.reason == Reason.AD_NETWORK && !it.window })
+        assertEquals(GUARDED_PAGE, shadowOf(webView).lastLoadedUrl)
+    }
+
+    @Test
+    fun listedScriptsGetAnEmptyAnswerOffMainAndTheSinkStillSeesThem() {
+        val guard = openGuardedPage()
+        val script = request("https://c1.popads.net/pop.js", isForMainFrame = false)
+
+        val answer = interceptOnWorker(script)
+        assertNotNull(answer)
+        assertEquals(-1, answer!!.data.read())
+        assertNull(interceptOnWorker(request("https://cdn.example.test/player.js", false)))
+        assertNull(interceptOnWorker(request("https://a.exoclick.com/ad.js", false)))
+        assertNull("the main frame is left to navigation", interceptOnWorker(request(LISTED)))
+        guard.enabled = false
+        assertNull(interceptOnWorker(script))
+
+        assertEquals(
+            listOf(
+                "https://c1.popads.net/pop.js",
+                "https://cdn.example.test/player.js",
+                "https://a.exoclick.com/ad.js",
+                LISTED,
+                "https://c1.popads.net/pop.js",
+            ),
+            sink.requests.map { it.requestUrl },
+        )
+    }
+
+    private fun openGuardedPage(): BrowserNavigationGuard {
+        val guard = BrowserNavigationGuard(clock = { now })
+        openPage(
+            SecureBrowserWebViewClient(
+                sink = sink,
+                cookieProvider = { null },
+                userAgentProvider = { null },
+                pageUrlState = pageUrlState,
+                guard = guard,
+            ),
+        )
+        return guard
+    }
+
+    private fun openPage(next: SecureBrowserWebViewClient) {
+        client = next
+        webView.loadUrl(GUARDED_PAGE)
+        client.onPageStarted(webView, GUARDED_PAGE, null)
+        now += 500
+        client.onPageFinished(webView, GUARDED_PAGE)
+    }
+
     private fun interceptOnWorker(request: WebResourceRequest): WebResourceResponse? {
         val executor = Executors.newSingleThreadExecutor()
         return try {
@@ -257,12 +374,14 @@ class SecureBrowserWebViewClientTest {
         url: String,
         isForMainFrame: Boolean = true,
         headers: Map<String, String> = emptyMap(),
+        hasGesture: Boolean = false,
+        isRedirect: Boolean = false,
     ) =
         object : WebResourceRequest {
             override fun getUrl(): Uri = Uri.parse(url)
             override fun isForMainFrame(): Boolean = isForMainFrame
-            override fun isRedirect(): Boolean = false
-            override fun hasGesture(): Boolean = false
+            override fun isRedirect(): Boolean = isRedirect
+            override fun hasGesture(): Boolean = hasGesture
             override fun getMethod(): String = "GET"
             override fun getRequestHeaders(): MutableMap<String, String> = headers.toMutableMap()
         }
@@ -290,6 +409,7 @@ class SecureBrowserWebViewClientTest {
         val requests = CopyOnWriteArrayList<RequestObservation>()
         val urlChanges = mutableListOf<String>()
         val domResults = mutableListOf<Pair<String, String?>>()
+        val blocked = mutableListOf<BlockedNavigation>()
 
         override fun onPageStarted(url: String) = Unit
         override fun onPageFinished(url: String, title: String?) = Unit
@@ -308,5 +428,15 @@ class SecureBrowserWebViewClientTest {
         override fun onMainFrameError(url: String?, description: String) {
             errors += url to description
         }
+
+        override fun onNavigationBlocked(blocked: BlockedNavigation) {
+            this.blocked += blocked
+        }
+    }
+
+    private companion object {
+        const val GUARDED_PAGE = "https://m.example.test/watch?v=1"
+        const val OTHER_SITE = "https://win.other.test/"
+        const val LISTED = "https://www.popads.net/"
     }
 }
