@@ -41,8 +41,11 @@ for every APK given to users, because Android refuses to install a lower one.
   both. Try again asks for the page's current files instead of the same dead address: the
   browser's newest addresses for the video (same address, the same file without its signed
   query, else the same length), or for a page Home found a new, quiet read of the page.
-- P28 instrumented test: the requests the browser's hook reports are given to the test as it
-  reports them; the page script's own fetches were not reported in time on the CI emulator.
+- P28 instrumented test: the requests the browser's hook reports are given to the test with
+  the hook's timing. The test now serves its page at the page's own address: it had answered
+  every request with 404, the WebView's own `data:` load of the page included, so the CI
+  emulator showed the WebView's error page (no meta tags, JSON-LD or scripts) and the page's
+  stated length read as none. The app's reading was right (the device reads the page as 16:24).
 
 ### Phase 13 — Agent C (P30, P31, P32)
 

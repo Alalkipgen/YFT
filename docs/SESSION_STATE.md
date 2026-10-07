@@ -52,7 +52,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent B — `work/phase-13-generic-main` (P28, P29)
 
-- Status: IN PROGRESS (P29 checkpoint; P28 OWNER CHECK) — started 2026-10-07 in `/data/YFT-B`, base commit `7873d51`
+- Status: IN PROGRESS (P28 emulator test fix; P28, P29 OWNER CHECK) — started 2026-10-07 in `/data/YFT-B`, base commit `7873d51`
   (`origin/work/phase-13-integration`, the Phase 13 plan on `main` `bc806f9`).
 - Environment: rebuilt after a sandbox reset (JDK 17 `/data/toolchains/jdk17`, SDK 35,
   build-tools 35.0.0, NDK 27.3.13750724, CMake 3.22.1, 4 GiB swap); new SSH deploy key
@@ -94,12 +94,15 @@ Keep at least the heading and one blank line between sections, so Git merges the
   - CI (`f334f55`): [checkpoint validation](https://github.com/Alalkipgen/YFT/actions/runs/37560950060)
     green, [Preview APK](https://github.com/Alalkipgen/YFT/actions/runs/37560950114) green,
     [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37560950074) red (1 of 24:
-    `PrerollInstrumentedTest`, the page script's `fetch` not reported by the request hook in
-    time); the P29 commit `32d2472` gives the hook's reports itself, but its
-    [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37563179756) is red too
-    (`PrerollInstrumentedTest`: the stated length is null on the real WebView, 984000 on the
-    JVM with the same probe answer). Next: the test logs `YFT-DIAG p28-preroll` lines (probe
-    answer, JSON-LD block, the device's reading) to find the cause, then the fix.
+    `PrerollInstrumentedTest` "the stream was asked for"). The P29 commit `32d2472` gave the
+    test the hook's reports, but its [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37563179756)
+    was red too (the stated length null). Cause, from `YFT-DIAG p28-preroll` lines at
+    `4f9447b` ([emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37567826899)): the WebView
+    showed its own error page ("Webpage not available": 1 meta tag, no scripts, no JSON-LD)
+    because the test answered every request with 404, the WebView's `data:` load of the
+    `loadDataWithBaseURL` page included; the device reads the fixture's HTML as 16:24, so the
+    app's code was right. Fix: the test loads the page's address and serves the page for it,
+    and checks first that the fixture, not an error page, loaded. Fix commit CI: pending.
   - Owner check: the site from Preview #4, Download while the ad plays → the page's title,
     picture and length with 480p/720p; the ad only under Other videos.
 - P29 — Other sites: the next video when one fails: OWNER CHECK (2026-10-07)
@@ -123,7 +126,10 @@ Keep at least the heading and one blank line between sections, so Git merges the
     store's newest address…" (the dead `token=old` address again); "an ad or a preview is never
     the next video" passes (guard). Backup `/data/bak/P29` (8 Kotlin files), `cmp` equal.
   - Live check: skipped (same reason as P28); the tests copy the Preview #4 "HTTP 410" case.
-  - CI: pending for the P29 checkpoint; links recorded with the READY FOR MERGE commit.
+  - CI (`32d2472`): [checkpoint validation](https://github.com/Alalkipgen/YFT/actions/runs/37563179633)
+    green, [Preview APK](https://github.com/Alalkipgen/YFT/actions/runs/37563179635) green,
+    [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37563179756) red only in P28's
+    `PrerollInstrumentedTest` (see P28 CI); with the P28 test fix: pending.
   - Owner check: the page that showed "HTTP 410" in Preview #4 → the sheet opens a working
     video (or the page's own after P28) without the error.
 - Hand-offs: none
