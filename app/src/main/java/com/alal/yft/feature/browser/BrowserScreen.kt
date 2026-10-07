@@ -46,6 +46,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -53,6 +55,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -104,15 +107,19 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.currentStateAsState
 import com.alal.yft.core.browser.policy.SecureWebViewPolicy
+import com.alal.yft.core.browser.webview.BlockedNavigation
 import com.alal.yft.core.browser.webview.BrowserDownloadListener
+import com.alal.yft.core.browser.webview.BrowserNavigationGuard
 import com.alal.yft.core.browser.webview.BrowserObservationSink
 import com.alal.yft.core.browser.webview.BrowserPageUrl
 import com.alal.yft.core.browser.webview.SecureBrowserChromeClient
 import com.alal.yft.core.browser.webview.SecureBrowserWebViewClient
+import com.alal.yft.core.data.history.BrowserHistoryEntry
 import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.core.model.media.PageVideoList
 import com.alal.yft.core.model.settings.HomeSite
+import com.alal.yft.core.model.settings.SearchEngine
 import com.alal.yft.feature.home.HomeLinks
 import com.alal.yft.feature.home.rememberCopiedLinkHint
 import com.alal.yft.ui.components.FoundMediaDividerInset
@@ -143,12 +150,32 @@ fun BrowserRoute(
     onDownloadLink: (String) -> Unit = {},
     onOpenQuickDownload: () -> Unit = {},
     viewModel: BrowserViewModel = hiltViewModel(),
+    browserSettings: BrowserSettingsViewModel = hiltViewModel(),
+    history: BrowserHistoryViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val preferences by browserSettings.preferences.collectAsStateWithLifecycle()
+    val historyState by history.uiState.collectAsStateWithLifecycle()
+    var historyOpen by rememberSaveable { mutableStateOf(false) }
+    // P30: typed words (the view model asks BrowserSearch) search with the chosen engine.
+    SideEffect { BrowserSearch.engine = preferences.searchEngine }
     val clipboard = LocalClipboardManager.current
     val copiedLinkHint = rememberCopiedLinkHint()
     val pageUrlState = remember { BrowserPageUrl() }
     var webView by remember { mutableStateOf<WebView?>(null) }
+    // P32: what the WebView's clients block (Settings › Browser) and the last blocked page.
+    val guard = remember { BrowserNavigationGuard() }
+    SideEffect { guard.enabled = preferences.blockPopups }
+    var blockedNotice by remember { mutableStateOf<BlockedNavigation?>(null) }
+    // P31: the detection's view model stays the sink; page loads also reach the history.
+    val sink = remember(viewModel, history) {
+        val recorder = BrowserHistoryRecorder(
+            onVisit = history::recordVisit,
+            onTitle = history::renamePage,
+        )
+        val recording = HistoryRecordingSink(viewModel, recorder, currentTitle = { webView?.title })
+        BlockedNavigationSink(recording) { blocked -> blockedNotice = blocked }
+    }
     // Latch on the first navigation; redirects and later empty/failed pages never recreate it.
     var browserRequested by remember { mutableStateOf(uiState.currentUrl != null) }
     var pendingUrl by remember { mutableStateOf(uiState.currentUrl) }
@@ -173,6 +200,8 @@ fun BrowserRoute(
 
     fun loadPage(browser: WebView, url: String) {
         pageUrlState.update(url)
+        // Typed, picked or opened from a notice: the user chose it, so it may redirect.
+        guard.userNavigation()
         browser.loadUrl(url)
     }
 
@@ -184,6 +213,12 @@ fun BrowserRoute(
 
     fun submitAddress() {
         viewModel.addressForLoading()?.let(::requestNavigation)
+    }
+
+    fun openPage(url: String) {
+        historyOpen = false
+        viewModel.onAddressChanged(url)
+        submitAddress()
     }
 
     fun refreshHistoryState() {
@@ -293,12 +328,17 @@ fun BrowserRoute(
             fullScreen = fullscreenView != null,
             // P13: a download sheet over the browser pauses this screen; the wide button goes.
             downloadSheetOpen = !resumed,
+            searchEngine = preferences.searchEngine,
+            recentPages = historyState.recent,
+            onOpenRecent = { page -> openPage(page.url) },
+            onShowHistory = { historyOpen = true },
             browserSurface = { modifier ->
                 BrowserWebView(
                     modifier = modifier,
-                    sink = viewModel,
+                    sink = sink,
                     pageUrlState = pageUrlState,
                     fullscreenHandler = fullscreenHandler,
+                    guard = guard,
                     onWebViewReady = {
                         webView = it
                         refreshHistoryState()
@@ -306,6 +346,36 @@ fun BrowserRoute(
                 )
             },
         )
+        if (historyOpen) {
+            val now = remember { System.currentTimeMillis() }
+            BrowserHistoryPanel(
+                state = historyState,
+                nowEpochMs = now,
+                onQueryChanged = history::onQueryChanged,
+                onOpen = { page -> openPage(page.url) },
+                onDelete = { page -> history.delete(page.url) },
+                onClear = history::clear,
+                onClose = { historyOpen = false },
+            )
+        }
+        blockedNotice?.let { blocked ->
+            BrowserBlockedNotice(
+                blocked = blocked,
+                onOpen = {
+                    blockedNotice = null
+                    openPage(blocked.url)
+                },
+                onDismiss = { blockedNotice = null },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .windowInsetsPadding(
+                        WindowInsets.safeDrawing.only(
+                            WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
+                        ),
+                    )
+                    .padding(start = 16.dp, top = BLOCKED_NOTICE_TOP, end = 16.dp),
+            )
+        }
         fullscreenView?.let { view ->
             BrowserFullscreen(
                 view = view,
@@ -401,6 +471,10 @@ fun BrowserScreen(
     onDownloadMain: () -> Unit = {},
     fullScreen: Boolean = false,
     downloadSheetOpen: Boolean = false,
+    searchEngine: SearchEngine = BrowserSearch.engine,
+    recentPages: List<BrowserHistoryEntry> = emptyList(),
+    onOpenRecent: (BrowserHistoryEntry) -> Unit = {},
+    onShowHistory: () -> Unit = {},
     browserSurface: @Composable (Modifier) -> Unit,
 ) {
     val colors = YftTheme.colors
@@ -577,6 +651,10 @@ fun BrowserScreen(
                     onOpenSite = onOpenSite,
                     onEditSites = onGoHome,
                     modifier = Modifier.fillMaxSize(),
+                    searchEngine = searchEngine,
+                    recentPages = recentPages,
+                    onOpenRecent = onOpenRecent,
+                    onShowHistory = onShowHistory,
                 )
             }
             val showSheet = hasBrowserPage && savable.isNotEmpty() && !editingAddress
@@ -682,6 +760,7 @@ fun BrowserScreen(
             onReload = onReload,
             onStop = onStop,
             onGoHome = onGoHome,
+            onShowHistory = onShowHistory,
         )
     }
 }
@@ -1059,6 +1138,7 @@ private fun BrowserToolbar(
     onReload: () -> Unit,
     onStop: () -> Unit,
     onGoHome: () -> Unit,
+    onShowHistory: () -> Unit,
 ) {
     val colors = YftTheme.colors
     Column(
@@ -1102,6 +1182,40 @@ private fun BrowserToolbar(
                 onClick = onGoHome,
                 modifier = Modifier.testTag("browser-home"),
             )
+            BrowserMenu(onShowHistory = onShowHistory)
+        }
+    }
+}
+
+/** The browser's menu (P31): History. */
+@Composable
+private fun BrowserMenu(onShowHistory: () -> Unit) {
+    val colors = YftTheme.colors
+    var open by remember { mutableStateOf(false) }
+    Box {
+        YftIconButton(
+            icon = YftIcons.MoreHoriz,
+            contentDescription = "Browser menu",
+            onClick = { open = true },
+            modifier = Modifier.testTag("browser-menu"),
+        )
+        DropdownMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            shape = YftShapes.card,
+            containerColor = colors.card,
+        ) {
+            DropdownMenuItem(
+                text = { Text(text = "History", color = colors.textPrimary) },
+                onClick = {
+                    open = false
+                    onShowHistory()
+                },
+                modifier = Modifier.testTag("browser-menu-history"),
+                leadingIcon = {
+                    YftIcon(icon = YftIcons.History, contentDescription = null, tint = colors.icon)
+                },
+            )
         }
     }
 }
@@ -1137,12 +1251,16 @@ private val ADDRESS_HEIGHT = 44.dp
 private val PROGRESS_HEIGHT = 2.dp
 private val DRAG_THRESHOLD = 24.dp
 
+/** The blocked-page notice sits just under the address bar and its progress line. */
+private val BLOCKED_NOTICE_TOP = 68.dp
+
 @Composable
 private fun BrowserWebView(
     modifier: Modifier,
     sink: BrowserObservationSink,
     pageUrlState: BrowserPageUrl,
     fullscreenHandler: SecureBrowserChromeClient.FullscreenHandler,
+    guard: BrowserNavigationGuard,
     onWebViewReady: (WebView) -> Unit,
 ) {
     AndroidView(
@@ -1163,8 +1281,9 @@ private fun BrowserWebView(
                 cookieProvider = cookieManager::getCookie,
                 userAgentProvider = { cachedUserAgent },
                 pageUrlState = pageUrlState,
+                guard = guard,
             )
-            browser.webChromeClient = SecureBrowserChromeClient(sink, fullscreenHandler)
+            browser.webChromeClient = SecureBrowserChromeClient(sink, fullscreenHandler, guard)
             browser.setDownloadListener(
                 BrowserDownloadListener(
                     pageUrlProvider = pageUrlState::get,

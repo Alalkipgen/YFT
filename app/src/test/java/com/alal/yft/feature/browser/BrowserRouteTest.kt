@@ -2,15 +2,20 @@ package com.alal.yft.feature.browser
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.net.Uri
+import android.os.Handler
 import android.os.Looper
+import android.os.Message
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -18,11 +23,14 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.lifecycle.ViewModelStore
+import com.alal.yft.core.data.history.BrowserHistoryEntry
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.settings.BrowserPreferences
 import com.alal.yft.core.model.settings.HomeSites
+import com.alal.yft.core.model.settings.SearchEngine
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.extractor.api.SiteExtractionRequest
 import com.alal.yft.extractor.api.SiteExtractionResult
@@ -60,6 +68,8 @@ class BrowserRouteTest {
 
     private val viewModelStore = ViewModelStore()
     private lateinit var viewModel: BrowserViewModel
+    private val browserPreferences = FakeBrowserPreferencesRepository()
+    private val browserHistory = FakeBrowserHistoryRepository()
 
     @Before
     fun createViewModel() {
@@ -73,6 +83,130 @@ class BrowserRouteTest {
     @After
     fun clearViewModel() {
         composeRule.runOnIdle { viewModelStore.clear() }
+        BrowserSearch.engine = SearchEngine.GOOGLE
+    }
+
+    @Test
+    fun typedWordsSearchGoogleByDefault() {
+        showRoute()
+        navigate("cat videos")
+
+        composeRule.runOnIdle {
+            assertEquals(
+                "https://www.google.com/search?q=cat+videos",
+                Shadows.shadowOf(webViews().single()).lastLoadedUrl,
+            )
+        }
+    }
+
+    @Test
+    fun typedWordsAndTheStartPageSearchTheEngineSettingsChose() {
+        browserPreferences.set(BrowserPreferences(searchEngine = SearchEngine.BING))
+        showRoute()
+        composeRule.onNodeWithTag("browser-address")
+            .performClick()
+            .performTextReplacement("cat videos")
+
+        composeRule.onNodeWithText("Search Bing for “cat videos”").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-go").performClick()
+        composeRule.runOnIdle {
+            assertEquals(
+                "https://www.bing.com/search?q=cat+videos",
+                Shadows.shadowOf(webViews().single()).lastLoadedUrl,
+            )
+        }
+    }
+
+    @Test
+    fun recentPagesAndTheHistoryListOpenTheirPageInTheBrowser() {
+        browserHistory.pages.value = listOf(
+            BrowserHistoryEntry(FIRST_PAGE, "First", "example.test", 2_000, 1),
+            BrowserHistoryEntry(SECOND_PAGE, "Second", "example.test", 1_000, 3),
+        )
+        showRoute()
+
+        composeRule.onNodeWithTag("browser-recent").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-recent-1").performClick()
+        composeRule.runOnIdle {
+            assertEquals(SECOND_PAGE, Shadows.shadowOf(webViews().single()).lastLoadedUrl)
+        }
+
+        composeRule.onNodeWithTag("browser-menu").performClick()
+        composeRule.onNodeWithTag("browser-menu-history").performClick()
+        composeRule.onNodeWithTag("browser-history").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-history-page-$FIRST_PAGE").performClick()
+
+        composeRule.onAllNodesWithTag("browser-history").assertCountEquals(0)
+        composeRule.runOnIdle {
+            assertEquals(FIRST_PAGE, Shadows.shadowOf(webViews().single()).lastLoadedUrl)
+        }
+    }
+
+    @Test
+    fun backClosesTheHistoryBeforeItLeavesThePage() {
+        showRoute(initialLink = FIRST_PAGE)
+        composeRule.onNodeWithTag("browser-menu").performClick()
+        composeRule.onNodeWithTag("browser-menu-history").performClick()
+        composeRule.onNodeWithTag("browser-history-empty").assertIsDisplayed()
+
+        composeRule.runOnIdle { composeRule.activity.onBackPressedDispatcher.onBackPressed() }
+
+        composeRule.onAllNodesWithTag("browser-history").assertCountEquals(0)
+        assertBrowserPage()
+    }
+
+    @Test
+    fun aPageTheWebViewFinishedIsSavedUnlessSavingIsTurnedOff() {
+        showRoute(initialLink = FIRST_PAGE)
+        val client = composeRule.runOnIdle {
+            Shadows.shadowOf(webViews().single()).webViewClient
+        }
+
+        composeRule.runOnIdle {
+            val view = webViews().single()
+            client.onPageStarted(view, "$FIRST_PAGE?utm_source=feed", null)
+            client.onPageFinished(view, "$FIRST_PAGE?utm_source=feed")
+        }
+        composeRule.waitForIdle()
+        assertEquals(listOf(FIRST_PAGE), browserHistory.pages.value.map { it.url })
+
+        browserPreferences.set(BrowserPreferences(saveHistory = false))
+        composeRule.runOnIdle {
+            val view = webViews().single()
+            client.onPageStarted(view, SECOND_PAGE, null)
+            client.onPageFinished(view, SECOND_PAGE)
+        }
+        composeRule.waitForIdle()
+
+        assertEquals(listOf(FIRST_PAGE), browserHistory.pages.value.map { it.url })
+        // The detection still saw both pages.
+        assertEquals(SECOND_PAGE, viewModel.uiState.value.currentUrl)
+    }
+
+    @Test
+    fun aBlockedPopUpShowsANoticeWhoseOpenLoadsItHereAndTheSwitchLetsItThrough() {
+        showRoute(initialLink = FIRST_PAGE)
+        val page = composeRule.runOnIdle { webViews().single() }
+        val chrome = composeRule.runOnIdle { checkNotNull(page.webChromeClient) }
+
+        composeRule.runOnIdle { openWindow(chrome, page, POP_UP) }
+
+        composeRule.onNodeWithTag("browser-blocked-notice").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-blocked-text", useUnmergedTree = true)
+            .assertTextEquals("Pop-up blocked")
+        composeRule.runOnIdle { assertEquals(FIRST_PAGE, Shadows.shadowOf(page).lastLoadedUrl) }
+        composeRule.onNodeWithTag("browser-blocked-open").performClick()
+        composeRule.onAllNodesWithTag("browser-blocked-notice").assertCountEquals(0)
+        composeRule.runOnIdle { assertEquals(POP_UP, Shadows.shadowOf(page).lastLoadedUrl) }
+
+        // Settings › Browser › Block pop-ups and ad redirects off: the window opens here.
+        browserPreferences.set(BrowserPreferences(blockPopups = false))
+        composeRule.waitForIdle()
+        composeRule.runOnIdle { openWindow(chrome, page, SECOND_POP_UP) }
+        composeRule.onAllNodesWithTag("browser-blocked-notice").assertCountEquals(0)
+        composeRule.runOnIdle {
+            assertEquals(SECOND_POP_UP, Shadows.shadowOf(page).lastLoadedUrl)
+        }
     }
 
     @Test
@@ -332,9 +466,23 @@ class BrowserRouteTest {
                     initialLink = initialLink,
                     onOpenQuickDownload = onOpenQuickDownload,
                     viewModel = viewModel,
+                    browserSettings = browserSettings(),
+                    history = historyViewModel(),
                 )
             }
         }
+    }
+
+    private fun browserSettings(): BrowserSettingsViewModel {
+        val settings = BrowserSettingsViewModel(browserPreferences)
+        viewModelStore.put("browser-settings", settings)
+        return settings
+    }
+
+    private fun historyViewModel(): BrowserHistoryViewModel {
+        val history = BrowserHistoryViewModel(browserHistory, browserPreferences)
+        viewModelStore.put("browser-history", history)
+        return history
     }
 
     private fun navigate(address: String) {
@@ -361,6 +509,24 @@ class BrowserRouteTest {
         composeRule.onNodeWithTag("browser-address").assertIsDisplayed()
     }
 
+    /** The page opens a window without a tap and the window is sent to [url]. */
+    private fun openWindow(chrome: WebChromeClient, page: WebView, url: String) {
+        val message = Message.obtain(Handler(Looper.getMainLooper()))
+        val transport = page.WebViewTransport()
+        message.obj = transport
+        assertTrue(chrome.onCreateWindow(page, false, false, message))
+        val window = checkNotNull(transport.webView)
+        val request = object : WebResourceRequest {
+            override fun getUrl(): Uri = Uri.parse(url)
+            override fun isForMainFrame(): Boolean = true
+            override fun isRedirect(): Boolean = false
+            override fun hasGesture(): Boolean = false
+            override fun getMethod(): String = "GET"
+            override fun getRequestHeaders(): MutableMap<String, String> = mutableMapOf()
+        }
+        checkNotNull(window.webViewClient).shouldOverrideUrlLoading(window, request)
+    }
+
     private fun webViews(): List<WebView> {
         val result = mutableListOf<WebView>()
         fun visit(view: View) {
@@ -377,5 +543,7 @@ class BrowserRouteTest {
         const val FIRST_PAGE = "https://example.test/one"
         const val SECOND_PAGE = "https://example.test/two"
         const val WATCH_PAGE = "https://m.youtube.com/watch?v=AAAAAAAAAA1"
+        const val POP_UP = "https://pop.other.test/win"
+        const val SECOND_POP_UP = "https://pop.other.test/again"
     }
 }

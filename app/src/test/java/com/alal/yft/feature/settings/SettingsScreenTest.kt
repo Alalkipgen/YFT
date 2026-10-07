@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
@@ -21,9 +22,11 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import com.alal.yft.core.model.ThemeMode
+import com.alal.yft.core.model.settings.BrowserPreferences
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.core.model.settings.SearchEngine
 import com.alal.yft.ui.theme.YftTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -82,6 +85,27 @@ class SettingsScreenTest {
         ).assertExists()
 
         assertEquals(listOf<SettingsAction>(SettingsAction.SetCheckCopiedLinks(false)), actions)
+    }
+
+    @Test
+    fun `the browser searches Google until another engine is picked in its dialog`() {
+        setContent()
+
+        composeRule.onNodeWithTag("settings-search-engine").performScrollTo()
+            .assert(hasText("Google"))
+            .performClick()
+        composeRule.onNodeWithTag("search-engine-dialog").assertIsDisplayed()
+        composeRule.onNodeWithTag("search-engine-GOOGLE").assertIsSelected()
+        composeRule.onNodeWithTag("search-engine-BING").assertIsNotSelected()
+        composeRule.onNodeWithTag("search-engine-DUCKDUCKGO").assertIsNotSelected().performClick()
+        composeRule.onAllNodesWithTag("search-engine-dialog").assertCountEquals(0)
+        assertEquals(listOf(SettingsAction.SetSearchEngine(SearchEngine.DUCKDUCKGO)), actions)
+
+        shown.value = SettingsUiState(
+            browser = BrowserPreferences(searchEngine = SearchEngine.DUCKDUCKGO),
+        )
+        composeRule.onNodeWithTag("settings-search-engine").assert(hasText("DuckDuckGo"))
+        composeRule.onNodeWithContentDescription("Browser").assertExists()
     }
 
     @Test
@@ -150,6 +174,48 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun `pop-ups and ad redirects are blocked until switched off`() {
+        setContent()
+
+        composeRule.onNodeWithTag("settings-block-popups").performScrollTo()
+            .assertIsOn()
+            .performClick()
+        composeRule.onNodeWithText("Block pop-ups and ad redirects").assertExists()
+        composeRule.onNodeWithText(
+            "Pages can't open new windows or send you to another site you didn't tap.",
+        ).assertExists()
+        assertEquals(listOf<SettingsAction>(SettingsAction.SetBlockPopups(false)), actions)
+        shown.value = SettingsUiState(browser = BrowserPreferences(blockPopups = false))
+        composeRule.onNodeWithTag("settings-block-popups").assertIsOff()
+    }
+
+    @Test
+    fun `the browser history is saved until switched off and is cleared after a question`() {
+        setContent()
+
+        composeRule.onNodeWithTag("settings-save-history").performScrollTo()
+            .assertIsOn()
+            .performClick()
+        assertEquals(listOf<SettingsAction>(SettingsAction.SetSaveHistory(false)), actions)
+        shown.value = SettingsUiState(browser = BrowserPreferences(saveHistory = false))
+        composeRule.onNodeWithTag("settings-save-history").assertIsOff()
+
+        composeRule.onNodeWithTag("settings-clear-history").performScrollTo().performClick()
+        assertEquals(
+            SettingsAction.Request(SettingsConfirmation.CLEAR_BROWSER_HISTORY),
+            actions.last(),
+        )
+        shown.value = SettingsUiState(confirmation = SettingsConfirmation.CLEAR_BROWSER_HISTORY)
+        composeRule.onNodeWithText("Clear browser history?").assertExists()
+        composeRule.onNodeWithText(
+            "Removes every page from the browser's history. Cookies, sign-ins and downloads " +
+                "are not affected.",
+        ).assertExists()
+        composeRule.onNodeWithTag("confirm-action").performClick()
+        assertEquals(SettingsAction.Confirm, actions.last())
+    }
+
+    @Test
     fun `clearing asks for confirmation first`() {
         setContent(
             state = SettingsUiState(
@@ -181,9 +247,9 @@ class SettingsScreenTest {
         shown.value = SettingsUiState(confirmation = SettingsConfirmation.CLEAR_BROWSING_DATA)
         composeRule.onNodeWithText("Clear browsing data?").assertExists()
         composeRule.onNodeWithText(
-            "Removes cookies, site storage, the cache, saved sign-ins and the found media " +
-                "list. You will be signed out of every site opened in YFT. Downloads and " +
-                "settings are not affected.",
+            "Removes cookies, site storage, the cache, saved sign-ins, the browser's history " +
+                "and the found media list. You will be signed out of every site opened in " +
+                "YFT. Downloads and settings are not affected.",
         ).assertExists()
         composeRule.onNodeWithTag("dismiss-action").performClick()
         assertEquals(SettingsAction.Dismiss, actions.last())

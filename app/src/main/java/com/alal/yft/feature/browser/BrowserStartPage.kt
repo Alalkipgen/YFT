@@ -28,8 +28,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.alal.yft.core.data.history.BrowserHistoryEntry
 import com.alal.yft.core.model.settings.HomeSite
+import com.alal.yft.core.model.settings.SearchEngine
 import com.alal.yft.feature.home.SiteTile
 import com.alal.yft.ui.components.YftCard
 import com.alal.yft.ui.components.YftDivider
@@ -52,7 +55,8 @@ internal val VIEW_SITES: List<HomeSite> = listOf(
 
 /**
  * "Search to download" (T13), the browser's start page. Words in the address field offer a
- * YouTube and a web search; a link opens as before. The clipboard is read only when Download or
+ * YouTube search and one with [searchEngine], the engine Settings › Browser chose (P30); a link
+ * opens as before. The clipboard is read only when Download or
  * Use copied link is tapped. View sites lists the popular sites, and View all the full Your
  * sites list, with Add or edit going to Home where sites are managed.
  */
@@ -68,6 +72,10 @@ internal fun BrowserStartPage(
     onOpenSite: (HomeSite) -> Unit,
     onEditSites: () -> Unit,
     modifier: Modifier = Modifier,
+    searchEngine: SearchEngine = BrowserSearch.engine,
+    recentPages: List<BrowserHistoryEntry> = emptyList(),
+    onOpenRecent: (BrowserHistoryEntry) -> Unit = {},
+    onShowHistory: () -> Unit = {},
 ) {
     val colors = YftTheme.colors
     val words = BrowserSearch.wordsOrNull(query)
@@ -105,12 +113,15 @@ internal fun BrowserStartPage(
                 )
                 YftDivider()
                 SearchRow(
-                    text = "Search the web for “$words”",
+                    text = "Search ${searchEngine.displayName} for “$words”",
                     icon = YftIcons.Globe,
-                    onClick = { onSearch(BrowserSearch.webUrl(words)) },
+                    onClick = { onSearch(BrowserSearch.webUrl(words, searchEngine)) },
                     tag = "browser-search-web",
                 )
             }
+        }
+        if (recentPages.isNotEmpty()) {
+            RecentPages(pages = recentPages, onOpen = onOpenRecent, onShowHistory = onShowHistory)
         }
         YftCard(modifier = Modifier.fillMaxWidth()) {
             Text(
@@ -199,8 +210,46 @@ internal fun BrowserStartPage(
     }
 }
 
+/** P31: the last pages the browser opened; History lists them all. */
 @Composable
-private fun SearchRow(text: String, @DrawableRes icon: Int, onClick: () -> Unit, tag: String) {
+private fun RecentPages(
+    pages: List<BrowserHistoryEntry>,
+    onOpen: (BrowserHistoryEntry) -> Unit,
+    onShowHistory: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        YftSectionHeader(
+            title = "Recent",
+            actionLabel = "History",
+            onAction = onShowHistory,
+            actionTestTag = "browser-recent-history",
+        )
+        YftCard(
+            modifier = Modifier.fillMaxWidth().testTag("browser-recent"),
+            contentPadding = PaddingValues(0.dp),
+        ) {
+            pages.forEachIndexed { index, page ->
+                if (index > 0) YftDivider()
+                SearchRow(
+                    text = page.title,
+                    icon = YftIcons.History,
+                    onClick = { onOpen(page) },
+                    tag = "browser-recent-$index",
+                    supporting = page.host,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchRow(
+    text: String,
+    @DrawableRes icon: Int,
+    onClick: () -> Unit,
+    tag: String,
+    supporting: String? = null,
+) {
     val colors = YftTheme.colors
     Row(
         modifier = Modifier
@@ -213,11 +262,23 @@ private fun SearchRow(text: String, @DrawableRes icon: Int, onClick: () -> Unit,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         YftIcon(icon = icon, contentDescription = null, tint = colors.icon, size = 20.dp)
-        Text(
-            text = text,
-            color = colors.textPrimary,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.weight(1f),
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = text,
+                color = colors.textPrimary,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = if (supporting == null) Int.MAX_VALUE else 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (supporting != null) {
+                Text(
+                    text = supporting,
+                    color = colors.textSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }

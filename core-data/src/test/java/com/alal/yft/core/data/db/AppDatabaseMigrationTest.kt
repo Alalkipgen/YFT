@@ -272,6 +272,116 @@ class AppDatabaseMigrationTest {
         migrated.close()
     }
 
+    @Test
+    fun migrationFrom5To6KeepsEveryDownloadRecordAndAddsAnEmptyBrowserHistory() {
+        helper.createDatabase(TEST_DATABASE, 5).apply {
+            execSQL(
+                """
+                INSERT INTO download_records (
+                    id, display_name, status, progress_percent, created_at_epoch_ms,
+                    last_error_code, plan_type, downloaded_bytes, checkpoint_payload,
+                    last_error_detail
+                ) VALUES
+                    ('done', 'Done', 'COMPLETED', 100, 5000, NULL, 'DIRECT', 900, NULL, NULL),
+                    ('paused', 'Paused', 'PAUSED', 40, 6000, NULL, 'HLS', 400, 'payload',
+                        NULL),
+                    ('failed', 'Failed', 'FAILED', 10, 7000, 'NETWORK', 'DIRECT', 100, NULL,
+                        'READ_SOURCE|403|')
+                """.trimIndent(),
+            )
+            execSQL(
+                "INSERT INTO download_segments VALUES ('paused', 0, 0, 999, 400), " +
+                    "('paused', 1, 1000, NULL, 0)",
+            )
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(
+            TEST_DATABASE,
+            6,
+            true,
+            AppDatabase.MIGRATION_5_6,
+        )
+
+        migrated.query(
+            """
+            SELECT id, status, progress_percent, plan_type, downloaded_bytes, checkpoint_payload,
+                last_error_code, last_error_detail
+            FROM download_records ORDER BY created_at_epoch_ms
+            """.trimIndent(),
+        ).use { cursor ->
+            val rows = buildList {
+                while (cursor.moveToNext()) {
+                    val columns = 0 until cursor.columnCount
+                    add(columns.joinToString("|") { cursor.getString(it) ?: "-" })
+                }
+            }
+            assertEquals(
+                listOf(
+                    "done|COMPLETED|100|DIRECT|900|-|-|-",
+                    "paused|PAUSED|40|HLS|400|payload|-|-",
+                    "failed|FAILED|10|DIRECT|100|-|NETWORK|READ_SOURCE|403|",
+                ),
+                rows,
+            )
+        }
+        migrated.query("SELECT COUNT(*) FROM download_segments WHERE download_id = 'paused'")
+            .use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(2, cursor.getInt(0))
+            }
+        migrated.query("SELECT COUNT(*) FROM browser_history").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(0, cursor.getInt(0))
+        }
+        migrated.execSQL(
+            "INSERT INTO browser_history VALUES ('https://example.com/', 'Example', " +
+                "'example.com', 8000, 1)",
+        )
+        migrated.query("SELECT title, visit_count FROM browser_history").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("Example", cursor.getString(0))
+            assertEquals(1, cursor.getInt(1))
+        }
+        migrated.close()
+    }
+
+    @Test
+    fun migrationFrom1To6ValidatesTheCompleteChain() {
+        helper.createDatabase(TEST_DATABASE, 1).apply {
+            execSQL(
+                """
+                INSERT INTO download_records (
+                    id, display_name, status, progress_percent, created_at_epoch_ms
+                ) VALUES ('record-6', 'Old', 'COMPLETED', 100, 3000)
+                """.trimIndent(),
+            )
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(
+            TEST_DATABASE,
+            6,
+            true,
+            AppDatabase.MIGRATION_1_2,
+            AppDatabase.MIGRATION_2_3,
+            AppDatabase.MIGRATION_3_4,
+            AppDatabase.MIGRATION_4_5,
+            AppDatabase.MIGRATION_5_6,
+        )
+
+        migrated.query("SELECT id, status FROM download_records").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("record-6", cursor.getString(0))
+            assertEquals("COMPLETED", cursor.getString(1))
+        }
+        migrated.query("SELECT COUNT(*) FROM browser_history").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(0, cursor.getInt(0))
+        }
+        migrated.close()
+    }
+
     private companion object {
         const val TEST_DATABASE = "migration-test"
     }

@@ -6,6 +6,7 @@ import android.webkit.GeolocationPermissions
 import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewDatabase
+import com.alal.yft.core.data.history.BrowserHistoryRepository
 import com.alal.yft.core.download.DownloadQueue
 import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.model.download.DownloadTaskStatus
@@ -73,6 +74,15 @@ class SessionMediaCleaner(
         detectedMedia.clear()
         previewSelection.clear()
         lookups?.clear()
+    }
+}
+
+/** P31: the browser's history goes with the rest of the browsing data. */
+class BrowserHistoryCleaner(
+    private val history: BrowserHistoryRepository,
+) : BrowsingDataCleaner {
+    override suspend fun clear() {
+        history.clear()
     }
 }
 

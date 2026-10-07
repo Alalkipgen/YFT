@@ -14,13 +14,20 @@ import com.alal.yft.core.browser.detection.DomMediaProbe
 import com.alal.yft.core.browser.detection.RequestObservation
 import com.alal.yft.core.browser.policy.AppLinkPolicy
 import com.alal.yft.core.browser.policy.BrowserAddressNormalizer
+import java.io.ByteArrayInputStream
 
+/**
+ * The browser's page loads and requests. With a [guard] (P32) a navigation the page started to
+ * another site or to a pop-up ad network is blocked and reported to the sink, and the scripts of
+ * the listed networks get an empty answer; without one every web address loads as before.
+ */
 class SecureBrowserWebViewClient(
     private val sink: BrowserObservationSink,
     private val cookieProvider: (String) -> String?,
     private val userAgentProvider: () -> String?,
     private val clock: () -> Long = System::currentTimeMillis,
     private val pageUrlState: BrowserPageUrl = BrowserPageUrl(),
+    private val guard: BrowserNavigationGuard? = null,
 ) : WebViewClient() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var pendingDomProbe: Runnable? = null
@@ -29,7 +36,7 @@ class SecureBrowserWebViewClient(
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
         if (!request.isForMainFrame) return false
         val url = request.url.toString()
-        if (BrowserAddressNormalizer.isAllowedTopLevelUrl(url)) return false
+        if (BrowserAddressNormalizer.isAllowedTopLevelUrl(url)) return blocks(view, url, request)
         when (val decision = AppLinkPolicy.decide(url)) {
             AppLinkPolicy.Decision.Insecure ->
                 sink.onMainFrameError(url, "Blocked insecure navigation")
@@ -38,7 +45,9 @@ class SecureBrowserWebViewClient(
                 val fallback = decision.url
                 // A site that offers its app and falls back to the page it is already on would
                 // loop; the page simply stays.
-                if (fallback != view.url && fallback != lastFallbackUrl) {
+                if (fallback != view.url && fallback != lastFallbackUrl &&
+                    !blocks(view, fallback, request)
+                ) {
                     lastFallbackUrl = fallback
                     view.loadUrl(fallback)
                 }
@@ -49,9 +58,22 @@ class SecureBrowserWebViewClient(
         return true
     }
 
+    /** P32: the guard's answer for a page's navigation; a blocked one is reported and stays. */
+    private fun blocks(view: WebView, url: String, request: WebResourceRequest): Boolean {
+        val blocked = guard?.blockedNavigation(
+            url = url,
+            pageUrl = view.url ?: pageUrlState.get(),
+            hasGesture = request.hasGesture(),
+            isRedirect = request.isRedirect,
+        ) ?: return false
+        sink.onNavigationBlocked(blocked)
+        return true
+    }
+
     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
         pageUrlState.update(url)
         url?.let(sink::onPageStarted)
+        guard?.pageStarted()
     }
 
     override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
@@ -78,6 +100,7 @@ class SecureBrowserWebViewClient(
     }
 
     override fun onPageFinished(view: WebView, url: String?) {
+        guard?.pageFinished()
         val pageUrl = url ?: return
         sink.onPageFinished(pageUrl, view.title)
         view.evaluateJavascript(DomMediaProbe.script) { result ->
@@ -106,8 +129,13 @@ class SecureBrowserWebViewClient(
                 observedAtEpochMs = clock(),
             ),
         )
-        return null
+        // P32: a listed network's script, frame or image is empty; the page's own ads stay.
+        val blocked = !request.isForMainFrame && guard?.blocksResource(request.url.host) == true
+        return if (blocked) emptyAnswer() else null
     }
+
+    private fun emptyAnswer() =
+        WebResourceResponse("text/javascript", "utf-8", ByteArrayInputStream(ByteArray(0)))
 
     override fun onReceivedError(
         view: WebView,

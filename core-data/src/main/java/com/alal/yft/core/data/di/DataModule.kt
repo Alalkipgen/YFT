@@ -7,9 +7,14 @@ import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.room.Room
 import com.alal.yft.core.data.db.AppDatabase
+import com.alal.yft.core.data.db.BrowserHistoryDao
 import com.alal.yft.core.data.db.DownloadRecordDao
+import com.alal.yft.core.data.history.BrowserHistoryRepository
+import com.alal.yft.core.data.history.RoomBrowserHistoryRepository
 import com.alal.yft.core.data.logging.AndroidAppLogger
 import com.alal.yft.core.data.network.NetworkConfiguration
+import com.alal.yft.core.data.preferences.BrowserPreferencesRepository
+import com.alal.yft.core.data.preferences.DataStoreBrowserPreferencesRepository
 import com.alal.yft.core.data.preferences.DataStoreDownloadPreferencesRepository
 import com.alal.yft.core.data.preferences.DataStoreSettingsRepository
 import com.alal.yft.core.data.preferences.DataStoreHomeSitesRepository
@@ -47,6 +52,18 @@ abstract class DataBindingsModule {
 
     @Binds
     @Singleton
+    abstract fun bindBrowserPreferencesRepository(
+        implementation: DataStoreBrowserPreferencesRepository,
+    ): BrowserPreferencesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBrowserHistoryRepository(
+        implementation: RoomBrowserHistoryRepository,
+    ): BrowserHistoryRepository
+
+    @Binds
+    @Singleton
     abstract fun bindAppLogger(implementation: AndroidAppLogger): AppLogger
 }
 
@@ -62,12 +79,17 @@ object DataProvidersModule {
                 AppDatabase.MIGRATION_2_3,
                 AppDatabase.MIGRATION_3_4,
                 AppDatabase.MIGRATION_4_5,
+                AppDatabase.MIGRATION_5_6,
             )
             .build()
 
     @Provides
     fun provideDownloadRecordDao(database: AppDatabase): DownloadRecordDao =
         database.downloadRecordDao()
+
+    @Provides
+    fun provideBrowserHistoryDao(database: AppDatabase): BrowserHistoryDao =
+        database.browserHistoryDao()
 
     @Provides
     @Singleton

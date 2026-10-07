@@ -31,6 +31,8 @@ class SecureWebViewPolicyTest {
             assertFalse(allowFileAccessFromFileURLs)
             assertFalse(allowUniversalAccessFromFileURLs)
             assertFalse(javaScriptCanOpenWindowsAutomatically)
+            // P32: new windows reach the chrome client, which opens or blocks them.
+            assertTrue(supportMultipleWindows())
             assertTrue(mediaPlaybackRequiresUserGesture)
             assertTrue(mixedContentMode == WebSettings.MIXED_CONTENT_NEVER_ALLOW)
         }

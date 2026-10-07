@@ -77,7 +77,7 @@ class BrowserViewModelTest {
         val viewModel = BrowserViewModel(OkHttpClient(), noAdapters())
         viewModel.onAddressChanged("cat videos")
 
-        assertEquals("https://duckduckgo.com/?q=cat+videos", viewModel.addressForLoading())
+        assertEquals("https://www.google.com/search?q=cat+videos", viewModel.addressForLoading())
         assertNull(viewModel.uiState.value.errorMessage)
     }
 

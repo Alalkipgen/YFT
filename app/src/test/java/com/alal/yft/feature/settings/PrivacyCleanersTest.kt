@@ -7,6 +7,7 @@ import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.detection.SiteLookupCache
 import com.alal.yft.detection.SiteLookupKey
+import com.alal.yft.feature.browser.FakeBrowserHistoryRepository
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -26,6 +27,18 @@ class PrivacyCleanersTest {
         ).clear()
 
         assertEquals(listOf("web", "media"), calls)
+    }
+
+    @Test
+    fun clearingBrowsingDataClearsTheBrowsersHistoryToo() = runTest {
+        val history = FakeBrowserHistoryRepository()
+        history.record("https://example.com/a", "A", 1_000)
+        history.record("https://example.com/b", "B", 2_000)
+
+        BrowserHistoryCleaner(history).clear()
+
+        assertEquals(1, history.clears)
+        assertEquals(emptyList<Any>(), history.pages.value)
     }
 
     @Test

@@ -54,6 +54,7 @@ import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.core.model.settings.SearchEngine
 import com.alal.yft.ui.components.YftCard
 import com.alal.yft.ui.components.YftDivider
 import com.alal.yft.ui.components.YftGroupLabel
@@ -87,8 +88,8 @@ fun SettingsRoute(
     )
 }
 
-/** The list a choice dialog offers; Save files to and Preferred quality open one each. */
-private enum class SettingsPicker { LOCATION, QUALITY }
+/** The list a choice dialog offers; Save files to, Preferred quality and Search engine. */
+private enum class SettingsPicker { LOCATION, QUALITY, SEARCH_ENGINE }
 
 /**
  * The Settings tab (`06`): APPEARANCE, DOWNLOADS, PRIVACY and ABOUT cards with one row per
@@ -149,6 +150,9 @@ fun SettingsScreen(
                         onPick = { picker = it },
                     )
                 }
+                SettingsGroup(title = "Browser") {
+                    BrowserRows(state = state, onPick = { picker = it }, onAction = onAction)
+                }
                 SettingsGroup(title = "Privacy") {
                     PrivacyRows(state = state, onAction = onAction)
                 }
@@ -207,6 +211,22 @@ fun SettingsScreen(
             },
             onDismiss = { picker = null },
             modifier = Modifier.testTag("quality-dialog"),
+        )
+
+        SettingsPicker.SEARCH_ENGINE -> ChoiceDialog(
+            title = "Search engine",
+            description = "Words typed in the browser search with this engine.",
+            options = SearchEngine.entries,
+            selected = state.browser.searchEngine,
+            label = { it.displayName },
+            summary = { null },
+            tag = { "search-engine-${it.name}" },
+            onSelect = {
+                picker = null
+                onAction(SettingsAction.SetSearchEngine(it))
+            },
+            onDismiss = { picker = null },
+            modifier = Modifier.testTag("search-engine-dialog"),
         )
 
         null -> Unit
@@ -335,6 +355,51 @@ private fun DownloadRows(
         value = preferences.defaultQuality.label(),
         tag = "settings-quality",
         onClick = { onPick(SettingsPicker.QUALITY) },
+    )
+}
+
+/**
+ * Settings › Browser: the engine typed words search with (P30), the history (P31) and the
+ * pop-up blocking (P32).
+ */
+@Composable
+private fun BrowserRows(
+    state: SettingsUiState,
+    onPick: (SettingsPicker) -> Unit,
+    onAction: (SettingsAction) -> Unit,
+) {
+    ValueRow(
+        icon = YftIcons.Search,
+        title = "Search engine",
+        value = state.browser.searchEngine.displayName,
+        tag = "settings-search-engine",
+        onClick = { onPick(SettingsPicker.SEARCH_ENGINE) },
+    )
+    RowDivider()
+    SwitchRow(
+        icon = YftIcons.History,
+        title = "Save browser history",
+        checked = state.browser.saveHistory,
+        tag = "settings-save-history",
+        supporting = "Pages you open in the browser are listed in its History.",
+        onToggle = { onAction(SettingsAction.SetSaveHistory(it)) },
+    )
+    RowDivider()
+    ValueRow(
+        icon = YftIcons.Delete,
+        title = "Clear browser history",
+        tag = "settings-clear-history",
+        enabled = !state.working,
+        onClick = { onAction(SettingsAction.Request(SettingsConfirmation.CLEAR_BROWSER_HISTORY)) },
+    )
+    RowDivider()
+    SwitchRow(
+        icon = YftIcons.Block,
+        title = "Block pop-ups and ad redirects",
+        checked = state.browser.blockPopups,
+        tag = "settings-block-popups",
+        supporting = "Pages can't open new windows or send you to another site you didn't tap.",
+        onToggle = { onAction(SettingsAction.SetBlockPopups(it)) },
     )
 }
 
@@ -697,8 +762,12 @@ private fun ConfirmationDialog(
     val (title, body) = when (confirmation) {
         SettingsConfirmation.CLEAR_BROWSING_DATA ->
             "Clear browsing data?" to "Removes cookies, site storage, the cache, saved " +
-                "sign-ins and the found media list. You will be signed out of every site " +
-                "opened in YFT. Downloads and settings are not affected."
+                "sign-ins, the browser's history and the found media list. You will be " +
+                "signed out of every site opened in YFT. Downloads and settings are not affected."
+
+        SettingsConfirmation.CLEAR_BROWSER_HISTORY ->
+            "Clear browser history?" to "Removes every page from the browser's history. " +
+                "Cookies, sign-ins and downloads are not affected."
 
         SettingsConfirmation.CLEAR_DOWNLOAD_HISTORY ->
             "Clear download history?" to "Removes $finishedDownloads finished " +

@@ -1,6 +1,7 @@
 package com.alal.yft.feature.settings
 
 import android.content.Context
+import com.alal.yft.core.data.history.BrowserHistoryRepository
 import com.alal.yft.core.download.DownloadQueue
 import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.detection.SiteLookupCache
@@ -22,10 +23,12 @@ object SettingsModule {
         detectedMedia: DetectedMediaStore,
         previewSelection: PreviewSelectionStore,
         lookups: SiteLookupCache,
+        browserHistory: BrowserHistoryRepository,
     ): BrowsingDataCleaner = CompositeBrowsingDataCleaner(
         listOf(
             WebViewBrowsingDataCleaner(context),
             SessionMediaCleaner(detectedMedia, previewSelection, lookups),
+            BrowserHistoryCleaner(browserHistory),
         ),
     )
 
