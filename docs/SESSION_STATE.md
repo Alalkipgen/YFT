@@ -46,8 +46,8 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent A — `work/phase-13-merge-speed` (P27; later P33)
 
-- Status: OWNER CHECK — P27 (started 2026-10-07, base `7873d51` =
-  `origin/work/phase-13-integration`)
+- Status: READY FOR MERGE (P27) — last code commit `83478f0`, CI green (started 2026-10-07,
+  base `7873d51` = `origin/work/phase-13-integration`)
 - Folder `/data/YFT-A`; push with the deploy key (`origin` = SSH, `/data/.ssh/id_ed25519`).
 - Starting state (before any edit, the Agent A command): BUILD SUCCESSFUL; core-download 141
   tests, core-model 80, app 690 (66 skipped), 0 failures; lint 0 errors (95 warnings);
@@ -97,7 +97,13 @@ Keep at least the heading and one blank line between sections, so Git merges the
     "mergedTaskShowsItsMergeThenItsCopyWithTheirPercent" (no `download-stage-m`),
     `DownloadNotificationFactoryTest` "a merged download shows its merge and then its copy with
     their percent"; restored with `cp`, checked with `cmp`.
-  - Measured split (CI emulator): from this checkpoint's emulator run (next checkpoint).
+  - Measured split (CI emulator, API 34, `83478f0`): 20-minute input, 70 785 samples, 17 MB.
+    Read once with `MediaExtractor` alone: 2.1 s. In place: merge 6.7 s, copy 0, commit 60 ms,
+    total 6.8 s. Today's path (`sdkInt = 25`): merge 7.1 s, copy 13 ms, sync 12 ms, commit
+    36 ms, total 7.2 s. 101 merge percents (0–100) each way. The merge is about 95 µs per
+    sample; reading is under a third of it, so `MediaExtractor` is not the slow part (no backlog
+    note). The emulator's 17 MB copy sits in its page cache; on a phone the copy of a 1.3 GB
+    file (read 1.3 GB, write 1.3 GB, sync) is the wait the direct merge removes.
   - CI (`d978201`): checkpoint validation success
     https://github.com/Alalkipgen/YFT/actions/runs/37562550278; Preview APK success
     https://github.com/Alalkipgen/YFT/actions/runs/37562550232; emulator smoke failure
@@ -105,6 +111,14 @@ Keep at least the heading and one blank line between sections, so Git merges the
     `MergeSpeedInstrumentedTest` tests stopped at `IllegalArgumentException` — the test's fake
     track checkpoint had a fingerprint that is not hex; a test bug, fixed in the next commit).
     Its read pass: 20 min, 70 785 samples, 17 MB, read once in 1.8 s (sdk 34).
+  - CI (`83478f0`): emulator smoke success, "Instrumentation results: tests=25 failures=0" (23
+    before + the 2 `MergeSpeedInstrumentedTest` tests)
+    https://github.com/Alalkipgen/YFT/actions/runs/37563836036; Preview APK success
+    https://github.com/Alalkipgen/YFT/actions/runs/37563836037; checkpoint validation success
+    https://github.com/Alalkipgen/YFT/actions/runs/37563836046.
+  - Owner check: a YouTube live recording of 1 h or more at 480p or 720p → after the download
+    "Merging audio and video · …%", then "Saving to Download/YFT · …%"; a much shorter wait than
+    in Preview #4; the file plays.
 - Hand-offs: none
 
 ## Agent B — `work/phase-13-generic-main` (P28, P29)
