@@ -95,7 +95,11 @@ Keep at least the heading and one blank line between sections, so Git merges the
     green, [Preview APK](https://github.com/Alalkipgen/YFT/actions/runs/37560950114) green,
     [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37560950074) red (1 of 24:
     `PrerollInstrumentedTest`, the page script's `fetch` not reported by the request hook in
-    time); fixed in the P29 commit (the test gives the hook's reports itself).
+    time); the P29 commit `32d2472` gives the hook's reports itself, but its
+    [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37563179756) is red too
+    (`PrerollInstrumentedTest`: the stated length is null on the real WebView, 984000 on the
+    JVM with the same probe answer). Next: the test logs `YFT-DIAG p28-preroll` lines (probe
+    answer, JSON-LD block, the device's reading) to find the cause, then the fix.
   - Owner check: the site from Preview #4, Download while the ad plays → the page's title,
     picture and length with 480p/720p; the ad only under Other videos.
 - P29 — Other sites: the next video when one fails: OWNER CHECK (2026-10-07)

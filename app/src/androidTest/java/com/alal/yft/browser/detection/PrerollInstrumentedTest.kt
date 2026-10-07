@@ -1,5 +1,6 @@
 package com.alal.yft.browser.detection
 
+import android.util.Log
 import android.view.ViewGroup
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -13,6 +14,7 @@ import com.alal.yft.MainActivity
 import com.alal.yft.core.browser.detection.BrowserObservationMapper
 import com.alal.yft.core.browser.detection.DomMediaProbe
 import com.alal.yft.core.browser.detection.DomProbeResultParser
+import com.alal.yft.core.browser.detection.PageFactsReader
 import com.alal.yft.core.browser.detection.PlayingVideoProbe
 import com.alal.yft.core.browser.detection.RequestObservation
 import com.alal.yft.core.browser.detection.VastAdTracker
@@ -27,6 +29,8 @@ import java.io.ByteArrayInputStream
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
+import org.json.JSONArray
+import org.json.JSONTokener
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -74,6 +78,7 @@ class PrerollInstrumentedTest {
         val dom = run(DomMediaProbe.script)
         val parser = DomProbeResultParser()
         val facts = parser.facts(PAGE, dom)
+        diagnose(dom)
         assertNotNull(facts)
         assertEquals(984_000L, facts?.durationMillis)
         assertEquals("Harbour lights at dusk", facts?.title)
@@ -125,10 +130,52 @@ class PrerollInstrumentedTest {
         return MediaGroups.pageVideos(MediaGroups.withPageRoles(candidates, facts))
     }
 
-    private fun load() {
-        val html = instrumentation.context.assets.open("browser-detection/p28-preroll.html")
+    /**
+     * What the probe read on this WebView and how this device reads it, as `YFT-DIAG` lines
+     * the CI run shows (no page text: lengths, names, and the JSON-LD block as hex).
+     */
+    private fun diagnose(dom: String?) {
+        val entries = runCatching { JSONArray(JSONTokener(dom).nextValue() as String) }.getOrNull()
+        val parts = entries?.optJSONObject(0)?.optJSONObject("facts")
+        val blocks = parts?.optJSONArray("jsonLd")
+        val block = blocks?.optString(0, "").orEmpty()
+        val keys = parts?.optJSONObject("meta")?.keys()?.asSequence()?.joinToString("/")
+            ?.replace('_', '.')
+        diag(
+            "probe",
+            "len=${dom?.length} entries=${entries?.length()} keys=$keys " +
+                "ld=${blocks?.length()} ldlen=${block.length}",
+        )
+        val hex = block.toByteArray().joinToString("") { "%02x".format(it) }
+        diag("ldhex", hex.chunked(HEX_CHUNK).take(HEX_PARTS).zip(HEX_KEYS).joinToString(" ") {
+            "${it.second}=${it.first}"
+        })
+        val fromHtml = runCatching { PageFactsReader.fromHtml(fixture(), PAGE).durationMillis }
+        val fromBlock = runCatching {
+            PageFactsReader.fromParts(emptyMap(), listOf(block), null, PAGE).durationMillis
+        }
+        val iso = runCatching { ManifestReader.isoDurationMillis("PT16M24S") }
+        diag(
+            "device",
+            listOf("html" to fromHtml, "block" to fromBlock, "iso" to iso).joinToString(" ") {
+                "${it.first}=" + it.second.fold({ value -> "$value" }) { error ->
+                    error.javaClass.simpleName
+                }
+            },
+        )
+        val state = run(PAGE_STATE)?.let { runCatching { JSONTokener(it).nextValue() }.getOrNull() }
+        diag("page", state as? String ?: "state=none")
+    }
+
+    private fun diag(phase: String, text: String) = Log.i(TAG, "YFT-DIAG p28-preroll $phase $text")
+
+    private fun fixture(): String =
+        instrumentation.context.assets.open("browser-detection/p28-preroll.html")
             .bufferedReader()
             .use { it.readText() }
+
+    private fun load() {
+        val html = fixture()
         val loaded = CountDownLatch(1)
         scenario.onActivity { activity ->
             val view = WebView(activity).apply {
@@ -229,5 +276,18 @@ class PrerollInstrumentedTest {
         const val LOAD_TIMEOUT_S = 20L
         const val AD_AFTER_BREAK_MS = 300L
         const val STREAM_AFTER_BREAK_MS = 4_000L
+        const val TAG = "YFTPreroll"
+        const val HEX_CHUNK = 200
+        const val HEX_PARTS = 6
+        val HEX_KEYS = listOf("a", "b", "c", "d", "e", "f")
+        val PAGE_STATE = """
+            (() => {
+              const ld = document.querySelector('script[type="application/ld+json"]');
+              return ['ready=' + document.readyState, 'scripts=' + document.scripts.length,
+                'endAd=' + typeof window.endAd, 'ldtext=' + (ld ? ld.textContent.length : -1),
+                'metas=' + document.querySelectorAll('meta').length,
+                'html=' + document.documentElement.outerHTML.length].join(' ');
+            })()
+        """.trimIndent()
     }
 }
