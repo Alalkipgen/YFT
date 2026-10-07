@@ -52,7 +52,11 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent B — `work/phase-13-generic-main` (P28, P29)
 
-- Status: IN PROGRESS (P28 emulator test fix; P28, P29 OWNER CHECK) — started 2026-10-07 in `/data/YFT-B`, base commit `7873d51`
+- Status: READY FOR MERGE — last code commit `a47926d`, CI green:
+  [checkpoint validation](https://github.com/Alalkipgen/YFT/actions/runs/37569543911),
+  [Preview APK](https://github.com/Alalkipgen/YFT/actions/runs/37569543931),
+  [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37569543932); P28, P29
+  OWNER CHECK. Started 2026-10-07 in `/data/YFT-B`, base commit `7873d51`
   (`origin/work/phase-13-integration`, the Phase 13 plan on `main` `bc806f9`).
 - Environment: rebuilt after a sandbox reset (JDK 17 `/data/toolchains/jdk17`, SDK 35,
   build-tools 35.0.0, NDK 27.3.13750724, CMake 3.22.1, 4 GiB swap); new SSH deploy key
@@ -102,7 +106,12 @@ Keep at least the heading and one blank line between sections, so Git merges the
     because the test answered every request with 404, the WebView's `data:` load of the
     `loadDataWithBaseURL` page included; the device reads the fixture's HTML as 16:24, so the
     app's code was right. Fix: the test loads the page's address and serves the page for it,
-    and checks first that the fixture, not an error page, loaded. Fix commit CI: pending.
+    and checks first that the fixture, not an error page, loaded. Fix `a47926d`:
+    [checkpoint validation](https://github.com/Alalkipgen/YFT/actions/runs/37569543911) green,
+    [Preview APK](https://github.com/Alalkipgen/YFT/actions/runs/37569543931) green,
+    [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37569543932) green (24 tests,
+    0 failures). Validation: 962 tests, 0 failures, 66 skipped; lint 0 errors; androidTest
+    compiles; line check empty. Regression proof: the same test red before the fix, green after.
   - Owner check: the site from Preview #4, Download while the ad plays → the page's title,
     picture and length with 480p/720p; the ad only under Other videos.
 - P29 — Other sites: the next video when one fails: OWNER CHECK (2026-10-07)
@@ -129,7 +138,8 @@ Keep at least the heading and one blank line between sections, so Git merges the
   - CI (`32d2472`): [checkpoint validation](https://github.com/Alalkipgen/YFT/actions/runs/37563179633)
     green, [Preview APK](https://github.com/Alalkipgen/YFT/actions/runs/37563179635) green,
     [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37563179756) red only in P28's
-    `PrerollInstrumentedTest` (see P28 CI); with the P28 test fix: pending.
+    `PrerollInstrumentedTest` (see P28 CI); with the P28 test fix `a47926d` all three green
+    (links under P28 CI).
   - Owner check: the page that showed "HTTP 410" in Preview #4 → the sheet opens a working
     video (or the page's own after P28) without the error.
 - Hand-offs: none
