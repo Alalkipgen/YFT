@@ -46,6 +46,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -110,6 +112,7 @@ import com.alal.yft.core.browser.webview.BrowserObservationSink
 import com.alal.yft.core.browser.webview.BrowserPageUrl
 import com.alal.yft.core.browser.webview.SecureBrowserChromeClient
 import com.alal.yft.core.browser.webview.SecureBrowserWebViewClient
+import com.alal.yft.core.data.history.BrowserHistoryEntry
 import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.core.model.media.PageVideoList
@@ -146,15 +149,26 @@ fun BrowserRoute(
     onOpenQuickDownload: () -> Unit = {},
     viewModel: BrowserViewModel = hiltViewModel(),
     browserSettings: BrowserSettingsViewModel = hiltViewModel(),
+    history: BrowserHistoryViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val preferences by browserSettings.preferences.collectAsStateWithLifecycle()
+    val historyState by history.uiState.collectAsStateWithLifecycle()
+    var historyOpen by rememberSaveable { mutableStateOf(false) }
     // P30: typed words (the view model asks BrowserSearch) search with the chosen engine.
     SideEffect { BrowserSearch.engine = preferences.searchEngine }
     val clipboard = LocalClipboardManager.current
     val copiedLinkHint = rememberCopiedLinkHint()
     val pageUrlState = remember { BrowserPageUrl() }
     var webView by remember { mutableStateOf<WebView?>(null) }
+    // P31: the detection's view model stays the sink; page loads also reach the history.
+    val sink = remember(viewModel, history) {
+        val recorder = BrowserHistoryRecorder(
+            onVisit = history::recordVisit,
+            onTitle = history::renamePage,
+        )
+        HistoryRecordingSink(viewModel, recorder, currentTitle = { webView?.title })
+    }
     // Latch on the first navigation; redirects and later empty/failed pages never recreate it.
     var browserRequested by remember { mutableStateOf(uiState.currentUrl != null) }
     var pendingUrl by remember { mutableStateOf(uiState.currentUrl) }
@@ -190,6 +204,12 @@ fun BrowserRoute(
 
     fun submitAddress() {
         viewModel.addressForLoading()?.let(::requestNavigation)
+    }
+
+    fun openPage(url: String) {
+        historyOpen = false
+        viewModel.onAddressChanged(url)
+        submitAddress()
     }
 
     fun refreshHistoryState() {
@@ -300,10 +320,13 @@ fun BrowserRoute(
             // P13: a download sheet over the browser pauses this screen; the wide button goes.
             downloadSheetOpen = !resumed,
             searchEngine = preferences.searchEngine,
+            recentPages = historyState.recent,
+            onOpenRecent = { page -> openPage(page.url) },
+            onShowHistory = { historyOpen = true },
             browserSurface = { modifier ->
                 BrowserWebView(
                     modifier = modifier,
-                    sink = viewModel,
+                    sink = sink,
                     pageUrlState = pageUrlState,
                     fullscreenHandler = fullscreenHandler,
                     onWebViewReady = {
@@ -313,6 +336,18 @@ fun BrowserRoute(
                 )
             },
         )
+        if (historyOpen) {
+            val now = remember { System.currentTimeMillis() }
+            BrowserHistoryPanel(
+                state = historyState,
+                nowEpochMs = now,
+                onQueryChanged = history::onQueryChanged,
+                onOpen = { page -> openPage(page.url) },
+                onDelete = { page -> history.delete(page.url) },
+                onClear = history::clear,
+                onClose = { historyOpen = false },
+            )
+        }
         fullscreenView?.let { view ->
             BrowserFullscreen(
                 view = view,
@@ -409,6 +444,9 @@ fun BrowserScreen(
     fullScreen: Boolean = false,
     downloadSheetOpen: Boolean = false,
     searchEngine: SearchEngine = BrowserSearch.engine,
+    recentPages: List<BrowserHistoryEntry> = emptyList(),
+    onOpenRecent: (BrowserHistoryEntry) -> Unit = {},
+    onShowHistory: () -> Unit = {},
     browserSurface: @Composable (Modifier) -> Unit,
 ) {
     val colors = YftTheme.colors
@@ -586,6 +624,9 @@ fun BrowserScreen(
                     onEditSites = onGoHome,
                     modifier = Modifier.fillMaxSize(),
                     searchEngine = searchEngine,
+                    recentPages = recentPages,
+                    onOpenRecent = onOpenRecent,
+                    onShowHistory = onShowHistory,
                 )
             }
             val showSheet = hasBrowserPage && savable.isNotEmpty() && !editingAddress
@@ -691,6 +732,7 @@ fun BrowserScreen(
             onReload = onReload,
             onStop = onStop,
             onGoHome = onGoHome,
+            onShowHistory = onShowHistory,
         )
     }
 }
@@ -1068,6 +1110,7 @@ private fun BrowserToolbar(
     onReload: () -> Unit,
     onStop: () -> Unit,
     onGoHome: () -> Unit,
+    onShowHistory: () -> Unit,
 ) {
     val colors = YftTheme.colors
     Column(
@@ -1110,6 +1153,40 @@ private fun BrowserToolbar(
                 contentDescription = "YFT Home",
                 onClick = onGoHome,
                 modifier = Modifier.testTag("browser-home"),
+            )
+            BrowserMenu(onShowHistory = onShowHistory)
+        }
+    }
+}
+
+/** The browser's menu (P31): History. */
+@Composable
+private fun BrowserMenu(onShowHistory: () -> Unit) {
+    val colors = YftTheme.colors
+    var open by remember { mutableStateOf(false) }
+    Box {
+        YftIconButton(
+            icon = YftIcons.MoreHoriz,
+            contentDescription = "Browser menu",
+            onClick = { open = true },
+            modifier = Modifier.testTag("browser-menu"),
+        )
+        DropdownMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            shape = YftShapes.card,
+            containerColor = colors.card,
+        ) {
+            DropdownMenuItem(
+                text = { Text(text = "History", color = colors.textPrimary) },
+                onClick = {
+                    open = false
+                    onShowHistory()
+                },
+                modifier = Modifier.testTag("browser-menu-history"),
+                leadingIcon = {
+                    YftIcon(icon = YftIcons.History, contentDescription = null, tint = colors.icon)
+                },
             )
         }
     }

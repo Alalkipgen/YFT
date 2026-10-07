@@ -59,7 +59,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent C — `work/phase-13-browser` (P30, P31, P32)
 
-- Status: P30 OWNER CHECK; P31 IN PROGRESS
+- Status: P30, P31 OWNER CHECK; P32 IN PROGRESS
 - Started 2026-10-07 in `/data/YFT-C` from `origin/work/phase-13-integration` `7873d51`.
   Starting state (`/data/tmp/validate-c.sh`: core-model, core-data, core-browser and app unit
   tests, `:app:lintDebug`, `:app:compileDebugAndroidTestKotlin`): core-model 80, core-data 18,
@@ -79,7 +79,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
     of B's test `BrowserViewModelTest` (expected DuckDuckGo address → Google) had to change in
     this branch, because that test checks the default. The Browser group sits between Downloads
     and Privacy in Settings.
-  - Validation: see Last validation below.
+  - Validation: see the checkpoint line below.
   - Regression proof: the old `BrowserSearch.kt`, `BrowserStartPage.kt` and `BrowserScreen.kt`
     (`/data/bak/P30/orig`) with the new tests (those needing the new API held aside): 5 of 75
     fail — `BrowserRouteTest.typedWordsSearchGoogleByDefault`,
@@ -91,10 +91,54 @@ Keep at least the heading and one blank line between sections, so Git merges the
   - Owner check: type words (for example `myanmar news`) in the address bar → Google results;
     the start page shows "Search Google for “…”"; Settings › Browser › Search engine →
     DuckDuckGo → the next search opens DuckDuckGo; back to Google.
-- P31 — Browser history: IN PROGRESS
-- P32 — Block pop-ups and ad redirects: TODO
-- Last validation (P30, 2026-10-07): `/data/tmp/validate-c.sh` → core-model 81, core-data 20,
-  core-browser 88, app 698 (66 skipped), 0 failures; `:app:lintDebug` 0 errors, 95 warnings
-  (unchanged); `:app:compileDebugAndroidTestKotlin` OK; line check empty.
+  - Checkpoint `521b0b6`; CI green: checkpoint validation
+    https://github.com/Alalkipgen/YFT/actions/runs/37551748282, emulator smoke
+    https://github.com/Alalkipgen/YFT/actions/runs/37551748382, Preview APK
+    https://github.com/Alalkipgen/YFT/actions/runs/37551748312. P30 validation:
+    core-model 81, core-data 20, core-browser 88, app 698 (66 skipped), 0 failures; lint
+    0 errors, 95 warnings (unchanged); `:app:compileDebugAndroidTestKotlin` OK.
+- P31 — Browser history: OWNER CHECK
+  - Result: Room 6 adds `browser_history` (`url` key, `title`, `host`, `last_visited_at`
+    with an index, `visit_count`); `MIGRATION_5_6` only creates the table and its index
+    (schema `core-data/schemas/…/6.json`). `BrowserHistoryDao` (visit = update, else insert,
+    in one transaction — Android 7's SQLite has no UPSERT; newest, search by title, host or
+    address with `%` and `_` taken literally, rename, delete, delete all, prune). Rules in
+    `BrowserHistoryAddress`: HTTPS only (never `about:`, `data:`, HTTP, files or the start
+    page), no fragment, no user name or password, no `utm_*`, `fbclid`, `gclid`, `dclid`,
+    `gbraid`, `wbraid`, `msclkid`, `igshid`, `mc_eid`, `yclid`; 90 days and 5,000 pages kept.
+    `BrowserHistoryRecorder` decides what a visit is: a page that finished without a
+    main-frame error (once per document), and a single-page site's own address change after
+    it finished (YouTube's videos); redirects while loading, fragments and tracking parameters
+    are no new visit; the title follows from the new `onPageTitle` (`onReceivedTitle`).
+    `HistoryRecordingSink` wraps the browser's view model as the WebView's sink (every event
+    passed on unchanged, same order and thread). `BrowserHistoryViewModel` checks Settings ›
+    Browser › Save browser history at each visit and runs writes in order. UI: the toolbar's
+    new menu button (`browser-menu`) › History (`browser-menu-history`) opens a full-screen
+    list inside the browser screen (`browser-history`: search box, Today / Yesterday /
+    Earlier, a tap opens the page, a row's menu deletes it, Clear history with a
+    confirmation, Back closes it); the start page shows the last six pages under Recent
+    (`browser-recent`, "History" opens the list). Settings › Browser: "Save browser history"
+    (`settings-save-history`, default on) and "Clear browser history"
+    (`settings-clear-history`, with a confirmation); "Clear browsing data" clears the history
+    too (`BrowserHistoryCleaner` in the composite cleaner; its dialog says so).
+  - Plan adapted: the browser had no menu; the menu button is the toolbar's fifth button (the
+    top row keeps its address field width). The recorder is a sink wrapper in Agent C's files
+    instead of a change in `BrowserViewModel`; one new sink method with a default body
+    (`onPageTitle`).
+  - Validation: see Last validation below.
+  - Regression proof (the new tests need the new API, so the behaviour was broken on purpose
+    in a copy and restored): the WebView's sink back to the view model, tracking parameters
+    kept, the switch ignored, the migration's index left out, the count not raised → 8 tests
+    fail (both migration tests, the address rules, the title and count tests, the recorder's
+    single-page test, the switch test, the route's WebView-to-history test); files restored
+    from `/data/bak/P31/new` with `cp`, `cmp` equal.
+  - Owner check: open three sites in the browser → menu (⋯ at the bottom right) › History
+    lists them, newest first, under Today; a tap opens one; a row's ⋯ › Delete removes it;
+    Clear history › Clear empties the list; the start page shows them under Recent;
+    Settings › Browser › Save browser history off → new pages are not added.
+- P32 — Block pop-ups and ad redirects: IN PROGRESS
+- Last validation (P31, 2026-10-07): `/data/tmp/validate-c.sh` → core-model 82, core-data 32,
+  core-browser 89, app 717 (66 skipped), 0 failures; lint 0 errors, 95 warnings (unchanged);
+  `:app:compileDebugAndroidTestKotlin` OK; line check empty.
 - Hand-offs: none. Note for Agent B: this branch changes line 80 of `BrowserViewModelTest`
   (expected search address DuckDuckGo → Google); keep Google when merging.

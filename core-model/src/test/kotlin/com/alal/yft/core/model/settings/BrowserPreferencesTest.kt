@@ -12,4 +12,9 @@ class BrowserPreferencesTest {
             SearchEngine.entries.map(SearchEngine::displayName),
         )
     }
+
+    @Test
+    fun `the history is saved until the user turns it off`() {
+        assertEquals(true, BrowserPreferences().saveHistory)
+    }
 }

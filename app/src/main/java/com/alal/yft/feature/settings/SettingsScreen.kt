@@ -151,7 +151,7 @@ fun SettingsScreen(
                     )
                 }
                 SettingsGroup(title = "Browser") {
-                    BrowserRows(state = state, onPick = { picker = it })
+                    BrowserRows(state = state, onPick = { picker = it }, onAction = onAction)
                 }
                 SettingsGroup(title = "Privacy") {
                     PrivacyRows(state = state, onAction = onAction)
@@ -358,15 +358,36 @@ private fun DownloadRows(
     )
 }
 
-/** Settings › Browser (P30): the engine typed words search with. */
+/** Settings › Browser: the engine typed words search with (P30) and the history (P31). */
 @Composable
-private fun BrowserRows(state: SettingsUiState, onPick: (SettingsPicker) -> Unit) {
+private fun BrowserRows(
+    state: SettingsUiState,
+    onPick: (SettingsPicker) -> Unit,
+    onAction: (SettingsAction) -> Unit,
+) {
     ValueRow(
         icon = YftIcons.Search,
         title = "Search engine",
         value = state.browser.searchEngine.displayName,
         tag = "settings-search-engine",
         onClick = { onPick(SettingsPicker.SEARCH_ENGINE) },
+    )
+    RowDivider()
+    SwitchRow(
+        icon = YftIcons.History,
+        title = "Save browser history",
+        checked = state.browser.saveHistory,
+        tag = "settings-save-history",
+        supporting = "Pages you open in the browser are listed in its History.",
+        onToggle = { onAction(SettingsAction.SetSaveHistory(it)) },
+    )
+    RowDivider()
+    ValueRow(
+        icon = YftIcons.Delete,
+        title = "Clear browser history",
+        tag = "settings-clear-history",
+        enabled = !state.working,
+        onClick = { onAction(SettingsAction.Request(SettingsConfirmation.CLEAR_BROWSER_HISTORY)) },
     )
 }
 
@@ -729,8 +750,12 @@ private fun ConfirmationDialog(
     val (title, body) = when (confirmation) {
         SettingsConfirmation.CLEAR_BROWSING_DATA ->
             "Clear browsing data?" to "Removes cookies, site storage, the cache, saved " +
-                "sign-ins and the found media list. You will be signed out of every site " +
-                "opened in YFT. Downloads and settings are not affected."
+                "sign-ins, the browser's history and the found media list. You will be " +
+                "signed out of every site opened in YFT. Downloads and settings are not affected."
+
+        SettingsConfirmation.CLEAR_BROWSER_HISTORY ->
+            "Clear browser history?" to "Removes every page from the browser's history. " +
+                "Cookies, sign-ins and downloads are not affected."
 
         SettingsConfirmation.CLEAR_DOWNLOAD_HISTORY ->
             "Clear download history?" to "Removes $finishedDownloads finished " +

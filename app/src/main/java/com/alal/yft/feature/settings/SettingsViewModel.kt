@@ -2,6 +2,7 @@ package com.alal.yft.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.alal.yft.core.data.history.BrowserHistoryRepository
 import com.alal.yft.core.data.preferences.BrowserPreferencesRepository
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.data.preferences.SettingsRepository
@@ -25,6 +26,9 @@ import kotlinx.coroutines.launch
 enum class SettingsConfirmation {
     CLEAR_BROWSING_DATA,
     CLEAR_DOWNLOAD_HISTORY,
+
+    /** Settings › Browser › Clear browser history (P31). */
+    CLEAR_BROWSER_HISTORY,
 }
 
 data class SettingsUiState(
@@ -47,6 +51,7 @@ sealed interface SettingsAction {
     data class SetConcurrency(val count: Int) : SettingsAction
     data class SetCheckCopiedLinks(val enabled: Boolean) : SettingsAction
     data class SetSearchEngine(val engine: SearchEngine) : SettingsAction
+    data class SetSaveHistory(val enabled: Boolean) : SettingsAction
     data class Request(val confirmation: SettingsConfirmation) : SettingsAction
     data object Confirm : SettingsAction
     data object Dismiss : SettingsAction
@@ -66,6 +71,7 @@ class SettingsViewModel @Inject constructor(
     private val history: DownloadHistory,
     private val settings: SettingsRepository,
     private val browser: BrowserPreferencesRepository,
+    private val browserHistory: BrowserHistoryRepository,
 ) : ViewModel() {
     private val transient = MutableStateFlow(Transient())
 
@@ -109,6 +115,10 @@ class SettingsViewModel @Inject constructor(
                 browser.update { it.copy(searchEngine = action.engine) }
             }
 
+            is SettingsAction.SetSaveHistory -> viewModelScope.launch {
+                browser.update { it.copy(saveHistory = action.enabled) }
+            }
+
             is SettingsAction.Request -> transient.update {
                 if (it.working) it else it.copy(confirmation = action.confirmation)
             }
@@ -133,6 +143,11 @@ class SettingsViewModel @Inject constructor(
                     SettingsConfirmation.CLEAR_BROWSING_DATA -> {
                         browsingData.clear()
                         "Browsing data cleared. Sites will ask you to sign in again."
+                    }
+
+                    SettingsConfirmation.CLEAR_BROWSER_HISTORY -> {
+                        browserHistory.clear()
+                        "Browser history cleared."
                     }
 
                     SettingsConfirmation.CLEAR_DOWNLOAD_HISTORY -> {

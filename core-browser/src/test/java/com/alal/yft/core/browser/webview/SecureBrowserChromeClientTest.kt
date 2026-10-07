@@ -3,6 +3,7 @@ package com.alal.yft.core.browser.webview
 import android.content.Context
 import android.view.View
 import android.webkit.WebChromeClient
+import android.webkit.WebView
 import androidx.test.core.app.ApplicationProvider
 import com.alal.yft.core.browser.detection.DownloadObservation
 import com.alal.yft.core.browser.detection.RequestObservation
@@ -43,6 +44,25 @@ class SecureBrowserChromeClientTest {
         SecureBrowserChromeClient(NoSink).onShowCustomView(View(context), callback)
 
         assertEquals(1, callback.hidden)
+    }
+
+    @Test
+    fun aPagesTitleReachesTheSinkWithItsAddress() {
+        val titles = mutableListOf<Pair<String, String?>>()
+        val sink = object : BrowserObservationSink by NoSink {
+            override fun onPageTitle(url: String, title: String?) {
+                titles += url to title
+            }
+        }
+        val client = SecureBrowserChromeClient(sink)
+        val webView = WebView(context)
+
+        client.onReceivedTitle(webView, "Before any page")
+        webView.loadUrl("https://example.com/news")
+        client.onReceivedTitle(webView, "News")
+
+        assertEquals(listOf("https://example.com/news" to "News"), titles)
+        webView.destroy()
     }
 
     private class RecordingFullscreen : SecureBrowserChromeClient.FullscreenHandler {

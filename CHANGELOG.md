@@ -20,6 +20,13 @@ for every APK given to users, because Android refuses to install a lower one.
 - Changed: words typed in the browser's address bar or on its start page search Google (was
   DuckDuckGo). The start page's row says "Search Google for “…”".
 - Added: Settings › Browser › Search engine — Google (default), DuckDuckGo or Bing.
+- Added: browser history. The browser's menu (⋯ in its toolbar) › History lists the pages you
+  opened by Today, Yesterday and Earlier, with a search box; a tap opens a page, a row's menu
+  deletes it, and Clear history empties the list. The start page shows the last six pages
+  under Recent. Only HTTPS pages are kept, without tracking parameters, for 90 days and at
+  most 5,000 pages. Settings › Browser › Save browser history (on by default) and Clear browser
+  history; Clear browsing data clears the history too. Database version 6 (migration 5 → 6
+  keeps every download).
 
 ### Added
 

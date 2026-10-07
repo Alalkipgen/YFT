@@ -2,6 +2,7 @@ package com.alal.yft.core.data.preferences
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -15,7 +16,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
-/** Settings › Browser (P30): the search engine; later the history and pop-up switches. */
+/** Settings › Browser: the search engine (P30), saving the history (P31); later pop-ups. */
 interface BrowserPreferencesRepository {
     val preferences: Flow<BrowserPreferences>
     suspend fun update(transform: (BrowserPreferences) -> BrowserPreferences)
@@ -39,6 +40,7 @@ class DataStoreBrowserPreferencesRepository @Inject constructor(
         dataStore.edit { stored ->
             val next = transform(read(stored))
             stored[SEARCH_ENGINE] = next.searchEngine.name
+            stored[SAVE_HISTORY] = next.saveHistory
         }
     }
 
@@ -48,10 +50,12 @@ class DataStoreBrowserPreferencesRepository @Inject constructor(
             searchEngine = stored[SEARCH_ENGINE]
                 ?.let { name -> SearchEngine.entries.firstOrNull { it.name == name } }
                 ?: defaults.searchEngine,
+            saveHistory = stored[SAVE_HISTORY] ?: defaults.saveHistory,
         )
     }
 
     private companion object {
         val SEARCH_ENGINE = stringPreferencesKey("browser_search_engine")
+        val SAVE_HISTORY = booleanPreferencesKey("browser_save_history")
     }
 }

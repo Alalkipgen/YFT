@@ -54,4 +54,21 @@ class DataStoreBrowserPreferencesRepositoryTest {
 
         assertEquals(SearchEngine.GOOGLE, repository.preferences.first().searchEngine)
     }
+
+    @Test
+    fun `the history switch is on for an older file and stays as the user sets it`() = runTest {
+        val store = PreferenceDataStoreFactory.create(
+            scope = backgroundScope,
+            produceFile = { File(temporaryFolder.root, "settings.preferences_pb") },
+        )
+        store.edit { it[stringPreferencesKey("browser_search_engine")] = "BING" }
+        val repository = DataStoreBrowserPreferencesRepository(store)
+        assertEquals(true, repository.preferences.first().saveHistory)
+
+        repository.update { it.copy(saveHistory = false) }
+
+        val reopened = DataStoreBrowserPreferencesRepository(store).preferences.first()
+        assertEquals(false, reopened.saveHistory)
+        assertEquals(SearchEngine.BING, reopened.searchEngine)
+    }
 }

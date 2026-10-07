@@ -9,6 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     entities = [
         DownloadRecordEntity::class,
         DownloadSegmentEntity::class,
+        BrowserHistoryEntity::class,
     ],
     version = AppDatabase.VERSION,
     exportSchema = true,
@@ -16,8 +17,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 abstract class AppDatabase : RoomDatabase() {
     abstract fun downloadRecordDao(): DownloadRecordDao
 
+    abstract fun browserHistoryDao(): BrowserHistoryDao
+
     companion object {
-        const val VERSION = 5
+        const val VERSION = 6
         const val NAME = "yft.db"
 
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -119,6 +122,22 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL(
                     "ALTER TABLE download_records " +
                         "ADD COLUMN last_error_detail TEXT DEFAULT NULL",
+                )
+            }
+        }
+
+        /** P31: the browser's history; download records are not touched. */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `browser_history` (" +
+                        "`url` TEXT NOT NULL, `title` TEXT NOT NULL, `host` TEXT NOT NULL, " +
+                        "`last_visited_at` INTEGER NOT NULL, `visit_count` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`url`))",
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_browser_history_last_visited_at` " +
+                        "ON `browser_history` (`last_visited_at`)",
                 )
             }
         }

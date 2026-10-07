@@ -19,4 +19,10 @@ interface BrowserObservationSink {
     fun onDownload(observation: DownloadObservation)
     fun onDomProbeResult(pageUrl: String, result: String?)
     fun onMainFrameError(url: String?, description: String)
+
+    /**
+     * The page named itself or changed its title (P31), also after a single-page navigation.
+     * Called on the main thread with the page's current address.
+     */
+    fun onPageTitle(url: String, title: String?) = Unit
 }

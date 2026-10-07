@@ -16,4 +16,6 @@ enum class SearchEngine(
  */
 data class BrowserPreferences(
     val searchEngine: SearchEngine = SearchEngine.GOOGLE,
+    /** P31 (decision F3): pages the browser opens are kept in its History. */
+    val saveHistory: Boolean = true,
 )

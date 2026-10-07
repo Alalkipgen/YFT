@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
@@ -173,6 +174,32 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun `the browser history is saved until switched off and is cleared after a question`() {
+        setContent()
+
+        composeRule.onNodeWithTag("settings-save-history").performScrollTo()
+            .assertIsOn()
+            .performClick()
+        assertEquals(listOf<SettingsAction>(SettingsAction.SetSaveHistory(false)), actions)
+        shown.value = SettingsUiState(browser = BrowserPreferences(saveHistory = false))
+        composeRule.onNodeWithTag("settings-save-history").assertIsOff()
+
+        composeRule.onNodeWithTag("settings-clear-history").performScrollTo().performClick()
+        assertEquals(
+            SettingsAction.Request(SettingsConfirmation.CLEAR_BROWSER_HISTORY),
+            actions.last(),
+        )
+        shown.value = SettingsUiState(confirmation = SettingsConfirmation.CLEAR_BROWSER_HISTORY)
+        composeRule.onNodeWithText("Clear browser history?").assertExists()
+        composeRule.onNodeWithText(
+            "Removes every page from the browser's history. Cookies, sign-ins and downloads " +
+                "are not affected.",
+        ).assertExists()
+        composeRule.onNodeWithTag("confirm-action").performClick()
+        assertEquals(SettingsAction.Confirm, actions.last())
+    }
+
+    @Test
     fun `clearing asks for confirmation first`() {
         setContent(
             state = SettingsUiState(
@@ -204,9 +231,9 @@ class SettingsScreenTest {
         shown.value = SettingsUiState(confirmation = SettingsConfirmation.CLEAR_BROWSING_DATA)
         composeRule.onNodeWithText("Clear browsing data?").assertExists()
         composeRule.onNodeWithText(
-            "Removes cookies, site storage, the cache, saved sign-ins and the found media " +
-                "list. You will be signed out of every site opened in YFT. Downloads and " +
-                "settings are not affected.",
+            "Removes cookies, site storage, the cache, saved sign-ins, the browser's history " +
+                "and the found media list. You will be signed out of every site opened in " +
+                "YFT. Downloads and settings are not affected.",
         ).assertExists()
         composeRule.onNodeWithTag("dismiss-action").performClick()
         assertEquals(SettingsAction.Dismiss, actions.last())

@@ -18,6 +18,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.lifecycle.ViewModelStore
+import com.alal.yft.core.data.history.BrowserHistoryEntry
 import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
@@ -63,6 +64,7 @@ class BrowserRouteTest {
     private val viewModelStore = ViewModelStore()
     private lateinit var viewModel: BrowserViewModel
     private val browserPreferences = FakeBrowserPreferencesRepository()
+    private val browserHistory = FakeBrowserHistoryRepository()
 
     @Before
     fun createViewModel() {
@@ -108,6 +110,72 @@ class BrowserRouteTest {
                 Shadows.shadowOf(webViews().single()).lastLoadedUrl,
             )
         }
+    }
+
+    @Test
+    fun recentPagesAndTheHistoryListOpenTheirPageInTheBrowser() {
+        browserHistory.pages.value = listOf(
+            BrowserHistoryEntry(FIRST_PAGE, "First", "example.test", 2_000, 1),
+            BrowserHistoryEntry(SECOND_PAGE, "Second", "example.test", 1_000, 3),
+        )
+        showRoute()
+
+        composeRule.onNodeWithTag("browser-recent").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-recent-1").performClick()
+        composeRule.runOnIdle {
+            assertEquals(SECOND_PAGE, Shadows.shadowOf(webViews().single()).lastLoadedUrl)
+        }
+
+        composeRule.onNodeWithTag("browser-menu").performClick()
+        composeRule.onNodeWithTag("browser-menu-history").performClick()
+        composeRule.onNodeWithTag("browser-history").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-history-page-$FIRST_PAGE").performClick()
+
+        composeRule.onAllNodesWithTag("browser-history").assertCountEquals(0)
+        composeRule.runOnIdle {
+            assertEquals(FIRST_PAGE, Shadows.shadowOf(webViews().single()).lastLoadedUrl)
+        }
+    }
+
+    @Test
+    fun backClosesTheHistoryBeforeItLeavesThePage() {
+        showRoute(initialLink = FIRST_PAGE)
+        composeRule.onNodeWithTag("browser-menu").performClick()
+        composeRule.onNodeWithTag("browser-menu-history").performClick()
+        composeRule.onNodeWithTag("browser-history-empty").assertIsDisplayed()
+
+        composeRule.runOnIdle { composeRule.activity.onBackPressedDispatcher.onBackPressed() }
+
+        composeRule.onAllNodesWithTag("browser-history").assertCountEquals(0)
+        assertBrowserPage()
+    }
+
+    @Test
+    fun aPageTheWebViewFinishedIsSavedUnlessSavingIsTurnedOff() {
+        showRoute(initialLink = FIRST_PAGE)
+        val client = composeRule.runOnIdle {
+            Shadows.shadowOf(webViews().single()).webViewClient
+        }
+
+        composeRule.runOnIdle {
+            val view = webViews().single()
+            client.onPageStarted(view, "$FIRST_PAGE?utm_source=feed", null)
+            client.onPageFinished(view, "$FIRST_PAGE?utm_source=feed")
+        }
+        composeRule.waitForIdle()
+        assertEquals(listOf(FIRST_PAGE), browserHistory.pages.value.map { it.url })
+
+        browserPreferences.set(BrowserPreferences(saveHistory = false))
+        composeRule.runOnIdle {
+            val view = webViews().single()
+            client.onPageStarted(view, SECOND_PAGE, null)
+            client.onPageFinished(view, SECOND_PAGE)
+        }
+        composeRule.waitForIdle()
+
+        assertEquals(listOf(FIRST_PAGE), browserHistory.pages.value.map { it.url })
+        // The detection still saw both pages.
+        assertEquals(SECOND_PAGE, viewModel.uiState.value.currentUrl)
     }
 
     @Test
@@ -368,6 +436,7 @@ class BrowserRouteTest {
                     onOpenQuickDownload = onOpenQuickDownload,
                     viewModel = viewModel,
                     browserSettings = browserSettings(),
+                    history = historyViewModel(),
                 )
             }
         }
@@ -377,6 +446,12 @@ class BrowserRouteTest {
         val settings = BrowserSettingsViewModel(browserPreferences)
         viewModelStore.put("browser-settings", settings)
         return settings
+    }
+
+    private fun historyViewModel(): BrowserHistoryViewModel {
+        val history = BrowserHistoryViewModel(browserHistory, browserPreferences)
+        viewModelStore.put("browser-history", history)
+        return history
     }
 
     private fun navigate(address: String) {

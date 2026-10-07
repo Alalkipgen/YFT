@@ -26,6 +26,11 @@ class SecureBrowserChromeClient(
         sink.onProgressChanged(newProgress.coerceIn(0, 100))
     }
 
+    override fun onReceivedTitle(view: WebView, title: String?) {
+        val url = view.url ?: return
+        sink.onPageTitle(url, title)
+    }
+
     override fun onShowCustomView(view: View, callback: CustomViewCallback) {
         val handler = fullscreen
         if (handler == null) {

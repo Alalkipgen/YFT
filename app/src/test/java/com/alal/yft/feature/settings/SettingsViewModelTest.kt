@@ -7,6 +7,7 @@ import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.core.model.settings.SearchEngine
+import com.alal.yft.feature.browser.FakeBrowserHistoryRepository
 import com.alal.yft.feature.browser.FakeBrowserPreferencesRepository
 import com.alal.yft.testing.MainDispatcherRule
 import java.io.IOException
@@ -34,6 +35,7 @@ class SettingsViewModelTest {
     private val history = FakeHistory()
     private val settings = FakeSettings()
     private val browser = FakeBrowserPreferencesRepository()
+    private val browserHistory = FakeBrowserHistoryRepository()
 
     @Test
     fun `the search engine is Google until the user picks another`() = runTest {
@@ -81,6 +83,33 @@ class SettingsViewModelTest {
         assertEquals(expected, preferences.state.value)
         assertEquals(expected, viewModel.uiState.value.download)
     }
+
+    @Test
+    fun `the browser history switch is kept and the history is cleared after the question`() =
+        runTest {
+            browserHistory.record("https://example.com/a", "A", 1_000)
+            val viewModel = subscribed()
+            assertTrue(viewModel.uiState.value.browser.saveHistory)
+
+            viewModel.onAction(SettingsAction.SetSaveHistory(false))
+            runCurrent()
+            assertFalse(browser.preferences.value.saveHistory)
+            assertFalse(viewModel.uiState.value.browser.saveHistory)
+
+            viewModel.onAction(
+                SettingsAction.Request(SettingsConfirmation.CLEAR_BROWSER_HISTORY),
+            )
+            runCurrent()
+            assertEquals(1, browserHistory.pages.value.size)
+
+            viewModel.onAction(SettingsAction.Confirm)
+            runCurrent()
+
+            assertEquals(1, browserHistory.clears)
+            assertTrue(browserHistory.pages.value.isEmpty())
+            assertEquals(0, cleaner.calls)
+            assertEquals("Browser history cleared.", viewModel.uiState.value.message)
+        }
 
     @Test
     fun `browsing data is cleared only after confirmation`() = runTest {
@@ -152,7 +181,8 @@ class SettingsViewModelTest {
     }
 
     private fun TestScope.subscribed(): SettingsViewModel {
-        val viewModel = SettingsViewModel(preferences, cleaner, history, settings, browser)
+        val viewModel =
+            SettingsViewModel(preferences, cleaner, history, settings, browser, browserHistory)
         backgroundScope.launch { viewModel.uiState.collect {} }
         runCurrent()
         return viewModel
