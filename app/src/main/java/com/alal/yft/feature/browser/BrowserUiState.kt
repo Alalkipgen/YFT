@@ -1,6 +1,7 @@
 package com.alal.yft.feature.browser
 
 import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.media.PageVideoFacts
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.core.model.settings.HomeSites
 
@@ -47,4 +48,10 @@ data class BrowserUiState(
     val pageLookupRunning: Boolean = false,
     /** P12: counts the sheet's requests to open the found list ("Other videos on this page"). */
     val foundListRequest: Int = 0,
+    /**
+     * P28: what the page states about its own video (its length, title and picture). The
+     * [candidates] already carry its word: a file of that length is the page's video, one far
+     * shorter its ad.
+     */
+    val pageFacts: PageVideoFacts? = null,
 )

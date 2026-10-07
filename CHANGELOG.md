@@ -26,7 +26,39 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Phase 13 — Agent B (P28, P29)
 
-- (Agent B writes its P28 and P29 entries here; P33 folds them into Added / Changed / Fixed.)
+- P28 — Other sites: the page's video, not the ad before it. On a site without an adapter the
+  browser and Home read what the page states about its video, from its meta tags and JSON-LD
+  only: the length (`VideoObject.duration`, also when it names an embed page and no file,
+  `og:video:duration`, `video:duration`, `itemprop="duration"`), the title (`og:title`, the
+  VideoObject's `name`, else the page title without the site's name) and the picture
+  (`og:image`, `thumbnailUrl`). They also read the files the page's own player is set up with
+  (JW Player `setup`, video.js `data-setup`, KVS `flashvars`, quality lists such as
+  `mediaDefinitions`), by player and never by site; a label gives a height only when it states
+  one. When the page states a video of two minutes or more, Download while the pre-roll ad
+  plays opens the page's video — the file of the stated length, else one the page or its player
+  names — with the page's title and picture. A file under half the stated length, a file from
+  the ad networks of free video sites (ExoClick, TrafficJunky, JuicyAds, TrafficStars,
+  Adsterra and their file hosts) and the file a frame fetches within 6 s after asking another
+  site for a VAST or VMAP ad break are listed under "Other videos on this page". When only the
+  ad has come so far, the sheet shows the page's title and picture with "Finding the page's
+  video…" for up to 6 s and switches to the page's video by itself; when nothing else comes it
+  shows the ad with "This may be an ad. Play the video for a moment, or see Other videos."
+  (`quick-maybe-ad`). Every entry (browser, Home, found list) takes the page's title and picture
+  where its files name none.
+- P29 — Other sites: the next video when one fails. When the sheet cannot prepare the video of a
+  page without an adapter because its file is gone (HTTP 403, 404 or 410, or an address YFT
+  can't fetch) and the page has another video that is not an ad or a preview, it prepares that
+  one once, by itself, in P28's order, with the line "The first file is gone — showing the next
+  video" (`quick-next-video`); its Details (`quick-next-video-details`) list both attempts with
+  their step, host and status, and when the next video fails too the failure's Details list
+  both. Try again asks for the page's current files instead of the same dead address: the
+  browser's newest addresses for the video (same address, the same file without its signed
+  query, else the same length), or for a page Home found a new, quiet read of the page.
+- P28 instrumented test: the requests the browser's hook reports are given to the test with
+  the hook's timing. The test now serves its page at the page's own address: it had answered
+  every request with 404, the WebView's own `data:` load of the page included, so the CI
+  emulator showed the WebView's error page (no meta tags, JSON-LD or scripts) and the page's
+  stated length read as none. The app's reading was right (the device reads the page as 16:24).
 
 ### Phase 13 — Agent C (P30, P31, P32)
 

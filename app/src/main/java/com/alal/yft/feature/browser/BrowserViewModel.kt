@@ -9,6 +9,7 @@ import com.alal.yft.core.browser.detection.FocusedVideoProbe
 import com.alal.yft.core.browser.detection.MediaMetadataProbe
 import com.alal.yft.core.browser.detection.PlayingVideoProbe
 import com.alal.yft.core.browser.detection.RequestObservation
+import com.alal.yft.core.browser.detection.VastAdTracker
 import com.alal.yft.core.browser.policy.BrowserAddressNormalizer
 import com.alal.yft.core.browser.policy.BrowserAddressResult
 import com.alal.yft.core.browser.session.PageCandidateStore
@@ -20,6 +21,7 @@ import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.PageVideoFacts
 import com.alal.yft.core.model.media.PlayingVideo
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
@@ -37,7 +39,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
@@ -50,6 +54,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 
 @HiltViewModel
@@ -92,6 +97,9 @@ class BrowserViewModel(
 
     private val candidateStore = PageCandidateStore(scope = viewModelScope)
     private val domParser = DomProbeResultParser()
+
+    /** P28: marks the ad file a page's player fetches right after asking for an ad break. */
+    private val vastAds = VastAdTracker()
     private val metadataProbe = MediaMetadataProbe(okHttpClient)
     private val probeBudget = PageProbeBudget()
     private val probePermits = Semaphore(permits = 2)
@@ -149,6 +157,13 @@ class BrowserViewModel(
     /** P24: the stream addresses whose manifest this page already read for its length. */
     private val manifestReads = mutableSetOf<String>()
 
+    /**
+     * P28: the sheet waits a few seconds for the page's own video, because what the page
+     * offered first may be the ad before it ([MediaGroups.mayBeAdBefore]).
+     */
+    private var pageVideoWait: Job? = null
+    private var pageVideoWaitKey: String? = null
+
     init {
         homeSitesRepository?.let { repository ->
             viewModelScope.launch {
@@ -158,10 +173,18 @@ class BrowserViewModel(
             }
         }
         viewModelScope.launch {
-            candidateStore.candidates.collect { candidates ->
-                mutableUiState.update { it.copy(candidates = candidates) }
-                readManifestLengths(candidates)
-            }
+            // P28: the length the page states tells its video from the ad its player shows
+            // first, so every list and count sees the files with the page's word on them.
+            combine(candidateStore.candidates, candidateStore.facts, ::Pair)
+                .collect { (candidates, facts) ->
+                    mutableUiState.update {
+                        it.copy(
+                            candidates = MediaGroups.withPageRoles(candidates, facts),
+                            pageFacts = facts,
+                        )
+                    }
+                    readManifestLengths(candidates)
+                }
         }
         viewModelScope.launch {
             // Mirrors the current page for the Detected Media screen. A fresh browser has no page
@@ -173,6 +196,7 @@ class BrowserViewModel(
                         title = state.pageTitle,
                         candidates = state.candidates,
                         sitePage = state.sitePage,
+                        facts = state.pageFacts,
                     )
                 }
                 .distinctUntilChanged()
@@ -184,6 +208,7 @@ class BrowserViewModel(
                             page.title,
                             page.candidates,
                             adapterSite = page.sitePage,
+                            facts = page.facts,
                         )
                     }
                 }
@@ -271,9 +296,18 @@ class BrowserViewModel(
      * one of its candidates, or one carries a DRM hint, so nothing opens.
      */
     fun selectForDownload(video: MediaGroup): Boolean {
-        val listed = mutableUiState.value.candidates
+        val state = mutableUiState.value
+        val listed = state.candidates
         if (video.candidates.any { it !in listed || it.drmHint == true }) return false
-        detectedMediaStore.select(video)
+        // P28: the page's only video may be the ad its player shows before the page's video.
+        val videos = MediaGroups.pageVideos(listed.filter { it.isSavable }, state.sitePage)
+        if (videos.singleOrNull()?.key == video.key &&
+            MediaGroups.mayBeAdBefore(video, state.pageFacts)
+        ) {
+            awaitVideoAfterAd(video)
+            return true
+        }
+        detectedMediaStore.select(MediaGroups.withPageFacts(video, state.pageFacts))
         return true
     }
 
@@ -290,6 +324,7 @@ class BrowserViewModel(
                 progress = 0,
                 errorMessage = null,
                 candidates = emptyList(),
+                pageFacts = null,
                 siteNotice = null,
                 canRetrySiteLookup = false,
             ).withFeedOf(url)
@@ -325,6 +360,7 @@ class BrowserViewModel(
             activePageUrl = url
             candidateStore.movePage(url)
             probeBudget.movePage(url)
+            vastAds.movePage(url)
             browserContext = browserContext?.copy(pageUrl = url)
             mutableUiState.update {
                 it.copy(
@@ -347,6 +383,7 @@ class BrowserViewModel(
                 pageTitle = null,
                 errorMessage = null,
                 candidates = emptyList(),
+                pageFacts = null,
                 siteNotice = null,
                 canRetrySiteLookup = false,
             ).withFeedOf(url)
@@ -430,8 +467,16 @@ class BrowserViewModel(
     /**
      * P16: the sheet that waited on a lookup closed. A feed's video on screen is no longer
      * looked up; the page's own lookup keeps running for the page, without the sheet's wait.
+     * P28: the wait for the page's video after its ad ends with the sheet.
      */
     private fun closeSheetLookup(key: String) {
+        if (key == pageVideoWaitKey) {
+            pageVideoWait?.cancel()
+            pageVideoWait = null
+            pageVideoWaitKey = null
+            clearSheetLookup(key)
+            return
+        }
         val pageKey = activePageUrl?.let(siteAdapters::videoKey)
         if (focusedSheet?.key != key) {
             if (pageKey == key) sheetAwaitsPageVideo = false
@@ -587,9 +632,13 @@ class BrowserViewModel(
         mainVideoTimer = null
         focusedSheet = null
         manifestReads.clear()
+        pageVideoWait?.cancel()
+        pageVideoWait = null
+        pageVideoWaitKey = null
         detectedMediaStore.clearLookup(LookupOwner.BROWSER)
         candidateStore.beginPage(url)
         probeBudget.beginPage(url)
+        vastAds.beginPage(url)
     }
 
     private fun isSamePage(previous: String, next: String): Boolean =
@@ -790,13 +839,81 @@ class BrowserViewModel(
         openMainVideo(PlayingVideoProbe.playing(javascriptResult))
     }
 
-    /** Selects the page's main video with the count of the others and opens its sheet. */
+    /**
+     * Selects the page's main video with the count of the others and opens its sheet. P28: by
+     * the length the page states ([PageVideoFacts]), so the ad its player shows first is not
+     * taken for its video; when the main one still may be that ad, the sheet waits a few
+     * seconds for the page's video ([awaitVideoAfterAd]).
+     */
     private fun openMainVideo(playing: PlayingVideo?) {
         mainVideoTimer = null
+        val facts = mutableUiState.value.pageFacts
         val videos = MediaGroups.pageVideos(mutableUiState.value.candidates.filter { it.isSavable })
-        val main = MediaGroups.mainVideo(videos, playing) ?: return
-        detectedMediaStore.select(main, otherVideos = videos.size - 1)
+        val main = MediaGroups.mainVideo(videos, playing, facts) ?: return
+        if (MediaGroups.mayBeAdBefore(main, facts)) {
+            awaitVideoAfterAd(main)
+        } else {
+            detectedMediaStore.select(
+                MediaGroups.withPageFacts(main, facts),
+                otherVideos = videos.size - 1,
+            )
+        }
         quickDownloads.trySend(Unit)
+    }
+
+    /**
+     * P28: what the page offered may be the ad its player shows before the page's video
+     * ([MediaGroups.mayBeAdBefore]). The sheet opens with "Finding the page's video…" and the
+     * page's title and picture, and waits up to [PAGE_VIDEO_WAIT_MS] for a video that is not
+     * that ad. Without one, [offered] opens, with the sheet's word that it may be an ad.
+     */
+    private fun awaitVideoAfterAd(offered: MediaGroup) {
+        val pageUrl = activePageUrl ?: return
+        val facts = mutableUiState.value.pageFacts
+        val key = "$PAGE_VIDEO_WAIT_PREFIX$pageGeneration"
+        pageVideoWait?.cancel()
+        pageVideoWaitKey = key
+        detectedMediaStore.awaitPageVideo()
+        detectedMediaStore.showLookup(
+            PageVideoLookup(
+                key = key,
+                pageUrl = pageUrl,
+                title = facts?.title ?: mutableUiState.value.pageTitle,
+                owner = LookupOwner.BROWSER,
+                thumbnailUrl = facts?.thumbnailUrl,
+                findingPageVideo = true,
+            ),
+        )
+        pageVideoWait = viewModelScope.launch(pageProbeJob) {
+            val found = withTimeoutOrNull(PAGE_VIDEO_WAIT_MS) {
+                uiState.map { state -> pageVideoAfterAd(state) }.first { it != null }
+            }
+            val state = mutableUiState.value
+            val videos = MediaGroups.pageVideos(
+                state.candidates.filter { it.isSavable },
+                state.sitePage,
+            )
+            if (pageVideoWaitKey != key) return@launch
+            // Select before the wait ends: the sheet takes the selection, not the empty wait.
+            val chosen = found ?: videos.firstOrNull { it.key == offered.key } ?: offered
+            detectedMediaStore.select(
+                MediaGroups.withPageFacts(chosen, state.pageFacts),
+                otherVideos = (videos.size - 1).coerceAtLeast(0),
+                maybeAd = found == null,
+            )
+            pageVideoWait = null
+            pageVideoWaitKey = null
+            clearSheetLookup(key)
+        }
+    }
+
+    /** P28: the page's main video once it is not the ad before it; null until then. */
+    private fun pageVideoAfterAd(state: BrowserUiState): MediaGroup? {
+        val savable = state.candidates.filter { it.isSavable }
+        val videos = MediaGroups.pageVideos(savable, state.sitePage)
+        val main = MediaGroups.mainVideo(videos, playing = null, facts = state.pageFacts)
+            ?: return null
+        return main.takeUnless { MediaGroups.mayBeAdBefore(it, state.pageFacts) }
     }
 
     /**
@@ -838,7 +955,11 @@ class BrowserViewModel(
             if (observation.pageUrl != activePageUrl) return@launch
             rememberBrowserContext(observation)
             retryAfterPlayback(observation)
-            BrowserObservationMapper.fromRequest(observation)?.let(candidateStore::submit)
+            // P28: the file a player fetches right after asking for an ad break is the ad.
+            vastAds.onRequest(observation)
+            BrowserObservationMapper.fromRequest(observation)
+                ?.let { vastAds.marked(it, observation) }
+                ?.let(candidateStore::submit)
             val probeCandidate = BrowserObservationMapper.forMetadataProbe(observation)
                 ?: return@launch
             scheduleProbe(probeCandidate)
@@ -854,6 +975,8 @@ class BrowserViewModel(
 
     override fun onDomProbeResult(pageUrl: String, result: String?) {
         if (pageUrl != activePageUrl) return
+        // P28: what the page states about its video: its length, title and picture.
+        candidateStore.submitFacts(pageUrl, domParser.facts(pageUrl, result))
         candidateStore.submitAll(
             domParser.parse(
                 pageUrl = pageUrl,
@@ -968,6 +1091,7 @@ class BrowserViewModel(
         val title: String?,
         val candidates: List<MediaCandidate>,
         val sitePage: Boolean,
+        val facts: PageVideoFacts?,
     )
 
     private companion object {
@@ -989,6 +1113,10 @@ class BrowserViewModel(
 
         /** P12: how long a page has to say which of its videos plays. */
         const val MAIN_VIDEO_SCRIPT_TIMEOUT_MS = 1_000L
+
+        /** P28: how long the sheet waits for the page's video after what may be its ad. */
+        const val PAGE_VIDEO_WAIT_MS = 6_000L
+        const val PAGE_VIDEO_WAIT_PREFIX = "generic:page-video:"
 
         /** P24: how many stream manifests one page may have read for their lengths. */
         const val MAX_MANIFEST_READS = 8

@@ -123,9 +123,96 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent B — `work/phase-13-generic-main` (P28, P29)
 
-- Status: NOT STARTED
-- P28 — Other sites: the page's video, not the ad before it: TODO
-- P29 — Other sites: the next video when one fails: TODO
+- Status: READY FOR MERGE — last code commit `a47926d`, CI green:
+  [checkpoint validation](https://github.com/Alalkipgen/YFT/actions/runs/37569543911),
+  [Preview APK](https://github.com/Alalkipgen/YFT/actions/runs/37569543931),
+  [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37569543932); P28, P29
+  OWNER CHECK. Started 2026-10-07 in `/data/YFT-B`, base commit `7873d51`
+  (`origin/work/phase-13-integration`, the Phase 13 plan on `main` `bc806f9`).
+- Environment: rebuilt after a sandbox reset (JDK 17 `/data/toolchains/jdk17`, SDK 35,
+  build-tools 35.0.0, NDK 27.3.13750724, CMake 3.22.1, 4 GiB swap); new SSH deploy key
+  (owner added it, push checked).
+- Starting state (Agent B scope, before any edit): `./gradlew --no-daemon --continue
+  :core-model:test :core-browser:testDebugUnitTest :core-media:testDebugUnitTest
+  :extractor-generic:test :app:testDebugUnitTest :app:lintDebug
+  :app:compileDebugAndroidTestKotlin` → BUILD SUCCESSFUL (9m 22s): 905 tests, 0 failures,
+  66 skipped (app 690, core-browser 88, core-media 28, core-model 80, extractor-generic 19);
+  lint 0 errors.
+- P28 — Other sites: the page's video, not the ad before it: OWNER CHECK (2026-10-07)
+  - Result: on a site without an adapter the browser and Home read the page's stated length,
+    title and picture (meta tags and JSON-LD only, also a VideoObject naming an embed page) and
+    its player's setup (JW Player, video.js, KVS `flashvars`, quality lists). With a stated
+    length of 2 min or more, Download during the pre-roll opens the file of that length (else
+    the one the page or its player names) with the page's title and picture; a file under half
+    the length, the free video sites' ad networks and the file a frame fetches within 6 s after
+    asking another site for a VAST/VMAP ad break go under Other videos. With only the ad so far
+    the sheet shows "Finding the page's video…" for up to 6 s and switches by itself, else the
+    ad with `quick-maybe-ad`. Every entry takes the page's title and picture where its files
+    name none. New: `PageVideoFacts`, `PageFactsReader`, `PlayerSetupScanner`, `MiniJson`,
+    `VastAdTracker`; `MediaGroups` (`withPageRoles`, `withPageFacts`, `mayBeAdBefore`,
+    `mainVideo`/`ofPage`/`looksLikePreview` with facts; `nextVideo`, `refreshed` for P29).
+  - Plan adapted: the VAST/VMAP *answer* is not visible to the browser's request hook (it sees
+    requests, not responses), so an ad break is known by its address (`vast`/`vmap` as a whole
+    path part) and its ad is the next file the same frame (same `Referer` origin) fetches from
+    another site within 6 s. `adtng` is not on the ad list (not confirmed); the eleven domains
+    listed are the ad networks' own.
+  - Validation (2026-10-07): 955 tests, 0 failures, 66 skipped (app 699, core-browser 114,
+    core-media 28, core-model 95, extractor-generic 19); lint 0 errors; androidTest compiles;
+    line check empty.
+  - Regression proof: old code `679ec78` with the new tests in its API: 4 of 4 failed
+    (`PrerollFixtureTest` download during the ad → the 0:30 ad; `AdBreakTest` ad networks;
+    `PlayerSetupScannerTest` video.js setup → 2 videos; `BrowserPageVideoWaitTest` download
+    during the ad → the ad). Backup `/data/bak/P28` (38 files), `cmp` equal.
+  - Live check: skipped — the owner's kind of site shows an age gate first, which YFT never
+    automates (ADR-006); the fixtures copy the Preview #4 case. Instrumented
+    `PrerollInstrumentedTest` runs on the CI emulator.
+  - CI (`f334f55`): [checkpoint validation](https://github.com/Alalkipgen/YFT/actions/runs/37560950060)
+    green, [Preview APK](https://github.com/Alalkipgen/YFT/actions/runs/37560950114) green,
+    [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37560950074) red (1 of 24:
+    `PrerollInstrumentedTest` "the stream was asked for"). The P29 commit `32d2472` gave the
+    test the hook's reports, but its [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37563179756)
+    was red too (the stated length null). Cause, from `YFT-DIAG p28-preroll` lines at
+    `4f9447b` ([emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37567826899)): the WebView
+    showed its own error page ("Webpage not available": 1 meta tag, no scripts, no JSON-LD)
+    because the test answered every request with 404, the WebView's `data:` load of the
+    `loadDataWithBaseURL` page included; the device reads the fixture's HTML as 16:24, so the
+    app's code was right. Fix: the test loads the page's address and serves the page for it,
+    and checks first that the fixture, not an error page, loaded. Fix `a47926d`:
+    [checkpoint validation](https://github.com/Alalkipgen/YFT/actions/runs/37569543911) green,
+    [Preview APK](https://github.com/Alalkipgen/YFT/actions/runs/37569543931) green,
+    [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37569543932) green (24 tests,
+    0 failures). Validation: 962 tests, 0 failures, 66 skipped; lint 0 errors; androidTest
+    compiles; line check empty. Regression proof: the same test red before the fix, green after.
+  - Owner check: the site from Preview #4, Download while the ad plays → the page's title,
+    picture and length with 480p/720p; the ad only under Other videos.
+- P29 — Other sites: the next video when one fails: OWNER CHECK (2026-10-07)
+  - Result: when the sheet cannot prepare a page's video (no adapter) because its file is gone
+    (HTTP 403, 404, 410 or `INVALID_URL`) and the page has another video that is not an ad or a
+    preview, it prepares that one once, by itself (`MediaGroups.nextVideo`, P28's order), with
+    "The first file is gone — showing the next video" (`quick-next-video`) and Details
+    (`quick-next-video-details`) listing both attempts; when the next one fails too, the
+    failure's Details list both. Try again asks for the page's current files first
+    (`MediaGroups.refreshed`: same address, same file without its signed query, else same
+    length): the browser keeps the store's page current; for a page Home found the store asks
+    Home to read it again quietly (`DetectedMediaStore.readPageAgain` / `pageReads`, up to 20 s;
+    `DetectedPage.owner`). Every entry keeps P28's page title and picture.
+  - Validation (2026-10-07): 962 tests, 0 failures, 66 skipped (app 706, core-browser 114,
+    core-media 28, core-model 95, extractor-generic 19); lint 0 errors; androidTest compiles;
+    line check empty.
+  - Regression proof: P28 code `f334f55` (`git archive` to `/data/tmp/p29-old`) with the new
+    sheet tests (the asserts on the new state fields and the Home-read test held aside): 3 of 4
+    failed — "a gone first file shows the page's next video…" (the HTTP 410 error), "when the
+    next video fails too…" (HTTP 410 shown, the next video never tried), "Try again asks the
+    store's newest address…" (the dead `token=old` address again); "an ad or a preview is never
+    the next video" passes (guard). Backup `/data/bak/P29` (8 Kotlin files), `cmp` equal.
+  - Live check: skipped (same reason as P28); the tests copy the Preview #4 "HTTP 410" case.
+  - CI (`32d2472`): [checkpoint validation](https://github.com/Alalkipgen/YFT/actions/runs/37563179633)
+    green, [Preview APK](https://github.com/Alalkipgen/YFT/actions/runs/37563179635) green,
+    [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37563179756) red only in P28's
+    `PrerollInstrumentedTest` (see P28 CI); with the P28 test fix `a47926d` all three green
+    (links under P28 CI).
+  - Owner check: the page that showed "HTTP 410" in Preview #4 → the sheet opens a working
+    video (or the page's own after P28) without the error.
 - Hand-offs: none
 
 ## Agent C — `work/phase-13-browser` (P30, P31, P32)

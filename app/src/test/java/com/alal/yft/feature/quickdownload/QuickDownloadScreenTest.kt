@@ -414,6 +414,66 @@ class QuickDownloadScreenTest {
     }
 
     @Test
+    fun theSheetSaysItFindsThePagesVideoThenThatTheVideoMayBeAnAd() {
+        // P28: the page states a far longer video than the ad its player shows first.
+        var state by mutableStateOf(
+            QuickDownloadUiState(
+                header = SAMPLE_QUICK_DOWNLOAD.header,
+                loading = true,
+                findingVideo = true,
+                findingPageVideo = true,
+            ),
+        )
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(state = state, onSelect = {}, onDownload = {})
+            }
+        }
+
+        composeRule.onNodeWithText(FINDING_PAGE_VIDEO_MESSAGE).assertExists()
+        composeRule.onAllNodesWithText(WAITING_MESSAGE).assertCountEquals(0)
+        composeRule.onAllNodesWithTag("quick-maybe-ad").assertCountEquals(0)
+
+        state = SAMPLE_QUICK_DOWNLOAD.copy(maybeAd = true, otherVideos = 2)
+        composeRule.onNodeWithTag("quick-maybe-ad").assert(
+            hasText("This may be an ad. Play the video for a moment, or see Other videos."),
+        )
+        composeRule.onNodeWithTag("quick-other-videos").assertExists()
+    }
+
+    @Test
+    fun theSheetSaysItShowsTheNextVideoAndItsDetailsListBothAttempts() {
+        // P29: the first video's file was gone; the qualities are the page's next video's.
+        val details = listOf(
+            "First video",
+            "Step: file check",
+            "Host: media.example.test",
+            "Status: HTTP 410",
+            "Next video",
+            "Host: media.example.test",
+            "Status: ready",
+        )
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(
+                    state = SAMPLE_QUICK_DOWNLOAD.copy(nextVideo = true, attemptDetails = details),
+                    onSelect = {},
+                    onDownload = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("quick-next-video")
+            .assert(hasText("The first file is gone — showing the next video"))
+        composeRule.onAllNodesWithTag("quick-error").assertCountEquals(0)
+        composeRule.onAllNodesWithTag("quick-next-video-detail-text").assertCountEquals(0)
+        composeRule.onNodeWithTag("quick-next-video-details").performClick()
+        composeRule.onNodeWithTag("quick-next-video-detail-text")
+            .assert(hasText(details.joinToString("\n")))
+        composeRule.onNodeWithTag("quick-download").assertExists()
+    }
+
+    @Test
     fun aFailureShowsItsDetailsOnlyWhenAskedFor() {
         // P24: the sheet's Details name the step, the host and the status.
         val details = listOf(

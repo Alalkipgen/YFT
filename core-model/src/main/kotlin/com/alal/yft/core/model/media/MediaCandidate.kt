@@ -67,6 +67,12 @@ data class MediaCandidate(
     val bitrateBitsPerSecond: Long? = null,
     /** P24: the page's own word on this file ([PageMediaRole]); null when it says nothing. */
     val pageRole: PageMediaRole? = null,
+    /**
+     * P28: the page's own name for the video [mediaUrl] belongs to when the page's player setup
+     * lists it as one of its qualities (`720p`, `480p`), without a site adapter. Candidates with
+     * the same value on one page share one download sheet, like [videoId].
+     */
+    val pageVideoKey: String? = null,
 ) {
     override fun toString(): String = buildString {
         append("MediaCandidate(pageUrl=")

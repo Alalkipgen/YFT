@@ -4,6 +4,7 @@ import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.PageMediaRole
+import com.alal.yft.core.model.media.PageVideoFacts
 import com.alal.yft.extractor.generic.classifier.MediaUrlClassifier
 import com.alal.yft.extractor.generic.manifest.ManifestReader
 import java.net.URI
@@ -24,6 +25,11 @@ import java.net.URI
  * [PageMediaRole.MAIN]; clips from thumbnail attributes (`data-preview…`, `data-mediabook`,
  * `data-src` on thumbnails) and muted looping `<video>`s are [PageMediaRole.PREVIEW]. When the
  * page lists more than the cap, its own videos are kept first.
+ *
+ * P28: the files the page's own player is set up with ([PlayerSetupScanner]: JW Player,
+ * Video.js, KVS `flashvars`, quality lists) are its video too, as qualities of one video with
+ * the height their labels name; and [Result.facts] holds what the page states about its video
+ * ([PageFactsReader]): its length, title and picture.
  */
 class HtmlMediaScanner(
     private val maxCandidates: Int = 50,
@@ -37,6 +43,8 @@ class HtmlMediaScanner(
     data class Result(
         val title: String?,
         val candidates: List<MediaCandidate>,
+        /** P28: what the page states about its own video. */
+        val facts: PageVideoFacts = PageVideoFacts(),
     )
 
     fun scan(html: String, pageUrl: String, observedAtEpochMs: Long): Result {
@@ -53,6 +61,8 @@ class HtmlMediaScanner(
             requireMediaSignal: Boolean,
             role: PageMediaRole? = null,
             durationMillis: Long? = null,
+            height: Int? = null,
+            pageVideoKey: String? = null,
         ) {
             val url = resolve(base, rawUrl) ?: return
             found[url]?.let { known ->
@@ -64,6 +74,8 @@ class HtmlMediaScanner(
                 found[url] = known.copy(
                     pageRole = upgraded,
                     durationMillis = known.durationMillis ?: durationMillis,
+                    height = known.height ?: height,
+                    pageVideoKey = known.pageVideoKey ?: pageVideoKey,
                 )
                 return
             }
@@ -83,7 +95,31 @@ class HtmlMediaScanner(
                     pageRole = role,
                 ),
             ) ?: return
-            found[url] = candidate.copy(confidence = confidence)
+            found[url] = candidate.copy(
+                confidence = confidence,
+                height = height,
+                pageVideoKey = pageVideoKey,
+            )
+        }
+
+        // P28: the files of the page's own player setup, as qualities of one video each.
+        var setups = 0
+        fun offerSetup(script: String) {
+            if (!PlayerSetupScanner.mentionsPlayer(script)) return
+            val sources = PlayerSetupScanner.sources(script, pageUrl).ifEmpty { return }
+            val key = "player-${setups++}"
+            sources.forEach { source ->
+                offer(
+                    rawUrl = source.url,
+                    mimeType = source.mimeType,
+                    poster = null,
+                    confidence = CandidateConfidence.MEDIUM,
+                    requireMediaSignal = false,
+                    role = PageMediaRole.MAIN,
+                    height = source.height,
+                    pageVideoKey = key,
+                )
+            }
         }
 
         // 1. Media elements: the strongest signal, even without a recognisable extension.
@@ -179,6 +215,7 @@ class HtmlMediaScanner(
         // P24: a manifest the page's own scripts name is the page's video.
         INLINE_SCRIPT.findAll(html).forEach { script ->
             if (JSON_LD_TYPE.containsMatchIn(script.groupValues[1])) return@forEach
+            offerSetup(script.groupValues[2])
             LINK_TOKEN.findAll(unescapeJson(script.groupValues[2])).take(maxLinkTokens)
                 .forEach { token ->
                     val link = token.value.trimEnd('.', ',', ';', ':', '!', '?')
@@ -200,6 +237,8 @@ class HtmlMediaScanner(
             val raw = tag.groupValues[2]
             if (!raw.contains("data-", ignoreCase = true)) return@forEach
             val attributes = attributes(raw)
+            // P28: Video.js reads its setup from `data-setup`.
+            attributes["data-setup"]?.let(::offerSetup)
             val thumbnail = tag.groupValues[1].equals("img", ignoreCase = true) ||
                 THUMBNAIL_BOX.containsMatchIn(attributes["class"].orEmpty()) ||
                 THUMBNAIL_BOX.containsMatchIn(attributes["id"].orEmpty())
@@ -236,7 +275,11 @@ class HtmlMediaScanner(
             ?.trim()
             ?.take(MAX_TITLE_LENGTH)
             ?.takeIf(String::isNotEmpty)
-        return Result(title = title, candidates = kept(found.values.toList()))
+        return Result(
+            title = title,
+            candidates = kept(found.values.toList()),
+            facts = PageFactsReader.fromHtml(html, pageUrl),
+        )
     }
 
     /**
@@ -303,7 +346,7 @@ class HtmlMediaScanner(
         startsWith("video/") || startsWith("audio/") ||
             this == "application/dash+xml" || contains("mpegurl")
 
-    private companion object {
+    internal companion object {
         const val MAX_TITLE_LENGTH = 200
 
         /** P24: how many more than the cap are read, so the page's own videos are not cut. */

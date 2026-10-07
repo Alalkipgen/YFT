@@ -21,6 +21,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -511,6 +512,45 @@ class HomeViewModelTest {
         collector.cancel()
     }
 
+    @Test
+    fun aPageThatStatesItsVideoOpensItsPlayersQualitiesWithItsTitleAndPicture() = runTest {
+        // P28: the player setup names 480p and 720p; the page states 16:24, its title and
+        // picture; the player element holds the ad.
+        val viewModel = viewModel()
+        val page = "https://tube.example.test/watch/77"
+        val poster = "https://img.example.test/v77/poster.jpg"
+        val html = """
+            <title>Harbour lights at dusk - Example Tube</title>
+            <meta property="og:title" content="Harbour lights at dusk">
+            <meta property="og:image" content="$poster">
+            <script type="application/ld+json">
+            {"@type":"VideoObject","duration":"PT16M24S",
+             "embedUrl":"https://tube.example.test/embed/77"}
+            </script>
+            <video id="player" src="https://cdn.adnet.test/creatives/spring-30s.mp4"></video>
+            <script>jwplayer("player").setup({sources:[
+              {file:"https://cdn.example.test/v77/480.mp4",label:"480p"},
+              {file:"https://cdn.example.test/v77/720.mp4",label:"720p"}]});</script>
+        """.trimIndent()
+        val scan = HtmlMediaScanner().scan(html, page, observedAtEpochMs = 0)
+        inspector.answer = {
+            LinkInspection.Found(page, scan.title, scan.candidates, facts = scan.facts)
+        }
+
+        viewModel.onAction(HomeAction.LinkChanged(page))
+        viewModel.onAction(HomeAction.Submit)
+        advanceUntilIdle()
+
+        assertEquals(PromptboxStatus.Found(1), viewModel.uiState.value.status)
+        val selected = requireNotNull(store.selection.value)
+        assertEquals(listOf(480, 720), selected.candidates.map { it.height })
+        assertEquals("Harbour lights at dusk", selected.title)
+        assertTrue(selected.candidates.all { it.thumbnailUrl == poster })
+        assertEquals(1, store.otherVideos.value)
+        assertEquals(984_000L, store.page.value?.facts?.durationMillis)
+        assertEquals(LookupOwner.HOME, store.page.value?.owner)
+    }
+
     /** P24: a page like the owner's: a player config naming a stream, 40 previews, an ad. */
     private fun previewGridPage(master: String): String = buildString {
         append("<title>Long walk by the river</title>\n")
@@ -523,6 +563,39 @@ class HomeViewModelTest {
         append("<script>window.playerConfig = {\"hls\":\"")
         append(master.replace("/", "\\/"))
         append("\"};</script>\n")
+    }
+
+    @Test
+    fun theSheetsTryAgainReadsThePageHomeFoundAgainQuietly() = runTest {
+        // P29: Try again on the page Home found asks for its current addresses; the Promptbox
+        // keeps what it shows.
+        val viewModel = viewModel()
+        inspector.answer = { found(1) }
+        viewModel.onAction(HomeAction.LinkChanged("https://a.test/watch"))
+        viewModel.onAction(HomeAction.Submit)
+        advanceUntilIdle()
+        val status = viewModel.uiState.value.status
+        assertEquals(LookupOwner.HOME, store.page.value?.owner)
+        val fresh = MediaCandidate(
+            pageUrl = "https://a.test/watch",
+            mediaUrl = "https://cdn.a.test/1.mp4?token=new",
+            sources = setOf(CandidateSource.DOM),
+            kind = MediaKind.DIRECT,
+        )
+        inspector.answer = {
+            LinkInspection.Found("https://a.test/watch", "Clip page", listOf(fresh))
+        }
+
+        val page = async { store.readPageAgain("https://a.test/watch") }
+        advanceUntilIdle()
+
+        assertEquals(listOf(fresh.mediaUrl), page.await()?.candidates?.map { it.mediaUrl })
+        assertEquals(LookupOwner.HOME, store.page.value?.owner)
+        assertEquals(listOf("https://a.test/watch", "https://a.test/watch"), inspector.links)
+        assertEquals(status, viewModel.uiState.value.status)
+        // Another page is not Home's to read: the store gets its answer at once.
+        assertNull(store.readPageAgain("https://b.test/other"))
+        assertEquals(2, inspector.links.size)
     }
 
     private fun found(count: Int) = LinkInspection.Found(

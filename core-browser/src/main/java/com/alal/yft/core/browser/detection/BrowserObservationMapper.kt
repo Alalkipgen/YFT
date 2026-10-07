@@ -53,8 +53,22 @@ object BrowserObservationMapper {
         val host = uri.host?.lowercase().orEmpty()
         val labels = host.split('.')
         if (labels.any { it in AD_HOST_LABELS } || AD_HOSTS.any { host.contains(it) }) return true
+        // P28: the ad networks of video sites without an adapter, by their whole domain.
+        if (AD_DOMAINS.any { host == it || host.endsWith(".$it") }) return true
         // Whole folders only: a video called "the-vast-ocean" is no ad.
         return uri.path.orEmpty().lowercase().split('/').any { it in AD_FOLDERS }
+    }
+
+    /**
+     * P28: whether [url] asks for an ad break: a VAST or VMAP document, by a whole path part
+     * (`vast`, `vast3.xml`, `vmap.php`; never `vast-ocean.mp4`). The file the player fetches
+     * right after one is the ad's ([VastAdTracker]).
+     */
+    fun isAdBreakRequest(url: String): Boolean {
+        val uri = runCatching { URI(url) }.getOrNull() ?: return false
+        val scheme = uri.scheme?.lowercase()
+        if (scheme != "https" && scheme != "http") return false
+        return uri.path.orEmpty().lowercase().split('/').any { AD_BREAK_PART.matches(it) }
     }
 
     private fun RequestObservation.referer(): String? =
@@ -200,6 +214,18 @@ object BrowserObservationMapper {
         "amazon-adsystem", "advertising", "pubmatic", "rubiconproject", "spotxchange",
         "springserve", "teads", "taboola", "outbrain", "criteo",
     )
+    /**
+     * P28: ad networks seen serving the pre-roll on video sites without an adapter, by domain.
+     * Only networks whose ads were confirmed; a domain is never guessed from its name.
+     */
+    private val AD_DOMAINS = setOf(
+        "exoclick.com", "exosrv.com", "magsrv.com", "realsrv.com", "trafficjunky.net",
+        "trafficjunky.com", "juicyads.com", "jads.co", "tsyndicate.com", "trafficstars.com",
+        "adsterra.com",
+    )
+
+    /** P28: a path part that names a VAST or VMAP document. */
+    private val AD_BREAK_PART = Regex("""(vast|vmap)\d{0,2}(\.(xml|php|aspx?|jsp|json|cgi))?""")
     private val AD_FOLDERS = setOf(
         "ad", "ads", "adserver", "adverts", "vast", "vpaid", "preroll", "midroll",
     )

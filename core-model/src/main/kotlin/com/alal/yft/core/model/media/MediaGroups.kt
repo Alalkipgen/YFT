@@ -46,7 +46,9 @@ data class PageVideoList(
  * Groups a page's candidates by video. Pure, so the rules are unit-tested.
  *
  * Candidates are one video when a site adapter named the same video ([MediaCandidate.videoId]),
- * or when they come from the same page and state the same length. Anything else stays on its
+ * when the page's player setup lists them as qualities of one video
+ * ([MediaCandidate.pageVideoKey], P28), or when they come from the same page and state the same
+ * length. Anything else stays on its
  * own: two files of unknown length on one page may well be two videos. Order follows the first
  * candidate of each video.
  */
@@ -86,10 +88,100 @@ object MediaGroups {
      * only looks like a preview or an ad around them ([looksLikePreview]). When everything looks
      * like a preview, nothing is set apart: the page's videos are all it has.
      */
-    fun ofPage(groups: List<MediaGroup>): PageVideoList {
-        val (previews, videos) = groups.partition { looksLikePreview(it, groups) }
+    fun ofPage(groups: List<MediaGroup>, facts: PageVideoFacts? = null): PageVideoList {
+        val (previews, videos) = groups.partition { looksLikePreview(it, groups, facts) }
         return if (videos.isEmpty()) PageVideoList(groups) else PageVideoList(videos, previews)
     }
+
+    /**
+     * P28: [candidates] with the page's word on each file when it states its video's length
+     * ([facts]): a file of that length is the page's video ([PageMediaRole.MAIN]) even when an
+     * ad list marked it, and a file far shorter is an ad or a preview
+     * ([PageMediaRole.PREVIEW]). A site adapter's files, the files the page itself names and
+     * files of unknown length keep their role; without a stated length nothing changes.
+     */
+    fun withPageRoles(
+        candidates: List<MediaCandidate>,
+        facts: PageVideoFacts?,
+    ): List<MediaCandidate> {
+        if (facts?.durationMillis == null) return candidates
+        return candidates.map { candidate ->
+            when {
+                candidate.videoId != null || candidate.pageRole == PageMediaRole.MAIN -> candidate
+                facts.matchesLength(candidate.durationMillis) ->
+                    candidate.copy(pageRole = PageMediaRole.MAIN)
+                facts.isFarShorter(candidate.durationMillis) ->
+                    candidate.copy(pageRole = PageMediaRole.PREVIEW)
+                else -> candidate
+            }
+        }
+    }
+
+    /**
+     * P28: whether [video] may be the ad a page's player shows before the page's video: the
+     * page states a video of two minutes or more ([PageVideoFacts.statesLongVideo]) and [video]
+     * is not of that length, being far shorter or marked as an ad ([PageMediaRole.PREVIEW]).
+     * A site adapter's video never is, nor one of unknown length that nothing marked.
+     */
+    fun mayBeAdBefore(video: MediaGroup, facts: PageVideoFacts?): Boolean {
+        if (facts == null || !facts.statesLongVideo) return false
+        val files = video.candidates
+        if (files.any { it.videoId != null }) return false
+        val length = video.durationMillis
+        if (facts.matchesLength(length)) return false
+        return facts.isFarShorter(length) || files.all { it.pageRole == PageMediaRole.PREVIEW }
+    }
+
+    /**
+     * P28: [group] with the page's title and picture ([facts]) where its files name none, so the
+     * sheet never says "Video" with a blank picture for a page that names its video.
+     */
+    fun withPageFacts(group: MediaGroup, facts: PageVideoFacts?): MediaGroup {
+        if (facts == null || facts.title == null && facts.thumbnailUrl == null) return group
+        if (group.candidates.any { it.videoId != null }) return group
+        val candidates = group.candidates.map { candidate ->
+            candidate.copy(
+                title = candidate.title ?: facts.title,
+                thumbnailUrl = candidate.thumbnailUrl ?: facts.thumbnailUrl,
+            )
+        }
+        return group.copy(title = group.title ?: facts.title, candidates = candidates)
+    }
+
+    /**
+     * P29: the video to prepare when [failed] could not be (its file is gone): the best of the
+     * page's other [videos] in [mainVideo]'s order, never one that looks like an ad or a
+     * preview. Null when the page has none. Videos that share a file with [failed] are skipped.
+     */
+    fun nextVideo(
+        videos: List<MediaGroup>,
+        failed: Collection<MediaGroup>,
+        facts: PageVideoFacts? = null,
+    ): MediaGroup? {
+        val gone = failed.flatMap { group -> group.candidates.map { it.mediaUrl } }.toSet()
+        val others = videos.filter { video -> video.candidates.none { it.mediaUrl in gone } }
+        val playable = others.filterNot { looksLikePreview(it, videos, facts) }
+        return mainVideo(playable, playing = null, facts = facts)
+    }
+
+    /**
+     * P29: the page's current files of [group], for Try again: the video in [videos] that shares
+     * a file with it, the same address without its signed query, or else its length (within
+     * 2 s). Null when the page no longer has it.
+     */
+    fun refreshed(group: MediaGroup, videos: List<MediaGroup>): MediaGroup? {
+        val urls = group.candidates.map { it.mediaUrl }.toSet()
+        videos.firstOrNull { video -> video.candidates.any { it.mediaUrl in urls } }
+            ?.let { return it }
+        val paths = group.candidates.map { unsigned(it.mediaUrl) }.toSet()
+        videos.firstOrNull { video -> video.candidates.any { unsigned(it.mediaUrl) in paths } }
+            ?.let { return it }
+        val length = group.durationMillis ?: return null
+        return videos.filter { it.lengthGap(length) <= LENGTH_MATCH_MILLIS }
+            .minByOrNull { it.lengthGap(length) }
+    }
+
+    private fun unsigned(url: String): String = url.substringBefore('?').substringBefore('#')
 
     /**
      * P24: whether [video] looks like a preview or an ad rather than [page]'s own video: the page
@@ -97,14 +189,23 @@ object MediaGroups {
      * ad's file), their addresses say so (`preview`, `thumb`, `teaser`, `sprite`), or it is not
      * known to be a minute or more long while the page names another video as its own
      * ([PageMediaRole.MAIN]) or, being shorter, has a video of a minute or more. A video a site
-     * adapter named, or one the page names as its own, never is.
+     * adapter named, or one the page names as its own, never is. P28: with the page's [facts], a
+     * video of the stated length never is, and one under half of it is.
      */
-    fun looksLikePreview(video: MediaGroup, page: List<MediaGroup>): Boolean {
+    fun looksLikePreview(
+        video: MediaGroup,
+        page: List<MediaGroup>,
+        facts: PageVideoFacts? = null,
+    ): Boolean {
         val files = video.candidates
         if (files.any { it.videoId != null || it.pageRole == PageMediaRole.MAIN }) return false
+        val length = video.durationMillis
+        // P28: the length the page states is its video's, whatever an ad list says.
+        if (facts?.matchesLength(length) == true) return false
         if (files.all { it.pageRole == PageMediaRole.PREVIEW }) return true
         if (files.all { isPreviewAddress(it.mediaUrl) }) return true
-        val length = video.durationMillis
+        // P28: far shorter than the length the page states: the ad before its video.
+        if (facts?.isFarShorter(length) == true) return true
         if (length != null && length >= LONG_VIDEO_MILLIS) return false
         return page.any { other ->
             other !== video && (
@@ -130,25 +231,62 @@ object MediaGroups {
      * it beats a stated size), then the picture height, then the stated size; the earlier one
      * on a tie. An element that itself looks like a preview (a muted loop, a thumbnail's clip)
      * is not taken as the page's player.
+     *
+     * P28: when the page states its video's length ([facts]): (a) the video of that length
+     * first; (b) the videos the page or its player setup names ([PageMediaRole.MAIN]) before
+     * the rest; (c) the playing element only when its length is unknown or matches — a 0:30
+     * element on a 16:24 page is the ad before its video; (d) the rules above. With or without
+     * facts, a file marked as an ad ([PageMediaRole.PREVIEW]) is not taken for the player.
      */
-    fun mainVideo(videos: List<MediaGroup>, playing: PlayingVideo?): MediaGroup? {
+    fun mainVideo(
+        videos: List<MediaGroup>,
+        playing: PlayingVideo?,
+        facts: PageVideoFacts? = null,
+    ): MediaGroup? {
         if (videos.isEmpty()) return null
+        if (facts?.durationMillis != null) {
+            // P28 (a): the video of the length the page states.
+            videos.filter { facts.matchesLength(it.durationMillis) }
+                .minByOrNull { video -> video.lengthGap(facts.durationMillis) }
+                ?.let { return it }
+            // P28 (b): the videos the page or its player setup names, before the rest.
+            val named = videos.filter { video ->
+                video.candidates.any { it.pageRole == PageMediaRole.MAIN }
+            }
+            if (named.isNotEmpty()) return ranked(named, videos, facts)
+        }
+        // P28 (c): an element far from the stated length is the ad before the page's video.
         val player = playing?.takeUnless { it.looksLikePreview }
+            ?.takeUnless { facts?.durationMillis != null && it.durationMillis != null &&
+                !facts.matchesLength(it.durationMillis) }
+        // P28: a file the page or an ad list marks as an ad is not taken for the page's player.
+        val playable = videos.filterNot { video ->
+            video.candidates.all { it.pageRole == PageMediaRole.PREVIEW }
+        }
         player?.url?.let { url ->
-            videos.firstOrNull { video -> video.candidates.any { it.mediaUrl == url } }
+            playable.firstOrNull { video -> video.candidates.any { it.mediaUrl == url } }
                 ?.let { return it }
         }
         player?.durationMillis?.let { length ->
-            videos.filter { video -> video.lengthGap(length) <= LENGTH_MATCH_MILLIS }
+            playable.filter { video -> video.lengthGap(length) <= LENGTH_MATCH_MILLIS }
                 .minByOrNull { video -> video.lengthGap(length) }
                 ?.let { return it }
         }
         if (player?.pageBuilt == true) {
-            startedWith(videos, player.startedAtEpochMs)?.let { return it }
+            startedWith(videos, player.startedAtEpochMs, facts)?.let { return it }
         }
-        return videos.withIndex().maxWithOrNull(
+        return ranked(videos, videos, facts)
+    }
+
+    /** P24's order without a match: see [mainVideo]. */
+    private fun ranked(
+        videos: List<MediaGroup>,
+        page: List<MediaGroup>,
+        facts: PageVideoFacts?,
+    ): MediaGroup? =
+        videos.withIndex().maxWithOrNull(
             compareBy<IndexedValue<MediaGroup>>(
-                { (_, video) -> if (looksLikePreview(video, videos)) 0 else 1 },
+                { (_, video) -> if (looksLikePreview(video, page, facts)) 0 else 1 },
                 { (_, video) -> video.durationMillis?.takeIf { it >= LONG_VIDEO_MILLIS } ?: -1L },
                 { (_, video) -> video.candidates.maxOf { it.height ?: -1 } },
                 { (_, video) -> video.candidates.maxOf { it.contentLengthBytes ?: -1L } },
@@ -156,7 +294,6 @@ object MediaGroups {
                 { (index, _) -> -index },
             ),
         )?.value
-    }
 
     /** P24: an address whose path names a preview: `preview`, `thumb`, `teaser` or `sprite`. */
     fun isPreviewAddress(url: String): Boolean {
@@ -172,9 +309,13 @@ object MediaGroups {
      * loaded last before the player started ([startedAt], with a little slack for the clock),
      * else the one loaded nearest to that time.
      */
-    private fun startedWith(videos: List<MediaGroup>, startedAt: Long?): MediaGroup? {
+    private fun startedWith(
+        videos: List<MediaGroup>,
+        startedAt: Long?,
+        facts: PageVideoFacts?,
+    ): MediaGroup? {
         val manifests = videos.mapNotNull { video ->
-            if (looksLikePreview(video, videos)) return@mapNotNull null
+            if (looksLikePreview(video, videos, facts)) return@mapNotNull null
             val loaded = video.candidates
                 .filter { it.kind == MediaKind.HLS || it.kind == MediaKind.DASH }
                 .minOfOrNull { it.observedAtEpochMs }
@@ -213,6 +354,10 @@ object MediaGroups {
 
     private fun keyOf(candidate: MediaCandidate, index: Int): String {
         candidate.videoId?.trim()?.takeIf(String::isNotEmpty)?.let { return "id:$it" }
+        // P28: the qualities a page's player setup lists are one video.
+        candidate.pageVideoKey?.trim()?.takeIf(String::isNotEmpty)?.let {
+            return "setup:${candidate.pageUrl}#$it"
+        }
         // P24: two previews of one length are two clips, not two qualities of one video.
         if (candidate.pageRole == PageMediaRole.PREVIEW) {
             return "item:$index:${candidate.mediaUrl.hashCode()}"
