@@ -59,7 +59,8 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent C — `work/phase-13-browser` (P30, P31, P32)
 
-- Status: P30, P31, P32 OWNER CHECK
+- Status: READY FOR MERGE (P30, P31, P32 done; owner checks pending on the phone). Last code
+  commit `d69811a` (P32), every CI run green.
 - Started 2026-10-07 in `/data/YFT-C` from `origin/work/phase-13-integration` `7873d51`.
   Starting state (`/data/tmp/validate-c.sh`: core-model, core-data, core-browser and app unit
   tests, `:app:lintDebug`, `:app:compileDebugAndroidTestKotlin`): core-model 80, core-data 18,
@@ -183,6 +184,11 @@ Keep at least the heading and one blank line between sections, so Git merges the
     ads no longer leave it; "Pop-up blocked · Open" opens the blocked page when wanted; a
     normal link to another site still opens; videos still play and Download still works;
     Settings › Browser › Block pop-ups and ad redirects off → pages behave as before.
+  - Checkpoint `d69811a`; CI green: checkpoint validation
+    https://github.com/Alalkipgen/YFT/actions/runs/37560496883, emulator smoke (with
+    `PopupAndRedirectInstrumentedTest`) https://github.com/Alalkipgen/YFT/actions/runs/37560496916,
+    Preview APK https://github.com/Alalkipgen/YFT/actions/runs/37560496886 (the preview is
+    built again and green after P31's runner failure).
 - Last validation (P32, 2026-10-07): `/data/tmp/validate-c.sh` → core-model 83, core-data 33,
   core-browser 107, app 724 (66 skipped), 0 failures; lint 0 errors, 95 warnings (unchanged);
   `:app:compileDebugAndroidTestKotlin` OK (the new emulator test runs in CI); line check empty.
