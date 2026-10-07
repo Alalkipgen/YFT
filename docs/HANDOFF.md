@@ -24,10 +24,14 @@
 - **Branches:** `work/phase-13-integration` (= `main` `bc806f9` + the plan); agents branch from
   it: `work/phase-13-merge-speed` (A), `work/phase-13-generic-main` (B), `work/phase-13-browser`
   (C). Status per agent: `SESSION_STATE.md`.
-- **Next action — owner:** paste `prompts/A-merge-speed.md`, `prompts/B-generic-main.md` and
-  `prompts/C-browser.md` into three new agent chats; when all three say READY FOR MERGE, paste
-  `prompts/M-merge-preview5.md` into Agent A's chat. If an agent shows a new SSH public key, add
-  it under GitHub › YFT › Settings › Deploy keys with write access.
+- **P33 (2026-10-07, Agent A):** A (P27), B (P28, P29) and C (P30–P32) merged into
+  `work/phase-13-integration` without conflicts; full validation 1435 tests, 0 failures, 66
+  skipped, lint 0 errors, release build OK. The owner asked to push `main` after the merge: it
+  is fast-forwarded to the validated merge once its CI is green (no tag). CI links and the
+  Preview #5 run: `SESSION_STATE.md` › Overview.
+- **Next action — owner:** uninstall the older YFT Preview, install **Preview #5** (Preview APK
+  run › Artifacts › `yft-preview-apk`) and test FIX_ADD_PLAN §6 "Preview #5"; then P8 (signed
+  `1.0.0-beta.4`, `prompts/P8-signed-beta4.md`) only with his OK.
 - **Releases:** `1.0.0-beta.1` published 2026-10-02; `1.0.0-beta.2` signed draft 2026-10-03;
   `1.0.0-beta.3` (versionCode 3, tag `v1.0.0-beta.3` on `2f6284f`) signed draft 2026-10-04:
   `video-downloader-1.0.0-beta.3.apk` 6,334,176 bytes, SHA-256

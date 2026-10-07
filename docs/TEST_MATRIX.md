@@ -1042,3 +1042,12 @@ core-browser 88, app 690 (66 skipped), 0 failures; lint 0 errors, 95 warnings.
 | P32 validation (2026-10-07) | `/data/tmp/validate-c.sh` → core-model 83, core-data 33, core-browser 107, app 724 (66 skipped), 0 failures; `:app:lintDebug` 0 errors, 95 warnings (unchanged); `:app:compileDebugAndroidTestKotlin` OK; line check empty |
 | P32 owner check | Pending: on the sites where ads jumped to spam pages, taps no longer leave the page; "Pop-up blocked · Open" opens it when wanted; a normal link to another site opens; videos play and Download works; the switch off → as before |
 | P32 CI (`d69811a`) | Checkpoint validation [37560496883](https://github.com/Alalkipgen/YFT/actions/runs/37560496883), emulator smoke with `PopupAndRedirectInstrumentedTest` [37560496916](https://github.com/Alalkipgen/YFT/actions/runs/37560496916), Preview APK [37560496886](https://github.com/Alalkipgen/YFT/actions/runs/37560496886): all green |
+
+### P33 — merge A → B → C (integrator: Agent A)
+
+| Check | Evidence |
+| --- | --- |
+| Merge | `git merge --no-ff` A (`89e985a`) → B (`0b1a11a`) → C (`81c3e97`) on `work/phase-13-integration`: no conflicts; only CHANGELOG, SESSION_STATE and TEST_MATRIX are changed by more than one agent; Room version 6; `BrowserViewModelTest` expects Google (C) |
+| Full validation (2026-10-07) | `./gradlew --no-daemon --continue testDebugUnitTest lintDebug :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test :app:assembleDebug :app:compileDebugAndroidTestKotlin` → 1435 tests, 0 failures, 66 skipped (app 746, core-browser 133, core-data 33, core-download 150, core-media 28, core-model 98, extractor-api 32, extractor-generic 19, extractor-sites 196; was 1292 at P26); lint 0 errors; `:app:assembleRelease` OK; line check clean |
+| Emulator (B's detection with C's blocking on) | CI emulator smoke of the merge commit runs `MergeSpeedInstrumentedTest` (P27), `PrerollInstrumentedTest` (P28) and `PopupAndRedirectInstrumentedTest` (P32) together |
+| Owner check | Preview #5: FIX_ADD_PLAN §6 "Preview #5" items 1–7 |

@@ -7,80 +7,28 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ## [Unreleased]
 
-### Phase 13 — Agent A (P27)
-
-- Changed: a YouTube video with separate picture and sound no longer waits at 99% after its
-  download: the Downloads card and the notification say "Merging audio and video · 45%", then
-  "Saving to Download/YFT · 80%" (or app storage, or the chosen folder), and the bar keeps
-  moving.
-- Changed: on Android 8.0 and later the merge writes straight into the file in Download/YFT (or
-  app storage, or a chosen folder that allows it) with no second copy, about half the storage
-  reads and writes of before. Android 7.x and other folders still merge in app storage and copy,
-  now with a 1 MiB buffer (was 64 KiB); a direct merge that fails before its first sample tries
-  that way once.
-- Fixed: without enough free space a merge fails at once with "Insufficient storage" at the
-  merge step ("Merging needs … and … is free"), before the file in Download/YFT is touched. The
-  track files are deleted as soon as the merge has succeeded.
-- Each merge writes one log line with the time of each step (video, audio, merge, copy, sync,
-  commit); a failed merge's details include them.
-
-### Phase 13 — Agent B (P28, P29)
-
-- P28 — Other sites: the page's video, not the ad before it. On a site without an adapter the
-  browser and Home read what the page states about its video, from its meta tags and JSON-LD
-  only: the length (`VideoObject.duration`, also when it names an embed page and no file,
-  `og:video:duration`, `video:duration`, `itemprop="duration"`), the title (`og:title`, the
-  VideoObject's `name`, else the page title without the site's name) and the picture
-  (`og:image`, `thumbnailUrl`). They also read the files the page's own player is set up with
-  (JW Player `setup`, video.js `data-setup`, KVS `flashvars`, quality lists such as
-  `mediaDefinitions`), by player and never by site; a label gives a height only when it states
-  one. When the page states a video of two minutes or more, Download while the pre-roll ad
-  plays opens the page's video — the file of the stated length, else one the page or its player
-  names — with the page's title and picture. A file under half the stated length, a file from
-  the ad networks of free video sites (ExoClick, TrafficJunky, JuicyAds, TrafficStars,
-  Adsterra and their file hosts) and the file a frame fetches within 6 s after asking another
-  site for a VAST or VMAP ad break are listed under "Other videos on this page". When only the
-  ad has come so far, the sheet shows the page's title and picture with "Finding the page's
-  video…" for up to 6 s and switches to the page's video by itself; when nothing else comes it
-  shows the ad with "This may be an ad. Play the video for a moment, or see Other videos."
-  (`quick-maybe-ad`). Every entry (browser, Home, found list) takes the page's title and picture
-  where its files name none.
-- P29 — Other sites: the next video when one fails. When the sheet cannot prepare the video of a
-  page without an adapter because its file is gone (HTTP 403, 404 or 410, or an address YFT
-  can't fetch) and the page has another video that is not an ad or a preview, it prepares that
-  one once, by itself, in P28's order, with the line "The first file is gone — showing the next
-  video" (`quick-next-video`); its Details (`quick-next-video-details`) list both attempts with
-  their step, host and status, and when the next video fails too the failure's Details list
-  both. Try again asks for the page's current files instead of the same dead address: the
-  browser's newest addresses for the video (same address, the same file without its signed
-  query, else the same length), or for a page Home found a new, quiet read of the page.
-- P28 instrumented test: the requests the browser's hook reports are given to the test with
-  the hook's timing. The test now serves its page at the page's own address: it had answered
-  every request with 404, the WebView's own `data:` load of the page included, so the CI
-  emulator showed the WebView's error page (no meta tags, JSON-LD or scripts) and the page's
-  stated length read as none. The app's reading was right (the device reads the page as 16:24).
-
-### Phase 13 — Agent C (P30, P31, P32)
-
-- Changed: words typed in the browser's address bar or on its start page search Google (was
-  DuckDuckGo). The start page's row says "Search Google for “…”".
-- Added: Settings › Browser › Search engine — Google (default), DuckDuckGo or Bing.
-- Added: browser history. The browser's menu (⋯ in its toolbar) › History lists the pages you
-  opened by Today, Yesterday and Earlier, with a search box; a tap opens a page, a row's menu
-  deletes it, and Clear history empties the list. The start page shows the last six pages
-  under Recent. Only HTTPS pages are kept, without tracking parameters, for 90 days and at
-  most 5,000 pages. Settings › Browser › Save browser history (on by default) and Clear browser
-  history; Clear browsing data clears the history too. Database version 6 (migration 5 → 6
-  keeps every download).
-- Added: pop-up and ad-redirect blocking in the browser. A page can no longer open new windows to
-  other sites, send the tab to another site by itself after it opened, or send you to one of about
-  20 pop-up and redirect ad networks YFT lists (also after a tap); their scripts are not loaded.
-  Taps on normal links, the same site, sign-in redirects and pages you type or pick still open. A
-  notice says "Pop-up blocked" or "Blocked a redirect to …" (the site) for 4 seconds, with Open to
-  go there anyway. Settings › Browser › Block pop-ups and ad redirects (on by default).
-
 ### Added
 
+- Browser history: the browser's menu (⋯ in its toolbar) › History lists the pages you opened
+  by Today, Yesterday and Earlier, with a search box; a tap opens a page, a row's menu deletes
+  it, and Clear history empties the list. The start page shows the last six pages under Recent.
+  Only HTTPS pages are kept, without tracking parameters, for 90 days and at most 5,000 pages.
+  Settings › Browser › Save browser history (on by default) and Clear browser history; Clear
+  browsing data clears the history too. Database version 6 (migration 5 → 6 keeps every
+  download).
+- Pop-up and ad-redirect blocking in the browser: a page can no longer open new windows to
+  other sites, send the tab to another site by itself after it opened, or send you to one of
+  about 20 pop-up and redirect ad networks YFT lists (also after a tap); their scripts are not
+  loaded. Taps on normal links, the same site, sign-in redirects and pages you type or pick
+  still open. A notice says "Pop-up blocked" or "Blocked a redirect to …" (the site) for
+  4 seconds, with Open to go there anyway. Settings › Browser › Block pop-ups and ad redirects
+  (on by default).
+- Settings › Browser › Search engine: Google (default), DuckDuckGo or Bing.
+- Other sites, the next video when one fails: when the sheet cannot prepare the video of a page
+  without an adapter because its file is gone (HTTP 403, 404 or 410, or an address YFT can't
+  fetch) and the page has another video that is not an ad or a preview, it prepares that one
+  once, by itself, with "The first file is gone — showing the next video"; its Details list
+  both attempts. Try again asks for the page's current files instead of the same dead address.
 - Audio from MP4: when a video has no separate audio file (Facebook, TikTok), the sheet's Audio
   section keeps the video's own sound as M4A (copied, not re-encoded) and MP3 converts it. MP3
   offers 320, 192 and 128 kbps.
@@ -105,6 +53,25 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Changed
 
+- YouTube merge without a silent 99%: a video with separate picture and sound shows "Merging
+  audio and video · 45%", then "Saving to Download/YFT · 80%" (or app storage, or the chosen
+  folder) on the Downloads card and in the notification, and the bar keeps moving. On Android
+  8.0 and later the merge writes straight into the file in Download/YFT (or app storage, or a
+  chosen folder that allows it) with no second copy, about half the storage reads and writes of
+  before; Android 7.x and other folders still merge in app storage and copy, now with a 1 MiB
+  buffer, and a direct merge that fails before its first sample tries that way once. Each merge
+  logs the time of each step; a failed merge's details include them.
+- Other sites, the page's video instead of the ad before it: on a site without an adapter the
+  browser and Home read the page's stated length, title and picture (meta tags and JSON-LD
+  only) and the files its own player is set up with (JW Player, video.js, KVS, quality lists).
+  When the page states a video of two minutes or more, Download while the pre-roll ad plays
+  opens the page's video with the page's title and picture. A file under half the stated
+  length, a file from the ad networks of free video sites and the file a frame fetches within
+  6 s after asking another site for a VAST or VMAP ad break are listed under "Other videos on
+  this page". With only the ad so far the sheet shows "Finding the page's video…" for up to 6 s
+  and switches by itself; when nothing else comes it shows the ad with "This may be an ad."
+- Browser search: words typed in the address bar or on the start page search Google (was
+  DuckDuckGo); the start page's row says "Search Google for “…”".
 - One sheet for every site (P25): YouTube, Facebook and other sites give the same Download
   sheet — Audio "M4A" (the original sound) and "MP3 · 128 kbps", Video the Default quality and
   the next lower one, More formats with every row. Video rows are named by height ("1080p · Full
@@ -189,6 +156,9 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Fixed
 
+- A merge without enough free space fails at once with "Insufficient storage" at the merge step
+  ("Merging needs … and … is free"), before the file in Download/YFT is touched; the track
+  files are deleted as soon as the merge has succeeded.
 - **P20 — Video downloads save again (R1).** A fresh direct download (no checkpoint, or the
   queue's empty one) no longer reads the destination before `prepare()`. A new pending
   MediaStore row in `Download/YFT` has no file until its first "rw" open, so that read failed and

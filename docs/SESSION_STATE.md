@@ -37,17 +37,26 @@ Keep at least the heading and one blank line between sections, so Git merges the
   owner the public line and wait until he adds it as a deploy key with write access.
 - Phase 12 record (per-task Results, validation, CI runs, P26 merge notes):
   `git show bc806f9:docs/SESSION_STATE.md`. Phase 11: `git show 4db6c2b:docs/SESSION_STATE.md`.
-- Last pushed checkpoint: PLAN: Phase 13 (this commit, docs only, on
-  `work/phase-13-integration`).
-- Next: the owner pastes `docs/prompts/A-merge-speed.md`, `B-generic-main.md` and
-  `C-browser.md` into three new agent chats; when all three are READY FOR MERGE, Agent A runs
-  `M-merge-preview5.md` (P33, Preview #5); P8 only with the owner's OK after Preview #5.
-- Last updated: 2026-10-07 (Phase 13 plan)
+- P33 (Agent A, 2026-10-07): `git merge --no-ff` A (`89e985a`) → B (`0b1a11a`) → C
+  (`81c3e97`) on `work/phase-13-integration`: no conflicts (shared docs merged by Git, each
+  agent in its own section); Room at version 6; C's Google line in `BrowserViewModelTest` kept;
+  no hand-offs open. Full validation (one run after the three merges; it covers every agent's
+  scope): 1435 tests, 0 failures, 66 skipped (app 746, core-browser 133, core-data 33,
+  core-download 150, core-media 28, core-model 98, extractor-api 32, extractor-generic 19,
+  extractor-sites 196); lint 0 errors (app 95 warnings, as before); `:app:assembleDebug`,
+  `:app:assembleRelease` and `:app:compileDebugAndroidTestKotlin` OK; line check clean.
+- Last pushed checkpoint: P33: merge A, B, C — full validation green (this commit).
+- Next: CI of this commit (emulator smoke with the P27, P28 and P32 instrumented tests, Preview
+  APK = **Preview #5**); the owner asked (2026-10-07) to push `main` after the merge — a
+  fast-forward of `main` to the validated merge once its CI is green; then his phone test of
+  Preview #5 (FIX_ADD_PLAN §6); P8 (signed `1.0.0-beta.4`) only with his OK.
+- Last updated: 2026-10-07 (P33)
 
 ## Agent A — `work/phase-13-merge-speed` (P27; later P33)
 
-- Status: READY FOR MERGE (P27) — last code commit `83478f0`, CI green (started 2026-10-07,
-  base `7873d51` = `origin/work/phase-13-integration`)
+- Status: P33 IN PROGRESS (merged, validated; CI of the merge pending). P27 READY FOR MERGE —
+  last code commit `83478f0`, CI green (started 2026-10-07, base `7873d51` =
+  `origin/work/phase-13-integration`); merged by P33.
 - Folder `/data/YFT-A`; push with the deploy key (`origin` = SSH, `/data/.ssh/id_ed25519`).
 - Starting state (before any edit, the Agent A command): BUILD SUCCESSFUL; core-download 141
   tests, core-model 80, app 690 (66 skipped), 0 failures; lint 0 errors (95 warnings);

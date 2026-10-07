@@ -265,28 +265,28 @@ here. AI agent time includes builds and CI waits on a 4 GiB sandbox.
 
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
-| P27 | [YouTube: no long wait at 99% (merge straight into the file, show Merging · N%)](#p27--youtube-no-long-wait-at-99) | Medium | 3–5 h | — | TODO |
+| P27 | [YouTube: no long wait at 99% (merge straight into the file, show Merging · N%)](#p27--youtube-no-long-wait-at-99) | Medium | 3–5 h | — | OWNER CHECK (merged by P33) |
 
 **Agent B — `work/phase-13-generic-main`**
 
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
-| P28 | [Other sites: the page's video, not the ad before it](#p28--other-sites-the-pages-video-not-the-ad-before-it) | Hard | 6–10 h | — | TODO |
-| P29 | [Other sites: the next video when one fails; the page's title and picture](#p29--other-sites-the-next-video-when-one-fails) | Medium | 2–4 h | P28 | TODO |
+| P28 | [Other sites: the page's video, not the ad before it](#p28--other-sites-the-pages-video-not-the-ad-before-it) | Hard | 6–10 h | — | OWNER CHECK (merged by P33) |
+| P29 | [Other sites: the next video when one fails; the page's title and picture](#p29--other-sites-the-next-video-when-one-fails) | Medium | 2–4 h | P28 | OWNER CHECK (merged by P33) |
 
 **Agent C — `work/phase-13-browser`**
 
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
-| P30 | [Browser: Google search by default, engine choice in Settings](#p30--browser-google-search) | Easy | 1–2 h | — | TODO |
-| P31 | [Browser history](#p31--browser-history) | Medium | 3–5 h | P30 (settings section) | TODO |
-| P32 | [Block pop-ups and ad redirects](#p32--block-pop-ups-and-ad-redirects) | Medium–Hard | 4–7 h | P30 (settings section) | TODO |
+| P30 | [Browser: Google search by default, engine choice in Settings](#p30--browser-google-search) | Easy | 1–2 h | — | OWNER CHECK (merged by P33) |
+| P31 | [Browser history](#p31--browser-history) | Medium | 3–5 h | P30 (settings section) | OWNER CHECK (merged by P33) |
+| P32 | [Block pop-ups and ad redirects](#p32--block-pop-ups-and-ad-redirects) | Medium–Hard | 4–7 h | P30 (settings section) | OWNER CHECK (merged by P33) |
 
 **Integration — Agent A, `work/phase-13-integration`**
 
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
-| P33 | [Merge A → B → C, full validation, Preview #5](#p33--merge-and-preview-5) | Medium | 2–3 h | P27–P32 READY FOR MERGE | TODO |
+| P33 | [Merge A → B → C, full validation, Preview #5](#p33--merge-and-preview-5) | Medium | 2–3 h | P27–P32 READY FOR MERGE | IN PROGRESS (merged, validated; CI pending) |
 | P8 | [Signed release 1.0.0-beta.4](#p8--signed-release-100-beta4) | Easy | 1–2 h | P33, Preview #5, owner OK | TODO |
 
 In parallel the wall time is about 10–14 h (B and C are the long tracks) plus P33; one agent
@@ -440,7 +440,21 @@ the merged file is written once; CI emulator smoke green with the new tests.
 the card shows "Merging … %" and "Saving … %", the wait after 99% is clearly shorter than in
 Preview #4, and the file plays in the Library.
 
-**Result:** —
+**Result:** OWNER CHECK (Agent A, `83478f0`, merged by P33). The merge reports its progress
+(samples written / track time) and the copy its bytes (new stage `SAVING`); the card and the
+notification say "Merging audio and video · 45%", then "Saving to Download/YFT · 80%" (testTag
+`download-stage-<id>`). `DownloadDestination.openFileDescriptorOutput()` (added, default null):
+on API 26+ with a seekable "rw" descriptor (pending MediaStore row, app storage, a seekable SAF
+document) `MediaMuxer(FileDescriptor, …)` merges straight into the destination — no second copy;
+otherwise and on Android 7.x today's path with a 1 MiB buffer; an in-place merge that fails
+before its first sample falls back once. Space check before the destination is touched →
+`INSUFFICIENT_STORAGE` at `MERGE`; track files deleted after a good merge. One log line per merge
+with each step's time. Plan adapted: today's path deletes the tracks before the copy (a later
+failure starts over); the emulator's 20-minute input repeats the test tracks' fragments under one
+new `sidx`. Measured (CI emulator, API 34, 20 min, 70 785 samples, 17 MB): read alone 2.1 s;
+in place 6.8 s (merge 6.7 s); today's path 7.2 s — reading is not the slow part. Tests: 8 engine,
+4 label, card, notification, 2 instrumented; regression proof 13 fail on `7873d51`. Detail:
+`docs/SESSION_STATE.md` › Agent A.
 
 ### P28 — Other sites: the page's video, not the ad before it
 
@@ -525,7 +539,19 @@ P24's tests still pass; CI green.
 plays → the sheet shows the page's title, picture and length (for example 16:24) with its
 qualities (480p, 720p); the ad only under Other videos.
 
-**Result:** —
+**Result:** OWNER CHECK (Agent B, `a47926d`, merged by P33). On a site without an adapter the
+browser and Home read the page's stated length, title and picture (meta tags and JSON-LD only,
+also a VideoObject naming an embed page) and its player's setup (JW Player, video.js, KVS
+`flashvars`, quality lists). With a stated length of 2 min or more, Download during the pre-roll
+opens the file of that length (else the one the page or its player names) with the page's title
+and picture; a file under half the length, the free video sites' ad networks and the file a
+frame fetches within 6 s after a VAST/VMAP request to another site go under Other videos. With
+only the ad so far the sheet shows "Finding the page's video…" for up to 6 s, else the ad with
+`quick-maybe-ad`. New: `PageVideoFacts`, `PageFactsReader`, `PlayerSetupScanner`, `MiniJson`,
+`VastAdTracker`. Plan adapted: the browser's hook sees requests, not responses, so an ad break is
+known by its address (`vast`/`vmap`) and its ad is the next file the same frame fetches from
+another site within 6 s. Regression proof 4 of 4 fail on `679ec78`; `PrerollInstrumentedTest`
+green on the CI emulator. Detail: `docs/SESSION_STATE.md` › Agent B.
 
 ### P29 — Other sites: the next video when one fails
 
@@ -558,7 +584,14 @@ Details lists both attempts.
 **Owner check:** the page that showed "HTTP 410" in Preview #4 → the sheet opens a working video
 (or the page's own after P28) without the error.
 
-**Result:** —
+**Result:** OWNER CHECK (Agent B, merged by P33). When the sheet cannot prepare a page's video
+(no adapter) because its file is gone (HTTP 403, 404, 410 or `INVALID_URL`) and the page has
+another video that is not an ad or a preview, it prepares that one once, by itself
+(`MediaGroups.nextVideo`), with "The first file is gone — showing the next video"
+(`quick-next-video`) and Details listing both attempts. Try again asks for the page's current
+files first (`MediaGroups.refreshed`; Home's pages are read again quietly,
+`DetectedMediaStore.readPageAgain`). Regression proof 3 of 4 fail on `f334f55` (the fourth is a
+guard). Detail: `docs/SESSION_STATE.md` › Agent B.
 
 ### P30 — Browser: Google search
 
@@ -596,7 +629,12 @@ DuckDuckGo).
 **Owner check:** type words in the browser's address bar and on its start page → Google
 results; Settings › Browser › Search engine → DuckDuckGo → the next search uses DuckDuckGo.
 
-**Result:** —
+**Result:** OWNER CHECK (Agent C, `521b0b6`, merged by P33). Words in the address bar or on the
+start page search Google (every character encoded); Settings › Browser › Search engine: Google
+(default), DuckDuckGo, Bing (DataStore `browser_search_engine`; unknown → Google). Plan adapted:
+`BrowserSettingsViewModel` (Agent C) sets `BrowserSearch.engine` instead of a change in Agent B's
+`BrowserViewModel`; one line of `BrowserViewModelTest` expects Google. Regression proof 5 of 75
+fail on the old files. Detail: `docs/SESSION_STATE.md` › Agent C.
 
 ### P31 — Browser history
 
@@ -644,7 +682,16 @@ cleaner clears it.
 tap opens one, delete one, Clear history empties the list; Settings › Browser › Save browser
 history off → new pages are not added.
 
-**Result:** —
+**Result:** OWNER CHECK (Agent C, `e9899f2`, merged by P33). Room 6 adds `browser_history`
+(`MIGRATION_5_6` creates only the table and its index); HTTPS pages only, without fragments,
+user info or tracking parameters, 90 days and 5,000 pages. `BrowserHistoryRecorder` (finished
+pages, single-page sites' address changes; titles from `onPageTitle`) behind
+`HistoryRecordingSink`. Toolbar menu › History (`browser-history`: search, Today / Yesterday /
+Earlier, delete, Clear history), Recent on the start page, Settings › Browser › Save browser
+history and Clear browser history; Clear browsing data clears it too. Plan adapted: the menu
+button is the toolbar's fifth button; the recorder wraps the sink instead of changing
+`BrowserViewModel`. Regression proof: 8 tests fail with the behaviour broken. Detail:
+`docs/SESSION_STATE.md` › Agent C.
 
 ### P32 — Block pop-ups and ad redirects
 
@@ -698,7 +745,16 @@ opens.
 ads no longer leave it; "Pop-up blocked · Open" opens the blocked page when wanted; a normal
 link to another site still opens; videos still play and Download still works.
 
-**Result:** —
+**Result:** OWNER CHECK (Agent C, `d69811a`, merged by P33). `AdRedirectPolicy` blocks YFT's own
+list `AdNetworks` (20 networks, 32 hosts) as navigation, redirect hop or new window, and a
+navigation to another site without the user's tap once the page has opened; taps, the same
+site, server redirects and what the user typed or picked are allowed. New windows go to a hidden
+`PopupWindowCatcher`; a tap's same-site window opens in the tab, others are blocked. The listed
+networks' scripts, frames and images get an empty answer (ExoClick and TrafficStars keep theirs,
+F4). Notice "Pop-up blocked" / "Blocked a redirect to `host`" with Open
+(`browser-blocked-notice`); Settings › Browser › Block pop-ups and ad redirects (default on).
+Regression proof 7 tests fail with the old behaviour; `PopupAndRedirectInstrumentedTest` green
+on the CI emulator. Detail: `docs/SESSION_STATE.md` › Agent C.
 
 ### P33 — Merge and Preview #5
 
@@ -723,7 +779,14 @@ Medium · 2–3 h · needs P27–P32 `READY FOR MERGE` · **Agent A (integrator)
    **Preview #5**: its link and the §6 list to the owner in Burmese. Then stop. `main` is
    fast-forwarded only with `MAIN=OK`; P8 only with the owner's OK.
 
-**Result:** —
+**Result:** IN PROGRESS (2026-10-07). Gate: A (`83478f0`), B (`a47926d`) and C (`d69811a`)
+READY FOR MERGE with green checkpoint validation, emulator smoke and Preview APK. `git merge
+--no-ff` A → B → C on `work/phase-13-integration`: no conflicts; Room at version 6; C's Google
+line in `BrowserViewModelTest` kept; no hand-offs open. Plan adapted: one full validation after
+the three merges instead of three scope runs (it covers every scope; 4 GiB sandbox). Full
+validation: 1435 tests, 0 failures, 66 skipped; lint 0 errors; `:app:assembleDebug`,
+`:app:assembleRelease`, `:app:compileDebugAndroidTestKotlin` OK; line check clean. CI and
+Preview #5: see `docs/SESSION_STATE.md` › Overview.
 
 ### P8 — Signed release 1.0.0-beta.4
 
