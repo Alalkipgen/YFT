@@ -960,7 +960,21 @@ summary row. Starting state (P26, `bc806f9`): 1292 tests, 0 failures, 66 skipped
 
 ### Agent A — P27
 
-- (Agent A: P27 tests, measured merge times, regression proof and CI links.)
+| Check | Evidence |
+| --- | --- |
+| P27 progress after the download | `AudioVideoMuxMergeTest` "progress rises through the merge and the copy to 100 and never stays at 99" (merge 10 %…100 % from samples written / track time, then the copy's byte percent in order up to 100, ≥ 50 steps); fails on `7873d51`: no merge percent at all |
+| P27 direct merge (API 26+, seekable read-write descriptor) | `AudioVideoMuxMergeTest` "a destination with a file descriptor gets the merge in one write, no second copy" (one descriptor merge, `open()` never called, length checked, committed); fails on `7873d51`: merged in app storage and copied |
+| P27 today's path | "without a file descriptor the merge goes through app storage and is copied" (track files deleted before the copy); Android 7.x (`sdkInt = 25`) the same; 1 MiB copy buffer |
+| P27 fallback | "an in-place merge that fails before its first sample falls back once" (descriptor, then file; log line "In-place merge failed before its first sample; merging in app storage"); "an in-place merge that fails after a sample does not fall back" (`Failure`, no second merge) |
+| P27 space check | "the space check fails early with insufficient storage at the merge" (`INSUFFICIENT_STORAGE` + `MERGE`, "Merging needs … and … is free", destination untouched, no merge started) |
+| P27 step times | "each step's time goes to the log and into a merge failure's details" (video, audio, merge, copy, sync, commit; "Merge done (in place|copy): …; <size>"; a failure's detail ends "took merge …") |
+| P27 stop | "a stopped download stops the merge at its next sample" |
+| P27 destinations | `PublicDownloadDestinationTest` "an app storage file gives an emptied descriptor and a store without one gives none" (written through the descriptor and committed; MediaStore with a store without descriptors → today's path); `AndroidPublicContentStore` gives a "rw" descriptor of a pending row or a SAF document only when it is seekable |
+| P27 labels | `MergeStageLabelsTest`: "Merging audio and video · 45%" (not 99 %); "Merging audio and video" before the first sample (bar indeterminate); "Saving to Download/YFT · 80%", app storage and the chosen folder; downloading tracks, pausing and paused keep their usual line |
+| P27 Downloads card and notification | `DownloadsScreenTest` "mergedTaskShowsItsMergeThenItsCopyWithTheirPercent" (testTag `download-stage-<id>`); `DownloadNotificationFactoryTest` "a merged download shows its merge and then its copy with their percent" (text and determinate progress) |
+| P27 real MediaStore and MediaMuxer (CI emulator) | `MergeSpeedInstrumentedTest` "aDirectMergeIntoANewMediaStoreItemGivesAPlayableFileWithBothTracks" (in place, no copy, AVC 160×90 15 frames + AAC, `MediaMetadataRetriever` has video, audio and a frame); "aTwentyMinuteInputMergesInPlaceAndThroughAppStorageAndPrintsTheSplit" (20 min made by repeating the test tracks' fragments under one new `sidx`, `LongFragmentedMp4`; read pass, in place, today's path; `YFT-DIAG mux-timing` lines) |
+| P27 measured split | CI emulator, API 34, `83478f0` (run 37563836036): 20 min input, 70 785 samples, 17 MB. Read once with `MediaExtractor` alone 2.1 s; in place merge 6.7 s, copy 0, commit 60 ms, total 6.8 s; today's path merge 7.1 s, copy 13 ms, sync 12 ms, commit 36 ms, total 7.2 s; 101 merge percents (0–100) each way. "Instrumentation results: tests=25 failures=0" |
+| P27 regression proof | With `AudioVideoMuxEngine.kt`, `DownloadsUiState.kt`, `DownloadLabels.kt`, `DownloadsScreen.kt`, `DownloadNotificationFactory.kt` and `DownloadRuntimeModule.kt` from `7873d51`: all 8 `AudioVideoMuxMergeTest` tests and the 5 label, card and notification tests fail; restored with `cp`, checked with `cmp` |
 
 ### Agent B — P28, P29
 

@@ -35,6 +35,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.download.DownloadPlanType
 import com.alal.yft.core.model.ThemeMode
+import com.alal.yft.core.model.download.AudioVideoMuxStage
 import com.alal.yft.core.model.download.DownloadFailure
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DownloadFailureStage
@@ -108,6 +109,43 @@ class DownloadsScreenTest {
         composeRule.onNodeWithTag("download-action-pause-a").performClick()
 
         assertEquals(listOf(DownloadAction.PAUSE to "a"), actions)
+    }
+
+    @Test
+    fun mergedTaskShowsItsMergeThenItsCopyWithTheirPercent() {
+        var state by mutableStateOf(
+            DownloadsUiState.from(
+                listOf(mergedTask("m", AudioVideoMuxStage.MUXING, stepDone = 45, stepTotal = 100)),
+            ),
+        )
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                DownloadsScreen(
+                    uiState = state,
+                    onAction = { _, _ -> },
+                    onPauseAll = {},
+                    onOpen = {},
+                    onPlay = {},
+                    onOpenSettings = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("download-stage-m", useUnmergedTree = true)
+            .assertTextEquals("Merging audio and video · 45%")
+        composeRule.onNodeWithText("45%").assertIsDisplayed()
+        composeRule.onNodeWithTag("download-progress-m", useUnmergedTree = true)
+            .assertIsDisplayed()
+
+        state = DownloadsUiState.from(
+            listOf(mergedTask("m", AudioVideoMuxStage.SAVING, stepDone = 80, stepTotal = 100)),
+        )
+
+        composeRule.onNodeWithTag("download-stage-m", useUnmergedTree = true)
+            .assertTextEquals("Saving to Download/YFT · 80%")
+        composeRule.onNodeWithText("80%").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("download-detail-m", useUnmergedTree = true)
+            .assertCountEquals(0)
     }
 
     @Test

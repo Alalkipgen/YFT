@@ -95,6 +95,7 @@ internal fun percentLabel(row: DownloadRowUiState): String? =
  * Without [withSpeed] the speed is left out, for cards too narrow for the whole line.
  */
 internal fun progressDetail(row: DownloadRowUiState, withSpeed: Boolean = true): String {
+    row.stage?.let { stage -> return mergeStageLabel(stage, row.destinationKind) }
     val amount = row.totalBytes
         ?.let { amountOf(row.downloadedBytes, it) }
         ?: row.downloadedBytes.takeIf { it > 0L }?.let(YftFormat::bytes)
@@ -110,6 +111,23 @@ internal fun progressDetail(row: DownloadRowUiState, withSpeed: Boolean = true):
             row.secondsLeft?.let(::timeLeftLabel),
         ).joinToString(" · ")
     }
+}
+
+/**
+ * "Merging audio and video · 45%", "Saving to Download/YFT · 80%": the step after a merged
+ * download's tracks are in (P27), with its percent when known.
+ */
+internal fun mergeStageLabel(stage: DownloadStage, destination: DownloadDestinationKind): String {
+    val step = when (stage.step) {
+        DownloadStage.Step.MERGING -> "Merging audio and video"
+        DownloadStage.Step.SAVING -> when (destination) {
+            DownloadDestinationKind.MEDIA_STORE ->
+                "Saving to ${LibraryLocation.SHARED_DOWNLOADS.label}"
+            DownloadDestinationKind.APP_PRIVATE -> "Saving to ${LibraryLocation.APP_STORAGE.label}"
+            DownloadDestinationKind.SAF_DOCUMENT -> "Saving to the chosen folder"
+        }
+    }
+    return listOfNotNull(step, stage.percent?.let { "$it%" }).joinToString(" · ")
 }
 
 /** "61 of 96 MB", or "800 KB of 96 MB" when the units differ. */

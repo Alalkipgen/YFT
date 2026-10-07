@@ -3,6 +3,8 @@ package com.alal.yft.feature.downloads
 import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.download.DownloadPlanType
 import com.alal.yft.core.download.StoredDownloadTask
+import com.alal.yft.core.model.download.AudioVideoMuxCheckpoint
+import com.alal.yft.core.model.download.AudioVideoMuxStage
 import com.alal.yft.core.model.download.DownloadFailure
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DownloadTaskStatus
@@ -94,6 +96,35 @@ enum class DownloadsFilter(val label: String) {
     }
 }
 
+/**
+ * The step after a merged download's tracks are in (P27), with its percent when known: the
+ * card and the notification say "Merging audio and video · 45%", then "Saving to … · 80%".
+ */
+data class DownloadStage(
+    val step: Step,
+    /** 0–100, or null while the step's size is unknown (the bar is then indeterminate). */
+    val percent: Int?,
+) {
+    enum class Step {
+        MERGING,
+        SAVING,
+    }
+
+    companion object {
+        /** The stage of a running merged download, or null while it downloads or is another. */
+        fun of(task: StoredDownloadTask): DownloadStage? {
+            if (task.status != DownloadTaskStatus.RUNNING) return null
+            val checkpoint = task.checkpoint as? AudioVideoMuxCheckpoint ?: return null
+            val step = when (checkpoint.stage) {
+                AudioVideoMuxStage.READY_TO_MUX, AudioVideoMuxStage.MUXING -> Step.MERGING
+                AudioVideoMuxStage.SAVING -> Step.SAVING
+                AudioVideoMuxStage.DOWNLOADING_TRACKS, AudioVideoMuxStage.COMPLETED -> return null
+            }
+            return DownloadStage(step, checkpoint.stepPercent)
+        }
+    }
+}
+
 /** Where new downloads are saved and the free space there, for the footer pill. */
 data class DownloadStorageSummary(
     val location: DownloadLocation,
@@ -129,6 +160,8 @@ data class DownloadRowUiState(
      * known (P21), for the Details dialog; null when the task has not failed.
      */
     val failure: DownloadFailure? = failureReason?.let(::DownloadFailure),
+    /** Merging or saving after a merged download's tracks are in (P27); null otherwise. */
+    val stage: DownloadStage? = null,
 ) {
     /** The file name without its extension, as the cards show it. */
     val title: String = YftFormat.title(displayName)
@@ -141,11 +174,15 @@ data class DownloadRowUiState(
 
     /**
      * Determinate fraction, or null when the remote size is unknown so the UI must not invent a
-     * determinate bar.
+     * determinate bar. While merging or saving it is that step's fraction (P27).
      */
-    val progressFraction: Float? = totalBytes
-        ?.takeIf { it > 0L }
-        ?.let { (downloadedBytes.toDouble() / it.toDouble()).toFloat().coerceIn(0f, 1f) }
+    val progressFraction: Float? = if (stage != null) {
+        stage.percent?.let { percent -> (percent / 100f).coerceIn(0f, 1f) }
+    } else {
+        totalBytes
+            ?.takeIf { it > 0L }
+            ?.let { (downloadedBytes.toDouble() / it.toDouble()).toFloat().coerceIn(0f, 1f) }
+    }
 
     val isOccupyingQueue: Boolean = status in OCCUPYING_STATUSES
 
@@ -155,7 +192,9 @@ data class DownloadRowUiState(
     val secondsLeft: Long? = run {
         val total = totalBytes
         val speed = bytesPerSecond?.takeIf { it > 0L }
-        if (status != DownloadTaskStatus.RUNNING || total == null || speed == null) {
+        if (status != DownloadTaskStatus.RUNNING || total == null || speed == null ||
+            stage != null
+        ) {
             null
         } else {
             ((total - downloadedBytes).coerceAtLeast(0L) + speed - 1L) / speed
@@ -205,6 +244,7 @@ data class DownloadsUiState(
                         .thenBy { it.id },
                 )
                 .map { task ->
+                    val stage = DownloadStage.of(task)
                     DownloadRowUiState(
                         id = task.id,
                         displayName = task.displayName,
@@ -213,7 +253,7 @@ data class DownloadsUiState(
                         destinationKind = task.destinationKind,
                         downloadedBytes = task.downloadedBytes,
                         totalBytes = task.totalBytes,
-                        progressPercent = task.progressPercent,
+                        progressPercent = stage?.percent ?: task.progressPercent,
                         requiresLinkRefresh = task.requiresLinkRefresh,
                         failureReason = task.failureReason,
                         mimeType = task.mimeType,
@@ -223,6 +263,7 @@ data class DownloadsUiState(
                         failure = task.failure
                             ?.takeIf { it.reason == task.failureReason }
                             ?: task.failureReason?.let(::DownloadFailure),
+                        stage = stage,
                     )
                 },
         )

@@ -255,6 +255,18 @@ class DownloadModelsTest {
 
         assertEquals(14L, checkpoint.downloadedBytes)
         assertFalse(checkpoint.toString().contains("c".repeat(64)))
+        // P27: how far the merge or the copy is, as a whole percent within 0–100.
+        assertNull(checkpoint.stepPercent)
+        val saving = checkpoint.copy(
+            stage = AudioVideoMuxStage.SAVING,
+            stepDone = 45,
+            stepTotal = 100,
+        )
+        assertEquals(45, saving.stepPercent)
+        assertEquals(100, saving.copy(stepDone = 150).stepPercent)
+        assertNull(saving.copy(stepTotal = 0).stepPercent)
+        assertTrue(saving.toString().contains("stage=SAVING, stepPercent=45"))
+        assertThrows(IllegalArgumentException::class.java) { saving.copy(stepDone = -1) }
         assertThrows(IllegalArgumentException::class.java) {
             AudioVideoMuxCheckpoint(stage = AudioVideoMuxStage.MUXING)
         }

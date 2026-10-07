@@ -12,6 +12,8 @@ import com.alal.yft.MainActivity
 import com.alal.yft.R
 import com.alal.yft.core.download.StoredDownloadTask
 import com.alal.yft.core.model.download.DownloadTaskStatus
+import com.alal.yft.feature.downloads.DownloadStage
+import com.alal.yft.feature.downloads.mergeStageLabel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -48,9 +50,21 @@ class DownloadNotificationFactory @Inject constructor(
             .takeIf { it.size == active.size }
             ?.sum()
         val downloaded = active.sumOf(StoredDownloadTask::downloadedBytes)
-        val progress = knownTotal
-            ?.takeIf { it > 0 }
-            ?.let { ((downloaded * 100.0) / it).toInt().coerceIn(0, 100) }
+        // One merged download merging or saving shows that step and its percent (P27).
+        val single = active.singleOrNull()
+        val stage = single?.let(DownloadStage::of)
+        val stageText = if (single != null && stage != null) {
+            mergeStageLabel(stage, single.destinationKind)
+        } else {
+            null
+        }
+        val progress = if (stage != null) {
+            stage.percent
+        } else {
+            knownTotal
+                ?.takeIf { it > 0 }
+                ?.let { ((downloaded * 100.0) / it).toInt().coerceIn(0, 100) }
+        }
         val summary = context.resources.getQuantityString(
             R.plurals.download_notification_active,
             active.size,
@@ -59,7 +73,8 @@ class DownloadNotificationFactory @Inject constructor(
         return builder()
             .setContentTitle(summary)
             .setContentText(
-                active.firstOrNull()?.displayName
+                stageText
+                    ?: active.firstOrNull()?.displayName
                     ?: context.getString(R.string.download_notification_preparing),
             )
             .setProgress(100, progress ?: 0, progress == null)
