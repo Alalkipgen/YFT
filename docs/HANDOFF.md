@@ -26,9 +26,9 @@
   (C). Status per agent: `SESSION_STATE.md`.
 - **P33 (2026-10-07, Agent A):** A (P27), B (P28, P29) and C (P30–P32) merged into
   `work/phase-13-integration` without conflicts; full validation 1435 tests, 0 failures, 66
-  skipped, lint 0 errors, release build OK. The owner asked to push `main` after the merge: it
-  is fast-forwarded to the validated merge once its CI is green (no tag). CI links and the
-  Preview #5 run: `SESSION_STATE.md` › Overview.
+  skipped, lint 0 errors, release build OK; CI green (emulator 29 tests, 0 failures).
+  **Preview #5** = https://github.com/Alalkipgen/YFT/actions/runs/37575586233 (`yft-preview-apk`).
+  At the owner's request `main` was fast-forwarded to the merge (`436aa90`, no tag).
 - **Next action — owner:** uninstall the older YFT Preview, install **Preview #5** (Preview APK
   run › Artifacts › `yft-preview-apk`) and test FIX_ADD_PLAN §6 "Preview #5"; then P8 (signed
   `1.0.0-beta.4`, `prompts/P8-signed-beta4.md`) only with his OK.

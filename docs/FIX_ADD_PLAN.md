@@ -286,7 +286,7 @@ here. AI agent time includes builds and CI waits on a 4 GiB sandbox.
 
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
-| P33 | [Merge A → B → C, full validation, Preview #5](#p33--merge-and-preview-5) | Medium | 2–3 h | P27–P32 READY FOR MERGE | IN PROGRESS (merged, validated; CI pending) |
+| P33 | [Merge A → B → C, full validation, Preview #5](#p33--merge-and-preview-5) | Medium | 2–3 h | P27–P32 READY FOR MERGE | DONE (2026-10-07) — Preview #5 sent |
 | P8 | [Signed release 1.0.0-beta.4](#p8--signed-release-100-beta4) | Easy | 1–2 h | P33, Preview #5, owner OK | TODO |
 
 In parallel the wall time is about 10–14 h (B and C are the long tracks) plus P33; one agent
@@ -779,14 +779,16 @@ Medium · 2–3 h · needs P27–P32 `READY FOR MERGE` · **Agent A (integrator)
    **Preview #5**: its link and the §6 list to the owner in Burmese. Then stop. `main` is
    fast-forwarded only with `MAIN=OK`; P8 only with the owner's OK.
 
-**Result:** IN PROGRESS (2026-10-07). Gate: A (`83478f0`), B (`a47926d`) and C (`d69811a`)
+**Result:** DONE (2026-10-07), merge checkpoint `436aa90`. Gate: A (`83478f0`), B (`a47926d`) and C (`d69811a`)
 READY FOR MERGE with green checkpoint validation, emulator smoke and Preview APK. `git merge
 --no-ff` A → B → C on `work/phase-13-integration`: no conflicts; Room at version 6; C's Google
 line in `BrowserViewModelTest` kept; no hand-offs open. Plan adapted: one full validation after
 the three merges instead of three scope runs (it covers every scope; 4 GiB sandbox). Full
 validation: 1435 tests, 0 failures, 66 skipped; lint 0 errors; `:app:assembleDebug`,
-`:app:assembleRelease`, `:app:compileDebugAndroidTestKotlin` OK; line check clean. CI and
-Preview #5: see `docs/SESSION_STATE.md` › Overview.
+`:app:assembleRelease`, `:app:compileDebugAndroidTestKotlin` OK; line check clean. CI green:
+checkpoint validation run 37575586593, emulator smoke 37575586251 (29 tests, 0 failures, the
+P27, P28 and P32 tests together), Preview APK 37575586233 = **Preview #5**. `main`
+fast-forwarded to `436aa90` at the owner's request before his phone test (no tag).
 
 ### P8 — Signed release 1.0.0-beta.4
 

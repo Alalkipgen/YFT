@@ -45,16 +45,22 @@ Keep at least the heading and one blank line between sections, so Git merges the
   core-download 150, core-media 28, core-model 98, extractor-api 32, extractor-generic 19,
   extractor-sites 196); lint 0 errors (app 95 warnings, as before); `:app:assembleDebug`,
   `:app:assembleRelease` and `:app:compileDebugAndroidTestKotlin` OK; line check clean.
-- Last pushed checkpoint: P33: merge A, B, C — full validation green (this commit).
-- Next: CI of this commit (emulator smoke with the P27, P28 and P32 instrumented tests, Preview
-  APK = **Preview #5**); the owner asked (2026-10-07) to push `main` after the merge — a
-  fast-forward of `main` to the validated merge once its CI is green; then his phone test of
-  Preview #5 (FIX_ADD_PLAN §6); P8 (signed `1.0.0-beta.4`) only with his OK.
+- CI of the merge checkpoint `436aa90`, all green: checkpoint validation https://github.com/Alalkipgen/YFT/actions/runs/37575586593, emulator
+  smoke ("Instrumentation results: tests=29 failures=0"; P27 in place 4.1 s, today's path 4.1 s
+  for the 20-minute input) https://github.com/Alalkipgen/YFT/actions/runs/37575586251, Preview
+  APK = **Preview #5** (`yft-preview-apk`) https://github.com/Alalkipgen/YFT/actions/runs/37575586233.
+- `main`: fast-forwarded `bc806f9` → `436aa90` on 2026-10-07 at the owner's request (he asked
+  to push `main` right after the merge, before his phone test); no tag. This docs checkpoint
+  follows on `main` once its validation is green.
+- Last pushed checkpoint: P33: Preview #5, CI links, main (this commit, docs only).
+- Next: the owner's phone test of Preview #5 (FIX_ADD_PLAN §6); P8 (signed `1.0.0-beta.4`,
+  `docs/prompts/P8-signed-beta4.md`) only with his OK.
 - Last updated: 2026-10-07 (P33)
 
 ## Agent A — `work/phase-13-merge-speed` (P27; later P33)
 
-- Status: P33 IN PROGRESS (merged, validated; CI of the merge pending). P27 READY FOR MERGE —
+- Status: P33 DONE (2026-10-07) — merge `436aa90`, CI green, Preview #5 sent, `main` =
+  `436aa90`; waiting for the owner's phone test. P27 READY FOR MERGE —
   last code commit `83478f0`, CI green (started 2026-10-07, base `7873d51` =
   `origin/work/phase-13-integration`); merged by P33.
 - Folder `/data/YFT-A`; push with the deploy key (`origin` = SSH, `/data/.ssh/id_ed25519`).
