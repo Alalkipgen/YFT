@@ -59,8 +59,42 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent C — `work/phase-13-browser` (P30, P31, P32)
 
-- Status: NOT STARTED
-- P30 — Browser: Google search: TODO
-- P31 — Browser history: TODO
+- Status: P30 OWNER CHECK; P31 IN PROGRESS
+- Started 2026-10-07 in `/data/YFT-C` from `origin/work/phase-13-integration` `7873d51`.
+  Starting state (`/data/tmp/validate-c.sh`: core-model, core-data, core-browser and app unit
+  tests, `:app:lintDebug`, `:app:compileDebugAndroidTestKotlin`): core-model 80, core-data 18,
+  core-browser 88, app 690 (66 skipped), 0 failures; lint 0 errors, 95 warnings.
+- Environment after a sandbox reset: NDK 27.3.13750724 and CMake 3.22.1 reinstalled with
+  `sdkmanager`; a new deploy key `/data/.ssh/id_ed25519` (added by the owner).
+- P30 — Browser: Google search: OWNER CHECK
+  - Result: words typed in the address bar or on the start page search Google
+    (`https://www.google.com/search?q=…`, every character encoded). Settings › Browser ›
+    Search engine offers Google (default), DuckDuckGo and Bing, stored in DataStore
+    (`browser_search_engine`; a missing or unknown value reads as Google, so an old install
+    gets Google). The start page's row says "Search Google for “…”" (or the chosen engine).
+  - Plan adapted: the plan put the engine in `BrowserViewModel` (Agent B's file). Instead a
+    small `BrowserSettingsViewModel` (Agent C) gives the route the preferences and the route
+    sets `BrowserSearch.engine`; `BrowserSearch.webUrl(words)` keeps its signature and uses that
+    engine, so the view model's search follows the setting without changing B's file. One line
+    of B's test `BrowserViewModelTest` (expected DuckDuckGo address → Google) had to change in
+    this branch, because that test checks the default. The Browser group sits between Downloads
+    and Privacy in Settings.
+  - Validation: see Last validation below.
+  - Regression proof: the old `BrowserSearch.kt`, `BrowserStartPage.kt` and `BrowserScreen.kt`
+    (`/data/bak/P30/orig`) with the new tests (those needing the new API held aside): 5 of 75
+    fail — `BrowserRouteTest.typedWordsSearchGoogleByDefault`,
+    `BrowserScreenTest.wordsOfferYouTubeAndGoogleSearchRows`,
+    `BrowserSearchTest.theWebSearchIsGoogleWithEveryCharacterEncoded`,
+    `BrowserSearchTest.searchAddressesEncodeTheWords`,
+    `BrowserViewModelTest.wordsInTheAddressFieldSearchTheWebInsteadOfFailing`; new files
+    restored with `cp`, `cmp` equal.
+  - Owner check: type words (for example `myanmar news`) in the address bar → Google results;
+    the start page shows "Search Google for “…”"; Settings › Browser › Search engine →
+    DuckDuckGo → the next search opens DuckDuckGo; back to Google.
+- P31 — Browser history: IN PROGRESS
 - P32 — Block pop-ups and ad redirects: TODO
-- Hand-offs: none
+- Last validation (P30, 2026-10-07): `/data/tmp/validate-c.sh` → core-model 81, core-data 20,
+  core-browser 88, app 698 (66 skipped), 0 failures; `:app:lintDebug` 0 errors, 95 warnings
+  (unchanged); `:app:compileDebugAndroidTestKotlin` OK; line check empty.
+- Hand-offs: none. Note for Agent B: this branch changes line 80 of `BrowserViewModelTest`
+  (expected search address DuckDuckGo → Google); keep Google when merging.

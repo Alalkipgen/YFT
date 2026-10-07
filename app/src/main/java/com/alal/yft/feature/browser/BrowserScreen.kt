@@ -53,6 +53,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -113,6 +114,7 @@ import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.core.model.media.PageVideoList
 import com.alal.yft.core.model.settings.HomeSite
+import com.alal.yft.core.model.settings.SearchEngine
 import com.alal.yft.feature.home.HomeLinks
 import com.alal.yft.feature.home.rememberCopiedLinkHint
 import com.alal.yft.ui.components.FoundMediaDividerInset
@@ -143,8 +145,12 @@ fun BrowserRoute(
     onDownloadLink: (String) -> Unit = {},
     onOpenQuickDownload: () -> Unit = {},
     viewModel: BrowserViewModel = hiltViewModel(),
+    browserSettings: BrowserSettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val preferences by browserSettings.preferences.collectAsStateWithLifecycle()
+    // P30: typed words (the view model asks BrowserSearch) search with the chosen engine.
+    SideEffect { BrowserSearch.engine = preferences.searchEngine }
     val clipboard = LocalClipboardManager.current
     val copiedLinkHint = rememberCopiedLinkHint()
     val pageUrlState = remember { BrowserPageUrl() }
@@ -293,6 +299,7 @@ fun BrowserRoute(
             fullScreen = fullscreenView != null,
             // P13: a download sheet over the browser pauses this screen; the wide button goes.
             downloadSheetOpen = !resumed,
+            searchEngine = preferences.searchEngine,
             browserSurface = { modifier ->
                 BrowserWebView(
                     modifier = modifier,
@@ -401,6 +408,7 @@ fun BrowserScreen(
     onDownloadMain: () -> Unit = {},
     fullScreen: Boolean = false,
     downloadSheetOpen: Boolean = false,
+    searchEngine: SearchEngine = BrowserSearch.engine,
     browserSurface: @Composable (Modifier) -> Unit,
 ) {
     val colors = YftTheme.colors
@@ -577,6 +585,7 @@ fun BrowserScreen(
                     onOpenSite = onOpenSite,
                     onEditSites = onGoHome,
                     modifier = Modifier.fillMaxSize(),
+                    searchEngine = searchEngine,
                 )
             }
             val showSheet = hasBrowserPage && savable.isNotEmpty() && !editingAddress

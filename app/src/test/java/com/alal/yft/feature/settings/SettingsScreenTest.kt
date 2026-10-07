@@ -21,9 +21,11 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import com.alal.yft.core.model.ThemeMode
+import com.alal.yft.core.model.settings.BrowserPreferences
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.core.model.settings.SearchEngine
 import com.alal.yft.ui.theme.YftTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -82,6 +84,27 @@ class SettingsScreenTest {
         ).assertExists()
 
         assertEquals(listOf<SettingsAction>(SettingsAction.SetCheckCopiedLinks(false)), actions)
+    }
+
+    @Test
+    fun `the browser searches Google until another engine is picked in its dialog`() {
+        setContent()
+
+        composeRule.onNodeWithTag("settings-search-engine").performScrollTo()
+            .assert(hasText("Google"))
+            .performClick()
+        composeRule.onNodeWithTag("search-engine-dialog").assertIsDisplayed()
+        composeRule.onNodeWithTag("search-engine-GOOGLE").assertIsSelected()
+        composeRule.onNodeWithTag("search-engine-BING").assertIsNotSelected()
+        composeRule.onNodeWithTag("search-engine-DUCKDUCKGO").assertIsNotSelected().performClick()
+        composeRule.onAllNodesWithTag("search-engine-dialog").assertCountEquals(0)
+        assertEquals(listOf(SettingsAction.SetSearchEngine(SearchEngine.DUCKDUCKGO)), actions)
+
+        shown.value = SettingsUiState(
+            browser = BrowserPreferences(searchEngine = SearchEngine.DUCKDUCKGO),
+        )
+        composeRule.onNodeWithTag("settings-search-engine").assert(hasText("DuckDuckGo"))
+        composeRule.onNodeWithContentDescription("Browser").assertExists()
     }
 
     @Test

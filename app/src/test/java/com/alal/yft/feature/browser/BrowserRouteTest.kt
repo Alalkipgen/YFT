@@ -22,7 +22,9 @@ import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.settings.BrowserPreferences
 import com.alal.yft.core.model.settings.HomeSites
+import com.alal.yft.core.model.settings.SearchEngine
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.extractor.api.SiteExtractionRequest
 import com.alal.yft.extractor.api.SiteExtractionResult
@@ -60,6 +62,7 @@ class BrowserRouteTest {
 
     private val viewModelStore = ViewModelStore()
     private lateinit var viewModel: BrowserViewModel
+    private val browserPreferences = FakeBrowserPreferencesRepository()
 
     @Before
     fun createViewModel() {
@@ -73,6 +76,38 @@ class BrowserRouteTest {
     @After
     fun clearViewModel() {
         composeRule.runOnIdle { viewModelStore.clear() }
+        BrowserSearch.engine = SearchEngine.GOOGLE
+    }
+
+    @Test
+    fun typedWordsSearchGoogleByDefault() {
+        showRoute()
+        navigate("cat videos")
+
+        composeRule.runOnIdle {
+            assertEquals(
+                "https://www.google.com/search?q=cat+videos",
+                Shadows.shadowOf(webViews().single()).lastLoadedUrl,
+            )
+        }
+    }
+
+    @Test
+    fun typedWordsAndTheStartPageSearchTheEngineSettingsChose() {
+        browserPreferences.set(BrowserPreferences(searchEngine = SearchEngine.BING))
+        showRoute()
+        composeRule.onNodeWithTag("browser-address")
+            .performClick()
+            .performTextReplacement("cat videos")
+
+        composeRule.onNodeWithText("Search Bing for “cat videos”").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-go").performClick()
+        composeRule.runOnIdle {
+            assertEquals(
+                "https://www.bing.com/search?q=cat+videos",
+                Shadows.shadowOf(webViews().single()).lastLoadedUrl,
+            )
+        }
     }
 
     @Test
@@ -332,9 +367,16 @@ class BrowserRouteTest {
                     initialLink = initialLink,
                     onOpenQuickDownload = onOpenQuickDownload,
                     viewModel = viewModel,
+                    browserSettings = browserSettings(),
                 )
             }
         }
+    }
+
+    private fun browserSettings(): BrowserSettingsViewModel {
+        val settings = BrowserSettingsViewModel(browserPreferences)
+        viewModelStore.put("browser-settings", settings)
+        return settings
     }
 
     private fun navigate(address: String) {

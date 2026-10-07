@@ -17,7 +17,9 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Phase 13 — Agent C (P30, P31, P32)
 
-- (Agent C writes its P30, P31 and P32 entries here; P33 folds them into Added / Changed / Fixed.)
+- Changed: words typed in the browser's address bar or on its start page search Google (was
+  DuckDuckGo). The start page's row says "Search Google for “…”".
+- Added: Settings › Browser › Search engine — Google (default), DuckDuckGo or Bing.
 
 ### Added
 

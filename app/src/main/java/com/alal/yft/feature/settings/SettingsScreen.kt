@@ -54,6 +54,7 @@ import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.core.model.settings.SearchEngine
 import com.alal.yft.ui.components.YftCard
 import com.alal.yft.ui.components.YftDivider
 import com.alal.yft.ui.components.YftGroupLabel
@@ -87,8 +88,8 @@ fun SettingsRoute(
     )
 }
 
-/** The list a choice dialog offers; Save files to and Preferred quality open one each. */
-private enum class SettingsPicker { LOCATION, QUALITY }
+/** The list a choice dialog offers; Save files to, Preferred quality and Search engine. */
+private enum class SettingsPicker { LOCATION, QUALITY, SEARCH_ENGINE }
 
 /**
  * The Settings tab (`06`): APPEARANCE, DOWNLOADS, PRIVACY and ABOUT cards with one row per
@@ -149,6 +150,9 @@ fun SettingsScreen(
                         onPick = { picker = it },
                     )
                 }
+                SettingsGroup(title = "Browser") {
+                    BrowserRows(state = state, onPick = { picker = it })
+                }
                 SettingsGroup(title = "Privacy") {
                     PrivacyRows(state = state, onAction = onAction)
                 }
@@ -207,6 +211,22 @@ fun SettingsScreen(
             },
             onDismiss = { picker = null },
             modifier = Modifier.testTag("quality-dialog"),
+        )
+
+        SettingsPicker.SEARCH_ENGINE -> ChoiceDialog(
+            title = "Search engine",
+            description = "Words typed in the browser search with this engine.",
+            options = SearchEngine.entries,
+            selected = state.browser.searchEngine,
+            label = { it.displayName },
+            summary = { null },
+            tag = { "search-engine-${it.name}" },
+            onSelect = {
+                picker = null
+                onAction(SettingsAction.SetSearchEngine(it))
+            },
+            onDismiss = { picker = null },
+            modifier = Modifier.testTag("search-engine-dialog"),
         )
 
         null -> Unit
@@ -335,6 +355,18 @@ private fun DownloadRows(
         value = preferences.defaultQuality.label(),
         tag = "settings-quality",
         onClick = { onPick(SettingsPicker.QUALITY) },
+    )
+}
+
+/** Settings › Browser (P30): the engine typed words search with. */
+@Composable
+private fun BrowserRows(state: SettingsUiState, onPick: (SettingsPicker) -> Unit) {
+    ValueRow(
+        icon = YftIcons.Search,
+        title = "Search engine",
+        value = state.browser.searchEngine.displayName,
+        tag = "settings-search-engine",
+        onClick = { onPick(SettingsPicker.SEARCH_ENGINE) },
     )
 }
 

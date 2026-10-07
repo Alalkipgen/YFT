@@ -30,6 +30,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.alal.yft.core.model.settings.HomeSite
+import com.alal.yft.core.model.settings.SearchEngine
 import com.alal.yft.feature.home.SiteTile
 import com.alal.yft.ui.components.YftCard
 import com.alal.yft.ui.components.YftDivider
@@ -52,7 +53,8 @@ internal val VIEW_SITES: List<HomeSite> = listOf(
 
 /**
  * "Search to download" (T13), the browser's start page. Words in the address field offer a
- * YouTube and a web search; a link opens as before. The clipboard is read only when Download or
+ * YouTube search and one with [searchEngine], the engine Settings › Browser chose (P30); a link
+ * opens as before. The clipboard is read only when Download or
  * Use copied link is tapped. View sites lists the popular sites, and View all the full Your
  * sites list, with Add or edit going to Home where sites are managed.
  */
@@ -68,6 +70,7 @@ internal fun BrowserStartPage(
     onOpenSite: (HomeSite) -> Unit,
     onEditSites: () -> Unit,
     modifier: Modifier = Modifier,
+    searchEngine: SearchEngine = BrowserSearch.engine,
 ) {
     val colors = YftTheme.colors
     val words = BrowserSearch.wordsOrNull(query)
@@ -105,9 +108,9 @@ internal fun BrowserStartPage(
                 )
                 YftDivider()
                 SearchRow(
-                    text = "Search the web for “$words”",
+                    text = "Search ${searchEngine.displayName} for “$words”",
                     icon = YftIcons.Globe,
-                    onClick = { onSearch(BrowserSearch.webUrl(words)) },
+                    onClick = { onSearch(BrowserSearch.webUrl(words, searchEngine)) },
                     tag = "browser-search-web",
                 )
             }

@@ -2,11 +2,14 @@ package com.alal.yft.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.alal.yft.core.data.preferences.BrowserPreferencesRepository
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.data.preferences.SettingsRepository
+import com.alal.yft.core.model.settings.BrowserPreferences
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.core.model.settings.SearchEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -32,6 +35,8 @@ data class SettingsUiState(
     val message: String? = null,
     /** "Check copied links when YFT opens" (decision D1, on by default). */
     val checkCopiedLinks: Boolean = true,
+    /** Settings › Browser (P30). */
+    val browser: BrowserPreferences = BrowserPreferences(),
 )
 
 sealed interface SettingsAction {
@@ -41,6 +46,7 @@ sealed interface SettingsAction {
     data class SetConfirmMetered(val enabled: Boolean) : SettingsAction
     data class SetConcurrency(val count: Int) : SettingsAction
     data class SetCheckCopiedLinks(val enabled: Boolean) : SettingsAction
+    data class SetSearchEngine(val engine: SearchEngine) : SettingsAction
     data class Request(val confirmation: SettingsConfirmation) : SettingsAction
     data object Confirm : SettingsAction
     data object Dismiss : SettingsAction
@@ -59,6 +65,7 @@ class SettingsViewModel @Inject constructor(
     private val browsingData: BrowsingDataCleaner,
     private val history: DownloadHistory,
     private val settings: SettingsRepository,
+    private val browser: BrowserPreferencesRepository,
 ) : ViewModel() {
     private val transient = MutableStateFlow(Transient())
 
@@ -67,7 +74,8 @@ class SettingsViewModel @Inject constructor(
         history.finishedCount,
         transient,
         settings.checkCopiedLinks,
-    ) { download, finished, local, checkCopiedLinks ->
+        browser.preferences,
+    ) { download, finished, local, checkCopiedLinks, browserPreferences ->
         SettingsUiState(
             download = download,
             finishedDownloads = finished,
@@ -75,6 +83,7 @@ class SettingsViewModel @Inject constructor(
             working = local.working,
             message = local.message,
             checkCopiedLinks = checkCopiedLinks,
+            browser = browserPreferences,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), SettingsUiState())
 
@@ -94,6 +103,10 @@ class SettingsViewModel @Inject constructor(
 
             is SettingsAction.SetCheckCopiedLinks -> viewModelScope.launch {
                 settings.setCheckCopiedLinks(action.enabled)
+            }
+
+            is SettingsAction.SetSearchEngine -> viewModelScope.launch {
+                browser.update { it.copy(searchEngine = action.engine) }
             }
 
             is SettingsAction.Request -> transient.update {

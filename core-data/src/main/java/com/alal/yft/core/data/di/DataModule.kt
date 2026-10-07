@@ -10,6 +10,8 @@ import com.alal.yft.core.data.db.AppDatabase
 import com.alal.yft.core.data.db.DownloadRecordDao
 import com.alal.yft.core.data.logging.AndroidAppLogger
 import com.alal.yft.core.data.network.NetworkConfiguration
+import com.alal.yft.core.data.preferences.BrowserPreferencesRepository
+import com.alal.yft.core.data.preferences.DataStoreBrowserPreferencesRepository
 import com.alal.yft.core.data.preferences.DataStoreDownloadPreferencesRepository
 import com.alal.yft.core.data.preferences.DataStoreSettingsRepository
 import com.alal.yft.core.data.preferences.DataStoreHomeSitesRepository
@@ -44,6 +46,12 @@ abstract class DataBindingsModule {
     abstract fun bindHomeSitesRepository(
         implementation: DataStoreHomeSitesRepository,
     ): HomeSitesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBrowserPreferencesRepository(
+        implementation: DataStoreBrowserPreferencesRepository,
+    ): BrowserPreferencesRepository
 
     @Binds
     @Singleton

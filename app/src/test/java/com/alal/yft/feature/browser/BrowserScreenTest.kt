@@ -45,6 +45,7 @@ import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.PageMediaRole
 import com.alal.yft.core.model.settings.HomeSite
+import com.alal.yft.core.model.settings.SearchEngine
 import com.alal.yft.ui.components.ALLOWED_MEDIA_NOTE
 import com.alal.yft.ui.theme.YftTheme
 import org.junit.Assert.assertEquals
@@ -528,22 +529,39 @@ class BrowserScreenTest {
     }
 
     @Test
-    fun wordsOfferYouTubeAndWebSearchRows() {
+    fun wordsOfferYouTubeAndGoogleSearchRows() {
         val searched = mutableListOf<String>()
         setScreen(uiState = BrowserUiState(address = "cat videos"), onSearch = { searched += it })
 
         composeRule.onNodeWithText("Search YouTube for “cat videos”").assertIsDisplayed()
-        composeRule.onNodeWithText("Search the web for “cat videos”").assertIsDisplayed()
+        // P30: the web search row names its engine, Google unless Settings › Browser says else.
+        composeRule.onNodeWithText("Search Google for “cat videos”").assertIsDisplayed()
         composeRule.onNodeWithTag("browser-search-youtube").performClick()
         composeRule.onNodeWithTag("browser-search-web").performClick()
         composeRule.runOnIdle {
             assertEquals(
                 listOf(
                     "https://m.youtube.com/results?search_query=cat+videos",
-                    "https://duckduckgo.com/?q=cat+videos",
+                    "https://www.google.com/search?q=cat+videos",
                 ),
                 searched,
             )
+        }
+    }
+
+    @Test
+    fun theWebSearchRowNamesAndSearchesTheChosenEngine() {
+        val searched = mutableListOf<String>()
+        setScreen(
+            uiState = BrowserUiState(address = "cats & dogs"),
+            onSearch = { searched += it },
+            searchEngine = SearchEngine.DUCKDUCKGO,
+        )
+
+        composeRule.onNodeWithText("Search DuckDuckGo for “cats & dogs”").assertIsDisplayed()
+        composeRule.onNodeWithTag("browser-search-web").performClick()
+        composeRule.runOnIdle {
+            assertEquals(listOf("https://duckduckgo.com/?q=cats+%26+dogs"), searched)
         }
     }
 
@@ -776,6 +794,7 @@ class BrowserScreenTest {
         onDownloadMain: () -> Unit = {},
         fullScreenProvider: () -> Boolean = { false },
         downloadSheetOpenProvider: () -> Boolean = { false },
+        searchEngine: SearchEngine = SearchEngine.GOOGLE,
     ) {
         composeRule.setContent {
             val density = LocalDensity.current
@@ -809,6 +828,7 @@ class BrowserScreenTest {
                         onDownloadMain = onDownloadMain,
                         fullScreen = fullScreenProvider(),
                         downloadSheetOpen = downloadSheetOpenProvider(),
+                        searchEngine = searchEngine,
                         browserSurface = { Box(modifier = it.testTag("test-page")) },
                     )
                 }

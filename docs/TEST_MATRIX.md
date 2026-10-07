@@ -968,4 +968,14 @@ summary row. Starting state (P26, `bc806f9`): 1292 tests, 0 failures, 66 skipped
 
 ### Agent C — P30, P31, P32
 
-- (Agent C: P30, P31 and P32 tests, migration 5 → 6, regression proof and CI links.)
+Starting state (`7873d51`, `/data/tmp/validate-c.sh`): core-model 80, core-data 18,
+core-browser 88, app 690 (66 skipped), 0 failures; lint 0 errors, 95 warnings.
+
+| Check | Evidence |
+| --- | --- |
+| P30 search address | `BrowserSearchTest.theWebSearchIsGoogleWithEveryCharacterEncoded` (`cats & dogs at 50%` → `https://www.google.com/search?q=cats+%26+dogs+at+50%25`; `=`, `/`, `?` and Burmese words encoded), `searchAddressesEncodeTheWords`, `duckDuckGoAndBingSearchTheSameWords` (DuckDuckGo `https://duckduckgo.com/?q=…`, Bing `https://www.bing.com/search?q=…`), `theChosenEngineIsWhatTypedWordsSearch` |
+| P30 browser | `BrowserRouteTest.typedWordsSearchGoogleByDefault` (address bar → Google address loaded), `typedWordsAndTheStartPageSearchTheEngineSettingsChose` (Bing in the settings → the address bar and the start page row load Bing); `BrowserScreenTest.wordsOfferYouTubeAndGoogleSearchRows` ("Search Google for “cat videos”"), `theWebSearchRowNamesAndSearchesTheChosenEngine`; `BrowserViewModelTest.wordsInTheAddressFieldSearchTheWebInsteadOfFailing` (expects Google now) |
+| P30 setting | `BrowserPreferencesTest` (default Google, names), `DataStoreBrowserPreferencesRepositoryTest` "an older settings file without the engine reads Google", "every engine the user picks stays, and an unknown one reads Google"; `SettingsViewModelTest` "the search engine is Google until the user picks another"; `SettingsScreenTest` "the browser searches Google until another engine is picked in its dialog" (`settings-search-engine` → `search-engine-dialog` → `search-engine-DUCKDUCKGO`) |
+| P30 regression proof | Old `BrowserSearch.kt`, `BrowserStartPage.kt`, `BrowserScreen.kt` (`/data/bak/P30/orig`) with the new tests (tests needing the new API held aside): 5 of 75 fail — the route's default search, the start page's Google row, both Google address tests and the view model's search address; new files restored with `cp`, `cmp` equal |
+| P30 validation (2026-10-07) | `/data/tmp/validate-c.sh` → core-model 81, core-data 20, core-browser 88, app 698 (66 skipped), 0 failures; `:app:lintDebug` 0 errors, 95 warnings (unchanged); `:app:compileDebugAndroidTestKotlin` OK; line check empty |
+| P30 owner check | Pending: words in the address bar and on the start page → Google; Settings › Browser › Search engine → DuckDuckGo → the next search opens DuckDuckGo |

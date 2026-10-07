@@ -6,6 +6,8 @@ import com.alal.yft.core.model.ThemeMode
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.core.model.settings.SearchEngine
+import com.alal.yft.feature.browser.FakeBrowserPreferencesRepository
 import com.alal.yft.testing.MainDispatcherRule
 import java.io.IOException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -31,6 +33,19 @@ class SettingsViewModelTest {
     private val cleaner = FakeCleaner()
     private val history = FakeHistory()
     private val settings = FakeSettings()
+    private val browser = FakeBrowserPreferencesRepository()
+
+    @Test
+    fun `the search engine is Google until the user picks another`() = runTest {
+        val viewModel = subscribed()
+        assertEquals(SearchEngine.GOOGLE, viewModel.uiState.value.browser.searchEngine)
+
+        viewModel.onAction(SettingsAction.SetSearchEngine(SearchEngine.BING))
+        runCurrent()
+
+        assertEquals(SearchEngine.BING, browser.preferences.value.searchEngine)
+        assertEquals(SearchEngine.BING, viewModel.uiState.value.browser.searchEngine)
+    }
 
     @Test
     fun theCopiedLinkSwitchWritesTheSetting() = runTest {
@@ -137,7 +152,7 @@ class SettingsViewModelTest {
     }
 
     private fun TestScope.subscribed(): SettingsViewModel {
-        val viewModel = SettingsViewModel(preferences, cleaner, history, settings)
+        val viewModel = SettingsViewModel(preferences, cleaner, history, settings, browser)
         backgroundScope.launch { viewModel.uiState.collect {} }
         runCurrent()
         return viewModel
