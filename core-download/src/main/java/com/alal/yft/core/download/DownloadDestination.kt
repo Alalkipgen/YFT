@@ -2,6 +2,7 @@ package com.alal.yft.core.download
 
 import java.io.Closeable
 import java.io.File
+import java.io.FileDescriptor
 import java.io.IOException
 import java.io.RandomAccessFile
 
@@ -38,6 +39,23 @@ interface DownloadDestination {
      * again.
      */
     fun renew(): DownloadDestination? = null
+
+    /**
+     * This destination's temporary file as a seekable read-write file descriptor, emptied (P27),
+     * for a writer that needs one: Android's MediaMuxer then writes a merged file straight into
+     * it, without a second copy. Call after [prepare]; close it before [temporaryLength] and
+     * [commit].
+     *
+     * Returns null (the default) when this destination cannot give one, for example a document
+     * whose descriptor is a pipe; the caller then writes through [open]. Throws when the file
+     * cannot be opened.
+     */
+    fun openFileDescriptorOutput(): FileDescriptorOutput? = null
+}
+
+/** A destination's file open for reading and writing at any position (P27). */
+interface FileDescriptorOutput : Closeable {
+    val fileDescriptor: FileDescriptor
 }
 
 interface SeekableDownloadOutput : Closeable {
@@ -106,6 +124,21 @@ class FileDownloadDestination(
         }
         RandomAccessFile(partialFile, "rw").use { output -> output.setLength(0) }
         return FileDownloadDestination(partialFile = partialFile, completedFile = completedFile)
+    }
+
+    override fun openFileDescriptorOutput(): FileDescriptorOutput {
+        val file = RandomAccessFile(partialFile, "rw")
+        try {
+            file.setLength(0)
+        } catch (failure: IOException) {
+            runCatching { file.close() }
+            throw failure
+        }
+        return object : FileDescriptorOutput {
+            override val fileDescriptor: FileDescriptor = file.fd
+
+            override fun close() = file.close()
+        }
     }
 }
 

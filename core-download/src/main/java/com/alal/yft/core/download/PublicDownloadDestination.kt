@@ -11,6 +11,10 @@ import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.provider.OpenableColumns
+import android.system.ErrnoException
+import android.system.Os
+import android.system.OsConstants
+import java.io.FileDescriptor
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.nio.ByteBuffer
@@ -53,6 +57,14 @@ class MediaStoreDownloadDestination private constructor(
             "Download destination is not writable"
         }
         return store.open(pendingItemUri)
+    }
+
+    /** The pending row's own file (P27): MediaStore gives a regular, seekable file. */
+    override fun openFileDescriptorOutput(): FileDescriptorOutput? {
+        check(lifecycle == DestinationLifecycle.ACTIVE) {
+            "Download destination is not writable"
+        }
+        return store.openFileDescriptorOutput(pendingItemUri)
     }
 
     @Synchronized
@@ -187,6 +199,14 @@ class SafDownloadDestination private constructor(
             "Download destination is not writable"
         }
         return store.open(temporaryDocumentUri)
+    }
+
+    /** The temporary document, only when its provider gives a seekable file (P27). */
+    override fun openFileDescriptorOutput(): FileDescriptorOutput? {
+        check(lifecycle == DestinationLifecycle.ACTIVE) {
+            "Download destination is not writable"
+        }
+        return store.openFileDescriptorOutput(temporaryDocumentUri)
     }
 
     @Synchronized
@@ -324,6 +344,12 @@ internal interface PublicContentStore {
     fun deleteTemporaryDocument(uri: String)
     fun length(uri: String): Long?
     fun open(uri: String): SeekableDownloadOutput
+
+    /**
+     * [uri]'s file as an emptied, seekable read-write descriptor (P27), or null when the
+     * provider gives none (for example a pipe).
+     */
+    fun openFileDescriptorOutput(uri: String): FileDescriptorOutput? = null
 }
 
 internal class AndroidPublicContentStore(
@@ -499,6 +525,31 @@ internal class AndroidPublicContentStore(
             }
         }
 
+    override fun openFileDescriptorOutput(uri: String): FileDescriptorOutput? =
+        storageCall("Cannot open destination") {
+            val descriptor = resolver.openFileDescriptor(parseContentUri(uri), "rw")
+                ?: throw IOException("Cannot open destination")
+            try {
+                if (!descriptor.isSeekableFile()) {
+                    descriptor.close()
+                    return@storageCall null
+                }
+                Os.ftruncate(descriptor.fileDescriptor, 0)
+                ParcelFileDescriptorOutput(descriptor)
+            } catch (failure: ErrnoException) {
+                runCatching { descriptor.close() }
+                throw IOException("Cannot empty destination", failure)
+            } catch (failure: Exception) {
+                runCatching { descriptor.close() }
+                throw failure
+            }
+        }
+
+    /** A regular file (a pipe or a socket has no size) that can be positioned. */
+    private fun ParcelFileDescriptor.isSeekableFile(): Boolean =
+        statSize >= 0 &&
+            runCatching { Os.lseek(fileDescriptor, 0, OsConstants.SEEK_SET) }.isSuccess
+
     private fun parseContentUri(value: String): Uri {
         val uri = Uri.parse(requireContentUri(value))
         if (uri.scheme != ContentResolver.SCHEME_CONTENT) {
@@ -506,6 +557,14 @@ internal class AndroidPublicContentStore(
         }
         return uri
     }
+}
+
+private class ParcelFileDescriptorOutput(
+    private val descriptor: ParcelFileDescriptor,
+) : FileDescriptorOutput {
+    override val fileDescriptor: FileDescriptor = descriptor.fileDescriptor
+
+    override fun close() = descriptor.close()
 }
 
 private class ParcelFileSeekableDownloadOutput(

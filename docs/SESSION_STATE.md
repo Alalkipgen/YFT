@@ -46,8 +46,59 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent A — `work/phase-13-merge-speed` (P27; later P33)
 
-- Status: NOT STARTED
-- P27 — YouTube: no long wait at 99%: TODO
+- Status: OWNER CHECK — P27 (started 2026-10-07, base `7873d51` =
+  `origin/work/phase-13-integration`)
+- Folder `/data/YFT-A`; push with the deploy key (`origin` = SSH, `/data/.ssh/id_ed25519`).
+- Starting state (before any edit, the Agent A command): BUILD SUCCESSFUL; core-download 141
+  tests, core-model 80, app 690 (66 skipped), 0 failures; lint 0 errors (95 warnings);
+  androidTest Kotlin compiles.
+- P27 — YouTube: no long wait at 99%: DONE (2026-10-07) — OWNER CHECK on the phone
+  - Result: `AudioVideoMuxEngine` reports the merge (`AudioVideoMuxStage.MUXING`, samples
+    written / track time, `AudioVideoMuxCheckpoint.stepDone`/`stepTotal`/`stepPercent`, added
+    with defaults, not stored) and the copy (new stage `SAVING`, bytes). `DownloadStage` in
+    `DownloadsUiState` turns it into "Merging audio and video · 45%" and "Saving to Download/YFT ·
+    80%" (app storage, the chosen folder) on the card (testTag `download-stage-<id>`, the bar
+    follows the step; indeterminate before the first sample) and in the notification.
+    `DownloadDestination.openFileDescriptorOutput()` (added, default null): app storage gives
+    its `.part` file, MediaStore and SAF a "rw" descriptor that must be seekable. On API 26+
+    with one, `AndroidMp4AudioVideoMuxer` (now `ProgressAudioVideoMuxer`, `MergeProgress.kt`)
+    merges into it with `MediaMuxer(FileDescriptor, …)`; the engine checks the length, syncs and
+    commits — no second copy. Without one, or on Android 7.x, today's path with a 1 MiB copy
+    buffer; an in-place merge that fails before its first sample falls back once. Space check
+    before the destination is touched (in place: tracks + 8 MiB; today's path: twice the tracks +
+    8 MiB) → `INSUFFICIENT_STORAGE` at `MERGE`, "Merging needs X and Y is free" (free space from
+    `StorageSpace` for Download/YFT). One log line per merge, "Merge done (in place|copy):
+    video …, audio …, merge …, copy …, sync …, commit …; <size>" (no addresses); a failure's
+    detail gets "took …".
+  - Plan adapted: (1) today's path deletes the track files after a good merge, before the copy
+    (frees their space at once), so a failure after that starts the download over (empty
+    checkpoint) instead of merging again. (2) The emulator's 20-minute input is made by
+    repeating the 1-second test tracks' `moof`/`mdat` pairs under one new `sidx`
+    (`LongFragmentedMp4`, androidTest) — no encoder on the CI emulator, no large asset in Git.
+    (3) The space check runs before the destination is touched, so a failed check leaves no
+    empty file in Download/YFT.
+  - Tests: `AudioVideoMuxMergeTest` (8), `PublicDownloadDestinationTest` +1, `DownloadModelsTest`
+    (step percent), `MergeStageLabelsTest` (4), `DownloadsScreenTest` +1,
+    `DownloadNotificationFactoryTest` +1; instrumented `MergeSpeedInstrumentedTest` (2): a direct
+    merge into a new MediaStore item → playable (AVC + AAC, 160×90, 15 frames, a decoded frame);
+    the 20-minute timing test (read pass, in place, today's path).
+  - Validation (2026-10-07, Agent A command): BUILD SUCCESSFUL; core-download 150 tests,
+    core-model 80, app 696 (66 skipped), 0 failures; lint 0 errors (95 warnings);
+    `:app:compileDebugAndroidTestKotlin` OK; line check clean.
+  - Regression proof: with `AudioVideoMuxEngine.kt`, `DownloadsUiState.kt`, `DownloadLabels.kt`,
+    `DownloadsScreen.kt`, `DownloadNotificationFactory.kt` and `DownloadRuntimeModule.kt` from
+    `7873d51` (backup `/data/bak/P27/`; the test's engine helper without the new parameters),
+    13 new tests fail: all 8 `AudioVideoMuxMergeTest` (no merge percent; "file without
+    progress" instead of the descriptor; `Completed` instead of the space failure and of the
+    failure after a sample; no "Merge done" line; the stop not reached), `MergeStageLabelsTest`
+    "a merging download shows the merge and its percent, not 99 percent", "saving names where the
+    merged file goes, with its percent", "before its first sample the merge has no percent and
+    the bar moves on its own" (all "954 of 954 MB"), `DownloadsScreenTest`
+    "mergedTaskShowsItsMergeThenItsCopyWithTheirPercent" (no `download-stage-m`),
+    `DownloadNotificationFactoryTest` "a merged download shows its merge and then its copy with
+    their percent"; restored with `cp`, checked with `cmp`.
+  - Measured split (CI emulator): from this checkpoint's emulator run (next checkpoint).
+  - CI: pending for this checkpoint.
 - Hand-offs: none
 
 ## Agent B — `work/phase-13-generic-main` (P28, P29)

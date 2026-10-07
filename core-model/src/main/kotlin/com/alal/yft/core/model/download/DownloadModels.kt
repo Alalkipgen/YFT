@@ -536,6 +536,9 @@ enum class AudioVideoMuxStage {
     DOWNLOADING_TRACKS,
     READY_TO_MUX,
     MUXING,
+
+    /** The merged file is copied into its destination and checked (P27). */
+    SAVING,
     COMPLETED,
 }
 
@@ -545,6 +548,15 @@ data class AudioVideoMuxCheckpoint(
     val videoReady: Boolean = false,
     val audioReady: Boolean = false,
     val stage: AudioVideoMuxStage = AudioVideoMuxStage.DOWNLOADING_TRACKS,
+    /**
+     * How far the step after the download is (P27), out of [stepTotal]: while [stage] is
+     * [AudioVideoMuxStage.MUXING] the sample time written of the tracks' duration (or the bytes
+     * read of the tracks' bytes when the duration is unknown), while it is
+     * [AudioVideoMuxStage.SAVING] the bytes saved of the merged file. Kept in memory only: a saved
+     * checkpoint does not keep it.
+     */
+    val stepDone: Long = 0,
+    val stepTotal: Long? = null,
 ) : TransferCheckpoint {
     init {
         require(!videoReady || video.isComplete())
@@ -552,10 +564,19 @@ data class AudioVideoMuxCheckpoint(
         if (stage != AudioVideoMuxStage.DOWNLOADING_TRACKS) {
             require(videoReady && audioReady)
         }
+        require(stepDone >= 0)
+        require(stepTotal == null || stepTotal >= 0)
     }
 
     override val downloadedBytes: Long
         get() = (video?.downloadedBytes ?: 0) + (audio?.downloadedBytes ?: 0)
+
+    /** [stepDone] of [stepTotal] as 0–100, or null while the step's size is unknown. */
+    val stepPercent: Int?
+        get() = stepTotal
+            ?.takeIf { it > 0 }
+            ?.let { total -> (stepDone.toDouble() * 100.0 / total.toDouble()).toInt() }
+            ?.coerceIn(0, 100)
 
     override fun toString(): String = buildString {
         append("AudioVideoMuxCheckpoint(videoPresent=")
@@ -568,6 +589,8 @@ data class AudioVideoMuxCheckpoint(
         append(audioReady)
         append(", stage=")
         append(stage)
+        append(", stepPercent=")
+        append(stepPercent)
         append(", downloadedBytes=")
         append(downloadedBytes)
         append(')')

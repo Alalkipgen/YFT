@@ -680,7 +680,13 @@ private fun ProgressRow(
                 text = if (tooLong) progressDetail(row, withSpeed = false) else detail,
                 modifier = Modifier
                     .padding(top = 6.dp)
-                    .testTag("download-detail-${row.id}"),
+                    .testTag(
+                        if (row.stage != null) {
+                            "download-stage-${row.id}"
+                        } else {
+                            "download-detail-${row.id}"
+                        },
+                    ),
                 color = colors.textSecondary,
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,

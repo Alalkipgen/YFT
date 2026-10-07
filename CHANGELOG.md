@@ -9,7 +9,20 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Phase 13 — Agent A (P27)
 
-- (Agent A writes its P27 entries here; P33 folds them into Added / Changed / Fixed.)
+- Changed: a YouTube video with separate picture and sound no longer waits at 99% after its
+  download: the Downloads card and the notification say "Merging audio and video · 45%", then
+  "Saving to Download/YFT · 80%" (or app storage, or the chosen folder), and the bar keeps
+  moving.
+- Changed: on Android 8.0 and later the merge writes straight into the file in Download/YFT (or
+  app storage, or a chosen folder that allows it) with no second copy, about half the storage
+  reads and writes of before. Android 7.x and other folders still merge in app storage and copy,
+  now with a 1 MiB buffer (was 64 KiB); a direct merge that fails before its first sample tries
+  that way once.
+- Fixed: without enough free space a merge fails at once with "Insufficient storage" at the
+  merge step ("Merging needs … and … is free"), before the file in Download/YFT is touched. The
+  track files are deleted as soon as the merge has succeeded.
+- Each merge writes one log line with the time of each step (video, audio, merge, copy, sync,
+  commit); a failed merge's details include them.
 
 ### Phase 13 — Agent B (P28, P29)
 

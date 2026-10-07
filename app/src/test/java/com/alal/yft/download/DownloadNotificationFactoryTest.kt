@@ -6,13 +6,16 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.download.StoredDownloadTask
+import com.alal.yft.core.model.download.AudioVideoMuxStage
 import com.alal.yft.core.model.download.DirectTransferCheckpoint
 import com.alal.yft.core.model.download.DownloadSegment
 import com.alal.yft.core.model.download.DownloadTaskStatus
+import com.alal.yft.feature.downloads.mergedTask
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -78,6 +81,33 @@ class DownloadNotificationFactoryTest {
         assertNotNull(public)
         assertEquals("1 active download", public.extras.getString(Notification.EXTRA_TITLE))
         assertNull(public.extras.getCharSequence(Notification.EXTRA_TEXT))
+    }
+
+    @Test
+    fun `a merged download shows its merge and then its copy with their percent`() {
+        val merging = factory.active(
+            listOf(mergedTask("m", AudioVideoMuxStage.MUXING, stepDone = 45, stepTotal = 100)),
+        )
+        val saving = factory.active(
+            listOf(mergedTask("s", AudioVideoMuxStage.SAVING, stepDone = 80, stepTotal = 100)),
+        )
+        val starting = factory.active(listOf(mergedTask("r", AudioVideoMuxStage.READY_TO_MUX)))
+
+        assertEquals(
+            "Merging audio and video · 45%",
+            merging.extras.getString(Notification.EXTRA_TEXT),
+        )
+        assertEquals(45, merging.extras.getInt(Notification.EXTRA_PROGRESS))
+        assertFalse(merging.extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE))
+        assertEquals(45, merging.publicVersion.extras.getInt(Notification.EXTRA_PROGRESS))
+        assertNull(merging.publicVersion.extras.getCharSequence(Notification.EXTRA_TEXT))
+        assertEquals(
+            "Saving to Download/YFT · 80%",
+            saving.extras.getString(Notification.EXTRA_TEXT),
+        )
+        assertEquals(80, saving.extras.getInt(Notification.EXTRA_PROGRESS))
+        assertEquals("Merging audio and video", starting.extras.getString(Notification.EXTRA_TEXT))
+        assertTrue(starting.extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE))
     }
 
     private fun task(id: String, downloaded: Long): StoredDownloadTask {

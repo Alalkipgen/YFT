@@ -7,6 +7,7 @@ import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.media.BrowserRequestContext
 import java.io.File
 import java.io.FileNotFoundException
+import java.io.FileOutputStream
 import java.io.IOException
 import java.net.InetAddress
 import java.nio.file.Files
@@ -231,6 +232,38 @@ class PublicDownloadDestinationTest {
         assertThrows(IllegalStateException::class.java) { destination.renew() }
         assertTrue(store.deletedMedia.isEmpty())
         assertEquals(1, store.pendingMedia.size)
+    }
+
+    @Test
+    fun `an app storage file gives an emptied descriptor and a store without one gives none`() {
+        // P27: a merge writes straight into the descriptor, then the length check and commit.
+        val folder = Files.createTempDirectory("descriptor").toFile()
+        try {
+            val partial = File(folder, "clip.mp4.part").apply { writeBytes(ByteArray(8) { 1 }) }
+            val completed = File(folder, "clip.mp4")
+            val destination = FileDownloadDestination(partial, completed)
+
+            destination.prepare(null)
+            val output = destination.openFileDescriptorOutput()
+            assertEquals(0L, destination.temporaryLength())
+            output.use { opened ->
+                FileOutputStream(opened.fileDescriptor).write(byteArrayOf(4, 5, 6))
+            }
+            assertFalse(output.fileDescriptor.valid())
+            assertEquals(3L, destination.temporaryLength())
+            destination.commit()
+            assertArrayEquals(byteArrayOf(4, 5, 6), completed.readBytes())
+        } finally {
+            folder.deleteRecursively()
+        }
+        val store = FakePublicContentStore()
+        val media = MediaStoreDownloadDestination.create(
+            store = store,
+            displayName = "demo.mp4",
+            mimeType = "video/mp4",
+            relativePath = "Download/YFT/",
+        )
+        assertNull(media.openFileDescriptorOutput())
     }
 
     @Test
