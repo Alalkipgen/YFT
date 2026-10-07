@@ -98,7 +98,13 @@ Keep at least the heading and one blank line between sections, so Git merges the
     `DownloadNotificationFactoryTest` "a merged download shows its merge and then its copy with
     their percent"; restored with `cp`, checked with `cmp`.
   - Measured split (CI emulator): from this checkpoint's emulator run (next checkpoint).
-  - CI: pending for this checkpoint.
+  - CI (`d978201`): checkpoint validation success
+    https://github.com/Alalkipgen/YFT/actions/runs/37562550278; Preview APK success
+    https://github.com/Alalkipgen/YFT/actions/runs/37562550232; emulator smoke failure
+    https://github.com/Alalkipgen/YFT/actions/runs/37562550248 ("tests=25 failures=2": both
+    `MergeSpeedInstrumentedTest` tests stopped at `IllegalArgumentException` — the test's fake
+    track checkpoint had a fingerprint that is not hex; a test bug, fixed in the next commit).
+    Its read pass: 20 min, 70 785 samples, 17 MB, read once in 1.8 s (sdk 34).
 - Hand-offs: none
 
 ## Agent B — `work/phase-13-generic-main` (P28, P29)

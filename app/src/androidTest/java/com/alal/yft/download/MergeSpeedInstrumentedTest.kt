@@ -327,7 +327,7 @@ class MergeSpeedInstrumentedTest {
             }
             destination.commit()
             val checkpoint = DashTransferCheckpoint(
-                manifestFingerprint = plan.representationId.first().toString().repeat(64),
+                manifestFingerprint = (if (source == video) "a" else "b").repeat(64),
                 chunks = listOf(
                     StreamChunkCheckpoint(index = 0, downloadedBytes = length, completed = true),
                 ),
