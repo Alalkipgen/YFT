@@ -2,6 +2,7 @@ package com.alal.yft.feature.detectedmedia
 
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaGroup
+import com.alal.yft.core.model.media.PageVideoFacts
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.channels.BufferOverflow
@@ -20,6 +21,10 @@ data class DetectedPage(
     val candidates: List<MediaCandidate>,
     /** P12: an adapter reads this page's video, so only its named video counts. */
     val adapterSite: Boolean = false,
+    /** P28: what the page states about its own video: its length, title and picture. */
+    val facts: PageVideoFacts? = null,
+    /** P29: who found this page's files: the browser, or Home's check of a pasted link. */
+    val owner: LookupOwner = LookupOwner.BROWSER,
 )
 
 /** P16: who runs a [PageVideoLookup]; only its owner answers, retries, stops or clears it. */
@@ -40,11 +45,19 @@ data class PageVideoLookup(
     /** Whether asking again can change the answer, so the sheet offers Try again. */
     val canRetry: Boolean = false,
     val owner: LookupOwner = LookupOwner.BROWSER,
+    /** P28: the page's picture of its video, shown while the sheet waits. */
+    val thumbnailUrl: String? = null,
+    /**
+     * P28: the browser waits a few seconds for the page's own video, because what its player
+     * shows first is far shorter than the length the page states (an ad).
+     */
+    val findingPageVideo: Boolean = false,
 ) {
     val running: Boolean get() = failure == null
 
     override fun toString(): String =
-        "PageVideoLookup(running=$running, canRetry=$canRetry, owner=$owner)"
+        "PageVideoLookup(running=$running, canRetry=$canRetry, owner=$owner, " +
+            "findingPageVideo=$findingPageVideo)"
 }
 
 /**
@@ -67,6 +80,14 @@ class DetectedMediaStore @Inject constructor() {
 
     /** P12: how many more videos the page of the selected main video has; the sheet lists them. */
     val otherVideos: StateFlow<Int> = mutableOtherVideos.asStateFlow()
+
+    private val mutableMaybeAd = MutableStateFlow(false)
+
+    /**
+     * P28: the selected video may be the ad the page's player shows first: the page states a
+     * far longer video and it did not come in time. The sheet says so.
+     */
+    val maybeAd: StateFlow<Boolean> = mutableMaybeAd.asStateFlow()
 
     private val mutableLookup = MutableStateFlow<PageVideoLookup?>(null)
 
@@ -108,11 +129,14 @@ class DetectedMediaStore @Inject constructor() {
         pageTitle: String?,
         candidates: List<MediaCandidate>,
         adapterSite: Boolean = false,
+        facts: PageVideoFacts? = null,
+        owner: LookupOwner = LookupOwner.BROWSER,
     ) {
         // A video chosen on another page is not this page's: the sheet must not show it.
         if (mutablePage.value?.pageUrl != pageUrl) {
             mutableSelection.value = null
             mutableOtherVideos.value = 0
+            mutableMaybeAd.value = false
             awaiting = false
         }
         mutablePage.value = DetectedPage(
@@ -120,12 +144,18 @@ class DetectedMediaStore @Inject constructor() {
             pageTitle = pageTitle,
             candidates = candidates.take(MAX_CANDIDATES),
             adapterSite = adapterSite,
+            facts = facts,
+            owner = owner,
         )
     }
 
-    /** [group] is the video the sheet shows; [otherVideos] more videos are on its page. */
-    fun select(group: MediaGroup, otherVideos: Int = 0) {
+    /**
+     * [group] is the video the sheet shows; [otherVideos] more videos are on its page. P28:
+     * [maybeAd] when it may be the ad before the page's video ([maybeAd]).
+     */
+    fun select(group: MediaGroup, otherVideos: Int = 0, maybeAd: Boolean = false) {
         awaiting = false
+        mutableMaybeAd.value = maybeAd
         mutableSelection.value = group
         mutableOtherVideos.value = otherVideos.coerceAtLeast(0)
     }
@@ -137,6 +167,7 @@ class DetectedMediaStore @Inject constructor() {
     fun awaitPageVideo() {
         mutableSelection.value = null
         mutableOtherVideos.value = 0
+        mutableMaybeAd.value = false
         awaiting = true
     }
 
@@ -168,6 +199,7 @@ class DetectedMediaStore @Inject constructor() {
         mutablePage.value = null
         mutableSelection.value = null
         mutableOtherVideos.value = 0
+        mutableMaybeAd.value = false
         mutableLookup.value = null
         awaiting = false
     }

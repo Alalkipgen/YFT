@@ -80,6 +80,13 @@ data class QuickDownloadUiState(
     val canRetry: Boolean = true,
     /** P12: the sheet waits for the browser's lookup of the page's video. */
     val findingVideo: Boolean = false,
+    /**
+     * P28: the sheet waits a few seconds for the page's own video, because what its player
+     * showed first may be an ad: it says "Finding the page's video…".
+     */
+    val findingPageVideo: Boolean = false,
+    /** P28: the video may be the ad before the page's video; the sheet says so. */
+    val maybeAd: Boolean = false,
     /** P12: how many more videos the page has; a row opens their list. */
     val otherVideos: Int = 0,
     val defaultQuality: QualityPreference = DownloadPreferences().defaultQuality,
@@ -134,13 +141,15 @@ class QuickDownloadViewModel @Inject constructor(
      * when the page under it has a video of its own.
      */
     private val opensOnLookup = store.awaitsLookup && store.lookup.value != null
-    private var group: MediaGroup? = store.selection.value ?: store.page.value
-        ?.takeUnless { opensOnLookup }
-        ?.let { page ->
-            val savable = page.candidates.take(DetectedMediaStore.MAX_CANDIDATES)
-                .filter { it.isSavable }
-            MediaGroups.pageVideos(savable, adapterSite = page.adapterSite).singleOrNull()
-        }
+    private var group: MediaGroup? = (
+        store.selection.value ?: store.page.value
+            ?.takeUnless { opensOnLookup }
+            ?.let { page ->
+                val savable = page.candidates.take(DetectedMediaStore.MAX_CANDIDATES)
+                    .filter { it.isSavable }
+                MediaGroups.pageVideos(savable, adapterSite = page.adapterSite).singleOrNull()
+            }
+        )?.let(::withPageFacts)
 
     /** P12: the lookup this sheet waits on, while no video is chosen yet. */
     private var pageLookup: PageVideoLookup? = store.lookup.value.takeIf { group == null }
@@ -148,6 +157,7 @@ class QuickDownloadViewModel @Inject constructor(
         pageLookup?.let(::lookupState) ?: QuickDownloadUiState(
             header = group?.header(),
             otherVideos = store.otherVideos.value.takeIf { store.selection.value != null } ?: 0,
+            maybeAd = store.maybeAd.value && store.selection.value != null,
         ),
     )
     val uiState: StateFlow<QuickDownloadUiState> = mutableUiState.asStateFlow()
@@ -348,11 +358,12 @@ class QuickDownloadViewModel @Inject constructor(
                 }
                 .first { (selection, lookup) -> selection != null || lookup == null }
             pageLookup = null
-            group = selected
+            group = selected?.let(::withPageFacts)
             mutableUiState.update {
                 QuickDownloadUiState(
-                    header = selected?.header(),
+                    header = group?.header(),
                     otherVideos = if (selected != null) store.otherVideos.value else 0,
+                    maybeAd = selected != null && store.maybeAd.value,
                 ).keepingEarly(it)
             }
             if (selected != null) load()
@@ -371,13 +382,25 @@ class QuickDownloadViewModel @Inject constructor(
             durationMillis = null,
             audioOnly = false,
             // P19: a YouTube video's picture follows from its ID, before the lookup ends.
-            thumbnailUrl = ThumbnailUrls.youTube(lookup.key),
+            // P28: another site's page names its picture.
+            thumbnailUrl = ThumbnailUrls.https(lookup.thumbnailUrl)
+                ?: ThumbnailUrls.youTube(lookup.key),
         ),
         loading = lookup.running,
         failure = lookup.failure,
         canRetry = lookup.canRetry,
         findingVideo = lookup.running,
+        findingPageVideo = lookup.running && lookup.findingPageVideo,
     )
+
+    /**
+     * P28: [group] with its page's title and picture where its files name none
+     * ([MediaGroups.withPageFacts]), when the store's page is its page.
+     */
+    private fun withPageFacts(group: MediaGroup): MediaGroup {
+        val page = store.page.value?.takeIf { it.pageUrl == group.pageUrl } ?: return group
+        return MediaGroups.withPageFacts(group, page.facts)
+    }
 
     /**
      * P18: a new waiting state keeps the user's pick and a queued Download; a failed lookup or a

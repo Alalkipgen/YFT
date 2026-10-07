@@ -414,6 +414,34 @@ class QuickDownloadScreenTest {
     }
 
     @Test
+    fun theSheetSaysItFindsThePagesVideoThenThatTheVideoMayBeAnAd() {
+        // P28: the page states a far longer video than the ad its player shows first.
+        var state by mutableStateOf(
+            QuickDownloadUiState(
+                header = SAMPLE_QUICK_DOWNLOAD.header,
+                loading = true,
+                findingVideo = true,
+                findingPageVideo = true,
+            ),
+        )
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(state = state, onSelect = {}, onDownload = {})
+            }
+        }
+
+        composeRule.onNodeWithText(FINDING_PAGE_VIDEO_MESSAGE).assertExists()
+        composeRule.onAllNodesWithText(WAITING_MESSAGE).assertCountEquals(0)
+        composeRule.onAllNodesWithTag("quick-maybe-ad").assertCountEquals(0)
+
+        state = SAMPLE_QUICK_DOWNLOAD.copy(maybeAd = true, otherVideos = 2)
+        composeRule.onNodeWithTag("quick-maybe-ad").assert(
+            hasText("This may be an ad. Play the video for a moment, or see Other videos."),
+        )
+        composeRule.onNodeWithTag("quick-other-videos").assertExists()
+    }
+
+    @Test
     fun aFailureShowsItsDetailsOnlyWhenAskedFor() {
         // P24: the sheet's Details name the step, the host and the status.
         val details = listOf(

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- P28 instrumented fixture: a video page of a site without an adapter. The page states its
+     video (16:24) in JSON-LD naming an embed page, not a file. Its player first plays a 30 s
+     1080p ad, then the page's own stream. Offline: the test answers every request itself, and
+     the player element is a stand-in that reports what a real player would (no media decoding
+     on the CI emulator). All hosts are reserved .test names; neutral text, blank pictures. -->
+<title>Harbour lights at dusk - Example Tube</title>
+<meta property="og:site_name" content="Example Tube">
+<meta property="og:title" content="Harbour lights at dusk">
+<meta property="og:image" content="https://img.example.test/v77/poster.jpg">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"VideoObject","name":"Harbour lights at dusk",
+ "duration":"PT16M24S","thumbnailUrl":["https://img.example.test/v77/poster.jpg"],
+ "embedUrl":"https://tube.example.test/embed/77","uploadDate":"2026-03-04"}
+</script>
+</head>
+<body>
+<div id="player-box" class="player">
+  <video id="player" playsinline controls width="320" height="180"></video>
+</div>
+<script>
+  (function () {
+    var ad = 'https://cdn.adnet.test/creatives/spring-30s.mp4';
+    var video = document.getElementById('player');
+    var state = { src: ad, duration: 30, time: 4 };
+    function value(name, read) {
+      Object.defineProperty(video, name, { configurable: true, get: read });
+    }
+    // What the page's player element reports while its ad plays.
+    value('currentSrc', function () { return state.src; });
+    value('duration', function () { return state.duration; });
+    value('currentTime', function () { return state.time; });
+    value('paused', function () { return false; });
+    value('ended', function () { return false; });
+    value('readyState', function () { return 4; });
+    value('videoWidth', function () { return state.duration > 60 ? 1280 : 1920; });
+    value('videoHeight', function () { return state.duration > 60 ? 720 : 1080; });
+    video.setAttribute('src', ad);
+    // The ad is over: the player plays the page's stream through Media Source Extensions.
+    window.endAd = function () {
+      state.src = 'blob:https://tube.example.test/3f2a';
+      state.duration = 984.4;
+      state.time = 2;
+    };
+    // The player asks for its ad break, then for the page's stream.
+    fetch('https://ads.adnet.test/serve/vast.xml?zone=7').catch(function () {});
+    setTimeout(function () {
+      fetch('https://stream.example.test/v77/master.m3u8').catch(function () {});
+    }, 200);
+  })();
+</script>
+<section class="related">
+  <a class="thumb" href="/watch/78"><img alt="Clip 78" data-preview="https://media.example.test/previews/78.mp4"></a>
+</section>
+</body>
+</html>

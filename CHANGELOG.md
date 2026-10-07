@@ -13,7 +13,25 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Phase 13 — Agent B (P28, P29)
 
-- (Agent B writes its P28 and P29 entries here; P33 folds them into Added / Changed / Fixed.)
+- P28 — Other sites: the page's video, not the ad before it. On a site without an adapter the
+  browser and Home read what the page states about its video, from its meta tags and JSON-LD
+  only: the length (`VideoObject.duration`, also when it names an embed page and no file,
+  `og:video:duration`, `video:duration`, `itemprop="duration"`), the title (`og:title`, the
+  VideoObject's `name`, else the page title without the site's name) and the picture
+  (`og:image`, `thumbnailUrl`). They also read the files the page's own player is set up with
+  (JW Player `setup`, video.js `data-setup`, KVS `flashvars`, quality lists such as
+  `mediaDefinitions`), by player and never by site; a label gives a height only when it states
+  one. When the page states a video of two minutes or more, Download while the pre-roll ad
+  plays opens the page's video — the file of the stated length, else one the page or its player
+  names — with the page's title and picture. A file under half the stated length, a file from
+  the ad networks of free video sites (ExoClick, TrafficJunky, JuicyAds, TrafficStars,
+  Adsterra and their file hosts) and the file a frame fetches within 6 s after asking another
+  site for a VAST or VMAP ad break are listed under "Other videos on this page". When only the
+  ad has come so far, the sheet shows the page's title and picture with "Finding the page's
+  video…" for up to 6 s and switches to the page's video by itself; when nothing else comes it
+  shows the ad with "This may be an ad. Play the video for a moment, or see Other videos."
+  (`quick-maybe-ad`). Every entry (browser, Home, found list) takes the page's title and picture
+  where its files name none.
 
 ### Phase 13 — Agent C (P30, P31, P32)
 

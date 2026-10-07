@@ -1,5 +1,13 @@
 package com.alal.yft.core.browser.detection
 
+/**
+ * The script the browser runs on a page to list its media elements and media meta tags.
+ *
+ * P28: its first entry (`element: "facts"`) carries what the page states about its video — the
+ * meta tags [PageFactsReader] reads, up to five JSON-LD blocks and the page title — and the text
+ * of the scripts that set up its player (at most 200 KB in all), read by
+ * [DomProbeResultParser]. Nothing on the page is run or changed.
+ */
 object DomMediaProbe {
     val script: String = """
         (() => {
@@ -55,6 +63,46 @@ object DomMediaProbe {
           document.querySelectorAll('meta[property="og:video"], meta[property="og:video:url"], meta[name="twitter:player:stream"]').forEach(meta => {
             add(meta.content, 'meta', meta.getAttribute('type'), null, null);
           });
+          // P28: what the page states about its video, and its player's setup, read as text.
+          try {
+            const names = ['og:title', 'twitter:title', 'og:image', 'og:image:secure_url',
+              'twitter:image', 'og:video:duration', 'video:duration', 'duration', 'og:site_name'];
+            const meta = {};
+            document.querySelectorAll('meta[property], meta[name], meta[itemprop]').forEach(tag => {
+              const key = (tag.getAttribute('property') || tag.getAttribute('name') ||
+                tag.getAttribute('itemprop') || '').trim().toLowerCase();
+              const content = (tag.getAttribute('content') || '').trim();
+              if (names.includes(key) && content && !(key in meta)) {
+                meta[key] = content.slice(0, 2000);
+              }
+            });
+            const ldScripts = document.querySelectorAll('script[type="application/ld+json"]');
+            const jsonLd = Array.from(ldScripts)
+              .map(script => script.textContent || '')
+              .filter(text => text.length <= 30000)
+              .slice(0, 5);
+            const player = new RegExp([
+              'jwplayer', '\\.setup\\s*\\(', 'flashvars', 'mediaDefinitions', 'videojs',
+              'flowplayer', 'clappr', 'plyr', '["\']?sources["\']?\\s*:',
+              '["\']?playlist["\']?\\s*:', 'video_url'
+            ].join('|'), 'i');
+            const scripts = [];
+            let budget = 200000;
+            const keep = text => {
+              if (!text || budget <= 0 || !player.test(text.slice(0, 100000))) return;
+              const part = text.slice(0, Math.min(100000, budget));
+              budget -= part.length;
+              scripts.push(part);
+            };
+            document.querySelectorAll('script:not([src])').forEach(script => {
+              const type = (script.getAttribute('type') || '').toLowerCase();
+              if (!type.includes('ld+json')) keep(script.textContent);
+            });
+            document.querySelectorAll('[data-setup]')
+              .forEach(node => keep(node.getAttribute('data-setup')));
+            const facts = { meta, jsonLd, documentTitle: pageTitle };
+            found.unshift({ element: 'facts', facts, scripts });
+          } catch (_) {}
           return JSON.stringify(found);
         })();
     """.trimIndent()

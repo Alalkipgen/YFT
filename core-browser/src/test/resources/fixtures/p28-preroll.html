@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- P28 fixture: a video page of a site without an adapter, like the owner's Preview #4 case.
+     The page states its video (16:24) in JSON-LD with an embed page, not a file; its player
+     plays a 30 s ad first (a 1080p MP4 from an ad network, asked for through VAST) and loads
+     the page's HLS master only afterwards. All hosts are reserved .test names; neutral text,
+     no real site, no tokens. -->
+<title>Harbour lights at dusk - Example Tube</title>
+<meta property="og:site_name" content="Example Tube">
+<meta property="og:title" content="Harbour lights at dusk">
+<meta property="og:type" content="video.other">
+<meta property="og:image" content="https://img.example.test/v77/poster.jpg">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"VideoObject","name":"Harbour lights at dusk",
+ "description":"A quiet harbour as the lights come on.",
+ "duration":"PT16M24S","thumbnailUrl":["https://img.example.test/v77/poster.jpg"],
+ "embedUrl":"https://tube.example.test/embed/77","uploadDate":"2026-03-04"}
+</script>
+</head>
+<body>
+<div id="player-box" class="player">
+  <video id="player" playsinline controls autoplay
+         src="https://cdn.adnet.example.test/creatives/spring-30s.mp4"
+         poster="https://img.example.test/v77/poster.jpg"></video>
+</div>
+<script>
+  // The player asks for its ad break first; the page's stream is built later by its script.
+  var player = { ads: { vast: "https://ads.adnet.example.test/serve/vast.xml?zone=7" } };
+  function startMain() { return ["stream.example.test", "v77", "master.m3u8"].join("/"); }
+</script>
+<section class="related">
+  <a class="thumb" href="/watch/78"><img src="https://img.example.test/t/78.jpg" data-preview="https://media.example.test/previews/78.mp4" alt="Clip 78"></a>
+  <a class="thumb" href="/watch/79"><img src="https://img.example.test/t/79.jpg" data-preview="https://media.example.test/previews/79.mp4" alt="Clip 79"></a>
+</section>
+</body>
+</html>

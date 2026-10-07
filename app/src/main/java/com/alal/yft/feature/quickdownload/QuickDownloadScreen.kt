@@ -176,6 +176,18 @@ fun QuickDownloadScreen(
             return@Column
         }
         Header(header)
+        if (state.maybeAd) {
+            // P28: the page states a far longer video than this one, which did not come in time.
+            Text(
+                text = MAYBE_AD_MESSAGE,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+                    .testTag("quick-maybe-ad"),
+                color = YftTheme.colors.textSecondary,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
         if (state.otherVideos > 0) {
             YftTextButton(
                 text = "Other videos on this page (${state.otherVideos})",
@@ -446,7 +458,8 @@ private fun ColumnScope.Waiting(
             strokeWidth = 3.dp,
         )
         Text(
-            text = WAITING_MESSAGE,
+            // P28: the sheet waits for the page's own video after what may be its ad.
+            text = if (state.findingPageVideo) FINDING_PAGE_VIDEO_MESSAGE else WAITING_MESSAGE,
             modifier = Modifier.padding(start = 12.dp),
             color = YftTheme.colors.textSecondary,
             style = MaterialTheme.typography.bodyMedium,
@@ -712,6 +725,13 @@ internal const val SHEET_TITLE = "Download"
 
 /** P16: what the waiting sheet says until the lookup and the qualities answer. */
 internal const val WAITING_MESSAGE = "Getting qualities…"
+
+/** P28: the sheet waits a few seconds for the page's own video after what may be its ad. */
+internal const val FINDING_PAGE_VIDEO_MESSAGE = "Finding the page's video…"
+
+/** P28: the video may be the ad the page's player shows before its video. */
+internal const val MAYBE_AD_MESSAGE =
+    "This may be an ad. Play the video for a moment, or see Other videos."
 
 /** P18: Download's label once it was tapped before the qualities came. */
 internal const val STARTS_WHEN_READY = "Starts when ready…"

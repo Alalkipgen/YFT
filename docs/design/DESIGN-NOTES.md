@@ -457,6 +457,18 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
     "The site's list of qualities could not be read.", an address YFT can't download) instead
     of "could not be reached", and Details (`quick-error-details`, also under a refused
     Download) names the step, the host and the status, never a path or a query.
+22. **The page's video, not the ad before it (P28).** On a site without an adapter that states
+    its video's length (two minutes or more) in its meta tags or JSON-LD, the sheet's header is
+    the page's: its title and its picture (`og:image` or the VideoObject's `thumbnailUrl`) in
+    the 16:9 `quick-thumbnail`, also when the file chosen names neither. Download while the
+    page's player shows its pre-roll ad opens the page's video at once when it is known. When the
+    ad is all the page has shown so far, the sheet opens with that header and the loading line
+    "Finding the page's video…" (in place of the usual waiting line) for up to 6 s, and switches
+    to the page's video by itself when its stream comes. When nothing else comes, it shows the
+    ad's qualities with the line "This may be an ad. Play the video for a moment, or see Other
+    videos." (`quick-maybe-ad`, Body Medium in the secondary text colour under the header, above
+    "Other videos on this page (N)"). Closing the sheet stops the wait. The ad stays one tap
+    away under Other videos.
 
 ## Remaining differences from the images
 

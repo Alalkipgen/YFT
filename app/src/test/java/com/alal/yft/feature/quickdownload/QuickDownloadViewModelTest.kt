@@ -17,6 +17,7 @@ import com.alal.yft.core.model.media.MediaSizeAccuracy
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.Mp3Conversion
+import com.alal.yft.core.model.media.PageVideoFacts
 import com.alal.yft.core.model.media.ResolutionStep
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
@@ -866,6 +867,67 @@ class QuickDownloadViewModelTest {
             PreviewDownloadStatus.Rejected("Not enough free space"),
             full.uiState.value.downloadStatus,
         )
+    }
+
+    @Test
+    fun theSheetWaitingForThePagesVideoShowsThePagesTitleAndPictureThenItsLine() = runTest {
+        // P28: the browser waits a few seconds for the page's video after what may be its ad.
+        val page = "https://tube.example.test/watch/77"
+        val poster = "https://img.example.test/v77/poster.jpg"
+        val facts = PageVideoFacts(984_000, "Harbour lights at dusk", poster)
+        val ad = video(1080, videoId = null, title = null, label = null, page = page)
+            .copy(durationMillis = 30_000)
+        store.publish(page, "Harbour lights at dusk - Example Tube", listOf(ad), facts = facts)
+        store.awaitPageVideo()
+        store.showLookup(
+            PageVideoLookup(
+                key = "generic:page-video:1",
+                pageUrl = page,
+                title = facts.title,
+                thumbnailUrl = poster,
+                findingPageVideo = true,
+            ),
+        )
+
+        val sheet = viewModel()
+        val waiting = sheet.uiState.value
+        assertTrue(waiting.findingPageVideo)
+        assertTrue(waiting.loading)
+        assertEquals("Harbour lights at dusk", waiting.header?.title)
+        assertEquals(poster, waiting.header?.thumbnailUrl)
+        assertFalse(waiting.maybeAd)
+
+        // Nothing else came: the ad, with the page's title and picture and its line.
+        store.select(MediaGroups.of(listOf(ad)).single(), maybeAd = true)
+        store.clearLookup(LookupOwner.BROWSER)
+        advanceUntilIdle()
+        val shown = sheet.uiState.value
+        assertTrue(shown.maybeAd)
+        assertFalse(shown.findingPageVideo)
+        assertEquals("Harbour lights at dusk", shown.header?.title)
+        assertEquals(poster, shown.header?.thumbnailUrl)
+        assertNotNull(shown.choices)
+    }
+
+    @Test
+    fun aVideoWithoutTitleOrPictureTakesThePagesOwn() = runTest {
+        // P28 step 6 / P29 step 3: every entry; the found list selects the bare group.
+        val page = "https://tube.example.test/watch/77"
+        val poster = "https://img.example.test/v77/poster.jpg"
+        val stream = video(720, videoId = null, title = null, label = null, page = page)
+        store.publish(
+            page,
+            null,
+            listOf(stream),
+            facts = PageVideoFacts(984_000, "Harbour lights at dusk", poster),
+        )
+        store.select(MediaGroups.of(listOf(stream)).single())
+
+        val state = viewModel().uiState.value
+
+        assertEquals("Harbour lights at dusk", state.header?.title)
+        assertEquals(poster, state.header?.thumbnailUrl)
+        assertFalse(state.maybeAd)
     }
 
     /** P16/P18: a sheet opened on Home's lookup of a link, before the video came. */

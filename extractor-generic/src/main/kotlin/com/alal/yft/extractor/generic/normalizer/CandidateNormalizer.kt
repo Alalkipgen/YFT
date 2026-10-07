@@ -132,6 +132,7 @@ class CandidateNormalizer(
             },
             observedAtEpochMs = maxOf(first.observedAtEpochMs, second.observedAtEpochMs),
             pageRole = mergedRole(first.pageRole, second.pageRole),
+            pageVideoKey = newest.pageVideoKey ?: oldest.pageVideoKey,
         )
     }
 

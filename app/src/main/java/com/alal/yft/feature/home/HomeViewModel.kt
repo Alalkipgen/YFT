@@ -199,31 +199,41 @@ class HomeViewModel @Inject constructor(
                 val result = if (fresh) inspector.inspectAgain(link) else inspector.inspect(link)
                 val status = when (result) {
                     is LinkInspection.Found -> {
+                        // P28: the length the page states tells its video from its ads.
+                        val facts = result.facts
+                        val candidates = MediaGroups.withPageRoles(result.candidates, facts)
                         detectedMediaStore.publish(
                             pageUrl = result.pageUrl,
                             pageTitle = result.pageTitle,
-                            candidates = result.candidates,
+                            candidates = candidates,
+                            facts = facts,
+                            owner = LookupOwner.HOME,
                         )
                         // Only media YFT may save is counted, once per video; DRM-protected
                         // candidates are never offered, so a page with nothing else reads as "not
                         // found".
                         val videos = MediaGroups.pageVideos(
-                            result.candidates
+                            candidates
                                 .take(DetectedMediaStore.MAX_CANDIDATES)
                                 .filter { it.isSavable },
                         )
                         if (videos.isNotEmpty()) {
                             // P24: the count counts the page's videos, not its previews and
                             // ads; one main video opens its sheet with the rest behind it.
-                            val list = MediaGroups.ofPage(videos)
+                            // P28: with the page's title and picture where it names none.
+                            val list = MediaGroups.ofPage(videos, facts)
                             foundOthers = videos.size - 1
-                            foundVideo = list.videos.singleOrNull()?.also { main ->
-                                detectedMediaStore.select(main, otherVideos = foundOthers)
-                            }
+                            foundVideo = list.videos.singleOrNull()
+                                ?.let { MediaGroups.withPageFacts(it, facts) }
+                                ?.also { main ->
+                                    detectedMediaStore.select(main, otherVideos = foundOthers)
+                                }
                             quick = foundVideo != null
                             // P16: the open sheet shows the link's video, the list the rest.
                             if (sheet != null && foundVideo == null) {
-                                detectedMediaStore.select(list.videos.first())
+                                detectedMediaStore.select(
+                                    MediaGroups.withPageFacts(list.videos.first(), facts),
+                                )
                             }
                             PromptboxStatus.Found(count = list.videos.size)
                         } else {

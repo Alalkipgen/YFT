@@ -11,6 +11,7 @@ import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.PageVideoFacts
 import com.alal.yft.detection.HeadlessIdentity
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
@@ -26,6 +27,8 @@ sealed interface LinkInspection {
         val pageUrl: String,
         val pageTitle: String?,
         val candidates: List<MediaCandidate>,
+        /** P28: what the page states about its own video: its length, title and picture. */
+        val facts: PageVideoFacts? = null,
     ) : LinkInspection
 
     /**
@@ -208,6 +211,7 @@ class HeadlessLinkInspector internal constructor(
                                 ),
                             )
                         },
+                        facts = scan.facts.takeUnless { it.isEmpty },
                     )
                 }
             }

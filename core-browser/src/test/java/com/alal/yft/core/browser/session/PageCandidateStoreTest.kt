@@ -4,11 +4,13 @@ import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.core.model.media.PageVideoFacts
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -66,6 +68,26 @@ class PageCandidateStoreTest {
             store.candidates.value.map { it.mediaUrl }.sorted(),
         )
         assertTrue(store.candidates.value.all { it.pageUrl == moved })
+    }
+
+    @Test
+    fun thePagesFactsAreKeptPerPageAndANewerReadKeepsWhatAnOlderFound() = runTest {
+        // P28: what the page states about its video, as its DOM probe reads it again and again.
+        val page = "https://example.test/watch"
+        val store = PageCandidateStore(scope = this, debounceMillis = 0)
+        store.beginPage(page)
+        assertNull(store.facts.value)
+
+        store.submitFacts(page, PageVideoFacts(durationMillis = 984_000))
+        store.submitFacts(page, PageVideoFacts(title = "Harbour lights"))
+        store.submitFacts(page, PageVideoFacts())
+        store.submitFacts("https://example.test/other", PageVideoFacts(title = "Other"))
+
+        assertEquals(PageVideoFacts(984_000, "Harbour lights"), store.facts.value)
+        store.movePage("$page#t=10")
+        assertEquals(984_000L, store.facts.value?.durationMillis)
+        store.beginPage("https://example.test/next")
+        assertNull(store.facts.value)
     }
 
     @Test
