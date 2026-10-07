@@ -21,6 +21,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -562,6 +563,39 @@ class HomeViewModelTest {
         append("<script>window.playerConfig = {\"hls\":\"")
         append(master.replace("/", "\\/"))
         append("\"};</script>\n")
+    }
+
+    @Test
+    fun theSheetsTryAgainReadsThePageHomeFoundAgainQuietly() = runTest {
+        // P29: Try again on the page Home found asks for its current addresses; the Promptbox
+        // keeps what it shows.
+        val viewModel = viewModel()
+        inspector.answer = { found(1) }
+        viewModel.onAction(HomeAction.LinkChanged("https://a.test/watch"))
+        viewModel.onAction(HomeAction.Submit)
+        advanceUntilIdle()
+        val status = viewModel.uiState.value.status
+        assertEquals(LookupOwner.HOME, store.page.value?.owner)
+        val fresh = MediaCandidate(
+            pageUrl = "https://a.test/watch",
+            mediaUrl = "https://cdn.a.test/1.mp4?token=new",
+            sources = setOf(CandidateSource.DOM),
+            kind = MediaKind.DIRECT,
+        )
+        inspector.answer = {
+            LinkInspection.Found("https://a.test/watch", "Clip page", listOf(fresh))
+        }
+
+        val page = async { store.readPageAgain("https://a.test/watch") }
+        advanceUntilIdle()
+
+        assertEquals(listOf(fresh.mediaUrl), page.await()?.candidates?.map { it.mediaUrl })
+        assertEquals(LookupOwner.HOME, store.page.value?.owner)
+        assertEquals(listOf("https://a.test/watch", "https://a.test/watch"), inspector.links)
+        assertEquals(status, viewModel.uiState.value.status)
+        // Another page is not Home's to read: the store gets its answer at once.
+        assertNull(store.readPageAgain("https://b.test/other"))
+        assertEquals(2, inspector.links.size)
     }
 
     private fun found(count: Int) = LinkInspection.Found(

@@ -188,6 +188,19 @@ fun QuickDownloadScreen(
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
+        if (state.nextVideo) {
+            // P29: the first video's file is gone; this is the page's next video.
+            Text(
+                text = NEXT_VIDEO_MESSAGE,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+                    .testTag("quick-next-video"),
+                color = YftTheme.colors.textSecondary,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            FailureDetails(state.attemptDetails, tag = "quick-next-video-details")
+        }
         if (state.otherVideos > 0) {
             YftTextButton(
                 text = "Other videos on this page (${state.otherVideos})",
@@ -686,10 +699,11 @@ private fun ColumnScope.DownloadAction(
 
 /**
  * P24: "Details" under a failure: the step, the host and the status of the request that failed,
- * so a screenshot tells what went wrong. Hidden until asked for.
+ * so a screenshot tells what went wrong. Hidden until asked for. P29: also under the line about
+ * the next video ([tag] `quick-next-video-details`), with both attempts.
  */
 @Composable
-private fun ColumnScope.FailureDetails(lines: List<String>) {
+private fun ColumnScope.FailureDetails(lines: List<String>, tag: String = "quick-error-details") {
     if (lines.isEmpty()) return
     var shown by rememberSaveable(lines) { mutableStateOf(false) }
     YftTextButton(
@@ -697,7 +711,7 @@ private fun ColumnScope.FailureDetails(lines: List<String>) {
         onClick = { shown = !shown },
         modifier = Modifier
             .align(Alignment.CenterHorizontally)
-            .testTag("quick-error-details"),
+            .testTag(tag),
     )
     if (shown) {
         Text(
@@ -705,7 +719,7 @@ private fun ColumnScope.FailureDetails(lines: List<String>) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 8.dp)
-                .testTag("quick-error-detail-text"),
+                .testTag(tag.removeSuffix("s") + "-text"),
             color = YftTheme.colors.textSecondary,
             style = MaterialTheme.typography.bodySmall,
             textAlign = TextAlign.Center,
@@ -732,6 +746,9 @@ internal const val FINDING_PAGE_VIDEO_MESSAGE = "Finding the page's video…"
 /** P28: the video may be the ad the page's player shows before its video. */
 internal const val MAYBE_AD_MESSAGE =
     "This may be an ad. Play the video for a moment, or see Other videos."
+
+/** P29: the first video's file is gone, so the sheet shows the page's next video. */
+internal const val NEXT_VIDEO_MESSAGE = "The first file is gone — showing the next video"
 
 /** P18: Download's label once it was tapped before the qualities came. */
 internal const val STARTS_WHEN_READY = "Starts when ready…"

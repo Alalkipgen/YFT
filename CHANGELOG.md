@@ -32,6 +32,17 @@ for every APK given to users, because Android refuses to install a lower one.
   shows the ad with "This may be an ad. Play the video for a moment, or see Other videos."
   (`quick-maybe-ad`). Every entry (browser, Home, found list) takes the page's title and picture
   where its files name none.
+- P29 — Other sites: the next video when one fails. When the sheet cannot prepare the video of a
+  page without an adapter because its file is gone (HTTP 403, 404 or 410, or an address YFT
+  can't fetch) and the page has another video that is not an ad or a preview, it prepares that
+  one once, by itself, in P28's order, with the line "The first file is gone — showing the next
+  video" (`quick-next-video`); its Details (`quick-next-video-details`) list both attempts with
+  their step, host and status, and when the next video fails too the failure's Details list
+  both. Try again asks for the page's current files instead of the same dead address: the
+  browser's newest addresses for the video (same address, the same file without its signed
+  query, else the same length), or for a page Home found a new, quiet read of the page.
+- P28 instrumented test: the requests the browser's hook reports are given to the test as it
+  reports them; the page script's own fetches were not reported in time on the CI emulator.
 
 ### Phase 13 — Agent C (P30, P31, P32)
 

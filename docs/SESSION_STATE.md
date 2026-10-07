@@ -52,7 +52,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent B — `work/phase-13-generic-main` (P28, P29)
 
-- Status: IN PROGRESS (P29; P28 OWNER CHECK) — started 2026-10-07 in `/data/YFT-B`, base commit `7873d51`
+- Status: IN PROGRESS (P29 checkpoint; P28 OWNER CHECK) — started 2026-10-07 in `/data/YFT-B`, base commit `7873d51`
   (`origin/work/phase-13-integration`, the Phase 13 plan on `main` `bc806f9`).
 - Environment: rebuilt after a sandbox reset (JDK 17 `/data/toolchains/jdk17`, SDK 35,
   build-tools 35.0.0, NDK 27.3.13750724, CMake 3.22.1, 4 GiB swap); new SSH deploy key
@@ -91,10 +91,37 @@ Keep at least the heading and one blank line between sections, so Git merges the
   - Live check: skipped — the owner's kind of site shows an age gate first, which YFT never
     automates (ADR-006); the fixtures copy the Preview #4 case. Instrumented
     `PrerollInstrumentedTest` runs on the CI emulator.
-  - CI: pending for the P28 checkpoint; links recorded with the next commit
+  - CI (`f334f55`): [checkpoint validation](https://github.com/Alalkipgen/YFT/actions/runs/37560950060)
+    green, [Preview APK](https://github.com/Alalkipgen/YFT/actions/runs/37560950114) green,
+    [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37560950074) red (1 of 24:
+    `PrerollInstrumentedTest`, the page script's `fetch` not reported by the request hook in
+    time); fixed in the P29 commit (the test gives the hook's reports itself).
   - Owner check: the site from Preview #4, Download while the ad plays → the page's title,
     picture and length with 480p/720p; the ad only under Other videos.
-- P29 — Other sites: the next video when one fails: IN PROGRESS
+- P29 — Other sites: the next video when one fails: OWNER CHECK (2026-10-07)
+  - Result: when the sheet cannot prepare a page's video (no adapter) because its file is gone
+    (HTTP 403, 404, 410 or `INVALID_URL`) and the page has another video that is not an ad or a
+    preview, it prepares that one once, by itself (`MediaGroups.nextVideo`, P28's order), with
+    "The first file is gone — showing the next video" (`quick-next-video`) and Details
+    (`quick-next-video-details`) listing both attempts; when the next one fails too, the
+    failure's Details list both. Try again asks for the page's current files first
+    (`MediaGroups.refreshed`: same address, same file without its signed query, else same
+    length): the browser keeps the store's page current; for a page Home found the store asks
+    Home to read it again quietly (`DetectedMediaStore.readPageAgain` / `pageReads`, up to 20 s;
+    `DetectedPage.owner`). Every entry keeps P28's page title and picture.
+  - Validation (2026-10-07): 962 tests, 0 failures, 66 skipped (app 706, core-browser 114,
+    core-media 28, core-model 95, extractor-generic 19); lint 0 errors; androidTest compiles;
+    line check empty.
+  - Regression proof: P28 code `f334f55` (`git archive` to `/data/tmp/p29-old`) with the new
+    sheet tests (the asserts on the new state fields and the Home-read test held aside): 3 of 4
+    failed — "a gone first file shows the page's next video…" (the HTTP 410 error), "when the
+    next video fails too…" (HTTP 410 shown, the next video never tried), "Try again asks the
+    store's newest address…" (the dead `token=old` address again); "an ad or a preview is never
+    the next video" passes (guard). Backup `/data/bak/P29` (8 Kotlin files), `cmp` equal.
+  - Live check: skipped (same reason as P28); the tests copy the Preview #4 "HTTP 410" case.
+  - CI: pending for the P29 checkpoint; links recorded with the READY FOR MERGE commit.
+  - Owner check: the page that showed "HTTP 410" in Preview #4 → the sheet opens a working
+    video (or the page's own after P28) without the error.
 - Hand-offs: none
 
 ## Agent C — `work/phase-13-browser` (P30, P31, P32)

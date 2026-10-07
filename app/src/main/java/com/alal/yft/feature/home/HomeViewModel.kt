@@ -68,6 +68,10 @@ class HomeViewModel @Inject constructor(
     private var foundOthers = 0
     private var recentJob: Job? = null
 
+    /** P29: the page the last lookup found and the link it came from, for Try again. */
+    private var foundPage: String? = null
+    private var foundLink: String? = null
+
     /** P16: the lookup the open sheet waits on, and the link it looks up, until it found it. */
     private var sheetLookup: PageVideoLookup? = null
     private var sheetLink: String? = null
@@ -82,6 +86,9 @@ class HomeViewModel @Inject constructor(
         }
         viewModelScope.launch {
             detectedMediaStore.lookupCloses.collect(::closeSheetLookup)
+        }
+        viewModelScope.launch {
+            detectedMediaStore.pageReads.collect(::readFoundPageAgain)
         }
     }
 
@@ -156,6 +163,8 @@ class HomeViewModel @Inject constructor(
         stopInspection()
         foundVideo = null
         foundOthers = 0
+        foundPage = null
+        foundLink = null
         // P16: a supported site's video opens its sheet now; the lookup below fills it.
         val sheet = inspector.siteVideo(link)?.let { video ->
             PageVideoLookup(video.key, video.pageUrl, title = null, owner = LookupOwner.HOME)
@@ -209,6 +218,8 @@ class HomeViewModel @Inject constructor(
                             facts = facts,
                             owner = LookupOwner.HOME,
                         )
+                        foundPage = result.pageUrl
+                        foundLink = link
                         // Only media YFT may save is counted, once per video; DRM-protected
                         // candidates are never offered, so a page with nothing else reads as "not
                         // found".
@@ -315,6 +326,42 @@ class HomeViewModel @Inject constructor(
         if (!shown.canRetry || inspection?.isActive == true) return
         val link = sheetLink ?: return
         inspect(link, sheet, fresh = true)
+    }
+
+    /**
+     * P29: the sheet's Try again on the page Home found: the page is read again without a
+     * remembered answer, quietly (the Promptbox keeps its state), so the sheet gets the page's
+     * current addresses instead of the dead one.
+     */
+    private fun readFoundPageAgain(pageUrl: String) {
+        val link = foundLink?.takeIf { foundPage == pageUrl }
+        if (link == null) {
+            detectedMediaStore.pageReadDone(pageUrl)
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val result = inspector.inspectAgain(link)
+                if (result is LinkInspection.Found && result.pageUrl == pageUrl) {
+                    val facts = result.facts
+                        ?.orElse(detectedMediaStore.page.value?.facts)
+                        ?: detectedMediaStore.page.value?.facts
+                    detectedMediaStore.publish(
+                        pageUrl = result.pageUrl,
+                        pageTitle = result.pageTitle,
+                        candidates = MediaGroups.withPageRoles(result.candidates, facts),
+                        facts = facts,
+                        owner = LookupOwner.HOME,
+                    )
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                // The sheet keeps the files it had and says why they failed.
+            } finally {
+                detectedMediaStore.pageReadDone(pageUrl)
+            }
+        }
     }
 
     /** P16: the sheet closed before this link's video came; its lookup stops. */

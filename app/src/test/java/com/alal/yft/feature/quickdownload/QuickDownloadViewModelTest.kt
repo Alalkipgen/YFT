@@ -17,6 +17,7 @@ import com.alal.yft.core.model.media.MediaSizeAccuracy
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.Mp3Conversion
+import com.alal.yft.core.model.media.PageMediaRole
 import com.alal.yft.core.model.media.PageVideoFacts
 import com.alal.yft.core.model.media.ResolutionStep
 import com.alal.yft.core.model.media.VariantResolutionFailure
@@ -930,6 +931,165 @@ class QuickDownloadViewModelTest {
         assertFalse(state.maybeAd)
     }
 
+    @Test
+    fun aGoneFirstFileShowsThePagesNextVideoWithBothAttemptsInDetails() = runTest {
+        // P29: the owner's Preview #4 page: the first video's address answered HTTP 410.
+        val page = "https://tube.example.test/watch/77"
+        val first = generic(1, 25 * MIB, page, lengthMillis = 600_000)
+        val next = generic(2, 9 * MIB, page, lengthMillis = 300_000)
+        resolver.answer = { candidate -> gone(410).takeIf { candidate.mediaUrl == first.mediaUrl } }
+        resolver.heights[next.mediaUrl] = 480
+        store.publish(page, "Harbour lights at dusk", listOf(first, next))
+        store.select(MediaGroups.of(listOf(first)).single(), otherVideos = 1)
+
+        val sheet = viewModel()
+        advanceUntilIdle()
+
+        val state = sheet.uiState.value
+        assertNull(state.failure)
+        assertTrue(state.nextVideo)
+        assertEquals(300_000L, state.header?.durationMillis)
+        assertEquals("480p", state.selectedOption?.title?.substringBefore(" "))
+        assertEquals(
+            listOf(first.mediaUrl, next.mediaUrl),
+            resolver.requested.map { it.mediaUrl },
+        )
+        assertEquals(
+            listOf(
+                "First video",
+                "Step: file check",
+                "Host: media.example.test",
+                "Status: HTTP 410",
+                "Next video",
+                "Host: media.example.test",
+                "Status: ready",
+            ),
+            state.attemptDetails,
+        )
+        sheet.download()
+        advanceUntilIdle()
+        assertEquals(listOf(next.mediaUrl), starter.variants.map { it.playbackUrl })
+    }
+
+    @Test
+    fun whenTheNextVideoFailsTooTheFailuresDetailsListBothAttempts() = runTest {
+        // P29: the next video is tried once; its failure is shown with both attempts.
+        val page = "https://tube.example.test/watch/77"
+        val first = generic(1, 25 * MIB, page, lengthMillis = 600_000)
+        val next = generic(2, 9 * MIB, page, lengthMillis = 300_000)
+        val third = generic(3, 5 * MIB, page, lengthMillis = 200_000)
+        resolver.answer = { candidate ->
+            if (candidate.mediaUrl == first.mediaUrl) gone(410) else gone(404)
+        }
+        store.publish(page, "Harbour lights at dusk", listOf(first, next, third))
+        store.select(MediaGroups.of(listOf(first)).single())
+
+        val sheet = viewModel()
+        advanceUntilIdle()
+
+        val state = sheet.uiState.value
+        assertEquals("The site no longer has this video (HTTP 404).", state.failure)
+        assertFalse(state.nextVideo)
+        assertEquals(2, resolver.requested.size)
+        assertEquals(
+            listOf(
+                "First video",
+                "Step: file check",
+                "Host: media.example.test",
+                "Status: HTTP 410",
+                "Next video",
+                "Step: file check",
+                "Host: media.example.test",
+                "Status: HTTP 404",
+            ),
+            state.failureDetails,
+        )
+    }
+
+    @Test
+    fun anAdOrAPreviewIsNeverTheNextVideo() = runTest {
+        // P29: the page's other files are its ad and a preview clip: the first one's error stays.
+        val page = "https://tube.example.test/watch/77"
+        val first = generic(1, 25 * MIB, page, lengthMillis = 984_000)
+        val ad = generic(2, 5 * MIB, page, lengthMillis = 30_000)
+            .copy(pageRole = PageMediaRole.PREVIEW)
+        val preview = generic(3, 1 * MIB, page, lengthMillis = 8_000)
+            .copy(mediaUrl = "https://media.example.test/previews/78.mp4")
+        resolver.answer = { candidate -> gone(410).takeIf { candidate.mediaUrl == first.mediaUrl } }
+        store.publish(
+            page,
+            "Harbour lights at dusk",
+            listOf(first, ad, preview),
+            facts = PageVideoFacts(984_000, "Harbour lights at dusk"),
+        )
+        store.select(MediaGroups.of(listOf(first)).single(), otherVideos = 2)
+
+        val sheet = viewModel()
+        advanceUntilIdle()
+
+        assertEquals(
+            "The site no longer has this video (HTTP 410).",
+            sheet.uiState.value.failure,
+        )
+        assertFalse(sheet.uiState.value.nextVideo)
+        assertEquals(listOf(first.mediaUrl), resolver.requested.map { it.mediaUrl })
+    }
+
+    @Test
+    fun tryAgainAsksTheStoresNewestAddressNotTheDeadOne() = runTest {
+        // P29: the browser keeps the page's files current; Try again takes the newest address.
+        val page = "https://tube.example.test/watch/77"
+        val dead = generic(1, 25 * MIB, page, lengthMillis = 600_000)
+            .copy(mediaUrl = "https://media.example.test/video-1.mp4?token=old")
+        resolver.answer = { candidate -> gone(410).takeIf { candidate.mediaUrl == dead.mediaUrl } }
+        store.publish(page, "Harbour lights at dusk", listOf(dead))
+        store.select(MediaGroups.of(listOf(dead)).single())
+        val sheet = viewModel()
+        advanceUntilIdle()
+        assertEquals(
+            "The site no longer has this video (HTTP 410).",
+            sheet.uiState.value.failure,
+        )
+
+        val fresh = dead.copy(mediaUrl = "https://media.example.test/video-1.mp4?token=new")
+        store.publish(page, "Harbour lights at dusk", listOf(fresh))
+        sheet.retry()
+        advanceUntilIdle()
+
+        assertEquals(fresh.mediaUrl, resolver.requested.last().mediaUrl)
+        assertNull(sheet.uiState.value.failure)
+        assertNotNull(sheet.uiState.value.choices)
+    }
+
+    @Test
+    fun tryAgainOnAPageHomeFoundWaitsForHomesNewReadOfThePage() = runTest {
+        // P29: Home's page is read again (HomeViewModel answers the store's request).
+        val page = "https://tube.example.test/watch/77"
+        val dead = generic(1, 25 * MIB, page, lengthMillis = 600_000)
+            .copy(mediaUrl = "https://media.example.test/video-1.mp4?token=old")
+        val fresh = dead.copy(mediaUrl = "https://media.example.test/video-1.mp4?token=new")
+        resolver.answer = { candidate -> gone(410).takeIf { candidate.mediaUrl == dead.mediaUrl } }
+        store.publish(page, "Harbour lights at dusk", listOf(dead), owner = LookupOwner.HOME)
+        store.select(MediaGroups.of(listOf(dead)).single())
+        val reads = mutableListOf<String>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            store.pageReads.collect { pageUrl ->
+                reads += pageUrl
+                store.publish(page, "Harbour lights", listOf(fresh), owner = LookupOwner.HOME)
+                store.pageReadDone(pageUrl)
+            }
+        }
+        val sheet = viewModel()
+        advanceUntilIdle()
+
+        sheet.retry()
+        advanceUntilIdle()
+
+        assertEquals(listOf(page), reads)
+        assertEquals(fresh.mediaUrl, resolver.requested.last().mediaUrl)
+        assertNotNull(sheet.uiState.value.choices)
+    }
+
     /** P16/P18: a sheet opened on Home's lookup of a link, before the video came. */
     private fun waitingSheet(
         preferences: DownloadPreferences = DownloadPreferences(confirmOnMeteredNetwork = false),
@@ -947,6 +1107,19 @@ class QuickDownloadViewModelTest {
         store.select(MediaGroups.of(found).single())
         store.clearLookup(LookupOwner.HOME)
     }
+
+    /** P29: a file another site's page lists, of [lengthMillis], without title or label. */
+    private fun generic(index: Int, bytes: Long, page: String, lengthMillis: Long) =
+        video(null, bytes, label = null, title = null, videoId = null, index = index, page = page)
+            .copy(durationMillis = lengthMillis)
+
+    /** P29: the file check answered [status]: the file is gone. */
+    private fun gone(status: Int) = VariantResolutionResult.Failure(
+        VariantResolutionFailure.HTTP_STATUS,
+        httpStatusCode = status,
+        step = ResolutionStep.FILE_CHECK,
+        host = "media.example.test",
+    )
 
     private fun select(candidates: List<MediaCandidate>) {
         store.publish(QuickDownloadFixtures.PAGE, "Ocean waves", candidates)

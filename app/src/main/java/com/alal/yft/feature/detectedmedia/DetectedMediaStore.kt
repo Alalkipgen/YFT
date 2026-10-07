@@ -5,14 +5,19 @@ import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.PageVideoFacts
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** Media found on the page the browser showed last, kept for the Detected Media screen. */
 data class DetectedPage(
@@ -195,6 +200,50 @@ class DetectedMediaStore @Inject constructor() {
         foundListRequests.tryEmit(Unit)
     }
 
+    private val pageReadRequests = MutableSharedFlow<String>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+
+    /**
+     * P29: the sheet's Try again on a page Home found, by page address: Home reads the page
+     * again, quietly, for its current files ([pageReadDone] when it answered).
+     */
+    val pageReads: SharedFlow<String> = pageReadRequests.asSharedFlow()
+
+    private val pageReadAnswers = MutableSharedFlow<String>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+
+    /**
+     * P29: asks Home to read [pageUrl] again and waits up to [timeoutMillis] for it; then the
+     * page as the store has it, null when it holds another page. Without Home listening, the
+     * page as it is.
+     */
+    suspend fun readPageAgain(
+        pageUrl: String,
+        timeoutMillis: Long = PAGE_READ_TIMEOUT_MILLIS,
+    ): DetectedPage? {
+        if (pageReadRequests.subscriptionCount.value > 0) {
+            coroutineScope {
+                val answered = async(start = CoroutineStart.UNDISPATCHED) {
+                    pageReadAnswers.first { it == pageUrl }
+                }
+                pageReadRequests.tryEmit(pageUrl)
+                if (withTimeoutOrNull(timeoutMillis) { answered.await() } == null) {
+                    answered.cancel()
+                }
+            }
+        }
+        return mutablePage.value?.takeIf { it.pageUrl == pageUrl }
+    }
+
+    /** P29: Home read [pageUrl] again, with or without new files. */
+    fun pageReadDone(pageUrl: String) {
+        pageReadAnswers.tryEmit(pageUrl)
+    }
+
     fun clear() {
         mutablePage.value = null
         mutableSelection.value = null
@@ -206,5 +255,8 @@ class DetectedMediaStore @Inject constructor() {
 
     companion object {
         const val MAX_CANDIDATES = 50
+
+        /** P29: how long Try again waits for Home's new read of a page. */
+        const val PAGE_READ_TIMEOUT_MILLIS = 20_000L
     }
 }

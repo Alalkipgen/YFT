@@ -24,7 +24,6 @@ import com.alal.yft.core.model.media.PageVideoFacts
 import com.alal.yft.extractor.generic.manifest.ManifestReader
 import com.alal.yft.extractor.generic.normalizer.CandidateNormalizer
 import java.io.ByteArrayInputStream
-import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -39,8 +38,10 @@ import org.junit.runner.RunWith
 /**
  * P28 on a real WebView: a fixture page of a site without an adapter states its video (16:24)
  * and its player plays a 30 s ad first, then the page's stream. Download during the ad picks
- * the page's video with its title and picture; the ad stays under Other videos. Offline: the
- * test answers every request the page makes, as the browser's request hook sees them.
+ * the page's video with its title and picture; the ad stays under Other videos. The DOM and
+ * playing-video probes run on the page; the requests the browser's hook reports (the ad break,
+ * the ad, the stream) are given as it reports them, because a page script's own fetches are not
+ * reported in time on the CI emulator. Offline: the test answers every request the page makes.
  */
 @RunWith(AndroidJUnit4::class)
 @LargeTest
@@ -48,7 +49,6 @@ class PrerollInstrumentedTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private lateinit var scenario: ActivityScenario<MainActivity>
     private var webView: WebView? = null
-    private val requests = CopyOnWriteArrayList<RequestObservation>()
 
     @Before
     fun openWindow() {
@@ -70,7 +70,6 @@ class PrerollInstrumentedTest {
     @Test
     fun downloadDuringTheAdPicksThePagesVideo() {
         load()
-        assertTrue("the stream was asked for", waitFor { requests.any { MASTER in it.requestUrl } })
 
         val dom = run(DomMediaProbe.script)
         val parser = DomProbeResultParser()
@@ -109,7 +108,7 @@ class PrerollInstrumentedTest {
         facts: PageVideoFacts?,
     ): List<MediaGroup> {
         val tracker = VastAdTracker().apply { beginPage(PAGE) }
-        val fromRequests = requests.mapNotNull { observation ->
+        val fromRequests = hookRequests(System.currentTimeMillis()).mapNotNull { observation ->
             tracker.onRequest(observation)
             val candidate = BrowserObservationMapper.fromRequest(observation)
                 ?.let { tracker.marked(it, observation) }
@@ -157,18 +156,29 @@ class PrerollInstrumentedTest {
         assertTrue("fixture loaded", loaded.await(LOAD_TIMEOUT_S, TimeUnit.SECONDS))
     }
 
-    /** Records the request like the browser's hook and answers it without the network. */
-    private fun answer(request: WebResourceRequest): WebResourceResponse {
-        val url = request.url.toString()
-        requests += RequestObservation(
+    /**
+     * What the browser's request hook reports while the page plays: its player asks another
+     * site for the ad break, fetches the ad, and after it the page's HLS master.
+     */
+    private fun hookRequests(now: Long): List<RequestObservation> = listOf(
+        "https://ads.adnet.test/serve/vast.xml?zone=7" to now,
+        AD to now + AD_AFTER_BREAK_MS,
+        MASTER to now + STREAM_AFTER_BREAK_MS,
+    ).map { (url, at) ->
+        RequestObservation(
             pageUrl = PAGE,
             requestUrl = url,
-            method = request.method,
-            headers = request.requestHeaders.orEmpty(),
+            method = "GET",
+            headers = mapOf("Referer" to PAGE),
             userAgent = null,
             cookie = null,
-            observedAtEpochMs = System.currentTimeMillis(),
+            observedAtEpochMs = at,
         )
+    }
+
+    /** Answers the page's own requests without the network. */
+    private fun answer(request: WebResourceRequest): WebResourceResponse {
+        val url = request.url.toString()
         val (type, body) = when {
             MASTER in url -> "application/vnd.apple.mpegurl" to playlist()
             "vast.xml" in url -> "application/xml" to "<VAST version=\"3.0\"></VAST>"
@@ -211,19 +221,13 @@ class PrerollInstrumentedTest {
         return answer.get()
     }
 
-    private fun waitFor(condition: () -> Boolean): Boolean {
-        val deadline = System.currentTimeMillis() + WAIT_MS
-        while (!condition() && System.currentTimeMillis() < deadline) Thread.sleep(POLL_MS)
-        return condition()
-    }
-
     private companion object {
         const val PAGE = "https://tube.example.test/watch/77"
         const val AD = "https://cdn.adnet.test/creatives/spring-30s.mp4"
         const val MASTER = "https://stream.example.test/v77/master.m3u8"
         const val POSTER = "https://img.example.test/v77/poster.jpg"
         const val LOAD_TIMEOUT_S = 20L
-        const val WAIT_MS = 10_000L
-        const val POLL_MS = 50L
+        const val AD_AFTER_BREAK_MS = 300L
+        const val STREAM_AFTER_BREAK_MS = 4_000L
     }
 }

@@ -469,6 +469,14 @@ save is shown, no DRM bypass; 48dp touch targets; readable contrast.
     videos." (`quick-maybe-ad`, Body Medium in the secondary text colour under the header, above
     "Other videos on this page (N)"). Closing the sheet stops the wait. The ad stays one tap
     away under Other videos.
+23. **The next video when one fails (P29).** When the sheet cannot prepare a page's video
+    because its file is gone (HTTP 403, 404, 410 or an address YFT can't fetch) and the page has
+    another video that is not an ad or a preview, it shows that video's qualities with the line
+    "The first file is gone — showing the next video" (`quick-next-video`, Body Medium in the
+    secondary text colour under the header) and a "Details" button
+    (`quick-next-video-details`) that lists both attempts. When the next video fails too, the
+    sheet shows that failure, and its Details (`quick-error-details`) list both attempts. Try
+    again asks for the page's current files before preparing the video again.
 
 ## Remaining differences from the images
 
