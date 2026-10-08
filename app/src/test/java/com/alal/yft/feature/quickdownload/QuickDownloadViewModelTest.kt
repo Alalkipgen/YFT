@@ -1147,6 +1147,83 @@ class QuickDownloadViewModelTest {
     }
 
     @Test
+    fun aStatedRowWhoseLinkIsGoneIsNotOfferedAndTheFreshLinkIsPrepared() = runTest {
+        // P37 (CI emulator, real WebView): the script states its file's quality ("720p"), so
+        // the sheet shows that row before the file check; a gone answer must not leave it
+        // offered, or the fresh link is never looked for and only Download meets the 410.
+        val page = "https://clips.example.test/watch/5"
+        val dead = video(720, bytes = null, videoId = null, index = 1, page = page).copy(
+            mediaUrl = "https://media.example.test/v5.mp4?validto=1&hash=old",
+            sources = setOf(CandidateSource.DOM),
+        )
+        val again = dead.copy(
+            mediaUrl = "https://media.example.test/v5.mp4?validto=2&hash=new",
+            sources = setOf(CandidateSource.PAGE_REREAD),
+        )
+        resolver.answer = { candidate -> gone(410).takeIf { candidate.mediaUrl == dead.mediaUrl } }
+        store.publish(page, "Harbour lights", listOf(dead))
+        store.select(MediaGroups.of(listOf(dead)).single())
+
+        // Nothing fresh: the sheet's error with Reload, not the dead row.
+        val none = viewModel()
+        advanceUntilIdle()
+        assertNull(none.uiState.value.choices)
+        assertEquals("The site no longer has this video (HTTP 410).", none.uiState.value.failure)
+        assertTrue(none.uiState.value.canReload)
+
+        // The page read again has the new link: it is prepared and only its rows are offered.
+        val reader = FakePageReader(PageReread.Found(listOf(again), facts = null))
+        val sheet = viewModel(pageReader = reader)
+        advanceUntilIdle()
+        val state = sheet.uiState.value
+        assertNull(state.failure)
+        assertTrue(state.freshLink)
+        assertEquals(
+            setOf(again.mediaUrl),
+            state.choices!!.options.map { it.source.candidate.mediaUrl }.toSet(),
+        )
+        sheet.download()
+        advanceUntilIdle()
+        assertEquals(listOf(again.mediaUrl), starter.variants.map { it.playbackUrl })
+    }
+
+    @Test
+    fun aLinkGoneAtDownloadIsReplacedByAFreshLinkThatDownloadsByItself() = runTest {
+        // P37: the row's file was known by its size, so only Download asked for it, and it was
+        // gone: the page read again gives the video's new link, which downloads without a tap.
+        val page = "https://clips.example.test/watch/5"
+        val dead = video(720, 25 * MIB, videoId = null, index = 1, page = page).copy(
+            mediaUrl = "https://media.example.test/v5.mp4?validto=1&hash=old",
+            sources = setOf(CandidateSource.DOM),
+        )
+        val again = dead.copy(
+            mediaUrl = "https://media.example.test/v5.mp4?validto=2&hash=new",
+            sources = setOf(CandidateSource.PAGE_REREAD),
+        )
+        store.publish(page, "Harbour lights", listOf(dead))
+        store.select(MediaGroups.of(listOf(dead)).single())
+        val reader = FakePageReader(PageReread.Found(listOf(again), facts = null))
+        val sheet = viewModel(pageReader = reader)
+        advanceUntilIdle()
+        assertNotNull(sheet.uiState.value.choices)
+        assertTrue(resolver.requested.isEmpty())
+
+        resolver.answer = { candidate -> gone(410).takeIf { candidate.mediaUrl == dead.mediaUrl } }
+        sheet.download()
+        advanceUntilIdle()
+
+        val state = sheet.uiState.value
+        assertTrue(state.freshLink)
+        assertTrue(state.downloadStatus is PreviewDownloadStatus.Queued)
+        assertEquals(
+            listOf(dead.mediaUrl, again.mediaUrl),
+            resolver.requested.map { it.mediaUrl },
+        )
+        assertEquals(listOf(again.mediaUrl), starter.variants.map { it.playbackUrl })
+        assertEquals(1, reader.asked.size)
+    }
+
+    @Test
     fun aGoneLinkTriesThePlayersOwnVideoBeforeThePagesNextVideo() = runTest {
         // P37: the script's link is gone; the video the player asked for (same length) comes
         // before P29's next video, as the same video from a fresh link.

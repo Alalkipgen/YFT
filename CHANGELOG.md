@@ -32,6 +32,11 @@ for every APK given to users, because Android refuses to install a lower one.
   time, asked as the browser tab asks: its browser identity and cookies, no cache; a page that
   answers with only a notice or a check is not used), and only then the page's next video. The
   sheet says "The first link is gone — using a fresh link".
+- A row the page stated (for example a player setup's "720p") is no longer offered once its
+  file check answers that the link is gone, so the fresh link is looked for at once instead of
+  the 410 coming back only at Download. When Download itself meets a gone link (a file known by
+  its size is not checked before), the sheet looks for a fresh link the same way and its row
+  downloads by itself.
 - When nothing fresh comes, the error offers "Reload page and try again": the browser reloads
   the tab once without its cache and opens the sheet again when the same video comes back with
   a new link; otherwise it says "The site gave no new link. Play the video for a moment, then

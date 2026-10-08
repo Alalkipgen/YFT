@@ -104,7 +104,9 @@ Keep at least the heading and one blank line between sections, so Git merges the
     using a fresh link". When nothing is left: "Reload page and try again" reloads the tab
     without cache, waits up to 15 s for the same video with a new link and opens Quick Download
     with it (else a notice). Details lists every attempt with link lines (origin, age, expiry),
-    never the address.
+    never the address. A row the page stated (a setup's "720p") whose file check answers
+    "gone" is not offered, so the chain runs at once; a link gone only at Download (a row known
+    by its size is not checked) runs the same chain and the fresh row downloads by itself.
   - Plan adapted: (1) the next video excludes the same file under another signature (same
     unsigned path). (2) `CandidateNormalizer.merge` also keeps the player's address; the old
     dedupe expectation changed (token=old kept). (3) The re-read scans the HTML with
@@ -119,13 +121,23 @@ Keep at least the heading and one blank line between sections, so Git merges the
   - Validation (2026-10-08): 1255 tests, 0 failures, 66 skipped (extractor-sites 202,
     extractor-generic 20, core-model 106, core-browser 138, core-media 28, app 761; +26); lint 0
     errors (95 warnings); androidTest compiles (`FreshLinkInstrumentedTest`); line check empty.
+    After the stated-row fix: 1257 tests, 0 failures, 66 skipped (app 763; +2); lint 0 errors
+    (95 warnings); androidTest compiles; line check empty.
   - Regression proof: old nine main files (with a shim for new names) and the new tests → 18
     failures (TEST_MATRIX "Agent B — P36, P37"); restored from `/data/bak/P37`, `cmp` equal.
+    Stated-row fix: the old view model with the two new tests → 2 failures; restored, `cmp`
+    equal.
   - CI (`1186e3a`): checkpoint validation success (https://github.com/Alalkipgen/YFT/actions/runs/37798710365), Preview APK success
     (https://github.com/Alalkipgen/YFT/actions/runs/37798710411), emulator smoke failure (https://github.com/Alalkipgen/YFT/actions/runs/37798710450): 32 tests, 1 failure —
     `FreshLinkInstrumentedTest` read the sheet while it showed the link's stated row, before
     the file check answered. The test now waits for the attempt's end (its own condition, then
-    an unchanged state for 500 ms); app code unchanged.
+    an unchanged state for 500 ms).
+  - CI (`0144c92`, that wait only): checkpoint validation success
+    (https://github.com/Alalkipgen/YFT/actions/runs/37801131669), Preview APK success
+    (https://github.com/Alalkipgen/YFT/actions/runs/37801131820), emulator smoke failure (https://github.com/Alalkipgen/YFT/actions/runs/37801131854): "the sheet did not
+    settle" — an app gap the real WebView showed: the setup's "720p" made a stated row, and a
+    410 at its file check kept the row, so no fresh link was looked for. Fixed in
+    `QuickDownloadViewModel` (stated row gone, link gone at Download; +2 tests).
   - CI (fix): (after the push)
   - Owner check: the Preview #5 site whose video answered HTTP 410 → Download → a working video
     without a manual reload (or the fresh-link line); else Try again, then "Reload page and try

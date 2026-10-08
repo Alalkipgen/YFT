@@ -515,9 +515,19 @@ class QuickDownloadViewModel @Inject constructor(
                     }
                 }.awaitAll()
             }
+            val page = chainPage(group)
+            // P37: on a page the sheet can look further on, a row the site stated is not
+            // offered once its link answered "gone": Download would only meet the same answer.
+            val gone = sources.filter { source -> source.failureDetail?.let(::isGone) == true }
+                .map { it.candidate }
+                .takeIf { page != null }
+                .orEmpty()
+                .toSet()
+            if (gone.isNotEmpty()) {
+                showChoices(mutableUiState.value.choices?.without(gone), sources, waiting = true)
+            }
             val choices = mutableUiState.value.choices
             val failed = sources.firstOrNull { it.failureDetail != null }
-            val page = chainPage(group)
             val recorded = choices == null && failed != null && page != null &&
                 isGone(failed.failureDetail!!)
             if (recorded) {
@@ -553,6 +563,13 @@ class QuickDownloadViewModel @Inject constructor(
     private fun chainPage(group: MediaGroup): DetectedPage? {
         if (group.candidates.any { it.videoId != null }) return null
         return store.page.value?.takeIf { it.pageUrl == group.pageUrl && !it.adapterSite }
+    }
+
+    /** P37: these choices without the rows of the [gone] links; null when no row is left. */
+    private fun QuickChoices.without(gone: Set<MediaCandidate>): QuickChoices? {
+        val audio = audio.filter { it.source.candidate !in gone }
+        val video = video.filter { it.source.candidate !in gone }
+        return if (audio.isEmpty() && video.isEmpty()) null else copy(audio = audio, video = video)
     }
 
     private fun isGone(failure: VariantResolutionResult.Failure): Boolean =
@@ -931,7 +948,7 @@ class QuickDownloadViewModel @Inject constructor(
         val status = try {
             when (val prepared = prepare(option)) {
                 is Prepared.Failed -> {
-                    details = prepared.details
+                    details = freshLinkAfterDownload(option, prepared) ?: return
                     PreviewDownloadStatus.Rejected(prepared.message)
                 }
                 is Prepared.Ready -> when (
@@ -997,6 +1014,7 @@ class QuickDownloadViewModel @Inject constructor(
                     },
                     QuickDownloadFailures.details(result) +
                         QuickDownloadFailures.linkLines(option.source.candidate, now()),
+                    result,
                 )
             }
             is VariantResolutionResult.Success -> result.asset
@@ -1028,6 +1046,42 @@ class QuickDownloadViewModel @Inject constructor(
                 ?: return Prepared.Failed(MP3_UNAVAILABLE)
         }
         return Prepared.Ready(resolved.copy(title = title ?: resolved.title), named(variant))
+    }
+
+    /**
+     * P37: Download met the row's link gone on a page the sheet can look further on: the sheet
+     * looks for a fresh link of the video as when it opened, and the fresh link's row then
+     * downloads by itself (P18's early Download, in the tapped row's section). Null when a fresh
+     * link is being prepared; else the Details of Download's failure (every attempt when the
+     * sheet looked further).
+     */
+    private suspend fun freshLinkAfterDownload(
+        option: SheetOption,
+        failed: Prepared.Failed,
+    ): List<String>? {
+        val failure = failed.failure?.takeIf(::isGone) ?: return failed.details
+        val shown = group ?: return failed.details
+        val page = chainPage(shown)
+        if (page == null || loading?.isActive == true) return failed.details
+        record(option.source.copy(failure = failure.reason, failureDetail = failure))
+        deadLinks += shown.candidates.map { it.mediaUrl }
+        val target = firstVideo ?: shown.also {
+            firstVideo = it
+            nextAllowed = isGoneForNext(failure)
+        }
+        val (next, attempt) = nextAttempt(target, page) ?: return attemptLines()
+        // Mobile data was already asked about for this tap.
+        earlyMeteredConfirmed = true
+        mutableUiState.update {
+            it.copy(
+                startsWhenReady = true,
+                earlySection = option.section,
+                startedNote = null,
+                downloadStatus = PreviewDownloadStatus.Idle,
+            )
+        }
+        show(next, attempt)
+        return null
     }
 
     /** P17: the video's links stopped working; its next lookup asks the site again. */
@@ -1091,7 +1145,12 @@ class QuickDownloadViewModel @Inject constructor(
 
     private sealed interface Prepared {
         data class Ready(val asset: MediaAsset, val variant: MediaVariant) : Prepared
-        data class Failed(val message: String, val details: List<String> = emptyList()) : Prepared
+        data class Failed(
+            val message: String,
+            val details: List<String> = emptyList(),
+            /** P37: the resolver's answer when the file could not be read. */
+            val failure: VariantResolutionResult.Failure? = null,
+        ) : Prepared
     }
 
     internal companion object {
