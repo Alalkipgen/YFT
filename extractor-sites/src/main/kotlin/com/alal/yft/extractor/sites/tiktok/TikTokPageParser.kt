@@ -130,6 +130,7 @@ internal object TikTokPageParser {
         Regex("""(?:^|\s)id\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))""", RegexOption.IGNORE_CASE)
     private val CHALLENGE_MARKERS = listOf("captcha", "verify", "waf", "please wait", "challenge")
     private val HEIGHT = Regex("(\\d{3,4})")
+    private val STANDARD_HEIGHTS = listOf(2160, 1440, 1080, 720, 540, 480, 360, 240, 144)
 
     /** TikTok status codes that describe an access outcome rather than a transport error. */
     private val STATUS_FAILURES = mapOf(
@@ -145,7 +146,11 @@ internal object TikTokPageParser {
         10231L to SiteExtractionFailure.GEO_RESTRICTED,
     )
 
-    private class Shape(val dataKey: String, val item: JsonValue?, val status: SiteExtractionFailure?)
+    private class Shape(
+        val dataKey: String,
+        val item: JsonValue?,
+        val status: SiteExtractionFailure?,
+    )
 
     private class Read(val value: JsonValue?, val note: String)
 
@@ -254,10 +259,18 @@ internal object TikTokPageParser {
 
     private fun post(item: JsonValue?, videoId: String, notes: TikTokPageNotes): TikTokParseResult {
         if (item["imagePost"] != null && item["imagePost"] !is JsonValue.Null) {
-            return TikTokParseResult.Failure(SiteExtractionFailure.NO_MEDIA_FOUND, notes, final = true)
+            return TikTokParseResult.Failure(
+                SiteExtractionFailure.NO_MEDIA_FOUND,
+                notes,
+                final = true,
+            )
         }
         if (item.path("video", "isDrm").asBooleanOrNull == true) {
-            return TikTokParseResult.Failure(SiteExtractionFailure.DRM_PROTECTED, notes, final = true)
+            return TikTokParseResult.Failure(
+                SiteExtractionFailure.DRM_PROTECTED,
+                notes,
+                final = true,
+            )
         }
         val video = item["video"]
             ?: return TikTokParseResult.Failure(SiteExtractionFailure.RESPONSE_CHANGED, notes)
@@ -322,14 +335,17 @@ internal object TikTokPageParser {
                 height = height,
                 source = TikTokQualitySource.QUALITY_LIST,
             )
+            // One row per height and codec: the same file listed twice merges its addresses,
+            // and of two files TikTok encoded at one height the higher bitrate is kept.
             val same = merged.indexOfFirst {
-                it.heightLabel == quality.heightLabel && it.codec == quality.codec &&
-                    quality.sizeBytes != null && it.sizeBytes == quality.sizeBytes
+                it.heightLabel == quality.heightLabel && it.codec == quality.codec
             }
-            if (same >= 0) {
-                merged[same] = merged[same].withAddresses(addresses)
-            } else {
-                merged += quality
+            when {
+                same < 0 -> merged += quality
+                quality.sizeBytes != null && merged[same].sizeBytes == quality.sizeBytes ->
+                    merged[same] = merged[same].withAddresses(addresses)
+                (quality.bitrateBitsPerSecond ?: 0L) > (merged[same].bitrateBitsPerSecond ?: 0L) ->
+                    merged[same] = quality
             }
         }
 
@@ -371,8 +387,12 @@ internal object TikTokPageParser {
         (this["definition"].asStringOrNull ?: this["ratio"].asStringOrNull)?.heightNumber()
             ?: minSide(this["width"].asPositiveInt, this["height"].asPositiveInt)
 
-    private fun minSide(width: Int?, height: Int?): Int? =
-        if (width != null && height != null) minOf(width, height) else null
+    /** The standard height nearest the file's short side: 576 × 1024 is TikTok's "540p". */
+    private fun minSide(width: Int?, height: Int?): Int? {
+        if (width == null || height == null) return null
+        val side = minOf(width, height)
+        return STANDARD_HEIGHTS.minByOrNull { kotlin.math.abs(it - side) }
+    }
 
     private fun codecOf(codecType: String?, urlKey: String?): TikTokCodec {
         val text = listOfNotNull(codecType, urlKey).joinToString(" ").lowercase(Locale.US)
@@ -426,7 +446,7 @@ internal object TikTokPageParser {
         .replace("&gt;", ">")
         .replace("&amp;", "&")
 
-    /** The first `{…}` object with balanced braces outside strings, or null if it never closes. */
+    /** The first `{…}` object with balanced braces outside strings; null if it never closes. */
     private fun balancedObject(text: String): String? {
         val start = text.indexOf('{').takeIf { it >= 0 } ?: return null
         var depth = 0

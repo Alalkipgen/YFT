@@ -316,9 +316,8 @@ class TikTokExtractor(
 
         private suspend fun probe(answer: PageRead.Parsed, check: QualityCheck) {
             val address = check.quality.addresses[check.next]
-            when (
-                val result = http.probe(address, mediaHeaders(answer, address), PROBE_TIMEOUT_MILLIS)
-            ) {
+            val headers = mediaHeaders(answer, address)
+            when (val result = http.probe(address, headers, PROBE_TIMEOUT_MILLIS)) {
                 is ExtractorProbeResult.Answered -> {
                     check.found = address
                     check.totalBytes = result.totalBytes
@@ -344,8 +343,9 @@ class TikTokExtractor(
             }
             if (check.unsupported) return listOf(Working(quality, quality.addresses.first(), null))
             if (check.trail.isNotEmpty()) {
+                val outcome = if (check.found == null) " (left out)" else ""
                 details += "file check (${answer.which.label}): ${quality.label} " +
-                    check.trail.joinToString(" → ") + if (check.found == null) " (left out)" else ""
+                    check.trail.joinToString(" → ") + outcome
             }
             return listOfNotNull(check.found?.let { Working(quality, it, check.totalBytes) })
         }
