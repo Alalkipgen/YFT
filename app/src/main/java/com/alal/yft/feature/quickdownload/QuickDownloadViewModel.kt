@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.media.resolver.VariantResolver
 import com.alal.yft.core.media.session.PreviewSelectionStore
+import com.alal.yft.core.model.media.AdRule
 import com.alal.yft.core.model.media.AudioFromVideo
+import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.FreshLinks
 import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaCandidate
@@ -16,9 +18,12 @@ import com.alal.yft.core.model.media.MediaSizeAccuracy
 import com.alal.yft.core.model.media.MediaTrackType
 import com.alal.yft.core.model.media.MediaVariant
 import com.alal.yft.core.model.media.Mp3Variants
+import com.alal.yft.core.model.media.PageVideoFacts
+import com.alal.yft.core.model.media.PageVideoProof
 import com.alal.yft.core.model.media.ResolutionStep
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
+import com.alal.yft.core.model.media.VideoProof
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.detection.BrowserPageReader
@@ -111,6 +116,11 @@ data class QuickDownloadUiState(
      * again", which reloads the tab without its cache and reopens the sheet.
      */
     val canReload: Boolean = false,
+    /**
+     * P43: what the page's player showed first was an ad, so the sheet skipped it and shows the
+     * page's own video and says so; Details in [attemptDetails].
+     */
+    val adSkipped: Boolean = false,
     /** P12: how many more videos the page has; a row opens their list. */
     val otherVideos: Int = 0,
     val defaultQuality: QualityPreference = DownloadPreferences().defaultQuality,
@@ -166,6 +176,9 @@ class QuickDownloadViewModel @Inject constructor(
      * when the page under it has a video of its own.
      */
     private val opensOnLookup = store.awaitsLookup && store.lookup.value != null
+
+    /** P43: the addresses of the files this sheet skipped as ads; never offered here. */
+    private val skippedAds = mutableSetOf<String>()
     private var group: MediaGroup? = (
         store.selection.value ?: store.page.value
             ?.takeUnless { opensOnLookup }
@@ -181,7 +194,10 @@ class QuickDownloadViewModel @Inject constructor(
     private val mutableUiState = MutableStateFlow(
         pageLookup?.let(::lookupState) ?: QuickDownloadUiState(
             header = group?.header(),
-            otherVideos = store.otherVideos.value.takeIf { store.selection.value != null } ?: 0,
+            otherVideos = withoutAds(
+                store.otherVideos.value.takeIf { store.selection.value != null } ?: 0,
+                group,
+            ),
             maybeAd = store.maybeAd.value && store.selection.value != null,
         ),
     )
@@ -219,6 +235,18 @@ class QuickDownloadViewModel @Inject constructor(
     /** P37: the clock of the Details' "Link age"; tests set it. */
     internal var now: () -> Long = System::currentTimeMillis
 
+    /** P43: how strictly a file must prove it is the page's video (G8); tests set it. */
+    internal var adRule = PageVideoProof.DEFAULT_RULE
+
+    /** P43: the first video was an ad the sheet skipped, not a video whose link failed. */
+    private var firstWasAd = false
+
+    /** P43: why the video shown was taken for the page's, for its Details. */
+    private var chosenLines: List<String> = emptyList()
+
+    /** P43: the message of a link that failed on the way, for when nothing else is left. */
+    private var goneMessage: String? = null
+
     init {
         if (pageLookup != null) awaitPageVideo() else load()
         // P18: the waiting sheet names the Default quality an early Download takes.
@@ -255,7 +283,27 @@ class QuickDownloadViewModel @Inject constructor(
     fun reloadPage(): Boolean {
         if (!mutableUiState.value.canReload) return false
         val target = firstVideo ?: group ?: return false
-        return store.reloadPage(PageReload(target.pageUrl, target, deadLinks.toSet()))
+        // P43: after the reload the browser looks for the page's video, never the ad again.
+        val video = (if (firstWasAd) pageVideoStandIn(target) else null) ?: target
+        return store.reloadPage(PageReload(target.pageUrl, video, deadLinks + skippedAds))
+    }
+
+    /**
+     * P43: what the browser looks for after a reload when the first video was an ad: a stand-in
+     * of the length the page states; null when it states none.
+     */
+    private fun pageVideoStandIn(ad: MediaGroup): MediaGroup? {
+        val facts = store.page.value?.takeIf { it.pageUrl == ad.pageUrl }?.facts ?: return null
+        val length = facts.durationMillis ?: return null
+        val standIn = MediaCandidate(
+            pageUrl = ad.pageUrl,
+            mediaUrl = FreshLinks.unsigned(ad.pageUrl) + PAGE_VIDEO_FRAGMENT,
+            sources = setOf(CandidateSource.DOM),
+            kind = MediaKind.UNKNOWN,
+            title = facts.title,
+            durationMillis = length,
+        )
+        return MediaGroup("page-video:${ad.pageUrl}", facts.title, listOf(standIn))
     }
 
     /** P12: "Other videos on this page" asks the browser to open its found list. */
@@ -425,7 +473,11 @@ class QuickDownloadViewModel @Inject constructor(
             mutableUiState.update {
                 QuickDownloadUiState(
                     header = group?.header(),
-                    otherVideos = if (selected != null) store.otherVideos.value else 0,
+                    otherVideos = if (selected != null) {
+                        withoutAds(store.otherVideos.value, group)
+                    } else {
+                        0
+                    },
                     maybeAd = selected != null && store.maybeAd.value,
                 ).keepingEarly(it)
             }
@@ -491,31 +543,69 @@ class QuickDownloadViewModel @Inject constructor(
                 canReload = false,
             )
         }
+        val page = chainPage(group)
+        if (page != null) {
+            // P43: a proven ad is skipped before a row of it is read or shown.
+            val proof = proofOf(page)
+            val verdict = proof.of(group)
+            if (!proof.offers(verdict) && verdict !is VideoProof.NotProven) {
+                loading = viewModelScope.launch {
+                    skipAd(group, page, proof.skippedLine(verdict))
+                }
+                return
+            }
+            chosenLines = if (proof.adSigns) proof.chosenLines(verdict) else emptyList()
+        }
+        // P43: a video of unknown length on a page with a length or ad signs shows its rows
+        // only once its measured length proves it is not an ad.
+        val held = page != null && needsLengthCheck(group, page)
         loading = viewModelScope.launch {
             val quality = currentPreferences().defaultQuality
             mutableUiState.update { it.copy(defaultQuality = quality) }
             val sources = group.candidates.take(MAX_SOURCES).map { candidate ->
                 SheetSource(candidate, stated(candidate), resolved = false)
             }.toMutableList()
-            showChoices(QuickDownloadChoices.of(group, sources, playback), sources, waiting = true)
+            var heldChoices: QuickChoices? = null
+            val publish = { choices: QuickChoices? ->
+                if (held) heldChoices = choices else showChoices(choices, sources, waiting = true)
+            }
+            publish(QuickDownloadChoices.of(group, sources, playback))
             coroutineScope {
                 sources.toList().mapIndexed { index, initial ->
                     async {
                         if (!needsSizeProbe(initial)) return@async
                         val updated = sizeProbes.withPermit { inspectSize(initial) }
                         sources[index] = updated
-                        val current = mutableUiState.value.choices
+                        val current = if (held) heldChoices else mutableUiState.value.choices
                         val choices = if (initial.asset != null && current != null) {
                             QuickDownloadChoices.updateSizes(current, updated)
                         } else {
                             // A generic manifest has no real formats until it is resolved.
                             QuickDownloadChoices.of(group, sources, playback)
                         }
-                        showChoices(choices, sources, waiting = true)
+                        publish(choices)
                     }
                 }.awaitAll()
             }
-            val page = chainPage(group)
+            if (page != null && held) {
+                val measured = sources.firstNotNullOfOrNull { source ->
+                    source.asset?.durationMillis?.takeIf { it > 0 }
+                }
+                val proof = proofOf(page)
+                val verdict = proof.of(group, measured ?: group.durationMillis)
+                // A link that could not be read goes the way of a gone link, not of an ad.
+                val unread = verdict is VideoProof.NotProven && verdict.lengthMillis == null &&
+                    sources.any { it.failureDetail != null }
+                if (!proof.offers(verdict) && !unread) {
+                    skipAd(group, page, proof.skippedLine(verdict))
+                    return@launch
+                }
+                chosenLines = if (proof.adSigns) proof.chosenLines(verdict) else emptyList()
+                if (verdict is VideoProof.PageVideo) {
+                    mutableUiState.update { it.copy(maybeAd = false) }
+                }
+                showChoices(heldChoices, sources, waiting = true)
+            }
             // P37: on a page the sheet can look further on, a row the site stated is not
             // offered once its link answered "gone": Download would only meet the same answer.
             val gone = sources.filter { source -> source.failureDetail?.let(::isGone) == true }
@@ -532,6 +622,7 @@ class QuickDownloadViewModel @Inject constructor(
                 isGone(failed.failureDetail!!)
             if (recorded) {
                 record(failed!!)
+                goneMessage = goneMessage ?: QuickDownloadFailures.message(failed.failureDetail!!)
                 deadLinks += group.candidates.map { it.mediaUrl }
                 val target = firstVideo ?: group.also {
                     firstVideo = it
@@ -545,6 +636,109 @@ class QuickDownloadViewModel @Inject constructor(
             showChoices(choices, sources, waiting = false)
             showAttempts(group, sources, recorded, page)
         }
+    }
+
+    /** P43: [PageVideoProof]'s rule for [page] as this sheet knows it now. */
+    private fun proofOf(
+        page: DetectedPage,
+        candidates: List<MediaCandidate> = page.candidates,
+        facts: PageVideoFacts? = page.facts,
+    ): PageVideoProof = PageVideoProof.forPage(
+        candidates = candidates.filter { it.isSavable },
+        facts = facts,
+        failed = firstVideo?.takeUnless { firstWasAd },
+        rule = adRule,
+        sawAd = skippedAds.isNotEmpty(),
+    )
+
+    /**
+     * P43: whether [group]'s rows wait for its measured length: its length is unknown on a page
+     * that states one or shows ad signs. [AdRule.LENIENT] shows the browser's first choice at
+     * once, as before.
+     */
+    private fun needsLengthCheck(group: MediaGroup, page: DetectedPage): Boolean {
+        if (group.durationMillis != null) return false
+        if (stage == Attempt.FIRST && !firstWasAd && adRule == AdRule.LENIENT) return false
+        return page.facts?.durationMillis != null || proofOf(page).adSigns
+    }
+
+    /**
+     * P43: whether the chain may prepare [video] at [attempt]: nothing proves it an ad, or its
+     * length is still to be measured; a skipped video's Details say why.
+     */
+    private fun offered(video: MediaGroup, attempt: Attempt, proof: PageVideoProof): Boolean {
+        val verdict = proof.of(video)
+        val unmeasured = verdict is VideoProof.NotProven && verdict.lengthMillis == null
+        if (unmeasured || proof.offers(verdict)) return true
+        attempts += listOf(attempt.label, proof.skippedLine(verdict))
+        skippedAds += video.candidates.map { it.mediaUrl }
+        return false
+    }
+
+    /**
+     * P43: [group] is an ad, not the page's video: it is skipped ([line] says why) and the sheet
+     * looks for the page's video as after a gone link ([nextAttempt]). When nothing passes, no
+     * ad is offered: the error says so and, on the browser's page, offers "Reload page and try
+     * again".
+     */
+    private suspend fun skipAd(group: MediaGroup, page: DetectedPage, line: String) {
+        attempts += listOf(stage.label, line)
+        skippedAds += group.candidates.map { it.mediaUrl }
+        val first = firstVideo ?: group.also {
+            firstVideo = it
+            firstWasAd = true
+            nextAllowed = true
+        }
+        mutableUiState.update {
+            it.copy(
+                header = it.header?.copy(
+                    durationMillis = first.takeUnless { firstWasAd }?.durationMillis,
+                ),
+                maybeAd = false,
+                otherVideos = withoutAds(store.otherVideos.value, first),
+            )
+        }
+        nextAttempt(first, page)?.let { (next, attempt) ->
+            show(next, attempt)
+            return
+        }
+        mutableUiState.update {
+            it.copy(
+                loading = false,
+                choices = null,
+                selectedId = null,
+                failure = goneMessage ?: ONLY_AD_FOUND,
+                failureDetails = attemptLines(),
+                canReload = page.owner == LookupOwner.BROWSER,
+                nextVideo = false,
+                freshLink = false,
+                adSkipped = false,
+                attemptDetails = emptyList(),
+                startsWhenReady = false,
+                downloadStatus = if (it.startsWhenReady) {
+                    PreviewDownloadStatus.Idle
+                } else {
+                    it.downloadStatus
+                },
+            )
+        }
+        loading = null
+    }
+
+    /**
+     * P43: [count] other videos of the page without the proven ads and the ones skipped here, so
+     * the "Other videos" row never counts an ad; [shown] is the video the sheet shows.
+     */
+    private fun withoutAds(count: Int, shown: MediaGroup?): Int {
+        if (count <= 0 || shown == null) return count
+        val page = store.page.value?.takeIf { it.pageUrl == shown.pageUrl } ?: return count
+        val shownUrls = shown.candidates.map { it.mediaUrl }.toSet()
+        val ads = pageVideos(page).count { video ->
+            video.candidates.none { it.mediaUrl in shownUrls } &&
+                (PageVideoProof.isProvenAd(video, page.facts) ||
+                    video.candidates.any { it.mediaUrl in skippedAds })
+        }
+        return (count - ads).coerceAtLeast(0)
     }
 
     /**
@@ -600,22 +794,53 @@ class QuickDownloadViewModel @Inject constructor(
         if (page.owner == LookupOwner.BROWSER) {
             val videos = pageVideos(page)
             val requests = page.candidates.filter { it.isSavable && it.mediaUrl !in deadLinks }
-            sameVideo(target, videos)
-                .firstNotNullOfOrNull { FreshLinks.playerFirst(it, requests).untried() }
-                ?.let { return it to Attempt.NEWEST }
-            FreshLinks.playerVideo(target, videos, deadLinks, page.facts)
-                ?.untried()
-                ?.let { return it to Attempt.PLAYER }
+            // P43: an ad's newest link is the same ad.
+            if (!firstWasAd) {
+                sameVideo(target, videos)
+                    .mapNotNull { FreshLinks.playerFirst(it, requests).untried() }
+                    .firstOrNull { offered(it, Attempt.NEWEST, proofOf(page)) }
+                    ?.let { return it to Attempt.NEWEST }
+            }
+            playerVideo(target, videos, page)?.let { return it to Attempt.PLAYER }
             reread(target, page)?.let { return it to Attempt.REREAD }
         }
         if (nextTried || !nextAllowed) return null
         nextTried = true
         val videos = pageVideos(page)
-        val failed = listOf(target) + sameVideo(target, videos)
-        return MediaGroups.nextVideo(videos, failed, page.facts)
-            ?.untried()
-            ?.let { MediaGroups.withPageFacts(it, page.facts) to Attempt.NEXT }
+        var failed = listOf(target) + sameVideo(target, videos) + videos.filter { video ->
+            video.candidates.any { it.mediaUrl in skippedAds }
+        }
+        repeat(MAX_SKIPPED_ADS) {
+            val next = MediaGroups.nextVideo(videos, failed, page.facts)?.untried() ?: return null
+            if (offered(next, Attempt.NEXT, proofOf(page))) {
+                return MediaGroups.withPageFacts(next, page.facts) to Attempt.NEXT
+            }
+            failed = failed + next
+        }
+        return null
     }
+
+    /**
+     * P37/P43: the video the page's player asked for ([FreshLinks.playerVideo]) that passes
+     * [PageVideoProof]; at most [MAX_SKIPPED_ADS] ads it fetched are skipped on the way. After
+     * an ad, the ad's length says nothing about the page's video.
+     */
+    private fun playerVideo(
+        target: MediaGroup,
+        videos: List<MediaGroup>,
+        page: DetectedPage,
+    ): MediaGroup? {
+        val failed = if (firstWasAd) target.withoutLengths() else target
+        repeat(MAX_SKIPPED_ADS) {
+            val video = FreshLinks.playerVideo(failed, videos, deadLinks + skippedAds, page.facts)
+                ?.untried() ?: return null
+            if (offered(video, Attempt.PLAYER, proofOf(page))) return video
+        }
+        return null
+    }
+
+    private fun MediaGroup.withoutLengths(): MediaGroup =
+        copy(candidates = candidates.map { it.copy(durationMillis = null) })
 
     /**
      * P37: the page's [videos] that are [target] itself: those with one of its addresses or the
@@ -639,11 +864,22 @@ class QuickDownloadViewModel @Inject constructor(
             rereadsUsed++
             when (val read = pageReader.read(page.pageUrl, userAgent)) {
                 is PageReread.Found -> {
+                    val facts = read.facts ?: page.facts
                     val videos = MediaGroups.pageVideos(read.candidates.filter { it.isSavable })
-                    MediaGroups.refreshed(target, videos)?.untried()?.let { again ->
-                        return MediaGroups.withPageFacts(again, read.facts ?: page.facts)
+                    // P43: after an ad, the page's own video, not the ad again.
+                    val again = if (firstWasAd) {
+                        pageVideoIn(videos, facts)
+                    } else {
+                        MediaGroups.refreshed(target, videos)?.untried()
                     }
-                    attempts += listOf(Attempt.REREAD.label, "Status: no new link")
+                    if (again == null) {
+                        attempts += listOf(Attempt.REREAD.label, "Status: no new link")
+                    } else {
+                        val proof = proofOf(page, page.candidates + read.candidates, facts)
+                        if (offered(again, Attempt.REREAD, proof)) {
+                            return MediaGroups.withPageFacts(again, facts)
+                        }
+                    }
                 }
                 PageReread.NoPlayer -> {
                     attempts += listOf(Attempt.REREAD.label, NO_PLAYER_DATA)
@@ -655,13 +891,24 @@ class QuickDownloadViewModel @Inject constructor(
         return null
     }
 
+    /** P43: the page's video in a re-read's [videos], without the links tried or skipped here. */
+    private fun pageVideoIn(videos: List<MediaGroup>, facts: PageVideoFacts?): MediaGroup? {
+        val left = videos.filter { video ->
+            video.candidates.none { it.mediaUrl in deadLinks || it.mediaUrl in skippedAds }
+        }
+        return MediaGroups.mainVideo(left, playing = null, facts = facts)
+    }
+
     /** P37: a failure's Details: one attempt's lines alone, several each under its name. */
     private fun attemptLines(): List<String> =
         attempts.singleOrNull()?.drop(1) ?: attempts.flatten()
 
-    /** The group without the addresses that already answered "gone"; null when none is left. */
+    /**
+     * The group without the addresses that already answered "gone" or were skipped as ads
+     * (P43); null when none is left.
+     */
     private fun MediaGroup.untried(): MediaGroup? {
-        val left = candidates.filter { it.mediaUrl !in deadLinks }
+        val left = candidates.filter { it.mediaUrl !in deadLinks && it.mediaUrl !in skippedAds }
         return when {
             left.isEmpty() -> null
             left.size == candidates.size -> this
@@ -675,16 +922,29 @@ class QuickDownloadViewModel @Inject constructor(
      */
     private fun show(next: MediaGroup, attempt: Attempt) {
         stage = attempt
-        val sameVideo = attempt != Attempt.NEXT
-        val shown = if (sameVideo) next.copy(title = next.title ?: firstVideo?.title) else next
+        // P43: after an ad the page's video shows its own length, under the page's title.
+        val sameVideo = attempt != Attempt.NEXT && !firstWasAd
+        val shown = if (sameVideo || firstWasAd) {
+            next.copy(title = next.title ?: firstVideo?.title)
+        } else {
+            next
+        }
         group = shown
         mutableUiState.update {
+            val header = when {
+                sameVideo -> it.header ?: shown.header()
+                firstWasAd -> shown.header().let { own ->
+                    own.copy(thumbnailUrl = own.thumbnailUrl ?: it.header?.thumbnailUrl)
+                }
+                else -> shown.header()
+            }
             it.copy(
-                header = if (sameVideo) it.header ?: shown.header() else shown.header(),
+                header = header,
                 choices = null,
                 selectedId = null,
-                nextVideo = attempt == Attempt.NEXT,
+                nextVideo = attempt == Attempt.NEXT && !firstWasAd,
                 freshLink = false,
+                adSkipped = false,
                 attemptDetails = emptyList(),
                 canReload = false,
             )
@@ -713,10 +973,11 @@ class QuickDownloadViewModel @Inject constructor(
                     QuickDownloadFailures.hostOf(it.mediaUrl)
                 }
                 val lines = listOf(stage.label) + listOfNotNull(host?.let { "Host: $it" }) +
-                    "Status: ready" + QuickDownloadFailures.linkLines(ready, now())
+                    "Status: ready" + chosenLines + QuickDownloadFailures.linkLines(ready, now())
                 state.copy(
-                    nextVideo = stage == Attempt.NEXT,
-                    freshLink = stage != Attempt.NEXT,
+                    nextVideo = stage == Attempt.NEXT && !firstWasAd,
+                    freshLink = stage != Attempt.NEXT && !firstWasAd,
+                    adSkipped = firstWasAd,
                     attemptDetails = attempts.flatten() + lines,
                 )
             } else {
@@ -727,7 +988,9 @@ class QuickDownloadViewModel @Inject constructor(
                     freshLink = false,
                     attemptDetails = emptyList(),
                     failureDetails = attemptLines(),
-                    canReload = deadLinks.isNotEmpty() && page?.owner == LookupOwner.BROWSER,
+                    canReload = (deadLinks.isNotEmpty() || skippedAds.isNotEmpty()) &&
+                        page?.owner == LookupOwner.BROWSER,
+                    adSkipped = false,
                 )
             }
         }
@@ -761,7 +1024,8 @@ class QuickDownloadViewModel @Inject constructor(
             )
         }
         loading = viewModelScope.launch {
-            if (page.owner == LookupOwner.BROWSER && deadLinks.isNotEmpty()) {
+            val looked = deadLinks.isNotEmpty() || skippedAds.isNotEmpty()
+            if (page.owner == LookupOwner.BROWSER && looked) {
                 // The attempts so far stay in Details; the re-reads and the next video may
                 // run once more.
                 firstVideo = target
@@ -791,6 +1055,7 @@ class QuickDownloadViewModel @Inject constructor(
             val again = MediaGroups.refreshed(target, pageVideos(fresh)) ?: target
             group = MediaGroups.withPageFacts(again, fresh.facts)
             firstVideo = null
+            firstWasAd = false
             stage = Attempt.FIRST
             attempts.clear()
             nextTried = false
@@ -1162,6 +1427,15 @@ class QuickDownloadViewModel @Inject constructor(
         const val MP3_UNAVAILABLE = "This audio can't be converted to MP3. Try M4A."
         const val AUDIO_UNAVAILABLE = "This video's sound can't be saved on its own."
         const val QUALITY_UNAVAILABLE = "This quality is not available now — choose another"
+
+        /** P43: nothing on the page passed as its video; no ad is offered instead. */
+        const val ONLY_AD_FOUND = "Only an ad was found, not the page's video."
+
+        /** P43: the ads the sheet skips in one step before it gives up on that step. */
+        private const val MAX_SKIPPED_ADS = 4
+
+        /** P43: marks the stand-in of the page's video a reload looks for. */
+        private const val PAGE_VIDEO_FRAGMENT = "#yft-page-video"
 
         /** P29: the first file of a page without an adapter is gone; its next video is shown. */
         private val GONE_STATUSES = setOf(403, 404, 410)

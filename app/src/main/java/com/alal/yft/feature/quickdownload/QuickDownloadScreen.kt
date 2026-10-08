@@ -217,6 +217,18 @@ fun QuickDownloadScreen(
             )
             FailureDetails(state.attemptDetails, tag = "quick-fresh-link-details")
         }
+        if (state.adSkipped) {
+            // P43: the player's first video was an ad; this is the page's own video.
+            Text(
+                text = AD_SKIPPED_MESSAGE,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                color = YftTheme.colors.textSecondary,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            FailureDetails(state.attemptDetails, tag = null)
+        }
         if (state.otherVideos > 0) {
             YftTextButton(
                 text = "Other videos on this page (${state.otherVideos})",
@@ -727,10 +739,11 @@ private fun ColumnScope.DownloadAction(
 /**
  * P24: "Details" under a failure: the step, the host and the status of the request that failed,
  * so a screenshot tells what went wrong. Hidden until asked for. P29: also under the line about
- * the next video ([tag] `quick-next-video-details`), with both attempts.
+ * the next video ([tag] `quick-next-video-details`), with both attempts. P43: under the line
+ * about a skipped ad without a tag ([tag] null).
  */
 @Composable
-private fun ColumnScope.FailureDetails(lines: List<String>, tag: String = "quick-error-details") {
+private fun ColumnScope.FailureDetails(lines: List<String>, tag: String? = "quick-error-details") {
     if (lines.isEmpty()) return
     var shown by rememberSaveable(lines) { mutableStateOf(false) }
     YftTextButton(
@@ -738,7 +751,7 @@ private fun ColumnScope.FailureDetails(lines: List<String>, tag: String = "quick
         onClick = { shown = !shown },
         modifier = Modifier
             .align(Alignment.CenterHorizontally)
-            .testTag(tag),
+            .then(if (tag != null) Modifier.testTag(tag) else Modifier),
     )
     if (shown) {
         Text(
@@ -746,7 +759,7 @@ private fun ColumnScope.FailureDetails(lines: List<String>, tag: String = "quick
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 8.dp)
-                .testTag(tag.removeSuffix("s") + "-text"),
+                .then(tag?.let { Modifier.testTag(it.removeSuffix("s") + "-text") } ?: Modifier),
             color = YftTheme.colors.textSecondary,
             style = MaterialTheme.typography.bodySmall,
             textAlign = TextAlign.Center,
@@ -779,6 +792,9 @@ internal const val NEXT_VIDEO_MESSAGE = "The first file is gone — showing the 
 
 /** P37: the first link was gone, so the sheet shows the same video from a fresh link. */
 internal const val FRESH_LINK_MESSAGE = "The first link is gone — using a fresh link"
+
+/** P43: the player's first video was an ad, so the sheet shows the page's own video. */
+internal const val AD_SKIPPED_MESSAGE = "That was an ad — showing the page's video"
 
 /** P37: the error's way to reload the browser's page without its cache. */
 internal const val RELOAD_AND_RETRY = "Reload page and try again"
