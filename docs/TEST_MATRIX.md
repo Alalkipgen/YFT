@@ -1136,7 +1136,32 @@ on `4da3e61` — 1532 tests, 0 failures, 66 skipped.
 
 ### Agent B — P41, P42
 
-- (Agent B: tests added, regression proof, start times before and after, CI emulator runs)
+P41 — YouTube progress and speed from the first seconds (2026-10-09):
+
+| Test | What it proves |
+| --- | --- |
+| `DashTransferStartTest` (8, new, throttled `RangeFileDispatcher`) | 1 MiB first range gives the length; a short file takes one request; a stated length needs no request; progress within 1 s at 64 KB/s and 1 MB/s; never back, ends at the total, ≤ 4 a second; a retried range counted once; one slow range does not hold back the others |
+| `DashFastStartLayoutTest` (6, new) | an old-layout checkpoint resumes without fetching its done ranges; the new layout has its own fingerprint and resumes; `fastStart = false` keeps the old ranges; 4 ranges at once on `googlevideo.com`, 3 elsewhere; start times in the log line and in the failure |
+| `AudioVideoMuxProgressTest` (2, new) | a merge shows a track's bytes before its checkpoint; at most 4 updates a second |
+| `StreamDownloadQueueTest` (+1) | a running merged task shows its tracks' bytes between checkpoints; the store and a paused task keep the checkpoint's |
+| `FailureDetailCodecTest` (+1), `DownloadLabelsTest` (+1) | start times survive the `last_error_detail` round trip (old rows have none); Details shows `Start: …` |
+| `DownloadPlanFactoryTest` (+1, 1 changed) | YouTube tracks carry the length from `clen` or `contentLength` |
+| `DashTransferEngineTest` (1 changed) | a whole-file track asks no `bytes=0-0` probe |
+
+Start times on the throttled local server (JVM, MockWebServer; before = old code, after = P41):
+
+| Case | Before | After |
+| --- | --- | --- |
+| 64 KB/s, unknown length (3 MiB) | length 17 ms (probe `bytes=0-0`); no progress within 3 s (first 3 MiB range) | length 6 ms (from first range); first progress 6 ms |
+| 1 MB/s, unknown length (30 MiB) | length 12 ms (probe); first progress 9 800 ms | length 5 ms (from first range); first progress 5 ms |
+| Progress pace | 9 updates in 877 ms (7 within one second) | 6 updates in 866 ms (≤ 4 a second) |
+| One slow range among 6 | the other 5 waited more than 3 000 ms | the other 5 done after 191 ms |
+
+| Step | Result |
+| --- | --- |
+| P41 validation (2026-10-09) | `--no-daemon --continue` (five tasks): core-download 184, core-model 106, app 809 (66 skipped) = 1099 tests, 0 failures (+20 from 1079); lint 0 errors; androidTest compiles; line check empty |
+| P41 regression proof | old code from `/data/bak/P41/orig`: 11 of 38 failed (listed in SESSION_STATE); restored with cp, cmp equal |
+| P41 CI | pending |
 
 ### Agent C — P43
 

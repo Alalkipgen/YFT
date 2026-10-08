@@ -72,4 +72,39 @@ class FailureDetailCodecTest {
         assertNull(FailureDetailCodec.decode(reason, "LATER|9999|"))
         assertNull(FailureDetailCodec.decode(null, "READ_SOURCE||"))
     }
+
+    @Test
+    fun theStartTimesFollowTheDetailAndSurviveTheRoundTrip() {
+        val failure = DownloadFailure(
+            reason = DownloadFailureReason.NETWORK,
+            stage = DownloadFailureStage.READ_SOURCE,
+            detail = "SocketTimeoutException",
+            startTimeline = "start: plan 0.0 s \u00b7 length 0.4 s (from first range)",
+        )
+
+        val payload = FailureDetailCodec.encode(failure)
+
+        assertEquals(
+            "READ_SOURCE||SocketTimeoutException|start: plan 0.0 s \u00b7 length 0.4 s " +
+                "(from first range)",
+            payload,
+        )
+        assertEquals(failure, FailureDetailCodec.decode(DownloadFailureReason.NETWORK, payload))
+        // Start times alone are kept; a payload saved before P41 has none.
+        val timesOnly = DownloadFailure(
+            reason = DownloadFailureReason.NETWORK,
+            startTimeline = "start: plan 0.1 s",
+        )
+        assertEquals(
+            timesOnly,
+            FailureDetailCodec.decode(
+                DownloadFailureReason.NETWORK,
+                FailureDetailCodec.encode(timesOnly),
+            ),
+        )
+        assertNull(
+            FailureDetailCodec.decode(DownloadFailureReason.NETWORK, "READ_SOURCE||reset")
+                ?.startTimeline,
+        )
+    }
 }

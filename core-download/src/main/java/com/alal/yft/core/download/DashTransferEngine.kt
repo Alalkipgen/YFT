@@ -23,6 +23,9 @@ import java.io.IOException
 import java.io.InputStream
 import java.security.MessageDigest
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -32,6 +35,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -48,6 +52,20 @@ interface DashTransferRunner {
         onCheckpoint: suspend (DashTransferCheckpoint) -> Unit = {},
     ): DashTransferResult
 
+    /**
+     * [transfer] that hands its start times to [onStartTimeline] once (P41), instead of writing
+     * them to the log itself: a merged download writes one line for both of its tracks. A runner
+     * that does not measure them never calls it.
+     */
+    suspend fun transfer(
+        plan: DashDownloadPlan,
+        destination: DownloadDestination,
+        resumeFrom: DashTransferCheckpoint?,
+        onProgress: suspend (DownloadProgress) -> Unit,
+        onCheckpoint: suspend (DashTransferCheckpoint) -> Unit,
+        onStartTimeline: (DownloadStartTimeline) -> Unit,
+    ): DashTransferResult = transfer(plan, destination, resumeFrom, onProgress, onCheckpoint)
+
     suspend fun discard(plan: DashDownloadPlan)
 }
 
@@ -56,13 +74,18 @@ interface DashTransferRunner {
  *
  * Chunks are downloaded into deterministic app-private files, checkpointed only after a complete
  * fsync, then assembled in manifest order. The public destination remains unpublished until its
- * final length is verified.
+ * final length is verified. Progress counts the bytes of a chunk as they are written, at most
+ * every [Policy.progressIntervalMillis] (P41).
  */
 class DashTransferEngine(
     client: OkHttpClient,
     private val workspaceRoot: File,
     private val policy: Policy = Policy(),
     private val clock: () -> Long = System::currentTimeMillis,
+    /** A monotonic clock in milliseconds, for the progress pace and the start times (P41). */
+    private val elapsedMillis: () -> Long = { System.nanoTime() / 1_000_000 },
+    /** One line per download with its start times (P41); no addresses. */
+    private val log: (String) -> Unit = ::logStartLine,
 ) : DashTransferRunner {
     data class Policy(
         val maxRedirects: Int = 5,
@@ -74,6 +97,17 @@ class DashTransferEngine(
         val maxChunkBytes: Long = 128L * 1_024 * 1_024,
         val maxConcurrentChunks: Int = 3,
         val bufferBytes: Int = 64 * 1_024,
+        /**
+         * FAST_START (P41): a whole file's first range is [firstRangeBytes], its length comes
+         * from that range's answer instead of a separate request, and a worker takes the next
+         * range as soon as it is free. Off: today's equal ranges, length request and batches.
+         */
+        val fastStart: Boolean = true,
+        val firstRangeBytes: Long = 1_024L * 1_024,
+        /** Ranges at once for a whole file on YouTube's media hosts (P41; others: above). */
+        val mediaHostConcurrentChunks: Int = 4,
+        /** The shortest time between two progress updates: 4 a second (P41). */
+        val progressIntervalMillis: Long = 250,
     ) {
         init {
             require(maxRedirects >= 0)
@@ -85,6 +119,9 @@ class DashTransferEngine(
             require(maxChunkBytes > 0)
             require(maxConcurrentChunks in 1..8)
             require(bufferBytes in 1_024..1024 * 1_024)
+            require(firstRangeBytes > 0)
+            require(mediaHostConcurrentChunks in 1..8)
+            require(progressIntervalMillis >= 0)
         }
     }
 
@@ -100,7 +137,28 @@ class DashTransferEngine(
         resumeFrom: DashTransferCheckpoint?,
         onProgress: suspend (DownloadProgress) -> Unit,
         onCheckpoint: suspend (DashTransferCheckpoint) -> Unit,
+    ): DashTransferResult = transfer(
+        plan = plan,
+        destination = destination,
+        resumeFrom = resumeFrom,
+        onProgress = onProgress,
+        onCheckpoint = onCheckpoint,
+        onStartTimeline = { timeline -> log("DASH ${timeline.summary()}") },
+    )
+
+    override suspend fun transfer(
+        plan: DashDownloadPlan,
+        destination: DownloadDestination,
+        resumeFrom: DashTransferCheckpoint?,
+        onProgress: suspend (DownloadProgress) -> Unit,
+        onCheckpoint: suspend (DashTransferCheckpoint) -> Unit,
+        onStartTimeline: (DownloadStartTimeline) -> Unit,
     ): DashTransferResult = withContext(Dispatchers.IO) {
+        val start = StartTimelineRecorder(elapsedMillis)
+        val startReported = AtomicBoolean(false)
+        val reportStart = {
+            if (startReported.compareAndSet(false, true)) onStartTimeline(start.timeline)
+        }
         val emptyCheckpoint = DashTransferCheckpoint(null, emptyList())
         val credentialOrigin = plan.manifestUrl.toSafeDownloadUrl()
             ?: return@withContext failure(
@@ -120,45 +178,78 @@ class DashTransferEngine(
         }
 
         var tracker: DashCheckpointTracker? = null
+        var firstRange: OpenedRange? = null
         try {
-            val parsed = plan.wholeFile
-                ?.let { track -> wholeFileLayout(plan, track, credentialOrigin) }
-                ?: manifestLayout(plan, credentialOrigin)
+            val wholeFile = plan.wholeFile
+            val parsed = if (wholeFile != null) {
+                val layout = wholeFileLayout(plan, wholeFile, credentialOrigin, resumeFrom, start)
+                firstRange = layout.firstRange
+                layout.parsed
+            } else {
+                manifestLayout(plan, credentialOrigin).also {
+                    start.lengthKnown(StartLengthSource.NONE)
+                }
+            }
             val initial = reconcileCheckpoint(
                 workspace = workspace,
                 parsed = parsed,
                 saved = resumeFrom,
             )
+            start.planned()
             val activeTracker = DashCheckpointTracker(
                 initial = initial,
                 totalBytes = plan.wholeFile?.let {
                     parsed.chunks.sumOf { chunk -> chunk.byteRange?.length ?: 0L }
                 },
+                progressIntervalMillis = policy.progressIntervalMillis,
+                elapsedMillis = elapsedMillis,
                 onProgress = onProgress,
                 onCheckpoint = onCheckpoint,
+                onFirstProgress = {
+                    if (start.firstProgress()) reportStart()
+                },
             )
             tracker = activeTracker
             activeTracker.emit()
 
-            parsed.chunks
-                .filterNot { initial.chunks[it.index].completed }
-                .chunked(policy.maxConcurrentChunks)
-                .forEach { batch ->
-                    coroutineScope {
-                        batch.map { chunk ->
-                            async {
-                                val bytes = downloadChunkWithRetry(
-                                    plan = plan,
-                                    credentialOrigin = credentialOrigin,
-                                    workspace = workspace,
-                                    chunk = chunk,
-                                )
-                                activeTracker.markCompleted(chunk.index, bytes)
+            val pending = parsed.chunks.filterNot { initial.chunks[it.index].completed }
+            val download: suspend (DashDownloadChunk) -> Unit = { chunk ->
+                val opened = firstRange?.takeIf { chunk.index == 0 }?.take()
+                val bytes = downloadChunkWithRetry(
+                    plan = plan,
+                    credentialOrigin = credentialOrigin,
+                    workspace = workspace,
+                    chunk = chunk,
+                    tracker = activeTracker,
+                    start = start,
+                    opened = opened,
+                )
+                activeTracker.markCompleted(chunk.index, bytes)
+            }
+            if (policy.fastStart) {
+                // No batch barrier (P41): each worker takes the next range as soon as it is free.
+                val workers = concurrentChunksFor(plan, credentialOrigin)
+                val next = AtomicInteger(0)
+                coroutineScope {
+                    repeat(minOf(workers, pending.size)) {
+                        launch {
+                            while (true) {
+                                val position = next.getAndIncrement()
+                                if (position >= pending.size) break
+                                download(pending[position])
                             }
                         }
-                            .awaitAll()
                     }
                 }
+            } else {
+                pending
+                    .chunked(policy.maxConcurrentChunks)
+                    .forEach { batch ->
+                        coroutineScope {
+                            batch.map { chunk -> async { download(chunk) } }.awaitAll()
+                        }
+                    }
+            }
 
             val completedCheckpoint = activeTracker.snapshot()
             if (completedCheckpoint.completedChunkCount != parsed.chunks.size) {
@@ -173,30 +264,46 @@ class DashTransferEngine(
                 throw DashAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
             }
             cleanupWorkspace(workspace, strict = false)
+            activeTracker.finish()
+            reportStart()
             DashTransferResult.Completed(bytesWritten, completedCheckpoint)
         } catch (cancellation: CancellationException) {
             withContext(NonCancellable) {
                 runCatching { tracker?.emit() }
+                runCatching { reportStart() }
             }
             throw cancellation
         } catch (abort: DashAbort) {
             if (abort.failure.reason in NON_RESUMABLE_FAILURES) {
                 cleanupWorkspace(workspace, strict = false)
             }
+            reportStart()
             DashTransferResult.Failure(
-                failure = abort.failure,
+                failure = abort.failure.copy(startTimeline = start.timeline.summary()),
                 checkpoint = tracker?.snapshot()
                     ?: emptyCheckpoint,
             )
         } catch (error: IOException) {
             // Source errors are retried and end as DashAborts; an I/O error here comes from the
             // chunk files of the task's workspace.
+            reportStart()
             DashTransferResult.Failure(
-                failure = error.toStorageFailure(WRITE_FILE),
+                failure = error.toStorageFailure(WRITE_FILE)
+                    .copy(startTimeline = start.timeline.summary()),
                 checkpoint = tracker?.snapshot()
                     ?: emptyCheckpoint,
             )
+        } finally {
+            firstRange?.closeUnused()
         }
+    }
+
+    /** Ranges at once: more for a whole file on YouTube's media hosts with FAST_START (P41). */
+    private fun concurrentChunksFor(plan: DashDownloadPlan, fileUrl: HttpUrl): Int {
+        if (plan.wholeFile == null || !policy.fastStart) return policy.maxConcurrentChunks
+        val host = fileUrl.host.lowercase(Locale.US)
+        val mediaHost = host == MEDIA_HOST || host.endsWith(".$MEDIA_HOST")
+        return if (mediaHost) policy.mediaHostConcurrentChunks else policy.maxConcurrentChunks
     }
 
     private suspend fun manifestLayout(
@@ -229,37 +336,179 @@ class DashTransferEngine(
      * Splits a track served as one file into byte ranges of at most the track's request size.
      *
      * The fingerprint names the track and its length, never the address: a refreshed address
-     * for the same file keeps the chunks already downloaded.
+     * for the same file keeps the chunks already downloaded. With FAST_START the first range is
+     * small (P41) and the layout has its own fingerprint; a checkpoint saved with the equal
+     * ranges of before keeps them. A stated length needs no request; an unknown one comes from
+     * the first range's answer, or from a one-byte request when finished ranges are resumed.
      */
     private suspend fun wholeFileLayout(
         plan: DashDownloadPlan,
         track: WholeFileTrack,
         fileUrl: HttpUrl,
-    ): DashDownloadManifestParser.Result.Parsed {
-        val totalBytes = track.totalBytes ?: probeLength(plan, fileUrl)
+        saved: DashTransferCheckpoint?,
+        start: StartTimelineRecorder,
+    ): WholeFileLayout {
         val chunkBytes = minOf(track.maxRequestBytes, policy.maxChunkBytes)
-        val chunkCount = (totalBytes - 1) / chunkBytes + 1
+        val firstBytes = if (policy.fastStart) {
+            minOf(policy.firstRangeBytes, chunkBytes)
+        } else {
+            chunkBytes
+        }
+        track.totalBytes?.let { totalBytes ->
+            start.lengthKnown(StartLengthSource.KNOWN)
+            return WholeFileLayout(
+                wholeFileChunks(plan, fileUrl, totalBytes, chunkBytes, firstBytes, saved),
+            )
+        }
+        val resumesRanges = saved?.chunks?.any(StreamChunkCheckpoint::completed) == true
+        if (!policy.fastStart || resumesRanges) {
+            val totalBytes = probeLength(plan, fileUrl)
+            start.lengthKnown(StartLengthSource.PROBE)
+            return WholeFileLayout(
+                wholeFileChunks(plan, fileUrl, totalBytes, chunkBytes, firstBytes, saved),
+            )
+        }
+        val opened = openFirstRange(plan, fileUrl, firstBytes)
+        start.lengthKnown(StartLengthSource.FIRST_RANGE)
+        return try {
+            WholeFileLayout(
+                parsed = wholeFileChunks(
+                    plan = plan,
+                    fileUrl = fileUrl,
+                    totalBytes = opened.totalBytes,
+                    chunkBytes = chunkBytes,
+                    firstBytes = firstBytes,
+                    saved = null,
+                ),
+                firstRange = opened,
+            )
+        } catch (error: Throwable) {
+            opened.closeUnused()
+            throw error
+        }
+    }
+
+    /**
+     * The ranges of a whole file of [totalBytes]: [firstBytes], then [chunkBytes] each. The
+     * equal ranges of before (first = chunk) keep their fingerprint, and win when [saved] has it.
+     */
+    private fun wholeFileChunks(
+        plan: DashDownloadPlan,
+        fileUrl: HttpUrl,
+        totalBytes: Long,
+        chunkBytes: Long,
+        firstBytes: Long,
+        saved: DashTransferCheckpoint?,
+    ): DashDownloadManifestParser.Result.Parsed {
+        val equalFingerprint = sha256(
+            "whole-file|${plan.representationId}|${plan.trackType}|$totalBytes|$chunkBytes",
+        )
+        val first = if (saved?.manifestFingerprint == equalFingerprint) chunkBytes else firstBytes
+        val fingerprint = if (first == chunkBytes) {
+            equalFingerprint
+        } else {
+            sha256(
+                "whole-file-v2|${plan.representationId}|${plan.trackType}|$totalBytes|" +
+                    "$first|$chunkBytes",
+            )
+        }
+        val firstLength = minOf(first, totalBytes)
+        val chunkCount = if (totalBytes == firstLength) {
+            1L
+        } else {
+            (totalBytes - firstLength - 1) / chunkBytes + 2
+        }
         if (chunkCount > policy.maxChunks) {
             throw DashAbort(DownloadFailureReason.UNSUPPORTED_SOURCE, stage = CONNECT)
         }
         val chunks = List(chunkCount.toInt()) { index ->
-            val offset = index * chunkBytes
+            val offset = if (index == 0) 0L else firstLength + (index - 1) * chunkBytes
+            val length = if (index == 0) firstLength else minOf(chunkBytes, totalBytes - offset)
             DashDownloadChunk(
                 index = index,
                 url = fileUrl,
-                byteRange = ResolvedByteRange(offset, minOf(chunkBytes, totalBytes - offset)),
+                byteRange = ResolvedByteRange(offset, length),
                 type = DashChunkType.MEDIA,
             )
         }
         return DashDownloadManifestParser.Result.Parsed(
             chunks = chunks,
-            fingerprint = sha256(
-                "whole-file|${plan.representationId}|${plan.trackType}|$totalBytes|$chunkBytes",
-            ),
+            fingerprint = fingerprint,
             trackType = plan.trackType,
             mimeType = plan.mimeType,
             codecs = plan.codecs,
         )
+    }
+
+    /**
+     * Asks for a whole file's first range and reads the file's length from its Content-Range
+     * (P41); the open answer is then written as the first chunk. Network errors and 5xx answers
+     * are tried again, as for any range.
+     */
+    private suspend fun openFirstRange(
+        plan: DashDownloadPlan,
+        fileUrl: HttpUrl,
+        firstBytes: Long,
+    ): OpenedRange {
+        var lastReason = DownloadFailureReason.NETWORK
+        repeat(policy.maxAttempts) { attempt ->
+            try {
+                return openFirstRangeOnce(plan, fileUrl, firstBytes)
+            } catch (retry: RetryableDashFailure) {
+                lastReason = retry.reason
+                if (attempt == policy.maxAttempts - 1) throw DashAbort(retry.failure())
+                delay(backoffMillis(attempt))
+            }
+        }
+        throw DashAbort(lastReason, stage = CONNECT)
+    }
+
+    private suspend fun openFirstRangeOnce(
+        plan: DashDownloadPlan,
+        fileUrl: HttpUrl,
+        firstBytes: Long,
+    ): OpenedRange {
+        val execution = try {
+            http.execute(
+                credentialOrigin = fileUrl,
+                initialUrl = fileUrl,
+                context = plan.requestContext,
+            ) {
+                get()
+                header("Range", "bytes=0-${firstBytes - 1}")
+            }
+        } catch (error: IOException) {
+            throw RetryableDashFailure.network(CONNECT, error)
+        }
+        val response = when (execution) {
+            is SecureDownloadHttp.Result.Failed ->
+                throw DashAbort(execution.reason, stage = CONNECT)
+            is SecureDownloadHttp.Result.Completed -> execution.response
+        }
+        try {
+            if (response.code in 500..599) {
+                throw RetryableDashFailure(DownloadFailureReason.SERVER_ERROR, response.code)
+            }
+            // A server that ignores ranges cannot be fetched in chunks.
+            if (response.code == 200) {
+                throw DashAbort(DownloadFailureReason.UNSUPPORTED_SOURCE, stage = CONNECT)
+            }
+            if (response.code != 206) {
+                throw DashAbort(response.code.toFailureReason(), response.code, CONNECT)
+            }
+            val totalBytes = response.header("Content-Range")
+                ?.trim()
+                ?.let(FIRST_RANGE::matchEntire)
+                ?.groupValues
+                ?.get(1)
+                ?.toLongOrNull()
+                ?.takeIf { it > 0 }
+                ?: throw DashAbort(DownloadFailureReason.MALFORMED_RESPONSE, stage = CONNECT)
+            return OpenedRange(response, totalBytes)
+        } catch (error: Throwable) {
+            response.close()
+            throw error
+        }
     }
 
     /** Reads a whole file's length from the answer to a one-byte ranged request. */
@@ -442,25 +691,41 @@ class DashTransferEngine(
         )
     }
 
+    /**
+     * Downloads one chunk, trying a network error or a 5xx answer again. The bytes an attempt
+     * counted in the progress are taken back when it fails (P41). [opened] is the first range's
+     * answer that is already open, for the first attempt.
+     */
     private suspend fun downloadChunkWithRetry(
         plan: DashDownloadPlan,
         credentialOrigin: HttpUrl,
         workspace: File,
         chunk: DashDownloadChunk,
+        tracker: DashCheckpointTracker,
+        start: StartTimelineRecorder,
+        opened: Response? = null,
     ): Long {
         var lastRetryReason = DownloadFailureReason.NETWORK
+        var response = opened
         repeat(policy.maxAttempts) { attempt ->
+            val counter = RangeCounter(tracker, start)
             try {
                 return downloadChunkOnce(
                     plan = plan,
                     credentialOrigin = credentialOrigin,
                     workspace = workspace,
                     chunk = chunk,
+                    counter = counter,
+                    opened = response.also { response = null },
                 )
             } catch (retry: RetryableDashFailure) {
+                counter.takeBack()
                 lastRetryReason = retry.reason
                 if (attempt == policy.maxAttempts - 1) throw DashAbort(retry.failure())
                 delay(backoffMillis(attempt))
+            } catch (error: Throwable) {
+                counter.takeBack()
+                throw error
             }
         }
         throw DashAbort(lastRetryReason, stage = CONNECT)
@@ -471,16 +736,25 @@ class DashTransferEngine(
         credentialOrigin: HttpUrl,
         workspace: File,
         chunk: DashDownloadChunk,
+        counter: RangeCounter,
+        opened: Response?,
     ): Long {
         val temporary = downloadingFile(workspace, chunk.index)
         val ready = readyFile(workspace, chunk.index)
-        if (temporary.exists() && !temporary.delete()) {
-            throw IOException("Cannot reset temporary DASH chunk")
+        try {
+            if (temporary.exists() && !temporary.delete()) {
+                throw IOException("Cannot reset temporary DASH chunk")
+            }
+            if (ready.exists() && !ready.delete()) {
+                throw IOException("Cannot reset completed DASH chunk")
+            }
+        } catch (error: IOException) {
+            opened?.close()
+            throw error
         }
-        if (ready.exists() && !ready.delete()) {
-            throw IOException("Cannot reset completed DASH chunk")
-        }
-        val execution = try {
+        val execution = opened?.let { response ->
+            SecureDownloadHttp.Result.Completed(response, response.request.url)
+        } ?: try {
             http.execute(
                 credentialOrigin = credentialOrigin,
                 initialUrl = chunk.url,
@@ -500,7 +774,7 @@ class DashTransferEngine(
                     throw DashAbort(execution.reason, stage = CONNECT)
                 is SecureDownloadHttp.Result.Completed -> execution.response.use { response ->
                     validateChunkResponse(response, chunk)
-                    writeChunk(response, chunk, temporary)
+                    writeChunk(response, chunk, temporary, counter)
                 }
             }.also { bytes ->
                 if (!temporary.renameTo(ready)) {
@@ -569,6 +843,7 @@ class DashTransferEngine(
         response: Response,
         chunk: DashDownloadChunk,
         destination: File,
+        counter: RangeCounter,
     ): Long {
         val body = response.body
             ?: throw DashAbort(DownloadFailureReason.MALFORMED_RESPONSE, stage = CONNECT)
@@ -602,6 +877,7 @@ class DashTransferEngine(
                         throw DashAbort(error.toStorageFailure(WRITE_FILE))
                     }
                     written += read
+                    counter.add(read.toLong())
                 }
                 if (written == 0L) {
                     throw DashAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = READ_SOURCE)
@@ -807,16 +1083,87 @@ class DashTransferEngine(
         val body: String,
     )
 
+    /** A whole file's ranges, with the first range's answer when it gave the length. */
+    private class WholeFileLayout(
+        val parsed: DashDownloadManifestParser.Result.Parsed,
+        val firstRange: OpenedRange? = null,
+    )
+
+    /** The open answer to a whole file's first range (P41), written by the first worker. */
+    private class OpenedRange(
+        private val response: Response,
+        val totalBytes: Long,
+    ) {
+        private val taken = AtomicBoolean(false)
+
+        fun take(): Response? = response.takeIf { taken.compareAndSet(false, true) }
+
+        fun closeUnused() {
+            if (taken.compareAndSet(false, true)) runCatching { response.close() }
+        }
+    }
+
+    /** The bytes one attempt at a chunk wrote, counted in the progress as they come (P41). */
+    private class RangeCounter(
+        private val tracker: DashCheckpointTracker,
+        private val start: StartTimelineRecorder,
+    ) {
+        private var counted = 0L
+
+        suspend fun add(bytes: Long) {
+            if (bytes <= 0) return
+            if (counted == 0L) start.firstByte()
+            counted += bytes
+            tracker.advance(bytes)
+        }
+
+        /** A failed attempt takes back what it counted; the progress shown stays (P41). */
+        fun takeBack() {
+            if (counted > 0) tracker.takeBack(counted)
+            counted = 0
+        }
+    }
+
+    /**
+     * Keeps the checkpoint and the progress of one transfer.
+     *
+     * The checkpoint marks a chunk done only after its sync. Progress adds the bytes of the
+     * chunks still downloading (P41), never goes back (a failed attempt's bytes are taken back
+     * without lowering what was shown), never passes the total, and comes at most every
+     * [progressIntervalMillis]; the first bytes and the end are reported at once.
+     */
     private class DashCheckpointTracker(
         initial: DashTransferCheckpoint,
         private val totalBytes: Long?,
+        private val progressIntervalMillis: Long,
+        private val elapsedMillis: () -> Long,
         private val onProgress: suspend (DownloadProgress) -> Unit,
         private val onCheckpoint: suspend (DashTransferCheckpoint) -> Unit,
+        private val onFirstProgress: () -> Unit,
     ) {
         private val gate = Mutex()
         private var checkpoint = initial
+        private val inFlight = AtomicLong(0)
+        private val lastProgressAt = AtomicLong(NEVER)
+        private var shownBytes = initial.downloadedBytes
+        private var reportedBytes = -1L
+
+        /** Counts [bytes] of a chunk still downloading; reports them when it is time. */
+        suspend fun advance(bytes: Long) {
+            inFlight.addAndGet(bytes)
+            val now = elapsedMillis()
+            val last = lastProgressAt.get()
+            if (last != NEVER && now - last < progressIntervalMillis) return
+            if (!lastProgressAt.compareAndSet(last, now)) return
+            gate.withLock { emitProgressLocked() }
+        }
+
+        fun takeBack(bytes: Long) {
+            inFlight.addAndGet(-bytes)
+        }
 
         suspend fun markCompleted(index: Int, downloadedBytes: Long) = gate.withLock {
+            inFlight.addAndGet(-downloadedBytes)
             checkpoint = checkpoint.copy(
                 chunks = checkpoint.chunks.map { chunk ->
                     if (chunk.index == index) {
@@ -829,23 +1176,43 @@ class DashTransferEngine(
                     }
                 },
             )
-            emitLocked()
+            val now = elapsedMillis()
+            val last = lastProgressAt.get()
+            val due = last == NEVER || now - last >= progressIntervalMillis
+            if (due && lastProgressAt.compareAndSet(last, now)) emitProgressLocked()
+            onCheckpoint(checkpoint)
         }
 
-        suspend fun emit() = gate.withLock { emitLocked() }
+        /** Progress and checkpoint now, as at the start and at a stop. */
+        suspend fun emit() = gate.withLock {
+            emitProgressLocked(force = true)
+            onCheckpoint(checkpoint)
+        }
+
+        /** The last progress, when the pace held it back. */
+        suspend fun finish() = gate.withLock { emitProgressLocked() }
 
         suspend fun snapshot(): DashTransferCheckpoint = gate.withLock { checkpoint }
 
-        private suspend fun emitLocked() {
-            val downloaded = checkpoint.downloadedBytes
+        private suspend fun emitProgressLocked(force: Boolean = false) {
+            val counted = checkpoint.downloadedBytes + inFlight.get().coerceAtLeast(0)
+            val capped = totalBytes?.let { counted.coerceAtMost(it) } ?: counted
+            val moved = capped > shownBytes
+            shownBytes = maxOf(shownBytes, capped)
+            if (!force && shownBytes == reportedBytes) return
+            reportedBytes = shownBytes
             onProgress(
                 DownloadProgress(
-                    downloadedBytes = downloaded,
-                    totalBytes = totalBytes?.takeIf { it >= downloaded },
+                    downloadedBytes = shownBytes,
+                    totalBytes = totalBytes?.takeIf { it >= shownBytes },
                     activeSegmentCount = checkpoint.chunks.count { !it.completed },
                 ),
             )
-            onCheckpoint(checkpoint)
+            if (moved) onFirstProgress()
+        }
+
+        private companion object {
+            const val NEVER = Long.MIN_VALUE
         }
     }
 
@@ -855,6 +1222,8 @@ class DashTransferEngine(
             "application/dash+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.1"
         val CONTENT_RANGE = Regex("""(?i)^bytes\s+(\d+)-(\d+)/(?:\d+|\*)$""")
         val FIRST_BYTE_RANGE = Regex("""(?i)^bytes\s+0-0/(\d+)$""")
+        val FIRST_RANGE = Regex("""(?i)^bytes\s+0-\d+/(\d+)$""")
+        const val MEDIA_HOST = "googlevideo.com"
         val NON_RESUMABLE_FAILURES = setOf(
             DownloadFailureReason.INVALID_URL,
             DownloadFailureReason.DRM_PROTECTED,
@@ -863,4 +1232,8 @@ class DashTransferEngine(
             DownloadFailureReason.INTEGRITY_MISMATCH,
         )
     }
+}
+
+private fun logStartLine(message: String) {
+    runCatching { android.util.Log.i("YftDownloads", message) }
 }

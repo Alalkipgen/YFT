@@ -208,6 +208,36 @@ class DownloadLabelsTest {
         assertTrue(text, text.endsWith("App: YFT \u2014\nAndroid: \u2014 (API 26)"))
     }
 
+    /** P41: a failed DASH or merged download says how long its start took. */
+    @Test
+    fun failureDetailsShowHowLongTheStartTook() {
+        val failed = row(
+            DownloadTaskStatus.FAILED,
+            plan = DownloadPlanType.AUDIO_VIDEO_MUX,
+            failure = DownloadFailureReason.NETWORK,
+        ).copy(
+            failure = DownloadFailure(
+                reason = DownloadFailureReason.NETWORK,
+                detail = "SocketTimeoutException",
+                startTimeline = "start: plan 0.0 s \u00b7 length 0.4 s (from first range) " +
+                    "\u00b7 first byte 0.9 s \u00b7 first progress 1.0 s",
+            ),
+        )
+
+        val text = failureDetailsText(failed, appVersion = "", androidRelease = "", sdkInt = 35)
+
+        assertTrue(
+            text,
+            text.contains(
+                "Detail: SocketTimeoutException\nStart: plan 0.0 s \u00b7 length 0.4 s " +
+                    "(from first range) \u00b7 first byte 0.9 s \u00b7 first progress 1.0 s\n" +
+                    "Download type: Merge (audio + video)\n",
+            ),
+        )
+        val withoutTimes = failed.copy(failure = failed.failure?.copy(startTimeline = null))
+        assertFalse(failureDetailsText(withoutTimes, "", "", 35).contains("Start:"))
+    }
+
     @Test
     fun failureDetailsNameEachDownloadTypeAndPlace() {
         val mp3 = row(DownloadTaskStatus.FAILED, name = "Song.mp3").copy(mimeType = "audio/mpeg")

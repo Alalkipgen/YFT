@@ -13,7 +13,13 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Phase 15 — Agent B (P41, P42)
 
-- (placeholder — Agent B replaces this line)
+- YouTube downloads move from the first seconds (P41): DASH tracks count bytes as they are
+  written (at most 4 updates a second, never backwards), ranges start as soon as one ends
+  instead of in batches, a whole-file track starts with a 1 MiB range (`FAST_START`, 4 ranges at
+  once on YouTube's media hosts) and takes its length from that range or the address instead of
+  a separate probe; merged videos show both tracks' bytes and speed in Downloads and the
+  notification. A checkpoint saved before resumes with its old layout. The log and a failure's
+  Details show the start times ("start: plan · length · first byte · first progress").
 
 ### Phase 15 — Agent C (P43)
 

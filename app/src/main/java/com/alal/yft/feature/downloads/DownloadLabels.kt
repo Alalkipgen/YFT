@@ -269,8 +269,8 @@ internal fun destinationKindLabel(kind: DownloadDestinationKind): String = when 
 
 /**
  * The text of the failure Details dialog and of Copy details (P21): reason, stage, HTTP status,
- * detail, download type, destination and versions. It names no file, link or address, and the
- * detail is cleaned once more before it is shown.
+ * detail, start times (P41), download type, destination and versions. It names no file, link
+ * or address, and the detail is cleaned once more before it is shown.
  */
 internal fun failureDetailsText(
     row: DownloadRowUiState,
@@ -290,6 +290,11 @@ internal fun failureDetailsText(
         "Stage: ${stage ?: UNKNOWN}",
         "HTTP status: ${failure?.httpStatusCode ?: UNKNOWN}",
         "Detail: ${DownloadFailureDetails.sanitize(failure?.detail) ?: UNKNOWN}",
+        // How long the start took (P41): "Start: plan 0.0 s · length 0.4 s (probe) · …".
+        DownloadFailureDetails.sanitize(failure?.startTimeline)
+            ?.removePrefix("start:")
+            ?.trim()
+            ?.let { "Start: $it" },
         "Download type: ${planKindLabel(row)}",
         "Saved to: ${destinationKindLabel(row.destinationKind)}",
         "App: YFT ${appVersion.ifBlank { UNKNOWN }}",
