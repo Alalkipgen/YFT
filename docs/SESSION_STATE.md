@@ -78,6 +78,9 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `webapp.reflow.video.detail` with playAddr only (576×1024); desktop 200 · 389 KB ·
   `webapp.video-detail` with 5 gears (540p H.264 ×3, 720p H.265, 540p H.265), each with
   v16/v19-webapp-prime hosts and the www.tiktok.com/aweme/v1/play address; downloadAddr empty.
+  File checks (Range bytes=0-0, desktop agent, the page answer's cookies, Referer www.tiktok.com):
+  540p H.264 and 720p H.265 first address 206 (exact sizes 2953029 / 2004627 = DataSize); the
+  aweme/v1/play address redirects to v16-webapp-prime.us.tiktok.com and answers 206 too.
 - Hand-offs: Hand-off to C: core-model/src/main/kotlin/com/alal/yft/core/model/media/MediaAsset.kt
   — add `VariantResolutionResult.Failure.error: String? = null` (exception class name) and show it
   in QuickDownloadFailures details as "Error: <Class>" — so the resolver's failure names the
