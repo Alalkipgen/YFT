@@ -7,6 +7,18 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ## [Unreleased]
 
+### Phase 14 — Agent A (P34)
+
+- (Agent A writes its P34 entries here; P38 folds them into Added / Changed / Fixed.)
+
+### Phase 14 — Agent B (P36, P37)
+
+- (Agent B writes its P36 and P37 entries here; P38 folds them into Added / Changed / Fixed.)
+
+### Phase 14 — Agent C (P35)
+
+- (Agent C writes its P35 entries here; P38 folds them into Added / Changed / Fixed.)
+
 ### Added
 
 - Browser history: the browser's menu (⋯ in its toolbar) › History lists the pages you opened
@@ -153,6 +165,15 @@ for every APK given to users, because Android refuses to install a lower one.
   branch, files and prompt (`docs/prompts/A-merge-speed.md`, `B-generic-main.md`,
   `C-browser.md`, `M-merge-preview5.md`). The Phase 12 prompts were removed; they stay in Git
   history (`bc806f9`).
+- Documentation: after the owner's test of Preview #5, `docs/FIX_ADD_PLAN.md` plans Phase 14
+  (P34–P38: downloads and merges that keep going in the background with %, speed and time left
+  in the notification, a stream-copy merge for long videos, TikTok Download on the For You feed,
+  fresh links instead of HTTP 410 on other sites, the merge and Preview #6) for three agents
+  working at once, each with its own branch, files and prompt (`docs/prompts/A-background.md`,
+  `B-tiktok-fresh-links.md`, `C-fast-merge.md`, `M-merge-preview6.md`). The Phase 13 prompts were
+  removed; they stay in Git history (`5a5bddb`).
+- CI: pushes that change only documentation (`docs/**`, `*.md`) no longer start the checkpoint
+  validation workflow.
 
 ### Fixed
 

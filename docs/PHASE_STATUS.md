@@ -17,7 +17,8 @@
 | 10 — Formats and YouTube | COMPLETE | YouTube client strategy (D2 = A + B + C, ADR-006), merged 480p/720p/1080p video and audio, MP3. Tasks T16–T18; T19 merged the branch into `main` (`2f6284f`), tagged `v1.0.0-beta.3` and created the signed draft pre-release `1.0.0-beta.3` (versionCode 3, 2026-10-04; APK SHA-256 `8fe466f1…988f` in HANDOFF) |
 | 11 — Download flow (Snaptube style) | COMPLETE on `main` (`4db6c2b`, 2026-10-06; owner-tested with Preview #3, no tag) | Part 1 (P0–P7): browser follows in-page navigation, Facebook pages, one download sheet, all Facebook qualities, the focused feed video, 2K/4K as WebM, test-key preview APK. Part 2 (P9–P19): short sheet, slow networks, rows that never vanish, one lookup per page, wide Download button, real thumbnails, YouTube visionOS first, Facebook public page first, instant sheet, lookup reuse, early Download. The owner's Preview #3 test found the issues Phase 12 fixes; the signed `1.0.0-beta.4` (P8) moved behind Phase 12 |
 | 12 — Preview #3 field fixes | COMPLETE on `main` (`bc806f9`, 2026-10-06; owner-tested with Preview #4 on 2026-10-07: about 90% fine, no tag) | Saving video files (P20), Retry and failure details (P21), YouTube every quality (P22), Facebook every quality (P23), other sites' main video (P24), one sheet everywhere (P25), merge and Preview #4 (P26). Plan and prompts: `git show bc806f9:docs/FIX_ADD_PLAN.md`, `git show bc806f9:docs/prompts/`; the signed `1.0.0-beta.4` (P8) moved behind Phase 13 |
-| 13 — Preview #4 polish | MERGED (P33, 2026-10-07) on `work/phase-13-integration`; Preview #5 sent to the owner | YouTube merge without a silent 99% (P27, Agent A); other sites: the page's video instead of the pre-roll ad, the next video when one fails (P28, P29, Agent B); browser: Google search, history, pop-up and ad-redirect blocking (P30–P32, Agent C); merge and Preview #5 (P33); then the signed `1.0.0-beta.4` (P8). Plan: [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md) |
+| 13 — Preview #4 polish | COMPLETE on `main` (`436aa90`, docs `5a5bddb`, 2026-10-07; owner-tested with Preview #5 on 2026-10-08, no tag) | YouTube merge progress and a direct merge into Download/YFT (P27); other sites: the page's video instead of the pre-roll ad, the next video when one fails (P28, P29); browser: Google search, history, pop-up and ad-redirect blocking (P30–P32); merge and Preview #5 (P33). Plan and prompts: `git show 5a5bddb:docs/FIX_ADD_PLAN.md`, `git show 5a5bddb:docs/prompts/`; the signed `1.0.0-beta.4` (P8) moved behind Phase 14 |
+| 14 — Preview #5 field fixes | PLANNED (2026-10-08) on `work/phase-14-integration` | Downloads and merges keep going in the background, notification with %, speed and time left (P34, Agent A); faster merge by stream copy (P35, Agent C); TikTok Download on the For You feed and the phone page's data (P36, Agent B); fresh links instead of HTTP 410 on other sites (P37, Agent B); merge and Preview #6 (P38); then the signed `1.0.0-beta.4` (P8). Plan: [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md) |
 
 ## Current phase state
 
@@ -32,13 +33,15 @@ Phase 11 is complete and merged into `main` (`4db6c2b`, 2026-10-06, no tag). Pha
 is complete and merged into `main` (`bc806f9`, 2026-10-06, no tag); the owner tested it as
 Preview #4 on 2026-10-07 ("about 90% fine").
 
-Phase 13 (2026-10-07): three agents worked at once on their own branches from
-`work/phase-13-integration` (A: the YouTube merge at 99%, B: other sites' pre-roll ads, C: the
-browser's search, history and pop-ups); P33 merged A → B → C (1435 tests, 0 failures) and built
-Preview #5;
-`1.0.0-beta.4` (P8) waits for his phone test of Preview #5. Tasks, owner decisions, findings,
-file ownership and the phone checklist live in [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md); prompts are
-in [`prompts/`](prompts/README.md).
+Phase 13 (P27–P33, 2026-10-07) is complete and merged into `main` (`436aa90`, docs
+`5a5bddb`, no tag); the owner tested it as Preview #5 on 2026-10-08.
+
+Phase 14 (planned 2026-10-08): three agents work at once on their own branches from
+`work/phase-14-integration` (A: downloads and merges in the background with speed in the
+notification, B: TikTok's For You feed and fresh links instead of HTTP 410, C: a stream-copy
+merge); P38 merges A → B → C and builds Preview #6; `1.0.0-beta.4` (P8) waits for his phone test
+of Preview #6. Tasks, owner decisions, findings, file ownership and the phone checklist live in
+[`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md); prompts are in [`prompts/`](prompts/README.md).
 
 ## History
 

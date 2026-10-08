@@ -1051,3 +1051,26 @@ core-browser 88, app 690 (66 skipped), 0 failures; lint 0 errors, 95 warnings.
 | Full validation (2026-10-07) | `./gradlew --no-daemon --continue testDebugUnitTest lintDebug :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test :app:assembleDebug :app:compileDebugAndroidTestKotlin` → 1435 tests, 0 failures, 66 skipped (app 746, core-browser 133, core-data 33, core-download 150, core-media 28, core-model 98, extractor-api 32, extractor-generic 19, extractor-sites 196; was 1292 at P26); lint 0 errors; `:app:assembleRelease` OK; line check clean |
 | Emulator (B's detection with C's blocking on) | CI emulator smoke of `436aa90` (run 37575586251): "Instrumentation results: tests=29 failures=0" — `MergeSpeedInstrumentedTest` (P27), `PrerollInstrumentedTest` (P28) and `PopupAndRedirectInstrumentedTest` (P32) pass together; 0 FATAL EXCEPTION |
 | Owner check | Preview #5: FIX_ADD_PLAN §6 "Preview #5" items 1–7 |
+
+## Phase 14 (Preview #5 field fixes)
+
+Plan: `docs/FIX_ADD_PLAN.md` (P34–P38). Each agent fills only its own subsection; P38 adds the
+summary row. Starting state (P33, `436aa90`): 1435 tests, 0 failures, 66 skipped.
+
+### Agent A — P34
+
+| Check | Evidence |
+| --- | --- |
+| P34 | (Agent A fills this in.) |
+
+### Agent B — P36, P37
+
+| Check | Evidence |
+| --- | --- |
+| P36, P37 | (Agent B fills this in.) |
+
+### Agent C — P35
+
+| Check | Evidence |
+| --- | --- |
+| P35 | (Agent C fills this in.) |

@@ -2,26 +2,30 @@
 
 Update this file before every checkpoint push. Keep it factual so another chat can resume.
 
-Phase 13 runs three agents at the same time. **Each agent edits only its own section below**
-(`## Agent A …`, `## Agent B …`, `## Agent C …`); `## Overview` belongs to the plan and to P33.
+Phase 14 runs three agents at the same time. **Each agent edits only its own section below**
+(`## Agent A …`, `## Agent B …`, `## Agent C …`); `## Overview` belongs to the plan and to P38.
 Keep at least the heading and one blank line between sections, so Git merges them cleanly.
 
-## Overview (plan and integration — P33 only)
+## Overview (plan and integration — P38 only)
 
-- Phase: 13 — Preview #4 polish (other sites' pre-roll ads, YouTube merge at 99%, browser
-  search, history and pop-ups). Plan: `docs/FIX_ADD_PLAN.md`; prompts: `docs/prompts/README.md`.
-- Branches: integration `work/phase-13-integration` = `main` `bc806f9` + the plan commit. Agent A
-  `work/phase-13-merge-speed` (P27, later P33), Agent B `work/phase-13-generic-main` (P28, P29),
-  Agent C `work/phase-13-browser` (P30, P31, P32); all start from
-  `origin/work/phase-13-integration`. Merge order A → B → C (P33), then Preview #5; P8 (signed
-  `1.0.0-beta.4`) only with the owner's OK. Nobody pushes to `main` without the owner's OK.
-- Owner's test of Preview #4 (2026-10-07, run 37530061595, `bc806f9`): "about 90% fine". Open:
-  on a free video site without an adapter the sheet opens the pre-roll ad (0:30, 1080p MP4)
-  instead of the page's video (16:24, 720p HLS, only under Other videos) and one page shows
-  HTTP 410; long YouTube live recordings wait a long time at 99% (the merge); the browser
-  searches DuckDuckGo, has no history, and ads redirect the tab to other sites. Root causes
-  R7–R15 in FIX_ADD_PLAN §4; owner decisions F1–F6 in §3 (defaults: A+ generic, Google,
-  history on, blocking on, direct mux, three agents).
+- Phase: 14 — Preview #5 field fixes (downloads and merges that keep going in the background
+  with %, speed and time left in the notification; a faster merge; TikTok on the For You feed;
+  fresh links instead of HTTP 410 on other sites). Plan: `docs/FIX_ADD_PLAN.md`; prompts:
+  `docs/prompts/README.md`.
+- Branches: integration `work/phase-14-integration` = `main` `5a5bddb` + the plan commit. Agent A
+  `work/phase-14-background` (P34, later P38), Agent B `work/phase-14-sites` (P36, P37), Agent C
+  `work/phase-14-fast-merge` (P35); all start from `origin/work/phase-14-integration`. Merge
+  order A → B → C (P38), then Preview #6; P8 (signed `1.0.0-beta.4`) only with the owner's OK.
+  Nobody pushes to `main` without the owner's OK.
+- Owner's test of Preview #5 (2026-10-08, run 37575586233, `436aa90`): some pages of a site
+  without an adapter answer HTTP 410 (manifest and MP4) until a manual reload, and Try again
+  repeats it; a 1-hour YouTube merge takes about 2 minutes and stops while YFT is in the
+  background; TikTok's For You feed says "No video on screen to download"; downloads should go on
+  in the background with % and speed in the notification. Root causes R16–R24 in FIX_ADD_PLAN
+  §4; owner decisions G1–G8 in §3 (defaults: three agents, stream-copy merge, wake lock, battery
+  card, finished notice, TikTok qualities from the desktop page, two quiet re-reads).
+- CI: since the plan commit, pushes that change only `docs/**` or `*.md` start no checkpoint
+  validation (`paths-ignore`); "green CI" means the newest commit that changed code.
 - Rules: ADR-006 public videos only; no DRM/paywall/private/age-gate bypass; adapters never sign
   in; agents never automate a page's age or identity check. Never print/commit cookies, tokens,
   visitor data, signed media/image URLs or keys. Keep testTags, Kotlin lines ≤ 100, WebView on
@@ -35,335 +39,30 @@ Keep at least the heading and one blank line between sections, so Git merges the
   files, reinstall missing SDK parts and `git pull --ff-only` first. Push with SSH: when
   `/data/.ssh/id_ed25519` is missing make a **new** key (never search for old keys), show the
   owner the public line and wait until he adds it as a deploy key with write access.
-- Phase 12 record (per-task Results, validation, CI runs, P26 merge notes):
-  `git show bc806f9:docs/SESSION_STATE.md`. Phase 11: `git show 4db6c2b:docs/SESSION_STATE.md`.
-- P33 (Agent A, 2026-10-07): `git merge --no-ff` A (`89e985a`) → B (`0b1a11a`) → C
-  (`81c3e97`) on `work/phase-13-integration`: no conflicts (shared docs merged by Git, each
-  agent in its own section); Room at version 6; C's Google line in `BrowserViewModelTest` kept;
-  no hand-offs open. Full validation (one run after the three merges; it covers every agent's
-  scope): 1435 tests, 0 failures, 66 skipped (app 746, core-browser 133, core-data 33,
-  core-download 150, core-media 28, core-model 98, extractor-api 32, extractor-generic 19,
-  extractor-sites 196); lint 0 errors (app 95 warnings, as before); `:app:assembleDebug`,
-  `:app:assembleRelease` and `:app:compileDebugAndroidTestKotlin` OK; line check clean.
-- CI of the merge checkpoint `436aa90`, all green: checkpoint validation https://github.com/Alalkipgen/YFT/actions/runs/37575586593, emulator
-  smoke ("Instrumentation results: tests=29 failures=0"; P27 in place 4.1 s, today's path 4.1 s
-  for the 20-minute input) https://github.com/Alalkipgen/YFT/actions/runs/37575586251, Preview
-  APK = **Preview #5** (`yft-preview-apk`) https://github.com/Alalkipgen/YFT/actions/runs/37575586233.
-- `main`: fast-forwarded `bc806f9` → `436aa90` on 2026-10-07 at the owner's request (he asked
-  to push `main` right after the merge, before his phone test); no tag. This docs checkpoint
-  follows on `main` once its validation is green.
-- Last pushed checkpoint: P33: Preview #5, CI links, main (this commit, docs only).
-- Next: the owner's phone test of Preview #5 (FIX_ADD_PLAN §6); P8 (signed `1.0.0-beta.4`,
-  `docs/prompts/P8-signed-beta4.md`) only with his OK.
-- Last updated: 2026-10-07 (P33)
+- Phase 13 record (per-task Results, validation, CI runs, P33 merge notes):
+  `git show 5a5bddb:docs/SESSION_STATE.md`. Phase 12: `git show bc806f9:docs/SESSION_STATE.md`.
+- Last pushed checkpoint: PLAN: Phase 14 (this commit, docs and the CI trigger, on
+  `work/phase-14-integration`).
+- Next: the owner pastes `docs/prompts/A-background.md`, `B-tiktok-fresh-links.md` and
+  `C-fast-merge.md` into three new agent chats; when all three are READY FOR MERGE, Agent A runs
+  `M-merge-preview6.md` (P38, Preview #6); P8 only with the owner's OK after Preview #6.
+- Last updated: 2026-10-08 (Phase 14 plan)
 
-## Agent A — `work/phase-13-merge-speed` (P27; later P33)
+## Agent A — `work/phase-14-background` (P34; later P38)
 
-- Status: P33 DONE (2026-10-07) — merge `436aa90`, CI green, Preview #5 sent, `main` =
-  `436aa90`; waiting for the owner's phone test. P27 READY FOR MERGE —
-  last code commit `83478f0`, CI green (started 2026-10-07, base `7873d51` =
-  `origin/work/phase-13-integration`); merged by P33.
-- Folder `/data/YFT-A`; push with the deploy key (`origin` = SSH, `/data/.ssh/id_ed25519`).
-- Starting state (before any edit, the Agent A command): BUILD SUCCESSFUL; core-download 141
-  tests, core-model 80, app 690 (66 skipped), 0 failures; lint 0 errors (95 warnings);
-  androidTest Kotlin compiles.
-- P27 — YouTube: no long wait at 99%: DONE (2026-10-07) — OWNER CHECK on the phone
-  - Result: `AudioVideoMuxEngine` reports the merge (`AudioVideoMuxStage.MUXING`, samples
-    written / track time, `AudioVideoMuxCheckpoint.stepDone`/`stepTotal`/`stepPercent`, added
-    with defaults, not stored) and the copy (new stage `SAVING`, bytes). `DownloadStage` in
-    `DownloadsUiState` turns it into "Merging audio and video · 45%" and "Saving to Download/YFT ·
-    80%" (app storage, the chosen folder) on the card (testTag `download-stage-<id>`, the bar
-    follows the step; indeterminate before the first sample) and in the notification.
-    `DownloadDestination.openFileDescriptorOutput()` (added, default null): app storage gives
-    its `.part` file, MediaStore and SAF a "rw" descriptor that must be seekable. On API 26+
-    with one, `AndroidMp4AudioVideoMuxer` (now `ProgressAudioVideoMuxer`, `MergeProgress.kt`)
-    merges into it with `MediaMuxer(FileDescriptor, …)`; the engine checks the length, syncs and
-    commits — no second copy. Without one, or on Android 7.x, today's path with a 1 MiB copy
-    buffer; an in-place merge that fails before its first sample falls back once. Space check
-    before the destination is touched (in place: tracks + 8 MiB; today's path: twice the tracks +
-    8 MiB) → `INSUFFICIENT_STORAGE` at `MERGE`, "Merging needs X and Y is free" (free space from
-    `StorageSpace` for Download/YFT). One log line per merge, "Merge done (in place|copy):
-    video …, audio …, merge …, copy …, sync …, commit …; <size>" (no addresses); a failure's
-    detail gets "took …".
-  - Plan adapted: (1) today's path deletes the track files after a good merge, before the copy
-    (frees their space at once), so a failure after that starts the download over (empty
-    checkpoint) instead of merging again. (2) The emulator's 20-minute input is made by
-    repeating the 1-second test tracks' `moof`/`mdat` pairs under one new `sidx`
-    (`LongFragmentedMp4`, androidTest) — no encoder on the CI emulator, no large asset in Git.
-    (3) The space check runs before the destination is touched, so a failed check leaves no
-    empty file in Download/YFT.
-  - Tests: `AudioVideoMuxMergeTest` (8), `PublicDownloadDestinationTest` +1, `DownloadModelsTest`
-    (step percent), `MergeStageLabelsTest` (4), `DownloadsScreenTest` +1,
-    `DownloadNotificationFactoryTest` +1; instrumented `MergeSpeedInstrumentedTest` (2): a direct
-    merge into a new MediaStore item → playable (AVC + AAC, 160×90, 15 frames, a decoded frame);
-    the 20-minute timing test (read pass, in place, today's path).
-  - Validation (2026-10-07, Agent A command): BUILD SUCCESSFUL; core-download 150 tests,
-    core-model 80, app 696 (66 skipped), 0 failures; lint 0 errors (95 warnings);
-    `:app:compileDebugAndroidTestKotlin` OK; line check clean.
-  - Regression proof: with `AudioVideoMuxEngine.kt`, `DownloadsUiState.kt`, `DownloadLabels.kt`,
-    `DownloadsScreen.kt`, `DownloadNotificationFactory.kt` and `DownloadRuntimeModule.kt` from
-    `7873d51` (backup `/data/bak/P27/`; the test's engine helper without the new parameters),
-    13 new tests fail: all 8 `AudioVideoMuxMergeTest` (no merge percent; "file without
-    progress" instead of the descriptor; `Completed` instead of the space failure and of the
-    failure after a sample; no "Merge done" line; the stop not reached), `MergeStageLabelsTest`
-    "a merging download shows the merge and its percent, not 99 percent", "saving names where the
-    merged file goes, with its percent", "before its first sample the merge has no percent and
-    the bar moves on its own" (all "954 of 954 MB"), `DownloadsScreenTest`
-    "mergedTaskShowsItsMergeThenItsCopyWithTheirPercent" (no `download-stage-m`),
-    `DownloadNotificationFactoryTest` "a merged download shows its merge and then its copy with
-    their percent"; restored with `cp`, checked with `cmp`.
-  - Measured split (CI emulator, API 34, `83478f0`): 20-minute input, 70 785 samples, 17 MB.
-    Read once with `MediaExtractor` alone: 2.1 s. In place: merge 6.7 s, copy 0, commit 60 ms,
-    total 6.8 s. Today's path (`sdkInt = 25`): merge 7.1 s, copy 13 ms, sync 12 ms, commit
-    36 ms, total 7.2 s. 101 merge percents (0–100) each way. The merge is about 95 µs per
-    sample; reading is under a third of it, so `MediaExtractor` is not the slow part (no backlog
-    note). The emulator's 17 MB copy sits in its page cache; on a phone the copy of a 1.3 GB
-    file (read 1.3 GB, write 1.3 GB, sync) is the wait the direct merge removes.
-  - CI (`d978201`): checkpoint validation success
-    https://github.com/Alalkipgen/YFT/actions/runs/37562550278; Preview APK success
-    https://github.com/Alalkipgen/YFT/actions/runs/37562550232; emulator smoke failure
-    https://github.com/Alalkipgen/YFT/actions/runs/37562550248 ("tests=25 failures=2": both
-    `MergeSpeedInstrumentedTest` tests stopped at `IllegalArgumentException` — the test's fake
-    track checkpoint had a fingerprint that is not hex; a test bug, fixed in the next commit).
-    Its read pass: 20 min, 70 785 samples, 17 MB, read once in 1.8 s (sdk 34).
-  - CI (`83478f0`): emulator smoke success, "Instrumentation results: tests=25 failures=0" (23
-    before + the 2 `MergeSpeedInstrumentedTest` tests)
-    https://github.com/Alalkipgen/YFT/actions/runs/37563836036; Preview APK success
-    https://github.com/Alalkipgen/YFT/actions/runs/37563836037; checkpoint validation success
-    https://github.com/Alalkipgen/YFT/actions/runs/37563836046.
-  - Owner check: a YouTube live recording of 1 h or more at 480p or 720p → after the download
-    "Merging audio and video · …%", then "Saving to Download/YFT · …%"; a much shorter wait than
-    in Preview #4; the file plays.
+- Status: NOT STARTED
+- P34 — Downloads and merges keep going in the background; speed in the notification: TODO
 - Hand-offs: none
 
-## Agent B — `work/phase-13-generic-main` (P28, P29)
+## Agent B — `work/phase-14-sites` (P36, P37)
 
-- Status: READY FOR MERGE — last code commit `a47926d`, CI green:
-  [checkpoint validation](https://github.com/Alalkipgen/YFT/actions/runs/37569543911),
-  [Preview APK](https://github.com/Alalkipgen/YFT/actions/runs/37569543931),
-  [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37569543932); P28, P29
-  OWNER CHECK. Started 2026-10-07 in `/data/YFT-B`, base commit `7873d51`
-  (`origin/work/phase-13-integration`, the Phase 13 plan on `main` `bc806f9`).
-- Environment: rebuilt after a sandbox reset (JDK 17 `/data/toolchains/jdk17`, SDK 35,
-  build-tools 35.0.0, NDK 27.3.13750724, CMake 3.22.1, 4 GiB swap); new SSH deploy key
-  (owner added it, push checked).
-- Starting state (Agent B scope, before any edit): `./gradlew --no-daemon --continue
-  :core-model:test :core-browser:testDebugUnitTest :core-media:testDebugUnitTest
-  :extractor-generic:test :app:testDebugUnitTest :app:lintDebug
-  :app:compileDebugAndroidTestKotlin` → BUILD SUCCESSFUL (9m 22s): 905 tests, 0 failures,
-  66 skipped (app 690, core-browser 88, core-media 28, core-model 80, extractor-generic 19);
-  lint 0 errors.
-- P28 — Other sites: the page's video, not the ad before it: OWNER CHECK (2026-10-07)
-  - Result: on a site without an adapter the browser and Home read the page's stated length,
-    title and picture (meta tags and JSON-LD only, also a VideoObject naming an embed page) and
-    its player's setup (JW Player, video.js, KVS `flashvars`, quality lists). With a stated
-    length of 2 min or more, Download during the pre-roll opens the file of that length (else
-    the one the page or its player names) with the page's title and picture; a file under half
-    the length, the free video sites' ad networks and the file a frame fetches within 6 s after
-    asking another site for a VAST/VMAP ad break go under Other videos. With only the ad so far
-    the sheet shows "Finding the page's video…" for up to 6 s and switches by itself, else the
-    ad with `quick-maybe-ad`. Every entry takes the page's title and picture where its files
-    name none. New: `PageVideoFacts`, `PageFactsReader`, `PlayerSetupScanner`, `MiniJson`,
-    `VastAdTracker`; `MediaGroups` (`withPageRoles`, `withPageFacts`, `mayBeAdBefore`,
-    `mainVideo`/`ofPage`/`looksLikePreview` with facts; `nextVideo`, `refreshed` for P29).
-  - Plan adapted: the VAST/VMAP *answer* is not visible to the browser's request hook (it sees
-    requests, not responses), so an ad break is known by its address (`vast`/`vmap` as a whole
-    path part) and its ad is the next file the same frame (same `Referer` origin) fetches from
-    another site within 6 s. `adtng` is not on the ad list (not confirmed); the eleven domains
-    listed are the ad networks' own.
-  - Validation (2026-10-07): 955 tests, 0 failures, 66 skipped (app 699, core-browser 114,
-    core-media 28, core-model 95, extractor-generic 19); lint 0 errors; androidTest compiles;
-    line check empty.
-  - Regression proof: old code `679ec78` with the new tests in its API: 4 of 4 failed
-    (`PrerollFixtureTest` download during the ad → the 0:30 ad; `AdBreakTest` ad networks;
-    `PlayerSetupScannerTest` video.js setup → 2 videos; `BrowserPageVideoWaitTest` download
-    during the ad → the ad). Backup `/data/bak/P28` (38 files), `cmp` equal.
-  - Live check: skipped — the owner's kind of site shows an age gate first, which YFT never
-    automates (ADR-006); the fixtures copy the Preview #4 case. Instrumented
-    `PrerollInstrumentedTest` runs on the CI emulator.
-  - CI (`f334f55`): [checkpoint validation](https://github.com/Alalkipgen/YFT/actions/runs/37560950060)
-    green, [Preview APK](https://github.com/Alalkipgen/YFT/actions/runs/37560950114) green,
-    [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37560950074) red (1 of 24:
-    `PrerollInstrumentedTest` "the stream was asked for"). The P29 commit `32d2472` gave the
-    test the hook's reports, but its [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37563179756)
-    was red too (the stated length null). Cause, from `YFT-DIAG p28-preroll` lines at
-    `4f9447b` ([emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37567826899)): the WebView
-    showed its own error page ("Webpage not available": 1 meta tag, no scripts, no JSON-LD)
-    because the test answered every request with 404, the WebView's `data:` load of the
-    `loadDataWithBaseURL` page included; the device reads the fixture's HTML as 16:24, so the
-    app's code was right. Fix: the test loads the page's address and serves the page for it,
-    and checks first that the fixture, not an error page, loaded. Fix `a47926d`:
-    [checkpoint validation](https://github.com/Alalkipgen/YFT/actions/runs/37569543911) green,
-    [Preview APK](https://github.com/Alalkipgen/YFT/actions/runs/37569543931) green,
-    [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37569543932) green (24 tests,
-    0 failures). Validation: 962 tests, 0 failures, 66 skipped; lint 0 errors; androidTest
-    compiles; line check empty. Regression proof: the same test red before the fix, green after.
-  - Owner check: the site from Preview #4, Download while the ad plays → the page's title,
-    picture and length with 480p/720p; the ad only under Other videos.
-- P29 — Other sites: the next video when one fails: OWNER CHECK (2026-10-07)
-  - Result: when the sheet cannot prepare a page's video (no adapter) because its file is gone
-    (HTTP 403, 404, 410 or `INVALID_URL`) and the page has another video that is not an ad or a
-    preview, it prepares that one once, by itself (`MediaGroups.nextVideo`, P28's order), with
-    "The first file is gone — showing the next video" (`quick-next-video`) and Details
-    (`quick-next-video-details`) listing both attempts; when the next one fails too, the
-    failure's Details list both. Try again asks for the page's current files first
-    (`MediaGroups.refreshed`: same address, same file without its signed query, else same
-    length): the browser keeps the store's page current; for a page Home found the store asks
-    Home to read it again quietly (`DetectedMediaStore.readPageAgain` / `pageReads`, up to 20 s;
-    `DetectedPage.owner`). Every entry keeps P28's page title and picture.
-  - Validation (2026-10-07): 962 tests, 0 failures, 66 skipped (app 706, core-browser 114,
-    core-media 28, core-model 95, extractor-generic 19); lint 0 errors; androidTest compiles;
-    line check empty.
-  - Regression proof: P28 code `f334f55` (`git archive` to `/data/tmp/p29-old`) with the new
-    sheet tests (the asserts on the new state fields and the Home-read test held aside): 3 of 4
-    failed — "a gone first file shows the page's next video…" (the HTTP 410 error), "when the
-    next video fails too…" (HTTP 410 shown, the next video never tried), "Try again asks the
-    store's newest address…" (the dead `token=old` address again); "an ad or a preview is never
-    the next video" passes (guard). Backup `/data/bak/P29` (8 Kotlin files), `cmp` equal.
-  - Live check: skipped (same reason as P28); the tests copy the Preview #4 "HTTP 410" case.
-  - CI (`32d2472`): [checkpoint validation](https://github.com/Alalkipgen/YFT/actions/runs/37563179633)
-    green, [Preview APK](https://github.com/Alalkipgen/YFT/actions/runs/37563179635) green,
-    [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37563179756) red only in P28's
-    `PrerollInstrumentedTest` (see P28 CI); with the P28 test fix `a47926d` all three green
-    (links under P28 CI).
-  - Owner check: the page that showed "HTTP 410" in Preview #4 → the sheet opens a working
-    video (or the page's own after P28) without the error.
+- Status: NOT STARTED
+- P36 — TikTok: Download on the For You feed and video pages: TODO
+- P37 — Other sites: fresh links instead of HTTP 410: TODO
 - Hand-offs: none
 
-## Agent C — `work/phase-13-browser` (P30, P31, P32)
+## Agent C — `work/phase-14-fast-merge` (P35)
 
-- Status: READY FOR MERGE (P30, P31, P32 done; owner checks pending on the phone). Last code
-  commit `d69811a` (P32), every CI run green.
-- Started 2026-10-07 in `/data/YFT-C` from `origin/work/phase-13-integration` `7873d51`.
-  Starting state (`/data/tmp/validate-c.sh`: core-model, core-data, core-browser and app unit
-  tests, `:app:lintDebug`, `:app:compileDebugAndroidTestKotlin`): core-model 80, core-data 18,
-  core-browser 88, app 690 (66 skipped), 0 failures; lint 0 errors, 95 warnings.
-- Environment after a sandbox reset: NDK 27.3.13750724 and CMake 3.22.1 reinstalled with
-  `sdkmanager`; a new deploy key `/data/.ssh/id_ed25519` (added by the owner).
-- P30 — Browser: Google search: OWNER CHECK
-  - Result: words typed in the address bar or on the start page search Google
-    (`https://www.google.com/search?q=…`, every character encoded). Settings › Browser ›
-    Search engine offers Google (default), DuckDuckGo and Bing, stored in DataStore
-    (`browser_search_engine`; a missing or unknown value reads as Google, so an old install
-    gets Google). The start page's row says "Search Google for “…”" (or the chosen engine).
-  - Plan adapted: the plan put the engine in `BrowserViewModel` (Agent B's file). Instead a
-    small `BrowserSettingsViewModel` (Agent C) gives the route the preferences and the route
-    sets `BrowserSearch.engine`; `BrowserSearch.webUrl(words)` keeps its signature and uses that
-    engine, so the view model's search follows the setting without changing B's file. One line
-    of B's test `BrowserViewModelTest` (expected DuckDuckGo address → Google) had to change in
-    this branch, because that test checks the default. The Browser group sits between Downloads
-    and Privacy in Settings.
-  - Validation: see the checkpoint line below.
-  - Regression proof: the old `BrowserSearch.kt`, `BrowserStartPage.kt` and `BrowserScreen.kt`
-    (`/data/bak/P30/orig`) with the new tests (those needing the new API held aside): 5 of 75
-    fail — `BrowserRouteTest.typedWordsSearchGoogleByDefault`,
-    `BrowserScreenTest.wordsOfferYouTubeAndGoogleSearchRows`,
-    `BrowserSearchTest.theWebSearchIsGoogleWithEveryCharacterEncoded`,
-    `BrowserSearchTest.searchAddressesEncodeTheWords`,
-    `BrowserViewModelTest.wordsInTheAddressFieldSearchTheWebInsteadOfFailing`; new files
-    restored with `cp`, `cmp` equal.
-  - Owner check: type words (for example `myanmar news`) in the address bar → Google results;
-    the start page shows "Search Google for “…”"; Settings › Browser › Search engine →
-    DuckDuckGo → the next search opens DuckDuckGo; back to Google.
-  - Checkpoint `521b0b6`; CI green: checkpoint validation
-    https://github.com/Alalkipgen/YFT/actions/runs/37551748282, emulator smoke
-    https://github.com/Alalkipgen/YFT/actions/runs/37551748382, Preview APK
-    https://github.com/Alalkipgen/YFT/actions/runs/37551748312. P30 validation:
-    core-model 81, core-data 20, core-browser 88, app 698 (66 skipped), 0 failures; lint
-    0 errors, 95 warnings (unchanged); `:app:compileDebugAndroidTestKotlin` OK.
-- P31 — Browser history: OWNER CHECK
-  - Result: Room 6 adds `browser_history` (`url` key, `title`, `host`, `last_visited_at`
-    with an index, `visit_count`); `MIGRATION_5_6` only creates the table and its index
-    (schema `core-data/schemas/…/6.json`). `BrowserHistoryDao` (visit = update, else insert,
-    in one transaction — Android 7's SQLite has no UPSERT; newest, search by title, host or
-    address with `%` and `_` taken literally, rename, delete, delete all, prune). Rules in
-    `BrowserHistoryAddress`: HTTPS only (never `about:`, `data:`, HTTP, files or the start
-    page), no fragment, no user name or password, no `utm_*`, `fbclid`, `gclid`, `dclid`,
-    `gbraid`, `wbraid`, `msclkid`, `igshid`, `mc_eid`, `yclid`; 90 days and 5,000 pages kept.
-    `BrowserHistoryRecorder` decides what a visit is: a page that finished without a
-    main-frame error (once per document), and a single-page site's own address change after
-    it finished (YouTube's videos); redirects while loading, fragments and tracking parameters
-    are no new visit; the title follows from the new `onPageTitle` (`onReceivedTitle`).
-    `HistoryRecordingSink` wraps the browser's view model as the WebView's sink (every event
-    passed on unchanged, same order and thread). `BrowserHistoryViewModel` checks Settings ›
-    Browser › Save browser history at each visit and runs writes in order. UI: the toolbar's
-    new menu button (`browser-menu`) › History (`browser-menu-history`) opens a full-screen
-    list inside the browser screen (`browser-history`: search box, Today / Yesterday /
-    Earlier, a tap opens the page, a row's menu deletes it, Clear history with a
-    confirmation, Back closes it); the start page shows the last six pages under Recent
-    (`browser-recent`, "History" opens the list). Settings › Browser: "Save browser history"
-    (`settings-save-history`, default on) and "Clear browser history"
-    (`settings-clear-history`, with a confirmation); "Clear browsing data" clears the history
-    too (`BrowserHistoryCleaner` in the composite cleaner; its dialog says so).
-  - Plan adapted: the browser had no menu; the menu button is the toolbar's fifth button (the
-    top row keeps its address field width). The recorder is a sink wrapper in Agent C's files
-    instead of a change in `BrowserViewModel`; one new sink method with a default body
-    (`onPageTitle`).
-  - Validation: see Last validation below.
-  - Regression proof (the new tests need the new API, so the behaviour was broken on purpose
-    in a copy and restored): the WebView's sink back to the view model, tracking parameters
-    kept, the switch ignored, the migration's index left out, the count not raised → 8 tests
-    fail (both migration tests, the address rules, the title and count tests, the recorder's
-    single-page test, the switch test, the route's WebView-to-history test); files restored
-    from `/data/bak/P31/new` with `cp`, `cmp` equal.
-  - Owner check: open three sites in the browser → menu (⋯ at the bottom right) › History
-    lists them, newest first, under Today; a tap opens one; a row's ⋯ › Delete removes it;
-    Clear history › Clear empties the list; the start page shows them under Recent;
-    Settings › Browser › Save browser history off → new pages are not added.
-  - Checkpoint `e9899f2`; CI: checkpoint validation
-    https://github.com/Alalkipgen/YFT/actions/runs/37555932478 and emulator smoke
-    https://github.com/Alalkipgen/YFT/actions/runs/37555932456 green. Preview APK
-    https://github.com/Alalkipgen/YFT/actions/runs/37555932462 failed 21 s into its build step,
-    before Gradle compiled anything (a runner problem; logs need a token). The same commit's
-    preview build passed here (`:app:assemblePreview`, `verify-release-apk.sh`: VERIFIED), and
-    P32's push builds the preview again.
-- P32 — Block pop-ups and ad redirects: OWNER CHECK
-  - Result: `AdRedirectPolicy` (pure, `core-browser/.../policy/`) decides where a page may
-    send the tab. Blocked: a host on YFT's own list `AdNetworks` (20 pop-up and redirect ad
-    networks, 32 hosts and their subdomains, each family with its reason; written for YFT, no
-    copied filter list) as a page navigation, a redirect hop or a new window; and a navigation
-    to another site that the page started without the user's tap (`!hasGesture()`, not a
-    server redirect) once the page has opened (finished 1.5 s ago or loading for 8 s, so a
-    page that forwards while it opens — `l.facebook.com`, `t.co`, Google's `/url` — still
-    forwards). Allowed: taps on links (also to other sites), the same site (`m.youtube.com` =
-    `youtube.com`; `bbc.co.uk`, `….com.mm`, `….github.io` known), server redirects, and what the
-    user typed or picked (`loadPage` → `BrowserNavigationGuard.userNavigation()`: that page, its
-    redirects and forwards until it opened, at most 10 s); app links as before. New windows:
-    multiple windows on (scripts still need a tap) and `SecureBrowserChromeClient.onCreateWindow`
-    hands the window a hidden WebView (`PopupWindowCatcher`: no scripts, gone after its first
-    web address or 10 s); a tap's window to the same site opens in the current tab, every
-    other window is blocked. Scripts, frames and images of the listed networks get an empty
-    answer in `shouldInterceptRequest` after the sink saw the request; ExoClick and
-    TrafficStars keep theirs because they also serve players' ads (F4: a site's own video ads
-    stay). The browser shows "Pop-up blocked" or "Blocked a redirect to `host`" with Open
-    (`browser-blocked-notice`, `browser-blocked-open`; 4 s, under the address bar); Open loads
-    it in this tab as the user's choice. Settings › Browser › "Block pop-ups and ad redirects"
-    (`settings-block-popups`, default on, DataStore `browser_block_popups`); off → windows
-    open in the current tab and every address loads as before P32. A blocked page never
-    loads, so P31 never records it.
-  - Plan adapted: contracts kept — both WebView clients take an optional `guard` (null = the
-    old behaviour), the sink gets one method with a default body (`onNavigationBlocked`), the
-    sink's calls keep their order and threads (the guard is asked after them). The emulator
-    test hosts the real WebView, policy, clients, guard and notice in a Compose test instead
-    of the whole browser screen (local fixture pages, no network page needed).
-  - Validation: see Last validation below.
-  - Regression proof: the old behaviour put back in copies (navigations never blocked, scripts
-    never emptied, windows always opened here, multiple windows off, the switch not stored)
-    → 7 tests fail: `SecureBrowserWebViewClientTest` (the page's own redirect, listed networks,
-    listed scripts), `SecureBrowserChromeClientTest` (windows), `SecureWebViewPolicyTest`,
-    `DataStoreBrowserPreferencesRepositoryTest` (pop-up switch), `BrowserRouteTest` (notice and
-    Open); files restored from `/data/bak/P32/new` with `cp`, `cmp` equal.
-  - Owner check: on the sites where ads used to jump to spam pages, taps on the page and its
-    ads no longer leave it; "Pop-up blocked · Open" opens the blocked page when wanted; a
-    normal link to another site still opens; videos still play and Download still works;
-    Settings › Browser › Block pop-ups and ad redirects off → pages behave as before.
-  - Checkpoint `d69811a`; CI green: checkpoint validation
-    https://github.com/Alalkipgen/YFT/actions/runs/37560496883, emulator smoke (with
-    `PopupAndRedirectInstrumentedTest`) https://github.com/Alalkipgen/YFT/actions/runs/37560496916,
-    Preview APK https://github.com/Alalkipgen/YFT/actions/runs/37560496886 (the preview is
-    built again and green after P31's runner failure).
-- Last validation (P32, 2026-10-07): `/data/tmp/validate-c.sh` → core-model 83, core-data 33,
-  core-browser 107, app 724 (66 skipped), 0 failures; lint 0 errors, 95 warnings (unchanged);
-  `:app:compileDebugAndroidTestKotlin` OK (the new emulator test runs in CI); line check empty.
-- Hand-offs: none. Note for Agent B: this branch changes line 80 of `BrowserViewModelTest`
-  (expected search address DuckDuckGo → Google); keep Google when merging.
+- Status: NOT STARTED
+- P35 — Faster merge for long videos: TODO
+- Hand-offs: none

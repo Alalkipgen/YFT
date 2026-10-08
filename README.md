@@ -12,16 +12,16 @@ YFT is an ad-free Android application for detecting, previewing and downloading 
   YouTube 480p–1080p with sound plus MP3. Notes and the phone checklist:
   [`docs/release/1.0.0-beta.3.md`](docs/release/1.0.0-beta.3.md); signed draft pre-release
   2026-10-04.
-- In progress: Phase 12 — fixes from the owner's test of Preview #3: video files that save again,
-  Retry with failure details, every YouTube quality (144p–4K) with sizes, Facebook 720p and Audio
-  from every link, other sites' main video instead of previews, and one download sheet that looks
-  the same everywhere; then Preview #4 and the signed `1.0.0-beta.4`. Plan:
+- In progress: Phase 14 — fixes from the owner's test of Preview #5: downloads and merges that
+  keep going in the background with %, speed and time left in the notification, a much faster
+  merge for long videos, TikTok Download on the For You feed, and fresh links instead of HTTP 410
+  on other sites; then Preview #6 and the signed `1.0.0-beta.4`. Plan:
   [`docs/FIX_ADD_PLAN.md`](docs/FIX_ADD_PLAN.md).
-- On `main`, not yet released: Phase 11 — download flow like Snaptube (browser navigation,
-  Facebook pages, one short download sheet with a pinned Download button, all Facebook qualities,
-  feeds, 2K/4K as WebM, slow-network lookups, one lookup per video, a wide Download button, real
-  thumbnails, a sheet that opens at once, Download before the qualities arrive, test-key preview
-  APKs).
+- On `main`, not yet released: Phases 11–13 — download flow like Snaptube (one short download
+  sheet, all Facebook qualities, 2K/4K, real thumbnails, test-key preview APKs), video files that
+  save again, Retry with failure details, every YouTube quality (144p–4K), other sites' main
+  video instead of pre-roll ads, merge progress, Google search, browser history and pop-up
+  blocking.
 - Complete: Phases 0–10, 5E (YouTube by owner decision,
   [ADR-005](docs/decisions/ADR-005-youtube-owner-override.md)) and the UI redesign
   ([`docs/design/DESIGN-NOTES.md`](docs/design/DESIGN-NOTES.md)); see
@@ -67,10 +67,10 @@ Verified with JVM, Robolectric and fixture tests; on-device checks that the agen
 ## For agents
 
 Read [`AGENTS.md`](AGENTS.md) first. Work is planned task by task in
-[`docs/FIX_ADD_PLAN.md`](docs/FIX_ADD_PLAN.md) (Phase 13: three agents in parallel, each with its
+[`docs/FIX_ADD_PLAN.md`](docs/FIX_ADD_PLAN.md) (Phase 14: three agents in parallel, each with its
 own branch and files); ready-to-paste prompts are in [`docs/prompts/`](docs/prompts/README.md)
-(one per agent: `A-merge-speed.md`, `B-generic-main.md`, `C-browser.md`, then
-`M-merge-preview5.md`). Development happens on `work/phase-*` branches with a remote checkpoint
+(one per agent: `A-background.md`, `B-tiktok-fresh-links.md`, `C-fast-merge.md`, then
+`M-merge-preview6.md`). Development happens on `work/phase-*` branches with a remote checkpoint
 (`scripts/checkpoint.sh`) after every task; local commits and stashes are not handoffs.
 
 Docs: [`PROJECT_CONTEXT`](docs/PROJECT_CONTEXT.md) (goals, privacy) ·

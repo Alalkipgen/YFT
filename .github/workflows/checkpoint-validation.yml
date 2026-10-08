@@ -1,12 +1,21 @@
 name: Work-branch checkpoint validation
 
 on:
+  # Documentation-only pushes (plans, prompts, status notes) start no Gradle run; a push that
+  # also changes code, scripts, Gradle files or workflows still runs it. Run by hand with
+  # workflow_dispatch when needed.
   push:
     branches:
       - "work/**"
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
   workflow_dispatch:
 
 permissions:

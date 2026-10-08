@@ -1,61 +1,63 @@
 # Handoff
 
-## Current handoff (2026-10-07)
+## Current handoff (2026-10-08)
 
-- **Phase:** 13 — Preview #4 polish (other sites' pre-roll ads, the YouTube merge at 99%, the
-  browser's search, history and pop-ups). Plan, file ownership, decisions, root causes and
-  tasks: [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md); prompts: [`prompts/`](prompts/README.md).
-- **Owner's test of Preview #4** (2026-10-07, Preview APK run
-  https://github.com/Alalkipgen/YFT/actions/runs/37530061595, `bc806f9` = `main`): "about 90%
-  fine". Open: on a free video site without an adapter, Download during the pre-roll opens the
-  ad (0:30, 1080p MP4) instead of the page's video (16:24, 720p HLS, only under Other videos),
-  and one page fails with HTTP 410 (Snaptube shows the page's title, picture, 480p and 720p);
-  long YouTube live recordings wait a long time at 99%; the browser searches DuckDuckGo, has no
-  history, and ads redirect the tab. Root causes R7–R15 (FIX_ADD_PLAN §4): the playing element
-  outranks the page's own video; the page's stated length, title and picture are dropped; free
-  video sites' ad networks are unknown; no second try after a dead address; the merge writes
-  the file twice without progress; DuckDuckGo is hard-coded; no history store; multiple windows
-  off and every top-level navigation allowed.
-- **Plan (Plan Mode, 2026-10-07):** three agents at once — A: P27 (merge progress and a direct
-  mux into Download/YFT); B: P28 (the page's video, not the ad) → P29 (the next video when one
-  fails); C: P30 (Google search) → P31 (history) → P32 (pop-ups and ad redirects). Then P33 (A
-  merges A → B → C into `work/phase-13-integration`, full validation, **Preview #5**) and P8
-  (signed `1.0.0-beta.4`) with the owner's OK.
-- **Branches:** `work/phase-13-integration` (= `main` `bc806f9` + the plan); agents branch from
-  it: `work/phase-13-merge-speed` (A), `work/phase-13-generic-main` (B), `work/phase-13-browser`
-  (C). Status per agent: `SESSION_STATE.md`.
-- **P33 (2026-10-07, Agent A):** A (P27), B (P28, P29) and C (P30–P32) merged into
-  `work/phase-13-integration` without conflicts; full validation 1435 tests, 0 failures, 66
-  skipped, lint 0 errors, release build OK; CI green (emulator 29 tests, 0 failures).
-  **Preview #5** = https://github.com/Alalkipgen/YFT/actions/runs/37575586233 (`yft-preview-apk`).
-  At the owner's request `main` was fast-forwarded to the merge (`436aa90`, no tag).
-- **Next action — owner:** uninstall the older YFT Preview, install **Preview #5** (Preview APK
-  run › Artifacts › `yft-preview-apk`) and test FIX_ADD_PLAN §6 "Preview #5"; then P8 (signed
-  `1.0.0-beta.4`, `prompts/P8-signed-beta4.md`) only with his OK.
+- **Phase:** 14 — Preview #5 field fixes (downloads and merges that keep going in the
+  background with speed in the notification, a faster merge, TikTok on the For You feed, fresh
+  links instead of HTTP 410). Plan, file ownership, decisions, root causes and tasks:
+  [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md); prompts: [`prompts/`](prompts/README.md).
+- **Owner's test of Preview #5** (2026-10-08, Preview APK run
+  https://github.com/Alalkipgen/YFT/actions/runs/37575586233, `436aa90`; `main` = `5a5bddb`):
+  on some pages of a site without an adapter the sheet shows "The site no longer has this video
+  (HTTP 410)" (manifest and MP4 links of the site's CDN) until he reloads the page by hand, and
+  Try again repeats it; a 1-hour YouTube live recording still merges for about 2 minutes, and the
+  merge stops while he uses another app until he opens YFT again; TikTok (with a VPN) says "No
+  video on screen to download" on the For You feed; he wants downloads to keep going in the
+  background with % and speed (KB/s below 1,024 KB/s, MB/s above) in the notification. Root
+  causes R16–R24 (FIX_ADD_PLAN §4): browser Try again reuses the stale page; page-script links
+  outrank the player's own requests; TikTok's feed has no video links and its phone page keeps
+  its data under another key, with media cookies dropped; no wake lock, no media-processing
+  service type and no freeze handling (the phone's battery manager most likely freezes a
+  CPU-only merge); the notification has no numbers; the merge works sample by sample.
+- **Plan (Plan Mode, 2026-10-08):** three agents at once — A: P34 (background downloads and
+  merges, notification with speed, battery and notification cards); B: P36 (TikTok) → P37
+  (fresh links, Try again, "Reload page and try again"); C: P35 (stream-copy merge). Then P38 (A
+  merges A → B → C into `work/phase-14-integration`, full validation, **Preview #6**) and P8
+  (signed `1.0.0-beta.4`) with the owner's OK. Docs-only pushes no longer start CI.
+- **Branches:** `work/phase-14-integration` (= `main` `5a5bddb` + the plan); agents branch from
+  it: `work/phase-14-background` (A), `work/phase-14-sites` (B), `work/phase-14-fast-merge` (C).
+  Status per agent: `SESSION_STATE.md`.
+- **Next action — owner:** paste `prompts/A-background.md`, `prompts/B-tiktok-fresh-links.md`
+  and `prompts/C-fast-merge.md` into three new agent chats; when all three are READY FOR MERGE,
+  give Agent A `prompts/M-merge-preview6.md`.
+- **Phase 13** (P27–P33, 2026-10-07): merge progress and a direct merge into Download/YFT, the
+  page's video instead of the pre-roll ad, the next video when one fails, Google search, browser
+  history, pop-up and ad-redirect blocking; merged into `main` (`436aa90`, docs `5a5bddb`, no
+  tag). Record: FIX_ADD_PLAN §8 and `git show 5a5bddb:docs/HANDOFF.md`.
 - **Releases:** `1.0.0-beta.1` published 2026-10-02; `1.0.0-beta.2` signed draft 2026-10-03;
   `1.0.0-beta.3` (versionCode 3, tag `v1.0.0-beta.3` on `2f6284f`) signed draft 2026-10-04:
   `video-downloader-1.0.0-beta.3.apk` 6,334,176 bytes, SHA-256
   `8fe466f17b62e88cdd5deb08482f7dc4c70a1a3dba7182bf94b93c6d1604e955`, certificate SHA-256
   `3A:EB:30:64:91:E2:DD:6F:F7:6D:C5:A8:68:E6:FC:C9:D3:30:BB:99:85:BF:4D:15:B3:4A:67:04:EC:78:98:8F`
-  (notes: [`release/1.0.0-beta.3.md`](release/1.0.0-beta.3.md)). Phases 11 and 12 are merged
-  into `main` (`bc806f9`, no tag); `1.0.0-beta.4` waits for Preview #5 (P8).
-- **Phase 12** (P20–P26, 2026-10-06): video downloads save again, Retry and failure details,
-  YouTube and Facebook every quality, other sites' main video, one sheet everywhere, merge and
-  Preview #4. Record: FIX_ADD_PLAN §8 and `git show bc806f9:docs/HANDOFF.md`.
-- **Phase 11** (P0–P19, 2026-10-04 to 2026-10-06): record in `git show 4db6c2b:docs/HANDOFF.md`.
+  (notes: [`release/1.0.0-beta.3.md`](release/1.0.0-beta.3.md)). Phases 11–13 are merged into
+  `main` (no tag); `1.0.0-beta.4` waits for Preview #6 (P8).
+- **Phases 11 and 12:** records in `git show 4db6c2b:docs/HANDOFF.md` and
+  `git show bc806f9:docs/HANDOFF.md`.
 
-## Known limitations (Preview #4, `main` `bc806f9`)
+## Known limitations (Preview #5, `main` `5a5bddb`)
 
-- Other sites without an adapter can open a pre-roll ad instead of the page's video, and a dead
-  file address (HTTP 410) ends the sheet (R7–R11, P28, P29).
-- Long merged YouTube downloads wait at 99% without progress while the file is merged and
-  copied (R12, P27). YouTube lookups from data-centre networks can stay bot-checked, so the
-  phone is the real test.
-- The browser searches DuckDuckGo only, keeps no history, and page scripts or ads can send the
-  tab to another site (R13–R15, P30–P32).
+- Other sites without an adapter: on some page loads every link the page's player script names
+  answers HTTP 410 to YFT; Try again in the browser repeats the same links; a manual reload helps
+  (R16–R18, P37).
+- A long merged YouTube download merges for minutes (about 2 minutes for a 1-hour 720p
+  recording), and on the owner's Xiaomi phone the merge stops while YFT is in the background
+  (R23, R24, P34, P35). The notification shows no %, speed or time left (R22, P34).
+- TikTok in the browser: the For You feed gives "No video on screen to download", and the phone
+  page's data are not read (R19, R20, P36). YouTube lookups from data-centre networks can stay
+  bot-checked, so the phone is the real test.
 - AV1-only sizes stay hidden while AV1 merges are off. No playlists or batch downloads,
-  background playback or folder export; an expired link cannot be refreshed in place after the
-  process was killed.
+  background playback or folder export; an expired link cannot be refreshed in the middle of a
+  download.
 
 ## Device testing
 
@@ -69,4 +71,5 @@ Actions.
 
 Detailed handoffs for Phases 0–7, 5E and the UI redesign: `git show 28930cf:docs/HANDOFF.md`.
 Phases 8–10: `git show 2f6284f:docs/HANDOFF.md`. Phase 11 part 1: `git show ce3cd25:docs/HANDOFF.md`;
-Phase 11 part 2 and the Track A/B merge: `git show 4db6c2b:docs/HANDOFF.md`.
+Phase 11 part 2 and the Track A/B merge: `git show 4db6c2b:docs/HANDOFF.md`. Phase 12:
+`git show bc806f9:docs/HANDOFF.md`; Phase 13: `git show 5a5bddb:docs/HANDOFF.md`.

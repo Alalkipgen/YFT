@@ -1,17 +1,20 @@
-# YFT Fix & Add Plan — Phase 13 (Preview #4 polish: other sites' ads, YouTube merge, browser)
+# YFT Fix & Add Plan — Phase 14 (Preview #5 field fixes: background downloads, faster merge, TikTok, fresh links)
 
-Owner phone test of **Preview #4** (2026-10-07, Xiaomi phone with HyperOS; Preview APK run
-https://github.com/Alalkipgen/YFT/actions/runs/37530061595, commit `bc806f9` = `main`), compared
-with Snaptube on the same pages: "about 90% fine". Phase 12 (P20–P26: video downloads save
-again, Retry and failure details, every YouTube and Facebook quality, other sites' main video,
-one sheet everywhere) is merged into `main`. The remaining 10% are minor cases: on a video site
-without an adapter the sheet opens the **pre-roll ad** instead of the page's video, long YouTube
-downloads **wait a long time at 99%**, and the browser needs **Google search, a history and a
-stop to ad redirects**. Phase 13 fixes these with **three agents working at the same time**
-(A, B, C, §0.7), then one merge and Preview #5. Written in Plan Mode on 2026-10-07; work starts
-when the owner pastes the prompts in [`prompts/`](prompts/README.md). Phase 12's plan and
-prompts stay in Git history: `git show bc806f9:docs/FIX_ADD_PLAN.md` and
-`git show bc806f9:docs/prompts/` (summary in [§8](#8-done-before-phase-13)).
+Owner phone test of **Preview #5** (2026-10-08, Xiaomi phone with HyperOS; Preview APK run
+https://github.com/Alalkipgen/YFT/actions/runs/37575586233, merge commit `436aa90`; `main` =
+`5a5bddb`). Phase 13 (P27–P33: merge progress, the page's video instead of the pre-roll ad, the
+next video when one fails, Google search, history, pop-up blocking) is merged into `main`. The
+owner found five things to fix or add: on some pages of a site without an adapter the sheet
+says **"The site no longer has this video (HTTP 410)"** until he reloads the page by hand; a
+1-hour YouTube live recording still spends **about 2 minutes merging**, and the **merge stops
+when he switches to another app** until he opens YFT again; **TikTok** (with a VPN) says "No
+video on screen to download" on the For You feed; and downloads should **keep going in the
+background** with **% and speed in the notification**. Phase 14 fixes these with **three
+agents working at the same time** (A, B, C, §0.7), then one merge and Preview #6. Written in
+Plan Mode on 2026-10-08; work starts when the owner pastes the prompts in
+[`prompts/`](prompts/README.md). Phase 13's plan and prompts stay in Git history:
+`git show 5a5bddb:docs/FIX_ADD_PLAN.md` and `git show 5a5bddb:docs/prompts/` (summary in
+[§8](#8-done-before-phase-14)).
 
 ## Contents
 
@@ -23,7 +26,7 @@ prompts stay in Git history: `git show bc806f9:docs/FIX_ADD_PLAN.md` and
 5. [Tasks](#5-tasks)
 6. [Owner phone checklist](#6-owner-phone-checklist)
 7. [Backlog](#7-backlog)
-8. [Done before Phase 13](#8-done-before-phase-13)
+8. [Done before Phase 14](#8-done-before-phase-14)
 
 ## 0. How to work
 
@@ -33,15 +36,15 @@ prompts stay in Git history: `git show bc806f9:docs/FIX_ADD_PLAN.md` and
    `git log -5 --oneline`.
 2. Check out **your agent's branch** (§0.7) in **your own folder** (Notion sandbox:
    `/data/YFT-A`, `/data/YFT-B` or `/data/YFT-C`, see the prompts) and pull it. On the first
-   start create it from `origin/work/phase-13-integration` (the plan commit on top of `main`
-   `bc806f9`). Never work on another agent's branch, on `work/phase-13-integration` (only P33
+   start create it from `origin/work/phase-14-integration` (the plan commit on top of `main`
+   `5a5bddb`). Never work on another agent's branch, on `work/phase-14-integration` (only P38
    does) or on `main`.
 3. Read §0, §3, §4, your tasks in §5 with their **Read first** files, and your own section of
    `docs/SESSION_STATE.md`.
 4. Set up the environment when it is missing (§0.3), then run your scope's validation before
    editing, so you know the starting state.
 5. Record the task as `IN PROGRESS` in **your section** of `docs/SESSION_STATE.md`. Agents A, B
-   and C never edit this plan file (`docs/FIX_ADD_PLAN.md`) or `docs/prompts/`: P33 copies
+   and C never edit this plan file (`docs/FIX_ADD_PLAN.md`) or `docs/prompts/`: P38 copies
    status and Results from SESSION_STATE into §1 and §5.
 6. Do the **Steps** in order. Stay inside the task and inside your files (§0.7); anything else
    goes to your SESSION_STATE section as a hand-off or a backlog note. When the code shows that a
@@ -50,8 +53,7 @@ prompts stay in Git history: `git show bc806f9:docs/FIX_ADD_PLAN.md` and
 8. Run the validation (§0.3). Never report a result you did not run.
 9. Update the docs the task lists (only your sections of shared docs, §0.7), write the Result in
    your SESSION_STATE section (status `DONE (date)` or `OWNER CHECK`) and checkpoint with
-   `scripts/checkpoint.sh "P2x: summary"` (or `P3x:`). Check CI for the pushed commit and fix a
-   red run.
+   `scripts/checkpoint.sh "P3x: summary"`. Check CI for the pushed commit and fix a red run.
 10. Report to the owner in Burmese (§0.5), then continue with your next task without waiting.
     After your last task set your section to `READY FOR MERGE` and stop. Stop earlier only for a
     failure you cannot fix, a decision §3 marks `PENDING`, or a hand-off that blocks you.
@@ -73,18 +75,19 @@ prompts stay in Git history: `git show bc806f9:docs/FIX_ADD_PLAN.md` and
   `@JavascriptInterface` methods run on other threads.
 - Site tasks need a live check of a public page (`scripts/live-check.sh`); report status, host,
   path, sizes and markers only. The sandbox is a data-centre network: YouTube often answers it
-  with a bot check, so the owner's phone is the final proof for YouTube. TikTok is banned in
-  India, so the owner cannot check it on his phone (§7 B4).
-- Sites for adults (P28, P29, P32): public pages only. An age or identity gate is the user's own
-  tap on his phone; an agent never clicks one, not even in a live check, and skips a page that
-  shows one. Fixtures keep the page structure (players, scripts, ad frames) but replace titles,
-  names, descriptions and pictures with neutral text and blank images; nothing explicit enters
-  the repository, logs or reports (report hosts, lengths, heights and counts only).
+  with a bot check, so the owner's phone is the final proof for YouTube. **TikTok:** the owner
+  now checks TikTok on his phone with a VPN (2026-10-08); agents still use fixtures, the CI
+  emulator and sandbox live checks.
+- Sites for adults (P37): public pages only. An age or identity notice is the user's own tap on
+  his phone; an agent never clicks one, not even in a live check, and skips a page that shows
+  one. Fixtures keep the page structure (players, scripts, links) but replace titles, names,
+  descriptions and pictures with neutral text and blank images; nothing explicit enters the
+  repository, logs or reports (report hosts, lengths, heights, statuses and counts only).
 - Push access: the Notion sandbox loses its deploy key on every reset. Never search for an old
   key: make a new one (`ssh-keygen -t ed25519`), give the owner the public line for the
   repository's Deploy keys (write access) and wait for his OK before the first push.
 - The agent sandbox has no emulator; use the CI emulator job (`emulator-smoke.yml`, API 34) for
-  real WebView, MediaStore and MediaCodec/MediaMuxer checks.
+  real WebView, MediaStore, MediaCodec/MediaMuxer, notification and foreground-service checks.
 - Network tasks stay polite: no more requests than the task allows, retries only as P10 defined
   them, never two lookups of the same video at once.
 - Keep temporary files and backups outside the repository (`/data/tmp`, `/data/bak`):
@@ -107,18 +110,15 @@ sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0
 
 In the Notion sandbox run `source /data/yft-env.sh` first: it sets `JAVA_HOME`
 (`/data/toolchains/jdk17`), `ANDROID_HOME` and `ANDROID_SDK_ROOT` (`/data/toolchains/android-sdk`),
-`GRADLE_USER_HOME` (`/data/gradle-home`) and `PATH`; `/data/gw.sh <tasks>` runs
-`./gradlew --no-daemon --max-workers=2` in `/data/YFT`. After a sandbox reset, recreate both
-files and install what is missing (NDK and CMake went missing twice in Phase 11; an empty
+`GRADLE_USER_HOME` (`/data/gradle-home`) and `PATH`. After a sandbox reset, recreate it and
+install what is missing (NDK and CMake went missing twice in Phase 11; an empty
 `/data/gradle-home` only means the first build downloads its dependencies). Agents may share
-one computer: each works in its own folder (`/data/YFT-A`, `-B`, `-C`; `/data/gw.sh` only runs in
-`/data/YFT`, so run `./gradlew` in your folder), stops only Gradle daemons it started (no
-`pkill` of another agent's build) and, on a 4 GiB machine, waits until no other Gradle build
-runs (`pgrep -af "[G]radleDaemon"`): one Gradle command at a time on the computer. The full
-validation needs Gradle metaspace 640 MiB (Phase 11 merge: the default hit a Metaspace OOM):
+one computer: each works in its own folder (`/data/YFT-A`, `-B`, `-C`; run `./gradlew` in your
+folder), stops only Gradle daemons it started (no `pkill` of another agent's build) and, on a
+4 GiB machine, waits until no other Gradle build runs (`pgrep -af "[G]radleDaemon"`): one Gradle
+command at a time on the computer. The full validation needs Gradle metaspace 640 MiB:
 `export GRADLE_OPTS="-Xmx1024m -XX:MaxMetaspaceSize=640m"` or
 `-Dorg.gradle.jvmargs="-Xmx1024m -XX:MaxMetaspaceSize=640m"`.
-
 
 **SSH key.** Pushes use SSH. When the computer has no key in `/data/.ssh/`, make a **new** one
 (`ssh-keygen -t ed25519 -N "" -f /data/.ssh/id_ed25519 -C "yft-<agent>-<date>"`), show the
@@ -129,16 +129,15 @@ and `git remote set-url origin git@github.com:Alalkipgen/YFT.git` in your folder
 
 | Scope | Command |
 | --- | --- |
-| Agent A (P27) | `./gradlew --no-daemon --continue :core-download:testDebugUnitTest :core-model:test :app:testDebugUnitTest :app:lintDebug :app:compileDebugAndroidTestKotlin` |
-| Agent B (P28, P29) | `./gradlew --no-daemon --continue :core-model:test :core-browser:testDebugUnitTest :core-media:testDebugUnitTest :extractor-generic:test :app:testDebugUnitTest :app:lintDebug :app:compileDebugAndroidTestKotlin` |
-| Agent C (P30, P31, P32) | `./gradlew --no-daemon --continue :core-browser:testDebugUnitTest :core-data:testDebugUnitTest :core-model:test :app:testDebugUnitTest :app:lintDebug :app:compileDebugAndroidTestKotlin` |
-| Full (P33, P8) | `./gradlew --no-daemon --continue testDebugUnitTest lintDebug :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test :app:assembleDebug`, then `./gradlew --no-daemon :app:assembleRelease` |
+| Agent A (P34) | `./gradlew --no-daemon --continue :app:testDebugUnitTest :app:lintDebug :app:compileDebugAndroidTestKotlin` |
+| Agent B (P36, P37) | `./gradlew --no-daemon --continue :extractor-sites:test :extractor-generic:test :core-model:test :core-browser:testDebugUnitTest :core-media:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug :app:compileDebugAndroidTestKotlin` |
+| Agent C (P35) | `./gradlew --no-daemon --continue :core-download:testDebugUnitTest :core-model:test :app:testDebugUnitTest :app:lintDebug :app:compileDebugAndroidTestKotlin` |
+| Full (P38, P8) | `./gradlew --no-daemon --continue testDebugUnitTest lintDebug :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test :app:assembleDebug`, then `./gradlew --no-daemon :app:assembleRelease` |
 | Scripts, docs-only checkpoints | `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests` |
 | Line length (must print nothing) | `git diff -U0 origin/main -- '*.kt' '*.kts' \| grep '^+[^+]' \| LC_ALL=C.UTF-8 awk 'length > 101'` |
 
-Phase 13 start (P26, 2026-10-06, `bc806f9`): full validation 1292 tests, 0 failures, 66 skipped;
-lint 0 errors; `:app:assembleRelease` OK.
-
+Phase 14 start (P33, 2026-10-07, `436aa90`; `main` `5a5bddb` adds docs only): full validation
+1435 tests, 0 failures, 66 skipped; lint 0 errors; `:app:assembleRelease` OK.
 
 **Regression proof.** Copy the files you changed to `/data/bak/<task>/`, put the old version
 back (for example `git show HEAD:<path> > <path>` before your commit), run the new tests and see
@@ -146,9 +145,13 @@ them fail, then restore your version with `cp` and check it with `cmp`. Name the
 failed on the old code in the Result. An instrumented test (`app/src/androidTest`) cannot run in
 the sandbox: its JVM twin is the regression proof, and the CI emulator run must pass with the fix.
 
-**CI.** `checkpoint-validation` runs on every `work/**` push. `emulator-smoke` (API 34,
-`:app:connectedDebugAndroidTest`) and `preview-apk` run on `work/phase-*` pushes that change code
-(`app/**`, `core-*/**`, `extractor-*/**`, Gradle files). Status for a branch:
+**CI.** `checkpoint-validation` runs on every `work/**` push **that changes more than
+documentation**: since the Phase 14 plan commit, a push whose files are all under `docs/` or end
+in `.md` starts no CI (`paths-ignore`), so a docs-only checkpoint (a status line, `READY FOR
+MERGE`) has no run. "Green CI" therefore means the runs of your newest commit that changed code,
+scripts or Gradle files. `emulator-smoke` (API 34, `:app:connectedDebugAndroidTest`) and
+`preview-apk` run on `work/phase-*` pushes that change code (`app/**`, `core-*/**`,
+`extractor-*/**`, Gradle files). Status for a branch:
 
 ```bash
 curl -s "https://api.github.com/repos/Alalkipgen/YFT/actions/runs?branch=<your branch>&per_page=6" \
@@ -158,25 +161,24 @@ curl -s "https://api.github.com/repos/Alalkipgen/YFT/actions/runs?branch=<your b
 Three agents push at the same time, so hosted runners may queue for a while; wait for your own
 commit's runs (`head_sha`) and never re-run another agent's workflow.
 
-
 ### 0.4 Status values
 
 `TODO` · `IN PROGRESS` · `BLOCKED (reason)` · `OWNER CHECK` (done on the branch, waiting for the
 owner's phone) · `DONE (date)` · `SKIPPED (decision)` · `READY FOR MERGE` (an agent's last task
 is done and its CI is green). Checkpoint messages start with the task ID, so
-`git log --oneline --grep "P27:"` finds a task's commits.
+`git log --oneline --grep "P34:"` finds a task's commits.
 
 ### 0.5 Report to the owner (Burmese, short)
 
 ```text
-Agent: A / B / C — Task: P2x / P3x — <title> — DONE / PARTIAL / BLOCKED
+Agent: A / B / C — Task: P3x — <title> — Level: Easy / Medium / Hard — DONE / PARTIAL / BLOCKED
 လုပ်ခဲ့တာ: …
 စမ်းသပ်မှု: <exact commands> → <tests, failures, lint errors>
 Commit / branch / CI: <sha> · <branch> · <run links> (debug APK: Artifacts › yft-debug-apk;
   preview: Preview APK run › yft-preview-apk)
 ဖုန်းမှာ စစ်ပေးရန်: 1. … 2. …
 မပြီးသေးတာ / သတိပြုရန်: … (hand-offs to other agents, if any)
-နောက်တစ်ဆင့်: P2y / P3y / READY FOR MERGE
+နောက်တစ်ဆင့်: P3y / READY FOR MERGE
 ```
 
 ### 0.6 Phone builds for the owner
@@ -186,132 +188,127 @@ push that changes code also runs **Preview APK (test key)**, which uploads `yft-
 minified release build as "YFT Preview" (`com.alal.yft.preview`), signed with a test key made in
 that job, so the owner uninstalls the older YFT Preview before installing a newer one. Each
 agent's branch gets its own preview runs; the owner may try one early, but the phone test that
-counts is **Preview #5** = the Preview APK run of P33's merge commit on
-`work/phase-13-integration` (§6). Only P8 signs with the release key.
+counts is **Preview #6** = the Preview APK run of P38's merge commit on
+`work/phase-14-integration` (§6). Only P8 signs with the release key.
 
 ### 0.7 Three agents in parallel
 
-**Branches.** All three start from `origin/work/phase-13-integration` at the plan commit.
+**Branches.** All three start from `origin/work/phase-14-integration` at the plan commit.
 
 | Agent | Tasks (in order) | Branch | Area |
 | --- | --- | --- | --- |
-| A | P27, later P33 (integrator) and P8 | `work/phase-13-merge-speed` | Download engines (merge), Downloads screen and notification |
-| B | P28 → P29 | `work/phase-13-generic-main` | Other sites' detection, page facts, the sheet's choice of video |
-| C | P30 → P31 → P32 | `work/phase-13-browser` | Browser: search engine, history, pop-up and redirect blocking, settings |
-| A (P33) | merge A → B → C, Preview #5 | `work/phase-13-integration` | Integration only |
+| A | P34, later P38 (integrator) and P8 | `work/phase-14-background` | Foreground service, notification, Downloads and Settings screens, manifest |
+| B | P36 → P37 | `work/phase-14-sites` | TikTok adapter and feed detection; other sites' links, Try again and reload in the browser |
+| C | P35 | `work/phase-14-fast-merge` | Download engines: the merge (`core-download`) |
+| A (P38) | merge A → B → C, Preview #6 | `work/phase-14-integration` | Integration only |
 
-Agent A has the shortest track (P27); it then waits for B and C and does P33. In two-agent mode
-(below) A also does C's tasks.
+Agent A has the shortest track (P34); it then waits for B and C and does P38. B (P36 + P37) and
+C (P35) are the long tracks of about the same length. In two-agent mode (below) A also does C's
+task.
 
 **Files each agent may change** (tests beside them under `src/test/` or `src/androidTest/`
 included). Everything not listed belongs to nobody: change it only through a hand-off.
 
 | Agent | Owns |
 | --- | --- |
-| A | `core-download/**`; `core-model/src/main/kotlin/com/alal/yft/core/model/download/**`; `app/src/main/java/com/alal/yft/download/**`; `app/src/main/java/com/alal/yft/feature/downloads/**`; `app/src/androidTest/java/com/alal/yft/download/**`; `app/build.gradle.kts` only for an `androidTestImplementation` line |
-| B | `core-model/src/main/kotlin/com/alal/yft/core/model/media/**`; `core-browser/src/main/java/com/alal/yft/core/browser/{detection,session}/**`; `core-media/**`; `extractor-generic/**`; `app/src/main/java/com/alal/yft/feature/{quickdownload,home,detectedmedia}/**`; in `app/.../feature/browser/` only `BrowserViewModel.kt`, `BrowserUiState.kt`, `BrowserDownloadFab.kt`; `app/src/main/java/com/alal/yft/ui/format/**`; `app/src/androidTest/java/com/alal/yft/browser/detection/**` (new); `core-browser/src/test/resources/fixtures/p28-*`; docs `design/DESIGN-NOTES.md`, `SUPPORT_MATRIX.md` |
-| C | `core-browser/src/main/java/com/alal/yft/core/browser/{webview,policy}/**`; `core-data/**` (one Room migration: 5 → 6); `core-model/src/main/kotlin/com/alal/yft/core/model/settings/**`; `app/src/main/java/com/alal/yft/feature/browser/**` except B's three files; `app/src/main/java/com/alal/yft/feature/settings/**`; `app/src/main/java/com/alal/yft/ui/theme/YftIcons.kt` (additions only); `app/src/androidTest/java/com/alal/yft/browser/navigation/**` (new) |
-| Nobody (P33/P8 only) | `.github/workflows/**`, `gradle.properties`, `gradle/libs.versions.toml`, root and module Gradle files (except A's line above), `app/src/main/res/**`, `app/src/main/AndroidManifest.xml`, other `app` packages (`detection`, `feature/library`, `thumbnail`, `diagnostics`, `ui/navigation`, `ui/components`, `MainActivity`), existing androidTest files outside your folders (`browser/FocusedVideoProbeInstrumentedTest.kt`, `smoke/**`), shared test helpers (`app/src/test/java/com/alal/yft/testing/**`: add new helpers in your own test folders), `AGENTS.md`, `README.md`, `docs/FIX_ADD_PLAN.md`, `docs/prompts/**`, `docs/HANDOFF.md`, `docs/PHASE_STATUS.md`, `docs/ARCHITECTURE.md`, `docs/RISKS.md`, `docs/PROJECT_CONTEXT.md`, ADRs |
+| A | `app/src/main/java/com/alal/yft/download/**`; `app/src/main/java/com/alal/yft/feature/downloads/**`; `app/src/main/java/com/alal/yft/feature/settings/**`; `app/src/main/java/com/alal/yft/ui/components/NotificationPermission.kt`; `app/src/main/AndroidManifest.xml` (permissions and the download service's entry only); `app/src/androidTest/java/com/alal/yft/background/**` (new); `app/build.gradle.kts` only for an `androidTestImplementation` line |
+| B | `extractor-sites/**` (TikTok; other adapters only for a shared helper TikTok needs); `app/src/main/java/com/alal/yft/detection/**`; `core-browser/**`; `core-model/src/main/kotlin/com/alal/yft/core/model/media/**`; `core-media/**`; `extractor-generic/**`; `app/src/main/java/com/alal/yft/feature/{quickdownload,detectedmedia,home,browser}/**`; `app/src/androidTest/java/com/alal/yft/browser/**` and `app/src/androidTest/assets/{focused-video,browser-detection}/**`; docs `SUPPORT_MATRIX.md` |
+| C | `core-download/**`; `core-model/src/main/kotlin/com/alal/yft/core/model/download/**`; `app/src/androidTest/java/com/alal/yft/download/**` and `app/src/androidTest/assets/{mux,mp4,mp3}/**` |
+| Nobody (P38/P8 only) | `.github/workflows/**`, `gradle.properties`, `gradle/libs.versions.toml`, root and module Gradle files (except A's line above), `app/src/main/res/**`, other `app` packages (`feature/library`, `thumbnail`, `diagnostics`, `ui/navigation`, `ui/format`, `ui/theme`, `ui/components` except A's file, `MainActivity`, `YftApplication`), `core-data/**`, `core-model/.../settings/**`, `smoke/**` androidTests, shared test helpers (`app/src/test/java/com/alal/yft/testing/**`: add new helpers in your own test folders), `AGENTS.md`, `README.md`, `docs/FIX_ADD_PLAN.md`, `docs/prompts/**`, `docs/HANDOFF.md`, `docs/PHASE_STATUS.md`, `docs/ARCHITECTURE.md`, `docs/RISKS.md`, `docs/PROJECT_CONTEXT.md`, ADRs |
 
 **Shared docs — own section only.** Each agent edits only the section with its letter, which
 the plan commit created; nothing above or below it:
 
 - `docs/SESSION_STATE.md`: `## Agent A …`, `## Agent B …`, `## Agent C …` (status, Results,
-  validation, CI links, hand-offs). The `## Overview` section is P33's.
-- `CHANGELOG.md` under `## [Unreleased]`: `### Phase 13 — Agent A (P27)`, `### Phase 13 — Agent
-  B (P28, P29)` and `### Phase 13 — Agent C (P30, P31, P32)`. Replace the placeholder line, then
-  add bullets below it. P33 folds them into Added/Changed/Fixed.
-- `docs/TEST_MATRIX.md`: `### Agent A — P27` (and B, C) under `## Phase 13`.
+  validation, CI links, hand-offs). The `## Overview` section is P38's.
+- `CHANGELOG.md` under `## [Unreleased]`: `### Phase 14 — Agent A (P34)`, `### Phase 14 — Agent
+  B (P36, P37)` and `### Phase 14 — Agent C (P35)`. Replace the placeholder line, then add
+  bullets below it. P38 folds them into Added/Changed/Fixed.
+- `docs/TEST_MATRIX.md`: `### Agent A — P34` (and B, C) under `## Phase 14`.
 
 **Contracts** (code other agents use; change only by adding, with defaults; never rename,
 remove or change a meaning):
 
-- A → B, C: `DownloadEnqueuer`, `DownloadPlanFactory`, the public `DownloadQueue` API,
-  `DownloadTask`, `DownloadProgress`, `DownloadFailure`, `DownloadFailureReason`,
-  `AudioVideoMuxStage` (new values may be added; the sheet and the foreground service read them).
-- B → C: `BrowserViewModel`'s public functions and `BrowserUiState` (C's `BrowserScreen` calls
-  and reads them); `MediaCandidate`, `MediaGroups`, `BrowserRequestContext`.
-- C → B: `BrowserObservationSink` (new methods only with default bodies), the calls
-  `SecureBrowserWebViewClient` makes today (requests, page start and finish, DOM probe, playing
-  probe) keep their order and threads; `BrowserSearch.webUrl(words)` keeps its signature (B's
-  `BrowserViewModel` calls it for typed words); the settings models (`core-model/.../settings`)
-  change only by adding fields with defaults.
-- Ad lists: B extends the media ad list in `core-browser/.../detection/BrowserObservationMapper`
-  (ad files: never the page's video); C writes a separate navigation list in
-  `core-browser/.../policy/` (pop-up and redirect hosts). One shared list is backlog (§7).
+- C → A, B: the public `DownloadQueue` API, `DownloadTask`, `DownloadProgress`,
+  `DownloadFailure`, `DownloadFailureReason`, `AudioVideoMuxStage`, `DownloadDestination` (A's
+  service and notification read the stages and progress; B's sheet enqueues).
+- A → B: `DownloadEnqueuer` and `DownloadPlanFactory` (B's sheet calls them).
+- B → A: `YftFormat` stays as it is (nobody's file this phase); A writes its speed and time-left
+  texts in its own packages.
+- B alone owns the browser and detection this phase; A and C use none of it.
 
 **Hand-offs.** When you need a change in a file you do not own, do not make it. Write
 "Hand-off to <agent>: <file> — <change> — <why>" in your SESSION_STATE section and in your
 report; the owner passes it on. Prefer a fix inside your own files when one exists.
 
-**Merge (P33).** Agent A merges the three branches into `work/phase-13-integration`
-(`--no-ff`) in this order: `work/phase-13-merge-speed` (A), then `work/phase-13-generic-main`
-(B), then `work/phase-13-browser` (C); it runs that agent's scope validation after each merge
-and the full validation at the end. Shared docs conflict only if a section rule was broken:
-keep both sides. A code conflict means an ownership slip: stop and report the files.
+**Merge (P38).** Agent A merges the three branches into `work/phase-14-integration`
+(`--no-ff`) in this order: `work/phase-14-background` (A), then `work/phase-14-sites` (B), then
+`work/phase-14-fast-merge` (C); it runs one full validation after the three merges (it covers
+every scope). Shared docs conflict only if a section rule was broken: keep both sides. A code
+conflict means an ownership slip: stop and report the files.
 
 **Two agents instead of three** (if the owner prefers): Agent A owns A's and C's files and does
-P27 → P30 → P31 → P32 → P33; Agent B does P28 → P29. The prompts work unchanged: the owner pastes
-[`A-merge-speed.md`](prompts/A-merge-speed.md) into Agent A's chat and, after P27,
-[`C-browser.md`](prompts/C-browser.md) with `BRANCH_OVERRIDE: work/phase-13-merge-speed`; P33
-then merges A's branch (with C's work) and B's.
+P34 → P35 → P38; Agent B does P36 → P37. The prompts work unchanged: the owner pastes
+[`A-background.md`](prompts/A-background.md) into Agent A's chat and, after P34,
+[`C-fast-merge.md`](prompts/C-fast-merge.md) with `BRANCH_OVERRIDE: work/phase-14-background`;
+P38 then merges A's branch (with C's work) and B's. Wall time grows from about 9–14 h to about
+13–20 h.
 
 ## 1. Status board
 
-Agents A, B and C record status in their own section of `docs/SESSION_STATE.md`; P33 copies it
+Agents A, B and C record status in their own section of `docs/SESSION_STATE.md`; P38 copies it
 here. AI agent time includes builds and CI waits on a 4 GiB sandbox.
 
-**Agent A — `work/phase-13-merge-speed`**
+**Agent A — `work/phase-14-background`**
 
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
-| P27 | [YouTube: no long wait at 99% (merge straight into the file, show Merging · N%)](#p27--youtube-no-long-wait-at-99) | Medium | 3–5 h | — | OWNER CHECK (merged by P33) |
+| P34 | [Downloads and merges keep going in the background; speed in the notification](#p34--downloads-and-merges-keep-going-in-the-background) | Medium | 5–7 h | — | TODO |
 
-**Agent B — `work/phase-13-generic-main`**
-
-| ID | Task | Level | AI agent time | Needs | Status |
-| --- | --- | --- | --- | --- | --- |
-| P28 | [Other sites: the page's video, not the ad before it](#p28--other-sites-the-pages-video-not-the-ad-before-it) | Hard | 6–10 h | — | OWNER CHECK (merged by P33) |
-| P29 | [Other sites: the next video when one fails; the page's title and picture](#p29--other-sites-the-next-video-when-one-fails) | Medium | 2–4 h | P28 | OWNER CHECK (merged by P33) |
-
-**Agent C — `work/phase-13-browser`**
+**Agent B — `work/phase-14-sites`**
 
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
-| P30 | [Browser: Google search by default, engine choice in Settings](#p30--browser-google-search) | Easy | 1–2 h | — | OWNER CHECK (merged by P33) |
-| P31 | [Browser history](#p31--browser-history) | Medium | 3–5 h | P30 (settings section) | OWNER CHECK (merged by P33) |
-| P32 | [Block pop-ups and ad redirects](#p32--block-pop-ups-and-ad-redirects) | Medium–Hard | 4–7 h | P30 (settings section) | OWNER CHECK (merged by P33) |
+| P36 | [TikTok: Download on the For You feed and video pages](#p36--tiktok-download-on-the-for-you-feed-and-video-pages) | Medium | 3–5 h | — | TODO |
+| P37 | [Other sites: fresh links instead of HTTP 410](#p37--other-sites-fresh-links-instead-of-http-410) | Medium | 4–6 h | — | TODO |
 
-**Integration — Agent A, `work/phase-13-integration`**
+**Agent C — `work/phase-14-fast-merge`**
 
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
-| P33 | [Merge A → B → C, full validation, Preview #5](#p33--merge-and-preview-5) | Medium | 2–3 h | P27–P32 READY FOR MERGE | DONE (2026-10-07) — Preview #5 sent |
-| P8 | [Signed release 1.0.0-beta.4](#p8--signed-release-100-beta4) | Easy | 1–2 h | P33, Preview #5, owner OK | TODO |
+| P35 | [Faster merge for long videos](#p35--faster-merge-for-long-videos) | Hard | 6–10 h | — | TODO |
 
-In parallel the wall time is about 10–14 h (B and C are the long tracks) plus P33; one agent
-alone would need 20–33 h.
+**Integration — Agent A, `work/phase-14-integration`**
+
+| ID | Task | Level | AI agent time | Needs | Status |
+| --- | --- | --- | --- | --- | --- |
+| P38 | [Merge A → B → C, full validation, Preview #6](#p38--merge-and-preview-6) | Medium | 2–3 h | P34–P37 READY FOR MERGE | TODO |
+| P8 | [Signed release 1.0.0-beta.4](#p8--signed-release-100-beta4) | Easy | 1–2 h | P38, Preview #6, owner OK | TODO |
+
+In parallel the wall time is about 9–14 h (B's 7–11 h and C's 6–10 h are the long tracks, then
+P38); two agents need about 13–20 h; one agent alone 20–31 h.
 
 ## 2. What the owner saw
 
-Preview #4 (2026-10-07), owner's words in short: "about 90% fine; the rest are minor cases".
+Preview #5 (2026-10-08), owner's words in short:
 
-1. **Other site (an adult video site without an adapter, browser).** While the page's pre-roll
-   ad plays, Download opens the sheet with the **ad**: title "Video", no picture, length 0:30,
-   "1080p · Full HD 9.1 MB" (MP4), Audio M4A ~512 KB, "Other videos on this page (4)". The real
-   video (16:24, "720p · HD", HLS, ~213 MB) appears only under Other videos, or as the main
-   video after the owner skips the ad and plays the video for a moment. On another page the
-   sheet showed the page's title with "The site no longer has this video (HTTP 410)" and
-   "Other videos on this page (3)". Snaptube on the same page is slower (YFT is 2–3× faster)
-   but opens the real video at once: the page's title and picture, "Fast (480p)" and "High
-   quality (720p)" — never the ad.
-2. **YouTube downloads wait at 99%.** Long recordings of old live streams (480p 1.3 GB and
-   783 MB; 720p 179–460 MB) reach 99% and then stay there for a long time before they finish.
-   A video of the same size from the other site does not wait; Snaptube does not either. All
-   finished and play (Downloads screenshot, Completed today).
-3. **Browser.** The search page is DuckDuckGo; the owner wants Google. There is no browser
-   history. On some sites a tap on the page or on an ad sends the tab to spam pages (ad
-   redirects); blocking those is wanted — not blocking the video ads themselves.
+1. **Other site without an adapter (browser), some videos only.** The sheet shows the page's
+   title with "The site no longer has this video (HTTP 410)". Details: first video — step "list
+   of qualities (manifest)", host `hm-h…`/`km-h…` of the site's video CDN, HTTP 410; next video
+   — step "file check", host `ev…` of the same CDN, HTTP 410. Try again fails the same way.
+   Reloading the page in the browser by hand (one to five times) fixes it. Other videos on the
+   same site and another site (Javtiful) work. "A minor bug."
+2. **YouTube merge.** A 1-hour live recording now shows "Merging … %", but merging still takes
+   about 2 minutes after the tracks. Faster, if it is really possible.
+3. **TikTok (with a VPN), `tiktok.com/foryou`.** Download → "No video on screen to download.
+   Scroll to a video and tap Download again." while a video is on screen ("Found on this page
+   1/2").
+4. **Background downloads.** Downloads should keep going while he uses other apps (Facebook),
+   and the notification bar should show the % and the speed — KB/s below 1,024 KB/s, MB/s from
+   1 MB/s — like Snaptube.
+5. **The merge stops in the background** (added the same day). When he leaves YFT for another app
+   while a download is merging (or converting), the merge stops and goes on only when he opens
+   YFT again.
 
 ## 3. Owner decisions
 
@@ -319,484 +316,472 @@ Defaults below are what the agents do unless `OWNER ANSWERS` in the prompt says 
 
 | ID | Question | Options | Default |
 | --- | --- | --- | --- |
-| F1 | How should other sites find the page's video instead of the ad? | **A+** — trust the page over the player: the page's stated length, title and picture; common player setups; an ad recognised by its length and its ad server; a short wait (≤ 6 s) for the real video while only an ad is known; the next video when one fails (P28, P29). **B** — wait until the ad ends, like a person (slow, breaks when ads change). **C** — adapters for named adult sites, like Snaptube's (closest to Snaptube, but outside the support scope `SUPPORT_MATRIX.md` gives such sites; several days plus upkeep) | **A+** (`GENERIC=A`) |
-| F2 | Search engine | Google default; Settings › Browser › Search engine: Google, DuckDuckGo, Bing | Google |
-| F3 | Browser history | Saved by default (90 days, at most 5,000 pages, HTTPS pages only, no cookies); Settings › Browser: "Save browser history" switch and "Clear browser history"; Settings' "Clear browsing data" clears it too | On |
-| F4 | Pop-ups and ad redirects | Blocked by default with a small notice and "Open" to allow that one; Settings › Browser: "Block pop-ups and ad redirects" switch; video ads inside pages are not blocked | On |
-| F5 | YouTube merge | Write the merged file straight into Download/YFT when Android allows (8.0+), else today's way; the card says "Merging · N%" and "Saving · N%" | Yes |
-| F6 | Number of agents | 3 at once (A, B, C) or 2 (A takes C's tasks) | 3 |
+| G1 | Number of agents | 3 at once (A, B, C) or 2 (A takes C's task) | 3 |
+| G2 | Faster merge (P35) | Copy the MP4 and M4A tracks' data in large blocks into the final MP4 (stream copy, no per-sample calls), checked afterwards, with today's MediaMuxer way as the safety net (`FAST_MERGE=ON`); or only today's way made a little faster (`FAST_MERGE=OFF`) | `ON` |
+| G3 | Keep downloads and merges working in the background (P34) | Wake lock (and Wi-Fi lock while downloading) as long as a download, merge, MP3 conversion or save runs; the foreground service also declares media processing (Android 15) while merging; released as soon as nothing runs | On |
+| G4 | Battery card (P34) | A card in Downloads (and an entry in Settings) that asks once to let YFT run without battery limits, with Xiaomi's steps (`BATTERY_CARD=ON`); or no card (`OFF`) | `ON` |
+| G5 | Finished notice (P34) | A notification when a download finishes or fails (`DONE_NOTICE=ON`); or only the progress notification (`OFF`) | `ON` |
+| G6 | TikTok qualities (P36) | Ask TikTok's desktop page for the quality list when the phone page has none (`TIKTOK_QUALITIES=DESKTOP`); or only what the phone page gives, usually one quality (`PAGE`) | `DESKTOP` |
+| G7 | Fresh links on other sites (P37) | Read the page again quietly up to 2 times before showing an error (`REREAD=2`); or only the "Reload page and try again" button (`REREAD=0`) | `2` |
+| G8 | Speed units | KB/s below 1,024 KB/s ("850 KB/s"), MB/s from 1 MB/s with one decimal ("1.2 MB/s"), 1,024-based like the Downloads screen | owner's rule |
 
 ## 4. Findings and root causes
 
-Code read on `bc806f9` (Plan Mode, 2026-10-07). Confidence in brackets; agents confirm each
-finding before they change code.
+Code read on `5a5bddb` and live checks in Plan Mode (2026-10-08). Confidence in brackets; agents
+confirm each finding before they change code.
 
-- **R7 — the playing ad wins (item 1, high).** `MediaGroups.mainVideo` (core-model,
-  `MediaGroups.kt` about lines 134–158) takes the **playing element's address first**, then its
-  length, before any page signal. During a pre-roll the playing `<video>` is the ad, so the
-  ad's MP4 becomes the main video. A file the page names as its own (`PageMediaRole.MAIN`) only
-  protects itself in `looksLikePreview`; it does not outrank the playing element.
-- **R8 — the page's stated length is lost (item 1, medium–high).** `HtmlMediaScanner` reads a
-  JSON-LD `VideoObject`'s `duration` only for its `contentUrl` / `embedUrl` when that is a media
-  file. A page whose VideoObject names an embed page (not a file) — as on the owner's site —
-  keeps its 16:24 nowhere. So the ad (0:30) is not recognised as far too short for this page:
-  `looksLikePreview` needs another video of known length ≥ 1 min or a MAIN role, and neither
-  exists until the real manifest has been read. The DOM probe in the browser does not read the
-  page's meta or JSON-LD at all.
-- **R9 — ad servers of free video sites are unknown (item 1, medium).** The ad list
-  (`BrowserObservationMapper` `AD_HOSTS`, `AD_HOST_LABELS`, `AD_FOLDERS`) knows mainstream
-  networks (doubleclick, imasdk, …) but not the networks of free and adult video sites, and an
-  ad's VAST/VMAP description is never used to mark the files it names. To be confirmed by a
-  live check (which hosts served the 0:30 file).
-- **R10 — no second try (item 1, high).** When the chosen video cannot be prepared (HTTP 410,
-  404 or 403: an expired ad file or a one-time address), the sheet stops at the error although
-  "Other videos" has a working video; "Try again" asks the same dead address again.
-- **R11 — no title or picture (item 1, medium).** The sheet shows "Video" and a blank picture
-  for a page that states `og:title` and `og:image` (Snaptube shows both); only some paths carry
-  the page title.
-- **R12 — 99% is the merge, done twice and silently (item 2, high on the mechanism).** After
-  both YouTube tracks are downloaded, `AudioVideoMuxEngine` copies every sample into a new file
-  in app storage (`mux` → `copySamples`, MediaExtractor → MediaMuxer), then copies that whole
-  file again into `Download/YFT` (`publish`, 64 KiB buffer, then `sync`). Nothing of this has
-  progress: the `MUXING` stage (`AudioVideoMuxStage`) is shown nowhere in the app, so the card
-  sits at 99%. For a 1.3 GB recording that is about 4 GB of storage reads and writes after
-  "99%", and up to three copies of the video on the phone at once. The other site's HLS 720p is
-  written straight into its final file (no merge), so it ends at once. How the time splits
-  between demuxing, muxing and copying is to be measured (P27 step 1).
-- **R13 — DuckDuckGo is hard-coded (item 3, high).** `BrowserSearch.webUrl` builds
-  `https://duckduckgo.com/?q=…`; the start page and typed words in the address bar both use it.
-- **R14 — no history (item 3, high).** The browser keeps only the WebView's own back/forward
-  list (`BrowserScreen` `refreshHistoryState`); nothing is saved, listed or cleared.
-- **R15 — ads can take over the tab (item 3, high).** `SecureWebViewPolicy` turns multiple
-  windows off (`setSupportMultipleWindows(false)`), so a page's `window.open()` and
-  `target="_blank"` load **in the same tab**, and `SecureBrowserWebViewClient.
-  shouldOverrideUrlLoading` lets every HTTPS top-level navigation through, with or without the
-  user's tap. An ad's tap handler or a pop-under script therefore replaces the page with the
-  ad's site.
+- **R16 — Try again in the browser asks the same dead links (item 1, high).**
+  `QuickDownloadViewModel.readPageAgainThenLoad` (about line 537) reads the page again only when
+  Home found it (`DetectedMediaStore.readPageAgain` → Home's `LinkInspector`); for a page the
+  browser owns it takes the store's page as it is, so `MediaGroups.refreshed` finds the same
+  addresses and Try again repeats the same 410.
+- **R17 — the page's own links can be dead for YFT (item 1, medium; cause not proven).** P28's
+  `PlayerSetupScanner` takes the signed CDN links written into the page's player script
+  (`mediaDefinitions`, flashvars). On some page loads all of them answer 410 to YFT (manifest
+  and MP4 alike) while the site's player plays, and a manual reload sometimes gives working ones.
+  Likely causes: links that expired or were signed for another IP (a VPN that changed its exit,
+  a page served from a cache), or links the player itself never uses (it fetches fresh ones by
+  script). The live probe was skipped: the site shows an age notice (§0.2). P37 step 1 adds the
+  evidence that tells the causes apart.
+- **R18 — the page's named links outrank the player's own requests (item 1, medium).** In
+  `MediaGroups.mainVideo` a link the page or its player setup names (`PageMediaRole.MAIN`) comes
+  before the addresses the player actually requested (seen by `BrowserObservationMapper`), which
+  are the freshest proof of a working link for this phone.
+- **R19 — TikTok's feed has no video links (item 3, high, confirmed live).** On
+  `tiktok.com/foryou` (phone user agent) a card is `article[data-e2e="recommend-list-item-container"]`
+  → `section[data-e2e="feed-video"]` → `div` with id `xgwrapper-<n>-<19-digit video id>` →
+  `<video src="blob:…">`, plus the author's `/@handle` link; no `/@user/video/<id>` link exists.
+  `FocusedVideoProbe` needs a video-shaped link beside the focused video, finds none, and
+  `BrowserViewModel` shows `NO_FOCUSED_VIDEO_NOTICE`.
+- **R20 — TikTok's phone page has other data (item 3, high, confirmed live).** A video page asked
+  with a phone user agent (the WebView's) is a "reflow" page: its data sit under
+  `webapp.reflow.video.detail` (play and download addresses, no `bitrateInfo`); with a desktop
+  user agent the page has `webapp.video-detail` with `bitrateInfo`. `TikTokPageParser` reads only
+  `webapp.video-detail`, so the browser's lookup finds nothing. The media host answers 206 only
+  with the cookies of the page answer (`tt_chain_token`), 403 without, whatever the user agent;
+  `TikTokExtractor.mediaContext` keeps the WebView's cookie header when there is one and drops
+  the page answer's cookies.
+- **R21 — background work has no guard against sleep and limits (item 4, medium).**
+  `DownloadForegroundService` (type `dataSync`, `START_STICKY`, started when a download is
+  queued) keeps the process alive, but holds no wake lock or Wi-Fi lock (the manifest has no
+  `WAKE_LOCK`), does not handle Android 15's `dataSync` time limit (`onTimeout`, 6 h a day;
+  targetSdk 35), and when the notification permission was denied (asked once, at the first
+  download) its notification is hidden. Xiaomi's HyperOS battery saver may stop such apps. What
+  happens on the phone today is to be measured (P34 step 1).
+- **R22 — the notification shows no numbers (item 4, high).** `DownloadNotificationFactory` builds
+  one ongoing notification (id 4001: the number of downloads, a name or P27's merge stage, a
+  progress bar, Pause all) with no % text, no speed and no time left. The Downloads screen
+  already computes speed (`TransferRateTracker`, `YftFormat.bytes`: KB below 1,024 KB, MB above).
+- **R23 — merging is slow per sample (item 2, medium–high).** P27 merges with MediaExtractor →
+  MediaMuxer, sample by sample (`copySamples`, about 8 JNI calls per sample), straight into the
+  destination. Measured on the CI emulator: about 95 µs per sample (reading 1/3, MediaMuxer 2/3).
+  A 1-hour 720p recording has about 260,000 samples (30 fps video + AAC audio), so the per-sample
+  work, not the bytes, decides the time (about 2 minutes on the owner's phone). Copying the
+  tracks' data in large blocks and writing new sample tables avoids it.
+- **R24 — the merge stops when YFT is in the background (item 5, medium; cause on the phone to
+  be confirmed).** In the code the task stays `RUNNING` through the download, the merge and the
+  save (`DownloadQueue.runTask` → `transferDispatcher.transfer`), and `RUNNING` is one of
+  `DownloadNotificationFactory.FOREGROUND_STATUSES`, so the foreground service is not stopped
+  when the merge starts, and the queue's scope is the app's (`DownloadRuntimeModule`,
+  `Dispatchers.IO`), not a screen's. The stop therefore most likely comes from the phone: Xiaomi's
+  HyperOS freezes background apps that only use the CPU (a merge has no network traffic, a
+  download has), unless the app is allowed to run without battery limits; YFT also holds no wake
+  lock, declares only the `dataSync` service type (Android 15 adds `mediaProcessing` for exactly
+  this work) and its notification is hidden when notifications are off. P34 removes every cause
+  on YFT's side, detects a freeze afterwards (the service's clock jumps) and then shows the
+  phone's setting that stops it; P35 makes the merge itself short.
 
 ## 5. Tasks
 
 Each task: level · AI agent time · needs · agent · prompt; then **Goal**, **Read first**,
-**Steps**, **Tests**, **Docs**, **Done when**, **Owner check** and **Result** (filled by P33
+**Steps**, **Tests**, **Docs**, **Done when**, **Owner check** and **Result** (filled by P38
 from the agent's SESSION_STATE section).
 
-### P27 — YouTube: no long wait at 99%
+### P34 — Downloads and merges keep going in the background
 
-Medium · 3–5 h · needs — · **Agent A** · prompt [`A-merge-speed.md`](prompts/A-merge-speed.md)
+Medium · 5–7 h · needs — · **Agent A** · prompt [`A-background.md`](prompts/A-background.md)
 
-**Goal:** a merged YouTube download (separate video and audio tracks) finishes soon after its
-tracks are downloaded, and the card always says what it is doing — never a silent 99% (R12).
+**Goal:** downloads, merges, MP3 conversions and saves keep running while the owner uses other
+apps or the screen is off, and the notification shows what Snaptube shows: "45% · 1.2 MB/s ·
+61 MB of 96 MB · 15 s left" (and "Merging audio and video · 45%" while merging); when Android
+or the phone limits YFT (notifications off, battery saver, HyperOS freezing, Android 15's time
+limit) the app says so and shows the fix (R21, R22, R24).
+
+**Read first:** `app/.../download/DownloadForegroundService.kt` (`onStartCommand` →
+`startForeground`, `START_STICKY`, the `queue.tasks` observer that stops the service when no
+task is in `FOREGROUND_STATUSES`), `DownloadNotificationFactory.kt` (`active`, `preparing`,
+`FOREGROUND_STATUSES`, channel `active_downloads`, id 4001, Pause all, P27's merge stage from the
+task's `AudioVideoMuxCheckpoint`), `DownloadRuntimeAdapters.kt` (starts the service when a
+download is queued), `DownloadRuntimeModule.kt` (the queue's app scope), `app/.../feature/
+downloads/TransferRateTracker.kt`, `DownloadLabels.kt`, `DownloadsScreen.kt`,
+`app/.../ui/components/NotificationPermission.kt`, `app/.../ui/format/YftFormat.kt` (`bytes`,
+`duration`; read only), `app/.../feature/settings/SettingsScreen.kt`,
+`app/src/main/AndroidManifest.xml`, and (read only) `core-download/.../DownloadQueue.kt`
+(`runTask`: the task stays `RUNNING` through download, merge and save).
+
+**Steps**
+1. **Measure first (CI emulator).** Instrumented tests (`app/src/androidTest/java/com/alal/yft/
+   background/`): (a) a real download from a small slow server inside the test (about 200 KB/s
+   for about a minute) → press Home (UiAutomator `pressHome()`) → for 20 s the stored bytes keep
+   rising and the ongoing notification exists (`NotificationManager.activeNotifications`);
+   (b) a merged download whose tracks come from the test server (the androidTest `mux` assets,
+   or P27's long fragmented input from `LongFragmentedMp4.kt` copied into your folder) → press
+   Home as soon as the stage is `MUXING` → the merge's progress keeps rising and the task
+   completes without the app coming back. If the emulator allows it, repeat (a) with the device
+   idle (`dumpsys deviceidle force-idle` through `UiAutomation.executeShellCommand`, then
+   `unforce`). Record what the old code does in the Result (stock Android may not freeze like
+   HyperOS; the tests guard YFT's side).
+2. **Keep working with the screen off or in another app (G3).** While any task runs — download,
+   merge, MP3 conversion or save — the service holds a partial wake lock (tag `yft:downloads`,
+   renewed with a timeout), plus a Wi-Fi lock (`WIFI_MODE_FULL_HIGH_PERF`) while bytes are
+   downloaded; both are released as soon as nothing runs (paused, finished, failed, cancelled)
+   and in `onDestroy`. Manifest: `WAKE_LOCK`. The service never stops while a task is
+   `RUNNING` in any stage (a JVM test pins this for the merge and save stages).
+3. **Service types and Android's limits.** Start the foreground service with its type
+   (`ServiceCompat.startForeground(…, FOREGROUND_SERVICE_TYPE_DATA_SYNC)` on API 29+); on
+   Android 15+ (API 35) add `FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING` while a merge, conversion
+   or save runs (manifest: `foregroundServiceType="dataSync|mediaProcessing"` and the
+   `FOREGROUND_SERVICE_MEDIA_PROCESSING` permission). Show the notification at once
+   (`FOREGROUND_SERVICE_IMMEDIATE`). Handle `onTimeout(startId, fgsType)` (each type may run
+   6 h a day on Android 15): pause what runs, stop the service and post "Android paused
+   downloads after 6 hours. Open YFT to resume." A start the system refuses
+   (`ForegroundServiceStartNotAllowedException`, API 31+, for example a restart from the
+   background) leaves the downloads queued with that notice instead of a crash. Keep today's
+   resume after a `START_STICKY` restart.
+4. **Freeze detector (R24).** While a task runs, the service ticks once a second on its own
+   clock (`SystemClock.elapsedRealtime`). A tick that comes more than 10 s late while YFT holds
+   its wake lock means the phone froze or stopped YFT in the background: count it, log one line
+   (time lost, stage; no names or addresses), and show the battery card (step 8) again even if it
+   was dismissed, with "Your phone paused YFT in the background for 1 min 40 s."
+5. **The notification (R22)**, one ongoing notification, updated at most once a second:
+   - one download: title = the video's title (shortened); text "45% · 1.2 MB/s · 61 MB of 96 MB ·
+     15 s left"; the progress bar; Pause all (as today); a tap opens YFT;
+   - size unknown (HLS without sizes): "61 MB · 1.2 MB/s", with the fraction the Downloads card
+     uses when it has one;
+   - several downloads: title "Downloading 3 videos · 45%", text "2.4 MB/s · 1 min left", and one
+     line per download (up to 5, `InboxStyle`): "<title> — 45% · 1.2 MB/s";
+   - merging, converting and saving: P27's "Merging audio and video · 45%" and "Saving to
+     Download/YFT · 80%" (no speed), moving while YFT is in the background;
+   - waiting: "Waiting for network" / "Waiting for Wi-Fi" when the queue says so.
+   Speed = bytes per second over the last few seconds, computed once for the card and the
+   notification (share `TransferRateTracker`'s logic, do not write it twice); format G8: below
+   1,024 KB/s "850 KB/s" (whole numbers), from there "1.2 MB/s" (one decimal), 1,024-based. Time
+   left = remaining bytes ÷ smoothed speed: "15 s left", "3 min left", "1 h 5 min left"; hidden
+   when the size is unknown or the speed is 0. The Downloads card uses the same speed text.
+6. **Finished notice (G5).** A second channel "Finished downloads": "Downloaded · <title>" (a tap
+   opens YFT) and "Download failed · <title> — <short reason>"; no file path or address.
+   `DONE_NOTICE=OFF` skips it.
+7. **When notifications are off.** If the Android 13+ permission was denied or the channel is
+   off, the Downloads screen shows a one-line card "Turn on notifications to see download
+   progress outside YFT" → the app's notification settings (`ACTION_APP_NOTIFICATION_SETTINGS`);
+   it can be dismissed (testTag `downloads-notifications-card`).
+8. **Battery card (G4).** When `PowerManager.isIgnoringBatteryOptimizations` is false and a
+   download has been started (or step 4 saw a freeze), the Downloads screen shows "Downloads and
+   merges may stop when YFT is in the background. Allow YFT to run without battery limits." →
+   `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` for YFT (manifest
+   `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`; YFT is distributed through GitHub, not Google Play),
+   falling back to `ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS` or the app's details. On Xiaomi,
+   Redmi and POCO phones (`Build.MANUFACTURER`) it adds the HyperOS steps: "Settings › Apps ›
+   Manage apps › YFT › Battery saver › No restrictions; turn on Autostart; in Recents, hold YFT's
+   card and tap the lock." Not now hides it until the next freeze; Settings › Downloads ›
+   "Background downloads" shows Allowed / Limited with the same button and steps. testTags
+   `downloads-battery-card`, `settings-background-downloads`. `BATTERY_CARD=OFF` keeps only the
+   Settings entry and the freeze message.
+9. Keep the Wi-Fi-only policy, Pause all, P27's stages and every testTag. C's P35 changes the
+   merge inside `core-download`; the service runs it as today.
+
+**Tests**
+- JVM: notification text for one download "45% · 1.2 MB/s · 61 MB of 96 MB · 15 s left" (must
+  fail on the old code: no % text, no speed); several downloads (title with count and total %,
+  one line each); unknown size; merge and save stages; speed boundaries (1,023 KB/s → "1023
+  KB/s", 1,024 KB/s → "1.0 MB/s", 12.3 MB/s); time-left texts; at most one update a second; the
+  service stays in the foreground while a task is `RUNNING` at `MUXING` or `SAVING`; wake lock
+  held through download, merge and save and released when paused, finished or failed, Wi-Fi lock
+  only while downloading (a fake lock; must fail on the old code: no lock); the service type
+  adds media processing while merging on API 35 only; the freeze detector (a late tick → count,
+  card shown again, message; must fail on the old code); `onTimeout` pauses and posts the
+  notice; the battery card by state, with the HyperOS steps only on Xiaomi; the notifications
+  card when notifications are off.
+- Instrumented (CI emulator, `app/src/androidTest/java/com/alal/yft/background/`): step 1's
+  tests (bytes rise for 20 s after Home and the notification's text contains "%" and "/s"; a
+  merge started before Home completes in the background); the finished notice is posted.
+
+**Docs:** your sections of SESSION_STATE, CHANGELOG and TEST_MATRIX (with step 1's findings).
+
+**Done when:** both background tests are green on the CI emulator; the notification shows %,
+speed, time left and the merge's progress; the locks are released when nothing runs; the freeze
+detector, notices and cards work.
+
+**Owner check:** (1) start a large download (300 MB or more), switch to Facebook for 2 minutes →
+the notification shows "N% · speed · … left" (KB/s under 1 MB/s, MB/s above) and the download
+keeps going; screen off for a minute → still going. (2) A long YouTube video: when "Merging … %"
+starts, switch to Facebook → the notification's % keeps moving and "Downloaded · …" arrives
+without opening YFT. (3) If the card says the phone paused YFT, follow its Xiaomi steps once
+and repeat (2).
+
+**Result:** —
+
+### P35 — Faster merge for long videos
+
+Hard · 6–10 h · needs — · **Agent C** · prompt [`C-fast-merge.md`](prompts/C-fast-merge.md)
+
+**Goal:** merging the video and audio tracks of a long recording takes seconds instead of
+minutes — for a 1-hour 720p recording from about 2 minutes (Preview #5) to about 10–20 s
+(estimate, to be measured) — with the same playable MP4, and today's way as the safety net
+(R23).
 
 **Read first:** `core-download/.../AudioVideoMuxEngine.kt` (`AndroidLocalMuxer.mux`,
-`copySamples`, `transfer`, `publish`, `MuxCheckpointTracker`), `core-model/.../download/
-DownloadModels.kt` (`AudioVideoMuxStage`, `DownloadProgress`), `DownloadQueue` (progress into
-the record), `PublicDownloadDestination.kt` and `DownloadDestination.kt` (how a destination
-opens its file), `app/.../feature/downloads/DownloadLabels.kt` (`progressDetail`),
-`DownloadsScreen.kt`, the foreground notification in `app/.../download/**`,
-`app/src/androidTest/.../download/AudioVideoMuxerInstrumentedTest.kt`.
+`copySamples`, P27's merge straight into the destination's file descriptor, the space check,
+`MuxCheckpointTracker`, the step-time log line), `DownloadDestination.kt`
+(`openFileDescriptorOutput`), `PublicDownloadDestination.kt`, `core-model/.../download/
+DownloadModels.kt` (`AudioVideoMuxStage`, `DownloadProgress`), `app/src/androidTest/.../download/
+AudioVideoMuxerInstrumentedTest.kt`, `MergeSpeedInstrumentedTest.kt` and `LongFragmentedMp4.kt`
+(P27's 20-minute input). Track formats: YouTube's and Facebook's DASH files are fragmented MP4
+(`ftyp`, `moov` with `mvex/trex`, `sidx`, then `moof` + `mdat` pairs); some audio and progressive
+files are plain MP4 (`moov/…/stbl`).
 
 **Steps**
-1. **Measure first.** Time each step of a merged download — video track, audio track, mux
-   (demux + write), copy into the destination, sync, commit — and keep the times in the task's
-   log lines (no addresses) and in the failure detail when a merge fails. On the CI emulator,
-   an instrumented test merges a long generated input (at least 20 minutes, a small bitrate,
-   many samples; fragmented MP4 like YouTube's DASH files if the test can make one) and prints
-   the split. Record the numbers in the Result.
-2. **Progress after the download.** The mux reports progress (sample time written ÷ the
-   tracks' duration) and the copy reports bytes; the record keeps the stage. The Downloads card
-   and the notification say "Merging audio and video · 45%" and then "Saving to Download/YFT ·
-   80%" (testTag `download-stage-<id>`); the bar keeps moving instead of stopping at 99%.
-3. **Merge straight into the final file.** On Android 8.0+ (API 26, `MediaMuxer(FileDescriptor,
-   format)`), when the destination can give a seekable read-write file descriptor (a pending
-   MediaStore row, a file in app storage; a SAF document only when its descriptor is
-   seekable), mux directly into it, then check its length and commit — no second copy. Add this
-   to `DownloadDestination` by addition (a default that says "not available"). Otherwise, and
-   on Android 7.x, keep today's path with a larger copy buffer (1 MiB). If the direct mux fails
-   before writing its first sample, fall back once to today's path.
-4. **Space.** Before merging, check the free space the chosen path needs (direct: the output ≈
-   video + audio; today's path: twice that) and fail early with `INSUFFICIENT_STORAGE` at stage
-   `MERGE` instead of at the end; delete each track file as soon as the merge has succeeded.
-5. **Long recordings.** If step 1 shows MediaExtractor's reading itself is the slow part (for
-   example on fragmented MP4), note the numbers and add a backlog item for a faster demuxer;
-   do not replace the muxer in this task.
+1. **Measure first** (CI emulator; the same log line on the phone): P27's path split into
+   reading (MediaExtractor), writing (MediaMuxer) and file work, per sample, for P27's 20-minute
+   input and a 1-hour-sized input (repeat its fragments to about 260,000 samples). Record.
+2. **Quick wins on today's path** (it stays for WebM and as the fallback): read a sample's time,
+   flags and size once; one reusable buffer sized to the largest sample; progress at most every
+   250 ms (no per-sample state or database writes). Measure again.
+3. **Fast path: stream copy (G2, `FAST_MERGE=ON`)** for an MP4 video track with an MP4/M4A audio
+   track (codecs the merge accepts today; AV1 stays off as today):
+   1. Read both inputs in plain Kotlin over `FileChannel` (no Android API, so JVM tests run it):
+      the init part (`ftyp`; `moov` › `trak` › `tkhd`, `mdhd` timescale, `hdlr`, `stsd` kept byte
+      for byte, `edts/elst`, `mvex/trex` defaults) and the samples — fragmented (`moof` › `traf` ›
+      `tfhd`, `tfdt`, `trun`: offset, size, duration, composition offset and sync flag of every
+      sample) or plain (`stsz`/`stz2`, `stco`/`co64`, `stsc`, `stts`, `ctts`, `stss`). Unknown
+      boxes are skipped. Anything unexpected — encryption (`encv`, `enca`, `senc`, `pssh`: DRM
+      stays out), more than one track in a file, broken sizes — means "not supported": use
+      today's path.
+   2. Write a progressive MP4 straight into the destination (P27's file descriptor, or today's
+      temporary file): `ftyp`, one `mdat` (64-bit size above 4 GiB) holding the samples in
+      chunks of about one second per track, alternating video and audio, copied in large blocks
+      (`FileChannel.transferTo`/`transferFrom` or 1–4 MiB buffers; a whole fragment at once when
+      its samples are contiguous), then `moov`: `mvhd`; per track `tkhd`, `edts/elst` (the
+      offset between the tracks' starts and the first composition offset, as MediaMuxer writes
+      them), `mdia` (`mdhd` with the input's timescale, `hdlr`, `minf` with `vmhd`/`smhd`,
+      `dinf`, `stbl` = the input's `stsd` + new `stts`, `ctts` (version 1 when offsets are
+      negative), `stss` (video), `stsc`, `stsz`, `stco` or `co64`). All sizes are known before
+      writing, so nothing needs a seek.
+   3. Check the result with MediaExtractor: two tracks with the inputs' formats (MIME, size,
+      sample rate, channels), the same sample counts, durations within one frame, and the first,
+      last and a few random samples equal byte for byte to the inputs'. A failed check deletes
+      the output and runs today's path once; the log and a later failure's detail keep the
+      reason.
+   4. Progress: bytes copied ÷ total → P27's "Merging audio and video · N%" (same stage).
+4. Space check as in P27 (in place: about video + audio). Track files are deleted only after a
+   good merge, as today.
+5. WebM (VP9/Opus, 2K/4K) keeps today's MediaMuxer path with the quick wins; a Matroska stream
+   copy is backlog (§7).
+6. One log line per merge: path (stream copy or today's), sample counts, time per phase, and the
+   merge thread's CPU time beside the wall time (a large gap means the phone paused YFT, R24); no
+   addresses.
 
 **Tests**
-- JVM: the tracker's progress rises through `MUXING` and the copy and never stays at 99% (must
-  fail on the old code: no progress after the tracks); labels "Merging audio and video · 45%"
-  and "Saving to Download/YFT · 80%"; with a destination that offers a file descriptor the
-  engine writes the output once and makes no second copy (must fail on the old code: two
-  writes); without one, today's path; a direct-mux failure before the first sample falls back
-  once; the space check fails early.
-- Instrumented (CI emulator, `app/src/androidTest/.../download/`): a direct mux into a new
-  MediaStore item gives a playable file with one video and one audio track; the long-input
-  timing test from step 1.
+- JVM (`core-download/src/test`, plain Kotlin): small fragmented and plain MP4 inputs built in
+  the test → the written tables (`stts`, `ctts`, `stss`, `stsc`, `stsz`, `stco`) match the
+  samples; offsets above 4 GiB → `co64` and a 64-bit `mdat` (a virtual source, no real 4 GiB
+  file); chunk order alternates by time; encrypted or odd input → "not supported" → today's path
+  once; MP4 + M4A uses the stream copy (must fail on the old code: no fast path); progress rises
+  to 100%.
+- Instrumented (CI emulator, `app/src/androidTest/.../download/`): stream copy against today's
+  path on P27's 20-minute input and the 1-hour-sized input → the same tracks, the same sample
+  count, every sample byte-equal, times within one tick, and the file plays in Media3 ExoPlayer
+  (prepare, duration, seek to the middle); print both times; assert the stream copy is at least
+  3× faster on the long input.
 
-**Docs:** your sections of SESSION_STATE, CHANGELOG and TEST_MATRIX (with the measured times).
+**Docs:** your sections of SESSION_STATE, CHANGELOG and TEST_MATRIX (with the measured times
+before and after).
 
-**Done when:** a merged download shows its merge and save stages with progress; on Android 8.0+
-the merged file is written once; CI emulator smoke green with the new tests.
+**Done when:** on the CI emulator the stream copy gives identical, playable files at least 3×
+faster on the long input; WebM merges unchanged; the fallback works.
 
-**Owner check:** a long YouTube live recording (1 h or more) at 480p or 720p → after the tracks
-the card shows "Merging … %" and "Saving … %", the wait after 99% is clearly shorter than in
-Preview #4, and the file plays in the Library.
+**Owner check:** the same 1-hour YouTube live recording at 720p → "Merging … %" ends in about
+10–20 s after the tracks (was about 2 minutes); it plays and seeks in the Library and in another
+player; a 1080p video and a 2K/4K WebM still save.
 
-**Result:** OWNER CHECK (Agent A, `83478f0`, merged by P33). The merge reports its progress
-(samples written / track time) and the copy its bytes (new stage `SAVING`); the card and the
-notification say "Merging audio and video · 45%", then "Saving to Download/YFT · 80%" (testTag
-`download-stage-<id>`). `DownloadDestination.openFileDescriptorOutput()` (added, default null):
-on API 26+ with a seekable "rw" descriptor (pending MediaStore row, app storage, a seekable SAF
-document) `MediaMuxer(FileDescriptor, …)` merges straight into the destination — no second copy;
-otherwise and on Android 7.x today's path with a 1 MiB buffer; an in-place merge that fails
-before its first sample falls back once. Space check before the destination is touched →
-`INSUFFICIENT_STORAGE` at `MERGE`; track files deleted after a good merge. One log line per merge
-with each step's time. Plan adapted: today's path deletes the tracks before the copy (a later
-failure starts over); the emulator's 20-minute input repeats the test tracks' fragments under one
-new `sidx`. Measured (CI emulator, API 34, 20 min, 70 785 samples, 17 MB): read alone 2.1 s;
-in place 6.8 s (merge 6.7 s); today's path 7.2 s — reading is not the slow part. Tests: 8 engine,
-4 label, card, notification, 2 instrumented; regression proof 13 fail on `7873d51`. Detail:
-`docs/SESSION_STATE.md` › Agent A.
+**Result:** —
 
-### P28 — Other sites: the page's video, not the ad before it
+### P36 — TikTok: Download on the For You feed and video pages
 
-Hard · 6–10 h · needs — · **Agent B** · prompt [`B-generic-main.md`](prompts/B-generic-main.md)
+Medium · 3–5 h · needs — · **Agent B** · prompt
+[`B-tiktok-fresh-links.md`](prompts/B-tiktok-fresh-links.md)
 
-**Goal:** on a site without an adapter, Download opens the page's own video — with its title,
-picture, length and qualities — even while a pre-roll ad plays; the ad stays under "Other
-videos on this page" (R7, R8, R9, R11).
+**Goal:** on tiktok.com in YFT's browser (the owner uses a VPN), Download on the video on screen
+— For You, Following, Explore, a profile or a video page — opens the sheet with the video's
+qualities and sizes; a TikTok link pasted on Home keeps working (R19, R20).
 
-**Read first:** `core-model/.../media/MediaGroups.kt` (`mainVideo`, `looksLikePreview`,
-`ofPage`), `PlayingVideo`, `PageMediaRole`; `core-browser/.../detection/HtmlMediaScanner.kt`
-(JSON-LD, Open Graph, inline scripts), `PlayingVideoProbe.kt`, `DomMediaProbe.kt`,
-`DomProbeResultParser.kt`, `BrowserObservationMapper.kt` (`adRole`, ad lists),
-`HeadlessPageFetcher.kt`; `core-browser/.../session/PageCandidateStore.kt`;
-`app/.../feature/browser/BrowserViewModel.kt` (`openMainVideo`), `app/.../feature/home/`
-(other-site path), `app/.../feature/quickdownload/QuickDownloadViewModel.kt`; P24's fixture
-`core-browser/src/test/resources/fixtures/p24-preview-grid.html`.
+**Read first:** `core-browser/.../detection/FocusedVideoProbe.kt` (`linkBeside` and the page
+script that looks for a video link beside the focused `<video>`) and `FocusedVideoProbeTest.kt`,
+`app/.../feature/browser/BrowserViewModel.kt` (the focused lookup, about lines 420–575,
+`NO_FOCUSED_VIDEO_NOTICE`), `extractor-sites/.../tiktok/TikTokPageParser.kt` (`VIDEO_DETAIL_KEY`),
+`TikTokExtractor.kt` (`mediaContext`), `TikTokUrls.kt`, `app/.../detection/SiteAdapterCoordinator.kt`
+and `HeadlessIdentity.kt` (which user agent and cookies reach the adapter),
+`extractor-sites/src/test/resources/fixtures/tiktok/`, `app/src/androidTest/.../browser/
+FocusedVideoProbeInstrumentedTest.kt` and `app/src/androidTest/assets/focused-video/tiktok-feed.html`
+(the old feed layout).
 
 **Steps**
-1. **Page facts.** A new `PageVideoFacts` (core-model media, all fields optional): the page's
-   stated length (JSON-LD `VideoObject.duration` even when it names no media file,
-   `og:video:duration`, `video:duration`, `itemprop="duration"`), title (`og:title`, JSON-LD
-   `name`, else `<title>` without the site's name) and picture (`og:image`, JSON-LD
-   `thumbnailUrl`). Home reads them from the HTML (`HtmlMediaScanner`); the browser reads them
-   from the live page (the DOM probe's script returns them; meta and JSON-LD only, never page
-   text). `PageCandidateStore` keeps them per page.
-2. **Common player setups** (player names, never site names): JW Player `setup({file | sources
-   | playlist})`, Video.js `data-setup` and `<source>` lists, Flowplayer / Clappr / Plyr
-   `source(s)`, KVS-style `flashvars` (`video_url`, `video_alt_url` with their `_text`
-   labels), and generic quality lists in page scripts (objects with a media URL and a
-   `quality` / `label` / `res` / `height` key, including lists named `mediaDefinitions` or
-   `sources`). Each URL becomes a MAIN candidate with its height from the label. Escaped JSON
-   (`\/`) is read; URLs built by obfuscated script are not chased — the browser's requests find
-   those.
-3. **Choosing the main video** (`mainVideo`, new order): (a) a video whose length matches the
-   page's stated length (± 2 s, or ± 1% when longer than 10 min); (b) videos the page or its
-   player setup names (MAIN) before the rest; (c) the playing element only when its length is
-   unknown or matches the stated length — a 0:30 element on a 16:24 page is an ad pre-roll, not
-   the page's player; (d) P24's rules after that. `looksLikePreview` also counts as an ad a
-   video shorter than half of the stated length (or under 60 s when the page states 2 min or
-   more). An adapter's video and P24's behaviour without page facts stay as they are.
-4. **Ads.** Extend the media ad list with the ad networks of free video sites that the live
-   check (or the networks' public documentation) confirms — candidates to check: TrafficJunky,
-   adtng, ExoClick / exosrv, JuicyAds, TrafficStars, tsyndicate, realsrv, magsrv, Adsterra;
-   keep only confirmed hosts. A media file first seen right after a VAST or VMAP request
-   (address words `vast` / `vmap`, or an XML answer) in the same frame is an ad.
-5. **Waiting for the real video.** When the page states a length of 2 min or more and every
-   known video is far shorter (only ads or previews), the sheet opens at once with the page's
-   title and picture and "Finding the page's video…" for up to 6 s while the browser keeps
-   watching requests and reading manifests, then fills in by itself. If nothing comes, it shows
-   the best of the others with the line "This may be an ad. Play the video for a moment, or see
-   Other videos." (testTag `quick-maybe-ad`).
-6. **Header.** The sheet's title and picture come from the page facts when the main video has
-   none of its own (no more "Video" with a blank picture on a page that names its video).
+1. **Live check first** (`scripts/live-check.sh`; TikTok changes often): the For You page with a
+   phone user agent (R19's card structure, the `xgwrapper-<n>-<id>` id, no `/video/` links) and
+   one public video page with a phone and a desktop user agent (`webapp.reflow.video.detail` vs
+   `webapp.video-detail`; the media host's answer with and without the page answer's cookies).
+   Report markers, statuses and counts only. Confirmed in Plan Mode on 2026-10-08.
+2. **The focused video without a link.** When no video-shaped link is beside the focused video,
+   FocusedVideoProbe takes the video id from the nearest ancestor whose id is
+   `xgwrapper-<n>-<15–22 digits>` and the handle from the card's `a[href^="/@"]` (the card is the
+   nearest `[data-e2e="recommend-list-item-container"]`, `[data-e2e="feed-video"]` or
+   `article`) → `https://www.tiktok.com/@<handle>/video/<id>`; without a handle →
+   `https://www.tiktok.com/@/video/<id>` (the page answered 200 in Plan Mode; `TikTokUrls` must
+   accept it). Only on TikTok's hosts; the page's own `/video/<id>` address (a video page or its
+   modal) still comes first; other sites are unchanged.
+3. **The phone page's data.** `TikTokPageParser` reads `webapp.video-detail` and, when it is
+   missing, `webapp.reflow.video.detail`: title, author, length, picture, play and download
+   addresses; quality rows from `bitrateInfo` when present.
+4. **Qualities (G6, `TIKTOK_QUALITIES=DESKTOP`).** When the page has no `bitrateInfo` (the phone
+   page), the adapter asks the same video page once more with the desktop user agent
+   (`HeadlessIdentity`) and uses its `bitrateInfo` and its answer's cookies; if that fails, the
+   phone page's play or download address is the one quality. `PAGE` skips the second request.
+5. **Media cookies (R20).** `mediaContext` keeps the WebView's cookie header, but the cookies of
+   the page answer whose addresses are used replace same-named ones and are added when missing;
+   the media request uses the user agent that fetched that page.
+6. The "No video on screen to download" notice stays only for pages that really have no video
+   on screen; Home's lookups of pasted links keep working.
 
 **Tests**
-- Fixture `core-browser/src/test/resources/fixtures/p28-preroll.html` (neutral text, blank
-  images): JSON-LD VideoObject with `duration` PT16M24S and an embed URL, `og:title`,
-  `og:image`, a 30 s ad MP4 playing in the player element, the real HLS master loaded later →
-  main = the 16:24 HLS with the page's title and picture; the ad under Other videos (must fail
-  on the old code: the playing 0:30 ad wins).
-- Player setups: JW Player, Video.js, KVS flashvars and a quality list → MAIN candidates with
-  heights; escaped JSON; a page without any of them keeps P24's result.
-- `mainVideo` table: stated length beats the playing ad; the playing element still wins on a
-  page without stated length (P24 regression guard); an adapter's video untouched.
-- Waiting: only an ad known → "Finding the page's video…" → the real video arrives → the sheet
-  switches without a tap; nothing arrives in 6 s → the ad with `quick-maybe-ad`.
-- Instrumented (CI emulator, `app/src/androidTest/.../browser/detection/`): a local fixture page
-  plays a 30 s ad and then the main video; Download during the ad picks the main video.
+- JVM: a For You card (structure only, neutral text, blob video inside `xgwrapper-…`) → the link
+  `https://www.tiktok.com/@handle/video/<id>` (must fail on the old code); no handle → `/@/video/<id>`;
+  a reflow page fixture (redacted) → title, length and play address (must fail on the old code);
+  the desktop fixtures still parse; phone page without qualities → the desktop page's qualities;
+  the cookie merge (a stale same-named WebView cookie loses; must fail on the old code).
+- Instrumented (CI emulator): `FocusedVideoProbeInstrumentedTest` with a new feed page in
+  today's layout (`app/src/androidTest/assets/focused-video/tiktok-foryou.html`) → the link is
+  built; the old layout still works.
 
-**Live check:** one public page of the owner's kind (a free video site with a pre-roll) if the
-sandbox reaches it **without an age or identity gate** — never click one; report hosts, lengths,
-heights and counts only, and which host served the ad. Otherwise fixtures and the owner's phone.
+**Docs:** your sections of SESSION_STATE, CHANGELOG and TEST_MATRIX; `SUPPORT_MATRIX.md` TikTok
+row.
 
-**Docs:** your sections of SESSION_STATE, CHANGELOG and TEST_MATRIX; `design/DESIGN-NOTES.md`
-(sheet header, "Finding the page's video…"); `SUPPORT_MATRIX.md` (other sites' row).
+**Done when:** the feed card and the reflow page tests pass; the live check shows today's
+markers; CI emulator green.
 
-**Done when:** the fixture page and the instrumented page open the page's video during the ad;
-P24's tests still pass; CI green.
+**Owner check (VPN):** tiktok.com/foryou → let a video play → Download → the sheet with
+qualities and sizes → the download plays; a video from a profile; Home: paste a TikTok link →
+the sheet.
 
-**Owner check:** the site from Preview #4: open a video page and tap Download while the ad
-plays → the sheet shows the page's title, picture and length (for example 16:24) with its
-qualities (480p, 720p); the ad only under Other videos.
+**Result:** —
 
-**Result:** OWNER CHECK (Agent B, `a47926d`, merged by P33). On a site without an adapter the
-browser and Home read the page's stated length, title and picture (meta tags and JSON-LD only,
-also a VideoObject naming an embed page) and its player's setup (JW Player, video.js, KVS
-`flashvars`, quality lists). With a stated length of 2 min or more, Download during the pre-roll
-opens the file of that length (else the one the page or its player names) with the page's title
-and picture; a file under half the length, the free video sites' ad networks and the file a
-frame fetches within 6 s after a VAST/VMAP request to another site go under Other videos. With
-only the ad so far the sheet shows "Finding the page's video…" for up to 6 s, else the ad with
-`quick-maybe-ad`. New: `PageVideoFacts`, `PageFactsReader`, `PlayerSetupScanner`, `MiniJson`,
-`VastAdTracker`. Plan adapted: the browser's hook sees requests, not responses, so an ad break is
-known by its address (`vast`/`vmap`) and its ad is the next file the same frame fetches from
-another site within 6 s. Regression proof 4 of 4 fail on `679ec78`; `PrerollInstrumentedTest`
-green on the CI emulator. Detail: `docs/SESSION_STATE.md` › Agent B.
+### P37 — Other sites: fresh links instead of HTTP 410
 
-### P29 — Other sites: the next video when one fails
+Medium · 4–6 h · needs — (after P36 on B's branch) · **Agent B** · prompt
+[`B-tiktok-fresh-links.md`](prompts/B-tiktok-fresh-links.md)
 
-Medium · 2–4 h · needs P28 · **Agent B** · prompt [`B-generic-main.md`](prompts/B-generic-main.md)
+**Goal:** on a site without an adapter, when the page's links answer 401, 403, 404 or 410, YFT
+finds fresh ones by itself — the player's own requests, a quiet second read of the page — before
+it shows an error; Try again really reads the page again; "Reload page and try again" does in
+one tap what the owner did by hand; the Details say which link failed and why (R16–R18).
 
-**Goal:** a dead address (HTTP 410, 404, 403) no longer ends the sheet when the page has another
-working video, and "Try again" asks fresh addresses (R10).
-
-**Read first:** `QuickDownloadViewModel.kt` (resolve, failure, retry), `QuickDownloadFailures`,
-`MediaGroups.ofPage`, `PageCandidateStore`, P24's failure Details.
+**Read first:** `app/.../feature/quickdownload/QuickDownloadViewModel.kt` (`retry` →
+`readPageAgainThenLoad`, about line 537; P29's next video), `QuickDownloadFailures.kt` (Details
+lines: step, host, status), `QuickDownloadScreen.kt`, `app/.../feature/detectedmedia/
+DetectedMediaStore.kt` (`readPageAgain`, Home only), `app/.../feature/home/LinkInspector.kt`,
+`core-browser/.../detection/HeadlessPageFetcher.kt` (no cookies, by design),
+`PlayerSetupScanner.kt` (page-script links), `BrowserObservationMapper.kt` (requests the player
+made), `core-browser/.../session/PageCandidateStore.kt`, `core-model/.../media/MediaGroups.kt`
+(`mainVideo`, `refreshed`, `PageMediaRole.MAIN`), `app/.../feature/browser/BrowserViewModel.kt` and
+`BrowserScreen.kt` (`onReload = { webView?.reload() }`), `app/src/androidTest/.../browser/
+detection/PrerollInstrumentedTest.kt`.
 
 **Steps**
-1. When preparing the main video of a page without an adapter fails with 403, 404, 410 or
-   `INVALID_URL` and the page has other videos that are not ads, prepare the next one in
-   P28's order once, by itself; a line says "The first file is gone — showing the next video"
-   (testTag `quick-next-video`) and Details lists both attempts (step, host, status).
-2. "Try again" re-reads the page's current candidates (fresh addresses from the page store, or a
-   new read of the page for Home) instead of asking the same address again.
-3. Every entry (Home, browser, found list, Other videos) uses the page facts' title and picture
-   for the header when the video has none (P28 step 6).
+1. **Evidence in Details first.** For every attempt add, beside step, host and status: "Link
+   from: page script / player request / page read again", "Link age: 12 min" (since the page or
+   the request was seen) and "Link expiry: passed / not passed / none" (a numeric expiry-like
+   query value such as `validto`, `expires`, `exp`, `e`, `x-expires`, compared with the phone's
+   clock; never the value or the address). The owner's next screenshot then tells R17's causes
+   apart.
+2. **The player's fresh address first (R18).** For the same video (the same path without its
+   query, or the same quality in the same group) an address the page's player itself requested
+   (newest first) comes before a page-script link of that quality; when a page-script link
+   answers 401/403/404/410, the player's address for that video is tried before P29's next
+   video.
+3. **Quiet re-read (G7, `REREAD=2`).** When the links answer 401/403/404/410 and no fresh player
+   address exists, read the page again in the background — the same address, `Cache-Control:
+   no-cache`, the WebView's user agent and the tab's cookies for that site (CookieManager, never
+   logged) — up to 2 times, find the same video in it (`MediaGroups.refreshed`: path, title,
+   length) and prepare its new addresses; then P29's next video. Build this as a separate mode
+   beside `HeadlessPageFetcher` (Home's cookie-free fetch stays as it is). The tab's cookies carry
+   only what the user did on the site himself (for example his own tap on an age notice); YFT
+   never taps, skips or fakes a notice. A page that answers with a notice or a check (no player
+   data) is not used: go to step 5.
+4. **Try again in the browser** runs step 3 (R16: today it reuses the same stale page).
+5. **"Reload page and try again"** (testTag `quick-reload-retry`), shown with the error when steps
+   2–4 found nothing fresh: it closes the sheet, reloads the browser tab once without the cache
+   (main thread: `cacheMode = LOAD_NO_CACHE` for that load, back to the default when it
+   finished), and reopens the sheet for the same video when the page's video is found again
+   (P28's rules, within about 15 s); otherwise "The site gave no new link. Play the video for a
+   moment, then tap Download again." Pages Home found keep Home's re-read.
+6. Keep P28 and P29 (the page's video before ads, the next video), sites with adapters
+   (`adapterSite` pages skip all this) and Home's lookups as they are.
 
-**Tests:** the first video fails with 410 → the second is prepared and shown (must fail on the
-old code: the error); an ad is never the fallback; "Try again" uses the store's newest address;
-Details lists both attempts.
+**Tests**
+- JVM: the Details lines (source, age, expiry passed / not passed / none) never contain an
+  address or a query value; a player request outranks a page-script link of the same quality
+  (must fail on the old code); after a 410 the player's address is tried before the next video;
+  browser Try again reads the page again and prepares the new addresses (must fail on the old
+  code: same page reused); at most 2 re-reads; a notice page is not used and the reload button
+  shows; the reload flow in the view model (reload asked, the sheet reopens when the video
+  appears, the message after the timeout); `REREAD=0`.
+- Instrumented (CI emulator, `app/src/androidTest/.../browser/detection/`): a fixture site served
+  by the test: its player script names a link that answers 410 while the player requests a
+  working one → the sheet prepares the player's; the second page load gives a new working link →
+  Try again prepares it.
 
-**Docs:** your sections of SESSION_STATE, CHANGELOG and TEST_MATRIX.
+**Docs:** your sections of SESSION_STATE, CHANGELOG and TEST_MATRIX; `SUPPORT_MATRIX.md` row for
+other sites.
 
-**Done when:** the tests pass; CI green.
+**Done when:** the tests pass, the CI emulator test is green, and Javtiful-like pages (P28's
+fixtures) behave as before.
 
-**Owner check:** the page that showed "HTTP 410" in Preview #4 → the sheet opens a working video
-(or the page's own after P28) without the error.
+**Owner check:** the site from Preview #5 where some videos showed HTTP 410 → Download opens a
+working video without manual reloads (or Try again does); if not, "Reload page and try again"
+works in one tap; a screenshot of Details when it still fails; Javtiful still works.
 
-**Result:** OWNER CHECK (Agent B, merged by P33). When the sheet cannot prepare a page's video
-(no adapter) because its file is gone (HTTP 403, 404, 410 or `INVALID_URL`) and the page has
-another video that is not an ad or a preview, it prepares that one once, by itself
-(`MediaGroups.nextVideo`), with "The first file is gone — showing the next video"
-(`quick-next-video`) and Details listing both attempts. Try again asks for the page's current
-files first (`MediaGroups.refreshed`; Home's pages are read again quietly,
-`DetectedMediaStore.readPageAgain`). Regression proof 3 of 4 fail on `f334f55` (the fourth is a
-guard). Detail: `docs/SESSION_STATE.md` › Agent B.
+**Result:** —
 
-### P30 — Browser: Google search
+### P38 — Merge and Preview #6
 
-Easy · 1–2 h · needs — · **Agent C** · prompt [`C-browser.md`](prompts/C-browser.md)
+Medium · 2–3 h · needs P34–P37 `READY FOR MERGE` · **Agent A (integrator)** · prompt
+[`M-merge-preview6.md`](prompts/M-merge-preview6.md)
 
-**Goal:** words typed in the browser or on its start page search Google; the owner can pick
-another engine (R13, F2).
-
-**Read first:** `app/.../feature/browser/BrowserSearch.kt`, `BrowserStartPage.kt`,
-`BrowserViewModel.kt` (read only: it calls `BrowserSearch.webUrl(words)` for typed words),
-`core-data/.../preferences/` (`SettingsRepository`, `DataStoreSettingsRepository`),
-`core-model/.../settings/`, `app/.../feature/settings/SettingsScreen.kt` and
-`SettingsViewModel.kt`.
-
-**Steps**
-1. A setting `searchEngine` (Google default, DuckDuckGo, Bing) in the settings model and its
-   DataStore repository (a new key; an older install without it reads Google).
-2. `BrowserSearch.webUrl(words)` keeps its signature and uses the current engine
-   (`https://www.google.com/search?q=…`, `https://duckduckgo.com/?q=…`,
-   `https://www.bing.com/search?q=…`); C's own code keeps that engine up to date from the
-   settings flow (for example a small holder `BrowserSearch` reads, updated where
-   `BrowserScreen` collects settings). If that is not possible without B's
-   `BrowserViewModel`, write a hand-off to Agent B and keep the holder.
-3. The start page's web-search row names the engine ("Search Google"); Settings gets a
-   **Browser** section with "Search engine" (testTag `settings-search-engine`).
-
-**Tests:** default Google URL with encoding (spaces, `&`, Burmese text); DuckDuckGo and Bing;
-an old settings file reads Google; the start page label (must fail on the old code:
-DuckDuckGo).
-
-**Docs:** your sections of SESSION_STATE, CHANGELOG and TEST_MATRIX.
-
-**Done when:** tests pass; CI green.
-
-**Owner check:** type words in the browser's address bar and on its start page → Google
-results; Settings › Browser › Search engine → DuckDuckGo → the next search uses DuckDuckGo.
-
-**Result:** OWNER CHECK (Agent C, `521b0b6`, merged by P33). Words in the address bar or on the
-start page search Google (every character encoded); Settings › Browser › Search engine: Google
-(default), DuckDuckGo, Bing (DataStore `browser_search_engine`; unknown → Google). Plan adapted:
-`BrowserSettingsViewModel` (Agent C) sets `BrowserSearch.engine` instead of a change in Agent B's
-`BrowserViewModel`; one line of `BrowserViewModelTest` expects Google. Regression proof 5 of 75
-fail on the old files. Detail: `docs/SESSION_STATE.md` › Agent C.
-
-### P31 — Browser history
-
-Medium · 3–5 h · needs P30 (the Settings › Browser section) · **Agent C** · prompt
-[`C-browser.md`](prompts/C-browser.md)
-
-**Goal:** the browser remembers the pages the user opened, lists them, and clears them on
-request (R14, F3).
-
-**Read first:** `core-data/.../db/AppDatabase.kt` (Room 5, `MIGRATION_4_5`), `DataModule.kt`,
-`AppDatabaseMigrationTest.kt`; `BrowserScreen.kt` (WebView set-up, menu, back/forward),
-`BrowserStartPage.kt`; `core-browser/.../webview/SecureBrowserWebViewClient.kt`,
-`SecureBrowserChromeClient.kt` (page finished, title); `app/.../feature/settings/
-PrivacyCleaners.kt` ("Clear browsing data").
+**Goal:** one branch with A, B and C, fully validated, and Preview #6 on the owner's phone.
 
 **Steps**
-1. Room 6: table `browser_history` (`url` unique, `title`, `host`, `last_visited_at`,
-   `visit_count`), `MIGRATION_5_6`, schema `6.json`, a DAO (insert-or-update, list newest first
-   with paging or a limit, search by title or host, delete one, delete all, prune).
-2. Record a page when the user lands on it (main frame finished, title known): HTTPS only; not
-   YFT's start page, `about:`, `data:` or a page P32 blocked; without the fragment and without
-   tracking parameters (`utm_*`, `fbclid`, `gclid`, `igshid`); never cookies or headers. The
-   same address again raises its count and time. Keep 90 days and at most 5,000 pages (oldest
-   pruned).
-3. UI: the browser's menu gets "History" (testTag `browser-menu-history`), a full-screen list
-   inside the browser screen (testTag `browser-history`): a search box, groups Today /
-   Yesterday / Earlier, a row opens its page, a row's menu deletes it, "Clear history" with a
-   confirmation. The start page shows the last six pages under "Recent" (testTag
-   `browser-recent`). No new navigation route (MainActivity and `ui/navigation` stay
-   untouched).
-4. Settings › Browser: "Save browser history" switch (default on; off stops recording and keeps
-   nothing new) and "Clear browser history" with a confirmation; Settings' existing "Clear
-   browsing data" clears the history too.
-
-**Tests:** migration 5 → 6 keeps every download record (`AppDatabaseMigrationTest`); the DAO;
-recording rules (HTTPS only, tracking parameters, the count, the switch, pruning); the history
-list (open, delete, clear, search) and the start page's Recent in Compose tests; the privacy
-cleaner clears it.
-
-**Docs:** your sections of SESSION_STATE, CHANGELOG and TEST_MATRIX.
-
-**Done when:** tests pass; CI green.
-
-**Owner check:** open three sites in the browser → menu › History lists them (newest first), a
-tap opens one, delete one, Clear history empties the list; Settings › Browser › Save browser
-history off → new pages are not added.
-
-**Result:** OWNER CHECK (Agent C, `e9899f2`, merged by P33). Room 6 adds `browser_history`
-(`MIGRATION_5_6` creates only the table and its index); HTTPS pages only, without fragments,
-user info or tracking parameters, 90 days and 5,000 pages. `BrowserHistoryRecorder` (finished
-pages, single-page sites' address changes; titles from `onPageTitle`) behind
-`HistoryRecordingSink`. Toolbar menu › History (`browser-history`: search, Today / Yesterday /
-Earlier, delete, Clear history), Recent on the start page, Settings › Browser › Save browser
-history and Clear browser history; Clear browsing data clears it too. Plan adapted: the menu
-button is the toolbar's fifth button; the recorder wraps the sink instead of changing
-`BrowserViewModel`. Regression proof: 8 tests fail with the behaviour broken. Detail:
-`docs/SESSION_STATE.md` › Agent C.
-
-### P32 — Block pop-ups and ad redirects
-
-Medium–Hard · 4–7 h · needs P30 (the Settings › Browser section) · **Agent C** · prompt
-[`C-browser.md`](prompts/C-browser.md)
-
-**Goal:** a tap on a page or on its ads no longer sends the tab to another site the user did not
-choose; normal links still work (R15, F4).
-
-**Read first:** `core-browser/.../policy/SecureWebViewPolicy.kt`, `AppLinkPolicy.kt`,
-`BrowserAddressNormalizer.kt`; `core-browser/.../webview/SecureBrowserWebViewClient.kt`
-(`shouldOverrideUrlLoading`, `shouldInterceptRequest`), `SecureBrowserChromeClient.kt`;
-`BrowserScreen.kt`; Android's `WebResourceRequest.hasGesture()` / `isRedirect()` and
-`WebChromeClient.onCreateWindow(isDialog, isUserGesture, resultMsg)`.
-
-**Steps**
-1. **New windows.** Turn multiple windows on (`setSupportMultipleWindows(true)`;
-   `javaScriptCanOpenWindowsAutomatically` stays false) and handle
-   `SecureBrowserChromeClient.onCreateWindow`: a window the user's tap opened to the same site
-   opens in the current tab; any other window is blocked, and a small notice "Pop-up blocked"
-   with "Open" (opens it in the current tab; testTag `browser-blocked-notice`) shows for 4 s.
-   So `window.open()` and `target="_blank"` ads can no longer replace the page.
-2. **Top-level redirects** (`shouldOverrideUrlLoading`, main frame) — a pure, tested policy
-   (`AdRedirectPolicy` in `core-browser/.../policy/`): block a navigation to a host on YFT's
-   own list of pop-up and redirect ad networks (written for YFT, a few dozen hosts, with the
-   reason for each family; no copied third-party filter lists), and a navigation to another
-   site that the page started without the user's tap (`!hasGesture()`, not a server redirect of
-   the user's own navigation). Allow typed addresses, the user's taps on normal links (also to
-   other sites), same-site navigations, server redirects of the user's navigation unless a hop
-   is on the list, and app links as today (`AppLinkPolicy`). A blocked navigation shows
-   "Blocked a redirect to <host>" with "Open".
-3. **Scripts of the listed networks** (subresources whose host is on the list) get an empty
-   answer in `shouldInterceptRequest` before the page sees them. The page's own video ads are
-   not the target and stay (F4); B's media detection still sees every other request.
-4. Settings › Browser: "Block pop-ups and ad redirects" (default on, testTag
-   `settings-block-popups`). P31 does not record blocked pages.
-
-**Tests:** the policy table (tap / no tap, same / other site, listed host, a listed redirect hop,
-typed address, app link); `onCreateWindow`'s decision as a pure function; the notice and "Open"
-in a Compose test; the setting off lets everything through (must fail on the old code: the
-redirect replaces the page). Instrumented (CI emulator, `app/src/androidTest/.../browser/
-navigation/`): a local fixture page whose tap handler calls `window.open()` and whose timer sets
-`location` to another host → the page stays and the notice shows; a normal link to another site
-opens.
-
-**Docs:** your sections of SESSION_STATE, CHANGELOG and TEST_MATRIX.
-
-**Done when:** tests pass; CI emulator smoke green with the new test.
-
-**Owner check:** on the sites where ads used to jump to spam pages: taps on the page and its
-ads no longer leave it; "Pop-up blocked · Open" opens the blocked page when wanted; a normal
-link to another site still opens; videos still play and Download still works.
-
-**Result:** OWNER CHECK (Agent C, `d69811a`, merged by P33). `AdRedirectPolicy` blocks YFT's own
-list `AdNetworks` (20 networks, 32 hosts) as navigation, redirect hop or new window, and a
-navigation to another site without the user's tap once the page has opened; taps, the same
-site, server redirects and what the user typed or picked are allowed. New windows go to a hidden
-`PopupWindowCatcher`; a tap's same-site window opens in the tab, others are blocked. The listed
-networks' scripts, frames and images get an empty answer (ExoClick and TrafficStars keep theirs,
-F4). Notice "Pop-up blocked" / "Blocked a redirect to `host`" with Open
-(`browser-blocked-notice`); Settings › Browser › Block pop-ups and ad redirects (default on).
-Regression proof 7 tests fail with the old behaviour; `PopupAndRedirectInstrumentedTest` green
-on the CI emulator. Detail: `docs/SESSION_STATE.md` › Agent C.
-
-### P33 — Merge and Preview #5
-
-Medium · 2–3 h · needs P27–P32 `READY FOR MERGE` · **Agent A (integrator)** · prompt
-[`M-merge-preview5.md`](prompts/M-merge-preview5.md)
-
-**Goal:** one branch with A, B and C, fully validated, and Preview #5 on the owner's phone.
-
-**Steps**
-1. Start only when the SESSION_STATE sections of A, B and C say `READY FOR MERGE` and their last
-   commits have green CI (checkpoint validation; emulator smoke and Preview APK where code
-   changed). Otherwise list what is missing and stop.
-2. On `work/phase-13-integration` (pull it first): `git merge --no-ff` A's branch, run Agent A's
-   scope validation; then B's, run B's scope; then C's, run C's scope. Doc conflicts: keep both
-   sides. A code conflict: stop and report the files. Hand-offs left open: do them when they
-   are small and say so, else list them.
+1. Start only when the SESSION_STATE sections of A, B and C say `READY FOR MERGE` and their
+   newest code commits have green CI (checkpoint validation, emulator smoke, Preview APK; later
+   docs-only commits have no runs, §0.3). Otherwise list what is missing and stop.
+2. On `work/phase-14-integration` (pull it first): `git merge --no-ff` A's branch, then B's,
+   then C's. Doc conflicts: keep both sides. A code conflict: stop and report the files.
+   Hand-offs left open: do them when they are small and say so, else list them.
 3. Full validation (640 MiB metaspace, §0.3), `:app:assembleRelease`, line check.
 4. Docs: copy each agent's status and Results into §1 and §5; `docs/HANDOFF.md`,
    `docs/PHASE_STATUS.md`, the SESSION_STATE Overview, CHANGELOG (fold the three agent sections
-   into Added/Changed/Fixed), SUPPORT_MATRIX, TEST_MATRIX (a Phase 13 summary row).
+   into Added/Changed/Fixed), SUPPORT_MATRIX, TEST_MATRIX (a Phase 14 summary row).
 5. Checkpoint; CI: checkpoint validation, emulator smoke and the Preview APK run →
-   **Preview #5**: its link and the §6 list to the owner in Burmese. Then stop. `main` is
+   **Preview #6**: its link and the §6 list to the owner in Burmese. Then stop. `main` is
    fast-forwarded only with `MAIN=OK`; P8 only with the owner's OK.
 
-**Result:** DONE (2026-10-07), merge checkpoint `436aa90`. Gate: A (`83478f0`), B (`a47926d`) and C (`d69811a`)
-READY FOR MERGE with green checkpoint validation, emulator smoke and Preview APK. `git merge
---no-ff` A → B → C on `work/phase-13-integration`: no conflicts; Room at version 6; C's Google
-line in `BrowserViewModelTest` kept; no hand-offs open. Plan adapted: one full validation after
-the three merges instead of three scope runs (it covers every scope; 4 GiB sandbox). Full
-validation: 1435 tests, 0 failures, 66 skipped; lint 0 errors; `:app:assembleDebug`,
-`:app:assembleRelease`, `:app:compileDebugAndroidTestKotlin` OK; line check clean. CI green:
-checkpoint validation run 37575586593, emulator smoke 37575586251 (29 tests, 0 failures, the
-P27, P28 and P32 tests together), Preview APK 37575586233 = **Preview #5**. `main`
-fast-forwarded to `436aa90` at the owner's request before his phone test (no tag).
+**Result:** —
 
 ### P8 — Signed release 1.0.0-beta.4
 
-Easy · 1–2 h · needs P33, Preview #5 and the owner's OK · prompt
+Easy · 1–2 h · needs P38, Preview #6 and the owner's OK · prompt
 [`P8-signed-beta4.md`](prompts/P8-signed-beta4.md)
 
 `yft.versionName=1.0.0-beta.4`, `yft.versionCode=4`, `docs/release/1.0.0-beta.4.md`, CHANGELOG
-section; full validation; fast-forward `main` to `work/phase-13-integration`, tag
+section; full validation; fast-forward `main` to `work/phase-14-integration`, tag
 `v1.0.0-beta.4`; `release-draft.yml` builds the APK signed with the release key; record size,
 SHA-256 and certificate. Merge, tag and signing need the owner's OK for this task
 (`docs/RELEASE.md`).
@@ -808,21 +793,24 @@ SHA-256 and certificate. Merge, tag and signing need the owner's OK for this tas
 Install `yft-preview-apk` from the Preview APK run the agent sends; uninstall the older YFT
 Preview first (each run has a new test key).
 
-**Preview #5 (after P33)**
+**Preview #6 (after P38)**
 
-1. **Other site (P28, P29):** the site from Preview #4 → open a video page, tap Download while
-   the ad plays → the page's title, picture and length with 480p/720p; the ad only under Other
-   videos; the page that showed "HTTP 410" opens a working video.
-2. **YouTube merge (P27):** a long live recording (1 h or more) at 480p or 720p → "Merging … %"
-   then "Saving … %", a much shorter wait after the tracks, the file plays.
-3. **Search (P30):** words in the address bar and on the start page → Google; Settings ›
-   Browser › Search engine works.
-4. **History (P31):** menu › History lists the pages; open, delete, Clear history; the switch
-   in Settings stops recording.
-5. **Pop-ups and redirects (P32):** taps on pages and their ads stay on the page; "Pop-up
-   blocked · Open" works; normal links open.
-6. **Phase 12 still works:** YouTube 144p…1080p (2K/4K) with sizes, Facebook 720p/360p + Audio,
-   M4A and MP3, the same sheet on every site, Retry and Details.
+1. **Background (P34):** a large download (300 MB or more) → Facebook for 2 minutes → the
+   notification shows "N% · speed · … left" (KB/s under 1 MB/s, MB/s above) and the download
+   keeps going; screen off for a minute → still going; "Downloaded · …" at the end.
+2. **Merge in the background (P34):** a long YouTube video → when "Merging … %" starts, switch to
+   Facebook → the % in the notification keeps moving and the download finishes without opening
+   YFT. If YFT's card says the phone paused it, follow the Xiaomi steps once and try again.
+3. **Faster merge (P35):** a 1-hour YouTube live recording at 720p → "Merging … %" ends in about
+   10–20 s after the tracks (was about 2 minutes); the file plays and seeks; a 1080p video and a
+   2K/4K WebM still save.
+4. **TikTok with a VPN (P36):** tiktok.com/foryou → let a video play → Download → the sheet with
+   qualities and sizes → the file plays; a video from a profile; Home: paste a TikTok link.
+5. **Fresh links (P37):** the site where some videos showed HTTP 410 → Download opens a working
+   video without manual reloads; Try again works; if not, "Reload page and try again" works in
+   one tap; Javtiful still works.
+6. **Phase 13 still works:** YouTube 1080p with sound, a Facebook reel, other sites' video
+   instead of the ad, Google search, History, pop-up blocking.
 7. About › Last crash report: none.
 
 When something fails, a screenshot of the sheet's **Details** (lookups) or of the download's
@@ -830,7 +818,7 @@ When something fails, a screenshot of the sheet's **Details** (lookups) or of th
 
 ## 7. Backlog
 
-Advice on the four items the owner asked about (2026-10-05); each waits for his decision:
+Advice on the items the owner asked about; each waits for his decision:
 
 - **B1 — Download button inside YouTube's page** (under the video, beside Like and Share).
   Advice: not now. P13's wide button gives the same tap without touching YouTube's page. Later,
@@ -841,59 +829,69 @@ Advice on the four items the owner asked about (2026-10-05); each waits for his 
 - **B2 — a YouTube page of YFT's own, like Snaptube's** (own player, search and comments).
   Advice: no. It means rebuilding YouTube's player, search and comments on YouTube's internal
   interface, which changes often: weeks of work and frequent breakage. Owner decision: —
-- **B3 — Facebook formats from the page in YFT's browser.** Advice: only if needed. After P23,
-  measure on the phone; if a Facebook lookup still misses qualities the browser page has, a
-  spike reads only the format markers from the page the browser already loaded → parser +
-  fixtures. About 6–10 h. Owner decision: —
-- **B4 — TikTok on the owner's phone.** Advice: no phone test (TikTok is banned in India); every
-  TikTok change keeps fixtures, the CI emulator and sandbox live checks; no VPN. Owner
-  decision: —
+- **B3 — Facebook formats from the page in YFT's browser.** Advice: only if needed. If a Facebook
+  lookup still misses qualities the browser page has, a spike reads only the format markers from
+  the page the browser already loaded → parser + fixtures. About 6–10 h. Owner decision: —
+- **B4 — TikTok on the owner's phone.** Settled on 2026-10-08: the owner tests TikTok with a VPN
+  (P36). Agents keep fixtures, the CI emulator and sandbox live checks.
+- **B5 — Site fixes without a new APK** (owner's idea, 2026-10-08). Advice: later, and only for
+  data, not code: a small signed rules file on GitHub (site patterns, ad hosts, player-script
+  names) that YFT downloads and checks with a key built into the app, so a site's changed page
+  can be followed without a new APK; changes in Kotlin code still need an update. About 1–2 days
+  with tests. Owner decision: —
 
 Other items:
 
+- TikTok: when the adapter finds nothing, offer the file the browser saw playing (blob videos
+  cannot be saved; a direct media request can).
+- Long downloads on Android 14+: a user-initiated data transfer job (`JobScheduler`) instead of
+  the `dataSync` foreground service (no 6-hour limit), if P34's `onTimeout` notice appears.
+- Refresh a download's link in the middle of the download (a 403/410 after an hour) by reading
+  its page again, like P37 does for the sheet.
+- A Matroska (WebM) stream copy for 2K/4K merges, like P35's MP4 path.
+- Open the Downloads tab from the notification (needs `MainActivity` and navigation).
 - Share target: open links shared from other apps (Android share sheet) in Home's lookup, so
-  they open the download sheet like a pasted link (the manifest has no share target).
+  they open the download sheet like a pasted link.
 - AV1 merges: off since P4 (the API 34 emulator's muxer failed), so Facebook's AV1-only sizes and
   YouTube's AV1-only 2K/4K stay hidden until an AV1 merge is proven on a phone.
 - YouTube: use the page player's own proof-of-origin token from the browser (ADR-006, not done);
-  SABR streaming (YouTube's newer delivery for `ANDROID` and others) is not planned.
+  SABR streaming is not planned.
 - Android 9 and older save through the legacy public folder; P20's instrumented test covers the
   API 34 MediaStore path only.
 - Instagram and X adapters (generic detection only today).
-- Background playback in the Library.
-- Saving to a folder chosen with the system picker.
-
-- One shared ad list for media detection (B) and pop-ups/redirects (C), updated from one place.
+- Background playback in the Library; saving to a folder chosen with the system picker.
+- One shared ad list for media detection and pop-ups/redirects, updated from one place.
 - A private tab (no history, no cookies kept) and a per-site "allow pop-ups" list.
-- Adapters for named adult sites (F1 option C) only if the owner chooses it after Preview #5.
-- A faster demuxer for very long recordings if P27's measurements show MediaExtractor is the
-  slow part.
+- Adapters for named adult sites (Phase 13 F1 option C) only if the owner chooses it.
 
+## 8. Done before Phase 14
 
-## 8. Done before Phase 13
-
-**Phase 12** (P20–P26, 2026-10-06) is merged into `main` at `bc806f9` (no tag). Full plan,
-Results and findings: `git show bc806f9:docs/FIX_ADD_PLAN.md`; prompts:
-`git show bc806f9:docs/prompts/`; per-task Results and validation:
-`git show bc806f9:docs/SESSION_STATE.md`. Owner test: Preview #4 (run
-https://github.com/Alalkipgen/YFT/actions/runs/37530061595, 2026-10-07) → "about 90% fine",
-Phase 13.
+**Phase 13** (P27–P33, 2026-10-07) is merged into `main` (`436aa90`, docs `5a5bddb`; no tag).
+Full plan, Results and findings: `git show 5a5bddb:docs/FIX_ADD_PLAN.md`; prompts:
+`git show 5a5bddb:docs/prompts/`; per-task Results and validation:
+`git show 5a5bddb:docs/SESSION_STATE.md`. Owner test: Preview #5 (run
+https://github.com/Alalkipgen/YFT/actions/runs/37575586233, 2026-10-08) → the five items of
+§2, Phase 14.
 
 | ID | Task | Commits | Status |
 | --- | --- | --- | --- |
-| P20 | Video downloads save again (no "Storage unavailable") | `83c9c3f`, `13b4576` | Preview #4 OK |
-| P21 | Retry and failure details | `8cb0b74`, `c10d8c1` | Preview #4 OK |
-| P22 | YouTube: every quality (144p–4K) | `b6c84b2`, `0e0ed15` | Preview #4 OK; long recordings wait at 99% → P27 |
-| P23 | Facebook: every quality | `c53128c`, `8119f4e` | Preview #4 OK |
-| P24 | Other sites: main video | `8ef33fb`, `5f61e87` | Preview #4: pre-roll ad wins on some sites → P28, P29 |
-| P25 | One sheet for every site | `7ec3884`, `4d04e8b` | Preview #4 OK; title and picture → P29 |
-| P26 | Merge A → B → C, Preview #4 | `bc806f9` | DONE (2026-10-06): 1292 tests, 0 failures, 66 skipped |
-| P8 | Signed `1.0.0-beta.4` | — | moved behind Phase 13 ([§1](#1-status-board)) |
+| P27 | YouTube: no long wait at 99% (merge progress, merge straight into the file) | `d978201`, `83478f0`, `89e985a` | Preview #5: progress shown; a 1-hour merge still takes about 2 min → P35; stops in the background → P34 |
+| P28 | Other sites: the page's video, not the ad before it | `679ec78`, `f334f55`, `4f9447b`, `a47926d` | Preview #5 OK; some pages' links answer HTTP 410 → P37 |
+| P29 | Other sites: the next video when one fails | `32d2472`, `0b1a11a` | Preview #5: on those pages the next video answers 410 too and Try again repeats it → P37 |
+| P30 | Browser: Google search | `521b0b6` | Preview #5: no problem reported |
+| P31 | Browser history | `e9899f2` | Preview #5: no problem reported |
+| P32 | Block pop-ups and ad redirects | `d69811a`, `81c3e97` | Preview #5: no problem reported |
+| P33 | Merge A → B → C, Preview #5 | `cd34c6c`, `2a874be`, `fd0a04e`, `436aa90`, `5a5bddb` | DONE (2026-10-07): 1435 tests, 0 failures, 66 skipped; `main` fast-forwarded |
+| P8 | Signed `1.0.0-beta.4` | — | moved behind Phase 14 ([§1](#1-status-board)) |
+
+**Phase 12** (P20–P26, 2026-10-06) is merged into `main` at `bc806f9` (no tag): saving video
+files, Retry and failure details, every YouTube and Facebook quality, other sites' main video,
+one sheet everywhere, Preview #4. Plan, Results and prompts: `git show bc806f9:docs/FIX_ADD_PLAN.md`,
+`git show bc806f9:docs/prompts/`, `git show bc806f9:docs/SESSION_STATE.md`.
 
 **Phase 11** (P0–P19, 2026-10-04 to 2026-10-06) is merged into `main` at `4db6c2b` (no tag).
 Plan, Results and prompts: `git show 4db6c2b:docs/FIX_ADD_PLAN.md`,
-`git show 4db6c2b:docs/prompts/`, `git show 4db6c2b:docs/SESSION_STATE.md`; the Phase 12 plan's
-§8 (`git show bc806f9:docs/FIX_ADD_PLAN.md`) lists its tasks and Previews #1–#3.
+`git show 4db6c2b:docs/prompts/`, `git show 4db6c2b:docs/SESSION_STATE.md`.
 
 **Phases 8–10** (T01–T19, 2026-10-03 to 2026-10-04) are complete and released as
 `1.0.0-beta.3`. Full plan: `git show 2f6284f:docs/FIX_PLAN.md`; prompts:
