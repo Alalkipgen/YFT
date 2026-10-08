@@ -137,9 +137,13 @@ class SiteAdapterCoordinator @Inject constructor(
             )
         } catch (cancellation: CancellationException) {
             throw cancellation
-        } catch (_: Exception) {
+        } catch (failure: Exception) {
             // An adapter crash must not take the page down; generic detection still runs.
-            SiteExtractionResult.Failure(SiteExtractionFailure.RESPONSE_CHANGED)
+            // P39 (R25): it is named by its class, never reported as a changed page format.
+            SiteExtractionResult.Failure(
+                reason = SiteExtractionFailure.MALFORMED_RESPONSE,
+                details = listOf(errorLine(failure)),
+            )
         }
         val result = playableOnThisPhone(extracted)
 
@@ -163,7 +167,8 @@ class SiteAdapterCoordinator @Inject constructor(
             is SiteExtractionResult.Failure -> SiteAdapterOutcome.Failed(
                 adapterId = matched.extractor.id,
                 reason = result.reason,
-                message = messageFor(matched.extractor.displayName, result.reason),
+                message = result.message
+                    ?: messageFor(matched.extractor.displayName, result.reason),
                 allowsGenericFallback = result.allowsGenericFallback,
                 details = DiagnosticTextSanitizer.details(
                     buildList {
@@ -283,7 +288,7 @@ class SiteAdapterCoordinator @Inject constructor(
             "This $site media link expired. Reload the page and try again."
 
         SiteExtractionFailure.RESPONSE_CHANGED ->
-            "$site changed its page format. Falling back to generic detection."
+            "$site's page could not be read. Tap Details to see why, or Try again."
 
         SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED ->
             "$site protects this video's links with its player script, and YFT could not run " +

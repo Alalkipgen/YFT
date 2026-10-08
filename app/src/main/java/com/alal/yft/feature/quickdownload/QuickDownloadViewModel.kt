@@ -451,6 +451,7 @@ class QuickDownloadViewModel @Inject constructor(
         ),
         loading = lookup.running,
         failure = lookup.failure,
+        failureDetails = lookup.details,
         canRetry = lookup.canRetry,
         findingVideo = lookup.running,
         findingPageVideo = lookup.running && lookup.findingPageVideo,

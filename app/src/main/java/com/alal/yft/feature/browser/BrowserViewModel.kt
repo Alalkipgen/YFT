@@ -507,8 +507,15 @@ class BrowserViewModel(
     }
 
     /** P16: the sheet that waits on the feed's video shows why it was not found. */
-    private fun showFocusedFailure(sheet: PageVideoLookup, message: String, canRetry: Boolean) {
-        detectedMediaStore.showLookup(sheet.copy(failure = message, canRetry = canRetry))
+    private fun showFocusedFailure(
+        sheet: PageVideoLookup,
+        message: String,
+        canRetry: Boolean,
+        details: List<String> = emptyList(),
+    ) {
+        detectedMediaStore.showLookup(
+            sheet.copy(failure = message, canRetry = canRetry, details = details),
+        )
         finishFocusLookup(notice = null)
     }
 
@@ -564,7 +571,7 @@ class BrowserViewModel(
                 }
 
                 is SiteAdapterOutcome.Failed -> if (sheet != null) {
-                    showFocusedFailure(sheet, outcome.message, outcome.canRetry)
+                    showFocusedFailure(sheet, outcome.message, outcome.canRetry, outcome.details)
                 } else {
                     focusedRetryPage = url
                     mutableUiState.update {
@@ -770,6 +777,7 @@ class BrowserViewModel(
                                 title = lookupTitle(title),
                                 failure = outcome.message,
                                 canRetry = outcome.canRetry,
+                                details = outcome.details,
                             ),
                         )
                     }

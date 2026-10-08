@@ -69,7 +69,10 @@ Keep at least the heading and one blank line between sections, so Git merges the
   extractor-api additions (file check `probe`, request `details`, adapter `message`, JSON read
   result); OkHttpExtractorClient safe headers, catch-all, redirect cookie jar, file check;
   TikTok parser (page kinds, data shapes, lenient read, qualities), TikTokAgents, TikTok adapter
-  (phone + desktop pages, file checks, watermark rule, Details); not yet compiled.
+  (phone + desktop pages, file checks, watermark rule, Details) — main code compiles; coordinator
+  (error class, adapter message, new RESPONSE_CHANGED text); PageVideoLookup.details shown by
+  lookupState (browser page/focused lookups, Home). Next: TikTok tests rewrite (8 old tests fail
+  by design), browser fallback row (step 8), resolver catch-all (step 7), app tests.
 - Hand-offs: none
 
 ## Agent B — `work/phase-15-downloads` (P41, P42; later P44)

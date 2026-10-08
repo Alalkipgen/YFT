@@ -261,7 +261,7 @@ class TikTokExtractorTest {
                 cookies = DESKTOP_COOKIES,
             ))
 
-            val result = TikTokExtractor(http, desktopUserAgent = DESKTOP_AGENT)
+            val result = TikTokExtractor(http)
                 .extract(request(identity)) as SiteExtractionResult.Success
 
             assertEquals(
@@ -305,7 +305,7 @@ class TikTokExtractorTest {
             ).forEach { desktop ->
                 val http = phoneAndDesktop(identity, desktop)
 
-                val result = TikTokExtractor(http, desktopUserAgent = DESKTOP_AGENT)
+                val result = TikTokExtractor(http)
                     .extract(request(identity)) as SiteExtractionResult.Success
 
                 // Asked once, never twice.
@@ -328,7 +328,7 @@ class TikTokExtractorTest {
             val identity = identity("7311234567890123456")
             // PAGE (TIKTOK_QUALITIES=PAGE): no desktop user agent, so no second request.
             val pageOnly = phoneAndDesktop(identity, desktop = null)
-            TikTokExtractor(pageOnly).extract(request(identity))
+            TikTokExtractor(pageOnly, askDesktopPage = false).extract(request(identity))
             assertEquals(1, pageOnly.requestedUrls.size)
 
             // Home already reads the page with the desktop user agent.
@@ -336,7 +336,7 @@ class TikTokExtractorTest {
             val homeRequest = homeRequest(identity).let {
                 it.copy(requestContext = it.requestContext.copy(userAgent = DESKTOP_AGENT))
             }
-            TikTokExtractor(home, desktopUserAgent = DESKTOP_AGENT).extract(homeRequest)
+            TikTokExtractor(home).extract(homeRequest)
             assertEquals(1, home.requestedUrls.size)
 
             // A page that lists its qualities is enough.
@@ -344,7 +344,7 @@ class TikTokExtractorTest {
                 url = identity.canonicalPageUrl,
                 body = Fixtures.read("tiktok/universal_video.html"),
             )
-            TikTokExtractor(desktopPage, desktopUserAgent = DESKTOP_AGENT)
+            TikTokExtractor(desktopPage)
                 .extract(request(identity))
             assertEquals(1, desktopPage.requestedUrls.size)
         }
@@ -528,7 +528,7 @@ class TikTokExtractorTest {
 
     private companion object {
         const val TIKTOK_MEDIA_HOST = "v16-webapp-prime.us.tiktok.com"
-        const val DESKTOP_AGENT = "fixture-desktop-agent"
+        val DESKTOP_AGENT = TikTokAgents().desktop("fixture-agent")
 
         val DESKTOP_COOKIES = listOf(
             ResponseCookie("tt_chain_token", "desktop-chain-fixture", "tiktok.com", false),

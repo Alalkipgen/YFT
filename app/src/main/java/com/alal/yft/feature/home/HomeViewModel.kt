@@ -260,6 +260,7 @@ class HomeViewModel @Inject constructor(
                         sheetFailure = sheet?.copy(
                             failure = result.message,
                             canRetry = result.canRetry,
+                            details = details,
                         )
                         PromptboxStatus.NotFound(
                             message = result.message,
