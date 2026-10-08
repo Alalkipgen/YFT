@@ -50,15 +50,13 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent A — `work/phase-14-background` (P34; later P38)
 
-- Status: OWNER CHECK (P34 code: this checkpoint; base `c8fcd33` =
-  `origin/work/phase-14-integration`;
-  started and finished 2026-10-08)
+- Status: READY FOR MERGE (last code commit `a7e3a73`, CI green; base `c8fcd33` =
+  `origin/work/phase-14-integration`; started and finished 2026-10-08). Owner check pending.
 - P34 — Downloads and merges keep going in the background; speed in the notification: DONE,
   owner check pending. OWNER ANSWERS: none → BATTERY_CARD on, DONE_NOTICE on.
 - Folder `/data/YFT-A`; push over SSH with `/data/.ssh/id_ed25519` (new key, owner added it).
 - Starting state (`c8fcd33`, Agent A scope): `./gradlew --no-daemon --continue
-  :app:testDebugUnitTest
-  :app:lintDebug :app:compileDebugAndroidTestKotlin` → BUILD SUCCESSFUL; app unit tests 746, 0
+  :app:testDebugUnitTest :app:lintDebug :app:compileDebugAndroidTestKotlin` → BUILD SUCCESSFUL; app unit tests 746, 0
   failures, 66 skipped; lint 0 errors (95 warnings).
 - Result:
   - Service (`download/DownloadForegroundService.kt`, decisions in `DownloadServiceController`):
@@ -116,8 +114,11 @@ Keep at least the heading and one blank line between sections, so Git merges the
   (format), `BackgroundDownloadsSettingTest` 2 (Limited, Allowed); files restored from
   `/data/bak/P34/new` with `cp`, `cmp` equal. The emulator tests' JVM twins are
   `DownloadServiceControllerTest` and `DownloadNotificationTextTest`.
-- CI (this checkpoint): pending (checkpoint validation, emulator smoke on API 34 with the two new
-  background tests, Preview APK).
+- CI (`a7e3a73`, all green): checkpoint validation
+  https://github.com/Alalkipgen/YFT/actions/runs/37793747249, emulator smoke on API 34 (all
+  instrumented tests, with the two new background tests)
+  https://github.com/Alalkipgen/YFT/actions/runs/37793747385, Preview APK (test key, artifact
+  `yft-preview-apk`) https://github.com/Alalkipgen/YFT/actions/runs/37793747336.
 - Owner check: (1) a large download, Facebook for 2 minutes → "N% · speed · … left" and it keeps
   going; screen off a minute → still going; (2) a long YouTube video: when "Merging … %" starts,
   switch to Facebook → the % keeps moving and "Downloaded · …" arrives without opening YFT;
