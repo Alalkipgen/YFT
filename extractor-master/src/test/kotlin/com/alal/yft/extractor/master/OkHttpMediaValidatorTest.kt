@@ -201,6 +201,45 @@ class OkHttpMediaValidatorTest {
         assertFalse(server.takeRequest().headers.names().contains("Cookie"))
     }
 
+    @Test
+    fun `live HLS and dynamic DASH are not finite download candidates`() = runBlocking {
+        server.enqueue(MockResponse().setHeader("Content-Type", "application/vnd.apple.mpegurl")
+            .setBody("#EXTM3U\n#EXTINF:5,\npiece.ts\n"))
+        val hls = candidate(server.url("/video.m3u8").toString()).copy(kind = MediaKind.HLS)
+        assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, rejected(validate(hls)))
+        server.enqueue(MockResponse().setHeader("Content-Type", "application/dash+xml")
+            .setBody("<MPD type='dynamic'><Period/></MPD>"))
+        val dash = candidate(server.url("/video.mpd").toString()).copy(kind = MediaKind.DASH)
+        assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, rejected(validate(dash)))
+    }
+
+    @Test
+    fun `invalid Content Range totals are rejected`() = runBlocking {
+        server.enqueue(mp4().setHeader("Content-Range", "bytes 0-511/100"))
+        assertEquals(SiteExtractionFailure.MALFORMED_RESPONSE, rejected(validate()))
+        server.enqueue(mp4().setHeader("Content-Range", "bytes 0-1023/32768"))
+        assertEquals(SiteExtractionFailure.MALFORMED_RESPONSE, rejected(validate()))
+    }
+
+    @Test
+    fun `audio only MP4 retains its known track type despite video container MIME`() = runBlocking {
+        server.enqueue(mp4())
+        val input = candidate(server.url("/sound.m4a").toString()).copy(
+            mimeType = "audio/mp4", codecs = listOf("mp4a.40.2"),
+        )
+        val result = validate(input) as ValidationResult.Valid
+        assertEquals("audio/mp4", result.candidate.mimeType)
+    }
+
+    @Test
+    fun `malformed context headers fail without printing their values`() = runBlocking {
+        val input = candidate(server.url("/video.mp4").toString()).copy(
+            requestContext = BrowserRequestContext(PAGE, null, "REDACTED\ninvalid"),
+        )
+        assertEquals(SiteExtractionFailure.MALFORMED_RESPONSE, rejected(validate(input)))
+        assertEquals(0, server.requestCount)
+    }
+
     private suspend fun validate(
         input: com.alal.yft.core.model.media.MediaCandidate =
             candidate(server.url("/video.mp4").toString()),

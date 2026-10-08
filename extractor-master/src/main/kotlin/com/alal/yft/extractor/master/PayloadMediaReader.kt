@@ -22,7 +22,10 @@ internal data class Discovery(
     val candidates: List<MediaCandidate>,
     val details: List<String>,
     val terminalFailure: SiteExtractionFailure? = null,
-)
+) {
+    override fun toString(): String =
+        "Discovery(candidateCount=${candidates.size}, terminalFailure=$terminalFailure)"
+}
 
 /**
  * Bounded, read-only discovery from material already delivered to a page.
@@ -58,6 +61,7 @@ internal class PayloadMediaReader {
                 candidate.copy(
                     requestContext = UrlPolicy.context(
                         observed.context, url, url, request.pageUrl,
+                        captured = true,
                     ),
                     observedAtEpochMs = observed.observedAtEpochMs,
                 ),
@@ -104,14 +108,15 @@ internal class PayloadMediaReader {
                 ),
                 contentLengthBytes = node["contentLength"].asLongOrNull?.takeIf { it > 0 },
                 requestContext = UrlPolicy.context(
-                    request.requestContext, request.pageUrl, address, request.pageUrl,
+                    request.requestContext, request.requestContext.pageUrl.orEmpty(),
+                    address, request.pageUrl,
                 ),
                 confidence = CandidateConfidence.HIGH,
                 expiresAtEpochMs = UrlPolicy.expiry(address),
-                drmHint = false,
+                drmHint = null,
                 observedAtEpochMs = request.nowEpochMs,
                 codecs = codecs(mime),
-                videoId = id?.let { "master:${requestSite()}:$it" },
+                videoId = id?.let { UrlPolicy.videoKey(request.pageUrl, it) },
                 width = dimension(node["width"]),
                 height = dimension(node["height"]),
                 bitrateBitsPerSecond = node["bitrate"].asLongOrNull?.takeIf { it > 0 },
@@ -158,8 +163,28 @@ internal class PayloadMediaReader {
         }
 
         fun json(body: String) {
-            val root = BoundedJsonParser.parse(body, maxDepth = 48, maxNodes = 30_000) ?: return
+            if (document >= 16) return
             document += 1
+            val root = BoundedJsonParser.parse(body, maxDepth = 48, maxNodes = 30_000) ?: return
+            val scope = root["__DEFAULT_SCOPE__"]
+            listOf("webapp.video-detail", "webapp.reflow.video.detail").forEach { field ->
+                val detail = scope[field] ?: return@forEach
+                val id = detail.path("itemInfo", "itemStruct", "id").asStringOrNull
+                if (id != null && request.expectedContentId?.let { it != id } == true) {
+                    return@forEach
+                }
+                val status = detail["statusCode"].asLongOrNull
+                    ?: detail["statusCodeV2"].asLongOrNull
+                if (status != null && status != 0L) {
+                    terminalFailure = when (status) {
+                        10101L, 10102L, 10204L, 10216L, 10217L, 10218L, 10221L ->
+                            SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE
+                        10231L -> SiteExtractionFailure.GEO_RESTRICTED
+                        else -> null
+                    }
+                    return
+                }
+            }
             val pending = ArrayDeque<Pair<JsonValue, String?>>()
             pending.add(root to null)
             while (pending.isNotEmpty() && nodes < MAX_VISITED_NODES) {
@@ -184,6 +209,13 @@ internal class PayloadMediaReader {
         }
 
         private fun node(node: JsonValue.Object, id: String?, key: String) {
+            if (
+                node["is_private"].asBooleanOrNull == true &&
+                MEDIA_ID_FIELDS.any { node[it] != null }
+            ) {
+                terminalFailure = SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE
+                return
+            }
             if (
                 node["isDrm"].asBooleanOrNull == true ||
                 node["is_drm_protected"].asBooleanOrNull == true
@@ -288,8 +320,6 @@ internal class PayloadMediaReader {
             }
         }
 
-        private fun requestSite(): String =
-            UrlPolicy.origin(request.pageUrl)?.substringAfter("https://").orEmpty()
     }
 
     companion object {

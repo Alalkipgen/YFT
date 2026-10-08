@@ -2,6 +2,8 @@ package com.alal.yft.extractor.master
 
 import com.alal.yft.core.model.logging.DiagnosticTextSanitizer
 import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.media.BrowserRequestContext
+import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.PageMediaRole
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionResult
@@ -25,7 +27,7 @@ class MasterFallbackEngine(
 ) {
     private val reader = PayloadMediaReader()
     private val normalizer = CandidateNormalizer(
-        CandidateNormalizer.Policy(maxCandidates = policy.maxCandidates),
+        CandidateNormalizer.Policy(maxCandidates = policy.maxCandidates, tinyDirectAssetBytes = 0),
     )
 
     suspend fun extract(request: MasterRequest): MasterResult {
@@ -52,6 +54,26 @@ class MasterFallbackEngine(
         var ambiguous = false
         var lastFailure: SiteExtractionFailure? = null
         var probesRemaining = policy.maxCandidates
+        val checked = mutableMapOf<Pair<String, BrowserRequestContext>, ValidationResult.Valid>()
+        suspend fun probe(candidate: MediaCandidate): ValidationResult {
+            val key = candidate.mediaUrl to candidate.requestContext
+            checked[key]?.let { return it }
+            if (probesRemaining == 0) {
+                return ValidationResult.Rejected(SiteExtractionFailure.NO_MEDIA_FOUND)
+            }
+            probesRemaining -= 1
+            val result = validator.validate(candidate, request.nowEpochMs)
+            if (result is ValidationResult.Valid) {
+                if (
+                    !UrlPolicy.samePage(result.candidate.pageUrl, request.pageUrl) ||
+                    !eligible(result.candidate, request.nowEpochMs)
+                ) {
+                    return ValidationResult.Rejected(SiteExtractionFailure.RESPONSE_CHANGED)
+                }
+                checked[key] = result
+            }
+            return result
+        }
         val stages = mutableListOf<Pair<MasterStage, PageSnapshot>>()
         request.snapshot?.let { stages += MasterStage.PAGE_DATA to it }
 
@@ -95,9 +117,14 @@ class MasterFallbackEngine(
             val read = reader.read(request, snapshot)
             details += read.details
             read.terminalFailure?.let { return failure(it, details) }
+            // Explicit preview evidence vetoes a weaker page/JSON claim for the same file.
+            val previews = read.candidates.filter { it.pageRole == PageMediaRole.PREVIEW }
+                .map { UrlPolicy.whole(it.mediaUrl) }.toSet()
             val normalized = normalizer.normalize(request.pageUrl, read.candidates)
-                .filter { eligible(it, request.nowEpochMs) }
-            val selected = select(normalized, snapshot, request)
+                .filter {
+                    eligible(it, request.nowEpochMs) && UrlPolicy.whole(it.mediaUrl) !in previews
+                }
+            val selected = select(normalized, snapshot)
             if (normalized.isNotEmpty() && selected.isEmpty()) {
                 ambiguous = true
                 details += "master: focused video cannot be established; no guess was made"
@@ -105,17 +132,45 @@ class MasterFallbackEngine(
             val valid = mutableListOf<MediaCandidate>()
             for (candidate in selected) {
                 coroutineContext.ensureActive()
-                if (probesRemaining == 0) break
-                probesRemaining -= 1
-                when (val verdict = validator.validate(candidate, request.nowEpochMs)) {
+                if (probesRemaining == 0) {
+                    details += "master: budget limits additional media checks"
+                    break
+                }
+                when (val verdict = probe(candidate)) {
                     is ValidationResult.Valid -> {
-                        // Re-check the injected boundary's answer, not only its input.
-                        if (
-                            UrlPolicy.samePage(verdict.candidate.pageUrl, request.pageUrl) &&
-                            eligible(verdict.candidate, request.nowEpochMs)
-                        ) {
-                            valid += verdict.candidate
+                        var media = verdict.candidate
+                        val companion = media.audioCompanion
+                        if (companion != null) {
+                            val audio = media.copy(
+                                mediaUrl = companion.mediaUrl,
+                                mimeType = companion.mimeType,
+                                kind = MediaKind.DIRECT,
+                                codecs = companion.codecs,
+                                requestContext = companion.requestContext,
+                                expiresAtEpochMs = companion.expiresAtEpochMs,
+                                contentLengthBytes = companion.contentLengthBytes,
+                                width = null, height = null, framesPerSecond = null,
+                                audioCompanion = null,
+                            )
+                            val audioCheck = if (eligible(audio, request.nowEpochMs)) {
+                                probe(audio)
+                            } else {
+                                ValidationResult.Rejected(SiteExtractionFailure.EXPIRED_LINK)
+                            }
+                            if (audioCheck is ValidationResult.Rejected) {
+                                lastFailure = audioCheck.reason
+                                details += "master: companion check ${audioCheck.reason.name}"
+                                if (audioCheck.reason == SiteExtractionFailure.DRM_PROTECTED) {
+                                    return failure(audioCheck.reason, details)
+                                }
+                                continue
+                            }
+                            val verified = (audioCheck as ValidationResult.Valid).candidate
+                            media = media.copy(
+                                audioCompanion = PayloadMediaReader.companion(verified),
+                            )
                         }
+                        valid += media
                     }
                     is ValidationResult.Rejected -> {
                         lastFailure = verdict.reason
@@ -167,18 +222,23 @@ class MasterFallbackEngine(
     private fun select(
         candidates: List<MediaCandidate>,
         snapshot: PageSnapshot,
-        request: MasterRequest,
     ): List<MediaCandidate> {
         val focused = snapshot.playingMediaUrl?.let(UrlPolicy::secure)?.let(UrlPolicy::whole)
         val playing = candidates.filter { UrlPolicy.whole(it.mediaUrl) == focused }
         if (playing.isNotEmpty()) {
             val ids = playing.mapNotNull(MediaCandidate::videoId).toSet()
-            return candidates.filter { it in playing || (it.videoId != null && it.videoId in ids) }
+            val keys = playing.mapNotNull(MediaCandidate::pageVideoKey).toSet()
+            return candidates.filter {
+                it in playing || (it.videoId != null && it.videoId in ids) ||
+                    (it.pageVideoKey != null && it.pageVideoKey in keys)
+            }
         }
         val named = candidates.filter { it.pageRole == PageMediaRole.MAIN }
         if (named.isEmpty()) return emptyList()
         // Multiple anonymous page videos are not automatically all qualities of one video.
-        val groups = named.groupBy { it.videoId ?: UrlPolicy.whole(it.mediaUrl) }
+        val groups = named.groupBy {
+            it.videoId ?: it.pageVideoKey ?: UrlPolicy.whole(it.mediaUrl)
+        }
         return if (groups.size == 1) named else emptyList()
     }
 

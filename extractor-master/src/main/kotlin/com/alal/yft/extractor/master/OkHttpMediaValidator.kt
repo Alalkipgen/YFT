@@ -80,6 +80,8 @@ class OkHttpMediaValidator(
                 } catch (_: IOException) {
                     ensureActive()
                     rejected(SiteExtractionFailure.NETWORK)
+                } catch (_: IllegalArgumentException) {
+                    rejected(SiteExtractionFailure.MALFORMED_RESPONSE)
                 } finally {
                     canceller.cancel()
                 }
@@ -172,17 +174,43 @@ class OkHttpMediaValidator(
                     if (manifest && facts == null) {
                         return rejected(SiteExtractionFailure.MALFORMED_RESPONSE)
                     }
-                    val detectedMime = if (manifest) mime else directMime(bytes)
+                    if (
+                        (kind == MediaKind.HLS && facts?.master == false &&
+                            facts.durationMillis == null) ||
+                        (kind == MediaKind.DASH && DYNAMIC_DASH.containsMatchIn(text))
+                    ) {
+                        return rejected(SiteExtractionFailure.NO_MEDIA_FOUND)
+                    }
+                    val detectedMime = if (manifest) {
+                        if (kind == MediaKind.HLS) "application/vnd.apple.mpegurl" else {
+                            "application/dash+xml"
+                        }
+                    } else {
+                        directMime(bytes)
+                    }
                         ?: return rejected(SiteExtractionFailure.NO_MEDIA_FOUND)
                     val range = response.header("Content-Range")
                     val length = if (response.code == 206) {
-                        RANGE.matchEntire(range.orEmpty())?.groupValues?.get(1)?.toLongOrNull()
+                        val match = RANGE.matchEntire(range.orEmpty())
                             ?: return rejected(SiteExtractionFailure.MALFORMED_RESPONSE)
+                        val end = match.groupValues[1].toLongOrNull()
+                            ?: return rejected(SiteExtractionFailure.MALFORMED_RESPONSE)
+                        val total = match.groupValues[2].toLongOrNull()
+                            ?: return rejected(SiteExtractionFailure.MALFORMED_RESPONSE)
+                        if (
+                            total <= end || bytes.size < minOf(end + 1, 512) ||
+                            (body.contentLength() >= 0 && body.contentLength() != end + 1)
+                        ) {
+                            return rejected(SiteExtractionFailure.MALFORMED_RESPONSE)
+                        }
+                        total
                     } else {
                         body.contentLength().takeIf { it > 0 }
                     }
                     val replay = if (credentialsAllowed) candidate.requestContext else {
                         candidate.requestContext.copy(
+                            pageUrl = UrlPolicy.origin(candidate.requestContext.pageUrl)
+                                ?.let { "$it/" },
                             cookie = null,
                             observedHeaders = UrlPolicy.publicHeaders(
                                 candidate.requestContext.observedHeaders,
@@ -193,9 +221,17 @@ class OkHttpMediaValidator(
                         candidate.copy(
                             mediaUrl = current.toString(),
                             kind = kind,
-                            mimeType = mime?.takeIf {
-                                it.startsWith("video/") || it.startsWith("audio/") || manifest
-                            } ?: candidate.mimeType ?: detectedMime,
+                            mimeType = if (
+                                candidate.mimeType?.startsWith("audio/") == true &&
+                                detectedMime in setOf("video/mp4", "video/webm")
+                            ) {
+                                // Facebook's AAC-only MP4 can have video/mp4 on its response.
+                                candidate.mimeType
+                            } else {
+                                mime?.takeIf {
+                                    it.startsWith("video/") || it.startsWith("audio/") || manifest
+                                } ?: candidate.mimeType ?: detectedMime
+                            },
                             contentLengthBytes = length.takeUnless { manifest },
                             requestContext = replay,
                             durationMillis = facts?.durationMillis ?: candidate.durationMillis,
@@ -247,7 +283,8 @@ class OkHttpMediaValidator(
     }
 
     private companion object {
-        val RANGE = Regex("""bytes 0-\d+/(\d+)""", RegexOption.IGNORE_CASE)
+        val RANGE = Regex("""bytes 0-(\d+)/(\d+)""", RegexOption.IGNORE_CASE)
+        val DYNAMIC_DASH = Regex("""(?is)<MPD\b[^>]*\btype\s*=\s*['"]dynamic['"]""")
         val DRM = Regex(
             """(?i)<(?:\w+:)?ContentProtection\b|METHOD=SAMPLE-AES|""" +
                 """KEYFORMAT\s*=\s*"(?!identity")[^"]+"""",

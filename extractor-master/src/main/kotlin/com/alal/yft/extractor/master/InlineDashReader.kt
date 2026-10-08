@@ -90,16 +90,15 @@ internal object InlineDashReader {
                 // MPD bandwidth can be peak bandwidth, not an honest whole-file average.
                 bitrateBitsPerSecond = null,
                 requestContext = UrlPolicy.context(
-                    request.requestContext, request.pageUrl, address, request.pageUrl,
+                    request.requestContext, request.requestContext.pageUrl.orEmpty(),
+                    address, request.pageUrl,
                 ),
                 expiresAtEpochMs = UrlPolicy.expiry(address),
                 observedAtEpochMs = request.nowEpochMs,
                 drmHint = false,
                 confidence = CandidateConfidence.HIGH,
                 pageRole = PageMediaRole.MAIN,
-                videoId = contentId?.let {
-                    "master:${UrlPolicy.origin(request.pageUrl)?.substringAfter("https://")}:$it"
-                },
+                videoId = contentId?.let { UrlPolicy.videoKey(request.pageUrl, it) },
                 pageVideoKey = key,
             )
             tracks += candidate

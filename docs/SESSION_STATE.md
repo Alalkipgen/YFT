@@ -7,7 +7,7 @@ Update this file before every checkpoint push. Keep it factual so another chat c
 - Owner-approved isolated code spike, not a Phase 14/15 task or a merge candidate.
 - Base: stable `origin/main` `a9eea7ba8d9f3d67442ffc3a51f2ad9e00c4a6a9`.
 - Workspace: `/data/YFT-Master`; original `/data/YFT` and TikTok work remain untouched.
-- Status: FIRST MILESTONE VALIDATED; hardening/live smoke work continues on this spike.
+- Status: HARDENED PROTOTYPE VALIDATED; backup only, NOT APPROVED FOR MERGE.
   New `:extractor-master` JVM module, opt-in fallback engine and memory-only capture boundary.
   No production app/DI/registry wiring or workflow changes. Scope: `extractor-master/README.md`.
 - Baseline: `:core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test`
@@ -15,13 +15,23 @@ Update this file before every checkpoint push. Keep it factual so another chat c
 - Branch-name exception: the owner explicitly approved `spike/master-extractor-backup`.
   `scripts/checkpoint.sh` only accepts `work/phase-*`; this spike uses equivalent manual
   staged-file/secret/diff/test checks and a direct push, without changing that script.
-- Prototype validation: `:extractor-master:test` passed: 56 tests, zero failures/errors/skips.
-  Covers five delivered player-data shapes, capture fallback/focus, navigation isolation,
-  cancellation/deadlines, bounded HTTPS/range/manifest checks and credential stripping.
+- Initial remote checkpoint: `f8e7451804c5d297dc4b9b2672d5493793de980d` (56 module tests),
+  pushed by SSH. The sandbox later reset; recovered that exact checkpoint by HTTPS and
+  verified it with the GitHub MCP. Further pushes use the connected GitHub MCP, no new SSH key.
+- Hardened validation with a real browser snapshot: `:extractor-master:test :core-model:test
+  :extractor-api:test :extractor-generic:test :extractor-sites:test` passed: 437 tests,
+  zero failures/errors/skips (Master 77, unchanged baseline 360).
+- Hardening: independent companion probes/cache within the shared budget, preview veto,
+  private/regional payload gates, monotonic navigation generations, bounded request context,
+  safe debug wrappers, preserved grouping IDs, origin-only cross-origin referers, live-stream
+  refusal and stricter Content-Range validation. Existing adapters remain unchanged.
+- Real smoke: MDN neutral CC0 flower video played; 960 x 540, duration 5.055 s, two successful
+  HTTP 206 video/mp4 requests. Actual capture -> Master fallback -> real HTTPS prefix probe
+  passed. This is not Instagram/X, Android WebView or full download/mux validation.
 - CI: `spike/**` is not an automatic CI trigger; local JVM evidence only. No preview APK.
-- Next: checkpoint this validated milestone, then harden companion validation and capture
-  boundaries and run a public neutral playback smoke. Do not merge, tag, publish or claim
-  live Instagram/X support.
+- Next: checkpoint this validated hardening milestone, run mutation/regression QA, then keep
+  the branch as an inactive backup. Future Android producer/integration needs separate owner
+  approval. Do not merge, tag, publish or claim live Instagram/X support.
 
 Phase 14 runs three agents at the same time. **Each agent edits only its own section below**
 (`## Agent A …`, `## Agent B …`, `## Agent C …`); `## Overview` belongs to the plan and to P38.

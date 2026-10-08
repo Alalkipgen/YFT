@@ -61,12 +61,22 @@ internal object UrlPolicy {
         credentialUrl: String,
         targetUrl: String,
         pageUrl: String,
+        captured: Boolean = false,
     ): BrowserRequestContext {
+        val observedReferer = context.observedHeaders.entries
+            .firstOrNull { it.key.equals("Referer", true) }?.value?.let(::secure)
+        val referer = if (captured && observedReferer != null) {
+            observedReferer.substringBefore('#')
+        } else if (origin(pageUrl) == origin(targetUrl)) {
+            pageUrl.substringBefore('#')
+        } else {
+            origin(pageUrl)?.let { "$it/" }
+        }
         if (origin(credentialUrl) != null && origin(credentialUrl) == origin(targetUrl)) {
-            return context.copy(pageUrl = pageUrl)
+            return context.copy(pageUrl = referer)
         }
         return BrowserRequestContext(
-            pageUrl = pageUrl,
+            pageUrl = referer,
             userAgent = context.userAgent,
             cookie = null,
             observedHeaders = context.observedHeaders.filterKeys {
@@ -76,7 +86,24 @@ internal object UrlPolicy {
     }
 
     fun publicHeaders(headers: Map<String, String>): Map<String, String> =
-        headers.filterKeys { it.lowercase() in PUBLIC_HEADERS }
+        headers.filterKeys { it.lowercase() in PUBLIC_HEADERS }.mapValues { (name, value) ->
+            if (name.equals("Referer", true)) origin(value)?.let { "$it/" }.orEmpty() else value
+        }.filterValues(String::isNotBlank)
+
+    /** Reuse an adapter's grouping namespace, but only with an observed/caller-supplied ID. */
+    fun videoKey(pageUrl: String, contentId: String): String {
+        val host = runCatching { URI(pageUrl).host?.lowercase() }.getOrNull().orEmpty()
+        fun belongs(domain: String) = host == domain || host.endsWith(".$domain")
+        val site = when {
+            belongs("youtube.com") || belongs("youtu.be") -> "youtube"
+            belongs("facebook.com") || belongs("fb.watch") -> "facebook"
+            belongs("tiktok.com") -> "tiktok"
+            belongs("instagram.com") -> "instagram"
+            belongs("x.com") || belongs("twitter.com") -> "x"
+            else -> "master:$host"
+        }
+        return "$site:$contentId"
+    }
 
     fun looksLikeAd(url: String): Boolean {
         val uri = runCatching { URI(url) }.getOrNull() ?: return true

@@ -28,6 +28,10 @@ recoverable primary extraction failure
 - `OkHttpMediaValidator` checks HTTPS media using 512 direct-file bytes or a bounded manifest.
   It checks response status, media MIME/file headers, known expiry, manifest DRM hints,
   redirect budget and origin-scoped credentials, without a cookie jar or TLS bypass.
+- Video companions are independently checked within the same total probe budget. Successful
+  audio checks can be reused; a failed audio link is never offered as a verified merged row.
+- Explicit captured preview evidence vetoes page metadata for the same normalized file.
+  Known site content IDs retain their existing grouping namespaces.
 - `Success` means **probe-validated candidates**, not a completed playable download. Final
   variant resolution, codec compatibility, DRM checks, track validation and export still
   belong to the existing production media/download pipeline.
@@ -104,6 +108,8 @@ The integration host must:
 6. Provide explicit current-video evidence. Ambiguous results return `NeedsSelection`.
 7. Handle `NeedsPlayback` honestly; no capture implementation is silently substituted.
 8. Preserve ordinary production resolver/planner gates before preview/download.
+9. Keep parsing/probing off the UI thread; marshal actual WebView producer operations to the
+   main thread. This pure JVM spike does not supply Android thread/permission handling.
 
 DRM, private/unavailable, geo, disabled-adapter, network and rate-limit primary failures are
 skipped. Login/bot-check/player-script failures require evidence of successful authorized
@@ -113,11 +119,14 @@ browser playback; the service does not solve those checks.
 
 - Default disabled; explicit `MasterPolicy(enabled = true)` is required.
 - Snapshot: 2 MiB of characters, 200 request observations, 16 API documents.
+- Store: 64 KiB per request/context; reject oversize values rather than truncating credentials.
+  Navigation generations cannot be reused, even after an explicit clear.
 - Discovery: 200 raw candidates, 30,000 visited JSON nodes, depth 48.
 - Lookup: at most one capture request and 16 media-check slots shared by both stages.
 - Engine deadline: 20 seconds; a media check has a 10-second total call/redirect deadline.
 - HTTPS redirects: at most five, no downgrade, no credentials restored after leaving origin.
-- File prefix: 512 bytes. Manifest: 256 KiB. No whole-video transfer.
+- Application file-prefix read: 512 bytes. Manifest: 256 KiB. No intentional whole-video
+  read; network buffers and browser playback are separate from this validation budget.
 - `NeedsSelection`/`NeedsPlayback` are not success. There is no screen recording.
 
 ## Validation
@@ -129,14 +138,40 @@ Use the normal repository JDK 17/Android SDK environment:
   :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test
 ```
 
-Initial milestone: 56 new JVM tests passed with zero failures/errors/skips. The unchanged
-baseline's four JVM suites passed 360 tests with zero failures/errors/skips. TLS tests trust
-an explicit fixture certificate; verification is never disabled.
+Validated hardening milestone: 77 module tests, zero failures/errors/skips, with the opt-in
+real capture smoke supplied. The unchanged baseline's four JVM suites passed 360 tests with
+zero failures/errors/skips. TLS tests trust an explicit fixture certificate; verification is
+never disabled. Initial pushed checkpoint: `f8e7451` (56 module tests).
+
+### Real browser-to-fallback smoke
+
+A neutral MDN CC0 flower example was played in the shared Chromium browser. The observed
+MP4 response was HTTP 206; playback reported 960 x 540 and a 5.055-second duration.
+Two successful requests for the playing media were captured. A fresh in-memory store then
+supplied that evidence to `MasterFallbackEngine` after a deliberately empty primary payload.
+The real `OkHttpMediaValidator` independently checked the public media, and the result was
+`PLAYBACK_CAPTURE` success. This is a generic sample smoke, **not** a live site-adapter,
+Android WebView, full download/mux, or Instagram/X support proof.
+
+The live snapshot is outside the repository; no browser bodies, live session or signed URLs
+are committed. Optional smoke invocation:
+
+```bash
+YFT_MASTER_SMOKE_SNAPSHOT=/path/to/public-browser-capture.json \
+  ./gradlew --no-daemon :extractor-master:test
+```
+
+Without that variable, the 76 offline tests run and the one optional smoke is skipped.
+The environment/file are declared Gradle test inputs, so changing the capture reruns tests.
 
 `spike/**` does not match the existing CI push filters. Do not claim automatic green CI or
 a preview APK for this branch. No workflows are changed. This owner-approved branch also
 does not match `scripts/checkpoint.sh`; checkpoints use equivalent manual staged-file,
 secret, diff and test checks followed by an explicit push to this branch only.
+
+The sandbox reset after the initial SSH checkpoint. The pushed branch was recovered by HTTPS
+and verified through the connected GitHub MCP; further file-backed pushes use that connection
+without another SSH key enrollment.
 
 Before considering integration: implement/review the real browser producer, test current
 public pages and actual focused playback, verify companion tracks and signed-link refresh,

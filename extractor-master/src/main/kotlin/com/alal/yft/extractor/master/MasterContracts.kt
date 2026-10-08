@@ -108,7 +108,9 @@ object NoPlaybackCaptureProvider : PlaybackCaptureProvider {
 }
 
 sealed interface ValidationResult {
-    data class Valid(val candidate: MediaCandidate) : ValidationResult
+    data class Valid(val candidate: MediaCandidate) : ValidationResult {
+        override fun toString(): String = "Valid(kind=${candidate.kind}, address=[omitted])"
+    }
     data class Rejected(val reason: SiteExtractionFailure) : ValidationResult
 }
 
@@ -121,7 +123,11 @@ sealed interface MasterResult {
     data class Success(
         val result: SiteExtractionResult.Success,
         val stage: MasterStage,
-    ) : MasterResult
+    ) : MasterResult {
+        override fun toString(): String =
+            "Success(candidateCount=${result.candidates.size}, stage=$stage, " +
+                "details=${DiagnosticTextSanitizer.details(result.details)})"
+    }
 
     data class Failure(
         val reason: SiteExtractionFailure,
