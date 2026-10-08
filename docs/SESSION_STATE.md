@@ -70,12 +70,35 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent C — `work/phase-15-ads` (P43)
 
-- Status: P43 IN PROGRESS (started 2026-10-09, `AD_RULE=STRICT`: the owner gave no answer).
+- Status: P43 DONE — CI pending (started 2026-10-09, `AD_RULE=STRICT`: the owner gave no answer).
 - Base commit: `d0bc7f7` (`origin/work/phase-15-integration`, the plan commit).
 - Starting state (before edits, 2026-10-09): `./gradlew --no-daemon --continue :core-model:test
   :extractor-generic:test :core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug
   :app:compileDebugAndroidTestKotlin` → BUILD SUCCESSFUL (9 min 34 s): 1071 tests, 0 failures,
   66 skipped (core-model 106, extractor-generic 20, core-browser 138, app 807); lint 0 issues.
-- WIP (not validated yet): model/detection half pushed — `AdSign`, `PageVideoProof`, `AdHosts`,
-  mapper/VAST tracker ad signs, the Download sheet half; unit + instrumented tests added; validation 1110 tests 0 failures; regression proof done; docs next.
-- Results, validation, regression proof, CI links, hand-offs: —
+- Result: on a site without an adapter one rule (`PageVideoProof`, core-model) decides at every
+  step of the sheet (first choice, page's newest link, player's link, page read again, next
+  video) whether a file is the page's video: named by the player setup, or its length (measured
+  first when unknown) matches the page's or the failed video's. Ads: `AdHosts` (own list, network
+  names under any suffix, IMA/VAST/pre-roll requests, VAST/VMAP answers), `AdSign` on candidates
+  (mapper, `VastAdTracker` incl. `onAnswer`), short files on long pages. Skipped files: "That was
+  an ad — showing the page's video"; nothing left: "Only an ad was found, not the page's video."
+  with Reload (stand-in of the page's length). Proven ads not counted in the sheet's other videos.
+- Plan adapted: P28's test "the sheet waiting for the page's video shows … then its line" offered
+  a 0:30 ad on a 16:24 page; it now sets `adRule = LENIENT` (LENIENT keeps the browser's first
+  choice) and a STRICT twin expects no ad offered. The size check of a stated file now keeps the
+  length it read (the header shows the proven length).
+- Validation (2026-10-09): `./gradlew --no-daemon --continue :core-model:test
+  :extractor-generic:test :core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug
+  :app:compileDebugAndroidTestKotlin` → BUILD SUCCESSFUL: 1111 tests, 0 failures, 66 skipped
+  (core-model 122, extractor-generic 21, core-browser 148, app 820; +40); lint 0 errors (95
+  warnings, unchanged); androidTest compiles; long-line check empty.
+- Regression proof: the 7 files before P43 + `QuickDownloadPrerollTest` → 4 of 5 failed, each
+  offering the 0:30 file; restored with `cp`, `cmp` equal (TEST_MATRIX "Agent C — P43").
+- CI: pending.
+- Hand-offs to Agent A: (a) `BrowserScreen.kt:509` and `DetectedMediaScreen.kt:169` call
+  `MediaGroups.ofPage(…, facts, hideAds = true)` so proven ads are not listed under Other videos,
+  and `BrowserViewModel`'s `otherVideos` leaves out `PageVideoProof.isProvenAd` groups; (b)
+  `BrowserViewModel` calls `vastAds.onAnswer(observation, contentType, bodyStart)` where the
+  page's answers are read (e.g. `MediaMetadataProbe`'s non-media XML answers), so a VAST/VMAP
+  body starts an ad break when the request's address says nothing.
