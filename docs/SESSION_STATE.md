@@ -58,9 +58,14 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent A — `work/phase-15-tiktok` (P39, P40)
 
-- Status: P39 TODO, P40 TODO.
-- Base commit: —
-- Results, validation, regression proof, live-check markers, CI links, hand-offs: —
+- Status: P39 IN PROGRESS (started 2026-10-09), P40 TODO.
+- Base commit: `d0bc7f7` (= `origin/work/phase-15-integration`, the plan commit); folder
+  `/data/YFT-A`; push over SSH with the key named in `/data/.ssh/CURRENT_KEY`.
+- Starting state (Agent A scope, before any edit; the full command of FIX_ADD_PLAN 0.3 for
+  Agent A): BUILD SUCCESSFUL — 1207 JVM tests, 0 failures, 66 skipped (app 807, core-browser
+  138, core-media 28, extractor-api 32, extractor-sites 202); lint 0 errors, 95 warnings;
+  androidTest Kotlin compiles.
+- Hand-offs: none
 
 ## Agent B — `work/phase-15-downloads` (P41, P42; later P44)
 
