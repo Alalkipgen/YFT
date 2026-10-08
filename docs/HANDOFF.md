@@ -30,8 +30,8 @@
 - **P38 (2026-10-08, Agent A):** A (P34), B (P36, P37) and C (P35) merged into
   `work/phase-14-integration` without conflicts; full validation 1532 tests, 0 failures, 66
   skipped, lint 0 errors, release build OK. The owner asked to push `main` after the merge: it
-  is fast-forwarded to the validated merge once its CI is green (no tag). CI links and the
-  Preview #6 run: `SESSION_STATE.md` › Overview.
+  was fast-forwarded to the validated merge after its CI was green (no tag). Preview #6 =
+  Preview APK run 37811403962 of `4da3e61`; CI links: `SESSION_STATE.md` › Overview.
 - **Next action — owner:** uninstall the older YFT Preview, install **Preview #6** (Preview APK
   run › Artifacts › `yft-preview-apk`) and test FIX_ADD_PLAN §6 "Preview #6"; then P8 (signed
   `1.0.0-beta.4`, `prompts/P8-signed-beta4.md`) only with his OK.

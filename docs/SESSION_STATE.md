@@ -47,10 +47,12 @@ Keep at least the heading and one blank line between sections, so Git merges the
   failures, 66 skipped (app 807, core-browser 138, core-data 33, core-download 166, core-media
   28, core-model 106, extractor-api 32, extractor-generic 20, extractor-sites 202); lint 0
   errors (app 95 warnings); `:app:assembleRelease` OK; line check clean. The owner asked to
-  push `main` after the merge (no tag): `main` is fast-forwarded to the validated merge once
-  its CI is green.
-- Last pushed checkpoint: P38: merge A, B, C — full validation green (on
-  `work/phase-14-integration`); CI: see the next checkpoint.
+  push `main` after the merge (no tag): CI of `4da3e61` green, `main` fast-forwarded.
+- Last pushed checkpoint: P38: merge A, B, C — full validation green (`4da3e61` on
+  `work/phase-14-integration`), CI all green: checkpoint validation https://github.com/Alalkipgen/YFT/actions/runs/37811403961,
+  emulator smoke (P34–P37 instrumented tests together) https://github.com/Alalkipgen/YFT/actions/runs/37811403940, Preview APK (test key)
+  = **Preview #6** https://github.com/Alalkipgen/YFT/actions/runs/37811403962 (Artifacts › `yft-preview-apk`). Then this docs commit;
+  `main` fast-forwarded to it at the owner's request (no tag).
 - Next: the owner installs Preview #6 (Preview APK run of the P38 merge commit › Artifacts ›
   `yft-preview-apk`; uninstall the older YFT Preview first) and tests FIX_ADD_PLAN §6
   "Preview #6"; P8 (signed `1.0.0-beta.4`) only with his OK after that.

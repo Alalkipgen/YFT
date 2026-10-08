@@ -826,8 +826,8 @@ one agent); no open hand-offs (A's `DownloadRuntimeModule` keeps `AndroidMp4Audi
 which now stream-copies). Full validation: 1532 tests, 0 failures, 66 skipped (was 1435 at P33);
 lint 0 errors; `:app:assembleRelease` OK; line check clean. The owner asked to push `main` after
 the merge and to build the test-key Preview: `main` is fast-forwarded to the validated merge
-once its CI is green (no tag, no signed release). CI and the Preview #6 run:
-`docs/SESSION_STATE.md` › Overview.
+after its CI was green (no tag, no signed release). CI of `4da3e61`: checkpoint validation
+37811403961, emulator smoke 37811403940, Preview APK 37811403962 = **Preview #6**, all green.
 
 ### P8 — Signed release 1.0.0-beta.4
 
