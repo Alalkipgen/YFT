@@ -71,8 +71,9 @@ Keep at least the heading and one blank line between sections, so Git merges the
   TikTok parser (page kinds, data shapes, lenient read, qualities), TikTokAgents, TikTok adapter
   (phone + desktop pages, file checks, watermark rule, Details) — main code compiles; coordinator
   (error class, adapter message, new RESPONSE_CHANGED text); PageVideoLookup.details shown by
-  lookupState (browser page/focused lookups, Home). Next: TikTok tests rewrite (8 old tests fail
-  by design), browser fallback row (step 8), resolver JVM reproduction test (step 7), app tests.
+  lookupState (browser page/focused lookups, Home). TikTok adapter tests rewritten on live-shaped
+  fixtures (phone reflow, desktop video-detail, home page) with file-check fakes. Next: regression
+  + agents tests, browser fallback row (step 8), resolver reproduction test (step 7), app tests.
   DefaultVariantResolver: requests on Dispatchers.IO, every unexpected error -> failure at its step.
   Live look 2026-10-09 (one public video, both agents, page answers only): phone 200 · 150 KB ·
   `webapp.reflow.video.detail` with playAddr only (576×1024); desktop 200 · 389 KB ·
