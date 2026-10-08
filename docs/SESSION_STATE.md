@@ -72,8 +72,12 @@ Keep at least the heading and one blank line between sections, so Git merges the
   (phone + desktop pages, file checks, watermark rule, Details) — main code compiles; coordinator
   (error class, adapter message, new RESPONSE_CHANGED text); PageVideoLookup.details shown by
   lookupState (browser page/focused lookups, Home). Next: TikTok tests rewrite (8 old tests fail
-  by design), browser fallback row (step 8), resolver catch-all (step 7), app tests.
-- Hand-offs: none
+  by design), browser fallback row (step 8), resolver JVM reproduction test (step 7), app tests.
+  DefaultVariantResolver: requests on Dispatchers.IO, every unexpected error -> failure at its step.
+- Hand-offs: Hand-off to C: core-model/src/main/kotlin/com/alal/yft/core/model/media/MediaAsset.kt
+  — add `VariantResolutionResult.Failure.error: String? = null` (exception class name) and show it
+  in QuickDownloadFailures details as "Error: <Class>" — so the resolver's failure names the
+  class as P39 step 7 asks (the resolver already returns the step; core-model media is C's).
 
 ## Agent B — `work/phase-15-downloads` (P41, P42; later P44)
 

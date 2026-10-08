@@ -74,19 +74,33 @@ class DefaultVariantResolver(
     override suspend fun resolve(candidate: MediaCandidate): VariantResolutionResult {
         val trace = Trace(host = candidate.mediaUrl.toHttpUrlOrNull()?.host)
         val result = try {
-            resolveSafely(candidate, trace)
+            // P39 (R31): the requests never run on the caller's thread; the Download sheet
+            // asks from the main thread, where closing a response can throw.
+            withContext(Dispatchers.IO) { resolveSafely(candidate, trace) }
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (_: IOException) {
             VariantResolutionResult.Failure(VariantResolutionFailure.NETWORK)
         } catch (_: IllegalArgumentException) {
             VariantResolutionResult.Failure(VariantResolutionFailure.INVALID_URL)
+        } catch (_: Exception) {
+            // P39 (R31): any other error ends as a failure at the step it stopped at, instead
+            // of escaping to the sheet as "manifest not readable" without a step.
+            VariantResolutionResult.Failure(unexpectedFailureAt(trace.step))
         }
         return if (result is VariantResolutionResult.Failure) {
             result.copy(step = result.step ?: trace.step, host = result.host ?: trace.host)
         } else {
             result
         }
+    }
+
+    /** The reason an unexpected error stands for at [step]. */
+    private fun unexpectedFailureAt(step: ResolutionStep): VariantResolutionFailure = when (step) {
+        ResolutionStep.ADDRESS -> VariantResolutionFailure.INVALID_URL
+        ResolutionStep.MANIFEST, ResolutionStep.MEDIA_PLAYLIST ->
+            VariantResolutionFailure.MALFORMED_MANIFEST
+        else -> VariantResolutionFailure.NETWORK
     }
 
     /** P24: where a resolution is: the step and host of its latest request. */
@@ -310,7 +324,8 @@ class DefaultVariantResolver(
             }
         } catch (cancellation: CancellationException) {
             throw cancellation
-        } catch (_: IOException) {
+        } catch (_: Exception) {
+            // P39: the header read is optional; any error leaves the row unmeasured.
             null
         }
     }
