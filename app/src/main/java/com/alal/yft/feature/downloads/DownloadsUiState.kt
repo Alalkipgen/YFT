@@ -217,6 +217,8 @@ data class DownloadsUiState(
     val network: TransferNetworkState = TransferNetworkState.ALLOWED,
     /** Save location and free space, or null until measured. */
     val storage: DownloadStorageSummary? = null,
+    /** The notifications and battery cards (P34). */
+    val background: BackgroundCardsUiState = BackgroundCardsUiState.None,
 ) {
     val isEmpty: Boolean = rows.isEmpty()
 

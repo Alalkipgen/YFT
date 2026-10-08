@@ -42,7 +42,11 @@ class DownloadNotificationFactoryTest {
 
         assertNotNull(channel)
         assertEquals(NotificationManager.IMPORTANCE_LOW, channel.importance)
-        assertEquals("2 active downloads", notification.extras.getString(Notification.EXTRA_TITLE))
+        // P34: the title counts the downloads with their percent; the text holds the speed.
+        assertEquals(
+            "Downloading 2 videos · 50%",
+            notification.extras.getString(Notification.EXTRA_TITLE),
+        )
         assertEquals(50, notification.extras.getInt(Notification.EXTRA_PROGRESS))
         assertFalse(notification.extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE))
         assertEquals(Notification.FLAG_ONGOING_EVENT, notification.flags and Notification.FLAG_ONGOING_EVENT)
@@ -62,7 +66,8 @@ class DownloadNotificationFactoryTest {
 
         val notification = factory.active(listOf(unknown))
 
-        assertEquals("1 active download", notification.extras.getString(Notification.EXTRA_TITLE))
+        // P34: one download shows its own title.
+        assertEquals("unknown", notification.extras.getString(Notification.EXTRA_TITLE))
         assertEquals(true, notification.extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE))
     }
 
@@ -77,9 +82,9 @@ class DownloadNotificationFactoryTest {
 
         assertEquals(Notification.VISIBILITY_PRIVATE, channel.lockscreenVisibility)
         assertEquals(Notification.VISIBILITY_PRIVATE, notification.visibility)
-        assertEquals("holiday.bin", notification.extras.getString(Notification.EXTRA_TEXT))
+        assertEquals("holiday", notification.extras.getString(Notification.EXTRA_TITLE))
         assertNotNull(public)
-        assertEquals("1 active download", public.extras.getString(Notification.EXTRA_TITLE))
+        assertEquals("1 active download · 10%", public.extras.getString(Notification.EXTRA_TITLE))
         assertNull(public.extras.getCharSequence(Notification.EXTRA_TEXT))
     }
 

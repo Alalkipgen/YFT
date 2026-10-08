@@ -138,7 +138,22 @@ internal fun amountOf(downloaded: Long, total: Long): String {
     return if (sameUnit) "${done.substringBefore(' ')} of $all" else "$done of $all"
 }
 
-internal fun speedLabel(bytesPerSecond: Long): String = "${YftFormat.bytes(bytesPerSecond)}/s"
+/**
+ * The speed on the cards and in the notification (P34, G8): below 1,024 KB/s whole kilobytes
+ * ("850 KB/s", "1023 KB/s"), from there one decimal ("1.0 MB/s", "12.3 MB/s"), 1,024-based.
+ */
+internal fun speedLabel(bytesPerSecond: Long): String {
+    if (bytesPerSecond < BYTES_PER_KB) return "${bytesPerSecond.coerceAtLeast(0L)} B/s"
+    val kilobytes = bytesPerSecond / BYTES_PER_KB
+    if (kilobytes < BYTES_PER_KB) return "$kilobytes KB/s"
+    var value = bytesPerSecond / (BYTES_PER_KB * BYTES_PER_KB).toDouble()
+    var unit = 0
+    while (value >= BYTES_PER_KB && unit < FAST_UNITS.lastIndex) {
+        value /= BYTES_PER_KB
+        unit++
+    }
+    return String.format(Locale.US, "%.1f %s/s", value, FAST_UNITS[unit])
+}
 
 /** "15 s left", "3 min left", "1 h 5 min left"; nothing past a week, where it means little. */
 internal fun timeLeftLabel(seconds: Long): String? {
@@ -293,6 +308,8 @@ internal const val AUDIO_FROM_VIDEO_HINT =
     "This video's sound can't be saved as audio. Download the video instead."
 
 private const val UNKNOWN = "\u2014"
+private const val BYTES_PER_KB = 1_024L
+private val FAST_UNITS = listOf("MB", "GB")
 private const val SECONDS_PER_MINUTE = 60L
 private const val MINUTES_PER_HOUR = 60L
 private const val MAX_TIME_LEFT_SECONDS = 7L * 24 * 60 * 60

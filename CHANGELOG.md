@@ -9,7 +9,26 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Phase 14 — Agent A (P34)
 
-- (Agent A writes its P34 entries here; P38 folds them into Added / Changed / Fixed.)
+- Added: downloads, merges, MP3 conversions and saves keep going in the background — the
+  download service holds a partial wake lock (`yft:downloads`, renewed with a 10-minute timeout)
+  while any task runs and a Wi-Fi lock while bytes are downloaded, declares `dataSync` (plus
+  `mediaProcessing` on Android 15 while merging, converting or saving), handles Android 15's
+  `onTimeout` with "Android paused downloads after 6 hours. Open YFT to resume.", and a refused
+  start keeps the downloads queued with a notice instead of crashing.
+- Added: the ongoing notification shows the speed — one download: its title and
+  "45% · 1.2 MB/s · 61 MB of 96 MB · 15 s left"; several: "Downloading 3 videos · 45%",
+  "2.4 MB/s · 1 min left" and one line each; merges and saves keep P27's stages; at most one
+  update a second, from the same speed the Downloads cards show.
+- Added: "Downloaded · <title>" and "Download failed · <title> — <reason>" notices on a new
+  "Finished downloads" channel (DONE_NOTICE on).
+- Added: Downloads cards — "Turn on notifications to see download progress outside YFT" when
+  notifications are off, and the battery card ("Downloads and merges may stop when YFT is in the
+  background…", Allow, Not now, HyperOS steps on Xiaomi, Redmi and POCO), shown again with "Your
+  phone paused YFT in the background for 1 min 40 s." after a freeze (BATTERY_CARD on);
+  Settings › Downloads › Background downloads (Allowed / Limited).
+- Changed: speeds read "850 KB/s" below 1,024 KB/s and "1.2 MB/s" from there (one decimal).
+- Fixed: Resume and Retry on Downloads start the download service again, so a download resumed
+  after Pause all no longer runs without it.
 
 ### Phase 14 — Agent B (P36, P37)
 
