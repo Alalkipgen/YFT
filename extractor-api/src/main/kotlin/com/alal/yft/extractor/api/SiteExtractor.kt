@@ -148,6 +148,11 @@ sealed interface SiteExtractionResult {
         val httpStatusCode: Int? = null,
         /** Short diagnostic steps only. Consumers sanitize again before copy/share. */
         val details: List<String> = emptyList(),
+        /**
+         * The adapter's own plain-language text for the user, when it knows better than the
+         * generic text for [reason]. Never contains an address, cookie or header value.
+         */
+        val message: String? = null,
     ) : SiteExtractionResult {
         init {
             require(httpStatusCode == null || httpStatusCode in 100..599)

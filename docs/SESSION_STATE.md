@@ -65,6 +65,8 @@ Keep at least the heading and one blank line between sections, so Git merges the
   Agent A): BUILD SUCCESSFUL — 1207 JVM tests, 0 failures, 66 skipped (app 807, core-browser
   138, core-media 28, extractor-api 32, extractor-sites 202); lint 0 errors, 95 warnings;
   androidTest Kotlin compiles.
+- Progress (WIP checkpoints skip tests; the full validation runs before the P39 checkpoint):
+  extractor-api additions (file check `probe`, request `details`, adapter `message`).
 - Hand-offs: none
 
 ## Agent B — `work/phase-15-downloads` (P41, P42; later P44)
