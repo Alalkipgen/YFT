@@ -75,6 +75,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
   (core-download 166 tests green); `StreamCopyMergeInstrumentedTest` compares the stream copy
   with today's way on the CI emulator (first run, `ff59e2c`: 1-hour-sized input 16.0 s → 1.33 s,
   20 minutes 4.05 s → 0.42 s; its start check failed because MediaMuxer moves a B-frame video's
-  start by 59 ms, so the times are now checked against the inputs). Next: a green emulator run,
-  the docs.
+  start by 59 ms, so the times are now checked against the inputs; second run `0a18c19`: video
+  equal in all three files, the inputs' sound sync flags only mark each fragment's first
+  sample, so sound is compared with today's file). Next: a green emulator run, the docs.
 - Hand-offs: none

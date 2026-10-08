@@ -214,9 +214,9 @@ class StreamCopyMergeInstrumentedTest {
     }
 
     /**
-     * Every sample of [track]: the same bytes and sync flag in the input, today's file and the
-     * stream copy's; the stream copy's time is the input's within one tick, and today's within
-     * one tick after the track's first sample.
+     * Every sample of [track]: the same bytes in the input, today's file and the stream copy's,
+     * and the same sync flag; the stream copy's time is the input's within one tick, and today's
+     * within one tick after the track's first sample.
      */
     private fun sameTrack(
         track: Int,
@@ -254,9 +254,13 @@ class StreamCopyMergeInstrumentedTest {
                         "from $fastStart",
                     abs(shift) <= tickUs,
                 )
-                val sync = input.sampleFlags and SYNC
+                val sync = fast.sampleFlags and SYNC
                 assertEquals("$at: sync in today's file", sync, today.sampleFlags and SYNC)
-                assertEquals("$at: sync in the stream copy", sync, fast.sampleFlags and SYNC)
+                // MediaExtractor marks only the first sample of an input fragment as sync: right
+                // for the test video's fragments, not for sound, where every sample is one.
+                if (track == 0) {
+                    assertEquals("$at: sync in the input", sync, input.sampleFlags and SYNC)
+                }
                 val size = read(input, inputBuffer)
                 assertEquals("$at: size", size, read(today, todayBuffer))
                 assertEquals("$at: size", size, read(fast, fastBuffer))
