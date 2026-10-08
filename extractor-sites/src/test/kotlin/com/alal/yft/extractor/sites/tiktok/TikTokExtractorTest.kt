@@ -164,20 +164,202 @@ class TikTokExtractorTest {
         }
 
     @Test
-    fun `the browser path keeps the webview cookie instead of the page cookies`() = runTest {
+    fun `the browser path keeps the webview cookie and adds the page answer's cookies`() =
+        runTest {
+            val identity = identity("7311234567890123456")
+            val http = FakeExtractorHttpClient.serving(
+                url = identity.canonicalPageUrl,
+                body = tiktokHostedPage(),
+                cookies = PAGE_COOKIES,
+            )
+
+            val result = TikTokExtractor(http).extract(request(identity))
+                as SiteExtractionResult.Success
+
+            result.candidates.forEach { candidate ->
+                assertEquals(
+                    "sessionid=fixture-cookie; tt_chain_token=chain-fixture; ttwid=wid-fixture; " +
+                        "tt_csrf_token=csrf-fixture",
+                    candidate.requestContext.cookie,
+                )
+            }
+        }
+
+    @Test
+    fun `a stale same-named webview cookie loses to the page answer's cookie`() = runTest {
+        // P36 (R20): the media host answers 403 to an old tt_chain_token, 206 to the page's.
         val identity = identity("7311234567890123456")
         val http = FakeExtractorHttpClient.serving(
             url = identity.canonicalPageUrl,
             body = tiktokHostedPage(),
             cookies = PAGE_COOKIES,
         )
+        val request = request(identity).let {
+            it.copy(
+                requestContext = it.requestContext.copy(
+                    cookie = "tt_chain_token=stale-chain; sessionid=fixture-cookie",
+                ),
+            )
+        }
+
+        val result = TikTokExtractor(http).extract(request) as SiteExtractionResult.Success
+
+        result.candidates.forEach { candidate ->
+            assertEquals(
+                "tt_chain_token=chain-fixture; sessionid=fixture-cookie; ttwid=wid-fixture; " +
+                    "tt_csrf_token=csrf-fixture",
+                candidate.requestContext.cookie,
+            )
+            assertFalse(candidate.requestContext.cookie!!.contains("stale-chain"))
+        }
+    }
+
+    @Test
+    fun `the phone page's post is read from its reflow data`() = runTest {
+        // P36 (R20): the page TikTok gives the WebView's user agent has no webapp.video-detail.
+        val identity = identity("7311234567890123456")
+        val http = FakeExtractorHttpClient.serving(
+            url = identity.canonicalPageUrl,
+            body = Fixtures.read("tiktok/universal_reflow_video.html"),
+        )
 
         val result = TikTokExtractor(http).extract(request(identity))
             as SiteExtractionResult.Success
 
-        result.candidates.forEach { candidate ->
-            assertEquals("sessionid=fixture-cookie", candidate.requestContext.cookie)
+        assertEquals(listOf(identity.canonicalPageUrl), http.requestedUrls)
+        assertEquals(
+            listOf(
+                "https://v16-webapp.example-cdn.test/video/reflow/fixture-play.mp4" +
+                    "?expire=REDACTED&signature=REDACTED",
+                "https://v16-webapp.example-cdn.test/video/reflow/fixture-download.mp4" +
+                    "?expire=REDACTED&signature=REDACTED",
+            ),
+            result.candidates.map(MediaCandidate::mediaUrl),
+        )
+        val play = result.candidates.first()
+        assertEquals("Sunrise over the harbour #fixture", play.title)
+        assertEquals(17_000L, play.durationMillis)
+        assertEquals(
+            "https://p16-sign.example-cdn.test/obj/cover-fixture?x-expires=REDACTED" +
+                "&x-signature=REDACTED",
+            play.thumbnailUrl,
+        )
+        assertEquals(
+            "https://www.tiktok.com/@fixture_user/video/7311234567890123456",
+            play.pageUrl,
+        )
+        assertEquals("fixture-agent", play.requestContext.userAgent)
+    }
+
+    @Test
+    fun `a phone page without qualities takes the desktop page's qualities and cookies`() =
+        runTest {
+            val identity = identity("7311234567890123456")
+            val http = phoneAndDesktop(identity, desktop = FakeExtractorHttpClient.html(
+                body = tiktokHostedPage(),
+                finalUrl = identity.canonicalPageUrl,
+                cookies = DESKTOP_COOKIES,
+            ))
+
+            val result = TikTokExtractor(http, desktopUserAgent = DESKTOP_AGENT)
+                .extract(request(identity)) as SiteExtractionResult.Success
+
+            assertEquals(
+                listOf(identity.canonicalPageUrl, identity.canonicalPageUrl),
+                http.requestedUrls,
+            )
+            assertEquals("fixture-agent", http.requestedHeaders[0]["User-Agent"])
+            assertEquals(DESKTOP_AGENT, http.requestedHeaders[1]["User-Agent"])
+            assertEquals("sessionid=fixture-cookie", http.requestedHeaders[1]["Cookie"])
+            assertEquals(5, result.candidates.size)
+            assertEquals(
+                "Sunrise over the harbour #fixture — Standard 1080p",
+                result.candidates.first().title,
+            )
+            assertEquals(5_308_416L, result.candidates.first().contentLengthBytes)
+            result.candidates.forEach { candidate ->
+                assertTrue(candidate.mediaUrl.startsWith("https://$TIKTOK_MEDIA_HOST/"))
+                // The media request goes out as the page that gave its address was asked.
+                assertEquals(DESKTOP_AGENT, candidate.requestContext.userAgent)
+                assertEquals(
+                    "sessionid=fixture-cookie; tt_chain_token=desktop-chain-fixture",
+                    candidate.requestContext.cookie,
+                )
+            }
         }
+
+    @Test
+    fun `a failed desktop page keeps the phone page's address, its cookies and agent`() =
+        runTest {
+            val identity = identity("7311234567890123456")
+            listOf(
+                ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 403),
+                FakeExtractorHttpClient.html(
+                    body = Fixtures.read("tiktok/changed_markup.html"),
+                    finalUrl = identity.canonicalPageUrl,
+                ),
+                FakeExtractorHttpClient.html(
+                    body = tiktokHostedPhonePage(),
+                    finalUrl = identity.canonicalPageUrl,
+                ),
+            ).forEach { desktop ->
+                val http = phoneAndDesktop(identity, desktop)
+
+                val result = TikTokExtractor(http, desktopUserAgent = DESKTOP_AGENT)
+                    .extract(request(identity)) as SiteExtractionResult.Success
+
+                // Asked once, never twice.
+                assertEquals(2, http.requestedUrls.size)
+                assertEquals(2, result.candidates.size)
+                result.candidates.forEach { candidate ->
+                    assertEquals("fixture-agent", candidate.requestContext.userAgent)
+                    assertEquals(
+                        "sessionid=fixture-cookie; tt_chain_token=chain-fixture; " +
+                            "ttwid=wid-fixture; tt_csrf_token=csrf-fixture",
+                        candidate.requestContext.cookie,
+                    )
+                }
+            }
+        }
+
+    @Test
+    fun `no second page without the desktop agent, with it or for a page with qualities`() =
+        runTest {
+            val identity = identity("7311234567890123456")
+            // PAGE (TIKTOK_QUALITIES=PAGE): no desktop user agent, so no second request.
+            val pageOnly = phoneAndDesktop(identity, desktop = null)
+            TikTokExtractor(pageOnly).extract(request(identity))
+            assertEquals(1, pageOnly.requestedUrls.size)
+
+            // Home already reads the page with the desktop user agent.
+            val home = phoneAndDesktop(identity, desktop = null)
+            val homeRequest = homeRequest(identity).let {
+                it.copy(requestContext = it.requestContext.copy(userAgent = DESKTOP_AGENT))
+            }
+            TikTokExtractor(home, desktopUserAgent = DESKTOP_AGENT).extract(homeRequest)
+            assertEquals(1, home.requestedUrls.size)
+
+            // A page that lists its qualities is enough.
+            val desktopPage = FakeExtractorHttpClient.serving(
+                url = identity.canonicalPageUrl,
+                body = Fixtures.read("tiktok/universal_video.html"),
+            )
+            TikTokExtractor(desktopPage, desktopUserAgent = DESKTOP_AGENT)
+                .extract(request(identity))
+            assertEquals(1, desktopPage.requestedUrls.size)
+        }
+
+    @Test
+    fun `cookie pairs merge by name and keep their order`() {
+        val answer = listOf(
+            ResponseCookie("b", "new", "tiktok.com", hostOnly = false),
+            ResponseCookie("c", "3", "tiktok.com", hostOnly = false),
+        )
+
+        assertEquals("a=1; b=new; c=3", TikTokExtractor.mergedCookie("a=1; b=old", answer))
+        assertEquals("b=new; c=3", TikTokExtractor.mergedCookie(null, answer))
+        assertEquals("a=1", TikTokExtractor.mergedCookie(" a=1 ;; ", emptyList()))
+        assertNull(TikTokExtractor.mergedCookie("", emptyList()))
     }
 
     @Test
@@ -305,6 +487,31 @@ class TikTokExtractorTest {
         nowEpochMs = 1_700_000_000_000,
     )
 
+    /**
+     * The page as TikTok serves it to a phone ([request]'s agent, with [PAGE_COOKIES]) and, to
+     * [DESKTOP_AGENT], [desktop] (the 404 fallback when null).
+     */
+    private fun phoneAndDesktop(
+        identity: SitePageIdentity,
+        desktop: ExtractorHttpResult?,
+    ) = FakeExtractorHttpClient(
+        getResponder = { url, headers ->
+            when {
+                url != identity.canonicalPageUrl -> null
+                headers["User-Agent"] == DESKTOP_AGENT -> desktop
+                else -> FakeExtractorHttpClient.html(
+                    body = tiktokHostedPhonePage(),
+                    finalUrl = url,
+                    cookies = PAGE_COOKIES,
+                )
+            }
+        },
+    )
+
+    private fun tiktokHostedPhonePage(): String =
+        Fixtures.read("tiktok/universal_reflow_video.html")
+            .replace("v16-webapp.example-cdn.test", TIKTOK_MEDIA_HOST)
+
     /** The committed fixture with its media on TikTok's own media host, as live pages serve. */
     private fun tiktokHostedPage(): String = Fixtures.read("tiktok/universal_video.html")
         .replace("v16-webapp.example-cdn.test", TIKTOK_MEDIA_HOST)
@@ -321,6 +528,11 @@ class TikTokExtractorTest {
 
     private companion object {
         const val TIKTOK_MEDIA_HOST = "v16-webapp-prime.us.tiktok.com"
+        const val DESKTOP_AGENT = "fixture-desktop-agent"
+
+        val DESKTOP_COOKIES = listOf(
+            ResponseCookie("tt_chain_token", "desktop-chain-fixture", "tiktok.com", false),
+        )
 
         /** TikTok's own cookies, a host-only page cookie and another site's cookie. */
         val PAGE_COOKIES = listOf(

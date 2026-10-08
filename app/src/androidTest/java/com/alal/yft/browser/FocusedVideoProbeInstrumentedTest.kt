@@ -98,6 +98,37 @@ class FocusedVideoProbeInstrumentedTest {
     }
 
     @Test
+    fun theTikTokForYouCardInTheMiddleOfTheScreenGivesItsVideo() {
+        // P36 (R19): today's feed has no /video/ link; the player's wrapper id names the video.
+        assertEquals(
+            FocusedVideo(
+                "https://www.tiktok.com/@second_user/video/7300000000000000012",
+                Source.CENTRE,
+            ),
+            focusedOn("tiktok-foryou.html", TIKTOK_FEED),
+        )
+        assertEquals(
+            FocusedVideo("https://www.tiktok.com/@/video/7300000000000000013", Source.CENTRE),
+            focusedOn(
+                "tiktok-foryou.html",
+                TIKTOK_FEED,
+                settle = "window.yftFixtureCard = 2; $SETTLE_SCRIPT",
+            ),
+        )
+    }
+
+    @Test
+    fun theTikTokPhoneSlideGivesTheVideoItsPageHolds() {
+        assertEquals(
+            FocusedVideo(
+                "https://www.tiktok.com/@phone.user/video/7300000000000000021",
+                Source.CENTRE,
+            ),
+            focusedOn("tiktok-foryou-phone.html", TIKTOK_FEED),
+        )
+    }
+
+    @Test
     fun aFeedWithoutVideosAnswersNone() {
         val answer = run(EMPTY_PAGE, YOUTUBE_HOME)
 
@@ -105,15 +136,19 @@ class FocusedVideoProbeInstrumentedTest {
         assertNull(FocusedVideoProbe.parse(answer, YOUTUBE_HOME))
     }
 
-    private fun focusedOn(fixture: String, pageUrl: String): FocusedVideo? {
+    private fun focusedOn(
+        fixture: String,
+        pageUrl: String,
+        settle: String = SETTLE_SCRIPT,
+    ): FocusedVideo? {
         val html = instrumentation.context.assets.open("focused-video/$fixture")
             .bufferedReader()
             .use { it.readText() }
-        return FocusedVideoProbe.parse(run(html, pageUrl), pageUrl)
+        return FocusedVideoProbe.parse(run(html, pageUrl, settle), pageUrl)
     }
 
     /** Loads [html] as the page at [pageUrl] in a full-window WebView and runs the script. */
-    private fun run(html: String, pageUrl: String): String? {
+    private fun run(html: String, pageUrl: String, settle: String = SETTLE_SCRIPT): String? {
         val loaded = CountDownLatch(1)
         scenario.onActivity { activity ->
             val view = WebView(activity).apply {
@@ -138,7 +173,7 @@ class FocusedVideoProbeInstrumentedTest {
         // (P6 CI: emulator #31 found TikTok's first video). Scroll again once it is laid out.
         Thread.sleep(SETTLE_MS)
         instrumentation.runOnMainSync {
-            webView!!.evaluateJavascript(SETTLE_SCRIPT, null)
+            webView!!.evaluateJavascript(settle, null)
         }
         Thread.sleep(SETTLE_MS)
         val answered = CountDownLatch(1)
@@ -156,6 +191,7 @@ class FocusedVideoProbeInstrumentedTest {
     private companion object {
         const val YOUTUBE_HOME = "https://m.youtube.com/"
         const val SHORT_PAGE = "https://m.youtube.com/shorts/SSSSSSSSSS6?feature=share"
+        const val TIKTOK_FEED = "https://www.tiktok.com/foryou"
         const val LOAD_TIMEOUT_S = 15L
         const val SETTLE_MS = 500L
         const val SETTLE_SCRIPT = "window.yftFixtureSettle && window.yftFixtureSettle();"

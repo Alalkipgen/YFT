@@ -49,6 +49,13 @@ data class BrowserUiState(
     /** P12: counts the sheet's requests to open the found list ("Other videos on this page"). */
     val foundListRequest: Int = 0,
     /**
+     * P37: counts the sheet's "Reload page and try again"; each new count reloads the tab once
+     * without its cache.
+     */
+    val reloadRequest: Int = 0,
+    /** P37: the tab's reload without its cache has not finished yet. */
+    val noCacheLoad: Boolean = false,
+    /**
      * P28: what the page states about its own video (its length, title and picture). The
      * [candidates] already carry its word: a file of that length is the page's video, one far
      * shorter its ad.

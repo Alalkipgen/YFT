@@ -130,9 +130,95 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent B — `work/phase-14-sites` (P36, P37)
 
-- Status: NOT STARTED
-- P36 — TikTok: Download on the For You feed and video pages: TODO
-- P37 — Other sites: fresh links instead of HTTP 410: TODO
+- Status: READY FOR MERGE — P36 OWNER CHECK, P37 OWNER CHECK; last code commit `10957b7` on
+  `work/phase-14-sites`, all three CI runs green (below). Started 2026-10-08; base commit
+  `c8fcd33` = `origin/work/phase-14-integration`; folder `/data/YFT-B`. OWNER ANSWERS: none
+  (defaults `TIKTOK_QUALITIES=DESKTOP`, `REREAD=2`). Not merged to main; P38 merges.
+- Starting state (2026-10-08, `c8fcd33`, Agent B scope command): 1220 tests, 0 failures, 66
+  skipped (extractor-sites 196, extractor-generic 19, core-model 98, core-browser 133, core-media
+  28, app 746/66 skipped); lint 0 errors (95 warnings); `:app:compileDebugAndroidTestKotlin` OK.
+- P36 — TikTok: Download on the For You feed and video pages: OWNER CHECK
+  - Result: `FocusedVideoProbe` reads the focused video's TikTok card when no video link is
+    beside it (id from `xgwrapper-<n>-<15–22 digits>`, author from the card's `/@` link, else
+    `https://www.tiktok.com/@/video/<id>`); `TikTokPageParser` reads `webapp.video-detail`, else
+    `webapp.reflow.video.detail`; `TikTokExtractor` asks a phone page without qualities once
+    more with `HeadlessIdentity`'s desktop agent (fallback: the phone page's address as the one
+    quality; `PAGE`/Home desktop lookups ask once); the media request keeps the WebView cookie
+    with the page answer's TikTok cookies replacing same-named ones and added when missing, and
+    the agent that fetched that page.
+  - Plan adapted: (1) live, `tiktok.com/video/<id>` without `@` redirects to `/404`, so
+    `TikTokUrls` also makes author-less links (`/video/<id>`, `m.tiktok.com/v/<id>.html`)
+    canonical as `/@/video/<id>`. (2) The For You card has no `/@` link today (desktop layout),
+    and the phone layout the app's Chrome-like phone identity gets has no `xgwrapper` at all:
+    there the script reads the id from the active slide's own page data (read only; verified
+    live that its author is the slide's `/@` link). (3) A video link beside the focused video
+    wins only when it names the card's id (feeds keep links of other videos nearby).
+  - Live check (2026-10-08, markers only): `/foryou` 200, `__UNIVERSAL_DATA_FOR_REHYDRATION__`,
+    feed drawn by script (desktop: `recommend-list-item-container` ×7–9, `feed-video` ×2,
+    `xgwrapper-0-<19 digits>`, 0 `/video/` links; phone: `video-slide-active`, no
+    `xgwrapper`); video page phone agent → `webapp.reflow.video.detail`, `bitrateInfo` 0;
+    desktop → `webapp.video-detail`, `bitrateInfo` 5; media host 206 with the page answer's
+    cookies, 403 without or with a stale `tt_chain_token`.
+  - Validation (2026-10-08): 1229 tests, 0 failures, 66 skipped (extractor-sites 202,
+    core-browser 136, app 746; +9); lint 0 errors (95 warnings); androidTest compiles; line
+    check empty.
+  - Regression proof: old four main files with the new tests → 11 failures (TEST_MATRIX
+    "Agent B — P36, P37"); restored from `/data/bak/P36`, `cmp` equal.
+  - CI (`9689062`): checkpoint validation success (https://github.com/Alalkipgen/YFT/actions/runs/37790464506), emulator smoke success
+    (https://github.com/Alalkipgen/YFT/actions/runs/37790464540), Preview APK success (https://github.com/Alalkipgen/YFT/actions/runs/37790464487).
+  - Owner check (VPN; TikTok is banned in India): `/foryou` → Download → qualities → the file
+    plays; a profile's video; a pasted link on Home.
+- P37 — Other sites: fresh links instead of HTTP 410: OWNER CHECK
+  - Result: candidates carry where their link came from (`LinkOrigin`: page script, player
+    request, page read again) and its age/expiry (`LinkExpiry`); the player's own request of the
+    same file wins over the script's link (`FreshLinks.playerFirst`), and the normalizer's merge
+    keeps the player's address. On a gone link (HTTP 410/403/404 of a browser video) Quick
+    Download tries, in order: the page's newest link of the same video, the player's link, a
+    quiet re-read of the page with the tab's agent and same-site cookies, no cache
+    (`TabPageReader`, `REREAD=2`), then the next video; the sheet says "The first link is gone —
+    using a fresh link". When nothing is left: "Reload page and try again" reloads the tab
+    without cache, waits up to 15 s for the same video with a new link and opens Quick Download
+    with it (else a notice). Details lists every attempt with link lines (origin, age, expiry),
+    never the address. A row the page stated (a setup's "720p") whose file check answers
+    "gone" is not offered, so the chain runs at once; a link gone only at Download (a row known
+    by its size is not checked) runs the same chain and the fresh row downloads by itself.
+  - Plan adapted: (1) the next video excludes the same file under another signature (same
+    unsigned path). (2) `CandidateNormalizer.merge` also keeps the player's address; the old
+    dedupe expectation changed (token=old kept). (3) The re-read scans the HTML with
+    `HtmlMediaScanner`; a page without player data (a notice/error page) is not used. (4) Reload
+    waits ≤15 s for the same video with a link not tried and not ad-like; the cache mode returns
+    to default after the load finishes. (5) Link expiry reads `expiresAtEpochMs`, else numeric
+    `validto`/`valid_to`/`expires`/`expire`/`exp`/`e`/`x-expires` ≥ 1e9.
+  - Live check (2026-10-08, markers only, read twice like the quiet re-read):
+    `commons.wikimedia.org` file page 200/200, `<video>`, `<source>`, JSON-LD `VideoObject`, 7
+    media links (4 with a query), same on both reads, no notice; `archive.org` details 200/200,
+    `og:video`, sources list, 1 link, no notice.
+  - Validation (2026-10-08): 1255 tests, 0 failures, 66 skipped (extractor-sites 202,
+    extractor-generic 20, core-model 106, core-browser 138, core-media 28, app 761; +26); lint 0
+    errors (95 warnings); androidTest compiles (`FreshLinkInstrumentedTest`); line check empty.
+    After the stated-row fix: 1257 tests, 0 failures, 66 skipped (app 763; +2); lint 0 errors
+    (95 warnings); androidTest compiles; line check empty.
+  - Regression proof: old nine main files (with a shim for new names) and the new tests → 18
+    failures (TEST_MATRIX "Agent B — P36, P37"); restored from `/data/bak/P37`, `cmp` equal.
+    Stated-row fix: the old view model with the two new tests → 2 failures; restored, `cmp`
+    equal.
+  - CI (`1186e3a`): checkpoint validation success (https://github.com/Alalkipgen/YFT/actions/runs/37798710365), Preview APK success
+    (https://github.com/Alalkipgen/YFT/actions/runs/37798710411), emulator smoke failure (https://github.com/Alalkipgen/YFT/actions/runs/37798710450): 32 tests, 1 failure —
+    `FreshLinkInstrumentedTest` read the sheet while it showed the link's stated row, before
+    the file check answered. The test now waits for the attempt's end (its own condition, then
+    an unchanged state for 500 ms).
+  - CI (`0144c92`, that wait only): checkpoint validation success
+    (https://github.com/Alalkipgen/YFT/actions/runs/37801131669), Preview APK success
+    (https://github.com/Alalkipgen/YFT/actions/runs/37801131820), emulator smoke failure (https://github.com/Alalkipgen/YFT/actions/runs/37801131854): "the sheet did not
+    settle" — an app gap the real WebView showed: the setup's "720p" made a stated row, and a
+    410 at its file check kept the row, so no fresh link was looked for. Fixed in
+    `QuickDownloadViewModel` (stated row gone, link gone at Download; +2 tests).
+  - CI (fix, `10957b7`): checkpoint validation success (https://github.com/Alalkipgen/YFT/actions/runs/37804865935), emulator smoke
+    success (https://github.com/Alalkipgen/YFT/actions/runs/37804865954; 32 instrumented tests, 0 failures, `FreshLinkInstrumentedTest`
+    included, 0 FATAL), Preview APK success (https://github.com/Alalkipgen/YFT/actions/runs/37804865937).
+  - Owner check: the Preview #5 site whose video answered HTTP 410 → Download → a working video
+    without a manual reload (or the fresh-link line); else Try again, then "Reload page and try
+    again"; a Details screenshot if it still fails; Javtiful still downloads.
 - Hand-offs: none
 
 ## Agent C — `work/phase-14-fast-merge` (P35)

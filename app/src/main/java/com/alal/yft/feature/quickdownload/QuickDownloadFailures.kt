@@ -1,5 +1,8 @@
 package com.alal.yft.feature.quickdownload
 
+import com.alal.yft.core.model.media.FreshLinks
+import com.alal.yft.core.model.media.LinkOrigin
+import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.ResolutionStep
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
@@ -71,6 +74,34 @@ internal object QuickDownloadFailures {
         add("Status: ${failure.httpStatusCode?.let { "HTTP $it" } ?: reasonName(failure.reason)}")
     }
 
+    /**
+     * P37: where a link came from, how old it is and whether its own expiry time passed, for
+     * every attempt's Details (FIX_ADD_PLAN R17): "Link from: page script", "Link age: 12 min",
+     * "Link expiry: passed". Never the address or a query value. [origin] overrides what the
+     * candidate's sources say.
+     */
+    fun linkLines(
+        candidate: MediaCandidate,
+        nowMillis: Long,
+        origin: LinkOrigin = FreshLinks.origin(candidate),
+    ): List<String> = listOf(
+        "Link from: ${origin.label}",
+        "Link age: ${age(candidate.observedAtEpochMs, nowMillis)}",
+        "Link expiry: ${FreshLinks.expiry(candidate, nowMillis).label}",
+    )
+
+    /** "under 1 min", "12 min", "2 h 5 min"; "unknown" when the time it was seen is not known. */
+    fun age(seenAtMillis: Long, nowMillis: Long): String {
+        if (seenAtMillis <= 0L || seenAtMillis > nowMillis + CLOCK_SLACK_MILLIS) return "unknown"
+        val minutes = (nowMillis - seenAtMillis).coerceAtLeast(0L) / MILLIS_PER_MINUTE
+        return when {
+            minutes < 1 -> "under 1 min"
+            minutes < MINUTES_PER_HOUR -> "$minutes min"
+            minutes % MINUTES_PER_HOUR == 0L -> "${minutes / MINUTES_PER_HOUR} h"
+            else -> "${minutes / MINUTES_PER_HOUR} h ${minutes % MINUTES_PER_HOUR} min"
+        }
+    }
+
     private fun stepName(step: ResolutionStep): String = when (step) {
         ResolutionStep.ADDRESS -> "video address"
         ResolutionStep.FILE_CHECK -> "file check"
@@ -95,4 +126,8 @@ internal object QuickDownloadFailures {
 
     /** The words a 403 starts with. */
     const val REFUSED = "The site refused this video"
+
+    private const val MILLIS_PER_MINUTE = 60_000L
+    private const val MINUTES_PER_HOUR = 60L
+    private const val CLOCK_SLACK_MILLIS = 60_000L
 }

@@ -32,7 +32,38 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Phase 14 — Agent B (P36, P37)
 
-- (Agent B writes its P36 and P37 entries here; P38 folds them into Added / Changed / Fixed.)
+- TikTok's For You feed: the browser's Download button finds the video on screen again
+  (Preview #5 said "No video on screen to download"). Today's feed has no video link beside the
+  player, so YFT takes the video's number from its player box (desktop layout) or from the
+  page's own slide (phone layout) and the author from the card when it shows one; without an
+  author the address is `tiktok.com/@/video/<number>`, which TikTok opens like the full one.
+- TikTok qualities: when TikTok gives the phone version of a video page (its data under
+  `webapp.reflow.video.detail`, no quality list), YFT reads that page and asks the same video
+  page once more as a desktop browser for its qualities; if that fails, the phone page's video
+  is the one quality. Pages that list their qualities are asked once, as before.
+- TikTok video requests from the browser keep the browser's cookies but take TikTok's fresh
+  cookies from the page answer (a stale cookie of the same name is replaced; TikTok's media host
+  answers HTTP 403 to a stale one) and the browser identity that fetched that page.
+- Other sites (no adapter): when the page's link answers HTTP 410 (or 401, 403, 404), the
+  sheet looks for a fresh link of the same video by itself instead of stopping: the address the
+  page's player itself asked for comes before the link the page's script names, then the page's
+  newest copy, then the page read again quietly in the background (at most twice, one at a
+  time, asked as the browser tab asks: its browser identity and cookies, no cache; a page that
+  answers with only a notice or a check is not used), and only then the page's next video. The
+  sheet says "The first link is gone — using a fresh link".
+- A row the page stated (for example a player setup's "720p") is no longer offered once its
+  file check answers that the link is gone, so the fresh link is looked for at once instead of
+  the 410 coming back only at Download. When Download itself meets a gone link (a file known by
+  its size is not checked before), the sheet looks for a fresh link the same way and its row
+  downloads by itself.
+- When nothing fresh comes, the error offers "Reload page and try again": the browser reloads
+  the tab once without its cache and opens the sheet again when the same video comes back with
+  a new link; otherwise it says "The site gave no new link. Play the video for a moment, then
+  tap Download again." Try again on a browser page reads the page again too. Home's pages keep
+  Home's own read; sites with an adapter are unchanged.
+- Every attempt's Details now say where its link came from (page script, player request, page
+  read again, pasted link), how old it is and whether its own expiry time has passed — never
+  the address or its signature.
 
 ### Phase 14 — Agent C (P35)
 

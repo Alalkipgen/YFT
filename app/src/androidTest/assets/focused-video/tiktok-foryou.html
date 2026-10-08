@@ -1,0 +1,49 @@
+<!doctype html>
+<!-- Sanitized fixture of TikTok's For You feed as served in October 2026: the structure only
+     (cards, the player's xgwrapper id, a blob video, the author's /@ link), invented users and
+     IDs, neutral text, no pictures. There is no /video/ link anywhere on the page. -->
+<html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { margin: 0; }
+  article { display: block; height: 100vh; }
+  video { display: block; width: 100%; height: 80vh; }
+</style></head>
+<body>
+<div id="app"><main id="main-content-homepage_hot"><div id="column-list-container">
+<article id="one-column-item-0" data-e2e="recommend-list-item-container">
+  <div><section id="media-card-0" data-e2e="feed-video"><div><div><div>
+    <div id="xgwrapper-0-7300000000000000011"><div>
+      <video muted playsinline src="blob:https://www.tiktok.com/00000000-0000-0000-0000-000000000001"></video>
+    </div></div>
+  </div></div></div></section></div>
+  <div><a href="/@first.user" data-e2e="video-author-avatar">First user</a>
+    <a href="/tag/fixture">#fixture</a></div>
+</article>
+<article id="one-column-item-1" data-e2e="recommend-list-item-container">
+  <div><section id="media-card-1" data-e2e="feed-video"><div><div><div>
+    <div id="xgwrapper-1-7300000000000000012"><div>
+      <video muted playsinline src="blob:https://www.tiktok.com/00000000-0000-0000-0000-000000000002"></video>
+    </div></div>
+  </div></div></div></section></div>
+  <div><a href="/music/fixture-sound-7300000000000000099">Fixture sound</a>
+    <a href="https://www.tiktok.com/@second_user?lang=en" data-e2e="video-author-avatar">Second user</a></div>
+</article>
+<article id="one-column-item-2" data-e2e="recommend-list-item-container">
+  <div><section id="media-card-2" data-e2e="feed-video"><div><div><div>
+    <div id="xgwrapper-2-7300000000000000013"><div>
+      <video muted playsinline src="blob:https://www.tiktok.com/00000000-0000-0000-0000-000000000003"></video>
+    </div></div>
+  </div></div></div></section></div>
+  <div><span>No author link</span></div>
+</article>
+</div></main></div>
+<script>
+  // Nothing plays: the card in the middle of the screen is the one in focus (the second one, or
+  // window.yftFixtureCard). The test calls this again once the WebView has its final size.
+  window.yftFixtureSettle = () => {
+    const index = typeof window.yftFixtureCard === 'number' ? window.yftFixtureCard : 1;
+    window.scrollTo(0, document.querySelectorAll('article')[index].offsetTop);
+  };
+  window.yftFixtureSettle();
+</script>
+</body></html>

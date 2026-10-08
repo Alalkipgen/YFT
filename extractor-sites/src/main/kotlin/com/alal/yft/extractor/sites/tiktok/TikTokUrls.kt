@@ -53,16 +53,16 @@ internal object TikTokUrls {
         )
     }
 
-    /** Builds the canonical page address; the author handle is omitted when the page hid it. */
+    /**
+     * Builds the canonical page address. P36: without the author's handle it is
+     * `/@/video/<id>`, which TikTok answers with the post (live check 2026-10-08), while
+     * `/video/<id>` redirects to its 404 page.
+     */
     fun canonicalUrl(
         author: String?,
         videoId: String,
         kind: PostKind = PostKind.VIDEO,
-    ): String = if (author.isNullOrBlank()) {
-        "https://www.tiktok.com/${kind.pathSegment}/$videoId"
-    } else {
-        "https://www.tiktok.com/@$author/${kind.pathSegment}/$videoId"
-    }
+    ): String = "https://www.tiktok.com/@${author.orEmpty().trim()}/${kind.pathSegment}/$videoId"
 
     /** True when the canonical address describes a photo post rather than a video. */
     fun isPhotoPost(canonicalPageUrl: String): Boolean =

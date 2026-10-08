@@ -474,6 +474,73 @@ class QuickDownloadScreenTest {
     }
 
     @Test
+    fun theSheetSaysItUsesAFreshLinkAndItsDetailsListTheAttempts() {
+        // P37: the first link was gone; the same video's fresh link is prepared.
+        val details = listOf(
+            "First video",
+            "Status: HTTP 410",
+            "Link from: page script",
+            "Player's link",
+            "Status: ready",
+            "Link from: player request",
+        )
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(
+                    state = SAMPLE_QUICK_DOWNLOAD.copy(freshLink = true, attemptDetails = details),
+                    onSelect = {},
+                    onDownload = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("quick-fresh-link")
+            .assert(hasText("The first link is gone — using a fresh link"))
+        composeRule.onAllNodesWithTag("quick-next-video").assertCountEquals(0)
+        composeRule.onAllNodesWithTag("quick-fresh-link-detail-text").assertCountEquals(0)
+        composeRule.onNodeWithTag("quick-fresh-link-details").performClick()
+        composeRule.onNodeWithTag("quick-fresh-link-detail-text")
+            .assert(hasText(details.joinToString("\n")))
+        composeRule.onAllNodesWithTag("quick-reload-retry").assertCountEquals(0)
+    }
+
+    @Test
+    fun aGoneLinkOnTheBrowsersPageOffersReloadPageAndTryAgain() {
+        // P37: nothing fresh came from the page: the error offers the browser's reload.
+        var reloads = 0
+        var retries = 0
+        var state by mutableStateOf(
+            QuickDownloadUiState(
+                header = SAMPLE_QUICK_DOWNLOAD.header,
+                failure = "The site no longer has this video (HTTP 410).",
+                failureDetails = listOf("Status: HTTP 410"),
+                canReload = true,
+            ),
+        )
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                QuickDownloadScreen(
+                    state = state,
+                    onSelect = {},
+                    onDownload = {},
+                    onRetry = { retries++ },
+                    onReload = { reloads++ },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("quick-retry").assertIsDisplayed()
+        composeRule.onNodeWithTag("quick-reload-retry")
+            .assert(hasText("Reload page and try again"))
+            .performClick()
+        assertEquals(1, reloads)
+        assertEquals(0, retries)
+
+        state = state.copy(canReload = false)
+        composeRule.onAllNodesWithTag("quick-reload-retry").assertCountEquals(0)
+    }
+
+    @Test
     fun aFailureShowsItsDetailsOnlyWhenAskedFor() {
         // P24: the sheet's Details name the step, the host and the status.
         val details = listOf(

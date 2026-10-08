@@ -29,6 +29,7 @@ import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.detection.SiteScope
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import com.alal.yft.feature.detectedmedia.LookupOwner
+import com.alal.yft.feature.detectedmedia.PageReload
 import com.alal.yft.feature.detectedmedia.PageVideoLookup
 import com.alal.yft.ui.components.isSavable
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -94,6 +95,9 @@ class BrowserViewModel(
     /** The running lookup of the video in focus; a new tap replaces it. */
     private var focusLookup: Job? = null
     private var focusNoticeTimer: Job? = null
+
+    /** P37: the wait for the reloaded page's fresh link of the sheet's video. */
+    private var reloadWait: Job? = null
 
     private val candidateStore = PageCandidateStore(scope = viewModelScope)
     private val domParser = DomProbeResultParser()
@@ -242,6 +246,10 @@ class BrowserViewModel(
                 mutableUiState.update { it.copy(foundListRequest = it.foundListRequest + 1) }
             }
         }
+        viewModelScope.launch {
+            // P37: the sheet's "Reload page and try again".
+            detectedMediaStore.pageReloads.collect(::reloadForFreshLink)
+        }
     }
 
     override fun onCleared() {
@@ -338,6 +346,7 @@ class BrowserViewModel(
                 pageTitle = title?.trim()?.take(MAX_TITLE_LENGTH)?.takeIf(String::isNotEmpty),
                 isLoading = false,
                 progress = 100,
+                noCacheLoad = false,
             )
         }
         if (!siteLookupStarted) runSiteAdapters(url, title)
@@ -572,6 +581,46 @@ class BrowserViewModel(
                 }
             }
         }
+    }
+
+    /**
+     * P37: "Reload page and try again": the tab reloads once without its cache (the screen does
+     * it for each new [BrowserUiState.reloadRequest]). When the reloaded page has the sheet's
+     * video with a link the sheet did not try yet, that video's sheet opens again; when none
+     * comes within a few seconds, a notice asks to play the video first.
+     */
+    private fun reloadForFreshLink(request: PageReload) {
+        if (request.pageUrl != activePageUrl) return
+        val generation = pageGeneration
+        mutableUiState.update {
+            it.copy(reloadRequest = it.reloadRequest + 1, noCacheLoad = true, focusNotice = null)
+        }
+        reloadWait?.cancel()
+        reloadWait = viewModelScope.launch {
+            val video = withTimeoutOrNull(RELOAD_WAIT_MS) {
+                uiState.map { state ->
+                    state.takeIf { pageGeneration != generation }?.freshVideo(request)
+                }.first { it != null }
+            }
+            mutableUiState.update { it.copy(noCacheLoad = false) }
+            when {
+                video != null -> {
+                    detectedMediaStore.select(video)
+                    quickDownloads.trySend(Unit)
+                }
+                activePageUrl == request.pageUrl -> finishFocusLookup(NO_NEW_LINK_NOTICE)
+            }
+        }
+    }
+
+    /** P37: [request]'s video on this page with only links the sheet did not try; or null. */
+    private fun BrowserUiState.freshVideo(request: PageReload): MediaGroup? {
+        if (currentUrl != request.pageUrl) return null
+        val videos = MediaGroups.pageVideos(candidates.filter { it.isSavable }, sitePage)
+        val video = MediaGroups.refreshed(request.video, videos) ?: return null
+        val fresh = video.candidates.filter { it.mediaUrl !in request.deadLinks }
+        if (fresh.isEmpty() || MediaGroups.mayBeAdBefore(video, pageFacts)) return null
+        return MediaGroups.withPageFacts(video.copy(candidates = fresh), pageFacts)
     }
 
     /** Ends the focused-video lookup with [notice], which clears itself after a few seconds. */
@@ -1019,6 +1068,8 @@ class BrowserViewModel(
      */
     private fun rememberBrowserContext(observation: RequestObservation) {
         if (observation.userAgent == null && observation.cookie == null) return
+        // P37: the sheet's quiet re-read of the page asks as this WebView does.
+        observation.userAgent?.let { detectedMediaStore.browserUserAgent = it }
         // Only the page's own site set the cookie a lookup may replay to it: another site's
         // cookie is never kept, and neither another site's request nor a cookieless request
         // erases the page's cookie.
@@ -1104,6 +1155,13 @@ class BrowserViewModel(
             "No video on screen to download. Scroll to a video and tap Download again."
         const val PROTECTED_FOCUSED_VIDEO_NOTICE =
             "This video is protected, so YFT can't save it."
+
+        /** P37: the reloaded page gave the sheet's video no link it did not try yet. */
+        const val NO_NEW_LINK_NOTICE =
+            "The site gave no new link. Play the video for a moment, then tap Download again."
+
+        /** P37: how long the reloaded page has to give the sheet's video a new link. */
+        const val RELOAD_WAIT_MS = 15_000L
 
         /** How long a focused-video notice stays before it clears itself. */
         const val FOCUS_NOTICE_MS = 4_000L

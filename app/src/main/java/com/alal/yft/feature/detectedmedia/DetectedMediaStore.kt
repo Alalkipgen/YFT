@@ -32,6 +32,18 @@ data class DetectedPage(
     val owner: LookupOwner = LookupOwner.BROWSER,
 )
 
+/**
+ * P37: the sheet's "Reload page and try again": the browser reloads [pageUrl] once without its
+ * cache and reopens the sheet when [video] is found again with a link not in [deadLinks].
+ */
+data class PageReload(
+    val pageUrl: String,
+    val video: MediaGroup,
+    val deadLinks: Set<String>,
+) {
+    override fun toString(): String = "PageReload(deadLinks=${deadLinks.size})"
+}
+
 /** P16: who runs a [PageVideoLookup]; only its owner answers, retries, stops or clears it. */
 enum class LookupOwner { BROWSER, HOME }
 
@@ -243,6 +255,25 @@ class DetectedMediaStore @Inject constructor() {
     fun pageReadDone(pageUrl: String) {
         pageReadAnswers.tryEmit(pageUrl)
     }
+
+    /**
+     * P37: the browser's own user agent, which its requests carry: the sheet's quiet re-read of
+     * the browser's page introduces itself the same way. Not a secret; memory only.
+     */
+    @Volatile
+    var browserUserAgent: String? = null
+
+    private val reloadRequests = MutableSharedFlow<PageReload>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+
+    /** P37: the sheet's "Reload page and try again"; the browser reloads its page. */
+    val pageReloads: SharedFlow<PageReload> = reloadRequests.asSharedFlow()
+
+    /** P37: asks the browser to reload; false when no browser listens (the sheet stays). */
+    fun reloadPage(request: PageReload): Boolean =
+        reloadRequests.subscriptionCount.value > 0 && reloadRequests.tryEmit(request)
 
     fun clear() {
         mutablePage.value = null

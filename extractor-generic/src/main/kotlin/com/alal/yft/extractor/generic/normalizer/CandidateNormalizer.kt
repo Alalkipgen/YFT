@@ -107,7 +107,15 @@ class CandidateNormalizer(
     private fun merge(first: MediaCandidate, second: MediaCandidate): MediaCandidate {
         val newest = if (second.observedAtEpochMs >= first.observedAtEpochMs) second else first
         val oldest = if (newest === second) first else second
+        // P37 (R18): the address the page's player asked for beats a link its script names
+        // again later; the script's copy may be a dead one for this phone.
+        val address = when {
+            first.isPlayerRequest() && !second.isPlayerRequest() -> first
+            second.isPlayerRequest() && !first.isPlayerRequest() -> second
+            else -> newest
+        }
         return newest.copy(
+            mediaUrl = address.mediaUrl,
             sources = first.sources + second.sources,
             kind = richerKind(first.kind, second.kind),
             mimeType = newest.mimeType ?: oldest.mimeType,
@@ -134,6 +142,11 @@ class CandidateNormalizer(
             pageRole = mergedRole(first.pageRole, second.pageRole),
             pageVideoKey = newest.pageVideoKey ?: oldest.pageVideoKey,
         )
+    }
+
+    private fun MediaCandidate.isPlayerRequest(): Boolean = sources.any { source ->
+        source == CandidateSource.REQUEST || source == CandidateSource.REDIRECT ||
+            source == CandidateSource.DOWNLOAD_LISTENER
     }
 
     /** P24: a file the page names as its own video stays its video wherever else it shows. */
