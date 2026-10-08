@@ -64,8 +64,9 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent B — `work/phase-15-downloads` (P41, P42; later P44)
 
-- Status: P41 TODO, P42 TODO.
-- Base commit: —
+- Status: P41 IN PROGRESS (started 2026-10-09), P42 TODO. OWNER ANSWERS: none (defaults
+  `FAST_START=ON`, `DELETE_CONFIRM=ON`).
+- Base commit: `d0bc7f7` (`origin/work/phase-15-integration`); folder `/data/YFT-B`.
 - Results, validation, regression proof, measured start times, CI links, hand-offs: —
 
 ## Agent C — `work/phase-15-ads` (P43)
