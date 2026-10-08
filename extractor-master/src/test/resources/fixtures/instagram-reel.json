@@ -1,0 +1,9 @@
+{
+  "data": {"shortcode_media": {
+    "shortcode": "ig-fixture",
+    "video_versions": [
+      {"url": "https://cdn.example.test/instagram-720.mp4", "width": 1280, "height": 720},
+      {"url": "https://cdn.example.test/instagram-480.mp4", "width": 854, "height": 480}
+    ]
+  }}
+}

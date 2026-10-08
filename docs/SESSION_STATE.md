@@ -2,6 +2,27 @@
 
 Update this file before every checkpoint push. Keep it factual so another chat can resume.
 
+## Master backup prototype — `spike/master-extractor-backup`
+
+- Owner-approved isolated code spike, not a Phase 14/15 task or a merge candidate.
+- Base: stable `origin/main` `a9eea7ba8d9f3d67442ffc3a51f2ad9e00c4a6a9`.
+- Workspace: `/data/YFT-Master`; original `/data/YFT` and TikTok work remain untouched.
+- Status: FIRST MILESTONE VALIDATED; hardening/live smoke work continues on this spike.
+  New `:extractor-master` JVM module, opt-in fallback engine and memory-only capture boundary.
+  No production app/DI/registry wiring or workflow changes. Scope: `extractor-master/README.md`.
+- Baseline: `:core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test`
+  passed: 360 tests, zero failures/errors/skips.
+- Branch-name exception: the owner explicitly approved `spike/master-extractor-backup`.
+  `scripts/checkpoint.sh` only accepts `work/phase-*`; this spike uses equivalent manual
+  staged-file/secret/diff/test checks and a direct push, without changing that script.
+- Prototype validation: `:extractor-master:test` passed: 56 tests, zero failures/errors/skips.
+  Covers five delivered player-data shapes, capture fallback/focus, navigation isolation,
+  cancellation/deadlines, bounded HTTPS/range/manifest checks and credential stripping.
+- CI: `spike/**` is not an automatic CI trigger; local JVM evidence only. No preview APK.
+- Next: checkpoint this validated milestone, then harden companion validation and capture
+  boundaries and run a public neutral playback smoke. Do not merge, tag, publish or claim
+  live Instagram/X support.
+
 Phase 14 runs three agents at the same time. **Each agent edits only its own section below**
 (`## Agent A …`, `## Agent B …`, `## Agent C …`); `## Overview` belongs to the plan and to P38.
 Keep at least the heading and one blank line between sections, so Git merges them cleanly.

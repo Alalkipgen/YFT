@@ -1,0 +1,143 @@
+# Master Extractor backup prototype
+
+**Experimental, opt-in, not wired into the app, and not approved for merge.**
+
+The owner approved a separate backup branch, `spike/master-extractor-backup`, based on stable
+`main` `a9eea7ba8d9f3d67442ffc3a51f2ad9e00c4a6a9`. Only this new JVM module, the Gradle include,
+and its own session-state section change. Existing site adapters, browser, download engine,
+app/DI configuration, release identity, and CI workflows are untouched.
+
+## What exists
+
+```text
+recoverable primary extraction failure
+  -> provided current-page HTML/player/API data
+  -> at most one browser-capture-provider request
+  -> current-video selection, normalization and bounded HTTPS media checks
+  -> ordinary SiteExtractionResult.Success / MediaCandidate values
+```
+
+- `MasterFallbackEngine` is a second-choice service, **not** a `SiteExtractor` that competes
+  for the same URLs in `SiteExtractorRegistry`. It never invokes the failed adapter.
+- `PayloadMediaReader` reads a small set of already-delivered field shapes: direct YouTube
+  player formats, Facebook progressive/inline-DASH data, TikTok play/bitrate addresses,
+  Instagram `video_versions`/`video_url`, X `video_info.variants`, HTML video/source and
+  Open Graph video metadata. These are discovery readers, not complete new site adapters.
+- `InMemoryCaptureStore` is a per-tab producer/consumer boundary with navigation generation
+  checks. A future host can feed real observed requests, raw page/API data and playback focus.
+- `OkHttpMediaValidator` checks HTTPS media using 512 direct-file bytes or a bounded manifest.
+  It checks response status, media MIME/file headers, known expiry, manifest DRM hints,
+  redirect budget and origin-scoped credentials, without a cookie jar or TLS bypass.
+- `Success` means **probe-validated candidates**, not a completed playable download. Final
+  variant resolution, codec compatibility, DRM checks, track validation and export still
+  belong to the existing production media/download pipeline.
+
+## Reuse and provenance
+
+Actual shared code is reused through module dependencies, not copied:
+
+- `:extractor-api`: `BoundedJsonParser`, JSON accessors and `SiteExtractionResult`.
+- `:core-model` via the API: `MediaCandidate`, `BrowserRequestContext`, `CompanionAudio`,
+  and `DiagnosticTextSanitizer`.
+- `:extractor-generic`: `MediaUrlClassifier`, `MediaFileUrls`, `CandidateNormalizer`,
+  and `ManifestReader`.
+
+The prototype adapts mechanisms already used by the site adapters:
+
+| Source | Adapted idea | Kept site-specific / not copied |
+| --- | --- | --- |
+| YouTube | Ordered bounded fallback, direct player formats, AVC/AAC companions, safe Details | Client/API requests, PoToken, player-script/cipher execution, SABR |
+| Facebook | Progressive fields and secure inline whole-file MPD tracks | Public/session page strategy, Facebook endpoints and account behavior |
+| TikTok | Current content-ID match, alternate page-payload shapes, request identity | TikTok endpoint/cookie acquisition and active hidden-page logic |
+| Generic | URL/MIME classification, normalization and playback focus | Full production browser/player/ad interpretation |
+
+Relevant originals: `extractor-sites/.../{youtube,facebook,tiktok}`, the shared helpers above,
+and `app/.../detection/OkHttpExtractorClient.kt` for cancellation/redirect boundaries.
+Existing internal site-parser visibility is unchanged.
+
+## Deliberately not implemented
+
+- No production caller, feature UI, DI binding or registry entry.
+- No Android WebView/document-start `fetch`/XHR hook. The capture store **does not start
+  playback or collect browser requests by itself**.
+- No unattended sign-in, access-control/age-gate bypass, DRM decryption or live recording.
+- No guessed/synthetic download URL, signature solver or blanket “supports every site” claim.
+- No guarantee of every quality, carousel/feed selection, ad exclusion or live Instagram/X
+  operation. The Instagram/X fixtures prove only the stated delivered-data shapes.
+- No new APK/release/tag and no merge into `main` or the ongoing TikTok/Phase 15 work.
+
+## Host boundary example — future integration only
+
+```kotlin
+val store = InMemoryCaptureStore()
+store.navigate(pageUrl, generation)
+// Browser host: obtain headers/cookies for this exact observed media request origin.
+store.recordRequest(
+    generation,
+    CapturedRequest(mediaUrl, mimeType = mime, context = mediaRequestContext),
+)
+store.playing(generation, playingMediaUrl, authorized = true)
+
+val engine = MasterFallbackEngine(
+    validator = OkHttpMediaValidator(okHttpClient),
+    capture = store,
+    policy = MasterPolicy(enabled = true),
+)
+val result = engine.extract(
+    MasterRequest(
+        pageUrl = pageUrl,
+        generation = generation,
+        nowEpochMs = now,
+        primaryFailure = failure.reason,
+        expectedContentId = identity?.contentId,
+    ),
+)
+```
+
+The integration host must:
+
+1. Leave successful primary results untouched and respect disabled site feature flags.
+2. Call this service outside the registry, once per bounded lookup.
+3. Increment the generation on full/SPA/focus navigation and discard old requests.
+4. Keep page/API text, signed URLs and credentials in memory only.
+5. Bind captured context to the actual request origin; never populate it from page JSON.
+6. Provide explicit current-video evidence. Ambiguous results return `NeedsSelection`.
+7. Handle `NeedsPlayback` honestly; no capture implementation is silently substituted.
+8. Preserve ordinary production resolver/planner gates before preview/download.
+
+DRM, private/unavailable, geo, disabled-adapter, network and rate-limit primary failures are
+skipped. Login/bot-check/player-script failures require evidence of successful authorized
+browser playback; the service does not solve those checks.
+
+## Bounds
+
+- Default disabled; explicit `MasterPolicy(enabled = true)` is required.
+- Snapshot: 2 MiB of characters, 200 request observations, 16 API documents.
+- Discovery: 200 raw candidates, 30,000 visited JSON nodes, depth 48.
+- Lookup: at most one capture request and 16 media-check slots shared by both stages.
+- Engine deadline: 20 seconds; a media check has a 10-second total call/redirect deadline.
+- HTTPS redirects: at most five, no downgrade, no credentials restored after leaving origin.
+- File prefix: 512 bytes. Manifest: 256 KiB. No whole-video transfer.
+- `NeedsSelection`/`NeedsPlayback` are not success. There is no screen recording.
+
+## Validation
+
+Use the normal repository JDK 17/Android SDK environment:
+
+```bash
+./gradlew --no-daemon :extractor-master:test \
+  :core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test
+```
+
+Initial milestone: 56 new JVM tests passed with zero failures/errors/skips. The unchanged
+baseline's four JVM suites passed 360 tests with zero failures/errors/skips. TLS tests trust
+an explicit fixture certificate; verification is never disabled.
+
+`spike/**` does not match the existing CI push filters. Do not claim automatic green CI or
+a preview APK for this branch. No workflows are changed. This owner-approved branch also
+does not match `scripts/checkpoint.sh`; checkpoints use equivalent manual staged-file,
+secret, diff and test checks followed by an explicit push to this branch only.
+
+Before considering integration: implement/review the real browser producer, test current
+public pages and actual focused playback, verify companion tracks and signed-link refresh,
+then obtain a new owner approval for integration/merge.

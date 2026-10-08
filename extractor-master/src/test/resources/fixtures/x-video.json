@@ -1,0 +1,11 @@
+{
+  "data": {"tweetResult": {"result": {
+    "rest_id": "x-fixture",
+    "legacy": {"extended_entities": {"media": [{
+      "video_info": {"variants": [
+        {"content_type": "video/mp4", "bitrate": 832000, "url": "https://cdn.example.test/x-480.mp4"},
+        {"content_type": "application/x-mpegURL", "url": "https://cdn.example.test/x-master.m3u8"}
+      ]}
+    }]}}
+  }}}
+}

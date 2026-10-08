@@ -26,4 +26,6 @@ include(
     ":extractor-api",
     ":extractor-generic",
     ":extractor-sites",
+    // Owner-approved backup prototype; no production module depends on it.
+    ":extractor-master",
 )
