@@ -70,6 +70,10 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent C — `work/phase-15-ads` (P43)
 
-- Status: P43 TODO.
-- Base commit: —
+- Status: P43 IN PROGRESS (started 2026-10-09, `AD_RULE=STRICT`: the owner gave no answer).
+- Base commit: `d0bc7f7` (`origin/work/phase-15-integration`, the plan commit).
+- Starting state (before edits, 2026-10-09): `./gradlew --no-daemon --continue :core-model:test
+  :extractor-generic:test :core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug
+  :app:compileDebugAndroidTestKotlin` → BUILD SUCCESSFUL (9 min 34 s): 1071 tests, 0 failures,
+  66 skipped (core-model 106, extractor-generic 20, core-browser 138, app 807); lint 0 issues.
 - Results, validation, regression proof, CI links, hand-offs: —
