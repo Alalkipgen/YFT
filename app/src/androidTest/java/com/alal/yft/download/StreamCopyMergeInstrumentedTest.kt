@@ -29,12 +29,14 @@ import org.junit.runner.RunWith
 /**
  * P35 on the CI emulator: the stream copy against today's MediaMuxer way, on the one-second test
  * tracks, on P27's 20-minute input and on a 1-hour-sized input (the test tracks' fragments
- * repeated to about 260,000 samples, [LongFragmentedMp4]). Both merged files must have the same
- * tracks, the same samples byte for byte and the same times within one tick (the tracks' starts
- * within 1 ms: MediaMuxer rounds an empty edit to whole milliseconds), and the stream copy's
- * file must play in Media3 ExoPlayer (prepare, duration, seek to the middle). Each case prints
- * both merge times in a `YFT-DIAG fast-merge` line; on the long input the stream copy must be at
- * least 3 times faster.
+ * repeated to about 260,000 samples, [LongFragmentedMp4]). The inputs and both merged files are
+ * read side by side: the same tracks and the same samples byte for byte; the stream copy's
+ * sample times are the inputs' within one tick, and today's within one tick after each track's
+ * first sample (MediaMuxer takes a sample's presentation time as its decode time, so it moves
+ * the start of a video with B-frames: 59 ms later for the test video on API 34). The stream
+ * copy's file must play in Media3 ExoPlayer (prepare, duration, seek to the middle). Each case
+ * prints both merge times in a `YFT-DIAG fast-merge` line; on the long input the stream copy
+ * must be at least 3 times faster.
  */
 @RunWith(AndroidJUnit4::class)
 class StreamCopyMergeInstrumentedTest {
@@ -54,7 +56,7 @@ class StreamCopyMergeInstrumentedTest {
 
         val comparison = compare("asset", video, audio, minimumUs = 0L)
 
-        assertEquals(listOf(15, 45), comparison.samples)
+        assertEquals(listOf(15L, 45L), comparison.samples)
     }
 
     @Test
@@ -111,7 +113,8 @@ class StreamCopyMergeInstrumentedTest {
         assertEquals(before.details.summary(), MEDIA_MUXER, before.details.path)
         assertEquals(100, after.lastPercent)
 
-        val samples = sameSamples(before.file, after.file)
+        val same = sameSamples(listOf(video, audio), before.file, after.file)
+        val samples = same.map { it.count }
         assertEquals(listOf(after.details.videoSamples, after.details.audioSamples), samples)
         assertEquals(listOf(before.details.videoSamples, before.details.audioSamples), samples)
         val played = play(after.file)
@@ -123,6 +126,9 @@ class StreamCopyMergeInstrumentedTest {
             "duration" to "${played.durationMs}ms",
             "expected" to "${expectedMs}ms",
             "seek" to "${played.positionMs}ms",
+            "inputStart" to "${same[0].inputStartUs}us",
+            "fastStart" to "${same[0].fastStartUs}us",
+            "todayStart" to "${same[0].todayStartUs}us",
         )
         assertTrue(
             "ExoPlayer ${played.durationMs} ms, MediaMuxer's file $expectedMs ms",
@@ -157,25 +163,31 @@ class StreamCopyMergeInstrumentedTest {
     }
 
     /**
-     * Reads [expected] and [actual] side by side with MediaExtractor: the same tracks, and for
-     * each track the same samples (size, bytes, sync flag) at the same times. Returns the sample
-     * count of each track.
+     * Reads [inputs], [today]'s file and the stream copy's file ([fast]) side by side with
+     * MediaExtractor: the same tracks, and for each track the same samples in all three.
      */
-    private fun sameSamples(expected: File, actual: File): List<Int> {
-        val left = MediaExtractor()
-        val right = MediaExtractor()
+    private fun sameSamples(inputs: List<File>, today: File, fast: File): List<SameTrack> {
+        val todays = MediaExtractor()
+        val fasts = MediaExtractor()
         try {
-            left.setDataSource(expected.path)
-            right.setDataSource(actual.path)
-            assertEquals("tracks", 2, left.trackCount)
-            assertEquals("tracks", 2, right.trackCount)
-            return (0 until 2).map { track ->
-                sameFormat(track, left.getTrackFormat(track), right.getTrackFormat(track))
-                sameTrack(track, left, right)
+            todays.setDataSource(today.path)
+            fasts.setDataSource(fast.path)
+            assertEquals("tracks", 2, todays.trackCount)
+            assertEquals("tracks", 2, fasts.trackCount)
+            return inputs.mapIndexed { track, input ->
+                sameFormat(track, todays.getTrackFormat(track), fasts.getTrackFormat(track))
+                val extractor = MediaExtractor()
+                try {
+                    extractor.setDataSource(input.path)
+                    assertEquals("input tracks", 1, extractor.trackCount)
+                    sameTrack(track, extractor, todays, fasts)
+                } finally {
+                    extractor.release()
+                }
             }
         } finally {
-            left.release()
-            right.release()
+            todays.release()
+            fasts.release()
         }
     }
 
@@ -201,50 +213,67 @@ class StreamCopyMergeInstrumentedTest {
         }
     }
 
-    private fun sameTrack(track: Int, left: MediaExtractor, right: MediaExtractor): Int {
+    /**
+     * Every sample of [track]: the same bytes and sync flag in the input, today's file and the
+     * stream copy's; the stream copy's time is the input's within one tick, and today's within
+     * one tick after the track's first sample.
+     */
+    private fun sameTrack(
+        track: Int,
+        input: MediaExtractor,
+        today: MediaExtractor,
+        fast: MediaExtractor,
+    ): SameTrack {
         val tickUs = 1_000_000 / (if (track == 0) VIDEO_TIMESCALE else AUDIO_TIMESCALE) + 1
-        val leftBuffer = ByteBuffer.allocateDirect(SAMPLE_BUFFER_BYTES)
-        val rightBuffer = ByteBuffer.allocateDirect(SAMPLE_BUFFER_BYTES)
-        left.selectTrack(track)
-        right.selectTrack(track)
-        var count = 0
-        var leftStart = 0L
-        var rightStart = 0L
+        val inputBuffer = ByteBuffer.allocateDirect(SAMPLE_BUFFER_BYTES)
+        val todayBuffer = ByteBuffer.allocateDirect(SAMPLE_BUFFER_BYTES)
+        val fastBuffer = ByteBuffer.allocateDirect(SAMPLE_BUFFER_BYTES)
+        input.selectTrack(0)
+        today.selectTrack(track)
+        fast.selectTrack(track)
+        var count = 0L
+        var starts: Triple<Long, Long, Long>? = null
         try {
             while (true) {
-                val leftUs = left.sampleTime
-                val rightUs = right.sampleTime
+                val inputUs = input.sampleTime
+                val todayUs = today.sampleTime
+                val fastUs = fast.sampleTime
                 val at = "track $track sample $count"
-                assertEquals("$at: one file ended first", leftUs < 0, rightUs < 0)
-                if (leftUs < 0) break
-                if (count == 0) {
-                    leftStart = leftUs
-                    rightStart = rightUs
-                    assertTrue(
-                        "track $track starts at $leftUs and $rightUs us",
-                        abs(leftUs - rightUs) <= START_SLACK_US,
-                    )
-                }
-                val shift = (rightUs - rightStart) - (leftUs - leftStart)
-                assertTrue("$at: $leftUs and $rightUs us", abs(shift) <= tickUs)
-                assertEquals(
-                    "$at: sync",
-                    left.sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC,
-                    right.sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC,
+                assertEquals("$at: today's file ended", inputUs < 0, todayUs < 0)
+                assertEquals("$at: the stream copy ended", inputUs < 0, fastUs < 0)
+                if (inputUs < 0) break
+                val (_, todayStart, fastStart) =
+                    starts ?: Triple(inputUs, todayUs, fastUs).also { starts = it }
+                assertTrue(
+                    "$at: input $inputUs us, stream copy $fastUs us",
+                    abs(fastUs - inputUs) <= tickUs,
                 )
-                val leftSize = read(left, leftBuffer)
-                val rightSize = read(right, rightBuffer)
-                assertEquals("$at: size", leftSize, rightSize)
-                assertTrue("$at: bytes", leftBuffer == rightBuffer)
+                val shift = (fastUs - fastStart) - (todayUs - todayStart)
+                assertTrue(
+                    "$at: today's $todayUs us from $todayStart, stream copy $fastUs us " +
+                        "from $fastStart",
+                    abs(shift) <= tickUs,
+                )
+                val sync = input.sampleFlags and SYNC
+                assertEquals("$at: sync in today's file", sync, today.sampleFlags and SYNC)
+                assertEquals("$at: sync in the stream copy", sync, fast.sampleFlags and SYNC)
+                val size = read(input, inputBuffer)
+                assertEquals("$at: size", size, read(today, todayBuffer))
+                assertEquals("$at: size", size, read(fast, fastBuffer))
+                assertTrue("$at: bytes of today's file", inputBuffer == todayBuffer)
+                assertTrue("$at: bytes of the stream copy", inputBuffer == fastBuffer)
                 count += 1
-                left.advance()
-                right.advance()
+                input.advance()
+                today.advance()
+                fast.advance()
             }
         } finally {
-            left.unselectTrack(track)
-            right.unselectTrack(track)
+            input.unselectTrack(0)
+            today.unselectTrack(track)
+            fast.unselectTrack(track)
         }
-        return count
+        val (inputStart, todayStart, fastStart) = checkNotNull(starts) { "track $track is empty" }
+        return SameTrack(count, inputStart, todayStart, fastStart)
     }
 
     private fun read(extractor: MediaExtractor, buffer: ByteBuffer): Int {
@@ -328,13 +357,21 @@ class StreamCopyMergeInstrumentedTest {
 
     private class Played(val durationMs: Long, val middleMs: Long, val positionMs: Long)
 
-    private class Comparison(val samples: List<Int>, val beforeMs: Long, val afterMs: Long)
+    private class Comparison(val samples: List<Long>, val beforeMs: Long, val afterMs: Long)
+
+    private class SameTrack(
+        val count: Long,
+        val inputStartUs: Long,
+        val todayStartUs: Long,
+        val fastStartUs: Long,
+    )
 
     private companion object {
         const val TAG = "YftFastMerge"
         const val VIDEO_ASSET = "mux/video-avc.mp4"
         const val AUDIO_ASSET = "mux/audio-aac.m4a"
         const val VIDEO_MP4 = "video/mp4"
+        const val SYNC = MediaExtractor.SAMPLE_FLAG_SYNC
         const val AVC = MediaFormat.MIMETYPE_VIDEO_AVC
         const val AAC = MediaFormat.MIMETYPE_AUDIO_AAC
         const val STREAM_COPY = MuxDetails.STREAM_COPY
@@ -349,7 +386,6 @@ class StreamCopyMergeInstrumentedTest {
         /** The test tracks' timescales: one tick is the allowed difference of a sample time. */
         const val VIDEO_TIMESCALE = 15_360
         const val AUDIO_TIMESCALE = 44_100
-        const val START_SLACK_US = 1_000L
         const val DURATION_SLACK_MS = 1_000L
         const val SEEK_SLACK_MS = 1_000L
         const val MIN_SPEEDUP = 3
