@@ -263,26 +263,26 @@ here. AI agent time includes builds and CI waits on a 4 GiB sandbox.
 
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
-| P34 | [Downloads and merges keep going in the background; speed in the notification](#p34--downloads-and-merges-keep-going-in-the-background) | Medium | 5–7 h | — | TODO |
+| P34 | [Downloads and merges keep going in the background; speed in the notification](#p34--downloads-and-merges-keep-going-in-the-background) | Medium | 5–7 h | — | DONE — OWNER CHECK (merged by P38) |
 
 **Agent B — `work/phase-14-sites`**
 
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
-| P36 | [TikTok: Download on the For You feed and video pages](#p36--tiktok-download-on-the-for-you-feed-and-video-pages) | Medium | 3–5 h | — | TODO |
-| P37 | [Other sites: fresh links instead of HTTP 410](#p37--other-sites-fresh-links-instead-of-http-410) | Medium | 4–6 h | — | TODO |
+| P36 | [TikTok: Download on the For You feed and video pages](#p36--tiktok-download-on-the-for-you-feed-and-video-pages) | Medium | 3–5 h | — | DONE — OWNER CHECK (merged by P38) |
+| P37 | [Other sites: fresh links instead of HTTP 410](#p37--other-sites-fresh-links-instead-of-http-410) | Medium | 4–6 h | — | DONE — OWNER CHECK (merged by P38) |
 
 **Agent C — `work/phase-14-fast-merge`**
 
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
-| P35 | [Faster merge for long videos](#p35--faster-merge-for-long-videos) | Hard | 6–10 h | — | TODO |
+| P35 | [Faster merge for long videos](#p35--faster-merge-for-long-videos) | Hard | 6–10 h | — | DONE — OWNER CHECK (merged by P38) |
 
 **Integration — Agent A, `work/phase-14-integration`**
 
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
-| P38 | [Merge A → B → C, full validation, Preview #6](#p38--merge-and-preview-6) | Medium | 2–3 h | P34–P37 READY FOR MERGE | TODO |
+| P38 | [Merge A → B → C, full validation, Preview #6](#p38--merge-and-preview-6) | Medium | 2–3 h | P34–P37 READY FOR MERGE | DONE — Preview #6 sent, OWNER CHECK |
 | P8 | [Signed release 1.0.0-beta.4](#p8--signed-release-100-beta4) | Easy | 1–2 h | P38, Preview #6, owner OK | TODO |
 
 In parallel the wall time is about 9–14 h (B's 7–11 h and C's 6–10 h are the long tracks, then
@@ -519,7 +519,23 @@ starts, switch to Facebook → the notification's % keeps moving and "Downloaded
 without opening YFT. (3) If the card says the phone paused YFT, follow its Xiaomi steps once
 and repeat (2).
 
-**Result:** —
+**Result:** DONE — OWNER CHECK (Agent A, 2026-10-08, `a7e3a73`; merged by P38). The service
+is in the foreground while any task is queued, waits or runs, at every stage (download, merge,
+MP3, save); partial wake lock `yft:downloads` (10-minute timeout, renewed every minute) while
+anything runs, Wi-Fi lock while bytes move; `dataSync`, plus `mediaProcessing` on API 35+ while
+a merge, conversion or save runs; `onTimeout` pauses all with a notice; a refused start keeps the
+queue with a notice. `FreezeDetector` (1-s tick, more than 10 s late with the wake lock held)
+records freezes for the battery card. Notification: "N% · speed · X of Y · … left" (one) or one
+line each (several), at most one update a second; "Downloaded · …" / "Download failed · …" on the
+"Finished downloads" channel. Downloads: notification and battery cards (Xiaomi, Redmi, POCO
+steps); Settings › Background downloads. Fixed on the way: Resume and Retry start the service.
+Plan adapted: the emulator tests run on the new code (the old service can't run a test's queue);
+a process under instrumentation is never frozen, so HyperOS's freezer is the owner's check; the
+slow server is an OkHttp interceptor; Android's pause notices use the "Finished downloads"
+channel. Validation: app 790 tests (+44), 0 failures, 66 skipped; lint 0 errors. Regression
+proof: 21 new tests fail on the old behaviour. CI green: validation 37793747249, emulator
+37793747385 (`BackgroundDownloadInstrumentedTest`, `BackgroundMergeInstrumentedTest`), Preview
+APK 37793747336. Details: `docs/SESSION_STATE.md` › Agent A, TEST_MATRIX "Agent A — P34".
 
 ### P35 — Faster merge for long videos
 
@@ -604,7 +620,18 @@ faster on the long input; WebM merges unchanged; the fallback works.
 10–20 s after the tracks (was about 2 minutes); it plays and seeks in the Library and in another
 player; a 1080p video and a 2K/4K WebM still save.
 
-**Result:** —
+**Result:** DONE — OWNER CHECK (Agent C, 2026-10-08, `5f62962`; merged by P38).
+`FAST_MERGE=ON`: `AndroidMp4AudioVideoMuxer` merges an MP4 video (`avc1`/`avc3`) and an MP4/M4A
+sound (`mp4a`) by `StreamCopyAudioVideoMuxer` (plain-Kotlin `Mp4TrackReader`, chunks of about a
+second per track, one 4 MiB buffer, `moov` at the end with all sizes known; 64-bit `mdat` above
+4 GiB). `MediaExtractorStreamCopyCheck` reads the file back; a failed check or an unsupported
+input runs today's MediaMuxer way once (also for WebM). Plan adapted: negative composition
+offsets go into `ctts` v0 and the edit list (Android 7 rejects v1); sample times are checked
+against the inputs (MediaMuxer moved a B-frame video's start by 59 ms). CI emulator: 1-hour-sized
+input 14.7 s → 1.03 s (14.3×), 20 minutes 3.74 s → 0.25 s. Validation: core-download 166, app 746,
+0 failures. Regression proof: 13 of 16 new JVM tests fail without the fast path. CI green:
+validation 37801106992, emulator 37801106973, Preview APK 37801107005. Details:
+`docs/SESSION_STATE.md` › Agent C.
 
 ### P36 — TikTok: Download on the For You feed and video pages
 
@@ -672,7 +699,15 @@ markers; CI emulator green.
 qualities and sizes → the download plays; a video from a profile; Home: paste a TikTok link →
 the sheet.
 
-**Result:** —
+**Result:** DONE — OWNER CHECK (Agent B, 2026-10-08, `9689062`; merged by P38).
+`FocusedVideoProbe` reads the focused For You video's id from its player box (`xgwrapper-…`,
+desktop) or the active slide's page data (phone layout) and the author from the card when shown,
+else `https://www.tiktok.com/@/video/<id>` (author-less links are made canonical that way: live,
+`/video/<id>` without `@` goes to `/404`). `TikTokPageParser` reads `webapp.video-detail`, else
+`webapp.reflow.video.detail`; a phone page without qualities is asked once more with the desktop
+agent; media requests take the page answer's fresh TikTok cookies. Validation 1229 tests, 0
+failures. Regression proof: 11 failures on the old files. CI green: validation 37790464506,
+emulator 37790464540, Preview APK 37790464487. Details: `docs/SESSION_STATE.md` › Agent B.
 
 ### P37 — Other sites: fresh links instead of HTTP 410
 
@@ -749,7 +784,18 @@ fixtures) behave as before.
 working video without manual reloads (or Try again does); if not, "Reload page and try again"
 works in one tap; a screenshot of Details when it still fails; Javtiful still works.
 
-**Result:** —
+**Result:** DONE — OWNER CHECK (Agent B, 2026-10-08, `10957b7`; merged by P38). Candidates
+carry `LinkOrigin` and `LinkExpiry`; the player's own request wins over the script's link. On a
+gone link (HTTP 410/403/404) Quick Download tries the page's newest link of the same video, the
+player's link, a quiet re-read of the page (`TabPageReader`, `REREAD=2`, the tab's agent and
+same-site cookies, no cache), then the next video; "Reload page and try again" reloads without
+cache and waits up to 15 s for a new link. A stated row whose file check says "gone" is not
+offered; a link gone at Download runs the same chain. Details list every attempt (origin, age,
+expiry), never the address. Validation 1257 tests, 0 failures. Regression proof: 18 + 2
+failures on the old files. CI: two emulator runs failed on `FreshLinkInstrumentedTest`
+(a test wait, then a real gap: the stated row) and were fixed; `10957b7` green: validation
+37804865935, emulator 37804865954 (32 tests, 0 failures), Preview APK 37804865937. Details:
+`docs/SESSION_STATE.md` › Agent B.
 
 ### P38 — Merge and Preview #6
 
@@ -773,7 +819,15 @@ Medium · 2–3 h · needs P34–P37 `READY FOR MERGE` · **Agent A (integrator)
    **Preview #6**: its link and the §6 list to the owner in Burmese. Then stop. `main` is
    fast-forwarded only with `MAIN=OK`; P8 only with the owner's OK.
 
-**Result:** —
+**Result:** DONE (Agent A, 2026-10-08). A (`6325f37`, code `a7e3a73`) → B (`fd66038`, code
+`10957b7`) → C (`1f70d26`, code `5f62962`) merged into `work/phase-14-integration` with
+`--no-ff`; no conflicts (only CHANGELOG, SESSION_STATE and TEST_MATRIX are changed by more than
+one agent); no open hand-offs (A's `DownloadRuntimeModule` keeps `AndroidMp4AudioVideoMuxer()`,
+which now stream-copies). Full validation: 1532 tests, 0 failures, 66 skipped (was 1435 at P33);
+lint 0 errors; `:app:assembleRelease` OK; line check clean. The owner asked to push `main` after
+the merge and to build the test-key Preview: `main` is fast-forwarded to the validated merge
+once its CI is green (no tag, no signed release). CI and the Preview #6 run:
+`docs/SESSION_STATE.md` › Overview.
 
 ### P8 — Signed release 1.0.0-beta.4
 

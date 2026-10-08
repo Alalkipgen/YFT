@@ -7,87 +7,42 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ## [Unreleased]
 
-### Phase 14 — Agent A (P34)
+### Added
 
-- Added: downloads, merges, MP3 conversions and saves keep going in the background — the
-  download service holds a partial wake lock (`yft:downloads`, renewed with a 10-minute timeout)
-  while any task runs and a Wi-Fi lock while bytes are downloaded, declares `dataSync` (plus
-  `mediaProcessing` on Android 15 while merging, converting or saving), handles Android 15's
-  `onTimeout` with "Android paused downloads after 6 hours. Open YFT to resume.", and a refused
-  start keeps the downloads queued with a notice instead of crashing.
-- Added: the ongoing notification shows the speed — one download: its title and
-  "45% · 1.2 MB/s · 61 MB of 96 MB · 15 s left"; several: "Downloading 3 videos · 45%",
+- Background downloads and merges (P34): downloads, merges, MP3 conversions and saves keep
+  going while YFT is in the background — the download service holds a partial wake lock
+  (renewed with a 10-minute timeout) while any task runs and a Wi-Fi lock while bytes are
+  downloaded, declares `dataSync` (plus `mediaProcessing` on Android 15 while merging,
+  converting or saving), handles Android 15's `onTimeout` with "Android paused downloads after
+  6 hours. Open YFT to resume.", and a refused start keeps the downloads queued with a notice
+  instead of crashing.
+- Speed in the notification (P34): one download shows its title and
+  "45% · 1.2 MB/s · 61 MB of 96 MB · 15 s left"; several show "Downloading 3 videos · 45%",
   "2.4 MB/s · 1 min left" and one line each; merges and saves keep P27's stages; at most one
   update a second, from the same speed the Downloads cards show.
-- Added: "Downloaded · <title>" and "Download failed · <title> — <reason>" notices on a new
-  "Finished downloads" channel (DONE_NOTICE on).
-- Added: Downloads cards — "Turn on notifications to see download progress outside YFT" when
+- "Downloaded · <title>" and "Download failed · <title> — <reason>" notices on a new
+  "Finished downloads" channel (P34).
+- Downloads cards (P34): "Turn on notifications to see download progress outside YFT" when
   notifications are off, and the battery card ("Downloads and merges may stop when YFT is in the
   background…", Allow, Not now, HyperOS steps on Xiaomi, Redmi and POCO), shown again with "Your
-  phone paused YFT in the background for 1 min 40 s." after a freeze (BATTERY_CARD on);
-  Settings › Downloads › Background downloads (Allowed / Limited).
-- Changed: speeds read "850 KB/s" below 1,024 KB/s and "1.2 MB/s" from there (one decimal).
-- Fixed: Resume and Retry on Downloads start the download service again, so a download resumed
-  after Pause all no longer runs without it.
-
-### Phase 14 — Agent B (P36, P37)
-
-- TikTok's For You feed: the browser's Download button finds the video on screen again
-  (Preview #5 said "No video on screen to download"). Today's feed has no video link beside the
-  player, so YFT takes the video's number from its player box (desktop layout) or from the
-  page's own slide (phone layout) and the author from the card when it shows one; without an
-  author the address is `tiktok.com/@/video/<number>`, which TikTok opens like the full one.
-- TikTok qualities: when TikTok gives the phone version of a video page (its data under
-  `webapp.reflow.video.detail`, no quality list), YFT reads that page and asks the same video
-  page once more as a desktop browser for its qualities; if that fails, the phone page's video
-  is the one quality. Pages that list their qualities are asked once, as before.
-- TikTok video requests from the browser keep the browser's cookies but take TikTok's fresh
-  cookies from the page answer (a stale cookie of the same name is replaced; TikTok's media host
-  answers HTTP 403 to a stale one) and the browser identity that fetched that page.
-- Other sites (no adapter): when the page's link answers HTTP 410 (or 401, 403, 404), the
-  sheet looks for a fresh link of the same video by itself instead of stopping: the address the
-  page's player itself asked for comes before the link the page's script names, then the page's
-  newest copy, then the page read again quietly in the background (at most twice, one at a
-  time, asked as the browser tab asks: its browser identity and cookies, no cache; a page that
-  answers with only a notice or a check is not used), and only then the page's next video. The
-  sheet says "The first link is gone — using a fresh link".
-- A row the page stated (for example a player setup's "720p") is no longer offered once its
-  file check answers that the link is gone, so the fresh link is looked for at once instead of
-  the 410 coming back only at Download. When Download itself meets a gone link (a file known by
-  its size is not checked before), the sheet looks for a fresh link the same way and its row
-  downloads by itself.
-- When nothing fresh comes, the error offers "Reload page and try again": the browser reloads
-  the tab once without its cache and opens the sheet again when the same video comes back with
-  a new link; otherwise it says "The site gave no new link. Play the video for a moment, then
-  tap Download again." Try again on a browser page reads the page again too. Home's pages keep
-  Home's own read; sites with an adapter are unchanged.
-- Every attempt's Details now say where its link came from (page script, player request, page
-  read again, pasted link), how old it is and whether its own expiry time has passed — never
-  the address or its signature.
-
-### Phase 14 — Agent C (P35)
-
-- Faster merge for long videos: an MP4 video track and its MP4 or M4A sound are now joined by
+  phone paused YFT in the background for 1 min 40 s." after a freeze; Settings › Downloads ›
+  Background downloads (Allowed / Limited).
+- Faster merge for long videos (P35): an MP4 video track and its MP4 or M4A sound are joined by
   copying their samples in large blocks into the final MP4 (stream copy) instead of passing
   every sample through Android's MediaMuxer. On the CI emulator a 1-hour-sized merge (265,410
-  samples) takes 1.0–1.8 s instead of 15–21 s (12–14 times faster), and P27's 20-minute input
-  0.25–0.5 s instead of 3.7–6.5 s. The new file is read back with Android's MediaExtractor
-  before it counts (both tracks' formats and durations; the first samples, a few sync samples
-  and every sample from the last sync sample on, byte for byte and in time).
-- The stream copy keeps every sample's time as the tracks give it; MediaMuxer moved the start of
-  a video with B-frames (59 ms on the test video), which put the picture slightly behind the
-  sound.
-- Today's MediaMuxer way stays as the safety net and runs once when the stream copy cannot be
-  used or its check fails (encrypted tracks, HEVC or AV1, two tracks in one file, broken boxes,
-  sample data outside the file's data box); WebM merges (VP9/Opus, 2K/4K) keep it. It is a bit
-  faster too: each sample's time and flags are read once, and its progress is reported at most
-  every 250 ms.
-- "Merging audio and video · N%" moves on with the bytes copied.
-- The merge's log line also says how it merged (stream copy, or MediaMuxer with the reason the
-  stream copy was not kept), the sample count of each track, the time of each phase and the
-  merge thread's CPU time beside its wall time (a large gap means the phone paused YFT).
-
-### Added
+  samples) takes 1.0–1.8 s instead of 15–21 s, and P27's 20-minute input 0.25–0.5 s instead of
+  3.7–6.5 s. The new file is read back with Android's MediaExtractor before it counts. Today's
+  MediaMuxer way stays as the safety net and runs once when the stream copy cannot be used or
+  its check fails (encrypted tracks, HEVC or AV1, two tracks in one file, broken boxes); WebM
+  merges (VP9/Opus, 2K/4K) keep it.
+- Fresh links instead of HTTP 410 (P37): on other sites (no adapter), when the page's link
+  answers HTTP 410 (or 401, 403, 404), the sheet looks for a fresh link of the same video by
+  itself: the address the page's player asked for, then the page's newest copy, then the page
+  read again quietly (at most twice, with the tab's browser identity and cookies, no cache),
+  and only then the page's next video ("The first link is gone — using a fresh link"). When
+  nothing fresh comes, "Reload page and try again" reloads the tab once without its cache and
+  opens the sheet again with the new link. Details say where each link came from, how old it
+  is and whether its expiry passed — never the address.
 
 - Browser history: the browser's menu (⋯ in its toolbar) › History lists the pages you opened
   by Today, Yesterday and Earlier, with a search box; a tap opens a page, a row's menu deletes
@@ -132,6 +87,19 @@ for every APK given to users, because Android refuses to install a lower one.
   as `yft-preview-apk` with its SHA-256. It installs next to the release app.
 
 ### Changed
+
+- TikTok (P36): when TikTok gives the phone version of a video page (no quality list), YFT
+  asks the same page once more as a desktop browser for its qualities; else the phone page's
+  video is the one quality. Video requests keep the browser's cookies but take TikTok's fresh
+  cookies from the page answer and the identity that fetched that page.
+- Merges (P35) keep every sample's time as the tracks give it (MediaMuxer moved the start of a
+  video with B-frames by about 59 ms); today's way reads each sample's time and flags once and
+  reports progress at most every 250 ms; "Merging audio and video · N%" moves on with the bytes
+  copied; the merge's log line says how it merged, each phase's time and the CPU time.
+- Speeds read "850 KB/s" below 1,024 KB/s and "1.2 MB/s" from there (P34).
+- A row a page stated (for example a player setup's "720p") is no longer offered once its file
+  check says the link is gone; a link gone only at Download gets a fresh link that downloads
+  by itself (P37).
 
 - YouTube merge without a silent 99%: a video with separate picture and sound shows "Merging
   audio and video · 45%", then "Saving to Download/YFT · 80%" (or app storage, or the chosen
@@ -244,6 +212,13 @@ for every APK given to users, because Android refuses to install a lower one.
   validation workflow.
 
 ### Fixed
+
+- TikTok's For You feed: the browser's Download button finds the video on screen again
+  (Preview #5 said "No video on screen to download"); without an author the address is
+  `tiktok.com/@/video/<number>`, which TikTok opens like the full one (P36).
+- A 1-hour YouTube merge no longer stops while YFT is in the background (P34, P35).
+- Resume and Retry on Downloads start the download service again, so a download resumed after
+  Pause all no longer runs without it (P34).
 
 - A merge without enough free space fails at once with "Insufficient storage" at the merge step
   ("Merging needs … and … is free"), before the file in Download/YFT is touched; the track

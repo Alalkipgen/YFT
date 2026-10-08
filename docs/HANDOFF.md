@@ -27,9 +27,14 @@
 - **Branches:** `work/phase-14-integration` (= `main` `5a5bddb` + the plan); agents branch from
   it: `work/phase-14-background` (A), `work/phase-14-sites` (B), `work/phase-14-fast-merge` (C).
   Status per agent: `SESSION_STATE.md`.
-- **Next action — owner:** paste `prompts/A-background.md`, `prompts/B-tiktok-fresh-links.md`
-  and `prompts/C-fast-merge.md` into three new agent chats; when all three are READY FOR MERGE,
-  give Agent A `prompts/M-merge-preview6.md`.
+- **P38 (2026-10-08, Agent A):** A (P34), B (P36, P37) and C (P35) merged into
+  `work/phase-14-integration` without conflicts; full validation 1532 tests, 0 failures, 66
+  skipped, lint 0 errors, release build OK. The owner asked to push `main` after the merge: it
+  is fast-forwarded to the validated merge once its CI is green (no tag). CI links and the
+  Preview #6 run: `SESSION_STATE.md` › Overview.
+- **Next action — owner:** uninstall the older YFT Preview, install **Preview #6** (Preview APK
+  run › Artifacts › `yft-preview-apk`) and test FIX_ADD_PLAN §6 "Preview #6"; then P8 (signed
+  `1.0.0-beta.4`, `prompts/P8-signed-beta4.md`) only with his OK.
 - **Phase 13** (P27–P33, 2026-10-07): merge progress and a direct merge into Download/YFT, the
   page's video instead of the pre-roll ad, the next video when one fails, Google search, browser
   history, pop-up and ad-redirect blocking; merged into `main` (`436aa90`, docs `5a5bddb`, no

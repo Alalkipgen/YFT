@@ -41,15 +41,24 @@ Keep at least the heading and one blank line between sections, so Git merges the
   owner the public line and wait until he adds it as a deploy key with write access.
 - Phase 13 record (per-task Results, validation, CI runs, P33 merge notes):
   `git show 5a5bddb:docs/SESSION_STATE.md`. Phase 12: `git show bc806f9:docs/SESSION_STATE.md`.
-- Last pushed checkpoint: PLAN: Phase 14 (this commit, docs and the CI trigger, on
-  `work/phase-14-integration`).
-- Next: the owner pastes `docs/prompts/A-background.md`, `B-tiktok-fresh-links.md` and
-  `C-fast-merge.md` into three new agent chats; when all three are READY FOR MERGE, Agent A runs
-  `M-merge-preview6.md` (P38, Preview #6); P8 only with the owner's OK after Preview #6.
-- Last updated: 2026-10-08 (Phase 14 plan)
+- P38 (2026-10-08, Agent A in `/data/YFT-A` after a sandbox reset: new SSH key, JDK 17, SDK 35,
+  NDK and CMake reinstalled, a 4 GiB swap file): merged A (`6325f37`) → B (`fd66038`) → C
+  (`1f70d26`) with `--no-ff`, no conflicts, no open hand-offs. Full validation: 1532 tests, 0
+  failures, 66 skipped (app 807, core-browser 138, core-data 33, core-download 166, core-media
+  28, core-model 106, extractor-api 32, extractor-generic 20, extractor-sites 202); lint 0
+  errors (app 95 warnings); `:app:assembleRelease` OK; line check clean. The owner asked to
+  push `main` after the merge (no tag): `main` is fast-forwarded to the validated merge once
+  its CI is green.
+- Last pushed checkpoint: P38: merge A, B, C — full validation green (on
+  `work/phase-14-integration`); CI: see the next checkpoint.
+- Next: the owner installs Preview #6 (Preview APK run of the P38 merge commit › Artifacts ›
+  `yft-preview-apk`; uninstall the older YFT Preview first) and tests FIX_ADD_PLAN §6
+  "Preview #6"; P8 (signed `1.0.0-beta.4`) only with his OK after that.
+- Last updated: 2026-10-08 (P38)
 
 ## Agent A — `work/phase-14-background` (P34; later P38)
 
+- P38: merged A → B → C on `work/phase-14-integration` (2026-10-08; Overview).
 - Status: READY FOR MERGE (last code commit `a7e3a73`, CI green; base `c8fcd33` =
   `origin/work/phase-14-integration`; started and finished 2026-10-08). Owner check pending.
 - P34 — Downloads and merges keep going in the background; speed in the notification: DONE,
