@@ -25,6 +25,21 @@ for every APK given to users, because Android refuses to install a lower one.
 - TikTok video requests from the browser keep the browser's cookies but take TikTok's fresh
   cookies from the page answer (a stale cookie of the same name is replaced; TikTok's media host
   answers HTTP 403 to a stale one) and the browser identity that fetched that page.
+- Other sites (no adapter): when the page's link answers HTTP 410 (or 401, 403, 404), the
+  sheet looks for a fresh link of the same video by itself instead of stopping: the address the
+  page's player itself asked for comes before the link the page's script names, then the page's
+  newest copy, then the page read again quietly in the background (at most twice, one at a
+  time, asked as the browser tab asks: its browser identity and cookies, no cache; a page that
+  answers with only a notice or a check is not used), and only then the page's next video. The
+  sheet says "The first link is gone — using a fresh link".
+- When nothing fresh comes, the error offers "Reload page and try again": the browser reloads
+  the tab once without its cache and opens the sheet again when the same video comes back with
+  a new link; otherwise it says "The site gave no new link. Play the video for a moment, then
+  tap Download again." Try again on a browser page reads the page again too. Home's pages keep
+  Home's own read; sites with an adapter are unchanged.
+- Every attempt's Details now say where its link came from (page script, player request, page
+  read again, pasted link), how old it is and whether its own expiry time has passed — never
+  the address or its signature.
 
 ### Phase 14 — Agent C (P35)
 

@@ -84,6 +84,8 @@ fun QuickDownloadRoute(
         onDismissMetered = viewModel::dismissMeteredDownload,
         onOpenDetails = { if (viewModel.openDetails()) onOpenDetails() },
         onRetry = viewModel::retry,
+        // P37: the browser reloads its tab without the cache; the sheet closes until then.
+        onReload = { if (viewModel.reloadPage()) onNavigateBack() },
         onOpenDownloads = onOpenDownloads,
         onClose = onNavigateBack,
         onOpenOtherVideos = {
@@ -117,6 +119,7 @@ fun QuickDownloadScreen(
     onRetry: () -> Unit = {},
     onOpenDownloads: () -> Unit = {},
     onClose: () -> Unit = {},
+    onReload: () -> Unit = {},
     onOpenOtherVideos: () -> Unit = {},
     onPickEarly: (OptionSection) -> Unit = {},
 ) {
@@ -201,6 +204,19 @@ fun QuickDownloadScreen(
             )
             FailureDetails(state.attemptDetails, tag = "quick-next-video-details")
         }
+        if (state.freshLink) {
+            // P37: the first link was gone; this is the same video from a fresh link.
+            Text(
+                text = FRESH_LINK_MESSAGE,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+                    .testTag("quick-fresh-link"),
+                color = YftTheme.colors.textSecondary,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            FailureDetails(state.attemptDetails, tag = "quick-fresh-link-details")
+        }
         if (state.otherVideos > 0) {
             YftTextButton(
                 text = "Other videos on this page (${state.otherVideos})",
@@ -261,6 +277,7 @@ fun QuickDownloadScreen(
                 message = state.failure,
                 onRetry = onRetry.takeIf { state.canRetry },
                 details = state.failureDetails,
+                onReload = onReload.takeIf { state.canReload },
             )
         }
     }
@@ -592,6 +609,7 @@ private fun ColumnScope.Failure(
     message: String?,
     onRetry: (() -> Unit)?,
     details: List<String> = emptyList(),
+    onReload: (() -> Unit)? = null,
 ) {
     Text(
         text = message ?: "No format of this video could be read.",
@@ -613,6 +631,15 @@ private fun ColumnScope.Failure(
             .align(Alignment.CenterHorizontally)
             .testTag("quick-retry"),
         icon = YftIcons.Refresh,
+    )
+    // P37: nothing fresh came from the page; the browser may reload it without its cache.
+    onReload ?: return
+    YftTextButton(
+        text = RELOAD_AND_RETRY,
+        onClick = onReload,
+        modifier = Modifier
+            .align(Alignment.CenterHorizontally)
+            .testTag("quick-reload-retry"),
     )
 }
 
@@ -749,6 +776,12 @@ internal const val MAYBE_AD_MESSAGE =
 
 /** P29: the first video's file is gone, so the sheet shows the page's next video. */
 internal const val NEXT_VIDEO_MESSAGE = "The first file is gone — showing the next video"
+
+/** P37: the first link was gone, so the sheet shows the same video from a fresh link. */
+internal const val FRESH_LINK_MESSAGE = "The first link is gone — using a fresh link"
+
+/** P37: the error's way to reload the browser's page without its cache. */
+internal const val RELOAD_AND_RETRY = "Reload page and try again"
 
 /** P18: Download's label once it was tapped before the qualities came. */
 internal const val STARTS_WHEN_READY = "Starts when ready…"

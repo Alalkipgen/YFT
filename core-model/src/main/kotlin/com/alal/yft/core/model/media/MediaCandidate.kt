@@ -9,6 +9,9 @@ enum class CandidateSource {
     REQUEST,
     MANIFEST,
     REDIRECT,
+
+    /** P37: the sheet read the browser tab's page again, quietly, for its fresh links. */
+    PAGE_REREAD,
 }
 
 enum class MediaKind {

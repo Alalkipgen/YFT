@@ -6,6 +6,7 @@ import android.content.ContextWrapper
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
@@ -236,6 +237,23 @@ fun BrowserRoute(
     val openQuickDownload by rememberUpdatedState(onOpenQuickDownload)
     LaunchedEffect(viewModel) {
         viewModel.quickDownloadRequests.collect { openQuickDownload() }
+    }
+    // P37: the sheet's "Reload page and try again" reloads the tab once without its cache; the
+    // cache comes back once that load finished.
+    var shownReload by rememberSaveable { mutableIntStateOf(uiState.reloadRequest) }
+    var noCacheApplied by remember { mutableStateOf(false) }
+    LaunchedEffect(webView, uiState.reloadRequest) {
+        val browser = webView ?: return@LaunchedEffect
+        if (uiState.reloadRequest == shownReload) return@LaunchedEffect
+        shownReload = uiState.reloadRequest
+        browser.settings.cacheMode = WebSettings.LOAD_NO_CACHE
+        noCacheApplied = true
+        browser.reload()
+    }
+    LaunchedEffect(webView, uiState.noCacheLoad, noCacheApplied) {
+        if (uiState.noCacheLoad || !noCacheApplied) return@LaunchedEffect
+        webView?.settings?.cacheMode = WebSettings.LOAD_DEFAULT
+        noCacheApplied = false
     }
     LaunchedEffect(webView, pendingUrl) {
         val browser = webView ?: return@LaunchedEffect

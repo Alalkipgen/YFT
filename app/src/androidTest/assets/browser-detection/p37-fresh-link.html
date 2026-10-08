@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- P37 instrumented fixture: a video page of a site without an adapter. Its player setup
+     names the file with one signature (the link the page's script gives, dead for YFT), while
+     the player itself asks for the same file under a newer signature. Offline: the test
+     answers every request itself; the player is a stand-in that only asks for its file (no
+     media decoding on the CI emulator). All hosts are reserved .test names; neutral text. -->
+<title>Harbour lights at dusk - Example Clips</title>
+<meta property="og:site_name" content="Example Clips">
+<meta property="og:title" content="Harbour lights at dusk">
+</head>
+<body>
+<div id="player" style="width:320px;height:180px;background:#222"></div>
+<script>
+  // The site's player, reduced to what matters here: it asks for its own copy of the file.
+  window.jwplayer = function (id) {
+    return {
+      setup: function (config) {
+        var file = config.sources[0].file;
+        var own = file.split('?')[0] + '?hash=' + ['pla', 'yer'].join('');
+        window.playerAsked = own;
+        fetch(own, { mode: 'no-cors' }).catch(function () {});
+        return this;
+      }
+    };
+  };
+  jwplayer("player").setup({
+    sources: [
+      {file: "https://media.example.test/v5/720.mp4?hash=script", label: "720p", type: "video/mp4"}
+    ]
+  });
+</script>
+</body>
+</html>

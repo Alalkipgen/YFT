@@ -6,6 +6,7 @@ import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.media.resolver.VariantResolver
 import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.model.media.AudioFromVideo
+import com.alal.yft.core.model.media.FreshLinks
 import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaGroup
@@ -20,6 +21,8 @@ import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.detection.BrowserPageReader
+import com.alal.yft.detection.PageReread
 import com.alal.yft.detection.SiteLookupCache
 import com.alal.yft.detection.VideoPlaybackSupport
 import com.alal.yft.download.EnqueueResult
@@ -30,6 +33,7 @@ import com.alal.yft.download.policy.TransferNetworkState
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import com.alal.yft.feature.detectedmedia.DetectedPage
 import com.alal.yft.feature.detectedmedia.LookupOwner
+import com.alal.yft.feature.detectedmedia.PageReload
 import com.alal.yft.feature.detectedmedia.PageVideoLookup
 import com.alal.yft.feature.preview.PreviewDownloadStatus
 import com.alal.yft.thumbnail.DownloadThumbnails
@@ -96,6 +100,17 @@ data class QuickDownloadUiState(
     val nextVideo: Boolean = false,
     /** P29: [nextVideo]'s Details: both attempts, each with its step, host and status. */
     val attemptDetails: List<String> = emptyList(),
+    /**
+     * P37: the first link was gone, so the sheet shows the same video from a fresh link (the
+     * page's newest, the player's own request, or the page read again) and says so; Details in
+     * [attemptDetails].
+     */
+    val freshLink: Boolean = false,
+    /**
+     * P37: nothing fresh was found for the browser's page: the error offers "Reload page and try
+     * again", which reloads the tab without its cache and reopens the sheet.
+     */
+    val canReload: Boolean = false,
     /** P12: how many more videos the page has; a row opens their list. */
     val otherVideos: Int = 0,
     val defaultQuality: QualityPreference = DownloadPreferences().defaultQuality,
@@ -144,6 +159,7 @@ class QuickDownloadViewModel @Inject constructor(
     private val playback: VideoPlaybackSupport,
     private val downloadThumbnails: DownloadThumbnails = DownloadThumbnails.None,
     private val lookups: SiteLookupCache = SiteLookupCache(),
+    private val pageReader: BrowserPageReader = BrowserPageReader.None,
 ) : ViewModel() {
     /**
      * P16: a sheet opened for a lookup (Home's link, a feed's video on screen) waits on it even
@@ -177,11 +193,31 @@ class QuickDownloadViewModel @Inject constructor(
     private var earlyMeteredConfirmed = false
 
     /**
-     * P29: the video that failed first and its Details, once the sheet moved on to the page's
+     * P29: the video that failed first, once the sheet moved on to a fresh link or the page's
      * next video; Try again starts from it again.
      */
     private var firstVideo: MediaGroup? = null
-    private var firstAttempt: List<String> = emptyList()
+
+    /** P37: which attempt the sheet shows now (the first link, a fresh one, the next video). */
+    private var stage = Attempt.FIRST
+
+    /** P37: the Details of each attempt that failed before, its name first. */
+    private val attempts = mutableListOf<List<String>>()
+
+    /** P37: the addresses that answered "gone" in this sheet; never asked again here. */
+    private val deadLinks = mutableSetOf<String>()
+
+    /** P37: the quiet re-reads this failure used ([BrowserPageReader.rereads]). */
+    private var rereadsUsed = 0
+
+    /** P29: the page's next video is tried once. */
+    private var nextTried = false
+
+    /** P29: the first video's failure allows the next video (HTTP 403, 404, 410, an address). */
+    private var nextAllowed = false
+
+    /** P37: the clock of the Details' "Link age"; tests set it. */
+    internal var now: () -> Long = System::currentTimeMillis
 
     init {
         if (pageLookup != null) awaitPageVideo() else load()
@@ -209,6 +245,17 @@ class QuickDownloadViewModel @Inject constructor(
             return
         }
         readPageAgainThenLoad()
+    }
+
+    /**
+     * P37: "Reload page and try again": the browser reloads its tab once without the cache and
+     * reopens the sheet when the video comes back with a new link. True when the browser took
+     * it, so the sheet closes.
+     */
+    fun reloadPage(): Boolean {
+        if (!mutableUiState.value.canReload) return false
+        val target = firstVideo ?: group ?: return false
+        return store.reloadPage(PageReload(target.pageUrl, target, deadLinks.toSet()))
     }
 
     /** P12: "Other videos on this page" asks the browser to open its found list. */
@@ -433,10 +480,16 @@ class QuickDownloadViewModel @Inject constructor(
     }
 
     private fun load() {
-        val group = group ?: return
+        val group = withPlayerAddresses(group ?: return)
+        this.group = group
         loading?.cancel()
         mutableUiState.update {
-            it.copy(loading = true, failure = null, failureDetails = emptyList())
+            it.copy(
+                loading = true,
+                failure = null,
+                failureDetails = emptyList(),
+                canReload = false,
+            )
         }
         loading = viewModelScope.launch {
             val quality = currentPreferences().defaultQuality
@@ -463,90 +516,256 @@ class QuickDownloadViewModel @Inject constructor(
                 }.awaitAll()
             }
             val choices = mutableUiState.value.choices
-            if (choices == null && moveToNextVideo(group, sources)) return@launch
+            val failed = sources.firstOrNull { it.failureDetail != null }
+            val page = chainPage(group)
+            val recorded = choices == null && failed != null && page != null &&
+                isGone(failed.failureDetail!!)
+            if (recorded) {
+                record(failed!!)
+                deadLinks += group.candidates.map { it.mediaUrl }
+                val target = firstVideo ?: group.also {
+                    firstVideo = it
+                    nextAllowed = isGoneForNext(failed.failureDetail!!)
+                }
+                nextAttempt(target, page!!)?.let { (next, attempt) ->
+                    show(next, attempt)
+                    return@launch
+                }
+            }
             showChoices(choices, sources, waiting = false)
-            if (firstVideo != null) showAttempts(group, sources)
+            showAttempts(group, sources, recorded, page)
         }
     }
 
     /**
-     * P29: the page's video could not be prepared because its file is gone (HTTP 403, 404 or
-     * 410, or an address YFT can't fetch): on a page without an adapter the sheet prepares the
-     * page's next video once, by itself, in P28's order and never one that looks like an ad.
-     * False when it does not.
+     * P37 (R18): the group with the addresses the page's player asked for before the links its
+     * script names ([FreshLinks.playerFirst]), on a browser page without an adapter.
      */
-    private fun moveToNextVideo(failed: MediaGroup, sources: List<SheetSource>): Boolean {
-        if (firstVideo != null || failed.candidates.any { it.videoId != null }) return false
-        val failure = sources.firstNotNullOfOrNull { it.failureDetail } ?: return false
-        val gone = failure.httpStatusCode in GONE_STATUSES ||
+    private fun withPlayerAddresses(group: MediaGroup): MediaGroup {
+        if (stage == Attempt.REREAD) return group
+        val page = store.page.value
+            ?.takeIf { it.pageUrl == group.pageUrl && !it.adapterSite } ?: return group
+        val requests = page.candidates.filter { it.isSavable && it.mediaUrl !in deadLinks }
+        return FreshLinks.playerFirst(group, requests)
+    }
+
+    /** P29/P37: the store's page of [group] when the sheet may look further for it. */
+    private fun chainPage(group: MediaGroup): DetectedPage? {
+        if (group.candidates.any { it.videoId != null }) return null
+        return store.page.value?.takeIf { it.pageUrl == group.pageUrl && !it.adapterSite }
+    }
+
+    private fun isGone(failure: VariantResolutionResult.Failure): Boolean =
+        failure.httpStatusCode in LINK_DEAD_STATUSES ||
             failure.reason == VariantResolutionFailure.INVALID_URL
-        if (!gone) return false
-        val page = store.page.value?.takeIf { it.pageUrl == failed.pageUrl && !it.adapterSite }
-            ?: return false
-        val next = MediaGroups.nextVideo(pageVideos(page), listOf(failed), page.facts)
-            ?: return false
-        firstVideo = failed
-        firstAttempt = listOf(FIRST_ATTEMPT) + QuickDownloadFailures.details(failure)
-        val shown = MediaGroups.withPageFacts(next, page.facts)
+
+    private fun isGoneForNext(failure: VariantResolutionResult.Failure): Boolean =
+        failure.httpStatusCode in GONE_STATUSES ||
+            failure.reason == VariantResolutionFailure.INVALID_URL
+
+    /** P37: [failed]'s attempt, its name first, with where its link came from and its age. */
+    private fun record(failed: SheetSource) {
+        attempts += listOf(stage.label) + QuickDownloadFailures.details(failed.failureDetail!!) +
+            QuickDownloadFailures.linkLines(failed.candidate, now())
+    }
+
+    /**
+     * P37: what to prepare after [target]'s links were gone, in FIX_ADD_PLAN's order. On the
+     * browser's page: the same video's newest links the page has now (the player's first), the
+     * video the player itself asked for, then the page read again quietly, at most
+     * [BrowserPageReader.rereads] times and one at a time (a page without player data — a
+     * notice or a check — is not used). Then, once, P29's next video. Null when nothing is left.
+     */
+    private suspend fun nextAttempt(
+        target: MediaGroup,
+        page: DetectedPage,
+    ): Pair<MediaGroup, Attempt>? {
+        if (page.owner == LookupOwner.BROWSER) {
+            val videos = pageVideos(page)
+            val requests = page.candidates.filter { it.isSavable && it.mediaUrl !in deadLinks }
+            sameVideo(target, videos)
+                .firstNotNullOfOrNull { FreshLinks.playerFirst(it, requests).untried() }
+                ?.let { return it to Attempt.NEWEST }
+            FreshLinks.playerVideo(target, videos, deadLinks, page.facts)
+                ?.untried()
+                ?.let { return it to Attempt.PLAYER }
+            reread(target, page)?.let { return it to Attempt.REREAD }
+        }
+        if (nextTried || !nextAllowed) return null
+        nextTried = true
+        val videos = pageVideos(page)
+        val failed = listOf(target) + sameVideo(target, videos)
+        return MediaGroups.nextVideo(videos, failed, page.facts)
+            ?.untried()
+            ?.let { MediaGroups.withPageFacts(it, page.facts) to Attempt.NEXT }
+    }
+
+    /**
+     * P37: the page's [videos] that are [target] itself: those with one of its addresses or the
+     * same address under another signature (the script's and the player's copies of one file);
+     * else the one [MediaGroups.refreshed] finds by its length.
+     */
+    private fun sameVideo(target: MediaGroup, videos: List<MediaGroup>): List<MediaGroup> {
+        val urls = target.candidates.map { it.mediaUrl }.toSet()
+        val unsigned = FreshLinks::unsigned
+        val paths = target.candidates.map { unsigned(it.mediaUrl) }.toSet()
+        return videos.filter { video ->
+            video.candidates.any { it.mediaUrl in urls || unsigned(it.mediaUrl) in paths }
+        }.ifEmpty { listOfNotNull(MediaGroups.refreshed(target, videos)) }
+    }
+
+    /** P37: [target] in the page read again, with a link this sheet did not try yet. */
+    private suspend fun reread(target: MediaGroup, page: DetectedPage): MediaGroup? {
+        val userAgent = store.browserUserAgent
+            ?: page.candidates.firstNotNullOfOrNull { it.requestContext.userAgent }
+        while (rereadsUsed < pageReader.rereads) {
+            rereadsUsed++
+            when (val read = pageReader.read(page.pageUrl, userAgent)) {
+                is PageReread.Found -> {
+                    val videos = MediaGroups.pageVideos(read.candidates.filter { it.isSavable })
+                    MediaGroups.refreshed(target, videos)?.untried()?.let { again ->
+                        return MediaGroups.withPageFacts(again, read.facts ?: page.facts)
+                    }
+                    attempts += listOf(Attempt.REREAD.label, "Status: no new link")
+                }
+                PageReread.NoPlayer -> {
+                    attempts += listOf(Attempt.REREAD.label, NO_PLAYER_DATA)
+                    return null
+                }
+                PageReread.Failed -> attempts += listOf(Attempt.REREAD.label, "Status: not read")
+            }
+        }
+        return null
+    }
+
+    /** P37: a failure's Details: one attempt's lines alone, several each under its name. */
+    private fun attemptLines(): List<String> =
+        attempts.singleOrNull()?.drop(1) ?: attempts.flatten()
+
+    /** The group without the addresses that already answered "gone"; null when none is left. */
+    private fun MediaGroup.untried(): MediaGroup? {
+        val left = candidates.filter { it.mediaUrl !in deadLinks }
+        return when {
+            left.isEmpty() -> null
+            left.size == candidates.size -> this
+            else -> copy(candidates = left)
+        }
+    }
+
+    /**
+     * P29/P37: prepares [next] by itself: a fresh link of the same video keeps the sheet's
+     * header; the next video shows its own.
+     */
+    private fun show(next: MediaGroup, attempt: Attempt) {
+        stage = attempt
+        val sameVideo = attempt != Attempt.NEXT
+        val shown = if (sameVideo) next.copy(title = next.title ?: firstVideo?.title) else next
         group = shown
         mutableUiState.update {
             it.copy(
-                header = shown.header(),
+                header = if (sameVideo) it.header ?: shown.header() else shown.header(),
                 choices = null,
                 selectedId = null,
-                nextVideo = true,
+                nextVideo = attempt == Attempt.NEXT,
+                freshLink = false,
                 attemptDetails = emptyList(),
+                canReload = false,
             )
         }
         loading = null
         load()
-        return true
     }
 
     /**
-     * P29: Details of both attempts once the next video was prepared; when it failed too, the
-     * failure's Details list both and the line about the next video goes.
+     * P29/P37: Details of every attempt once a fresh link or the next video was prepared; when
+     * the last one failed too, the failure's Details list them all, and on the browser's page
+     * the error offers "Reload page and try again".
      */
-    private fun showAttempts(next: MediaGroup, sources: List<SheetSource>) {
+    private fun showAttempts(
+        shown: MediaGroup,
+        sources: List<SheetSource>,
+        recorded: Boolean,
+        page: DetectedPage?,
+    ) {
+        val failed = sources.firstOrNull { it.failureDetail != null }
         mutableUiState.update { state ->
             if (state.choices != null) {
-                val host = next.candidates.firstNotNullOfOrNull {
+                if (stage == Attempt.FIRST) return@update state
+                val ready = shown.candidates.first()
+                val host = shown.candidates.firstNotNullOfOrNull {
                     QuickDownloadFailures.hostOf(it.mediaUrl)
                 }
-                val lines = listOf(NEXT_ATTEMPT) + listOfNotNull(host?.let { "Host: $it" }) +
-                    "Status: ready"
-                state.copy(nextVideo = true, attemptDetails = firstAttempt + lines)
+                val lines = listOf(stage.label) + listOfNotNull(host?.let { "Host: $it" }) +
+                    "Status: ready" + QuickDownloadFailures.linkLines(ready, now())
+                state.copy(
+                    nextVideo = stage == Attempt.NEXT,
+                    freshLink = stage != Attempt.NEXT,
+                    attemptDetails = attempts.flatten() + lines,
+                )
             } else {
-                val failure = sources.firstNotNullOfOrNull { it.failureDetail }
-                val lines = failure?.let(QuickDownloadFailures::details).orEmpty()
+                if (failed == null || (stage == Attempt.FIRST && !recorded)) return@update state
+                if (!recorded) record(failed)
                 state.copy(
                     nextVideo = false,
+                    freshLink = false,
                     attemptDetails = emptyList(),
-                    failureDetails = firstAttempt + NEXT_ATTEMPT + lines,
+                    failureDetails = attemptLines(),
+                    canReload = deadLinks.isNotEmpty() && page?.owner == LookupOwner.BROWSER,
                 )
             }
         }
     }
 
     /**
-     * P29: Try again asks the page's current files instead of the same dead address: the
-     * browser keeps the store's page current; a page Home found is read again
-     * ([DetectedMediaStore.readPageAgain]). The video that failed first is looked for there
-     * ([MediaGroups.refreshed]) and prepared again, and may move on to the next video once more.
+     * P29: Try again asks the page's current files instead of the same dead address: a page Home
+     * found is read again ([DetectedMediaStore.readPageAgain]). The video that failed first is
+     * looked for there ([MediaGroups.refreshed]) and prepared again, and may move on to the next
+     * video once more. P37 (R16): on the browser's page whose links were gone, Try again looks
+     * for a fresh link as the first failure did ([nextAttempt]): the page's newest links, the
+     * player's own request, the page read again; with nothing fresh the error stays and offers
+     * "Reload page and try again".
      */
     private fun readPageAgainThenLoad() {
         val current = group ?: return
         val target = firstVideo ?: current
-        val page = store.page.value?.takeIf { it.pageUrl == target.pageUrl && !it.adapterSite }
-        if (page == null || target.candidates.any { it.videoId != null }) {
+        val page = chainPage(target)
+        if (page == null) {
             load()
             return
         }
         loading?.cancel()
+        val before = mutableUiState.value
         mutableUiState.update {
-            it.copy(loading = true, failure = null, failureDetails = emptyList())
+            it.copy(
+                loading = true,
+                failure = null,
+                failureDetails = emptyList(),
+                canReload = false,
+            )
         }
         loading = viewModelScope.launch {
+            if (page.owner == LookupOwner.BROWSER && deadLinks.isNotEmpty()) {
+                // The attempts so far stay in Details; the re-reads and the next video may
+                // run once more.
+                firstVideo = target
+                rereadsUsed = 0
+                nextTried = false
+                val next = nextAttempt(target, page)
+                if (next != null) {
+                    show(next.first, next.second)
+                    return@launch
+                }
+                mutableUiState.update {
+                    it.copy(
+                        loading = false,
+                        failure = before.failure,
+                        failureDetails = attemptLines(),
+                        canReload = true,
+                    )
+                }
+                loading = null
+                return@launch
+            }
             val fresh = if (page.owner == LookupOwner.HOME) {
                 store.readPageAgain(page.pageUrl) ?: page
             } else {
@@ -555,13 +774,16 @@ class QuickDownloadViewModel @Inject constructor(
             val again = MediaGroups.refreshed(target, pageVideos(fresh)) ?: target
             group = MediaGroups.withPageFacts(again, fresh.facts)
             firstVideo = null
-            firstAttempt = emptyList()
+            stage = Attempt.FIRST
+            attempts.clear()
+            nextTried = false
             mutableUiState.update {
                 it.copy(
                     header = group?.header(),
                     choices = null,
                     selectedId = null,
                     nextVideo = false,
+                    freshLink = false,
                     attemptDetails = emptyList(),
                 )
             }
@@ -601,7 +823,12 @@ class QuickDownloadViewModel @Inject constructor(
                 } else {
                     null
                 },
-                failureDetails = failure?.takeIf { failed }?.let(QuickDownloadFailures::details)
+                failureDetails = sources.firstOrNull { it.failureDetail != null }
+                    ?.takeIf { failed }
+                    ?.let { source ->
+                        QuickDownloadFailures.details(source.failureDetail!!) +
+                            QuickDownloadFailures.linkLines(source.candidate, now())
+                    }
                     .orEmpty(),
                 selectedId = state.selectedId?.takeIf { choices?.option(it) != null }
                     ?: choices?.let {
@@ -768,7 +995,8 @@ class QuickDownloadViewModel @Inject constructor(
                         // P24: another site's video says why, with the request in Details.
                         else -> QuickDownloadFailures.message(result)
                     },
-                    QuickDownloadFailures.details(result),
+                    QuickDownloadFailures.details(result) +
+                        QuickDownloadFailures.linkLines(option.source.candidate, now()),
                 )
             }
             is VariantResolutionResult.Success -> result.asset
@@ -852,6 +1080,15 @@ class QuickDownloadViewModel @Inject constructor(
         thumbnailUrl = ThumbnailUrls.of(candidates),
     )
 
+    /** P29/P37: the attempts of one video, by the name its Details give them. */
+    private enum class Attempt(val label: String) {
+        FIRST("First video"),
+        NEWEST("Page's newest link"),
+        PLAYER("Player's link"),
+        REREAD("Page read again"),
+        NEXT("Next video"),
+    }
+
     private sealed interface Prepared {
         data class Ready(val asset: MediaAsset, val variant: MediaVariant) : Prepared
         data class Failed(val message: String, val details: List<String> = emptyList()) : Prepared
@@ -869,8 +1106,10 @@ class QuickDownloadViewModel @Inject constructor(
 
         /** P29: the first file of a page without an adapter is gone; its next video is shown. */
         private val GONE_STATUSES = setOf(403, 404, 410)
-        private const val FIRST_ATTEMPT = "First video"
-        private const val NEXT_ATTEMPT = "Next video"
+
+        /** P37: a page's link that answers one of these is dead for this phone. */
+        private val LINK_DEAD_STATUSES = setOf(401, 403, 404, 410)
+        private const val NO_PLAYER_DATA = "Status: no player data (a notice or a check)"
 
         /** P17: HTTP 403 and 410 mean the lookup's links no longer work. */
         private val LINK_GONE_STATUSES = setOf(403, 410)

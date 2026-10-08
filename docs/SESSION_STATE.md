@@ -56,7 +56,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent B — `work/phase-14-sites` (P36, P37)
 
-- Status: P36 OWNER CHECK; P37 IN PROGRESS (started 2026-10-08; base commit `c8fcd33` =
+- Status: P36 OWNER CHECK; P37 OWNER CHECK (started 2026-10-08; base commit `c8fcd33` =
   `origin/work/phase-14-integration`; folder `/data/YFT-B`). OWNER ANSWERS: none (defaults
   `TIKTOK_QUALITIES=DESKTOP`, `REREAD=2`).
 - Starting state (2026-10-08, `c8fcd33`, Agent B scope command): 1220 tests, 0 failures, 66
@@ -89,10 +89,42 @@ Keep at least the heading and one blank line between sections, so Git merges the
     check empty.
   - Regression proof: old four main files with the new tests → 11 failures (TEST_MATRIX
     "Agent B — P36, P37"); restored from `/data/bak/P36`, `cmp` equal.
-  - CI: (after the push)
+  - CI (`9689062`): checkpoint validation success (https://github.com/Alalkipgen/YFT/actions/runs/37790464506), emulator smoke success
+    (https://github.com/Alalkipgen/YFT/actions/runs/37790464540), Preview APK success (https://github.com/Alalkipgen/YFT/actions/runs/37790464487).
   - Owner check (VPN; TikTok is banned in India): `/foryou` → Download → qualities → the file
     plays; a profile's video; a pasted link on Home.
-- P37 — Other sites: fresh links instead of HTTP 410: IN PROGRESS
+- P37 — Other sites: fresh links instead of HTTP 410: OWNER CHECK
+  - Result: candidates carry where their link came from (`LinkOrigin`: page script, player
+    request, page read again) and its age/expiry (`LinkExpiry`); the player's own request of the
+    same file wins over the script's link (`FreshLinks.playerFirst`), and the normalizer's merge
+    keeps the player's address. On a gone link (HTTP 410/403/404 of a browser video) Quick
+    Download tries, in order: the page's newest link of the same video, the player's link, a
+    quiet re-read of the page with the tab's agent and same-site cookies, no cache
+    (`TabPageReader`, `REREAD=2`), then the next video; the sheet says "The first link is gone —
+    using a fresh link". When nothing is left: "Reload page and try again" reloads the tab
+    without cache, waits up to 15 s for the same video with a new link and opens Quick Download
+    with it (else a notice). Details lists every attempt with link lines (origin, age, expiry),
+    never the address.
+  - Plan adapted: (1) the next video excludes the same file under another signature (same
+    unsigned path). (2) `CandidateNormalizer.merge` also keeps the player's address; the old
+    dedupe expectation changed (token=old kept). (3) The re-read scans the HTML with
+    `HtmlMediaScanner`; a page without player data (a notice/error page) is not used. (4) Reload
+    waits ≤15 s for the same video with a link not tried and not ad-like; the cache mode returns
+    to default after the load finishes. (5) Link expiry reads `expiresAtEpochMs`, else numeric
+    `validto`/`valid_to`/`expires`/`expire`/`exp`/`e`/`x-expires` ≥ 1e9.
+  - Live check (2026-10-08, markers only, read twice like the quiet re-read):
+    `commons.wikimedia.org` file page 200/200, `<video>`, `<source>`, JSON-LD `VideoObject`, 7
+    media links (4 with a query), same on both reads, no notice; `archive.org` details 200/200,
+    `og:video`, sources list, 1 link, no notice.
+  - Validation (2026-10-08): 1255 tests, 0 failures, 66 skipped (extractor-sites 202,
+    extractor-generic 20, core-model 106, core-browser 138, core-media 28, app 761; +26); lint 0
+    errors (95 warnings); androidTest compiles (`FreshLinkInstrumentedTest`); line check empty.
+  - Regression proof: old nine main files (with a shim for new names) and the new tests → 18
+    failures (TEST_MATRIX "Agent B — P36, P37"); restored from `/data/bak/P37`, `cmp` equal.
+  - CI: (after the push)
+  - Owner check: the Preview #5 site whose video answered HTTP 410 → Download → a working video
+    without a manual reload (or the fresh-link line); else Try again, then "Reload page and try
+    again"; a Details screenshot if it still fails; Javtiful still downloads.
 - Hand-offs: none
 
 ## Agent C — `work/phase-14-fast-merge` (P35)

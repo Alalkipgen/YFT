@@ -9,6 +9,7 @@ import com.alal.yft.core.media.resolver.VariantResolver
 import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.media.BrowserRequestContext
+import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaGroups
@@ -24,6 +25,8 @@ import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
+import com.alal.yft.detection.BrowserPageReader
+import com.alal.yft.detection.PageReread
 import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.detection.SiteLookupCache
 import com.alal.yft.detection.SiteLookupKey
@@ -34,6 +37,7 @@ import com.alal.yft.download.policy.NetworkSnapshot
 import com.alal.yft.download.policy.NetworkStatusSource
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import com.alal.yft.feature.detectedmedia.LookupOwner
+import com.alal.yft.feature.detectedmedia.PageReload
 import com.alal.yft.feature.detectedmedia.PageVideoLookup
 import com.alal.yft.feature.preview.PreviewDownloadStatus
 import com.alal.yft.feature.quickdownload.QuickDownloadFixtures.MIB
@@ -272,6 +276,10 @@ class QuickDownloadViewModelTest {
                 "Step: list of qualities (manifest)",
                 "Host: stream.example.test",
                 "Status: HTTP 403",
+                // P37: where the link came from, its age and its expiry.
+                "Link from: pasted link",
+                "Link age: unknown",
+                "Link expiry: none",
             ),
             viewModel.uiState.value.failureDetails,
         )
@@ -287,7 +295,7 @@ class QuickDownloadViewModelTest {
             blob.uiState.value.failure,
         )
         assertEquals(
-            listOf("Step: video address", "Status: address not supported"),
+            listOf("Step: video address", "Status: address not supported") + PASTED_LINK_LINES,
             blob.uiState.value.failureDetails,
         )
 
@@ -312,7 +320,8 @@ class QuickDownloadViewModelTest {
             sheet.uiState.value.downloadStatus,
         )
         assertEquals(
-            listOf("Step: file check", "Host: media.example.test", "Status: HTTP 404"),
+            listOf("Step: file check", "Host: media.example.test", "Status: HTTP 404") +
+                PASTED_LINK_LINES,
             sheet.uiState.value.downloadDetails,
         )
         assertTrue(starter.variants.isEmpty())
@@ -960,9 +969,15 @@ class QuickDownloadViewModelTest {
                 "Step: file check",
                 "Host: media.example.test",
                 "Status: HTTP 410",
+                "Link from: pasted link",
+                "Link age: unknown",
+                "Link expiry: none",
                 "Next video",
                 "Host: media.example.test",
                 "Status: ready",
+                "Link from: pasted link",
+                "Link age: unknown",
+                "Link expiry: none",
             ),
             state.attemptDetails,
         )
@@ -997,10 +1012,16 @@ class QuickDownloadViewModelTest {
                 "Step: file check",
                 "Host: media.example.test",
                 "Status: HTTP 410",
+                "Link from: pasted link",
+                "Link age: unknown",
+                "Link expiry: none",
                 "Next video",
                 "Step: file check",
                 "Host: media.example.test",
                 "Status: HTTP 404",
+                "Link from: pasted link",
+                "Link age: unknown",
+                "Link expiry: none",
             ),
             state.failureDetails,
         )
@@ -1090,6 +1111,256 @@ class QuickDownloadViewModelTest {
         assertNotNull(sheet.uiState.value.choices)
     }
 
+    @Test
+    fun thePlayersRequestOfTheSameFileIsPreparedInsteadOfTheScriptsLink() = runTest {
+        // P37 (R18): the owner's Preview #5 page: its script names a link that answers 410
+        // for YFT while its player plays the same file from a newer signed address.
+        val page = "https://clips.example.test/watch/5"
+        val script = generic(1, 25 * MIB, page, lengthMillis = 600_000).copy(
+            mediaUrl = "https://media.example.test/v5.mp4?validto=1&hash=old",
+            sources = setOf(CandidateSource.DOM),
+            title = "Harbour lights",
+        )
+        val player = script.copy(
+            mediaUrl = "https://media.example.test/v5.mp4?validto=2&hash=new",
+            sources = setOf(CandidateSource.REQUEST),
+            title = null,
+            observedAtEpochMs = 9,
+        )
+        resolver.answer = { candidate ->
+            gone(410).takeIf { candidate.mediaUrl == script.mediaUrl }
+        }
+        store.publish(page, "Harbour lights", listOf(script, player))
+        store.select(MediaGroups.of(listOf(script)).single())
+
+        val sheet = viewModel()
+        advanceUntilIdle()
+
+        val state = sheet.uiState.value
+        assertNull(state.failure)
+        assertNotNull(state.choices)
+        assertFalse(state.nextVideo)
+        assertEquals(listOf(player.mediaUrl), resolver.requested.map { it.mediaUrl })
+        sheet.download()
+        advanceUntilIdle()
+        assertEquals(listOf(player.mediaUrl), starter.variants.map { it.playbackUrl })
+    }
+
+    @Test
+    fun aGoneLinkTriesThePlayersOwnVideoBeforeThePagesNextVideo() = runTest {
+        // P37: the script's link is gone; the video the player asked for (same length) comes
+        // before P29's next video, as the same video from a fresh link.
+        val page = "https://clips.example.test/watch/5"
+        val script = generic(1, 25 * MIB, page, lengthMillis = 600_000)
+            .copy(sources = setOf(CandidateSource.DOM))
+        val next = generic(2, 30 * MIB, page, lengthMillis = 900_000)
+        val player = generic(3, 25 * MIB, page, lengthMillis = 601_000)
+            .copy(sources = setOf(CandidateSource.REQUEST))
+        resolver.answer = { candidate ->
+            gone(410).takeIf { candidate.mediaUrl == script.mediaUrl }
+        }
+        store.publish(page, "Harbour lights", listOf(script, next, player))
+        store.select(MediaGroups.of(listOf(script)).single())
+
+        val sheet = viewModel()
+        advanceUntilIdle()
+
+        val state = sheet.uiState.value
+        assertNull(state.failure)
+        assertTrue(state.freshLink)
+        assertFalse(state.nextVideo)
+        assertEquals(
+            listOf(script.mediaUrl, player.mediaUrl),
+            resolver.requested.map { it.mediaUrl },
+        )
+        assertEquals(
+            listOf(
+                "First video",
+                "Step: file check",
+                "Host: media.example.test",
+                "Status: HTTP 410",
+                "Link from: page script",
+                "Link age: unknown",
+                "Link expiry: none",
+                "Player's link",
+                "Host: media.example.test",
+                "Status: ready",
+                "Link from: player request",
+                "Link age: unknown",
+                "Link expiry: none",
+            ),
+            state.attemptDetails,
+        )
+    }
+
+    @Test
+    fun aGoneLinkReadsThePageAgainQuietlyAndPreparesItsNewLink() = runTest {
+        // P37 (G7): nothing fresh on the page yet: the page is read again as the tab would
+        // ask for it, and the same video's new link is prepared.
+        val page = "https://clips.example.test/watch/5"
+        val dead = generic(1, 25 * MIB, page, lengthMillis = 600_000).copy(
+            mediaUrl = "https://media.example.test/v5.mp4?validto=1&hash=old",
+            sources = setOf(CandidateSource.DOM),
+        )
+        val again = dead.copy(
+            mediaUrl = "https://media.example.test/v5.mp4?validto=2&hash=new",
+            sources = setOf(CandidateSource.DOM, CandidateSource.PAGE_REREAD),
+        )
+        resolver.answer = { candidate -> gone(410).takeIf { candidate.mediaUrl == dead.mediaUrl } }
+        store.browserUserAgent = TAB_AGENT
+        store.publish(page, "Harbour lights", listOf(dead))
+        store.select(MediaGroups.of(listOf(dead)).single())
+        val reader = FakePageReader(PageReread.Found(listOf(again), facts = null))
+
+        val sheet = viewModel(pageReader = reader)
+        advanceUntilIdle()
+
+        val state = sheet.uiState.value
+        assertNull(state.failure)
+        assertTrue(state.freshLink)
+        assertEquals(listOf(page to TAB_AGENT), reader.asked)
+        assertEquals(
+            listOf(dead.mediaUrl, again.mediaUrl),
+            resolver.requested.map { it.mediaUrl },
+        )
+        assertEquals(
+            listOf("Page read again", "Host: media.example.test", "Status: ready"),
+            state.attemptDetails.drop(7).take(3),
+        )
+        assertTrue("Link from: page read again" in state.attemptDetails)
+    }
+
+    @Test
+    fun atMostTwoQuietReadsThenTheErrorOffersReloadPageAndTryAgain() = runTest {
+        // P37: two reads that give only the dead link, then the error with both in Details.
+        val page = "https://clips.example.test/watch/5"
+        val dead = generic(1, 25 * MIB, page, lengthMillis = 600_000)
+            .copy(sources = setOf(CandidateSource.DOM))
+        resolver.answer = { candidate -> gone(410).takeIf { candidate.mediaUrl == dead.mediaUrl } }
+        store.publish(page, "Harbour lights", listOf(dead))
+        store.select(MediaGroups.of(listOf(dead)).single())
+        val sameAgain = PageReread.Found(listOf(dead), facts = null)
+        val reader = FakePageReader(sameAgain, sameAgain, sameAgain)
+
+        val sheet = viewModel(pageReader = reader)
+        advanceUntilIdle()
+
+        val state = sheet.uiState.value
+        assertEquals("The site no longer has this video (HTTP 410).", state.failure)
+        assertTrue(state.canReload)
+        assertEquals(2, reader.asked.size)
+        assertEquals(listOf(dead.mediaUrl), resolver.requested.map { it.mediaUrl })
+        assertEquals(
+            listOf("Page read again", "Status: no new link"),
+            state.failureDetails.takeLast(4).take(2),
+        )
+        assertEquals(
+            listOf("Page read again", "Status: no new link"),
+            state.failureDetails.takeLast(2),
+        )
+    }
+
+    @Test
+    fun aNoticePageIsNotUsedAndTryAgainReadsThePageOnceMore() = runTest {
+        // P37: the page answered with a notice (no player data): not used, one read only.
+        // Try again reads it again and prepares the new link it gives then.
+        val page = "https://clips.example.test/watch/5"
+        val dead = generic(1, 25 * MIB, page, lengthMillis = 600_000).copy(
+            mediaUrl = "https://media.example.test/v5.mp4?hash=old",
+            sources = setOf(CandidateSource.DOM),
+        )
+        val again = dead.copy(
+            mediaUrl = "https://media.example.test/v5.mp4?hash=new",
+            sources = setOf(CandidateSource.PAGE_REREAD),
+        )
+        resolver.answer = { candidate -> gone(410).takeIf { candidate.mediaUrl == dead.mediaUrl } }
+        store.publish(page, "Harbour lights", listOf(dead))
+        store.select(MediaGroups.of(listOf(dead)).single())
+        val reader = FakePageReader(
+            PageReread.NoPlayer,
+            PageReread.Found(listOf(again), facts = null),
+        )
+
+        val sheet = viewModel(pageReader = reader)
+        advanceUntilIdle()
+        assertEquals(1, reader.asked.size)
+        assertTrue(sheet.uiState.value.canReload)
+        assertEquals(
+            listOf(
+                "First video",
+                "Step: file check",
+                "Host: media.example.test",
+                "Status: HTTP 410",
+                "Link from: page script",
+                "Link age: unknown",
+                "Link expiry: none",
+                "Page read again",
+                "Status: no player data (a notice or a check)",
+            ),
+            sheet.uiState.value.failureDetails,
+        )
+
+        sheet.retry()
+        advanceUntilIdle()
+
+        assertEquals(2, reader.asked.size)
+        assertNull(sheet.uiState.value.failure)
+        assertTrue(sheet.uiState.value.freshLink)
+        assertFalse(sheet.uiState.value.canReload)
+        assertEquals(again.mediaUrl, resolver.requested.last().mediaUrl)
+    }
+
+    @Test
+    fun withoutQuietReadsTheErrorOffersReloadAtOnceAndReloadAsksTheBrowser() = runTest {
+        // P37: REREAD=0. Reload page and try again hands the browser the video and its dead
+        // links; without a browser listening the sheet stays.
+        val page = "https://clips.example.test/watch/5"
+        val dead = generic(1, 25 * MIB, page, lengthMillis = 600_000)
+            .copy(sources = setOf(CandidateSource.DOM))
+        resolver.answer = { candidate -> gone(410).takeIf { candidate.mediaUrl == dead.mediaUrl } }
+        store.publish(page, "Harbour lights", listOf(dead))
+        store.select(MediaGroups.of(listOf(dead)).single())
+        val sheet = viewModel()
+        advanceUntilIdle()
+        assertTrue(sheet.uiState.value.canReload)
+        assertFalse(sheet.reloadPage())
+
+        val reloads = mutableListOf<PageReload>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            store.pageReloads.collect { reloads += it }
+        }
+        assertTrue(sheet.reloadPage())
+
+        val reload = reloads.single()
+        assertEquals(page, reload.pageUrl)
+        assertEquals(listOf(dead.mediaUrl), reload.video.candidates.map { it.mediaUrl })
+        assertEquals(setOf(dead.mediaUrl), reload.deadLinks)
+        assertFalse(reload.toString().contains("media.example.test"))
+    }
+
+    @Test
+    fun homesPageAndAnAdaptersVideoKeepTheirOwnWaysAndOfferNoReload() = runTest {
+        // P37: Home's page keeps Home's re-read; a site adapter's video is untouched.
+        val page = "https://clips.example.test/watch/5"
+        val dead = generic(1, 25 * MIB, page, lengthMillis = 600_000)
+            .copy(sources = setOf(CandidateSource.DOM))
+        resolver.answer = { gone(410) }
+        store.publish(page, "Harbour lights", listOf(dead), owner = LookupOwner.HOME)
+        store.select(MediaGroups.of(listOf(dead)).single())
+        val reader = FakePageReader(PageReread.NoPlayer)
+        val home = viewModel(pageReader = reader)
+        advanceUntilIdle()
+        assertFalse(home.uiState.value.canReload)
+
+        val site = video(720, 25 * MIB, index = 4)
+        select(listOf(site))
+        val adapter = viewModel(pageReader = reader)
+        advanceUntilIdle()
+
+        assertFalse(adapter.uiState.value.canReload)
+        assertTrue(reader.asked.isEmpty())
+    }
+
     /** P16/P18: a sheet opened on Home's lookup of a link, before the video came. */
     private fun waitingSheet(
         preferences: DownloadPreferences = DownloadPreferences(confirmOnMeteredNetwork = false),
@@ -1131,6 +1402,7 @@ class QuickDownloadViewModelTest {
         network: NetworkSnapshot = WIFI,
         playback: VideoPlaybackSupport = VideoPlaybackSupport.ANY,
         snapshot: StateFlow<NetworkSnapshot> = MutableStateFlow(network),
+        pageReader: BrowserPageReader = BrowserPageReader.None,
     ) = QuickDownloadViewModel(
         store = store,
         selectionStore = selection,
@@ -1148,6 +1420,7 @@ class QuickDownloadViewModelTest {
         playback = playback,
         downloadThumbnails = thumbnails,
         lookups = lookups,
+        pageReader = pageReader,
     )
 
     /** A sheet whose [ViewModelStore] the test clears, as closing the sheet does. */
@@ -1214,6 +1487,17 @@ class QuickDownloadViewModelTest {
         }
     }
 
+    /** P37: answers the sheet's quiet re-reads in turn; then "not read". */
+    private class FakePageReader(vararg answers: PageReread) : BrowserPageReader {
+        val asked = mutableListOf<Pair<String, String?>>()
+        private val queue = ArrayDeque(answers.toList())
+
+        override suspend fun read(pageUrl: String, userAgent: String?): PageReread {
+            asked += pageUrl to userAgent
+            return queue.removeFirstOrNull() ?: PageReread.Failed
+        }
+    }
+
     private class FakeStarter : PreviewDownloadStarter {
         val variants = mutableListOf<MediaVariant>()
         val assets = mutableListOf<MediaAsset>()
@@ -1239,5 +1523,10 @@ class QuickDownloadViewModelTest {
             owner = LookupOwner.HOME,
         )
         const val YOUTUBE_PICTURE = "https://i.ytimg.com/vi/fixture0001/hqdefault.jpg"
+        const val TAB_AGENT = "Mozilla/5.0 (Linux; Android 15; wv) WebView/test"
+
+        /** P37: a pasted file's link lines: no time it was seen, no expiry in its address. */
+        val PASTED_LINK_LINES =
+            listOf("Link from: pasted link", "Link age: unknown", "Link expiry: none")
     }
 }

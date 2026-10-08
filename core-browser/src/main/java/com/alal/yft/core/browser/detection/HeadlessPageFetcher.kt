@@ -98,10 +98,29 @@ class HeadlessPageFetcher(
         .callTimeout(policy.callTimeoutSeconds, TimeUnit.SECONDS)
         .build()
 
-    suspend fun fetch(url: String): Result {
+    /**
+     * P37: the browser tab's own quiet re-read of its page: the WebView's [userAgent], the tab's
+     * cookies for the page's own site ([cookieFor], from the browser's cookie store; never
+     * logged, never sent to another site after a redirect) and no cached answer. Home's
+     * cookie-free [fetch] never uses it.
+     */
+    class TabSession(
+        val userAgent: String?,
+        val cookieFor: (url: String) -> String?,
+    ) {
+        override fun toString(): String = "TabSession(userAgentPresent=${userAgent != null})"
+    }
+
+    suspend fun fetch(url: String): Result = fetchPage(url, session = null)
+
+    /** P37: [url] read again for the browser tab ([TabSession]), with the same limits. */
+    suspend fun fetchForTab(url: String, session: TabSession): Result = fetchPage(url, session)
+
+    private suspend fun fetchPage(url: String, session: TabSession?): Result {
         var current = url.toHttpUrlOrNull()
             ?.takeIf { it.username.isEmpty() && it.password.isEmpty() }
             ?: return Result.Failed(FailureReason.INVALID_URL)
+        val pageHost = current.host
         var redirects = 0
         var retry = 0
         var started = System.nanoTime()
@@ -118,7 +137,7 @@ class HeadlessPageFetcher(
             val outcome = try {
                 val remaining = budget - (System.nanoTime() - started)
                 if (remaining <= 0) throw SocketTimeoutException("Request timed out")
-                execute(current, remaining)
+                execute(current, remaining, session, sameSite(pageHost, current.host))
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (failure: IOException) {
@@ -152,12 +171,25 @@ class HeadlessPageFetcher(
         }
     }
 
-    private suspend fun execute(url: HttpUrl, remainingNanos: Long): Outcome {
+    private suspend fun execute(
+        url: HttpUrl,
+        remainingNanos: Long,
+        session: TabSession?,
+        pageSite: Boolean,
+    ): Outcome {
         val request = Request.Builder()
             .url(url)
             .get()
-            .header("User-Agent", userAgent)
+            .header("User-Agent", session?.userAgent?.takeIf(String::isNotBlank) ?: userAgent)
             .apply { pageHeaders.forEach { (name, value) -> header(name, value) } }
+            .apply {
+                if (session == null) return@apply
+                header("Cache-Control", "no-cache")
+                header("Pragma", "no-cache")
+                if (!pageSite) return@apply
+                session.cookieFor(url.toString())?.takeIf(String::isNotBlank)
+                    ?.let { header("Cookie", it) }
+            }
             .build()
         return suspendCancellableCoroutine { continuation ->
             val call = fetchClient.newCall(request)
@@ -227,6 +259,10 @@ class HeadlessPageFetcher(
         }
         return buffer.readString(charset)
     }
+
+    /** The same host, or one is the other's subdomain (`www.example.test`, `example.test`). */
+    private fun sameSite(pageHost: String, host: String): Boolean =
+        host == pageHost || host.endsWith(".$pageHost") || pageHost.endsWith(".$host")
 
     private fun String.isMedia(): Boolean =
         startsWith("video/") || startsWith("audio/") || this in MANIFEST_TYPES

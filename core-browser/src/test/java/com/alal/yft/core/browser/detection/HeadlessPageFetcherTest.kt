@@ -182,6 +182,60 @@ class HeadlessPageFetcherTest {
     }
 
     @Test
+    fun theTabsReadAgainSendsItsAgentNoCacheAndItsCookiesOnlyToThePagesSite() = runTest {
+        val elsewhere = "http://other.test:${server.port}/elsewhere"
+        server.enqueue(MockResponse().setResponseCode(302).setHeader("Location", elsewhere))
+        server.enqueue(html("moved"))
+        val asked = mutableListOf<String>()
+        val session = HeadlessPageFetcher.TabSession(TAB_AGENT) { url ->
+            asked += url
+            "tab=fixture"
+        }
+        val anyHost = client().newBuilder()
+            .dns(object : Dns {
+                override fun lookup(hostname: String): List<InetAddress> = listOf(LOOPBACK)
+            })
+            .build()
+
+        val result = HeadlessPageFetcher(anyHost, USER_AGENT)
+            .fetchForTab(server.url("/watch/5").toString(), session)
+
+        assertEquals(HeadlessPageFetcher.Result.Page(elsewhere, "moved"), result)
+        val page = server.takeRequest()
+        assertEquals(TAB_AGENT, page.getHeader("User-Agent"))
+        assertEquals("no-cache", page.getHeader("Cache-Control"))
+        assertEquals("no-cache", page.getHeader("Pragma"))
+        assertEquals("tab=fixture", page.getHeader("Cookie"))
+        val moved = server.takeRequest()
+        assertEquals(TAB_AGENT, moved.getHeader("User-Agent"))
+        assertNull(moved.getHeader("Cookie"))
+        assertEquals(listOf(server.url("/watch/5").toString()), asked)
+        assertTrue(session.toString().contains("userAgentPresent=true"))
+        assertTrue(!session.toString().contains("fixture"))
+    }
+
+    @Test
+    fun homesReadStaysWithoutCookiesOrNoCacheAndATabWithoutAgentUsesYfts() = runTest {
+        server.enqueue(html("home"))
+        server.enqueue(html("tab"))
+        val fetcher = HeadlessPageFetcher(client(), USER_AGENT)
+
+        fetcher.fetch(server.url("/home").toString())
+        fetcher.fetchForTab(
+            server.url("/tab").toString(),
+            HeadlessPageFetcher.TabSession(userAgent = null) { null },
+        )
+
+        val home = server.takeRequest()
+        assertNull(home.getHeader("Cache-Control"))
+        assertNull(home.getHeader("Cookie"))
+        val tab = server.takeRequest()
+        assertEquals(USER_AGENT, tab.getHeader("User-Agent"))
+        assertEquals("no-cache", tab.getHeader("Cache-Control"))
+        assertNull(tab.getHeader("Cookie"))
+    }
+
+    @Test
     fun redirectLoopsStopAtTheLimit() = runTest {
         repeat(3) {
             server.enqueue(MockResponse().setResponseCode(302).setHeader("Location", "/again"))
@@ -369,5 +423,6 @@ class HeadlessPageFetcherTest {
     private companion object {
         val LOOPBACK: InetAddress = InetAddress.getByName("127.0.0.1")
         const val USER_AGENT = "Mozilla/5.0 (Linux; Android 15) YFT/test"
+        const val TAB_AGENT = "Mozilla/5.0 (Linux; Android 15; wv) WebView/test"
     }
 }

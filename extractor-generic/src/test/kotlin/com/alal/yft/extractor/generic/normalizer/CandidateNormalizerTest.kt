@@ -37,7 +37,8 @@ class CandidateNormalizerTest {
         val result = CandidateNormalizer().normalize(pageUrl, listOf(first, second))
 
         assertEquals(1, result.size)
-        assertTrue(result.single().mediaUrl.contains("token=new"))
+        // P37: the address the page's player asked for stays over the script's later copy.
+        assertTrue(result.single().mediaUrl.contains("token=old"))
         assertEquals(setOf(CandidateSource.REQUEST, CandidateSource.DOM), result.single().sources)
         assertEquals("Fixture movie", result.single().title)
         assertEquals(60_000L, result.single().durationMillis)
@@ -209,6 +210,31 @@ class CandidateNormalizerTest {
             listOf(PageMediaRole.MAIN, PageMediaRole.PREVIEW),
             result.map { it.pageRole },
         )
+    }
+
+    @Test
+    fun thePlayersRequestKeepsItsAddressAndOfTwoRequestsTheNewestWins() {
+        val script = candidate(
+            mediaUrl = "https://cdn.test/clip.mp4?token=script",
+            sources = setOf(CandidateSource.DOM),
+            observedAt = 30,
+        )
+        val player = candidate(
+            mediaUrl = "https://cdn.test/clip.mp4?token=player",
+            sources = setOf(CandidateSource.REQUEST),
+            observedAt = 20,
+        )
+        val later = candidate(
+            mediaUrl = "https://cdn.test/clip.mp4?token=later",
+            sources = setOf(CandidateSource.REQUEST),
+            observedAt = 40,
+        )
+
+        val first = CandidateNormalizer().normalize(pageUrl, listOf(player, script)).single()
+        val both = CandidateNormalizer().normalize(pageUrl, listOf(player, script, later)).single()
+
+        assertTrue(first.mediaUrl.endsWith("token=player"))
+        assertTrue(both.mediaUrl.endsWith("token=later"))
     }
 
     private fun candidate(

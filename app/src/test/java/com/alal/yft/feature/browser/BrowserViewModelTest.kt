@@ -30,6 +30,7 @@ import com.alal.yft.extractor.api.SiteExtractor
 import com.alal.yft.extractor.api.SiteExtractorRegistry
 import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
+import com.alal.yft.feature.detectedmedia.PageReload
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -1039,6 +1040,68 @@ class BrowserViewModelTest {
     }
 
     @Test
+    fun reloadPageAndTryAgainReloadsWithoutCacheAndReopensTheSheetForANewLink() = runTest {
+        // P37: the sheet's "Reload page and try again" on a page whose links were gone.
+        val store = DetectedMediaStore()
+        val viewModel = BrowserViewModel(OkHttpClient(), noAdapters(), store)
+        val opened = mutableListOf<Unit>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.quickDownloadRequests.collect { opened += it }
+        }
+        val page = "https://example.test/watch/5"
+        val dead = "https://cdn.test/v5.mp4?token=old"
+        val fresh = "https://cdn.test/v5.mp4?token=new"
+        viewModel.onPageStarted(page)
+        viewModel.onPageFinished(page, "Clip")
+        viewModel.onDomProbeResult(page, oneVideo(dead))
+        advanceTimeBy(2_000)
+        runCurrent()
+        val video = MediaGroups.pageVideos(viewModel.uiState.value.candidates).single()
+
+        assertTrue(store.reloadPage(PageReload(page, video, setOf(dead))))
+        runCurrent()
+        assertEquals(1, viewModel.uiState.value.reloadRequest)
+        assertTrue(viewModel.uiState.value.noCacheLoad)
+
+        // The tab reloads; the page first names the same dead link, then a new one.
+        viewModel.onPageStarted(page)
+        viewModel.onDomProbeResult(page, oneVideo(dead))
+        advanceTimeBy(2_000)
+        runCurrent()
+        assertTrue(opened.isEmpty())
+        viewModel.onDomProbeResult(page, oneVideo(fresh))
+        advanceTimeBy(2_000)
+        runCurrent()
+        viewModel.onPageFinished(page, "Clip")
+        assertEquals(1, opened.size)
+        assertEquals(listOf(fresh), store.selection.value?.candidates?.map { it.mediaUrl })
+        assertFalse(viewModel.uiState.value.noCacheLoad)
+
+        // No new link within the wait: a notice that clears itself; nothing opens.
+        assertTrue(store.reloadPage(PageReload(page, video, setOf(dead, fresh))))
+        runCurrent()
+        assertEquals(2, viewModel.uiState.value.reloadRequest)
+        viewModel.onPageStarted(page)
+        viewModel.onDomProbeResult(page, oneVideo(fresh))
+        viewModel.onPageFinished(page, "Clip")
+        advanceTimeBy(15_001)
+        runCurrent()
+        assertEquals(
+            "The site gave no new link. Play the video for a moment, then tap Download again.",
+            viewModel.uiState.value.focusNotice,
+        )
+        assertEquals(1, opened.size)
+        advanceTimeBy(4_001)
+        runCurrent()
+        assertNull(viewModel.uiState.value.focusNotice)
+
+        // Another page's reload is not this tab's.
+        store.reloadPage(PageReload("https://example.test/other", video, setOf(dead)))
+        runCurrent()
+        assertEquals(2, viewModel.uiState.value.reloadRequest)
+    }
+
+    @Test
     fun severalVideosOpenThePlayingOneElseTheLargestWithTheOthersCounted() = runTest {
         val store = DetectedMediaStore()
         val viewModel = BrowserViewModel(OkHttpClient(), noAdapters(), store)
@@ -1222,6 +1285,11 @@ class BrowserViewModelTest {
 
     private fun adapters(extractor: SiteExtractor): SiteAdapterCoordinator =
         SiteAdapterCoordinator(SiteExtractorRegistry(listOf(extractor)))
+
+    /** P37: the page's script names one 10-minute video at [url]. */
+    private fun oneVideo(url: String): String = JSONArray()
+        .put(JSONObject().put("url", url).put("type", "video/mp4").put("duration", 600))
+        .toString()
 
     private fun request(
         url: String,
