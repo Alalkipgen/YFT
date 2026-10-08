@@ -56,9 +56,10 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent B — `work/phase-14-sites` (P36, P37)
 
-- Status: P36 OWNER CHECK; P37 OWNER CHECK (started 2026-10-08; base commit `c8fcd33` =
-  `origin/work/phase-14-integration`; folder `/data/YFT-B`). OWNER ANSWERS: none (defaults
-  `TIKTOK_QUALITIES=DESKTOP`, `REREAD=2`).
+- Status: READY FOR MERGE — P36 OWNER CHECK, P37 OWNER CHECK; last code commit `10957b7` on
+  `work/phase-14-sites`, all three CI runs green (below). Started 2026-10-08; base commit
+  `c8fcd33` = `origin/work/phase-14-integration`; folder `/data/YFT-B`. OWNER ANSWERS: none
+  (defaults `TIKTOK_QUALITIES=DESKTOP`, `REREAD=2`). Not merged to main; P38 merges.
 - Starting state (2026-10-08, `c8fcd33`, Agent B scope command): 1220 tests, 0 failures, 66
   skipped (extractor-sites 196, extractor-generic 19, core-model 98, core-browser 133, core-media
   28, app 746/66 skipped); lint 0 errors (95 warnings); `:app:compileDebugAndroidTestKotlin` OK.
@@ -138,7 +139,9 @@ Keep at least the heading and one blank line between sections, so Git merges the
     settle" — an app gap the real WebView showed: the setup's "720p" made a stated row, and a
     410 at its file check kept the row, so no fresh link was looked for. Fixed in
     `QuickDownloadViewModel` (stated row gone, link gone at Download; +2 tests).
-  - CI (fix): (after the push)
+  - CI (fix, `10957b7`): checkpoint validation success (https://github.com/Alalkipgen/YFT/actions/runs/37804865935), emulator smoke
+    success (https://github.com/Alalkipgen/YFT/actions/runs/37804865954; 32 instrumented tests, 0 failures, `FreshLinkInstrumentedTest`
+    included, 0 FATAL), Preview APK success (https://github.com/Alalkipgen/YFT/actions/runs/37804865937).
   - Owner check: the Preview #5 site whose video answered HTTP 410 → Download → a working video
     without a manual reload (or the fresh-link line); else Try again, then "Reload page and try
     again"; a Details screenshot if it still fails; Javtiful still downloads.
