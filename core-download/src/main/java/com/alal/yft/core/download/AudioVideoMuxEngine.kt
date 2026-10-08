@@ -6,6 +6,7 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.os.Build
+import android.os.SystemClock
 import android.system.ErrnoException
 import android.system.Os
 import android.util.Log
@@ -96,6 +97,12 @@ object AudioVideoMuxCompatibility {
      * smoke #27 and #28: `LocalMuxResult.Failure`). Turn on only after a phone proves it works.
      */
     const val AV1_MP4_ENABLED = false
+
+    /**
+     * P35 (G2, `FAST_MERGE=ON`): MP4 merges copy the tracks' samples in large blocks
+     * ([StreamCopyAudioVideoMuxer]) and fall back to MediaMuxer when that does not count.
+     */
+    const val FAST_MERGE_ENABLED = true
 
     fun evaluate(
         plan: AudioVideoMuxDownloadPlan,
@@ -236,14 +243,28 @@ interface LocalAudioVideoMuxer {
  * Platform-only remuxer. Inputs must already be complete, unencrypted tracks: ISO-BMFF for an
  * MP4 output, WebM for a WebM output (P6).
  *
+ * P35: an MP4 merge is a stream copy first ([fastMerge], [StreamCopyAudioVideoMuxer]) — the
+ * tracks' samples copied in large blocks, then read back with MediaExtractor — and today's
+ * MediaExtractor → MediaMuxer way only when the stream copy does not count. WebM goes the
+ * MediaMuxer way.
+ *
  * MediaExtractor/MediaMuxer behavior is device-dependent and remains an explicit device test.
  */
 class AndroidMp4AudioVideoMuxer(
     private val maxSampleBufferBytes: Int = DEFAULT_MAX_SAMPLE_BUFFER_BYTES,
+    /** P35: stream-copy MP4 merges first ([AudioVideoMuxCompatibility.FAST_MERGE_ENABLED]). */
+    private val fastMerge: Boolean = AudioVideoMuxCompatibility.FAST_MERGE_ENABLED,
 ) : ProgressAudioVideoMuxer {
     init {
         require(maxSampleBufferBytes in MIN_SAMPLE_BUFFER_BYTES..MAX_SAMPLE_BUFFER_BYTES)
     }
+
+    private val mediaMuxer = MediaMuxerAudioVideoMuxer(maxSampleBufferBytes)
+    private val streamCopy = StreamCopyAudioVideoMuxer(
+        fallback = mediaMuxer,
+        check = MediaExtractorStreamCopyCheck(),
+        outputs = AndroidStreamCopyOutputs,
+    )
 
     override fun mux(
         videoFile: File,
@@ -260,8 +281,49 @@ class AndroidMp4AudioVideoMuxer(
 
     /**
      * Merges into [output]: a new file, or (Android 8.0+) a seekable read-write descriptor that
-     * this call neither empties nor closes. [onProgress] hears every written sample (P27).
+     * this call neither empties nor closes. [onProgress] hears the merge move on (P27): the
+     * stream copy after each chunk, today's way at most every 250 ms (P35).
      */
+    override fun mux(
+        videoFile: File,
+        audioFile: File,
+        output: MuxOutput,
+        outputMimeType: String,
+        onProgress: MuxProgressListener,
+    ): MuxAttempt {
+        val muxer: ProgressAudioVideoMuxer = if (fastMerge) streamCopy else mediaMuxer
+        return muxer.mux(videoFile, audioFile, output, outputMimeType, onProgress)
+    }
+
+    private companion object {
+        const val MIN_SAMPLE_BUFFER_BYTES = 256 * 1_024
+        const val DEFAULT_MAX_SAMPLE_BUFFER_BYTES = 8 * 1_024 * 1_024
+        const val MAX_SAMPLE_BUFFER_BYTES = 32 * 1_024 * 1_024
+    }
+}
+
+/**
+ * Today's merge (P6, P27): MediaExtractor reads each sample and MediaMuxer writes it. P35's
+ * quick wins: a sample's time and flags are read once, one buffer serves every sample, progress
+ * goes out at most every 250 ms, and the time goes to opening, reading, writing and finishing.
+ */
+internal class MediaMuxerAudioVideoMuxer(
+    private val maxSampleBufferBytes: Int,
+    private val nanoTime: () -> Long = System::nanoTime,
+) : ProgressAudioVideoMuxer {
+    override fun mux(
+        videoFile: File,
+        audioFile: File,
+        outputFile: File,
+        outputMimeType: String,
+    ): LocalMuxResult = mux(
+        videoFile = videoFile,
+        audioFile = audioFile,
+        output = MuxOutput.ToFile(outputFile),
+        outputMimeType = outputMimeType,
+        onProgress = { _, _ -> },
+    ).result
+
     override fun mux(
         videoFile: File,
         audioFile: File,
@@ -299,11 +361,22 @@ class AndroidMp4AudioVideoMuxer(
             }
         }
 
+        val timing = MuxTiming(nanoTime)
         val videoExtractor = MediaExtractor()
         val audioExtractor = MediaExtractor()
         var muxer: MediaMuxer? = null
         var muxerStarted = false
         val written = SampleCount()
+        fun attempt(result: LocalMuxResult) = MuxAttempt(
+            result = result,
+            samplesWritten = written.samples,
+            details = MuxDetails(
+                path = MuxDetails.MEDIA_MUXER,
+                videoSamples = written.video,
+                audioSamples = written.audio,
+                phases = timing.phases(),
+            ),
+        )
         return try {
             videoExtractor.setDataSource(videoFile.absolutePath)
             audioExtractor.setDataSource(audioFile.absolutePath)
@@ -322,62 +395,61 @@ class AndroidMp4AudioVideoMuxer(
             val outputAudioTrack = muxer.addTrack(audioTrack.format)
             muxer.start()
             muxerStarted = true
+            timing.lap(MuxTiming.OPEN)
             copySamples(
-                video = SampleSource(videoExtractor, outputVideoTrack),
-                audio = SampleSource(audioExtractor, outputAudioTrack),
+                video = SampleSource(videoExtractor, outputVideoTrack, isVideo = true),
+                audio = SampleSource(audioExtractor, outputAudioTrack, isVideo = false),
                 muxer = muxer,
                 bufferBytes = sampleBufferBytes(videoTrack.format, audioTrack.format),
                 meter = ProgressMeter(
                     durationUs = durationUs(videoTrack.format, audioTrack.format),
                     trackBytes = videoFile.length() + audioFile.length(),
                     listener = onProgress,
+                    nanoTime = nanoTime,
                 ),
                 written = written,
+                timing = timing,
             )
             muxer.stop()
             muxerStarted = false
             muxer.release()
             muxer = null
+            timing.lap(MuxTiming.FINISH)
             val bytes = when (output) {
                 is MuxOutput.ToFile -> output.file.length()
                 is MuxOutput.ToDescriptor -> Os.fstat(output.descriptor).st_size
             }
             if (bytes > 0) {
-                MuxAttempt(LocalMuxResult.Completed(bytes), written.samples)
+                attempt(LocalMuxResult.Completed(bytes))
             } else {
                 output.delete()
-                MuxAttempt(
-                    LocalMuxResult.Failure(DownloadFailureReason.INCOMPATIBLE_TRACKS),
-                    written.samples,
-                )
+                attempt(LocalMuxResult.Failure(DownloadFailureReason.INCOMPATIBLE_TRACKS))
             }
         } catch (cancellation: CancellationException) {
             output.delete()
             throw cancellation
         } catch (error: IOException) {
             output.delete()
-            MuxAttempt(
+            attempt(
                 LocalMuxResult.Failure(error.toStorageReason(), DownloadFailureDetails.of(error)),
-                written.samples,
             )
         } catch (error: ErrnoException) {
             output.delete()
-            MuxAttempt(
+            attempt(
                 LocalMuxResult.Failure(
                     DownloadFailureReason.STORAGE_UNAVAILABLE,
                     DownloadFailureDetails.of(error),
                 ),
-                written.samples,
             )
         } catch (error: IllegalArgumentException) {
             output.delete()
-            MuxAttempt(incompatible(error), written.samples)
+            attempt(incompatible(error))
         } catch (error: IllegalStateException) {
             output.delete()
-            MuxAttempt(incompatible(error), written.samples)
+            attempt(incompatible(error))
         } catch (error: SecurityException) {
             output.delete()
-            MuxAttempt(incompatible(error), written.samples)
+            attempt(incompatible(error))
         } finally {
             if (muxerStarted) runCatching { muxer?.stop() }
             runCatching { muxer?.release() }
@@ -417,6 +489,10 @@ class AndroidMp4AudioVideoMuxer(
             .maxOrNull()
             ?.takeIf { it > 0 }
 
+    /**
+     * Writes the samples of both tracks in time order. Each sample costs five platform calls
+     * (P35; it was eight): its time and flags once, read, write, advance.
+     */
     private fun copySamples(
         video: SampleSource,
         audio: SampleSource,
@@ -424,22 +500,21 @@ class AndroidMp4AudioVideoMuxer(
         bufferBytes: Int,
         meter: ProgressMeter,
         written: SampleCount,
+        timing: MuxTiming,
     ) {
         val buffer = ByteBuffer.allocateDirect(bufferBytes)
         val info = MediaCodec.BufferInfo()
+        video.load()
+        audio.load()
+        timing.lap(MuxTiming.READ)
         while (!video.finished || !audio.finished) {
             val source = when {
                 video.finished -> audio
                 audio.finished -> video
-                video.extractor.sampleTime <= audio.extractor.sampleTime -> video
+                video.timeUs <= audio.timeUs -> video
                 else -> audio
             }
-            val presentationTimeUs = source.extractor.sampleTime
-            if (presentationTimeUs < 0) {
-                source.finished = true
-                continue
-            }
-            if (source.extractor.sampleFlags and MediaExtractor.SAMPLE_FLAG_ENCRYPTED != 0) {
+            if (source.flags and MediaExtractor.SAMPLE_FLAG_ENCRYPTED != 0) {
                 throw IllegalArgumentException("Encrypted samples cannot be muxed")
             }
             buffer.clear()
@@ -451,40 +526,74 @@ class AndroidMp4AudioVideoMuxer(
             if (sampleBytes == 0 || sampleBytes > buffer.capacity()) {
                 throw IllegalArgumentException("Invalid or oversized media sample")
             }
-            info.set(
-                0,
-                sampleBytes,
-                presentationTimeUs,
-                bufferFlagsFor(source.extractor.sampleFlags),
-            )
+            timing.lap(MuxTiming.READ)
+            info.set(0, sampleBytes, source.timeUs, bufferFlagsFor(source.flags))
             muxer.writeSampleData(source.outputTrack, buffer, info)
-            written.samples += 1
-            meter.wrote(presentationTimeUs, sampleBytes)
-            if (!source.extractor.advance()) source.finished = true
+            timing.lap(MuxTiming.WRITE)
+            written.add(source.isVideo)
+            meter.wrote(source.timeUs, sampleBytes)
+            source.advance()
+            timing.lap(MuxTiming.READ)
         }
         meter.finished()
     }
 
-    /** Samples written so far, kept when a merge fails part-way (P27). */
+    /** Samples written so far, kept when a merge fails part-way (P27), per track (P35). */
     private class SampleCount {
-        var samples = 0L
+        var video = 0L
+        var audio = 0L
+        val samples: Long get() = video + audio
+
+        fun add(isVideo: Boolean) {
+            if (isVideo) video += 1 else audio += 1
+        }
+    }
+
+    /** Where today's merge spends its time (P35): opening, reading, writing, finishing. */
+    private class MuxTiming(private val nanoTime: () -> Long) {
+        private val nanos = LongArray(4)
+        private var last = nanoTime()
+
+        fun lap(phase: Int) {
+            val now = nanoTime()
+            nanos[phase] += now - last
+            last = now
+        }
+
+        fun phases(): List<Pair<String, Long>> =
+            NAMES.mapIndexed { phase, name -> name to nanos[phase] / NANOS_PER_MILLI }
+
+        companion object {
+            const val OPEN = 0
+            const val READ = 1
+            const val WRITE = 2
+            const val FINISH = 3
+            val NAMES = listOf("open", "read", "write", "finish")
+            const val NANOS_PER_MILLI = 1_000_000L
+        }
     }
 
     /**
      * Turns written samples into progress: sample time of the tracks' duration, or bytes of the
-     * tracks' bytes when the duration is unknown.
+     * tracks' bytes when the duration is unknown; at most every 250 ms (P35), then the end.
      */
     private class ProgressMeter(
         private val durationUs: Long?,
         private val trackBytes: Long,
         private val listener: MuxProgressListener,
+        private val nanoTime: () -> Long,
     ) {
         private var timeUs = 0L
         private var bytes = 0L
+        private var reportedAt: Long? = null
 
         fun wrote(presentationTimeUs: Long, sampleBytes: Int) {
             timeUs = maxOf(timeUs, presentationTimeUs)
             bytes += sampleBytes
+            val now = nanoTime()
+            val last = reportedAt
+            if (last != null && now - last < PROGRESS_INTERVAL_NANOS) return
+            reportedAt = now
             if (durationUs != null) {
                 listener.onProgress(timeUs.coerceIn(0, durationUs), durationUs)
             } else if (trackBytes > 0) {
@@ -495,6 +604,10 @@ class AndroidMp4AudioVideoMuxer(
         fun finished() {
             val total = durationUs ?: trackBytes.takeIf { it > 0 } ?: return
             listener.onProgress(total, total)
+        }
+
+        private companion object {
+            const val PROGRESS_INTERVAL_NANOS = 250L * 1_000_000
         }
     }
 
@@ -543,18 +656,32 @@ class AndroidMp4AudioVideoMuxer(
         val format: MediaFormat,
     )
 
-    private data class SampleSource(
+    /** One input track; its current sample's time and flags are read once (P35). */
+    private class SampleSource(
         val extractor: MediaExtractor,
         val outputTrack: Int,
-        var finished: Boolean = false,
-    )
+        val isVideo: Boolean,
+    ) {
+        var finished = false
+        var timeUs = 0L
+            private set
+        var flags = 0
+            private set
+
+        fun load() {
+            timeUs = extractor.sampleTime
+            if (timeUs < 0) finished = true else flags = extractor.sampleFlags
+        }
+
+        fun advance() {
+            if (extractor.advance()) load() else finished = true
+        }
+    }
 
     private companion object {
         const val VIDEO_MIME_PREFIX = "video/"
         const val AUDIO_MIME_PREFIX = "audio/"
         const val MIN_SAMPLE_BUFFER_BYTES = 256 * 1_024
-        const val DEFAULT_MAX_SAMPLE_BUFFER_BYTES = 8 * 1_024 * 1_024
-        const val MAX_SAMPLE_BUFFER_BYTES = 32 * 1_024 * 1_024
     }
 }
 
@@ -591,6 +718,8 @@ class AudioVideoMuxEngine(
     private val elapsedMillis: () -> Long = { System.nanoTime() / 1_000_000 },
     /** One line per merge with its step times; no addresses. */
     private val log: (String) -> Unit = ::logMergeLine,
+    /** The calling thread's CPU time in milliseconds (P35), or null where it is unknown. */
+    private val threadCpuMillis: () -> Long? = ::currentThreadCpuMillis,
 ) : AudioVideoMuxRunner {
     init {
         require(bufferBytes in 1_024..1024 * 1_024)
@@ -684,7 +813,10 @@ class AudioVideoMuxEngine(
             val bytesWritten = merge.run()
             tracker.setStage(AudioVideoMuxStage.COMPLETED)
             val completed = tracker.snapshot()
-            log("Merge done (${merge.path}): ${times.summary()}; ${MergeTimes.size(bytesWritten)}")
+            log(
+                "Merge done (${merge.path}): ${times.summary()}; " +
+                    MergeTimes.size(bytesWritten) + merge.detailsSummary(),
+            )
             cleanupWorkspace(workspace, strict = false)
             AudioVideoMuxResult.Completed(bytesWritten, completed)
         } catch (cancellation: CancellationException) {
@@ -815,6 +947,27 @@ class AudioVideoMuxEngine(
         var path = "copy"
             private set
 
+        /** How the last merge went and the merge thread's CPU time (P35), for the log. */
+        private var details: MuxDetails? = null
+        private var cpuMillis: Long? = null
+
+        /**
+         * "; stream copy: 1800 video + 2600 audio samples, parse 12 ms, …; cpu 1.1 s, wall 1.4 s"
+         * when the muxer said how it merged (P35); a large gap between the CPU and the wall time
+         * means the phone paused YFT (R24).
+         */
+        fun detailsSummary(): String {
+            val details = details ?: return ""
+            val cpu = cpuMillis
+            val wall = times.millis(MergeStep.MERGE)
+            val time = if (cpu != null && wall != null) {
+                "; cpu ${MergeTimes.duration(cpu)}, wall ${MergeTimes.duration(wall)}"
+            } else {
+                ""
+            }
+            return "; ${details.summary()}$time"
+        }
+
         suspend fun run(): Long {
             val progressMuxer = muxer as? ProgressAudioVideoMuxer
             if (progressMuxer != null && sdkInt >= IN_PLACE_MIN_SDK) {
@@ -939,6 +1092,7 @@ class AudioVideoMuxEngine(
                 }
             }
             var lastPercent = -1
+            val cpuStart = threadCpuMillis()
             val attempt = try {
                 times.measure(MergeStep.MERGE) {
                     progressMuxer.mux(
@@ -956,8 +1110,14 @@ class AudioVideoMuxEngine(
                     }
                 }
             } finally {
+                // The merge ran on this thread: no suspension since cpuStart.
+                val cpuEnd = threadCpuMillis()
+                if (cpuStart != null && cpuEnd != null) {
+                    cpuMillis = (cpuMillis ?: 0L) + (cpuEnd - cpuStart).coerceAtLeast(0L)
+                }
                 reporter.cancelAndJoin()
             }
+            details = attempt.details
             // The last progress, in case the reporter had not shown it yet.
             latest.value?.takeIf { it != shown }?.let { step ->
                 tracker.setStep(AudioVideoMuxStage.MUXING, step.first, step.second)
@@ -1241,3 +1401,7 @@ private fun percentOf(done: Long, total: Long?): Int {
 private fun logMergeLine(message: String) {
     runCatching { Log.i("YftDownloads", message) }
 }
+
+/** This thread's CPU time (P35); null off Android, as in JVM tests. */
+private fun currentThreadCpuMillis(): Long? =
+    runCatching { SystemClock.currentThreadTimeMillis() }.getOrNull()

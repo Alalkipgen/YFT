@@ -70,6 +70,8 @@ Keep at least the heading and one blank line between sections, so Git merges the
   :core-download:testDebugUnitTest :core-model:test :app:testDebugUnitTest :app:lintDebug
   :app:compileDebugAndroidTestKotlin` → BUILD SUCCESSFUL; core-download 150, core-model 98, app 746
   tests (66 skipped), 0 failures; lint 0 errors.
-- Next: the stream copy (MP4 reader, writer, MediaExtractor check, MediaMuxer fallback), the
-  quick wins on today's path, the per-merge log line and the tests.
+- Work in progress: the stream copy (MP4 reader, writer, MediaExtractor check, MediaMuxer
+  fallback), the quick wins on today's path, the per-merge log line and their JVM tests are in
+  (core-download 166 tests green). Next: the instrumented stream copy vs today's way comparison
+  on the CI emulator (20-minute and 1-hour-sized inputs), the regression proof and the docs.
 - Hand-offs: none
