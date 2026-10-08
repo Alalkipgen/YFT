@@ -50,8 +50,17 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent A — `work/phase-14-background` (P34; later P38)
 
-- Status: NOT STARTED
-- P34 — Downloads and merges keep going in the background; speed in the notification: TODO
+- Status: P34 IN PROGRESS (started 2026-10-08, base `c8fcd33` = `origin/work/phase-14-integration`)
+- P34 — Downloads and merges keep going in the background; speed in the notification: IN PROGRESS
+- Folder `/data/YFT-A`; push over SSH with `/data/.ssh/id_ed25519` (new key, owner added it).
+- Starting state (`c8fcd33`, Agent A scope): `./gradlew --no-daemon --continue :app:testDebugUnitTest
+  :app:lintDebug :app:compileDebugAndroidTestKotlin` → BUILD SUCCESSFUL; app unit tests 746, 0
+  failures, 66 skipped; lint 0 errors (95 warnings).
+- Sandbox note: on the 4 GiB machine the single-use Gradle daemon (~2.5 GB) plus the Kotlin
+  daemon (~1.1 GB) left about 40 MB free while the unit tests ran; stopping the idle Kotlin daemon
+  (mine) after compilation freed 700 MB. Compile first, then test and lint.
+- Next: notification texts, locks, service types, freeze detector, cards; JVM and instrumented
+  tests; regression proof; validation; checkpoint.
 - Hand-offs: none
 
 ## Agent B — `work/phase-14-sites` (P36, P37)
