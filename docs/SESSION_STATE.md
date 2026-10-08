@@ -63,6 +63,13 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent C — `work/phase-14-fast-merge` (P35)
 
-- Status: NOT STARTED
-- P35 — Faster merge for long videos: TODO
+- Status: IN PROGRESS
+- P35 — Faster merge for long videos: IN PROGRESS (started 2026-10-08, base `c8fcd33`)
+- Starting state (2026-10-08, `c8fcd33`, Notion sandbox with Gradle `-Xmx1280m
+  -XX:MaxMetaspaceSize=640m` and a 4 GiB swap file): `./gradlew --no-daemon --continue
+  :core-download:testDebugUnitTest :core-model:test :app:testDebugUnitTest :app:lintDebug
+  :app:compileDebugAndroidTestKotlin` → BUILD SUCCESSFUL; core-download 150, core-model 98, app 746
+  tests (66 skipped), 0 failures; lint 0 errors.
+- Next: the stream copy (MP4 reader, writer, MediaExtractor check, MediaMuxer fallback), the
+  quick wins on today's path, the per-merge log line and the tests.
 - Hand-offs: none
