@@ -69,10 +69,13 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alal.yft.BuildConfig
 import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.model.download.DownloadTaskStatus
+import com.alal.yft.download.BackgroundSettingsIntents
 import com.alal.yft.download.policy.TransferNetworkState
 import com.alal.yft.feature.library.AppPrivateDownloadProvider
 import com.alal.yft.feature.library.LibraryIntents
@@ -111,6 +114,17 @@ fun DownloadsRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val playback = LocalLibraryPlayback.current
+    // Back from Android's settings: the battery and notification cards follow what changed.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshBackground() }
+    val backgroundActions = remember(viewModel, context) {
+        BackgroundCardActions(
+            onTurnOnNotifications = { BackgroundSettingsIntents.notifications(context) },
+            onDismissNotifications = viewModel::hideNotificationsCard,
+            onAllow = { BackgroundSettingsIntents.allowUnrestricted(context) },
+            onOpenAppSettings = { BackgroundSettingsIntents.appDetails(context) },
+            onNotNow = viewModel::hideBatteryCard,
+        )
+    }
     val openElsewhere: (DownloadRowUiState) -> Unit = { row ->
         val intent = DownloadIntents.view(context, row)
         if (intent == null || !LibraryIntents.start(context, intent)) {
@@ -137,6 +151,7 @@ fun DownloadsRoute(
             }
         },
         onOpenSettings = onOpenSettings,
+        backgroundActions = backgroundActions,
     )
 }
 
@@ -159,6 +174,7 @@ fun DownloadsScreen(
     onPlay: (DownloadRowUiState) -> Unit = onOpen,
     onOpenSettings: () -> Unit = {},
     todayStartEpochMs: Long = remember { startOfDayEpochMs(System.currentTimeMillis()) },
+    backgroundActions: BackgroundCardActions = BackgroundCardActions.None,
 ) {
     val colors = YftTheme.colors
     var filter by rememberSaveable { mutableStateOf(DownloadsFilter.ALL) }
@@ -210,6 +226,7 @@ fun DownloadsScreen(
                     )
                 }
             }
+            backgroundItems(uiState.background, backgroundActions)
             if (uiState.isEmpty) {
                 item(key = "empty") { EmptyQueue(Modifier.fillParentMaxHeight(EMPTY_HEIGHT)) }
             } else {
@@ -230,6 +247,32 @@ fun DownloadsScreen(
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         }
+    }
+}
+
+/** P34: the notifications card, then the battery card, under the network notice. */
+private fun LazyListScope.backgroundItems(
+    background: BackgroundCardsUiState,
+    actions: BackgroundCardActions,
+) {
+    if (background.notificationsCard) {
+        item(key = "background-notifications") {
+            NotificationsCard(
+                onTurnOn = actions.onTurnOnNotifications,
+                onDismiss = actions.onDismissNotifications,
+                modifier = Modifier.padding(start = 16.dp, top = 8.dp, end = 16.dp),
+            )
+        }
+    }
+    val battery = background.batteryCard ?: return
+    item(key = "background-battery") {
+        BatteryCard(
+            card = battery,
+            onAllow = actions.onAllow,
+            onOpenAppSettings = actions.onOpenAppSettings,
+            onNotNow = actions.onNotNow,
+            modifier = Modifier.padding(start = 16.dp, top = 8.dp, end = 16.dp),
+        )
     }
 }
 

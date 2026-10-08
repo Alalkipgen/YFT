@@ -167,6 +167,19 @@ object DownloadRuntimeModule {
         @ApplicationContext context: Context,
     ): DownloadServiceStarter = ForegroundDownloadServiceStarter(context)
 
+    /** P34: freezes, the cards the user put away and whether a download was started. */
+    @Provides
+    @Singleton
+    fun provideBackgroundHealthStore(
+        @ApplicationContext context: Context,
+    ): BackgroundHealthStore = SharedPreferencesBackgroundHealthStore(context)
+
+    @Provides
+    @Singleton
+    fun provideBackgroundSystemStatus(
+        @ApplicationContext context: Context,
+    ): BackgroundSystemStatus = AndroidBackgroundSystemStatus(context)
+
     @Provides
     @Singleton
     fun provideNetworkStatusSource(

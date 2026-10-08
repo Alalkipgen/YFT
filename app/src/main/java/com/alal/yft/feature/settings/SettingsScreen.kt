@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
@@ -48,6 +49,8 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alal.yft.BuildConfig
 import com.alal.yft.core.model.ThemeMode
@@ -55,6 +58,10 @@ import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.core.model.settings.DownloadPreferences
 import com.alal.yft.core.model.settings.QualityPreference
 import com.alal.yft.core.model.settings.SearchEngine
+import com.alal.yft.download.AndroidBackgroundSystemStatus
+import com.alal.yft.download.BackgroundSettingsIntents
+import com.alal.yft.download.BackgroundSystemState
+import com.alal.yft.feature.downloads.backgroundDownloadsValue
 import com.alal.yft.ui.components.YftCard
 import com.alal.yft.ui.components.YftDivider
 import com.alal.yft.ui.components.YftGroupLabel
@@ -77,6 +84,11 @@ fun SettingsRoute(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val systemStatus = remember(context) { AndroidBackgroundSystemStatus(context) }
+    var background by remember { mutableStateOf(systemStatus.read()) }
+    // Back from Android's battery settings: the row shows what changed.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { background = systemStatus.read() }
     SettingsScreen(
         state = state,
         themeMode = themeMode,
@@ -85,11 +97,14 @@ fun SettingsRoute(
         onThemeModeChanged = onThemeModeChanged,
         onOpenAbout = onOpenAbout,
         onOpenLicenses = onOpenLicenses,
+        background = background,
+        onAllowBackground = { BackgroundSettingsIntents.allowUnrestricted(context) },
+        onOpenAppSettings = { BackgroundSettingsIntents.appDetails(context) },
     )
 }
 
 /** The list a choice dialog offers; Save files to, Preferred quality and Search engine. */
-private enum class SettingsPicker { LOCATION, QUALITY, SEARCH_ENGINE }
+private enum class SettingsPicker { LOCATION, QUALITY, SEARCH_ENGINE, BACKGROUND }
 
 /**
  * The Settings tab (`06`): APPEARANCE, DOWNLOADS, PRIVACY and ABOUT cards with one row per
@@ -107,6 +122,9 @@ fun SettingsScreen(
     versionName: String = BuildConfig.VERSION_NAME,
     onOpenAbout: () -> Unit = {},
     onOpenLicenses: () -> Unit = {},
+    background: BackgroundSystemState? = null,
+    onAllowBackground: () -> Unit = {},
+    onOpenAppSettings: () -> Unit = {},
 ) {
     val colors = YftTheme.colors
     val snackbar = remember { SnackbarHostState() }
@@ -148,6 +166,7 @@ fun SettingsScreen(
                         location = location,
                         onAction = onAction,
                         onPick = { picker = it },
+                        background = background,
                     )
                 }
                 SettingsGroup(title = "Browser") {
@@ -229,6 +248,13 @@ fun SettingsScreen(
             modifier = Modifier.testTag("search-engine-dialog"),
         )
 
+        SettingsPicker.BACKGROUND -> BackgroundDownloadsDialog(
+            system = background ?: BackgroundSystemState.Unlimited,
+            onAllow = onAllowBackground,
+            onOpenAppSettings = onOpenAppSettings,
+            onDismiss = { picker = null },
+        )
+
         null -> Unit
     }
 
@@ -302,6 +328,7 @@ private fun DownloadRows(
     location: DownloadLocation,
     onAction: (SettingsAction) -> Unit,
     onPick: (SettingsPicker) -> Unit,
+    background: BackgroundSystemState?,
 ) {
     ValueRow(
         icon = YftIcons.Folder,
@@ -356,6 +383,17 @@ private fun DownloadRows(
         tag = "settings-quality",
         onClick = { onPick(SettingsPicker.QUALITY) },
     )
+    if (background != null) {
+        RowDivider()
+        // P34: whether Android limits YFT's battery, which can stop downloads in the background.
+        ValueRow(
+            icon = YftIcons.Schedule,
+            title = "Background downloads",
+            value = backgroundDownloadsValue(background),
+            tag = "settings-background-downloads",
+            onClick = { onPick(SettingsPicker.BACKGROUND) },
+        )
+    }
 }
 
 /**
