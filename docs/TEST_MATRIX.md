@@ -1124,3 +1124,20 @@ summary row. Starting state (P33, `436aa90`): 1435 tests, 0 failures, 66 skipped
 | Phase 14 summary | P34 background downloads and merges with speed in the notification, P35 stream-copy merge (1-hour-sized input 14.7 s → 1.03 s on the CI emulator), P36 TikTok For You, P37 fresh links instead of HTTP 410: all OWNER CHECK; 1532 tests, 0 failures |
 | CI (`4da3e61`) | Checkpoint validation [37811403961](https://github.com/Alalkipgen/YFT/actions/runs/37811403961), emulator smoke [37811403940](https://github.com/Alalkipgen/YFT/actions/runs/37811403940), Preview APK = Preview #6 [37811403962](https://github.com/Alalkipgen/YFT/actions/runs/37811403962): all green |
 | Owner check | Preview #6: FIX_ADD_PLAN §6 "Preview #6" items 1–7 |
+
+## Phase 15 (Preview #6 field fixes)
+
+Each agent fills only its own section below (FIX_ADD_PLAN §0.7). Start: P38's full validation
+on `4da3e61` — 1532 tests, 0 failures, 66 skipped.
+
+### Agent A — P39, P40
+
+- (Agent A: tests added, regression proof, live-check markers, CI emulator runs)
+
+### Agent B — P41, P42
+
+- (Agent B: tests added, regression proof, start times before and after, CI emulator runs)
+
+### Agent C — P43
+
+- (Agent C: tests added, regression proof, CI emulator runs)

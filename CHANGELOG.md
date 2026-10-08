@@ -7,6 +7,18 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ## [Unreleased]
 
+### Phase 15 — Agent A (P39, P40)
+
+- (placeholder — Agent A replaces this line)
+
+### Phase 15 — Agent B (P41, P42)
+
+- (placeholder — Agent B replaces this line)
+
+### Phase 15 — Agent C (P43)
+
+- (placeholder — Agent C replaces this line)
+
 ### Added
 
 - Background downloads and merges (P34): downloads, merges, MP3 conversions and saves keep
