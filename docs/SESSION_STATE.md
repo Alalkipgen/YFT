@@ -121,7 +121,12 @@ Keep at least the heading and one blank line between sections, so Git merges the
     errors (95 warnings); androidTest compiles (`FreshLinkInstrumentedTest`); line check empty.
   - Regression proof: old nine main files (with a shim for new names) and the new tests → 18
     failures (TEST_MATRIX "Agent B — P36, P37"); restored from `/data/bak/P37`, `cmp` equal.
-  - CI: (after the push)
+  - CI (`1186e3a`): checkpoint validation success (https://github.com/Alalkipgen/YFT/actions/runs/37798710365), Preview APK success
+    (https://github.com/Alalkipgen/YFT/actions/runs/37798710411), emulator smoke failure (https://github.com/Alalkipgen/YFT/actions/runs/37798710450): 32 tests, 1 failure —
+    `FreshLinkInstrumentedTest` read the sheet while it showed the link's stated row, before
+    the file check answered. The test now waits for the attempt's end (its own condition, then
+    an unchanged state for 500 ms); app code unchanged.
+  - CI (fix): (after the push)
   - Owner check: the Preview #5 site whose video answered HTTP 410 → Download → a working video
     without a manual reload (or the fresh-link line); else Try again, then "Reload page and try
     again"; a Details screenshot if it still fails; Javtiful still downloads.

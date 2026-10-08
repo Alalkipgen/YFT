@@ -130,7 +130,9 @@ class FreshLinkInstrumentedTest {
 
         // The sheet opened on the script's link prepares the player's address.
         val resolver = FakeResolver(dead = setOf(SCRIPT_LINK))
-        val first = settle(sheet(store, resolver, reader { _, _ -> error("not read") }))
+        val first = settle(sheet(store, resolver, reader { _, _ -> error("not read") })) {
+            it.choices != null && PLAYER_LINK in resolver.requested
+        }
         assertNull(first.failure)
         assertNotNull(first.choices)
         assertEquals(listOf(PLAYER_LINK), resolver.requested)
@@ -146,7 +148,7 @@ class FreshLinkInstrumentedTest {
         }
         val gone = FakeResolver(dead = setOf(SCRIPT_LINK, PLAYER_LINK))
         val sheet = sheet(store, gone, reader)
-        val failed = settle(sheet)
+        val failed = settle(sheet) { it.failure != null }
         assertEquals("The site no longer has this video (HTTP 410).", failed.failure)
         assertTrue(failed.canReload)
         assertEquals(1, reads.get())
@@ -156,7 +158,7 @@ class FreshLinkInstrumentedTest {
         assertTrue("Status: no player data (a notice or a check)" in failed.failureDetails)
 
         instrumentation.runOnMainSync { sheet.retry() }
-        val again = settle(sheet)
+        val again = settle(sheet) { it.freshLink }
 
         assertNull(again.failure)
         assertTrue(again.freshLink)
@@ -196,12 +198,26 @@ class FreshLinkInstrumentedTest {
         fetch: suspend (String, HeadlessPageFetcher.TabSession) -> HeadlessPageFetcher.Result,
     ) = TabPageReader(fetch = fetch, cookies = { null })
 
-    /** Waits until the sheet shows its qualities or its error. */
-    private fun settle(sheet: QuickDownloadViewModel): QuickDownloadUiState {
+    /**
+     * Waits until the sheet is [done] and its state stays the same for [STABLE_MS]: the sheet
+     * shows the link's stated row before the file check answers, so "has a row" alone is not
+     * the end of an attempt.
+     */
+    private fun settle(
+        sheet: QuickDownloadViewModel,
+        done: (QuickDownloadUiState) -> Boolean,
+    ): QuickDownloadUiState {
         val deadline = SystemClock.uptimeMillis() + TimeUnit.SECONDS.toMillis(TIMEOUT_S)
+        var last: QuickDownloadUiState? = null
+        var since = 0L
         while (SystemClock.uptimeMillis() < deadline) {
             val state = sheet.uiState.value
-            if (!state.loading && (state.choices != null || state.failure != null)) return state
+            val now = SystemClock.uptimeMillis()
+            if (state != last) {
+                last = state
+                since = now
+            }
+            if (!state.loading && done(state) && now - since >= STABLE_MS) return state
             Thread.sleep(POLL_MS)
         }
         fail("the sheet did not settle")
@@ -354,6 +370,7 @@ class FreshLinkInstrumentedTest {
         const val AGAIN_LINK = "https://media.example.test/v5/720.mp4?$AGAIN"
         const val TIMEOUT_S = 20L
         const val POLL_MS = 50L
+        const val STABLE_MS = 500L
 
         /** An age notice without player data, as a site may answer a page read without it. */
         const val NOTICE = "<html><head><title>Are you 18?</title></head>" +
