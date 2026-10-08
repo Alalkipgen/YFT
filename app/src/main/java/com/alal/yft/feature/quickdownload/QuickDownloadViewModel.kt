@@ -544,21 +544,24 @@ class QuickDownloadViewModel @Inject constructor(
             )
         }
         val page = chainPage(group)
-        if (page != null) {
+        // P43: [AdRule.LENIENT] keeps the browser's first choice as it was.
+        val checked = page?.takeUnless { stage == Attempt.FIRST && adRule == AdRule.LENIENT }
+        chosenLines = emptyList()
+        if (checked != null) {
             // P43: a proven ad is skipped before a row of it is read or shown.
-            val proof = proofOf(page)
+            val proof = proofOf(checked)
             val verdict = proof.of(group)
             if (!proof.offers(verdict) && verdict !is VideoProof.NotProven) {
                 loading = viewModelScope.launch {
-                    skipAd(group, page, proof.skippedLine(verdict))
+                    skipAd(group, checked, proof.skippedLine(verdict))
                 }
                 return
             }
-            chosenLines = if (proof.adSigns) proof.chosenLines(verdict) else emptyList()
+            if (proof.adSigns) chosenLines = proof.chosenLines(verdict)
         }
         // P43: a video of unknown length on a page with a length or ad signs shows its rows
         // only once its measured length proves it is not an ad.
-        val held = page != null && needsLengthCheck(group, page)
+        val held = checked != null && needsLengthCheck(group, checked)
         loading = viewModelScope.launch {
             val quality = currentPreferences().defaultQuality
             mutableUiState.update { it.copy(defaultQuality = quality) }
@@ -573,7 +576,7 @@ class QuickDownloadViewModel @Inject constructor(
             coroutineScope {
                 sources.toList().mapIndexed { index, initial ->
                     async {
-                        if (!needsSizeProbe(initial)) return@async
+                        if (!needsSizeProbe(initial) && !held) return@async
                         val updated = sizeProbes.withPermit { inspectSize(initial) }
                         sources[index] = updated
                         val current = if (held) heldChoices else mutableUiState.value.choices
@@ -587,17 +590,19 @@ class QuickDownloadViewModel @Inject constructor(
                     }
                 }.awaitAll()
             }
-            if (page != null && held) {
+            if (held && checked != null) {
                 val measured = sources.firstNotNullOfOrNull { source ->
-                    source.asset?.durationMillis?.takeIf { it > 0 }
+                    val asset = source.asset ?: return@firstNotNullOfOrNull null
+                    val variants = asset.variants.mapNotNull { it.durationMillis }
+                    (asset.durationMillis ?: variants.firstOrNull())?.takeIf { it > 0 }
                 }
-                val proof = proofOf(page)
+                val proof = proofOf(checked)
                 val verdict = proof.of(group, measured ?: group.durationMillis)
                 // A link that could not be read goes the way of a gone link, not of an ad.
                 val unread = verdict is VideoProof.NotProven && verdict.lengthMillis == null &&
                     sources.any { it.failureDetail != null }
                 if (!proof.offers(verdict) && !unread) {
-                    skipAd(group, page, proof.skippedLine(verdict))
+                    skipAd(group, checked, proof.skippedLine(verdict))
                     return@launch
                 }
                 chosenLines = if (proof.adSigns) proof.chosenLines(verdict) else emptyList()
@@ -653,14 +658,11 @@ class QuickDownloadViewModel @Inject constructor(
 
     /**
      * P43: whether [group]'s rows wait for its measured length: its length is unknown on a page
-     * that states one or shows ad signs. [AdRule.LENIENT] shows the browser's first choice at
-     * once, as before.
+     * that states one or shows ad signs.
      */
-    private fun needsLengthCheck(group: MediaGroup, page: DetectedPage): Boolean {
-        if (group.durationMillis != null) return false
-        if (stage == Attempt.FIRST && !firstWasAd && adRule == AdRule.LENIENT) return false
-        return page.facts?.durationMillis != null || proofOf(page).adSigns
-    }
+    private fun needsLengthCheck(group: MediaGroup, page: DetectedPage): Boolean =
+        group.durationMillis == null &&
+            (page.facts?.durationMillis != null || proofOf(page).adSigns)
 
     /**
      * P43: whether the chain may prepare [video] at [attempt]: nothing proves it an ad, or its
@@ -726,19 +728,24 @@ class QuickDownloadViewModel @Inject constructor(
     }
 
     /**
-     * P43: [count] other videos of the page without the proven ads and the ones skipped here, so
-     * the "Other videos" row never counts an ad; [shown] is the video the sheet shows.
+     * P43: the browser's [count] of the page's other videos (besides the one it selected)
+     * without the proven ads and the ones skipped here, so the "Other videos" row never counts
+     * an ad; once an ad was skipped, [shown] (the page's video now) is not another video either.
      */
     private fun withoutAds(count: Int, shown: MediaGroup?): Int {
         if (count <= 0 || shown == null) return count
         val page = store.page.value?.takeIf { it.pageUrl == shown.pageUrl } ?: return count
-        val shownUrls = shown.candidates.map { it.mediaUrl }.toSet()
-        val ads = pageVideos(page).count { video ->
-            video.candidates.none { it.mediaUrl in shownUrls } &&
-                (PageVideoProof.isProvenAd(video, page.facts) ||
-                    video.candidates.any { it.mediaUrl in skippedAds })
+        val selected = (firstVideo ?: shown).candidates.map { it.mediaUrl }.toSet()
+        val showing = shown.candidates.map { it.mediaUrl }.toSet()
+        val others = pageVideos(page).filter { video ->
+            video.candidates.none { it.mediaUrl in selected }
         }
-        return (count - ads).coerceAtLeast(0)
+        val dropped = others.count { video ->
+            firstWasAd && video.candidates.any { it.mediaUrl in showing } ||
+                PageVideoProof.isProvenAd(video, page.facts) ||
+                video.candidates.any { it.mediaUrl in skippedAds }
+        }
+        return (count - dropped).coerceAtLeast(0)
     }
 
     /**
@@ -942,6 +949,11 @@ class QuickDownloadViewModel @Inject constructor(
                 header = header,
                 choices = null,
                 selectedId = null,
+                otherVideos = if (firstWasAd) {
+                    withoutAds(store.otherVideos.value, shown)
+                } else {
+                    it.otherVideos
+                },
                 nextVideo = attempt == Attempt.NEXT && !firstWasAd,
                 freshLink = false,
                 adSkipped = false,
