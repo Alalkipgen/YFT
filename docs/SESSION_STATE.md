@@ -56,9 +56,43 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent B — `work/phase-14-sites` (P36, P37)
 
-- Status: NOT STARTED
-- P36 — TikTok: Download on the For You feed and video pages: TODO
-- P37 — Other sites: fresh links instead of HTTP 410: TODO
+- Status: P36 OWNER CHECK; P37 IN PROGRESS (started 2026-10-08; base commit `c8fcd33` =
+  `origin/work/phase-14-integration`; folder `/data/YFT-B`). OWNER ANSWERS: none (defaults
+  `TIKTOK_QUALITIES=DESKTOP`, `REREAD=2`).
+- Starting state (2026-10-08, `c8fcd33`, Agent B scope command): 1220 tests, 0 failures, 66
+  skipped (extractor-sites 196, extractor-generic 19, core-model 98, core-browser 133, core-media
+  28, app 746/66 skipped); lint 0 errors (95 warnings); `:app:compileDebugAndroidTestKotlin` OK.
+- P36 — TikTok: Download on the For You feed and video pages: OWNER CHECK
+  - Result: `FocusedVideoProbe` reads the focused video's TikTok card when no video link is
+    beside it (id from `xgwrapper-<n>-<15–22 digits>`, author from the card's `/@` link, else
+    `https://www.tiktok.com/@/video/<id>`); `TikTokPageParser` reads `webapp.video-detail`, else
+    `webapp.reflow.video.detail`; `TikTokExtractor` asks a phone page without qualities once
+    more with `HeadlessIdentity`'s desktop agent (fallback: the phone page's address as the one
+    quality; `PAGE`/Home desktop lookups ask once); the media request keeps the WebView cookie
+    with the page answer's TikTok cookies replacing same-named ones and added when missing, and
+    the agent that fetched that page.
+  - Plan adapted: (1) live, `tiktok.com/video/<id>` without `@` redirects to `/404`, so
+    `TikTokUrls` also makes author-less links (`/video/<id>`, `m.tiktok.com/v/<id>.html`)
+    canonical as `/@/video/<id>`. (2) The For You card has no `/@` link today (desktop layout),
+    and the phone layout the app's Chrome-like phone identity gets has no `xgwrapper` at all:
+    there the script reads the id from the active slide's own page data (read only; verified
+    live that its author is the slide's `/@` link). (3) A video link beside the focused video
+    wins only when it names the card's id (feeds keep links of other videos nearby).
+  - Live check (2026-10-08, markers only): `/foryou` 200, `__UNIVERSAL_DATA_FOR_REHYDRATION__`,
+    feed drawn by script (desktop: `recommend-list-item-container` ×7–9, `feed-video` ×2,
+    `xgwrapper-0-<19 digits>`, 0 `/video/` links; phone: `video-slide-active`, no
+    `xgwrapper`); video page phone agent → `webapp.reflow.video.detail`, `bitrateInfo` 0;
+    desktop → `webapp.video-detail`, `bitrateInfo` 5; media host 206 with the page answer's
+    cookies, 403 without or with a stale `tt_chain_token`.
+  - Validation (2026-10-08): 1229 tests, 0 failures, 66 skipped (extractor-sites 202,
+    core-browser 136, app 746; +9); lint 0 errors (95 warnings); androidTest compiles; line
+    check empty.
+  - Regression proof: old four main files with the new tests → 11 failures (TEST_MATRIX
+    "Agent B — P36, P37"); restored from `/data/bak/P36`, `cmp` equal.
+  - CI: (after the push)
+  - Owner check (VPN; TikTok is banned in India): `/foryou` → Download → qualities → the file
+    plays; a profile's video; a pasted link on Home.
+- P37 — Other sites: fresh links instead of HTTP 410: IN PROGRESS
 - Hand-offs: none
 
 ## Agent C — `work/phase-14-fast-merge` (P35)

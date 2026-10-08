@@ -17,6 +17,8 @@ internal data class TikTokRendition(
     val label: String?,
     val bitrateBitsPerSecond: Long?,
     val sizeBytes: Long?,
+    /** P36: listed in the page's `bitrateInfo`, rather than its plain play or download address. */
+    val fromQualityList: Boolean = false,
 )
 
 /** Non-sensitive description of a TikTok post plus its renditions. */
@@ -27,6 +29,8 @@ internal data class TikTokPost(
     val thumbnailUrl: String?,
     val durationMillis: Long?,
     val renditions: List<TikTokRendition>,
+    /** P36: whether the page listed its qualities (`bitrateInfo`); the phone page does not. */
+    val hasQualityList: Boolean = false,
 )
 
 internal sealed interface TikTokParseResult {
@@ -39,7 +43,10 @@ internal sealed interface TikTokParseResult {
  * Reads the JSON TikTok embeds in its own page.
  *
  * Both the current `__UNIVERSAL_DATA_FOR_REHYDRATION__` payload and the older `SIGI_STATE` payload
- * are supported, because a site can serve either to different clients. When neither payload is
+ * are supported, because a site can serve either to different clients. P36: the page TikTok
+ * serves to a phone (the WebView's user agent) keeps the post under
+ * `webapp.reflow.video.detail` instead of `webapp.video-detail`, with its play and download
+ * addresses but no quality list (`bitrateInfo`). When neither payload is
  * present or its shape no longer matches, the parser reports
  * [SiteExtractionFailure.RESPONSE_CHANGED] instead of scraping an arbitrary URL out of the HTML.
  */
@@ -47,6 +54,7 @@ internal object TikTokPageParser {
     private const val UNIVERSAL_SCRIPT_ID = "__UNIVERSAL_DATA_FOR_REHYDRATION__"
     private const val SIGI_SCRIPT_ID = "SIGI_STATE"
     private const val VIDEO_DETAIL_KEY = "webapp.video-detail"
+    private const val REFLOW_DETAIL_KEY = "webapp.reflow.video.detail"
 
     /** TikTok status codes that describe an access outcome rather than a transport error. */
     private val STATUS_FAILURES = mapOf(
@@ -71,16 +79,21 @@ internal object TikTokPageParser {
     }
 
     private fun universalItem(html: String): JsonValue? {
-        val root = BoundedJsonParser.parse(scriptJson(html, UNIVERSAL_SCRIPT_ID) ?: return null)
-        val detail = root.path("__DEFAULT_SCOPE__", VIDEO_DETAIL_KEY) ?: return null
+        val detail = universalDetail(html) ?: return null
         if (statusFailure(detail) != null) return null
         return detail.path("itemInfo", "itemStruct")
     }
 
     private fun universalStatusFailure(html: String): TikTokParseResult.Failure? {
-        val root = BoundedJsonParser.parse(scriptJson(html, UNIVERSAL_SCRIPT_ID) ?: return null)
-        val detail = root.path("__DEFAULT_SCOPE__", VIDEO_DETAIL_KEY) ?: return null
+        val detail = universalDetail(html) ?: return null
         return statusFailure(detail)?.let(TikTokParseResult::Failure)
+    }
+
+    /** The desktop page's post, else the phone ("reflow") page's. */
+    private fun universalDetail(html: String): JsonValue? {
+        val root = BoundedJsonParser.parse(scriptJson(html, UNIVERSAL_SCRIPT_ID) ?: return null)
+        return root.path("__DEFAULT_SCOPE__", VIDEO_DETAIL_KEY)
+            ?: root.path("__DEFAULT_SCOPE__", REFLOW_DETAIL_KEY)
     }
 
     private fun statusFailure(detail: JsonValue?): SiteExtractionFailure? {
@@ -128,6 +141,7 @@ internal object TikTokPageParser {
                     ?.takeIf { it > 0 }
                     ?.let { seconds -> seconds * 1_000 },
                 renditions = renditions,
+                hasQualityList = renditions.any { it.fromQualityList },
             ),
         )
     }
@@ -152,6 +166,7 @@ internal object TikTokPageParser {
                     bitrateBitsPerSecond = entry["Bitrate"].asLongOrNull?.takeIf { it > 0 },
                     sizeBytes = entry.path("PlayAddr", "DataSize").asLongOrNull
                         ?: entry["DataSize"].asLongOrNull,
+                    fromQualityList = true,
                 ),
             )
         }

@@ -101,7 +101,9 @@ object SiteAdapterModule {
         playerScripts: PlayerScriptRunner,
         poTokens: PoTokenProvider,
     ): List<SiteExtractor> = listOf(
-        TikTokExtractor(http),
+        // P36 (G6 TIKTOK_QUALITIES=DESKTOP): the phone page lists no qualities; ask the desktop
+        // page once. Null would keep the phone page's single address (PAGE).
+        TikTokExtractor(http, desktopUserAgent = HeadlessIdentity.USER_AGENT),
         FacebookExtractor(http),
         VimeoExtractor(http),
         YouTubeExtractor(http, playerScripts, poTokens),

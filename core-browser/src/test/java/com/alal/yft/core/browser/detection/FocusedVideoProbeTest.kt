@@ -172,14 +172,115 @@ class FocusedVideoProbeTest {
                 FeedSite.TIKTOK,
             ),
         )
+        // P36: a video whose author the page did not show.
+        assertEquals(
+            "https://www.tiktok.com/@/video/7300000000000000001",
+            FocusedVideoProbe.canonicalVideoUrl(
+                "https://www.tiktok.com/@/video/7300000000000000001",
+                FeedSite.TIKTOK,
+            ),
+        )
         listOf(
             "https://www.tiktok.com/foryou",
             "https://www.tiktok.com/@fixture.user",
             "https://www.tiktok.com/@fixture.user/photo/7300000000000000001",
             "https://www.tiktok.com/@fixture.user/video/abc",
+            "https://www.tiktok.com/video/7300000000000000001",
         ).forEach { link ->
             assertNull(link, FocusedVideoProbe.canonicalVideoUrl(link, FeedSite.TIKTOK))
         }
+    }
+
+    @Test
+    fun aTikTokFeedCardWithoutAVideoLinkGivesTheVideoOfItsPlayer() {
+        // P36 (R19): what the script hands back on the card of today's For You feed: no /video/
+        // link, the video id in the player's wrapper id, the author's /@ link in the card.
+        val card = Regex("<article[\\s\\S]*?</article>")
+            .find(fixture("focused-video/tiktok-foryou-card.html"))!!.value
+        assertFalse(card.contains("/video/"))
+        val wrapper = Regex("id=\"(xgwrapper-[^\"]+)\"").find(card)!!.groupValues[1]
+        val handle = Regex("href=\"(/@[^\"]+)\"").find(card)!!.groupValues[1]
+
+        assertEquals(
+            FocusedVideo(
+                "https://www.tiktok.com/@fixture.user/video/7300000000000000011",
+                Source.PLAYING,
+            ),
+            FocusedVideoProbe.parse(cardAnswer(wrapper = wrapper, handle = handle), TIKTOK_FEED),
+        )
+        // Without the author's link the address TikTok answers is /@/video/<id>.
+        assertEquals(
+            FocusedVideo("https://www.tiktok.com/@/video/7300000000000000011", Source.CENTRE),
+            FocusedVideoProbe.parse(
+                cardAnswer(wrapper = wrapper, source = "centre"),
+                "https://m.tiktok.com/following",
+            ),
+        )
+        // The phone layout keeps the id in the page's slide.
+        assertEquals(
+            FocusedVideo(
+                "https://www.tiktok.com/@phone.user/video/7300000000000000021",
+                Source.PLAYING,
+            ),
+            FocusedVideoProbe.parse(
+                cardAnswer(item = "7300000000000000021", handle = "/@phone.user/"),
+                TIKTOK_FEED,
+            ),
+        )
+    }
+
+    @Test
+    fun onlyAWellFormedTikTokCardOnATikTokPageGivesALink() {
+        listOf(
+            cardAnswer(wrapper = "xgwrapper-0-1234567"),
+            cardAnswer(wrapper = "xgwrapper-0-7300000000000000011x"),
+            cardAnswer(wrapper = "player-0-7300000000000000011"),
+            cardAnswer(wrapper = "xgwrapper-0-73000000000000000110000"),
+            cardAnswer(item = "730000000000"),
+            cardAnswer(item = "abc"),
+            cardAnswer(),
+            JSONObject.quote(
+                """{"url":null,"source":"playing","card":"xgwrapper-0-7300000000000000011"}""",
+            ),
+        ).forEach { answer -> assertNull(answer, FocusedVideoProbe.parse(answer, TIKTOK_FEED)) }
+        // Another site's page never takes a TikTok card.
+        listOf(YOUTUBE_HOME, "https://m.facebook.com/").forEach { page ->
+            assertNull(
+                FocusedVideoProbe.parse(
+                    cardAnswer(wrapper = "xgwrapper-0-7300000000000000011"),
+                    page,
+                ),
+            )
+        }
+        // A link the script found is used as it is, never replaced by the card.
+        val both = JSONObject()
+            .put("url", "https://www.tiktok.com/@fixture.user/photo/7300000000000000011")
+            .put("source", "playing")
+            .put("card", JSONObject().put("wrapper", "xgwrapper-0-7300000000000000011"))
+        assertNull(FocusedVideoProbe.parse(both.toString(), TIKTOK_FEED))
+        // A handle in another shape is left out, the video stays.
+        listOf("/@fixture.user/video/1", "/@", "/@${"a".repeat(41)}", "/@bad handle").forEach {
+            assertEquals(
+                it,
+                "https://www.tiktok.com/@/video/7300000000000000011",
+                FocusedVideoProbe.parse(
+                    cardAnswer(wrapper = "xgwrapper-0-7300000000000000011", handle = it),
+                    TIKTOK_FEED,
+                )?.url,
+            )
+        }
+    }
+
+    @Test
+    fun theScriptReadsTikTokCardsOnlyOnTikTok() {
+        val script = FocusedVideoProbe.script
+
+        assertTrue(script.contains("const tiktok = site === 'tiktok.com';"))
+        assertTrue(script.contains("if (!tiktok) return null;"))
+        assertTrue(script.contains("xgwrapper-"))
+        assertTrue(script.contains("[data-e2e=\"recommend-list-item-container\"]"))
+        assertTrue(script.contains("[data-e2e=\"feed-video\"]"))
+        assertTrue(script.contains("[data-e2e^=\"video-slide\"]"))
     }
 
     @Test
@@ -234,7 +335,32 @@ class FocusedVideoProbeTest {
         assertFalse(video.toString().contains("youtube"))
     }
 
+    /** The script's answer for a TikTok card, as `evaluateJavascript` hands it back. */
+    private fun cardAnswer(
+        wrapper: String? = null,
+        item: String? = null,
+        handle: String? = null,
+        source: String = "playing",
+    ): String = JSONObject.quote(
+        JSONObject()
+            .put("url", JSONObject.NULL)
+            .put("source", source)
+            .put(
+                "card",
+                JSONObject()
+                    .put("wrapper", wrapper ?: JSONObject.NULL)
+                    .put("item", item ?: JSONObject.NULL)
+                    .put("handle", handle ?: JSONObject.NULL),
+            )
+            .toString(),
+    )
+
+    private fun fixture(path: String): String =
+        requireNotNull(javaClass.getResourceAsStream("/fixtures/$path")) { path }
+            .use { it.readBytes().decodeToString() }
+
     private companion object {
         const val YOUTUBE_HOME = "https://m.youtube.com/"
+        const val TIKTOK_FEED = "https://www.tiktok.com/foryou"
     }
 }

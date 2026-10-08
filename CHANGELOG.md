@@ -13,7 +13,18 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Phase 14 — Agent B (P36, P37)
 
-- (Agent B writes its P36 and P37 entries here; P38 folds them into Added / Changed / Fixed.)
+- TikTok's For You feed: the browser's Download button finds the video on screen again
+  (Preview #5 said "No video on screen to download"). Today's feed has no video link beside the
+  player, so YFT takes the video's number from its player box (desktop layout) or from the
+  page's own slide (phone layout) and the author from the card when it shows one; without an
+  author the address is `tiktok.com/@/video/<number>`, which TikTok opens like the full one.
+- TikTok qualities: when TikTok gives the phone version of a video page (its data under
+  `webapp.reflow.video.detail`, no quality list), YFT reads that page and asks the same video
+  page once more as a desktop browser for its qualities; if that fails, the phone page's video
+  is the one quality. Pages that list their qualities are asked once, as before.
+- TikTok video requests from the browser keep the browser's cookies but take TikTok's fresh
+  cookies from the page answer (a stale cookie of the same name is replaced; TikTok's media host
+  answers HTTP 403 to a stale one) and the browser identity that fetched that page.
 
 ### Phase 14 — Agent C (P35)
 

@@ -31,6 +31,12 @@ data class FocusedVideo(val url: String, val source: Source) {
  * the visible `<video>` nearest the middle of the screen, else the video link nearest the middle.
  * [parse] accepts that link only on the page's own site and only in a known video or post shape,
  * rebuilt on the site's main host without tracking parameters, so the site adapter can look it up.
+ *
+ * P36 (R19): TikTok's feeds put no video link beside the video. On TikTok the script then hands
+ * back the video's card instead: the id of the player's wrapper (`xgwrapper-<n>-<video id>`) or,
+ * in the phone layout, the id the page's own slide holds, and the author's `/@handle` link of the
+ * card, if any. [parse] turns it into `https://www.tiktok.com/@handle/video/<id>`, or
+ * `https://www.tiktok.com/@/video/<id>` without a handle.
  */
 object FocusedVideoProbe {
     val script: String = """
@@ -53,6 +59,7 @@ object FocusedVideoProbe {
           ];
           const site = location.hostname.split('.').slice(-2).join('.');
           const facebook = site === 'facebook.com';
+          const tiktok = site === 'tiktok.com';
           const link = (value, shapes) => {
             if (!value) return null;
             try {
@@ -102,17 +109,64 @@ object FocusedVideoProbe {
             }
             return null;
           };
+          const slideItem = slide => {
+            const key = Object.keys(slide).find(name => name.startsWith('__reactFiber$'));
+            for (let fiber = key ? slide[key] : null, depth = 0; fiber && depth < 8;
+                fiber = fiber.return, depth += 1) {
+              const props = fiber.memoizedProps;
+              const id = props && typeof props === 'object' ? String(props.id || '') : '';
+              if (/^\d{15,22}$/.test(id)) return id;
+            }
+            return null;
+          };
+          const handleIn = card => [...card.querySelectorAll('a[href]')]
+            .map(anchor => {
+              try {
+                const url = new URL(anchor.getAttribute('href'), document.baseURI);
+                return url.hostname === site || url.hostname.endsWith('.' + site)
+                  ? url.pathname : null;
+              } catch (_) { return null; }
+            })
+            .find(path => path && /^\/@[\w.-]{1,40}\/?$/.test(path)) || null;
+          const cardOf = element => {
+            if (!tiktok) return null;
+            let wrapper = null;
+            for (let node = element, depth = 0; node && node !== document.body && depth < 15;
+                node = node.parentElement, depth += 1) {
+              if (/^xgwrapper-\d{1,4}-\d{15,22}$/.test(node.id || '')) {
+                wrapper = node.id;
+                break;
+              }
+            }
+            const slide = wrapper ? null : element.closest('[data-e2e^="video-slide"]');
+            const item = slide ? slideItem(slide) : null;
+            if (!wrapper && !item) return null;
+            const card = wrapper
+              ? element.closest('[data-e2e="recommend-list-item-container"]') ||
+                element.closest('article') || element.closest('[data-e2e="feed-video"]')
+              : slide;
+            const id = wrapper ? wrapper.split('-').pop() : item;
+            return { wrapper, item, handle: card ? handleIn(card) : null, id };
+          };
+          const focusedOf = element => {
+            const url = linkBeside(element);
+            const card = cardOf(element);
+            if (!card || url && url.includes('/video/' + card.id)) return url ? { url } : null;
+            return { card: { wrapper: card.wrapper, item: card.item, handle: card.handle } };
+          };
+          const found = (item, source) => item.url ? answer(item.url, source) :
+            JSON.stringify({ url: null, source, card: item.card });
           const visible = [...document.querySelectorAll('video')]
             .map(video => ({ video, seen: shown(video) }))
             .filter(item => item.seen);
           const playing = visible
             .filter(item => !item.video.paused && !item.video.ended && item.video.readyState > 1)
             .sort((a, b) => b.seen.area - a.seen.area)[0];
-          const playingUrl = playing ? linkBeside(playing.video) : null;
-          if (playingUrl) return answer(playingUrl, 'playing');
+          const playingItem = playing ? focusedOf(playing.video) : null;
+          if (playingItem) return found(playingItem, 'playing');
           const centred = visible.sort((a, b) => middle(a.seen.box) - middle(b.seen.box))[0];
-          const centredUrl = centred ? linkBeside(centred.video) : null;
-          if (centredUrl) return answer(centredUrl, 'centre');
+          const centredItem = centred ? focusedOf(centred.video) : null;
+          if (centredItem) return found(centredItem, 'centre');
           const nearest = [...document.querySelectorAll('a[href]')]
             .map(anchor => ({ anchor, url: link(anchor.getAttribute('href'), videos) }))
             .map(item => ({ url: item.url, seen: item.url ? shown(item.anchor) : null }))
@@ -140,9 +194,28 @@ object FocusedVideoProbe {
             else -> return null
         }
         val raw = (item.opt("url") as? String)?.trim()?.takeIf { it.length in 1..MAX_URL_LENGTH }
-            ?: return null
-        val url = canonicalVideoUrl(raw, site) ?: return null
+        val url = if (raw != null) {
+            canonicalVideoUrl(raw, site)
+        } else {
+            tikTokCardUrl(item.optJSONObject("card"), site)
+        } ?: return null
         return FocusedVideo(url, source)
+    }
+
+    /**
+     * P36: the link of a TikTok feed card without a video link: the video id from the player's
+     * wrapper id (`xgwrapper-<n>-<15–22 digits>`) or the slide's own id, and the author from the
+     * card's `/@handle` link; `https://www.tiktok.com/@/video/<id>` when the card has none.
+     */
+    private fun tikTokCardUrl(card: JSONObject?, site: FeedSite): String? {
+        if (site != FeedSite.TIKTOK || card == null) return null
+        val id = (card.opt("wrapper") as? String)
+            ?.let { XG_WRAPPER.matchEntire(it)?.groupValues?.get(1) }
+            ?: (card.opt("item") as? String)?.takeIf(TIKTOK_CARD_ID::matches)
+            ?: return null
+        val handle = (card.opt("handle") as? String)
+            ?.let { TIKTOK_HANDLE_PATH.matchEntire(it)?.groupValues?.get(1) }
+        return "https://www.tiktok.com/@${handle.orEmpty()}/video/$id"
     }
 
     /** The video link rebuilt on its site's main host, or null when it is not a video link. */
@@ -290,6 +363,10 @@ object FocusedVideoProbe {
     private val STORY_PAGES = setOf("story.php", "permalink.php")
     private val GROUP_POSTS = setOf("posts", "permalink")
     private val FACEBOOK_WATCH = setOf("watch", "watch.php", "video", "video.php")
-    private val TIKTOK_USER = Regex("@[A-Za-z0-9._-]{1,40}")
+    /** P36: `@` alone is TikTok's address of a video whose author the page did not show. */
+    private val TIKTOK_USER = Regex("@[A-Za-z0-9._-]{0,40}")
+    private val TIKTOK_CARD_ID = Regex("\\d{15,22}")
+    private val XG_WRAPPER = Regex("xgwrapper-\\d{1,4}-(\\d{15,22})")
+    private val TIKTOK_HANDLE_PATH = Regex("/@([A-Za-z0-9._-]{1,40})/?")
     private val TIKTOK_ID = Regex("\\d{5,25}")
 }
