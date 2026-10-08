@@ -72,6 +72,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
   tests (66 skipped), 0 failures; lint 0 errors.
 - Work in progress: the stream copy (MP4 reader, writer, MediaExtractor check, MediaMuxer
   fallback), the quick wins on today's path, the per-merge log line and their JVM tests are in
-  (core-download 166 tests green). Next: the instrumented stream copy vs today's way comparison
-  on the CI emulator (20-minute and 1-hour-sized inputs), the regression proof and the docs.
+  (core-download 166 tests green); `StreamCopyMergeInstrumentedTest` (stream copy vs today's
+  way on the CI emulator: test tracks, 20-minute and 1-hour-sized inputs) is waiting for its
+  first emulator run. Next: the measured times, the regression proof and the docs.
 - Hand-offs: none
