@@ -67,7 +67,9 @@ Keep at least the heading and one blank line between sections, so Git merges the
   androidTest Kotlin compiles.
 - Progress (WIP checkpoints skip tests; the full validation runs before the P39 checkpoint):
   extractor-api additions (file check `probe`, request `details`, adapter `message`, JSON read
-  result); OkHttpExtractorClient safe headers, catch-all, redirect cookie jar, file check.
+  result); OkHttpExtractorClient safe headers, catch-all, redirect cookie jar, file check;
+  TikTok parser (page kinds, data shapes, lenient read, qualities), TikTokAgents, TikTok adapter
+  (phone + desktop pages, file checks, watermark rule, Details); not yet compiled.
 - Hand-offs: none
 
 ## Agent B — `work/phase-15-downloads` (P41, P42; later P44)
