@@ -75,8 +75,9 @@ Keep at least the heading and one blank line between sections, so Git merges the
   fixtures (phone reflow, desktop video-detail, home page) with file-check fakes; regression,
   agents, URL, JSON-read tests (extractor tests 229 + 33 pass); app tests for the client (safe
   headers, jar over a real TLS redirect, file check, errors), coordinator, lookup details,
-  resolver (TikTok-shaped MP4, caller's thread, unexpected error). Next: browser fallback row
-  (step 8), regression proof, validation, live check, docs.
+  resolver (TikTok-shaped MP4, caller's thread, unexpected error) — all pass. Step 8 code: the
+  probe's `currentSrc`, PlayerFileFallback (TikTok player files per page → MAIN row + banner).
+  Next: step 8 tests, regression proof, validation, live check, docs.
   DefaultVariantResolver: requests on Dispatchers.IO, every unexpected error -> failure at its step.
   Live look 2026-10-09 (one public video, both agents, page answers only): phone 200 · 150 KB ·
   `webapp.reflow.video.detail` with playAddr only (576×1024); desktop 200 · 389 KB ·

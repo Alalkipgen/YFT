@@ -222,6 +222,15 @@ class SiteAdapterCoordinator @Inject constructor(
             -> false
         }
 
+    /**
+     * P39 (R25): whether the enabled adapter [adapterId] counts [requestUrl] as its player
+     * fetching media, on any page of its site (a feed page has no video address of its own).
+     */
+    fun isPlayerMediaOf(adapterId: String, requestUrl: String): Boolean {
+        val extractor = registry.enabled(adapterId) ?: return false
+        return runCatching { extractor.isPlayerMediaRequest(requestUrl) }.getOrDefault(false)
+    }
+
     /** Whether an enabled site adapter handles [pageUrl], so a lookup can find its video. */
     fun handles(pageUrl: String): Boolean =
         registry.select(pageUrl) is SiteAdapterSelection.Matched
