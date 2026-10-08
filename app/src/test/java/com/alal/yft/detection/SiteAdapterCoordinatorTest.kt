@@ -198,9 +198,43 @@ class SiteAdapterCoordinatorTest {
             nowEpochMs = 10,
         ) as SiteAdapterOutcome.Failed
 
-        assertEquals(SiteExtractionFailure.RESPONSE_CHANGED, outcome.reason)
+        // P39 (R25): a crash is named by its class, never reported as a changed page.
+        assertEquals(SiteExtractionFailure.MALFORMED_RESPONSE, outcome.reason)
         assertTrue(outcome.allowsGenericFallback)
         assertFalse(outcome.message.contains("912"))
+        assertTrue(outcome.details.toString(), "error: IllegalStateException" in outcome.details)
+        assertFalse(outcome.details.toString().contains("912"))
+    }
+
+    @Test
+    fun `an adapter's own message is shown instead of the reason's general one`() = runTest {
+        val own = "This Fixture Site link does not open a video."
+        val outcome = coordinator(
+            FakeExtractor(
+                result = SiteExtractionResult.Failure(
+                    reason = SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
+                    details = listOf("page: phone · HTTP 200 · 12 KB · landed on: home page"),
+                    message = own,
+                ),
+            ),
+        ).inspect(
+            pageUrl = "https://fixture.test/video/42",
+            requestContext = context(),
+            nowEpochMs = 10,
+        ) as SiteAdapterOutcome.Failed
+        val changed = SiteExtractionResult.Failure(SiteExtractionFailure.RESPONSE_CHANGED)
+        val general = coordinator(FakeExtractor(result = changed)).inspect(
+            pageUrl = "https://fixture.test/video/42",
+            requestContext = context(),
+            nowEpochMs = 10,
+        ) as SiteAdapterOutcome.Failed
+
+        assertEquals(own, outcome.message)
+        assertTrue(outcome.details.toString(), outcome.details.any { it.contains("home page") })
+        assertEquals(
+            "Fixture Site's page could not be read. Tap Details to see why, or Try again.",
+            general.message,
+        )
     }
 
     @Test

@@ -46,6 +46,13 @@ internal data class TikTokQuality(
             listOfNotNull(heightLabel?.let { "${it}p" } ?: "Video", codec.mark).joinToString(" ")
         }
 
+    /** The label a title carries: none for an address whose height and codec are unknown. */
+    val titleLabel: String?
+        get() = label.takeUnless {
+            heightLabel == null && codec.mark == null &&
+                source != TikTokQualitySource.DOWNLOAD_ADDRESS
+        }
+
     companion object {
         const val WATERMARK_LABEL = "With TikTok watermark"
     }

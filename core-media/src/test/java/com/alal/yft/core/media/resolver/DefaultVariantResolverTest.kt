@@ -12,7 +12,11 @@ import com.alal.yft.core.model.media.ResolutionStep
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.media.VariantSupport
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
@@ -541,6 +545,97 @@ class DefaultVariantResolverTest {
                 as VariantResolutionResult.Failure
             assertEquals(VariantResolutionFailure.INVALID_URL, page.reason)
         }
+
+    @Test
+    fun `a TikTok-shaped site file resolves to its one MP4 without a manifest step`() = runTest {
+        // P39 step 7: the owner's "Download · 1.4 MB" row was one MP4 on a TikTok file host,
+        // sent with the page answer's cookie. On the JVM it resolves; the phone's failure came
+        // from the request running on the sheet's main thread (see the next test).
+        val file = Mp4Fixtures.file(width = 576, height = 1024, audioKbps = 128)
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "video/mp4")
+                .setHeader("Content-Length", file.size.toString()),
+        )
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(206)
+                .setHeader("Content-Type", "video/mp4")
+                .setHeader("Content-Range", "bytes 0-${file.size - 1}/${file.size}")
+                .setBody(okio.Buffer().write(file)),
+        )
+        val url = server.url("/video/tos/useast5/tos-useast5-ve-0068c001/fixture/")
+            .newBuilder().addQueryParameter("mime_type", "video_mp4").build()
+
+        val result = resolver.resolve(
+            candidate(url.toString(), cookie = "tt_chain_token=fixture")
+                .copy(title = "Sunrise over the harbour — 540p"),
+        )
+
+        assertTrue(result.toString(), result is VariantResolutionResult.Success)
+        val variant = (result as VariantResolutionResult.Success).asset.variants.single()
+        assertEquals(1024, variant.height)
+        assertEquals(file.size.toLong(), variant.sizeBytes)
+        assertEquals(2, server.requestCount)
+        repeat(2) {
+            assertEquals("tt_chain_token=fixture", server.takeRequest().getHeader("Cookie"))
+        }
+    }
+
+    @Test
+    fun `requests never run on the caller's thread, which Android forbids on the main thread`() =
+        runTest {
+            // Stands in for NetworkOnMainThreadException: the sheet resolves from the main thread.
+            val callerThread = AtomicReference<Thread>()
+            val guarded = DefaultVariantResolver(
+                client = OkHttpClient.Builder().addInterceptor { chain ->
+                    check(Thread.currentThread() !== callerThread.get()) { "caller's thread" }
+                    chain.proceed(chain.request())
+                }.build(),
+                policy = DefaultVariantResolver.Policy(),
+                clock = { NOW },
+            )
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "video/mp4")
+                    .setHeader("Content-Length", "1400000"),
+            )
+            val caller = Executors.newSingleThreadExecutor()
+
+            val result = try {
+                withContext(caller.asCoroutineDispatcher()) {
+                    callerThread.set(Thread.currentThread())
+                    runCatching { guarded.resolve(candidate(server.url("/clip.mp4").toString())) }
+                }
+            } finally {
+                caller.shutdown()
+            }
+
+            assertTrue(result.toString(), result.getOrNull() is VariantResolutionResult.Success)
+        }
+
+    @Test
+    fun `an unexpected error ends as a failure at the step it stopped at`() = runTest {
+        val crashing = DefaultVariantResolver(
+            client = OkHttpClient.Builder().addInterceptor { _ -> error("fixture") }.build(),
+            policy = DefaultVariantResolver.Policy(),
+            clock = { NOW },
+        )
+
+        val result = runCatching {
+            crashing.resolve(
+                candidate("https://v16-webapp-prime.us.tiktok.com/video/tos/useast5/fixture/"),
+            )
+        }
+
+        val failure = result.getOrNull() as? VariantResolutionResult.Failure
+        assertTrue(result.toString(), failure != null)
+        assertEquals(VariantResolutionFailure.NETWORK, failure?.reason)
+        assertEquals(ResolutionStep.FILE_CHECK, failure?.step)
+        assertEquals("v16-webapp-prime.us.tiktok.com", failure?.host)
+    }
 
     private fun candidate(
         url: String,

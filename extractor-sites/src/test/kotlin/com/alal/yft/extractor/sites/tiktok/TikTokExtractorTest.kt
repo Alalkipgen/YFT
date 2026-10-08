@@ -415,9 +415,14 @@ class TikTokExtractorTest {
             )
 
             cases.forEach { (fixture, expected) ->
-                // The photo fixture is post ...457; P39 skips a post whose id is not the link's.
+                // P39 skips a post whose id is not the link's, so each link names its post.
                 val identity = identity(
-                    if (fixture.endsWith("photo.html")) PHOTO_POST_ID else "7311234567890123456",
+                    when {
+                        fixture.endsWith("photo.html") -> "7311234567890123457"
+                        fixture.endsWith("drm_video.html") -> "7311234567890123459"
+                        fixture.endsWith("insecure_renditions.html") -> "7311234567890123460"
+                        else -> "7311234567890123456"
+                    },
                 )
                 val http = FakeExtractorHttpClient.serving(
                     url = identity.canonicalPageUrl,
@@ -577,7 +582,7 @@ class TikTokExtractorTest {
             val shortUrl = "https://vt.tiktok.com/ZSfixture1/"
             val identity = TikTokUrls.identify(shortUrl)!!
             val http = FakeExtractorHttpClient.serving(
-                url = shortUrl,
+                url = identity.canonicalPageUrl,
                 body = Fixtures.read("tiktok/live_home_page.html"),
                 finalUrl = "https://www.tiktok.com/",
             )
@@ -593,7 +598,7 @@ class TikTokExtractorTest {
             )
             assertFalse(failure.allowsGenericFallback)
             // The desktop page would land on the same home page.
-            assertEquals(listOf(shortUrl), http.requestedUrls)
+            assertEquals(listOf(identity.canonicalPageUrl), http.requestedUrls)
             assertTrue(failure.details.first().endsWith("landed on: home page"))
         }
 
@@ -603,7 +608,7 @@ class TikTokExtractorTest {
             val shortUrl = "https://vm.tiktok.com/ZMfixture2/"
             val identity = TikTokUrls.identify(shortUrl)!!
             val http = FakeExtractorHttpClient.serving(
-                url = shortUrl,
+                url = identity.canonicalPageUrl,
                 body = Fixtures.read("tiktok/live_home_page.html")
                     .replace("\"webapp.a-b\":{}", "\"webapp.user-detail\":{\"statusCode\":0}"),
                 finalUrl = "https://www.tiktok.com/@fixture_user",
@@ -1002,7 +1007,6 @@ class TikTokExtractorTest {
         const val TIKTOK_MEDIA_HOST = "v16-webapp-prime.us.tiktok.com"
         const val HEVC_720 = "c9f7a85bfdd7452aaffabc48131961fc"
         const val HEVC_540 = "9755a2b079e549d08c4a2c1d3279922d"
-        const val PHOTO_POST_ID = "7311234567890123457"
 
         /** The live answer's files (object id in the address) and their sizes. */
         val FILE_SIZES = mapOf(

@@ -64,11 +64,10 @@ class TikTokExtractor(
             throw cancellation
         } catch (failure: Exception) {
             // R25: an unexpected error is named by its class and step, never "changed format".
+            val name = failure.javaClass.simpleName.ifEmpty { "Exception" }
             SiteExtractionResult.Failure(
                 reason = SiteExtractionFailure.MALFORMED_RESPONSE,
-                details = lookup.details +
-                    "error: ${failure.javaClass.simpleName.ifEmpty { "Exception" }} " +
-                    "at step ${lookup.step}",
+                details = lookup.details + "error: $name at step ${lookup.step}",
             )
         }
     }
@@ -360,7 +359,7 @@ class TikTokExtractor(
                 sources = setOf(CandidateSource.MANIFEST),
                 kind = MediaKind.DIRECT,
                 mimeType = MP4_MIME_TYPE,
-                title = displayTitle(post, quality.label),
+                title = displayTitle(post, quality.titleLabel),
                 thumbnailUrl = post.thumbnailUrl,
                 durationMillis = post.durationMillis,
                 contentLengthBytes = working.totalBytes ?: quality.sizeBytes,
