@@ -8,6 +8,7 @@ import com.alal.yft.core.data.preferences.DownloadPreferencesRepository
 import com.alal.yft.core.media.resolver.VariantResolver
 import com.alal.yft.core.media.session.PreviewSelectionStore
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.media.AdRule
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaAsset
@@ -900,6 +901,8 @@ class QuickDownloadViewModelTest {
         )
 
         val sheet = viewModel()
+        // P43: LENIENT keeps this (the browser's first choice); STRICT skips it (below).
+        sheet.adRule = AdRule.LENIENT
         val waiting = sheet.uiState.value
         assertTrue(waiting.findingPageVideo)
         assertTrue(waiting.loading)
@@ -917,6 +920,43 @@ class QuickDownloadViewModelTest {
         assertEquals("Harbour lights at dusk", shown.header?.title)
         assertEquals(poster, shown.header?.thumbnailUrl)
         assertNotNull(shown.choices)
+    }
+
+    @Test
+    fun theSheetWaitingForThePagesVideoSkipsAShortAdAndOffersNoAdInstead() = runTest {
+        // P43 (STRICT, the default): the same 0:30 ad on a 16:24 page is never offered.
+        val page = "https://tube.example.test/watch/77"
+        val poster = "https://img.example.test/v77/poster.jpg"
+        val facts = PageVideoFacts(984_000, "Harbour lights at dusk", poster)
+        val ad = video(1080, videoId = null, title = null, label = null, page = page)
+            .copy(durationMillis = 30_000)
+        store.publish(page, "Harbour lights at dusk - Example Tube", listOf(ad), facts = facts)
+        store.awaitPageVideo()
+        store.showLookup(
+            PageVideoLookup(
+                key = "generic:page-video:1",
+                pageUrl = page,
+                title = facts.title,
+                thumbnailUrl = poster,
+                findingPageVideo = true,
+            ),
+        )
+        val sheet = viewModel()
+
+        store.select(MediaGroups.of(listOf(ad)).single(), maybeAd = true)
+        store.clearLookup(LookupOwner.BROWSER)
+        advanceUntilIdle()
+
+        val shown = sheet.uiState.value
+        assertNull(shown.choices)
+        assertFalse(shown.maybeAd)
+        assertEquals(QuickDownloadViewModel.ONLY_AD_FOUND, shown.failure)
+        assertEquals(listOf("skipped: 0:30 ad (short)"), shown.failureDetails)
+        assertTrue(shown.canReload)
+        assertEquals("Harbour lights at dusk", shown.header?.title)
+        assertEquals(poster, shown.header?.thumbnailUrl)
+        assertNull(shown.header?.durationMillis)
+        assertTrue(resolver.requested.isEmpty())
     }
 
     @Test

@@ -609,7 +609,11 @@ class QuickDownloadViewModel @Inject constructor(
                 if (verdict is VideoProof.PageVideo) {
                     mutableUiState.update { it.copy(maybeAd = false) }
                 }
-                showChoices(heldChoices, sources, waiting = true)
+                // The header shows the length that proved it, when its rows state none.
+                val proven = heldChoices?.let { rows ->
+                    if (rows.durationMillis == null) rows.copy(durationMillis = measured) else rows
+                }
+                showChoices(proven, sources, waiting = true)
             }
             // P37: on a page the sheet can look further on, a row the site stated is not
             // offered once its link answered "gone": Download would only meet the same answer.
@@ -1150,7 +1154,9 @@ class QuickDownloadViewModel @Inject constructor(
                     SheetSource(initial.candidate, result.asset, resolved = true)
                 } else {
                     val read = result.asset.variants.firstOrNull { it.isPreviewable }
-                    initial.copy(asset = original.copy(variants = original.variants.map { variant ->
+                    // P43: the length the check read proves (or disproves) the page's video.
+                    val length = original.durationMillis ?: result.asset.durationMillis
+                    val variants = original.variants.map { variant ->
                         variant.copy(
                             sizeBytes = read?.sizeBytes ?: variant.sizeBytes,
                             sizeAccuracy = if (read?.sizeBytes != null) {
@@ -1159,7 +1165,11 @@ class QuickDownloadViewModel @Inject constructor(
                                 variant.sizeAccuracy
                             },
                         ).measuredBy(read)
-                    }), failure = null)
+                    }
+                    initial.copy(
+                        asset = original.copy(durationMillis = length, variants = variants),
+                        failure = null,
+                    )
                 }
             }
         }
