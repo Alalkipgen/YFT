@@ -505,7 +505,7 @@ class DownloadQueue(
                 }
                 affected.forEach { task ->
                     saveAndPublishLocked(
-                        task.withCheckpointBytes().copy(
+                        task.copy(
                             status = DownloadTaskStatus.WAITING_FOR_NETWORK,
                             updatedAtEpochMs = clock(),
                         ),
@@ -571,7 +571,7 @@ class DownloadQueue(
             return@withLock StopPreparation(shouldFinalize = false, job = null)
         }
         saveAndPublishLocked(
-            current.withCheckpointBytes().copy(
+            current.copy(
                 status = DownloadTaskStatus.PAUSING,
                 updatedAtEpochMs = clock(),
             ),

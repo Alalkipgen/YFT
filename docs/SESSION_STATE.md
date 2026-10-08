@@ -105,7 +105,11 @@ Keep at least the heading and one blank line between sections, so Git merges the
     and DownloadPlanFactoryTest "YouTube tracks carry the length …" use the new API (do not
     compile on the old code). "a retried range is counted once" passes on both (guard).
   - Start times (throttled local server): see TEST_MATRIX "Agent B — P41, P42".
-  - CI: pending (checkpoint push).
+  - CI `e50789c`: [Preview APK](https://github.com/Alalkipgen/YFT/actions/runs/37859570115)
+    green; [checkpoint validation](https://github.com/Alalkipgen/YFT/actions/runs/37859570203)
+    stopped after 36 s in its first Gradle step, before any test (the same command passes
+    here), so the follow-up commit (stopped tasks publish checkpoint bytes in one place) runs
+    it again; [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37859570320).
   - Hand-offs: none. P44 (merge) note: `DownloadFailure` gained `startTimeline` (default null)
     and `DashTransferRunner` a 6-parameter `transfer` with a default.
 

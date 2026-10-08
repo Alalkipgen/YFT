@@ -1161,7 +1161,7 @@ Start times on the throttled local server (JVM, MockWebServer; before = old code
 | --- | --- |
 | P41 validation (2026-10-09) | `--no-daemon --continue` (five tasks): core-download 184, core-model 106, app 809 (66 skipped) = 1099 tests, 0 failures (+20 from 1079); lint 0 errors; androidTest compiles; line check empty |
 | P41 regression proof | old code from `/data/bak/P41/orig`: 11 of 38 failed (listed in SESSION_STATE); restored with cp, cmp equal |
-| P41 CI | pending |
+| P41 CI | `e50789c`: Preview APK green; checkpoint validation stopped after 36 s before any test, run again on the follow-up commit; emulator smoke (links in SESSION_STATE) |
 
 ### Agent C — P43
 
