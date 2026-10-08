@@ -1,5 +1,6 @@
 package com.alal.yft.core.browser.detection
 
+import com.alal.yft.core.model.media.AdSign
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.PageMediaRole
@@ -10,9 +11,10 @@ import java.net.URI
  * break (a VAST or VMAP document, [BrowserObservationMapper.isAdBreakRequest]) and then fetches
  * the ad's file. A whole file (not a stream) first seen within [windowMillis] of such a request
  * in the same frame (the same `Referer` origin), from another site than the page's, is the
- * ad's: [PageMediaRole.PREVIEW]. A file seen before the request, the page's own site's files,
- * streams, and files a site adapter or the page named keep their role. One page at a time; safe
- * to call from any thread.
+ * ad's: [PageMediaRole.PREVIEW], P43: with [AdSign.AD_BREAK]. A file seen before the request,
+ * the page's own site's files, streams, and files a site adapter or the page named keep their
+ * role. P43: an ad request is also told by its answer, a VAST or VMAP document ([onAnswer]),
+ * when its address says nothing. One page at a time; safe to call from any thread.
  */
 class VastAdTracker(
     private val windowMillis: Long = DEFAULT_WINDOW_MILLIS,
@@ -45,6 +47,21 @@ class VastAdTracker(
     /** Notes a request of the page that asks for an ad break. */
     fun onRequest(observation: RequestObservation) {
         if (!BrowserObservationMapper.isAdBreakRequest(observation.requestUrl)) return
+        startBreak(observation)
+    }
+
+    /**
+     * P43: notes the answer to a request of the page ([observation]) whose address said nothing:
+     * one of [contentType] whose body starts with [bodyStart] that is a VAST or VMAP document
+     * ([BrowserObservationMapper.isAdBreakAnswer]) asked for an ad break. The answer's body is
+     * only looked at here, never kept or logged.
+     */
+    fun onAnswer(observation: RequestObservation, contentType: String?, bodyStart: String?) {
+        if (!BrowserObservationMapper.isAdBreakAnswer(contentType, bodyStart)) return
+        startBreak(observation)
+    }
+
+    private fun startBreak(observation: RequestObservation) {
         synchronized(lock) {
             if (observation.pageUrl != pageUrl) return
             adBreakAt = observation.observedAtEpochMs
@@ -66,7 +83,11 @@ class VastAdTracker(
                 decided[candidate.mediaUrl] = ad
             }
         }
-        return if (ad) candidate.copy(pageRole = PageMediaRole.PREVIEW) else candidate
+        return if (ad) {
+            candidate.copy(pageRole = PageMediaRole.PREVIEW, adSign = AdSign.AD_BREAK)
+        } else {
+            candidate
+        }
     }
 
     private fun decide(candidate: MediaCandidate, observation: RequestObservation): Boolean {
