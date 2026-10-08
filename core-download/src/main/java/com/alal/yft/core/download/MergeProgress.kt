@@ -22,11 +22,43 @@ fun interface MuxProgressListener {
     fun onProgress(done: Long, total: Long)
 }
 
-/** A merge's result and how many samples it wrote before it ended (P27). */
+/**
+ * A merge's result and how many samples it wrote before it ended (P27); [details] say how it
+ * merged, for the merge's log line (P35).
+ */
 data class MuxAttempt(
     val result: LocalMuxResult,
     val samplesWritten: Long,
+    val details: MuxDetails? = null,
 )
+
+/**
+ * How a merge went (P35), for its log line: the way it merged ([STREAM_COPY] or [MEDIA_MUXER]),
+ * the samples of each track, each phase's time and, when today's way merged after the stream
+ * copy could not, why not. No addresses: only counts, times and short fixed words.
+ */
+data class MuxDetails(
+    val path: String,
+    val videoSamples: Long,
+    val audioSamples: Long,
+    /** Each phase's name and milliseconds, in order: "parse" to 120, "data" to 3_400. */
+    val phases: List<Pair<String, Long>> = emptyList(),
+    /** Why the stream copy was not kept, when today's way merged instead. */
+    val streamCopyNote: String? = null,
+) {
+    /** "stream copy: 1800 video + 2600 audio samples, parse 12 ms, data 1.2 s, check 40 ms". */
+    fun summary(): String {
+        val way = streamCopyNote?.let { note -> "$path (stream copy: $note)" } ?: path
+        val samples = "$videoSamples video + $audioSamples audio samples"
+        val times = phases.map { (name, millis) -> "$name ${MergeTimes.duration(millis)}" }
+        return (listOf("$way: $samples") + times).joinToString(", ")
+    }
+
+    companion object {
+        const val STREAM_COPY = "stream copy"
+        const val MEDIA_MUXER = "MediaMuxer"
+    }
+}
 
 /**
  * A muxer that reports its progress and can write into a file descriptor (P27). A muxer that

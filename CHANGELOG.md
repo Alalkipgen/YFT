@@ -67,7 +67,25 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Phase 14 — Agent C (P35)
 
-- (Agent C writes its P35 entries here; P38 folds them into Added / Changed / Fixed.)
+- Faster merge for long videos: an MP4 video track and its MP4 or M4A sound are now joined by
+  copying their samples in large blocks into the final MP4 (stream copy) instead of passing
+  every sample through Android's MediaMuxer. On the CI emulator a 1-hour-sized merge (265,410
+  samples) takes 1.0–1.8 s instead of 15–21 s (12–14 times faster), and P27's 20-minute input
+  0.25–0.5 s instead of 3.7–6.5 s. The new file is read back with Android's MediaExtractor
+  before it counts (both tracks' formats and durations; the first samples, a few sync samples
+  and every sample from the last sync sample on, byte for byte and in time).
+- The stream copy keeps every sample's time as the tracks give it; MediaMuxer moved the start of
+  a video with B-frames (59 ms on the test video), which put the picture slightly behind the
+  sound.
+- Today's MediaMuxer way stays as the safety net and runs once when the stream copy cannot be
+  used or its check fails (encrypted tracks, HEVC or AV1, two tracks in one file, broken boxes,
+  sample data outside the file's data box); WebM merges (VP9/Opus, 2K/4K) keep it. It is a bit
+  faster too: each sample's time and flags are read once, and its progress is reported at most
+  every 250 ms.
+- "Merging audio and video · N%" moves on with the bytes copied.
+- The merge's log line also says how it merged (stream copy, or MediaMuxer with the reason the
+  stream copy was not kept), the sample count of each track, the time of each phase and the
+  merge thread's CPU time beside its wall time (a large gap means the phone paused YFT).
 
 ### Added
 
