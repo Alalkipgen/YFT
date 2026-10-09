@@ -258,6 +258,37 @@ Update this file before every checkpoint push. Keep it factual so another chat c
   Source/compiled runtime, caller probe and sanitized results are backed up. Production,
   existing extractors, downloads, CI and security guards remain unchanged. TLS/full download,
   mux, all resolutions, Android live caller, Master CI green and merge readiness are unverified.
+- Native public-player diagnostic checkpoint (2026-10-09): test-only native mouse hover
+  resolved Facebook's hidden playback controls after the optional login teaser was closed
+  normally. No force-click, login, JS play/seek, fabricated MAIN role or fake playing URL.
+  The observer now forwards every actually observed native GET response, without a media-MIME
+  prefilter; unchanged production MasterBrowserSession performs its own URL classification.
+
+  Facebook NASA 1414737229683186: actual native Pause/Play, one trusted receipt, 640x360,
+  readyState 4, sourceObjectType=MediaSourceHandle, no currentSrc/src address. Fresh samples
+  2.871860 -> 3.225809 s in 355.4 ms, generation 1, protected=false. Production authorized
+  playback and accepted eight payloads but zero media requests/candidates. Real Master returned
+  NEEDS_PLAYBACK in 30 ms; zero probes/TLS/body bytes. Here the result does NOT mean playback
+  was absent: no usable media address reached this page-level producer. Worker/opaque-handle
+  coverage remains unverified; do not invent a URL or declare universal FB incompatibility.
+
+  TikTok NASA 7670337149526379789: native Pause/Play, one trusted receipt, 720x1280/readyState 4,
+  blob source. Fresh samples 3.766892 -> 4.196915 s in 434.6 ms, generation 1, protected=false.
+  Production authorized playback, accepted three media requests/eight payloads and discovered
+  three candidates, zero MAIN-role candidates/groups, no secure playing address. Real Master
+  returned NEEDS_SELECTION in 38 ms; zero probes/TLS/body bytes. This is genuine live capture
+  and a safe selection refusal, not a Master extraction pass or a latest-P40 app/phone proof.
+
+  X's fresh caller-faithful repeat reached native Play selection but stopped before capture
+  when actual unpaused/decoded readiness did not arrive within ten seconds. Its earlier
+  native-click/two-progress desktop collector proof remains valid; no new live-engine pass.
+  YouTube/Reddit public access gates and Vimeo/Dailymotion/Threads unverified player paths
+  remain as recorded in the nine-site preflight. No supported/unsupported blanket claim.
+  The untouched producer's focus/address/MAIN-role limitations are recorded, not bypassed.
+  Production changes to address those limits are outside the frozen scope. The same-APK
+  Android two-pass gate remains passed. Default/release capture, 2.5-s bound, separate progress,
+  DRM and generation checks, existing extractors, downloads and CI remain unchanged. No TLS
+  media-prefix, full download/mux, all-quality, Master CI-green or merge-readiness claim.
 - Next: complete native-play observation for the remaining accessible public players, then
   continue the recovered test-only harness through focus selection/HTTPS-prefix checks.
   Keep bot/login/private/DRM failures terminal and distinguish teaser/iframe/MSE limitations.
