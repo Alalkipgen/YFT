@@ -203,8 +203,40 @@ Update this file before every checkpoint push. Keep it factual so another chat c
   TikTok nested PlayAddr Width/Height still needs reviewed dimension mapping/tests before
   precise rendition labels; portrait sizes must not be mislabeled from height alone.
   No production quality mapping/transcoding/download change was made under the frozen scope.
+- Stdin-only live harness milestone (2026-10-09): recompiled 46 unchanged pure production
+  sources, including CaptureFrameReader, MasterBrowserSession, MasterFallbackEngine and the
+  real OkHttpMediaValidator, with repo Kotlin 2.0.21 / Java 17. All 46 files were byte-compared
+  to b07bd5d2 and matched. Thirteen Maven artifacts were checked against published hashes.
+  A missing compiler-host annotation dependency was fixed only in the sandbox classpath.
+  No Gradle/app/production/CI file changed. This is an internal diagnostic, not a new APK
+  or full Android WebView caller test. Its recoverable RESPONSE_CHANGED input is test-only.
+  Raw collector packets and original monotonic sample times pass over stdin to the unchanged
+  production frame reader/session. No manual store.playing authorization, JS play/seek,
+  altered frame time, fake playing address or persisted packet/body/cookie is used.
+  Native Pause -> Play and read-only natural readiness precede a fresh <=2.5-second capture;
+  readiness reads are not submitted to session.accept. Visible optional login-teaser Close
+  is dismissed natively, never by bypassing an overlay or signing in.
+  Instagram repeated native resume produced one trusted receipt and 1080x1920/readyState 4.
+  Fresh samples advanced 1.609261 -> 1.966620 s in 359.8 ms, generation 1, no DRM.
+  Real production session accepted two raw frames: authorizedPlayback=true, 68 bounded
+  requests and eight payloads. Real Master ran for 111 ms and returned NEEDS_SELECTION with
+  the diagnostic's requested public shortcode Dcwk7e1yHaY. It refused to guess: zero probes,
+  validated candidates, TLS handshakes or body bytes. This proves live capture/session
+  authorization and engine selection refusal, NOT extraction success, HTTPS prefix,
+  Android caller integration or full download. Inspect actual caller expected-ID/focus
+  mapping before interpreting this refusal; do not delete an expected ID or weaken selection.
+  TikTok native main-surface Pause was observed at 720x1280/readyState 4. The first diagnostic
+  stopped at native_resume_not_observed; after test-only tap spacing/actual-resume waiting,
+  another attempt timed out before capture at decoded-player readiness (25 s). Neither
+  supplied live frames to the engine. P40/live Master Play-and-Capture proof remains pending.
+  Facebook's second non-teaser-caption NASA sample (1414737229683186) rendered 640x360,
+  duration metadata 83.283 s, readyState 4. Native Pause selection stopped the diagnostic.
+  Inspection found a visible role-button named Play video, not Pause. Activate it natively
+  and inspect the resulting controls before retrying; this is not full-play/download proof.
+  Compiled classes, verified runtime, driver, source hashes and sanitized failures were
+  backed up as session files. The passed same-APK two-run Android gate remains unchanged.
 - Next: complete native-play observation for the remaining accessible public players, then
-  use a reviewed test-only live harness to exercise the real Master engine/HTTPS-prefix path.
+  continue the recovered test-only harness through focus selection/HTTPS-prefix checks.
   Keep bot/login/private/DRM failures terminal and distinguish teaser/iframe/MSE limitations.
   TLS/full download/mux, all-resolution coverage, Master CI green and merge readiness remain
   unverified. Run builds and emulator separately. Main/Phase 15/TikTok code remains untouched.

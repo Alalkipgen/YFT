@@ -207,3 +207,38 @@ No production mapping, existing extractor, download or CI code was modified.
 Next: finish the remaining accessible native-player checks, then add a reviewed test-only
 live harness for real Master-engine/HTTPS-prefix validation. Full download/mux, all qualities,
 Android live-site coverage, Master CI green and merge readiness are still pending.
+
+### Stdin-only live engine diagnostic — 2026-10-09
+
+A sandbox-only Java 17/Kotlin 2.0.21 harness recompiled 46 unchanged production sources,
+including the real frame reader, browser session, engine and HTTPS validator. Each source
+was byte-compared to b07bd5d2. Published Maven hashes were checked for 13 artifacts. The
+initial missing compiler-host annotation dependency was corrected outside the repository.
+No production, app, existing extractor, download or CI file changed; no new APK was built.
+This diagnostic uses a test-only recoverable RESPONSE_CHANGED input, not an actual Android
+primary-adapter failure or full WebView/caller integration result.
+
+Raw packets stay in memory and pass by stdin into the unchanged frame reader/session with
+original sample clocks. The driver does not authorize playback manually, invoke JS play/seek,
+change frame time/addresses or persist packets, API bodies or cookies. Actual native Pause
+and Play plus read-only natural readiness precede a fresh bounded capture. Readiness is not
+submitted as authorization. Visible optional Close controls are dismissed natively only.
+
+- Instagram: native resume, one trusted receipt; 1080x1920, readyState 4, no DRM. Fresh
+  samples 1.609261 -> 1.966620 s in 359.8 ms, generation 1. Production session accepted
+  two raw frames: authorizedPlayback=true, 68 bounded requests and eight payloads.
+  Real Master returned NEEDS_SELECTION in 111 ms for requested shortcode Dcwk7e1yHaY.
+  Zero probes, validated candidates, TLS handshakes or body bytes: selection refused to
+  guess. This is NOT successful extraction, HTTPS-prefix validation or a download result.
+- TikTok: native Pause at 720x1280/readyState 4. One attempt stopped at actual resume
+  verification; another stopped before capture on a 25-s decoded-player timeout. Neither
+  reached live engine validation. No P40/live Play-and-Capture pass is claimed.
+- Facebook: second public NASA sample 1414737229683186 rendered 640x360 with 83.283-s
+  duration metadata. Native Pause selection stopped the diagnostic. Inspection found a
+  visible Play video role-button; native activation/resulting controls are next.
+
+Compiled runtime, driver, source/dependency hashes and sanitized failures were backed up.
+Inspect actual expected-ID/focus mapping for Instagram without deleting an ID or weakening
+selection; fix remaining native control/readiness paths only in the test harness. The old
+same-APK Android two-pass gate remains valid. HTTPS-prefix, full download/mux, all resolutions,
+Android live caller, Master CI green and merge readiness remain unverified.
