@@ -242,3 +242,29 @@ Inspect actual expected-ID/focus mapping for Instagram without deleting an ID or
 selection; fix remaining native control/readiness paths only in the test harness. The old
 same-APK Android two-pass gate remains valid. HTTPS-prefix, full download/mux, all resolutions,
 Android live caller, Master CI green and merge readiness remain unverified.
+
+### Caller-faithful focused-media limitation — 2026-10-09
+
+Caller-faithful live diagnosis (2026-10-09): the actual app factory registers TikTok,
+Facebook, Vimeo and YouTube only. Their four unchanged URL helpers were compiled with the
+existing harness (50 unchanged production files). Runtime probes returned no registry
+match/expected ID for Instagram or X, TikTok ID 7670337149526379789 and Facebook ID
+1414737229683186. This parameter now comes from those production delegates, not removal
+of a requested ID to force success. Runtime flags/full Android caller remain unverified.
+
+Instagram generic mode: actual native Pause/Play, one trusted receipt, decoded 1080x1920,
+readyState 4. Fresh samples 2.277588 -> 2.633725 s in 357.9 ms. Session authorized playback
+with 71 requests/eight payloads. Unchanged reader discovered 71 candidates, zero MAIN-role
+candidates/groups and no secure playing address (blob). Real Master returned NEEDS_SELECTION
+in 59 ms. Zero probes, TLS handshakes, body bytes or validated candidates. The measured
+limitation is focused-address/main-role correlation, not absent or fabricated playback.
+No playing address or MAIN role was invented; no Instagram extraction/download pass.
+The earlier manual-shortcode result remains a separate diagnostic, not actual caller policy.
+
+Facebook screenshot and accessibility confirmed the optional See more on Facebook login
+teaser over the public video. The apparent Play video was aria-hidden fallback, correctly
+not clicked. The real Close is dismissible natively. Subsequent native Pause actionability
+still timed out; no FB live packets/engine proof. No sign-in or force-click was attempted.
+Source/compiled runtime, caller probe and sanitized results are backed up. Production,
+existing extractors, downloads, CI and security guards remain unchanged. TLS/full download,
+mux, all resolutions, Android live caller, Master CI green and merge readiness are unverified.
