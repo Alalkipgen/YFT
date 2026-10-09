@@ -83,4 +83,11 @@ The test-only follow-on releases its fixture composition before activity teardow
 the WebView and capture scope are gone, waits for visible native window focus, and checks
 that the single real tap delivered a trusted click to the fixture. The click receipt is not
 used as production playback evidence. Production code and all capture/security limits are
-unchanged. Compilation and two aggregate repeat runs remain pending.
+unchanged. The repaired harness (`0a341674`) compiled and the Android module passed 21/21;
+internal x86_64 app/test APKs were rebuilt. Debug/test opt-in flags were true and release false.
+The first guarded full class passed 3/4 but correctly refused the tap: WindowManager and a
+screenshot confirmed a native SystemUI ANR dialog owned foreground focus. The isolated guarded
+case also refused while that dialog remained. The inspected native Wait action cleared it.
+A repeat then stopped before instrumentation on a diagnostic logcat-clear error; the local
+runner now treats that diagnostic action as bounded/best-effort while retaining strict
+`OK (4 tests)` assertions. Two aggregate repeat passes remain pending; no device-green claim.

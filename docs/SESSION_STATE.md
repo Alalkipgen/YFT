@@ -92,7 +92,15 @@ Update this file before every checkpoint push. Keep it factual so another chat c
   before the one actual screen tap, and separately checks that a trusted click reached the
   fixture. That receipt is not playback authorization. Production files, 2.5-second capture
   deadline, two-progress-sample requirement, DRM refusal and navigation guards are unchanged.
-  Compile and aggregate repeat device runs are PENDING; no green device claim.
+  Harness checkpoint `0a3416746232e5f48ac3e8913c3064727519f422` compiled successfully:
+  module 21/21 passed, internal x86_64 app/test APKs assembled, debug/test capture flags true,
+  release false. The guarded full class passed 3/4 and refused the tap because native window
+  focus never arrived; the same guarded positive case alone also refused while the dialog
+  remained. WindowManager and a screenshot directly confirmed the foreground window was
+  "Application Not Responding: com.android.systemui", not the fixture. Native Wait cleared it.
+  A subsequent repeat stopped before instrumentation because API 29 logcat could not clear
+  its main buffer; that diagnostic-only action is now bounded/best-effort, not a pass criterion.
+  Strict aggregate repeats remain PENDING; no green device claim.
 - Next: compile/rebuild and repeat the full four-fixture class twice with the same APKs; only
   then finalize Android validation. Only after this task and
   its checkpoint finish, perform the owner's requested Instagram/X public-page live validation.
