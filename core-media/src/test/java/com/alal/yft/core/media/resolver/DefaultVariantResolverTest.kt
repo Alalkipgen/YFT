@@ -1,5 +1,8 @@
 package com.alal.yft.core.media.resolver
 
+import com.alal.yft.core.model.media.BrowserReadAnswer
+import com.alal.yft.core.model.media.BrowserReadRequest
+import com.alal.yft.core.model.media.BrowserReads
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
@@ -714,6 +717,124 @@ class DefaultVariantResolverTest {
             assertEquals("SocketTimeoutException", failure.error)
             assertEquals(server.hostName, failure.host)
         }
+
+    @Test
+    fun `a file whose HEAD answers 474 is asked by a range GET before failing`() = runTest {
+        // P45: the owner's adult-site file answered the sheet's HEAD with HTTP 474.
+        server.enqueue(MockResponse().setResponseCode(474))
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(206)
+                .setHeader("Content-Type", "video/mp4")
+                .setHeader("Content-Range", "bytes 0-0/4096")
+                .setBody("x"),
+        )
+        val stated = candidate(server.url("/clip.mp4").toString()).copy(height = 720)
+
+        val result = resolver.resolve(stated)
+
+        assertTrue(result.toString(), result is VariantResolutionResult.Success)
+        assertEquals(
+            4_096L,
+            (result as VariantResolutionResult.Success).asset.variants.single().sizeBytes,
+        )
+        assertEquals("HEAD", server.takeRequest().method)
+        assertEquals("bytes=0-0", server.takeRequest().getHeader("Range"))
+    }
+
+    @Test
+    fun `a refused manifest is asked by the browser and its answer stands in`() = runTest {
+        // P45: the CDN answered YFT's request of a fresh HLS link with 410 while the page's
+        // player played it; the browser's own engine gets it.
+        val asked = mutableListOf<BrowserReadRequest>()
+        val master = server.url("/v/master.m3u8").toString()
+        val browser = resolverWith { request ->
+            asked += request
+            BrowserReadAnswer(
+                status = 200,
+                finalUrl = master,
+                contentType = "application/vnd.apple.mpegurl",
+                text = "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720," +
+                    "CODECS=\"$AVC_720\"\n720.m3u8\n",
+            )
+        }
+        server.enqueue(MockResponse().setResponseCode(410))
+
+        val result = browser.resolve(candidate(master, MediaKind.HLS))
+
+        assertTrue(result.toString(), result is VariantResolutionResult.Success)
+        val variant = (result as VariantResolutionResult.Success).asset.variants.single()
+        assertEquals(720, variant.height)
+        assertEquals(server.url("/v/720.m3u8").toString(), variant.playbackUrl)
+        val request = asked.single()
+        assertEquals(master, request.url)
+        assertEquals("https://page.example.test/watch", request.pageUrl)
+        assertEquals("YFT fixture", request.userAgent)
+        assertTrue(request.wantsText)
+    }
+
+    @Test
+    fun `a refusal the browser gets too names the request and the browsers status`() = runTest {
+        val browser = resolverWith { BrowserReadAnswer(status = 474) }
+        server.enqueue(MockResponse().setResponseCode(474))
+        server.enqueue(MockResponse().setResponseCode(474))
+
+        val refused = browser.resolve(candidate(server.url("/clip.mp4").toString()))
+            as VariantResolutionResult.Failure
+
+        assertEquals(474, refused.httpStatusCode)
+        assertEquals(ResolutionStep.FILE_CHECK, refused.step)
+        assertEquals("range GET", refused.request)
+        assertEquals(474, refused.browserStatus)
+
+        // A file the browser got stands in with its length; one it could not ask says 0.
+        val length = resolverWith {
+            BrowserReadAnswer(status = 200, contentType = "video/mp4", contentLength = 8_192)
+        }
+        server.enqueue(MockResponse().setResponseCode(474))
+        server.enqueue(MockResponse().setResponseCode(474))
+        val stated = candidate(server.url("/clip.mp4").toString()).copy(height = 720)
+        val found = length.resolve(stated) as VariantResolutionResult.Success
+        assertEquals(8_192L, found.asset.variants.single().sizeBytes)
+
+        val none = resolverWith { null }
+        server.enqueue(MockResponse().setResponseCode(410))
+        server.enqueue(MockResponse().setResponseCode(410))
+        val unasked = none.resolve(candidate(server.url("/clip.mp4").toString()))
+            as VariantResolutionResult.Failure
+        assertEquals(0, unasked.browserStatus)
+    }
+
+    @Test
+    fun `the browser is never asked after a 404, a HEAD or for a site adapters file`() =
+        runTest {
+            var asked = 0
+            val browser = resolverWith {
+                asked += 1
+                BrowserReadAnswer(status = 200, contentType = "video/mp4", contentLength = 1)
+            }
+            server.enqueue(MockResponse().setResponseCode(404))
+            server.enqueue(MockResponse().setResponseCode(404))
+            val gone = browser.resolve(candidate(server.url("/clip.mp4").toString()))
+                as VariantResolutionResult.Failure
+            assertEquals(404, gone.httpStatusCode)
+            assertNull(gone.browserStatus)
+
+            server.enqueue(MockResponse().setResponseCode(410))
+            server.enqueue(MockResponse().setResponseCode(410))
+            val named = candidate(server.url("/clip.mp4").toString()).copy(videoId = "site:1")
+            val adapter = browser.resolve(named) as VariantResolutionResult.Failure
+            assertEquals(410, adapter.httpStatusCode)
+            assertEquals(0, asked)
+        }
+
+    /** A resolver that asks [reads] when the site refuses its request. */
+    private fun resolverWith(reads: BrowserReads) = DefaultVariantResolver(
+        client = OkHttpClient(),
+        policy = DefaultVariantResolver.Policy(),
+        clock = { NOW },
+        browserReads = reads,
+    )
 
     /** A resolver whose response bodies call [onBytes] whenever bytes are read from them. */
     private fun resolverReading(onBytes: () -> Unit) = DefaultVariantResolver(

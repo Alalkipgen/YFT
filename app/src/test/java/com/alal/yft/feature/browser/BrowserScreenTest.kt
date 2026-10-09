@@ -302,9 +302,6 @@ class BrowserScreenTest {
             assertEquals(1, main)
             assertEquals(0, quick)
         }
-        // That sheet's "Other videos on this page" opens the list.
-        state = state.copy(foundListRequest = 1)
-        composeRule.onNodeWithTag("found-list").assertIsDisplayed()
     }
 
     @Test

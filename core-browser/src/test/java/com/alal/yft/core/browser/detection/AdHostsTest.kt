@@ -43,6 +43,17 @@ class AdHostsTest {
     }
 
     @Test
+    fun theOwnersVideoCdnHostsAreNeverAdHosts() {
+        // P45: the hosts of the owner's Details (file check and manifest) serve the page's own
+        // video; only its ad network's hosts are ads.
+        listOf(
+            "https://ev.phncdn.com/videos/202610/09/1/720P_4000K_1.mp4?validfrom=1&hash=x",
+            "https://hm-h.phncdn.com/hls/videos/202610/09/1/master.m3u8?validfrom=1",
+        ).forEach { assertNull(it, AdHosts.adSign(it)) }
+        listOf("ev.phncdn.com", "hm-h.phncdn.com").forEach { assertFalse(AdHosts.isAdHost(it)) }
+    }
+
+    @Test
     fun aFileInAWholeAdFolderIsAnAd() {
         assertEquals(
             AdSign.AD_ADDRESS,

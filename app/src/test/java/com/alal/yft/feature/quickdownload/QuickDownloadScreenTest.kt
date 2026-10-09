@@ -376,7 +376,7 @@ class QuickDownloadScreenTest {
     }
 
     @Test
-    fun aPageLookupLoadsInTheSheetAProtectedVideoHasNoTryAgainAndOthersAreOneTapAway() {
+    fun aPageLookupLoadsInTheSheetAProtectedVideoHasNoTryAgainAndNoOtherVideoIsOffered() {
         var state by mutableStateOf(
             QuickDownloadUiState(
                 header = SAMPLE_QUICK_DOWNLOAD.header,
@@ -384,15 +384,9 @@ class QuickDownloadScreenTest {
                 findingVideo = true,
             ),
         )
-        var others = 0
         composeRule.setContent {
             YftTheme(themeMode = ThemeMode.LIGHT) {
-                QuickDownloadScreen(
-                    state = state,
-                    onSelect = {},
-                    onDownload = {},
-                    onOpenOtherVideos = { others += 1 },
-                )
+                QuickDownloadScreen(state = state, onSelect = {}, onDownload = {})
             }
         }
 
@@ -406,11 +400,11 @@ class QuickDownloadScreenTest {
         state = state.copy(canRetry = false)
         composeRule.onAllNodesWithTag("quick-retry").assertCountEquals(0)
 
-        // A generic page's main video: the others are one row away.
-        state = SAMPLE_QUICK_DOWNLOAD.copy(otherVideos = 3)
-        composeRule.onNodeWithText("Other videos on this page (3)").assertExists()
-        composeRule.onNodeWithTag("quick-other-videos").performClick()
-        assertEquals(1, others)
+        // P45: the sheet is the tapped video's only; it never offers the page's other videos.
+        state = SAMPLE_QUICK_DOWNLOAD
+        composeRule.onNodeWithTag("quick-download").assertExists()
+        composeRule.onAllNodesWithTag("quick-other-videos").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Other videos", substring = true).assertCountEquals(0)
     }
 
     @Test
@@ -434,43 +428,11 @@ class QuickDownloadScreenTest {
         composeRule.onAllNodesWithText(WAITING_MESSAGE).assertCountEquals(0)
         composeRule.onAllNodesWithTag("quick-maybe-ad").assertCountEquals(0)
 
-        state = SAMPLE_QUICK_DOWNLOAD.copy(maybeAd = true, otherVideos = 2)
+        state = SAMPLE_QUICK_DOWNLOAD.copy(maybeAd = true)
         composeRule.onNodeWithTag("quick-maybe-ad").assert(
-            hasText("This may be an ad. Play the video for a moment, or see Other videos."),
+            hasText("This may be an ad. Play the video for a moment, then open Download again."),
         )
-        composeRule.onNodeWithTag("quick-other-videos").assertExists()
-    }
-
-    @Test
-    fun theSheetSaysItShowsTheNextVideoAndItsDetailsListBothAttempts() {
-        // P29: the first video's file was gone; the qualities are the page's next video's.
-        val details = listOf(
-            "First video",
-            "Step: file check",
-            "Host: media.example.test",
-            "Status: HTTP 410",
-            "Next video",
-            "Host: media.example.test",
-            "Status: ready",
-        )
-        composeRule.setContent {
-            YftTheme(themeMode = ThemeMode.LIGHT) {
-                QuickDownloadScreen(
-                    state = SAMPLE_QUICK_DOWNLOAD.copy(nextVideo = true, attemptDetails = details),
-                    onSelect = {},
-                    onDownload = {},
-                )
-            }
-        }
-
-        composeRule.onNodeWithTag("quick-next-video")
-            .assert(hasText("The first file is gone — showing the next video"))
-        composeRule.onAllNodesWithTag("quick-error").assertCountEquals(0)
-        composeRule.onAllNodesWithTag("quick-next-video-detail-text").assertCountEquals(0)
-        composeRule.onNodeWithTag("quick-next-video-details").performClick()
-        composeRule.onNodeWithTag("quick-next-video-detail-text")
-            .assert(hasText(details.joinToString("\n")))
-        composeRule.onNodeWithTag("quick-download").assertExists()
+        composeRule.onAllNodesWithTag("quick-other-videos").assertCountEquals(0)
     }
 
     @Test

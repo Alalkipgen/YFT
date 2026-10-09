@@ -25,6 +25,7 @@ import com.alal.yft.core.download.LocalAudioVideoMuxer
 import com.alal.yft.core.download.LocalMp3Transcoder
 import com.alal.yft.core.download.Mp3ConvertingTransferDispatcher
 import com.alal.yft.core.download.RoomDownloadTaskStore
+import com.alal.yft.core.model.media.BrowserReads
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.download.policy.ConnectivityNetworkMonitor
 import com.alal.yft.download.policy.DownloadNetworkStatus
@@ -68,9 +69,11 @@ object DownloadRuntimeModule {
     fun provideHlsTransferRunner(
         client: OkHttpClient,
         @ApplicationContext context: Context,
+        browserReads: BrowserReads,
     ): HlsTransferRunner = HlsTransferEngine(
         client = client,
         workspaceRoot = File(context.noBackupFilesDir, HLS_WORKSPACE_DIRECTORY),
+        browserReads = browserReads,
     )
 
     @Provides

@@ -15,6 +15,8 @@ import com.alal.yft.core.model.download.HlsDownloadPlan
 import com.alal.yft.core.model.download.HlsTransferCheckpoint
 import com.alal.yft.core.model.download.HlsTransferResult
 import com.alal.yft.core.model.download.StreamChunkCheckpoint
+import com.alal.yft.core.model.media.BrowserReadRequest
+import com.alal.yft.core.model.media.BrowserReads
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
@@ -34,6 +36,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Response
 
@@ -61,6 +64,7 @@ class HlsTransferEngine(
     private val workspaceRoot: File,
     private val policy: Policy = Policy(),
     private val clock: () -> Long = System::currentTimeMillis,
+    private val browserReads: BrowserReads = BrowserReads.None,
 ) : HlsTransferRunner {
     data class Policy(
         val maxRedirects: Int = 5,
@@ -260,6 +264,7 @@ class HlsTransferEngine(
                     )
                 }
                 if (response.code != 200) {
+                    browserManifest(plan, credentialOrigin, response.code)?.let { return@use it }
                     throw HlsAbort(response.code.toFailureReason(), response.code, CONNECT)
                 }
                 if (
@@ -287,6 +292,41 @@ class HlsTransferEngine(
                 )
             }
         }
+    }
+
+    /**
+     * P45: a playlist the site refused to YFT ([BrowserReads.isRefusal]) asked once more by the
+     * browser's own engine, as the page's player asks it; null when it refused too or could not
+     * ask. Its pieces are still downloaded by YFT.
+     */
+    private suspend fun browserManifest(
+        plan: HlsDownloadPlan,
+        playlist: HttpUrl,
+        code: Int,
+    ): FetchedManifest? {
+        if (!BrowserReads.isRefusal(code)) return null
+        if (!playlist.isHttps && playlist.host !in LOOPBACK_HOSTS) return null
+        val pageUrl = plan.requestContext.pageUrl
+            ?.takeIf { it.toHttpUrlOrNull()?.isHttps == true }
+            ?: return null
+        val answer = try {
+            browserReads.read(
+                BrowserReadRequest(
+                    url = playlist.toString(),
+                    pageUrl = pageUrl,
+                    userAgent = plan.requestContext.userAgent,
+                    wantsText = true,
+                    maxBytes = policy.maxManifestBytes,
+                ),
+            )
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Exception) {
+            null
+        }
+        val text = answer?.takeIf { it.isSuccess }?.text ?: return null
+        val finalUrl = answer.finalUrl?.toSafeDownloadUrl()?.takeIf { it.isHttps } ?: playlist
+        return FetchedManifest(finalUrl = finalUrl, body = text)
     }
 
     private fun reconcileCheckpoint(
@@ -733,6 +773,7 @@ class HlsTransferEngine(
     }
 
     private companion object {
+        val LOOPBACK_HOSTS = setOf("localhost", "127.0.0.1", "::1")
         const val CHUNK_INDEX_DIGITS = 5
         const val HLS_ACCEPT =
             "application/vnd.apple.mpegurl, application/x-mpegurl, */*;q=0.1"

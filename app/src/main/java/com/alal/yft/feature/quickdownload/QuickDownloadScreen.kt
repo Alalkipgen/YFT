@@ -67,7 +67,6 @@ fun QuickDownloadRoute(
     onNavigateBack: () -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenDetails: () -> Unit,
-    onOpenOtherVideos: () -> Unit = onNavigateBack,
     viewModel: QuickDownloadViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -88,11 +87,6 @@ fun QuickDownloadRoute(
         onReload = { if (viewModel.reloadPage()) onNavigateBack() },
         onOpenDownloads = onOpenDownloads,
         onClose = onNavigateBack,
-        onOpenOtherVideos = {
-            // P12: the browser's found list opens under this sheet, which closes. P24: over
-            // Home the found list opens instead ([onOpenOtherVideos]).
-            if (viewModel.openOtherVideos()) onOpenOtherVideos()
-        },
     )
 }
 
@@ -120,7 +114,6 @@ fun QuickDownloadScreen(
     onOpenDownloads: () -> Unit = {},
     onClose: () -> Unit = {},
     onReload: () -> Unit = {},
-    onOpenOtherVideos: () -> Unit = {},
     onPickEarly: (OptionSection) -> Unit = {},
 ) {
     if (state.downloadStatus == PreviewDownloadStatus.ConfirmMetered) {
@@ -191,19 +184,6 @@ fun QuickDownloadScreen(
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
-        if (state.nextVideo) {
-            // P29: the first video's file is gone; this is the page's next video.
-            Text(
-                text = NEXT_VIDEO_MESSAGE,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp)
-                    .testTag("quick-next-video"),
-                color = YftTheme.colors.textSecondary,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            FailureDetails(state.attemptDetails, tag = "quick-next-video-details")
-        }
         if (state.freshLink) {
             // P37: the first link was gone; this is the same video from a fresh link.
             Text(
@@ -228,13 +208,6 @@ fun QuickDownloadScreen(
                 style = MaterialTheme.typography.bodyMedium,
             )
             FailureDetails(state.attemptDetails, tag = null)
-        }
-        if (state.otherVideos > 0) {
-            YftTextButton(
-                text = "Other videos on this page (${state.otherVideos})",
-                onClick = onOpenOtherVideos,
-                modifier = Modifier.testTag("quick-other-videos"),
-            )
         }
         val choices = state.choices
         when {
@@ -783,12 +756,12 @@ internal const val WAITING_MESSAGE = "Getting qualities…"
 /** P28: the sheet waits a few seconds for the page's own video after what may be its ad. */
 internal const val FINDING_PAGE_VIDEO_MESSAGE = "Finding the page's video…"
 
-/** P28: the video may be the ad the page's player shows before its video. */
+/**
+ * P28: the video may be the ad the page's player shows before its video. P45: the sheet shows
+ * only the page's own video, so the way on is the player, not another video.
+ */
 internal const val MAYBE_AD_MESSAGE =
-    "This may be an ad. Play the video for a moment, or see Other videos."
-
-/** P29: the first video's file is gone, so the sheet shows the page's next video. */
-internal const val NEXT_VIDEO_MESSAGE = "The first file is gone — showing the next video"
+    "This may be an ad. Play the video for a moment, then open Download again."
 
 /** P37: the first link was gone, so the sheet shows the same video from a fresh link. */
 internal const val FRESH_LINK_MESSAGE = "The first link is gone — using a fresh link"

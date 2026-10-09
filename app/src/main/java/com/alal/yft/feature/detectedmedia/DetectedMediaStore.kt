@@ -98,11 +98,6 @@ class DetectedMediaStore @Inject constructor() {
     /** The video the download sheet shows (P3): a snapshot, so new finds do not move it. */
     val selection: StateFlow<MediaGroup?> = mutableSelection.asStateFlow()
 
-    private val mutableOtherVideos = MutableStateFlow(0)
-
-    /** P12: how many more videos the page of the selected main video has; the sheet lists them. */
-    val otherVideos: StateFlow<Int> = mutableOtherVideos.asStateFlow()
-
     private val mutableMaybeAd = MutableStateFlow(false)
 
     /**
@@ -138,14 +133,6 @@ class DetectedMediaStore @Inject constructor() {
     /** P16: whether an opening sheet waits on [lookup] rather than taking the page's video. */
     val awaitsLookup: Boolean get() = awaiting && mutableSelection.value == null
 
-    private val foundListRequests = MutableSharedFlow<Unit>(
-        extraBufferCapacity = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST,
-    )
-
-    /** P12: the sheet's "Other videos on this page" row; the browser opens its found list. */
-    val foundList: SharedFlow<Unit> = foundListRequests.asSharedFlow()
-
     fun publish(
         pageUrl: String,
         pageTitle: String?,
@@ -157,7 +144,6 @@ class DetectedMediaStore @Inject constructor() {
         // A video chosen on another page is not this page's: the sheet must not show it.
         if (mutablePage.value?.pageUrl != pageUrl) {
             mutableSelection.value = null
-            mutableOtherVideos.value = 0
             mutableMaybeAd.value = false
             awaiting = false
         }
@@ -172,14 +158,13 @@ class DetectedMediaStore @Inject constructor() {
     }
 
     /**
-     * [group] is the video the sheet shows; [otherVideos] more videos are on its page. P28:
-     * [maybeAd] when it may be the ad before the page's video ([maybeAd]).
+     * [group] is the video the sheet shows, the page's own video alone (P45: the sheet lists no
+     * other video). P28: [maybeAd] when it may be the ad before the page's video ([maybeAd]).
      */
-    fun select(group: MediaGroup, otherVideos: Int = 0, maybeAd: Boolean = false) {
+    fun select(group: MediaGroup, maybeAd: Boolean = false) {
         awaiting = false
         mutableMaybeAd.value = maybeAd
         mutableSelection.value = group
-        mutableOtherVideos.value = otherVideos.coerceAtLeast(0)
     }
 
     /**
@@ -188,7 +173,6 @@ class DetectedMediaStore @Inject constructor() {
      */
     fun awaitPageVideo() {
         mutableSelection.value = null
-        mutableOtherVideos.value = 0
         mutableMaybeAd.value = false
         awaiting = true
     }
@@ -211,10 +195,6 @@ class DetectedMediaStore @Inject constructor() {
     fun closeLookup(key: String) {
         awaiting = false
         closeRequests.tryEmit(key)
-    }
-
-    fun showFoundList() {
-        foundListRequests.tryEmit(Unit)
     }
 
     private val pageReadRequests = MutableSharedFlow<String>(
@@ -283,7 +263,6 @@ class DetectedMediaStore @Inject constructor() {
     fun clear() {
         mutablePage.value = null
         mutableSelection.value = null
-        mutableOtherVideos.value = 0
         mutableMaybeAd.value = false
         mutableLookup.value = null
         awaiting = false

@@ -46,8 +46,6 @@ data class BrowserUiState(
     val sitePage: Boolean = false,
     /** P12: the page's own lookup is running; the Download button shows a small spinner. */
     val pageLookupRunning: Boolean = false,
-    /** P12: counts the sheet's requests to open the found list ("Other videos on this page"). */
-    val foundListRequest: Int = 0,
     /**
      * P37: counts the sheet's "Reload page and try again"; each new count reloads the tab once
      * without its cache.

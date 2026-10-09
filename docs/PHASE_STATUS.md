@@ -50,6 +50,12 @@ at the owner's request (no tag). `1.0.0-beta.4` (P8) waits for the owner's phone
 Preview #7. Tasks, Results and the phone checklist live in [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md);
 prompts are in [`prompts/`](prompts/README.md).
 
+P45 (2026-10-09, Agent B alone, after the owner's Preview #7 test): the Download sheet shows
+only the tapped video (no "Other videos" row, no "Next video"), a page's links are asked like
+the browser's (agent, `Origin`, `Referer`), a refused link is asked again through WebView, and
+HTTP 474/410 say the site refused the link; proven ads leave the browser's lists. Preview #8;
+`1.0.0-beta.4` (P8) waits for the owner's phone test of Preview #8.
+
 
 ## History
 

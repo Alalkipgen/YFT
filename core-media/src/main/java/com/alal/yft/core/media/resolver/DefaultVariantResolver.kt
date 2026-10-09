@@ -1,5 +1,8 @@
 package com.alal.yft.core.media.resolver
 
+import com.alal.yft.core.model.media.BrowserReadAnswer
+import com.alal.yft.core.model.media.BrowserReadRequest
+import com.alal.yft.core.model.media.BrowserReads
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.MediaAsset
 import com.alal.yft.core.model.media.MediaCandidate
@@ -32,21 +35,26 @@ import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 
 @Singleton
 class DefaultVariantResolver(
     client: OkHttpClient,
     private val policy: Policy,
     private val clock: () -> Long,
+    private val browserReads: BrowserReads = BrowserReads.None,
 ) : VariantResolver {
     @Inject
-    constructor(client: OkHttpClient) : this(
+    constructor(client: OkHttpClient, browserReads: BrowserReads) : this(
         client = client,
         policy = Policy(),
         clock = System::currentTimeMillis,
+        browserReads = browserReads,
     )
 
     data class Policy(
@@ -99,7 +107,12 @@ class DefaultVariantResolver(
             )
         }
         return if (result is VariantResolutionResult.Failure) {
-            result.copy(step = result.step ?: trace.step, host = result.host ?: trace.host)
+            result.copy(
+                step = result.step ?: trace.step,
+                host = result.host ?: trace.host,
+                request = result.request ?: trace.request,
+                browserStatus = result.browserStatus ?: trace.browserStatus,
+            )
         } else {
             result
         }
@@ -116,8 +129,15 @@ class DefaultVariantResolver(
         else -> VariantResolutionFailure.NETWORK
     }
 
-    /** P24: where a resolution is: the step and host of its latest request. */
-    private class Trace(var host: String?, var step: ResolutionStep = ResolutionStep.ADDRESS)
+    /**
+     * P24: where a resolution is: the step and host of its latest request. P45: also that
+     * request's kind ("HEAD", "range GET", "GET") and what the browser answered when it was
+     * asked the same link again ([BrowserReads]; 0 when it could not ask).
+     */
+    private class Trace(var host: String?, var step: ResolutionStep = ResolutionStep.ADDRESS) {
+        var request: String? = null
+        var browserStatus: Int? = null
+    }
 
     private suspend fun resolveSafely(
         candidate: MediaCandidate,
@@ -173,14 +193,8 @@ class DefaultVariantResolver(
 
         var finalUrl = head.finalUrl
         var metadata = head.response.use { it.toDirectMetadata() }
-        if (metadata.code.headSaysNothing()) {
-            metadata = DirectMetadata(code = metadata.code)
-        } else if (metadata.code !in SUCCESS_CODES) {
-            return VariantResolutionResult.Failure(
-                reason = VariantResolutionFailure.HTTP_STATUS,
-                httpStatusCode = metadata.code,
-            )
-        }
+        val headRefused = metadata.code !in SUCCESS_CODES
+        if (headRefused) metadata = DirectMetadata(code = metadata.code)
         // P24: some file servers answer HEAD with a web page, or send it to their home page,
         // while a range GET of the same address gets the file: the address itself is asked again.
         if (metadata.mimeType.isWebPage()) {
@@ -189,7 +203,7 @@ class DefaultVariantResolver(
         }
 
         if (
-            metadata.code.headSaysNothing() ||
+            headRefused ||
             metadata.mimeType == null ||
             metadata.totalLengthBytes == null
         ) {
@@ -300,15 +314,6 @@ class DefaultVariantResolver(
         )
         return success(candidate, listOf(variant), durationMillis)
     }
-
-    /**
-     * A HEAD answer that tells nothing about the file: HEAD refused (405, 501) or a server error
-     * (5xx; P39 live check: TikTok's file host answered HEAD with 504 while a range GET of the
-     * same address got the file). The file is then asked with the range GET, and only that
-     * answer's failure fails the lookup; a 4xx HEAD answer still fails at once.
-     */
-    private fun Int.headSaysNothing(): Boolean =
-        this == HTTP_METHOD_NOT_ALLOWED || this in SERVER_ERROR_CODES
 
     /**
      * Reads the start of an MP4 file in a few small ranged requests and returns what its boxes
@@ -580,10 +585,12 @@ class DefaultVariantResolver(
     ): HttpExecution {
         var currentUrl = initialUrl
         var redirectCount = 0
+        trace?.browserStatus = null
         while (true) {
             trace?.let {
                 it.host = currentUrl.host
                 if (step != null) it.step = step
+                it.request = method.label
             }
             val requestBuilder = Request.Builder().url(currentUrl)
             val headers = candidate.requestContext.headersForTarget(credentialOrigin, currentUrl)
@@ -606,8 +613,14 @@ class DefaultVariantResolver(
                 RequestMethod.GET -> requestBuilder.get()
             }
 
-            val response = resolverClient.newCall(requestBuilder.build()).await()
+            val request = requestBuilder.build()
+            val response = resolverClient.newCall(request).await()
             if (response.code !in REDIRECT_CODES) {
+                val browser = askBrowser(candidate, request, response.code, method, step, trace)
+                if (browser != null) {
+                    response.close()
+                    return browser
+                }
                 return HttpExecution.Completed(response, currentUrl)
             }
             if (redirectCount >= policy.maxRedirects) {
@@ -624,6 +637,63 @@ class DefaultVariantResolver(
             currentUrl = target
             redirectCount += 1
         }
+    }
+
+    /**
+     * P45: a refusal of a link a browser page names ([BrowserReads.isRefusal]: 403, 410, 412,
+     * 452–499) is asked once more the way the page's player asks it: by the browser's own engine
+     * ([browserReads]). Only a file check, a manifest or a playlist, never a HEAD (its range GET
+     * follows) nor a site adapter's file (its own rules stand). The browser's answer stands in
+     * for YFT's when it got the file or the text; otherwise YFT's refusal stands and the trace
+     * keeps the browser's status for the sheet's Details.
+     */
+    private suspend fun askBrowser(
+        candidate: MediaCandidate,
+        request: Request,
+        code: Int,
+        method: RequestMethod,
+        step: ResolutionStep?,
+        trace: Trace?,
+    ): HttpExecution.Completed? {
+        if (method == RequestMethod.HEAD || step !in BROWSER_STEPS) return null
+        if (!BrowserReads.isRefusal(code) || candidate.videoId != null) return null
+        val pageUrl = candidate.requestContext.pageUrl
+            ?.takeIf { it.toHttpUrlOrNull()?.isHttps == true }
+            ?: return null
+        if (!request.url.isHttps && !request.url.host.isLoopbackHost()) return null
+        val wantsText = method == RequestMethod.GET
+        val answer = try {
+            browserReads.read(
+                BrowserReadRequest(
+                    url = request.url.toString(),
+                    pageUrl = pageUrl,
+                    userAgent = candidate.requestContext.userAgent,
+                    wantsText = wantsText,
+                    maxBytes = policy.maxManifestBytes,
+                ),
+            )
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Exception) {
+            null
+        }
+        trace?.browserStatus = answer?.status ?: BROWSER_NOT_ASKED
+        if (answer == null || !answer.isSuccess || wantsText && answer.text == null) return null
+        val finalUrl = answer.finalUrl?.toSafeHttpUrl()?.takeIf { it.isHttps } ?: request.url
+        return HttpExecution.Completed(answer.toResponse(request, wantsText), finalUrl)
+    }
+
+    /** P45: the browser's [BrowserReadAnswer] as the response the resolver reads. */
+    private fun BrowserReadAnswer.toResponse(request: Request, wantsText: Boolean): Response {
+        val type = contentType?.toMediaTypeOrNull()
+        val builder = Response.Builder()
+            .request(request)
+            .protocol(Protocol.HTTP_1_1)
+            .code(status)
+            .message(BROWSER_MESSAGE)
+        contentType?.let { builder.header("Content-Type", it) }
+        if (!wantsText) contentLength?.let { builder.header("Content-Length", it.toString()) }
+        return builder.body(text.orEmpty().toResponseBody(type)).build()
     }
 
     private suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation ->
@@ -796,10 +866,10 @@ class DefaultVariantResolver(
         return null
     }
 
-    private enum class RequestMethod {
-        HEAD,
-        RANGE_GET,
-        GET,
+    private enum class RequestMethod(val label: String) {
+        HEAD("HEAD"),
+        RANGE_GET("range GET"),
+        GET("GET"),
     }
 
     private sealed interface HttpExecution {
@@ -830,7 +900,6 @@ class DefaultVariantResolver(
         val PROBED_VIDEO_MIME_TYPES = setOf("video/mp4", "video/quicktime", "video/x-m4v")
         const val AUDIO_PREFIX = "audio/"
         const val VIDEO_PREFIX = "video/"
-        const val HTTP_METHOD_NOT_ALLOWED = 405
         const val BUFFER_SIZE = 8_192
         const val RANGE_FIRST_BYTE = "bytes=0-0"
         const val DASH_MIME_TYPE = "application/dash+xml"
@@ -839,7 +908,13 @@ class DefaultVariantResolver(
             "application/vnd.apple.mpegurl, application/x-mpegurl, */*;q=0.1"
         const val EPOCH_MILLIS_THRESHOLD = 100_000_000_000L
         val SUCCESS_CODES = 200..299
-        val SERVER_ERROR_CODES = 500..599
+        const val BROWSER_NOT_ASKED = 0
+        const val BROWSER_MESSAGE = "browser"
+        val BROWSER_STEPS = setOf(
+            ResolutionStep.FILE_CHECK,
+            ResolutionStep.MANIFEST,
+            ResolutionStep.MEDIA_PLAYLIST,
+        )
         val REDIRECT_CODES = setOf(300, 301, 302, 303, 307, 308)
         val EXPIRY_QUERY_NAMES = setOf("exp", "expire", "expires", "expiration")
         val ISO_INSTANT_PATTERNS = listOf(

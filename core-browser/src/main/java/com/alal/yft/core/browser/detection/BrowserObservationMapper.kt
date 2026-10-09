@@ -132,7 +132,11 @@ object BrowserObservationMapper {
             title = observation.title,
             thumbnailUrl = observation.thumbnailUrl,
             durationMillis = observation.durationMillis,
-            requestContext = BrowserRequestContext(observation.pageUrl, null, null),
+            // P45: asked as the page's player asks for it (Origin, the page's origin as Referer).
+            requestContext = BrowserRequestContext.pageLink(
+                observation.pageUrl,
+                observation.mediaUrl,
+            ),
             confidence = CandidateConfidence.HIGH,
             observedAtEpochMs = observation.observedAtEpochMs,
             pageRole = observation.pageRole ?: adRole(observation.mediaUrl, null),

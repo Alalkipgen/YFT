@@ -139,7 +139,7 @@ class AdPrerollInstrumentedTest {
         )
         val main = MediaGroups.mainVideo(videos, null, facts)
         assertTrue(main!!.candidates.any { it.mediaUrl == SCRIPT_MP4 })
-        store.select(main, otherVideos = videos.size - 1)
+        store.select(main)
 
         // The setup's links are gone; the page read again names new ones.
         val reader = TabPageReader(

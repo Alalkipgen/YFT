@@ -1225,3 +1225,19 @@ P42 — Downloads: Delete file (2026-10-09):
 | Phase 15 summary | P39 TikTok reads every answer with Details, P40 TikTok from TikTok's own page, P41 YouTube progress from the first seconds, P42 Delete file, P43 the page's video never the ad: all OWNER CHECK; 1717 tests, 0 failures (1532 at the start) |
 | CI (`1ef8c86`) | checkpoint validation [37893874474](https://github.com/Alalkipgen/YFT/actions/runs/37893874474), emulator smoke [37893874480](https://github.com/Alalkipgen/YFT/actions/runs/37893874480), Preview APK = **Preview #7** [37893874478](https://github.com/Alalkipgen/YFT/actions/runs/37893874478): all green |
 | Owner check | Preview #7: FIX_ADD_PLAN §6 "Preview #7" items 1–8 |
+
+### P45 — the tapped video only, its links asked like the browser (Agent B alone)
+
+| Check | Evidence |
+| --- | --- |
+| Sheet: the tapped video only | `QuickDownloadViewModelTest.aGoneFirstFileNeverShowsThePagesOtherVideo` (first 410, the page's other video is never asked or shown; Details list only the first attempt), `anAdOrAPreviewIsNeverShownForTheTappedVideo`; `QuickDownloadScreenTest` (no `quick-other-videos` node, no "Other videos" text; the maybe-ad note "… then open Download again."); the P29 next-video tests removed |
+| After an ad: the page's video | `QuickDownloadAdRuleTest`, `QuickDownloadPrerollTest` ("First video · skipped: 0:30 ad (short) · Page's video"), `MediaGroups.pageVideoAfterAd` (P29's `nextVideo`, used only after a proven ad) |
+| Messages and Details | `QuickDownloadFailuresTest`: 410/412/474 → "The site refused this link (HTTP n). Play the video for a moment, then try again.", 404 unchanged; `detailsNameTheRequestAndWhatTheBrowserItselfGotForTheLink` ("Request: range GET", "Browser check: HTTP 474" / "not answered") |
+| Requests like the browser's | `BrowserRequestContextTest`: `pageLink` on another origin → `Origin` + origin `Referer`, no cookie, the tab's agent; same origin → the whole page as `Referer`; the browser's own `Referer`/`User-Agent` stand |
+| File check and browser reads | `DefaultVariantResolverTest`: HEAD 474 → range GET 206 → success; manifest 410 → fake `BrowserReads` 200 → qualities; HEAD 474 + GET 474 + browser 474 → `request` "range GET", `browserStatus` 474; browser 200 with a length → size; no engine → `browserStatus` 0; 404 or a site adapter's file → never asked |
+| HLS download | `HlsTransferEngineTest`: playlist 410 → the browser's playlist → pieces downloaded; without the browser the refusal stands |
+| WebView read script | `BrowserReadScriptTest`: the link is one escaped JSON string in the script, answers with status/type/length/text, no answer / refusal / error told apart, too-long text and non-HTTPS addresses dropped, the blank page's origin |
+| Ads out of the lists | `BrowserScreen`/`DetectedMediaScreen` use `MediaGroups.ofPage(hideAds = true)` (`PageVideoProofTest` covers `hideAds`); `AdHostsTest.theOwnersVideoCdnHostsAreNeverAdHosts` |
+| Full validation (2026-10-09) | Full validation: 1729 tests, 0 failures, 66 skipped (app 903, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 239; 1717 before P45); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. |
+| CI | CI links in the next docs commit |
+| Owner check | Preview #8: FIX_ADD_PLAN §6 "Preview #8" items 1–5 |

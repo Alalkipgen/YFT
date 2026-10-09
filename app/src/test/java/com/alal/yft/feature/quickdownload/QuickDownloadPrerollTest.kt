@@ -64,7 +64,7 @@ class QuickDownloadPrerollTest {
             freshMp4.mediaUrl to read(freshMp4, MAIN_LENGTH),
         )
         harness.store.publish(PAGE, TITLE, listOf(hls, mp4, ad), facts = facts)
-        harness.store.select(MediaGroups.of(listOf(hls, mp4)).single(), otherVideos = 1)
+        harness.store.select(MediaGroups.of(listOf(hls, mp4)).single())
         val reader = QueuedPageReader(PageReread.Found(listOf(freshHls, freshMp4), facts))
 
         val sheet = harness.sheet(reader)
@@ -121,7 +121,7 @@ class QuickDownloadPrerollTest {
         )
         harness.store.publish(PAGE, TITLE, listOf(ad, main), facts = facts)
         // The browser selected what its player played: the pre-roll, maybe an ad (P28).
-        harness.store.select(MediaGroups.of(listOf(ad)).single(), otherVideos = 1, maybeAd = true)
+        harness.store.select(MediaGroups.of(listOf(ad)).single(), maybeAd = true)
 
         val sheet = harness.sheet()
         advanceUntilIdle()
@@ -132,11 +132,9 @@ class QuickDownloadPrerollTest {
         assertEquals(MAIN_LENGTH, state.header?.durationMillis)
         assertEquals(TITLE, state.header?.title)
         assertFalse(state.maybeAd)
-        assertFalse(state.nextVideo)
         assertFalse(state.freshLink)
-        assertEquals(0, state.otherVideos)
         assertEquals(
-            listOf("First video", "skipped: 0:30 ad (short)", "Next video"),
+            listOf("First video", "skipped: 0:30 ad (short)", "Page's video"),
             state.attemptDetails.take(3),
         )
         assertTrue(
@@ -186,7 +184,6 @@ class QuickDownloadPrerollTest {
         assertEquals(listOf(main.mediaUrl), state.offered().distinct())
         assertTrue(state.attemptDetails.isEmpty())
         assertFalse(state.freshLink)
-        assertFalse(state.nextVideo)
         assertNull(state.failure)
     }
 }

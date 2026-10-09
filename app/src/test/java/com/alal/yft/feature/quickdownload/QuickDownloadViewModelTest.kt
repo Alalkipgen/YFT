@@ -584,24 +584,13 @@ class QuickDownloadViewModelTest {
     }
 
     @Test
-    fun anAdapterSiteNeverOffersItsPlayersFilesAndTheMainVideoCountsTheOthers() = runTest {
+    fun anAdapterSiteNeverOffersItsPlayersFilesAndAGenericPageOffersThem() = runTest {
         // P12: unnamed files on a site's page are its player's, not the page's video.
         val file = video(720, 42 * MIB, title = "Player part", videoId = null, index = 1)
         store.publish(QuickDownloadFixtures.PAGE, "Page", listOf(file), adapterSite = true)
         assertNull(viewModel().uiState.value.header)
         store.publish(QuickDownloadFixtures.PAGE, "Page", listOf(file))
         assertNotNull(viewModel().uiState.value.header)
-
-        // A generic page's main video with three more: the row and the list request.
-        store.select(MediaGroups.of(listOf(file)).single(), otherVideos = 3)
-        val main = viewModel()
-        assertEquals(3, main.uiState.value.otherVideos)
-        var lists = 0
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            store.foundList.collect { lists++ }
-        }
-        assertTrue(main.openOtherVideos())
-        assertEquals(1, lists)
     }
 
     @Test
@@ -1006,84 +995,32 @@ class QuickDownloadViewModelTest {
     }
 
     @Test
-    fun aGoneFirstFileShowsThePagesNextVideoWithBothAttemptsInDetails() = runTest {
-        // P29: the owner's Preview #4 page: the first video's address answered HTTP 410.
+    fun aGoneFirstFileNeverShowsThePagesOtherVideo() = runTest {
+        // P45 (was P29): the owner's page: the tapped video's address answered HTTP 410. The
+        // sheet stays the tapped video's; the page's other video is never shown in its place.
         val page = "https://tube.example.test/watch/77"
         val first = generic(1, 25 * MIB, page, lengthMillis = 600_000)
         val next = generic(2, 9 * MIB, page, lengthMillis = 300_000)
         resolver.answer = { candidate -> gone(410).takeIf { candidate.mediaUrl == first.mediaUrl } }
         resolver.heights[next.mediaUrl] = 480
         store.publish(page, "Harbour lights at dusk", listOf(first, next))
-        store.select(MediaGroups.of(listOf(first)).single(), otherVideos = 1)
-
-        val sheet = viewModel()
-        advanceUntilIdle()
-
-        val state = sheet.uiState.value
-        assertNull(state.failure)
-        assertTrue(state.nextVideo)
-        assertEquals(300_000L, state.header?.durationMillis)
-        assertEquals("480p", state.selectedOption?.title?.substringBefore(" "))
-        assertEquals(
-            listOf(first.mediaUrl, next.mediaUrl),
-            resolver.requested.map { it.mediaUrl },
-        )
-        assertEquals(
-            listOf(
-                "First video",
-                "Step: file check",
-                "Host: media.example.test",
-                "Status: HTTP 410",
-                "Link from: pasted link",
-                "Link age: unknown",
-                "Link expiry: none",
-                "Next video",
-                "Host: media.example.test",
-                "Status: ready",
-                "Link from: pasted link",
-                "Link age: unknown",
-                "Link expiry: none",
-            ),
-            state.attemptDetails,
-        )
-        sheet.download()
-        advanceUntilIdle()
-        assertEquals(listOf(next.mediaUrl), starter.variants.map { it.playbackUrl })
-    }
-
-    @Test
-    fun whenTheNextVideoFailsTooTheFailuresDetailsListBothAttempts() = runTest {
-        // P29: the next video is tried once; its failure is shown with both attempts.
-        val page = "https://tube.example.test/watch/77"
-        val first = generic(1, 25 * MIB, page, lengthMillis = 600_000)
-        val next = generic(2, 9 * MIB, page, lengthMillis = 300_000)
-        val third = generic(3, 5 * MIB, page, lengthMillis = 200_000)
-        resolver.answer = { candidate ->
-            if (candidate.mediaUrl == first.mediaUrl) gone(410) else gone(404)
-        }
-        store.publish(page, "Harbour lights at dusk", listOf(first, next, third))
         store.select(MediaGroups.of(listOf(first)).single())
 
         val sheet = viewModel()
         advanceUntilIdle()
 
         val state = sheet.uiState.value
-        assertEquals("The site no longer has this video (HTTP 404).", state.failure)
-        assertFalse(state.nextVideo)
-        assertEquals(2, resolver.requested.size)
+        assertEquals(
+            REFUSED_410,
+            state.failure,
+        )
+        assertEquals(listOf(first.mediaUrl), resolver.requested.map { it.mediaUrl })
+        assertNull(state.selectedOption)
         assertEquals(
             listOf(
-                "First video",
                 "Step: file check",
                 "Host: media.example.test",
                 "Status: HTTP 410",
-                "Link from: pasted link",
-                "Link age: unknown",
-                "Link expiry: none",
-                "Next video",
-                "Step: file check",
-                "Host: media.example.test",
-                "Status: HTTP 404",
                 "Link from: pasted link",
                 "Link age: unknown",
                 "Link expiry: none",
@@ -1093,7 +1030,7 @@ class QuickDownloadViewModelTest {
     }
 
     @Test
-    fun anAdOrAPreviewIsNeverTheNextVideo() = runTest {
+    fun anAdOrAPreviewIsNeverShownForTheTappedVideo() = runTest {
         // P29: the page's other files are its ad and a preview clip: the first one's error stays.
         val page = "https://tube.example.test/watch/77"
         val first = generic(1, 25 * MIB, page, lengthMillis = 984_000)
@@ -1108,16 +1045,15 @@ class QuickDownloadViewModelTest {
             listOf(first, ad, preview),
             facts = PageVideoFacts(984_000, "Harbour lights at dusk"),
         )
-        store.select(MediaGroups.of(listOf(first)).single(), otherVideos = 2)
+        store.select(MediaGroups.of(listOf(first)).single())
 
         val sheet = viewModel()
         advanceUntilIdle()
 
         assertEquals(
-            "The site no longer has this video (HTTP 410).",
+            REFUSED_410,
             sheet.uiState.value.failure,
         )
-        assertFalse(sheet.uiState.value.nextVideo)
         assertEquals(listOf(first.mediaUrl), resolver.requested.map { it.mediaUrl })
     }
 
@@ -1133,7 +1069,7 @@ class QuickDownloadViewModelTest {
         val sheet = viewModel()
         advanceUntilIdle()
         assertEquals(
-            "The site no longer has this video (HTTP 410).",
+            REFUSED_410,
             sheet.uiState.value.failure,
         )
 
@@ -1204,7 +1140,6 @@ class QuickDownloadViewModelTest {
         val state = sheet.uiState.value
         assertNull(state.failure)
         assertNotNull(state.choices)
-        assertFalse(state.nextVideo)
         assertEquals(listOf(player.mediaUrl), resolver.requested.map { it.mediaUrl })
         sheet.download()
         advanceUntilIdle()
@@ -1233,7 +1168,7 @@ class QuickDownloadViewModelTest {
         val none = viewModel()
         advanceUntilIdle()
         assertNull(none.uiState.value.choices)
-        assertEquals("The site no longer has this video (HTTP 410).", none.uiState.value.failure)
+        assertEquals(REFUSED_410, none.uiState.value.failure)
         assertTrue(none.uiState.value.canReload)
 
         // The page read again has the new link: it is prepared and only its rows are offered.
@@ -1310,7 +1245,6 @@ class QuickDownloadViewModelTest {
         val state = sheet.uiState.value
         assertNull(state.failure)
         assertTrue(state.freshLink)
-        assertFalse(state.nextVideo)
         assertEquals(
             listOf(script.mediaUrl, player.mediaUrl),
             resolver.requested.map { it.mediaUrl },
@@ -1388,7 +1322,7 @@ class QuickDownloadViewModelTest {
         advanceUntilIdle()
 
         val state = sheet.uiState.value
-        assertEquals("The site no longer has this video (HTTP 410).", state.failure)
+        assertEquals(REFUSED_410, state.failure)
         assertTrue(state.canReload)
         assertEquals(2, reader.asked.size)
         assertEquals(listOf(dead.mediaUrl), resolver.requested.map { it.mediaUrl })
@@ -1672,3 +1606,6 @@ class QuickDownloadViewModelTest {
             listOf("Link from: pasted link", "Link age: unknown", "Link expiry: none")
     }
 }
+
+private const val REFUSED_410 =
+    "The site refused this link (HTTP 410). Play the video for a moment, then try again."

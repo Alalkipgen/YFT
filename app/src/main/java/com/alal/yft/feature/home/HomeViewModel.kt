@@ -43,7 +43,7 @@ import kotlinx.coroutines.launch
  * sheet instead and View reopens it. P16: a link to a video of a site an adapter reads opens the
  * sheet at once; the sheet waits on this lookup, shows its failure with Try again, and closing it
  * stops the lookup. P24: previews and ads of a page are not counted; a page with one main video
- * opens its sheet at once with the rest under "Other videos on this page".
+ * opens its sheet at once with that video alone (P45); View lists the rest.
  */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -64,8 +64,6 @@ class HomeViewModel @Inject constructor(
     /** The one video the last lookup found, which View hands to the sheet again. */
     private var foundVideo: MediaGroup? = null
 
-    /** P24: how many previews and other videos the page of [foundVideo] has. */
-    private var foundOthers = 0
     private var recentJob: Job? = null
 
     /** P29: the page the last lookup found and the link it came from, for Try again. */
@@ -162,7 +160,6 @@ class HomeViewModel @Inject constructor(
         if (link.isEmpty()) return
         stopInspection()
         foundVideo = null
-        foundOthers = 0
         foundPage = null
         foundLink = null
         // P16: a supported site's video opens its sheet now; the lookup below fills it.
@@ -230,15 +227,12 @@ class HomeViewModel @Inject constructor(
                         )
                         if (videos.isNotEmpty()) {
                             // P24: the count counts the page's videos, not its previews and
-                            // ads; one main video opens its sheet with the rest behind it.
+                            // ads; one main video opens its sheet, alone (P45).
                             // P28: with the page's title and picture where it names none.
                             val list = MediaGroups.ofPage(videos, facts)
-                            foundOthers = videos.size - 1
                             foundVideo = list.videos.singleOrNull()
                                 ?.let { MediaGroups.withPageFacts(it, facts) }
-                                ?.also { main ->
-                                    detectedMediaStore.select(main, otherVideos = foundOthers)
-                                }
+                                ?.also { main -> detectedMediaStore.select(main) }
                             quick = foundVideo != null
                             // P16: the open sheet shows the link's video, the list the rest.
                             if (sheet != null && foundVideo == null) {
@@ -308,7 +302,7 @@ class HomeViewModel @Inject constructor(
 
     /** View on one found video: the sheet shows it again, whatever the browser found since. */
     fun selectFoundVideo() {
-        foundVideo?.let { detectedMediaStore.select(it, otherVideos = foundOthers) }
+        foundVideo?.let { detectedMediaStore.select(it) }
     }
 
     private fun stopInspection() {

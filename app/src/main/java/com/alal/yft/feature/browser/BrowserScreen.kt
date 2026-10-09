@@ -524,18 +524,10 @@ fun BrowserScreen(
     val videos = remember(savable, uiState.sitePage) {
         MediaGroups.pageVideos(savable, adapterSite = uiState.sitePage)
     }
-    // P24: the count and the button's label count the page's videos; its previews and ads
-    // follow them under "Other videos on this page". The tap still sees every entry.
-    val pageList = remember(videos) { MediaGroups.ofPage(videos) }
+    // P24: the count and the button's label count the page's videos; its previews follow them
+    // under "Other videos on this page". P45: a video proven an ad is not listed at all.
+    val pageList = remember(videos) { MediaGroups.ofPage(videos, hideAds = true) }
     var sheetExpanded by rememberSaveable { mutableStateOf(initialSheetExpanded) }
-    // P12: "Other videos on this page" in the main video's sheet opens this list, once per ask:
-    // coming back to the browser later must not open it again.
-    var shownFoundList by rememberSaveable { mutableIntStateOf(uiState.foundListRequest) }
-    LaunchedEffect(uiState.foundListRequest) {
-        if (uiState.foundListRequest == shownFoundList) return@LaunchedEffect
-        shownFoundList = uiState.foundListRequest
-        if (videos.isNotEmpty()) sheetExpanded = true
-    }
     var editingAddress by remember { mutableStateOf(false) }
     LaunchedEffect(savable.isEmpty()) {
         if (savable.isEmpty()) sheetExpanded = false

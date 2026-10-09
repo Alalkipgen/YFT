@@ -267,12 +267,6 @@ class BrowserViewModel(
             detectedMediaStore.lookupCloses.collect(::closeSheetLookup)
         }
         viewModelScope.launch {
-            // P12: the sheet's "Other videos on this page" opens the found list.
-            detectedMediaStore.foundList.collect {
-                mutableUiState.update { it.copy(foundListRequest = it.foundListRequest + 1) }
-            }
-        }
-        viewModelScope.launch {
             // P37: the sheet's "Reload page and try again".
             detectedMediaStore.pageReloads.collect(::reloadForFreshLink)
         }
@@ -1003,10 +997,7 @@ class BrowserViewModel(
         if (MediaGroups.mayBeAdBefore(main, facts)) {
             awaitVideoAfterAd(main)
         } else {
-            detectedMediaStore.select(
-                MediaGroups.withPageFacts(main, facts),
-                otherVideos = videos.size - 1,
-            )
+            detectedMediaStore.select(MediaGroups.withPageFacts(main, facts))
         }
         quickDownloads.trySend(Unit)
     }
@@ -1048,7 +1039,6 @@ class BrowserViewModel(
             val chosen = found ?: videos.firstOrNull { it.key == offered.key } ?: offered
             detectedMediaStore.select(
                 MediaGroups.withPageFacts(chosen, state.pageFacts),
-                otherVideos = (videos.size - 1).coerceAtLeast(0),
                 maybeAd = found == null,
             )
             pageVideoWait = null
@@ -1128,12 +1118,16 @@ class BrowserViewModel(
         if (pageUrl != activePageUrl) return
         // P28: what the page states about its video: its length, title and picture.
         candidateStore.submitFacts(pageUrl, domParser.facts(pageUrl, result))
+        // P45: a link the page names is asked with the WebView's own agent, never OkHttp's.
+        val agent = browserContext?.userAgent ?: detectedMediaStore.browserUserAgent
         candidateStore.submitAll(
             domParser.parse(
                 pageUrl = pageUrl,
                 javascriptResult = result,
                 observedAtEpochMs = System.currentTimeMillis(),
-            ),
+            ).map { candidate ->
+                candidate.copy(requestContext = candidate.requestContext.withUserAgent(agent))
+            },
         )
     }
 

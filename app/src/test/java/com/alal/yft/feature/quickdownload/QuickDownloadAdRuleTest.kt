@@ -63,17 +63,15 @@ class QuickDownloadAdRuleTest {
         val main = named("https://media.example.test/v43/720.mp4?hash=fresh")
         harness.resolver.answers[main.mediaUrl] = read(main, MAIN_LENGTH)
         harness.store.publish(PAGE, TITLE, listOf(networkAd, main), facts = facts)
-        harness.store.select(MediaGroups.of(listOf(networkAd)).single(), otherVideos = 1)
+        harness.store.select(MediaGroups.of(listOf(networkAd)).single())
 
         val sheet = harness.sheet()
         advanceUntilIdle()
 
         val state = sheet.uiState.value
         assertTrue(state.adSkipped)
-        assertFalse(state.nextVideo)
         assertFalse(state.freshLink)
         assertEquals(listOf(main.mediaUrl), state.offered())
-        assertEquals(0, state.otherVideos)
         assertEquals(listOf("First video", "skipped: ad (ad host)"), state.attemptDetails.take(2))
         assertTrue(harness.resolver.requested.none { it.mediaUrl == networkAd.mediaUrl })
     }
@@ -85,11 +83,10 @@ class QuickDownloadAdRuleTest {
         val networkAd = ad.copy(adSign = AdSign.AD_HOST)
         val inBreak = requested("https://cdn.other.test/b.mp4").copy(adSign = AdSign.AD_BREAK)
         harness.store.publish(PAGE, TITLE, listOf(main, networkAd, inBreak), facts = facts)
-        harness.store.select(MediaGroups.of(listOf(main)).single(), otherVideos = 2)
+        harness.store.select(MediaGroups.of(listOf(main)).single())
 
         val state = harness.sheet().uiState.value
 
-        assertEquals(0, state.otherVideos)
         assertFalse(state.adSkipped)
     }
 
@@ -181,7 +178,7 @@ class QuickDownloadAdRuleTest {
         val sheet = waitingSheet(PageReread.Found(listOf(fresh), facts))
         sheet.adRule = AdRule.LENIENT
 
-        harness.store.select(MediaGroups.of(listOf(mp4)).single(), otherVideos = 1)
+        harness.store.select(MediaGroups.of(listOf(mp4)).single())
         harness.store.clearLookup(LookupOwner.BROWSER)
         advanceUntilIdle()
 

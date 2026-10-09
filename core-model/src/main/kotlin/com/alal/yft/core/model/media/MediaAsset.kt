@@ -195,5 +195,10 @@ sealed interface VariantResolutionResult {
         /** P39: the exception's simple class name (e.g. SocketTimeoutException), never its
          *  message; null when unknown. */
         val error: String? = null,
+        /** P45: that request's kind ("HEAD", "range GET", "GET"); null when unknown. */
+        val request: String? = null,
+        /** P45: the browser's own answer to the same link ([BrowserReads]): its HTTP status, 0
+         *  when it could not ask; null when it was not asked. */
+        val browserStatus: Int? = null,
     ) : VariantResolutionResult
 }

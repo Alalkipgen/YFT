@@ -1132,7 +1132,6 @@ class BrowserViewModelTest {
         viewModel.onPlayingVideoResult(JSONObject.quote(playing))
         runCurrent()
         assertEquals(listOf(playing), store.selection.value?.candidates?.map { it.mediaUrl })
-        assertEquals(2, store.otherVideos.value)
         assertEquals(1, opened.size)
 
         // A page that does not answer gets its largest video.
@@ -1242,7 +1241,6 @@ class BrowserViewModelTest {
             assertTrue(urls.toString(), master in urls)
             assertTrue(selected.none { "/previews/" in it.mediaUrl || "adnet" in it.mediaUrl })
             assertEquals(754_500L, selected.first { it.mediaUrl == master }.durationMillis)
-            assertEquals(41, store.otherVideos.value)
 
             // A page that does not answer gets its stream too, never a preview.
             viewModel.mainVideoScript()

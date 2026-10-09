@@ -17,13 +17,19 @@
   (Artifacts › `yft-preview-apk`; uninstall the older YFT Preview first); checkpoint validation
   37893874474 and emulator smoke 37893874480 green. As the owner asked, `main` is
   fast-forwarded to the validated merge (no tag).
-- **Next action — owner:** test Preview #7 with FIX_ADD_PLAN §6 (TikTok with the VPN in the
-  browser and on Home, YouTube's start, Delete file, ads, Preview #6 items); send a Details
-  screenshot of anything that fails. `1.0.0-beta.4` (P8) waits for his OK.
-- **Open (C → A hand-offs, backlog):** (a) proven ads are still listed and counted as other
-  videos in the browser (leaving them out breaks P24's owner-case test, so it needs Agent A and
-  the owner's word); (b) the browser's own reads of a page's answers (e.g.
-  `MediaMetadataProbe`'s XML answers) do not call `vastAds.onAnswer` yet.
+- **P45 (2026-10-09, Agent B alone):** the Download sheet shows only the tapped video (no "Other
+  videos" row, no "Next video"); a page's links are asked like the browser's; a refused link
+  (403/410/412/452–499) is asked again through WebView; "The site refused this link (HTTP n).
+  Play the video for a moment, then try again."; Details add "Request:" and "Browser check:";
+  proven ads leave the browser's lists. Full validation: 1729 tests, 0 failures, 66 skipped (app 903, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 239; 1717 before P45); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. **Preview #8:** CI links in the next docs commit (on
+  `work/phase-15-integration`; `main` stays at `69bf022` until `MAIN=OK`).
+- **Next action — owner:** test Preview #8 (FIX_ADD_PLAN §6 "Preview #8"), then Preview #7 with
+  FIX_ADD_PLAN §6 (TikTok with the VPN in the browser and on Home, YouTube's start, Delete file,
+  ads, Preview #6 items); send a Details screenshot of anything that fails. `1.0.0-beta.4` (P8)
+  waits for his OK.
+- **Open (backlog):** hand-off (a) is done by P45; (b) the page's own VAST/VMAP answers do not
+  call `vastAds.onAnswer` yet (needs a page-script hook); Cronet for downloads if the CDN also
+  refuses YFT's file requests (FIX_ADD_PLAN §7, owner's OK for the dependency).
 - **Phase 14** (P34–P38, 2026-10-08): background downloads and merges, a stream-copy merge,
   TikTok's For You feed, fresh links instead of HTTP 410; merged into `main` (`4da3e61`, docs
   `a9eea7b`). Record: `git show a9eea7b:docs/HANDOFF.md`.
@@ -34,6 +40,13 @@
   `3A:EB:30:64:91:E2:DD:6F:F7:6D:C5:A8:68:E6:FC:C9:D3:30:BB:99:85:BF:4D:15:B3:4A:67:04:EC:78:98:8F`
   (notes: [`release/1.0.0-beta.3.md`](release/1.0.0-beta.3.md)). Phases 11–15 are merged
   (no tag); `1.0.0-beta.4` waits for Preview #7 (P8).
+
+## Known limitations (Preview #8)
+
+- P45: a refused link is asked again through WebView only for the file check and the lists of
+  qualities; the file itself and HLS pieces are still downloaded by YFT (OkHttp). If the CDN
+  refuses those too, the download's Details say so (Cronet option, FIX_ADD_PLAN §7). The
+  browser read needs CORS answers from the CDN; otherwise "Browser check: not answered".
 
 ## Known limitations (Preview #7)
 

@@ -67,10 +67,20 @@ Keep at least the heading and one blank line between sections, so Git merges the
   [37893874480](https://github.com/Alalkipgen/YFT/actions/runs/37893874480), Preview APK = **Preview #7**
   [37893874478](https://github.com/Alalkipgen/YFT/actions/runs/37893874478) (Artifacts › `yft-preview-apk`), all green. This
   docs commit adds the links; `main` is fast-forwarded to it at the owner's request (no tag).
-- Next: the owner tests Preview #7 (FIX_ADD_PLAN §6, uninstall the older YFT Preview first) and
-  sends a Details screenshot of anything that fails; P8 (signed `1.0.0-beta.4`) only with his
-  OK.
-- Last updated: 2026-10-09 (P44)
+- P45 (2026-10-09, Agent B alone at the owner's request, `/data/YFT-B` re-cloned after a
+  sandbox reset, new key `yft_b_202610092044`): the owner's Preview #7 test of the adult site
+  (Other videos row with ads, HTTP 474 at the file check, HTTP 410 at the manifest and "Next
+  video"). Done: the sheet shows only the tapped video; a page's links are asked like the
+  browser's; any HEAD error gets the range GET; refused links (403, 410, 412, 452–499) are asked
+  again through WebView (`BrowserReads`, also for HLS playlists); new messages and Details
+  lines; proven ads out of the browser's lists. Live checks of the site were refused by the
+  sandbox's reviewer, so public reports (yt-dlp #17642, PR #16794) back R37. Open: hand-off (b)
+  and a Cronet option (FIX_ADD_PLAN §7). Full validation: 1729 tests, 0 failures, 66 skipped (app 903, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 239; 1717 before P45); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean.
+- Last pushed checkpoint: the P45 checkpoint P45 on `work/phase-15-integration`; CI: CI links in the next docs commit =
+  **Preview #8**. `main` stays at `69bf022` until the owner says `MAIN=OK`.
+- Next: the owner tests Preview #8 (FIX_ADD_PLAN §6 "Preview #8") and sends Details of anything
+  that fails; P8 (signed `1.0.0-beta.4`) only with his OK.
+- Last updated: 2026-10-09 (P45)
 
 ## Agent A — `work/phase-15-tiktok` (P39, P40)
 

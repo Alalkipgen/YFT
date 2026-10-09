@@ -9,6 +9,13 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Added
 
+- Browser reads (P45): when a site refuses YFT's request of a link a browser page names
+  (HTTP 403, 410, 412 or 452–499, such as 474) at the file check, the list of qualities or a
+  quality's playlist, YFT asks the same link once more through Android's WebView — a hidden
+  blank page of the page's origin and the page's own `fetch`, with the tab's agent — and uses
+  its answer; HLS downloads ask a refused playlist the same way. The sheet's Details add
+  "Request: …" and "Browser check: …".
+
 - TikTok from TikTok's own page (P40): in YFT's browser, Download on a TikTok video or on For
   You takes the video's data from the page being watched — TikTok's own page data and the
   answers TikTok's own feed got (kept by a small script that never changes TikTok's requests) —
@@ -105,6 +112,12 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Changed
 
+- The Download sheet is the tapped video's only (P45): no "Other videos on this page" row and
+  no "Next video" step; only a proven ad gives way, once, to the page's own video behind it
+  ("Page's video" in Details). The browser's and Detected media's lists leave proven ads out.
+- Links a page names in its markup or scripts are asked like the page's player in Chromium
+  (P45): the tab's agent instead of OkHttp's, `Origin` and the page origin as `Referer` for
+  another origin; what the browser itself sent always stands.
 - TikTok reads every answer it gives (P39): YFT reads TikTok's phone page
   (`webapp.reflow.video.detail`) and desktop page (`webapp.video-detail`), finds the data script
   by its `id`, reads any `__DEFAULT_SCOPE__` key holding the post and entity-encoded data, and
@@ -273,6 +286,9 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Fixed
 
+- A file check that answers HEAD with any error (such as HTTP 474) is asked by its range GET
+  before failing (P45), and HTTP 410, 412 and 452–499 say "The site refused this link (HTTP n).
+  Play the video for a moment, then try again." instead of "no longer has this video".
 - Safer site requests (P39): a cookie pair or header OkHttp refuses is left out instead of
   failing the lookup, a per-lookup cookie jar carries cookies across short-link redirects, too
   many redirects is an HTTP status, and any other error names its class and step.

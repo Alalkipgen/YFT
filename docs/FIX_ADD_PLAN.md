@@ -304,7 +304,8 @@ here. AI agent time includes builds and CI waits on a 4 GiB sandbox.
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
 | P44 | [Merge B → C → A, full validation, Preview #7](#p44--merge-and-preview-7) | Medium | 2–3 h | P39–P43 READY FOR MERGE | DONE (2026-10-09) — Preview #7 sent |
-| P8 | [Signed release 1.0.0-beta.4](#p8--signed-release-100-beta4) | Easy | 1–2 h | P44, Preview #7, owner OK | TODO |
+| P45 | [Adult-site sheet: the tapped video only, its links asked like the browser](#p45--the-tapped-video-only-its-links-asked-like-the-browser) | Medium–Hard | 7–8 h | P44, owner's Preview #7 test | DONE — OWNER CHECK (2026-10-09) — Preview #8 |
+| P8 | [Signed release 1.0.0-beta.4](#p8--signed-release-100-beta4) | Easy | 1–2 h | P44, P45, Preview #8, owner OK | TODO |
 
 In parallel the wall time is about 15–22 h (A's TikTok track of 13–19 h, then P44); two agents
 need about 16–24 h; one agent alone 27–40 h.
@@ -976,6 +977,79 @@ fast-forwarded to the validated merge after its CI was green (no tag, no signed 
 `1ef8c86`: checkpoint validation 37893874474, emulator smoke 37893874480, Preview APK 37893874478
 = **Preview #7**, all green.
 
+### P45 — The tapped video only, its links asked like the browser
+
+Medium–Hard · 7–8 h · needs P44 and the owner's Preview #7 test · **Agent B alone** (the owner
+asked for no A/B/C split, 2026-10-09)
+
+**What the owner saw (Preview #7, an adult site, 2026-10-09):** (1) the sheet still showed
+"Other videos on this page (3)" with ads and previews in that list; he wants it gone and only the
+source video, 100% stable. (2) "The site answered HTTP 474. Try again or pick another format."
+with Details "First video · skipped: ad (ad host)", then three "Page read again · Step: file
+check · Host: ev.<cdn> · Status: HTTP 474" (links under 1 min old, expiry not passed). (3) "The
+site no longer has this video (HTTP 410)." with "First video · Step: list of qualities
+(manifest) · Host: hm-h.<cdn> · Status: HTTP 410 · Link from: page script", two "Page read
+again · no new link", then "Next video · Step: file check · HTTP 410" — another video. Plus
+the C → A hand-offs (a) and (b) left open by P44.
+
+**Root causes (code, the owner's Details, public reports; live checks of the site were not
+allowed in the sandbox):**
+- R35 — Links a page names in its markup or scripts ("Link from: page script", the DOM probe)
+  were asked with no `User-Agent` at all — OkHttp's own `okhttp/4.12.0` went out —, the whole
+  page address as `Referer` and no `Origin`, unlike the page's player in Chromium.
+- R36 — The file check's HEAD failed at once on any 4xx except 405 (474 never got its range
+  GET), and its refusals 412 and 452–499 counted as "Try again or pick another format".
+- R37 — 410 said "The site no longer has this video" while the page played it. Public reports
+  (yt-dlp #17642, Sep–Oct 2026; yt-dlp PR #16794, merged 2026-06-09) show this site's CDN
+  answering 410 (and 412 without `Origin`/`Referer`) to requests that are not a browser's — by
+  TLS fingerprint and IP reputation, not by the link's age; after one or two such requests a
+  link stays refused for minutes. The page re-read (OkHttp) gets the same links, so "no new
+  link".
+- R38 — The fresh-link chain's "Next video" (P29) moved to another video of the page, and the
+  sheet's "Other videos on this page (N)" row listed and counted the page's ads.
+- R39 — Proven ads (`PageVideoProof.isProvenAd`: an ad network, an ad address, an ad break)
+  were still listed under the browser's and Detected media's "Other videos" (hand-off (a)).
+
+**Steps (done)**
+1. The sheet is the tapped video's only: no "Other videos on this page" row, no
+   `otherVideos`/found-list plumbing (`DetectedMediaStore`, `BrowserViewModel`, `HomeViewModel`,
+   `YftNavHost`), no "Next video" step. Only a proven ad gives way, once, to the page's own video
+   behind it ("Page's video", `MediaGroups.pageVideoAfterAd`); a video that failed is never
+   followed by another one. The maybe-ad note says "This may be an ad. Play the video for a
+   moment, then open Download again."
+2. Requests like the browser's (`BrowserRequestContext`): what the browser itself sent stands
+   (its `Referer` wins over the page address); DOM and page-script links get the tab's agent and
+   `pageLink(...)`: a file on another origin gets `Origin: <page origin>` and
+   `Referer: <page origin>/` (Chromium's `strict-origin-when-cross-origin`), never a cookie.
+3. The file check: any non-2xx HEAD is followed by the range GET, whose answer decides.
+4. Browser reads (`BrowserReads`, app `WebViewBrowserReads`): a refusal (403, 410, 412,
+   452–499) of a file check, a manifest or a quality playlist of a page's link is asked once
+   more by Android's WebView — one offscreen WebView, a blank page of the page's origin, the
+   page's own `fetch` (CORS, no cache, cookies only for its own origin), the tab's agent; 10 s
+   at most, one at a time, destroyed after 60 s idle; never a site adapter's file, never a 404.
+   Its answer stands in when it got the text or the file's length. The HLS download engine asks
+   a refused playlist the same way; its pieces are still downloaded by YFT.
+5. Messages and Details: 410, 412 and 452–499 say "The site refused this link (HTTP n). Play the
+   video for a moment, then try again."; 404 keeps "no longer has this video". Details add
+   "Request: HEAD / range GET / GET" and "Browser check: HTTP n" (or "not answered"). Refusals
+   count as dead links for the same video's fresh-link chain.
+6. Hand-off (a): the browser's found list and Detected media leave proven ads out
+   (`MediaGroups.ofPage(hideAds = true)`); the sheet no longer counts other videos at all.
+7. Tests: sheet never shows another video (`aGoneFirstFileNeverShowsThePagesOtherVideo`), the
+   sheet has no Other-videos row, refusal messages (410/412/474), Details lines, `pageLink`
+   headers, observed Referer wins, HEAD 474 → range GET, a refused manifest read by the browser,
+   a refusal the browser gets too, no browser read after a 404/for an adapter's file, the HLS
+   engine's browser-read playlist, the read script's escaping and answers, the CDN hosts of the
+   owner's Details are never ad hosts.
+
+**Not done (backlog, §7):** hand-off (b) `vastAds.onAnswer` — WebView shows the browser no
+answer bodies, so it needs a document-start hook of the page's XHR/fetch (a new page script in
+every tab); and Chromium's network stack for the downloads themselves (Cronet), if the CDN also
+refuses YFT's media requests.
+
+**Result:** DONE — OWNER CHECK (Agent B, 2026-10-09, the P45 checkpoint). Full validation: 1729 tests, 0 failures, 66 skipped (app 903, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 239; 1717 before P45); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. CI of
+the P45 checkpoint: CI links in the next docs commit = **Preview #8**.
+
 ### P8 — Signed release 1.0.0-beta.4
 
 Easy · 1–2 h · needs P44, Preview #7 and the owner's OK · prompt
@@ -993,6 +1067,21 @@ SHA-256 and certificate. Merge, tag and signing need the owner's OK for this tas
 
 Install `yft-preview-apk` from the Preview APK run the agent sends; uninstall the older YFT
 Preview first (each run has a new test key).
+
+**Preview #8 (after P45)** — the adult site of Preview #7's item 6:
+
+1. **Download on 10 videos** (some with a pre-roll): the sheet shows the tapped video only —
+   no "Other videos on this page" row, never another video's title or length; after an ad the
+   Details say "skipped: ad (…)" then "Page's video".
+2. **The videos that said HTTP 474 or 410:** qualities now, or "The site refused this link
+   (HTTP n). Play the video for a moment, then try again." → play a few seconds → Try again.
+   Anything that still fails: a screenshot of **Details** — the new "Request:" and
+   "Browser check:" lines say whether the browser itself was refused too.
+3. **Download a quality** of such a video to the end; if the download fails, a screenshot of
+   the download's **Details** (it tells whether the CDN refuses YFT's own file requests too).
+4. **Browser's Download list** on a page with ads: ads no longer appear under "Other videos on
+   this page".
+5. Preview #7's list below still holds (TikTok, YouTube's start, Delete file).
 
 **Preview #7 (after P44)**
 
@@ -1073,11 +1162,17 @@ Other items:
   list), updated from one place.
 - A private tab (no history, no cookies kept) and a per-site "allow pop-ups" list.
 - Adapters for named adult sites (Phase 13 F1 option C) only if the owner chooses it.
-- P43 hand-offs to Agent A left open by P44: (a) leave proven ads (`PageVideoProof.isProvenAd`)
-  out of the browser's and Detected media's lists and the other-videos count — today P24's
-  owner case counts an ad as another video (`BrowserViewModelTest`), so the owner decides; (b)
-  call `vastAds.onAnswer` where the browser reads a page's answers (e.g. `MediaMetadataProbe`'s
-  XML answers), so a VAST/VMAP body starts an ad break when the address says nothing.
+- P43 hand-off (b), left open by P45: call `vastAds.onAnswer` with the page's own answers, so a
+  VAST/VMAP body starts an ad break when the address says nothing. WebView shows the browser no
+  answer bodies (`shouldInterceptRequest` sees requests only) and `MediaMetadataProbe` probes
+  media-like addresses only, so it needs a document-start script that wraps the page's
+  XHR/fetch and reports VAST/VMAP answers through an origin-restricted `WebMessageListener`.
+  About 4–6 h; owner decision: — ((a) was done by P45.)
+- **P46 option — Chromium's network stack for downloads (Cronet).** If the CDN of P45's site
+  also refuses YFT's own file and piece requests (TLS fingerprint, R37), downloads would go
+  through Cronet (`play-services-cronet` or the embedded Cronet library, the same stack as
+  Chrome) instead of OkHttp. A new dependency (APK size, Play services), so it needs the
+  owner's OK. About 1–2 days with tests. Owner decision: —
 
 ## 8. Done before Phase 15
 
