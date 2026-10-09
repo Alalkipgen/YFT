@@ -100,7 +100,19 @@ Update this file before every checkpoint push. Keep it factual so another chat c
   "Application Not Responding: com.android.systemui", not the fixture. Native Wait cleared it.
   A subsequent repeat stopped before instrumentation because API 29 logcat could not clear
   its main buffer; that diagnostic-only action is now bounded/best-effort, not a pass criterion.
-  Strict aggregate repeats remain PENDING; no green device claim.
+  After focus was restored, the unchanged full class reached trusted user playback but the
+  positive case returned NeedsPlayback (capture elapsed 2,949 ms); 3/4 passed. The identical
+  positive case alone then passed. Decoder creation and skipped frames are recorded in logcat;
+  emulator load/test readiness remain under investigation, not an established production fix.
+  Reduced-load repeats (480x854, density 240, identical APKs) produced `OK (4 tests)` once;
+  the next full class passed 3/4 with NeedsPlayback (capture elapsed 3,660 ms). Logs/metadata:
+  `lowres-1` and `lowres-2` under `/data/tmp/master-android/`. This is one aggregate pass, not
+  two consecutive passes and not a stable device-green claim.
+- Current follow-on is test readiness only: after the actual trusted tap, wait for at least
+  0.5 seconds of naturally observed video progress with future decoded data, handling the real
+  fixture loop. It never plays/seeks by instrumentation JS, changes currentTime, or feeds those
+  reads into session.accept. Production capture must still independently collect two fresh
+  progress samples within its unchanged 2.5-second timeout. Compile/repeat validation PENDING.
 - Next: compile/rebuild and repeat the full four-fixture class twice with the same APKs; only
   then finalize Android validation. Only after this task and
   its checkpoint finish, perform the owner's requested Instagram/X public-page live validation.

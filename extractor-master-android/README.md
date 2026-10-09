@@ -90,4 +90,16 @@ screenshot confirmed a native SystemUI ANR dialog owned foreground focus. The is
 case also refused while that dialog remained. The inspected native Wait action cleared it.
 A repeat then stopped before instrumentation on a diagnostic logcat-clear error; the local
 runner now treats that diagnostic action as bounded/best-effort while retaining strict
-`OK (4 tests)` assertions. Two aggregate repeat passes remain pending; no device-green claim.
+`OK (4 tests)` assertions. With native focus restored, the unchanged full class reached actual trusted playback but
+still passed 3/4: the positive capture returned NeedsPlayback after 2,949 ms. The same positive
+case alone passed. Decoder startup/skipped-frame diagnostics suggest testing software-rendering
+load and readiness next, not weakening the 2.5-second cap or two-progress-sample authorization.
+Reduced display load (480x854, density 240) with the same signed APKs produced one
+`OK (4 tests)` aggregate pass; the next full class returned NeedsPlayback in the positive case
+after 3,660 ms. That does not satisfy the two-consecutive-pass gate.
+
+The next test-only readiness change observes at least 0.5 seconds of natural video progress
+and future decoded data after the real trusted tap, before starting production capture. It
+handles the fixture's real loop but never plays, seeks, changes the timeline, or submits those
+readiness observations to `session.accept`. Production still requires its own two fresh
+progress samples within 2.5 seconds. Rebuild and aggregate repeat validation remain pending.

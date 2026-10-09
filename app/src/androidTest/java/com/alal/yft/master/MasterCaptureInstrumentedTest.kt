@@ -299,6 +299,33 @@ class MasterCaptureInstrumentedTest {
             "(function(){var v=document.querySelector('video');" +
                 "return !!v && !v.paused && v.readyState >= 2 && v.currentTime > 0.05;})()",
         )
+        val firstTime = readFixtureTime()
+        // Let the real decoder sustain progress before starting the bounded production lookup.
+        // These reads never reach session.accept(): capture still needs its own fresh samples.
+        awaitPageCondition(
+            "sustained natural fixture playback",
+            "(function(){var v=document.querySelector('video');" +
+                "if(!v||v.paused||v.seeking||v.readyState<3||!isFinite(v.duration))return false;" +
+                "return (v.currentTime-$firstTime+v.duration)%v.duration >= 0.5;})()",
+        )
+    }
+
+    private fun readFixtureTime(): Double {
+        val response = AtomicReference<String?>()
+        val callback = CountDownLatch(1)
+        instrumentation.runOnMainSync {
+            checkNotNull(browser).evaluateJavascript(
+                "document.querySelector('video').currentTime",
+            ) {
+                response.set(it)
+                callback.countDown()
+            }
+        }
+        assertTrue("No fixture timeline callback", callback.await(10, TimeUnit.SECONDS))
+        val encoded = checkNotNull(response.get()).also { check(it.length <= 64) }
+        val time = checkNotNull(encoded.toDoubleOrNull())
+        assertTrue("Invalid fixture timeline", time.isFinite() && time >= 0)
+        return time
     }
 
     private fun awaitFixtureInputFocus() {
