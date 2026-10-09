@@ -55,12 +55,17 @@ main/More presentation models. They do not prove Android APK sheet rendering.
   input excluded; eight video outputs. TLSv1.3; 2,363,904 bounded response bytes.
   An earlier retry exceeded the engine timeout; it is retained as a failure, not a pass.
 - ✅ TikTok `7670337149526379789`: SUCCESS/PLAYBACK_CAPTURE, automatic main selected,
-  no NEEDS_SELECTION. Native trusted click 1, capture 461.3 ms, authorized playback true.
-  DOM duration 26,166 ms; independently read selected media duration 26,005 ms;
-  selected dimensions 720x1280. TLSv1.3; 461,139 bounded response bytes.
+  no NEEDS_SELECTION. Latest repeat: native trusted click 1, capture 358.7 ms,
+  authorized playback true. DOM duration 26,166 ms; independently read selected media
+  duration 25,169 ms (within the exact 2-second tolerance); selected dimensions 720x1280.
+  TLSv1.3; 461,139 bounded response bytes. The repeat uses actual browser-owned cookies
+  scoped to real captured addresses, RAM/stdin only, matching existing Android CookieManager
+  wiring. No cookie value, signed address or raw response is persisted.
 - ❌ TikTok More count is 0 in that successful run: no additional eligible video was validated.
-  The accessible unrelated 2,067 ms file is correctly rejected. The next retry was blocked
-  before Pause by a visible translation-tip overlay; it is not playback/capture proof.
+  The accessible unrelated 2,067 ms file is correctly rejected. Four alternative probes
+  still report HTTP_STATUS even with the existing host-scoped context bridge; statuses are
+  not overridden. One intervening retry was blocked before Pause by a visible translation
+  tip; it is not playback/capture proof.
 - ❌ Android APK main-sheet/More rendering and a fresh two-run gate for this changed tree
   remain unverified. The old two-run APK pair does not validate the changed implementation.
 
@@ -68,6 +73,28 @@ Overall completion is still ❌: both platforms now have positive desktop-native
 logs, but TikTok nonempty More and actual Android app UI validation are not yet proven.
 No main merge, release/tag, phone APK delivery, full download/mux, all-resolution,
 Master-CI-green or merge-readiness claim. Only the spike branch is used.
+
+### Android environment recovery
+
+- ✅ Official-index size/SHA-1 checks verified six SDK archives before extraction.
+  JDK 17 is retained; API 35/build-tools 35.0.0, platform-tools 37.0.1, emulator exactly
+  37.2.12.0 and API29/default/x86_64 image revision 8 are restored. Runtime libraries restored.
+- ✅ Emulator package was registered through the official stable-channel SDK manager after
+  manual extraction alone failed AVD-manager preflight. Strict yft-master29 AVD recreated:
+  480x854, density 240, RAM 1536 MiB, 2 cores. Recovered focus guard/runner is not weakened.
+- ⏳ Fresh internal app/androidTest APK build started from code checkpoint `005fd0f6`, with
+  `-Pyft.masterCapture=true` and `-Pandroid.injected.build.abi=x86_64`. No APK success or fresh
+  certificate/hash is claimed while that build is running.
+- ❌ No restored-emulator boot/focus/screenshot proof yet. Emulator is deliberately not started
+  during Gradle work. Fresh fixed-APK-pair two-run OK (4 tests) gate and Android sheet rendering
+  remain pending. No owner phone delivery, release, tag or main merge.
+
+### Secret-safe latest native log excerpts
+
+```json
+{"site":"tiktok","result":"SUCCESS","stage":"PLAYBACK_CAPTURE","nativeTrustedClicks":1,"captureMs":358.7,"authorizedPlayback":true,"mainSelected":true,"moreCount":0,"domDurationMillis":26166,"selectedDurationMillis":25169,"androidAppLiveProved":false}
+{"site":"instagram","result":"SUCCESS","stage":"PLAYBACK_CAPTURE","nativeTrustedClicks":1,"captureMs":361.2,"authorizedPlayback":true,"mainSelected":true,"moreCount":7,"domDurationMillis":61966,"selectedDurationMillis":61966,"androidAppLiveProved":false}
+```
 
 ## Authorized Android-owned policy checkpoint
 
