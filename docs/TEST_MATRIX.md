@@ -1177,7 +1177,7 @@ P42 — Downloads: Delete file (2026-10-09):
 | --- | --- |
 | P42 validation (2026-10-09) | five tasks: core-download 184, core-model 106, app 826 (66 skipped) = 1116 tests, 0 failures (+17); lint 0 errors; androidTest compiles; line check empty |
 | P42 regression proof | old code: 2 of 5 failed (DeleteFileMenuTest, AndroidLibraryRepositoryTest's gone-file case); restored with cp, cmp equal |
-| P42 CI | pending |
+| P42 CI | `8ba7259`: checkpoint validation, emulator smoke (with DeleteFileInstrumentedTest) and Preview APK green (links in SESSION_STATE) |
 
 ### Agent C — P43
 

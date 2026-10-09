@@ -64,8 +64,8 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent B — `work/phase-15-downloads` (P41, P42; later P44)
 
-- Status: P41 OWNER CHECK (2026-10-09), P42 OWNER CHECK (2026-10-09). OWNER ANSWERS: none (defaults
-  `FAST_START=ON`, `DELETE_CONFIRM=ON`).
+- Status: READY FOR MERGE (2026-10-09) — P41 and P42 done; last code commit `8ba7259`, CI green.
+  OWNER ANSWERS: none (defaults `FAST_START=ON`, `DELETE_CONFIRM=ON`).
 - Base commit: `d0bc7f7` (`origin/work/phase-15-integration`); folder `/data/YFT-B`.
 - **P41 Result:** YouTube's whole-file tracks show bytes and speed from the first range.
   `DashTransferEngine` runs a pool of workers (the next range starts as soon as one ends),
@@ -145,7 +145,11 @@ Keep at least the heading and one blank line between sections, so Git merges the
     allowed or refused, unfinished rows), DownloadedFileDeleterTest and DeleteFileScreenTest
     use the new API (do not compile on the old code). The instrumented test's JVM twin is
     DownloadsViewModelDeleteFileTest.
-  - CI: pending (P42 checkpoint).
+  - CI `8ba7259` (last code commit): [checkpoint
+    validation](https://github.com/Alalkipgen/YFT/actions/runs/37862940024), [emulator
+    smoke](https://github.com/Alalkipgen/YFT/actions/runs/37862940003) (runs
+    `delete/DeleteFileInstrumentedTest`), [Preview
+    APK](https://github.com/Alalkipgen/YFT/actions/runs/37862940023) all green.
   - Hand-offs: none.
 
 ## Agent C — `work/phase-15-ads` (P43)
