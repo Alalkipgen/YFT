@@ -1047,8 +1047,9 @@ answer bodies, so it needs a document-start hook of the page's XHR/fetch (a new 
 every tab); and Chromium's network stack for the downloads themselves (Cronet), if the CDN also
 refuses YFT's media requests.
 
-**Result:** DONE — OWNER CHECK (Agent B, 2026-10-09, the P45 checkpoint). Full validation: 1729 tests, 0 failures, 66 skipped (app 903, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 239; 1717 before P45); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. CI of
-the P45 checkpoint: CI links in the next docs commit = **Preview #8**.
+**Result:** DONE — OWNER CHECK (Agent B, 2026-10-09, `1d2f27a`). Full validation: 1729 tests, 0 failures, 66 skipped (app 903, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 239; 1717 before P45); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. CI of
+`1d2f27a`: checkpoint validation 37955002943, emulator smoke 37955002962, Preview APK 37955002856
+= **Preview #8**, all green.
 
 ### P8 — Signed release 1.0.0-beta.4
 

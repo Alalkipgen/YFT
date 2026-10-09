@@ -21,7 +21,7 @@
   videos" row, no "Next video"); a page's links are asked like the browser's; a refused link
   (403/410/412/452–499) is asked again through WebView; "The site refused this link (HTTP n).
   Play the video for a moment, then try again."; Details add "Request:" and "Browser check:";
-  proven ads leave the browser's lists. Full validation: 1729 tests, 0 failures, 66 skipped (app 903, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 239; 1717 before P45); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. **Preview #8:** CI links in the next docs commit (on
+  proven ads leave the browser's lists. Full validation: 1729 tests, 0 failures, 66 skipped (app 903, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 239; 1717 before P45); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. **Preview #8:** https://github.com/Alalkipgen/YFT/actions/runs/37955002856 of `1d2f27a` (Artifacts › `yft-preview-apk`; on
   `work/phase-15-integration`; `main` stays at `69bf022` until `MAIN=OK`).
 - **Next action — owner:** test Preview #8 (FIX_ADD_PLAN §6 "Preview #8"), then Preview #7 with
   FIX_ADD_PLAN §6 (TikTok with the VPN in the browser and on Home, YouTube's start, Delete file,

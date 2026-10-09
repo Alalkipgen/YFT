@@ -1239,5 +1239,5 @@ P42 — Downloads: Delete file (2026-10-09):
 | WebView read script | `BrowserReadScriptTest`: the link is one escaped JSON string in the script, answers with status/type/length/text, no answer / refusal / error told apart, too-long text and non-HTTPS addresses dropped, the blank page's origin |
 | Ads out of the lists | `BrowserScreen`/`DetectedMediaScreen` use `MediaGroups.ofPage(hideAds = true)` (`PageVideoProofTest` covers `hideAds`); `AdHostsTest.theOwnersVideoCdnHostsAreNeverAdHosts` |
 | Full validation (2026-10-09) | Full validation: 1729 tests, 0 failures, 66 skipped (app 903, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 239; 1717 before P45); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. |
-| CI | CI links in the next docs commit |
+| CI (`1d2f27a`) | checkpoint validation [37955002943](https://github.com/Alalkipgen/YFT/actions/runs/37955002943), emulator smoke [37955002962](https://github.com/Alalkipgen/YFT/actions/runs/37955002962), Preview APK = **Preview #8** [37955002856](https://github.com/Alalkipgen/YFT/actions/runs/37955002856), all green |
 | Owner check | Preview #8: FIX_ADD_PLAN §6 "Preview #8" items 1–5 |

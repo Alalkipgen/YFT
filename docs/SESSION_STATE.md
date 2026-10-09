@@ -76,8 +76,9 @@ Keep at least the heading and one blank line between sections, so Git merges the
   lines; proven ads out of the browser's lists. Live checks of the site were refused by the
   sandbox's reviewer, so public reports (yt-dlp #17642, PR #16794) back R37. Open: hand-off (b)
   and a Cronet option (FIX_ADD_PLAN §7). Full validation: 1729 tests, 0 failures, 66 skipped (app 903, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 239; 1717 before P45); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean.
-- Last pushed checkpoint: the P45 checkpoint P45 on `work/phase-15-integration`; CI: CI links in the next docs commit =
-  **Preview #8**. `main` stays at `69bf022` until the owner says `MAIN=OK`.
+- Last pushed checkpoint: `1d2f27a` P45 on `work/phase-15-integration`; CI: checkpoint validation
+  [37955002943](https://github.com/Alalkipgen/YFT/actions/runs/37955002943), emulator smoke [37955002962](https://github.com/Alalkipgen/YFT/actions/runs/37955002962), Preview APK =
+  **Preview #8** [37955002856](https://github.com/Alalkipgen/YFT/actions/runs/37955002856) (Artifacts › `yft-preview-apk`), all green. `main` stays at `69bf022` until the owner says `MAIN=OK`.
 - Next: the owner tests Preview #8 (FIX_ADD_PLAN §6 "Preview #8") and sends Details of anything
   that fails; P8 (signed `1.0.0-beta.4`) only with his OK.
 - Last updated: 2026-10-09 (P45)
