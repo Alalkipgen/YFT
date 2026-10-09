@@ -40,8 +40,10 @@ import java.net.URI
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -95,13 +97,15 @@ class BrowserViewModel(
     /** P5: one event each time the video in focus on a feed was found and its sheet may open. */
     val quickDownloadRequests: Flow<Unit> = quickDownloads.receiveAsFlow()
 
-    private val tabDataRequests = Channel<TabDataRequest>(Channel.UNLIMITED)
+    private val tabDataRequests =
+        MutableSharedFlow<TabDataRequest>(extraBufferCapacity = TAB_DATA_BUFFER)
 
     /**
      * P40 step 2: the reads of the TikTok tab's own data the screen runs on the tab's page, one
-     * for each lookup of a TikTok post (Download, the page's own lookup, Try again).
+     * for each lookup of a TikTok post (Download, the page's own lookup, Try again). While no
+     * screen collects them there is no tab to read, and lookups go on without waiting.
      */
-    val tabDataReads: Flow<TabDataRequest> = tabDataRequests.receiveAsFlow()
+    val tabDataReads: Flow<TabDataRequest> = tabDataRequests.asSharedFlow()
 
     /** P40: the tab's data for a TikTok post; other sites have none to read. */
     private val tabData = TabDataSource { siteId, postId ->
@@ -949,9 +953,12 @@ class BrowserViewModel(
      * P40 step 2: asks the screen for the TikTok tab's own data for [postId] and waits at most
      * [TAB_DATA_TIMEOUT_MS]; a tab that does not answer in time gives none.
      */
-    private suspend fun readTabData(postId: String): TabData {
+    private suspend fun readTabData(postId: String): TabData? {
+        if (tabDataRequests.subscriptionCount.value == 0) return null
         val request = TabDataRequest(postId)
-        tabDataRequests.trySend(request)
+        if (!tabDataRequests.tryEmit(request)) {
+            return TikTokPageScript.tabData(null, postId, cookie = null, answered = false)
+        }
         val reply = withTimeoutOrNull(TAB_DATA_TIMEOUT_MS) { request.await() }
         if (reply == null) {
             request.giveUp()
@@ -1282,5 +1289,6 @@ class BrowserViewModel(
 
         /** P40 step 2: how long the tab has to give its own data for a TikTok post. */
         const val TAB_DATA_TIMEOUT_MS = 1_000L
+        const val TAB_DATA_BUFFER = 8
     }
 }

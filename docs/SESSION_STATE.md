@@ -65,7 +65,9 @@ Keep at least the heading and one blank line between sections, so Git merges the
   failures); page-data request field (extractor-api), TikTok rows from a page's post data
   (extractor-sites) and the page script asset written; app side started (androidx.webkit,
   tab/hidden-page contracts, page script helper, hidden page engine, coordinator order,
-  browser tab reads, Home's TikTok cookies; compiles); fixtures, tests, live check next.
+  browser tab reads, Home's TikTok cookies; compiles); fixtures and JVM tests written and
+  green (page data, order, page script, hidden page engine, Home cookies, browser tab reads);
+  instrumented tests written; regression proof, live check and full validation next.
 - Base commit: `d0bc7f7` (= `origin/work/phase-15-integration`, the plan commit); folder
   `/data/YFT-A`; push over SSH with the key named in `/data/.ssh/CURRENT_KEY` (sandbox reset on
   2026-10-09: new key `/data/.ssh/yft_a_20261009`, added by the owner as a deploy key; JDK 17,

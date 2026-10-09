@@ -88,7 +88,7 @@ class HeadlessLinkInspector internal constructor(
     constructor(
         client: OkHttpClient,
         siteAdapters: SiteAdapterCoordinator,
-        tikTokSettings: TikTokPageSettings,
+        tikTokSettings: TikTokPageSettings = TikTokPageSettings.OWNER,
     ) : this(
         fetchPage = HeadlessPageFetcher(
             client,
