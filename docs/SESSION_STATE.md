@@ -61,7 +61,12 @@ Update this file before every checkpoint push. Keep it factual so another chat c
   Test-only change waits for read-only evidence that the actual user tap started playback,
   rather than a fixed 500 ms delay, and asserts collector installation. Repeat run pending.
   Production capture budgets and authorization rules unchanged.
-- Next: rebuild the test APK and repeat all four Android fixtures. Only after this task and
+- Readiness-only device retest: 2/4 passed; DRM waited unnecessarily for playback; positive
+  playback reached readiness but capture still returned NeedsPlayback. Current follow-on uses
+  a 10-second neutral fixture, taps its actual visible control, and binds the collector once
+  per lookup. DRM must refuse probing even without playback. The 2.5-second capture deadline
+  and two-sample authorization remain unchanged. Build/device validation pending.
+- Next: rebuild internal app/test APKs and repeat all four Android fixtures. Only after this task and
   its checkpoint finish, perform the owner's requested Instagram/X public-page live validation.
   Run builds and emulator separately to avoid memory overlap. Main/Phase 15/TikTok untouched.
   No merge, tag, release or owner-phone APK handout approval.

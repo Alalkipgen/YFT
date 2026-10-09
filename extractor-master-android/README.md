@@ -63,3 +63,11 @@ proof of user-triggered playback before invoking capture, and verifies collector
 Production capture budgets and playback authorization are unchanged. Repeat device validation
 is pending. No Instagram/X live support, full download/mux result, universal iframe coverage or
 merge approval is claimed.
+### Device retest checkpoint
+
+The readiness-only retest passed two fixtures and failed two: the DRM case unnecessarily waited
+for playback, while the positive case reached playback readiness but still returned NeedsPlayback.
+Current changes remove that unrelated DRM prerequisite, tap the actual visible fixture control,
+use a real 10-second neutral clip, and bind the collector once per lookup instead of resending the
+entire script before every sample. The 2.5-second budget and two-progress-sample authorization
+remain unchanged. Rebuild and repeat device validation are pending; no green device claim yet.

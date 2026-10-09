@@ -1,6 +1,7 @@
 package com.alal.yft.master
 
 import android.graphics.Bitmap
+import android.util.Base64
 import android.view.ViewGroup
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -13,6 +14,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiSelector
 import com.alal.yft.core.browser.detection.DownloadObservation
 import com.alal.yft.core.browser.detection.RequestObservation
 import com.alal.yft.core.browser.policy.SecureWebViewPolicy
@@ -52,7 +54,9 @@ class MasterCaptureInstrumentedTest {
     private val probes = AtomicInteger()
     private var browser: WebView? = null
     private val bytes by lazy {
-        instrumentation.context.assets.open("mux/video-avc.mp4").use { it.readBytes() }
+        val encoded = instrumentation.context.assets.open("master/playback-avc.mp4.b64")
+            .bufferedReader().use { it.readText() }
+        Base64.decode(encoded, Base64.DEFAULT)
     }
 
     @Test
@@ -67,9 +71,11 @@ class MasterCaptureInstrumentedTest {
     fun userPlaybackFeedsOneCaptureAndRealFilePrefixValidation() {
         show()
         tapPlay()
+        val startedAt = now()
         val captured = extract(SiteExtractionFailure.BOT_CHECK)
         assertTrue(
-            "Expected validated capture after observed playback: ${captured.javaClass.simpleName}",
+            "Expected validated capture: ${captured.javaClass.simpleName}; " +
+                "captureMs=${now() - startedAt}",
             captured is MasterResult.Success,
         )
         val result = captured as MasterResult.Success
@@ -102,7 +108,7 @@ class MasterCaptureInstrumentedTest {
     @Test
     fun encryptedPlayerSignalRefusesCaptureBeforeAProbe() {
         show()
-        tapPlay()
+        // Encryption must refuse probing even when playback has not been authorized.
         instrumentation.runOnMainSync {
             checkNotNull(browser).evaluateJavascript(
                 "document.querySelector('video').dispatchEvent(new Event('encrypted'))",
@@ -223,14 +229,15 @@ class MasterCaptureInstrumentedTest {
     }
 
     private fun tapPlay() {
-        val point = IntArray(2)
-        instrumentation.runOnMainSync {
-            val view = checkNotNull(browser)
-            view.getLocationOnScreen(point)
-            point[0] += view.width / 2
-            point[1] += view.height / 2
-        }
-        assertTrue(UiDevice.getInstance(instrumentation).click(point[0], point[1]))
+        awaitPageCondition(
+            "fixture metadata",
+            "(function(){var v=document.querySelector('video');" +
+                "return !!v && v.readyState >= 1;})()",
+        )
+        val play = UiDevice.getInstance(instrumentation)
+            .findObject(UiSelector().text("Play fixture"))
+        assertTrue("Visible fixture Play button is missing", play.waitForExists(20_000))
+        assertTrue("Could not tap the fixture Play button", play.click())
         // Software emulators may need seconds to start the decoder after the actual tap.
         // Read state only: never call play(), seek, or fabricate capture evidence here.
         awaitPageCondition(

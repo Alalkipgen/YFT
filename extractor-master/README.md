@@ -219,3 +219,11 @@ The first actual Android run passed three of four fixtures; playback success ret
 `NeedsPlayback` with only a fixed 500 ms post-tap delay and no playback-readiness assertion. A test-only readiness wait and explicit
 collector-installation assertion are awaiting a repeat run. Production authorization/time
 budgets are unchanged. This is not yet an end-to-end live-site support claim.
+### Device retest checkpoint
+
+The readiness-only retest passed two fixtures and failed two: the DRM case unnecessarily waited
+for playback, while the positive case reached playback readiness but still returned NeedsPlayback.
+Current changes remove that unrelated DRM prerequisite, tap the actual visible fixture control,
+use a real 10-second neutral clip, and bind the collector once per lookup instead of resending the
+entire script before every sample. The 2.5-second budget and two-progress-sample authorization
+remain unchanged. Rebuild and repeat device validation are pending; no green device claim yet.

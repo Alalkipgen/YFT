@@ -131,6 +131,8 @@ class WebViewPlaybackCapture(
             }
             // Observe progress twice; paused/preloaded media alone never authorizes playback.
             val expectedId = request.expectedContentId
+            // Install/bind once per lookup, not the entire collector before every sample.
+            bind(scope)
             withTimeoutOrNull(CAPTURE_TIMEOUT_MS) {
                 repeat(MAX_SAMPLES) {
                     if (expectedId != null &&
@@ -161,9 +163,9 @@ class WebViewPlaybackCapture(
     private suspend fun sample(scope: BrowserCaptureScope): CaptureFrame? {
         val view = browser.get() ?: return null
         if (view.url != scope.pageUrl || session.currentScope() != scope) return null
-        bind(scope)
         val page = JSONObject.quote(scope.pageUrl)
-        val command = "window.__yftMasterCaptureV1.sample(${scope.generation}, $page)"
+        val command = "(function(){var c=window.__yftMasterCaptureV1;" +
+            "return c ? c.sample(${scope.generation}, $page) : null;})()"
         return CaptureFrameReader.read(evaluate(scope, command))
     }
 
