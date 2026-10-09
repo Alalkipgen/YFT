@@ -1106,8 +1106,9 @@ a photo post), `SiteAdapterOrderTest` (status-only private → hidden page; adap
 status → not), `SiteCheckTest` (when Show check is offered, TikTok's https pages only),
 `BrowserScreenTest` (Show check instead of Try again).
 
-**Result:** DONE — OWNER CHECK (Agent B, 2026-10-10, the P46 checkpoint). Full validation: 1746 tests, 0 failures, 66 skipped (app 909, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 250; 1729 before P46); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. CI of
-the P46 checkpoint: CI links in the next docs commit = **Preview #9**, all green.
+**Result:** DONE — OWNER CHECK (Agent B, 2026-10-10, `462d508`). Full validation: 1746 tests, 0 failures, 66 skipped (app 909, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 250; 1729 before P46); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. CI of
+`462d508`: checkpoint validation 37971914024, emulator smoke 37971914007, Preview APK 37971914134
+= **Preview #9**, all green.
 
 ### P8 — Signed release 1.0.0-beta.4
 

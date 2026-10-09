@@ -26,7 +26,7 @@
 - **P46 (2026-10-10, Agent B alone):** TikTok — the browser joins the tab's one quality with the
   desktop page's; TikTok's "private" status on a page asks the desktop page, the hidden page and
   then a public download service (`tikwm.com`, post address only, no cookie); **Show check**
-  shows TikTok's check to the user, Done looks again. Full validation: 1746 tests, 0 failures, 66 skipped (app 909, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 250; 1729 before P46); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. **Preview #9:** CI links in the next docs commit
+  shows TikTok's check to the user, Done looks again. Full validation: 1746 tests, 0 failures, 66 skipped (app 909, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 250; 1729 before P46); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. **Preview #9:** [37971914134](https://github.com/Alalkipgen/YFT/actions/runs/37971914134) (`462d508`; validation [37971914024](https://github.com/Alalkipgen/YFT/actions/runs/37971914024), smoke [37971914007](https://github.com/Alalkipgen/YFT/actions/runs/37971914007), all green)
   (Artifacts › `yft-preview-apk`; `main` stays at `69bf022` until `MAIN=OK`). Owner's Preview #8
   test: more than 10 Pornhub videos fine.
 - **Next action — owner:** test Preview #9 (FIX_ADD_PLAN §6 "Preview #9"), then Preview #8 and #7 with

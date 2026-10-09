@@ -1252,5 +1252,5 @@ P42 — Downloads: Delete file (2026-10-09):
 | Download service | `TikTokDownloadServiceTest` (6): HD and normal rows without cookie or TikTok Referer, only the post's address sent; the service's own paths made https; nothing found / another post → TikTok's reason with Details; off unless turned on; never for a photo post |
 | Show check | `SiteCheckTest`: offered for TikTok's check only, on https TikTok pages only; `BrowserScreenTest.tikToksCheckOffersShowCheckInsteadOfTryAgain` |
 | Full validation (2026-10-10) | Full validation: 1746 tests, 0 failures, 66 skipped (app 909, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 250; 1729 before P46); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. |
-| CI | CI links in the next docs commit |
+| CI (`462d508`) | checkpoint validation [37971914024](https://github.com/Alalkipgen/YFT/actions/runs/37971914024), emulator smoke [37971914007](https://github.com/Alalkipgen/YFT/actions/runs/37971914007), Preview APK = **Preview #9** [37971914134](https://github.com/Alalkipgen/YFT/actions/runs/37971914134), all green |
 | Owner check | Preview #9: FIX_ADD_PLAN §6 "Preview #9" items 1–5 |

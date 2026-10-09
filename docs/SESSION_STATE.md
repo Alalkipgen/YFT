@@ -84,7 +84,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
   in the browser, public posts called private, check messages). Owner chose A, then B. Done: a
   page's TikTok status is not final; the browser joins the desktop page's qualities; Show check;
   the public download service after TikTok's pages. Not done: TikTok's app API. Full validation: 1746 tests, 0 failures, 66 skipped (app 909, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 250; 1729 before P46); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean.
-- Last pushed checkpoint: the P46 checkpoint P46 on `work/phase-15-integration`; CI: CI links in the next docs commit.
+- Last pushed checkpoint: `462d508` P46 on `work/phase-15-integration`; CI: checkpoint validation [37971914024](https://github.com/Alalkipgen/YFT/actions/runs/37971914024), emulator smoke [37971914007](https://github.com/Alalkipgen/YFT/actions/runs/37971914007), Preview APK = **Preview #9** [37971914134](https://github.com/Alalkipgen/YFT/actions/runs/37971914134) (Artifacts › `yft-preview-apk`), all green.
   `main` stays at `69bf022` until the owner says `MAIN=OK`.
 - Next: the owner tests Preview #9 (FIX_ADD_PLAN §6 "Preview #9") and sends Details of anything
   that fails; P8 (signed `1.0.0-beta.4`) only with his OK.
