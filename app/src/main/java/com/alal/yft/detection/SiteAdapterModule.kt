@@ -119,6 +119,9 @@ object SiteAdapterModule {
                 policy = OkHttpExtractorClient.Policy(sendResponseCookies = true),
             ),
             agents = TikTokAgents(webViewAgent = WebViewAgent(context)::get),
+            // P46 (owner's choice B, TT_SERVICE=ON): the public download service when
+            // TikTok's own pages give no file; only the post's address goes there.
+            askDownloadService = true,
         ),
         FacebookExtractor(http),
         VimeoExtractor(http),

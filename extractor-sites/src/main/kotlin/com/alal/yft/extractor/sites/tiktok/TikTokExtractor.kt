@@ -57,7 +57,15 @@ class TikTokExtractor(
     private val agents: TikTokAgents = TikTokAgents(),
     /** Whether the desktop page may be asked when the phone page is not enough. */
     private val askDesktopPage: Boolean = true,
+    /**
+     * P46 (owner's choice B, `TT_SERVICE=ON`): whether a public download service is asked
+     * when TikTok's own pages give no file. Only the post's address goes there.
+     */
+    private val askDownloadService: Boolean = false,
+    private val serviceEndpoint: String = TikTokDownloadService.ENDPOINT,
 ) : SiteExtractor {
+    private val service = TikTokDownloadService(http, serviceEndpoint)
+
     override val id: String = TikTokUrls.SITE_ID
 
     override val displayName: String = "TikTok"
@@ -93,6 +101,9 @@ class TikTokExtractor(
 
         /** P40: the post's data from YFT's hidden page. */
         HIDDEN("hidden page"),
+
+        /** P46: the public download service; its files never get TikTok's cookies. */
+        SERVICE(TikTokDownloadService.LABEL),
     }
 
     private sealed interface PageRead {
@@ -274,12 +285,12 @@ class TikTokExtractor(
                 val failures = listOfNotNull(phone as? PageRead.Failed, desktop as? PageRead.Failed)
                 // P46: a check on one page says more than TikTok's status on the other: the
                 // post may open once the check is answered.
-                return failure(
-                    failures.firstOrNull { it.final }
-                        ?: failures.firstOrNull { it.reason == SiteExtractionFailure.BOT_CHECK }
-                        ?: failures.firstOrNull { it.reason !in GENERAL_REASONS }
-                        ?: failures.first(),
-                )
+                val chosen = failures.firstOrNull { it.final }
+                    ?: failures.firstOrNull { it.reason == SiteExtractionFailure.BOT_CHECK }
+                    ?: failures.firstOrNull { it.reason !in GENERAL_REASONS }
+                    ?: failures.first()
+                if (chosen.final) return failure(chosen)
+                return fromService(chosen.identity, failure(chosen))
             }
 
             step = "file check"
@@ -294,10 +305,17 @@ class TikTokExtractor(
             val rows = chosen.working.ifEmpty { watermarked(answers) }
             if (rows.isEmpty()) {
                 details += "answer: none · no file opened"
-                return SiteExtractionResult.Failure(
-                    reason = SiteExtractionFailure.NO_MEDIA_FOUND,
-                    details = details.toList(),
-                    message = FILES_REFUSED_MESSAGE,
+                val post = answers.first().post
+                val identity = TikTokUrls.identify(
+                    TikTokUrls.canonicalUrl(post.authorHandle, post.videoId),
+                )?.takeUnless { it.requiresCanonicalResolution } ?: request.identity
+                return fromService(
+                    identity,
+                    SiteExtractionResult.Failure(
+                        reason = SiteExtractionFailure.NO_MEDIA_FOUND,
+                        details = details.toList(),
+                        message = FILES_REFUSED_MESSAGE,
+                    ),
                 )
             }
             val answer = if (chosen.working.isEmpty()) {
@@ -306,6 +324,44 @@ class TikTokExtractor(
                 chosen.answer
             }
             return success(answer, rows, watermarkedOnly = chosen.working.isEmpty())
+        }
+
+        /**
+         * P46: the download service for [identity]'s post when TikTok's own pages gave no file;
+         * [otherwise] (with this step's Details) when it is off, finds nothing or its files do
+         * not open.
+         */
+        private suspend fun fromService(
+            identity: SitePageIdentity,
+            otherwise: SiteExtractionResult.Failure,
+        ): SiteExtractionResult {
+            if (!askDownloadService) return otherwise
+            step = "download service"
+            val expected = identity.contentId.takeUnless { identity.requiresCanonicalResolution }
+            val agent = agents.desktop(agents.phone(context.userAgent))
+            val label = TikTokDownloadService.LABEL
+            val post = when (
+                val answer = service.lookUp(identity.canonicalPageUrl, expected, agent)
+            ) {
+                is TikTokDownloadService.Answer.NotFound -> {
+                    details += "$label: ${answer.note}"
+                    return otherwise.copy(details = details.toList())
+                }
+
+                is TikTokDownloadService.Answer.Found -> answer.post
+            }
+            details += "$label: found · qualities: ${post.qualities.size}" +
+                " · watermarked file: ${yesNo(post.watermarked != null)}"
+            val parsed = PageRead.Parsed(PageAgent.SERVICE, post, agent, cookies = emptyList())
+            step = "file check"
+            checksLeft = MAX_FILE_CHECKS
+            val checked = check(parsed)
+            val rows = checked.working.ifEmpty { watermarked(listOf(parsed)) }
+            if (rows.isEmpty()) {
+                details += "$label: no file opened"
+                return otherwise.copy(details = details.toList())
+            }
+            return success(parsed, rows, watermarkedOnly = checked.working.isEmpty())
         }
 
         private fun success(
@@ -532,13 +588,16 @@ class TikTokExtractor(
          * browser would send to [url] put in. The resolver and the downloader send them to the
          * media URL's own origin only and drop them on any cross-origin redirect.
          */
-        private fun mediaCookie(answer: PageRead.Parsed, url: String): String? =
-            mergedCookie(context.cookie, answer.cookies.filter { it.matches(url) })
+        private fun mediaCookie(answer: PageRead.Parsed, url: String): String? {
+            // P46: the download service's files never get the user's TikTok cookies.
+            if (answer.which == PageAgent.SERVICE) return null
+            return mergedCookie(context.cookie, answer.cookies.filter { it.matches(url) })
+        }
 
         private fun mediaHeaders(answer: PageRead.Parsed, url: String): Map<String, String> =
             buildMap {
                 answer.userAgent?.takeIf(String::isNotBlank)?.let { put("User-Agent", it) }
-                put("Referer", TIKTOK_REFERER)
+                if (answer.which != PageAgent.SERVICE) put("Referer", TIKTOK_REFERER)
                 mediaCookie(answer, url)?.let { put("Cookie", it) }
             }
     }

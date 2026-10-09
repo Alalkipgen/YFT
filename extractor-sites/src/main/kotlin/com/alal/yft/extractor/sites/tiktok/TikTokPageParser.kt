@@ -37,19 +37,22 @@ internal data class TikTokQuality(
     val width: Int?,
     val height: Int?,
     val source: TikTokQualitySource,
+    /** P46: a name the answer gave instead of a height (the download service's "HD"). */
+    val name: String? = null,
 ) {
     /** "1080p H.265", "720p" or "With TikTok watermark"; never an address. */
     val label: String
         get() = if (source == TikTokQualitySource.DOWNLOAD_ADDRESS) {
             WATERMARK_LABEL
         } else {
-            listOfNotNull(heightLabel?.let { "${it}p" } ?: "Video", codec.mark).joinToString(" ")
+            listOfNotNull(heightLabel?.let { "${it}p" } ?: name ?: "Video", codec.mark)
+                .joinToString(" ")
         }
 
     /** The label a title carries: none for an address whose height and codec are unknown. */
     val titleLabel: String?
         get() = label.takeUnless {
-            heightLabel == null && codec.mark == null &&
+            heightLabel == null && name == null && codec.mark == null &&
                 source != TikTokQualitySource.DOWNLOAD_ADDRESS
         }
 
