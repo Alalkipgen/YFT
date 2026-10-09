@@ -21,7 +21,13 @@
 - CI: new spike-only workflow `.github/workflows/master-optin-debug-apk.yml` (existing workflows
   untouched) runs the Master tests and builds `:app:assembleDebug` with
   `-Pyft.masterCapture=true`, uploading artifact `yft-master-optin-debug-apk`.
-  Run/artifact link: pending.
+  ✅ Run `37997610268` on `4ceab089`: success (tests and build steps all green).
+  Run: https://github.com/Alalkipgen/YFT/actions/runs/37997610268
+  Artifact `yft-master-optin-debug-apk` (zip, 17,969,814 bytes, expires 2026-10-23):
+  https://github.com/Alalkipgen/YFT/actions/runs/37997610268/artifacts/11648655411
+  APK SHA-256 is in the run summary. Debug key is the runner's throwaway key: uninstall an
+  older `com.alal.yft.debug` signed by another key before installing.
+- ⏳ Owner phone check of that APK is pending. No main merge, release or tag.
 
 ## Hooked selection and native live checkpoint
 
