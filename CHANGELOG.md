@@ -30,6 +30,9 @@ for every APK given to users, because Android refuses to install a lower one.
   is offered: "Only an ad was found, not the page's video." with Reload page and try again, which
   looks for the page's length, not the ad. Proven ads are not counted as other videos. G8: STRICT
   (the default); LENIENT keeps the browser's first choice as before.
+- A failed quality lookup's Details end with "Error: <class>" (e.g. `SocketTimeoutException`),
+  the error's class name only, never its message or address (P39 hand-off; the resolver's catch
+  blocks by C on the owner's override).
 
 ### Added
 

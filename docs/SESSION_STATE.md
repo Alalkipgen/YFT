@@ -71,10 +71,19 @@ Keep at least the heading and one blank line between sections, so Git merges the
 ## Agent C — `work/phase-15-ads` (P43)
 
 - Status: P43 READY FOR MERGE (2026-10-09; `AD_RULE=STRICT`: the owner gave no answer). Last code
-  commit `175eca0` (Agent A's P39 hand-off); docs after it only.
+  commit `85f0998` (P39 resolver, owner override); docs after it only.
 - Hand-off from A done: `Failure.error` + Details "Error: <Class>" (`175eca0`): the exception's
-  simple class name only, set by `QuickDownloadViewModel.resolveSafely`; Agent A sets it in
-  `DefaultVariantResolver`'s catch blocks after P44.
+  simple class name only, set by `QuickDownloadViewModel.resolveSafely`; adding error in
+  `DefaultVariantResolver`'s catch blocks: done by C (owner override), `85f0998` — A's P39
+  files of `8b0bc93` plus `error = error.errorClass()` in `resolve()`'s three catch blocks
+  (IOException, IllegalArgumentException, Exception); the header-probe and playlist-length
+  catches still return null. Regression proof: A's `8b0bc93` resolver put back → 2 of 23
+  `DefaultVariantResolverTest` failed (error null); restored with `cp`, `cmp` equal.
+- P44 merge note: when `work/phase-15-tiktok` is merged (last), `DefaultVariantResolver.kt` and
+  `DefaultVariantResolverTest.kt` may conflict: keep the integration (C) version. Check with
+  `git diff origin/work/phase-15-tiktok -- <both files>`: the only difference must be C's error
+  lines. If A changes either file after `8b0bc93`, take A's newest version and add the error
+  lines again.
 - Base commit: `d0bc7f7` (`origin/work/phase-15-integration`, the plan commit).
 - Starting state (before edits, 2026-10-09): `./gradlew --no-daemon --continue :core-model:test
   :extractor-generic:test :core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug
@@ -92,11 +101,13 @@ Keep at least the heading and one blank line between sections, so Git merges the
   a 0:30 ad on a 16:24 page; it now sets `adRule = LENIENT` (LENIENT keeps the browser's first
   choice) and a STRICT twin expects no ad offered. The size check of a stated file now keeps the
   length it read (the header shows the proven length).
-- Validation (2026-10-09): `./gradlew --no-daemon --continue :core-model:test
-  :extractor-generic:test :core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug
-  :app:compileDebugAndroidTestKotlin` → BUILD SUCCESSFUL: 1112 tests, 0 failures, 66 skipped
-  (core-model 122, extractor-generic 21, core-browser 148, app 821; +41, 1 from the P39
-  hand-off); lint 0 errors (95 warnings, unchanged); androidTest compiles; long-line check empty.
+- Validation (2026-10-09, after the P39 resolver): `./gradlew --no-daemon --continue
+  :core-model:test :core-media:testDebugUnitTest :extractor-generic:test
+  :core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug
+  :app:compileDebugAndroidTestKotlin` → BUILD SUCCESSFUL: 1145 tests, 0 failures, 66 skipped
+  (core-model 122, core-media 33 — new in the list for the resolver, extractor-generic 21,
+  core-browser 148, app 821; 1112 without core-media, +41 from 1071); lint 0 errors (95
+  warnings, unchanged); androidTest compiles; long-line check empty.
 - Regression proof: the 7 files before P43 + `QuickDownloadPrerollTest` → 4 of 5 failed, each
   offering the 0:30 file; restored with `cp`, `cmp` equal (TEST_MATRIX "Agent C — P43").
 - CI (`4be6563`, the last code commit): checkpoint validation success
