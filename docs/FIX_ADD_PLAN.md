@@ -306,7 +306,8 @@ here. AI agent time includes builds and CI waits on a 4 GiB sandbox.
 | P44 | [Merge B → C → A, full validation, Preview #7](#p44--merge-and-preview-7) | Medium | 2–3 h | P39–P43 READY FOR MERGE | DONE (2026-10-09) — Preview #7 sent |
 | P45 | [Adult-site sheet: the tapped video only, its links asked like the browser](#p45--the-tapped-video-only-its-links-asked-like-the-browser) | Medium–Hard | 7–8 h | P44, owner's Preview #7 test | DONE — OWNER CHECK (2026-10-09) — Preview #8 |
 | P46 | [TikTok: every quality in the browser, "private" public posts, Show check](#p46--tiktok-every-quality-in-the-browser-private-public-posts-show-check) | Medium–Hard | 8–10 h | P45, owner's TikTok test | DONE — OWNER CHECK (2026-10-10) — Preview #9 |
-| P8 | [Signed release 1.0.0-beta.4](#p8--signed-release-100-beta4) | Easy | 1–2 h | P44–P46, Preview #9, owner OK | TODO |
+| P47 | [TikTok: every height TikTok's pages give, joined; "1280p" on Download as](#p47--tiktok-every-height-tiktoks-pages-give-joined-1280p-on-download-as) | Medium | 3–4 h | P46, owner's Preview #9 test | DONE — OWNER CHECK (2026-10-10) — Preview #10 |
+| P8 | [Signed release 1.0.0-beta.4](#p8--signed-release-100-beta4) | Easy | 1–2 h | P44–P47, Preview #10, owner OK | TODO |
 
 In parallel the wall time is about 15–22 h (A's TikTok track of 13–19 h, then P44); two agents
 need about 16–24 h; one agent alone 27–40 h.
@@ -1110,6 +1111,41 @@ status → not), `SiteCheckTest` (when Show check is offered, TikTok's https pag
 `462d508`: checkpoint validation 37971914024, emulator smoke 37971914007, Preview APK 37971914134
 = **Preview #9**, all green.
 
+### P47 — TikTok: every height TikTok's pages give, joined; "1280p" on Download as
+
+Medium · 3–4 h · Agent B alone (`work/phase-15-integration`) · the owner's Preview #9 test.
+
+**Owner's report (Preview #9):** Home and the browser now list the same TikTok rows, but most
+videos give one video quality (480p; 720p on about one in ten; 1080p on some); More formats holds
+audio only. The owner wants a choice of quality, without TikTok's app API (fragile: signing and
+device registration change with TikTok's app) and without sending more to `tikwm.com`.
+Download as named a 720 × 1280 video "1280p · Full HD".
+
+**Why:** the lookup took one answer: the phone page (or the tab's data) and the desktop page
+were compared and the answer with more working files won, so the phone page's 540p and the
+desktop page's 720p never stood side by side; a phone page with 540p in H.264 and H.265 counted
+as two qualities, so the desktop page was not asked. Download as named a row after the file's
+height, not its short side.
+
+**Done:**
+
+1. Answers are joined: a later answer adds its working files of a height (and codec) the
+   earlier ones do not list; files already listed are not checked again. Details: "joined:
+   desktop adds 720p", "answer: phone + desktop · 2 working qualities".
+2. The desktop page is asked when the phone page or the tab's data gives one height, however
+   many codecs of it.
+3. Download as names a video after its short side like the Download sheet ("720p · HD").
+4. Not done: the download service is not asked for more qualities (owner: not `tikwm.com`);
+   making smaller files on the phone was not chosen (it saves no data).
+
+**Tests:** `TikTokExtractorTest` (the phone page's height joins the desktop page's other
+heights; two codecs of one height still ask the desktop page), `TikTokPageDataTest` (the tab's
+540p stays and the desktop page adds 1080p and 720p; a tab's two codecs of one height ask the
+desktop page), `PreviewLabelsTest` (720 × 1280 → "720p · HD").
+
+**Result:** DONE — OWNER CHECK (Agent B, 2026-10-10, the P47 checkpoint). Full validation: 1750 tests, 0 failures, 66 skipped (app 910, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 253; 1746 before P47); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. CI of
+the P47 checkpoint: CI links in the next docs commit = **Preview #10**.
+
 ### P8 — Signed release 1.0.0-beta.4
 
 Easy · 1–2 h · needs P44, Preview #7 and the owner's OK · prompt
@@ -1127,6 +1163,15 @@ SHA-256 and certificate. Merge, tag and signing need the owner's OK for this tas
 
 Install `yft-preview-apk` from the Preview APK run the agent sends; uninstall the older YFT
 Preview first (each run has a new test key).
+
+**Preview #10 (after P47)** — TikTok (with and without the VPN):
+
+1. **10 TikTok videos** on Home and in YFT's browser: where TikTok's pages give more than one
+   height, the sheet lists each (e.g. 720p and 480p); Details show "joined: … adds …".
+2. **`vt.tiktok.com/ZSbn2abY2/`** (720 × 1280): Download as says "720p · HD", not "1280p".
+3. A video that still lists one quality: send its **Details** (the sheet's Details link, not
+   Download as) — its "qualities:" and "file check" lines show what TikTok's pages gave.
+4. Download one joined lower row (e.g. 480p) to the end and play it.
 
 **Preview #9 (after P46)** — TikTok (with and without the VPN):
 
@@ -1248,7 +1293,9 @@ Other items:
   owner's OK. About 1–2 days with tests. Owner decision (2026-10-10): not now — Preview #8 had
   no refused download; reopen with a download's Details that show a refusal.
 - **TikTok's app API** (P46 item 5): needs a registered device and TikTok's request signing;
-  not done while the download service gives the same posts.
+  not done while the download service gives the same posts. Agent's advice (2026-10-10, P47):
+  do not build it — the signing and device registration change with TikTok's app, so it breaks
+  often and each break needs a YFT update.
 
 ## 8. Done before Phase 15
 

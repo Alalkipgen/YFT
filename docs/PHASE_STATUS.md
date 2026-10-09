@@ -58,7 +58,12 @@ HTTP 474/410 say the site refused the link; proven ads leave the browser's lists
 P46 (2026-10-10, Agent B alone, after the owner's TikTok test): the browser lists TikTok's
 desktop qualities too; a post TikTok's phone page calls private is asked of the desktop page,
 the hidden page and a public download service; Show check puts TikTok's check in front of the
-user. Preview #9; `1.0.0-beta.4` (P8) waits for the owner's phone test of Preview #9.
+user. Preview #9 (on `main` with the owner's approval).
+
+P47 (2026-10-10, Agent B alone, after the owner's Preview #9 test): TikTok's phone, tab and
+desktop answers are joined by height, so a video lists each height TikTok's pages give;
+Download as names a phone video after its short side. Preview #10; `1.0.0-beta.4` (P8) waits
+for the owner's OK.
 
 
 ## History

@@ -9,6 +9,17 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Added
 
+- TikTok lists every height its pages give (P47): the phone page's (or the tab's) file and the
+  desktop page's files of other heights are joined, so a video can list 720p and 480p; the
+  desktop page is also asked when one height comes in two codecs.
+
+### Fixed
+
+- Download as names a phone video after its short side (P47): 720 × 1280 is "720p · HD", not
+  "1280p · Full HD".
+
+### Added (P46)
+
 - TikTok in the browser lists every quality (P46): when the video's data in the tab opens one
   file, YFT also reads TikTok's desktop page and lists its qualities (as Home does).
 - TikTok's public posts that its phone page calls private (P46): YFT asks TikTok's desktop page

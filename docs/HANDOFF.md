@@ -47,12 +47,14 @@
   (notes: [`release/1.0.0-beta.3.md`](release/1.0.0-beta.3.md)). Phases 11–15 are merged
   (no tag); `1.0.0-beta.4` waits for Preview #7 (P8).
 
-## Known limitations (Preview #9)
+## Known limitations (Preview #10)
 
 - P46: the download service is a third party: it sees the post's address (nothing else) and
   may be down or slow; then the lookup ends with TikTok's own reason and Details say why. Show
   check opens TikTok's desktop page on a phone screen, so the slider may need zooming.
 - P46: TikTok's app API is not used (device registration and signing).
+- P47: a TikTok video lists more than one quality only when TikTok's own pages give more than
+  one height; many give one (480p), and then the sheet lists one.
 
 - P45: a refused link is asked again through WebView only for the file check and the lists of
   qualities; the file itself and HLS pieces are still downloaded by YFT (OkHttp). If the CDN

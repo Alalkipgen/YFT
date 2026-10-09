@@ -1254,3 +1254,14 @@ P42 — Downloads: Delete file (2026-10-09):
 | Full validation (2026-10-10) | Full validation: 1746 tests, 0 failures, 66 skipped (app 909, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 250; 1729 before P46); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. |
 | CI (`462d508`) | checkpoint validation [37971914024](https://github.com/Alalkipgen/YFT/actions/runs/37971914024), emulator smoke [37971914007](https://github.com/Alalkipgen/YFT/actions/runs/37971914007), Preview APK = **Preview #9** [37971914134](https://github.com/Alalkipgen/YFT/actions/runs/37971914134), all green |
 | Owner check | Preview #9: FIX_ADD_PLAN §6 "Preview #9" items 1–5 |
+
+### P47 — TikTok: every height TikTok's pages give, joined; "1280p" on Download as (Agent B alone)
+
+| Check | Evidence |
+| --- | --- |
+| Answers joined by height | `TikTokExtractorTest`: the phone page's 1080p joins the desktop page's 720p H.265, 540p and 540p H.265 (4 rows, each with its answer's agent, 4 file checks); `TikTokPageDataTest`: the tab's 540p stays and the desktop page adds 1080p and 720p ("joined: desktop adds …", "answer: desktop + tab · 3 working qualities") |
+| One height in two codecs | `TikTokExtractorTest`: a phone page with 540p H.264 and H.265 still asks the desktop page (6 rows); `TikTokPageDataTest`: a tab's two codecs of one height ask the desktop page |
+| Download as name | `PreviewLabelsTest.aPhoneVideoIsNamedAfterItsShortSideLikeTheSheet`: 720 × 1280 → "720p · HD", 1080 × 1920 → "1080p · Full HD", 576 × 1024 → "480p" |
+| Full validation (2026-10-10) | Full validation: 1750 tests, 0 failures, 66 skipped (app 910, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 253; 1746 before P47); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. |
+| CI | CI links in the next docs commit |
+| Owner check | Preview #10: FIX_ADD_PLAN §6 "Preview #10" items 1–4 |

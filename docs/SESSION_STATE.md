@@ -86,9 +86,16 @@ Keep at least the heading and one blank line between sections, so Git merges the
   the public download service after TikTok's pages. Not done: TikTok's app API. Full validation: 1746 tests, 0 failures, 66 skipped (app 909, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 250; 1729 before P46); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean.
 - Last pushed checkpoint: `462d508` P46 on `work/phase-15-integration`; CI: checkpoint validation [37971914024](https://github.com/Alalkipgen/YFT/actions/runs/37971914024), emulator smoke [37971914007](https://github.com/Alalkipgen/YFT/actions/runs/37971914007), Preview APK = **Preview #9** [37971914134](https://github.com/Alalkipgen/YFT/actions/runs/37971914134) (Artifacts › `yft-preview-apk`), all green.
   P45 + P46 on `main`: `main` fast-forwarded to the P46 docs commit with the owner's approval (2026-10-09: "merge P45 & P46 to main"), `69bf022` → this commit (fast-forward, no merge commit). Preview #9 is the same code.
-- Next: the owner tests Preview #9 (FIX_ADD_PLAN §6 "Preview #9") and sends Details of anything
-  that fails; P8 (signed `1.0.0-beta.4`) only with his OK.
-- Last updated: 2026-10-10 (P46)
+- P47 (2026-10-10, Agent B alone; sandbox reset again: re-cloned, new key, JDK 17 and SDK 35
+  reinstalled): the owner's Preview #9 test (one TikTok quality on most videos; "1280p · Full
+  HD" on Download as for 720 × 1280). Done: TikTok's answers are joined by height; the desktop
+  page is asked when one height comes in two codecs; Download as names the short side.
+  Full validation: 1750 tests, 0 failures, 66 skipped (app 910, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 253; 1746 before P47); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean.
+- Last pushed checkpoint (P47): the P47 checkpoint on `work/phase-15-integration`; CI: CI links
+  in the next docs commit. `main` stays at `2eafd62` (P46) until the owner says so.
+- Next: the owner tests Preview #10 (FIX_ADD_PLAN §6 "Preview #10") and sends Details of
+  anything that fails; P8 (signed `1.0.0-beta.4`) only with his OK.
+- Last updated: 2026-10-10 (P47)
 
 ## Agent A — `work/phase-15-tiktok` (P39, P40)
 
