@@ -58,8 +58,10 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent A — `work/phase-15-tiktok` (P39, P40)
 
-- Status: P39 DONE (2026-10-09), P40 TODO (not started: the owner asked this chat to stop after
-  P39).
+- Status: P39 DONE (2026-10-09), P40 IN PROGRESS (started 2026-10-09; base commit `8b0bc93`,
+  the P39 checkpoint).
+- Progress (P40): set-up done (clone `/data/YFT-A`, new key `/data/.ssh/yft_a_202610090329`
+  added by the owner, toolchain under `/data/opt`); starting-state validation running.
 - Base commit: `d0bc7f7` (= `origin/work/phase-15-integration`, the plan commit); folder
   `/data/YFT-A`; push over SSH with the key named in `/data/.ssh/CURRENT_KEY` (sandbox reset on
   2026-10-09: new key `/data/.ssh/yft_a_20261009`, added by the owner as a deploy key; JDK 17,
