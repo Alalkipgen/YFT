@@ -362,6 +362,7 @@ fun BrowserRoute(
                 submitAddress()
             },
             onRetrySiteLookup = viewModel::retrySiteLookup,
+            onShowSiteCheck = viewModel::showSiteCheck,
             onRetryFocusedLookup = viewModel::retryFocusedLookup,
             fullScreen = fullscreenView != null,
             // P13: a download sheet over the browser pauses this screen; the wide button goes.
@@ -395,6 +396,11 @@ fun BrowserRoute(
                 onClear = history::clear,
                 onClose = { historyOpen = false },
             )
+        }
+        // P46: TikTok's check for the user to answer; Done asks the page again.
+        val checkUrl = uiState.siteCheckUrl
+        if (uiState.siteCheckOpen && checkUrl != null) {
+            SiteCheckDialog(url = checkUrl, onDone = viewModel::siteCheckDone)
         }
         blockedNotice?.let { blocked ->
             BrowserBlockedNotice(
@@ -503,6 +509,7 @@ fun BrowserScreen(
     onUseCopiedLink: () -> Unit = {},
     onOpenSite: (HomeSite) -> Unit = {},
     onRetrySiteLookup: () -> Unit = {},
+    onShowSiteCheck: () -> Unit = {},
     onRetryFocusedLookup: () -> Unit = {},
     onDownloadFocused: () -> Unit = {},
     onDownloadPage: () -> Unit = {},
@@ -600,7 +607,15 @@ fun BrowserScreen(
                 container = colors.chip,
                 content = colors.textPrimary,
                 modifier = Modifier.testTag("browser-site-notice"),
-                action = if (uiState.canRetrySiteLookup) {
+                action = if (uiState.siteCheckUrl != null) {
+                    {
+                        YftTextButton(
+                            text = "Show check",
+                            onClick = onShowSiteCheck,
+                            modifier = Modifier.testTag("browser-site-check"),
+                        )
+                    }
+                } else if (uiState.canRetrySiteLookup) {
                     {
                         YftTextButton(
                             text = "Try again",

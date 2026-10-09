@@ -222,6 +222,69 @@ class TikTokPageDataTest {
         assertTrue(result.details.any { it.startsWith("data: tab · page script · JSON: error") })
     }
 
+    @Test
+    fun `a tab's data with one quality is joined by the desktop page's qualities`() = runTest {
+        val identity = identity(POST_ID)
+        val http = FakeExtractorHttpClient(
+            responses = mapOf(
+                identity.canonicalPageUrl to FakeExtractorHttpClient.html(
+                    Fixtures.read("tiktok/universal_video.html"),
+                    identity.canonicalPageUrl,
+                ),
+            ),
+            probeResponder = { url, _ -> fileAnswer(url) },
+        )
+
+        val result = TikTokExtractor(http).extract(
+            request(identity, data(oneQualityItem(), SitePageDataSource.TAB_API_ANSWER)),
+        ) as SiteExtractionResult.Success
+
+        // P46: TikTok's phone player gets one file; the desktop page lists every quality.
+        assertEquals(listOf(identity.canonicalPageUrl), http.requestedUrls)
+        assertEquals(
+            TikTokAgents().desktop("fixture-tab-agent"),
+            http.requestedHeaders.single()["User-Agent"],
+        )
+        assertEquals(
+            listOf("fixture-1080.mp4", "fixture-720.mp4", "fixture-540.mp4"),
+            result.candidates.map { it.mediaUrl.substringAfterLast('/').substringBefore('?') },
+        )
+        assertTrue(
+            result.details.contains("desktop page: asked for more qualities (tab: 1 working)"),
+        )
+        assertTrue(result.details.contains("answer: desktop · 3 working qualities"))
+    }
+
+    @Test
+    fun `a tab's one quality stays when the desktop page has no more`() = runTest {
+        val http = FakeExtractorHttpClient(probeResponder = { url, _ -> fileAnswer(url) })
+
+        val result = TikTokExtractor(http).extract(
+            request(identity(POST_ID), data(oneQualityItem(), SitePageDataSource.TAB_API_ANSWER)),
+        ) as SiteExtractionResult.Success
+
+        assertEquals(1, result.candidates.size)
+        assertEquals(1, http.requestedUrls.size)
+        assertTrue(result.details.contains("answer: tab · 1 working qualities"))
+    }
+
+    @Test
+    fun `a tab's data with every quality does not ask the desktop page`() = runTest {
+        val http = FakeExtractorHttpClient(probeResponder = { url, _ -> fileAnswer(url) })
+
+        TikTokExtractor(http).extract(
+            request(identity(POST_ID), data(scriptItem(), SitePageDataSource.TAB_SCRIPT)),
+        ) as SiteExtractionResult.Success
+
+        assertEquals(emptyList<String>(), http.requestedUrls)
+    }
+
+    /** One post as TikTok's phone player gets it: its play address only. */
+    private fun oneQualityItem(): String =
+        "{\"id\":\"$POST_ID\",\"desc\":\"Fixture\",\"author\":{\"uniqueId\":\"fixture_user\"}," +
+            "\"video\":{\"duration\":10,\"width\":576,\"height\":1024,\"playAddr\":" +
+            "\"https://v16-webapp.example-cdn.test/video/play/phone-540.mp4?expire=4102444800\"}}"
+
     private fun scriptItem(): String = Fixtures.read("tiktok/page_data_script_item.json")
 
     private fun data(json: String, source: SitePageDataSource) = SitePageData(json.trim(), source)

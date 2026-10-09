@@ -90,6 +90,8 @@ internal data class TikTokPageNotes(
     val json: String? = null,
     /** `matches`, `other id` or `missing`. */
     val postId: String = "missing",
+    /** P46: TikTok's own status number for the post when it gave one instead of the post. */
+    val status: Long? = null,
 )
 
 internal sealed interface TikTokParseResult {
@@ -106,8 +108,9 @@ internal sealed interface TikTokParseResult {
         /** The adapter's own text for the user, when the reason's generic text would mislead. */
         val message: String? = null,
         /**
-         * True when another page answer cannot change the outcome (TikTok's own status for the
-         * post, DRM, a photo post or a link that lands on the home page).
+         * True when another page answer cannot change the outcome (DRM, a photo post or a link
+         * that lands on the home page). P46: TikTok's status for the post on one page is not
+         * final: the desktop page is still asked.
          */
         val final: Boolean = false,
     ) : TikTokParseResult
@@ -157,6 +160,7 @@ internal object TikTokPageParser {
         val dataKey: String,
         val item: JsonValue?,
         val status: SiteExtractionFailure?,
+        val statusCode: Long? = null,
     )
 
     private class Read(val value: JsonValue?, val note: String)
@@ -177,7 +181,7 @@ internal object TikTokPageParser {
                     val item = detail.path("itemInfo", "itemStruct")
                     val status = statusFailure(detail)
                     if (item != null || status != null && key in PREFERRED_KEYS) {
-                        shapes += Shape("universal $key", item, status)
+                        shapes += Shape("universal $key", item, status, statusCode(detail))
                     }
                 }
         }
@@ -192,10 +196,14 @@ internal object TikTokPageParser {
 
         val json = jsonNotes.firstOrNull { it.startsWith("read") } ?: jsonNotes.firstOrNull()
         var statusFailure: SiteExtractionFailure? = null
+        var statusCode: Long? = null
         var sawOtherId = false
         for (shape in shapes) {
             if (shape.status != null) {
-                statusFailure = statusFailure ?: shape.status
+                if (statusFailure == null) {
+                    statusFailure = shape.status
+                    statusCode = shape.statusCode
+                }
                 continue
             }
             val id = shape.item["id"].asStringOrNull ?: continue
@@ -212,10 +220,12 @@ internal object TikTokPageParser {
             dataKey = shapes.firstOrNull()?.dataKey ?: "none",
             json = json,
             postId = if (sawOtherId) "other id" else "missing",
+            status = statusCode,
         )
         val failure = Outcome(notes)
         return when {
-            statusFailure != null -> failure.final(statusFailure)
+            // P46: not final, so the extractor still asks the desktop page.
+            statusFailure != null -> TikTokParseResult.Failure(statusFailure, notes)
             urlKind == TikTokPageKind.HOME -> failure.final(
                 SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
                 NOT_A_VIDEO_MESSAGE,
@@ -464,12 +474,14 @@ internal object TikTokPageParser {
         get() = asLongOrNull?.takeIf { it in 1..100_000 }?.toInt()
 
     private fun statusFailure(detail: JsonValue?): SiteExtractionFailure? {
-        val status = detail["statusCode"].asLongOrNull
-            ?: detail["statusCodeV2"].asLongOrNull
-            ?: return null
-        if (status == 0L) return null
+        val status = statusCode(detail) ?: return null
         return STATUS_FAILURES[status] ?: SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE
     }
+
+    /** TikTok's nonzero status number for a post; null for none or 0. */
+    private fun statusCode(detail: JsonValue?): Long? =
+        (detail["statusCode"].asLongOrNull ?: detail["statusCodeV2"].asLongOrNull)
+            ?.takeIf { it != 0L }
 
     /** A strict read first; then entities decoded and anything after the object cut once. */
     private fun lenientRead(body: String): Read {

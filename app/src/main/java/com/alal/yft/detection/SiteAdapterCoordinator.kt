@@ -207,7 +207,7 @@ class SiteAdapterCoordinator @Inject constructor(
         val first = run(matched, identity, requestContext.with(tabRead), nowEpochMs, tabRead)
         val hiddenNext = first is SiteExtractionResult.Failure &&
             tabRead?.pageData == null &&
-            first.reason in HIDDEN_PAGE_AFTER &&
+            (first.reason in HIDDEN_PAGE_AFTER || first.isStatusOnly()) &&
             hiddenPages.handles(identity.siteId)
         if (!hiddenNext) return Ordered(first, steps)
         val pageRead = first as SiteExtractionResult.Failure
@@ -410,6 +410,15 @@ class SiteAdapterCoordinator @Inject constructor(
          * P40: failures of YFT's own request, after which the hidden page may still read the
          * post. The site's own answers about the post or the user are never in this list.
          */
+        /**
+         * P46: "private or unavailable" from the site's status in its page data alone (no HTTP
+         * status, no message of the adapter's own): TikTok's phone and desktop pages say so for
+         * some public posts its own player still gets, so the hidden page is asked too.
+         */
+        private fun SiteExtractionResult.Failure.isStatusOnly(): Boolean =
+            reason == SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE &&
+                httpStatusCode == null && message == null
+
         val HIDDEN_PAGE_AFTER = setOf(
             SiteExtractionFailure.RESPONSE_CHANGED,
             SiteExtractionFailure.MALFORMED_RESPONSE,

@@ -276,7 +276,7 @@ class TikTokPageEngine(
         const val STATUS_MILLIS = 2_000L
 
         const val CHECK_MESSAGE =
-            "TikTok wants a check. Open the video in YFT's browser, then tap Download."
+            "TikTok wants a check. Open the video in YFT's browser and tap Show check."
 
         private const val WAIT_NOTE_MILLIS = 500L
         private const val GEO_STATUS = 10231L

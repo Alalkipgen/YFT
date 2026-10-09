@@ -731,6 +731,40 @@ class BrowserScreenTest {
     }
 
     @Test
+    fun tikToksCheckOffersShowCheckInsteadOfTryAgain() {
+        var shown = 0
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                BrowserScreen(
+                    uiState = BrowserUiState(
+                        address = PAGE,
+                        currentUrl = PAGE,
+                        siteNotice = SiteCheck.NOTICE,
+                        canRetrySiteLookup = true,
+                        siteCheckUrl = "https://www.tiktok.com/@fixture/video/7311234567890123456",
+                    ),
+                    canGoBack = false,
+                    canGoForward = false,
+                    onAddressChanged = {},
+                    onGo = {},
+                    onBrowserBack = {},
+                    onBrowserForward = {},
+                    onReload = {},
+                    onStop = {},
+                    onDownloadGroup = {},
+                    onNavigateBack = {},
+                    onShowSiteCheck = { shown += 1 },
+                    browserSurface = { Box(modifier = it) },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("browser-site-check").assertIsDisplayed().performClick()
+        composeRule.runOnIdle { assertEquals(1, shown) }
+        composeRule.onAllNodesWithTag("browser-site-retry").assertCountEquals(0)
+    }
+
+    @Test
     fun addressDisplayShowsHostAndPathButNeverTheQuery() {
         val display =
             addressDisplay("https://www.archive.org/details/ocean-waves?token=secret#t=1")!!

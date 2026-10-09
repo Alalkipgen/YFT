@@ -45,6 +45,11 @@ import kotlinx.coroutines.sync.withPermit
  * user's tab or YFT's hidden page, the way TikTok's own player gets it), the rows come from that
  * data without asking for the page; the page is read only when the data names another post or
  * none of its files opens (never after the hidden page, which comes after the page read).
+ *
+ * P46: TikTok's status for the post on the phone page ("private" for some public posts the
+ * phone page does not show) no longer ends the lookup: the desktop page is asked too, and
+ * Details name the status. A tab's data with fewer than two qualities (TikTok's phone player
+ * gets one) is joined by the desktop page's, and the answer with more working files wins.
  */
 class TikTokExtractor(
     private val http: ExtractorHttpClient,
@@ -190,6 +195,13 @@ class TikTokExtractor(
             val answer = PageRead.Parsed(which, post, context.userAgent, cookies = emptyList())
             step = "file check"
             val checked = check(answer)
+            // One working file: the desktop page may list more (none: the page read below
+            // asks it anyway).
+            if (!hidden && checked.working.size == 1) {
+                moreQualities(post, checked)?.let { more ->
+                    return success(more.answer, more.working, watermarkedOnly = false)
+                }
+            }
             val rows = checked.working.ifEmpty { watermarked(listOf(answer)) }
             if (rows.isNotEmpty()) return success(answer, rows, checked.working.isEmpty())
             details += "data: no file opened" + if (hidden) "" else " · page read next"
@@ -203,6 +215,34 @@ class TikTokExtractor(
             // The page's answer gets its own file checks.
             checksLeft = MAX_FILE_CHECKS
             return null
+        }
+
+        /**
+         * P46: the desktop page for a tab's [post] whose data opened one file ([fromTab]); its
+         * checked answer when more of its files open, else null (the tab's rows stay).
+         */
+        private suspend fun moreQualities(post: TikTokPost, fromTab: Checked): Checked? {
+            if (!askDesktopPage) return null
+            step = "agent"
+            val phoneAgent = agents.phone(context.userAgent)
+            val desktopAgent = agents.desktop(phoneAgent)
+            if (desktopAgent == phoneAgent) return null
+            details += "desktop page: asked for more qualities " +
+                "(tab: ${fromTab.working.size} working)"
+            step = "desktop page"
+            val identity = TikTokUrls.identify(
+                TikTokUrls.canonicalUrl(post.authorHandle, post.videoId),
+            )?.takeUnless { it.requiresCanonicalResolution } ?: request.identity
+            val desktop = readPage(PageAgent.DESKTOP, identity, desktopAgent)
+                as? PageRead.Parsed ?: return null
+            if (desktop.post.videoId != post.videoId ||
+                desktop.post.qualities.size <= fromTab.working.size
+            ) {
+                return null
+            }
+            step = "file check"
+            checksLeft = MAX_FILE_CHECKS
+            return check(desktop).takeIf { it.working.size > fromTab.working.size }
         }
 
         private suspend fun readPages(): SiteExtractionResult {
@@ -232,8 +272,11 @@ class TikTokExtractor(
                 .sortedByDescending { it.post.qualities.size }
             if (answers.isEmpty()) {
                 val failures = listOfNotNull(phone as? PageRead.Failed, desktop as? PageRead.Failed)
+                // P46: a check on one page says more than TikTok's status on the other: the
+                // post may open once the check is answered.
                 return failure(
                     failures.firstOrNull { it.final }
+                        ?: failures.firstOrNull { it.reason == SiteExtractionFailure.BOT_CHECK }
                         ?: failures.firstOrNull { it.reason !in GENERAL_REASONS }
                         ?: failures.first(),
                 )
@@ -335,7 +378,8 @@ class TikTokExtractor(
             details += "page: ${which.label} · HTTP ${response.statusCode} · $size · " +
                 "landed on: ${notes.kind.label}"
             details += response.details
-            details += "data: ${notes.dataKey}" + notes.json?.let { " · JSON: $it" }.orEmpty()
+            details += "data: ${notes.dataKey}" + notes.json?.let { " · JSON: $it" }.orEmpty() +
+                notes.status?.let { " · TikTok status $it" }.orEmpty()
             details += "post id: ${notes.postId}"
             return when (parsed) {
                 is TikTokParseResult.Failure -> PageRead.Failed(

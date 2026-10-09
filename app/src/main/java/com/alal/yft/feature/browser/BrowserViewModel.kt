@@ -355,6 +355,7 @@ class BrowserViewModel(
                 pageFacts = null,
                 siteNotice = null,
                 canRetrySiteLookup = false,
+                siteCheckUrl = null,
             ).withFeedOf(url)
         }
     }
@@ -415,6 +416,7 @@ class BrowserViewModel(
                 pageFacts = null,
                 siteNotice = null,
                 canRetrySiteLookup = false,
+                siteCheckUrl = null,
             ).withFeedOf(url)
         }
         val generation = pageGeneration
@@ -777,7 +779,9 @@ class BrowserViewModel(
             mutableUiState.update { it.copy(pageLookupRunning = false) }
             if (outcome !is SiteAdapterOutcome.Failed) {
                 awaitingPlayback = false
-                mutableUiState.update { it.copy(siteNotice = null, canRetrySiteLookup = false) }
+                mutableUiState.update {
+                    it.copy(siteNotice = null, canRetrySiteLookup = false, siteCheckUrl = null)
+                }
             }
             when (outcome) {
                 SiteAdapterOutcome.NotHandled -> {
@@ -822,12 +826,16 @@ class BrowserViewModel(
                     }
                     // One automatic retry per page; after that the user decides with Try again.
                     awaitingPlayback = outcome.retriesAfterPlayback && !autoRetried
+                    // P46: TikTok's check is shown to the user; the browser's own words.
+                    val checkUrl = SiteCheck.urlFor(outcome, livePageUrl)
+                    val message = if (checkUrl != null) SiteCheck.NOTICE else outcome.message
                     mutableUiState.update {
                         it.copy(
-                            siteNotice = outcome.message.takeUnless {
+                            siteNotice = message.takeUnless {
                                 outcome.reason == SiteExtractionFailure.NETWORK
                             },
                             canRetrySiteLookup = outcome.canRetry,
+                            siteCheckUrl = checkUrl,
                         )
                     }
                     pageLookupFailed = true
@@ -838,7 +846,11 @@ class BrowserViewModel(
                                 key = it,
                                 pageUrl = livePageUrl,
                                 title = lookupTitle(title),
-                                failure = outcome.message,
+                                failure = if (checkUrl != null) {
+                                    SiteCheck.SHEET
+                                } else {
+                                    outcome.message
+                                },
                                 canRetry = outcome.canRetry,
                                 details = outcome.details,
                             ),
@@ -1068,12 +1080,27 @@ class BrowserViewModel(
         retryLookup(pageUrl)
     }
 
+    /** P46: Show check: TikTok's check on screen for the user. */
+    fun showSiteCheck() {
+        if (mutableUiState.value.siteCheckUrl == null) return
+        mutableUiState.update { it.copy(siteCheckOpen = true) }
+    }
+
+    /** P46: the check is closed; the page is asked again (its cookies may pass now). */
+    fun siteCheckDone() {
+        val wasOpen = mutableUiState.value.siteCheckOpen
+        mutableUiState.update { it.copy(siteCheckOpen = false) }
+        val pageUrl = activePageUrl ?: return
+        if (wasOpen) retryLookup(pageUrl)
+    }
+
     private fun retryLookup(pageUrl: String) {
         awaitingPlayback = false
         mutableUiState.update { state ->
             state.copy(
                 siteNotice = RETRY_NOTICE.takeIf { state.siteNotice != null },
                 canRetrySiteLookup = false,
+                siteCheckUrl = null,
             )
         }
         runSiteAdapters(pageUrl, mutableUiState.value.pageTitle, fresh = true)
@@ -1246,6 +1273,7 @@ class BrowserViewModel(
         const val MAX_TITLE_LENGTH = 200
         const val BLANK_PAGE = "about:blank"
         const val RETRY_NOTICE = "Checking this page again…"
+
         const val FINDING_NOTICE = "Finding the video on screen…"
         const val NO_FOCUSED_VIDEO_NOTICE =
             "No video on screen to download. Scroll to a video and tap Download again."

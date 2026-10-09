@@ -173,9 +173,43 @@ class SiteAdapterOrderTest {
         }
 
     @Test
+    fun `the page data's status alone that a post is private still asks the hidden page`() =
+        runTest {
+            val extractor = OrderExtractor(
+                pageRead = failure(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE),
+            )
+            val hidden = FakeHiddenPage(found())
+
+            val outcome = coordinator(extractor, hidden).inspect(PAGE, homeContext(), NOW)
+
+            // P46: TikTok's pages call some public posts private; its own player gets them.
+            assertEquals(1, hidden.asked.size)
+            assertTrue(outcome.toString(), outcome is SiteAdapterOutcome.Detected)
+        }
+
+    @Test
+    fun `a private answer with the adapter's own words or an HTTP status stands`() = runTest {
+        listOf(
+            SiteExtractionResult.Failure(
+                SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
+                message = "This TikTok link does not open a video.",
+            ),
+            SiteExtractionResult.Failure(
+                SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
+                httpStatusCode = 404,
+            ),
+        ).forEach { read ->
+            val hidden = FakeHiddenPage(found())
+
+            coordinator(OrderExtractor(pageRead = read), hidden).inspect(PAGE, homeContext(), NOW)
+
+            assertEquals(read.toString(), emptyList<String>(), hidden.asked)
+        }
+    }
+
+    @Test
     fun `the hidden page never follows the site's own answer about the post`() = runTest {
         val answers = listOf(
-            SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
             SiteExtractionFailure.LOGIN_REQUIRED,
             SiteExtractionFailure.GEO_RESTRICTED,
             SiteExtractionFailure.DRM_PROTECTED,
@@ -348,6 +382,6 @@ class SiteAdapterOrderTest {
         const val NOW = 1_700_000_000_000L
         const val ITEM = "{\"id\":\"$POST_ID\"}"
         const val CHECK_TEXT =
-            "TikTok wants a check. Open the video in YFT's browser, then tap Download."
+            "TikTok wants a check. Open the video in YFT's browser and tap Show check."
     }
 }

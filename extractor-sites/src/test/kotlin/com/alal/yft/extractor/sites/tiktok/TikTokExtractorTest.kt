@@ -624,7 +624,7 @@ class TikTokExtractorTest {
         }
 
     @Test
-    fun `TikTok's own status for the post is final, so the desktop page is not asked`() =
+    fun `TikTok's status on the phone page still asks the desktop page, and Details name it`() =
         runTest {
             val identity = identity("7311234567890123456")
             val http = FakeExtractorHttpClient.serving(
@@ -635,10 +635,65 @@ class TikTokExtractorTest {
             val failure = TikTokExtractor(http).extract(request(identity))
                 as SiteExtractionResult.Failure
 
+            // P46: both pages say private, so the post is private.
             assertEquals(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, failure.reason)
-            assertEquals(1, http.requestedUrls.size)
+            val later = http.requestedHeaders.drop(1).map { it["User-Agent"] }
+            assertEquals(listOf(DESKTOP_AGENT), later)
             assertNull(failure.message)
+            assertTrue(
+                failure.details.toString(),
+                failure.details.contains(
+                    "data: universal webapp.video-detail · JSON: read · TikTok status 10216",
+                ),
+            )
         }
+
+    @Test
+    fun `a post the phone page calls private comes from the desktop page`() = runTest {
+        val identity = identity("7311234567890123456")
+        val http = FakeExtractorHttpClient(
+            getResponder = { url, headers ->
+                when {
+                    url != identity.canonicalPageUrl -> null
+                    headers["User-Agent"] == DESKTOP_AGENT -> FakeExtractorHttpClient.html(
+                        Fixtures.read("tiktok/universal_video.html"),
+                        url,
+                    )
+                    else -> FakeExtractorHttpClient.html(privatePage(), url)
+                }
+            },
+        )
+
+        val result = TikTokExtractor(http).extract(request(identity))
+            as SiteExtractionResult.Success
+
+        assertEquals(3, result.candidates.size)
+        assertTrue(result.details.contains("answer: desktop · 3 working qualities"))
+        assertTrue(result.details.any { it.endsWith("TikTok status 10216") })
+    }
+
+    @Test
+    fun `a check on the desktop page wins over the phone page's status`() = runTest {
+        val identity = identity("7311234567890123456")
+        val check = "<html><body><div id=\"captcha-verify-container-main-page\">" +
+            "Verify to continue</div></body></html>"
+        val http = FakeExtractorHttpClient(
+            getResponder = { url, headers ->
+                when {
+                    url != identity.canonicalPageUrl -> null
+                    headers["User-Agent"] == DESKTOP_AGENT ->
+                        FakeExtractorHttpClient.html(check, url)
+                    else -> FakeExtractorHttpClient.html(privatePage(), url)
+                }
+            },
+        )
+
+        val failure = TikTokExtractor(http).extract(request(identity))
+            as SiteExtractionResult.Failure
+
+        assertEquals(SiteExtractionFailure.BOT_CHECK, failure.reason)
+        assertTrue(failure.details.any { it.endsWith("landed on: challenge page") })
+    }
 
     @Test
     fun `a post under an unknown data key is still read`() = runTest {
@@ -884,6 +939,8 @@ class TikTokExtractorTest {
         val pageUrl = identity("7311234567890123456").canonicalPageUrl
         assertFalse(extractor.isPlayerMediaRequest(pageUrl))
     }
+
+    private fun privatePage(): String = Fixtures.read("tiktok/universal_private.html")
 
     private fun livePhone(): String = Fixtures.read("tiktok/live_phone_reflow.html")
 
