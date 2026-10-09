@@ -1143,8 +1143,10 @@ heights; two codecs of one height still ask the desktop page), `TikTokPageDataTe
 540p stays and the desktop page adds 1080p and 720p; a tab's two codecs of one height ask the
 desktop page), `PreviewLabelsTest` (720 × 1280 → "720p · HD").
 
-**Result:** DONE — OWNER CHECK (Agent B, 2026-10-10, the P47 checkpoint). Full validation: 1750 tests, 0 failures, 66 skipped (app 910, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 253; 1746 before P47); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. CI of
-the P47 checkpoint: CI links in the next docs commit = **Preview #10**.
+**Result:** DONE — OWNER CHECK (Agent B, 2026-10-10, `0bfb437`). Full validation: 1750 tests, 0 failures, 66 skipped (app 910, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 253; 1746 before P47); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. CI of
+`0bfb437`: checkpoint validation 37993854819, emulator smoke 37993854829, Preview APK 37993854810
+= **Preview #10**, all green. `main` fast-forwarded to P47 with the owner's approval
+(2026-10-10: "Main ကို Push & Commit").
 
 ### P8 — Signed release 1.0.0-beta.4
 

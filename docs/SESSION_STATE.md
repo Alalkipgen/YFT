@@ -91,8 +91,8 @@ Keep at least the heading and one blank line between sections, so Git merges the
   HD" on Download as for 720 × 1280). Done: TikTok's answers are joined by height; the desktop
   page is asked when one height comes in two codecs; Download as names the short side.
   Full validation: 1750 tests, 0 failures, 66 skipped (app 910, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 253; 1746 before P47); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean.
-- Last pushed checkpoint (P47): the P47 checkpoint on `work/phase-15-integration`; CI: CI links
-  in the next docs commit. `main` stays at `2eafd62` (P46) until the owner says so.
+- Last pushed checkpoint (P47): `0bfb437` on `work/phase-15-integration`; CI: checkpoint validation [37993854819](https://github.com/Alalkipgen/YFT/actions/runs/37993854819), emulator smoke [37993854829](https://github.com/Alalkipgen/YFT/actions/runs/37993854829), Preview APK = **Preview #10** [37993854810](https://github.com/Alalkipgen/YFT/actions/runs/37993854810) (Artifacts › `yft-preview-apk`), all green.
+  `main` fast-forwarded from `2eafd62` to this P47 docs commit with the owner's approval (2026-10-10: "Main ကို Push & Commit"); Preview #10 is the same code.
 - Next: the owner tests Preview #10 (FIX_ADD_PLAN §6 "Preview #10") and sends Details of
   anything that fails; P8 (signed `1.0.0-beta.4`) only with his OK.
 - Last updated: 2026-10-10 (P47)

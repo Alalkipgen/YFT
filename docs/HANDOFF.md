@@ -47,6 +47,12 @@
   (notes: [`release/1.0.0-beta.3.md`](release/1.0.0-beta.3.md)). Phases 11–15 are merged
   (no tag); `1.0.0-beta.4` waits for Preview #7 (P8).
 
+- **P47 (2026-10-10, Agent B alone):** TikTok's phone/tab and desktop answers are joined by
+  height (a video can list 720p and 480p); the desktop page is asked when one height comes in
+  two codecs; Download as names a phone video after its short side ("720p · HD"). **Preview
+  #10:** [37993854810](https://github.com/Alalkipgen/YFT/actions/runs/37993854810) (`0bfb437`; validation [37993854819](https://github.com/Alalkipgen/YFT/actions/runs/37993854819), smoke [37993854829](https://github.com/Alalkipgen/YFT/actions/runs/37993854829), all green).
+  `main` fast-forwarded to P47 with the owner's approval (2026-10-10).
+
 ## Known limitations (Preview #10)
 
 - P46: the download service is a third party: it sees the post's address (nothing else) and
