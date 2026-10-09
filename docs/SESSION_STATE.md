@@ -127,8 +127,28 @@ Update this file before every checkpoint push. Keep it factual so another chat c
   App APK SHA-256: fa421fad73f356a770d1143044346189c01773ffe522d8f628738b9f796d417d.
   Test APK SHA-256: 7e5f0e3e8d2dc9204bbecbe4e50167e6050e49b759ca4f62b76dea4488d1d39d.
   Aggregate repeats remain PENDING; do not finalize on the earlier single 4/4 pass.
-- Next: compile/rebuild and repeat the full four-fixture class twice with the same APKs; only
-  then finalize Android validation. Only after this task and
+- Latest restore (2026-10-09): old-session APK/runner attachments were unavailable in this
+  new chat. Cloned and verified `23f0c7e`; only the two documentation files differ from
+  `3acfd4f8`, and production remains byte-identical to `b07bd5d2`. Rebuilt the x86_64 debug/test
+  pair with `-Pyft.masterCapture=true`, Java 17 and SDK 35. Gradle build succeeded; APK archival
+  uses the signed package-task outputs under `app/build/intermediates/apk/`. Fresh module unit
+  tests 21/21, JS transport 11/11 and repository scripts 30/30 passed. Debug capture is true;
+  release is false. The earlier 1,422-case/lint totals remain previous-run evidence.
+  New app SHA-256: 1ba2334f1c4d7bff4c3118d08e2485540115f22275a5d666d39beca46373c90c.
+  New test SHA-256: bb27795923ebb6148476dd583268e8418d267923f39618fc8961677608fb4ce4.
+  Matching debug certificate SHA-256: 369d93b78f43a8252d45de7200e1173748bc55339cb88f3a3947cb4d0156b172.
+  Restored the strict local runner: explicit APK paths, installed-byte SHA comparison before
+  skipping reinstall, native ANR/focus rejection and exact `OK (4 tests)` aggregate criteria.
+  Targeted GitHub secret scanning was unavailable (Advanced Security is not enabled); the
+  equivalent local sensitive-path/added-line secret checks passed. No security setting changed.
+  Permanent AVD hardware is 480x854/density 240, RAM 1,536 MiB, two cores; cold boot is pending
+  preflight completion, without Gradle/emulator overlap. No restored device test has started.
+- Additional owner request: read-only P40 review at main `69bf022`. Latest TikTok branch
+  `1c4206e` is already included there; CI runs 37886371700, 37886371675 and 37886371676 were
+  queried directly and all report success for `ce04711`. P40 collects TikTok page/API data,
+  not the Master's native-Play/two-progress-sample proof. No TikTok or main code was changed.
+- Next: finish native cold-boot/focus/screenshot preflight, then repeat the full four-fixture
+  class twice with this one APK pair; only then finalize Android validation. Only after this task and
   its checkpoint finish, perform the owner's requested Instagram/X public-page live validation.
   Run builds and emulator separately to avoid memory overlap. Main/Phase 15/TikTok untouched.
   No merge, tag, release or owner-phone APK handout approval.

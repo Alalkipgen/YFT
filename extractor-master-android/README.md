@@ -113,3 +113,23 @@ sets AVD hardware permanently to 480x854, density 240, with 1,536 MiB guest RAM 
 1,024 MiB. After another restore, the exact source and matching prebuilt APK session backups
 were recovered and hash-checked, avoiding a new build. Production code/security limits are
 unchanged. Two aggregate repeat passes remain pending; one earlier 4/4 pass is not the gate.
+
+### New-chat rebuild checkpoint
+
+The previous session's binary attachments were unavailable in the new chat. Source was cloned
+at `23f0c7e` and verified code-identical to `3acfd4f8`; only recovery documentation differs.
+A fresh Java 17/SDK 35 x86_64 debug/test rebuild succeeded with `-Pyft.masterCapture=true`.
+Fresh Android-module unit tests passed 21/21, JavaScript transport 11/11 and repository scripts
+30/30. Generated debug capture is true and release false. The full 1,422-case regression and
+lint totals above remain earlier-run results, not new runs.
+
+- App SHA-256: `1ba2334f1c4d7bff4c3118d08e2485540115f22275a5d666d39beca46373c90c`.
+- Test SHA-256: `bb27795923ebb6148476dd583268e8418d267923f39618fc8961677608fb4ce4`.
+- Shared debug certificate SHA-256: `369d93b78f43a8252d45de7200e1173748bc55339cb88f3a3947cb4d0156b172`.
+
+The local runner requires explicit APK paths, verifies installed APK bytes before skipping
+reinstallation, rejects native ANR/focus blocks and only accepts exact `OK (4 tests)`. The new
+480x854/density-240, 1,536-MiB, two-core API 29 AVD is cold-booting separately from Gradle.
+Native preflight and two consecutive aggregate passes remain pending. Production capture,
+adapters, downloads and CI workflows are unchanged. No Instagram/X live result, full
+download/mux proof or merge readiness is claimed.
