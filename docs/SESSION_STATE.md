@@ -70,7 +70,8 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent C — `work/phase-15-ads` (P43)
 
-- Status: P43 DONE — CI pending (started 2026-10-09, `AD_RULE=STRICT`: the owner gave no answer).
+- Status: P43 READY FOR MERGE (2026-10-09; `AD_RULE=STRICT`: the owner gave no answer). Last code
+  commit `4be6563`; docs after it only.
 - Base commit: `d0bc7f7` (`origin/work/phase-15-integration`, the plan commit).
 - Starting state (before edits, 2026-10-09): `./gradlew --no-daemon --continue :core-model:test
   :extractor-generic:test :core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug
@@ -95,7 +96,14 @@ Keep at least the heading and one blank line between sections, so Git merges the
   warnings, unchanged); androidTest compiles; long-line check empty.
 - Regression proof: the 7 files before P43 + `QuickDownloadPrerollTest` → 4 of 5 failed, each
   offering the 0:30 file; restored with `cp`, `cmp` equal (TEST_MATRIX "Agent C — P43").
-- CI: pending.
+- CI (`4be6563`, the last code commit): checkpoint validation success
+  (https://github.com/Alalkipgen/YFT/actions/runs/37860957302), emulator smoke success
+  (https://github.com/Alalkipgen/YFT/actions/runs/37860957303; 38 instrumented tests, 0 failures,
+  0 FATAL — 37 before, `AdPrerollInstrumentedTest` added), Preview APK success
+  (https://github.com/Alalkipgen/YFT/actions/runs/37860957301).
+- Owner check: the adult site of item 7 — Download on 10 videos, several with a pre-roll: the
+  page's own length every time, never 0:30 ("That was an ad — showing the page's video" may
+  show); Javtiful and the HTTP-410 site still download; a Details screenshot for any miss.
 - Hand-offs to Agent A: (a) `BrowserScreen.kt:509` and `DetectedMediaScreen.kt:169` call
   `MediaGroups.ofPage(…, facts, hideAds = true)` so proven ads are not listed under Other videos,
   and `BrowserViewModel`'s `otherVideos` leaves out `PageVideoProof.isProvenAd` groups; (b)
