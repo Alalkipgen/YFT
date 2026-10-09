@@ -81,8 +81,20 @@ Update this file before every checkpoint push. Keep it factual so another chat c
   through UiSelector text. No green positive-capture claim. Test now measures its known visible
   DOM button rectangle and injects a real screen tap; no JavaScript play/seek/evidence forgery.
   Production code remains `b07bd5d`; only test code/docs changed. Rebuild/retest pending.
-- Next: rebuild test APK and repeat four fixtures; skip app reinstall only after identical
-  installed/local app APK SHA-256 is verified. Only after this task and
+- Recovery retest after another sandbox restore: recovered exact branch `57a0654`, plus the
+  matching internal app/test APK session backups. Restored API 29 x86_64 / WebView 74.0.3729.185.
+  The unchanged full class again passed 3/4 and failed before capture at user-playback readiness;
+  the positive case alone passed `OK (1 test)`. Full-class logcat records SystemUI/input-channel
+  failure and an ANR window during the positive test. This is observed interference, not proof
+  that test ordering is the sole cause. JS transport 11/11 and repository scripts 30/30 passed.
+- Current test-only repair explicitly removes the fixture composition and verifies WebView/
+  capture-scope disposal before activity teardown. It waits for visible native window focus
+  before the one actual screen tap, and separately checks that a trusted click reached the
+  fixture. That receipt is not playback authorization. Production files, 2.5-second capture
+  deadline, two-progress-sample requirement, DRM refusal and navigation guards are unchanged.
+  Compile and aggregate repeat device runs are PENDING; no green device claim.
+- Next: compile/rebuild and repeat the full four-fixture class twice with the same APKs; only
+  then finalize Android validation. Only after this task and
   its checkpoint finish, perform the owner's requested Instagram/X public-page live validation.
   Run builds and emulator separately to avoid memory overlap. Main/Phase 15/TikTok untouched.
   No merge, tag, release or owner-phone APK handout approval.

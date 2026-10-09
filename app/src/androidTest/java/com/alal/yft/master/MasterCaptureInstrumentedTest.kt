@@ -8,6 +8,7 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.viewinterop.AndroidView
@@ -39,6 +40,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
+import org.junit.After
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -54,11 +56,25 @@ class MasterCaptureInstrumentedTest {
     private val capture = WebViewPlaybackCapture(enabled = true)
     private val completed = ConcurrentLinkedQueue<String>()
     private val probes = AtomicInteger()
+    private val renderBrowser = mutableStateOf(true)
     private var browser: WebView? = null
     private val bytes by lazy {
         val encoded = instrumentation.context.assets.open("master/playback-avc.mp4.b64")
             .bufferedReader().use { it.readText() }
         Base64.decode(encoded, Base64.DEFAULT)
+    }
+
+    @After
+    fun disposeFixtureBeforeActivityTeardown() {
+        // Release the owned view while this test's activity is still alive, not during
+        // the following test's launch. Never pause global WebView timers.
+        compose.runOnIdle { renderBrowser.value = false }
+        compose.waitForIdle()
+        instrumentation.runOnMainSync {
+            assertNull("Fixture WebView survived composition disposal", browser)
+            assertNull("Capture scope survived fixture disposal", capture.session.currentScope())
+        }
+        instrumentation.waitForIdleSync()
     }
 
     @Test
@@ -154,6 +170,7 @@ class MasterCaptureInstrumentedTest {
             override fun onMainFrameError(url: String?, description: String) = Unit
         }
         compose.setContent {
+            if (!renderBrowser.value) return@setContent
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
                 factory = { context ->
@@ -190,6 +207,7 @@ class MasterCaptureInstrumentedTest {
                 onRelease = { view ->
                     capture.detach(view)
                     view.stopLoading()
+                    view.onPause()
                     view.destroy()
                     browser = null
                 },
@@ -236,6 +254,7 @@ class MasterCaptureInstrumentedTest {
             "(function(){var v=document.querySelector('video');" +
                 "return !!v && v.readyState >= 1;})()",
         )
+        awaitFixtureInputFocus()
         val response = AtomicReference<String?>()
         val callback = CountDownLatch(1)
         instrumentation.runOnMainSync {
@@ -266,6 +285,13 @@ class MasterCaptureInstrumentedTest {
         }
         assertTrue("Could not tap the fixture Play button",
             UiDevice.getInstance(instrumentation).click(point[0], point[1]))
+        // A native click must actually reach this fixture, not another window or an ANR dialog.
+        // This receipt is diagnostic only; it never authorizes production capture.
+        awaitPageCondition(
+            "trusted fixture Play click",
+            "document.getElementById('fixture-play')" +
+                ".getAttribute('data-trusted-play') === 'true'",
+        )
         // Software emulators may need seconds to start the decoder after the actual tap.
         // Read state only: never call play(), seek, or fabricate capture evidence here.
         awaitPageCondition(
@@ -273,6 +299,23 @@ class MasterCaptureInstrumentedTest {
             "(function(){var v=document.querySelector('video');" +
                 "return !!v && !v.paused && v.readyState >= 2 && v.currentTime > 0.05;})()",
         )
+    }
+
+    private fun awaitFixtureInputFocus() {
+        compose.waitForIdle()
+        UiDevice.getInstance(instrumentation).waitForIdle(10_000)
+        instrumentation.runOnMainSync { checkNotNull(browser).requestFocus() }
+        val ready = AtomicReference(false)
+        compose.waitUntil(60_000) {
+            instrumentation.runOnMainSync {
+                val view = checkNotNull(browser)
+                ready.set(
+                    view.isShown && view.hasWindowFocus() &&
+                        view.width > 0 && view.height > 0,
+                )
+            }
+            ready.get()
+        }
     }
 
     private fun awaitPageCondition(label: String, expression: String) {
@@ -305,7 +348,8 @@ class MasterCaptureInstrumentedTest {
             button{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
             width:160px;height:60px}</style>
             <video muted loop preload="metadata"><source src="$MEDIA" type="video/mp4"></video>
-            <button id="fixture-play" onclick="document.querySelector('video').play();
+            <button id="fixture-play" onclick="this.setAttribute('data-trusted-play',
+            event.isTrusted?'true':'false');document.querySelector('video').play();
             fetch('/data.json');">Play fixture</button>
         """.trimIndent()
     }

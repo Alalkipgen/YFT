@@ -71,3 +71,16 @@ Current changes remove that unrelated DRM prerequisite, tap the actual visible f
 use a real 10-second neutral clip, and bind the collector once per lookup instead of resending the
 entire script before every sample. The 2.5-second budget and two-progress-sample authorization
 remain unchanged. Rebuild and repeat device validation are pending; no green device claim yet.
+
+### Restored-device isolation/readiness checkpoint
+
+The unchanged measured-tap harness was reproduced on a restored API 29 x86_64 device with
+WebView 74.0.3729.185: the full class passed 3/4, while the positive case alone passed.
+Logcat recorded SystemUI/input-channel failure and an ANR window during the full-class
+positive test; test ordering alone is not established as the cause.
+
+The test-only follow-on releases its fixture composition before activity teardown, verifies
+the WebView and capture scope are gone, waits for visible native window focus, and checks
+that the single real tap delivered a trusted click to the fixture. The click receipt is not
+used as production playback evidence. Production code and all capture/security limits are
+unchanged. Compilation and two aggregate repeat runs remain pending.
