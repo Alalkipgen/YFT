@@ -1,5 +1,6 @@
 package com.alal.yft.feature.downloads
 
+import android.content.IntentSender
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.alal.yft.core.download.DownloadQueue
@@ -9,11 +10,15 @@ import com.alal.yft.download.BackgroundSystemState
 import com.alal.yft.download.BackgroundSystemStatus
 import com.alal.yft.download.DownloadServiceStarter
 import com.alal.yft.download.DownloadStorageSource
+import com.alal.yft.download.DownloadedFileDeleter
+import com.alal.yft.download.FileDeletion
 import com.alal.yft.download.InMemoryBackgroundHealthStore
+import com.alal.yft.download.SavedDownloadFile
 import com.alal.yft.download.policy.DownloadNetworkStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +29,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -42,6 +48,8 @@ class DownloadsViewModel @Inject constructor(
     private val health: BackgroundHealthStore,
     private val systemStatus: BackgroundSystemStatus,
     private val serviceStarter: DownloadServiceStarter,
+    /** "Delete file" (P42); tests of other controls leave it out. */
+    private val fileDeleter: DownloadedFileDeleter = DownloadedFileDeleter.Unavailable,
 ) : ViewModel() {
     /** Without a network policy or storage, for tests that only exercise the queue. */
     constructor(queue: DownloadQueue) : this(queue, DownloadNetworkStatus.AlwaysAllowed)
@@ -63,12 +71,47 @@ class DownloadsViewModel @Inject constructor(
         health = InMemoryBackgroundHealthStore(),
         systemStatus = BackgroundSystemStatus.Unlimited,
         serviceStarter = NoServiceStarter,
+        fileDeleter = DownloadedFileDeleter.Unavailable,
     )
+
+    /** For tests of "Delete file" (P42), with or without its question ([DELETE_CONFIRM]). */
+    internal constructor(
+        queue: DownloadQueue,
+        fileDeleter: DownloadedFileDeleter,
+        asksBeforeDeletingFile: Boolean = DELETE_CONFIRM,
+    ) : this(
+        queue = queue,
+        networkStatus = DownloadNetworkStatus.AlwaysAllowed,
+        storageSource = DownloadStorageSource.None,
+        speeds = DownloadSpeedMeter(),
+        health = InMemoryBackgroundHealthStore(),
+        systemStatus = BackgroundSystemStatus.Unlimited,
+        serviceStarter = NoServiceStarter,
+        fileDeleter = fileDeleter,
+    ) {
+        this.asksBeforeDeletingFile = asksBeforeDeletingFile
+    }
 
     private val mutableUiState = MutableStateFlow(DownloadsUiState.Empty)
     val uiState: StateFlow<DownloadsUiState> = mutableUiState.asStateFlow()
 
     private val system = MutableStateFlow(BackgroundSystemState.Unlimited)
+
+    private var asksBeforeDeletingFile = DELETE_CONFIRM
+    private val mutableDeleteFileQuestion = MutableStateFlow<DeleteFileQuestion?>(null)
+
+    /** The open "Delete this file?" question, or null (P42). */
+    val deleteFileQuestion: StateFlow<DeleteFileQuestion?> =
+        mutableDeleteFileQuestion.asStateFlow()
+    private val consentRequests = Channel<IntentSender>(Channel.BUFFERED)
+
+    /** Android's own "Allow YFT to delete?" requests, for the screen to launch (P42). */
+    val deleteConsentRequests: Flow<IntentSender> = consentRequests.receiveAsFlow()
+    private var consentFor: String? = null
+    private val mutableMessages = Channel<String>(Channel.BUFFERED)
+
+    /** One-off notes for the snackbar: "File deleted", "Could not delete the file". */
+    val messages: Flow<String> = mutableMessages.receiveAsFlow()
 
     init {
         viewModelScope.launch {
@@ -112,6 +155,62 @@ class DownloadsViewModel @Inject constructor(
         }
     }
 
+    /** "Delete file" on a finished download (P42): asks first while [DELETE_CONFIRM] is on. */
+    fun onDeleteFile(id: String) {
+        val task = queue.tasks.value.firstOrNull {
+            it.id == id && it.status == DownloadTaskStatus.COMPLETED
+        } ?: return
+        if (asksBeforeDeletingFile) {
+            mutableDeleteFileQuestion.value = DeleteFileQuestion(id, task.displayName)
+        } else {
+            deleteFile(id, afterConsent = false)
+        }
+    }
+
+    fun confirmDeleteFile() {
+        val question = mutableDeleteFileQuestion.value ?: return
+        mutableDeleteFileQuestion.value = null
+        deleteFile(question.id, afterConsent = false)
+    }
+
+    fun cancelDeleteFile() {
+        mutableDeleteFileQuestion.value = null
+    }
+
+    /** The answer to Android's request: once allowed, the file is deleted again. */
+    fun onDeleteConsentResult(allowed: Boolean) {
+        val id = consentFor ?: return
+        consentFor = null
+        if (allowed) deleteFile(id, afterConsent = true)
+    }
+
+    /** Deletes the file, then the row; a file that stays keeps its row. */
+    private fun deleteFile(id: String, afterConsent: Boolean) {
+        viewModelScope.launch {
+            val task = queue.tasks.value.firstOrNull { it.id == id } ?: return@launch
+            val file = SavedDownloadFile(
+                kind = task.destinationKind,
+                uri = task.destinationUri,
+                displayName = task.displayName,
+            )
+            when (val result = fileDeleter.delete(file)) {
+                FileDeletion.Deleted -> {
+                    queue.deleteRecord(id)
+                    mutableMessages.send(FILE_DELETED)
+                }
+
+                is FileDeletion.NeedsConsent -> if (afterConsent) {
+                    mutableMessages.send(FILE_NOT_DELETED)
+                } else {
+                    consentFor = id
+                    consentRequests.send(result.request)
+                }
+
+                FileDeletion.Failed -> mutableMessages.send(FILE_NOT_DELETED)
+            }
+        }
+    }
+
     fun pauseAll() {
         viewModelScope.launch { queue.pauseAll() }
     }
@@ -148,6 +247,14 @@ class DownloadsViewModel @Inject constructor(
         .onStart { emit(null) }
         .catch { emit(null) }
 }
+
+/** "Delete this file?" for the finished download [id] (P42). */
+data class DeleteFileQuestion(val id: String, val fileName: String)
+
+/** Ask before "Delete file" deletes (P42, owner default ON). */
+internal const val DELETE_CONFIRM = true
+internal const val FILE_DELETED = "File deleted"
+internal const val FILE_NOT_DELETED = "Could not delete the file"
 
 /** Tests and previews start no service. */
 private object NoServiceStarter : DownloadServiceStarter {

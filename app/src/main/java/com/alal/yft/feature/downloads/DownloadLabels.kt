@@ -38,6 +38,17 @@ internal fun actionTag(action: DownloadAction, id: String): String =
 internal fun menuTag(action: DownloadAction, id: String): String =
     "download-menu-${action.name.lowercase(Locale.US)}-$id"
 
+/** "Delete file" on a finished download (P42), beside "Remove from list". */
+internal const val DELETE_FILE_LABEL = "Delete file"
+internal const val DELETE_FILE_TITLE = "Delete this file?"
+
+internal fun deleteFileTag(id: String): String = "download-menu-delete-file-$id"
+
+/** The question's text (P42): the file goes from Download/YFT and from the list, for good. */
+internal fun deleteFileQuestionText(fileName: String): String =
+    "\u201c$fileName\u201d will be removed from Download/YFT and from this list. " +
+        "This can't be undone."
+
 /** Visible button text. */
 internal fun actionLabel(action: DownloadAction): String = when (action) {
     DownloadAction.PAUSE -> "Pause"

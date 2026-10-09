@@ -20,6 +20,10 @@ for every APK given to users, because Android refuses to install a lower one.
   a separate probe; merged videos show both tracks' bytes and speed in Downloads and the
   notification. A checkpoint saved before resumes with its old layout. The log and a failure's
   Details show the start times ("start: plan · length · first byte · first progress").
+- Delete file (P42): a finished download's menu offers "Delete file" beside "Remove from list";
+  after "Delete this file?" it deletes the saved file (Download/YFT, a chosen folder or app
+  storage, asking Android's permission when needed) and the row, and the Library follows.
+  The Library's delete uses the same path and treats a file that is already gone as deleted.
 
 ### Phase 15 — Agent C (P43)
 

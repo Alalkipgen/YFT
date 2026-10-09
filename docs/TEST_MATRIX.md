@@ -1161,7 +1161,23 @@ Start times on the throttled local server (JVM, MockWebServer; before = old code
 | --- | --- |
 | P41 validation (2026-10-09) | `--no-daemon --continue` (five tasks): core-download 184, core-model 106, app 809 (66 skipped) = 1099 tests, 0 failures (+20 from 1079); lint 0 errors; androidTest compiles; line check empty |
 | P41 regression proof | old code from `/data/bak/P41/orig`: 11 of 38 failed (listed in SESSION_STATE); restored with cp, cmp equal |
-| P41 CI | `e50789c`: Preview APK green; checkpoint validation stopped after 36 s before any test, run again on the follow-up commit; emulator smoke (links in SESSION_STATE) |
+| P41 CI | `6257307`: checkpoint validation, emulator smoke and Preview APK green (`e50789c`'s validation had stopped after 36 s before any test; links in SESSION_STATE) |
+
+P42 — Downloads: Delete file (2026-10-09):
+
+| Test | What it proves |
+| --- | --- |
+| `DownloadedFileDeleterTest` (7, new, Robolectric + fakes) | MediaStore item deleted; a gone item counts as deleted, a kept one does not; `SecurityException` → the system delete request (API 30+) or the recoverable action (API 29), nothing before; SAF document deleted, missing = deleted, refused = kept; app-private file deleted, missing = deleted, a foreign name untouched; no address = not deleted |
+| `DownloadsViewModelDeleteFileTest` (7, new) | the question comes first; Delete deletes the file then the record ("File deleted"); Cancel keeps both; `DELETE_CONFIRM=OFF` deletes at once; a kept file keeps its row ("Could not delete the file"); Android's request is launched and an allowed delete removes the row, a refused one keeps it; unfinished rows have no Delete file |
+| `DeleteFileMenuTest` (1, new), `DeleteFileScreenTest` (2, new) | only finished rows offer Delete file beside Remove from list; the question's title, text and buttons |
+| `AndroidLibraryRepositoryTest` (1 changed) | the Library's delete counts a gone file as deleted |
+| `delete/DeleteFileInstrumentedTest` (new, CI emulator API 34) | a file saved through the real Download/YFT MediaStore path → Delete file → Delete: MediaStore finds nothing and the record is gone |
+
+| Step | Result |
+| --- | --- |
+| P42 validation (2026-10-09) | five tasks: core-download 184, core-model 106, app 826 (66 skipped) = 1116 tests, 0 failures (+17); lint 0 errors; androidTest compiles; line check empty |
+| P42 regression proof | old code: 2 of 5 failed (DeleteFileMenuTest, AndroidLibraryRepositoryTest's gone-file case); restored with cp, cmp equal |
+| P42 CI | pending |
 
 ### Agent C — P43
 

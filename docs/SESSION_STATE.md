@@ -64,7 +64,7 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent B — `work/phase-15-downloads` (P41, P42; later P44)
 
-- Status: P41 OWNER CHECK (2026-10-09), P42 TODO. OWNER ANSWERS: none (defaults
+- Status: P41 OWNER CHECK (2026-10-09), P42 OWNER CHECK (2026-10-09). OWNER ANSWERS: none (defaults
   `FAST_START=ON`, `DELETE_CONFIRM=ON`).
 - Base commit: `d0bc7f7` (`origin/work/phase-15-integration`); folder `/data/YFT-B`.
 - **P41 Result:** YouTube's whole-file tracks show bytes and speed from the first range.
@@ -105,13 +105,48 @@ Keep at least the heading and one blank line between sections, so Git merges the
     and DownloadPlanFactoryTest "YouTube tracks carry the length …" use the new API (do not
     compile on the old code). "a retried range is counted once" passes on both (guard).
   - Start times (throttled local server): see TEST_MATRIX "Agent B — P41, P42".
-  - CI `e50789c`: [Preview APK](https://github.com/Alalkipgen/YFT/actions/runs/37859570115)
-    green; [checkpoint validation](https://github.com/Alalkipgen/YFT/actions/runs/37859570203)
-    stopped after 36 s in its first Gradle step, before any test (the same command passes
-    here), so the follow-up commit (stopped tasks publish checkpoint bytes in one place) runs
-    it again; [emulator smoke](https://github.com/Alalkipgen/YFT/actions/runs/37859570320).
+  - CI `6257307` (last P41 code commit): [checkpoint
+    validation](https://github.com/Alalkipgen/YFT/actions/runs/37861112002), [emulator
+    smoke](https://github.com/Alalkipgen/YFT/actions/runs/37861112033), [Preview
+    APK](https://github.com/Alalkipgen/YFT/actions/runs/37861112027) all green. On `e50789c`
+    the checkpoint validation stopped after 36 s before any test (the same command passed here;
+    smoke and Preview APK green), so `6257307` (stopped tasks publish checkpoint bytes in one
+    place) ran it again.
   - Hand-offs: none. P44 (merge) note: `DownloadFailure` gained `startTimeline` (default null)
     and `DashTransferRunner` a 6-parameter `transfer` with a default.
+
+- **P42 Result:** finished downloads get "Delete file" (`download-menu-delete-file-<id>`) right
+  after "Remove from list" (kept: it removes the row only). With `DELETE_CONFIRM` (ON) the
+  question `download-delete-file-dialog` asks "Delete this file?" — "“<file name>” will be
+  removed from Download/YFT and from this list. This can't be undone." — with Delete
+  (`download-delete-file-confirm`) and Cancel (`download-delete-file-cancel`). The new
+  `DownloadedFileDeleter` (`app/.../download/`) deletes by the record: YFT's MediaStore item
+  through the content resolver (a `SecurityException` becomes `MediaStore.createDeleteRequest`
+  on Android 11+, the `RecoverableSecurityException` action on Android 10; the screen launches
+  it and YFT deletes again once allowed), a SAF document through `DocumentsContract`, an
+  app-private file directly; a file already gone counts as deleted. Then `deleteRecord`, the
+  Library refreshes (its finished-download count drops) and the snackbar says "File deleted";
+  a failure says "Could not delete the file" and the row stays. `LibraryRepository.delete`
+  uses the same deleter. Unfinished rows keep their menus.
+  - Plan adapted: (1) "Delete file" is a menu entry of its own, not a new `DownloadAction`, so
+    the existing actions and their tests stay as they are. (2) The Library's delete now says
+    "deleted" for a file that is already gone (`AndroidLibraryRepositoryTest` updated; before it
+    said false). (3) A record without an address is not deleted ("Could not delete the file").
+    (4) `DELETE_CONFIRM` is a constant (ON); a test constructor turns it off.
+  - Validation (2026-10-09, the five tasks): core-download 184, core-model 106, app 826
+    (66 skipped) = 1116 tests, 0 failures (+17 from P41's 1099); lint 0 errors (95 warnings);
+    androidTest compiles (new `delete/DeleteFileInstrumentedTest`); line check empty.
+  - Regression proof (old `DownloadsScreen`, `DownloadsViewModel`, `DownloadLabels`,
+    `LibraryRepository`, `LibraryModule`, no deleter; restored with cp, cmp equal): 2 of 5
+    failed — DeleteFileMenuTest "only a finished row's menu offers Delete file beside Remove
+    from list", AndroidLibraryRepositoryTest "deleting an app storage item removes only that
+    file" (a gone file is deleted). DownloadsViewModelDeleteFileTest (confirm deletes the file
+    then the record, cancel, `DELETE_CONFIRM=OFF`, a kept file keeps its row, Android's request
+    allowed or refused, unfinished rows), DownloadedFileDeleterTest and DeleteFileScreenTest
+    use the new API (do not compile on the old code). The instrumented test's JVM twin is
+    DownloadsViewModelDeleteFileTest.
+  - CI: pending (P42 checkpoint).
+  - Hand-offs: none.
 
 ## Agent C — `work/phase-15-ads` (P43)
 
