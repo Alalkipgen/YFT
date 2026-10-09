@@ -1,5 +1,28 @@
 # YFT Master Extractor backup
 
+## M2 — main/More sheet, expected TikTok More, opt-in CI APK
+
+- ✅ TikTok More = 0 recorded as expected (single-video post page); no more alternative probes.
+- ✅ `app/src/test/.../feature/browser/MasterMainMoreSheetTest.kt` (Robolectric, Compose, JVM).
+  It drives the real `BrowserViewModel` hook path on a TikTok-shaped site page, the real
+  `QuickDownloadViewModel`/`QuickDownloadRoute` sheet and the real `BrowserScreen` found list:
+  - main + 7 More: the sheet shows only the main video; the existing More button
+    "Other videos on this page (7)" closes the sheet and opens the found list with all seven.
+  - main + 0 More: the main video and Download show; no More button exists.
+  - flag off: the real factory with `false` is `BrowserMasterFallback.None`; selection, count and
+    the full sheet state equal the pre-Master default (only the wall-clock resolve time is
+    masked); no More button; a failing adapter gives the same lookup failure with no capture.
+  - The main/More presentation is a fixture with the module's shape (public constructor, one
+    group per verified file, owned UI keys, no post ID). Selection policy remains covered by the
+    module tests. No production, model, Generic, extractor or download file changed.
+- ✅ Local run of the exact CI test set with `-Pyft.masterCapture=true`: 18 suites, 153 tests,
+  0 failures (`MasterMainMoreSheetTest` 3/3, `BrowserMasterFlowTest` 9, `BrowserMasterFallbackTest`
+  10, `extractor-master-android` 54, `extractor-master` 77).
+- CI: new spike-only workflow `.github/workflows/master-optin-debug-apk.yml` (existing workflows
+  untouched) runs the Master tests and builds `:app:assembleDebug` with
+  `-Pyft.masterCapture=true`, uploading artifact `yft-master-optin-debug-apk`.
+  Run/artifact link: pending.
+
 ## Hooked selection and native live checkpoint
 
 Dedicated, independently revertible hook/wiring commit:
@@ -61,19 +84,16 @@ main/More presentation models. They do not prove Android APK sheet rendering.
   TLSv1.3; 461,139 bounded response bytes. The repeat uses actual browser-owned cookies
   scoped to real captured addresses, RAM/stdin only, matching existing Android CookieManager
   wiring. No cookie value, signed address or raw response is persisted.
-- ❌ TikTok More count is 0 in that successful run: no additional eligible video was validated.
-  The accessible unrelated 2,067 ms file is correctly rejected. Four alternative probes
-  still report HTTP_STATUS even with the existing host-scoped context bridge; statuses are
-  not overridden. One intervening retry was blocked before Pause by a visible translation
-  tip; it is not playback/capture proof.
+- ✅ TikTok More count 0 is **expected** (owner decision): the public post page has one video.
+  The accessible unrelated 2,067 ms file is correctly rejected; the four alternative probes that
+  reported HTTP_STATUS are not pursued further and statuses were never overridden. No further
+  TikTok alternative probing. One earlier retry blocked by a translation tip is not evidence.
 - ✅ Fresh two-run Android gate for this changed tree passed (see below).
-- ❌ Android APK main-sheet/More rendering remains unverified; the gate class covers capture
-  safety, not sheet rendering.
+- ✅ Main/More sheet rendering is proven by a JVM Compose UI test (see M2 below). Live emulator
+  sheet checks are intentionally skipped (no KVM); the owner checks the CI APK on a phone.
 
-Overall completion is still ❌: both platforms now have positive desktop-native automatic-main
-logs, and the fresh Android gate passes, but TikTok nonempty More and actual Android app UI
-validation are not yet proven.
-No main merge, release/tag, phone APK delivery, full download/mux, all-resolution,
+M2 status: see the M2 section below. Owner phone validation of the CI APK is pending.
+No main merge, release/tag, full download/mux, all-resolution,
 Master-CI-green or merge-readiness claim. Only the spike branch is used.
 
 ### Android environment recovery

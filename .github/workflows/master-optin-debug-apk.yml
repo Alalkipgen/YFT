@@ -1,0 +1,70 @@
+name: Master opt-in debug APK (spike)
+
+# Internal test build for the owner's phone: the debug app (com.alal.yft.debug) with the
+# opt-in Master capture flag on. Runs only for the Master spike branch; release builds and the
+# existing workflows are untouched. Uses no repository secret; signed with the runner's
+# throwaway debug key.
+on:
+  push:
+    branches: ["spike/master-extractor-backup"]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: master-optin-debug-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Android SDK 35, NDK and CMake
+        shell: bash
+        run: |
+          SDKMANAGER="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}" -path '*/bin/sdkmanager' -type f | head -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" \
+            "ndk;27.3.13750724" "cmake;3.22.1"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Master tests and opt-in debug APK
+        shell: bash
+        run: |
+          ./gradlew --no-daemon -Pyft.masterCapture=true \
+            :extractor-master:test \
+            :extractor-master-android:testDebugUnitTest \
+            :app:testDebugUnitTest \
+              --tests 'com.alal.yft.feature.browser.MasterMainMoreSheetTest' \
+              --tests 'com.alal.yft.feature.browser.BrowserMasterFlowTest' \
+              --tests 'com.alal.yft.detection.master.BrowserMasterFallbackTest' \
+            :app:assembleDebug
+      - name: Record APK hashes
+        shell: bash
+        run: |
+          {
+            echo "### Master opt-in debug APK"
+            echo "Commit: ${GITHUB_SHA}"
+            echo '```'
+            sha256sum app/build/outputs/apk/debug/*.apk
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload opt-in debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: yft-master-optin-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 14
+          if-no-files-found: error
