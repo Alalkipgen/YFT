@@ -52,11 +52,19 @@ Update this file before every checkpoint push. Keep it factual so another chat c
   Opt-in debug/test flags true, release flag false. Command used `-Pyft.masterCapture=true`
   and the Android module/app unit tests, lint, Android test compile and release BuildConfig.
 - Follow-on hardening: production focus-probe identity guard, GET-only observed media replay,
-  known VAST preview-veto forwarding. Three additional focus tests await validation; JS 11 passed.
-- Next: validate current hardening and build internal x86_64 debug/test APKs, then run four
-  real-Android fixtures for paused preload, user playback, navigation/disposal and DRM refusal.
+  known VAST preview-veto forwarding. Code checkpoint `1e15d0f4f30b327ff9d2cd7ee3ed69e58c4374b4`.
+  Final offline run: 1,422 cases, zero failures/errors, 67 existing/optional skips; Android module
+  21, app 826. JS 11 and repository script 30 tests passed. Both lints have zero errors; app lint
+  has 96 dependency/API/vector warnings. Debug/test opt-in true, release false.
+- Internal x86_64 debug/test APKs built. First actual API 29 software-emulator run: paused
+  preload, navigation/disposal and DRM refusal passed; playback success returned NeedsPlayback.
+  Test-only change waits for read-only evidence that the actual user tap started playback,
+  rather than a fixed 500 ms delay, and asserts collector installation. Repeat run pending.
+  Production capture budgets and authorization rules unchanged.
+- Next: rebuild the test APK and repeat all four Android fixtures. Only after this task and
+  its checkpoint finish, perform the owner's requested Instagram/X public-page live validation.
   Run builds and emulator separately to avoid memory overlap. Main/Phase 15/TikTok untouched.
-  No merge, tag, release or APK handout approval.
+  No merge, tag, release or owner-phone APK handout approval.
 
 Phase 14 runs three agents at the same time. **Each agent edits only its own section below**
 (`## Agent A …`, `## Agent B …`, `## Agent C …`); `## Overview` belongs to the plan and to P38.

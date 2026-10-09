@@ -51,6 +51,15 @@ opt-in property true, generated debug/test flags were true and the release flag 
 Follow-on hardening reuses the production focus probe to reject a different feed video instead
 of labeling it with the requested ID. POST responses are not turned into GET media observations,
 and known VAST preview markings reach the Master's explicit preview veto. Three new focus tests
-are pending validation at this checkpoint; JavaScript transport tests pass 11/11. Actual Android
-playback tests are the next step. No Instagram/X live support, full download/mux result, universal
-iframe coverage or merge approval is claimed.
+passed in the final offline run: 1,422 cases, zero failures/errors, 67 existing/optional skips
+(21 Android-module cases; 826 app cases). JavaScript transport tests pass 11/11, repository
+script tests pass 30/30, and both lints have zero errors; app lint retains 96 dependency/API/vector
+warnings. Internal x86_64 debug and test APKs were built; release remained disabled.
+
+The first actual API 29 software-emulator run passed paused-preload, navigation/disposal and DRM
+refusal, but the playback-success case returned `NeedsPlayback`. The test tapped Play and sampled
+after a fixed 500 ms without verifying that the software decoder had started playback. The test now waits for read-only
+proof of user-triggered playback before invoking capture, and verifies collector installation.
+Production capture budgets and playback authorization are unchanged. Repeat device validation
+is pending. No Instagram/X live support, full download/mux result, universal iframe coverage or
+merge approval is claimed.

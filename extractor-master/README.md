@@ -69,7 +69,8 @@ Existing internal site-parser visibility is unchanged.
 - No guessed/synthetic download URL, signature solver or blanket “supports every site” claim.
 - No guarantee of every quality, carousel/feed selection, ad exclusion or live Instagram/X
   operation. The Instagram/X fixtures prove only the stated delivered-data shapes.
-- No new APK/release/tag and no merge into `main` or the ongoing TikTok/Phase 15 work.
+- No release/tag or merge into `main` or the ongoing TikTok/Phase 15 work. Internal test-only
+  x86_64 APKs are built solely for emulator validation, not owner-phone distribution.
 
 ## Host boundary example — future integration only
 
@@ -209,4 +210,12 @@ in progress. Merge/release remains unapproved. See `extractor-master-android/REA
 Initial app-wiring validation passed 18 Android module tests and 826 app cases, zero
 failures/errors and 66 existing app skips; lint and Android test compilation passed. The
 opt-in property enabled debug/test flags but did not enable release. Focus/GET hardening and
-actual Android playback validation are in progress, not yet an end-to-end site-support claim.
+the full offline regression now pass: 1,422 cases, zero failures/errors, 67 existing/optional
+skips; Android module 21, app 826. JavaScript transport 11 and repository script 30 tests pass.
+Both lints have zero errors (96 dependency/API/vector app warnings). Internal test-only x86_64 APKs
+were built, not released.
+
+The first actual Android run passed three of four fixtures; playback success returned
+`NeedsPlayback` with only a fixed 500 ms post-tap delay and no playback-readiness assertion. A test-only readiness wait and explicit
+collector-installation assertion are awaiting a repeat run. Production authorization/time
+budgets are unchanged. This is not yet an end-to-end live-site support claim.

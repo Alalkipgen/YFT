@@ -28,7 +28,10 @@ import com.alal.yft.extractor.master.OkHttpMediaValidator
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
 import java.io.ByteArrayInputStream
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
@@ -64,7 +67,12 @@ class MasterCaptureInstrumentedTest {
     fun userPlaybackFeedsOneCaptureAndRealFilePrefixValidation() {
         show()
         tapPlay()
-        val result = extract(SiteExtractionFailure.BOT_CHECK) as MasterResult.Success
+        val captured = extract(SiteExtractionFailure.BOT_CHECK)
+        assertTrue(
+            "Expected validated capture after observed playback: ${captured.javaClass.simpleName}",
+            captured is MasterResult.Success,
+        )
+        val result = captured as MasterResult.Success
         assertEquals(MasterStage.PLAYBACK_CAPTURE, result.stage)
         assertEquals(MEDIA, result.result.candidates.single().mediaUrl)
         assertEquals(bytes.size.toLong(), result.result.candidates.single().contentLengthBytes)
@@ -180,8 +188,10 @@ class MasterCaptureInstrumentedTest {
             )
         }
         compose.waitUntil(30_000) { completed.contains(PAGE) }
-        // Let onPageFinished's collector bind and the metadata preload settle.
-        Thread.sleep(600)
+        awaitPageCondition(
+            "capture collector installation",
+            "typeof window.__yftMasterCaptureV1 === 'object'",
+        )
     }
 
     private fun fixture(request: WebResourceRequest): WebResourceResponse {
@@ -220,8 +230,32 @@ class MasterCaptureInstrumentedTest {
             point[0] += view.width / 2
             point[1] += view.height / 2
         }
-        UiDevice.getInstance(instrumentation).click(point[0], point[1])
-        Thread.sleep(500)
+        assertTrue(UiDevice.getInstance(instrumentation).click(point[0], point[1]))
+        // Software emulators may need seconds to start the decoder after the actual tap.
+        // Read state only: never call play(), seek, or fabricate capture evidence here.
+        awaitPageCondition(
+            "user-triggered fixture playback",
+            "(function(){var v=document.querySelector('video');" +
+                "return !!v && !v.paused && v.readyState >= 2 && v.currentTime > 0.05;})()",
+        )
+    }
+
+    private fun awaitPageCondition(label: String, expression: String) {
+        val deadline = now() + 30_000
+        while (now() < deadline) {
+            val response = AtomicReference<String?>()
+            val callback = CountDownLatch(1)
+            instrumentation.runOnMainSync {
+                checkNotNull(browser).evaluateJavascript(expression) {
+                    response.set(it)
+                    callback.countDown()
+                }
+            }
+            assertTrue("No WebView callback for $label", callback.await(10, TimeUnit.SECONDS))
+            if (response.get() == "true") return
+            Thread.sleep(100)
+        }
+        fail("Timed out waiting for $label")
     }
 
     private fun now() = System.currentTimeMillis()
