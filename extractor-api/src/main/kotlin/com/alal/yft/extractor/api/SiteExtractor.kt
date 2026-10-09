@@ -33,16 +33,61 @@ data class SitePageIdentity(
     }
 }
 
+/** P40: where a page's own data for one post came from. New values go at the end. */
+enum class SitePageDataSource(val label: String) {
+    /** The data script of the page open in the user's browser tab. */
+    TAB_SCRIPT("tab · page script"),
+
+    /** An answer the site's own code in the user's tab got from the site's API (a feed). */
+    TAB_API_ANSWER("tab · API answer"),
+
+    /** The site's page opened in YFT's hidden page, for a link that is not open in a tab. */
+    HIDDEN_PAGE("hidden page"),
+}
+
+/**
+ * P40: the data of one post that a page of the site already holds, as its own player gets it:
+ * [json] is the post's JSON text (at most [MAX_BYTES] in UTF-8), [source] where it came from.
+ * It can hold signed media addresses, so it is never logged: [toString] names the source and
+ * the size only.
+ */
+class SitePageData(val json: String, val source: SitePageDataSource) {
+    init {
+        require(json.isNotBlank()) { "Page data must not be blank" }
+        require(json.encodeToByteArray().size <= MAX_BYTES) { "Page data is limited to 64 KB" }
+    }
+
+    override fun equals(other: Any?): Boolean =
+        other is SitePageData && other.json == json && other.source == source
+
+    override fun hashCode(): Int = 31 * json.hashCode() + source.hashCode()
+
+    override fun toString(): String =
+        "SitePageData(source=$source, bytes=${json.encodeToByteArray().size})"
+
+    companion object {
+        const val MAX_BYTES = 64 * 1024
+
+        /** [json] as page data, or null when it is blank or larger than [MAX_BYTES]. */
+        fun of(json: String?, source: SitePageDataSource): SitePageData? =
+            json?.takeIf { it.isNotBlank() && it.encodeToByteArray().size <= MAX_BYTES }
+                ?.let { SitePageData(it, source) }
+    }
+}
+
 /**
  * Everything an adapter may use for one extraction.
  *
  * [requestContext] carries the user's own browser session. Adapters replay it only to the site
- * they matched and never persist or log it.
+ * they matched and never persist or log it. P40: [pageData] is the post's data a page of the
+ * site already holds (the user's tab or YFT's hidden page); an adapter that reads it may build
+ * its rows from it without asking for the page. Like the session, it is never logged.
  */
 data class SiteExtractionRequest(
     val identity: SitePageIdentity,
     val requestContext: BrowserRequestContext,
     val nowEpochMs: Long,
+    val pageData: SitePageData? = null,
 ) {
     override fun toString(): String = buildString {
         append("SiteExtractionRequest(siteId=")
@@ -53,6 +98,7 @@ data class SiteExtractionRequest(
         append(SensitiveValueRedactor.redact(identity.canonicalPageUrl))
         append(", nowEpochMs=")
         append(nowEpochMs)
+        pageData?.let { append(", pageData=").append(it) }
         append(')')
     }
 }

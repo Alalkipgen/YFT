@@ -242,6 +242,45 @@ internal object TikTokPageParser {
         }
     }
 
+    /**
+     * P40: one post's data a page already holds ([json]: the item a page script made from
+     * TikTok's own data, or the item itself under `itemInfo.itemStruct`/`itemStruct`), read
+     * like the page's own post. [dataKey] names where it came from in Details; a post with
+     * another id than [expectedVideoId] is not used.
+     */
+    fun parseItem(json: String, expectedVideoId: String, dataKey: String): TikTokParseResult {
+        val read = BoundedJsonParser.read(json.trim())
+        if (read !is JsonReadResult.Read) {
+            val failed = read as JsonReadResult.Failed
+            return TikTokParseResult.Failure(
+                SiteExtractionFailure.RESPONSE_CHANGED,
+                TikTokPageNotes(
+                    kind = TikTokPageKind.VIDEO,
+                    dataKey = dataKey,
+                    json = "error ${failed.problem.label} at char ${failed.position}",
+                ),
+            )
+        }
+        val item = read.value.path("itemInfo", "itemStruct")
+            ?: read.value["itemStruct"]
+            ?: read.value
+        val id = item["id"].asStringOrNull
+        val notes = TikTokPageNotes(
+            kind = TikTokPageKind.VIDEO,
+            dataKey = dataKey,
+            json = "read",
+            postId = when (id) {
+                null -> "missing"
+                expectedVideoId -> "matches"
+                else -> "other id"
+            },
+        )
+        if (id != expectedVideoId) {
+            return TikTokParseResult.Failure(SiteExtractionFailure.RESPONSE_CHANGED, notes)
+        }
+        return post(item, id, notes)
+    }
+
     /** The kind of page [finalUrl] is, from its path alone. */
     fun kindOf(finalUrl: String): TikTokPageKind {
         val path = runCatching { URI(finalUrl).rawPath }.getOrNull().orEmpty()

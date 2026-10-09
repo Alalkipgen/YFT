@@ -14,6 +14,8 @@ import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionRequest
 import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.api.SiteExtractor
+import com.alal.yft.extractor.api.SitePageData
+import com.alal.yft.extractor.api.SitePageDataSource
 import com.alal.yft.extractor.api.SitePageIdentity
 import java.net.URI
 import java.util.Locale
@@ -38,6 +40,11 @@ import kotlinx.coroutines.sync.withPermit
  * listed quality is checked with a one-byte request before it becomes a row, so the sheet never
  * offers a file that answers 403. Each lookup keeps non-sensitive Details lines (page kinds,
  * data keys, file checks, hosts) whether it succeeds or not.
+ *
+ * P40: given the post's data a page already holds ([SiteExtractionRequest.pageData]: the
+ * user's tab or YFT's hidden page, the way TikTok's own player gets it), the rows come from that
+ * data without asking for the page; the page is read only when the data names another post or
+ * none of its files opens (never after the hidden page, which comes after the page read).
  */
 class TikTokExtractor(
     private val http: ExtractorHttpClient,
@@ -72,7 +79,16 @@ class TikTokExtractor(
         }
     }
 
-    private enum class PageAgent(val label: String) { PHONE("phone"), DESKTOP("desktop") }
+    private enum class PageAgent(val label: String) {
+        PHONE("phone"),
+        DESKTOP("desktop"),
+
+        /** P40: the post's data from the user's tab. */
+        TAB("tab"),
+
+        /** P40: the post's data from YFT's hidden page. */
+        HIDDEN("hidden page"),
+    }
 
     private sealed interface PageRead {
         val which: PageAgent
@@ -121,6 +137,75 @@ class TikTokExtractor(
         private var checksLeft = MAX_FILE_CHECKS
 
         suspend fun run(): SiteExtractionResult {
+            request.pageData?.let { data -> fromPageData(data)?.let { return it } }
+            return readPages()
+        }
+
+        /**
+         * P40: rows from the post's data a page already holds, checked like a page answer's
+         * (P39 step 6) with the lookup's cookies and Referer `https://www.tiktok.com/`. Null when
+         * the page should be read instead: the data names another post, cannot be read, or none
+         * of its files opens. Data from the hidden page is the last word: the page was read
+         * before it, so its failure is the lookup's.
+         */
+        private suspend fun fromPageData(data: SitePageData): SiteExtractionResult? {
+            step = "page data"
+            val label = data.source.label
+            val hidden = data.source == SitePageDataSource.HIDDEN_PAGE
+            val expected = request.identity.contentId
+                .takeUnless { request.identity.requiresCanonicalResolution }
+            if (expected == null) {
+                details += "data: $label · not used (no post id in the link)"
+                return null
+            }
+            val parsed = TikTokPageParser.parseItem(data.json, expected, label)
+            val notes = parsed.notes
+            details += "data: $label" + notes.json?.let { " · JSON: $it" }.orEmpty()
+            details += "post id: ${notes.postId}"
+            val post = when (parsed) {
+                is TikTokParseResult.Failure -> {
+                    if (parsed.final) {
+                        return SiteExtractionResult.Failure(
+                            reason = parsed.reason,
+                            details = details.toList(),
+                            message = parsed.message,
+                        )
+                    }
+                    details += "data: not used" + if (hidden) "" else " · page read next"
+                    return if (hidden) {
+                        SiteExtractionResult.Failure(parsed.reason, details = details.toList())
+                    } else {
+                        null
+                    }
+                }
+
+                is TikTokParseResult.Success -> parsed.post
+            }
+            val labels = post.qualities.joinToString(", ") { it.label }
+            details += "qualities: ${post.qualities.size}" +
+                (if (labels.isEmpty()) "" else " ($labels)") +
+                " · play address: ${yesNo(post.hasPlayAddress)}" +
+                " · download address: ${yesNo(post.watermarked != null)}"
+            val which = if (hidden) PageAgent.HIDDEN else PageAgent.TAB
+            val answer = PageRead.Parsed(which, post, context.userAgent, cookies = emptyList())
+            step = "file check"
+            val checked = check(answer)
+            val rows = checked.working.ifEmpty { watermarked(listOf(answer)) }
+            if (rows.isNotEmpty()) return success(answer, rows, checked.working.isEmpty())
+            details += "data: no file opened" + if (hidden) "" else " · page read next"
+            if (hidden) {
+                return SiteExtractionResult.Failure(
+                    reason = SiteExtractionFailure.NO_MEDIA_FOUND,
+                    details = details.toList(),
+                    message = FILES_REFUSED_MESSAGE,
+                )
+            }
+            // The page's answer gets its own file checks.
+            checksLeft = MAX_FILE_CHECKS
+            return null
+        }
+
+        private suspend fun readPages(): SiteExtractionResult {
             step = "agent"
             val phoneAgent = agents.phone(context.userAgent)
             step = "phone page"
@@ -177,7 +262,15 @@ class TikTokExtractor(
             } else {
                 chosen.answer
             }
-            details += "answer: ${answer.which.label} · " + if (chosen.working.isEmpty()) {
+            return success(answer, rows, watermarkedOnly = chosen.working.isEmpty())
+        }
+
+        private fun success(
+            answer: PageRead.Parsed,
+            rows: List<Working>,
+            watermarkedOnly: Boolean,
+        ): SiteExtractionResult {
+            details += "answer: ${answer.which.label} · " + if (watermarkedOnly) {
                 "watermarked file only"
             } else {
                 "${rows.size} working qualities"
