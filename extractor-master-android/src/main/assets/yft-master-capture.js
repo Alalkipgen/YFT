@@ -27,10 +27,13 @@
     state.requests.push({ url: url, mime: (mime || "").slice(0, 128), preview: !!preview });
     if (state.requests.length > 200) state.requests.shift();
   }
-  function payload(text, generation) {
+  function payload(text, generation, priority) {
     if (disposed || generation !== state.generation || typeof text !== "string") return;
-    if (text.length > MAX_BODY || state.payloads.length >= 8) return;
-    if (state.payloads.indexOf(text) < 0) state.payloads.push(text);
+    if (text.length > MAX_BODY || state.payloads.indexOf(text) >= 0) return;
+    if (priority) {
+      state.payloads.unshift(text);
+      if (state.payloads.length > 8) state.payloads.pop();
+    } else if (state.payloads.length < 8) state.payloads.push(text);
   }
   // Copy data descriptors only: no getters/toJSON, bounded depth, nodes and string lengths.
   function boundedJson(value) {
@@ -61,6 +64,44 @@
       const text = JSON.stringify(copy(value, 0));
       return text && text.length <= MAX_BODY ? text : null;
     } catch (_) { return null; }
+  }
+  // A delivered DOM state may be large. Project only the actual permalink's item, <=64 KiB.
+  // No new endpoint, ID, media URL, getter or toJSON execution is used.
+  function focusedDomState(node, generation) {
+    if (node.id !== "__UNIVERSAL_DATA_FOR_REHYDRATION__" && node.id !== "SIGI_STATE") return;
+    const page = new URL(location.href), match = page.pathname.match(/\/video\/(\d+)/);
+    if (!/(^|\.)tiktok\.com$/i.test(page.hostname) || !match) return;
+    const text = node.textContent;
+    if (typeof text !== "string" || text.length > 2 * 1024 * 1024) return;
+    try {
+      const root = JSON.parse(text), id = match[1];
+      if (node.id === "SIGI_STATE") {
+        const item = root.ItemModule && root.ItemModule[id];
+        if (item && String(item.id) === id) {
+          const compact = boundedJson(item);
+          if (compact) payload(compact, generation, true);
+        }
+        return;
+      }
+      const scope = root.__DEFAULT_SCOPE__;
+      if (!scope) return;
+      ["webapp.video-detail", "webapp.reflow.video.detail"].forEach(function (field) {
+        const detail = scope[field], item = detail && detail.itemInfo && detail.itemInfo.itemStruct;
+        if (!detail || (item && String(item.id) !== id)) return;
+        const projected = item ? {
+          id: item.id, desc: item.desc, video: item.video,
+          is_private: item.is_private, isDrm: item.isDrm,
+          is_drm_protected: item.is_drm_protected
+        } : null;
+        const out = { __DEFAULT_SCOPE__: {} };
+        out.__DEFAULT_SCOPE__[field] = {
+          statusCode: detail.statusCode, statusCodeV2: detail.statusCodeV2,
+          itemInfo: { itemStruct: projected }
+        };
+        const compact = boundedJson(out);
+        if (compact) payload(compact, generation, true);
+      });
+    } catch (_) {}
   }
   async function readClone(response, generation) {
     if (!/application\/(?:[^;]*\+)?json/i.test(response.headers.get("content-type") || "")) return;
@@ -188,6 +229,7 @@
     Array.from(document.querySelectorAll(
       'script[type="application/json"],#__UNIVERSAL_DATA_FOR_REHYDRATION__,#SIGI_STATE'
     )).slice(0, 8).forEach(function (node) {
+      focusedDomState(node, generation);
       if (node.textContent.length <= MAX_BODY) payload(node.textContent, generation);
     });
     ["ytInitialPlayerResponse", "_sharedData", "__INITIAL_STATE__"].forEach(function (name) {

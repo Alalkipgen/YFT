@@ -60,6 +60,37 @@ class MasterMainSelectionPolicyTest {
         assertEquals("tiktok:other", original.videoId)
     }
 
+    @Test
+    fun existingPassiveCandidatesDoNotHideOrReorderTheOwnedMainMore() = runBlocking {
+        val session = session()
+        val request = session.request(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED, 1)!!
+        val selector = MasterMainSelection(session)
+        val original = listOf(media("first"), media("second"))
+        val result = selector.select(request, request.snapshot!!, original) {
+            ValidationResult.Valid(it)
+        } as MasterResult.Success
+        val packed = selector.appCandidates(result.result.candidates, null)!!
+        val mixed = listOf(packed.last(), media("unrelated-passive"), packed.first())
+        val view = selector.presentation(mixed)
+        assertNotNull("An unrelated passive request must not hide verified More", view)
+        assertEquals(original.first().mediaUrl, view!!.main.candidates.single().mediaUrl)
+        assertEquals(1, view.more.size)
+    }
+
+    @Test
+    fun aPrimaryResultWithoutOwnedPresentationKeysKeepsItsLegacyUiPath() = runBlocking {
+        val session = session()
+        val request = session.request(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED, 1)!!
+        val selector = MasterMainSelection(session)
+        val original = listOf(media("first"), media("second"))
+        val result = selector.select(request, request.snapshot!!, original) {
+            ValidationResult.Valid(it)
+        } as MasterResult.Success
+        selector.appCandidates(result.result.candidates, null)
+        assertNull("A coincidentally matching primary URL is not a Master UI result",
+            selector.presentation(original))
+    }
+
     private fun media(name: String) = MediaCandidate(
         PAGE, "https://cdn.test/$name.mp4", setOf(CandidateSource.REQUEST), MediaKind.DIRECT,
         mimeType = "video/mp4", durationMillis = 60_000, width = 1080, height = 1920,

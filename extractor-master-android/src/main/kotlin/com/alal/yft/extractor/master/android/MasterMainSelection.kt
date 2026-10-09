@@ -131,9 +131,17 @@ class MasterMainSelection(
     }
 
     fun presentation(candidates: List<MediaCandidate>): MasterMainPresentation? {
-        val record = active(candidates) ?: return null
+        if (!enabled) return null
+        val record = last ?: return null
         if (record.presented.isEmpty()) return null
-        return MasterMainPresentation.from(candidates)
+        val presentedUrls = record.presented.map { it.mediaUrl }.toSet()
+        val owned = candidates.filter {
+            it.videoId == null && it.mediaUrl in presentedUrls &&
+                it.pageVideoKey == MasterMainPresentation.key(it)
+        }.distinctBy { it.mediaUrl }
+        if (active(owned) == null) return null
+        val order = record.candidates.mapIndexed { index, media -> media.mediaUrl to index }.toMap()
+        return MasterMainPresentation.from(owned.sortedBy { order[it.mediaUrl] })
     }
 
     fun clear() { last = null }

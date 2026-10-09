@@ -11,6 +11,8 @@ internal object CapturedMp4Facts {
 
     fun read(bytes: ByteArray): Facts? {
         var duration: Long? = null
+        var movieScale = 0L
+        var extendedTicks: Long? = null
         var width: Int? = null
         var height: Int? = null
         var protected = false
@@ -42,7 +44,7 @@ internal object CapturedMp4Facts {
                 val type = String(bytes, at + 4, 4, Charsets.US_ASCII)
                 when (type) {
                     "pssh", "sinf", "schm", "tenc", "encv", "enca" -> protected = true
-                    "moov", "trak", "mdia", "minf", "stbl", "schi" ->
+                    "moov", "trak", "mdia", "minf", "stbl", "schi", "mvex" ->
                         walk(body, end, depth + 1)
                     "stsd" -> if (body + 8 <= end) walk(body + 8, end, depth + 1)
                     "mvhd" -> {
@@ -52,10 +54,36 @@ internal object CapturedMp4Facts {
                         val needed = if (version == 1) 8 else 4
                         if (version in 0..1 && durationAt + needed <= end) {
                             val scale = u32(scaleAt)
+                            movieScale = scale
                             val ticks = if (version == 1) u64(durationAt) else u32(durationAt)
                             if (scale > 0 && ticks != null && ticks in 1..172_800L * scale) {
                                 duration = ticks * 1_000 / scale
                             }
+                        }
+                    }
+                    "mehd" -> {
+                        val version = bytes.getOrNull(body)?.toInt()?.and(255) ?: -1
+                        if (version == 0 && body + 8 <= end) extendedTicks = u32(body + 4)
+                        if (version == 1 && body + 12 <= end) extendedTicks = u64(body + 4)
+                    }
+                    "sidx" -> {
+                        val version = bytes.getOrNull(body)?.toInt()?.and(255) ?: -1
+                        val countAt = body + if (version == 1) 30 else 22
+                        if (version in 0..1 && countAt + 2 <= end) {
+                            val scale = u32(body + 8)
+                            val count = ((bytes[countAt].toInt() and 255) shl 8) or
+                                (bytes[countAt + 1].toInt() and 255)
+                            var ticks = 0L
+                            var direct = count > 0 && count <= 2_048 &&
+                                countAt + 2L + count * 12L <= end
+                            if (direct) repeat(count) { index ->
+                                val entry = countAt + 2 + index * 12
+                                if (u32(entry) and 0x80000000L != 0L) direct = false
+                                ticks += u32(entry + 4)
+                            }
+                            if (duration == null && direct && scale > 0 &&
+                                ticks in 1..172_800L * scale
+                            ) duration = ticks * 1_000 / scale
                         }
                     }
                     "tkhd" -> {
@@ -83,6 +111,10 @@ internal object CapturedMp4Facts {
                 }
             }
         }
+        val ticks = extendedTicks
+        if (duration == null && movieScale > 0 && ticks != null &&
+            ticks in 1..172_800L * movieScale
+        ) duration = ticks * 1_000 / movieScale
         return if (duration == null && width == null && !protected) null
         else Facts(duration, width, height, protected)
     }

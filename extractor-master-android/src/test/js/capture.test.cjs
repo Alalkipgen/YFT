@@ -26,7 +26,7 @@ function environment(options = {}) {
     }
   };
   const env = {
-    location: { href: "https://page.test/watch" }, document,
+    location: { href: options.page || "https://page.test/watch" }, document,
     XMLHttpRequest: Xhr, HTMLMediaElement: Media, URL, TextDecoder,
     setTimeout, clearTimeout, innerWidth: 400, innerHeight: 600,
     performance: { getEntriesByType: () => [] }, fetch: originalFetch,
@@ -175,4 +175,48 @@ test("page-global getters are never invoked by payload collection", () => {
   });
   packet(env);
   assert.equal(calls, 0);
+});
+
+test("a large delivered TikTok state retains only the real focused item's video", () => {
+  const page = "https://www.tiktok.com/@fixture/video/1234567890123456789";
+  const id = "1234567890123456789";
+  const state = { __DEFAULT_SCOPE__: {
+    "webapp.video-detail": { statusCode: 0, itemInfo: { itemStruct: {
+      id, desc: "offline transport fixture",
+      video: { duration: 26, playAddr: "https://cdn.test/focused.mp4" }
+    } } },
+    unrelated: "x".repeat(70000)
+  } };
+  const scripts = [{
+    id: "__UNIVERSAL_DATA_FOR_REHYDRATION__",
+    textContent: JSON.stringify(state)
+  }];
+  const value = packet(environment({ page, scripts }).env);
+  const bodies = value.payloads.map(text => JSON.parse(text));
+  assert.equal(bodies.some(body => {
+    const detail = body.__DEFAULT_SCOPE__?.["webapp.video-detail"];
+    const item = detail?.itemInfo?.itemStruct;
+    return item?.id === id && item.video.playAddr === "https://cdn.test/focused.mp4" &&
+      detail.statusCode === 0;
+  }), true);
+  assert.equal(value.payloads.every(text => text.length <= 65536), true);
+  assert.equal(value.player, null); // Payload discovery is never fabricated playback evidence.
+});
+
+test("focused-state compaction retains actual refusal and DRM fields", () => {
+  const page = "https://www.tiktok.com/@fixture/video/1234567890123456789";
+  const state = { __DEFAULT_SCOPE__: {
+    "webapp.video-detail": { statusCode: 10101, itemInfo: { itemStruct: {
+      id: "1234567890123456789", is_private: true, isDrm: true,
+      video: { duration: 26, playAddr: "https://cdn.test/protected.mp4" }
+    } } }, unrelated: "x".repeat(70000)
+  } };
+  const scripts = [{ id: "__UNIVERSAL_DATA_FOR_REHYDRATION__", textContent: JSON.stringify(state) }];
+  const value = packet(environment({ page, scripts }).env);
+  assert.equal(value.payloads.some(text => {
+    const detail = JSON.parse(text).__DEFAULT_SCOPE__?.["webapp.video-detail"];
+    return detail?.statusCode === 10101 && detail.itemInfo.itemStruct.is_private === true &&
+      detail.itemInfo.itemStruct.isDrm === true;
+  }), true);
+  assert.equal(value.player, null);
 });

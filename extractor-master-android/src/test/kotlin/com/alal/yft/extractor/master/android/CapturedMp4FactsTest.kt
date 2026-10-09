@@ -32,6 +32,30 @@ class CapturedMp4FactsTest {
         assertNull(CapturedMp4Facts.read(ByteArray(7)))
     }
 
+    @Test
+    fun fragmentedMp4GetsDurationFromItsCompleteSidxNotThePlayer() {
+        val data = ByteArray(48)
+        val buffer = ByteBuffer.wrap(data)
+        buffer.putInt(8, 1_000).putShort(22, 2)
+        buffer.putInt(24, 30_000).putInt(28, 31_000)
+        buffer.putInt(36, 30_000).putInt(40, 30_966)
+        val facts = CapturedMp4Facts.read(box("sidx", data))
+        assertNotNull("A complete fragment index independently states duration", facts)
+        assertEquals(61_966L, facts!!.durationMillis)
+    }
+
+    @Test
+    fun fragmentedMp4UsesMehdWithTheActualMovieTimescale() {
+        val mvhd = ByteArray(100)
+        ByteBuffer.wrap(mvhd).putInt(12, 1_000)
+        val mehd = ByteArray(8)
+        ByteBuffer.wrap(mehd).putInt(4, 61_966)
+        val bytes = box("moov", box("mvhd", mvhd) + box("mvex", box("mehd", mehd)))
+        val facts = CapturedMp4Facts.read(bytes)
+        assertNotNull("Zero mvhd ticks do not erase independent mehd duration", facts)
+        assertEquals(61_966L, facts!!.durationMillis)
+    }
+
     private fun movie(): ByteArray {
         val mvhd = ByteArray(100)
         ByteBuffer.wrap(mvhd).putInt(12, 1_000).putInt(16, 60_000)

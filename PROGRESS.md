@@ -1,5 +1,62 @@
 # YFT Master Extractor backup
 
+## Hooked selection and native live checkpoint
+
+Dedicated, independently revertible hook/wiring commit:
+`2b76e4d75136ff4a3e27f590e1e140a3570c9e6a`.
+It contains exactly three production hook files plus two wiring/flag-off test files;
+the selection/metadata/presentation algorithm remains entirely in the Android module.
+
+| Hook file | Added | Removed |
+| --- | ---: | ---: |
+| `MasterFallbackEngine.kt` | 12 | 0 |
+| `BrowserMasterFallback.kt` | 10 | 1 |
+| `BrowserViewModel.kt` | 19 | 7 |
+
+No existing identifiers were renamed or unrelated blocks reformatted. The ViewModel edits
+are confined to existing selection call sites and opt-in presentation routing. App models,
+Generic files, existing site extractors, download code and CI workflows are unchanged.
+
+### Fresh checks
+
+- ✅ Original seven selection contracts and five safety guards: all 12 pass.
+- ✅ Combined policy/parser/transport-frame/opt-in unit suite: `OK (33 tests)`.
+- ✅ Disabled policy skips hook/capture/probe for every primary failure enum. A disabled
+  selector equals the legacy engine; a null hook retains legacy refusal and exact-address success.
+- ✅ Real flag-off app factory returns the original `None`; every primary object passes through
+  unchanged for both generic modes. `OK (1 test)`, isolated caller unit test with fail-fast
+  dependency doubles, not an Android UI/device validation.
+- ✅ JavaScript transport: 13/13; repository scripts: 30/30.
+- ✅ Fragment-index/movie-extends duration tests were first run red (2 failures), then fixed
+  using actual `sidx`/`mehd` bytes. No DOM-to-candidate duration assignment.
+- ✅ Passive-candidate/primary-result UI isolation tests were first run red (2 failures), then
+  fixed with owned presentation keys and recorded ranking.
+- ✅ Large delivered TikTok DOM-state capture/refusal-field tests were first run red
+  (2 failures), then fixed with bounded focused-item projection. GET/API response-clone limits
+  stay unchanged; projected bodies remain at most 64 KiB; access/DRM fields are preserved.
+
+### Latest completed native diagnostics
+
+These use actual desktop native Pause/Play, trusted click receipts, fresh production collector
+frames, the hooked production selection policy, normal HTTPS validation and the unchanged
+main/More presentation models. They do not prove Android APK sheet rendering.
+
+- ✅ Instagram `Dcwk7e1yHaY`: SUCCESS/PLAYBACK_CAPTURE, automatic main selected,
+  More list count 8. Native trusted click 1, capture 358 ms, authorized playback true.
+  DOM duration 61,966 ms; independently read selected media duration 61,966 ms;
+  selected dimensions 1080x1920. Nine validated candidates; TLSv1.3; 2,363,904 bounded
+  response bytes. No invented playing URL, MAIN role or requested ID.
+- ❌ TikTok `7670337149526379789`: latest completed pre-focused-state retry is HTTP_STATUS,
+  no main/More. Native trusted click 1, capture 353.3 ms, authorized playback true.
+  DOM duration 26,166 ms; the one accessible file is only 2,067 ms/720x816 and is correctly
+  rejected instead of being labelled the main video. Other media checks fail HTTP status.
+  TLSv1.3, 198,483 bounded response bytes. A retry with the focused DOM-state fix is pending.
+
+Overall completion is still ❌: TikTok positive live main/More and actual Android app UI
+validation are not yet proven. The old two-run APK gate does not validate this changed code.
+No main merge, release/tag, phone APK delivery, full download/mux, all-resolution,
+Master-CI-green or merge-readiness claim.
+
 ## Authorized Android-owned policy checkpoint
 
 The user authorized minimal hook/wiring edits in the three files listed below, in a separate
