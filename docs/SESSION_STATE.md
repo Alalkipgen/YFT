@@ -7,7 +7,8 @@ Update this file before every checkpoint push. Keep it factual so another chat c
 - Owner-approved isolated code spike, not a Phase 14/15 task or a merge candidate.
 - Base: stable `origin/main` `a9eea7ba8d9f3d67442ffc3a51f2ad9e00c4a6a9`.
 - Workspace: `/data/YFT-Master`; original `/data/YFT` and TikTok work remain untouched.
-- Status: ANDROID FOUR-FIXTURE GATE PASSED; live-site validation pending, NOT APPROVED FOR MERGE.
+- Status: ANDROID FOUR-FIXTURE GATE PASSED; nine-site public preflight recorded.
+  Live app/engine validation remains incomplete; NOT APPROVED FOR MERGE.
   Owner explicitly approved continuing Android Play & Capture connection after the JVM backup.
   New `:extractor-master-android` producer and browser-only build-opt-in caller.
   `yft.masterCapture` defaults false; debug/preview may opt in, release remains false.
@@ -168,9 +169,45 @@ Update this file before every checkpoint push. Keep it factual so another chat c
   the 2.5-second capture budget, independent progress authorization, DRM and navigation guards
   remain unchanged. This proves the offline Android fixture gate only: no Master CI green,
   live Instagram/X support, full TLS/download/mux or merge readiness claim.
-- Next: after this Android-finalization checkpoint, perform the owner's requested Instagram/X
-  public-page live validation. Report genuine public-page/permission/transport limitations.
-  Run builds and emulator separately to avoid memory overlap. Main/Phase 15/TikTok untouched.
+- Public live preflight (2026-10-09): owner expanded the read-only matrix to Instagram, X,
+  Facebook, YouTube, TikTok, Reddit, Vimeo, Dailymotion and Threads. All nine public pages
+  were rendered without signing in; no bot/age/DRM restriction was bypassed. This is desktop
+  browser observation, not Android WebView or final Master-engine/download validation.
+  The exact unmodified capture asset (SHA-256
+  13fefa36d643ea2b339d8db5a8c0de6c0f57b2cd3d5a098240831fc4fe0817dc) was exercised:
+  Instagram native player-surface click resumed visible natural playback, 720x1280/readyState 4.
+  Fresh collector samples advanced 0.444536 -> 0.802345 s in 360.7 ms; generation 1, no DRM,
+  60 request observations and eight bounded payload observations. Earlier autoplay was
+  1080x1920; these are adaptive displayed sizes, not a proved downloadable rendition list.
+  The Instagram diagnostic click listener missed the separate overlay ancestor and recorded
+  zero receipts; the actual browser-native click occurred. That zero was not rewritten.
+  X main-video native Play produced one trusted receipt; 720x1280/readyState 4 progressed
+  10.880927 -> 11.232045 s in 352.6 ms, generation 1, no DRM. This resumed buffered playback:
+  zero new request/payload observations. The offscreen 320x568 recommendation was excluded.
+  Both bounded observations fit 2.5 seconds, but neither invoked the full Master engine or
+  its independent HTTPS-prefix validator. Both clips were natively paused and hooks disposed.
+  TikTok's public NASA clip rendered an active visible 720x1280 video (26.166 s); the paused
+  offscreen recommendation was excluded. P40/native-Play Master capture is not yet verified.
+  Facebook rendered a public 20.921-s 1280x720 HTTPS video, explicitly an ISS teaser; it is
+  not full-length/4K/main-video proof. A non-teaser NASA sample was discovered for follow-up.
+  YouTube required sign-in to confirm the browser was not a bot; Reddit showed Prove your
+  humanity. These are access limitations in this environment, not universal incompatibility.
+  Vimeo rendered a video placeholder with readyState 0; Dailymotion exposed an iframe player;
+  Threads rendered the public caption without a top-frame video. Those playback/capture paths
+  remain unverified, rather than being declared supported or unsupported.
+  Sanitized summaries retain only page URLs, dimensions, states, counts and media hosts;
+  no cookies, signed CDN URLs or raw API response bodies were exported.
+- Multi-resolution feasibility: delivered progressive/HLS/DASH variants can be collected;
+  absent 240p/360p/480p/720p/1080p variants cannot be invented from one MP4. Existing readers
+  cover Instagram versions, X variants, YouTube formats, Facebook DASH and TikTok bitrateInfo.
+  TikTok nested PlayAddr Width/Height still needs reviewed dimension mapping/tests before
+  precise rendition labels; portrait sizes must not be mislabeled from height alone.
+  No production quality mapping/transcoding/download change was made under the frozen scope.
+- Next: complete native-play observation for the remaining accessible public players, then
+  use a reviewed test-only live harness to exercise the real Master engine/HTTPS-prefix path.
+  Keep bot/login/private/DRM failures terminal and distinguish teaser/iframe/MSE limitations.
+  TLS/full download/mux, all-resolution coverage, Master CI green and merge readiness remain
+  unverified. Run builds and emulator separately. Main/Phase 15/TikTok code remains untouched.
   No merge, tag, release or owner-phone APK handout approval.
 
 Phase 14 runs three agents at the same time. **Each agent edits only its own section below**

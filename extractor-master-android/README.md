@@ -162,3 +162,48 @@ The APKs, strict runner, native setup and redacted two-run instrumentation/logca
 were backed up as session files. Earlier full regression/lint results remain earlier-run
 evidence. This milestone is the offline Android fixture gate only, not live Instagram/X,
 TLS/full download/mux, all resolutions, universal player coverage, CI green or merge approval.
+
+### Public social-video live preflight — 2026-10-09
+
+The owner requested nine sites. This first pass uses real public desktop-browser pages and
+browser-native controls, not an Android live result or a full Master/download support claim.
+No login, bot/age restriction or DRM bypass was performed; production remained unchanged.
+
+| Site | Observed public result | Boundary still unverified |
+| --- | --- | --- |
+| Instagram | Native player-surface resume; 720x1280, readyState 4; fresh progress in 360.7 ms; 60 request observations, eight bounded payload observations | Full Master engine, HTTPS prefix, rendition list, app/download |
+| X | Main-video native Play, one trusted receipt; 720x1280, fresh progress in 352.6 ms | Resumed buffered video supplied zero new requests/payloads; media/prefix/app validation pending |
+| Facebook | Public 20.921-s ISS teaser played at 1280x720 from HTTPS | Teaser is not full/4K/main-video proof; check the discovered non-teaser sample |
+| YouTube | Public page demanded sign-in to confirm not a bot | Access-blocked here; no login or workaround attempted |
+| TikTok | Public NASA video visibly played at 720x1280, duration 26.166 s | Native-Play capture, P40 extraction and download remain unverified |
+| Reddit | Public page displayed Prove your humanity | Access-blocked here; target native video was not verified |
+| Vimeo | Public page rendered a readyState-0 video placeholder | Native playback, rendition and capture remain unverified |
+| Dailymotion | Public caption and embedded iframe player rendered | Iframe playback and top-frame capture boundary remain unverified |
+| Threads | Public caption rendered; no top-frame video in the sample | Player availability and capture remain unverified |
+
+The unmodified capture asset SHA-256 is
+`13fefa36d643ea2b339d8db5a8c0de6c0f57b2cd3d5a098240831fc4fe0817dc`.
+Instagram samples progressed 0.444536 to 0.802345 s; its diagnostic receipt listener missed
+an overlay ancestor and recorded zero receipts. The actual native click occurred; that zero
+was not rewritten or used as authorization. Earlier Instagram autoplay displayed 1080x1920.
+X main-video samples progressed 10.880927 to 11.232045 s; its offscreen recommendation was
+not selected. Both samples fit the unchanged 2.5-second bound and reported no DRM. These
+browser packets did not invoke the full engine or independent HTTPS-prefix validator.
+Both clips were paused with native controls and collector hooks were disposed afterward.
+
+Evidence exports contain sanitized states, dimensions, counts and hosts only, never cookies,
+signed media addresses or raw API bodies. Public page URLs remain in the recovery bundle.
+
+#### Available-resolution feasibility, not an all-quality support claim
+
+Existing readers can collect supplied Instagram video versions, X variants, YouTube formats,
+Facebook progressive/inline DASH and TikTok bitrateInfo URLs. Actual HLS/DASH/progressive
+variants may expose several qualities. A single MP4 does not create missing 240p, 360p, 480p,
+720p or 1080p encodings; creating those would require separately scoped transcoding.
+TikTok nested PlayAddr Width/Height requires reviewed metadata mapping/tests before exact
+rendition labels. A portrait 1080x1920 frame must not be called 1920p or proof of all qualities.
+No production mapping, existing extractor, download or CI code was modified.
+
+Next: finish the remaining accessible native-player checks, then add a reviewed test-only
+live harness for real Master-engine/HTTPS-prefix validation. Full download/mux, all qualities,
+Android live-site coverage, Master CI green and merge readiness are still pending.
