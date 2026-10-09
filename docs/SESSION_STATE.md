@@ -66,7 +66,13 @@ Update this file before every checkpoint push. Keep it factual so another chat c
   a 10-second neutral fixture, taps its actual visible control, and binds the collector once
   per lookup. DRM must refuse probing even without playback. The 2.5-second capture deadline
   and two-sample authorization remain unchanged. Build/device validation pending.
-- Next: rebuild internal app/test APKs and repeat all four Android fixtures. Only after this task and
+- Optimization/fixture checkpoint: `b07bd5d2c05ebc2660f3c9431bd13e648e82ce50`.
+  Android module 21 tests passed; debug APK assembled. The combined build stopped because
+  app unit-test lint's Kotlin FIR resolver crashed on unchanged AppIdentityTest.kt (RAW_FIR
+  to TYPES), not a reported app lint violation. Test APK/final app-unit execution unfinished.
+  Next attempt separates compile/test assembly from lint and uses one Gradle worker, with
+  every lint check still enabled.
+- Next: finish serial test/APK build and fresh serial lint, then repeat all four Android fixtures. Only after this task and
   its checkpoint finish, perform the owner's requested Instagram/X public-page live validation.
   Run builds and emulator separately to avoid memory overlap. Main/Phase 15/TikTok untouched.
   No merge, tag, release or owner-phone APK handout approval.
