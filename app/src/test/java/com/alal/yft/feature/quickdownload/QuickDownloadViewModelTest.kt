@@ -563,6 +563,27 @@ class QuickDownloadViewModelTest {
     }
 
     @Test
+    fun aFailedPageLookupShowsTheLookupsStepsAsDetails() = runTest {
+        // P39 (R25): the sheet's Details say why, e.g. which TikTok page answered what.
+        val steps = listOf(
+            "page: phone · HTTP 200 · 150 KB · landed on: video page",
+            "answer: none · no file opened",
+        )
+        store.showLookup(
+            PageVideoLookup(
+                KEY,
+                QuickDownloadFixtures.PAGE,
+                title = null,
+                failure = "The site did not let YFT open this video's files.",
+                canRetry = true,
+                details = steps,
+            ),
+        )
+
+        assertEquals(steps, viewModel().uiState.value.failureDetails)
+    }
+
+    @Test
     fun anAdapterSiteNeverOffersItsPlayersFilesAndTheMainVideoCountsTheOthers() = runTest {
         // P12: unnamed files on a site's page are its player's, not the page's video.
         val file = video(720, 42 * MIB, title = "Player part", videoId = null, index = 1)

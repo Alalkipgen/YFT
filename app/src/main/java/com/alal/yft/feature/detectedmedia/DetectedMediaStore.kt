@@ -69,6 +69,11 @@ data class PageVideoLookup(
      * shows first is far shorter than the length the page states (an ad).
      */
     val findingPageVideo: Boolean = false,
+    /**
+     * P39 (R25): the failed lookup's non-sensitive steps (page kinds, data keys, file checks),
+     * shown as the sheet's Details. Hosts only, never an address, query value or cookie.
+     */
+    val details: List<String> = emptyList(),
 ) {
     val running: Boolean get() = failure == null
 

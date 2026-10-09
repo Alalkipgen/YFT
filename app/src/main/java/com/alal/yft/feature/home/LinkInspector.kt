@@ -15,6 +15,8 @@ import com.alal.yft.core.model.media.PageVideoFacts
 import com.alal.yft.detection.HeadlessIdentity
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
+import com.alal.yft.detection.tiktok.TikTokHomeSession
+import com.alal.yft.detection.tiktok.TikTokPageSettings
 import com.alal.yft.extractor.generic.classifier.MediaUrlClassifier
 import com.alal.yft.ui.components.PromptboxStatus
 import javax.inject.Inject
@@ -69,9 +71,10 @@ fun interface LinkInspector {
 /**
  * Checks a link the way the design's Promptbox promises ("Looking for media…"), in order:
  * a direct media or manifest address, a site adapter for pages one supports, then the page's
- * own markup. Nothing here carries the user's browser session: the fetch has no cookies, so
- * pages that need sign-in or build their player with scripts end in "No downloadable media",
- * where Home offers the full browser instead.
+ * own markup. Nothing here carries the user's browser session but a TikTok link's lookup,
+ * which gets the browser's TikTok cookies when the owner allows it (P40, G3): the page fetch
+ * has no cookies, so pages that need sign-in or build their player with scripts end in "No
+ * downloadable media", where Home offers the full browser instead.
  */
 class HeadlessLinkInspector internal constructor(
     private val fetchPage: suspend (url: String) -> HeadlessPageFetcher.Result,
@@ -79,9 +82,14 @@ class HeadlessLinkInspector internal constructor(
     private val siteAdapters: SiteAdapterCoordinator,
     private val clock: () -> Long = System::currentTimeMillis,
     private val timeoutMillis: Long = TIMEOUT_MILLIS,
+    private val homeCookie: (url: String) -> String? = { null },
 ) : LinkInspector {
     @Inject
-    constructor(client: OkHttpClient, siteAdapters: SiteAdapterCoordinator) : this(
+    constructor(
+        client: OkHttpClient,
+        siteAdapters: SiteAdapterCoordinator,
+        tikTokSettings: TikTokPageSettings = TikTokPageSettings.OWNER,
+    ) : this(
         fetchPage = HeadlessPageFetcher(
             client,
             userAgent = HeadlessIdentity.USER_AGENT,
@@ -89,6 +97,7 @@ class HeadlessLinkInspector internal constructor(
         )::fetch,
         probeMedia = MediaMetadataProbe(client)::probe,
         siteAdapters = siteAdapters,
+        homeCookie = { url -> TikTokHomeSession.cookieFor(url, tikTokSettings) },
     )
 
     private val scanner = HtmlMediaScanner(maxCandidates = MAX_CANDIDATES)
@@ -143,7 +152,8 @@ class HeadlessLinkInspector internal constructor(
                 requestContext = BrowserRequestContext(
                     url,
                     HeadlessIdentity.USER_AGENT,
-                    cookie = null,
+                    // P40 (G3): a TikTok link carries the browser's TikTok cookies, if allowed.
+                    cookie = homeCookie(url),
                 ),
                 nowEpochMs = now,
                 fresh = fresh,

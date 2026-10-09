@@ -9,7 +9,46 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Phase 15 — Agent A (P39, P40)
 
-- (placeholder — Agent A replaces this line)
+- TikTok reads every answer it gives (P39): YFT reads TikTok's phone page
+  (`webapp.reflow.video.detail`) and desktop page (`webapp.video-detail`), finds the data script
+  by its `id`, reads any `__DEFAULT_SCOPE__` key holding the post and entity-encoded data, and
+  skips another post's data. When the phone page fails or lists fewer than 2 qualities, the
+  desktop page is asked with desktop Chrome's identity (the WebView's Chrome version, never
+  "YFT").
+- Only TikTok files that open are offered (P39): each quality's file is checked with a one-byte
+  request carrying TikTok's cookies and Referer (at most 8 checks, 3 at a time): exact sizes,
+  a refused address moves to the next one, a quality none opens is left out; labels 1080p,
+  720p, 540p with "H.265"; the watermarked file only when no other file opens ("With TikTok
+  watermark").
+- Every TikTok failure explains itself (P39): the sheet's Details (and Home's) list the page
+  agent, HTTP status, size, page kind, data key, JSON read, post id, qualities, file checks and
+  the error class — hosts only. A link that lands on TikTok's home page says "This TikTok link
+  does not open a video. It may be removed or private — open it in YFT's browser to check."; a
+  check page is a bot check; "changed its page format. Falling back to generic detection" is
+  gone: an unknown page shape says "<Site>'s page could not be read. Tap Details to see why, or
+  Try again."
+- Safer site requests (P39): a cookie pair or header OkHttp refuses is left out instead of
+  failing the lookup, a per-lookup cookie jar carries cookies across short-link redirects, too
+  many redirects is an HTTP status, and any other error names its class and step.
+- The browser never dead-ends on TikTok (P39): when TikTok's page cannot be read, the sheet
+  offers the file TikTok's player is playing ("TikTok's page could not be read — showing the
+  file its player is playing.").
+- The Download sheet's file check (P39): its requests never run on the sheet's main thread (the
+  cause of the "Download · 1.4 MB" row that failed without a step), any unexpected error ends as
+  a failure at its step, and a file host that answers HEAD with a server error (5xx) is asked
+  with a range request instead.
+- TikTok from TikTok's own page (P40): in YFT's browser, Download on a TikTok video or on For
+  You takes the video's data from the page being watched — TikTok's own page data and the
+  answers TikTok's own feed got (kept by a small script that never changes TikTok's requests) —
+  so a video that plays can be downloaded whatever TikTok answers YFT's own requests. Its files
+  are checked with the tab's TikTok cookies.
+- Home's TikTok links (P40): Home's lookup carries the TikTok cookies YFT's browser already has,
+  and when TikTok's page cannot be read YFT opens the video's TikTok page out of sight (desktop
+  Chrome, no pictures or video, at most 15 s, one at a time) and takes the post from it. A check
+  that needs a person says "TikTok wants a check. Open the video in YFT's browser, then tap
+  Download."; YFT never answers checks.
+- Every TikTok step in Details (P40): the tab's data, the page read, the hidden page and what
+  each gave.
 
 ### Phase 15 — Agent B (P41, P42)
 

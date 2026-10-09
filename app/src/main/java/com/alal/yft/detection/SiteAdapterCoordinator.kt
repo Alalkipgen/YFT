@@ -8,6 +8,8 @@ import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionRequest
 import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.api.SiteExtractorRegistry
+import com.alal.yft.extractor.api.SitePageData
+import com.alal.yft.extractor.api.SitePageIdentity
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -67,18 +69,31 @@ sealed interface SiteAdapterOutcome {
  * P17: answers are shared through [SiteLookupCache]: a video found minutes ago is not asked for
  * again, and a second lookup of a video while the first runs waits for it. A lookup with the
  * user's session may take the public answer of one without; never the other way round.
+ *
+ * P40 (step 5): a lookup runs its steps in order and its Details list each step and its result.
+ * In the browser ([inspect]'s tab given): the tab's own data for the post, the adapter's page
+ * read with the tab's cookies, then [hiddenPages] only when the tab holds no data for the post
+ * (it is read once more first: a loading page may have it by now). On Home: the page read,
+ * then the hidden page. The hidden page follows only a failure of YFT's own request (a page it
+ * could not read, an HTTP or network error, files that did not open), never the site's own
+ * answer about the post or the user (private, sign-in, region, DRM, a check, a rate limit).
  */
 class SiteAdapterCoordinator @Inject constructor(
     private val registry: SiteExtractorRegistry,
     private val mergeSupport: MergeSupport = DeviceMergeSupport(),
     private val lookups: SiteLookupCache = SiteLookupCache(),
+    private val hiddenPages: HiddenPageReader = HiddenPageReader.None,
 ) {
-    /** [fresh] (Try again) always asks the site; it drops the video's remembered answer. */
+    /**
+     * [fresh] (Try again) always asks the site; it drops the video's remembered answer. [tab]
+     * reads the user's tab's own data for the post (the browser's lookups).
+     */
     suspend fun inspect(
         pageUrl: String,
         requestContext: BrowserRequestContext,
         nowEpochMs: Long,
         fresh: Boolean = false,
+        tab: TabDataSource? = null,
     ): SiteAdapterOutcome {
         val selection = registry.select(pageUrl)
         val matched = when (selection) {
@@ -100,7 +115,7 @@ class SiteAdapterCoordinator @Inject constructor(
         val context = currentCoroutineContext().minusKey(Job)
         val lookup = lookups.join(key) {
             CoroutineScope(context + SupervisorJob()).async {
-                extract(matched, pageUrl, requestContext, nowEpochMs, key)
+                extract(matched, pageUrl, requestContext, nowEpochMs, key, tab)
             }
         }
         return try {
@@ -126,22 +141,10 @@ class SiteAdapterCoordinator @Inject constructor(
         requestContext: BrowserRequestContext,
         nowEpochMs: Long,
         key: SiteLookupKey,
+        tab: TabDataSource?,
     ): SiteAdapterOutcome {
-        val extracted = try {
-            matched.extractor.extract(
-                SiteExtractionRequest(
-                    identity = matched.identity,
-                    requestContext = requestContext,
-                    nowEpochMs = nowEpochMs,
-                ),
-            )
-        } catch (cancellation: CancellationException) {
-            throw cancellation
-        } catch (_: Exception) {
-            // An adapter crash must not take the page down; generic detection still runs.
-            SiteExtractionResult.Failure(SiteExtractionFailure.RESPONSE_CHANGED)
-        }
-        val result = playableOnThisPhone(extracted)
+        val ordered = inOrder(matched, pageUrl, requestContext, nowEpochMs, tab)
+        val result = ordered.result
 
         return when (result) {
             is SiteExtractionResult.Success -> SiteAdapterOutcome.Detected(
@@ -163,12 +166,14 @@ class SiteAdapterCoordinator @Inject constructor(
             is SiteExtractionResult.Failure -> SiteAdapterOutcome.Failed(
                 adapterId = matched.extractor.id,
                 reason = result.reason,
-                message = messageFor(matched.extractor.displayName, result.reason),
+                message = result.message
+                    ?: messageFor(matched.extractor.displayName, result.reason),
                 allowsGenericFallback = result.allowsGenericFallback,
                 details = DiagnosticTextSanitizer.details(
                     buildList {
                         add("adapter ${matched.extractor.id}: ${result.reason}")
                         result.httpStatusCode?.let { add("adapter HTTP $it") }
+                        addAll(ordered.steps)
                         addAll(result.details)
                     },
                 ),
@@ -182,6 +187,143 @@ class SiteAdapterCoordinator @Inject constructor(
             }
         }
     }
+
+    /** The final result of a lookup's steps and the Details of the steps before it. */
+    private class Ordered(val result: SiteExtractionResult, val steps: List<String>)
+
+    /** P40 step 5: tab data → the page read → the hidden page, as far as each is needed. */
+    private suspend fun inOrder(
+        matched: SiteAdapterSelection.Matched,
+        pageUrl: String,
+        requestContext: BrowserRequestContext,
+        nowEpochMs: Long,
+        tab: TabDataSource?,
+    ): Ordered {
+        val identity = matched.identity
+        val postId = identity.contentId.takeUnless { identity.requiresCanonicalResolution }
+        val steps = mutableListOf<String>()
+        val tabRead = postId?.let { id -> tab?.let { readTab(it, identity.siteId, id) } }
+        tabRead?.let { steps += it.details }
+        val first = run(matched, identity, requestContext.with(tabRead), nowEpochMs, tabRead)
+        val hiddenNext = first is SiteExtractionResult.Failure &&
+            tabRead?.pageData == null &&
+            first.reason in HIDDEN_PAGE_AFTER &&
+            hiddenPages.handles(identity.siteId)
+        if (!hiddenNext) return Ordered(first, steps)
+        val pageRead = first as SiteExtractionResult.Failure
+        steps += stepLine("page read", pageRead)
+        steps += pageRead.details
+        // A tab whose page was still loading may hold the post by now.
+        val again = postId?.let { id -> tab?.let { readTab(it, identity.siteId, id) } }
+        again?.let { steps += it.details }
+        if (again?.pageData != null) {
+            return Ordered(
+                run(matched, identity, requestContext.with(again), nowEpochMs, again),
+                steps,
+            )
+        }
+        val link = if (identity.requiresCanonicalResolution) pageUrl else identity.canonicalPageUrl
+        val hidden = try {
+            hiddenPages.read(link, postId)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (failure: Exception) {
+            HiddenPageResult.NotFound(null, null, listOf("hidden page: " + errorLine(failure)))
+        }
+        steps += hidden.details
+        val last = when (hidden) {
+            is HiddenPageResult.Found -> fromHiddenPage(matched, hidden, postId, nowEpochMs, steps)
+                ?: pageRead.copy(details = emptyList())
+
+            // The page said why (a check, TikTok's status for the post); else the read's reason.
+            is HiddenPageResult.NotFound -> hidden.reason?.let { reason ->
+                SiteExtractionResult.Failure(reason, message = hidden.message)
+            } ?: pageRead.copy(details = emptyList())
+
+            HiddenPageResult.Off -> pageRead.copy(details = emptyList())
+        }
+        return Ordered(last, steps)
+    }
+
+    /** The rows from the hidden page's data, asked with its agent and cookies (never logged). */
+    private suspend fun fromHiddenPage(
+        matched: SiteAdapterSelection.Matched,
+        hidden: HiddenPageResult.Found,
+        postId: String?,
+        nowEpochMs: Long,
+        steps: MutableList<String>,
+    ): SiteExtractionResult? {
+        val landed = (registry.select(hidden.finalUrl) as? SiteAdapterSelection.Matched)
+            ?.identity
+            ?.takeIf { it.siteId == matched.identity.siteId && !it.requiresCanonicalResolution }
+        val found = landed ?: matched.identity.takeIf { postId != null }
+        if (found == null) {
+            steps += "hidden page: landed on a page without the post's id"
+            return null
+        }
+        val context = BrowserRequestContext(
+            pageUrl = found.canonicalPageUrl,
+            userAgent = hidden.userAgent,
+            cookie = hidden.cookie,
+        )
+        val result = run(matched, found, context, nowEpochMs, hidden.data)
+        if (result is SiteExtractionResult.Failure) steps += stepLine("hidden page's data", result)
+        return result
+    }
+
+    /** One adapter run; a crash is a failure named by its class (P39, R25). */
+    private suspend fun run(
+        matched: SiteAdapterSelection.Matched,
+        identity: SitePageIdentity,
+        requestContext: BrowserRequestContext,
+        nowEpochMs: Long,
+        tab: TabData?,
+    ): SiteExtractionResult = run(matched, identity, requestContext, nowEpochMs, tab?.pageData)
+
+    private suspend fun run(
+        matched: SiteAdapterSelection.Matched,
+        identity: SitePageIdentity,
+        requestContext: BrowserRequestContext,
+        nowEpochMs: Long,
+        pageData: SitePageData?,
+    ): SiteExtractionResult {
+        val extracted = try {
+            matched.extractor.extract(
+                SiteExtractionRequest(
+                    identity = identity,
+                    requestContext = requestContext,
+                    nowEpochMs = nowEpochMs,
+                    pageData = pageData,
+                ),
+            )
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (failure: Exception) {
+            // An adapter crash must not take the page down; generic detection still runs.
+            // P39 (R25): it is named by its class, never reported as a changed page format.
+            SiteExtractionResult.Failure(
+                reason = SiteExtractionFailure.MALFORMED_RESPONSE,
+                details = listOf(errorLine(failure)),
+            )
+        }
+        return playableOnThisPhone(extracted)
+    }
+
+    private suspend fun readTab(source: TabDataSource, siteId: String, postId: String): TabData? =
+        try {
+            source.read(siteId, postId)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (failure: Exception) {
+            TabData(null, listOf("tab data: " + errorLine(failure)))
+        }
+
+    /** The tab's cookies taken with its data, for the rows made from that data. */
+    private fun BrowserRequestContext.with(tab: TabData?): BrowserRequestContext =
+        tab?.takeIf { it.pageData != null }?.cookie?.let { copy(cookie = it) } ?: this
+
+    private fun stepLine(step: String, failure: SiteExtractionResult.Failure): String =
+        "$step: ${failure.reason}" + failure.httpStatusCode?.let { " · HTTP $it" }.orEmpty()
 
     /** Drops merges this phone cannot make; nothing left is a video without a usable quality. */
     private fun playableOnThisPhone(result: SiteExtractionResult): SiteExtractionResult {
@@ -217,6 +359,19 @@ class SiteAdapterCoordinator @Inject constructor(
             -> false
         }
 
+    /**
+     * P39 (R25): whether the enabled adapter [adapterId] counts [requestUrl] as its player
+     * fetching media, on any page of its site (a feed page has no video address of its own).
+     */
+    fun isPlayerMediaOf(adapterId: String, requestUrl: String): Boolean {
+        val extractor = registry.enabled(adapterId) ?: return false
+        return runCatching { extractor.isPlayerMediaRequest(requestUrl) }.getOrDefault(false)
+    }
+
+    /** The site of [pageUrl] when an enabled adapter handles it, such as "tiktok". */
+    fun siteId(pageUrl: String): String? =
+        (registry.select(pageUrl) as? SiteAdapterSelection.Matched)?.identity?.siteId
+
     /** Whether an enabled site adapter handles [pageUrl], so a lookup can find its video. */
     fun handles(pageUrl: String): Boolean =
         registry.select(pageUrl) is SiteAdapterSelection.Matched
@@ -249,6 +404,22 @@ class SiteAdapterCoordinator @Inject constructor(
      */
     private fun MediaCandidate.anchoredTo(pageUrl: String): MediaCandidate =
         if (this.pageUrl == pageUrl) this else copy(pageUrl = pageUrl)
+
+    private companion object {
+        /**
+         * P40: failures of YFT's own request, after which the hidden page may still read the
+         * post. The site's own answers about the post or the user are never in this list.
+         */
+        val HIDDEN_PAGE_AFTER = setOf(
+            SiteExtractionFailure.RESPONSE_CHANGED,
+            SiteExtractionFailure.MALFORMED_RESPONSE,
+            SiteExtractionFailure.RESPONSE_TOO_LARGE,
+            SiteExtractionFailure.HTTP_STATUS,
+            SiteExtractionFailure.NETWORK,
+            SiteExtractionFailure.NO_MEDIA_FOUND,
+            SiteExtractionFailure.EXPIRED_LINK,
+        )
+    }
 
     private fun messageFor(site: String, reason: SiteExtractionFailure): String = when (reason) {
         SiteExtractionFailure.UNSUPPORTED_URL ->
@@ -283,7 +454,7 @@ class SiteAdapterCoordinator @Inject constructor(
             "This $site media link expired. Reload the page and try again."
 
         SiteExtractionFailure.RESPONSE_CHANGED ->
-            "$site changed its page format. Falling back to generic detection."
+            "$site's page could not be read. Tap Details to see why, or Try again."
 
         SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED ->
             "$site protects this video's links with its player script, and YFT could not run " +

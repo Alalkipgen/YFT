@@ -25,7 +25,7 @@ class FocusedVideoProbeTest {
 
         assertTrue(script.contains("querySelectorAll('video')"))
         assertTrue(script.contains("getBoundingClientRect"))
-        assertTrue(script.contains("JSON.stringify({ url, source })"))
+        assertTrue(script.contains("JSON.stringify({ url, source, src })"))
         listOf(
             "document.cookie",
             "localStorage",
@@ -333,6 +333,32 @@ class FocusedVideoProbeTest {
         val video = FocusedVideo("https://www.youtube.com/watch?v=AAAAAAAAAA1", Source.PAGE)
 
         assertFalse(video.toString().contains("youtube"))
+        val playing = video.copy(currentSrc = "https://cdn.example.test/video/tos/a/")
+        assertFalse(playing.toString().contains("cdn.example"))
+    }
+
+    @Test
+    fun theOnScreenPlayersOwnHttpsFileComesWithTheLink() {
+        // P39 (R25): the browser offers this file when TikTok's page cannot be read.
+        val file = "https://v16-webapp-prime.us.tiktok.com/video/tos/useast5/fixture/?a=1"
+        val answer = { src: Any? ->
+            JSONObject.quote(
+                JSONObject()
+                    .put("url", "https://www.tiktok.com/@fixture/video/7300000000000000011")
+                    .put("source", "playing")
+                    .put("src", src ?: JSONObject.NULL)
+                    .toString(),
+            )
+        }
+
+        assertEquals(file, FocusedVideoProbe.parse(answer(file), TIKTOK_FEED)?.currentSrc)
+        listOf("blob:https://www.tiktok.com/5b1c", "http://cdn.example.test/a.mp4", "", null)
+            .forEach { src ->
+                val video = FocusedVideoProbe.parse(answer(src), TIKTOK_FEED)
+                assertEquals(src.toString(), Source.PLAYING, video?.source)
+                assertNull(src.toString(), video?.currentSrc)
+            }
+        assertTrue(FocusedVideoProbe.script.contains("currentSrc"))
     }
 
     /** The script's answer for a TikTok card, as `evaluateJavascript` hands it back. */

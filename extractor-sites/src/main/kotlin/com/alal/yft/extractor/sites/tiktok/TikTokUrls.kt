@@ -69,6 +69,33 @@ internal object TikTokUrls {
         canonicalPageUrl.contains("/${PostKind.PHOTO.pathSegment}/")
 
     /** True for `tiktok.com` and its subdomains, the only cookie domains TikTok media may use. */
+    /**
+     * P39: whether [requestUrl] is TikTok's own player fetching a video file: a TikTok or
+     * TikTok-CDN host with a video path (`/video/tos/`, `/aweme/v1/play`) or an MP4 mime type.
+     * Only the address is read, offline.
+     */
+    fun isPlayerMedia(requestUrl: String): Boolean {
+        val uri = runCatching { URI(requestUrl) }.getOrNull() ?: return false
+        if (!uri.scheme.equals("https", ignoreCase = true)) return false
+        val host = uri.host?.lowercase(Locale.US)?.removeSuffix(".") ?: return false
+        if (MEDIA_HOSTS.none { host == it || host.endsWith(".$it") }) return false
+        val path = uri.rawPath.orEmpty()
+        return path.contains("/video/tos/") ||
+            path.startsWith("/aweme/v1/play") ||
+            uri.rawQuery.orEmpty().contains("mime_type=video_mp4")
+    }
+
+    private val MEDIA_HOSTS = listOf(
+        "tiktok.com",
+        "tiktokcdn.com",
+        "tiktokcdn-us.com",
+        "tiktokcdn-eu.com",
+        "tiktokv.com",
+        "tiktokv.us",
+        "tiktokv.eu",
+        "byteoversea.com",
+    )
+
     fun isTikTokDomain(domain: String): Boolean {
         val host = domain.lowercase(Locale.US).removePrefix(".")
         return host == COOKIE_DOMAIN || host.endsWith(".$COOKIE_DOMAIN")

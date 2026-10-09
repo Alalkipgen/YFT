@@ -44,6 +44,7 @@ class HeadlessLinkInspectorTest {
     private fun inspector(
         extractor: SiteExtractor? = null,
         timeoutMillis: Long = HeadlessLinkInspector.TIMEOUT_MILLIS,
+        homeCookie: (String) -> String? = { null },
     ) = HeadlessLinkInspector(
         fetchPage = { url ->
             fetched += url
@@ -56,6 +57,7 @@ class HeadlessLinkInspectorTest {
         siteAdapters = SiteAdapterCoordinator(SiteExtractorRegistry(listOfNotNull(extractor))),
         clock = { NOW },
         timeoutMillis = timeoutMillis,
+        homeCookie = homeCookie,
     )
 
     @Test
@@ -164,6 +166,26 @@ class HeadlessLinkInspectorTest {
         assertTrue(userAgent.startsWith("Mozilla/5.0 (X11; Linux x86_64) YFT/"))
         assertFalse(userAgent.contains("Android", ignoreCase = true))
         assertNull(context.cookie)
+    }
+
+    @Test
+    fun siteLookupsCarryTheCookieHomeIsAllowedToSend() = runTest {
+        // P40 (G3): TikTokHomeSession gives the browser's TikTok cookies for TikTok links only.
+        val delegate = FixtureExtractor()
+        var received: BrowserRequestContext? = null
+        val recording = object : SiteExtractor by delegate {
+            override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
+                received = request.requestContext
+                return delegate.extract(request)
+            }
+        }
+        val asked = mutableListOf<String>()
+
+        inspector(recording, homeCookie = { url -> "ttwid=browser".also { asked += url } })
+            .inspect("https://fixture.test/video/42")
+
+        assertEquals("ttwid=browser", requireNotNull(received).cookie)
+        assertEquals(listOf("https://fixture.test/video/42"), asked)
     }
 
     @Test
