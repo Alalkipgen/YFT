@@ -64,9 +64,93 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent B — `work/phase-15-downloads` (P41, P42; later P44)
 
-- Status: P41 TODO, P42 TODO.
-- Base commit: —
-- Results, validation, regression proof, measured start times, CI links, hand-offs: —
+- Status: READY FOR MERGE (2026-10-09) — P41 and P42 done; last code commit `8ba7259`, CI green.
+  OWNER ANSWERS: none (defaults `FAST_START=ON`, `DELETE_CONFIRM=ON`).
+- Base commit: `d0bc7f7` (`origin/work/phase-15-integration`); folder `/data/YFT-B`.
+- **P41 Result:** YouTube's whole-file tracks show bytes and speed from the first range.
+  `DashTransferEngine` runs a pool of workers (the next range starts as soon as one ends),
+  counts bytes as they are written (at most 4 updates a second, a retried range takes its bytes
+  back, never backwards or past the total; a range is done in the checkpoint only after its
+  sync), fetches a 1 MiB first range then 10 MiB ranges with 4 at once on YouTube's media hosts
+  (`FAST_START`, `Policy.fastStart = true`), skips the 1-byte length probe when the length is
+  known and otherwise takes it from the first range's `Content-Range`. A checkpoint saved with
+  the old layout resumes with it (old fingerprint wins; the new layout has `whole-file-v2`).
+  `AudioVideoMuxEngine` passes both tracks' in-range bytes on (4 a second); `DownloadQueue`
+  shows a running DASH or merged task's bytes in flight while the store keeps checkpoint bytes.
+  One line per download in the log (`YftDownloads`: `DASH start: plan 0.0 s · length 0.0 s
+  (from first range) · first byte 0.0 s · first progress 0.0 s`, `Merged download start: …`)
+  and a `Start:` line in a failure's Details. YouTube plans carry the length from `clen` or the
+  player's `contentLength`.
+  - Plan adapted: (1) step 6 needed no new label — since P34 the row and the notification show
+    "12.3 MB · 1.2 MB/s" when the total is unknown; they stayed at 0 B because no bytes came
+    before the first 10 MiB range, which P41 fixes (the merge's % appears once both sizes are
+    known). (2) A resume of an unknown-length track that already has finished ranges still
+    probes, so its saved layout is kept. (3) `clen`/`contentLength` are trusted only on
+    `googlevideo.com` addresses. (4) The start times are stored after the detail in
+    `last_error_detail` (`…|start: …`, no database change; old rows read as before).
+    (5) `HlsTransferEngine` unchanged. (6) `StoredDownloadTask` may show more bytes than its
+    checkpoint only for a running DASH or merged task (additive, P41).
+  - Validation (2026-10-09, `--no-daemon --continue`, the five tasks): core-download 184,
+    core-model 106, app 809 (66 skipped) = 1099 tests, 0 failures (+20 from 1079); `:app:lintDebug`
+    0 errors (95 warnings, as before); `:app:compileDebugAndroidTestKotlin` OK; line check empty.
+  - Regression proof (old `DashTransferEngine`, `AudioVideoMuxEngine`, `DownloadQueue`,
+    `DownloadTaskStore`, `DownloadModels`, `DownloadPlanFactory`, `DownloadLabels` from
+    `/data/bak/P41/orig`; restored with cp, cmp equal): 11 of 38 failed — DashTransferStartTest
+    (first range of an unknown length is 1 MiB; a short file takes one request; a stated length
+    needs no request; progress within 1 s at 64 KB/s and at 1 MB/s; never back, ends at the
+    total, ≤ 4 a second; one slow range does not hold back the others), AudioVideoMuxProgressTest
+    (both), StreamDownloadQueueTest "a merged task shows the bytes its tracks wrote between
+    checkpoints", DashTransferEngineTest "whole file track … reports its length" (expects no
+    probe now). DashFastStartLayoutTest, the new FailureDetailCodecTest/DownloadLabelsTest cases
+    and DownloadPlanFactoryTest "YouTube tracks carry the length …" use the new API (do not
+    compile on the old code). "a retried range is counted once" passes on both (guard).
+  - Start times (throttled local server): see TEST_MATRIX "Agent B — P41, P42".
+  - CI `6257307` (last P41 code commit): [checkpoint
+    validation](https://github.com/Alalkipgen/YFT/actions/runs/37861112002), [emulator
+    smoke](https://github.com/Alalkipgen/YFT/actions/runs/37861112033), [Preview
+    APK](https://github.com/Alalkipgen/YFT/actions/runs/37861112027) all green. On `e50789c`
+    the checkpoint validation stopped after 36 s before any test (the same command passed here;
+    smoke and Preview APK green), so `6257307` (stopped tasks publish checkpoint bytes in one
+    place) ran it again.
+  - Hand-offs: none. P44 (merge) note: `DownloadFailure` gained `startTimeline` (default null)
+    and `DashTransferRunner` a 6-parameter `transfer` with a default.
+
+- **P42 Result:** finished downloads get "Delete file" (`download-menu-delete-file-<id>`) right
+  after "Remove from list" (kept: it removes the row only). With `DELETE_CONFIRM` (ON) the
+  question `download-delete-file-dialog` asks "Delete this file?" — "“<file name>” will be
+  removed from Download/YFT and from this list. This can't be undone." — with Delete
+  (`download-delete-file-confirm`) and Cancel (`download-delete-file-cancel`). The new
+  `DownloadedFileDeleter` (`app/.../download/`) deletes by the record: YFT's MediaStore item
+  through the content resolver (a `SecurityException` becomes `MediaStore.createDeleteRequest`
+  on Android 11+, the `RecoverableSecurityException` action on Android 10; the screen launches
+  it and YFT deletes again once allowed), a SAF document through `DocumentsContract`, an
+  app-private file directly; a file already gone counts as deleted. Then `deleteRecord`, the
+  Library refreshes (its finished-download count drops) and the snackbar says "File deleted";
+  a failure says "Could not delete the file" and the row stays. `LibraryRepository.delete`
+  uses the same deleter. Unfinished rows keep their menus.
+  - Plan adapted: (1) "Delete file" is a menu entry of its own, not a new `DownloadAction`, so
+    the existing actions and their tests stay as they are. (2) The Library's delete now says
+    "deleted" for a file that is already gone (`AndroidLibraryRepositoryTest` updated; before it
+    said false). (3) A record without an address is not deleted ("Could not delete the file").
+    (4) `DELETE_CONFIRM` is a constant (ON); a test constructor turns it off.
+  - Validation (2026-10-09, the five tasks): core-download 184, core-model 106, app 826
+    (66 skipped) = 1116 tests, 0 failures (+17 from P41's 1099); lint 0 errors (95 warnings);
+    androidTest compiles (new `delete/DeleteFileInstrumentedTest`); line check empty.
+  - Regression proof (old `DownloadsScreen`, `DownloadsViewModel`, `DownloadLabels`,
+    `LibraryRepository`, `LibraryModule`, no deleter; restored with cp, cmp equal): 2 of 5
+    failed — DeleteFileMenuTest "only a finished row's menu offers Delete file beside Remove
+    from list", AndroidLibraryRepositoryTest "deleting an app storage item removes only that
+    file" (a gone file is deleted). DownloadsViewModelDeleteFileTest (confirm deletes the file
+    then the record, cancel, `DELETE_CONFIRM=OFF`, a kept file keeps its row, Android's request
+    allowed or refused, unfinished rows), DownloadedFileDeleterTest and DeleteFileScreenTest
+    use the new API (do not compile on the old code). The instrumented test's JVM twin is
+    DownloadsViewModelDeleteFileTest.
+  - CI `8ba7259` (last code commit): [checkpoint
+    validation](https://github.com/Alalkipgen/YFT/actions/runs/37862940024), [emulator
+    smoke](https://github.com/Alalkipgen/YFT/actions/runs/37862940003) (runs
+    `delete/DeleteFileInstrumentedTest`), [Preview
+    APK](https://github.com/Alalkipgen/YFT/actions/runs/37862940023) all green.
+  - Hand-offs: none.
 
 ## Agent C — `work/phase-15-ads` (P43)
 

@@ -62,7 +62,12 @@ data class StoredDownloadTask(
         require(totalBytes == null || downloadedBytes <= totalBytes)
         require(preferredSegmentCount in 1..32)
         require(planType.accepts(checkpoint))
-        require(checkpoint.downloadedBytes == downloadedBytes)
+        // A running DASH or merged task may show the bytes written since its last checkpoint
+        // (P41); every other task shows exactly what its checkpoint keeps.
+        require(
+            checkpoint.downloadedBytes == downloadedBytes ||
+                (planType.showsBytesInFlight && downloadedBytes > checkpoint.downloadedBytes),
+        )
     }
 
     val progressPercent: Int
@@ -234,6 +239,10 @@ class RoomDownloadTaskStore(
     ): T = enumValues<T>().firstOrNull { it.name == value } ?: fallback
 }
 
+/** Stream tasks whose shown bytes move between checkpoints (P41). */
+internal val DownloadPlanType.showsBytesInFlight: Boolean
+    get() = this == DownloadPlanType.DASH || this == DownloadPlanType.AUDIO_VIDEO_MUX
+
 internal fun DownloadPlanType.accepts(checkpoint: TransferCheckpoint): Boolean = when (this) {
     DownloadPlanType.DIRECT -> checkpoint is DirectTransferCheckpoint
     DownloadPlanType.HLS -> checkpoint is HlsTransferCheckpoint
@@ -248,13 +257,23 @@ internal fun DownloadPlanType.accepts(checkpoint: TransferCheckpoint): Boolean =
 internal object FailureDetailCodec {
     fun encode(failure: DownloadFailure?): String? {
         if (failure == null) return null
-        if (failure.stage == null && failure.httpStatusCode == null && failure.detail == null) {
+        val startTimeline = DownloadFailureDetails.sanitize(failure.startTimeline)
+            ?.replace(SEPARATOR, " ")
+            ?.let { text -> if (text.startsWith(START_PREFIX)) text else "$START_PREFIX $text" }
+        if (
+            failure.stage == null &&
+            failure.httpStatusCode == null &&
+            failure.detail == null &&
+            startTimeline == null
+        ) {
             return null
         }
+        val detail = DownloadFailureDetails.sanitize(failure.detail).orEmpty()
         return listOf(
             failure.stage?.name.orEmpty(),
             failure.httpStatusCode?.toString().orEmpty(),
-            DownloadFailureDetails.sanitize(failure.detail).orEmpty(),
+            // The start times (P41) follow the detail; a payload saved before has none.
+            startTimeline?.let { "$detail$SEPARATOR$it" } ?: detail,
         ).joinToString(SEPARATOR)
     }
 
@@ -264,12 +283,24 @@ internal object FailureDetailCodec {
         if (parts.size != 3) return null
         val stage = DownloadFailureStage.entries.firstOrNull { it.name == parts[0] }
         val httpStatusCode = parts[1].toIntOrNull()?.takeIf { it in 100..599 }
-        val detail = DownloadFailureDetails.sanitize(parts[2])
-        if (stage == null && httpStatusCode == null && detail == null) return null
-        return DownloadFailure(reason, httpStatusCode, stage, detail)
+        val marker = parts[2].lastIndexOf(START_MARKER)
+        val detail = DownloadFailureDetails.sanitize(
+            if (marker < 0) parts[2] else parts[2].substring(0, marker),
+        )
+        val startTimeline = if (marker < 0) {
+            null
+        } else {
+            DownloadFailureDetails.sanitize(parts[2].substring(marker + SEPARATOR.length))
+        }
+        if (stage == null && httpStatusCode == null && detail == null && startTimeline == null) {
+            return null
+        }
+        return DownloadFailure(reason, httpStatusCode, stage, detail, startTimeline)
     }
 
     private const val SEPARATOR = "|"
+    private const val START_PREFIX = "start:"
+    private const val START_MARKER = SEPARATOR + START_PREFIX
     private const val MAX_PAYLOAD_CHARS = 512
 }
 

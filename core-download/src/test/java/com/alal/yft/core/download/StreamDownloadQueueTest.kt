@@ -234,8 +234,38 @@ class StreamDownloadQueueTest {
         assertEquals(DownloadTaskStatus.COMPLETED, queue.tasks.value.single().status)
     }
 
+    @Test
+    fun `a merged task shows the bytes its tracks wrote between checkpoints`() = runTest {
+        val store = InMemoryStore()
+        val dispatcher = ControlledDispatcher(progressTotal = 40, progressBytes = 25)
+        val queue = DownloadQueue(
+            store = store,
+            transferDispatcher = dispatcher,
+            scope = backgroundScope,
+            maxConcurrentDownloads = 1,
+        )
+
+        queue.enqueue(muxPlan("live"), RecordingDestination())
+        runCurrent()
+
+        val running = queue.tasks.value.single()
+        assertEquals(DownloadTaskStatus.RUNNING, running.status)
+        assertEquals(25L, running.downloadedBytes)
+        assertEquals(40L, running.totalBytes)
+        // Only checkpoints are stored: a restart resumes from what the checkpoint keeps.
+        assertEquals(0L, store.loadAll().single().downloadedBytes)
+
+        queue.pause("live")
+        runCurrent()
+        val paused = queue.tasks.value.single()
+        assertEquals(DownloadTaskStatus.PAUSED, paused.status)
+        assertEquals(paused.checkpoint.downloadedBytes, paused.downloadedBytes)
+    }
+
     private class ControlledDispatcher(
         private val progressTotal: Long? = null,
+        /** Bytes the transfer reports as written after its first checkpoint (P41). */
+        private val progressBytes: Long? = null,
     ) : DownloadTransferDispatcher {
         val active = AtomicInteger()
         val resumeCheckpoints = ConcurrentHashMap<String, TransferCheckpoint>()
@@ -255,6 +285,7 @@ class StreamDownloadQueueTest {
             val partial = resumeFrom ?: checkpoint(plan, bytes = 1, complete = false)
             progressTotal?.let { onProgress(DownloadProgress(partial.downloadedBytes, it)) }
             onCheckpoint(partial)
+            progressBytes?.let { onProgress(DownloadProgress(it, progressTotal)) }
             return try {
                 completions.computeIfAbsent(plan.taskId) { CompletableDeferred() }.await()
                 val completed = checkpoint(plan, bytes = 10, complete = true)

@@ -140,9 +140,38 @@ class DownloadPlanFactoryTest {
         assertEquals(companion().mediaUrl, plan.audio.manifestUrl)
         assertEquals(MediaTrackType.AUDIO, plan.audio.trackType)
         assertEquals(listOf("mp4a.40.2"), plan.audio.codecs)
-        assertEquals(WholeFileTrack(), plan.audio.wholeFile)
+        // YouTube states the sound's length, so its download needs no length request (P41).
+        assertEquals(WholeFileTrack(totalBytes = 1_024), plan.audio.wholeFile)
         assertEquals(5_000L, plan.expiresAtEpochMs)
         assertTrue(plan.video.taskId != plan.audio.taskId)
+    }
+
+    @Test
+    fun `YouTube tracks carry the length their address states`() {
+        val merged = variant(
+            url = "https://rr3---sn-a.googlevideo.com/videoplayback?itag=136&clen=52428800&sig=x",
+            container = "mp4",
+        ).copy(
+            codecs = listOf("avc1.4d401f"),
+            audioCompanion = companion().copy(
+                mediaUrl = "https://rr3---sn-a.googlevideo.com/videoplayback?itag=140&clen=7340032",
+                contentLengthBytes = 7_000_000,
+            ),
+        )
+
+        val plan = ((factory(merged) as DownloadPlanResult.Ready).request as DownloadRequest.Mux)
+            .plan
+
+        assertEquals(52_428_800L, plan.video.wholeFile?.totalBytes)
+        assertEquals(7_340_032L, plan.audio.wholeFile?.totalBytes)
+        assertEquals(
+            null,
+            DownloadPlanFactory.statedLengthOf("https://cdn.example.test/v.mp4?clen=9", 5),
+        )
+        assertEquals(
+            null,
+            DownloadPlanFactory.statedLengthOf("https://rr1---sn-b.googlevideo.com/v?clen=0"),
+        )
     }
 
     @Test

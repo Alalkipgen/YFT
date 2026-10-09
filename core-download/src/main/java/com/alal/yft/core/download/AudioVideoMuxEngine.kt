@@ -720,6 +720,8 @@ class AudioVideoMuxEngine(
     private val log: (String) -> Unit = ::logMergeLine,
     /** The calling thread's CPU time in milliseconds (P35), or null where it is unknown. */
     private val threadCpuMillis: () -> Long? = ::currentThreadCpuMillis,
+    /** The shortest time between two progress updates of the tracks: 4 a second (P41). */
+    private val progressIntervalMillis: Long = DEFAULT_PROGRESS_INTERVAL_MILLIS,
 ) : AudioVideoMuxRunner {
     init {
         require(bufferBytes in 1_024..1024 * 1_024)
@@ -755,8 +757,21 @@ class AudioVideoMuxEngine(
         } catch (error: IOException) {
             return@withContext failure(error.toStorageFailure(WRITE_FILE), emptyCheckpoint)
         }
-        val tracker = MuxCheckpointTracker(initial, onProgress, onCheckpoint)
+        val tracker = MuxCheckpointTracker(
+            initial = initial,
+            progressIntervalMillis = progressIntervalMillis,
+            elapsedMillis = elapsedMillis,
+            onProgress = onProgress,
+            onCheckpoint = onCheckpoint,
+        )
         val times = MergeTimes(elapsedMillis)
+        val starts = MuxStartTimes(
+            expected = buildSet {
+                if (!initial.videoReady) add(TrackKind.VIDEO)
+                if (!initial.audioReady) add(TrackKind.AUDIO)
+            },
+            log = log,
+        )
         try {
             tracker.emit()
             val trackFailures = coroutineScope {
@@ -771,6 +786,7 @@ class AudioVideoMuxEngine(
                                         workspace = workspace,
                                         resumeFrom = initial.video,
                                         tracker = tracker,
+                                        starts = starts,
                                     )
                                 }
                             },
@@ -786,6 +802,7 @@ class AudioVideoMuxEngine(
                                         workspace = workspace,
                                         resumeFrom = initial.audio,
                                         tracker = tracker,
+                                        starts = starts,
                                     )
                                 }
                             },
@@ -793,13 +810,17 @@ class AudioVideoMuxEngine(
                     }
                 }.awaitAll().filterNotNull()
             }
+            starts.logOnce()
             val trackFailure = trackFailures.firstOrNull()
             if (trackFailure != null) {
                 val checkpoint = tracker.snapshot()
                 if (trackFailure.reason in NON_RESUMABLE_FAILURES) {
                     cleanupAll(plan, workspace)
                 }
-                return@withContext AudioVideoMuxResult.Failure(trackFailure, checkpoint)
+                return@withContext AudioVideoMuxResult.Failure(
+                    trackFailure.withStart(starts),
+                    checkpoint,
+                )
             }
 
             tracker.setStage(AudioVideoMuxStage.READY_TO_MUX)
@@ -820,7 +841,10 @@ class AudioVideoMuxEngine(
             cleanupWorkspace(workspace, strict = false)
             AudioVideoMuxResult.Completed(bytesWritten, completed)
         } catch (cancellation: CancellationException) {
-            withContext(NonCancellable) { runCatching { tracker.emit() } }
+            withContext(NonCancellable) {
+                runCatching { tracker.emit() }
+                runCatching { starts.logOnce() }
+            }
             throw cancellation
         } catch (abort: MuxAbort) {
             File(workspace, MUX_OUTPUT_NAME).delete()
@@ -828,15 +852,22 @@ class AudioVideoMuxEngine(
             if (abort.failure.reason in NON_RESUMABLE_FAILURES) {
                 cleanupAll(plan, workspace)
             }
-            AudioVideoMuxResult.Failure(abort.failure.withTimes(times), checkpoint)
+            AudioVideoMuxResult.Failure(
+                abort.failure.withTimes(times).withStart(starts),
+                checkpoint,
+            )
         } catch (error: IOException) {
             File(workspace, MUX_OUTPUT_NAME).delete()
             AudioVideoMuxResult.Failure(
-                error.toStorageFailure(null).withTimes(times),
+                error.toStorageFailure(null).withTimes(times).withStart(starts),
                 tracker.resetToReadyAfterMuxFailure(),
             )
         }
     }
+
+    /** The failure with the tracks' start times (P41), when they have any. */
+    private fun DownloadFailure.withStart(starts: MuxStartTimes): DownloadFailure =
+        starts.summary()?.let { copy(startTimeline = it) } ?: this
 
     /**
      * The merge failure's details with the step times when the merge was reached (P27), within
@@ -875,6 +906,7 @@ class AudioVideoMuxEngine(
         workspace: File,
         resumeFrom: DashTransferCheckpoint?,
         tracker: MuxCheckpointTracker,
+        starts: MuxStartTimes,
     ): DownloadFailure? {
         val trackPlan = if (kind == TrackKind.VIDEO) plan.video else plan.audio
         val result = dashTransfer.transfer(
@@ -884,8 +916,9 @@ class AudioVideoMuxEngine(
                 completedFile = readyFile(workspace, kind),
             ),
             resumeFrom = resumeFrom,
-            onProgress = { progress -> tracker.recordTotal(kind, progress.totalBytes) },
+            onProgress = { progress -> tracker.recordProgress(kind, progress) },
             onCheckpoint = { checkpoint -> tracker.update(kind, checkpoint) },
+            onStartTimeline = { timeline -> starts.record(kind, timeline) },
         )
         return when (result) {
             is DashTransferResult.Completed -> {
@@ -1280,13 +1313,54 @@ class AudioVideoMuxEngine(
     }
 
     /**
+     * The start times of a merged download's tracks (P41): one log line, once every track that
+     * downloads in this run has them, and the failure details.
+     */
+    private class MuxStartTimes(
+        private val expected: Set<TrackKind>,
+        private val log: (String) -> Unit,
+    ) {
+        private val timelines = mutableMapOf<TrackKind, DownloadStartTimeline>()
+        private var logged = false
+
+        @Synchronized
+        fun record(kind: TrackKind, timeline: DownloadStartTimeline) {
+            timelines[kind] = timeline
+            if (timelines.keys.containsAll(expected)) logOnceLocked()
+        }
+
+        /** Logs the times known so far, when a track ended before it had all of them. */
+        @Synchronized
+        fun logOnce() {
+            if (timelines.isNotEmpty()) logOnceLocked()
+        }
+
+        @Synchronized
+        fun summary(): String? = timelines.takeIf { it.isNotEmpty() }
+            ?.let { known -> combined(known).summary() }
+
+        private fun logOnceLocked() {
+            if (logged) return
+            logged = true
+            log("Merged download ${combined(timelines).summary()}")
+        }
+
+        private fun combined(known: Map<TrackKind, DownloadStartTimeline>) =
+            DownloadStartTimeline.combine(known.mapKeys { (kind, _) -> kind.fileStem })
+    }
+
+    /**
      * Keeps the combined checkpoint and progress of both tracks.
      *
      * Progress has a total only once both track lengths are known: a finished track's length is
      * what it downloaded, and a track still downloading reports its length when it knows one.
+     * The bytes count what each track reported as written (P41), at most every
+     * [progressIntervalMillis] while the tracks download.
      */
     private class MuxCheckpointTracker(
         initial: AudioVideoMuxCheckpoint,
+        private val progressIntervalMillis: Long,
+        private val elapsedMillis: () -> Long,
         private val onProgress: suspend (DownloadProgress) -> Unit,
         private val onCheckpoint: suspend (AudioVideoMuxCheckpoint) -> Unit,
     ) {
@@ -1297,18 +1371,24 @@ class AudioVideoMuxEngine(
             if (initial.videoReady) initial.video?.let { put(TrackKind.VIDEO, it.downloadedBytes) }
             if (initial.audioReady) initial.audio?.let { put(TrackKind.AUDIO, it.downloadedBytes) }
         }
+        private val trackBytes = mutableMapOf<TrackKind, Long>()
+        private var lastProgressAt: Long? = null
 
-        /** Notes a track's length; the next checkpoint update reports it. */
-        suspend fun recordTotal(kind: TrackKind, totalBytes: Long?) = gate.withLock {
-            if (totalBytes != null && totalBytes > 0) trackTotals[kind] = totalBytes
-        }
+        /** Notes a track's progress: its length and the bytes it wrote (P41). */
+        suspend fun recordProgress(kind: TrackKind, progress: DownloadProgress) =
+            gate.withLock {
+                progress.totalBytes?.takeIf { it > 0 }?.let { trackTotals[kind] = it }
+                trackBytes[kind] = progress.downloadedBytes
+                if (isDue()) emitProgressLocked()
+            }
 
         suspend fun update(kind: TrackKind, track: DashTransferCheckpoint) = gate.withLock {
             checkpoint = when (kind) {
                 TrackKind.VIDEO -> checkpoint.copy(video = track)
                 TrackKind.AUDIO -> checkpoint.copy(audio = track)
             }
-            emitLocked()
+            if (isDue()) emitProgressLocked()
+            onCheckpoint(checkpoint)
         }
 
         suspend fun markReady(kind: TrackKind) = gate.withLock {
@@ -1357,10 +1437,29 @@ class AudioVideoMuxEngine(
             checkpoint
         }
 
+        private fun isDue(): Boolean {
+            val now = elapsedMillis()
+            val last = lastProgressAt
+            if (last != null && now - last < progressIntervalMillis) return false
+            lastProgressAt = now
+            return true
+        }
+
         private suspend fun emitLocked() {
+            emitProgressLocked()
+            onCheckpoint(checkpoint)
+        }
+
+        private suspend fun emitProgressLocked() {
             val activeChunks = listOfNotNull(checkpoint.video, checkpoint.audio)
                 .sumOf { track -> track.chunks.count { !it.completed } }
-            val downloaded = checkpoint.downloadedBytes
+            val downloaded = TrackKind.entries.sumOf { kind ->
+                val saved = when (kind) {
+                    TrackKind.VIDEO -> checkpoint.video
+                    TrackKind.AUDIO -> checkpoint.audio
+                }?.downloadedBytes ?: 0L
+                maxOf(saved, trackBytes[kind] ?: 0L)
+            }
             val total = trackTotals.values.sum()
                 .takeIf { trackTotals.size == TrackKind.entries.size && it >= downloaded }
             onProgress(
@@ -1370,12 +1469,12 @@ class AudioVideoMuxEngine(
                     activeSegmentCount = activeChunks,
                 ),
             )
-            onCheckpoint(checkpoint)
         }
     }
 
     private companion object {
         const val MUX_OUTPUT_NAME = "mux-output.mp4"
+        const val DEFAULT_PROGRESS_INTERVAL_MILLIS = 250L
         const val DEFAULT_COPY_BUFFER_BYTES = 1_024 * 1_024
         const val IN_PLACE_MIN_SDK = 26
         const val MERGE_HEADROOM_BYTES = 8L * 1_024 * 1_024

@@ -1,11 +1,15 @@
 package com.alal.yft.feature.downloads
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.annotation.DrawableRes
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -33,12 +37,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -112,7 +119,21 @@ fun DownloadsRoute(
     viewModel: DownloadsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val deleteFileQuestion by viewModel.deleteFileQuestion.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    // P42: Android's "Allow YFT to delete?" for an item YFT no longer owns.
+    val consent = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult(),
+    ) { result -> viewModel.onDeleteConsentResult(result.resultCode == Activity.RESULT_OK) }
+    LaunchedEffect(viewModel) {
+        viewModel.deleteConsentRequests.collect { request ->
+            consent.launch(IntentSenderRequest.Builder(request).build())
+        }
+    }
+    LaunchedEffect(viewModel) {
+        viewModel.messages.collect { message -> snackbarHostState.showSnackbar(message) }
+    }
     val playback = LocalLibraryPlayback.current
     // Back from Android's settings: the battery and notification cards follow what changed.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshBackground() }
@@ -152,7 +173,27 @@ fun DownloadsRoute(
         },
         onOpenSettings = onOpenSettings,
         backgroundActions = backgroundActions,
+        deleteFileQuestion = deleteFileQuestion,
+        deleteFileActions = remember(viewModel) {
+            DeleteFileActions(
+                onDeleteFile = viewModel::onDeleteFile,
+                onConfirm = viewModel::confirmDeleteFile,
+                onCancel = viewModel::cancelDeleteFile,
+            )
+        },
+        snackbarHostState = snackbarHostState,
     )
+}
+
+/** "Delete file" on a finished download and its question (P42). */
+data class DeleteFileActions(
+    val onDeleteFile: (String) -> Unit,
+    val onConfirm: () -> Unit,
+    val onCancel: () -> Unit,
+) {
+    companion object {
+        val None = DeleteFileActions(onDeleteFile = {}, onConfirm = {}, onCancel = {})
+    }
 }
 
 /**
@@ -175,6 +216,9 @@ fun DownloadsScreen(
     onOpenSettings: () -> Unit = {},
     todayStartEpochMs: Long = remember { startOfDayEpochMs(System.currentTimeMillis()) },
     backgroundActions: BackgroundCardActions = BackgroundCardActions.None,
+    deleteFileQuestion: DeleteFileQuestion? = null,
+    deleteFileActions: DeleteFileActions = DeleteFileActions.None,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     val colors = YftTheme.colors
     var filter by rememberSaveable { mutableStateOf(DownloadsFilter.ALL) }
@@ -237,6 +281,7 @@ fun DownloadsScreen(
                     onAction = onAction,
                     onOpen = onOpen,
                     onPlay = onPlay,
+                    onDeleteFile = deleteFileActions.onDeleteFile,
                 )
             }
         }
@@ -247,7 +292,43 @@ fun DownloadsScreen(
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = if (storage != null) 48.dp else 8.dp),
+        )
     }
+    deleteFileQuestion?.let { question ->
+        DeleteFileDialog(
+            question = question,
+            onConfirm = deleteFileActions.onConfirm,
+            onCancel = deleteFileActions.onCancel,
+        )
+    }
+}
+
+/** "Delete this file?" before "Delete file" deletes (P42, `DELETE_CONFIRM`). */
+@Composable
+internal fun DeleteFileDialog(
+    question: DeleteFileQuestion,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val colors = YftTheme.colors
+    AlertDialog(
+        onDismissRequest = onCancel,
+        modifier = Modifier.testTag("download-delete-file-dialog"),
+        title = { Text(DELETE_FILE_TITLE, color = colors.textPrimary) },
+        text = { Text(deleteFileQuestionText(question.fileName), color = colors.textPrimary) },
+        confirmButton = {
+            YftTextButton("Delete", onConfirm, Modifier.testTag("download-delete-file-confirm"))
+        },
+        dismissButton = {
+            YftTextButton("Cancel", onCancel, Modifier.testTag("download-delete-file-cancel"))
+        },
+        containerColor = colors.card,
+    )
 }
 
 /** P34: the notifications card, then the battery card, under the network notice. */
@@ -283,6 +364,7 @@ private fun LazyListScope.downloadItems(
     onAction: (DownloadAction, String) -> Unit,
     onOpen: (DownloadRowUiState) -> Unit,
     onPlay: (DownloadRowUiState) -> Unit,
+    onDeleteFile: (String) -> Unit,
 ) {
     val visible = uiState.rowsFor(filter)
     if (visible.isEmpty()) {
@@ -299,6 +381,7 @@ private fun LazyListScope.downloadItems(
                 onAction = onAction,
                 onOpen = onOpen,
                 onPlay = onPlay,
+                onDeleteFile = onDeleteFile,
                 modifier = Modifier.padding(start = 16.dp, top = 8.dp, end = 16.dp),
             )
         }
@@ -503,6 +586,7 @@ private fun cardActions(
     onAction: (DownloadAction, String) -> Unit,
     onOpen: (DownloadRowUiState) -> Unit,
     onPlay: (DownloadRowUiState) -> Unit,
+    onDeleteFile: (String) -> Unit,
     onDetails: () -> Unit,
 ): List<CardAction> = buildList {
     if (row.status == DownloadTaskStatus.COMPLETED) {
@@ -521,6 +605,14 @@ private fun cardActions(
                     onAction(action, row.id)
                 },
             )
+            // P42: beside "Remove from list", which keeps the file.
+            if (action == DownloadAction.DELETE && row.status == DownloadTaskStatus.COMPLETED) {
+                add(
+                    CardAction(DELETE_FILE_LABEL, deleteFileTag(row.id), YftIcons.Delete) {
+                        onDeleteFile(row.id)
+                    },
+                )
+            }
         }
     if (row.status == DownloadTaskStatus.FAILED) {
         add(
@@ -550,12 +642,13 @@ private fun DownloadCard(
     onAction: (DownloadAction, String) -> Unit,
     onOpen: (DownloadRowUiState) -> Unit,
     onPlay: (DownloadRowUiState) -> Unit,
+    onDeleteFile: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = YftTheme.colors
     var menuOpen by remember { mutableStateOf(false) }
     var detailsOpen by remember { mutableStateOf(false) }
-    val actions = cardActions(row, onAction, onOpen, onPlay) { detailsOpen = true }
+    val actions = cardActions(row, onAction, onOpen, onPlay, onDeleteFile) { detailsOpen = true }
     Box(modifier = modifier.fillMaxWidth()) {
         YftCard(
             modifier = Modifier

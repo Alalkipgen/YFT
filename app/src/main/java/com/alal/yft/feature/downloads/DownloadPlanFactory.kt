@@ -228,7 +228,7 @@ object DownloadPlanFactory {
                 mimeType = variant.mimeType,
                 codecs = variant.codecs.filter(String::isNotBlank),
                 expiresAtEpochMs = variant.expiresAtEpochMs,
-                wholeFile = WholeFileTrack(),
+                wholeFile = WholeFileTrack(totalBytes = statedLengthOf(variant.playbackUrl)),
             ),
             audio = DashDownloadPlan(
                 taskId = "$taskId-audio",
@@ -240,7 +240,9 @@ object DownloadPlanFactory {
                 mimeType = companion.mimeType,
                 codecs = companion.codecs,
                 expiresAtEpochMs = companion.expiresAtEpochMs,
-                wholeFile = WholeFileTrack(),
+                wholeFile = WholeFileTrack(
+                    totalBytes = statedLengthOf(companion.mediaUrl, companion.contentLengthBytes),
+                ),
             ),
             suggestedFileName = fileName,
             outputMimeType = outputMimeType,
@@ -264,6 +266,23 @@ object DownloadPlanFactory {
         val host = runCatching { URI(url).host }.getOrNull()?.lowercase(Locale.US) ?: return null
         val youTubeMedia = host == GOOGLEVIDEO_HOST || host.endsWith(".$GOOGLEVIDEO_HOST")
         return WholeFileTrack.DEFAULT_MAX_REQUEST_BYTES.takeIf { youTubeMedia }
+    }
+
+    /**
+     * The exact length YouTube's media servers give a file in its address (clen), or the
+     * [contentLength] YouTube stated for it, so the download needs no request to learn it (P41).
+     * Null for other servers, whose stated sizes may be estimates.
+     */
+    internal fun statedLengthOf(url: String, contentLength: Long? = null): Long? {
+        val uri = runCatching { URI(url) }.getOrNull() ?: return null
+        val host = uri.host?.lowercase(Locale.US) ?: return null
+        if (host != GOOGLEVIDEO_HOST && !host.endsWith(".$GOOGLEVIDEO_HOST")) return null
+        val clen = uri.rawQuery
+            ?.split('&')
+            ?.firstOrNull { parameter -> parameter.startsWith("clen=") }
+            ?.substringAfter('=')
+            ?.toLongOrNull()
+        return (clen ?: contentLength)?.takeIf { it > 0 }
     }
 
     private const val GOOGLEVIDEO_HOST = "googlevideo.com"

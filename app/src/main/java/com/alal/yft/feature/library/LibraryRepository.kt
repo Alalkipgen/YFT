@@ -7,7 +7,13 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
+import com.alal.yft.core.download.DownloadDestinationKind
 import com.alal.yft.core.download.MediaStoreDownloadDestination
+import com.alal.yft.download.AndroidDownloadedFileDeleter
+import com.alal.yft.download.AndroidFileDeleteSystem
+import com.alal.yft.download.DownloadedFileDeleter
+import com.alal.yft.download.FileDeletion
+import com.alal.yft.download.SavedDownloadFile
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -17,7 +23,10 @@ interface LibraryRepository {
     /** Every finished download, newest first. */
     suspend fun items(): List<LibraryItem>
 
-    /** Deletes the file behind [item]; false when it was already gone or could not be removed. */
+    /**
+     * Deletes the file behind [item]; true when it is gone (also when it was gone already, P42),
+     * false when it could not be removed.
+     */
     suspend fun delete(item: LibraryItem): Boolean
 }
 
@@ -30,6 +39,9 @@ interface LibraryRepository {
 class AndroidLibraryRepository(
     private val context: Context,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    /** The same deleter as the Downloads screen's "Delete file" (P42). */
+    private val fileDeleter: DownloadedFileDeleter =
+        AndroidDownloadedFileDeleter(AndroidFileDeleteSystem(context), ioDispatcher = ioDispatcher),
 ) : LibraryRepository {
     override suspend fun items(): List<LibraryItem> = withContext(ioDispatcher) {
         val shared = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -43,16 +55,21 @@ class AndroidLibraryRepository(
         )
     }
 
-    override suspend fun delete(item: LibraryItem): Boolean = withContext(ioDispatcher) {
-        when (item.location) {
-            LibraryLocation.SHARED_DOWNLOADS -> runCatching {
-                context.contentResolver.delete(Uri.parse(item.uri), null, null) > 0
-            }.getOrDefault(false)
+    override suspend fun delete(item: LibraryItem): Boolean {
+        val file = when (item.location) {
+            LibraryLocation.SHARED_DOWNLOADS -> SavedDownloadFile(
+                kind = DownloadDestinationKind.MEDIA_STORE,
+                uri = item.uri,
+                displayName = item.displayName,
+            )
 
-            LibraryLocation.APP_STORAGE ->
-                AppPrivateDownloads.resolve(AppPrivateDownloads.root(context), item.displayName)
-                    ?.delete() == true
+            LibraryLocation.APP_STORAGE -> SavedDownloadFile(
+                kind = DownloadDestinationKind.APP_PRIVATE,
+                uri = null,
+                displayName = item.displayName,
+            )
         }
+        return fileDeleter.delete(file) == FileDeletion.Deleted
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)

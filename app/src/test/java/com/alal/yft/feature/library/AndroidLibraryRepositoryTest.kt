@@ -58,7 +58,8 @@ class AndroidLibraryRepositoryTest {
         val drop = repository.items().single { it.displayName == "Drop.mp4" }
 
         assertTrue(repository.delete(drop))
-        assertFalse(repository.delete(drop))
+        // P42: a file that is already gone counts as deleted, as in Downloads' "Delete file".
+        assertTrue(repository.delete(drop))
         assertEquals(listOf("Keep.mp4"), repository.items().map(LibraryItem::displayName))
     }
 

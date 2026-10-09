@@ -281,8 +281,9 @@ class DashTransferEngineTest {
         assertArrayEquals(bytes, files.completed.readBytes())
         assertTrue(workspaceRoot.listFiles().orEmpty().isEmpty())
         val ranges = List(server.requestCount) { server.takeRequest().getHeader("Range") }
+        // FAST_START (P41): the first range states the length, so there is no bytes=0-0 probe.
         assertEquals(
-            listOf("bytes=0-0", "bytes=0-999", "bytes=1000-1999", "bytes=2000-2499"),
+            listOf("bytes=0-999", "bytes=1000-1999", "bytes=2000-2499"),
             ranges,
         )
         assertTrue(progress.all { it.totalBytes == 2_500L })

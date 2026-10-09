@@ -267,6 +267,11 @@ data class DownloadFailure(
      * when there is none.
      */
     val detail: String? = null,
+    /**
+     * When the download's first steps happened (P41), for example "start: plan 0.0 s · length
+     * 0.4 s (probe) · first byte 0.9 s · first progress 1.0 s"; times only, null when unknown.
+     */
+    val startTimeline: String? = null,
 ) {
     init {
         require(httpStatusCode == null || httpStatusCode in 100..599)

@@ -38,6 +38,17 @@ internal fun actionTag(action: DownloadAction, id: String): String =
 internal fun menuTag(action: DownloadAction, id: String): String =
     "download-menu-${action.name.lowercase(Locale.US)}-$id"
 
+/** "Delete file" on a finished download (P42), beside "Remove from list". */
+internal const val DELETE_FILE_LABEL = "Delete file"
+internal const val DELETE_FILE_TITLE = "Delete this file?"
+
+internal fun deleteFileTag(id: String): String = "download-menu-delete-file-$id"
+
+/** The question's text (P42): the file goes from Download/YFT and from the list, for good. */
+internal fun deleteFileQuestionText(fileName: String): String =
+    "\u201c$fileName\u201d will be removed from Download/YFT and from this list. " +
+        "This can't be undone."
+
 /** Visible button text. */
 internal fun actionLabel(action: DownloadAction): String = when (action) {
     DownloadAction.PAUSE -> "Pause"
@@ -269,8 +280,8 @@ internal fun destinationKindLabel(kind: DownloadDestinationKind): String = when 
 
 /**
  * The text of the failure Details dialog and of Copy details (P21): reason, stage, HTTP status,
- * detail, download type, destination and versions. It names no file, link or address, and the
- * detail is cleaned once more before it is shown.
+ * detail, start times (P41), download type, destination and versions. It names no file, link
+ * or address, and the detail is cleaned once more before it is shown.
  */
 internal fun failureDetailsText(
     row: DownloadRowUiState,
@@ -290,6 +301,11 @@ internal fun failureDetailsText(
         "Stage: ${stage ?: UNKNOWN}",
         "HTTP status: ${failure?.httpStatusCode ?: UNKNOWN}",
         "Detail: ${DownloadFailureDetails.sanitize(failure?.detail) ?: UNKNOWN}",
+        // How long the start took (P41): "Start: plan 0.0 s · length 0.4 s (probe) · …".
+        DownloadFailureDetails.sanitize(failure?.startTimeline)
+            ?.removePrefix("start:")
+            ?.trim()
+            ?.let { "Start: $it" },
         "Download type: ${planKindLabel(row)}",
         "Saved to: ${destinationKindLabel(row.destinationKind)}",
         "App: YFT ${appVersion.ifBlank { UNKNOWN }}",

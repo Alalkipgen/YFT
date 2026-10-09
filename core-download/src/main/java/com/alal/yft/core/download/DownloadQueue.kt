@@ -11,12 +11,14 @@ import com.alal.yft.core.model.download.DownloadFailureDetails
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DownloadFailureStage
 import com.alal.yft.core.model.download.DownloadPlan
+import com.alal.yft.core.model.download.DownloadProgress
 import com.alal.yft.core.model.download.DownloadTaskStatus
 import com.alal.yft.core.model.download.HlsDownloadPlan
 import com.alal.yft.core.model.download.HlsTransferCheckpoint
 import com.alal.yft.core.model.download.Mp3Encoding
 import com.alal.yft.core.model.download.RemoteFileMetadata
 import com.alal.yft.core.model.download.TransferCheckpoint
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -636,6 +638,8 @@ class DownloadQueue(
         // Stream engines state a length only in their progress, for example a merge of two
         // whole files; the next checkpoint gives the task that total.
         val reportedTotal = AtomicReference<Long?>(null)
+        // The bytes this run reported as written (P41), ahead of its checkpoints.
+        val reportedBytes = AtomicLong(0)
         try {
             when (
                 val result = transferDispatcher.transfer(
@@ -643,9 +647,18 @@ class DownloadQueue(
                     metadata = runtime.metadata,
                     destination = runtime.destination,
                     resumeFrom = initial.checkpoint,
-                    onProgress = { progress -> reportedTotal.set(progress.totalBytes) },
+                    onProgress = { progress ->
+                        reportedTotal.set(progress.totalBytes)
+                        reportedBytes.accumulateAndGet(progress.downloadedBytes, ::maxOf)
+                        publishProgress(initial.id, progress)
+                    },
                     onCheckpoint = { checkpoint ->
-                        persistCheckpoint(initial.id, checkpoint, reportedTotal.get())
+                        persistCheckpoint(
+                            id = initial.id,
+                            checkpoint = checkpoint,
+                            reportedTotal = reportedTotal.get(),
+                            reportedBytes = reportedBytes.get(),
+                        )
                     },
                 )
             ) {
@@ -681,20 +694,49 @@ class DownloadQueue(
         }
     }
 
+    /**
+     * Shows the bytes a running stream task wrote between its checkpoints (P41): a DASH range
+     * or a merged download's tracks report them as they come. Only the list moves; the store
+     * keeps the checkpoints.
+     */
+    private suspend fun publishProgress(id: String, progress: DownloadProgress) = gate.withLock {
+        val current = taskLocked(id) ?: return@withLock
+        if (current.status != DownloadTaskStatus.RUNNING) return@withLock
+        if (!current.planType.showsBytesInFlight) return@withLock
+        val downloaded = maxOf(current.downloadedBytes, progress.downloadedBytes)
+        val total = progress.totalBytes?.takeIf { it >= downloaded }
+            ?: current.totalBytes?.takeIf { it >= downloaded }
+        if (downloaded == current.downloadedBytes && total == current.totalBytes) {
+            return@withLock
+        }
+        publishLocked(current.copy(downloadedBytes = downloaded, totalBytes = total))
+    }
+
     private suspend fun persistCheckpoint(
         id: String,
         checkpoint: TransferCheckpoint,
         reportedTotal: Long? = null,
+        reportedBytes: Long = 0,
     ) = gate.withLock {
         val current = taskLocked(id) ?: return@withLock
         if (!current.planType.accepts(checkpoint)) return@withLock
         val checkpointTotal = (checkpoint as? DirectTransferCheckpoint)?.totalBytes
             ?: reportedTotal
+        // A running stream task keeps the bytes it showed (P41); a stopped one shows its
+        // checkpoint, which is what a resume keeps.
+        val downloaded = if (
+            current.status == DownloadTaskStatus.RUNNING &&
+            current.planType.showsBytesInFlight
+        ) {
+            maxOf(checkpoint.downloadedBytes, reportedBytes)
+        } else {
+            checkpoint.downloadedBytes
+        }
         val updated = current.copy(
             totalBytes = checkpointTotal
-                ?.takeIf { it >= checkpoint.downloadedBytes }
-                ?: current.totalBytes?.takeIf { it >= checkpoint.downloadedBytes },
-            downloadedBytes = checkpoint.downloadedBytes,
+                ?.takeIf { it >= downloaded }
+                ?: current.totalBytes?.takeIf { it >= downloaded },
+            downloadedBytes = downloaded,
             checkpoint = checkpoint,
             updatedAtEpochMs = clock(),
         )
@@ -758,7 +800,14 @@ class DownloadQueue(
     }
 
     private suspend fun saveAndPublishLocked(task: StoredDownloadTask) {
-        store.save(task)
+        // The store keeps checkpoints (P41): bytes in flight are only shown while running.
+        store.save(task.withCheckpointBytes())
+        publishLocked(
+            if (task.status == DownloadTaskStatus.RUNNING) task else task.withCheckpointBytes(),
+        )
+    }
+
+    private fun publishLocked(task: StoredDownloadTask) {
         val existing = mutableTasks.value.indexOfFirst { it.id == task.id }
         mutableTasks.value = if (existing < 0) {
             mutableTasks.value + task
@@ -766,6 +815,14 @@ class DownloadQueue(
             mutableTasks.value.toMutableList().apply { set(existing, task) }
         }
     }
+
+    /** A stopped stream task shows what its checkpoint keeps (P41), not the bytes in flight. */
+    private fun StoredDownloadTask.withCheckpointBytes(): StoredDownloadTask =
+        if (planType.showsBytesInFlight) {
+            copy(downloadedBytes = checkpoint.downloadedBytes)
+        } else {
+            this
+        }
 
     private fun taskLocked(id: String): StoredDownloadTask? =
         mutableTasks.value.firstOrNull { it.id == id }
