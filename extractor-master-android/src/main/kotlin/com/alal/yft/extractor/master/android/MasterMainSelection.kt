@@ -14,6 +14,7 @@ import com.alal.yft.extractor.master.MasterStage
 import com.alal.yft.extractor.master.PageSnapshot
 import com.alal.yft.extractor.master.ValidationResult
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.coroutineContext
 import kotlin.math.abs
 
@@ -42,11 +43,20 @@ class MasterMainSelection(
         val facts = target?.let { PageVideoFacts(durationMillis = it) }
         val checked = mutableListOf<MediaCandidate>()
         var rejection: SiteExtractionFailure? = null
+        // Leave headroom inside the unchanged engine timeout for verified main/More routing.
+        val deadline = System.nanoTime() + VALIDATION_WINDOW_MS * 1_000_000
+        suspend fun <T> bounded(block: suspend () -> T): T? {
+            val remaining = (deadline - System.nanoTime()) / 1_000_000
+            if (remaining <= 0) return null
+            return withTimeoutOrNull(remaining) { block() }
+        }
         for (candidate in candidates) {
             coroutineContext.ensureActive()
             if (candidate.mimeType?.startsWith("audio/") == true) continue
             if (ad(candidate, facts)) continue
-            when (val verdict = probe(candidate)) {
+            val verdict = bounded { probe(candidate) }
+            if (verdict == null) { rejection = SiteExtractionFailure.NETWORK; break }
+            when (verdict) {
                 is ValidationResult.Rejected -> {
                     if (verdict.reason == SiteExtractionFailure.DRM_PROTECTED) {
                         return failure(verdict.reason)
@@ -54,8 +64,11 @@ class MasterMainSelection(
                     rejection = verdict.reason
                 }
                 is ValidationResult.Valid -> {
-                    var media = metadata(verdict.candidate)
+                    val enriched = bounded { metadata(verdict.candidate) }
+                    if (enriched == null) { rejection = SiteExtractionFailure.NETWORK; break }
+                    var media = enriched
                     if (media.drmHint == true) return failure(SiteExtractionFailure.DRM_PROTECTED)
+                    if (media.mimeType?.startsWith("audio/") == true) continue
                     if (ad(media, facts)) continue
                     if (target != null && media.durationMillis?.let {
                             abs(it - target) <= DURATION_SLACK_MS
@@ -71,7 +84,9 @@ class MasterMainSelection(
                             width = null, height = null, framesPerSecond = null,
                             audioCompanion = null,
                         )
-                        when (val sound = probe(input)) {
+                        val sound = bounded { probe(input) }
+                        if (sound == null) { rejection = SiteExtractionFailure.NETWORK; break }
+                        when (sound) {
                             is ValidationResult.Rejected -> {
                                 if (sound.reason == SiteExtractionFailure.DRM_PROTECTED) {
                                     return failure(sound.reason)
@@ -184,5 +199,6 @@ class MasterMainSelection(
 
     private companion object {
         const val DURATION_SLACK_MS = 2_000L
+        const val VALIDATION_WINDOW_MS = 15_000L
     }
 }

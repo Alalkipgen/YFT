@@ -20,20 +20,27 @@ Generic files, existing site extractors, download code and CI workflows are unch
 ### Fresh checks
 
 - ✅ Original seven selection contracts and five safety guards: all 12 pass.
-- ✅ Combined policy/parser/transport-frame/opt-in unit suite: `OK (33 tests)`.
+- ✅ Combined policy/parser/transport-frame/opt-in/metadata unit suite: `OK (39 tests)`.
 - ✅ Disabled policy skips hook/capture/probe for every primary failure enum. A disabled
   selector equals the legacy engine; a null hook retains legacy refusal and exact-address success.
 - ✅ Real flag-off app factory returns the original `None`; every primary object passes through
   unchanged for both generic modes. `OK (1 test)`, isolated caller unit test with fail-fast
   dependency doubles, not an Android UI/device validation.
-- ✅ JavaScript transport: 13/13; repository scripts: 30/30.
-- ✅ Fragment-index/movie-extends duration tests were first run red (2 failures), then fixed
-  using actual `sidx`/`mehd` bytes. No DOM-to-candidate duration assignment.
-- ✅ Passive-candidate/primary-result UI isolation tests were first run red (2 failures), then
-  fixed with owned presentation keys and recorded ranking.
-- ✅ Large delivered TikTok DOM-state capture/refusal-field tests were first run red
-  (2 failures), then fixed with bounded focused-item projection. GET/API response-clone limits
-  stay unchanged; projected bodies remain at most 64 KiB; access/DRM fields are preserved.
+- ✅ JavaScript transport: 14/14; repository scripts: 30/30.
+- ✅ Fragment-index/movie-extends duration and passive-result UI isolation were first run red,
+  then fixed using actual container bytes and owned presentation keys respectively.
+- ✅ TikTok focused DOM state at index 8 was actually omitted by the eight-script limit.
+  The new regression failed first, then passed after prioritizing the two known delivered
+  DOM-state nodes within the unchanged eight-node/eight-payload budget. No endpoint, URL,
+  ID or playback evidence is invented. Projected bodies remain at most 64 KiB; refusal/DRM
+  fields and all response-clone limits are preserved.
+- ✅ Two audio-track/presentation tests failed first, then passed. Actual `hdlr=soun` with
+  no video handler corrects a misleading video MIME; audio-only entries cannot become main
+  or More. Missing decoded dimensions never reject a verified video; mixed tracks stay video.
+- ✅ A slow-alternative test failed first, then passed. Android-owned validation has a 15-second
+  sub-window inside the unchanged 20-second engine timeout, preserving an already verified main
+  and eligible alternatives if a later check stalls. Caller cancellation, DRM refusal, probe
+  budget and navigation-generation checks are not bypassed. Capture remains 2.5 seconds.
 
 ### Latest completed native diagnostics
 
@@ -42,20 +49,25 @@ frames, the hooked production selection policy, normal HTTPS validation and the 
 main/More presentation models. They do not prove Android APK sheet rendering.
 
 - ✅ Instagram `Dcwk7e1yHaY`: SUCCESS/PLAYBACK_CAPTURE, automatic main selected,
-  More list count 8. Native trusted click 1, capture 358 ms, authorized playback true.
+  More list count 7. Native trusted click 1, capture 361.2 ms, authorized playback true.
   DOM duration 61,966 ms; independently read selected media duration 61,966 ms;
-  selected dimensions 1080x1920. Nine validated candidates; TLSv1.3; 2,363,904 bounded
-  response bytes. No invented playing URL, MAIN role or requested ID.
-- ❌ TikTok `7670337149526379789`: latest completed pre-focused-state retry is HTTP_STATUS,
-  no main/More. Native trusted click 1, capture 353.3 ms, authorized playback true.
-  DOM duration 26,166 ms; the one accessible file is only 2,067 ms/720x816 and is correctly
-  rejected instead of being labelled the main video. Other media checks fail HTTP status.
-  TLSv1.3, 198,483 bounded response bytes. A retry with the focused DOM-state fix is pending.
+  selected dimensions 1080x1920. Nine validated inputs; one independently identified audio-only
+  input excluded; eight video outputs. TLSv1.3; 2,363,904 bounded response bytes.
+  An earlier retry exceeded the engine timeout; it is retained as a failure, not a pass.
+- ✅ TikTok `7670337149526379789`: SUCCESS/PLAYBACK_CAPTURE, automatic main selected,
+  no NEEDS_SELECTION. Native trusted click 1, capture 461.3 ms, authorized playback true.
+  DOM duration 26,166 ms; independently read selected media duration 26,005 ms;
+  selected dimensions 720x1280. TLSv1.3; 461,139 bounded response bytes.
+- ❌ TikTok More count is 0 in that successful run: no additional eligible video was validated.
+  The accessible unrelated 2,067 ms file is correctly rejected. The next retry was blocked
+  before Pause by a visible translation-tip overlay; it is not playback/capture proof.
+- ❌ Android APK main-sheet/More rendering and a fresh two-run gate for this changed tree
+  remain unverified. The old two-run APK pair does not validate the changed implementation.
 
-Overall completion is still ❌: TikTok positive live main/More and actual Android app UI
-validation are not yet proven. The old two-run APK gate does not validate this changed code.
+Overall completion is still ❌: both platforms now have positive desktop-native automatic-main
+logs, but TikTok nonempty More and actual Android app UI validation are not yet proven.
 No main merge, release/tag, phone APK delivery, full download/mux, all-resolution,
-Master-CI-green or merge-readiness claim.
+Master-CI-green or merge-readiness claim. Only the spike branch is used.
 
 ## Authorized Android-owned policy checkpoint
 

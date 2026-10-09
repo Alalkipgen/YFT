@@ -7,7 +7,9 @@ import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.master.MasterResult
 import com.alal.yft.extractor.master.ValidationResult
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -89,6 +91,48 @@ class MasterMainSelectionPolicyTest {
         selector.appCandidates(result.result.candidates, null)
         assertNull("A coincidentally matching primary URL is not a Master UI result",
             selector.presentation(original))
+    }
+
+    @Test
+    fun independentlyIdentifiedAudioDoesNotBecomeMainOrMore() = runBlocking {
+        val session = session()
+        val request = session.request(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED, 1)!!
+        val selector = MasterMainSelection(session, metadata = {
+            if (it.mediaUrl.endsWith("sound.mp4")) it.copy(mimeType = "audio/mp4") else it
+        })
+        val result = selector.select(request, request.snapshot!!,
+            listOf(media("sound"), media("video"))) { ValidationResult.Valid(it) }
+            as MasterResult.Success
+        assertEquals(listOf(media("video").mediaUrl), result.result.candidates.map { it.mediaUrl })
+    }
+
+    @Test
+    fun missingDimensionsAreNeverUsedToRejectAVerifiedVideo() = runBlocking {
+        val session = session()
+        val request = session.request(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED, 1)!!
+        val selector = MasterMainSelection(session)
+        val candidate = media("unknown-size").copy(width = null, height = null)
+        val result = selector.select(request, request.snapshot!!, listOf(candidate)) {
+            ValidationResult.Valid(it)
+        } as MasterResult.Success
+        assertEquals(listOf(candidate), result.result.candidates)
+    }
+
+    @Test
+    fun aSlowAlternativeDoesNotEraseAnAlreadyVerifiedMain() = runBlocking {
+        val session = session()
+        val request = session.request(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED, 1)!!
+        val selector = MasterMainSelection(session, metadata = {
+            if (it.mediaUrl.endsWith("slow.mp4")) delay(21_000)
+            it
+        })
+        val result = withTimeoutOrNull(18_000) {
+            selector.select(request, request.snapshot!!, listOf(media("main"), media("slow"))) {
+                ValidationResult.Valid(it)
+            }
+        }
+        assertNotNull("A slow More check must not erase a independently verified main", result)
+        assertEquals(listOf(media("main")), (result as MasterResult.Success).result.candidates)
     }
 
     private fun media(name: String) = MediaCandidate(

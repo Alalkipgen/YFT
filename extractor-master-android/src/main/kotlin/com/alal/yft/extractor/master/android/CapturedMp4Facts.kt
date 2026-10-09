@@ -7,6 +7,7 @@ internal object CapturedMp4Facts {
         val width: Int?,
         val height: Int?,
         val protected: Boolean,
+        val audioOnly: Boolean = false,
     )
 
     fun read(bytes: ByteArray): Facts? {
@@ -16,6 +17,8 @@ internal object CapturedMp4Facts {
         var width: Int? = null
         var height: Int? = null
         var protected = false
+        var audioTrack = false
+        var videoTrack = false
         var nodes = 0
         fun u32(at: Int): Long = (0..3).fold(0L) { n, i ->
             (n shl 8) or (bytes[at + i].toLong() and 255)
@@ -86,6 +89,12 @@ internal object CapturedMp4Facts {
                             ) duration = ticks * 1_000 / scale
                         }
                     }
+                    "hdlr" -> if (body + 12 <= end) {
+                        when (String(bytes, body + 8, 4, Charsets.US_ASCII)) {
+                            "soun" -> audioTrack = true
+                            "vide" -> videoTrack = true
+                        }
+                    }
                     "tkhd" -> {
                         if (end - body >= 84) {
                             val w = (u32(end - 8) ushr 16).toInt()
@@ -115,7 +124,7 @@ internal object CapturedMp4Facts {
         if (duration == null && movieScale > 0 && ticks != null &&
             ticks in 1..172_800L * movieScale
         ) duration = ticks * 1_000 / movieScale
-        return if (duration == null && width == null && !protected) null
-        else Facts(duration, width, height, protected)
+        return if (duration == null && width == null && !protected && !audioTrack) null
+        else Facts(duration, width, height, protected, audioTrack && !videoTrack)
     }
 }

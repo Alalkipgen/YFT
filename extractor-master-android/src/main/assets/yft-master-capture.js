@@ -228,7 +228,12 @@
       });
     Array.from(document.querySelectorAll(
       'script[type="application/json"],#__UNIVERSAL_DATA_FOR_REHYDRATION__,#SIGI_STATE'
-    )).slice(0, 8).forEach(function (node) {
+    )).sort(function (a, b) {
+      function focused(node) {
+        return node.id === "__UNIVERSAL_DATA_FOR_REHYDRATION__" || node.id === "SIGI_STATE";
+      }
+      return Number(focused(b)) - Number(focused(a));
+    }).slice(0, 8).forEach(function (node) {
       focusedDomState(node, generation);
       if (node.textContent.length <= MAX_BODY) payload(node.textContent, generation);
     });

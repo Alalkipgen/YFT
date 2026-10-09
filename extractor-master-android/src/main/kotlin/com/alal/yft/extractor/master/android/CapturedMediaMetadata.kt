@@ -42,6 +42,7 @@ class CapturedMediaMetadata(client: OkHttpClient) {
             if (suffix != null) facts = CapturedMp4Facts.read(suffix) ?: facts
         }
         return candidate.copy(
+            mimeType = if (facts?.audioOnly == true) "audio/mp4" else candidate.mimeType,
             durationMillis = facts?.durationMillis ?: candidate.durationMillis,
             width = facts?.width ?: candidate.width,
             height = facts?.height ?: candidate.height,

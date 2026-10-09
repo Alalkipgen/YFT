@@ -220,3 +220,25 @@ test("focused-state compaction retains actual refusal and DRM fields", () => {
   }), true);
   assert.equal(value.player, null);
 });
+
+test("focused TikTok state after eight unrelated JSON scripts is still captured", () => {
+  const page = "https://www.tiktok.com/@fixture/video/1234567890123456789";
+  const id = "1234567890123456789";
+  const state = { __DEFAULT_SCOPE__: {
+    "webapp.video-detail": { statusCode: 0, itemInfo: { itemStruct: {
+      id, video: { duration: 26, playAddr: "https://cdn.test/focused.mp4" }
+    } } }, unrelated: "x".repeat(70000)
+  } };
+  const scripts = Array.from({ length: 8 }, (_, index) => ({
+    id: "unrelated-" + index, textContent: JSON.stringify({ unrelated: index })
+  }));
+  scripts.push({ id: "__UNIVERSAL_DATA_FOR_REHYDRATION__", textContent: JSON.stringify(state) });
+  const value = packet(environment({ page, scripts }).env);
+  assert.equal(value.payloads.some(text => {
+    const item = JSON.parse(text).__DEFAULT_SCOPE__?.["webapp.video-detail"]?.itemInfo?.itemStruct;
+    return item?.id === id && item.video.playAddr === "https://cdn.test/focused.mp4";
+  }), true);
+  assert.equal(value.payloads.length <= 8, true);
+  assert.equal(value.payloads.every(text => text.length <= 65536), true);
+  assert.equal(value.player, null);
+});
