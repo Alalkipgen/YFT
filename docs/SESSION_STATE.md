@@ -7,7 +7,7 @@ Update this file before every checkpoint push. Keep it factual so another chat c
 - Owner-approved isolated code spike, not a Phase 14/15 task or a merge candidate.
 - Base: stable `origin/main` `a9eea7ba8d9f3d67442ffc3a51f2ad9e00c4a6a9`.
 - Workspace: `/data/YFT-Master`; original `/data/YFT` and TikTok work remain untouched.
-- Status: ANDROID CONNECTION IN PROGRESS; backup branch only, NOT APPROVED FOR MERGE.
+- Status: ANDROID FOUR-FIXTURE GATE PASSED; live-site validation pending, NOT APPROVED FOR MERGE.
   Owner explicitly approved continuing Android Play & Capture connection after the JVM backup.
   New `:extractor-master-android` producer and browser-only build-opt-in caller.
   `yft.masterCapture` defaults false; debug/preview may opt in, release remains false.
@@ -147,9 +147,29 @@ Update this file before every checkpoint push. Keep it factual so another chat c
   `1c4206e` is already included there; CI runs 37886371700, 37886371675 and 37886371676 were
   queried directly and all report success for `ce04711`. P40 collects TikTok page/API data,
   not the Master's native-Play/two-progress-sample proof. No TikTok or main code was changed.
-- Next: finish native cold-boot/focus/screenshot preflight, then repeat the full four-fixture
-  class twice with this one APK pair; only then finalize Android validation. Only after this task and
-  its checkpoint finish, perform the owner's requested Instagram/X public-page live validation.
+- Android finalization (2026-10-09): after the following reset, the same chat's saved APKs,
+  manifest and strict runner were recovered without rebuilding. Both APK SHA-256 values and
+  shared certificate matched the new-chat rebuild above; source stayed at `dbeee695`, with the
+  unchanged `3acfd4f8` harness. Fresh JS transport 11/11 and repo scripts 30/30 passed again.
+  API 29 x86_64 / WebView 74.0.3729.185 booted at 480x854, density 240, RAM 1,536 MiB, two
+  software-emulated cores. Device-side screencap/pull produced a valid 122,310-byte PNG of the
+  SystemUI ANR; the inspected native Wait action restored Launcher focus, confirmed by
+  WindowManager and a valid 191,958-byte screenshot. The focus guard was not weakened.
+  The exact same signed APK pair then passed two consecutive complete four-test classes:
+  `restored-pair1-1`: `OK (4 tests)`, JUnit 103.893 s (instrumentation wall 127 s);
+  `restored-pair1-2`: `OK (4 tests)`, JUnit 78.278 s (instrumentation wall 94 s).
+  Before/after installed APK bytes matched; the second run skipped reinstall only after its
+  hashes matched. Both metadata files identify the same source, harness, APKs and signer.
+  The positive fixture used its actual native tap, trusted-click receipt and sustained natural
+  playback; production collected its own fresh progress samples. No JS play/seek invocation
+  by instrumentation or forged playback evidence was added. Paused preload, DRM refusal and
+  navigation/disposal-generation cases also passed in both aggregates.
+  Portable APK/runner/setup/gate evidence backups were saved in this session. Production code,
+  the 2.5-second capture budget, independent progress authorization, DRM and navigation guards
+  remain unchanged. This proves the offline Android fixture gate only: no Master CI green,
+  live Instagram/X support, full TLS/download/mux or merge readiness claim.
+- Next: after this Android-finalization checkpoint, perform the owner's requested Instagram/X
+  public-page live validation. Report genuine public-page/permission/transport limitations.
   Run builds and emulator separately to avoid memory overlap. Main/Phase 15/TikTok untouched.
   No merge, tag, release or owner-phone APK handout approval.
 

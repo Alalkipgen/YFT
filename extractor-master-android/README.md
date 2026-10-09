@@ -130,6 +130,35 @@ lint totals above remain earlier-run results, not new runs.
 The local runner requires explicit APK paths, verifies installed APK bytes before skipping
 reinstallation, rejects native ANR/focus blocks and only accepts exact `OK (4 tests)`. The new
 480x854/density-240, 1,536-MiB, two-core API 29 AVD is cold-booting separately from Gradle.
-Native preflight and two consecutive aggregate passes remain pending. Production capture,
-adapters, downloads and CI workflows are unchanged. No Instagram/X live result, full
-download/mux proof or merge readiness is claimed.
+That preflight and the two-consecutive-pass gate are now complete; see the finalization below.
+Production capture, adapters, downloads and CI workflows are unchanged. No Instagram/X live
+result, full download/mux proof or merge readiness is claimed.
+
+### Android fixture gate finalized — 2026-10-09
+
+After another reset, the identical signed app/test binaries and manifest were restored from
+this session's backups, not rebuilt. SHA-256, signer and source/harness hashes were verified.
+API 29 x86_64 / WebView 74.0.3729.185 ran at 480x854, density 240, 1,536 MiB RAM and two
+software-emulated cores. Device-side screencap/pull returned a valid 122,310-byte SystemUI ANR
+image; the visible native Wait action restored Launcher focus, verified by WindowManager and
+a 191,958-byte screenshot. No focus guard was relaxed.
+
+The same `3acfd4f8` native-tap/sustained-readiness harness on source checkpoint `dbeee695`
+passed both consecutive complete class runs with one unchanged APK pair:
+
+| Run | Required aggregate | JUnit time | Instrumentation wall time |
+| --- | --- | --- | --- |
+| restored-pair1-1 | OK (4 tests) | 103.893 s | 127 s |
+| restored-pair1-2 | OK (4 tests) | 78.278 s | 94 s |
+
+Installed APK bytes matched before and after; reinstall was skipped on the second run only
+after checking its hashes. Both runs passed actual trusted native playback, paused-preload
+refusal, DRM refusal before probing and old-generation navigation/disposal rejection.
+Readiness observations never authorized capture; production still collected its own fresh
+progress samples within its unchanged 2.5-second timeout. Instrumentation never played,
+sought or forged playback evidence. Fresh JS 11/11 and repo scripts 30/30 passed again.
+
+The APKs, strict runner, native setup and redacted two-run instrumentation/logcat metadata
+were backed up as session files. Earlier full regression/lint results remain earlier-run
+evidence. This milestone is the offline Android fixture gate only, not live Instagram/X,
+TLS/full download/mux, all resolutions, universal player coverage, CI green or merge approval.
