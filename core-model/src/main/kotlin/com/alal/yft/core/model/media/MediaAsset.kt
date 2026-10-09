@@ -192,5 +192,8 @@ sealed interface VariantResolutionResult {
         val step: ResolutionStep? = null,
         /** P24: the host that request went to, never its path or query; null when unknown. */
         val host: String? = null,
+        /** P39: the exception's simple class name (e.g. SocketTimeoutException), never its
+         *  message; null when unknown. */
+        val error: String? = null,
     ) : VariantResolutionResult
 }

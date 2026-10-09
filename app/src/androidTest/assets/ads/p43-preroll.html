@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- P43 instrumented fixture: a video page of a site without an adapter (FIX_ADD_PLAN item 7).
+     It states a 10:05 video; its player setup names an HLS and an MP4 of it (links the test
+     answers as gone); its player first asks for an ad break and fetches the 30-second file the
+     answer names, from another site. Offline: the test answers every request itself; the
+     player is a stand-in that only asks for files (no media decoding on the CI emulator). All
+     hosts are reserved .test names; neutral text. -->
+<title>Harbour lights at dusk - Example Clips</title>
+<meta property="og:site_name" content="Example Clips">
+<meta property="og:title" content="Harbour lights at dusk">
+<meta property="og:video:duration" content="605">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"VideoObject","name":"Harbour lights at dusk",
+ "duration":"PT10M5S","uploadDate":"2024-05-01"}
+</script>
+</head>
+<body>
+<div id="player" style="width:320px;height:180px;background:#222"></div>
+<script>
+  // The site's player, reduced to what matters here: the ad break first, then its ad's file.
+  window.jwplayer = function (id) {
+    return {
+      setup: function (config) {
+        fetch(config.advertising.tag)
+          .then(function (answer) { return answer.text(); })
+          .then(function (xml) {
+            var media = /<MediaFile[^>]*>\s*(?:<!\[CDATA\[)?\s*([^\s<\]]+)/.exec(xml);
+            if (!media) return;
+            window.adAsked = media[1];
+            return fetch(media[1], { mode: 'no-cors' });
+          })
+          .catch(function () {});
+        return this;
+      }
+    };
+  };
+  jwplayer("player").setup({
+    advertising: { client: "vast", tag: "https://player.example.test/api/serve?zone=7&output=vast" },
+    sources: [
+      {file: "https://media.example.test/v43/master.m3u8?hash=script", type: "hls"},
+      {file: "https://media.example.test/v43/720.mp4?hash=script", label: "720p", type: "video/mp4"}
+    ]
+  });
+</script>
+</body>
+</html>

@@ -141,6 +141,8 @@ class CandidateNormalizer(
             observedAtEpochMs = maxOf(first.observedAtEpochMs, second.observedAtEpochMs),
             pageRole = mergedRole(first.pageRole, second.pageRole),
             pageVideoKey = newest.pageVideoKey ?: oldest.pageVideoKey,
+            // P43: a file that showed it is an ad anywhere stays one; the proof weighs it.
+            adSign = newest.adSign ?: oldest.adSign,
         )
     }
 

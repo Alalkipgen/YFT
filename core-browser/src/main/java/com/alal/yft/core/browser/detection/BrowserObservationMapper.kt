@@ -1,5 +1,6 @@
 package com.alal.yft.core.browser.detection
 
+import com.alal.yft.core.model.media.AdSign
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
@@ -35,6 +36,7 @@ object BrowserObservationMapper {
             },
             observedAtEpochMs = observation.observedAtEpochMs,
             pageRole = adRole(observation.requestUrl, observation.referer()),
+            adSign = adSign(observation.requestUrl, observation.referer()),
         )
     }
 
@@ -43,33 +45,30 @@ object BrowserObservationMapper {
      * that asked for it ([frameUrl], the request's `Referer`), names an ad server or ad words.
      * The page's own player asks with the page as its `Referer`, so its files keep no role.
      */
-    fun adRole(mediaUrl: String, frameUrl: String?): PageMediaRole? {
-        val ad = looksLikeAd(mediaUrl) || frameUrl?.let(::looksLikeAd) == true
-        return PageMediaRole.PREVIEW.takeIf { ad }
-    }
-
-    private fun looksLikeAd(url: String): Boolean {
-        val uri = runCatching { URI(url) }.getOrNull() ?: return false
-        val host = uri.host?.lowercase().orEmpty()
-        val labels = host.split('.')
-        if (labels.any { it in AD_HOST_LABELS } || AD_HOSTS.any { host.contains(it) }) return true
-        // P28: the ad networks of video sites without an adapter, by their whole domain.
-        if (AD_DOMAINS.any { host == it || host.endsWith(".$it") }) return true
-        // Whole folders only: a video called "the-vast-ocean" is no ad.
-        return uri.path.orEmpty().lowercase().split('/').any { it in AD_FOLDERS }
-    }
+    fun adRole(mediaUrl: String, frameUrl: String?): PageMediaRole? =
+        PageMediaRole.PREVIEW.takeIf { adSign(mediaUrl, frameUrl) != null }
 
     /**
-     * P28: whether [url] asks for an ad break: a VAST or VMAP document, by a whole path part
-     * (`vast`, `vast3.xml`, `vmap.php`; never `vast-ocean.mp4`). The file the player fetches
-     * right after one is the ad's ([VastAdTracker]).
+     * P43: what shows that [mediaUrl] is an ad's ([AdHosts.adSign]): its own address first,
+     * else the address of the frame that asked for it ([frameUrl]); null when nothing does.
      */
-    fun isAdBreakRequest(url: String): Boolean {
-        val uri = runCatching { URI(url) }.getOrNull() ?: return false
-        val scheme = uri.scheme?.lowercase()
-        if (scheme != "https" && scheme != "http") return false
-        return uri.path.orEmpty().lowercase().split('/').any { AD_BREAK_PART.matches(it) }
-    }
+    fun adSign(mediaUrl: String, frameUrl: String?): AdSign? =
+        AdHosts.adSign(mediaUrl) ?: frameUrl?.let(AdHosts::adSign)
+
+    /**
+     * P28: whether [url] asks for an ad break ([AdHosts.isAdBreakRequest]): a VAST or VMAP
+     * document by a whole path part (`vast`, `vast3.xml`, `vmap.php`; never `vast-ocean.mp4`),
+     * P43: also Google IMA's ad requests, `preroll` and `/ads/` requests. The file the player
+     * fetches right after one is the ad's ([VastAdTracker]).
+     */
+    fun isAdBreakRequest(url: String): Boolean = AdHosts.isAdBreakRequest(url)
+
+    /**
+     * P43: whether an answer of the page's ([contentType], its body's first characters
+     * [bodyStart]) is an ad break's: a VAST or VMAP document ([AdHosts.isAdBreakAnswer]).
+     */
+    fun isAdBreakAnswer(contentType: String?, bodyStart: String?): Boolean =
+        AdHosts.isAdBreakAnswer(contentType, bodyStart)
 
     private fun RequestObservation.referer(): String? =
         headers.entries.firstOrNull { it.key.equals("Referer", ignoreCase = true) }?.value
@@ -93,6 +92,9 @@ object BrowserObservationMapper {
             requestContext = observation.requestContext(),
             confidence = CandidateConfidence.LOW,
             observedAtEpochMs = observation.observedAtEpochMs,
+            // P43: a file an ad network serves is an ad, also when only its probe tells it.
+            pageRole = adRole(observation.requestUrl, observation.referer()),
+            adSign = adSign(observation.requestUrl, observation.referer()),
         )
     }
 
@@ -134,6 +136,9 @@ object BrowserObservationMapper {
             confidence = CandidateConfidence.HIGH,
             observedAtEpochMs = observation.observedAtEpochMs,
             pageRole = observation.pageRole ?: adRole(observation.mediaUrl, null),
+            // P43: what the page's markup says about a file it names stands.
+            adSign = AdHosts.adSign(observation.mediaUrl)
+                .takeUnless { observation.pageRole == PageMediaRole.MAIN },
         )
     }
 
@@ -205,28 +210,5 @@ object BrowserObservationMapper {
     )
     private val TRACKING_MARKERS = setOf(
         "/analytics", "/beacon", "/pixel", "/telemetry", "/tracking",
-    )
-
-    /** P24: host labels and hosts of ad servers, and the folders of ad files. */
-    private val AD_HOST_LABELS = setOf("ad", "ads", "adserver", "adservice", "adsystem", "vast")
-    private val AD_HOSTS = setOf(
-        "doubleclick", "googlesyndication", "googleadservices", "imasdk", "adnxs",
-        "amazon-adsystem", "advertising", "pubmatic", "rubiconproject", "spotxchange",
-        "springserve", "teads", "taboola", "outbrain", "criteo",
-    )
-    /**
-     * P28: ad networks seen serving the pre-roll on video sites without an adapter, by domain.
-     * Only networks whose ads were confirmed; a domain is never guessed from its name.
-     */
-    private val AD_DOMAINS = setOf(
-        "exoclick.com", "exosrv.com", "magsrv.com", "realsrv.com", "trafficjunky.net",
-        "trafficjunky.com", "juicyads.com", "jads.co", "tsyndicate.com", "trafficstars.com",
-        "adsterra.com",
-    )
-
-    /** P28: a path part that names a VAST or VMAP document. */
-    private val AD_BREAK_PART = Regex("""(vast|vmap)\d{0,2}(\.(xml|php|aspx?|jsp|json|cgi))?""")
-    private val AD_FOLDERS = setOf(
-        "ad", "ads", "adserver", "adverts", "vast", "vpaid", "preroll", "midroll",
     )
 }

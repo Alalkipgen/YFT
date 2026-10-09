@@ -72,6 +72,8 @@ internal object QuickDownloadFailures {
         failure.step?.let { add("Step: ${stepName(it)}") }
         failure.host?.let { add("Host: $it") }
         add("Status: ${failure.httpStatusCode?.let { "HTTP $it" } ?: reasonName(failure.reason)}")
+        // P39: the exception's class name only, never its message, address or query.
+        failure.error?.let { add("Error: $it") }
     }
 
     /**

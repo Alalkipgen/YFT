@@ -154,6 +154,64 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent C — `work/phase-15-ads` (P43)
 
-- Status: P43 TODO.
-- Base commit: —
-- Results, validation, regression proof, CI links, hand-offs: —
+- Status: P43 READY FOR MERGE (2026-10-09; `AD_RULE=STRICT`: the owner gave no answer). Last code
+  commit `85f0998` (P39 resolver, owner override); docs after it only.
+- Hand-off from A done: `Failure.error` + Details "Error: <Class>" (`175eca0`): the exception's
+  simple class name only, set by `QuickDownloadViewModel.resolveSafely`; adding error in
+  `DefaultVariantResolver`'s catch blocks: done by C (owner override), `85f0998` — A's P39
+  files of `8b0bc93` plus `error = error.errorClass()` in `resolve()`'s three catch blocks
+  (IOException, IllegalArgumentException, Exception); the header-probe and playlist-length
+  catches still return null. Regression proof: A's `8b0bc93` resolver put back → 2 of 23
+  `DefaultVariantResolverTest` failed (error null); restored with `cp`, `cmp` equal.
+- P44 merge note: when `work/phase-15-tiktok` is merged (last), `DefaultVariantResolver.kt` and
+  `DefaultVariantResolverTest.kt` may conflict: keep the integration (C) version. Check with
+  `git diff origin/work/phase-15-tiktok -- <both files>`: the only difference must be C's error
+  lines. If A changes either file after `8b0bc93`, take A's newest version and add the error
+  lines again.
+- Base commit: `d0bc7f7` (`origin/work/phase-15-integration`, the plan commit).
+- Starting state (before edits, 2026-10-09): `./gradlew --no-daemon --continue :core-model:test
+  :extractor-generic:test :core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug
+  :app:compileDebugAndroidTestKotlin` → BUILD SUCCESSFUL (9 min 34 s): 1071 tests, 0 failures,
+  66 skipped (core-model 106, extractor-generic 20, core-browser 138, app 807); lint 0 issues.
+- Result: on a site without an adapter one rule (`PageVideoProof`, core-model) decides at every
+  step of the sheet (first choice, page's newest link, player's link, page read again, next
+  video) whether a file is the page's video: named by the player setup, or its length (measured
+  first when unknown) matches the page's or the failed video's. Ads: `AdHosts` (own list, network
+  names under any suffix, IMA/VAST/pre-roll requests, VAST/VMAP answers), `AdSign` on candidates
+  (mapper, `VastAdTracker` incl. `onAnswer`), short files on long pages. Skipped files: "That was
+  an ad — showing the page's video"; nothing left: "Only an ad was found, not the page's video."
+  with Reload (stand-in of the page's length). Proven ads not counted in the sheet's other videos.
+- Plan adapted: P28's test "the sheet waiting for the page's video shows … then its line" offered
+  a 0:30 ad on a 16:24 page; it now sets `adRule = LENIENT` (LENIENT keeps the browser's first
+  choice) and a STRICT twin expects no ad offered. The size check of a stated file now keeps the
+  length it read (the header shows the proven length).
+- Validation (2026-10-09, after the P39 resolver): `./gradlew --no-daemon --continue
+  :core-model:test :core-media:testDebugUnitTest :extractor-generic:test
+  :core-browser:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug
+  :app:compileDebugAndroidTestKotlin` → BUILD SUCCESSFUL: 1145 tests, 0 failures, 66 skipped
+  (core-model 122, core-media 33 — new in the list for the resolver, extractor-generic 21,
+  core-browser 148, app 821; 1112 without core-media, +41 from 1071); lint 0 errors (95
+  warnings, unchanged); androidTest compiles; long-line check empty.
+- Regression proof: the 7 files before P43 + `QuickDownloadPrerollTest` → 4 of 5 failed, each
+  offering the 0:30 file; restored with `cp`, `cmp` equal (TEST_MATRIX "Agent C — P43").
+- CI (`4be6563`, the last code commit): checkpoint validation success
+  (https://github.com/Alalkipgen/YFT/actions/runs/37860957302), emulator smoke success
+  (https://github.com/Alalkipgen/YFT/actions/runs/37860957303; 38 instrumented tests, 0 failures,
+  0 FATAL — 37 before, `AdPrerollInstrumentedTest` added), Preview APK success
+  (https://github.com/Alalkipgen/YFT/actions/runs/37860957301). `175eca0` (P39 hand-off):
+  validation success (https://github.com/Alalkipgen/YFT/actions/runs/37869539298), emulator
+  success (https://github.com/Alalkipgen/YFT/actions/runs/37869539313; tests=38 failures=0,
+  0 FATAL), Preview APK success (https://github.com/Alalkipgen/YFT/actions/runs/37869539343).
+  `85f0998` (P39 resolver, last code commit): validation success
+  (https://github.com/Alalkipgen/YFT/actions/runs/37877862671), emulator success
+  (https://github.com/Alalkipgen/YFT/actions/runs/37877862760; tests=38 failures=0, 0 FATAL),
+  Preview APK success (https://github.com/Alalkipgen/YFT/actions/runs/37877862659).
+- Owner check: the adult site of item 7 — Download on 10 videos, several with a pre-roll: the
+  page's own length every time, never 0:30 ("That was an ad — showing the page's video" may
+  show); Javtiful and the HTTP-410 site still download; a Details screenshot for any miss.
+- Hand-offs to Agent A: (a) `BrowserScreen.kt:509` and `DetectedMediaScreen.kt:169` call
+  `MediaGroups.ofPage(…, facts, hideAds = true)` so proven ads are not listed under Other videos,
+  and `BrowserViewModel`'s `otherVideos` leaves out `PageVideoProof.isProvenAd` groups; (b)
+  `BrowserViewModel` calls `vastAds.onAnswer(observation, contentType, bodyStart)` where the
+  page's answers are read (e.g. `MediaMetadataProbe`'s non-media XML answers), so a VAST/VMAP
+  body starts an ad break when the request's address says nothing.

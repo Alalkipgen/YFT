@@ -1,5 +1,6 @@
 package com.alal.yft.extractor.generic.normalizer
 
+import com.alal.yft.core.model.media.AdSign
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.CandidateConfidence
 import com.alal.yft.core.model.media.CandidateSource
@@ -235,6 +236,24 @@ class CandidateNormalizerTest {
 
         assertTrue(first.mediaUrl.endsWith("token=player"))
         assertTrue(both.mediaUrl.endsWith("token=later"))
+    }
+
+    @Test
+    fun anAdSignSeenOnceStaysWithTheFile() {
+        // P43: the tracker marked the file inside an ad break; a later sight of it says nothing.
+        val marked = candidate("https://cdn.test/pre.mp4").copy(adSign = AdSign.AD_BREAK)
+        val later = candidate("https://cdn.test/pre.mp4", observedAt = 9)
+        val plain = candidate("https://cdn.test/main.mp4")
+
+        val result = CandidateNormalizer().normalize(pageUrl, listOf(marked, later, plain))
+
+        assertEquals(
+            mapOf(
+                "https://cdn.test/pre.mp4" to AdSign.AD_BREAK,
+                "https://cdn.test/main.mp4" to null,
+            ),
+            result.associate { it.mediaUrl to it.adSign },
+        )
     }
 
     private fun candidate(

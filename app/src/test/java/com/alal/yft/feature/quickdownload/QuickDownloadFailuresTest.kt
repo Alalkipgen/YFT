@@ -12,6 +12,7 @@ import java.net.MalformedURLException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** P24 (plan step 6): the sheet's failure follows what went wrong, and Details say where. */
@@ -85,6 +86,24 @@ class QuickDownloadFailuresTest {
             QuickDownloadFailures.hostOf("https://CDN.example.test/v/1.m3u8?token=secret"),
         )
         assertNull(QuickDownloadFailures.hostOf("blob:https://videos.example.test/3f2a"))
+    }
+
+    @Test
+    fun detailsEndWithTheErrorClassNameButNeverItsMessage() {
+        // P39: the exception's class name is the last Details line.
+        val timedOut = VariantResolutionResult.Failure(
+            VariantResolutionFailure.NETWORK,
+            step = ResolutionStep.MANIFEST,
+            host = "stream.example.test",
+            error = "SocketTimeoutException",
+        )
+        val details = QuickDownloadFailures.details(timedOut)
+        assertEquals("Error: SocketTimeoutException", details.last())
+        assertEquals(1, details.count { it.startsWith("Error:") })
+        // Without one there is no Error line and the Details are unchanged.
+        val unknown = timedOut.copy(error = null)
+        assertTrue(QuickDownloadFailures.details(unknown).none { it.startsWith("Error:") })
+        assertEquals(details.dropLast(1), QuickDownloadFailures.details(unknown))
     }
 
     @Test

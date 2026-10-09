@@ -86,11 +86,22 @@ object MediaGroups {
     /**
      * P24: [groups] (a page's videos, [pageVideos]) split into the page's own videos and what
      * only looks like a preview or an ad around them ([looksLikePreview]). When everything looks
-     * like a preview, nothing is set apart: the page's videos are all it has.
+     * like a preview, nothing is set apart: the page's videos are all it has. P43: with
+     * [hideAds], a video proven an ad by a sign only ads get ([PageVideoProof.isProvenAd]: an ad
+     * network, an ad address, an ad break) is not listed at all.
      */
-    fun ofPage(groups: List<MediaGroup>, facts: PageVideoFacts? = null): PageVideoList {
-        val (previews, videos) = groups.partition { looksLikePreview(it, groups, facts) }
-        return if (videos.isEmpty()) PageVideoList(groups) else PageVideoList(videos, previews)
+    fun ofPage(
+        groups: List<MediaGroup>,
+        facts: PageVideoFacts? = null,
+        hideAds: Boolean = false,
+    ): PageVideoList {
+        val listed = if (hideAds) {
+            groups.filterNot { PageVideoProof.isProvenAd(it, facts) }
+        } else {
+            groups
+        }
+        val (previews, videos) = listed.partition { looksLikePreview(it, listed, facts) }
+        return if (videos.isEmpty()) PageVideoList(listed) else PageVideoList(videos, previews)
     }
 
     /**

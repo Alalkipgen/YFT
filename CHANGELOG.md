@@ -27,7 +27,22 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Phase 15 — Agent C (P43)
 
-- (placeholder — Agent C replaces this line)
+- The page's video, never the ad (P43, FIX_ADD_PLAN item 7): on a site without an adapter the
+  Download sheet takes a file for the page's video only when the page's player names it or its
+  length matches the length the page states (within 5 s or 5 %) or the failed video's; a file of
+  unknown length is measured before its rows are shown. An ad network's file (YFT's own short
+  list, now with more video-ad networks under any suffix), a file fetched right after an ad break
+  (Google IMA's and DoubleClick's ad requests, a VAST query, a pre-roll or `/ads/` request, or an
+  answer that is a VAST or VMAP document) and a short file on a long page are skipped at every
+  step: the first choice, the page's newest link, the player's link, the page read again and the
+  next video. The sheet says "That was an ad — showing the page's video"; Details tell why
+  ("skipped: 0:30 ad (short)", "length 10:03 matches the page (10:05)"). When nothing passes no ad
+  is offered: "Only an ad was found, not the page's video." with Reload page and try again, which
+  looks for the page's length, not the ad. Proven ads are not counted as other videos. G8: STRICT
+  (the default); LENIENT keeps the browser's first choice as before.
+- A failed quality lookup's Details end with "Error: <class>" (e.g. `SocketTimeoutException`),
+  the error's class name only, never its message or address (P39 hand-off; the resolver's catch
+  blocks by C on the owner's override).
 
 ### Added
 
