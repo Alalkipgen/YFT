@@ -51,10 +51,22 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `git show a9eea7b:docs/SESSION_STATE.md`. Phase 13: `git show 5a5bddb:docs/SESSION_STATE.md`.
 - Phase 15 start: P38's full validation on `4da3e61` — 1532 tests, 0 failures, 66 skipped; lint
   0 errors; `:app:assembleRelease` OK.
-- Last pushed checkpoint: PLAN: Phase 15 (docs only, no CI) on `work/phase-15-integration`.
-- Next: the owner pastes `A-tiktok.md`, `B-downloads.md` and `C-ads.md` into three agent chats;
-  when all three are `READY FOR MERGE`, `M-merge-preview7.md` in Agent B's chat (P44).
-- Last updated: 2026-10-09 (plan)
+- P44 (2026-10-09, Agent B as integrator, `/data/YFT-B`): B → C → A merged with `--no-ff`
+  (`2661062`, `f3f80ce`, `257af94`); the only conflict, `DefaultVariantResolver.kt` and its test
+  (C's owner-override change of A's files), kept C's side (= A's `8b0bc93` file plus the `error`
+  lines). C → A hand-offs (a) and (b) open: (a) was tried and reverted (it breaks P24's
+  owner-case test that counts an ad as another video), (b) `vastAds.onAnswer` in the browser. Full
+  validation: 1717 tests, 0 failures, 66 skipped (app 900, core-browser 149, core-data 33,
+  core-download 184, core-media 33, core-model 122, extractor-api 36, extractor-generic 21,
+  extractor-sites 239; 1532 at the start); lint 0 errors (98 warnings: A's 3 androidx.webkit
+  notices); `:app:assembleRelease`: OK (lint vital needed a 2.5 GiB Gradle heap on the 4 GiB
+  sandbox); line check clean after wrapping one line of B's `DeleteFileScreenTest`.
+- Last pushed checkpoint: P44 merge B, C, A — full validation green, on
+  `work/phase-15-integration`.
+- Next: CI of the P44 checkpoint (checkpoint validation, emulator smoke, Preview APK =
+  **Preview #7**); then, as the owner asked, `main` fast-forwarded to it (no tag); the owner tests
+  Preview #7 (FIX_ADD_PLAN §6); P8 (signed `1.0.0-beta.4`) only with his OK.
+- Last updated: 2026-10-09 (P44)
 
 ## Agent A — `work/phase-15-tiktok` (P39, P40)
 

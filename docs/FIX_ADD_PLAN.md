@@ -283,27 +283,27 @@ here. AI agent time includes builds and CI waits on a 4 GiB sandbox.
 
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
-| P39 | [TikTok: read every answer TikTok gives, and say why when it fails](#p39--tiktok-read-every-answer-tiktok-gives-and-say-why-when-it-fails) | Medium | 5–7 h | — | TODO |
-| P40 | [TikTok from TikTok's own page, like YouTube](#p40--tiktok-from-tiktoks-own-page-like-youtube) | Hard | 8–12 h | P39 (same branch) | TODO |
+| P39 | [TikTok: read every answer TikTok gives, and say why when it fails](#p39--tiktok-read-every-answer-tiktok-gives-and-say-why-when-it-fails) | Medium | 5–7 h | — | DONE — OWNER CHECK (2026-10-09; merged by P44) |
+| P40 | [TikTok from TikTok's own page, like YouTube](#p40--tiktok-from-tiktoks-own-page-like-youtube) | Hard | 8–12 h | P39 (same branch) | DONE — OWNER CHECK (2026-10-09; merged by P44) |
 
 **Agent B — `work/phase-15-downloads`**
 
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
-| P41 | [YouTube: progress and speed from the first seconds](#p41--youtube-progress-and-speed-from-the-first-seconds) | Medium | 4–6 h | — | TODO |
-| P42 | [Downloads: Delete file](#p42--downloads-delete-file) | Easy–Medium | 3–5 h | — | TODO |
+| P41 | [YouTube: progress and speed from the first seconds](#p41--youtube-progress-and-speed-from-the-first-seconds) | Medium | 4–6 h | — | DONE — OWNER CHECK (2026-10-09; merged by P44) |
+| P42 | [Downloads: Delete file](#p42--downloads-delete-file) | Easy–Medium | 3–5 h | — | DONE — OWNER CHECK (2026-10-09; merged by P44) |
 
 **Agent C — `work/phase-15-ads`**
 
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
-| P43 | [Other sites: the page's video, never the ad](#p43--other-sites-the-pages-video-never-the-ad) | Medium | 5–7 h | — | TODO |
+| P43 | [Other sites: the page's video, never the ad](#p43--other-sites-the-pages-video-never-the-ad) | Medium | 5–7 h | — | DONE — OWNER CHECK (2026-10-09; merged by P44) |
 
 **Integration — Agent B, `work/phase-15-integration`**
 
 | ID | Task | Level | AI agent time | Needs | Status |
 | --- | --- | --- | --- | --- | --- |
-| P44 | [Merge B → C → A, full validation, Preview #7](#p44--merge-and-preview-7) | Medium | 2–3 h | P39–P43 READY FOR MERGE | TODO |
+| P44 | [Merge B → C → A, full validation, Preview #7](#p44--merge-and-preview-7) | Medium | 2–3 h | P39–P43 READY FOR MERGE | DONE (2026-10-09) — Preview #7 sent |
 | P8 | [Signed release 1.0.0-beta.4](#p8--signed-release-100-beta4) | Easy | 1–2 h | P44, Preview #7, owner OK | TODO |
 
 In parallel the wall time is about 15–22 h (A's TikTok track of 13–19 h, then P44); two agents
@@ -568,7 +568,22 @@ forced failure shows its Details lines in the sheet.
 YFT's browser → Download on a video page and on For You → qualities with sizes → the file plays;
 a `vt.tiktok.com` link on Home → qualities; anything that still fails → a screenshot of Details.
 
-**Result:** —
+**Result:** DONE — OWNER CHECK (Agent A, 2026-10-09, code `49fa1b7`, docs `8b0bc93`; merged by
+P44). YFT reads TikTok's phone page (`webapp.reflow.video.detail`) and desktop page
+(`webapp.video-detail`), any `__DEFAULT_SCOPE__` key holding the post and entity-encoded data;
+the desktop page (desktop Chrome agent, the WebView's Chrome version) is asked when the phone
+page fails or lists fewer than 2 qualities. Each quality's file is checked with
+`Range: bytes=0-0`, the answer's cookies and Referer `https://www.tiktok.com/` (exact sizes, a
+refused address → the next one, none → left out, at most 8 checks); the watermarked file only
+when nothing else opens. Every failure has Details (hosts only); a link landing on TikTok's home
+page → "This TikTok link does not open a video …"; "changed its page format" is gone; in the
+browser a failed lookup offers the file TikTok's player is playing. Requests: refused cookie
+pairs and headers are left out, a per-lookup cookie jar follows short-link redirects, too many
+redirects is an HTTP status, any other error names its class and step. The resolver never reads
+answers on the caller's thread, ends an unexpected error at its step and asks with a range GET
+when HEAD answers 5xx (live: 504). Live (US sandbox): 3 qualities with exact sizes, every file
+check 206. Agent A scope 1254 JVM tests, 0 failures; CI of `49fa1b7` green (37865869227,
+37865869239, 37865869254).
 
 ### P40 — TikTok from TikTok's own page, like YouTube
 
@@ -674,7 +689,22 @@ through 5 videos, Download on each → the on-screen video's qualities every tim
 qualities; a `vt.tiktok.com` link on Home → qualities within about 10 s; a screenshot of Details
 for anything that fails.
 
-**Result:** —
+**Result:** DONE — OWNER CHECK (Agent A, 2026-10-09, `ce04711`; merged by P44).
+`SiteExtractionRequest.pageData` (additive): the TikTok adapter builds rows from one post's data
+whose id matches, without asking for the page. Tab data: `core-browser/src/main/assets/tiktok/
+page-data.js` — `item` reads the post from the tab (`__UNIVERSAL_DATA_FOR_REHYDRATION__`,
+`SIGI_STATE`, then the store) within 1 s; `store` runs at document start (androidx.webkit
+1.12.1 `addDocumentStartJavaScript`, else `onPageStarted`) and keeps up to 200 compact items
+from TikTok's own `/api/` answers, never changing, delaying or repeating TikTok's requests.
+Hidden page (`TT_HIDDEN_PAGE=ON`): `TikTokPageEngine`, an offscreen WebView (desktop Chrome
+agent, images and media blocked, only `https` TikTok pages, at most 15 s, one at a time), only
+after YFT's own request failed (never after the site's own answer); a check still shown after
+3 s → `BOT_CHECK` "TikTok wants a check …" (never automated). Order: browser — tab data → page
+read with the tab's cookies → the tab again → hidden page → the player's file; Home — page read
+with the browser's TikTok cookies (G3) → hidden page → generic scan; Details list every step.
+Live (US sandbox): a video page found from the page's script in 0.7 s (5 qualities); For You → 4
+API answers kept, 32 posts, the first 5 found. Agent A scope 1313 JVM tests, 0 failures; CI of
+`ce04711` green (37886371700, 37886371675, 37886371676).
 
 ### P41 — YouTube: progress and speed from the first seconds
 
@@ -740,7 +770,15 @@ throttled test.
 Download, in the app and the notification; the file plays and seeks; a paused and resumed
 download still completes.
 
-**Result:** —
+**Result:** DONE — OWNER CHECK (Agent B, 2026-10-09, `6257307`; merged by P44).
+`DashTransferEngine` runs a pool of workers (the next range starts as soon as one ends), counts
+bytes as they are written (at most 4 updates a second, never backwards or past the total) and,
+with `FAST_START`, starts YouTube's whole-file tracks with a 1 MiB range, then 10 MiB ranges, 4
+at once, taking the length from the first range's `Content-Range` or the plan (`clen` /
+`contentLength`, trusted on `googlevideo.com` only) instead of a probe; a checkpoint saved with
+the old layout resumes with it. Merged downloads show both tracks' bytes in flight; the log and
+a failure's Details show the start times (`start: plan · length · first byte · first
+progress`).
 
 ### P42 — Downloads: Delete file
 
@@ -791,7 +829,15 @@ LibraryRepository.kt` (`delete` about line 46) and the Library screen.
 Library no longer shows it, the Files app's `Download/YFT` no longer has it; "Remove from list"
 still keeps the file.
 
-**Result:** —
+**Result:** DONE — OWNER CHECK (Agent B, 2026-10-09, `8ba7259`; merged by P44). A finished
+download's menu has "Delete file" beside "Remove from list"; with `DELETE_CONFIRM=ON` "Delete
+this file?" asks first (Delete / Cancel). `DownloadedFileDeleter` deletes by the record: YFT's
+MediaStore item (Android 11+ `createDeleteRequest`, Android 10 the
+`RecoverableSecurityException` action when needed), a SAF document or an app-private file; a
+file already gone counts as deleted; then the record goes and the Library follows ("File
+deleted" / "Could not delete the file"). `LibraryRepository.delete` uses the same deleter. Agent
+B scope 1116 tests, 0 failures; CI of `8ba7259` green (37862940024, 37862940003,
+37862940023).
 
 ### P43 — Other sites: the page's video, never the ad
 
@@ -878,7 +924,17 @@ P37's fixtures) behave as before.
 pre-roll) → the sheet shows the page's own length every time, never 0:30; a screenshot of
 Details for any miss.
 
-**Result:** —
+**Result:** DONE — OWNER CHECK (Agent C, 2026-10-09, `85f0998`; merged by P44;
+`AD_RULE=STRICT`). On a site without an adapter one rule (`PageVideoProof`, core-model) decides
+at every step of the sheet (first choice, the page's newest link, the player's link, the page
+read again, the next video) whether a file is the page's video: the player setup names it, or
+its length (measured first when unknown) matches the page's or the failed video's. Ads
+(`AdHosts`, `AdSign` from the mapper and `VastAdTracker`, short files on long pages) are
+skipped: "That was an ad — showing the page's video"; nothing left → "Only an ad was found, not
+the page's video." with Reload. Proven ads are not counted in the sheet's other videos. P39
+hand-off: `VariantResolutionResult.Failure.error` and Details "Error: <Class>" (`175eca0`) and,
+on the owner's override, the resolver's three catch blocks (`85f0998`). Agent C scope 1145
+tests, 0 failures; CI of `85f0998` green (37877862671, 37877862760, 37877862659).
 
 ### P44 — Merge and Preview #7
 
@@ -903,7 +959,21 @@ Medium · 2–3 h · needs P39–P43 `READY FOR MERGE` · **Agent B (integrator)
    **Preview #7**: its link and the §6 list to the owner in Burmese. Then stop. `main` is
    fast-forwarded only with `MAIN=OK`; P8 only with the owner's OK.
 
-**Result:** —
+**Result:** DONE (Agent B, 2026-10-09). `git merge --no-ff` B (`b42865c`, code `8ba7259`) →
+C (`8c8182d`, code `85f0998`) → A (`1c4206e`, code `ce04711`) on `work/phase-15-integration`
+(merges `2661062`, `f3f80ce`, `257af94`). B and C merged without conflicts (CHANGELOG,
+SESSION_STATE and TEST_MATRIX by sections). A: `DefaultVariantResolver.kt` and its test
+conflicted because C changed them on the owner's override (A's `8b0bc93` files plus the
+`error` lines); C's side was kept — it equals A's file plus C's lines, and A's P40 did not touch
+them. Hand-offs C → A left open (backlog, §7): (a) leaving proven ads out of the browser's and
+Detected media's lists and `BrowserViewModel`'s other-videos count was tried and reverted — it
+breaks `BrowserViewModelTest.aVideoPageWithPreviewsAndAnAdOpensItsStreamByItsLengthWithTheRest
+CountedAsOthers` (P24, the owner's case counts an ad as another video), so it needs Agent A and
+the owner's word; (b) `vastAds.onAnswer` from the browser's own reads of a page's answers. Line check: B's `DeleteFileScreenTest` had one 101-character
+line (wrapped). Full validation: 1717 tests, 0 failures, 66 skipped (app 900, core-browser 149, core-data 33, core-download 184, core-media 33, core-model 122, extractor-api 36, extractor-generic 21, extractor-sites 239; 1532 at the start); lint 0 errors (98 warnings: A's 3 androidx.webkit notices); `:app:assembleRelease`: OK (lint vital needed a 2.5 GiB Gradle heap on the 4 GiB sandbox).
+The owner asked to push `main` after the merge and to build the test-key Preview: `main` is
+fast-forwarded to the validated merge after its CI is green (no tag, no signed release). CI and
+Preview #7: SESSION_STATE Overview.
 
 ### P8 — Signed release 1.0.0-beta.4
 
@@ -1002,6 +1072,11 @@ Other items:
   list), updated from one place.
 - A private tab (no history, no cookies kept) and a per-site "allow pop-ups" list.
 - Adapters for named adult sites (Phase 13 F1 option C) only if the owner chooses it.
+- P43 hand-offs to Agent A left open by P44: (a) leave proven ads (`PageVideoProof.isProvenAd`)
+  out of the browser's and Detected media's lists and the other-videos count — today P24's
+  owner case counts an ad as another video (`BrowserViewModelTest`), so the owner decides; (b)
+  call `vastAds.onAnswer` where the browser reads a page's answers (e.g. `MediaMetadataProbe`'s
+  XML answers), so a VAST/VMAP body starts an ad break when the address says nothing.
 
 ## 8. Done before Phase 15
 

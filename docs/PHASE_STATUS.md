@@ -42,12 +42,14 @@ no tag): downloads and merges in the background with speed in the notification, 
 merge, TikTok's For You feed and fresh links instead of HTTP 410 (1532 tests, 0 failures). The
 owner tested it as Preview #6 on 2026-10-09.
 
-Phase 15 (planned 2026-10-09): three agents at once on their own branches from
-`work/phase-15-integration` (A: TikTok from TikTok's own page, B: YouTube's fast start and
-Delete file, C: the page's video, never the ad); P44 (Agent B) merges B → C → A and builds
-Preview #7; `1.0.0-beta.4` (P8) waits for the owner's phone test of Preview #7. Tasks, owner
-decisions, findings, file ownership and the phone checklist live in
-[`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md); prompts are in [`prompts/`](prompts/README.md).
+Phase 15 (P39–P44, 2026-10-09): three agents on their own branches (A: TikTok from TikTok's
+own page with every failure explained, B: YouTube's fast start and Delete file, C: the page's
+video, never the ad), merged by P44 (Agent B) B → C → A into `work/phase-15-integration`
+(1717 tests, 0 failures); Preview #7 sent; `main` fast-forwarded to the validated merge
+at the owner's request (no tag). `1.0.0-beta.4` (P8) waits for the owner's phone test of
+Preview #7. Tasks, Results and the phone checklist live in [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md);
+prompts are in [`prompts/`](prompts/README.md).
+
 
 ## History
 

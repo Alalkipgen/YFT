@@ -65,7 +65,11 @@ class DeleteFileScreenTest {
         setScreen(
             rows = listOf(row("c", DownloadTaskStatus.COMPLETED)),
             question = DeleteFileQuestion("c", "Movie.mp4"),
-            actions = DeleteFileActions({}, onConfirm = { confirmed++ }, onCancel = { cancelled++ }),
+            actions = DeleteFileActions(
+                {},
+                onConfirm = { confirmed++ },
+                onCancel = { cancelled++ },
+            ),
         )
 
         composeRule.onNodeWithTag("download-delete-file-dialog").assertIsDisplayed()
