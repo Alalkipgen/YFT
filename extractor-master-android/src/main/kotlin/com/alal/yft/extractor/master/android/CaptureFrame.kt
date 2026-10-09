@@ -33,6 +33,9 @@ internal data class FramePlayer(
     val ready: Long,
     val paused: Boolean,
     val visible: Boolean,
+    val duration: Double? = null,
+    val width: Int? = null,
+    val height: Int? = null,
 ) {
     override fun toString(): String = "FramePlayer(ready=$ready, paused=$paused)"
 }
@@ -68,6 +71,11 @@ internal object CaptureFrameReader {
                 ready = value["ready"].asLongOrNull ?: 0,
                 paused = value["paused"].asBooleanOrNull != false,
                 visible = value["visible"].asBooleanOrNull == true,
+                duration = value["duration"].asDoubleOrNull?.takeIf {
+                    it.isFinite() && it > 0 && it <= 172_800
+                },
+                width = value["width"].asLongOrNull?.takeIf { it in 1..16_384 }?.toInt(),
+                height = value["height"].asLongOrNull?.takeIf { it in 1..16_384 }?.toInt(),
             )
         }
         return CaptureFrame(

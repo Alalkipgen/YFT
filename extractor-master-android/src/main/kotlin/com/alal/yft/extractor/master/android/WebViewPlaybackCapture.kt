@@ -7,10 +7,14 @@ import com.alal.yft.core.browser.detection.RequestObservation
 import com.alal.yft.core.browser.detection.FocusedVideoProbe
 import com.alal.yft.core.browser.webview.BrowserObservationSink
 import com.alal.yft.core.model.media.BrowserRequestContext
+import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.master.CaptureResult
 import com.alal.yft.extractor.master.MasterRequest
+import com.alal.yft.extractor.master.MasterResult
+import com.alal.yft.extractor.master.PageSnapshot
 import com.alal.yft.extractor.master.PlaybackCaptureProvider
+import com.alal.yft.extractor.master.ValidationResult
 import java.lang.ref.WeakReference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -28,13 +32,16 @@ class WebViewPlaybackCapture(
     val enabled: Boolean,
     val session: MasterBrowserSession = MasterBrowserSession(),
     private val contentIdOf: (String) -> String? = { null },
+    metadata: suspend (MediaCandidate) -> MediaCandidate = { it },
 ) : PlaybackCaptureProvider {
+    private val mainSelection = MasterMainSelection(session, enabled, metadata)
     private var browser = WeakReference<WebView>(null)
     private var script: String? = null
 
     fun attach(view: WebView) {
         mainThread()
         if (!enabled) return
+        mainSelection.clear()
         session.clear()
         browser = WeakReference(view)
         script = view.context.assets.open("yft-master-capture.js")
@@ -59,6 +66,7 @@ class WebViewPlaybackCapture(
             null,
         )
         browser.clear()
+        mainSelection.clear()
         script = null
         session.clear()
     }
@@ -96,8 +104,24 @@ class WebViewPlaybackCapture(
 
     private fun navigate(url: String) {
         mainThread()
+        mainSelection.clear()
         session.navigate(url)?.let(::bind)
     }
+
+    suspend fun selectMain(
+        request: MasterRequest,
+        snapshot: PageSnapshot,
+        candidates: List<MediaCandidate>,
+        probe: suspend (MediaCandidate) -> ValidationResult,
+    ): MasterResult? = mainSelection.select(request, snapshot, candidates, probe)
+
+    fun appCandidates(
+        candidates: List<MediaCandidate>,
+        expectedKey: String?,
+    ): List<MediaCandidate>? = mainSelection.appCandidates(candidates, expectedKey)
+
+    fun mainAndMore(candidates: List<MediaCandidate>): MasterMainPresentation? =
+        mainSelection.presentation(candidates)
 
     private fun owns(owner: WeakReference<WebView>): Boolean =
         browser.get()?.let { it === owner.get() } == true

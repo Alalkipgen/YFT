@@ -20,6 +20,7 @@ dependencies {
     implementation(project(":core-browser"))
     implementation(project(":extractor-generic"))
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.okhttp)
     testImplementation(libs.junit)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.robolectric)

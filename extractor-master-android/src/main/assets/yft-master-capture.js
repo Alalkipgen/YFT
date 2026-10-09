@@ -207,7 +207,9 @@
       player: v ? {
         key: "video:" + selected.index, url: v.currentSrc || v.src || null,
         time: Number.isFinite(v.currentTime) ? v.currentTime : 0,
-        ready: v.readyState, paused: v.paused, visible: true
+        ready: v.readyState, paused: v.paused, visible: true,
+        duration: Number.isFinite(v.duration) && v.duration > 0 ? v.duration : null,
+        width: v.videoWidth || null, height: v.videoHeight || null
       } : null
     };
     state.payloads.splice(0, 4).forEach(function (text) {

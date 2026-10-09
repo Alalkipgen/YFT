@@ -1,5 +1,20 @@
 # YFT Master Extractor backup
 
+## Authorized Android-owned policy checkpoint
+
+The user authorized minimal hook/wiring edits in the three files listed below, in a separate
+revertible commit. The selection algorithm, Generic ad-rule reuse, bounded independent MP4
+metadata reads and main/More presentation mapping are implemented only in
+`extractor-master-android`. Module policy/parser/frame tests: `OK (13 tests)`; JS: 11/11.
+The original seven red contracts remain red until the separate hook commit is applied.
+
+The projection keeps original source identities in the memory-only capture record. Only UI
+copies use reserved presentation keys and no claimed post ID, so alternatives are not falsely
+declared qualities of one post. The existing MediaCandidate/MediaGroup/otherVideos app models
+are unchanged. Duration is read from delivered metadata or independently validated MP4 bytes,
+never copied from the DOM. Default/release flags and all original security guards are unchanged.
+Live main/More and full Android UI validation are still pending.
+
 ## Automatic main/More selection — test-first checkpoint
 
 Date: 2026-10-09. Baseline: `ac9695ce6758fbcace6ea1381f185a9e6b5a8278`.

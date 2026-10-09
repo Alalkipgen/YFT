@@ -45,6 +45,15 @@ class MasterBrowserSession {
     fun currentScope(): BrowserCaptureScope? = scope
 
     @Synchronized
+    internal fun focusedPlayer(request: MasterRequest): FramePlayer? {
+        val current = scope ?: return null
+        if (current.generation != request.generation || current.pageUrl != request.pageUrl ||
+            protected
+        ) return null
+        return previousPlayer?.takeIf { it.visible && !it.paused && it.ready >= 2 }
+    }
+
+    @Synchronized
     internal fun setContextProvider(provider: (String, String) -> BrowserRequestContext) {
         contextForUrl = provider
     }
