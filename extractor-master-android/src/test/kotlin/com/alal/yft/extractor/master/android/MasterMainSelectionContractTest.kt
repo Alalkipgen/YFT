@@ -216,7 +216,10 @@ class MasterMainSelectionContractTest {
                 session.snapshot(it)
             }
             val input = request ?: this.request()
-            return MasterFallbackEngine(validator, capture, policy).extract(input)
+            val selection = MasterMainSelection(session)
+            return MasterFallbackEngine(
+                validator, capture, policy, captureSelection = selection::select,
+            ).extract(input)
         }
     }
 

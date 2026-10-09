@@ -14,6 +14,14 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withTimeout
 import kotlin.coroutines.coroutineContext
 
+/** Optional host policy; null preserves the original engine path exactly. */
+typealias MasterCaptureSelection = suspend (
+    MasterRequest,
+    PageSnapshot,
+    List<MediaCandidate>,
+    suspend (MediaCandidate) -> ValidationResult,
+) -> MasterResult?
+
 /**
  * Isolated, opt-in second choice. No registry membership and no recursion into site adapters.
  *
@@ -24,6 +32,7 @@ class MasterFallbackEngine(
     private val validator: MasterMediaValidator,
     private val capture: PlaybackCaptureProvider = NoPlaybackCaptureProvider,
     private val policy: MasterPolicy = MasterPolicy(),
+    private val captureSelection: MasterCaptureSelection? = null,
 ) {
     private val reader = PayloadMediaReader()
     private val normalizer = CandidateNormalizer(
@@ -124,6 +133,9 @@ class MasterFallbackEngine(
                 .filter {
                     eligible(it, request.nowEpochMs) && UrlPolicy.whole(it.mediaUrl) !in previews
                 }
+            if (name == MasterStage.PLAYBACK_CAPTURE) {
+                captureSelection?.invoke(request, snapshot, normalized, ::probe)?.let { return it }
+            }
             val selected = select(normalized, snapshot)
             if (normalized.isNotEmpty() && selected.isEmpty()) {
                 ambiguous = true

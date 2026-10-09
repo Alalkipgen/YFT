@@ -569,14 +569,19 @@ class BrowserViewModel(
             val sheet = focusedSheet?.takeIf { it.key == siteAdapters.videoKey(url) }
             when (outcome) {
                 is SiteAdapterOutcome.Detected -> {
-                    val video = MediaGroups.pageVideos(outcome.candidates.filter { it.isSavable })
+                    val mainMore = masterFallback.mainAndMore(outcome.candidates)
+                    val video = mainMore?.main
+                        ?: MediaGroups.pageVideos(outcome.candidates.filter { it.isSavable })
                         .firstOrNull()
                     when {
                         video == null && sheet != null ->
                             showFocusedFailure(sheet, PROTECTED_FOCUSED_VIDEO_NOTICE, false)
                         video == null -> finishFocusLookup(PROTECTED_FOCUSED_VIDEO_NOTICE)
                         else -> {
-                            detectedMediaStore.select(video)
+                            if (mainMore != null) {
+                                mutableUiState.update { it.copy(sitePage = false) }
+                            }
+                            detectedMediaStore.select(video, mainMore?.more?.size ?: 0)
                             finishFocusLookup(notice = null)
                             if (sheet == null) {
                                 quickDownloads.trySend(Unit)
@@ -823,7 +828,9 @@ class BrowserViewModel(
     ) {
         pageLookupDone.complete(found.isNotEmpty())
         if (key == null) return
-        val video = MediaGroups.pageVideos(found.filter { it.isSavable }, adapterSite = true)
+        val mainMore = masterFallback.mainAndMore(found)
+        val video = mainMore?.main
+            ?: MediaGroups.pageVideos(found.filter { it.isSavable }, adapterSite = true)
             .firstOrNull()
         if (video == null) {
             detectedMediaStore.showLookup(
@@ -831,10 +838,11 @@ class BrowserViewModel(
             )
             return
         }
+        if (mainMore != null) mutableUiState.update { it.copy(sitePage = false) }
         foundPageVideo = video
         if (sheetAwaitsPageVideo) {
             sheetAwaitsPageVideo = false
-            detectedMediaStore.select(video)
+            detectedMediaStore.select(video, otherVideos = mainMore?.more?.size ?: 0)
         }
         detectedMediaStore.clearLookup(LookupOwner.BROWSER)
     }
@@ -888,7 +896,9 @@ class BrowserViewModel(
         val video = MediaGroups.pageVideos(savable, adapterSite = true).firstOrNull()
             ?: foundPageVideo
         if (video != null) {
-            detectedMediaStore.select(video)
+            detectedMediaStore.select(
+                video, otherVideos = masterFallback.mainAndMore(savable)?.more?.size ?: 0,
+            )
             return true
         }
         detectedMediaStore.awaitPageVideo()
@@ -965,10 +975,12 @@ class BrowserViewModel(
             mutableUiState.update { it.copy(pageLookupRunning = false) }
             if (outcome is SiteAdapterOutcome.Detected) {
                 val groups = MediaGroups.pageVideos(outcome.candidates.filter { it.isSavable })
-                val video = groups.singleOrNull()
+                val mainMore = masterFallback.mainAndMore(outcome.candidates)
+                val video = mainMore?.main ?: groups.singleOrNull()
                 if (video != null) {
                     candidateStore.submitAll(outcome.candidates)
-                    detectedMediaStore.select(video)
+                    if (mainMore != null) mutableUiState.update { it.copy(sitePage = false) }
+                    detectedMediaStore.select(video, otherVideos = mainMore?.more?.size ?: 0)
                     detectedMediaStore.clearLookup(LookupOwner.BROWSER)
                     masterLookupKey = null
                     return@launch

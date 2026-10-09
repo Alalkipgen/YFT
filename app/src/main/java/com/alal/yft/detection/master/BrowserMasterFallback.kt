@@ -1,6 +1,7 @@
 package com.alal.yft.detection.master
 
 import com.alal.yft.core.model.logging.DiagnosticTextSanitizer
+import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.detection.DeviceMergeSupport
 import com.alal.yft.detection.MergeSupport
 import com.alal.yft.detection.SiteAdapterCoordinator
@@ -13,6 +14,8 @@ import com.alal.yft.extractor.master.MasterRequest
 import com.alal.yft.extractor.master.MasterResult
 import com.alal.yft.extractor.master.OkHttpMediaValidator
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
+import com.alal.yft.extractor.master.android.CapturedMediaMetadata
+import com.alal.yft.extractor.master.android.MasterMainPresentation
 import java.net.URI
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +26,7 @@ import okhttp3.OkHttpClient
 interface BrowserMasterFallback {
     val enabled: Boolean
     val capture: WebViewPlaybackCapture? get() = null
+    fun mainAndMore(candidates: List<MediaCandidate>): MasterMainPresentation? = null
 
     suspend fun recover(
         lookupUrl: String,
@@ -51,6 +55,8 @@ class AndroidBrowserMasterFallback(
         capture::request,
 ) : BrowserMasterFallback {
     override val enabled: Boolean get() = capture.enabled
+    override fun mainAndMore(candidates: List<MediaCandidate>): MasterMainPresentation? =
+        capture.mainAndMore(candidates)
 
     override suspend fun recover(
         lookupUrl: String,
@@ -85,7 +91,8 @@ class AndroidBrowserMasterFallback(
         ) return primary
         return when (result) {
             is MasterResult.Success -> {
-                val focused = result.result.candidates.filter {
+                val focused = capture.appCandidates(result.result.candidates, key)
+                    ?: result.result.candidates.filter {
                     key == null || it.videoId == key
                 }
                 val kept = focused.filter(mergeSupport::canMerge)
@@ -170,12 +177,14 @@ class AndroidBrowserMasterFallback(
             val capture = WebViewPlaybackCapture(
                 enabled = true,
                 contentIdOf = { url -> sites.videoKey(url)?.substringAfter(':') },
+                metadata = CapturedMediaMetadata(client)::enrich,
             )
             return AndroidBrowserMasterFallback(
                 capture,
                 sites,
                 MasterFallbackEngine(
                     OkHttpMediaValidator(client), capture, MasterPolicy(enabled = true),
+                    captureSelection = capture::selectMain,
                 ),
             )
         }
