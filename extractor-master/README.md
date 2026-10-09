@@ -196,3 +196,11 @@ without another SSH key enrollment.
 Before considering integration: implement/review the real browser producer, test current
 public pages and actual focused playback, verify companion tracks and signed-link refresh,
 then obtain a new owner approval for integration/merge.
+
+## Owner-approved Android follow-on
+
+The owner subsequently approved Android Play & Capture connection on this same backup branch.
+`:extractor-master-android` now supplies a visible-WebView capture boundary; see its README for
+bounds, tests and limitations. Its initial module milestone passed 15 unit tests and lint.
+App wiring and actual Android playback tests are still in progress. Merge/release remains
+unapproved; the earlier "not wired into the app" description still applies to this checkpoint.

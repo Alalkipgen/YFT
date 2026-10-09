@@ -7,9 +7,10 @@ Update this file before every checkpoint push. Keep it factual so another chat c
 - Owner-approved isolated code spike, not a Phase 14/15 task or a merge candidate.
 - Base: stable `origin/main` `a9eea7ba8d9f3d67442ffc3a51f2ad9e00c4a6a9`.
 - Workspace: `/data/YFT-Master`; original `/data/YFT` and TikTok work remain untouched.
-- Status: BACKUP READY; inactive backup only, NOT APPROVED FOR MERGE.
-  New `:extractor-master` JVM module, opt-in fallback engine and memory-only capture boundary.
-  No production app/DI/registry wiring or workflow changes. Scope: `extractor-master/README.md`.
+- Status: ANDROID CONNECTION IN PROGRESS; backup branch only, NOT APPROVED FOR MERGE.
+  Owner explicitly approved continuing Android Play & Capture connection after the JVM backup.
+  New `:extractor-master-android` visible-WebView producer; no app wiring yet at this milestone.
+  Existing site adapters, download engine and CI workflows remain unchanged.
 - Baseline: `:core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test`
   passed: 360 tests, zero failures/errors/skips.
 - Branch-name exception: the owner explicitly approved `spike/master-extractor-backup`.
@@ -37,9 +38,14 @@ Update this file before every checkpoint push. Keep it factual so another chat c
   optional live-smoke skip (Master 76 passed + one skip; unchanged baseline 360 passed).
   Repository script tests: 30 passed. Diff, scope and sensitive-file checks passed.
 - CI: `spike/**` is not an automatic CI trigger; local JVM evidence only. No preview APK.
-- Next: leave this branch as an inactive backup. Future real Android capture production,
-  integration and live Instagram/X checks require separate owner approval. Do not merge,
-  tag, publish or claim live site coverage from fixture tests.
+- Android pre-edit baseline: Master 76 passed + optional skip; core-browser 138 passed;
+  app 807 cases, zero failures/errors, 66 existing skips; Android test Kotlin compiled.
+- Android module milestone: 15 unit tests passed, zero failures/errors/skips; lint no issues.
+  Native request context + bounded top-frame JS/API data, navigation generations, two-sample
+  playback evidence, DRM refusal and main-thread WebView boundary. App wiring not yet present.
+- Next: wire a build-opt-in app fallback without changing successful adapters or disabled-site
+  behavior; validate lifecycle/cancellation, JS hooks, generic on-demand flow and real Android
+  playback. Keep main/Phase 15/TikTok branches untouched. No merge, tag or release approval.
 
 Phase 14 runs three agents at the same time. **Each agent edits only its own section below**
 (`## Agent A …`, `## Agent B …`, `## Agent C …`); `## Overview` belongs to the plan and to P38.
