@@ -22,12 +22,12 @@
   (403/410/412/452–499) is asked again through WebView; "The site refused this link (HTTP n).
   Play the video for a moment, then try again."; Details add "Request:" and "Browser check:";
   proven ads leave the browser's lists. Full validation: 1729 tests, 0 failures, 66 skipped (app 903, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 239; 1717 before P45); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. **Preview #8:** https://github.com/Alalkipgen/YFT/actions/runs/37955002856 of `1d2f27a` (Artifacts › `yft-preview-apk`; on
-  `work/phase-15-integration`; `main` stays at `69bf022` until `MAIN=OK`).
+  `work/phase-15-integration`; now on `main` too, see P46).
 - **P46 (2026-10-10, Agent B alone):** TikTok — the browser joins the tab's one quality with the
   desktop page's; TikTok's "private" status on a page asks the desktop page, the hidden page and
   then a public download service (`tikwm.com`, post address only, no cookie); **Show check**
   shows TikTok's check to the user, Done looks again. Full validation: 1746 tests, 0 failures, 66 skipped (app 909, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 250; 1729 before P46); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. **Preview #9:** [37971914134](https://github.com/Alalkipgen/YFT/actions/runs/37971914134) (`462d508`; validation [37971914024](https://github.com/Alalkipgen/YFT/actions/runs/37971914024), smoke [37971914007](https://github.com/Alalkipgen/YFT/actions/runs/37971914007), all green)
-  (Artifacts › `yft-preview-apk`; `main` stays at `69bf022` until `MAIN=OK`). Owner's Preview #8
+  (Artifacts › `yft-preview-apk`). P45 + P46: `main` fast-forwarded to the P46 docs commit with the owner's approval (2026-10-09: "merge P45 & P46 to main"); `69bf022` → this commit, no merge commit. Owner's Preview #8
   test: more than 10 Pornhub videos fine.
 - **Next action — owner:** test Preview #9 (FIX_ADD_PLAN §6 "Preview #9"), then Preview #8 and #7 with
   FIX_ADD_PLAN §6 (TikTok with the VPN in the browser and on Home, YouTube's start, Delete file,
