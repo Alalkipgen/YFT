@@ -103,7 +103,10 @@ Keep at least the heading and one blank line between sections, so Git merges the
   (https://github.com/Alalkipgen/YFT/actions/runs/37860957302), emulator smoke success
   (https://github.com/Alalkipgen/YFT/actions/runs/37860957303; 38 instrumented tests, 0 failures,
   0 FATAL — 37 before, `AdPrerollInstrumentedTest` added), Preview APK success
-  (https://github.com/Alalkipgen/YFT/actions/runs/37860957301).
+  (https://github.com/Alalkipgen/YFT/actions/runs/37860957301). `175eca0` (P39 hand-off):
+  validation success (https://github.com/Alalkipgen/YFT/actions/runs/37869539298), emulator
+  success (https://github.com/Alalkipgen/YFT/actions/runs/37869539313; tests=38 failures=0,
+  0 FATAL), Preview APK success (https://github.com/Alalkipgen/YFT/actions/runs/37869539343).
 - Owner check: the adult site of item 7 — Download on 10 videos, several with a pre-roll: the
   page's own length every time, never 0:30 ("That was an ad — showing the page's video" may
   show); Javtiful and the HTTP-410 site still download; a Details screenshot for any miss.
