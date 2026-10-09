@@ -1,6 +1,6 @@
 # Master Extractor backup prototype
 
-**Experimental, opt-in, not wired into the app, and not approved for merge.**
+**BACKUP READY — experimental, opt-in, not wired into the app, and not approved for merge.**
 
 The owner approved a separate backup branch, `spike/master-extractor-backup`, based on stable
 `main` `a9eea7ba8d9f3d67442ffc3a51f2ad9e00c4a6a9`. Only this new JVM module, the Gradle include,
@@ -142,6 +142,26 @@ Validated hardening milestone: 77 module tests, zero failures/errors/skips, with
 real capture smoke supplied. The unchanged baseline's four JVM suites passed 360 tests with
 zero failures/errors/skips. TLS tests trust an explicit fixture certificate; verification is
 never disabled. Initial pushed checkpoint: `f8e7451` (56 module tests).
+
+### Final regression proof
+
+Code checkpoint: `35213502d29690903e9cbd0dc3d68bf3aaab989d`.
+
+- After restoring the hardened sources, all five JVM suites passed offline: 436 passed,
+  zero failures/errors and one intentional optional live-smoke skip (Master 76 passed,
+  baseline 360 passed). The earlier real-capture run passed all 437 with no skips.
+- Temporarily substituting the compatible pre-hardening engine made five regression tests
+  fail as expected: shared companion budget, preview veto, failed-audio rejection, multiple
+  formats for one HTML player, and checking explicitly identified small media.
+- Temporarily bypassing direct-file signature classification made the intended false-MIME
+  test fail. These expected failures prove the checks detect the tested bad behavior; they
+  are not unresolved failures in the hardened code.
+- Both temporary substitutions were restored byte-for-byte before the final passing run.
+  No mutation, capture snapshot, build output or temporary artifact is committed.
+- Repository script tests passed: 30 tests. Diff, scope and sensitive-file checks passed.
+
+Leave this branch as an inactive backup. This validation does not approve integration or
+establish live YouTube/Facebook/TikTok/Instagram/X fallback coverage.
 
 ### Real browser-to-fallback smoke
 

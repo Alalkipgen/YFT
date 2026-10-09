@@ -7,7 +7,7 @@ Update this file before every checkpoint push. Keep it factual so another chat c
 - Owner-approved isolated code spike, not a Phase 14/15 task or a merge candidate.
 - Base: stable `origin/main` `a9eea7ba8d9f3d67442ffc3a51f2ad9e00c4a6a9`.
 - Workspace: `/data/YFT-Master`; original `/data/YFT` and TikTok work remain untouched.
-- Status: HARDENED PROTOTYPE VALIDATED; backup only, NOT APPROVED FOR MERGE.
+- Status: BACKUP READY; inactive backup only, NOT APPROVED FOR MERGE.
   New `:extractor-master` JVM module, opt-in fallback engine and memory-only capture boundary.
   No production app/DI/registry wiring or workflow changes. Scope: `extractor-master/README.md`.
 - Baseline: `:core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test`
@@ -18,6 +18,8 @@ Update this file before every checkpoint push. Keep it factual so another chat c
 - Initial remote checkpoint: `f8e7451804c5d297dc4b9b2672d5493793de980d` (56 module tests),
   pushed by SSH. The sandbox later reset; recovered that exact checkpoint by HTTPS and
   verified it with the GitHub MCP. Further pushes use the connected GitHub MCP, no new SSH key.
+- Hardened code checkpoint: `35213502d29690903e9cbd0dc3d68bf3aaab989d`, pushed and verified
+  through GitHub MCP. The final checkpoint changes only this section and the module README.
 - Hardened validation with a real browser snapshot: `:extractor-master:test :core-model:test
   :extractor-api:test :extractor-generic:test :extractor-sites:test` passed: 437 tests,
   zero failures/errors/skips (Master 77, unchanged baseline 360).
@@ -28,10 +30,16 @@ Update this file before every checkpoint push. Keep it factual so another chat c
 - Real smoke: MDN neutral CC0 flower video played; 960 x 540, duration 5.055 s, two successful
   HTTP 206 video/mp4 requests. Actual capture -> Master fallback -> real HTTPS prefix probe
   passed. This is not Instagram/X, Android WebView or full download/mux validation.
+- Regression proof: the compatible pre-hardening engine failed five targeted tests; a
+  file-signature bypass failed the intended false-MIME test. Both are deliberate negative
+  checks, not unresolved hardened-code failures. Both source files were restored byte-for-byte.
+- Final restored-code offline validation: 436 passed, zero failures/errors, one intentional
+  optional live-smoke skip (Master 76 passed + one skip; unchanged baseline 360 passed).
+  Repository script tests: 30 passed. Diff, scope and sensitive-file checks passed.
 - CI: `spike/**` is not an automatic CI trigger; local JVM evidence only. No preview APK.
-- Next: checkpoint this validated hardening milestone, run mutation/regression QA, then keep
-  the branch as an inactive backup. Future Android producer/integration needs separate owner
-  approval. Do not merge, tag, publish or claim live Instagram/X support.
+- Next: leave this branch as an inactive backup. Future real Android capture production,
+  integration and live Instagram/X checks require separate owner approval. Do not merge,
+  tag, publish or claim live site coverage from fixture tests.
 
 Phase 14 runs three agents at the same time. **Each agent edits only its own section below**
 (`## Agent A …`, `## Agent B …`, `## Agent C …`); `## Overview` belongs to the plan and to P38.
