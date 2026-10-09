@@ -74,19 +74,46 @@ class DefaultVariantResolver(
     override suspend fun resolve(candidate: MediaCandidate): VariantResolutionResult {
         val trace = Trace(host = candidate.mediaUrl.toHttpUrlOrNull()?.host)
         val result = try {
-            resolveSafely(candidate, trace)
+            // P39 (R31): the requests never run on the caller's thread; the Download sheet
+            // asks from the main thread, where closing a response can throw.
+            withContext(Dispatchers.IO) { resolveSafely(candidate, trace) }
         } catch (cancellation: CancellationException) {
             throw cancellation
-        } catch (_: IOException) {
-            VariantResolutionResult.Failure(VariantResolutionFailure.NETWORK)
-        } catch (_: IllegalArgumentException) {
-            VariantResolutionResult.Failure(VariantResolutionFailure.INVALID_URL)
+        } catch (error: IOException) {
+            // P39 step 7: every failure names its error's class, never its message.
+            VariantResolutionResult.Failure(
+                VariantResolutionFailure.NETWORK,
+                error = error.errorClass(),
+            )
+        } catch (error: IllegalArgumentException) {
+            VariantResolutionResult.Failure(
+                VariantResolutionFailure.INVALID_URL,
+                error = error.errorClass(),
+            )
+        } catch (error: Exception) {
+            // P39 (R31): any other error ends as a failure at the step it stopped at, instead
+            // of escaping to the sheet as "manifest not readable" without a step.
+            VariantResolutionResult.Failure(
+                unexpectedFailureAt(trace.step),
+                error = error.errorClass(),
+            )
         }
         return if (result is VariantResolutionResult.Failure) {
             result.copy(step = result.step ?: trace.step, host = result.host ?: trace.host)
         } else {
             result
         }
+    }
+
+    /** P39: the exception's simple class name only, never its message, an address or a query. */
+    private fun Exception.errorClass(): String = javaClass.simpleName.ifBlank { javaClass.name }
+
+    /** The reason an unexpected error stands for at [step]. */
+    private fun unexpectedFailureAt(step: ResolutionStep): VariantResolutionFailure = when (step) {
+        ResolutionStep.ADDRESS -> VariantResolutionFailure.INVALID_URL
+        ResolutionStep.MANIFEST, ResolutionStep.MEDIA_PLAYLIST ->
+            VariantResolutionFailure.MALFORMED_MANIFEST
+        else -> VariantResolutionFailure.NETWORK
     }
 
     /** P24: where a resolution is: the step and host of its latest request. */
@@ -146,7 +173,7 @@ class DefaultVariantResolver(
 
         var finalUrl = head.finalUrl
         var metadata = head.response.use { it.toDirectMetadata() }
-        if (metadata.code == HTTP_METHOD_NOT_ALLOWED || metadata.code == HTTP_NOT_IMPLEMENTED) {
+        if (metadata.code.headSaysNothing()) {
             metadata = DirectMetadata(code = metadata.code)
         } else if (metadata.code !in SUCCESS_CODES) {
             return VariantResolutionResult.Failure(
@@ -162,8 +189,7 @@ class DefaultVariantResolver(
         }
 
         if (
-            metadata.code == HTTP_METHOD_NOT_ALLOWED ||
-            metadata.code == HTTP_NOT_IMPLEMENTED ||
+            metadata.code.headSaysNothing() ||
             metadata.mimeType == null ||
             metadata.totalLengthBytes == null
         ) {
@@ -276,6 +302,15 @@ class DefaultVariantResolver(
     }
 
     /**
+     * A HEAD answer that tells nothing about the file: HEAD refused (405, 501) or a server error
+     * (5xx; P39 live check: TikTok's file host answered HEAD with 504 while a range GET of the
+     * same address got the file). The file is then asked with the range GET, and only that
+     * answer's failure fails the lookup; a 4xx HEAD answer still fails at once.
+     */
+    private fun Int.headSaysNothing(): Boolean =
+        this == HTTP_METHOD_NOT_ALLOWED || this in SERVER_ERROR_CODES
+
+    /**
      * Reads the start of an MP4 file in a few small ranged requests and returns what its boxes
      * state, or null when the server does not answer ranges or the file is not MP4. Sent with
      * the same headers and redirect checks as the size lookup.
@@ -310,7 +345,8 @@ class DefaultVariantResolver(
             }
         } catch (cancellation: CancellationException) {
             throw cancellation
-        } catch (_: IOException) {
+        } catch (_: Exception) {
+            // P39: the header read is optional; any error leaves the row unmeasured.
             null
         }
     }
@@ -795,7 +831,6 @@ class DefaultVariantResolver(
         const val AUDIO_PREFIX = "audio/"
         const val VIDEO_PREFIX = "video/"
         const val HTTP_METHOD_NOT_ALLOWED = 405
-        const val HTTP_NOT_IMPLEMENTED = 501
         const val BUFFER_SIZE = 8_192
         const val RANGE_FIRST_BYTE = "bytes=0-0"
         const val DASH_MIME_TYPE = "application/dash+xml"
@@ -804,6 +839,7 @@ class DefaultVariantResolver(
             "application/vnd.apple.mpegurl, application/x-mpegurl, */*;q=0.1"
         const val EPOCH_MILLIS_THRESHOLD = 100_000_000_000L
         val SUCCESS_CODES = 200..299
+        val SERVER_ERROR_CODES = 500..599
         val REDIRECT_CODES = setOf(300, 301, 302, 303, 307, 308)
         val EXPIRY_QUERY_NAMES = setOf("exp", "expire", "expires", "expiration")
         val ISO_INSTANT_PATTERNS = listOf(

@@ -12,7 +12,13 @@ import com.alal.yft.core.model.media.ResolutionStep
 import com.alal.yft.core.model.media.VariantResolutionFailure
 import com.alal.yft.core.model.media.VariantResolutionResult
 import com.alal.yft.core.model.media.VariantSupport
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import okhttp3.ResponseBody.Companion.asResponseBody
+import okio.buffer
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
@@ -542,6 +548,200 @@ class DefaultVariantResolverTest {
             assertEquals(VariantResolutionFailure.INVALID_URL, page.reason)
         }
 
+    @Test
+    fun `a TikTok-shaped site file resolves to its one MP4 without a manifest step`() = runTest {
+        // P39 step 7: the owner's "Download · 1.4 MB" row was one MP4 on a TikTok file host,
+        // sent with the page answer's cookie. On the JVM it resolves; the phone's failure came
+        // from the request running on the sheet's main thread (see the next test).
+        val file = Mp4Fixtures.file(width = 576, height = 1024, audioKbps = 128)
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "video/mp4")
+                .setHeader("Content-Length", file.size.toString()),
+        )
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(206)
+                .setHeader("Content-Type", "video/mp4")
+                .setHeader("Content-Range", "bytes 0-${file.size - 1}/${file.size}")
+                .setBody(okio.Buffer().write(file)),
+        )
+        val url = server.url("/video/tos/useast5/tos-useast5-ve-0068c001/fixture/")
+            .newBuilder().addQueryParameter("mime_type", "video_mp4").build()
+
+        val result = resolver.resolve(
+            candidate(url.toString(), cookie = "tt_chain_token=fixture")
+                .copy(title = "Sunrise over the harbour — 540p"),
+        )
+
+        assertTrue(result.toString(), result is VariantResolutionResult.Success)
+        val variant = (result as VariantResolutionResult.Success).asset.variants.single()
+        assertEquals(1024, variant.height)
+        assertEquals(file.size.toLong(), variant.sizeBytes)
+        assertEquals(2, server.requestCount)
+        repeat(2) {
+            assertEquals("tt_chain_token=fixture", server.takeRequest().getHeader("Cookie"))
+        }
+    }
+
+    @Test
+    fun `responses are never read on the caller's thread, which Android forbids on main`() =
+        runTest {
+            // Stands in for NetworkOnMainThreadException: the sheet resolves from the main
+            // thread, and P38 closed the file check's range answer there, which reads its unread
+            // bytes on that thread; the error then escaped the resolver.
+            val callerThread = AtomicReference<Thread>()
+            val guarded = resolverReading {
+                check(Thread.currentThread() !== callerThread.get()) { "read on the main thread" }
+            }
+            val file = Mp4Fixtures.file(width = 576, height = 1024, audioKbps = 128)
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "video/mp4")
+                    .removeHeader("Content-Length"),
+            )
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(206)
+                    .setHeader("Content-Type", "video/mp4")
+                    .setHeader("Content-Range", "bytes 0-0/${file.size}")
+                    .setBody(okio.Buffer().write(file.copyOfRange(0, 1))),
+            )
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(206)
+                    .setHeader("Content-Type", "video/mp4")
+                    .setHeader("Content-Range", "bytes 0-${file.size - 1}/${file.size}")
+                    .setBody(okio.Buffer().write(file)),
+            )
+            val caller = Executors.newSingleThreadExecutor()
+
+            val result = try {
+                withContext(caller.asCoroutineDispatcher()) {
+                    callerThread.set(Thread.currentThread())
+                    runCatching { guarded.resolve(candidate(server.url("/clip.mp4").toString())) }
+                }
+            } finally {
+                caller.shutdown()
+            }
+
+            val success = result.getOrNull() as? VariantResolutionResult.Success
+            assertTrue(result.toString(), success != null)
+            assertEquals(file.size.toLong(), success?.asset?.variants?.single()?.sizeBytes)
+            assertEquals(1024, success?.asset?.variants?.single()?.height)
+        }
+
+    @Test
+    fun `a file server that answers HEAD with a server error is asked for the file itself`() =
+        runTest {
+            // P39 live check: TikTok's file host answered the Download sheet's HEAD for the
+            // 540p H.265 file with 504, while a one-byte GET of the same address got the file.
+            val file = Mp4Fixtures.file(width = 576, height = 1024, audioKbps = 128)
+            server.enqueue(MockResponse().setResponseCode(504))
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(206)
+                    .setHeader("Content-Type", "video/mp4")
+                    .setHeader("Content-Range", "bytes 0-0/${file.size}")
+                    .setBody(okio.Buffer().write(file.copyOfRange(0, 1))),
+            )
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(206)
+                    .setHeader("Content-Type", "video/mp4")
+                    .setHeader("Content-Range", "bytes 0-${file.size - 1}/${file.size}")
+                    .setBody(okio.Buffer().write(file)),
+            )
+
+            val result = resolver.resolve(candidate(server.url("/clip.mp4").toString()))
+
+            assertTrue(result.toString(), result is VariantResolutionResult.Success)
+            val variant = (result as VariantResolutionResult.Success).asset.variants.single()
+            assertEquals(file.size.toLong(), variant.sizeBytes)
+            assertEquals(MediaSizeAccuracy.EXACT, variant.sizeAccuracy)
+            assertEquals(1024, variant.height)
+            assertEquals("HEAD", server.takeRequest().method)
+            assertEquals("bytes=0-0", server.takeRequest().getHeader("Range"))
+
+            // The lookup fails only when the range GET fails too, with that answer's status.
+            server.enqueue(MockResponse().setResponseCode(503))
+            server.enqueue(MockResponse().setResponseCode(502))
+            val refused = resolver.resolve(candidate(server.url("/gone.mp4").toString()))
+                as VariantResolutionResult.Failure
+            assertEquals(VariantResolutionFailure.HTTP_STATUS, refused.reason)
+            assertEquals(502, refused.httpStatusCode)
+            assertEquals(ResolutionStep.FILE_CHECK, refused.step)
+            // P39: a status failure has no exception class.
+            assertNull(refused.error)
+        }
+
+    @Test
+    fun `an unexpected error ends as a failure at the step it stopped at`() = runTest {
+        val crashing = resolverReading { error("fixture") }
+        server.enqueue(manifestResponse("#EXTM3U\n", "application/vnd.apple.mpegurl"))
+
+        val result = runCatching {
+            crashing.resolve(candidate(server.url("/v/master.m3u8").toString(), MediaKind.HLS))
+        }
+
+        val failure = result.getOrNull() as? VariantResolutionResult.Failure
+        assertTrue(result.toString(), failure != null)
+        assertEquals(VariantResolutionFailure.MALFORMED_MANIFEST, failure?.reason)
+        assertEquals(ResolutionStep.MANIFEST, failure?.step)
+        assertEquals(server.hostName, failure?.host)
+        // P39 step 7: the failure names its error's class.
+        assertEquals("IllegalStateException", failure?.error)
+    }
+
+    @Test
+    fun `a connection that times out is a network failure naming SocketTimeoutException`() =
+        runTest {
+            val timingOut = DefaultVariantResolver(
+                client = OkHttpClient.Builder().addInterceptor {
+                    throw java.net.SocketTimeoutException("timeout")
+                }.build(),
+                policy = DefaultVariantResolver.Policy(),
+                clock = { NOW },
+            )
+
+            val failure = timingOut.resolve(candidate(server.url("/clip.mp4").toString()))
+                as VariantResolutionResult.Failure
+
+            assertEquals(VariantResolutionFailure.NETWORK, failure.reason)
+            // P39: the class name only, never the message.
+            assertEquals("SocketTimeoutException", failure.error)
+            assertEquals(server.hostName, failure.host)
+        }
+
+    /** A resolver whose response bodies call [onBytes] whenever bytes are read from them. */
+    private fun resolverReading(onBytes: () -> Unit) = DefaultVariantResolver(
+        client = OkHttpClient.Builder().addInterceptor { chain ->
+            val response = chain.proceed(chain.request())
+            val body = response.body ?: return@addInterceptor response
+            val source = object : okio.ForwardingSource(body.source()) {
+                override fun read(sink: okio.Buffer, byteCount: Long): Long =
+                    super.read(sink, byteCount).also { if (it > 0) onBytes() }
+
+                // Like OkHttp, closing an answer that was not read to its end reads the rest.
+                override fun close() {
+                    try {
+                        val rest = okio.Buffer()
+                        while (read(rest, DISCARD_BYTES) != -1L) rest.clear()
+                    } finally {
+                        super.close()
+                    }
+                }
+            }
+            response.newBuilder()
+                .body(source.buffer().asResponseBody(body.contentType(), body.contentLength()))
+                .build()
+        }.build(),
+        policy = DefaultVariantResolver.Policy(),
+        clock = { NOW },
+    )
+
     private fun candidate(
         url: String,
         kind: MediaKind = MediaKind.DIRECT,
@@ -570,6 +770,7 @@ class DefaultVariantResolverTest {
 
     private companion object {
         const val NOW = 2_000_000_000_000L
+        const val DISCARD_BYTES = 8_192L
 
         /** P24: the codecs of the page's HLS master's two qualities. */
         const val AVC_720 = "avc1.4d401f,mp4a.40.2"
