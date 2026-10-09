@@ -37,6 +37,18 @@ for every APK given to users, because Android refuses to install a lower one.
   cause of the "Download · 1.4 MB" row that failed without a step), any unexpected error ends as
   a failure at its step, and a file host that answers HEAD with a server error (5xx) is asked
   with a range request instead.
+- TikTok from TikTok's own page (P40): in YFT's browser, Download on a TikTok video or on For
+  You takes the video's data from the page being watched — TikTok's own page data and the
+  answers TikTok's own feed got (kept by a small script that never changes TikTok's requests) —
+  so a video that plays can be downloaded whatever TikTok answers YFT's own requests. Its files
+  are checked with the tab's TikTok cookies.
+- Home's TikTok links (P40): Home's lookup carries the TikTok cookies YFT's browser already has,
+  and when TikTok's page cannot be read YFT opens the video's TikTok page out of sight (desktop
+  Chrome, no pictures or video, at most 15 s, one at a time) and takes the post from it. A check
+  that needs a person says "TikTok wants a check. Open the video in YFT's browser, then tap
+  Download."; YFT never answers checks.
+- Every TikTok step in Details (P40): the tab's data, the page read, the hidden page and what
+  each gave.
 
 ### Phase 15 — Agent B (P41, P42)
 

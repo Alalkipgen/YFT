@@ -58,16 +58,10 @@ Keep at least the heading and one blank line between sections, so Git merges the
 
 ## Agent A — `work/phase-15-tiktok` (P39, P40)
 
-- Status: P39 DONE (2026-10-09), P40 IN PROGRESS (started 2026-10-09; base commit `8b0bc93`,
-  the P39 checkpoint).
-- Progress (P40): set-up done (clone `/data/YFT-A`, new key `/data/.ssh/yft_a_202610090329`
-  added by the owner, toolchain under `/data/opt`); starting state green (1254 tests, 0
-  failures); page-data request field (extractor-api), TikTok rows from a page's post data
-  (extractor-sites) and the page script asset written; app side started (androidx.webkit,
-  tab/hidden-page contracts, page script helper, hidden page engine, coordinator order,
-  browser tab reads, Home's TikTok cookies; compiles); fixtures and JVM tests written and
-  green (page data, order, page script, hidden page engine, Home cookies, browser tab reads);
-  instrumented tests written; regression proof, live check and full validation next.
+- Status: READY FOR MERGE — P39 DONE (2026-10-09), P40 DONE (2026-10-09; base commit
+  `8b0bc93`, the P39 checkpoint).
+- P40 set-up: clone `/data/YFT-A`, key `/data/.ssh/yft_a_202610090329` (added by the owner),
+  toolchain under `/data/opt`; starting state green (1254 JVM tests, 0 failures).
 - Base commit: `d0bc7f7` (= `origin/work/phase-15-integration`, the plan commit); folder
   `/data/YFT-A`; push over SSH with the key named in `/data/.ssh/CURRENT_KEY` (sandbox reset on
   2026-10-09: new key `/data/.ssh/yft_a_20261009`, added by the owner as a deploy key; JDK 17,
@@ -175,11 +169,113 @@ Keep at least the heading and one blank line between sections, so Git merges the
   but a row with such an address would fail at FILE_CHECK with 404, because a 4xx HEAD answer still
   fails (the owner's rule for the 5xx fix); P40 or later could skip the HEAD for TikTok rows whose
   file the adapter already checked.
+- P40 Result (all 7 steps; code in the P40 checkpoint, base `8b0bc93`):
+  - Page data (step 1): `SiteExtractionRequest.pageData: SitePageData? = null` (extractor-api,
+    additive): one post's JSON text, at most 64 KB (UTF-8), and its source — `TAB_SCRIPT`
+    "tab · page script", `TAB_API_ANSWER` "tab · API answer", `HIDDEN_PAGE` "hidden page";
+    `toString` names the source and size only. The TikTok adapter builds rows from data whose
+    id is the link's post id without asking for the page (Details `data: tab · API answer ·
+    JSON: read`, `post id: matches`, `answer: tab · 3 working qualities`) and checks the files
+    as in P39 step 6 with the lookup's cookies and Referer `https://www.tiktok.com/`. Another
+    post's id, data that is not JSON or no file that opens → P39's page read (`data: … not used
+    · page read next`); a short link has no post id yet, so its page is read. Data from the
+    hidden page is the last word (its page was read before).
+  - Tab data (step 2): one asset, `core-browser/src/main/assets/tiktok/page-data.js` (modes
+    `store` and `item`). Every TikTok lookup in the browser (the page's own lookup, Download,
+    For You's video on screen, Try again) asks the screen to run `item` for the post id (P36's
+    on-screen id, else the address) with `evaluateJavascript` on the main thread and waits at
+    most 1 s. The compact item (P40's shape) comes from `__UNIVERSAL_DATA_FOR_REHYDRATION__`
+    (any `__DEFAULT_SCOPE__` key), `SIGI_STATE`, then the store; the reply carries the tab's
+    `tiktok.com` cookies from `CookieManager` (never logged). Without the browser screen (no
+    collector) there is no tab to read and no wait.
+  - API answers (step 3): `store` runs at document start through androidx.webkit 1.12.1
+    `addDocumentStartJavaScript` for `https://www.tiktok.com` and `https://m.tiktok.com`, on
+    the tab and on the hidden page. It wraps `fetch` and `XMLHttpRequest` for same-site `/api/`
+    paths, reads a clone after TikTok's code got its answer and keeps up to 200 compact items
+    by id in a page-local object; TikTok's requests are never changed, delayed or repeated,
+    its own errors are swallowed, nothing is sent to the app or the network. Without
+    `DOCUMENT_START_SCRIPT` the store runs in `onPageStarted` (new
+    `SecureBrowserWebViewClient.pageStartScript`; the hidden page's client does the same):
+    answers TikTok's code got before that are missed.
+  - Hidden page (step 4, `TT_HIDDEN_PAGE=ON`): `TikTokPageEngine` with `WebViewHiddenPages`
+    (`app/.../detection/tiktok/`): an offscreen WebView on the main thread, never attached
+    (1280×800), desktop Chrome agent with the WebView's Chrome version, JavaScript and DOM
+    storage on, images blocked, media requests and media file types answered empty (204), only
+    `https` pages of `tiktok.com` (another site or an app link stays closed), the shared cookie
+    store. It loads the link (short links follow their redirects), polls `item` every 300 ms
+    until the post appears or 15 s pass, then destroys the WebView (also when the lookup is
+    cancelled). One at a time (`Mutex`; "hidden page: waited 0.9 s for the lookup before"). A
+    check still shown after 3 s → `BOT_CHECK` "TikTok wants a check. Open the video in YFT's
+    browser, then tap Download." (a check TikTok's own script passes by itself passes; YFT
+    never answers one); TikTok's status for the post unchanged for 2 s is its answer (10231
+    region, 10222/10223 sign-in, else private or removed); a main-frame error ends the read.
+    `TT_HOME_COOKIES=OFF`: the TikTok cookies the page set are cleared when it finishes
+    ("hidden page: TikTok cookies it set cleared: N") and Home stays cookie-free.
+  - Order (step 5): `SiteAdapterCoordinator.inspect(…, tab)`. Browser: tab data → P39's page
+    read with the tab's cookies → the tab once more (a loading page may hold the post by then)
+    → hidden page → P39's player file. Home: page read (with the browser's TikTok cookies, G3)
+    → hidden page → today's generic scan. Details list every step: `tab data: …`, `page read:
+    RESPONSE_CHANGED · HTTP 200` and the page read's lines, `hidden page: found in N s · API
+    answer · API answers kept: N` (or why not), `hidden page's data: …`. Try again runs the
+    whole order; the tab is read again on every lookup, and Download after a failed TikTok
+    lookup runs it again.
+  - Downloads (step 6): rows from tab data carry the cookies taken with it, rows from the hidden
+    page its agent and the cookies of its store at the moment the post appeared (never logged);
+    P39's file checks and next-address rule stay.
+  - Messages (step 7): no "Falling back to generic detection" anywhere (checked with `grep`); a
+    TikTok notice shows only after every step failed, with the next thing to do (Try again, the
+    check text above, P39's "does not open a video" text).
+  - Plan adapted (safety review): the hidden page opens only after YFT's own request's failures
+    (`RESPONSE_CHANGED`, `MALFORMED_RESPONSE`, `RESPONSE_TOO_LARGE`, `HTTP_STATUS`, `NETWORK`,
+    `NO_MEDIA_FOUND`, `EXPIRED_LINK`), never after the site's own answer (private, sign-in,
+    region, DRM, a check, rate limit); no check or puzzle is ever automated.
+  - Plan adapted: the rows' Referer stays P39's page address on `www.tiktok.com`
+    (`BrowserRequestContext` sends `pageUrl` as Referer; core-model is C's); the file checks
+    send `https://www.tiktok.com/`.
+- Tests (P40, JVM, +59): extractor-api `SitePageDataTest` 3 (new); extractor-sites
+  `TikTokPageDataTest` 10 (new; fixtures `page_data_script_item.json` and
+  `page_data_api_item.json` are what the asset returned on the instrumented fixture page in
+  Chromium); app `SiteAdapterOrderTest` 13, `TikTokPageScriptTest` 10, `TikTokPageEngineTest`
+  14, `TikTokHomeSessionTest` 3, `BrowserTikTokTabDataTest` 5 (all new),
+  `HeadlessLinkInspectorTest` 20 (+1). Instrumented (CI emulator): `TikTokPageDataInstrumentedTest`
+  7 on `app/src/androidTest/assets/tiktok/` served by the test at `https://fixture.yft.test`
+  (allowed through constructor parameters only): (a) the tab gives the page script's item;
+  (b) after the page's own `/api/recommend/item_list/` fetch, an API item by id; (c) the page
+  got its answer unchanged; (d) the hidden page finds the post within 15 s and is destroyed,
+  also for an API item; (e) a page without the post → timeout (3 s in the test), destroyed;
+  another site's address never loads.
+- Regression proof: with the old behaviour put back in `TikTokExtractor` (page data ignored)
+  `TikTokPageDataTest` 10/10 fail; with the old order in `SiteAdapterCoordinator` (no tab step,
+  no hidden page) `SiteAdapterOrderTest` 10/13 and `BrowserTikTokTabDataTest` 3/5 fail (the 5
+  that pass check what stays as before: the site's own answer, other sites, no browser screen,
+  the site's name); all pass on the new code (backup `/data/bak/P40/`, restored with `cp`,
+  checked with `cmp`).
+- Live check (2026-10-09, US sandbox, Playwright Chromium, desktop agent, images, media and
+  fonts blocked; the same asset; counts and hosts only): video page
+  `@scout2015/video/6718335390845095173` → found from the page's script in 0.7 s, id matches,
+  5 qualities (heights 1280 and 1024), hosts `v16-webapp-prime.us.tiktok.com`,
+  `v19-webapp-prime.us.tiktok.com`, `www.tiktok.com`; For You after scrolling → 4 API answers
+  kept, 32 posts in the store; the first 5 by id all found (`api`), ids match, 3–5 qualities
+  each (heights up to 1920), the same hosts. For You's address has no post id, as expected (the
+  on-screen id comes from P36's probe). No live-check code was committed. A wider check (one
+  range request per file) was stopped by the automated safety review and not repeated; the plan's
+  live check asks only for the above.
+- Validation (P40, 2026-10-09): Agent A command (FIX_ADD_PLAN 0.3) → BUILD SUCCESSFUL — 1313
+  JVM tests, 0 failures, 66 skipped (app 867, core-browser 139, core-media 32, extractor-api 36,
+  extractor-sites 239; +59 from 1254); `:app:lintDebug` 0 errors, 98 warnings (+3: lint's notice
+  that a newer androidx.webkit exists; 1.12.1 is the plan's version for compile SDK 35);
+  `:app:compileDebugAndroidTestKotlin` OK; line check empty.
+- CI (P40): the P40 checkpoint's runs (checkpoint validation, emulator smoke API 34 with
+  `TikTokPageDataInstrumentedTest`, Preview APK) are listed in the docs commit after it.
+- Owner check (P40, pending): Agent A's Preview APK of the P40 checkpoint (with the VPN) —
+  TikTok in YFT's browser, For You: scroll through 5 videos, Download on each → the on-screen
+  video's qualities every time; a video page → qualities; a `vt.tiktok.com` link on Home →
+  qualities within about 10 s; a screenshot of Details for anything that fails.
 - Hand-offs: Hand-off to C: core-model/src/main/kotlin/com/alal/yft/core/model/media/MediaAsset.kt
   — add `VariantResolutionResult.Failure.error: String? = null` (exception class name) and show it
   in QuickDownloadFailures details as "Error: <Class>" — so the resolver's failure names the
   class as P39 step 7 asks (the resolver already returns the step; core-model media is C's).
-- Next: P40 (TikTok from TikTok's own page), when the owner starts it.
+- Next: none for Agent A — P44 merges B → C → A, then Preview #7.
 
 ## Agent B — `work/phase-15-downloads` (P41, P42; later P44)
 

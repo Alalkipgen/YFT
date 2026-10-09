@@ -126,7 +126,10 @@ class SiteAdapterOrderTest {
     fun `the hidden page's timeout leaves the page read's failure, with every step`() =
         runTest {
             val extractor = OrderExtractor(
-                pageRead = failure(SiteExtractionFailure.RESPONSE_CHANGED, "page: phone · HTTP 200"),
+                pageRead = failure(
+                    SiteExtractionFailure.RESPONSE_CHANGED,
+                    "page: phone · HTTP 200",
+                ),
             )
             val hidden = FakeHiddenPage(
                 HiddenPageResult.NotFound(null, null, listOf("hidden page: no data after 15.0 s")),

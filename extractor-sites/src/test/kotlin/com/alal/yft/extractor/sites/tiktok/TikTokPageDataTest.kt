@@ -53,7 +53,10 @@ class TikTokPageDataTest {
         val http = FakeExtractorHttpClient(probeResponder = { url, _ -> fileAnswer(url) })
         val request = request(
             identity(FEED_POST_ID, author = "feed_user"),
-            data(Fixtures.read("tiktok/page_data_api_item.json"), SitePageDataSource.TAB_API_ANSWER),
+            data(
+                Fixtures.read("tiktok/page_data_api_item.json"),
+                SitePageDataSource.TAB_API_ANSWER,
+            ),
         )
 
         val result = TikTokExtractor(http).extract(request) as SiteExtractionResult.Success

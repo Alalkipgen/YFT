@@ -34,7 +34,11 @@ class SitePageDataTest {
         val secret = "{\"playAddr\":\"https://cdn.example.test/v.mp4?signature=fixture-secret\"}"
         val data = SitePageData(secret, SitePageDataSource.TAB_API_ANSWER)
         val request = SiteExtractionRequest(
-            identity = SitePageIdentity("tiktok", "123456", "https://www.tiktok.com/@a/video/123456"),
+            identity = SitePageIdentity(
+                "tiktok",
+                "123456",
+                "https://www.tiktok.com/@a/video/123456",
+            ),
             requestContext = BrowserRequestContext("https://www.tiktok.com/", "agent", null),
             nowEpochMs = 1L,
             pageData = data,
