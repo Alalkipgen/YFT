@@ -66,11 +66,13 @@ main/More presentation models. They do not prove Android APK sheet rendering.
   still report HTTP_STATUS even with the existing host-scoped context bridge; statuses are
   not overridden. One intervening retry was blocked before Pause by a visible translation
   tip; it is not playback/capture proof.
-- ❌ Android APK main-sheet/More rendering and a fresh two-run gate for this changed tree
-  remain unverified. The old two-run APK pair does not validate the changed implementation.
+- ✅ Fresh two-run Android gate for this changed tree passed (see below).
+- ❌ Android APK main-sheet/More rendering remains unverified; the gate class covers capture
+  safety, not sheet rendering.
 
 Overall completion is still ❌: both platforms now have positive desktop-native automatic-main
-logs, but TikTok nonempty More and actual Android app UI validation are not yet proven.
+logs, and the fresh Android gate passes, but TikTok nonempty More and actual Android app UI
+validation are not yet proven.
 No main merge, release/tag, phone APK delivery, full download/mux, all-resolution,
 Master-CI-green or merge-readiness claim. Only the spike branch is used.
 
@@ -82,12 +84,22 @@ Master-CI-green or merge-readiness claim. Only the spike branch is used.
 - ✅ Emulator package was registered through the official stable-channel SDK manager after
   manual extraction alone failed AVD-manager preflight. Strict yft-master29 AVD recreated:
   480x854, density 240, RAM 1536 MiB, 2 cores. Recovered focus guard/runner is not weakened.
-- ⏳ Fresh internal app/androidTest APK build started from code checkpoint `005fd0f6`, with
-  `-Pyft.masterCapture=true` and `-Pandroid.injected.build.abi=x86_64`. No APK success or fresh
-  certificate/hash is claimed while that build is running.
-- ❌ No restored-emulator boot/focus/screenshot proof yet. Emulator is deliberately not started
-  during Gradle work. Fresh fixed-APK-pair two-run OK (4 tests) gate and Android sheet rendering
-  remain pending. No owner phone delivery, release, tag or main merge.
+- ✅ The sandbox was later wiped; the spike branch was re-cloned at `def91b91` (production code
+  identical to `005fd0f6`), and the same verified SDK packages, Corretto JDK 17 (SHA-256 checked),
+  emulator 37.2.12 and strict AVD were restored again.
+- ✅ Fresh internal app/androidTest pair built from `def91b91` with `-Pyft.masterCapture=true`
+  and `-Pandroid.injected.build.abi=x86_64`: BUILD SUCCESSFUL.
+  App SHA-256 `fee5c66f7cedc231f8c69c28ba13a0ecc713e2b89f748d50d2a712b762630e90`;
+  test SHA-256 `9c6d8f88f178fbc0efa10640f4a932c21d93d4d04d18c233258a8141b5c106aa`;
+  both signed by the same debug certificate
+  `ef6a9e9817aba79e5416d41ede1e183e2d3d1ace6c6c094b333f43ddc72b9609`.
+- ✅ Emulator cold boot completed (boot_completed=1). A SystemUI ANR dialog was cleared with its
+  native Wait button only; focus then Launcher, device-side screenshot 192,040 bytes.
+- ✅ Strict gate `gate-def91b91`: two consecutive full-class
+  `MasterCaptureInstrumentedTest` runs, each `OK (4 tests)` (172 s and 140 s), identical
+  head/APK/test/certificate/harness hashes, installed hashes verified. Focus guard not weakened.
+- ❌ Android main-sheet/More rendering is not covered by this gate and remains unproved.
+  No owner phone delivery, release, tag or main merge.
 
 ### Secret-safe latest native log excerpts
 
