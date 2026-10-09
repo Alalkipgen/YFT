@@ -112,7 +112,21 @@ Update this file before every checkpoint push. Keep it factual so another chat c
   0.5 seconds of naturally observed video progress with future decoded data, handling the real
   fixture loop. It never plays/seeks by instrumentation JS, changes currentTime, or feeds those
   reads into session.accept. Production capture must still independently collect two fresh
-  progress samples within its unchanged 2.5-second timeout. Compile/repeat validation PENDING.
+  progress samples within its unchanged 2.5-second timeout. Harness checkpoint `3acfd4f8`
+  compiled successfully. Before the following sandbox reset, the fresh full offline suite
+  passed 1,422 cases with zero failures/errors and 67 skips; JS 11/11 and repository scripts
+  30/30 passed. Both lints had zero errors/fatal issues, zero module warnings, 96 app warnings.
+  Debug/test capture was true and release false. These are verified previous-run results,
+  not a claim that restored tools reran the suite.
+  A subsequent device attempt stopped before tests: SystemUI ANR owned focus after boot and
+  the test APK update timed out. Temporary `wm size` did not persist on reboot. The next
+  attempt uses permanent 480x854/density 240 AVD hardware and 1,536 MiB guest RAM instead of
+  1,024 MiB, without Gradle/emulator overlap or changes to production security.
+  Another restore discarded the local workspace/tools; source was recovered at `3acfd4f8`
+  and the already-built internal app/test APK session backups were restored and SHA-256 checked.
+  App APK SHA-256: fa421fad73f356a770d1143044346189c01773ffe522d8f628738b9f796d417d.
+  Test APK SHA-256: 7e5f0e3e8d2dc9204bbecbe4e50167e6050e49b759ca4f62b76dea4488d1d39d.
+  Aggregate repeats remain PENDING; do not finalize on the earlier single 4/4 pass.
 - Next: compile/rebuild and repeat the full four-fixture class twice with the same APKs; only
   then finalize Android validation. Only after this task and
   its checkpoint finish, perform the owner's requested Instagram/X public-page live validation.

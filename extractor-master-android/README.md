@@ -102,4 +102,14 @@ The next test-only readiness change observes at least 0.5 seconds of natural vid
 and future decoded data after the real trusted tap, before starting production capture. It
 handles the fixture's real loop but never plays, seeks, changes the timeline, or submits those
 readiness observations to `session.accept`. Production still requires its own two fresh
-progress samples within 2.5 seconds. Rebuild and aggregate repeat validation remain pending.
+progress samples within 2.5 seconds. The `3acfd4f8` harness compiled successfully. Before
+another sandbox reset, a fresh offline run passed 1,422 cases with zero failures/errors and
+67 skips; JS 11/11, repository scripts 30/30 and both lints passed with zero errors (96 app
+warnings). Debug/test opt-in was true and release false; these are previous-run results.
+
+The next device attempt stopped before tests: SystemUI ANR owned focus after boot and the
+APK update timed out. Temporary display-size override was lost on reboot. The next attempt
+sets AVD hardware permanently to 480x854, density 240, with 1,536 MiB guest RAM rather than
+1,024 MiB. After another restore, the exact source and matching prebuilt APK session backups
+were recovered and hash-checked, avoiding a new build. Production code/security limits are
+unchanged. Two aggregate repeat passes remain pending; one earlier 4/4 pass is not the gate.
