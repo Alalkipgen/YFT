@@ -171,6 +171,13 @@ object TikTokPageScript {
     private fun answersNote(answers: Int?): String =
         answers?.let { " · API answers kept: $it" }.orEmpty()
 
+    @Volatile
+    private var shared: Source? = null
+
+    /** The app's one reader of the asset. */
+    fun source(context: Context): Source =
+        shared ?: Source(context.applicationContext).also { shared = it }
+
     /** Reads the asset text once; null when it is missing from this build. */
     class Source(private val read: () -> String) {
         constructor(context: Context) : this({

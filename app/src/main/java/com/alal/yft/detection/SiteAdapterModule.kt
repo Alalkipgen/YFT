@@ -7,6 +7,9 @@ import com.alal.yft.core.browser.policy.BrowserUserAgent
 import com.alal.yft.detection.potoken.BotGuardPoTokenProvider
 import com.alal.yft.detection.script.WebViewSolverEngine
 import com.alal.yft.detection.script.YouTubePlayerScriptRunner
+import com.alal.yft.detection.tiktok.TikTokPageEngine
+import com.alal.yft.detection.tiktok.TikTokPageScript
+import com.alal.yft.detection.tiktok.TikTokPageSettings
 import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.PlayerScriptRunner
 import com.alal.yft.extractor.api.PoTokenProvider
@@ -128,6 +131,26 @@ object SiteAdapterModule {
         extractors: List<@JvmSuppressWildcards SiteExtractor>,
         flags: SiteAdapterFlags,
     ): SiteExtractorRegistry = SiteExtractorRegistry(extractors, flags)
+
+    /** P40: the owner's answers G3 and G5 (`TT_HOME_COOKIES=ON`, `TT_HIDDEN_PAGE=ON`). */
+    @Provides
+    @Singleton
+    fun provideTikTokPageSettings(): TikTokPageSettings = TikTokPageSettings.OWNER
+
+    /** P40 step 4: TikTok's own page in a hidden WebView, for a link no tab shows. */
+    @Provides
+    @Singleton
+    fun provideHiddenPageReader(
+        @ApplicationContext context: Context,
+        settings: TikTokPageSettings,
+        registry: SiteExtractorRegistry,
+    ): HiddenPageReader = TikTokPageEngine(
+        context = context,
+        settings = settings,
+        isMedia = { url ->
+            registry.enabled(TikTokPageScript.SITE_ID)?.isPlayerMediaRequest(url) == true
+        },
+    )
 
     private const val YOUTUBE_ADAPTER_ID = "youtube"
     private const val PLAYER_FETCH_TIMEOUT_SECONDS = 60L

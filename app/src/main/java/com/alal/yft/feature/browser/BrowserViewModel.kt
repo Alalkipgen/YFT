@@ -27,6 +27,9 @@ import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.detection.SiteScope
+import com.alal.yft.detection.TabData
+import com.alal.yft.detection.TabDataSource
+import com.alal.yft.detection.tiktok.TikTokPageScript
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import com.alal.yft.feature.detectedmedia.LookupOwner
 import com.alal.yft.feature.detectedmedia.PageReload
@@ -92,6 +95,19 @@ class BrowserViewModel(
     /** P5: one event each time the video in focus on a feed was found and its sheet may open. */
     val quickDownloadRequests: Flow<Unit> = quickDownloads.receiveAsFlow()
 
+    private val tabDataRequests = Channel<TabDataRequest>(Channel.UNLIMITED)
+
+    /**
+     * P40 step 2: the reads of the TikTok tab's own data the screen runs on the tab's page, one
+     * for each lookup of a TikTok post (Download, the page's own lookup, Try again).
+     */
+    val tabDataReads: Flow<TabDataRequest> = tabDataRequests.receiveAsFlow()
+
+    /** P40: the tab's data for a TikTok post; other sites have none to read. */
+    private val tabData = TabDataSource { siteId, postId ->
+        if (siteId == TikTokPageScript.SITE_ID) readTabData(postId) else null
+    }
+
     /** The running lookup of the video in focus; a new tap replaces it. */
     private var focusLookup: Job? = null
     private var focusNoticeTimer: Job? = null
@@ -135,6 +151,9 @@ class BrowserViewModel(
     /** Whether the site adapters were already asked about the current page scope. */
     @Volatile
     private var siteLookupStarted = false
+
+    /** P40: the page's own lookup ended without its video (a TikTok tap reads the tab again). */
+    private var pageLookupFailed = false
 
     private var focusedRetryPage: String? = null
 
@@ -700,6 +719,7 @@ class BrowserViewModel(
         awaitingPlayback = false
         autoRetried = false
         siteLookupStarted = false
+        pageLookupFailed = false
         focusedRetryPage = null
         pageProbeJob.cancel()
         pageProbeJob = SupervisorJob(viewModelScope.coroutineContext[Job])
@@ -739,6 +759,7 @@ class BrowserViewModel(
      */
     private fun runSiteAdapters(pageUrl: String, title: String?, fresh: Boolean = false) {
         siteLookupStarted = true
+        pageLookupFailed = false
         val generation = pageGeneration
         // P12: the sheet can open on this lookup and wait for it; the button shows a spinner.
         val key = siteAdapters.videoKey(pageUrl)
@@ -811,6 +832,7 @@ class BrowserViewModel(
                             canRetrySiteLookup = outcome.canRetry,
                         )
                     }
+                    pageLookupFailed = true
                     // P12: the sheet shows why, with Try again, instead of the page's files.
                     key?.let {
                         detectedMediaStore.showLookup(
@@ -883,6 +905,7 @@ class BrowserViewModel(
                     requestContext = requestContext,
                     nowEpochMs = clock(),
                     fresh = fresh,
+                    tab = tabData,
                 )
             }.also { runningLookups[key] = it }
         val outcome = lookup.await()
@@ -913,8 +936,28 @@ class BrowserViewModel(
         }
         detectedMediaStore.awaitPageVideo()
         sheetAwaitsPageVideo = true
-        if (!siteLookupStarted) runSiteAdapters(pageUrl, mutableUiState.value.pageTitle)
+        when {
+            !siteLookupStarted -> runSiteAdapters(pageUrl, mutableUiState.value.pageTitle)
+            // P40: after a failed lookup a TikTok tap reads the tab's own data again.
+            pageLookupFailed && siteAdapters.siteId(pageUrl) == TikTokPageScript.SITE_ID ->
+                retryLookup(pageUrl)
+        }
         return true
+    }
+
+    /**
+     * P40 step 2: asks the screen for the TikTok tab's own data for [postId] and waits at most
+     * [TAB_DATA_TIMEOUT_MS]; a tab that does not answer in time gives none.
+     */
+    private suspend fun readTabData(postId: String): TabData {
+        val request = TabDataRequest(postId)
+        tabDataRequests.trySend(request)
+        val reply = withTimeoutOrNull(TAB_DATA_TIMEOUT_MS) { request.await() }
+        if (reply == null) {
+            request.giveUp()
+            return TikTokPageScript.tabData(null, postId, cookie = null, answered = false)
+        }
+        return TikTokPageScript.tabData(reply.javascriptResult, postId, reply.cookie)
     }
 
     /**
@@ -1236,5 +1279,8 @@ class BrowserViewModel(
 
         /** How long a loading video page waits for its own finish before the lookup starts. */
         const val EARLY_LOOKUP_DELAY_MS = 1_500L
+
+        /** P40 step 2: how long the tab has to give its own data for a TikTok post. */
+        const val TAB_DATA_TIMEOUT_MS = 1_000L
     }
 }

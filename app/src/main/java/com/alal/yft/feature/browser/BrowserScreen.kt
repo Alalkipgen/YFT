@@ -121,6 +121,8 @@ import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.core.model.media.PageVideoList
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.core.model.settings.SearchEngine
+import com.alal.yft.detection.tiktok.TikTokApiCapture
+import com.alal.yft.detection.tiktok.TikTokPageScript
 import com.alal.yft.feature.home.HomeLinks
 import com.alal.yft.feature.home.rememberCopiedLinkHint
 import com.alal.yft.ui.components.FoundMediaDividerInset
@@ -237,6 +239,24 @@ fun BrowserRoute(
     val openQuickDownload by rememberUpdatedState(onOpenQuickDownload)
     LaunchedEffect(viewModel) {
         viewModel.quickDownloadRequests.collect { openQuickDownload() }
+    }
+    // P40 step 2: the TikTok tab's own data for a post, read on the main thread.
+    LaunchedEffect(webView, viewModel) {
+        val browser = webView ?: return@LaunchedEffect
+        val script = TikTokPageScript.source(browser.context)
+        viewModel.tabDataReads.collect { request ->
+            val source = script.text()
+            if (source == null || !request.isWaiting) {
+                request.answer(null, null)
+                return@collect
+            }
+            browser.evaluateJavascript(TikTokPageScript.item(source, request.postId)) { result ->
+                val cookie = runCatching {
+                    CookieManager.getInstance().getCookie(TikTokPageScript.COOKIE_PAGE)
+                }.getOrNull()
+                request.answer(result, cookie)
+            }
+        }
     }
     // P37: the sheet's "Reload page and try again" reloads the tab once without its cache; the
     // cache comes back once that load finished.
@@ -1294,12 +1314,19 @@ private fun BrowserWebView(
             SecureWebViewPolicy.apply(browser)
             val cookieManager = CookieManager.getInstance()
             val cachedUserAgent = browser.settings.userAgentString
+            // P40 step 3: TikTok's pages keep a copy of TikTok's own API answers (document start;
+            // without that feature, when a TikTok page starts).
+            val tikTokStore = TikTokPageScript.source(context).text()?.let(TikTokPageScript::store)
+            val storeAtStart = tikTokStore != null && TikTokApiCapture.install(browser, tikTokStore)
             browser.webViewClient = SecureBrowserWebViewClient(
                 sink = sink,
                 cookieProvider = cookieManager::getCookie,
                 userAgentProvider = { cachedUserAgent },
                 pageUrlState = pageUrlState,
                 guard = guard,
+                pageStartScript = { url ->
+                    tikTokStore?.takeIf { !storeAtStart && TikTokPageScript.isScriptOrigin(url) }
+                },
             )
             browser.webChromeClient = SecureBrowserChromeClient(sink, fullscreenHandler, guard)
             browser.setDownloadListener(
