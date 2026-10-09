@@ -265,12 +265,16 @@ Keep at least the heading and one blank line between sections, so Git merges the
   extractor-sites 239; +59 from 1254); `:app:lintDebug` 0 errors, 98 warnings (+3: lint's notice
   that a newer androidx.webkit exists; 1.12.1 is the plan's version for compile SDK 35);
   `:app:compileDebugAndroidTestKotlin` OK; line check empty.
-- CI (P40): the P40 checkpoint's runs (checkpoint validation, emulator smoke API 34 with
-  `TikTokPageDataInstrumentedTest`, Preview APK) are listed in the docs commit after it.
-- Owner check (P40, pending): Agent A's Preview APK of the P40 checkpoint (with the VPN) —
-  TikTok in YFT's browser, For You: scroll through 5 videos, Download on each → the on-screen
-  video's qualities every time; a video page → qualities; a `vt.tiktok.com` link on Home →
-  qualities within about 10 s; a screenshot of Details for anything that fails.
+- CI (P40, `ce04711`, the P40 checkpoint; this docs-only commit starts no CI): checkpoint
+  validation [37886371700](https://github.com/Alalkipgen/YFT/actions/runs/37886371700)
+  (`yft-debug-apk`), emulator smoke API 34 with `TikTokPageDataInstrumentedTest`
+  [37886371675](https://github.com/Alalkipgen/YFT/actions/runs/37886371675), Preview APK
+  [37886371676](https://github.com/Alalkipgen/YFT/actions/runs/37886371676) (`yft-preview-apk`)
+  — all green (the WIP `53a0359` with the same tests: green too).
+- Owner check (P40, pending): Agent A's Preview APK (run 37886371676 › `yft-preview-apk`, with
+  the VPN) — TikTok in YFT's browser, For You: scroll through 5 videos, Download on each → the
+  on-screen video's qualities every time; a video page → qualities; a `vt.tiktok.com` link on
+  Home → qualities within about 10 s; a screenshot of Details for anything that fails.
 - Hand-offs: Hand-off to C: core-model/src/main/kotlin/com/alal/yft/core/model/media/MediaAsset.kt
   — add `VariantResolutionResult.Failure.error: String? = null` (exception class name) and show it
   in QuickDownloadFailures details as "Error: <Class>" — so the resolver's failure names the
