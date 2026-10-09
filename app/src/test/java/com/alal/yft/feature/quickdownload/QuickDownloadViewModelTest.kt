@@ -255,6 +255,10 @@ class QuickDownloadViewModelTest {
             "The media could not be reached. Check the connection and try again.",
             viewModel.uiState.value.failure,
         )
+        // P39: the Details name the exception's class, never its message.
+        val details = viewModel.uiState.value.failureDetails
+        assertTrue(details.toString(), "Error: SocketTimeoutException" in details)
+        assertTrue(details.none { "fixture" in it })
     }
 
     @Test

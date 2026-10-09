@@ -1226,7 +1226,12 @@ class QuickDownloadViewModel @Inject constructor(
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (error: Exception) {
-            VariantResolutionResult.Failure(QuickDownloadFailures.reasonOf(error), host = host)
+            VariantResolutionResult.Failure(
+                QuickDownloadFailures.reasonOf(error),
+                host = host,
+                // P39: the class name only, never the message.
+                error = error.javaClass.simpleName.ifBlank { error.javaClass.name },
+            )
         }
     }
 
