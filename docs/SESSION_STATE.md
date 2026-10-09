@@ -9,8 +9,9 @@ Update this file before every checkpoint push. Keep it factual so another chat c
 - Workspace: `/data/YFT-Master`; original `/data/YFT` and TikTok work remain untouched.
 - Status: ANDROID CONNECTION IN PROGRESS; backup branch only, NOT APPROVED FOR MERGE.
   Owner explicitly approved continuing Android Play & Capture connection after the JVM backup.
-  New `:extractor-master-android` visible-WebView producer; no app wiring yet at this milestone.
-  Existing site adapters, download engine and CI workflows remain unchanged.
+  New `:extractor-master-android` producer and browser-only build-opt-in caller.
+  `yft.masterCapture` defaults false; debug/preview may opt in, release remains false.
+  Existing site-extractor modules, download engine and CI workflows remain unchanged.
 - Baseline: `:core-model:test :extractor-api:test :extractor-generic:test :extractor-sites:test`
   passed: 360 tests, zero failures/errors/skips.
 - Branch-name exception: the owner explicitly approved `spike/master-extractor-backup`.
@@ -43,9 +44,14 @@ Update this file before every checkpoint push. Keep it factual so another chat c
 - Android module milestone: 15 unit tests passed, zero failures/errors/skips; lint no issues.
   Native request context + bounded top-frame JS/API data, navigation generations, two-sample
   playback evidence, DRM refusal and main-thread WebView boundary. App wiring not yet present.
-- Next: wire a build-opt-in app fallback without changing successful adapters or disabled-site
-  behavior; validate lifecycle/cancellation, JS hooks, generic on-demand flow and real Android
-  playback. Keep main/Phase 15/TikTok branches untouched. No merge, tag or release approval.
+- Module checkpoint: `22d1ff6c94a4a69c8608e02342feb5b9b4ae5ee0`. A later sandbox reset
+  discarded unpushed wiring; the exact authored patches were recovered from session events.
+- Follow-on app wiring is present; fresh validation is running (app + Android module unit tests,
+  lint, Android test compilation and release-flag isolation). JavaScript tests: 9 passed.
+  Real Android tests are compiled/run only after builds, to avoid emulator/build memory overlap.
+- Next: finish validation, push the isolated app milestone, then run four real-Android fixtures
+  for paused preload, user playback, navigation/disposal and DRM refusal. Keep main/Phase 15/
+  TikTok untouched. No merge, tag, release or APK handout approval.
 
 Phase 14 runs three agents at the same time. **Each agent edits only its own section below**
 (`## Agent A …`, `## Agent B …`, `## Agent C …`); `## Overview` belongs to the plan and to P38.

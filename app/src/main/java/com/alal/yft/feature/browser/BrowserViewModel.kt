@@ -25,6 +25,10 @@ import com.alal.yft.core.model.media.PageVideoFacts
 import com.alal.yft.core.model.media.PlayingVideo
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
+import com.alal.yft.detection.master.AndroidBrowserMasterFallback
+import com.alal.yft.detection.master.BrowserMasterFallback
+import com.alal.yft.BuildConfig
+import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.detection.SiteScope
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
@@ -65,6 +69,7 @@ class BrowserViewModel(
     private val detectedMediaStore: DetectedMediaStore = DetectedMediaStore(),
     private val clock: () -> Long = System::currentTimeMillis,
     private val homeSitesRepository: HomeSitesRepository? = null,
+    private val masterFallback: BrowserMasterFallback = BrowserMasterFallback.None,
 ) : ViewModel(), BrowserObservationSink {
     /**
      * Production entry point. Dagger has no sensible binding for the test clock lambda, so the
@@ -82,7 +87,14 @@ class BrowserViewModel(
         detectedMediaStore,
         System::currentTimeMillis,
         homeSitesRepository,
+        AndroidBrowserMasterFallback.create(
+            BuildConfig.MASTER_CAPTURE_ENABLED, okHttpClient, siteAdapters,
+        ),
     )
+
+    val masterCapture: WebViewPlaybackCapture? get() = masterFallback.capture
+    private var masterLookup: Job? = null
+    private var masterLookupKey: String? = null
 
     private val mutableUiState = MutableStateFlow(BrowserUiState())
     val uiState: StateFlow<BrowserUiState> = mutableUiState.asStateFlow()
@@ -223,6 +235,10 @@ class BrowserViewModel(
                 val lookup = detectedMediaStore.lookup.value
                 if (lookup?.key != key || !lookup.canRetry) return@collect
                 if (lookup.owner != LookupOwner.BROWSER) return@collect
+                if (key == masterLookupKey) {
+                    runMasterOnDemand()
+                    return@collect
+                }
                 // P16: a feed's video on screen is asked for again in the sheet.
                 focusedSheet?.takeIf { it.key == key }?.let { sheet ->
                     if (focusLookup?.isActive != true) {
@@ -255,6 +271,7 @@ class BrowserViewModel(
     override fun onCleared() {
         // The sheet must not wait on a lookup of a browser that is gone.
         detectedMediaStore.clearLookup(LookupOwner.BROWSER)
+        masterCapture?.session?.clear()
         super.onCleared()
     }
 
@@ -479,6 +496,13 @@ class BrowserViewModel(
      * P28: the wait for the page's video after its ad ends with the sheet.
      */
     private fun closeSheetLookup(key: String) {
+        if (key == masterLookupKey) {
+            masterLookup?.cancel()
+            masterLookupKey = null
+            detectedMediaStore.clearLookup(LookupOwner.BROWSER)
+            mutableUiState.update { it.copy(pageLookupRunning = false) }
+            return
+        }
         if (key == pageVideoWaitKey) {
             pageVideoWait?.cancel()
             pageVideoWait = null
@@ -674,6 +698,9 @@ class BrowserViewModel(
         focusNoticeTimer?.cancel()
         // P12: the old page's lookups and the sheet's wait for its video end with it.
         runningLookups.clear()
+        masterLookup = null
+        masterLookupKey = null
+        mutableUiState.update { it.copy(pageLookupRunning = false) }
         foundLookups.clear()
         pageLookupDone = CompletableDeferred()
         foundPageVideo = null
@@ -827,12 +854,15 @@ class BrowserViewModel(
         val lookup = runningLookups[key]?.takeIf { it.isActive }
             ?: viewModelScope.async(pageProbeJob) {
                 // P17: the shared lookup cache answers unless this is Try again.
-                siteAdapters.inspect(
+                val primary = siteAdapters.inspect(
                     pageUrl = url,
                     requestContext = requestContext,
                     nowEpochMs = clock(),
                     fresh = fresh,
                 )
+                if (primary is SiteAdapterOutcome.Failed) {
+                    masterFallback.recover(url, primary, clock())
+                } else primary
             }.also { runningLookups[key] = it }
         val outcome = lookup.await()
         if (runningLookups[key] === lookup) runningLookups.remove(key)
@@ -898,7 +928,11 @@ class BrowserViewModel(
         mainVideoTimer = null
         val facts = mutableUiState.value.pageFacts
         val videos = MediaGroups.pageVideos(mutableUiState.value.candidates.filter { it.isSavable })
-        val main = MediaGroups.mainVideo(videos, playing, facts) ?: return
+        val main = MediaGroups.mainVideo(videos, playing, facts)
+        if (main == null) {
+            runMasterOnDemand()
+            return
+        }
         if (MediaGroups.mayBeAdBefore(main, facts)) {
             awaitVideoAfterAd(main)
         } else {
@@ -908,6 +942,47 @@ class BrowserViewModel(
             )
         }
         quickDownloads.trySend(Unit)
+    }
+
+    /** Only a user's Download tap asks the backup when generic detection found no main video. */
+    private fun runMasterOnDemand() {
+        if (!masterFallback.enabled || masterLookup?.isActive == true) return
+        val pageUrl = activePageUrl ?: return
+        if (!siteAdapters.allowsMasterFallback(pageUrl)) return
+        val generation = pageGeneration
+        val key = "master-capture:$generation"
+        masterLookupKey = key
+        detectedMediaStore.awaitPageVideo()
+        detectedMediaStore.showLookup(PageVideoLookup(key, pageUrl, lookupTitle(null)))
+        mutableUiState.update { it.copy(pageLookupRunning = true) }
+        quickDownloads.trySend(Unit)
+        masterLookup = viewModelScope.launch(pageProbeJob) {
+            val outcome = masterFallback.recover(
+                pageUrl, SiteAdapterOutcome.NotHandled, clock(), genericOnDemand = true,
+            )
+            if (generation != pageGeneration || masterLookupKey != key) return@launch
+            mutableUiState.update { it.copy(pageLookupRunning = false) }
+            if (outcome is SiteAdapterOutcome.Detected) {
+                val groups = MediaGroups.pageVideos(outcome.candidates.filter { it.isSavable })
+                val video = groups.singleOrNull()
+                if (video != null) {
+                    candidateStore.submitAll(outcome.candidates)
+                    detectedMediaStore.select(video)
+                    detectedMediaStore.clearLookup(LookupOwner.BROWSER)
+                    masterLookupKey = null
+                    return@launch
+                }
+            }
+            val failed = outcome as? SiteAdapterOutcome.Failed
+            detectedMediaStore.showLookup(
+                PageVideoLookup(
+                    key, pageUrl, lookupTitle(null),
+                    failure = failed?.message
+                        ?: "Play the video on this page, then tap Try again.",
+                    canRetry = failed?.canRetry ?: true,
+                ),
+            )
+        }
     }
 
     /**

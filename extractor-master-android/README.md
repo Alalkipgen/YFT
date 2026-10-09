@@ -35,5 +35,16 @@ Existing Android baseline passed before editing: core-browser 138 tests; app 807
 zero failures/errors and 66 existing skips; Android test Kotlin compiled. Master JVM baseline
 had 76 offline passes and one optional live-smoke skip.
 
-App wiring and real Android playback validation are the next milestone. This module checkpoint
-alone is not a working app feature or Instagram/X support proof.
+## App connection — validation in progress
+
+The browser now constructs the producer only in an explicitly enabled debug/preview build:
+`-Pyft.masterCapture=true`. Default builds and the release variant remain disabled. Successful
+primary adapters are returned untouched. Recoverable failures can request one fresh capture;
+generic pages request it only after a user Download tap found no main video. Disabled matches,
+DRM/private/geo/network/rate-limit failures remain outside the fallback. Device merge gates
+and the normal final resolver/download pipeline still apply.
+
+The new app bridge/lifecycle/selection tests and four real-Android fixture tests are being
+validated. JavaScript transport tests currently pass 9/9. Earlier 15-test module results above
+are the pushed module milestone, not a claim about all follow-on tests. No Instagram/X live
+site support, full download/mux result, universal iframe coverage or merge approval is claimed.

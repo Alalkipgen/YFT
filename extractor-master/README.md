@@ -1,11 +1,11 @@
 # Master Extractor backup prototype
 
-**BACKUP READY — experimental, opt-in, not wired into the app, and not approved for merge.**
+**Android connection in progress — build opt-in only; not approved for merge.**
 
 The owner approved a separate backup branch, `spike/master-extractor-backup`, based on stable
-`main` `a9eea7ba8d9f3d67442ffc3a51f2ad9e00c4a6a9`. Only this new JVM module, the Gradle include,
-and its own session-state section change. Existing site adapters, browser, download engine,
-app/DI configuration, release identity, and CI workflows are untouched.
+`main` `a9eea7ba8d9f3d67442ffc3a51f2ad9e00c4a6a9`. The later owner-approved Android follow-on
+adds an Android producer and a build-opt-in browser caller. Existing site-extractor modules,
+download engine, release identity, CI workflows and main/Phase 15 branches stay untouched.
 
 ## What exists
 
@@ -61,9 +61,10 @@ Existing internal site-parser visibility is unchanged.
 
 ## Deliberately not implemented
 
-- No production caller, feature UI, DI binding or registry entry.
-- No Android WebView/document-start `fetch`/XHR hook. The capture store **does not start
-  playback or collect browser requests by itself**.
+- No registry entry, Home/pasted-link capture, or default-enabled feature. The new browser
+  caller is gated by `-Pyft.masterCapture=true` in debug/preview; release always disables it.
+- No document-start injection. The new Android host observes visible-WebView requests and
+  bounded delivered page/API data; the JVM store itself still does not collect or play.
 - No unattended sign-in, access-control/age-gate bypass, DRM decryption or live recording.
 - No guessed/synthetic download URL, signature solver or blanket “supports every site” claim.
 - No guarantee of every quality, carousel/feed selection, ad exclusion or live Instagram/X
@@ -193,14 +194,14 @@ The sandbox reset after the initial SSH checkpoint. The pushed branch was recove
 and verified through the connected GitHub MCP; further file-backed pushes use that connection
 without another SSH key enrollment.
 
-Before considering integration: implement/review the real browser producer, test current
-public pages and actual focused playback, verify companion tracks and signed-link refresh,
-then obtain a new owner approval for integration/merge.
+Before considering merge: finish real Android playback and lifecycle validation, check current
+public site pages and focused selection, verify companion tracks and signed-link refresh, then
+obtain separate owner approval for merge.
 
 ## Owner-approved Android follow-on
 
 The owner subsequently approved Android Play & Capture connection on this same backup branch.
 `:extractor-master-android` now supplies a visible-WebView capture boundary; see its README for
 bounds, tests and limitations. Its initial module milestone passed 15 unit tests and lint.
-App wiring and actual Android playback tests are still in progress. Merge/release remains
-unapproved; the earlier "not wired into the app" description still applies to this checkpoint.
+Build-opt-in app wiring is now present; full validation and actual Android playback tests are
+in progress. Merge/release remains unapproved. See `extractor-master-android/README.md`.

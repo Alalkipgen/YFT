@@ -2,7 +2,7 @@
   "use strict";
   if (window.top !== window || window.__yftMasterCaptureV1) return;
   const MAX_BODY = 65536, MAX_PACKET = 262144, MAX_URL = 8192;
-  const state = { generation: -1, page: "", requests: [], payloads: [] };
+  const state = { generation: -1, page: "", requests: [], payloads: [], activeReads: 0 };
   const originalFetch = window.fetch;
   const originalOpen = XMLHttpRequest.prototype.open;
   const originalSend = XMLHttpRequest.prototype.send;
@@ -91,7 +91,12 @@
     promise.then(function (response) {
       try {
         note(response.url, response.headers.get("content-type"), generation, false);
-        if (state.payloads.length < 8) readClone(response, generation).catch(function () {});
+        if (state.payloads.length < 8 && state.activeReads < 2) {
+          state.activeReads++;
+          readClone(response, generation).finally(function () {
+            state.activeReads--;
+          }).catch(function () {});
+        }
       } catch (_) {}
     }, function () {});
     return promise; // Preserve the page's original promise and response stream.

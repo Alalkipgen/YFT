@@ -33,6 +33,7 @@ class WebViewPlaybackCapture(
     fun attach(view: WebView) {
         mainThread()
         if (!enabled) return
+        session.clear()
         browser = WeakReference(view)
         script = view.context.assets.open("yft-master-capture.js")
             .bufferedReader().use { it.readText() }
@@ -60,26 +61,31 @@ class WebViewPlaybackCapture(
         session.clear()
     }
 
-    fun decorate(sink: BrowserObservationSink): BrowserObservationSink {
+    fun decorate(sink: BrowserObservationSink, view: WebView): BrowserObservationSink {
         if (!enabled) return sink
+        val owner = WeakReference(view)
         return object : BrowserObservationSink by sink {
             override fun onPageStarted(url: String) {
+                if (!owns(owner)) return
                 navigate(url)
                 sink.onPageStarted(url)
             }
 
             override fun onUrlChanged(url: String) {
+                if (!owns(owner)) return
                 navigate(url)
                 sink.onUrlChanged(url)
             }
 
             override fun onPageFinished(url: String, title: String?) {
+                if (!owns(owner)) return
                 mainThread()
                 session.currentScope()?.takeIf { it.pageUrl == url }?.let(::bind)
                 sink.onPageFinished(url, title)
             }
 
             override fun onRequest(observation: RequestObservation) {
+                if (!owns(owner)) return
                 session.observe(observation)
                 sink.onRequest(observation)
             }
@@ -90,6 +96,9 @@ class WebViewPlaybackCapture(
         mainThread()
         session.navigate(url)?.let(::bind)
     }
+
+    private fun owns(owner: WeakReference<WebView>): Boolean =
+        browser.get()?.let { it === owner.get() } == true
 
     private fun bind(scope: BrowserCaptureScope) {
         val view = browser.get() ?: return

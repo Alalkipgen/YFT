@@ -115,6 +115,7 @@ import com.alal.yft.core.browser.webview.BrowserObservationSink
 import com.alal.yft.core.browser.webview.BrowserPageUrl
 import com.alal.yft.core.browser.webview.SecureBrowserChromeClient
 import com.alal.yft.core.browser.webview.SecureBrowserWebViewClient
+import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
 import com.alal.yft.core.data.history.BrowserHistoryEntry
 import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaGroups
@@ -357,6 +358,7 @@ fun BrowserRoute(
                     pageUrlState = pageUrlState,
                     fullscreenHandler = fullscreenHandler,
                     guard = guard,
+                    masterCapture = viewModel.masterCapture,
                     onWebViewReady = {
                         webView = it
                         refreshHistoryState()
@@ -1279,6 +1281,7 @@ private fun BrowserWebView(
     pageUrlState: BrowserPageUrl,
     fullscreenHandler: SecureBrowserChromeClient.FullscreenHandler,
     guard: BrowserNavigationGuard,
+    masterCapture: WebViewPlaybackCapture?,
     onWebViewReady: (WebView) -> Unit,
 ) {
     AndroidView(
@@ -1294,25 +1297,29 @@ private fun BrowserWebView(
             SecureWebViewPolicy.apply(browser)
             val cookieManager = CookieManager.getInstance()
             val cachedUserAgent = browser.settings.userAgentString
+            masterCapture?.attach(browser)
+            val observingSink = masterCapture?.decorate(sink, browser) ?: sink
             browser.webViewClient = SecureBrowserWebViewClient(
-                sink = sink,
+                sink = observingSink,
                 cookieProvider = cookieManager::getCookie,
                 userAgentProvider = { cachedUserAgent },
                 pageUrlState = pageUrlState,
                 guard = guard,
             )
-            browser.webChromeClient = SecureBrowserChromeClient(sink, fullscreenHandler, guard)
+            browser.webChromeClient =
+                SecureBrowserChromeClient(observingSink, fullscreenHandler, guard)
             browser.setDownloadListener(
                 BrowserDownloadListener(
                     pageUrlProvider = pageUrlState::get,
                     cookieProvider = cookieManager::getCookie,
-                    sink = sink,
+                    sink = observingSink,
                 ),
             )
             onWebViewReady(browser)
             browser
         },
         onRelease = { browser ->
+            masterCapture?.detach(browser)
             pageUrlState.update(null)
             browser.stopLoading()
             browser.setDownloadListener(null)

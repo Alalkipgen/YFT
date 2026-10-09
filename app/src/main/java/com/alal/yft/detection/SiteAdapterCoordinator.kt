@@ -221,6 +221,10 @@ class SiteAdapterCoordinator @Inject constructor(
     fun handles(pageUrl: String): Boolean =
         registry.select(pageUrl) is SiteAdapterSelection.Matched
 
+    /** The backup experiment must not turn an explicitly disabled match into a fallback. */
+    fun allowsMasterFallback(pageUrl: String): Boolean =
+        registry.select(pageUrl) !is SiteAdapterSelection.Disabled
+
     /**
      * The video [pageUrl] shows as "site:contentId", the same for every address of it, or null
      * when no enabled adapter handles the page (P12: one lookup per video).

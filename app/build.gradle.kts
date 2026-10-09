@@ -101,6 +101,12 @@ require(previewBuild == null || Regex("""\d{1,9}""").matches(previewBuild)) {
     "yft.previewBuild must be a build number"
 }
 
+// Backup-branch experiment only; even an opt-in build never enables the release variant.
+val masterCapture = providers.gradleProperty("yft.masterCapture").orElse("false").get()
+require(masterCapture in setOf("true", "false")) {
+    "yft.masterCapture must be true or false"
+}
+
 android {
     namespace = "com.alal.yft"
     compileSdk = 35
@@ -115,6 +121,7 @@ android {
 
         // The YouTube adapter can be switched off per build without touching the adapter list.
         buildConfigField("boolean", "YOUTUBE_ADAPTER_ENABLED", "true")
+        buildConfigField("boolean", "MASTER_CAPTURE_ENABLED", "false")
     }
 
     signingConfigs {
@@ -145,6 +152,7 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
+            buildConfigField("boolean", "MASTER_CAPTURE_ENABLED", masterCapture)
         }
         release {
             isMinifyEnabled = true
@@ -164,6 +172,7 @@ android {
             isDebuggable = false
             matchingFallbacks += listOf("release")
             signingConfig = signingConfigs.findByName("preview")
+            buildConfigField("boolean", "MASTER_CAPTURE_ENABLED", masterCapture)
         }
     }
 
@@ -208,6 +217,7 @@ dependencies {
     implementation(project(":extractor-api"))
     implementation(project(":extractor-generic"))
     implementation(project(":extractor-sites"))
+    implementation(project(":extractor-master-android"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
