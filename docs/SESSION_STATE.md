@@ -72,7 +72,11 @@ Update this file before every checkpoint push. Keep it factual so another chat c
   to TYPES), not a reported app lint violation. Test APK/final app-unit execution unfinished.
   Next attempt separates compile/test assembly from lint and uses one Gradle worker, with
   every lint check still enabled.
-- Next: finish serial test/APK build and fresh serial lint, then repeat all four Android fixtures. Only after this task and
+- Serial retry passed without disabling checks: app unit tests 826 cases, zero failures/errors,
+  66 existing skips; Android module 21 passed. Internal app/test APKs rebuilt. Fresh module/app
+  lint passed with zero errors/fatal issues, zero module warnings and 96 app dependency/API/vector
+  warnings. Debug opt-in true and release false. Code under validation remains `b07bd5d`.
+- Next: repeat all four Android fixtures using the rebuilt APKs; emulator boot/install underway. Only after this task and
   its checkpoint finish, perform the owner's requested Instagram/X public-page live validation.
   Run builds and emulator separately to avoid memory overlap. Main/Phase 15/TikTok untouched.
   No merge, tag, release or owner-phone APK handout approval.
