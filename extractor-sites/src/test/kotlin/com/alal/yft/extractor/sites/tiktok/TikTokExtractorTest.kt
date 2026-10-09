@@ -495,6 +495,52 @@ class TikTokExtractorTest {
     }
 
     @Test
+    fun `the phone page's height joins the desktop page's other heights`() = runTest {
+        val identity = identity("7311234567890123456")
+        // P47: the phone page's file is a height the desktop page does not list.
+        val phone = livePhone()
+            .replace("\"height\":1024,\"width\":576", "\"height\":1920,\"width\":1080")
+        val http = livePages(identity, phone = phone, probe = ::cdnAnswers)
+
+        val result = TikTokExtractor(http).extract(request(identity))
+            as SiteExtractionResult.Success
+
+        assertEquals(
+            listOf("1080p", "720p H.265", "540p", "540p H.265"),
+            result.candidates.map { it.title?.substringAfterLast(" — ") },
+        )
+        assertEquals(
+            listOf("fixture-agent", DESKTOP_AGENT, DESKTOP_AGENT, DESKTOP_AGENT),
+            result.candidates.map { it.requestContext.userAgent },
+        )
+        assertEquals(4, http.probedUrls.size)
+        assertTrue(result.details.contains("joined: phone adds 1080p"))
+        assertTrue(result.details.contains("answer: phone + desktop · 4 working qualities"))
+    }
+
+    @Test
+    fun `two codecs of one height on the phone page still ask the desktop page`() = runTest {
+        val identity = identity("7311234567890123456")
+        val http = livePages(
+            identity,
+            phone = gearPage(listOf(540)),
+            desktop = gearPage(listOf(1080, 720, 540)),
+            probe = { _, _ -> ExtractorProbeResult.Answered(206, 1_000L) },
+        )
+
+        val result = TikTokExtractor(http).extract(request(identity))
+            as SiteExtractionResult.Success
+
+        // P47: 540p H.264 and H.265 are one quality to the user, so the desktop page is read.
+        assertEquals(
+            listOf("fixture-agent", DESKTOP_AGENT),
+            http.requestedHeaders.map { it["User-Agent"] },
+        )
+        assertEquals(6, result.candidates.size)
+        assertTrue(result.details.contains("answer: desktop · 6 working qualities"))
+    }
+
+    @Test
     fun `the live phone page lists one address, so the desktop page's qualities win`() =
         runTest {
             val identity = identity("7311234567890123456")
@@ -986,8 +1032,11 @@ class TikTokExtractorTest {
     }
 
     /** Six qualities (1080p, 720p and 540p, each H.264 and H.265), three addresses each. */
-    private fun sixQualityPage(): String {
-        val gears = listOf(1080, 720, 540).flatMap { height ->
+    private fun sixQualityPage(): String = gearPage(listOf(1080, 720, 540))
+
+    /** [heights], each H.264 and H.265, three addresses each. */
+    private fun gearPage(heights: List<Int>): String {
+        val gears = heights.flatMap { height ->
             listOf("h264", "h265_hvc1").map { codec -> height to codec }
         }.joinToString(",") { (height, codec) ->
             val objectId = "fixture$height$codec"

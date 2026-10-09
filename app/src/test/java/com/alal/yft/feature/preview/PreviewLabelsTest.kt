@@ -12,6 +12,15 @@ import org.junit.Test
 
 class PreviewLabelsTest {
     @Test
+    fun aPhoneVideoIsNamedAfterItsShortSideLikeTheSheet() {
+        // P47: the owner's TikTok video, 720 × 1280, read "1280p · Full HD" on Download as.
+        assertEquals("720p · HD", video(width = 720, height = 1_280).qualityLabel())
+        assertEquals("1080p · Full HD", video(width = 1_080, height = 1_920).qualityLabel())
+        assertEquals("480p", video(width = 576, height = 1_024).qualityLabel())
+        assertEquals("1080p · Full HD", video(width = 1_920, height = 1_080).qualityLabel())
+    }
+
+    @Test
     fun videoQualityNamesFollowTheDesign() {
         assertEquals("2160p · 4K", video(height = 2_160).qualityLabel())
         assertEquals("1440p · 2K", video(height = 1_440).qualityLabel())
@@ -90,11 +99,13 @@ class PreviewLabelsTest {
 
     private fun video(
         id: String = "video",
+        width: Int? = null,
         height: Int? = null,
         fps: Double? = null,
         bitrate: Long? = null,
         label: String? = null,
     ) = variant(id, MediaTrackType.VIDEO).copy(
+        width = width,
         height = height,
         framesPerSecond = fps,
         bitrateBitsPerSecond = bitrate,

@@ -245,14 +245,19 @@ class TikTokPageDataTest {
             TikTokAgents().desktop("fixture-tab-agent"),
             http.requestedHeaders.single()["User-Agent"],
         )
+        // P47: the tab's 540p stays; the desktop page adds the heights it lacks.
         assertEquals(
-            listOf("fixture-1080.mp4", "fixture-720.mp4", "fixture-540.mp4"),
+            listOf("fixture-1080.mp4", "fixture-720.mp4", "phone-540.mp4"),
             result.candidates.map { it.mediaUrl.substringAfterLast('/').substringBefore('?') },
         )
         assertTrue(
             result.details.contains("desktop page: asked for more qualities (tab: 1 working)"),
         )
-        assertTrue(result.details.contains("answer: desktop · 3 working qualities"))
+        assertTrue(
+            result.details.toString(),
+            result.details.any { it.startsWith("joined: desktop adds 1080p") },
+        )
+        assertTrue(result.details.contains("answer: desktop + tab · 3 working qualities"))
     }
 
     @Test
@@ -266,6 +271,35 @@ class TikTokPageDataTest {
         assertEquals(1, result.candidates.size)
         assertEquals(1, http.requestedUrls.size)
         assertTrue(result.details.contains("answer: tab · 1 working qualities"))
+    }
+
+    @Test
+    fun `a tab's two codecs of one height still ask the desktop page`() = runTest {
+        val identity = identity(POST_ID)
+        val http = FakeExtractorHttpClient(
+            responses = mapOf(
+                identity.canonicalPageUrl to FakeExtractorHttpClient.html(
+                    Fixtures.read("tiktok/universal_video.html"),
+                    identity.canonicalPageUrl,
+                ),
+            ),
+            probeResponder = { url, _ -> fileAnswer(url) },
+        )
+
+        val result = TikTokExtractor(http).extract(
+            request(identity, data(twoCodecItem(), SitePageDataSource.TAB_API_ANSWER)),
+        ) as SiteExtractionResult.Success
+
+        // P47: 540p in H.264 and H.265 is one quality to the user.
+        assertEquals(listOf(identity.canonicalPageUrl), http.requestedUrls)
+        assertTrue(
+            result.details.contains("desktop page: asked for more qualities (tab: 2 working)"),
+        )
+        assertEquals(
+            listOf("fixture-1080.mp4", "fixture-720.mp4"),
+            result.candidates.take(2)
+                .map { it.mediaUrl.substringAfterLast('/').substringBefore('?') },
+        )
     }
 
     @Test
@@ -284,6 +318,18 @@ class TikTokPageDataTest {
         "{\"id\":\"$POST_ID\",\"desc\":\"Fixture\",\"author\":{\"uniqueId\":\"fixture_user\"}," +
             "\"video\":{\"duration\":10,\"width\":576,\"height\":1024,\"playAddr\":" +
             "\"https://v16-webapp.example-cdn.test/video/play/phone-540.mp4?expire=4102444800\"}}"
+
+    /** One post with 540p twice, H.264 and H.265, as one gear list. */
+    private fun twoCodecItem(): String {
+        val gears = listOf("h264", "h265_hvc1").joinToString(",") { codec ->
+            "{\"GearName\":\"normal_540_0\",\"Bitrate\":800000,\"CodecType\":\"$codec\"," +
+                "\"PlayAddr\":{\"Width\":576,\"Height\":1024,\"DataSize\":1000,\"UrlList\":" +
+                "[\"https://v16-webapp.example-cdn.test/video/tos/phone-540-$codec.mp4\"]}}"
+        }
+        return "{\"id\":\"$POST_ID\",\"desc\":\"Fixture\"," +
+            "\"author\":{\"uniqueId\":\"fixture_user\"}," +
+            "\"video\":{\"duration\":10,\"bitrateInfo\":[$gears]}}"
+    }
 
     private fun scriptItem(): String = Fixtures.read("tiktok/page_data_script_item.json")
 
