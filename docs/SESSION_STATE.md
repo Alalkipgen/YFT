@@ -76,7 +76,13 @@ Update this file before every checkpoint push. Keep it factual so another chat c
   66 existing skips; Android module 21 passed. Internal app/test APKs rebuilt. Fresh module/app
   lint passed with zero errors/fatal issues, zero module warnings and 96 app dependency/API/vector
   warnings. Debug opt-in true and release false. Code under validation remains `b07bd5d`.
-- Next: repeat all four Android fixtures using the rebuilt APKs; emulator boot/install underway. Only after this task and
+- Current rebuilt-code device run: 3/4 passed (paused preload, navigation/disposal, DRM refusal).
+  Positive playback stopped before capture because WebView 74 did not expose the fixture button
+  through UiSelector text. No green positive-capture claim. Test now measures its known visible
+  DOM button rectangle and injects a real screen tap; no JavaScript play/seek/evidence forgery.
+  Production code remains `b07bd5d`; only test code/docs changed. Rebuild/retest pending.
+- Next: rebuild test APK and repeat four fixtures; skip app reinstall only after identical
+  installed/local app APK SHA-256 is verified. Only after this task and
   its checkpoint finish, perform the owner's requested Instagram/X public-page live validation.
   Run builds and emulator separately to avoid memory overlap. Main/Phase 15/TikTok untouched.
   No merge, tag, release or owner-phone APK handout approval.

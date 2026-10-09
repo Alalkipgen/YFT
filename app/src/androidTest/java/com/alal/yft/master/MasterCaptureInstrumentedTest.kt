@@ -14,7 +14,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
-import androidx.test.uiautomator.UiSelector
 import com.alal.yft.core.browser.detection.DownloadObservation
 import com.alal.yft.core.browser.detection.RequestObservation
 import com.alal.yft.core.browser.policy.SecureWebViewPolicy
@@ -35,6 +34,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.runBlocking
+import kotlin.math.roundToInt
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Response
@@ -43,6 +43,8 @@ import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.json.JSONObject
+import org.json.JSONTokener
 
 /** Actual Android Chromium + neutral offline fixtures, never an SSL-error bypass. */
 @RunWith(AndroidJUnit4::class)
@@ -234,10 +236,36 @@ class MasterCaptureInstrumentedTest {
             "(function(){var v=document.querySelector('video');" +
                 "return !!v && v.readyState >= 1;})()",
         )
-        val play = UiDevice.getInstance(instrumentation)
-            .findObject(UiSelector().text("Play fixture"))
-        assertTrue("Visible fixture Play button is missing", play.waitForExists(20_000))
-        assertTrue("Could not tap the fixture Play button", play.click())
+        val response = AtomicReference<String?>()
+        val callback = CountDownLatch(1)
+        instrumentation.runOnMainSync {
+            checkNotNull(browser).evaluateJavascript(
+                "(function(){var b=document.getElementById('fixture-play');" +
+                    "if(!b)return null;var r=b.getBoundingClientRect();" +
+                    "return JSON.stringify({x:r.left+r.width/2,y:r.top+r.height/2," +
+                    "width:innerWidth,height:innerHeight,visible:r.width>0&&r.height>0});})()",
+            ) {
+                response.set(it)
+                callback.countDown()
+            }
+        }
+        assertTrue("No fixture button geometry", callback.await(10, TimeUnit.SECONDS))
+        val encoded = checkNotNull(response.get()).also { check(it.length <= 512) }
+        val geometry = JSONObject(JSONTokener(encoded).nextValue() as String)
+        assertTrue("Fixture button is hidden", geometry.getBoolean("visible"))
+        val x = geometry.getDouble("x") / geometry.getDouble("width")
+        val y = geometry.getDouble("y") / geometry.getDouble("height")
+        assertTrue("Fixture button is outside the viewport", x in 0.0..1.0 && y in 0.0..1.0)
+        val point = IntArray(2)
+        instrumentation.runOnMainSync {
+            val view = checkNotNull(browser)
+            assertTrue("WebView has not been laid out", view.width > 0 && view.height > 0)
+            view.getLocationOnScreen(point)
+            point[0] += (x * view.width).roundToInt()
+            point[1] += (y * view.height).roundToInt()
+        }
+        assertTrue("Could not tap the fixture Play button",
+            UiDevice.getInstance(instrumentation).click(point[0], point[1]))
         // Software emulators may need seconds to start the decoder after the actual tap.
         // Read state only: never call play(), seek, or fabricate capture evidence here.
         awaitPageCondition(
@@ -277,7 +305,7 @@ class MasterCaptureInstrumentedTest {
             button{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
             width:160px;height:60px}</style>
             <video muted loop preload="metadata"><source src="$MEDIA" type="video/mp4"></video>
-            <button onclick="document.querySelector('video').play();
+            <button id="fixture-play" onclick="document.querySelector('video').play();
             fetch('/data.json');">Play fixture</button>
         """.trimIndent()
     }
