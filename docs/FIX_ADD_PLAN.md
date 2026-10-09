@@ -305,7 +305,8 @@ here. AI agent time includes builds and CI waits on a 4 GiB sandbox.
 | --- | --- | --- | --- | --- | --- |
 | P44 | [Merge B → C → A, full validation, Preview #7](#p44--merge-and-preview-7) | Medium | 2–3 h | P39–P43 READY FOR MERGE | DONE (2026-10-09) — Preview #7 sent |
 | P45 | [Adult-site sheet: the tapped video only, its links asked like the browser](#p45--the-tapped-video-only-its-links-asked-like-the-browser) | Medium–Hard | 7–8 h | P44, owner's Preview #7 test | DONE — OWNER CHECK (2026-10-09) — Preview #8 |
-| P8 | [Signed release 1.0.0-beta.4](#p8--signed-release-100-beta4) | Easy | 1–2 h | P44, P45, Preview #8, owner OK | TODO |
+| P46 | [TikTok: every quality in the browser, "private" public posts, Show check](#p46--tiktok-every-quality-in-the-browser-private-public-posts-show-check) | Medium–Hard | 8–10 h | P45, owner's TikTok test | DONE — OWNER CHECK (2026-10-10) — Preview #9 |
+| P8 | [Signed release 1.0.0-beta.4](#p8--signed-release-100-beta4) | Easy | 1–2 h | P44–P46, Preview #9, owner OK | TODO |
 
 In parallel the wall time is about 15–22 h (A's TikTok track of 13–19 h, then P44); two agents
 need about 16–24 h; one agent alone 27–40 h.
@@ -1051,6 +1052,63 @@ refuses YFT's media requests.
 `1d2f27a`: checkpoint validation 37955002943, emulator smoke 37955002962, Preview APK 37955002856
 = **Preview #8**, all green.
 
+### P46 — TikTok: every quality in the browser, "private" public posts, Show check
+
+Medium–Hard · 8–10 h · Agent B alone (`work/phase-15-integration`) · the owner's TikTok test of
+Preview #8 (Pornhub: more than 10 videos all fine).
+
+**Owner's report:** (1) a TikTok link pasted on Home lists 2–3 qualities (480p, 720p, 1080p),
+the same video's Download in YFT's browser lists one; (2) some public posts say "This TikTok
+post is private or no longer available" on Home (Details: `page: phone · HTTP 200 · landed on:
+video page · data: universal webapp.reflow.video.detail · JSON: read · post id: missing`), and
+in the browser "TikTok wants to check that this is not a bot…" or "TikTok wants a check…" —
+TikTok's own phone page shows "This page isn't available — Use the app"; (3) Snaptube shows
+the same TikTok page but downloads the post; (4) is a bot-check bypass like YouTube's needed?
+
+**Why:** (1) the browser's lookup took the tab's data (TikTok's phone player gets one file) and
+stopped once that file opened; Home reads the desktop page when the phone page lists fewer than
+two. (2) TikTok's status for the post on the phone page ended the lookup (`final`), so neither
+the desktop page nor the hidden page was asked; the browser's check message told the user to
+open the browser they were in. (3) Snaptube does not read TikTok's web page. (4) No: YouTube
+needs a per-video token; TikTok's wall here is "app only on phones", and its real check is a
+slider a person answers.
+
+**Done (owner chose A, then B):**
+
+1. TikTok's status on a page is not final: the desktop page is asked too, Details name it
+   ("… · TikTok status 10216"), a check on one page wins over the other page's status, and a
+   "private" from the page data alone (no HTTP status, no adapter message) also asks the hidden
+   page (`SiteAdapterCoordinator.isStatusOnly`).
+2. The browser: a tab's data with one working file is joined by the desktop page's qualities
+   ("desktop page: asked for more qualities (tab: 1 working)"); the answer with more working
+   files wins, else the tab's row stays.
+3. **Show check:** when TikTok's lookup ends on a check, the browser's notice says "TikTok wants
+   to check that this is not a bot. Tap Show check, answer it, then tap Done: YFT looks again."
+   with **Show check**; it opens the video's TikTok page (desktop agent, the browser's shared
+   cookies, TikTok's https pages only, zoomable) for the user to answer; Done asks again. Home's
+   message: "TikTok wants a check. Open the video in YFT's browser and tap Show check." YFT never
+   answers a check itself.
+4. **B — download service** (`TT_SERVICE=ON`): when TikTok's own pages give no file (not for a
+   photo post, DRM or a link that lands on the home page), YFT asks a public download service
+   (`tikwm.com`) for the post — only the post's address, a plain Chrome agent, never a cookie;
+   its HD and normal files (and the watermarked one last) are checked like a page's files and
+   their requests carry no TikTok cookie or Referer. Details: "download service: found ·
+   qualities: n …" or why not ("answer code -1", "other post", "HTTP n").
+5. **Not done — TikTok's app API** (what Snaptube-like apps use): it needs a registered device
+   and TikTok's request signing; without them it answers nothing, and both change often. The
+   download service covers the same posts.
+
+**Tests:** `TikTokExtractorTest` (status asks the desktop page, private on the phone → desktop
+answer, a check wins over a status), `TikTokPageDataTest` (one quality → desktop qualities, no
+more → the tab's row, every quality → no desktop read), `TikTokDownloadServiceTest` (6: rows
+without cookies, the service's own paths, nothing found, another post, off by default, never for
+a photo post), `SiteAdapterOrderTest` (status-only private → hidden page; adapter words or HTTP
+status → not), `SiteCheckTest` (when Show check is offered, TikTok's https pages only),
+`BrowserScreenTest` (Show check instead of Try again).
+
+**Result:** DONE — OWNER CHECK (Agent B, 2026-10-10, the P46 checkpoint). Full validation: 1746 tests, 0 failures, 66 skipped (app 909, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 250; 1729 before P46); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. CI of
+the P46 checkpoint: CI links in the next docs commit = **Preview #9**, all green.
+
 ### P8 — Signed release 1.0.0-beta.4
 
 Easy · 1–2 h · needs P44, Preview #7 and the owner's OK · prompt
@@ -1069,7 +1127,20 @@ SHA-256 and certificate. Merge, tag and signing need the owner's OK for this tas
 Install `yft-preview-apk` from the Preview APK run the agent sends; uninstall the older YFT
 Preview first (each run has a new test key).
 
-**Preview #8 (after P45)** — the adult site of Preview #7's item 6:
+**Preview #9 (after P46)** — TikTok (with and without the VPN):
+
+1. **The video that listed 480p only in the browser** (and 720p/480p on Home): Download in YFT's
+   browser → the same qualities as Home; Details: "desktop page: asked for more qualities".
+2. **The public posts that said "private"** (e.g. `vt.tiktok.com/ZSbtnhwM8/`) pasted on Home:
+   qualities now (Details: "TikTok status …", then "download service: found …"), or the reason
+   with those lines — send a screenshot of **Details**.
+3. **The same posts in YFT's browser:** Download → qualities; if TikTok asks for a check, the
+   notice has **Show check** → answer the slider → Done → YFT looks again.
+4. **Download** one such video to the end and play it.
+5. Preview #8's list below still holds (the adult site; owner: 10+ videos fine).
+
+**Preview #8 (after P45)** — the adult site of Preview #7's item 6 (owner, 2026-10-10: more
+than 10 Pornhub videos, all fine):
 
 1. **Download on 10 videos** (some with a pre-roll): the sheet shows the tapped video only —
    no "Other videos on this page" row, never another video's title or length; after an ad the
@@ -1169,11 +1240,14 @@ Other items:
   media-like addresses only, so it needs a document-start script that wraps the page's
   XHR/fetch and reports VAST/VMAP answers through an origin-restricted `WebMessageListener`.
   About 4–6 h; owner decision: — ((a) was done by P45.)
-- **P46 option — Chromium's network stack for downloads (Cronet).** If the CDN of P45's site
+- **Option — Chromium's network stack for downloads (Cronet).** If the CDN of P45's site
   also refuses YFT's own file and piece requests (TLS fingerprint, R37), downloads would go
   through Cronet (`play-services-cronet` or the embedded Cronet library, the same stack as
   Chrome) instead of OkHttp. A new dependency (APK size, Play services), so it needs the
-  owner's OK. About 1–2 days with tests. Owner decision: —
+  owner's OK. About 1–2 days with tests. Owner decision (2026-10-10): not now — Preview #8 had
+  no refused download; reopen with a download's Details that show a refusal.
+- **TikTok's app API** (P46 item 5): needs a registered device and TikTok's request signing;
+  not done while the download service gives the same posts.
 
 ## 8. Done before Phase 15
 

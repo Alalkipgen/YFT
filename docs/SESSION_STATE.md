@@ -79,9 +79,16 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - Last pushed checkpoint: `1d2f27a` P45 on `work/phase-15-integration`; CI: checkpoint validation
   [37955002943](https://github.com/Alalkipgen/YFT/actions/runs/37955002943), emulator smoke [37955002962](https://github.com/Alalkipgen/YFT/actions/runs/37955002962), Preview APK =
   **Preview #8** [37955002856](https://github.com/Alalkipgen/YFT/actions/runs/37955002856) (Artifacts › `yft-preview-apk`), all green. `main` stays at `69bf022` until the owner says `MAIN=OK`.
-- Next: the owner tests Preview #8 (FIX_ADD_PLAN §6 "Preview #8") and sends Details of anything
+- P46 (2026-10-10, Agent B alone; `/data/YFT-B` re-cloned after a sandbox reset, new key
+  `yft_b_202610091709`, JDK 17 and SDK 35 in `/data/sdk`): the owner's TikTok report (one quality
+  in the browser, public posts called private, check messages). Owner chose A, then B. Done: a
+  page's TikTok status is not final; the browser joins the desktop page's qualities; Show check;
+  the public download service after TikTok's pages. Not done: TikTok's app API. Full validation: 1746 tests, 0 failures, 66 skipped (app 909, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 250; 1729 before P46); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean.
+- Last pushed checkpoint: the P46 checkpoint P46 on `work/phase-15-integration`; CI: CI links in the next docs commit.
+  `main` stays at `69bf022` until the owner says `MAIN=OK`.
+- Next: the owner tests Preview #9 (FIX_ADD_PLAN §6 "Preview #9") and sends Details of anything
   that fails; P8 (signed `1.0.0-beta.4`) only with his OK.
-- Last updated: 2026-10-09 (P45)
+- Last updated: 2026-10-10 (P46)
 
 ## Agent A — `work/phase-15-tiktok` (P39, P40)
 

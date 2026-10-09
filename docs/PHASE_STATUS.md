@@ -53,8 +53,12 @@ prompts are in [`prompts/`](prompts/README.md).
 P45 (2026-10-09, Agent B alone, after the owner's Preview #7 test): the Download sheet shows
 only the tapped video (no "Other videos" row, no "Next video"), a page's links are asked like
 the browser's (agent, `Origin`, `Referer`), a refused link is asked again through WebView, and
-HTTP 474/410 say the site refused the link; proven ads leave the browser's lists. Preview #8;
-`1.0.0-beta.4` (P8) waits for the owner's phone test of Preview #8.
+HTTP 474/410 say the site refused the link; proven ads leave the browser's lists. Preview #8.
+
+P46 (2026-10-10, Agent B alone, after the owner's TikTok test): the browser lists TikTok's
+desktop qualities too; a post TikTok's phone page calls private is asked of the desktop page,
+the hidden page and a public download service; Show check puts TikTok's check in front of the
+user. Preview #9; `1.0.0-beta.4` (P8) waits for the owner's phone test of Preview #9.
 
 
 ## History

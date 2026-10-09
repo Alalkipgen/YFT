@@ -23,7 +23,13 @@
   Play the video for a moment, then try again."; Details add "Request:" and "Browser check:";
   proven ads leave the browser's lists. Full validation: 1729 tests, 0 failures, 66 skipped (app 903, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 239; 1717 before P45); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. **Preview #8:** https://github.com/Alalkipgen/YFT/actions/runs/37955002856 of `1d2f27a` (Artifacts › `yft-preview-apk`; on
   `work/phase-15-integration`; `main` stays at `69bf022` until `MAIN=OK`).
-- **Next action — owner:** test Preview #8 (FIX_ADD_PLAN §6 "Preview #8"), then Preview #7 with
+- **P46 (2026-10-10, Agent B alone):** TikTok — the browser joins the tab's one quality with the
+  desktop page's; TikTok's "private" status on a page asks the desktop page, the hidden page and
+  then a public download service (`tikwm.com`, post address only, no cookie); **Show check**
+  shows TikTok's check to the user, Done looks again. Full validation: 1746 tests, 0 failures, 66 skipped (app 909, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 250; 1729 before P46); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. **Preview #9:** CI links in the next docs commit
+  (Artifacts › `yft-preview-apk`; `main` stays at `69bf022` until `MAIN=OK`). Owner's Preview #8
+  test: more than 10 Pornhub videos fine.
+- **Next action — owner:** test Preview #9 (FIX_ADD_PLAN §6 "Preview #9"), then Preview #8 and #7 with
   FIX_ADD_PLAN §6 (TikTok with the VPN in the browser and on Home, YouTube's start, Delete file,
   ads, Preview #6 items); send a Details screenshot of anything that fails. `1.0.0-beta.4` (P8)
   waits for his OK.
@@ -41,7 +47,12 @@
   (notes: [`release/1.0.0-beta.3.md`](release/1.0.0-beta.3.md)). Phases 11–15 are merged
   (no tag); `1.0.0-beta.4` waits for Preview #7 (P8).
 
-## Known limitations (Preview #8)
+## Known limitations (Preview #9)
+
+- P46: the download service is a third party: it sees the post's address (nothing else) and
+  may be down or slow; then the lookup ends with TikTok's own reason and Details say why. Show
+  check opens TikTok's desktop page on a phone screen, so the slider may need zooming.
+- P46: TikTok's app API is not used (device registration and signing).
 
 - P45: a refused link is asked again through WebView only for the file check and the lists of
   qualities; the file itself and HLS pieces are still downloaded by YFT (OkHttp). If the CDN

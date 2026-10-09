@@ -9,6 +9,15 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Added
 
+- TikTok in the browser lists every quality (P46): when the video's data in the tab opens one
+  file, YFT also reads TikTok's desktop page and lists its qualities (as Home does).
+- TikTok's public posts that its phone page calls private (P46): YFT asks TikTok's desktop page
+  and its hidden page too, then a public download service (only the post's address, never a
+  cookie). Details name TikTok's status and each step.
+- Show check (P46): when TikTok asks YFT's hidden page for a check, the browser's notice offers
+  **Show check** — TikTok's page for the user to answer — and Done looks again. YFT never
+  answers a check itself.
+
 - Browser reads (P45): when a site refuses YFT's request of a link a browser page names
   (HTTP 403, 410, 412 or 452–499, such as 474) at the file check, the list of qualities or a
   quality's playlist, YFT asks the same link once more through Android's WebView — a hidden
