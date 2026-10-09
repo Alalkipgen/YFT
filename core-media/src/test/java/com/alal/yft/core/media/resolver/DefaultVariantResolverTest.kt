@@ -634,6 +634,48 @@ class DefaultVariantResolverTest {
         }
 
     @Test
+    fun `a file server that answers HEAD with a server error is asked for the file itself`() =
+        runTest {
+            // P39 live check: TikTok's file host answered the Download sheet's HEAD for the
+            // 540p H.265 file with 504, while a one-byte GET of the same address got the file.
+            val file = Mp4Fixtures.file(width = 576, height = 1024, audioKbps = 128)
+            server.enqueue(MockResponse().setResponseCode(504))
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(206)
+                    .setHeader("Content-Type", "video/mp4")
+                    .setHeader("Content-Range", "bytes 0-0/${file.size}")
+                    .setBody(okio.Buffer().write(file.copyOfRange(0, 1))),
+            )
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(206)
+                    .setHeader("Content-Type", "video/mp4")
+                    .setHeader("Content-Range", "bytes 0-${file.size - 1}/${file.size}")
+                    .setBody(okio.Buffer().write(file)),
+            )
+
+            val result = resolver.resolve(candidate(server.url("/clip.mp4").toString()))
+
+            assertTrue(result.toString(), result is VariantResolutionResult.Success)
+            val variant = (result as VariantResolutionResult.Success).asset.variants.single()
+            assertEquals(file.size.toLong(), variant.sizeBytes)
+            assertEquals(MediaSizeAccuracy.EXACT, variant.sizeAccuracy)
+            assertEquals(1024, variant.height)
+            assertEquals("HEAD", server.takeRequest().method)
+            assertEquals("bytes=0-0", server.takeRequest().getHeader("Range"))
+
+            // The lookup fails only when the range GET fails too, with that answer's status.
+            server.enqueue(MockResponse().setResponseCode(503))
+            server.enqueue(MockResponse().setResponseCode(502))
+            val refused = resolver.resolve(candidate(server.url("/gone.mp4").toString()))
+                as VariantResolutionResult.Failure
+            assertEquals(VariantResolutionFailure.HTTP_STATUS, refused.reason)
+            assertEquals(502, refused.httpStatusCode)
+            assertEquals(ResolutionStep.FILE_CHECK, refused.step)
+        }
+
+    @Test
     fun `an unexpected error ends as a failure at the step it stopped at`() = runTest {
         val crashing = resolverReading { error("fixture") }
         server.enqueue(manifestResponse("#EXTM3U\n", "application/vnd.apple.mpegurl"))

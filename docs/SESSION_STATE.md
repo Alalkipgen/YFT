@@ -78,7 +78,11 @@ Keep at least the heading and one blank line between sections, so Git merges the
   resolver (TikTok-shaped MP4, caller's thread, unexpected error) — all pass. Step 8 code: the
   probe's `currentSrc`, PlayerFileFallback (TikTok player files per page → MAIN row + banner)
   and its tests. Regression proof on main's code done (adapter 5, client 4, fallback 3 and the
-  resolver's 2 new tests fail there). Next: live check, validation, docs.
+  resolver's 2 new tests fail there). Live check done 2026-10-09. Resolver: a HEAD 5xx
+  answer is asked again with the range GET, like 405/501 (live: the CDN answered the 540p H.265
+  HEAD with 504); JVM test (HEAD 504 → range 206 → header probe → exact size; both failing →
+  HTTP_STATUS) fails on main's resolver. New machine 2026-10-09: new deploy key
+  `/data/.ssh/yft_a_20261009`. Next: full validation, docs, final checkpoint.
   DefaultVariantResolver: requests on Dispatchers.IO, every unexpected error -> failure at its step.
   Live look 2026-10-09 (one public video, both agents, page answers only): phone 200 · 150 KB ·
   `webapp.reflow.video.detail` with playAddr only (576×1024); desktop 200 · 389 KB ·
