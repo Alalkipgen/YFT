@@ -12,9 +12,11 @@
   core-download 184, core-media 33, core-model 122, extractor-api 36, extractor-generic 21,
   extractor-sites 239; 1532 at the start); lint 0 errors (98 warnings: A's 3 androidx.webkit
   notices); `:app:assembleRelease` OK (lint vital needed a 2.5 GiB Gradle heap on the 4 GiB sandbox)
-- **Preview #7:** the Preview APK (test key) run of the P44 checkpoint (`yft-preview-apk`;
-  uninstall the older YFT Preview first); run links in `SESSION_STATE.md` (Overview). As the
-  owner asked, `main` is fast-forwarded to the validated merge once its CI is green (no tag).
+- **Preview #7:** Preview APK (test key) run
+  https://github.com/Alalkipgen/YFT/actions/runs/37893874478 of the P44 checkpoint `1ef8c86`
+  (Artifacts › `yft-preview-apk`; uninstall the older YFT Preview first); checkpoint validation
+  37893874474 and emulator smoke 37893874480 green. As the owner asked, `main` is
+  fast-forwarded to the validated merge (no tag).
 - **Next action — owner:** test Preview #7 with FIX_ADD_PLAN §6 (TikTok with the VPN in the
   browser and on Home, YouTube's start, Delete file, ads, Preview #6 items); send a Details
   screenshot of anything that fails. `1.0.0-beta.4` (P8) waits for his OK.

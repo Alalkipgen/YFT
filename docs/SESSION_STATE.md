@@ -61,11 +61,15 @@ Keep at least the heading and one blank line between sections, so Git merges the
   extractor-sites 239; 1532 at the start); lint 0 errors (98 warnings: A's 3 androidx.webkit
   notices); `:app:assembleRelease`: OK (lint vital needed a 2.5 GiB Gradle heap on the 4 GiB
   sandbox); line check clean after wrapping one line of B's `DeleteFileScreenTest`.
-- Last pushed checkpoint: P44 merge B, C, A — full validation green, on
-  `work/phase-15-integration`.
-- Next: CI of the P44 checkpoint (checkpoint validation, emulator smoke, Preview APK =
-  **Preview #7**); then, as the owner asked, `main` fast-forwarded to it (no tag); the owner tests
-  Preview #7 (FIX_ADD_PLAN §6); P8 (signed `1.0.0-beta.4`) only with his OK.
+- Last pushed checkpoint: `1ef8c86` P44 merge B, C, A — full validation green, on
+  `work/phase-15-integration`; CI of `1ef8c86`: checkpoint validation
+  [37893874474](https://github.com/Alalkipgen/YFT/actions/runs/37893874474), emulator smoke
+  [37893874480](https://github.com/Alalkipgen/YFT/actions/runs/37893874480), Preview APK = **Preview #7**
+  [37893874478](https://github.com/Alalkipgen/YFT/actions/runs/37893874478) (Artifacts › `yft-preview-apk`), all green. This
+  docs commit adds the links; `main` is fast-forwarded to it at the owner's request (no tag).
+- Next: the owner tests Preview #7 (FIX_ADD_PLAN §6, uninstall the older YFT Preview first) and
+  sends a Details screenshot of anything that fails; P8 (signed `1.0.0-beta.4`) only with his
+  OK.
 - Last updated: 2026-10-09 (P44)
 
 ## Agent A — `work/phase-15-tiktok` (P39, P40)

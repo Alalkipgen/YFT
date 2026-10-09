@@ -972,8 +972,9 @@ CountedAsOthers` (P24, the owner's case counts an ad as another video), so it ne
 the owner's word; (b) `vastAds.onAnswer` from the browser's own reads of a page's answers. Line check: B's `DeleteFileScreenTest` had one 101-character
 line (wrapped). Full validation: 1717 tests, 0 failures, 66 skipped (app 900, core-browser 149, core-data 33, core-download 184, core-media 33, core-model 122, extractor-api 36, extractor-generic 21, extractor-sites 239; 1532 at the start); lint 0 errors (98 warnings: A's 3 androidx.webkit notices); `:app:assembleRelease`: OK (lint vital needed a 2.5 GiB Gradle heap on the 4 GiB sandbox).
 The owner asked to push `main` after the merge and to build the test-key Preview: `main` is
-fast-forwarded to the validated merge after its CI is green (no tag, no signed release). CI and
-Preview #7: SESSION_STATE Overview.
+fast-forwarded to the validated merge after its CI was green (no tag, no signed release). CI of
+`1ef8c86`: checkpoint validation 37893874474, emulator smoke 37893874480, Preview APK 37893874478
+= **Preview #7**, all green.
 
 ### P8 — Signed release 1.0.0-beta.4
 
