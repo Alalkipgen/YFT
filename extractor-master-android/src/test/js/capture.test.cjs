@@ -158,3 +158,21 @@ test("disposal restores owned hooks and removes the collector", () => {
 test("the collector has no credential reader native bridge or automatic player", () => {
   assert.doesNotMatch(source, /document\.cookie|localStorage|addJavascriptInterface|\.play\s*\(/);
 });
+
+test("POST media responses are not invented as replayable GET observations", async () => {
+  const result = response("", "https://cdn.test/main.mp4", "video/mp4");
+  const { env } = environment({ fetch: () => Promise.resolve(result) });
+  await env.fetch("https://cdn.test/main.mp4", { method: "POST" });
+  await settle();
+  assert.equal(packet(env).requests.length, 0);
+});
+
+test("page-global getters are never invoked by payload collection", () => {
+  const { env } = environment();
+  let calls = 0;
+  Object.defineProperty(env, "ytInitialPlayerResponse", {
+    get() { calls++; return { video_url: "https://cdn.test/main.mp4" }; },
+  });
+  packet(env);
+  assert.equal(calls, 0);
+});

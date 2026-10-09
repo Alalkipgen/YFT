@@ -44,7 +44,13 @@ generic pages request it only after a user Download tap found no main video. Dis
 DRM/private/geo/network/rate-limit failures remain outside the fallback. Device merge gates
 and the normal final resolver/download pipeline still apply.
 
-The new app bridge/lifecycle/selection tests and four real-Android fixture tests are being
-validated. JavaScript transport tests currently pass 9/9. Earlier 15-test module results above
-are the pushed module milestone, not a claim about all follow-on tests. No Instagram/X live
-site support, full download/mux result, universal iframe coverage or merge approval is claimed.
+The initial app-wiring run passed: Android module 18 tests, app 826 cases, zero failures/errors
+and 66 existing app skips. Both lints passed and four Android fixture tests compiled. With the
+opt-in property true, generated debug/test flags were true and the release flag stayed false.
+
+Follow-on hardening reuses the production focus probe to reject a different feed video instead
+of labeling it with the requested ID. POST responses are not turned into GET media observations,
+and known VAST preview markings reach the Master's explicit preview veto. Three new focus tests
+are pending validation at this checkpoint; JavaScript transport tests pass 11/11. Actual Android
+playback tests are the next step. No Instagram/X live support, full download/mux result, universal
+iframe coverage or merge approval is claimed.

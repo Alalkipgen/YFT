@@ -46,12 +46,17 @@ Update this file before every checkpoint push. Keep it factual so another chat c
   playback evidence, DRM refusal and main-thread WebView boundary. App wiring not yet present.
 - Module checkpoint: `22d1ff6c94a4a69c8608e02342feb5b9b4ae5ee0`. A later sandbox reset
   discarded unpushed wiring; the exact authored patches were recovered from session events.
-- Follow-on app wiring is present; fresh validation is running (app + Android module unit tests,
-  lint, Android test compilation and release-flag isolation). JavaScript tests: 9 passed.
-  Real Android tests are compiled/run only after builds, to avoid emulator/build memory overlap.
-- Next: finish validation, push the isolated app milestone, then run four real-Android fixtures
-  for paused preload, user playback, navigation/disposal and DRM refusal. Keep main/Phase 15/
-  TikTok untouched. No merge, tag, release or APK handout approval.
+- App wiring checkpoint: `eddfa48b73655a28610430b62cb9f8b6ccedc89e`.
+  Initial full app-wiring validation passed: Android module 18 tests; app 826 cases, zero
+  failures/errors, 66 existing skips; both lints passed; four Android test methods compiled.
+  Opt-in debug/test flags true, release flag false. Command used `-Pyft.masterCapture=true`
+  and the Android module/app unit tests, lint, Android test compile and release BuildConfig.
+- Follow-on hardening: production focus-probe identity guard, GET-only observed media replay,
+  known VAST preview-veto forwarding. Three additional focus tests await validation; JS 11 passed.
+- Next: validate current hardening and build internal x86_64 debug/test APKs, then run four
+  real-Android fixtures for paused preload, user playback, navigation/disposal and DRM refusal.
+  Run builds and emulator separately to avoid memory overlap. Main/Phase 15/TikTok untouched.
+  No merge, tag, release or APK handout approval.
 
 Phase 14 runs three agents at the same time. **Each agent edits only its own section below**
 (`## Agent A …`, `## Agent B …`, `## Agent C …`); `## Overview` belongs to the plan and to P38.

@@ -88,9 +88,16 @@
   function observedFetch() {
     const generation = state.generation;
     const promise = originalFetch.apply(this, arguments);
+    let method = "GET";
+    try {
+      method = String((arguments[1] && arguments[1].method) ||
+        (arguments[0] && arguments[0].method) || "GET").toUpperCase();
+    } catch (_) { method = ""; }
     promise.then(function (response) {
       try {
-        note(response.url, response.headers.get("content-type"), generation, false);
+        if (method === "GET") {
+          note(response.url, response.headers.get("content-type"), generation, false);
+        }
         if (state.payloads.length < 8 && state.activeReads < 2) {
           state.activeReads++;
           readClone(response, generation).finally(function () {
@@ -102,7 +109,9 @@
     return promise; // Preserve the page's original promise and response stream.
   }
   function observedOpen(method, url) {
-    xhrState.set(this, { url: url, generation: state.generation });
+    let verb = "";
+    try { verb = String(method).toUpperCase(); } catch (_) {}
+    xhrState.set(this, { url: url, method: verb, generation: state.generation });
     return originalOpen.apply(this, arguments);
   }
   function observedSend() {
@@ -113,7 +122,9 @@
           const request = xhrState.get(this);
           if (!request || request.generation !== state.generation) return;
           const mime = this.getResponseHeader("content-type") || "";
-          note(this.responseURL || request.url, mime, request.generation, false);
+          if (request.method === "GET") {
+            note(this.responseURL || request.url, mime, request.generation, false);
+          }
           if (!/application\/(?:[^;]*\+)?json/i.test(mime)) return;
           if (this.responseType === "json") {
             const text = boundedJson(this.response);

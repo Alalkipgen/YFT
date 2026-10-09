@@ -4,6 +4,7 @@ import android.os.Looper
 import android.webkit.CookieManager
 import android.webkit.WebView
 import com.alal.yft.core.browser.detection.RequestObservation
+import com.alal.yft.core.browser.detection.FocusedVideoProbe
 import com.alal.yft.core.browser.webview.BrowserObservationSink
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.extractor.api.SiteExtractionFailure
@@ -26,6 +27,7 @@ import kotlin.coroutines.resume
 class WebViewPlaybackCapture(
     val enabled: Boolean,
     val session: MasterBrowserSession = MasterBrowserSession(),
+    private val contentIdOf: (String) -> String? = { null },
 ) : PlaybackCaptureProvider {
     private var browser = WeakReference<WebView>(null)
     private var script: String? = null
@@ -128,8 +130,22 @@ class WebViewPlaybackCapture(
                 return@withContext CaptureResult.Unavailable
             }
             // Observe progress twice; paused/preloaded media alone never authorizes playback.
+            val expectedId = request.expectedContentId
             withTimeoutOrNull(CAPTURE_TIMEOUT_MS) {
                 repeat(MAX_SAMPLES) {
+                    if (expectedId != null &&
+                        FocusedVideoProbe.isFeedSite(scope.pageUrl)
+                    ) {
+                        val focused = evaluate(scope, FocusedVideoProbe.script)
+                        if (!CaptureFocusGuard.matches(
+                                focused, scope.pageUrl, expectedId, contentIdOf,
+                            )
+                        ) {
+                            // Focus changed without URL navigation: invalidate this lookup.
+                            session.navigate(scope.pageUrl)?.let(::bind)
+                            return@withTimeoutOrNull
+                        }
+                    }
                     val frame = sample(scope) ?: return@withTimeoutOrNull
                     session.accept(frame, System.nanoTime() / 1_000_000)
                     val snapshot = session.snapshot(request) as? CaptureResult.Available
@@ -148,13 +164,19 @@ class WebViewPlaybackCapture(
         bind(scope)
         val page = JSONObject.quote(scope.pageUrl)
         val command = "window.__yftMasterCaptureV1.sample(${scope.generation}, $page)"
+        return CaptureFrameReader.read(evaluate(scope, command))
+    }
+
+    private suspend fun evaluate(scope: BrowserCaptureScope, command: String): String? {
+        val view = browser.get() ?: return null
+        if (view.url != scope.pageUrl || session.currentScope() != scope) return null
         val result = suspendCancellableCoroutine<String?> { continuation ->
             view.evaluateJavascript(command) { response ->
                 if (continuation.isActive) continuation.resume(response)
             }
         }
         if (browser.get() !== view || session.currentScope() != scope) return null
-        return CaptureFrameReader.read(result)
+        return result
     }
 
     override fun toString(): String = "WebViewPlaybackCapture(enabled=$enabled, memoryOnly=true)"

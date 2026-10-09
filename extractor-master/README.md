@@ -205,3 +205,8 @@ The owner subsequently approved Android Play & Capture connection on this same b
 bounds, tests and limitations. Its initial module milestone passed 15 unit tests and lint.
 Build-opt-in app wiring is now present; full validation and actual Android playback tests are
 in progress. Merge/release remains unapproved. See `extractor-master-android/README.md`.
+
+Initial app-wiring validation passed 18 Android module tests and 826 app cases, zero
+failures/errors and 66 existing app skips; lint and Android test compilation passed. The
+opt-in property enabled debug/test flags but did not enable release. Focus/GET hardening and
+actual Android playback validation are in progress, not yet an end-to-end site-support claim.

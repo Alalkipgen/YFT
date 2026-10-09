@@ -22,6 +22,7 @@ import com.alal.yft.core.model.media.MediaGroup
 import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.PageVideoFacts
+import com.alal.yft.core.model.media.PageMediaRole
 import com.alal.yft.core.model.media.PlayingVideo
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
@@ -1083,7 +1084,12 @@ class BrowserViewModel(
             vastAds.onRequest(observation)
             BrowserObservationMapper.fromRequest(observation)
                 ?.let { vastAds.marked(it, observation) }
-                ?.let(candidateStore::submit)
+                ?.let { candidate ->
+                    if (candidate.pageRole == PageMediaRole.PREVIEW) {
+                        masterCapture?.session?.observe(observation, preview = true)
+                    }
+                    candidateStore.submit(candidate)
+                }
             val probeCandidate = BrowserObservationMapper.forMetadataProbe(observation)
                 ?: return@launch
             scheduleProbe(probeCandidate)

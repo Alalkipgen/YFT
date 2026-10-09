@@ -167,7 +167,10 @@ class AndroidBrowserMasterFallback(
             sites: SiteAdapterCoordinator,
         ): BrowserMasterFallback {
             if (!enabled) return BrowserMasterFallback.None
-            val capture = WebViewPlaybackCapture(enabled = true)
+            val capture = WebViewPlaybackCapture(
+                enabled = true,
+                contentIdOf = { url -> sites.videoKey(url)?.substringAfter(':') },
+            )
             return AndroidBrowserMasterFallback(
                 capture,
                 sites,
