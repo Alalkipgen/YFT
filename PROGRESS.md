@@ -25,6 +25,7 @@
   merge, oracle faults, own disagree/missing/failed, absent vs download faults, summary leaks
   no value), added to the workflow's JS step.
 - No change in `main`, the app or assets; flag-off behaviour unchanged.
+- ✅ CI (S1, `491dc0e`): Master opt-in debug APK run `38094820752` — success.
 
 ## R9 — Signed recipe config (data only)
 
