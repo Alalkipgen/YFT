@@ -57,6 +57,15 @@ jobs:
       - name: Master tests and opt-in debug APK
         shell: bash
         run: |
+          set -o pipefail
+          report() {
+            # Job logs need admin rights; the failure's own lines become a public annotation.
+            local lines
+            lines="$(grep -E -A8 'What went wrong|FAILED$|^e: ' gradle-master.log | head -80 |
+              sed -e 's/%/%25/g' | sed -e ':a;N;$!ba;s/\n/%0A/g')"
+            echo "::error title=Master Gradle failure::${lines:-see the job log}"
+            exit 1
+          }
           ./gradlew --no-daemon -Pyft.masterCapture=true \
             :extractor-master:test \
             :extractor-master-android:testDebugUnitTest \
@@ -65,7 +74,7 @@ jobs:
               --tests 'com.alal.yft.feature.browser.BrowserMasterFlowTest' \
               --tests 'com.alal.yft.detection.master.BrowserMasterFallbackTest' \
             :app:compileDebugAndroidTestKotlin \
-            :app:assembleDebug
+            :app:assembleDebug 2>&1 | tee gradle-master.log || report
       - name: Record APK hashes
         shell: bash
         run: |
