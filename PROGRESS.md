@@ -29,6 +29,8 @@
   parity on the generic URLs (plain `<video>`, HLS, DASH, VAST pre-roll) is owner-run.
   Local: `:extractor-master:test` 244 (0 failures, 2 skipped), Android 56, app 24, JS 28,
   `:app:assembleDebug` OK.
+- ✅ Spike CI run 38081550529 green on `e163ec5` (drift, JS 28 incl. `mse.test.cjs`, Master
+  tests, opt-in debug APK).
 
 ## R6 — Own YouTube module (YT-1 / YT-2 / YT-4)
 
