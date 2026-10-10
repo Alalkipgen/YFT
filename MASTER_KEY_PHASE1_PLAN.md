@@ -29,8 +29,8 @@ Phase 1 turns the §8 recommendation into one ordered, buildable plan. It keeps 
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
 | A0 | Architecture step A: packages/layers, same behavior ([MASTER_KEY_ARCHITECTURE.md](MASTER_KEY_ARCHITECTURE.md)) | — | Medium | Done |
-| R1 | Base sync + parity harness + canary | — | Medium | TODO |
-| R2 | Safety: terminal bot-check/DRM; YouTube payload off | R1 | Low–Medium | TODO |
+| R1 | Base sync + parity harness + canary | — | Medium | Done |
+| R2 | Safety: terminal bot-check/DRM; YouTube payload off | R1 | Low–Medium | Done |
 | R3 | Toolkit T1/T2 + L3 shape search + ID anchoring + ladder/probe/policy | R2 | Medium | TODO |
 | R4 | C: keyframe/duration fingerprint | R3 | Low–Medium | TODO |
 | R5 | E: codec steering | R3 | Low | TODO |

@@ -108,8 +108,8 @@ class MasterFallbackEngineTest {
     fun `bot check requires authorized browser playback`() = runTest {
         val probe = RecordingValidator()
         val result = MasterFallbackEngine(probe, policy = enabled).extract(
-            request(snapshot(fixture("youtube-player.json")),
-                SiteExtractionFailure.BOT_CHECK, "yt-fixture"),
+            request(snapshot(fixture("instagram-reel.json")),
+                SiteExtractionFailure.BOT_CHECK, "ig-fixture"),
         )
         assertTrue(result is MasterResult.NeedsPlayback)
         assertTrue(probe.seen.isEmpty())

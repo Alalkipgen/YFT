@@ -7,7 +7,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -63,6 +62,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -71,11 +71,12 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * M2: the browser's real ViewModel takes Master's main/More presentation through the existing
- * hook, the real download sheet (QuickDownloadRoute) shows only the main video, and its
- * existing "Other videos on this page (N)" More button opens the browser's found list with the
- * remaining videos. The presentation fixture has the module's shape (one group per verified
- * file, owned UI keys, no post ID); the selection policy itself is covered by the module tests.
+ * M2 after P45 (the tapped video only): the browser's real ViewModel takes Master's main/More
+ * presentation through the existing hook, the real download sheet (QuickDownloadRoute) shows
+ * only the main video with no "Other videos" row, and the remaining videos stay in the
+ * browser's own found list. The presentation fixture has the module's shape (one group per
+ * verified file, owned UI keys, no post ID); the selection policy itself is covered by the
+ * module tests.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -86,7 +87,7 @@ class MasterMainMoreSheetTest {
     @get:Rule val composeRule = createComposeRule()
 
     @Test
-    fun mainWithSevenMoreShowsOnlyTheMainInTheSheetAndTheRestBehindMore() {
+    fun mainWithSevenMoreShowsOnlyTheMainInTheSheetAndTheRestInTheFoundList() {
         val videos = listOf(packed(0, MAIN)) + (1..7).map { packed(it, "Alternative $it") }
         val backup = CapturedMainMore(videos)
         val store = DetectedMediaStore()
@@ -94,23 +95,24 @@ class MasterMainMoreSheetTest {
         openSitePage(browser)
         assertEquals(1, backup.recovered)
         assertEquals(videos.first().mediaUrl, store.selection.value!!.candidates.single().mediaUrl)
-        assertEquals(7, store.otherVideos.value)
         assertFalse(browser.uiState.value.sitePage)
+        val listed = browser.uiState.value.candidates.map { it.mediaUrl }
+        videos.forEach { assertTrue(it.mediaUrl in listed) }
 
-        val sheet = sheet(store)
-        assertEquals(7, sheet.uiState.value.otherVideos)
-        render(browser, sheet)
+        render(browser, sheet(store))
         composeRule.onNodeWithTag("quick-header").assertIsDisplayed()
         composeRule.onNodeWithText(MAIN).assertIsDisplayed()
         (1..7).forEach { composeRule.onAllNodesWithText("Alternative $it").assertCountEquals(0) }
-        composeRule.onNodeWithTag("quick-other-videos").assertIsDisplayed()
-            .assertTextEquals("Other videos on this page (7)")
-            .performClick()
-        settle()
-        composeRule.waitForIdle()
+        composeRule.onAllNodesWithTag("quick-other-videos").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Other videos on this page", substring = true)
+            .assertCountEquals(0)
 
-        // The sheet closed and the browser's found list (More) lists the other seven.
+        // The sheet closes; the browser's found list (More) still lists the other seven.
+        composeRule.runOnIdle { sheetOpen = false }
+        composeRule.waitForIdle()
         composeRule.onAllNodesWithTag("quick-header").assertCountEquals(0)
+        composeRule.onNodeWithTag("media-found-button").performClick()
+        composeRule.waitForIdle()
         composeRule.onNodeWithTag("found-list").assertIsDisplayed()
         (1..7).forEach { index ->
             val title = "Alternative $index"
@@ -127,7 +129,6 @@ class MasterMainMoreSheetTest {
         val browser = browser(FixtureExtractor(), store, backup)
         openSitePage(browser)
         assertEquals(only.mediaUrl, store.selection.value!!.candidates.single().mediaUrl)
-        assertEquals(0, store.otherVideos.value)
 
         render(browser, sheet(store))
         composeRule.onNodeWithTag("quick-header").assertIsDisplayed()
@@ -156,8 +157,7 @@ class MasterMainMoreSheetTest {
         openSitePage(flagOff)
         assertEquals(legacyStore.selection.value, offStore.selection.value)
         assertEquals(NAMED_FIRST, offStore.selection.value!!.title)
-        assertEquals(0, offStore.otherVideos.value)
-        assertEquals(legacyStore.otherVideos.value, offStore.otherVideos.value)
+        assertEquals(legacy.uiState.value.candidates, flagOff.uiState.value.candidates)
         assertEquals(legacy.uiState.value.sitePage, flagOff.uiState.value.sitePage)
 
         // A failing adapter is not recovered by capture: the same lookup failure as before.
@@ -172,7 +172,6 @@ class MasterMainMoreSheetTest {
         ))
         assertNull(failedOffStore.selection.value)
         assertEquals(failedLegacyStore.lookup.value, failedOffStore.lookup.value)
-        assertEquals(0, failedOffStore.otherVideos.value)
 
         val legacySheet = sheet(legacyStore)
         val offSheet = sheet(offStore)
@@ -195,8 +194,10 @@ class MasterMainMoreSheetTest {
         settle()
     }
 
+    private var sheetOpen by mutableStateOf(true)
+
     private fun render(browser: BrowserViewModel, sheet: QuickDownloadViewModel) {
-        var sheetOpen by mutableStateOf(true)
+        sheetOpen = true
         composeRule.setContent {
             YftTheme(themeMode = ThemeMode.LIGHT) {
                 val state by browser.uiState.collectAsState()

@@ -71,11 +71,13 @@ class AndroidBrowserMasterFallback(
         if (!sites.allowsMasterFallback(lookupUrl)) return primary
         val failure = (primary as? SiteAdapterOutcome.Failed)?.reason
             ?: SiteExtractionFailure.NO_MEDIA_FOUND
-        if (TerminalRules.blocksFallback(failure)) return primary
+        // R2: a walled site's bot check, login or player-script answer is final, before capture.
+        if (TerminalRules.blocksFallback(failure, lookupUrl)) return primary
         val key = sites.videoKey(lookupUrl)
         val request = requestFactory(failure, nowEpochMs, key?.substringAfter(':'))
             ?: return primary
-        if (!sites.allowsMasterFallback(request.pageUrl) ||
+        if (TerminalRules.blocksFallback(failure, request.pageUrl) ||
+            !sites.allowsMasterFallback(request.pageUrl) ||
             !relatedPage(lookupUrl, request.pageUrl, key)
         ) return primary
         val result = try {

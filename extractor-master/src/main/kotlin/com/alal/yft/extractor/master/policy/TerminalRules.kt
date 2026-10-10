@@ -24,8 +24,38 @@ object TerminalRules {
         SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED,
     )
 
+    /**
+     * R2: sites whose bot check, login or player-script answer is final. Their own adapter (or
+     * the future YouTube module) is the only reader; capture never retries past these walls.
+     * A host matches itself and every subdomain.
+     */
+    val WALLED_HOSTS: Set<String> = setOf(
+        "youtube.com", "youtu.be", "youtube-nocookie.com",
+        "reddit.com", "redd.it",
+    )
+
+    /** YouTube hosts: only the site adapter (later the YouTube module) answers them. */
+    val YOUTUBE_HOSTS: Set<String> = setOf("youtube.com", "youtu.be", "youtube-nocookie.com")
+
     fun blocksFallback(failure: SiteExtractionFailure): Boolean = failure in NEVER_FALLBACK
+
+    /** [blocksFallback], plus R2's walled hosts for the browser-only failures. */
+    fun blocksFallback(failure: SiteExtractionFailure, pageUrl: String?): Boolean =
+        blocksFallback(failure) || failure in BROWSER_REQUIRED && walled(pageUrl)
 
     fun needsAuthorizedPlayback(failure: SiteExtractionFailure): Boolean =
         failure in BROWSER_REQUIRED
+
+    fun walled(url: String?): Boolean = hostIn(url, WALLED_HOSTS)
+
+    fun youtube(url: String?): Boolean = hostIn(url, YOUTUBE_HOSTS)
+
+    /** The host a browser reads: after any user info, before the port; a backslash ends it. */
+    private fun hostIn(url: String?, domains: Set<String>): Boolean {
+        val authority = url?.trim()?.let(AUTHORITY::find)?.groupValues?.get(1) ?: return false
+        val host = authority.substringAfterLast('@').substringBefore(':').lowercase().trimEnd('.')
+        return host.isNotEmpty() && domains.any { host == it || host.endsWith(".$it") }
+    }
+
+    private val AUTHORITY = Regex("""^[a-z][a-z0-9+.-]*://([^/?#\\]*)""", RegexOption.IGNORE_CASE)
 }

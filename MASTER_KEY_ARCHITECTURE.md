@@ -1,6 +1,8 @@
 # Master Key — Architecture (step A)
 
 Status: **step A done: structure only, same behavior.** No feature or policy changed.
+Since then: **R1** (main sync, `parity/` harness) and **R2** (walled hosts, DRM stop, YouTube
+payload off) — see PROGRESS.md.
 
 - Master ကို layer/package အလိုက် ခွဲလိုက်ပါပြီ။ အလုပ်လုပ်ပုံ (behavior) မပြောင်းပါ။
 - Terminal rule ကို `policy/TerminalRules` တစ်နေရာတည်းမှာ ထားလိုက်ပြီး app ထဲက ထပ်နေတဲ့ set ကို ဖျက်လိုက်ပါတယ်။
@@ -13,7 +15,8 @@ Status: **step A done: structure only, same behavior.** No feature or policy cha
 extractor-master/ (pure JVM)            com.alal.yft.extractor.master
   MasterContracts.kt                    public API: request, snapshot, result, provider, validator
   MasterFallbackEngine.kt               orchestrator only (stages, budget, result)
-  policy/   TerminalRules               single source: NEVER_FALLBACK, BROWSER_REQUIRED
+  policy/   TerminalRules               single source: NEVER_FALLBACK, BROWSER_REQUIRED,
+                                        R2 WALLED_HOSTS (YouTube/Reddit walls are final)
             SnapshotBudget              snapshot read limits
   layers/   MasterLayer, Evidence, LayerStack (order + shared raw-candidate cap)
             CaptureLayer   L1           requests the visible browser made
@@ -22,16 +25,19 @@ extractor-master/ (pure JVM)            com.alal.yft.extractor.master
             RecipeLayer    L4           bounded JSON walk applying recipes
   recipes/  PayloadRecipes, NodeRule    data-only site key tables (one line per key)
             TikTokStatusRecipe          private/regional status codes
-            YoutubeStreamingRecipe      the one code recipe; off in R2, module in R6
+            YoutubeStreamingRecipe      rows off since R2 (DRM signal kept); module in R6
   toolkit/  UrlPolicy, CandidateFactory, HtmlScan, InlineDashReader
   verify/   OkHttpMediaValidator, ProbeSession, CandidateGate, FocusSelection,
             CapturedMediaMetadata, CapturedMp4Facts
   present/  MasterMainPresentation      main + More groups for the existing sheet
   capture/  InMemoryCaptureStore        per-tab, memory-only snapshot store
+  parity/   ParityUrls, ParityReport,   R1: frozen list parser, host + content-ID report,
+            ParityVerdict               §4.2 pass checks (offline baseline test in tests)
 extractor-master-android/               com.alal.yft.extractor.master.android
   WebViewPlaybackCapture, MasterBrowserSession, CaptureFrame, CaptureFocusGuard,
   MasterMainSelection, assets/yft-master-capture.js
 app/ BrowserMasterFallback              hook; reads TerminalRules (no own copy)
+app/src/androidTest/.../MasterParityLiveTest, assets/parity/parity-urls.json; scripts/canary.sh
 ```
 
 ## 2. Flow
@@ -50,7 +56,10 @@ authorized playback) → `LayerStack` (L2 → L4 → L1 today) → `CandidateNor
 - Layer order is configuration. It decides probe order under the budget, so changing it is a
   behavior change and needs the R1 parity harness.
 - Recipes are data. A renamed site key is a one-line edit in `PayloadRecipes.NODE_RULES`.
-- Stop rules live only in `TerminalRules`; the app hook calls `TerminalRules.blocksFallback`.
+- Stop rules live only in `TerminalRules`; the app hook calls `TerminalRules.blocksFallback`
+  (with the lookup link and the tab page since R2).
+- A main sync that changes main's site fixtures must pass `FixtureBaselineTest` (rows and
+  heights only grow, terminal verdicts stay) or rewrite the baseline on purpose.
 
 ## 4. Old → new
 
@@ -80,7 +89,7 @@ authorized playback) → `LayerStack` (L2 → L4 → L1 today) → `CandidateNor
 
 ## 6. Next (inside Phase 1)
 
-- R2: host rules in `TerminalRules`; `YoutubeStreamingRecipe` off.
+- R1, R2: done (PROGRESS.md).
 - R3: `layers/ShapeLayer` (L3) + content-ID anchoring; ladder/request policy in `toolkit/`.
 - R4: fingerprint in `verify/`. R5: codec steering in the Android capture.
 - R6: `modules/youtube`. R8: L2 contract endpoints per site as `ContractLayer` recipes.

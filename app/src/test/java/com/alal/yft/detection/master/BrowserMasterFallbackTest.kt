@@ -82,6 +82,28 @@ class BrowserMasterFallbackTest {
     }
 
     @Test
+    fun walledSitesBotLoginAndPlayerFailuresNeverSample() = runTest {
+        for (page in listOf(
+            "https://www.youtube.com/watch?v=fixture",
+            "https://youtu.be/fixture",
+            "https://www.reddit.com/r/fixture/comments/abc/clip/",
+        )) {
+            val fixture = Fixture(page)
+            for (reason in listOf(
+                SiteExtractionFailure.BOT_CHECK,
+                SiteExtractionFailure.LOGIN_REQUIRED,
+                SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED,
+            )) {
+                val primary = failed(reason)
+                assertSame(primary, fixture.bridge.recover(page, primary, 100))
+            }
+            assertEquals(0, fixture.factories.get())
+            assertEquals(0, fixture.captures.get())
+            assertEquals(0, fixture.probes.get())
+        }
+    }
+
+    @Test
     fun recoverableSiteFailureUsesOneCaptureAndKnownFocusedIdentity() = runTest {
         val fixture = Fixture(tiktok)
         val result = fixture.bridge.recover(

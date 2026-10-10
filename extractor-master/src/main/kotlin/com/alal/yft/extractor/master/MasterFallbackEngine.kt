@@ -48,7 +48,7 @@ class MasterFallbackEngine(
 
     suspend fun extract(request: MasterRequest): MasterResult {
         if (!policy.enabled) return MasterResult.Skipped(SiteExtractionFailure.ADAPTER_DISABLED)
-        if (TerminalRules.blocksFallback(request.primaryFailure)) {
+        if (TerminalRules.blocksFallback(request.primaryFailure, request.pageUrl)) {
             return MasterResult.Skipped(request.primaryFailure)
         }
         if (UrlPolicy.secure(request.pageUrl) == null) {

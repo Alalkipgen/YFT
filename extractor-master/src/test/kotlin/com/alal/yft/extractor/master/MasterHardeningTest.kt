@@ -17,14 +17,21 @@ import org.junit.Test
 
 class MasterHardeningTest {
     private val enabled = MasterPolicy(enabled = true)
-    private val pair = """{"videoDetails":{"videoId":"pair"},"streamingData":""" +
-        """{"adaptiveFormats":[""" +
-        """{"url":"https://cdn.example.test/v720.mp4","height":720,""" +
-        """"mimeType":"video/mp4; codecs=\"avc1.64001f\""},""" +
-        """{"url":"https://cdn.example.test/sound.m4a",""" +
-        """"mimeType":"audio/mp4; codecs=\"mp4a.40.2\""},""" +
-        """{"url":"https://cdn.example.test/v1080.mp4","height":1080,""" +
-        """"mimeType":"video/mp4; codecs=\"avc1.640028\""}]}}"""
+    // R2: YouTube rows are off, so the shared companion budget is pinned on an inline MPD.
+    private val pair = """{"id":"pair","dash_manifest_xml_string":""" +
+        """"<MPD xmlns='urn:mpeg:dash:schema:mpd:2011' type='static'><Period>""" +
+        """<AdaptationSet mimeType='video/mp4' codecs='avc1.64001f'>""" +
+        """<Representation id='v720' width='1280' height='720' bandwidth='900000'>""" +
+        """<BaseURL>https://cdn.example.test/v720.mp4</BaseURL>""" +
+        """<SegmentBase indexRange='0-100'/></Representation>""" +
+        """<Representation id='v1080' width='1920' height='1080' bandwidth='2000000'>""" +
+        """<BaseURL>https://cdn.example.test/v1080.mp4</BaseURL>""" +
+        """<SegmentBase indexRange='0-100'/></Representation></AdaptationSet>""" +
+        """<AdaptationSet mimeType='audio/mp4' codecs='mp4a.40.2'>""" +
+        """<Representation id='a' bandwidth='128000'>""" +
+        """<BaseURL>https://cdn.example.test/sound.m4a</BaseURL>""" +
+        """<SegmentBase indexRange='0-100'/></Representation></AdaptationSet>""" +
+        """</Period></MPD>"}"""
 
     @Test
     fun `audio companion is checked once and reused for both video qualities`() = runTest {

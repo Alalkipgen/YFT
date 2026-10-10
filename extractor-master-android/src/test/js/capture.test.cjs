@@ -147,6 +147,47 @@ test("only explicit preview evidence marks a playing loop as preview", () => {
   assert.equal(packet(environment({ videos: [make(true)] }).env).requests[0].preview, true);
 });
 
+function playingVideo(url, extra = {}) {
+  return Object.assign({
+    currentSrc: url, src: url, paused: false, ended: false, readyState: 4, currentTime: 1,
+    outerHTML: `<video src="${url}"></video>`,
+    getBoundingClientRect: () => ({ left: 0, top: 0, right: 300, bottom: 200 }),
+    getAttribute: () => null, querySelectorAll: () => [],
+  }, extra);
+}
+
+test("R2: EME keys on the playing video mark the page protected", () => {
+  const plain = packet(environment({ videos: [playingVideo("https://cdn.test/a.mp4")] }).env);
+  assert.equal(plain.protected, false);
+  const keyed = playingVideo("https://cdn.test/a.mp4", { mediaKeys: {} });
+  assert.equal(packet(environment({ videos: [keyed] }).env).protected, true);
+});
+
+test("R2: an encrypted event on any visible video marks the page protected", () => {
+  const options = {};
+  const { env, document, Media } = environment(options);
+  const make = url => Object.assign(new Media(), playingVideo(url));
+  const first = make("https://cdn.test/a.mp4"), second = make("https://cdn.test/b.mp4");
+  options.videos = [first, second];
+  assert.equal(packet(env).protected, false);
+  document.listeners.encrypted({ target: second });
+  const value = packet(env);
+  assert.equal(value.player, null); // Two equal players: no selection, still protected.
+  assert.equal(value.protected, true);
+});
+
+test("R2: an encrypted event on a hidden video does not stop a visible one", () => {
+  const options = {};
+  const { env, document, Media } = environment(options);
+  const shown = Object.assign(new Media(), playingVideo("https://cdn.test/a.mp4"));
+  const hidden = Object.assign(new Media(), playingVideo("https://cdn.test/b.mp4", {
+    getBoundingClientRect: () => ({ left: 0, top: 0, right: 0, bottom: 0 }),
+  }));
+  options.videos = [shown, hidden];
+  document.listeners.encrypted({ target: hidden });
+  assert.equal(packet(env).protected, false);
+});
+
 test("disposal restores owned hooks and removes the collector", () => {
   const { env, originalFetch, document } = environment();
   env.__yftMasterCaptureV1.dispose();

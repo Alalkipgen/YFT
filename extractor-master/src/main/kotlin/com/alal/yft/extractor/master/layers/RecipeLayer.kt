@@ -12,6 +12,7 @@ import com.alal.yft.extractor.api.json.get
 import com.alal.yft.extractor.api.json.path
 import com.alal.yft.extractor.master.MasterRequest
 import com.alal.yft.extractor.master.PageSnapshot
+import com.alal.yft.extractor.master.policy.TerminalRules
 import com.alal.yft.extractor.master.recipes.NodeRule
 import com.alal.yft.extractor.master.recipes.PayloadRecipes
 import com.alal.yft.extractor.master.recipes.TikTokStatusRecipe
@@ -24,12 +25,16 @@ import com.alal.yft.extractor.master.toolkit.InlineDashReader
  * L4: a bounded walk over delivered JSON (JSON scripts, assigned player JSON, API responses)
  * that applies the data-only [PayloadRecipes]. No endpoint, signature or login is invented;
  * unaddressed/cipher-only formats wait for the browser's own decoded requests (L1).
+ *
+ * R2: YouTube `streamingData` rows are off unless [youtubeStreams] is set, and never on a
+ * YouTube host (only the site adapter, later its own module, answers YouTube). Its DRM
+ * statement still stops Master everywhere.
  */
-internal class RecipeLayer : MasterLayer {
+internal class RecipeLayer(private val youtubeStreams: Boolean = false) : MasterLayer {
     override val id = LayerId.L4_RECIPE
 
     override fun collect(request: MasterRequest, snapshot: PageSnapshot): Evidence {
-        val walk = Walk(request)
+        val walk = Walk(request, youtubeStreams && !TerminalRules.youtube(request.pageUrl))
         snapshot.html?.let { body ->
             HtmlScan.SCRIPT.findAll(body).forEach { match ->
                 val attrs = HtmlScan.attributes(match.groupValues[1])
@@ -46,7 +51,7 @@ internal class RecipeLayer : MasterLayer {
         return Evidence(walk.candidates, terminalFailure = walk.terminalFailure)
     }
 
-    private class Walk(private val request: MasterRequest) {
+    private class Walk(private val request: MasterRequest, private val youtubeRows: Boolean) {
         val candidates = mutableListOf<MediaCandidate>()
         var terminalFailure: SiteExtractionFailure? = null
         private val factory = CandidateFactory(request)
@@ -117,11 +122,12 @@ internal class RecipeLayer : MasterLayer {
                 return
             }
             if (node[YoutubeStreamingRecipe.FIELD] != null) {
-                val streams = YoutubeStreamingRecipe.read(node, id, key, factory)
-                if (streams.drm) {
+                if (YoutubeStreamingRecipe.drm(node)) {
                     terminalFailure = SiteExtractionFailure.DRM_PROTECTED
-                } else {
-                    streams.streams.forEach(::add)
+                    return
+                }
+                if (youtubeRows) {
+                    YoutubeStreamingRecipe.read(node, id, key, factory).streams.forEach(::add)
                 }
             }
             PayloadRecipes.NODE_RULES.forEach { rule -> apply(rule, node, id, key) }

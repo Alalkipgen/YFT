@@ -24,4 +24,22 @@ tasks.test {
     if (snapshot.isPresent) {
         inputs.file(snapshot.get()).withPathSensitivity(PathSensitivity.NONE)
     }
+
+    // R1 offline parity: main's site fixtures and the frozen parity list are test inputs.
+    val siteFixtures = rootProject.file("extractor-sites/src/test/resources/fixtures")
+    val parityUrls = rootProject.file("app/src/androidTest/assets/parity/parity-urls.json")
+    inputs.dir(siteFixtures).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(parityUrls).withPathSensitivity(PathSensitivity.NONE)
+    systemProperty("yft.siteFixtures", siteFixtures.absolutePath)
+    systemProperty("yft.parityUrls", parityUrls.absolutePath)
+    systemProperty(
+        "yft.parityBaselineFile",
+        file("src/test/resources/parity/fixture-baseline.json").absolutePath,
+    )
+    // `-Pyft.parityBaseline=write` rewrites the baseline on purpose (never in CI).
+    val baselineMode = providers.gradleProperty("yft.parityBaseline")
+    if (baselineMode.isPresent) {
+        systemProperty("yft.parityBaseline", baselineMode.get())
+        outputs.upToDateWhen { false }
+    }
 }

@@ -40,6 +40,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+      - name: Capture script tests (R2 EME stop)
+        shell: bash
+        run: node --test extractor-master-android/src/test/js/capture.test.cjs
       - name: Master tests and opt-in debug APK
         shell: bash
         run: |
@@ -50,6 +53,7 @@ jobs:
               --tests 'com.alal.yft.feature.browser.MasterMainMoreSheetTest' \
               --tests 'com.alal.yft.feature.browser.BrowserMasterFlowTest' \
               --tests 'com.alal.yft.detection.master.BrowserMasterFallbackTest' \
+            :app:compileDebugAndroidTestKotlin \
             :app:assembleDebug
       - name: Record APK hashes
         shell: bash

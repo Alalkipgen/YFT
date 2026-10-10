@@ -1,5 +1,51 @@
 # YFT Master Extractor backup
 
+## R2 — Safety gaps (terminal walls, DRM stop, YouTube payload off)
+
+- ✅ `policy/TerminalRules`: `BOT_CHECK`, `LOGIN_REQUIRED`, `PLAYER_SCRIPT_REQUIRED` are final on
+  `youtube.com`, `youtu.be`, `youtube-nocookie.com`, `reddit.com`, `redd.it` and their
+  subdomains (`blocksFallback(failure, pageUrl)`; host read as a browser reads it, so
+  `youtube.com@evil.test` or `evil.test\@youtube.com` do not match). The engine checks
+  `request.pageUrl`; the app hook checks the lookup link before any capture request and the
+  tab page after it. Elsewhere the same failures still need the user's own playback.
+- ✅ YouTube `streamingData` gives no Master rows (standard stack; never on a YouTube host even
+  when opted in) until the R6 module. Its DRM statement still stops Master everywhere, with
+  main's signals: `drmParams`, `playbackTracking.drmSessionId`, per-format `drmFamilies` /
+  `drmTrackType` (main's `youtube/player_drm.json` now ends `DRM_PROTECTED`).
+- ✅ EME stop: `yft-master-capture.js` marks the page protected when any visible video has
+  media keys or an `encrypted` event (before: only the selected video). The session keeps it
+  until navigation; the engine returns `DRM_PROTECTED` before any media check.
+- ✅ Tests: `policy/SafetyGapsTest` (walled bot check → 0 capture, 0 probe; YouTube payload →
+  0 rows, 0 probe; EME and stated DRM → `DRM_PROTECTED`, 0 probe), `TerminalRulesTest` host
+  cases, `LayerStackTest` R2 cases, app `BrowserMasterFallbackTest.walledSites…` (0 request
+  factory, 0 capture, 0 probe), 3 new JS capture tests. `MasterHardeningTest`'s companion
+  budget fixture moved from YouTube JSON to an inline MPD (same assertions).
+- ✅ Spike CI now also runs `node --test …/capture.test.cjs`.
+
+## R1 — Base sync + parity harness + canary
+
+- ✅ Merged `origin/main` `34a41890` (61 commits since `a9eea7ba`). Conflicts only in
+  `BrowserScreen.kt`, `BrowserViewModel.kt`, `docs/SESSION_STATE.md`: main's code kept, the
+  Master hook re-applied around it. Main's P45 ("the tapped video only") removed the sheet's
+  "Other videos on this page" row, so Master's other videos now stay in the browser's found
+  list; `MasterMainMoreSheetTest` asserts exactly that (and flag-off = legacy).
+- ✅ Frozen list: `app/src/androidTest/assets/parity/parity-urls.json` (32 cases from
+  MASTER_KEY_PLAN §4.3; 14 public links; owner-picked slots stay `null`, never committed).
+- ✅ Pure JVM harness `extractor-master/.../parity/`: `ParityUrls` (rejects http, user info,
+  fragments, signed/session queries), `ParityReport` (host + content ID only; rows keep shape;
+  titles hashed; fails closed on any `://`), `ParityVerdict` (§4.2 checks). Unit-tested,
+  including a leak test with signed links, cookies and URL-bearing titles.
+- ✅ Offline baseline: `FixtureBaselineTest` runs Master's stack over main's 84 site fixtures
+  (`extractor-sites/src/test/resources/fixtures`, passed by Gradle) against
+  `parity/fixture-baseline.json`: rows and heights may only grow, terminal verdicts must stay.
+  A main sync that adds or removes fixtures fails until `-Pyft.parityBaseline=write`.
+- ✅ Live: opt-in `MasterParityLiveTest` (`-e yft.parity 1`; arm A = main's adapters as the app
+  wires them, arm B = Master in a visible WebView with real one-byte checks; attended mode
+  waits for the owner's Play). `scripts/canary.sh` installs, runs and pulls the report. Not
+  in CI. Spike CI now compiles `:app:compileDebugAndroidTestKotlin`.
+- ✅ Local Gradle: `extractor-master` 101 tests (1 opt-in skip), Android module 45, app Master
+  tests 23 (sheet 3, flow 9, fallback 11), androidTest compiles, 0 failures.
+
 ## A0 — Architecture step A (structure only, same behavior)
 
 - ✅ Map: [MASTER_KEY_ARCHITECTURE.md](MASTER_KEY_ARCHITECTURE.md). `extractor-master` now has

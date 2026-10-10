@@ -250,7 +250,10 @@
     const v = selected && selected.v;
     const packet = {
       generation: generation, pageUrl: page, html: html, payloads: [], requests: [],
-      protected: !!(v && (v.mediaKeys || encrypted.has(v))),
+      // R2: EME keys or an encrypted event on any visible video stop Master for this page.
+      protected: visible.some(function (item) {
+        return !!(item.v.mediaKeys || encrypted.has(item.v));
+      }),
       player: v ? {
         key: "video:" + selected.index, url: v.currentSrc || v.src || null,
         time: Number.isFinite(v.currentTime) ? v.currentTime : 0,
