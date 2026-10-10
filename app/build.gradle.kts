@@ -106,6 +106,16 @@ val masterCapture = providers.gradleProperty("yft.masterCapture").orElse("false"
 require(masterCapture in setOf("true", "false")) {
     "yft.masterCapture must be true or false"
 }
+// R9: the public key (X.509 P-256, hex) for Master's signed recipe config; blank = bundled
+// recipes only and no config request. Only read when Master capture is on.
+val masterRecipeKey = providers.gradleProperty("yft.masterRecipeKey").orElse("").get()
+require(Regex("[0-9a-fA-F]*").matches(masterRecipeKey)) { "yft.masterRecipeKey must be hex" }
+val masterRecipeUrl = providers.gradleProperty("yft.masterRecipeUrl").orElse(
+    "https://raw.githubusercontent.com/Alalkipgen/YFT/spike/master-extractor-backup/recipes/master-recipes.json",
+).get()
+require(Regex("""https://[A-Za-z0-9./_-]+""").matches(masterRecipeUrl)) {
+    "yft.masterRecipeUrl must be an https address"
+}
 
 android {
     namespace = "com.alal.yft"
@@ -122,6 +132,8 @@ android {
         // The YouTube adapter can be switched off per build without touching the adapter list.
         buildConfigField("boolean", "YOUTUBE_ADAPTER_ENABLED", "true")
         buildConfigField("boolean", "MASTER_CAPTURE_ENABLED", "false")
+        buildConfigField("String", "MASTER_RECIPE_KEY", "\"$masterRecipeKey\"")
+        buildConfigField("String", "MASTER_RECIPE_URL", "\"$masterRecipeUrl\"")
     }
 
     signingConfigs {

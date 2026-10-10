@@ -18,7 +18,6 @@ import com.alal.yft.extractor.master.MasterRequest
 import com.alal.yft.extractor.master.MasterResult
 import com.alal.yft.extractor.master.android.CodecSteering
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
-import com.alal.yft.extractor.master.contract.SiteContracts
 import com.alal.yft.extractor.master.modules.youtube.MasterYouTubeModule
 import com.alal.yft.extractor.master.verify.OkHttpMediaValidator
 import com.alal.yft.extractor.master.verify.CapturedMediaMetadata
@@ -205,8 +204,9 @@ class AndroidBrowserMasterFallback(
                     captureSelection = capture::selectMain,
                     // R6: YouTube pages are Master's own module's, never capture's.
                     modules = listOf(MasterYouTubeModule(http)),
-                    // R8: Vimeo/X/Facebook/TikTok/Instagram contract endpoints, then capture.
-                    contracts = SiteContracts(http),
+                    // R8: Vimeo/X/Facebook/TikTok/Instagram contract endpoints, then capture;
+                    // R9: their recipes from a signed config when the build carries its key.
+                    contracts = MasterRecipeConfig.contracts(http),
                 ),
             )
         }

@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "YFT Master recipe config (R9, data only)",
+  "description": "Read by RemoteRecipeConfig, which also enforces what a schema cannot: an endpoint keeps the bundled recipe's host, header names match case-insensitively, DRM/no-video/wall paths are only added. Signed with scripts/master-recipe-sign.sh.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "version", "expires", "sites"],
+  "properties": {
+    "schema": { "const": 1 },
+    "version": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+    "expires": { "type": "string", "pattern": "^2[0-9]{3}-[0-9]{2}-[0-9]{2}$" },
+    "sites": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "vimeo": { "$ref": "#/$defs/site" },
+        "x": { "$ref": "#/$defs/site" },
+        "facebook": { "$ref": "#/$defs/site" },
+        "tiktok": { "$ref": "#/$defs/site" },
+        "instagram": { "$ref": "#/$defs/site" }
+      }
+    }
+  },
+  "$defs": {
+    "printable": { "type": "string", "minLength": 1, "maxLength": 512, "pattern": "^[ -~]+$" },
+    "segment": { "type": "string", "pattern": "^[A-Za-z0-9_*$@:-]{1,64}$" },
+    "path": { "type": "array", "minItems": 1, "maxItems": 12, "items": { "$ref": "#/$defs/segment" } },
+    "paths": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/path" } },
+    "names": {
+      "type": "array",
+      "maxItems": 16,
+      "items": { "type": "string", "pattern": "^[A-Za-z0-9_*$@:.-]{1,128}$" }
+    },
+    "site": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "endpoint": {
+          "type": "string",
+          "maxLength": 512,
+          "pattern": "^https://[a-z0-9.-]+(/|\\?|$)",
+          "description": "The bundled endpoint's host; placeholders {id}, {hashQuery}, {href}, {token}."
+        },
+        "headers": {
+          "type": "object",
+          "maxProperties": 16,
+          "propertyNames": {
+            "enum": [
+              "Accept", "Accept-Language", "Referer", "Origin", "Sec-Fetch-Mode", "Sec-Fetch-Site",
+              "Sec-Fetch-Dest", "X-Requested-With", "X-IG-App-ID", "X-ASBD-ID"
+            ]
+          },
+          "additionalProperties": { "$ref": "#/$defs/printable" }
+        },
+        "agent": { "$ref": "#/$defs/printable" },
+        "idPaths": { "$ref": "#/$defs/paths" },
+        "nodeIdFields": { "$ref": "#/$defs/names" },
+        "items": { "$ref": "#/$defs/paths" },
+        "media": { "type": "array", "maxItems": 24, "items": { "$ref": "#/$defs/media" } },
+        "titlePaths": { "$ref": "#/$defs/paths" },
+        "durationMillisPaths": { "$ref": "#/$defs/paths" },
+        "durationSecondsPaths": { "$ref": "#/$defs/paths" },
+        "thumbnailPaths": { "$ref": "#/$defs/paths" },
+        "drmPaths": { "$ref": "#/$defs/paths" },
+        "noVideoPaths": { "$ref": "#/$defs/paths" },
+        "wallPaths": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "type": "string", "pattern": "^/[a-z0-9/_-]{1,63}$" }
+        }
+      }
+    },
+    "media": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": { "$ref": "#/$defs/path" },
+        "url": { "$ref": "#/$defs/path" },
+        "mime": { "enum": ["video/mp4", "video/webm", "application/x-mpegURL", "application/dash+xml"] },
+        "metaPath": { "$ref": "#/$defs/path" },
+        "inlineDash": { "type": "boolean" },
+        "order": { "enum": ["LISTED", "HEIGHT_DESC", "BITRATE_DESC"] },
+        "first": { "type": "boolean" },
+        "onlyIfNone": { "type": "boolean" },
+        "fields": { "$ref": "#/$defs/fields" }
+      }
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "width": { "$ref": "#/$defs/names" },
+        "height": { "$ref": "#/$defs/names" },
+        "bitrate": { "$ref": "#/$defs/names" },
+        "bytes": { "$ref": "#/$defs/names" },
+        "codec": { "$ref": "#/$defs/names" }
+      }
+    }
+  }
+}

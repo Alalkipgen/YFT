@@ -1,5 +1,49 @@
 # YFT Master Extractor backup
 
+## R9 — Signed recipe config (data only)
+
+- ✅ `recipes/RemoteRecipes` (+ `RemoteRecipeConfig`, `RemoteRecipeSignature`): the bundled
+  recipes (`ContractRecipes`) stay the defaults and always work. A config replaces their data
+  only when it is **signed** (ES256: ECDSA P-256 + SHA-256 over the config text, envelope
+  `{"alg","payload","signature"}`, hex because `java.util.Base64` is missing below Android 8),
+  passes the **schema** (`extractor-master/recipes/master-recipes.schema.json`; unknown site/key,
+  wrong type or out-of-bounds value → the whole config is ignored), is **newer** than the one in
+  use (no rollback) and **unexpired** (`expires`; an expired config falls back to the bundled
+  recipes). Data only, no code: `endpoint` (same https host, known placeholders; a GraphQL
+  `doc_id` goes in its query), `headers` from a fixed list (never Cookie, Authorization,
+  User-Agent), `agent`, and the key table (ID fields/paths, item lists, media keys, title,
+  duration, thumbnail paths). DRM, no-video and login-wall paths can only be **added**. Hosts,
+  cookie domains, body caps, regular expressions, photo/access answers never come from a config.
+- ✅ Asked by `SiteContracts` before the site, bounded: HTTPS `raw.githubusercontent.com` only
+  (answer host locked), no cookie, 128 KiB, 1.5 s, at most once a day (once an hour after a
+  failed ask); L2 reads with the same recipe source (`ContractLayer(recipeOf)`). App: one
+  process-wide config (`MasterRecipeConfig`); `-Pyft.masterRecipeKey=<hex>` (public key) and
+  `-Pyft.masterRecipeUrl` (default `recipes/master-recipes.json` on this branch). **No key = the
+  bundled recipes and no request** (the default build). Flag off = main.
+- ✅ Owner tools: `scripts/master-recipe-sign.sh` (`keygen` once → private key stays off the
+  repo, prints the public key; `sign <key> <config> <out>` checks the top-level shape and writes
+  the envelope); `extractor-master/recipes/master-recipes.example.json`.
+- ✅ Tests: `RemoteRecipesTest` (5) — a signed config changes Instagram's endpoint, a header and
+  its media key, and the engine reads the renamed embed from the key table via `CONTRACT` (config
+  asked first, no cookie, 128 KiB; hosts, cap, cookie domain, photo markers, wall paths
+  unchanged; other sites stay bundled); 32 bad envelopes/configs (unsigned, empty signature,
+  another key, tampered payload, other `alg`, extra envelope key, not JSON, `answerHosts`/
+  `cookieDomain`/`maxBytes`/`itemNumber`/`photoMarkers`, Cookie/User-Agent/CRLF headers, another
+  host, http, user part, unknown placeholder, deep path, bad mime, unknown media key, bad wall
+  path, unknown site, schema 2, version 0/1.5, expired, no such date, unknown key, oversized) →
+  ignored, bundled recipes unchanged and the embed still answers; no rollback, expiry falls back;
+  asked once a day / once an hour after a failure / never off GitHub; no key, a bad key, a P-384
+  key, http or a non-GitHub address → never asks; an openssl-signed envelope (throwaway key, its
+  private half deleted) verifies; schema keys, sites, headers, mimes and orders match the reader;
+  the example config is valid.
+  Local: `:extractor-master:test` 284 (0 failures, 2 skipped), Android 56, app 25 (CI filter),
+  JS 28, drift 0, `:app:assembleDebug` OK.
+- ⏳ Owner-run: `bash scripts/master-recipe-sign.sh keygen ~/yft-recipe-key.pem`, build with
+  `-Pyft.masterRecipeKey=<printed hex>`, sign a config and commit it as
+  `recipes/master-recipes.json`. Deviations: the bundled defaults stay in code (`ContractRecipes`,
+  type-checked) instead of an asset copy; the app keeps the config in memory only (asked again
+  once per process start, then daily); coverage is only data-only breakages (~30–40%).
+
 ## R8 — Per site (L2 contract first, then L3 + capture)
 
 - ✅ §3 rule conflict, decided (MASTER_KEY_ARCHITECTURE.md §3): layers still never fetch. The
@@ -171,6 +215,7 @@
 - ✅ **R8 done (offline)**: Vimeo, X, Facebook, TikTok and Instagram answer through `CONTRACT`
   first; flag off = main unchanged. Live parity and phone checks stay owner-run
   (`ONLY=<ids> bash scripts/canary.sh`).
+- ✅ CI (Instagram + R8 close, `38840b5`): Master opt-in debug APK run `38093084650` — success.
 
 ## R7 — Generic web: capture + MSE/EME metadata hooks
 

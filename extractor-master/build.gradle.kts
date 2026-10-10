@@ -38,6 +38,10 @@ tasks.test {
         "yft.parityBaselineFile",
         file("src/test/resources/parity/fixture-baseline.json").absolutePath,
     )
+    // R9: the recipe config's schema and example are checked against the reader.
+    val recipeDocs = file("recipes")
+    inputs.dir(recipeDocs).withPathSensitivity(PathSensitivity.RELATIVE)
+    systemProperty("yft.recipeDocs", recipeDocs.absolutePath)
     // R6 canary (owner-run, never in CI): `-Pyft.youtubeCanary=<video id>` asks YouTube live.
     val canary = providers.gradleProperty("yft.youtubeCanary")
     if (canary.isPresent) {

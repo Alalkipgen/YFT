@@ -26,6 +26,9 @@ extractor-master/ (pure JVM)            com.alal.yft.extractor.master
             RecipeLayer    L4           bounded JSON walk applying recipes
   recipes/  PayloadRecipes, NodeRule    data-only site key tables (one line per key)
             ContractRecipes             R8: per-site endpoint, headers, host locks, key table
+            RemoteRecipes, RemoteRecipeConfig, RemoteRecipeSignature
+                                        R9: signed, schema-checked, data-only config over
+                                        ContractRecipes (bundled defaults stay the fallback)
             TikTokStatusRecipe          private/regional status codes
             YoutubeStreamingRecipe      rows off since R2 (DRM signal kept); module in R6
   contract/ SiteContracts               R8: the engine's one bounded ask (not a layer)
@@ -125,3 +128,6 @@ authorized playback) → `LayerStack` (L2 → L4 → L1 → L3; L3 adds only) �
 - R7: done — `yft-master-mse.js`, fed addresses in L1 (`CaptureLayer`), EME licence/keys stop.
 - R8: done — contract stage + `ContractReader`; Vimeo, X, Facebook, TikTok and Instagram (offline;
   live parity owner-run; see PROGRESS.md).
+- R9: done — `recipes/RemoteRecipes*` (signed ES256 envelope, schema
+  `extractor-master/recipes/master-recipes.schema.json`, data only; no key = bundled recipes, no
+  request) + `scripts/master-recipe-sign.sh`; the hosted config is the owner's to sign.

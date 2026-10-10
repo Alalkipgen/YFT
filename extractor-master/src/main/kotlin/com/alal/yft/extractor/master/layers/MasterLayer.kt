@@ -4,6 +4,8 @@ import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.master.MasterRequest
 import com.alal.yft.extractor.master.PageSnapshot
+import com.alal.yft.extractor.master.recipes.ContractRecipe
+import com.alal.yft.extractor.master.recipes.ContractRecipes
 import com.alal.yft.extractor.master.toolkit.UrlPolicy
 
 /**
@@ -89,8 +91,8 @@ internal class LayerStack(private val layers: List<MasterLayer>) {
          * Delivered markup, known payload keys, captured requests, then (R3) the additive shape
          * search: L3 only adds files the first three did not find, so their order is unchanged.
          */
-        fun standard() = LayerStack(
-            listOf(ContractLayer(), RecipeLayer(), CaptureLayer(), ShapeLayer()),
+        fun standard(recipeOf: (String) -> ContractRecipe? = ContractRecipes::of) = LayerStack(
+            listOf(ContractLayer(recipeOf), RecipeLayer(), CaptureLayer(), ShapeLayer()),
         )
 
         /** The stack before R3, kept for the parity tests (L3 must only add). */

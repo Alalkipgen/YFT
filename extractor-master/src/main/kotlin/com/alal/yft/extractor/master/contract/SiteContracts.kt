@@ -15,6 +15,7 @@ import com.alal.yft.extractor.master.MasterRequest
 import com.alal.yft.extractor.master.PageSnapshot
 import com.alal.yft.extractor.master.recipes.ContractRecipe
 import com.alal.yft.extractor.master.recipes.ContractRecipes
+import com.alal.yft.extractor.master.recipes.RemoteRecipes
 import java.net.URI
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -27,9 +28,18 @@ import java.nio.charset.StandardCharsets
  */
 class SiteContracts internal constructor(
     private val http: ExtractorHttpClient,
-    private val recipes: List<ContractRecipe>,
+    private val bundled: List<ContractRecipe>,
+    private val remote: RemoteRecipes? = null,
 ) {
     constructor(http: ExtractorHttpClient) : this(http, ContractRecipes.ALL)
+
+    /** R9: the recipes of a signed, data-only config when one applies, else the bundled ones. */
+    constructor(http: ExtractorHttpClient, remote: RemoteRecipes) : this(http, ContractRecipes.ALL, remote)
+
+    private val recipes: List<ContractRecipe> get() = remote?.recipes() ?: bundled
+
+    /** The recipe L2 reads an answer with: the same source the endpoint was asked from. */
+    internal fun recipeOf(site: String): ContractRecipe? = recipes.firstOrNull { it.site == site }
 
     internal sealed interface Asked {
         data class Answer(val snapshot: PageSnapshot, val detail: String) : Asked
@@ -42,8 +52,10 @@ class SiteContracts internal constructor(
             recipes.any { it.site == identity.siteId }
 
     internal suspend fun ask(request: MasterRequest): Asked {
+        // R9: at most one bounded config ask a day, before the site is asked; never a cookie.
+        remote?.refreshIfDue()
         val identity = request.identity?.takeIf { reads(it) } ?: return Asked.Unanswered(null)
-        val recipe = recipes.first { it.site == identity.siteId }
+        val recipe = recipeOf(identity.siteId) ?: return Asked.Unanswered(null)
         val label = "master: ${recipe.site} contract"
         val url = endpoint(recipe, identity)?.takeIf { hostIn(it, recipe.answerHosts) }
             ?: return Asked.Unanswered("$label: no endpoint for this video")

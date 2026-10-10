@@ -5,6 +5,7 @@ import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.PageMediaRole
 import com.alal.yft.extractor.master.MasterRequest
 import com.alal.yft.extractor.master.PageSnapshot
+import com.alal.yft.extractor.master.recipes.ContractRecipe
 import com.alal.yft.extractor.master.recipes.ContractRecipes
 import com.alal.yft.extractor.master.toolkit.CandidateFactory
 import com.alal.yft.extractor.master.toolkit.HtmlScan
@@ -14,12 +15,15 @@ import com.alal.yft.extractor.master.toolkit.HtmlScan
  * endpoint's answer the engine asked for ([PageSnapshot.contract]) is read with that site's
  * key table ([ContractRecipes], [ContractReader]).
  */
-internal class ContractLayer : MasterLayer {
+internal class ContractLayer(
+    /** R9: the engine's recipe source (a signed config's or the bundled recipes). */
+    private val recipeOf: (String) -> ContractRecipe? = ContractRecipes::of,
+) : MasterLayer {
     override val id = LayerId.L2_CONTRACT
 
     override fun collect(request: MasterRequest, snapshot: PageSnapshot): Evidence {
         snapshot.contract?.let { answer ->
-            val recipe = ContractRecipes.of(answer.site) ?: return Evidence(emptyList())
+            val recipe = recipeOf(answer.site) ?: return Evidence(emptyList())
             return ContractReader(request, recipe, answer).read()
         }
         val body = snapshot.html ?: return Evidence(emptyList())

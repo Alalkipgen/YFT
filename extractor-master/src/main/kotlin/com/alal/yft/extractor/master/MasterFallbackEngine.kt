@@ -52,7 +52,7 @@ class MasterFallbackEngine(
     private val modules: List<MasterSiteModule> = emptyList(),
     private val contracts: SiteContracts? = null,
 ) {
-    private val layers = LayerStack.standard()
+    private val layers = contracts?.let { LayerStack.standard(it::recipeOf) } ?: LayerStack.standard()
     private val normalizer = CandidateNormalizer(
         CandidateNormalizer.Policy(maxCandidates = policy.maxCandidates, tinyDirectAssetBytes = 0),
     )
