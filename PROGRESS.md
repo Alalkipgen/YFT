@@ -21,6 +21,10 @@
   factory, 0 capture, 0 probe), 3 new JS capture tests. `MasterHardeningTest`'s companion
   budget fixture moved from YouTube JSON to an inline MPD (same assertions).
 - ✅ Spike CI now also runs `node --test …/capture.test.cjs`.
+- ✅ CI on `a2862abd`: spike `Master opt-in debug APK` run 38068967732 — success (capture JS
+  tests, Master tests, opt-in APK; artifact `yft-master-optin-debug-apk`, 18.3 MB, 14 days).
+  Flag-off `Work-branch checkpoint validation` run 38068970580 (PR #1) — success (artifact
+  `yft-debug-apk`). Older runs on `314c97a`/`48915f3` are stale.
 
 ## R1 — Base sync + parity harness + canary
 
@@ -45,6 +49,10 @@
   in CI. Spike CI now compiles `:app:compileDebugAndroidTestKotlin`.
 - ✅ Local Gradle: `extractor-master` 101 tests (1 opt-in skip), Android module 45, app Master
   tests 23 (sheet 3, flow 9, fallback 11), androidTest compiles, 0 failures.
+- ✅ The merge was made on GitHub through draft PR #1 (spike → main, "[DO NOT MERGE]"), used
+  only for that merge: `314c97a` pre-merge → `48915f3` merge of main `34a4189` → `a2862ab` hook
+  re-applied. PR #1 was closed unmerged after CI; main is untouched.
+- ✅ CI on `a2862abd`: spike run 38068967732 and flag-off run 38068970580 both success (see R2).
 
 ## A0 — Architecture step A (structure only, same behavior)
 
