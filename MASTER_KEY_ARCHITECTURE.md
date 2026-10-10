@@ -32,6 +32,9 @@ extractor-master/ (pure JVM)            com.alal.yft.extractor.master
   verify/   OkHttpMediaValidator, ProbeSession, CandidateGate, FocusSelection,
             CapturedMediaMetadata, CapturedMp4Facts
             R4: SegmentIndexReader (sidx/EXTINF), MediaFingerprint, FingerprintGroups
+  modules/  MasterSiteModule, SiteExtractorModule   R6: a claimed page is the module's alone
+            youtube/ copied main files (whole-file drift rows) + MasterYouTubeModule,
+            MasterYouTubeClients (versioned table, visionOS first; canary owner-run)
   present/  MasterMainPresentation      main + More groups for the existing sheet
   capture/  InMemoryCaptureStore        per-tab, memory-only snapshot store
   parity/   ParityUrls, ParityReport,   R1: frozen list parser, host + content-ID report,
@@ -42,12 +45,14 @@ extractor-master-android/               com.alal.yft.extractor.master.android
   R5: CodecSteering + assets/yft-master-codecs.js (document-start codec steering)
 app/ BrowserMasterFallback              hook; reads TerminalRules (no own copy)
 app/src/androidTest/.../MasterParityLiveTest, assets/parity/parity-urls.json; scripts/canary.sh
+scripts/master-youtube-canary.sh (R6 YouTube client-table canary, owner-run)
 extractor-master/toolkit-provenance.tsv; scripts/master-toolkit-drift.py (R3 copy drift)
 ```
 
 ## 2. Flow
 
-`TerminalRules` → snapshot gates (generation, same page, access failure, `SnapshotBudget`,
+`TerminalRules` → R6 module claim (claimed page: module only when no adapter answered, else
+skipped; never layers/capture) → snapshot gates (generation, same page, access failure, `SnapshotBudget`,
 authorized playback) → `LayerStack` (L2 → L4 → L1 → L3; L3 adds only) → `CandidateNormalizer` →
 `CandidateGate` → capture-stage selection hook → `FocusSelection` → `ProbeSession`
 (budget, companion audio) → `MasterResult`.
@@ -55,7 +60,7 @@ authorized playback) → `LayerStack` (L2 → L4 → L1 → L3; L3 adds only) �
 ## 3. Rules
 
 - `extractor-master` depends on `extractor-api`/`extractor-generic` only; never on
-  `extractor-sites`. Android-only code stays in `extractor-master-android`.
+  `extractor-sites` (R6 parity tests use it as a test-only dependency). Android-only code stays in `extractor-master-android`.
 - A layer only reads delivered material: no fetch, signing or login. New layers implement
   `MasterLayer` and are added to `LayerStack`; the engine does not change.
 - Layer order is configuration. It decides probe order under the budget, so changing it is a
@@ -99,4 +104,5 @@ authorized playback) → `LayerStack` (L2 → L4 → L1 → L3; L3 adds only) �
   `toolkit/`; `extractor-master/toolkit-provenance.tsv` + `scripts/master-toolkit-drift.py`.
 - R4: done — fingerprint in `verify/`, grouping in `MasterMainSelection`.
 - R5: done — codec steering in the Android capture (`CodecSteering`, `yft-master-codecs.js`).
-- R6: `modules/youtube`. R8: L2 contract endpoints per site as `ContractLayer` recipes.
+- R6: done — `modules/` (`MasterSiteModule`, `SiteExtractorModule`) and `modules/youtube`
+  (copies + `MasterYouTubeModule`, `MasterYouTubeClients`, canary script). R8: L2 contract endpoints per site as `ContractLayer` recipes.

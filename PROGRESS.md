@@ -1,5 +1,38 @@
 # YFT Master Extractor backup
 
+## R6 — Own YouTube module (YT-1 / YT-2 / YT-4)
+
+- ✅ YT-1: main's five YouTube files copied whole into `extractor-master/.../modules/youtube/`
+  (provenance header; only the package differs) with their five tests and test support
+  (`Fixtures` reads main's fixtures via `yft.siteFixtures`). Whole-file rows (`*`) in
+  `toolkit-provenance.tsv`: the drift check hashes each file after its package line on main
+  and also fails when the Master copy itself was edited. 45 rows, 0 drift vs `34a41890` and
+  `origin/main`.
+- ✅ `modules/MasterSiteModule` + `SiteExtractorModule` (row check: HTTPS media and companion,
+  no `sabr` parameter, not protected; rows tagged `site:contentId` like the app coordinator).
+  `MasterYouTubeModule`: the copy with **no** player-script runner and **no** PoToken provider
+  (n/sig streams are never offered by Master; main, flag off, still covers them), asked
+  without the user's cookie/authorization header.
+- ✅ YT-2: `MasterYouTubeClients` (table version 1, source "main 34a41890 / yt-dlp
+  2026.08.19", visionOS first, no client needs a script or token). Canary:
+  `MasterYouTubeCanaryTest` (skipped unless `-Pyft.youtubeCanary=<id>`) +
+  `bash scripts/master-youtube-canary.sh <id>` (owner-run, never CI): passes while visionOS alone
+  gives a complete answer ("visionOS first: complete, no watch page").
+- ✅ YT-4: no SABR code; SABR-only and cipher fixtures give 0 rows.
+- ✅ Engine slot: `MasterFallbackEngine(modules = …)`, stage `SITE_MODULE`. A claimed page never
+  reaches layers, capture or probes; the module asks only when no site adapter answered
+  (`primaryFailure == UNSUPPORTED_URL`), otherwise `Skipped(primaryFailure)` (P12, one lookup
+  per video). Terminal rules and the off switch come first; a different requested video →
+  `RESPONSE_CHANGED`. App: `AndroidBrowserMasterFallback.create` passes
+  `MasterYouTubeModule(OkHttpExtractorClient(client))`; with main's adapter present YouTube
+  watch pages are therefore never captured by Master.
+- ✅ Tests: copied YouTube tests (87), `MasterYouTubeParityTest` (6: main vs Master on 20
+  fixture scenarios — same requests, posts, headers, rows, order, labels, sizes and details;
+  cipher/SABR → 0 rows; bot check → `BOT_CHECK` with 0 capture/probe; engine answers through
+  the module only; table order), `MasterSiteModuleTest` (7). `extractor-sites` is a
+  test-only dependency for the parity comparison. `:extractor-master:test` 242 tests,
+  0 failures (2 skipped: canary, live smoke).
+
 ## R5 — E: codec steering
 
 - ✅ `assets/yft-master-codecs.js` (document start, `addDocumentStartJavaScript`, opt-in builds

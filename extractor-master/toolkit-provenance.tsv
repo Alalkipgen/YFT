@@ -1,4 +1,5 @@
-# Master toolkit provenance (R3). One row per main symbol a toolkit file was copied from.
+# Master toolkit provenance (R3). One row per main symbol a toolkit file was copied from;
+# symbol * = a whole-file copy (R6 YouTube module), hashed after its package line.
 # Checked by scripts/master-toolkit-drift.py; re-record with --write only after reviewing a copy.
 # base 34a4189002b7c9aaf6085ae4adab27b343ca28dc
 master_file	main_file	symbol	sha256
@@ -42,3 +43,8 @@ extractor-master/src/main/kotlin/com/alal/yft/extractor/master/toolkit/RequestPo
 extractor-master/src/main/kotlin/com/alal/yft/extractor/master/toolkit/RequestPolicy.kt	extractor-sites/src/main/kotlin/com/alal/yft/extractor/sites/vimeo/VimeoExtractor.kt	mediaContext	ee42d7a8c2f6d1063f3502ec6dc942a9baba8e8120e1c5c162413d7611a12e81
 extractor-master/src/main/kotlin/com/alal/yft/extractor/master/toolkit/UrlPolicy.kt	extractor-sites/src/main/kotlin/com/alal/yft/extractor/sites/vimeo/VimeoConfigParser.kt	PLAUSIBLE_EXPIRY_SECONDS	6fe24fd7cd3ffb20f06a9eed4350429a29f983b3e0b805ca4fabfa8f2c315227
 extractor-master/src/main/kotlin/com/alal/yft/extractor/master/toolkit/RequestPolicy.kt	core-media/src/main/java/com/alal/yft/core/media/resolver/DefaultVariantResolver.kt	withPageOrigin	48f7bfd0186730c04c815d33f3819b4be3673e265496d639ecb3ef38bd0d0af8
+extractor-master/src/main/kotlin/com/alal/yft/extractor/master/modules/youtube/YouTubeClientProfile.kt	extractor-sites/src/main/kotlin/com/alal/yft/extractor/sites/youtube/YouTubeClientProfile.kt	*	589046c199fc926de36a84ccd1b8c1f7fc29644098e5119ca3a32651ad7ffdce
+extractor-master/src/main/kotlin/com/alal/yft/extractor/master/modules/youtube/YouTubeExtractor.kt	extractor-sites/src/main/kotlin/com/alal/yft/extractor/sites/youtube/YouTubeExtractor.kt	*	d21fdc1e41feeeb1afb8aeca22899d336a106bfc74f7bd880b4f5f1d9a084429
+extractor-master/src/main/kotlin/com/alal/yft/extractor/master/modules/youtube/YouTubePlayerResponseParser.kt	extractor-sites/src/main/kotlin/com/alal/yft/extractor/sites/youtube/YouTubePlayerResponseParser.kt	*	e0230df7777b1f1b90e66edaf6aa8aaf7b32d3b4e893c2b88e97a62fd8a83fba
+extractor-master/src/main/kotlin/com/alal/yft/extractor/master/modules/youtube/YouTubeSessionAuth.kt	extractor-sites/src/main/kotlin/com/alal/yft/extractor/sites/youtube/YouTubeSessionAuth.kt	*	07704eabd56d1cf35d8ab0db58d1f5d7c7b3889378b9708b661c9b119ef50050
+extractor-master/src/main/kotlin/com/alal/yft/extractor/master/modules/youtube/YouTubeUrls.kt	extractor-sites/src/main/kotlin/com/alal/yft/extractor/sites/youtube/YouTubeUrls.kt	*	ccabbcfec6d83b28cb7ead20c78bce31c5361ebcd79038035b94143ef6a1a57b

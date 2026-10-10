@@ -6,7 +6,9 @@ extractors instead of moving them, so main stays untouched. Each copy is listed 
 extractor-master/toolkit-provenance.tsv with the main file, the symbol it was copied from and
 the SHA-256 of that symbol's text at the base commit. This script extracts the same symbols
 from another ref (default origin/main) and reports every symbol whose text changed or vanished,
-so the copy can be reviewed before the next main merge.
+so the copy can be reviewed before the next main merge. R6: the symbol `*` marks a whole-file
+copy (the YouTube module); its text after the package line is hashed, and the Master copy
+must still hash the same.
 
   python3 scripts/master-toolkit-drift.py                 # compare with origin/main
   python3 scripts/master-toolkit-drift.py --ref 34a41890  # self-check: must report no drift
@@ -28,6 +30,7 @@ MODIFIERS = (
     "private|internal|public|protected|override|suspend|inline|const|operator|infix|"
     "tailrec|data|enum|sealed|abstract|open|lateinit|@JvmStatic"
 )
+WHOLE_FILE = "*"
 CONTINUATION = (".", "?.", "?:", ")", "]", "}", "=", "+", "-", "&&", "||", "->", ",")
 
 
@@ -76,8 +79,22 @@ def extent(lines, start):
     return [l.rstrip() for l in lines[start:end + 1]]
 
 
+def body_after_package(source):
+    """A whole-file copy's text after its package line (R6: only the package differs)."""
+    lines = source.splitlines()
+    for index, line in enumerate(lines):
+        if line.startswith("package "):
+            return "\n".join(lines[index + 1:])
+    return None
+
+
 def symbol_text(source, name):
-    """Every outermost declaration of `name` (fun, val, var, class, object), joined."""
+    """Every outermost declaration of `name` (fun, val, var, class, object), joined.
+
+    The symbol `*` stands for the whole file after its package line.
+    """
+    if name == WHOLE_FILE:
+        return body_after_package(source)
     pattern = re.compile(
         rf"^(\s*)(?:(?:{MODIFIERS})\s+)*(?:fun|val|var|class|object|interface)\s+"
         rf"(?:<[^>]+>\s*)?(?:[A-Za-z_][\w<>?, ]*\.)?{re.escape(name)}\b"
@@ -163,6 +180,15 @@ def main():
             drift.append((master, main, symbol, "symbol missing"))
         elif digest(text) != expected:
             drift.append((master, main, symbol, "changed"))
+        if symbol == WHOLE_FILE:
+            # The copy itself must still be main's text: a local edit is drift too.
+            try:
+                with open(os.path.join(ROOT, master), encoding="utf-8") as handle:
+                    copy = body_after_package(handle.read())
+            except OSError:
+                copy = None
+            if copy is None or digest(copy) != expected:
+                drift.append((master, main, symbol, "copy edited"))
     for master, main, symbol, why in drift:
         message = f"{main}: {symbol} {why} since {base[:8]}; review {master}"
         print(f"::warning::{message}" if args.warn_only else f"DRIFT {message}")

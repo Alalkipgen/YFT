@@ -91,6 +91,9 @@ data class MasterPolicy(
 enum class MasterStage {
     PAGE_DATA,
     PLAYBACK_CAPTURE,
+
+    /** R6: a Master site module's own answer; its rows are the module's, not probed again. */
+    SITE_MODULE,
 }
 
 sealed interface CaptureResult {

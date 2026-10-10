@@ -3,9 +3,12 @@ package com.alal.yft.extractor.master
 import com.alal.yft.core.model.logging.DiagnosticTextSanitizer
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.extractor.api.SiteExtractionFailure
+import com.alal.yft.extractor.api.SiteExtractionRequest
 import com.alal.yft.extractor.api.SiteExtractionResult
+import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.extractor.generic.normalizer.CandidateNormalizer
 import com.alal.yft.extractor.master.layers.LayerStack
+import com.alal.yft.extractor.master.modules.MasterSiteModule
 import com.alal.yft.extractor.master.policy.SnapshotBudget
 import com.alal.yft.extractor.master.policy.TerminalRules
 import com.alal.yft.extractor.master.toolkit.UrlPolicy
@@ -33,13 +36,15 @@ typealias MasterCaptureSelection = suspend (
  * [CandidateGate]/[FocusSelection] decide what belongs to the focused video and
  * [ProbeSession] checks it. A successful primary result must never call this engine.
  * Network/rate-limit failures do not launch another lookup. Browser capture is requested at
- * most once per invocation.
+ * most once per invocation. R6: a page a [MasterSiteModule] claims is answered by that module
+ * alone, and only when no site adapter looked the video up first (P12).
  */
 class MasterFallbackEngine(
     private val validator: MasterMediaValidator,
     private val capture: PlaybackCaptureProvider = NoPlaybackCaptureProvider,
     private val policy: MasterPolicy = MasterPolicy(),
     private val captureSelection: MasterCaptureSelection? = null,
+    private val modules: List<MasterSiteModule> = emptyList(),
 ) {
     private val layers = LayerStack.standard()
     private val normalizer = CandidateNormalizer(
@@ -54,8 +59,18 @@ class MasterFallbackEngine(
         if (UrlPolicy.secure(request.pageUrl) == null) {
             return MasterResult.Failure(SiteExtractionFailure.UNSUPPORTED_URL, emptyList())
         }
+        val claim = modules.firstNotNullOfOrNull { module ->
+            module.identify(request.pageUrl)?.let { module to it }
+        }
+        // A claimed page never reaches layers or capture. The module asks only when no site
+        // adapter answered for this page: after the adapter's lookup, its answer stands.
+        if (claim != null && request.primaryFailure != SiteExtractionFailure.UNSUPPORTED_URL) {
+            return MasterResult.Skipped(request.primaryFailure)
+        }
         return try {
-            withTimeout(policy.timeoutMillis) { run(request) }
+            withTimeout(policy.timeoutMillis) {
+                if (claim == null) run(request) else answer(claim.first, claim.second, request)
+            }
         } catch (timeout: TimeoutCancellationException) {
             // Only our own timeout becomes a result. An enclosing timeout remains cancellation.
             coroutineContext.ensureActive()
@@ -166,6 +181,37 @@ class MasterFallbackEngine(
             else -> MasterResult.NeedsPlayback(
                 safeDetails + "Open the page, play its video, and supply a fresh capture.",
             )
+        }
+    }
+
+    private suspend fun answer(
+        module: MasterSiteModule,
+        identity: SitePageIdentity,
+        request: MasterRequest,
+    ): MasterResult {
+        if (request.expectedContentId != null && request.expectedContentId != identity.contentId) {
+            return failure(
+                SiteExtractionFailure.RESPONSE_CHANGED,
+                listOf("master: the page shows a different video than requested"),
+            )
+        }
+        val label = "master: ${module.siteId} module"
+        return when (
+            val result = module.extract(
+                SiteExtractionRequest(identity, request.requestContext, request.nowEpochMs),
+            )
+        ) {
+            is SiteExtractionResult.Success -> MasterResult.Success(
+                SiteExtractionResult.Success(
+                    result.candidates,
+                    DiagnosticTextSanitizer.details(
+                        result.details + "$label: ${result.candidates.size} rows",
+                    ),
+                ),
+                MasterStage.SITE_MODULE,
+            )
+            is SiteExtractionResult.Failure ->
+                failure(result.reason, result.details + "$label: ${result.reason.name}")
         }
     }
 

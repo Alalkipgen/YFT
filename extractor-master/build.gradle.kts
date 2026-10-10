@@ -11,6 +11,8 @@ dependencies {
     implementation(project(":extractor-generic"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.okhttp)
+    // R6 parity only: main's YouTube extractor is compared, never called by Master code.
+    testImplementation(project(":extractor-sites"))
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)
@@ -36,6 +38,12 @@ tasks.test {
         "yft.parityBaselineFile",
         file("src/test/resources/parity/fixture-baseline.json").absolutePath,
     )
+    // R6 canary (owner-run, never in CI): `-Pyft.youtubeCanary=<video id>` asks YouTube live.
+    val canary = providers.gradleProperty("yft.youtubeCanary")
+    if (canary.isPresent) {
+        systemProperty("yft.youtubeCanary", canary.get())
+        outputs.upToDateWhen { false }
+    }
     // `-Pyft.parityBaseline=write` rewrites the baseline on purpose (never in CI).
     val baselineMode = providers.gradleProperty("yft.parityBaseline")
     if (baselineMode.isPresent) {

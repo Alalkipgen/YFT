@@ -34,7 +34,7 @@ Phase 1 turns the §8 recommendation into one ordered, buildable plan. It keeps 
 | R3 | Toolkit T1/T2 + L3 shape search + ID anchoring + ladder/probe/policy | R2 | Medium | Done |
 | R4 | C: keyframe/duration fingerprint | R3 | Low–Medium | Done |
 | R5 | E: codec steering | R3 | Low | Done |
-| R6 | Own YouTube module (YT-1/YT-2/YT-4) | R2, R3 | Medium | TODO |
+| R6 | Own YouTube module (YT-1/YT-2/YT-4) | R2, R3 | Medium | Done |
 | R7 | Generic: capture + MSE/EME metadata hooks | R3, R4 | Medium | TODO |
 | R8 | Per site: Vimeo → X → Facebook → TikTok → Instagram | R3, R4, R5 | Medium–High | TODO |
 | R9 | Signed recipe config (optional) | R8 | Medium | TODO |

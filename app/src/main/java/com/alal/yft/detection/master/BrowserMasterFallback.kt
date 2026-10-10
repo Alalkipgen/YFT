@@ -6,6 +6,7 @@ import com.alal.yft.core.model.logging.DiagnosticTextSanitizer
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.detection.DeviceMergeSupport
 import com.alal.yft.detection.MergeSupport
+import com.alal.yft.detection.OkHttpExtractorClient
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.detection.SiteScope
@@ -17,6 +18,7 @@ import com.alal.yft.extractor.master.MasterRequest
 import com.alal.yft.extractor.master.MasterResult
 import com.alal.yft.extractor.master.android.CodecSteering
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
+import com.alal.yft.extractor.master.modules.youtube.MasterYouTubeModule
 import com.alal.yft.extractor.master.verify.OkHttpMediaValidator
 import com.alal.yft.extractor.master.verify.CapturedMediaMetadata
 import com.alal.yft.extractor.master.present.MasterMainPresentation
@@ -196,6 +198,8 @@ class AndroidBrowserMasterFallback(
                 MasterFallbackEngine(
                     OkHttpMediaValidator(client), capture, MasterPolicy(enabled = true),
                     captureSelection = capture::selectMain,
+                    // R6: YouTube pages are Master's own module's, never capture's.
+                    modules = listOf(MasterYouTubeModule(OkHttpExtractorClient(client))),
                 ),
             )
         }
