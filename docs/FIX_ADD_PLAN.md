@@ -1233,8 +1233,9 @@ quality with its rendition → two playlist tracks into one MP4; mixed / HEVC re
 `PlaylistTrackTransferRunnerTest` (playlist tracks go to the HLS engine with their checkpoints,
 others to DASH; codec check for playlist tracks).
 
-**Result (P48–P50):** DONE — OWNER CHECK (Agent B, 2026-10-10, the P50 checkpoint).
-Full validation: 1784 tests, 0 failures, 66 skipped (app 913, core-browser 150, core-data 33, core-download 188, core-media 38, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 280; 1750 before P48–P50); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; `:app:compileDebugAndroidTestKotlin` OK; Kotlin line check clean. CI of the P50 checkpoint: CI links in the next docs commit = **Preview #11**.
+**Result (P48–P50):** DONE — OWNER CHECK (Agent B, 2026-10-10, `fdb3769`).
+Full validation: 1784 tests, 0 failures, 66 skipped (app 913, core-browser 150, core-data 33, core-download 188, core-media 38, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 280; 1750 before P48–P50); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; `:app:compileDebugAndroidTestKotlin` OK; Kotlin line check clean. CI of `fdb3769`: checkpoint validation 38009471238, emulator smoke 38009471040, Preview APK 38009471066 = **Preview #11**, all green. `main` fast-forwarded to P50 with the owner's approval
+(2026-10-10: "Main ကို Push လိုက်").
 
 ### P8 — Signed release 1.0.0-beta.4
 

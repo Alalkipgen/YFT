@@ -57,8 +57,8 @@
   quality of a post's video with sound, `/video/N`, GIF, quoted post); Instagram adapter (app
   API when YFT's browser is signed in, web query, post page, embed page; Home uses YFT's
   browser's Instagram cookies); HLS qualities with their sound apart are merged with their audio
-  playlist into one MP4. **Preview #11:** CI links in the next docs commit. `main` stays at P47
-  until the owner says so.
+  playlist into one MP4. **Preview #11:** [38009471066](https://github.com/Alalkipgen/YFT/actions/runs/38009471066) (`fdb3769`; validation [38009471238](https://github.com/Alalkipgen/YFT/actions/runs/38009471238), smoke [38009471040](https://github.com/Alalkipgen/YFT/actions/runs/38009471040), all green). `main` fast-forwarded
+  to P50 with the owner's approval (2026-10-10: "Main ကို Push လိုက်").
 
 ## Known limitations (Preview #11)
 

@@ -67,8 +67,8 @@ approval).
 
 P48–P50 (2026-10-10, Agent B alone, the owner's request): X and Instagram adapters (X's embed
 answer; Instagram's app API, web query, page and embed, with YFT's browser's sign-in), and HLS
-qualities with their sound apart merged into one MP4. Preview #11; `1.0.0-beta.4` (P8) waits
-for the owner's OK.
+qualities with their sound apart merged into one MP4. Preview #11 (on `main` with
+the owner's approval); `1.0.0-beta.4` (P8) waits for the owner's OK.
 
 
 ## History

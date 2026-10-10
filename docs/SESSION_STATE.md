@@ -98,9 +98,8 @@ Keep at least the heading and one blank line between sections, so Git merges the
   adapter (app API / web query / page / embed; Home with YFT's browser's Instagram cookies),
   HLS qualities with their sound apart merged into one MP4 (`PlaylistTrackTransferRunner`).
   Full validation: 1784 tests, 0 failures, 66 skipped (app 913, core-browser 150, core-data 33, core-download 188, core-media 38, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 280; 1750 before P48–P50); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; `:app:compileDebugAndroidTestKotlin` OK; Kotlin line check clean.
-- Last pushed checkpoint (P50): the P50 checkpoint on `work/phase-15-integration`; CI: CI links
-  in the next docs commit = **Preview #11**. `main` stays at the P47 docs commit until the owner
-  says so.
+- Last pushed checkpoint (P50): `fdb3769` on `work/phase-15-integration`; CI: checkpoint validation [38009471238](https://github.com/Alalkipgen/YFT/actions/runs/38009471238), emulator smoke [38009471040](https://github.com/Alalkipgen/YFT/actions/runs/38009471040), Preview APK = **Preview #11** [38009471066](https://github.com/Alalkipgen/YFT/actions/runs/38009471066) (Artifacts › `yft-preview-apk`), all green. `main` fast-forwarded from `8284d80` to this P50 docs commit with the owner's approval
+  (2026-10-10: "Main ကို Push လိုက်"); Preview #11 is the same code.
 - Next: the owner tests Preview #11 (FIX_ADD_PLAN §6 "Preview #11") and sends Details of
   anything that fails; P8 (signed `1.0.0-beta.4`) only with his OK.
 - Last updated: 2026-10-10 (P50)
