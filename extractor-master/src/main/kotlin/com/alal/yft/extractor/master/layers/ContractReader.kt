@@ -9,8 +9,14 @@
  *                                        https only), codecOf + TikTokCodec.codecTag
  *   extractor-sites/.../tiktok/TikTokExtractor.kt  displayTitle (the title, then the row's
  *                                        label after a dash)
+ *   extractor-sites/.../instagram/InstagramMedia.kt  postOf (a post's items, else the post),
+ *                                        hasVideo (a photo post: no item is a video),
+ *                                        MAX_ITEMS
+ *   extractor-sites/.../instagram/InstagramExtractor.kt  displayTitle (the caption, else
+ *                                        "{name} on Instagram")
  * Adapted: any trailing link of the line, for every recipe that reads a post's text; DRM
- * markers as recipe paths; the first usable address of a list stands for the file.
+ * markers as recipe paths; the first usable address of a list stands for the file; a photo
+ * only as the answer states it (`is_video` false), never from a missing field.
  */
 package com.alal.yft.extractor.master.layers
 
@@ -20,7 +26,6 @@ import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.PageMediaRole
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.json.JsonValue
-import com.alal.yft.extractor.api.json.asArrayOrEmpty
 import com.alal.yft.extractor.api.json.asBooleanOrNull
 import com.alal.yft.extractor.api.json.asDoubleOrNull
 import com.alal.yft.extractor.api.json.asLongOrNull
@@ -106,6 +111,9 @@ internal class ContractReader(
         val title = recipe.titlePaths.firstNotNullOfOrNull { path ->
             at(node, path).asStringOrNull
                 ?.let { if (recipe.postText) postTitle(it) else it.trim() }?.takeIf(String::isNotEmpty)
+        } ?: recipe.nameTitles.firstNotNullOfOrNull { (path, template) ->
+            at(node, path).asStringOrNull?.trim()?.takeIf(String::isNotEmpty)
+                ?.let { template.replace("{}", it) }
         }
         val source = item ?: node
         val duration = recipe.durationMillisPaths.firstNotNullOfOrNull { millis(at(source, it), 1.0) }
@@ -152,9 +160,11 @@ internal class ContractReader(
     /** The answer's JSON: the document itself, or a page's data scripts and loader calls. */
     private fun documents(): List<JsonValue> {
         if (!recipe.html) return listOfNotNull(BalancedJson.lenientParse(answer.body, MAX_NODES))
+        // The JSON texts first: an embed page's whole post is one (`contextJSON`).
+        val embedded = if (recipe.embeddedJson) PageScripts.embeddedDocuments(answer.body) else emptyList()
         val scripts = PageScripts.scripts(answer.body)
             .filter { it.type in PayloadRecipes.JSON_SCRIPT_TYPES }.map { it.body }
-        return (scripts + calls).take(MAX_DOCUMENTS)
+        return (embedded + scripts + calls).take(MAX_DOCUMENTS)
             .mapNotNull { BalancedJson.lenientParse(it, MAX_NODES) }
     }
 
@@ -183,7 +193,10 @@ internal class ContractReader(
     private fun holdsMedia(node: JsonValue): Boolean =
         recipe.drmPaths.any { protects(at(node, it)) } ||
             recipe.noVideoPaths.any { protects(at(node, it)) } ||
-            recipe.media.any { media -> reach(node, media).isNotEmpty() }
+            (itemsOf(node).ifEmpty { listOf(node) }).any { item ->
+                recipe.media.any { media -> reach(item, media.path).isNotEmpty() }
+            } ||
+            photos(node)
 
     private fun rowsOf(node: JsonValue): List<MediaCandidate> {
         if (recipe.drmPaths.any { protects(at(node, it)) }) {
@@ -196,15 +209,21 @@ internal class ContractReader(
         }
         val own = itemRows(node, numbered = true)
         if (own.isNotEmpty() || drm) return own
+        if (photos(node)) {
+            noVideo = true
+            return emptyList()
+        }
         // The page's `/video/N` names the post's own media, never the embedded post's.
         return recipe.fallbackPath?.let { at(node, it) }
             ?.let { itemRows(it, numbered = false) }.orEmpty()
     }
 
-    /** The post's own media list: the item the page names, else the first one with files. */
+    /**
+     * The post's own media list: the item the page names, else the first one with files. A post
+     * without a list is its own only item.
+     */
     private fun itemRows(node: JsonValue, numbered: Boolean): List<MediaCandidate> {
-        val path = recipe.items ?: return filesOf(node)
-        val items = at(node, path).asArrayOrEmpty
+        val items = itemsOf(node).ifEmpty { return filesOf(node) }
         val wanted = recipe.itemNumber?.takeIf { numbered }
             ?.find(request.identity?.canonicalPageUrl.orEmpty())?.groupValues?.get(1)?.toIntOrNull()
         val named = wanted?.takeIf { it in 1..items.size }?.let { items[it - 1] }
@@ -218,6 +237,19 @@ internal class ContractReader(
         return emptyList()
     }
 
+    /** The post's items by the first of the recipe's lists that has any, in order. */
+    private fun itemsOf(node: JsonValue): List<JsonValue> =
+        recipe.items.firstNotNullOfOrNull { path -> reach(node, path).ifEmpty { null } }
+            .orEmpty().filterIsInstance<JsonValue.Object>().take(MAX_ITEMS)
+
+    /** Every item (else the node) is marked a photo by the answer itself (main's photo post). */
+    private fun photos(node: JsonValue): Boolean {
+        if (recipe.photoMarkers.isEmpty()) return false
+        return itemsOf(node).ifEmpty { listOf(node) }.all { item ->
+            recipe.photoMarkers.any { (path, value) -> stated(at(item, path)) == value }
+        }
+    }
+
     private fun filesOf(node: JsonValue): List<MediaCandidate> {
         val rows = mutableListOf<MediaCandidate>()
         var inline = false
@@ -225,7 +257,7 @@ internal class ContractReader(
             if (media.onlyIfNone && rows.isNotEmpty()) return@forEach
             if (media.unlessInline && inline) return@forEach
             val found = mutableListOf<MediaCandidate>()
-            for (entry in ordered(reach(node, media), media)) {
+            for (entry in ordered(reach(node, media.path, media.preferredBy), media)) {
                 if (media.first && found.isNotEmpty()) break
                 found += entryRows(node, entry, media)
             }
@@ -327,15 +359,16 @@ internal class ContractReader(
         )
     }
 
-    private fun reach(start: JsonValue, media: ContractMedia): List<JsonValue> {
+    /** The values at [path] from [start]; `*` visits each item or value ([preferredBy] first). */
+    private fun reach(start: JsonValue, path: List<String>, preferredBy: String? = null): List<JsonValue> {
         var level = listOf<Pair<JsonValue, JsonValue?>>(start to null)
-        for (segment in media.path) {
+        for (segment in path) {
             level = level.flatMap { (value, parent) ->
                 if (segment != "*") return@flatMap listOfNotNull(value[segment]?.let { it to value })
                 when (value) {
                     is JsonValue.Array -> value.items.map { it to value }
                     is JsonValue.Object -> {
-                        val preferred = media.preferredBy?.let { parent[it].asStringOrNull }
+                        val preferred = preferredBy?.let { parent[it].asStringOrNull }
                         (listOfNotNull(preferred?.let(value.entries::get)) +
                             value.entries.filterKeys { it != preferred }.values)
                             .map { it to value }
@@ -359,6 +392,9 @@ internal class ContractReader(
     private companion object {
         const val MAX_NODES = 200_000
         const val MAX_DOCUMENTS = 32
+
+        /** Main's InstagramMedia.MAX_ITEMS: a post's items read at most. */
+        const val MAX_ITEMS = 20
 
         const val MAX_EMBEDDED_CHARS = 16_384
 
@@ -400,6 +436,10 @@ internal class ContractReader(
         const val MAX_DURATION_MILLIS = 1_000_000_000.0
 
         fun text(value: JsonValue?): String? = value.asStringOrNull ?: value.asLongOrNull?.toString()
+
+        /** A field's stated value as text: a text, a whole number or a flag. */
+        fun stated(value: JsonValue?): String? =
+            text(value) ?: value.asBooleanOrNull?.toString()
 
         const val MAX_TITLE = 80
         val TRAILING_LINK = Regex("""\s*https?://\S+\s*$""")

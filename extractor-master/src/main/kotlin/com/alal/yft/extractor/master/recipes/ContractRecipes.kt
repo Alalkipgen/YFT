@@ -28,6 +28,16 @@
  *   extractor-sites/.../tiktok/TikTokExtractor.kt   DEFAULT_MAX_PAGE_BYTES, TIKTOK_REFERER,
  *                                                   pageHeaders (navigation headers, Referer;
  *                                                   Master sends no cookie)
+ *   extractor-sites/.../instagram/InstagramMedia.kt  postOf (`carousel_media`, the sidecar's
+ *                                                   children, else the post itself), itemOf
+ *                                                   (`video_versions`, `video_url` with its
+ *                                                   `dimensions`, both DASH manifests, duration
+ *                                                   in seconds, thumbnail fields), caption fields
+ *   extractor-sites/.../instagram/InstagramUrls.kt  embedUrl, IMAGE_INDEX (a carousel item),
+ *                                                   isLoginWall (login and checkpoint paths)
+ *   extractor-sites/.../instagram/InstagramExtractor.kt  DEFAULT_MAX_PAGE_BYTES, pageHeaders
+ *                                                   (no cookie for the embed), displayTitle
+ *                                                   (the caption, else the owner's name)
  * Adapted: the same endpoints, headers and keys as data that ContractLayer interprets.
  */
 package com.alal.yft.extractor.master.recipes
@@ -109,8 +119,14 @@ internal data class ContractRecipe(
     val idPaths: List<List<String>> = emptyList(),
     /** Pages: the video node is the object whose field (dotted path) is the content ID. */
     val nodeIdFields: List<String> = emptyList(),
-    /** A list of the post's media; the page's number ([itemNumber]) or the first with files. */
-    val items: List<String>? = null,
+    /** Pages: JSON carried as JSON text (`"contextJSON":"{…}"`) is read as a document too. */
+    val embeddedJson: Boolean = false,
+    /**
+     * Where a post lists its media (`*` visits each item), the first non-empty list winning; the
+     * page's number ([itemNumber]) or the first item with files. Without a list the node is the
+     * post's only item.
+     */
+    val items: List<List<String>> = emptyList(),
     val itemNumber: Regex? = null,
     val media: List<ContractMedia>,
     /** Files only from these hosts (a changed answer cannot point a download elsewhere). */
@@ -121,6 +137,13 @@ internal data class ContractRecipe(
     val drmPaths: List<List<String>> = emptyList(),
     /** A present, non-empty value means a post without a video (photos): NO_MEDIA_FOUND. */
     val noVideoPaths: List<List<String>> = emptyList(),
+    /**
+     * A field stating this value marks a photo (`is_video` false, `media_type` 1). When no file
+     * was found and every item (else the node) is marked, the post has no video: NO_MEDIA_FOUND.
+     */
+    val photoMarkers: List<Pair<List<String>, String>> = emptyList(),
+    /** Answers ending on these paths of the site (its login page) answer nothing. */
+    val wallPaths: List<String> = emptyList(),
     /** Checked only when no file was found, so a stray phrase never downgrades an answer. */
     val accessMarkers: List<Pair<String, SiteExtractionFailure>> = emptyList(),
     /** Epoch seconds the answer's files stop working. */
@@ -129,6 +152,8 @@ internal data class ContractRecipe(
     val titlePaths: List<List<String>> = emptyList(),
     /** The title is a post's text: its first line without a trailing link, 80 characters. */
     val postText: Boolean = false,
+    /** Without a title: a name the answer states, written into its template (`{} on Instagram`). */
+    val nameTitles: List<Pair<List<String>, String>> = emptyList(),
     /** From the chosen item when the recipe has [items], else from the video node. */
     val durationMillisPaths: List<List<String>> = emptyList(),
     val durationSecondsPaths: List<List<String>> = emptyList(),
@@ -199,7 +224,7 @@ internal object ContractRecipes {
         ),
         maxBytes = 2L * 1024 * 1024,
         idPaths = listOf(listOf("id_str")),
-        items = listOf("mediaDetails"),
+        items = listOf(listOf("mediaDetails", "*")),
         itemNumber = Regex("/video/([1-4])$"),
         media = listOf(
             ContractMedia(
@@ -362,7 +387,56 @@ internal object ContractRecipes {
         ),
     )
 
-    val ALL: List<ContractRecipe> = listOf(VIMEO, X, FACEBOOK, TIKTOK)
+    /** Main's InstagramExtractor names its embed rows after the owner when there is no caption. */
+    private fun owner(field: String, template: String) =
+        listOf(listOf("user", field) to template, listOf("owner", field) to template)
+
+    /**
+     * Instagram's public embed page (`/p/{code}/embed/captioned/`), asked as the browser
+     * **without** the user's cookies, as main's last answer: its `contextJSON` text holds the
+     * post (`shortcode_media`: `video_url`, `dimensions`, a sidecar's children), and its files
+     * open without any (live check 2026-10-10). The key table also reads main's other shapes
+     * (the app API's `video_versions`, `carousel_media`, inline DASH), so a changed embed and
+     * main's answers share one reader. Anonymous: a photo post stops; a login page or any other
+     * wording goes to the user's own playback.
+     */
+    val INSTAGRAM = ContractRecipe(
+        site = "instagram",
+        endpoint = "https://www.instagram.com/p/{id}/embed/captioned/",
+        answerHosts = setOf("www.instagram.com"),
+        headers = mapOf(
+            "Accept" to PageNavigationHeaders.ACCEPT,
+            "Accept-Language" to LANGUAGE,
+            "Sec-Fetch-Mode" to PageNavigationHeaders.FETCH_MODE,
+            "Referer" to "https://www.instagram.com/",
+        ),
+        maxBytes = 6L * 1024 * 1024,
+        html = true,
+        nodeIdFields = listOf("shortcode", "code"),
+        embeddedJson = true,
+        items = listOf(
+            listOf("carousel_media", "*"),
+            listOf("edge_sidecar_to_children", "edges", "*", "node"),
+        ),
+        itemNumber = Regex("[?&]img_index=([0-9]{1,2})(?:&|$)"),
+        media = listOf(
+            ContractMedia(listOf("video_versions", "*"), mime = MP4),
+            ContractMedia(listOf("video_url"), mime = MP4, metaPath = listOf("dimensions")),
+            ContractMedia(listOf("video_dash_manifest"), inlineDash = true),
+            ContractMedia(listOf("dash_info", "video_dash_manifest"), inlineDash = true),
+        ),
+        photoMarkers = listOf(listOf("is_video") to "false", listOf("media_type") to "1"),
+        wallPaths = listOf("/accounts/login", "/challenge"),
+        titlePaths = listOf(
+            listOf("caption", "text"), listOf("edge_media_to_caption", "edges", "0", "node", "text"),
+        ),
+        postText = true,
+        nameTitles = owner("full_name", "{} on Instagram") + owner("username", "@{} on Instagram"),
+        durationSecondsPaths = listOf(listOf("video_duration")),
+        thumbnailPaths = listOf(listOf("image_versions2", "candidates", "0", "url"), listOf("display_url")),
+    )
+
+    val ALL: List<ContractRecipe> = listOf(VIMEO, X, FACEBOOK, TIKTOK, INSTAGRAM)
 
     fun of(site: String): ContractRecipe? = ALL.firstOrNull { it.site == site }
 }

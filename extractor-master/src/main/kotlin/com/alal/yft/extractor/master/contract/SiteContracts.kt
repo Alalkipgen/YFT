@@ -2,6 +2,8 @@
  * Provenance (Master R8, copied, not moved; main 34a41890):
  *   extractor-sites/.../vimeo/VimeoUrls.kt  unlistedHashOf, UNLISTED_HASH, configUrl (the
  *                                           player configuration address keeps the hash)
+ *   extractor-sites/.../instagram/InstagramUrls.kt  isLoginWall (a login or checkpoint path
+ *                                           answers nothing)
  */
 package com.alal.yft.extractor.master.contract
 
@@ -51,6 +53,8 @@ class SiteContracts internal constructor(
             )
             is ExtractorHttpResult.Success -> if (!hostIn(result.finalUrl, recipe.answerHosts)) {
                 Asked.Unanswered("$label: answer left the site's endpoint host")
+            } else if (onWall(result.finalUrl, recipe.wallPaths)) {
+                Asked.Unanswered("$label: the answer is the site's login page")
             } else {
                 Asked.Answer(
                     PageSnapshot(
@@ -110,6 +114,13 @@ class SiteContracts internal constructor(
             if (!uri.scheme.equals("https", true) || uri.userInfo != null) return false
             val host = uri.host?.lowercase() ?: return false
             return hosts.any { host == it || subdomains && host.endsWith(".$it") }
+        }
+
+        /** Main's InstagramUrls.isLoginWall: the answer ended on a login or checkpoint path. */
+        private fun onWall(url: String, paths: List<String>): Boolean {
+            if (paths.isEmpty()) return false
+            val path = runCatching { URI(url).path }.getOrNull()?.lowercase() ?: return false
+            return paths.any(path::startsWith)
         }
 
         private fun encode(value: String): String =
