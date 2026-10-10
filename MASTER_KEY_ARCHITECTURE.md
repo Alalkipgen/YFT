@@ -20,12 +20,16 @@ extractor-master/ (pure JVM)            com.alal.yft.extractor.master
             SnapshotBudget              snapshot read limits
   layers/   MasterLayer, Evidence, LayerStack (order + shared raw-candidate cap)
             CaptureLayer   L1           requests the visible browser made
-            ContractLayer  L2           HTML5 <video>/<source>, OpenGraph
+            ContractLayer  L2           HTML5 <video>/<source>, OpenGraph; R8: reads a site
+                                        endpoint's answer (ContractReader, site key table)
             ShapeLayer     L3           R3: shape search with content-ID anchoring (adds only)
             RecipeLayer    L4           bounded JSON walk applying recipes
   recipes/  PayloadRecipes, NodeRule    data-only site key tables (one line per key)
+            ContractRecipes             R8: per-site endpoint, headers, host locks, key table
             TikTokStatusRecipe          private/regional status codes
             YoutubeStreamingRecipe      rows off since R2 (DRM signal kept); module in R6
+  contract/ SiteContracts               R8: the engine's one bounded ask (not a layer)
+            WidgetToken                 R8: X's embed-widget token (main's arithmetic)
   toolkit/  UrlPolicy, CandidateFactory, HtmlScan, InlineDashReader
             R3 copies (provenance + drift check): PageScripts, BalancedJson,
             AnchoredMediaWalk, MediaKeyTable, QualityLadder, ProbeRounds, RequestPolicy
@@ -53,7 +57,8 @@ extractor-master/toolkit-provenance.tsv; scripts/master-toolkit-drift.py (R3 cop
 ## 2. Flow
 
 `TerminalRules` → R6 module claim (claimed page: module only when no adapter answered, else
-skipped; never layers/capture) → snapshot gates (generation, same page, access failure, `SnapshotBudget`,
+skipped; never layers/capture) → stages: R8 `CONTRACT` (the identified video's own endpoint,
+asked once by the engine) → `PAGE_DATA` → `PLAYBACK_CAPTURE`; per stage: snapshot gates (generation, same page, access failure, `SnapshotBudget`,
 authorized playback) → `LayerStack` (L2 → L4 → L1 → L3; L3 adds only) → `CandidateNormalizer` →
 `CandidateGate` → capture-stage selection hook → `FocusSelection` → `ProbeSession`
 (budget, companion audio) → `MasterResult`.
@@ -64,6 +69,16 @@ authorized playback) → `LayerStack` (L2 → L4 → L1 → L3; L3 adds only) �
   `extractor-sites` (R6 parity tests use it as a test-only dependency). Android-only code stays in `extractor-master-android`.
 - A layer only reads delivered material: no fetch, signing or login. New layers implement
   `MasterLayer` and are added to `LayerStack`; the engine does not change.
+- **R8 decision (rule conflict):** R8 needs each site's own endpoint, which this rule forbids a
+  layer to fetch. Decided: layers stay read-only; the **engine** asks once, as a stage
+  (`MasterStage.CONTRACT`, before page data and capture), through the caller's bounded
+  `ExtractorHttpClient` (`contract/SiteContracts`: HTTPS, redirect limit, timeouts, per-site
+  body cap, answer host lock, its own share of the time budget). The answer reaches L2 only as
+  `PageSnapshot.contract`, which no page or capture can fill. Endpoints, headers, agents, host
+  locks and key tables are data (`recipes/ContractRecipes`); only a widget's token (X) is
+  bundled code, as on main. It asks only for the caller's identity, never after a login,
+  bot-check or player-script failure, never twice. Without `contracts` the engine is unchanged.
+  Cost accepted: after a main failure the same endpoint may be asked a second time (Vimeo, X).
 - Layer order is configuration. It decides probe order under the budget, so changing it is a
   behavior change and needs the R1 parity harness.
 - Recipes are data. A renamed site key is a one-line edit in `PayloadRecipes.NODE_RULES`.
@@ -108,4 +123,4 @@ authorized playback) → `LayerStack` (L2 → L4 → L1 → L3; L3 adds only) �
 - R6: done — `modules/` (`MasterSiteModule`, `SiteExtractorModule`) and `modules/youtube`
   (copies + `MasterYouTubeModule`, `MasterYouTubeClients`, canary script).
 - R7: done — `yft-master-mse.js`, fed addresses in L1 (`CaptureLayer`), EME licence/keys stop.
-- R8: L2 contract endpoints per site as `ContractLayer` recipes.
+- R8: in progress — contract stage + `ContractReader`; Vimeo and X done (see PROGRESS.md).

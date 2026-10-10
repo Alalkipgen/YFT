@@ -6,6 +6,7 @@ import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.PageMediaRole
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionResult
+import com.alal.yft.extractor.api.SitePageIdentity
 
 /**
  * Input to a second-choice engine, not another registry adapter.
@@ -13,6 +14,8 @@ import com.alal.yft.extractor.api.SiteExtractionResult
  * [generation] identifies one tab navigation, including SPA navigation. The browser host must
  * increment it and discard old observations when the focused page changes.
  * [expectedContentId] is supplied by the caller when known; this engine never invents an ID.
+ * [identity] (R8) is the video the site adapter identified for the lookup, as the caller's
+ * registry read it; the contract stage asks that site's own endpoint for exactly this video.
  */
 data class MasterRequest(
     val pageUrl: String,
@@ -22,6 +25,7 @@ data class MasterRequest(
     val expectedContentId: String? = null,
     val requestContext: BrowserRequestContext = BrowserRequestContext(pageUrl, null, null),
     val snapshot: PageSnapshot? = null,
+    val identity: SitePageIdentity? = null,
 ) {
     init {
         require(generation >= 0)
@@ -32,7 +36,7 @@ data class MasterRequest(
     override fun toString(): String =
         "MasterRequest(generation=$generation, primaryFailure=$primaryFailure, " +
             "expectedContentIdPresent=${expectedContentId != null}, " +
-            "snapshotPresent=${snapshot != null})"
+            "snapshotPresent=${snapshot != null}, identityPresent=${identity != null})"
 }
 
 /**
@@ -51,11 +55,19 @@ data class PageSnapshot(
     val playingMediaUrl: String? = null,
     val authorizedPlayback: Boolean = false,
     val accessFailure: SiteExtractionFailure? = null,
+    /** R8: a site endpoint's answer the engine fetched itself; only L2 reads it. */
+    val contract: ContractAnswer? = null,
 ) {
     override fun toString(): String =
         "PageSnapshot(generation=$generation, htmlPresent=${html != null}, " +
             "responseCount=${apiResponses.size}, requestCount=${requests.size}, " +
-            "authorizedPlayback=$authorizedPlayback, accessFailure=$accessFailure)"
+            "authorizedPlayback=$authorizedPlayback, accessFailure=$accessFailure, " +
+            "contract=${contract?.site})"
+}
+
+/** R8: one bounded answer of [site]'s own public endpoint for the request's identity. */
+data class ContractAnswer(val site: String, val body: String, val finalUrl: String) {
+    override fun toString(): String = "ContractAnswer(site=$site, chars=${body.length})"
 }
 
 data class CapturedRequest(
@@ -89,16 +101,21 @@ data class MasterPolicy(
     val maxSnapshotChars: Int = 2 * 1024 * 1024,
     val maxObservations: Int = 200,
     val timeoutMillis: Long = 20_000,
+    /** R8: the contract ask's own share, so a slow endpoint still leaves time for capture. */
+    val contractTimeoutMillis: Long = 6_000,
 ) {
     init {
         require(maxCandidates in 1..50)
         require(maxSnapshotChars > 0)
         require(maxObservations in 1..1_000)
         require(timeoutMillis > 0)
+        require(contractTimeoutMillis > 0)
     }
 }
 
 enum class MasterStage {
+    /** R8: the site's own public player endpoint for the identified video (L2 contract). */
+    CONTRACT,
     PAGE_DATA,
     PLAYBACK_CAPTURE,
 

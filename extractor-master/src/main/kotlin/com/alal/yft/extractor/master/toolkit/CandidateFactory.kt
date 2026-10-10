@@ -48,7 +48,7 @@ internal class CandidateFactory(private val request: MasterRequest) {
             drmHint = null,
             observedAtEpochMs = request.nowEpochMs,
             codecs = codecs(mime),
-            videoId = id?.let { UrlPolicy.videoKey(request.pageUrl, it) },
+            videoId = id?.let(::videoKey),
             width = dimension(node["width"]),
             height = dimension(node["height"]),
             bitrateBitsPerSecond = node["bitrate"].asLongOrNull?.takeIf { it > 0 },
@@ -56,6 +56,11 @@ internal class CandidateFactory(private val request: MasterRequest) {
             pageVideoKey = key,
         )
     }
+
+    /** R8: the caller's identity names the site exactly; the page host is the fallback. */
+    private fun videoKey(id: String): String =
+        request.identity?.takeIf { it.contentId == id }?.let { "${it.siteId}:$id" }
+            ?: UrlPolicy.videoKey(request.pageUrl, id)
 
     companion object {
         private val CODECS = Regex("""(?i)codecs\s*=\s*"([^"]+)"""")

@@ -389,6 +389,10 @@ class SiteAdapterCoordinator @Inject constructor(
             "${identity.siteId}:${identity.contentId}"
         }
 
+    /** R8 (Master): the video an enabled adapter identified for [pageUrl], or null. */
+    fun identity(pageUrl: String): SitePageIdentity? =
+        (registry.select(pageUrl) as? SiteAdapterSelection.Matched)?.identity
+
     /**
      * Whether two addresses show the same post of the same site, for example when the site adds
      * a tracking or start-time parameter to the address after the video opened.

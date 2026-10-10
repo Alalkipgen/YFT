@@ -36,7 +36,7 @@ Phase 1 turns the §8 recommendation into one ordered, buildable plan. It keeps 
 | R5 | E: codec steering | R3 | Low | Done |
 | R6 | Own YouTube module (YT-1/YT-2/YT-4) | R2, R3 | Medium | Done |
 | R7 | Generic: capture + MSE/EME metadata hooks | R3, R4 | Medium | Done |
-| R8 | Per site: Vimeo → X → Facebook → TikTok → Instagram | R3, R4, R5 | Medium–High | TODO |
+| R8 | Per site: Vimeo → X → Facebook → TikTok → Instagram | R3, R4, R5 | Medium–High | In progress: Vimeo, X done |
 | R9 | Signed recipe config (optional) | R8 | Medium | TODO |
 
 Order: **R1 → R2 → R3 → (R4, R5 parallel) → R6 → R7 → R8 → R9.** R6 may run beside R4/R5 after R3.

@@ -18,6 +18,7 @@ import com.alal.yft.extractor.master.MasterRequest
 import com.alal.yft.extractor.master.MasterResult
 import com.alal.yft.extractor.master.android.CodecSteering
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
+import com.alal.yft.extractor.master.contract.SiteContracts
 import com.alal.yft.extractor.master.modules.youtube.MasterYouTubeModule
 import com.alal.yft.extractor.master.verify.OkHttpMediaValidator
 import com.alal.yft.extractor.master.verify.CapturedMediaMetadata
@@ -88,7 +89,10 @@ class AndroidBrowserMasterFallback(
         ) return primary
         val result = try {
             // Fresh one-shot capture avoids a cached passive snapshot masking changed playback.
-            withContext(Dispatchers.Default) { engine.extract(request.copy(snapshot = null)) }
+            // R8: the adapter's identity lets Master ask the site's own endpoint for this video.
+            withContext(Dispatchers.Default) {
+                engine.extract(request.copy(snapshot = null, identity = sites.identity(lookupUrl)))
+            }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
@@ -192,6 +196,7 @@ class AndroidBrowserMasterFallback(
                 inspect = CapturedMediaMetadata(client)::inspect,
                 codecs = codecSteering(),
             )
+            val http = OkHttpExtractorClient(client)
             return AndroidBrowserMasterFallback(
                 capture,
                 sites,
@@ -199,7 +204,9 @@ class AndroidBrowserMasterFallback(
                     OkHttpMediaValidator(client), capture, MasterPolicy(enabled = true),
                     captureSelection = capture::selectMain,
                     // R6: YouTube pages are Master's own module's, never capture's.
-                    modules = listOf(MasterYouTubeModule(OkHttpExtractorClient(client))),
+                    modules = listOf(MasterYouTubeModule(http)),
+                    // R8: Vimeo/X/Facebook/TikTok/Instagram contract endpoints, then capture.
+                    contracts = SiteContracts(http),
                 ),
             )
         }

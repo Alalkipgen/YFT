@@ -4,6 +4,8 @@ import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.extractor.api.ExtractorHttpClient
+import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.detection.MergeSupport
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
@@ -25,6 +27,7 @@ import com.alal.yft.extractor.master.PlaybackCaptureProvider
 import com.alal.yft.extractor.master.ValidationResult
 import com.alal.yft.extractor.master.android.CodecSteering
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
+import com.alal.yft.extractor.master.contract.SiteContracts
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
@@ -193,6 +196,46 @@ class BrowserMasterFallbackTest {
         assertEquals(0, fixture.factories.get())
     }
 
+    @Test
+    fun contractRowsReachTheAppUnderTheAdaptersKey() = runTest {
+        // R8: the hook hands Master the adapter's identity; the site's own answer is read and
+        // its rows carry the app's key, so no capture is needed.
+        val page = "https://vimeo.com/123456789"
+        val asked = mutableListOf<String>()
+        val http = object : ExtractorHttpClient {
+            override suspend fun get(
+                url: String,
+                headers: Map<String, String>,
+                maxBodyBytes: Long,
+            ): ExtractorHttpResult {
+                asked += url
+                return ExtractorHttpResult.Success(200, VIMEO_CONFIG, url, "application/json")
+            }
+
+            override suspend fun postJson(
+                url: String,
+                body: String,
+                headers: Map<String, String>,
+                maxBodyBytes: Long,
+            ): ExtractorHttpResult = ExtractorHttpResult.Failure(SiteExtractionFailure.NETWORK)
+        }
+        val fixture = Fixture(
+            page, extractor = FixtureExtractor("vimeo", "https://vimeo.com/"),
+            contracts = SiteContracts(http),
+        )
+        val primary = SiteAdapterOutcome.Failed(
+            "vimeo", SiteExtractionFailure.NO_MEDIA_FOUND, "Fixture failure", true,
+        )
+
+        val outcome = fixture.bridge.recover(page, primary, 100) as SiteAdapterOutcome.Detected
+
+        assertEquals("vimeo", outcome.adapterId)
+        assertEquals(listOf("https://cdn.test/v720.mp4"), outcome.candidates.map { it.mediaUrl })
+        assertEquals(listOf("https://player.vimeo.com/video/123456789/config"), asked)
+        assertEquals(0, fixture.captures.get())
+        assertEquals(1, fixture.probes.get())
+    }
+
     private fun failed(reason: SiteExtractionFailure) =
         SiteAdapterOutcome.Failed("tiktok", reason, "Fixture failure", true)
 
@@ -207,13 +250,15 @@ class BrowserMasterFallbackTest {
         authorized: Boolean = true,
         canMerge: Boolean = true,
         beforeCapture: suspend () -> Unit = {},
+        extractor: SiteExtractor = FixtureExtractor(),
+        contracts: SiteContracts? = null,
     ) {
         val capture = WebViewPlaybackCapture(enabledBuild)
         val factories = AtomicInteger()
         val captures = AtomicInteger()
         val probes = AtomicInteger()
         val sites = SiteAdapterCoordinator(
-            SiteExtractorRegistry(listOf(FixtureExtractor()), SiteAdapterFlags { enabledSite }),
+            SiteExtractorRegistry(listOf(extractor), SiteAdapterFlags { enabledSite }),
             MergeSupport { true },
         )
         val scope = capture.session.navigate(page)!!
@@ -240,6 +285,7 @@ class BrowserMasterFallbackTest {
                 )
             },
             policy = MasterPolicy(enabled = true),
+            contracts = contracts,
         )
         val bridge = AndroidBrowserMasterFallback(
             capture, sites, engine, MergeSupport { canMerge },
@@ -250,14 +296,22 @@ class BrowserMasterFallbackTest {
         )
     }
 
-    private class FixtureExtractor : SiteExtractor {
-        override val id = "tiktok"
+    private class FixtureExtractor(
+        override val id: String = "tiktok",
+        private val prefix: String = "https://www.tiktok.com/@fixture/video/",
+    ) : SiteExtractor {
         override val displayName = "Fixture"
         override fun identify(pageUrl: String): SitePageIdentity? {
-            if (!pageUrl.startsWith("https://www.tiktok.com/@fixture/video/")) return null
+            if (!pageUrl.startsWith(prefix)) return null
             return SitePageIdentity(id, pageUrl.substringAfterLast('/'), pageUrl)
         }
         override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult =
             SiteExtractionResult.Failure(SiteExtractionFailure.NO_MEDIA_FOUND)
+    }
+
+    private companion object {
+        const val VIMEO_CONFIG = "{\"video\":{\"id\":123456789,\"title\":\"Fixture\"}," +
+            "\"request\":{\"files\":{\"progressive\":[{\"url\":\"https://cdn.test/v720.mp4\"," +
+            "\"mime\":\"video/mp4\",\"width\":1280,\"height\":720}]}}}"
     }
 }

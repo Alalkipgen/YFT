@@ -1,5 +1,69 @@
 # YFT Master Extractor backup
 
+## R8 — Per site (L2 contract first, then L3 + capture)
+
+- ✅ §3 rule conflict, decided (MASTER_KEY_ARCHITECTURE.md §3): layers still never fetch. The
+  **engine** asks the identified video's own endpoint once, as stage `CONTRACT` (before page
+  data and capture), through the caller's bounded `ExtractorHttpClient`
+  (`contract/SiteContracts`: HTTPS, the client's redirect limit and timeouts, a per-site body
+  cap, answer host lock, its own 6 s share of the 20 s budget so capture keeps time). L2
+  (`ContractLayer` → `ContractReader`) only reads the answer, delivered as
+  `PageSnapshot.contract`, which no page or capture can fill. Recipes are data
+  (`recipes/ContractRecipes`: endpoint, headers, agent, cookie domain, host locks, key table,
+  DRM paths, access phrases, expiry/title/duration paths).
+- ✅ When: only with the caller's identity (`MasterRequest.identity`; the app passes its
+  adapter's `SitePageIdentity`, `SiteAdapterCoordinator.identity`), never for a short-link
+  code, never after `LOGIN_REQUIRED`/`BOT_CHECK`/`PLAYER_SCRIPT_REQUIRED` (those need the
+  user's own playback) or a `NEVER_FALLBACK` reason; once, no retry. Engine without
+  `contracts` = R7 engine. App: `create` passes `SiteContracts(OkHttpExtractorClient(client))`
+  (the same client as the R6 module).
+- ✅ Reading: the key table first (one page video, MAIN, rows keyed `site:contentId` = the
+  app's key); when it finds nothing (a renamed key) L4 + L3 read the same answer
+  (rename-proof). DRM paths → `DRM_PROTECTED`; access phrases count only when no file was found
+  (main's rule) and stop with their reason: 0 capture, 0 probes. An answer naming another video
+  gives nothing. Rows share the probe budget; success → `MasterStage.CONTRACT`.
+- ✅ Performance: a contract answer needs no playback: one request replaces the
+  play-and-capture round; a slow endpoint costs at most 6 s, then capture runs as before.
+- ✅ **Vimeo**: `player.vimeo.com/video/{id}/config` (`?h=` unlisted hash kept; host lock;
+  Referer = clip page; the user's cookie only inside vimeo.com, as main). Key table = main's
+  renditions (progressive by height, then HLS/DASH from the default CDN, `url` then
+  `avc_url`), `request.files.drm`/`video.drm`, main's access phrases, `request.expires`. One
+  request instead of main's page + config. Fix: `UrlPolicy.videoKey` had no Vimeo mapping, so
+  Master's Vimeo rows were keyed `master:vimeo.com:…` and the app's focused-key filter dropped
+  them; now `vimeo:…`, and with an identity every row is keyed by the identity's site.
+- ✅ Vimeo tests: `VimeoContractTest` (10) — parity with main's `VimeoExtractor` on
+  `player_config.json` (main's 5 rows ⊆ Master's, sizes 1080/720/540, every row probed, key
+  `vimeo:123456789`, 1 request, 0 capture); DRM/private/password/geo = main's reasons with 0
+  capture and 0 probes; no files/insecure/malformed/expired → capture; unlisted hash, Referer
+  and cookie; cookie never off vimeo.com; another video's answer; renamed keys found by shape;
+  login/bot-check/player-script → no request; no contracts or identity → no request; slow
+  endpoint → capture (capture rows keyed `vimeo:…`). App:
+  `BrowserMasterFallbackTest.contractRowsReachTheAppUnderTheAdaptersKey` (rows reach the app
+  under the adapter's key, 0 capture). Drift: 8 new rows (53), 0 drift.
+  Local: `:extractor-master:test` 254 (0 failures, 2 skipped), Android 56, app 25 (CI filter),
+  JS 28, drift 0, `:app:assembleDebug` OK.
+- ⏳ Owner-run: live parity `vimeo-clip`, `vimeo-embed`, `vimeo-unlisted`, `vimeo-ondemand` on a
+  phone.
+- ✅ **X**: `cdn.syndication.twimg.com/tweet-result?id={id}&token={token}` — the widget's own token
+  (`contract/WidgetToken` = main's `XSyndication.token`/`radixString`), host lock, main's headers,
+  no X cookie, 2 MiB cap. Key table = main's: `mediaDetails` items (`/video/N` names the item, else
+  the first with files), MP4 variants by bitrate (sizes from `/vid/WxH/`), the playlist only
+  without MP4s, files only from `video.twimg.com`, the quoted post's media only when the post has
+  none (never by number), title = the text's first line without its trailing link, per-item
+  duration and poster. Posts the answer does not show (tombstone, `{}`, photos only, 404) go to
+  capture: main keeps the generic detector there and the user may be signed in, so X has no
+  access phrases. Reader additions (data-driven, all sites): item metadata from the chosen item,
+  `postText` titles, `thumbnailPath`.
+- ✅ X tests: `XContractTest` (6) — parity with main's `XExtractor`: `tweet_video` (same request
+  URL, heights 1280/852/568, title, duration, no cookie, no playlist row, 0 capture),
+  `tweet_mixed` (`/video/3` → 720 and the foreign host dropped; no number → 1080/270),
+  `tweet_quoted`/`tweet_gif`/`tweet_hls_only` (same kinds and durations; `/video/2` never picks
+  a quoted item), `tweet_photos`/`tweet_tombstone`/404 → capture with 0 probes, another post's
+  answer → nothing, main's token vectors. Drift: 19 new rows (72), 0 drift.
+  Local: `:extractor-master:test` 260 (0 failures, 2 skipped); full flag-off app unit tests 938
+  (0 failures, 66 skipped) and `lintDebug` OK.
+- ⏳ Owner-run: live parity `x-nasa`, `x-multi-video`, `x-gif`, `x-protected` on a phone.
+
 ## R7 — Generic web: capture + MSE/EME metadata hooks
 
 - ✅ `assets/yft-master-mse.js` (document start via `addDocumentStartJavaScript`, top frame only,

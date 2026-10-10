@@ -100,6 +100,7 @@ internal object UrlPolicy {
             belongs("tiktok.com") -> "tiktok"
             belongs("instagram.com") -> "instagram"
             belongs("x.com") || belongs("twitter.com") -> "x"
+            belongs("vimeo.com") -> "vimeo"
             else -> "master:$host"
         }
         return "$site:$contentId"

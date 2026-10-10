@@ -5,14 +5,23 @@ import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.PageMediaRole
 import com.alal.yft.extractor.master.MasterRequest
 import com.alal.yft.extractor.master.PageSnapshot
+import com.alal.yft.extractor.master.recipes.ContractRecipes
 import com.alal.yft.extractor.master.toolkit.CandidateFactory
 import com.alal.yft.extractor.master.toolkit.HtmlScan
 
-/** L2: HTML5 `<video>`/`<source>` and OpenGraph video tags outside scripts. */
+/**
+ * L2: HTML5 `<video>`/`<source>` and OpenGraph video tags outside scripts; R8: a site
+ * endpoint's answer the engine asked for ([PageSnapshot.contract]) is read with that site's
+ * key table ([ContractRecipes], [ContractReader]).
+ */
 internal class ContractLayer : MasterLayer {
     override val id = LayerId.L2_CONTRACT
 
     override fun collect(request: MasterRequest, snapshot: PageSnapshot): Evidence {
+        snapshot.contract?.let { answer ->
+            val recipe = ContractRecipes.of(answer.site) ?: return Evidence(emptyList())
+            return ContractReader(request, recipe, answer).read()
+        }
         val body = snapshot.html ?: return Evidence(emptyList())
         val factory = CandidateFactory(request)
         val found = mutableListOf<MediaCandidate>()

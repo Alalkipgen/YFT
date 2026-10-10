@@ -7,6 +7,7 @@ import com.alal.yft.extractor.api.SiteExtractionRequest
 import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.extractor.generic.normalizer.CandidateNormalizer
+import com.alal.yft.extractor.master.contract.SiteContracts
 import com.alal.yft.extractor.master.layers.LayerStack
 import com.alal.yft.extractor.master.modules.MasterSiteModule
 import com.alal.yft.extractor.master.policy.SnapshotBudget
@@ -19,6 +20,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.coroutineContext
 
 /** Optional host policy; null preserves the original engine path exactly. */
@@ -37,7 +39,10 @@ typealias MasterCaptureSelection = suspend (
  * [ProbeSession] checks it. A successful primary result must never call this engine.
  * Network/rate-limit failures do not launch another lookup. Browser capture is requested at
  * most once per invocation. R6: a page a [MasterSiteModule] claims is answered by that module
- * alone, and only when no site adapter looked the video up first (P12).
+ * alone, and only when no site adapter looked the video up first (P12). R8: with [contracts],
+ * the identified video's own site endpoint is asked once first (L2 contract); its answer is read
+ * like any snapshot and shares the probe budget. It is never asked after a login, bot-check or
+ * player-script failure (that answer needs the user's own playback).
  */
 class MasterFallbackEngine(
     private val validator: MasterMediaValidator,
@@ -45,6 +50,7 @@ class MasterFallbackEngine(
     private val policy: MasterPolicy = MasterPolicy(),
     private val captureSelection: MasterCaptureSelection? = null,
     private val modules: List<MasterSiteModule> = emptyList(),
+    private val contracts: SiteContracts? = null,
 ) {
     private val layers = LayerStack.standard()
     private val normalizer = CandidateNormalizer(
@@ -85,18 +91,18 @@ class MasterFallbackEngine(
         var ambiguous = false
         var lastFailure: SiteExtractionFailure? = null
         val probes = ProbeSession(validator, request, policy.maxCandidates)
-        val stages = mutableListOf<Pair<MasterStage, PageSnapshot>>()
-        request.snapshot?.let { stages += MasterStage.PAGE_DATA to it }
 
-        for (index in 0..1) {
-            val stage = if (index == 0) {
-                stages.firstOrNull()
-            } else {
-                details += "master: one browser-assisted capture requested"
-                when (val captured = capture.capture(request)) {
-                    is CaptureResult.Available ->
-                        MasterStage.PLAYBACK_CAPTURE to captured.snapshot
-                    CaptureResult.Unavailable -> null
+        for (index in 0..2) {
+            val stage = when (index) {
+                0 -> contract(request, details)
+                1 -> request.snapshot?.let { MasterStage.PAGE_DATA to it }
+                else -> {
+                    details += "master: one browser-assisted capture requested"
+                    when (val captured = capture.capture(request)) {
+                        is CaptureResult.Available ->
+                            MasterStage.PLAYBACK_CAPTURE to captured.snapshot
+                        CaptureResult.Unavailable -> null
+                    }
                 }
             } ?: continue
             val (name, snapshot) = stage
@@ -181,6 +187,41 @@ class MasterFallbackEngine(
             else -> MasterResult.NeedsPlayback(
                 safeDetails + "Open the page, play its video, and supply a fresh capture.",
             )
+        }
+    }
+
+    /**
+     * R8: one bounded ask of the identified video's own endpoint, within its own time share so
+     * capture keeps time. Unanswered (no recipe, an HTTP failure, a slow endpoint) moves on.
+     */
+    private suspend fun contract(
+        request: MasterRequest,
+        details: MutableList<String>,
+    ): Pair<MasterStage, PageSnapshot>? {
+        val contracts = contracts ?: return null
+        val identity = request.identity ?: return null
+        if (!contracts.reads(identity) ||
+            TerminalRules.needsAuthorizedPlayback(request.primaryFailure) ||
+            request.expectedContentId?.let { it != identity.contentId } == true
+        ) {
+            return null
+        }
+        val asked = withTimeoutOrNull(minOf(policy.contractTimeoutMillis, policy.timeoutMillis)) {
+            contracts.ask(request)
+        }
+        return when (asked) {
+            null -> {
+                details += "master: ${identity.siteId} contract: no answer in time"
+                null
+            }
+            is SiteContracts.Asked.Unanswered -> {
+                asked.detail?.let(details::add)
+                null
+            }
+            is SiteContracts.Asked.Answer -> {
+                details += asked.detail
+                MasterStage.CONTRACT to asked.snapshot
+            }
         }
     }
 
