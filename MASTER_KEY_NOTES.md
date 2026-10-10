@@ -111,6 +111,16 @@ Principle:
 - YouTube: oEmbed and embed (metadata only).
 - Generic: JSON-LD `VideoObject`, `og:video`, `twitter:player:stream`.
 
+Live results, 2026-10-10, from a server IP (a phone IP may differ):
+
+- ✅ Vimeo player config: progressive + HLS + DASH.
+- ✅ X syndication: MP4 variants.
+- ✅ Facebook video plugin page (`/plugins/video.php?href=`): `hd_src`/`sd_src`/`dash_manifest`, with a matching `video_id` and no sign-in.
+- ✅ TikTok embed v2 (`/embed/v2/{id}`): video file URLs under the key `playUrl`, not `playAddr`.
+- ⚪ YouTube oEmbed and TikTok oEmbed: metadata only.
+- ❌ Vimeo oEmbed (for the tested clip): 404.
+- ❌ Instagram embed and Facebook page: login wall (re-check from a phone).
+
 **L3 rules:**
 
 - An object counts as a media object when it has:
@@ -125,8 +135,11 @@ Principle:
 
 ### 2.2 Consensus and canary
 
-- **Consensus:** the main video must be confirmed by at least two layers. Example: the L1 playing element's duration equals the L3/L2 duration within ±2 s and has the same content ID. If not, the result is `NeedsSelection`.
-- **Canary:** an opt-in daily run over the parity URL list (`MASTER_KEY_PLAN.md` §4.3). It reports which layer failed for which site. It is owner-run, not part of default CI.
+- **Consensus (corrected in §8):**
+  - If two or more layers answer and they **disagree** on the main video (content ID, or duration beyond ±2 s), the result is `NeedsSelection`.
+  - If only **one** layer answers (for example X, which has syndication only), it is accepted when the probe and C (fingerprint/duration) pass.
+  - The old rule ("always two layers") would block single-layer sites.
+- **Canary:** an opt-in daily run over the parity URL list (`MASTER_KEY_PLAN.md` §4.3). It reports which layer failed for which site. It is owner-run, not part of default CI, and runs **on a phone or emulator only**. Live checks from a server IP (2026-10-10) got login walls on the Instagram embed and the Facebook page.
 
 ### 2.3 What capture gets per site
 
@@ -196,8 +209,8 @@ Owner note, 2026-10-10. Ideas only; no code yet.
 | # | နည်း | ဘာကို မှီလဲ | JS ပြောင်းရင် | ဖြစ်နိုင်မှု | YFT မှာ |
 |---|---|---|---|---|---|
 | 1 | **Capture** (browser က လုပ်တာကို ကြည့်) | Network request၊ `<video>` | Code ပြင်စရာ မလို | ✅ အကောင်းဆုံး | Spike မှာ အစပိုင်း ရှိ |
-| 2 | **Site ရဲ့ လက်ရှိ JS ကို JS engine နဲ့ run** | Site ကိုယ်တိုင်ရဲ့ JS | JS syntax အသစ် ပေါ်လာမှသာ ပြင်ရ | ✅ ဖြစ်နိုင် | main မှာ ရှိပြီး (YouTube) |
-| 3 | **Recipe (key၊ endpoint) ကို server config ကနေ update** | Data သက်သက် | Logic မဟုတ်လို့ ပြဿနာ မရှိ | ✅ ဖြစ်နိုင် (data ပဲ၊ code မပါ) | မရှိသေး |
+| 2 | **Site ရဲ့ လက်ရှိ JS ကို JS engine နဲ့ run** | Site ကိုယ်တိုင်ရဲ့ JS | Solver ကို update လုပ်ရတဲ့အခါ ရှိ (ejs ကို ၅ လအတွင်း ၆ ကြိမ်၊ ပြီးမှ ၆ လ တည်ငြိမ်) | ✅ ဖြစ်နိုင် | main မှာ ရှိပြီး (YouTube) |
+| 3 | **Recipe (key၊ endpoint) ကို server config ကနေ update** | Data သက်သက် | Logic မဟုတ်လို့ ပြဿနာ မရှိ (ဒါပေမဲ့ ပျက်တာရဲ့ ~၃၀–၄၀% ကိုပဲ ဖြေရှင်းနိုင်) | ✅ ဖြစ်နိုင် (data ပဲ၊ code မပါ) | မရှိသေး |
 | 4 | **Extractor code ကို server ကနေ auto-update** | — | — | ❌ မရ (security၊ policy; `SiteAdapterModule`: no extractor code is ever loaded from a remote source) | — |
 | A | **ABR Steering**: screen အရွယ်၊ အင်တာနက်နှုန်း၊ codec support ကို တစ်ဆင့်ချင်း ပြောင်းပြီး site ရဲ့ player ကို quality တစ်ခုချင်း တောင်းခိုင်းတာ | Standard browser signal | မသက်ရောက် | ✅ ဖြစ်နိုင် | မရှိသေး |
 | B | **MSE Recorder**: player က `SourceBuffer` ထဲ ထည့်တဲ့ byte တွေကို record လုပ်တာ | Web video standard (MSE) | မသက်ရောက် | ✅ ဖြစ်နိုင်၊ ဒါပေမဲ့ နှေး | မရှိသေး |
@@ -216,3 +229,50 @@ Owner note, 2026-10-10. Ideas only; no code yet.
 7. **Download ပြီးရင်:** ပေါင်း၊ ပုံမှန် MP4 ပြန်ပြောင်း၊ ပြန်စစ်ပြီးမှ offline ကြည့်ဖို့ အဆင်သင့် ဖြစ်ပါမယ်
 
 **စည်းမျဉ်း:** DRM၊ bot check နဲ့ login တွေ့ရင် ရပ်ပါမယ်။ Quality အတု မပြပါ။
+
+## 8. အကြံပြု Plan: အလုပ်ဖြစ်မှာ သေချာတဲ့ နည်းတွေပဲ
+
+Owner request, 2026-10-10. This section filters §1–§7 down to the methods with evidence: main code, spike live checks, live embed checks, the fixture prototype, yt-dlp history or web standards. Unproven methods are listed in §8.3.
+
+### 8.1 သက်သေ (evidence) အကျဉ်း
+
+- **L3 shape-search prototype** (a throwaway script on main's 84 test fixtures; not committed):
+  - Fixed keys found 56 URLs; shape search found 125.
+  - After the known keys were renamed, fixed keys found 0 and shape search still found 125.
+  - The 28 negative fixtures (login, private, geo, photo, bot check, SABR, cipher, tombstone) gave 0 hits.
+  - Problems found: (1) without ID anchoring it takes Facebook's "suggested" video; (2) it misses JSON inside strings (Instagram `contextJSON`, YouTube `ytInitialPlayerResponse`), which needs the T1/T2 finders.
+- **L2 live checks:** see §2.1 (Vimeo config, X syndication, Facebook plugin page and TikTok embed v2 worked).
+- **YouTube:** in yt-dlp `51bab8a` (2026-09-27), `visionos` is the only JS-less default client (`REQUIRE_JS_PLAYER: False`). main P14 also asks it first.
+- **Codec steering:** the h264ify extension has made YouTube send H.264 since 2015 by overriding `MediaSource.isTypeSupported`. main's Facebook Safari AVC ladder (P15/P23) is the same idea. hls.js and dash.js filter codecs through `isTypeSupported`.
+- **Fingerprint:** DASH `sidx` and HLS `#EXTINF` are standards. Spike `MasterMainSelection` (duration ±2 s) and `CapturedMp4Facts` (fragmented duration) already exist.
+- **MSE/EME hooks:** androidx.webkit 1.12.1 `addDocumentStartJavaScript` is already used in main's `TikTokApiCapture`.
+
+### 8.2 လုပ်ဖို့ အကြံပြု Plan (အစဉ်အတိုင်း)
+
+| Phase | လုပ်မယ့်အရာ | ဘာကြောင့် သေချာလဲ | ပြီးမြောက်မှု စံ |
+|---|---|---|---|
+| **R1** (MK-2) | `origin/main` → spike merge (spike only); parity harness; `parity-urls.json`; canary on phone/emulator | Required prerequisite; the harness is already designed in Plan §4 | Flag-off gate green; harness report written |
+| **R2** (MK-3 safety) | Make `BOT_CHECK`/`LOGIN_REQUIRED`/`PLAYER_SCRIPT_REQUIRED` terminal for YouTube and Reddit; turn off `PayloadMediaReader.youtube()` for YouTube; stop when an EME (DRM) hook fires | Code-level gaps found in the spike (§5) | Unit tests: bot check → 0 extra requests, 0 capture |
+| **R3** (MK-3 toolkit) | T1/T2 JSON finders (`id`-tagged scripts, `var x = {…}`, JSON in strings, HTML entities) + **L3 shape search + ID anchoring** + T7 ladder + T8 probe rounds + T9 request policy | Prototype: 125 vs 56, rename-proof, 0 false positives on negatives | Committed fixtures: shape ⊇ fixed-key results; the suggested video is rejected; negatives = 0 |
+| **R4** (MK-3) | **C Fingerprint:** DASH `sidx`/HLS `#EXTINF` segment timing; duration ±2 s for progressive files | Deterministic standard parsing; partly exists on the spike | Same-video qualities grouped; ad/related fixtures rejected |
+| **R5** (MK-3/5) | **E Codec steering:** document-start `MediaSource.isTypeSupported`/`MediaCapabilities.decodingInfo` answers that follow `DeviceMergeSupport` (AVC/AAC; VP9/Opus on Android 10+), plus the existing Facebook Safari ladder | h264ify precedent; hls.js/dash.js codec filtering; main P15/P23 | Parity: the AVC ladder appears where the site supports it; 1440p/2160p kept when VP9 can be merged |
+| **R6** (MK-4) | **Own YouTube module:** YT-1 (copy main's own code into Master), YT-2 (own versioned client table + canary), YT-4 (no SABR). VISIONOS first. Streams that need n/sig are **not offered by Master**; main (flag off) still covers them. | visionOS works without JS; no third-party code in Master | Passthrough parity with main's fixtures; SABR/cipher fixtures → 0 rows |
+| **R7** (MK-5) | Generic: L1 capture + **MSE/EME metadata hooks** (codec, resolution, DRM detect; no byte recording) + `PlayerSetupScanner`/`PageFactsReader` + ad rules + R4 | Standard APIs; the document-start hook is already used in main | Parity on the generic URLs (plain `<video>`, HLS, DASH, VAST pre-roll) |
+| **R8** (MK-6…10) | Per site, with the live-verified L2 contracts first, then L3 and capture: **Vimeo** (player config) → **X** (syndication) → **Facebook** (plugin page + page data) → **TikTok** (embed v2 + page data) → **Instagram** (page data/v1/GraphQL as a recipe) | L2 endpoints verified live on 2026-10-10 | Plan §4.2 pass criteria for each site |
+| **R9** (after R8, optional) | Recipe config: signed, data-only (keys, endpoints, `doc_id`, agents), schema-checked, bundled defaults as fallback, hosted on GitHub | Technically certain; coverage ~30–40% of breakages | A bad or unsigned config is ignored; defaults keep working |
+
+Every phase:
+
+- Flag off = main. CI and `MasterMainMoreSheetTest` stay green.
+- The download is verified: merge, remux to a normal MP4, then check duration ±2 s and both tracks.
+- No bypass; no fake qualities.
+
+### 8.3 မလုပ်သေး / အကြံမပြုသေးတာ
+
+- **4 (extractor code auto-update):** ❌ not allowed.
+- **A (ABR steering):** hls.js `capLevelToPlayerSize` and Shaka's size restriction are off by default; WebView has no throttle API. Experiment later.
+- **B (MSE byte recording):** real-time only; main's hidden WebViews block media. Experiment last, short videos only.
+- **D (player library bridge):** low added value because L1 already captures manifests. Video.js/JW Player only, later.
+- **YT-3 (own n/sig solver):** possible (ejs core is about 606 TS lines) but has ongoing upkeep. Owner decision; it must pass parity against ejs before use.
+- **Solver options B/C/D:** B is too heavy, C is fragile, and D is blocked by SABR.
+- **Instagram embed as L2:** not confirmed (login wall from a server IP); re-check from a phone first.
