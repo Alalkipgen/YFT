@@ -188,3 +188,31 @@ Rules for (b):
 | YT-3 own n/sig solver (parity against ejs) | New track after MK-4, behind a flag |
 | §3 (b) YouTube MSE recording | Experimental, last, behind a flag, after measurements |
 | Master primary experiment | MK-11 (owner decision) |
+
+## 7. JS ပြောင်းလဲ မပျက်တဲ့နည်းများ + Quality Walk (A–E)
+
+Owner note, 2026-10-10. Ideas only; no code yet.
+
+| # | နည်း | ဘာကို မှီလဲ | JS ပြောင်းရင် | ဖြစ်နိုင်မှု | YFT မှာ |
+|---|---|---|---|---|---|
+| 1 | **Capture** (browser က လုပ်တာကို ကြည့်) | Network request၊ `<video>` | Code ပြင်စရာ မလို | ✅ အကောင်းဆုံး | Spike မှာ အစပိုင်း ရှိ |
+| 2 | **Site ရဲ့ လက်ရှိ JS ကို JS engine နဲ့ run** | Site ကိုယ်တိုင်ရဲ့ JS | JS syntax အသစ် ပေါ်လာမှသာ ပြင်ရ | ✅ ဖြစ်နိုင် | main မှာ ရှိပြီး (YouTube) |
+| 3 | **Recipe (key၊ endpoint) ကို server config ကနေ update** | Data သက်သက် | Logic မဟုတ်လို့ ပြဿနာ မရှိ | ✅ ဖြစ်နိုင် (data ပဲ၊ code မပါ) | မရှိသေး |
+| 4 | **Extractor code ကို server ကနေ auto-update** | — | — | ❌ မရ (security၊ policy; `SiteAdapterModule`: no extractor code is ever loaded from a remote source) | — |
+| A | **ABR Steering**: screen အရွယ်၊ အင်တာနက်နှုန်း၊ codec support ကို တစ်ဆင့်ချင်း ပြောင်းပြီး site ရဲ့ player ကို quality တစ်ခုချင်း တောင်းခိုင်းတာ | Standard browser signal | မသက်ရောက် | ✅ ဖြစ်နိုင် | မရှိသေး |
+| B | **MSE Recorder**: player က `SourceBuffer` ထဲ ထည့်တဲ့ byte တွေကို record လုပ်တာ | Web video standard (MSE) | မသက်ရောက် | ✅ ဖြစ်နိုင်၊ ဒါပေမဲ့ နှေး | မရှိသေး |
+| C | **Keyframe Fingerprint**: segment index (`sidx`) နဲ့ keyframe အချိန်ကို တိုက်စစ်ပြီး ဗီဒီယိုတစ်ခုတည်းရဲ့ quality ကွဲ ဟုတ်မဟုတ် သက်သေပြတာ | Quality အားလုံး keyframe အချိန်တူရတဲ့ ABR လိုအပ်ချက် | မသက်ရောက် | ✅ ဖြစ်နိုင် | မရှိသေး |
+| D | **Player Library Bridge**: hls.js၊ dash.js၊ Shaka၊ Video.js ရဲ့ public API ကနေ quality list အပြည့်ကို ဖတ်တာ | Library ရဲ့ public API | Library version ကြီးကြီး ပြောင်းမှ ပြင်ရ | ✅ Generic site တွေအတွက် | မရှိသေး |
+| E | **Codec Steering**: ဖုန်းက တကယ် ပေါင်းနိုင်တဲ့ codec ကိုပဲ "support လုပ်တယ်" လို့ ဖြေတာ (Facebook မှာ Safari UA သုံးခဲ့တဲ့နည်းကို ယေဘုယျ ပြောင်းသုံးတာ) | Codec support signal | မသက်ရောက် | ✅ ဖြစ်နိုင် | Facebook မှာပဲ ရှိ |
+
+### 7.1 အသုံးပြုမယ့် အစဉ်
+
+1. **မြန်တဲ့ လမ်း:** 3 (recipe) နဲ့ တိုက်ရိုက် link
+2. **Generic site:** D (player library)
+3. **YouTube:** 2 (site ရဲ့ လက်ရှိ JS ကို run)
+4. **Recipe ပျက်ရင်:** 1 (capture)
+5. **နောက်ဆုံးနည်း:** A + B (နှေးလို့)
+6. **အမြဲ run နေမယ့်ဟာ:** C (quality အစစ် ဟုတ်မဟုတ် စစ်ပြီး ကြော်ငြာနဲ့ related video ကို ဖယ်) နဲ့ E (ဖုန်းမှာ ပေါင်းနိုင်တဲ့ codec ကို ရွေး)
+7. **Download ပြီးရင်:** ပေါင်း၊ ပုံမှန် MP4 ပြန်ပြောင်း၊ ပြန်စစ်ပြီးမှ offline ကြည့်ဖို့ အဆင်သင့် ဖြစ်ပါမယ်
+
+**စည်းမျဉ်း:** DRM၊ bot check နဲ့ login တွေ့ရင် ရပ်ပါမယ်။ Quality အတု မပြပါ။
