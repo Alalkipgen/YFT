@@ -19,6 +19,15 @@
  *                                                   (title, thumbnail, duration fields)
  *   extractor-sites/.../facebook/FacebookPageIdentity.kt  AVC_LADDER_USER_AGENT (desktop Safari)
  *   extractor-sites/.../facebook/FacebookExtractor.kt  publicPageHeaders (no session)
+ *   extractor-sites/.../tiktok/TikTokPageParser.kt  post (a photo post has no video, `isDrm`,
+ *                                                   caption, cover fields, duration in seconds),
+ *                                                   qualities (`bitrateInfo` fields, the play
+ *                                                   address, the download address apart),
+ *                                                   TikTokQuality.WATERMARK_LABEL (the download
+ *                                                   address's row)
+ *   extractor-sites/.../tiktok/TikTokExtractor.kt   DEFAULT_MAX_PAGE_BYTES, TIKTOK_REFERER,
+ *                                                   pageHeaders (navigation headers, Referer;
+ *                                                   Master sends no cookie)
  * Adapted: the same endpoints, headers and keys as data that ContractLayer interprets.
  */
 package com.alal.yft.extractor.master.recipes
@@ -33,7 +42,10 @@ import com.alal.yft.extractor.api.SiteExtractionFailure
 internal data class ContractMedia(
     /** From the video node (or item); `*` visits every array item or object value. */
     val path: List<String>,
-    /** Address fields of an object entry, first present wins; a text entry is its address. */
+    /**
+     * Address fields of an object entry (dotted paths), first present wins; a text entry is its
+     * address; a list (`UrlList`) is one file's mirrors: its first usable address.
+     */
     val url: List<String> = listOf("url"),
     val mime: String? = null,
     val mimeField: String? = null,
@@ -50,6 +62,25 @@ internal data class ContractMedia(
     val order: ContractOrder = ContractOrder.LISTED,
     /** The value is an inline DASH document (whole-file tracks), not an address. */
     val inlineDash: Boolean = false,
+    /** Where the entry states its size, bitrate, bytes and codec, if not under the usual names. */
+    val fields: ContractFields = ContractFields(),
+    /** From the video node: the object that states those fields for files that state none. */
+    val metaPath: List<String>? = null,
+    /** Shown after the title, so the row says what it is (main's "With TikTok watermark"). */
+    val label: String? = null,
+)
+
+/**
+ * R8: one entry's own field names (dotted paths, first present wins). An empty list reads
+ * nothing (a watermarked file has no bitrate of its own).
+ */
+internal data class ContractFields(
+    val width: List<String> = listOf("width"),
+    val height: List<String> = listOf("height"),
+    val bitrate: List<String> = listOf("bitrate"),
+    val bytes: List<String> = listOf("contentLength"),
+    /** Texts naming the codec (`h264`, `bytevc1`), read as main's TikTok `codecOf`. */
+    val codec: List<String> = emptyList(),
 )
 
 internal enum class ContractOrder { LISTED, HEIGHT_DESC, BITRATE_DESC }
@@ -76,7 +107,7 @@ internal data class ContractRecipe(
     val callMarkers: List<String> = emptyList(),
     /** Where a JSON answer names its video; another value is another video's answer. */
     val idPaths: List<List<String>> = emptyList(),
-    /** Pages: the video node is the object whose field among these is the content ID. */
+    /** Pages: the video node is the object whose field (dotted path) is the content ID. */
     val nodeIdFields: List<String> = emptyList(),
     /** A list of the post's media; the page's number ([itemNumber]) or the first with files. */
     val items: List<String>? = null,
@@ -86,10 +117,10 @@ internal data class ContractRecipe(
     val mediaHosts: Set<String>? = null,
     /** Picture size written in the address (`/vid/720x1280/`), width then height. */
     val sizeInUrl: Regex? = null,
-    /** An object with `width`/`height` for files that state none, from the video node. */
-    val sizePath: List<String>? = null,
     /** A present, non-null value means protected media: Master stops (DRM_PROTECTED). */
     val drmPaths: List<List<String>> = emptyList(),
+    /** A present, non-empty value means a post without a video (photos): NO_MEDIA_FOUND. */
+    val noVideoPaths: List<List<String>> = emptyList(),
     /** Checked only when no file was found, so a stray phrase never downgrades an answer. */
     val accessMarkers: List<Pair<String, SiteExtractionFailure>> = emptyList(),
     /** Epoch seconds the answer's files stop working. */
@@ -267,7 +298,71 @@ internal object ContractRecipes {
         ),
     )
 
-    val ALL: List<ContractRecipe> = listOf(VIMEO, X, FACEBOOK)
+    private const val TIKTOK_REFERER = "https://www.tiktok.com/"
+
+    /** Main's `qualities`: one `bitrateInfo` entry is one file, its mirrors in `PlayAddr.UrlList`. */
+    private val TIKTOK_QUALITY = ContractFields(
+        width = listOf("PlayAddr.Width"),
+        height = listOf("PlayAddr.Height"),
+        bitrate = listOf("Bitrate"),
+        bytes = listOf("PlayAddr.DataSize", "DataSize"),
+        codec = listOf("CodecType", "PlayAddr.UrlKey"),
+    )
+
+    /**
+     * TikTok's embed player page (`embed/v2`) for the identified post, asked as the browser
+     * (the tab's own agent, never YFT's) **without** the user's cookies; its files open without
+     * any (live check 2026-10-10). Its node is `videoData` (the post's `itemInfos`, a photo
+     * post's `imagePostInfo`). The key table also reads main's page shapes (`itemStruct`,
+     * `bitrateInfo`, the play address; the watermarked download address only without them),
+     * so a changed embed and main's page share one reader. Anonymous: only DRM and a photo post
+     * stop; any other wording goes to the user's own playback.
+     */
+    val TIKTOK = ContractRecipe(
+        site = "tiktok",
+        endpoint = "https://www.tiktok.com/embed/v2/{id}",
+        answerHosts = setOf("www.tiktok.com"),
+        headers = mapOf(
+            "Accept" to PageNavigationHeaders.ACCEPT,
+            "Accept-Language" to LANGUAGE,
+            "Sec-Fetch-Mode" to PageNavigationHeaders.FETCH_MODE,
+            "Referer" to TIKTOK_REFERER,
+        ),
+        maxBytes = 3L * 1024 * 1024,
+        html = true,
+        nodeIdFields = listOf("itemInfos.id", "id"),
+        media = listOf(
+            ContractMedia(
+                listOf("itemInfos", "video", "urls"), mime = MP4,
+                metaPath = listOf("itemInfos", "video", "videoMeta"),
+            ),
+            ContractMedia(
+                listOf("video", "bitrateInfo", "*"), url = listOf("PlayAddr.UrlList"), mime = MP4,
+                fields = TIKTOK_QUALITY, order = ContractOrder.BITRATE_DESC,
+            ),
+            ContractMedia(
+                listOf("video", "playAddr"), url = listOf("UrlList"), mime = MP4,
+                fields = ContractFields(codec = listOf("codecType")), metaPath = listOf("video"),
+            ),
+            ContractMedia(
+                listOf("video", "downloadAddr"), url = listOf("UrlList"), mime = MP4,
+                fields = ContractFields(bitrate = emptyList(), codec = listOf("codecType")),
+                metaPath = listOf("video"), onlyIfNone = true, label = "With TikTok watermark",
+            ),
+        ),
+        drmPaths = listOf(listOf("itemInfos", "video", "isDrm"), listOf("video", "isDrm")),
+        noVideoPaths = listOf(listOf("imagePostInfo"), listOf("imagePost")),
+        titlePaths = listOf(listOf("itemInfos", "text"), listOf("desc")),
+        durationSecondsPaths = listOf(
+            listOf("itemInfos", "video", "videoMeta", "duration"), listOf("video", "duration"),
+        ),
+        thumbnailPaths = listOf(
+            listOf("itemInfos", "covers", "0"), listOf("itemInfos", "coversOrigin", "0"),
+            listOf("video", "cover"), listOf("video", "originCover"), listOf("video", "dynamicCover"),
+        ),
+    )
+
+    val ALL: List<ContractRecipe> = listOf(VIMEO, X, FACEBOOK, TIKTOK)
 
     fun of(site: String): ContractRecipe? = ALL.firstOrNull { it.site == site }
 }

@@ -123,4 +123,4 @@ authorized playback) → `LayerStack` (L2 → L4 → L1 → L3; L3 adds only) �
 - R6: done — `modules/` (`MasterSiteModule`, `SiteExtractorModule`) and `modules/youtube`
   (copies + `MasterYouTubeModule`, `MasterYouTubeClients`, canary script).
 - R7: done — `yft-master-mse.js`, fed addresses in L1 (`CaptureLayer`), EME licence/keys stop.
-- R8: in progress — contract stage + `ContractReader`; Vimeo, X and Facebook done (see PROGRESS.md).
+- R8: in progress — contract stage + `ContractReader`; Vimeo, X, Facebook and TikTok done (see PROGRESS.md).

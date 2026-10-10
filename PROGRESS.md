@@ -94,6 +94,44 @@
   JS 28, drift 0, `:app:assembleDebug` OK.
 - ⏳ Owner-run: live parity `facebook-page-video`, `facebook-reel`, `facebook-fb-watch`,
   `facebook-private`, `facebook-share-link` on a phone.
+- ✅ CI (Facebook, `e28f311`): Master opt-in debug APK run `38087871484` — success.
+- ✅ **TikTok**: the embed player page `www.tiktok.com/embed/v2/{id}` (live check 2026-10-10:
+  `__FRONTITY_CONNECT_STATE__` → `videoData.itemInfos`, `video.urls` + `videoMeta`; its file
+  opened with a range request without any cookie or Referer), asked with the tab's own agent
+  (main's rule: never YFT's), main's navigation headers + Referer, **no cookie**, main's 3 MiB
+  page cap, host lock. Node = the object whose `itemInfos.id` or `id` is the post's ID. Key
+  table = the embed's `video.urls` (one file's mirrors → one row; size/duration from
+  `videoMeta`) plus main's page shapes: `bitrateInfo` (one row per entry, its first https
+  `PlayAddr.UrlList` address; `PlayAddr.Width/Height`, `Bitrate`, `DataSize`, codec from
+  `CodecType`/`UrlKey` → `avc1`/`hvc1`, best bitrate first), the play address, and the
+  watermarked download address only when nothing else is listed, titled "… — With TikTok
+  watermark" (main's label). Caption, cover and duration fields as main's. The music's address
+  (`musicInfos.playUrl`) is never a row. Stops: `isDrm` → `DRM_PROTECTED`; a photo post
+  (`imagePostInfo`/`imagePost`) → `NO_MEDIA_FOUND`, 0 capture (main's final answer). Anything
+  else the anonymous embed says (error page, TikTok status codes) goes to the user's own
+  playback. Reader additions: dotted ID/address/field paths, a list = one file's mirrors (first
+  absolute https address; an empty field is no file), per-entry field names
+  (`ContractFields`) + `metaPath`, row labels, `noVideoPaths`, list indexes in paths
+  (`covers.0`); the shape fallback's access verdicts count only for an answer asked with the
+  user's cookie (Vimeo); DRM always stops.
+- ✅ TikTok tests: `TikTokContractTest` (7) — the embed shape (1 row 720×1280, 26 s, caption,
+  cover, key `tiktok:{id}`, the tab's agent, no cookie, Referer, music never a row, 0 capture);
+  parity with main's `TikTokExtractor` on `universal_video` (best first: 1080p, bitrate, size,
+  `avc1`), `sigi_video`, `universal_reflow_video`, `live_desktop_video_detail`, the watermarked
+  file never beside others; only the download address → main's row and "With TikTok watermark"
+  title; `drm_video` + a DRM embed → `DRM_PROTECTED`, `universal_photo` + a photo embed on a
+  `/photo/` page → `NO_MEDIA_FOUND`, 0 capture, 0 probes; private/login/region/malformed/
+  insecure/home page/the embed's error page → capture, 0 probes; renamed `urls` found by shape
+  under the post's ID, another post's embed and main's `changed_markup` (no ID) → nothing; short
+  link → no request. The saved live embed page (not committed) gave its 720×1280 file via
+  `CONTRACT`. Drift: 11 new rows (94), 0 drift. Deviations: one answer, no desktop-page second
+  request and no file checks of main's (Master's own probes check every row); the embed gives
+  one quality (main's page may list more); main's page-answer cookies (`tt_chain_token`) are
+  not replayed, as the embed's files need none.
+  Local: `:extractor-master:test` 273 (0 failures, 2 skipped), Android 56, app 25 (CI filter),
+  JS 28, drift 0, `:app:assembleDebug` OK.
+- ⏳ Owner-run: live parity `tiktok-nasa`, `tiktok-short-link`, `tiktok-photo`, `tiktok-private`
+  on a phone.
 
 ## R7 — Generic web: capture + MSE/EME metadata hooks
 

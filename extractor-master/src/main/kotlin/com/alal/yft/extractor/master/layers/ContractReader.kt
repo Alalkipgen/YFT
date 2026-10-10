@@ -5,8 +5,12 @@
  *   extractor-sites/.../facebook/FacebookPageParser.kt  drmAssessment (a flag counts only when
  *                                        true, a licence map only when non-empty, `drm_info`
  *                                        read inside its JSON text)
+ *   extractor-sites/.../tiktok/TikTokPageParser.kt  addressesOf (a text, a list or `UrlList`,
+ *                                        https only), codecOf + TikTokCodec.codecTag
+ *   extractor-sites/.../tiktok/TikTokExtractor.kt  displayTitle (the title, then the row's
+ *                                        label after a dash)
  * Adapted: any trailing link of the line, for every recipe that reads a post's text; DRM
- * markers as recipe paths.
+ * markers as recipe paths; the first usable address of a list stands for the file.
  */
 package com.alal.yft.extractor.master.layers
 
@@ -51,6 +55,10 @@ internal class ContractReader(
     private val factory = CandidateFactory(request)
     private val group = "master:contract:${recipe.site}"
     private var drm = false
+    private var noVideo = false
+
+    /** A row's label by its address (main's "With TikTok watermark"). */
+    private val labels = mutableMapOf<String, String>()
 
     /** The media item the rows came from (X: one of the post's media), for its own metadata. */
     private var item: JsonValue? = null
@@ -74,6 +82,12 @@ internal class ContractReader(
         if (drm) {
             return Evidence(
                 emptyList(), listOf("$label: protected media"), SiteExtractionFailure.DRM_PROTECTED,
+            )
+        }
+        if (noVideo) {
+            return Evidence(
+                emptyList(), listOf("$label: a post without a video"),
+                SiteExtractionFailure.NO_MEDIA_FOUND,
             )
         }
         val details = mutableListOf("$label: ${rows.size} files from the key table")
@@ -109,7 +123,7 @@ internal class ContractReader(
                     pageRole = PageMediaRole.MAIN,
                     pageVideoKey = group,
                     confidence = CandidateConfidence.HIGH,
-                    title = row.title ?: title,
+                    title = titled(row.title ?: title, labels[row.mediaUrl]),
                     thumbnailUrl = row.thumbnailUrl ?: thumbnail,
                     durationMillis = row.durationMillis ?: duration,
                     expiresAtEpochMs = listOfNotNull(row.expiresAtEpochMs, expiry).minOrNull(),
@@ -153,7 +167,7 @@ internal class ContractReader(
             when (val value = pending.removeLast()) {
                 is JsonValue.Array -> value.items.asReversed().forEach(pending::add)
                 is JsonValue.Object -> {
-                    if (recipe.nodeIdFields.any { text(value[it]) == contentId } &&
+                    if (recipe.nodeIdFields.any { text(at(value, it.split('.'))) == contentId } &&
                         holdsMedia(value)
                     ) {
                         return value
@@ -168,11 +182,16 @@ internal class ContractReader(
 
     private fun holdsMedia(node: JsonValue): Boolean =
         recipe.drmPaths.any { protects(at(node, it)) } ||
+            recipe.noVideoPaths.any { protects(at(node, it)) } ||
             recipe.media.any { media -> reach(node, media).isNotEmpty() }
 
     private fun rowsOf(node: JsonValue): List<MediaCandidate> {
         if (recipe.drmPaths.any { protects(at(node, it)) }) {
             drm = true
+            return emptyList()
+        }
+        if (recipe.noVideoPaths.any { protects(at(node, it)) }) {
+            noVideo = true
             return emptyList()
         }
         val own = itemRows(node, numbered = true)
@@ -206,7 +225,7 @@ internal class ContractReader(
             if (media.onlyIfNone && rows.isNotEmpty()) return@forEach
             if (media.unlessInline && inline) return@forEach
             val found = mutableListOf<MediaCandidate>()
-            for (entry in ordered(reach(node, media), media.order)) {
+            for (entry in ordered(reach(node, media), media)) {
                 if (media.first && found.isNotEmpty()) break
                 found += entryRows(node, entry, media)
             }
@@ -229,25 +248,55 @@ internal class ContractReader(
             if (read.drm) drm = true
             return read.candidates.filter(::allowedHost)
         }
-        val address = (entry as? JsonValue.Text)?.value
-            ?: media.url.firstNotNullOfOrNull { entry[it].asStringOrNull }
-            ?: return emptyList()
         val mime = media.mimeField?.let { entry[it].asStringOrNull } ?: media.mime
         if (media.only != null && !mime.equals(media.only, ignoreCase = true)) return emptyList()
-        val row = factory.candidate(
-            address, mime, contentId, PageMediaRole.MAIN, CandidateSource.MANIFEST,
-            node = entry as? JsonValue.Object, key = group,
-        )?.takeIf(::allowedHost) ?: return emptyList()
+        val own = entry as? JsonValue.Object
+        val row = addresses(entry, media).firstNotNullOfOrNull { address ->
+            factory.candidate(
+                address, mime, contentId, PageMediaRole.MAIN, CandidateSource.MANIFEST,
+                node = own, key = group,
+            )?.takeIf(::allowedHost)
+        } ?: return emptyList()
         val stated = recipe.sizeInUrl?.find(row.mediaUrl)?.groupValues
-        val meta = recipe.sizePath?.let { at(node, it) }
+        val meta = media.metaPath?.let { at(node, it) }
+        val fields = media.fields
+        fun field(paths: List<String>): JsonValue? = paths.firstNotNullOfOrNull { path ->
+            val steps = path.split('.')
+            at(own, steps)?.takeIf(::present) ?: at(meta, steps)?.takeIf(::present)
+        }
+        media.label?.let { labels[row.mediaUrl] = it }
         return listOf(
             row.copy(
                 width = row.width ?: stated?.get(1)?.toIntOrNull()
-                    ?: CandidateFactory.dimension(meta["width"]),
+                    ?: CandidateFactory.dimension(field(fields.width)),
                 height = row.height ?: stated?.get(2)?.toIntOrNull()
-                    ?: CandidateFactory.dimension(meta["height"]),
+                    ?: CandidateFactory.dimension(field(fields.height)),
+                bitrateBitsPerSecond = row.bitrateBitsPerSecond
+                    ?: field(fields.bitrate).asLongOrNull?.takeIf { it > 0 },
+                contentLengthBytes = row.contentLengthBytes
+                    ?: field(fields.bytes).asLongOrNull?.takeIf { it > 0 },
+                codecs = row.codecs.ifEmpty {
+                    listOfNotNull(codecTag(fields.codec.mapNotNull { field(listOf(it)).asStringOrNull }))
+                },
             ),
         )
+    }
+
+    /**
+     * One entry's addresses in order: its text, its list's texts, or its address fields'. Only
+     * absolute https addresses count (main's TikTok `httpsOrNull`): an empty field is no file.
+     */
+    private fun addresses(entry: JsonValue, media: ContractMedia): List<String> = when (entry) {
+        is JsonValue.Text -> texts(listOf(entry))
+        is JsonValue.Array -> texts(entry.items)
+        is JsonValue.Object -> media.url.firstNotNullOfOrNull { field ->
+            when (val value = at(entry, field.split('.'))) {
+                is JsonValue.Text -> texts(listOf(value)).ifEmpty { null }
+                is JsonValue.Array -> texts(value.items).ifEmpty { null }
+                else -> null
+            }
+        }.orEmpty()
+        else -> emptyList()
     }
 
     private fun allowedHost(row: MediaCandidate): Boolean =
@@ -270,6 +319,10 @@ internal class ContractReader(
         return found.copy(
             candidates = found.candidates.filter { row ->
                 allowedHost(row) && (anchor == null || row.pageRole == PageMediaRole.MAIN)
+            },
+            // An anonymous answer (no cookie of the user's) never decides access; DRM still stops.
+            terminalFailure = found.terminalFailure?.takeIf {
+                it == SiteExtractionFailure.DRM_PROTECTED || recipe.cookieDomain != null
             },
         )
     }
@@ -294,12 +347,13 @@ internal class ContractReader(
         return level.map { it.first }.filter(::present)
     }
 
-    private fun ordered(entries: List<JsonValue>, order: ContractOrder): List<JsonValue> =
-        when (order) {
+    private fun ordered(entries: List<JsonValue>, media: ContractMedia): List<JsonValue> =
+        when (media.order) {
             ContractOrder.LISTED -> entries
             ContractOrder.HEIGHT_DESC -> entries.sortedByDescending { it["height"].asLongOrNull ?: 0 }
-            ContractOrder.BITRATE_DESC ->
-                entries.sortedByDescending { it["bitrate"].asLongOrNull ?: 0 }
+            ContractOrder.BITRATE_DESC -> entries.sortedByDescending { entry ->
+                media.fields.bitrate.firstNotNullOfOrNull { at(entry, it.split('.')).asLongOrNull } ?: 0
+            }
         }
 
     private companion object {
@@ -308,11 +362,16 @@ internal class ContractReader(
 
         const val MAX_EMBEDDED_CHARS = 16_384
 
-        /** A path may cross a JSON text (Facebook's `drm_info` is one), read within bounds. */
+        /**
+         * A path may cross a JSON text (Facebook's `drm_info` is one), read within bounds; a
+         * number names a list's item (`covers.0`).
+         */
         fun at(node: JsonValue?, path: List<String>): JsonValue? {
             var current = node
             for (segment in path) {
-                current = embedded(current)?.get(segment) ?: return null
+                val value = embedded(current)
+                current = (if (value is JsonValue.Array) segment.toIntOrNull()?.let { value[it] } else value[segment])
+                    ?: return null
             }
             return current
         }
@@ -350,5 +409,28 @@ internal class ContractReader(
             .map { it.replace(TRAILING_LINK, "").trim() }
             .firstOrNull(String::isNotEmpty)
             ?.let { if (it.length > MAX_TITLE) it.take(MAX_TITLE).trimEnd() + "\u2026" else it }
+
+        /** Main's TikTok displayTitle: the title, then the row's label after a dash. */
+        fun titled(title: String?, label: String?): String? = when {
+            label.isNullOrBlank() -> title
+            title.isNullOrBlank() -> label
+            else -> "$title \u2014 $label"
+        }
+
+        /** Main's TikTok addressesOf: the https texts, trimmed, once each. */
+        fun texts(values: List<JsonValue>): List<String> =
+            values.mapNotNull { value ->
+                value.asStringOrNull?.trim()?.takeIf { it.startsWith("https://", ignoreCase = true) }
+            }.distinct()
+
+        /** Main's TikTok codecOf + TikTokCodec.codecTag: the codec a file's data names. */
+        fun codecTag(names: List<String>): String? {
+            val text = names.joinToString(" ").lowercase(java.util.Locale.US)
+            return when {
+                listOf("265", "hevc", "bytevc1", "hvc1").any(text::contains) -> "hvc1"
+                listOf("264", "avc").any(text::contains) -> "avc1"
+                else -> null
+            }
+        }
     }
 }
