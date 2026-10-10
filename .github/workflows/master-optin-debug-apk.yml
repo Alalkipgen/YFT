@@ -40,6 +40,15 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+      - name: Toolkit drift check (R3)
+        shell: bash
+        run: |
+          # The toolkit copies main's helpers; the self-check must match the recorded base and
+          # any change on main since then is reported as a warning for review, not a failure.
+          base="$(sed -n 's/^# base //p' extractor-master/toolkit-provenance.tsv)"
+          git fetch --no-tags --depth=1 origin "$base" +refs/heads/main:refs/remotes/origin/main
+          python3 scripts/master-toolkit-drift.py --ref "$base"
+          python3 scripts/master-toolkit-drift.py --ref origin/main --warn-only
       - name: Capture script tests (R2 EME stop)
         shell: bash
         run: node --test extractor-master-android/src/test/js/capture.test.cjs

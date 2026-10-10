@@ -1,5 +1,37 @@
 # YFT Master Extractor backup
 
+## R3 — Toolkit + L3 shape search (content-ID anchoring)
+
+- ✅ `toolkit/` copies (provenance header in each file, base main `34a41890`): `PageScripts`
+  (T1: scripts by their own `id`/`type`, `var x = {…}`, JSON inside strings, `contextJSON`,
+  `__additionalDataLoaded`), `BalancedJson` (T2: string-aware object/array reads, size cap,
+  HTML-entity retry), `AnchoredMediaWalk` (T3: bounded walk carrying the nearest content ID),
+  `MediaKeyTable` (T4 data: address/version/MIME/ID/hint keys, DRM statement, skip subtrees),
+  `QualityLadder` (T7), `ProbeRounds` (T8), `RequestPolicy` (T9), `UrlPolicy`
+  `PLAUSIBLE_EXPIRY_SECONDS` (T10). T7–T9 are ready for the per-site steps (R8); no
+  behaviour uses them yet.
+- ✅ `layers/ShapeLayer` (L3) runs last and only adds: a row an earlier layer found is dropped,
+  earlier rows reach the normalizer unchanged, and it is skipped once a layer gave a terminal
+  verdict. Never on a YouTube host, never inside `streamingData`/ad subtrees. A row is `MAIN`
+  only when anchored to the page's content ID, `PREVIEW` for preview keys, otherwise no role
+  (so a related video cannot become main). DRM statements (`drm`, licence objects, Widevine/
+  FairPlay/PlayReady, FB `video_license_uri_map`) end in `DRM_PROTECTED`; a document's past
+  `expires` drops its files at the gate.
+- ✅ Drift check: `extractor-master/toolkit-provenance.tsv` (40 main symbols + SHA-256 at the
+  base) and `scripts/master-toolkit-drift.py`; spike CI self-checks the base (must be 0) and
+  reports changes on `origin/main` as warnings. Today: 0 drifted.
+- ✅ Tests: `ShapeLayerTest` (shape ⊇ fixed-key on every committed fixture, renamed keys keep
+  hits, related video rejected by anchoring, finders, DRM/expiry, all negative fixtures offer
+  0, L3 only adds, YouTube/`streamingData` off), `ToolkitFindersTest`, `QualityLadderTest`,
+  `ProbeRoundsTest`, `RequestPolicyTest`; `:extractor-master:test` 121 tests, 0 failures.
+  Fixtures are read in place from `extractor-sites/src/test/resources/fixtures` (no copy, so
+  no fixture drift) plus 3 new ones under `extractor-master/src/test/resources/shape/`.
+- ✅ Fixture baseline rewritten on purpose (rows only grow): Facebook `changed_markup` 1→2,
+  `watch_progressive` 3→6, `expired_links` 0→2 (expired, offered 0); Instagram `api_info_reel`
+  2→7, `graphql_reel` 1→6, `page_signed_in` 3→8, `embed_captioned` 0→1 (heights gain 1920);
+  Vimeo `player_config` 0→6, `player_page_inline` 0→2, `config_expired` 0→1 (expired),
+  `config_drm` now ends `DRM_PROTECTED` (L3 reads `files.drm`; safety gain).
+
 ## R2 — Safety gaps (terminal walls, DRM stop, YouTube payload off)
 
 - ✅ `policy/TerminalRules`: `BOT_CHECK`, `LOGIN_REQUIRED`, `PLAYER_SCRIPT_REQUIRED` are final on

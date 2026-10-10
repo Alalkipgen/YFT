@@ -1,0 +1,11 @@
+<!doctype html>
+<html><head>
+<link rel="preload" href="/x" as="fetch" data-note="__PLAYER_STATE__ mentioned before the data script">
+</head><body>
+<div id="player" data-store="{&quot;video_id&quot;:&quot;555&quot;,&quot;title&quot;:&quot;Attr&quot;,&quot;src_hd_v2&quot;:&quot;https://media.example-cdn.test/attr-720.mp4&quot;}"></div>
+<script>window.__PLAYER_STATE__ = {"clip":{"video_id":"555","title":"Assigned","streams":[{"mime":"video/mp4","height":1080,"location":"https://media.example-cdn.test/assigned-1080"}]}};</script>
+<script>require("ServerJS").handle({"contextJSON":"{\"video_id\":\"555\",\"files\":{\"stream_h264\":\"https://media.example-cdn.test/context-480.mp4\"}}"});</script>
+<script type="application/json">{&quot;video_id&quot;:&quot;555&quot;,&quot;rendition_url&quot;:&quot;https://media.example-cdn.test/entity-360.mp4&quot;}</script>
+<script type="application/json">{"video_id":"999","rendition_url":"https://media.example-cdn.test/someone-else.mp4","thumbnail_url":"https://media.example-cdn.test/thumb.mp4","preview_loop":"https://media.example-cdn.test/hover-preview.mp4","ad_media":"https://media.example-cdn.test/ad.mp4"}</script>
+<script type="application/json">{"video_id":"555","image_url":"https://media.example-cdn.test/still.jpg","poster":"https://media.example-cdn.test/poster","page_link":"https://www.example.test/video/555","files":{"drm":{}}}</script>
+</body></html>

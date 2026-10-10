@@ -113,6 +113,9 @@ internal object UrlPolicy {
             AD_PATH.containsMatchIn(path)
     }
 
+    /** T10 (main VimeoConfigParser.PLAUSIBLE_EXPIRY_SECONDS): epoch seconds a config may state. */
+    val PLAUSIBLE_EXPIRY_SECONDS = 1_400_000_000L..4_102_444_800L
+
     private val PUBLIC_HEADERS = setOf("user-agent", "accept", "accept-language", "referer")
     private val AD_HOSTS = setOf(
         "doubleclick.net", "googlesyndication.com", "googleadservices.com",

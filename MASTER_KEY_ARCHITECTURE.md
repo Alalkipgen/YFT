@@ -21,12 +21,14 @@ extractor-master/ (pure JVM)            com.alal.yft.extractor.master
   layers/   MasterLayer, Evidence, LayerStack (order + shared raw-candidate cap)
             CaptureLayer   L1           requests the visible browser made
             ContractLayer  L2           HTML5 <video>/<source>, OpenGraph
-            (ShapeLayer    L3)          slot — R3
+            ShapeLayer     L3           R3: shape search with content-ID anchoring (adds only)
             RecipeLayer    L4           bounded JSON walk applying recipes
   recipes/  PayloadRecipes, NodeRule    data-only site key tables (one line per key)
             TikTokStatusRecipe          private/regional status codes
             YoutubeStreamingRecipe      rows off since R2 (DRM signal kept); module in R6
   toolkit/  UrlPolicy, CandidateFactory, HtmlScan, InlineDashReader
+            R3 copies (provenance + drift check): PageScripts, BalancedJson,
+            AnchoredMediaWalk, MediaKeyTable, QualityLadder, ProbeRounds, RequestPolicy
   verify/   OkHttpMediaValidator, ProbeSession, CandidateGate, FocusSelection,
             CapturedMediaMetadata, CapturedMp4Facts
   present/  MasterMainPresentation      main + More groups for the existing sheet
@@ -38,12 +40,13 @@ extractor-master-android/               com.alal.yft.extractor.master.android
   MasterMainSelection, assets/yft-master-capture.js
 app/ BrowserMasterFallback              hook; reads TerminalRules (no own copy)
 app/src/androidTest/.../MasterParityLiveTest, assets/parity/parity-urls.json; scripts/canary.sh
+extractor-master/toolkit-provenance.tsv; scripts/master-toolkit-drift.py (R3 copy drift)
 ```
 
 ## 2. Flow
 
 `TerminalRules` → snapshot gates (generation, same page, access failure, `SnapshotBudget`,
-authorized playback) → `LayerStack` (L2 → L4 → L1 today) → `CandidateNormalizer` →
+authorized playback) → `LayerStack` (L2 → L4 → L1 → L3; L3 adds only) → `CandidateNormalizer` →
 `CandidateGate` → capture-stage selection hook → `FocusSelection` → `ProbeSession`
 (budget, companion audio) → `MasterResult`.
 
@@ -90,6 +93,7 @@ authorized playback) → `LayerStack` (L2 → L4 → L1 today) → `CandidateNor
 ## 6. Next (inside Phase 1)
 
 - R1, R2: done (PROGRESS.md).
-- R3: `layers/ShapeLayer` (L3) + content-ID anchoring; ladder/request policy in `toolkit/`.
+- R3: done — `layers/ShapeLayer` (L3) + content-ID anchoring; ladder/probe/request policy in
+  `toolkit/`; `extractor-master/toolkit-provenance.tsv` + `scripts/master-toolkit-drift.py`.
 - R4: fingerprint in `verify/`. R5: codec steering in the Android capture.
 - R6: `modules/youtube`. R8: L2 contract endpoints per site as `ContractLayer` recipes.

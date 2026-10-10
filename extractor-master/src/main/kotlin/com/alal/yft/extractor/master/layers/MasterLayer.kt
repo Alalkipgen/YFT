@@ -4,10 +4,11 @@ import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.master.MasterRequest
 import com.alal.yft.extractor.master.PageSnapshot
+import com.alal.yft.extractor.master.toolkit.UrlPolicy
 
 /**
- * The evidence layers (MASTER_KEY_ARCHITECTURE.md). L3 shape search arrives in Phase 1 R3 and
- * L2 contract endpoints in R8; the slots exist so they plug in without touching the engine.
+ * The evidence layers (MASTER_KEY_ARCHITECTURE.md). L3 shape search arrived in Phase 1 R3;
+ * L2 contract endpoints come in R8. Layers plug in without touching the engine.
  */
 internal enum class LayerId {
     /** Requests the visible browser made while the user played the page. */
@@ -37,6 +38,12 @@ internal data class Evidence(
 internal interface MasterLayer {
     val id: LayerId
 
+    /**
+     * An additive layer only adds files no earlier layer found: what it repeats is dropped, so
+     * the earlier layers' rows reach the normalizer unchanged (R3: L3 after L1).
+     */
+    val additive: Boolean get() = false
+
     fun collect(request: MasterRequest, snapshot: PageSnapshot): Evidence
 }
 
@@ -50,7 +57,18 @@ internal class LayerStack(private val layers: List<MasterLayer>) {
         val details = mutableListOf<String>()
         var terminal: SiteExtractionFailure? = null
         layers.forEach { layer ->
-            val found = layer.collect(request, snapshot)
+            // Once a layer reported a terminal state, an additive layer has nothing to add.
+            if (layer.additive && terminal != null) return@forEach
+            val found = layer.collect(request, snapshot).let { evidence ->
+                if (!layer.additive) return@let evidence
+                val known = candidates.flatMap { listOf(it.mediaUrl, UrlPolicy.whole(it.mediaUrl)) }
+                    .toHashSet()
+                evidence.copy(
+                    candidates = evidence.candidates.filterNot {
+                        it.mediaUrl in known || UrlPolicy.whole(it.mediaUrl) in known
+                    },
+                )
+            }
             candidates += found.candidates.take(
                 (MAX_RAW_CANDIDATES - candidates.size).coerceAtLeast(0),
             )
@@ -67,7 +85,15 @@ internal class LayerStack(private val layers: List<MasterLayer>) {
     companion object {
         const val MAX_RAW_CANDIDATES = 200
 
-        /** Today's order: delivered markup, then known payload keys, then captured requests. */
-        fun standard() = LayerStack(listOf(ContractLayer(), RecipeLayer(), CaptureLayer()))
+        /**
+         * Delivered markup, known payload keys, captured requests, then (R3) the additive shape
+         * search: L3 only adds files the first three did not find, so their order is unchanged.
+         */
+        fun standard() = LayerStack(
+            listOf(ContractLayer(), RecipeLayer(), CaptureLayer(), ShapeLayer()),
+        )
+
+        /** The stack before R3, kept for the parity tests (L3 must only add). */
+        fun withoutShape() = LayerStack(listOf(ContractLayer(), RecipeLayer(), CaptureLayer()))
     }
 }
