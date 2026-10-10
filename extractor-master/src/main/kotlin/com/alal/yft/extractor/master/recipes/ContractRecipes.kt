@@ -12,10 +12,18 @@
  *   extractor-sites/.../x/XExtractor.kt             answerHeaders, DEFAULT_MAX_ANSWER_BYTES,
  *                                                   displayTitle (first line, no trailing link)
  *   extractor-sites/.../x/XUrls.kt                  VIDEO_SUFFIX (`/video/N` names the item)
+ *   extractor-sites/.../facebook/FacebookPageParser.kt  MEDIA_KEYS, LEGACY_FIELDS (best first),
+ *                                                   progressiveEntries, inlineManifests,
+ *                                                   dashManifestUrls (only without inline
+ *                                                   tracks), drmAssessment, videoId, post
+ *                                                   (title, thumbnail, duration fields)
+ *   extractor-sites/.../facebook/FacebookPageIdentity.kt  AVC_LADDER_USER_AGENT (desktop Safari)
+ *   extractor-sites/.../facebook/FacebookExtractor.kt  publicPageHeaders (no session)
  * Adapted: the same endpoints, headers and keys as data that ContractLayer interprets.
  */
 package com.alal.yft.extractor.master.recipes
 
+import com.alal.yft.core.model.media.PageNavigationHeaders
 import com.alal.yft.extractor.api.SiteExtractionFailure
 
 /**
@@ -37,6 +45,8 @@ internal data class ContractMedia(
     val first: Boolean = false,
     /** Read only when the earlier entries found no file (X: the playlist backs up the MP4s). */
     val onlyIfNone: Boolean = false,
+    /** Read only when no inline DASH track was found (its files replace the manifest's address). */
+    val unlessInline: Boolean = false,
     val order: ContractOrder = ContractOrder.LISTED,
     /** The value is an inline DASH document (whole-file tracks), not an address. */
     val inlineDash: Boolean = false,
@@ -84,14 +94,15 @@ internal data class ContractRecipe(
     val accessMarkers: List<Pair<String, SiteExtractionFailure>> = emptyList(),
     /** Epoch seconds the answer's files stop working. */
     val expiryPath: List<String>? = null,
-    val titlePath: List<String>? = null,
+    /** The first text found wins, as for the duration and poster paths. */
+    val titlePaths: List<List<String>> = emptyList(),
     /** The title is a post's text: its first line without a trailing link, 80 characters. */
     val postText: Boolean = false,
     /** From the chosen item when the recipe has [items], else from the video node. */
-    val durationPath: List<String>? = null,
-    val durationInMillis: Boolean = false,
+    val durationMillisPaths: List<List<String>> = emptyList(),
+    val durationSecondsPaths: List<List<String>> = emptyList(),
     /** The poster picture (HTTPS only), from the chosen item, else from the video node. */
-    val thumbnailPath: List<String>? = null,
+    val thumbnailPaths: List<List<String>> = emptyList(),
     /** Another post the answer embeds; its files count only when the post itself has none. */
     val fallbackPath: List<String>? = null,
 )
@@ -137,8 +148,8 @@ internal object ContractRecipes {
             "not have permission" to SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
         ),
         expiryPath = listOf("request", "expires"),
-        titlePath = listOf("video", "title"),
-        durationPath = listOf("video", "duration"),
+        titlePaths = listOf(listOf("video", "title")),
+        durationSecondsPaths = listOf(listOf("video", "duration")),
     )
 
     /**
@@ -171,15 +182,92 @@ internal object ContractRecipes {
         ),
         mediaHosts = setOf("video.twimg.com"),
         sizeInUrl = Regex("/vid/(?:[a-z0-9]+/)?([0-9]{2,5})x([0-9]{2,5})/"),
-        titlePath = listOf("text"),
+        titlePaths = listOf(listOf("text")),
         postText = true,
-        durationPath = listOf("video_info", "duration_millis"),
-        durationInMillis = true,
-        thumbnailPath = listOf("media_url_https"),
+        durationMillisPaths = listOf(listOf("video_info", "duration_millis")),
+        thumbnailPaths = listOf(listOf("media_url_https")),
         fallbackPath = listOf("quoted_tweet"),
     )
 
-    val ALL: List<ContractRecipe> = listOf(VIMEO, X)
+    private const val MP4 = "video/mp4"
+    private const val DASH = "application/dash+xml"
+    private val DELIVERY = listOf("videoDeliveryResponseFragment", "videoDeliveryResponseResult")
+    private val LEGACY = listOf("videoDeliveryLegacyFields")
+
+    /** Main's FacebookPageIdentity.AVC_LADDER_USER_AGENT: desktop Safari, the public page's. */
+    private const val SAFARI =
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 " +
+            "(KHTML, like Gecko) Version/17.5 Safari/605.1.15"
+
+    /** A field of the video node and the same field of its legacy delivery copy. */
+    private fun both(field: String, media: (List<String>) -> ContractMedia) =
+        listOf(media(listOf(field)), media(LEGACY + field))
+
+    /**
+     * Facebook's embedded-video player page for the identified video (`plugins/video.php`),
+     * asked as desktop Safari **without** the user's session, as main asks its public page: one
+     * page for every surface (watch, reel, page video; live check 2026-10-10). Its access
+     * wording is an anonymous view, so it never decides access; only DRM stops. The key table
+     * also reads main's page shapes (delivery fragment, legacy fields, inline DASH), so a
+     * changed page and the embed share one reader.
+     */
+    val FACEBOOK = ContractRecipe(
+        site = "facebook",
+        endpoint = "https://www.facebook.com/plugins/video.php?href={href}",
+        answerHosts = setOf("www.facebook.com"),
+        headers = mapOf(
+            "Accept" to PageNavigationHeaders.ACCEPT,
+            "Accept-Language" to LANGUAGE,
+            "Sec-Fetch-Mode" to PageNavigationHeaders.FETCH_MODE,
+            "Referer" to "https://www.facebook.com/",
+        ),
+        agent = SAFARI,
+        maxBytes = 6L * 1024 * 1024,
+        html = true,
+        callMarkers = listOf(".handle("),
+        nodeIdFields = listOf("video_id", "videoId", "id"),
+        media = buildList {
+            val progressive = { path: List<String> ->
+                ContractMedia(path + listOf("progressive_urls", "*"), url = listOf("progressive_url"), mime = MP4)
+            }
+            add(progressive(DELIVERY))
+            add(progressive(emptyList()))
+            listOf("playable_url_quality_hd", "browser_native_hd_url", "playable_url", "browser_native_sd_url")
+                .forEach { field -> addAll(both(field) { ContractMedia(it, mime = MP4) }) }
+            add(ContractMedia(listOf("hd_src"), mime = MP4))
+            add(ContractMedia(listOf("sd_src"), mime = MP4))
+            listOf("dash_manifest_xml_string", "dash_manifest")
+                .forEach { field -> addAll(both(field) { ContractMedia(it, inlineDash = true) }) }
+            add(ContractMedia(DELIVERY + "dash_manifest", inlineDash = true))
+            add(ContractMedia(DELIVERY + listOf("dash_manifests", "*", "manifest_xml"), inlineDash = true))
+            addAll(both("dash_manifest_url") { ContractMedia(it, mime = DASH, unlessInline = true) })
+            add(
+                ContractMedia(
+                    DELIVERY + listOf("dash_manifest_urls", "*"), url = listOf("manifest_url"),
+                    mime = DASH, unlessInline = true,
+                ),
+            )
+        },
+        drmPaths = listOf(
+            listOf("is_drm_protected"), LEGACY + "is_drm_protected",
+            listOf("drm_info", "video_license_uri_map"), listOf("drm_info", "graph_api_video_license_uri"),
+            LEGACY + listOf("drm_info", "video_license_uri_map"),
+            LEGACY + listOf("drm_info", "graph_api_video_license_uri"),
+            listOf("videoLicenseUriMap"), listOf("graphApiVideoLicenseUri"),
+        ),
+        titlePaths = listOf(
+            listOf("title", "text"), listOf("title"), listOf("savable_description", "text"),
+            listOf("message", "text"),
+        ),
+        durationMillisPaths = listOf(listOf("playable_duration_in_ms")),
+        durationSecondsPaths = listOf(listOf("length_in_second"), listOf("playable_duration")),
+        thumbnailPaths = listOf(
+            listOf("preferred_thumbnail", "image", "uri"), listOf("thumbnailImage", "uri"),
+            listOf("image", "uri"),
+        ),
+    )
+
+    val ALL: List<ContractRecipe> = listOf(VIMEO, X, FACEBOOK)
 
     fun of(site: String): ContractRecipe? = ALL.firstOrNull { it.site == site }
 }

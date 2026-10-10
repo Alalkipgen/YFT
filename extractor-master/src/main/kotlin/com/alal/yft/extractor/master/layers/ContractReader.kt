@@ -2,7 +2,11 @@
  * Provenance (Master R8, copied, not moved; main 34a41890):
  *   extractor-sites/.../x/XExtractor.kt  displayTitle, TRAILING_LINK, MAX_TITLE (a post's
  *                                        first line without its trailing link, 80 characters)
- * Adapted: any trailing link of the line, for every recipe that reads a post's text.
+ *   extractor-sites/.../facebook/FacebookPageParser.kt  drmAssessment (a flag counts only when
+ *                                        true, a licence map only when non-empty, `drm_info`
+ *                                        read inside its JSON text)
+ * Adapted: any trailing link of the line, for every recipe that reads a post's text; DRM
+ * markers as recipe paths.
  */
 package com.alal.yft.extractor.master.layers
 
@@ -13,6 +17,7 @@ import com.alal.yft.core.model.media.PageMediaRole
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.json.JsonValue
 import com.alal.yft.extractor.api.json.asArrayOrEmpty
+import com.alal.yft.extractor.api.json.asBooleanOrNull
 import com.alal.yft.extractor.api.json.asDoubleOrNull
 import com.alal.yft.extractor.api.json.asLongOrNull
 import com.alal.yft.extractor.api.json.asStringOrNull
@@ -84,13 +89,16 @@ internal class ContractReader(
             }?.second
             return Evidence(emptyList(), details, access)
         }
-        val title = recipe.titlePath?.let { at(node, it).asStringOrNull }
-            ?.let { if (recipe.postText) postTitle(it) else it.trim() }?.takeIf(String::isNotEmpty)
+        val title = recipe.titlePaths.firstNotNullOfOrNull { path ->
+            at(node, path).asStringOrNull
+                ?.let { if (recipe.postText) postTitle(it) else it.trim() }?.takeIf(String::isNotEmpty)
+        }
         val source = item ?: node
-        val duration = recipe.durationPath?.let { at(source, it).asDoubleOrNull }?.takeIf { it > 0 }
-            ?.let { if (recipe.durationInMillis) it.toLong() else (it * 1_000).toLong() }
-        val thumbnail = recipe.thumbnailPath?.let { at(source, it).asStringOrNull }
-            ?.takeIf { it.startsWith("https://") }
+        val duration = recipe.durationMillisPaths.firstNotNullOfOrNull { millis(at(source, it), 1.0) }
+            ?: recipe.durationSecondsPaths.firstNotNullOfOrNull { millis(at(source, it), 1_000.0) }
+        val thumbnail = recipe.thumbnailPaths.firstNotNullOfOrNull { path ->
+            at(source, path).asStringOrNull?.takeIf { it.startsWith("https://") }
+        }
         val expiry = recipe.expiryPath?.let { at(node, it).asLongOrNull }
             ?.takeIf { it in UrlPolicy.PLAUSIBLE_EXPIRY_SECONDS }?.times(1_000)
         val key = "${identity.siteId}:${identity.contentId}"
@@ -111,12 +119,11 @@ internal class ContractReader(
         )
     }
 
-    /** The answer's JSON: the document itself, or a page's data scripts and loader calls. */
-    private fun documents(): List<JsonValue> {
-        if (!recipe.html) return listOfNotNull(BalancedJson.lenientParse(answer.body, MAX_NODES))
+    /** A page's loader-call payloads (`s.handle({...})`), which no data script holds. */
+    private val calls: List<String> by lazy {
+        if (!recipe.html) return@lazy emptyList()
         val texts = mutableListOf<String>()
         PageScripts.scripts(answer.body).forEach { script ->
-            if (script.type in PayloadRecipes.JSON_SCRIPT_TYPES) texts += script.body
             recipe.callMarkers.forEach { marker ->
                 var index = script.body.indexOf(marker)
                 while (index >= 0 && texts.size < MAX_DOCUMENTS) {
@@ -125,7 +132,16 @@ internal class ContractReader(
                 }
             }
         }
-        return texts.take(MAX_DOCUMENTS).mapNotNull { BalancedJson.lenientParse(it, MAX_NODES) }
+        texts
+    }
+
+    /** The answer's JSON: the document itself, or a page's data scripts and loader calls. */
+    private fun documents(): List<JsonValue> {
+        if (!recipe.html) return listOfNotNull(BalancedJson.lenientParse(answer.body, MAX_NODES))
+        val scripts = PageScripts.scripts(answer.body)
+            .filter { it.type in PayloadRecipes.JSON_SCRIPT_TYPES }.map { it.body }
+        return (scripts + calls).take(MAX_DOCUMENTS)
+            .mapNotNull { BalancedJson.lenientParse(it, MAX_NODES) }
     }
 
     /** The first object whose own ID field names the video and that lists a file or DRM. */
@@ -151,11 +167,11 @@ internal class ContractReader(
     }
 
     private fun holdsMedia(node: JsonValue): Boolean =
-        recipe.drmPaths.any { present(at(node, it)) } ||
+        recipe.drmPaths.any { protects(at(node, it)) } ||
             recipe.media.any { media -> reach(node, media).isNotEmpty() }
 
     private fun rowsOf(node: JsonValue): List<MediaCandidate> {
-        if (recipe.drmPaths.any { present(at(node, it)) }) {
+        if (recipe.drmPaths.any { protects(at(node, it)) }) {
             drm = true
             return emptyList()
         }
@@ -185,13 +201,16 @@ internal class ContractReader(
 
     private fun filesOf(node: JsonValue): List<MediaCandidate> {
         val rows = mutableListOf<MediaCandidate>()
+        var inline = false
         recipe.media.forEach { media ->
             if (media.onlyIfNone && rows.isNotEmpty()) return@forEach
+            if (media.unlessInline && inline) return@forEach
             val found = mutableListOf<MediaCandidate>()
             for (entry in ordered(reach(node, media), media.order)) {
                 if (media.first && found.isNotEmpty()) break
                 found += entryRows(node, entry, media)
             }
+            if (media.inlineDash && found.isNotEmpty()) inline = true
             rows += found.filter { row -> rows.none { it.mediaUrl == row.mediaUrl } }
         }
         return rows.take(LayerStack.MAX_RAW_CANDIDATES)
@@ -234,16 +253,25 @@ internal class ContractReader(
     private fun allowedHost(row: MediaCandidate): Boolean =
         recipe.mediaHosts?.let { SiteContracts.hostIn(row.mediaUrl, it) } != false
 
-    /** L4 + L3 over the whole answer when the key table found nothing (a renamed key). */
+    /**
+     * L4 + L3 over the whole answer when the key table found nothing (a renamed key). A JSON
+     * answer is one video's; a page may also list others, so only rows anchored to the
+     * identified video count there.
+     */
     private fun openRead(): Evidence {
         val snapshot = if (recipe.html) {
-            PageSnapshot(request.pageUrl, request.generation, html = answer.body)
+            PageSnapshot(request.pageUrl, request.generation, html = answer.body, apiResponses = calls)
         } else {
             PageSnapshot(request.pageUrl, request.generation, apiResponses = listOf(answer.body))
         }
+        val anchor = request.identity?.contentId?.takeIf { recipe.html }
         val found = LayerStack(listOf(RecipeLayer(), ShapeLayer()))
-            .collect(request.copy(expectedContentId = null, snapshot = null), snapshot)
-        return found.copy(candidates = found.candidates.filter(::allowedHost))
+            .collect(request.copy(expectedContentId = anchor, snapshot = null), snapshot)
+        return found.copy(
+            candidates = found.candidates.filter { row ->
+                allowedHost(row) && (anchor == null || row.pageRole == PageMediaRole.MAIN)
+            },
+        )
     }
 
     private fun reach(start: JsonValue, media: ContractMedia): List<JsonValue> {
@@ -278,9 +306,39 @@ internal class ContractReader(
         const val MAX_NODES = 200_000
         const val MAX_DOCUMENTS = 32
 
-        fun at(node: JsonValue?, path: List<String>): JsonValue? = node.path(*path.toTypedArray())
+        const val MAX_EMBEDDED_CHARS = 16_384
+
+        /** A path may cross a JSON text (Facebook's `drm_info` is one), read within bounds. */
+        fun at(node: JsonValue?, path: List<String>): JsonValue? {
+            var current = node
+            for (segment in path) {
+                current = embedded(current)?.get(segment) ?: return null
+            }
+            return current
+        }
+
+        private fun embedded(value: JsonValue?): JsonValue? {
+            val text = (value as? JsonValue.Text)?.value?.trim() ?: return value
+            if (!text.startsWith("{") || text.length > MAX_EMBEDDED_CHARS) return value
+            return BalancedJson.lenientParse(text, 1_000) ?: value
+        }
 
         fun present(value: JsonValue?): Boolean = value != null && value !is JsonValue.Null
+
+        /** A DRM marker counts when it says something: `true`, a non-empty map, list or text. */
+        fun protects(value: JsonValue?): Boolean = when (value) {
+            null, is JsonValue.Null -> false
+            is JsonValue.Object -> value.entries.isNotEmpty()
+            is JsonValue.Array -> value.items.isNotEmpty()
+            is JsonValue.Text -> value.value.isNotBlank() && !value.value.trim().equals("false", true)
+            else -> value.asBooleanOrNull ?: true
+        }
+
+        fun millis(value: JsonValue?, scale: Double): Long? =
+            value.asDoubleOrNull?.takeIf { it > 0 && it * scale < MAX_DURATION_MILLIS }
+                ?.let { (it * scale).toLong() }?.takeIf { it > 0 }
+
+        const val MAX_DURATION_MILLIS = 1_000_000_000.0
 
         fun text(value: JsonValue?): String? = value.asStringOrNull ?: value.asLongOrNull?.toString()
 

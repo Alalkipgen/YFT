@@ -63,6 +63,37 @@
   Local: `:extractor-master:test` 260 (0 failures, 2 skipped); full flag-off app unit tests 938
   (0 failures, 66 skipped) and `lintDebug` OK.
 - ⏳ Owner-run: live parity `x-nasa`, `x-multi-video`, `x-gif`, `x-protected` on a phone.
+- ✅ CI (Vimeo + X, `d705e03`): Master opt-in debug APK run `38086897673` — success.
+- ✅ **Facebook**: the embedded-video player page `www.facebook.com/plugins/video.php?href={href}`
+  (one page for watch, reel and page videos; live check 2026-10-10: `hd_src`/`sd_src` with the
+  matching `video_id` inside `s.handle({...})`), asked as main asks its public page: desktop Safari
+  (main's `AVC_LADDER_USER_AGENT`), main's navigation headers, **no session cookie**, 6 MiB cap,
+  host lock. Key table = main's page parser (`progressive_urls` in the delivery fragment and on
+  the node, the legacy fields best first, inline DASH tracks, manifest addresses only without
+  inline tracks, `video_id`/`videoId`/`id` anchor, title/thumbnail/duration fields) plus the
+  embed's `hd_src`/`sd_src`, so the embed and main's page shapes share one reader. DRM = main's
+  `drmAssessment` as paths (a flag only when `true`, a licence map only when non-empty,
+  `drm_info` read inside its JSON text) + the embed's `videoLicenseUriMap`/
+  `graphApiVideoLicenseUri` → `DRM_PROTECTED`, 0 capture. No access phrases: the embed is an
+  anonymous view, so a login/unavailable/region page goes to the user's own playback (main has
+  already given its signed-in verdict before Master runs). Share links: never asked (the code
+  needs a redirect). Reader additions: loader-call payloads (`callMarkers`) also reach the shape
+  fallback; on a page, the shape fallback keeps only rows anchored to the video's ID; title,
+  duration (ms or s) and poster as path lists.
+- ✅ Facebook tests: `FacebookContractTest` (6) — the embed shape (2 rows, Safari, no cookie,
+  Referer, key `facebook:{id}`, 0 capture); parity with main's `FacebookExtractor` on
+  `watch_progressive` (the suggested video never), `reel_legacy_fields`, `reel_hd_sd_only`,
+  `reel_inline_dash`, `public_reel_empty_licences` (not DRM); `drm_video` and a licensed embed →
+  `DRM_PROTECTED`, 0 capture, 0 probes; login/unavailable/region/no media/malformed/insecure →
+  capture, 0 probes; renamed embed fields found by shape, main's `changed_markup` (renamed
+  delivery key) recovered by shape under its own ID, another video's embed → nothing; share link
+  → no request. The saved live embed page (not committed) gave HD + SD via `CONTRACT`. Drift: 11
+  new rows (83), 0 drift. Deviation: main's second Safari request for the AVC ladder is not
+  repeated (one answer per video); the resolver still reads every file.
+  Local: `:extractor-master:test` 266 (0 failures, 2 skipped), Android 56, app 25 (CI filter),
+  JS 28, drift 0, `:app:assembleDebug` OK.
+- ⏳ Owner-run: live parity `facebook-page-video`, `facebook-reel`, `facebook-fb-watch`,
+  `facebook-private`, `facebook-share-link` on a phone.
 
 ## R7 — Generic web: capture + MSE/EME metadata hooks
 
