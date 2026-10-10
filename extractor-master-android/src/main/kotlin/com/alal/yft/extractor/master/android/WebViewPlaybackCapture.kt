@@ -15,6 +15,7 @@ import com.alal.yft.extractor.master.MasterResult
 import com.alal.yft.extractor.master.PageSnapshot
 import com.alal.yft.extractor.master.PlaybackCaptureProvider
 import com.alal.yft.extractor.master.ValidationResult
+import com.alal.yft.extractor.master.present.MasterMainPresentation
 import java.lang.ref.WeakReference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay

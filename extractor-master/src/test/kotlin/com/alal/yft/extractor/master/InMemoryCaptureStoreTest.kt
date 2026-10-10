@@ -1,5 +1,6 @@
 package com.alal.yft.extractor.master
 
+import com.alal.yft.extractor.master.capture.InMemoryCaptureStore
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

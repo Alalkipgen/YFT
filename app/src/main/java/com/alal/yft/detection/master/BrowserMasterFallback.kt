@@ -12,10 +12,11 @@ import com.alal.yft.extractor.master.MasterFallbackEngine
 import com.alal.yft.extractor.master.MasterPolicy
 import com.alal.yft.extractor.master.MasterRequest
 import com.alal.yft.extractor.master.MasterResult
-import com.alal.yft.extractor.master.OkHttpMediaValidator
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
-import com.alal.yft.extractor.master.android.CapturedMediaMetadata
-import com.alal.yft.extractor.master.android.MasterMainPresentation
+import com.alal.yft.extractor.master.verify.OkHttpMediaValidator
+import com.alal.yft.extractor.master.verify.CapturedMediaMetadata
+import com.alal.yft.extractor.master.present.MasterMainPresentation
+import com.alal.yft.extractor.master.policy.TerminalRules
 import java.net.URI
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -70,7 +71,7 @@ class AndroidBrowserMasterFallback(
         if (!sites.allowsMasterFallback(lookupUrl)) return primary
         val failure = (primary as? SiteAdapterOutcome.Failed)?.reason
             ?: SiteExtractionFailure.NO_MEDIA_FOUND
-        if (failure in NEVER_CAPTURE) return primary
+        if (TerminalRules.blocksFallback(failure)) return primary
         val key = sites.videoKey(lookupUrl)
         val request = requestFactory(failure, nowEpochMs, key?.substringAfter(':'))
             ?: return primary
@@ -159,14 +160,6 @@ class AndroidBrowserMasterFallback(
 
     companion object {
         private const val PLAY_FIRST = "Play the video on this page, then tap Try again."
-        private val NEVER_CAPTURE = setOf(
-            SiteExtractionFailure.ADAPTER_DISABLED,
-            SiteExtractionFailure.DRM_PROTECTED,
-            SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
-            SiteExtractionFailure.GEO_RESTRICTED,
-            SiteExtractionFailure.NETWORK,
-            SiteExtractionFailure.RATE_LIMITED,
-        )
 
         fun create(
             enabled: Boolean,

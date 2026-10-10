@@ -3,6 +3,7 @@ package com.alal.yft.extractor.master
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.extractor.api.SiteExtractionFailure
+import com.alal.yft.extractor.master.verify.OkHttpMediaValidator
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse

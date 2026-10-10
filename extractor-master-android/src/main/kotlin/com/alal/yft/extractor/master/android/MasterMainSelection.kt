@@ -13,6 +13,7 @@ import com.alal.yft.extractor.master.MasterResult
 import com.alal.yft.extractor.master.MasterStage
 import com.alal.yft.extractor.master.PageSnapshot
 import com.alal.yft.extractor.master.ValidationResult
+import com.alal.yft.extractor.master.present.MasterMainPresentation
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.coroutineContext

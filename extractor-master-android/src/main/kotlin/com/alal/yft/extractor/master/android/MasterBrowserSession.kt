@@ -7,7 +7,7 @@ import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.generic.classifier.MediaUrlClassifier
 import com.alal.yft.extractor.master.CaptureResult
 import com.alal.yft.extractor.master.CapturedRequest
-import com.alal.yft.extractor.master.InMemoryCaptureStore
+import com.alal.yft.extractor.master.capture.InMemoryCaptureStore
 import com.alal.yft.extractor.master.MasterRequest
 import java.net.URI
 import java.net.URLDecoder

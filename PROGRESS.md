@@ -1,5 +1,22 @@
 # YFT Master Extractor backup
 
+## A0 — Architecture step A (structure only, same behavior)
+
+- ✅ Map: [MASTER_KEY_ARCHITECTURE.md](MASTER_KEY_ARCHITECTURE.md). `extractor-master` now has
+  `policy/`, `layers/` (L1 `CaptureLayer`, L2 `ContractLayer`, L4 `RecipeLayer`, L3 slot),
+  `recipes/` (data-only key tables), `toolkit/`, `verify/`, `present/`, `capture/`; the engine
+  is orchestration only.
+- ✅ One stop-rule source: `policy/TerminalRules`. The app hook's own `NEVER_CAPTURE` copy is
+  gone; `BrowserMasterFallback` calls `TerminalRules.blocksFallback`. Same sets as before.
+- ✅ Android-free files moved to the JVM module: `CapturedMediaMetadata`, `CapturedMp4Facts`
+  (`verify/`), `MasterMainPresentation` (`present/`). Public API names unchanged; only imports
+  moved.
+- ✅ Local JVM run: `extractor-master` 88 tests and 39 non-WebView Android-module tests, 0
+  failures. Old-vs-new differential runs: reader 5,372 cases and engine 10,368 cases, 0
+  differences.
+- ⏳ CI `master-optin-debug-apk` on the final commit: pending.
+- No policy, site, Generic, model or download behavior changed. No main merge, release or tag.
+
 ## M2 — main/More sheet, expected TikTok More, opt-in CI APK
 
 - ✅ TikTok More = 0 recorded as expected (single-video post page); no more alternative probes.

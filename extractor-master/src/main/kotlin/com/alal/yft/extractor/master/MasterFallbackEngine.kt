@@ -2,12 +2,16 @@ package com.alal.yft.extractor.master
 
 import com.alal.yft.core.model.logging.DiagnosticTextSanitizer
 import com.alal.yft.core.model.media.MediaCandidate
-import com.alal.yft.core.model.media.BrowserRequestContext
-import com.alal.yft.core.model.media.MediaKind
-import com.alal.yft.core.model.media.PageMediaRole
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.generic.normalizer.CandidateNormalizer
+import com.alal.yft.extractor.master.layers.LayerStack
+import com.alal.yft.extractor.master.policy.SnapshotBudget
+import com.alal.yft.extractor.master.policy.TerminalRules
+import com.alal.yft.extractor.master.toolkit.UrlPolicy
+import com.alal.yft.extractor.master.verify.CandidateGate
+import com.alal.yft.extractor.master.verify.FocusSelection
+import com.alal.yft.extractor.master.verify.ProbeSession
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.ensureActive
@@ -25,8 +29,11 @@ typealias MasterCaptureSelection = suspend (
 /**
  * Isolated, opt-in second choice. No registry membership and no recursion into site adapters.
  *
- * A successful primary result must never call this engine. Network/rate-limit failures do not
- * launch another lookup. Browser capture is requested at most once per invocation.
+ * Orchestration only: [TerminalRules] decide whether to run, [LayerStack] reads evidence,
+ * [CandidateGate]/[FocusSelection] decide what belongs to the focused video and
+ * [ProbeSession] checks it. A successful primary result must never call this engine.
+ * Network/rate-limit failures do not launch another lookup. Browser capture is requested at
+ * most once per invocation.
  */
 class MasterFallbackEngine(
     private val validator: MasterMediaValidator,
@@ -34,14 +41,14 @@ class MasterFallbackEngine(
     private val policy: MasterPolicy = MasterPolicy(),
     private val captureSelection: MasterCaptureSelection? = null,
 ) {
-    private val reader = PayloadMediaReader()
+    private val layers = LayerStack.standard()
     private val normalizer = CandidateNormalizer(
         CandidateNormalizer.Policy(maxCandidates = policy.maxCandidates, tinyDirectAssetBytes = 0),
     )
 
     suspend fun extract(request: MasterRequest): MasterResult {
         if (!policy.enabled) return MasterResult.Skipped(SiteExtractionFailure.ADAPTER_DISABLED)
-        if (request.primaryFailure in NEVER_FALLBACK) {
+        if (TerminalRules.blocksFallback(request.primaryFailure)) {
             return MasterResult.Skipped(request.primaryFailure)
         }
         if (UrlPolicy.secure(request.pageUrl) == null) {
@@ -62,27 +69,7 @@ class MasterFallbackEngine(
         val details = mutableListOf<String>()
         var ambiguous = false
         var lastFailure: SiteExtractionFailure? = null
-        var probesRemaining = policy.maxCandidates
-        val checked = mutableMapOf<Pair<String, BrowserRequestContext>, ValidationResult.Valid>()
-        suspend fun probe(candidate: MediaCandidate): ValidationResult {
-            val key = candidate.mediaUrl to candidate.requestContext
-            checked[key]?.let { return it }
-            if (probesRemaining == 0) {
-                return ValidationResult.Rejected(SiteExtractionFailure.NO_MEDIA_FOUND)
-            }
-            probesRemaining -= 1
-            val result = validator.validate(candidate, request.nowEpochMs)
-            if (result is ValidationResult.Valid) {
-                if (
-                    !UrlPolicy.samePage(result.candidate.pageUrl, request.pageUrl) ||
-                    !eligible(result.candidate, request.nowEpochMs)
-                ) {
-                    return ValidationResult.Rejected(SiteExtractionFailure.RESPONSE_CHANGED)
-                }
-                checked[key] = result
-            }
-            return result
-        }
+        val probes = ProbeSession(validator, request, policy.maxCandidates)
         val stages = mutableListOf<Pair<MasterStage, PageSnapshot>>()
         request.snapshot?.let { stages += MasterStage.PAGE_DATA to it }
 
@@ -110,33 +97,32 @@ class MasterFallbackEngine(
             snapshot.accessFailure?.let {
                 return failure(it, details + "master: page reports ${it.name}")
             }
-            if (oversized(snapshot)) {
+            if (SnapshotBudget.oversized(snapshot, policy)) {
                 return failure(
                     SiteExtractionFailure.RESPONSE_TOO_LARGE,
                     details + "master: snapshot exceeds the read budget",
                 )
             }
             if (
-                request.primaryFailure in BROWSER_REQUIRED &&
+                TerminalRules.needsAuthorizedPlayback(request.primaryFailure) &&
                 !snapshot.authorizedPlayback
             ) {
                 details += "master: authorized browser playback is required"
                 continue
             }
-            val read = reader.read(request, snapshot)
-            details += read.details
-            read.terminalFailure?.let { return failure(it, details) }
-            // Explicit preview evidence vetoes a weaker page/JSON claim for the same file.
-            val previews = read.candidates.filter { it.pageRole == PageMediaRole.PREVIEW }
-                .map { UrlPolicy.whole(it.mediaUrl) }.toSet()
-            val normalized = normalizer.normalize(request.pageUrl, read.candidates)
-                .filter {
-                    eligible(it, request.nowEpochMs) && UrlPolicy.whole(it.mediaUrl) !in previews
-                }
+            val evidence = layers.collect(request, snapshot)
+            details += evidence.details
+            evidence.terminalFailure?.let { return failure(it, details) }
+            val normalized = CandidateGate.admit(
+                evidence.candidates,
+                normalizer.normalize(request.pageUrl, evidence.candidates),
+                request.nowEpochMs,
+            )
             if (name == MasterStage.PLAYBACK_CAPTURE) {
-                captureSelection?.invoke(request, snapshot, normalized, ::probe)?.let { return it }
+                captureSelection?.invoke(request, snapshot, normalized, probes::probe)
+                    ?.let { return it }
             }
-            val selected = select(normalized, snapshot)
+            val selected = FocusSelection.select(normalized, snapshot)
             if (normalized.isNotEmpty() && selected.isEmpty()) {
                 ambiguous = true
                 details += "master: focused video cannot be established; no guess was made"
@@ -144,51 +130,17 @@ class MasterFallbackEngine(
             val valid = mutableListOf<MediaCandidate>()
             for (candidate in selected) {
                 coroutineContext.ensureActive()
-                if (probesRemaining == 0) {
+                if (probes.exhausted) {
                     details += "master: budget limits additional media checks"
                     break
                 }
-                when (val verdict = probe(candidate)) {
-                    is ValidationResult.Valid -> {
-                        var media = verdict.candidate
-                        val companion = media.audioCompanion
-                        if (companion != null) {
-                            val audio = media.copy(
-                                mediaUrl = companion.mediaUrl,
-                                mimeType = companion.mimeType,
-                                kind = MediaKind.DIRECT,
-                                codecs = companion.codecs,
-                                requestContext = companion.requestContext,
-                                expiresAtEpochMs = companion.expiresAtEpochMs,
-                                contentLengthBytes = companion.contentLengthBytes,
-                                width = null, height = null, framesPerSecond = null,
-                                audioCompanion = null,
-                            )
-                            val audioCheck = if (eligible(audio, request.nowEpochMs)) {
-                                probe(audio)
-                            } else {
-                                ValidationResult.Rejected(SiteExtractionFailure.EXPIRED_LINK)
-                            }
-                            if (audioCheck is ValidationResult.Rejected) {
-                                lastFailure = audioCheck.reason
-                                details += "master: companion check ${audioCheck.reason.name}"
-                                if (audioCheck.reason == SiteExtractionFailure.DRM_PROTECTED) {
-                                    return failure(audioCheck.reason, details)
-                                }
-                                continue
-                            }
-                            val verified = (audioCheck as ValidationResult.Valid).candidate
-                            media = media.copy(
-                                audioCompanion = PayloadMediaReader.companion(verified),
-                            )
-                        }
-                        valid += media
-                    }
-                    is ValidationResult.Rejected -> {
-                        lastFailure = verdict.reason
-                        details += "master: media check ${verdict.reason.name}"
-                        if (verdict.reason == SiteExtractionFailure.DRM_PROTECTED) {
-                            return failure(verdict.reason, details)
+                when (val checked = probes.check(candidate)) {
+                    is ProbeSession.Checked.Accepted -> valid += checked.media
+                    is ProbeSession.Checked.Refused -> {
+                        lastFailure = checked.reason
+                        details += checked.detail
+                        if (checked.reason == SiteExtractionFailure.DRM_PROTECTED) {
+                            return failure(checked.reason, details)
                         }
                     }
                 }
@@ -200,7 +152,7 @@ class MasterFallbackEngine(
                     name,
                 )
             }
-            if (probesRemaining == 0) {
+            if (probes.exhausted) {
                 return failure(
                     lastFailure ?: SiteExtractionFailure.NO_MEDIA_FOUND,
                     details + "master: shared media-check budget exhausted",
@@ -217,59 +169,6 @@ class MasterFallbackEngine(
         }
     }
 
-    private fun oversized(snapshot: PageSnapshot): Boolean {
-        val characters = snapshot.apiResponses.sumOf { it.length.toLong() } +
-            (snapshot.html?.length ?: 0)
-        return characters > policy.maxSnapshotChars ||
-            snapshot.requests.size > policy.maxObservations ||
-            snapshot.apiResponses.size > 16
-    }
-
-    private fun eligible(candidate: MediaCandidate, now: Long): Boolean =
-        UrlPolicy.secure(candidate.mediaUrl) != null && candidate.drmHint != true &&
-            candidate.pageRole != PageMediaRole.PREVIEW &&
-            !UrlPolicy.looksLikeAd(candidate.mediaUrl) &&
-            candidate.expiresAtEpochMs?.let { it > now } != false
-
-    private fun select(
-        candidates: List<MediaCandidate>,
-        snapshot: PageSnapshot,
-    ): List<MediaCandidate> {
-        val focused = snapshot.playingMediaUrl?.let(UrlPolicy::secure)?.let(UrlPolicy::whole)
-        val playing = candidates.filter { UrlPolicy.whole(it.mediaUrl) == focused }
-        if (playing.isNotEmpty()) {
-            val ids = playing.mapNotNull(MediaCandidate::videoId).toSet()
-            val keys = playing.mapNotNull(MediaCandidate::pageVideoKey).toSet()
-            return candidates.filter {
-                it in playing || (it.videoId != null && it.videoId in ids) ||
-                    (it.pageVideoKey != null && it.pageVideoKey in keys)
-            }
-        }
-        val named = candidates.filter { it.pageRole == PageMediaRole.MAIN }
-        if (named.isEmpty()) return emptyList()
-        // Multiple anonymous page videos are not automatically all qualities of one video.
-        val groups = named.groupBy {
-            it.videoId ?: it.pageVideoKey ?: UrlPolicy.whole(it.mediaUrl)
-        }
-        return if (groups.size == 1) named else emptyList()
-    }
-
     private fun failure(reason: SiteExtractionFailure, details: List<String>) =
         MasterResult.Failure(reason, DiagnosticTextSanitizer.details(details))
-
-    private companion object {
-        val NEVER_FALLBACK = setOf(
-            SiteExtractionFailure.ADAPTER_DISABLED,
-            SiteExtractionFailure.DRM_PROTECTED,
-            SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
-            SiteExtractionFailure.GEO_RESTRICTED,
-            SiteExtractionFailure.NETWORK,
-            SiteExtractionFailure.RATE_LIMITED,
-        )
-        val BROWSER_REQUIRED = setOf(
-            SiteExtractionFailure.LOGIN_REQUIRED,
-            SiteExtractionFailure.BOT_CHECK,
-            SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED,
-        )
-    }
 }

@@ -26,7 +26,7 @@ import com.alal.yft.extractor.master.MasterFallbackEngine
 import com.alal.yft.extractor.master.MasterPolicy
 import com.alal.yft.extractor.master.MasterResult
 import com.alal.yft.extractor.master.MasterStage
-import com.alal.yft.extractor.master.OkHttpMediaValidator
+import com.alal.yft.extractor.master.verify.OkHttpMediaValidator
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
 import java.io.ByteArrayInputStream
 import java.util.concurrent.ConcurrentLinkedQueue

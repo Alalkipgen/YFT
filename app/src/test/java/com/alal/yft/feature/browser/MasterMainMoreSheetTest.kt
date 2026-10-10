@@ -47,7 +47,7 @@ import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.api.SiteExtractor
 import com.alal.yft.extractor.api.SiteExtractorRegistry
 import com.alal.yft.extractor.api.SitePageIdentity
-import com.alal.yft.extractor.master.android.MasterMainPresentation
+import com.alal.yft.extractor.master.present.MasterMainPresentation
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import com.alal.yft.feature.quickdownload.QuickDownloadRoute
 import com.alal.yft.feature.quickdownload.QuickDownloadUiState

@@ -28,6 +28,7 @@ Phase 1 turns the §8 recommendation into one ordered, buildable plan. It keeps 
 
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
+| A0 | Architecture step A: packages/layers, same behavior ([MASTER_KEY_ARCHITECTURE.md](MASTER_KEY_ARCHITECTURE.md)) | — | Medium | Done |
 | R1 | Base sync + parity harness + canary | — | Medium | TODO |
 | R2 | Safety: terminal bot-check/DRM; YouTube payload off | R1 | Low–Medium | TODO |
 | R3 | Toolkit T1/T2 + L3 shape search + ID anchoring + ladder/probe/policy | R2 | Medium | TODO |
@@ -54,14 +55,14 @@ Each task below lists scope, the main files it touches, done criteria and tests.
 
 ### R2 — Safety gaps (do before any capture widening)
 
-- **Scope:** make `BOT_CHECK`, `LOGIN_REQUIRED`, `PLAYER_SCRIPT_REQUIRED` terminal for `youtube.com`/`youtu.be` and `reddit.com`; stop when an EME/DRM signal appears; disable `PayloadMediaReader.youtube()` for YouTube hosts (only the module answers YouTube).
-- **Files:** `extractor-master/.../MasterFallbackEngine.kt` (`BROWSER_REQUIRED`, host rules), `app/.../detection/master/BrowserMasterFallback.kt` (`NEVER_CAPTURE`), `extractor-master/.../PayloadMediaReader.kt` (`youtube()` host gate).
+- **Scope:** make `BOT_CHECK`, `LOGIN_REQUIRED`, `PLAYER_SCRIPT_REQUIRED` terminal for `youtube.com`/`youtu.be` and `reddit.com`; stop when an EME/DRM signal appears; disable `recipes/YoutubeStreamingRecipe` for YouTube hosts (only the module answers YouTube).
+- **Files:** `extractor-master/.../policy/TerminalRules.kt` (`BROWSER_REQUIRED`, host rules; the engine and `BrowserMasterFallback` both read it since architecture step A), `extractor-master/.../recipes/YoutubeStreamingRecipe.kt` (host gate).
 - **Done:** unit tests — a bot-check request makes 0 extra site requests and 0 capture; a YouTube payload yields 0 Master rows; a DRM signal returns `DRM_PROTECTED`.
 
 ### R3 — Toolkit + L3 shape search
 
 - **Scope:** copy pure helpers with provenance headers; add the shape-based media search with **content-ID anchoring**; JSON finders (scripts by `id`/type, `var x = {…}`, JSON inside strings, HTML-entity retry); quality ladder (best bitrate per size, AVC first, best AAC, de-dupe, join by height+codec), probe rounds, request policy (same-origin cookie, re-anchored Referer/Origin, strip on cross-origin, answer cookies to their media origin only).
-- **Files:** new `extractor-master/.../toolkit/**` (PageScripts, BalancedJson, AnchoredMediaWalk, MediaKeyTable, QualityLadder, ProbeRounds, RequestPolicy); copy fixtures under `extractor-master/src/test/resources/`.
+- **Files:** new `extractor-master/.../layers/ShapeLayer.kt` + `toolkit/**` (PageScripts, BalancedJson, AnchoredMediaWalk, MediaKeyTable, QualityLadder, ProbeRounds, RequestPolicy); copy fixtures under `extractor-master/src/test/resources/`.
 - **Done:** on committed fixtures, shape results ⊇ fixed-key results; renamed keys do not reduce hits; the "suggested/related" video is rejected by anchoring; all negative fixtures give 0 media; a drift-check script compares each copy against main.
 
 ### R4 — C: keyframe / duration fingerprint
@@ -85,7 +86,7 @@ Each task below lists scope, the main files it touches, done criteria and tests.
 ### R7 — Generic web + MSE/EME hooks
 
 - **Scope:** L1 capture as the default for sites with no adapter; add MSE metadata hooks (`addSourceBuffer` codec, init-segment resolution) and the EME hook (`requestMediaKeySystemAccess` → stop); reuse `PlayerSetupScanner`, `PageFactsReader`, ad rules and R4.
-- **Files:** `yft-master-capture.js`, `WebViewPlaybackCapture.kt`, `PayloadMediaReader`/toolkit for generic.
+- **Files:** `yft-master-capture.js`, `WebViewPlaybackCapture.kt`, `layers/`/`toolkit/` for generic.
 - **Done:** parity on the generic URLs (plain `<video>`, HLS, DASH, VAST pre-roll); EME page stops with `DRM_PROTECTED`.
 
 ### R8 — Per site (L2 first, then L3 + capture)

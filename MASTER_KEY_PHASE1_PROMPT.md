@@ -48,7 +48,7 @@ TASKS (details, files and done criteria are in MASTER_KEY_PHASE1_PLAN.md section
 R1  Base sync (merge origin/main into the spike), parity harness (opt-in MasterParityLiveTest,
     -e yft.parity 1), parity-urls.json, canary on phone/emulator only.
 R2  Safety: terminal BOT_CHECK/LOGIN_REQUIRED/PLAYER_SCRIPT_REQUIRED for youtube.com, youtu.be,
-    reddit.com; EME/DRM stop; disable PayloadMediaReader.youtube() for YouTube hosts.
+    reddit.com; EME/DRM stop; disable recipes/YoutubeStreamingRecipe for YouTube hosts.
 R3  Toolkit: JSON finders, L3 shape search with content-ID anchoring, quality ladder, probe
     rounds, request policy; drift-check script against main.
 R4  C fingerprint: DASH sidx / HLS #EXTINF timing; duration +-2 s for progressive files.

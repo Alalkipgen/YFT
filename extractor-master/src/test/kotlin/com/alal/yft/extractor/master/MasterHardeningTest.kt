@@ -4,6 +4,10 @@ import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.PageMediaRole
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionResult
+import com.alal.yft.extractor.master.capture.InMemoryCaptureStore
+import com.alal.yft.extractor.master.layers.Evidence
+import com.alal.yft.extractor.master.layers.LayerStack
+import com.alal.yft.extractor.master.toolkit.UrlPolicy
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -143,7 +147,7 @@ class MasterHardeningTest {
         val input = request().copy(
             requestContext = BrowserRequestContext("https://other.test/", null, "REDACTED"),
         )
-        val found = PayloadMediaReader().read(
+        val found = LayerStack.standard().collect(
             input, snapshot("""{"video_url":"https://example.test/local.mp4"}"""),
         ).candidates.single()
         assertNull(found.requestContext.cookie)
@@ -166,7 +170,7 @@ class MasterHardeningTest {
         ).forEach { (status, reason) ->
             val html = fixture("tiktok-reflow.html")
                 .replace("\"statusCode\": 0", "\"statusCode\": $status")
-            val found = PayloadMediaReader().read(
+            val found = LayerStack.standard().collect(
                 request(id = "tt-fixture"), PageSnapshot(PAGE, 1, html = html),
             )
             assertEquals(reason, found.terminalFailure)
@@ -177,7 +181,7 @@ class MasterHardeningTest {
     @Test
     fun `private Instagram media is not a generic extraction success`() {
         val body = """{"shortcode":"one","is_private":true,"video_url":"$MEDIA"}"""
-        val found = PayloadMediaReader().read(request(id = "one"), snapshot(body))
+        val found = LayerStack.standard().collect(request(id = "one"), snapshot(body))
         assertEquals(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, found.terminalFailure)
         assertTrue(found.candidates.isEmpty())
     }
@@ -190,7 +194,7 @@ class MasterHardeningTest {
         )
         assertFalse(result.toString().contains("SECRET_PATH"))
         assertFalse(ValidationResult.Valid(media).toString().contains("SECRET_PATH"))
-        assertFalse(Discovery(listOf(media), emptyList()).toString().contains("SECRET_PATH"))
+        assertFalse(Evidence(listOf(media), emptyList()).toString().contains("SECRET_PATH"))
     }
 
     @Test
