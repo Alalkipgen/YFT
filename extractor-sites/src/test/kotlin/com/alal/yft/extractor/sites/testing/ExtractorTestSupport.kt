@@ -2,6 +2,7 @@ package com.alal.yft.extractor.sites.testing
 
 import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.ExtractorHttpResult
+import com.alal.yft.extractor.api.ExtractorProbeResult
 import com.alal.yft.extractor.api.PlayerScriptChallengeKind
 import com.alal.yft.extractor.api.PlayerScriptRequest
 import com.alal.yft.extractor.api.PlayerScriptResult
@@ -27,7 +28,8 @@ internal object Fixtures {
  * requested, which is how short-link resolution is exercised offline. Posted documents are
  * answered by [postResponder], which sees the body, so two clients asking the same endpoint can
  * receive different answers. [getResponder] sees the request headers, so one page address can
- * answer two identities differently.
+ * answer two identities differently. One-byte file checks are answered by [probeResponder]; a
+ * client without one cannot check files, like a client that does not implement them.
  */
 internal class FakeExtractorHttpClient(
     private val responses: Map<String, ExtractorHttpResult> = emptyMap(),
@@ -39,6 +41,8 @@ internal class FakeExtractorHttpClient(
         { _, _ -> null },
     private val getResponder: (url: String, headers: Map<String, String>) -> ExtractorHttpResult? =
         { _, _ -> null },
+    private val probeResponder:
+        ((url: String, headers: Map<String, String>) -> ExtractorProbeResult)? = null,
 ) : ExtractorHttpClient {
     val requestedUrls = mutableListOf<String>()
     val requestedHeaders = mutableListOf<Map<String, String>>()
@@ -48,6 +52,10 @@ internal class FakeExtractorHttpClient(
     val postedBodies = mutableListOf<String>()
     val postedHeaders = mutableListOf<Map<String, String>>()
     val postedBodyLimits = mutableListOf<Long>()
+
+    val probedUrls = mutableListOf<String>()
+    val probedHeaders = mutableListOf<Map<String, String>>()
+    val probeTimeouts = mutableListOf<Long>()
 
     override suspend fun get(
         url: String,
@@ -71,6 +79,18 @@ internal class FakeExtractorHttpClient(
         postedHeaders += headers
         postedBodyLimits += maxBodyBytes
         return postResponder(url, body) ?: fallback
+    }
+
+    override suspend fun probe(
+        url: String,
+        headers: Map<String, String>,
+        timeoutMillis: Long,
+    ): ExtractorProbeResult {
+        val responder = probeResponder ?: return ExtractorProbeResult.Unsupported
+        probedUrls += url
+        probedHeaders += headers
+        probeTimeouts += timeoutMillis
+        return responder(url, headers)
     }
 
     companion object {

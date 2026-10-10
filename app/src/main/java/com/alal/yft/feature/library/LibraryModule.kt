@@ -1,6 +1,7 @@
 package com.alal.yft.feature.library
 
 import android.content.Context
+import com.alal.yft.download.DownloadedFileDeleter
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -13,8 +14,10 @@ import javax.inject.Singleton
 object LibraryModule {
     @Provides
     @Singleton
-    fun provideLibraryRepository(@ApplicationContext context: Context): LibraryRepository =
-        AndroidLibraryRepository(context)
+    fun provideLibraryRepository(
+        @ApplicationContext context: Context,
+        fileDeleter: DownloadedFileDeleter,
+    ): LibraryRepository = AndroidLibraryRepository(context, fileDeleter = fileDeleter)
 
     @Provides
     @Singleton

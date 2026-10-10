@@ -12,7 +12,9 @@ import com.alal.yft.extractor.sites.vimeo.VimeoExtractor
 import com.alal.yft.extractor.sites.youtube.YouTubeExtractor
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SiteNavigationHeadersTest {
@@ -50,16 +52,25 @@ class SiteNavigationHeadersTest {
         )
 
         // Facebook asks its public page as Safari before the page with the browser's identity
-        // (P15); every other site asks one page.
+        // (P15); TikTok asks its phone page, then its desktop page as desktop Chrome (P39);
+        // every other site asks one page.
+        val asksTwoPages = extractor is FacebookExtractor || extractor is TikTokExtractor
         val pages = http.requestedHeaders
-        assertEquals(if (extractor is FacebookExtractor) 2 else 1, pages.size)
+        assertEquals(if (asksTwoPages) 2 else 1, pages.size)
         pages.forEach { headers ->
             PageNavigationHeaders.DEFAULTS.forEach { (name, value) ->
                 assertEquals(value, headers[name])
             }
             assertNull(headers["Cookie"])
         }
-        assertEquals(USER_AGENT, pages.last()["User-Agent"])
+        if (extractor is TikTokExtractor) {
+            assertEquals(USER_AGENT, pages.first()["User-Agent"])
+            val desktop = pages.last()["User-Agent"].orEmpty()
+            assertTrue(desktop, desktop.contains("Windows NT") && desktop.contains("Chrome/"))
+            assertFalse(desktop, desktop.contains("YFT"))
+        } else {
+            assertEquals(USER_AGENT, pages.last()["User-Agent"])
+        }
     }
 
     private companion object {

@@ -140,9 +140,89 @@ class DownloadPlanFactoryTest {
         assertEquals(companion().mediaUrl, plan.audio.manifestUrl)
         assertEquals(MediaTrackType.AUDIO, plan.audio.trackType)
         assertEquals(listOf("mp4a.40.2"), plan.audio.codecs)
-        assertEquals(WholeFileTrack(), plan.audio.wholeFile)
+        // YouTube states the sound's length, so its download needs no length request (P41).
+        assertEquals(WholeFileTrack(totalBytes = 1_024), plan.audio.wholeFile)
         assertEquals(5_000L, plan.expiresAtEpochMs)
         assertTrue(plan.video.taskId != plan.audio.taskId)
+    }
+
+    @Test
+    fun `an HLS quality with its HLS audio rendition becomes a merge of two playlists`() {
+        val sound = companion().copy(
+            mediaUrl = "https://video.example.test/pl/mp4a/128000/audio.m3u8?tag=1",
+            mimeType = "application/x-mpegURL",
+            contentLengthBytes = null,
+        )
+        val quality = variant(
+            url = "https://video.example.test/pl/avc1/1280x720/video.m3u8?tag=1",
+            kind = MediaKind.HLS,
+            label = "720p",
+            container = "HLS",
+            mimeType = "application/x-mpegURL",
+        ).copy(codecs = listOf("avc1.64001f"), audioCompanion = sound)
+
+        val request = (factory(quality) as DownloadPlanResult.Ready).request as DownloadRequest.Mux
+
+        val plan = request.plan
+        assertEquals("Fixture 720p.mp4", request.fileName)
+        assertEquals("video/mp4", plan.outputMimeType)
+        assertEquals(quality.playbackUrl, plan.video.manifestUrl)
+        assertTrue(plan.video.hlsPlaylist)
+        assertNull(plan.video.wholeFile)
+        assertEquals(listOf("avc1.64001f"), plan.video.codecs)
+        assertEquals("Fixture 720p.video.mp4", plan.video.suggestedFileName)
+        assertEquals(sound.mediaUrl, plan.audio.manifestUrl)
+        assertTrue(plan.audio.hlsPlaylist)
+        assertNull(plan.audio.wholeFile)
+        assertEquals("Fixture 720p.audio.m4a", plan.audio.suggestedFileName)
+
+        // A playlist is never merged with a single file, nor HEVC with its sound.
+        val mixed = quality.copy(audioCompanion = companion())
+        val hevc = quality.copy(codecs = listOf("hvc1.1.6.L93.B0"))
+        val singleFile = variant(label = "720p").copy(
+            codecs = listOf("avc1.64001f"),
+            audioCompanion = sound,
+        )
+        assertEquals(
+            DownloadFailureReason.UNSUPPORTED_SOURCE,
+            (factory(mixed) as DownloadPlanResult.Rejected).reason,
+        )
+        assertEquals(
+            DownloadFailureReason.UNSUPPORTED_SOURCE,
+            (factory(singleFile) as DownloadPlanResult.Rejected).reason,
+        )
+        assertEquals(
+            DownloadFailureReason.INCOMPATIBLE_TRACKS,
+            (factory(hevc) as DownloadPlanResult.Rejected).reason,
+        )
+    }
+
+    @Test
+    fun `YouTube tracks carry the length their address states`() {
+        val merged = variant(
+            url = "https://rr3---sn-a.googlevideo.com/videoplayback?itag=136&clen=52428800&sig=x",
+            container = "mp4",
+        ).copy(
+            codecs = listOf("avc1.4d401f"),
+            audioCompanion = companion().copy(
+                mediaUrl = "https://rr3---sn-a.googlevideo.com/videoplayback?itag=140&clen=7340032",
+                contentLengthBytes = 7_000_000,
+            ),
+        )
+
+        val plan = ((factory(merged) as DownloadPlanResult.Ready).request as DownloadRequest.Mux)
+            .plan
+
+        assertEquals(52_428_800L, plan.video.wholeFile?.totalBytes)
+        assertEquals(7_340_032L, plan.audio.wholeFile?.totalBytes)
+        assertEquals(
+            null,
+            DownloadPlanFactory.statedLengthOf("https://cdn.example.test/v.mp4?clen=9", 5),
+        )
+        assertEquals(
+            null,
+            DownloadPlanFactory.statedLengthOf("https://rr1---sn-b.googlevideo.com/v?clen=0"),
+        )
     }
 
     @Test

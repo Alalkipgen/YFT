@@ -5,8 +5,17 @@ import java.util.Locale
 import org.json.JSONObject
 import org.json.JSONTokener
 
-/** The link of the video in focus on a feed page, and how the page script found it. */
-data class FocusedVideo(val url: String, val source: Source) {
+/**
+ * The link of the video in focus on a feed page, and how the page script found it.
+ *
+ * P39 (R25): [currentSrc] is the on-screen `<video>`'s own `https` file address, when it has
+ * one, so the browser can offer the file its player plays when the site's page cannot be read.
+ */
+data class FocusedVideo(
+    val url: String,
+    val source: Source,
+    val currentSrc: String? = null,
+) {
     enum class Source {
         /** The page's own address is a video (a watch page, a short or a reel). */
         PAGE,
@@ -18,7 +27,8 @@ data class FocusedVideo(val url: String, val source: Source) {
         CENTRE,
     }
 
-    override fun toString(): String = "FocusedVideo(url=[REDACTED], source=$source)"
+    override fun toString(): String = "FocusedVideo(url=[REDACTED], source=$source, " +
+        "currentSrc=${if (currentSrc == null) "null" else "[REDACTED]"})"
 }
 
 /**
@@ -70,9 +80,8 @@ object FocusedVideoProbe {
               return shapes.some(shape => shape.test(where)) ? url.href : null;
             } catch (_) { return null; }
           };
-          const answer = (url, source) => JSON.stringify({ url, source });
-          const own = link(location.href, videos);
-          if (own) return answer(own, 'page');
+          let src = null;
+          const answer = (url, source) => JSON.stringify({ url, source, src });
           const width = window.innerWidth || document.documentElement.clientWidth;
           const height = window.innerHeight || document.documentElement.clientHeight;
           const shown = element => {
@@ -155,16 +164,22 @@ object FocusedVideoProbe {
             return { card: { wrapper: card.wrapper, item: card.item, handle: card.handle } };
           };
           const found = (item, source) => item.url ? answer(item.url, source) :
-            JSON.stringify({ url: null, source, card: item.card });
+            JSON.stringify({ url: null, source, card: item.card, src });
           const visible = [...document.querySelectorAll('video')]
             .map(video => ({ video, seen: shown(video) }))
             .filter(item => item.seen);
           const playing = visible
             .filter(item => !item.video.paused && !item.video.ended && item.video.readyState > 1)
             .sort((a, b) => b.seen.area - a.seen.area)[0];
+          const centred = [...visible].sort((a, b) => middle(a.seen.box) - middle(b.seen.box))[0];
+          // P39: the file the on-screen player plays, when it is an https address.
+          const focus = playing || centred;
+          const current = focus ? String(focus.video.currentSrc || '') : '';
+          src = /^https:\/\//.test(current) && current.length <= 2048 ? current : null;
+          const own = link(location.href, videos);
+          if (own) return answer(own, 'page');
           const playingItem = playing ? focusedOf(playing.video) : null;
           if (playingItem) return found(playingItem, 'playing');
-          const centred = visible.sort((a, b) => middle(a.seen.box) - middle(b.seen.box))[0];
           const centredItem = centred ? focusedOf(centred.video) : null;
           if (centredItem) return found(centredItem, 'centre');
           const nearest = [...document.querySelectorAll('a[href]')]
@@ -199,7 +214,15 @@ object FocusedVideoProbe {
         } else {
             tikTokCardUrl(item.optJSONObject("card"), site)
         } ?: return null
-        return FocusedVideo(url, source)
+        return FocusedVideo(url, source, currentSrc(item.opt("src")))
+    }
+
+    /** P39: the player's own file address; only an absolute `https` address is kept. */
+    private fun currentSrc(value: Any?): String? {
+        val src = (value as? String)?.trim()?.takeIf { it.length in 1..MAX_URL_LENGTH }
+            ?: return null
+        val uri = runCatching { URI(src) }.getOrNull() ?: return null
+        return src.takeIf { uri.scheme.equals("https", ignoreCase = true) && uri.host != null }
     }
 
     /**
@@ -351,7 +374,7 @@ object FocusedVideoProbe {
     private val URI_CHARACTERS: Set<Char> =
         (('a'..'z') + ('A'..'Z') + ('0'..'9') + "-._~:/?#@!$&'()*+,;=%".toList()).toSet()
     private const val MAX_URL_LENGTH = 2_048
-    private const val MAX_RESULT_LENGTH = 4_096
+    private const val MAX_RESULT_LENGTH = 8_192
     private const val YOUTUBE = "https://www.youtube.com"
     private const val FACEBOOK = "https://www.facebook.com"
     private val YOUTUBE_ID = Regex("[A-Za-z0-9_-]{11}")

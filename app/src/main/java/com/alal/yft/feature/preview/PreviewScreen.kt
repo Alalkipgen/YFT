@@ -73,6 +73,7 @@ import com.alal.yft.ui.components.YftTextButton
 import com.alal.yft.ui.components.YftTonalButton
 import com.alal.yft.ui.components.rememberNotificationPermissionRequest
 import com.alal.yft.ui.format.YftFormat
+import com.alal.yft.ui.format.YftQualityNames
 import com.alal.yft.ui.theme.YftIcons
 import com.alal.yft.ui.theme.YftShapes
 import com.alal.yft.ui.theme.YftTheme
@@ -724,8 +725,11 @@ internal fun List<MediaVariant>.qualityLabels(): Map<String, String> {
 
 internal fun MediaVariant.qualityLabel(): String {
     if (trackType == MediaTrackType.AUDIO) return audioLabel()
-    val tall = height ?: return label?.trim()?.take(MAX_LABEL)?.takeIf(String::isNotEmpty)
+    val stated = height ?: return label?.trim()?.take(MAX_LABEL)?.takeIf(String::isNotEmpty)
         ?: "Quality unknown"
+    // P47: named after the short side like the Download sheet: a 720 × 1280 phone video is
+    // "720p · HD", not "1280p · Full HD".
+    val tall = YftQualityNames.standardHeight(width, stated)
     val rate = framesPerSecond?.takeIf { it > HIGH_FRAME_RATE }?.roundToInt()?.toString().orEmpty()
     return listOfNotNull("${tall}p$rate", resolutionName(tall)).joinToString(" · ")
 }

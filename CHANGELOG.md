@@ -9,6 +9,61 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Added
 
+- X (Twitter) posts (P48): Home and the browser list every MP4 quality of a post's video, each
+  with sound (X's public embed answer; no sign-in, no cookie); `/video/2` picks a post's second
+  video; GIFs, quoted posts, photo-only and hidden posts handled with their own message.
+- Instagram reels and video posts (P49): YFT asks Instagram's app API (when YFT's browser is
+  signed in to Instagram), its web query, the post page and the public embed page; video files
+  and DASH qualities (merged with their sound) are listed highest first. Home uses the
+  Instagram sign-in of YFT's browser; a sign-in wall says to sign in there.
+- HLS with the sound apart (P50): a quality of an HLS master whose sound is a separate audio
+  playlist is listed with sound and downloaded as both playlists merged into one MP4 (AVC with
+  AAC), instead of "No sound".
+
+- TikTok lists every height its pages give (P47): the phone page's (or the tab's) file and the
+  desktop page's files of other heights are joined, so a video can list 720p and 480p; the
+  desktop page is also asked when one height comes in two codecs.
+
+### Fixed
+
+- Download as names a phone video after its short side (P47): 720 × 1280 is "720p · HD", not
+  "1280p · Full HD".
+
+### Added (P46)
+
+- TikTok in the browser lists every quality (P46): when the video's data in the tab opens one
+  file, YFT also reads TikTok's desktop page and lists its qualities (as Home does).
+- TikTok's public posts that its phone page calls private (P46): YFT asks TikTok's desktop page
+  and its hidden page too, then a public download service (only the post's address, never a
+  cookie). Details name TikTok's status and each step.
+- Show check (P46): when TikTok asks YFT's hidden page for a check, the browser's notice offers
+  **Show check** — TikTok's page for the user to answer — and Done looks again. YFT never
+  answers a check itself.
+
+- Browser reads (P45): when a site refuses YFT's request of a link a browser page names
+  (HTTP 403, 410, 412 or 452–499, such as 474) at the file check, the list of qualities or a
+  quality's playlist, YFT asks the same link once more through Android's WebView — a hidden
+  blank page of the page's origin and the page's own `fetch`, with the tab's agent — and uses
+  its answer; HLS downloads ask a refused playlist the same way. The sheet's Details add
+  "Request: …" and "Browser check: …".
+
+- TikTok from TikTok's own page (P40): in YFT's browser, Download on a TikTok video or on For
+  You takes the video's data from the page being watched — TikTok's own page data and the
+  answers TikTok's own feed got (kept by a small script that never changes TikTok's requests) —
+  so a video that plays can be downloaded whatever TikTok answers YFT's own requests. Its files
+  are checked with the tab's TikTok cookies.
+- Home's TikTok links (P40): Home's lookup carries the TikTok cookies YFT's browser already has,
+  and when TikTok's page cannot be read YFT opens the video's TikTok page out of sight (desktop
+  Chrome, no pictures or video, at most 15 s, one at a time) and takes the post from it. A check
+  that needs a person says "TikTok wants a check. Open the video in YFT's browser, then tap
+  Download."; YFT never answers checks.
+- The browser never dead-ends on TikTok (P39): when TikTok's page cannot be read, the sheet
+  offers the file TikTok's player is playing ("TikTok's page could not be read — showing the
+  file its player is playing.").
+- Delete file (P42): a finished download's menu offers "Delete file" beside "Remove from list";
+  after "Delete this file?" it deletes the saved file (Download/YFT, a chosen folder or app
+  storage, asking Android's permission when needed) and the row, and the Library follows.
+  The Library's delete uses the same path and treats a file that is already gone as deleted.
 - Background downloads and merges (P34): downloads, merges, MP3 conversions and saves keep
   going while YFT is in the background — the download service holds a partial wake lock
   (renewed with a 10-minute timeout) while any task runs and a Wi-Fi lock while bytes are
@@ -88,6 +143,55 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Changed
 
+- The Download sheet is the tapped video's only (P45): no "Other videos on this page" row and
+  no "Next video" step; only a proven ad gives way, once, to the page's own video behind it
+  ("Page's video" in Details). The browser's and Detected media's lists leave proven ads out.
+- Links a page names in its markup or scripts are asked like the page's player in Chromium
+  (P45): the tab's agent instead of OkHttp's, `Origin` and the page origin as `Referer` for
+  another origin; what the browser itself sent always stands.
+- TikTok reads every answer it gives (P39): YFT reads TikTok's phone page
+  (`webapp.reflow.video.detail`) and desktop page (`webapp.video-detail`), finds the data script
+  by its `id`, reads any `__DEFAULT_SCOPE__` key holding the post and entity-encoded data, and
+  skips another post's data. When the phone page fails or lists fewer than 2 qualities, the
+  desktop page is asked with desktop Chrome's identity (the WebView's Chrome version, never
+  "YFT").
+- Only TikTok files that open are offered (P39): each quality's file is checked with a one-byte
+  request carrying TikTok's cookies and Referer (at most 8 checks, 3 at a time): exact sizes,
+  a refused address moves to the next one, a quality none opens is left out; labels 1080p,
+  720p, 540p with "H.265"; the watermarked file only when no other file opens ("With TikTok
+  watermark").
+- Every TikTok failure explains itself (P39): the sheet's Details (and Home's) list the page
+  agent, HTTP status, size, page kind, data key, JSON read, post id, qualities, file checks and
+  the error class — hosts only. A link that lands on TikTok's home page says "This TikTok link
+  does not open a video. It may be removed or private — open it in YFT's browser to check."; a
+  check page is a bot check; "changed its page format. Falling back to generic detection" is
+  gone: an unknown page shape says "<Site>'s page could not be read. Tap Details to see why, or
+  Try again."
+- Every TikTok step in Details (P40): the tab's data, the page read, the hidden page and what
+  each gave.
+- YouTube downloads move from the first seconds (P41): DASH tracks count bytes as they are
+  written (at most 4 updates a second, never backwards), ranges start as soon as one ends
+  instead of in batches, a whole-file track starts with a 1 MiB range (`FAST_START`, 4 ranges at
+  once on YouTube's media hosts) and takes its length from that range or the address instead of
+  a separate probe; merged videos show both tracks' bytes and speed in Downloads and the
+  notification. A checkpoint saved before resumes with its old layout. The log and a failure's
+  Details show the start times ("start: plan · length · first byte · first progress").
+- The page's video, never the ad (P43, FIX_ADD_PLAN item 7): on a site without an adapter the
+  Download sheet takes a file for the page's video only when the page's player names it or its
+  length matches the length the page states (within 5 s or 5 %) or the failed video's; a file of
+  unknown length is measured before its rows are shown. An ad network's file (YFT's own short
+  list, now with more video-ad networks under any suffix), a file fetched right after an ad break
+  (Google IMA's and DoubleClick's ad requests, a VAST query, a pre-roll or `/ads/` request, or an
+  answer that is a VAST or VMAP document) and a short file on a long page are skipped at every
+  step: the first choice, the page's newest link, the player's link, the page read again and the
+  next video. The sheet says "That was an ad — showing the page's video"; Details tell why
+  ("skipped: 0:30 ad (short)", "length 10:03 matches the page (10:05)"). When nothing passes no ad
+  is offered: "Only an ad was found, not the page's video." with Reload page and try again, which
+  looks for the page's length, not the ad. Proven ads are not counted as other videos. G8: STRICT
+  (the default); LENIENT keeps the browser's first choice as before.
+- A failed quality lookup's Details end with "Error: <class>" (e.g. `SocketTimeoutException`),
+  the error's class name only, never its message or address (P39 hand-off; the resolver's catch
+  blocks by C on the owner's override).
 - TikTok (P36): when TikTok gives the phone version of a video page (no quality list), YFT
   asks the same page once more as a desktop browser for its qualities; else the phone page's
   video is the one quality. Video requests keep the browser's cookies but take TikTok's fresh
@@ -213,6 +317,16 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Fixed
 
+- A file check that answers HEAD with any error (such as HTTP 474) is asked by its range GET
+  before failing (P45), and HTTP 410, 412 and 452–499 say "The site refused this link (HTTP n).
+  Play the video for a moment, then try again." instead of "no longer has this video".
+- Safer site requests (P39): a cookie pair or header OkHttp refuses is left out instead of
+  failing the lookup, a per-lookup cookie jar carries cookies across short-link redirects, too
+  many redirects is an HTTP status, and any other error names its class and step.
+- The Download sheet's file check (P39): its requests never run on the sheet's main thread (the
+  cause of the "Download · 1.4 MB" row that failed without a step), any unexpected error ends as
+  a failure at its step, and a file host that answers HEAD with a server error (5xx) is asked
+  with a range request instead.
 - TikTok's For You feed: the browser's Download button finds the video on screen again
   (Preview #5 said "No video on screen to download"); without an author the address is
   `tiktok.com/@/video/<number>`, which TikTok opens like the full one (P36).

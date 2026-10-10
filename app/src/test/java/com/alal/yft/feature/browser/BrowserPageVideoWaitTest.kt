@@ -85,7 +85,6 @@ class BrowserPageVideoWaitTest {
         assertEquals(title, chosen.title)
         assertEquals(poster, chosen.candidates.single().thumbnailUrl)
         assertFalse(store.maybeAd.value)
-        assertEquals(1, store.otherVideos.value)
         assertNull(store.lookup.value)
     }
 
@@ -138,7 +137,6 @@ class BrowserPageVideoWaitTest {
         assertEquals(listOf(master), chosen.candidates.map { it.mediaUrl })
         assertEquals(title, chosen.title)
         assertFalse(store.maybeAd.value)
-        assertEquals(1, store.otherVideos.value)
         assertEquals(1, opened.size)
         // The ad is listed apart from the page's video.
         val list = MediaGroups.ofPage(videos(viewModel))

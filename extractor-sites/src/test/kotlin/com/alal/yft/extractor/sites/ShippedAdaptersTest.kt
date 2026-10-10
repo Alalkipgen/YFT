@@ -4,9 +4,11 @@ import com.alal.yft.extractor.api.SiteAdapterFlags
 import com.alal.yft.extractor.api.SiteAdapterSelection
 import com.alal.yft.extractor.api.SiteExtractorRegistry
 import com.alal.yft.extractor.sites.facebook.FacebookExtractor
+import com.alal.yft.extractor.sites.instagram.InstagramExtractor
 import com.alal.yft.extractor.sites.testing.FakeExtractorHttpClient
 import com.alal.yft.extractor.sites.tiktok.TikTokExtractor
 import com.alal.yft.extractor.sites.vimeo.VimeoExtractor
+import com.alal.yft.extractor.sites.x.XExtractor
 import com.alal.yft.extractor.sites.youtube.YouTubeExtractor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -32,6 +34,10 @@ class ShippedAdaptersTest {
             "https://vimeo.com/123456789" to "vimeo",
             "https://vimeo.com/123456789/abcdef1234" to "vimeo",
             "https://player.vimeo.com/video/123456789" to "vimeo",
+            "https://x.com/fixture_user/status/1785999999999999999" to "x",
+            "https://twitter.com/fixture_user/status/1785999999999999999/video/1" to "x",
+            "https://www.instagram.com/reel/C9fixtREEL1/?igsh=abc" to "instagram",
+            "https://www.instagram.com/p/C9fixtREEL1/" to "instagram",
         )
 
         expectations.forEach { (url, adapterId) ->
@@ -49,6 +55,9 @@ class ShippedAdaptersTest {
             "https://www.tiktok.com/@fixture_user",
             "https://vimeo.com/ondemand/fixture-film",
             "https://media.example.test/video.mp4",
+            "https://x.com/fixture_user",
+            "https://t.co/fixture",
+            "https://www.instagram.com/fixture.creator/",
         ).forEach { url ->
             assertTrue(url, registry.select(url) is SiteAdapterSelection.None)
         }
@@ -60,7 +69,10 @@ class ShippedAdaptersTest {
      */
     @Test
     fun `youtube single-video pages are claimed by the youtube adapter`() {
-        assertEquals(listOf("tiktok", "facebook", "vimeo", "youtube"), registry.adapterIds)
+        assertEquals(
+            listOf("tiktok", "facebook", "vimeo", "youtube", "x", "instagram"),
+            registry.adapterIds,
+        )
 
         listOf(
             "https://www.youtube.com/watch?v=Yft0Fixture",
@@ -107,6 +119,8 @@ class ShippedAdaptersTest {
             FacebookExtractor(http),
             VimeoExtractor(http),
             YouTubeExtractor(http),
+            XExtractor(http),
+            InstagramExtractor(http),
         )
     }
 }

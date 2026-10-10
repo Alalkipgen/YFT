@@ -482,7 +482,7 @@ private fun TestNavHost(
                 Placeholder(YftDestination.BROWSER, onNavigateBack)
             }
         },
-        quickDownloadContent = { onNavigateBack, _, onOpenDetails, _ ->
+        quickDownloadContent = { onNavigateBack, _, onOpenDetails ->
             Column {
                 Text(text = YftDestination.QUICK_DOWNLOAD.summary)
                 TextButton(

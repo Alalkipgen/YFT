@@ -302,9 +302,6 @@ class BrowserScreenTest {
             assertEquals(1, main)
             assertEquals(0, quick)
         }
-        // That sheet's "Other videos on this page" opens the list.
-        state = state.copy(foundListRequest = 1)
-        composeRule.onNodeWithTag("found-list").assertIsDisplayed()
     }
 
     @Test
@@ -730,6 +727,40 @@ class BrowserScreenTest {
             canRetrySiteLookup = false,
         )
         composeRule.onNodeWithTag("browser-site-notice").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("browser-site-retry").assertCountEquals(0)
+    }
+
+    @Test
+    fun tikToksCheckOffersShowCheckInsteadOfTryAgain() {
+        var shown = 0
+        composeRule.setContent {
+            YftTheme(themeMode = ThemeMode.LIGHT) {
+                BrowserScreen(
+                    uiState = BrowserUiState(
+                        address = PAGE,
+                        currentUrl = PAGE,
+                        siteNotice = SiteCheck.NOTICE,
+                        canRetrySiteLookup = true,
+                        siteCheckUrl = "https://www.tiktok.com/@fixture/video/7311234567890123456",
+                    ),
+                    canGoBack = false,
+                    canGoForward = false,
+                    onAddressChanged = {},
+                    onGo = {},
+                    onBrowserBack = {},
+                    onBrowserForward = {},
+                    onReload = {},
+                    onStop = {},
+                    onDownloadGroup = {},
+                    onNavigateBack = {},
+                    onShowSiteCheck = { shown += 1 },
+                    browserSurface = { Box(modifier = it) },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("browser-site-check").assertIsDisplayed().performClick()
+        composeRule.runOnIdle { assertEquals(1, shown) }
         composeRule.onAllNodesWithTag("browser-site-retry").assertCountEquals(0)
     }
 

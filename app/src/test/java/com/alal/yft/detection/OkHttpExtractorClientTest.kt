@@ -1,6 +1,7 @@
 package com.alal.yft.detection
 
 import com.alal.yft.extractor.api.ExtractorHttpResult
+import com.alal.yft.extractor.api.ExtractorProbeResult
 import com.alal.yft.extractor.api.ResponseCookie
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import kotlinx.coroutines.test.runTest
@@ -110,10 +111,10 @@ class OkHttpExtractorClientTest {
         )
         val client = server.client()
 
-        assertEquals(
-            SiteExtractionFailure.RESPONSE_CHANGED,
-            (client.get("https://www.youtube.com/loop", session, 1_024) as Failure).reason,
-        )
+        // P39 R25: too many redirects is an HTTP problem, not a changed page.
+        val loop = client.get("https://www.youtube.com/loop", session, 1_024) as Failure
+        assertEquals(SiteExtractionFailure.HTTP_STATUS, loop.reason)
+        assertTrue(loop.details.toString(), "too many redirects" in loop.details)
         assertEquals(
             SiteExtractionFailure.RESPONSE_TOO_LARGE,
             (client.get("https://www.youtube.com/big", session, 1_024) as Failure).reason,
@@ -262,6 +263,126 @@ class OkHttpExtractorClientTest {
         assertEquals(emptyList<ResponseCookie>(), result.cookies)
     }
 
+    @Test
+    fun `with the policy a cookie a hop sets goes to the next hop it matches`() = runTest {
+        val seen = mutableListOf<Request>()
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            val request = chain.request()
+            seen += request
+            val builder = Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
+                .message("Fixture").body("<title>Fixture</title>".toResponseBody())
+            when (request.url.host) {
+                "vt.tiktok.com" -> builder.code(301)
+                    .header("Location", "https://www.tiktok.com/@a/video/1")
+                    .addHeader("Set-Cookie", "tt_chain_token=chain; Domain=.tiktok.com; Path=/")
+                    .addHeader("Set-Cookie", "SID=hop; Domain=.tiktok.com; Path=/")
+                    .addHeader("Set-Cookie", "vt_only=short; Path=/")
+                else -> builder.code(200)
+            }.build()
+        }.build()
+        val headers = mapOf("User-Agent" to "FixtureAgent/1.0", "Cookie" to "SID=tab; lang=en")
+
+        OkHttpExtractorClient(client, OkHttpExtractorClient.Policy(sendResponseCookies = true))
+            .get("https://vt.tiktok.com/ZSfixture1/", headers)
+        OkHttpExtractorClient(client).get("https://vt.tiktok.com/ZSfixture1/", headers)
+
+        val (withPolicy, without) = seen.chunked(2)
+        assertEquals("SID=tab; lang=en", withPolicy[0].header("Cookie"))
+        // The hop's own value replaces the tab's pair of the same name; a host-only cookie of
+        // the short-link host does not go to www.
+        assertEquals("SID=hop; lang=en; tt_chain_token=chain", withPolicy[1].header("Cookie"))
+        assertEquals("SID=tab; lang=en", without[1].header("Cookie"))
+    }
+
+    @Test
+    fun `a header or cookie pair OkHttp would refuse is left out and counted`() = runTest {
+        val server = FakeServer("https://www.tiktok.com/page" to ok("page"))
+        val headers = mapOf(
+            "User-Agent" to "FixtureAgent/1.0",
+            "X-Bad" to "line\nbreak",
+            "Bad Name" to "value",
+            "Cookie" to "SID=fixture; name=caf\u00e9; =empty",
+        )
+
+        val result = server.client().get("https://www.tiktok.com/page", headers)
+            as ExtractorHttpResult.Success
+
+        val sent = server.requests.single()
+        assertEquals("SID=fixture", sent.header("Cookie"))
+        assertNull(sent.header("X-Bad"))
+        assertEquals(listOf("session pairs left out: 2", "headers left out: 2"), result.details)
+    }
+
+    @Test
+    fun `an unexpected error becomes a failure naming its class`() = runTest {
+        val client = OkHttpClient.Builder().addInterceptor { _ -> error("fixture") }.build()
+        val timeout = OkHttpClient.Builder()
+            .addInterceptor { _ -> throw java.net.SocketTimeoutException("fixture") }
+            .build()
+
+        val failure = OkHttpExtractorClient(client).get("https://www.tiktok.com/a", session)
+            as Failure
+        val network = OkHttpExtractorClient(timeout, retryDelay = {})
+            .get("https://www.tiktok.com/a", session) as Failure
+
+        assertEquals(SiteExtractionFailure.MALFORMED_RESPONSE, failure.reason)
+        assertEquals(listOf("error: IllegalStateException"), failure.details)
+        assertEquals(SiteExtractionFailure.NETWORK, network.reason)
+        assertTrue(network.details.toString(), "error: SocketTimeoutException" in network.details)
+    }
+
+    @Test
+    fun `a file check asks one byte and reads the file's size`() = runTest {
+        val seen = mutableListOf<Request>()
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            val request = chain.request()
+            seen += request
+            val builder = Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
+                .message("Fixture").body("x".toResponseBody())
+            when (request.url.encodedPath) {
+                "/aweme/v1/play/" -> builder.code(302)
+                    .header("Location", "https://v16-webapp-prime.us.tiktok.com/video/tos/a/")
+                "/video/tos/a/" -> builder.code(206).header("Content-Range", "bytes 0-0/2953029")
+                "/whole" -> builder.code(200)
+                "/refused" -> builder.code(403)
+                "/away" -> builder.code(302).header("Location", "https://cdn.example.test/file")
+                "/plain" -> builder.code(302).header("Location", "http://www.tiktok.com/file")
+                else -> builder.code(206).header("Content-Range", "bytes 0-0/*")
+            }.build()
+        }.build()
+        val probe = OkHttpExtractorClient(client)
+        val headers = mapOf("User-Agent" to "FixtureAgent/1.0", "Cookie" to "tt_chain_token=t")
+
+        assertEquals(
+            ExtractorProbeResult.Answered(206, 2_953_029),
+            probe.probe("https://www.tiktok.com/aweme/v1/play/?video_id=v1", headers),
+        )
+        assertEquals(
+            ExtractorProbeResult.Answered(200, 1),
+            probe.probe("https://www.tiktok.com/whole", headers),
+        )
+        assertEquals(
+            ExtractorProbeResult.Refused(SiteExtractionFailure.LOGIN_REQUIRED, 403),
+            probe.probe("https://www.tiktok.com/refused", headers),
+        )
+        assertEquals(
+            ExtractorProbeResult.Answered(206, null),
+            probe.probe("https://www.tiktok.com/away", headers),
+        )
+        assertEquals(
+            ExtractorProbeResult.Refused(SiteExtractionFailure.UNSUPPORTED_URL, 302),
+            probe.probe("https://www.tiktok.com/plain", headers),
+        )
+
+        seen.forEach { request ->
+            assertEquals("bytes=0-0", request.header("Range"))
+            assertEquals("identity", request.header("Accept-Encoding"))
+            assertEquals("FixtureAgent/1.0", request.header("User-Agent"))
+        }
+        // Same site across TikTok's own redirect; no session for another site's host.
+        assertEquals("tt_chain_token=t", seen[1].header("Cookie"))
+        assertNull(seen.single { it.url.host == "cdn.example.test" }.header("Cookie"))
+    }
 }
 
 private typealias Failure = ExtractorHttpResult.Failure

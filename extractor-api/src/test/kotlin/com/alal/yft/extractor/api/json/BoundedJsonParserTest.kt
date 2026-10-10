@@ -136,4 +136,30 @@ class BoundedJsonParserTest {
         assertEquals("x", BoundedJsonParser.parse("\"x\"").asStringOrNull)
         assertEquals(5L, BoundedJsonParser.parse("5").asLongOrNull)
     }
+
+    @Test
+    fun `read names the problem and the character where reading stopped`() {
+        assertEquals(
+            JsonReadResult.Read(JsonValue.Object(mapOf("a" to JsonValue.Number("1")))),
+            BoundedJsonParser.read("""{"a":1}"""),
+        )
+        assertEquals(
+            JsonReadResult.Failed(JsonProblem.MALFORMED, 5),
+            BoundedJsonParser.read("""{"a":}"""),
+        )
+        assertEquals(
+            JsonReadResult.Failed(JsonProblem.TRAILING_TEXT, 7),
+            BoundedJsonParser.read("""{"a":1};window.x=1"""),
+        )
+        assertEquals(
+            JsonProblem.TOO_DEEP,
+            (BoundedJsonParser.read("[[[1]]]", maxDepth = 2) as JsonReadResult.Failed).problem,
+        )
+        assertEquals(
+            JsonProblem.TOO_MANY_NODES,
+            (BoundedJsonParser.read("[1,2,3]", maxNodes = 2) as JsonReadResult.Failed).problem,
+        )
+        assertEquals("MalformedJson", JsonProblem.MALFORMED.label)
+        assertNull(BoundedJsonParser.parse("""{"a":1};"""))
+    }
 }

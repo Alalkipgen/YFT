@@ -20,6 +20,8 @@ import java.io.ByteArrayInputStream
  * The browser's page loads and requests. With a [guard] (P32) a navigation the page started to
  * another site or to a pop-up ad network is blocked and reported to the sink, and the scripts of
  * the listed networks get an empty answer; without one every web address loads as before.
+ * P40: [pageStartScript] is a script a page gets when it starts, for a WebView that cannot add
+ * scripts at document start (null: none).
  */
 class SecureBrowserWebViewClient(
     private val sink: BrowserObservationSink,
@@ -28,6 +30,7 @@ class SecureBrowserWebViewClient(
     private val clock: () -> Long = System::currentTimeMillis,
     private val pageUrlState: BrowserPageUrl = BrowserPageUrl(),
     private val guard: BrowserNavigationGuard? = null,
+    private val pageStartScript: (url: String) -> String? = { null },
 ) : WebViewClient() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var pendingDomProbe: Runnable? = null
@@ -74,6 +77,7 @@ class SecureBrowserWebViewClient(
         pageUrlState.update(url)
         url?.let(sink::onPageStarted)
         guard?.pageStarted()
+        url?.let(pageStartScript)?.let { script -> view.evaluateJavascript(script, null) }
     }
 
     override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {

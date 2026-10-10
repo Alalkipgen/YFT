@@ -86,4 +86,24 @@ class TikTokUrlsTest {
 
         rejected.forEach { url -> assertNull(url, TikTokUrls.identify(url)) }
     }
+
+    @Test
+    fun `the player's file requests are recognised and pages, images and look-alikes are not`() {
+        val media = listOf(
+            "https://v16-webapp-prime.us.tiktok.com/video/tos/useast5/tos-useast5-ve/abc/?a=1",
+            "https://www.tiktok.com/aweme/v1/play/?video_id=v12044gd0000fixture&line=0",
+            "https://v19-webapp-prime.tiktokcdn-us.com/obj/fixture?mime_type=video_mp4&br=1",
+        )
+        val other = listOf(
+            "http://v16-webapp-prime.us.tiktok.com/video/tos/useast5/fixture/abc/",
+            "https://www.tiktok.com/@fixture_user/video/7311234567890123456",
+            "https://p16-sign.tiktokcdn-us.com/obj/tos-useast5-p-0068/fixture.jpeg",
+            "https://tiktok.com.example.test/video/tos/fixture/abc/",
+            "https://example-cdn.test/video/tos/fixture/abc/",
+            "not a url",
+        )
+
+        media.forEach { assertTrue(it, TikTokUrls.isPlayerMedia(it)) }
+        other.forEach { assertFalse(it, TikTokUrls.isPlayerMedia(it)) }
+    }
 }

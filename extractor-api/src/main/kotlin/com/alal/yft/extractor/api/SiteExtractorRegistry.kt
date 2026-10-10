@@ -35,6 +35,13 @@ class SiteExtractorRegistry(
         adapterIds.filterNot(flags::isEnabled)
 
     /**
+     * P39: the adapter with [adapterId] while it is switched on, else null. A site's feed page
+     * has no video address to [select] by, yet its player's files are still that site's.
+     */
+    fun enabled(adapterId: String): SiteExtractor? =
+        extractors.firstOrNull { it.id == adapterId }?.takeIf { flags.isEnabled(adapterId) }
+
+    /**
      * Resolves the adapter for [pageUrl].
      *
      * Returns [SiteAdapterSelection.None] when no adapter claims the page, which is the normal

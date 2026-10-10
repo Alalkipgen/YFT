@@ -1,65 +1,98 @@
 # Handoff
 
-## Current handoff (2026-10-08)
+## Current handoff (2026-10-09)
 
-- **Phase:** 14 — Preview #5 field fixes (downloads and merges that keep going in the
-  background with speed in the notification, a faster merge, TikTok on the For You feed, fresh
-  links instead of HTTP 410). Plan, file ownership, decisions, root causes and tasks:
-  [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md); prompts: [`prompts/`](prompts/README.md).
-- **Owner's test of Preview #5** (2026-10-08, Preview APK run
-  https://github.com/Alalkipgen/YFT/actions/runs/37575586233, `436aa90`; `main` = `5a5bddb`):
-  on some pages of a site without an adapter the sheet shows "The site no longer has this video
-  (HTTP 410)" (manifest and MP4 links of the site's CDN) until he reloads the page by hand, and
-  Try again repeats it; a 1-hour YouTube live recording still merges for about 2 minutes, and the
-  merge stops while he uses another app until he opens YFT again; TikTok (with a VPN) says "No
-  video on screen to download" on the For You feed; he wants downloads to keep going in the
-  background with % and speed (KB/s below 1,024 KB/s, MB/s above) in the notification. Root
-  causes R16–R24 (FIX_ADD_PLAN §4): browser Try again reuses the stale page; page-script links
-  outrank the player's own requests; TikTok's feed has no video links and its phone page keeps
-  its data under another key, with media cookies dropped; no wake lock, no media-processing
-  service type and no freeze handling (the phone's battery manager most likely freezes a
-  CPU-only merge); the notification has no numbers; the merge works sample by sample.
-- **Plan (Plan Mode, 2026-10-08):** three agents at once — A: P34 (background downloads and
-  merges, notification with speed, battery and notification cards); B: P36 (TikTok) → P37
-  (fresh links, Try again, "Reload page and try again"); C: P35 (stream-copy merge). Then P38 (A
-  merges A → B → C into `work/phase-14-integration`, full validation, **Preview #6**) and P8
-  (signed `1.0.0-beta.4`) with the owner's OK. Docs-only pushes no longer start CI.
-- **Branches:** `work/phase-14-integration` (= `main` `5a5bddb` + the plan); agents branch from
-  it: `work/phase-14-background` (A), `work/phase-14-sites` (B), `work/phase-14-fast-merge` (C).
-  Status per agent: `SESSION_STATE.md`.
-- **P38 (2026-10-08, Agent A):** A (P34), B (P36, P37) and C (P35) merged into
-  `work/phase-14-integration` without conflicts; full validation 1532 tests, 0 failures, 66
-  skipped, lint 0 errors, release build OK. The owner asked to push `main` after the merge: it
-  was fast-forwarded to the validated merge after its CI was green (no tag). Preview #6 =
-  Preview APK run 37811403962 of `4da3e61`; CI links: `SESSION_STATE.md` › Overview.
-- **Next action — owner:** uninstall the older YFT Preview, install **Preview #6** (Preview APK
-  run › Artifacts › `yft-preview-apk`) and test FIX_ADD_PLAN §6 "Preview #6"; then P8 (signed
-  `1.0.0-beta.4`, `prompts/P8-signed-beta4.md`) only with his OK.
-- **Phase 13** (P27–P33, 2026-10-07): merge progress and a direct merge into Download/YFT, the
-  page's video instead of the pre-roll ad, the next video when one fails, Google search, browser
-  history, pop-up and ad-redirect blocking; merged into `main` (`436aa90`, docs `5a5bddb`, no
-  tag). Record: FIX_ADD_PLAN §8 and `git show 5a5bddb:docs/HANDOFF.md`.
+- **Phase:** 15 — Preview #6 field fixes, merged (P44) into `work/phase-15-integration`: TikTok
+  from TikTok's own page (tab data, TikTok's own API answers, a hidden TikTok page for Home) with
+  every failure explained in Details (P39, P40); YouTube % and speed within seconds (P41);
+  Delete file in Downloads and the Library (P42); the page's own video, never the pre-roll ad,
+  on other sites (P43). Plan, Results and the phone list: [`FIX_ADD_PLAN.md`](FIX_ADD_PLAN.md);
+  prompts: [`prompts/`](prompts/README.md).
+- **Validation (P44):** 1717 tests, 0 failures, 66 skipped (app 900, core-browser 149, core-data 33,
+  core-download 184, core-media 33, core-model 122, extractor-api 36, extractor-generic 21,
+  extractor-sites 239; 1532 at the start); lint 0 errors (98 warnings: A's 3 androidx.webkit
+  notices); `:app:assembleRelease` OK (lint vital needed a 2.5 GiB Gradle heap on the 4 GiB sandbox)
+- **Preview #7:** Preview APK (test key) run
+  https://github.com/Alalkipgen/YFT/actions/runs/37893874478 of the P44 checkpoint `1ef8c86`
+  (Artifacts › `yft-preview-apk`; uninstall the older YFT Preview first); checkpoint validation
+  37893874474 and emulator smoke 37893874480 green. As the owner asked, `main` is
+  fast-forwarded to the validated merge (no tag).
+- **P45 (2026-10-09, Agent B alone):** the Download sheet shows only the tapped video (no "Other
+  videos" row, no "Next video"); a page's links are asked like the browser's; a refused link
+  (403/410/412/452–499) is asked again through WebView; "The site refused this link (HTTP n).
+  Play the video for a moment, then try again."; Details add "Request:" and "Browser check:";
+  proven ads leave the browser's lists. Full validation: 1729 tests, 0 failures, 66 skipped (app 903, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 239; 1717 before P45); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. **Preview #8:** https://github.com/Alalkipgen/YFT/actions/runs/37955002856 of `1d2f27a` (Artifacts › `yft-preview-apk`; on
+  `work/phase-15-integration`; now on `main` too, see P46).
+- **P46 (2026-10-10, Agent B alone):** TikTok — the browser joins the tab's one quality with the
+  desktop page's; TikTok's "private" status on a page asks the desktop page, the hidden page and
+  then a public download service (`tikwm.com`, post address only, no cookie); **Show check**
+  shows TikTok's check to the user, Done looks again. Full validation: 1746 tests, 0 failures, 66 skipped (app 909, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 250; 1729 before P46); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. **Preview #9:** [37971914134](https://github.com/Alalkipgen/YFT/actions/runs/37971914134) (`462d508`; validation [37971914024](https://github.com/Alalkipgen/YFT/actions/runs/37971914024), smoke [37971914007](https://github.com/Alalkipgen/YFT/actions/runs/37971914007), all green)
+  (Artifacts › `yft-preview-apk`). P45 + P46: `main` fast-forwarded to the P46 docs commit with the owner's approval (2026-10-09: "merge P45 & P46 to main"); `69bf022` → this commit, no merge commit. Owner's Preview #8
+  test: more than 10 Pornhub videos fine.
+- **Next action — owner:** test Preview #9 (FIX_ADD_PLAN §6 "Preview #9"), then Preview #8 and #7 with
+  FIX_ADD_PLAN §6 (TikTok with the VPN in the browser and on Home, YouTube's start, Delete file,
+  ads, Preview #6 items); send a Details screenshot of anything that fails. `1.0.0-beta.4` (P8)
+  waits for his OK.
+- **Open (backlog):** hand-off (a) is done by P45; (b) the page's own VAST/VMAP answers do not
+  call `vastAds.onAnswer` yet (needs a page-script hook); Cronet for downloads if the CDN also
+  refuses YFT's file requests (FIX_ADD_PLAN §7, owner's OK for the dependency).
+- **Phase 14** (P34–P38, 2026-10-08): background downloads and merges, a stream-copy merge,
+  TikTok's For You feed, fresh links instead of HTTP 410; merged into `main` (`4da3e61`, docs
+  `a9eea7b`). Record: `git show a9eea7b:docs/HANDOFF.md`.
 - **Releases:** `1.0.0-beta.1` published 2026-10-02; `1.0.0-beta.2` signed draft 2026-10-03;
   `1.0.0-beta.3` (versionCode 3, tag `v1.0.0-beta.3` on `2f6284f`) signed draft 2026-10-04:
   `video-downloader-1.0.0-beta.3.apk` 6,334,176 bytes, SHA-256
   `8fe466f17b62e88cdd5deb08482f7dc4c70a1a3dba7182bf94b93c6d1604e955`, certificate SHA-256
   `3A:EB:30:64:91:E2:DD:6F:F7:6D:C5:A8:68:E6:FC:C9:D3:30:BB:99:85:BF:4D:15:B3:4A:67:04:EC:78:98:8F`
-  (notes: [`release/1.0.0-beta.3.md`](release/1.0.0-beta.3.md)). Phases 11–13 are merged into
-  `main` (no tag); `1.0.0-beta.4` waits for Preview #6 (P8).
-- **Phases 11 and 12:** records in `git show 4db6c2b:docs/HANDOFF.md` and
-  `git show bc806f9:docs/HANDOFF.md`.
+  (notes: [`release/1.0.0-beta.3.md`](release/1.0.0-beta.3.md)). Phases 11–15 are merged
+  (no tag); `1.0.0-beta.4` waits for Preview #7 (P8).
 
-## Known limitations (Preview #5, `main` `5a5bddb`)
+- **P47 (2026-10-10, Agent B alone):** TikTok's phone/tab and desktop answers are joined by
+  height (a video can list 720p and 480p); the desktop page is asked when one height comes in
+  two codecs; Download as names a phone video after its short side ("720p · HD"). **Preview
+  #10:** [37993854810](https://github.com/Alalkipgen/YFT/actions/runs/37993854810) (`0bfb437`; validation [37993854819](https://github.com/Alalkipgen/YFT/actions/runs/37993854819), smoke [37993854829](https://github.com/Alalkipgen/YFT/actions/runs/37993854829), all green).
+  `main` fast-forwarded to P47 with the owner's approval (2026-10-10).
 
-- Other sites without an adapter: on some page loads every link the page's player script names
-  answers HTTP 410 to YFT; Try again in the browser repeats the same links; a manual reload helps
-  (R16–R18, P37).
-- A long merged YouTube download merges for minutes (about 2 minutes for a 1-hour 720p
-  recording), and on the owner's Xiaomi phone the merge stops while YFT is in the background
-  (R23, R24, P34, P35). The notification shows no %, speed or time left (R22, P34).
-- TikTok in the browser: the For You feed gives "No video on screen to download", and the phone
-  page's data are not read (R19, R20, P36). YouTube lookups from data-centre networks can stay
-  bot-checked, so the phone is the real test.
+- **P48–P50 (2026-10-10, Agent B alone):** X adapter (X's public embed answer: every MP4
+  quality of a post's video with sound, `/video/N`, GIF, quoted post); Instagram adapter (app
+  API when YFT's browser is signed in, web query, post page, embed page; Home uses YFT's
+  browser's Instagram cookies); HLS qualities with their sound apart are merged with their audio
+  playlist into one MP4. **Preview #11:** [38009471066](https://github.com/Alalkipgen/YFT/actions/runs/38009471066) (`fdb3769`; validation [38009471238](https://github.com/Alalkipgen/YFT/actions/runs/38009471238), smoke [38009471040](https://github.com/Alalkipgen/YFT/actions/runs/38009471040), all green). `main` fast-forwarded
+  to P50 with the owner's approval (2026-10-10: "Main ကို Push လိုက်").
+
+## Known limitations (Preview #11)
+
+- P48: X's embed answer does not show protected, age-limited and some sensitive posts; then
+  YFT says so and the generic scan of the page runs. X can change its embed answer or token.
+- P49: without YFT's browser signed in to Instagram, many posts answer with a sign-in wall.
+  Instagram's web query (`doc_id`) and page data change often; then YFT falls back to the
+  generic scan. Stories and highlights are not read. YFT's requests carry the user's own
+  Instagram session (one post, one request per source), like any Instagram client.
+- P50: only AVC video with AAC sound is merged; other codecs stay "No sound" as before. The
+  preview of such a quality plays its own playlist, without sound; the download has sound.
+
+## Known limitations (Preview #10)
+
+- P46: the download service is a third party: it sees the post's address (nothing else) and
+  may be down or slow; then the lookup ends with TikTok's own reason and Details say why. Show
+  check opens TikTok's desktop page on a phone screen, so the slider may need zooming.
+- P46: TikTok's app API is not used (device registration and signing).
+- P47: a TikTok video lists more than one quality only when TikTok's own pages give more than
+  one height; many give one (480p), and then the sheet lists one.
+
+- P45: a refused link is asked again through WebView only for the file check and the lists of
+  qualities; the file itself and HLS pieces are still downloaded by YFT (OkHttp). If the CDN
+  refuses those too, the download's Details say so (Cronet option, FIX_ADD_PLAN §7). The
+  browser read needs CORS answers from the CDN; otherwise "Browser check: not answered".
+
+## Known limitations (Preview #7)
+
+- TikTok: the sandbox (US) sees TikTok's normal answers; the owner's phone with his VPN is the
+  real test (FIX_ADD_PLAN §6 items 1–3). A check TikTok asks a person to pass is never answered
+  by YFT ("TikTok wants a check …").
+- YouTube: lookups from data-centre networks can stay bot-checked.
+- Other sites: a VAST answer the browser reads itself does not start an ad break yet (C → A
+  hand-off (b)); the ad rule is STRICT by default.
 - AV1-only sizes stay hidden while AV1 merges are off. No playlists or batch downloads,
   background playback or folder export; an expired link cannot be refreshed in the middle of a
   download.
@@ -77,4 +110,5 @@ Actions.
 Detailed handoffs for Phases 0–7, 5E and the UI redesign: `git show 28930cf:docs/HANDOFF.md`.
 Phases 8–10: `git show 2f6284f:docs/HANDOFF.md`. Phase 11 part 1: `git show ce3cd25:docs/HANDOFF.md`;
 Phase 11 part 2 and the Track A/B merge: `git show 4db6c2b:docs/HANDOFF.md`. Phase 12:
-`git show bc806f9:docs/HANDOFF.md`; Phase 13: `git show 5a5bddb:docs/HANDOFF.md`.
+`git show bc806f9:docs/HANDOFF.md`; Phase 13: `git show 5a5bddb:docs/HANDOFF.md`; Phase 14:
+`git show a9eea7b:docs/HANDOFF.md`.

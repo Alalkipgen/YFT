@@ -85,13 +85,11 @@ fun YftNavHost(
         onNavigateBack: () -> Unit,
         onOpenDownloads: () -> Unit,
         onOpenDetails: () -> Unit,
-        onOpenOtherVideos: () -> Unit,
-    ) -> Unit = { onNavigateBack, onOpenDownloads, onOpenDetails, onOpenOtherVideos ->
+    ) -> Unit = { onNavigateBack, onOpenDownloads, onOpenDetails ->
         QuickDownloadRoute(
             onNavigateBack = onNavigateBack,
             onOpenDownloads = onOpenDownloads,
             onOpenDetails = onOpenDetails,
-            onOpenOtherVideos = onOpenOtherVideos,
         )
     },
     downloadsContent: @Composable (
@@ -230,20 +228,6 @@ fun YftNavHost(
                             navController.popBackStack()
                             navController.navigate(YftDestination.PREVIEW.route) {
                                 launchSingleTop = true
-                            }
-                        }
-                    },
-                    {
-                        // P24: "Other videos on this page". The browser opens its own found
-                        // list under the sheet and the found list is already there; over Home
-                        // the found list opens.
-                        val under = navController.previousBackStackEntry?.destination?.route
-                        hide {
-                            navController.popBackStack()
-                            if (under == YftDestination.HOME.route) {
-                                navController.navigate(YftDestination.DETECTED_MEDIA.route) {
-                                    launchSingleTop = true
-                                }
                             }
                         }
                     },

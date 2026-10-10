@@ -22,9 +22,11 @@ import com.alal.yft.core.download.DownloadWorkspaces
 import com.alal.yft.core.download.HlsTransferEngine
 import com.alal.yft.core.download.HlsTransferRunner
 import com.alal.yft.core.download.LocalAudioVideoMuxer
+import com.alal.yft.core.download.PlaylistTrackTransferRunner
 import com.alal.yft.core.download.LocalMp3Transcoder
 import com.alal.yft.core.download.Mp3ConvertingTransferDispatcher
 import com.alal.yft.core.download.RoomDownloadTaskStore
+import com.alal.yft.core.model.media.BrowserReads
 import com.alal.yft.core.model.settings.DownloadLocation
 import com.alal.yft.download.policy.ConnectivityNetworkMonitor
 import com.alal.yft.download.policy.DownloadNetworkStatus
@@ -68,9 +70,11 @@ object DownloadRuntimeModule {
     fun provideHlsTransferRunner(
         client: OkHttpClient,
         @ApplicationContext context: Context,
+        browserReads: BrowserReads,
     ): HlsTransferRunner = HlsTransferEngine(
         client = client,
         workspaceRoot = File(context.noBackupFilesDir, HLS_WORKSPACE_DIRECTORY),
+        browserReads = browserReads,
     )
 
     @Provides
@@ -92,11 +96,13 @@ object DownloadRuntimeModule {
     @Singleton
     fun provideAudioVideoMuxRunner(
         dash: DashTransferRunner,
+        hls: HlsTransferRunner,
         muxer: LocalAudioVideoMuxer,
         @ApplicationContext context: Context,
         space: StorageSpace,
     ): AudioVideoMuxRunner = AudioVideoMuxEngine(
-        dashTransfer = dash,
+        // P50: an HLS video quality and its audio rendition are fetched as HLS, then merged.
+        dashTransfer = PlaylistTrackTransferRunner(dash = dash, hls = hls),
         muxer = muxer,
         workspaceRoot = File(context.noBackupFilesDir, MUX_WORKSPACE_DIRECTORY),
         // The smaller of app storage and the shared volume: a merge writes into one or both.

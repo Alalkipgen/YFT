@@ -113,4 +113,35 @@ class OkHttpExtractorNetworkTest {
             assertEquals(1, fixture.server.requestCount)
         }
     }
+
+    @Test
+    fun aCookieTheShortLinksRedirectSetsGoesToThePageOnlyWithThePolicy() = runBlocking {
+        // P39 (R29): TikTok's short link sets its session on the redirect; a browser sends it
+        // to the page, so the lookup does too when its policy says so.
+        ExtractorTlsFixture().use { fixture ->
+            repeat(2) {
+                fixture.server.enqueue(
+                    MockResponse().setResponseCode(302)
+                        .setHeader("Location", fixture.url("/@a/video/1"))
+                        .addHeader("Set-Cookie", "tt_chain_token=chain-fixture; Path=/; Secure"),
+                )
+                fixture.server.enqueue(MockResponse().setBody("<title>Fixture</title>"))
+            }
+            val url = fixture.url("/ZSfixture1").toString()
+            val headers = mapOf("User-Agent" to "FixtureAgent/1.0")
+            val jar = OkHttpExtractorClient(
+                fixture.client,
+                policy().copy(sendResponseCookies = true),
+            )
+
+            val withJar = jar.get(url, headers, 1_024) as ExtractorHttpResult.Success
+            OkHttpExtractorClient(fixture.client, policy()).get(url, headers, 1_024)
+
+            assertEquals(fixture.url("/@a/video/1").toString(), withJar.finalUrl)
+            val requests = List(4) { fixture.server.takeRequest() }
+            assertEquals(null, requests[0].getHeader("Cookie"))
+            assertEquals("tt_chain_token=chain-fixture", requests[1].getHeader("Cookie"))
+            assertEquals(null, requests[3].getHeader("Cookie"))
+        }
+    }
 }

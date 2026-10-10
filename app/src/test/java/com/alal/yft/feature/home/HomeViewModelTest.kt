@@ -503,12 +503,10 @@ class HomeViewModelTest {
         assertTrue(viewModel.uiState.value.quickDownload)
         assertEquals(1, opened.size)
         assertEquals(listOf(master), store.selection.value?.candidates?.map { it.mediaUrl })
-        assertEquals(40, store.otherVideos.value)
         // View shows that video again, still with the others behind it.
         store.publish("https://b.test/other", "Other", found(1).candidates)
         viewModel.selectFoundVideo()
         assertEquals(listOf(master), store.selection.value?.candidates?.map { it.mediaUrl })
-        assertEquals(40, store.otherVideos.value)
         collector.cancel()
     }
 
@@ -546,7 +544,6 @@ class HomeViewModelTest {
         assertEquals(listOf(480, 720), selected.candidates.map { it.height })
         assertEquals("Harbour lights at dusk", selected.title)
         assertTrue(selected.candidates.all { it.thumbnailUrl == poster })
-        assertEquals(1, store.otherVideos.value)
         assertEquals(984_000L, store.page.value?.facts?.durationMillis)
         assertEquals(LookupOwner.HOME, store.page.value?.owner)
     }

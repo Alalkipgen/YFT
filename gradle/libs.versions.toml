@@ -20,6 +20,7 @@ androidx-test-rules = "1.6.1"
 androidx-test-ext-junit = "1.2.1"
 androidx-test-uiautomator = "2.3.0"
 robolectric = "4.14.1"
+androidx-webkit = "1.12.1"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core" }
@@ -61,6 +62,7 @@ androidx-test-rules = { module = "androidx.test:rules", version.ref = "androidx-
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-test-ext-junit" }
 androidx-test-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "androidx-test-uiautomator" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+androidx-webkit = { module = "androidx.webkit:webkit", version.ref = "androidx-webkit" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

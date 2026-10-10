@@ -163,10 +163,13 @@ private fun DetectedList(
 ) {
     val colors = YftTheme.colors
     val savable = remember(page.candidates) { page.candidates.filter { it.isSavable } }
-    // P24: the count counts the page's videos; previews and ads follow them under "Other
-    // videos on this page".
+    // P24: the count counts the page's videos; previews follow them under "Other videos on
+    // this page". P45: a video proven an ad is not listed at all.
     val list = remember(savable, page.adapterSite) {
-        MediaGroups.ofPage(MediaGroups.pageVideos(savable, adapterSite = page.adapterSite))
+        MediaGroups.ofPage(
+            MediaGroups.pageVideos(savable, adapterSite = page.adapterSite),
+            hideAds = true,
+        )
     }
     val hiddenNote = protectedHiddenLabel(page.candidates.size - savable.size)
     LazyColumn(

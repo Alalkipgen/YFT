@@ -86,11 +86,22 @@ object MediaGroups {
     /**
      * P24: [groups] (a page's videos, [pageVideos]) split into the page's own videos and what
      * only looks like a preview or an ad around them ([looksLikePreview]). When everything looks
-     * like a preview, nothing is set apart: the page's videos are all it has.
+     * like a preview, nothing is set apart: the page's videos are all it has. P43: with
+     * [hideAds], a video proven an ad by a sign only ads get ([PageVideoProof.isProvenAd]: an ad
+     * network, an ad address, an ad break) is not listed at all.
      */
-    fun ofPage(groups: List<MediaGroup>, facts: PageVideoFacts? = null): PageVideoList {
-        val (previews, videos) = groups.partition { looksLikePreview(it, groups, facts) }
-        return if (videos.isEmpty()) PageVideoList(groups) else PageVideoList(videos, previews)
+    fun ofPage(
+        groups: List<MediaGroup>,
+        facts: PageVideoFacts? = null,
+        hideAds: Boolean = false,
+    ): PageVideoList {
+        val listed = if (hideAds) {
+            groups.filterNot { PageVideoProof.isProvenAd(it, facts) }
+        } else {
+            groups
+        }
+        val (previews, videos) = listed.partition { looksLikePreview(it, listed, facts) }
+        return if (videos.isEmpty()) PageVideoList(listed) else PageVideoList(videos, previews)
     }
 
     /**
@@ -149,17 +160,18 @@ object MediaGroups {
     }
 
     /**
-     * P29: the video to prepare when [failed] could not be (its file is gone): the best of the
-     * page's other [videos] in [mainVideo]'s order, never one that looks like an ad or a
-     * preview. Null when the page has none. Videos that share a file with [failed] are skipped.
+     * P29/P45: the page's own video once the video first tapped ([skipped]) proved an ad: the
+     * best of the page's other [videos] in [mainVideo]'s order, never one that looks like an ad
+     * or a preview. Null when the page has none. Videos that share a file with [skipped] are
+     * left out. Never used after a video that failed: the sheet shows only the tapped video.
      */
-    fun nextVideo(
+    fun pageVideoAfterAd(
         videos: List<MediaGroup>,
-        failed: Collection<MediaGroup>,
+        skipped: Collection<MediaGroup>,
         facts: PageVideoFacts? = null,
     ): MediaGroup? {
-        val gone = failed.flatMap { group -> group.candidates.map { it.mediaUrl } }.toSet()
-        val others = videos.filter { video -> video.candidates.none { it.mediaUrl in gone } }
+        val ads = skipped.flatMap { group -> group.candidates.map { it.mediaUrl } }.toSet()
+        val others = videos.filter { video -> video.candidates.none { it.mediaUrl in ads } }
         val playable = others.filterNot { looksLikePreview(it, videos, facts) }
         return mainVideo(playable, playing = null, facts = facts)
     }

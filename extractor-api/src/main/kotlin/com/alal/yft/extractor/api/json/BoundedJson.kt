@@ -68,6 +68,21 @@ val JsonValue?.asBooleanOrNull: Boolean?
 val JsonValue?.asArrayOrEmpty: List<JsonValue>
     get() = (this as? JsonValue.Array)?.items ?: emptyList()
 
+/** Why [BoundedJsonParser.read] could not read a document; [label] is the Details word. */
+enum class JsonProblem(val label: String) {
+    MALFORMED("MalformedJson"),
+    TOO_DEEP("TooDeep"),
+    TOO_MANY_NODES("TooManyNodes"),
+    TRAILING_TEXT("TrailingText"),
+}
+
+/** A whole document, or the problem and the character position where reading stopped. */
+sealed interface JsonReadResult {
+    data class Read(val value: JsonValue) : JsonReadResult
+
+    data class Failed(val problem: JsonProblem, val position: Int) : JsonReadResult
+}
+
 /**
  * Strict, bounded JSON reader with no third-party dependency.
  *
@@ -83,20 +98,36 @@ object BoundedJsonParser {
         text: String,
         maxDepth: Int = DEFAULT_MAX_DEPTH,
         maxNodes: Int = DEFAULT_MAX_NODES,
-    ): JsonValue? {
+    ): JsonValue? = (read(text, maxDepth, maxNodes) as? JsonReadResult.Read)?.value
+
+    /**
+     * Same rules as [parse], but a document that cannot be read says why and where, so an
+     * adapter's Details can show "error MalformedJson at char 1234" instead of a bare failure.
+     */
+    fun read(
+        text: String,
+        maxDepth: Int = DEFAULT_MAX_DEPTH,
+        maxNodes: Int = DEFAULT_MAX_NODES,
+    ): JsonReadResult {
         require(maxDepth > 0)
         require(maxNodes > 0)
         val reader = Reader(text, maxDepth, maxNodes)
         return try {
             val value = reader.readValue(depth = 1)
             reader.skipWhitespace()
-            if (reader.hasMore) null else value
-        } catch (_: MalformedJson) {
-            null
+            if (reader.hasMore) {
+                JsonReadResult.Failed(JsonProblem.TRAILING_TEXT, reader.position)
+            } else {
+                JsonReadResult.Read(value)
+            }
+        } catch (failure: MalformedJson) {
+            JsonReadResult.Failed(failure.problem, reader.position)
         }
     }
 
-    private class MalformedJson : Exception(null, null, false, false)
+    private class MalformedJson(
+        val problem: JsonProblem = JsonProblem.MALFORMED,
+    ) : Exception(null, null, false, false)
 
     private class Reader(
         private val text: String,
@@ -109,12 +140,15 @@ object BoundedJsonParser {
         val hasMore: Boolean
             get() = index < text.length
 
+        val position: Int
+            get() = index
+
         fun skipWhitespace() {
             while (index < text.length && text[index].isJsonWhitespace()) index += 1
         }
 
         fun readValue(depth: Int): JsonValue {
-            if (depth > maxDepth) throw MalformedJson()
+            if (depth > maxDepth) throw MalformedJson(JsonProblem.TOO_DEEP)
             countNode()
             skipWhitespace()
             if (index >= text.length) throw MalformedJson()
@@ -281,7 +315,7 @@ object BoundedJsonParser {
 
         private fun countNode() {
             nodes += 1
-            if (nodes > maxNodes) throw MalformedJson()
+            if (nodes > maxNodes) throw MalformedJson(JsonProblem.TOO_MANY_NODES)
         }
 
         private fun Char.isJsonWhitespace(): Boolean =

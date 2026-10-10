@@ -149,7 +149,10 @@ class FreshLinkInstrumentedTest {
         val gone = FakeResolver(dead = setOf(SCRIPT_LINK, PLAYER_LINK))
         val sheet = sheet(store, gone, reader)
         val failed = settle(sheet) { it.failure != null }
-        assertEquals("The site no longer has this video (HTTP 410).", failed.failure)
+        assertEquals(
+            "The site refused this link (HTTP 410). Play the video for a moment, then try again.",
+            failed.failure,
+        )
         assertTrue(failed.canReload)
         assertEquals(1, reads.get())
         assertEquals(agent, sessionAgent.get())

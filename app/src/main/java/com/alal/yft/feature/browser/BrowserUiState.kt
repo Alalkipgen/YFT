@@ -24,6 +24,13 @@ data class BrowserUiState(
     /** Whether the notice offers Try again, because asking again can change the answer. */
     val canRetrySiteLookup: Boolean = false,
     /**
+     * P46: TikTok answered YFT's hidden page with a check; the notice offers Show check, which
+     * opens this address for the user to answer it.
+     */
+    val siteCheckUrl: String? = null,
+    /** P46: the check is on screen. */
+    val siteCheckOpen: Boolean = false,
+    /**
      * P5: the page is on YouTube, Facebook or TikTok, so the Download button shows even before a
      * file was found and can look for the video on screen.
      */
@@ -46,8 +53,6 @@ data class BrowserUiState(
     val sitePage: Boolean = false,
     /** P12: the page's own lookup is running; the Download button shows a small spinner. */
     val pageLookupRunning: Boolean = false,
-    /** P12: counts the sheet's requests to open the found list ("Other videos on this page"). */
-    val foundListRequest: Int = 0,
     /**
      * P37: counts the sheet's "Reload page and try again"; each new count reloads the tab once
      * without its cache.

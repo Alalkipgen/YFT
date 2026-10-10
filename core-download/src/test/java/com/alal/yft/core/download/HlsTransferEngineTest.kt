@@ -3,6 +3,8 @@ package com.alal.yft.core.download
 import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.HlsDownloadPlan
 import com.alal.yft.core.model.download.HlsTransferResult
+import com.alal.yft.core.model.media.BrowserReadAnswer
+import com.alal.yft.core.model.media.BrowserReadRequest
 import com.alal.yft.core.model.media.BrowserRequestContext
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -247,6 +249,46 @@ class HlsTransferEngineTest {
         assertFalse(files.partial.exists())
         assertTrue(workspaceRoot.listFiles().orEmpty().isEmpty())
     }
+
+    @Test
+    fun `a playlist the site refused is read by the browser and its pieces downloaded`() =
+        runTest {
+            // P45: the CDN refused YFT's request of the playlist (HTTP 410), not the browser's.
+            val piece = "piece-".repeat(20).toByteArray()
+            server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest): MockResponse =
+                    when (request.path) {
+                        "/refused.m3u8" -> MockResponse().setResponseCode(410)
+                        "/one.ts" -> bytesResponse(piece)
+                        else -> MockResponse().setResponseCode(404)
+                    }
+            }
+            val asked = mutableListOf<BrowserReadRequest>()
+            val browser = HlsTransferEngine(
+                client = OkHttpClient(),
+                workspaceRoot = workspaceRoot,
+                policy = HlsTransferEngine.Policy(initialRetryDelayMillis = 0),
+                clock = { 100 },
+                browserReads = { request ->
+                    asked += request
+                    BrowserReadAnswer(status = 200, text = vodManifest("one.ts"))
+                },
+            )
+            val files = files("refused.ts")
+            val url = server.url("/refused.m3u8").toString()
+
+            val result = browser.transfer(plan(url, "refused"), files.destination)
+
+            assertTrue(result.toString(), result is HlsTransferResult.Completed)
+            assertArrayEquals(piece, files.completed.readBytes())
+            assertEquals(url, asked.single().url)
+            assertEquals("https://page.example.test/watch", asked.single().pageUrl)
+            assertTrue(asked.single().wantsText)
+
+            // Without the browser's answer the refusal stands.
+            val refused = engine.transfer(plan(url, "refused-2"), files("refused-2.ts").destination)
+            assertTrue(refused.toString(), refused is HlsTransferResult.Failure)
+        }
 
     private fun engine(
         maxAttempts: Int = 3,

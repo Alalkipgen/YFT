@@ -39,6 +39,17 @@ enum class PageMediaRole {
     PREVIEW,
 }
 
+/**
+ * P43: what showed that a file is an ad, where it was found: its address or its frame's names an
+ * ad network ([AD_HOST]) or ad words ([AD_ADDRESS]), or the page's player fetched it right after
+ * asking for an ad break ([AD_BREAK]).
+ */
+enum class AdSign(val label: String) {
+    AD_HOST("ad host"),
+    AD_ADDRESS("ad address"),
+    AD_BREAK("ad break"),
+}
+
 data class MediaCandidate(
     val pageUrl: String,
     val mediaUrl: String,
@@ -76,6 +87,11 @@ data class MediaCandidate(
      * the same value on one page share one download sheet, like [videoId].
      */
     val pageVideoKey: String? = null,
+    /**
+     * P43: what showed where it was found that [mediaUrl] is an ad ([AdSign]); null when
+     * nothing did. Set with [PageMediaRole.PREVIEW].
+     */
+    val adSign: AdSign? = null,
 ) {
     override fun toString(): String = buildString {
         append("MediaCandidate(pageUrl=")
@@ -98,6 +114,8 @@ data class MediaCandidate(
         append(height)
         append(", pageRole=")
         append(pageRole)
+        append(", adSign=")
+        append(adSign)
         append(')')
     }
 }

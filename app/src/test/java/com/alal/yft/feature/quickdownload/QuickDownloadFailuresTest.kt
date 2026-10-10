@@ -12,6 +12,7 @@ import java.net.MalformedURLException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** P24 (plan step 6): the sheet's failure follows what went wrong, and Details say where. */
@@ -22,7 +23,9 @@ class QuickDownloadFailuresTest {
             401 to "The site asks you to sign in for this video (HTTP 401).",
             403 to "The site refused this video (HTTP 403).",
             404 to "The site no longer has this video (HTTP 404).",
-            410 to "The site no longer has this video (HTTP 410).",
+            410 to "The site refused this link (HTTP 410). $PLAY",
+            412 to "The site refused this link (HTTP 412). $PLAY",
+            474 to "The site refused this link (HTTP 474). $PLAY",
             429 to "The site is busy (HTTP 429). Try again in a minute.",
             503 to "The site had a problem (HTTP 503). Try again later.",
             418 to "The site answered HTTP 418. Try again or pick another format.",
@@ -88,6 +91,56 @@ class QuickDownloadFailuresTest {
     }
 
     @Test
+    fun detailsEndWithTheErrorClassNameButNeverItsMessage() {
+        // P39: the exception's class name is the last Details line.
+        val timedOut = VariantResolutionResult.Failure(
+            VariantResolutionFailure.NETWORK,
+            step = ResolutionStep.MANIFEST,
+            host = "stream.example.test",
+            error = "SocketTimeoutException",
+        )
+        val details = QuickDownloadFailures.details(timedOut)
+        assertEquals("Error: SocketTimeoutException", details.last())
+        assertEquals(1, details.count { it.startsWith("Error:") })
+        // Without one there is no Error line and the Details are unchanged.
+        val unknown = timedOut.copy(error = null)
+        assertTrue(QuickDownloadFailures.details(unknown).none { it.startsWith("Error:") })
+        assertEquals(details.dropLast(1), QuickDownloadFailures.details(unknown))
+    }
+
+    @Test
+    fun detailsNameTheRequestAndWhatTheBrowserItselfGotForTheLink() {
+        // P45: the owner's 474 came from a HEAD; Details now say which request and what the
+        // browser's own engine answered for the same link.
+        val refused = VariantResolutionResult.Failure(
+            VariantResolutionFailure.HTTP_STATUS,
+            httpStatusCode = 474,
+            step = ResolutionStep.FILE_CHECK,
+            host = "cdn.example.test",
+            request = "range GET",
+            browserStatus = 474,
+        )
+        assertEquals(
+            listOf(
+                "Step: file check",
+                "Host: cdn.example.test",
+                "Request: range GET",
+                "Status: HTTP 474",
+                "Browser check: HTTP 474",
+            ),
+            QuickDownloadFailures.details(refused),
+        )
+        assertEquals(
+            "Browser check: not answered",
+            QuickDownloadFailures.details(refused.copy(browserStatus = 0)).last(),
+        )
+        assertTrue(
+            QuickDownloadFailures.details(refused.copy(browserStatus = null))
+                .none { it.startsWith("Browser check:") },
+        )
+    }
+
+    @Test
     fun linkLinesSayWhereTheLinkCameFromItsAgeAndExpiryButNeverTheAddress() {
         val seen = 1_700_000_000_000L
         val candidate = MediaCandidate(
@@ -134,3 +187,5 @@ class QuickDownloadFailuresTest {
         const val MINUTE = 60_000L
     }
 }
+
+private const val PLAY = "Play the video for a moment, then try again."

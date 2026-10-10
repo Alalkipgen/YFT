@@ -13,22 +13,22 @@ Do not rely on chat history. At the beginning of a session:
    - `docs/PHASE_STATUS.md`
    - `docs/HANDOFF.md`
    - `docs/SESSION_STATE.md`
-   - `docs/FIX_ADD_PLAN.md` (Phase 14: status board, decisions, findings, tasks and §0.7 file
+   - `docs/FIX_ADD_PLAN.md` (Phase 15: status board, decisions, findings, tasks and §0.7 file
      ownership for parallel agents)
 3. Verify the existing build before editing.
-4. Phase 14 runs three agents at once (`docs/FIX_ADD_PLAN.md` §0.7): Agent A P34, Agent B
-   P36 → P37, Agent C P35, each on its own branch, folder and files; then P38 (Agent A merges
-   A → B → C, Preview #6) and P8 (signed release) with the owner's OK. Do only your agent's
+4. Phase 15 runs three agents at once (`docs/FIX_ADD_PLAN.md` §0.7): Agent A P39 → P40, Agent B
+   P41 → P42, Agent C P43, each on its own branch, folder and files; then P44 (Agent B merges
+   B → C → A, Preview #7) and P8 (signed release) with the owner's OK. Do only your agent's
    tasks, task after task without asking; stop at `READY FOR MERGE`, for a failure you cannot
    fix, or when the owner says stop.
 
-## Task workflow (Phase 14)
+## Task workflow (Phase 15)
 
 - Do your agent's `docs/FIX_ADD_PLAN.md` tasks one at a time, following its prompt in
-  `docs/prompts/` (`A-background.md`, `B-tiktok-fresh-links.md`, `C-fast-merge.md`;
-  `M-merge-preview6.md` for P38). Change only the files §0.7 gives your agent; in shared docs
+  `docs/prompts/` (`A-tiktok.md`, `B-downloads.md`, `C-ads.md`; `M-merge-preview7.md` for
+  P44). Change only the files §0.7 gives your agent; in shared docs
   (`docs/SESSION_STATE.md`, `CHANGELOG.md`, `docs/TEST_MATRIX.md`) edit only your own section.
-  Agents A, B and C record status in their SESSION_STATE section; only P38 edits
+  Agents A, B and C record status in their SESSION_STATE section; only P44 edits
   `docs/FIX_ADD_PLAN.md` and `docs/prompts/`.
 - Docs-only pushes (every file under `docs/` or ending in `.md`) start no CI; the newest commit
   that changed code carries the CI result (`docs/FIX_ADD_PLAN.md` §0.3).
@@ -41,7 +41,7 @@ Do not rely on chat history. At the beginning of a session:
 - Final reports to the owner are written in Burmese (FIX_ADD_PLAN §0.5, short). The app text stays English.
 - Product rules: [ADR-006](docs/decisions/ADR-006-owner-override-any-working-method.md) (owner, 2026-10-03) — any working technique
   for public videos; no DRM, paid, private-content or age-gate bypass; adapters never sign in.
-- Anything outside the task goes to your SESSION_STATE section as a backlog note (P38 moves it
+- Anything outside the task goes to your SESSION_STATE section as a backlog note (P44 moves it
   to FIX_ADD_PLAN §7 Backlog).
 
 ## Resuming work
@@ -68,8 +68,8 @@ If documentation and verified code disagree, build/test results take priority an
   - `work/phase-1-foundation`
   - `work/phase-2-browser-detection`
 - Checkpoint pushes to `work/phase-*` branches are pre-authorized.
-- Merging or pushing phase-completion changes to `main` requires a green full validation and explicit user approval. In Phase 14 agents never push to `main`; P38 may fast-forward it only with the owner's `MAIN=OK`, and P8 runs only after the owner approves Preview #6 (`docs/FIX_ADD_PLAN.md` §5 P38, P8).
-- Publishing releases always requires explicit user approval. The signed `1.0.0-beta.4` draft (P8) waits for the owner's OK after his phone test of Preview #6.
+- Merging or pushing phase-completion changes to `main` requires a green full validation and explicit user approval. In Phase 15 agents never push to `main`; P44 may fast-forward it only with the owner's `MAIN=OK`, and P8 runs only after the owner approves Preview #7 (`docs/FIX_ADD_PLAN.md` §5 P44, P8).
+- Publishing releases always requires explicit user approval. The signed `1.0.0-beta.4` draft (P8) waits for the owner's OK after his phone test of Preview #7.
 
 ## Mandatory checkpoint protocol
 

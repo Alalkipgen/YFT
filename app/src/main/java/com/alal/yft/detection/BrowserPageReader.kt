@@ -106,7 +106,12 @@ class TabPageReader internal constructor(
                 candidate.copy(
                     sources = candidate.sources + CandidateSource.PAGE_REREAD,
                     title = candidate.title ?: scan.title,
-                    requestContext = BrowserRequestContext(pageUrl, userAgent, cookie = null),
+                    // P45: as the page's player asks for it, with the WebView's agent.
+                    requestContext = BrowserRequestContext.pageLink(
+                        pageUrl,
+                        candidate.mediaUrl,
+                        userAgent,
+                    ),
                 )
             },
             facts = scan.facts.takeUnless { it.isEmpty },

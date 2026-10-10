@@ -1,5 +1,6 @@
 package com.alal.yft.feature.quickdownload
 
+import com.alal.yft.core.model.media.BrowserReads
 import com.alal.yft.core.model.media.FreshLinks
 import com.alal.yft.core.model.media.LinkOrigin
 import com.alal.yft.core.model.media.MediaCandidate
@@ -36,7 +37,11 @@ internal object QuickDownloadFailures {
             status == null -> message(failure.reason)
             status == 401 -> "The site asks you to sign in for this video (HTTP 401)."
             status == 403 -> "$REFUSED (HTTP 403)."
-            status == 404 || status == 410 -> "The site no longer has this video (HTTP $status)."
+            status == 404 -> "The site no longer has this video (HTTP 404)."
+            // P45: a CDN that refuses a fresh link a page's player plays (410, 412, 474 on the
+            // owner's phone) refuses the request, not the video.
+            BrowserReads.isRefusal(status) ->
+                "The site refused this link (HTTP $status). $PLAY_AND_RETRY"
             status == 429 -> "The site is busy (HTTP 429). Try again in a minute."
             status >= 500 -> "The site had a problem (HTTP $status). Try again later."
             else -> "The site answered HTTP $status. Try again or pick another format."
@@ -71,7 +76,14 @@ internal object QuickDownloadFailures {
     fun details(failure: VariantResolutionResult.Failure): List<String> = buildList {
         failure.step?.let { add("Step: ${stepName(it)}") }
         failure.host?.let { add("Host: $it") }
+        failure.request?.let { add("Request: $it") }
         add("Status: ${failure.httpStatusCode?.let { "HTTP $it" } ?: reasonName(failure.reason)}")
+        // P39: the exception's class name only, never its message, address or query.
+        failure.error?.let { add("Error: $it") }
+        // P45: what the browser's own engine got for the same link, asked after YFT's refusal.
+        failure.browserStatus?.let { status ->
+            add("Browser check: ${if (status > 0) "HTTP $status" else "not answered"}")
+        }
     }
 
     /**
@@ -126,6 +138,7 @@ internal object QuickDownloadFailures {
 
     /** The words a 403 starts with. */
     const val REFUSED = "The site refused this video"
+    const val PLAY_AND_RETRY = "Play the video for a moment, then try again."
 
     private const val MILLIS_PER_MINUTE = 60_000L
     private const val MINUTES_PER_HOUR = 60L
