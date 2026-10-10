@@ -167,10 +167,12 @@ object AudioVideoMuxCompatibility {
         sdkInt: Int,
         av1Enabled: Boolean,
     ): MuxCompatibility {
-        if (plan.video.mimeType.normalizedMime() !in VIDEO_MP4_MIMES) {
+        // P50: an HLS track's segments (MPEG-TS or fragmented MP4) are read with MediaExtractor,
+        // so only its codecs decide.
+        if (!plan.video.hlsPlaylist && plan.video.mimeType.normalizedMime() !in VIDEO_MP4_MIMES) {
             return MuxCompatibility.Incompatible(MuxIncompatibilityReason.VIDEO_CONTAINER)
         }
-        if (plan.audio.mimeType.normalizedMime() !in AUDIO_MP4_MIMES) {
+        if (!plan.audio.hlsPlaylist && plan.audio.mimeType.normalizedMime() !in AUDIO_MP4_MIMES) {
             return MuxCompatibility.Incompatible(MuxIncompatibilityReason.AUDIO_CONTAINER)
         }
         if (

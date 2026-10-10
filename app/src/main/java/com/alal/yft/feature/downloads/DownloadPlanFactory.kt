@@ -68,6 +68,12 @@ sealed interface DownloadPlanResult {
  */
 object DownloadPlanFactory {
     const val MAX_FILE_NAME_LENGTH = 96
+    private val HLS_MIME_TYPES = setOf(
+        "application/vnd.apple.mpegurl",
+        "application/x-mpegurl",
+        "audio/mpegurl",
+        "audio/x-mpegurl",
+    )
 
     fun create(
         asset: MediaAsset,
@@ -193,7 +199,12 @@ object DownloadPlanFactory {
         nowEpochMs: Long,
         sdkInt: Int,
     ): DownloadPlanResult {
-        if (variant.kind != MediaKind.DIRECT) {
+        // P50: or an HLS video quality with its HLS audio rendition, both fetched as playlists.
+        val playlists = variant.kind == MediaKind.HLS
+        if (
+            (variant.kind != MediaKind.DIRECT && !playlists) ||
+            companion.isHlsPlaylist() != playlists
+        ) {
             return rejected(
                 DownloadFailureReason.UNSUPPORTED_SOURCE,
                 "YFT can only merge audio into a single video file.",
@@ -228,7 +239,12 @@ object DownloadPlanFactory {
                 mimeType = variant.mimeType,
                 codecs = variant.codecs.filter(String::isNotBlank),
                 expiresAtEpochMs = variant.expiresAtEpochMs,
-                wholeFile = WholeFileTrack(totalBytes = statedLengthOf(variant.playbackUrl)),
+                wholeFile = if (playlists) {
+                    null
+                } else {
+                    WholeFileTrack(totalBytes = statedLengthOf(variant.playbackUrl))
+                },
+                hlsPlaylist = playlists,
             ),
             audio = DashDownloadPlan(
                 taskId = "$taskId-audio",
@@ -240,9 +256,13 @@ object DownloadPlanFactory {
                 mimeType = companion.mimeType,
                 codecs = companion.codecs,
                 expiresAtEpochMs = companion.expiresAtEpochMs,
-                wholeFile = WholeFileTrack(
-                    totalBytes = statedLengthOf(companion.mediaUrl, companion.contentLengthBytes),
-                ),
+                wholeFile = if (playlists) {
+                    null
+                } else {
+                    val stated = companion.contentLengthBytes
+                    WholeFileTrack(totalBytes = statedLengthOf(companion.mediaUrl, stated))
+                },
+                hlsPlaylist = playlists,
             ),
             suggestedFileName = fileName,
             outputMimeType = outputMimeType,
@@ -331,6 +351,10 @@ object DownloadPlanFactory {
             else -> defaultExtension(variant)
         }
     }
+
+    private fun CompanionAudio.isHlsPlaylist(): Boolean =
+        mimeType.substringBefore(';').trim().lowercase(Locale.US) in HLS_MIME_TYPES ||
+            mediaUrl.substringBefore('?').endsWith(".m3u8", ignoreCase = true)
 
     private fun MediaVariant.isMp4Container(): Boolean {
         val box = container?.trim()?.trimStart('.')?.lowercase(Locale.US)

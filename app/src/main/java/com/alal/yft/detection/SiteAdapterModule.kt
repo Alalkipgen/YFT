@@ -17,9 +17,11 @@ import com.alal.yft.extractor.api.SiteAdapterFlags
 import com.alal.yft.extractor.api.SiteExtractor
 import com.alal.yft.extractor.api.SiteExtractorRegistry
 import com.alal.yft.extractor.sites.facebook.FacebookExtractor
+import com.alal.yft.extractor.sites.instagram.InstagramExtractor
 import com.alal.yft.extractor.sites.tiktok.TikTokAgents
 import com.alal.yft.extractor.sites.tiktok.TikTokExtractor
 import com.alal.yft.extractor.sites.vimeo.VimeoExtractor
+import com.alal.yft.extractor.sites.x.XExtractor
 import com.alal.yft.extractor.sites.youtube.YouTubeExtractor
 import dagger.Module
 import dagger.Provides
@@ -126,6 +128,10 @@ object SiteAdapterModule {
         FacebookExtractor(http),
         VimeoExtractor(http),
         YouTubeExtractor(http, playerScripts, poTokens),
+        // P48: X's public embed answer for a post's video (whole MP4 files with sound).
+        XExtractor(http),
+        // P49: Instagram's own answers (app API when signed in, GraphQL, page, embed page).
+        InstagramExtractor(http),
     )
 
     @Provides

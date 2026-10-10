@@ -13,6 +13,7 @@ import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.PageVideoFacts
 import com.alal.yft.detection.HeadlessIdentity
+import com.alal.yft.detection.InstagramHomeSession
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.detection.tiktok.TikTokHomeSession
@@ -97,7 +98,10 @@ class HeadlessLinkInspector internal constructor(
         )::fetch,
         probeMedia = MediaMetadataProbe(client)::probe,
         siteAdapters = siteAdapters,
-        homeCookie = { url -> TikTokHomeSession.cookieFor(url, tikTokSettings) },
+        // P49: an Instagram link carries the browser's Instagram sign-in, if there is one.
+        homeCookie = { url ->
+            TikTokHomeSession.cookieFor(url, tikTokSettings) ?: InstagramHomeSession.cookieFor(url)
+        },
     )
 
     private val scanner = HtmlMediaScanner(maxCandidates = MAX_CANDIDATES)

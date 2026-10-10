@@ -456,9 +456,15 @@ class DefaultVariantResolver(
                             null
                         }
                     trace.step = ResolutionStep.PREPARE
+                    val sized = variants.map { it.withLength(length) }
                     success(
                         candidate = candidate,
-                        variants = variants.map { it.withLength(length) },
+                        // P50: a video quality with its sound apart is merged with it.
+                        variants = if (kind == MediaKind.HLS) {
+                            HlsAudioPairing.pair(sized)
+                        } else {
+                            sized
+                        },
                         durationMillis = length,
                     )
                 }

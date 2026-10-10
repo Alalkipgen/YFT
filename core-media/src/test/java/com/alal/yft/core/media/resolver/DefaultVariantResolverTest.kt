@@ -271,10 +271,47 @@ class DefaultVariantResolverTest {
         val fullHd = result.asset.variants.single { it.height == 1080 }
         assertEquals(1920, fullHd.width)
         assertEquals(59.94, fullHd.framesPerSecond!!, 0.001)
-        assertEquals(MediaTrackType.VIDEO, fullHd.trackType)
         val audio = result.asset.variants.single { it.trackType == MediaTrackType.AUDIO }
         assertEquals("en", audio.language)
         assertTrue(audio.playbackUrl.endsWith("/audio/en.m3u8"))
+        // P50: each quality is merged with its group's sound, not listed as "No sound".
+        assertEquals(MediaTrackType.AUDIO_VIDEO, fullHd.trackType)
+        assertEquals(listOf("avc1.640028"), fullHd.codecs)
+        val sound = requireNotNull(fullHd.audioCompanion)
+        assertEquals(audio.playbackUrl, sound.mediaUrl)
+        assertEquals(listOf("mp4a.40.2"), sound.codecs)
+        assertEquals(audio.requestContext, sound.requestContext)
+        val hd = result.asset.variants.single { it.height == 720 }
+        assertEquals(audio.playbackUrl, hd.audioCompanion?.mediaUrl)
+    }
+
+    @Test
+    fun `HLS qualities whose separate sound cannot be merged stay silent`() = runTest {
+        val stream = "#EXT-X-STREAM-INF:BANDWIDTH"
+        val master = listOf(
+            "#EXTM3U",
+            """#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="AAC",URI="audio/aac.m3u8"""",
+            """#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="dd",NAME="Dolby",URI="audio/ec3.m3u8"""",
+            """$stream=900000,RESOLUTION=1280x720,CODECS="hvc1.1.6.L93.B0,mp4a.40.2",AUDIO="aac"""",
+            "hevc/720.m3u8",
+            """$stream=800000,RESOLUTION=1280x720,AUDIO="aac"""",
+            "plain/720.m3u8",
+            """$stream=700000,RESOLUTION=1280x720,CODECS="avc1.4d401f,ec-3",AUDIO="dd"""",
+            "dolby/720.m3u8",
+            """$stream=600000,RESOLUTION=854x480,CODECS="avc1.4d401e,mp4a.40.2",AUDIO="none"""",
+            "avc/480.m3u8",
+        ).joinToString("\n")
+        server.enqueue(manifestResponse(master, "application/vnd.apple.mpegurl"))
+
+        val result = resolver.resolve(
+            candidate(server.url("/master.m3u8").toString(), MediaKind.HLS),
+        ) as VariantResolutionResult.Success
+
+        val qualities = result.asset.variants.filter { it.trackType != MediaTrackType.AUDIO }
+        assertEquals(4, qualities.size)
+        assertTrue(qualities.all { it.trackType == MediaTrackType.VIDEO })
+        assertTrue(qualities.all { it.audioCompanion == null })
+        assertEquals(2, result.asset.variants.count { it.trackType == MediaTrackType.AUDIO })
     }
 
     @Test

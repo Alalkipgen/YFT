@@ -124,6 +124,8 @@ data class HlsDownloadPlan(
  * [manifestUrl] is the DASH manifest and [representationId] the representation in it. For a
  * [wholeFile] track, such as one of YouTube's adaptive streams, there is no manifest:
  * [manifestUrl] is the media file itself and [representationId] only names the track.
+ * P50: for an [hlsPlaylist] track, [manifestUrl] is an HLS media playlist (a video quality or
+ * an audio rendition of a master playlist) and the track is its segments in order.
  */
 data class DashDownloadPlan(
     override val taskId: String,
@@ -136,11 +138,13 @@ data class DashDownloadPlan(
     val codecs: List<String> = emptyList(),
     override val expiresAtEpochMs: Long? = null,
     val wholeFile: WholeFileTrack? = null,
+    val hlsPlaylist: Boolean = false,
 ) : DownloadPlan {
     init {
         require(taskId.isNotBlank())
         require(manifestUrl.isNotBlank())
         require(representationId.isNotBlank())
+        require(!hlsPlaylist || wholeFile == null) { "An HLS track is a playlist, not one file" }
         require(suggestedFileName.isNotBlank())
         require(codecs.none(String::isBlank))
     }
@@ -160,6 +164,8 @@ data class DashDownloadPlan(
         append(expiresAtEpochMs)
         append(", wholeFile=")
         append(wholeFile)
+        append(", hlsPlaylist=")
+        append(hlsPlaylist)
         append(')')
     }
 }
