@@ -12,8 +12,17 @@ data class MasterMainPresentation(val main: MediaGroup, val more: List<MediaGrou
             return "master:ui:" + bytes.take(12).joinToString("") { "%02x".format(it) }
         }
 
-        fun from(candidates: List<MediaCandidate>): MasterMainPresentation {
-            val groups = candidates.map { MediaGroup(key(it), it.title, listOf(it)) }
+        /**
+         * One group per [keyOf] value, in first-seen order; the first is main. By default every
+         * file is its own group; R4 passes fingerprint keys so one video's qualities share one.
+         */
+        fun from(
+            candidates: List<MediaCandidate>,
+            keyOf: (MediaCandidate) -> String = ::key,
+        ): MasterMainPresentation {
+            val groups = candidates.groupBy(keyOf).map { (groupKey, members) ->
+                MediaGroup(groupKey, members.first().title, members)
+            }
             return MasterMainPresentation(groups.first(), groups.drop(1))
         }
     }

@@ -31,6 +31,7 @@ extractor-master/ (pure JVM)            com.alal.yft.extractor.master
             AnchoredMediaWalk, MediaKeyTable, QualityLadder, ProbeRounds, RequestPolicy
   verify/   OkHttpMediaValidator, ProbeSession, CandidateGate, FocusSelection,
             CapturedMediaMetadata, CapturedMp4Facts
+            R4: SegmentIndexReader (sidx/EXTINF), MediaFingerprint, FingerprintGroups
   present/  MasterMainPresentation      main + More groups for the existing sheet
   capture/  InMemoryCaptureStore        per-tab, memory-only snapshot store
   parity/   ParityUrls, ParityReport,   R1: frozen list parser, host + content-ID report,
@@ -38,6 +39,7 @@ extractor-master/ (pure JVM)            com.alal.yft.extractor.master
 extractor-master-android/               com.alal.yft.extractor.master.android
   WebViewPlaybackCapture, MasterBrowserSession, CaptureFrame, CaptureFocusGuard,
   MasterMainSelection, assets/yft-master-capture.js
+  R5: CodecSteering + assets/yft-master-codecs.js (document-start codec steering)
 app/ BrowserMasterFallback              hook; reads TerminalRules (no own copy)
 app/src/androidTest/.../MasterParityLiveTest, assets/parity/parity-urls.json; scripts/canary.sh
 extractor-master/toolkit-provenance.tsv; scripts/master-toolkit-drift.py (R3 copy drift)
@@ -95,5 +97,6 @@ authorized playback) → `LayerStack` (L2 → L4 → L1 → L3; L3 adds only) �
 - R1, R2: done (PROGRESS.md).
 - R3: done — `layers/ShapeLayer` (L3) + content-ID anchoring; ladder/probe/request policy in
   `toolkit/`; `extractor-master/toolkit-provenance.tsv` + `scripts/master-toolkit-drift.py`.
-- R4: fingerprint in `verify/`. R5: codec steering in the Android capture.
+- R4: done — fingerprint in `verify/`, grouping in `MasterMainSelection`.
+- R5: done — codec steering in the Android capture (`CodecSteering`, `yft-master-codecs.js`).
 - R6: `modules/youtube`. R8: L2 contract endpoints per site as `ContractLayer` recipes.

@@ -1,6 +1,6 @@
 package com.alal.yft.extractor.master.verify
 
-/** Bounded ISO-BMFF metadata only. Never decodes, plays or seeks a video. */
+/** Bounded ISO-BMFF metadata only. Never decodes, plays or seeks a video. `sidx`: R4 reader. */
 internal object CapturedMp4Facts {
     data class Facts(
         val durationMillis: Long?,
@@ -8,6 +8,8 @@ internal object CapturedMp4Facts {
         val height: Int?,
         val protected: Boolean,
         val audioOnly: Boolean = false,
+        /** R4: keyframe cues from the first `sidx` (empty when the file has none). */
+        val cuesMillis: List<Long> = emptyList(),
     )
 
     fun read(bytes: ByteArray): Facts? {
@@ -20,6 +22,7 @@ internal object CapturedMp4Facts {
         var audioTrack = false
         var videoTrack = false
         var nodes = 0
+        var cues: List<Long>? = null
         fun u32(at: Int): Long = (0..3).fold(0L) { n, i ->
             (n shl 8) or (bytes[at + i].toLong() and 255)
         }
@@ -69,25 +72,9 @@ internal object CapturedMp4Facts {
                         if (version == 0 && body + 8 <= end) extendedTicks = u32(body + 4)
                         if (version == 1 && body + 12 <= end) extendedTicks = u64(body + 4)
                     }
-                    "sidx" -> {
-                        val version = bytes.getOrNull(body)?.toInt()?.and(255) ?: -1
-                        val countAt = body + if (version == 1) 30 else 22
-                        if (version in 0..1 && countAt + 2 <= end) {
-                            val scale = u32(body + 8)
-                            val count = ((bytes[countAt].toInt() and 255) shl 8) or
-                                (bytes[countAt + 1].toInt() and 255)
-                            var ticks = 0L
-                            var direct = count > 0 && count <= 2_048 &&
-                                countAt + 2L + count * 12L <= end
-                            if (direct) repeat(count) { index ->
-                                val entry = countAt + 2 + index * 12
-                                if (u32(entry) and 0x80000000L != 0L) direct = false
-                                ticks += u32(entry + 4)
-                            }
-                            if (duration == null && direct && scale > 0 &&
-                                ticks in 1..172_800L * scale
-                            ) duration = ticks * 1_000 / scale
-                        }
+                    "sidx" -> SegmentIndexReader.sidxBody(bytes, body, end)?.let { index ->
+                        if (cues == null) cues = index.cuesMillis
+                        if (duration == null) duration = index.durationMillis
                     }
                     "hdlr" -> if (body + 12 <= end) {
                         when (String(bytes, body + 8, 4, Charsets.US_ASCII)) {
@@ -125,6 +112,8 @@ internal object CapturedMp4Facts {
             ticks in 1..172_800L * movieScale
         ) duration = ticks * 1_000 / movieScale
         return if (duration == null && width == null && !protected && !audioTrack) null
-        else Facts(duration, width, height, protected, audioTrack && !videoTrack)
+        else Facts(
+            duration, width, height, protected, audioTrack && !videoTrack, cues.orEmpty(),
+        )
     }
 }

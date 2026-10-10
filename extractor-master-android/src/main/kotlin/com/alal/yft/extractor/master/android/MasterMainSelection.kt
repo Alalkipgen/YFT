@@ -14,17 +14,31 @@ import com.alal.yft.extractor.master.MasterStage
 import com.alal.yft.extractor.master.PageSnapshot
 import com.alal.yft.extractor.master.ValidationResult
 import com.alal.yft.extractor.master.present.MasterMainPresentation
+import com.alal.yft.extractor.master.verify.FingerprintGroups
+import com.alal.yft.extractor.master.verify.InspectedMedia
+import com.alal.yft.extractor.master.verify.MediaFingerprint
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.coroutineContext
 import kotlin.math.abs
 
-/** Opt-in policy. Captured source identities and the observed playing URL are never changed. */
+/**
+ * Opt-in policy. Captured source identities and the observed playing URL are never changed.
+ *
+ * R4: [inspect] adds each checked file's fingerprint (length + keyframe cues). Files that are one
+ * video's qualities form one group (main's qualities instead of extra "More" videos); a lone file
+ * whose cues disagree with a main confirmed by two agreeing files is an ad, preview or related
+ * clip and is dropped. Without cues nothing is grouped or dropped (behaviour before R4).
+ */
 class MasterMainSelection(
     private val session: MasterBrowserSession,
     private val enabled: Boolean = true,
     private val metadata: suspend (MediaCandidate) -> MediaCandidate = { it },
+    inspect: (suspend (MediaCandidate) -> InspectedMedia)? = null,
 ) {
+    private val inspect: suspend (MediaCandidate) -> InspectedMedia =
+        inspect ?: { InspectedMedia.of(metadata(it)) }
+
     @Volatile private var last: SelectedCapture? = null
 
     suspend fun select(
@@ -43,6 +57,7 @@ class MasterMainSelection(
         val target = player.duration?.let { (it * 1_000).toLong() }
         val facts = target?.let { PageVideoFacts(durationMillis = it) }
         val checked = mutableListOf<MediaCandidate>()
+        val prints = mutableMapOf<String, MediaFingerprint>()
         var rejection: SiteExtractionFailure? = null
         // Leave headroom inside the unchanged engine timeout for verified main/More routing.
         val deadline = System.nanoTime() + VALIDATION_WINDOW_MS * 1_000_000
@@ -65,9 +80,9 @@ class MasterMainSelection(
                     rejection = verdict.reason
                 }
                 is ValidationResult.Valid -> {
-                    val enriched = bounded { metadata(verdict.candidate) }
-                    if (enriched == null) { rejection = SiteExtractionFailure.NETWORK; break }
-                    var media = enriched
+                    val inspected = bounded { inspect(verdict.candidate) }
+                    if (inspected == null) { rejection = SiteExtractionFailure.NETWORK; break }
+                    var media = inspected.candidate
                     if (media.drmHint == true) return failure(SiteExtractionFailure.DRM_PROTECTED)
                     if (media.mimeType?.startsWith("audio/") == true) continue
                     if (ad(media, facts)) continue
@@ -104,6 +119,9 @@ class MasterMainSelection(
                         }
                     }
                     checked += media
+                    prints[media.mediaUrl] = inspected.fingerprint.copy(
+                        durationMillis = media.durationMillis,
+                    )
                 }
             }
         }
@@ -120,11 +138,19 @@ class MasterMainSelection(
         if (ranked.isEmpty()) {
             return failure(rejection ?: SiteExtractionFailure.NO_MEDIA_FOUND)
         }
-        last = SelectedCapture(request.pageUrl, request.generation, ranked)
+        val groups = FingerprintGroups.of(ranked) { prints[it.mediaUrl] }
+        val selected = groups.flatten()
+        val keys = groups.flatMap { group ->
+            val key = MasterMainPresentation.key(group.first())
+            group.map { it.mediaUrl to key }
+        }.toMap()
+        last = SelectedCapture(request.pageUrl, request.generation, selected, keys)
         return MasterResult.Success(
-            SiteExtractionResult.Success(ranked, listOf(
-                "master: automatic main selected; more=${ranked.size - 1}",
+            SiteExtractionResult.Success(selected, listOf(
+                "master: automatic main selected; more=${groups.size - 1}",
                 "master: independently checked duration; tolerance=2000ms; dimensions=ranking-only",
+                "master: fingerprint qualities=${groups.first().size}; " +
+                    "dropped=${ranked.size - selected.size}",
             )),
             MasterStage.PLAYBACK_CAPTURE,
         )
@@ -142,7 +168,7 @@ class MasterMainSelection(
         if (kept.isEmpty()) return emptyList()
         // Explicit source IDs remain in record. UI copies use presentation keys, not fake post IDs.
         return kept.map { media ->
-            media.copy(videoId = null, pageVideoKey = MasterMainPresentation.key(media))
+            media.copy(videoId = null, pageVideoKey = record.keyOf(media))
         }.also { record.presented = it }
     }
 
@@ -153,11 +179,11 @@ class MasterMainSelection(
         val presentedUrls = record.presented.map { it.mediaUrl }.toSet()
         val owned = candidates.filter {
             it.videoId == null && it.mediaUrl in presentedUrls &&
-                it.pageVideoKey == MasterMainPresentation.key(it)
+                it.pageVideoKey == record.keyOf(it)
         }.distinctBy { it.mediaUrl }
         if (active(owned) == null) return null
         val order = record.candidates.mapIndexed { index, media -> media.mediaUrl to index }.toMap()
-        return MasterMainPresentation.from(owned.sortedBy { order[it.mediaUrl] })
+        return MasterMainPresentation.from(owned.sortedBy { order[it.mediaUrl] }, record::keyOf)
     }
 
     fun clear() { last = null }
@@ -195,8 +221,13 @@ class MasterMainSelection(
         val page: String,
         val generation: Long,
         val candidates: List<MediaCandidate>,
+        /** Presentation key per file: one key per fingerprint group (main's qualities share). */
+        private val keys: Map<String, String>,
         var presented: List<MediaCandidate> = emptyList(),
-    )
+    ) {
+        fun keyOf(media: MediaCandidate): String =
+            keys[media.mediaUrl] ?: MasterMainPresentation.key(media)
+    }
 
     private companion object {
         const val DURATION_SLACK_MS = 2_000L

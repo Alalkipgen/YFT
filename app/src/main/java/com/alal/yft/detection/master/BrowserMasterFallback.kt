@@ -1,5 +1,7 @@
 package com.alal.yft.detection.master
 
+import android.os.Build
+import com.alal.yft.core.download.AudioVideoMuxCompatibility
 import com.alal.yft.core.model.logging.DiagnosticTextSanitizer
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.detection.DeviceMergeSupport
@@ -7,11 +9,13 @@ import com.alal.yft.detection.MergeSupport
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.detection.SiteScope
+import com.alal.yft.detection.platformHasDecoder
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.master.MasterFallbackEngine
 import com.alal.yft.extractor.master.MasterPolicy
 import com.alal.yft.extractor.master.MasterRequest
 import com.alal.yft.extractor.master.MasterResult
+import com.alal.yft.extractor.master.android.CodecSteering
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
 import com.alal.yft.extractor.master.verify.OkHttpMediaValidator
 import com.alal.yft.extractor.master.verify.CapturedMediaMetadata
@@ -161,6 +165,17 @@ class AndroidBrowserMasterFallback(
     }
 
     companion object {
+        /**
+         * R5: the page's player is steered to what [DeviceMergeSupport] merges — VP9/Opus WebM
+         * from Android 10, AV1 only while its merges are on and a decoder plays it.
+         */
+        fun codecSteering(sdkInt: Int = Build.VERSION.SDK_INT): CodecSteering = CodecSteering(
+            vp9 = sdkInt >= AudioVideoMuxCompatibility.WEBM_OPUS_MIN_SDK,
+            av1 = AudioVideoMuxCompatibility.AV1_MP4_ENABLED &&
+                sdkInt >= AudioVideoMuxCompatibility.AV1_MP4_MIN_SDK &&
+                platformHasDecoder("video/av01"),
+        )
+
         private const val PLAY_FIRST = "Play the video on this page, then tap Try again."
 
         fun create(
@@ -172,7 +187,8 @@ class AndroidBrowserMasterFallback(
             val capture = WebViewPlaybackCapture(
                 enabled = true,
                 contentIdOf = { url -> sites.videoKey(url)?.substringAfter(':') },
-                metadata = CapturedMediaMetadata(client)::enrich,
+                inspect = CapturedMediaMetadata(client)::inspect,
+                codecs = codecSteering(),
             )
             return AndroidBrowserMasterFallback(
                 capture,

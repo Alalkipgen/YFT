@@ -1,5 +1,44 @@
 # YFT Master Extractor backup
 
+## R5 — E: codec steering
+
+- ✅ `assets/yft-master-codecs.js` (document start, `addDocumentStartJavaScript`, opt-in builds
+  only; nothing on WebViews without the feature): `MediaSource.isTypeSupported` (also
+  `ManagedMediaSource`/`WebKitMediaSource`) and `mediaCapabilities.decodingInfo` answer only
+  what `DeviceMergeSupport` merges — AVC/AAC always, VP9/Opus/Vorbis WebM from Android 10, AV1
+  only while AV1 merges are on (off), HEVC/Dolby/E-AC-3 never, VP8 never. It only narrows (the
+  browser is still asked), never touches DRM (`keySystemConfiguration`) queries, is off on
+  YouTube hosts and can be disposed; unknown codecs pass through.
+- ✅ `CodecSteering` (policy → script) and `WebViewPlaybackCapture(codecs = …)`; the app hook
+  builds it with `AndroidBrowserMasterFallback.codecSteering(sdk)` from
+  `AudioVideoMuxCompatibility` (same rules as `DeviceMergeSupport`). Main's Facebook Safari AVC
+  agent stays the site-specific case (untouched).
+- ✅ Tests: `codecs.test.cjs` (5: AVC/AAC on, AV1/HEVC/E-AC-3 off, VP9/Opus by Android
+  version, never widens, decodingInfo + DRM pass-through, YouTube off/idempotent/dispose),
+  `CodecSteeringTest` (3), app `BrowserMasterFallbackTest.codecSteeringFollowsTheDeviceMergeRules`.
+  Spike CI runs both JS files. Live parity (AVC ladder where offered; 1440p/2160p kept with
+  VP9) is owner-run on a phone.
+
+## R4 — C: keyframe / duration fingerprint
+
+- ✅ `verify/SegmentIndexReader`: DASH/ISO-BMFF `sidx` (v0/v1, media references only) and ended
+  HLS `#EXTINF` playlists → length + keyframe cues (segment starts); HLS SAMPLE-AES/FairPlay
+  keys → protected. `CapturedMp4Facts` uses it (same duration rule as before) and keeps cues.
+- ✅ `verify/MediaFingerprint` (length + cues): `keyframesAgree` (≥ 90 % within 120 ms → yes,
+  < 50 % → no, too few cues → cannot tell), `sameVideo` (agreeing cues and length within
+  250 ms; 40 ms when both are a fixed grid), `otherVideo`. Length alone never groups.
+- ✅ `CapturedMediaMetadata.inspect` returns the fingerprint from the same bounded reads (MP4
+  prefix `sidx`; HLS playlist, then a master's first playlist only on the same origin). A
+  protected HLS playlist sets `drmHint` → `DRM_PROTECTED`. `enrich` keeps its contract.
+- ✅ `verify/FingerprintGroups` + `MasterMainSelection`: one video's qualities form main's group
+  (one `MediaGroup` with several files, not extra "More" videos); a lone same-length file whose
+  cues disagree with a main confirmed by two agreeing files is dropped (ad/related/preview);
+  a second agreeing ladder or a file without cues stays its own group (before-R4 behaviour).
+  No row is created or changed; ranking is unchanged inside each group.
+- ✅ Tests: `SegmentIndexReaderTest` (7), `MediaFingerprintTest` (8, HLS fixtures under
+  `src/test/resources/fingerprint/`), `CapturedMediaInspectTest` (5),
+  `MasterFingerprintSelectionTest` (5). `:extractor-master:test` 141 tests, 0 failures.
+
 ## R3 — Toolkit + L3 shape search (content-ID anchoring)
 
 - ✅ `toolkit/` copies (provenance header in each file, base main `34a41890`): `PageScripts`

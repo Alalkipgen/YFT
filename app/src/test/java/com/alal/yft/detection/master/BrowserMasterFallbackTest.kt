@@ -23,6 +23,7 @@ import com.alal.yft.extractor.master.MasterRequest
 import com.alal.yft.extractor.master.PageSnapshot
 import com.alal.yft.extractor.master.PlaybackCaptureProvider
 import com.alal.yft.extractor.master.ValidationResult
+import com.alal.yft.extractor.master.android.CodecSteering
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CompletableDeferred
@@ -40,6 +41,20 @@ class BrowserMasterFallbackTest {
     private val generic = "https://page.test/watch"
     private val tiktok = "https://www.tiktok.com/@fixture/video/11111"
     private val media = "https://cdn.test/main.mp4"
+
+    @Test
+    fun codecSteeringFollowsTheDeviceMergeRules() {
+        // R5: VP9/Opus WebM merges from Android 10; AV1 merges are off everywhere.
+        assertEquals(
+            CodecSteering(vp9 = false, av1 = false),
+            AndroidBrowserMasterFallback.codecSteering(28),
+        )
+        assertEquals(
+            CodecSteering(vp9 = true, av1 = false),
+            AndroidBrowserMasterFallback.codecSteering(29),
+        )
+        assertFalse(AndroidBrowserMasterFallback.codecSteering(35).av1)
+    }
 
     @Test
     fun successAndOrdinaryGenericPageNeverCallCapture() = runTest {

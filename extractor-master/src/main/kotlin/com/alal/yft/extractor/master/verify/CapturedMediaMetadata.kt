@@ -1,6 +1,9 @@
 package com.alal.yft.extractor.master.verify
 
 import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.media.MediaKind
+import com.alal.yft.extractor.generic.manifest.ManifestReader
+import com.alal.yft.extractor.master.toolkit.UrlPolicy
 import java.io.IOException
 import java.net.URI
 import java.util.concurrent.TimeUnit
@@ -19,7 +22,10 @@ import okhttp3.Request
 import okhttp3.Response
 import okio.Buffer
 
-/** At most two 256-KiB ranges of a previously validated HTTPS MP4, normal TLS unchanged. */
+/**
+ * At most two 256-KiB reads of a previously validated HTTPS MP4 (ranges) or HLS playlist (the
+ * playlist, then a master's first same-origin video playlist), normal TLS unchanged.
+ */
 class CapturedMediaMetadata(client: OkHttpClient) {
     private val http = client.newBuilder()
         .followRedirects(false).followSslRedirects(false)
@@ -30,11 +36,22 @@ class CapturedMediaMetadata(client: OkHttpClient) {
         if (candidate.durationMillis != null && candidate.width != null &&
             candidate.height != null
         ) return candidate
-        if (candidate.mimeType?.substringBefore(';') != "video/mp4" ||
-            !secure(candidate.mediaUrl)
-        ) return candidate
-        val prefix = range(candidate, 0) ?: return candidate
+        return inspect(candidate).candidate
+    }
+
+    /**
+     * R4: the same bounded read, keeping the keyframe cues as a [MediaFingerprint]. An MP4 gives
+     * its `sidx`; an HLS playlist gives its `#EXTINF` pieces (a master's first video playlist is
+     * read only on the master's own origin, so no header goes to another site).
+     */
+    suspend fun inspect(candidate: MediaCandidate): InspectedMedia {
+        if (!secure(candidate.mediaUrl)) return InspectedMedia.of(candidate)
+        val mime = candidate.mimeType?.substringBefore(';')?.lowercase()
+        if (candidate.kind == MediaKind.HLS || mime in HLS_MIMES) return playlist(candidate)
+        if (mime != "video/mp4") return InspectedMedia.of(candidate)
+        val prefix = range(candidate, 0) ?: return InspectedMedia.of(candidate)
         var facts = CapturedMp4Facts.read(prefix)
+        val cues = facts?.cuesMillis.orEmpty()
         val length = candidate.contentLengthBytes
         if (facts?.durationMillis == null && facts?.protected != true &&
             length != null && length > MAX_BYTES
@@ -42,21 +59,54 @@ class CapturedMediaMetadata(client: OkHttpClient) {
             val suffix = range(candidate, length - MAX_BYTES)
             if (suffix != null) facts = CapturedMp4Facts.read(suffix) ?: facts
         }
-        return candidate.copy(
+        val updated = candidate.copy(
             mimeType = if (facts?.audioOnly == true) "audio/mp4" else candidate.mimeType,
             durationMillis = facts?.durationMillis ?: candidate.durationMillis,
             width = facts?.width ?: candidate.width,
             height = facts?.height ?: candidate.height,
             drmHint = true.takeIf { facts?.protected == true } ?: candidate.drmHint,
         )
+        return InspectedMedia(
+            updated,
+            MediaFingerprint(updated.durationMillis, cues.ifEmpty { facts?.cuesMillis.orEmpty() }),
+        )
     }
 
-    private suspend fun range(candidate: MediaCandidate, offset: Long): ByteArray? {
-        val builder = Request.Builder().url(candidate.mediaUrl).get()
+    private suspend fun playlist(candidate: MediaCandidate): InspectedMedia {
+        val text = fetch(candidate.mediaUrl, candidate, offset = null)
+            ?.toString(Charsets.UTF_8) ?: return InspectedMedia.of(candidate)
+        var timeline = SegmentIndexReader.extinf(text)
+        if (timeline == null) {
+            val first = ManifestReader.hls(text, candidate.mediaUrl)
+                ?.takeIf { it.master }?.firstPlaylistUrl
+            if (first != null && secure(first) &&
+                UrlPolicy.origin(first) == UrlPolicy.origin(candidate.mediaUrl)
+            ) {
+                timeline = fetch(first, candidate, offset = null)
+                    ?.toString(Charsets.UTF_8)?.let(SegmentIndexReader::extinf)
+            }
+        }
+        val updated = candidate.copy(
+            durationMillis = candidate.durationMillis
+                ?: timeline?.takeUnless { it.protected }?.durationMillis,
+            drmHint = true.takeIf { timeline?.protected == true } ?: candidate.drmHint,
+        )
+        return InspectedMedia(
+            updated,
+            MediaFingerprint.of(timeline?.takeUnless { it.protected }, updated.durationMillis),
+        )
+    }
+
+    private suspend fun range(candidate: MediaCandidate, offset: Long): ByteArray? =
+        fetch(candidate.mediaUrl, candidate, offset)
+
+    /** One GET of at most [MAX_BYTES]; a ranged one when [offset] is set. */
+    private suspend fun fetch(url: String, candidate: MediaCandidate, offset: Long?): ByteArray? {
+        val builder = Request.Builder().url(url).get()
         candidate.requestContext.replayHeaders().forEach { (key, value) ->
             builder.header(key, value)
         }
-        builder.header("Range", "bytes=$offset-${offset + MAX_BYTES - 1}")
+        if (offset != null) builder.header("Range", "bytes=$offset-${offset + MAX_BYTES - 1}")
         builder.header("Accept-Encoding", "identity")
         val response = suspendCancellableCoroutine<Response?> { continuation ->
             val call = http.newCall(builder.build())
@@ -75,9 +125,11 @@ class CapturedMediaMetadata(client: OkHttpClient) {
             withContext(Dispatchers.IO) {
                 response.use { answer ->
                     if (answer.code !in setOf(200, 206) ||
-                        offset > 0 && answer.code != 206
+                        offset == null && answer.code != 200 ||
+                        offset != null && offset > 0 && answer.code != 206
                     ) return@withContext null
-                    if (answer.code == 206 && !answer.header("Content-Range").orEmpty()
+                    if (offset != null && answer.code == 206 &&
+                        !answer.header("Content-Range").orEmpty()
                             .startsWith("bytes $offset-")
                     ) return@withContext null
                     val source = answer.body?.source() ?: return@withContext null
@@ -100,6 +152,7 @@ class CapturedMediaMetadata(client: OkHttpClient) {
 
     private companion object {
         const val MAX_BYTES = 256 * 1024L
+        val HLS_MIMES = setOf("application/vnd.apple.mpegurl", "application/x-mpegurl", "audio/mpegurl")
 
         /** Same check the capture session applies; kept local so this stays Android-free. */
         fun secure(url: String): Boolean = runCatching {

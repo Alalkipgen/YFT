@@ -3,6 +3,9 @@ package com.alal.yft.extractor.master.android
 import android.os.Looper
 import android.webkit.CookieManager
 import android.webkit.WebView
+import androidx.webkit.ScriptHandler
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import com.alal.yft.core.browser.detection.RequestObservation
 import com.alal.yft.core.browser.detection.FocusedVideoProbe
 import com.alal.yft.core.browser.webview.BrowserObservationSink
@@ -16,6 +19,7 @@ import com.alal.yft.extractor.master.PageSnapshot
 import com.alal.yft.extractor.master.PlaybackCaptureProvider
 import com.alal.yft.extractor.master.ValidationResult
 import com.alal.yft.extractor.master.present.MasterMainPresentation
+import com.alal.yft.extractor.master.verify.InspectedMedia
 import java.lang.ref.WeakReference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -34,10 +38,15 @@ class WebViewPlaybackCapture(
     val session: MasterBrowserSession = MasterBrowserSession(),
     private val contentIdOf: (String) -> String? = { null },
     metadata: suspend (MediaCandidate) -> MediaCandidate = { it },
+    /** R4: the bounded metadata read with the file's fingerprint; wins over [metadata]. */
+    inspect: (suspend (MediaCandidate) -> InspectedMedia)? = null,
+    /** R5: codec steering at document start; null (default) installs nothing. */
+    private val codecs: CodecSteering? = null,
 ) : PlaybackCaptureProvider {
-    private val mainSelection = MasterMainSelection(session, enabled, metadata)
+    private val mainSelection = MasterMainSelection(session, enabled, metadata, inspect)
     private var browser = WeakReference<WebView>(null)
     private var script: String? = null
+    private var steering: ScriptHandler? = null
 
     fun attach(view: WebView) {
         mainThread()
@@ -47,6 +56,8 @@ class WebViewPlaybackCapture(
         browser = WeakReference(view)
         script = view.context.assets.open("yft-master-capture.js")
             .bufferedReader().use { it.readText() }
+        steering?.remove()
+        steering = codecs?.let { steer(view, it) }
         val userAgent = view.settings.userAgentString
         val cookies = CookieManager.getInstance()
         session.setContextProvider { url, page ->
@@ -69,6 +80,8 @@ class WebViewPlaybackCapture(
         browser.clear()
         mainSelection.clear()
         script = null
+        steering?.remove()
+        steering = null
         session.clear()
     }
 
@@ -123,6 +136,16 @@ class WebViewPlaybackCapture(
 
     fun mainAndMore(candidates: List<MediaCandidate>): MasterMainPresentation? =
         mainSelection.presentation(candidates)
+
+    /** Document-start only (a later script would miss the player's first codec query). */
+    private fun steer(view: WebView, policy: CodecSteering): ScriptHandler? = runCatching {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return null
+        val template = view.context.assets.open(CodecSteering.ASSET)
+            .bufferedReader().use { it.readText() }
+        WebViewCompat.addDocumentStartJavaScript(
+            view, policy.script(template), CodecSteering.ORIGINS,
+        )
+    }.getOrNull()
 
     private fun owns(owner: WeakReference<WebView>): Boolean =
         browser.get()?.let { it === owner.get() } == true

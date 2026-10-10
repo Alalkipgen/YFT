@@ -1,0 +1,14 @@
+#EXTM3U
+#EXT-X-VERSION:6
+#EXT-X-TARGETDURATION:7
+#EXT-X-PLAYLIST-TYPE:VOD
+#EXT-X-KEY:METHOD=SAMPLE-AES,URI="skd://fixture-key",KEYFORMAT="com.apple.streamingkeydelivery"
+#EXTINF:4.004,
+drm/0.ts
+#EXTINF:2.336,
+drm/1.ts
+#EXTINF:6.006,
+drm/2.ts
+#EXTINF:3.170,
+drm/3.ts
+#EXT-X-ENDLIST
