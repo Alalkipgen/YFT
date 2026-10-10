@@ -132,6 +132,45 @@
   JS 28, drift 0, `:app:assembleDebug` OK.
 - ⏳ Owner-run: live parity `tiktok-nasa`, `tiktok-short-link`, `tiktok-photo`, `tiktok-private`
   on a phone.
+- ✅ CI (TikTok, `29eb119`): Master opt-in debug APK run `38089590941` — success.
+- ✅ **Instagram**: the captioned embed page `www.instagram.com/p/{code}/embed/captioned/` (live
+  check 2026-10-10, reel: `contextJSON` → `shortcode_media` with `video_url`, `dimensions`,
+  caption and owner; its file opened without any cookie), asked with the tab's own agent, main's
+  navigation headers + Referer `https://www.instagram.com/`, **no cookie** (main's `pageHeaders`
+  without its cookie), main's 6 MiB page cap, host lock. Embedded JSON documents are read before
+  the page. Node = the object whose `shortcode` or `code` is the post's code. Items = main's
+  `postOf`: `carousel_media` or the sidecar's `edge_sidecar_to_children.edges.*.node`, else the
+  post itself; a carousel link's `img_index` picks its item (main's `IMAGE_INDEX`), else the first
+  video item. Key table = main's `itemOf`: `video_versions.*`, `video_url` with `dimensions`,
+  both inline DASH manifests; duration (`video_duration`, s), thumbnail
+  (`image_versions2.candidates.0.url`, `display_url`). Title = the caption's first line (main's
+  `displayTitle`), else "{full_name} on Instagram", else "@{username} on Instagram". Stops: a
+  photo post (`is_video` false / `media_type` 1 on every item, as the answer states it, never
+  from a missing field) → `NO_MEDIA_FOUND`, 0 capture (main's final answer). A login or
+  checkpoint page (`/accounts/login`, `/challenge`, main's `isLoginWall`) answers nothing, so it
+  and any other anonymous wording go to the user's own playback. Reader additions: item lists
+  as paths with `*` (X's `mediaDetails` now `[mediaDetails, *]`), the node itself when it has no
+  list, `photoMarkers`, owner-name titles (`nameTitles`), embedded documents first;
+  `SiteContracts.onWall()`.
+- ✅ Instagram tests: `InstagramContractTest` (6) — the embed shape (1 row 640×1136, 15.2 s,
+  caption, thumbnail, key `instagram:{code}`, the tab's agent, no cookie, Referer, 0 capture);
+  parity with main's `InstagramExtractor` on `embed_captioned`, `page_signed_in`,
+  `graphql_reel`, `api_info_reel`, `graphql_carousel` (`img_index` 3 and 1), another post's file
+  never; a carousel link picks its item, else the first video ("Fixture Creator on Instagram");
+  `graphql_photo`, a photo carousel item, an API photo and a photo embed → `NO_MEDIA_FOUND`,
+  0 capture, 0 probes; no video/login/null/fileless/a redirect to the login page/another post's
+  embed → capture, 0 probes; a renamed `video_url` found by shape. The saved live embed page
+  (not committed, reel) gave its 720×1280, 62 s file via `CONTRACT`. Drift: 13 new rows (107), 0 drift. Deviations:
+  one answer per post (no signed-in page or app API request; capture decides access, not the
+  anonymous embed); a login page is read as no answer; the embed gives one quality; the `efg`
+  bitrate inside a file address is not read (Master's probe gives the size).
+  Local: `:extractor-master:test` 279 (0 failures, 2 skipped), Android 56, app 25 (CI filter),
+  JS 28, drift 0, `:app:assembleDebug` OK.
+- ⏳ Owner-run: live parity `instagram-reel`, `instagram-carousel`, `instagram-private` on a
+  phone.
+- ✅ **R8 done (offline)**: Vimeo, X, Facebook, TikTok and Instagram answer through `CONTRACT`
+  first; flag off = main unchanged. Live parity and phone checks stay owner-run
+  (`ONLY=<ids> bash scripts/canary.sh`).
 
 ## R7 — Generic web: capture + MSE/EME metadata hooks
 
