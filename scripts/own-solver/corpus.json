@@ -1,0 +1,181 @@
+{
+  "comment": "Phase 1.1 S1 player corpus: IDs, SHA-256 and sizes only (player text is downloaded at test time, never committed). Re-record with: node scripts/verify-own-solver.mjs --record; add one with --add today|<id>.",
+  "players": [
+    {
+      "player": "74edf1a3",
+      "source": "ejs test vectors (Unlicense)",
+      "files": {
+        "main": {
+          "sha256": "ed9a4ea0646332a6b6c973ebe5a915c62c43db89bb2bb1a31eba07d906ef8ff7",
+          "bytes": 2699840
+        },
+        "tce": {
+          "sha256": "ed9a4ea0646332a6b6c973ebe5a915c62c43db89bb2bb1a31eba07d906ef8ff7",
+          "bytes": 2699840
+        },
+        "es6": {
+          "sha256": "3b9b3f051417dd2653169381a7e25bba985f97846e62aaf3ad7dfc19464a9c8e",
+          "bytes": 2422822
+        },
+        "phone": {
+          "sha256": "535c556f220b088c5cde58621db2f39da4868b55664246a352c743b354cbf1a6",
+          "bytes": 1578638
+        }
+      }
+    },
+    {
+      "player": "901741ab",
+      "source": "ejs test vectors (Unlicense)",
+      "files": {
+        "main": {
+          "sha256": "f8b24f2bbcfc45233e2e3cf197b5831179e7d93e904c46c485acc9c6bee83bb9",
+          "bytes": 2701648
+        },
+        "tce": {
+          "sha256": "f8b24f2bbcfc45233e2e3cf197b5831179e7d93e904c46c485acc9c6bee83bb9",
+          "bytes": 2701648
+        },
+        "es6": {
+          "sha256": "a86695738aafd9b071dcfabb610f4bd3d73e15ebcece969f2dc48caedafc51c4",
+          "bytes": 2423597
+        },
+        "phone": {
+          "sha256": "46215f6a86a5c6d5b03d66efe87a862b583a57784f2409d51da828f175301e30",
+          "bytes": 1577934
+        }
+      }
+    },
+    {
+      "player": "e7573094",
+      "source": "ejs test vectors (Unlicense)",
+      "files": {
+        "main": {
+          "sha256": "21561f388c1202a7d2b53c365658036f0500ba40f3df2b2825625718827ac601",
+          "bytes": 2702724
+        },
+        "tce": {
+          "sha256": "21561f388c1202a7d2b53c365658036f0500ba40f3df2b2825625718827ac601",
+          "bytes": 2702724
+        },
+        "es6": {
+          "sha256": "7c62f99f35607e045d8901bc35bf605594971f74dd24e0fcfbd6ad79303f4c30",
+          "bytes": 2425299
+        },
+        "phone": {
+          "sha256": "73a5943fc5e1abf3022c81403d18937527a9e27b7fb336af81926638f9769a84",
+          "bytes": 1579178
+        }
+      }
+    },
+    {
+      "player": "9fcf08e8",
+      "source": "ejs test vectors (Unlicense)",
+      "files": {
+        "main": {
+          "sha256": "846062382768262e18444a96b1e2c168addd158ffcf7ffe630c1db33a14aa3d2",
+          "bytes": 2701891
+        },
+        "tce": {
+          "sha256": "846062382768262e18444a96b1e2c168addd158ffcf7ffe630c1db33a14aa3d2",
+          "bytes": 2701891
+        },
+        "es6": {
+          "sha256": "ae2b8869718b43553874c41b0ceaad8331d0b84c5cb870632c726ab7da4ed9e2",
+          "bytes": 2424234
+        },
+        "phone": {
+          "sha256": "36ea1bdf7be5fd69bdd7abb55c5c8f583fa6569b786eb76f02248a7f0bd45cc3",
+          "bytes": 1578610
+        }
+      }
+    },
+    {
+      "player": "21cd2156",
+      "source": "ejs test vectors (Unlicense)",
+      "files": {
+        "main": {
+          "sha256": "21a0a7092a8d46ffa1840b73f57acfdfc4410311a707f8bb9dba605dfa5ba9f9",
+          "bytes": 2705144
+        },
+        "tce": {
+          "sha256": "21a0a7092a8d46ffa1840b73f57acfdfc4410311a707f8bb9dba605dfa5ba9f9",
+          "bytes": 2705144
+        },
+        "es6": {
+          "sha256": "6c518bbf2ec982396851961dd126e69911f673b884e268eb448fcbf4466e6496",
+          "bytes": 2427709
+        },
+        "phone": {
+          "sha256": "67eddc083ede7c5d0b98b73949eed9adac846dc40fa5a0d6285bc6b2f3cadd80",
+          "bytes": 1582066
+        }
+      }
+    },
+    {
+      "player": "76ad2fe8",
+      "source": "ejs test vectors (Unlicense)",
+      "files": {
+        "main": {
+          "sha256": "6b67e1c832a96eff4a4e210356b9ef5fb3e724e3354d7ce0e2ffc131c63a8a3c",
+          "bytes": 2705162
+        },
+        "tce": {
+          "sha256": "6b67e1c832a96eff4a4e210356b9ef5fb3e724e3354d7ce0e2ffc131c63a8a3c",
+          "bytes": 2705162
+        },
+        "es6": {
+          "sha256": "a0b4ab2b6aca699770afcf4213d640c7afa89d2c45943aba0a7e3f50b4411b79",
+          "bytes": 2427878
+        },
+        "phone": {
+          "sha256": "729f0e5cde1f97a72a32b90c0b518a8e9478a3906e26cc53d4e2e7f4bf6383c8",
+          "bytes": 1582170
+        }
+      }
+    },
+    {
+      "player": "631d3938",
+      "source": "ejs test vectors (Unlicense)",
+      "files": {
+        "main": {
+          "sha256": "4e8399d3079df67f90c065c290c56d1b8fe14f84d637886e2c0bf6634003c187",
+          "bytes": 2706639
+        },
+        "tce": {
+          "sha256": "4e8399d3079df67f90c065c290c56d1b8fe14f84d637886e2c0bf6634003c187",
+          "bytes": 2706639
+        },
+        "es6": {
+          "sha256": "37f45e82e27f414897e55b5d8aac869057cdcd659e31a1e6988948022bd0715e",
+          "bytes": 2428287
+        },
+        "phone": {
+          "sha256": "a7845b1315fc533e03e576f95c1c250178ce64ee464d02b4ef2087e6ed15ec35",
+          "bytes": 1583104
+        }
+      }
+    },
+    {
+      "player": "5203c085",
+      "source": "today's player 2026-10-10",
+      "files": {
+        "main": {
+          "sha256": "d2ba1d9fc0f5788dd6398cdb93c2a1aefa2e0d80afa488a83f20971aa4da5030",
+          "bytes": 2989005
+        },
+        "tce": {
+          "sha256": "a071ad436a40377b454aa94326adb6d0c9ce61286d3d91a4b34a650c9a32ecc2",
+          "bytes": 2989016
+        },
+        "es6": {
+          "sha256": "7f35b0b255c96caec3e81daaaf6312c5c845d2500adf2b3c441b67296ef9ea2c",
+          "bytes": 2617844
+        },
+        "phone": {
+          "sha256": "b518edf3aa6b9a4c68e5096e4a19698adbd241ecd04441f2b0665f1ae16f5e50",
+          "bytes": 1737105
+        }
+      }
+    }
+  ]
+}

@@ -1,5 +1,31 @@
 # YFT Master Extractor backup
 
+## Phase 1.1 — S1: own-solver harness and corpus
+
+- ✅ `scripts/verify-own-solver.mjs` (parity runner, beside `verify-youtube-solver.mjs`) +
+  `scripts/own-solver/harness.mjs` (pure parts): for every corpus file it runs main's bundled
+  ejs core (the oracle) and, once built, the own core
+  (`extractor-master-android/src/main/assets/yft-own-solver/own.solver.core.js`,
+  `yftOwnSolve({player, n, sig})`, written in S2–S4) on the same player and inputs: the ejs
+  vectors plus deterministic generated inputs (n 16/18/19, sig 104/108 chars, seeded per
+  player). A file passes when ejs meets every vector and solves every input, and (once built)
+  the own core equals ejs on all of them. Solvers run in a bare V8 context; the report
+  (stdout + `build/own-solver/report.json`) names players, variants, kinds and input indexes
+  only, never a solver input or output (checked: 0 of 39 known values in the report/log).
+  Exit 0/1/2 = pass/fail/usage. `--only`, `--own <file>`, `--record`, `--add today|<id>`.
+- ✅ `scripts/own-solver/corpus.json`: 8 players × 4 variants (main, tce, es6, phone) = 32
+  files, player IDs + SHA-256 + size only. The 7 ejs-vector players (`74edf1a3`, `901741ab`,
+  `e7573094`, `9fcf08e8`, `21cd2156`, `76ad2fe8`, `631d3938`) + today's player `5203c085`
+  (generated inputs only). Player text is downloaded at test time into
+  `build/own-solver/players/` (gitignored) and hash-checked; never committed.
+- ✅ Live run: 32/32 files pass; ejs meets all vectors (74edf1a3 5/5, the other six 2/2 per
+  variant = 68 checks) and solves every input; own core: not built yet (S2–S4).
+- ✅ Offline test `scripts/own-solver/tests/harness.test.mjs` (10 tests: committed corpus
+  valid + full coverage, bad corpus entries named, deterministic URL-safe inputs, vector
+  merge, oracle faults, own disagree/missing/failed, absent vs download faults, summary leaks
+  no value), added to the workflow's JS step.
+- No change in `main`, the app or assets; flag-off behaviour unchanged.
+
 ## R9 — Signed recipe config (data only)
 
 - ✅ `recipes/RemoteRecipes` (+ `RemoteRecipeConfig`, `RemoteRecipeSignature`): the bundled
