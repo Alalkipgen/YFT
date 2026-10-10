@@ -113,6 +113,9 @@ class MasterBrowserSession {
                     mimeType = observed.mime,
                     context = context,
                     pageRole = PageMediaRole.PREVIEW.takeIf { observed.preview },
+                    fedPlayer = observed.fed && !observed.preview,
+                    width = observed.width,
+                    height = observed.height,
                 ),
             )
         }

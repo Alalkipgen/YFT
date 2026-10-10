@@ -43,6 +43,7 @@ extractor-master-android/               com.alal.yft.extractor.master.android
   WebViewPlaybackCapture, MasterBrowserSession, CaptureFrame, CaptureFocusGuard,
   MasterMainSelection, assets/yft-master-capture.js
   R5: CodecSteering + assets/yft-master-codecs.js (document-start codec steering)
+  R7: assets/yft-master-mse.js (document-start MSE facts + EME stop) → fed CapturedRequest
 app/ BrowserMasterFallback              hook; reads TerminalRules (no own copy)
 app/src/androidTest/.../MasterParityLiveTest, assets/parity/parity-urls.json; scripts/canary.sh
 scripts/master-youtube-canary.sh (R6 YouTube client-table canary, owner-run)
@@ -105,4 +106,6 @@ authorized playback) → `LayerStack` (L2 → L4 → L1 → L3; L3 adds only) �
 - R4: done — fingerprint in `verify/`, grouping in `MasterMainSelection`.
 - R5: done — codec steering in the Android capture (`CodecSteering`, `yft-master-codecs.js`).
 - R6: done — `modules/` (`MasterSiteModule`, `SiteExtractorModule`) and `modules/youtube`
-  (copies + `MasterYouTubeModule`, `MasterYouTubeClients`, canary script). R8: L2 contract endpoints per site as `ContractLayer` recipes.
+  (copies + `MasterYouTubeModule`, `MasterYouTubeClients`, canary script).
+- R7: done — `yft-master-mse.js`, fed addresses in L1 (`CaptureLayer`), EME licence/keys stop.
+- R8: L2 contract endpoints per site as `ContractLayer` recipes.

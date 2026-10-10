@@ -49,11 +49,12 @@ jobs:
           git fetch --no-tags --depth=1 origin "$base" +refs/heads/main:refs/remotes/origin/main
           python3 scripts/master-toolkit-drift.py --ref "$base"
           python3 scripts/master-toolkit-drift.py --ref origin/main --warn-only
-      - name: Capture and codec script tests (R2 EME stop, R5 steering)
+      - name: Capture, codec and MSE script tests (R2 EME stop, R5 steering, R7 MSE/EME)
         shell: bash
         run: |
           node --test extractor-master-android/src/test/js/capture.test.cjs \
-            extractor-master-android/src/test/js/codecs.test.cjs
+            extractor-master-android/src/test/js/codecs.test.cjs \
+            extractor-master-android/src/test/js/mse.test.cjs
       - name: Master tests and opt-in debug APK
         shell: bash
         run: |

@@ -22,8 +22,17 @@ internal data class CaptureFrame(
         "CaptureFrame(generation=$generation, requests=${requests.size}, protected=$protected)"
 }
 
-internal data class FrameRequest(val url: String, val mime: String?, val preview: Boolean) {
-    override fun toString(): String = "FrameRequest(preview=$preview, address=[omitted])"
+internal data class FrameRequest(
+    val url: String,
+    val mime: String?,
+    val preview: Boolean,
+    /** R7: appended to the focused video's MediaSource by the page's player. */
+    val fed: Boolean = false,
+    val width: Int? = null,
+    val height: Int? = null,
+) {
+    override fun toString(): String =
+        "FrameRequest(preview=$preview, fed=$fed, address=[omitted])"
 }
 
 internal data class FramePlayer(
@@ -88,10 +97,16 @@ internal object CaptureFrameReader {
             requests = root["requests"].asArrayOrEmpty.take(64).mapNotNull { value ->
                 val url = value["url"].asStringOrNull?.takeIf { it.length <= MAX_URL_CHARS }
                     ?: return@mapNotNull null
+                val fed = value["fed"].asBooleanOrNull == true
                 FrameRequest(
                     url,
                     value["mime"].asStringOrNull?.takeIf { it.length <= 128 },
                     value["preview"].asBooleanOrNull == true,
+                    fed = fed,
+                    width = value["width"].asLongOrNull?.takeIf { fed && it in 1..16_384 }
+                        ?.toInt(),
+                    height = value["height"].asLongOrNull?.takeIf { fed && it in 1..16_384 }
+                        ?.toInt(),
                 )
             },
             player = player,

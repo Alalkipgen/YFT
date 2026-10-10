@@ -8,7 +8,11 @@ import com.alal.yft.extractor.master.PageSnapshot
 import com.alal.yft.extractor.master.toolkit.CandidateFactory
 import com.alal.yft.extractor.master.toolkit.UrlPolicy
 
-/** L1: GET requests the browser made for this page, each with its own origin's context. */
+/**
+ * L1: GET requests the browser made for this page, each with its own origin's context. R7: an
+ * address the focused player fed into its MediaSource counts as the focused video's, like the
+ * playing address, and carries the picture size its init segment stated.
+ */
 internal class CaptureLayer : MasterLayer {
     override val id = LayerId.L1_CAPTURE
 
@@ -19,7 +23,7 @@ internal class CaptureLayer : MasterLayer {
         snapshot.requests.forEach { observed ->
             if (!observed.method.equals("GET", true)) return@forEach
             val url = UrlPolicy.secure(observed.url) ?: return@forEach
-            val focused = focusedUrl == UrlPolicy.whole(url)
+            val focused = focusedUrl == UrlPolicy.whole(url) || observed.fedPlayer
             if (
                 request.expectedContentId != null && observed.contentId != null &&
                 observed.contentId != request.expectedContentId
@@ -32,6 +36,8 @@ internal class CaptureLayer : MasterLayer {
                 id = observed.contentId ?: request.expectedContentId.takeIf { focused },
                 role = observed.pageRole ?: PageMediaRole.MAIN.takeIf { focused },
                 source = CandidateSource.REQUEST,
+                // One player's tracks and qualities are one page video, never rival videos.
+                key = FED_PLAYER_KEY.takeIf { observed.fedPlayer },
             ) ?: return@forEach
             found += candidate.copy(
                 requestContext = UrlPolicy.context(
@@ -39,8 +45,14 @@ internal class CaptureLayer : MasterLayer {
                     captured = true,
                 ),
                 observedAtEpochMs = observed.observedAtEpochMs,
+                width = candidate.width ?: observed.width,
+                height = candidate.height ?: observed.height,
             )
         }
         return Evidence(found)
+    }
+
+    internal companion object {
+        const val FED_PLAYER_KEY = "master:fed-player"
     }
 }

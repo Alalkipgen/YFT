@@ -42,11 +42,14 @@ class WebViewPlaybackCapture(
     inspect: (suspend (MediaCandidate) -> InspectedMedia)? = null,
     /** R5: codec steering at document start; null (default) installs nothing. */
     private val codecs: CodecSteering? = null,
+    /** R7: MSE/EME metadata hooks at document start (`yft-master-mse.js`). */
+    private val mediaHooks: Boolean = true,
 ) : PlaybackCaptureProvider {
     private val mainSelection = MasterMainSelection(session, enabled, metadata, inspect)
     private var browser = WeakReference<WebView>(null)
     private var script: String? = null
     private var steering: ScriptHandler? = null
+    private var hooks: ScriptHandler? = null
 
     fun attach(view: WebView) {
         mainThread()
@@ -58,6 +61,8 @@ class WebViewPlaybackCapture(
             .bufferedReader().use { it.readText() }
         steering?.remove()
         steering = codecs?.let { steer(view, it) }
+        hooks?.remove()
+        hooks = if (mediaHooks) documentStart(view, readAsset(view, MEDIA_HOOKS_ASSET)) else null
         val userAgent = view.settings.userAgentString
         val cookies = CookieManager.getInstance()
         session.setContextProvider { url, page ->
@@ -74,7 +79,8 @@ class WebViewPlaybackCapture(
         mainThread()
         if (browser.get() !== view) return
         view.evaluateJavascript(
-            "window.__yftMasterCaptureV1 && window.__yftMasterCaptureV1.dispose()",
+            "window.__yftMasterCaptureV1 && window.__yftMasterCaptureV1.dispose();" +
+                "window.__yftMasterMseV1 && window.__yftMasterMseV1.dispose()",
             null,
         )
         browser.clear()
@@ -82,6 +88,8 @@ class WebViewPlaybackCapture(
         script = null
         steering?.remove()
         steering = null
+        hooks?.remove()
+        hooks = null
         session.clear()
     }
 
@@ -138,13 +146,18 @@ class WebViewPlaybackCapture(
         mainSelection.presentation(candidates)
 
     /** Document-start only (a later script would miss the player's first codec query). */
-    private fun steer(view: WebView, policy: CodecSteering): ScriptHandler? = runCatching {
+    private fun steer(view: WebView, policy: CodecSteering): ScriptHandler? =
+        documentStart(view, readAsset(view, CodecSteering.ASSET)?.let(policy::script))
+
+    /** Nothing is installed on WebViews without document-start scripts; capture still works. */
+    private fun documentStart(view: WebView, source: String?): ScriptHandler? = runCatching {
+        if (source == null) return null
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return null
-        val template = view.context.assets.open(CodecSteering.ASSET)
-            .bufferedReader().use { it.readText() }
-        WebViewCompat.addDocumentStartJavaScript(
-            view, policy.script(template), CodecSteering.ORIGINS,
-        )
+        WebViewCompat.addDocumentStartJavaScript(view, source, CodecSteering.ORIGINS)
+    }.getOrNull()
+
+    private fun readAsset(view: WebView, name: String): String? = runCatching {
+        view.context.assets.open(name).bufferedReader().use { it.readText() }
     }.getOrNull()
 
     private fun owns(owner: WeakReference<WebView>): Boolean =
@@ -241,5 +254,6 @@ class WebViewPlaybackCapture(
         const val CAPTURE_TIMEOUT_MS = 2_500L
         const val SAMPLE_DELAY_MS = 200L
         const val MAX_SAMPLES = 10
+        const val MEDIA_HOOKS_ASSET = "yft-master-mse.js"
     }
 }

@@ -1,5 +1,35 @@
 # YFT Master Extractor backup
 
+## R7 — Generic web: capture + MSE/EME metadata hooks
+
+- ✅ `assets/yft-master-mse.js` (document start via `addDocumentStartJavaScript`, top frame only,
+  off on YouTube hosts; nothing on WebViews without the feature): records each SourceBuffer's
+  type (`addSourceBuffer`), the picture size of its init segment (ISO-BMFF `tkhd`, WebM
+  `PixelWidth`/`PixelHeight`), and which delivered addresses fed it (the ArrayBuffer the page
+  read from XHR `response` or fetch `arrayBuffer()`, matched by identity; bytes are never
+  copied or sent). Every original gets its own arguments and returns its own result;
+  `dispose` restores them.
+- ✅ EME: a key attached to a video (`setMediaKeys`) or a licence request (`generateRequest`)
+  marks the page protected → `DRM_PROTECTED`, before any media check. A bare
+  `requestMediaKeySystemAccess` is only counted: many players ask it at start-up for clear
+  video, so it alone is not protection (R2's `mediaKeys`/`encrypted` checks stay).
+- ✅ `yft-master-capture.js` adds the focused video's fed addresses to each sample (`fed`, its
+  buffer type, init size); `CaptureFrame` → `MasterBrowserSession` → `CapturedRequest(fedPlayer,
+  width, height)`. L1 (`CaptureLayer`) treats a fed address like the playing address (MAIN, the
+  requested content ID) and keeps the stated codec and size; one player's fed tracks and
+  qualities share one page-video key, so they are one focused video, never rival videos. R4
+  grouping, ad/preview rules and the probe budget apply unchanged.
+- ✅ L1 capture stays the default answer for sites with no adapter (the user's Download tap →
+  one capture); no background capture was added.
+- ✅ Tests: `mse.test.cjs` (6: buffer types + MP4 init size + XHR/fetch feeding, WebM init size,
+  originals untouched/plain-HTTP ignored, EME query vs keys/licence, capture sample carries fed
+  rows and stops on a licence, YouTube off + dispose), `CaptureLayerMseTest` (2),
+  `MediaSourceCaptureTest` (3: frame parsing, fed address → MAIN with codec/size through the
+  engine, licence → `DRM_PROTECTED` with 0 probes). Spike CI runs all three JS files. Live
+  parity on the generic URLs (plain `<video>`, HLS, DASH, VAST pre-roll) is owner-run.
+  Local: `:extractor-master:test` 244 (0 failures, 2 skipped), Android 56, app 24, JS 28,
+  `:app:assembleDebug` OK.
+
 ## R6 — Own YouTube module (YT-1 / YT-2 / YT-4)
 
 - ✅ YT-1: main's five YouTube files copied whole into `extractor-master/.../modules/youtube/`
@@ -32,6 +62,9 @@
   the module only; table order), `MasterSiteModuleTest` (7). `extractor-sites` is a
   test-only dependency for the parity comparison. `:extractor-master:test` 242 tests,
   0 failures (2 skipped: canary, live smoke).
+- ✅ Spike CI run 38079213716 green on `46ef8ec` (the first run, 38078858636, stopped 15 s into
+  the Gradle step before any task ran; job logs need admin rights, so the workflow now
+  publishes Gradle failure lines as an annotation).
 
 ## R5 — E: codec steering
 

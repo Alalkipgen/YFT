@@ -251,9 +251,10 @@
     const packet = {
       generation: generation, pageUrl: page, html: html, payloads: [], requests: [],
       // R2: EME keys or an encrypted event on any visible video stop Master for this page.
+      // R7: so do keys attached at document start and any licence request on the page.
       protected: visible.some(function (item) {
-        return !!(item.v.mediaKeys || encrypted.has(item.v));
-      }),
+        return !!(item.v.mediaKeys || encrypted.has(item.v) || hook("keyed", item.v));
+      }) || !!(hook("eme") || {}).licensed,
       player: v ? {
         key: "video:" + selected.index, url: v.currentSrc || v.src || null,
         time: Number.isFinite(v.currentTime) ? v.currentTime : 0,
@@ -262,6 +263,10 @@
         width: v.videoWidth || null, height: v.videoHeight || null
       } : null
     };
+    fedRequests(v).forEach(function (request) {
+      packet.requests.push(request);
+      if (JSON.stringify(packet).length > MAX_PACKET) packet.requests.pop();
+    });
     state.payloads.splice(0, 4).forEach(function (text) {
       packet.payloads.push(text);
       if (JSON.stringify(packet).length > MAX_PACKET) packet.payloads.pop();
@@ -272,6 +277,33 @@
     });
     const encoded = JSON.stringify(packet);
     return encoded.length <= MAX_PACKET ? encoded : null;
+  }
+  // R7: the document-start MSE/EME hooks (yft-master-mse.js), when the WebView installed them.
+  function hook(name, argument) {
+    try {
+      const hooks = window.__yftMasterMseV1;
+      return hooks && typeof hooks[name] === "function" ? hooks[name](argument) : null;
+    } catch (_) { return null; }
+  }
+  function fedRequests(video) {
+    const facts = video ? hook("facts", video) : null;
+    const found = [];
+    if (!Array.isArray(facts)) return found;
+    facts.slice(0, 6).forEach(function (fact) {
+      if (!fact || !Array.isArray(fact.urls)) return;
+      const mime = typeof fact.mime === "string" ? fact.mime.slice(0, 128) : "";
+      const size = fact.kind === "video" && fact.width > 0 && fact.height > 0;
+      fact.urls.slice(0, 16).forEach(function (value) {
+        const url = address(value);
+        if (!url || !media(url, mime) || found.length >= 32) return;
+        if (found.some(function (item) { return item.url === url; })) return;
+        found.push({
+          url: url, mime: mime, preview: false, fed: true,
+          width: size ? fact.width : null, height: size ? fact.height : null
+        });
+      });
+    });
+    return found;
   }
   function dispose() {
     disposed = true; state.requests = []; state.payloads = [];

@@ -66,10 +66,20 @@ data class CapturedRequest(
     val observedAtEpochMs: Long = 0,
     val pageRole: PageMediaRole? = null,
     val contentId: String? = null,
+    /** R7: the page's player appended this address's bytes to the focused video's MediaSource. */
+    val fedPlayer: Boolean = false,
+    /** R7: picture size of the init segment the player appended (MSE), when it was read. */
+    val width: Int? = null,
+    val height: Int? = null,
 ) {
+    init {
+        require(width == null || width in 1..16_384)
+        require(height == null || height in 1..16_384)
+    }
+
     override fun toString(): String =
         "CapturedRequest(method=$method, pageRole=$pageRole, " +
-            "contentIdPresent=${contentId != null})"
+            "contentIdPresent=${contentId != null}, fedPlayer=$fedPlayer)"
 }
 
 data class MasterPolicy(
