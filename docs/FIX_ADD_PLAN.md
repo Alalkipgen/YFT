@@ -307,7 +307,10 @@ here. AI agent time includes builds and CI waits on a 4 GiB sandbox.
 | P45 | [Adult-site sheet: the tapped video only, its links asked like the browser](#p45--the-tapped-video-only-its-links-asked-like-the-browser) | Medium–Hard | 7–8 h | P44, owner's Preview #7 test | DONE — OWNER CHECK (2026-10-09) — Preview #8 |
 | P46 | [TikTok: every quality in the browser, "private" public posts, Show check](#p46--tiktok-every-quality-in-the-browser-private-public-posts-show-check) | Medium–Hard | 8–10 h | P45, owner's TikTok test | DONE — OWNER CHECK (2026-10-10) — Preview #9 |
 | P47 | [TikTok: every height TikTok's pages give, joined; "1280p" on Download as](#p47--tiktok-every-height-tiktoks-pages-give-joined-1280p-on-download-as) | Medium | 3–4 h | P46, owner's Preview #9 test | DONE — OWNER CHECK (2026-10-10) — Preview #10 |
-| P8 | [Signed release 1.0.0-beta.4](#p8--signed-release-100-beta4) | Easy | 1–2 h | P44–P47, Preview #10, owner OK | TODO |
+| P48 | [X (Twitter) adapter: every MP4 quality of a post, with sound](#p48--x-twitter-adapter-every-mp4-quality-of-a-post-with-sound) | Medium | 4–5 h | P47, owner's request | DONE — OWNER CHECK (2026-10-10) — Preview #11 |
+| P49 | [Instagram adapter: reels and video posts, signed in or not](#p49--instagram-adapter-reels-and-video-posts-signed-in-or-not) | Medium–Hard | 5–6 h | P47, owner's request | DONE — OWNER CHECK (2026-10-10) — Preview #11 |
+| P50 | [HLS video with separate sound: merged, not "No sound"](#p50--hls-video-with-separate-sound-merged-not-no-sound) | Medium | 3–4 h | P47, owner's request | DONE — OWNER CHECK (2026-10-10) — Preview #11 |
+| P8 | [Signed release 1.0.0-beta.4](#p8--signed-release-100-beta4) | Easy | 1–2 h | P44–P50, Preview #11, owner OK | TODO |
 
 In parallel the wall time is about 15–22 h (A's TikTok track of 13–19 h, then P44); two agents
 need about 16–24 h; one agent alone 27–40 h.
@@ -1148,6 +1151,91 @@ desktop page), `PreviewLabelsTest` (720 × 1280 → "720p · HD").
 = **Preview #10**, all green. `main` fast-forwarded to P47 with the owner's approval
 (2026-10-10: "Main ကို Push & Commit").
 
+### P48 — X (Twitter) adapter: every MP4 quality of a post, with sound
+
+Medium · 4–5 h · Agent B alone (`work/phase-15-integration`) · the owner's request after
+Preview #10 (§7 backlog: "Instagram and X adapters").
+
+**Why:** X links had generic detection only: X's page is built by script, so Home had no video
+to read, and the browser offered only what X's player was streaming.
+
+**Done:**
+
+1. `XUrls`: `x.com`, `twitter.com` (`www.`, `mobile.`, `m.`) `/{user}/status/{id}`, `/statuses/`,
+   `/i/status/{id}`, `/i/web/status/{id}` and `/video/N` (the post's N-th video). Canonical
+   `https://x.com/{user}/status/{id}`.
+2. `XExtractor` asks X's public embed answer (`cdn.syndication.twimg.com/tweet-result`, the
+   address and token X's own embed uses; no cookie, no sign-in, no internal API) and lists
+   every MP4 of the video (`video.twimg.com` only) highest first, with its picture size from
+   the address (`/vid/avc1/1280x720/`), so each row has sound; a GIF as a silent MP4; the
+   playlist only when no MP4 is given; a quoted post's video when the post has none.
+3. Failures with their own message and Details: a removed, protected or age-limited post
+   ("X shows this post only to signed-in viewers (it may be protected, age-restricted or
+   deleted). Open it in YFT's browser, sign in to X and play the video.") and a photo-only post
+   ("This post has photos only, no video."); then, like a changed answer, the generic scan.
+   Details: "embed answer GET 200 (N characters)", "answer: video 1, 2 in the post · 3 MP4
+   files (720/360/270)" (the files' heights).
+
+**Tests:** `XUrlsTest` (3), `XSyndicationTest` (5), `XExtractorTest` (7) on committed fixtures
+(`fixtures/x/`: video, mixed media, GIF, quoted, photos, tombstone, HLS only); the token is the
+same as X's embed script for 20,008 post ids (checked once with Node, not committed).
+
+### P49 — Instagram adapter: reels and video posts, signed in or not
+
+Medium–Hard · 5–6 h · Agent B alone · same request.
+
+**Why:** Instagram links had generic detection only: Home often got Instagram's sign-in page,
+and the browser offered only what Instagram's player was loading.
+
+**Done:**
+
+1. `InstagramUrls`: `instagram.com` (`www.`, `m.`) `/p|reel|reels|tv/{code}` and
+   `/{user}/p|reel/{code}`; `?img_index=N` keeps the carousel item; the media id from the code.
+2. `InstagramExtractor` asks, in order: the app API (`/api/v1/media/{id}/info/`, only when the
+   YFT browser is signed in to Instagram), the web GraphQL query, the post page, then the public
+   embed page (no cookie). Each answer's video files are listed (progressive MP4 with picture
+   size and expiry) and its DASH qualities as video + sound merged into one MP4, highest first.
+3. Home sends the Instagram cookies of YFT's own browser (`InstagramHomeSession`, like TikTok's
+   Home cookies); YFT never signs in and never sends them to another host.
+4. Failures: a sign-in wall → "Instagram shows this post only to signed-in viewers. Log in to
+   Instagram in YFT's browser, then try again." (signed in and still refused: "Instagram did
+   not show this post to your account…"); photos only → "This post has photos only, no
+   video."; expired link, rate limit and network with their own reason; a changed answer falls
+   back to the generic scan. Details: the session, one line per source, "item 1 of 3: …".
+
+**Tests:** `InstagramUrlsTest` (4), `InstagramExtractorTest` (8) on committed fixtures
+(`fixtures/instagram/`: app API reel, GraphQL reel / null / login / photo / carousel, signed-in
+page, captioned embed, embed without video); `InstagramHomeSessionTest` (cookies for Instagram
+links only).
+
+### P50 — HLS video with separate sound: merged, not "No sound"
+
+Medium · 3–4 h · Agent B alone · same request (X's HLS and many players' masters).
+
+**Why:** an HLS master that names its sound apart (`#EXT-X-MEDIA:TYPE=AUDIO,URI=…`) gave video
+qualities without sound ("No sound") and the sound as an audio row; there was no way to get one
+file with both.
+
+**Done:**
+
+1. The resolver gives such a quality its group's first audio rendition as its companion (only
+   AVC video with AAC sound, both stated in the master's `CODECS`); the row reads like any
+   merged one (no "No sound"), its size from the quality's bitrate. Other codecs stay as before.
+2. The download fetches the quality's playlist and the audio playlist as HLS, segment by segment
+   with the same checkpoints and resume as any HLS download (`PlaylistTrackTransferRunner`),
+   then merges them into one MP4 (MediaExtractor reads MPEG-TS and fragmented MP4 pieces).
+3. A playlist is never merged with a single file; the phone's codec check still refuses what it
+   cannot write.
+
+**Tests:** `DefaultVariantResolverTest` (a master's 720p and 1080p get the English rendition;
+HEVC, no `CODECS`, E-AC-3 and a missing group stay silent), `DownloadPlanFactoryTest` (an HLS
+quality with its rendition → two playlist tracks into one MP4; mixed / HEVC refused),
+`PlaylistTrackTransferRunnerTest` (playlist tracks go to the HLS engine with their checkpoints,
+others to DASH; codec check for playlist tracks).
+
+**Result (P48–P50):** DONE — OWNER CHECK (Agent B, 2026-10-10, the P50 checkpoint).
+Full validation: 1784 tests, 0 failures, 66 skipped (app 913, core-browser 150, core-data 33, core-download 188, core-media 38, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 280; 1750 before P48–P50); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; `:app:compileDebugAndroidTestKotlin` OK; Kotlin line check clean. CI of the P50 checkpoint: CI links in the next docs commit = **Preview #11**.
+
 ### P8 — Signed release 1.0.0-beta.4
 
 Easy · 1–2 h · needs P44, Preview #7 and the owner's OK · prompt
@@ -1165,6 +1253,24 @@ SHA-256 and certificate. Merge, tag and signing need the owner's OK for this tas
 
 Install `yft-preview-apk` from the Preview APK run the agent sends; uninstall the older YFT
 Preview first (each run has a new test key).
+
+**Preview #11 (after P48–P50)** — X, Instagram and HLS sound:
+
+1. **An X post with a video**, pasted on Home: the sheet lists its MP4 qualities (e.g. 720p
+   and lower), none "No sound"; download the highest to the end and play it with sound.
+   Details: "embed answer GET 200 …" and "answer: video 1 …".
+2. **An X post with two videos**: its link with `/video/2` at the end gives the second video.
+3. The same X post in **YFT's browser**: Download lists the same rows.
+4. **An Instagram reel**, on Home and in YFT's browser, before signing in: its rows, or "Instagram
+   shows this post only to signed-in viewers…". Then sign in to Instagram in YFT's browser and
+   paste it on Home again: rows up to the highest (e.g. 1080p, video + audio); download it and
+   play it with sound.
+5. **An Instagram post with several items** where a later item is a video (`?img_index=2`): that
+   video's rows.
+6. **A video whose site gives HLS with the sound apart** (e.g. an X post X gives as a playlist
+   only, or a player site whose rows said "No sound" before): rows without "No sound";
+   download one and play it with sound.
+7. Anything that fails: send its **Details**.
 
 **Preview #10 (after P47)** — TikTok (with and without the VPN):
 
@@ -1276,7 +1382,9 @@ Other items:
   SABR streaming is not planned.
 - Android 9 and older save through the legacy public folder; P20's instrumented test covers the
   API 34 MediaStore path only.
-- Instagram and X adapters (generic detection only today).
+- Instagram and X adapters: done by P48 and P49. Not done: X's internal API for protected,
+  age-limited and sensitive posts (they need the user's X sign-in); Instagram stories and
+  highlights; the preview of an HLS quality with sound apart plays without sound (P50).
 - Background playback in the Library; saving to a folder chosen with the system picker.
 - One shared ad list for media detection and pop-ups/redirects (P43's `AdHosts.kt` and P32's
   list), updated from one place.

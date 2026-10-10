@@ -1265,3 +1265,18 @@ P42 — Downloads: Delete file (2026-10-09):
 | Full validation (2026-10-10) | Full validation: 1750 tests, 0 failures, 66 skipped (app 910, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 253; 1746 before P47); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean. |
 | CI (`0bfb437`) | checkpoint validation [37993854819](https://github.com/Alalkipgen/YFT/actions/runs/37993854819), emulator smoke [37993854829](https://github.com/Alalkipgen/YFT/actions/runs/37993854829), Preview APK = **Preview #10** [37993854810](https://github.com/Alalkipgen/YFT/actions/runs/37993854810), all green |
 | Owner check | Preview #10: FIX_ADD_PLAN §6 "Preview #10" items 1–4 |
+
+### P48–P50 — X and Instagram adapters; HLS sound apart merged (Agent B alone)
+
+| Check | Evidence |
+| --- | --- |
+| X links | `XUrlsTest` (3): `x.com`, `twitter.com`, `mobile.`/`m.`, `/statuses/`, `/i/status/`, `/i/web/status/`, `/video/N`, canonical `https://x.com/{user}/status/{id}`; other paths and hosts refused |
+| X embed answer | `XSyndicationTest` (5): the token matches X's embed script; MP4s sorted by bitrate with sizes from the address, only `video.twimg.com`; GIF; quoted post; photos; tombstone and `{}` → unavailable; non-object → changed |
+| X lookup | `XExtractorTest` (7): every MP4 row with sound, highest first, Referer/Origin `platform.twitter.com` and no cookie; `/video/2`; GIF silent; HLS only when no MP4; 404/tombstone → hidden message; photos → photos message; changed answer → generic fallback (fixtures `fixtures/x/`) |
+| Instagram links | `InstagramUrlsTest` (4): `/p|reel|reels|tv/{code}`, `/{user}/reel/{code}`, `?img_index=N`, media id from the code (`C9fixtREEL1` → 3413599992010523381), sign-in pages |
+| Instagram lookup | `InstagramExtractorTest` (8): signed in, the app API answer; GraphQL reel with DASH merged with sound; null / login answers → page, embed; carousel item; photos; sign-in wall message; signed in and refused (fixtures `fixtures/instagram/`) |
+| Instagram Home cookies | `InstagramHomeSessionTest` (2): YFT browser's Instagram cookies for Instagram links only |
+| HLS sound apart | `DefaultVariantResolverTest`: a master's 720p and 1080p get the English rendition as companion (AVC codecs only, sound `mp4a.40.2`); HEVC, no `CODECS`, E-AC-3 and a missing group stay "No sound"; `DownloadPlanFactoryTest`: two HLS playlist tracks into one MP4, mixed playlist/file and HEVC refused; `PlaylistTrackTransferRunnerTest` (3): playlist tracks fetched as HLS with their checkpoints, other tracks by DASH, codec check |
+| Full validation (2026-10-10) | Full validation: 1784 tests, 0 failures, 66 skipped (app 913, core-browser 150, core-data 33, core-download 188, core-media 38, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 280; 1750 before P48–P50); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; `:app:compileDebugAndroidTestKotlin` OK; Kotlin line check clean. |
+| CI | CI links in the next docs commit |
+| Owner check | Preview #11: FIX_ADD_PLAN §6 "Preview #11" items 1–7 |

@@ -93,9 +93,17 @@ Keep at least the heading and one blank line between sections, so Git merges the
   Full validation: 1750 tests, 0 failures, 66 skipped (app 910, core-browser 150, core-data 33, core-download 185, core-media 37, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 253; 1746 before P47); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; Kotlin line check clean.
 - Last pushed checkpoint (P47): `0bfb437` on `work/phase-15-integration`; CI: checkpoint validation [37993854819](https://github.com/Alalkipgen/YFT/actions/runs/37993854819), emulator smoke [37993854829](https://github.com/Alalkipgen/YFT/actions/runs/37993854829), Preview APK = **Preview #10** [37993854810](https://github.com/Alalkipgen/YFT/actions/runs/37993854810) (Artifacts › `yft-preview-apk`), all green.
   `main` fast-forwarded from `2eafd62` to this P47 docs commit with the owner's approval (2026-10-10: "Main ကို Push & Commit"); Preview #10 is the same code.
-- Next: the owner tests Preview #10 (FIX_ADD_PLAN §6 "Preview #10") and sends Details of
+- P48–P50 (2026-10-10, Agent B alone, the owner's request after Preview #10; sandbox reset:
+  new key `yft_b_20261009225413`): X adapter (embed answer, every MP4 with sound), Instagram
+  adapter (app API / web query / page / embed; Home with YFT's browser's Instagram cookies),
+  HLS qualities with their sound apart merged into one MP4 (`PlaylistTrackTransferRunner`).
+  Full validation: 1784 tests, 0 failures, 66 skipped (app 913, core-browser 150, core-data 33, core-download 188, core-media 38, core-model 125, extractor-api 36, extractor-generic 21, extractor-sites 280; 1750 before P48–P50); lint 0 errors (98 warnings, as before); `:app:assembleRelease` OK; `:app:compileDebugAndroidTestKotlin` OK; Kotlin line check clean.
+- Last pushed checkpoint (P50): the P50 checkpoint on `work/phase-15-integration`; CI: CI links
+  in the next docs commit = **Preview #11**. `main` stays at the P47 docs commit until the owner
+  says so.
+- Next: the owner tests Preview #11 (FIX_ADD_PLAN §6 "Preview #11") and sends Details of
   anything that fails; P8 (signed `1.0.0-beta.4`) only with his OK.
-- Last updated: 2026-10-10 (P47)
+- Last updated: 2026-10-10 (P50)
 
 ## Agent A — `work/phase-15-tiktok` (P39, P40)
 

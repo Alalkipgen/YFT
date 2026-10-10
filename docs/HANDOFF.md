@@ -53,6 +53,24 @@
   #10:** [37993854810](https://github.com/Alalkipgen/YFT/actions/runs/37993854810) (`0bfb437`; validation [37993854819](https://github.com/Alalkipgen/YFT/actions/runs/37993854819), smoke [37993854829](https://github.com/Alalkipgen/YFT/actions/runs/37993854829), all green).
   `main` fast-forwarded to P47 with the owner's approval (2026-10-10).
 
+- **P48–P50 (2026-10-10, Agent B alone):** X adapter (X's public embed answer: every MP4
+  quality of a post's video with sound, `/video/N`, GIF, quoted post); Instagram adapter (app
+  API when YFT's browser is signed in, web query, post page, embed page; Home uses YFT's
+  browser's Instagram cookies); HLS qualities with their sound apart are merged with their audio
+  playlist into one MP4. **Preview #11:** CI links in the next docs commit. `main` stays at P47
+  until the owner says so.
+
+## Known limitations (Preview #11)
+
+- P48: X's embed answer does not show protected, age-limited and some sensitive posts; then
+  YFT says so and the generic scan of the page runs. X can change its embed answer or token.
+- P49: without YFT's browser signed in to Instagram, many posts answer with a sign-in wall.
+  Instagram's web query (`doc_id`) and page data change often; then YFT falls back to the
+  generic scan. Stories and highlights are not read. YFT's requests carry the user's own
+  Instagram session (one post, one request per source), like any Instagram client.
+- P50: only AVC video with AAC sound is merged; other codecs stay "No sound" as before. The
+  preview of such a quality plays its own playlist, without sound; the download has sound.
+
 ## Known limitations (Preview #10)
 
 - P46: the download service is a third party: it sees the post's address (nothing else) and

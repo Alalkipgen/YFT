@@ -9,6 +9,17 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Added
 
+- X (Twitter) posts (P48): Home and the browser list every MP4 quality of a post's video, each
+  with sound (X's public embed answer; no sign-in, no cookie); `/video/2` picks a post's second
+  video; GIFs, quoted posts, photo-only and hidden posts handled with their own message.
+- Instagram reels and video posts (P49): YFT asks Instagram's app API (when YFT's browser is
+  signed in to Instagram), its web query, the post page and the public embed page; video files
+  and DASH qualities (merged with their sound) are listed highest first. Home uses the
+  Instagram sign-in of YFT's browser; a sign-in wall says to sign in there.
+- HLS with the sound apart (P50): a quality of an HLS master whose sound is a separate audio
+  playlist is listed with sound and downloaded as both playlists merged into one MP4 (AVC with
+  AAC), instead of "No sound".
+
 - TikTok lists every height its pages give (P47): the phone page's (or the tab's) file and the
   desktop page's files of other heights are joined, so a video can list 720p and 480p; the
   desktop page is also asked when one height comes in two codecs.

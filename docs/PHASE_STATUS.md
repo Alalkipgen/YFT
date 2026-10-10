@@ -62,7 +62,12 @@ user. Preview #9 (on `main` with the owner's approval).
 
 P47 (2026-10-10, Agent B alone, after the owner's Preview #9 test): TikTok's phone, tab and
 desktop answers are joined by height, so a video lists each height TikTok's pages give;
-Download as names a phone video after its short side. Preview #10; `1.0.0-beta.4` (P8) waits
+Download as names a phone video after its short side. Preview #10 (on `main` with the owner's
+approval).
+
+P48–P50 (2026-10-10, Agent B alone, the owner's request): X and Instagram adapters (X's embed
+answer; Instagram's app API, web query, page and embed, with YFT's browser's sign-in), and HLS
+qualities with their sound apart merged into one MP4. Preview #11; `1.0.0-beta.4` (P8) waits
 for the owner's OK.
 
 
