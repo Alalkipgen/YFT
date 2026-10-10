@@ -43,6 +43,7 @@
   `recipes/master-recipes.json`. Deviations: the bundled defaults stay in code (`ContractRecipes`,
   type-checked) instead of an asset copy; the app keeps the config in memory only (asked again
   once per process start, then daily); coverage is only data-only breakages (~30–40%).
+- ✅ CI (R9, `f08b895`): Master opt-in debug APK run `38093579832` — success.
 
 ## R8 — Per site (L2 contract first, then L3 + capture)
 
