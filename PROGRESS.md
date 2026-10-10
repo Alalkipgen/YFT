@@ -14,7 +14,14 @@
 - ✅ Local JVM run: `extractor-master` 88 tests and 39 non-WebView Android-module tests, 0
   failures. Old-vs-new differential runs: reader 5,372 cases and engine 10,368 cases, 0
   differences.
-- ⏳ CI `master-optin-debug-apk` on the final commit: pending.
+- ✅ CI `master-optin-debug-apk` run `38064367003` on `fcceaec4` (final commit of the step):
+  success — Master, Android-module and app Master tests plus `:app:assembleDebug`.
+  Run: https://github.com/Alalkipgen/YFT/actions/runs/38064367003
+  Artifact `yft-master-optin-debug-apk` (17,990,603 bytes, expires 2026-10-24):
+  https://github.com/Alalkipgen/YFT/actions/runs/38064367003/artifacts/11674876484
+  Pushed as `ef63a60a` (new layout; old paths as one-line placeholders) followed by 11
+  placeholder deletions (the GitHub tool cannot delete in the same commit); the 11
+  intermediate CI runs were cancelled by the workflow's concurrency group.
 - No policy, site, Generic, model or download behavior changed. No main merge, release or tag.
 
 ## M2 — main/More sheet, expected TikTok More, opt-in CI APK
