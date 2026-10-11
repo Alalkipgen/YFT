@@ -1,0 +1,194 @@
+#!/usr/bin/env node
+// Phase 1.2 N1 (MASTER_KEY_PHASE1_2_PLAN.md): the change simulator.
+//
+//   node scripts/verify-own-solver-mutations.mjs            # every cached file, every class
+//   node scripts/verify-own-solver-mutations.mjs --quick    # one build per player, a few classes
+//   node scripts/verify-own-solver-mutations.mjs --only 5203c085
+//   node scripts/verify-own-solver-mutations.mjs --class M1,M3
+//   node scripts/verify-own-solver-mutations.mjs --seeds 3
+//
+// It mutates each cached player so the code is WRITTEN differently but DOES the same thing, then
+// measures how often ejs and the own solver's pattern strategy (P) still return the right n and
+// sig, and that neither ever returns a wrong one (MASTER_KEY_PHASE1_2_PLAN.md section 3 N1).
+//
+// Truth without executing player code ourselves: the correct n/sig for an input is a property of
+// the input, not of how the player is written, so a behaviour-preserving mutation has the same
+// answers as the original. Truth = ejs on the ORIGINAL player (the proven oracle the parity runner
+// already uses). Every solve goes through scripts/own-solver/harness.mjs, which runs ejs and the
+// own core in a bare V8 context with no network, cookies or require — the same sandbox as
+// verify-own-solver.mjs. This script never runs player code in any other way.
+//
+// Mutator-bug guard: a mutation that accidentally changed behaviour would make ejs and the own core
+// agree on a NEW value that differs from truth; such a file is marked "behaviour-changed" and
+// skipped, never counted as a wrong value. meriyah + astring come from main's yt.solver.lib.min.js
+// and are used only here. Player text and mutated text are never written to the repo; the report
+// (build/own-solver/mutation-report.json) names classes and counts only.
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import vm from "node:vm";
+import { challenges, solveWithEjs, solveWithOwn, VARIANTS } from "./own-solver/harness.mjs";
+import * as M from "./own-solver/mutate.mjs";
+
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const corpus = JSON.parse(readFileSync(join(root, "scripts/own-solver/corpus.json"), "utf8"));
+const vectors = JSON.parse(readFileSync(join(root, "scripts/youtube-solver-vectors.json"), "utf8"));
+const playersDir = join(root, "build/own-solver/players");
+const ejsDir = join(root, "app/src/main/assets/youtube-solver");
+const ownDir = join(root, "extractor-master-android/src/main/assets/yft-own-solver");
+const reportFile = join(root, "build/own-solver/mutation-report.json");
+
+const libText = readFileSync(join(ejsDir, "yt.solver.lib.min.js"), "utf8");
+const ejs = { lib: libText, core: readFileSync(join(ejsDir, "yt.solver.core.min.js"), "utf8") };
+const own = { lib: readFileSync(join(ownDir, "meriyah.umd.min.js"), "utf8"), core: readFileSync(join(ownDir, "own.solver.core.js"), "utf8") };
+
+// ---- CLI ----
+const argv = process.argv.slice(2);
+const flag = (name) => argv.includes(name);
+const value = (name, fallback) => { const i = argv.indexOf(name); return i >= 0 && i + 1 < argv.length ? argv[i + 1] : fallback; };
+const quick = flag("--quick");
+const only = value("--only", null);
+const classes = (value("--class", quick ? "M1,M1w,M2,M3,M6,M10" : M.CLASSES.join(","))).split(",").filter(Boolean);
+const seeds = Number(value("--seeds", quick ? "1" : "2"));
+const quickVariant = "phone";
+
+// ---- a V8 context with the vendored parser + code generator (used only to mutate the AST) ----
+function codegenContext() {
+  const ctx = vm.createContext({});
+  vm.runInContext(libText, ctx);
+  vm.runInContext("var meriyah = lib.meriyah, astring = lib.astring;", ctx);
+  return ctx;
+}
+const cg = codegenContext();
+const parse = (text) => vm.runInContext("meriyah.parse", cg)(text, { ranges: false, webcompat: true, loc: false });
+const generate = (ast) => vm.runInContext("astring.generate", cg)(ast);
+M.setStatementParser((src) => parse(src).body);
+
+// ---- mutate one AST by class; returns a count of edits (0 = nothing changed) ----
+function mutate(program, cls, random) {
+  switch (cls) {
+    case "M1": return M.renameLocals(program, random);
+    case "M1w": return M.renameLocals(program, random, { keepWrapperParams: false });
+    case "M2": return M.toggleMemberAccess(program, random);
+    case "M3": return M.rewrapTopLevel(program);
+    case "M6": return M.tableLiterals(program, random);
+    case "M10": return M.appendDecoys(program, random);
+    // M4, M5, M7, M8, M9 are added in later N1 passes (see the plan); unknown -> no-op here.
+    default: return 0;
+  }
+}
+
+// ---- compare a strategy's output to the truth: per kind, right / wrong / missing ----
+function judge(truth, got, inputs) {
+  const out = {};
+  for (const kind of ["n", "sig"]) {
+    let total = 0, right = 0, wrong = 0, missing = 0;
+    for (const input of inputs[kind]) {
+      const expected = truth[kind] ? truth[kind][input] : undefined;
+      if (typeof expected !== "string") continue; // the oracle gave no value here; do not judge it
+      total += 1;
+      const value = got[kind] ? got[kind][input] : undefined;
+      if (typeof value !== "string") missing += 1;
+      else if (value === expected) right += 1;
+      else wrong += 1;
+    }
+    out[kind] = { total, right, wrong, missing };
+  }
+  return out;
+}
+function score(v) {
+  const wrong = v.n.wrong > 0 || v.sig.wrong > 0;
+  const survived = v.n.total > 0 && v.sig.total > 0 && v.n.right === v.n.total && v.sig.right === v.sig.total;
+  return wrong ? "wrong" : survived ? "survived" : "safe";
+}
+// A mutation changed behaviour when ejs and own agree on a value that differs from truth.
+function behaviourChanged(truth, ejsOut, ownOut, inputs) {
+  let agreedDifferent = 0, judged = 0;
+  for (const kind of ["n", "sig"]) {
+    for (const input of inputs[kind]) {
+      const t = truth[kind] ? truth[kind][input] : undefined;
+      if (typeof t !== "string") continue;
+      judged += 1;
+      const e = ejsOut[kind] ? ejsOut[kind][input] : undefined;
+      const o = ownOut[kind] ? ownOut[kind][input] : undefined;
+      if (typeof e === "string" && e === o && e !== t) agreedDifferent += 1;
+    }
+  }
+  return judged > 0 && agreedDifferent > 0;
+}
+
+// ---- files ----
+const files = [];
+for (const entry of corpus.players) {
+  if (only && entry.player !== only) continue;
+  for (const variant of Object.keys(VARIANTS)) {
+    if (!entry.files || !entry.files[variant]) continue;
+    if (quick && variant !== quickVariant) continue;
+    const path = join(playersDir, `${entry.player}-${variant}.js`);
+    if (existsSync(path)) files.push({ player: entry.player, variant, path });
+  }
+}
+if (!files.length) {
+  console.error("No cached players. Run: node scripts/verify-own-solver.mjs --add <id>  (downloads the cache).");
+  process.exit(2);
+}
+
+const empty = () => ({ files: 0, skipped: 0, ejs: { survived: 0, safe: 0, wrong: 0 }, ownP: { survived: 0, safe: 0, wrong: 0 } });
+const byClass = {};
+for (const cls of classes) byClass[cls] = empty();
+const lines = [];
+let wrongTotal = 0;
+
+for (const file of files) {
+  const playerText = readFileSync(file.path, "utf8");
+  const { inputs } = challenges(file.player, vectors);
+  const truth = solveWithEjs(ejs, playerText, inputs); // the proven oracle, on the original player
+  const haveTruth = ["n", "sig"].some((k) => Object.keys(truth[k] || {}).length > 0);
+  for (const cls of classes) {
+    const bucket = byClass[cls];
+    bucket.files += 1;
+    let done = false, note = "";
+    for (let seed = 0; seed < seeds && !done; seed += 1) {
+      const random = M.rng(`${file.player}:${file.variant}:${cls}:${seed}`);
+      let mutated;
+      try {
+        const program = parse(playerText);
+        const edits = mutate(program, cls, random);
+        if (!edits) { note = "no-op"; continue; }
+        mutated = generate(program);
+      } catch (error) {
+        note = "mutate:" + (error && error.name);
+        continue;
+      }
+      if (!haveTruth) { note = "no-truth"; continue; }
+      const ejsOut = solveWithEjs(ejs, mutated, inputs);
+      const ownOut = solveWithOwn(own, mutated, inputs);
+      if (behaviourChanged(truth, ejsOut, ownOut, inputs)) { note = "behaviour-changed"; continue; }
+      const e = score(judge(truth, ejsOut, inputs));
+      const o = score(judge(truth, ownOut, inputs));
+      bucket.ejs[e] += 1;
+      bucket.ownP[o] += 1;
+      if (e === "wrong") wrongTotal += 1;
+      if (o === "wrong") wrongTotal += 1;
+      lines.push(`${file.player} ${file.variant} ${cls}: ejs ${e}, own P ${o}`);
+      done = true;
+    }
+    if (!done) { bucket.skipped += 1; lines.push(`${file.player} ${file.variant} ${cls}: skipped (${note})`); }
+  }
+}
+
+const summary = { generated: new Date().toISOString().slice(0, 10), files: files.length, seeds, classes: {} };
+lines.push("");
+lines.push("class   | ejs surv/safe/wrong | own P surv/safe/wrong | skipped");
+for (const cls of classes) {
+  const b = byClass[cls];
+  summary.classes[cls] = b;
+  const f = (x) => String(x).padStart(2);
+  lines.push(`${cls.padEnd(7)} |   ${f(b.ejs.survived)}/${f(b.ejs.safe)}/${f(b.ejs.wrong)}         |    ${f(b.ownP.survived)}/${f(b.ownP.safe)}/${f(b.ownP.wrong)}          | ${b.skipped}`);
+}
+lines.push("");
+lines.push(`${files.length} files x ${classes.length} classes x ${seeds} seed(s); wrong values: ${wrongTotal}`);
+console.log(lines.join("\n"));
+mkdirSync(dirname(reportFile), { recursive: true });
+writeFileSync(reportFile, JSON.stringify({ ...summary, wrongTotal }, null, 2));
+process.exit(wrongTotal > 0 ? 1 : 0);

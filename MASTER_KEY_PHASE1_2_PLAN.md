@@ -194,7 +194,7 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
-| N1 | Change simulator: mutation suite + baseline (ejs vs own P) | Phase 1.1 | Medium–High | TODO |
+| N1 | Change simulator: mutation suite + baseline (ejs vs own P) | Phase 1.1 | Medium–High | In progress |
 | N2 | Live check V (+ measure the n behaviour on the owner's phone) | Phase 1.1 S5 | Medium | TODO |
 | N3 | Strategy B: register, probe, classify (core + harness) | N1 | High | TODO |
 | N4 | Strategy E: isolated page environment | N3 | Medium–High | TODO |
@@ -231,21 +231,25 @@ repository, not chat history).
     a closure, no labels, no `try`), and keeps hoisting.
   - Each mutator has its own unit tests (shadowing, hoisting, closures, `catch` parameters,
     default parameters) before it is run on a player.
-- **Each mutation keeps the program's behaviour.** A truth hook checks this:
-  - Before mutating, a tag statement that exports the original n and sig functions (found from
-    P's call sites on the original player) is inserted.
-  - The tagged mutated copy must still return the original answers.
-  - The solvers only see the untagged copy (the same mutation and seed, without the tag).
+- **Each mutation keeps the program's behaviour; truth comes from the original player.**
+  Plan adapted (N1): the right n/sig for an input depends on the input, not on how the code is
+  written, so truth = ejs on the **original** player (the proven oracle of the parity runner).
+  Every solve runs through `harness.mjs`'s bare V8 context; nothing runs player code any other
+  way (a separate truth hook that executed player code was rejected by the safety review). A
+  mutation that changed behaviour shows up as ejs and own agreeing on a new value: that file is
+  skipped, never counted as wrong. The mutators' own unit tests (T3) check behaviour on small
+  hand-written programs.
 - Mutation classes (each one tied to a real or likely YouTube change):
 
 | ID | Mutation (behaviour kept) | Real analogue | Should survive with |
 |---|---|---|---|
-| M1 | Rename every identifier | every new build | P, B |
+| M1 | Rename every function/block/catch local with minifier-style names; globals (`_yt_player`), the wrapper parameter and locals deliberately named after browser globals (`var window = this`) stay | every new build | P, B |
+| M1w | M1 + the wrapper parameter (`g`) | a wrapper change | P, B |
 | M2 | function ↔ arrow, declaration ↔ expression, sequence ↔ statements, `var` ↔ `let`/`const` where safe | #47 tce/es6 | P (G2), B |
-| M3 | Another top-level wrapper (IIFE, `.call(this)`, arrow IIFE, no `var window = this`) | #53 | B |
+| M3 | Another top-level wrapper: `void (fn).apply(receiver, [args])` with the exact receiver (more forms later) | #53 | B |
 | M4 | sig helper object → separate functions, an array of functions or class statics | helper reshuffle | B |
 | M5 | URL-transform call site through a variable, a wrapper, `.call`/`.apply` or reordered arguments | #53 | B |
-| M6 | String literals (`"n"`, `"sig"`, `"split"`, `"join"`, `"set"`) read from a shuffled global table | current obfuscation | B |
+| M6 | String literals read from one shuffled `"…".split(sep)` table (the real players' form; directives and keys untouched) | current obfuscation | P (G2 tables), B |
 | M7 | Control-flow flattening (switch loop) of the n and sig functions, where the body is a plain statement list | heavier obfuscation | B |
 | M8 | Result applied raw, with `encodeURIComponent` or through `URLSearchParams.set` | #54 | P/B + V (simulated) |
 | M9 | The init reads browser objects (`document.createElement`, `navigator.userAgent`, `location.hostname`, `window.top`) | #56 | E (computer: DOM stub) |
@@ -348,7 +352,16 @@ Baseline (filled by N1; later columns by N3–N5):
 
 | Class | ejs | own P | own ladder (offline) | own ladder (+ simulated V) |
 |---|---|---|---|---|
-| M1–M10 | — | — | — | — |
+| M1 | 8/8 | 8/8 | — | — |
+| M1w | 8/8 | 8/8 | — | — |
+| M2 (member access part) | 8/8 | 8/8 | — | — |
+| M3 | 0/8 (safe) | 0/8 (safe) | — | — |
+| M6 | 0/8 (safe) | 8/8 | — | — |
+| M10 | 8/8 | 8/8 | — | — |
+| M4, M5, M7, M8, M9 | — | — | — | — |
+
+Quick baseline (N1 part 1, 2026-10-11): 8 players, phone build, 1 seed; survived / files, the rest
+failed safely; **wrong = 0** everywhere. The full 32-file numbers replace these when recorded.
 
 ## 5. Risks
 

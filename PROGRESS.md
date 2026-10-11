@@ -1,5 +1,34 @@
 # YFT Master Extractor backup
 
+## Phase 1.2 — N1 change simulator (part 1: 6 classes + baseline)
+
+- ✅ `scripts/own-solver/mutate.mjs`: behaviour-keeping AST mutators (meriyah + astring from main's
+  `yt.solver.lib.min.js`, test time only, never shipped) with a scope model first (T3: hoisting,
+  block/catch/switch/class scopes, named function expressions, shorthand keys, `new.target`;
+  refuses `eval`/`with`). Classes: **M1** rename function/block/catch locals with minifier-style
+  names (globals, the wrapper parameter and locals deliberately named after browser globals such
+  as `var window = this` stay), **M1w** M1 + the wrapper parameter, **M2** dotted ↔ computed
+  access, **M3** re-wrap as `void (fn).apply(receiver, [args])` (exact receiver), **M6** strings
+  into one shuffled `"…".split(sep)` table (directives and keys untouched), **M10** unreachable
+  n/sig-like decoys.
+- ✅ `scripts/verify-own-solver-mutations.mjs` (`--quick`, `--only`, `--class`, `--seeds`): mutates
+  each cached player and judges ejs and own P per class (survived / safe / **wrong**); report
+  `build/own-solver/mutation-report.json` (classes and counts only). Plan adapted: truth = ejs on
+  the **original** player (answers depend on the input, not on how the code is written); every
+  solve goes through `harness.mjs`'s bare V8 context, as the parity runner does — no other way of
+  running player code (an ad-hoc truth hook was rejected by the safety review). A mutation that
+  changed behaviour (ejs and own agree on a new value) is skipped, never counted as wrong.
+- ✅ Tests: `mutate.test.mjs` 29 (scope cases, M1/M1w/M2/M3/M6/M10 keep behaviour, determinism),
+  added to the spike CI JS step. Plan adapted: `--quick` needs the player downloads, so it runs in
+  N6's canary workflow, not in this CI step.
+- ✅ Baseline, quick (8 players, phone build; wrong = **0**): M1 ejs 8/8, own 8/8 · M1w 8/8, 8/8 ·
+  M2 8/8, 8/8 · **M3 0/8, 0/8** (both fail safely: an unknown wrapper) · **M6 ejs 0/8, own 8/8**
+  (own resolves string tables) · M10 8/8, 8/8.
+- Fairness fixes found while measuring: ejs first "failed" M1 only because the draft renamed
+  `var window = this` and used `_m$` names; both were unrealistic and are fixed (ejs then 8/8).
+- ⏳ Next in N1: M4 (helper reshuffle), M5 (indirect call site), M7 (flattening), M8 (encoding
+  form), M9 (browser objects); the full 32-file baseline into plan §4.
+
 ## Phase 1.2 — plan + prompt (no code)
 
 - ✅ `MASTER_KEY_PHASE1_2_PLAN.md` + `MASTER_KEY_PHASE1_2_PROMPT.md` (2026-10-11): next-level own
