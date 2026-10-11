@@ -1,5 +1,43 @@
 # YFT Master Extractor backup
 
+## Phase 1.1 — S4: G3 encoding checks + SelfCheck + fault injection
+
+- ✅ SelfCheck in `own.solver.core.js`: the values of a kind are returned only when every check
+  passes; any failure drops the whole kind (`failed: "<kind>:<reason>"`, no values), so the
+  caller falls back (S5) instead of using a doubtful value.
+  - **Probes:** n runs two fixed probes; sig runs a map probe (64 distinct URL-safe
+    characters) and an edge probe of the same length with `% / = + & ? #`, space, tab, newline
+    and a broken `%zz` escape. Probes and the request's vectors go through the same multiTry,
+    before the real inputs.
+  - **Checks, in order (reason):** one value from every candidate and read path (`disagree`);
+    shape (`shape`): n URL-safe, not its input, length ≤ 2 × input + 8; sig only reuses its
+    input's characters and keeps a plausible length; distinct n inputs give distinct outputs
+    (`not-distinct`); every probe solved (`probe`); **G3 index map:** the positions the map
+    probe reveals, applied to the edge probe, must give exactly the edge probe's output
+    (`encoding`), which catches a missing or doubled encode/decode of special characters;
+    known vectors match (`vector`); the first probe still gives the same value at the end
+    (`unstable`).
+  - Reports name kinds, counts, candidate/path indexes and error classes, never inputs or
+    outputs.
+- ✅ Fault injection for tests (`request.faults`, never set by the app): a decoy candidate that
+  changes n or sig by one rotated character, sig passed without URI encoding, and each G4
+  global (`window`, `self`, `location`, `navigator`, `document`, `XMLHttpRequest`) or all of
+  them left out.
+- ✅ Harness: a sig edge input with `% / + & ? #`, space, tab and `=` per file (sig lengths
+  104/108/107); `node scripts/verify-own-solver.mjs --faults` runs the 10 faults on every file
+  against ejs: any wrong value fails, and so does a fault that should FAIL a kind but does not.
+- ✅ Corpus: parity 32/32 files PASS, own = ejs on 260/260 inputs. Faults: 320 runs, wrong
+  values 0, expected FAILs missed 0 (decoy → `disagree` of the kind it changes, missing
+  encoding → sig FAIL; a missing global gave right values or a FAIL, never a wrong value).
+- ✅ Offline tests `scripts/own-solver/tests/core-selfcheck.test.mjs` (12): clean pass, a
+  wrong candidate inside the player, injected decoy/encoding/global faults, n and sig shape,
+  G3 index map, distinct n, vectors, stability, no values in probes or reports; harness test
+  for fault verdicts (harness 11). Workflow JS step: 70 tests (own solver 42).
+- ⚠️ Limit: a lone candidate that is wrong but plausible (right shape, consistent and stable)
+  is caught only by known vectors or a live check; a runner-level live 1-byte probe is planned
+  with S5.
+- No change in `main`, the app or ejs assets; the core is still unused with the flags off.
+
 ## Phase 1.1 — S3: G4 environment + multiTry runner
 
 - ✅ `own.solver.core.js` gains `yftOwnSolver.run(prepared, request)` (`solve` = `prepare` +
@@ -35,6 +73,7 @@
 - Timing (desktop Node `vm`): prepare ≈ 0.9–1.8 s per player, run ≈ 0.1–0.3 s; the phone is
   measured in S5.
 - No change in `main`, the app or ejs assets; the core is still unused with the flags off.
+- ✅ CI (S3, `ace7276`): Master opt-in debug APK run `38099849746` — success.
 
 ## Phase 1.1 — S2: own solver core (parse, G1 unwrap, G2 candidates)
 
@@ -65,6 +104,7 @@
   collected, normalisation, shadowed tables, program keep/drop/guard. In the workflow's JS step.
 - Parity runner: the own core is loaded with the vendored meriyah only (no ejs lib).
 - No change in `main`, the app or ejs assets; the new asset is unused with the flags off.
+- ✅ CI (S2, `f0d7be4`): Master opt-in debug APK run `38099393252` — success.
 
 ## Phase 1.1 — S1: own-solver harness and corpus
 

@@ -7,6 +7,7 @@
 //   node scripts/verify-own-solver.mjs --record        # re-record every corpus hash (review first)
 //   node scripts/verify-own-solver.mjs --add today     # add today's player (or --add <player ID>)
 //   node scripts/verify-own-solver.mjs --prepare       # own core: candidates per file only (S2)
+//   node scripts/verify-own-solver.mjs --faults        # also inject faults (S4): never a wrong value
 //
 // Needs network access to www.youtube.com. Player text is cached under build/own-solver/players
 // (never committed) and checked against corpus.json's SHA-256 before use. Like
@@ -28,6 +29,8 @@ import {
   solveWithOwn,
   summarize,
   validateCorpus,
+  FAULTS,
+  faultVerdict,
   prepareWithOwn,
 } from "./own-solver/harness.mjs";
 
@@ -49,6 +52,7 @@ const ownFile = option("--own") ?? defaultOwn;
 const add = option("--add");
 const record = args.includes("--record") || add !== undefined;
 const prepareOnly = args.includes("--prepare");
+const withFaults = args.includes("--faults");
 
 async function download(player, variant) {
   const response = await fetch(playerUrl(player, variant), {
@@ -130,6 +134,10 @@ const own = existsSync(ownFile) ? { lib: readFileSync(ownLib, "utf8"), core: rea
 
 const results = [];
 let preparedCount = 0;
+let faultRuns = 0;
+let faultWrong = 0;
+let faultMissed = 0;
+let faultFiles = 0;
 for (const entry of corpus.players) {
   if (only && entry.player !== only) continue;
   const plan = challenges(entry.player, vectors);
@@ -163,8 +171,22 @@ for (const entry of corpus.players) {
     const ejsOut = solveWithEjs(ejs, fetched.text, plan.inputs);
     const ownOut = own ? solveWithOwn(own, fetched.text, plan.inputs) : null;
     const result = { player: entry.player, variant, status: "ok", ...compare(plan, ejsOut, ownOut) };
+    if (own && withFaults) {
+      result.faults = FAULTS.map((fault) =>
+        faultVerdict(fault, ejsOut, solveWithOwn(own, fetched.text, plan.inputs, { faults: fault.faults })),
+      );
+      faultRuns += result.faults.length;
+      faultWrong += result.faults.reduce((sum, verdict) => sum + verdict.wrong, 0);
+      faultMissed += result.faults.filter((verdict) => verdict.detected === false).length;
+    }
     results.push(result);
-    console.log(summarize([result], Boolean(own))[0]);
+    let line = summarize([result], Boolean(own))[0];
+    if (result.faults) {
+      const bad = result.faults.filter((verdict) => !verdict.ok).map((verdict) => verdict.name);
+      line += ` | faults ${result.faults.length - bad.length}/${result.faults.length} ok${bad.length ? ` (bad ${bad.join(",")})` : ""}`;
+      if (bad.length) faultFiles += 1;
+    }
+    console.log(line);
   }
 }
 
@@ -175,6 +197,10 @@ if (prepareOnly) {
 }
 const lines = summarize(results, Boolean(own));
 console.log(lines[lines.length - 1]);
+if (withFaults) {
+  console.log(`faults: ${faultRuns} runs, wrong values ${faultWrong}, expected FAILs missed ${faultMissed}`);
+}
 mkdirSync(dirname(reportFile), { recursive: true });
 writeFileSync(reportFile, `${JSON.stringify({ ownBuilt: Boolean(own), results }, null, 2)}\n`);
-process.exit(results.length > 0 && results.every(passes) ? 0 : 1);
+const faultsOk = !withFaults || (faultWrong === 0 && faultMissed === 0 && faultFiles === 0);
+process.exit(results.length > 0 && results.every(passes) && faultsOk ? 0 : 1);

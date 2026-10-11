@@ -86,16 +86,22 @@ function prng(seedText) {
 
 const N_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 const SIG_CHARS = `${N_CHARS}=`;
+// G3 edge cases: the characters an encoding bug mangles (ejs fix #54 class).
+const EDGE_PREFIX = "%/+&?# \t=";
+const EDGE_CHARS = `${SIG_CHARS}%/+&?# \t`;
 
-/** Deterministic synthetic challenges in the shapes YouTube sends (per player, every run alike). */
+/**
+ * Deterministic synthetic challenges in the shapes YouTube sends (per player, every run alike),
+ * plus one sig edge case with the characters an encoding bug mangles.
+ */
 export function generatedInputs(player) {
   const random = prng(player);
   const pick = (chars, length) =>
     Array.from({ length }, () => chars[Math.floor(random() * chars.length)]).join("");
-  return {
-    n: [16, 18, 19].map((length) => pick(N_CHARS, length)),
-    sig: [104, 108].map((length) => pick(SIG_CHARS, length)),
-  };
+  const n = [16, 18, 19].map((length) => pick(N_CHARS, length));
+  const sig = [104, 108].map((length) => pick(SIG_CHARS, length));
+  sig.push(EDGE_PREFIX + pick(EDGE_CHARS, 107 - EDGE_PREFIX.length));
+  return { n, sig };
 }
 
 /** Vector steps for [player] plus its generated inputs, per kind, without duplicates. */
@@ -167,12 +173,12 @@ export function prepareWithOwn({ lib, core }, player) {
   }
 }
 
-/** The own core on [player] through its contract (see the header). */
-export function solveWithOwn({ lib, core }, player, inputs) {
+/** The own core on [player] through its contract (see the header); [extra] adds faults. */
+export function solveWithOwn({ lib, core }, player, inputs, extra = {}) {
   try {
     const sandbox = ownContext(lib);
     vm.runInContext(core, sandbox, { timeout: SOLVE_TIMEOUT_MS });
-    sandbox.input = JSON.stringify({ player, n: inputs.n, sig: inputs.sig });
+    sandbox.input = JSON.stringify({ player, n: inputs.n, sig: inputs.sig, ...extra });
     const output = JSON.parse(
       vm.runInContext("JSON.stringify(yftOwnSolve(JSON.parse(input)))", sandbox, {
         timeout: SOLVE_TIMEOUT_MS,
@@ -286,4 +292,34 @@ export function summarize(results, ownBuilt) {
   const parity = ownBuilt ? `own = ejs on ${agree}/${total} inputs` : "own core not built yet";
   lines.push(`${ok}/${results.length} files pass (${checked} checked); ${parity}`);
   return lines;
+}
+
+const OMITTABLE = ["window", "self", "location", "navigator", "document", "XMLHttpRequest"];
+
+/**
+ * Faults injected into the own core (S4). A wrong candidate and a broken encoding must FAIL the
+ * kind they hit; a missing global may FAIL or still give right values. None may give a value
+ * that differs from ejs.
+ */
+export const FAULTS = [
+  { name: "decoy-n", faults: { decoy: "n" }, expect: "n" },
+  { name: "decoy-sig", faults: { decoy: "sig" }, expect: "sig" },
+  { name: "raw-encoding", faults: { rawEncoding: true }, expect: "sig" },
+  ...OMITTABLE.map((name) => ({ name: `omit-${name}`, faults: { omit: [name] }, expect: null })),
+  { name: "omit-all", faults: { omit: OMITTABLE }, expect: null },
+];
+
+/** A fault run against ejs: wrong values (must be 0) and whether an expected FAIL happened. */
+export function faultVerdict(fault, ejs, own) {
+  let wrong = 0;
+  for (const kind of KINDS) {
+    for (const [input, value] of Object.entries(own?.[kind] ?? {})) {
+      if (value !== ejs?.[kind]?.[input]) wrong += 1;
+    }
+  }
+  const detected = fault.expect
+    ? new RegExp(`(^|,)${fault.expect}:`).test(own?.failed ?? "") &&
+      Object.keys(own?.[fault.expect] ?? {}).length === 0
+    : null;
+  return { name: fault.name, wrong, detected, ok: wrong === 0 && detected !== false };
 }

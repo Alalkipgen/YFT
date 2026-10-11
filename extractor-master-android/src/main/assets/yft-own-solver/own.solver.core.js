@@ -8,8 +8,9 @@
  * code inside this worker (G1), finds every function that builds a stream URL with structure
  * patterns over a normalised view of the code (G2), and asks each of them to apply the n and sig
  * transforms to a test URL (multiTry), with encoding-aware input and output (G3), in a
- * browser-like global environment (G4). A value is kept only when every candidate that produced
- * one produced the same; the full SelfCheck follows in S4. Nothing is ever guessed.
+ * browser-like global environment (G4). SelfCheck accepts the values of a kind only when every
+ * candidate agrees and every value has the expected shape; otherwise the kind FAILs and its
+ * streams are dropped. Nothing is ever guessed.
  *
  *   yftOwnSolver.prepare(playerText)      -> {ok: true, program, info} | {ok: false, failed}
  *   yftOwnSolver.run(prepared, request)   -> {n: {input: output}, sig: {...}, failed?, report}
@@ -31,6 +32,14 @@ var yftOwnSolver = (function () {
   var CAUGHT = "__yftOwnCaught$";
   var MAX_CANDIDATES = 16;
   var KINDS = ["n", "sig"];
+  var URL_SAFE = /^[A-Za-z0-9_-]+$/;
+  var has = Object.prototype.hasOwnProperty;
+
+  // Fixed probes (never session values). 64 distinct URL-safe characters reveal the sig index map;
+  // the edge probe has the same length and carries the characters that encoding bugs mangle.
+  var SIG_MAP_PROBE = "0HrxAZWdNDCIYsVzBaQXGSqvf-Mhm14kFbj2giOwPeUEu7l5LcJ_R3t6yK9o8nTp";
+  var SIG_EDGE_PROBE = "%41/=+&?# \t%zz\nabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVW";
+  var N_PROBES = ["Qx7rTb2LmNc9Pd4s", "Hk3VwZ8yAe1GfJ6uRq0"];
 
   function Failure(reason) {
     this.reason = reason;
@@ -669,9 +678,10 @@ var yftOwnSolver = (function () {
     };
   }
 
-  function installEnvironment(scope, env) {
+  function installEnvironment(scope, env, omit) {
     var globals = environmentGlobals(scope, env);
     Object.keys(globals).forEach(function (name) {
+      if (omit && omit.indexOf(name) >= 0) return;
       Object.defineProperty(scope, name, {
         value: globals[name],
         writable: true,
@@ -679,7 +689,7 @@ var yftOwnSolver = (function () {
         enumerable: true,
       });
     });
-    if (typeof scope.XMLHttpRequest === "undefined") {
+    if (typeof scope.XMLHttpRequest === "undefined" && !(omit && omit.indexOf("XMLHttpRequest") >= 0)) {
       // Read (never used) by some top-level tables; a stand-in without any network.
       Object.defineProperty(scope, "XMLHttpRequest", {
         value: function XMLHttpRequest() {},
@@ -694,7 +704,8 @@ var yftOwnSolver = (function () {
   }
 
   function instantiate(prepared, request) {
-    installEnvironment(globalScope(), request.env);
+    var faults = request.faults || {};
+    installEnvironment(globalScope(), request.env, faults.omit);
     var registry = { c: [], e: 0 };
     var factory;
     try {
@@ -789,16 +800,18 @@ var yftOwnSolver = (function () {
   // building (and setting n), then every zero-argument method of the URL object on a fresh
   // object (the getter again, and the query of a returned URL string). A failing path only
   // loses its own values; failures name the candidate and path indexes.
-  function attempt(kind, candidate, input, errors) {
+  function attempt(kind, candidate, input, faults, errors) {
     var key = kind === "sig" ? "s" : "n";
-    var encoded = kind === "sig" ? encodeURIComponent(input) : input;
+    var raw = kind === "sig" && faults.rawEncoding;
+    var encoded = kind === "sig" && !raw ? encodeURIComponent(input) : input;
     var make = function () {
       var object = kind === "sig" ? candidate.fn(TEST_PAGE, "s", encoded) : candidate.fn(TEST_PAGE);
       if (kind === "n") object[access.set]("n", input);
       return object;
     };
     var read = function (object) {
-      return decodeOnce(object[access.get](key));
+      var value = object[access.get](key);
+      return raw ? value : decodeOnce(value);
     };
     var first = kind === "sig" ? candidate.fn(TEST_PAGE, "s", encoded) : candidate.fn(TEST_PAGE);
     var access = urlAccess(first);
@@ -810,7 +823,7 @@ var yftOwnSolver = (function () {
         var object = make();
         var returned = object[name]();
         values.push(read(object));
-        if (typeof returned === "string") values.push(queryParam(returned, key));
+        if (typeof returned === "string" && !raw) values.push(queryParam(returned, key));
       } catch (error) {
         errors.push(candidate.index + "/" + (path + 1) + ":" + errorName(error));
       }
@@ -821,12 +834,12 @@ var yftOwnSolver = (function () {
   }
 
   // One input through every candidate: the distinct values and the failures.
-  function multiTry(kind, candidates, input) {
+  function multiTry(kind, candidates, input, faults) {
     var values = [];
     var errors = [];
     candidates.forEach(function (candidate) {
       try {
-        attempt(kind, candidate, input, errors).forEach(function (value) {
+        attempt(kind, candidate, input, faults, errors).forEach(function (value) {
           if (values.indexOf(value) < 0) values.push(value);
         });
       } catch (error) {
@@ -836,28 +849,135 @@ var yftOwnSolver = (function () {
     return { values: values, errors: errors };
   }
 
-  // S3 keeps a value only when every candidate that produced one produced the same (multiTry);
-  // the full SelfCheck (shape, probes, encoding map, vectors, stability) is S4.
-  function solveKind(kind, candidates, inputs) {
-    var answers = {};
+  // ---------------------------------------------------------------------------------------------
+  // SelfCheck: all candidates agree, values have their kind's shape, distinct n inputs give
+  // distinct outputs, sig keeps the index map of the probes (G3), known vectors match, and the
+  // first value is stable at the end. Any failure drops the whole kind.
+
+  function charCounts(text) {
+    var counts = Object.create(null);
+    for (var i = 0; i < text.length; i += 1) counts[text[i]] = (counts[text[i]] || 0) + 1;
+    return counts;
+  }
+
+  function shapeOk(kind, input, value) {
+    if (kind === "n") {
+      return URL_SAFE.test(value) && value !== input && value.length <= input.length * 2 + 8;
+    }
+    if (value.length > input.length || value.length < input.length - Math.max(16, input.length >> 2)) return false;
+    var available = charCounts(input);
+    for (var i = 0; i < value.length; i += 1) {
+      if (!available[value[i]]) return false;
+      available[value[i]] -= 1;
+    }
+    return true;
+  }
+
+  // The positions of the map probe's characters in its output, applied to another input.
+  function applyIndexMap(probe, probeOutput, input) {
+    var out = "";
+    for (var i = 0; i < probeOutput.length; i += 1) {
+      var from = probe.indexOf(probeOutput[i]);
+      if (from < 0) return null;
+      out += input[from];
+    }
+    return out;
+  }
+
+  function solveKind(kind, builders, inputs, request) {
+    var faults = request.faults || {};
+    var vectors = (request.vectors && request.vectors[kind]) || [];
+    var probes = kind === "n" ? N_PROBES.slice() : [SIG_MAP_PROBE, SIG_EDGE_PROBE];
+    var all = [];
+    probes
+      .concat(vectors.map(function (vector) {
+        return vector.input;
+      }))
+      .concat(inputs)
+      .forEach(function (input) {
+        if (typeof input === "string" && input.length > 0 && all.indexOf(input) < 0) all.push(input);
+      });
+    var results = Object.create(null);
     var errors = [];
-    var solved = 0;
-    var conflicts = 0;
-    inputs.forEach(function (input) {
-      var outcome = multiTry(kind, candidates, input);
+    all.forEach(function (input) {
+      var outcome = multiTry(kind, builders, input, faults);
+      results[input] = outcome.values;
       outcome.errors.forEach(function (error) {
         if (errors.indexOf(error) < 0) errors.push(error);
       });
-      if (outcome.values.length === 1) {
-        answers[input] = outcome.values[0];
-        solved += 1;
-      } else if (outcome.values.length > 1) {
-        conflicts += 1;
+    });
+    var reason = null;
+    var solved = Object.create(null);
+    var outputs = [];
+    all.forEach(function (input) {
+      var values = results[input];
+      if (reason || !values.length) return;
+      if (values.length > 1) reason = "disagree";
+      else if (!shapeOk(kind, input, values[0])) reason = "shape";
+      else if (kind === "n" && outputs.indexOf(values[0]) >= 0) reason = "not-distinct";
+      else {
+        solved[input] = values[0];
+        outputs.push(values[0]);
       }
     });
+    if (!reason) {
+      for (var p = 0; p < probes.length; p += 1) {
+        if (!has.call(solved, probes[p])) reason = "probe";
+      }
+    }
+    if (!reason && kind === "sig") {
+      var expected = applyIndexMap(SIG_MAP_PROBE, solved[SIG_MAP_PROBE], SIG_EDGE_PROBE);
+      if (expected === null || expected !== solved[SIG_EDGE_PROBE]) reason = "encoding";
+    }
+    if (!reason) {
+      vectors.forEach(function (vector) {
+        if (!reason && solved[vector.input] !== vector.expected) reason = "vector";
+      });
+    }
+    if (!reason) {
+      var again = multiTry(kind, builders, probes[0], faults).values;
+      if (again.length !== 1 || again[0] !== solved[probes[0]]) reason = "unstable";
+    }
+    var answers = {};
+    var answered = 0;
+    if (!reason) {
+      inputs.forEach(function (input) {
+        if (has.call(solved, input)) {
+          answers[input] = solved[input];
+          answered += 1;
+        }
+      });
+    }
     return {
       answers: answers,
-      report: { status: "ok", inputs: inputs.length, solved: solved, conflicts: conflicts, errors: errors.slice(0, 8) },
+      report: {
+        status: reason ? "failed" : "ok",
+        reason: reason,
+        inputs: inputs.length,
+        solved: answered,
+        errors: errors.slice(0, 8),
+      },
+    };
+  }
+
+  // Fault injection (tests only): a wrong candidate. It wraps the first real candidate and
+  // rotates the value of one kind by one character; SelfCheck must see the disagreement.
+  function decoyBuilder(real, kind) {
+    var key = kind === "sig" ? "s" : "n";
+    return function (url, sp, sig) {
+      var object = real(url, sp, sig);
+      var access = urlAccess(object);
+      if (!access) return object;
+      var wrapper = {};
+      wrapper[access.set] = function (name, value) {
+        return object[access.set](name, value);
+      };
+      wrapper[access.get] = function (name) {
+        var value = object[access.get](name);
+        if (name !== key || typeof value !== "string" || value.length < 2 || value.indexOf("%") >= 0) return value;
+        return value.slice(1) + value.charAt(0);
+      };
+      return wrapper;
     };
   }
 
@@ -871,6 +991,9 @@ var yftOwnSolver = (function () {
       registry.c.forEach(function (fn, index) {
         if (typeof fn === "function") builders.push({ index: index, fn: fn });
       });
+      if (request.faults && (request.faults.decoy === "n" || request.faults.decoy === "sig") && builders.length) {
+        builders.push({ index: registry.c.length, fn: decoyBuilder(builders[0].fn, request.faults.decoy) });
+      }
       output.report.topLevelErrors = registry.e;
       output.report.candidates = builders.length;
       if (!builders.length) throw new Failure("no candidate functions");
@@ -880,7 +1003,7 @@ var yftOwnSolver = (function () {
           return typeof input === "string" && input.length > 0;
         });
         if (!inputs.length) return;
-        var result = solveKind(kind, builders, inputs);
+        var result = solveKind(kind, builders, inputs, request);
         output[kind] = result.answers;
         output.report[kind] = result.report;
         if (result.report.reason) failed.push(kind + ":" + result.report.reason);
@@ -918,8 +1041,11 @@ var yftOwnSolver = (function () {
       propertyName: propertyName,
       flatSteps: flatSteps,
       queryParam: queryParam,
+      shapeOk: shapeOk,
+      applyIndexMap: applyIndexMap,
       environmentGlobals: environmentGlobals,
       installEnvironment: installEnvironment,
+      probes: { n: N_PROBES, sigMap: SIG_MAP_PROBE, sigEdge: SIG_EDGE_PROBE },
     },
   };
 })();

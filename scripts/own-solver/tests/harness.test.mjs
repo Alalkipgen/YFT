@@ -3,11 +3,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
+  FAULTS,
   KINDS,
   VARIANTS,
   challenges,
   compare,
   coverage,
+  faultVerdict,
   generatedInputs,
   passes,
   playerUrl,
@@ -64,9 +66,11 @@ test("generated inputs are deterministic, URL-safe and shaped like YouTube's", (
   assert.deepEqual(a, generatedInputs("5203c085"));
   assert.notDeepEqual(a, generatedInputs("74edf1a3"));
   assert.deepEqual(a.n.map((s) => s.length), [16, 18, 19]);
-  assert.deepEqual(a.sig.map((s) => s.length), [104, 108]);
-  for (const s of [...a.n, ...a.sig]) assert.match(s, URL_SAFE);
+  assert.deepEqual(a.sig.map((s) => s.length), [104, 108, 107]);
+  for (const s of [...a.n, ...a.sig.slice(0, 2)]) assert.match(s, URL_SAFE);
   assert.ok(a.n.every((s) => !s.includes("=")));
+  // G3 edge case: the characters an encoding bug mangles are all present.
+  for (const char of ["%", "/", "+", "&", "?", "#", " ", "\t", "="]) assert.ok(a.sig[2].includes(char));
 });
 
 test("challenges merge vector inputs first, without duplicates", () => {
@@ -74,7 +78,7 @@ test("challenges merge vector inputs first, without duplicates", () => {
   assert.equal(steps.n.length, 1);
   assert.equal(inputs.n[0], "nA");
   assert.equal(inputs.n.length, 4);
-  assert.equal(inputs.sig.length, 3);
+  assert.equal(inputs.sig.length, 4);
   const none = challenges("unknown", vectors);
   assert.deepEqual(none.steps, { n: [], sig: [] });
   assert.equal(none.inputs.n.length, 3);
@@ -140,4 +144,25 @@ test("summary names only players, variants, kinds and indexes", () => {
   assert.match(text, /1\/2 files pass/);
   for (const secret of [...inputs.n, ...inputs.sig, "leak-me", "nA!", "sA!"]) assert.ok(!text.includes(secret));
   assert.match(summarize([], false).join("\n"), /own core not built yet/);
+});
+
+test("fault verdicts: wrong values always fail; expected FAILs must happen", () => {
+  const ejs = { n: { a: "A" }, sig: { b: "B" } };
+  const decoy = FAULTS.find((fault) => fault.name === "decoy-sig");
+  assert.deepEqual(faultVerdict(decoy, ejs, { n: { a: "A" }, sig: {}, failed: "sig:disagree" }), {
+    name: "decoy-sig",
+    wrong: 0,
+    detected: true,
+    ok: true,
+  });
+  assert.equal(faultVerdict(decoy, ejs, { n: { a: "A" }, sig: { b: "B" } }).ok, false);
+  assert.equal(faultVerdict(decoy, ejs, { n: {}, sig: { b: "X" }, failed: "sig:disagree" }).wrong, 1);
+  const omit = FAULTS.find((fault) => fault.name === "omit-self");
+  assert.equal(faultVerdict(omit, ejs, { n: { a: "A" }, sig: { b: "B" } }).ok, true);
+  assert.equal(faultVerdict(omit, ejs, { n: {}, sig: {}, failed: "n:probe" }).ok, true);
+  assert.equal(faultVerdict(omit, ejs, { n: { a: "Z" }, sig: {} }).ok, false);
+  assert.deepEqual(
+    FAULTS.map((fault) => fault.name),
+    ["decoy-n", "decoy-sig", "raw-encoding", "omit-window", "omit-self", "omit-location", "omit-navigator", "omit-document", "omit-XMLHttpRequest", "omit-all"],
+  );
 });
