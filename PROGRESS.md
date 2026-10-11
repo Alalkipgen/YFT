@@ -1,5 +1,35 @@
 # YFT Master Extractor backup
 
+## Phase 1.2 — N1 change simulator (part 2–3: 8 more classes + full baseline) — N1 done
+
+- ✅ `mutate.mjs` new classes: **M4** sig helper object → separate functions, **M5** functions
+  with 3+ call sites called through a fresh alias, **M7** control-flow flattening (switch in a
+  loop) of wrapper-level functions with a plain 3–40 statement body (chance 0.7 each; refuses
+  async/generator, labels, function/class/`let`/`const` at the top; keeps directives), **M8**
+  global `encodeURIComponent`/`decodeURIComponent` through fresh wrapper functions at the end of
+  the wrapper body, **M8t** the same wrappers first, **M9** `navigator.userAgent`,
+  `location.hostname`, `document.createElement("div")`, `window.top` read into unused variables in
+  the middle of the init, **M11** harmless `var`s at the top, **M11f** harmless function
+  declarations at the top.
+- Plan adapted: M8 cannot change how the result is applied (that changes the right answer
+  itself), so that part moves to the simulated V (N2/N5); M8t, M11 and M11f were added to explain
+  the M8 finding (below); M7 flattens other functions too, not only n/sig. Details: plan §3 N1.
+- ✅ Runner: report lines now say which kind failed (`safe (n 0/3, sig 3/3)`) and own P's failure
+  class (`[no candidates]`); counts only, no player text.
+- ✅ Tests: `mutate.test.mjs` 47 (was 29; new: M4, M5, M7 closures / early return / loops /
+  hoisting / refusals, M8, M8t, M9, M11, M11f keep behaviour); CI JS step locally 129/129.
+- ✅ Full baseline (32 files × 14 classes = 448 cases, 0 skipped; **wrong = 0**); files that
+  survived out of 32, as ejs | own P: M1 32 | 32 · M1w 32 | 32 · M2 32 | 32 · **M3 0 | 0** (both
+  safe: new wrapper) · M4 32 | 32 · **M5 24 | 32** · **M6 0 | 32** · **M7 11 | 31** ·
+  M8 32 | 32 · **M8t 0 | 32** · **M9 0 | 32** · M10 32 | 32 · M11 32 | 32 · M11f 32 | 32.
+  All cases: ejs 291 (65 %), own P 415 (93 %).
+- Findings: ejs breaks (safely) on aliased call sites, string tables, flattening, new encode
+  helpers met first (not at the end, not other new code at the top) and browser-object reads
+  (the #56 class); own P survives all of these except M7 on 5203c085 es6 (`no candidates`). Both
+  break on a new wrapper (M3): strategy B's first target. Numbers: plan §4.
+- ⏭ Next: N2 (live check V + measuring the n behaviour on the owner's phone), then N3 (strategy B).
+  Continuation prompt for a new agent: `MASTER_KEY_PHASE1_2_CONTINUE.md`.
+
 ## Phase 1.2 — N1 change simulator (part 1: 6 classes + baseline)
 
 - ✅ `scripts/own-solver/mutate.mjs`: behaviour-keeping AST mutators (meriyah + astring from main's
@@ -21,13 +51,13 @@
 - ✅ Tests: `mutate.test.mjs` 29 (scope cases, M1/M1w/M2/M3/M6/M10 keep behaviour, determinism),
   added to the spike CI JS step. Plan adapted: `--quick` needs the player downloads, so it runs in
   N6's canary workflow, not in this CI step.
-- ✅ Baseline, quick (8 players, phone build; wrong = **0**): M1 ejs 8/8, own 8/8 · M1w 8/8, 8/8 ·
-  M2 8/8, 8/8 · **M3 0/8, 0/8** (both fail safely: an unknown wrapper) · **M6 ejs 0/8, own 8/8**
-  (own resolves string tables) · M10 8/8, 8/8.
+- ✅ Baseline, full (32 files = 8 players × 4 builds, 2 seeds, 192 cases; wrong = **0**): M1 ejs
+  32/32, own 32/32 · M1w 32/32, 32/32 · M2 32/32, 32/32 · **M3 0/32, 0/32** (both fail safely:
+  an unknown wrapper) · **M6 ejs 0/32, own 32/32** (own resolves string tables) · M10 32/32,
+  32/32. Quick run (8 phone builds) matches.
 - Fairness fixes found while measuring: ejs first "failed" M1 only because the draft renamed
   `var window = this` and used `_m$` names; both were unrealistic and are fixed (ejs then 8/8).
-- ⏳ Next in N1: M4 (helper reshuffle), M5 (indirect call site), M7 (flattening), M8 (encoding
-  form), M9 (browser objects); the full 32-file baseline into plan §4.
+- → M4, M5, M7, M8, M9 and the full 32-file baseline: done in part 2–3 (above).
 
 ## Phase 1.2 — plan + prompt (no code)
 

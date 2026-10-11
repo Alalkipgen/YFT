@@ -8,17 +8,23 @@
 // through eval/with/arguments, are left alone. The caller verifies behaviour with an independent
 // truth hook, so a mutation that would change behaviour is skipped, never counted as a wrong value.
 
-export const CLASSES = ["M1", "M1w", "M2", "M3", "M6", "M10"];
+export const CLASSES = ["M1", "M1w", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M8t", "M9", "M10", "M11", "M11f"];
 
 export const CLASS_NOTE = {
   M1: "rename every function/block/catch binding; globals and the wrapper parameter stay (a new build)",
   M1w: "as M1, and rename the wrapper parameter too (`g` in `(function(g){...})(_yt_player)`)",
   M2: "toggle dotted <-> computed member access, where the key is a valid name (code generation)",
   M3: "re-wrap the top level in another wrapper form (#53)",
-  M4: "hoist a marked builder behind a local alias object (helper reshuffle)",
-  M5: "call the URL builder through a fresh local alias (indirect call site)",
+  M4: "split small helper objects (the sig helper) into separate functions (helper reshuffle)",
+  M5: "call every top-level function with 3+ call sites through a fresh alias (indirect call sites)",
   M6: "read fixed string literals from a shuffled table (obfuscation)",
+  M7: "flatten plain function bodies into a switch-in-loop dispatcher (heavier obfuscation)",
+  M8: "global encode/decodeURIComponent reached through fresh wrapper functions (#54 class)",
+  M8t: "as M8, with the wrappers first in the wrapper body (new encode helpers met first)",
+  M9: "read navigator/location/document/window in the middle of init, unused (#56 class)",
   M10: "append decoy functions that look like n/sig but return other values (false positives)",
+  M11: "add harmless var declarations at the top of the wrapper body (a new prelude)",
+  M11f: "add harmless function declarations at the top of the wrapper body",
 };
 
 const FRESH = "_m$";
@@ -491,10 +497,16 @@ export const MUTATORS = {
   M1w: (p, r) => renameLocals(p, r, { keepWrapperParams: false }),
   M2: (p, r) => toggleMemberAccess(p, r),
   M3: (p) => rewrapTopLevel(p),
-  M4: () => 0, // defined in the runner (needs builder refs) — placeholder
-  M5: () => 0, // defined in the runner (needs builder refs) — placeholder
+  M4: (p, r) => splitHelperObjects(p, r),
+  M5: (p, r) => aliasCallSites(p, r),
   M6: (p, r) => tableLiterals(p, r),
+  M7: (p, r) => flattenFunctions(p, r),
+  M8: (p, r) => wrapEncoding(p, r),
+  M8t: (p, r) => wrapEncoding(p, r, { atTop: true }),
+  M9: (p, r) => readBrowserObjects(p, r),
   M10: (p, r) => appendDecoys(p, r),
+  M11: (p, r) => addPrelude(p, r),
+  M11f: (p, r) => addPrelude(p, r, { functions: true }),
 };
 
 export function parseWith(meriyah, text) {
@@ -502,4 +514,303 @@ export function parseWith(meriyah, text) {
 }
 export function generateWith(astring, ast) {
   return astring.generate(ast);
+}
+
+// ------------------------------------------------------------------------------------------------
+// M5: call sites through a fresh alias. Every call `f(...)` of a function declared at the top of
+// the wrapper body (one with three or more call sites, like the stream-URL builder) becomes
+// `alias(...)`, with `var alias = f;` added right after f's declaration. The alias holds the same
+// function and the receiver of a plain call is unchanged, so behaviour is the same.
+export function aliasCallSites(program, random) {
+  const w = topWrapper(program);
+  const body = w && w.callee.body.type === "BlockStatement" ? w.callee.body.body : null;
+  if (!body) return 0;
+  const declared = new Map(); // name -> index in body
+  body.forEach((statement, index) => {
+    if (statement.type === "FunctionDeclaration" && statement.id) declared.set(statement.id.name, index);
+    if (statement.type === "VariableDeclaration") {
+      statement.declarations.forEach((d) => {
+        if (d.id.type === "Identifier" && d.init && (d.init.type === "FunctionExpression" || d.init.type === "ArrowFunctionExpression")) declared.set(d.id.name, index);
+      });
+    }
+    if (statement.type === "ExpressionStatement" && statement.expression.type === "AssignmentExpression" && statement.expression.left.type === "Identifier") {
+      const right = statement.expression.right;
+      if (right.type === "FunctionExpression" || right.type === "ArrowFunctionExpression") declared.set(statement.expression.left.name, index);
+    }
+  });
+  const { bindings, ok } = resolveScopes(program);
+  if (!ok) return 0;
+  // One pass: every Identifier that is a call's callee.
+  const callees = new Set();
+  walk(program, ({ parent, key, node }) => {
+    if (parent && parent.type === "CallExpression" && key === "callee" && node.type === "Identifier") callees.add(node);
+    return true;
+  });
+  // Declaration nodes of the wrapper body, so only names bound in the wrapper's own scope count.
+  const declNodes = new Set();
+  for (const st of body) {
+    if (st.type === "FunctionDeclaration" && st.id) declNodes.add(st.id);
+    if (st.type === "VariableDeclaration") st.declarations.forEach((d) => { if (d.id.type === "Identifier") declNodes.add(d.id); });
+    if (st.type === "ExpressionStatement" && st.expression.type === "AssignmentExpression" && st.expression.left.type === "Identifier") declNodes.add(st.expression.left);
+  }
+  const used = new Set();
+  walk(program, ({ node }) => { if (node.type === "Identifier") used.add(node.name); return true; });
+  const next = minifiedNames(used, random);
+  const inserts = [];
+  let edits = 0;
+  for (const binding of bindings) {
+    if (!declared.has(binding.name)) continue;
+    if (!binding.nodes.some((node) => declNodes.has(node))) continue;
+    const calls = binding.nodes.filter((node) => callees.has(node));
+    if (calls.length < 3) continue;
+    const alias = next();
+    calls.forEach((node) => { node.name = alias; });
+    edits += calls.length;
+    inserts.push({ at: declared.get(binding.name), alias, name: binding.name });
+  }
+  // Insert `var alias = f;` after each declaration (highest index first keeps positions valid).
+  inserts.sort((a, b) => b.at - a.at).forEach((ins) => {
+    body.splice(ins.at + 1, 0, { type: "VariableDeclaration", kind: "var", declarations: [{ type: "VariableDeclarator", id: { type: "Identifier", name: ins.alias }, init: { type: "Identifier", name: ins.name } }] });
+  });
+  return edits;
+}
+
+// ------------------------------------------------------------------------------------------------
+// M4: helper reshuffle. A wrapper-level object whose 2-4 properties are all small functions that
+// do not use `this` (the sig helper: splice / reverse / swap) is split: each method becomes its
+// own wrapper-level function declared just before the object, and the object keeps the same keys
+// pointing at those functions. Calls like `H.k(a, b)` then reach the same code (no `this` used),
+// so behaviour is the same while the helper's shape changes.
+export function splitHelperObjects(program, random) {
+  const w = topWrapper(program);
+  const body = w && w.callee.body.type === "BlockStatement" ? w.callee.body.body : null;
+  if (!body) return 0;
+  const used = new Set();
+  walk(program, ({ node }) => { if (node.type === "Identifier") used.add(node.name); return true; });
+  const next = minifiedNames(used, random);
+  const usesThis = (fn) => {
+    let found = false;
+    walk(fn.body, ({ node }) => {
+      if (found) return false;
+      if (node.type === "ThisExpression" || node.type === "Super" || (node.type === "Identifier" && node.name === "arguments")) { found = true; return false; }
+      return !(node.type === "FunctionExpression" || node.type === "FunctionDeclaration"); // arrows inherit this
+    });
+    return found;
+  };
+  const small = (v) => v && (v.type === "FunctionExpression" || v.type === "ArrowFunctionExpression") && !v.async && !v.generator && v.params.length >= 1 && v.params.length <= 3 && !usesThis(v) && countNodes(v) < 80;
+  let edits = 0;
+  for (let i = body.length - 1; i >= 0; i -= 1) {
+    const st = body[i];
+    const objects = [];
+    if (st.type === "VariableDeclaration" && st.declarations.length === 1 && st.declarations[0].init) objects.push(st.declarations[0].init);
+    if (st.type === "ExpressionStatement" && st.expression.type === "AssignmentExpression" && st.expression.operator === "=") objects.push(st.expression.right);
+    const o = objects[0];
+    if (!o || o.type !== "ObjectExpression" || o.properties.length < 2 || o.properties.length > 4) continue;
+    if (!o.properties.every((p) => p.type === "Property" && p.kind === "init" && !p.computed && !p.method && small(p.value))) continue;
+    const decls = [];
+    for (const p of o.properties) {
+      const name = next();
+      const fn = p.value;
+      const fnBody = fn.body.type === "BlockStatement" ? fn.body : { type: "BlockStatement", body: [{ type: "ReturnStatement", argument: fn.body }] };
+      decls.push({ type: "FunctionDeclaration", id: { type: "Identifier", name }, params: fn.params, body: fnBody, generator: false, async: false });
+      p.value = { type: "Identifier", name };
+      p.shorthand = false;
+      edits += 1;
+    }
+    body.splice(i, 0, ...decls);
+  }
+  return edits;
+}
+
+function countNodes(root) {
+  let n = 0;
+  walk(root, () => { n += 1; return n < 200; });
+  return n;
+}
+
+// ------------------------------------------------------------------------------------------------
+// M7: control-flow flattening. A function whose body is a plain statement list is turned into a
+// dispatcher: `var c = 0; while (c < N) switch (c) { case 0: c = 1; s0; continue; ... }`. The same
+// statements run in the same order. Refused (left alone): async/generator functions, bodies with
+// function or class declarations or let/const at the top (a switch case block is re-entered on each
+// pass, so those would change scope), and any label. Leading directives ("use strict") stay first.
+// A plain `break`/`continue` inside a statement targets a loop or switch inside that statement, and
+// `return` still leaves the function, so control flow is unchanged.
+export function flattenFunctions(program, random) {
+  const w = topWrapper(program);
+  const container = w && w.callee.body.type === "BlockStatement" ? w.callee.body.body : program.body;
+  const used = new Set();
+  walk(program, ({ node }) => { if (node.type === "Identifier") used.add(node.name); return true; });
+  const next = minifiedNames(used, random);
+  const targets = [];
+  const isFlatFn = (fn) => fn && fn.type === "FunctionExpression" && fn.body.type === "BlockStatement";
+  for (const st of container) {
+    if (st.type === "FunctionDeclaration" && st.body.type === "BlockStatement") targets.push(st);
+    if (st.type === "VariableDeclaration") st.declarations.forEach((d) => { if (isFlatFn(d.init)) targets.push(d.init); });
+    if (st.type === "ExpressionStatement" && st.expression.type === "AssignmentExpression" && isFlatFn(st.expression.right)) targets.push(st.expression.right);
+  }
+  let edits = 0;
+  for (const fn of targets) {
+    if (random() < 0.3) continue;
+    if (flattenOne(fn, next)) edits += 1;
+  }
+  return edits;
+}
+
+function flattenOne(fn, next) {
+  if (fn.async || fn.generator) return false;
+  const all = fn.body.body;
+  let d = 0;
+  while (d < all.length && all[d].type === "ExpressionStatement" && all[d].expression.type === "Literal" && typeof all[d].expression.value === "string") d += 1;
+  const directives = all.slice(0, d);
+  const stmts = all.slice(d);
+  if (stmts.length < 3 || stmts.length > 40) return false;
+  for (const st of stmts) {
+    if (st.type === "FunctionDeclaration" || st.type === "ClassDeclaration" || st.type === "LabeledStatement") return false;
+    if (st.type === "VariableDeclaration" && st.kind !== "var") return false;
+  }
+  let labelled = false;
+  walk(fn.body, ({ node }) => {
+    if (labelled) return false;
+    if (node.type === "LabeledStatement" || ((node.type === "BreakStatement" || node.type === "ContinueStatement") && node.label)) { labelled = true; return false; }
+    return true;
+  });
+  if (labelled) return false;
+  const ctrl = next();
+  const id = () => ({ type: "Identifier", name: ctrl });
+  const cases = stmts.map((st, i) => ({
+    type: "SwitchCase",
+    test: { type: "Literal", value: i },
+    consequent: [
+      { type: "ExpressionStatement", expression: { type: "AssignmentExpression", operator: "=", left: id(), right: { type: "Literal", value: i + 1 } } },
+      st,
+      { type: "ContinueStatement", label: null },
+    ],
+  }));
+  fn.body.body = [
+    ...directives,
+    { type: "VariableDeclaration", kind: "var", declarations: [{ type: "VariableDeclarator", id: id(), init: { type: "Literal", value: 0 } }] },
+    {
+      type: "WhileStatement",
+      test: { type: "BinaryExpression", operator: "<", left: id(), right: { type: "Literal", value: stmts.length } },
+      body: { type: "SwitchStatement", discriminant: id(), cases },
+    },
+  ];
+  return true;
+}
+
+// Names a function binds in its own scope: parameters, hoisted `var`s and function declarations
+// (not inside nested functions), and top-level let/const/class.
+function declaredInFunction(fn) {
+  const names = new Set();
+  fn.params.forEach((p) => bindingTargets(p).forEach((id) => names.add(id.name)));
+  if (fn.body.type !== "BlockStatement") return names;
+  const stack = fn.body.body.slice();
+  while (stack.length) {
+    const node = stack.pop();
+    if (!node || typeof node.type !== "string") continue;
+    if (node.type === "FunctionDeclaration") { if (node.id) names.add(node.id.name); continue; }
+    if (node.type === "FunctionExpression" || node.type === "ArrowFunctionExpression" || node.type === "ClassExpression") continue;
+    if (node.type === "ClassDeclaration" && node.id && fn.body.body.includes(node)) names.add(node.id.name);
+    if (node.type === "VariableDeclaration" && (node.kind === "var" || fn.body.body.includes(node))) {
+      node.declarations.forEach((d) => bindingTargets(d.id).forEach((id) => names.add(id.name)));
+    }
+    for (const { node: child } of childEntries(node)) stack.push(child);
+  }
+  return names;
+}
+
+function afterDirectives(body) {
+  let at = 0;
+  while (at < body.length && body[at].type === "ExpressionStatement" && body[at].expression.type === "Literal" && typeof body[at].expression.value === "string") at += 1;
+  return at;
+}
+
+// ------------------------------------------------------------------------------------------------
+// M8: encoding form. Inside the wrapper, every reference to the GLOBAL encodeURIComponent /
+// decodeURIComponent (not a local of that name, not a property) goes through a fresh wrapper-level
+// function `function x(s) { return encodeURIComponent(s); }`. Both use only their first argument,
+// so calls and values passed around (`.map(...)`) behave the same; only the shape of how a value
+// is encoded changes (ejs fix #54 was about this step).
+export function wrapEncoding(program, random, options = {}) {
+  const w = topWrapper(program);
+  const body = w && w.callee.body.type === "BlockStatement" ? w.callee.body.body : null;
+  if (!body) return 0;
+  const { bindings } = resolveScopes(program);
+  const local = new Set();
+  bindings.forEach((b) => b.nodes.forEach((n) => local.add(n)));
+  const used = new Set();
+  walk(program, ({ node }) => { if (node.type === "Identifier") used.add(node.name); return true; });
+  const next = minifiedNames(used, random);
+  const wrappers = new Map();
+  let edits = 0;
+  for (const statement of body) {
+    walk(statement, ({ parent, key, node }) => {
+      if (node.type !== "Identifier" || (node.name !== "encodeURIComponent" && node.name !== "decodeURIComponent")) return true;
+      if (local.has(node)) return true;
+      if (parent && parent.type === "MemberExpression" && key === "property" && !parent.computed) return true;
+      if (parent && (parent.type === "Property" || parent.type === "MethodDefinition") && key === "key" && !parent.computed) return true;
+      if (!wrappers.has(node.name)) wrappers.set(node.name, next());
+      node.name = wrappers.get(node.name);
+      edits += 1;
+      return true;
+    });
+  }
+  const decls = [...wrappers.entries()].map(([global, name]) => ({
+    type: "FunctionDeclaration", id: { type: "Identifier", name }, params: [{ type: "Identifier", name: "s" }], generator: false, async: false,
+    body: { type: "BlockStatement", body: [{ type: "ReturnStatement", argument: { type: "CallExpression", optional: false, callee: { type: "Identifier", name: global }, arguments: [{ type: "Identifier", name: "s" }] } }] },
+  }));
+  // At the end of the wrapper body by default: declarations are hoisted, so they exist from the
+  // first statement on, and the player's own prelude keeps its place. `atTop` (M8t) puts them
+  // first instead, so they are the first encode/decode helpers a reader meets.
+  if (options.atTop) body.splice(afterDirectives(body), 0, ...decls);
+  else body.push(...decls);
+  return edits;
+}
+
+// ------------------------------------------------------------------------------------------------
+// M9: browser objects read at init (the #56 class: a player starts reading a browser global in its
+// setup). At the top of the wrapper, values are read from navigator, location, document and window
+// and stored in fresh variables nothing else uses. In a browser these globals exist, so behaviour
+// is unchanged; a sandbox that lacks one throws there. A read is added only when its root name is a
+// global at that point (not a parameter or local of the wrapper, such as `var window = this`).
+export function readBrowserObjects(program, random) {
+  const w = topWrapper(program);
+  const body = w && w.callee.body.type === "BlockStatement" ? w.callee.body.body : null;
+  if (!body) return 0;
+  const declared = declaredInFunction(w.callee);
+  const used = new Set();
+  walk(program, ({ node }) => { if (node.type === "Identifier") used.add(node.name); return true; });
+  const next = minifiedNames(used, random);
+  const member = (root, prop) => ({ type: "MemberExpression", computed: false, optional: false, object: { type: "Identifier", name: root }, property: { type: "Identifier", name: prop } });
+  const reads = [
+    ["navigator", member("navigator", "userAgent")],
+    ["location", member("location", "hostname")],
+    ["document", { type: "CallExpression", optional: false, callee: member("document", "createElement"), arguments: [{ type: "Literal", value: "div" }] }],
+    ["window", member("window", "top")],
+  ].filter(([root]) => !declared.has(root));
+  const decls = reads.map(([, init]) => ({ type: "VariableDeclaration", kind: "var", declarations: [{ type: "VariableDeclarator", id: { type: "Identifier", name: next() }, init }] }));
+  // In the middle of the init code, as a real change would add it (M11 covers the top).
+  body.splice(Math.max(afterDirectives(body), Math.floor(body.length / 2)), 0, ...decls);
+  return decls.length;
+}
+
+// ------------------------------------------------------------------------------------------------
+// M11: a new prelude. A few harmless declarations (literal values nothing reads) are added at the
+// top of the wrapper body, before the player's own first statements, as a new build adding config
+// or flags at the top would. Behaviour is unchanged; it tests whether a solver depends on the
+// position of the player's first statements.
+export function addPrelude(program, random, options = {}) {
+  const w = topWrapper(program);
+  const body = w && w.callee.body.type === "BlockStatement" ? w.callee.body.body : null;
+  if (!body) return 0;
+  const used = new Set();
+  walk(program, ({ node }) => { if (node.type === "Identifier") used.add(node.name); return true; });
+  const next = minifiedNames(used, random);
+  const values = [{ type: "Literal", value: 0 }, { type: "Literal", value: "" }, { type: "ArrayExpression", elements: [] }];
+  const decls = options.functions
+    ? values.map((init) => ({ type: "FunctionDeclaration", id: { type: "Identifier", name: next() }, params: [{ type: "Identifier", name: "v" }], generator: false, async: false, body: { type: "BlockStatement", body: [{ type: "ReturnStatement", argument: init }] } }))
+    : values.map((init) => ({ type: "VariableDeclaration", kind: "var", declarations: [{ type: "VariableDeclarator", id: { type: "Identifier", name: next() }, init }] }));
+  body.splice(afterDirectives(body), 0, ...decls);
+  return decls.length;
 }

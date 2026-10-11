@@ -2,7 +2,7 @@
 // Phase 1.2 N1 (MASTER_KEY_PHASE1_2_PLAN.md): the change simulator.
 //
 //   node scripts/verify-own-solver-mutations.mjs            # every cached file, every class
-//   node scripts/verify-own-solver-mutations.mjs --quick    # one build per player, a few classes
+//   node scripts/verify-own-solver-mutations.mjs --quick    # the phone build of each player, every class, 1 seed
 //   node scripts/verify-own-solver-mutations.mjs --only 5203c085
 //   node scripts/verify-own-solver-mutations.mjs --class M1,M3
 //   node scripts/verify-own-solver-mutations.mjs --seeds 3
@@ -48,7 +48,7 @@ const flag = (name) => argv.includes(name);
 const value = (name, fallback) => { const i = argv.indexOf(name); return i >= 0 && i + 1 < argv.length ? argv[i + 1] : fallback; };
 const quick = flag("--quick");
 const only = value("--only", null);
-const classes = (value("--class", quick ? "M1,M1w,M2,M3,M6,M10" : M.CLASSES.join(","))).split(",").filter(Boolean);
+const classes = (value("--class", M.CLASSES.join(","))).split(",").filter(Boolean);
 const seeds = Number(value("--seeds", quick ? "1" : "2"));
 const quickVariant = "phone";
 
@@ -71,9 +71,16 @@ function mutate(program, cls, random) {
     case "M1w": return M.renameLocals(program, random, { keepWrapperParams: false });
     case "M2": return M.toggleMemberAccess(program, random);
     case "M3": return M.rewrapTopLevel(program);
+    case "M4": return M.splitHelperObjects(program, random);
+    case "M5": return M.aliasCallSites(program, random);
     case "M6": return M.tableLiterals(program, random);
+    case "M7": return M.flattenFunctions(program, random);
+    case "M8": return M.wrapEncoding(program, random);
+    case "M8t": return M.wrapEncoding(program, random, { atTop: true });
+    case "M9": return M.readBrowserObjects(program, random);
     case "M10": return M.appendDecoys(program, random);
-    // M4, M5, M7, M8, M9 are added in later N1 passes (see the plan); unknown -> no-op here.
+    case "M11": return M.addPrelude(program, random);
+    case "M11f": return M.addPrelude(program, random, { functions: true });
     default: return 0;
   }
 }
@@ -101,6 +108,8 @@ function score(v) {
   const survived = v.n.total > 0 && v.sig.total > 0 && v.n.right === v.n.total && v.sig.right === v.sig.total;
   return wrong ? "wrong" : survived ? "survived" : "safe";
 }
+// "safe (n 0/12, sig 12/12)": which kind failed, for the report lines (right / judged inputs).
+const detail = (v, s) => (s === "survived" ? s : `${s} (n ${v.n.right}/${v.n.total}, sig ${v.sig.right}/${v.sig.total})`);
 // A mutation changed behaviour when ejs and own agree on a value that differs from truth.
 function behaviourChanged(truth, ejsOut, ownOut, inputs) {
   let agreedDifferent = 0, judged = 0;
@@ -164,13 +173,13 @@ for (const file of files) {
       const ejsOut = solveWithEjs(ejs, mutated, inputs);
       const ownOut = solveWithOwn(own, mutated, inputs);
       if (behaviourChanged(truth, ejsOut, ownOut, inputs)) { note = "behaviour-changed"; continue; }
-      const e = score(judge(truth, ejsOut, inputs));
-      const o = score(judge(truth, ownOut, inputs));
+      const ev = judge(truth, ejsOut, inputs), ov = judge(truth, ownOut, inputs);
+      const e = score(ev), o = score(ov);
       bucket.ejs[e] += 1;
       bucket.ownP[o] += 1;
       if (e === "wrong") wrongTotal += 1;
       if (o === "wrong") wrongTotal += 1;
-      lines.push(`${file.player} ${file.variant} ${cls}: ejs ${e}, own P ${o}`);
+      lines.push(`${file.player} ${file.variant} ${cls}: ejs ${detail(ev, e)}, own P ${detail(ov, o)}${o !== "survived" && (ownOut.failed || ownOut.error) ? ` [${ownOut.failed || ownOut.error}]` : ""}`);
       done = true;
     }
     if (!done) { bucket.skipped += 1; lines.push(`${file.player} ${file.variant} ${cls}: skipped (${note})`); }

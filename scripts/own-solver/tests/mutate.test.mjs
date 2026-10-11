@@ -140,6 +140,35 @@ test("M3 does nothing to a program without a known wrapper", () => {
   assert.equal(mutated(source, M.rewrapTopLevel).edits, 0);
 });
 
+test("M4 splits a helper object into functions and keeps behaviour", () => {
+  const source = WRAPPED(`var H = { sp: function (a, b) { a.splice(0, b); }, rv: function (a) { a.reverse(); }, sw: function (a, b) { var c = a[0]; a[0] = a[b % a.length]; a[b % a.length] = c; } }; var x = "abcdefghij".split(""); H.sw(x, 3); H.rv(x); H.sp(x, 2); g.out = x.join("");`);
+  const after = mutated(source, M.splitHelperObjects, "m4");
+  assert.equal(after.edits, 3);
+  assert.doesNotMatch(after.text, /sp: function/);
+  assert.equal(run(after.text), run(source));
+});
+
+test("M4 leaves objects whose methods use this", () => {
+  const source = WRAPPED(`var C = { v: 2, get: function (a) { return this.v * a; }, inc: function (a) { this.v += a; } }; C.inc(1); g.out = C.get(5);`);
+  const after = mutated(source, M.splitHelperObjects, "m4t");
+  assert.equal(after.edits, 0);
+  assert.equal(run(after.text), run(source));
+});
+
+test("M5 calls a busy function through a fresh alias and keeps behaviour", () => {
+  const source = WRAPPED(`function build(u, k, v) { return u + (k ? "&" + k + "=" + v : ""); } var once = function (x) { return x * 2; }; g.out = [build("a"), build("b", "s", 1), build("c", "n", 2), once(4)];`);
+  const after = mutated(source, M.aliasCallSites, "m5");
+  assert.equal(after.edits, 3, "the three calls of build, not the single call of once");
+  assert.doesNotMatch(after.text, /build\("/);
+  assert.equal(run(after.text), run(source));
+});
+
+test("M5 leaves a shadowed name alone", () => {
+  const source = WRAPPED(`function f(x) { return x + 1; } function h(f) { return f(1) + f(2) + f(3); } g.out = [f(1), f(2), f(3), h(function (v) { return v * 10; })];`);
+  const after = mutated(source, M.aliasCallSites, "m5s");
+  assert.equal(run(after.text), run(source));
+});
+
 test("M6 moves strings into a shuffled table and keeps behaviour", () => {
   const source = WRAPPED(`var parts = ["alpha", "bravo", "charlie", "delta", "echo"]; g.out = parts.join("-") + "/" + "foxtrot" + "golf".length;`);
   const after = mutated(source, M.tableLiterals, "m6");
@@ -159,6 +188,111 @@ test("M6 leaves object keys alone", () => {
   const source = WRAPPED(`var o = { "keyone": "valone", "keytwo": "valtwo", "keythree": "valthree", "keyfour": "valfour", "keyfive": "valfive" }; g.out = Object.keys(o).join() + Object.values(o).join();`);
   const after = mutated(source, M.tableLiterals, "m6k");
   assert.equal(run(after.text), run(source));
+});
+
+// Runs [text] in a context that has the browser globals M9 reads, as a page would.
+function runInPage(text) {
+  const context = vm.createContext({
+    navigator: { userAgent: "UA" },
+    location: { hostname: "www.youtube.com" },
+    document: { createElement: () => ({}) },
+  });
+  context.window = context;
+  context.top = context;
+  vm.runInContext(text, context, { timeout: 5000 });
+  return JSON.stringify(context.result);
+}
+
+const FLAT_CASES = {
+  loopsBreakContinue: `function f(n) { var s = 0; for (var i = 0; i < n; i++) { if (i === 2) continue; if (i === 5) break; s += i; } var t = s * 2; return t; }`,
+  earlyReturn: `function f(n) { var a = n + 1; if (a > 3) return "big"; a = a * 10; return a; }`,
+  closures: `function f(n) { var c = n; var inc = function () { c += 1; return c; }; inc(); return inc() + c; }`,
+  hoisting: `function f(n) { var before = typeof later; var later = n; var after = typeof later; return before + after; }`,
+  innerSwitch: `function f(n) { var r = ""; switch (n % 3) { case 0: r = "zero"; break; case 1: r = "one"; break; default: r = "two"; } var k = r.length; return r + k; }`,
+  thisAndArgs: `function f(n) { var self = this; var count = arguments.length; var t = typeof self; return t + count + n; }`,
+};
+
+for (const [name, fnSource] of Object.entries(FLAT_CASES)) {
+  test(`M7 flattening keeps behaviour: ${name}`, () => {
+    const source = WRAPPED(`${fnSource} g.out = [f(0), f(3), f(7), f(9)];`);
+    let after = null;
+    for (const seed of ["a", "b", "c", "d"]) {
+      after = mutated(source, M.flattenFunctions, seed);
+      if (after.edits > 0) break;
+    }
+    assert.ok(after.edits > 0, "flattened");
+    assert.match(after.text, /while \(/);
+    assert.equal(run(after.text), run(source));
+  });
+}
+
+test("M7 keeps a \"use strict\" directive first", () => {
+  const source = WRAPPED(`function f() { "use strict"; var a = 1; var b = this; var c = a + 1; return [b === undefined, c]; } g.out = f();`);
+  let after = null;
+  for (const seed of ["a", "b", "c", "d"]) { after = mutated(source, M.flattenFunctions, seed); if (after.edits) break; }
+  assert.ok(after.edits > 0);
+  assert.equal(run(after.text), run(source));
+});
+
+test("M7 refuses bodies with let/const, class, function declarations or labels", () => {
+  for (const fnSource of [
+    `function f() { let a = 1; var b = 2; var c = a + b; return c; }`,
+    `function f() { class K {} var b = 2; var c = new K(); return b; }`,
+    `function f() { function h() { return 1; } var b = h(); var c = b + 1; return c; }`,
+    `function f() { var a = 0; outer: for (;;) { a++; break outer; } var c = a; return c; }`,
+  ]) {
+    const source = WRAPPED(`${fnSource} g.out = f();`);
+    for (const seed of ["a", "b", "c"]) assert.equal(mutated(source, M.flattenFunctions, seed).edits, 0, fnSource);
+  }
+});
+
+test("M8 routes global encode/decode through wrappers and keeps behaviour", () => {
+  const source = WRAPPED(`var v = "a b/c=d%"; var e = encodeURIComponent(v); var back = decodeURIComponent(e); var list = ["x y", "&"].map(encodeURIComponent); g.out = [e, back, list];`);
+  const after = mutated(source, M.wrapEncoding, "m8");
+  assert.equal(after.edits, 3);
+  assert.match(after.text, /return encodeURIComponent\(s\)/);
+  assert.equal(run(after.text), run(source));
+});
+
+test("M8 leaves a local named encodeURIComponent alone", () => {
+  const source = WRAPPED(`function h(encodeURIComponent) { return encodeURIComponent("q"); } g.out = [h(function (x) { return x + "!"; }), encodeURIComponent("a b")];`);
+  const after = mutated(source, M.wrapEncoding, "m8l");
+  assert.equal(after.edits, 1);
+  assert.equal(run(after.text), run(source));
+});
+
+test("M9 adds browser reads that keep behaviour where the globals exist", () => {
+  const source = WRAPPED(`var k = 6; g.out = [k * 7];`);
+  const after = mutated(source, M.readBrowserObjects, "m9");
+  assert.equal(after.edits, 4);
+  assert.match(after.text, /navigator\.userAgent/);
+  assert.equal(runInPage(after.text), runInPage(source));
+  assert.throws(() => run(after.text), /ReferenceError/);
+});
+
+test("M9 skips a root the wrapper declares itself (var window = this)", () => {
+  const source = WRAPPED(`var window = this; var k = 1; g.out = [k];`);
+  const after = mutated(source, M.readBrowserObjects, "m9w");
+  assert.equal(after.edits, 3);
+  assert.doesNotMatch(after.text, /window\.top/);
+  assert.equal(runInPage(after.text), runInPage(source));
+});
+
+test("M11 adds a harmless prelude and keeps behaviour", () => {
+  const source = WRAPPED(`var k = 5; g.out = [k + 1];`);
+  const after = mutated(source, M.addPrelude, "m11");
+  assert.equal(after.edits, 3);
+  assert.equal(run(after.text), run(source));
+});
+
+test("M8t and M11f put new functions first and keep behaviour", () => {
+  const source = WRAPPED(`var v = encodeURIComponent("a b"); g.out = [v, decodeURIComponent(v)];`);
+  const top = mutated(source, (p, r) => M.wrapEncoding(p, r, { atTop: true }), "m8t");
+  assert.match(top.text, /\(function \(g\) \{\s*function/);
+  assert.equal(run(top.text), run(source));
+  const fns = mutated(source, (p, r) => M.addPrelude(p, r, { functions: true }), "m11f");
+  assert.equal(fns.edits, 3);
+  assert.equal(run(fns.text), run(source));
 });
 
 test("M10 adds unreachable decoys and keeps behaviour", () => {

@@ -194,7 +194,7 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
-| N1 | Change simulator: mutation suite + baseline (ejs vs own P) | Phase 1.1 | Medium–High | In progress |
+| N1 | Change simulator: mutation suite + baseline (ejs vs own P) | Phase 1.1 | Medium–High | Done |
 | N2 | Live check V (+ measure the n behaviour on the owner's phone) | Phase 1.1 S5 | Medium | TODO |
 | N3 | Strategy B: register, probe, classify (core + harness) | N1 | High | TODO |
 | N4 | Strategy E: isolated page environment | N3 | Medium–High | TODO |
@@ -247,13 +247,31 @@ repository, not chat history).
 | M1w | M1 + the wrapper parameter (`g`) | a wrapper change | P, B |
 | M2 | function ↔ arrow, declaration ↔ expression, sequence ↔ statements, `var` ↔ `let`/`const` where safe | #47 tce/es6 | P (G2), B |
 | M3 | Another top-level wrapper: `void (fn).apply(receiver, [args])` with the exact receiver (more forms later) | #53 | B |
-| M4 | sig helper object → separate functions, an array of functions or class statics | helper reshuffle | B |
-| M5 | URL-transform call site through a variable, a wrapper, `.call`/`.apply` or reordered arguments | #53 | B |
+| M4 | sig helper object (2–4 small methods without `this`) → separate wrapper-level functions; the object keeps its keys (arrays/class statics later) | helper reshuffle | P, B |
+| M5 | Every call of a wrapper-level function with 3+ call sites (the URL builder) goes through a fresh alias (`.call`/`.apply`/wrappers later) | #53 | P, B |
 | M6 | String literals read from one shuffled `"…".split(sep)` table (the real players' form; directives and keys untouched) | current obfuscation | P (G2 tables), B |
-| M7 | Control-flow flattening (switch loop) of the n and sig functions, where the body is a plain statement list | heavier obfuscation | B |
-| M8 | Result applied raw, with `encodeURIComponent` or through `URLSearchParams.set` | #54 | P/B + V (simulated) |
-| M9 | The init reads browser objects (`document.createElement`, `navigator.userAgent`, `location.hostname`, `window.top`) | #56 | E (computer: DOM stub) |
+| M7 | Control-flow flattening (`var c = 0; while (c < N) switch (c) { case i: c = i + 1; …; continue; }`) of wrapper-level functions whose body is 3–40 plain statements (no function/class/`let`/`const` at the top, no labels, not async/generator; directives kept); each such function with chance 0.7, so the n and sig functions are flattened in most cases, and so are other functions | heavier obfuscation | B |
+| M8 | The global `encodeURIComponent` / `decodeURIComponent` are reached through fresh wrapper functions, appended at the end of the wrapper body | #54 | P/B + V (simulated) |
+| M8t | As M8, with the wrapper functions first in the wrapper body (new encode helpers are met first) | #54 | P/B |
+| M9 | The init reads browser objects (`navigator.userAgent`, `location.hostname`, `document.createElement("div")`, `window.top`) into unused variables in the middle of the wrapper body | #56 | E (computer: DOM stub) |
 | M10 | Decoys: unused functions that look and act like n/sig but give other values | false positives | must fail or ignore, never wrong |
+| M11 | Harmless `var` declarations at the top of the wrapper body (a new prelude) | new prelude | P, B |
+| M11f | Harmless function declarations at the top of the wrapper body | new prelude | P, B |
+
+Plan adapted (N1 part 2–3):
+- M7 flattens every eligible wrapper-level function (chance 0.7 each), not only n and sig: a real
+  obfuscator would not spare the rest, and a locator must not find n/sig by "the flattened one".
+- M8 keeps behaviour: changing how the builder applies the result (raw, encoded,
+  `URLSearchParams.set`) changes the URL the harness reads, i.e. the right answer itself, so it
+  cannot be a behaviour-keeping mutation. That part moves to the simulated V (N2/N5). M8 instead
+  routes the existing encode/decode calls through new helper functions, the shape of #54.
+- M8t, M11 and M11f were added to explain an M8 finding: ejs failed only when the new encode
+  helpers came first (M8t), not with them at the end (M8) and not with other new code at the top
+  (M11 vars, M11f functions). ejs is sensitive to new encode/decode helpers met first, not to a
+  new prelude in general.
+- M9 places the reads in the middle of the init (a prelude-only form would mix the M11 effect in);
+  roots that the wrapper declares itself (e.g. `var window = this`) are skipped, so the reads
+  always reach the global browser objects.
 
 - **Report** (`build/own-solver/mutation-report.json`; names, classes and counts only): per class
   and strategy — survived (right n and sig), failed safely (a kind refused), **wrong** (any value
@@ -352,16 +370,35 @@ Baseline (filled by N1; later columns by N3–N5):
 
 | Class | ejs | own P | own ladder (offline) | own ladder (+ simulated V) |
 |---|---|---|---|---|
-| M1 | 8/8 | 8/8 | — | — |
-| M1w | 8/8 | 8/8 | — | — |
-| M2 (member access part) | 8/8 | 8/8 | — | — |
-| M3 | 0/8 (safe) | 0/8 (safe) | — | — |
-| M6 | 0/8 (safe) | 8/8 | — | — |
-| M10 | 8/8 | 8/8 | — | — |
-| M4, M5, M7, M8, M9 | — | — | — | — |
+| M1 | 32/32 | 32/32 | — | — |
+| M1w | 32/32 | 32/32 | — | — |
+| M2 (member access part) | 32/32 | 32/32 | — | — |
+| M3 | 0/32 (safe) | 0/32 (safe) | — | — |
+| M4 | 32/32 | 32/32 | — | — |
+| M5 | 24/32 (8 safe) | 32/32 | — | — |
+| M6 | 0/32 (safe) | 32/32 | — | — |
+| M7 | 11/32 (21 safe) | 31/32 (1 safe) | — | — |
+| M8 | 32/32 | 32/32 | — | — |
+| M8t | 0/32 (safe) | 32/32 | — | — |
+| M9 | 0/32 (safe) | 32/32 | — | — |
+| M10 | 32/32 | 32/32 | — | — |
+| M11 | 32/32 | 32/32 | — | — |
+| M11f | 32/32 | 32/32 | — | — |
+| **all 448 cases** | **291 (65 %)** | **415 (93 %)** | — | — |
 
-Quick baseline (N1 part 1, 2026-10-11): 8 players, phone build, 1 seed; survived / files, the rest
-failed safely; **wrong = 0** everywhere. The full 32-file numbers replace these when recorded.
+Baseline (N1 done, 2026-10-11): all 32 corpus files (8 players × main/tce/es6/phone) × 14 classes
+= 448 judged cases; survived / files, the rest failed safely; **wrong = 0** in every case, 0
+skipped (a second seed is tried only when the first mutation was a no-op or changed behaviour).
+Reading:
+- Renames, member access, helper split, decoys and a new prelude (M1, M1w, M2, M4, M10, M11,
+  M11f) break neither solver.
+- **A new wrapper (M3) breaks both** (safe failure): the case strategy B must fix.
+- ejs breaks safely where own P does not: aliased call sites (M5, 8 files), a string table (M6),
+  flattening (M7, 21 files), new encode helpers met first (M8t), browser-object reads (M9).
+- own P's only other failure: M7 on 5203c085 es6 (n and sig, `no candidates`): a B target.
+- Survival over M1–M9 (incl. M1w and M8t; 11 classes, 352 cases): ejs 195 (55 %), own P 319
+  (91 %). The targets above stay (own ladder ≥ 80 % offline, ≥ 95 % with simulated V); M3 alone
+  is 32 cases (9 %), so the 95 % target needs B to fix M3.
 
 ## 5. Risks
 
