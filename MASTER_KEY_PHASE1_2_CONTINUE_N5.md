@@ -25,7 +25,7 @@ OWNER: reports in Burmese, short, with ✅/❌. The owner has no computer, mobil
 STATE (verify against the repo; the repo wins)
 - Phase 1.1 S1-S6 done; N1 done (765e91f); N2 done (9e15101; the n rule stays PENDING, plan
   section 2); N3 done (52e1945, CI 38164686967); N4 done (a7c3dd9, CI 38170962057); N4b measured ❌
-  (bdb45c6, CI 38175876765, + harness fix; worker B gave 1 wrong M9bs sig on 631d3938 es6: the
+  (bdb45c6, CI 38175876765; harness fix 8140b27, CI 38181863054; worker B gave 1 wrong M9bs sig on 631d3938 es6: the
   owner decides the rule first; PROGRESS.md "N4b", plan section 4 note "N4b").
 - Strategy B: own.solver.core.js, reached only with request strategy "B" (`hint: false` = B
   alone). Strategy E (N4): extractor-master-android WebViewPageSolverEngine (an OwnSolverEngine;

@@ -1,6 +1,6 @@
 # YFT Master Extractor backup
 
-## Phase 1.2 — N4b environment-dependent values (M9b / M9bs) — measured ❌ (code `bdb45c6`, CI 38175876765 ✅; harness fix: CI pending)
+## Phase 1.2 — N4b environment-dependent values (M9b / M9bs) — measured ❌ (code `bdb45c6`, CI 38175876765 ✅; harness fix `8140b27`, CI 38181863054 ✅)
 
 - ✅ Code: mutation classes M9b (DOM-made value; use throws without the DOM) and M9bs (silent
   use), outside the 448 baseline; runner `--both` (worker and page side by side) and `--variant`;

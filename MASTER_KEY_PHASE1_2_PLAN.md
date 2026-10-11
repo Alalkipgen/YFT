@@ -248,7 +248,7 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 | N2 | Live check V (+ measure the n behaviour on the owner's phone) | Phase 1.1 S5 | Medium | Done (`9e15101`; measurement pending) |
 | N3 | Strategy B: register, probe, classify (core + harness) | N1 | High | Done (`52e1945`) |
 | N4 | Strategy E: isolated page environment | N3 | Medium–High | Done (`a7c3dd9`) |
-| N4b | Environment-dependent values (M9b/M9bs), init errors by class | N4 | Medium | Built; measured ❌ (worker B: 1 wrong M9bs value; fix: owner decides; §4 note "N4b") |
+| N4b | Environment-dependent values (M9b/M9bs), init errors by class | N4 | Medium | Built (`bdb45c6`, harness `8140b27`); measured ❌ (worker B: 1 wrong M9bs value; fix: owner decides; §4 note "N4b") |
 | N5 | Ladder, locator cache, flag wiring | N2, N3 | Medium | TODO |
 | N6 | Canary workflow (computer) | N1, N3 | Low–Medium | TODO |
 | N7 | Owner live check + runbook update | N4, N5, N6 | Low | TODO |
