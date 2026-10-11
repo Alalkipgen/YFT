@@ -106,6 +106,12 @@ val masterCapture = providers.gradleProperty("yft.masterCapture").orElse("false"
 require(masterCapture in setOf("true", "false")) {
     "yft.masterCapture must be true or false"
 }
+// Phase 1.1 S5: Master's own YouTube n/sig solver instead of main's ejs runner. Used only when
+// yft.masterCapture is on too; off by default, and never in the release variant.
+val ownSolver = providers.gradleProperty("yft.ownSolver").orElse("false").get()
+require(ownSolver in setOf("true", "false")) {
+    "yft.ownSolver must be true or false"
+}
 // R9: the public key (X.509 P-256, hex) for Master's signed recipe config; blank = bundled
 // recipes only and no config request. Only read when Master capture is on.
 val masterRecipeKey = providers.gradleProperty("yft.masterRecipeKey").orElse("").get()
@@ -132,6 +138,7 @@ android {
         // The YouTube adapter can be switched off per build without touching the adapter list.
         buildConfigField("boolean", "YOUTUBE_ADAPTER_ENABLED", "true")
         buildConfigField("boolean", "MASTER_CAPTURE_ENABLED", "false")
+        buildConfigField("boolean", "OWN_SOLVER_ENABLED", "false")
         buildConfigField("String", "MASTER_RECIPE_KEY", "\"$masterRecipeKey\"")
         buildConfigField("String", "MASTER_RECIPE_URL", "\"$masterRecipeUrl\"")
     }
@@ -165,6 +172,7 @@ android {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
             buildConfigField("boolean", "MASTER_CAPTURE_ENABLED", masterCapture)
+            buildConfigField("boolean", "OWN_SOLVER_ENABLED", ownSolver)
         }
         release {
             isMinifyEnabled = true
@@ -185,6 +193,7 @@ android {
             matchingFallbacks += listOf("release")
             signingConfig = signingConfigs.findByName("preview")
             buildConfigField("boolean", "MASTER_CAPTURE_ENABLED", masterCapture)
+            buildConfigField("boolean", "OWN_SOLVER_ENABLED", ownSolver)
         }
     }
 

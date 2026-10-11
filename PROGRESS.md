@@ -1,5 +1,76 @@
 # YFT Master Extractor backup
 
+## Phase 1.1 — S6: canary + runbook
+
+- ✅ Computer canary `node scripts/own-solver-canary.mjs [player ID]` (owner-run, never CI):
+  today's player from YouTube's embed API, all four builds (main, tce, es6, phone), main's ejs
+  and the own core on the same 3 n + 3 sig inputs (one sig with the encoding edge characters),
+  pass/fail per kind; report `build/own-solver/canary-report.json` (player ID, counts, timings
+  only); exit 0 pass / 1 fail / 2 could not run; on failure it prints the runbook commands.
+  Verdict rules tested offline (`canary.test.mjs`, 3, in the JS step).
+- ✅ Phone canary `bash scripts/own-solver-canary.sh` → opt-in `OwnSolverCanaryTest`
+  (`-e yft.ownSolverCanary 1`, never default CI): today's player through main's ejs runner and
+  the own runner in their real WebView engines on the phone; verdict per kind, timings (ejs, own
+  first run, own cached run) and the own runner's failure classes; report in the app's files
+  `own-solver/` (checked for addresses). Compiled by CI (`compileDebugAndroidTestKotlin`).
+- ✅ Canary report written (2026-10-11): today's player `5203c085` (in the corpus) — n PASS,
+  sig PASS; 3/3 n and 3/3 sig equal to ejs on main, tce, es6 and phone; own core 1.1–2.1 s per
+  build in this computer's Node `vm` (ejs 1.1–2.2 s).
+- ✅ Runbook: plan §6 now lists the exact commands (canary → `--add` → `--only`/`--prepare` →
+  classify G1–G4/new → fix → full parity + `--faults` + JS tests → push, phone canary, ship).
+- ⏳ Owner: the phone canary and the live check with the opt-in APK (both flags on): YouTube rows
+  equal main's on the parity URLs, no throttled rows, bot-check/age/private stay terminal (§4).
+
+## Phase 1.1 — S5: own runner wiring (flag), cache, failure mapping
+
+- ✅ `extractor-master/.../solver/OwnPlayerScriptRunner` implements main's `PlayerScriptRunner`:
+  - **Fetch** exactly as main's runner: the address the page named (phone build), then the
+    desktop build of the same version; page as Referer; only
+    `https://www.youtube.com/s/player/<id>/…/base.js`; 8 MB cap; 45 s engine timeout.
+  - **Cache:** the core's prepared program per player ID, in memory (2 players, least recently
+    used dropped). A cached program that no longer runs is rebuilt once from the player; a
+    SelfCheck refusal is final (a fresh parse would not change it).
+  - **Failure mapping:** no engine → `Unavailable`; engine timeout/no reply, worker error,
+    unreadable reply, a whole-run core failure, every asked kind refused, or no asked input
+    answered → `Failed(PLAYER_SCRIPT_REQUIRED)`; a failed player download keeps its own reason
+    (as main's runner). One kind refused → `Success` with the other kind only, and the YouTube
+    reader drops the streams that needed the refused kind. `lastFailures` keeps failure
+    classes only (for the canary).
+  - `OwnSolverProtocol`: hand-encoded job (player escaped once, U+2028/2029 escaped), bounded
+    parse of the reply, only asked inputs kept, failure strings cut to short classes.
+- ✅ Android `extractor-master-android/.../solver/WebViewOwnSolverEngine` (adapted copy of main's
+  `WebViewSolverEngine`; main's file is unchanged) + `OwnSolverPageRoutes`: a fresh offscreen
+  WebView per run, reserved asset host, own folder `yft-own-solver/` (`own-solver.html`,
+  `own-solver-page.js`, `own-solver-worker.js`, meriyah, core), the same CSP, a dedicated blob
+  worker, no cookies/storage/network; main's ejs files are never routed. The worker passes only
+  n/sig inputs to the core (a job cannot switch on fault injection or vectors), takes its reply
+  path before any player code runs, and answers with error classes only.
+- ✅ **Selection:** new flag `-Pyft.ownSolver` (default `false`; BuildConfig
+  `OWN_SOLVER_ENABLED` in debug/preview, always `false` in release).
+  `SiteAdapterModule.providePlayerScriptRunner` → `OwnSolverSelection.runner`: the own runner
+  only when `ownSolver && masterCapture`; otherwise main's `YouTubePlayerScriptRunner`, built
+  exactly as on main (only the chosen factory runs). With both flags on, YouTube's adapter
+  (main's code, identical to Master's R6 copy) asks visionOS first, then the own runner; the ejs
+  core is not loaded on that path. `MasterYouTubeModule(http, playerScripts)` accepts the runner
+  too (default none, as in R6); the app leaves it without one because main's adapter answers
+  YouTube pages before Master is asked.
+- ✅ CI's opt-in APK is built with `-Pyft.ownSolver=true` (the manual run's `own_solver` input
+  builds it off); the step summary names the setting.
+- ✅ Tests: `OwnPlayerScriptRunnerTest` (12), `OwnSolverProtocolTest` (8), `OwnSolverSelectionTest`
+  (3: flags off → main's runner, the own one never built), `OwnSolverYouTubeTest` (3: the real
+  reader + runner + protocol with a scripted engine — cipher streams signed with own values; sig
+  refused → cipher streams dropped (`PLAYER_SCRIPT_REQUIRED`) while n-only streams stay; broken
+  engine → no stream), `OwnSolverPageRoutesTest` (3), JS `worker.test.mjs` (9: raw/prepared jobs
+  on the fake player, no program unless asked or after a failure, refused kind, error classes,
+  no fault/vector injection, reply path safe from player code, the page loads only its four
+  files into a blob worker, routes ↔ files ↔ CSP).
+- ✅ Local run (flags on): `:extractor-master:test` 310 (0 failures, 2 skipped: canaries),
+  `:extractor-master-android:testDebugUnitTest` 59, app `MasterMainMoreSheetTest`,
+  `BrowserMasterFlowTest`, `BrowserMasterFallbackTest` 25, `:app:compileDebugAndroidTestKotlin`
+  OK; JS step 82/82; drift 107/0. The APK itself is built by CI (no NDK here).
+- ⚠️ Not checked here: the WebView engine on a real phone (no device in this environment) → the
+  S6 phone canary and the owner's live check.
+
 ## Phase 1.1 — S4: G3 encoding checks + SelfCheck + fault injection
 
 - ✅ SelfCheck in `own.solver.core.js`: the values of a kind are returned only when every check

@@ -16,6 +16,9 @@ import com.alal.yft.extractor.api.PoTokenProvider
 import com.alal.yft.extractor.api.SiteAdapterFlags
 import com.alal.yft.extractor.api.SiteExtractor
 import com.alal.yft.extractor.api.SiteExtractorRegistry
+import com.alal.yft.extractor.master.android.solver.WebViewOwnSolverEngine
+import com.alal.yft.extractor.master.solver.OwnPlayerScriptRunner
+import com.alal.yft.extractor.master.solver.OwnSolverSelection
 import com.alal.yft.extractor.sites.facebook.FacebookExtractor
 import com.alal.yft.extractor.sites.instagram.InstagramExtractor
 import com.alal.yft.extractor.sites.tiktok.TikTokAgents
@@ -65,22 +68,29 @@ object SiteAdapterModule {
      * The YouTube player-script host.
      *
      * Player scripts are larger than adapter pages, so they get their own client with a longer
-     * call timeout; every other transport rule is the same.
+     * call timeout; every other transport rule is the same. Master Phase 1.1 S5: with both
+     * opt-in flags on (`-Pyft.ownSolver`, `-Pyft.masterCapture`) Master's own solver runs instead
+     * of the bundled ejs solver; otherwise this is main's runner, built exactly as on main.
      */
     @Provides
     @Singleton
     fun providePlayerScriptRunner(
         @ApplicationContext context: Context,
         client: OkHttpClient,
-    ): PlayerScriptRunner = YouTubePlayerScriptRunner(
-        http = OkHttpExtractorClient(
+    ): PlayerScriptRunner {
+        val http = OkHttpExtractorClient(
             client = client,
             policy = OkHttpExtractorClient.Policy(
                 callTimeoutSeconds = PLAYER_FETCH_TIMEOUT_SECONDS,
             ),
-        ),
-        engine = WebViewSolverEngine(context),
-    )
+        )
+        return OwnSolverSelection.runner(
+            ownSolver = BuildConfig.OWN_SOLVER_ENABLED,
+            masterCapture = BuildConfig.MASTER_CAPTURE_ENABLED,
+            own = { OwnPlayerScriptRunner(http = http, engine = WebViewOwnSolverEngine(context)) },
+            main = { YouTubePlayerScriptRunner(http = http, engine = WebViewSolverEngine(context)) },
+        )
+    }
 
     /**
      * The YouTube proof-of-origin host (ADR-006).

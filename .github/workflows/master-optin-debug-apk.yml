@@ -1,7 +1,8 @@
 name: Master opt-in debug APK (spike)
 
 # Internal test build for the owner's phone: the debug app (com.alal.yft.debug) with the
-# opt-in Master capture flag on. Runs only for the Master spike branch; release builds and the
+# opt-in Master capture flag on and, since Phase 1.1 S5, Master's own YouTube solver instead of
+# main's ejs runner (turn it off with the manual run's own_solver input). Runs only for the Master spike branch; release builds and the
 # existing workflows are untouched. Uses no repository secret; signed with the runner's
 # throwaway debug key.
 on:
@@ -11,6 +12,11 @@ on:
       - "docs/**"
       - "**/*.md"
   workflow_dispatch:
+    inputs:
+      own_solver:
+        description: "Own YouTube n/sig solver (Phase 1.1) instead of main's ejs runner"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -49,7 +55,7 @@ jobs:
           git fetch --no-tags --depth=1 origin "$base" +refs/heads/main:refs/remotes/origin/main
           python3 scripts/master-toolkit-drift.py --ref "$base"
           python3 scripts/master-toolkit-drift.py --ref origin/main --warn-only
-      - name: Capture, codec and MSE script tests (R2 EME stop, R5 steering, R7 MSE/EME) + own solver (S1 harness, S2–S4 core + SelfCheck)
+      - name: Capture, codec and MSE script tests (R2 EME stop, R5 steering, R7 MSE/EME) + own solver (S1 harness, S2–S4 core + SelfCheck, S5 worker, S6 canary)
         shell: bash
         run: |
           node --test extractor-master-android/src/test/js/capture.test.cjs \
@@ -58,9 +64,13 @@ jobs:
             scripts/own-solver/tests/harness.test.mjs \
             scripts/own-solver/tests/core-prepare.test.mjs \
             scripts/own-solver/tests/core-run.test.mjs \
-            scripts/own-solver/tests/core-selfcheck.test.mjs
+            scripts/own-solver/tests/core-selfcheck.test.mjs \
+            scripts/own-solver/tests/worker.test.mjs \
+            scripts/own-solver/tests/canary.test.mjs
       - name: Master tests and opt-in debug APK
         shell: bash
+        env:
+          OWN_SOLVER: ${{ github.event_name != 'workflow_dispatch' || inputs.own_solver }}
         run: |
           set -o pipefail
           report() {
@@ -71,7 +81,7 @@ jobs:
             echo "::error title=Master Gradle failure::${lines:-see the job log}"
             exit 1
           }
-          ./gradlew --no-daemon -Pyft.masterCapture=true \
+          ./gradlew --no-daemon -Pyft.masterCapture=true -Pyft.ownSolver="$OWN_SOLVER" \
             :extractor-master:test \
             :extractor-master-android:testDebugUnitTest \
             :app:testDebugUnitTest \
@@ -82,10 +92,13 @@ jobs:
             :app:assembleDebug 2>&1 | tee gradle-master.log || report
       - name: Record APK hashes
         shell: bash
+        env:
+          OWN_SOLVER: ${{ github.event_name != 'workflow_dispatch' || inputs.own_solver }}
         run: |
           {
             echo "### Master opt-in debug APK"
             echo "Commit: ${GITHUB_SHA}"
+            echo "Own YouTube solver: ${OWN_SOLVER}"
             echo '```'
             sha256sum app/build/outputs/apk/debug/*.apk
             echo '```'

@@ -3,6 +3,7 @@ package com.alal.yft.extractor.master.modules.youtube
 import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.NoPlayerScriptRunner
 import com.alal.yft.extractor.api.NoPoTokenProvider
+import com.alal.yft.extractor.api.PlayerScriptRunner
 import com.alal.yft.extractor.api.SiteExtractionRequest
 import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.api.SitePageIdentity
@@ -11,13 +12,21 @@ import com.alal.yft.extractor.master.modules.SiteExtractorModule
 
 /**
  * R6 (YT-1/YT-2/YT-4): Master's own YouTube reader, the copied [YouTubeExtractor] behind
- * [SiteExtractorModule]. It runs with no player-script runner and no proof-of-origin provider,
- * so streams that need n/sig are never offered by Master (main, flag off, still covers them),
- * and it is asked without the user's cookie: a signed-in or age-checked answer stays main's.
+ * [SiteExtractorModule]. It runs with no proof-of-origin provider and, by default, no
+ * player-script runner, so streams that need n/sig are not offered by Master (main, flag off,
+ * still covers them). It is asked without the user's cookie: a signed-in or age-checked answer
+ * stays main's.
+ *
+ * Phase 1.1 S5: [playerScripts] may be the own solver's runner
+ * (`solver.OwnPlayerScriptRunner`); the reader then asks visionOS first (no solver) and the own
+ * solver only for streams that need n/sig, dropping every stream whose value is not verified.
  */
-class MasterYouTubeModule(http: ExtractorHttpClient) : MasterSiteModule {
+class MasterYouTubeModule(
+    http: ExtractorHttpClient,
+    playerScripts: PlayerScriptRunner = NoPlayerScriptRunner,
+) : MasterSiteModule {
     private val module = SiteExtractorModule(
-        YouTubeExtractor(http, NoPlayerScriptRunner, NoPoTokenProvider),
+        YouTubeExtractor(http, playerScripts, NoPoTokenProvider),
     )
 
     override val siteId: String get() = module.siteId

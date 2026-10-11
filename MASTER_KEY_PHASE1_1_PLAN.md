@@ -93,8 +93,8 @@ Order inside the YouTube module (unchanged from R6):
 | S2 | Core: parse + G1 unwrap + G2 normalize/candidates | S1 | Medium–High | Done (`f0d7be4`) |
 | S3 | G4 environment + multiTry runner in the existing sandbox | S2 | Medium | Done (`ace7276`) |
 | S4 | G3 encoding + SelfCheck (agreement, vectors, probe) | S3 | Medium | Done (`00aa458`) |
-| S5 | `OwnPlayerScriptRunner` wiring (flag), cache, failure mapping | S4, R6 | Medium | TODO |
-| S6 | Canary + update runbook | S5 | Low | TODO |
+| S5 | `OwnPlayerScriptRunner` wiring (flag), cache, failure mapping | S4, R6 | Medium | Done |
+| S6 | Canary + update runbook | S5 | Low | Done (live phone check: owner) |
 
 ### S1 — Harness and corpus
 
@@ -171,16 +171,30 @@ Order inside the YouTube module (unchanged from R6):
 
 ## 6. Runbook (when the own solver breaks)
 
-1. The canary fails → note the player ID and the failing kind (n or sig).
-2. Add the player to the corpus and reproduce it in the parity runner.
+1. **The canary fails** → note the player ID and the failing kind (n or sig).
+   - Computer (every build of the player): `node scripts/own-solver-canary.mjs [player ID]`
+     (report `build/own-solver/canary-report.json`; it prints the next commands).
+   - Phone or emulator (both WebView engines): `bash scripts/own-solver-canary.sh`
+     (`OwnSolverCanaryTest`, report pulled to `build/own-solver/`).
+   - Until it is fixed the app is safe: SelfCheck refuses the kind, its streams are dropped and
+     VISIONOS rows still work (fewer qualities, never a wrong address).
+2. **Add the player to the corpus and reproduce it:**
+   `node scripts/verify-own-solver.mjs --add <player ID>` (records the hashes of the four builds in
+   `scripts/own-solver/corpus.json`; review the diff), then
+   `node scripts/verify-own-solver.mjs --only <player ID>` and `--prepare` (candidates per build).
 3. Classify the break:
    - G1: wrapper or candidates.
    - G2: a new code shape.
    - G3: encoding.
    - G4: a missing global.
    - New class: add a new general method, not a one-off patch.
-4. Fix the core; re-run all corpus players (no regressions); re-run the injected-fault tests.
-5. Checkpoint-push on the spike; ship a new APK. Until then VISIONOS keeps working and solver streams are dropped (fewer qualities, not failure).
+4. **Fix the core** (`extractor-master-android/src/main/assets/yft-own-solver/own.solver.core.js`);
+   then, with no regression allowed:
+   - `node scripts/verify-own-solver.mjs` — every corpus player, own = ejs on every input.
+   - `node scripts/verify-own-solver.mjs --faults` — wrong values 0, expected FAILs missed 0.
+   - `node --test scripts/own-solver/tests/*.test.mjs` — offline core, worker and canary tests.
+5. Checkpoint-push on the spike (CI builds the opt-in APK with the own solver), run the phone
+   canary on that build, ship the new APK. No remote code, ever.
 
 ## 7. Out of scope
 
