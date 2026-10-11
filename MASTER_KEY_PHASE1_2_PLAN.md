@@ -43,6 +43,8 @@ code, without an APK update:
   - T4 n အတွက် V: n မှားရင် နှေးရုံပဲဆိုရင် V ကို sig အတွက်ပဲ သုံး၊ n က candidate တွေ သဘောတူမှ လက်ခံ။
 - N2 ပြီးပါပြီ (`9e15101`): `StreamCheck` (YouTube ကို 1 byte တောင်းစစ်) ရှိပြီ။ n စည်းမျဉ်းအတွက် ဖုန်းတိုင်းတာမှု
   မရသေး (PENDING) — owner က debug app ထဲက "YFT stream check" ကို ဖွင့်ပြီး Start နှိပ်ပေးရန် (computer မလို)။
+- N4 ပြီးပါပြီ (`a7c3dd9`): page ပတ်ဝန်းကျင် (E) — JS interface မပါတဲ့ WebView + network ပိတ်ထားတဲ့ sandbox
+  iframe။ app ထဲမှာ မသုံးသေးပါ (N5 မှ ချိတ်မယ်)။ Computer စစ်ချက်: M9 page mode P/B 32/32၊ အဖြေမှား ၀။
 
 ## 0. Why (evidence)
 
@@ -243,7 +245,7 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 | N1 | Change simulator: mutation suite + baseline (ejs vs own P) | Phase 1.1 | Medium–High | Done (`765e91f`) |
 | N2 | Live check V (+ measure the n behaviour on the owner's phone) | Phase 1.1 S5 | Medium | Done (`9e15101`; measurement pending) |
 | N3 | Strategy B: register, probe, classify (core + harness) | N1 | High | Done (`52e1945`) |
-| N4 | Strategy E: isolated page environment | N3 | Medium–High | TODO |
+| N4 | Strategy E: isolated page environment | N3 | Medium–High | Done (`a7c3dd9`) |
 | N5 | Ladder, locator cache, flag wiring | N2, N3 | Medium | TODO |
 | N6 | Canary workflow (computer) | N1, N3 | Low–Medium | TODO |
 | N7 | Owner live check + runbook update | N4, N5, N6 | Low | TODO |
@@ -437,6 +439,52 @@ Plan adapted (N1 part 2–3):
     only from the app's origin.
   - The computer harness runs M9 with a DOM stub.
   - The phone canary covers E (N7).
+- **Built (N4, 2026-10-11, `a7c3dd9`):**
+  - `extractor-master-android`: `WebViewPageSolverEngine` (an `OwnSolverEngine`; `isAvailable`
+    needs `WebViewFeature.WEB_MESSAGE_LISTENER`, else E is skipped), `OwnSolverPageEnvRoutes`
+    (its own route table: `page-env.html` main frame only, `page-frame.html` sub frame only, the
+    two scripts, parser, core and the job `page-env-input.json` (served once) as sub resources
+    only; the worker's files and main's ejs files are refused) and `OwnSolverPageReplyGate` (the
+    host page's first string message from the main frame of the app's origin ends the run; ≤ 12
+    MiB). No Java object is exposed to page scripts; the listener's object is limited to
+    `https://appassets.androidplatform.net`, so the opaque-origin frame never gets it. Fresh
+    WebView per run, settings as the worker engine, third-party cookies off, no dialogs, windows,
+    permissions or console output, only the frame's own page may navigate (in its frame).
+  - Assets: `page-env.html` + `page-env.js` (host page: app script only, CSP `script-src 'self';
+    connect-src 'self'; frame-src 'self'`), `page-frame.html` + `page-frame.js` (the frame:
+    `sandbox="allow-scripts"` set before it has an address or a parent, and again by the
+    response header; CSP `default-src 'none'; script-src <page-frame.js> 'unsafe-eval';
+    worker-src 'none'; connect-src 'none'; webrtc 'block'`; DNS prefetch off).
+  - Core page mode (`request.page`): `installEnvironment` keeps a real window's own browser
+    objects (window, document, location and top cannot be redefined there; the worker mode's
+    defines would throw `TypeError`) and adds only missing names; the worker mode is unchanged.
+  - `OwnSolverEnvironmentErrors` (`extractor-master`): the rule N5 asks before E
+    (`ReferenceError`/`TypeError` in a whole failure, a worker error class or a candidate error).
+- **Plan adapted (N4):**
+  - **Reply path:** host page → frame: the job with a fresh 128-bit token, only after the frame
+    says it is ready (`event.source` checked); frame → host page: `{token, reply}` to the app's
+    origin only; the host page passes on the first reply with the token (source + token checked,
+    string, ≤ 12 MiB) once. The frame takes one job, only from its parent with the app's origin,
+    takes its reply path (host `postMessage`, `JSON`, a timer) before player code and runs the job
+    in a later task, so `window.event` never shows the token to player code. Player code can still
+    post to the host page; without the token it is dropped.
+  - **Same protocol as the worker (P only):** E's B run needs a job field for the strategy and the
+    rule needs per-kind error classes in the reply (today a reply names only whole failures such
+    as `program:TypeError`; a kind that failed for its environment shows as e.g. `n:probe`). Both
+    are protocol changes for the worker and the frame together: N5.
+  - **WebRTC** can open connections no CSP directive covers (Chromium: `webrtc 'block'` is set and
+    ignored where unsupported). The frame removes `RTCPeerConnection`/`webkitRTCPeerConnection`
+    before player code and refuses the job (`WebRtcOpen`) if it cannot. Residual: a frame the
+    player creates itself (about:blank, same opaque origin) has its own constructor. Holding all
+    of the renderer's WebRTC connections would close that too; not done (unmeasured cost on the
+    app's shared renderer, needs the owner's decision). The frame has no cookies, storage or app
+    data to send; its inputs are the n/sig challenge values of the user's own lookup.
+  - **Shared renderer:** all of the app's WebViews share one renderer main thread, and E runs
+    there (a worker runs on its own thread). While E runs, the in-app browser's scripts wait. B
+    bounds loops (step limits); P in the page has no bound: a player top level that never ended
+    would hold the renderer, which `WebView.destroy()` cannot interrupt. Real players' top levels
+    end (browsers run them on every watch page); N5 decides E = B only, or P with a bound.
+- **Results (N4, computer):** see section 4 note "N4".
 
 ### N5 — Ladder, locator cache, flag
 
@@ -520,6 +568,20 @@ hint off) survives all 448 cases (M1–M9: 352/352), 0 skipped, **wrong = 0**; e
 unchanged from the baseline. B fixes the new wrapper (M3, 32 files) and own P's M7 failure. The
 ladder columns are N5's (P first, then B, each verified).
 
+N4 (2026-10-11, strategy E on the computer: the same core in page mode in the harness's
+page-frame DOM stub, `--page`): **M9 in page mode: own P 32/32, own B alone 32/32, wrong = 0**
+(`node scripts/verify-own-solver-mutations.mjs --class M9 --strategy P,B --page`; ejs 0/32,
+safe). Corpus in page mode: P and B alone 32/32 files, own = ejs on 260/260 inputs; faults in
+page mode (320 runs each): P wrong 0, missed 0; B alone not run yet (pending). The worker mode is
+unchanged: corpus P and B 32/32, 260/260; the full suite again 448 cases, ejs 291, own P 415,
+own B alone 448, **wrong = 0** (as N3); faults (320 runs each) P and B alone wrong 0, missed 0. The worker passes M9 as well (the M9 row above), but not because its stubs answer
+what M9 reads: M9's reads are never used, and a failing top-level statement is only a caught init
+error (P's G1 program runs each top-level declaration and assignment in its own `try` and only
+counts failures; B keeps everything registered before a late throw). So M9 does not show what E
+adds. E is for a player whose n or sig needs more of a real page than the stubs give; a JS test
+shows one (its n needs `document.createElement`: the worker answers sig and fails n, the page
+answers both, with P and with B). N4b measures that case on the corpus (note "N4b").
+
 ## 5. Risks
 
 - **False positives in B:** a function that acts like n but is not. Mitigated by the classifier
@@ -528,7 +590,12 @@ ladder columns are N5's (P first, then B, each verified).
   counts as `pass`.
 - **Cost:** B is slower and uses more CPU on the first lookup of a new player version (about every
   1–2 weeks). The locator cache makes later lookups fast.
-- **Page environment (E):** more surface than a worker. Mitigated by §1.4 and route tests.
+- **Page environment (E):** more surface than a worker. Mitigated by §1.4, the own route table
+  and its tests, the frame's CSP and the token handshake. Left after N4 (§3 N4 "Plan adapted"):
+  WebRTC through a frame the player makes itself (no CSP covers it; holding the renderer's
+  connections was not done); E runs on the app's shared renderer main thread and P has no step
+  bound there (N5: E = B only, or a bound); a hidden WebView may delay the job's start; the
+  token only stops posts without it; not run on a phone yet (N7 canary).
 - **Anti-tamper:** YouTube could detect the sandbox or the instrumentation. V turns that into a safe
   failure, not a wrong value.
 - **Not solver problems:** SABR-only delivery, PoToken/attestation, bot checks and DRM. Then only

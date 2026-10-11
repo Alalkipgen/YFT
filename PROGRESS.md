@@ -1,5 +1,74 @@
 # YFT Master Extractor backup
 
+## Phase 1.2 — N4b environment-dependent values (M9b / M9bs) — IN PROGRESS (code `bdb45c6`, CI 38175876765 ✅)
+
+- ✅ Code: mutation classes M9b (DOM-made value; use throws without the DOM) and M9bs (silent
+  use), outside the 448 baseline; runner `--both` (worker and page side by side) and `--variant`;
+  core init errors by class (`report.topLevelErrorClasses`); harness `--init`, `--fault-cases`;
+  fault cases `init-wrong-n` / `init-wrong-sig`. JS 161/161.
+- ✅ Init errors before M9b: 0/32 files in the worker (P, B) and in page mode (P, B); corpus
+  32/32 = ejs 260/260 in all four runs.
+- Faults worker P (384 runs): the 10 earlier cases wrong 0, missed 0; ❌ init-wrong-n 132 wrong,
+  init-wrong-sig 128 wrong (by construction: SelfCheck cannot see agreement on a wrong value).
+- M9b/M9bs `--both`: 7/64 cases done, wrong 0 (worker P/B safe, page P survived, page B some
+  `n: no candidates`: B's call-shape keys are static constants only). The run hung on 74edf1a3
+  phone M9bs in B (P finishes in 5 s); cause not found yet (vm timeout does not cover it:
+  microtasks or a native call). To do: per-file runs with an external timeout, worker B / page
+  P/B init-wrong faults, N4 page B faults, then plan §4 note "N4b" and the fix proposal
+  (init errors > 0 ⇒ worker answer unverified; E with 0 init errors or V decides; n only E).
+
+## Phase 1.2 — N4 strategy E (page environment) — N4 done (`a7c3dd9`, CI 38170962057 ✅)
+
+- ✅ `WebViewPageSolverEngine` (`extractor-master-android`, an `OwnSolverEngine`; nothing calls it
+  before N5): a fresh offscreen WebView per run, destroyed afterwards, with **no**
+  `addJavascriptInterface`. The reply comes back through androidx.webkit `addWebMessageListener`,
+  limited to `https://appassets.androidplatform.net` (the sandboxed frame's opaque origin never
+  gets the object): main frame only, the first string reply ends the run
+  (`OwnSolverPageReplyGate`, ≤ 12 MiB). `isAvailable` needs `WEB_MESSAGE_LISTENER`, else E is
+  skipped. Settings as the worker engine, third-party cookies off; no console, dialogs, windows,
+  permissions or location prompts; a page load error or a renderer crash ends the run with no
+  answer.
+- ✅ Own route table (`OwnSolverPageEnvRoutes`): the host page in the main frame only, the frame's
+  page in a sub frame only, its scripts, parser, core and the job (served once) as sub resources
+  only; the worker's files, main's ejs files and every other request are refused. Each answer has
+  its own CSP, `no-store`, `nosniff` and `no-referrer`.
+- ✅ Assets: `page-env.html` + `page-env.js` (host page; CSP `script-src 'self'; connect-src 'self';
+  frame-src 'self'`) and `page-frame.html` + `page-frame.js` (the frame: `sandbox="allow-scripts"`
+  set before it has an address, and again by the response header; CSP `connect-src 'none'`,
+  `worker-src 'none'`, `webrtc 'block'`, scripts only `page-frame.js` + eval). The frame says it
+  is ready; the host page then sends the job with a fresh 128-bit token; the frame takes its reply
+  path and removes WebRTC before player code (it refuses the job if it cannot), runs the job in a
+  later task and replies with the token; the host page passes on only the first reply with it.
+- ✅ Core page mode (`request.page`): a real window's browser objects stay (the worker mode's
+  defines would throw there); only missing names are added. The worker mode is unchanged.
+- ✅ `OwnSolverEnvironmentErrors` (`extractor-master`): the rule N5 asks before E
+  (`ReferenceError` or `TypeError` as a whole failure, a worker error class or a candidate error).
+- ✅ Harness `--page` (`verify-own-solver.mjs` and the mutation runner): the same solve in page
+  mode in a page-frame DOM stub (opaque origin: cookies and storage throw; the frame's location).
+- ✅ Results (computer): **M9 in page mode: own P 32/32, own B alone 32/32, wrong = 0** (ejs 0/32,
+  safe). Corpus in page mode: P and B 32/32 files, own = ejs on 260/260 inputs; faults in page
+  mode (320 runs each): P wrong 0, missed 0; B alone not run yet (pending). Worker mode unchanged:
+  corpus P and B 32/32, 260/260; full suite 448 cases: ejs 291, own P 415, own B alone 448,
+  wrong 0 (as N3); faults (320 runs each) P and B alone wrong 0, missed 0. Plan §4 note "N4".
+- ✅ Tests: `page-env.test.mjs` (14, fake players): page mode keeps a window's objects; on a
+  window-shaped global the worker mode fails (`TypeError`) and page mode solves with P and B; a
+  player whose n needs the DOM fails n in the worker and passes in the page; the frame stub's
+  shape; ready handshake, one job, only from the host page, with the token; player code cannot
+  read the token, forge the reply or replace the reply path; WebRTC removed (else no job); error
+  classes only; the host page sandboxes the frame first and passes on only the first reply; pages
+  and policies match the app's route table. In the CI JS step; locally 154/154. Kotlin: routes
+  (6), reply gate (3), engine availability (1, Robolectric), environment errors (3);
+  `:extractor-master:test` 326 (2 skipped), `:extractor-master-android:testDebugUnitTest` 69.
+- Speed (computer, 32 files, two suites sharing 2 CPUs): page P 60 s, page B 198 s (worker 60 s,
+  195 s). Phone: N5/N7.
+- Risks: WebRTC through a frame the player makes itself (not closed; a design that holds the
+  renderer's WebRTC connections was not built, it needs the owner's go-ahead); E runs on the
+  app's shared renderer main thread and P has no step bound there (N5 decides); a hidden WebView
+  may delay the job's start; not run on a phone yet (N7); the protocol is P only until N5
+  (strategy field, per-kind error classes).
+- ⏭ Next: N5 (ladder, locator cache, flag wiring). Continuation prompt for a new agent:
+  `MASTER_KEY_PHASE1_2_CONTINUE_N5.md`.
+
 ## Phase 1.2 — N3 strategy B (behaviour) — N3 done (`52e1945`, CI 38164686967 ✅)
 
 - ✅ Strategy B in `own.solver.core.js` (reached only with request `strategy: "B"`; the app never

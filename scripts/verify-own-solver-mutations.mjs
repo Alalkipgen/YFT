@@ -4,6 +4,7 @@
 //   node scripts/verify-own-solver-mutations.mjs            # every cached file, every class
 //   node scripts/verify-own-solver-mutations.mjs --quick    # the phone build of each player, every class, 1 seed
 //   node scripts/verify-own-solver-mutations.mjs --only 5203c085
+//   node scripts/verify-own-solver-mutations.mjs --only 5203c085 --variant es6   # one file
 //   node scripts/verify-own-solver-mutations.mjs --class M1,M3
 //   node scripts/verify-own-solver-mutations.mjs --seeds 3
 //   node scripts/verify-own-solver-mutations.mjs --strategy P,B   # also strategy B alone (N3)
@@ -56,6 +57,7 @@ const flag = (name) => argv.includes(name);
 const value = (name, fallback) => { const i = argv.indexOf(name); return i >= 0 && i + 1 < argv.length ? argv[i + 1] : fallback; };
 const quick = flag("--quick");
 const only = value("--only", null);
+const onlyVariant = value("--variant", null);
 const classes = (value("--class", M.CLASSES.join(","))).split(",").filter(Boolean);
 const seeds = Number(value("--seeds", quick ? "1" : "2"));
 // Own strategies to judge: P (the pattern strategy, default) and/or B alone (no hint from P).
@@ -161,6 +163,7 @@ for (const entry of corpus.players) {
   for (const variant of Object.keys(VARIANTS)) {
     if (!entry.files || !entry.files[variant]) continue;
     if (quick && variant !== quickVariant) continue;
+    if (onlyVariant && variant !== onlyVariant) continue;
     const path = join(playersDir, `${entry.player}-${variant}.js`);
     if (existsSync(path)) files.push({ player: entry.player, variant, path });
   }
