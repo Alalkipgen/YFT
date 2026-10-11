@@ -1,5 +1,19 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — plan + prompt (no code)
+
+- ✅ `MASTER_KEY_PHASE1_3_PLAN.md` + `MASTER_KEY_PHASE1_3_PROMPT.md` (2026-10-11): an own client
+  ladder so that Master keeps working when YouTube's visionOS client fails, as the own solver did
+  for ejs. A client table v2 of public app identities that need no token; every answer judged by
+  what it contains (D direct, S player script solved by the own solver, never a token client); a
+  health cache on the phone; a row check with YouTube (shared with Phase 1.2 N2); a response
+  simulator C1–C13 (R6 chain vs ladder, wrong rows 0). Tasks D1–D7, all TODO; START_AT D1 (the
+  owner chooses the order against Phase 1.2 N2–N7).
+- Why: in yt-dlp's client table (read 2026-10-11) visionOS is the only client that needs neither
+  the player script nor a token (android_vr: all formats 403 since 2026.08.17; android/ios need a
+  token), so the second leg must be the no-token script clients (TV, embedded) through the own
+  solver.
+
 ## Phase 1.2 — N1 change simulator (part 2–3: 8 more classes + full baseline) — N1 done (`765e91f`, CI 38113204972 ✅)
 
 - ✅ `mutate.mjs` new classes: **M4** sig helper object → separate functions, **M5** functions
