@@ -1,5 +1,15 @@
 # YFT Master Extractor backup
 
+## Phase 1.2 — plan + prompt (no code)
+
+- ✅ `MASTER_KEY_PHASE1_2_PLAN.md` + `MASTER_KEY_PHASE1_2_PROMPT.md` (2026-10-11): next-level own
+  solver that keeps working when YouTube changes the shape of its code — behaviour discovery (B),
+  a live check with YouTube itself (V), an isolated page environment (E), a strategy ladder with a
+  locator cache, and a change simulator (M1–M10) that measures ejs vs own (wrong values must stay
+  0). Tasks N1–N7, all TODO; START_AT N1 (baseline).
+- Why: Phase 1.1 equals ejs (260/260) because it uses the same shape-based method, so it would
+  most likely break together with ejs.
+
 ## Phase 1.1 — S6: canary + runbook
 
 - ✅ Computer canary `node scripts/own-solver-canary.mjs [player ID]` (owner-run, never CI):
