@@ -35,6 +35,12 @@ code, without an APK update:
 - မပြောင်းတာ: Flag ပိတ်ရင် app = main၊ remote code မရှိ၊ sandbox ထဲပဲ၊ bypass မရှိ၊ VISIONOS
   ဦးစားပေး။
 - မကယ်နိုင်တာ: SABR-only၊ PoToken/attestation၊ bot check၊ DRM — solver ပြဿနာ မဟုတ်ပါ။
+- ပိုတင်းကျပ်ချက် ၄ ခု (2026-10-11 ထည့်):
+  - T1 sig decoy: output တူတဲ့ candidate တွေကို အုပ်စုဖွဲ့၊ အထောက်အထားနဲ့ အစဉ်စီ၊ V ကို အုပ်စု ၃ ခုထိပဲ ပို့၊
+    ပိုများရင် fail။
+  - T2 ဘေးထွက်ဆိုးကျိုး: အရင် စစ်ထုတ်ပြီး ရွေးထားတာကို instance အသစ်တစ်ခုစီမှာ ပြန်အတည်ပြု။
+  - T3 N1 အတွက် scope analysis အရင်လုပ် (နာမည်ပြောင်း M1၊ control flow ပြောင်း M7 အတွက်)။ N1 = Medium–High။
+  - T4 n အတွက် V: n မှားရင် နှေးရုံပဲဆိုရင် V ကို sig အတွက်ပဲ သုံး၊ n က candidate တွေ သဘောတူမှ လက်ခံ။
 
 ## 0. Why (evidence)
 
@@ -126,6 +132,16 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 - **Probe:** each registered function with 1–3 parameters is called under a time and step budget:
   - n probes: several URL-safe strings of 11–16 characters;
   - sig probes: long signature-like strings, including the S4 map probe and edge probe.
+  - **No side effects (T2):** a probe may change the player's shared state (a cached array, a
+    counter, a patched prototype), so later probes would see a different player. Two stages:
+    1. **Screen** every function on one instantiation of the program. These results are only used
+       to make a shortlist, never to decide.
+    2. **Confirm** each shortlisted function on its **own fresh instantiation** (the prepared text
+       is re-run; the parse is kept): call it twice, and once more on a second fresh
+       instantiation. Only results that are the same on fresh instances count.
+    - Built-in prototypes are frozen in the probe context before the first call, so a probe
+      cannot patch `String.prototype` or `Array.prototype` for the next one; a function that
+      needs that fails safely.
 - **Classify:**
   - sig-like: the output uses only the input's characters; its length is the input's or a little
     shorter; the same index map holds for two different inputs of the same length; deterministic.
@@ -135,6 +151,21 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 - **Decide:**
   - One candidate, or several that agree → the answer (then V when available).
   - Several that disagree → V picks the one YouTube accepts. Without a V `pass` → fail.
+- **Rank and cap (T1, sig decoys):** a player has many small functions that move characters
+  around (reverse, swap, splice helpers), so B can find many sig-like candidates, while V has only
+  4 checks per player version per day. So:
+  - Candidates that give the **same output** on every probe are one group (one V check covers
+    them).
+  - Groups are ranked by evidence, strongest first:
+    1. the group contains P's answer (P ran but SelfCheck refused only one condition);
+    2. it is reached from a function that reads the stream's `s`/`sp` fields or builds the stream
+       URL (data flow from the format object, by AST, names not used);
+    3. it composes several primitive steps (reverse, splice, swap) rather than being one primitive;
+       a single primitive alone (only reverse, only a swap) is never accepted;
+    4. its creation order is closer to the URL-building code.
+  - At most **3 groups** go to V; the rest are dropped. More than 3 equally ranked groups →
+    `fail(ambiguous)`, never a pick.
+  - The same rule applies to n, where decoys are rarer (the n transform is large and specific).
 - **Remember:** the winning function's creation order and source hash go into the locator cache.
   The next lookup on the same player version calls it directly.
 
@@ -145,6 +176,15 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
   - N2 first **measures** this on the owner's phone (right n, unchanged n, wrong n, wrong sig) and
     writes the decision rule into this section.
   - Until then a 2xx counts as `pass` for sig only; n relies on SelfCheck and agreement.
+- **When V cannot judge n (T4):** if the measurement shows that a wrong n is served (2xx) and
+  only slowed down, a short Range read cannot tell right from wrong. Then:
+  - V is used for **sig only**; for n, V's verdict is always `unknown`.
+  - An n answer from B is accepted only when B's n candidates **agree** (one group after T1) and
+    pass SelfCheck; disagreement → `fail` (no V tie-break for n).
+  - The optional speed check (time to read the first 1 MiB, compared with the control) is **not**
+    used to decide; it is only logged as a class (`fast`/`slow`) for the owner, because network
+    speed varies too much.
+  - The N1 report then counts n by the offline column only.
 - **Control:** a direct URL (no n/sig) from the same lookup, when there is one. If the control
   fails too, the verdict is `unknown`. Without a control, a 403 fails this lookup but does not mark
   the strategy as failed for the player version.
@@ -154,7 +194,7 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
-| N1 | Change simulator: mutation suite + baseline (ejs vs own P) | Phase 1.1 | Medium | TODO |
+| N1 | Change simulator: mutation suite + baseline (ejs vs own P) | Phase 1.1 | Medium–High | TODO |
 | N2 | Live check V (+ measure the n behaviour on the owner's phone) | Phase 1.1 S5 | Medium | TODO |
 | N3 | Strategy B: register, probe, classify (core + harness) | N1 | High | TODO |
 | N4 | Strategy E: isolated page environment | N3 | Medium–High | TODO |
@@ -163,6 +203,11 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 | N7 | Owner live check + runbook update | N4, N5, N6 | Low | TODO |
 
 N1 comes first: it measures the baseline that every later task is judged by. N2 can run beside N1.
+
+Overall difficulty: **High** (Phase 1.1's hardest task was Medium–High). The hardest task is N3
+(classifier rules, decoys, speed), then N1 (behaviour-keeping mutations) and N4 (WebView security).
+Use the highest reasoning level for N1, N3 and N4; start N3 in a fresh session (the prompt reads the
+repository, not chat history).
 
 ### N1 — Change simulator and baseline
 
@@ -173,6 +218,19 @@ N1 comes first: it measures the baseline that every later task is judged by. N2 
   - It uses meriyah + astring at test time only: the copy inside main's `yt.solver.lib.min.js`, so
     no new dependency.
   - Full run on the computer; `--quick` (one build per player, a few classes) for CI.
+- **Scope analysis first (T3).** M1 (rename) and M7 (control-flow flattening) are only correct
+  with a scope model, else a rename can capture or shadow another binding and silently change the
+  program:
+  - Build a scope tree from meriyah's AST (functions, blocks, `catch`, class bodies; `var` hoisted
+    to its function, `let`/`const`/`class` to their block; function declarations per their
+    strict/sloppy rules) and resolve every identifier reference to its binding.
+  - Rename only bindings whose every reference resolves (never globals, never names read through
+    `eval`, `with` or `arguments`, never property names); new names are fresh in every scope they
+    enter.
+  - M7 flattens only a function body that is a plain statement list (no `let`/`const` captured by
+    a closure, no labels, no `try`), and keeps hoisting.
+  - Each mutator has its own unit tests (shadowing, hoisting, closures, `catch` parameters,
+    default parameters) before it is run on a player.
 - **Each mutation keeps the program's behaviour.** A truth hook checks this:
   - Before mutating, a tag statement that exports the original n and sig functions (found from
     P's call sites on the original player) is inserted.

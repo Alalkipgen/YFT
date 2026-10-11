@@ -39,6 +39,20 @@ code, without an APK update, and prove it with numbers:
 NEVER A WRONG VALUE: an answer needs SelfCheck and, when found by B, agreement or a V pass;
 otherwise the kind fails and its streams are dropped. Never guess.
 
+TIGHTENING POINTS (plan sections 2 and 3; all four are required)
+T1 sig decoys: group candidates with the same outputs, rank groups by evidence (P's answer, data
+   flow from the stream's s/sp fields or URL builder, composed steps, creation order), send at
+   most 3 groups to V; more equal groups -> fail(ambiguous); one primitive alone is never sig.
+T2 probe side effects: screen on one instantiation (shortlist only), confirm each shortlisted
+   function on its own fresh instantiation (twice, plus a second fresh one); freeze built-in
+   prototypes before probing.
+T3 N1 needs a scope model before M1 (rename) and M7 (flattening): resolve every reference; never
+   rename globals or names reached through eval/with/arguments; unit-test each mutator
+   (shadowing, hoisting, closures, catch and default parameters) before running it on players.
+T4 n and V: if N2 shows a wrong n is served (2xx) and only slowed, V judges sig only; an n answer
+   from B then needs agreeing candidates plus SelfCheck; speed is logged as a class, never used
+   to decide.
+
 HARD RULES (never break)
 1. Flag off = main. New flag -Pyft.ownSolverNext (default false) acts only when -Pyft.ownSolver
    and -Pyft.masterCapture are on too. With it off the own solver is exactly Phase 1.1. CI and
@@ -71,14 +85,14 @@ HARD RULES (never break)
    app makes itself.
 
 TASKS (details, files and done criteria: MASTER_KEY_PHASE1_2_PLAN.md section 3)
-N1  Change simulator: scripts/verify-own-solver-mutations.mjs (M1-M10, truth hook, report
-    build/own-solver/mutation-report.json, --quick for CI). Baseline for ejs and own P written
-    into plan section 4. Own P must give wrong = 0 on every class.
+N1  Change simulator: scripts/verify-own-solver-mutations.mjs (scope model first (T3), M1-M10,
+    truth hook, report build/own-solver/mutation-report.json, --quick for CI). Baseline for ejs
+    and own P written into plan section 4. Own P must give wrong = 0 on every class.
 N2  Live check V: StreamCheck in extractor-master (pass/fail/unknown, control, budget, cache;
     fake-HTTP unit tests) + opt-in phone test StreamCheckMeasureTest (owner runs it; the result
-    sets the n rule in plan section 2).
+    sets the n rule in plan section 2, T4).
 N3  Strategy B in own.solver.core.js (register by AST text splicing, step-counted loops, probe
-    under budgets, classify, decide); harness --strategy B; B alone = ejs on 32/32 corpus files;
+    under budgets with T2, classify, rank and cap with T1, decide); harness --strategy B; B alone = ejs on 32/32 corpus files;
     clearly better than P on the mutation suite with wrong = 0; JS tests per classifier rule.
 N4  Strategy E: WebViewPageSolverEngine + page-env.html with a sandboxed iframe (rule 5); used
     only after an environment error; route/protocol unit tests; M9 on the computer with a DOM
