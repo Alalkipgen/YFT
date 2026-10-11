@@ -25,7 +25,7 @@ START_AT: N2 (live check V), then N3
 
 STATE WHEN THIS PROMPT WAS WRITTEN (verify against the repo; the repo wins)
 - Phase 1.1 S1-S6 done. Corpus parity: 32/32 files, own = ejs on 260/260 inputs.
-- N1 done: scripts/own-solver/mutate.mjs (scope model T3 + 14 classes: M1, M1w, M2, M3, M4,
+- N1 done (commit 765e91f, CI run 38113204972 green): scripts/own-solver/mutate.mjs (scope model T3 + 14 classes: M1, M1w, M2, M3, M4,
   M5, M6, M7, M8, M8t, M9, M10, M11, M11f), scripts/verify-own-solver-mutations.mjs (--quick,
   --only, --class, --seeds; lines show which kind failed and own P's failure class), unit tests
   scripts/own-solver/tests/mutate.test.mjs (47, in the spike CI JS step; the whole step 129).

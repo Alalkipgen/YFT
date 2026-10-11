@@ -194,7 +194,7 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
-| N1 | Change simulator: mutation suite + baseline (ejs vs own P) | Phase 1.1 | Medium–High | Done |
+| N1 | Change simulator: mutation suite + baseline (ejs vs own P) | Phase 1.1 | Medium–High | Done (`765e91f`) |
 | N2 | Live check V (+ measure the n behaviour on the owner's phone) | Phase 1.1 S5 | Medium | TODO |
 | N3 | Strategy B: register, probe, classify (core + harness) | N1 | High | TODO |
 | N4 | Strategy E: isolated page environment | N3 | Medium–High | TODO |

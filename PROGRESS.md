@@ -1,6 +1,6 @@
 # YFT Master Extractor backup
 
-## Phase 1.2 — N1 change simulator (part 2–3: 8 more classes + full baseline) — N1 done
+## Phase 1.2 — N1 change simulator (part 2–3: 8 more classes + full baseline) — N1 done (`765e91f`, CI 38113204972 ✅)
 
 - ✅ `mutate.mjs` new classes: **M4** sig helper object → separate functions, **M5** functions
   with 3+ call sites called through a fresh alias, **M7** control-flow flattening (switch in a
