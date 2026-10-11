@@ -163,6 +163,6 @@ test("fault verdicts: wrong values always fail; expected FAILs must happen", () 
   assert.equal(faultVerdict(omit, ejs, { n: { a: "Z" }, sig: {} }).ok, false);
   assert.deepEqual(
     FAULTS.map((fault) => fault.name),
-    ["decoy-n", "decoy-sig", "raw-encoding", "omit-window", "omit-self", "omit-location", "omit-navigator", "omit-document", "omit-XMLHttpRequest", "omit-all"],
+    ["decoy-n", "decoy-sig", "raw-encoding", "omit-window", "omit-self", "omit-location", "omit-navigator", "omit-document", "omit-XMLHttpRequest", "omit-all", "init-wrong-n", "init-wrong-sig"],
   );
 });

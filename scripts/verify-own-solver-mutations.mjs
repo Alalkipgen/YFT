@@ -10,6 +10,9 @@
 //   node scripts/verify-own-solver-mutations.mjs --strategy B     # ejs and B alone only
 //   node scripts/verify-own-solver-mutations.mjs --class M9 --strategy P,B --page
 //                    # strategy E (N4): own P/B in page mode in the harness's page-frame DOM stub
+//   node scripts/verify-own-solver-mutations.mjs --class M9b,M9bs --strategy P,B --both
+//                    # N4b: own P/B in the worker AND in page mode, one row per class
+//                    # (M9b/M9bs are environment classes, not in the default list; see mutate.mjs)
 //
 // It mutates each cached player so the code is WRITTEN differently but DOES the same thing, then
 // measures how often ejs and the own solver's pattern strategy (P) — and, with --strategy B,
@@ -67,6 +70,12 @@ const withB = strategies.includes("B");
 // mode; ejs and the truth stay as they are (bare context).
 const page = flag("--page");
 const pageExtra = page ? { page: true } : {};
+// --both (N4b): each own strategy in the worker (bare context) and in page mode, side by side.
+const both = flag("--both");
+if (both && page) {
+  console.error("--both already runs page mode; drop --page");
+  process.exit(2);
+}
 const quickVariant = "phone";
 
 // ---- a V8 context with the vendored parser + code generator (used only to mutate the AST) ----
@@ -95,6 +104,8 @@ function mutate(program, cls, random) {
     case "M8": return M.wrapEncoding(program, random);
     case "M8t": return M.wrapEncoding(program, random, { atTop: true });
     case "M9": return M.readBrowserObjects(program, random);
+    case "M9b": return M.domDependentLiterals(program, random);
+    case "M9bs": return M.domDependentLiterals(program, random, { silent: true });
     case "M10": return M.appendDecoys(program, random);
     case "M11": return M.addPrelude(program, random);
     case "M11f": return M.addPrelude(program, random, { functions: true });
@@ -165,6 +176,8 @@ const empty = () => ({
   ejs: { survived: 0, safe: 0, wrong: 0 },
   ownP: { survived: 0, safe: 0, wrong: 0 },
   ownB: { survived: 0, safe: 0, wrong: 0 },
+  pageP: { survived: 0, safe: 0, wrong: 0 },
+  pageB: { survived: 0, safe: 0, wrong: 0 },
 });
 const byClass = {};
 for (const cls of classes) byClass[cls] = empty();
@@ -198,13 +211,19 @@ for (const file of files) {
       const ownOut = withP ? solveWithOwn(own, mutated, inputs, pageExtra) : null;
       const bOut = withB ? solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false, ...pageExtra }) : null;
       await settle(); // releases the player's unhandled rejections (see harness.mjs)
-      if (behaviourChanged(truth, ejsOut, ownOut ?? bOut, inputs)) { note = "behaviour-changed"; continue; }
+      const pagePOut = both && withP ? solveWithOwn(own, mutated, inputs, { page: true }) : null;
+      const pageBOut = both && withB ? solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false, page: true }) : null;
+      if (both) await settle();
+      // Environment classes (M9b/M9bs) are written so that an environment without the DOM gives
+      // other values: ejs and a worker agreeing on one is the finding, not a mutator bug. Their
+      // behaviour is proven where the DOM exists (page columns), so the guard is not used.
+      if (!M.ENV_CLASSES.includes(cls) && behaviourChanged(truth, ejsOut, ownOut ?? bOut, inputs)) { note = "behaviour-changed"; continue; }
       const ev = judge(truth, ejsOut, inputs);
       const e = score(ev);
       bucket.ejs[e] += 1;
       if (e === "wrong") wrongTotal += 1;
       let line = `${file.player} ${file.variant} ${cls}: ejs ${detail(ev, e)}`;
-      for (const [label, out, key] of [["own P", ownOut, "ownP"], ["own B", bOut, "ownB"]]) {
+      for (const [label, out, key] of [["own P", ownOut, "ownP"], ["own B", bOut, "ownB"], ["page P", pagePOut, "pageP"], ["page B", pageBOut, "pageB"]]) {
         if (!out) continue;
         const v = judge(truth, out, inputs);
         const o = score(v);
@@ -222,19 +241,23 @@ for (const file of files) {
 
 const summary = { generated: new Date().toISOString().slice(0, 10), files: files.length, seeds, classes: {} };
 lines.push("");
-lines.push(`class   | ejs surv/safe/wrong |${withP ? " own P surv/safe/wrong |" : ""}${withB ? " own B surv/safe/wrong |" : ""} skipped`);
+lines.push(
+  `class   | ejs surv/safe/wrong |${withP ? " own P surv/safe/wrong |" : ""}${withB ? " own B surv/safe/wrong |" : ""}` +
+    `${both && withP ? " page P surv/safe/wrong |" : ""}${both && withB ? " page B surv/safe/wrong |" : ""} skipped`,
+);
 for (const cls of classes) {
   const b = byClass[cls];
   summary.classes[cls] = b;
   const f = (x) => String(x).padStart(2);
   const cell = (c) => `    ${f(c.survived)}/${f(c.safe)}/${f(c.wrong)}          |`;
-  lines.push(`${cls.padEnd(7)} |   ${f(b.ejs.survived)}/${f(b.ejs.safe)}/${f(b.ejs.wrong)}         |${withP ? cell(b.ownP) : ""}${withB ? cell(b.ownB) : ""} ${b.skipped}`);
+  const pageCells = `${both && withP ? ` ${cell(b.pageP)}` : ""}${both && withB ? ` ${cell(b.pageB)}` : ""}`;
+  lines.push(`${cls.padEnd(7)} |   ${f(b.ejs.survived)}/${f(b.ejs.safe)}/${f(b.ejs.wrong)}         |${withP ? cell(b.ownP) : ""}${withB ? cell(b.ownB) : ""}${pageCells} ${b.skipped}`);
 }
 lines.push("");
-lines.push(`${files.length} files x ${classes.length} classes x ${seeds} seed(s)${page ? " (own in page mode)" : ""}; wrong values: ${wrongTotal}`);
+lines.push(`${files.length} files x ${classes.length} classes x ${seeds} seed(s)${page ? " (own in page mode)" : both ? " (own in the worker and in page mode)" : ""}; wrong values: ${wrongTotal}`);
 console.log(lines.join("\n"));
 mkdirSync(dirname(reportFile), { recursive: true });
 // Page-mode runs keep their own report, so a worker-mode run can go at the same time.
-const outFile = page ? reportFile.replace(/\.json$/, "-page.json") : reportFile;
-writeFileSync(outFile, JSON.stringify({ ...summary, strategies, page, wrongTotal }, null, 2));
+const outFile = page ? reportFile.replace(/\.json$/, "-page.json") : both ? reportFile.replace(/\.json$/, "-both.json") : reportFile;
+writeFileSync(outFile, JSON.stringify({ ...summary, strategies, page, both, wrongTotal }, null, 2));
 process.exit(wrongTotal > 0 ? 1 : 0);

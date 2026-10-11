@@ -17,6 +17,8 @@
  *   yftOwnSolve({player, n: [], sig: []}) -> prepare + run in one call
  *   request.page === true (Phase 1.2 N4, strategy E): the same run in the app's sandboxed page
  *   frame, on a real window whose own browser objects stay (see installEnvironment)
+ *   report.topLevelErrors / topLevelErrorClasses (N4b): the init errors (guarded top-level
+ *   statements that threw) and their counts by error class, e.g. {"TypeError": 2}
  *
  * Everything is synchronous and stays in this worker: no network, no cookies, no storage, no
  * host page. Reports and failure reasons name kinds, candidate indexes, counts and error classes
@@ -533,8 +535,39 @@ var yftOwnSolver = (function () {
     SwitchStatement: true,
   };
 
+  // Each guarded top-level statement that throws is an init error: counted in registry.e and, by
+  // error class, by registry.k (Phase 1.2 N4b; a program prepared before N4b only counts).
   function guard(text) {
-    return "try{" + text + "\n}catch(" + CAUGHT + "){" + REGISTRY + ".e++}\n";
+    return "try{" + text + "\n}catch(" + CAUGHT + "){" + REGISTRY + ".e++;" + REGISTRY + ".k&&" + REGISTRY + ".k(" + CAUGHT + ")}\n";
+  }
+
+  var MAX_INIT_ERROR_CLASSES = 8;
+
+  // Init errors by class (names like TypeError only, never a message): at most 8 classes, the
+  // rest as "other". It never throws, so it cannot change what the program does.
+  function initErrorRecorder(registry) {
+    registry.x = Object.create(null);
+    var classes = 0;
+    return function (error) {
+      try {
+        var name = errorName(error);
+        if (!has.call(registry.x, name)) {
+          if (classes >= MAX_INIT_ERROR_CLASSES) name = "other";
+          else classes += 1;
+        }
+        registry.x[name] = (registry.x[name] || 0) + 1;
+      } catch (ignored) {
+        // A class is only a report detail.
+      }
+    };
+  }
+
+  function initErrorClasses(registry) {
+    var out = {};
+    Object.keys(registry.x || {}).sort().forEach(function (name) {
+      out[name] = registry.x[name];
+    });
+    return out;
   }
 
   function buildProgram(source, statements, references) {
@@ -735,6 +768,7 @@ var yftOwnSolver = (function () {
     var faults = request.faults || {};
     installEnvironment(globalScope(), request.env, faults.omit, request.page === true);
     var registry = { c: [], e: 0 };
+    registry.k = initErrorRecorder(registry);
     var factory;
     try {
       factory = Function(REGISTRY, prepared.program);
@@ -746,6 +780,7 @@ var yftOwnSolver = (function () {
     } catch (error) {
       throw new Failure("program:" + errorName(error));
     }
+    faultInitError(registry, request);
     return registry;
   }
 
@@ -929,7 +964,7 @@ var yftOwnSolver = (function () {
     var errors = [];
     all.forEach(function (input) {
       var outcome = multiTry(kind, builders, input, faults);
-      results[input] = outcome.values;
+      results[input] = initWrongValues(request, kind, outcome.values);
       outcome.errors.forEach(function (error) {
         if (errors.indexOf(error) < 0) errors.push(error);
       });
@@ -963,7 +998,7 @@ var yftOwnSolver = (function () {
       });
     }
     if (!reason) {
-      var again = multiTry(kind, builders, probes[0], faults).values;
+      var again = initWrongValues(request, kind, multiTry(kind, builders, probes[0], faults).values);
       if (again.length !== 1 || again[0] !== solved[probes[0]]) reason = "unstable";
     }
     var answers = {};
@@ -1007,6 +1042,30 @@ var yftOwnSolver = (function () {
       };
       return wrapper;
     };
+  }
+
+  // Fault injection (tests only, Phase 1.2 N4b) "initWrong" ("n" or "sig"): an init error (a
+  // TypeError, as from a DOM call the worker lacks) after which every candidate agrees on a
+  // wrong value of that kind, each value rotated by one character. SelfCheck cannot see it; the
+  // faults suite counts these values as wrong until the ladder keeps such answers unverified.
+  // Inert in page mode, whose DOM the init error is about.
+  function faultInitWrong(request) {
+    var kind = request && request.page !== true && request.faults && request.faults.initWrong;
+    return kind === "n" || kind === "sig" ? kind : null;
+  }
+
+  function faultInitError(registry, request) {
+    if (!faultInitWrong(request)) return;
+    registry.e += 1;
+    registry.k({ name: "TypeError" });
+  }
+
+  function rotated(value) {
+    return typeof value === "string" && value.length > 1 ? value.slice(1) + value.charAt(0) : value;
+  }
+
+  function initWrongValues(request, kind, values) {
+    return faultInitWrong(request) === kind ? values.map(rotated) : values;
   }
 
   // ===============================================================================================
@@ -1553,6 +1612,7 @@ var yftOwnSolver = (function () {
       defineGlobal(scope, name, { value: function () {}, writable: true, configurable: true, enumerable: false }, page);
     });
     var registry = { c: [], e: 0, f: [], seen: Object.create(null), steps: 0, max: B_INIT_STEPS, closed: false, meta: prepared.meta || [], named: null };
+    registry.k = initErrorRecorder(registry);
     registry.r = function (fn, id) {
       if (!registry.closed && typeof fn === "function" && !registry.seen[id] && registry.f.length < B_MAX_FUNCTIONS) {
         registry.seen[id] = true;
@@ -1575,7 +1635,9 @@ var yftOwnSolver = (function () {
     } catch (error) {
       // A late throw keeps everything registered before it.
       registry.e += 1;
+      registry.k(error);
     }
+    faultInitError(registry, request);
     registry.closed = true;
     registry.max = B_PROBE_STEPS;
     return registry;
@@ -1836,6 +1898,12 @@ var yftOwnSolver = (function () {
     var fns = group.members.map(function (member) {
       return { fn: bFind(registry, member.id), shape: member.shape };
     });
+    // Fault "initWrong" (tests only): every member's value of this kind rotated alike.
+    var wrong = faultInitWrong(request) === kind;
+    function call(fn, input, shape) {
+      var out = bCall(registry, fn, input, shape);
+      return wrong ? rotated(out) : out;
+    }
     var reason = null;
     var solved = Object.create(null);
     var outputs = [];
@@ -1843,7 +1911,7 @@ var yftOwnSolver = (function () {
       if (reason) return;
       var value = null;
       fns.forEach(function (member) {
-        var out = member.fn ? bCall(registry, member.fn, raw ? encodeURIComponent(input) : input, member.shape) : null;
+        var out = member.fn ? call(member.fn, raw ? encodeURIComponent(input) : input, member.shape) : null;
         if (out === null) reason = reason || "missing";
         else if (value === null) value = out;
         else if (value !== out) reason = reason || "disagree";
@@ -1865,7 +1933,7 @@ var yftOwnSolver = (function () {
         if (!reason && solved[vector.input] !== vector.expected) reason = "vector";
       });
     }
-    if (!reason && fns[0].fn && bCall(registry, fns[0].fn, probes[0], fns[0].shape) !== solved[probes[0]]) reason = "unstable";
+    if (!reason && fns[0].fn && call(fns[0].fn, probes[0], fns[0].shape) !== solved[probes[0]]) reason = "unstable";
     var answers = {};
     var answered = 0;
     if (!reason) {
@@ -1928,6 +1996,7 @@ var yftOwnSolver = (function () {
       var slowCount = 0;
       var found = { n: [], sig: [] };
       output.report.topLevelErrors = registry.e;
+      output.report.topLevelErrorClasses = initErrorClasses(registry);
       output.report.registered = registry.f.length;
       output.report.slowest = slow;
       output.report.stage = "screen";
@@ -2094,6 +2163,7 @@ var yftOwnSolver = (function () {
         builders.push({ index: registry.c.length, fn: decoyBuilder(builders[0].fn, request.faults.decoy) });
       }
       output.report.topLevelErrors = registry.e;
+      output.report.topLevelErrorClasses = initErrorClasses(registry);
       output.report.candidates = builders.length;
       if (!builders.length) throw new Failure("no candidate functions");
       var failed = [];

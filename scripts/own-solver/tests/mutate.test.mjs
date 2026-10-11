@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
 import * as M from "../mutate.mjs";
+import { pageContext } from "../harness.mjs";
 
 const lib = readFileSync(new URL("../../../app/src/main/assets/youtube-solver/yt.solver.lib.min.js", import.meta.url), "utf8");
 const cg = vm.createContext({});
@@ -306,4 +307,66 @@ test("M10 adds unreachable decoys and keeps behaviour", () => {
 test("mutations are deterministic for one seed", () => {
   const source = WRAPPED(`var aa = 1, bb = 2; function cc(dd) { return dd + aa; } g.out = cc(bb);`);
   assert.equal(mutated(source, M.renameLocals, "same").text, mutated(source, M.renameLocals, "same").text);
+});
+
+// ------------------------------------------------------------------------------------------------
+// N4b (M9b / M9bs): n and sig come to depend on a value made with DOM calls the worker's stubs do
+// not have. The page side runs in the harness's page-frame stub (the same one --page uses).
+const ownLib = readFileSync(new URL("../../../extractor-master-android/src/main/assets/yft-own-solver/meriyah.umd.min.js", import.meta.url), "utf8");
+
+function runInFrame(text) {
+  const context = pageContext(ownLib);
+  vm.runInContext(text, context, { timeout: 5000 });
+  return JSON.stringify(context.result);
+}
+
+// Like the worker's stubs (own.solver.core.js environmentGlobals): a document without DOM methods.
+function runInWorkerStub(text) {
+  const context = vm.createContext({ document: { title: "", readyState: "complete" }, navigator: { language: "en-US" } });
+  context.window = context;
+  vm.runInContext(text, context, { timeout: 5000 });
+  return JSON.stringify(context.result);
+}
+
+const DOM_SOURCE = WRAPPED(
+  `var base = [1, 2, 3]; var o = { 7: "seven" };` +
+    ` function f(a) { return a * 3 + 7 + o[7].length; }` +
+    ` function h(s) { return s.split("").slice(2, 5).join("") + 0.5; }` +
+    ` function k() { return { 4: "four" }[4]; }` +
+    ` g.out = [f(base[1]), h("abcdefgh"), k(), base.length];`,
+);
+
+test("M9b makes integer literals in functions read a DOM-made value; the page gives the same values", () => {
+  const after = mutated(DOM_SOURCE, (p, r) => M.domDependentLiterals(p, r, { rate: 1 }), "m9b");
+  assert.equal(after.edits, 6); // 3, 7, 7 in f; 2, 5 in h; the member 4 in k
+  for (const call of ["createElement", "setAttribute", "appendChild", "getAttribute"]) assert.match(after.text, new RegExp(call));
+  assert.match(after.text, /\(function \(g\) \{\s*var [A-Za-z_$][\w$]* = \(?function \(\) \{/); // first in the wrapper
+  assert.match(after.text, /\[1, 2, 3\]/); // wrapper-level literals stay
+  assert.match(after.text, /4: "four"/); // object keys stay
+  assert.match(after.text, /0\.5/); // fractions stay
+  assert.equal(runInFrame(after.text), runInFrame(DOM_SOURCE));
+  assert.throws(() => runInWorkerStub(after.text), /TypeError/);
+});
+
+test("M9b and M9bs without the DOM value (a worker after its init error): M9b throws, M9bs silently uses another number", () => {
+  const source = WRAPPED(`function f() { return 10; } g.out = [f()];`);
+  const loud = mutated(source, (p, r) => M.domDependentLiterals(p, r, { rate: 1, withoutDom: true }), "m9b-x");
+  assert.equal(loud.edits, 1);
+  assert.throws(() => run(loud.text), /TypeError/);
+  const silent = mutated(source, (p, r) => M.domDependentLiterals(p, r, { rate: 1, silent: true, withoutDom: true }), "m9b-x");
+  const value = JSON.parse(run(silent.text))[0];
+  assert.ok(Number.isInteger(value) && value >= 1 && value <= 9, String(value)); // 10 - d: no error, another constant
+  const inFrame = mutated(source, (p, r) => M.domDependentLiterals(p, r, { rate: 1, silent: true }), "m9b-x");
+  assert.equal(runInFrame(inFrame.text), runInFrame(source));
+  assert.throws(() => runInWorkerStub(inFrame.text), /TypeError/);
+});
+
+test("M9b and M9bs skip a wrapper that declares document; one seed makes one mutation; the baseline keeps 14 classes", () => {
+  const declared = WRAPPED(`var document = {}; function f() { return 2; } g.out = [f()];`);
+  assert.equal(mutated(declared, (p, r) => M.domDependentLiterals(p, r, { rate: 1 }), "m9b-d").edits, 0);
+  const once = (seed) => mutated(DOM_SOURCE, (p, r) => M.domDependentLiterals(p, r, { silent: true, rate: 0.5 }), seed).text;
+  assert.equal(once("same"), once("same"));
+  assert.deepEqual(M.ENV_CLASSES, ["M9b", "M9bs"]);
+  assert.ok(M.ENV_CLASSES.every((cls) => !M.CLASSES.includes(cls) && M.CLASS_NOTE[cls] && M.MUTATORS[cls]));
+  assert.equal(M.CLASSES.length, 14);
 });

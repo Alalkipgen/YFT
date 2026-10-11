@@ -10,6 +10,10 @@
 
 export const CLASSES = ["M1", "M1w", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M8t", "M9", "M10", "M11", "M11f"];
 
+// Environment classes (N4b): behaviour is kept only where the page's DOM exists, so they prove
+// strategy E. They are not in CLASSES (the 448-case baseline); run them with --class M9b,M9bs.
+export const ENV_CLASSES = ["M9b", "M9bs"];
+
 export const CLASS_NOTE = {
   M1: "rename every function/block/catch binding; globals and the wrapper parameter stay (a new build)",
   M1w: "as M1, and rename the wrapper parameter too (`g` in `(function(g){...})(_yt_player)`)",
@@ -25,6 +29,8 @@ export const CLASS_NOTE = {
   M10: "append decoy functions that look like n/sig but return other values (false positives)",
   M11: "add harmless var declarations at the top of the wrapper body (a new prelude)",
   M11f: "add harmless function declarations at the top of the wrapper body",
+  M9b: "integer literals in functions read a value made with DOM calls at the top of init; without the DOM the use throws (N4b)",
+  M9bs: "as M9b, but without the DOM the use silently gives another number (no error; N4b)",
 };
 
 const FRESH = "_m$";
@@ -507,6 +513,8 @@ export const MUTATORS = {
   M10: (p, r) => appendDecoys(p, r),
   M11: (p, r) => addPrelude(p, r),
   M11f: (p, r) => addPrelude(p, r, { functions: true }),
+  M9b: (p, r) => domDependentLiterals(p, r),
+  M9bs: (p, r) => domDependentLiterals(p, r, { silent: true }),
 };
 
 export function parseWith(meriyah, text) {
@@ -793,6 +801,64 @@ export function readBrowserObjects(program, random) {
   // In the middle of the init code, as a real change would add it (M11 covers the top).
   body.splice(Math.max(afterDirectives(body), Math.floor(body.length / 2)), 0, ...decls);
   return decls.length;
+}
+
+// ------------------------------------------------------------------------------------------------
+// M9b / M9bs (N4b): n and sig come to depend on the DOM. First in the wrapper body, a value is made
+// with DOM calls a page has and the worker's stubs do not:
+//   var K = function () { var e = document.createElement("div"); e.setAttribute("data-v", "d");
+//     var p = document.createElement("div"); return { k: +p.appendChild(e).getAttribute("data-v") }; }();
+// with a small d (1-9). Then integer literals inside functions (a share `rate`, never object keys,
+// never fractions or numbers beyond 32 bits) use it: `c` becomes `c - d + K.k` (M9b) or
+// `c - d + ((K && K.k) | 0)` (M9bs). In a page K.k is d, so every value is unchanged. Where
+// createElement is missing, K's statement throws; a solver that keeps going after such an init
+// error has K undefined: M9b's rewritten code then throws where it runs (a safe failure), M9bs's
+// silently uses c - d (another number, no error) - the case only an environment check can catch.
+// `withoutDom` (tests only) declares K without its initializer, as K is after that error.
+export function domDependentLiterals(program, random, options = {}) {
+  const w = topWrapper(program);
+  const body = w && w.callee.body.type === "BlockStatement" ? w.callee.body.body : null;
+  if (!body) return 0;
+  if (declaredInFunction(w.callee).has("document")) return 0;
+  const used = new Set();
+  walk(program, ({ node }) => { if (node.type === "Identifier") used.add(node.name); return true; });
+  const holder = minifiedNames(used, random)();
+  const d = 1 + Math.floor(random() * 9);
+  const rate = typeof options.rate === "number" ? options.rate : 0.2;
+  const functions = new Set(["FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression"]);
+  const edits = [];
+  const stack = childEntries(w.callee.body).map((item) => ({ ...item, inside: false }));
+  while (stack.length) {
+    const item = stack.pop();
+    const { node, parent, key } = item;
+    if (node.type === "Literal") {
+      const keySpot = (parent.type === "Property" || parent.type === "MethodDefinition" || parent.type === "PropertyDefinition") && key === "key" && !parent.computed;
+      if (item.inside && !keySpot && typeof node.value === "number" && Number.isInteger(node.value) && Math.abs(node.value) <= 0x7fffffff && random() < rate) edits.push(item);
+      continue;
+    }
+    const inside = item.inside || functions.has(node.type);
+    const kids = childEntries(node);
+    for (let i = kids.length - 1; i >= 0; i -= 1) stack.push({ ...kids[i], inside });
+  }
+  if (!edits.length) return 0;
+  const literal = (value) => ({ type: "Literal", value });
+  const ref = () => ({ type: "Identifier", name: holder });
+  const read = () => ({ type: "MemberExpression", computed: false, optional: false, object: ref(), property: { type: "Identifier", name: "k" } });
+  const use = () => (options.silent
+    ? { type: "BinaryExpression", operator: "|", left: { type: "LogicalExpression", operator: "&&", left: ref(), right: read() }, right: literal(0) }
+    : read());
+  for (const e of edits) {
+    const value = { type: "BinaryExpression", operator: "+", left: { type: "BinaryExpression", operator: "-", left: literal(e.node.value), right: literal(d) }, right: use() };
+    if (e.index === null) e.parent[e.key] = value; else e.parent[e.key][e.index] = value;
+  }
+  const declaration = options.withoutDom
+    ? parseStatements(`var ${holder};`)
+    : parseStatements(
+      `var ${holder} = function () { var e = document.createElement("div"); e.setAttribute("data-v", "${d}");` +
+        ` var p = document.createElement("div"); return { k: +p.appendChild(e).getAttribute("data-v") }; }();`,
+    );
+  body.splice(afterDirectives(body), 0, ...declaration);
+  return edits.length;
 }
 
 // ------------------------------------------------------------------------------------------------

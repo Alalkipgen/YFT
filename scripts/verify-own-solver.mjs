@@ -8,11 +8,13 @@
 //   node scripts/verify-own-solver.mjs --add today     # add today's player (or --add <player ID>)
 //   node scripts/verify-own-solver.mjs --prepare       # own core: candidates per file only (S2)
 //   node scripts/verify-own-solver.mjs --faults        # also inject faults (S4): never a wrong value
+//   ... --faults --fault-cases init-wrong-n,init-wrong-sig   # only these fault cases (N4b)
 //   node scripts/verify-own-solver.mjs --strategy B    # own core with strategy B alone (Phase 1.2 N3)
 //   ... --only <player> --variant <main|tce|es6|...> --verbose   # one file; B timings and stages
 //   ... --strategy B --hint                       # B ranked by P's answer (the ladder's use)
 //   ... --page                                    # strategy E (N4): the core in page mode in the
 //                                                 # harness's page-frame DOM stub (P, or B with --strategy B)
+//   ... --init                                    # init errors per file: count and classes (N4b)
 //
 // Needs network access to www.youtube.com. Player text is cached under build/own-solver/players
 // (never committed) and checked against corpus.json's SHA-256 before use. Like
@@ -60,6 +62,12 @@ const add = option("--add");
 const record = args.includes("--record") || add !== undefined;
 const prepareOnly = args.includes("--prepare");
 const withFaults = args.includes("--faults");
+const faultCaseNames = option("--fault-cases")?.split(",").filter(Boolean) ?? null;
+const faultCases = faultCaseNames ? FAULTS.filter((fault) => faultCaseNames.includes(fault.name)) : FAULTS;
+if (faultCaseNames && faultCases.length !== faultCaseNames.length) {
+  console.error(`--fault-cases: unknown name (known: ${FAULTS.map((fault) => fault.name).join(",")})`);
+  process.exit(2);
+}
 const strategy = option("--strategy");
 if (strategy !== undefined && strategy !== "P" && strategy !== "B") {
   console.error("--strategy must be P or B");
@@ -70,6 +78,8 @@ const verbose = args.includes("--verbose");
 const withHint = args.includes("--hint");
 // --page: strategy E on the computer (N4), the same solve in the page-frame DOM stub, page mode.
 const page = args.includes("--page");
+// --init (N4b): each file's init errors (top-level statements that threw), count and classes only.
+const withInit = args.includes("--init");
 const strategyExtra = {
   ...(strategy === "B" ? { strategy: "B", hint: withHint, ...(verbose ? { debug: true } : {}) } : {}),
   ...(page ? { page: true } : {}),
@@ -159,6 +169,9 @@ let faultRuns = 0;
 let faultWrong = 0;
 let faultMissed = 0;
 let faultFiles = 0;
+const faultTotals = new Map();
+const initCounts = [];
+const initClasses = {};
 for (const entry of corpus.players) {
   if (only && entry.player !== only) continue;
   const plan = challenges(entry.player, vectors);
@@ -192,12 +205,12 @@ for (const entry of corpus.players) {
     }
     const ejsOut = solveWithEjs(ejs, fetched.text, plan.inputs);
     await settle();
-    const ownOut = own ? solveWithOwn(own, fetched.text, plan.inputs, strategyExtra) : null;
+    const ownOut = own ? solveWithOwn(own, fetched.text, plan.inputs, { ...strategyExtra, ...(withInit ? { report: true } : {}) }) : null;
     await settle();
     const result = { player: entry.player, variant, status: "ok", ...compare(plan, ejsOut, ownOut) };
     if (own && withFaults) {
       result.faults = [];
-      for (const fault of FAULTS) {
+      for (const fault of faultCases) {
         const faulted = solveWithOwn(own, fetched.text, plan.inputs, { ...strategyExtra, faults: fault.faults });
         result.faults.push(faultVerdict(fault, ejsOut, faulted));
         await settle();
@@ -205,6 +218,14 @@ for (const entry of corpus.players) {
       faultRuns += result.faults.length;
       faultWrong += result.faults.reduce((sum, verdict) => sum + verdict.wrong, 0);
       faultMissed += result.faults.filter((verdict) => verdict.detected === false).length;
+      for (const verdict of result.faults) {
+        const total = faultTotals.get(verdict.name) ?? { runs: 0, wrong: 0, missed: 0, bad: 0 };
+        total.runs += 1;
+        total.wrong += verdict.wrong;
+        total.missed += verdict.detected === false ? 1 : 0;
+        total.bad += verdict.ok ? 0 : 1;
+        faultTotals.set(verdict.name, total);
+      }
     }
     results.push(result);
     let line = summarize([result], Boolean(own))[0];
@@ -212,6 +233,14 @@ for (const entry of corpus.players) {
       const bad = result.faults.filter((verdict) => !verdict.ok).map((verdict) => verdict.name);
       line += ` | faults ${result.faults.length - bad.length}/${result.faults.length} ok${bad.length ? ` (bad ${bad.join(",")})` : ""}`;
       if (bad.length) faultFiles += 1;
+    }
+    if (withInit) {
+      const count = ownOut?.report?.topLevelErrors;
+      const classes = ownOut?.report?.topLevelErrorClasses ?? {};
+      if (typeof count === "number") initCounts.push(count);
+      for (const [name, n] of Object.entries(classes)) initClasses[name] = (initClasses[name] ?? 0) + n;
+      const named = Object.entries(classes).map(([name, n]) => `${name} ${n}`).join(", ");
+      line += ` | init errors ${typeof count === "number" ? count : "?"}${named ? ` (${named})` : ""}`;
     }
     if (ownOut?.report && strategy === "B") {
       const r = ownOut.report;
@@ -252,6 +281,16 @@ const lines = summarize(results, Boolean(own));
 console.log(lines[lines.length - 1]);
 if (withFaults) {
   console.log(`faults: ${faultRuns} runs, wrong values ${faultWrong}, expected FAILs missed ${faultMissed}`);
+  for (const [name, total] of faultTotals) {
+    console.log(`  fault ${name}: ${total.runs} runs, wrong values ${total.wrong}, missed ${total.missed}, files not ok ${total.bad}`);
+  }
+}
+if (withInit) {
+  const withErrors = initCounts.filter((count) => count > 0).length;
+  const sum = initCounts.reduce((a, b) => a + b, 0);
+  const range = initCounts.length ? `${Math.min(...initCounts)}-${Math.max(...initCounts)}` : "-";
+  const named = Object.entries(initClasses).sort().map(([name, n]) => `${name} ${n}`).join(", ");
+  console.log(`init errors: files with errors ${withErrors}/${initCounts.length}, total ${sum}, per file ${range}${named ? `, classes ${named}` : ""}`);
 }
 // Page-mode runs keep their own report, so a worker-mode run can go at the same time.
 const outFile = page ? reportFile.replace(/\.json$/, `${strategy === "B" ? "-b" : ""}-page.json`) : reportFile;

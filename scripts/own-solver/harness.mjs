@@ -331,13 +331,17 @@ export function prepareWithOwn({ lib, core }, player) {
 /**
  * The own core on [player] through its contract (see the header); [extra] adds faults. With
  * extra.page (N4, strategy E) it runs in the page-frame DOM stub and the core in page mode.
+ * extra.report (N4b) returns the core's report for P too (B and E return it with extra.strategy);
+ * it is not part of the request.
  */
 export function solveWithOwn({ lib, core }, player, inputs, extra = {}) {
   let sandbox = null;
+  const { report: wantReport, ...request } = extra;
+  const withReport = Boolean(extra.strategy) || wantReport === true;
   try {
     sandbox = extra.page ? pageContext(lib) : ownContext(lib);
     vm.runInContext(core, sandbox, { timeout: SOLVE_TIMEOUT_MS });
-    sandbox.input = JSON.stringify({ player, n: inputs.n, sig: inputs.sig, ...extra });
+    sandbox.input = JSON.stringify({ player, n: inputs.n, sig: inputs.sig, ...request });
     const output = JSON.parse(
       vm.runInContext("JSON.stringify(yftOwnSolve(JSON.parse(input)))", sandbox, {
         timeout: SOLVE_TIMEOUT_MS,
@@ -348,12 +352,12 @@ export function solveWithOwn({ lib, core }, player, inputs, extra = {}) {
       sig: output?.sig ?? {},
       ...(output?.failed ? { failed: String(output.failed).slice(0, 60) } : {}),
       // Counts and classes only (the core's report never holds an input, an output or code).
-      ...(extra.strategy ? { report: output?.report ?? null } : {}),
+      ...(withReport ? { report: output?.report ?? null } : {}),
       // Local diagnosis (--verbose) only: per group answers, compared by the caller, never printed.
       ...(extra.debug ? { debug: output?.debug ?? null } : {}),
     };
   } catch (error) {
-    return { n: {}, sig: {}, error: error?.name ?? "Error", ...(extra.strategy ? { report: progressOf(sandbox) } : {}) };
+    return { n: {}, sig: {}, error: error?.name ?? "Error", ...(withReport ? { report: progressOf(sandbox) } : {}) };
   }
 }
 
@@ -479,6 +483,11 @@ const OMITTABLE = ["window", "self", "location", "navigator", "document", "XMLHt
  * Faults injected into the own core (S4). A wrong candidate and a broken encoding must FAIL the
  * kind they hit; a missing global may FAIL or still give right values. None may give a value
  * that differs from ejs.
+ *
+ * init-wrong (N4b): an init error after which every candidate agrees on a wrong value of one
+ * kind (worker mode; inert in page mode). SelfCheck cannot see it, so the core alone gives the
+ * wrong values: these cases fail (wrong > 0) until the ladder keeps a worker answer after an
+ * init error unverified (MASTER_KEY_PHASE1_2_PLAN.md, N4b). They stay last.
  */
 export const FAULTS = [
   { name: "decoy-n", faults: { decoy: "n" }, expect: "n" },
@@ -486,6 +495,8 @@ export const FAULTS = [
   { name: "raw-encoding", faults: { rawEncoding: true }, expect: "sig" },
   ...OMITTABLE.map((name) => ({ name: `omit-${name}`, faults: { omit: [name] }, expect: null })),
   { name: "omit-all", faults: { omit: OMITTABLE }, expect: null },
+  { name: "init-wrong-n", faults: { initWrong: "n" }, expect: null },
+  { name: "init-wrong-sig", faults: { initWrong: "sig" }, expect: null },
 ];
 
 /** A fault run against ejs: wrong values (must be 0) and whether an expected FAIL happened. */
