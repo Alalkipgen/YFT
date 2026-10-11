@@ -175,8 +175,9 @@ export function prepareWithOwn({ lib, core }, player) {
 
 /** The own core on [player] through its contract (see the header); [extra] adds faults. */
 export function solveWithOwn({ lib, core }, player, inputs, extra = {}) {
+  let sandbox = null;
   try {
-    const sandbox = ownContext(lib);
+    sandbox = ownContext(lib);
     vm.runInContext(core, sandbox, { timeout: SOLVE_TIMEOUT_MS });
     sandbox.input = JSON.stringify({ player, n: inputs.n, sig: inputs.sig, ...extra });
     const output = JSON.parse(
@@ -188,9 +189,29 @@ export function solveWithOwn({ lib, core }, player, inputs, extra = {}) {
       n: output?.n ?? {},
       sig: output?.sig ?? {},
       ...(output?.failed ? { failed: String(output.failed).slice(0, 60) } : {}),
+      // Counts and classes only (the core's report never holds an input, an output or code).
+      ...(extra.strategy ? { report: output?.report ?? null } : {}),
+      // Local diagnosis (--verbose) only: per group answers, compared by the caller, never printed.
+      ...(extra.debug ? { debug: output?.debug ?? null } : {}),
     };
   } catch (error) {
-    return { n: {}, sig: {}, error: error?.name ?? "Error" };
+    return { n: {}, sig: {}, error: error?.name ?? "Error", ...(extra.strategy ? { report: progressOf(sandbox) } : {}) };
+  }
+}
+
+/** After a timeout: the own core's running report (counts and classes only), when it keeps one. */
+function progressOf(sandbox) {
+  if (!sandbox) return null;
+  try {
+    return JSON.parse(
+      vm.runInContext(
+        "JSON.stringify(typeof yftOwnSolver === 'object' && yftOwnSolver.progress ? yftOwnSolver.progress() : null)",
+        sandbox,
+        { timeout: 2_000 },
+      ),
+    );
+  } catch (ignored) {
+    return null;
   }
 }
 

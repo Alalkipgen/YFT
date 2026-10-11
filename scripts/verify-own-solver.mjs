@@ -8,6 +8,8 @@
 //   node scripts/verify-own-solver.mjs --add today     # add today's player (or --add <player ID>)
 //   node scripts/verify-own-solver.mjs --prepare       # own core: candidates per file only (S2)
 //   node scripts/verify-own-solver.mjs --faults        # also inject faults (S4): never a wrong value
+//   node scripts/verify-own-solver.mjs --strategy B    # own core with strategy B alone (Phase 1.2 N3)
+//   ... --only <player> --variant <main|tce|es6|...> --verbose   # one file; B timings and stages
 //
 // Needs network access to www.youtube.com. Player text is cached under build/own-solver/players
 // (never committed) and checked against corpus.json's SHA-256 before use. Like
@@ -48,11 +50,19 @@ const option = (name) => {
   return index >= 0 ? args[index + 1] : undefined;
 };
 const only = option("--only");
+const onlyVariant = option("--variant");
 const ownFile = option("--own") ?? defaultOwn;
 const add = option("--add");
 const record = args.includes("--record") || add !== undefined;
 const prepareOnly = args.includes("--prepare");
 const withFaults = args.includes("--faults");
+const strategy = option("--strategy");
+if (strategy !== undefined && strategy !== "P" && strategy !== "B") {
+  console.error("--strategy must be P or B");
+  process.exit(2);
+}
+const verbose = args.includes("--verbose");
+const strategyExtra = strategy === "B" ? { strategy: "B", ...(verbose ? { debug: true } : {}) } : {};
 
 async function download(player, variant) {
   const response = await fetch(playerUrl(player, variant), {
@@ -142,6 +152,7 @@ for (const entry of corpus.players) {
   if (only && entry.player !== only) continue;
   const plan = challenges(entry.player, vectors);
   for (const variant of Object.keys(VARIANTS)) {
+    if (onlyVariant && variant !== onlyVariant) continue;
     const expected = entry.files[variant];
     if (expected === null) {
       results.push({ player: entry.player, variant, status: "absent" });
@@ -169,11 +180,11 @@ for (const entry of corpus.players) {
       continue;
     }
     const ejsOut = solveWithEjs(ejs, fetched.text, plan.inputs);
-    const ownOut = own ? solveWithOwn(own, fetched.text, plan.inputs) : null;
+    const ownOut = own ? solveWithOwn(own, fetched.text, plan.inputs, strategyExtra) : null;
     const result = { player: entry.player, variant, status: "ok", ...compare(plan, ejsOut, ownOut) };
     if (own && withFaults) {
       result.faults = FAULTS.map((fault) =>
-        faultVerdict(fault, ejsOut, solveWithOwn(own, fetched.text, plan.inputs, { faults: fault.faults })),
+        faultVerdict(fault, ejsOut, solveWithOwn(own, fetched.text, plan.inputs, { ...strategyExtra, faults: fault.faults })),
       );
       faultRuns += result.faults.length;
       faultWrong += result.faults.reduce((sum, verdict) => sum + verdict.wrong, 0);
@@ -185,6 +196,32 @@ for (const entry of corpus.players) {
       const bad = result.faults.filter((verdict) => !verdict.ok).map((verdict) => verdict.name);
       line += ` | faults ${result.faults.length - bad.length}/${result.faults.length} ok${bad.length ? ` (bad ${bad.join(",")})` : ""}`;
       if (bad.length) faultFiles += 1;
+    }
+    if (ownOut?.report && strategy === "B") {
+      const r = ownOut.report;
+      const kind = (k) => (r[k] ? `${k} ${r[k].shortlisted}/${r[k].confirmed}/${r[k].groups}${r[k].reason ? ` ${r[k].reason}` : ""}` : `${k} -`);
+      line += ` | B: wrapper ${r.prepare?.wrapper ?? "?"}, registered ${r.registered ?? "?"}, screened ${r.screened ?? "?"}${r.skipped ? ` (skipped ${r.skipped})` : ""}, ` +
+        `${kind("n")}, ${kind("sig")} (shortlisted/confirmed/groups)`;
+      if (verbose) {
+        line += ` | stage ${r.stage ?? "?"} current ${JSON.stringify(r.current ?? null)}` +
+          ` | ms prepare ${JSON.stringify(r.prepare?.ms ?? {})} run ${JSON.stringify(r.ms ?? {})}` +
+          ` | slow ${r.slow ?? "?"} ${JSON.stringify(r.slowest ?? [])} | shapes ${r.shapes ?? "?"}, templates ${r.prepare?.templates ?? "?"}`;
+        (ownOut.debug?.builders ?? [])
+          .sort((a, b) => b[2] - a[2])
+          .slice(0, 30)
+          .forEach((b) => {
+            line += `\n    builder-named fn ${JSON.stringify(b)}`;
+          });
+        for (const k of ["n", "sig"]) {
+          (ownOut.debug?.[k] ?? []).forEach((group, index) => {
+            const inputs = plan.inputs[k];
+            const right = inputs.filter((input) => group.answers?.[input] !== undefined && group.answers[input] === ejsOut[k]?.[input]).length;
+            const wrong = inputs.filter((input) => group.answers?.[input] !== undefined && group.answers[input] !== ejsOut[k]?.[input]).length;
+            line += `\n    ${k} group ${index}: size ${group.size}, score ${group.score}, first ${group.first}, ` +
+              `reason ${group.reason ?? "-"}, = ejs ${right}, != ejs ${wrong}, members ${JSON.stringify(group.members)}`;
+          });
+        }
+      }
     }
     console.log(line);
   }

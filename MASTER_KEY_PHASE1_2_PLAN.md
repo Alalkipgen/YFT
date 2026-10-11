@@ -214,7 +214,7 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 |---|---|---|---|---|
 | N1 | Change simulator: mutation suite + baseline (ejs vs own P) | Phase 1.1 | Medium–High | Done (`765e91f`) |
 | N2 | Live check V (+ measure the n behaviour on the owner's phone) | Phase 1.1 S5 | Medium | Done (`9e15101`; measurement pending) |
-| N3 | Strategy B: register, probe, classify (core + harness) | N1 | High | TODO |
+| N3 | Strategy B: register, probe, classify (core + harness) | N1 | High | In progress (WIP; see MASTER_KEY_PHASE1_2_CONTINUE_N3.md) |
 | N4 | Strategy E: isolated page environment | N3 | Medium–High | TODO |
 | N5 | Ladder, locator cache, flag wiring | N2, N3 | Medium | TODO |
 | N6 | Canary workflow (computer) | N1, N3 | Low–Medium | TODO |

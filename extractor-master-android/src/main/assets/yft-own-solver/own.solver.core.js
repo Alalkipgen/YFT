@@ -981,6 +981,771 @@ var yftOwnSolver = (function () {
     };
   }
 
+  // ===============================================================================================
+  // Strategy B: behaviour discovery (Phase 1.2 N3, MASTER_KEY_PHASE1_2_PLAN.md §2 "Strategy B").
+  //
+  // P finds the stream-URL builder by its shape and reads n/sig through the URL object. B runs the
+  // player's top level in any wrapper shape (also one P does not know, M3), registers every
+  // function the player creates, and calls each like a transform. Functions that behave like n or
+  // like sig are kept by behaviour, never by name or shape. Screening uses one instance; every
+  // shortlisted function is confirmed on its own fresh instances (T2). Candidates with the same
+  // outputs form one group; groups are ranked by evidence and capped (T1). B answers alone only
+  // with one group per kind that passes SelfCheck; otherwise the kind fails (never a guess).
+  //
+  // Registration is text splicing at AST positions (no code generator): each function expression
+  // or arrow becomes `(R.r(fn,id))`, each function declaration registers its name after itself,
+  // and each loop body counts steps, so no probe can hang.
+  // ===============================================================================================
+
+  var B_INIT_STEPS = 50000000;
+  var B_PROBE_STEPS = 400000;
+  var B_MAX_FUNCTIONS = 20000;
+  var B_MAX_GROUPS = 3;
+  var B_SCREEN_MS = 40000;
+  var B_MAX_FN_CHARS = 250000;
+  var B_MAX_TEMPLATES = 6000;
+  var B_MAX_TEMPLATES_PER_NAME = 96;
+  var B_SLOW_MS = 25;
+  var B_N_PROBES = ["Qx7rTb2LmNc9Pd4s", "Hk3VwZ8yAe1GfJ6uRq0", "aB0cD1eF2gH3iJ4kL5mN"];
+  var B_FAILED_N = /^enhanced_except|_w8_/;
+  var B_LOOPS = {
+    ForStatement: true,
+    ForInStatement: true,
+    ForOfStatement: true,
+    WhileStatement: true,
+    DoWhileStatement: true,
+  };
+  var B_STATEMENT_LISTS = { Program: true, BlockStatement: true, SwitchCase: true, StaticBlock: true };
+  var B_STUBS = ["postMessage", "close", "importScripts", "fetch", "WebSocket", "EventSource", "setTimeout", "setInterval", "queueMicrotask"];
+
+  // The statements to guard: P's known wrappers first; otherwise the function with the most
+  // statements near the top of the program (any wrapper form); otherwise the flat top level.
+  function bBody(ast) {
+    try {
+      return { statements: unwrap(ast), wrapper: "known" };
+    } catch (ignored) {
+      // Not a known wrapper.
+    }
+    var best = null;
+    ast.body.forEach(function (statement) {
+      var depth = Object.create(null);
+      walk(statement, function (node) {
+        var level = depth[node.start + ":" + node.end + ":" + node.type] || 0;
+        if (level > 8) return false;
+        if (
+          (node.type === "FunctionExpression" || node.type === "ArrowFunctionExpression") &&
+          node.body.type === "BlockStatement" &&
+          !node.async &&
+          !node.generator &&
+          (!best || node.body.body.length > best.body.body.length)
+        ) {
+          best = node;
+        }
+        (CHILD_KEYS[node.type] || []).forEach(function (key) {
+          var child = node[key];
+          (Array.isArray(child) ? child : [child]).forEach(function (item) {
+            if (item && typeof item.type === "string") depth[item.start + ":" + item.end + ":" + item.type] = level + 1;
+          });
+        });
+        return !isFunctionNode(node);
+      });
+    });
+    if (best && best.body.body.length >= 10) return { statements: best.body.body, wrapper: "found" };
+    var flat = ast.body.filter(function (statement) {
+      return statement.type !== "EmptyStatement" && !isDirective(statement);
+    });
+    if (flat.length >= 10) return { statements: flat, wrapper: "flat" };
+    throw new Failure("unexpected structure");
+  }
+
+  // The running B report (counts and classes only), readable after a host timeout.
+  var bProgressReport = null;
+
+  function bProgress() {
+    return bProgressReport;
+  }
+
+  function bNow() {
+    return typeof Date === "function" && typeof Date.now === "function" ? Date.now() : 0;
+  }
+
+  // `a.b`, `a["b"]` and `a['b']` are one name; anything else is no name.
+  function bRef(node) {
+    var parts = [];
+    var cursor = node;
+    while (cursor && cursor.type === "MemberExpression") {
+      if (!cursor.computed && cursor.property.type === "Identifier") parts.unshift(cursor.property.name);
+      else if (cursor.computed && isStringLiteral(cursor.property)) parts.unshift(cursor.property.value);
+      else return null;
+      cursor = cursor.object;
+    }
+    if (!cursor || cursor.type !== "Identifier") return null;
+    parts.unshift(cursor.name);
+    return parts.join(".");
+  }
+
+  function bName(node, parent, key) {
+    if (node.type === "FunctionDeclaration") return node.id ? node.id.name : null;
+    if (!parent) return null;
+    if (parent.type === "VariableDeclarator" && key === "init" && parent.id.type === "Identifier") return parent.id.name;
+    if (parent.type === "AssignmentExpression" && key === "right") return bRef(parent.left);
+    if (parent.type === "Property" && key === "value" && !parent.computed && parent.key.type === "Identifier") return parent.key.name;
+    return null;
+  }
+
+  function bConstant(node) {
+    if (node.type === "Literal" && typeof node.value === "number") return { value: node.value };
+    if (node.type === "UnaryExpression" && node.operator === "-" && node.argument.type === "Literal" && typeof node.argument.value === "number") {
+      return { value: -node.argument.value };
+    }
+    return null;
+  }
+
+  // Call shapes seen in the program: `f(6, 3439, x)` gives f the shape [6, 3439, <probe>]
+  // (dispatcher functions pick their job from constant arguments). Plain aliases
+  // (`var a = f`, `a = f`) lead to f's name.
+  function bTemplates(ast) {
+    var aliases = Object.create(null);
+    var found = [];
+    walk(ast, function (node) {
+      if (node.type === "VariableDeclarator" && node.id.type === "Identifier" && node.init) {
+        var target = bRef(node.init);
+        if (target && target !== node.id.name) aliases[node.id.name] = target;
+      } else if (node.type === "AssignmentExpression" && node.operator === "=") {
+        var left = bRef(node.left);
+        var right = bRef(node.right);
+        if (left && right && left !== right) aliases[left] = right;
+      } else if (node.type === "CallExpression" && node.arguments.length >= 2 && node.arguments.length <= 3) {
+        var name = bRef(node.callee);
+        if (!name) return true;
+        var args = [];
+        var hole = -1;
+        for (var i = 0; i < node.arguments.length; i += 1) {
+          var constant = bConstant(node.arguments[i]);
+          if (constant) args.push(constant.value);
+          else if (hole < 0 && node.arguments[i].type !== "SpreadElement") {
+            hole = i;
+            args.push(null);
+          } else return true;
+        }
+        if (hole >= 0) found.push({ name: name, args: args, hole: hole });
+      }
+      return true;
+    });
+    var byName = Object.create(null);
+    var seen = Object.create(null);
+    var total = 0;
+    found.forEach(function (template) {
+      var name = template.name;
+      for (var depth = 0; depth < 4 && aliases[name]; depth += 1) name = aliases[name];
+      var key = name + "(" + template.args.join(",") + ")";
+      if (seen[key] || total >= B_MAX_TEMPLATES) return;
+      var list = byName[name] || (byName[name] = []);
+      if (list.length >= B_MAX_TEMPLATES_PER_NAME) return;
+      seen[key] = true;
+      total += 1;
+      list.push({ args: template.args, hole: template.hole });
+    });
+    return { byName: byName, total: total };
+  }
+
+  // Inserts are zero-length and applied by position. At one position closes come before opens,
+  // deeper closes first and shallower opens first, so nested hooks always nest correctly.
+  function bInstrument(source, ast) {
+    var inserts = [];
+    var meta = [];
+    function visit(node, parent, key, depth) {
+      if ((node.type === "FunctionExpression" || node.type === "ArrowFunctionExpression") && !node.async && !node.generator) {
+        var value =
+          parent &&
+          parent.type !== "MethodDefinition" &&
+          parent.type !== "PropertyDefinition" &&
+          !(parent.type === "Property" && key === "value" && (parent.method || parent.kind !== "init"));
+        if (value) {
+          meta.push({ name: bName(node, parent, key), pos: node.start, size: node.end - node.start, params: node.params.length });
+          inserts.push({ pos: node.start, order: 100000 + depth, text: "(" + REGISTRY + ".r(" });
+          inserts.push({ pos: node.end, order: -depth, text: "," + (meta.length - 1) + "))" });
+        }
+      } else if (node.type === "FunctionDeclaration" && node.id && !node.async && !node.generator && parent && B_STATEMENT_LISTS[parent.type]) {
+        meta.push({ name: node.id.name, pos: node.start, size: node.end - node.start, params: node.params.length });
+        inserts.push({ pos: node.end, order: -depth, text: "\n;" + REGISTRY + ".r(" + node.id.name + "," + (meta.length - 1) + ");\n" });
+      } else if (B_LOOPS[node.type] && node.body) {
+        inserts.push({ pos: node.body.start, order: 100000 + depth + 1, text: "{" + REGISTRY + ".s();" });
+        inserts.push({ pos: node.body.end, order: -(depth + 1), text: "}" });
+      }
+    }
+    var stack = [{ node: ast, parent: null, key: null, depth: 0 }];
+    while (stack.length) {
+      var item = stack.pop();
+      var node = item.node;
+      visit(node, item.parent, item.key, item.depth);
+      var keys = CHILD_KEYS[node.type] || [];
+      for (var k = keys.length - 1; k >= 0; k -= 1) {
+        var child = node[keys[k]];
+        var list = Array.isArray(child) ? child : [child];
+        for (var c = list.length - 1; c >= 0; c -= 1) {
+          if (list[c] && typeof list[c].type === "string") {
+            stack.push({ node: list[c], parent: node, key: keys[k], depth: item.depth + 1 });
+          }
+        }
+      }
+    }
+    inserts.sort(function (a, b) {
+      return a.pos - b.pos || a.order - b.order;
+    });
+    var parts = [];
+    var at = 0;
+    inserts.forEach(function (insert) {
+      parts.push(source.slice(at, insert.pos), insert.text);
+      at = insert.pos;
+    });
+    parts.push(source.slice(at));
+    return { text: parts.join(""), meta: meta };
+  }
+
+  // Names the stream-URL builders mention (P's two patterns, on B's statements): evidence for T1.
+  function bBuilderNames(statements, source) {
+    var names = Object.create(null);
+    try {
+      var tables = stringTables(statements);
+      var found = definitions(statements, source);
+      var byReference = Object.create(null);
+      found.forEach(function (definition) {
+        byReference[definition.ref] = definition.fn;
+      });
+      var refs = builderDefinitions(found, tables).concat(builderCallSites(statements, byReference, tables, source));
+      refs.forEach(function (ref) {
+        if (!byReference[ref]) return;
+        walk(byReference[ref], function (node) {
+          if (node.type === "Identifier") names[node.name] = true;
+          else if (node.type === "MemberExpression") {
+            var text = bRef(node);
+            if (text) names[text] = true;
+          }
+          return true;
+        });
+      });
+    } catch (ignored) {
+      // No evidence; ranking falls back to behaviour.
+    }
+    return names;
+  }
+
+  function bPrepare(playerText) {
+    try {
+      var ms = {};
+      var t0 = bNow();
+      var ast = parseProgram(playerText);
+      var t1 = bNow();
+      ms.parse = t1 - t0;
+      var instrumented = bInstrument(playerText, ast);
+      var body = bBody(ast);
+      var builders = bBuilderNames(body.statements, playerText);
+      var templates = bTemplates(ast);
+      var t2 = bNow();
+      ms.instrument = t2 - t1;
+      var ast2;
+      try {
+        ast2 = meriyah.parse(instrumented.text, { ranges: true, webcompat: true });
+      } catch (error) {
+        throw new Failure("instrument");
+      }
+      var t3 = bNow();
+      ms.reparse = t3 - t2;
+      var body2 = bBody(ast2);
+      var program = buildProgram(instrumented.text, body2.statements, []);
+      ms.build = bNow() - t3;
+      var named = Object.create(null);
+      instrumented.meta.forEach(function (entry) {
+        if (entry.name) named[entry.name] = (named[entry.name] || 0) + 1;
+      });
+      var first = body.statements.length ? body.statements[0].start : 0;
+      var last = body.statements.length ? body.statements[body.statements.length - 1].end : 0;
+      instrumented.meta.forEach(function (entry) {
+        entry.builder = !!(entry.name && builders[entry.name]);
+        entry.unique = !!entry.name && named[entry.name] === 1;
+        // The wrapper that holds the whole program (re-running it is not a probe) and huge functions.
+        entry.skip = (entry.pos <= first && entry.pos + entry.size >= last) || entry.size > B_MAX_FN_CHARS;
+      });
+      return {
+        ok: true,
+        strategy: "B",
+        version: VERSION,
+        program: program.text,
+        meta: instrumented.meta,
+        templates: templates.byName,
+        info: {
+          wrapper: body.wrapper,
+          functions: instrumented.meta.length,
+          templates: templates.total,
+          kept: program.kept,
+          dropped: program.dropped,
+          ms: ms,
+        },
+      };
+    } catch (error) {
+      return { ok: false, failed: errorName(error) };
+    }
+  }
+
+  function bFreezeBuiltins(scope) {
+    ["String", "Array", "Function", "Number", "Boolean", "RegExp", "Date"].forEach(function (name) {
+      var ctor = scope[name];
+      if (ctor && ctor.prototype) Object.freeze(ctor.prototype);
+    });
+  }
+
+  function bInstantiate(prepared, request) {
+    var scope = globalScope();
+    var faults = request.faults || {};
+    installEnvironment(scope, request.env, faults.omit);
+    B_STUBS.forEach(function (name) {
+      Object.defineProperty(scope, name, { value: function () {}, writable: true, configurable: true, enumerable: false });
+    });
+    var registry = { c: [], e: 0, f: [], seen: Object.create(null), steps: 0, max: B_INIT_STEPS, closed: false };
+    registry.r = function (fn, id) {
+      if (!registry.closed && typeof fn === "function" && !registry.seen[id] && registry.f.length < B_MAX_FUNCTIONS) {
+        registry.seen[id] = true;
+        registry.f.push({ id: id, fn: fn, order: registry.f.length });
+      }
+      return fn;
+    };
+    registry.s = function () {
+      registry.steps += 1;
+      if (registry.steps > registry.max) throw new RangeError("steps");
+    };
+    var factory;
+    try {
+      factory = Function(REGISTRY, prepared.program);
+    } catch (error) {
+      throw new Failure("compile:" + errorName(error));
+    }
+    try {
+      factory(registry);
+    } catch (error) {
+      // A late throw keeps everything registered before it.
+      registry.e += 1;
+    }
+    registry.closed = true;
+    registry.max = B_PROBE_STEPS;
+    return registry;
+  }
+
+  // [shape]: null for f(input), else constant arguments with the input at [shape.hole].
+  function bCall(registry, fn, input, shape) {
+    registry.steps = 0;
+    registry.stepsUsed = 0;
+    try {
+      var value;
+      if (!shape) value = fn(input);
+      else {
+        var args = shape.args.slice();
+        args[shape.hole] = input;
+        value = fn.apply(undefined, args);
+      }
+      registry.stepsUsed = registry.steps;
+      return typeof value === "string" ? value : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function bIsSigMap(probe, output) {
+    if (typeof output !== "string" || output.length > probe.length || output.length < probe.length - Math.max(16, probe.length >> 2)) return false;
+    var seen = Object.create(null);
+    for (var i = 0; i < output.length; i += 1) {
+      if (probe.indexOf(output[i]) < 0 || seen[output[i]]) return false;
+      seen[output[i]] = true;
+    }
+    return true;
+  }
+
+  // One primitive alone is never sig (T1): identity, reverse, a rotation, a cut, one swap.
+  function bTrivialMap(probe, output) {
+    var n = probe.length;
+    var map = [];
+    for (var i = 0; i < output.length; i += 1) map.push(probe.indexOf(output[i]));
+    function every(test) {
+      for (var j = 0; j < map.length; j += 1) if (!test(map[j], j)) return false;
+      return true;
+    }
+    for (var k = 0; k <= n - map.length; k += 1) {
+      if (every(function (from, j) { return from === j + k; })) return true;
+      if (every(function (from, j) { return from === n - 1 - j - k; })) return true;
+    }
+    if (map.length === n) {
+      for (var r = 1; r < n; r += 1) {
+        if (every(function (from, j) { return from === (j + r) % n; })) return true;
+      }
+      var moved = 0;
+      for (var m = 0; m < n; m += 1) if (map[m] !== m) moved += 1;
+      if (moved <= 2) return true;
+    }
+    return false;
+  }
+
+  function bTrivialN(input, output) {
+    if (output.length < 4 || output.indexOf(input) >= 0) return true;
+    var reversed = input.split("").reverse().join("");
+    if (output.indexOf(reversed) >= 0) return true;
+    for (var r = 1; r < input.length; r += 1) {
+      if (output === input.slice(r) + input.slice(0, r)) return true;
+    }
+    if (output === input.toUpperCase() || output === input.toLowerCase()) return true;
+    try {
+      if (typeof btoa === "function" && output.indexOf(btoa(input).replace(/=+$/, "")) >= 0) return true;
+    } catch (ignored) {
+      // Not encodable.
+    }
+    return false;
+  }
+
+  function bChange(input, at) {
+    var replacement = input[at] === "x" ? "y" : "x";
+    return input.slice(0, at) + replacement + input.slice(at + 1);
+  }
+
+  // Screening on one instance: a profile of one call shape's outputs ({ kind, outputs }), or the
+  // class of the first rule it breaks ({ reject }).
+  function bProfile(registry, fn, shape) {
+    var map = bCall(registry, fn, SIG_MAP_PROBE, shape);
+    if (map !== null && bIsSigMap(SIG_MAP_PROBE, map)) {
+      if (bTrivialMap(SIG_MAP_PROBE, map)) return { reject: "sig:trivial" };
+      var edge = bCall(registry, fn, SIG_EDGE_PROBE, shape);
+      if (edge === null || edge !== applyIndexMap(SIG_MAP_PROBE, map, SIG_EDGE_PROBE)) return { reject: "sig:edge" };
+      if (bCall(registry, fn, SIG_MAP_PROBE, shape) !== map) return { reject: "sig:unstable" };
+      return { kind: "sig", outputs: [map, edge], steps: registry.stepsUsed };
+    }
+    var outputs = [];
+    for (var i = 0; i < B_N_PROBES.length; i += 1) {
+      var input = B_N_PROBES[i];
+      var value = bCall(registry, fn, input, shape);
+      if (value === null) return { reject: "n:none" + i };
+      if (!URL_SAFE.test(value)) return { reject: "n:unsafe" + i };
+      if (value === input) return { reject: "n:same" + i };
+      if (B_FAILED_N.test(value)) return { reject: "n:failed" + i };
+      if (bTrivialN(input, value)) return { reject: "n:trivial" + i };
+      if (value.length > input.length * 2 + 8 || value.length * 2 < input.length) return { reject: "n:length" + i };
+      if (outputs.indexOf(value) >= 0) return { reject: "n:repeat" + i };
+      outputs.push(value);
+    }
+    var first = B_N_PROBES[0];
+    var head = bCall(registry, fn, bChange(first, 0), shape);
+    var tail = bCall(registry, fn, bChange(first, first.length - 1), shape);
+    if (head === null || tail === null || head === outputs[0] || tail === outputs[0]) return { reject: "n:partial" };
+    if (bCall(registry, fn, first, shape) !== outputs[0]) return { reject: "n:unstable" };
+    return { kind: "n", outputs: outputs, steps: registry.stepsUsed };
+  }
+
+  function bProbesFor(kind) {
+    return kind === "sig" ? [SIG_MAP_PROBE, SIG_EDGE_PROBE] : B_N_PROBES;
+  }
+
+  function bOutputs(registry, fn, shape, kind) {
+    var probes = bProbesFor(kind);
+    var out = [];
+    for (var i = 0; i < probes.length; i += 1) {
+      var value = bCall(registry, fn, probes[i], shape);
+      if (value === null) return null;
+      out.push(value);
+    }
+    return out;
+  }
+
+  function bSame(a, b) {
+    if (!a || !b || a.length !== b.length) return false;
+    for (var i = 0; i < a.length; i += 1) if (a[i] !== b[i]) return false;
+    return true;
+  }
+
+  function bFind(registry, id) {
+    for (var i = 0; i < registry.f.length; i += 1) if (registry.f[i].id === id) return registry.f[i].fn;
+    return null;
+  }
+
+  // T2: each shortlisted function on its own fresh instance, called twice, and once more on a
+  // second fresh instance; only outputs equal to the screening outputs count.
+  function bConfirm(prepared, request, candidate) {
+    for (var round = 0; round < 2; round += 1) {
+      var fresh = bInstantiate(prepared, request);
+      var fn = bFind(fresh, candidate.id);
+      if (!fn) return false;
+      var calls = round === 0 ? 2 : 1;
+      for (var c = 0; c < calls; c += 1) {
+        if (!bSame(bOutputs(fresh, fn, candidate.shape, candidate.kind), candidate.outputs)) return false;
+      }
+    }
+    return true;
+  }
+
+  function bScore(entry) {
+    return (entry.builder ? 1000 : 0) + (entry.params === 1 ? 10 : 0);
+  }
+
+  // A composed transform runs a step-counted loop (over the character array) at least once; a
+  // single primitive (one reverse, one swap) does not. Measured during screening.
+  function bComposed(candidate) {
+    return candidate && candidate.steps > 0 ? 100 : 0;
+  }
+
+  // T1: candidates with the same outputs are one group; groups are ranked by evidence; at most
+  // B_MAX_GROUPS go on, and more equally ranked groups than that is ambiguous.
+  function bGroups(candidates, meta, hintOutputs, all) {
+    var groups = [];
+    candidates.forEach(function (candidate) {
+      var group = null;
+      for (var i = 0; i < groups.length && !group; i += 1) if (bSame(groups[i].outputs, candidate.outputs)) group = groups[i];
+      if (!group) {
+        group = { outputs: candidate.outputs, members: [], score: 0, first: candidate.order };
+        groups.push(group);
+      }
+      group.members.push(candidate);
+      group.score = Math.max(group.score, bScore(meta[candidate.id] || {}) + bComposed(candidate));
+      group.first = Math.min(group.first, candidate.order);
+    });
+    groups.forEach(function (group) {
+      group.hint = !!(hintOutputs && bSame(group.outputs, hintOutputs));
+      if (group.hint) group.score += 1000000;
+    });
+    groups.sort(function (a, b) {
+      return b.score - a.score || a.first - b.first;
+    });
+    var ambiguous = groups.length > B_MAX_GROUPS && groups[B_MAX_GROUPS].score === groups[0].score;
+    return { groups: all ? groups : groups.slice(0, B_MAX_GROUPS), total: groups.length, ambiguous: ambiguous };
+  }
+
+  // SelfCheck on one group: every member agrees on every input, values have their kind's shape,
+  // n outputs are distinct, sig keeps the probes' index map, vectors match, the first is stable.
+  function bSolveKind(kind, group, registry, inputs, request) {
+    var vectors = (request.vectors && request.vectors[kind]) || [];
+    var probes = bProbesFor(kind);
+    var all = [];
+    probes.concat(vectors.map(function (vector) { return vector.input; })).concat(inputs).forEach(function (input) {
+      if (typeof input === "string" && input.length > 0 && all.indexOf(input) < 0) all.push(input);
+    });
+    var fns = group.members.map(function (member) {
+      return { fn: bFind(registry, member.id), shape: member.shape };
+    });
+    var reason = null;
+    var solved = Object.create(null);
+    var outputs = [];
+    all.forEach(function (input) {
+      if (reason) return;
+      var value = null;
+      fns.forEach(function (member) {
+        var out = member.fn ? bCall(registry, member.fn, input, member.shape) : null;
+        if (out === null) reason = reason || "missing";
+        else if (value === null) value = out;
+        else if (value !== out) reason = reason || "disagree";
+      });
+      if (reason) return;
+      if (!shapeOk(kind, input, value)) reason = "shape";
+      else if (kind === "n" && outputs.indexOf(value) >= 0) reason = "not-distinct";
+      else {
+        solved[input] = value;
+        outputs.push(value);
+      }
+    });
+    if (!reason && kind === "sig") {
+      var expected = applyIndexMap(SIG_MAP_PROBE, solved[SIG_MAP_PROBE], SIG_EDGE_PROBE);
+      if (expected === null || expected !== solved[SIG_EDGE_PROBE]) reason = "encoding";
+    }
+    if (!reason) {
+      vectors.forEach(function (vector) {
+        if (!reason && solved[vector.input] !== vector.expected) reason = "vector";
+      });
+    }
+    if (!reason && fns[0].fn && bCall(registry, fns[0].fn, probes[0], fns[0].shape) !== solved[probes[0]]) reason = "unstable";
+    var answers = {};
+    var answered = 0;
+    if (!reason) {
+      inputs.forEach(function (input) {
+        if (has.call(solved, input)) {
+          answers[input] = solved[input];
+          answered += 1;
+        }
+      });
+    }
+    return { answers: answers, reason: reason, solved: answered };
+  }
+
+  // Rank signal #1: P's own answer on B's probes (P ran, but its SelfCheck refused one condition).
+  // P is the proven path; when it answers, B prefers the group that agrees with it. When P fails
+  // (the shapes P does not know, e.g. a re-wrapped top level), there is no hint and B ranks by
+  // data flow, composition and creation order instead. A hint never forces an answer: the group
+  // still has to pass confirmation and SelfCheck.
+  function bPHint(playerText) {
+    try {
+      var preparedP = prepare(playerText);
+      if (!preparedP.ok) return null;
+      var out = run(preparedP, { n: B_N_PROBES.slice(), sig: [SIG_MAP_PROBE, SIG_EDGE_PROBE] });
+      return { n: (out && out.n) || {}, sig: (out && out.sig) || {} };
+    } catch (ignored) {
+      return null;
+    }
+  }
+
+  function bHintOutputs(hint, kind) {
+    if (!hint || !hint[kind]) return null;
+    var probes = bProbesFor(kind);
+    var out = [];
+    for (var i = 0; i < probes.length; i += 1) {
+      var value = hint[kind][probes[i]];
+      if (typeof value !== "string") return null;
+      out.push(value);
+    }
+    return out;
+  }
+
+  function bRun(prepared, request) {
+    request = request || {};
+    var output = { n: {}, sig: {}, report: { version: VERSION, strategy: "B", stage: "instantiate" } };
+    if (prepared && prepared.info) output.report.prepare = prepared.info;
+    bProgressReport = output.report;
+    try {
+      if (!prepared || !prepared.ok || typeof prepared.program !== "string") throw new Failure("not prepared");
+      var ms = {};
+      output.report.ms = ms;
+      var t0 = bNow();
+      var registry = bInstantiate(prepared, request);
+      bFreezeBuiltins(globalScope());
+      var t1 = bNow();
+      ms.instantiate = t1 - t0;
+      var meta = prepared.meta || [];
+      var screened = 0;
+      var skipped = 0;
+      var slow = [];
+      var slowCount = 0;
+      var found = { n: [], sig: [] };
+      output.report.topLevelErrors = registry.e;
+      output.report.registered = registry.f.length;
+      output.report.slowest = slow;
+      output.report.stage = "screen";
+      var templates = prepared.templates || {};
+      var shapesTried = 0;
+      for (var i = 0; i < registry.f.length; i += 1) {
+        var entry = registry.f[i];
+        var params = entry.fn.length;
+        var info = meta[entry.id] || {};
+        var shapes = params >= 1 && params <= 3 ? [null] : [];
+        if (info.unique && templates[info.name]) shapes = shapes.concat(templates[info.name]);
+        if (!shapes.length) continue;
+        if (info.skip) {
+          skipped += 1;
+          continue;
+        }
+        if (bNow() - t1 > B_SCREEN_MS) {
+          output.report.screened = screened;
+          output.report.slow = slowCount;
+          output.report.slowest = slow;
+          ms.screen = bNow() - t1;
+          throw new Failure("budget");
+        }
+        screened += 1;
+        var s0 = bNow();
+        output.report.screened = screened;
+        output.report.current = [entry.id, params, s0 - t1];
+        var why = request.debug && info.builder && info.unique ? [] : null;
+        for (var sh = 0; sh < shapes.length; sh += 1) {
+          shapesTried += 1;
+          var profile = bProfile(registry, entry.fn, shapes[sh]);
+          if (profile.kind) {
+            found[profile.kind].push({
+              id: entry.id,
+              order: entry.order,
+              kind: profile.kind,
+              outputs: profile.outputs,
+              shape: shapes[sh],
+              steps: profile.steps,
+            });
+          }
+          if (why && why.length < 6) why.push((shapes[sh] ? shapes[sh].args.join(",") : "-") + "=" + (profile.kind || profile.reject));
+        }
+        if (why) {
+          output.debug = output.debug || {};
+          (output.debug.builders = output.debug.builders || []).push([entry.id, info.name, info.size, params, shapes.length, why.join(" ")]);
+        }
+        var took = bNow() - s0;
+        if (took >= B_SLOW_MS) {
+          slowCount += 1;
+          output.report.slow = slowCount;
+          slow.push([entry.id, took, params, registry.steps]);
+          slow.sort(function (a, b) {
+            return b[1] - a[1];
+          });
+          if (slow.length > 6) slow.length = 6;
+        }
+      }
+      output.report.shapes = shapesTried;
+      var t2 = bNow();
+      ms.screen = t2 - t1;
+      output.report.screened = screened;
+      output.report.skipped = skipped;
+      output.report.slow = slowCount;
+      output.report.slowest = slow;
+      var failed = [];
+      KINDS.forEach(function (kind) {
+        var inputs = (request[kind] || []).filter(function (input) {
+          return typeof input === "string" && input.length > 0;
+        });
+        if (!inputs.length) return;
+        output.report.stage = "confirm_" + kind;
+        var c0 = bNow();
+        var confirmed = found[kind].filter(function (candidate) {
+          return bConfirm(prepared, request, candidate);
+        });
+        ms["confirm_" + kind] = bNow() - c0;
+        var hintOutputs = bHintOutputs(request.pHint, kind);
+        var grouped = bGroups(confirmed, meta, hintOutputs);
+        var kindReport = { shortlisted: found[kind].length, confirmed: confirmed.length, groups: grouped.total, hint: !!hintOutputs };
+        output.report[kind] = kindReport;
+        if (request.debug) {
+          // Local diagnosis only (the harness's --verbose): each group's answers and members.
+          output.debug = output.debug || {};
+          output.debug[kind] = bGroups(confirmed, meta, hintOutputs, true).groups.map(function (group) {
+            var answer = bSolveKind(kind, group, bInstantiate(prepared, request), inputs, request);
+            return {
+              score: group.score,
+              hint: group.hint,
+              first: group.first,
+              reason: answer.reason,
+              answers: answer.answers,
+              members: group.members.slice(0, 4).map(function (member) {
+                var info = meta[member.id] || {};
+                return [member.id, info.name || "?", info.size || 0, member.shape ? member.shape.args.join(",") : "-"];
+              }),
+              size: group.members.length,
+            };
+          });
+        }
+        var reason = null;
+        if (!confirmed.length) reason = "no candidates";
+        else if (grouped.ambiguous) reason = "ambiguous";
+        else if (grouped.total > 1) reason = "disagree";
+        if (!reason) {
+          output.report.stage = "solve_" + kind;
+          var v0 = bNow();
+          var result = bSolveKind(kind, grouped.groups[0], bInstantiate(prepared, request), inputs, request);
+          ms["solve_" + kind] = bNow() - v0;
+          reason = result.reason;
+          if (!reason) output[kind] = result.answers;
+          kindReport.solved = result.solved;
+        }
+        kindReport.status = reason ? "failed" : "ok";
+        kindReport.reason = reason;
+        if (reason) failed.push(kind + ":" + reason);
+      });
+      if (failed.length) output.failed = failed.join(",");
+      output.report.stage = "done";
+      delete output.report.current;
+    } catch (error) {
+      output.failed = errorName(error);
+      output.n = {};
+      output.sig = {};
+    }
+    return output;
+  }
+
   function run(prepared, request) {
     request = request || {};
     var output = { n: {}, sig: {}, report: { version: VERSION } };
@@ -1019,6 +1784,13 @@ var yftOwnSolver = (function () {
 
   function solve(request) {
     request = request || {};
+    if (request.strategy === "B") {
+      bProgressReport = { version: VERSION, strategy: "B", stage: "prepare" };
+      var preparedB = bPrepare(request.player);
+      if (!preparedB.ok) return { n: {}, sig: {}, failed: preparedB.failed, report: { version: VERSION, strategy: "B" } };
+      request.pHint = bPHint(request.player);
+      return bRun(preparedB, request);
+    }
     var prepared = prepare(request.player);
     if (!prepared.ok) return { n: {}, sig: {}, failed: prepared.failed, report: { version: VERSION } };
     var output = run(prepared, request);
@@ -1031,6 +1803,9 @@ var yftOwnSolver = (function () {
     prepare: prepare,
     run: run,
     solve: solve,
+    prepareB: bPrepare,
+    runB: bRun,
+    progress: bProgress,
     internals: {
       unwrap: unwrap,
       stringTables: stringTables,
@@ -1046,6 +1821,12 @@ var yftOwnSolver = (function () {
       environmentGlobals: environmentGlobals,
       installEnvironment: installEnvironment,
       probes: { n: N_PROBES, sigMap: SIG_MAP_PROBE, sigEdge: SIG_EDGE_PROBE },
+      bBody: bBody,
+      bInstrument: bInstrument,
+      bTrivialMap: bTrivialMap,
+      bTrivialN: bTrivialN,
+      bIsSigMap: bIsSigMap,
+      bGroups: bGroups,
     },
   };
 })();
