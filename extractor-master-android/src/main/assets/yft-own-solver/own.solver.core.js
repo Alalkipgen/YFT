@@ -8,12 +8,12 @@
  * code inside this worker (G1), finds every function that builds a stream URL with structure
  * patterns over a normalised view of the code (G2), and asks each of them to apply the n and sig
  * transforms to a test URL (multiTry), with encoding-aware input and output (G3), in a
- * browser-like global environment (G4). SelfCheck accepts the values of a kind only when every
- * candidate agrees and every value has the expected shape; otherwise the kind FAILs and its
- * streams are dropped. Nothing is ever guessed.
+ * browser-like global environment (G4). A value is kept only when every candidate that produced
+ * one produced the same; the full SelfCheck follows in S4. Nothing is ever guessed.
  *
  *   yftOwnSolver.prepare(playerText)      -> {ok: true, program, info} | {ok: false, failed}
- *   yftOwnSolve({player, n: [], sig: []}) -> prepare, then run (run and SelfCheck: S3/S4)
+ *   yftOwnSolver.run(prepared, request)   -> {n: {input: output}, sig: {...}, failed?, report}
+ *   yftOwnSolve({player, n: [], sig: []}) -> prepare + run in one call
  *
  * Everything is synchronous and stays in this worker: no network, no cookies, no storage, no
  * host page. Reports and failure reasons name kinds, candidate indexes, counts and error classes
@@ -23,9 +23,14 @@ var yftOwnSolver = (function () {
   "use strict";
 
   var VERSION = 1;
+  var TEST_PAGE = "https://www.youtube.com/watch?v=yft-test";
+  var DEFAULT_USER_AGENT =
+    "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) " +
+    "Chrome/129.0.0.0 Mobile Safari/537.36";
   var REGISTRY = "__yftOwnRegistry$";
   var CAUGHT = "__yftOwnCaught$";
   var MAX_CANDIDATES = 16;
+  var KINDS = ["n", "sig"];
 
   function Failure(reason) {
     this.reason = reason;
@@ -606,20 +611,302 @@ var yftOwnSolver = (function () {
     }
   }
 
-  // S2 stops at the prepared program; running it (G4 + multiTry) is S3, SelfCheck is S4.
-  function solve(request) {
-    var prepared = prepare(request && request.player);
-    return {
-      n: {},
-      sig: {},
-      failed: prepared.ok ? "run not built (S3)" : prepared.failed,
-      report: { version: VERSION, prepare: prepared.info },
+  // ---------------------------------------------------------------------------------------------
+  // G4 environment: browser-like globals, each an own property of this worker's global object,
+  // so nothing reaches the host page. The page URL is a test URL; nothing navigates.
+
+  function makeLocation(href) {
+    var match = /^(https?:)\/\/([^/?#]+)([^?#]*)(\?[^#]*)?(#.*)?$/.exec(href);
+    var location = {
+      href: href,
+      protocol: match[1],
+      host: match[2],
+      hostname: match[2],
+      port: "",
+      pathname: match[3] || "/",
+      search: match[4] || "",
+      hash: match[5] || "",
+      origin: match[1] + "//" + match[2],
+      ancestorOrigins: [],
     };
+    location.toString = function () {
+      return href;
+    };
+    location.assign = location.replace = location.reload = function () {};
+    return location;
+  }
+
+  function environmentGlobals(scope, env) {
+    var location = makeLocation(TEST_PAGE);
+    var language = (env && env.language) || "en-US";
+    return {
+      window: scope,
+      self: scope,
+      location: location,
+      navigator: {
+        userAgent: (env && env.userAgent) || DEFAULT_USER_AGENT,
+        language: language,
+        languages: [language, "en"],
+        platform: "Linux armv8l",
+        vendor: "Google Inc.",
+        cookieEnabled: false,
+        onLine: true,
+        hardwareConcurrency: 4,
+        maxTouchPoints: 5,
+      },
+      document: {
+        location: location,
+        URL: TEST_PAGE,
+        documentURI: TEST_PAGE,
+        referrer: "",
+        domain: location.hostname,
+        cookie: "",
+        title: "",
+        readyState: "complete",
+        visibilityState: "visible",
+        hidden: false,
+      },
+    };
+  }
+
+  function installEnvironment(scope, env) {
+    var globals = environmentGlobals(scope, env);
+    Object.keys(globals).forEach(function (name) {
+      Object.defineProperty(scope, name, {
+        value: globals[name],
+        writable: true,
+        configurable: true,
+        enumerable: true,
+      });
+    });
+    if (typeof scope.XMLHttpRequest === "undefined") {
+      // Read (never used) by some top-level tables; a stand-in without any network.
+      Object.defineProperty(scope, "XMLHttpRequest", {
+        value: function XMLHttpRequest() {},
+        writable: true,
+        configurable: true,
+      });
+    }
+  }
+
+  function globalScope() {
+    return typeof globalThis !== "undefined" ? globalThis : Function("return this")();
+  }
+
+  function instantiate(prepared, request) {
+    installEnvironment(globalScope(), request.env);
+    var registry = { c: [], e: 0 };
+    var factory;
+    try {
+      factory = Function(REGISTRY, prepared.program);
+    } catch (error) {
+      throw new Failure("compile:" + errorName(error));
+    }
+    try {
+      factory(registry);
+    } catch (error) {
+      throw new Failure("program:" + errorName(error));
+    }
+    return registry;
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // G1 multiTry with G3 encoding: every candidate builds a URL for the test page; n is set on it
+  // and read back through every path the URL object offers; sig goes in URI-encoded and comes
+  // out decoded exactly once.
+
+  function methodNames(object) {
+    var names = [];
+    for (var cursor = object; cursor && cursor !== Object.prototype; cursor = Object.getPrototypeOf(cursor)) {
+      Object.getOwnPropertyNames(cursor).forEach(function (name) {
+        if (name === "constructor" || names.indexOf(name) >= 0) return;
+        var descriptor = Object.getOwnPropertyDescriptor(cursor, name);
+        if (descriptor && typeof descriptor.value === "function") names.push(name);
+      });
+    }
+    return names;
+  }
+
+  // The URL object's parameter setter and getter: `set`/`get` when they round-trip a marker,
+  // else any two-argument / one-argument method pair that does.
+  function urlAccess(object) {
+    if (!object || (typeof object !== "object" && typeof object !== "function")) return null;
+    var names = methodNames(object);
+    var pairs = [];
+    if (names.indexOf("set") >= 0 && names.indexOf("get") >= 0) pairs.push(["set", "get"]);
+    names.forEach(function (setter) {
+      if (object[setter].length !== 2) return;
+      names.forEach(function (getter) {
+        if (object[getter].length === 1 && getter !== setter && !(setter === "set" && getter === "get")) {
+          pairs.push([setter, getter]);
+        }
+      });
+    });
+    for (var i = 0; i < pairs.length && i < 12; i += 1) {
+      try {
+        object[pairs[i][0]]("yftmark", "1");
+        if (object[pairs[i][1]]("yftmark") === "1") {
+          return {
+            set: pairs[i][0],
+            get: pairs[i][1],
+            others: names.filter(function (name) {
+              return name !== pairs[i][0] && name !== pairs[i][1] && object[name].length === 0;
+            }),
+          };
+        }
+      } catch (ignored) {
+        // Not a parameter store.
+      }
+    }
+    return null;
+  }
+
+  function decodeOnce(value) {
+    if (typeof value !== "string") return null;
+    try {
+      return decodeURIComponent(value);
+    } catch (ignored) {
+      return null;
+    }
+  }
+
+  function queryParam(url, key) {
+    if (typeof url !== "string") return null;
+    var query = url.indexOf("?") >= 0 ? url.slice(url.indexOf("?") + 1).split("#")[0] : "";
+    var found = null;
+    var count = 0;
+    query.split("&").forEach(function (pair) {
+      var cut = pair.indexOf("=");
+      if (cut > 0 && pair.slice(0, cut) === key) {
+        count += 1;
+        found = pair.slice(cut + 1);
+      }
+    });
+    return count === 1 ? decodeOnce(found) : null;
+  }
+
+  // Values one candidate produces for one input, through each read path: the getter right after
+  // building (and setting n), then every zero-argument method of the URL object on a fresh
+  // object (the getter again, and the query of a returned URL string). A failing path only
+  // loses its own values; failures name the candidate and path indexes.
+  function attempt(kind, candidate, input, errors) {
+    var key = kind === "sig" ? "s" : "n";
+    var encoded = kind === "sig" ? encodeURIComponent(input) : input;
+    var make = function () {
+      var object = kind === "sig" ? candidate.fn(TEST_PAGE, "s", encoded) : candidate.fn(TEST_PAGE);
+      if (kind === "n") object[access.set]("n", input);
+      return object;
+    };
+    var read = function (object) {
+      return decodeOnce(object[access.get](key));
+    };
+    var first = kind === "sig" ? candidate.fn(TEST_PAGE, "s", encoded) : candidate.fn(TEST_PAGE);
+    var access = urlAccess(first);
+    if (!access) throw new Failure("no-url-object");
+    if (kind === "n") first[access.set]("n", input);
+    var values = [read(first)];
+    access.others.forEach(function (name, path) {
+      try {
+        var object = make();
+        var returned = object[name]();
+        values.push(read(object));
+        if (typeof returned === "string") values.push(queryParam(returned, key));
+      } catch (error) {
+        errors.push(candidate.index + "/" + (path + 1) + ":" + errorName(error));
+      }
+    });
+    return values.filter(function (value) {
+      return typeof value === "string" && value.length > 0 && value !== input;
+    });
+  }
+
+  // One input through every candidate: the distinct values and the failures.
+  function multiTry(kind, candidates, input) {
+    var values = [];
+    var errors = [];
+    candidates.forEach(function (candidate) {
+      try {
+        attempt(kind, candidate, input, errors).forEach(function (value) {
+          if (values.indexOf(value) < 0) values.push(value);
+        });
+      } catch (error) {
+        errors.push(candidate.index + ":" + errorName(error));
+      }
+    });
+    return { values: values, errors: errors };
+  }
+
+  // S3 keeps a value only when every candidate that produced one produced the same (multiTry);
+  // the full SelfCheck (shape, probes, encoding map, vectors, stability) is S4.
+  function solveKind(kind, candidates, inputs) {
+    var answers = {};
+    var errors = [];
+    var solved = 0;
+    var conflicts = 0;
+    inputs.forEach(function (input) {
+      var outcome = multiTry(kind, candidates, input);
+      outcome.errors.forEach(function (error) {
+        if (errors.indexOf(error) < 0) errors.push(error);
+      });
+      if (outcome.values.length === 1) {
+        answers[input] = outcome.values[0];
+        solved += 1;
+      } else if (outcome.values.length > 1) {
+        conflicts += 1;
+      }
+    });
+    return {
+      answers: answers,
+      report: { status: "ok", inputs: inputs.length, solved: solved, conflicts: conflicts, errors: errors.slice(0, 8) },
+    };
+  }
+
+  function run(prepared, request) {
+    request = request || {};
+    var output = { n: {}, sig: {}, report: { version: VERSION } };
+    try {
+      if (!prepared || !prepared.ok || typeof prepared.program !== "string") throw new Failure("not prepared");
+      var registry = instantiate(prepared, request);
+      var builders = [];
+      registry.c.forEach(function (fn, index) {
+        if (typeof fn === "function") builders.push({ index: index, fn: fn });
+      });
+      output.report.topLevelErrors = registry.e;
+      output.report.candidates = builders.length;
+      if (!builders.length) throw new Failure("no candidate functions");
+      var failed = [];
+      KINDS.forEach(function (kind) {
+        var inputs = (request[kind] || []).filter(function (input) {
+          return typeof input === "string" && input.length > 0;
+        });
+        if (!inputs.length) return;
+        var result = solveKind(kind, builders, inputs);
+        output[kind] = result.answers;
+        output.report[kind] = result.report;
+        if (result.report.reason) failed.push(kind + ":" + result.report.reason);
+      });
+      if (failed.length) output.failed = failed.join(",");
+    } catch (error) {
+      output.failed = errorName(error);
+      output.n = {};
+      output.sig = {};
+    }
+    return output;
+  }
+
+  function solve(request) {
+    request = request || {};
+    var prepared = prepare(request.player);
+    if (!prepared.ok) return { n: {}, sig: {}, failed: prepared.failed, report: { version: VERSION } };
+    var output = run(prepared, request);
+    output.report.prepare = prepared.info;
+    return output;
   }
 
   return {
     version: VERSION,
     prepare: prepare,
+    run: run,
     solve: solve,
     internals: {
       unwrap: unwrap,
@@ -630,6 +917,9 @@ var yftOwnSolver = (function () {
       stringValue: stringValue,
       propertyName: propertyName,
       flatSteps: flatSteps,
+      queryParam: queryParam,
+      environmentGlobals: environmentGlobals,
+      installEnvironment: installEnvironment,
     },
   };
 })();

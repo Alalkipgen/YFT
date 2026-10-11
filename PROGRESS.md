@@ -1,5 +1,41 @@
 # YFT Master Extractor backup
 
+## Phase 1.1 — S3: G4 environment + multiTry runner
+
+- ✅ `own.solver.core.js` gains `yftOwnSolver.run(prepared, request)` (`solve` = `prepare` +
+  `run`; `prepare` once, `run` many times). It runs inside the existing solver worker; no new
+  isolate, no host access.
+  - **G4 environment:** `window`, `self`, `location`, `navigator` and `document` are installed
+    as own properties of the worker's global object (`Object.defineProperty`), plus an
+    `XMLHttpRequest` stand-in without any network when the worker has none. `location` is a
+    fixed test page URL with no-op `assign`/`replace`/`reload`: nothing navigates and nothing
+    reaches the host page. The user agent and language come from the request (defaults
+    otherwise).
+  - **Instantiate:** the prepared program is compiled once per run (`Function(registry,
+    program)`); failing top-level statements are only counted (`topLevelErrors`).
+  - **multiTry:** every candidate builds a URL object for the test page. Its parameter setter
+    and getter are found by a marker round-trip (`set`/`get` first, else any two-argument /
+    one-argument method pair). n is set and read back through every read path: the getter right
+    after building, then every zero-argument method on a fresh object (the getter again and the
+    query of a returned URL string). A failing path or candidate only loses its own values;
+    errors name candidate/path indexes and error classes, never values.
+  - **G3 application:** sig goes in URI-encoded, the way a signatureCipher carries it, and comes
+    out decoded exactly once; a query key seen twice or not at all gives no value.
+  - A value is kept only when every candidate that produced one produced the same; otherwise
+    the input counts as a conflict and gets no value.
+- Plan adapted: the G3 *application* (encode in, decode once out) landed with multiTry in S3,
+  because a sig cannot be read without it; S4 adds the G3 *checks* and the SelfCheck.
+- ✅ Corpus parity (`node scripts/verify-own-solver.mjs`): 32/32 files PASS, own = ejs on
+  228/228 inputs (vectors + generated n/sig inputs, every variant of every player).
+- ✅ Offline tests `scripts/own-solver/tests/core-run.test.mjs` (9) on the fake player: n and
+  sig in every code style and wrapper, sig encoded once / decoded once, a failing statement or
+  candidate does not stop the rest, errors carry no values, G4 globals are own properties and
+  nothing navigates, worker-shaped context, refusal of a missing/failed preparation, prepared
+  program reuse, empty request. In the workflow's JS step (now 29 own-solver tests).
+- Timing (desktop Node `vm`): prepare ≈ 0.9–1.8 s per player, run ≈ 0.1–0.3 s; the phone is
+  measured in S5.
+- No change in `main`, the app or ejs assets; the core is still unused with the flags off.
+
 ## Phase 1.1 — S2: own solver core (parse, G1 unwrap, G2 candidates)
 
 - ✅ `extractor-master-android/src/main/assets/yft-own-solver/own.solver.core.js` (YFT's own
