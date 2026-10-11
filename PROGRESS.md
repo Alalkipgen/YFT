@@ -1,24 +1,33 @@
 # YFT Master Extractor backup
 
-## Phase 1.2 — N4b environment-dependent values (M9b / M9bs) — IN PROGRESS (code `bdb45c6`, CI 38175876765 ✅)
+## Phase 1.2 — N4b environment-dependent values (M9b / M9bs) — measured ❌ (code `bdb45c6`, CI 38175876765 ✅; harness fix: CI pending)
 
 - ✅ Code: mutation classes M9b (DOM-made value; use throws without the DOM) and M9bs (silent
   use), outside the 448 baseline; runner `--both` (worker and page side by side) and `--variant`;
   core init errors by class (`report.topLevelErrorClasses`); harness `--init`, `--fault-cases`;
-  fault cases `init-wrong-n` / `init-wrong-sig`. JS 161/161.
+  fault cases `init-wrong-n` / `init-wrong-sig`.
 - ✅ Init errors before M9b: 0/32 files in the worker (P, B) and in page mode (P, B); corpus
   32/32 = ejs 260/260 in all four runs.
-- Faults worker P (384 runs): the 10 earlier cases wrong 0, missed 0; ❌ init-wrong-n 132 wrong,
-  init-wrong-sig 128 wrong (by construction: SelfCheck cannot see agreement on a wrong value).
-- Faults worker B, init-wrong cases: ❌ 132 / 128 wrong (by construction). Page P init-wrong:
-  ✅ wrong 0 (inert). Not run: page B init-wrong; N4 page B faults.
-- M9b/M9bs `--both`: 7/64 cases done, wrong 0 (worker P/B safe, page P survived, page B some
-  `n: no candidates`: B's call-shape keys are static constants only). ❗ The run hung on 74edf1a3
-  phone M9bs in B (P alone 5 s; B killed after 240 s): the vm timeout did not stop it (likely
-  player microtasks outside the timeout, or a native call). The runner now settles after every
-  solve and has `--variant` for one-file runs.
-- ⏭ Next: `MASTER_KEY_PHASE1_2_CONTINUE_N4B.md` (finish the M9b/M9bs measurement per file, with
-  an external limit; then docs and report). Proposed fix there (owner decides).
+- M9b/M9bs `--both` (all 32 files in one process, 1963 s, peak RSS 1.8 GB), survived/files:
+  M9b: ejs 0 (safe), worker P 0 (safe), worker B 0 (safe), page P 32, page B 10 (22 safe);
+  M9bs: ejs 0, worker P 0, worker B 0 (31 safe, ❌ **1 wrong**), page P 32, page B 13 (19 safe).
+  Plan §4 note "N4b".
+- ❌ The wrong value: worker B on 631d3938 es6 M9bs, sig (0/4 right; n `no candidates`). Silent:
+  nothing throws and init errors stay 0, so SelfCheck, agreement and the proposed init-error rule
+  cannot see it. Reproduced in a fresh run and with the harness before the fix below. ejs is safe
+  there: main is not affected; the app does not send B before N5. Not fixed (owner's stop rule).
+- Faults: worker P (384 runs) and worker B: the 10 earlier cases wrong 0, missed 0; ❌ init-wrong-n
+  132 and init-wrong-sig 128 wrong (by construction). Page P and page B (384 runs each): wrong 0,
+  missed 0 (init-wrong inert in page mode); N4's page B faults are done.
+- ✅ Harness fix (test scripts only; app and core unchanged): `harness.mjs` vm contexts use
+  `microtaskMode: "afterEvaluate"` and keep the solve's reply before player promise jobs run; when
+  those jobs time out, the kept reply is used (the app's worker also posts its reply before later
+  promise jobs run). The hang (74edf1a3 phone M9bs, B) is gone: 5/64 cases `{late promise jobs
+  cut}` (the runner marks them; all worker B, safe), 0 harness timeouts. JS 161/161.
+- Lesson: two whole-corpus runs at once hit the 4 GB limit (page B faults was killed after 30/32
+  files; the last 2 re-run alone). Run one whole-corpus `--page` or `--both` run at a time.
+- ⏭ Next: the owner decides the fix (the proposal in `MASTER_KEY_PHASE1_2_CONTINUE_N4B.md` does not
+  cover the silent case alone); N5 only after "Next".
 
 ## Phase 1.2 — N4 strategy E (page environment) — N4 done (`a7c3dd9`, CI 38170962057 ✅)
 

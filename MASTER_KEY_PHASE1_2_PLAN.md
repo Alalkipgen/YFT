@@ -45,6 +45,8 @@ code, without an APK update:
   မရသေး (PENDING) — owner က debug app ထဲက "YFT stream check" ကို ဖွင့်ပြီး Start နှိပ်ပေးရန် (computer မလို)။
 - N4 ပြီးပါပြီ (`a7c3dd9`): page ပတ်ဝန်းကျင် (E) — JS interface မပါတဲ့ WebView + network ပိတ်ထားတဲ့ sandbox
   iframe။ app ထဲမှာ မသုံးသေးပါ (N5 မှ ချိတ်မယ်)။ Computer စစ်ချက်: M9 page mode P/B 32/32၊ အဖြေမှား ၀။
+- N4b တိုင်းပြီး ❌: M9bs (error မပါတဲ့ DOM တန်ဖိုး) မှာ worker B က ဖိုင် ၁ ခု (631d3938 es6) sig အဖြေမှား။
+  ejs မမှား (main မထိ)။ page P 32/32။ Fix မလုပ်ရသေး — owner ဆုံးဖြတ်ရန် (N5 မတိုင်ခင်)။
 
 ## 0. Why (evidence)
 
@@ -246,7 +248,7 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 | N2 | Live check V (+ measure the n behaviour on the owner's phone) | Phase 1.1 S5 | Medium | Done (`9e15101`; measurement pending) |
 | N3 | Strategy B: register, probe, classify (core + harness) | N1 | High | Done (`52e1945`) |
 | N4 | Strategy E: isolated page environment | N3 | Medium–High | Done (`a7c3dd9`) |
-| N4b | Environment-dependent values (M9b/M9bs), init errors by class | N4 | Medium | In progress (code `bdb45c6`; measurement: `MASTER_KEY_PHASE1_2_CONTINUE_N4B.md`) |
+| N4b | Environment-dependent values (M9b/M9bs), init errors by class | N4 | Medium | Built; measured ❌ (worker B: 1 wrong M9bs value; fix: owner decides; §4 note "N4b") |
 | N5 | Ladder, locator cache, flag wiring | N2, N3 | Medium | TODO |
 | N6 | Canary workflow (computer) | N1, N3 | Low–Medium | TODO |
 | N7 | Owner live check + runbook update | N4, N5, N6 | Low | TODO |
@@ -583,10 +585,46 @@ adds. E is for a player whose n or sig needs more of a real page than the stubs 
 shows one (its n needs `document.createElement`: the worker answers sig and fails n, the page
 answers both, with P and with B). N4b measures that case on the corpus (note "N4b").
 
+N4b (2026-10-11, `node scripts/verify-own-solver-mutations.mjs --class M9b,M9bs --strategy P,B
+--both`; all 32 files in one process; outside the 448 baseline), survived/files:
+
+| Class | ejs | worker P | worker B alone | page P | page B alone |
+|---|---|---|---|---|---|
+| M9b (DOM-made value; its use throws without the DOM) | 0/32 (safe) | 0/32 (safe) | 0/32 (safe) | 32/32 | 10/32 (22 safe) |
+| M9bs (silent use: another number, no error) | 0/32 (safe) | 0/32 (safe) | ❌ 0/32 (31 safe, **1 wrong**) | 32/32 | 13/32 (19 safe) |
+
+- ❌ **Wrong = 1** (worker B, 631d3938 es6 M9bs): n `no candidates` (safe), but sig answered and
+  0/4 were right. The DOM-made number silently changes sig under the worker's stubs; nothing
+  throws, so SelfCheck and agreement cannot see it and init errors stay 0 (the init-error rule
+  proposed in `MASTER_KEY_PHASE1_2_CONTINUE_N4B.md` alone would not catch it). Reproduced in a
+  fresh run, also with the harness before the change below. ejs fails safely there (main is not
+  affected); the app does not send B before N5; page P and page B answer that sig right. Not
+  fixed: the owner decides the rule before N5 uses B.
+- Safe failures: worker P `probe` (n and sig) in all 64 cases; worker B `no candidates` 48, step
+  budget 12, error 3 (B's call-shape keys are static constants; M9b/M9bs make them DOM-dependent);
+  page B mostly n `no candidates` (37 of its 41 safe cases; sig right there).
+- Init errors (unmutated corpus): 0/32 files in worker P/B and page P/B; corpus 32/32 = ejs
+  260/260 in all four. Faults: worker P and B: the 10 earlier cases wrong 0, missed 0; init-wrong-n
+  132 and init-wrong-sig 128 wrong (❌ by construction until a rule keeps such answers unverified).
+  Page P and page B (384 runs each): wrong 0, missed 0 (init-wrong is inert in page mode).
+- Harness (test scripts only): the earlier hang (74edf1a3 phone M9bs in B) came from player
+  promise jobs that default vm contexts run on Node's own queue (during the runner's settle(),
+  outside the vm timeout). Contexts now use `microtaskMode: "afterEvaluate"` and keep the solve's
+  reply before promise jobs run; when the jobs time out, the kept reply is used, as in the app's
+  worker, which posts its reply before later promise jobs run (`{late promise jobs cut}`: 5 of 64
+  cases, all worker B, safe; no harness timeouts).
+
 ## 5. Risks
 
 - **False positives in B:** a function that acts like n but is not. Mitigated by the classifier
   rules, agreement, the M10 decoys and V. Without a V `pass`, disagreement fails.
+- **Silent environment values (N4b):** a value made from browser objects that the worker's stubs
+  answer with another number and no error. B in the worker then gave a wrong sig on 1 of 32 M9bs
+  files (631d3938 es6) that SelfCheck and agreement accept and init errors do not show; P failed
+  safely and page mode was right. Open: the owner decides the rule before N5 uses B (for example,
+  B's worker answer counts only with a V pass or with E's agreement). B's call-shape keys are
+  static constants, so DOM-dependent keys give B `no candidates` (safe). The harness hang from
+  player promise jobs is fixed in the harness (§4 note "N4b").
 - **V ambiguity for n:** a wrong n may be slow instead of 403. Measured first (N2); `unknown` never
   counts as `pass`.
 - **Cost:** B is slower and uses more CPU on the first lookup of a new player version (about every

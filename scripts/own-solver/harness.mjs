@@ -38,6 +38,39 @@ process.on("unhandledRejection", () => {});
 export function settle() {
   return new Promise((resolve) => setImmediate(resolve));
 }
+
+// The app's worker and page frame post their reply as soon as the job returns; promise jobs the
+// player queued run only after that. Default vm contexts put those jobs on Node's own queue, which
+// runs them during settle() with no timeout: in N4b one mutated player's B run looped in promise
+// jobs there for minutes (memory grew to 1.5 GB). So every context runs its promise jobs right
+// after each evaluation, inside the evaluation's timeout ("afterEvaluate"), and a solve stores its
+// reply before they run: such a loop costs at most the timeout and never changes the reply.
+const CONTEXT_OPTIONS = { microtaskMode: "afterEvaluate" };
+const REPLY = "__yftHarnessReply";
+
+/** Runs [expression] (JSON text) in [sandbox]; the reply survives a timeout in later promise jobs. */
+function replyOf(sandbox, expression) {
+  const store = `Object.defineProperty(globalThis, "${REPLY}", { value: ${expression}, writable: false, configurable: false }); void 0;`;
+  try {
+    vm.runInContext(store, sandbox, { timeout: SOLVE_TIMEOUT_MS });
+  } catch (error) {
+    const stored = storedReply(sandbox);
+    if (stored === null) throw error;
+    return { text: stored, late: true };
+  }
+  const text = storedReply(sandbox);
+  if (text === null) throw new Error("no reply");
+  return { text, late: false };
+}
+
+function storedReply(sandbox) {
+  try {
+    const value = sandbox[REPLY];
+    return typeof value === "string" ? value : null;
+  } catch (ignored) {
+    return null;
+  }
+}
 const PLAYER_ID = /^[A-Za-z0-9_-]{4,32}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
 
@@ -130,7 +163,7 @@ export function challenges(player, vectors) {
 }
 
 function context(lib) {
-  const sandbox = vm.createContext({});
+  const sandbox = vm.createContext({}, CONTEXT_OPTIONS);
   vm.runInContext(lib, sandbox, { timeout: SOLVE_TIMEOUT_MS });
   vm.runInContext("var meriyah = lib.meriyah, astring = lib.astring;", sandbox);
   return sandbox;
@@ -147,9 +180,7 @@ export function solveWithEjs({ lib, core }, player, inputs) {
       output_preprocessed: false,
       requests: KINDS.map((kind) => ({ type: kind, challenges: inputs[kind] })),
     });
-    const output = JSON.parse(
-      vm.runInContext("JSON.stringify(jsc(JSON.parse(input)))", sandbox, { timeout: SOLVE_TIMEOUT_MS }),
-    );
+    const output = JSON.parse(replyOf(sandbox, "JSON.stringify(jsc(JSON.parse(input)))").text);
     const result = {};
     KINDS.forEach((kind, index) => {
       const response = output.responses?.[index];
@@ -163,7 +194,7 @@ export function solveWithEjs({ lib, core }, player, inputs) {
 
 /** A bare context holding only the vendored meriyah parser, as the own solver's worker does. */
 function ownContext(lib) {
-  const sandbox = vm.createContext({});
+  const sandbox = vm.createContext({}, CONTEXT_OPTIONS);
   vm.runInContext(lib, sandbox, { timeout: SOLVE_TIMEOUT_MS });
   return sandbox;
 }
@@ -304,7 +335,7 @@ function pagePrelude(g, href) {
 
 /** A bare context with the page-frame DOM stub, then the vendored parser (strategy E, N4). */
 export function pageContext(lib) {
-  const sandbox = vm.createContext({});
+  const sandbox = vm.createContext({}, CONTEXT_OPTIONS);
   vm.runInContext(`(${pagePrelude.toString()})(this, ${JSON.stringify(PAGE_FRAME_URL)});`, sandbox);
   vm.runInContext(lib, sandbox, { timeout: SOLVE_TIMEOUT_MS });
   return sandbox;
@@ -342,12 +373,11 @@ export function solveWithOwn({ lib, core }, player, inputs, extra = {}) {
     sandbox = extra.page ? pageContext(lib) : ownContext(lib);
     vm.runInContext(core, sandbox, { timeout: SOLVE_TIMEOUT_MS });
     sandbox.input = JSON.stringify({ player, n: inputs.n, sig: inputs.sig, ...request });
-    const output = JSON.parse(
-      vm.runInContext("JSON.stringify(yftOwnSolve(JSON.parse(input)))", sandbox, {
-        timeout: SOLVE_TIMEOUT_MS,
-      }),
-    );
+    const reply = replyOf(sandbox, "JSON.stringify(yftOwnSolve(JSON.parse(input)))");
+    const output = JSON.parse(reply.text);
     return {
+      // The reply was stored, then the player's later promise jobs ran into the timeout.
+      ...(reply.late ? { late: true } : {}),
       n: output?.n ?? {},
       sig: output?.sig ?? {},
       ...(output?.failed ? { failed: String(output.failed).slice(0, 60) } : {}),

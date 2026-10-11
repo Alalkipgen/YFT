@@ -235,7 +235,7 @@ for (const file of files) {
         const o = score(v);
         bucket[key][o] += 1;
         if (o === "wrong") wrongTotal += 1;
-        line += `, ${label} ${detail(v, o)}${o !== "survived" && (out.failed || out.error) ? ` [${out.failed || out.error}]` : ""}`;
+        line += `, ${label} ${detail(v, o)}${o !== "survived" && (out.failed || out.error) ? ` [${out.failed || out.error}]` : ""}${out.late ? " {late promise jobs cut}" : ""}`;
       }
       lines.push(line);
       process.stderr.write(`${line}\n`); // progress for long runs (counts and classes only)
