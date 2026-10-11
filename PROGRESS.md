@@ -37,6 +37,7 @@
   is caught only by known vectors or a live check; a runner-level live 1-byte probe is planned
   with S5.
 - No change in `main`, the app or ejs assets; the core is still unused with the flags off.
+- ✅ CI (S4, `00aa458`): Master opt-in debug APK run `38100304754` — success.
 
 ## Phase 1.1 — S3: G4 environment + multiTry runner
 
