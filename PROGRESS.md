@@ -13,8 +13,9 @@
   M9bs: ejs 0, worker P 0, worker B 0 (31 safe, ❌ **1 wrong**), page P 32, page B 13 (19 safe).
   Plan §4 note "N4b".
 - ❌ The wrong value: worker B on 631d3938 es6 M9bs, sig (0/4 right; n `no candidates`). Silent:
-  nothing throws and init errors stay 0, so SelfCheck, agreement and the proposed init-error rule
-  cannot see it. Reproduced in a fresh run and with the harness before the fix below. ejs is safe
+  the DOM statement fails in the worker (init errors 3: RangeError + TypeError), B keeps going and
+  sig changes: SelfCheck and agreement cannot see it; the proposed init-error rule would (init
+  errors > 0 → E; page B 0 init errors, page P/B right there). Reproduced in a fresh run and with the harness before the fix below. ejs is safe
   there: main is not affected; the app does not send B before N5. Not fixed (owner's stop rule).
 - Faults: worker P (384 runs) and worker B: the 10 earlier cases wrong 0, missed 0; ❌ init-wrong-n
   132 and init-wrong-sig 128 wrong (by construction). Page P and page B (384 runs each): wrong 0,
@@ -26,8 +27,8 @@
   cut}` (the runner marks them; all worker B, safe), 0 harness timeouts. JS 161/161.
 - Lesson: two whole-corpus runs at once hit the 4 GB limit (page B faults was killed after 30/32
   files; the last 2 re-run alone). Run one whole-corpus `--page` or `--both` run at a time.
-- ⏭ Next: the owner decides the fix (the proposal in `MASTER_KEY_PHASE1_2_CONTINUE_N4B.md` does not
-  cover the silent case alone); N5 only after "Next".
+- ⏭ Next: the owner decides the fix (the init-error rule proposed in
+  `MASTER_KEY_PHASE1_2_CONTINUE_N4B.md` covers this case); N5 only after "Next".
 
 ## Phase 1.2 — N4 strategy E (page environment) — N4 done (`a7c3dd9`, CI 38170962057 ✅)
 

@@ -45,8 +45,9 @@ code, without an APK update:
   မရသေး (PENDING) — owner က debug app ထဲက "YFT stream check" ကို ဖွင့်ပြီး Start နှိပ်ပေးရန် (computer မလို)။
 - N4 ပြီးပါပြီ (`a7c3dd9`): page ပတ်ဝန်းကျင် (E) — JS interface မပါတဲ့ WebView + network ပိတ်ထားတဲ့ sandbox
   iframe။ app ထဲမှာ မသုံးသေးပါ (N5 မှ ချိတ်မယ်)။ Computer စစ်ချက်: M9 page mode P/B 32/32၊ အဖြေမှား ၀။
-- N4b တိုင်းပြီး ❌: M9bs (error မပါတဲ့ DOM တန်ဖိုး) မှာ worker B က ဖိုင် ၁ ခု (631d3938 es6) sig အဖြေမှား။
-  ejs မမှား (main မထိ)။ page P 32/32။ Fix မလုပ်ရသေး — owner ဆုံးဖြတ်ရန် (N5 မတိုင်ခင်)။
+- N4b တိုင်းပြီး ❌: M9bs (DOM တန်ဖိုး တိတ်တိတ်ပြောင်း) မှာ worker B က ဖိုင် ၁ ခု (631d3938 es6) sig အဖြေမှား
+  (init error ၃ ခု ရှိ — အဆိုပြု init-error rule နဲ့ ဖမ်းနိုင်)။ ejs မမှား (main မထိ)။ page P 32/32။
+  Fix မလုပ်ရသေး — owner ဆုံးဖြတ်ရန် (N5 မတိုင်ခင်)။
 
 ## 0. Why (evidence)
 
@@ -594,12 +595,13 @@ N4b (2026-10-11, `node scripts/verify-own-solver-mutations.mjs --class M9b,M9bs 
 | M9bs (silent use: another number, no error) | 0/32 (safe) | 0/32 (safe) | ❌ 0/32 (31 safe, **1 wrong**) | 32/32 | 13/32 (19 safe) |
 
 - ❌ **Wrong = 1** (worker B, 631d3938 es6 M9bs): n `no candidates` (safe), but sig answered and
-  0/4 were right. The DOM-made number silently changes sig under the worker's stubs; nothing
-  throws, so SelfCheck and agreement cannot see it and init errors stay 0 (the init-error rule
-  proposed in `MASTER_KEY_PHASE1_2_CONTINUE_N4B.md` alone would not catch it). Reproduced in a
-  fresh run, also with the harness before the change below. ejs fails safely there (main is not
-  affected); the app does not send B before N5; page P and page B answer that sig right. Not
-  fixed: the owner decides the rule before N5 uses B.
+  0/4 were right. The statement that makes the DOM value fails in the worker (init errors 3:
+  RangeError + TypeError); B keeps going, the value is then missing and sig silently changes, so
+  SelfCheck and agreement cannot see it. The init-error rule proposed in
+  `MASTER_KEY_PHASE1_2_CONTINUE_N4B.md` would catch it (init errors > 0 → E; page B has 0 init
+  errors there, and page P and page B answer that sig right). Reproduced in a fresh run, also with
+  the harness before the change below. ejs fails safely there (main is not affected); the app
+  does not send B before N5. Not fixed: the owner decides the rule before N5 uses B.
 - Safe failures: worker P `probe` (n and sig) in all 64 cases; worker B `no candidates` 48, step
   budget 12, error 3 (B's call-shape keys are static constants; M9b/M9bs make them DOM-dependent);
   page B mostly n `no candidates` (37 of its 41 safe cases; sig right there).
@@ -618,11 +620,12 @@ N4b (2026-10-11, `node scripts/verify-own-solver-mutations.mjs --class M9b,M9bs 
 
 - **False positives in B:** a function that acts like n but is not. Mitigated by the classifier
   rules, agreement, the M10 decoys and V. Without a V `pass`, disagreement fails.
-- **Silent environment values (N4b):** a value made from browser objects that the worker's stubs
-  answer with another number and no error. B in the worker then gave a wrong sig on 1 of 32 M9bs
-  files (631d3938 es6) that SelfCheck and agreement accept and init errors do not show; P failed
-  safely and page mode was right. Open: the owner decides the rule before N5 uses B (for example,
-  B's worker answer counts only with a V pass or with E's agreement). B's call-shape keys are
+- **Silent environment values (N4b):** a value made with browser objects the worker lacks: its
+  statement fails (an init error), B keeps going and the value silently becomes another number.
+  B in the worker then gave a wrong sig on 1 of 32 M9bs files (631d3938 es6) that SelfCheck and
+  agreement accept (init errors 3); P failed safely and page mode was right. Open: the owner
+  decides the rule before N5 uses B (proposed: init errors > 0 → the worker answer is unverified
+  and E decides; that catches this case). B's call-shape keys are
   static constants, so DOM-dependent keys give B `no candidates` (safe). The harness hang from
   player promise jobs is fixed in the harness (§4 note "N4b").
 - **V ambiguity for n:** a wrong n may be slow instead of 403. Measured first (N2); `unknown` never
