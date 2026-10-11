@@ -28,7 +28,23 @@ Pinned hashes (SHA-256):
 `solver.html`, `solver-page.js` and `solver-worker.js` in the same directory are YFT's own code.
 
 `scripts/youtube-solver-vectors.json` contains public test vectors taken from the yt-dlp ejs test
-suite (Unlicense) and is used only by `scripts/verify-youtube-solver.mjs`; it is not shipped.
+suite (Unlicense) and is used only by `scripts/verify-youtube-solver.mjs` and
+`scripts/verify-own-solver.mjs`; it is not shipped.
+
+### Master own YouTube solver (spike branch, flag-gated)
+
+`extractor-master-android/src/main/assets/yft-own-solver/` holds the Master own solver
+(Phase 1.1). `own.solver.core.js` is YFT's own code; no file of yt-dlp ejs is copied or used on
+this path. Its only library is the meriyah parser, vendored unmodified from the npm package below
+a license header:
+
+| Component | Version | License | Source |
+| --- | --- | --- | --- |
+| meriyah (`meriyah.umd.min.js`, npm `dist/meriyah.umd.min.js`) | 6.1.4 | ISC, Copyright (c) 2019 and later, KFlash and others | <https://github.com/meriyah/meriyah> |
+
+| File | SHA-256 |
+| --- | --- |
+| npm `meriyah@6.1.4` `dist/meriyah.umd.min.js` (before the header) | `d545774b79cd9a3351c7822b595e1e95bdd1fc00a67a2e378f9a66efd6f1eead` |
 
 ## YouTube client values and proof-of-origin host
 

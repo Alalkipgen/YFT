@@ -9,7 +9,8 @@
 //
 // Own core contract (written in S2-S4, read here):
 //   file  extractor-master-android/src/main/assets/yft-own-solver/own.solver.core.js
-//   runs  in a bare V8 context that already holds `meriyah` and `astring`
+//   runs  in a bare V8 context that already holds `meriyah` (the vendored parser,
+//         extractor-master-android/src/main/assets/yft-own-solver/meriyah.umd.min.js)
 //   API   yftOwnSolve({player, n: [input], sig: [input]})
 //           -> {n: {input: output}, sig: {input: output}, failed?: "reason"}
 //         an input without a verified output is simply absent (never guessed).
@@ -141,10 +142,35 @@ export function solveWithEjs({ lib, core }, player, inputs) {
   }
 }
 
+/** A bare context holding only the vendored meriyah parser, as the own solver's worker does. */
+function ownContext(lib) {
+  const sandbox = vm.createContext({});
+  vm.runInContext(lib, sandbox, { timeout: SOLVE_TIMEOUT_MS });
+  return sandbox;
+}
+
+/** The own core's preparation of [player]: counts and the failure class only. */
+export function prepareWithOwn({ lib, core }, player) {
+  try {
+    const sandbox = ownContext(lib);
+    vm.runInContext(core, sandbox, { timeout: SOLVE_TIMEOUT_MS });
+    sandbox.player = player;
+    return JSON.parse(
+      vm.runInContext(
+        "(function(){var p=yftOwnSolver.prepare(player);return JSON.stringify({ok:p.ok,failed:p.failed,info:p.info})})()",
+        sandbox,
+        { timeout: SOLVE_TIMEOUT_MS },
+      ),
+    );
+  } catch (error) {
+    return { ok: false, failed: error?.name ?? "Error" };
+  }
+}
+
 /** The own core on [player] through its contract (see the header). */
 export function solveWithOwn({ lib, core }, player, inputs) {
   try {
-    const sandbox = context(lib);
+    const sandbox = ownContext(lib);
     vm.runInContext(core, sandbox, { timeout: SOLVE_TIMEOUT_MS });
     sandbox.input = JSON.stringify({ player, n: inputs.n, sig: inputs.sig });
     const output = JSON.parse(

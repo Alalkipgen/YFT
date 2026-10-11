@@ -1,5 +1,35 @@
 # YFT Master Extractor backup
 
+## Phase 1.1 — S2: own solver core (parse, G1 unwrap, G2 candidates)
+
+- ✅ `extractor-master-android/src/main/assets/yft-own-solver/own.solver.core.js` (YFT's own
+  code; no ejs file copied or used): `yftOwnSolver.prepare(playerText)`.
+  - **Parse:** meriyah (`ranges`, `webcompat`), vendored unmodified from npm `meriyah@6.1.4`
+    as `meriyah.umd.min.js` below an ISC header (`docs/THIRD_PARTY_NOTICES.md`). No astring:
+    the program is built from source slices, never regenerated.
+  - **G1 unwrap:** only the known wrappers (`var ns = {}; (function (g) {...})(ns)`,
+    `(function () {...}).call(this)`, an arrow IIFE); anything else → `FAIL unexpected
+    structure`. Kept: declarations, assignments and control statements; dropped: other
+    expression statements (calls, `new`, `a && b()`). Every `var` declarator and every
+    assignment of a sequence runs in its own `try` (failures only counted), so one browser API
+    the worker lacks cannot stop the rest. The wrapper text itself is kept verbatim.
+  - **G2 normalise (matching only):** string tables (`T = "...".split(";")` / string arrays)
+    resolve `x[T[3]]` like `x.name`; dotted, computed and template names alike; sequences
+    flattened (also in `return`); `var`/`let`/`const`, function and arrow forms alike; a table
+    name the function binds itself is not resolved.
+  - **G2 candidates, all matches, two independent patterns:** (A) a definition whose
+    unconditional steps mark a local URL object with `("alr", "yes")` and return it; (B) call
+    sites `f(<…url…>, <sp>, <x.s>)` (the signatureCipher shape). The candidates are read at the
+    end of the player's own top level.
+- ✅ Corpus (`node scripts/verify-own-solver.mjs --prepare`): 32/32 files yield candidates
+  (each: 1 candidate, found by both patterns; kept ≈ 92–98 % of top-level statements).
+- ✅ Offline tests `scripts/own-solver/tests/core-prepare.test.mjs` (10) on a fake player
+  written for the tests (`fake-player.mjs`, no YouTube code): known wrappers accepted, unknown
+  ones and parse errors fail cleanly, both patterns in es5/es6/sequence styles, all matches
+  collected, normalisation, shadowed tables, program keep/drop/guard. In the workflow's JS step.
+- Parity runner: the own core is loaded with the vendored meriyah only (no ejs lib).
+- No change in `main`, the app or ejs assets; the new asset is unused with the flags off.
+
 ## Phase 1.1 — S1: own-solver harness and corpus
 
 - ✅ `scripts/verify-own-solver.mjs` (parity runner, beside `verify-youtube-solver.mjs`) +

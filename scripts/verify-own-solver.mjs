@@ -6,6 +6,7 @@
 //   node scripts/verify-own-solver.mjs --own <file>    # another own core build
 //   node scripts/verify-own-solver.mjs --record        # re-record every corpus hash (review first)
 //   node scripts/verify-own-solver.mjs --add today     # add today's player (or --add <player ID>)
+//   node scripts/verify-own-solver.mjs --prepare       # own core: candidates per file only (S2)
 //
 // Needs network access to www.youtube.com. Player text is cached under build/own-solver/players
 // (never committed) and checked against corpus.json's SHA-256 before use. Like
@@ -27,6 +28,7 @@ import {
   solveWithOwn,
   summarize,
   validateCorpus,
+  prepareWithOwn,
 } from "./own-solver/harness.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -46,6 +48,7 @@ const only = option("--only");
 const ownFile = option("--own") ?? defaultOwn;
 const add = option("--add");
 const record = args.includes("--record") || add !== undefined;
+const prepareOnly = args.includes("--prepare");
 
 async function download(player, variant) {
   const response = await fetch(playerUrl(player, variant), {
@@ -122,9 +125,11 @@ const ejs = {
   lib: readFileSync(join(ejsAssets, "yt.solver.lib.min.js"), "utf8"),
   core: readFileSync(join(ejsAssets, "yt.solver.core.min.js"), "utf8"),
 };
-const own = existsSync(ownFile) ? { lib: ejs.lib, core: readFileSync(ownFile, "utf8") } : null;
+const ownLib = join(dirname(defaultOwn), "meriyah.umd.min.js");
+const own = existsSync(ownFile) ? { lib: readFileSync(ownLib, "utf8"), core: readFileSync(ownFile, "utf8") } : null;
 
 const results = [];
+let preparedCount = 0;
 for (const entry of corpus.players) {
   if (only && entry.player !== only) continue;
   const plan = challenges(entry.player, vectors);
@@ -139,6 +144,22 @@ for (const entry of corpus.players) {
       results.push({ player: entry.player, variant, status: fetched.status });
       continue;
     }
+    if (prepareOnly) {
+      const prepared = own ? prepareWithOwn(own, fetched.text) : { ok: false, failed: "own core not built" };
+      const info = prepared.info ?? {};
+      const ok = prepared.ok && info.candidates > 0;
+      preparedCount += ok ? 1 : 0;
+      console.log(
+        `${entry.player} ${variant.padEnd(5)} ` +
+          (prepared.ok
+            ? `candidates ${info.candidates} (definitions ${info.fromDefinitions}, call sites ${info.fromCallSites}), ` +
+              `kept ${info.kept}/${info.statements}, tables ${info.tables}`
+            : `FAIL ${prepared.failed}`) +
+          (ok ? "  PASS" : "  FAIL"),
+      );
+      results.push({ player: entry.player, variant, status: ok ? "absent" : "prepare-failed" });
+      continue;
+    }
     const ejsOut = solveWithEjs(ejs, fetched.text, plan.inputs);
     const ownOut = own ? solveWithOwn(own, fetched.text, plan.inputs) : null;
     const result = { player: entry.player, variant, status: "ok", ...compare(plan, ejsOut, ownOut) };
@@ -147,8 +168,12 @@ for (const entry of corpus.players) {
   }
 }
 
-const lines = summarize(results, Boolean(own));
 console.log(`coverage: ${coverage(corpus).join(", ")}`);
+if (prepareOnly) {
+  console.log(`${preparedCount}/${results.length} files yield candidates`);
+  process.exit(results.length > 0 && preparedCount === results.length ? 0 : 1);
+}
+const lines = summarize(results, Boolean(own));
 console.log(lines[lines.length - 1]);
 mkdirSync(dirname(reportFile), { recursive: true });
 writeFileSync(reportFile, `${JSON.stringify({ ownBuilt: Boolean(own), results }, null, 2)}\n`);

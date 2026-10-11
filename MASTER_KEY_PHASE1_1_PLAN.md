@@ -90,7 +90,7 @@ Order inside the YouTube module (unchanged from R6):
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
 | S1 | Harness: vectors, parity runner against ejs, player corpus | R1 | Medium | Done (`491dc0e`) |
-| S2 | Core: parse + G1 unwrap + G2 normalize/candidates | S1 | Medium–High | TODO |
+| S2 | Core: parse + G1 unwrap + G2 normalize/candidates | S1 | Medium–High | Done |
 | S3 | G4 environment + multiTry runner in the existing sandbox | S2 | Medium | TODO |
 | S4 | G3 encoding + SelfCheck (agreement, vectors, probe) | S3 | Medium | TODO |
 | S5 | `OwnPlayerScriptRunner` wiring (flag), cache, failure mapping | S4, R6 | Medium | TODO |
