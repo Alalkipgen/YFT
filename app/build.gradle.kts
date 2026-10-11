@@ -173,6 +173,10 @@ android {
             versionNameSuffix = "-debug"
             buildConfigField("boolean", "MASTER_CAPTURE_ENABLED", masterCapture)
             buildConfigField("boolean", "OWN_SOLVER_ENABLED", ownSolver)
+            // Owner tools (src/debug, e.g. the N2 stream check): a launcher entry only when both
+            // Master flags are on, so a debug build with the flags off stays as before.
+            manifestPlaceholders["yftOwnerTools"] =
+                (masterCapture == "true" && ownSolver == "true").toString()
         }
         release {
             isMinifyEnabled = true

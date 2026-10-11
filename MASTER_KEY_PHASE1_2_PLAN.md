@@ -42,7 +42,7 @@ code, without an APK update:
   - T3 N1 အတွက် scope analysis အရင်လုပ် (နာမည်ပြောင်း M1၊ control flow ပြောင်း M7 အတွက်)။ N1 = Medium–High။
   - T4 n အတွက် V: n မှားရင် နှေးရုံပဲဆိုရင် V ကို sig အတွက်ပဲ သုံး၊ n က candidate တွေ သဘောတူမှ လက်ခံ။
 - N2 ပြီးပါပြီ (`9e15101`): `StreamCheck` (YouTube ကို 1 byte တောင်းစစ်) ရှိပြီ။ n စည်းမျဉ်းအတွက် ဖုန်းတိုင်းတာမှု
-  မရသေး (PENDING) — owner က `bash scripts/stream-check-measure.sh` ကို တစ်ခါ run ပေးရန်။
+  မရသေး (PENDING) — owner က debug app ထဲက "YFT stream check" ကို ဖွင့်ပြီး Start နှိပ်ပေးရန် (computer မလို)။
 
 ## 0. Why (evidence)
 
@@ -194,9 +194,15 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 - **n rule (N2 measurement): PENDING.** The owner's phone measurement has not run yet. Until it
   does, `StreamCheck` runs with `NRule.PENDING`: a 2xx is `pass` for sig and `unknown` for n; a
   proven 403 (the control opens) is `fail` for both (dropping is safe, passing is not). How to
-  measure: `bash scripts/stream-check-measure.sh` (phone on adb; `VIDEO=<id>` for another public,
-  embeddable video). The report `build/own-solver/stream-check-measure-*.json` gives each
-  variant's status class, bytes, time and speed class, and the rule it suggests:
+  measure:
+  - **No computer (the owner's case: mobile data only, no Wi-Fi):** install the opt-in debug APK
+    from the CI artifact, open the launcher entry **"YFT stream check"** (debug build with both
+    Master flags only), tap Start, then Copy result. About 10–15 MB of data.
+  - With a computer: `bash scripts/stream-check-measure.sh` (phone on adb; `VIDEO=<id>` for
+    another public, embeddable video), or the same test from Termux over wireless debugging (the
+    CI artifact also holds the test APK).
+  The report (`own-solver/stream-check-measure-*.json` in the app files) gives each variant's
+  status class, bytes, time and speed class, and the rule it suggests:
   - wrong n → 403 and unchanged n → 403: `JUDGES_N` (V judges n like sig);
   - wrong n → 2xx: `SIG_ONLY` (T4 above: V never judges n);
   - anything else: stays `PENDING`.
@@ -340,7 +346,13 @@ Plan adapted (N1 part 2–3):
       `unknown` are checked again next time (within the budget).
     - The n rule is a policy value (`PENDING`, `JUDGES_N`, `SIG_ONLY`) set from the measurement;
       the ledger is in memory (N5 adds the small file next to the locator cache).
-  - Measurement: **pending** (owner runs `bash scripts/stream-check-measure.sh`; §2 n rule).
+  - Measurement: **pending** (owner runs it; §2 n rule).
+  - Follow-up (owner has no computer and no Wi-Fi): the measurement moved into
+    `app/src/debug/.../master/StreamCheckMeasurement.kt`, used by both the phone test and a
+    debug-only owner tool `StreamCheckMeasureActivity` (launcher entry "YFT stream check", enabled
+    only when `yft.masterCapture` and `yft.ownSolver` are on, via the manifest placeholder
+    `yftOwnerTools`; never in release or preview; starts only on a tap). The CI artifact also
+    carries the test APK (`f5cff7b`).
 
 ### N3 — Strategy B
 

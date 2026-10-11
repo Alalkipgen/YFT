@@ -19,6 +19,10 @@
   right n, unchanged n, wrong n, wrong sig, right again → status class, bytes and time for the
   first 1 MiB; ejs and the own runner must agree first; report without addresses; suggests the n
   rule. **Owner action:** run it once on the phone; the result goes into plan §2.
+- ✅ Follow-up (owner has no computer, mobile data only): the CI artifact also holds the test APK
+  (`f5cff7b`), and the debug app has an owner tool **"YFT stream check"** (launcher entry, only
+  with both Master flags on; Start → report → Copy result). Same code as the phone test
+  (`StreamCheckMeasurement` in `app/src/debug`).
 - Plan adapted (plan §3 N2): no new HTTP method (the probe is the bounded read); not wired into the
   YouTube module yet (N5, behind `ownSolverNext`; Phase 1.1 unchanged); ledger in memory (N5 adds
   the file). Phase 1.3 D4 reuses `StreamCheck`.

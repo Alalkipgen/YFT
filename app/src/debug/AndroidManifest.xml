@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug build only. The owner tool's launcher entry is enabled only when the build has
+     yft.masterCapture and yft.ownSolver on (placeholder yftOwnerTools in app/build.gradle.kts). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name="com.alal.yft.master.StreamCheckMeasureActivity"
+            android:enabled="${yftOwnerTools}"
+            android:exported="true"
+            android:label="YFT stream check"
+            android:taskAffinity="com.alal.yft.ownertools">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
