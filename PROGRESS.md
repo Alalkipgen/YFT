@@ -10,12 +10,15 @@
   32/32 = ejs 260/260 in all four runs.
 - Faults worker P (384 runs): the 10 earlier cases wrong 0, missed 0; ❌ init-wrong-n 132 wrong,
   init-wrong-sig 128 wrong (by construction: SelfCheck cannot see agreement on a wrong value).
+- Faults worker B, init-wrong cases: ❌ 132 / 128 wrong (by construction). Page P init-wrong:
+  ✅ wrong 0 (inert). Not run: page B init-wrong; N4 page B faults.
 - M9b/M9bs `--both`: 7/64 cases done, wrong 0 (worker P/B safe, page P survived, page B some
-  `n: no candidates`: B's call-shape keys are static constants only). The run hung on 74edf1a3
-  phone M9bs in B (P finishes in 5 s); cause not found yet (vm timeout does not cover it:
-  microtasks or a native call). To do: per-file runs with an external timeout, worker B / page
-  P/B init-wrong faults, N4 page B faults, then plan §4 note "N4b" and the fix proposal
-  (init errors > 0 ⇒ worker answer unverified; E with 0 init errors or V decides; n only E).
+  `n: no candidates`: B's call-shape keys are static constants only). ❗ The run hung on 74edf1a3
+  phone M9bs in B (P alone 5 s; B killed after 240 s): the vm timeout did not stop it (likely
+  player microtasks outside the timeout, or a native call). The runner now settles after every
+  solve and has `--variant` for one-file runs.
+- ⏭ Next: `MASTER_KEY_PHASE1_2_CONTINUE_N4B.md` (finish the M9b/M9bs measurement per file, with
+  an external limit; then docs and report). Proposed fix there (owner decides).
 
 ## Phase 1.2 — N4 strategy E (page environment) — N4 done (`a7c3dd9`, CI 38170962057 ✅)
 

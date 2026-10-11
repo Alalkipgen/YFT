@@ -211,10 +211,13 @@ for (const file of files) {
       }
       if (!haveTruth) { note = "no-truth"; continue; }
       const ejsOut = solveWithEjs(ejs, mutated, inputs);
+      await settle(); // releases the player's unhandled rejections after every solve (see harness.mjs)
       const ownOut = withP ? solveWithOwn(own, mutated, inputs, pageExtra) : null;
+      await settle();
       const bOut = withB ? solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false, ...pageExtra }) : null;
-      await settle(); // releases the player's unhandled rejections (see harness.mjs)
+      await settle();
       const pagePOut = both && withP ? solveWithOwn(own, mutated, inputs, { page: true }) : null;
+      if (both) await settle();
       const pageBOut = both && withB ? solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false, page: true }) : null;
       if (both) await settle();
       // Environment classes (M9b/M9bs) are written so that an environment without the DOM gives
