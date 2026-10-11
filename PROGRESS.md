@@ -1,5 +1,30 @@
 # YFT Master Extractor backup
 
+## Phase 1.2 — N2 live check V (`9e15101`, CI 38117539688 ✅; phone measurement pending)
+
+- ✅ `StreamCheck` (`extractor-master/.../modules/youtube/StreamCheck.kt`): asks YouTube whether
+  one solved stream URL opens, through the client's existing one-byte probe (`Range: bytes=0-0`).
+  Verdicts `PASS` / `FAIL` / `UNKNOWN`; a 403 fails the strategy only when a control (a direct URL
+  of the same lookup) opens; control fails too → `UNKNOWN`; no control → `FAIL` for this lookup
+  only. At most 4 checks per player version per UTC day (a check = target + control only after a
+  403); proven verdicts cached per answer for a day. Never outside a user-started lookup, never on
+  bot/login/age/private/DRM states, only on a returned `googlevideo.com/videoplayback` host, the
+  download's headers without cookies or credentials, nothing logged, no URL or value in a result.
+- ✅ n rule as a policy value: `PENDING` (now: 2xx = pass for sig, unknown for n; a proven 403
+  fails both), `JUDGES_N`, `SIG_ONLY` (T4).
+- ✅ `StreamCheckTest`: 13 tests with a fake HTTP client (pass, 403 + control, 403 without
+  control, control fails, timeout / network / stuck / thrown, other statuses, unsupported client,
+  budget, cache, terminal states, host rule, header stripping, nothing logged, n rule).
+- ✅ Opt-in phone measurement `StreamCheckMeasureTest` + `bash scripts/stream-check-measure.sh`:
+  right n, unchanged n, wrong n, wrong sig, right again → status class, bytes and time for the
+  first 1 MiB; ejs and the own runner must agree first; report without addresses; suggests the n
+  rule. **Owner action:** run it once on the phone; the result goes into plan §2.
+- Plan adapted (plan §3 N2): no new HTTP method (the probe is the bounded read); not wired into the
+  YouTube module yet (N5, behind `ownSolverNext`; Phase 1.1 unchanged); ledger in memory (N5 adds
+  the file). Phase 1.3 D4 reuses `StreamCheck`.
+- Local check: `./gradlew :extractor-master:test` and `:app:compileDebugAndroidTestKotlin`
+  (JDK 17 + Android SDK installed in the sandbox) before the push.
+
 ## Phase 1.3 — plan + prompt (no code)
 
 - ✅ `MASTER_KEY_PHASE1_3_PLAN.md` + `MASTER_KEY_PHASE1_3_PROMPT.md` (2026-10-11): an own client

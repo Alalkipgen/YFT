@@ -41,6 +41,8 @@ code, without an APK update:
   - T2 ဘေးထွက်ဆိုးကျိုး: အရင် စစ်ထုတ်ပြီး ရွေးထားတာကို instance အသစ်တစ်ခုစီမှာ ပြန်အတည်ပြု။
   - T3 N1 အတွက် scope analysis အရင်လုပ် (နာမည်ပြောင်း M1၊ control flow ပြောင်း M7 အတွက်)။ N1 = Medium–High။
   - T4 n အတွက် V: n မှားရင် နှေးရုံပဲဆိုရင် V ကို sig အတွက်ပဲ သုံး၊ n က candidate တွေ သဘောတူမှ လက်ခံ။
+- N2 ပြီးပါပြီ (`9e15101`): `StreamCheck` (YouTube ကို 1 byte တောင်းစစ်) ရှိပြီ။ n စည်းမျဉ်းအတွက် ဖုန်းတိုင်းတာမှု
+  မရသေး (PENDING) — owner က `bash scripts/stream-check-measure.sh` ကို တစ်ခါ run ပေးရန်။
 
 ## 0. Why (evidence)
 
@@ -189,13 +191,23 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
   fails too, the verdict is `unknown`. Without a control, a 403 fails this lookup but does not mark
   the strategy as failed for the player version.
 - **Encoding** (G3, the #54 class): when SelfCheck leaves two encodings possible, V decides.
+- **n rule (N2 measurement): PENDING.** The owner's phone measurement has not run yet. Until it
+  does, `StreamCheck` runs with `NRule.PENDING`: a 2xx is `pass` for sig and `unknown` for n; a
+  proven 403 (the control opens) is `fail` for both (dropping is safe, passing is not). How to
+  measure: `bash scripts/stream-check-measure.sh` (phone on adb; `VIDEO=<id>` for another public,
+  embeddable video). The report `build/own-solver/stream-check-measure-*.json` gives each
+  variant's status class, bytes, time and speed class, and the rule it suggests:
+  - wrong n → 403 and unchanged n → 403: `JUDGES_N` (V judges n like sig);
+  - wrong n → 2xx: `SIG_ONLY` (T4 above: V never judges n);
+  - anything else: stays `PENDING`.
+  The owner's result and the chosen rule are written here (date, player, video, statuses).
 
 ## 3. Tasks
 
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
 | N1 | Change simulator: mutation suite + baseline (ejs vs own P) | Phase 1.1 | Medium–High | Done (`765e91f`) |
-| N2 | Live check V (+ measure the n behaviour on the owner's phone) | Phase 1.1 S5 | Medium | TODO |
+| N2 | Live check V (+ measure the n behaviour on the owner's phone) | Phase 1.1 S5 | Medium | Done (`9e15101`; measurement pending) |
 | N3 | Strategy B: register, probe, classify (core + harness) | N1 | High | TODO |
 | N4 | Strategy E: isolated page environment | N3 | Medium–High | TODO |
 | N5 | Ladder, locator cache, flag wiring | N2, N3 | Medium | TODO |
@@ -296,6 +308,39 @@ Plan adapted (N1 part 2–3):
     nothing logged.
   - `:app:compileDebugAndroidTestKotlin` OK.
   - The owner's measurement is recorded in §2, or marked pending.
+- **Result (N2 done, 2026-10-11):**
+  - `extractor-master/.../modules/youtube/StreamCheck.kt`: verdicts `PASS`/`FAIL`/`UNKNOWN`,
+    `verdictFor(kind)` (sig, n by `NRule`), `marksFailed(kind)`; reasons and status classes only
+    (no URL, header or value in any result or `toString`); an in-memory `Ledger` (budget per
+    player version per UTC day, verdict cache per answer, bounded to 64 keys).
+  - `StreamCheckTest` (13 tests, fake HTTP client): pass, 403 + control opens → fail (strategy
+    failed), 403 without a control → fail for this lookup only (not cached), control fails too
+    → unknown, timeout / network error / stuck client / thrown error → unknown, other statuses
+    and a client without file checks → unknown, 4 checks per player version per day (5th →
+    unknown with no request; other version and next day have their own budget; `Policy`
+    refuses more than 4), cache (hit = 0 requests; expires after a day; proven fail reused), no
+    request when not user-started, on bot/login/age/private/DRM states or with nothing to judge,
+    only a returned `googlevideo.com/videoplayback` HTTPS host (a foreign control is ignored),
+    cookies/credentials/`Range` stripped from the download headers, nothing printed or logged,
+    the n rule.
+  - Phone test `app/src/androidTest/.../master/StreamCheckMeasureTest.kt` (opt-in
+    `-e yft.streamCheckMeasure 1`) + `scripts/stream-check-measure.sh`: WEB_EMBEDDED_PLAYER
+    player request with the watch page's signature timestamp; one adaptive mp4 stream (≥ 1 MiB,
+    with `signatureCipher` and `n` preferred); ejs and the own runner must agree on n and sig;
+    variants right, wrong sig, unchanged n, wrong n, right again; each reads the first 1 MiB at
+    most; the right values must open the stream before and after. Report without addresses.
+  - **Plan adapted:**
+    - No new HTTP method: the client's existing one-byte `probe` (`Range: bytes=0-0`, same
+      HTTPS and credential rules, no retry, time limit) is the bounded Range read.
+    - `StreamCheck` is not wired into the YouTube module yet; N5 calls it after the ladder
+      answers, behind `ownSolverNext`, so Phase 1.1 stays unchanged.
+    - A check = one target request + one control request only after a 403; the budget counts
+      checks (4 per player version per day), so T1's 3 groups fit.
+    - Only proven verdicts (2xx, or 403 with an opening control) are cached; a lone 403 and
+      `unknown` are checked again next time (within the budget).
+    - The n rule is a policy value (`PENDING`, `JUDGES_N`, `SIG_ONLY`) set from the measurement;
+      the ledger is in memory (N5 adds the small file next to the locator cache).
+  - Measurement: **pending** (owner runs `bash scripts/stream-check-measure.sh`; §2 n rule).
 
 ### N3 — Strategy B
 

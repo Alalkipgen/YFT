@@ -1,7 +1,8 @@
-# Master Key — Phase 1.2 continuation prompt (after N1)
+# Master Key — Phase 1.2 continuation prompt (after N1 and N2)
 
 **ရည်ရွယ်ချက်:** Phase 1.2 ကို agent အသစ်တစ်ယောက်က ဆက်လုပ်ဖို့ prompt ပါ။ N1 (mutation class 14 ခုနဲ့ file 32 ခုလုံးရဲ့
-baseline) ပြီးပါပြီ။ ကျန်တာက N2–N7 ပါ။
+baseline) နဲ့ N2 (YouTube နဲ့ စစ်တဲ့ `StreamCheck`) ပြီးပါပြီ။ ကျန်တာက N3–N7 ပါ။ N2 ရဲ့ ဖုန်းတိုင်းတာမှု
+(`bash scripts/stream-check-measure.sh`) ကို owner က တစ်ခါ run ပေးဖို့ ကျန်ပါတယ်။
 
 **သုံးနည်း:**
 - Agent chat အသစ်ထဲ အောက်က code block ကို paste လုပ်ပါ။ အပြည့်အစုံ စည်းကမ်းတွေက `MASTER_KEY_PHASE1_2_PROMPT.md`
@@ -19,9 +20,10 @@ FIRST read, in this order:
                                       all of it applies here unchanged)
   2. MASTER_KEY_PHASE1_2_PLAN.md     (sections 1-6; the status board in section 3; the baseline
                                       table in section 4)
-  3. PROGRESS.md top sections "Phase 1.2 — N1 ..."
+  3. PROGRESS.md top sections "Phase 1.2 — N2 ..." and "Phase 1.2 — N1 ..."
 ALLOW_PUSH: true   ALLOW_MERGE_MAIN: false   ALLOW_RELEASE: false
-START_AT: N2 (live check V), then N3
+START_AT: N3 (strategy B; use the highest reasoning level, fresh session), then N4
+  (or Phase 1.3 D1 if the owner chooses; D4 reuses N2's StreamCheck)
 
 STATE WHEN THIS PROMPT WAS WRITTEN (verify against the repo; the repo wins)
 - Phase 1.1 S1-S6 done. Corpus parity: 32/32 files, own = ejs on 260/260 inputs.
@@ -46,9 +48,16 @@ HOW N1 GETS ITS TRUTH (do not change this without asking the owner)
   as wrong; each mutator first gets unit tests on small hand-written programs (behaviour equal
   before/after in a bare vm context).
 
+- N2 done (commit 9e15101, CI run 38117539688 green): extractor-master/.../modules/youtube/StreamCheck.kt
+  (one-byte probe = the bounded Range read; PASS/FAIL/UNKNOWN; control; 4 checks per player
+  version per UTC day; cache of proven verdicts; no cookies; nothing logged; n rule PENDING /
+  JUDGES_N / SIG_ONLY) + StreamCheckTest (13). Not wired yet: N5 wires it behind ownSolverNext.
+  Phone measurement StreamCheckMeasureTest + scripts/stream-check-measure.sh: PENDING until the
+  owner runs it; then write the result and the chosen n rule into plan section 2.
+
 NEXT STEPS
-N2 onward: exactly as MASTER_KEY_PHASE1_2_PROMPT.md TASKS (N2 live check V with the owner's
-  phone measurement, N3 strategy B with T1/T2, N4 page E, N5 ladder, N6 canary workflow,
+N3 onward: exactly as MASTER_KEY_PHASE1_2_PROMPT.md TASKS (N2 live check V with the owner's
+  phone measurement (done, measurement pending), N3 strategy B with T1/T2, N4 page E, N5 ladder, N6 canary workflow,
   N7 owner live check).
 - After N3-N5, fill the empty columns of the plan section 4 table with the same runner
   (node scripts/verify-own-solver-mutations.mjs): own ladder offline, and with a simulated V.
@@ -63,7 +72,10 @@ ENVIRONMENT NOTES (from the previous session)
   `node scripts/verify-own-solver.mjs` (downloads the 32 corpus files, checks their SHA-256).
 - Keep each turn short (long commands in the background with nohup, poll with short sleeps);
   turns that ran too long were cancelled.
-- No Android NDK locally: CI builds the APK. JS step locally:
+- JDK 17 + Android SDK can be installed in the sandbox (sudo dnf install java-17-amazon-corretto-devel;
+  cmdline-tools to /data/android-sdk; local.properties sdk.dir; Gradle fetches the NDK itself), so
+  ./gradlew :extractor-master:test and :app:compileDebugAndroidTestKotlin run locally; CI still
+  builds the APK. JS step locally:
   node --test <the files listed in .github/workflows/master-optin-debug-apk.yml>.
 - Docs-only pushes start no CI; the newest code commit carries the CI result.
 

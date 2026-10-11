@@ -250,6 +250,10 @@ rules). Use the highest reasoning level for D3 and D5.
 - If Phase 1.2 N2 is done, reuse its `StreamCheck`. Otherwise build `StreamCheck` exactly as the
   Phase 1.2 plan §2 "Live check V" describes (pass / fail / unknown, rule 6), and N2 later reuses
   it.
+  - **N2 is done (`9e15101`):** `extractor-master/.../modules/youtube/StreamCheck.kt` exists
+    (one-byte probe, control, budget 4 per key per day, cache, no cookies, nothing logged). D4
+    reuses it with the client ID in the budget/cache key and adds only the row rule and the
+    cases the probe result does not carry yet (wrong content type, redirect to another host).
 - Rule: rows of a client without a `pass` in the last hour need a `pass`; 403 → `TOKEN_NEEDED`;
   `unknown` → that client's rows are dropped for this lookup (the R6 chain's rows are never
   dropped).
