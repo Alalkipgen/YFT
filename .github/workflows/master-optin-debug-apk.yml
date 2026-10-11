@@ -90,7 +90,8 @@ jobs:
               --tests 'com.alal.yft.feature.browser.BrowserMasterFlowTest' \
               --tests 'com.alal.yft.detection.master.BrowserMasterFallbackTest' \
             :app:compileDebugAndroidTestKotlin \
-            :app:assembleDebug 2>&1 | tee gradle-master.log || report
+            :app:assembleDebug \
+            :app:assembleDebugAndroidTest 2>&1 | tee gradle-master.log || report
       - name: Record APK hashes
         shell: bash
         env:
@@ -101,13 +102,17 @@ jobs:
             echo "Commit: ${GITHUB_SHA}"
             echo "Own YouTube solver: ${OWN_SOLVER}"
             echo '```'
-            sha256sum app/build/outputs/apk/debug/*.apk
+            sha256sum app/build/outputs/apk/debug/*.apk app/build/outputs/apk/androidTest/debug/*.apk
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+      # The test APK (same throwaway key) lets the owner run the opt-in phone tests without a
+      # computer, e.g. StreamCheckMeasureTest from Termux over wireless debugging.
       - name: Upload opt-in debug APK
         uses: actions/upload-artifact@v4
         with:
           name: yft-master-optin-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/androidTest/debug/*.apk
           retention-days: 14
           if-no-files-found: error
