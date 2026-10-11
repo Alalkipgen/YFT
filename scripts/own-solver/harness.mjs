@@ -168,6 +168,148 @@ function ownContext(lib) {
   return sandbox;
 }
 
+// Phase 1.2 N4 (strategy E) on the computer: a DOM stub shaped like the app's sandboxed page
+// frame (yft-own-solver/page-frame.html). As on a real window, window, document, location and top
+// cannot be redefined; the other browser objects exist and can be; cookies and storage throw as in
+// a frame without same-origin rights; timers and microtasks never fire during the synchronous run
+// (in the frame they would fire only after the reply). No network: fetch rejects, XMLHttpRequest
+// never sends. It runs inside the context, before the parser and the core.
+export const PAGE_FRAME_URL = "https://appassets.androidplatform.net/yft-own-solver/page-frame.html";
+
+function pagePrelude(g, href) {
+  "use strict";
+  var fixed = function (name, value) {
+    Object.defineProperty(g, name, { value: value, writable: false, enumerable: true, configurable: false });
+  };
+  var plain = function (name, value) {
+    Object.defineProperty(g, name, { value: value, writable: true, enumerable: true, configurable: true });
+  };
+  var denied = function () {
+    var error = new Error("sandboxed");
+    error.name = "SecurityError";
+    throw error;
+  };
+  var noop = function () {};
+  var Element = function (tag) {
+    this.tagName = String(tag).toUpperCase();
+    this.nodeName = this.tagName;
+    this.nodeType = 1;
+    this.childNodes = [];
+    this.children = this.childNodes;
+    this.parentNode = null;
+    this.style = {};
+    this.dataset = {};
+    this.attributes = {};
+    this.textContent = "";
+    this.innerHTML = "";
+    this.classList = { add: noop, remove: noop, contains: function () { return false; }, toggle: function () { return false; } };
+  };
+  Element.prototype.appendChild = function (child) { this.childNodes.push(child); child.parentNode = this; return child; };
+  Element.prototype.insertBefore = function (child) { return this.appendChild(child); };
+  Element.prototype.removeChild = function (child) {
+    var at = this.childNodes.indexOf(child);
+    if (at >= 0) this.childNodes.splice(at, 1);
+    child.parentNode = null;
+    return child;
+  };
+  Element.prototype.setAttribute = function (name, value) { this.attributes[name] = String(value); };
+  Element.prototype.getAttribute = function (name) { return Object.prototype.hasOwnProperty.call(this.attributes, name) ? this.attributes[name] : null; };
+  Element.prototype.hasAttribute = function (name) { return Object.prototype.hasOwnProperty.call(this.attributes, name); };
+  Element.prototype.removeAttribute = function (name) { delete this.attributes[name]; };
+  Element.prototype.addEventListener = noop;
+  Element.prototype.removeEventListener = noop;
+  Element.prototype.dispatchEvent = function () { return true; };
+  Element.prototype.getElementsByTagName = function () { return []; };
+  Element.prototype.querySelector = function () { return null; };
+  Element.prototype.querySelectorAll = function () { return []; };
+  Element.prototype.contains = function () { return false; };
+  Element.prototype.cloneNode = function () { return new Element(this.tagName); };
+  Element.prototype.canPlayType = function () { return ""; };
+  Element.prototype.getBoundingClientRect = function () { return { x: 0, y: 0, width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0 }; };
+  var root = new Element("html");
+  var head = root.appendChild(new Element("head"));
+  var body = root.appendChild(new Element("body"));
+  var origin = "https://appassets.androidplatform.net";
+  var location = {
+    href: href, protocol: "https:", host: "appassets.androidplatform.net", hostname: "appassets.androidplatform.net",
+    port: "", pathname: href.slice(origin.length), search: "", hash: "", origin: origin,
+    ancestorOrigins: { length: 1, 0: origin }, assign: noop, replace: noop, reload: noop,
+    toString: function () { return href; },
+  };
+  var document = {
+    nodeType: 9, location: location, URL: href, documentURI: href, baseURI: href, referrer: "", domain: "",
+    title: "", readyState: "complete", visibilityState: "visible", hidden: false, characterSet: "UTF-8",
+    contentType: "text/html", compatMode: "CSS1Compat", documentElement: root, head: head, body: body,
+    defaultView: g, currentScript: null,
+    createElement: function (tag) { return new Element(tag); },
+    createElementNS: function (ns, tag) { return new Element(tag); },
+    createTextNode: function (text) { return { nodeType: 3, data: String(text), textContent: String(text) }; },
+    createDocumentFragment: function () { return new Element("#document-fragment"); },
+    createEvent: function () { return { initEvent: noop }; },
+    getElementById: function () { return null; },
+    getElementsByTagName: function (tag) { tag = String(tag).toLowerCase(); return tag === "head" ? [head] : tag === "body" ? [body] : tag === "html" ? [root] : []; },
+    getElementsByClassName: function () { return []; },
+    querySelector: function () { return null; },
+    querySelectorAll: function () { return []; },
+    addEventListener: noop, removeEventListener: noop, dispatchEvent: function () { return true; },
+    hasFocus: function () { return false; },
+  };
+  Object.defineProperty(document, "cookie", { get: denied, set: denied, enumerable: true, configurable: true });
+  fixed("window", g);
+  fixed("document", document);
+  fixed("location", location);
+  fixed("top", g);
+  plain("self", g);
+  plain("parent", g);
+  plain("frames", g);
+  plain("origin", "null");
+  plain("isSecureContext", true);
+  plain("navigator", {
+    userAgent: "Mozilla/5.0 (Linux; Android 14; Pixel 7; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/131.0.0.0 Mobile Safari/537.36",
+    language: "en-US", languages: ["en-US", "en"], platform: "Linux armv8l", vendor: "Google Inc.",
+    cookieEnabled: false, onLine: true, hardwareConcurrency: 8, maxTouchPoints: 5, webdriver: false,
+  });
+  plain("screen", { width: 412, height: 915, availWidth: 412, availHeight: 915, colorDepth: 24, pixelDepth: 24 });
+  plain("devicePixelRatio", 2.625);
+  plain("innerWidth", 0);
+  plain("innerHeight", 0);
+  ["localStorage", "sessionStorage"].forEach(function (name) {
+    Object.defineProperty(g, name, { get: denied, enumerable: true, configurable: true });
+  });
+  plain("addEventListener", noop);
+  plain("removeEventListener", noop);
+  plain("dispatchEvent", function () { return true; });
+  plain("postMessage", noop);
+  plain("close", noop);
+  plain("setTimeout", function () { return 1; });
+  plain("clearTimeout", noop);
+  plain("setInterval", function () { return 1; });
+  plain("clearInterval", noop);
+  plain("requestAnimationFrame", function () { return 1; });
+  plain("cancelAnimationFrame", noop);
+  plain("queueMicrotask", noop);
+  plain("matchMedia", function () { return { matches: false, media: "", addListener: noop, removeListener: noop, addEventListener: noop, removeEventListener: noop }; });
+  plain("getComputedStyle", function () { return {}; });
+  plain("fetch", function () { return Promise.reject(new TypeError("Failed to fetch")); });
+  var Request = function XMLHttpRequest() { this.readyState = 0; };
+  Request.prototype.open = noop;
+  Request.prototype.send = noop;
+  Request.prototype.setRequestHeader = noop;
+  Request.prototype.abort = noop;
+  Request.prototype.addEventListener = noop;
+  plain("XMLHttpRequest", Request);
+  plain("Element", Element);
+  plain("HTMLElement", Element);
+}
+
+/** A bare context with the page-frame DOM stub, then the vendored parser (strategy E, N4). */
+export function pageContext(lib) {
+  const sandbox = vm.createContext({});
+  vm.runInContext(`(${pagePrelude.toString()})(this, ${JSON.stringify(PAGE_FRAME_URL)});`, sandbox);
+  vm.runInContext(lib, sandbox, { timeout: SOLVE_TIMEOUT_MS });
+  return sandbox;
+}
+
 /** The own core's preparation of [player]: counts and the failure class only. */
 export function prepareWithOwn({ lib, core }, player) {
   try {
@@ -186,11 +328,14 @@ export function prepareWithOwn({ lib, core }, player) {
   }
 }
 
-/** The own core on [player] through its contract (see the header); [extra] adds faults. */
+/**
+ * The own core on [player] through its contract (see the header); [extra] adds faults. With
+ * extra.page (N4, strategy E) it runs in the page-frame DOM stub and the core in page mode.
+ */
 export function solveWithOwn({ lib, core }, player, inputs, extra = {}) {
   let sandbox = null;
   try {
-    sandbox = ownContext(lib);
+    sandbox = extra.page ? pageContext(lib) : ownContext(lib);
     vm.runInContext(core, sandbox, { timeout: SOLVE_TIMEOUT_MS });
     sandbox.input = JSON.stringify({ player, n: inputs.n, sig: inputs.sig, ...extra });
     const output = JSON.parse(

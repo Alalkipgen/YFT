@@ -11,6 +11,8 @@
 //   node scripts/verify-own-solver.mjs --strategy B    # own core with strategy B alone (Phase 1.2 N3)
 //   ... --only <player> --variant <main|tce|es6|...> --verbose   # one file; B timings and stages
 //   ... --strategy B --hint                       # B ranked by P's answer (the ladder's use)
+//   ... --page                                    # strategy E (N4): the core in page mode in the
+//                                                 # harness's page-frame DOM stub (P, or B with --strategy B)
 //
 // Needs network access to www.youtube.com. Player text is cached under build/own-solver/players
 // (never committed) and checked against corpus.json's SHA-256 before use. Like
@@ -66,7 +68,12 @@ if (strategy !== undefined && strategy !== "P" && strategy !== "B") {
 const verbose = args.includes("--verbose");
 // B alone by default (no hint from P); --hint lets B rank by P's answer as the ladder may.
 const withHint = args.includes("--hint");
-const strategyExtra = strategy === "B" ? { strategy: "B", hint: withHint, ...(verbose ? { debug: true } : {}) } : {};
+// --page: strategy E on the computer (N4), the same solve in the page-frame DOM stub, page mode.
+const page = args.includes("--page");
+const strategyExtra = {
+  ...(strategy === "B" ? { strategy: "B", hint: withHint, ...(verbose ? { debug: true } : {}) } : {}),
+  ...(page ? { page: true } : {}),
+};
 
 async function download(player, variant) {
   const response = await fetch(playerUrl(player, variant), {
@@ -246,7 +253,9 @@ console.log(lines[lines.length - 1]);
 if (withFaults) {
   console.log(`faults: ${faultRuns} runs, wrong values ${faultWrong}, expected FAILs missed ${faultMissed}`);
 }
-mkdirSync(dirname(reportFile), { recursive: true });
-writeFileSync(reportFile, `${JSON.stringify({ ownBuilt: Boolean(own), results }, null, 2)}\n`);
+// Page-mode runs keep their own report, so a worker-mode run can go at the same time.
+const outFile = page ? reportFile.replace(/\.json$/, `${strategy === "B" ? "-b" : ""}-page.json`) : reportFile;
+mkdirSync(dirname(outFile), { recursive: true });
+writeFileSync(outFile, `${JSON.stringify({ ownBuilt: Boolean(own), page, results }, null, 2)}\n`);
 const faultsOk = !withFaults || (faultWrong === 0 && faultMissed === 0 && faultFiles === 0);
 process.exit(results.length > 0 && results.every(passes) && faultsOk ? 0 : 1);

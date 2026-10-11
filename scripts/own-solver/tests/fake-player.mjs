@@ -42,6 +42,8 @@ export function expectedN(input) {
  *   decoy     true: a second marked builder with different sig steps (a wrong candidate)
  *   throwing  true: a second marked builder that throws with its input in the message
  *   needsSelf true: the n scramble depends on a table read from `self` at the top level
+ *   needsDom  true: the n scramble depends on a value made with document.createElement at the top
+ *             level (a worker has no DOM: strategy E, the page environment)
  *   unmarked  true: no ("alr", "yes") marker and no call site (no candidates)
  *   constantN true: the n scramble returns the same value for every input
  *   driftAfter k: the n scramble changes after k calls (state corrupted during a run)
@@ -56,7 +58,9 @@ export function fakePlayer(options = {}) {
   const nOnBuild = o.nIn === "build" ? `!this.done&&this.q.n&&(this.q.n=nscr(this.q.n),this.done=!0);` : "";
   const shift = o.needsSelf
     ? "NQ.length-2"
-    : o.driftAfter !== undefined
+    : o.needsDom
+      ? "NQ.length"
+      : o.driftAfter !== undefined
       ? `((self.__fakeCalls=(self.__fakeCalls||0)+1)>${o.driftAfter}?4:3)`
       : "3";
   const sigSteps = o.sortSig
@@ -70,7 +74,7 @@ export function fakePlayer(options = {}) {
     "var T,K,A,NQ;",
     `T="alr;yes;${S};${G};url;s;split;join".split(";");`,
     `A="${ALPHABET}";`,
-    o.needsSelf ? "NQ=self.navigator.language;" : "NQ=\"en-US\";",
+    o.needsSelf ? "NQ=self.navigator.language;" : o.needsDom ? "NQ=window.document.createElement(\"div\").tagName;" : "NQ=\"en-US\";",
     "K={sw:function(a,b){var c=a[0];a[0]=a[b%a.length];a[b%a.length]=c},rv:function(a){a.reverse()},sp:function(a,b){a.splice(0,b)}};",
     "var dec=function(a){return decodeURIComponent(a)},enc=function(a){return encodeURIComponent(a)};",
   ];

@@ -15,6 +15,8 @@
  *   yftOwnSolver.prepare(playerText)      -> {ok: true, program, info} | {ok: false, failed}
  *   yftOwnSolver.run(prepared, request)   -> {n: {input: output}, sig: {...}, failed?, report}
  *   yftOwnSolve({player, n: [], sig: []}) -> prepare + run in one call
+ *   request.page === true (Phase 1.2 N4, strategy E): the same run in the app's sandboxed page
+ *   frame, on a real window whose own browser objects stay (see installEnvironment)
  *
  * Everything is synchronous and stays in this worker: no network, no cookies, no storage, no
  * host page. Reports and failure reasons name kinds, candidate indexes, counts and error classes
@@ -623,6 +625,9 @@ var yftOwnSolver = (function () {
   // ---------------------------------------------------------------------------------------------
   // G4 environment: browser-like globals, each an own property of this worker's global object,
   // so nothing reaches the host page. The page URL is a test URL; nothing navigates.
+  // Page mode (Phase 1.2 N4, strategy E: request.page in the app's sandboxed page frame) runs on a
+  // real window: its own browser objects stay (window, document, location and top cannot be
+  // redefined there) and only names it lacks are added.
 
   function makeLocation(href) {
     var match = /^(https?:)\/\/([^/?#]+)([^?#]*)(\?[^#]*)?(#.*)?$/.exec(href);
@@ -678,24 +683,47 @@ var yftOwnSolver = (function () {
     };
   }
 
-  function installEnvironment(scope, env, omit) {
+  // A page's own global (page mode keeps it); a getter that throws counts as present.
+  function pageHas(scope, name) {
+    try {
+      return typeof scope[name] !== "undefined";
+    } catch (ignored) {
+      return true;
+    }
+  }
+
+  // Worker mode defines exactly as before; page mode never fails on a name the window guards.
+  function defineGlobal(scope, name, descriptor, page) {
+    if (!page) {
+      Object.defineProperty(scope, name, descriptor);
+      return;
+    }
+    try {
+      Object.defineProperty(scope, name, descriptor);
+    } catch (ignored) {
+      // A real window's own property that cannot be redefined: it stays.
+    }
+  }
+
+  function installEnvironment(scope, env, omit, page) {
     var globals = environmentGlobals(scope, env);
     Object.keys(globals).forEach(function (name) {
       if (omit && omit.indexOf(name) >= 0) return;
-      Object.defineProperty(scope, name, {
+      if (page && pageHas(scope, name)) return;
+      defineGlobal(scope, name, {
         value: globals[name],
         writable: true,
         configurable: true,
         enumerable: true,
-      });
+      }, page);
     });
     if (typeof scope.XMLHttpRequest === "undefined" && !(omit && omit.indexOf("XMLHttpRequest") >= 0)) {
       // Read (never used) by some top-level tables; a stand-in without any network.
-      Object.defineProperty(scope, "XMLHttpRequest", {
+      defineGlobal(scope, "XMLHttpRequest", {
         value: function XMLHttpRequest() {},
         writable: true,
         configurable: true,
-      });
+      }, page);
     }
   }
 
@@ -705,7 +733,7 @@ var yftOwnSolver = (function () {
 
   function instantiate(prepared, request) {
     var faults = request.faults || {};
-    installEnvironment(globalScope(), request.env, faults.omit);
+    installEnvironment(globalScope(), request.env, faults.omit, request.page === true);
     var registry = { c: [], e: 0 };
     var factory;
     try {
@@ -1519,9 +1547,10 @@ var yftOwnSolver = (function () {
   function bInstantiate(prepared, request) {
     var scope = globalScope();
     var faults = request.faults || {};
-    installEnvironment(scope, request.env, faults.omit);
+    var page = request.page === true;
+    installEnvironment(scope, request.env, faults.omit, page);
     B_STUBS.forEach(function (name) {
-      Object.defineProperty(scope, name, { value: function () {}, writable: true, configurable: true, enumerable: false });
+      defineGlobal(scope, name, { value: function () {}, writable: true, configurable: true, enumerable: false }, page);
     });
     var registry = { c: [], e: 0, f: [], seen: Object.create(null), steps: 0, max: B_INIT_STEPS, closed: false, meta: prepared.meta || [], named: null };
     registry.r = function (fn, id) {

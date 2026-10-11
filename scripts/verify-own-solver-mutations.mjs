@@ -8,6 +8,8 @@
 //   node scripts/verify-own-solver-mutations.mjs --seeds 3
 //   node scripts/verify-own-solver-mutations.mjs --strategy P,B   # also strategy B alone (N3)
 //   node scripts/verify-own-solver-mutations.mjs --strategy B     # ejs and B alone only
+//   node scripts/verify-own-solver-mutations.mjs --class M9 --strategy P,B --page
+//                    # strategy E (N4): own P/B in page mode in the harness's page-frame DOM stub
 //
 // It mutates each cached player so the code is WRITTEN differently but DOES the same thing, then
 // measures how often ejs and the own solver's pattern strategy (P) — and, with --strategy B,
@@ -61,6 +63,10 @@ if (!strategies.length || strategies.some((x) => x !== "P" && x !== "B")) {
 }
 const withP = strategies.includes("P");
 const withB = strategies.includes("B");
+// --page (N4, strategy E): the own solves run in the page-frame DOM stub with the core in page
+// mode; ejs and the truth stay as they are (bare context).
+const page = flag("--page");
+const pageExtra = page ? { page: true } : {};
 const quickVariant = "phone";
 
 // ---- a V8 context with the vendored parser + code generator (used only to mutate the AST) ----
@@ -189,8 +195,8 @@ for (const file of files) {
       }
       if (!haveTruth) { note = "no-truth"; continue; }
       const ejsOut = solveWithEjs(ejs, mutated, inputs);
-      const ownOut = withP ? solveWithOwn(own, mutated, inputs) : null;
-      const bOut = withB ? solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false }) : null;
+      const ownOut = withP ? solveWithOwn(own, mutated, inputs, pageExtra) : null;
+      const bOut = withB ? solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false, ...pageExtra }) : null;
       await settle(); // releases the player's unhandled rejections (see harness.mjs)
       if (behaviourChanged(truth, ejsOut, ownOut ?? bOut, inputs)) { note = "behaviour-changed"; continue; }
       const ev = judge(truth, ejsOut, inputs);
@@ -225,8 +231,10 @@ for (const cls of classes) {
   lines.push(`${cls.padEnd(7)} |   ${f(b.ejs.survived)}/${f(b.ejs.safe)}/${f(b.ejs.wrong)}         |${withP ? cell(b.ownP) : ""}${withB ? cell(b.ownB) : ""} ${b.skipped}`);
 }
 lines.push("");
-lines.push(`${files.length} files x ${classes.length} classes x ${seeds} seed(s); wrong values: ${wrongTotal}`);
+lines.push(`${files.length} files x ${classes.length} classes x ${seeds} seed(s)${page ? " (own in page mode)" : ""}; wrong values: ${wrongTotal}`);
 console.log(lines.join("\n"));
 mkdirSync(dirname(reportFile), { recursive: true });
-writeFileSync(reportFile, JSON.stringify({ ...summary, strategies, wrongTotal }, null, 2));
+// Page-mode runs keep their own report, so a worker-mode run can go at the same time.
+const outFile = page ? reportFile.replace(/\.json$/, "-page.json") : reportFile;
+writeFileSync(outFile, JSON.stringify({ ...summary, strategies, page, wrongTotal }, null, 2));
 process.exit(wrongTotal > 0 ? 1 : 0);
