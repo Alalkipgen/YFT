@@ -20,6 +20,8 @@
   classify G1–G4/new → fix → full parity + `--faults` + JS tests → push, phone canary, ship).
 - ⏳ Owner: the phone canary and the live check with the opt-in APK (both flags on): YouTube rows
   equal main's on the parity URLs, no throttled rows, bot-check/age/private stay terminal (§4).
+- ✅ CI (S6, `ab42a22`): Master opt-in debug APK run `38102358850` — success (JS step incl. `worker` +
+  `canary` tests; APK built with the own solver on).
 
 ## Phase 1.1 — S5: own runner wiring (flag), cache, failure mapping
 
@@ -70,6 +72,8 @@
   OK; JS step 82/82; drift 107/0. The APK itself is built by CI (no NDK here).
 - ⚠️ Not checked here: the WebView engine on a real phone (no device in this environment) → the
   S6 phone canary and the owner's live check.
+- ✅ CI (S5, `ab42a22`, pushed together with S6): Master opt-in debug APK run `38102358850` —
+  success.
 
 ## Phase 1.1 — S4: G3 encoding checks + SelfCheck + fault injection
 

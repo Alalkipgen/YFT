@@ -93,8 +93,8 @@ Order inside the YouTube module (unchanged from R6):
 | S2 | Core: parse + G1 unwrap + G2 normalize/candidates | S1 | Medium–High | Done (`f0d7be4`) |
 | S3 | G4 environment + multiTry runner in the existing sandbox | S2 | Medium | Done (`ace7276`) |
 | S4 | G3 encoding + SelfCheck (agreement, vectors, probe) | S3 | Medium | Done (`00aa458`) |
-| S5 | `OwnPlayerScriptRunner` wiring (flag), cache, failure mapping | S4, R6 | Medium | Done |
-| S6 | Canary + update runbook | S5 | Low | Done (live phone check: owner) |
+| S5 | `OwnPlayerScriptRunner` wiring (flag), cache, failure mapping | S4, R6 | Medium | Done (`ab42a22`) |
+| S6 | Canary + update runbook | S5 | Low | Done (`ab42a22`; live phone check: owner) |
 
 ### S1 — Harness and corpus
 
