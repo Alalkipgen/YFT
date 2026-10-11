@@ -1,6 +1,6 @@
 # YFT Master Extractor backup
 
-## Phase 1.2 — N3 strategy B (behaviour) — N3 done
+## Phase 1.2 — N3 strategy B (behaviour) — N3 done (`52e1945`, CI 38164686967 ✅)
 
 - ✅ Strategy B in `own.solver.core.js` (reached only with request `strategy: "B"`; the app never
   sends it before N5, so P and the app are unchanged): every function is registered when the

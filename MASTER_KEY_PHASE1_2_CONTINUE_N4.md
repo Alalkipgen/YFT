@@ -23,7 +23,7 @@ OWNER: reports in Burmese, short, with ✅/❌. The owner has no computer, mobil
 
 STATE (verify against the repo; the repo wins)
 - Phase 1.1 S1-S6 done; N1 done (765e91f); N2 done (9e15101; the n rule stays PENDING, plan
-  section 2); N3 done (commit and CI run: plan section 3 board).
+  section 2); N3 done (commit 52e1945, CI run 38164686967 green).
 - Strategy B lives in extractor-master-android/src/main/assets/yft-own-solver/own.solver.core.js
   (B block before `function run(prepared`; exported prepareB/runB/progress + internals). A request
   reaches it only with strategy "B"; the app never sends that before N5, so P and the app are
