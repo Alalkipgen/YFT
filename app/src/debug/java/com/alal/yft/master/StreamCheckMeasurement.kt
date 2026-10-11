@@ -64,26 +64,47 @@ class StreamCheckMeasurement(private val context: Context) {
         val visitorData = VISITOR_DATA.find(page.body)?.groupValues?.get(1)
         val apiKey = API_KEY.find(page.body)?.groupValues?.get(1)
 
-        onStep("2/4 player request")
-        val answer = http.postJson(
-            "$ORIGIN/youtubei/v1/player?prettyPrint=false" + (apiKey?.let { "&key=$it" } ?: ""),
-            playerBody(video, clientVersion, visitorData, sts),
-            buildMap {
-                put("User-Agent", USER_AGENT)
-                put("Accept", "application/json")
-                put("Origin", ORIGIN)
-                put("Referer", "$ORIGIN/embed/$video")
-                put("X-YouTube-Client-Name", "56")
-                put("X-YouTube-Client-Version", clientVersion)
-                visitorData?.let { put("X-Goog-Visitor-Id", it) }
-            },
-        ).successOr("player request")
-        val response = runCatching { JSONObject(answer.body) }.getOrNull() ?: throw Failure("player answer is not JSON")
-        val playability = response.optJSONObject("playabilityStatus")?.optString("status").orEmpty()
-        if (playability != "OK") {
-            throw Failure("not playable for the embedded client: " + playability.filter(Char::isLetter).take(40))
+        // The embedded player first (no token, as in the YouTube module), then the mobile web
+        // client: on 2026-10-11 the embedded client answered ERROR for every video tried.
+        val tried = mutableListOf<String>()
+        var chosen: Pair<Client, Stream>? = null
+        for (client in CLIENTS) {
+            onStep("2/4 player request (${client.name})")
+            val answer = http.postJson(
+                "$ORIGIN/youtubei/v1/player?prettyPrint=false" + (apiKey?.let { "&key=$it" } ?: ""),
+                playerBody(client, video, clientVersion, visitorData, sts),
+                buildMap {
+                    put("User-Agent", client.userAgent)
+                    put("Accept", "application/json")
+                    put("Origin", ORIGIN)
+                    put("Referer", if (client.embedded) "$ORIGIN/embed/$video" else "$ORIGIN/watch?v=$video")
+                    put("X-YouTube-Client-Name", client.id.toString())
+                    put("X-YouTube-Client-Version", clientVersion)
+                    visitorData?.let { put("X-Goog-Visitor-Id", it) }
+                },
+            )
+            val response = (answer as? ExtractorHttpResult.Success)?.let { runCatching { JSONObject(it.body) }.getOrNull() }
+            if (response == null) {
+                val failure = answer as? ExtractorHttpResult.Failure
+                tried += "${client.name}: request ${failure?.reason ?: "not JSON"} ${failure?.statusCode ?: ""}".trim()
+                continue
+            }
+            val playability = response.optJSONObject("playabilityStatus")
+            val status = playability?.optString("status").orEmpty().filter(Char::isLetter).take(40)
+            if (status != "OK") {
+                tried += "${client.name}: $status ${clean(playability?.optString("reason").orEmpty())}".trim()
+                continue
+            }
+            val stream = pickStream(response)
+            if (stream == null) {
+                tried += "${client.name}: OK but no stream address of at least 1 MiB (SABR only?)"
+                continue
+            }
+            tried += "${client.name}: OK"
+            chosen = client to stream
+            break
         }
-        val stream = pickStream(response) ?: throw Failure("no adaptive video stream of at least 1 MiB")
+        val (client, stream) = chosen ?: throw Failure("no client gave a stream: " + tried.joinToString("; "))
 
         onStep("3/4 solving n and sig (ejs and own)")
         val challenges = buildList {
@@ -122,7 +143,7 @@ class StreamCheckMeasurement(private val context: Context) {
         val measured = LinkedHashMap<String, Read>()
         variants.forEachIndexed { index, (name, address) ->
             onStep("4/4 reading the stream ${index + 1}/${variants.size} ($name)")
-            measured[name] = read(media, address)
+            measured[name] = read(media, address, client.userAgent)
         }
         val reference = measured.getValue("right").millis.coerceAtLeast(1)
 
@@ -139,6 +160,8 @@ class StreamCheckMeasurement(private val context: Context) {
         val report = buildString {
             append("{\"measure\":\"stream-check\",\"video\":\"").append(video).append('"')
             append(",\"player\":\"").append(player).append('"')
+            append(",\"client\":\"").append(client.name).append('"')
+            append(",\"tried\":[").append(tried.joinToString(",") { "\"" + clean(it) + "\"" }).append(']')
             append(",\"itag\":").append(stream.itag)
             append(",\"hasN\":").append(stream.n != null)
             append(",\"hasSig\":").append(stream.s != null)
@@ -166,7 +189,7 @@ class StreamCheckMeasurement(private val context: Context) {
         return Outcome(report, rightOpened, if (rightOpened) nRule else "PENDING")
     }
 
-    private fun playerBody(video: String, clientVersion: String, visitorData: String?, sts: Int): String =
+    private fun playerBody(client: Client, video: String, clientVersion: String, visitorData: String?, sts: Int): String =
         JSONObject()
             .put(
                 "context",
@@ -174,14 +197,14 @@ class StreamCheckMeasurement(private val context: Context) {
                     .put(
                         "client",
                         JSONObject()
-                            .put("clientName", "WEB_EMBEDDED_PLAYER")
+                            .put("clientName", client.name)
                             .put("clientVersion", clientVersion)
                             .put("hl", "en")
                             .put("timeZone", "UTC")
                             .put("utcOffsetMinutes", 0)
                             .apply { visitorData?.let { put("visitorData", it) } },
                     )
-                    .put("thirdParty", JSONObject().put("embedUrl", EMBED_URL)),
+                    .apply { if (client.embedded) put("thirdParty", JSONObject().put("embedUrl", EMBED_URL)) },
             )
             .put("videoId", video)
             .put(
@@ -223,13 +246,13 @@ class StreamCheckMeasurement(private val context: Context) {
         return streams.sortedWith(compareBy<Stream>({ it.s == null }, { it.n == null }, { it.size })).firstOrNull()
     }
 
-    private suspend fun read(client: OkHttpClient, address: String): Read = withContext(Dispatchers.IO) {
+    private suspend fun read(client: OkHttpClient, address: String, userAgent: String): Read = withContext(Dispatchers.IO) {
         if (!isStreamHost(address)) throw Failure("only the stream host YouTube returned is asked")
         val started = SystemClock.elapsedRealtime()
         try {
             val request = Request.Builder()
                 .url(address)
-                .header("User-Agent", USER_AGENT)
+                .header("User-Agent", userAgent)
                 .header("Origin", ORIGIN)
                 .header("Referer", "$ORIGIN/")
                 .header("Range", "bytes=0-${MEASURE_BYTES - 1}")
@@ -320,6 +343,12 @@ class StreamCheckMeasurement(private val context: Context) {
 
     private class Read(val statusClass: String, val code: Int, val bytes: Long, val millis: Long)
 
+    private class Client(val name: String, val id: Int, val userAgent: String, val embedded: Boolean)
+
+    /** YouTube's short reasons and our own notes only: letters, digits and a few signs. */
+    private fun clean(text: String): String =
+        text.filter { it.isLetterOrDigit() || it in " .,:;()'-?" }.take(120)
+
     companion object {
         const val DEFAULT_VIDEO = "aqz-KE-bpKQ"
         private const val TAG = "YftStreamCheck"
@@ -334,6 +363,12 @@ class StreamCheckMeasurement(private val context: Context) {
         private const val BUFFER_BYTES = 64 * 1024
         private const val READ_TIMEOUT_SECONDS = 60L
         private const val SLOW_FACTOR = 3
+        private const val TABLET_USER_AGENT = "Mozilla/5.0 (iPad; CPU OS 16_7_10 like Mac OS X) " +
+            "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1,gzip(gfe)"
+        private val CLIENTS = listOf(
+            Client("WEB_EMBEDDED_PLAYER", 56, USER_AGENT, embedded = true),
+            Client("MWEB", 2, TABLET_USER_AGENT, embedded = false),
+        )
         val VIDEO_ID = Regex("[A-Za-z0-9_-]{11}")
         private val JS_URL = Regex("\"(?:jsUrl|PLAYER_JS_URL)\"\\s*:\\s*\"([^\"]{1,400})\"")
         private val PLAYER_IN_PATH = Regex("/s/player/([A-Za-z0-9_-]{4,32})/")

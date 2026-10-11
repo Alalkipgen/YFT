@@ -245,6 +245,13 @@ rules). Use the highest reasoning level for D3 and D5.
 - Order, budget (rule 7) and stop rules (rule 4) in `ClientLadder`.
 - **Done:** unit tests for each rule; no request after a stop; C13 shows the saving.
 
+> **Observation 2026-10-11 (Phase 1.2 N2, before D1):** from the computer and from the owner's
+> phone, WEB_EMBEDDED_PLAYER answered `ERROR` "This video is unavailable" for every video tried
+> (also with the embed page's own context); TVHTML5 answered `UNPLAYABLE` "The page needs to be
+> reloaded"; WEB answered OK but SABR only; MWEB answered OK with `signatureCipher` streams (token
+> need for its streams not yet measured). D1/D2 must re-check the no-token script clients before
+> relying on them; the R6 chain's embedded leg is affected too (VISIONOS first hides it).
+
 ### D4 — Row check (V) for ladder rows
 
 - If Phase 1.2 N2 is done, reuse its `StreamCheck`. Otherwise build `StreamCheck` exactly as the

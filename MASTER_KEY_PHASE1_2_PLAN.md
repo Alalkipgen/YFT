@@ -353,6 +353,15 @@ Plan adapted (N1 part 2–3):
     only when `yft.masterCapture` and `yft.ownSolver` are on, via the manifest placeholder
     `yftOwnerTools`; never in release or preview; starts only on a tap). The CI artifact also
     carries the test APK (`f5cff7b`).
+  - First owner run (2026-10-11): `not playable for the embedded client: ERROR`. Checked from
+    the computer too: **WEB_EMBEDDED_PLAYER answers `ERROR` "This video is unavailable" for every
+    video tried** (aqz-KE-bpKQ, jNQXAC9IVRw, dQw4w9WgXcQ; with and without `thirdParty`,
+    visitor data, the API key, a `1.x` version, or the embed page's own context with
+    `embeddedPlayerEncryptedContext`); TVHTML5 answers `UNPLAYABLE` "The page needs to be
+    reloaded"; WEB answers OK but without stream addresses (SABR only); **MWEB answers OK with
+    `signatureCipher` streams**. The tool now tries the embedded client, then MWEB, and reports
+    which client it used and each client's status and reason. Whether MWEB streams open without a
+    token is part of what the next run shows (`right` = 2xx or not).
 
 ### N3 — Strategy B
 

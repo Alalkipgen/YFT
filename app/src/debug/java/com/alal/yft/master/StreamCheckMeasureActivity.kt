@@ -38,7 +38,7 @@ class StreamCheckMeasureActivity : ComponentActivity() {
         val intro = TextView(this).apply {
             text = "YFT stream check (owner tool, debug build)\n\n" +
                 "Measures how YouTube answers one stream with the right n, an unchanged n, a wrong n " +
-                "and a wrong signature. Sends 1 page request, 1 player request, 2 player script " +
+                "and a wrong signature. Sends 1 page request, 1-2 player requests (embedded, then mobile web), 2 player script " +
                 "downloads and 5 stream reads of at most 1 MiB each (about 10-15 MB of data). " +
                 "The result holds no address and no value.\n\nVideo ID (public, embeddable):"
             textSize = 15f
@@ -113,5 +113,5 @@ class StreamCheckMeasureActivity : ComponentActivity() {
     /** Only letters, digits and a few signs: never an address or a value. */
     private fun errorReport(reason: String): String =
         "{\"measure\":\"stream-check\",\"error\":\"" +
-            reason.filter { it.isLetterOrDigit() || it in " :-_.()/;" }.take(200) + "\"}"
+            reason.filter { it.isLetterOrDigit() || it in " :-_.()/;," }.take(400) + "\"}"
 }
