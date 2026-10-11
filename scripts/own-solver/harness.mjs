@@ -25,6 +25,19 @@ export const VARIANTS = {
 };
 export const KINDS = ["n", "sig"];
 export const SOLVE_TIMEOUT_MS = 60_000;
+
+// Player code (B's probes call thousands of its functions) can leave rejected promises that
+// nobody handles. Node keeps each one, and through its error the whole player context, until
+// the event loop turns; the runners are synchronous for minutes, so the heap grew to its limit
+// (N3: the B fault run and the mutation suite stopped with "heap out of memory"). Such
+// rejections are player noise: they are ignored (never printed), and runners call settle()
+// between solves.
+process.on("unhandledRejection", () => {});
+
+/** Lets the event loop turn once, so Node drops the rejections kept since the last turn. */
+export function settle() {
+  return new Promise((resolve) => setImmediate(resolve));
+}
 const PLAYER_ID = /^[A-Za-z0-9_-]{4,32}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
 

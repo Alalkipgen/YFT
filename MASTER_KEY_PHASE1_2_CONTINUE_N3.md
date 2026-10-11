@@ -1,5 +1,8 @@
 # Master Key — Phase 1.2 continuation prompt (N3 in progress)
 
+> **N3 ပြီးပါပြီ (done).** ဆက်လုပ်ရန် `MASTER_KEY_PHASE1_2_CONTINUE_N4.md` ကို သုံးပါ။ ဒီ file ကို N3 လုပ်လက်စ
+> မှတ်တမ်းအဖြစ်သာ ထားပါတယ် (do not use it to start a session).
+
 **ရည်ရွယ်ချက်:** N3 (Strategy B) ကို လုပ်လက်စ (WIP) အဖြစ် push ထားပါတယ်။ Agent အသစ်က ဒီ prompt နဲ့ ဆက်လုပ်ပါ။
 - Agent chat အသစ်ထဲ အောက်က code block ကို paste လုပ်ပါ။ Reasoning Level အမြင့်ဆုံး သုံးပါ။
 - Task ပြီးတိုင်း push + မြန်မာလို report ပေးပြီး ရပ်ပါမယ်။ ဆက်ခိုင်းချင်ရင် "Next" လို့ ပြောပါ။

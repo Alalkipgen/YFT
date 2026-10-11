@@ -1005,6 +1005,8 @@ var yftOwnSolver = (function () {
   var B_MAX_FN_CHARS = 250000;
   var B_MAX_TEMPLATES = 6000;
   var B_MAX_TEMPLATES_PER_NAME = 96;
+  var B_MAX_BINDINGS = 4000;
+  var B_MAX_CHAINS = 400;
   var B_SLOW_MS = 25;
   var B_N_PROBES = ["Qx7rTb2LmNc9Pd4s", "Hk3VwZ8yAe1GfJ6uRq0", "aB0cD1eF2gH3iJ4kL5mN"];
   var B_FAILED_N = /^enhanced_except|_w8_/;
@@ -1093,60 +1095,257 @@ var yftOwnSolver = (function () {
     return null;
   }
 
-  function bConstant(node) {
-    if (node.type === "Literal" && typeof node.value === "number") return { value: node.value };
-    if (node.type === "UnaryExpression" && node.operator === "-" && node.argument.type === "Literal" && typeof node.argument.value === "number") {
-      return { value: -node.argument.value };
+  // A number from literals and the names in [env] (a dispatcher's bound keys and its constant
+  // locals): literals, unary - ~ +, and the integer operators dispatchers use for their keys.
+  function bConstant(node, env) {
+    if (!node) return null;
+    if (node.type === "Literal") return typeof node.value === "number" ? { value: node.value } : null;
+    if (node.type === "Identifier") return env && has.call(env, node.name) ? { value: env[node.name] } : null;
+    if (node.type === "UnaryExpression") {
+      var inner = bConstant(node.argument, env);
+      if (!inner) return null;
+      if (node.operator === "-") return { value: -inner.value };
+      if (node.operator === "~") return { value: ~inner.value };
+      if (node.operator === "+") return inner;
+      return null;
+    }
+    if (node.type === "BinaryExpression") {
+      var left = bConstant(node.left, env);
+      var right = left && bConstant(node.right, env);
+      if (!right) return null;
+      var l = left.value;
+      var r = right.value;
+      switch (node.operator) {
+        case "^": return { value: l ^ r };
+        case "|": return { value: l | r };
+        case "&": return { value: l & r };
+        case "<<": return { value: l << r };
+        case ">>": return { value: l >> r };
+        case ">>>": return { value: l >>> r };
+        case "+": return { value: l + r };
+        case "-": return { value: l - r };
+        case "*": return { value: Math.imul(l, r) };
+        default: return null;
+      }
     }
     return null;
   }
 
-  // Call shapes seen in the program: `f(6, 3439, x)` gives f the shape [6, 3439, <probe>]
-  // (dispatcher functions pick their job from constant arguments). Plain aliases
-  // (`var a = f`, `a = f`) lead to f's name.
+  // Names a function body changes (assignments, ++/--, for-in/of targets, repeated
+  // declarations), nested functions skipped: such a name never holds a constant key.
+  function bReassigned(fn) {
+    var changed = Object.create(null);
+    var declared = Object.create(null);
+    function target(node) {
+      if (!node) return;
+      if (node.type === "Identifier") changed[node.name] = true;
+      else if (node.type === "VariableDeclaration") node.declarations.forEach(function (d) { target(d.id); });
+      else if (node.type === "ArrayPattern") node.elements.forEach(target);
+      else if (node.type === "ObjectPattern") node.properties.forEach(function (p) { target(p.type === "RestElement" ? p.argument : p.value); });
+      else if (node.type === "AssignmentPattern") target(node.left);
+      else if (node.type === "RestElement") target(node.argument);
+    }
+    walk(fn.body, function (node) {
+      if (node !== fn.body && isFunctionNode(node)) return false;
+      if (node.type === "AssignmentExpression") target(node.left);
+      else if (node.type === "UpdateExpression") target(node.argument);
+      else if (node.type === "ForInStatement" || node.type === "ForOfStatement") target(node.left);
+      else if (node.type === "VariableDeclarator" && node.id.type === "Identifier") {
+        if (declared[node.id.name] || !node.init) changed[node.id.name] = true;
+        declared[node.id.name] = true;
+      }
+      return true;
+    });
+    return changed;
+  }
+
+  // Call shapes: `f(6, 120, x)` gives f the shape [6, 120, <probe>] (dispatcher functions pick
+  // their job from constant arguments). Plain aliases (`var a = f`, `a = f`) lead to f's name.
+  // Literal shapes are not enough when a dispatcher derives the keys it passes on: `d(F, w, a)`
+  // does `var v = w ^ F` and calls `e(v ^ 12, v ^ 34, a)`. So the keys are propagated
+  // statically (never run): each call with constant keys binds the callee's parameters, its
+  // constant locals are evaluated in order (nested functions skipped; a name the body changes is
+  // never constant), and every call inside with constant keys yields a shape (one hole) and/or a
+  // further binding (worklist, capped).
+  // Chains: when a shape's hole is itself a shape (`h(1, 2, k(3, 4, x))`, directly or through a
+  // local assigned once), the whole chain is one shape of the outer function, probed in order.
   function bTemplates(ast) {
     var aliases = Object.create(null);
-    var found = [];
-    walk(ast, function (node) {
+    var definitionsByName = Object.create(null);
+    var functions = [];
+    var scans = typeof Map === "function" ? new Map() : null;
+    var seeds = { calls: [], locals: null, changed: null };
+    function nameOf(node, parent, key) {
+      if (node.type === "FunctionDeclaration") return node.id ? node.id.name : null;
+      return parent ? bName(node, parent, key) : null;
+    }
+    // Per function body (nested functions apart): its calls in source order, and the locals
+    // assigned exactly once from a call (for chains through a local).
+    function local(scope, name, value) {
+      if (!scope.locals) return;
+      if (has.call(scope.locals, name) || scope.changed[name]) {
+        scope.changed[name] = true;
+        delete scope.locals[name];
+      } else if (value && value.type === "CallExpression") scope.locals[name] = value;
+      else scope.changed[name] = true;
+    }
+    // One walk: names, aliases, and each call and local under its innermost function.
+    var stack = [{ node: ast, parent: null, key: null, scope: seeds }];
+    while (stack.length) {
+      var item = stack.pop();
+      var node = item.node;
+      var scope = item.scope;
+      if (isFunctionNode(node)) {
+        functions.push(node);
+        scope = { calls: [], locals: Object.create(null), changed: Object.create(null) };
+        if (scans) scans.set(node, scope);
+        var defined = nameOf(node, item.parent, item.key);
+        if (defined && !definitionsByName[defined]) definitionsByName[defined] = node;
+      }
       if (node.type === "VariableDeclarator" && node.id.type === "Identifier" && node.init) {
         var target = bRef(node.init);
         if (target && target !== node.id.name) aliases[node.id.name] = target;
+        local(scope, node.id.name, node.init);
       } else if (node.type === "AssignmentExpression" && node.operator === "=") {
         var left = bRef(node.left);
         var right = bRef(node.right);
         if (left && right && left !== right) aliases[left] = right;
-      } else if (node.type === "CallExpression" && node.arguments.length >= 2 && node.arguments.length <= 3) {
-        var name = bRef(node.callee);
-        if (!name) return true;
-        var args = [];
-        var hole = -1;
-        for (var i = 0; i < node.arguments.length; i += 1) {
-          var constant = bConstant(node.arguments[i]);
-          if (constant) args.push(constant.value);
-          else if (hole < 0 && node.arguments[i].type !== "SpreadElement") {
-            hole = i;
-            args.push(null);
-          } else return true;
+        if (node.left.type === "Identifier") local(scope, node.left.name, node.right);
+      } else if (node.type === "UpdateExpression" && node.argument.type === "Identifier") {
+        if (scope.changed) {
+          scope.changed[node.argument.name] = true;
+          delete scope.locals[node.argument.name];
         }
-        if (hole >= 0) found.push({ name: name, args: args, hole: hole });
+      } else if (node.type === "CallExpression") {
+        scope.calls.push(node);
       }
-      return true;
-    });
+      var keys = CHILD_KEYS[node.type] || [];
+      for (var k = keys.length - 1; k >= 0; k -= 1) {
+        var child = node[keys[k]];
+        var list = Array.isArray(child) ? child : [child];
+        for (var c = list.length - 1; c >= 0; c -= 1) {
+          if (list[c] && typeof list[c].type === "string") stack.push({ node: list[c], parent: node, key: keys[k], scope: scope });
+        }
+      }
+    }
+    function resolve(name) {
+      for (var depth = 0; depth < 4 && aliases[name]; depth += 1) name = aliases[name];
+      return name;
+    }
     var byName = Object.create(null);
     var seen = Object.create(null);
     var total = 0;
-    found.forEach(function (template) {
-      var name = template.name;
-      for (var depth = 0; depth < 4 && aliases[name]; depth += 1) name = aliases[name];
-      var key = name + "(" + template.args.join(",") + ")";
+    var propagated = 0;
+    var chains = 0;
+    function add(name, key, template) {
       if (seen[key] || total >= B_MAX_TEMPLATES) return;
       var list = byName[name] || (byName[name] = []);
       if (list.length >= B_MAX_TEMPLATES_PER_NAME) return;
       seen[key] = true;
       total += 1;
-      list.push({ args: template.args, hole: template.hole });
+      list.push(template);
+    }
+    function stepKey(step) {
+      return step.name + "(" + step.args.join(",") + ")";
+    }
+    var bound = Object.create(null);
+    var queue = [];
+    function bind(name, constants) {
+      if (!definitionsByName[name] || queue.length >= B_MAX_BINDINGS) return;
+      var key = name + "|" + constants.join(",");
+      if (bound[key]) return;
+      bound[key] = true;
+      queue.push({ name: name, constants: constants });
+    }
+    // One call under [env] (null: literals only): its step when it has two or three arguments and
+    // exactly one is not constant ({ name, args, hole, inner: the non-constant argument }); a
+    // binding when two or more are constant.
+    function stepOf(call, env, binding) {
+      var name = bRef(call.callee);
+      if (!name) return null;
+      name = resolve(name);
+      var constants = [];
+      var holes = [];
+      var count = 0;
+      for (var i = 0; i < call.arguments.length; i += 1) {
+        var argument = call.arguments[i];
+        if (argument.type === "SpreadElement") return null;
+        var constant = bConstant(argument, env);
+        constants.push(constant ? constant.value : null);
+        if (constant) count += 1;
+        else holes.push(i);
+      }
+      if (binding && count >= 2) bind(name, constants);
+      if (call.arguments.length < 2 || call.arguments.length > 3 || holes.length !== 1) return null;
+      return { name: name, args: constants, hole: holes[0], inner: call.arguments[holes[0]] };
+    }
+    // The chain ending in [step]: inner steps first, up to four. Inner calls go into [consumed].
+    function chainOf(step, env, locals, consumed) {
+      var chain = [step];
+      var inner = step.inner;
+      while (chain.length < 4 && inner) {
+        if (inner.type === "Identifier" && locals && locals[inner.name]) inner = locals[inner.name];
+        if (inner.type !== "CallExpression") break;
+        var next = stepOf(inner, env, false);
+        if (!next) break;
+        consumed.push(inner);
+        chain.unshift(next);
+        inner = next.inner;
+      }
+      return chain;
+    }
+    // The calls of one function body: every step is a shape; a chain is a shape only when its
+    // outer call is not itself an inner part of a longer chain (that value is intermediate).
+    function visitCalls(calls, env, locals) {
+      var consumed = [];
+      var built = [];
+      calls.forEach(function (call) {
+        var step = stepOf(call, env, true);
+        if (!step) return;
+        if (env) propagated += 1;
+        add(step.name, stepKey(step), env ? { args: step.args, hole: step.hole, derived: true } : { args: step.args, hole: step.hole });
+        var chain = chainOf(step, env, locals, consumed);
+        if (chain.length > 1) built.push({ call: call, step: step, chain: chain });
+      });
+      built.forEach(function (entry) {
+        if (consumed.indexOf(entry.call) >= 0 || chains >= B_MAX_CHAINS) return;
+        chains += 1;
+        add(entry.step.name, entry.chain.map(stepKey).join(">"), {
+          args: entry.step.args,
+          hole: entry.step.hole,
+          chain: entry.chain.map(function (link) {
+            return { name: link.name, args: link.args, hole: link.hole };
+          }),
+        });
+      });
+    }
+    functions.forEach(function (fn) {
+      var found = scans ? scans.get(fn) : null;
+      if (found) visitCalls(found.calls, null, found.locals);
     });
-    return { byName: byName, total: total };
+    // Calls outside every function (the top level, e.g. arguments of the wrapper call).
+    visitCalls(seeds.calls, null, null);
+    for (var head = 0; head < queue.length; head += 1) {
+      var job = queue[head];
+      var fn = definitionsByName[job.name];
+      var changed = bReassigned(fn);
+      var env = Object.create(null);
+      for (var p = 0; p < fn.params.length && p < job.constants.length; p += 1) {
+        var param = fn.params[p];
+        if (param.type === "Identifier" && job.constants[p] !== null && !changed[param.name]) env[param.name] = job.constants[p];
+      }
+      var known = (scans && scans.get(fn)) || { calls: [], locals: null };
+      walk(fn.body, function (inner) {
+        if (inner !== fn.body && isFunctionNode(inner)) return false;
+        if (inner.type === "VariableDeclarator" && inner.id.type === "Identifier" && inner.init && !changed[inner.id.name] && !has.call(env, inner.id.name)) {
+          var local = bConstant(inner.init, env);
+          if (local) env[inner.id.name] = local.value;
+        }
+        return true;
+      });
+      visitCalls(known.calls, env, known.locals);
+    }
+    return { byName: byName, total: total, propagated: propagated, bindings: queue.length, chains: chains, aliases: aliases };
   }
 
   // Inserts are zero-length and applied by position. At one position closes come before opens,
@@ -1206,6 +1405,7 @@ var yftOwnSolver = (function () {
   // Names the stream-URL builders mention (P's two patterns, on B's statements): evidence for T1.
   function bBuilderNames(statements, source) {
     var names = Object.create(null);
+    var called = Object.create(null);
     try {
       var tables = stringTables(statements);
       var found = definitions(statements, source);
@@ -1222,13 +1422,27 @@ var yftOwnSolver = (function () {
             var text = bRef(node);
             if (text) names[text] = true;
           }
+          if (node.type === "CallExpression" && node.callee.type === "Identifier") called[node.callee.name] = true;
           return true;
         });
       });
     } catch (ignored) {
       // No evidence; ranking falls back to behaviour.
     }
-    return names;
+    return { names: names, called: called };
+  }
+
+  // The builder may call a function through a plain alias (`var a = f; ... a(x)`, mutation M5),
+  // so its evidence names `a`: a name the builder calls also marks what it stands for (up to 4
+  // links). Only called names: parameters and locals keep their own meaning.
+  function bAliasBuilders(builders, called, aliases) {
+    if (!aliases) return;
+    Object.keys(called).forEach(function (name) {
+      for (var depth = 0; depth < 4 && has.call(aliases, name); depth += 1) {
+        name = aliases[name];
+        builders[name] = true;
+      }
+    });
   }
 
   function bPrepare(playerText) {
@@ -1240,10 +1454,14 @@ var yftOwnSolver = (function () {
       ms.parse = t1 - t0;
       var instrumented = bInstrument(playerText, ast);
       var body = bBody(ast);
-      var builders = bBuilderNames(body.statements, playerText);
+      var evidence = bBuilderNames(body.statements, playerText);
+      var builders = evidence.names;
+      var tt = bNow();
+      ms.instrument = tt - t1;
       var templates = bTemplates(ast);
+      bAliasBuilders(builders, evidence.called, templates.aliases);
       var t2 = bNow();
-      ms.instrument = t2 - t1;
+      ms.templates = t2 - tt;
       var ast2;
       try {
         ast2 = meriyah.parse(instrumented.text, { ranges: true, webcompat: true });
@@ -1278,6 +1496,9 @@ var yftOwnSolver = (function () {
           wrapper: body.wrapper,
           functions: instrumented.meta.length,
           templates: templates.total,
+          propagated: templates.propagated,
+          bindings: templates.bindings,
+          chains: templates.chains,
           kept: program.kept,
           dropped: program.dropped,
           ms: ms,
@@ -1302,7 +1523,7 @@ var yftOwnSolver = (function () {
     B_STUBS.forEach(function (name) {
       Object.defineProperty(scope, name, { value: function () {}, writable: true, configurable: true, enumerable: false });
     });
-    var registry = { c: [], e: 0, f: [], seen: Object.create(null), steps: 0, max: B_INIT_STEPS, closed: false };
+    var registry = { c: [], e: 0, f: [], seen: Object.create(null), steps: 0, max: B_INIT_STEPS, closed: false, meta: prepared.meta || [], named: null };
     registry.r = function (fn, id) {
       if (!registry.closed && typeof fn === "function" && !registry.seen[id] && registry.f.length < B_MAX_FUNCTIONS) {
         registry.seen[id] = true;
@@ -1331,14 +1552,47 @@ var yftOwnSolver = (function () {
     return registry;
   }
 
-  // [shape]: null for f(input), else constant arguments with the input at [shape.hole].
+  // A shape for debug lines: dispatcher keys only ("_" is the probe), never an input or output.
+  function bShapeLabel(shape) {
+    function args(list) {
+      return list.map(function (a) { return a === null ? "_" : a; }).join(",");
+    }
+    if (!shape) return "-";
+    if (shape.chain) return "c:" + shape.chain.map(function (link) { return args(link.args); }).join(">");
+    return (shape.derived ? "d:" : "") + args(shape.args);
+  }
+
+  // A registered function by its (unique) name, for the inner links of a chain.
+  function bByName(registry, name) {
+    if (!registry.named) {
+      registry.named = Object.create(null);
+      registry.f.forEach(function (entry) {
+        var info = registry.meta[entry.id];
+        if (info && info.unique && info.name) registry.named[info.name] = entry.fn;
+      });
+    }
+    return has.call(registry.named, name) ? registry.named[name] : null;
+  }
+
+  // [shape]: null for f(input), else constant arguments with the input at [shape.hole]; a chain
+  // runs its links in order (each link's result is the next one's input, [fn] is the last link).
   function bCall(registry, fn, input, shape) {
     registry.steps = 0;
     registry.stepsUsed = 0;
     try {
       var value;
       if (!shape) value = fn(input);
-      else {
+      else if (shape.chain) {
+        value = input;
+        for (var i = 0; i < shape.chain.length; i += 1) {
+          var link = shape.chain[i];
+          var target = i === shape.chain.length - 1 ? fn : bByName(registry, link.name);
+          if (typeof target !== "function") return null;
+          var linkArgs = link.args.slice();
+          linkArgs[link.hole] = value;
+          value = target.apply(undefined, linkArgs);
+        }
+      } else {
         var args = shape.args.slice();
         args[shape.hole] = input;
         value = fn.apply(undefined, args);
@@ -1370,16 +1624,16 @@ var yftOwnSolver = (function () {
       return true;
     }
     for (var k = 0; k <= n - map.length; k += 1) {
-      if (every(function (from, j) { return from === j + k; })) return true;
-      if (every(function (from, j) { return from === n - 1 - j - k; })) return true;
+      if (every(function (from, j) { return from === j + k; })) return map.length === n ? "identity" : "cut";
+      if (every(function (from, j) { return from === n - 1 - j - k; })) return "reverse";
     }
     if (map.length === n) {
       for (var r = 1; r < n; r += 1) {
-        if (every(function (from, j) { return from === (j + r) % n; })) return true;
+        if (every(function (from, j) { return from === (j + r) % n; })) return "rotation";
       }
       var moved = 0;
       for (var m = 0; m < n; m += 1) if (map[m] !== m) moved += 1;
-      if (moved <= 2) return true;
+      if (moved <= 2) return "swap";
     }
     return false;
   }
@@ -1393,7 +1647,10 @@ var yftOwnSolver = (function () {
     }
     if (output === input.toUpperCase() || output === input.toLowerCase()) return true;
     try {
-      if (typeof btoa === "function" && output.indexOf(btoa(input).replace(/=+$/, "")) >= 0) return true;
+      if (typeof btoa === "function") {
+        var encoded = btoa(input).replace(/=+$/, "");
+        if (output.indexOf(encoded) >= 0 || output.indexOf(encoded.replace(/\+/g, "-").replace(/\//g, "_")) >= 0) return true;
+      }
     } catch (ignored) {
       // Not encodable.
     }
@@ -1407,14 +1664,19 @@ var yftOwnSolver = (function () {
 
   // Screening on one instance: a profile of one call shape's outputs ({ kind, outputs }), or the
   // class of the first rule it breaks ({ reject }).
-  function bProfile(registry, fn, shape) {
+  // [weakOk]: the function is named by the stream-URL builder code (T1 evidence #2).
+  function bProfile(registry, fn, shape, weakOk) {
     var map = bCall(registry, fn, SIG_MAP_PROBE, shape);
     if (map !== null && bIsSigMap(SIG_MAP_PROBE, map)) {
-      if (bTrivialMap(SIG_MAP_PROBE, map)) return { reject: "sig:trivial" };
+      var trivial = bTrivialMap(SIG_MAP_PROBE, map);
+      // A real sig can net to one swap (measured: 74edf1a3, its steps leave two positions
+      // changed), so a swap is kept as a weak candidate when the builder code names the
+      // function; weak candidates count only when no other sig candidate exists.
+      if (trivial && (trivial !== "swap" || !weakOk)) return { reject: "sig:trivial-" + trivial };
       var edge = bCall(registry, fn, SIG_EDGE_PROBE, shape);
       if (edge === null || edge !== applyIndexMap(SIG_MAP_PROBE, map, SIG_EDGE_PROBE)) return { reject: "sig:edge" };
       if (bCall(registry, fn, SIG_MAP_PROBE, shape) !== map) return { reject: "sig:unstable" };
-      return { kind: "sig", outputs: [map, edge], steps: registry.stepsUsed };
+      return { kind: "sig", outputs: [map, edge], steps: registry.stepsUsed, weak: !!trivial };
     }
     var outputs = [];
     for (var i = 0; i < B_N_PROBES.length; i += 1) {
@@ -1429,10 +1691,27 @@ var yftOwnSolver = (function () {
       if (outputs.indexOf(value) >= 0) return { reject: "n:repeat" + i };
       outputs.push(value);
     }
+    // The output length follows the input length (n works character by character): a hash has
+    // one length for every input and an encoding grows by a factor.
+    var shift = outputs[0].length - B_N_PROBES[0].length;
+    for (var j = 1; j < outputs.length; j += 1) {
+      if (outputs[j].length - B_N_PROBES[j].length !== shift) return { reject: "n:length-follow" };
+    }
     var first = B_N_PROBES[0];
-    var head = bCall(registry, fn, bChange(first, 0), shape);
-    var tail = bCall(registry, fn, bChange(first, first.length - 1), shape);
-    if (head === null || tail === null || head === outputs[0] || tail === outputs[0]) return { reject: "n:partial" };
+    // Not a streaming encoding: the output for the input's first characters is not the start of
+    // the whole output.
+    var prefix = bCall(registry, fn, first.slice(0, 12), shape);
+    if (prefix === null) return { reject: "n:prefix" };
+    if (prefix.length > 0 && outputs[0].indexOf(prefix) === 0) return { reject: "n:encoding" };
+    // It depends on most of the input: changing one character changes the output at least at
+    // half of the positions (measured: 11-16 of 16 for the real transforms).
+    var moved = 0;
+    for (var at = 0; at < first.length; at += 1) {
+      var changed = bCall(registry, fn, bChange(first, at), shape);
+      if (changed === null) return { reject: "n:partial" };
+      if (changed !== outputs[0]) moved += 1;
+    }
+    if (moved * 2 < first.length) return { reject: "n:partial" };
     if (bCall(registry, fn, first, shape) !== outputs[0]) return { reject: "n:unstable" };
     return { kind: "n", outputs: outputs, steps: registry.stepsUsed };
   }
@@ -1518,6 +1797,8 @@ var yftOwnSolver = (function () {
   // n outputs are distinct, sig keeps the probes' index map, vectors match, the first is stable.
   function bSolveKind(kind, group, registry, inputs, request) {
     var vectors = (request.vectors && request.vectors[kind]) || [];
+    // Fault S4 "raw-encoding": sig gets its input as it sits in a URL (not decoded).
+    var raw = kind === "sig" && request.faults && request.faults.rawEncoding;
     var probes = bProbesFor(kind);
     var all = [];
     probes.concat(vectors.map(function (vector) { return vector.input; })).concat(inputs).forEach(function (input) {
@@ -1533,7 +1814,7 @@ var yftOwnSolver = (function () {
       if (reason) return;
       var value = null;
       fns.forEach(function (member) {
-        var out = member.fn ? bCall(registry, member.fn, input, member.shape) : null;
+        var out = member.fn ? bCall(registry, member.fn, raw ? encodeURIComponent(input) : input, member.shape) : null;
         if (out === null) reason = reason || "missing";
         else if (value === null) value = out;
         else if (value !== out) reason = reason || "disagree";
@@ -1645,10 +1926,12 @@ var yftOwnSolver = (function () {
         var s0 = bNow();
         output.report.screened = screened;
         output.report.current = [entry.id, params, s0 - t1];
-        var why = request.debug && info.builder && info.unique ? [] : null;
+        var derivedShapes = false;
+        for (var ds = 0; ds < shapes.length; ds += 1) if (shapes[ds] && shapes[ds].derived) derivedShapes = true;
+        var why = request.debug && info.unique && (info.builder || derivedShapes) ? [] : null;
         for (var sh = 0; sh < shapes.length; sh += 1) {
           shapesTried += 1;
-          var profile = bProfile(registry, entry.fn, shapes[sh]);
+          var profile = bProfile(registry, entry.fn, shapes[sh], !!info.builder);
           if (profile.kind) {
             found[profile.kind].push({
               id: entry.id,
@@ -1657,9 +1940,10 @@ var yftOwnSolver = (function () {
               outputs: profile.outputs,
               shape: shapes[sh],
               steps: profile.steps,
+              weak: !!profile.weak,
             });
           }
-          if (why && why.length < 6) why.push((shapes[sh] ? shapes[sh].args.join(",") : "-") + "=" + (profile.kind || profile.reject));
+          if (why && why.length < 8) why.push(bShapeLabel(shapes[sh]) + "=" + (profile.kind || profile.reject));
         }
         if (why) {
           output.debug = output.debug || {};
@@ -1695,9 +1979,30 @@ var yftOwnSolver = (function () {
           return bConfirm(prepared, request, candidate);
         });
         ms["confirm_" + kind] = bNow() - c0;
+        // Fault S4 "decoy": one more confirmed candidate with other outputs (it must make the
+        // kind fail, never win).
+        if (request.faults && request.faults.decoy === kind && confirmed.length) {
+          confirmed.push({
+            id: -1,
+            order: registry.f.length,
+            kind: kind,
+            outputs: confirmed[0].outputs.map(function (value) {
+              return value.split("").reverse().join("");
+            }),
+            shape: null,
+            steps: 0,
+            weak: confirmed[0].weak,
+          });
+        }
+        var strong = confirmed.filter(function (candidate) {
+          return !candidate.weak;
+        });
+        var weakOnly = !strong.length && confirmed.length > 0;
+        if (!weakOnly) confirmed = strong;
         var hintOutputs = bHintOutputs(request.pHint, kind);
         var grouped = bGroups(confirmed, meta, hintOutputs);
         var kindReport = { shortlisted: found[kind].length, confirmed: confirmed.length, groups: grouped.total, hint: !!hintOutputs };
+        if (weakOnly) kindReport.weak = true;
         output.report[kind] = kindReport;
         if (request.debug) {
           // Local diagnosis only (the harness's --verbose): each group's answers and members.
@@ -1712,7 +2017,7 @@ var yftOwnSolver = (function () {
               answers: answer.answers,
               members: group.members.slice(0, 4).map(function (member) {
                 var info = meta[member.id] || {};
-                return [member.id, info.name || "?", info.size || 0, member.shape ? member.shape.args.join(",") : "-"];
+                return [member.id, info.name || "?", info.size || 0, bShapeLabel(member.shape)];
               }),
               size: group.members.length,
             };
@@ -1788,7 +2093,8 @@ var yftOwnSolver = (function () {
       bProgressReport = { version: VERSION, strategy: "B", stage: "prepare" };
       var preparedB = bPrepare(request.player);
       if (!preparedB.ok) return { n: {}, sig: {}, failed: preparedB.failed, report: { version: VERSION, strategy: "B" } };
-      request.pHint = bPHint(request.player);
+      // B alone (request.hint === false) never runs P; the ladder may pass the hint on.
+      request.pHint = request.hint === false ? null : bPHint(request.player);
       return bRun(preparedB, request);
     }
     var prepared = prepare(request.player);

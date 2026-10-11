@@ -1,5 +1,7 @@
 # Master Key — Phase 1.2 continuation prompt (after N1 and N2)
 
+> **N3 ပြီးပါပြီ (done).** N4 ကနေ ဆက်လုပ်ရန် `MASTER_KEY_PHASE1_2_CONTINUE_N4.md` ကို သုံးပါ။
+
 **ရည်ရွယ်ချက်:** Phase 1.2 ကို agent အသစ်တစ်ယောက်က ဆက်လုပ်ဖို့ prompt ပါ။ N1 (mutation class 14 ခုနဲ့ file 32 ခုလုံးရဲ့
 baseline) နဲ့ N2 (YouTube နဲ့ စစ်တဲ့ `StreamCheck`) ပြီးပါပြီ။ ကျန်တာက N3–N7 ပါ။ N2 ရဲ့ ဖုန်းတိုင်းတာမှု
 (`bash scripts/stream-check-measure.sh`) ကို owner က တစ်ခါ run ပေးဖို့ ကျန်ပါတယ်။

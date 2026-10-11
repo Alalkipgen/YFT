@@ -1,5 +1,53 @@
 # YFT Master Extractor backup
 
+## Phase 1.2 — N3 strategy B (behaviour) — N3 done
+
+- ✅ Strategy B in `own.solver.core.js` (reached only with request `strategy: "B"`; the app never
+  sends it before N5, so P and the app are unchanged): every function is registered when the
+  player creates it, probed on one instance (screen), re-checked on fresh instances (T2),
+  classified, grouped and ranked (T1), then SelfCheck as in Phase 1.1.
+- ✅ Probe by call shape + static key propagation: the real n transform is a dispatcher branch
+  (e.g. `Gn(17,369,_)`, reached only through `v = w ^ F` keys), so constant arguments bind the
+  callee's parameters, locals set once from constants are evaluated, a reassigned name is never a
+  constant (this bug had hidden one player's n), and chains through nested calls or locals set
+  once (≤ 4 links) are one shape. AST only; plan §2 "Plan adapted (N3)".
+- ✅ Classifier rules from data (all 32 files): n output length follows the input, not an
+  encoding, at least half of 16 single-character changes alter it; trivial sig maps (identity,
+  cut, reverse, rotation, swap) refused; a single swap only as a weak candidate with builder
+  evidence (needed by `74edf1a3`; a name the builder calls through a plain alias counts, found
+  by the first mutation run: M5 on `74edf1a3`) and only when nothing strong is confirmed.
+- ✅ `hint: false` in the request switches P's hint off; "B alone" runs use it.
+- ✅ Harness: `node scripts/verify-own-solver.mjs --strategy B` (B alone; `--hint` ranks by P;
+  `--verbose` shows shapes, key bindings, chains and the builder trace); mutation runner
+  `--strategy P|B|P,B` (column "own B"). `--faults` runs the Phase 1.1 set (10 per file) on B
+  too; B has its own hooks for the decoy (one more confirmed candidate with other outputs must
+  end in `disagree`) and the raw encoding (SelfCheck must refuse).
+- ✅ Harness memory fix: player code run by B's probes leaves rejected promises nobody handles;
+  Node keeps each one (and with it the whole player context) until the event loop turns, so the
+  long synchronous runs hit the 2 GB heap limit (the first B fault run and mutation run stopped).
+  The runners now let the event loop turn after every solve (`settle()` in `harness.mjs`); the
+  rejections are ignored, never printed.
+- ✅ Corpus: B alone 32/32 files, own = ejs on 260/260 inputs, exactly one n group and one sig
+  group per file, wrong 0. P unchanged: 32/32, 260/260. Faults (320 runs each): P 0 wrong /
+  0 missed; B 0 wrong / 0 missed.
+- ✅ Mutation suite (448 cases, 0 skipped, **wrong = 0**), files survived of 32, ejs | own P |
+  own B alone: M1, M1w, M2, M4, M8, M10, M11, M11f 32 | 32 | 32 · **M3 0 | 0 | 32** · M5
+  24 | 32 | 32 · M6 0 | 32 | 32 · **M7 11 | 31 | 32** · M8t 0 | 32 | 32 · M9 0 | 32 | 32. All:
+  ejs 291 (65 %), own P 415 (93 %), **own B alone 448 (100 %)**; B fixes P's only failures (M3,
+  M7 on 5203c085 es6). Plan §4.
+- ✅ Tests: `core-strategy-b.test.mjs` (11, fake players): known wrappers, an M3-style rewrap
+  (P fails, B answers), hash/hex decoys dropped, a second n-like function → `disagree`, trivial
+  maps and a reverse/swap-only player → no candidates, a non-deterministic function, a looping
+  function, dispatcher keys `dsp(5,98,_)` + the reassigned-local guard, a sig chain, a one-swap
+  sig only with builder evidence (also through an M5 alias), no values in the report. In the CI
+  JS step; locally 140/140.
+- Speed (computer, 5203c085 main): first B run ≈ 5 s (prepare ≈ 2–2.5 s, screen ≈ 2 s,
+  confirm ≈ 0.3 s); budgets in plan §3 N3. Phone: measured in N5/N7 (target ≤ 10 s).
+- Risks: phone time not measured yet; the weak sig tier depends on builder evidence; a new
+  player shape may need a new shape form (the mutation suite and the canary watch for it).
+- ⏭ Next: N4 (strategy E, isolated page environment). Continuation prompt for a new agent:
+  `MASTER_KEY_PHASE1_2_CONTINUE_N4.md`.
+
 ## Phase 1.2 — N2 live check V (`9e15101`, CI 38117539688 ✅; phone measurement pending)
 
 - ✅ `StreamCheck` (`extractor-master/.../modules/youtube/StreamCheck.kt`): asks YouTube whether

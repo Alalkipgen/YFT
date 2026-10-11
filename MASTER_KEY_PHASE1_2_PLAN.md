@@ -170,6 +170,34 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
   - The same rule applies to n, where decoys are rarer (the n transform is large and specific).
 - **Remember:** the winning function's creation order and source hash go into the locator cache.
   The next lookup on the same player version calls it directly.
+- **Plan adapted (N3, from the 32 corpus files):**
+  - **Probe by call shape.** The real n transform is often one branch of a dispatcher
+    (`Gn(17,369,n)`: one function, many behaviours chosen by constant keys), so probing each
+    function alone is not enough. Each function with 1–3 parameters is probed plain, and a
+    function the player calls with constant arguments is also probed in that call shape: constant
+    arguments and one hole (`rb(6,3439,_)`), found by AST only. Keys are propagated: a call with ≥ 2 constant arguments binds the callee's
+    parameters; in the callee body (nested functions skipped) locals set once from constants
+    (`var v = w ^ F`) and expressions of literals, known names, unary `- ~ +` and
+    `^ | & << >> >>> + - *` are evaluated; a name that is assigned again anywhere in the body is
+    never a constant. Chains (`a(5, b(9, _))`, or through a local set once, ≤ 4 links) are one
+    shape.
+  - **n rules (measured on all 32 files):** besides the rules above, the output length follows
+    the input length (the same shift for all 3 probes; hashes and hex/base64 encodings fail), the
+    output for the input's first 12 characters is not a prefix of the output for the whole input
+    (encodings fail), and at least half of 16 single-character changes alter the output. That replaces "depends on the
+    whole input": real transforms change for 11–16 of 16 positions.
+  - **sig weak tier:** on one player (`74edf1a3`) the real sig nets out to a single swap at the
+    probe length. A single-swap map is kept only as a weak candidate, only when the function is
+    named by the stream-URL builder code (a name the builder calls through a plain alias counts,
+    M5), and weak candidates count only when no strong one is confirmed. Identity, cut, reverse
+    and rotation never count.
+  - **Evidence:** "builder" = names found by P's two builder patterns (AST; evidence only, never
+    a decision). Score: P's hint +1000000, builder +1000, composed (loop steps) +100, one
+    parameter +10; creation order only breaks ties (earlier first).
+  - **P's hint is optional:** a request with `hint: false` switches it off. "B alone" in the
+    corpus and mutation runs is measured with it off; the ladder (N5) may use it.
+  - **Skipped:** the whole-program wrapper and functions over 250k characters (re-running the
+    wrapper as a probe hung > 60 s).
 
 ### Live check V in more detail
 
@@ -214,7 +242,7 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 |---|---|---|---|---|
 | N1 | Change simulator: mutation suite + baseline (ejs vs own P) | Phase 1.1 | Medium–High | Done (`765e91f`) |
 | N2 | Live check V (+ measure the n behaviour on the owner's phone) | Phase 1.1 S5 | Medium | Done (`9e15101`; measurement pending) |
-| N3 | Strategy B: register, probe, classify (core + harness) | N1 | High | In progress (WIP; see MASTER_KEY_PHASE1_2_CONTINUE_N3.md) |
+| N3 | Strategy B: register, probe, classify (core + harness) | N1 | High | Done |
 | N4 | Strategy E: isolated page environment | N3 | Medium–High | TODO |
 | N5 | Ladder, locator cache, flag wiring | N2, N3 | Medium | TODO |
 | N6 | Canary workflow (computer) | N1, N3 | Low–Medium | TODO |
@@ -388,6 +416,15 @@ Plan adapted (N1 part 2–3):
   - On the mutation suite B survives clearly more cases than P (target in §4), with wrong = 0.
   - JS tests for each classifier rule with fake players: a decoy, a trivial transform, a
     non-deterministic function and a looping function.
+- **Budgets (measured on the computer, 2026-10-11; the phone is measured in N5/N7):**
+  - Limits: init 50M loop steps; 400k steps per probe call; screen ≤ 40 s (then `budget`, safe);
+    ≤ 20000 functions; shapes ≤ 6000 (≤ 96 per name), key bindings ≤ 4000, chains ≤ 400;
+    ≤ 3 groups per kind.
+  - Time on 5203c085 main (`--strategy B --verbose`): prepare ≈ 2–2.5 s (parse 0.5–0.7,
+    instrument 0.6–0.9, shapes 0.5, reparse 0.5), instantiate 0.2 s, screen ≈ 2 s, confirm
+    n 0.2 s + sig 0.05 s, SelfCheck 0.02 s: **first B run ≈ 5 s** on the computer (phone target
+    ≤ 10 s). About 12.4k functions registered, 7.1k screened, 7.6k probes, ~800 call shapes (~200
+    from propagated keys, ~30 chains); 4–5 functions stop at the step limit (worst ≈ 1 s).
 
 ### N4 — Strategy E
 
@@ -446,23 +483,23 @@ Plan adapted (N1 part 2–3):
 
 Baseline (filled by N1; later columns by N3–N5):
 
-| Class | ejs | own P | own ladder (offline) | own ladder (+ simulated V) |
-|---|---|---|---|---|
-| M1 | 32/32 | 32/32 | — | — |
-| M1w | 32/32 | 32/32 | — | — |
-| M2 (member access part) | 32/32 | 32/32 | — | — |
-| M3 | 0/32 (safe) | 0/32 (safe) | — | — |
-| M4 | 32/32 | 32/32 | — | — |
-| M5 | 24/32 (8 safe) | 32/32 | — | — |
-| M6 | 0/32 (safe) | 32/32 | — | — |
-| M7 | 11/32 (21 safe) | 31/32 (1 safe) | — | — |
-| M8 | 32/32 | 32/32 | — | — |
-| M8t | 0/32 (safe) | 32/32 | — | — |
-| M9 | 0/32 (safe) | 32/32 | — | — |
-| M10 | 32/32 | 32/32 | — | — |
-| M11 | 32/32 | 32/32 | — | — |
-| M11f | 32/32 | 32/32 | — | — |
-| **all 448 cases** | **291 (65 %)** | **415 (93 %)** | — | — |
+| Class | ejs | own P | own B alone (N3) | own ladder (offline) | own ladder (+ simulated V) |
+|---|---|---|---|---|---|
+| M1 | 32/32 | 32/32 | 32/32 | — | — |
+| M1w | 32/32 | 32/32 | 32/32 | — | — |
+| M2 (member access part) | 32/32 | 32/32 | 32/32 | — | — |
+| M3 | 0/32 (safe) | 0/32 (safe) | 32/32 | — | — |
+| M4 | 32/32 | 32/32 | 32/32 | — | — |
+| M5 | 24/32 (8 safe) | 32/32 | 32/32 | — | — |
+| M6 | 0/32 (safe) | 32/32 | 32/32 | — | — |
+| M7 | 11/32 (21 safe) | 31/32 (1 safe) | 32/32 | — | — |
+| M8 | 32/32 | 32/32 | 32/32 | — | — |
+| M8t | 0/32 (safe) | 32/32 | 32/32 | — | — |
+| M9 | 0/32 (safe) | 32/32 | 32/32 | — | — |
+| M10 | 32/32 | 32/32 | 32/32 | — | — |
+| M11 | 32/32 | 32/32 | 32/32 | — | — |
+| M11f | 32/32 | 32/32 | 32/32 | — | — |
+| **all 448 cases** | **291 (65 %)** | **415 (93 %)** | **448 (100 %)** | — | — |
 
 Baseline (N1 done, 2026-10-11): all 32 corpus files (8 players × main/tce/es6/phone) × 14 classes
 = 448 judged cases; survived / files, the rest failed safely; **wrong = 0** in every case, 0
@@ -477,6 +514,11 @@ Reading:
 - Survival over M1–M9 (incl. M1w and M8t; 11 classes, 352 cases): ejs 195 (55 %), own P 319
   (91 %). The targets above stay (own ladder ≥ 80 % offline, ≥ 95 % with simulated V); M3 alone
   is 32 cases (9 %), so the 95 % target needs B to fix M3.
+
+N3 (2026-10-11, `node scripts/verify-own-solver-mutations.mjs --strategy P,B`): **B alone** (P's
+hint off) survives all 448 cases (M1–M9: 352/352), 0 skipped, **wrong = 0**; ejs and own P are
+unchanged from the baseline. B fixes the new wrapper (M3, 32 files) and own P's M7 failure. The
+ladder columns are N5's (P first, then B, each verified).
 
 ## 5. Risks
 

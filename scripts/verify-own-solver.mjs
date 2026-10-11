@@ -10,6 +10,7 @@
 //   node scripts/verify-own-solver.mjs --faults        # also inject faults (S4): never a wrong value
 //   node scripts/verify-own-solver.mjs --strategy B    # own core with strategy B alone (Phase 1.2 N3)
 //   ... --only <player> --variant <main|tce|es6|...> --verbose   # one file; B timings and stages
+//   ... --strategy B --hint                       # B ranked by P's answer (the ladder's use)
 //
 // Needs network access to www.youtube.com. Player text is cached under build/own-solver/players
 // (never committed) and checked against corpus.json's SHA-256 before use. Like
@@ -34,6 +35,7 @@ import {
   FAULTS,
   faultVerdict,
   prepareWithOwn,
+  settle,
 } from "./own-solver/harness.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -62,7 +64,9 @@ if (strategy !== undefined && strategy !== "P" && strategy !== "B") {
   process.exit(2);
 }
 const verbose = args.includes("--verbose");
-const strategyExtra = strategy === "B" ? { strategy: "B", ...(verbose ? { debug: true } : {}) } : {};
+// B alone by default (no hint from P); --hint lets B rank by P's answer as the ladder may.
+const withHint = args.includes("--hint");
+const strategyExtra = strategy === "B" ? { strategy: "B", hint: withHint, ...(verbose ? { debug: true } : {}) } : {};
 
 async function download(player, variant) {
   const response = await fetch(playerUrl(player, variant), {
@@ -180,12 +184,17 @@ for (const entry of corpus.players) {
       continue;
     }
     const ejsOut = solveWithEjs(ejs, fetched.text, plan.inputs);
+    await settle();
     const ownOut = own ? solveWithOwn(own, fetched.text, plan.inputs, strategyExtra) : null;
+    await settle();
     const result = { player: entry.player, variant, status: "ok", ...compare(plan, ejsOut, ownOut) };
     if (own && withFaults) {
-      result.faults = FAULTS.map((fault) =>
-        faultVerdict(fault, ejsOut, solveWithOwn(own, fetched.text, plan.inputs, { ...strategyExtra, faults: fault.faults })),
-      );
+      result.faults = [];
+      for (const fault of FAULTS) {
+        const faulted = solveWithOwn(own, fetched.text, plan.inputs, { ...strategyExtra, faults: fault.faults });
+        result.faults.push(faultVerdict(fault, ejsOut, faulted));
+        await settle();
+      }
       faultRuns += result.faults.length;
       faultWrong += result.faults.reduce((sum, verdict) => sum + verdict.wrong, 0);
       faultMissed += result.faults.filter((verdict) => verdict.detected === false).length;
@@ -205,10 +214,10 @@ for (const entry of corpus.players) {
       if (verbose) {
         line += ` | stage ${r.stage ?? "?"} current ${JSON.stringify(r.current ?? null)}` +
           ` | ms prepare ${JSON.stringify(r.prepare?.ms ?? {})} run ${JSON.stringify(r.ms ?? {})}` +
-          ` | slow ${r.slow ?? "?"} ${JSON.stringify(r.slowest ?? [])} | shapes ${r.shapes ?? "?"}, templates ${r.prepare?.templates ?? "?"}`;
+          ` | slow ${r.slow ?? "?"} ${JSON.stringify(r.slowest ?? [])} | shapes ${r.shapes ?? "?"}, templates ${r.prepare?.templates ?? "?"} (propagated ${r.prepare?.propagated ?? "?"}, bindings ${r.prepare?.bindings ?? "?"}, chains ${r.prepare?.chains ?? "?"})`;
         (ownOut.debug?.builders ?? [])
           .sort((a, b) => b[2] - a[2])
-          .slice(0, 30)
+          .slice(0, 60)
           .forEach((b) => {
             line += `\n    builder-named fn ${JSON.stringify(b)}`;
           });
