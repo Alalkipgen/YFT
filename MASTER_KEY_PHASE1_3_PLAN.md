@@ -251,6 +251,8 @@ rules). Use the highest reasoning level for D3 and D5.
 > reloaded"; WEB answered OK but SABR only; MWEB answered OK with `signatureCipher` streams (token
 > need for its streams not yet measured). D1/D2 must re-check the no-token script clients before
 > relying on them; the R6 chain's embedded leg is affected too (VISIONOS first hides it).
+> Adding the TV client (with the TV page's own version) to the N2 tool was stopped twice by the
+> automated safety review, so D2 must agree with the owner how TV may be used before starting.
 
 ### D4 — Row check (V) for ladder rows
 

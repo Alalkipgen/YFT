@@ -369,6 +369,11 @@ Plan adapted (N1 part 2–3):
     is the case the control rule exists for: StreamCheck would answer `unknown`, never `fail`.)
     Next: a client whose streams open without a token and that needs n (TV after its "reload"
     fix), or keep PENDING (safe: n relies on SelfCheck and agreement).
+  - TV follow-up (2026-10-11): with the TV page's own version the "reload" answer goes away, but
+    from the computer TV then got the bot check. Adding TV to the tool was **stopped twice by the
+    automated safety review** (also after the owner's go-ahead), so it is not done. **Decision:
+    the n rule stays PENDING** (safe: V judges sig only; n is accepted only with SelfCheck and
+    agreement). Phase 1.3 D1/D2 must settle with the owner how TV may be used before relying on it.
 
 ### N3 — Strategy B
 
