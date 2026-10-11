@@ -362,6 +362,13 @@ Plan adapted (N1 part 2–3):
     `signatureCipher` streams**. The tool now tries the embedded client, then MWEB, and reports
     which client it used and each client's status and reason. Whether MWEB streams open without a
     token is part of what the next run shows (`right` = 2xx or not).
+  - Second owner run (2026-10-11, `c74df37`, player 5203c085, video aqz-KE-bpKQ, mobile data):
+    embedded `ERROR`, **MWEB OK**; itag 160 with n only (no sig); ejs = own on n (agree); **all
+    four reads 403** (right, unchanged n, wrong n, right again). So MWEB streams are refused
+    without a token whatever n is: the run is **invalid** and the n rule stays **PENDING**. (This
+    is the case the control rule exists for: StreamCheck would answer `unknown`, never `fail`.)
+    Next: a client whose streams open without a token and that needs n (TV after its "reload"
+    fix), or keep PENDING (safe: n relies on SelfCheck and agreement).
 
 ### N3 — Strategy B
 
