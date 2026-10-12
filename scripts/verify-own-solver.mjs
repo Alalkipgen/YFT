@@ -98,10 +98,12 @@ if (withLadder && (strategy || page || withInit)) {
   console.error("--ladder runs every strategy and reports init errors itself; drop --strategy, --page and --init");
   process.exit(2);
 }
-// B alone (no hint), as the mutation runner's --ladder.
+// B alone (no hint), as the mutation runner's --ladder; the worker steps send the N5b environment
+// tripwire as the app's ladder does (--no-tripwire: N5a's runs).
+const LADDER_TRIP = args.includes("--no-tripwire") ? {} : { tripwire: true };
 const LADDER_STEPS = {
-  workerP: { report: true },
-  workerB: { strategy: "B", hint: false },
+  workerP: { report: true, ...LADDER_TRIP },
+  workerB: { strategy: "B", hint: false, ...LADDER_TRIP },
   pageP: { page: true, report: true },
   pageB: { strategy: "B", hint: false, page: true },
 };

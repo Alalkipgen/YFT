@@ -5,8 +5,9 @@
 // The ladder runs worker P, then worker B, then the page (strategy E). A worker step answers a kind
 // only when it answered every asked input of it with no init errors (0); the page runs only when a
 // worker step needs it (an environment failure, an init error, or answers without an init count)
-// and answers only with no init errors of its own, a signature only when the live check (V)
-// passes. Steps hold kinds, counts and classes only, never a value.
+// and answers only with no init errors of its own. A signature, from any step, counts only when the
+// live check (V) of that step's signature passes (N5b: worker signatures too; M9c-nav's worker B
+// gave a wrong signature with no init error). Steps hold kinds, counts and classes only.
 export const LADDER_KINDS = ["n", "sig"];
 const ENVIRONMENT_CLASSES = new Set(["ReferenceError", "TypeError"]);
 const WORKER_SOURCES = ["P", "B"];
@@ -32,13 +33,22 @@ export function needsPage(step) {
  * [live]: "pass", "fail" or "unknown".
  */
 export function decide(kind, workers, page, live) {
+  const source = candidate(kind, workers, page);
+  if (source === "none") return "none";
+  return kind === "n" || live === "pass" ? source : "none";
+}
+
+/**
+ * The step whose answer [decide] would take before V: "P", "B", "E" or "none". A signature from
+ * it still needs V; the app checks that step's signature.
+ */
+export function candidate(kind, workers, page) {
   if (workers.length > WORKER_SOURCES.length) throw new Error("at most two worker steps (P, B)");
   for (let i = 0; i < workers.length; i += 1) {
     if (workers[i].init === 0 && workers[i].answered.has(kind)) return WORKER_SOURCES[i];
   }
   const pageAnswers = Boolean(page) && workers.some(needsPage) && page.init === 0 && page.answered.has(kind);
-  if (!pageAnswers) return "none";
-  return kind === "n" || live === "pass" ? "E" : "none";
+  return pageAnswers ? "E" : "none";
 }
 
 /** A harness output (solveWithOwn, with its report) as a step; null when the step did not run. */
@@ -54,7 +64,7 @@ export function stepOf(out, inputs) {
   return makeStep({ answered, init: typeof count === "number" ? count : null, failed });
 }
 
-// V on the computer: "sim" passes when every judged page signature equals the truth (a stand-in
+// V on the computer: "sim" passes when every judged signature of the step equals the truth (a stand-in
 // for the playback check); "offline" never checks.
 function liveOf(mode, out, truth, inputs) {
   if (mode !== "sim" || !truth || !out) return "unknown";
@@ -84,9 +94,11 @@ export function ladder(outs, inputs, { page = "PB", live = "offline", truth = nu
       pageOut = out;
       if (step.init === 0 && step.answered.has(kind)) break;
     }
-    const source = decide(kind, workers, pageStep, kind === "sig" ? liveOf(live, pageOut, truth, inputs) : "unknown");
+    const outOf = (name) => (name === "P" ? outs.workerP : name === "B" ? outs.workerB : name === "E" ? pageOut : null);
+    const verdict = kind === "sig" ? liveOf(live, outOf(candidate(kind, workers, pageStep)), truth, inputs) : "unknown";
+    const source = decide(kind, workers, pageStep, verdict);
     result.sources[kind] = source;
-    const from = source === "P" ? outs.workerP : source === "B" ? outs.workerB : source === "E" ? pageOut : null;
+    const from = outOf(source);
     if (from) for (const input of inputs[kind]) result[kind][input] = from[kind][input];
     else failed.push(`${kind}:ladder`);
   }
@@ -104,7 +116,7 @@ export async function lazyLadder(solve, inputs, options = {}) {
   const kinds = LADDER_KINDS.filter((kind) => inputs[kind].length > 0);
   const outs = { workerP: await solve("workerP") };
   const workers = [stepOf(outs.workerP, inputs)];
-  const open = () => kinds.filter((kind) => decide(kind, workers, null, "unknown") === "none");
+  const open = () => kinds.filter((kind) => candidate(kind, workers, null) === "none");
   if (open().length) {
     outs.workerB = await solve("workerB");
     workers.push(stepOf(outs.workerB, inputs));

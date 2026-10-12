@@ -1,5 +1,5 @@
 {
- "about": "Phase 1.2 N5a: the ladder rule (OwnSolverLadderRule.kt, scripts/own-solver/ladder.mjs). worker = worker steps in order P, B; page = the page step (strategy E) or null; init = init errors (null = unknown); live = the live check of a page signature (V). Kinds, counts and classes only.",
+ "about": "Phase 1.2 N5a: the ladder rule (OwnSolverLadderRule.kt, scripts/own-solver/ladder.mjs). worker = worker steps in order P, B; page = the page step (strategy E) or null; init = init errors (null = unknown); live = the live check (V) of the candidate step's signature (N5b: worker signatures need it too). Kinds, counts and classes only.",
  "cases": [
   {
    "name": "worker P clean answers both",
@@ -14,7 +14,7 @@
     }
    ],
    "page": null,
-   "live": "unknown",
+   "live": "pass",
    "expect": {
     "n": "P",
     "sig": "P"
@@ -42,7 +42,7 @@
     }
    ],
    "page": null,
-   "live": "unknown",
+   "live": "pass",
    "expect": {
     "n": "P",
     "sig": "B"
@@ -69,7 +69,7 @@
     }
    ],
    "page": null,
-   "live": "unknown",
+   "live": "pass",
    "expect": {
     "n": "B",
     "sig": "B"
@@ -532,6 +532,106 @@
      "answered": [],
      "init": 1,
      "failed": []
+    }
+   ],
+   "page": {
+    "answered": [
+     "n",
+     "sig"
+    ],
+    "init": 0,
+    "failed": []
+   },
+   "live": "pass",
+   "expect": {
+    "n": "E",
+    "sig": "E"
+   }
+  },
+  {
+   "name": "N5b: a worker signature without the live check is not used",
+   "worker": [
+    {
+     "answered": [
+      "n",
+      "sig"
+     ],
+     "init": 0,
+     "failed": []
+    }
+   ],
+   "page": null,
+   "live": "unknown",
+   "expect": {
+    "n": "P",
+    "sig": "none"
+   }
+  },
+  {
+   "name": "N5b: a worker signature failing the live check is not used",
+   "worker": [
+    {
+     "answered": [
+      "n",
+      "sig"
+     ],
+     "init": 0,
+     "failed": []
+    }
+   ],
+   "page": null,
+   "live": "fail",
+   "expect": {
+    "n": "P",
+    "sig": "none"
+   }
+  },
+  {
+   "name": "N5b M9c-nav case: worker B's clean signature fails the live check",
+   "worker": [
+    {
+     "answered": [],
+     "init": 0,
+     "failed": [
+      "n:probe",
+      "sig:probe"
+     ]
+    },
+    {
+     "answered": [
+      "sig"
+     ],
+     "init": 0,
+     "failed": [
+      "n:no candidates"
+     ]
+    }
+   ],
+   "page": null,
+   "live": "fail",
+   "expect": {
+    "n": "none",
+    "sig": "none"
+   }
+  },
+  {
+   "name": "N5b tripwire: a trip in worker B is an init error, the page answers",
+   "worker": [
+    {
+     "answered": [],
+     "init": 0,
+     "failed": [
+      "n:probe",
+      "sig:probe"
+     ]
+    },
+    {
+     "answered": [],
+     "init": 1,
+     "failed": [
+      "n:no candidates",
+      "sig:environment"
+     ]
     }
    ],
    "page": {

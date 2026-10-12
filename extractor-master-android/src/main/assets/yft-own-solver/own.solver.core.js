@@ -32,6 +32,15 @@ var yftOwnSolver = (function () {
   var DEFAULT_USER_AGENT =
     "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) " +
     "Chrome/129.0.0.0 Mobile Safari/537.36";
+  // N5b environment tripwire (request.tripwire, worker mode only): once per solve a second
+  // instance gets other environment values (another page, user agent, language, platform, cookie
+  // setting, ...) and must give the same answers. YouTube's n and sig functions are pure string
+  // functions; one whose answer follows the environment would follow the worker's stubs, not a
+  // real browser on youtube.com (M9c), so it is not trusted: the trip counts as an init error.
+  var TRIPWIRE_PAGE = "https://m.youtube.com/embed/yft-check";
+  var TRIPWIRE_USER_AGENT =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0";
+  var TRIPWIRE_INPUTS = 3;
   var REGISTRY = "__yftOwnRegistry$";
   var CAUGHT = "__yftOwnCaught$";
   var MAX_CANDIDATES = 16;
@@ -684,34 +693,36 @@ var yftOwnSolver = (function () {
   }
 
   function environmentGlobals(scope, env) {
-    var location = makeLocation(TEST_PAGE);
-    var language = (env && env.language) || "en-US";
+    var alt = Boolean(env && env.tripwire === true);
+    var page = alt ? TRIPWIRE_PAGE : TEST_PAGE;
+    var location = makeLocation(page);
+    var language = alt ? "de-DE" : (env && env.language) || "en-US";
     return {
       window: scope,
       self: scope,
       location: location,
       navigator: {
-        userAgent: (env && env.userAgent) || DEFAULT_USER_AGENT,
+        userAgent: alt ? TRIPWIRE_USER_AGENT : (env && env.userAgent) || DEFAULT_USER_AGENT,
         language: language,
-        languages: [language, "en"],
-        platform: "Linux armv8l",
-        vendor: "Google Inc.",
-        cookieEnabled: false,
-        onLine: true,
-        hardwareConcurrency: 4,
-        maxTouchPoints: 5,
+        languages: [language, alt ? "de" : "en"],
+        platform: alt ? "Win32" : "Linux armv8l",
+        vendor: alt ? "" : "Google Inc.",
+        cookieEnabled: alt,
+        onLine: !alt,
+        hardwareConcurrency: alt ? 8 : 4,
+        maxTouchPoints: alt ? 0 : 5,
       },
       document: {
         location: location,
-        URL: TEST_PAGE,
-        documentURI: TEST_PAGE,
-        referrer: "",
+        URL: page,
+        documentURI: page,
+        referrer: alt ? "https://www.google.com/" : "",
         domain: location.hostname,
         cookie: "",
-        title: "",
-        readyState: "complete",
-        visibilityState: "visible",
-        hidden: false,
+        title: alt ? "YouTube" : "",
+        readyState: alt ? "interactive" : "complete",
+        visibilityState: alt ? "hidden" : "visible",
+        hidden: alt,
       },
     };
   }
@@ -758,6 +769,80 @@ var yftOwnSolver = (function () {
         configurable: true,
       }, page);
     }
+  }
+
+  // N5b tripwire helpers. The second instance's request: other environment values, same faults.
+  function tripwireRequest(request) {
+    var copy = {};
+    Object.keys(request).forEach(function (key) {
+      copy[key] = request[key];
+    });
+    var env = {};
+    Object.keys(request.env || {}).forEach(function (key) {
+      env[key] = request.env[key];
+    });
+    env.tripwire = true;
+    copy.env = env;
+    return copy;
+  }
+
+  // Page mode keeps the window's own objects, which cannot be changed: worker mode only.
+  function tripwireWanted(request) {
+    return request.tripwire === true && request.page !== true;
+  }
+
+  function restoreEnvironment(request) {
+    var faults = request.faults || {};
+    installEnvironment(globalScope(), request.env, faults.omit, request.page === true);
+  }
+
+  function tripwireSample(answers) {
+    return Object.keys(answers || {}).slice(0, TRIPWIRE_INPUTS);
+  }
+
+  // A trip: one more init error (class "Tripwire"), and the tripped kinds give no answer.
+  function tripwireResult(output, failed, kinds, tripped) {
+    output.report.tripwire = { checked: kinds.length, tripped: tripped.slice() };
+    if (!tripped.length) return;
+    output.report.topLevelErrors = (output.report.topLevelErrors || 0) + 1;
+    var classes = output.report.topLevelErrorClasses || {};
+    classes.Tripwire = (classes.Tripwire || 0) + 1;
+    output.report.topLevelErrorClasses = classes;
+    tripped.forEach(function (kind) {
+      output[kind] = {};
+      failed.push(kind + ":environment");
+    });
+  }
+
+  // P: the answered kinds again on a second instance with other environment values.
+  function pTripwire(prepared, request, output, failed) {
+    var kinds = KINDS.filter(function (kind) {
+      return tripwireSample(output[kind]).length > 0;
+    });
+    if (!kinds.length) return;
+    var tripped = [];
+    try {
+      var other = instantiate(prepared, tripwireRequest(request));
+      var builders = [];
+      other.c.forEach(function (fn, index) {
+        if (typeof fn === "function") builders.push({ index: index, fn: fn });
+      });
+      if (request.faults && (request.faults.decoy === "n" || request.faults.decoy === "sig") && builders.length) {
+        builders.push({ index: other.c.length, fn: decoyBuilder(builders[0].fn, request.faults.decoy) });
+      }
+      kinds.forEach(function (kind) {
+        var same = tripwireSample(output[kind]).every(function (input) {
+          var values = initWrongValues(request, kind, multiTry(kind, builders, input, request.faults || {}).values);
+          return values.length === 1 && values[0] === output[kind][input];
+        });
+        if (!same) tripped.push(kind);
+      });
+    } catch (error) {
+      tripped = kinds.slice();
+    } finally {
+      restoreEnvironment(request);
+    }
+    tripwireResult(output, failed, kinds, tripped);
   }
 
   function globalScope() {
@@ -1947,6 +2032,31 @@ var yftOwnSolver = (function () {
     return { answers: answers, reason: reason, solved: answered };
   }
 
+  // B: each solved kind's group again on a second instance with other environment values.
+  function bTripwire(prepared, request, output, failed, groups) {
+    var kinds = KINDS.filter(function (kind) {
+      return groups[kind] && tripwireSample(output[kind]).length > 0;
+    });
+    if (!kinds.length) return;
+    var tripped = [];
+    try {
+      var other = bInstantiate(prepared, tripwireRequest(request));
+      kinds.forEach(function (kind) {
+        var sample = tripwireSample(output[kind]);
+        var result = bSolveKind(kind, groups[kind], other, sample, request);
+        var same = !result.reason && sample.every(function (input) {
+          return result.answers[input] === output[kind][input];
+        });
+        if (!same) tripped.push(kind);
+      });
+    } catch (error) {
+      tripped = kinds.slice();
+    } finally {
+      restoreEnvironment(request);
+    }
+    tripwireResult(output, failed, kinds, tripped);
+  }
+
   // Rank signal #1: P's own answer on B's probes (P ran, but its SelfCheck refused one condition).
   // P is the proven path; when it answers, B prefers the group that agrees with it. When P fails
   // (the shapes P does not know, e.g. a re-wrapped top level), there is no hint and B ranks by
@@ -2066,6 +2176,7 @@ var yftOwnSolver = (function () {
       output.report.slow = slowCount;
       output.report.slowest = slow;
       var failed = [];
+      var solvedGroups = Object.create(null);
       KINDS.forEach(function (kind) {
         var inputs = (request[kind] || []).filter(function (input) {
           return typeof input === "string" && input.length > 0;
@@ -2131,13 +2242,20 @@ var yftOwnSolver = (function () {
           var result = bSolveKind(kind, grouped.groups[0], bInstantiate(prepared, request), inputs, request);
           ms["solve_" + kind] = bNow() - v0;
           reason = result.reason;
-          if (!reason) output[kind] = result.answers;
+          if (!reason) {
+            output[kind] = result.answers;
+            solvedGroups[kind] = grouped.groups[0];
+          }
           kindReport.solved = result.solved;
         }
         kindReport.status = reason ? "failed" : "ok";
         kindReport.reason = reason;
         if (reason) failed.push(kind + ":" + reason);
       });
+      if (tripwireWanted(request)) {
+        output.report.stage = "tripwire";
+        bTripwire(prepared, request, output, failed, solvedGroups);
+      }
       if (failed.length) output.failed = failed.join(",");
       output.report.stage = "done";
       delete output.report.current;
@@ -2177,6 +2295,7 @@ var yftOwnSolver = (function () {
         output.report[kind] = result.report;
         if (result.report.reason) failed.push(kind + ":" + result.report.reason);
       });
+      if (tripwireWanted(request)) pTripwire(prepared, request, output, failed);
       if (failed.length) output.failed = failed.join(",");
     } catch (error) {
       output.failed = errorName(error);

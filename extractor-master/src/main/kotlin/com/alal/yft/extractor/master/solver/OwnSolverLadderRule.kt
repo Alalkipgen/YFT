@@ -15,15 +15,19 @@ package com.alal.yft.extractor.master.solver
  *   mutated signature wrong after 3 init errors). P comes before B.
  * - The page runs only when a worker step needs it ([needsPage]): an environment failure, an init
  *   error, or answers without an init count. Its answer counts only with no init errors of its
- *   own; a signature from the page also needs the live check (V) to pass, because a wrong
- *   signature breaks playback silently while a wrong n only slows it.
+ *   own.
+ * - N5b: a signature from any step (worker P, worker B or the page) also needs the live check (V)
+ *   of that step's signature to pass ([candidate] names the step to check), because a wrong
+ *   signature breaks playback silently while a wrong n only slows it. M9c-nav: worker B gave a
+ *   wrong signature with no init error; the environment tripwire (own.solver.core.js) catches it
+ *   as an init error, and V is the second line.
  * - Anything else is [Source.NONE]: the kind fails. An answer the rule does not return is never
  *   cached (N5b).
  */
 internal object OwnSolverLadderRule {
     enum class Kind { RATE, SIGNATURE }
 
-    /** The live check of a signature from the page (V): it played, it did not, or not checked. */
+    /** The live check of the candidate step's signature (V): it played, it did not, or not checked. */
     enum class Live { PASS, FAIL, UNKNOWN }
 
     /** Where a kind's answer comes from: worker P, worker B, the page (E), or nowhere. */
@@ -52,18 +56,27 @@ internal object OwnSolverLadderRule {
      * step that did not run is left off the end), [page] is the page step (null: not run).
      */
     fun decide(kind: Kind, workers: List<Step>, page: Step?, live: Live): Source {
+        val source = candidate(kind, workers, page)
+        return when {
+            source == Source.NONE -> Source.NONE
+            kind == Kind.RATE -> source
+            live == Live.PASS -> source
+            else -> Source.NONE
+        }
+    }
+
+    /**
+     * The step whose answer [decide] takes before V: a signature from it still needs V, run on
+     * that step's signature.
+     */
+    fun candidate(kind: Kind, workers: List<Step>, page: Step?): Source {
         require(workers.size <= WORKER_SOURCES.size) { "At most two worker steps (P, B)" }
         workers.forEachIndexed { index, step ->
             if (step.initErrors == 0 && kind in step.answered) return WORKER_SOURCES[index]
         }
         val pageAnswers = page != null && workers.any { needsPage(it) } &&
             page.initErrors == 0 && kind in page.answered
-        return when {
-            !pageAnswers -> Source.NONE
-            kind == Kind.RATE -> Source.E
-            live == Live.PASS -> Source.E
-            else -> Source.NONE
-        }
+        return if (pageAnswers) Source.E else Source.NONE
     }
 
     /** A decoded reply as a step: a kind is answered when every asked input of it has a value. */

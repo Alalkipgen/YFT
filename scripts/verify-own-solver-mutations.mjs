@@ -86,6 +86,8 @@ if (withLadder && !(withP && withB)) {
 }
 // --both (N4b): each own strategy in the worker (bare context) and in page mode, side by side.
 const both = flag("--both") || withLadder;
+// N5b: --ladder sends the environment tripwire as the app's ladder does (--no-tripwire: N5a's runs).
+const tripExtra = withLadder && !flag("--no-tripwire") ? { tripwire: true } : {};
 if (both && page) {
   console.error("--both and --ladder already run page mode; drop --page");
   process.exit(2);
@@ -237,9 +239,9 @@ for (const file of files) {
       if (!haveTruth) { note = "no-truth"; continue; }
       const ejsOut = solveWithEjs(ejs, mutated, inputs);
       await settle(); // releases the player's unhandled rejections after every solve (see harness.mjs)
-      const ownOut = withP ? solveWithOwn(own, mutated, inputs, { ...pageExtra, ...reportExtra }) : null;
+      const ownOut = withP ? solveWithOwn(own, mutated, inputs, { ...pageExtra, ...reportExtra, ...tripExtra }) : null;
       await settle();
-      const bOut = withB ? solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false, ...pageExtra }) : null;
+      const bOut = withB ? solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false, ...pageExtra, ...tripExtra }) : null;
       await settle();
       const pagePOut = both && withP ? solveWithOwn(own, mutated, inputs, { page: true, ...reportExtra }) : null;
       if (both) await settle();

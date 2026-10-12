@@ -5,7 +5,22 @@
 - ⏳ Plan adapted (owner-approved 2026-10-12; plan §3 N5 "Plan adapted (N5a results)"): V on every
   signature, environment tripwire, breaker also for worker jobs / gone renderer / V = fail, then
   the wiring behind `ownSolverNext` (default off); one test cycle at the end.
-- ⏳ Step 0 (evidence: environment reads during a solved call; 631d3938 heap): running.
+- ✅ Tripwire + V on every signature (this commit; app unchanged: the core checks only when a
+  request asks `tripwire: true`, which only N5b's ladder will send, and nothing calls the rule
+  yet). Plan adapted: no separate read counting; the second instance measures the dependence
+  itself (a read that does not change the answer does no harm). Core: after worker P or worker B
+  solves, the answered kinds run once more on a second instance with other environment values
+  (page, user agent, language, platform, cookie setting, ...); a changed answer = one more init
+  error (class `Tripwire`) and no answer for that kind (`kind:environment`). Page mode skips it
+  (the window's own objects stay). Rule (Kotlin + JS, 22 shared cases, new `candidate()`): a
+  signature from any step needs V. Runners: `--ladder` sends the tripwire (`--no-tripwire`: as
+  N5a). JS 173/173 (171 + 2 tripwire tests).
+- ✅ Step 0 evidence. Corpus `--ladder` (363 s, peak RSS 1.95 GB): 32/32, init errors 0/32 in all
+  four steps (tripwire false positives 0); PB+V = ejs 260/260, B+V 260/260; PB off and B off: n =
+  ejs 132/132, sig no value 128 (no signature without V, by design). M9c-nav 21cd2156 es6 (N5a's
+  ladder wrong value): worker B `sig:environment` {init errors 1}, ladder safe in all four options.
+- ⏳ Next: 631d3938's heap (which step), page-P step budget, Kotlin (timeouts, breaker, wiring, V
+  pass kept per player version); then the test cycle.
 
 ## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — done, ❌ M9c-nav ladder wrong 1 → N5b (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
 

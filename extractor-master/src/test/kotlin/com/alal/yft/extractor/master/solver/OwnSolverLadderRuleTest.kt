@@ -97,6 +97,15 @@ class OwnSolverLadderRuleTest {
         assertEquals(Source.NONE, OwnSolverLadderRule.decide(Kind.SIGNATURE, listOf(step), null, Live.PASS))
     }
 
+    @Test
+    fun `the candidate is the step whose signature V checks, and every signature needs V`() {
+        val clean = Step(setOf(Kind.RATE, Kind.SIGNATURE), 0)
+        assertEquals(Source.P, OwnSolverLadderRule.candidate(Kind.SIGNATURE, listOf(clean), null))
+        assertEquals(Source.NONE, OwnSolverLadderRule.decide(Kind.SIGNATURE, listOf(clean), null, Live.UNKNOWN))
+        assertEquals(Source.P, OwnSolverLadderRule.decide(Kind.SIGNATURE, listOf(clean), null, Live.PASS))
+        assertEquals(Source.P, OwnSolverLadderRule.decide(Kind.RATE, listOf(clean), null, Live.UNKNOWN))
+    }
+
     private fun stepOf(node: JsonValue): Step = Step(
         answered = (node["answered"] as JsonValue.Array).items.map {
             when ((it as JsonValue.Text).value) {

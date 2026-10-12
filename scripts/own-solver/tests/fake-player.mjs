@@ -49,6 +49,8 @@ export function expectedN(input) {
  *   driftAfter k: the n scramble changes after k calls (state corrupted during a run)
  *   badSig    true: the sig steps add a character the input never had
  *   sortSig   true: the sig steps sort the characters (depends on content, not on positions)
+ *   envN / envSig  true: the n scramble / the first sig swap reads navigator.cookieEnabled when
+ *             called (the M9c-nav shape: another number in another environment, no error)
  */
 export function fakePlayer(options = {}) {
   const o = { style: "es5", nIn: "set", setter: "set", getter: "get", wrapper: "namespace", ...options };
@@ -56,7 +58,9 @@ export function fakePlayer(options = {}) {
   const G = o.getter;
   const nOnSet = o.nIn === "set" ? `a==="n"&&(b=nscr(b));` : "";
   const nOnBuild = o.nIn === "build" ? `!this.done&&this.q.n&&(this.q.n=nscr(this.q.n),this.done=!0);` : "";
-  const shift = o.needsSelf
+  const shift = o.envN
+    ? "(navigator.cookieEnabled?4:3)"
+    : o.needsSelf
     ? "NQ.length-2"
     : o.needsDom
       ? "NQ.length"
@@ -65,7 +69,7 @@ export function fakePlayer(options = {}) {
       : "3";
   const sigSteps = o.sortSig
     ? 'a=a[T[6]]("");a.sort();return a[T[7]]("")'
-    : `a=a[T[6]]("");K.sw(a,7);K.rv(a);K.sp(a,3);K.sw(a,21);return a[T[7]]("")${o.badSig ? '+"~"' : ""}`;
+    : `a=a[T[6]]("");K.sw(a,${o.envSig ? "navigator.cookieEnabled?8:7" : "7"});K.rv(a);K.sp(a,3);K.sw(a,21);return a[T[7]]("")${o.badSig ? '+"~"' : ""}`;
   const nResult = o.constantN ? '"Qw3rTy0uIoPa5sDf"' : 'b.join("").slice(2)';
   const marker = o.unmarked ? `a.${S}("mark","no")` : `a.${S}("alr","yes")`;
   const lines = [

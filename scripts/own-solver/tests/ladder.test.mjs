@@ -49,11 +49,13 @@ test("a harness output becomes a step: all inputs answered, the init count, fail
   assert.equal(stepOf(null, inputs), null);
 });
 
-test("the ladder takes a clean worker answer, keeps answers after init errors out and needs V for a page signature", () => {
+test("the ladder takes a clean worker answer, keeps answers after init errors out and needs V for every signature", () => {
   const right = { n: { n1: "N1", n2: "N2" }, sig: { s1: "S1" } };
   const wrongSig = { n: { n1: "N1", n2: "N2" }, sig: { s1: "XX" } };
-  // Worker P clean: P for both, the page never matters.
-  assert.deepEqual(ladder({ workerP: out(right, 0) }, inputs).sources, { n: "P", sig: "P" });
+  // Worker P clean: P for both, the page never matters; N5b: P's signature needs V too.
+  assert.deepEqual(ladder({ workerP: out(right, 0) }, inputs, { live: "sim", truth }).sources, { n: "P", sig: "P" });
+  assert.deepEqual(ladder({ workerP: out(right, 0) }, inputs).sources, { n: "P", sig: "none" });
+  assert.deepEqual(ladder({ workerP: out(wrongSig, 0) }, inputs, { live: "sim", truth }).sources, { n: "P", sig: "none" });
   // Worker B answered after init errors (the N4b case); page P clean.
   const outs = { workerP: out({}, 3, "n:disagree,sig:disagree"), workerB: out(wrongSig, 3), pageP: out(right, 0), pageB: out(right, 0) };
   const offline = ladder(outs, inputs, { page: "PB", live: "offline" });
@@ -83,9 +85,11 @@ test("the lazy ladder runs worker B, the page and page B only when the rule need
     const result = await lazyLadder(async (name) => { called.push(name); return table[name] ?? null; }, inputs, options);
     return { called, sources: result.ladder.sources };
   };
-  assert.deepEqual(await runs({ workerP: out(right, 0) }), { called: ["workerP"], sources: { n: "P", sig: "P" } });
+  const sim = { live: "sim", truth };
+  assert.deepEqual(await runs({ workerP: out(right, 0) }, sim), { called: ["workerP"], sources: { n: "P", sig: "P" } });
+  assert.deepEqual(await runs({ workerP: out(right, 0) }), { called: ["workerP"], sources: { n: "P", sig: "none" } });
   assert.deepEqual(
-    await runs({ workerP: out({ n: right.n }, 0, "sig:disagree"), workerB: out(right, 0) }),
+    await runs({ workerP: out({ n: right.n }, 0, "sig:disagree"), workerB: out(right, 0) }, sim),
     { called: ["workerP", "workerB"], sources: { n: "P", sig: "B" } },
   );
   assert.deepEqual(
