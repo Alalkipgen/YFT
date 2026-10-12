@@ -16,8 +16,11 @@ import com.alal.yft.extractor.api.PoTokenProvider
 import com.alal.yft.extractor.api.SiteAdapterFlags
 import com.alal.yft.extractor.api.SiteExtractor
 import com.alal.yft.extractor.api.SiteExtractorRegistry
+import com.alal.yft.extractor.master.android.solver.SharedPreferencesBreakerMarkers
 import com.alal.yft.extractor.master.android.solver.WebViewOwnSolverEngine
+import com.alal.yft.extractor.master.android.solver.WebViewPageSolverEngine
 import com.alal.yft.extractor.master.solver.OwnPlayerScriptRunner
+import com.alal.yft.extractor.master.solver.OwnSolverBreaker
 import com.alal.yft.extractor.master.solver.OwnSolverSelection
 import com.alal.yft.extractor.sites.facebook.FacebookExtractor
 import com.alal.yft.extractor.sites.instagram.InstagramExtractor
@@ -87,7 +90,21 @@ object SiteAdapterModule {
         return OwnSolverSelection.runner(
             ownSolver = BuildConfig.OWN_SOLVER_ENABLED,
             masterCapture = BuildConfig.MASTER_CAPTURE_ENABLED,
-            own = { OwnPlayerScriptRunner(http = http, engine = WebViewOwnSolverEngine(context)) },
+            own = {
+                OwnPlayerScriptRunner(
+                    http = http,
+                    engine = WebViewOwnSolverEngine(context),
+                    // Phase 1.2 N5b: the ladder only with -Pyft.ownSolverNext (debug builds).
+                    next = if (BuildConfig.OWN_SOLVER_NEXT_ENABLED) {
+                        OwnPlayerScriptRunner.Next(
+                            page = WebViewPageSolverEngine(context),
+                            breaker = OwnSolverBreaker(SharedPreferencesBreakerMarkers(context)),
+                        )
+                    } else {
+                        null
+                    },
+                )
+            },
             main = { YouTubePlayerScriptRunner(http = http, engine = WebViewSolverEngine(context)) },
         )
     }

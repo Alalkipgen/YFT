@@ -28,7 +28,11 @@ internal class ScriptedOwnEngine(
         val program: String?,
         val n: List<String>,
         val sig: List<String>,
+        /** N5b: "B" for a strategy B job; null for P. */
+        val strategy: String? = null,
     ) {
+        val isB: Boolean get() = strategy == "B"
+
         companion object {
             fun parse(input: String): Job {
                 val root = requireNotNull(BoundedJsonParser.parse(input)) { "job is not JSON" }
@@ -42,6 +46,7 @@ internal class ScriptedOwnEngine(
                     program = text("program"),
                     n = list("n"),
                     sig = list("sig"),
+                    strategy = text("strategy"),
                 )
             }
         }

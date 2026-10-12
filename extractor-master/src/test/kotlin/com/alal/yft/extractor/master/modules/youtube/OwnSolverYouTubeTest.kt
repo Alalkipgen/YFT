@@ -2,6 +2,7 @@ package com.alal.yft.extractor.master.modules.youtube
 
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.extractor.api.ExtractorProbeResult
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionRequest
 import com.alal.yft.extractor.api.SiteExtractionResult
@@ -85,6 +86,75 @@ class OwnSolverYouTubeTest {
             )
         }
     }
+
+    @Test
+    fun `with ownSolverNext the own signatures sign streams only once the live check opened one`() = runTest {
+        val probes = mutableListOf<String>()
+        val probed = mutableListOf<Map<String, String>>()
+        val module = nextModule { url, headers ->
+            probes += url
+            probed += headers
+            ExtractorProbeResult.Answered(206, 1_000_000L)
+        }
+
+        val first = module.extract(request()) as SiteExtractionResult.Success
+        assertEquals(2, first.candidates.size)
+        // One check: the first signed stream, with the download's User-Agent and the page as Referer.
+        assertEquals(1, probes.size)
+        assertTrue(probes.single().contains("&sig="))
+        assertEquals(USER_AGENT, probed.single()["User-Agent"])
+        assertTrue(probed.single()["Referer"].orEmpty().contains(VIDEO_ID))
+
+        // The pass is kept for this player version and step: the next lookup is not checked again.
+        val second = module.extract(request()) as SiteExtractionResult.Success
+        assertEquals(2, second.candidates.size)
+        assertEquals(1, probes.size)
+    }
+
+    @Test
+    fun `with ownSolverNext a signature the live check did not open signs nothing`() = runTest {
+        val module = nextModule { _, _ ->
+            ExtractorProbeResult.Refused(SiteExtractionFailure.HTTP_STATUS, 403, null)
+        }
+
+        val result = module.extract(request())
+
+        assertEquals(
+            SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED,
+            (result as SiteExtractionResult.Failure).reason,
+        )
+    }
+
+    private fun nextModule(probe: (url: String, headers: Map<String, String>) -> ExtractorProbeResult) =
+        MasterYouTubeModule(
+            http = FakeExtractorHttpClient(
+                responses = mapOf(PAGE_FETCH to FakeExtractorHttpClient.html(watchPage(BOT_CHECK), MOBILE_PAGE)),
+                postResponder = { url, body ->
+                    if (clientOf(body) == "WEB_EMBEDDED_PLAYER") {
+                        FakeExtractorHttpClient.json(onMediaServer(fixture("player_cipher.json")), url)
+                    } else {
+                        null
+                    }
+                },
+                probeResponder = probe,
+            ),
+            playerScripts = OwnPlayerScriptRunner(
+                players(),
+                ScriptedOwnEngine { job ->
+                    ScriptedOwnEngine.result(
+                        n = job.n.associateWith(ScriptedOwnEngine::rate),
+                        sig = job.sig.associateWith(ScriptedOwnEngine::signature),
+                        prepared = ScriptedOwnEngine.preparedFor(job),
+                        initErrors = 0,
+                    )
+                },
+                next = OwnPlayerScriptRunner.Next(),
+            ),
+        )
+
+    /** V checks only media server URLs; the shared fixture's streams sit on a test host. */
+    private fun onMediaServer(body: String): String =
+        body.replace("googlevideo.example-cdn.test", "googlevideo.com")
 
     private fun module(
         embedded: String,

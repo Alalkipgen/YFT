@@ -45,8 +45,25 @@
 - ✅ Kotlin, first part (not called yet; CI compiles it): `OwnSolverProtocol.Options` (strategy B
   + hint, tripwire) in `encode`; `OwnSolverEngine.Events` (`started` = the page read the job,
   `gone` = onRenderProcessGone) with `reportsReady`, in both WebView engines.
-- ⏳ Next: Kotlin (ready/job timeouts, breaker + player-hash marker, ladder behind
-  `ownSolverNext`, V with the pass kept per player version + strategy); then the test cycle.
+- ✅ CI for `cb75f1b`: build 38278036731 ✅, validate 38278041351 ✅.
+- ✅ Kotlin, second part: the ladder behind `ownSolverNext` (`-Pyft.ownSolverNext=true`, debug
+  builds only; workflow input `own_solver_next`, default off = Phase 1.1 unchanged).
+  `OwnPlayerScriptRunner.Next`: worker P (kept program first, tripwire) → worker B (player text,
+  no hint, tripwire) for kinds still open → page P, then page B, only when a worker needs the
+  page; per kind the shared rule's `candidate()`. Ready timeout 20 s (engines that report it; no
+  strike), job timeout 45 s. `OwnSolverBreaker`: a job timeout or a gone renderer turns that step
+  off until the app restarts (both page steps together: one page engine); a marker per player
+  version + step is on disk (`commit`) before each job and cleared after it; two left behind in a
+  row (the process died twice) = that step off for that player version. V: a signature from any
+  step is used only after one stream URL built with it opens (`StreamCheck`, control = a direct
+  URL of the same lookup); pass kept per player version + step (64), fail = that step's
+  signatures off (the ladder looks further down), unknown = nothing kept and the signed streams of
+  that lookup dropped. Plan adapted: the lookup counts as user-started (the extractor runs only for
+  the page the user opened). Local JVM check (Kotlin 2.0.21): 69/69 (solver, own-solver YouTube,
+  StreamCheck, canary; new: ladder runner 11, breaker 4, protocol options 2, V in the reader 2);
+  Android parts compile in CI only.
+- ⏳ Next: CI for this commit; then the test cycle (unit → M9c 96 → corpus → M9b/M9bs → faults →
+  M9 → 448 suite).
 
 ## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — done, ❌ M9c-nav ladder wrong 1 → N5b (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
 

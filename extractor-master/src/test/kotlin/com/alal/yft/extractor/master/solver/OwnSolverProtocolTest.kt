@@ -43,6 +43,41 @@ class OwnSolverProtocolTest {
     }
 
     @Test
+    fun `next options ask for strategy B with or without the hint and for the tripwire, never by default`() {
+        val raw = OwnSolverProtocol.Player.Raw("p")
+        val plain = BoundedJsonParser.parse(OwnSolverProtocol.encode(raw, batch, false))
+        assertNull(plain["strategy"])
+        assertNull(plain["hint"])
+        assertNull(plain["tripwire"])
+
+        val b = OwnSolverProtocol.Options(strategyB = true, hint = false, tripwire = true)
+        val root = BoundedJsonParser.parse(OwnSolverProtocol.encode(raw, batch, false, b))
+        assertEquals("B", (root["strategy"] as JsonValue.Text).value)
+        assertEquals(JsonValue.Bool(false), root["hint"])
+        assertEquals(JsonValue.Bool(true), root["tripwire"])
+
+        val hinted = OwnSolverProtocol.Options(strategyB = true, hint = true)
+        val withHint = BoundedJsonParser.parse(OwnSolverProtocol.encode(raw, batch, false, hinted))
+        assertEquals(JsonValue.Bool(true), withHint["hint"])
+        assertNull(withHint["tripwire"])
+
+        val tripwireOnly = OwnSolverProtocol.Options(tripwire = true)
+        val prepared = OwnSolverProtocol.Player.Prepared("prog")
+        val p = BoundedJsonParser.parse(OwnSolverProtocol.encode(prepared, batch, true, tripwireOnly))
+        assertNull(p["strategy"])
+        assertEquals(JsonValue.Bool(true), p["tripwire"])
+    }
+
+    @Test
+    fun `strategy B never runs from a prepared program`() {
+        val options = OwnSolverProtocol.Options(strategyB = true)
+        val failure = runCatching {
+            OwnSolverProtocol.encode(OwnSolverProtocol.Player.Prepared("prog"), batch, true, options)
+        }.exceptionOrNull()
+        assertTrue(failure is IllegalArgumentException)
+    }
+
+    @Test
     fun `a reply keeps only answers to inputs that were asked`() {
         val reply = ScriptedOwnEngine.result(
             n = mapOf("Qx7rTb2LmNc9Pd4s" to "out1", "extra" to "smuggled"),

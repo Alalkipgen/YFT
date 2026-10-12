@@ -112,6 +112,13 @@ val ownSolver = providers.gradleProperty("yft.ownSolver").orElse("false").get()
 require(ownSolver in setOf("true", "false")) {
     "yft.ownSolver must be true or false"
 }
+// Phase 1.2 N5b: the own solver's ladder (worker P, worker B, page E, live check V) instead of
+// Phase 1.1's single worker run. Acts only with yft.ownSolver and yft.masterCapture on; off by
+// default, debug builds only (owner test APKs), never in a public release before N8.
+val ownSolverNext = providers.gradleProperty("yft.ownSolverNext").orElse("false").get()
+require(ownSolverNext in setOf("true", "false")) {
+    "yft.ownSolverNext must be true or false"
+}
 // R9: the public key (X.509 P-256, hex) for Master's signed recipe config; blank = bundled
 // recipes only and no config request. Only read when Master capture is on.
 val masterRecipeKey = providers.gradleProperty("yft.masterRecipeKey").orElse("").get()
@@ -139,6 +146,7 @@ android {
         buildConfigField("boolean", "YOUTUBE_ADAPTER_ENABLED", "true")
         buildConfigField("boolean", "MASTER_CAPTURE_ENABLED", "false")
         buildConfigField("boolean", "OWN_SOLVER_ENABLED", "false")
+        buildConfigField("boolean", "OWN_SOLVER_NEXT_ENABLED", "false")
         buildConfigField("String", "MASTER_RECIPE_KEY", "\"$masterRecipeKey\"")
         buildConfigField("String", "MASTER_RECIPE_URL", "\"$masterRecipeUrl\"")
     }
@@ -173,6 +181,7 @@ android {
             versionNameSuffix = "-debug"
             buildConfigField("boolean", "MASTER_CAPTURE_ENABLED", masterCapture)
             buildConfigField("boolean", "OWN_SOLVER_ENABLED", ownSolver)
+            buildConfigField("boolean", "OWN_SOLVER_NEXT_ENABLED", ownSolverNext)
             // Owner tools (src/debug, e.g. the N2 stream check): a launcher entry only when both
             // Master flags are on, so a debug build with the flags off stays as before.
             manifestPlaceholders["yftOwnerTools"] =

@@ -17,6 +17,10 @@ on:
         description: "Own YouTube n/sig solver (Phase 1.1) instead of main's ejs runner"
         type: boolean
         default: true
+      own_solver_next:
+        description: "Phase 1.2 N5b: the own solver's ladder (P, B, page, live check); owner test APKs only"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -78,6 +82,7 @@ jobs:
         shell: bash
         env:
           OWN_SOLVER: ${{ github.event_name != 'workflow_dispatch' || inputs.own_solver }}
+          OWN_SOLVER_NEXT: ${{ github.event_name == 'workflow_dispatch' && inputs.own_solver_next }}
         run: |
           set -o pipefail
           report() {
@@ -88,7 +93,7 @@ jobs:
             echo "::error title=Master Gradle failure::${lines:-see the job log}"
             exit 1
           }
-          ./gradlew --no-daemon -Pyft.masterCapture=true -Pyft.ownSolver="$OWN_SOLVER" \
+          ./gradlew --no-daemon -Pyft.masterCapture=true -Pyft.ownSolver="$OWN_SOLVER" -Pyft.ownSolverNext="$OWN_SOLVER_NEXT" \
             :extractor-master:test \
             :extractor-master-android:testDebugUnitTest \
             :app:testDebugUnitTest \
@@ -102,11 +107,13 @@ jobs:
         shell: bash
         env:
           OWN_SOLVER: ${{ github.event_name != 'workflow_dispatch' || inputs.own_solver }}
+          OWN_SOLVER_NEXT: ${{ github.event_name == 'workflow_dispatch' && inputs.own_solver_next }}
         run: |
           {
             echo "### Master opt-in debug APK"
             echo "Commit: ${GITHUB_SHA}"
             echo "Own YouTube solver: ${OWN_SOLVER}"
+            echo "Own solver ladder (ownSolverNext): ${OWN_SOLVER_NEXT}"
             echo '```'
             sha256sum app/build/outputs/apk/debug/*.apk app/build/outputs/apk/androidTest/debug/*.apk
             echo '```'
