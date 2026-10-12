@@ -30,9 +30,6 @@ import com.alal.yft.extractor.api.SiteExtractionRequest
 import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.api.SiteExtractor
 import com.alal.yft.extractor.api.SitePageIdentity
-import com.alal.yft.extractor.master.solver.PendingCheck
-import com.alal.yft.extractor.master.solver.SignatureVerdicts
-import java.net.URI
 import java.net.URLDecoder
 
 /**
@@ -82,9 +79,6 @@ class YouTubeExtractor(
     private val maxPlayerBytes: Long = DEFAULT_MAX_PLAYER_BYTES,
 ) : SiteExtractor {
     override val id: String = YouTubeUrls.SITE_ID
-
-    /** Phase 1.2 N5b: V, made only when a runner hands over signatures that still need it. */
-    private val streamCheck by lazy { StreamCheck(http) }
 
     override val displayName: String = "YouTube"
 
@@ -397,37 +391,18 @@ class YouTubeExtractor(
         if (fresh.isEmpty()) return Delivery.Blocked(SiteExtractionFailure.EXPIRED_LINK)
 
         val challenges = fresh.flatMap { (pending, _) -> pending.challenges() }
-        var check: PendingCheck? = null
         val solved = if (challenges.isEmpty()) {
             emptyMap()
         } else {
             when (val outcome = solve(challenges, lookup)) {
-                is Solved.Values -> {
-                    check = outcome.check
-                    outcome.values
-                }
+                is Solved.Values -> outcome.values
                 is Solved.Refused -> return Delivery.Blocked(outcome.reason)
             }
         }
 
-        val built = fresh.mapNotNull { (pending, expiry) ->
+        val addresses = fresh.mapNotNull { (pending, expiry) ->
             finalUrl(pending, solved)?.let { url -> Triple(pending, url, expiry) }
         }
-        // Phase 1.2 N5b (ownSolverNext): signatures that still need V are used only after one
-        // stream URL built with them opened; otherwise every stream that needs one is dropped.
-        val addresses = check?.let { pendingCheck ->
-            val signed = built.filter { (pending, _, _) ->
-                pending.challenges().any { it.kind == PlayerScriptChallengeKind.SIGNATURE }
-            }
-            val direct = built.firstOrNull { (pending, _, _) -> pending.challenges().isEmpty() }?.second
-            val opened = signed.isEmpty() ||
-                liveCheck(pendingCheck, signed.first().second, direct, built.map { it.second }, lookup)
-            if (opened) {
-                built
-            } else {
-                built - signed.toSet()
-            }
-        } ?: built
         if (addresses.isEmpty()) {
             return Delivery.Blocked(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED)
         }
@@ -647,60 +622,20 @@ class YouTubeExtractor(
         if (!playerScripts.isAvailable || playerId == null) {
             return Solved.Refused(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED)
         }
-        val request = PlayerScriptRequest(
-            playerScriptUrl = YouTubeUrls.playerScriptUrl(playerId),
-            pageUrl = lookup.pageUrl,
-            challenges = challenges,
+        val result = playerScripts.resolve(
+            PlayerScriptRequest(
+                playerScriptUrl = YouTubeUrls.playerScriptUrl(playerId),
+                pageUrl = lookup.pageUrl,
+                challenges = challenges,
+            ),
         )
-        val result = playerScripts.resolve(request)
         return when (result) {
-            is PlayerScriptResult.Success ->
-                Solved.Values(result.resolved, (playerScripts as? SignatureVerdicts)?.pendingCheck(request))
+            is PlayerScriptResult.Success -> Solved.Values(result.resolved)
             PlayerScriptResult.Unavailable ->
                 Solved.Refused(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED)
 
             is PlayerScriptResult.Failed -> Solved.Refused(result.reason)
         }
-    }
-
-    /**
-     * Phase 1.2 N5b: V for the runner's signatures. One check (StreamCheck: one bounded read of
-     * [target], a direct URL of this lookup as the control, only on hosts this lookup returned,
-     * with a download's headers and no cookies); the verdict goes back to the runner, which keeps
-     * a pass per player version and step. The extractor runs only for the page the user opened
-     * (one lookup per video), so the lookup counts as user-started. Only PASS uses the signatures.
-     */
-    private suspend fun liveCheck(
-        check: PendingCheck,
-        target: String,
-        control: String?,
-        urls: List<String>,
-        lookup: Lookup,
-    ): Boolean {
-        val verdicts = playerScripts as? SignatureVerdicts ?: return false
-        val result = streamCheck.check(
-            StreamCheck.Request(
-                target = target,
-                control = control,
-                returnedHosts = urls.mapNotNullTo(HashSet()) { url -> runCatching { URI(url).host }.getOrNull() },
-                headers = buildMap {
-                    lookup.request.requestContext.userAgent?.let { put("User-Agent", it) }
-                    put("Referer", lookup.pageUrl)
-                },
-                kinds = setOf(StreamCheck.Kind.SIG),
-                budgetKey = check.budgetKey,
-                cacheKey = check.cacheKey,
-                userStarted = true,
-            ),
-        )
-        val verdict = when {
-            result.verdict == StreamCheck.Verdict.PASS -> SignatureVerdicts.Verdict.PASS
-            result.strategyFailed -> SignatureVerdicts.Verdict.FAIL
-            else -> SignatureVerdicts.Verdict.UNKNOWN
-        }
-        verdicts.record(check, verdict)
-        lookup.details += "live check ${verdict.name.lowercase()}"
-        return verdict == SignatureVerdicts.Verdict.PASS
     }
 
     /**
@@ -1051,8 +986,7 @@ class YouTubeExtractor(
     }
 
     private sealed interface Solved {
-        /** [check]: the V the signatures among [values] still need (N5b), or null. */
-        class Values(val values: Map<String, String>, val check: PendingCheck? = null) : Solved
+        class Values(val values: Map<String, String>) : Solved
 
         class Refused(val reason: SiteExtractionFailure) : Solved
     }

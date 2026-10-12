@@ -9,6 +9,8 @@ import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.extractor.master.modules.MasterSiteModule
 import com.alal.yft.extractor.master.modules.SiteExtractorModule
+import com.alal.yft.extractor.master.solver.SignatureVerdicts
+import kotlinx.coroutines.withContext
 
 /**
  * R6 (YT-1/YT-2/YT-4): Master's own YouTube reader, the copied [YouTubeExtractor] behind
@@ -25,15 +27,27 @@ class MasterYouTubeModule(
     http: ExtractorHttpClient,
     playerScripts: PlayerScriptRunner = NoPlayerScriptRunner,
 ) : MasterSiteModule {
+    // Phase 1.2 N5b: V for the own solver's signatures (it hands over a check only with
+    // ownSolverNext; without one the gate passes every answer and every result through).
+    private val gate = (playerScripts as? SignatureVerdicts)?.let { verdicts ->
+        SignatureGate(playerScripts, verdicts, StreamCheck(http))
+    }
+
     private val module = SiteExtractorModule(
-        YouTubeExtractor(http, playerScripts, NoPoTokenProvider),
+        YouTubeExtractor(http, gate?.runner ?: playerScripts, NoPoTokenProvider),
     )
 
     override val siteId: String get() = module.siteId
 
     override fun identify(pageUrl: String): SitePageIdentity? = module.identify(pageUrl)
 
-    override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult =
+    override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
+        val active = gate ?: return read(request)
+        val lookup = SignatureGate.Lookup()
+        return active.verify(withContext(lookup) { read(request) }, lookup)
+    }
+
+    private suspend fun read(request: SiteExtractionRequest): SiteExtractionResult =
         module.extract(
             request.copy(requestContext = request.requestContext.copy(
                 cookie = null,

@@ -55,14 +55,19 @@
   off until the app restarts (both page steps together: one page engine); a marker per player
   version + step is on disk (`commit`) before each job and cleared after it; two left behind in a
   row (the process died twice) = that step off for that player version. V: a signature from any
-  step is used only after one stream URL built with it opens (`StreamCheck`, control = a direct
-  URL of the same lookup); pass kept per player version + step (64), fail = that step's
+  step is used only after one stream URL carrying it opens (`SignatureGate` around the reader:
+  the reader is main's whole-file copy and stays main's text, R3; `StreamCheck`, control = a
+  stream URL of the same lookup without an own signature); pass kept per player version + step (64), fail = that step's
   signatures off (the ladder looks further down), unknown = nothing kept and the signed streams of
   that lookup dropped. Plan adapted: the lookup counts as user-started (the extractor runs only for
   the page the user opened). Local JVM check (Kotlin 2.0.21): 69/69 (solver, own-solver YouTube,
   StreamCheck, canary; new: ladder runner 11, breaker 4, protocol options 2, V in the reader 2);
   Android parts compile in CI only.
-- ⏳ Next: CI for this commit; then the test cycle (unit → M9c 96 → corpus → M9b/M9bs → faults →
+- ❌→✅ CI for `6bc056e`: build 38282262857 ❌ at the R3 toolkit drift check (V was inside the
+  reader's whole-file copy); fixed: the copy is main's text again (0 drifted), V moved to
+  `SignatureGate`; local 69/69 again.
+- ✅ Test cycle, unit: JS 179/179.
+- ⏳ Next: CI for this commit; the rest of the test cycle (unit → M9c 96 → corpus → M9b/M9bs → faults →
   M9 → 448 suite).
 
 ## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — done, ❌ M9c-nav ladder wrong 1 → N5b (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
