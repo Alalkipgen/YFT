@@ -105,7 +105,11 @@
   classes × 32 files), wrong values 0, expected FAILs missed 0, files not ok 0
   in every fault class. Baseline PB+V and B+V remain ejs 260/260, wrong 0;
   all four steps init errors 0/32. No code fixes applied.
-- ⏳ Next: M9 → per-class 448 suite;
+- ✅ M9: exit 0, 473 s, peak RSS 2399 MB; 32 files, two seeds;
+  standalone wrong 0, ladder wrong 0. Survived/safe/wrong:
+  ejs 0/32/0, own P 32/0/0, own B 32/0/0, page P 32/0/0, page B 32/0/0;
+  PB+V 32/0/0, PB off 0/32/0, B+V 32/0/0, B off 0/32/0. No code fixes applied.
+- ⏳ Next: per-class 448 suite;
   CI for 63758da not yet checked. No code fixes during this test-only cycle.
 
 ## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — done, ❌ M9c-nav ladder wrong 1 → N5b (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
