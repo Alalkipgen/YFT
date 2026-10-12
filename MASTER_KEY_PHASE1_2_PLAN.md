@@ -599,6 +599,74 @@ mirror that environment into the worker; needs a security spike first.
 - **Done:** unit tests with fake engines (each step, a cache hit after a restart, V `fail` → next
   step, all fail → `PLAYER_SCRIPT_REQUIRED`); the flag-off gate stays green.
 
+#### N5b — Final plan for the next cycle (owner-approved, base `f9eaedc`)
+
+Rules: tests first; flag off = main; push only `spike/master-extractor-backup`; never touch main,
+merge, release or tag; never print player text or values. Stop points: A.1 (only if the 0.5 s
+target is missed) and A.7.
+
+**A — Code (one agent, Max reasoning)**
+
+- **A.0 Sync.** Back up local drafts outside the repo, sync to `f9eaedc` (or a later head that only
+  adds docs), check HEAD.
+- **A.1 Budget data** on corpus and 631d3938 M9c-nav:
+  - ms per phase for P and B: parse/prepare, init, search/screen, confirm, SelfCheck, tripwire.
+  - Cache-hit time, P and B separately, (a) same process, (b) after a restart. The cache does not
+    exist yet: estimate it as the phase sum without search; measure the real hit after A.4 and
+    report it at A.7.
+  - Option "keep B's prepared program in memory": today the wrappers reject `strategy:"B"` with
+    `type:"prepared"` as `BadJob` (`own-solver-worker.js:67`, `page-frame.js:80`) and
+    `OwnSolverProtocol` requires `Player.Raw` for B. Report the protocol/wrapper/core changes, the
+    RAM cost (MB for 2 players = `maxCachedPlayers`), the tests to re-run, and that it helps (a)
+    only (the memory is gone after a restart).
+  - Choose job cap and lookup cap together: on corpus and 631d3938 M9c-nav, B must finish in the
+    time left after P, with a written phone margin factor. Job cap < Kotlin job timeout 45 s minus
+    a grace, consistent with P_INIT_MS 20 s and B_SCREEN_MS 40 s. Write the numbers and why.
+  - If a hit is > 0.5 s: stop and ask the owner, with ms numbers: (1) target (a) only; (2) relax
+    the (b) target; (3) keep B's prepared program in memory; (4) prepared program on disk (changes
+    the "locator file = data only" rule of N5b).
+- **A.2 Deadline and caps** (tests first):
+  - Core: deadline = min(job cap, time left in the lookup), checked in the P and B step counters.
+    At the deadline keep only kinds whose requested checks all finished (SelfCheck always,
+    tripwire when the job asks for it); the rest are `budget`. Tighter caps for page steps.
+  - Kotlin: `budget` memory keyed `player|step` (≤ 64), no breaker, recorded only when the step
+    had the full job cap. When the lookup cap runs out, later steps are not run, not recorded, no
+    breaker. A core that ignores the deadline still ends in the job timeout → breaker (unchanged).
+  - Tests: deadline inside tripwire (worker) or SelfCheck (page) → 0 answers; `--no-tripwire`
+    worker keeps kinds whose SelfCheck finished; all 4 steps slow → the lookup ends inside the cap
+    and the next lookup runs the page steps; slow P → B gets a short deadline → `budget` not
+    recorded → the next lookup runs B; full-cap `budget` → recorded → step skipped next lookup.
+- **A.3** `--judge ladder` in the mutation runner (corpus still judges B alone).
+- **A.4 Locator cache** (behind the flag, tests first): `files/own-solver/locators.json`, ≤ 32
+  entries, key player ID + script hash, data only. Cache clean answers only; an M9bs-type wrong is
+  never cached; a hit still passes every check; n never skips the tripwire; poisoned-entry test.
+- **A.5 V ledger on disk**: key `player|step|scriptHash|locatorHash`; any hash change → V runs
+  again. Test: poisoned locator + ledger pass → V runs again, wrong 0.
+- **A.6 Docs**: §5 residual risks (regex and wide recursion → N8; deep recursion is stopped by the
+  stack limit), main candidate list, M9c-nav gap (next cycle 33 runs), B-prepared option status,
+  chosen caps and why.
+- **A.7** All tests pass → push → CI ✅ → TEST_SHA in PROGRESS.md with the exact commands for each
+  Test Agent A–D → ✅/❌ report (command + summary + exit code, CI id + sha + TEST_SHA) → stop.
+
+**B — Test (Test Agents A–D, Medium; each on its own computer with its own result file; exact TEST_SHA;
+≈ 80 min each by N5b times)**
+
+| Test Agent | Runs | ≈ min |
+|---|---|---|
+| A | unit → corpus (miss + hit) → faults (with cache hit) → M9b/M9bs | 89 |
+| B | M9c-loc 11 → M9c-mix 11 | 70 |
+| C | M9c-nav 11 (631d3938 main with `--skip-ejs`) → 448 part 1 | 80 |
+| D | 448 part 2 | 80 |
+
+- 448 parts: the 14 classes split by N5b seconds so Test Agents C and D end near 80 min; A.7 writes the
+  exact class lists.
+- Pass: ladder wrong 0 in every run; corpus = ejs with tripwire false positives 0; faults
+  wrong/missed 0; M9c 33/33 runs done; 448 classes wrong 0.
+- Retest: core JS fix → unit + corpus + faults + the failed class + 21cd2156 es6 + 631d3938 main;
+  tripwire or B-search fix → full M9c.
+
+**C** — N6 canary workflow → N7 owner phone check (includes the phone margin).
+
 ### N6 — Canary workflow (computer)
 
 - A workflow `own-solver-canary.yml`: fetch today's player (4 builds), run ejs, P, B, the vectors
