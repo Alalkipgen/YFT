@@ -1,5 +1,20 @@
 # YFT Master Extractor backup
 
+## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — in progress (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
+
+- ✅ Code (app behaviour unchanged: nothing calls the rule yet; flag off = main): worker and
+  page-frame replies carry `init_errors` + `init_error_classes` (class names only);
+  `OwnSolverProtocol` decodes them (missing → null = unknown = untrusted). `OwnSolverLadderRule`
+  (extractor-master, pure) and `scripts/own-solver/ladder.mjs` read one case table
+  (`extractor-master/src/test/resources/own-solver/ladder-rule-cases.json`, 18 cases). Runners:
+  `verify-own-solver.mjs --ladder [--dyncode]`, `--faults --ladder` (lazy, as the app will),
+  mutation runner `--ladder` (columns PB+V, PB off, B+V, B off). Mutators M9c-nav / M9c-loc /
+  M9c-mix (environment classes, outside the 448 baseline). JS 171/171 (161 + 10).
+- ✅ Corpus `--ladder --dyncode` (367 s, peak RSS 2.0 GB): 32/32 files; ladder = ejs 260/260 in
+  all four options (wrong 0, no value 0); init errors 0/32 files in worker P, worker B, page P,
+  page B; player `eval` reads and `Function` calls 0 in all four runs (init and later).
+- ⏳ M9b/M9bs, faults, M9, M9c: running one at a time.
+
 ## Phase 1.2 — N4b environment-dependent values (M9b / M9bs) — measured ❌ (code `bdb45c6`, CI 38175876765 ✅; harness fix `8140b27`, CI 38181863054 ✅)
 
 - ✅ Code: mutation classes M9b (DOM-made value; use throws without the DOM) and M9bs (silent
