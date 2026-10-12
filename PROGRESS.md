@@ -45,7 +45,12 @@
   **ladder 32/0/0 in all four options, wrong 0**. ejs 32/0/0, own P 32/0/0, own B 12/20/0, page P
   0/32/0. Page B wrong 1 (9fcf08e8 tce: signature, n no candidates, init errors 2), not returned:
   worker P answers first, and the page answer had init errors.
-- ⏳ M9c-mix, then M9c-nav 631d3938 (one variant per process): running.
+- ✅ M9c-mix `--strategy P,B --ladder` (11 processes as M9c-loc, 2176 s, peak RSS 1.6 GB):
+  **ladder 0/32/0 in all four options, wrong 0** (all safe; E answers). ejs, own P, page P 0/32/0.
+  B wrong 1 in the worker and 1 in the page, both e7573094 main, a signature with n "no
+  candidates" (as in M9c-nav): not returned, the worker answer had init errors 1 and a page
+  signature needs V.
+- ⏳ M9c-nav 631d3938 (one variant per process): running.
 
 ## Phase 1.2 — N4b environment-dependent values (M9b / M9bs) — measured ❌ (code `bdb45c6`, CI 38175876765 ✅; harness fix `8140b27`, CI 38181863054 ✅)
 
