@@ -14,6 +14,11 @@
 //   node scripts/verify-own-solver-mutations.mjs --class M9b,M9bs --strategy P,B --both
 //                    # N4b: own P/B in the worker AND in page mode, one row per class
 //                    # (M9b/M9bs are environment classes, not in the default list; see mutate.mjs)
+//   node scripts/verify-own-solver-mutations.mjs --class M9b,M9bs --strategy P,B --ladder
+//                    # N5a: as --both, plus the ladder's answer (ladder.mjs) from those four runs:
+//                    # page step "PB" (page P, else page B) or "B" (page B only), each with the
+//                    # live check simulated (+V: a page signature counts only if it equals the
+//                    # truth) or off (no page signature)
 //
 // It mutates each cached player so the code is WRITTEN differently but DOES the same thing, then
 // measures how often ejs and the own solver's pattern strategy (P) — and, with --strategy B,
@@ -37,6 +42,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import { challenges, settle, solveWithEjs, solveWithOwn, VARIANTS } from "./own-solver/harness.mjs";
+import { ladder } from "./own-solver/ladder.mjs";
 import * as M from "./own-solver/mutate.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -72,12 +78,26 @@ const withB = strategies.includes("B");
 // mode; ejs and the truth stay as they are (bare context).
 const page = flag("--page");
 const pageExtra = page ? { page: true } : {};
-// --both (N4b): each own strategy in the worker (bare context) and in page mode, side by side.
-const both = flag("--both");
-if (both && page) {
-  console.error("--both already runs page mode; drop --page");
+// --ladder (N5a): the ladder's answer from the four runs of --both (needs --strategy P,B).
+const withLadder = flag("--ladder");
+if (withLadder && !(withP && withB)) {
+  console.error("--ladder needs --strategy P,B");
   process.exit(2);
 }
+// --both (N4b): each own strategy in the worker (bare context) and in page mode, side by side.
+const both = flag("--both") || withLadder;
+if (both && page) {
+  console.error("--both and --ladder already run page mode; drop --page");
+  process.exit(2);
+}
+// The ladder reads P's init errors from its report (B and page B always return it).
+const reportExtra = withLadder ? { report: true } : {};
+const LADDERS = [
+  ["ladder PB+V", "ladderPBV", { page: "PB", live: "sim" }],
+  ["ladder PB off", "ladderPBoff", { page: "PB", live: "offline" }],
+  ["ladder B+V", "ladderBV", { page: "B", live: "sim" }],
+  ["ladder B off", "ladderBoff", { page: "B", live: "offline" }],
+];
 const quickVariant = "phone";
 
 // ---- a V8 context with the vendored parser + code generator (used only to mutate the AST) ----
@@ -108,6 +128,9 @@ function mutate(program, cls, random) {
     case "M9": return M.readBrowserObjects(program, random);
     case "M9b": return M.domDependentLiterals(program, random);
     case "M9bs": return M.domDependentLiterals(program, random, { silent: true });
+    case "M9c-nav": return M.environmentLiterals(program, random, { env: "nav" });
+    case "M9c-loc": return M.environmentLiterals(program, random, { env: "loc" });
+    case "M9c-mix": return M.environmentLiterals(program, random, { env: "mix" });
     case "M10": return M.appendDecoys(program, random);
     case "M11": return M.addPrelude(program, random);
     case "M11f": return M.addPrelude(program, random, { functions: true });
@@ -181,11 +204,13 @@ const empty = () => ({
   ownB: { survived: 0, safe: 0, wrong: 0 },
   pageP: { survived: 0, safe: 0, wrong: 0 },
   pageB: { survived: 0, safe: 0, wrong: 0 },
+  ...(withLadder ? Object.fromEntries(LADDERS.map(([, key]) => [key, { survived: 0, safe: 0, wrong: 0 }])) : {}),
 });
 const byClass = {};
 for (const cls of classes) byClass[cls] = empty();
 const lines = [];
 let wrongTotal = 0;
+let ladderWrong = 0;
 
 for (const file of files) {
   const playerText = readFileSync(file.path, "utf8");
@@ -212,11 +237,11 @@ for (const file of files) {
       if (!haveTruth) { note = "no-truth"; continue; }
       const ejsOut = solveWithEjs(ejs, mutated, inputs);
       await settle(); // releases the player's unhandled rejections after every solve (see harness.mjs)
-      const ownOut = withP ? solveWithOwn(own, mutated, inputs, pageExtra) : null;
+      const ownOut = withP ? solveWithOwn(own, mutated, inputs, { ...pageExtra, ...reportExtra }) : null;
       await settle();
       const bOut = withB ? solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false, ...pageExtra }) : null;
       await settle();
-      const pagePOut = both && withP ? solveWithOwn(own, mutated, inputs, { page: true }) : null;
+      const pagePOut = both && withP ? solveWithOwn(own, mutated, inputs, { page: true, ...reportExtra }) : null;
       if (both) await settle();
       const pageBOut = both && withB ? solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false, page: true }) : null;
       if (both) await settle();
@@ -236,6 +261,18 @@ for (const file of files) {
         bucket[key][o] += 1;
         if (o === "wrong") wrongTotal += 1;
         line += `, ${label} ${detail(v, o)}${o !== "survived" && (out.failed || out.error) ? ` [${out.failed || out.error}]` : ""}${out.late ? " {late promise jobs cut}" : ""}`;
+        if (withLadder && out.report && typeof out.report.topLevelErrors === "number" && out.report.topLevelErrors > 0) line += ` {init errors ${out.report.topLevelErrors}}`;
+      }
+      if (withLadder) {
+        const outs = { workerP: ownOut, workerB: bOut, pageP: pagePOut, pageB: pageBOut };
+        for (const [label, key, options] of LADDERS) {
+          const answer = ladder(outs, inputs, { ...options, truth });
+          const v = judge(truth, answer, inputs);
+          const o = score(v);
+          bucket[key][o] += 1;
+          if (o === "wrong") ladderWrong += 1;
+          line += `, ${label} ${detail(v, o)} (n ${answer.sources.n ?? "-"}, sig ${answer.sources.sig ?? "-"})`;
+        }
       }
       lines.push(line);
       process.stderr.write(`${line}\n`); // progress for long runs (counts and classes only)
@@ -249,7 +286,8 @@ const summary = { generated: new Date().toISOString().slice(0, 10), files: files
 lines.push("");
 lines.push(
   `class   | ejs surv/safe/wrong |${withP ? " own P surv/safe/wrong |" : ""}${withB ? " own B surv/safe/wrong |" : ""}` +
-    `${both && withP ? " page P surv/safe/wrong |" : ""}${both && withB ? " page B surv/safe/wrong |" : ""} skipped`,
+    `${both && withP ? " page P surv/safe/wrong |" : ""}${both && withB ? " page B surv/safe/wrong |" : ""}` +
+    `${withLadder ? LADDERS.map(([label]) => ` ${label.padEnd(13)} s/s/w |`).join("") : ""} skipped`,
 );
 for (const cls of classes) {
   const b = byClass[cls];
@@ -257,13 +295,18 @@ for (const cls of classes) {
   const f = (x) => String(x).padStart(2);
   const cell = (c) => `    ${f(c.survived)}/${f(c.safe)}/${f(c.wrong)}          |`;
   const pageCells = `${both && withP ? ` ${cell(b.pageP)}` : ""}${both && withB ? ` ${cell(b.pageB)}` : ""}`;
-  lines.push(`${cls.padEnd(7)} |   ${f(b.ejs.survived)}/${f(b.ejs.safe)}/${f(b.ejs.wrong)}         |${withP ? cell(b.ownP) : ""}${withB ? cell(b.ownB) : ""}${pageCells} ${b.skipped}`);
+  const ladderCells = withLadder ? LADDERS.map(([, key]) => `       ${f(b[key].survived)}/${f(b[key].safe)}/${f(b[key].wrong)}     |`).join("") : "";
+  lines.push(`${cls.padEnd(7)} |   ${f(b.ejs.survived)}/${f(b.ejs.safe)}/${f(b.ejs.wrong)}         |${withP ? cell(b.ownP) : ""}${withB ? cell(b.ownB) : ""}${pageCells}${ladderCells} ${b.skipped}`);
 }
 lines.push("");
-lines.push(`${files.length} files x ${classes.length} classes x ${seeds} seed(s)${page ? " (own in page mode)" : both ? " (own in the worker and in page mode)" : ""}; wrong values: ${wrongTotal}`);
+lines.push(`${files.length} files x ${classes.length} classes x ${seeds} seed(s)${page ? " (own in page mode)" : both ? " (own in the worker and in page mode)" : ""}; wrong values: ${wrongTotal}${withLadder ? `; ladder wrong values: ${ladderWrong}` : ""}`);
 console.log(lines.join("\n"));
 mkdirSync(dirname(reportFile), { recursive: true });
 // Page-mode runs keep their own report, so a worker-mode run can go at the same time.
-const outFile = page ? reportFile.replace(/\.json$/, "-page.json") : both ? reportFile.replace(/\.json$/, "-both.json") : reportFile;
-writeFileSync(outFile, JSON.stringify({ ...summary, strategies, page, both, wrongTotal }, null, 2));
-process.exit(wrongTotal > 0 ? 1 : 0);
+const outFile = page
+  ? reportFile.replace(/\.json$/, "-page.json")
+  : withLadder
+    ? reportFile.replace(/\.json$/, "-ladder.json")
+    : both ? reportFile.replace(/\.json$/, "-both.json") : reportFile;
+writeFileSync(outFile, JSON.stringify({ ...summary, strategies, page, both, ladder: withLadder, wrongTotal, ...(withLadder ? { ladderWrong } : {}) }, null, 2));
+process.exit(wrongTotal + ladderWrong > 0 ? 1 : 0);

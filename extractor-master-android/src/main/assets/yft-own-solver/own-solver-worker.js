@@ -49,6 +49,14 @@ function yftWholeFailure(failed) {
   return false;
 }
 
+// Init errors (N5a): how many guarded top-level statements threw, and their classes (names
+// like TypeError only, never a message). A reply without them is a run that never instantiated.
+function yftInitErrors(reply, report) {
+  if (!report || typeof report.topLevelErrors !== "number") return;
+  reply.init_errors = report.topLevelErrors;
+  reply.init_error_classes = Object.keys(report.topLevelErrorClasses || {}).slice(0, 9);
+}
+
 function yftRunJob(solver, job) {
   if (!job || (job.type !== "player" && job.type !== "prepared")) {
     return { type: "error", error: "BadJob" };
@@ -63,6 +71,7 @@ function yftRunJob(solver, job) {
   var output = solver.run(prepared, { n: yftInputs(job.n), sig: yftInputs(job.sig) });
   var reply = { type: "result", n: output.n || {}, sig: output.sig || {} };
   if (output.failed) reply.failed = String(output.failed);
+  yftInitErrors(reply, output.report);
   if (job.type === "player" && job.keep_prepared === true && !yftWholeFailure(output.failed)) {
     reply.prepared_program = prepared.program;
   }

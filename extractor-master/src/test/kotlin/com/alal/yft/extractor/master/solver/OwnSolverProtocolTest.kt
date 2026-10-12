@@ -120,6 +120,50 @@ class OwnSolverProtocolTest {
         assertFalse(decoded.toString().contains("Qx7rTb2LmNc9Pd4s"))
     }
 
+    @Test
+    fun `a reply's init errors decode as a count and class names, and a missing count stays unknown`() {
+        val counted = OwnSolverProtocol.decode(
+            ScriptedOwnEngine.result(
+                n = mapOf("Qx7rTb2LmNc9Pd4s" to "out1"),
+                initErrors = 3,
+                initErrorClasses = listOf("TypeError", "RangeError"),
+            ),
+            batch,
+        ) as OwnSolverProtocol.Decoded.Solved
+        assertEquals(3, counted.initErrors)
+        assertEquals(listOf("TypeError", "RangeError"), counted.initErrorClasses)
+
+        val clean = OwnSolverProtocol.decode(ScriptedOwnEngine.result(initErrors = 0), batch)
+            as OwnSolverProtocol.Decoded.Solved
+        assertEquals(0, clean.initErrors)
+        assertEquals(emptyList<String>(), clean.initErrorClasses)
+
+        // A run that never instantiated (or an older core) has no count: unknown, never 0.
+        val unknown = OwnSolverProtocol.decode(ScriptedOwnEngine.result(failed = "not prepared"), batch)
+            as OwnSolverProtocol.Decoded.Solved
+        assertNull(unknown.initErrors)
+        assertEquals(emptyList<String>(), unknown.initErrorClasses)
+    }
+
+    @Test
+    fun `init error counts that are not whole non-negative numbers are unknown, and classes are cut`() {
+        fun decoded(count: String, classes: String = "[]") = OwnSolverProtocol.decode(
+            "{\"type\":\"result\",\"n\":{},\"sig\":{},\"init_errors\":$count," +
+                "\"init_error_classes\":$classes}",
+            batch,
+        ) as OwnSolverProtocol.Decoded.Solved
+
+        assertNull(decoded("-1").initErrors)
+        assertNull(decoded("1.5").initErrors)
+        assertNull(decoded("\"2\"").initErrors)
+        assertEquals(Int.MAX_VALUE, decoded("99999999999").initErrors)
+        val names = (1..12).joinToString(",", "[", "]") { "\"Error$it <x>\"" }
+        val cut = decoded("12", names).initErrorClasses
+        assertEquals(9, cut.size)
+        assertFalse(cut.any { it.contains('<') })
+        assertEquals(listOf("TypeError"), decoded("1", "[\"TypeError\",7,null]").initErrorClasses)
+    }
+
     private fun texts(value: JsonValue?): List<String> =
         (value as JsonValue.Array).items.map { (it as JsonValue.Text).value }
 }

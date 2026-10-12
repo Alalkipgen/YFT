@@ -15,6 +15,11 @@
 //   ... --page                                    # strategy E (N4): the core in page mode in the
 //                                                 # harness's page-frame DOM stub (P, or B with --strategy B)
 //   ... --init                                    # init errors per file: count and classes (N4b)
+//   node scripts/verify-own-solver.mjs --ladder    # N5a: worker P, worker B, page P, page B per file
+//                                                 # (B alone) and the ladder's answer (ladder.mjs:
+//                                                 # page step PB, live check simulated) against ejs
+//   ... --ladder --dyncode                        # also eval reads / Function calls by player code
+//   ... --faults --ladder                         # each fault case through the ladder, run lazily
 //
 // Needs network access to www.youtube.com. Player text is cached under build/own-solver/players
 // (never committed) and checked against corpus.json's SHA-256 before use. Like
@@ -41,6 +46,7 @@ import {
   prepareWithOwn,
   settle,
 } from "./own-solver/harness.mjs";
+import { ladder, lazyLadder } from "./own-solver/ladder.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const corpusFile = join(root, "scripts/own-solver/corpus.json");
@@ -80,6 +86,53 @@ const withHint = args.includes("--hint");
 const page = args.includes("--page");
 // --init (N4b): each file's init errors (top-level statements that threw), count and classes only.
 const withInit = args.includes("--init");
+// --ladder (N5a): the four runs the ladder may use and its answer; --dyncode adds eval/Function
+// counts per run. They run every strategy themselves.
+const withLadder = args.includes("--ladder");
+const withDyncode = args.includes("--dyncode");
+if (withDyncode && !withLadder) {
+  console.error("--dyncode runs with --ladder");
+  process.exit(2);
+}
+if (withLadder && (strategy || page || withInit)) {
+  console.error("--ladder runs every strategy and reports init errors itself; drop --strategy, --page and --init");
+  process.exit(2);
+}
+// B alone (no hint), as the mutation runner's --ladder.
+const LADDER_STEPS = {
+  workerP: { report: true },
+  workerB: { strategy: "B", hint: false },
+  pageP: { page: true, report: true },
+  pageB: { strategy: "B", hint: false, page: true },
+};
+const STEP_LABEL = { workerP: "P", workerB: "B", pageP: "pP", pageB: "pB" };
+const LADDER_OPTIONS = [
+  ["PB+V", { page: "PB", live: "sim" }],
+  ["PB off", { page: "PB", live: "offline" }],
+  ["B+V", { page: "B", live: "sim" }],
+  ["B off", { page: "B", live: "offline" }],
+];
+const ladderInit = Object.fromEntries(Object.keys(LADDER_STEPS).map((name) => [name, { files: 0, withErrors: 0, unknown: 0, total: 0 }]));
+const ladderTotals = Object.fromEntries(LADDER_OPTIONS.map(([label]) => [label, { agree: 0, wrong: 0, missing: 0, total: 0 }]));
+const ladderSources = {};
+const dyncodeTotals = Object.fromEntries(Object.keys(LADDER_STEPS).map((name) => [name, { files: 0, withAny: 0, counts: {} }]));
+const tally = (map, key) => {
+  map[key] = (map[key] ?? 0) + 1;
+};
+// Per input against ejs: same value, another value, or none.
+function againstEjs(totals, answer, ejsOut, inputs) {
+  for (const kind of ["n", "sig"]) {
+    for (const input of inputs[kind]) {
+      const expected = ejsOut[kind]?.[input];
+      if (typeof expected !== "string") continue;
+      totals.total += 1;
+      const value = answer[kind]?.[input];
+      if (typeof value !== "string") totals.missing += 1;
+      else if (value === expected) totals.agree += 1;
+      else totals.wrong += 1;
+    }
+  }
+}
 const strategyExtra = {
   ...(strategy === "B" ? { strategy: "B", hint: withHint, ...(verbose ? { debug: true } : {}) } : {}),
   ...(page ? { page: true } : {}),
@@ -205,12 +258,32 @@ for (const entry of corpus.players) {
     }
     const ejsOut = solveWithEjs(ejs, fetched.text, plan.inputs);
     await settle();
-    const ownOut = own ? solveWithOwn(own, fetched.text, plan.inputs, { ...strategyExtra, ...(withInit ? { report: true } : {}) }) : null;
-    await settle();
+    let ownOut = null;
+    let ladderRuns = null;
+    if (own && withLadder) {
+      ladderRuns = {};
+      for (const [name, extra] of Object.entries(LADDER_STEPS)) {
+        ladderRuns[name] = solveWithOwn(own, fetched.text, plan.inputs, { ...extra, ...(withDyncode ? { dyncode: true } : {}) });
+        await settle();
+      }
+      ownOut = ladder(ladderRuns, plan.inputs, { page: "PB", live: "sim", truth: ejsOut });
+    } else {
+      ownOut = own ? solveWithOwn(own, fetched.text, plan.inputs, { ...strategyExtra, ...(withInit ? { report: true } : {}) }) : null;
+      await settle();
+    }
     const result = { player: entry.player, variant, status: "ok", ...compare(plan, ejsOut, ownOut) };
     if (own && withFaults) {
       result.faults = [];
       for (const fault of faultCases) {
+        if (withLadder) {
+          const lazy = await lazyLadder(async (name) => {
+            const out = solveWithOwn(own, fetched.text, plan.inputs, { ...LADDER_STEPS[name], faults: fault.faults });
+            await settle();
+            return out;
+          }, plan.inputs, { page: "PB", live: "sim", truth: ejsOut });
+          result.faults.push({ ...faultVerdict(fault, ejsOut, lazy.ladder), sources: lazy.ladder.sources, steps: Object.keys(lazy.outs) });
+          continue;
+        }
         const faulted = solveWithOwn(own, fetched.text, plan.inputs, { ...strategyExtra, faults: fault.faults });
         result.faults.push(faultVerdict(fault, ejsOut, faulted));
         await settle();
@@ -224,6 +297,11 @@ for (const entry of corpus.players) {
         total.wrong += verdict.wrong;
         total.missed += verdict.detected === false ? 1 : 0;
         total.bad += verdict.ok ? 0 : 1;
+        if (verdict.sources) {
+          total.sources = total.sources ?? {};
+          for (const [kind, source] of Object.entries(verdict.sources)) tally(total.sources, `${kind} ${source}`);
+          total.steps = (total.steps ?? 0) + verdict.steps.length;
+        }
         faultTotals.set(verdict.name, total);
       }
     }
@@ -233,6 +311,36 @@ for (const entry of corpus.players) {
       const bad = result.faults.filter((verdict) => !verdict.ok).map((verdict) => verdict.name);
       line += ` | faults ${result.faults.length - bad.length}/${result.faults.length} ok${bad.length ? ` (bad ${bad.join(",")})` : ""}`;
       if (bad.length) faultFiles += 1;
+    }
+    if (ladderRuns) {
+      const inits = Object.entries(ladderRuns).map(([name, out]) => {
+        const count = out.report?.topLevelErrors;
+        const totals = ladderInit[name];
+        totals.files += 1;
+        if (typeof count !== "number") totals.unknown += 1;
+        else {
+          totals.total += count;
+          if (count > 0) totals.withErrors += 1;
+        }
+        return `${STEP_LABEL[name]} ${typeof count === "number" ? count : "?"}`;
+      });
+      line += ` | init errors ${inits.join(", ")} | ladder n ${ownOut.sources.n ?? "-"}, sig ${ownOut.sources.sig ?? "-"}`;
+      for (const [kind, source] of Object.entries(ownOut.sources)) tally(ladderSources, `${kind} ${source}`);
+      for (const [label, options] of LADDER_OPTIONS) {
+        againstEjs(ladderTotals[label], ladder(ladderRuns, plan.inputs, { ...options, truth: ejsOut }), ejsOut, plan.inputs);
+      }
+      if (withDyncode) {
+        const parts = Object.entries(ladderRuns).map(([name, out]) => {
+          const d = out.dyncode;
+          const totals = dyncodeTotals[name];
+          totals.files += 1;
+          if (!d) return `${STEP_LABEL[name]} ?`;
+          if (Object.values(d).some((count) => count > 0)) totals.withAny += 1;
+          for (const [key, count] of Object.entries(d)) totals.counts[key] = (totals.counts[key] ?? 0) + count;
+          return `${STEP_LABEL[name]} eval ${d.evalInit}/${d.evalCall}, Function ${d.functionInit}/${d.functionCall}, other ${d.otherInit}/${d.otherCall}${d.unknown ? `, unknown ${d.unknown}` : ""}`;
+        });
+        line += ` | dyncode (init/later) ${parts.join("; ")}`;
+      }
     }
     if (withInit) {
       const count = ownOut?.report?.topLevelErrors;
@@ -282,7 +390,10 @@ console.log(lines[lines.length - 1]);
 if (withFaults) {
   console.log(`faults: ${faultRuns} runs, wrong values ${faultWrong}, expected FAILs missed ${faultMissed}`);
   for (const [name, total] of faultTotals) {
-    console.log(`  fault ${name}: ${total.runs} runs, wrong values ${total.wrong}, missed ${total.missed}, files not ok ${total.bad}`);
+    const ladderPart = total.sources
+      ? ` | ladder ${Object.entries(total.sources).sort().map(([key, count]) => `${key} ${count}`).join(", ")}; steps run ${total.steps}`
+      : "";
+    console.log(`  fault ${name}: ${total.runs} runs, wrong values ${total.wrong}, missed ${total.missed}, files not ok ${total.bad}${ladderPart}`);
   }
 }
 if (withInit) {
@@ -292,9 +403,35 @@ if (withInit) {
   const named = Object.entries(initClasses).sort().map(([name, n]) => `${name} ${n}`).join(", ");
   console.log(`init errors: files with errors ${withErrors}/${initCounts.length}, total ${sum}, per file ${range}${named ? `, classes ${named}` : ""}`);
 }
-// Page-mode runs keep their own report, so a worker-mode run can go at the same time.
-const outFile = page ? reportFile.replace(/\.json$/, `${strategy === "B" ? "-b" : ""}-page.json`) : reportFile;
+if (withLadder) {
+  const step = (name) => {
+    const t = ladderInit[name];
+    return `${STEP_LABEL[name]} ${t.withErrors}/${t.files}${t.unknown ? ` (unknown ${t.unknown})` : ""}`;
+  };
+  console.log(`ladder init errors: files with errors ${Object.keys(LADDER_STEPS).map(step).join(", ")}`);
+  console.log(`ladder sources (PB+V, per file): ${Object.entries(ladderSources).sort().map(([key, count]) => `${key} ${count}`).join(", ")}`);
+  console.log(
+    `ladder vs ejs: ${LADDER_OPTIONS.map(([label]) => {
+      const t = ladderTotals[label];
+      return `${label} = ejs ${t.agree}/${t.total}, wrong ${t.wrong}, no value ${t.missing}`;
+    }).join("; ")}`,
+  );
+  if (withDyncode) {
+    for (const [name, t] of Object.entries(dyncodeTotals)) {
+      const c = t.counts;
+      console.log(
+        `dyncode ${STEP_LABEL[name]}: files with any ${t.withAny}/${t.files}; eval reads init ${c.evalInit ?? 0}, later ${c.evalCall ?? 0}; ` +
+          `Function calls init ${c.functionInit ?? 0}, later ${c.functionCall ?? 0}; other constructors init ${c.otherInit ?? 0}, later ${c.otherCall ?? 0}; unknown ${c.unknown ?? 0}`,
+      );
+    }
+  }
+}
+// Page-mode and ladder runs keep their own report, so a worker-mode run can go at the same time.
+const outFile = withLadder
+  ? reportFile.replace(/\.json$/, "-ladder.json")
+  : page ? reportFile.replace(/\.json$/, `${strategy === "B" ? "-b" : ""}-page.json`) : reportFile;
 mkdirSync(dirname(outFile), { recursive: true });
 writeFileSync(outFile, `${JSON.stringify({ ownBuilt: Boolean(own), page, results }, null, 2)}\n`);
-const faultsOk = !withFaults || (faultWrong === 0 && faultMissed === 0 && faultFiles === 0);
+const ladderOk = !withLadder || Object.values(ladderTotals).every((t) => t.wrong === 0);
+const faultsOk = (!withFaults || (faultWrong === 0 && faultMissed === 0 && faultFiles === 0)) && ladderOk;
 process.exit(results.length > 0 && results.every(passes) && faultsOk ? 0 : 1);

@@ -173,3 +173,19 @@ test("the page's routes and files match the app's route table", () => {
   const csp = /CONTENT_SECURITY_POLICY: String =\s*"([^"]+)" \+\s*"([^"]+)"/.exec(routes);
   assert.ok(read("own-solver.html").includes(`content="${csp[1]}${csp[2]}"`));
 });
+
+test("a reply carries the run's init errors: a count and class names only (N5a)", () => {
+  // The fake player's own top-level AudioContext read throws one TypeError (init-errors.test.mjs).
+  const reply = runWorker({ type: "player", player: padded(fakePlayer()), n: N, sig: SIG });
+  assert.equal(reply.init_errors, 1);
+  assert.deepEqual(reply.init_error_classes, ["TypeError"]);
+  // needsDom: the DOM call the worker lacks is one more TypeError.
+  const dom = runWorker({ type: "player", player: padded(fakePlayer({ needsDom: true })), n: N, sig: SIG });
+  assert.equal(dom.init_errors, 2);
+  assert.deepEqual(dom.init_error_classes, ["TypeError"]);
+  // A run that never instantiated says nothing: the ladder treats its init errors as unknown.
+  const bad = runWorker({ type: "prepared", program: "", n: N, sig: SIG });
+  assert.equal(bad.failed, "not prepared");
+  assert.equal(bad.init_errors, undefined);
+  assert.equal(bad.init_error_classes, undefined);
+});

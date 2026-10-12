@@ -341,6 +341,116 @@ export function pageContext(lib) {
   return sandbox;
 }
 
+// Phase 1.2 N5a (--dyncode): how often player code reads `eval` or calls the Function constructor
+// (also through a function's .constructor, and the async/generator function constructors), at init
+// (a core frame named *instantiate* is on the stack) or later (n/sig calls, B's probes). It runs in
+// the context after the parser and before the core. `eval` becomes an accessor whose getter returns
+// the real eval, so a direct eval stays direct (it keeps its scope); Function becomes a Proxy of the
+// real one. Callers are told apart by V8 call sites: player code is compiled by the core with
+// Function, so its frames are eval frames; the core's own calls are not counted. Not covered:
+// setTimeout/setInterval with a string (the stubs never run them) and code reaching another
+// realm's constructors. Counts only; the counts are read through a function the player cannot
+// replace.
+export const DYNCODE_CORE_FILE = "yft-own-solver-core.js";
+
+function dyncodePrelude(g, coreFile) {
+  "use strict";
+  var E = g.Error;
+  var capture = E.captureStackTrace;
+  var stringify = g.JSON.stringify;
+  var isArray = g.Array.isArray;
+  var counts = { evalInit: 0, evalCall: 0, functionInit: 0, functionCall: 0, otherInit: 0, otherCall: 0, unknown: 0 };
+  function sites(skip) {
+    var saved = E.prepareStackTrace;
+    var limit = E.stackTraceLimit;
+    var holder = {};
+    try {
+      E.stackTraceLimit = Infinity;
+      E.prepareStackTrace = function (ignored, callSites) {
+        return callSites;
+      };
+      capture(holder, skip);
+      return holder.stack;
+    } catch (ignored) {
+      return null;
+    } finally {
+      E.prepareStackTrace = saved;
+      E.stackTraceLimit = limit;
+    }
+  }
+  function note(kind, skip) {
+    var list = sites(skip);
+    if (!isArray(list) || !list.length) {
+      counts.unknown += 1;
+      return;
+    }
+    var first = list[0];
+    if (!first.isEval() && first.getFileName()) return; // the core, the parser or the harness
+    var init = false;
+    for (var i = 1; i < list.length; i += 1) {
+      var site = list[i];
+      if (!site.isEval() && site.getFileName() === coreFile && /instantiate/i.test(site.getFunctionName() || "")) {
+        init = true;
+        break;
+      }
+    }
+    counts[kind + (init ? "Init" : "Call")] += 1;
+  }
+  var realEval = g.eval;
+  var current = realEval;
+  Object.defineProperty(g, "eval", {
+    get: function evalGetter() {
+      note("eval", evalGetter);
+      return current;
+    },
+    set: function (value) {
+      current = value;
+    },
+    enumerable: false,
+    configurable: true,
+  });
+  function wrap(target, kind) {
+    var proxy = new Proxy(target, {
+      apply: function applyTrap(fn, self, args) {
+        note(kind, applyTrap);
+        return Reflect.apply(fn, self, args);
+      },
+      construct: function constructTrap(fn, args, newTarget) {
+        note(kind, constructTrap);
+        return Reflect.construct(fn, args, newTarget === proxy ? fn : newTarget);
+      },
+    });
+    Object.defineProperty(target.prototype, "constructor", { value: proxy, writable: true, enumerable: false, configurable: true });
+    return proxy;
+  }
+  var RealFunction = g.Function;
+  ["async function () {}", "function* () {}", "async function* () {}"].forEach(function (source) {
+    try {
+      wrap(Object.getPrototypeOf(RealFunction("return " + source)()).constructor, "other");
+    } catch (ignored) {
+      // A context without that kind of function.
+    }
+  });
+  Object.defineProperty(g, "Function", { value: wrap(RealFunction, "function"), writable: true, enumerable: false, configurable: true });
+  Object.defineProperty(g, "__yftDyncode", {
+    value: function () {
+      return stringify(counts);
+    },
+    writable: false,
+    enumerable: false,
+    configurable: false,
+  });
+}
+
+function dyncodeOf(sandbox) {
+  if (!sandbox) return null;
+  try {
+    return JSON.parse(vm.runInContext("__yftDyncode()", sandbox, { timeout: 2_000 }));
+  } catch (ignored) {
+    return null;
+  }
+}
+
 /** The own core's preparation of [player]: counts and the failure class only. */
 export function prepareWithOwn({ lib, core }, player) {
   try {
@@ -363,15 +473,22 @@ export function prepareWithOwn({ lib, core }, player) {
  * The own core on [player] through its contract (see the header); [extra] adds faults. With
  * extra.page (N4, strategy E) it runs in the page-frame DOM stub and the core in page mode.
  * extra.report (N4b) returns the core's report for P too (B and E return it with extra.strategy);
- * it is not part of the request.
+ * it is not part of the request. extra.dyncode (N5a) adds the dynamic-code counts (see
+ * dyncodePrelude); it is not part of the request either.
  */
 export function solveWithOwn({ lib, core }, player, inputs, extra = {}) {
   let sandbox = null;
-  const { report: wantReport, ...request } = extra;
+  const { report: wantReport, dyncode: wantDyncode, ...request } = extra;
   const withReport = Boolean(extra.strategy) || wantReport === true;
+  const dyncode = wantDyncode === true ? () => ({ dyncode: dyncodeOf(sandbox) }) : () => ({});
   try {
     sandbox = extra.page ? pageContext(lib) : ownContext(lib);
-    vm.runInContext(core, sandbox, { timeout: SOLVE_TIMEOUT_MS });
+    if (wantDyncode === true) {
+      vm.runInContext(`(${dyncodePrelude.toString()})(this, ${JSON.stringify(DYNCODE_CORE_FILE)});`, sandbox);
+      vm.runInContext(core, sandbox, { timeout: SOLVE_TIMEOUT_MS, filename: DYNCODE_CORE_FILE });
+    } else {
+      vm.runInContext(core, sandbox, { timeout: SOLVE_TIMEOUT_MS });
+    }
     sandbox.input = JSON.stringify({ player, n: inputs.n, sig: inputs.sig, ...request });
     const reply = replyOf(sandbox, "JSON.stringify(yftOwnSolve(JSON.parse(input)))");
     const output = JSON.parse(reply.text);
@@ -385,9 +502,10 @@ export function solveWithOwn({ lib, core }, player, inputs, extra = {}) {
       ...(withReport ? { report: output?.report ?? null } : {}),
       // Local diagnosis (--verbose) only: per group answers, compared by the caller, never printed.
       ...(extra.debug ? { debug: output?.debug ?? null } : {}),
+      ...dyncode(),
     };
   } catch (error) {
-    return { n: {}, sig: {}, error: error?.name ?? "Error", ...(withReport ? { report: progressOf(sandbox) } : {}) };
+    return { n: {}, sig: {}, error: error?.name ?? "Error", ...(withReport ? { report: progressOf(sandbox) } : {}), ...dyncode() };
   }
 }
 

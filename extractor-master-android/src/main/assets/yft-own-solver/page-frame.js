@@ -62,6 +62,13 @@
     return false;
   }
 
+  // Init errors (N5a), as the worker's yftInitErrors: a count and class names only.
+  function initErrors(reply, report) {
+    if (!report || typeof report.topLevelErrors !== "number") return;
+    reply.init_errors = report.topLevelErrors;
+    reply.init_error_classes = Object.keys(report.topLevelErrorClasses || {}).slice(0, 9);
+  }
+
   // The worker's job runner (own-solver-worker.js yftRunJob) with the core in page mode.
   function runJob(solver, job) {
     if (!job || (job.type !== "player" && job.type !== "prepared")) {
@@ -77,6 +84,7 @@
     var output = solver.run(prepared, { n: inputs(job.n), sig: inputs(job.sig), page: true });
     var reply = { type: "result", n: output.n || {}, sig: output.sig || {} };
     if (output.failed) reply.failed = String(output.failed);
+    initErrors(reply, output.report);
     if (job.type === "player" && job.keep_prepared === true && !wholeFailure(output.failed)) {
       reply.prepared_program = prepared.program;
     }

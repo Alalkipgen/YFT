@@ -69,6 +69,8 @@ internal class ScriptedOwnEngine(
             sig: Map<String, String> = emptyMap(),
             failed: String? = null,
             prepared: String? = null,
+            initErrors: Int? = null,
+            initErrorClasses: List<String> = emptyList(),
         ): String = buildString {
             append("{\"type\":\"result\",\"n\":")
             appendObject(n)
@@ -76,6 +78,16 @@ internal class ScriptedOwnEngine(
             appendObject(sig)
             failed?.let { append(",\"failed\":"); appendJsonString(it) }
             prepared?.let { append(",\"prepared_program\":"); appendJsonString(it) }
+            initErrors?.let {
+                append(",\"init_errors\":")
+                append(it)
+                append(",\"init_error_classes\":[")
+                initErrorClasses.forEachIndexed { index, name ->
+                    if (index > 0) append(',')
+                    appendJsonString(name)
+                }
+                append(']')
+            }
             append('}')
         }
 

@@ -11,9 +11,14 @@ import com.alal.yft.extractor.api.json.get
  * ```
  * job    {"type":"player","keep_prepared":true,"player":"…","n":[…],"sig":[…]}
  *        {"type":"prepared","program":"…","n":[…],"sig":[…]}
- * reply  {"type":"result","n":{input:output},"sig":{…},"failed":"sig:disagree","prepared_program":"…"}
+ * reply  {"type":"result","n":{input:output},"sig":{…},"failed":"sig:disagree","prepared_program":"…",
+ *         "init_errors":0,"init_error_classes":["TypeError"]}
  *        {"type":"error","error":"<error class>"}
  * ```
+ *
+ * `init_errors` (Phase 1.2 N5a) counts the player's guarded top-level statements that threw and
+ * `init_error_classes` names their classes; a run that never instantiated has neither, which
+ * decodes as an unknown count (null): the ladder (OwnSolverLadderRule) does not trust it.
  *
  * The job is encoded by hand so the player text is escaped exactly once. The reply crosses a
  * script-engine boundary, so it goes through the bounded parser and only answers to inputs that
@@ -27,6 +32,7 @@ internal object OwnSolverProtocol {
     private const val MAX_OUTPUT_NODES = 20_000
     private const val MAX_FAILURES = 8
     private const val MAX_FAILURE_CHARS = 64
+    private const val MAX_INIT_ERROR_CLASSES = 9
     private const val RATE = "n"
     private const val SIGNATURE = "sig"
 
@@ -64,6 +70,10 @@ internal object OwnSolverProtocol {
             val signature: Map<String, String>,
             val preparedProgram: String?,
             val failures: List<String>,
+            /** Init errors of the run (N5a); null when the reply has no count: unknown, untrusted. */
+            val initErrors: Int? = null,
+            /** Their classes (`TypeError`), at most nine names; never a message. */
+            val initErrorClasses: List<String> = emptyList(),
         ) : Decoded {
             /** A failure that is not one kind's: the run as a whole produced nothing usable. */
             val failedWhole: Boolean get() = failures.any { !KIND_FAILURE.matches(it) }
@@ -72,7 +82,8 @@ internal object OwnSolverProtocol {
 
             override fun toString(): String =
                 "Solved(rate=${rate.size}, signature=${signature.size}, " +
-                    "prepared=${preparedProgram != null}, failures=$failures)"
+                    "prepared=${preparedProgram != null}, failures=$failures, " +
+                    "initErrors=$initErrors, initErrorClasses=$initErrorClasses)"
         }
 
         /** The worker could not run the core at all. */
@@ -123,6 +134,11 @@ internal object OwnSolverProtocol {
                     ?.filter(String::isNotEmpty)
                     ?.take(MAX_FAILURES)
                     .orEmpty(),
+                initErrors = initErrorsOf(root["init_errors"]),
+                initErrorClasses = (root["init_error_classes"] as? JsonValue.Array)?.items.orEmpty()
+                    .mapNotNull { (it as? JsonValue.Text)?.value?.let { text -> failureClass(text) } }
+                    .filter(String::isNotEmpty)
+                    .take(MAX_INIT_ERROR_CLASSES),
             )
 
             else -> null
@@ -137,6 +153,12 @@ internal object OwnSolverProtocol {
                 ?.takeIf(String::isNotEmpty)
                 ?.let { input to it }
         }.toMap()
+    }
+
+    /** A whole, non-negative count; a huge one stays a positive count, anything else is unknown. */
+    private fun initErrorsOf(node: JsonValue?): Int? {
+        val count = (node as? JsonValue.Number)?.asLong ?: return null
+        return if (count < 0) null else count.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
     }
 
     /** Failure classes are short words; anything else is cut, so no value can ride along. */

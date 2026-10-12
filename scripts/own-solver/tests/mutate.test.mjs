@@ -366,7 +366,70 @@ test("M9b and M9bs skip a wrapper that declares document; one seed makes one mut
   assert.equal(mutated(declared, (p, r) => M.domDependentLiterals(p, r, { rate: 1 }), "m9b-d").edits, 0);
   const once = (seed) => mutated(DOM_SOURCE, (p, r) => M.domDependentLiterals(p, r, { silent: true, rate: 0.5 }), seed).text;
   assert.equal(once("same"), once("same"));
-  assert.deepEqual(M.ENV_CLASSES, ["M9b", "M9bs"]);
+  assert.deepEqual(M.ENV_CLASSES, ["M9b", "M9bs", "M9c-nav", "M9c-loc", "M9c-mix"]);
   assert.ok(M.ENV_CLASSES.every((cls) => !M.CLASSES.includes(cls) && M.CLASS_NOTE[cls] && M.MUTATORS[cls]));
   assert.equal(M.CLASSES.length, 14);
+});
+
+// N5a (M9c): values a real browser on youtube.com gives and the worker's stubs or the page frame
+// give differently, with no error. A YouTube-like window (cookies on, www.youtube.com, a DOM), the
+// worker's stubs (own.solver.core.js environmentGlobals: cookieEnabled false, the test URL on
+// www.youtube.com, a document without DOM methods) and the page-frame stub.
+function runInYouTube(text) {
+  const element = () => {
+    const attributes = {};
+    return {
+      setAttribute: (name, value) => { attributes[name] = String(value); },
+      getAttribute: (name) => (name in attributes ? attributes[name] : null),
+      appendChild: (child) => child,
+    };
+  };
+  const context = vm.createContext({ document: { createElement: element }, navigator: { cookieEnabled: true }, location: { hostname: "www.youtube.com" } });
+  context.window = context;
+  vm.runInContext(text, context, { timeout: 5000 });
+  return JSON.stringify(context.result);
+}
+
+function runInWorkerStubs(text) {
+  const context = vm.createContext({ document: { title: "" }, navigator: { cookieEnabled: false }, location: { hostname: "www.youtube.com" } });
+  context.window = context;
+  vm.runInContext(text, context, { timeout: 5000 });
+  return JSON.stringify(context.result);
+}
+
+const ENV_SOURCE = WRAPPED(`function f(a) { return a * 3 + 7; } function h(s) { return s.slice(2, 5); } g.out = [f(2), h("abcdefgh")];`);
+const m9c = (env, extra = {}) => mutated(ENV_SOURCE, (p, r) => M.environmentLiterals(p, r, { env, rate: 1, ...extra }), `m9c-${env}`);
+
+test("M9c-nav: a real browser keeps the values; the worker's stub and the page frame (cookieEnabled false) give others, silently", () => {
+  const after = m9c("nav");
+  assert.equal(after.edits, 4); // 3, 7 in f; 2, 5 in h
+  assert.match(after.text, /navigator\.cookieEnabled === true/);
+  assert.equal(runInYouTube(after.text), runInYouTube(ENV_SOURCE));
+  assert.notEqual(runInWorkerStubs(after.text), runInWorkerStubs(ENV_SOURCE));
+  assert.notEqual(runInFrame(after.text), runInFrame(ENV_SOURCE));
+  assert.throws(() => run(after.text), /ReferenceError/); // no navigator (ejs's bare context)
+});
+
+test("M9c-loc: a real browser and the worker's test URL keep the values; the page frame (appassets) gives others, silently", () => {
+  const after = m9c("loc");
+  assert.equal(after.edits, 4);
+  assert.equal(runInYouTube(after.text), runInYouTube(ENV_SOURCE));
+  assert.equal(runInWorkerStubs(after.text), runInWorkerStubs(ENV_SOURCE));
+  assert.notEqual(runInFrame(after.text), runInFrame(ENV_SOURCE));
+  assert.throws(() => run(after.text), /ReferenceError/);
+});
+
+test("M9c-mix: the worker has the DOM init error, the page frame none but other values; a real browser keeps them", () => {
+  const after = m9c("mix");
+  assert.equal(after.edits, 4);
+  assert.equal(runInYouTube(after.text), runInYouTube(ENV_SOURCE));
+  assert.throws(() => runInWorkerStubs(after.text), /TypeError/); // K's DOM calls: the init error
+  assert.notEqual(runInFrame(after.text), runInFrame(ENV_SOURCE)); // no error, other numbers
+  // After the init error (K undefined) the worker's values differ too, silently.
+  const afterError = m9c("mix", { withoutDom: true });
+  assert.notEqual(runInWorkerStubs(afterError.text), runInWorkerStubs(ENV_SOURCE));
+  // A wrapper that declares what a class reads is left alone; the env name is checked.
+  assert.equal(mutated(WRAPPED(`var navigator = {}; function f() { return 2; } g.out = [f()];`), (p, r) => M.environmentLiterals(p, r, { env: "nav", rate: 1 })).edits, 0);
+  assert.throws(() => M.environmentLiterals(parse(ENV_SOURCE), M.rng("x"), { env: "other" }), /env must be/);
+  assert.ok(["M9c-nav", "M9c-loc", "M9c-mix"].every((cls) => M.CLASS_NOTE[cls] && M.MUTATORS[cls] && !M.CLASSES.includes(cls)));
 });

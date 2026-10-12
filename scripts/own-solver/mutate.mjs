@@ -12,7 +12,9 @@ export const CLASSES = ["M1", "M1w", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "
 
 // Environment classes (N4b): behaviour is kept only where the page's DOM exists, so they prove
 // strategy E. They are not in CLASSES (the 448-case baseline); run them with --class M9b,M9bs.
-export const ENV_CLASSES = ["M9b", "M9bs"];
+// M9c (N5a): values a real browser on youtube.com gives and the worker's stubs or the page frame
+// give differently, with no error (--class M9c-nav,M9c-loc,M9c-mix).
+export const ENV_CLASSES = ["M9b", "M9bs", "M9c-nav", "M9c-loc", "M9c-mix"];
 
 export const CLASS_NOTE = {
   M1: "rename every function/block/catch binding; globals and the wrapper parameter stay (a new build)",
@@ -31,6 +33,9 @@ export const CLASS_NOTE = {
   M11f: "add harmless function declarations at the top of the wrapper body",
   M9b: "integer literals in functions read a value made with DOM calls at the top of init; without the DOM the use throws (N4b)",
   M9bs: "as M9b, but without the DOM the use silently gives another number (no error; N4b)",
+  "M9c-nav": "integer literals in functions read navigator.cookieEnabled (true in a real browser on YouTube, false in the worker's stub and the page frame): other numbers, no error (N5a)",
+  "M9c-loc": "integer literals in functions read location.hostname (youtube.com in a real browser and the worker's test URL, appassets in the page frame): other numbers in the page, no error (N5a)",
+  "M9c-mix": "M9bs's DOM value, read only on youtube.com: an init error in the worker, none in the page frame, which gives other numbers (N5a)",
 };
 
 const FRESH = "_m$";
@@ -515,6 +520,9 @@ export const MUTATORS = {
   M11f: (p, r) => addPrelude(p, r, { functions: true }),
   M9b: (p, r) => domDependentLiterals(p, r),
   M9bs: (p, r) => domDependentLiterals(p, r, { silent: true }),
+  "M9c-nav": (p, r) => environmentLiterals(p, r, { env: "nav" }),
+  "M9c-loc": (p, r) => environmentLiterals(p, r, { env: "loc" }),
+  "M9c-mix": (p, r) => environmentLiterals(p, r, { env: "mix" }),
 };
 
 export function parseWith(meriyah, text) {
@@ -825,6 +833,25 @@ export function domDependentLiterals(program, random, options = {}) {
   const holder = minifiedNames(used, random)();
   const d = 1 + Math.floor(random() * 9);
   const rate = typeof options.rate === "number" ? options.rate : 0.2;
+  const edits = functionIntegerLiterals(w, random, rate);
+  if (!edits.length) return 0;
+  const literal = (value) => ({ type: "Literal", value });
+  const ref = () => ({ type: "Identifier", name: holder });
+  const read = () => ({ type: "MemberExpression", computed: false, optional: false, object: ref(), property: { type: "Identifier", name: "k" } });
+  const use = () => (options.silent
+    ? { type: "BinaryExpression", operator: "|", left: { type: "LogicalExpression", operator: "&&", left: ref(), right: read() }, right: literal(0) }
+    : read());
+  for (const e of edits) {
+    const value = { type: "BinaryExpression", operator: "+", left: { type: "BinaryExpression", operator: "-", left: literal(e.node.value), right: literal(d) }, right: use() };
+    if (e.index === null) e.parent[e.key] = value; else e.parent[e.key][e.index] = value;
+  }
+  body.splice(afterDirectives(body), 0, ...domDeclaration(holder, d, options.withoutDom));
+  return edits.length;
+}
+
+// The integer literals inside functions of the wrapper body (never object keys, fractions or
+// numbers beyond 32 bits), a share `rate` of them, in walk order (M9b, M9bs, M9c).
+function functionIntegerLiterals(w, random, rate) {
   const functions = new Set(["FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression"]);
   const edits = [];
   const stack = childEntries(w.callee.body).map((item) => ({ ...item, inside: false }));
@@ -840,24 +867,59 @@ export function domDependentLiterals(program, random, options = {}) {
     const kids = childEntries(node);
     for (let i = kids.length - 1; i >= 0; i -= 1) stack.push({ ...kids[i], inside });
   }
-  if (!edits.length) return 0;
-  const literal = (value) => ({ type: "Literal", value });
-  const ref = () => ({ type: "Identifier", name: holder });
-  const read = () => ({ type: "MemberExpression", computed: false, optional: false, object: ref(), property: { type: "Identifier", name: "k" } });
-  const use = () => (options.silent
-    ? { type: "BinaryExpression", operator: "|", left: { type: "LogicalExpression", operator: "&&", left: ref(), right: read() }, right: literal(0) }
-    : read());
-  for (const e of edits) {
-    const value = { type: "BinaryExpression", operator: "+", left: { type: "BinaryExpression", operator: "-", left: literal(e.node.value), right: literal(d) }, right: use() };
-    if (e.index === null) e.parent[e.key] = value; else e.parent[e.key][e.index] = value;
-  }
-  const declaration = options.withoutDom
+  return edits;
+}
+
+// M9b's value made with DOM calls (K.k is d where the DOM exists); `withoutDom` (tests only)
+// declares K without its initializer, as K is after the init error.
+function domDeclaration(holder, d, withoutDom) {
+  return withoutDom
     ? parseStatements(`var ${holder};`)
     : parseStatements(
       `var ${holder} = function () { var e = document.createElement("div"); e.setAttribute("data-v", "${d}");` +
         ` var p = document.createElement("div"); return { k: +p.appendChild(e).getAttribute("data-v") }; }();`,
     );
-  body.splice(afterDirectives(body), 0, ...declaration);
+}
+
+// ------------------------------------------------------------------------------------------------
+// M9c (N5a): n and sig come to depend on what a real browser on youtube.com says, which the
+// worker's stubs (own.solver.core.js environmentGlobals) or the page frame say differently, with
+// no error. Integer literals inside functions (as M9b) become `c - d + X`:
+//   nav: X = (navigator.cookieEnabled === true ? d : 0). Every real browser on YouTube says true;
+//        the worker's stub and the page frame (opaque origin, no cookies) say false.
+//   loc: X = (location.hostname.slice(-11) === "youtube.com" ? d : 0). The worker's test URL is on
+//        www.youtube.com (right); the page frame is on appassets.androidplatform.net (wrong).
+//   mix: X = (location.hostname.slice(-11) === "youtube.com" ? (K && K.k) | 0 : 0) with M9bs's DOM
+//        value K: the worker has an init error (K's DOM calls) and K undefined, the page has no
+//        init error and K, but is not on youtube.com: the page gives other numbers.
+// No typeof guards: where navigator or location is missing (ejs's bare context) the use throws.
+export function environmentLiterals(program, random, options = {}) {
+  const env = options.env;
+  if (env !== "nav" && env !== "loc" && env !== "mix") throw new Error("env must be nav, loc or mix");
+  const w = topWrapper(program);
+  const body = w && w.callee.body.type === "BlockStatement" ? w.callee.body.body : null;
+  if (!body) return 0;
+  const declared = declaredInFunction(w.callee);
+  const reads = env === "nav" ? ["navigator"] : env === "loc" ? ["location"] : ["location", "document"];
+  if (reads.some((name) => declared.has(name))) return 0;
+  const used = new Set();
+  walk(program, ({ node }) => { if (node.type === "Identifier") used.add(node.name); return true; });
+  const holder = minifiedNames(used, random)();
+  const d = 1 + Math.floor(random() * 9);
+  const rate = typeof options.rate === "number" ? options.rate : 0.2;
+  const edits = functionIntegerLiterals(w, random, rate);
+  if (!edits.length) return 0;
+  const onYouTube = 'location.hostname.slice(-11) === "youtube.com"';
+  const source = env === "nav"
+    ? `(navigator.cookieEnabled === true ? ${d} : 0)`
+    : env === "loc" ? `(${onYouTube} ? ${d} : 0)` : `(${onYouTube} ? (${holder} && ${holder}.k) | 0 : 0)`;
+  const template = JSON.stringify(parseStatements(`${source};`)[0].expression);
+  const literal = (value) => ({ type: "Literal", value });
+  for (const e of edits) {
+    const value = { type: "BinaryExpression", operator: "+", left: { type: "BinaryExpression", operator: "-", left: literal(e.node.value), right: literal(d) }, right: JSON.parse(template) };
+    if (e.index === null) e.parent[e.key] = value; else e.parent[e.key][e.index] = value;
+  }
+  if (env === "mix") body.splice(afterDirectives(body), 0, ...domDeclaration(holder, d, options.withoutDom));
   return edits.length;
 }
 
