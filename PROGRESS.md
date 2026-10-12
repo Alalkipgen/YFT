@@ -50,7 +50,11 @@
   B wrong 1 in the worker and 1 in the page, both e7573094 main, a signature with n "no
   candidates" (as in M9c-nav): not returned, the worker answer had init errors 1 and a page
   signature needs V.
-- ⏳ M9c-nav 631d3938 (one variant per process): running.
+- ⚠️ M9c-nav 631d3938, one variant per process: es6, tce, phone safe in every step and every
+  ladder option; **main stops even alone** with "heap out of memory" (exit 134, 61 s, 2.5 GB): this
+  mutated player exhausts the heap in a single solve (which step is not known yet). In the app that
+  is a memory risk in the worker or page renderer (onRenderProcessGone candidate). M9c-nav 31/32
+  lines: ladder wrong 1 (21cd2156 es6) as above, no new wrong value.
 
 ## Phase 1.2 — N4b environment-dependent values (M9b / M9bs) — measured ❌ (code `bdb45c6`, CI 38175876765 ✅; harness fix `8140b27`, CI 38181863054 ✅)
 
