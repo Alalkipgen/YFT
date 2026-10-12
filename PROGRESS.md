@@ -91,7 +91,11 @@
 - ✅ M9c ladder checkpoint complete: 26 runs across loc/mix/nav, 3541 s cumulative,
   peak RSS 2222 MB, ladder wrong 0 in every run. Standalone wrong values remain
   documented separately; M9c is not an all-green standalone-strategy result.
-- ⏳ Next: corpus → M9b/M9bs → faults → M9 → per-class 448 suite;
+- ✅ Post-M9c corpus --ladder: exit 0, 380 s, peak RSS 2053 MB; 32 files,
+  all four steps init errors 0/32 (tripwire false positives 0).
+  PB+V and B+V match ejs 260/260, wrong 0; PB off and B off each match 132/260,
+  wrong 0, no value 128 (signature withheld without V, as designed).
+- ⏳ Next: M9b/M9bs → faults → M9 → per-class 448 suite;
   CI for 63758da not yet checked. No code fixes during this test-only cycle.
 
 ## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — done, ❌ M9c-nav ladder wrong 1 → N5b (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
