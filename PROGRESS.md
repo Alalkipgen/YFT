@@ -13,7 +13,14 @@
 - ✅ Corpus `--ladder --dyncode` (367 s, peak RSS 2.0 GB): 32/32 files; ladder = ejs 260/260 in
   all four options (wrong 0, no value 0); init errors 0/32 files in worker P, worker B, page P,
   page B; player `eval` reads and `Function` calls 0 in all four runs (init and later).
-- ⏳ M9b/M9bs, faults, M9, M9c: running one at a time.
+- ✅ M9b/M9bs `--strategy P,B --ladder` (all 32 files, 2172 s, peak RSS 1.9 GB), survived/safe/wrong
+  per class: ladder PB+V 32/0/0 and 32/0/0 (n and sig from E, V simulated), PB off 0/32/0 both
+  (n from E right in all 64; no page signature without V), B+V 10/22/0 and 13/19/0, B off 0/32/0
+  both. **Ladder wrong 0.** The N4b wrong value is still there in worker B alone (631d3938 es6
+  M9bs sig, init errors 3) and the rule does not return it (that case: n E, sig E, right). ejs,
+  worker P, page P and page B as N4b (ejs 0 survived, safe; page P 32/32). 5/64 `{late promise
+  jobs cut}`. (A first run was cut at 36/64 when the sandbox restarted; re-run whole.)
+- ⏳ Faults, M9, M9c: running one at a time.
 
 ## Phase 1.2 — N4b environment-dependent values (M9b / M9bs) — measured ❌ (code `bdb45c6`, CI 38175876765 ✅; harness fix `8140b27`, CI 38181863054 ✅)
 
