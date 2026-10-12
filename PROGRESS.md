@@ -84,7 +84,15 @@
   continue the planned evidence collection without code fixes; stop on an incomplete run,
   timeout or infrastructure error. Push only spike/master-extractor-backup; no main,
   merge, release or tag. Code changes wait until testing is finished.
-- ⏳ Next: M9c-nav and the remaining test-only cycle; CI for 63758da not yet checked.
+- ✅ M9c-nav: four 631d3938 variant runs, exits 0, 343 s, peak RSS 2222 MB;
+  all four ladder columns 0/4/0, standalone wrong 0, **ladder wrong 0**.
+  Main variant used --skip-ejs for the previously documented baseline heap issue;
+  this does not claim full ejs coverage for that variant.
+- ✅ M9c ladder checkpoint complete: 26 runs across loc/mix/nav, 3541 s cumulative,
+  peak RSS 2222 MB, ladder wrong 0 in every run. Standalone wrong values remain
+  documented separately; M9c is not an all-green standalone-strategy result.
+- ⏳ Next: corpus → M9b/M9bs → faults → M9 → per-class 448 suite;
+  CI for 63758da not yet checked. No code fixes during this test-only cycle.
 
 ## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — done, ❌ M9c-nav ladder wrong 1 → N5b (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
 
