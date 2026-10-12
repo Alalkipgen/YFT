@@ -20,7 +20,13 @@
   M9bs sig, init errors 3) and the rule does not return it (that case: n E, sig E, right). ejs,
   worker P, page P and page B as N4b (ejs 0 survived, safe; page P 32/32). 5/64 `{late promise
   jobs cut}`. (A first run was cut at 36/64 when the sandbox restarted; re-run whole.)
-- ⏳ Faults, M9, M9c: running one at a time.
+- ✅ Faults `--faults --ladder` (each case through the ladder run lazily; 3070 s, peak RSS 2.3 GB):
+  384 runs, **wrong 0, missed 0**, 32/32 files 12/12 ok; init-wrong-n / init-wrong-sig wrong 0
+  (N4b: 132 / 128 in the worker alone): init errors → worker answers not used → E (n and sig
+  from E, right). Sources: decoy-n n none (failed as expected), sig P; decoy-sig and raw-encoding
+  sig none, n P; omit-window/self P (1 step); omit-location/navigator/document/XMLHttpRequest/all
+  E (3 steps: worker P, worker B, page P). Unfaulted ladder = ejs 260/260.
+- ⏳ M9, M9c: running one at a time.
 
 ## Phase 1.2 — N4b environment-dependent values (M9b / M9bs) — measured ❌ (code `bdb45c6`, CI 38175876765 ✅; harness fix `8140b27`, CI 38181863054 ✅)
 
