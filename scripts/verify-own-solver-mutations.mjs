@@ -45,6 +45,8 @@ import { challenges, settle, solveWithEjs, solveWithOwn, VARIANTS } from "./own-
 import { ladder } from "./own-solver/ladder.mjs";
 import * as M from "./own-solver/mutate.mjs";
 
+// YFT_STAGE=1 (local diagnosis): the stage and heap before each step on stderr (names and sizes only).
+const stage = process.env.YFT_STAGE === "1" ? (name) => process.stderr.write(`stage ${name} heap ${Math.round(process.memoryUsage().heapUsed / 1048576)} MB\n`) : () => {};
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const corpus = JSON.parse(readFileSync(join(root, "scripts/own-solver/corpus.json"), "utf8"));
 const vectors = JSON.parse(readFileSync(join(root, "scripts/youtube-solver-vectors.json"), "utf8"));
@@ -87,6 +89,7 @@ if (withLadder && !(withP && withB)) {
 // --both (N4b): each own strategy in the worker (bare context) and in page mode, side by side.
 const both = flag("--both") || withLadder;
 // N5b: --ladder sends the environment tripwire as the app's ladder does (--no-tripwire: N5a's runs).
+const skipEjs = flag("--skip-ejs");
 const tripExtra = withLadder && !flag("--no-tripwire") ? { tripwire: true } : {};
 if (both && page) {
   console.error("--both and --ladder already run page mode; drop --page");
@@ -228,6 +231,7 @@ for (const file of files) {
       const random = M.rng(`${file.player}:${file.variant}:${cls}:${seed}`);
       let mutated;
       try {
+        stage("mutate");
         const program = parse(playerText);
         const edits = mutate(program, cls, random);
         if (!edits) { note = "no-op"; continue; }
@@ -237,14 +241,22 @@ for (const file of files) {
         continue;
       }
       if (!haveTruth) { note = "no-truth"; continue; }
-      const ejsOut = solveWithEjs(ejs, mutated, inputs);
+      stage("ejs");
+      // --skip-ejs (N5b): main's ejs runs out of heap on 631d3938 main M9c-nav before the own
+      // solver runs; skipped, its column counts the line as safe (no value).
+      const ejsOut = skipEjs ? { n: {}, sig: {}, error: "Skipped" } : solveWithEjs(ejs, mutated, inputs);
+      stage("own");
       await settle(); // releases the player's unhandled rejections after every solve (see harness.mjs)
+      stage("own P");
       const ownOut = withP ? solveWithOwn(own, mutated, inputs, { ...pageExtra, ...reportExtra, ...tripExtra }) : null;
       await settle();
+      stage("own B");
       const bOut = withB ? solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false, ...pageExtra, ...tripExtra }) : null;
       await settle();
+      stage("page P");
       const pagePOut = both && withP ? solveWithOwn(own, mutated, inputs, { page: true, ...reportExtra }) : null;
       if (both) await settle();
+      stage("page B");
       const pageBOut = both && withB ? solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false, page: true }) : null;
       if (both) await settle();
       // Environment classes (M9b/M9bs) are written so that an environment without the DOM gives

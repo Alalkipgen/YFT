@@ -103,6 +103,29 @@ test("only n and sig inputs reach the core: a job cannot inject faults or vector
   assert.equal(reply.n[N[0]], expectedN(N[0]));
 });
 
+// Phase 1.2 N5b: the ladder's job fields. Strategy B runs from the player text (no prepared
+// program in or out); the tripwire makes a player that follows the environment an init error.
+test("a job can ask for strategy B and for the tripwire; B keeps nothing", () => {
+  const b = runWorker({ type: "player", keep_prepared: true, strategy: "B", hint: false, player: padded(fakePlayer()), n: N, sig: SIG });
+  assert.equal(b.n[N[0]], expectedN(N[0]));
+  assert.equal(b.sig[SIG[0]], expectedSig(SIG[0]));
+  assert.equal(b.prepared_program, undefined);
+  assert.equal(typeof b.init_errors, "number");
+  assert.deepEqual(runWorker({ type: "prepared", program: "x", strategy: "B", n: N, sig: [] }), { type: "error", error: "BadJob" });
+  assert.deepEqual(runWorker({ type: "player", strategy: "C", player: "x", n: N, sig: [] }), { type: "error", error: "BadJob" });
+  const env = padded(fakePlayer({ envN: true }));
+  for (const extra of [{}, { strategy: "B", hint: false }]) {
+    const label = JSON.stringify(extra);
+    const plain = runWorker({ type: "player", player: env, n: N, sig: SIG, ...extra });
+    assert.equal(plain.n[N[0]], expectedN(N[0]), label);
+    const checked = runWorker({ type: "player", player: env, n: N, sig: SIG, tripwire: true, ...extra });
+    assert.deepEqual(checked.n, {}, label);
+    assert.equal(checked.sig[SIG[0]], expectedSig(SIG[0]), label);
+    assert.equal(checked.init_errors, plain.init_errors + 1, label);
+    assert.ok(checked.init_error_classes.includes("Tripwire"), label);
+  }
+});
+
 test("player code cannot replace the worker's reply path", () => {
   const hostile = padded(`${fakePlayer()}\nself.postMessage = function () { throw new Error("hijacked"); };\nJSON.stringify = function () { return "{}"; };`);
   const reply = runWorker({ type: "player", player: hostile, n: N, sig: SIG });

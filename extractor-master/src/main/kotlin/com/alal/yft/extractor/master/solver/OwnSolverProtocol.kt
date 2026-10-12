@@ -11,6 +11,8 @@ import com.alal.yft.extractor.api.json.get
  * ```
  * job    {"type":"player","keep_prepared":true,"player":"…","n":[…],"sig":[…]}
  *        {"type":"prepared","program":"…","n":[…],"sig":[…]}
+ *        N5b (ownSolverNext only): "strategy":"B","hint":false (player text only) and
+ *        "tripwire":true (worker only), see [Options]
  * reply  {"type":"result","n":{input:output},"sig":{…},"failed":"sig:disagree","prepared_program":"…",
  *         "init_errors":0,"init_error_classes":["TypeError"]}
  *        {"type":"error","error":"<error class>"}
@@ -90,7 +92,19 @@ internal object OwnSolverProtocol {
         data class Failed(val reason: String) : Decoded
     }
 
-    fun encode(player: Player, batch: Batch, keepPrepared: Boolean): String {
+    /**
+     * Phase 1.2 N5b: what the ladder asks of one job (ownSolverNext only; Phase 1.1 sends none):
+     * strategy B with or without P's hint (from the player text only, nothing kept) and the
+     * environment tripwire (the worker checks it; the page skips it).
+     */
+    data class Options(
+        val strategyB: Boolean = false,
+        val hint: Boolean = false,
+        val tripwire: Boolean = false,
+    )
+
+    fun encode(player: Player, batch: Batch, keepPrepared: Boolean, options: Options = Options()): String {
+        require(!options.strategyB || player is Player.Raw) { "Strategy B runs from the player text" }
         val source = when (player) {
             is Player.Raw -> player.source
             is Player.Prepared -> player.program
@@ -110,6 +124,8 @@ internal object OwnSolverProtocol {
             appendJsonArray(batch.rateInputs)
             append(",\"sig\":")
             appendJsonArray(batch.signatureInputs)
+            if (options.strategyB) append(",\"strategy\":\"B\",\"hint\":").append(options.hint)
+            if (options.tripwire) append(",\"tripwire\":true")
             append('}')
         }
     }

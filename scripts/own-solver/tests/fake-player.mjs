@@ -51,6 +51,10 @@ export function expectedN(input) {
  *   sortSig   true: the sig steps sort the characters (depends on content, not on positions)
  *   envN / envSig  true: the n scramble / the first sig swap reads navigator.cookieEnabled when
  *             called (the M9c-nav shape: another number in another environment, no error)
+ *   loopN     true: the n scramble never ends and grows an array (the 631d3938 M9c-nav shape)
+ *   loopInit  true: a top-level loop that never ends
+ *   dynN      true: the n scramble's shift comes from code made at run time (new Function)
+ *   dynInit   true: a top-level value comes from eval (unused by n and sig)
  */
 export function fakePlayer(options = {}) {
   const o = { style: "es5", nIn: "set", setter: "set", getter: "get", wrapper: "namespace", ...options };
@@ -58,7 +62,9 @@ export function fakePlayer(options = {}) {
   const G = o.getter;
   const nOnSet = o.nIn === "set" ? `a==="n"&&(b=nscr(b));` : "";
   const nOnBuild = o.nIn === "build" ? `!this.done&&this.q.n&&(this.q.n=nscr(this.q.n),this.done=!0);` : "";
-  const shift = o.envN
+  const shift = o.dynN
+    ? '(new Function("return 3"))()'
+    : o.envN
     ? "(navigator.cookieEnabled?4:3)"
     : o.needsSelf
     ? "NQ.length-2"
@@ -70,7 +76,11 @@ export function fakePlayer(options = {}) {
   const sigSteps = o.sortSig
     ? 'a=a[T[6]]("");a.sort();return a[T[7]]("")'
     : `a=a[T[6]]("");K.sw(a,${o.envSig ? "navigator.cookieEnabled?8:7" : "7"});K.rv(a);K.sp(a,3);K.sw(a,21);return a[T[7]]("")${o.badSig ? '+"~"' : ""}`;
-  const nResult = o.constantN ? '"Qw3rTy0uIoPa5sDf"' : 'b.join("").slice(2)';
+  const nResult = o.constantN
+    ? '"Qw3rTy0uIoPa5sDf"'
+    : o.loopN
+      ? '(function(){for(var z=[];;)z.push(b.length)})()'
+      : 'b.join("").slice(2)';
   const marker = o.unmarked ? `a.${S}("mark","no")` : `a.${S}("alr","yes")`;
   const lines = [
     "var window=this;",
@@ -80,6 +90,8 @@ export function fakePlayer(options = {}) {
     `A="${ALPHABET}";`,
     o.needsSelf ? "NQ=self.navigator.language;" : o.needsDom ? "NQ=window.document.createElement(\"div\").tagName;" : "NQ=\"en-US\";",
     "K={sw:function(a,b){var c=a[0];a[0]=a[b%a.length];a[b%a.length]=c},rv:function(a){a.reverse()},sp:function(a,b){a.splice(0,b)}};",
+    o.loopInit ? "for(var LZ=0;;LZ++);" : "",
+    o.dynInit ? 'var DZ=eval("1+1");' : "",
     "var dec=function(a){return decodeURIComponent(a)},enc=function(a){return encodeURIComponent(a)};",
   ];
   if (o.style === "es6") {

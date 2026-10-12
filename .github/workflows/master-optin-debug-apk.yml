@@ -72,7 +72,8 @@ jobs:
             scripts/own-solver/tests/page-env.test.mjs \
             scripts/own-solver/tests/init-errors.test.mjs \
             scripts/own-solver/tests/ladder.test.mjs \
-            scripts/own-solver/tests/tripwire.test.mjs
+            scripts/own-solver/tests/tripwire.test.mjs \
+            scripts/own-solver/tests/step-budget.test.mjs
       - name: Master tests and opt-in debug APK
         shell: bash
         env:

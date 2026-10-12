@@ -65,12 +65,17 @@ class WebViewPageSolverEngine(
         }
     }
 
-    override suspend fun run(input: String): String? {
+    /** N5b: the job is "started" once the host page read it (the input route). */
+    override val reportsReady: Boolean get() = true
+
+    override suspend fun run(input: String): String? = run(input, NO_EVENTS)
+
+    override suspend fun run(input: String, events: OwnSolverEngine.Events): String? {
         if (!isAvailable) return null
         return withContext(Dispatchers.Main) {
             val reply = CompletableDeferred<String?>()
             val host = try {
-                PageHost(appContext, input.toByteArray(Charsets.UTF_8), reply)
+                PageHost(appContext, input.toByteArray(Charsets.UTF_8), reply, events)
             } catch (missing: RuntimeException) {
                 return@withContext null
             }
@@ -87,9 +92,10 @@ class WebViewPageSolverEngine(
         context: Context,
         input: ByteArray,
         private val reply: CompletableDeferred<String?>,
+        events: OwnSolverEngine.Events,
     ) {
         private val webView = WebView(context)
-        private val client = PageClient(context, input, reply)
+        private val client = PageClient(context, input, reply, events)
         private val gate = OwnSolverPageReplyGate()
         private var listening = false
 
@@ -216,6 +222,7 @@ class WebViewPageSolverEngine(
         private val context: Context,
         private val input: ByteArray,
         private val reply: CompletableDeferred<String?>,
+        private val events: OwnSolverEngine.Events,
     ) : WebViewClient() {
         /** The job is read once, by the host page. */
         private val inputServed = AtomicBoolean(false)
@@ -231,6 +238,7 @@ class WebViewPageSolverEngine(
                 is OwnSolverPageEnvRoutes.Route.Asset -> asset(route)
                 OwnSolverPageEnvRoutes.Route.Input ->
                     if (inputServed.compareAndSet(false, true)) {
+                        events.started()
                         response("application/json", OwnSolverPageEnvRoutes.FILE_CSP, input)
                     } else {
                         refused()
@@ -265,6 +273,7 @@ class WebViewPageSolverEngine(
 
         /** A crashed or killed renderer fails the run instead of the app. */
         override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+            events.gone()
             reply.complete(null)
             return true
         }
@@ -303,6 +312,10 @@ class WebViewPageSolverEngine(
     }
 
     private companion object {
+        val NO_EVENTS = object : OwnSolverEngine.Events {
+            override fun started() = Unit
+            override fun gone() = Unit
+        }
         const val HTTP_OK = 200
         const val HTTP_FORBIDDEN = 403
     }

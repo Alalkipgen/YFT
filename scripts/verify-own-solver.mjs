@@ -117,6 +117,8 @@ const LADDER_OPTIONS = [
 const ladderInit = Object.fromEntries(Object.keys(LADDER_STEPS).map((name) => [name, { files: 0, withErrors: 0, unknown: 0, total: 0 }]));
 const ladderTotals = Object.fromEntries(LADDER_OPTIONS.map(([label]) => [label, { agree: 0, wrong: 0, missing: 0, total: 0 }]));
 const ladderSources = {};
+// N5b: P's step counts (largest init and largest attempt per step), for P's step budget.
+const ladderSteps = {};
 const dyncodeTotals = Object.fromEntries(Object.keys(LADDER_STEPS).map((name) => [name, { files: 0, withAny: 0, counts: {} }]));
 const tally = (map, key) => {
   map[key] = (map[key] ?? 0) + 1;
@@ -324,6 +326,11 @@ for (const entry of corpus.players) {
           totals.total += count;
           if (count > 0) totals.withErrors += 1;
         }
+        const steps = out.report?.steps;
+        if (steps) {
+          const most = (ladderSteps[name] ??= { init: 0, call: 0, initMs: 0, callMs: 0 });
+          for (const key of Object.keys(most)) most[key] = Math.max(most[key], steps[key] ?? 0);
+        }
         return `${STEP_LABEL[name]} ${typeof count === "number" ? count : "?"}`;
       });
       line += ` | init errors ${inits.join(", ")} | ladder n ${ownOut.sources.n ?? "-"}, sig ${ownOut.sources.sig ?? "-"}`;
@@ -411,6 +418,7 @@ if (withLadder) {
     return `${STEP_LABEL[name]} ${t.withErrors}/${t.files}${t.unknown ? ` (unknown ${t.unknown})` : ""}`;
   };
   console.log(`ladder init errors: files with errors ${Object.keys(LADDER_STEPS).map(step).join(", ")}`);
+  console.log(`ladder P steps (largest init/attempt): ${Object.entries(ladderSteps).map(([name, most]) => `${STEP_LABEL[name]} ${most.init}/${most.call} (${most.initMs}/${most.callMs} ms)`).join(", ") || "-"}`);
   console.log(`ladder sources (PB+V, per file): ${Object.entries(ladderSources).sort().map(([key, count]) => `${key} ${count}`).join(", ")}`);
   console.log(
     `ladder vs ejs: ${LADDER_OPTIONS.map(([label]) => {

@@ -579,19 +579,177 @@ var yftOwnSolver = (function () {
     return out;
   }
 
-  function buildProgram(source, statements, references) {
-    var parts = [source.slice(0, statements[0].start)];
+  // N5b: P's step budget, in the worker and in the page frame. Each loop body of P's program
+  // counts a step (B's counter: `{R.s();` ... `}`), init and every candidate attempt get their own
+  // budget, and a time cap is checked every P_TIME_EVERY steps. Over the budget every later step
+  // throws RangeError("steps") until the next attempt, so no player loop can hang the worker or
+  // the page frame or fill its heap (measured: 631d3938 main M9c-nav ran out of heap in own P
+  // before N5b). Code made at run time (eval, Function) is not counted; the app's job timeout
+  // covers it. A program prepared before N5b counts nothing. Budgets (N5b, corpus 32/32 files):
+  // largest init 2814 steps and 196 ms, largest attempt 1005 steps and 27 ms on the computer;
+  // steps x10 (rounded up), time x10 and x10 again for a slow phone.
+  var P_INIT_STEPS = 30000;
+  var P_CALL_STEPS = 12000;
+  var P_INIT_MS = 20000;
+  var P_CALL_MS = 3000;
+  var P_TIME_EVERY = 4096;
+  var pNow = typeof Date === "function" && typeof Date.now === "function" ? Date.now.bind(Date) : function () { return 0; };
+
+  // Loop-body inserts (B's order: at one position closes before opens, deeper closes first).
+  function pLoopInserts(ast) {
+    var inserts = [];
+    var stack = [{ node: ast, depth: 0 }];
+    while (stack.length) {
+      var item = stack.pop();
+      var node = item.node;
+      if (B_LOOPS[node.type] && node.body) {
+        inserts.push({ pos: node.body.start, order: 100000 + item.depth + 1, text: "{" + REGISTRY + ".s();" });
+        inserts.push({ pos: node.body.end, order: -(item.depth + 1), text: "}" });
+      }
+      var keys = CHILD_KEYS[node.type] || [];
+      for (var k = 0; k < keys.length; k += 1) {
+        var child = node[keys[k]];
+        var list = Array.isArray(child) ? child : [child];
+        for (var c = 0; c < list.length; c += 1) {
+          if (list[c] && typeof list[c].type === "string") stack.push({ node: list[c], depth: item.depth + 1 });
+        }
+      }
+    }
+    inserts.sort(function (a, b) {
+      return a.pos - b.pos || a.order - b.order;
+    });
+    return inserts;
+  }
+
+  // A source slice with the inserts in (start, end] (inserts sorted by position).
+  function insertCutter(source, inserts) {
+    return function (start, end) {
+      var low = 0;
+      var high = inserts.length;
+      while (low < high) {
+        var middle = (low + high) >> 1;
+        if (inserts[middle].pos <= start) low = middle + 1;
+        else high = middle;
+      }
+      var next = low;
+      var parts = [];
+      var at = start;
+      while (next < inserts.length && inserts[next].pos <= end) {
+        parts.push(source.slice(at, inserts[next].pos), inserts[next].text);
+        at = inserts[next].pos;
+        next += 1;
+      }
+      parts.push(source.slice(at, end));
+      return parts.join("");
+    };
+  }
+
+  // The step counter on P's registry: [max] steps and [ms] from now.
+  function pBudget(registry, max, ms) {
+    var now = pNow();
+    if (registry.steps > registry.peak) registry.peak = registry.steps;
+    if (registry.started !== undefined && now - registry.started > registry.peakMs) registry.peakMs = now - registry.started;
+    registry.steps = 0;
+    registry.max = max;
+    registry.started = now;
+    registry.until = now + ms;
+  }
+
+  function pCounter(registry) {
+    registry.steps = 0;
+    registry.peak = 0;
+    registry.peakMs = 0;
+    pBudget(registry, P_INIT_STEPS, P_INIT_MS);
+    registry.s = function () {
+      registry.steps += 1;
+      if (registry.steps > registry.max) throw new RangeError("steps");
+      if (registry.steps % P_TIME_EVERY === 0 && pNow() > registry.until) {
+        registry.steps = registry.max + 1;
+        throw new RangeError("steps");
+      }
+    };
+  }
+
+  // N5b: page mode refuses code made at run time. While a page job runs, eval and the Function
+  // constructors (also reached through a function's .constructor, and the async and generator
+  // ones) throw EvalError("dyncode"): such code would run without the step counter on the page
+  // frame's main thread (corpus: no such call, N5a --dyncode). In top-level code a refused call is
+  // an init error. The worker needs none (the app's job timeout terminates it).
+  var CORE_FUNCTION = Function;
+  var pageRefusal = null;
+
+  function refuseDyncode(scope) {
+    if (pageRefusal) return;
+    var undo = [];
+    pageRefusal = undo;
+    var refuse = function () {
+      throw new EvalError("dyncode");
+    };
+    function swap(object, name, value) {
+      try {
+        var before = Object.getOwnPropertyDescriptor(object, name);
+        Object.defineProperty(object, name, { value: value, writable: true, configurable: true, enumerable: false });
+        undo.push(function () {
+          if (before) Object.defineProperty(object, name, before);
+          else delete object[name];
+        });
+      } catch (ignored) {
+        // A frozen prototype keeps its constructor; it was frozen by an earlier refused job.
+      }
+    }
+    function refused(real) {
+      if (typeof Proxy === "function") return new Proxy(real, { apply: refuse, construct: refuse });
+      var stand = function () {
+        refuse();
+      };
+      stand.prototype = real.prototype;
+      return stand;
+    }
+    var constructors = [CORE_FUNCTION];
+    ["(async function () {})", "(function* () {})", "(async function* () {})"].forEach(function (text) {
+      try {
+        constructors.push(Object.getPrototypeOf(CORE_FUNCTION("return " + text)()).constructor);
+      } catch (ignored) {
+        // An engine without that syntax has no such constructor.
+      }
+    });
+    constructors.forEach(function (real) {
+      var stand = refused(real);
+      swap(real.prototype, "constructor", stand);
+      if (real === CORE_FUNCTION) swap(scope, "Function", stand);
+    });
+    swap(scope, "eval", function () {
+      refuse();
+    });
+  }
+
+  function allowDyncode() {
+    var undo = pageRefusal;
+    pageRefusal = null;
+    if (!undo) return;
+    for (var i = undo.length - 1; i >= 0; i -= 1) {
+      try {
+        undo[i]();
+      } catch (ignored) {
+        // What cannot be restored stays refused; the page frame runs one job.
+      }
+    }
+  }
+
+  function buildProgram(source, statements, references, inserts) {
+    var cut = insertCutter(source, inserts || []);
+    var parts = [cut(0, statements[0].start)];
     var kept = 0;
     var dropped = 0;
     statements.forEach(function (statement) {
-      var text = source.slice(statement.start, statement.end);
+      var text = cut(statement.start, statement.end);
       if (statement.type === "FunctionDeclaration" || statement.type === "ClassDeclaration") {
         parts.push(text, "\n");
       } else if (statement.type === "VariableDeclaration") {
         if (statement.kind !== "var") parts.push(text, "\n;\n");
         else {
           statement.declarations.forEach(function (declarator) {
-            var part = "var " + source.slice(declarator.start, declarator.end) + ";";
+            var part = "var " + cut(declarator.start, declarator.end) + ";";
             parts.push(declarator.init ? guard(part) : part + "\n");
           });
         }
@@ -601,7 +759,7 @@ var yftOwnSolver = (function () {
         else if (expression.type === "AssignmentExpression") parts.push(guard(text));
         else if (expression.type === "SequenceExpression" && expression.expressions.every(isAssignment)) {
           expression.expressions.forEach(function (part) {
-            parts.push(guard(source.slice(part.start, part.end) + ";"));
+            parts.push(guard(cut(part.start, part.end) + ";"));
           });
         } else {
           dropped += 1;
@@ -618,7 +776,7 @@ var yftOwnSolver = (function () {
     references.forEach(function (reference, index) {
       parts.push("try{" + REGISTRY + ".c[" + index + "]=" + reference + "}catch(" + CAUGHT + "){}\n");
     });
-    parts.push(source.slice(statements[statements.length - 1].end));
+    parts.push(cut(statements[statements.length - 1].end, source.length));
     return { text: parts.join(""), kept: kept, dropped: dropped };
   }
 
@@ -644,7 +802,7 @@ var yftOwnSolver = (function () {
       });
       if (!references.length) throw new Failure("no candidates");
       references = references.slice(0, MAX_CANDIDATES);
-      var program = buildProgram(playerText, statements, references);
+      var program = buildProgram(playerText, statements, references, pLoopInserts(ast));
       return {
         ok: true,
         version: VERSION,
@@ -823,13 +981,7 @@ var yftOwnSolver = (function () {
     var tripped = [];
     try {
       var other = instantiate(prepared, tripwireRequest(request));
-      var builders = [];
-      other.c.forEach(function (fn, index) {
-        if (typeof fn === "function") builders.push({ index: index, fn: fn });
-      });
-      if (request.faults && (request.faults.decoy === "n" || request.faults.decoy === "sig") && builders.length) {
-        builders.push({ index: other.c.length, fn: decoyBuilder(builders[0].fn, request.faults.decoy) });
-      }
+      var builders = pBuilders(other, request);
       kinds.forEach(function (kind) {
         var same = tripwireSample(output[kind]).every(function (input) {
           var values = initWrongValues(request, kind, multiTry(kind, builders, input, request.faults || {}).values);
@@ -846,7 +998,7 @@ var yftOwnSolver = (function () {
   }
 
   function globalScope() {
-    return typeof globalThis !== "undefined" ? globalThis : Function("return this")();
+    return typeof globalThis !== "undefined" ? globalThis : CORE_FUNCTION("return this")();
   }
 
   function instantiate(prepared, request) {
@@ -854,19 +1006,45 @@ var yftOwnSolver = (function () {
     installEnvironment(globalScope(), request.env, faults.omit, request.page === true);
     var registry = { c: [], e: 0 };
     registry.k = initErrorRecorder(registry);
+    pCounter(registry);
     var factory;
     try {
-      factory = Function(REGISTRY, prepared.program);
+      factory = CORE_FUNCTION(REGISTRY, prepared.program);
     } catch (error) {
       throw new Failure("compile:" + errorName(error));
     }
+    if (request.page === true) refuseDyncode(globalScope());
     try {
       factory(registry);
     } catch (error) {
       throw new Failure("program:" + errorName(error));
     }
     faultInitError(registry, request);
+    registry.init = registry.steps;
+    registry.initMs = pNow() - registry.started;
+    registry.steps = 0;
+    registry.started = undefined;
+    pBudget(registry, P_CALL_STEPS, P_CALL_MS);
     return registry;
+  }
+
+  // P's candidates of one instance (with the decoy fault's extra one); every attempt of one gets
+  // the instance's step budget afresh.
+  function pBuilders(registry, request) {
+    var builders = [];
+    registry.c.forEach(function (fn, index) {
+      if (typeof fn === "function") builders.push({ index: index, fn: fn, registry: registry });
+    });
+    if (request.faults && (request.faults.decoy === "n" || request.faults.decoy === "sig") && builders.length) {
+      builders.push({ index: registry.c.length, fn: decoyBuilder(builders[0].fn, request.faults.decoy), registry: registry });
+    }
+    return builders;
+  }
+
+  // Steps used (counts only): init's and the largest attempt's, and their milliseconds.
+  function pSteps(registry) {
+    pBudget(registry, registry.max, 0);
+    return { init: registry.init || 0, call: registry.peak || 0, initMs: registry.initMs || 0, callMs: registry.peakMs || 0 };
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -986,6 +1164,7 @@ var yftOwnSolver = (function () {
     var values = [];
     var errors = [];
     candidates.forEach(function (candidate) {
+      if (candidate.registry) pBudget(candidate.registry, P_CALL_STEPS, P_CALL_MS);
       try {
         attempt(kind, candidate, input, faults, errors).forEach(function (value) {
           if (values.indexOf(value) < 0) values.push(value);
@@ -1711,10 +1890,11 @@ var yftOwnSolver = (function () {
     };
     var factory;
     try {
-      factory = Function(REGISTRY, prepared.program);
+      factory = CORE_FUNCTION(REGISTRY, prepared.program);
     } catch (error) {
       throw new Failure("compile:" + errorName(error));
     }
+    if (page) refuseDyncode(scope);
     try {
       factory(registry);
     } catch (error) {
@@ -2263,6 +2443,8 @@ var yftOwnSolver = (function () {
       output.failed = errorName(error);
       output.n = {};
       output.sig = {};
+    } finally {
+      allowDyncode();
     }
     return output;
   }
@@ -2273,13 +2455,7 @@ var yftOwnSolver = (function () {
     try {
       if (!prepared || !prepared.ok || typeof prepared.program !== "string") throw new Failure("not prepared");
       var registry = instantiate(prepared, request);
-      var builders = [];
-      registry.c.forEach(function (fn, index) {
-        if (typeof fn === "function") builders.push({ index: index, fn: fn });
-      });
-      if (request.faults && (request.faults.decoy === "n" || request.faults.decoy === "sig") && builders.length) {
-        builders.push({ index: registry.c.length, fn: decoyBuilder(builders[0].fn, request.faults.decoy) });
-      }
+      var builders = pBuilders(registry, request);
       output.report.topLevelErrors = registry.e;
       output.report.topLevelErrorClasses = initErrorClasses(registry);
       output.report.candidates = builders.length;
@@ -2295,12 +2471,15 @@ var yftOwnSolver = (function () {
         output.report[kind] = result.report;
         if (result.report.reason) failed.push(kind + ":" + result.report.reason);
       });
+      output.report.steps = pSteps(registry);
       if (tripwireWanted(request)) pTripwire(prepared, request, output, failed);
       if (failed.length) output.failed = failed.join(",");
     } catch (error) {
       output.failed = errorName(error);
       output.n = {};
       output.sig = {};
+    } finally {
+      allowDyncode();
     }
     return output;
   }

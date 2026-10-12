@@ -19,8 +19,34 @@
   four steps (tripwire false positives 0); PB+V = ejs 260/260, B+V 260/260; PB off and B off: n =
   ejs 132/132, sig no value 128 (no signature without V, by design). M9c-nav 21cd2156 es6 (N5a's
   ladder wrong value): worker B `sig:environment` {init errors 1}, ladder safe in all four options.
-- ⏳ Next: 631d3938's heap (which step), page-P step budget, Kotlin (timeouts, breaker, wiring, V
-  pass kept per player version); then the test cycle.
+- ✅ CI for `9f9eb95`: build 38270898966 ✅, validate 38270906278 ✅.
+- ✅ 631d3938 main M9c-nav heap (N5a's out-of-memory line, mutation runner with `YFT_STAGE=1`
+  stage/heap lines and the new `--skip-ejs`): main's ejs runs out of heap first (217 MB before it,
+  exit 134 at ~37 s, ❗ a main risk, main untouched); with ejs skipped, own P (worker) runs out of
+  heap too: an M9c-nav literal turns a player loop into one that never ends and grows memory.
+- ✅ P step budget (core; Plan adapted: in the worker too, not only the page: the heap ran out
+  before any timeout, and a renderer out of memory is gone, not terminated). Each loop body of
+  P's program counts a step (B's counter); init and every candidate attempt get their own budget;
+  a time cap is checked every 4096 steps; over budget, every later step throws
+  `RangeError("steps")` until the next attempt. Budgets from the corpus (`--ladder`, 32/32
+  files, new line "ladder P steps"): largest init 2814 steps / 196 ms, largest attempt 1005 steps /
+  27 ms → init 30,000 steps / 20 s, attempt 12,000 steps / 3 s (steps ×10, time ×10 ×10 for a
+  slow phone). Corpus with these budgets (`--ladder`, 384 s): init errors 0/32 in all four steps,
+  PB+V = ejs 260/260, B+V 260/260, wrong 0. 631d3938 main M9c-nav with them: exit 0, all four
+  steps safe (P: init errors 4), ladder wrong 0, own P heap +100 MB (was +1.4 GB at 50 M steps).
+- ✅ eval / new Function (plan item 1: "refuse in page mode, or count"): refused in page mode.
+  While a page job runs, `eval` and the Function constructors (also through `.constructor`, async
+  and generator ones) throw `EvalError("dyncode")`: an init error in top-level code, no answer
+  where n or sig needs it. Corpus: 0 such calls (N5a `--dyncode`). The worker runs them (the app's
+  job timeout stops it).
+- ✅ Job fields (worker and page frame): `"strategy":"B"` with `"hint"` (from the player text,
+  nothing kept; a prepared B job is `BadJob`), `"tripwire":true` (worker). Fault fields stay
+  blocked. JS 179/179 (173 + 4 step-budget tests, 1 worker, 1 frame).
+- ✅ Kotlin, first part (not called yet; CI compiles it): `OwnSolverProtocol.Options` (strategy B
+  + hint, tripwire) in `encode`; `OwnSolverEngine.Events` (`started` = the page read the job,
+  `gone` = onRenderProcessGone) with `reportsReady`, in both WebView engines.
+- ⏳ Next: Kotlin (ready/job timeouts, breaker + player-hash marker, ladder behind
+  `ownSolverNext`, V with the pass kept per player version + strategy); then the test cycle.
 
 ## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — done, ❌ M9c-nav ladder wrong 1 → N5b (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
 

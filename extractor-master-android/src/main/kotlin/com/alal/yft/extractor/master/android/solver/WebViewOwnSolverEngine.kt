@@ -19,6 +19,7 @@ import android.webkit.WebViewClient
 import com.alal.yft.extractor.master.solver.OwnSolverEngine
 import java.io.ByteArrayInputStream
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -41,10 +42,15 @@ class WebViewOwnSolverEngine(
         appContext.packageManager.hasSystemFeature(PackageManager.FEATURE_WEBVIEW)
     }
 
-    override suspend fun run(input: String): String? = withContext(Dispatchers.Main) {
+    /** N5b: the job is "started" once the page read it (the input route). */
+    override val reportsReady: Boolean get() = true
+
+    override suspend fun run(input: String): String? = run(input, NO_EVENTS)
+
+    override suspend fun run(input: String, events: OwnSolverEngine.Events): String? = withContext(Dispatchers.Main) {
         val reply = CompletableDeferred<String?>()
         val host = try {
-            SolverHost(appContext, input.toByteArray(Charsets.UTF_8), reply)
+            SolverHost(appContext, input.toByteArray(Charsets.UTF_8), reply, events)
         } catch (missing: RuntimeException) {
             // A device whose WebView provider is missing or mid-update cannot run the solver.
             return@withContext null
@@ -61,9 +67,10 @@ class WebViewOwnSolverEngine(
         private val context: Context,
         input: ByteArray,
         reply: CompletableDeferred<String?>,
+        events: OwnSolverEngine.Events,
     ) {
         private val webView = WebView(context)
-        private val client = SolverClient(context, input, reply)
+        private val client = SolverClient(context, input, reply, events)
         private val bridge = SolverBridge(reply)
 
         @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
@@ -112,7 +119,10 @@ class WebViewOwnSolverEngine(
         private val context: Context,
         private val input: ByteArray,
         private val reply: CompletableDeferred<String?>,
+        private val events: OwnSolverEngine.Events,
     ) : WebViewClient() {
+        private val started = AtomicBoolean(false)
+
         override fun shouldInterceptRequest(
             view: WebView,
             request: WebResourceRequest,
@@ -120,7 +130,10 @@ class WebViewOwnSolverEngine(
             val url = request.url
             return when (val route = OwnSolverPageRoutes.route(url.scheme, url.host, url.path)) {
                 is OwnSolverPageRoutes.Route.Asset -> asset(route)
-                OwnSolverPageRoutes.Route.Input -> response("application/json", input)
+                OwnSolverPageRoutes.Route.Input -> {
+                    if (started.compareAndSet(false, true)) events.started()
+                    response("application/json", input)
+                }
                 OwnSolverPageRoutes.Route.Refused -> refused()
             }
         }
@@ -142,6 +155,7 @@ class WebViewOwnSolverEngine(
 
         /** A crashed or killed solver renderer fails the run instead of the app. */
         override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+            events.gone()
             reply.complete(null)
             return true
         }
@@ -179,6 +193,10 @@ class WebViewOwnSolverEngine(
     }
 
     private companion object {
+        val NO_EVENTS = object : OwnSolverEngine.Events {
+            override fun started() = Unit
+            override fun gone() = Unit
+        }
         const val BRIDGE_NAME = "YftOwnSolverBridge"
 
         /** Upper bound for one reply, which may carry the prepared program. */

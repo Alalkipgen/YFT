@@ -137,7 +137,12 @@ test("--dyncode counts player eval reads and Function calls at init and later, a
     .replace("var T,K,A,NQ;", "var T,K,A,NQ;var DY=Function(\"return 2\")()+eval(\"1\");")
     .replace('b.join("").slice(2)', 'eval("b").join("").slice(2)');
   assert.notEqual(dynamic, plain);
-  for (const extra of [{ report: true }, { page: true, report: true }]) {
+  // N5b: page mode refuses eval and the Function constructors (no step counter there): the
+  // top-level call is an init error (EvalError) and n, which needs eval, has no answer.
+  const page = solveWithOwn(own, dynamic, fake, { page: true, report: true });
+  assert.deepEqual(page.n, {});
+  assert.equal(page.report.topLevelErrorClasses.EvalError, 1);
+  for (const extra of [{ report: true }]) {
     const label = JSON.stringify(extra);
     const before = solveWithOwn(own, plain, fake, { ...extra, dyncode: true });
     assert.deepEqual(before.dyncode, { evalInit: 0, evalCall: 0, functionInit: 0, functionCall: 0, otherInit: 0, otherCall: 0, unknown: 0 }, label);

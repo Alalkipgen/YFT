@@ -184,6 +184,22 @@ test("the frame says it is ready, runs the host's job once and replies with the 
   assert.equal(JSON.parse(reply.reply).n[N[0]], expectedN(N[0]));
 });
 
+// Phase 1.2 N5b: strategy B in the frame (from the player text, nothing kept; no tripwire there).
+test("the frame runs a strategy B job and keeps nothing", () => {
+  const f = frame();
+  assert.ok(f.deliver(message(f, job(padded(fakePlayer()), { strategy: "B", hint: false, tripwire: true }))));
+  f.runTimers();
+  const reply = JSON.parse(f.posts[1].message.reply);
+  assert.equal(reply.n[N[0]], expectedN(N[0]));
+  assert.equal(reply.sig[SIG[0]], expectedSig(SIG[0]));
+  assert.equal(reply.prepared_program, undefined);
+  assert.equal(typeof reply.init_errors, "number");
+  const bad = frame();
+  assert.ok(bad.deliver(message(bad, job("x", { strategy: "C" }))));
+  bad.runTimers();
+  assert.deepEqual(JSON.parse(bad.posts[1].message.reply), { type: "error", error: "BadJob" });
+});
+
 test("the frame takes a job only from the host page, with a well-formed token", () => {
   const f = frame();
   const input = job(padded(fakePlayer()));

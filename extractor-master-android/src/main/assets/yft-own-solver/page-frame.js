@@ -74,6 +74,24 @@
     if (!job || (job.type !== "player" && job.type !== "prepared")) {
       return { type: "error", error: "BadJob" };
     }
+    // N5b: strategy B in the page (from the player text, nothing kept); no tripwire here, the
+    // window's own objects stay.
+    if (job.strategy === "B") {
+      if (job.type !== "player") return { type: "error", error: "BadJob" };
+      var outB = solver.solve({
+        player: String(job.player),
+        n: inputs(job.n),
+        sig: inputs(job.sig),
+        strategy: "B",
+        hint: job.hint === true,
+        page: true,
+      });
+      var replyB = { type: "result", n: outB.n || {}, sig: outB.sig || {} };
+      if (outB.failed) replyB.failed = String(outB.failed);
+      initErrors(replyB, outB.report);
+      return replyB;
+    }
+    if (job.strategy !== undefined) return { type: "error", error: "BadJob" };
     var prepared =
       job.type === "prepared"
         ? { ok: typeof job.program === "string" && job.program.length > 0, program: job.program, failed: "not prepared" }

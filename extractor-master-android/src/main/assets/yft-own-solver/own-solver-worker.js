@@ -6,13 +6,15 @@
  *
  *   job    {"type":"player","keep_prepared":true,"player":"…","n":[…],"sig":[…]}
  *          {"type":"prepared","program":"…","n":[…],"sig":[…]}
+ *          N5b fields: "tripwire":true (the environment tripwire), "strategy":"B" with
+ *          "hint":true|false (strategy B; from the player text only, never prepared or kept)
  *   reply  {"type":"result","n":{input:output},"sig":{…},"failed"?:"sig:disagree",
  *           "prepared_program"?:"…"}
  *          {"type":"error","error":"<error class>"}
  *
  * A worker has no document and no navigable location, so nothing the player's code does here can
- * navigate the host page. Only n and sig inputs reach the core: a job cannot switch on the core's
- * test-only fault injection or pass vectors. Replies carry values only for asked inputs, failure
+ * navigate the host page. Only n and sig inputs, the strategy, the hint and the tripwire reach the
+ * core: a job cannot switch on the core's test-only fault injection or pass vectors. Replies carry values only for asked inputs, failure
  * classes and the prepared program; never a message text.
  */
 "use strict";
@@ -61,6 +63,23 @@ function yftRunJob(solver, job) {
   if (!job || (job.type !== "player" && job.type !== "prepared")) {
     return { type: "error", error: "BadJob" };
   }
+  if (job.strategy === "B") {
+    if (job.type !== "player") return { type: "error", error: "BadJob" };
+    // B prepares from the player text every time; nothing is kept.
+    var outB = solver.solve({
+      player: String(job.player),
+      n: yftInputs(job.n),
+      sig: yftInputs(job.sig),
+      strategy: "B",
+      hint: job.hint === true,
+      tripwire: job.tripwire === true,
+    });
+    var replyB = { type: "result", n: outB.n || {}, sig: outB.sig || {} };
+    if (outB.failed) replyB.failed = String(outB.failed);
+    yftInitErrors(replyB, outB.report);
+    return replyB;
+  }
+  if (job.strategy !== undefined) return { type: "error", error: "BadJob" };
   var prepared =
     job.type === "prepared"
       ? { ok: typeof job.program === "string" && job.program.length > 0, program: job.program, failed: "not prepared" }
@@ -68,7 +87,7 @@ function yftRunJob(solver, job) {
   if (!prepared.ok) {
     return { type: "result", n: {}, sig: {}, failed: String(prepared.failed || "not prepared") };
   }
-  var output = solver.run(prepared, { n: yftInputs(job.n), sig: yftInputs(job.sig) });
+  var output = solver.run(prepared, { n: yftInputs(job.n), sig: yftInputs(job.sig), tripwire: job.tripwire === true });
   var reply = { type: "result", n: output.n || {}, sig: output.sig || {} };
   if (output.failed) reply.failed = String(output.failed);
   yftInitErrors(reply, output.report);
