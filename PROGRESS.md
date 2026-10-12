@@ -40,7 +40,12 @@
   (all safe). ejs wrong 1 (74edf1a3 es6; ❗ separate, also main: likely no cookieEnabled in the
   WebView worker's WorkerNavigator). The silent worker wrong is M9c-nav's design target. Proposed
   fix (not implemented, owner decides): every signature, the worker's too, needs V before use.
-- ⏳ M9c-loc, M9c-mix: running (one process per player).
+- ✅ M9c-loc `--strategy P,B --ladder`, one process per player, 631d3938 one per variant (11
+  processes, 1596 s, peak RSS 1.7 GB; after one sandbox restart the unfinished player ran again):
+  **ladder 32/0/0 in all four options, wrong 0**. ejs 32/0/0, own P 32/0/0, own B 12/20/0, page P
+  0/32/0. Page B wrong 1 (9fcf08e8 tce: signature, n no candidates, init errors 2), not returned:
+  worker P answers first, and the page answer had init errors.
+- ⏳ M9c-mix, then M9c-nav 631d3938 (one variant per process): running.
 
 ## Phase 1.2 — N4b environment-dependent values (M9b / M9bs) — measured ❌ (code `bdb45c6`, CI 38175876765 ✅; harness fix `8140b27`, CI 38181863054 ✅)
 
