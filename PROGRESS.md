@@ -1,6 +1,13 @@
 # YFT Master Extractor backup
 
-## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — in progress (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
+## Phase 1.2 — N5b — in progress
+
+- ⏳ Plan adapted (owner-approved 2026-10-12; plan §3 N5 "Plan adapted (N5a results)"): V on every
+  signature, environment tripwire, breaker also for worker jobs / gone renderer / V = fail, then
+  the wiring behind `ownSolverNext` (default off); one test cycle at the end.
+- ⏳ Step 0 (evidence: environment reads during a solved call; 631d3938 heap): running.
+
+## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — done, ❌ M9c-nav ladder wrong 1 → N5b (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
 
 - ✅ Code (app behaviour unchanged: nothing calls the rule yet; flag off = main): worker and
   page-frame replies carry `init_errors` + `init_error_classes` (class names only);

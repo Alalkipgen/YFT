@@ -48,6 +48,11 @@ code, without an APK update:
 - N4b တိုင်းပြီး ❌: M9bs (DOM တန်ဖိုး တိတ်တိတ်ပြောင်း) မှာ worker B က ဖိုင် ၁ ခု (631d3938 es6) sig အဖြေမှား
   (init error ၃ ခု ရှိ — အဆိုပြု init-error rule နဲ့ ဖမ်းနိုင်)။ ejs မမှား (main မထိ)။ page P 32/32။
   Fix မလုပ်ရသေး — owner ဆုံးဖြတ်ရန် (N5 မတိုင်ခင်)။
+- N5a ပြီးပါပြီ (`a78626f`): ladder rule ကို computer ပေါ်မှာ တိုင်းပြီး — corpus = ejs 260/260၊
+  faults / M9 / M9b / M9bs / M9c-loc / M9c-mix အဖြေမှား ၀။ ❌ M9c-nav မှာ ၁ ခု (21cd2156 es6: worker B
+  sig မှား၊ init error မရှိ)။ ❗ ejs မှား ၁ (main ပါ)။ ⚠️ 631d3938 main က memory ကုန်။
+- N5b (စနေပြီ): signature တိုင်း V + environment tripwire (environment ပြောင်းရင် အဖြေပြောင်းတဲ့
+  function ကို မယုံ) + breaker + wiring (flag default off)။ code အကုန်ပြီးမှ test တစ်ခါတည်း (~၅ နာရီ)။
 
 ## 0. Why (evidence)
 
@@ -250,7 +255,8 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 | N3 | Strategy B: register, probe, classify (core + harness) | N1 | High | Done (`52e1945`) |
 | N4 | Strategy E: isolated page environment | N3 | Medium–High | Done (`a7c3dd9`) |
 | N4b | Environment-dependent values (M9b/M9bs), init errors by class | N4 | Medium | Built (`bdb45c6`, harness `8140b27`); measured ❌ (worker B: 1 wrong M9bs value; fix: owner decides; §4 note "N4b") |
-| N5 | Ladder, locator cache, flag wiring | N2, N3 | Medium | TODO |
+| N5a | Ladder rule (init errors in replies, shared case table), runners `--ladder`/`--dyncode`, M9c; app unchanged | N4b | Medium | Done (`a78626f`, CI 38189985242); measured (§4 note "N5a") |
+| N5b | Page-P step budget, circuit breaker, ladder + locator cache wired behind `ownSolverNext` (default off); M9c fixes: V on every signature, environment tripwire | N5a | Medium–High | In progress |
 | N6 | Canary workflow (computer) | N1, N3 | Low–Medium | TODO |
 | N7 | Owner live check + runbook update | N4, N5, N6 | Low | TODO |
 
@@ -490,7 +496,98 @@ Plan adapted (N1 part 2–3):
     end (browsers run them on every watch page); N5 decides E = B only, or P with a bound.
 - **Results (N4, computer):** see section 4 note "N4".
 
-### N5 — Ladder, locator cache, flag
+### N5 — Ladder, locator cache, flag (split: N5a, N5b)
+
+**Plan adapted (N5a, owner-approved):** N5 is split. N5a (done) builds and measures the rule on
+the computer; the app's behaviour is unchanged (nothing calls the rule; flag off = main). N5b wires
+it. What N5a added:
+
+- **Protocol:** worker and page-frame replies carry `init_errors` (the core's
+  `report.topLevelErrors`) and `init_error_classes` (class names, at most 9).
+  `OwnSolverProtocol.Decoded.Solved.initErrors` is null when a reply has no count (a run that
+  never instantiated, an older core): unknown, never trusted.
+- **Rule** (`OwnSolverLadderRule`, extractor-master, pure; mirrored by `scripts/own-solver/ladder.mjs`;
+  both test suites read `extractor-master/src/test/resources/own-solver/ladder-rule-cases.json`):
+  a worker step (P, then B) gives a kind only with init errors 0 and every asked input answered.
+  The page (E) runs only when a worker step needs it: an environment failure (ReferenceError /
+  TypeError), init errors > 0, or answers without a count. E gives a kind only with its own init
+  errors 0, and a signature only when V passes (a wrong n is slow; a wrong sig breaks playback
+  silently). Anything else fails the kind; an answer the rule does not return is never cached.
+  `OwnSolverEnvironmentErrors.needsPage` is unchanged.
+- **Runners:** `verify-own-solver.mjs --ladder` (worker P, worker B alone, page P, page B alone per
+  file; the ladder's answer against ejs; page step "PB" = page P, else page B; V simulated = a
+  page signature counts only if it equals ejs), `--dyncode` (player `eval` reads and Function
+  constructor calls per run, at init and later; harness.mjs), `--faults --ladder` (each fault case
+  through the ladder run lazily, as the app will). Mutation runner `--ladder`: columns PB+V,
+  PB off (no V: no page signature), B+V, B off.
+- **M9c** (environment classes, outside the 448 baseline; `mutate.mjs environmentLiterals`):
+  integer literals in functions become `c - d + X`. nav: X reads `navigator.cookieEnabled` (true
+  on YouTube; false in the worker's stub and the page frame). loc: X reads `location.hostname`
+  (youtube.com in a real browser and the worker's test URL; appassets in the page frame). mix:
+  M9bs's DOM value read only on youtube.com (an init error in the worker; none in the page, which
+  is not on youtube.com).
+- **Stub audit (docs only):** the worker's G4 stubs (`own.solver.core.js environmentGlobals`)
+  against a real browser on youtube.com, and what E (the app's page frame) has:
+
+| Object | Worker stub | Real browser on YouTube | Group | E (page frame) |
+|---|---|---|---|---|
+| `navigator.cookieEnabled` | `false` | `true` (the site needs cookies) | a ⚠️ (M9c-nav) | likely `false` (opaque origin, no cookies); N7 |
+| `navigator.webdriver` | missing | `false` in every current browser | a ⚠️ | real (`false`) |
+| `navigator.userAgentData`, `plugins`, `mimeTypes`, `mediaDevices`, … | missing | present (`userAgentData`: Chromium only) | a ⚠️ (use → TypeError → init error → E) | real |
+| DOM methods (`document.createElement`, …) | missing | present | a ⚠️ (M9b) | present |
+| `document.cookie` | `""` | YouTube's cookies | a ⚠️ | throws `SecurityError` (opaque origin) |
+| `location.ancestorOrigins` | `[]` (Array) | empty `DOMStringList` | a ⚠️ (type only) | `DOMStringList` with the host origin |
+| `navigator.userAgent` | Android 14, Pixel 7, Chrome 129 (or the app's `env.userAgent`) | Chrome ≥ 110 on Android sends the reduced UA (`Android 10; K`) | b ⚠️ impossible pair: Chrome 129 with a full model | the WebView's real UA (`; wv`) |
+| `navigator.hardwareConcurrency` | `4` | the device's cores (Pixel 7: 8) | b ⚠️ pair with the Pixel 7 UA | real |
+| `navigator.platform`, `language(s)`, `maxTouchPoints`, `onLine` | `Linux armv8l`, `en-US`, `5`, `true` | the device's | b ✅ | real |
+| `navigator.vendor` | `Google Inc.` | `Google Inc.` (Chrome) | c ✅ | real |
+| `location`, `document.URL`, `document.domain` | the test URL on `www.youtube.com` | the watch page on `www.youtube.com` | c ✅ | `appassets.androidplatform.net` ⚠️ (M9c-loc); `self.origin` `"null"` |
+| `document.visibilityState` / `hidden` | `visible` / `false` | `visible` / `false` while watching | c ✅ | unknown for a hidden WebView (N7) |
+
+  Group a: the same in every real browser and the stub differs (a check for it fails silently or
+  throws); b: varies by device (⚠️ only for impossible pairs); c: matches. Sources: MDN
+  (Navigator, Document.cookie, Location.ancestorOrigins), the HTML standard (sandboxed origin:
+  `document.cookie` throws), Chromium's User-Agent Reduction. The E column is from the frame's
+  design (opaque origin, appassets host); the unknowns are measured on the phone in N7.
+
+**N5b (next, behind `ownSolverNext`, default off):** a page-P step budget (page mode only; worker
+P needs none: `worker.terminate()`): min(corpus max steps × 10, a time cap measured on the corpus),
+`Date.now()` checked every N steps; eval / new Function handled per N5a's `--dyncode` data; page P
+M9/M9b/M9bs 32/32 with the budget. Kotlin timeouts split ready vs job (only a job timeout trips
+the breaker). Circuit breaker: a job timeout or a gone renderer → E off until the process
+restarts; a persistent player-hash marker written before E and cleared after; E off for a hash
+only after the marker was left 2 times in a row (1 → retry once). Fake-engine tests; then the
+ladder in `OwnPlayerScriptRunner` behind `ownSolverNext`, and the items below.
+
+**Plan adapted (N5a results, owner-approved 2026-10-12):** the goal is not a B that is never wrong
+(a heuristic over player code cannot be) but a wrong value that never reaches the user. M9c's
+wrong values come from player functions that read an environment that differs from youtube.com in
+the worker and the frame; P, B and E all run the player's own functions there, so agreement
+between them does not help. YouTube's sig and n functions are pure string functions today, so a
+function whose answer depends on the environment is not trusted. Added to N5b, in this order,
+code first and one test cycle at the end (a cycle is ~5 h):
+
+0. Evidence first (test scripts only): count environment reads while a solved function runs
+   (target: 0 on the corpus, > 0 on the five M9c B wrong values); find the step that exhausts the
+   heap on 631d3938 main M9c-nav (P, B, ejs alone). Adapt the plan if the data disagree.
+1. V on every signature: a worker signature (P or B) is used only after V = pass, like E's; a
+   pass is kept per player version and strategy (a sig function does not change within a
+   version). Rule cases (Kotlin + JS) updated.
+2. Environment tripwire (worker and frame): reads of environment objects during a sig/n call are
+   counted (Proxy), and once per player version a second context with changed environment values
+   runs the solved functions on 2–3 inputs and must give the same answers. A trip counts as an
+   init error (no answer from that step). A B guard (no sig when n has no candidates) only if
+   step 0 shows the tripwire misses a case.
+3. The breaker also covers worker jobs, a gone renderer (`onRenderProcessGone`, own path only;
+   main unchanged) and V = fail (two strikes per player version).
+4. Then the wiring above. Tests once: unit → M9c 96 (one process per player) → corpus (= ejs
+   260/260, tripwire false positives 0) → M9b/M9bs → faults → M9 → the 448 suite; push after
+   each. Done when ladder wrong = 0 in every run, the corpus is unchanged and flag off = main.
+
+V for n stays the N2 phone measurement (owner: debug app "YFT stream check" → Start; at most
+1 MiB per variant): if YouTube refuses a wrong n, V checks n as well. Later (N6+): load the frame
+with a youtube.com base URL (network still blocked) so `location` and the origin are real, and
+mirror that environment into the worker; needs a security spike first.
 
 - `OwnPlayerScriptRunner` (with `ownSolverNext`): locator cache → P → B → E, each answer verified
   (§2).
@@ -616,18 +713,65 @@ N4b (2026-10-11, `node scripts/verify-own-solver-mutations.mjs --class M9b,M9bs 
   worker, which posts its reply before later promise jobs run (`{late promise jobs cut}`: 5 of 64
   cases, all worker B, safe; no harness timeouts).
 
+N5a (2026-10-11/12, code `a78626f`; one rule in `OwnSolverLadderRule` and `ladder.mjs`, 18 shared
+cases). Options: PB+V = worker P → worker B → E (P, else B) with V simulated; PB off = the same
+without V; B+V and B off = E runs B only. survived/safe/wrong per class (M9c: lines = player ×
+variant, 2 seeds each):
+
+| Run | PB+V | PB off | B+V | B off | Wrong |
+|---|---|---|---|---|---|
+| Corpus `--ladder --dyncode` (32 files) | = ejs 260/260 | 260/260 | 260/260 | 260/260 | 0 |
+| Faults `--faults --ladder` (384 runs) | — | — | — | — | 0 (missed 0) |
+| M9b | 32/0/0 | 0/32/0 | 10/22/0 | 0/32/0 | 0 |
+| M9bs | 32/0/0 | 0/32/0 | 13/19/0 | 0/32/0 | 0 |
+| M9 | 32/0/0 | 0/32/0 | 32/0/0 | 0/32/0 | 0 |
+| M9c-nav (31/32 lines) | 0/30/1 | 0/30/1 | 0/30/1 | 0/30/1 | ❌ 1 |
+| M9c-loc | 32/0/0 | 32/0/0 | 32/0/0 | 32/0/0 | 0 |
+| M9c-mix | 0/32/0 | 0/32/0 | 0/32/0 | 0/32/0 | 0 |
+
+- ❌ M9c-nav 21cd2156 es6 (reproduced in a fresh run): worker B answers a wrong sig, n `no
+  candidates`, init errors 0; the rule returns it in all four options (V checks E's signatures
+  only). All five B wrong values in M9c have this shape (a sig while n has no candidates):
+  21cd2156 es6 (worker, E), 9fcf08e8 tce M9c-loc (E, init errors 2), e7573094 main M9c-mix
+  (worker with init errors 1, E); only the first is returned. Fix: §3 N5 "Plan adapted (N5a
+  results)".
+- ❗ ejs wrong 1 (74edf1a3 es6 M9c-nav): likely `cookieEnabled` missing from the WebView worker's
+  `WorkerNavigator`; main is affected too and is not changed.
+- ⚠️ 631d3938 main M9c-nav: one solve exhausts the Node heap (exit 134, 61 s, 2.5 GB), also
+  alone; its other variants are safe. One process for all of M9c stopped at 72/96 and M9c-nav
+  alone at 9/32, so M9c ran one process per player (631d3938: per variant). In the app this is a
+  renderer memory risk (breaker, N5b).
+- Cost of the rule: M9 throws once at init in the worker (init errors 1, all 32 files), so the
+  worker's right answers are unused; E answers, and E's sig needs V (PB off, B off: n only).
+- Corpus init errors 0/32 in all four steps; player `eval` reads and `Function` calls 0.
+
 ## 5. Risks
 
 - **False positives in B:** a function that acts like n but is not. Mitigated by the classifier
   rules, agreement, the M10 decoys and V. Without a V `pass`, disagreement fails.
-- **Silent environment values (N4b):** a value made with browser objects the worker lacks: its
+- **Silent environment values (N4b, N5a):** a value made with browser objects the worker lacks: its
   statement fails (an init error), B keeps going and the value silently becomes another number.
   B in the worker then gave a wrong sig on 1 of 32 M9bs files (631d3938 es6) that SelfCheck and
-  agreement accept (init errors 3); P failed safely and page mode was right. Open: the owner
-  decides the rule before N5 uses B (proposed: init errors > 0 → the worker answer is unverified
-  and E decides; that catches this case). B's call-shape keys are
+  agreement accept (init errors 3); P failed safely and page mode was right. N5a's rule (init
+  errors > 0 → no worker answer; E decides) catches it (§4 note "N5a"). Left: a value the stubs
+  give differently with no error (M9c: 1 ladder wrong value in M9c-nav, §4 note "N5a"), fixed in
+  N5b by V on every signature and the environment tripwire. B's call-shape keys are
   static constants, so DOM-dependent keys give B `no candidates` (safe). The harness hang from
   player promise jobs is fixed in the harness (§4 note "N4b").
+- **E hang (residual after N5b):** the planned page-P step budget counts steps; it cannot stop one
+  long regex backtrack or a memory crash inside a step. E runs on the app's single WebView
+  renderer main thread, so an E hang holds every WebView engine (main's ejs solver and the
+  in-app browser too) until it ends or the process restarts. Main's browser WebViews
+  (SecureBrowserWebViewClient, BrowserScreen, PopupWindowCatcher, SiteCheckDialog) do not handle
+  `onRenderProcessGone`: if the renderer dies, the app process dies with it.
+- **Release gate:** `ownSolverNext` is not enabled in a public release before N8 is done; only the
+  owner's test APKs use it.
+- **N8 candidate (⭐⭐⭐⭐):** E in its own process (`android:process=":solver"` +
+  `WebView.setDataDirectorySuffix`), the job passed through a file (Binder's 1 MB limit), no Hilt
+  set-up in that process, the process killed on a hang (the app survives). Cost: one more process
+  and renderer while solving (RAM) and its cold start per lookup.
+- **Main candidate task (⭐⭐; the main agent assigns the number):** handle `onRenderProcessGone` in
+  main's browser WebViews, so a renderer crash closes the page instead of the app.
 - **V ambiguity for n:** a wrong n may be slow instead of 403. Measured first (N2); `unknown` never
   counts as `pass`.
 - **Cost:** B is slower and uses more CPU on the first lookup of a new player version (about every
