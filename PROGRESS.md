@@ -26,7 +26,12 @@
   from E, right). Sources: decoy-n n none (failed as expected), sig P; decoy-sig and raw-encoding
   sig none, n P; omit-window/self P (1 step); omit-location/navigator/document/XMLHttpRequest/all
   E (3 steps: worker P, worker B, page P). Unfaulted ladder = ejs 260/260.
-- ⏳ M9, M9c: running one at a time.
+- ✅/⚠️ M9 `--strategy P,B --ladder` (641 s, peak RSS 2.3 GB): ladder PB+V 32/0/0, B+V 32/0/0,
+  **wrong 0**; but PB off and B off 0/32/0 (all safe: n from E right, no signature without V).
+  M9's reads throw once at init in the worker (init errors 1 in all 32, worker P and B; page 0):
+  the worker's answers are right (32/32) but the rule does not use them, so E answers, and a
+  signature from E needs V. Cost of the rule, not a wrong value (§4 note "N5a").
+- ⏳ M9c: running.
 
 ## Phase 1.2 — N4b environment-dependent values (M9b / M9bs) — measured ❌ (code `bdb45c6`, CI 38175876765 ✅; harness fix `8140b27`, CI 38181863054 ✅)
 
