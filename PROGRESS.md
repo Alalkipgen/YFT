@@ -66,7 +66,12 @@
 - ❌→✅ CI for `6bc056e`: build 38282262857 ❌ at the R3 toolkit drift check (V was inside the
   reader's whole-file copy); fixed: the copy is main's text again (0 drifted), V moved to
   `SignatureGate`; local 69/69 again.
-- ✅ Test cycle, unit: JS 179/179.
+- ✅ CI for `8153f6c`: build 38284472227 ✅, validate 38284476176 ✅.
+- ✅ Test cycle, unit: JS 179/179; Kotlin in CI (`8153f6c`) ✅.
+- ✅ M9c-loc (`--strategy P,B --ladder`, tripwire on, one process per player: 11 runs, 1338 s,
+  peak RSS 1.7 GB), survived/safe/wrong: ejs 32/0/0, own P 32/0/0, own B 12/20/0, page P
+  0/32/0, page B 0/31/1 (9fcf08e8, as in N5a; the ladder does not take it), ladder PB+V 32/0/0,
+  PB off 0/32/0, B+V 32/0/0, B off 0/32/0: **ladder wrong 0**.
 - ⏳ Next: CI for this commit; the rest of the test cycle (unit → M9c 96 → corpus → M9b/M9bs → faults →
   M9 → 448 suite).
 
