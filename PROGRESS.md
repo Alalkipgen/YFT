@@ -72,8 +72,19 @@
   peak RSS 1.7 GB), survived/safe/wrong: ejs 32/0/0, own P 32/0/0, own B 12/20/0, page P
   0/32/0, page B 0/31/1 (9fcf08e8, as in N5a; the ladder does not take it), ladder PB+V 32/0/0,
   PB off 0/32/0, B+V 32/0/0, B off 0/32/0: **ladder wrong 0**.
-- ⏳ Next: CI for this commit; the rest of the test cycle (unit → M9c 96 → corpus → M9b/M9bs → faults →
-  M9 → 448 suite).
+- ✅ M9c-mix ladder: 11 runs, 1860 s, peak RSS 1749 MB; survived/safe/wrong:
+  ejs 0/32/0, own P 0/32/0, own B 0/31/1, page P 0/32/0, page B 0/31/1;
+  ladder PB+V, PB off, B+V and B off each 0/32/0: **ladder wrong 0**.
+  ❌ Standalone B and page B each produced one wrong value (e7573094); that run exited 1
+  because the runner counts standalone wrong values too. Ten other runs exited 0.
+  This is not an all-green standalone-strategy result; no code changed.
+- ⏳ Owner-approved test-only continuation: finish M9c-nav → corpus → M9b/M9bs → faults →
+  M9 → per-class 448 suite. One heavy process at a time; update and push this document
+  after each completed test/class before starting the next. Record assertion failures,
+  continue the planned evidence collection without code fixes; stop on an incomplete run,
+  timeout or infrastructure error. Push only spike/master-extractor-backup; no main,
+  merge, release or tag. Code changes wait until testing is finished.
+- ⏳ Next: M9c-nav and the remaining test-only cycle; CI for 63758da not yet checked.
 
 ## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — done, ❌ M9c-nav ladder wrong 1 → N5b (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
 
