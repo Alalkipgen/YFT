@@ -31,7 +31,16 @@
   M9's reads throw once at init in the worker (init errors 1 in all 32, worker P and B; page 0):
   the worker's answers are right (32/32) but the rule does not use them, so E answers, and a
   signature from E needs V. Cost of the rule, not a wrong value (§4 note "N5a").
-- ⏳ M9c: running.
+- ❌ M9c-nav `--strategy P,B --ladder`, one process per player (2346 s, peak RSS 2.55 GB; 7/8
+  players, 28/32 lines). One process for all of M9c stopped at 72/96 with "heap out of memory"
+  (exit 134, 4609 s, 2.6 GB), M9c-nav alone at 9/32; 631d3938 alone also stopped (0/4, rerun one
+  variant per process pending). **Ladder wrong 1 in all four options** (PB+V, PB off, B+V, B off):
+  21cd2156 es6, worker B and page B give a wrong signature (n: no candidates) with no init errors,
+  so the ladder returns worker B's signature; +V checks page signatures only. Own P, page P 0/28/0
+  (all safe). ejs wrong 1 (74edf1a3 es6; ❗ separate, also main: likely no cookieEnabled in the
+  WebView worker's WorkerNavigator). The silent worker wrong is M9c-nav's design target. Proposed
+  fix (not implemented, owner decides): every signature, the worker's too, needs V before use.
+- ⏳ M9c-loc, M9c-mix: running (one process per player).
 
 ## Phase 1.2 — N4b environment-dependent values (M9b / M9bs) — measured ❌ (code `bdb45c6`, CI 38175876765 ✅; harness fix `8140b27`, CI 38181863054 ✅)
 
