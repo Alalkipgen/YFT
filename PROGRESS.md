@@ -129,6 +129,10 @@
   standalone wrong 0, ladder wrong 0. Survived/safe/wrong:
   ejs 32/0/0, own P 32/0/0, own B 32/0/0, page P 32/0/0, page B 32/0/0;
   PB+V 32/0/0, PB off 0/32/0, B+V 32/0/0, B off 0/32/0. No code fixes applied.
+- ✅ 448-suite M5: exit 0, 483 s, peak RSS 2318 MB; 32 files, two seeds;
+  standalone wrong 0, ladder wrong 0. Survived/safe/wrong:
+  ejs 24/8/0, own P 32/0/0, own B 32/0/0, page P 32/0/0, page B 32/0/0;
+  PB+V 24/8/0, PB off 0/32/0, B+V 24/8/0, B off 0/32/0. No code fixes applied.
 - ⏳ Next: per-class 448 suite;
   CI for 63758da not yet checked. No code fixes during this test-only cycle.
 
