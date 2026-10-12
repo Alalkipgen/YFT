@@ -65,7 +65,7 @@
   Android parts compile in CI only.
 - ❌→✅ CI for `6bc056e`: build 38282262857 ❌ at the R3 toolkit drift check (V was inside the
   reader's whole-file copy); fixed: the copy is main's text again (0 drifted), V moved to
-  `SignatureGate`; local 69/69 again.
+  `SignatureGate`; local 70/70 (+1: an answer outside a lookup loses its signatures).
 - ✅ CI for `8153f6c`: build 38284472227 ✅, validate 38284476176 ✅.
 - ✅ Test cycle, unit: JS 179/179; Kotlin in CI (`8153f6c`) ✅.
 - ✅ M9c-loc (`--strategy P,B --ladder`, tripwire on, one process per player: 11 runs, 1338 s,

@@ -3,6 +3,10 @@ package com.alal.yft.extractor.master.modules.youtube
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.extractor.api.ExtractorProbeResult
+import com.alal.yft.extractor.api.PlayerScriptChallenge
+import com.alal.yft.extractor.api.PlayerScriptChallengeKind
+import com.alal.yft.extractor.api.PlayerScriptRequest
+import com.alal.yft.extractor.api.PlayerScriptResult
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionRequest
 import com.alal.yft.extractor.api.SiteExtractionResult
@@ -125,6 +129,24 @@ class OwnSolverYouTubeTest {
         )
     }
 
+    @Test
+    fun `with ownSolverNext an answer outside a lookup loses its signatures, the rate value stays`() = runTest {
+        val runner = OwnPlayerScriptRunner(players(), cleanEngine(), next = OwnPlayerScriptRunner.Next())
+        val gate = SignatureGate(runner, runner, StreamCheck(FakeExtractorHttpClient()))
+        val request = PlayerScriptRequest(
+            playerScriptUrl = PHONE_PLAYER,
+            pageUrl = "https://www.youtube.com/watch?v=$VIDEO_ID",
+            challenges = listOf(
+                PlayerScriptChallenge("sig-18", PlayerScriptChallengeKind.SIGNATURE, "AOq0QJ8wRAIgFixture=="),
+                PlayerScriptChallenge("n-18", PlayerScriptChallengeKind.RATE_PARAM, RATE_INPUT),
+            ),
+        )
+
+        val result = gate.runner.resolve(request) as PlayerScriptResult.Success
+
+        assertEquals(setOf("n-18"), result.resolved.keys)
+    }
+
     private fun nextModule(probe: (url: String, headers: Map<String, String>) -> ExtractorProbeResult) =
         MasterYouTubeModule(
             http = FakeExtractorHttpClient(
@@ -138,19 +160,17 @@ class OwnSolverYouTubeTest {
                 },
                 probeResponder = probe,
             ),
-            playerScripts = OwnPlayerScriptRunner(
-                players(),
-                ScriptedOwnEngine { job ->
-                    ScriptedOwnEngine.result(
-                        n = job.n.associateWith(ScriptedOwnEngine::rate),
-                        sig = job.sig.associateWith(ScriptedOwnEngine::signature),
-                        prepared = ScriptedOwnEngine.preparedFor(job),
-                        initErrors = 0,
-                    )
-                },
-                next = OwnPlayerScriptRunner.Next(),
-            ),
+            playerScripts = OwnPlayerScriptRunner(players(), cleanEngine(), next = OwnPlayerScriptRunner.Next()),
         )
+
+    private fun cleanEngine() = ScriptedOwnEngine { job ->
+        ScriptedOwnEngine.result(
+            n = job.n.associateWith(ScriptedOwnEngine::rate),
+            sig = job.sig.associateWith(ScriptedOwnEngine::signature),
+            prepared = ScriptedOwnEngine.preparedFor(job),
+            initErrors = 0,
+        )
+    }
 
     /** V checks only media server URLs; the shared fixture's streams sit on a test host. */
     private fun onMediaServer(body: String): String =
