@@ -101,7 +101,11 @@
   M9bs PB+V 32/0/0, PB off 0/32/0, B+V 13/19/0, B off 0/32/0.
   ❌ Standalone own B in M9bs: 0/31/1; total standalone wrong 1, runner exit 1.
   This is an assertion result, not an incomplete run; no code fix applied.
-- ⏳ Next: faults → M9 → per-class 448 suite;
+- ✅ Faults --ladder: exit 0, 2444 s, peak RSS 2432 MB; 384 runs (12 fault
+  classes × 32 files), wrong values 0, expected FAILs missed 0, files not ok 0
+  in every fault class. Baseline PB+V and B+V remain ejs 260/260, wrong 0;
+  all four steps init errors 0/32. No code fixes applied.
+- ⏳ Next: M9 → per-class 448 suite;
   CI for 63758da not yet checked. No code fixes during this test-only cycle.
 
 ## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — done, ❌ M9c-nav ladder wrong 1 → N5b (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
