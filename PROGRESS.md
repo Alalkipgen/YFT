@@ -157,8 +157,23 @@
   standalone wrong 0, ladder wrong 0. Survived/safe/wrong:
   ejs 32/0/0, own P 32/0/0, own B 32/0/0, page P 32/0/0, page B 32/0/0;
   PB+V 32/0/0, PB off 0/32/0, B+V 32/0/0, B off 0/32/0. No code fixes applied.
-- ⏳ Next: per-class 448 suite;
-  CI for 63758da not yet checked. No code fixes during this test-only cycle.
+- ✅ 448-suite M11f: exit 0, 452 s, peak RSS 2441 MB; 32 files, two seeds;
+  standalone wrong 0, ladder wrong 0. Survived/safe/wrong:
+  ejs 32/0/0, own P 32/0/0, own B 32/0/0, page P 32/0/0, page B 32/0/0;
+  PB+V 32/0/0, PB off 0/32/0, B+V 32/0/0, B off 0/32/0. No code fixes applied.
+- ✅ 448 baseline suite complete: 14 classes × 32 files = 448 file/class cases,
+  each run with two seeds; all 14 processes exited 0, standalone wrong 0 and
+  ladder wrong 0. M9 above is included in this baseline, not counted twice.
+- ✅ Owner-requested test-only cycle complete: M9c → corpus → M9b/M9bs → faults →
+  M9 → remaining 448 classes. Ladder wrong 0 throughout; corpus PB+V/B+V remain
+  ejs 260/260 and tripwire false positives 0; faults wrong/missed 0.
+  ❌ Standalone-strategy wrong values remain in M9c-loc, M9c-mix and M9bs as
+  recorded above. This checkpoint does not claim every standalone strategy passed.
+- ⏸️ Paused after tests. No repository code fixes, main changes, merge, release or tag
+  during this cycle. N5b implementation is still in progress: locator cache and the
+  persistent V/StreamCheck ledger remain deferred; CI for 63758da not yet checked.
+  Await owner instructions before any code work or N6. This is a test checkpoint,
+  not completion of those deferred implementation items or release acceptance.
 
 ## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — done, ❌ M9c-nav ladder wrong 1 → N5b (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
 
