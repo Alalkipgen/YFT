@@ -257,7 +257,7 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 | N4b | Environment-dependent values (M9b/M9bs), init errors by class | N4 | Medium | Built (`bdb45c6`, harness `8140b27`); measured ❌ (worker B: 1 wrong M9bs value; fix: owner decides; §4 note "N4b") |
 | N5a | Ladder rule (init errors in replies, shared case table), runners `--ladder`/`--dyncode`, M9c; app unchanged | N4b | Medium | Done (`a78626f`, CI 38189985242); measured (§4 note "N5a") |
 | N5b | Page-P step budget, circuit breaker, ladder + locator cache wired behind `ownSolverNext` (default off); M9c fixes: V on every signature, environment tripwire | N5a | Medium–High | Done (TEST_SHA `48dd744`, test cycle 22/22 ✅; A.8 V wiring `df9a1e1`, CI 38413760115 ✅) |
-| N6 | Canary workflow (computer) | N1, N3 | Low–Medium | TODO |
+| N6 | Canary workflow (computer) | N1, N3 | Low–Medium | Built (workflow `own-solver-canary.yml`); manual run pending |
 | N7 | Owner live check + runbook update | N4, N5, N6 | Low | TODO |
 
 N1 comes first: it measures the baseline that every later task is judged by. N2 can run beside N1.
@@ -726,6 +726,19 @@ chose, see A.1) and A.7.
   `workflow_dispatch` and runs on pushes that touch the solver files. Copying a daily schedule to
   main is the owner's decision (not in this phase).
 - **Done:** a manual run passes; the job summary names players and verdicts only.
+- **Plan adapted (N6 build):**
+  - The computer canary (`own-solver-canary.mjs`) judges P and B alone (B as `--strategy B`:
+    no hint) on every build. Verdict per strategy and kind, worst first: wrong (a value that
+    differs from ejs's) > oracle (ejs failed too) > miss > pass. Any verdict other than pass
+    fails the job: an oracle verdict means main's solver fails on the player as well.
+  - "The vectors" = the corpus parity run against the recorded vectors, with own P and again with
+    B alone (B alone = ejs on every file is a §4 criterion). The quick mutations run ejs, own P and
+    own B (`--quick --strategy P,B`); any wrong value fails (`--judge all`).
+  - Each check runs even when an earlier one failed. The scripts' stdout (names, counts and
+    indexes) goes to the log; their stderr stays on the runner, because Node prints a source line
+    under some V8 errors, so stderr can hold player code.
+  - The summary is written by `scripts/own-solver-canary-summary.mjs` from the reports; its tests
+    are in `canary.test.mjs` (already in the spike CI JS step).
 
 ### N7 — Owner live check and runbook
 

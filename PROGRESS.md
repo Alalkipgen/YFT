@@ -1,5 +1,39 @@
 # YFT Master Extractor backup
 
+## Phase 1.2 — N6 canary workflow (computer) — built; manual run pending
+
+- ✅ Workflow `.github/workflows/own-solver-canary.yml` ("Own solver canary (spike)"):
+  `workflow_dispatch` + pushes to the spike that touch the solver files (main's and the own
+  solver's assets, `scripts/own-solver/**`, the canary, parity and mutation runners, the vectors,
+  the workflow itself). No `schedule`: GitHub runs it only from the default branch; a daily
+  schedule on main is the owner's decision. Node 24, `contents: read`, no secret. Checks (each
+  runs even when an earlier one failed; any failure fails the job):
+  1. today's player, 4 builds: ejs, own P, own B alone (`own-solver-canary.mjs`);
+  2. corpus against the vectors: ejs, own P (`verify-own-solver.mjs`);
+  3. corpus, own B alone (`--strategy B`);
+  4. change simulator, quick: the phone build of each corpus player, 14 classes, 1 seed: ejs, own
+     P and own B (`verify-own-solver-mutations.mjs --quick --strategy P,B`; any wrong value fails);
+  5. job summary (`own-solver-canary-summary.mjs`): players, builds, classes and verdicts only.
+  The scripts' stdout (names, counts, indexes) goes to the log; their stderr stays on the runner
+  (Node prints a source line under some V8 errors, so stderr can hold player code).
+- ✅ Canary (`own-solver-canary.mjs`): P and B alone (`{ strategy: "B", hint: false }`, as
+  `--strategy B`) on every build; verdict per strategy and kind, worst first: wrong (a value that
+  differs from ejs's) > oracle (ejs failed too) > miss (no value where ejs gave one) > pass; fail
+  = no build. It passes only when all four verdicts pass. Plan adapted: a wrong value counts only
+  where ejs gave one (before, a value without ejs's counted as wrong; such a player is oracle
+  anyway). Downloads are tried 3 times, 5 s apart (a 404 = the build is absent, no retry). The
+  report gets `strategies` and `verdicts.{P,B}.{n,sig}`.
+- ✅ Tests: `canary.test.mjs` 3 → 10 (verdict rules, P + B verdicts, a build line without
+  inputs or values, retry; summary: step states incl. a stopped step, corpus and mutation verdicts,
+  Markdown without values, reports of checks that could not run skipped). Fail-first: 18/18
+  code mutations killed. Spike CI JS step 224/224 (217 + 7).
+- ✅ Local (2 CPU / 4 GB, Node 24.14.1): today's player (not in the corpus), 4
+  builds: P n/sig pass, B n/sig pass (39 s; B 5.4–7.8 s per build); corpus own P 32/32, own = ejs
+  260/260 (82 s); corpus B alone 32/32, 260/260 (241 s); quick P,B: 8 files × 14 classes × 1 seed,
+  wrong 0 for ejs, own P and own B (own B survived 112/112, own P 104/112: M3 0/8 safe; 929 s).
+  The summary rendered from these reports names players and verdicts only.
+- ⏳ CI: the push run and the owner's manual run (Actions → "Own solver canary (spike)" → Run workflow) are next.
+
 ## Phase 1.2 — N5b ladder, breaker, locator cache and V ledger behind `ownSolverNext` — done (TEST_SHA `48dd744`, test cycle 22/22 ✅; A.8 V wiring `df9a1e1`, CI 38413760115 ✅ + checkpoint 38413767701 ✅)
 
 - ⏳ Plan adapted (owner-approved 2026-10-12; plan §3 N5 "Plan adapted (N5a results)"): V on every

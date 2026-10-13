@@ -1,0 +1,102 @@
+name: Own solver canary (spike)
+
+# Phase 1.2 N6 (MASTER_KEY_PHASE1_2_PLAN.md §3 N6): today's YouTube player (its four builds)
+# through main's ejs solver and the own solver's strategies P and B alone; the corpus against the
+# recorded vectors (own P, then own B alone); the change simulator's quick run (the phone build of
+# each corpus player, every class, one seed: ejs, own P and own B). Any wrong value, a P or B miss
+# or a check that cannot run fails the job. It needs www.youtube.com (today's player and the
+# corpus downloads, kept on the runner only). GitHub runs `schedule` only from the default
+# branch, so on the spike it runs by hand and on pushes that touch the solver files; a daily
+# schedule on main is the owner's decision. The log and the job summary name players, builds,
+# classes and verdicts only; the scripts' stderr stays on the runner. Uses no repository secret.
+on:
+  push:
+    branches: ["spike/master-extractor-backup"]
+    paths:
+      - ".github/workflows/own-solver-canary.yml"
+      - "app/src/main/assets/youtube-solver/**"
+      - "extractor-master-android/src/main/assets/yft-own-solver/**"
+      - "scripts/own-solver/**"
+      - "scripts/own-solver-canary.mjs"
+      - "scripts/own-solver-canary-summary.mjs"
+      - "scripts/verify-own-solver.mjs"
+      - "scripts/verify-own-solver-mutations.mjs"
+      - "scripts/youtube-solver-vectors.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: own-solver-canary-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+      - name: Today's player, 4 builds (ejs, own P, own B)
+        id: today
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          code=0
+          node scripts/own-solver-canary.mjs 2> "$RUNNER_TEMP/today.err" || code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "stderr: $(wc -l < "$RUNNER_TEMP/today.err") lines, kept on the runner"
+          exit "$code"
+      - name: Corpus against the vectors (ejs, own P)
+        id: corpus_p
+        if: ${{ !cancelled() }}
+        timeout-minutes: 15
+        shell: bash
+        run: |
+          code=0
+          rm -f build/own-solver/report.json
+          node scripts/verify-own-solver.mjs 2> "$RUNNER_TEMP/corpus-p.err" || code=$?
+          if [[ -f build/own-solver/report.json ]]; then mv build/own-solver/report.json build/own-solver/corpus-p.json; fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "stderr: $(wc -l < "$RUNNER_TEMP/corpus-p.err") lines, kept on the runner"
+          exit "$code"
+      - name: Corpus, own B alone
+        id: corpus_b
+        if: ${{ !cancelled() }}
+        timeout-minutes: 20
+        shell: bash
+        run: |
+          code=0
+          rm -f build/own-solver/report.json
+          node scripts/verify-own-solver.mjs --strategy B 2> "$RUNNER_TEMP/corpus-b.err" || code=$?
+          if [[ -f build/own-solver/report.json ]]; then mv build/own-solver/report.json build/own-solver/corpus-b.json; fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "stderr: $(wc -l < "$RUNNER_TEMP/corpus-b.err") lines, kept on the runner"
+          exit "$code"
+      - name: Change simulator, quick (ejs, own P, own B)
+        id: mutations
+        if: ${{ !cancelled() }}
+        timeout-minutes: 45
+        shell: bash
+        run: |
+          code=0
+          node scripts/verify-own-solver-mutations.mjs --quick --strategy P,B 2> "$RUNNER_TEMP/mutations.err" || code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "stderr: $(wc -l < "$RUNNER_TEMP/mutations.err") lines, kept on the runner"
+          exit "$code"
+      - name: Job summary (players and verdicts only)
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          TODAY_EXIT: ${{ steps.today.outputs.code }}
+          TODAY_OUTCOME: ${{ steps.today.outcome }}
+          CORPUS_P_EXIT: ${{ steps.corpus_p.outputs.code }}
+          CORPUS_P_OUTCOME: ${{ steps.corpus_p.outcome }}
+          CORPUS_B_EXIT: ${{ steps.corpus_b.outputs.code }}
+          CORPUS_B_OUTCOME: ${{ steps.corpus_b.outcome }}
+          MUTATIONS_EXIT: ${{ steps.mutations.outputs.code }}
+          MUTATIONS_OUTCOME: ${{ steps.mutations.outcome }}
+        run: node scripts/own-solver-canary-summary.mjs >> "$GITHUB_STEP_SUMMARY"

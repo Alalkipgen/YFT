@@ -173,7 +173,9 @@ Order inside the YouTube module (unchanged from R6):
 
 1. **The canary fails** → note the player ID and the failing kind (n or sig).
    - Computer (every build of the player): `node scripts/own-solver-canary.mjs [player ID]`
-     (report `build/own-solver/canary-report.json`; it prints the next commands).
+     (report `build/own-solver/canary-report.json`; it prints the next commands). Since Phase
+     1.2 N6 it judges own P and own B alone, and the "Own solver canary (spike)" workflow runs it
+     by hand on today's player, with the corpus and the change simulator's quick run.
    - Phone or emulator (both WebView engines): `bash scripts/own-solver-canary.sh`
      (`OwnSolverCanaryTest`, report pulled to `build/own-solver/`).
    - Until it is fixed the app is safe: SelfCheck refuses the kind, its streams are dropped and

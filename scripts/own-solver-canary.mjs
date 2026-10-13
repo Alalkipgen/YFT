@@ -1,20 +1,26 @@
 #!/usr/bin/env node
-// Phase 1.1 S6 (MASTER_KEY_PHASE1_1_PLAN.md §3 S6, runbook §6): own-solver canary, owner-run.
+// Phase 1.1 S6 (MASTER_KEY_PHASE1_1_PLAN.md §3 S6, runbook §6) and Phase 1.2 N6
+// (MASTER_KEY_PHASE1_2_PLAN.md §3 N6): own-solver canary.
 //
 //   node scripts/own-solver-canary.mjs              # today's player (from YouTube's embed API)
 //   node scripts/own-solver-canary.mjs <player ID>  # a given player
 //
 // Downloads every build of the player (main, tce, es6, phone), runs main's bundled ejs solver and
-// the own core on the same generated inputs (3 n, 3 sig with one encoding edge case) and reports
-// pass/fail per kind (n, sig). A kind passes when ejs solved every input and the own core gave
-// the same value for every input on every build. The phone check of the same thing, with both
-// WebView engines, is scripts/own-solver-canary.sh.
+// the own core's worker strategies P (patterns) and B alone (behaviour discovery, N3), as
+// verify-own-solver.mjs runs them, on the same generated inputs (3 n, 3 sig with one encoding
+// edge case). Verdict per strategy and kind (n, sig) over every build: pass (ejs solved every
+// input and the strategy gave ejs's value for each), miss (no value where ejs gave one: safe),
+// wrong (a value that differs from ejs's: never allowed), oracle (ejs failed too, so the player
+// cannot be judged) or fail (no build). The canary passes only when all four verdicts pass. The
+// phone check, with both WebView engines, is scripts/own-solver-canary.sh.
 //
-// Never part of CI: it needs www.youtube.com. Runs on a computer, or on a phone with Node (e.g.
-// Termux). Solvers run in a bare V8 context (no require, process or network), as in
+// It needs www.youtube.com, so it is not part of the build CI: it runs on a computer, on a phone
+// with Node (e.g. Termux) or in the canary workflow (.github/workflows/own-solver-canary.yml,
+// N6). Solvers run in a bare V8 context (no require, process or network), as in
 // verify-own-solver.mjs. Report: stdout + build/own-solver/canary-report.json with the player ID,
 // builds, verdicts, counts and timings only (never an input, an output or player text).
-// Exit 0 = both kinds pass; 1 = a kind fails (follow the runbook); 2 = the canary could not run.
+// Exit 0 = every verdict passes; 1 = a verdict fails (follow the runbook); 2 = the canary could
+// not run.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,6 +41,18 @@ async function todaysPlayer() {
   return id;
 }
 
+/** [task] (a network call), tried up to [attempts] times [waitMs] apart; the last error is thrown. */
+export async function withRetry(task, attempts = 3, waitMs = 5000) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await task();
+    } catch (error) {
+      if (attempt >= attempts) throw error;
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+  }
+}
+
 async function download(player, variant) {
   const response = await fetch(playerUrl(player, variant), { headers: { "Accept-Language": "en-US,en;q=0.9" } });
   if (response.status === 404) return null;
@@ -42,27 +60,75 @@ async function download(player, variant) {
   return response.text();
 }
 
-/** Per kind: inputs ejs solved, inputs where the own core gave ejs's value, and the total. */
+/** The own core's worker strategies the canary checks, each with its request (as --strategy B). */
+export const STRATEGIES = { P: {}, B: { strategy: "B", hint: false } };
+
+/**
+ * Per kind: the inputs, the ones ejs solved and, of those, the ones the own strategy matched,
+ * answered with another value (wrong) or left without a value (missed).
+ */
 export function judge(inputs, ejs, own) {
   const counts = {};
   for (const kind of KINDS) {
-    const list = inputs[kind];
+    const truth = ejs?.[kind] ?? {};
+    const given = own?.[kind] ?? {};
+    const solved = inputs[kind].filter((input) => typeof truth[input] === "string");
     counts[kind] = {
-      total: list.length,
-      ejs: list.filter((input) => typeof ejs?.[kind]?.[input] === "string").length,
-      agree: list.filter((input) => typeof own?.[kind]?.[input] === "string" && own[kind][input] === ejs?.[kind]?.[input]).length,
-      wrong: list.filter((input) => typeof own?.[kind]?.[input] === "string" && own[kind][input] !== ejs?.[kind]?.[input]).length,
+      total: inputs[kind].length,
+      ejs: solved.length,
+      agree: solved.filter((input) => given[input] === truth[input]).length,
+      wrong: solved.filter((input) => typeof given[input] === "string" && given[input] !== truth[input]).length,
+      missed: solved.filter((input) => typeof given[input] !== "string").length,
     };
   }
   return counts;
 }
 
-/** A kind's verdict over every build: pass, fail (own missing or wrong) or oracle (ejs failed too). */
+/**
+ * One strategy's verdict on a kind over every build ([builds]: variant -> { present, n, sig } with
+ * judge's counts), worst first: wrong (a value that differs from ejs's), oracle (ejs failed on an
+ * input, so the player cannot be judged), miss (no value where ejs gave one), else pass; fail when
+ * no build was there.
+ */
 export function verdict(builds, kind) {
   const present = Object.values(builds).filter((build) => build.present);
   if (!present.length) return "fail";
+  if (present.some((build) => build[kind].wrong > 0)) return "wrong";
   if (present.some((build) => build[kind].ejs < build[kind].total)) return "oracle";
-  return present.every((build) => build[kind].agree === build[kind].total) ? "pass" : "fail";
+  return present.every((build) => build[kind].agree === build[kind].total) ? "pass" : "miss";
+}
+
+/** strategy -> kind -> verdict, from the canary's builds (variant -> { present, ms, P, B, ... }). */
+export function verdicts(builds) {
+  return Object.fromEntries(
+    Object.keys(STRATEGIES).map((strategy) => {
+      const view = Object.fromEntries(
+        Object.entries(builds).map(([variant, build]) => [variant, build.present ? { present: true, ...build[strategy] } : { present: false }]),
+      );
+      return [strategy, Object.fromEntries(KINDS.map((kind) => [kind, verdict(view, kind)]))];
+    }),
+  );
+}
+
+/** The canary passes only when every strategy passes every kind. */
+export function canaryPasses(all) {
+  return Object.keys(STRATEGIES).every((strategy) => KINDS.every((kind) => all?.[strategy]?.[kind] === "pass"));
+}
+
+/** One build's line: per kind ejs's and each strategy's counts, then timings and failure classes. */
+export function buildLine(build) {
+  const names = Object.keys(STRATEGIES);
+  const kinds = KINDS.map((kind) => {
+    const cells = names.map((name) => {
+      const counts = build[name][kind];
+      return `${name} ${counts.agree}/${counts.total}${counts.wrong ? ` (wrong ${counts.wrong})` : ""}`;
+    });
+    return `${kind}: ejs ${build[names[0]][kind].ejs}/${build[names[0]][kind].total}, ${cells.join(", ")}`;
+  });
+  const ms = ["ejs", ...names].map((name) => `${name} ${build.ms[name]}`).join(", ");
+  const failed = Object.entries(build.failed ?? {}).map(([name, failure]) => `${name} failed ${failure}`);
+  const errors = Object.entries(build.errors ?? {}).map(([name, error]) => `${name} ${error}`);
+  return [...kinds, `ms ${ms}`, ...failed, ...errors].join(" | ");
 }
 
 async function main() {
@@ -71,7 +137,7 @@ async function main() {
     console.log("usage: node scripts/own-solver-canary.mjs [player ID]");
     return 2;
   }
-  const player = asked ?? (await todaysPlayer());
+  const player = asked ?? (await withRetry(todaysPlayer));
   const ejsSolver = {
     lib: readFileSync(join(ejsAssets, "yt.solver.lib.min.js"), "utf8"),
     core: readFileSync(join(ejsAssets, "yt.solver.core.min.js"), "utf8"),
@@ -83,7 +149,7 @@ async function main() {
   const inputs = generatedInputs(player);
   const builds = {};
   for (const variant of Object.keys(VARIANTS)) {
-    const text = await download(player, variant);
+    const text = await withRetry(() => download(player, variant));
     if (text === null) {
       builds[variant] = { present: false };
       console.log(`${player} ${variant.padEnd(5)} absent`);
@@ -91,27 +157,20 @@ async function main() {
     }
     let started = Date.now();
     const ejs = solveWithEjs(ejsSolver, text, inputs);
-    const ejsMs = Date.now() - started;
-    started = Date.now();
-    const own = solveWithOwn(ownSolver, text, inputs);
-    const ownMs = Date.now() - started;
-    const counts = judge(inputs, ejs, own);
-    builds[variant] = {
-      present: true,
-      ms: { ejs: ejsMs, own: ownMs },
-      ...counts,
-      ...(own.failed ? { ownFailed: own.failed } : {}),
-      ...(own.error ? { ownError: own.error } : {}),
-      ...(ejs.error ? { ejsError: ejs.error } : {}),
-    };
-    console.log(
-      `${player} ${variant.padEnd(5)} ` +
-        KINDS.map((kind) => `${kind}: ejs ${counts[kind].ejs}/${counts[kind].total}, own ${counts[kind].agree}/${counts[kind].total}`).join(" | ") +
-        ` | ejs ${ejsMs} ms, own ${ownMs} ms` +
-        (own.failed ? ` | own failed ${own.failed}` : ""),
-    );
+    const build = { present: true, ms: { ejs: Date.now() - started } };
+    if (ejs.error) build.errors = { ejs: ejs.error };
+    for (const [strategy, request] of Object.entries(STRATEGIES)) {
+      started = Date.now();
+      const own = solveWithOwn(ownSolver, text, inputs, request);
+      build.ms[strategy] = Date.now() - started;
+      build[strategy] = judge(inputs, ejs, own);
+      if (own.failed) build.failed = { ...build.failed, [strategy]: own.failed };
+      if (own.error) build.errors = { ...build.errors, [strategy]: own.error };
+    }
+    builds[variant] = build;
+    console.log(`${player} ${variant.padEnd(5)} ${buildLine(build)}`);
   }
-  const verdicts = Object.fromEntries(KINDS.map((kind) => [kind, verdict(builds, kind)]));
+  const all = verdicts(builds);
   const corpus = existsSync(corpusFile) ? JSON.parse(readFileSync(corpusFile, "utf8")) : { players: [] };
   const inCorpus = corpus.players.some((entry) => entry.player === player);
   const report = {
@@ -119,17 +178,19 @@ async function main() {
     date: new Date().toISOString(),
     player,
     inCorpus,
+    strategies: Object.keys(STRATEGIES),
     builds,
-    verdicts,
+    verdicts: all,
   };
   mkdirSync(dirname(reportFile), { recursive: true });
   writeFileSync(reportFile, `${JSON.stringify(report, null, 2)}\n`);
-  console.log(`verdict: n ${verdicts.n.toUpperCase()}, sig ${verdicts.sig.toUpperCase()} (player ${player}, ${inCorpus ? "in" : "not in"} corpus)`);
-  const passed = KINDS.every((kind) => verdicts[kind] === "pass");
+  const named = Object.entries(all).map(([strategy, byKind]) => `${strategy} ${KINDS.map((kind) => `${kind} ${byKind[kind].toUpperCase()}`).join(", ")}`);
+  console.log(`verdict: ${named.join("; ")} (player ${player}, ${inCorpus ? "in" : "not in"} corpus)`);
+  const passed = canaryPasses(all);
   if (!passed) {
     console.log("runbook (MASTER_KEY_PHASE1_1_PLAN.md §6):");
     if (!inCorpus) console.log(`  1. node scripts/verify-own-solver.mjs --add ${player}   # add to the corpus, then review`);
-    console.log(`  2. node scripts/verify-own-solver.mjs --only ${player}   # reproduce; classify G1-G4 or new`);
+    console.log(`  2. node scripts/verify-own-solver.mjs --only ${player}   # reproduce (B: add --strategy B); classify G1-G4 or new`);
     console.log("  3. fix the core, then: node scripts/verify-own-solver.mjs --faults   # every player, no wrong value");
   } else if (!inCorpus) {
     console.log(`note: not in the corpus yet; to keep it as a regression case: node scripts/verify-own-solver.mjs --add ${player}`);
