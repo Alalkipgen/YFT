@@ -1,0 +1,50 @@
+{
+  "schema": "n5b-raw/1",
+  "agent": "a",
+  "test": "ladder",
+  "test_sha": "48dd744debcdaba0d2112cf801f8dfbe913fda8e",
+  "head": "48dd744debcdaba0d2112cf801f8dfbe913fda8e",
+  "head_ok": true,
+  "list_status": "done",
+  "result": "pass",
+  "node": "v24.14.1",
+  "machine": {
+    "cpus": 2,
+    "mem_gb": 4,
+    "platform": "linux x64"
+  },
+  "totals": {
+    "expected_runs": 1,
+    "runs": 1,
+    "seconds": 574,
+    "max_peak_rss_mb": 2253
+  },
+  "runs": [
+    {
+      "n": "02",
+      "command": "node scripts/verify-own-solver.mjs --ladder",
+      "exit": 0,
+      "seconds": 574,
+      "peak_rss_mb": 2253,
+      "summary": [
+        "coverage: main, tce, es6, phone",
+        "32/32 files pass (32 checked); own = ejs on 260/260 inputs",
+        "locator parts (files whose step gave a part): P n 32/32, sig 32/32; B n 32/32, sig 32/32 -> build/own-solver/locators.json (data only)",
+        "hit P (a) kept: 32 files, ms max/median 412/282, job 416/285 (A.1 estimate 478/291; N7 phone target <= 2000 ms (same process)), the miss 733/458 (its phases); locator n hit 32, sig hit 32; vs ejs = 260/260, wrong 0, no value 0; slowest 74edf1a3 tce",
+        "hit P (b) text: 32 files, ms max/median 1744/1525, job 1759/1542 (A.1 estimate 1938/1329; N7 phone target <= 8000 ms (after a restart)), the miss 1525/1170 (its phases); locator n hit 32, sig hit 32; vs ejs = 260/260, wrong 0, no value 0; slowest 5203c085 main",
+        "hit B text: 32 files, ms max/median 3889/2934, job 3902/2947 (A.1 estimate 5422/3724; metric only), the miss 5349/4539 (its phases); locator n hit 32, sig hit 32; vs ejs = 260/260, wrong 0, no value 0; slowest 631d3938 es6",
+        "ladder init errors: files with errors P 0/32, B 0/32, pP 0/32, pB 0/32",
+        "ladder P steps (largest init/attempt): P 2814/1005 (162/3 ms), pP 2814/1005 (121/10 ms)",
+        "ladder sources (PB+V, per file): n P 32, sig P 32",
+        "phases P (32 files, max/median ms): prepare 909/751, init 163/116, search 415/272, confirm 0/0, selfcheck 8/5, tripwire 176/100, total 1525/1170, wall 1536/1183, hitA 331/210, hitB 1210/926, hitA3 331/210; over 500 ms: hitA 0, hitB 32, hitA3 0; slowest 5203c085 tce",
+        "phases B (32 files, max/median ms): prepare 2613/1994, init 236/131, search 2198/1913, confirm 1344/228, selfcheck 299/29, tripwire 140/14, total 5349/4539, wall 5364/4565, hitA 3527/2597, hitB 3527/2597, hitA3 1858/447; over 500 ms: hitA 32, hitB 32, hitA3 12; slowest 631d3938 es6",
+        "phases pP (32 files, max/median ms): prepare 1146/779, init 121/13, search 573/253, confirm 0/0, selfcheck 13/4, tripwire 0/0, total 1625/1117, wall 1641/1127, hitA 126/17, hitB 1162/832, hitA3 126/17; over 500 ms: hitA 0, hitB 32, hitA3 0; slowest 5203c085 main",
+        "phases pB (32 files, max/median ms): prepare 2493/1988, init 145/19, search 2302/2020, confirm 1266/85, selfcheck 328/28, tripwire 0/0, total 5395/4322, wall 5412/4345, hitA 3512/2316, hitB 3512/2316, hitA3 1652/135; over 500 ms: hitA 32, hitB 32, hitA3 8; slowest 5203c085 es6",
+        "lookup ms (largest per file): P+B 6659 (5203c085 es6), P+B+pP+pB 13501 (5203c085 es6)",
+        "ladder vs ejs: PB+V = ejs 260/260, wrong 0, no value 0; PB off = ejs 132/260, wrong 0, no value 128; B+V = ejs 260/260, wrong 0, no value 0; B off = ejs 132/260, wrong 0, no value 128"
+      ],
+      "unsafe_lines_dropped": 0,
+      "stderr_lines": 640
+    }
+  ]
+}
