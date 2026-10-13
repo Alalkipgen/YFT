@@ -140,7 +140,8 @@ class SolverCanaryActivity : ComponentActivity() {
     /**
      * A visible WebView with a 50 ms timer that keeps its longest gap: while a page job runs, how
      * long a page in the app's browser would stand still. Made only before the first page step,
-     * so the lookup's engine start stays cold. It loads no address.
+     * so the lookup's engine start stays cold. It loads no address. After the steps it also gives
+     * the renderer's JS heap limit (N7 round 2).
      */
     private val stallMeter = object : SolverCanary.StallMeter {
         @SuppressLint("SetJavaScriptEnabled")
@@ -168,6 +169,12 @@ class SolverCanaryActivity : ComponentActivity() {
         }
 
         override suspend fun read(): Long? = evaluate("yftMax()")?.trim('"')?.toDoubleOrNull()?.toLong()
+
+        // Same renderer as the solver's pages (one per app); asked after the steps.
+        override suspend fun heapLimitBytes(): Long? {
+            prepare()
+            return evaluate("yftHeapLimit()")?.trim('"')?.toDoubleOrNull()?.takeIf { it > 0 }?.toLong()
+        }
     }
 
     private suspend fun evaluate(script: String): String? = withContext(Dispatchers.Main) {
@@ -203,6 +210,8 @@ class SolverCanaryActivity : ComponentActivity() {
             " last = now; document.getElementById('t').textContent = 'stall meter: longest gap ' + worst + ' ms'; }, 50);" +
             "function yftReset() { last = Date.now(); worst = 0; return 0; }" +
             "function yftMax() { var gap = Date.now() - last; return gap > worst ? gap : worst; }" +
+            "function yftHeapLimit() { try { var m = performance.memory;" +
+            " return m && typeof m.jsHeapSizeLimit === 'number' ? m.jsHeapSizeLimit : -1; } catch (e) { return -1; } }" +
             "</script></body></html>"
     }
 }

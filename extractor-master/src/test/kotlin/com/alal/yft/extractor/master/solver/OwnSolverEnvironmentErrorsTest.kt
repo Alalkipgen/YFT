@@ -41,4 +41,14 @@ class OwnSolverEnvironmentErrorsTest {
             ),
         )
     }
+
+    @Test
+    fun `the page's worker error classes are not environment errors`() {
+        // N7: own-solver-page.js prefixes a worker error event's class, so it never sends a job to E.
+        listOf(
+            "WorkerError", "WorkerTypeError", "WorkerReferenceError", "WorkerStackOverflow", "WorkerOutOfMemory",
+            "WorkerMessageError",
+        ).forEach { assertFalse(it, OwnSolverEnvironmentErrors.isEnvironmentFailure(it)) }
+        assertFalse(OwnSolverEnvironmentErrors.needsPage(decoded("""{"type":"error","error":"WorkerReferenceError"}""")))
+    }
 }

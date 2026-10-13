@@ -104,6 +104,11 @@ internal object SolverCanaryReport {
         val app: String,
         /** Today's player (null: not found). */
         val player: String?,
+        /**
+         * The JS heap limit of the app's WebView renderer (`performance.memory.jsHeapSizeLimit`,
+         * Chromium only), read in the tool's own WebView after the steps; null: unknown.
+         */
+        val jsHeapLimitBytes: Long? = null,
     )
 
     /** One step's run on one build ([counts] empty when no job went out). */
@@ -242,7 +247,7 @@ internal object SolverCanaryReport {
         val header = report.header
         appendLine(
             "run ${header.run} · process ${if (header.newProcess) "new" else "same"} · Android ${safe(header.android)} · " +
-                "WebView ${safe(header.webView)} · app ${safe(header.app)}",
+                "WebView ${safe(header.webView)} · app ${safe(header.app)} · JS heap limit ${heapLimit(header.jsHeapLimitBytes)}",
         )
         val samePlayer = when (report.lookup?.samePlayer) {
             true -> "same"
@@ -373,6 +378,11 @@ internal object SolverCanaryReport {
             .replace(TOKEN) { token -> if (WORD.matches(token.value)) token.value else CUT }
             .take(max)
 
+    /** A heap limit in whole MB, or "unknown" (no Chromium `performance.memory`, or no reading). */
+    private fun heapLimit(bytes: Long?): String =
+        bytes?.takeIf { it > 0 }?.let { "${(it + BYTES_PER_MB / 2) / BYTES_PER_MB} MB" } ?: "unknown"
+
+    private const val BYTES_PER_MB = 1024L * 1024L
     private const val MAX_TEXT_CHARS = 160
     private const val MAX_CLASS_CHARS = 48
     private const val SAFE_SIGNS = " .,:;()_-+×≤—"

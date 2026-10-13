@@ -268,3 +268,88 @@ test("N7: the player's error events are cancelled in the worker, so they never f
   assert.equal(plain.type, "result");
   assert.equal(listeners.length, 1);
 });
+
+// N7: the page on a worker error event (own-solver-page.js workerErrorClass) and on a reply it
+// cannot read. Synthetic messages only; the page must never hand any of their text to the app.
+async function pageWith(fire) {
+  const bridge = [];
+  let worker;
+  class FakeWorker {
+    constructor() {
+      worker = this;
+    }
+    postMessage() {
+      queueMicrotask(() => fire(this));
+    }
+    terminate() {
+      this.terminated = true;
+    }
+  }
+  const context = vm.createContext({
+    window: { YftOwnSolverBridge: { post: (text) => bridge.push(text) } },
+    Worker: FakeWorker,
+    Blob: class {},
+    URL: Object.assign(function URL() {}, { createObjectURL: () => "blob:page", revokeObjectURL: () => {} }),
+    fetch: () => Promise.resolve({ ok: true, text: () => Promise.resolve("{}") }),
+  });
+  vm.runInContext(pageSource, context);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  return { bridge, worker };
+}
+
+async function workerErrorOf(event) {
+  let cancelled = 0;
+  const { bridge, worker } = await pageWith((fake) => {
+    fake.onerror({ ...event, preventDefault: () => (cancelled += 1) });
+    // A late reply after the error changes nothing.
+    fake.onmessage({ data: '{"type":"result","n":{},"sig":{}}' });
+  });
+  assert.equal(cancelled, 1);
+  assert.equal(worker.terminated, true);
+  assert.equal(bridge.length, 1);
+  const reply = JSON.parse(bridge[0]);
+  assert.deepEqual(Object.keys(reply), ["type", "error"]);
+  assert.equal(reply.type, "error");
+  assert.match(reply.error, /^[A-Za-z]{1,40}$/);
+  return reply.error;
+}
+
+test("page: a worker error event goes back as a fixed class, never as its text", async () => {
+  const classes = [
+    ["Uncaught RangeError: Maximum call stack size exceeded", "WorkerStackOverflow"],
+    ["InternalError: too much recursion", "WorkerStackOverflow"],
+    ["Uncaught RangeError: Array buffer allocation failed", "WorkerOutOfMemory"],
+    ["uncaught exception: out of memory", "WorkerOutOfMemory"],
+    ["Uncaught TypeError: Cannot read properties of undefined (reading 'qz')", "WorkerTypeError"],
+    ["Uncaught ReferenceError: document is not defined", "WorkerReferenceError"],
+    ["SyntaxError: Unexpected token '}'", "WorkerSyntaxError"],
+    ["Uncaught RangeError: Invalid array length", "WorkerRangeError"],
+    ["Uncaught EvalError", "WorkerEvalError"],
+  ];
+  for (const [message, expected] of classes) {
+    assert.equal(await workerErrorOf({ message }), expected, message);
+  }
+  // A thrown string or number, a made-up class name, a plain Error, a lower-case class, no message.
+  const unknown = ["Uncaught Qwzrtplk", "Uncaught Mysecretname: Qwzrtplk", "Uncaught 4242", "Uncaught Error: Qwzrtplk",
+    "Uncaught typeerror: x", "Qwzrtplk TypeError: x", "", undefined, 42, null];
+  for (const message of unknown) {
+    assert.equal(await workerErrorOf({ message }), "WorkerError", String(message));
+  }
+  assert.equal(await workerErrorOf({}), "WorkerError");
+});
+
+test("page: a worker error event without preventDefault, and a reply the page cannot read", async () => {
+  const bare = await pageWith((fake) => fake.onerror({ message: "Uncaught TypeError: x" }));
+  assert.equal(bare.worker.terminated, true);
+  assert.deepEqual(bare.bridge, ['{"type":"error","error":"WorkerTypeError"}']);
+
+  const none = await pageWith((fake) => fake.onerror(undefined));
+  assert.deepEqual(none.bridge, ['{"type":"error","error":"WorkerError"}']);
+
+  const unreadable = await pageWith((fake) => {
+    fake.onmessageerror({ data: null });
+    fake.onmessage({ data: '{"type":"result","n":{},"sig":{}}' });
+  });
+  assert.equal(unreadable.worker.terminated, true);
+  assert.deepEqual(unreadable.bridge, ['{"type":"error","error":"WorkerMessageError"}']);
+});

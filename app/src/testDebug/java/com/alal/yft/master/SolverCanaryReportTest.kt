@@ -206,7 +206,7 @@ class SolverCanaryReportTest {
         assertTrue(text, text.contains("failures TypeError,IOException,<cut>,ab <cut>"))
         assertTrue(text, text.contains(" · n 2/2 · sig 2/2\n"))
         assertTrue(text, text.contains("sent n,sig · hits n,sig · given n,sig · answered n,sig"))
-        assertTrue(text, text.contains("\nrun 1 · process new · Android 14 · WebView 125.0.6422.165 · app 0.1.0-debug\n"))
+        assertTrue(text, text.contains("\nrun 1 · process new · Android 14 · WebView 125.0.6422.165 · app 0.1.0-debug · JS heap limit unknown\n"))
         assertTrue(text, text.contains("\nplayer fakeplayer · lookup player same\n"))
         assertTrue(text, text.contains("\nverdicts: P n pass sig pass · B n pass sig pass · E n pass sig pass · V pass\n"))
         assertTrue(
@@ -314,6 +314,20 @@ class SolverCanaryReportTest {
         failures = emptyList(),
         samePlayer = true,
     )
+
+    @Test
+    fun runLineShowsThePhoneJsHeapLimit() {
+        val report = reportOf()
+        val unknown = SolverCanaryReport.render(report).lines()[1]
+        assertTrue(unknown, unknown.startsWith("run 1 · process new · "))
+        assertTrue(unknown, unknown.endsWith(" · JS heap limit unknown"))
+
+        val known = SolverCanaryReport.render(report.copy(header = report.header.copy(jsHeapLimitBytes = 4_294_705_152)))
+        assertTrue(known, known.lines()[1].endsWith(" · app 0.1.0-debug · JS heap limit 4096 MB"))
+
+        val none = SolverCanaryReport.render(report.copy(header = report.header.copy(jsHeapLimitBytes = 0)))
+        assertTrue(none, none.lines()[1].endsWith(" · JS heap limit unknown"))
+    }
 
     private fun reportOf(
         builds: List<Build> = listOf(buildOf(SolverCanaryReport.PHONE), buildOf(SolverCanaryReport.MAIN)),

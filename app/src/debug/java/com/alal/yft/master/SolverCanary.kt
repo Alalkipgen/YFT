@@ -25,6 +25,7 @@ import com.alal.yft.extractor.master.solver.OwnSolverProbe
 import java.io.File
 import java.util.Random
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Cache
@@ -52,13 +53,19 @@ internal class SolverCanary(
     private val onStep: (String) -> Unit,
     private val clock: () -> Long = { SystemClock.elapsedRealtime() },
 ) {
-    /** A visible WebView's longest pause during a page job (the in-app browser's stall). */
+    /**
+     * The tool's own visible WebView: its longest pause during a page job (the in-app browser's
+     * stall), and the JS heap limit of the app's WebView renderer (N7 round 2: B's memory).
+     */
     interface StallMeter {
         suspend fun prepare()
 
         suspend fun reset()
 
         suspend fun read(): Long?
+
+        /** `performance.memory.jsHeapSizeLimit` in bytes (Chromium only); null: unknown. */
+        suspend fun heapLimitBytes(): Long? = null
     }
 
     suspend fun run(): SolverCanaryReport.Report {
@@ -128,8 +135,17 @@ internal class SolverCanary(
             OwnSolverBreaker.Step.entries.filterNot { breaker.signaturesAllowed(id, it) }
         }.orEmpty()
         val trafficAfter = traffic()
+        // After every step, so the reading (it may make the tool's WebView) changes no step's timing.
+        onStep("JS heap limit")
+        val heapLimit = try {
+            stall.heapLimitBytes()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (failure: Exception) {
+            null
+        }
         return SolverCanaryReport.Report(
-            header = header,
+            header = header.copy(jsHeapLimitBytes = heapLimit),
             lookup = lookup.lookup,
             builds = builds,
             stoppedAt = stoppedAt,

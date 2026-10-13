@@ -41,8 +41,22 @@
   nothing, no listener without `Event`); `OwnSolverProbeTest` 20 (stop rule: gone and an unreadable
   reply stop, breaker off, a budget and an error class do not; `hasParts`). Local: spike CI JS step
   225/225; app compile + `SolverCanaryReportTest` 13/13.
+- ✅ Round 2 prep (owner's options 1 and 3): the page (`own-solver-page.js`) gives a worker
+  error event back as one fixed class only, never its message: `WorkerStackOverflow`,
+  `WorkerOutOfMemory`, `Worker` + a standard class the message starts with (`WorkerTypeError`,
+  `WorkerRangeError`, …), else `WorkerError`; a reply it cannot read (`worker.onmessageerror`) is
+  `WorkerMessageError`. The `Worker` prefix keeps them out of the environment rule
+  (`OwnSolverEnvironmentErrors`): such a failure never sends a job to E. The report's run line
+  shows the phone's JS heap limit (`performance.memory.jsHeapSizeLimit` of the app's WebView
+  renderer, Chromium only, read in the tool's own WebView after the steps; else "unknown").
+  Tests: `worker.test.mjs` 13 → 15 (fixed classes, no text, late reply ignored,
+  `onmessageerror`); `OwnSolverEnvironmentErrorsTest` + 1; `SolverCanaryReportTest` 13 → 14 (the
+  run line). Local: CI JS step 227/227; `OwnSolverEnvironmentErrorsTest` + `OwnSolverProbeTest`
+  24/24 (JVM); app compile + `SolverCanaryReportTest` on CI.
 - Next: round 2 with the new APK (3 runs, the app closed between them): B1/B2, page P/B and the
-  main build lines; the third run should show the hit after a restart.
+  main build lines; the third run should show the hit after a restart. Then option 3: B against P
+  memory on the computer (today's player, four builds, peak MB per strategy), against the phone's
+  heap limit.
 
 ## Phase 1.2 — N6 canary workflow (computer) — done (`0714d76`; push run 38424779157 ✅, owner re-run ✅; label triggers `d390a0e`, CI ✅)
 
