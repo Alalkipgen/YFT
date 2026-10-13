@@ -23,6 +23,9 @@
 //                           # and the lookup's time at the end (milliseconds and counts only)
 //   ... --ladder --no-deadline   # N5b A.2: --ladder sends the app's step caps as deadlines
 //                                # (worker 40 s, page 35 s); this drops them
+//   ... --ladder --judge ladder  # N5b A.3: exit 1 only on a ladder wrong value (ejs's and each
+//                                # step's own wrong values are still counted and printed);
+//                                # default --judge all: any wrong value fails the run
 //
 // It mutates each cached player so the code is WRITTEN differently but DOES the same thing, then
 // measures how often ejs and the own solver's pattern strategy (P) — and, with --strategy B,
@@ -46,7 +49,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import { challenges, settle, solveWithEjs, solveWithOwn, VARIANTS } from "./own-solver/harness.mjs";
-import { STEP_CAPS_MS, ladder } from "./own-solver/ladder.mjs";
+import { JUDGES, STEP_CAPS_MS, judgeExit, ladder } from "./own-solver/ladder.mjs";
 import { addLadder, lookupTable, phaseTable } from "./own-solver/phases.mjs";
 import * as M from "./own-solver/mutate.mjs";
 
@@ -89,6 +92,16 @@ const pageExtra = page ? { page: true } : {};
 const withLadder = flag("--ladder");
 if (withLadder && !(withP && withB)) {
   console.error("--ladder needs --strategy P,B");
+  process.exit(2);
+}
+// --judge (N5b A.3): what the exit code judges, "all" (default) or "ladder" (with --ladder).
+const judgeBy = value("--judge", "all");
+if (!JUDGES.includes(judgeBy)) {
+  console.error("--judge must be all or ladder");
+  process.exit(2);
+}
+if (judgeBy === "ladder" && !withLadder) {
+  console.error("--judge ladder runs with --ladder");
   process.exit(2);
 }
 // --both (N4b): each own strategy in the worker (bare context) and in page mode, side by side.
@@ -340,7 +353,7 @@ for (const cls of classes) {
   lines.push(`${cls.padEnd(7)} |   ${f(b.ejs.survived)}/${f(b.ejs.safe)}/${f(b.ejs.wrong)}         |${withP ? cell(b.ownP) : ""}${withB ? cell(b.ownB) : ""}${pageCells}${ladderCells} ${b.skipped}`);
 }
 lines.push("");
-lines.push(`${files.length} files x ${classes.length} classes x ${seeds} seed(s)${page ? " (own in page mode)" : both ? " (own in the worker and in page mode)" : ""}; wrong values: ${wrongTotal}${withLadder ? `; ladder wrong values: ${ladderWrong}` : ""}`);
+lines.push(`${files.length} files x ${classes.length} classes x ${seeds} seed(s)${page ? " (own in page mode)" : both ? " (own in the worker and in page mode)" : ""}; wrong values: ${wrongTotal}${withLadder ? `; ladder wrong values: ${ladderWrong}` : ""}; judged by ${judgeBy === "ladder" ? "the ladder (other wrong values reported only)" : "every wrong value"}`);
 if (withPhases) lines.push(...phases.lines(), lookup.line());
 console.log(lines.join("\n"));
 mkdirSync(dirname(reportFile), { recursive: true });
@@ -351,5 +364,5 @@ const outFile = page
     ? reportFile.replace(/\.json$/, "-ladder.json")
     : both ? reportFile.replace(/\.json$/, "-both.json") : reportFile;
 const phaseReport = withPhases ? { phases: phases.rows(), lookup: lookup.largest() } : {};
-writeFileSync(outFile, JSON.stringify({ ...summary, strategies, page, both, ladder: withLadder, wrongTotal, ...(withLadder ? { ladderWrong } : {}), ...phaseReport }, null, 2));
-process.exit(wrongTotal + ladderWrong > 0 ? 1 : 0);
+writeFileSync(outFile, JSON.stringify({ ...summary, strategies, page, both, ladder: withLadder, judge: judgeBy, wrongTotal, ...(withLadder ? { ladderWrong } : {}), ...phaseReport }, null, 2));
+process.exit(judgeExit(judgeBy, { wrong: wrongTotal, ladderWrong }));

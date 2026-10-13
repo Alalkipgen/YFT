@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { STEP_CAPS_MS, decide, ladder, lazyLadder, makeStep, needsPage, stepOf } from "../ladder.mjs";
+import { STEP_CAPS_MS, decide, judgeExit, ladder, lazyLadder, makeStep, needsPage, stepOf } from "../ladder.mjs";
 import { solveWithOwn } from "../harness.mjs";
 import { fakePlayer } from "./fake-player.mjs";
 import { padded } from "./solver-context.mjs";
@@ -174,4 +174,15 @@ test("the runners' step caps are the app's (OwnPlayerScriptRunner, N5b A.2)", ()
   // Each cap ends before the job timeout, so the core's budget reply comes back in time.
   assert.ok(STEP_CAPS_MS.worker < millis("DEFAULT_TIMEOUT_MILLIS"));
   assert.ok(STEP_CAPS_MS.page < millis("DEFAULT_TIMEOUT_MILLIS"));
+});
+
+test("--judge: all fails on any wrong value, ladder only on the ladder's (N5b A.3)", () => {
+  assert.equal(judgeExit("all", { wrong: 0, ladderWrong: 0 }), 0);
+  assert.equal(judgeExit("all", { wrong: 2, ladderWrong: 0 }), 1);
+  assert.equal(judgeExit("all", { wrong: 0, ladderWrong: 1 }), 1);
+  // A step's own wrong value (or ejs's) is reported, but only the ladder's answer is judged.
+  assert.equal(judgeExit("ladder", { wrong: 5, ladderWrong: 0 }), 0);
+  assert.equal(judgeExit("ladder", { wrong: 0, ladderWrong: 1 }), 1);
+  assert.equal(judgeExit("ladder", { wrong: 3, ladderWrong: 2 }), 1);
+  assert.throws(() => judgeExit("B", { wrong: 0, ladderWrong: 0 }), RangeError);
 });

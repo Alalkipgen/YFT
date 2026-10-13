@@ -278,6 +278,15 @@
   never skip, ready timeout counted, no lookup cap, no in-a-row rule) each fail 1–6 of the new
   tests. §5: deadline limits (one native call and the parse are not cut; a lookup can run past its
   cap by the last step's ready wait).
+- ✅ CI for `de83094` (A.2): build 38335870863 ✅, validate 38335874782 ✅.
+- ✅ A.3 `--judge ladder` (mutation runner, with `--ladder`; tests first): the exit code judges the
+  ladder's answers only (exit 1 on a ladder wrong value in any of PB+V, PB off, B+V, B off); ejs's
+  and each step's own wrong values are still counted and printed. Default `--judge all` (any wrong
+  value fails, as before); `--judge` other than all/ladder, or ladder without `--ladder` → exit 2.
+  `judgeExit` in `ladder.mjs` (unit test); the summary line names the judge, the JSON report has
+  `judge`. The corpus runner still judges B alone. Check: 631d3938 es6 M9bs `--strategy P,B
+  --ladder --judge ladder` (17 s): own B wrong 1 (standalone, init errors 3), ladder wrong 0 →
+  exit 0 (with `--judge all` the same run exits 1). JS 194/194.
 
 ## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — done, ❌ M9c-nav ladder wrong 1 → N5b (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
 

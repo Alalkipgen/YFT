@@ -14,6 +14,17 @@ export const LADDER_KINDS = ["n", "sig"];
 // checks they match). The lookup cap (60 s over all steps) is the app's alone: the runners run
 // every step on its own.
 export const STEP_CAPS_MS = Object.freeze({ worker: 40000, page: 35000 });
+
+// N5b A.3: the mutation runner's exit code (0 pass, 1 fail) by its --judge. "all": any wrong value
+// (ejs, a step on its own, the ladder). "ladder": the ladder's answers only; ejs's and each step's
+// own wrong values are still counted and printed. The corpus runner still judges B alone.
+export const JUDGES = Object.freeze(["all", "ladder"]);
+
+export function judgeExit(judge, { wrong = 0, ladderWrong = 0 } = {}) {
+  if (!JUDGES.includes(judge)) throw new RangeError("judge");
+  const failing = judge === "ladder" ? ladderWrong : wrong + ladderWrong;
+  return failing > 0 ? 1 : 0;
+}
 const ENVIRONMENT_CLASSES = new Set(["ReferenceError", "TypeError"]);
 const WORKER_SOURCES = ["P", "B"];
 
