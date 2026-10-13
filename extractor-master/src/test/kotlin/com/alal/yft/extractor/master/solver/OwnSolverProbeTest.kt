@@ -151,7 +151,7 @@ class OwnSolverProbeTest {
             assertTrue(breaker.allows(PLAYER, Step.WORKER_P))
             val next = probe.run(engine, Step.WORKER_B, PLAYER, BUILD, SOURCE, RATES, SIGNATURES)
             assertEquals(OwnSolverProbe.BREAKER_OFF, next.summary.outcome)
-            assertTrue(next.stopped)
+            assertFalse(next.stopped)
             assertEquals(1, engine.inputs.size)
         }
 
@@ -166,6 +166,7 @@ class OwnSolverProbeTest {
         val run = OwnSolverProbe(breaker).run(engine, Step.PAGE_P, PLAYER, BUILD, SOURCE, RATES, SIGNATURES)
 
         assertEquals(OwnSolverProbe.GONE, run.summary.outcome)
+        assertTrue(run.stopped)
         assertFalse(breaker.allows(PLAYER, Step.PAGE_P))
         assertFalse(breaker.allows(PLAYER, Step.PAGE_B))
         assertTrue(breaker.allows(PLAYER, Step.WORKER_P))
@@ -179,7 +180,7 @@ class OwnSolverProbeTest {
         val run = OwnSolverProbe(OwnSolverBreaker(markers)).run(engine, Step.WORKER_P, PLAYER, BUILD, SOURCE, RATES, SIGNATURES)
 
         assertEquals(OwnSolverProbe.BREAKER_OFF, run.summary.outcome)
-        assertTrue(run.stopped)
+        assertFalse(run.stopped)
         assertTrue(engine.inputs.isEmpty())
     }
 
@@ -212,7 +213,7 @@ class OwnSolverProbeTest {
     }
 
     @Test
-    fun `a run that ran out of time or broke stops the canary, a refused kind does not`() = runTest {
+    fun `only a run without a readable reply stops the canary - an error class, a budget or a refused kind does not`() = runTest {
         val probe = OwnSolverProbe(OwnSolverBreaker())
         suspend fun outcome(reply: String): OwnSolverProbe.Run {
             val engine = RecordingEngine { _, events ->
@@ -224,10 +225,11 @@ class OwnSolverProbeTest {
 
         val budget = outcome(ScriptedOwnEngine.result(failed = "sig:budget", initErrors = 0))
         assertTrue(budget.summary.budget)
-        assertTrue(budget.stopped)
+        assertFalse(budget.stopped)
         assertEquals("error TypeError", outcome(ScriptedOwnEngine.error("TypeError")).summary.outcome)
-        assertTrue(outcome(ScriptedOwnEngine.error("TypeError")).stopped)
+        assertFalse(outcome(ScriptedOwnEngine.error("TypeError")).stopped)
         assertEquals(OwnSolverProbe.REPLY_UNREADABLE, outcome("not a reply").summary.outcome)
+        assertTrue(outcome("not a reply").stopped)
         val rateOnly = ScriptedOwnEngine.result(
             n = RATES.associateWith(ScriptedOwnEngine::rate),
             failed = "sig:refused",
@@ -272,6 +274,7 @@ class OwnSolverProbeTest {
         val withErrors = RecordingEngine { job, events -> answer(job, events, initErrors = 1, locator = P_LOCATOR) }
         val failed = probe.run(withErrors, Step.WORKER_P, PLAYER, "main", SOURCE, RATES, SIGNATURES)
         probe.learn(failed, BOTH)
+        assertFalse(probe.hasParts(failed))
         probe.run(clean, Step.WORKER_P, PLAYER, "main", SOURCE, RATES, SIGNATURES)
         assertEquals(OwnSolverLocator.Parts(), clean.jobs.last().parts)
 
@@ -279,6 +282,7 @@ class OwnSolverProbeTest {
         val off = probe.run(clean, Step.WORKER_P, PLAYER, BUILD, SOURCE, RATES, SIGNATURES)
         assertEquals(OwnSolverProbe.BREAKER_OFF, off.summary.outcome)
         probe.learn(off, emptySet())
+        assertFalse(probe.hasParts(off))
         val sameStore = OwnSolverProbe(OwnSolverBreaker(), workerP = store)
         sameStore.run(clean, Step.WORKER_P, PLAYER, BUILD, SOURCE, RATES, SIGNATURES)
         assertEquals(OwnSolverLocator.Parts(partOf(P_PART_N), partOf(P_PART_SIG)), clean.jobs.last().parts)
@@ -291,12 +295,17 @@ class OwnSolverProbeTest {
             answer(job, events, locator = if (!located) null else if (job.isB) B_LOCATOR else P_LOCATOR)
         }
         val probe = OwnSolverProbe(OwnSolverBreaker())
-        probe.learn(probe.run(engine, Step.WORKER_B, PLAYER, BUILD, SOURCE, RATES, SIGNATURES), BOTH)
+        val first = probe.run(engine, Step.WORKER_B, PLAYER, BUILD, SOURCE, RATES, SIGNATURES)
+        assertFalse(probe.hasParts(first))
+        probe.learn(first, BOTH)
+        assertTrue(probe.hasParts(first))
 
-        probe.run(engine, Step.WORKER_P, PLAYER, BUILD, SOURCE, RATES, SIGNATURES)
+        val p = probe.run(engine, Step.WORKER_P, PLAYER, BUILD, SOURCE, RATES, SIGNATURES)
         assertEquals(OwnSolverLocator.Parts(), engine.jobs.last().parts)
-        probe.run(engine, Step.WORKER_B, PLAYER, "main", SOURCE, RATES, SIGNATURES)
+        assertFalse(probe.hasParts(p))
+        val other = probe.run(engine, Step.WORKER_B, PLAYER, "main", SOURCE, RATES, SIGNATURES)
         assertEquals(OwnSolverLocator.Parts(), engine.jobs.last().parts)
+        assertFalse(probe.hasParts(other))
         val hit = probe.run(engine, Step.WORKER_B, PLAYER, BUILD, SOURCE, RATES, SIGNATURES)
         assertEquals(OwnSolverLocator.Parts(partOf(B_PART_N), partOf(B_PART_SIG)), engine.jobs.last().parts)
         assertEquals(BOTH, hit.summary.locatorHits)

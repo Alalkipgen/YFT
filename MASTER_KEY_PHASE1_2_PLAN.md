@@ -258,7 +258,7 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 | N5a | Ladder rule (init errors in replies, shared case table), runners `--ladder`/`--dyncode`, M9c; app unchanged | N4b | Medium | Done (`a78626f`, CI 38189985242); measured (§4 note "N5a") |
 | N5b | Page-P step budget, circuit breaker, ladder + locator cache wired behind `ownSolverNext` (default off); M9c fixes: V on every signature, environment tripwire | N5a | Medium–High | Done (TEST_SHA `48dd744`, test cycle 22/22 ✅; A.8 V wiring `df9a1e1`, CI 38413760115 ✅) |
 | N6 | Canary workflow (computer) | N1, N3 | Low–Medium | Done (`0714d76`; push run 38424779157 ✅, owner re-run ✅; label triggers `d390a0e`, CI ✅) |
-| N7 | Owner live check + runbook update | N4, N5, N6 | Low | TODO |
+| N7 | Owner live check + runbook update | N4, N5, N6 | Low | In progress (canary tool `41d8a11`; round 1 ❌ phone B1 WorkerError → worker fix + canary goes on past errors, PROGRESS.md N7; round 2 pending) |
 
 N1 comes first: it measures the baseline that every later task is judged by. N2 can run beside N1.
 

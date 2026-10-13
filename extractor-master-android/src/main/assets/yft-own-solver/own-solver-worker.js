@@ -19,10 +19,11 @@
  *          {"type":"error","error":"<error class>"}
  *
  * A worker has no document and no navigable location, so nothing the player's code does here can
- * navigate the host page. Only n and sig inputs, the strategy, the hint, the tripwire, the
- * deadline and the locator reach the core: a job cannot switch on the core's test-only fault
- * injection or pass vectors. Replies carry values only for asked inputs, failure
- * classes and the prepared program; never a message text.
+ * navigate the host page, and its error events are cancelled here (N7), so they cannot fail the
+ * job there either. Only n and sig inputs, the strategy, the hint, the tripwire, the deadline and
+ * the locator reach the core: a job cannot switch on the core's test-only fault injection or pass
+ * vectors. Replies carry values only for asked inputs, failure classes and the prepared program;
+ * never a message text.
  */
 "use strict";
 
@@ -32,6 +33,23 @@ var yftPost = self.postMessage.bind(self);
 var yftStringify = JSON.stringify;
 var yftParse = JSON.parse;
 var yftNow = typeof Date === "function" && typeof Date.now === "function" ? Date.now.bind(Date) : function () { return 0; };
+
+// N7: the player's error events (an exception one of its own callbacks throws, or one it reports)
+// are not the job's. Cancelled here, by a listener added before any player code runs, they never
+// reach the host page, which fails the job on a worker error (strategy B on the phone). The job's
+// own errors are caught below and replied as error classes. No event target (the offline tests'
+// bare context): no listener.
+if (
+  typeof Event === "function" &&
+  Event.prototype &&
+  typeof Event.prototype.preventDefault === "function" &&
+  typeof self.addEventListener === "function"
+) {
+  var yftCancel = Function.prototype.call.bind(Event.prototype.preventDefault);
+  self.addEventListener("error", function (event) {
+    yftCancel(event);
+  });
+}
 
 function yftErrorClass(error) {
   var name = error && typeof error.name === "string" ? error.name : "Error";

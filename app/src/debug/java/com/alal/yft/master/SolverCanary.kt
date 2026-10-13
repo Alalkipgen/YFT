@@ -34,15 +34,17 @@ import okhttp3.OkHttpClient
  * Phase 1.2 N7, owner tool (debug build only): the phone canary. On today's YouTube player
  * (phone build, then main build) it runs ejs (the reference) and each own solver step through
  * [OwnSolverProbe]: P twice (raw, then the prepared program with the parts the first run found
- * right), B twice (raw, then with its parts) and the page (page P, then page B when page P did not
- * answer every kind cleanly), with the inputs of the computer canary (`OwnSolverCanaryTest`). Before
- * them, the app's lookup of one public video with V ([SolverCanaryLookup]), first so that in a new
- * process it includes the engine's cold start.
+ * right), B twice (raw, then with the parts the first run found right, when it kept any) and the
+ * page (page P, then page B when page P did not answer every kind cleanly), with the inputs of the
+ * computer canary (`OwnSolverCanaryTest`). Before them, the app's lookup of one public video with V
+ * ([SolverCanaryLookup]), first so that in a new process it includes the engine's cold start.
  *
  * Every step uses the app's breaker ([OwnSolverAppBreaker], owner's option b): a step the breaker
- * has off is not run, and the first step that does not reply (or runs out of budget) stops the
- * canary, so the report says where it stopped. The probe's timed window is the job only (sending
- * it to its reply); the breaker's marker writes fall outside it.
+ * has off is not run, and the first step whose engine gives no readable reply (none, a timeout, a
+ * gone renderer) stops the canary, so the report says where it stopped
+ * ([OwnSolverProbe.Run.stopped]). A reply with an error class or out of time does not: the steps
+ * after it still run (N7: the phone's B1 error stopped every step after it). The probe's timed
+ * window is the job only (sending it to its reply); the breaker's marker writes fall outside it.
  */
 internal class SolverCanary(
     private val context: Context,
@@ -238,9 +240,8 @@ internal class SolverCanary(
 
             fun right(line: SolverCanaryReport.StepLine) = line.counts.filterValues { it.clean }.keys
 
-            fun stop(line: SolverCanaryReport.StepLine): String? = line.summary.takeIf { it.stopped }?.let { summary ->
-                "$name ${line.name} (${summary.outcome}${if (summary.budget) ", budget" else ""})"
-            }
+            fun stop(line: SolverCanaryReport.StepLine): String? =
+                line.summary.takeIf { it.stopped }?.let { summary -> "$name ${line.name} (${summary.outcome})" }
 
             val (p1, p1Run) = step("P1", worker, OwnSolverBreaker.Step.WORKER_P)
             build = build.copy(p1 = p1)
@@ -255,9 +256,11 @@ internal class SolverCanary(
             build = build.copy(b1 = b1)
             stop(b1)?.let { return build to it }
             probe.learn(b1Run, right(b1))
-            val (b2, _) = step("B2", worker, OwnSolverBreaker.Step.WORKER_B)
-            build = build.copy(b2 = b2)
-            stop(b2)?.let { return build to it }
+            if (probe.hasParts(b1Run)) {
+                val (b2, _) = step("B2", worker, OwnSolverBreaker.Step.WORKER_B)
+                build = build.copy(b2 = b2)
+                stop(b2)?.let { return build to it }
+            }
             val (pageP, _) = step("page P", page, OwnSolverBreaker.Step.PAGE_P)
             build = build.copy(pageP = pageP)
             stop(pageP)?.let { return build to it }

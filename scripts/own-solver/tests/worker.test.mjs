@@ -19,9 +19,9 @@ const N = ["ZdZIqFPQK-Ty8wId", "abcDEF0123456789xyz"];
 const SIG = ["AOq0QJ8wRAIgXmPlOPSBkkUs1bYFYlJCfe29xx8j7v1pDL0QwbdV96sCIEzpWqMGkFR20CFOg51Tp-7vj_EMu-m37KtXJoOySqa0wWq="];
 
 /** One job through a fresh worker-shaped context, as the WebView runs it; returns the reply. */
-function runWorker(job, { input = JSON.stringify(job), libText = lib, coreText = core } = {}) {
+function runWorker(job, { input = JSON.stringify(job), libText = lib, coreText = core, globals = {} } = {}) {
   const replies = [];
-  const context = vm.createContext({});
+  const context = vm.createContext({ ...globals });
   vm.runInContext("var self = this;", context);
   context.postMessage = (message) => replies.push(message);
   vm.runInContext(workerSource, context);
@@ -236,4 +236,35 @@ test("N5b A.2: a job's deadline reaches the core; 0 gives budget, keeps the prog
   for (const bad of [-1, 1.5, "40000", null, true, {}]) {
     assert.deepEqual(runWorker({ ...job, deadline_ms: bad }), { type: "error", error: "BadJob" });
   }
+});
+
+test("N7: the player's error events are cancelled in the worker, so they never fail the job", () => {
+  // A worker global has Event and addEventListener (the bare context above has neither).
+  const listeners = [];
+  let cancelled = 0;
+  function Event() {}
+  Event.prototype.preventDefault = function () {
+    cancelled += 1;
+  };
+  const addEventListener = (type, listener) => listeners.push({ type, listener });
+  const job = { type: "player", player: padded(fakePlayer()), n: N, sig: SIG, strategy: "B", hint: false, tripwire: true };
+
+  const reply = runWorker(job, { globals: { Event, addEventListener } });
+  assert.equal(reply.type, "result");
+  assert.equal(reply.failed, undefined);
+  for (const input of N) assert.equal(reply.n[input], expectedN(input));
+  assert.equal(reply.sig[SIG[0]], expectedSig(SIG[0]));
+  assert.deepEqual(listeners.map((entry) => entry.type), ["error"]);
+  assert.equal(cancelled, 0);
+
+  // Taken before any player code runs: replacing preventDefault afterwards does not stop the cancel.
+  const [{ listener }] = listeners;
+  Event.prototype.preventDefault = function () {};
+  listener(new Event());
+  assert.equal(cancelled, 1);
+
+  // No Event (or no addEventListener): no listener, and the job runs as before.
+  const plain = runWorker(job, { globals: { addEventListener } });
+  assert.equal(plain.type, "result");
+  assert.equal(listeners.length, 1);
 });

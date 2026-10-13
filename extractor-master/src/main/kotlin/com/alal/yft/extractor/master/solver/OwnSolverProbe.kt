@@ -28,8 +28,9 @@ import kotlinx.coroutines.withTimeoutOrNull
  *
  * The time ([Summary.totalMillis], the N7 "hit": from sending the job to its reply, the engine's
  * cold start included; [Summary.readyMillis]: until the page took the job) starts after the marker
- * is written and stops before it is cleared. A run that did not end with a reply, or that ran out
- * of time ([Summary.budget]), is [Run.stopped]: the canary goes no further.
+ * is written and stops before it is cleared. A run whose engine gave no readable reply (none, a
+ * timeout, a gone renderer, an unreadable one) is [Run.stopped]: the canary goes no further. A
+ * reply with an error class or out of time ([Summary.budget]), or a step not run, is not (N7).
  *
  * Locator parts are kept per player build and worker step ([workerP], [workerB]: P's and B's part
  * of a kind, and the builds of one player version, never replace each other) and learned with
@@ -77,8 +78,11 @@ class OwnSolverProbe(
         val readyMillis: Long? = null,
         val totalMillis: Long? = null,
     ) {
-        /** No reply, or the core ran out of time: the canary stops here. */
-        val stopped: Boolean get() = outcome != REPLY || budget
+        /**
+         * No readable reply (the engine's health): the canary stops here. An error class, a run
+         * out of time and a step not run do not stop it (N7: the phone's B1 stopped everything).
+         */
+        val stopped: Boolean get() = outcome in NO_REPLY
     }
 
     /** One run: its [summary] and the values it gave by input (session values, never logged). */
@@ -107,6 +111,15 @@ class OwnSolverProbe(
     /** Whether a worker P run from [build]'s text left a prepared program for [run] to reuse. */
     fun hasPrepared(playerId: String, build: String): Boolean =
         synchronized(prepared) { prepared.containsKey(keyOf(playerId, build)) }
+
+    /** Whether [run]'s worker step keeps a part of the text it ran from (after [learn]). */
+    fun hasParts(run: Run): Boolean {
+        val step = run.summary.step
+        if (step != OwnSolverBreaker.Step.WORKER_P && step != OwnSolverBreaker.Step.WORKER_B) return false
+        val hash = run.scriptHash ?: return false
+        val entry = storeOf(step).peek(run.key)?.takeIf { it.scriptHash == hash } ?: return false
+        return entry.rate?.step == step || entry.signature?.step == step
+    }
 
     /**
      * Runs [step] on [build] (`phone`, `main`, ...) of player [playerId], whose text is [source],
@@ -337,6 +350,9 @@ class OwnSolverProbe(
         const val REPLY_UNREADABLE: String = "reply unreadable"
         const val BREAKER_OFF: String = "breaker off"
         const val NO_PREPARED: String = "no prepared program"
+
+        /** The outcomes without a readable reply: [Summary.stopped]. */
+        private val NO_REPLY = setOf(ENGINE, READY_TIMEOUT, JOB_TIMEOUT, GONE, REPLY_UNREADABLE)
 
         /** Prepared programs kept in memory (the phone and the main build). */
         const val MAX_PREPARED: Int = 2

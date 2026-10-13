@@ -1,5 +1,49 @@
 # YFT Master Extractor backup
 
+## Phase 1.2 — N7 owner live check — in progress (canary tool `41d8a11`, CI ✅; round 1 on the phone ❌ at B1 → worker fix + canary goes on past errors; round 2 pending)
+
+- ✅ Canary tool (`41d8a11`, debug build only, opt-in APK `yft-master-optin-debug-apk-next-<sha7>`):
+  `SolverCanaryActivity` (the owner starts it in the debug app), `SolverCanary` (first the app's
+  lookup of one public video with V, then per build — phone, then main — ejs and the own steps P1,
+  P2, B1, B2, page P, page B through `OwnSolverProbe`, with the app's breaker), report
+  `SolverCanaryReport` (first line PASS/FAIL, hit times against the targets, verdicts P/B/E and V,
+  kinds, counts, classes and times only; never a value, a player text or an address).
+- ❌ Round 1 (owner, Android 16, WebView 149, app 1.0.0-beta.3-debug; 2 pairs = 4 runs): all FAIL,
+  "stopped at phone B1 (error WorkerError)" after 4.2–4.7 s.
+  - P: n 3/3, sig 3/3 against ejs. P2 hit in the same process 0.3–0.5 s ✅ (target ≤ 2 s).
+  - Lookup: rows; its worker P in a new process 1.4–1.7 s, but without parts ("no parts yet"):
+    YouTube served two player versions in turn ("lookup player same/other"), and parts are kept
+    per player version (the store keeps 32), so a later run on a known version hits. V: not
+    needed. Breaker off: none. Data: 1.7 MB the first run, ≈ 1.0 MB later.
+  - B2, page P/B (E) and the main build never ran: the canary stopped at the first step that did
+    not give a result.
+- ✅ Computer, same day (`own-solver-canary.mjs`, today's player): P and B pass 3/3 on the four
+  builds (B 3.6–5.3 s), so the phone's B error was not the core's answer.
+- ✅ Cause (local headless Chromium with the phone build's text and a fake bridge; classes and
+  counts only): strategy B runs the player in the worker's own global, and the player's code
+  then raises error events of its own (4 at ≈ 2.6 s, one TypeError later). An error event the
+  worker does not cancel goes on to the host page, whose `worker.onerror` fails the job
+  ("WorkerError") and ends the worker before its reply. P raised none in the same run. Not
+  memory: the owner's option 3 (a heap test) was not needed.
+- ✅ Fix (`own-solver-worker.js`): a listener added before any player code runs cancels the
+  worker's error events (`preventDefault` taken at the start, so the player cannot replace it);
+  the job's own errors are caught as before and replied as error classes. No listener where there
+  is no event target (the offline tests' bare context). Local repro after the fix: B result n 3,
+  sig 3, init errors 0, parts n + sig, ≈ 3.8–4.0 s; P unchanged (≈ 1.4–1.5 s); B and P give the
+  same values (3/3 n, 3/3 sig; compared on the computer, not printed).
+- ✅ Canary: only a step whose engine gave no readable reply (none, a ready or job timeout, a gone
+  renderer, an unreadable reply) stops it. A reply with an error class or out of time, and a step
+  not run (breaker off, no prepared program), no longer stop it: the steps after it still run.
+  B2 runs only when B1 kept a part (`OwnSolverProbe.hasParts`). The lookup the same: an error
+  class, a budget or the lookup cap no longer stops the canary; a lookup whose worker P the breaker
+  has off is "not measured" (before: stopped).
+- ✅ Tests: `worker.test.mjs` 12 → 13 (the listener cancels, a replaced `preventDefault` changes
+  nothing, no listener without `Event`); `OwnSolverProbeTest` 20 (stop rule: gone and an unreadable
+  reply stop, breaker off, a budget and an error class do not; `hasParts`). Local: spike CI JS step
+  225/225; app compile + `SolverCanaryReportTest` 13/13.
+- Next: round 2 with the new APK (3 runs, the app closed between them): B1/B2, page P/B and the
+  main build lines; the third run should show the hit after a restart.
+
 ## Phase 1.2 — N6 canary workflow (computer) — done (`0714d76`; push run 38424779157 ✅, owner re-run ✅; label triggers `d390a0e`, CI ✅)
 
 - ✅ Workflow `.github/workflows/own-solver-canary.yml` ("Own solver canary (spike)"):

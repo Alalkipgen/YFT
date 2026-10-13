@@ -55,8 +55,10 @@ import org.json.JSONObject
  * copied) and the app's gate runs V. Run first in a new process, its worker P job is the P hit
  * after a restart (the engine's cold start included).
  *
- * A lookup YouTube refused is "not measured" and the canary goes on; a job that timed out, a gone
- * renderer, a budget or a broken reply stops the canary ([Outcome.stoppedAt]).
+ * A lookup YouTube refused (or whose worker P the breaker has off) is "not measured" and the canary
+ * goes on; a job without a readable reply (a timeout, a gone renderer, the engine, a broken reply)
+ * stops the canary ([Outcome.stoppedAt]). An error class, a budget or the lookup cap does not (N7,
+ * as the steps: [OwnSolverProbe.Run.stopped]).
  */
 internal class SolverCanaryLookup(
     private val context: Context,
@@ -68,9 +70,6 @@ internal class SolverCanaryLookup(
     private val clock: () -> Long,
 ) {
     class Failure(message: String) : Exception(message)
-
-    /** The breaker has the lookup's worker P off: nothing to measure, the canary stops. */
-    private class Stop(val step: String) : Exception(step)
 
     class Outcome(val lookup: SolverCanaryReport.Lookup, val stoppedAt: String?)
 
@@ -108,7 +107,6 @@ internal class SolverCanaryLookup(
         )
 
         val started = clock()
-        var stoppedAt: String? = null
         val outcome = try {
             when (val result = guarded.extract(request)) {
                 is SiteExtractionResult.Success -> "rows"
@@ -116,9 +114,6 @@ internal class SolverCanaryLookup(
             }
         } catch (cancellation: CancellationException) {
             throw cancellation
-        } catch (stop: Stop) {
-            stoppedAt = "lookup (${stop.step})"
-            "stopped (${stop.step})"
         } catch (failure: Failure) {
             "not measured (${failure.message.orEmpty()})"
         } catch (failure: Exception) {
@@ -126,7 +121,7 @@ internal class SolverCanaryLookup(
         }
         val totalMillis = clock() - started
         val failures = runner.lastFailures
-        failures.firstOrNull { stops(it) }?.let { failure -> if (stoppedAt == null) stoppedAt = "lookup ($failure)" }
+        val stoppedAt = failures.firstOrNull { stops(it) }?.let { failure -> "lookup ($failure)" }
         val ran = synchronized(jobs) { jobs.toList() }
         val lookup = SolverCanaryReport.Lookup(
             outcome = if (stoppedAt != null && outcome == "rows") "rows, stopped" else outcome,
@@ -208,7 +203,8 @@ internal class SolverCanaryLookup(
             }
             val (client, stream) = chosen ?: throw Failure("no client gave a stream: " + tried.joinToString("; "))
             lookupPlayer = player
-            if (!breaker.allows(player, OwnSolverBreaker.Step.WORKER_P)) throw Stop("P breaker off")
+            // Nothing to measure: the canary goes on (its P steps are breaker off too, B still runs).
+            if (!breaker.allows(player, OwnSolverBreaker.Step.WORKER_P)) throw Failure("P breaker off")
             val challenges = buildList {
                 stream.n?.let { add(PlayerScriptChallenge(N_KEY, PlayerScriptChallengeKind.RATE_PARAM, it)) }
                 stream.s?.let { add(PlayerScriptChallenge(SIG_KEY, PlayerScriptChallengeKind.SIGNATURE, it)) }
@@ -360,11 +356,10 @@ internal class SolverCanaryLookup(
         private const val LOCATORS_FILE = "lookup-locators.txt"
         private const val V_LEDGER_FILE = "lookup-v-ledger.txt"
 
-        /** The runner's failure classes that stop the canary: the engine, a timeout, a budget, a broken reply. */
+        /** The runner's failure classes that stop the canary: no readable reply from the engine. */
         private val STOP_ENDS = listOf(" ready timeout", " job timeout", " gone", " engine", " reply")
 
-        fun stops(failure: String): Boolean =
-            STOP_ENDS.any(failure::endsWith) || " error " in failure || "budget" in failure || "lookup cap" in failure
+        fun stops(failure: String): Boolean = STOP_ENDS.any(failure::endsWith)
 
         // Copied from StreamCheckMeasurement (N2).
         private const val ORIGIN = "https://www.youtube.com"
