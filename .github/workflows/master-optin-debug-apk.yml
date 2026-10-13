@@ -4,7 +4,10 @@ name: Master opt-in debug APK (spike)
 # opt-in Master capture flag on and, since Phase 1.1 S5, Master's own YouTube solver instead of
 # main's ejs runner (turn it off with the manual run's own_solver input). Runs only for the Master spike branch; release builds and the
 # existing workflows are untouched. Uses no repository secret; signed with the runner's
-# throwaway debug key.
+# throwaway debug key. Label build (GitHub shows "Run workflow" only on the default branch): the
+# label build-optin-apk on draft PR #2 (spike → main) builds the PR head itself, not its merge
+# with main, with the own solver and its ladder on (ownSolverNext); its artifact name ends in
+# -next-<short sha>. Any other label skips the job.
 on:
   push:
     branches: ["spike/master-extractor-backup"]
@@ -21,20 +24,35 @@ on:
         description: "Phase 1.2 N5b: the own solver's ladder (P, B, page, live check); owner test APKs only"
         type: boolean
         default: false
+  # Owner test APKs from the phone: the label build-optin-apk on draft PR #2 (no paths filter).
+  pull_request:
+    types: [labeled]
 
 permissions:
   contents: read
 
 concurrency:
-  group: master-optin-debug-apk-${{ github.ref }}
+  # One group per label: another label on PR #2 (a run whose job is skipped) never cancels a
+  # running build. Pushes keep their group.
+  group: master-optin-debug-apk-${{ github.ref }}${{ github.event_name == 'pull_request' && format('-{0}', github.event.label.name) || '' }}
   cancel-in-progress: true
 
 jobs:
   build:
+    if: github.event_name != 'pull_request' || github.event.label.name == 'build-optin-apk'
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      # The commit the APK is built from: for a label build the PR head, not its merge with main.
+      BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Build commit
+        id: commit
+        shell: bash
+        run: echo "short=${BUILD_SHA::7}" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -82,8 +100,9 @@ jobs:
       - name: Master tests and opt-in debug APK
         shell: bash
         env:
+          # Push: own solver on, ladder off. Manual run: the inputs. Label build: both on.
           OWN_SOLVER: ${{ github.event_name != 'workflow_dispatch' || inputs.own_solver }}
-          OWN_SOLVER_NEXT: ${{ github.event_name == 'workflow_dispatch' && inputs.own_solver_next }}
+          OWN_SOLVER_NEXT: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.own_solver_next) }}
         run: |
           set -o pipefail
           report() {
@@ -107,12 +126,13 @@ jobs:
       - name: Record APK hashes
         shell: bash
         env:
+          # Push: own solver on, ladder off. Manual run: the inputs. Label build: both on.
           OWN_SOLVER: ${{ github.event_name != 'workflow_dispatch' || inputs.own_solver }}
-          OWN_SOLVER_NEXT: ${{ github.event_name == 'workflow_dispatch' && inputs.own_solver_next }}
+          OWN_SOLVER_NEXT: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.own_solver_next) }}
         run: |
           {
             echo "### Master opt-in debug APK"
-            echo "Commit: ${GITHUB_SHA}"
+            echo "Commit: ${BUILD_SHA}"
             echo "Own YouTube solver: ${OWN_SOLVER}"
             echo "Own solver ladder (ownSolverNext): ${OWN_SOLVER_NEXT}"
             echo '```'
@@ -124,7 +144,7 @@ jobs:
       - name: Upload opt-in debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: yft-master-optin-debug-apk
+          name: ${{ github.event_name == 'pull_request' && format('yft-master-optin-debug-apk-next-{0}', steps.commit.outputs.short) || 'yft-master-optin-debug-apk' }}
           path: |
             app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/androidTest/debug/*.apk

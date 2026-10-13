@@ -257,7 +257,7 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 | N4b | Environment-dependent values (M9b/M9bs), init errors by class | N4 | Medium | Built (`bdb45c6`, harness `8140b27`); measured ❌ (worker B: 1 wrong M9bs value; fix: owner decides; §4 note "N4b") |
 | N5a | Ladder rule (init errors in replies, shared case table), runners `--ladder`/`--dyncode`, M9c; app unchanged | N4b | Medium | Done (`a78626f`, CI 38189985242); measured (§4 note "N5a") |
 | N5b | Page-P step budget, circuit breaker, ladder + locator cache wired behind `ownSolverNext` (default off); M9c fixes: V on every signature, environment tripwire | N5a | Medium–High | Done (TEST_SHA `48dd744`, test cycle 22/22 ✅; A.8 V wiring `df9a1e1`, CI 38413760115 ✅) |
-| N6 | Canary workflow (computer) | N1, N3 | Low–Medium | Built (workflow `own-solver-canary.yml`); manual run pending |
+| N6 | Canary workflow (computer) | N1, N3 | Low–Medium | Done (`0714d76`; push run 38424779157 ✅, owner re-run ✅; label triggers: this commit) |
 | N7 | Owner live check + runbook update | N4, N5, N6 | Low | TODO |
 
 N1 comes first: it measures the baseline that every later task is judged by. N2 can run beside N1.
@@ -725,7 +725,8 @@ chose, see A.1) and A.7.
 - GitHub runs `schedule` only from the default branch. On the spike the workflow has
   `workflow_dispatch` and runs on pushes that touch the solver files. Copying a daily schedule to
   main is the owner's decision (not in this phase).
-- **Done:** a manual run passes; the job summary names players and verdicts only.
+- **Done:** a manual run passes; the job summary names players and verdicts only. ✅ (push run
+  38424779157 ✅; the owner's re-run, attempt 2: "Result: pass")
 - **Plan adapted (N6 build):**
   - The computer canary (`own-solver-canary.mjs`) judges P and B alone (B as `--strategy B`:
     no hint) on every build. Verdict per strategy and kind, worst first: wrong (a value that
@@ -739,6 +740,9 @@ chose, see A.1) and A.7.
     under some V8 errors, so stderr can hold player code.
   - The summary is written by `scripts/own-solver-canary-summary.mjs` from the reports; its tests
     are in `canary.test.mjs` (already in the spike CI JS step).
+- **Plan adapted (owner 2026-10-13):** GitHub's Run workflow needs the default branch, so the manual
+  run = the owner's re-run of the push run. From now on, manual runs = labels on draft PR #2:
+  run-canary (canary), build-optin-apk (opt-in APK with own_solver_next on).
 
 ### N7 — Owner live check and runbook
 

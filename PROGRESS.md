@@ -1,6 +1,6 @@
 # YFT Master Extractor backup
 
-## Phase 1.2 — N6 canary workflow (computer) — built; manual run pending
+## Phase 1.2 — N6 canary workflow (computer) — done (`0714d76`; push run 38424779157 ✅, owner re-run ✅; label triggers: this commit)
 
 - ✅ Workflow `.github/workflows/own-solver-canary.yml` ("Own solver canary (spike)"):
   `workflow_dispatch` + pushes to the spike that touch the solver files (main's and the own
@@ -32,7 +32,28 @@
   260/260 (82 s); corpus B alone 32/32, 260/260 (241 s); quick P,B: 8 files × 14 classes × 1 seed,
   wrong 0 for ejs, own P and own B (own B survived 112/112, own P 104/112: M3 0/8 safe; 929 s).
   The summary rendered from these reports names players and verdicts only.
-- ⏳ CI: the push run and the owner's manual run (Actions → "Own solver canary (spike)" → Run workflow) are next.
+- ✅ CI for `0714d76`: canary push run 38424779157 ✅ in 14 min (today's player 28 s, YouTube
+  answered the runner; corpus P 67 s; corpus B 158 s; quick P,B 597 s); build 38424778635 ✅,
+  validate 38424785337 ✅.
+- ✅ Manual run: the owner's re-run of 38424779157 (attempt 2) ✅, job summary "Result: pass".
+- ✅ Plan adapted (owner 2026-10-13): GitHub's Run workflow needs the default branch, so the manual
+  run = the owner's re-run of the push run. From now on, manual runs = labels on draft PR #2:
+  run-canary (canary), build-optin-apk (opt-in APK with own_solver_next on).
+- ✅ Label triggers (this commit; main untouched): both spike workflows also run on
+  `pull_request: types: [labeled]` (no paths filter). The canary job runs only for run-canary,
+  the APK job only for build-optin-apk; any other label = a run whose job is skipped. Both check
+  out the PR head (`github.event.pull_request.head.sha || github.sha`), not its merge with main.
+  Label APK: OWN_SOLVER=true and OWN_SOLVER_NEXT=true (both env pairs), artifact
+  `yft-master-optin-debug-apk-next-<7-character sha>`, summary "Commit:" = the PR head. Pushes
+  and manual runs unchanged (push: own solver on, ladder off, artifact
+  `yft-master-optin-debug-apk`; the toolkit drift step as before). The concurrency group
+  includes the label, so another label (a skipped run) never cancels a running canary or build.
+  Test `scripts/tests/test_spike_label_triggers.py` (12 tests: a small GitHub expression
+  evaluator checks push, manual run, run-canary, build-optin-apk and another label; both YAML
+  files parse). Fail-first: 16/16 workflow mutations killed; scripts/tests 42/42; actionlint
+  1.7.7 clean. If a label starts nothing, PR #2 may conflict with main (GitHub then runs no
+  pull_request workflow): report it, never merge main.
+- ⏳ CI for the label triggers (push runs: canary + build): next.
 
 ## Phase 1.2 — N5b ladder, breaker, locator cache and V ledger behind `ownSolverNext` — done (TEST_SHA `48dd744`, test cycle 22/22 ✅; A.8 V wiring `df9a1e1`, CI 38413760115 ✅ + checkpoint 38413767701 ✅)
 
