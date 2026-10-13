@@ -287,6 +287,10 @@
   `judge`. The corpus runner still judges B alone. Check: 631d3938 es6 M9bs `--strategy P,B
   --ladder --judge ladder` (17 s): own B wrong 1 (standalone, init errors 3), ladder wrong 0 →
   exit 0 (with `--judge all` the same run exits 1). JS 194/194.
+- ✅ CI for `09097f9` (A.3): build 38337512614 ✅, validate 38337517655 ✅.
+- ⏸️ Stopped after A.3 at the owner's request. Next: A.4 locator cache → A.5 V ledger on disk →
+  A.6 docs → A.7 (TEST_SHA + Test Agent A–D commands), by a new agent with
+  `MASTER_KEY_PHASE1_2_CONTINUE_N5B_A4.md`.
 
 ## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — done, ❌ M9c-nav ladder wrong 1 → N5b (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
 
