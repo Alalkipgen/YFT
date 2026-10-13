@@ -33,7 +33,8 @@ import kotlinx.coroutines.withTimeoutOrNull
  * player download keeps its own reason, as in main's runner.
  *
  * Phase 1.2 N5b: with [next] (ownSolverNext on) the ladder runs instead, see [Next]; without it
- * this runner is exactly Phase 1.1.
+ * this runner is Phase 1.1. N5b A.8: Phase 1.1's signatures wait for V as the ladder's do (see
+ * [phase11Checked]); its values and its runs are unchanged.
  */
 class OwnPlayerScriptRunner(
     private val http: ExtractorHttpClient,
@@ -155,7 +156,41 @@ class OwnPlayerScriptRunner(
         if (resolved.isEmpty()) {
             return PlayerScriptResult.Failed(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED)
         }
-        return PlayerScriptResult.Success(resolved)
+        return phase11Checked(playerId, request, resolved)
+    }
+
+    /** N5b A.8: Phase 1.1's V passes, by [PendingCheck.cacheKey]; memory only (for the process). */
+    private val phase11Passes = OwnSolverVLedger()
+
+    /**
+     * N5b A.8, guarded by itself: player versions whose Phase 1.1 signatures V proved wrong (FAIL,
+     * with a control), for the process; at most [MAX_PHASE11_OFF], the oldest goes first.
+     */
+    private val phase11Off = LinkedHashSet<String>()
+
+    /**
+     * N5b A.8: Phase 1.1's signatures wait for V as the ladder's do. An answer with signatures
+     * gets a [PendingCheck] for worker P with no hashes (one V pass per player version and
+     * process, kept in [phase11Passes]) unless that pass is there. A player version in
+     * [phase11Off] gives no signatures; an answer left with no values fails as before.
+     */
+    private fun phase11Checked(
+        playerId: String,
+        request: PlayerScriptRequest,
+        resolved: Map<String, String>,
+    ): PlayerScriptResult {
+        val signatureKeys = request.challenges
+            .filter { it.kind == PlayerScriptChallengeKind.SIGNATURE }
+            .mapTo(HashSet()) { it.key }
+        val off = synchronized(phase11Off) { playerId in phase11Off }
+        val kept = if (off) resolved - signatureKeys else resolved
+        if (kept.isEmpty()) return PlayerScriptResult.Failed(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED)
+        val check = PendingCheck(playerId, OwnSolverBreaker.Step.WORKER_P)
+            .takeIf { kept.keys.any(signatureKeys::contains) && !phase11Passes.passed(it.cacheKey) }
+        synchronized(pendingChecks) {
+            if (check == null) pendingChecks.remove(request) else pendingChecks[request] = check
+        }
+        return PlayerScriptResult.Success(kept)
     }
 
     private suspend fun solve(
@@ -209,7 +244,10 @@ class OwnPlayerScriptRunner(
     // ---------------------------------------------------------------------------------------------
     // Phase 1.2 N5b: the ladder (ownSolverNext only).
 
-    /** Guarded by itself: the V each answer's signatures still need, by request (read once). */
+    /**
+     * Guarded by itself: the V each answer's signatures still need, by request (read once); the
+     * ladder's and (A.8) Phase 1.1's.
+     */
     private val pendingChecks = WeakHashMap<PlayerScriptRequest, PendingCheck>()
 
     /**
@@ -245,7 +283,7 @@ class OwnPlayerScriptRunner(
         synchronized(pendingChecks) { pendingChecks.remove(request) }
 
     override fun record(check: PendingCheck, verdict: SignatureVerdicts.Verdict) {
-        val next = next ?: return
+        val next = next ?: return recordPhase11(check, verdict)
         val learned = synchronized(waiting) { waiting.remove(check) }
         when (verdict) {
             SignatureVerdicts.Verdict.PASS -> {
@@ -255,6 +293,19 @@ class OwnPlayerScriptRunner(
             SignatureVerdicts.Verdict.FAIL -> {
                 next.breaker.signatureFailed(check.playerId, check.step)
                 next.locators.drop(check.playerId, OwnSolverLadderRule.Kind.SIGNATURE, check.step)
+            }
+            SignatureVerdicts.Verdict.UNKNOWN -> Unit
+        }
+    }
+
+    /** N5b A.8, Phase 1.1: PASS is kept for the process; FAIL turns the player version's signatures off. */
+    private fun recordPhase11(check: PendingCheck, verdict: SignatureVerdicts.Verdict) {
+        when (verdict) {
+            SignatureVerdicts.Verdict.PASS -> phase11Passes.pass(check.cacheKey)
+            SignatureVerdicts.Verdict.FAIL -> synchronized(phase11Off) {
+                phase11Off.remove(check.playerId)
+                phase11Off += check.playerId
+                while (phase11Off.size > MAX_PHASE11_OFF) phase11Off.remove(phase11Off.first())
             }
             SignatureVerdicts.Verdict.UNKNOWN -> Unit
         }
@@ -822,6 +873,7 @@ class OwnPlayerScriptRunner(
         private const val NANOS_PER_MILLI = 1_000_000L
 
         private const val MAX_WAITING = 16
+        private const val MAX_PHASE11_OFF = 32
         private const val MAX_BUDGETS = 64
         private const val MAX_LADDER_FAILURES = 16
         private val NOT_RUN = OwnSolverLadderRule.Step(emptySet(), null, listOf("not run"))

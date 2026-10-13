@@ -9,8 +9,6 @@ import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.extractor.master.modules.MasterSiteModule
 import com.alal.yft.extractor.master.modules.SiteExtractorModule
-import com.alal.yft.extractor.master.solver.SignatureVerdicts
-import kotlinx.coroutines.withContext
 
 /**
  * R6 (YT-1/YT-2/YT-4): Master's own YouTube reader, the copied [YouTubeExtractor] behind
@@ -22,16 +20,16 @@ import kotlinx.coroutines.withContext
  * Phase 1.1 S5: [playerScripts] may be the own solver's runner
  * (`solver.OwnPlayerScriptRunner`); the reader then asks visionOS first (no solver) and the own
  * solver only for streams that need n/sig, dropping every stream whose value is not verified.
+ * Phase 1.2 N5b: its signatures are used only after V ([SignatureGate]; A.8: the app's own
+ * reader gets the same gate through [YouTubeSignatureGuard]).
  */
 class MasterYouTubeModule(
     http: ExtractorHttpClient,
     playerScripts: PlayerScriptRunner = NoPlayerScriptRunner,
 ) : MasterSiteModule {
-    // Phase 1.2 N5b: V for the own solver's signatures (it hands over a check only with
-    // ownSolverNext; without one the gate passes every answer and every result through).
-    private val gate = (playerScripts as? SignatureVerdicts)?.let { verdicts ->
-        SignatureGate(playerScripts, verdicts, StreamCheck(http))
-    }
+    // Phase 1.2 N5b: V for the own solver's signatures (A.8: with ownSolverNext on or off; a
+    // runner that hands over no checks gets no gate, and the reader runs as before).
+    private val gate = SignatureGate.of(playerScripts, http)
 
     private val module = SiteExtractorModule(
         YouTubeExtractor(http, gate?.runner ?: playerScripts, NoPoTokenProvider),
@@ -43,8 +41,7 @@ class MasterYouTubeModule(
 
     override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
         val active = gate ?: return read(request)
-        val lookup = SignatureGate.Lookup()
-        return active.verify(withContext(lookup) { read(request) }, lookup)
+        return active.around { read(request) }
     }
 
     private suspend fun read(request: SiteExtractionRequest): SiteExtractionResult =

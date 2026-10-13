@@ -393,10 +393,11 @@
 - ✅ CI for `48dd744` (A.4–A.6): build 38354883911 ✅, validate 38354887223 ✅.
 - 🧪 **TEST_SHA `48dd744debcdaba0d2112cf801f8dfbe913fda8e`** (A.7; the next test cycle, plan §3 N5b
   B). Four Test Agents, each on its own computer (≥ 4 GB RAM, 2 CPUs are enough, Node ≥ 22,
-  network to www.youtube.com), each with its own result file
-  `test-results/n5b-a7-agent-<a|b|c|d>.md`: commit only that file on the branch head (docs may
-  follow TEST_SHA) and push only to this branch (a `.md` push starts no CI; never main, merge,
-  release or tag). Kotlin and Android: the CI runs above,
+  network to www.youtube.com), each with its own result files
+  `docs/n5b-raw/<a|b|c|d>-<test>.json` (one per test, as in the owner's prompts; A.8: was one
+  `.md` file per agent): commit only those files on the branch head (docs may follow TEST_SHA)
+  and push only to this branch (a `docs/**` push starts no CI; never main, merge, release or
+  tag). Kotlin and Android: the CI runs above,
   nothing to run. Rules: one heavy run at a time; no code fixes; a failed check (exit 1) is
   recorded and the list goes on; any other non-zero exit (out of memory, a timeout, an
   infrastructure error) stops the list: record it. Never print or commit player text, solver
@@ -478,8 +479,45 @@
     ```
   - Pass (plan §3 N5b B): ladder wrong 0 in every run; corpus = ejs with tripwire false positives
     0; faults wrong 0 and missed 0; M9c 33/33 runs done; 448 classes wrong 0. Each result file
-    ends with ✅ or ❌ per item and the totals (runs, seconds, largest peak RSS). Retest after a
-    fix: plan §3 N5b B.
+    has its result (pass, fail, stop or incomplete) and the totals (runs, seconds, largest peak
+    RSS). Retest after a fix: plan §3 N5b B.
+- ✅ A.7 docs (this TEST_SHA entry and the lists) pushed as `e66b9ea` by the owner's agent (docs
+  only, no CI). The owner has the Test Agent A–D prompts (22 result files).
+- ✅ **A.8 V wiring in the app, fixed** (owner's go after A.7; tests first; no JS change, so
+  TEST_SHA stays `48dd744` and the Test Agents' runs stay valid). Finding: not only
+  `ownSolverNext` — Phase 1.1 too (`ownSolver` without Next, the debug APK's default) gave its
+  signatures to main's reader with no V (only the core's SelfCheck). Fix: `YouTubeSignatureGuard`
+  (extractor-master) puts the same `SignatureGate` (new `SignatureGate.of` and `around`) around
+  main's reader in `SiteAdapterModule.provideSiteExtractors`, for both flags; `MasterYouTubeModule`
+  uses the same factory (the same order as before: the lookup, then V). A runner that hands over
+  no checks (main's ejs runner, flag off) gets main's reader as is. Phase 1.1's runner now hands
+  over a check for worker P with no hashes: one V pass per player version, in memory for the
+  process; V = fail turns that player version's signatures off for the process (at most 32
+  versions, n stays); unknown keeps nothing (checked again, within StreamCheck's daily budget).
+  Not built (owner): a timeout fallback to main and a V prewarm, decided after N7 (plan §3 N7).
+- ✅ Tests first: `YouTubeSignatureGuardTest` (6; main's reader, the guard, the real gate,
+  StreamCheck and runner; scripted core and media server) failed 5/6 on a stub that wires the app
+  as before (the flag-off test passed), then 6/6: Next right signature → 1 V request, the pass in
+  the ledger, the sig part cached; a ledger hit after a restart → no V, other player text → V
+  again; a wrong signature → V fail with a control, no signed rows, nothing in the ledger or the
+  cache, the next lookup runs worker B for sig; Phase 1.1 → one V per player version; Phase 1.1
+  wrong → dropped and off (no new V); flag off → main's reader as is, 0 V requests. Updated for
+  Phase 1.1's V: `OwnSolverYouTubeTest` (1 V request, the pass kept) and
+  `OwnSolverLadderRunnerTest` (Phase 1.1's check; new: unknown, pass, fail). New app test
+  `SiteAdapterYouTubeGuardTest` (Robolectric, CI only: no Android SDK here): the own runner gets
+  the guarded reader, main's runner main's reader.
+- ✅ Local Kotlin (kotlinc 2.0.21 + JUnit 4 on the JVM; no Gradle or Android here): 19 classes
+  (solver and YouTube module), 210 tests OK, exit 0.
+- ✅ Mutations (each alone, main rebuilt, the 3 V classes run; failed tests): guard without the
+  gate 5, Phase 1.1 without a check 5, Phase 1.1 verdicts ignored 1, `around` without V 8, Phase
+  1.1 off ignored 1, Master module without the gate 2: 6/6 killed. The app line without the guard
+  is the app test's (CI), not run here.
+- ⚠️ Behavior change with the own solver (both flags; flag off = main unchanged): a player version
+  costs one V request (a one-byte read, at most the probe timeout) before its signatures are used
+  (Phase 1.1: again after each restart); without a pass (unknown: no control, network, budget
+  spent) that lookup's signed streams are dropped and only direct streams stay (none left →
+  "player script required"). N7 measures P (b) in total, the V request included, on the phone.
+- ⏳ CI for the A.8 commit: waiting (build, validate).
 
 ## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — done, ❌ M9c-nav ladder wrong 1 → N5b (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
 

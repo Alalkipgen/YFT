@@ -1,6 +1,7 @@
 package com.alal.yft.extractor.master.modules.youtube
 
 import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.PlayerScriptChallengeKind
 import com.alal.yft.extractor.api.PlayerScriptRequest
 import com.alal.yft.extractor.api.PlayerScriptResult
@@ -14,21 +15,25 @@ import java.net.URLDecoder
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.withContext
 
 /**
- * Phase 1.2 N5b (ownSolverNext): V for the own solver's signatures, around the reader. The reader
- * is a whole-file copy of main's and stays main's text (R3 drift check), so V lives here.
+ * Phase 1.2 N5b: V for the own solver's signatures, around the reader. The reader is a whole-file
+ * copy of main's and stays main's text (R3 drift check), so V lives here. N5b A.8: the gate guards
+ * every reader that runs on the own solver, Master's copy ([MasterYouTubeModule]) and main's reader
+ * on the app's path ([YouTubeSignatureGuard]), with ownSolverNext on or off; [of] builds it.
  *
  * [runner] wraps the reader's runner. For an answer whose signatures still need V it notes, in
  * the lookup's coroutine context ([Lookup]), the runner's pending check and the signature values
  * (in memory only, never logged). An answer with no lookup to note it in loses its signatures.
  *
- * [verify], after the lookup: one stream URL that carries such a value is checked (StreamCheck:
- * one bounded read; the control is a stream URL of the same lookup without an own signature; only
- * on hosts this lookup returned; the download's User-Agent and Referer, no cookies). The lookup
- * runs only for the page the user opened, so it counts as user-started. Only PASS keeps the
- * streams that carry those values; the verdict goes back to the runner, which keeps a pass per
- * player version and step and turns a step's signatures off on FAIL.
+ * [verify], after the lookup ([around] runs one lookup and then [verify]): one stream URL that
+ * carries such a value is checked (StreamCheck: one bounded read; the control is a stream URL of
+ * the same lookup without an own signature; only on hosts this lookup returned; the download's
+ * User-Agent and Referer, no cookies). The lookup runs only for the page the user opened, so it
+ * counts as user-started. Only PASS keeps the streams that carry those values; the verdict goes
+ * back to the runner, which keeps a pass per player version and step and turns a step's
+ * signatures off on FAIL.
  */
 internal class SignatureGate(
     private val inner: PlayerScriptRunner,
@@ -65,6 +70,12 @@ internal class SignatureGate(
             lookup.add(Pending(check, signatures))
             return result
         }
+    }
+
+    /** One lookup with V: [read] runs in a new [Lookup], then [verify] checks what it noted. */
+    suspend fun around(read: suspend () -> SiteExtractionResult): SiteExtractionResult {
+        val lookup = Lookup()
+        return verify(withContext(lookup) { read() }, lookup)
     }
 
     suspend fun verify(result: SiteExtractionResult, lookup: Lookup): SiteExtractionResult {
@@ -106,6 +117,17 @@ internal class SignatureGate(
             return SiteExtractionResult.Failure(SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED, details = details)
         }
         return result.copy(candidates = candidates, details = details)
+    }
+
+    companion object {
+        /**
+         * The gate for [playerScripts], or null for a runner that hands over no checks (main's
+         * ejs runner: flag off, the reader runs as on main). V's requests go through [http].
+         */
+        fun of(playerScripts: PlayerScriptRunner, http: ExtractorHttpClient): SignatureGate? =
+            (playerScripts as? SignatureVerdicts)?.let { verdicts ->
+                SignatureGate(playerScripts, verdicts, StreamCheck(http))
+            }
     }
 
     private fun urls(candidate: MediaCandidate): List<String> =

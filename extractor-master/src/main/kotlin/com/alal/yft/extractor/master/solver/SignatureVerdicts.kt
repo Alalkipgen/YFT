@@ -4,11 +4,13 @@ import com.alal.yft.extractor.api.PlayerScriptRequest
 
 /**
  * Phase 1.2 N5b: signatures a runner gave that still need the live check V before use
- * ([OwnPlayerScriptRunner] with ownSolverNext). The YouTube reader asks right after
- * `resolve` with the same request, checks one stream URL built with those signatures
- * (`StreamCheck`) and reports the verdict here; without a pass it drops every stream that needs
- * a signature. A pass is kept per player version and step (N5b A.5: and player text and locator
- * part, in the [OwnSolverVLedger]), so later lookups skip V.
+ * ([OwnPlayerScriptRunner]; A.8: with ownSolverNext on or off). The reader's gate
+ * (`SignatureGate`, around Master's reader and the app's) asks right after `resolve` with the
+ * same request, checks one stream URL built with those signatures (`StreamCheck`) and reports
+ * the verdict here; without a pass it drops every stream that needs a signature. A pass is kept
+ * per player version and step (N5b A.5: and player text and locator part, in the
+ * [OwnSolverVLedger]; A.8: Phase 1.1's per player version, for the process), so later lookups
+ * skip V.
  */
 interface SignatureVerdicts {
     enum class Verdict { PASS, FAIL, UNKNOWN }

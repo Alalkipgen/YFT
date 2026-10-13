@@ -689,6 +689,12 @@ chose, see A.1) and A.7.
 - **A.7** All tests pass → push → CI ✅ → TEST_SHA in PROGRESS.md with the exact commands for each
   Test Agent A–D → ✅/❌ report (command + summary + exit code, CI id + sha + TEST_SHA) → stop.
   - **Done (A.7):** TEST_SHA `48dd744` with the Test Agents' lists and result files in PROGRESS.md.
+- **A.8** (owner, after A.7; before N7, tests first) V wiring in the app (§5): the gate around
+  every reader that gets the own runner, with `ownSolverNext` on or off. No JS change, so TEST_SHA
+  stays `48dd744`.
+  - **Done (A.8):** `YouTubeSignatureGuard` around main's reader in the app; Phase 1.1's
+    signatures need V too (one pass per player version and process). Tests, mutations and CI in
+    PROGRESS.md. Not built: a timeout fallback to main and a V prewarm (decided after N7, §3 N7).
 
 **B — Test (Test Agents A–D, Medium; each on its own computer with its own result file; exact TEST_SHA;
 ≈ 80 min each by N5b times)**
@@ -734,6 +740,12 @@ chose, see A.1) and A.7.
   player, P fails and B is really used, and B hit > 5 s.
 - **Page cap:** measure how long the in-app browser stalls while a page job runs; re-tune the
   provisional page cap (35 s, N5b A.2) with the phone numbers (§5).
+- **P (b) in total, with V (owner, N5b A.8):** besides the hit time, measure on the phone the
+  whole lookup after a restart, from its start to the rows: the player download, the engine's
+  cold start, the core run and the V request (a restart forgets Phase 1.1's V passes; with
+  `ownSolverNext` the ledger file keeps them, so V runs only for new player text). With these
+  numbers the owner decides on a timeout fallback to main and a V prewarm (not built, §5 "V
+  wiring in the app").
 - **Done:** the owner's results are recorded; the board shows N1–N7 with shas.
 
 ## 4. Pass criteria (Phase 1.2 done)
@@ -935,14 +947,16 @@ variant, 2 seeds each):
   N5b's test cycle ran 26 of the 33 M9c runs (loc 11, mix 11, nav only 631d3938's 4): M9c-nav on
   the other 7 players has not run with N5b's ladder. The next test cycle runs all 33 (3 classes ×
   11 processes; Test Agents B and C).
-- **V wiring in the app (⚠️ found in N5b A.6; `ownSolverNext` only):** the app gives the own
+- **V wiring in the app (⚠️ found in N5b A.6; ✅ fixed in N5b A.8):** the app gave the own
   runner to main's `YouTubeExtractor` (extractor-sites, `SiteAdapterModule.provideSiteExtractors`,
   Phase 1.1 S5: main's adapter answers YouTube pages before Master is asked), but the V gate
-  (`SignatureGate`) sits only in Master's `MasterYouTubeModule`, which `BrowserMasterFallback`
-  builds without a runner. So with `ownSolverNext` the app uses the ladder's signatures without
-  V, never records a V pass and never caches a signature part (only n's). Flag off = main is not
-  affected; the computer runners and the Kotlin tests check V themselves. Fix in the next cycle,
-  before N7 (tests first): the gate around every reader that gets the own runner.
+  (`SignatureGate`) sat only in Master's `MasterYouTubeModule`, which `BrowserMasterFallback`
+  builds without a runner. So the app used the own solver's signatures without V: with
+  `ownSolverNext` the ladder's (no V pass recorded, no signature part cached), and (found in A.8)
+  without it Phase 1.1's too. Flag off = main was not affected. A.8: `YouTubeSignatureGuard` puts
+  the gate around main's reader for both flags (tests first, PROGRESS.md N5b A.8); Phase 1.1's
+  signatures now need one V pass per player version and process. **Not built (owner, A.8):** a
+  timeout fallback to main and a V prewarm; both are decided after N7's numbers (§3 N7).
 - **Main candidate list (main untouched; the main agent assigns the numbers):** (1) handle
   `onRenderProcessGone` in main's browser WebViews (below); (2) main's ejs solver runs out of heap
   on 631d3938 main M9c-nav (exit 134 at ~37 s, N5b step 0): a changed player can exhaust its

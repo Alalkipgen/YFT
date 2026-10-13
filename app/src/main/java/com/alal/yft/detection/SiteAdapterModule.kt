@@ -19,6 +19,7 @@ import com.alal.yft.extractor.api.SiteExtractorRegistry
 import com.alal.yft.extractor.master.android.solver.SharedPreferencesBreakerMarkers
 import com.alal.yft.extractor.master.android.solver.WebViewOwnSolverEngine
 import com.alal.yft.extractor.master.android.solver.WebViewPageSolverEngine
+import com.alal.yft.extractor.master.modules.youtube.YouTubeSignatureGuard
 import com.alal.yft.extractor.master.solver.AtomicTextFile
 import com.alal.yft.extractor.master.solver.OwnPlayerScriptRunner
 import com.alal.yft.extractor.master.solver.OwnSolverBreaker
@@ -166,7 +167,11 @@ object SiteAdapterModule {
         ),
         FacebookExtractor(http),
         VimeoExtractor(http),
-        YouTubeExtractor(http, playerScripts, poTokens),
+        // Phase 1.2 N5b A.8: with the own solver (ownSolver, with or without ownSolverNext) its
+        // signatures are used only after the live check V; main's runner gets the reader as is.
+        YouTubeSignatureGuard.guard(http, playerScripts) { runner ->
+            YouTubeExtractor(http, runner, poTokens)
+        },
         // P48: X's public embed answer for a post's video (whole MP4 files with sound).
         XExtractor(http),
         // P49: Instagram's own answers (app API when signed in, GraphQL, page, embed page).

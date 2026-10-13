@@ -20,7 +20,7 @@ import org.junit.Test
  */
 class OwnSolverLadderRunnerTest {
     @Test
-    fun `ownSolverNext off is Phase 1-1 - one worker job, no tripwire, nothing waits for V`() = runTest {
+    fun `ownSolverNext off is Phase 1-1 - one worker job, no tripwire, the signature waits for V`() = runTest {
         val worker = StepEngine { job, events -> clean(job, events) }
         val runner = OwnPlayerScriptRunner(players(), worker)
         val request = request()
@@ -31,7 +31,37 @@ class OwnSolverLadderRunnerTest {
         assertNull(worker.jobs.single().deadlineMillis)
         // N5b A.4: no locator either.
         assertTrue("locator" !in worker.inputs.single())
+        // N5b A.8: Phase 1.1's signature waits for V too: worker P, no hashes (per player version).
+        assertEquals(PendingCheck(PLAYER, Step.WORKER_P), runner.pendingCheck(request))
         assertNull(runner.pendingCheck(request))
+    }
+
+    @Test
+    fun `ownSolverNext off - V pass is kept per player version, fail turns its signatures off, n stays`() = runTest {
+        val runner = OwnPlayerScriptRunner(players(), StepEngine { job, events -> clean(job, events) })
+        val check = PendingCheck(PLAYER, Step.WORKER_P)
+
+        // UNKNOWN keeps nothing: the next answer waits for V again.
+        assertTrue(runner.resolve(request()) is PlayerScriptResult.Success)
+        assertEquals(check, runner.pendingCheck(request()))
+        runner.record(check, SignatureVerdicts.Verdict.UNKNOWN)
+        assertTrue(runner.resolve(request()) is PlayerScriptResult.Success)
+        assertEquals(check, runner.pendingCheck(request()))
+
+        // PASS: later answers of this player version need no V.
+        runner.record(check, SignatureVerdicts.Verdict.PASS)
+        val passed = runner.resolve(request()) as PlayerScriptResult.Success
+        assertEquals(ScriptedOwnEngine.signature(SIG), passed.resolved["sig-18"])
+        assertNull(runner.pendingCheck(request()))
+
+        // FAIL (another process): the player version gives no signatures, its n value stays.
+        val other = OwnPlayerScriptRunner(players(), StepEngine { job, events -> clean(job, events) })
+        assertTrue(other.resolve(request()) is PlayerScriptResult.Success)
+        other.record(requireNotNull(other.pendingCheck(request())), SignatureVerdicts.Verdict.FAIL)
+        val off = other.resolve(request()) as PlayerScriptResult.Success
+        assertEquals(setOf("n-18"), off.resolved.keys)
+        assertEquals(ScriptedOwnEngine.rate(RATE), off.resolved["n-18"])
+        assertNull(other.pendingCheck(request()))
     }
 
     @Test

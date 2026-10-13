@@ -33,15 +33,21 @@ class OwnSolverYouTubeTest {
         val players = players()
         val engine = ScriptedOwnEngine()
 
-        val result = module(fixture("player_cipher.json"), players, engine).extract(request())
-            as SiteExtractionResult.Success
+        val probes = mutableListOf<String>()
+
+        // N5b A.8: Phase 1.1's signatures too sign streams only once the live check opened one.
+        val module = module(onMediaServer(fixture("player_cipher.json")), players, engine) { url, _ ->
+            probes += url
+            ExtractorProbeResult.Answered(206, 1_000_000L)
+        }
+        val result = module.extract(request()) as SiteExtractionResult.Success
 
         assertEquals(
             listOf(
-                "$MEDIA?expire=4102444800&ei=Rml4dHVyZQ&itag=18&source=youtube&mime=video%2Fmp4" +
+                "${onMediaServer(MEDIA)}?expire=4102444800&ei=Rml4dHVyZQ&itag=18&source=youtube&mime=video%2Fmp4" +
                     "&n=$SOLVED_RATE" +
                     "&sig=S%3D%3Dhgfedcba9876543210erutangiSoediVerutxiFgIARw8JQ0qOA",
-                "$MEDIA?expire=4102444800&itag=140&mime=audio%2Fmp4&n=$SOLVED_RATE" +
+                "${onMediaServer(MEDIA)}?expire=4102444800&itag=140&mime=audio%2Fmp4&n=$SOLVED_RATE" +
                     "&signature=S%3D%3Dhgfedcba9876543210erutangiSoiduAerutxiFgIARw8JQ0qOA",
             ),
             result.candidates.map(MediaCandidate::mediaUrl),
@@ -51,6 +57,11 @@ class OwnSolverYouTubeTest {
         assertEquals("https://www.youtube.com/watch?v=$VIDEO_ID", players.requestedHeaders.single()["Referer"])
         assertEquals(listOf("player"), engine.jobs.map { it.type })
         assertEquals(listOf(RATE_INPUT), engine.jobs.single().n)
+        assertEquals(1, probes.size)
+
+        // One pass per player version: the next lookup is not checked again.
+        assertEquals(2, (module.extract(request()) as SiteExtractionResult.Success).candidates.size)
+        assertEquals(1, probes.size)
     }
 
     @Test
@@ -180,6 +191,7 @@ class OwnSolverYouTubeTest {
         embedded: String,
         players: FakeExtractorHttpClient,
         engine: ScriptedOwnEngine,
+        probe: ((url: String, headers: Map<String, String>) -> ExtractorProbeResult)? = null,
     ) = MasterYouTubeModule(
         http = FakeExtractorHttpClient(
             responses = mapOf(PAGE_FETCH to FakeExtractorHttpClient.html(watchPage(BOT_CHECK), MOBILE_PAGE)),
@@ -190,6 +202,7 @@ class OwnSolverYouTubeTest {
                     null
                 }
             },
+            probeResponder = probe,
         ),
         playerScripts = OwnPlayerScriptRunner(players, engine),
     )

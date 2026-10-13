@@ -23,8 +23,8 @@ import kotlinx.coroutines.withTimeoutOrNull
  * - Nothing is logged. Results carry verdict and status classes only, never a URL or a value.
  * - `unknown` is never `pass`.
  *
- * Not wired into the YouTube module yet: N5 calls it behind `ownSolverNext`, so Phase 1.1 is
- * unchanged.
+ * Used by `SignatureGate` for the own solver's signatures (N5b; A.8: with ownSolverNext on or
+ * off, around Master's reader and the app's).
  */
 internal class StreamCheck(
     private val http: ExtractorHttpClient,
