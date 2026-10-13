@@ -451,7 +451,10 @@ function dyncodeOf(sandbox) {
   }
 }
 
-/** The own core's preparation of [player]: counts and the failure class only. */
+/**
+ * The own core's preparation of [player]: counts and the failure class only; [chars] (N5b A.1) is
+ * the length of P's kept program (the program itself never leaves the sandbox).
+ */
 export function prepareWithOwn({ lib, core }, player) {
   try {
     const sandbox = ownContext(lib);
@@ -459,11 +462,32 @@ export function prepareWithOwn({ lib, core }, player) {
     sandbox.player = player;
     return JSON.parse(
       vm.runInContext(
-        "(function(){var p=yftOwnSolver.prepare(player);return JSON.stringify({ok:p.ok,failed:p.failed,info:p.info})})()",
+        "(function(){var p=yftOwnSolver.prepare(player);return JSON.stringify({ok:p.ok,failed:p.failed,info:p.info,chars:p.ok?p.program.length:undefined})})()",
         sandbox,
         { timeout: SOLVE_TIMEOUT_MS },
       ),
     );
+  } catch (error) {
+    return { ok: false, failed: error?.name ?? "Error" };
+  }
+}
+
+// N5b A.1, option 3 (B's prepared program kept in memory): what B would keep, in characters.
+const PREPARE_B_SIZES =
+  "(function(){var p=yftOwnSolver.prepareB(player);if(!p.ok)return JSON.stringify({ok:false,failed:p.failed});" +
+  "var s={program:p.program.length,meta:JSON.stringify(p.meta).length,templates:JSON.stringify(p.templates).length};" +
+  "s.total=s.program+s.meta+s.templates;return JSON.stringify({ok:true,info:p.info,sizes:s})})()";
+
+/**
+ * B's preparation of [player] (N5b A.1): counts, the failure class and the sizes in characters of
+ * the prepared program, its function table and its templates (never the program itself).
+ */
+export function prepareBWithOwn({ lib, core }, player) {
+  try {
+    const sandbox = ownContext(lib);
+    vm.runInContext(core, sandbox, { timeout: SOLVE_TIMEOUT_MS });
+    sandbox.player = player;
+    return JSON.parse(vm.runInContext(PREPARE_B_SIZES, sandbox, { timeout: SOLVE_TIMEOUT_MS }));
   } catch (error) {
     return { ok: false, failed: error?.name ?? "Error" };
   }

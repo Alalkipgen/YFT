@@ -19,6 +19,8 @@
 //                    # page step "PB" (page P, else page B) or "B" (page B only), each with the
 //                    # live check simulated (+V: a page signature counts only if it equals the
 //                    # truth) or off (no page signature)
+//   ... --ladder --phases   # N5b A.1: also wall ms per step on every line, phase times per step
+//                           # and the lookup's time at the end (milliseconds and counts only)
 //
 // It mutates each cached player so the code is WRITTEN differently but DOES the same thing, then
 // measures how often ejs and the own solver's pattern strategy (P) — and, with --strategy B,
@@ -43,6 +45,7 @@ import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import { challenges, settle, solveWithEjs, solveWithOwn, VARIANTS } from "./own-solver/harness.mjs";
 import { ladder } from "./own-solver/ladder.mjs";
+import { addLadder, lookupTable, phaseTable } from "./own-solver/phases.mjs";
 import * as M from "./own-solver/mutate.mjs";
 
 // YFT_STAGE=1 (local diagnosis): the stage and heap before each step on stderr (names and sizes only).
@@ -97,6 +100,20 @@ if (both && page) {
 }
 // The ladder reads P's init errors from its report (B and page B always return it).
 const reportExtra = withLadder ? { report: true } : {};
+// --phases (N5b A.1, with --ladder): the phase table (phases.mjs) and the lookup's time.
+const withPhases = flag("--phases");
+if (withPhases && !withLadder) {
+  console.error("--phases runs with --ladder");
+  process.exit(2);
+}
+const phases = phaseTable();
+const lookup = lookupTable();
+const timed = (walls, step, solve) => {
+  const started = performance.now();
+  const out = solve();
+  walls[step] = performance.now() - started;
+  return out;
+};
 const LADDERS = [
   ["ladder PB+V", "ladderPBV", { page: "PB", live: "sim" }],
   ["ladder PB off", "ladderPBoff", { page: "PB", live: "offline" }],
@@ -247,17 +264,18 @@ for (const file of files) {
       const ejsOut = skipEjs ? { n: {}, sig: {}, error: "Skipped" } : solveWithEjs(ejs, mutated, inputs);
       stage("own");
       await settle(); // releases the player's unhandled rejections after every solve (see harness.mjs)
+      const walls = {};
       stage("own P");
-      const ownOut = withP ? solveWithOwn(own, mutated, inputs, { ...pageExtra, ...reportExtra, ...tripExtra }) : null;
+      const ownOut = withP ? timed(walls, "workerP", () => solveWithOwn(own, mutated, inputs, { ...pageExtra, ...reportExtra, ...tripExtra })) : null;
       await settle();
       stage("own B");
-      const bOut = withB ? solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false, ...pageExtra, ...tripExtra }) : null;
+      const bOut = withB ? timed(walls, "workerB", () => solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false, ...pageExtra, ...tripExtra })) : null;
       await settle();
       stage("page P");
-      const pagePOut = both && withP ? solveWithOwn(own, mutated, inputs, { page: true, ...reportExtra }) : null;
+      const pagePOut = both && withP ? timed(walls, "pageP", () => solveWithOwn(own, mutated, inputs, { page: true, ...reportExtra })) : null;
       if (both) await settle();
       stage("page B");
-      const pageBOut = both && withB ? solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false, page: true }) : null;
+      const pageBOut = both && withB ? timed(walls, "pageB", () => solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false, page: true })) : null;
       if (both) await settle();
       // Environment classes (M9b/M9bs) are written so that an environment without the DOM gives
       // other values: ejs and a worker agreeing on one is the finding, not a mutator bug. Their
@@ -287,6 +305,11 @@ for (const file of files) {
           if (o === "wrong") ladderWrong += 1;
           line += `, ${label} ${detail(v, o)} (n ${answer.sources.n ?? "-"}, sig ${answer.sources.sig ?? "-"})`;
         }
+        if (withPhases) {
+          const name = `${file.player} ${file.variant} ${cls}`;
+          line += ` | ms ${addLadder(phases, name, outs, walls)}`;
+          lookup.add(name, walls);
+        }
       }
       lines.push(line);
       process.stderr.write(`${line}\n`); // progress for long runs (counts and classes only)
@@ -314,6 +337,7 @@ for (const cls of classes) {
 }
 lines.push("");
 lines.push(`${files.length} files x ${classes.length} classes x ${seeds} seed(s)${page ? " (own in page mode)" : both ? " (own in the worker and in page mode)" : ""}; wrong values: ${wrongTotal}${withLadder ? `; ladder wrong values: ${ladderWrong}` : ""}`);
+if (withPhases) lines.push(...phases.lines(), lookup.line());
 console.log(lines.join("\n"));
 mkdirSync(dirname(reportFile), { recursive: true });
 // Page-mode runs keep their own report, so a worker-mode run can go at the same time.
@@ -322,5 +346,6 @@ const outFile = page
   : withLadder
     ? reportFile.replace(/\.json$/, "-ladder.json")
     : both ? reportFile.replace(/\.json$/, "-both.json") : reportFile;
-writeFileSync(outFile, JSON.stringify({ ...summary, strategies, page, both, ladder: withLadder, wrongTotal, ...(withLadder ? { ladderWrong } : {}) }, null, 2));
+const phaseReport = withPhases ? { phases: phases.rows(), lookup: lookup.largest() } : {};
+writeFileSync(outFile, JSON.stringify({ ...summary, strategies, page, both, ladder: withLadder, wrongTotal, ...(withLadder ? { ladderWrong } : {}), ...phaseReport }, null, 2));
 process.exit(wrongTotal + ladderWrong > 0 ? 1 : 0);

@@ -786,7 +786,11 @@ var yftOwnSolver = (function () {
 
   function prepare(playerText) {
     try {
+      // N5b A.1 (report only): milliseconds of parse, find (G2: tables, definitions, builders) and
+      // build (the guarded program with the step counter).
+      var t0 = pNow();
       var ast = parseProgram(playerText);
+      var t1 = pNow();
       var statements = unwrap(ast);
       var tables = stringTables(statements);
       var found = definitions(statements, playerText);
@@ -802,7 +806,9 @@ var yftOwnSolver = (function () {
       });
       if (!references.length) throw new Failure("no candidates");
       references = references.slice(0, MAX_CANDIDATES);
+      var t2 = pNow();
       var program = buildProgram(playerText, statements, references, pLoopInserts(ast));
+      var ms = { parse: t1 - t0, find: t2 - t1, build: pNow() - t2 };
       return {
         ok: true,
         version: VERSION,
@@ -815,6 +821,7 @@ var yftOwnSolver = (function () {
           candidates: references.length,
           fromDefinitions: fromDefinitions.length,
           fromCallSites: fromCallSites.length,
+          ms: ms,
         },
       };
     } catch (error) {
@@ -1159,18 +1166,30 @@ var yftOwnSolver = (function () {
     });
   }
 
+  // N5b A.1 (report only, set by run): milliseconds of the candidate attempts, split into
+  // candidates that gave a value (a locator cache hit runs only those) and the others (the search
+  // a hit skips).
+  var pTiming = null;
+
   // One input through every candidate: the distinct values and the failures.
   function multiTry(kind, candidates, input, faults) {
     var values = [];
     var errors = [];
     candidates.forEach(function (candidate) {
       if (candidate.registry) pBudget(candidate.registry, P_CALL_STEPS, P_CALL_MS);
+      var t0 = pTiming ? pNow() : 0;
+      var gave = 0;
       try {
         attempt(kind, candidate, input, faults, errors).forEach(function (value) {
+          gave += 1;
           if (values.indexOf(value) < 0) values.push(value);
         });
       } catch (error) {
         errors.push(candidate.index + ":" + errorName(error));
+      }
+      if (pTiming) {
+        if (gave) pTiming.answering += pNow() - t0;
+        else pTiming.silent += pNow() - t0;
       }
     });
     return { values: values, errors: errors };
@@ -2365,7 +2384,10 @@ var yftOwnSolver = (function () {
         output.report.stage = "confirm_" + kind;
         var c0 = bNow();
         var confirmed = found[kind].filter(function (candidate) {
-          return bConfirm(prepared, request, candidate);
+          var k0 = bNow();
+          var kept = bConfirm(prepared, request, candidate);
+          candidate.confirmMs = bNow() - k0;
+          return kept;
         });
         ms["confirm_" + kind] = bNow() - c0;
         // Fault S4 "decoy": one more confirmed candidate with other outputs (it must make the
@@ -2390,6 +2412,13 @@ var yftOwnSolver = (function () {
         if (!weakOnly) confirmed = strong;
         var hintOutputs = bHintOutputs(request.pHint, kind);
         var grouped = bGroups(confirmed, meta, hintOutputs);
+        // N5b A.1 (report only): the winning group's share of the confirm (a locator hit confirms
+        // only its members).
+        ms["confirm_" + kind + "_win"] = grouped.groups.length
+          ? grouped.groups[0].members.reduce(function (total, member) {
+              return total + (member.confirmMs || 0);
+            }, 0)
+          : 0;
         var kindReport = { shortlisted: found[kind].length, confirmed: confirmed.length, groups: grouped.total, hint: !!hintOutputs };
         if (weakOnly) kindReport.weak = true;
         output.report[kind] = kindReport;
@@ -2434,7 +2463,9 @@ var yftOwnSolver = (function () {
       });
       if (tripwireWanted(request)) {
         output.report.stage = "tripwire";
+        var w0 = bNow();
         bTripwire(prepared, request, output, failed, solvedGroups);
+        ms.tripwire = bNow() - w0;
       }
       if (failed.length) output.failed = failed.join(",");
       output.report.stage = "done";
@@ -2454,13 +2485,20 @@ var yftOwnSolver = (function () {
     var output = { n: {}, sig: {}, report: { version: VERSION } };
     try {
       if (!prepared || !prepared.ok || typeof prepared.program !== "string") throw new Failure("not prepared");
+      // N5b A.1 (report only): init, search, SelfCheck and the tripwire in milliseconds.
+      var ms = {};
+      output.report.ms = ms;
+      var t0 = pNow();
       var registry = instantiate(prepared, request);
+      ms.init = pNow() - t0;
       var builders = pBuilders(registry, request);
       output.report.topLevelErrors = registry.e;
       output.report.topLevelErrorClasses = initErrorClasses(registry);
       output.report.candidates = builders.length;
       if (!builders.length) throw new Failure("no candidate functions");
       var failed = [];
+      pTiming = { silent: 0, answering: 0 };
+      var t1 = pNow();
       KINDS.forEach(function (kind) {
         var inputs = (request[kind] || []).filter(function (input) {
           return typeof input === "string" && input.length > 0;
@@ -2471,14 +2509,23 @@ var yftOwnSolver = (function () {
         output.report[kind] = result.report;
         if (result.report.reason) failed.push(kind + ":" + result.report.reason);
       });
+      ms.search = pTiming.silent;
+      ms.selfcheck = Math.max(0, pNow() - t1 - pTiming.silent);
       output.report.steps = pSteps(registry);
-      if (tripwireWanted(request)) pTripwire(prepared, request, output, failed);
+      if (tripwireWanted(request)) {
+        pTiming = { silent: 0, answering: 0 };
+        var t2 = pNow();
+        pTripwire(prepared, request, output, failed);
+        ms.tripwire = pNow() - t2;
+        ms.tripwire_search = Math.min(ms.tripwire, pTiming.silent);
+      }
       if (failed.length) output.failed = failed.join(",");
     } catch (error) {
       output.failed = errorName(error);
       output.n = {};
       output.sig = {};
     } finally {
+      pTiming = null;
       allowDyncode();
     }
     return output;

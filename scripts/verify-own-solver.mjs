@@ -20,6 +20,9 @@
 //                                                 # page step PB, live check simulated) against ejs
 //   ... --ladder --dyncode                        # also eval reads / Function calls by player code
 //   ... --faults --ladder                         # each fault case through the ladder, run lazily
+//                                                 # (--ladder also prints wall ms per step, phase
+//                                                 # times and the lookup's time: N5b A.1)
+//   ... --prepare --strategy B                    # also B's prepared sizes in characters (N5b A.1)
 //
 // Needs network access to www.youtube.com. Player text is cached under build/own-solver/players
 // (never committed) and checked against corpus.json's SHA-256 before use. Like
@@ -43,10 +46,12 @@ import {
   validateCorpus,
   FAULTS,
   faultVerdict,
+  prepareBWithOwn,
   prepareWithOwn,
   settle,
 } from "./own-solver/harness.mjs";
 import { ladder, lazyLadder } from "./own-solver/ladder.mjs";
+import { addLadder, lookupTable, phasesOf, phaseTable, strategyOf } from "./own-solver/phases.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const corpusFile = join(root, "scripts/own-solver/corpus.json");
@@ -119,6 +124,10 @@ const ladderTotals = Object.fromEntries(LADDER_OPTIONS.map(([label]) => [label, 
 const ladderSources = {};
 // N5b: P's step counts (largest init and largest attempt per step), for P's step budget.
 const ladderSteps = {};
+// N5b A.1: phase times per step and the lookup's time (phases.mjs); the walls of the current file.
+const ladderPhases = phaseTable();
+const ladderLookup = lookupTable();
+const ladderWalls = {};
 const dyncodeTotals = Object.fromEntries(Object.keys(LADDER_STEPS).map((name) => [name, { files: 0, withAny: 0, counts: {} }]));
 const tally = (map, key) => {
   map[key] = (map[key] ?? 0) + 1;
@@ -222,6 +231,8 @@ const own = existsSync(ownFile) ? { lib: readFileSync(ownLib, "utf8"), core: rea
 
 const results = [];
 let preparedCount = 0;
+const bSizes = [];
+const msOf = (ms) => Object.entries(ms ?? {}).map(([name, value]) => `${name} ${Math.round(value)}`).join(", ") || "-";
 let faultRuns = 0;
 let faultWrong = 0;
 let faultMissed = 0;
@@ -249,13 +260,24 @@ for (const entry of corpus.players) {
       const info = prepared.info ?? {};
       const ok = prepared.ok && info.candidates > 0;
       preparedCount += ok ? 1 : 0;
+      // N5b A.1 option 3 (B's prepared program kept in memory): its size and P's kept program's.
+      let sizes = "";
+      if (own && strategy === "B") {
+        const b = prepareBWithOwn(own, fetched.text);
+        if (b.ok) bSizes.push({ file: `${entry.player} ${variant}`, total: b.sizes.total, p: prepared.chars ?? 0 });
+        sizes = b.ok
+          ? ` | chars: B program ${b.sizes.program}, meta ${b.sizes.meta}, templates ${b.sizes.templates}, total ${b.sizes.total}; P kept ${prepared.chars ?? "-"}` +
+            ` | ms P ${msOf(info.ms)}; B ${msOf(b.info?.ms)}`
+          : ` | B prepare FAIL ${b.failed}`;
+      }
       console.log(
         `${entry.player} ${variant.padEnd(5)} ` +
           (prepared.ok
             ? `candidates ${info.candidates} (definitions ${info.fromDefinitions}, call sites ${info.fromCallSites}), ` +
               `kept ${info.kept}/${info.statements}, tables ${info.tables}`
             : `FAIL ${prepared.failed}`) +
-          (ok ? "  PASS" : "  FAIL"),
+          (ok ? "  PASS" : "  FAIL") +
+          sizes,
       );
       results.push({ player: entry.player, variant, status: ok ? "absent" : "prepare-failed" });
       continue;
@@ -267,7 +289,9 @@ for (const entry of corpus.players) {
     if (own && withLadder) {
       ladderRuns = {};
       for (const [name, extra] of Object.entries(LADDER_STEPS)) {
+        const started = performance.now();
         ladderRuns[name] = solveWithOwn(own, fetched.text, plan.inputs, { ...extra, ...(withDyncode ? { dyncode: true } : {}) });
+        ladderWalls[name] = performance.now() - started;
         await settle();
       }
       ownOut = ladder(ladderRuns, plan.inputs, { page: "PB", live: "sim", truth: ejsOut });
@@ -334,6 +358,16 @@ for (const entry of corpus.players) {
         return `${STEP_LABEL[name]} ${typeof count === "number" ? count : "?"}`;
       });
       line += ` | init errors ${inits.join(", ")} | ladder n ${ownOut.sources.n ?? "-"}, sig ${ownOut.sources.sig ?? "-"}`;
+      // N5b A.1: wall ms per step (the harness call), phases from the reports, the lookup's time.
+      line += ` | ms ${addLadder(ladderPhases, `${entry.player} ${variant}`, ladderRuns, ladderWalls)}`;
+      ladderLookup.add(`${entry.player} ${variant}`, ladderWalls);
+      // The report keeps each step's wall and phases (ms, rounded) for later sums.
+      result.phases = Object.fromEntries(
+        Object.entries(ladderRuns).map(([name, out]) => [
+          name,
+          Object.fromEntries(Object.entries({ wall: ladderWalls[name], ...phasesOf(out.report, strategyOf(name)) }).map(([key, ms]) => [key, Math.round(ms)])),
+        ]),
+      );
       for (const [kind, source] of Object.entries(ownOut.sources)) tally(ladderSources, `${kind} ${source}`);
       for (const [label, options] of LADDER_OPTIONS) {
         againstEjs(ladderTotals[label], ladder(ladderRuns, plan.inputs, { ...options, truth: ejsOut }), ejsOut, plan.inputs);
@@ -392,6 +426,17 @@ for (const entry of corpus.players) {
 console.log(`coverage: ${coverage(corpus).join(", ")}`);
 if (prepareOnly) {
   console.log(`${preparedCount}/${results.length} files yield candidates`);
+  if (strategy === "B") {
+    // Kotlin keeps a String per player (2 bytes per character at most); 2 = maxCachedPlayers.
+    const most = (key) => bSizes.reduce((best, size) => (size[key] > best[key] ? size : best), { [key]: 0, file: "-" });
+    const b = most("total");
+    const p = most("p");
+    const mb = (chars) => ((2 * 2 * chars) / 1048576).toFixed(1);
+    console.log(
+      `B prepared: ${bSizes.length}/${results.length} files, largest ${b.total} chars (${b.file}), 2 players <= ${mb(b.total)} MB; ` +
+        `P kept largest ${p.p} chars (${p.file}), 2 players <= ${mb(p.p)} MB`,
+    );
+  }
   process.exit(results.length > 0 && preparedCount === results.length ? 0 : 1);
 }
 const lines = summarize(results, Boolean(own));
@@ -420,6 +465,8 @@ if (withLadder) {
   console.log(`ladder init errors: files with errors ${Object.keys(LADDER_STEPS).map(step).join(", ")}`);
   console.log(`ladder P steps (largest init/attempt): ${Object.entries(ladderSteps).map(([name, most]) => `${STEP_LABEL[name]} ${most.init}/${most.call} (${most.initMs}/${most.callMs} ms)`).join(", ") || "-"}`);
   console.log(`ladder sources (PB+V, per file): ${Object.entries(ladderSources).sort().map(([key, count]) => `${key} ${count}`).join(", ")}`);
+  for (const phaseLine of ladderPhases.lines()) console.log(phaseLine);
+  console.log(ladderLookup.line());
   console.log(
     `ladder vs ejs: ${LADDER_OPTIONS.map(([label]) => {
       const t = ladderTotals[label];

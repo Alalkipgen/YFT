@@ -174,6 +174,75 @@
   persistent V/StreamCheck ledger remain deferred; CI for 63758da not yet checked.
   Await owner instructions before any code work or N6. This is a test checkpoint,
   not completion of those deferred implementation items or release acceptance.
+- ✅ A.0 (plan §3 N5b "Final plan"): fresh clone at `3300ccb` (= `f9eaedc` + plan docs only);
+  no local drafts existed, nothing to back up; clean tree.
+- ✅ A.1 Budget data, code (report only, answers unchanged; app behaviour unchanged: the wrappers
+  pass only init errors from the report). Core: P `prepare` reports ms parse / find / build; P
+  `run` reports ms init, search (attempts of candidates that gave no value), SelfCheck (the rest
+  of the kinds' solve) and the tripwire (with its search share); B adds the winning group's
+  confirm per kind and the tripwire. New `scripts/own-solver/phases.mjs`: phases per step (P
+  prepare = parse + build, P search = find + silent attempts; B prepare = parse, instrument,
+  templates, reparse, build; B search = the screen), the hit estimate (sum without search; B
+  confirms only the winners), a max/median table and the lookup's time. Harness:
+  `prepareWithOwn` returns the kept program's length, new `prepareBWithOwn` B's prepared sizes
+  (characters only). Runners: corpus `--ladder` and mutation `--ladder --phases` print wall ms
+  per step, the phase table and the lookup's largest time; `--prepare --strategy B` the prepared
+  sizes. JS 185/185 (179 + 6 step-budget tests).
+- ✅ A.1 corpus `--ladder` (551 s, peak RSS 2018 MB; this computer: Xeon 2.5 GHz, 2 vCPU): exit 0,
+  PB+V = ejs 260/260, B+V 260/260, wrong 0, init errors 0/32 in all four steps. Max/median ms:
+
+  | step | prepare | init | search | confirm | SelfCheck | tripwire | wall |
+  |---|---|---|---|---|---|---|---|
+  | P | 1496/1052 | 239/146 | 601/366 | – | 14/8 | 232/139 | 2501/1683 |
+  | B | 3720/2847 | 491/184 | 3076/2735 | 1869/346 | 552/40 | 262/21 | 8167/6693 |
+  | pP | 1674/1133 | 275/20 | 607/375 | – | 40/6 | – | 2330/1605 |
+  | pB | 3822/2720 | 225/30 | 3540/2905 | 1802/137 | 427/46 | – | 7533/6283 |
+
+  Hit estimate max/median ms (files over 0.5 s): P (a) same process 478/291 (0/32; the first
+  run 516/272, at the edge), P (b) after a restart 1938/1329 (32/32); B (a) = (b) 5422/3724
+  (32/32); B (a) with option 3 2807/631 (18/32); pP (a) 315/26, (b) 1865/1184; pB (a) = (b)
+  4725/3219, option 3 2341/221. Lookup, largest per file: P+B 9872 ms (74edf1a3 main), all four
+  steps 18997 ms (74edf1a3 es6).
+- ✅ A.1 631d3938 M9c-nav (`--strategy P,B --ladder --phases`, one process per variant, main with
+  `--skip-ejs`; 376 s, peak RSS 2202 MB): exits 0, ladder wrong 0, every step safe (P `probe`, B
+  `no candidates` or `budget`). Wall ms P/B/pP/pB: main 2010/60059/1899/60088, tce
+  1880/44081/2178/44628, es6 1591/9865/1549/9777, phone 1175/60078/1380/60076 (60 s = the
+  harness timeout after B's reply: B's phases end at 44.4 s main and 38.6 s phone, then the
+  player's late promise jobs; B init 26.0 s on main, the screen 40.7 s on tce = `B_SCREEN_MS`).
+- ✅ A.1 prepared sizes (`--prepare --strategy B`, 130 s): B's prepared program + function table +
+  templates largest 6,540,135 chars (5203c085 tce; main 6,539,969) → 2 players
+  (`maxCachedPlayers`) ≤ 24.9 MB at 2 bytes per char; P's kept program (kept today) largest
+  4,547,572 chars → ≤ 17.3 MB for 2.
+- ✅ A.1 caps (proposed; numbers for A.2): phone margin ×4 (a mid-range phone runs JS ≈ 2–3× slower
+  than this computer; ×4 leaves room; N7 measures the real factor).
+  - Job cap 40 s (worker steps) = Kotlin job timeout 45 s − 5 s grace (the deadline is checked
+    every 4096 steps, then the reply and the bridge). ≥ `P_INIT_MS` 20 s: P's init can use its
+    whole budget and P still has 20 s; `B_SCREEN_MS` 40 s stays, the deadline ends B first.
+  - Page cap 35 s (tighter: a page step runs only for kinds the workers left, after a ready wait
+    of up to 20 s, in the renderer that can run out of memory).
+  - Lookup cap 60 s = `P_INIT_MS` + job cap: B keeps its full cap after P.
+  - Corpus at ×4: P ≤ 10.0 s, B ≤ 32.7 s (fits the cap up to ×4.9), P+B ≤ 39.5 s, pB ≤ 30.1 s
+    (fits up to ×4.6), all four ≤ 76.0 s > 60 s: on the largest players page steps may be cut
+    (not run, not recorded, run in the next lookup). 631d3938 M9c-nav at ×4: es6 P 6.4 s + B
+    39.5 s, inside; main, tce, phone: B does not finish even here (44.4 / 44.0 / 38.6 s), it ends
+    at its deadline as `budget` (full cap → recorded → skipped in the next lookup); no answer is
+    lost (B answers nothing there).
+- ✅ A.1 option 3 (B's prepared program in memory): wrappers accept `type:"prepared"` with
+  `strategy:"B"` (today `BadJob`: `own-solver-worker.js:67`, `page-frame.js:80`); core runs B from a
+  kept prepared object (program, function table, templates; same core version) and returns it
+  once (B with `keep_prepared`); protocol drops `require(!options.strategyB || player is
+  Player.Raw)` (`OwnSolverProtocol.kt:107`) for a prepared-B player and reply field; Kotlin's
+  `prepared` map keeps P's and B's per player (same eviction, `maxCachedPlayers` 2), worker B and
+  page B use it first and rebuild once from the player text if it breaks (as worker P). RAM ≤
+  24.9 MB for 2 players (+ P's ≤ 17.3 MB today); each B job then carries ≤ 6.5 M chars instead of
+  the player text (≤ 2.7 MB). Re-run: JS unit (worker, page frame, B, ladder, tripwire, step
+  budget), Kotlin protocol / runner / ladder runner / breaker (CI + local JVM), corpus `--ladder`
+  miss + hit, faults `--ladder`, M9b/M9bs, 631d3938 M9c-nav, flag-off gate. Helps (a) only (the
+  memory is gone after a restart): B (a) 5422/3724 → 2807/631 ms. Option 4 (prepared program on
+  disk) brings (b) near (a) but changes N5b's rule "locator file = data only".
+- ⏸️ A.1 stop point: hits over 0.5 s (B in (a) and (b), P in (b), P (a) at the edge). Waiting for
+  the owner's choice: (1) target (a) only, (2) relax the (b) target, (3) keep B's prepared program
+  in memory, (4) prepared program on disk. A.2 waits for the answer.
 
 ## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — done, ❌ M9c-nav ladder wrong 1 → N5b (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
 
