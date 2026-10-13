@@ -23,6 +23,8 @@
 //                                                 # (--ladder also prints wall ms per step, phase
 //                                                 # times and the lookup's time: N5b A.1)
 //   ... --prepare --strategy B                    # also B's prepared sizes in characters (N5b A.1)
+//   ... --ladder --no-deadline                    # N5b A.2: --ladder sends the app's step caps as
+//                                                 # deadlines (worker 40 s, page 35 s); this drops them
 //
 // Needs network access to www.youtube.com. Player text is cached under build/own-solver/players
 // (never committed) and checked against corpus.json's SHA-256 before use. Like
@@ -50,7 +52,7 @@ import {
   prepareWithOwn,
   settle,
 } from "./own-solver/harness.mjs";
-import { ladder, lazyLadder } from "./own-solver/ladder.mjs";
+import { STEP_CAPS_MS, ladder, lazyLadder } from "./own-solver/ladder.mjs";
 import { addLadder, lookupTable, phasesOf, phaseTable, strategyOf } from "./own-solver/phases.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -106,11 +108,13 @@ if (withLadder && (strategy || page || withInit)) {
 // B alone (no hint), as the mutation runner's --ladder; the worker steps send the N5b environment
 // tripwire as the app's ladder does (--no-tripwire: N5a's runs).
 const LADDER_TRIP = args.includes("--no-tripwire") ? {} : { tripwire: true };
+// N5b A.2: each step's deadline is the app's step cap (--no-deadline: A.1's runs).
+const LADDER_CAP = (step) => (args.includes("--no-deadline") ? {} : { deadline: STEP_CAPS_MS[step] });
 const LADDER_STEPS = {
-  workerP: { report: true, ...LADDER_TRIP },
-  workerB: { strategy: "B", hint: false, ...LADDER_TRIP },
-  pageP: { page: true, report: true },
-  pageB: { strategy: "B", hint: false, page: true },
+  workerP: { report: true, ...LADDER_TRIP, ...LADDER_CAP("worker") },
+  workerB: { strategy: "B", hint: false, ...LADDER_TRIP, ...LADDER_CAP("worker") },
+  pageP: { page: true, report: true, ...LADDER_CAP("page") },
+  pageB: { strategy: "B", hint: false, page: true, ...LADDER_CAP("page") },
 };
 const STEP_LABEL = { workerP: "P", workerB: "B", pageP: "pP", pageB: "pB" };
 const LADDER_OPTIONS = [

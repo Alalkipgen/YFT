@@ -30,6 +30,8 @@ internal class ScriptedOwnEngine(
         val sig: List<String>,
         /** N5b: "B" for a strategy B job; null for P. */
         val strategy: String? = null,
+        /** N5b A.2: the job's deadline in milliseconds; null when the job sends none. */
+        val deadlineMillis: Long? = null,
     ) {
         val isB: Boolean get() = strategy == "B"
 
@@ -47,6 +49,7 @@ internal class ScriptedOwnEngine(
                     n = list("n"),
                     sig = list("sig"),
                     strategy = text("strategy"),
+                    deadlineMillis = (root["deadline_ms"] as? JsonValue.Number)?.asLong,
                 )
             }
         }

@@ -32,6 +32,7 @@
   var stringify = JSON.stringify;
   var parse = JSON.parse;
   var later = window.setTimeout.bind(window);
+  var now = typeof Date === "function" && typeof Date.now === "function" ? Date.now.bind(Date) : function () { return 0; };
   var stopListening = window.removeEventListener.bind(window);
   var evaluate = window.eval;
   var started = false;
@@ -69,23 +70,35 @@
     reply.init_error_classes = Object.keys(report.topLevelErrorClasses || {}).slice(0, 9);
   }
 
+  // N5b A.2: the job's deadline as the worker takes it (yftDeadlineOk, yftTimed): a whole number
+  // of milliseconds from 0 up, counted from the job's arrival; absent: none.
+  function deadlineOk(job) {
+    var ms = job.deadline_ms;
+    return ms === undefined || (typeof ms === "number" && ms >= 0 && ms !== Infinity && Math.floor(ms) === ms);
+  }
+
+  function timed(request, job, received) {
+    if (job.deadline_ms !== undefined) request.deadline = Math.max(0, job.deadline_ms - Math.max(0, now() - received));
+    return request;
+  }
+
   // The worker's job runner (own-solver-worker.js yftRunJob) with the core in page mode.
-  function runJob(solver, job) {
-    if (!job || (job.type !== "player" && job.type !== "prepared")) {
+  function runJob(solver, job, received) {
+    if (!job || (job.type !== "player" && job.type !== "prepared") || !deadlineOk(job)) {
       return { type: "error", error: "BadJob" };
     }
     // N5b: strategy B in the page (from the player text, nothing kept); no tripwire here, the
     // window's own objects stay.
     if (job.strategy === "B") {
       if (job.type !== "player") return { type: "error", error: "BadJob" };
-      var outB = solver.solve({
+      var outB = solver.solve(timed({
         player: String(job.player),
         n: inputs(job.n),
         sig: inputs(job.sig),
         strategy: "B",
         hint: job.hint === true,
         page: true,
-      });
+      }, job, received));
       var replyB = { type: "result", n: outB.n || {}, sig: outB.sig || {} };
       if (outB.failed) replyB.failed = String(outB.failed);
       initErrors(replyB, outB.report);
@@ -99,7 +112,7 @@
     if (!prepared.ok) {
       return { type: "result", n: {}, sig: {}, failed: String(prepared.failed || "not prepared") };
     }
-    var output = solver.run(prepared, { n: inputs(job.n), sig: inputs(job.sig), page: true });
+    var output = solver.run(prepared, timed({ n: inputs(job.n), sig: inputs(job.sig), page: true }, job, received));
     var reply = { type: "result", n: output.n || {}, sig: output.sig || {} };
     if (output.failed) reply.failed = String(output.failed);
     initErrors(reply, output.report);
@@ -123,7 +136,7 @@
     return true;
   }
 
-  function run(token, lib, core, input) {
+  function run(token, lib, core, input, received) {
     var reply;
     try {
       if (!withoutWebRtc()) {
@@ -133,7 +146,7 @@
         var job = parse(input);
         evaluate(lib);
         evaluate(core);
-        reply = stringify(runJob(window.yftOwnSolver, job));
+        reply = stringify(runJob(window.yftOwnSolver, job, received));
       }
     } catch (error) {
       reply = stringify({ type: "error", error: errorClass(error) });
@@ -150,6 +163,7 @@
       return;
     }
     started = true;
+    var received = now();
     stopListening("message", onMessage);
     var token = data.token;
     var lib = String(data.lib);
@@ -157,7 +171,7 @@
     var input = String(data.input);
     // Player code runs in a later task, where `window.event` no longer holds this message.
     later(function () {
-      run(token, lib, core, input);
+      run(token, lib, core, input, received);
     }, 0);
   }
 

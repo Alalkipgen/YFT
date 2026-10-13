@@ -421,3 +421,25 @@ test("the pages, scripts and policies match the app's route table", () => {
   assert.ok(hostSource.includes("window.yftPageSolver;"));
   assert.ok(frameSource.includes(`var HOST_ORIGIN = "${ORIGIN}";`));
 });
+
+test("N5b A.2: the frame passes the job's deadline on like the worker", () => {
+  const replyOf = (extra) => {
+    const f = frame();
+    assert.ok(f.deliver(message(f, job(padded(fakePlayer()), extra))));
+    f.runTimers();
+    return JSON.parse(f.posts[1].message.reply);
+  };
+  const far = replyOf({ deadline_ms: 600000 });
+  assert.equal(far.failed, undefined);
+  assert.equal(far.n[N[0]], expectedN(N[0]));
+  const none = replyOf({ deadline_ms: 0 });
+  assert.equal(none.failed, "n:budget,sig:budget");
+  assert.deepEqual(none.n, {});
+  assert.equal(typeof none.prepared_program, "string");
+  const b = replyOf({ strategy: "B", hint: false, deadline_ms: 0 });
+  assert.equal(b.failed, "n:budget,sig:budget");
+  assert.deepEqual(b.sig, {});
+  for (const bad of [-1, 2.5, "35000"]) {
+    assert.deepEqual(replyOf({ deadline_ms: bad }), { type: "error", error: "BadJob" });
+  }
+});

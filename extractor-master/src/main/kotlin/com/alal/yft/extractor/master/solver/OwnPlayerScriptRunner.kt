@@ -54,15 +54,36 @@ class OwnPlayerScriptRunner(
      * and the job itself time out apart; [breaker] trips on job timeouts, gone renderers, process
      * deaths during a job and V = fail. B and the page run from the player text (fetched when
      * needed, not kept).
+     *
+     * A.2 caps: each job gets a deadline, min(its step's cap, the time left in the lookup):
+     * [workerCapMillis] for worker P and B, [pageCapMillis] for page P and B, [lookupCapMillis]
+     * for the whole lookup (from the ladder's start, the player download included; [clock] in
+     * milliseconds). The core stops at it and gives `budget` for what it could not check. A step
+     * that ended `budget` with its full cap is skipped for that player version until the process
+     * restarts; with a shorter deadline (the lookup had less time left) only on the second such
+     * run in a row. No breaker for either. When the lookup has no time left, later steps do not
+     * run (not recorded, no breaker), and the ready wait never outlasts the lookup. A core that
+     * ignores its deadline still ends in the job timeout, which trips the breaker as before.
      */
     class Next(
         val page: OwnSolverEngine? = null,
         val breaker: OwnSolverBreaker = OwnSolverBreaker(),
         val readyTimeoutMillis: Long = DEFAULT_READY_TIMEOUT_MILLIS,
         val jobTimeoutMillis: Long = DEFAULT_TIMEOUT_MILLIS,
+        val workerCapMillis: Long = DEFAULT_WORKER_CAP_MILLIS,
+        val pageCapMillis: Long = DEFAULT_PAGE_CAP_MILLIS,
+        val lookupCapMillis: Long = DEFAULT_LOOKUP_CAP_MILLIS,
+        val clock: () -> Long = { System.nanoTime() / NANOS_PER_MILLI },
     ) {
         init {
-            require(readyTimeoutMillis > 0 && jobTimeoutMillis > 0)
+            require(readyTimeoutMillis > 0 && jobTimeoutMillis > 0 && lookupCapMillis > 0)
+            // The core's deadline ends before the job timeout, with time left for the reply.
+            require(workerCapMillis in 1 until jobTimeoutMillis && pageCapMillis in 1 until jobTimeoutMillis)
+        }
+
+        internal fun capOf(step: OwnSolverBreaker.Step): Long = when (step) {
+            OwnSolverBreaker.Step.WORKER_P, OwnSolverBreaker.Step.WORKER_B -> workerCapMillis
+            OwnSolverBreaker.Step.PAGE_P, OwnSolverBreaker.Step.PAGE_B -> pageCapMillis
         }
     }
 
@@ -176,6 +197,21 @@ class OwnPlayerScriptRunner(
     /** Player version and step pairs whose signatures passed V, for the process. */
     private val passed = ConcurrentHashMap.newKeySet<String>()
 
+    /**
+     * N5b A.2, guarded by [lock]: the budget memory, per player version and step (keys as the
+     * breaker's, never an input or a value), for the process: the step's last run ended `budget`.
+     * At most [MAX_BUDGETS] keys; the oldest goes first.
+     */
+    private val budgets = LinkedHashMap<String, Budget>()
+
+    /**
+     * [off]: the step is skipped (a full cap ran out, or a short deadline twice in a row); else
+     * one short deadline ran out. [last] is that run as the rule sees it (kinds, counts and
+     * classes only): a skipped step counts as it, without answers, so the ladder still sends the
+     * kinds to the page when that run needed the page.
+     */
+    private class Budget(val off: Boolean, val last: OwnSolverLadderRule.Step)
+
     override fun pendingCheck(request: PlayerScriptRequest): PendingCheck? =
         synchronized(pendingChecks) { pendingChecks.remove(request) }
 
@@ -196,7 +232,7 @@ class OwnPlayerScriptRunner(
         batch: OwnSolverProtocol.Batch,
         next: Next,
     ): PlayerScriptResult {
-        val ladder = lock.withLock { ladder(Ladder(playerId, request, batch), next) }
+        val ladder = lock.withLock { ladder(Ladder(playerId, request, batch, next.clock()), next) }
         lastFailures = ladder.failures.take(MAX_LADDER_FAILURES)
         val resolved = request.challenges.mapNotNull { challenge ->
             val values = when (challenge.kind) {
@@ -227,6 +263,8 @@ class OwnPlayerScriptRunner(
         val playerId: String,
         val request: PlayerScriptRequest,
         val batch: OwnSolverProtocol.Batch,
+        /** N5b A.2: when the lookup started, on [Next.clock]. */
+        val startedAt: Long,
     ) {
         var source: String? = null
         var fetchFailure: SiteExtractionFailure? = null
@@ -299,24 +337,31 @@ class OwnPlayerScriptRunner(
         return LadderResult(rate, signature, signatureStep, state.failures.toList(), state.fetchFailure)
     }
 
-    /** Worker P: the kept prepared program first (rebuilt once from the player if it broke). */
+    /**
+     * Worker P: the kept prepared program first (rebuilt once from the player if it broke; a run
+     * that ran out of time did not break it).
+     */
     private suspend fun workerP(state: Ladder, next: Next): OwnSolverLadderRule.Step? {
         val name = OwnSolverBreaker.Step.WORKER_P
-        val options = OwnSolverProtocol.Options(tripwire = true)
+        if (!next.breaker.allows(state.playerId, name)) return null
+        skipped(state, name)?.let { return it }
         prepared[state.playerId]?.let { program ->
-            if (!next.breaker.allows(state.playerId, name)) return null
+            val deadline = deadline(state, next, name) ?: return null
+            val options = OwnSolverProtocol.Options(tripwire = true, deadlineMillis = deadline)
             val player = OwnSolverProtocol.Player.Prepared(program)
             val input = OwnSolverProtocol.encode(player, state.batch, false, options)
-            val decoded = job(state, next, name, engine, input)
-            if (decoded is OwnSolverProtocol.Decoded.Solved && !decoded.failedWhole) {
+            val decoded = job(state, next, name, engine, input, deadline)
+            if (decoded is OwnSolverProtocol.Decoded.Solved && (!decoded.failedWhole || decoded.budget)) {
                 return record(state, next, name, decoded)
             }
             prepared.remove(state.playerId)
         }
         if (!next.breaker.allows(state.playerId, name)) return null
         val source = source(state) ?: return null
+        val deadline = deadline(state, next, name) ?: return null
+        val options = OwnSolverProtocol.Options(tripwire = true, deadlineMillis = deadline)
         val input = OwnSolverProtocol.encode(OwnSolverProtocol.Player.Raw(source), state.batch, true, options)
-        val decoded = job(state, next, name, engine, input) ?: return null
+        val decoded = job(state, next, name, engine, input, deadline) ?: return null
         (decoded as? OwnSolverProtocol.Decoded.Solved)?.preparedProgram?.let { remember(state.playerId, it) }
         return record(state, next, name, decoded)
     }
@@ -330,10 +375,61 @@ class OwnPlayerScriptRunner(
         options: OwnSolverProtocol.Options,
     ): OwnSolverLadderRule.Step? {
         if (!next.breaker.allows(state.playerId, name)) return null
+        skipped(state, name)?.let { return it }
         val source = source(state) ?: return null
-        val input = OwnSolverProtocol.encode(OwnSolverProtocol.Player.Raw(source), state.batch, false, options)
-        val decoded = job(state, next, name, target, input) ?: return null
+        val deadline = deadline(state, next, name) ?: return null
+        val timed = options.copy(deadlineMillis = deadline)
+        val input = OwnSolverProtocol.encode(OwnSolverProtocol.Player.Raw(source), state.batch, false, timed)
+        val decoded = job(state, next, name, target, input, deadline) ?: return null
         return record(state, next, name, decoded)
+    }
+
+    /**
+     * N5b A.2: a step off for budget does not run; the ladder takes its last run instead, without
+     * answers. Null: the step runs.
+     */
+    private fun skipped(state: Ladder, name: OwnSolverBreaker.Step): OwnSolverLadderRule.Step? {
+        val budget = budgets[OwnSolverBreaker.key(state.playerId, name)]
+        if (budget == null || !budget.off) return null
+        state.failures += "${stepName(name)} budget off"
+        return budget.last.copy(answered = emptySet())
+    }
+
+    /** N5b A.2: the time left in the lookup, in milliseconds (0 or less: none). */
+    private fun left(state: Ladder, next: Next): Long = next.lookupCapMillis - (next.clock() - state.startedAt)
+
+    /**
+     * N5b A.2: [name]'s deadline, min(its cap, the time left in the lookup); null when the lookup
+     * has no time left: the step does not run, nothing is recorded, no breaker.
+     */
+    private fun deadline(state: Ladder, next: Next, name: OwnSolverBreaker.Step): Long? {
+        val left = left(state, next)
+        if (left <= 0) {
+            state.failures += "${stepName(name)} lookup cap"
+            return null
+        }
+        return minOf(next.capOf(name), left)
+    }
+
+    /**
+     * N5b A.2: the budget memory after a run of [name] with [deadline]: [decoded] null (no reply)
+     * or not `budget` starts the count again; `budget` with the full cap turns the step off at
+     * once, with a shorter deadline the second time in a row. A job that never started (ready
+     * timeout) is not a run and does not come here.
+     */
+    private fun noteBudget(
+        state: Ladder,
+        next: Next,
+        name: OwnSolverBreaker.Step,
+        deadline: Long,
+        decoded: OwnSolverProtocol.Decoded?,
+    ) {
+        val key = OwnSolverBreaker.key(state.playerId, name)
+        val before = budgets.remove(key)
+        if (decoded !is OwnSolverProtocol.Decoded.Solved || !decoded.budget) return
+        val off = deadline >= next.capOf(name) || before != null
+        budgets[key] = Budget(off, OwnSolverLadderRule.step(decoded, state.batch))
+        while (budgets.size > MAX_BUDGETS) budgets.remove(budgets.keys.first())
     }
 
     private suspend fun source(state: Ladder): String? {
@@ -349,17 +445,23 @@ class OwnPlayerScriptRunner(
         }
     }
 
-    /** One job with the breaker's marker around it; null when no reply came. */
+    /**
+     * One job with the breaker's marker around it; null when no reply came. The ready wait is
+     * bounded by the time left in the lookup; the job's own timeout is not (a core that ignores
+     * its [deadline] ends in the job timeout and the breaker).
+     */
     private suspend fun job(
         state: Ladder,
         next: Next,
         name: OwnSolverBreaker.Step,
         target: OwnSolverEngine,
         input: String,
+        deadline: Long,
     ): OwnSolverProtocol.Decoded? {
+        val readyMillis = left(state, next).coerceIn(1, next.readyTimeoutMillis)
         next.breaker.begin(state.playerId, name)
         val outcome = try {
-            runEngine(target, input, next)
+            runEngine(target, input, next, readyMillis)
         } finally {
             // Cleared whatever happened (a cancelled lookup too); only a process death leaves it.
             next.breaker.end(state.playerId, name, OwnSolverBreaker.End.DONE)
@@ -368,10 +470,12 @@ class OwnPlayerScriptRunner(
         val text = (outcome as? EngineOutcome.Reply)?.text
         if (text == null) {
             state.failures += "${stepName(name)} ${outcome.label}"
+            if (outcome !is EngineOutcome.NotReady) noteBudget(state, next, name, deadline, null)
             return null
         }
         return OwnSolverProtocol.decode(text, state.batch).also { decoded ->
             if (decoded == null) state.failures += "${stepName(name)} reply"
+            noteBudget(state, next, name, deadline, decoded)
         }
     }
 
@@ -433,9 +537,14 @@ class OwnPlayerScriptRunner(
      * strike); a job that does not finish is a job timeout. An engine that cannot tell has one
      * timeout for both, counted as a job timeout.
      */
-    private suspend fun runEngine(target: OwnSolverEngine, input: String, next: Next): EngineOutcome = coroutineScope {
+    private suspend fun runEngine(
+        target: OwnSolverEngine,
+        input: String,
+        next: Next,
+        readyMillis: Long,
+    ): EngineOutcome = coroutineScope {
         if (!target.reportsReady) {
-            val box = withTimeoutOrNull(next.readyTimeoutMillis + next.jobTimeoutMillis) { Box(target.run(input)) }
+            val box = withTimeoutOrNull(readyMillis + next.jobTimeoutMillis) { Box(target.run(input)) }
             val text = box?.value
             return@coroutineScope when {
                 box == null -> EngineOutcome.JobTimeout
@@ -455,7 +564,7 @@ class OwnPlayerScriptRunner(
             }
         }
         val run = async { target.run(input, events) }
-        val ready = withTimeoutOrNull(next.readyTimeoutMillis) {
+        val ready = withTimeoutOrNull(readyMillis) {
             select<Unit> {
                 started.onAwait { }
                 run.onAwait { }
@@ -554,7 +663,26 @@ class OwnPlayerScriptRunner(
         /** N5b: a fresh WebView loading the app's own page and scripts; no strike when it is slow. */
         const val DEFAULT_READY_TIMEOUT_MILLIS: Long = 20_000
 
+        /**
+         * N5b A.2 caps (owner, 2026-10-13, from A.1's numbers with a phone margin of x4): a
+         * worker step's deadline is the job timeout less 5 s for the reply (the core checks it
+         * every 4096 steps); P's init (20 s) fits with 20 s left for its search.
+         */
+        const val DEFAULT_WORKER_CAP_MILLIS: Long = 40_000
+
+        /**
+         * A page step's deadline, tighter: it runs only for the kinds the workers left, on the
+         * app's shared renderer (provisional; N7 re-tunes it with the phone's numbers).
+         */
+        const val DEFAULT_PAGE_CAP_MILLIS: Long = 35_000
+
+        /** One lookup: P's init budget (20 s) + a worker cap, so B keeps its full cap after P. */
+        const val DEFAULT_LOOKUP_CAP_MILLIS: Long = 60_000
+
+        private const val NANOS_PER_MILLI = 1_000_000L
+
         private const val MAX_PASSED = 64
+        private const val MAX_BUDGETS = 64
         private const val MAX_LADDER_FAILURES = 16
         private val NOT_RUN = OwnSolverLadderRule.Step(emptySet(), null, listOf("not run"))
         private val PAGE_STEPS = listOf(OwnSolverBreaker.Step.PAGE_P, OwnSolverBreaker.Step.PAGE_B)

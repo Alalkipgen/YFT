@@ -78,6 +78,40 @@ class OwnSolverProtocolTest {
     }
 
     @Test
+    fun `a deadline goes in milliseconds when the ladder sets one, never by default, never negative`() {
+        val raw = OwnSolverProtocol.Player.Raw("player")
+        assertNull(BoundedJsonParser.parse(OwnSolverProtocol.encode(raw, batch, false))["deadline_ms"])
+
+        val worker = OwnSolverProtocol.Options(tripwire = true, deadlineMillis = 40_000)
+        val root = BoundedJsonParser.parse(OwnSolverProtocol.encode(raw, batch, true, worker))
+        assertEquals(40_000L, (root["deadline_ms"] as JsonValue.Number).asLong)
+        assertEquals(JsonValue.Bool(true), root["tripwire"])
+
+        val prepared = OwnSolverProtocol.Player.Prepared("program")
+        val none = OwnSolverProtocol.Options(deadlineMillis = 0)
+        val zero = BoundedJsonParser.parse(OwnSolverProtocol.encode(prepared, batch, false, none))
+        assertEquals(0L, (zero["deadline_ms"] as JsonValue.Number).asLong)
+
+        val negative = runCatching { OwnSolverProtocol.Options(deadlineMillis = -1) }.exceptionOrNull()
+        assertTrue(negative is IllegalArgumentException)
+    }
+
+    @Test
+    fun `a run that ran out of time is budget, per kind or whole, and no other failure is`() {
+        fun decoded(failed: String) = OwnSolverProtocol.decode(ScriptedOwnEngine.result(failed = failed), batch)
+            as OwnSolverProtocol.Decoded.Solved
+
+        listOf("n:budget", "sig:budget", "n:budget,sig:budget", "budget", "sig:disagree,n:budget").forEach {
+            assertTrue(it, decoded(it).budget)
+        }
+        assertTrue(decoded("budget").failedWhole)
+        assertFalse(decoded("n:budget,sig:budget").failedWhole)
+        listOf("sig:disagree", "no candidates", "n:budget-x", "timeout").forEach {
+            assertFalse(it, decoded(it).budget)
+        }
+    }
+
+    @Test
     fun `a reply keeps only answers to inputs that were asked`() {
         val reply = ScriptedOwnEngine.result(
             n = mapOf("Qx7rTb2LmNc9Pd4s" to "out1", "extra" to "smuggled"),

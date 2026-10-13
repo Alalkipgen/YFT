@@ -595,6 +595,111 @@ var yftOwnSolver = (function () {
   var P_TIME_EVERY = 4096;
   var pNow = typeof Date === "function" && typeof Date.now === "function" ? Date.now.bind(Date) : function () { return 0; };
 
+  // N5b A.2: the job's deadline. The app sets it per step (min(job cap, the time left in the
+  // lookup): worker steps 40 s, page steps 35 s, lookup 60 s) as `deadline`, milliseconds from the
+  // call of solve, run or runB. P's and B's step counters stop player code at it (checked every
+  // P_TIME_EVERY steps, as P's own time caps), and the core checks it between attempts and
+  // phases. At the deadline only kinds whose requested checks all finished (SelfCheck, and the
+  // tripwire when the job asks for it) keep their answers; the others fail as "<kind>:budget".
+  // Parsing and preparing are not cut, only checked after. Without the field (Phase 1.1, the
+  // computer's plain runs) nothing changes. Tests only: faults.deadline names the phase in which
+  // the deadline passes, as the phase's first player code starts (P: "init", "selfcheck_n",
+  // "selfcheck_sig", "tripwire", "tripwire_n", "tripwire_sig"; B: "instantiate", "screen",
+  // "confirm_n", "solve_n", "confirm_sig", "solve_sig", "tripwire", "tripwire_n", "tripwire_sig").
+  var jobDeadline = null;
+  var DEADLINE = "deadline";
+
+  function deadlineOf(request) {
+    var ms = request.deadline;
+    var given = typeof ms === "number" && ms === ms;
+    var fault = request.faults && typeof request.faults.deadline === "string" ? request.faults.deadline : null;
+    if (!given && fault === null) return null;
+    return { until: given ? pNow() + Math.max(0, ms) : Infinity, fault: fault, armed: false, phase: "start", hit: null, stops: 0 };
+  }
+
+  // [from] with what is left now of [deadline] ms counted from [start] (a copy; [from] itself
+  // when there is no deadline).
+  function remaining(from, deadline, start) {
+    if (typeof deadline !== "number") return from;
+    var copy = {};
+    Object.keys(from).forEach(function (key) {
+      copy[key] = from[key];
+    });
+    copy.deadline = Math.max(0, deadline - Math.max(0, pNow() - start));
+    return copy;
+  }
+
+  // The phase that starts now, for the report and the test fault.
+  function deadlinePhase(phase) {
+    if (!jobDeadline) return;
+    jobDeadline.phase = phase;
+    if (jobDeadline.fault === phase) jobDeadline.armed = true;
+  }
+
+  // Player code starts (an init or an attempt): an armed test fault lets the deadline pass now.
+  function deadlineFault() {
+    if (jobDeadline && jobDeadline.armed) {
+      jobDeadline.armed = false;
+      jobDeadline.until = -Infinity;
+    }
+  }
+
+  // Whether the deadline has passed; once passed it stays passed, whatever the clock does later.
+  function deadlinePassed() {
+    var deadline = jobDeadline;
+    if (!deadline) return false;
+    if (deadline.hit === null && pNow() >= deadline.until) deadline.hit = deadline.phase;
+    return deadline.hit !== null;
+  }
+
+  function deadlineCheck() {
+    if (deadlinePassed()) throw new Failure(DEADLINE);
+  }
+
+  function isDeadline(error) {
+    return error instanceof Failure && error.reason === DEADLINE;
+  }
+
+  // A step counter stops player code: true (and counted for the report) when the deadline is why.
+  function deadlineStop() {
+    if (!deadlinePassed()) return false;
+    jobDeadline.stops += 1;
+    return true;
+  }
+
+  function askedKinds(request) {
+    return KINDS.filter(function (kind) {
+      return (request[kind] || []).some(function (input) {
+        return typeof input === "string" && input.length > 0;
+      });
+    });
+  }
+
+  // A run the deadline cut before any kind finished: every asked kind is "budget".
+  function budgetAll(request) {
+    var kinds = askedKinds(request);
+    if (!kinds.length) return "budget";
+    return kinds.map(function (kind) {
+      return kind + ":budget";
+    }).join(",");
+  }
+
+  // The kinds the deadline cut (or whose tripwire it cut) give no answer and fail as "budget".
+  function deadlineBudget(output, failed, cut) {
+    cut.forEach(function (kind) {
+      output[kind] = {};
+      failed.push(kind + ":budget");
+      var report = output.report[kind] || (output.report[kind] = {});
+      report.status = "failed";
+      report.reason = "budget";
+    });
+  }
+
+  // Report only: the phase the deadline passed in and how often a step counter stopped there.
+  function deadlineReport(output) {
+    if (jobDeadline && jobDeadline.hit !== null) output.report.deadline = { phase: jobDeadline.hit, stops: jobDeadline.stops };
+  }
+
   // Loop-body inserts (B's order: at one position closes before opens, deeper closes first).
   function pLoopInserts(ast) {
     var inserts = [];
@@ -644,8 +749,9 @@ var yftOwnSolver = (function () {
     };
   }
 
-  // The step counter on P's registry: [max] steps and [ms] from now.
+  // The step counter on P's registry: [max] steps and [ms] from now, never past the job's deadline.
   function pBudget(registry, max, ms) {
+    deadlineFault();
     var now = pNow();
     if (registry.steps > registry.peak) registry.peak = registry.steps;
     if (registry.started !== undefined && now - registry.started > registry.peakMs) registry.peakMs = now - registry.started;
@@ -653,6 +759,7 @@ var yftOwnSolver = (function () {
     registry.max = max;
     registry.started = now;
     registry.until = now + ms;
+    if (jobDeadline && jobDeadline.until < registry.until) registry.until = jobDeadline.until;
   }
 
   function pCounter(registry) {
@@ -664,6 +771,7 @@ var yftOwnSolver = (function () {
       registry.steps += 1;
       if (registry.steps > registry.max) throw new RangeError("steps");
       if (registry.steps % P_TIME_EVERY === 0 && pNow() > registry.until) {
+        deadlineStop();
         registry.steps = registry.max + 1;
         throw new RangeError("steps");
       }
@@ -965,6 +1073,15 @@ var yftOwnSolver = (function () {
     return Object.keys(answers || {}).slice(0, TRIPWIRE_INPUTS);
   }
 
+  // N5b A.2: the kinds whose tripwire the deadline cut give no answer (they fail as "budget").
+  function tripwireCut(output, kinds, checked, cut) {
+    kinds.forEach(function (kind) {
+      if (checked.indexOf(kind) >= 0) return;
+      output[kind] = {};
+      cut.push(kind);
+    });
+  }
+
   // A trip: one more init error (class "Tripwire"), and the tripped kinds give no answer.
   function tripwireResult(output, failed, kinds, tripped) {
     output.report.tripwire = { checked: kinds.length, tripped: tripped.slice() };
@@ -979,29 +1096,42 @@ var yftOwnSolver = (function () {
     });
   }
 
-  // P: the answered kinds again on a second instance with other environment values.
-  function pTripwire(prepared, request, output, failed) {
+  // P: the answered kinds again on a second instance with other environment values. A kind whose
+  // check the deadline cut goes to [cut] (N5b A.2: "budget", never a trip).
+  function pTripwire(prepared, request, output, failed, cut) {
     var kinds = KINDS.filter(function (kind) {
       return tripwireSample(output[kind]).length > 0;
     });
     if (!kinds.length) return;
     var tripped = [];
+    var checked = [];
     try {
+      deadlinePhase("tripwire");
+      deadlineCheck();
       var other = instantiate(prepared, tripwireRequest(request));
+      deadlineCheck();
       var builders = pBuilders(other, request);
       kinds.forEach(function (kind) {
+        deadlinePhase("tripwire_" + kind);
+        deadlineCheck();
         var same = tripwireSample(output[kind]).every(function (input) {
           var values = initWrongValues(request, kind, multiTry(kind, builders, input, request.faults || {}).values);
           return values.length === 1 && values[0] === output[kind][input];
         });
+        deadlineCheck();
+        checked.push(kind);
         if (!same) tripped.push(kind);
       });
     } catch (error) {
-      tripped = kinds.slice();
+      if (!isDeadline(error) && !deadlinePassed()) {
+        checked = kinds.slice();
+        tripped = kinds.slice();
+      }
     } finally {
       restoreEnvironment(request);
     }
-    tripwireResult(output, failed, kinds, tripped);
+    tripwireCut(output, kinds, checked, cut);
+    tripwireResult(output, failed, checked, tripped);
   }
 
   function globalScope() {
@@ -1024,6 +1154,7 @@ var yftOwnSolver = (function () {
     try {
       factory(registry);
     } catch (error) {
+      if (deadlinePassed()) throw new Failure(DEADLINE);
       throw new Failure("program:" + errorName(error));
     }
     faultInitError(registry, request);
@@ -1176,6 +1307,7 @@ var yftOwnSolver = (function () {
     var values = [];
     var errors = [];
     candidates.forEach(function (candidate) {
+      if (jobDeadline && deadlinePassed()) return;
       if (candidate.registry) pBudget(candidate.registry, P_CALL_STEPS, P_CALL_MS);
       var t0 = pTiming ? pNow() : 0;
       var gave = 0;
@@ -1896,6 +2028,7 @@ var yftOwnSolver = (function () {
     });
     var registry = { c: [], e: 0, f: [], seen: Object.create(null), steps: 0, max: B_INIT_STEPS, closed: false, meta: prepared.meta || [], named: null };
     registry.k = initErrorRecorder(registry);
+    deadlineFault();
     registry.r = function (fn, id) {
       if (!registry.closed && typeof fn === "function" && !registry.seen[id] && registry.f.length < B_MAX_FUNCTIONS) {
         registry.seen[id] = true;
@@ -1906,6 +2039,10 @@ var yftOwnSolver = (function () {
     registry.s = function () {
       registry.steps += 1;
       if (registry.steps > registry.max) throw new RangeError("steps");
+      if (jobDeadline !== null && registry.steps % P_TIME_EVERY === 0 && deadlineStop()) {
+        registry.steps = registry.max + 1;
+        throw new RangeError("steps");
+      }
     };
     var factory;
     try {
@@ -1952,6 +2089,7 @@ var yftOwnSolver = (function () {
   // [shape]: null for f(input), else constant arguments with the input at [shape.hole]; a chain
   // runs its links in order (each link's result is the next one's input, [fn] is the last link).
   function bCall(registry, fn, input, shape) {
+    deadlineFault();
     registry.steps = 0;
     registry.stepsUsed = 0;
     try {
@@ -2192,6 +2330,7 @@ var yftOwnSolver = (function () {
     var solved = Object.create(null);
     var outputs = [];
     all.forEach(function (input) {
+      if (!reason && jobDeadline && deadlinePassed()) reason = "budget";
       if (reason) return;
       var value = null;
       fns.forEach(function (member) {
@@ -2231,29 +2370,42 @@ var yftOwnSolver = (function () {
     return { answers: answers, reason: reason, solved: answered };
   }
 
-  // B: each solved kind's group again on a second instance with other environment values.
-  function bTripwire(prepared, request, output, failed, groups) {
+  // B: each solved kind's group again on a second instance with other environment values. A kind
+  // whose check the deadline cut goes to [cut] (N5b A.2: "budget", never a trip).
+  function bTripwire(prepared, request, output, failed, groups, cut) {
     var kinds = KINDS.filter(function (kind) {
       return groups[kind] && tripwireSample(output[kind]).length > 0;
     });
     if (!kinds.length) return;
     var tripped = [];
+    var checked = [];
     try {
+      deadlinePhase("tripwire");
+      deadlineCheck();
       var other = bInstantiate(prepared, tripwireRequest(request));
+      deadlineCheck();
       kinds.forEach(function (kind) {
+        deadlinePhase("tripwire_" + kind);
+        deadlineCheck();
         var sample = tripwireSample(output[kind]);
         var result = bSolveKind(kind, groups[kind], other, sample, request);
+        deadlineCheck();
         var same = !result.reason && sample.every(function (input) {
           return result.answers[input] === output[kind][input];
         });
+        checked.push(kind);
         if (!same) tripped.push(kind);
       });
     } catch (error) {
-      tripped = kinds.slice();
+      if (!isDeadline(error) && !deadlinePassed()) {
+        checked = kinds.slice();
+        tripped = kinds.slice();
+      }
     } finally {
       restoreEnvironment(request);
     }
-    tripwireResult(output, failed, kinds, tripped);
+    tripwireCut(output, kinds, checked, cut);
+    tripwireResult(output, failed, checked, tripped);
   }
 
   // Rank signal #1: P's own answer on B's probes (P ran, but its SelfCheck refused one condition).
@@ -2261,11 +2413,13 @@ var yftOwnSolver = (function () {
   // (the shapes P does not know, e.g. a re-wrapped top level), there is no hint and B ranks by
   // data flow, composition and creation order instead. A hint never forces an answer: the group
   // still has to pass confirmation and SelfCheck.
-  function bPHint(playerText) {
+  function bPHint(request) {
     try {
-      var preparedP = prepare(playerText);
+      var start = pNow();
+      var preparedP = prepare(request.player);
       if (!preparedP.ok) return null;
-      var out = run(preparedP, { n: B_N_PROBES.slice(), sig: [SIG_MAP_PROBE, SIG_EDGE_PROBE] });
+      var hint = { n: B_N_PROBES.slice(), sig: [SIG_MAP_PROBE, SIG_EDGE_PROBE] };
+      var out = run(preparedP, remaining(hint, request.deadline, start));
       return { n: (out && out.n) || {}, sig: (out && out.sig) || {} };
     } catch (ignored) {
       return null;
@@ -2289,12 +2443,18 @@ var yftOwnSolver = (function () {
     var output = { n: {}, sig: {}, report: { version: VERSION, strategy: "B", stage: "instantiate" } };
     if (prepared && prepared.info) output.report.prepare = prepared.info;
     bProgressReport = output.report;
+    var outer = jobDeadline;
+    jobDeadline = deadlineOf(request);
     try {
       if (!prepared || !prepared.ok || typeof prepared.program !== "string") throw new Failure("not prepared");
       var ms = {};
       output.report.ms = ms;
+      deadlinePhase("instantiate");
+      deadlineCheck();
       var t0 = bNow();
       var registry = bInstantiate(prepared, request);
+      // A top level the deadline cut may be half set up: no kind and no init count from it.
+      deadlineCheck();
       bFreezeBuiltins(globalScope());
       var t1 = bNow();
       ms.instantiate = t1 - t0;
@@ -2309,6 +2469,7 @@ var yftOwnSolver = (function () {
       output.report.registered = registry.f.length;
       output.report.slowest = slow;
       output.report.stage = "screen";
+      deadlinePhase("screen");
       var templates = prepared.templates || {};
       var shapesTried = 0;
       for (var i = 0; i < registry.f.length; i += 1) {
@@ -2329,6 +2490,8 @@ var yftOwnSolver = (function () {
           ms.screen = bNow() - t1;
           throw new Failure("budget");
         }
+        // A screen the deadline cut misses candidates: every kind is cut (N5b A.2).
+        deadlineCheck();
         screened += 1;
         var s0 = bNow();
         output.report.screened = screened;
@@ -2368,6 +2531,7 @@ var yftOwnSolver = (function () {
         }
       }
       output.report.shapes = shapesTried;
+      deadlineCheck();
       var t2 = bNow();
       ms.screen = t2 - t1;
       output.report.screened = screened;
@@ -2375,6 +2539,8 @@ var yftOwnSolver = (function () {
       output.report.slow = slowCount;
       output.report.slowest = slow;
       var failed = [];
+      // N5b A.2: kinds the deadline cut, or whose tripwire it cut, fail as "budget".
+      var cut = [];
       var solvedGroups = Object.create(null);
       KINDS.forEach(function (kind) {
         var inputs = (request[kind] || []).filter(function (input) {
@@ -2382,14 +2548,25 @@ var yftOwnSolver = (function () {
         });
         if (!inputs.length) return;
         output.report.stage = "confirm_" + kind;
+        deadlinePhase("confirm_" + kind);
+        if (deadlinePassed()) {
+          cut.push(kind);
+          return;
+        }
         var c0 = bNow();
         var confirmed = found[kind].filter(function (candidate) {
+          if (deadlinePassed()) return false;
           var k0 = bNow();
           var kept = bConfirm(prepared, request, candidate);
           candidate.confirmMs = bNow() - k0;
           return kept;
         });
         ms["confirm_" + kind] = bNow() - c0;
+        // A confirmation the deadline cut drops candidates: its groups are not the real ones.
+        if (deadlinePassed()) {
+          cut.push(kind);
+          return;
+        }
         // Fault S4 "decoy": one more confirmed candidate with other outputs (it must make the
         // kind fail, never win).
         if (request.faults && request.faults.decoy === kind && confirmed.length) {
@@ -2447,9 +2624,15 @@ var yftOwnSolver = (function () {
         else if (grouped.total > 1) reason = "disagree";
         if (!reason) {
           output.report.stage = "solve_" + kind;
+          deadlinePhase("solve_" + kind);
           var v0 = bNow();
           var result = bSolveKind(kind, grouped.groups[0], bInstantiate(prepared, request), inputs, request);
           ms["solve_" + kind] = bNow() - v0;
+          // A SelfCheck the deadline cut proves nothing.
+          if (deadlinePassed()) {
+            cut.push(kind);
+            return;
+          }
           reason = result.reason;
           if (!reason) {
             output[kind] = result.answers;
@@ -2464,17 +2647,20 @@ var yftOwnSolver = (function () {
       if (tripwireWanted(request)) {
         output.report.stage = "tripwire";
         var w0 = bNow();
-        bTripwire(prepared, request, output, failed, solvedGroups);
+        bTripwire(prepared, request, output, failed, solvedGroups, cut);
         ms.tripwire = bNow() - w0;
       }
+      deadlineBudget(output, failed, cut);
       if (failed.length) output.failed = failed.join(",");
       output.report.stage = "done";
       delete output.report.current;
     } catch (error) {
-      output.failed = errorName(error);
+      output.failed = isDeadline(error) ? budgetAll(request) : errorName(error);
       output.n = {};
       output.sig = {};
     } finally {
+      deadlineReport(output);
+      jobDeadline = outer;
       allowDyncode();
     }
     return output;
@@ -2483,20 +2669,28 @@ var yftOwnSolver = (function () {
   function run(prepared, request) {
     request = request || {};
     var output = { n: {}, sig: {}, report: { version: VERSION } };
+    var outer = jobDeadline;
+    jobDeadline = deadlineOf(request);
     try {
       if (!prepared || !prepared.ok || typeof prepared.program !== "string") throw new Failure("not prepared");
       // N5b A.1 (report only): init, search, SelfCheck and the tripwire in milliseconds.
       var ms = {};
       output.report.ms = ms;
+      deadlinePhase("init");
+      deadlineCheck();
       var t0 = pNow();
       var registry = instantiate(prepared, request);
       ms.init = pNow() - t0;
+      // A top level the deadline cut may be half set up: no kind and no init count from it.
+      deadlineCheck();
       var builders = pBuilders(registry, request);
       output.report.topLevelErrors = registry.e;
       output.report.topLevelErrorClasses = initErrorClasses(registry);
       output.report.candidates = builders.length;
       if (!builders.length) throw new Failure("no candidate functions");
       var failed = [];
+      // N5b A.2: kinds the deadline cut, or whose tripwire it cut, fail as "budget".
+      var cut = [];
       pTiming = { silent: 0, answering: 0 };
       var t1 = pNow();
       KINDS.forEach(function (kind) {
@@ -2504,7 +2698,17 @@ var yftOwnSolver = (function () {
           return typeof input === "string" && input.length > 0;
         });
         if (!inputs.length) return;
+        deadlinePhase("selfcheck_" + kind);
+        if (deadlinePassed()) {
+          cut.push(kind);
+          return;
+        }
         var result = solveKind(kind, builders, inputs, request);
+        // A SelfCheck the deadline cut proves nothing: an attempt it stopped is a missing vote.
+        if (deadlinePassed()) {
+          cut.push(kind);
+          return;
+        }
         output[kind] = result.answers;
         output.report[kind] = result.report;
         if (result.report.reason) failed.push(kind + ":" + result.report.reason);
@@ -2515,16 +2719,19 @@ var yftOwnSolver = (function () {
       if (tripwireWanted(request)) {
         pTiming = { silent: 0, answering: 0 };
         var t2 = pNow();
-        pTripwire(prepared, request, output, failed);
+        pTripwire(prepared, request, output, failed, cut);
         ms.tripwire = pNow() - t2;
         ms.tripwire_search = Math.min(ms.tripwire, pTiming.silent);
       }
+      deadlineBudget(output, failed, cut);
       if (failed.length) output.failed = failed.join(",");
     } catch (error) {
-      output.failed = errorName(error);
+      output.failed = isDeadline(error) ? budgetAll(request) : errorName(error);
       output.n = {};
       output.sig = {};
     } finally {
+      deadlineReport(output);
+      jobDeadline = outer;
       pTiming = null;
       allowDyncode();
     }
@@ -2533,17 +2740,21 @@ var yftOwnSolver = (function () {
 
   function solve(request) {
     request = request || {};
+    // N5b A.2: the deadline counts from here; the parse is not cut, the run after it checks.
+    var start = pNow();
+    var deadline = request.deadline;
     if (request.strategy === "B") {
       bProgressReport = { version: VERSION, strategy: "B", stage: "prepare" };
       var preparedB = bPrepare(request.player);
       if (!preparedB.ok) return { n: {}, sig: {}, failed: preparedB.failed, report: { version: VERSION, strategy: "B" } };
+      var job = remaining(request, deadline, start);
       // B alone (request.hint === false) never runs P; the ladder may pass the hint on.
-      request.pHint = request.hint === false ? null : bPHint(request.player);
-      return bRun(preparedB, request);
+      job.pHint = request.hint === false ? null : bPHint(job);
+      return bRun(preparedB, remaining(job, deadline, start));
     }
     var prepared = prepare(request.player);
     if (!prepared.ok) return { n: {}, sig: {}, failed: prepared.failed, report: { version: VERSION } };
-    var output = run(prepared, request);
+    var output = run(prepared, remaining(request, deadline, start));
     output.report.prepare = prepared.info;
     return output;
   }

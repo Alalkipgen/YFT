@@ -254,6 +254,30 @@
   measures the stall), lookup 60 s. Added to A.2: a short-deadline `budget` is recorded the second
   time in a row for a `player|step` (definition and tests in plan §3 N5b A.2; weakness in §5).
   Open for N7: §4 "first B run ≤ 10 s" vs A.1 (computer max 8.2 s, ≈ 33 s at ×4).
+- ✅ A.2 Deadline and caps (tests first; flag off = main: Phase 1.1 jobs carry no deadline and
+  the core runs as before). Core: a request's `deadline` (ms from the call of solve / run / runB)
+  bounds P's and B's step counters (checked every 4096 steps, under P's own caps) and is checked
+  between phases and attempts; at the deadline only kinds whose requested checks all finished keep
+  their answers (SelfCheck, and the tripwire when asked), the others fail as `n:budget` /
+  `sig:budget` (never a trip, never an init error); a top level the deadline cut gives no kind and
+  no init count; the report names the phase and the counter's stops (counts only). Wrappers (worker
+  and page frame): job field `deadline_ms`, a whole number ≥ 0 (else `BadJob`), counted from the
+  job's arrival. Kotlin (`ownSolverNext` only): each step's deadline = min(its cap, the time left in
+  the lookup); caps worker 40 s, page 35 s, lookup 60 s from the ladder's start (the player
+  download included). No time left: the step does not run (`<step> lookup cap`; not recorded, no
+  breaker); the ready wait never outlasts the lookup. Budget memory per `player|step` (≤ 64, per
+  process, no breaker): `budget` with the full cap → the step is skipped (`<step> budget off`) and
+  the ladder counts its last run without answers (a run that needed the page still sends the kinds
+  there); with a short deadline only the second time in a row (another result in between starts
+  the count again; a job that never started, a ready timeout, is not a run). A `budget` from the
+  kept program does not break it (no rebuild). Runners: `--ladder` sends the step caps as
+  deadlines (`--no-deadline`: A.1's runs; `STEP_CAPS_MS` in `ladder.mjs` = the Kotlin constants,
+  checked by a test); the lookup cap is the app's alone. Tests: JS 193/193 (185 + 5 step-budget,
+  1 worker, 1 page frame, 1 ladder); Kotlin solver package on a local JVM (JDK 17, kotlinc 2.0.21)
+  61/61 with 9 new ladder-runner tests and 2 protocol tests; 5 code mutations (every budget off,
+  never skip, ready timeout counted, no lookup cap, no in-a-row rule) each fail 1–6 of the new
+  tests. §5: deadline limits (one native call and the parse are not cut; a lookup can run past its
+  cap by the last step's ready wait).
 
 ## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — done, ❌ M9c-nav ladder wrong 1 → N5b (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
 

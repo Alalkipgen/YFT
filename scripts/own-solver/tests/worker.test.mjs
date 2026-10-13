@@ -212,3 +212,28 @@ test("a reply carries the run's init errors: a count and class names only (N5a)"
   assert.equal(bad.init_errors, undefined);
   assert.equal(bad.init_error_classes, undefined);
 });
+
+test("N5b A.2: a job's deadline reaches the core; 0 gives budget, keeps the program, and bad values are bad jobs", () => {
+  const job = { type: "player", keep_prepared: true, player: padded(fakePlayer()), n: N, sig: SIG, tripwire: true };
+  const far = runWorker({ ...job, deadline_ms: 600000 });
+  assert.equal(far.failed, undefined);
+  for (const input of N) assert.equal(far.n[input], expectedN(input));
+  assert.equal(far.sig[SIG[0]], expectedSig(SIG[0]));
+
+  const none = runWorker({ ...job, deadline_ms: 0 });
+  assert.equal(none.failed, "n:budget,sig:budget");
+  assert.deepEqual(none.n, {});
+  assert.deepEqual(none.sig, {});
+  assert.equal(typeof none.prepared_program, "string");
+  assert.equal(none.init_errors, undefined);
+
+  const kept = runWorker({ type: "prepared", program: far.prepared_program, n: N, sig: SIG, deadline_ms: 0 });
+  assert.equal(kept.failed, "n:budget,sig:budget");
+  const b = runWorker({ type: "player", player: padded(fakePlayer()), n: N, sig: SIG, strategy: "B", hint: false, tripwire: true, deadline_ms: 0 });
+  assert.equal(b.failed, "n:budget,sig:budget");
+  assert.deepEqual(b.n, {});
+
+  for (const bad of [-1, 1.5, "40000", null, true, {}]) {
+    assert.deepEqual(runWorker({ ...job, deadline_ms: bad }), { type: "error", error: "BadJob" });
+  }
+});

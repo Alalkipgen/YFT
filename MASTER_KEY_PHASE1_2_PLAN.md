@@ -863,6 +863,14 @@ variant, 2 seeds each):
   `player|step`, that step is skipped until the app restarts (or the entry is evicted, ≤ 64), even
   if it would finish with its full cap. The locator cache makes this rarer (a P hit leaves B its
   full cap).
+- **Deadline limits (N5b A.2):** the deadline stops player code in the step counters (every 4096
+  steps) and between phases; one long native call (a regex backtrack, a huge string or array
+  operation), the parse and P's prepare are not cut. Such a job still ends at the Kotlin job
+  timeout (45 s → breaker). Each deadline counts from the job's arrival, so a lookup can run past
+  its 60 s cap by its last step's ready wait (bounded by the time that was left, ≤ 20 s) plus the
+  reply. If N7 shows long ready waits on the phone, send the deadline when the engine is ready
+  (an engine interface change). The budget memory is per process: after a restart each slow step
+  costs one more full-cap run per player version.
 - **Release gate:** `ownSolverNext` is not enabled in a public release before N8 is done; only the
   owner's test APKs use it.
 - **N8 candidate (⭐⭐⭐⭐):** E in its own process (`android:process=":solver"` +

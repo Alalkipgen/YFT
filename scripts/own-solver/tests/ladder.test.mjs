@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { decide, ladder, lazyLadder, makeStep, needsPage, stepOf } from "../ladder.mjs";
+import { STEP_CAPS_MS, decide, ladder, lazyLadder, makeStep, needsPage, stepOf } from "../ladder.mjs";
 import { solveWithOwn } from "../harness.mjs";
 import { fakePlayer } from "./fake-player.mjs";
 import { padded } from "./solver-context.mjs";
@@ -157,4 +157,21 @@ test("--dyncode counts player eval reads and Function calls at init and later, a
     assert.deepEqual(after.n, before.n, label);
     assert.ok(Object.keys(after.n).length > 0, label);
   }
+});
+
+test("the runners' step caps are the app's (OwnPlayerScriptRunner, N5b A.2)", () => {
+  const kotlin = readFileSync(
+    new URL("../../../extractor-master/src/main/kotlin/com/alal/yft/extractor/master/solver/OwnPlayerScriptRunner.kt", import.meta.url),
+    "utf8",
+  );
+  const millis = (name) => {
+    const match = new RegExp(`const val ${name}: Long = ([0-9_]+)`).exec(kotlin);
+    assert.ok(match, name);
+    return Number(match[1].replaceAll("_", ""));
+  };
+  assert.equal(STEP_CAPS_MS.worker, millis("DEFAULT_WORKER_CAP_MILLIS"));
+  assert.equal(STEP_CAPS_MS.page, millis("DEFAULT_PAGE_CAP_MILLIS"));
+  // Each cap ends before the job timeout, so the core's budget reply comes back in time.
+  assert.ok(STEP_CAPS_MS.worker < millis("DEFAULT_TIMEOUT_MILLIS"));
+  assert.ok(STEP_CAPS_MS.page < millis("DEFAULT_TIMEOUT_MILLIS"));
 });

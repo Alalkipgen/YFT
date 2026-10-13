@@ -21,6 +21,8 @@
 //                    # truth) or off (no page signature)
 //   ... --ladder --phases   # N5b A.1: also wall ms per step on every line, phase times per step
 //                           # and the lookup's time at the end (milliseconds and counts only)
+//   ... --ladder --no-deadline   # N5b A.2: --ladder sends the app's step caps as deadlines
+//                                # (worker 40 s, page 35 s); this drops them
 //
 // It mutates each cached player so the code is WRITTEN differently but DOES the same thing, then
 // measures how often ejs and the own solver's pattern strategy (P) — and, with --strategy B,
@@ -44,7 +46,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import { challenges, settle, solveWithEjs, solveWithOwn, VARIANTS } from "./own-solver/harness.mjs";
-import { ladder } from "./own-solver/ladder.mjs";
+import { STEP_CAPS_MS, ladder } from "./own-solver/ladder.mjs";
 import { addLadder, lookupTable, phaseTable } from "./own-solver/phases.mjs";
 import * as M from "./own-solver/mutate.mjs";
 
@@ -94,6 +96,8 @@ const both = flag("--both") || withLadder;
 // N5b: --ladder sends the environment tripwire as the app's ladder does (--no-tripwire: N5a's runs).
 const skipEjs = flag("--skip-ejs");
 const tripExtra = withLadder && !flag("--no-tripwire") ? { tripwire: true } : {};
+// N5b A.2: --ladder gives each step the app's step cap as its deadline (--no-deadline: A.1's runs).
+const capExtra = (step) => (withLadder && !flag("--no-deadline") ? { deadline: STEP_CAPS_MS[step] } : {});
 if (both && page) {
   console.error("--both and --ladder already run page mode; drop --page");
   process.exit(2);
@@ -266,16 +270,16 @@ for (const file of files) {
       await settle(); // releases the player's unhandled rejections after every solve (see harness.mjs)
       const walls = {};
       stage("own P");
-      const ownOut = withP ? timed(walls, "workerP", () => solveWithOwn(own, mutated, inputs, { ...pageExtra, ...reportExtra, ...tripExtra })) : null;
+      const ownOut = withP ? timed(walls, "workerP", () => solveWithOwn(own, mutated, inputs, { ...pageExtra, ...reportExtra, ...tripExtra, ...capExtra("worker") })) : null;
       await settle();
       stage("own B");
-      const bOut = withB ? timed(walls, "workerB", () => solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false, ...pageExtra, ...tripExtra })) : null;
+      const bOut = withB ? timed(walls, "workerB", () => solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false, ...pageExtra, ...tripExtra, ...capExtra("worker") })) : null;
       await settle();
       stage("page P");
-      const pagePOut = both && withP ? timed(walls, "pageP", () => solveWithOwn(own, mutated, inputs, { page: true, ...reportExtra })) : null;
+      const pagePOut = both && withP ? timed(walls, "pageP", () => solveWithOwn(own, mutated, inputs, { page: true, ...reportExtra, ...capExtra("page") })) : null;
       if (both) await settle();
       stage("page B");
-      const pageBOut = both && withB ? timed(walls, "pageB", () => solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false, page: true })) : null;
+      const pageBOut = both && withB ? timed(walls, "pageB", () => solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false, page: true, ...capExtra("page") })) : null;
       if (both) await settle();
       // Environment classes (M9b/M9bs) are written so that an environment without the DOM gives
       // other values: ejs and a worker agreeing on one is the finding, not a mutator bug. Their

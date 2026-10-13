@@ -198,3 +198,97 @@ test("prepared sizes: P's kept program and B's prepared program, characters only
   assert.ok(b.info.functions > 0);
   assert.equal(prepareBWithOwn(own, "x").ok, false);
 });
+
+// N5b A.2: the job's deadline (`deadline`, milliseconds; tests place it in a phase with
+// faults.deadline). Kinds whose requested checks all finished keep their answers, the rest fail
+// as `budget`; a cut check is never a trip and a cut top level gives no init count.
+const P_WORKER = { report: true };
+const P_PAGE = { report: true, page: true };
+const B_WORKER = { strategy: "B", hint: false };
+const B_PAGE = { strategy: "B", hint: false, page: true };
+const ALL_MODES = [P_WORKER, P_PAGE, B_WORKER, B_PAGE];
+const BUDGET_BOTH = "n:budget,sig:budget";
+
+function budgetKinds(out) {
+  return String(out.failed ?? "").split(",").filter((part) => part.endsWith(":budget")).sort();
+}
+
+test("a deadline far away changes nothing; a deadline of 0 gives every asked kind budget", () => {
+  for (const mode of ALL_MODES) {
+    const label = JSON.stringify(mode);
+    const far = solveWithOwn(own, padded(fakePlayer()), inputs, { ...mode, ...(mode.page ? {} : { tripwire: true }), deadline: 600_000 });
+    for (const input of inputs.n) assert.equal(far.n[input], expectedN(input), label);
+    assert.equal(far.sig[inputs.sig[0]], expectedSig(inputs.sig[0]), label);
+    assert.equal(far.failed, undefined, label);
+    assert.equal(far.report.deadline, undefined, label);
+    const none = solveWithOwn(own, padded(fakePlayer()), inputs, { ...mode, deadline: 0 });
+    assert.deepEqual(none.n, {}, label);
+    assert.deepEqual(none.sig, {}, label);
+    assert.equal(none.failed, BUDGET_BOTH, label);
+    assert.equal(none.report.deadline.phase, mode.strategy ? "instantiate" : "init", label);
+    assert.equal(none.report.topLevelErrors, undefined, label);
+  }
+});
+
+test("a deadline inside the tripwire (worker) gives no answer: budget, never a trip", () => {
+  for (const mode of [P_WORKER, B_WORKER]) {
+    const label = JSON.stringify(mode);
+    const plain = solveWithOwn(own, padded(fakePlayer()), inputs, { ...mode, tripwire: true });
+    const out = solveWithOwn(own, padded(fakePlayer()), inputs, { ...mode, tripwire: true, faults: { deadline: "tripwire" } });
+    assert.deepEqual(out.n, {}, label);
+    assert.deepEqual(out.sig, {}, label);
+    assert.deepEqual(budgetKinds(out), ["n:budget", "sig:budget"], label);
+    assert.equal(out.report.deadline.phase, "tripwire", label);
+    // The same init errors as without the deadline: a cut tripwire adds none.
+    assert.equal(out.report.topLevelErrors, plain.report.topLevelErrors, label);
+    assert.equal(out.report.topLevelErrorClasses.Tripwire, undefined, label);
+  }
+});
+
+test("a deadline inside SelfCheck (page) gives no answer", () => {
+  for (const [mode, phase] of [[P_PAGE, "selfcheck_n"], [B_PAGE, "screen"], [B_PAGE, "confirm_n"], [B_PAGE, "solve_n"]]) {
+    const label = `${JSON.stringify(mode)} ${phase}`;
+    const out = solveWithOwn(own, padded(fakePlayer()), inputs, { ...mode, faults: { deadline: phase } });
+    assert.deepEqual(out.n, {}, label);
+    assert.deepEqual(out.sig, {}, label);
+    assert.equal(out.failed, BUDGET_BOTH, label);
+    assert.equal(out.report.deadline.phase, phase, label);
+  }
+});
+
+test("without the tripwire a worker keeps the kinds whose SelfCheck finished; with it they wait for it", () => {
+  for (const [mode, phase] of [[P_WORKER, "selfcheck_sig"], [B_WORKER, "confirm_sig"], [B_WORKER, "solve_sig"]]) {
+    const label = `${JSON.stringify(mode)} ${phase}`;
+    const kept = solveWithOwn(own, padded(fakePlayer()), inputs, { ...mode, faults: { deadline: phase } });
+    for (const input of inputs.n) assert.equal(kept.n[input], expectedN(input), label);
+    assert.deepEqual(kept.sig, {}, label);
+    assert.equal(kept.failed, "sig:budget", label);
+    const waited = solveWithOwn(own, padded(fakePlayer()), inputs, { ...mode, tripwire: true, faults: { deadline: phase } });
+    assert.deepEqual(waited.n, {}, label);
+    assert.deepEqual(waited.sig, {}, label);
+    assert.deepEqual(budgetKinds(waited), ["n:budget", "sig:budget"], label);
+  }
+  // A deadline in sig's tripwire: n's tripwire finished, so n keeps its answers.
+  for (const mode of [P_WORKER, B_WORKER]) {
+    const label = JSON.stringify(mode);
+    const out = solveWithOwn(own, padded(fakePlayer()), inputs, { ...mode, tripwire: true, faults: { deadline: "tripwire_sig" } });
+    for (const input of inputs.n) assert.equal(out.n[input], expectedN(input), label);
+    assert.deepEqual(out.sig, {}, label);
+    assert.equal(out.failed, "sig:budget", label);
+    assert.equal(out.report.tripwire.checked, 1, label);
+    assert.deepEqual(out.report.tripwire.tripped, [], label);
+  }
+});
+
+test("the step counters stop player code at the deadline (P and B, worker and page)", () => {
+  for (const mode of ALL_MODES) {
+    const label = JSON.stringify(mode);
+    const phase = mode.strategy ? "instantiate" : "init";
+    const started = Date.now();
+    const out = solveWithOwn(own, padded(fakePlayer({ loopInit: true })), inputs, { ...mode, faults: { deadline: phase } });
+    assert.ok(Date.now() - started < 30000, label);
+    assert.equal(out.failed, BUDGET_BOTH, label);
+    assert.equal(out.report.deadline.phase, phase, label);
+    assert.ok(out.report.deadline.stops >= 1, label);
+  }
+});

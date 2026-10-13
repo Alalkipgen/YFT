@@ -7,14 +7,17 @@
  *   job    {"type":"player","keep_prepared":true,"player":"…","n":[…],"sig":[…]}
  *          {"type":"prepared","program":"…","n":[…],"sig":[…]}
  *          N5b fields: "tripwire":true (the environment tripwire), "strategy":"B" with
- *          "hint":true|false (strategy B; from the player text only, never prepared or kept)
+ *          "hint":true|false (strategy B; from the player text only, never prepared or kept),
+ *          "deadline_ms":40000 (N5b A.2: the app's min(job cap, time left in the lookup); it
+ *          counts from the job's arrival and the core gets what is left of it after the parse)
  *   reply  {"type":"result","n":{input:output},"sig":{…},"failed"?:"sig:disagree",
  *           "prepared_program"?:"…"}
  *          {"type":"error","error":"<error class>"}
  *
  * A worker has no document and no navigable location, so nothing the player's code does here can
- * navigate the host page. Only n and sig inputs, the strategy, the hint and the tripwire reach the
- * core: a job cannot switch on the core's test-only fault injection or pass vectors. Replies carry values only for asked inputs, failure
+ * navigate the host page. Only n and sig inputs, the strategy, the hint, the tripwire and the
+ * deadline reach the core: a job cannot switch on the core's test-only fault injection or pass
+ * vectors. Replies carry values only for asked inputs, failure
  * classes and the prepared program; never a message text.
  */
 "use strict";
@@ -24,6 +27,7 @@ var YFT_MAX_INPUTS = 64;
 var yftPost = self.postMessage.bind(self);
 var yftStringify = JSON.stringify;
 var yftParse = JSON.parse;
+var yftNow = typeof Date === "function" && typeof Date.now === "function" ? Date.now.bind(Date) : function () { return 0; };
 
 function yftErrorClass(error) {
   var name = error && typeof error.name === "string" ? error.name : "Error";
@@ -59,21 +63,33 @@ function yftInitErrors(reply, report) {
   reply.init_error_classes = Object.keys(report.topLevelErrorClasses || {}).slice(0, 9);
 }
 
-function yftRunJob(solver, job) {
-  if (!job || (job.type !== "player" && job.type !== "prepared")) {
+// N5b A.2: the job's deadline in milliseconds, a whole number from 0 up; absent: none (Phase 1.1).
+function yftDeadlineOk(job) {
+  var ms = job.deadline_ms;
+  return ms === undefined || (typeof ms === "number" && ms >= 0 && ms !== Infinity && Math.floor(ms) === ms);
+}
+
+// The core's request with what is left of the job's deadline, counted from [received].
+function yftTimed(request, job, received) {
+  if (job.deadline_ms !== undefined) request.deadline = Math.max(0, job.deadline_ms - Math.max(0, yftNow() - received));
+  return request;
+}
+
+function yftRunJob(solver, job, received) {
+  if (!job || (job.type !== "player" && job.type !== "prepared") || !yftDeadlineOk(job)) {
     return { type: "error", error: "BadJob" };
   }
   if (job.strategy === "B") {
     if (job.type !== "player") return { type: "error", error: "BadJob" };
     // B prepares from the player text every time; nothing is kept.
-    var outB = solver.solve({
+    var outB = solver.solve(yftTimed({
       player: String(job.player),
       n: yftInputs(job.n),
       sig: yftInputs(job.sig),
       strategy: "B",
       hint: job.hint === true,
       tripwire: job.tripwire === true,
-    });
+    }, job, received));
     var replyB = { type: "result", n: outB.n || {}, sig: outB.sig || {} };
     if (outB.failed) replyB.failed = String(outB.failed);
     yftInitErrors(replyB, outB.report);
@@ -87,7 +103,7 @@ function yftRunJob(solver, job) {
   if (!prepared.ok) {
     return { type: "result", n: {}, sig: {}, failed: String(prepared.failed || "not prepared") };
   }
-  var output = solver.run(prepared, { n: yftInputs(job.n), sig: yftInputs(job.sig), tripwire: job.tripwire === true });
+  var output = solver.run(prepared, yftTimed({ n: yftInputs(job.n), sig: yftInputs(job.sig), tripwire: job.tripwire === true }, job, received));
   var reply = { type: "result", n: output.n || {}, sig: output.sig || {} };
   if (output.failed) reply.failed = String(output.failed);
   yftInitErrors(reply, output.report);
@@ -98,6 +114,7 @@ function yftRunJob(solver, job) {
 }
 
 self.onmessage = function (event) {
+  var received = yftNow();
   var job = event.data || {};
   var reply;
   try {
@@ -106,7 +123,7 @@ self.onmessage = function (event) {
     var input = yftParse(String(job.input));
     evaluate(String(job.lib));
     evaluate(String(job.core));
-    reply = yftStringify(yftRunJob(self.yftOwnSolver, input));
+    reply = yftStringify(yftRunJob(self.yftOwnSolver, input, received));
   } catch (error) {
     reply = yftStringify({ type: "error", error: yftErrorClass(error) });
   }

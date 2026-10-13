@@ -9,6 +9,11 @@
 // live check (V) of that step's signature passes (N5b: worker signatures too; M9c-nav's worker B
 // gave a wrong signature with no init error). Steps hold kinds, counts and classes only.
 export const LADDER_KINDS = ["n", "sig"];
+// N5b A.2: the app's step caps in ms, sent as each step's deadline by the runners' --ladder
+// (OwnPlayerScriptRunner.DEFAULT_WORKER_CAP_MILLIS and DEFAULT_PAGE_CAP_MILLIS; ladder.test.mjs
+// checks they match). The lookup cap (60 s over all steps) is the app's alone: the runners run
+// every step on its own.
+export const STEP_CAPS_MS = Object.freeze({ worker: 40000, page: 35000 });
 const ENVIRONMENT_CLASSES = new Set(["ReferenceError", "TypeError"]);
 const WORKER_SOURCES = ["P", "B"];
 

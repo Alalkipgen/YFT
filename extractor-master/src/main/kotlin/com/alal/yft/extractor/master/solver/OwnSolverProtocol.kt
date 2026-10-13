@@ -11,8 +11,8 @@ import com.alal.yft.extractor.api.json.get
  * ```
  * job    {"type":"player","keep_prepared":true,"player":"…","n":[…],"sig":[…]}
  *        {"type":"prepared","program":"…","n":[…],"sig":[…]}
- *        N5b (ownSolverNext only): "strategy":"B","hint":false (player text only) and
- *        "tripwire":true (worker only), see [Options]
+ *        N5b (ownSolverNext only): "strategy":"B","hint":false (player text only),
+ *        "tripwire":true (worker only) and "deadline_ms":40000 (A.2), see [Options]
  * reply  {"type":"result","n":{input:output},"sig":{…},"failed":"sig:disagree","prepared_program":"…",
  *         "init_errors":0,"init_error_classes":["TypeError"]}
  *        {"type":"error","error":"<error class>"}
@@ -21,6 +21,10 @@ import com.alal.yft.extractor.api.json.get
  * `init_errors` (Phase 1.2 N5a) counts the player's guarded top-level statements that threw and
  * `init_error_classes` names their classes; a run that never instantiated has neither, which
  * decodes as an unknown count (null): the ladder (OwnSolverLadderRule) does not trust it.
+ *
+ * N5b A.2: at its deadline the core keeps only the kinds whose requested checks all finished; the
+ * others fail as `n:budget` / `sig:budget` (B's own screen cap fails the run as `budget`), see
+ * [Decoded.Solved.budget]. A top level the deadline cut has no init count.
  *
  * The job is encoded by hand so the player text is escaped exactly once. The reply crosses a
  * script-engine boundary, so it goes through the bounded parser and only answers to inputs that
@@ -40,6 +44,9 @@ internal object OwnSolverProtocol {
 
     /** One kind refused by SelfCheck: `n:<reason>` or `sig:<reason>`. */
     private val KIND_FAILURE = Regex("(n|sig):[a-z-]{1,32}")
+
+    /** N5b A.2: the failure class of a run (or a kind) that ran out of time. */
+    private const val BUDGET = "budget"
 
     sealed interface Player {
         /** The player script exactly as YouTube serves it. */
@@ -80,6 +87,14 @@ internal object OwnSolverProtocol {
             /** A failure that is not one kind's: the run as a whole produced nothing usable. */
             val failedWhole: Boolean get() = failures.any { !KIND_FAILURE.matches(it) }
 
+            /**
+             * N5b A.2: the run ran out of time: a kind (`sig:budget`) or the whole run (`budget`,
+             * B's screen cap). Not a broken program: the ladder keeps it and its budget memory
+             * decides whether the step runs again.
+             */
+            val budget: Boolean
+                get() = failures.any { it == BUDGET || it == "$RATE:$BUDGET" || it == "$SIGNATURE:$BUDGET" }
+
             val isEmpty: Boolean get() = rate.isEmpty() && signature.isEmpty()
 
             override fun toString(): String =
@@ -94,14 +109,21 @@ internal object OwnSolverProtocol {
 
     /**
      * Phase 1.2 N5b: what the ladder asks of one job (ownSolverNext only; Phase 1.1 sends none):
-     * strategy B with or without P's hint (from the player text only, nothing kept) and the
-     * environment tripwire (the worker checks it; the page skips it).
+     * strategy B with or without P's hint (from the player text only, nothing kept), the
+     * environment tripwire (the worker checks it; the page skips it) and (A.2) the job's
+     * deadline in milliseconds, min(the step's cap, the time left in the lookup); it counts from
+     * the job's arrival in the worker or the page.
      */
     data class Options(
         val strategyB: Boolean = false,
         val hint: Boolean = false,
         val tripwire: Boolean = false,
-    )
+        val deadlineMillis: Long? = null,
+    ) {
+        init {
+            require(deadlineMillis == null || deadlineMillis >= 0) { "A deadline is not negative" }
+        }
+    }
 
     fun encode(player: Player, batch: Batch, keepPrepared: Boolean, options: Options = Options()): String {
         require(!options.strategyB || player is Player.Raw) { "Strategy B runs from the player text" }
@@ -126,6 +148,7 @@ internal object OwnSolverProtocol {
             appendJsonArray(batch.signatureInputs)
             if (options.strategyB) append(",\"strategy\":\"B\",\"hint\":").append(options.hint)
             if (options.tripwire) append(",\"tripwire\":true")
+            options.deadlineMillis?.let { append(",\"deadline_ms\":").append(it) }
             append('}')
         }
     }
