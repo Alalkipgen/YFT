@@ -256,7 +256,7 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 | N4 | Strategy E: isolated page environment | N3 | Medium–High | Done (`a7c3dd9`) |
 | N4b | Environment-dependent values (M9b/M9bs), init errors by class | N4 | Medium | Built (`bdb45c6`, harness `8140b27`); measured ❌ (worker B: 1 wrong M9bs value; fix: owner decides; §4 note "N4b") |
 | N5a | Ladder rule (init errors in replies, shared case table), runners `--ladder`/`--dyncode`, M9c; app unchanged | N4b | Medium | Done (`a78626f`, CI 38189985242); measured (§4 note "N5a") |
-| N5b | Page-P step budget, circuit breaker, ladder + locator cache wired behind `ownSolverNext` (default off); M9c fixes: V on every signature, environment tripwire | N5a | Medium–High | In progress |
+| N5b | Page-P step budget, circuit breaker, ladder + locator cache wired behind `ownSolverNext` (default off); M9c fixes: V on every signature, environment tripwire | N5a | Medium–High | Done (TEST_SHA `48dd744`, test cycle 22/22 ✅; A.8 V wiring `df9a1e1`, CI 38413760115 ✅) |
 | N6 | Canary workflow (computer) | N1, N3 | Low–Medium | TODO |
 | N7 | Owner live check + runbook update | N4, N5, N6 | Low | TODO |
 
@@ -712,6 +712,9 @@ chose, see A.1) and A.7.
   wrong/missed 0; M9c 33/33 runs done; 448 classes wrong 0.
 - Retest: core JS fix → unit + corpus + faults + the failed class + 21cd2156 es6 + 631d3938 main;
   tripwire or B-search fix → full M9c.
+- **Done (B):** 22/22 result files pass (52 runs, all at TEST_SHA `48dd744`): ladder wrong 0 in
+  every run, corpus = ejs with tripwire false positives 0, faults wrong 0 and missed 0, M9c 33/33,
+  448 classes wrong 0. Numbers in PROGRESS.md (N5b).
 
 **C** — N6 canary workflow → N7 owner phone check (includes the phone margin).
 

@@ -1,6 +1,6 @@
 # YFT Master Extractor backup
 
-## Phase 1.2 — N5b — in progress
+## Phase 1.2 — N5b ladder, breaker, locator cache and V ledger behind `ownSolverNext` — done (TEST_SHA `48dd744`, test cycle 22/22 ✅; A.8 V wiring `df9a1e1`, CI 38413760115 ✅ + checkpoint 38413767701 ✅)
 
 - ⏳ Plan adapted (owner-approved 2026-10-12; plan §3 N5 "Plan adapted (N5a results)"): V on every
   signature, environment tripwire, breaker also for worker jobs / gone renderer / V = fail, then
@@ -517,7 +517,30 @@
   (Phase 1.1: again after each restart); without a pass (unknown: no control, network, budget
   spent) that lookup's signed streams are dropped and only direct streams stay (none left →
   "player script required"). N7 measures P (b) in total, the V request included, on the phone.
-- ⏳ CI for the A.8 commit: waiting (build, validate).
+- ✅ A.8 pushed from this chat as `df9a1e1` (the owner asked; its parent is `8c7fbfa`: Test
+  Agents B and D had pushed their results, no file in common; the tree as computed before the
+  push). CI: build 38413760115 ✅ (R3 drift check ✅), validate 38413767701 ✅; both run the app
+  unit tests, `SiteAdapterYouTubeGuardTest` among them.
+- ✅ **N5b B, the test cycle** (TEST_SHA `48dd744`; `docs/n5b-raw/`, 22 result files, 52 runs, all
+  exit 0, all at TEST_SHA; each Test Agent on 2 CPUs, 4 GB, Node 24.14.1; A.8 changed no JS, so
+  the results hold for `df9a1e1` too):
+  - Test Agent A (5027 s, peak RSS 2428 MB): unit 217/217. Corpus `--ladder`: 32/32, own = ejs
+    260/260, init errors 0/32 in all four steps (tripwire false positives 0), PB+V = ejs 260/260,
+    wrong 0; locator parts 32/32 (P and B, n and sig); hits (max/median) P (a) 412/282 ms, P (b)
+    1744/1525 ms, B 3889/2934 ms, every hit line wrong 0; largest lookup P+B 6.7 s, all four
+    steps 13.5 s. `--hits-only`: not in locators.json 0, wrong 0, P (b) 1753/1425 ms, B
+    3791/2744 ms. Faults: 384 runs, wrong values 0, expected FAILs missed 0. M9b/M9bs: ladder
+    wrong 0 (standalone own B 1 in M9bs, as before).
+  - Test Agent B (3489 s, peak 1746 MB): M9c-loc 11/11 and M9c-mix 11/11 runs, ladder wrong 0
+    (standalone, reported only: page B 1 in M9c-loc; own B 1 and page B 1 in M9c-mix).
+  - Test Agent C (4737 s, peak 2558 MB): M9c-nav 11/11 runs, ladder wrong 0 (standalone: page B 1;
+    main's ejs 1, the known N5a case, plan §5 main candidate list (3)); M1, M1w, M2, M3 ladder
+    wrong 0, standalone 0.
+  - Test Agent D (4449 s, peak 2594 MB): M4, M5, M6, M7, M8, M8t, M9, M10, M11, M11f ladder wrong
+    0, standalone 0.
+  - Pass (plan §3 N5b B): ladder wrong 0 in every run ✅; corpus = ejs, tripwire false positives
+    0 ✅; faults wrong 0 and missed 0 ✅; M9c 33/33 runs ✅; 448 classes wrong 0 ✅. Next: N6
+    (canary workflow), then N7 (the owner's phone check).
 
 ## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — done, ❌ M9c-nav ladder wrong 1 → N5b (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
 
