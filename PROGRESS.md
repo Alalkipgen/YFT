@@ -244,6 +244,16 @@
 - ⏸️ A.1 stop point: hits over 0.5 s (B in (a) and (b), P in (b), P (a) at the edge). Waiting for
   the owner's choice: (1) target (a) only, (2) relax the (b) target, (3) keep B's prepared program
   in memory, (4) prepared program on disk. A.2 waits for the answer.
+- ✅ A.1 decision (owner, 2026-10-13): (1) + (2); option 3 waits for N7; option 4 refused (the
+  locator file stays data only, code from disk never runs). The 0.5 s target is removed. N7 phone
+  targets: P hit in the same process ≤ 2 s, after a restart ≤ 8 s (job sent → reply, without the
+  player download and V, on the phone build; after a restart with the engine's cold start); the
+  main build is recorded separately with no target; B hit is a metric only. Option 3 again only
+  if, at N7, P fails on the current player, B is really used and B hit > 5 s. Caps accepted: job
+  40 s, page 35 s (provisional; §5: a page job can stall the in-app browser up to the cap, N7
+  measures the stall), lookup 60 s. Added to A.2: a short-deadline `budget` is recorded the second
+  time in a row for a `player|step` (definition and tests in plan §3 N5b A.2; weakness in §5).
+  Open for N7: §4 "first B run ≤ 10 s" vs A.1 (computer max 8.2 s, ≈ 33 s at ×4).
 
 ## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — done, ❌ M9c-nav ladder wrong 1 → N5b (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
 

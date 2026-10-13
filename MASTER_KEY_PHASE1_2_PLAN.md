@@ -602,8 +602,8 @@ mirror that environment into the worker; needs a security spike first.
 #### N5b — Final plan for the next cycle (owner-approved, base `f9eaedc`)
 
 Rules: tests first; flag off = main; push only `spike/master-extractor-backup`; never touch main,
-merge, release or tag; never print player text or values. Stop points: A.1 (only if the 0.5 s
-target is missed) and A.7.
+merge, release or tag; never print player text or values. Stop points: A.1 (passed: the owner
+chose, see A.1) and A.7.
 
 **A — Code (one agent, Max reasoning)**
 
@@ -622,20 +622,33 @@ target is missed) and A.7.
   - Choose job cap and lookup cap together: on corpus and 631d3938 M9c-nav, B must finish in the
     time left after P, with a written phone margin factor. Job cap < Kotlin job timeout 45 s minus
     a grace, consistent with P_INIT_MS 20 s and B_SCREEN_MS 40 s. Write the numbers and why.
-  - If a hit is > 0.5 s: stop and ask the owner, with ms numbers: (1) target (a) only; (2) relax
-    the (b) target; (3) keep B's prepared program in memory; (4) prepared program on disk (changes
-    the "locator file = data only" rule of N5b).
+  - A hit was over 0.5 s (numbers in PROGRESS.md), so A.1 stopped and asked: (1) target (a) only;
+    (2) relax the (b) target; (3) keep B's prepared program in memory; (4) prepared program on
+    disk. **Owner, 2026-10-13: (1) + (2).** The 0.5 s target is removed; the phone targets are in
+    §3 N7. (3) waits for N7 (condition there). (4) is refused: the locator file stays data only and
+    code from disk never runs.
 - **A.2 Deadline and caps** (tests first):
   - Core: deadline = min(job cap, time left in the lookup), checked in the P and B step counters.
     At the deadline keep only kinds whose requested checks all finished (SelfCheck always,
     tripwire when the job asks for it); the rest are `budget`. Tighter caps for page steps.
+  - Caps (owner-approved 2026-10-13 from A.1's numbers, phone margin ×4): job cap 40 s (worker
+    steps; Kotlin job timeout 45 s − 5 s grace), page cap 35 s (provisional: re-tuned with N7's
+    phone numbers, §5), lookup cap 60 s (`P_INIT_MS` 20 s + job cap).
   - Kotlin: `budget` memory keyed `player|step` (≤ 64), no breaker, recorded only when the step
     had the full job cap. When the lookup cap runs out, later steps are not run, not recorded, no
     breaker. A core that ignores the deadline still ends in the job timeout → breaker (unchanged).
+  - Short deadline (owner, 2026-10-13): a step whose deadline was below its full cap (job 40 s,
+    page 35 s) because the lookup had less time left, and that ended `budget`, is recorded only the
+    second time in a row for the same `player|step`; once is not recorded. "In a row" =
+    consecutive runs of that `player|step`: a result other than `budget` in between starts the
+    count again; a lookup where the step did not run does not count. All four steps; the same
+    memory (≤ 64), no breaker, gone after a restart (weakness in §5).
   - Tests: deadline inside tripwire (worker) or SelfCheck (page) → 0 answers; `--no-tripwire`
     worker keeps kinds whose SelfCheck finished; all 4 steps slow → the lookup ends inside the cap
     and the next lookup runs the page steps; slow P → B gets a short deadline → `budget` not
-    recorded → the next lookup runs B; full-cap `budget` → recorded → step skipped next lookup.
+    recorded → the next lookup runs B; full-cap `budget` → recorded → step skipped next lookup;
+    two lookups where B gets only a short deadline → the third lookup skips B; short → success →
+    short = not recorded.
 - **A.3** `--judge ladder` in the mutation runner (corpus still judges B alone).
 - **A.4 Locator cache** (behind the flag, tests first): `files/own-solver/locators.json`, ≤ 32
   entries, key player ID + script hash, data only. Cache clean answers only; an M9bs-type wrong is
@@ -682,6 +695,16 @@ target is missed) and A.7.
 - Live check with the opt-in APK (all flags on): YouTube rows equal main's on the parity URLs, no
   throttled rows, terminal cases stay terminal.
 - Update the runbook (§6) for the ladder.
+- **Hit targets (owner, 2026-10-13; replace N5b's 0.5 s):** P hit in the same process ≤ 2 s, P hit
+  after a restart ≤ 8 s. A hit is measured from sending the job to its reply, without the player
+  download and V, on the phone build (the build the app uses first); the hit after a restart
+  includes the engine's cold start. The main build (the fallback) is recorded separately, with no
+  target. B hit is a metric only, no target. (N5b A.1 computer numbers × 4: phone build 1.1 s /
+  5.4 s, main build 1.9 s / 7.6 s.)
+- **Option 3 again** (B's prepared program in memory, N5b A.1) only if, on the current YouTube
+  player, P fails and B is really used, and B hit > 5 s.
+- **Page cap:** measure how long the in-app browser stalls while a page job runs; re-tune the
+  provisional page cap (35 s, N5b A.2) with the phone numbers (§5).
 - **Done:** the owner's results are recorded; the board shows N1–N7 with shas.
 
 ## 4. Pass criteria (Phase 1.2 done)
@@ -693,8 +716,9 @@ target is missed) and A.7.
   - own ladder with simulated V: ≥ 95 % of the M1–M9 cases;
   - in every class where ejs is below 100 %, the own ladder survives more cases than ejs.
 - **Faults** (the Phase 1.1 set + decoys): 0 wrong, 0 missed.
-- **Speed on the phone:** the P path is unchanged; the first B run on a new player version ≤ 10 s;
-  a locator cache hit ≤ 0.5 s.
+- **Speed on the phone:** the P path is unchanged; the first B run on a new player version ≤ 10 s
+  (N5b A.1: computer max 8.2 s, ≈ 33 s at the ×4 margin; open for N7); a locator cache hit: P ≤ 2 s
+  in the same process, ≤ 8 s after a restart, B a metric only (§3 N7; replaces 0.5 s).
 - **Live:** as Phase 1.1 §4, with all flags on.
 - **Flag off = main;** CI + `MasterMainMoreSheetTest` green.
 
@@ -832,6 +856,13 @@ variant, 2 seeds each):
   in-app browser too) until it ends or the process restarts. Main's browser WebViews
   (SecureBrowserWebViewClient, BrowserScreen, PopupWindowCatcher, SiteCheckDialog) do not handle
   `onRenderProcessGone`: if the renderer dies, the app process dies with it.
+- **Page job stalls the in-app browser (UX, N5b A.2):** a page step runs on the app's shared
+  renderer main thread, so one page job can hold the in-app browser up to the page cap (35 s,
+  provisional). N7 measures the stall on the phone and the cap is re-tuned with those numbers.
+- **Short-deadline `budget` memory (N5b A.2):** after two short-deadline `budget`s in a row for a
+  `player|step`, that step is skipped until the app restarts (or the entry is evicted, ≤ 64), even
+  if it would finish with its full cap. The locator cache makes this rarer (a P hit leaves B its
+  full cap).
 - **Release gate:** `ownSolverNext` is not enabled in a public release before N8 is done; only the
   owner's test APKs use it.
 - **N8 candidate (⭐⭐⭐⭐):** E in its own process (`android:process=":solver"` +
