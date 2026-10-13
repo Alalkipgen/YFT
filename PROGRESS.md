@@ -387,6 +387,99 @@
 - ✅ A.6 docs: plan §3 N5b A.4/A.5 "Done" and "Plan adapted", §5 new entries (work the step
   budget cannot see → N8, locator cache, caps and why, B prepared program status, M9c-nav gap,
   V wiring in the app, main candidate list).
+- ✅ A.7 push: this chat's pushes were blocked by its safety check (4 tries), so the owner had
+  another agent apply this chat's patch on `e9e4a6b` and push it as `48dd744` (25 files; tree
+  `290b374`, the same as the local tree here).
+- ✅ CI for `48dd744` (A.4–A.6): build 38354883911 ✅, validate 38354887223 ✅.
+- 🧪 **TEST_SHA `48dd744debcdaba0d2112cf801f8dfbe913fda8e`** (A.7; the next test cycle, plan §3 N5b
+  B). Four Test Agents, each on its own computer (≥ 4 GB RAM, 2 CPUs are enough, Node ≥ 22,
+  network to www.youtube.com), each with its own result file
+  `test-results/n5b-a7-agent-<a|b|c|d>.md`: commit only that file on the branch head (docs may
+  follow TEST_SHA) and push only to this branch (a `.md` push starts no CI; never main, merge,
+  release or tag). Kotlin and Android: the CI runs above,
+  nothing to run. Rules: one heavy run at a time; no code fixes; a failed check (exit 1) is
+  recorded and the list goes on; any other non-zero exit (out of memory, a timeout, an
+  infrastructure error) stops the list: record it. Never print or commit player text, solver
+  inputs or outputs, stream URLs, corpus hashes or a run's stderr (`.err`). Record per command:
+  the command, exit code, seconds, peak RSS and its summary lines (`grep -vE '^[0-9a-f]{8} '
+  <log>` for `verify-own-solver.mjs`, `sed -n '/^class /,$p' <log>` for the mutation runner).
+  - Every Test Agent first (the mutation runner silently uses cached players only; copy the code
+    blocks without this list's 4-space indent):
+    ```
+    git clone https://github.com/Alalkipgen/YFT && cd YFT
+    git checkout --detach 48dd744debcdaba0d2112cf801f8dfbe913fda8e
+    node scripts/verify-own-solver.mjs > fetch.log 2> fetch.err; echo "exit $?"   # 0
+    grep -vE '^[0-9a-f]{8} ' fetch.log         # "32/32 files pass"
+    ls build/own-solver/players | wc -l        # 32
+    ```
+    Then write the agent's `list.txt` below (one command per line) and run it with
+    `nohup ./run-list.sh list.txt logs > /dev/null 2>&1 &`; `logs/summary.txt` gets one line per
+    command (`NN exit E peak_rss_mb M seconds S | command`), then `done` (or `STOP`):
+    ```
+    cat > run-list.sh <<'SH'
+    #!/bin/bash
+    # run-list.sh <list> <dir>: each line in order, one at a time; stdout -> <dir>/NN.log,
+    # stderr -> <dir>/NN.log.err (never print it); stops after an exit other than 0 or 1.
+    list=$1; dir=$2; mkdir -p "$dir"; n=0
+    while IFS= read -r cmd; do
+      [ -z "$cmd" ] && continue; n=$((n + 1)); id=$(printf %02d $n); log="$dir/$id.log"; t=$SECONDS
+      bash -c "exec $cmd" > "$log" 2> "$log.err" < /dev/null & pid=$!; peak=0
+      while kill -0 $pid 2> /dev/null; do
+        h=$(awk '/VmHWM/{print $2}' /proc/$pid/status 2> /dev/null)
+        [ -n "$h" ] && [ "$h" -gt "$peak" ] && peak=$h; sleep 1
+      done
+      wait $pid; code=$?
+      echo "$id exit $code peak_rss_mb $((peak / 1024)) seconds $((SECONDS - t)) | $cmd" >> "$dir/summary.txt"
+      [ $code -gt 1 ] && { echo STOP >> "$dir/summary.txt"; exit 1; }
+    done < "$list"
+    echo done >> "$dir/summary.txt"
+    SH
+    chmod +x run-list.sh
+    ```
+  - **Test Agent A** (≈ 90 min): unit → corpus (miss + hit) → faults (with the cache hit) →
+    M9b/M9bs. Expect: 01 `# pass 217`, `# fail 0`; 02 32/32 pass, init errors 0/32 in all four
+    steps, PB+V = ejs 260/260, wrong 0, locator parts 32/32 for P and B, each hit line wrong 0
+    (A.4 here: P (a) 394/286 ms, P (b) 2236/1516, B 4298/2951); 03 not in locators.json 0, wrong
+    0; 04 wrong values 0, expected FAILs missed 0, "cached parts sent N, hit M" per fault; 05
+    exit 0 = ladder wrong 0 (standalone wrong values are reported only; N5b: own B 1 in M9bs).
+    ```
+    cat > list.txt <<'LIST'
+    node --test --test-reporter=tap extractor-master-android/src/test/js/capture.test.cjs extractor-master-android/src/test/js/codecs.test.cjs extractor-master-android/src/test/js/mse.test.cjs scripts/own-solver/tests/harness.test.mjs scripts/own-solver/tests/core-prepare.test.mjs scripts/own-solver/tests/core-run.test.mjs scripts/own-solver/tests/core-selfcheck.test.mjs scripts/own-solver/tests/worker.test.mjs scripts/own-solver/tests/canary.test.mjs scripts/own-solver/tests/mutate.test.mjs scripts/own-solver/tests/core-strategy-b.test.mjs scripts/own-solver/tests/page-env.test.mjs scripts/own-solver/tests/init-errors.test.mjs scripts/own-solver/tests/ladder.test.mjs scripts/own-solver/tests/tripwire.test.mjs scripts/own-solver/tests/step-budget.test.mjs scripts/own-solver/tests/locator.test.mjs
+    node scripts/verify-own-solver.mjs --ladder
+    node scripts/verify-own-solver.mjs --hits-only
+    node scripts/verify-own-solver.mjs --ladder --faults
+    node scripts/verify-own-solver-mutations.mjs --class M9b,M9bs --strategy P,B --ladder --judge ladder
+    LIST
+    ```
+  - **Test Agent B** (≈ 60 min; N5b: loc 11 runs 1338 s, mix 1860 s): M9c-loc 11 → M9c-mix 11,
+    one process per player, 631d3938 one per variant (22 lines). Its `list.txt`:
+    ```
+    R="--strategy P,B --ladder --judge ladder"; M="node scripts/verify-own-solver-mutations.mjs"
+    for C in M9c-loc M9c-mix; do
+      for P in 74edf1a3 901741ab e7573094 9fcf08e8 21cd2156 76ad2fe8 5203c085; do echo "$M --class $C --only $P $R"; done
+      for V in main tce es6 phone; do echo "$M --class $C --only 631d3938 --variant $V $R"; done
+    done > list.txt
+    ```
+  - **Test Agent C** (≈ 80 min; N5a/N5b: M9c-nav ≈ 2700 s, then 1767 s): M9c-nav 11 as Test
+    Agent B's, with `--skip-ejs` on the 631d3938 main line only (main's ejs runs out of heap
+    there, plan §5), then 448 part 1, one class per process (15 lines). Its `list.txt`:
+    ```
+    R="--strategy P,B --ladder --judge ladder"; M="node scripts/verify-own-solver-mutations.mjs"
+    { for P in 74edf1a3 901741ab e7573094 9fcf08e8 21cd2156 76ad2fe8 5203c085; do echo "$M --class M9c-nav --only $P $R"; done
+      echo "$M --class M9c-nav --only 631d3938 --variant main --skip-ejs $R"
+      for V in tce es6 phone; do echo "$M --class M9c-nav --only 631d3938 --variant $V $R"; done
+      for C in M1 M1w M2 M3; do echo "$M --class $C $R"; done; } > list.txt
+    ```
+  - **Test Agent D** (≈ 80 min; N5b: 4527 s): 448 part 2, one class per process (10 lines). Its
+    `list.txt`:
+    ```
+    R="--strategy P,B --ladder --judge ladder"; M="node scripts/verify-own-solver-mutations.mjs"
+    for C in M4 M5 M6 M7 M8 M8t M9 M10 M11 M11f; do echo "$M --class $C $R"; done > list.txt
+    ```
+  - Pass (plan §3 N5b B): ladder wrong 0 in every run; corpus = ejs with tripwire false positives
+    0; faults wrong 0 and missed 0; M9c 33/33 runs done; 448 classes wrong 0. Each result file
+    ends with ✅ or ❌ per item and the totals (runs, seconds, largest peak RSS). Retest after a
+    fix: plan §3 N5b B.
 
 ## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — done, ❌ M9c-nav ladder wrong 1 → N5b (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
 

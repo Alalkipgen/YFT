@@ -688,6 +688,7 @@ chose, see A.1) and A.7.
     program (option 3)", "M9c-nav gap", "Main candidate list" and "V wiring in the app".
 - **A.7** All tests pass → push → CI ✅ → TEST_SHA in PROGRESS.md with the exact commands for each
   Test Agent A–D → ✅/❌ report (command + summary + exit code, CI id + sha + TEST_SHA) → stop.
+  - **Done (A.7):** TEST_SHA `48dd744` with the Test Agents' lists and result files in PROGRESS.md.
 
 **B — Test (Test Agents A–D, Medium; each on its own computer with its own result file; exact TEST_SHA;
 ≈ 80 min each by N5b times)**
