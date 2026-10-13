@@ -3,6 +3,7 @@ package com.alal.yft.extractor.master.solver
 import com.alal.yft.extractor.api.json.BoundedJsonParser
 import com.alal.yft.extractor.api.json.JsonValue
 import com.alal.yft.extractor.api.json.get
+import com.alal.yft.extractor.master.solver.OwnSolverLocator.appendLocator
 
 /**
  * Phase 1.1 S5: the JSON job and reply of Master's own solver worker
@@ -12,9 +13,11 @@ import com.alal.yft.extractor.api.json.get
  * job    {"type":"player","keep_prepared":true,"player":"…","n":[…],"sig":[…]}
  *        {"type":"prepared","program":"…","n":[…],"sig":[…]}
  *        N5b (ownSolverNext only): "strategy":"B","hint":false (player text only),
- *        "tripwire":true (worker only) and "deadline_ms":40000 (A.2), see [Options]
+ *        "tripwire":true (worker only), "deadline_ms":40000 (A.2) and "locator":{} or
+ *        {"v":1,"n":{…},"sig":{…}} (A.4, worker only), see [Options]
  * reply  {"type":"result","n":{input:output},"sig":{…},"failed":"sig:disagree","prepared_program":"…",
- *         "init_errors":0,"init_error_classes":["TypeError"]}
+ *         "init_errors":0,"init_error_classes":["TypeError"],
+ *         "locator":{"v":1,"n":{…},"sig":{…}},"locator_hit":["n","sig"]}
  *        {"type":"error","error":"<error class>"}
  * ```
  *
@@ -25,6 +28,11 @@ import com.alal.yft.extractor.api.json.get
  * N5b A.2: at its deadline the core keeps only the kinds whose requested checks all finished; the
  * others fail as `n:budget` / `sig:budget` (B's own screen cap fails the run as `budget`), see
  * [Decoded.Solved.budget]. A top level the deadline cut has no init count.
+ *
+ * N5b A.4: a job with a locator ([Options.locator], data only, see [OwnSolverLocator]) asks the
+ * core for its parts: the reply's `locator` holds a part per kind it answered cleanly and
+ * `locator_hit` the kinds a sent part answered. A reply locator not exactly of the core's form is
+ * ignored.
  *
  * The job is encoded by hand so the player text is escaped exactly once. The reply crosses a
  * script-engine boundary, so it goes through the bounded parser and only answers to inputs that
@@ -39,6 +47,7 @@ internal object OwnSolverProtocol {
     private const val MAX_FAILURES = 8
     private const val MAX_FAILURE_CHARS = 64
     private const val MAX_INIT_ERROR_CLASSES = 9
+    private const val MAX_HITS = 2
     private const val RATE = "n"
     private const val SIGNATURE = "sig"
 
@@ -83,6 +92,10 @@ internal object OwnSolverProtocol {
             val initErrors: Int? = null,
             /** Their classes (`TypeError`), at most nine names; never a message. */
             val initErrorClasses: List<String> = emptyList(),
+            /** N5b A.4: the core's parts (locate mode only); null: none, or not of the core's form. */
+            val locator: OwnSolverLocator.Parts? = null,
+            /** N5b A.4: the kinds a sent part answered (the core's `locator_hit`). */
+            val locatorHits: Set<OwnSolverLadderRule.Kind> = emptySet(),
         ) : Decoded {
             /** A failure that is not one kind's: the run as a whole produced nothing usable. */
             val failedWhole: Boolean get() = failures.any { !KIND_FAILURE.matches(it) }
@@ -100,7 +113,8 @@ internal object OwnSolverProtocol {
             override fun toString(): String =
                 "Solved(rate=${rate.size}, signature=${signature.size}, " +
                     "prepared=${preparedProgram != null}, failures=$failures, " +
-                    "initErrors=$initErrors, initErrorClasses=$initErrorClasses)"
+                    "initErrors=$initErrors, initErrorClasses=$initErrorClasses, " +
+                    "locator=${locator != null}, locatorHits=$locatorHits)"
         }
 
         /** The worker could not run the core at all. */
@@ -112,16 +126,22 @@ internal object OwnSolverProtocol {
      * strategy B with or without P's hint (from the player text only, nothing kept), the
      * environment tripwire (the worker checks it; the page skips it) and (A.2) the job's
      * deadline in milliseconds, min(the step's cap, the time left in the lookup); it counts from
-     * the job's arrival in the worker or the page.
+     * the job's arrival in the worker or the page. A.4: [locator] (worker steps only; the page
+     * refuses the field) asks for the core's parts and sends the cached ones, of the job's
+     * strategy; empty parts: locate only.
      */
     data class Options(
         val strategyB: Boolean = false,
         val hint: Boolean = false,
         val tripwire: Boolean = false,
         val deadlineMillis: Long? = null,
+        val locator: OwnSolverLocator.Parts? = null,
     ) {
         init {
             require(deadlineMillis == null || deadlineMillis >= 0) { "A deadline is not negative" }
+            require(locator == null || listOfNotNull(locator.rate, locator.signature).all { it.isB == strategyB }) {
+                "A job's parts are of its strategy"
+            }
         }
     }
 
@@ -149,6 +169,10 @@ internal object OwnSolverProtocol {
             if (options.strategyB) append(",\"strategy\":\"B\",\"hint\":").append(options.hint)
             if (options.tripwire) append(",\"tripwire\":true")
             options.deadlineMillis?.let { append(",\"deadline_ms\":").append(it) }
+            options.locator?.let {
+                append(",\"locator\":")
+                appendLocator(it)
+            }
             append('}')
         }
     }
@@ -178,6 +202,8 @@ internal object OwnSolverProtocol {
                     .mapNotNull { (it as? JsonValue.Text)?.value?.let { text -> failureClass(text) } }
                     .filter(String::isNotEmpty)
                     .take(MAX_INIT_ERROR_CLASSES),
+                locator = OwnSolverLocator.decode(root["locator"]),
+                locatorHits = hitsOf(root["locator_hit"]),
             )
 
             else -> null
@@ -192,6 +218,19 @@ internal object OwnSolverProtocol {
                 ?.takeIf(String::isNotEmpty)
                 ?.let { input to it }
         }.toMap()
+    }
+
+    /** N5b A.4: the kinds named in `locator_hit` ("n", "sig"); anything else names none. */
+    private fun hitsOf(node: JsonValue?): Set<OwnSolverLadderRule.Kind> {
+        val items = (node as? JsonValue.Array)?.items ?: return emptySet()
+        if (items.size > MAX_HITS) return emptySet()
+        return items.mapNotNull { item ->
+            when ((item as? JsonValue.Text)?.value) {
+                RATE -> OwnSolverLadderRule.Kind.RATE
+                SIGNATURE -> OwnSolverLadderRule.Kind.SIGNATURE
+                else -> null
+            }
+        }.toSet()
     }
 
     /** A whole, non-negative count; a huge one stays a positive count, anything else is unknown. */

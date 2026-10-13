@@ -84,7 +84,8 @@
 
   // The worker's job runner (own-solver-worker.js yftRunJob) with the core in page mode.
   function runJob(solver, job, received) {
-    if (!job || (job.type !== "player" && job.type !== "prepared") || !deadlineOk(job)) {
+    // N5b A.4: page steps run in full every time; the locator cache is the worker steps' only.
+    if (!job || (job.type !== "player" && job.type !== "prepared") || !deadlineOk(job) || job.locator !== undefined) {
       return { type: "error", error: "BadJob" };
     }
     // N5b: strategy B in the page (from the player text, nothing kept); no tripwire here, the

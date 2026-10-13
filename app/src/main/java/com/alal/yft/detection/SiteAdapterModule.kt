@@ -19,8 +19,11 @@ import com.alal.yft.extractor.api.SiteExtractorRegistry
 import com.alal.yft.extractor.master.android.solver.SharedPreferencesBreakerMarkers
 import com.alal.yft.extractor.master.android.solver.WebViewOwnSolverEngine
 import com.alal.yft.extractor.master.android.solver.WebViewPageSolverEngine
+import com.alal.yft.extractor.master.solver.AtomicTextFile
 import com.alal.yft.extractor.master.solver.OwnPlayerScriptRunner
 import com.alal.yft.extractor.master.solver.OwnSolverBreaker
+import com.alal.yft.extractor.master.solver.OwnSolverLocators
+import com.alal.yft.extractor.master.solver.OwnSolverVLedger
 import com.alal.yft.extractor.master.solver.OwnSolverSelection
 import com.alal.yft.extractor.sites.facebook.FacebookExtractor
 import com.alal.yft.extractor.sites.instagram.InstagramExtractor
@@ -34,6 +37,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import java.io.File
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -94,11 +98,19 @@ object SiteAdapterModule {
                 OwnPlayerScriptRunner(
                     http = http,
                     engine = WebViewOwnSolverEngine(context),
-                    // Phase 1.2 N5b: the ladder only with -Pyft.ownSolverNext (debug builds).
+                    // Phase 1.2 N5b: the ladder only with -Pyft.ownSolverNext (debug builds). A.4/A.5:
+                    // the locator cache and the V ledger in app-private files (data only; each
+                    // file is found on first use, off this thread).
                     next = if (BuildConfig.OWN_SOLVER_NEXT_ENABLED) {
                         OwnPlayerScriptRunner.Next(
                             page = WebViewPageSolverEngine(context),
                             breaker = OwnSolverBreaker(SharedPreferencesBreakerMarkers(context)),
+                            locators = OwnSolverLocators(
+                                AtomicTextFile { File(context.filesDir, OWN_SOLVER_LOCATORS_FILE) },
+                            ),
+                            ledger = OwnSolverVLedger(
+                                AtomicTextFile { File(context.filesDir, OWN_SOLVER_V_LEDGER_FILE) },
+                            ),
                         )
                     } else {
                         null
@@ -190,6 +202,10 @@ object SiteAdapterModule {
 
     private const val YOUTUBE_ADAPTER_ID = "youtube"
     private const val PLAYER_FETCH_TIMEOUT_SECONDS = 60L
+
+    /** N5b A.4/A.5 (ownSolverNext only), under `filesDir`: data only, never code. */
+    private const val OWN_SOLVER_LOCATORS_FILE = "own-solver/locators.json"
+    private const val OWN_SOLVER_V_LEDGER_FILE = "own-solver/v-ledger.json"
 }
 
 /** The WebView's own user agent (the tab's, without the WebView marks), read once on Main. */

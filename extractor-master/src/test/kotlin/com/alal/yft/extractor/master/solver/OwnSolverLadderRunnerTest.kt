@@ -29,6 +29,8 @@ class OwnSolverLadderRunnerTest {
         assertEquals(1, worker.inputs.size)
         assertTrue("tripwire" !in worker.inputs.single())
         assertNull(worker.jobs.single().deadlineMillis)
+        // N5b A.4: no locator either.
+        assertTrue("locator" !in worker.inputs.single())
         assertNull(runner.pendingCheck(request))
     }
 
@@ -45,11 +47,11 @@ class OwnSolverLadderRunnerTest {
         assertEquals(1, worker.inputs.size)
         assertTrue(worker.inputs.single().contains("\"tripwire\":true"))
         assertTrue(page.inputs.isEmpty())
-        assertEquals(PendingCheck(PLAYER, Step.WORKER_P), runner.pendingCheck(request))
+        assertEquals(checked(Step.WORKER_P), runner.pendingCheck(request))
         assertNull(runner.pendingCheck(request))
 
         // A pass is kept per player version and step: the next answer needs no V, from the kept program.
-        runner.record(PendingCheck(PLAYER, Step.WORKER_P), SignatureVerdicts.Verdict.PASS)
+        runner.record(checked(Step.WORKER_P), SignatureVerdicts.Verdict.PASS)
         val again = request()
         assertTrue(runner.resolve(again) is PlayerScriptResult.Success)
         assertNull(runner.pendingCheck(again))
@@ -71,7 +73,7 @@ class OwnSolverLadderRunnerTest {
         assertTrue(b.contains("\"strategy\":\"B\",\"hint\":false"))
         assertTrue(b.contains("\"tripwire\":true"))
         assertEquals("player", worker.jobs[1].type)
-        assertEquals(PendingCheck(PLAYER, Step.WORKER_B), runner.pendingCheck(request))
+        assertEquals(checked(Step.WORKER_B), runner.pendingCheck(request))
     }
 
     @Test
@@ -87,7 +89,7 @@ class OwnSolverLadderRunnerTest {
             assertEquals(2, page.inputs.size)
             assertTrue(page.inputs.none { it.contains("tripwire") })
             assertTrue(page.inputs[1].contains("\"strategy\":\"B\""))
-            assertEquals(PendingCheck(PLAYER, Step.PAGE_B), runner.pendingCheck(request))
+            assertEquals(checked(Step.PAGE_B), runner.pendingCheck(request))
         }
 
     @Test
@@ -150,7 +152,7 @@ class OwnSolverLadderRunnerTest {
         val second = request()
         runner.resolve(second)
         assertTrue(worker.jobs.drop(2).all { it.isB })
-        assertEquals(PendingCheck(PLAYER, Step.WORKER_B), runner.pendingCheck(second))
+        assertEquals(checked(Step.WORKER_B), runner.pendingCheck(second))
     }
 
     @Test
@@ -192,7 +194,7 @@ class OwnSolverLadderRunnerTest {
         val result = runner.resolve(second) as PlayerScriptResult.Success
         assertEquals(ScriptedOwnEngine.rate(RATE), result.resolved["n-18"])
         assertTrue(worker.jobs.last().isB)
-        assertEquals(PendingCheck(PLAYER, Step.WORKER_B), runner.pendingCheck(second))
+        assertEquals(checked(Step.WORKER_B), runner.pendingCheck(second))
     }
 
     @Test
@@ -204,7 +206,7 @@ class OwnSolverLadderRunnerTest {
         runner.record(requireNotNull(runner.pendingCheck(first)), SignatureVerdicts.Verdict.UNKNOWN)
         val second = request()
         runner.resolve(second)
-        assertEquals(PendingCheck(PLAYER, Step.WORKER_P), runner.pendingCheck(second))
+        assertEquals(checked(Step.WORKER_P), runner.pendingCheck(second))
     }
 
     @Test
@@ -289,7 +291,7 @@ class OwnSolverLadderRunnerTest {
         assertTrue(runner.lastFailures.contains("P budget off"))
         assertEquals(listOf<Long?>(40_000, 20_000, 40_000), deadlines(worker))
         assertTrue(worker.jobs.last().isB)
-        assertEquals(PendingCheck(PLAYER, Step.WORKER_B), runner.pendingCheck(second))
+        assertEquals(checked(Step.WORKER_B), runner.pendingCheck(second))
     }
 
     @Test
@@ -458,6 +460,9 @@ class OwnSolverLadderRunnerTest {
     }
 
     private fun deadlines(engine: StepEngine): List<Long?> = engine.jobs.map { it.deadlineMillis }
+
+    /** N5b A.5: the V a step's signatures need here: this player text, no locator part used. */
+    private fun checked(step: Step) = PendingCheck(PLAYER, step, OwnSolverLocator.sha256Hex(PLAYER_TEXT))
 
     private fun players() = FakeExtractorHttpClient(
         responses = mapOf(PHONE_PLAYER to FakeExtractorHttpClient.json(PLAYER_TEXT, PHONE_PLAYER)),

@@ -16,6 +16,7 @@
 //         an input without a verified output is simply absent (never guessed).
 import { createHash } from "node:crypto";
 import vm from "node:vm";
+import { Worker } from "node:worker_threads";
 
 export const VARIANTS = {
   main: "player_ias.vflset/en_US/base.js",
@@ -522,6 +523,8 @@ export function solveWithOwn({ lib, core }, player, inputs, extra = {}) {
       n: output?.n ?? {},
       sig: output?.sig ?? {},
       ...(output?.failed ? { failed: String(output.failed).slice(0, 60) } : {}),
+      // N5b A.4 (request.locator): the parts (data only: indexes, ids, short hashes) and the hits.
+      ...(output?.locator ? { locator: output.locator, locatorHits: output.locatorHits ?? [] } : {}),
       // Counts and classes only (the core's report never holds an input, an output or code).
       ...(withReport ? { report: output?.report ?? null } : {}),
       // Local diagnosis (--verbose) only: per group answers, compared by the caller, never printed.
@@ -531,6 +534,117 @@ export function solveWithOwn({ lib, core }, player, inputs, extra = {}) {
   } catch (error) {
     return { n: {}, sig: {}, error: error?.name ?? "Error", ...(withReport ? { report: progressOf(sandbox) } : {}), ...dyncode() };
   }
+}
+
+// N5b A.4: P's kept program, prepared before the timed hit (the app keeps it in the same process)
+// in a context of its own; it comes out only as the worker's "prepared" job would carry it (JSON
+// text, never printed) or as "F" and the failure class.
+const KEEP =
+  "(function(){var p=yftOwnSolver.prepare(player);return p.ok?JSON.stringify({program:p.program}):'F'+String(p.failed)})()";
+// The timed part, inside the sandbox before any player code runs (its own Date.now, so the
+// promise jobs the player leaves after the reply are not counted, as in the app).
+const TIMED = (solveExpression) =>
+  `(function(){var now=Date.now,start=now(),out=${solveExpression};return JSON.stringify({ms:now()-start,out:out})})()`;
+const SOLVE_INPUT = "yftOwnSolve(JSON.parse(input))";
+const RUN_KEPT = "(function(){var job=JSON.parse(__yftKept);return yftOwnSolver.run({ok:typeof job.program==='string'&&job.program.length>0,program:job.program},JSON.parse(input))})()";
+
+/**
+ * N5b A.4: one worker job of the own core on [player] with the job's [extra] (strategy, hint,
+ * tripwire, deadline and locator: {} or the parts a cache gave), timed. extra.kept (P only): the
+ * hit in the same process: P's program is prepared first (untimed, in another context) and the
+ * job runs run(kept) alone, as the worker's "prepared" job; otherwise the job is the whole solve
+ * from the text (after a restart; B prepares from the text every time). ms is the core's own time
+ * (Date.now in the sandbox, so whole milliseconds); wall is the job: a fresh context, the parser's
+ * and the core's load, the run and the reply. The reply holds the answers, the parts (data only:
+ * indexes, ids, short hashes), the hits and the report (counts, classes and the locator statuses).
+ */
+export function hitWithOwn({ lib, core }, player, inputs, extra = {}) {
+  let sandbox = null;
+  const { kept, report: ignoredReport, dyncode: ignoredDyncode, ...request } = extra;
+  let started = performance.now();
+  const wall = () => Math.round(performance.now() - started);
+  try {
+    if (kept === true && (request.strategy === "B" || request.page === true)) throw new TypeError("kept is worker P's");
+    let keptJob = null;
+    if (kept === true) {
+      const preparing = ownContext(lib);
+      vm.runInContext(core, preparing, { timeout: SOLVE_TIMEOUT_MS });
+      preparing.player = player;
+      keptJob = String(vm.runInContext(KEEP, preparing, { timeout: SOLVE_TIMEOUT_MS }));
+      if (keptJob.startsWith("F")) return { n: {}, sig: {}, failed: keptJob.slice(1, 61), report: null, ms: 0, wall: 0 };
+      started = performance.now();
+    }
+    sandbox = ownContext(lib);
+    vm.runInContext(core, sandbox, { timeout: SOLVE_TIMEOUT_MS });
+    let expression = TIMED(SOLVE_INPUT);
+    if (keptJob !== null) {
+      Object.defineProperty(sandbox, "__yftKept", { value: keptJob, enumerable: false, writable: false, configurable: false });
+      keptJob = null;
+      sandbox.input = JSON.stringify({ n: inputs.n, sig: inputs.sig, ...request });
+      expression = TIMED(RUN_KEPT);
+    } else {
+      sandbox.input = JSON.stringify({ player, n: inputs.n, sig: inputs.sig, ...request });
+    }
+    const reply = replyOf(sandbox, expression);
+    const timed = JSON.parse(reply.text);
+    const output = timed?.out;
+    return {
+      ...(reply.late ? { late: true } : {}),
+      n: output?.n ?? {},
+      sig: output?.sig ?? {},
+      ...(output?.failed ? { failed: String(output.failed).slice(0, 60) } : {}),
+      ...(output?.locator ? { locator: output.locator, locatorHits: output.locatorHits ?? [] } : {}),
+      report: output?.report ?? null,
+      ms: Number.isFinite(timed?.ms) ? timed.ms : wall(),
+      wall: wall(),
+    };
+  } catch (error) {
+    return { n: {}, sig: {}, error: error?.name ?? "Error", report: progressOf(sandbox), ms: wall(), wall: wall() };
+  }
+}
+
+// A hit's isolate gets the old generation a whole solve needs on the corpus (the runner's own heap
+// stays apart), and a hard stop well after the solve's own timeouts.
+const ISOLATE_HEAP_MB = 1536;
+const ISOLATE_STOP_MS = 3 * SOLVE_TIMEOUT_MS;
+
+/**
+ * N5b A.4: hitWithOwn in a fresh V8 isolate (a worker thread), as the app runs each job in a new
+ * Worker: in one isolate, a player's second run is warm (V8 reuses what the first one compiled),
+ * which made a kept P hit 8x faster than its first run. Resolves hitWithOwn's reply (ms: the
+ * core's own time; wall: the job) plus thread: the thread's whole time (its start, the module's
+ * load and, for a kept hit, the untimed prepare too).
+ */
+export function hitInIsolate(own, player, inputs, extra = {}) {
+  return new Promise((resolve) => {
+    const started = performance.now();
+    const elapsed = () => Math.round(performance.now() - started);
+    let worker = null;
+    let finished = false;
+    let stop = null;
+    const finish = (out) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(stop);
+      resolve({ ...out, thread: elapsed() });
+      worker?.terminate();
+    };
+    const failure = (name) => finish({ n: {}, sig: {}, error: name, report: null, ms: elapsed() });
+    try {
+      worker = new Worker(new URL("./hit-isolate.mjs", import.meta.url), {
+        workerData: { own, player, inputs, extra },
+        resourceLimits: { maxOldGenerationSizeMb: ISOLATE_HEAP_MB },
+      });
+    } catch (error) {
+      failure(error?.name ?? "Error");
+      return;
+    }
+    stop = setTimeout(() => failure("Timeout"), ISOLATE_STOP_MS);
+    worker.once("message", finish);
+    // Only an error class, never its message (player code may be in it).
+    worker.once("error", (error) => failure(error?.name ?? "Error"));
+    worker.once("exit", () => failure("Exit"));
+  });
 }
 
 /** After a timeout: the own core's running report (counts and classes only), when it keeps one. */

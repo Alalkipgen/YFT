@@ -32,8 +32,18 @@ internal class ScriptedOwnEngine(
         val strategy: String? = null,
         /** N5b A.2: the job's deadline in milliseconds; null when the job sends none. */
         val deadlineMillis: Long? = null,
+        /** N5b A.4: the job's locator field as sent; null when the job sends none. */
+        val locator: JsonValue? = null,
     ) {
         val isB: Boolean get() = strategy == "B"
+
+        /** N5b A.4: the parts the job carries (null: no locator field, or not of the core's form). */
+        val parts: OwnSolverLocator.Parts?
+            get() = when (val sent = locator) {
+                null -> null
+                JsonValue.Object(emptyMap()) -> OwnSolverLocator.Parts()
+                else -> OwnSolverLocator.decode(sent)
+            }
 
         companion object {
             fun parse(input: String): Job {
@@ -50,6 +60,7 @@ internal class ScriptedOwnEngine(
                     sig = list("sig"),
                     strategy = text("strategy"),
                     deadlineMillis = (root["deadline_ms"] as? JsonValue.Number)?.asLong,
+                    locator = root["locator"],
                 )
             }
         }
@@ -79,6 +90,9 @@ internal class ScriptedOwnEngine(
             prepared: String? = null,
             initErrors: Int? = null,
             initErrorClasses: List<String> = emptyList(),
+            /** N5b A.4: the reply's locator JSON as the core writes it. */
+            locator: String? = null,
+            locatorHits: List<String> = emptyList(),
         ): String = buildString {
             append("{\"type\":\"result\",\"n\":")
             appendObject(n)
@@ -93,6 +107,15 @@ internal class ScriptedOwnEngine(
                 initErrorClasses.forEachIndexed { index, name ->
                     if (index > 0) append(',')
                     appendJsonString(name)
+                }
+                append(']')
+            }
+            locator?.let { append(",\"locator\":").append(it) }
+            if (locatorHits.isNotEmpty()) {
+                append(",\"locator_hit\":[")
+                locatorHits.forEachIndexed { index, kind ->
+                    if (index > 0) append(',')
+                    appendJsonString(kind)
                 }
                 append(']')
             }

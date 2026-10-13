@@ -59,7 +59,7 @@ jobs:
           git fetch --no-tags --depth=1 origin "$base" +refs/heads/main:refs/remotes/origin/main
           python3 scripts/master-toolkit-drift.py --ref "$base"
           python3 scripts/master-toolkit-drift.py --ref origin/main --warn-only
-      - name: Capture, codec and MSE script tests (R2 EME stop, R5 steering, R7 MSE/EME) + own solver (S1 harness, S2–S4 core + SelfCheck, S5 worker, S6 canary, N1 mutators, N3 strategy B, N4 page environment, N4b init errors, N5a ladder rule, N5b tripwire)
+      - name: Capture, codec and MSE script tests (R2 EME stop, R5 steering, R7 MSE/EME) + own solver (S1 harness, S2–S4 core + SelfCheck, S5 worker, S6 canary, N1 mutators, N3 strategy B, N4 page environment, N4b init errors, N5a ladder rule, N5b tripwire, step budget, locator)
         shell: bash
         run: |
           node --test extractor-master-android/src/test/js/capture.test.cjs \
@@ -77,7 +77,8 @@ jobs:
             scripts/own-solver/tests/init-errors.test.mjs \
             scripts/own-solver/tests/ladder.test.mjs \
             scripts/own-solver/tests/tripwire.test.mjs \
-            scripts/own-solver/tests/step-budget.test.mjs
+            scripts/own-solver/tests/step-budget.test.mjs \
+            scripts/own-solver/tests/locator.test.mjs
       - name: Master tests and opt-in debug APK
         shell: bash
         env:

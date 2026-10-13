@@ -443,3 +443,19 @@ test("N5b A.2: the frame passes the job's deadline on like the worker", () => {
     assert.deepEqual(replyOf({ deadline_ms: bad }), { type: "error", error: "BadJob" });
   }
 });
+
+test("N5b A.4: the frame refuses a locator: page steps run in full every time", () => {
+  const replyOf = (extra) => {
+    const f = frame();
+    assert.ok(f.deliver(message(f, job(padded(fakePlayer()), extra))));
+    f.runTimers();
+    return JSON.parse(f.posts[1].message.reply);
+  };
+  const plain = replyOf({});
+  assert.equal(plain.n[N[0]], expectedN(N[0]));
+  assert.equal(plain.locator, undefined);
+  const part = { s: "P", c: [0], o: "0123abcd" };
+  for (const extra of [{ locator: {} }, { locator: { v: 1, n: part } }, { strategy: "B", hint: false, locator: {} }]) {
+    assert.deepEqual(replyOf(extra), { type: "error", error: "BadJob" }, JSON.stringify(extra));
+  }
+});

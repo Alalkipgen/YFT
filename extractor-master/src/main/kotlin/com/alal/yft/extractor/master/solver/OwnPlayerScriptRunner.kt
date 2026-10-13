@@ -8,7 +8,6 @@ import com.alal.yft.extractor.api.PlayerScriptResult
 import com.alal.yft.extractor.api.PlayerScriptRunner
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import java.util.WeakHashMap
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
@@ -64,6 +63,17 @@ class OwnPlayerScriptRunner(
      * run in a row. No breaker for either. When the lookup has no time left, later steps do not
      * run (not recorded, no breaker), and the ready wait never outlasts the lookup. A core that
      * ignores its deadline still ends in the job timeout, which trips the breaker as before.
+     *
+     * A.4 locator cache ([locators], see [OwnSolverLocators]): every worker job asks for the core's
+     * parts and carries the parts cached for its step and this player text (by SHA-256; the page
+     * steps never locate). A kind's part is kept only from the step the ladder chose for it, a
+     * worker step without init errors whose core gave one (a kind answered cleanly); a signature's
+     * part only once V passed for that answer. A part that came back without a part, or that the
+     * ladder did not take, is dropped; V = fail drops that step's signature part.
+     *
+     * A.5 V ledger ([ledger], see [OwnSolverVLedger]): the passes, keyed by player version, step,
+     * player text hash and the hash of the locator part the answer used (`-` for none), so a hit
+     * on a part needs its own V pass. Memory unless the app gives both stores a file.
      */
     class Next(
         val page: OwnSolverEngine? = null,
@@ -74,6 +84,8 @@ class OwnPlayerScriptRunner(
         val pageCapMillis: Long = DEFAULT_PAGE_CAP_MILLIS,
         val lookupCapMillis: Long = DEFAULT_LOOKUP_CAP_MILLIS,
         val clock: () -> Long = { System.nanoTime() / NANOS_PER_MILLI },
+        val locators: OwnSolverLocators = OwnSolverLocators(),
+        val ledger: OwnSolverVLedger = OwnSolverVLedger(),
     ) {
         init {
             require(readyTimeoutMillis > 0 && jobTimeoutMillis > 0 && lookupCapMillis > 0)
@@ -94,8 +106,14 @@ class OwnPlayerScriptRunner(
 
     private val lock = Mutex()
 
+    /**
+     * A prepared program and, with ownSolverNext (A.4), the SHA-256 of the player text it came
+     * from (Phase 1.1 computes none).
+     */
+    private class Kept(val program: String, val scriptHash: String?)
+
     /** Guarded by [lock]: player ID to prepared program, least recently used first. */
-    private val prepared = LinkedHashMap<String, String>(4, 0.75f, true)
+    private val prepared = LinkedHashMap<String, Kept>(4, 0.75f, true)
 
     /**
      * Failure classes of the last run ("sig:disagree", "engine", ...), never a value; for the
@@ -145,8 +163,8 @@ class OwnPlayerScriptRunner(
         request: PlayerScriptRequest,
         batch: OwnSolverProtocol.Batch,
     ): Outcome {
-        prepared[playerId]?.let { program ->
-            val reused = run(OwnSolverProtocol.Player.Prepared(program), batch, false)
+        prepared[playerId]?.let { kept ->
+            val reused = run(OwnSolverProtocol.Player.Prepared(kept.program), batch, false)
             // SelfCheck's verdict on a kind does not change with a fresh parse; a program that
             // no longer runs at all is rebuilt once from the original player.
             if (reused !is Outcome.Broken) return reused
@@ -158,12 +176,12 @@ class OwnPlayerScriptRunner(
             is Fetched.Failed -> return Outcome.Fetch(fetched.reason)
         }
         val outcome = run(OwnSolverProtocol.Player.Raw(source), batch, keepPrepared = true)
-        outcome.program?.let { remember(playerId, it) }
+        outcome.program?.let { remember(playerId, Kept(it, null)) }
         return outcome
     }
 
-    private fun remember(playerId: String, program: String) {
-        prepared[playerId] = program
+    private fun remember(playerId: String, kept: Kept) {
+        prepared[playerId] = kept
         while (prepared.size > maxCachedPlayers) {
             prepared.remove(prepared.keys.first())
         }
@@ -194,8 +212,19 @@ class OwnPlayerScriptRunner(
     /** Guarded by itself: the V each answer's signatures still need, by request (read once). */
     private val pendingChecks = WeakHashMap<PlayerScriptRequest, PendingCheck>()
 
-    /** Player version and step pairs whose signatures passed V, for the process. */
-    private val passed = ConcurrentHashMap.newKeySet<String>()
+    /**
+     * N5b A.4, guarded by itself: a signature's part waiting for its answer's V (written on PASS),
+     * by check; at most [MAX_WAITING], the oldest goes first.
+     */
+    private val waiting = LinkedHashMap<PendingCheck, Learned>()
+
+    /** A part to keep for [kind] of [playerId], learned from player text [scriptHash]. */
+    private class Learned(
+        val playerId: String,
+        val scriptHash: String,
+        val kind: OwnSolverLadderRule.Kind,
+        val located: OwnSolverLocators.Located,
+    )
 
     /**
      * N5b A.2, guarded by [lock]: the budget memory, per player version and step (keys as the
@@ -216,12 +245,17 @@ class OwnPlayerScriptRunner(
         synchronized(pendingChecks) { pendingChecks.remove(request) }
 
     override fun record(check: PendingCheck, verdict: SignatureVerdicts.Verdict) {
+        val next = next ?: return
+        val learned = synchronized(waiting) { waiting.remove(check) }
         when (verdict) {
             SignatureVerdicts.Verdict.PASS -> {
-                if (passed.size >= MAX_PASSED) passed.clear()
-                passed += check.cacheKey
+                next.ledger.pass(check.cacheKey)
+                learned?.let { next.locators.put(it.playerId, it.scriptHash, it.kind, it.located) }
             }
-            SignatureVerdicts.Verdict.FAIL -> next?.breaker?.signatureFailed(check.playerId, check.step)
+            SignatureVerdicts.Verdict.FAIL -> {
+                next.breaker.signatureFailed(check.playerId, check.step)
+                next.locators.drop(check.playerId, OwnSolverLadderRule.Kind.SIGNATURE, check.step)
+            }
             SignatureVerdicts.Verdict.UNKNOWN -> Unit
         }
     }
@@ -234,6 +268,10 @@ class OwnPlayerScriptRunner(
     ): PlayerScriptResult {
         val ladder = lock.withLock { ladder(Ladder(playerId, request, batch, next.clock()), next) }
         lastFailures = ladder.failures.take(MAX_LADDER_FAILURES)
+        val step = ladder.signatureStep
+        val check = if (step != null && ladder.signature.isNotEmpty()) checkOf(ladder.state, step) else null
+        val pending = check?.takeUnless { next.ledger.passed(it.cacheKey) }
+        learn(ladder, next, pending)
         val resolved = request.challenges.mapNotNull { challenge ->
             val values = when (challenge.kind) {
                 PlayerScriptChallengeKind.RATE_PARAM -> ladder.rate
@@ -243,14 +281,6 @@ class OwnPlayerScriptRunner(
         }.toMap()
         if (resolved.isEmpty()) {
             return PlayerScriptResult.Failed(ladder.fetchFailure ?: SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED)
-        }
-        val step = ladder.signatureStep
-        val pending = if (step != null && ladder.signature.isNotEmpty() &&
-            OwnSolverBreaker.key(playerId, step) !in passed
-        ) {
-            PendingCheck(playerId, step)
-        } else {
-            null
         }
         synchronized(pendingChecks) {
             if (pending == null) pendingChecks.remove(request) else pendingChecks[request] = pending
@@ -267,15 +297,26 @@ class OwnPlayerScriptRunner(
         val startedAt: Long,
     ) {
         var source: String? = null
+
+        /** N5b A.4: the SHA-256 of [source], once fetched. */
+        var textHash: String? = null
         var fetchFailure: SiteExtractionFailure? = null
         val failures = mutableListOf<String>()
         val replies = HashMap<OwnSolverBreaker.Step, OwnSolverProtocol.Decoded.Solved>()
         val steps = HashMap<OwnSolverBreaker.Step, OwnSolverLadderRule.Step>()
+
+        /** N5b A.4: the player text hash each step ran from (P on the kept program: the program's). */
+        val hashes = HashMap<OwnSolverBreaker.Step, String>()
+
+        /** N5b A.4: the parts each worker step was sent. */
+        val sent = HashMap<OwnSolverBreaker.Step, OwnSolverLocator.Parts>()
     }
 
     private class LadderResult(
+        val state: Ladder,
         val rate: Map<String, String>,
         val signature: Map<String, String>,
+        val rateStep: OwnSolverBreaker.Step?,
         val signatureStep: OwnSolverBreaker.Step?,
         val failures: List<String>,
         val fetchFailure: SiteExtractionFailure?,
@@ -306,6 +347,7 @@ class OwnPlayerScriptRunner(
         }
         var rate = emptyMap<String, String>()
         var signature = emptyMap<String, String>()
+        var rateStep: OwnSolverBreaker.Step? = null
         var signatureStep: OwnSolverBreaker.Step? = null
         for (kind in kinds) {
             // The page step for this kind: page P when it answered it cleanly, else page B.
@@ -327,14 +369,97 @@ class OwnPlayerScriptRunner(
                 continue
             }
             when (kind) {
-                OwnSolverLadderRule.Kind.RATE -> rate = reply.rate
+                OwnSolverLadderRule.Kind.RATE -> {
+                    rate = reply.rate
+                    rateStep = from
+                }
                 OwnSolverLadderRule.Kind.SIGNATURE -> {
                     signature = reply.signature
                     signatureStep = from
                 }
             }
         }
-        return LadderResult(rate, signature, signatureStep, state.failures.toList(), state.fetchFailure)
+        return LadderResult(state, rate, signature, rateStep, signatureStep, state.failures.toList(), state.fetchFailure)
+    }
+
+    /**
+     * N5b A.5: the V that [step]'s signatures need: the player text it ran from and the part its
+     * answer used (a hit on a part that step was sent; `-` for none).
+     */
+    private fun checkOf(state: Ladder, step: OwnSolverBreaker.Step): PendingCheck {
+        val sent = state.sent[step]?.signature
+        val hit = state.replies[step]?.locatorHits?.contains(OwnSolverLadderRule.Kind.SIGNATURE) == true
+        return PendingCheck(
+            playerId = state.playerId,
+            step = step,
+            scriptHash = state.hashes[step].orEmpty(),
+            // A hit names the part sent (a reply cannot bring a part of its own into the key).
+            locatorHash = if (sent != null && hit) OwnSolverLocator.hashOf(sent) else PendingCheck.NO_LOCATOR,
+        )
+    }
+
+    /**
+     * N5b A.4: the cache after a lookup, per asked kind. The part kept is the chosen step's own: a
+     * worker step whose run had no init errors and whose core gave a part of its strategy for that
+     * kind (the core gives one only for a kind it answered cleanly). Any other part of the entry
+     * goes (it missed, it failed, or the ladder took the kind elsewhere). A signature's part is
+     * kept once V passed: now when no V is [pending], else on its PASS ([record]).
+     */
+    private fun learn(ladder: LadderResult, next: Next, pending: PendingCheck?) {
+        val state = ladder.state
+        val chosen = mapOf(
+            OwnSolverLadderRule.Kind.RATE to ladder.rateStep,
+            OwnSolverLadderRule.Kind.SIGNATURE to ladder.signatureStep,
+        )
+        for ((kind, step) in chosen) {
+            val asked = when (kind) {
+                OwnSolverLadderRule.Kind.RATE -> state.batch.rateInputs.isNotEmpty()
+                OwnSolverLadderRule.Kind.SIGNATURE -> state.batch.signatureInputs.isNotEmpty()
+            }
+            if (!asked) continue
+            val hash = step?.let(state.hashes::get)
+            val fresh = if (step != null && hash != null) learnedPart(state, step, kind) else null
+            val old = next.locators.peek(state.playerId)?.of(kind)
+            if (old != null && old != fresh) next.locators.drop(state.playerId, kind)
+            if (fresh == null || hash == null) continue
+            if (kind == OwnSolverLadderRule.Kind.SIGNATURE && pending != null) {
+                synchronized(waiting) {
+                    waiting.remove(pending)
+                    waiting[pending] = Learned(state.playerId, hash, kind, fresh)
+                    while (waiting.size > MAX_WAITING) waiting.remove(waiting.keys.first())
+                }
+            } else {
+                next.locators.put(state.playerId, hash, kind, fresh)
+            }
+        }
+    }
+
+    /** [step]'s part for [kind]: a worker step, no init errors, a part of its strategy. */
+    private fun learnedPart(
+        state: Ladder,
+        step: OwnSolverBreaker.Step,
+        kind: OwnSolverLadderRule.Kind,
+    ): OwnSolverLocators.Located? {
+        if (step != OwnSolverBreaker.Step.WORKER_P && step != OwnSolverBreaker.Step.WORKER_B) return null
+        val reply = state.replies[step] ?: return null
+        if (reply.initErrors != 0) return null
+        val part = reply.locator?.of(kind) ?: return null
+        if (part.isB != (step == OwnSolverBreaker.Step.WORKER_B)) return null
+        return OwnSolverLocators.Located(step, part)
+    }
+
+    /**
+     * N5b A.4: the parts cached for worker step [name] on player text [scriptHash]; empty (locate
+     * only) when there are none.
+     */
+    private fun partsFor(state: Ladder, next: Next, name: OwnSolverBreaker.Step, scriptHash: String?): OwnSolverLocator.Parts {
+        val entry = scriptHash?.let { next.locators.get(state.playerId, it) } ?: return OwnSolverLocator.Parts()
+        fun part(kind: OwnSolverLadderRule.Kind, inputs: List<String>) =
+            entry.of(kind)?.takeIf { it.step == name && inputs.isNotEmpty() }?.part
+        return OwnSolverLocator.Parts(
+            rate = part(OwnSolverLadderRule.Kind.RATE, state.batch.rateInputs),
+            signature = part(OwnSolverLadderRule.Kind.SIGNATURE, state.batch.signatureInputs),
+        )
     }
 
     /**
@@ -345,28 +470,32 @@ class OwnPlayerScriptRunner(
         val name = OwnSolverBreaker.Step.WORKER_P
         if (!next.breaker.allows(state.playerId, name)) return null
         skipped(state, name)?.let { return it }
-        prepared[state.playerId]?.let { program ->
+        prepared[state.playerId]?.let { kept ->
             val deadline = deadline(state, next, name) ?: return null
-            val options = OwnSolverProtocol.Options(tripwire = true, deadlineMillis = deadline)
-            val player = OwnSolverProtocol.Player.Prepared(program)
+            val parts = partsFor(state, next, name, kept.scriptHash)
+            val options = OwnSolverProtocol.Options(tripwire = true, deadlineMillis = deadline, locator = parts)
+            val player = OwnSolverProtocol.Player.Prepared(kept.program)
             val input = OwnSolverProtocol.encode(player, state.batch, false, options)
             val decoded = job(state, next, name, engine, input, deadline)
             if (decoded is OwnSolverProtocol.Decoded.Solved && (!decoded.failedWhole || decoded.budget)) {
-                return record(state, next, name, decoded)
+                return record(state, next, name, decoded, kept.scriptHash, parts)
             }
             prepared.remove(state.playerId)
         }
         if (!next.breaker.allows(state.playerId, name)) return null
         val source = source(state) ?: return null
         val deadline = deadline(state, next, name) ?: return null
-        val options = OwnSolverProtocol.Options(tripwire = true, deadlineMillis = deadline)
+        val parts = partsFor(state, next, name, state.textHash)
+        val options = OwnSolverProtocol.Options(tripwire = true, deadlineMillis = deadline, locator = parts)
         val input = OwnSolverProtocol.encode(OwnSolverProtocol.Player.Raw(source), state.batch, true, options)
         val decoded = job(state, next, name, engine, input, deadline) ?: return null
-        (decoded as? OwnSolverProtocol.Decoded.Solved)?.preparedProgram?.let { remember(state.playerId, it) }
-        return record(state, next, name, decoded)
+        (decoded as? OwnSolverProtocol.Decoded.Solved)?.preparedProgram?.let {
+            remember(state.playerId, Kept(it, state.textHash))
+        }
+        return record(state, next, name, decoded, state.textHash, parts)
     }
 
-    /** Worker B or a page step: from the player text, nothing kept. */
+    /** Worker B or a page step: from the player text, nothing kept; the page never locates. */
     private suspend fun fromText(
         state: Ladder,
         next: Next,
@@ -378,10 +507,11 @@ class OwnPlayerScriptRunner(
         skipped(state, name)?.let { return it }
         val source = source(state) ?: return null
         val deadline = deadline(state, next, name) ?: return null
-        val timed = options.copy(deadlineMillis = deadline)
+        val parts = if (name == OwnSolverBreaker.Step.WORKER_B) partsFor(state, next, name, state.textHash) else null
+        val timed = options.copy(deadlineMillis = deadline, locator = parts)
         val input = OwnSolverProtocol.encode(OwnSolverProtocol.Player.Raw(source), state.batch, false, timed)
         val decoded = job(state, next, name, target, input, deadline) ?: return null
-        return record(state, next, name, decoded)
+        return record(state, next, name, decoded, state.textHash, parts)
     }
 
     /**
@@ -436,7 +566,10 @@ class OwnPlayerScriptRunner(
         state.source?.let { return it }
         if (state.fetchFailure != null) return null
         return when (val fetched = fetchPlayer(state.playerId, state.request)) {
-            is Fetched.Source -> fetched.text.also { state.source = it }
+            is Fetched.Source -> fetched.text.also {
+                state.source = it
+                state.textHash = OwnSolverLocator.sha256Hex(it)
+            }
             is Fetched.Failed -> {
                 state.fetchFailure = fetched.reason
                 state.failures += "fetch ${fetched.reason.name}"
@@ -479,13 +612,20 @@ class OwnPlayerScriptRunner(
         }
     }
 
-    /** A reply as the rule's step; a step whose signatures failed V answers no signature. */
+    /**
+     * A reply as the rule's step; a step whose signatures failed V answers no signature. A.4: the
+     * player text hash the step ran from and the parts it was sent.
+     */
     private fun record(
         state: Ladder,
         next: Next,
         name: OwnSolverBreaker.Step,
         decoded: OwnSolverProtocol.Decoded,
+        scriptHash: String?,
+        parts: OwnSolverLocator.Parts?,
     ): OwnSolverLadderRule.Step {
+        scriptHash?.let { state.hashes[name] = it } ?: state.hashes.remove(name)
+        parts?.let { state.sent[name] = it } ?: state.sent.remove(name)
         if (decoded is OwnSolverProtocol.Decoded.Solved) {
             state.replies[name] = decoded
             decoded.failures.forEach { state.failures += "${stepName(name)} $it" }
@@ -681,7 +821,7 @@ class OwnPlayerScriptRunner(
 
         private const val NANOS_PER_MILLI = 1_000_000L
 
-        private const val MAX_PASSED = 64
+        private const val MAX_WAITING = 16
         private const val MAX_BUDGETS = 64
         private const val MAX_LADDER_FAILURES = 16
         private val NOT_RUN = OwnSolverLadderRule.Step(emptySet(), null, listOf("not run"))

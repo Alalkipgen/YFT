@@ -26,6 +26,8 @@
 //   ... --ladder --judge ladder  # N5b A.3: exit 1 only on a ladder wrong value (ejs's and each
 //                                # step's own wrong values are still counted and printed);
 //                                # default --judge all: any wrong value fails the run
+//   ... --ladder --no-locator    # N5b A.4: --ladder's worker steps run in locate mode (locator
+//                                # {}, as the app's jobs on a cache miss); this drops it
 //
 // It mutates each cached player so the code is WRITTEN differently but DOES the same thing, then
 // measures how often ejs and the own solver's pattern strategy (P) — and, with --strategy B,
@@ -111,6 +113,12 @@ const skipEjs = flag("--skip-ejs");
 const tripExtra = withLadder && !flag("--no-tripwire") ? { tripwire: true } : {};
 // N5b A.2: --ladder gives each step the app's step cap as its deadline (--no-deadline: A.1's runs).
 const capExtra = (step) => (withLadder && !flag("--no-deadline") ? { deadline: STEP_CAPS_MS[step] } : {});
+// N5b A.4: --ladder's worker steps locate as the app's do on a cache miss (--no-locator: A.3's runs).
+const locateExtra = withLadder && !flag("--no-locator") ? { locator: {} } : {};
+if (flag("--no-locator") && !withLadder) {
+  console.error("--no-locator runs with --ladder");
+  process.exit(2);
+}
 if (both && page) {
   console.error("--both and --ladder already run page mode; drop --page");
   process.exit(2);
@@ -283,10 +291,10 @@ for (const file of files) {
       await settle(); // releases the player's unhandled rejections after every solve (see harness.mjs)
       const walls = {};
       stage("own P");
-      const ownOut = withP ? timed(walls, "workerP", () => solveWithOwn(own, mutated, inputs, { ...pageExtra, ...reportExtra, ...tripExtra, ...capExtra("worker") })) : null;
+      const ownOut = withP ? timed(walls, "workerP", () => solveWithOwn(own, mutated, inputs, { ...pageExtra, ...reportExtra, ...tripExtra, ...capExtra("worker"), ...locateExtra })) : null;
       await settle();
       stage("own B");
-      const bOut = withB ? timed(walls, "workerB", () => solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false, ...pageExtra, ...tripExtra, ...capExtra("worker") })) : null;
+      const bOut = withB ? timed(walls, "workerB", () => solveWithOwn(own, mutated, inputs, { strategy: "B", hint: false, ...pageExtra, ...tripExtra, ...capExtra("worker"), ...locateExtra })) : null;
       await settle();
       stage("page P");
       const pagePOut = both && withP ? timed(walls, "pageP", () => solveWithOwn(own, mutated, inputs, { page: true, ...reportExtra, ...capExtra("page") })) : null;

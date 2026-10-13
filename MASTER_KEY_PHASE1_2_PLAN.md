@@ -653,11 +653,39 @@ chose, see A.1) and A.7.
 - **A.4 Locator cache** (behind the flag, tests first): `files/own-solver/locators.json`, ≤ 32
   entries, key player ID + script hash, data only. Cache clean answers only; an M9bs-type wrong is
   never cached; a hit still passes every check; n never skips the tripwire; poisoned-entry test.
+  - **Done (A.4; numbers in PROGRESS.md).** A part is data only: P = the candidate indexes that
+    answered every input + a hash of the probe outputs; B = the winning group's members (static
+    function id, shape index, a hash of the function's source and its size) + the probe hash
+    (32-bit FNV-1a: a fit check, not a secret). A P hit runs only the cached candidates on the
+    inputs; each must answer every input with the same probe outputs, every candidate runs once
+    on one probe and must agree, and the tripwire runs with all candidates. A B hit skips the
+    screen: the members must be the same functions (id, size, hash), then profile → confirm →
+    groups → solve → tripwire. Any difference is a miss and the kind runs in full in the same job
+    (a hit is never worse than a miss). Kotlin keeps a kind's part only from the step the ladder
+    chose (a worker step with init errors 0 whose core gave a part; a signature's part only after
+    V = pass); a miss, another chosen step or V = fail drops it.
+  - **Plan adapted (A.4):** the store (interface, memory LRU and a plain-Java atomic file:
+    temp file + rename; unreadable, corrupt, another format or core version → empty; IO never
+    throws) is in extractor-master, not extractor-master-android: it needs no Android API and the
+    local JVM tests cover it; the app only names the files under `filesDir`
+    (`SiteAdapterModule`). Page steps never locate (the page frame refuses a job with a locator):
+    they run only for kinds the workers left, always in full. One function can sit in B's winning
+    group in two shapes, so B's members are distinct (id, shape) pairs (the corpus found it: B
+    never hit before the fix). The runner times hits in a fresh isolate per job, as the app's
+    worker (a new Worker per job); a rerun in the same isolate is warm and too fast.
 - **A.5 V ledger on disk**: key `player|step|scriptHash|locatorHash`; any hash change → V runs
   again. Test: poisoned locator + ledger pass → V runs again, wrong 0.
+  - **Done (A.5).** `OwnSolverVLedger` (≤ 64 keys, oldest first, `files/own-solver/v-ledger.json`
+    through the same file store) holds the passes. `locatorHash` is the hash of the part the
+    step was sent when the reply says it hit, else `-` (a reply cannot bring a part of its own into
+    the key). **Plan adapted (A.5):** the runner's memory `passed` set is what moved to disk;
+    `StreamCheck.Ledger` (check budgets per day and remembered verdicts of one stream check)
+    stays in memory.
 - **A.6 Docs**: §5 residual risks (regex and wide recursion → N8; deep recursion is stopped by the
   stack limit), main candidate list, M9c-nav gap (next cycle 33 runs), B-prepared option status,
   chosen caps and why.
+  - **Done (A.6):** §5 "Work the step budget cannot see", "Locator cache", "Caps", "B prepared
+    program (option 3)", "M9c-nav gap", "Main candidate list" and "V wiring in the app".
 - **A.7** All tests pass → push → CI ✅ → TEST_SHA in PROGRESS.md with the exact commands for each
   Test Agent A–D → ✅/❌ report (command + summary + exit code, CI id + sha + TEST_SHA) → stop.
 
@@ -871,6 +899,55 @@ variant, 2 seeds each):
   reply. If N7 shows long ready waits on the phone, send the deadline when the engine is ready
   (an engine interface change). The budget memory is per process: after a restart each slow step
   costs one more full-cap run per player version.
+- **Work the step budget cannot see (N5b A.6):** P's and B's step counters count loop bodies only.
+  A deep recursion ends at the JS engine's stack limit (a `RangeError`: an init error or a failed
+  attempt, safe). A wide recursion (many calls, little depth, no loop) and one long regex
+  backtrack are not counted and not cut by the deadline: in the worker the Kotlin job timeout
+  (45 s) ends the job and trips the breaker; in the page (E) nothing stops them until they end,
+  and the app's shared renderer waits ("E hang" above). Fix → N8 (E in its own process, killed
+  on a hang). Counting calls as steps would slow every call of the player's code, need new
+  budgets and still miss a regex.
+- **Locator cache (N5b A.4):** a hit narrows the work, so some checks are weaker than in a full
+  run. P hit: all candidates must agree on one probe only (a full run: on every input), so a
+  candidate that differs only on some inputs is not seen; SelfCheck, the probe hash and the
+  tripwire (all candidates) still run, and a signature still needs V. B hit: the screen and the
+  competition between groups are skipped; an entry naming a group that is consistent with
+  itself but not the winner would pass for n (n has no V, "V ambiguity for n" below), while a
+  signature needs its own V pass (the ledger key carries the part's hash). Entries come only from
+  clean runs the ladder chose, keyed by the player text's SHA-256, in app-private files: a forged
+  entry needs the app's own storage. Accepted for the spike (release gate below). A hit from the
+  player text still parses and instantiates the player: it saves the search, not the load.
+- **Caps (N5b A.2, chosen from A.1's numbers):** job 40 s = the Kotlin job timeout 45 s − 5 s grace
+  (the deadline is checked every 4096 steps, then the reply and the bridge); lookup 60 s =
+  `P_INIT_MS` 20 s + the job cap, so B keeps its full cap after P; page 35 s, tighter because a
+  page step holds the shared renderer (provisional). Phone margin ×4 on the computer's numbers: B
+  fits the corpus up to ×4.9, page B up to ×4.6; on the largest players all four steps (≤ 76 s at
+  ×4) pass 60 s, so page steps may be cut and run in the next lookup. If N7's phone factor is
+  above ×4.9, B on the largest players ends `budget` (no wrong value, fewer answers): re-tune
+  with N7's numbers.
+- **B prepared program (option 3, N5b A.1):** not built; it waits for N7 and is built only if, at
+  N7, P fails on the current player, B is really used and a B hit takes > 5 s. Option 4 (a
+  prepared program on disk) is refused: the locator file is data only, code from disk never runs.
+- **M9c-nav gap (N5b A.6):** N5a's M9c-nav run had a ladder wrong value (21cd2156 es6) and no
+  result for 631d3938 main (out of heap). N5b's fixes were checked on those cases only (tripwire
+  + V: 21cd2156 es6 safe; step budget: 631d3938 all four variants exit 0, ladder wrong 0), and
+  N5b's test cycle ran 26 of the 33 M9c runs (loc 11, mix 11, nav only 631d3938's 4): M9c-nav on
+  the other 7 players has not run with N5b's ladder. The next test cycle runs all 33 (3 classes ×
+  11 processes; Test Agents B and C).
+- **V wiring in the app (⚠️ found in N5b A.6; `ownSolverNext` only):** the app gives the own
+  runner to main's `YouTubeExtractor` (extractor-sites, `SiteAdapterModule.provideSiteExtractors`,
+  Phase 1.1 S5: main's adapter answers YouTube pages before Master is asked), but the V gate
+  (`SignatureGate`) sits only in Master's `MasterYouTubeModule`, which `BrowserMasterFallback`
+  builds without a runner. So with `ownSolverNext` the app uses the ladder's signatures without
+  V, never records a V pass and never caches a signature part (only n's). Flag off = main is not
+  affected; the computer runners and the Kotlin tests check V themselves. Fix in the next cycle,
+  before N7 (tests first): the gate around every reader that gets the own runner.
+- **Main candidate list (main untouched; the main agent assigns the numbers):** (1) handle
+  `onRenderProcessGone` in main's browser WebViews (below); (2) main's ejs solver runs out of heap
+  on 631d3938 main M9c-nav (exit 134 at ~37 s, N5b step 0): a changed player can exhaust its
+  renderer, and without (1) the app dies with it; (3) main's ejs gave a wrong value on M9c-nav
+  74edf1a3 es6 (N5a; likely `navigator.cookieEnabled` in the WebView worker): an environment read
+  in a future player could break main's playback silently.
 - **Release gate:** `ownSolverNext` is not enabled in a public release before N8 is done; only the
   owner's test APKs use it.
 - **N8 candidate (⭐⭐⭐⭐):** E in its own process (`android:process=":solver"` +

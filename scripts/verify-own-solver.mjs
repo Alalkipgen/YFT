@@ -25,6 +25,14 @@
 //   ... --prepare --strategy B                    # also B's prepared sizes in characters (N5b A.1)
 //   ... --ladder --no-deadline                    # N5b A.2: --ladder sends the app's step caps as
 //                                                 # deadlines (worker 40 s, page 35 s); this drops them
+//   N5b A.4 (locator cache): --ladder's worker steps run in locate mode (locator {}: the miss) and
+//   then each file's hits are timed with the parts they gave: P (a) on P's kept program (the same
+//   process), P (b) and B from the player text (after a restart), each in a fresh isolate as the
+//   app's jobs (ms: the core's own / the whole job). The parts (data only: indexes,
+//   ids, short hashes) go to build/own-solver/locators.json, both worker steps' (the app keeps the
+//   ladder's chosen step's, sig after V); --faults --ladder sends them to the worker steps (a hit).
+//   node scripts/verify-own-solver.mjs --hits-only # a new process: P (b) and B hits from that file
+//   ... --ladder --no-locator                     # A.3's runs: no locate mode, no hits
 //
 // Needs network access to www.youtube.com. Player text is cached under build/own-solver/players
 // (never committed) and checked against corpus.json's SHA-256 before use. Like
@@ -48,6 +56,7 @@ import {
   validateCorpus,
   FAULTS,
   faultVerdict,
+  hitInIsolate,
   prepareBWithOwn,
   prepareWithOwn,
   settle,
@@ -62,6 +71,8 @@ const ejsAssets = join(root, "app/src/main/assets/youtube-solver");
 const defaultOwn = join(root, "extractor-master-android/src/main/assets/yft-own-solver/own.solver.core.js");
 const cacheDir = join(root, "build/own-solver/players");
 const reportFile = join(root, "build/own-solver/report.json");
+// N5b A.4: the parts --ladder's worker steps gave, per file (data only), for --hits-only.
+const locatorsFile = join(root, "build/own-solver/locators.json");
 
 const args = process.argv.slice(2);
 const option = (name) => {
@@ -105,14 +116,27 @@ if (withLadder && (strategy || page || withInit)) {
   console.error("--ladder runs every strategy and reports init errors itself; drop --strategy, --page and --init");
   process.exit(2);
 }
+// N5b A.4: locate mode and the hits (see the header); --hits-only reads the parts --ladder wrote.
+const withLocator = !args.includes("--no-locator");
+const hitsOnly = args.includes("--hits-only");
+if (hitsOnly && (withLadder || withFaults || prepareOnly || record || strategy || page || withInit || !withLocator)) {
+  console.error("--hits-only runs alone (after --ladder wrote build/own-solver/locators.json)");
+  process.exit(2);
+}
+if (!withLocator && !withLadder) {
+  console.error("--no-locator runs with --ladder");
+  process.exit(2);
+}
 // B alone (no hint), as the mutation runner's --ladder; the worker steps send the N5b environment
 // tripwire as the app's ladder does (--no-tripwire: N5a's runs).
 const LADDER_TRIP = args.includes("--no-tripwire") ? {} : { tripwire: true };
 // N5b A.2: each step's deadline is the app's step cap (--no-deadline: A.1's runs).
 const LADDER_CAP = (step) => (args.includes("--no-deadline") ? {} : { deadline: STEP_CAPS_MS[step] });
+// N5b A.4: the app's worker jobs carry a locator ({} when its cache has no entry); page jobs never.
+const LADDER_LOCATE = withLocator ? { locator: {} } : {};
 const LADDER_STEPS = {
-  workerP: { report: true, ...LADDER_TRIP, ...LADDER_CAP("worker") },
-  workerB: { strategy: "B", hint: false, ...LADDER_TRIP, ...LADDER_CAP("worker") },
+  workerP: { report: true, ...LADDER_TRIP, ...LADDER_CAP("worker"), ...LADDER_LOCATE },
+  workerB: { strategy: "B", hint: false, ...LADDER_TRIP, ...LADDER_CAP("worker"), ...LADDER_LOCATE },
   pageP: { page: true, report: true, ...LADDER_CAP("page") },
   pageB: { strategy: "B", hint: false, page: true, ...LADDER_CAP("page") },
 };
@@ -136,6 +160,78 @@ const dyncodeTotals = Object.fromEntries(Object.keys(LADDER_STEPS).map((name) =>
 const tally = (map, key) => {
   map[key] = (map[key] ?? 0) + 1;
 };
+// N5b A.4: the hits, each a worker job with the parts its step gave: P (a) on P's kept program in
+// the same process, P (b) and B from the player text (after a restart: what --hits-only times).
+// Each runs in a fresh isolate, as the app's jobs run in a new Worker (in one isolate a player's
+// later runs are warm). The A.1 estimates (max/median ms, phases without the search) and the N7
+// phone targets (owner): ms is the core's own time, job the whole job in the fresh isolate.
+const HITS = {
+  keptP: { label: "P (a) kept", step: "workerP", parts: "P", kept: true, a1: "478/291", target: "N7 phone target <= 2000 ms (same process)" },
+  textP: { label: "P (b) text", step: "workerP", parts: "P", kept: false, a1: "1938/1329", target: "N7 phone target <= 8000 ms (after a restart)" },
+  textB: { label: "B text", step: "workerB", parts: "B", kept: false, a1: "5422/3724", target: "metric only" },
+};
+const HIT_NAMES = hitsOnly ? ["textP", "textB"] : ["keptP", "textP", "textB"];
+const hitTotals = Object.fromEntries(
+  HIT_NAMES.map((name) => [name, { files: 0, ms: [], jobs: [], misses: [], statuses: {}, agree: 0, wrong: 0, missing: 0, total: 0, errors: 0, slowest: { ms: -1, file: "-" } }]),
+);
+const partTotals = { files: 0, P: { n: 0, sig: 0 }, B: { n: 0, sig: 0 } };
+const locatorEntries = {};
+// A step's parts when it gave any (the core's locator output: {v, n?, sig?}); null otherwise.
+const partsOf = (out) => (out?.locator && (out.locator.n || out.locator.sig) ? out.locator : null);
+const medianOf = (values) => {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted.length ? sorted[(sorted.length - 1) >> 1] : 0;
+};
+const maxMedian = (values) => (values.length ? `${Math.round(Math.max(...values))}/${Math.round(medianOf(values))}` : "-");
+const hitKinds = (out) => (out.locatorHits?.length ? out.locatorHits.join("+") : "-");
+
+/**
+ * One file's hits ([parts] by strategy: P's and B's, null when that step gave none) against ejs;
+ * [misses]: by hit name, the same file's miss in the core's own ms (its phases: P (a) without the
+ * prepare, as a kept program runs) for the table. Returns the file line's part.
+ */
+async function runHits(file, text, inputs, ejsOut, parts, misses = {}) {
+  const shown = [];
+  for (const name of HIT_NAMES) {
+    const hit = HITS[name];
+    const locator = parts[hit.parts];
+    if (!locator) {
+      shown.push(`${hit.label} no part`);
+      continue;
+    }
+    const out = await hitInIsolate(own, text, inputs, { ...LADDER_STEPS[hit.step], locator, kept: hit.kept });
+    const totals = hitTotals[name];
+    totals.files += 1;
+    totals.ms.push(out.ms);
+    totals.jobs.push(out.wall);
+    if (Number.isFinite(misses[name])) totals.misses.push(misses[name]);
+    if (out.ms > totals.slowest.ms) totals.slowest = { ms: out.ms, file };
+    if (out.error) totals.errors += 1;
+    for (const [kind, status] of Object.entries(out.report?.locator ?? {})) tally(totals.statuses, `${kind} ${status}`);
+    againstEjs(totals, out, ejsOut, inputs);
+    shown.push(`${hit.label} ${Math.round(out.ms)}/${out.wall} ms hit ${hitKinds(out)}${out.error ? ` (${out.error})` : out.failed ? ` (${out.failed})` : ""}`);
+  }
+  return shown.join(", ");
+}
+
+function hitLines() {
+  const lines = [];
+  if (!hitsOnly) {
+    const of = (strategy) => `${strategy} n ${partTotals[strategy].n}/${partTotals.files}, sig ${partTotals[strategy].sig}/${partTotals.files}`;
+    lines.push(`locator parts (files whose step gave a part): ${of("P")}; ${of("B")} -> build/own-solver/locators.json (data only)`);
+  }
+  for (const name of HIT_NAMES) {
+    const hit = HITS[name];
+    const t = hitTotals[name];
+    const statuses = Object.entries(t.statuses).sort().map(([key, count]) => `${key} ${count}`).join(", ") || "-";
+    lines.push(
+      `hit ${hit.label}: ${t.files} files, ms max/median ${maxMedian(t.ms)}, job ${maxMedian(t.jobs)} (A.1 estimate ${hit.a1}; ${hit.target})` +
+        `${t.misses.length ? `, the miss ${maxMedian(t.misses)} (its phases)` : ""}; locator ${statuses}; ` +
+        `vs ejs = ${t.agree}/${t.total}, wrong ${t.wrong}, no value ${t.missing}${t.errors ? `, errors ${t.errors}` : ""}; slowest ${t.slowest.file}`,
+    );
+  }
+  return lines;
+}
 // Per input against ejs: same value, another value, or none.
 function againstEjs(totals, answer, ejsOut, inputs) {
   for (const kind of ["n", "sig"]) {
@@ -232,6 +328,21 @@ const ejs = {
 };
 const ownLib = join(dirname(defaultOwn), "meriyah.umd.min.js");
 const own = existsSync(ownFile) ? { lib: readFileSync(ownLib, "utf8"), core: readFileSync(ownFile, "utf8") } : null;
+// N5b A.4: --hits-only's parts, as --ladder wrote them (the core checks their form again).
+let savedParts = null;
+let unsavedFiles = 0;
+if (hitsOnly) {
+  try {
+    const saved = JSON.parse(readFileSync(locatorsFile, "utf8"));
+    if (saved?.format === 1 && saved.files !== null && typeof saved.files === "object") savedParts = saved.files;
+  } catch {
+    savedParts = null;
+  }
+  if (!own || !savedParts) {
+    console.error(own ? "--hits-only: no build/own-solver/locators.json (run --ladder first)" : "--hits-only: own core not built");
+    process.exit(2);
+  }
+}
 
 const results = [];
 let preparedCount = 0;
@@ -288,6 +399,22 @@ for (const entry of corpus.players) {
     }
     const ejsOut = solveWithEjs(ejs, fetched.text, plan.inputs);
     await settle();
+    if (hitsOnly) {
+      // N5b A.4 (b): a new process, the parts from the file; P and B from the player text.
+      const file = `${entry.player} ${variant}`;
+      const result = { player: entry.player, variant, status: "ok", ...compare(plan, ejsOut, null) };
+      results.push(result);
+      let line = summarize([result], false)[0].replace(" | own: not built", "");
+      if (!Object.hasOwn(savedParts, file)) {
+        unsavedFiles += 1;
+        line += " | hits: not in locators.json";
+      } else {
+        const saved = savedParts[file] ?? {};
+        line += ` | hits ${await runHits(file, fetched.text, plan.inputs, ejsOut, { P: saved.P ?? null, B: saved.B ?? null })}`;
+      }
+      console.log(line);
+      continue;
+    }
     let ownOut = null;
     let ladderRuns = null;
     if (own && withLadder) {
@@ -304,16 +431,42 @@ for (const entry of corpus.players) {
       await settle();
     }
     const result = { player: entry.player, variant, status: "ok", ...compare(plan, ejsOut, ownOut) };
+    // N5b A.4: the parts the worker steps gave (the miss); the hits with them, or the faults with them.
+    const fileParts = ladderRuns && withLocator ? { P: partsOf(ladderRuns.workerP), B: partsOf(ladderRuns.workerB) } : null;
+    let hitLine = null;
+    if (fileParts && !withFaults) {
+      const file = `${entry.player} ${variant}`;
+      partTotals.files += 1;
+      for (const name of ["P", "B"]) for (const kind of ["n", "sig"]) if (fileParts[name]?.[kind]) partTotals[name][kind] += 1;
+      locatorEntries[file] = fileParts;
+      const missP = phasesOf(ladderRuns.workerP.report, "P");
+      const missB = phasesOf(ladderRuns.workerB.report, "B");
+      const misses = { keptP: missP && missP.total - missP.prepare, textP: missP?.total, textB: missB?.total };
+      hitLine = await runHits(file, fetched.text, plan.inputs, ejsOut, fileParts, misses);
+    }
+    const cachedLocator = (name) => {
+      const parts = name === "workerP" ? fileParts?.P : name === "workerB" ? fileParts?.B : null;
+      return parts ? { locator: parts } : {};
+    };
     if (own && withFaults) {
       result.faults = [];
       for (const fault of faultCases) {
         if (withLadder) {
           const lazy = await lazyLadder(async (name) => {
-            const out = solveWithOwn(own, fetched.text, plan.inputs, { ...LADDER_STEPS[name], faults: fault.faults });
+            const out = solveWithOwn(own, fetched.text, plan.inputs, { ...LADDER_STEPS[name], ...cachedLocator(name), faults: fault.faults });
             await settle();
             return out;
           }, plan.inputs, { page: "PB", live: "sim", truth: ejsOut });
-          result.faults.push({ ...faultVerdict(fault, ejsOut, lazy.ladder), sources: lazy.ladder.sources, steps: Object.keys(lazy.outs) });
+          // N5b A.4: the kinds whose cached part was sent, and those that hit.
+          const located = Object.entries(lazy.outs).flatMap(([name, out]) =>
+            Object.keys(cachedLocator(name).locator ?? {}).filter((key) => key !== "v").map((kind) => out.report?.locator?.[kind]),
+          );
+          result.faults.push({
+            ...faultVerdict(fault, ejsOut, lazy.ladder),
+            sources: lazy.ladder.sources,
+            steps: Object.keys(lazy.outs),
+            located: { sent: located.length, hit: located.filter((status) => status === "hit").length },
+          });
           continue;
         }
         const faulted = solveWithOwn(own, fetched.text, plan.inputs, { ...strategyExtra, faults: fault.faults });
@@ -333,6 +486,10 @@ for (const entry of corpus.players) {
           total.sources = total.sources ?? {};
           for (const [kind, source] of Object.entries(verdict.sources)) tally(total.sources, `${kind} ${source}`);
           total.steps = (total.steps ?? 0) + verdict.steps.length;
+        }
+        if (verdict.located) {
+          total.sent = (total.sent ?? 0) + verdict.located.sent;
+          total.hit = (total.hit ?? 0) + verdict.located.hit;
         }
         faultTotals.set(verdict.name, total);
       }
@@ -364,6 +521,7 @@ for (const entry of corpus.players) {
       line += ` | init errors ${inits.join(", ")} | ladder n ${ownOut.sources.n ?? "-"}, sig ${ownOut.sources.sig ?? "-"}`;
       // N5b A.1: wall ms per step (the harness call), phases from the reports, the lookup's time.
       line += ` | ms ${addLadder(ladderPhases, `${entry.player} ${variant}`, ladderRuns, ladderWalls)}`;
+      if (hitLine) line += ` | hits ${hitLine}`;
       ladderLookup.add(`${entry.player} ${variant}`, ladderWalls);
       // The report keeps each step's wall and phases (ms, rounded) for later sums.
       result.phases = Object.fromEntries(
@@ -443,13 +601,15 @@ if (prepareOnly) {
   }
   process.exit(results.length > 0 && preparedCount === results.length ? 0 : 1);
 }
-const lines = summarize(results, Boolean(own));
-console.log(lines[lines.length - 1]);
+const lines = summarize(results, Boolean(own) && !hitsOnly);
+console.log(hitsOnly ? `${lines[lines.length - 1].replace(/; own core not built yet$/, "")} (ejs); not in locators.json ${unsavedFiles}` : lines[lines.length - 1]);
+if (hitsOnly || (withLadder && withLocator && !withFaults)) for (const hitLine of hitLines()) console.log(hitLine);
 if (withFaults) {
   console.log(`faults: ${faultRuns} runs, wrong values ${faultWrong}, expected FAILs missed ${faultMissed}`);
   for (const [name, total] of faultTotals) {
     const ladderPart = total.sources
-      ? ` | ladder ${Object.entries(total.sources).sort().map(([key, count]) => `${key} ${count}`).join(", ")}; steps run ${total.steps}`
+      ? ` | ladder ${Object.entries(total.sources).sort().map(([key, count]) => `${key} ${count}`).join(", ")}; steps run ${total.steps}` +
+        (total.sent !== undefined ? `; cached parts sent ${total.sent}, hit ${total.hit}` : "")
       : "";
     console.log(`  fault ${name}: ${total.runs} runs, wrong values ${total.wrong}, missed ${total.missed}, files not ok ${total.bad}${ladderPart}`);
   }
@@ -487,12 +647,21 @@ if (withLadder) {
     }
   }
 }
-// Page-mode and ladder runs keep their own report, so a worker-mode run can go at the same time.
-const outFile = withLadder
+// N5b A.4: the parts of every file --ladder checked (null: the step gave none), for --hits-only.
+if (withLadder && withLocator && !withFaults) {
+  mkdirSync(dirname(locatorsFile), { recursive: true });
+  writeFileSync(locatorsFile, `${JSON.stringify({ format: 1, files: locatorEntries })}\n`);
+}
+// Page-mode, ladder and hit runs keep their own report, so a worker-mode run can go at the same time.
+const outFile = hitsOnly
+  ? reportFile.replace(/\.json$/, "-hits.json")
+  : withLadder
   ? reportFile.replace(/\.json$/, "-ladder.json")
   : page ? reportFile.replace(/\.json$/, `${strategy === "B" ? "-b" : ""}-page.json`) : reportFile;
 mkdirSync(dirname(outFile), { recursive: true });
 writeFileSync(outFile, `${JSON.stringify({ ownBuilt: Boolean(own), page, results }, null, 2)}\n`);
 const ladderOk = !withLadder || Object.values(ladderTotals).every((t) => t.wrong === 0);
 const faultsOk = (!withFaults || (faultWrong === 0 && faultMissed === 0 && faultFiles === 0)) && ladderOk;
-process.exit(results.length > 0 && results.every(passes) && faultsOk ? 0 : 1);
+// N5b A.4: a hit never gives a wrong value; --hits-only needs every file in the parts file.
+const hitsOk = Object.values(hitTotals).every((t) => t.wrong === 0) && unsavedFiles === 0;
+process.exit(results.length > 0 && results.every(passes) && faultsOk && hitsOk ? 0 : 1);

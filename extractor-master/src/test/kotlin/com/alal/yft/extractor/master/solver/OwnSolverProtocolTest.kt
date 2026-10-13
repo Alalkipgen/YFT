@@ -233,6 +233,78 @@ class OwnSolverProtocolTest {
         assertEquals(listOf("TypeError"), decoded("1", "[\"TypeError\",7,null]").initErrorClasses)
     }
 
+
+    @Test
+    fun `N5b A-4 - a locator goes on a job only when asked - empty to locate, else the parts with the core version`() {
+        val raw = OwnSolverProtocol.Player.Raw("p")
+        assertNull(BoundedJsonParser.parse(OwnSolverProtocol.encode(raw, batch, false))["locator"])
+
+        val locate = OwnSolverProtocol.Options(locator = OwnSolverLocator.Parts())
+        assertEquals(JsonValue.Object(emptyMap()), BoundedJsonParser.parse(OwnSolverProtocol.encode(raw, batch, false, locate))["locator"])
+
+        val p = OwnSolverLocator.PPart(listOf(0, 3), "0a1b2c3d")
+        val withP = OwnSolverProtocol.Options(locator = OwnSolverLocator.Parts(rate = p))
+        val sentP = BoundedJsonParser.parse(OwnSolverProtocol.encode(raw, batch, false, withP))["locator"]
+        assertEquals(OwnSolverLocator.Parts(rate = p), OwnSolverLocator.decode(sentP))
+        assertEquals(JsonValue.Number("1"), sentP["v"])
+
+        val b = OwnSolverLocator.BPart(listOf(OwnSolverLocator.Member(41, 2, "00ff00ff", 1234)), "deadbeef")
+        val withB = OwnSolverProtocol.Options(strategyB = true, locator = OwnSolverLocator.Parts(signature = b))
+        val sentB = BoundedJsonParser.parse(OwnSolverProtocol.encode(raw, batch, false, withB))["locator"]
+        assertEquals(OwnSolverLocator.Parts(signature = b), OwnSolverLocator.decode(sentB))
+    }
+
+    @Test
+    fun `N5b A-4 - a job's parts are of its strategy`() {
+        val p = OwnSolverLocator.PPart(listOf(1), "0a1b2c3d")
+        val b = OwnSolverLocator.BPart(listOf(OwnSolverLocator.Member(1, 0, "0a1b2c3d", 9)), "0a1b2c3d")
+        assertTrue(runCatching { OwnSolverProtocol.Options(locator = OwnSolverLocator.Parts(signature = b)) }.exceptionOrNull() is IllegalArgumentException)
+        assertTrue(
+            runCatching { OwnSolverProtocol.Options(strategyB = true, locator = OwnSolverLocator.Parts(rate = p)) }
+                .exceptionOrNull() is IllegalArgumentException,
+        )
+    }
+
+    @Test
+    fun `N5b A-4 - a reply's parts and hits decode, a locator not of the core's form is ignored`() {
+        val part = "{\"s\":\"P\",\"c\":[2],\"o\":\"0a1b2c3d\"}"
+        fun reply(locator: String?, hits: String?) = buildString {
+            append("{\"type\":\"result\",\"n\":{\"Qx7rTb2LmNc9Pd4s\":\"out\"},\"sig\":{},\"init_errors\":0")
+            locator?.let { append(",\"locator\":").append(it) }
+            hits?.let { append(",\"locator_hit\":").append(it) }
+            append('}')
+        }
+        val solved = OwnSolverProtocol.decode(reply("{\"v\":1,\"n\":$part}", "[\"n\"]"), batch) as OwnSolverProtocol.Decoded.Solved
+        assertEquals(OwnSolverLocator.Parts(rate = OwnSolverLocator.PPart(listOf(2), "0a1b2c3d")), solved.locator)
+        assertEquals(setOf(OwnSolverLadderRule.Kind.RATE), solved.locatorHits)
+        assertTrue(solved.toString().contains("locator=true"))
+        assertFalse(solved.toString().contains("0a1b2c3d"))
+
+        val none = OwnSolverProtocol.decode(reply(null, null), batch) as OwnSolverProtocol.Decoded.Solved
+        assertNull(none.locator)
+        assertTrue(none.locatorHits.isEmpty())
+        assertEquals(OwnSolverLocator.Parts(), (OwnSolverProtocol.decode(reply("{\"v\":1}", "[]"), batch) as OwnSolverProtocol.Decoded.Solved).locator)
+
+        listOf(
+            "{\"v\":2,\"n\":$part}",
+            "{\"n\":$part}",
+            "{\"v\":1,\"n\":$part,\"x\":1}",
+            "{\"v\":1,\"n\":{\"s\":\"P\",\"c\":[2],\"o\":\"0A1B2C3D\"}}",
+            "{\"v\":1,\"sig\":{\"s\":\"P\",\"c\":[],\"o\":\"0a1b2c3d\"}}",
+            "[1]",
+            "\"v\"",
+        ).forEach { locator ->
+            val decoded = OwnSolverProtocol.decode(reply(locator, "[\"sig\"]"), batch) as OwnSolverProtocol.Decoded.Solved
+            assertNull(locator, decoded.locator)
+            // Answers stay: only the locator is ignored.
+            assertEquals("out", decoded.rate["Qx7rTb2LmNc9Pd4s"])
+        }
+        listOf("[\"n\",\"sig\",\"n\"]", "[\"x\"]", "\"n\"", "[1]").forEach { hits ->
+            val decoded = OwnSolverProtocol.decode(reply("{\"v\":1}", hits), batch) as OwnSolverProtocol.Decoded.Solved
+            assertTrue(hits, decoded.locatorHits.isEmpty())
+        }
+    }
+
     private fun texts(value: JsonValue?): List<String> =
         (value as JsonValue.Array).items.map { (it as JsonValue.Text).value }
 }

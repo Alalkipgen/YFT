@@ -9,15 +9,19 @@
  *          N5b fields: "tripwire":true (the environment tripwire), "strategy":"B" with
  *          "hint":true|false (strategy B; from the player text only, never prepared or kept),
  *          "deadline_ms":40000 (N5b A.2: the app's min(job cap, time left in the lookup); it
- *          counts from the job's arrival and the core gets what is left of it after the parse)
+ *          counts from the job's arrival and the core gets what is left of it after the parse),
+ *          "locator":{} or {"v":1,"n":{…},"sig":{…}} (N5b A.4, locate mode: the parts the
+ *          app's locator cache holds for this step; data only, see the core's locatorOk; a
+ *          malformed one is a BadJob)
  *   reply  {"type":"result","n":{input:output},"sig":{…},"failed"?:"sig:disagree",
- *           "prepared_program"?:"…"}
+ *           "prepared_program"?:"…","locator"?:{"v":1,"n"?:{…},"sig"?:{…}},
+ *           "locator_hit"?:["n","sig"]}
  *          {"type":"error","error":"<error class>"}
  *
  * A worker has no document and no navigable location, so nothing the player's code does here can
- * navigate the host page. Only n and sig inputs, the strategy, the hint, the tripwire and the
- * deadline reach the core: a job cannot switch on the core's test-only fault injection or pass
- * vectors. Replies carry values only for asked inputs, failure
+ * navigate the host page. Only n and sig inputs, the strategy, the hint, the tripwire, the
+ * deadline and the locator reach the core: a job cannot switch on the core's test-only fault
+ * injection or pass vectors. Replies carry values only for asked inputs, failure
  * classes and the prepared program; never a message text.
  */
 "use strict";
@@ -75,24 +79,43 @@ function yftTimed(request, job, received) {
   return request;
 }
 
+// N5b A.4: the job's locator, checked by the core (data only: numbers and short hashes); absent:
+// Phase 1.1, nothing located.
+function yftLocatorOk(solver, job) {
+  return job.locator === undefined || solver.locatorOk(job.locator, job.strategy === "B" ? "B" : "P");
+}
+
+function yftLocated(request, job) {
+  if (job.locator !== undefined) request.locator = job.locator;
+  return request;
+}
+
+// The core's locator output (only in locate mode): the parts and the kinds that hit.
+function yftLocatorReply(reply, output) {
+  if (!output.locator) return;
+  reply.locator = output.locator;
+  if (output.locatorHits && output.locatorHits.length) reply.locator_hit = output.locatorHits.slice(0, 2);
+}
+
 function yftRunJob(solver, job, received) {
-  if (!job || (job.type !== "player" && job.type !== "prepared") || !yftDeadlineOk(job)) {
+  if (!job || (job.type !== "player" && job.type !== "prepared") || !yftDeadlineOk(job) || !yftLocatorOk(solver, job)) {
     return { type: "error", error: "BadJob" };
   }
   if (job.strategy === "B") {
     if (job.type !== "player") return { type: "error", error: "BadJob" };
     // B prepares from the player text every time; nothing is kept.
-    var outB = solver.solve(yftTimed({
+    var outB = solver.solve(yftTimed(yftLocated({
       player: String(job.player),
       n: yftInputs(job.n),
       sig: yftInputs(job.sig),
       strategy: "B",
       hint: job.hint === true,
       tripwire: job.tripwire === true,
-    }, job, received));
+    }, job), job, received));
     var replyB = { type: "result", n: outB.n || {}, sig: outB.sig || {} };
     if (outB.failed) replyB.failed = String(outB.failed);
     yftInitErrors(replyB, outB.report);
+    yftLocatorReply(replyB, outB);
     return replyB;
   }
   if (job.strategy !== undefined) return { type: "error", error: "BadJob" };
@@ -103,10 +126,11 @@ function yftRunJob(solver, job, received) {
   if (!prepared.ok) {
     return { type: "result", n: {}, sig: {}, failed: String(prepared.failed || "not prepared") };
   }
-  var output = solver.run(prepared, yftTimed({ n: yftInputs(job.n), sig: yftInputs(job.sig), tripwire: job.tripwire === true }, job, received));
+  var output = solver.run(prepared, yftTimed(yftLocated({ n: yftInputs(job.n), sig: yftInputs(job.sig), tripwire: job.tripwire === true }, job), job, received));
   var reply = { type: "result", n: output.n || {}, sig: output.sig || {} };
   if (output.failed) reply.failed = String(output.failed);
   yftInitErrors(reply, output.report);
+  yftLocatorReply(reply, output);
   if (job.type === "player" && job.keep_prepared === true && !yftWholeFailure(output.failed)) {
     reply.prepared_program = prepared.program;
   }

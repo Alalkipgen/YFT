@@ -291,6 +291,102 @@
 - ⏸️ Stopped after A.3 at the owner's request. Next: A.4 locator cache → A.5 V ledger on disk →
   A.6 docs → A.7 (TEST_SHA + Test Agent A–D commands), by a new agent with
   `MASTER_KEY_PHASE1_2_CONTINUE_N5B_A4.md`.
+- ▶️ Resumed at `e9e4a6b` with `MASTER_KEY_PHASE1_2_CONTINUE_N5B_A4.md`: A.4 → A.5 → A.6 → A.7.
+- ✅ A.4 locator cache (`ownSolverNext` only, tests first; flag off = main: a job without
+  `locator` runs exactly as before; plan §3 N5b A.4 "Done" and "Plan adapted").
+  - Core: locate mode (`request.locator`, `{}` or the cached parts, core version 1). For each
+    kind answered cleanly (init errors 0 after the tripwire, every input answered, no failure,
+    trip or budget) a run returns a data-only part: P = the candidate indexes that answered every
+    input + a hash of the probe outputs; B = the winning group's members (static function id,
+    shape index, a hash of the function's source and its size) + the probe hash (32-bit FNV-1a).
+    A P part runs only its candidates (each must answer every input with the same probe outputs,
+    every candidate runs once on one probe and must agree; the tripwire runs with all
+    candidates); a B part skips the screen (the same functions by id, size and hash → profile →
+    confirm → groups → solve → tripwire). Anything else is a miss (a reason class in the report,
+    counts only) and the kind runs in full in the same job. `locatorOk` checks the form (bounded
+    whole numbers, 8-digit hex hashes, ≤ 16 candidates, ≤ 8 members, the job's strategy).
+  - Wrappers: worker job field `locator` (malformed or of the other strategy → `BadJob`), reply
+    `locator` + `locator_hit`; the page frame refuses a job with a locator (page steps run in
+    full every time).
+  - Kotlin (extractor-master): `OwnSolverLocator` (the core's form check, decode/encode, the
+    part's hash), `OwnSolverLocators` (≤ 32 players, least recently used first; key player ID +
+    SHA-256 of the player text, another hash → the entry is dropped; the file is read on first use
+    and written whole after each change; unreadable, corrupt, another format or core version →
+    empty; IO never throws), `AtomicTextFile` (temp file + rename, ≤ 256 K chars), protocol
+    `Options.locator`, `Decoded.Solved.locator` / `locatorHits`. `OwnPlayerScriptRunner.Next`:
+    every worker job asks for parts and carries the parts cached for its step and player text; a
+    kind's part is kept only from the step the ladder chose (a worker step with init errors 0 and
+    a part of its strategy), a signature's part only after V = pass; a miss or another chosen
+    step drops it, V = fail drops that step's signature part. App: `SiteAdapterModule` names
+    `files/own-solver/locators.json` and `files/own-solver/v-ledger.json` next to
+    `SharedPreferencesBreakerMarkers`.
+  - Plan adapted: the file store is plain Java in extractor-master (no Android API needed; the
+    local JVM tests cover it), not extractor-master-android; page steps never locate.
+  - ❗ Bug found by the corpus and fixed (tests first): one function can sit in B's winning group
+    in two shapes; the core's and Kotlin's form checks refused a repeated id, so B never hit on a
+    real player. B's members are now distinct (id, shape) pairs in both.
+  - Runners: `verify-own-solver.mjs --ladder` runs the worker steps in locate mode (the miss),
+    writes the parts to `build/own-solver/locators.json` (data only) and times each file's hits
+    in a fresh isolate per job (`harness.mjs` `hitInIsolate`: a worker thread, as the app's new
+    Worker per job; a rerun in the same isolate is warm: P (a) 43 ms instead of 347 ms): "P (a)
+    kept" (the kept program, as the same process), "P (b) text" and "B text" (from the player
+    text, as after a restart). `--hits-only`: a new process reads the file (ejs, P (b), B per
+    file). `--faults --ladder` sends the cached parts to the worker steps. `--no-locator` = A.3's
+    runs. Mutation runner `--ladder`: worker jobs carry `locator: {}` (`--no-locator` drops it).
+- ✅ A.5 V ledger on disk: `OwnSolverVLedger` (≤ 64 keys, oldest first;
+  `files/own-solver/v-ledger.json` through the same file store; unreadable or another format →
+  empty, V runs again) replaces the runner's memory `passed` set. Key
+  `player|step|scriptHash|locatorHash` (`PendingCheck.cacheKey`; `-` without a part; a hit names
+  the part it was sent, a reply cannot bring a part of its own into the key). Plan adapted:
+  `StreamCheck.Ledger` (check budgets per day, remembered verdicts) stays in memory.
+- ✅ Tests: JS 217/217 (194 + 23: locator 22, page frame 1); Kotlin on a local JVM (JDK 17,
+  kotlinc 2.0.21; solver package + StreamCheck) 103/103 (+29: locator 14, locator runner 12,
+  protocol 3). Poisoned entries → a miss, the kind runs in full, wrong 0: P index out of range,
+  a silent candidate, the decoy fault's index, one of two disagreeing candidates, another core
+  version; B wrong function id, size, source hash, shape, group (decoy) or outputs; other player
+  text under the same player ID; a reply claiming a hit for a part it was not sent; a poisoned
+  entry with a V pass on file → V runs again, its fail drops the part, the next answer is
+  checked. A hit after a restart: a new runner reads both files and sends the parts.
+- ✅ Mutation tests (each new check off → a new test fails): Kotlin 29, JS + harness 34. Equivalent
+  survivors (same result by other code): Kotlin "init errors" (the rule takes a worker step only
+  with init errors 0, and the core then gives no part), "strategy" and "parts' step" (`Located`
+  ties the step to the part's strategy); JS "clean: kind failure" and "clean: answered" (each
+  covered by the other and by the part itself: a failed kind keeps no answers, a part needs
+  every input answered), "B confirm" on a hit (the group's probe hash and SelfCheck on a fresh
+  instance catch the same cases; kept as defence in depth, as after the screen).
+- ✅ Corpus `--ladder` (593 s, peak RSS 2359 MB, exit 0): 32/32 files pass, own = ejs 260/260;
+  init errors 0/32 in all four steps (tripwire false positives 0); PB+V = ejs 260/260, B+V
+  260/260, wrong 0; PB off and B off 132/260, no value 128 (no signature without V). Parts: P n
+  32/32, sig 32/32; B n 32/32, sig 32/32. Hits, each in a fresh isolate, max/median ms (the
+  core's / the whole job), every file n + sig hit, = ejs 260/260, wrong 0:
+  - P (a) kept: 394/286, job 396/289 (A.1 estimate 478/291; N7 target ≤ 2000 ms).
+  - P (b) from the text: 2236/1516, job 2260/1531 (A.1 estimate 1938/1329; N7 target ≤ 8000 ms).
+  - B from the text: 4298/2951, job 4313/2967 (A.1 estimate 5422/3724; metric only).
+  The misses as measured in the runner's process (warm): P 1535/1175, B 5950/4576. A P hit from
+  the text saves only P's search (≤ 343 ms); a fresh isolate starts cold, so it is not faster
+  than the warm miss.
+- ✅ `--hits-only` (a new process reading `locators.json`; 155 s, peak RSS 1245 MB, exit 0): 32/32
+  files (ejs) pass, not in the file 0; P (b) 1783/1366 ms, job 1797/1379; B 3796/2764 ms, job
+  3810/2778; every file n + sig hit, = ejs 260/260, wrong 0.
+- ✅ Faults with the cached parts (`--ladder --faults --only 74edf1a3 --variant main`, a quick
+  check; 78 s, exit 0): 12 runs, wrong values 0, expected FAILs missed 0; parts sent 44, hit 10
+  (omit-window, omit-self: both kinds; decoy-n, decoy-sig, raw-encoding: the kind the fault does
+  not touch). The whole faults run is Test Agent A's.
+- ✅ Mutation runner with locate mode (`--class M9bs --only 631d3938 --variant es6 --strategy P,B
+  --ladder --judge ladder`, 16 s, exit 0): as A.3, own B wrong 1 (standalone, init errors 3),
+  ladder wrong 0.
+- ⚠️ P (b) on the phone: the largest player took 1.78 s (`--hits-only`) to 2.24 s (`--ladder`)
+  here; at the ×4 phone margin that is 7.1–8.9 s against N7's 8 s target (the medians, 5.5–6.1 s,
+  fit). N7 measures the real factor.
+- ⚠️ Found (plan §5 "V wiring in the app"; `ownSolverNext` only, flag off = main unaffected): the
+  app hands the own runner to main's `YouTubeExtractor` (extractor-sites), and the V gate is
+  only in Master's `MasterYouTubeModule`, which the app builds without a runner. With
+  `ownSolverNext` the app would use the ladder's signatures without V, never record a V pass and
+  never cache a signature part. Not fixed in this cycle (the owner decides); proposed fix before
+  N7, tests first: the gate around every reader that gets the own runner.
+- ✅ A.6 docs: plan §3 N5b A.4/A.5 "Done" and "Plan adapted", §5 new entries (work the step
+  budget cannot see → N8, locator cache, caps and why, B prepared program status, M9c-nav gap,
+  V wiring in the app, main candidate list).
 
 ## Phase 1.2 — N5a ladder rule, init errors in replies, M9c — done, ❌ M9c-nav ladder wrong 1 → N5b (code `a78626f`, CI 38189985242 ✅ + checkpoint 38189988228 ✅)
 

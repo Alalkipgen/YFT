@@ -1186,6 +1186,184 @@ var yftOwnSolver = (function () {
   }
 
   // ---------------------------------------------------------------------------------------------
+  // N5b A.4: the locator cache's data (ownSolverNext's worker steps only; a request without
+  // `locator` changes nothing, page mode never locates). In locate mode (request.locator is an
+  // object) a run returns, for each kind it answered cleanly (init errors 0 after the tripwire,
+  // every input answered, no failure for the kind: no trip, no budget), a part that says where
+  // the answer came from, data only: P the candidate indexes that answered every input (registry.c
+  // of this prepared program), B the winning group's members (static function id, shape index, a
+  // hash of the function's source and its size); both with a hash of the probe outputs. A part in
+  // the request (same core version and strategy) narrows the work: P runs only those candidates,
+  // B skips the screen. A hit keeps every check (SelfCheck, the tripwire with all of P's
+  // candidates, V in the app) and must match the part exactly; any difference is a miss and the
+  // kind runs in full in the same job, so a hit is never worse than a miss. The hashes are 32-bit
+  // FNV-1a: a check that the entry still describes this player, not a secret.
+  var LOCATOR_MAX_MEMBERS = 8;
+  var LOCATOR_MAX_ID = 1000000;
+  var LOCATOR_MAX_SHAPE = 100000;
+  var LOCATOR_MAX_SIZE = 100000000;
+  var LOCATOR_HASH = /^[0-9a-f]{8}$/;
+  var FN_SOURCE = Function.prototype.toString;
+
+  function locHashStep(hash, code) {
+    hash = (hash ^ code) >>> 0;
+    return (hash + (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24)) >>> 0;
+  }
+
+  // One hash over a list of texts (each ends with a separator, so ["ab"] and ["a", "b"] differ).
+  function locHash(texts) {
+    var hash = 0x811c9dc5;
+    for (var p = 0; p < texts.length; p += 1) {
+      var text = String(texts[p]);
+      for (var i = 0; i < text.length; i += 1) hash = locHashStep(hash, text.charCodeAt(i));
+      hash = locHashStep(hash, 0x10000);
+    }
+    return ("0000000" + hash.toString(16)).slice(-8);
+  }
+
+  function isWhole(value, max) {
+    return typeof value === "number" && value >= 0 && value <= max && Math.floor(value) === value;
+  }
+
+  function plainObject(value) {
+    return value !== null && typeof value === "object" && Object.prototype.toString.call(value) === "[object Object]";
+  }
+
+  function plainArray(value) {
+    return Object.prototype.toString.call(value) === "[object Array]";
+  }
+
+  function keysOnly(object, allowed) {
+    var keys = Object.keys(object);
+    for (var i = 0; i < keys.length; i += 1) if (allowed.indexOf(keys[i]) < 0) return false;
+    return true;
+  }
+
+  // One kind's part as a request may carry it: P {s:"P", c:[index...], o:hash}, B {s:"B",
+  // m:[[id, shape, source hash, size]...], o:hash} (each [id, shape] once).
+  function locatorPartOk(part, strategy) {
+    if (!plainObject(part) || part.s !== strategy || typeof part.o !== "string" || !LOCATOR_HASH.test(part.o)) return false;
+    if (strategy === "P") {
+      var c = part.c;
+      if (!keysOnly(part, ["s", "c", "o"]) || !plainArray(c) || !c.length || c.length > MAX_CANDIDATES) return false;
+      for (var i = 0; i < c.length; i += 1) {
+        if (!isWhole(c[i], MAX_CANDIDATES - 1) || c.indexOf(c[i]) !== i) return false;
+      }
+      return true;
+    }
+    var m = part.m;
+    if (strategy !== "B" || !keysOnly(part, ["s", "m", "o"]) || !plainArray(m) || !m.length || m.length > LOCATOR_MAX_MEMBERS) return false;
+    for (var j = 0; j < m.length; j += 1) {
+      var member = m[j];
+      if (!plainArray(member) || member.length !== 4) return false;
+      if (!isWhole(member[0], LOCATOR_MAX_ID) || !isWhole(member[1], LOCATOR_MAX_SHAPE)) return false;
+      if (typeof member[2] !== "string" || !LOCATOR_HASH.test(member[2])) return false;
+      if (!isWhole(member[3], LOCATOR_MAX_SIZE) || member[3] < 1) return false;
+      // One function may win in two shapes (two members); a member (id and shape) comes once.
+      for (var k = 0; k < j; k += 1) if (m[k][0] === member[0] && m[k][1] === member[1]) return false;
+    }
+    return true;
+  }
+
+  // A request's locator: {} (locate only) or {v: core version, n?: part, sig?: part}, parts of
+  // [strategy] ("P" or "B"). The worker refuses a job whose locator is not (BadJob).
+  function locatorOk(locator, strategy) {
+    if (!plainObject(locator) || !keysOnly(locator, ["v", "n", "sig"])) return false;
+    if (locator.n === undefined && locator.sig === undefined) return locator.v === undefined || isWhole(locator.v, LOCATOR_MAX_ID);
+    if (!isWhole(locator.v, LOCATOR_MAX_ID) || locator.v < 1) return false;
+    return KINDS.every(function (kind) {
+      return locator[kind] === undefined || locatorPartOk(locator[kind], strategy);
+    });
+  }
+
+  function locateWanted(request) {
+    return plainObject(request.locator) && request.page !== true;
+  }
+
+  // The parts a run may use, copied before any player code runs; a part it cannot use gets its
+  // status ("miss form", "miss version").
+  function locatorParts(request, strategy, status) {
+    var parts = {};
+    var locator = request.locator;
+    var formOk = locatorOk(locator, strategy);
+    KINDS.forEach(function (kind) {
+      if (locator[kind] === undefined) return;
+      if (!formOk) status[kind] = "miss form";
+      else if (locator.v !== VERSION) status[kind] = "miss version";
+      else parts[kind] = JSON.parse(JSON.stringify(locator[kind]));
+    });
+    return parts;
+  }
+
+  // Locate mode's output: a part per kind answered cleanly ([partOf], null after a failed run),
+  // the hits (a part was used and the kind ended clean) and each kind's status for the report:
+  // "hit", "miss <why>", "new" (a part without one asked) or "none".
+  function finishLocator(output, request, status, partOf) {
+    var locator = { v: VERSION };
+    var hits = [];
+    var clean = !!partOf && output.report.topLevelErrors === 0;
+    var failed = String(output.failed || "").split(",");
+    askedKinds(request).forEach(function (kind) {
+      var answered = (request[kind] || []).every(function (input) {
+        return typeof input !== "string" || !input.length || has.call(output[kind], input);
+      });
+      var failedKind = failed.some(function (entry) {
+        return entry.indexOf(kind + ":") === 0;
+      });
+      var part = clean && answered && !failedKind ? partOf(kind) : null;
+      if (part) locator[kind] = part;
+      if (status[kind] === "hit") {
+        if (part) hits.push(kind);
+        else status[kind] = "miss late";
+      } else if (!status[kind]) {
+        status[kind] = part ? "new" : "none";
+      }
+    });
+    output.locator = locator;
+    output.locatorHits = hits;
+    output.report.locator = status;
+  }
+
+  // P: the located candidates (and the decoy fault's extra one, so the fault suite still sees
+  // it); null when an index is not a candidate of this instance.
+  function pLocated(builders, registry, part) {
+    for (var i = 0; i < part.c.length; i += 1) if (part.c[i] >= registry.c.length) return null;
+    return builders.filter(function (builder) {
+      return part.c.indexOf(builder.index) >= 0 || builder.index >= registry.c.length;
+    });
+  }
+
+  // P: why a located run is not a hit (null: it is). SelfCheck passed, every located candidate
+  // answered every input, the probe outputs are the part's, and every candidate of the instance
+  // (not only the located ones) still agrees on the first probe.
+  function pMissOf(kind, part, result, track, builders, request) {
+    if (result.report.reason) return "check";
+    for (var i = 0; i < part.c.length; i += 1) if (track.counts[part.c[i]] !== track.total) return "silent";
+    if (!track.probes || locHash(track.probes) !== part.o) return "outputs";
+    var probe = kind === "n" ? N_PROBES[0] : SIG_MAP_PROBE;
+    var values = initWrongValues(request, kind, multiTry(kind, builders, probe, request.faults || {}).values);
+    if (values.length !== 1 || values[0] !== track.probes[0]) return "agree";
+    return null;
+  }
+
+  // P's part for a kind solved cleanly: the candidates that answered every input (never the decoy
+  // fault's) and the probe outputs' hash. A hit runs only them, and every candidate once (pMissOf).
+  function pPartOf(track, registry) {
+    if (!track || !track.probes || !track.total) return null;
+    var located = [];
+    var indexes = Object.keys(track.counts);
+    for (var i = 0; i < indexes.length; i += 1) {
+      var index = Number(indexes[i]);
+      if (index < registry.c.length && track.counts[indexes[i]] === track.total) located.push(index);
+    }
+    if (!located.length || located.length > MAX_CANDIDATES) return null;
+    located.sort(function (a, b) {
+      return a - b;
+    });
+    return { s: "P", c: located, o: locHash(track.probes) };
+  }
+
+  // ---------------------------------------------------------------------------------------------
   // G1 multiTry with G3 encoding: every candidate builds a URL for the test page; n is set on it
   // and read back through every path the URL object offers; sig goes in URI-encoded and comes
   // out decoded exactly once.
@@ -1302,8 +1480,9 @@ var yftOwnSolver = (function () {
   // a hit skips).
   var pTiming = null;
 
-  // One input through every candidate: the distinct values and the failures.
-  function multiTry(kind, candidates, input, faults) {
+  // One input through every candidate: the distinct values and the failures. [counts] (N5b A.4,
+  // optional): per candidate index, how many inputs it gave a value for.
+  function multiTry(kind, candidates, input, faults, counts) {
     var values = [];
     var errors = [];
     candidates.forEach(function (candidate) {
@@ -1319,6 +1498,7 @@ var yftOwnSolver = (function () {
       } catch (error) {
         errors.push(candidate.index + ":" + errorName(error));
       }
+      if (counts && gave) counts[candidate.index] = (counts[candidate.index] || 0) + 1;
       if (pTiming) {
         if (gave) pTiming.answering += pNow() - t0;
         else pTiming.silent += pNow() - t0;
@@ -1362,7 +1542,9 @@ var yftOwnSolver = (function () {
     return out;
   }
 
-  function solveKind(kind, builders, inputs, request) {
+  // [track] (N5b A.4, optional) gets what the locator needs: per candidate index the number of
+  // inputs it answered ([counts], of [total]) and, when SelfCheck passed, the probe outputs.
+  function solveKind(kind, builders, inputs, request, track) {
     var faults = request.faults || {};
     var vectors = (request.vectors && request.vectors[kind]) || [];
     var probes = kind === "n" ? N_PROBES.slice() : [SIG_MAP_PROBE, SIG_EDGE_PROBE];
@@ -1377,8 +1559,9 @@ var yftOwnSolver = (function () {
       });
     var results = Object.create(null);
     var errors = [];
+    var counts = Object.create(null);
     all.forEach(function (input) {
-      var outcome = multiTry(kind, builders, input, faults);
+      var outcome = multiTry(kind, builders, input, faults, counts);
       results[input] = initWrongValues(request, kind, outcome.values);
       outcome.errors.forEach(function (error) {
         if (errors.indexOf(error) < 0) errors.push(error);
@@ -1425,6 +1608,15 @@ var yftOwnSolver = (function () {
           answered += 1;
         }
       });
+    }
+    if (track) {
+      track.counts = counts;
+      track.total = all.length;
+      track.probes = reason
+        ? null
+        : probes.map(function (probe) {
+            return solved[probe];
+          });
     }
     return {
       answers: answers,
@@ -2438,6 +2630,92 @@ var yftOwnSolver = (function () {
     return out;
   }
 
+  // The shapes the screen tries for one registered function: f(input) for one to three parameters,
+  // and the dispatcher templates of a uniquely named function.
+  function bShapesOf(fn, info, templates) {
+    var params = fn.length;
+    var shapes = params >= 1 && params <= 3 ? [null] : [];
+    if (info.unique && templates[info.name]) shapes = shapes.concat(templates[info.name]);
+    return shapes;
+  }
+
+  function bEntry(registry, id) {
+    for (var i = 0; i < registry.f.length; i += 1) if (registry.f[i].id === id) return registry.f[i];
+    return null;
+  }
+
+  // N5b A.4: B with a part, without the screen: each member is the same function (id, size and
+  // source hash) with the same shape and still behaves like [kind]; each is confirmed on fresh
+  // instances (T2, as after the screen), they form exactly one group (the decoy fault adds
+  // another: a miss) with the part's probe outputs, and SelfCheck passes on a fresh instance.
+  // Returns {miss: why} or the hit.
+  function bHit(prepared, request, registry, meta, templates, kind, part, inputs) {
+    var candidates = [];
+    for (var i = 0; i < part.m.length; i += 1) {
+      var id = part.m[i][0];
+      var entry = bEntry(registry, id);
+      var info = entry && meta[id];
+      if (!info || info.size !== part.m[i][3]) return { miss: "id" };
+      if (locHash([FN_SOURCE.call(entry.fn)]) !== part.m[i][2]) return { miss: "source" };
+      var shapes = bShapesOf(entry.fn, info, templates);
+      if (part.m[i][1] >= shapes.length) return { miss: "shape" };
+      var profile = bProfile(registry, entry.fn, shapes[part.m[i][1]], !!info.builder);
+      if (profile.kind !== kind) return { miss: "shape" };
+      candidates.push({
+        id: id,
+        order: entry.order,
+        kind: kind,
+        outputs: profile.outputs,
+        shape: shapes[part.m[i][1]],
+        si: part.m[i][1],
+        steps: profile.steps,
+        weak: !!profile.weak,
+      });
+    }
+    for (var c = 0; c < candidates.length; c += 1) {
+      if (deadlinePassed()) return { miss: "budget" };
+      if (!bConfirm(prepared, request, candidates[c])) return { miss: "confirm" };
+    }
+    if (request.faults && request.faults.decoy === kind) {
+      candidates.push({
+        id: -1,
+        order: registry.f.length,
+        kind: kind,
+        outputs: candidates[0].outputs.map(function (value) {
+          return value.split("").reverse().join("");
+        }),
+        shape: null,
+        steps: 0,
+        weak: candidates[0].weak,
+      });
+    }
+    var strong = candidates.filter(function (candidate) {
+      return !candidate.weak;
+    });
+    var grouped = bGroups(strong.length ? strong : candidates, meta, null);
+    if (grouped.total !== 1 || grouped.ambiguous || grouped.groups[0].members.length !== part.m.length) return { miss: "group" };
+    var group = grouped.groups[0];
+    if (locHash(group.outputs) !== part.o) return { miss: "outputs" };
+    var result = bSolveKind(kind, group, bInstantiate(prepared, request), inputs, request);
+    if (result.reason) return { miss: result.reason === "budget" ? "budget" : "check" };
+    return { group: group, answers: result.answers, solved: result.solved };
+  }
+
+  // B's part for a kind solved cleanly: the group's members (at most LOCATOR_MAX_MEMBERS) as
+  // [static id, shape index, source hash, size] and the probe outputs' hash.
+  function bPartOf(group, registry, meta) {
+    if (!group || !group.members.length || group.members.length > LOCATOR_MAX_MEMBERS) return null;
+    var members = [];
+    for (var i = 0; i < group.members.length; i += 1) {
+      var member = group.members[i];
+      var entry = member.id >= 0 && typeof member.si === "number" ? bEntry(registry, member.id) : null;
+      var info = entry && meta[member.id];
+      if (!info || !(info.size >= 1)) return null;
+      members.push([member.id, member.si, locHash([FN_SOURCE.call(entry.fn)]), info.size]);
+    }
+    return { s: "B", m: members, o: locHash(group.outputs) };
+  }
+
   function bRun(prepared, request) {
     request = request || {};
     var output = { n: {}, sig: {}, report: { version: VERSION, strategy: "B", stage: "instantiate" } };
@@ -2445,6 +2723,13 @@ var yftOwnSolver = (function () {
     bProgressReport = output.report;
     var outer = jobDeadline;
     jobDeadline = deadlineOf(request);
+    // N5b A.4: locate mode; the request's parts are copied before player code runs.
+    var locate = locateWanted(request);
+    var status = {};
+    var parts = locate ? locatorParts(request, "B", status) : {};
+    var solvedGroups = Object.create(null);
+    var registry = null;
+    var meta = [];
     try {
       if (!prepared || !prepared.ok || typeof prepared.program !== "string") throw new Failure("not prepared");
       var ms = {};
@@ -2452,13 +2737,41 @@ var yftOwnSolver = (function () {
       deadlinePhase("instantiate");
       deadlineCheck();
       var t0 = bNow();
-      var registry = bInstantiate(prepared, request);
+      registry = bInstantiate(prepared, request);
       // A top level the deadline cut may be half set up: no kind and no init count from it.
       deadlineCheck();
       bFreezeBuiltins(globalScope());
       var t1 = bNow();
       ms.instantiate = t1 - t0;
-      var meta = prepared.meta || [];
+      meta = prepared.meta || [];
+      var templates = prepared.templates || {};
+      // N5b A.4: located kinds first; the screen runs only when an asked kind has no hit.
+      var hits = Object.create(null);
+      KINDS.forEach(function (kind) {
+        var located = (request[kind] || []).filter(function (input) {
+          return typeof input === "string" && input.length > 0;
+        });
+        if (!parts[kind] || !located.length) return;
+        if (registry.e !== 0) {
+          status[kind] = "miss init";
+          return;
+        }
+        output.report.stage = "locator_" + kind;
+        var hit = bHit(prepared, request, registry, meta, templates, kind, parts[kind], located);
+        if (hit.miss) status[kind] = "miss " + hit.miss;
+        else {
+          status[kind] = "hit";
+          hits[kind] = hit;
+        }
+      });
+      deadlineCheck();
+      if (locate) {
+        ms.locator = bNow() - t1;
+        t1 = bNow();
+      }
+      var screenAll = askedKinds(request).some(function (kind) {
+        return !hits[kind];
+      });
       var screened = 0;
       var skipped = 0;
       var slow = [];
@@ -2470,14 +2783,13 @@ var yftOwnSolver = (function () {
       output.report.slowest = slow;
       output.report.stage = "screen";
       deadlinePhase("screen");
-      var templates = prepared.templates || {};
       var shapesTried = 0;
-      for (var i = 0; i < registry.f.length; i += 1) {
+      if (!screenAll) output.report.screen = "skipped";
+      for (var i = 0; screenAll && i < registry.f.length; i += 1) {
         var entry = registry.f[i];
         var params = entry.fn.length;
         var info = meta[entry.id] || {};
-        var shapes = params >= 1 && params <= 3 ? [null] : [];
-        if (info.unique && templates[info.name]) shapes = shapes.concat(templates[info.name]);
+        var shapes = bShapesOf(entry.fn, info, templates);
         if (!shapes.length) continue;
         if (info.skip) {
           skipped += 1;
@@ -2509,6 +2821,7 @@ var yftOwnSolver = (function () {
               kind: profile.kind,
               outputs: profile.outputs,
               shape: shapes[sh],
+              si: sh,
               steps: profile.steps,
               weak: !!profile.weak,
             });
@@ -2541,12 +2854,17 @@ var yftOwnSolver = (function () {
       var failed = [];
       // N5b A.2: kinds the deadline cut, or whose tripwire it cut, fail as "budget".
       var cut = [];
-      var solvedGroups = Object.create(null);
       KINDS.forEach(function (kind) {
         var inputs = (request[kind] || []).filter(function (input) {
           return typeof input === "string" && input.length > 0;
         });
         if (!inputs.length) return;
+        if (hits[kind]) {
+          output[kind] = hits[kind].answers;
+          solvedGroups[kind] = hits[kind].group;
+          output.report[kind] = { located: hits[kind].group.members.length, groups: 1, status: "ok", reason: null, solved: hits[kind].solved };
+          return;
+        }
         output.report.stage = "confirm_" + kind;
         deadlinePhase("confirm_" + kind);
         if (deadlinePassed()) {
@@ -2652,12 +2970,18 @@ var yftOwnSolver = (function () {
       }
       deadlineBudget(output, failed, cut);
       if (failed.length) output.failed = failed.join(",");
+      if (locate) {
+        finishLocator(output, request, status, function (kind) {
+          return bPartOf(solvedGroups[kind], registry, meta);
+        });
+      }
       output.report.stage = "done";
       delete output.report.current;
     } catch (error) {
       output.failed = isDeadline(error) ? budgetAll(request) : errorName(error);
       output.n = {};
       output.sig = {};
+      if (locate) finishLocator(output, request, status, null);
     } finally {
       deadlineReport(output);
       jobDeadline = outer;
@@ -2671,6 +2995,12 @@ var yftOwnSolver = (function () {
     var output = { n: {}, sig: {}, report: { version: VERSION } };
     var outer = jobDeadline;
     jobDeadline = deadlineOf(request);
+    // N5b A.4: locate mode; the request's parts are copied before player code runs.
+    var locate = locateWanted(request);
+    var status = {};
+    var parts = locate ? locatorParts(request, "P", status) : {};
+    var tracks = {};
+    var registry = null;
     try {
       if (!prepared || !prepared.ok || typeof prepared.program !== "string") throw new Failure("not prepared");
       // N5b A.1 (report only): init, search, SelfCheck and the tripwire in milliseconds.
@@ -2679,7 +3009,7 @@ var yftOwnSolver = (function () {
       deadlinePhase("init");
       deadlineCheck();
       var t0 = pNow();
-      var registry = instantiate(prepared, request);
+      registry = instantiate(prepared, request);
       ms.init = pNow() - t0;
       // A top level the deadline cut may be half set up: no kind and no init count from it.
       deadlineCheck();
@@ -2703,12 +3033,33 @@ var yftOwnSolver = (function () {
           cut.push(kind);
           return;
         }
-        var result = solveKind(kind, builders, inputs, request);
+        // N5b A.4: a part runs only its candidates first; a miss runs the kind in full.
+        var track = {};
+        var result = null;
+        var part = parts[kind];
+        if (part && registry.e !== 0) {
+          status[kind] = "miss init";
+        } else if (part) {
+          var located = pLocated(builders, registry, part);
+          if (!located) {
+            status[kind] = "miss index";
+          } else {
+            result = solveKind(kind, located, inputs, request, track);
+            var miss = deadlinePassed() ? "budget" : pMissOf(kind, part, result, track, builders, request);
+            status[kind] = miss ? "miss " + miss : "hit";
+            if (miss) {
+              result = null;
+              track = {};
+            }
+          }
+        }
+        if (!result) result = solveKind(kind, builders, inputs, request, track);
         // A SelfCheck the deadline cut proves nothing: an attempt it stopped is a missing vote.
         if (deadlinePassed()) {
           cut.push(kind);
           return;
         }
+        tracks[kind] = track;
         output[kind] = result.answers;
         output.report[kind] = result.report;
         if (result.report.reason) failed.push(kind + ":" + result.report.reason);
@@ -2725,10 +3076,16 @@ var yftOwnSolver = (function () {
       }
       deadlineBudget(output, failed, cut);
       if (failed.length) output.failed = failed.join(",");
+      if (locate) {
+        finishLocator(output, request, status, function (kind) {
+          return pPartOf(tracks[kind], registry);
+        });
+      }
     } catch (error) {
       output.failed = isDeadline(error) ? budgetAll(request) : errorName(error);
       output.n = {};
       output.sig = {};
+      if (locate) finishLocator(output, request, status, null);
     } finally {
       deadlineReport(output);
       jobDeadline = outer;
@@ -2767,6 +3124,8 @@ var yftOwnSolver = (function () {
     prepareB: bPrepare,
     runB: bRun,
     progress: bProgress,
+    // N5b A.4: the wrappers refuse a job whose locator is not well formed.
+    locatorOk: locatorOk,
     internals: {
       unwrap: unwrap,
       stringTables: stringTables,
