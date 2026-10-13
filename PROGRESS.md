@@ -240,6 +240,7 @@
   miss + hit, faults `--ladder`, M9b/M9bs, 631d3938 M9c-nav, flag-off gate. Helps (a) only (the
   memory is gone after a restart): B (a) 5422/3724 → 2807/631 ms. Option 4 (prepared program on
   disk) brings (b) near (a) but changes N5b's rule "locator file = data only".
+- ✅ CI for `c9e9931`: build 38327508945 ✅, validate 38327512152 ✅.
 - ⏸️ A.1 stop point: hits over 0.5 s (B in (a) and (b), P in (b), P (a) at the edge). Waiting for
   the owner's choice: (1) target (a) only, (2) relax the (b) target, (3) keep B's prepared program
   in memory, (4) prepared program on disk. A.2 waits for the answer.
