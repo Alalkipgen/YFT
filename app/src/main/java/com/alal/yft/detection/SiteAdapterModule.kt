@@ -16,13 +16,12 @@ import com.alal.yft.extractor.api.PoTokenProvider
 import com.alal.yft.extractor.api.SiteAdapterFlags
 import com.alal.yft.extractor.api.SiteExtractor
 import com.alal.yft.extractor.api.SiteExtractorRegistry
-import com.alal.yft.extractor.master.android.solver.SharedPreferencesBreakerMarkers
+import com.alal.yft.extractor.master.android.solver.OwnSolverAppBreaker
 import com.alal.yft.extractor.master.android.solver.WebViewOwnSolverEngine
 import com.alal.yft.extractor.master.android.solver.WebViewPageSolverEngine
 import com.alal.yft.extractor.master.modules.youtube.YouTubeSignatureGuard
 import com.alal.yft.extractor.master.solver.AtomicTextFile
 import com.alal.yft.extractor.master.solver.OwnPlayerScriptRunner
-import com.alal.yft.extractor.master.solver.OwnSolverBreaker
 import com.alal.yft.extractor.master.solver.OwnSolverLocators
 import com.alal.yft.extractor.master.solver.OwnSolverVLedger
 import com.alal.yft.extractor.master.solver.OwnSolverSelection
@@ -105,7 +104,8 @@ object SiteAdapterModule {
                     next = if (BuildConfig.OWN_SOLVER_NEXT_ENABLED) {
                         OwnPlayerScriptRunner.Next(
                             page = WebViewPageSolverEngine(context),
-                            breaker = OwnSolverBreaker(SharedPreferencesBreakerMarkers(context)),
+                            // N7: the breaker the debug build's owner canary shares (one per process).
+                            breaker = OwnSolverAppBreaker.get(context),
                             locators = OwnSolverLocators(
                                 AtomicTextFile { File(context.filesDir, OWN_SOLVER_LOCATORS_FILE) },
                             ),

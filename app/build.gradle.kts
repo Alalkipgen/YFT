@@ -186,6 +186,9 @@ android {
             // Master flags are on, so a debug build with the flags off stays as before.
             manifestPlaceholders["yftOwnerTools"] =
                 (masterCapture == "true" && ownSolver == "true").toString()
+            // Phase 1.2 N7: the solver canary needs the ladder (yft.ownSolverNext) as well.
+            manifestPlaceholders["yftOwnerToolsNext"] =
+                (masterCapture == "true" && ownSolver == "true" && ownSolverNext == "true").toString()
         }
         release {
             isMinifyEnabled = true
