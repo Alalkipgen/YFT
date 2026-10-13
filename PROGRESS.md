@@ -1,6 +1,6 @@
 # YFT Master Extractor backup
 
-## Phase 1.2 — N6 canary workflow (computer) — done (`0714d76`; push run 38424779157 ✅, owner re-run ✅; label triggers: this commit)
+## Phase 1.2 — N6 canary workflow (computer) — done (`0714d76`; push run 38424779157 ✅, owner re-run ✅; label triggers `d390a0e`, CI ✅)
 
 - ✅ Workflow `.github/workflows/own-solver-canary.yml` ("Own solver canary (spike)"):
   `workflow_dispatch` + pushes to the spike that touch the solver files (main's and the own
@@ -39,7 +39,7 @@
 - ✅ Plan adapted (owner 2026-10-13): GitHub's Run workflow needs the default branch, so the manual
   run = the owner's re-run of the push run. From now on, manual runs = labels on draft PR #2:
   run-canary (canary), build-optin-apk (opt-in APK with own_solver_next on).
-- ✅ Label triggers (this commit; main untouched): both spike workflows also run on
+- ✅ Label triggers (`d390a0e`; main untouched): both spike workflows also run on
   `pull_request: types: [labeled]` (no paths filter). The canary job runs only for run-canary,
   the APK job only for build-optin-apk; any other label = a run whose job is skipped. Both check
   out the PR head (`github.event.pull_request.head.sha || github.sha`), not its merge with main.
@@ -53,7 +53,9 @@
   files parse). Fail-first: 16/16 workflow mutations killed; scripts/tests 42/42; actionlint
   1.7.7 clean. If a label starts nothing, PR #2 may conflict with main (GitHub then runs no
   pull_request workflow): report it, never merge main.
-- ⏳ CI for the label triggers (push runs: canary + build): next.
+- ✅ CI for `d390a0e`: canary push run 38438989262 ✅ in 15 min (today's player 29 s; corpus P
+  64 s; corpus B 169 s; quick P,B 638 s); build 38438989328 ✅ (6 min, artifact 20.1 MB),
+  validate 38438994892 ✅. Next: the owner creates the two labels; the first label runs.
 
 ## Phase 1.2 — N5b ladder, breaker, locator cache and V ledger behind `ownSolverNext` — done (TEST_SHA `48dd744`, test cycle 22/22 ✅; A.8 V wiring `df9a1e1`, CI 38413760115 ✅ + checkpoint 38413767701 ✅)
 
