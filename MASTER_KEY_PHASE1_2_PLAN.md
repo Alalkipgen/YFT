@@ -795,7 +795,9 @@ chose, see A.1) and A.7.
   YouTube URLs and V with a signature video (phone checklist in `MASTER_KEY_PLAN.md` §4.3).
   V on the phone ✅ (owner, 2026-10-14, `eecfba7`): §4.3's 1080-ladder video needs a signature;
   the own runner's signatures passed V, rows up to 2160p, MP3 and 720p downloaded (not throttled).
-  Still open: the live check against main (release app) on §4.3's YouTube URLs.
+  Live check against the release app ✅ (same day): the same rows on §4.3's videos, a 2160p60
+  video and the canary's video (rows in both apps: run 3's FAIL was the canary lookup's own
+  clients); age-restricted terminal in both, no bypass; private not run yet.
 
 ## 4. Pass criteria (Phase 1.2 done)
 

@@ -28,8 +28,14 @@
   `YouTubeSignatureGuard` uses its signatures only after V. Rows: audio M4A 130 kbps and MP3;
   video 2160p and 1440p (WebM), 1080p, 720p, 480p, 360p (MP4). MP3 (3.3 MB) and 720p (29 MB)
   downloaded in well under a minute (not throttled).
-- Next (owner): live check on the phone (debug and release app, the other §4.3 videos), and run 3's
-  "no stream" video in the release app.
+- ✅ Live check against the release app (owner, 2026-10-14, mobile data; opt-in `eecfba7` vs the
+  release app): the same rows (formats, sizes) on §4.3's short progressive, 1080-ladder and Shorts
+  videos, a 2160p60 video and the canary's lookup video. Age-restricted video: terminal in both
+  ("Sign in to YouTube on this page first", LOGIN_REQUIRED "Sign in to confirm your age" for the
+  visionOS and WEB clients; no bypass). Private video: not run yet.
+- Run 3's "no stream" video gives rows in both apps (their first client is visionOS), so run 3's
+  FAIL came from the canary lookup's own clients (embedded, then MWEB SABR only) at that moment,
+  not from the solver or the app.
 
 ## Phase 1.2 — N7 owner live check — done (canary tool `41d8a11`, worker fix `f9247bb`, round 2 prep `eecfba7`; round 2 on the phone ✅: P, B and E pass on both builds, P hit 0.3–0.4 s, 1.4 s after a restart)
 
