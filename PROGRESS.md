@@ -1,6 +1,6 @@
 # YFT Master Extractor backup
 
-## Phase 1.2 — N7 owner live check — in progress (canary tool `41d8a11`, CI ✅; round 1 on the phone ❌ at B1 → worker fix + canary goes on past errors; round 2 pending)
+## Phase 1.2 — N7 owner live check — done (canary tool `41d8a11`, worker fix `f9247bb`, round 2 prep `eecfba7`; round 2 on the phone ✅: P, B and E pass on both builds, P hit 0.3–0.4 s, 1.4 s after a restart)
 
 - ✅ Canary tool (`41d8a11`, debug build only, opt-in APK `yft-master-optin-debug-apk-next-<sha7>`):
   `SolverCanaryActivity` (the owner starts it in the debug app), `SolverCanary` (first the app's
@@ -41,7 +41,9 @@
   nothing, no listener without `Event`); `OwnSolverProbeTest` 20 (stop rule: gone and an unreadable
   reply stop, breaker off, a budget and an error class do not; `hasParts`). Local: spike CI JS step
   225/225; app compile + `SolverCanaryReportTest` 13/13.
-- ✅ Round 2 prep (owner's options 1 and 3): the page (`own-solver-page.js`) gives a worker
+- ✅ Round 2 prep (`eecfba7`, owner's options 1 and 3; CI ✅: checkpoint validation, push APK, own
+  solver canary; label build 38482303471 ✅, artifact `yft-master-optin-debug-apk-next-eecfba7`,
+  19.2 MB): the page (`own-solver-page.js`) gives a worker
   error event back as one fixed class only, never its message: `WorkerStackOverflow`,
   `WorkerOutOfMemory`, `Worker` + a standard class the message starts with (`WorkerTypeError`,
   `WorkerRangeError`, …), else `WorkerError`; a reply it cannot read (`worker.onmessageerror`) is
@@ -52,11 +54,75 @@
   Tests: `worker.test.mjs` 13 → 15 (fixed classes, no text, late reply ignored,
   `onmessageerror`); `OwnSolverEnvironmentErrorsTest` + 1; `SolverCanaryReportTest` 13 → 14 (the
   run line). Local: CI JS step 227/227; `OwnSolverEnvironmentErrorsTest` + `OwnSolverProbeTest`
-  24/24 (JVM); app compile + `SolverCanaryReportTest` on CI.
-- Next: round 2 with the new APK (3 runs, the app closed between them): B1/B2, page P/B and the
-  main build lines; the third run should show the hit after a restart. Then option 3: B against P
-  memory on the computer (today's player, four builds, peak MB per strategy), against the phone's
-  heap limit.
+  24/24 (JVM); app compile + `SolverCanaryReportTest` on CI. Local headless Chromium, the page
+  with a fake worker (no player): a stack overflow → `WorkerStackOverflow`; a `TypeError` (also
+  one thrown in a timer) → `WorkerTypeError`; `ReferenceError`, `RangeError` → `Worker` + class; a
+  thrown string, a made-up name or a plain `Error` → `WorkerError` (no text in any).
+- ✅ Round 2 (owner, 2026-10-14; Android 16, WebView 149.0.7827.163, app 1.0.0-beta.3-debug, JS heap
+  limit 1850 MB; 3 runs, the app closed between them, so each run is a new process; today's player,
+  the same in the lookup): run 1 PASS, run 2 PASS, run 3 FAIL (the lookup only, below). Every
+  solver line of every run: P, B and E pass on both builds (n 3/3, sig 3/3 against ejs); breaker
+  off: none.
+
+  | run | 1 | 2 | 3 |
+  |---|---|---|---|
+  | P2 hit, same process (phone / main build) | 0.4 / 0.4 s | 0.3 / 0.4 s | 0.3 / 0.4 s |
+  | lookup's P after a restart | 1.7 s, no parts yet | 1.4 s, n hit | not measured |
+  | P1 from the text (phone / main) | 1.2 / 1.5 s | 0.9 / 1.5 s | 0.9 / 1.5 s |
+  | B1 from the text (phone / main) | 5.5 / 6.9 s | 5.2 / 6.7 s | 5.2 / 6.6 s |
+  | B2 hit (phone / main) | 2.1 / 2.8 s | 1.6 / 2.9 s | 1.8 / 2.9 s |
+  | page P, its stall (phone / main) | 1.0, 0.9 / 1.4, 1.3 s | 0.9, 0.8 / 1.4, 1.3 s | 0.9, 0.8 / 1.3, 1.2 s |
+  | lookup, start to rows | 14.2 s | 3.3 s | no stream |
+  | data (app) / canary total | 2.7 MB / 44.3 s | 1.0 MB / 30.1 s | 380 KB / 28.6 s |
+
+  - Run 1 was the first after the install: the lookup's store had no parts, so its P solved from
+    the text (1.7 s, ready 0.7 s). Lookup 14.2 s = page 6.8 s + player API ×2 0.8 s + player
+    download 4.5 s (590 KB) + P: the network first. Run 2: 3.3 s = page 0.6 s + API 0.5 s +
+    download 0.3 s + P 1.4 s (ready 0.4 s, n hit).
+  - Run 3: YouTube gave the lookup's video no stream (embedded client: "video unavailable"; MWEB:
+    SABR only, no stream address of at least 1 MiB), so no n job, no V and no after-restart number,
+    and the canary's rule (V ok) made it FAIL. Not the solver: runs 1 and 2, minutes before, gave
+    rows for the same video; every solver line passed.
+  - V: "not needed" in runs 1–2 (the lookup's stream needed no signature), "not run" in run 3. V
+    has not run on the phone yet.
+  - Page B did not run (page P answered both kinds). Ready waits 0.0–0.7 s (the longest at run 1's
+    cold lookup). No worker error class showed: `f9247bb`'s fix holds on the phone (round 1 stopped
+    at B1 in every run).
+- ✅ Option 3 (computer, 2026-10-14; Node 24, this computer; today's player, each solve in its own
+  worker isolate, its heap sampled about every 10 ms from the main thread; MB only):
+  - Peak JS heap used, main / tce / es6 / phone build: ejs 152 / 152 / 134 / 96 MB, P 247 / 249 /
+    219 / 188 MB, B 473 / 473 / 473 / 310 MB. Times: P 1.3–2.2 s, B 5.3–8.7 s.
+  - Smallest old-generation limit that still solves n 3/3 and sig 3/3: phone build ejs 96, P 128,
+    B 256 MB (192 runs out of memory); main build ejs 128, P 192, B 400 MB (320 runs out).
+  - B needs about twice P's heap. The phone's limit is 1850 MB (the page's renderer; a worker's
+    limit may differ): over 4× B's largest need, and B passed there. Memory is not a risk for B on
+    this phone.
+- Targets (plan §3 N7, §4 "Speed on the phone"):
+  - ✅ P hit in the same process ≤ 2 s: phone build 0.3–0.4 s (3/3 runs); main build 0.4 s
+    (recorded, no target).
+  - ✅ P hit after a restart ≤ 8 s: 1.4 s (run 2, n hit, the engine's cold start included). From
+    the text in a new process 1.4–1.7 s (round 1, run 1): even a miss is inside.
+  - ✅ §4 first B run on a new player version ≤ 10 s (open since N5b A.1): B1 5.2–5.5 s (phone
+    build), 6.6–6.9 s (main). B is a metric only: B2 hit 1.6–2.1 s (phone), 2.8–2.9 s (main).
+  - Phone factor about ×1 of this computer (P1 ×0.7–0.9 and B1 ×0.85–1.0 against the same day's
+    worker runs above; P2 ×1.0–1.4 against A.2's hits), not the ×4 margin: the job cap 40 s and the
+    lookup cap 60 s keep their room; no re-tune.
+  - Option 3 again (B's prepared program in memory): not needed. P passes on today's player and
+    B's hit is 1.6–2.9 s (the condition: P fails, B is used and B hit > 5 s).
+  - ⚠️ Page cap 35 s: a page job stalls the in-app browser for about its own length (0.8–1.3 s on
+    the phone, page P). The cap only bounds a slow page job. Proposal, owner decides (not changed):
+    20 s = the corpus's largest page B on the computer (7.5 s, A.1) × 1.4 (the phone's highest
+    factor) × about 2; the longest possible stall 35 → 20 s.
+  - ⚠️ P (b) in total with V: 3.3 s after a restart on a known player, 14.2 s the very first time
+    (page and player download 11.3 s of it); the core 1.4–1.7 s of it. V never ran (no signature
+    needed): its phone cost is unmeasured. From these numbers no timeout fallback to main and no V
+    prewarm are needed now (owner decides; plan §5 "V wiring in the app").
+- Open (outside N7's done rule): the live check against main's app on the YouTube URLs of
+  `MASTER_KEY_PLAN.md` §4.3 (Phase 1.1 §4 and Phase 1.2 §4 "Live"), and V on the phone with a video
+  whose streams need a signature; phone checklist in §4.3.
+- ✅ Docs: runbooks (`MASTER_KEY_PHASE1_2_PLAN.md` §6, `MASTER_KEY_PHASE1_1_PLAN.md` §6) gain the phone
+  canary and "computer passes, phone fails → local headless Chromium repro"; `MASTER_KEY_PLAN.md`
+  §4.3 gains the phone checklist; plan board N7 → Done.
 
 ## Phase 1.2 — N6 canary workflow (computer) — done (`0714d76`; push run 38424779157 ✅, owner re-run ✅; label triggers `d390a0e`, CI ✅)
 

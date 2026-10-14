@@ -53,6 +53,10 @@ code, without an APK update:
   sig မှား၊ init error မရှိ)။ ❗ ejs မှား ၁ (main ပါ)။ ⚠️ 631d3938 main က memory ကုန်။
 - N5b (စနေပြီ): signature တိုင်း V + environment tripwire (environment ပြောင်းရင် အဖြေပြောင်းတဲ့
   function ကို မယုံ) + breaker + wiring (flag default off)။ code အကုန်ပြီးမှ test တစ်ခါတည်း (~၅ နာရီ)။
+- N7 ပြီးပါပြီ (`41d8a11`, `f9247bb`, `eecfba7`): owner ဖုန်း (Android 16, WebView 149) ပေါ်မှာ canary ၃ ကြိမ် —
+  P/B/E build ၂ ခုလုံး pass၊ P hit 0.3–0.4 s (≤ 2 s ✅)၊ restart နောက် 1.4 s (≤ 8 s ✅)၊ B 1.6–6.9 s (metric)၊
+  page stall ≤ 1.3 s (cap 35 s → 20 s အဆိုပြု၊ owner ဆုံးဖြတ်ရန်)။ JS heap 1850 MB (B လို ≤ 400 MB)။ V ဖုန်းပေါ်မှာ
+  မ run ရသေး (signature မလိုတဲ့ video)။ Run 3 FAIL = YouTube က stream မပေး (solver မဟုတ်)။
 
 ## 0. Why (evidence)
 
@@ -258,7 +262,7 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 | N5a | Ladder rule (init errors in replies, shared case table), runners `--ladder`/`--dyncode`, M9c; app unchanged | N4b | Medium | Done (`a78626f`, CI 38189985242); measured (§4 note "N5a") |
 | N5b | Page-P step budget, circuit breaker, ladder + locator cache wired behind `ownSolverNext` (default off); M9c fixes: V on every signature, environment tripwire | N5a | Medium–High | Done (TEST_SHA `48dd744`, test cycle 22/22 ✅; A.8 V wiring `df9a1e1`, CI 38413760115 ✅) |
 | N6 | Canary workflow (computer) | N1, N3 | Low–Medium | Done (`0714d76`; push run 38424779157 ✅, owner re-run ✅; label triggers `d390a0e`, CI ✅) |
-| N7 | Owner live check + runbook update | N4, N5, N6 | Low | In progress (canary tool `41d8a11`; round 1 ❌ phone B1 WorkerError → worker fix + canary goes on past errors, PROGRESS.md N7; round 2 pending) |
+| N7 | Owner live check + runbook update | N4, N5, N6 | Low | Done (canary tool `41d8a11`, worker fix `f9247bb`, round 2 prep `eecfba7`; round 2 on the phone ✅: P, B and E pass on both builds, P hit 0.3–0.4 s / 1.4 s after a restart; page cap 20 s proposed; PROGRESS.md N7) |
 
 N1 comes first: it measures the baseline that every later task is judged by. N2 can run beside N1.
 
@@ -767,6 +771,24 @@ chose, see A.1) and A.7.
   numbers the owner decides on a timeout fallback to main and a V prewarm (not built, §5 "V
   wiring in the app").
 - **Done:** the owner's results are recorded; the board shows N1–N7 with shas.
+- **Plan adapted (owner, 2026-10-13, phone only):** the owner has one phone with mobile data, no
+  computer and no adb. The phone canary is an owner tool in the debug app instead of
+  `OwnSolverCanaryTest` over adb: "YFT solver canary" (`SolverCanaryActivity`, `41d8a11`), only in
+  the opt-in APK of the `build-optin-apk` label on PR #2 (all flags on). It runs the app's lookup
+  of one public video with V, then per build (phone, main) ejs and the own steps P1, P2, B1, B2,
+  page P and page B with the app's breaker, and shows a report to copy: PASS/FAIL, the hit times
+  against the targets, verdicts, counts, timings, the page stall and the phone's JS heap limit;
+  never an address, a value or player text.
+- **Result (2026-10-14, PROGRESS.md N7):** round 1 stopped at phone B1 (`WorkerError`: the player's
+  own error events reached the host page; fixed in `f9247bb`). Round 2 (`eecfba7`, 3 runs): P, B
+  and E pass on both builds; P hit 0.3–0.4 s in the same process ✅, 1.4 s after a restart ✅;
+  first B run 5.2–6.9 s (§4 ≤ 10 s ✅), B hit 1.6–2.9 s; page stall 0.8–1.3 s (page cap: 20 s
+  proposed, owner decides); lookup after a restart 3.3 s (the very first 14.2 s, network); phone
+  factor about ×1 of the computer (caps keep their room); option 3 again not needed; JS heap
+  limit 1850 MB against B's computer need ≤ 400 MB. V was not needed (no signature), so it has not
+  run on the phone yet. Run 3's FAIL was YouTube giving the lookup's video no stream (embedded:
+  unavailable; MWEB: SABR only), not the solver. Open: the live check against main on §4.3's
+  YouTube URLs and V with a signature video (phone checklist in `MASTER_KEY_PLAN.md` §4.3).
 
 ## 4. Pass criteria (Phase 1.2 done)
 
@@ -778,7 +800,7 @@ chose, see A.1) and A.7.
   - in every class where ejs is below 100 %, the own ladder survives more cases than ejs.
 - **Faults** (the Phase 1.1 set + decoys): 0 wrong, 0 missed.
 - **Speed on the phone:** the P path is unchanged; the first B run on a new player version ≤ 10 s
-  (N5b A.1: computer max 8.2 s, ≈ 33 s at the ×4 margin; open for N7); a locator cache hit: P ≤ 2 s
+  (N5b A.1: computer max 8.2 s, ≈ 33 s at the ×4 margin; N7 phone: 5.2–6.9 s ✅); a locator cache hit: P ≤ 2 s
   in the same process, ≤ 8 s after a restart, B a metric only (§3 N7; replaces 0.5 s).
 - **Live:** as Phase 1.1 §4, with all flags on.
 - **Flag off = main;** CI + `MasterMainMoreSheetTest` green.
@@ -920,6 +942,9 @@ variant, 2 seeds each):
 - **Page job stalls the in-app browser (UX, N5b A.2):** a page step runs on the app's shared
   renderer main thread, so one page job can hold the in-app browser up to the page cap (35 s,
   provisional). N7 measures the stall on the phone and the cap is re-tuned with those numbers.
+  N7 (phone): a page job stalls it for about its own length, 0.8–1.3 s (page P); the cap only
+  bounds a slow job. Proposed 20 s (the corpus's largest page B 7.5 s × the phone's factor 1.4 ×
+  about 2); owner decides.
 - **Short-deadline `budget` memory (N5b A.2):** after two short-deadline `budget`s in a row for a
   `player|step`, that step is skipped until the app restarts (or the entry is evicted, ≤ 64), even
   if it would finish with its full cap. The locator cache makes this rarer (a P hit leaves B its
@@ -1009,14 +1034,34 @@ variant, 2 seeds each):
 
 ## 6. Runbook (when the ladder fails)
 
-1. The canary (workflow or phone) fails → note the player ID, the strategy (P, B or E) and the kind.
+1. The canary fails → note the player ID, the build, the strategy (P, B or E) and the kind.
+   - Computer: the "Own solver canary (spike)" workflow (a push to the solver paths, or the
+     `run-canary` label on PR #2) or `node scripts/own-solver-canary.mjs [player ID]`.
+   - Phone (N7; no computer, no adb): the opt-in APK of the `build-optin-apk` label on PR #2
+     (`yft-master-optin-debug-apk-next-<sha7>`) → "YFT solver canary" → Run → Copy report; three
+     runs, Close app between them (the after-restart numbers). "stopped at <build> <step>
+     (<outcome>)" names the first step without a readable reply; a step's error class, a budget
+     or a step not run does not stop it.
+   - A FAIL whose solver lines all pass while the lookup was "not measured" (YouTube gave its
+     video no stream: N7 run 3) is not a ladder break: run it again later; if it repeats, open the
+     same video in main's app.
 2. `node scripts/verify-own-solver.mjs --add <player ID>`, then `--only <player ID>` with
    `--strategy P` and with `--strategy B`.
-3. P fails but B passes → nothing urgent (the ladder covers it); add a pattern later.
-4. B fails too → classify: a new behaviour (not just shape), a new environment need (E), or a
+3. **Computer passes, phone fails** (N7 round 1: phone B1 `WorkerError` while the computer
+   passed): reproduce in local headless Chromium, outside the repository (owner-approved). Serve
+   the app's own page and worker (the `yft-own-solver/` assets) with the phone build's player text
+   as the job and a fake bridge; print classes and counts only, never the reply, the player text or
+   a value (compare saved replies by script, then delete them). The phone's class narrows it:
+   `WorkerStackOverflow`; `WorkerOutOfMemory` (compare the report's JS heap limit with the
+   computer's peak: `node --expose-gc`, one worker isolate per solve, as in N7 option 3);
+   `Worker<Class>` (an exception the worker neither caught nor cancelled); `WorkerMessageError` (a
+   reply the page could not read); `WorkerError` (anything else).
+4. P fails but B passes → nothing urgent (the ladder covers it); add a pattern later.
+5. B fails too → classify: a new behaviour (not just shape), a new environment need (E), or a
    policy change (§5). Add a mutation class that reproduces it, fix, then re-run the corpus, the
    mutation suite, `--faults` and the JS tests.
-5. Checkpoint-push (CI builds the opt-in APK), run the phone canary, ship. No remote code, ever.
+6. Checkpoint-push (CI builds the opt-in APK; the `build-optin-apk` label builds it with the
+   ladder on), run the phone canary (three runs), ship. No remote code, ever.
 
 ## 7. Out of scope
 

@@ -325,10 +325,26 @@ Recorded for each URL:
 | Vimeo | Unlisted `/{id}/{hash}` (owner picks); a `vimeo.com/ondemand/...` page | Hash kept; not claimed |
 | YouTube | https://www.youtube.com/watch?v=jNQXAC9IVRw; https://www.youtube.com/watch?v=dQw4w9WgXcQ; https://www.youtube.com/shorts/BGQWPY4IigY | Short progressive; 1080 ladder; Shorts |
 | YouTube | A 2160p video; an age-restricted video; a private/members-only video (owner picks) | HIGH_QUALITIES; LOGIN_REQUIRED with no bypass; PRIVATE |
+| YouTube | A public video whose streams need a signature, e.g. a music video (owner picks) | Own solver: V runs on the phone (N7: the canary's video needed none) |
 | Generic | https://www.w3schools.com/html/html5_video.asp | Plain `<video>` MP4 |
 | Generic | https://hlsjs.video-dev.org/demo/ ; https://reference.dashif.org/dash.js/latest/samples/dash-if-reference-player/index.html | HLS/DASH through MSE (capture + manifest) |
 | Generic | https://googleads.github.io/googleads-ima-html5/vsi/ | VAST pre-roll → ad separation |
 | Generic | A JW Player or Video.js page and a news page with JSON-LD `VideoObject` (owner picks) | `PlayerSetupScanner` / `PageFactsReader` paths |
+
+**Phone checklist: YouTube with the own solver (Phase 1.2 N7; one phone, mobile data only):**
+
+1. Install the opt-in APK with the ladder: the `build-optin-apk` label on PR #2 → artifact
+   `yft-master-optin-debug-apk-next-<sha7>` (≈ 19 MB). If Android refuses the update, uninstall the
+   old debug app first (CI debug keys can differ).
+2. "YFT solver canary": Run → Copy report, three runs with Close app between them (≈ 2.7 MB the
+   first run, ≈ 1 MB after). Every solver line must pass; a lookup that got no stream from YouTube
+   is run again later (`MASTER_KEY_PHASE1_2_PLAN.md` §6).
+3. Open each YouTube URL above in this APK and in main's app: the same rows (count, qualities), no
+   throttled row; the age-restricted, private and bot-check cases stay terminal. Open the rows and
+   play a few seconds at most.
+4. The signature video: its rows open and play (V passed). Note it beside the canary reports.
+
+Never paste a stream address; the canary's report holds none.
 
 Keep the list as data (`parity-urls.json`, no secrets), like yt-dlp's per-extractor `_TESTS`.
 

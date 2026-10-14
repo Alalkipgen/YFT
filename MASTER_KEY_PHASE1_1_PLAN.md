@@ -178,12 +178,18 @@ Order inside the YouTube module (unchanged from R6):
      by hand on today's player, with the corpus and the change simulator's quick run.
    - Phone or emulator (both WebView engines): `bash scripts/own-solver-canary.sh`
      (`OwnSolverCanaryTest`, report pulled to `build/own-solver/`).
+   - Phone only, no computer (Phase 1.2 N7): "YFT solver canary" in the opt-in APK of the
+     `build-optin-apk` label on PR #2; Run → Copy report, three runs with Close app between them
+     (`MASTER_KEY_PHASE1_2_PLAN.md` §6).
    - Until it is fixed the app is safe: SelfCheck refuses the kind, its streams are dropped and
      VISIONOS rows still work (fewer qualities, never a wrong address).
 2. **Add the player to the corpus and reproduce it:**
    `node scripts/verify-own-solver.mjs --add <player ID>` (records the hashes of the four builds in
    `scripts/own-solver/corpus.json`; review the diff), then
    `node scripts/verify-own-solver.mjs --only <player ID>` and `--prepare` (candidates per build).
+   - **Computer passes, phone fails** (Phase 1.2 N7 round 1): reproduce in local headless Chromium
+     with the app's own page and worker and the phone build's player text, outside the repository,
+     classes and counts only (`MASTER_KEY_PHASE1_2_PLAN.md` §6 step 3).
 3. Classify the break:
    - G1: wrapper or candidates.
    - G2: a new code shape.
