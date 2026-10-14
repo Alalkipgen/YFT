@@ -79,9 +79,12 @@ HARD RULES (never break)
    bypass. No token, no cookie, no account: NoPoTokenProvider stays; no Cookie or Authorization
    header to any ladder client, version source or media host; no sign-in.
 4. No bypass; the ladder never decides a refusal. Age check (ladder rows dropped), video verdict
-   or DRM -> stop, the R6 chain decides. Bot check -> stop, 30 min ladder-wide cooldown, no
-   further ladder request. Ladder rows merge only when the chain did not end in a terminal
-   verdict. SABR-only formats are never rows. L never reads past a playability it cannot find.
+   or DRM -> stop, the R6 chain decides. Bot check -> the ladder's own rungs stop, 30 min
+   ladder-wide cooldown, R6's chain runs as today: after a bot check nothing is sent that R6
+   would not send (owner, 2026-10-15; census: the watch page once + visionOS once with the page's
+   visitor data, a second bot check stops the run). Ladder rows merge only when the chain did
+   not end in a terminal verdict. SABR-only formats are never rows. L never reads past a
+   playability it cannot find.
 5. Identities: at most 4 (visionOS, Android, embedded, MWEB), all already in main's code.
    Versions: learned -> signed (D8 only) -> self-healed -> <= 2 bundled alternates listed by a
    public reference (yt-dlp, YouTube.js, NewPipe) with source and date. Self-healed only from a
@@ -201,7 +204,7 @@ STOP AND ASK THE OWNER WHEN (pause ⏸ with the full report)
   with numbers).
 - A rule would need a token, a cookie, a sign-in, another host for V or H, a SABR client, MSE
   recording, the TV client, or anything that looks like a bypass (including asking more clients
-  after a bot check).
+  after a bot check than R6 asks, or a changed IP or network to avoid one).
 - A copied main file would have to change, or main's behaviour would change.
 - An identity is not listed by a public reference, or the table would exceed rule 5's limits.
 - The budget (rule 7) cannot be kept, or the weekly check cannot stay within 60 s and 2 MB

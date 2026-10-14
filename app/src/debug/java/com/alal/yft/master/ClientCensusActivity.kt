@@ -22,6 +22,8 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import com.alal.yft.BuildConfig
+import com.alal.yft.core.browser.policy.BrowserUserAgent
+import com.alal.yft.core.data.network.NetworkConfiguration
 import com.alal.yft.detection.OkHttpExtractorClient
 import com.alal.yft.extractor.master.android.solver.WebViewOwnSolverEngine
 import com.alal.yft.extractor.master.modules.youtube.ladder.ClientCensus
@@ -35,7 +37,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.EventListener
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 
@@ -78,7 +79,10 @@ class ClientCensusActivity : ComponentActivity() {
                 hint = "$slot · ${ClientCensus.SLOT_HINTS[slot]} (ID or link)"
                 isSingleLine = true
                 inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-                setText(preferences.getString(key(slot), if (slot == 4) ClientCensus.DEFAULT_VIDEO_4 else ""))
+                setText(
+                    preferences.getString(key(slot), null)?.takeIf(String::isNotBlank)
+                        ?: ClientCensus.DEFAULT_VIDEOS[slot].orEmpty(),
+                )
             }.also(::add)
         }
         val full = Button(this).apply { text = "Full census" }
@@ -175,7 +179,14 @@ class ClientCensusActivity : ComponentActivity() {
         }
     }
 
-    /** The census's own client: no cookie, no retry, its wire bytes counted for the budget. */
+    /**
+     * The census's own client: the HTTP client class and settings of Master's lookups (the app's
+     * [NetworkConfiguration] client under [OkHttpExtractorClient]: no cookie, no redirect followed
+     * blindly, the same timeouts), but no retry (a retry would only repeat a failed request; the
+     * census records the failure), with its wire bytes counted for the budget. The browser's
+     * User-Agent is the one YFT's browser tab sends ([BrowserUserAgent]: the WebView's without
+     * `; wv` and `Version/4.0`), on the watch page, the embedded player and the media checks.
+     */
     private fun census(): ClientCensus {
         val bytes = AtomicLong()
         val meter = object : EventListener() {
@@ -196,13 +207,14 @@ class ClientCensusActivity : ComponentActivity() {
             }
         }
         val http = OkHttpExtractorClient(
-            client = OkHttpClient.Builder().eventListener(meter).build(),
+            client = NetworkConfiguration.createClient().newBuilder().eventListener(meter).build(),
             policy = OkHttpExtractorClient.Policy(callTimeoutSeconds = 60, retryDelaysMillis = emptyList()),
         )
         return ClientCensus(
             http = http,
             scripts = OwnPlayerScriptRunner(http, WebViewOwnSolverEngine(applicationContext)),
-            browserUserAgent = runCatching { WebSettings.getDefaultUserAgent(applicationContext) }.getOrDefault(""),
+            browserUserAgent = runCatching { BrowserUserAgent.from(WebSettings.getDefaultUserAgent(applicationContext)) }
+                .getOrDefault(""),
             meter = ClientCensus.Meter { bytes.get() },
         )
     }
@@ -245,6 +257,8 @@ class ClientCensusActivity : ComponentActivity() {
             "(at most 6 MB). Run it 3 times on mobile data (no Wi-Fi), at least an hour apart.\n" +
             "Weekly check: videos 1 and 5 and one answer per client (at most 60 s, 2 MB, 20 requests); " +
             "the first line says NO CHANGE, CHANGED or BROKEN.\n" +
+            "After a bot check it sends only what YFT's normal lookup sends next (the video's page and " +
+            "visionOS once more); a second bot check stops the run, and no run starts for 30 min.\n" +
             "Nothing runs unless you tap, and only while this screen stays open (leaving it stops the run). " +
             "The result holds no " +
             "address, no value and no video ID.\n\nVideos (1-3 are fixed):"

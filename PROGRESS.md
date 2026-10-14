@@ -1,6 +1,58 @@
 # YFT Master Extractor backup
 
-## Phase 1.3 — D1 change simulator + R6 baseline (this push); paused: D2 needs the census
+## Phase 1.3 — D0 follow-up: bot-check rule (owner, 2026-10-15) + census = R6's requests (this push); ⏸ census reruns
+
+- Owner decisions (2026-10-15): bot-check rule **yes**; D1 targets (a), (b), (c) **yes** (plan §5.2,
+  §9 items 7–8). SOURCE_HOSTS_APPROVED, D8 and M5 stay undecided (not done). Step 4b (airplane
+  mode / new IP) removed: never change IP or network to avoid a bot check (a bypass).
+- ✅ Bot-check rule in `ClientCensus` (Full and Weekly): the run's first bot check, when it answers
+  visionOS's first request (no visitor data, R6's own first request), gets only what R6 sends
+  next: that video's watch page once, then visionOS once more with the page's visitor data (body
+  + `X-Goog-Visitor-Id`, step `R0+vd` = R6's `visionOsInChain` request), V on one row of that
+  answer (a one-byte read of a file the download reads, on the host the answer named), nothing
+  else for that video (no S, H, alternate, Android, embedded, MWEB, no newer version tried); the
+  run goes on. No visitor data on the page → visionOS is not asked again (as R6). A second bot
+  check, a bot check on any other request or HTTP 429 → the run stops, 30 min cooldown. Weekly:
+  the same; video 1 answered as R6 → its other clients are not asked.
+- ✅ Report: an answered bot check is a line even on a first run:
+  `CHANGED visionos R0 video N: bot check, answered as R6 (visionOS with visitor data: <class>) →
+  §7 step 8`; a stopped run stays `BROKEN bot check — the run stopped; no census for 30 min`.
+- ✅ Parity (step 2): `CensusR6ParityTest` (4 tests) runs Master's module (R6 as the app runs it:
+  the user's cookie removed, no solver) and the census on the same scripted YouTube: the census's
+  first request = R6's visionOS-first request (address, every header in order, body); after a
+  bot check the census sends R6's watch page GET and R6's visionOS request with visitor data and
+  nothing else to YouTube (R6 also asks the page's own client, MWEB); when visionOS refuses again
+  the census stops after R6's third request (R6's chain goes on); without visitor data neither
+  asks again. No Cookie or Authorization anywhere.
+- ✅ Census tool vs Master's lookup (step 2), two differences fixed in `ClientCensusActivity`:
+  - HTTP client: a bare `OkHttpClient.Builder()` → `NetworkConfiguration.createClient()` (the app's
+    client: 20 s connect, 30 s read/write) under `OkHttpExtractorClient` (the class Master's lookup
+    uses: redirects re-checked by hand, no cookie jar). No retry, on purpose (the census records
+    a failure; a retry only repeats a request).
+  - User-Agent (watch page, embedded, MWEB, V, H): the raw WebView value (`; wv`, `Version/4.0`)
+    → `BrowserUserAgent.from(…)`, what YFT's browser tab sends and Master's lookup gets. The
+    visionOS and Android requests carry their app's own User-Agent, so the first request was
+    already equal.
+- ✅ Slot 7 default (the ID is in `ClientCensus.DEFAULT_VIDEO_7`, not in docs): a public 3:30 video
+  whose owner disabled embedding (checked 2026-10-15: oEmbed 401; the embed page says "Playback on
+  other websites has been disabled by the video owner"; yt-dlp's "Non-age-gated non-embeddable
+  video" test). The field shows the default (slots 4 and 7) when no value was saved.
+- ✅ Simulator T1b (bot check only for visionOS asked without visitor data): R6 off and on 5/5
+  complete, wrong 0, MCF 0; 2 player requests + 1 page (2 after the bot check). 97 cases per base,
+  485 cases (505 lookups) per column; totals unchanged (off: wrong 72, MCF 275; on: wrong 72,
+  MCF 160). Golden + 10 lines (970), nothing else changed. The "every case changes its world"
+  check now also asks each identity without the page's signals (else T1b looks unchanged).
+- Plan: §2 guardrail 4, §3, §4 D0 (rule, slot defaults, normal mobile data only), D1 table (T1,
+  T1b), §5.2 (T1–T3 + T1b, targets a–c), §5 census table (`R0+vd` row; run 1 under "not valid"),
+  baseline (T1b, totals), §6, §9 items 7–8; prompt rule 4 and the STOP list.
+- Tests: ladder 68 / 68; module 490 run / 0 failed (2 skipped); drift 0; `:app:compileDebugKotlin`
+  OK.
+- Step 4d adapted: the app shows Copy details only after a failed lookup (Home, not found), so:
+  a normal lookup of video 1; formats shown → say which; not found → Copy details.
+- ⏸ Phone (owner, normal mobile data): install this push's APK; 4d; then 4e — "YFT client
+  census" → Full census → Copy result. BROKEN bot check again → no retry; wait.
+
+## Phase 1.3 — D1 change simulator + R6 baseline (`f35b78f`, CI ✅); paused: D2 needs the census
 
 - ✅ Built (test sources only, `extractor-master/src/test/.../modules/youtube/ladder/`):
   - `SimWorld`: one simulated YouTube per base answer (main's 5 fixtures, read in place; every
@@ -32,7 +84,8 @@
   - L: R6 reads no moved or renamed layout: clean stop in L1, L2, L4, L7, L8, L10, L13, L16;
     Android's 360p only in L5, L14, L15; L3 complete only with the own solver (the script
     clients' ciphers are untouched); L6 complete (the parser takes both types).
-  - T1: 4 player requests after the first bot check (the ladder must stop at once).
+  - T1: 4 requests after the first bot check (page + 3 player); the ladder sends none that R6
+    would not send (bot-check rule, owner 2026-10-15; T1b added then).
   - V1, V4, V7–V10, Y1–Y6, H1: own solver off = Android's 360p only; on = complete via embedded.
 - Plan adapted (why):
   - Only the R6 columns now: the parity gate needs D6's ladder seam in `MasterYouTubeModule` and
@@ -42,7 +95,7 @@
   - MCF counts against every simulated path; the live-backed paths come with the D0 census.
   - "Without sizes" (P22's rule met, a row without size) is listed apart and is not MCF; Z's job.
   - Not modelled: a renamed DRM marker with the formats in place (L12 moves them).
-- Proposed §5 target changes (D1 stop rule; owner decides):
+- §5 target changes (D1 stop rule) — **approved by the owner on 2026-10-15**, now in plan §5.2:
   1. Budget "no more player requests than R6" in V2: R6 with the own solver makes 1 and offers
      nothing; S needs 2 (visionOS + visionOS with the page's sts). Proposal: compare with R6
      without the own solver (V2: 3) → ladder ≤ 2.
@@ -99,6 +152,16 @@
   - Leaving the screen stops a run (no background work, guardrail 11).
 - Pending (owner, phone): 3 Full census runs on mobile data, ≥ 1 h apart, then one Weekly
   check; then the census table, version-source table and gate decision go into plan §5.
+- ❌ Census run 1 — **not valid** (owner, 2026-10-14 17:19 UTC, mobile data, metered): FULL, 9
+  videos (slot 7 empty), 1 request, 1920 bytes, 731 ms, stopped: bot-check. "BROKEN (1) — first
+  run", "BROKEN bot check — the run stopped; no census for 30 min → §7 step 8". The only request:
+  video 1, visionOS R0 1.02, HTTP 200, `BOT_CHECK` (`LOGIN_REQUIRED` "Sign in to confirm you're
+  not a bot"), 0 formats, sh `7efb11d3c42e`, shf `4797c59004fe`; top keys adBreakHeartbeatParams,
+  playabilityStatus, responseContext, trackingParams. Why not valid: the old rule stopped the
+  whole run at R6's first request, where R6 goes on (watch page, then visionOS with the page's
+  visitor data). The release app on the same mobile data at 17:31 UTC: a music video lookup
+  succeeded (M4A 2.9 MB, 720p60, 480p, More formats 6), so the IP is not blocked. Fixed by the bot-check
+  rule (top section).
 
 ## Phase 1.2 — done (owner closed it on 2026-10-14)
 

@@ -158,6 +158,8 @@ Y6/visionos | R6_OFF | PARTIAL | rows 1 | wrong 0 | MCF 1 | - | player 3, page 1
 Y6/visionos | R6_ON | COMPLETE | rows 3 | wrong 0 | MCF 0 | - | player 2, page 1, probe 1, hls 0, source 0, media 0 | after stop 0
 T1/visionos | R6_OFF | STOP | rows 0 | wrong 0 | MCF 0 | BOT_CHECK | player 4, page 1, probe 0, hls 0, source 0, media 0 | after stop 4
 T1/visionos | R6_ON | STOP | rows 0 | wrong 0 | MCF 0 | BOT_CHECK | player 4, page 1, probe 0, hls 0, source 0, media 0 | after stop 4
+T1b/visionos | R6_OFF | COMPLETE | rows 3 | wrong 0 | MCF 0 | - | player 2, page 1, probe 0, hls 0, source 0, media 0 | after stop 2
+T1b/visionos | R6_ON | COMPLETE | rows 3 | wrong 0 | MCF 0 | - | player 2, page 1, probe 0, hls 0, source 0, media 0 | after stop 2
 T2/visionos | R6_OFF | STOP | rows 0 | wrong 0 | MCF 0 | LOGIN_REQUIRED | player 1, page 1, probe 0, hls 0, source 0, media 0 | after stop 0
 T2/visionos | R6_ON | STOP | rows 0 | wrong 0 | MCF 0 | LOGIN_REQUIRED | player 1, page 1, probe 0, hls 0, source 0, media 0 | after stop 0
 T3/private/visionos | R6_OFF | STOP | rows 0 | wrong 0 | MCF 0 | PRIVATE_OR_UNAVAILABLE | player 1, page 1, probe 0, hls 0, source 0, media 0 | after stop 0
@@ -350,6 +352,8 @@ Y6/visionos_ladder | R6_OFF | PARTIAL | rows 1 | wrong 0 | MCF 1 | - | player 3,
 Y6/visionos_ladder | R6_ON | COMPLETE | rows 9 | wrong 0 | MCF 0 | - | player 2, page 1, probe 1, hls 0, source 0, media 0 | after stop 0
 T1/visionos_ladder | R6_OFF | STOP | rows 0 | wrong 0 | MCF 0 | BOT_CHECK | player 4, page 1, probe 0, hls 0, source 0, media 0 | after stop 4
 T1/visionos_ladder | R6_ON | STOP | rows 0 | wrong 0 | MCF 0 | BOT_CHECK | player 4, page 1, probe 0, hls 0, source 0, media 0 | after stop 4
+T1b/visionos_ladder | R6_OFF | COMPLETE | rows 9 | wrong 0 | MCF 0 | - | player 2, page 1, probe 0, hls 0, source 0, media 0 | after stop 2
+T1b/visionos_ladder | R6_ON | COMPLETE | rows 9 | wrong 0 | MCF 0 | - | player 2, page 1, probe 0, hls 0, source 0, media 0 | after stop 2
 T2/visionos_ladder | R6_OFF | STOP | rows 0 | wrong 0 | MCF 0 | LOGIN_REQUIRED | player 1, page 1, probe 0, hls 0, source 0, media 0 | after stop 0
 T2/visionos_ladder | R6_ON | STOP | rows 0 | wrong 0 | MCF 0 | LOGIN_REQUIRED | player 1, page 1, probe 0, hls 0, source 0, media 0 | after stop 0
 T3/private/visionos_ladder | R6_OFF | STOP | rows 0 | wrong 0 | MCF 0 | PRIVATE_OR_UNAVAILABLE | player 1, page 1, probe 0, hls 0, source 0, media 0 | after stop 0
@@ -542,6 +546,8 @@ Y6/ok | R6_OFF | PARTIAL | rows 1 | wrong 0 | MCF 1 | - | player 3, page 1, prob
 Y6/ok | R6_ON | COMPLETE | rows 4 | wrong 0 | MCF 0 | - | player 2, page 1, probe 1, hls 0, source 0, media 0 | after stop 0
 T1/ok | R6_OFF | STOP | rows 0 | wrong 0 | MCF 0 | BOT_CHECK | player 4, page 1, probe 0, hls 0, source 0, media 0 | after stop 4
 T1/ok | R6_ON | STOP | rows 0 | wrong 0 | MCF 0 | BOT_CHECK | player 4, page 1, probe 0, hls 0, source 0, media 0 | after stop 4
+T1b/ok | R6_OFF | COMPLETE | rows 4 | wrong 0 | MCF 0 | - | player 2, page 1, probe 0, hls 0, source 0, media 0 | after stop 2
+T1b/ok | R6_ON | COMPLETE | rows 4 | wrong 0 | MCF 0 | - | player 2, page 1, probe 0, hls 0, source 0, media 0 | after stop 2
 T2/ok | R6_OFF | STOP | rows 0 | wrong 0 | MCF 0 | LOGIN_REQUIRED | player 1, page 1, probe 0, hls 0, source 0, media 0 | after stop 0
 T2/ok | R6_ON | STOP | rows 0 | wrong 0 | MCF 0 | LOGIN_REQUIRED | player 1, page 1, probe 0, hls 0, source 0, media 0 | after stop 0
 T3/private/ok | R6_OFF | STOP | rows 0 | wrong 0 | MCF 0 | PRIVATE_OR_UNAVAILABLE | player 1, page 1, probe 0, hls 0, source 0, media 0 | after stop 0
@@ -734,6 +740,8 @@ Y6/4k | R6_OFF | PARTIAL | rows 1 | wrong 0 | MCF 1 | - | player 3, page 1, prob
 Y6/4k | R6_ON | COMPLETE | rows 6 | wrong 0 | MCF 0 | - | player 2, page 1, probe 1, hls 0, source 0, media 0 | after stop 0
 T1/4k | R6_OFF | STOP | rows 0 | wrong 0 | MCF 0 | BOT_CHECK | player 4, page 1, probe 0, hls 0, source 0, media 0 | after stop 4
 T1/4k | R6_ON | STOP | rows 0 | wrong 0 | MCF 0 | BOT_CHECK | player 4, page 1, probe 0, hls 0, source 0, media 0 | after stop 4
+T1b/4k | R6_OFF | COMPLETE | rows 6 | wrong 0 | MCF 0 | - | player 2, page 1, probe 0, hls 0, source 0, media 0 | after stop 2
+T1b/4k | R6_ON | COMPLETE | rows 6 | wrong 0 | MCF 0 | - | player 2, page 1, probe 0, hls 0, source 0, media 0 | after stop 2
 T2/4k | R6_OFF | STOP | rows 0 | wrong 0 | MCF 0 | LOGIN_REQUIRED | player 1, page 1, probe 0, hls 0, source 0, media 0 | after stop 0
 T2/4k | R6_ON | STOP | rows 0 | wrong 0 | MCF 0 | LOGIN_REQUIRED | player 1, page 1, probe 0, hls 0, source 0, media 0 | after stop 0
 T3/private/4k | R6_OFF | STOP | rows 0 | wrong 0 | MCF 0 | PRIVATE_OR_UNAVAILABLE | player 1, page 1, probe 0, hls 0, source 0, media 0 | after stop 0
@@ -926,6 +934,8 @@ Y6/4k_av1_only | R6_OFF | PARTIAL | rows 1 | wrong 0 | MCF 1 | - | player 3, pag
 Y6/4k_av1_only | R6_ON | COMPLETE | rows 6 | wrong 0 | MCF 0 | - | player 2, page 1, probe 1, hls 0, source 0, media 0 | after stop 0
 T1/4k_av1_only | R6_OFF | STOP | rows 0 | wrong 0 | MCF 0 | BOT_CHECK | player 4, page 1, probe 0, hls 0, source 0, media 0 | after stop 4
 T1/4k_av1_only | R6_ON | STOP | rows 0 | wrong 0 | MCF 0 | BOT_CHECK | player 4, page 1, probe 0, hls 0, source 0, media 0 | after stop 4
+T1b/4k_av1_only | R6_OFF | COMPLETE | rows 6 | wrong 0 | MCF 0 | - | player 2, page 1, probe 0, hls 0, source 0, media 0 | after stop 2
+T1b/4k_av1_only | R6_ON | COMPLETE | rows 6 | wrong 0 | MCF 0 | - | player 2, page 1, probe 0, hls 0, source 0, media 0 | after stop 2
 T2/4k_av1_only | R6_OFF | STOP | rows 0 | wrong 0 | MCF 0 | LOGIN_REQUIRED | player 1, page 1, probe 0, hls 0, source 0, media 0 | after stop 0
 T2/4k_av1_only | R6_ON | STOP | rows 0 | wrong 0 | MCF 0 | LOGIN_REQUIRED | player 1, page 1, probe 0, hls 0, source 0, media 0 | after stop 0
 T3/private/4k_av1_only | R6_OFF | STOP | rows 0 | wrong 0 | MCF 0 | PRIVATE_OR_UNAVAILABLE | player 1, page 1, probe 0, hls 0, source 0, media 0 | after stop 0

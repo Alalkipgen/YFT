@@ -37,7 +37,7 @@ internal class SimCase(
 internal object SimCases {
     /** The classes in the plan's table order, plus B0 (no change) as the control. */
     val CLASSES: List<String> = listOf("B0") + (1..11).map { "V$it" } + (1..16).map { "L$it" } +
-        (1..6).map { "Y$it" } + (1..3).map { "T$it" } + listOf("H1", "H2") + (1..4).map { "F$it" }
+        (1..6).map { "Y$it" } + listOf("T1", "T1b", "T2", "T3") + listOf("H1", "H2") + (1..4).map { "F$it" }
 
     fun all(): List<SimCase> = Sim.BASES.flatMap(::forBase)
 
@@ -181,6 +181,12 @@ internal object SimCases {
 
         // T: verdicts about the video or the request, from every identity and the page.
         case("T1", emptySet(), terminal = true) { everyone(fixture("player_bot_check.json")) }
+        // T1b (owner, 2026-10-15; the census's first run, 2026-10-14): only visionOS asked without
+        // visitor data meets the bot check; R6's chain asks it again with the page's visitor data.
+        case("T1b", setOf(Rung.R0, Rung.O)) {
+            val check = fixture("player_bot_check.json")
+            override = { ask -> if (ask.client == SimClient.VISION_OS && !ask.visitor) SimReply.Json(check) else null }
+        }
         case("T2", emptySet(), terminal = true) { everyone(fixture("player_age_gate.json")) }
         for ((name, file) in listOf(
             "private" to "player_private.json",

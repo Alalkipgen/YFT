@@ -249,31 +249,111 @@ class ClientCensusTest {
     }
 
     @Test
-    fun `a bot check stops the whole run and no run starts for 30 minutes`() = runTest {
-        val world = CensusWorld().standard(Census.V1).standard(Census.V2).sources()
-        world.answer(Census.V1, "VISIONOS", Census.botCheck(Census.V1))
+    fun `a second bot check stops the run and no run starts for 30 minutes`() = runTest {
+        val world = CensusWorld().standard(Census.V1).standard(Census.V2).sources().visionOsBotCheck(Census.V1, always = true)
         val http = world.http()
         val census = census(http)
+        val videos = mapOf(1 to Census.V1, 2 to Census.V2)
 
-        val stopped = census.run(Mode.FULL, mapOf(1 to Census.V1, 2 to Census.V2), null)
+        val stopped = census.run(Mode.FULL, videos, null)
         now += 10 * MINUTE
-        val waiting = census.run(Mode.FULL, mapOf(1 to Census.V1, 2 to Census.V2), stopped.stateJson)
+        val waiting = census.run(Mode.FULL, videos, stopped.stateJson)
 
         assertEquals("bot-check", stopped.stopped)
         assertEquals("BROKEN (1) — first run", stopped.firstLine)
         assertTrue(stopped.report.contains("BROKEN bot check — the run stopped; no census for 30 min → §7 step 8"))
-        assertEquals(CensusClass.BOT_CHECK, ask(lastRun(stopped), 1, "visionos", "R0").answerClass)
-        assertEquals(1, http.postedBodies.size)
-        assertTrue(http.requestedUrls.isEmpty() && http.probedUrls.isEmpty())
+        val run = lastRun(stopped)
+        assertEquals(CensusClass.BOT_CHECK, ask(run, 1, "visionos", "R0").answerClass)
+        assertEquals(CensusClass.BOT_CHECK, ask(run, 1, "visionos", "R0+vd").answerClass)
+        assertEquals(listOf("VISIONOS", "VISIONOS"), http.postedBodies.map(CensusWorld::clientOf))
+        assertEquals(listOf(Census.pageUrl(Census.V1)), http.requestedUrls)
+        assertTrue(http.probedUrls.isEmpty())
         assertEquals(START + 30 * MINUTE, CensusJson.readState(stopped.stateJson).cooldownUntil)
         assertEquals("COOLDOWN — a bot check stopped an earlier run; try again in 20 min", waiting.firstLine)
         assertEquals("cooldown", waiting.stopped)
-        assertEquals(1, http.postedBodies.size)
+        assertEquals(2, http.postedBodies.size)
         assertTrue(ClientCensus.statusOf(waiting.stateJson, now).endsWith("Bot check cooldown: 20 min left."))
 
         now += 21 * MINUTE
-        census.run(Mode.FULL, mapOf(1 to Census.V1, 2 to Census.V2), waiting.stateJson)
-        assertEquals(2, http.postedBodies.size)
+        census.run(Mode.FULL, videos, waiting.stateJson)
+        assertEquals(4, http.postedBodies.size)
+    }
+
+    @Test
+    fun `a bot check on visionOS's first request is answered as R6 answers it and the run goes on`() = runTest {
+        val world = CensusWorld().standard(Census.V1).standard(Census.V2).sources(vision = "1.03").visionOsBotCheck(Census.V1)
+        val http = world.http()
+
+        val outcome = census(http).run(Mode.FULL, mapOf(1 to Census.V1, 2 to Census.V2), null)
+
+        assertNull(outcome.stopped)
+        assertEquals(0L, CensusJson.readState(outcome.stateJson).cooldownUntil)
+        assertEquals(
+            listOf("VISIONOS", "VISIONOS", "VISIONOS", "ANDROID", "WEB_EMBEDDED_PLAYER", "MWEB"),
+            http.postedBodies.map(CensusWorld::clientOf),
+        )
+        assertTrue(http.postedBodies.none { CensusWorld.versionOf(it) == "1.03" })
+        val run = lastRun(outcome)
+        assertEquals(listOf("visionos R0", "visionos R0+vd"), run.asks.filter { it.video == 1 }.map { "${it.client} ${it.step}" })
+        assertEquals(CensusClass.BOT_CHECK, ask(run, 1, "visionos", "R0").answerClass)
+        val again = ask(run, 1, "visionos", "R0+vd")
+        assertEquals(listOf("DIRECT", "PASS"), listOf(again.finalClass.name, again.v))
+        assertEquals(1, run.pages.count { it.video == 1 })
+        assertTrue(run.hls.none { it.video == 1 })
+        assertEquals(listOf("visionos", "android", "embedded", "mweb"), run.asks.filter { it.video == 2 }.map { it.client })
+        assertTrue(
+            run.notes.contains(
+                "video 1: bot check on visionOS without visitor data; answered as R6: the watch page once, " +
+                    "visionOS once more with its visitor data, nothing else for this video",
+            ),
+        )
+        assertTrue(
+            run.notes.contains("version acceptance: video 1 met a bot check, so no newer version was tried (R6 sends no such request)"),
+        )
+        assertEquals("CHANGED (1) — first run", outcome.firstLine)
+        assertTrue(
+            outcome.report.contains("CHANGED visionos R0 video 1: bot check, answered as R6 (visionOS with visitor data: DIRECT) → §7 step 8"),
+        )
+    }
+
+    @Test
+    fun `any later bot check, or one on another request, stops the run at once`() = runTest {
+        val later = CensusWorld().standard(Census.V1).standard(Census.V2).sources().visionOsBotCheck(Census.V1)
+        later.answer(Census.V2, "VISIONOS", Census.botCheck(Census.V2))
+        val laterHttp = later.http()
+        val other = CensusWorld().standard(Census.V1).standard(Census.V2).sources()
+        other.answer(Census.V1, "ANDROID", Census.botCheck(Census.V1))
+        val otherHttp = other.http()
+        val videos = mapOf(1 to Census.V1, 2 to Census.V2)
+
+        val second = census(laterHttp).run(Mode.FULL, videos, null)
+        val android = census(otherHttp).run(Mode.FULL, videos, null)
+
+        assertEquals("bot-check", second.stopped)
+        assertEquals(listOf("VISIONOS", "VISIONOS", "VISIONOS"), laterHttp.postedBodies.map(CensusWorld::clientOf))
+        assertTrue(Census.pageUrl(Census.V2) !in laterHttp.requestedUrls)
+        assertEquals(START + 30 * MINUTE, CensusJson.readState(second.stateJson).cooldownUntil)
+        assertEquals("bot-check", android.stopped)
+        assertEquals(listOf("VISIONOS", "ANDROID"), otherHttp.postedBodies.map(CensusWorld::clientOf))
+        assertEquals(START + 30 * MINUTE, CensusJson.readState(android.stateJson).cooldownUntil)
+    }
+
+    @Test
+    fun `the weekly check answers a bot check on video 1 as R6 and asks video 1 nothing more`() = runTest {
+        val world = CensusWorld().standard(Census.V1).sources().visionOsBotCheck(Census.V1)
+        world.answer(Census.V5, "VISIONOS", Census.visionOs(Census.V5))
+        val http = world.http()
+
+        val outcome = census(http).run(Mode.WEEKLY, mapOf(1 to Census.V1, 5 to Census.V5), null)
+
+        assertNull(outcome.stopped)
+        assertTrue("${calls(http)} requests", calls(http) <= ClientCensus.WEEKLY_MAX_REQUESTS)
+        assertEquals(listOf("VISIONOS", "VISIONOS", "VISIONOS"), http.postedBodies.map(CensusWorld::clientOf))
+        assertEquals(1, http.requestedUrls.count { it == Census.pageUrl(Census.V1) })
+        val run = lastRun(outcome)
+        assertTrue(run.notes.contains("video 1: answered as R6 after its bot check, so Android, the embedded player and MWEB were not asked"))
+        assertEquals(CensusClass.DIRECT, ask(run, 1, "visionos", "R0+vd").finalClass)
+        assertEquals(CensusClass.DIRECT, ask(run, 5, "visionos", "R0").finalClass)
     }
 
     @Test

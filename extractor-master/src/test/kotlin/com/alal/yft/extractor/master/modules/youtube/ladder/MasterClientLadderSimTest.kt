@@ -244,14 +244,16 @@ class MasterClientLadderSimTest {
     /** What a reader could see of a world: its answers, page, versions, sources, HLS and files. */
     private fun fingerprint(world: SimWorld): String = buildString {
         for (client in SimClient.entries) {
-            val ask = SimAsk(client, Sim.BASE_VERSION, visitor = true, sts = true)
-            append(client).append('=').append(
-                when (val reply = world.override(ask) ?: world.defaultReply(ask)) {
-                    is SimReply.Json -> reply.body
-                    is SimReply.Status -> "status ${reply.code}"
-                    SimReply.Network -> "network"
-                },
-            ).append('\n')
+            for (signals in listOf(true, false)) {
+                val ask = SimAsk(client, Sim.BASE_VERSION, visitor = signals, sts = signals)
+                append(client).append(signals).append('=').append(
+                    when (val reply = world.override(ask) ?: world.defaultReply(ask)) {
+                        is SimReply.Json -> reply.body
+                        is SimReply.Status -> "status ${reply.code}"
+                        SimReply.Network -> "network"
+                    },
+                ).append('\n')
+            }
         }
         append(world.pageHtml()).append('\n')
         append(world.acceptedVersions).append(world.sources).append(world.solver).append(world.probesDown)

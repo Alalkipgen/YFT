@@ -220,6 +220,19 @@ internal class CensusWorld {
         gets[url] = ExtractorHttpResult.Success(200, body, url, "text/plain")
     }
 
+    /**
+     * visionOS refuses [id] with a bot check unless the request carries the page's visitor data
+     * ([always]: every time), as it refused the census's first run (2026-10-14).
+     */
+    fun visionOsBotCheck(id: String, always: Boolean = false): CensusWorld = apply {
+        val check = Census.botCheck(id)
+        val answer = Census.visionOs(id)
+        answers[id to "VISIONOS"] = { body ->
+            val json = if (always || Census.VISITOR !in body) check else answer
+            ExtractorHttpResult.Success(200, json, Census.PLAYER_URL, "application/json")
+        }
+    }
+
     /** Every client answers [id] as it does today, with a page, an HLS playlist and V passing. */
     fun standard(id: String, page: Boolean = true): CensusWorld = apply {
         answer(id, "VISIONOS", Census.visionOs(id))

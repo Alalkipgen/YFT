@@ -9,8 +9,10 @@ package com.alal.yft.extractor.master.modules.youtube.ladder
  * naming its runbook step (§7). **BROKEN** is a worsening: a class that got worse (DIRECT → any
  * other class, a working class → a refusal or a verdict), V `PASS` → `FAIL`, an H step `2xx` →
  * anything else, a key or a duration mismatch on H, a **BREAKING** shape (a removed path the copied
- * parser reads, [ShapeFingerprint.PARSER_READS]), or a version accepted → rejected. The rung that
- * answered a lookup is added from D6 on.
+ * parser reads, [ShapeFingerprint.PARSER_READS]), or a version accepted → rejected. A bot check
+ * the run answered as R6 (`ClientCensus`, owner 2026-10-15) is a CHANGED line even on a first
+ * run; a bot check that stopped the run is BROKEN. The rung that answered a lookup is added from
+ * D6 on.
  */
 internal object CensusDiff {
     enum class Level { CHANGED, BROKEN }
@@ -43,6 +45,16 @@ internal object CensusDiff {
             "bot-check" -> lines += Line(Level.BROKEN, "bot check — the run stopped; no census for 30 min", 8)
             "rate-limited" -> lines += Line(Level.BROKEN, "rate limited (HTTP 429) — the run stopped; no census for 30 min", 8)
             else -> notes += "the run stopped early (${current.stopped}); later steps were not measured"
+        }
+        if (current.stopped != "bot-check") {
+            // The run's one answered bot check (owner, 2026-10-15): shown even on a first run.
+            current.asks.filter { it.answerClass == CensusClass.BOT_CHECK }.forEach { ask ->
+                val again = current.asks.firstOrNull {
+                    it.video == ask.video && it.client == ask.client && it.step == ClientCensus.AGAIN
+                }
+                val next = again?.let { "visionOS with visitor data: ${it.finalClass}" } ?: "visionOS not asked again"
+                lines += Line(Level.CHANGED, "${ask.client} ${ask.step} video ${ask.video}: bot check, answered as R6 ($next)", 8)
+            }
         }
         if (last != null) {
             current.slots.toSortedMap().forEach { (slot, tag) ->

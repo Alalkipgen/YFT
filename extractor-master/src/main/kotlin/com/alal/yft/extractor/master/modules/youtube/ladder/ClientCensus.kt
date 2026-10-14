@@ -32,9 +32,9 @@ import kotlinx.coroutines.CancellationException
 /**
  * Phase 1.3 D0: the owner's client census and weekly check (MASTER_KEY_PHASE1_3_PLAN.md §4 D0).
  *
- * **Full census**, per video in list order, the whole run stopping at the first bot check (then
- * no run for 30 min): (1) visionOS as R6 asks it — class, counts, heights, V on one AVC row, the
- * shape fingerprint, and the H check with the token step when an HLS address is present; (2)
+ * **Full census**, per video in list order: (1) visionOS as R6 asks it — class, counts, heights,
+ * V on one AVC row, the shape fingerprint, and the H check with the token step when an HLS
+ * address is present; (2)
  * visionOS again with the page's signature timestamp and visitor data, only when (1) carried
  * `signatureCipher` (S through the own solver, V); (3) video 1 only: each bundled alternate
  * version (none are bundled: the references list no second visionOS value); (4) Android — class,
@@ -46,6 +46,14 @@ import kotlinx.coroutines.CancellationException
  * **Weekly check**: videos 1 and 5 visionOS (V on one row, H on video 1), then Android, embedded
  * and MWEB once on video 1 (no S), the version sources only when not read in 24 h; ≤ 60 s,
  * ≤ 2 MB and ≤ 20 requests.
+ *
+ * **Bot checks** (owner, 2026-10-15): after a bot check the census never sends a request R6 would
+ * not send. The run's first bot check, when it answers visionOS without visitor data (R6's own
+ * first request), is answered as R6 answers it ([answerAsR6]): that video's watch page once and
+ * visionOS once more with the page's visitor data (`R0+vd`, R6's `visionOsInChain` request), V on
+ * one row of that answer (a one-byte read of a row the download reads), and nothing else for that
+ * video. A second bot check, or one on any other request, stops the run with no run for 30 min;
+ * so does HTTP 429.
  *
  * Every request is built by the copied request builder (`YouTubeClientProfile.playerRequestBody`)
  * with R6's headers, without a cookie or a token (guardrail 3). V is the shared [StreamCheck]
@@ -167,8 +175,13 @@ class ClientCensus(
     private suspend fun fullVideo(session: Session, slot: Int, id: String): Video {
         val video = Video(slot, id)
         session.step("video $slot · visionOS")
-        val first = ask(session, video, VISION_OS, "R0", NO_PAGE) ?: return video
+        val first = ask(session, video, VISION_OS, R0, NO_PAGE) ?: return video
         video.visionOs = first
+        if (first.record.answerClass == CensusClass.BOT_CHECK) {
+            session.finish(first)
+            answerAsR6(session, video)
+            return video
+        }
         directCheck(session, video, first, preferProgressive = false)
         hlsCheck(session, video, first)
         session.finish(first)
@@ -203,7 +216,7 @@ class ClientCensus(
 
         if (session.stopped == null) {
             session.step("video $slot · Android")
-            ask(session, video, ANDROID, "R0", page ?: NO_PAGE)?.let { android ->
+            ask(session, video, ANDROID, R0, page ?: NO_PAGE)?.let { android ->
                 video.android = android
                 directCheck(session, video, android, preferProgressive = true)
                 session.finish(android)
@@ -215,7 +228,7 @@ class ClientCensus(
         }
         if (session.stopped == null) {
             session.step("video $slot · embedded")
-            ask(session, video, YouTubeClientProfiles.embedded(page), "R0", page)?.let { embedded ->
+            ask(session, video, YouTubeClientProfiles.embedded(page), R0, page)?.let { embedded ->
                 video.embedded = embedded
                 solveAndCheck(session, video, embedded, page)
                 session.finish(embedded)
@@ -223,7 +236,7 @@ class ClientCensus(
         }
         if (session.stopped == null) {
             session.step("video $slot · MWEB")
-            ask(session, video, YouTubeClientProfiles.mobileWeb(), "R0", page)?.let { mobile ->
+            ask(session, video, YouTubeClientProfiles.mobileWeb(), R0, page)?.let { mobile ->
                 solveAndCheck(session, video, mobile, page)
                 session.finish(mobile)
             }
@@ -239,11 +252,12 @@ class ClientCensus(
         }
         val first = Video(FIRST_VIDEO, firstId)
         session.step("video 1 · visionOS")
-        ask(session, first, VISION_OS, "R0", NO_PAGE)?.let { answer ->
+        ask(session, first, VISION_OS, R0, NO_PAGE)?.let { answer ->
             first.visionOs = answer
-            directCheck(session, first, answer, preferProgressive = false)
-            hlsCheck(session, first, answer)
-            session.finish(answer)
+            firstAnswer(session, first, answer) {
+                directCheck(session, first, answer, preferProgressive = false)
+                hlsCheck(session, first, answer)
+            }
         }
         val fifthId = videos[WEEKLY_SECOND_VIDEO]
         if (fifthId == null) {
@@ -251,35 +265,15 @@ class ClientCensus(
         } else if (session.stopped == null) {
             val fifth = Video(WEEKLY_SECOND_VIDEO, fifthId)
             session.step("video $WEEKLY_SECOND_VIDEO · visionOS")
-            ask(session, fifth, VISION_OS, "R0", NO_PAGE)?.let { answer ->
-                directCheck(session, fifth, answer, preferProgressive = false)
-                session.finish(answer)
+            ask(session, fifth, VISION_OS, R0, NO_PAGE)?.let { answer ->
+                firstAnswer(session, fifth, answer) { directCheck(session, fifth, answer, preferProgressive = false) }
             }
         }
         if (session.stopped != null) return
-        session.step("video 1 · watch page")
-        val page = page(session, first)
-        first.page = page
-        if (session.stopped == null) {
-            session.step("video 1 · Android")
-            ask(session, first, ANDROID, "R0", page ?: NO_PAGE)?.let { answer ->
-                first.android = answer
-                directCheck(session, first, answer, preferProgressive = true)
-                session.finish(answer)
-            }
-        }
-        if (page != null) {
-            for (profile in listOf(YouTubeClientProfiles.embedded(page), YouTubeClientProfiles.mobileWeb())) {
-                if (session.stopped != null) break
-                session.step("video 1 · ${profile.clientName}")
-                ask(session, first, profile, "R0", page)?.let { answer ->
-                    if (profile.id == "embedded") first.embedded = answer
-                    checkWithoutScript(session, first, answer)
-                    session.finish(answer)
-                }
-            }
+        if (first.slot in session.answeredAsR6) {
+            session.notes += "video 1: answered as R6 after its bot check, so Android, the embedded player and MWEB were not asked"
         } else {
-            session.notes += "video 1: no watch page, so the embedded player and MWEB were not asked"
+            weeklyClients(session, first)
         }
         if (session.stopped != null) return
         if (startedAgo(state.sourcesAt) >= DAY_MILLIS) {
@@ -289,7 +283,78 @@ class ClientCensus(
         }
     }
 
+    /** The weekly check's other clients on video 1: its watch page, Android, embedded and MWEB. */
+    private suspend fun weeklyClients(session: Session, first: Video) {
+        session.step("video 1 · watch page")
+        val page = page(session, first)
+        first.page = page
+        if (session.stopped == null) {
+            session.step("video 1 · Android")
+            ask(session, first, ANDROID, R0, page ?: NO_PAGE)?.let { answer ->
+                first.android = answer
+                directCheck(session, first, answer, preferProgressive = true)
+                session.finish(answer)
+            }
+        }
+        if (page != null) {
+            for (profile in listOf(YouTubeClientProfiles.embedded(page), YouTubeClientProfiles.mobileWeb())) {
+                if (session.stopped != null) break
+                session.step("video 1 · ${profile.clientName}")
+                ask(session, first, profile, R0, page)?.let { answer ->
+                    if (profile.id == "embedded") first.embedded = answer
+                    checkWithoutScript(session, first, answer)
+                    session.finish(answer)
+                }
+            }
+        } else {
+            session.notes += "video 1: no watch page, so the embedded player and MWEB were not asked"
+        }
+    }
+
     private fun startedAgo(at: Long): Long = if (at <= 0) Long.MAX_VALUE else clock() - at
+
+    // ---- after a bot check (owner, 2026-10-15) ----------------------------------------------
+
+    /** Records visionOS's first [answer] after its [checks]; a bot check goes to [answerAsR6]. */
+    private suspend fun firstAnswer(session: Session, video: Video, answer: Asked, checks: suspend () -> Unit) {
+        if (answer.record.answerClass == CensusClass.BOT_CHECK) {
+            session.finish(answer)
+            answerAsR6(session, video)
+            return
+        }
+        checks()
+        session.finish(answer)
+    }
+
+    /**
+     * What R6 sends after a bot check on its first request (the copied extractor's watch page GET
+     * and `visionOsInChain`), and nothing more: the watch page once, then visionOS once more with
+     * the page's visitor data, in the body and as `X-Goog-Visitor-Id`, otherwise as before the
+     * page; without visitor data R6 does not ask again, and neither does the census. V reads one
+     * byte of one row of that answer (a row the download reads). No S, alternate, H check,
+     * Android, embedded player or MWEB for this video, and no version is tried on it. A bot check
+     * on the second request stops the run ([ask]). Only reached while the run is not stopped.
+     */
+    private suspend fun answerAsR6(session: Session, video: Video) {
+        if (session.stopped != null) return
+        session.answeredAsR6 += video.slot
+        session.notes += "video ${video.slot}: bot check on visionOS without visitor data; " +
+            "answered as R6: the watch page once, visionOS once more with its visitor data, nothing else for this video"
+        session.step("video ${video.slot} · watch page")
+        val page = video.page ?: page(session, video).also { video.page = it }
+        if (session.stopped != null) return
+        val visitorData = page?.visitorData?.takeIf(String::isNotBlank)
+        if (visitorData == null) {
+            val why = if (page == null) "no watch page" else "the watch page gave no visitor data"
+            session.notes += "video ${video.slot}: $why, so visionOS was not asked again (as R6)"
+            return
+        }
+        session.step("video ${video.slot} · visionOS again, with visitor data")
+        val again = ask(session, video, VISION_OS, AGAIN, NO_PAGE.copy(visitorData = visitorData)) ?: return
+        if (again.record.answerClass != CensusClass.BOT_CHECK) video.visionOs = again
+        directCheck(session, video, again, preferProgressive = false)
+        session.finish(again)
+    }
 
     // ---- one player request -----------------------------------------------------------------
 
@@ -346,8 +411,13 @@ class ClientCensus(
         }
         video.hosts += asked.hosts()
         if (asked.record.answerClass == CensusClass.BOT_CHECK) {
-            session.stop("bot-check")
-            session.cooldown = true
+            session.botChecks += 1
+            // Only the run's first bot check on R6's own first request is answered (as R6 does).
+            val first = session.botChecks == 1 && profile == VISION_OS && step == R0 && signals.visitorData == null
+            if (!first) {
+                session.stop("bot-check")
+                session.cooldown = true
+            }
         }
         return asked
     }
@@ -737,6 +807,13 @@ class ClientCensus(
 
     /** One request (and V) on video 1 for the newest valid value newer than the bundled one. */
     private suspend fun acceptanceTests(session: Session, first: Video) {
+        if (first.slot in session.answeredAsR6) {
+            if (session.versions.any { it.pattern && it.newer == true }) {
+                session.notes += "version acceptance: video ${first.slot} met a bot check, so no newer version was tried " +
+                    "(R6 sends no such request)"
+            }
+            return
+        }
         for (identity in listOf("visionos", "android", "mweb")) {
             if (session.stopped != null) return
             val candidates = session.versions.filter { it.identity == identity && it.pattern && it.newer == true }
@@ -785,6 +862,10 @@ class ClientCensus(
         var stopped: String? = null
         var cooldown = false
         var sourcesRead = false
+        var botChecks = 0
+
+        /** Videos whose first answer was a bot check, so only R6's next requests were sent for them. */
+        val answeredAsR6 = HashSet<Int>()
         val pages = ArrayList<CensusPage>()
         val asks = ArrayList<CensusAsk>()
         val hls = ArrayList<CensusHls>()
@@ -889,6 +970,16 @@ class ClientCensus(
         /** Video 4's default: the 2160p60 video the stream check used (the owner may change it). */
         const val DEFAULT_VIDEO_4: String = "aqz-KE-bpKQ"
 
+        /**
+         * Video 7's default: a public 3:30 lyric video whose owner disabled embedding (yt-dlp's
+         * "Non-age-gated non-embeddable video" test). Checked 2026-10-15: oEmbed answers 401 and
+         * the embed page says "Playback on other websites has been disabled by the video owner".
+         */
+        const val DEFAULT_VIDEO_7: String = "MeJVWBSsPAY"
+
+        /** The slots the tool fills when the owner left them empty (the owner may change them). */
+        val DEFAULT_VIDEOS: Map<Int, String> = mapOf(4 to DEFAULT_VIDEO_4, 7 to DEFAULT_VIDEO_7)
+
         /** What the owner should pick for each slot. */
         val SLOT_HINTS: Map<Int, String> = mapOf(
             1 to "short progressive (fixed)",
@@ -913,6 +1004,12 @@ class ClientCensus(
 
         private const val FIRST_VIDEO = 1
         private const val WEEKLY_SECOND_VIDEO = 5
+
+        /** A client's request as R6 first asks it. */
+        internal const val R0 = "R0"
+
+        /** visionOS asked again with the page's visitor data, as R6 asks it after a refusal. */
+        internal const val AGAIN = "R0+vd"
         private const val MOBILE_CLIENT_NAME = "MWEB"
         private const val ORIGIN = "https://www.youtube.com"
         private const val ACCEPT_LANGUAGE = "en-US,en;q=0.9"
