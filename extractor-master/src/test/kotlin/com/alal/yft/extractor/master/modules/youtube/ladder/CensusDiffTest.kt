@@ -162,6 +162,32 @@ class CensusDiffTest {
     }
 
     @Test
+    fun `each video's answered bot check is one CHANGED line, the one that stopped the run is BROKEN, and no bot check is a class or shape change`() {
+        val bot = direct().copy(
+            answerClass = CensusClass.BOT_CHECK, finalClass = CensusClass.BOT_CHECK, status = "LOGIN_REQUIRED", adaptive = 0,
+            heights = emptyList(), v = null, vTarget = null, hls = false, shapePaths = listOf("playabilityStatus", "playabilityStatus.status"),
+        )
+        val slots = mapOf(1 to "a1b2", 2 to "c3d4")
+        val earlier = run(0, direct(), direct(video = 2), slots = slots)
+        val current = run(
+            DAY, bot, direct(step = ClientCensus.AGAIN), bot.copy(video = 2), bot.copy(video = 2, step = ClientCensus.AGAIN),
+            slots = slots, stopped = "bot-check",
+        )
+
+        val result = CensusDiff.compare(listOf(earlier), current)
+
+        assertEquals(
+            listOf(
+                "BROKEN bot check on visionos R0+vd video 2 (a request with visitor data) — the run stopped; no census for 30 min → §7 step 8",
+                "CHANGED visionos R0 video 1: bot check, answered as R6 (visionOS with visitor data: DIRECT) → §7 step 8",
+                "CHANGED visionos R0 video 2: bot check, answered as R6 (visionOS with visitor data: BOT_CHECK) → §7 step 8",
+            ),
+            result.lines.map { it.render() },
+        )
+        assertEquals("BROKEN (3) — 1 days since the last run", result.headline)
+    }
+
+    @Test
     fun `the state file round-trips every field`() {
         val ask = direct().copy(
             reason = "Sign in to confirm you’re not a bot \"quoted\"\nnext",

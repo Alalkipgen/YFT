@@ -9,10 +9,12 @@ package com.alal.yft.extractor.master.modules.youtube.ladder
  * naming its runbook step (§7). **BROKEN** is a worsening: a class that got worse (DIRECT → any
  * other class, a working class → a refusal or a verdict), V `PASS` → `FAIL`, an H step `2xx` →
  * anything else, a key or a duration mismatch on H, a **BREAKING** shape (a removed path the copied
- * parser reads, [ShapeFingerprint.PARSER_READS]), or a version accepted → rejected. A bot check
- * the run answered as R6 (`ClientCensus`, owner 2026-10-15) is a CHANGED line even on a first
- * run; a bot check that stopped the run is BROKEN. The rung that answered a lookup is added from
- * D6 on.
+ * parser reads, [ShapeFingerprint.PARSER_READS]), or a version accepted → rejected. Bot checks
+ * (`ClientCensus`, owner 2026-10-15) are shown even on a first run: each video's bot check the
+ * run answered as R6 is one CHANGED line, and the bot check that stopped the run (a request that
+ * already carried visitor data) is BROKEN. A bot check refuses the request, not the client, so an
+ * answer that is one is never compared as a class, count or shape change. The rung that answered
+ * a lookup is added from D6 on.
  */
 internal object CensusDiff {
     enum class Level { CHANGED, BROKEN }
@@ -40,20 +42,29 @@ internal object CensusDiff {
         val last = earlier.firstOrNull()
         val lines = ArrayList<Line>()
         val notes = ArrayList<String>()
+        val botChecks = current.asks.filter { it.answerClass == CensusClass.BOT_CHECK }
+        // Nothing is asked after the bot check that stops a run, so it is the run's last one.
+        val stopper = if (current.stopped == "bot-check") botChecks.lastOrNull() else null
         when (current.stopped) {
             null -> Unit
-            "bot-check" -> lines += Line(Level.BROKEN, "bot check — the run stopped; no census for 30 min", 8)
+            "bot-check" -> {
+                val on = stopper?.let { " on ${it.client} ${it.step} video ${it.video} (a request with visitor data)" }.orEmpty()
+                lines += Line(Level.BROKEN, "bot check$on — the run stopped; no census for 30 min", 8)
+            }
             "rate-limited" -> lines += Line(Level.BROKEN, "rate limited (HTTP 429) — the run stopped; no census for 30 min", 8)
             else -> notes += "the run stopped early (${current.stopped}); later steps were not measured"
         }
-        if (current.stopped != "bot-check") {
-            // The run's one answered bot check (owner, 2026-10-15): shown even on a first run.
-            current.asks.filter { it.answerClass == CensusClass.BOT_CHECK }.forEach { ask ->
+        // Each video's answered bot check (owner, 2026-10-15): shown even on a first run.
+        botChecks.filter { it !== stopper }.forEach { ask ->
+            val label = "${ask.client} ${ask.step} video ${ask.video}"
+            lines += if (ask.client == "visionos" && ask.step == ClientCensus.R0) {
                 val again = current.asks.firstOrNull {
                     it.video == ask.video && it.client == ask.client && it.step == ClientCensus.AGAIN
                 }
                 val next = again?.let { "visionOS with visitor data: ${it.finalClass}" } ?: "visionOS not asked again"
-                lines += Line(Level.CHANGED, "${ask.client} ${ask.step} video ${ask.video}: bot check, answered as R6 ($next)", 8)
+                Line(Level.CHANGED, "$label: bot check, answered as R6 ($next)", 8)
+            } else {
+                Line(Level.CHANGED, "$label: bot check without visitor data, nothing else asked for this video", 8)
             }
         }
         if (last != null) {
@@ -90,6 +101,8 @@ internal object CensusDiff {
             val prior = earlier.firstNotNullOfOrNull { run ->
                 if (!sameVideo(run, current, ask.video)) null else run.asks.firstOrNull { it.key == ask.key }
             } ?: continue
+            // A bot check refuses the request (the bot-check lines above), not the client.
+            if (prior.answerClass == CensusClass.BOT_CHECK || ask.answerClass == CensusClass.BOT_CHECK) continue
             val label = "${ask.client} ${ask.step} video ${ask.video}"
             val bothVerdicts = prior.v in VERDICTS && ask.v in VERDICTS
             val before = if (bothVerdicts) prior.finalClass else prior.answerClass

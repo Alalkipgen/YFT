@@ -181,9 +181,10 @@ internal object SimCases {
 
         // T: verdicts about the video or the request, from every identity and the page.
         case("T1", emptySet(), terminal = true) { everyone(fixture("player_bot_check.json")) }
-        // T1b (owner, 2026-10-15; the census's first run, 2026-10-14): only visionOS asked without
+        // T1b (owner, 2026-10-15; the census's runs 1-4, 2026-10-14): only visionOS asked without
         // visitor data meets the bot check; R6's chain asks it again with the page's visitor data.
-        case("T1b", setOf(Rung.R0, Rung.O)) {
+        // Per video: three lookups in a row each meet it, and R6 answers each one on its own.
+        case("T1b", setOf(Rung.R0, Rung.O), lookups = 3) {
             val check = fixture("player_bot_check.json")
             override = { ask -> if (ask.client == SimClient.VISION_OS && !ask.visitor) SimReply.Json(check) else null }
         }

@@ -58,9 +58,10 @@ visionOS, Master:
   DRM။ အဲဒီအခါ verdict မှန်နဲ့ ရပ်ပြီး W က သတိပေးမယ်။
 - Task: G0 Phase 1.2 ပိတ် (✅ `a99e0fb`) → D0 census + weekly check → D1 simulator → D2 table + judge → D3 health →
   D4 checks → D5a A/S/Z → D5b L → D5c H → D6 O + wiring → D7 ဖုန်းစစ် + runbook → D8 (ဆုံးဖြတ်ရန်)။
-- Bot check (owner 2026-10-15): bot check ပြီးရင် R6 မပို့တဲ့ request ဘယ်တော့မှ မပို့။ census: watch page
-  တစ်ခါ + visionOS ကို page ရဲ့ visitor data နဲ့ တစ်ခါ၊ ဒုတိယ bot check → run ရပ် + ၃၀ မိနစ်။ ladder: ကိုယ်ပိုင်
-  rung ရပ်၊ R6 chain ယခင်အတိုင်း။ IP/network ပြောင်းတာ မလုပ် (bypass)။
+- Bot check (owner 2026-10-15): bot check ပြီးရင် R6 မပို့တဲ့ request ဘယ်တော့မှ မပို့။ R6 လို video (lookup)
+  တစ်ခုချင်း: census က video တိုင်းမှာ watch page တစ်ခါ + visionOS ကို page ရဲ့ visitor data နဲ့ တစ်ခါ၊ ပြီးရင်
+  နောက် video ဆက်။ visitor data ပါပြီးသား request ကို bot check ဒါမှမဟုတ် HTTP 429 → run ရပ် + ၃၀ မိနစ်။
+  ladder: ကိုယ်ပိုင် rung ရပ်၊ R6 chain ယခင်အတိုင်း။ IP/network ပြောင်းတာ မလုပ် (bypass)။
 - Run mode (owner 2026-10-14): task တစ်ခု ပြီးတိုင်း agent က "✅ Dx ပြီးပြီ" စာတိုရေးပြီး ဆက်လုပ်မယ်။
   ဖုန်းစစ် (D0 census — အဲဒီအတောအတွင်း D1 လုပ်မယ်၊ D7)၊ owner ဆုံးဖြတ်ချက်၊ STOP ပေါ်မှပဲ ရပ်မယ်။
 - ခက်ခဲမှု: High (D5b High; D3၊ D5a၊ D5c၊ D6 Medium–High)။
@@ -150,10 +151,11 @@ All R6, Phase 1.1, Phase 1.2, v1 and v2 guardrails stay. v3 restates them and ma
 4. **No bypass; the ladder never decides a refusal** (v1; bot check **changed**, owner
    2026-10-15): age check, video verdict or DRM → stop, the R6 chain decides; bot check → the
    ladder's own rungs stop, plus a 30 min ladder-wide cooldown, and the R6 chain runs as today:
-   after a bot check nothing is sent that R6 would not send (the census: the watch page once and
-   visionOS once more with the page's visitor data, as R6 asks it; a second bot check stops the
-   run); never a changed IP or network to avoid a bot check; ladder rows merge only when the chain
-   did not end in a terminal verdict.
+   after a bot check nothing is sent that R6 would not send (the census, for each video as R6
+   answers each lookup: the watch page once and visionOS once more with the page's visitor data,
+   as R6 asks it; a bot check on a request that already carried visitor data stops the run);
+   never a changed IP or network to avoid a bot check; ladder rows merge only when the chain did
+   not end in a terminal verdict.
 5. **Identities and versions (changed).** At most 4 identities, all already in main's code —
    visionOS, Android, embedded, MWEB. Versions in this order: the learned working version
    (health); a signed version (D8, only if approved); a **self-healed** version; ≤ 2 bundled
@@ -309,8 +311,8 @@ lookup (Master, clientLadder on)
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
 | G0 | Phase 1.2 closed (gate; Phase 1.2's agent and the owner) | — | Low | Done (`a99e0fb`) |
-| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | Code done (`1135afe`); census run 1 stopped at request 1 (bot check; not valid); bot-check rule (owner, 2026-10-15) + census fixes (this push); 3 Full reruns + 1 Weekly check pending |
-| D1 | Change simulator, parity gate, L round-trip, baseline | D0 (classes) | Medium–High | Done: simulator + R6 baseline (`f35b78f`; T1b added in this push); parity gate with D6, L round-trip with D5b |
+| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | Code done (`1135afe`); census runs 1–4 not valid, not counted (§5); bot-check rule (owner, 2026-10-15; `5cb781c`), per video (this push); 3 Full reruns + 1 Weekly check pending |
+| D1 | Change simulator, parity gate, L round-trip, baseline | D0 (classes) | Medium–High | Done: simulator + R6 baseline (`f35b78f`; T1b `5cb781c`, per video in this push); parity gate with D6, L round-trip with D5b |
 | D2 | Client table v2 + answer judge (shape kinds, HLS locate, fingerprint) | D1 | Medium | TODO |
 | D3 | Health v2, order, budget, stop rules (learned version, shape map) | D2 | Medium–High | TODO |
 | D4 | Row checks: V (reuse), init check, H check, Z | D2 | Medium | TODO |
@@ -356,13 +358,15 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   video ≤ 30 min. Defaults the owner may change (`ClientCensus.DEFAULT_VIDEOS`): 4 the stream
   check's 2160p60 video; 7 (set by the agent, 2026-10-15) a public 3:30 video whose owner disabled
   embedding (checked: oEmbed 401; the embed page says playback on other websites is disabled).
-- **Full census**, per video, in this order. **Bot checks** (owner, 2026-10-15; guardrail 4): the
-  run's first bot check, when it answers visionOS's first request (no visitor data: R6's own first
-  request), gets what R6 sends next and nothing else — that video's watch page once and visionOS
-  once more with the page's visitor data (`R0+vd`, R6's `visionOsInChain` request; V on one row of
-  that answer) — and the run goes on with the next video; no newer version is tried on that video.
-  A second bot check, a bot check on any other request or HTTP 429 stops the run (then no new run
-  for 30 min):
+- **Full census**, per video, in this order. **Bot checks** (owner, 2026-10-15; guardrail 4; per
+  video since census runs 2–4): R6 answers each lookup on its own, and so does the census. A bot
+  check on a video's first request (visionOS, no visitor data: R6's own first request) gets what
+  R6 sends next and nothing else for that video — its watch page once and visionOS once more with
+  the page's visitor data (`R0+vd`, R6's `visionOsInChain` request; V on one row of that answer) —
+  and the run goes on with the next video; no newer version is tried on that video. A bot check on
+  a request that already carried visitor data (`R0+vd`, or a client asked with the page's visitor
+  data) or HTTP 429 stops the run, without a retry (then no new run for 30 min); a bot check on
+  any other request without visitor data ends that video only:
   1. visionOS as R6 asks it: class; formats, heights, audio and sizes (counts); V on one AVC
      row; the shape fingerprint; HLS address present → H check with the **token step** (master
      playlist, variant playlist and first segment: 2xx or 403 each), variants, highest
@@ -408,7 +412,8 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
     check on video 1; the version sources only if not fetched in 24 h; Android, embedded and MWEB
     once on video 1 (class, counts, fingerprint; V on one row when there are rows); from D6 on
     also the ladder's own lookup of video 1 (which rung answered). Bot checks as in the full
-    census; when video 1 met one, its other clients are not asked.
+    census (videos 1 and 5 each on its own); when video 1 met one, its other clients are not
+    asked.
   - Its summary is stored in `files/master/census-last.json` (the last 8 runs: classes, counts,
     fingerprints as key-path lists and hashes, public version strings, verdicts, times, bytes;
     no address, value, visitor data or video ID).
@@ -446,7 +451,7 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
 | V8 | formats under a moved key | response shape change | detect only → O |
 | V9 | every request 400 / refused | client closed | O (live only) |
 | T1 | bot check from every identity and the page | IP flagged | own rungs stop + cooldown; the R6 chain runs = R6 |
-| T1b | bot check only for visionOS asked without visitor data (owner, 2026-10-15) | carrier IP (census run 1, 2026-10-14) | own rungs stop + cooldown; the R6 chain (watch page, visionOS with the page's visitor data) completes = R6 |
+| T1b | bot check only for visionOS asked without visitor data (owner, 2026-10-15), per video: three lookups in a row each meet it | carrier IP (census runs 1–4, 2026-10-14) | own rungs stop + cooldown; the R6 chain (watch page, visionOS with the page's visitor data) completes each lookup = R6 |
 | T2 | age check | — | stop, ladder rows dropped = R6 |
 | T3 | private, removed, geo, DRM | — | stop = R6 |
 | H1 | visionOS failed 10 min ago | repeated lookups | skipped; one request fewer |
@@ -508,8 +513,8 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   copied parser cannot read, in L14 the files that need the moved page signals; a moved HLS
   address too); each case lists the rungs with a checkable complete path (MCF); a renamed DRM
   marker with the formats in place is not modelled (L12 moves them). T1b added on 2026-10-15
-  (bot-check rule): 97 cases per base, 485 cases (505 lookups) per column; R6 completes it (2
-  player requests, 1 page).
+  (bot-check rule) and made per video the same day (three lookups in a row): 97 cases per base,
+  485 cases (515 lookups) per column; R6 completes each lookup (2 player requests, 1 page each).
 
 ### D2 — Client table v2 and answer judge
 
@@ -680,7 +685,8 @@ modelled classes; an unmodelled change ends in a clean stop, W shows it, and it 
   none).
 - **Simulator:** wrong = 0 and MCF = 0 in every class and fault, in both ladder columns.
   - T1–T3 and T1b (owner, 2026-10-15): after such an answer the ladder sends no request that R6
-    would not send, and its result equals R6's.
+    would not send, and its result equals R6's, in every lookup (T1b: three lookups in a row,
+    each completes as R6 does; the ladder's 30 min cooldown stops only its own rungs).
   - The ladder is never worse than R6 in any class.
   - Live-backed column: complete in V1–V3 (V1 through a live alternate, a usable source or D8);
     in V4–V5 and V10 when D0 found H live; in V6–V9 only through census-live O rungs, else a
@@ -728,6 +734,9 @@ Not valid (not counted for the gate):
 | Run | When, network | Mode, videos | Requests | Stopped | Why not valid |
 |---|---|---|---|---|---|
 | run 1 | 2026-10-14 17:19 UTC, mobile data (metered) | FULL, 9 (slot 7 empty) | 1 (1920 bytes, 731 ms) | bot-check | video 1, visionOS R0 1.02: HTTP 200 `BOT_CHECK` (`LOGIN_REQUIRED` "Sign in to confirm you're not a bot", 0 formats); the old rule stopped the whole run at R6's first request, where R6 goes on (watch page, visionOS with the page's visitor data). The release app on the same mobile data 12 min later: a music video lookup succeeded (M4A 2.9 MB, 720p60, 480p, More formats 6). |
+| run 2 | 2026-10-14 20:01 UTC, mobile data (metered) | FULL, 10 | 2 (3501 bytes, 1.7 s) | rate-limited | not counted — video 1, visionOS R0: `BOT_CHECK` (as run 1), answered as R6: the watch page → HTTP 429, so the run stopped (no retry). The release app (main, R6) showed a rate-limit error on the same mobile data just before (owner): an IP limit, not a census fault. |
+| run 3 | 2026-10-14 20:06 UTC, mobile data (metered), after an airplane-mode toggle | FULL, 5 (slots 1–4, 7) | 20 (1099 KB, 11.9 s) | bot-check | not counted — a new IP (the network was changed before it; owner). Evidence only: video 1 `BOT_CHECK` → watch page → `R0+vd` DIRECT, V pass (the R6 rule works); video 2 visionOS DIRECT up to 2160p, V pass, H 2xx / 2xx / 2xx with no key (17 variants, up to 2160p, audio separate, duration matches), Android `SABR_ONLY` (360p progressive only, V pass), embedded `VIDEO_VERDICT` (error 152-18), MWEB `NEEDS_SCRIPT` (S ok-sig+n, V pass); video 3 `BOT_CHECK` → the old rule stopped the run (now per video). |
+| run 4 | 2026-10-14 20:12 UTC, mobile data (metered), 6 min after run 3 | FULL, 5 | as run 3 | bot-check | not counted — the owner cleared the app's data before it, which reset the 30 min cooldown (not a bug; §7). The same as run 3, stopped at video 3; App Store source: `NETWORK`. |
 
 Version sources (filled by D0):
 
@@ -784,7 +793,7 @@ the D0 census):
 | Y5 | 0/15 complete, 15 partial; wrong 0, MCF 15 | 15/15 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
 | Y6 | 0/5 complete, 5 partial; wrong 0, MCF 5 | 5/5 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
 | T1 | 0/5 complete, 5 clean stop; wrong 0, MCF 0 | 0/5 complete, 5 clean stop; wrong 0, MCF 0 | — (D6) | — (D6) |
-| T1b | 5/5 complete; wrong 0, MCF 0 | 5/5 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
+| T1b | 15/15 complete; wrong 0, MCF 0 | 15/15 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
 | T2 | 0/5 complete, 5 clean stop; wrong 0, MCF 0 | 0/5 complete, 5 clean stop; wrong 0, MCF 0 | — (D6) | — (D6) |
 | T3 | 0/20 complete, 20 clean stop; wrong 0, MCF 0 | 0/20 complete, 20 clean stop; wrong 0, MCF 0 | — (D6) | — (D6) |
 | H1 | 0/10 complete, 10 partial; wrong 0, MCF 10 | 10/10 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
@@ -793,7 +802,7 @@ the D0 census):
 | F2 | 0/5 complete, 5 partial; wrong 0, MCF 0 | 0/5 complete, 5 clean stop; wrong 0, MCF 0 | — (D6) | — (D6) |
 | F3 | 0/25 complete, 25 clean stop; wrong 0, MCF 0 | 0/25 complete, 25 clean stop; wrong 0, MCF 0 | — (D6) | — (D6) |
 | F4 | 0/5 complete, 5 with a wrong row; wrong 28, MCF 5 | 0/5 complete, 5 with a wrong row; wrong 28, MCF 5 | — (D6) | — (D6) |
-| all | wrong 72, MCF 275 (485 cases, 505 lookups) | wrong 72, MCF 160 (485 cases, 505 lookups) | — (D6) | — (D6) |
+| all | wrong 72, MCF 275 (485 cases, 515 lookups) | wrong 72, MCF 160 (485 cases, 515 lookups) | — (D6) | — (D6) |
 
 ## 6. Risks
 
@@ -834,6 +843,10 @@ the D0 census):
 
 ## 7. Runbook (when a client fails)
 
+- The census uses the same IP as the owner's daily app: keep runs few and at least 1 h apart;
+  HTTP 429 stops a run (no retry, no bypass).
+- Do not clear app data to skip the cooldown; it protects the IP the daily app uses.
+
 1. Weekly check (W), once a week: `NO CHANGE` → nothing. `CHANGED` or `BROKEN` → copy the result
    to the agent; each line names a step below.
 2. One video fails: run the full census on it: which rung, which class.
@@ -873,11 +886,13 @@ merge and release, merging PR #2.
 6. **M5 (Phase 1.2 carry-over, `PROGRESS.md` "Phase 1.2 — done"):** not part of this plan; the
    owner decides whether it becomes its own solver task. Not needed for D0.
 7. **Bot-check rule** (proposed after census run 1, 2026-10-14): **yes — owner, 2026-10-15.** After
-   a bot check the census and the ladder never send a request R6 would not send. Census: the
-   watch page once and visionOS once more with the page's visitor data; a second bot check stops
-   the run (30 min cooldown). Ladder: its own rungs stop and R6's chain runs as today, so the
-   result equals R6's (D3/D6). Simulator class T1b; §5.2 T1–T3 reworded; never a changed IP or
-   network to avoid a bot check (a bypass). Census and simulator: this push.
+   a bot check the census and the ladder never send a request R6 would not send. Census, for
+   each video (owner, after runs 2–4: R6 answers each lookup on its own): the watch page once and
+   visionOS once more with the page's visitor data; a bot check on a request that already carried
+   visitor data, or HTTP 429, stops the run (30 min cooldown). Ladder: its own rungs stop and R6's
+   chain runs as today, so the result equals R6's (D3/D6). Simulator class T1b (per video); §5.2
+   T1–T3 reworded; never a changed IP or network to avoid a bot check (a bypass). Census and
+   simulator: `5cb781c`; per video: this push.
 8. **D1 targets** (proposed in the D1 report): **yes — owner, 2026-10-15**, written into §5.2:
    (a) V2's budget counted against R6 without the own solver (3) → the ladder ≤ 2; (b) "completes
    more than R6" only in classes with a checkable path, elsewhere the same verdict and wrong 0;

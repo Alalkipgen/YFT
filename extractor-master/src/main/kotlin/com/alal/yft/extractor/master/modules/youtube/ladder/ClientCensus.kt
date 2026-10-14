@@ -48,12 +48,15 @@ import kotlinx.coroutines.CancellationException
  * ≤ 2 MB and ≤ 20 requests.
  *
  * **Bot checks** (owner, 2026-10-15): after a bot check the census never sends a request R6 would
- * not send. The run's first bot check, when it answers visionOS without visitor data (R6's own
- * first request), is answered as R6 answers it ([answerAsR6]): that video's watch page once and
- * visionOS once more with the page's visitor data (`R0+vd`, R6's `visionOsInChain` request), V on
- * one row of that answer (a one-byte read of a row the download reads), and nothing else for that
- * video. A second bot check, or one on any other request, stops the run with no run for 30 min;
- * so does HTTP 429.
+ * not send, and like R6 it answers each lookup (each video) on its own. A bot check on visionOS's
+ * first request of a video (no visitor data: R6's own first request) is answered as R6 answers it
+ * ([answerAsR6]): that video's watch page once and visionOS once more with the page's visitor data
+ * (`R0+vd`, R6's `visionOsInChain` request), V on one row of that answer (a one-byte read of a row
+ * the download reads), nothing else for that video, and the run goes on with the next video. A
+ * bot check on a request that already carried visitor data (`R0+vd`, or a client asked with the
+ * page's visitor data) stops the run with no run for 30 min; so does HTTP 429 (no retry). A bot
+ * check on any other request without visitor data ends that video only: R6 has no visitor data
+ * to ask again with.
  *
  * Every request is built by the copied request builder (`YouTubeClientProfile.playerRequestBody`)
  * with R6's headers, without a cookie or a token (guardrail 3). V is the shared [StreamCheck]
@@ -191,7 +194,7 @@ class ClientCensus(
         val page = page(session, video)
         video.page = page
 
-        if (first.record.protectedFormats > 0 && session.stopped == null) {
+        if (first.record.protectedFormats > 0 && session.open(video)) {
             session.step("video $slot · visionOS with the page's signals")
             val signals = NO_PAGE.copy(
                 visitorData = page?.visitorData,
@@ -207,14 +210,14 @@ class ClientCensus(
                 "and YouTube.js list visionOS 1.02 only), so step 3 asks nothing"
         }
         for ((index, version) in ALTERNATES.withIndex()) {
-            if (slot != FIRST_VIDEO || session.stopped != null) break
+            if (slot != FIRST_VIDEO || !session.open(video)) break
             ask(session, video, VISION_OS.copy(clientVersion = version), "A${index + 1}", NO_PAGE)?.let { alternate ->
                 directCheck(session, video, alternate, preferProgressive = false)
                 session.finish(alternate)
             }
         }
 
-        if (session.stopped == null) {
+        if (session.open(video)) {
             session.step("video $slot · Android")
             ask(session, video, ANDROID, R0, page ?: NO_PAGE)?.let { android ->
                 video.android = android
@@ -222,11 +225,11 @@ class ClientCensus(
                 session.finish(android)
             }
         }
-        if (page == null) {
+        if (page == null && session.open(video)) {
             session.notes += "video $slot: no watch page, so the embedded player and MWEB were not asked"
             return video
         }
-        if (session.stopped == null) {
+        if (page != null && session.open(video)) {
             session.step("video $slot · embedded")
             ask(session, video, YouTubeClientProfiles.embedded(page), R0, page)?.let { embedded ->
                 video.embedded = embedded
@@ -234,7 +237,7 @@ class ClientCensus(
                 session.finish(embedded)
             }
         }
-        if (session.stopped == null) {
+        if (page != null && session.open(video)) {
             session.step("video $slot · MWEB")
             ask(session, video, YouTubeClientProfiles.mobileWeb(), R0, page)?.let { mobile ->
                 solveAndCheck(session, video, mobile, page)
@@ -288,7 +291,7 @@ class ClientCensus(
         session.step("video 1 · watch page")
         val page = page(session, first)
         first.page = page
-        if (session.stopped == null) {
+        if (session.open(first)) {
             session.step("video 1 · Android")
             ask(session, first, ANDROID, R0, page ?: NO_PAGE)?.let { answer ->
                 first.android = answer
@@ -296,9 +299,9 @@ class ClientCensus(
                 session.finish(answer)
             }
         }
-        if (page != null) {
+        if (page != null && !first.closed) {
             for (profile in listOf(YouTubeClientProfiles.embedded(page), YouTubeClientProfiles.mobileWeb())) {
-                if (session.stopped != null) break
+                if (!session.open(first)) break
                 session.step("video 1 · ${profile.clientName}")
                 ask(session, first, profile, R0, page)?.let { answer ->
                     if (profile.id == "embedded") first.embedded = answer
@@ -306,7 +309,7 @@ class ClientCensus(
                     session.finish(answer)
                 }
             }
-        } else {
+        } else if (page == null) {
             session.notes += "video 1: no watch page, so the embedded player and MWEB were not asked"
         }
     }
@@ -333,7 +336,9 @@ class ClientCensus(
      * page; without visitor data R6 does not ask again, and neither does the census. V reads one
      * byte of one row of that answer (a row the download reads). No S, alternate, H check,
      * Android, embedded player or MWEB for this video, and no version is tried on it. A bot check
-     * on the second request stops the run ([ask]). Only reached while the run is not stopped.
+     * on that request, which carries visitor data, stops the run ([ask]). R6 answers each lookup
+     * on its own, so this runs for every video whose first request met a bot check (owner,
+     * 2026-10-15). Only reached while the run is not stopped.
      */
     private suspend fun answerAsR6(session: Session, video: Video) {
         if (session.stopped != null) return
@@ -411,12 +416,23 @@ class ClientCensus(
         }
         video.hosts += asked.hosts()
         if (asked.record.answerClass == CensusClass.BOT_CHECK) {
-            session.botChecks += 1
-            // Only the run's first bot check on R6's own first request is answered (as R6 does).
-            val first = session.botChecks == 1 && profile == VISION_OS && step == R0 && signals.visitorData == null
-            if (!first) {
-                session.stop("bot-check")
-                session.cooldown = true
+            // R6 answers each lookup on its own (owner, 2026-10-15): a request that already carried
+            // visitor data is where R6's answer ends, so the run stops; visionOS's first request of
+            // a video is answered as R6 answers it (the callers' answerAsR6); any other request
+            // without visitor data ends this video only, as R6 has none to ask again with.
+            when {
+                signals.visitorData != null -> {
+                    session.stop("bot-check")
+                    session.cooldown = true
+                }
+
+                profile == VISION_OS && step == R0 -> Unit
+
+                else -> {
+                    video.closed = true
+                    session.notes += "video ${video.slot}: bot check on ${profile.id} $step without visitor data, " +
+                        "so nothing else was asked for this video"
+                }
             }
         }
         return asked
@@ -807,7 +823,7 @@ class ClientCensus(
 
     /** One request (and V) on video 1 for the newest valid value newer than the bundled one. */
     private suspend fun acceptanceTests(session: Session, first: Video) {
-        if (first.slot in session.answeredAsR6) {
+        if (first.slot in session.answeredAsR6 || first.closed) {
             if (session.versions.any { it.pattern && it.newer == true }) {
                 session.notes += "version acceptance: video ${first.slot} met a bot check, so no newer version was tried " +
                     "(R6 sends no such request)"
@@ -833,6 +849,7 @@ class ClientCensus(
             if (identity == "mweb") checkWithoutScript(session, first, asked) else directCheck(session, first, asked, identity == "android")
             session.finish(asked)
             val verdict = when {
+                asked.record.answerClass == CensusClass.BOT_CHECK -> "bot-check"
                 asked.record.answerClass == CensusClass.VERSION_REJECTED -> "rejected"
                 identity == "mweb" && asked.record.status == "OK" -> "yes"
                 asked.record.status == "OK" && asked.record.v == StreamCheck.Verdict.PASS.name -> "yes"
@@ -841,6 +858,8 @@ class ClientCensus(
             session.versions.replaceAll { fact ->
                 if (fact.identity == identity && fact.value == value && fact.pattern) fact.copy(accepted = verdict) else fact
             }
+            // A bot check says nothing about the version; no newer version is tried after it.
+            if (first.closed) return
         }
     }
 
@@ -862,7 +881,6 @@ class ClientCensus(
         var stopped: String? = null
         var cooldown = false
         var sourcesRead = false
-        var botChecks = 0
 
         /** Videos whose first answer was a bot check, so only R6's next requests were sent for them. */
         val answeredAsR6 = HashSet<Int>()
@@ -885,6 +903,9 @@ class ClientCensus(
         fun stop(why: String) {
             if (stopped == null) stopped = why
         }
+
+        /** Whether more may be asked about [video]: the run goes on and no bot check ended the video. */
+        fun open(video: Video): Boolean = stopped == null && !video.closed
 
         fun nextCheckKey(): String {
             checks += 1
@@ -920,6 +941,9 @@ class ClientCensus(
         var android: Asked? = null
         var embedded: Asked? = null
         var passedDirect: String? = null
+
+        /** A bot check on a request without visitor data, other than visionOS's first: nothing more. */
+        var closed = false
 
         override fun toString(): String = "Video(slot=$slot)"
     }

@@ -1,6 +1,57 @@
 # YFT Master Extractor backup
 
-## Phase 1.3 — D0 follow-up: bot-check rule (owner, 2026-10-15) + census = R6's requests (this push); ⏸ census reruns
+## Phase 1.3 — D0 follow-up 2: bot checks per video (owner, 2026-10-15; this push); census runs 2–4 not counted; ⏸ census reruns
+
+- Owner decisions (2026-10-15):
+  - Census runs 2, 3 and 4 (2026-10-14) are not valid: **not counted** (records in the D0 section
+    below; plan §5 "Not valid" table), evidence only.
+  - Bot checks per video, as R6 answers each lookup on its own: the run stops only on a bot check
+    of a request that already carries visitor data, or on HTTP 429.
+  - Run 2's HTTP 429 was an IP limit (the release app, R6, showed a rate-limit error on the same
+    mobile data): the census still stops on 429 (no retry, no bypass). The census uses the same IP
+    as the daily app, so runs stay few and ≥ 1 h apart (plan §7).
+  - The 30 min cooldown is not a bug: the owner cleared the app's data before run 4, which reset
+    it. Cooldown code unchanged, no 1 h gap display; plan §7 gets the owner's line: "Do not clear
+    app data to skip the cooldown; it protects the IP the daily app uses."
+- ✅ `ClientCensus` (Full and Weekly), per video:
+  - a bot check on visionOS's first request of a video (no visitor data, R6's own first request):
+    answered as R6 for that video (its watch page once, visionOS `R0+vd` with the page's visitor
+    data, V on one row, nothing else for that video), then the next video — for every video, not
+    only the run's first;
+  - a bot check on a request that already carried visitor data (`R0+vd`, or a client asked with
+    the page's visitor data): the run stops, 30 min cooldown; HTTP 429: the same (no retry);
+  - a bot check on any other request without visitor data (for example Android when the video
+    has no watch page): that video ends (R6 has no visitor data to ask again with), a note says
+    so, the run goes on;
+  - Weekly: videos 1 and 5 are each answered as R6 on their own. Version acceptance: no newer
+    version is tried on a video that met a bot check; a bot check while trying one is recorded as
+    `bot-check` (not `rejected`) and no further version is tried.
+- ✅ Report (`CensusDiff`): the bot check that stopped a run names its request: `BROKEN bot check on
+  <client> <step> video N (a request with visitor data) — the run stopped; no census for 30 min`;
+  every other bot check is one CHANGED line per video (`visionos R0 video N: bot check, answered
+  as R6 (…)`, or `<client> <step> video N: bot check without visitor data, nothing else asked for
+  this video`). A bot-check answer is never compared as a class, count or shape change (it
+  refuses the request, not the client).
+- ✅ Census screen: the intro says the same (per video; a bot check on a request with visitor data,
+  or HTTP 429, stops the run; no run for 30 min).
+- ✅ Tests: `ClientCensusTest` (every video answered as R6; a request with visitor data stops at
+  once; another request without visitor data ends that video only; Weekly: videos 1 and 5 both
+  answered, `CHANGED (2)`); `CensusDiffTest` + 1; `CensusR6ParityTest` + 1 (two bot-checked
+  videos: the census's requests to YouTube = R6's for both lookups, no Cookie or Authorization).
+  Ladder 72 / 72; module 494 run / 0 failed (2 skipped); drift 0; `:app:compileDebugKotlin` and
+  `:app:lintDebug` OK.
+- ✅ Simulator T1b per video (3 lookups per base; R6 answers each on its own): R6 off and on 15 / 15
+  complete, wrong 0, MCF 0. Golden: the 10 T1b lines only (485 cases, 515 lookups per column);
+  totals unchanged (off: wrong 72, MCF 275; on: wrong 72, MCF 160).
+- Plan: Burmese summary, guardrail 4, status board (D0, D1), §4 D0 bot checks + Weekly, D1 table
+  (T1b), as-built T1b note, §5.2 (T1–T3, T1b), §5 "Not valid" table (runs 2–4), baseline (T1b,
+  totals), §7 runbook (the IP note and the owner's line), §9 item 7; prompt rule 4.
+- ⏸ Phone (owner): in the morning, on normal mobile data (no airplane mode or network change; do
+  not clear app data): install this push's APK → "YFT client census" → Full census → Copy
+  result. 3 Full runs ≥ 1 h apart, then one Weekly check. A stop (bot check or 429) → no retry;
+  wait for the next run's time.
+
+## Phase 1.3 — D0 follow-up: bot-check rule (owner, 2026-10-15) + census = R6's requests (`5cb781c`, CI ✅)
 
 - Owner decisions (2026-10-15): bot-check rule **yes**; D1 targets (a), (b), (c) **yes** (plan §5.2,
   §9 items 7–8). SOURCE_HOSTS_APPROVED, D8 and M5 stay undecided (not done). Step 4b (airplane
@@ -49,8 +100,9 @@
   OK.
 - Step 4d adapted: the app shows Copy details only after a failed lookup (Home, not found), so:
   a normal lookup of video 1; formats shown → say which; not found → Copy details.
-- ⏸ Phone (owner, normal mobile data): install this push's APK; 4d; then 4e — "YFT client
-  census" → Full census → Copy result. BROKEN bot check again → no retry; wait.
+- Phone (owner, normal mobile data): install the `5cb781c` APK; 4d; then 4e — "YFT client
+  census" → Full census → Copy result. BROKEN bot check again → no retry; wait. Runs 2–4 came
+  from it (D0 section): not counted; next step in the top section.
 
 ## Phase 1.3 — D1 change simulator + R6 baseline (`f35b78f`, CI ✅); paused: D2 needs the census
 
@@ -161,7 +213,29 @@
   whole run at R6's first request, where R6 goes on (watch page, then visionOS with the page's
   visitor data). The release app on the same mobile data at 17:31 UTC: a music video lookup
   succeeded (M4A 2.9 MB, 720p60, 480p, More formats 6), so the IP is not blocked. Fixed by the bot-check
-  rule (top section).
+  rule (the D0 follow-up sections above).
+- ❌ Census runs 2, 3, 4 — **not counted** (owner, 2026-10-15; evidence only; plan §5 "Not valid"),
+  `5cb781c` APK, mobile data (metered):
+  - Run 2 (2026-10-14 20:01 UTC): FULL, 10 videos, 2 requests, 3501 bytes, 1.7 s, stopped:
+    rate-limited. Video 1, visionOS R0: `BOT_CHECK` (as run 1), answered as R6: the watch page →
+    HTTP 429, so the run stopped (no retry). The release app (main, R6) showed a rate-limit error
+    on the same mobile data just before (owner): an IP limit, not a census fault.
+  - Run 3 (20:06 UTC, after an airplane-mode toggle, so a new IP; owner): FULL, 5 videos (slots
+    1–4, 7), 20 requests, 1099 KB, 11.9 s, stopped: bot-check. Evidence: video 1 `BOT_CHECK` →
+    watch page → `R0+vd` DIRECT, V pass (the R6 rule works); video 2 visionOS DIRECT up to 2160p,
+    V pass, H 2xx / 2xx / 2xx with no key (17 variants up to 2160p, audio separate, 38 segments,
+    duration matches), Android `SABR_ONLY` (360p progressive only, V pass), embedded
+    `VIDEO_VERDICT` (error 152-18), MWEB 2.20260708.05.00 `NEEDS_SCRIPT` (S ok-sig+n, V pass);
+    video 3 visionOS R0 `BOT_CHECK` → the run stopped (the `5cb781c` rule: a second bot check;
+    now per video). Version sources: MWEB page config 2.20261014.01.00 (newer, not tried: the run
+    stopped first); yt-dlp visionOS 1.02 and Android 21.26.364 (= bundled); YouTube.js visionOS
+    1.02 (=) and Android 21.03.36 (older); App Store 21.41.5 with no visionOS device (no visionOS
+    value); Play Store page over 64 KiB. The report said "first run" and slots 5–10 were empty,
+    so run 2's saved state was already gone before run 3.
+  - Run 4 (20:12 UTC, 6 min after run 3): the same as run 3, stopped at video 3; App Store source
+    `NETWORK`. The owner cleared the app's data before it, which reset the 30 min cooldown — not
+    a bug (owner; cooldown code unchanged). Offline check: run 2's and run 3's rebuilt states
+    block a run at run 3's and run 4's start (cooldown 26 and 25 min left).
 
 ## Phase 1.2 — done (owner closed it on 2026-10-14)
 

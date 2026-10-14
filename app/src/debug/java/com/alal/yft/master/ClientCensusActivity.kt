@@ -257,8 +257,10 @@ class ClientCensusActivity : ComponentActivity() {
             "(at most 6 MB). Run it 3 times on mobile data (no Wi-Fi), at least an hour apart.\n" +
             "Weekly check: videos 1 and 5 and one answer per client (at most 60 s, 2 MB, 20 requests); " +
             "the first line says NO CHANGE, CHANGED or BROKEN.\n" +
-            "After a bot check it sends only what YFT's normal lookup sends next (the video's page and " +
-            "visionOS once more); a second bot check stops the run, and no run starts for 30 min.\n" +
+            "After a bot check on a video it sends only what YFT's normal lookup sends next (that video's " +
+            "page and visionOS once more with the page's visitor data), then goes on with the next video. " +
+            "A bot check on a request that already has visitor data, or HTTP 429, stops the run, and no run " +
+            "starts for 30 min.\n" +
             "Nothing runs unless you tap, and only while this screen stays open (leaving it stops the run). " +
             "The result holds no " +
             "address, no value and no video ID.\n\nVideos (1-3 are fixed):"

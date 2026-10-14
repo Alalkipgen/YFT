@@ -19,8 +19,9 @@ import org.junit.Test
  * request is R6's first request, byte for byte (address, headers in order, body). After a bot
  * check on it, the census sends R6's watch page GET and, when the page gave visitor data, R6's
  * visionOS request with that visitor data — nothing else to YouTube for that video — and V reads
- * one byte of a row that answer returned (a row the download reads). R6 is Master's module as the
- * app runs it: the copied extractor, the user's cookie removed, no solver.
+ * one byte of a row that answer returned (a row the download reads); like R6, it does so for each
+ * video (each lookup) on its own. R6 is Master's module as the app runs it: the copied extractor,
+ * the user's cookie removed, no solver.
  */
 class CensusR6ParityTest {
     @Test
@@ -55,6 +56,27 @@ class CensusR6ParityTest {
         assertEquals(CensusSources.DOCUMENTS.map { it.url }, gets(census).map(Sent::url) - youTubeGets(census).map(Sent::url).toSet())
         assertEquals(1, census.probedUrls.size)
         assertTrue(census.probedUrls.single().startsWith("https://${Census.HOST}/videoplayback?"))
+        assertNull(outcome.stopped)
+        assertNoSignIn(r6, census)
+    }
+
+    @Test
+    fun `each video's bot check is answered with that lookup's R6 requests, video after video`() = runTest {
+        fun world() = CensusWorld().standard(Census.V1).standard(Census.V2).visionOsBotCheck(Census.V1).visionOsBotCheck(Census.V2)
+        val r6 = world().http()
+        val census = world().sources().http()
+
+        val module = MasterYouTubeModule(r6)
+        val results = listOf(Census.V1, Census.V2).map { module.extract(request(it)) }
+        val outcome = census(census).run(Mode.FULL, mapOf(1 to Census.V1, 2 to Census.V2), null)
+
+        // R6 answers each lookup on its own (owner, 2026-10-15): the same four requests per video.
+        assertTrue(results.all { it is SiteExtractionResult.Success })
+        assertEquals(List(2) { listOf("VISIONOS", "MWEB", "VISIONOS") }.flatten(), r6.postedBodies.map(CensusWorld::clientOf))
+        val r6Posts = posts(r6)
+        assertEquals(listOf(r6Posts[0], r6Posts[2], r6Posts[3], r6Posts[5]), posts(census))
+        assertEquals(gets(r6), youTubeGets(census))
+        assertEquals(2, census.probedUrls.size)
         assertNull(outcome.stopped)
         assertNoSignIn(r6, census)
     }

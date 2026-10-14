@@ -81,8 +81,9 @@ HARD RULES (never break)
 4. No bypass; the ladder never decides a refusal. Age check (ladder rows dropped), video verdict
    or DRM -> stop, the R6 chain decides. Bot check -> the ladder's own rungs stop, 30 min
    ladder-wide cooldown, R6's chain runs as today: after a bot check nothing is sent that R6
-   would not send (owner, 2026-10-15; census: the watch page once + visionOS once with the page's
-   visitor data, a second bot check stops the run). Ladder rows merge only when the chain did
+   would not send (owner, 2026-10-15; census, per video as R6 answers each lookup: the watch page
+   once + visionOS once with the page's visitor data; a bot check on a request that already
+   carried visitor data, or HTTP 429, stops the run). Ladder rows merge only when the chain did
    not end in a terminal verdict. SABR-only formats are never rows. L never reads past a
    playability it cannot find.
 5. Identities: at most 4 (visionOS, Android, embedded, MWEB), all already in main's code.
