@@ -1,6 +1,7 @@
 # Master Key — Phase 1.2 Plan: next-level YouTube n/sig solver (behaviour first, YouTube-verified)
 
-Status: **plan + prompt.** No code is changed by this document.
+Status: **done (owner closed Phase 1.2 on 2026-10-14; results against the pass criteria in §4).**
+Written as plan + prompt; no code is changed by this document.
 Date: 2026-10-11. Branch: `spike/master-extractor-backup` only.
 Reads: `MASTER_KEY_PHASE1_1_PLAN.md` (the own solver this phase builds on), `MASTER_KEY_NOTES.md`
 §1.3, §3 and §4. Prompt: `MASTER_KEY_PHASE1_2_PROMPT.md`.
@@ -19,6 +20,8 @@ code, without an APK update:
 
 ## မြန်မာ အနှစ်ချုပ်
 
+- ✅ Phase 1.2 ပြီးပါပြီ (owner ပိတ် 2026-10-14)။ V ဖုန်းပေါ် ✅၊ release app နဲ့ live check ✅၊ ladder အဖြေမှား 0၊
+  simulated V နဲ့ M1–M9 98 %။ ⚠️ ၂ ခု: offline 0 % (V မပါရင် signature မသုံး — design)၊ M5 ladder = ejs (§4)။
 - ရည်မှန်းချက်: YouTube က code ရေးပုံ ပြောင်းလည်း APK update မလိုဘဲ ဆက် resolve လုပ်နိုင်တဲ့ solver
   (ejs ထက် တစ်ဆင့်မြင့်) ဖြစ်အောင် လုပ်မယ်။
 - နည်းလမ်း ၄ ခု:
@@ -258,11 +261,11 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 | N2 | Live check V (+ measure the n behaviour on the owner's phone) | Phase 1.1 S5 | Medium | Done (`9e15101`; n rule PENDING by decision: owner runs 2 and 3 invalid, all four reads 403) |
 | N3 | Strategy B: register, probe, classify (core + harness) | N1 | High | Done (`52e1945`) |
 | N4 | Strategy E: isolated page environment | N3 | Medium–High | Done (`a7c3dd9`) |
-| N4b | Environment-dependent values (M9b/M9bs), init errors by class | N4 | Medium | Built (`bdb45c6`, harness `8140b27`); measured ❌ (worker B: 1 wrong M9bs value; fix: owner decides; §4 note "N4b") |
+| N4b | Environment-dependent values (M9b/M9bs), init errors by class | N4 | Medium | Done (`bdb45c6`, harness `8140b27`): worker B alone's one wrong M9bs value is never used — the ladder's init-error rule (N5a) declines it; ladder wrong 0 in N5a and the N5b cycle |
 | N5a | Ladder rule (init errors in replies, shared case table), runners `--ladder`/`--dyncode`, M9c; app unchanged | N4b | Medium | Done (`a78626f`, CI 38189985242); measured (§4 note "N5a") |
 | N5b | Page-P step budget, circuit breaker, ladder + locator cache wired behind `ownSolverNext` (default off); M9c fixes: V on every signature, environment tripwire | N5a | Medium–High | Done (TEST_SHA `48dd744`, test cycle 22/22 ✅; A.8 V wiring `df9a1e1`, CI 38413760115 ✅) |
 | N6 | Canary workflow (computer) | N1, N3 | Low–Medium | Done (`0714d76`; push run 38424779157 ✅, owner re-run ✅; label triggers `d390a0e`, CI ✅) |
-| N7 | Owner live check + runbook update | N4, N5, N6 | Low | Done (canary tool `41d8a11`, worker fix `f9247bb`, round 2 prep `eecfba7`; round 2 on the phone ✅: P, B and E pass on both builds, P hit 0.3–0.4 s / 1.4 s after a restart; page cap 35 → 20 s, owner 2026-10-14; PROGRESS.md N7) |
+| N7 | Owner live check + runbook update | N4, N5, N6 | Low | Done (canary tool `41d8a11`, worker fix `f9247bb`, round 2 prep `eecfba7`; round 2 on the phone ✅: P, B and E pass on both builds, P hit 0.3–0.4 s / 1.4 s after a restart; page cap 35 → 20 s, owner 2026-10-14; PROGRESS.md N7); page cap 20 s `e5cad15`; V on the phone ✅ and live check vs the release app ✅ 2026-10-14 |
 
 N1 comes first: it measures the baseline that every later task is judged by. N2 can run beside N1.
 
@@ -797,7 +800,7 @@ chose, see A.1) and A.7.
   the own runner's signatures passed V, rows up to 2160p, MP3 and 720p downloaded (not throttled).
   Live check against the release app ✅ (same day): the same rows on §4.3's videos, a 2160p60
   video and the canary's video (rows in both apps: run 3's FAIL was the canary lookup's own
-  clients); age-restricted terminal in both, no bypass; private not run yet.
+  clients); age-restricted terminal in both, no bypass; private skipped (owner).
 
 ## 4. Pass criteria (Phase 1.2 done)
 
@@ -814,25 +817,49 @@ chose, see A.1) and A.7.
 - **Live:** as Phase 1.1 §4, with all flags on.
 - **Flag off = main;** CI + `MasterMainMoreSheetTest` green.
 
+**Result (owner closed Phase 1.2 on 2026-10-14).** Numbers from the N5b test cycle (TEST_SHA
+`48dd744`, raw files `docs/n5b-raw/`), N7 and the phone:
+- ✅ Corpus: ladder (PB+V) = ejs 260/260 inputs; B alone (B+V) 260/260; tripwire false positives 0.
+- ✅ Change simulator, wrong = 0: ladder wrong 0 in every class with and without V (448 suite,
+  M9b/M9bs, M9c 33/33). Standalone steps' wrong values (worker B M9bs; M9c-loc/mix) are never
+  used: the ladder declines them.
+- ✅ With simulated V: 344/352 = 98 % of the M1–M9 cases (target ≥ 95 %); all 448 cases 440 (98 %).
+- ⚠️ Offline: 0/352 (target ≥ 80 %), superseded by the owner-approved plan change "V on every
+  signature" (N5b, 2026-10-12): without V the ladder never uses a signature (n only), so every
+  offline case ends safe, none wrong. Not met by design; the owner closed the phase with it.
+- ⚠️ More than ejs where ejs < 100 %: M3 32 vs 0, M6 32 vs 0, M7 32 vs 11, M8t 32 vs 0, M9 32 vs 0;
+  **M5 ties, 24 vs 24**. On the 8 M5 es6 files the mutated player throws at init 3 times in every
+  step, the page too, so the init-error rule (N5a) declines each answer (safe) although every
+  step alone was right. Reproduced on the computer on 2026-10-14 (same 24/8/0). A Phase 1.3
+  candidate (owner decides): trust an answer when the page shows the same init errors as the
+  worker.
+- ✅ Faults: 0 wrong, 0 missed.
+- ✅ Speed on the phone (N7): P hit 0.3–0.4 s, 1.4 s after a restart; first B run 5.2–6.9 s.
+- ✅ Live (2026-10-14, opt-in `eecfba7`): V on the phone passes on a signature video; the same
+  rows as the release app on §4.3's videos, a 2160p60 video and the canary's video; age-restricted
+  terminal, no bypass; private skipped (owner).
+- ✅ Flag off = main: CI green on `e5cad15` (checkpoint validation; opt-in APK push build with
+  `MasterMainMoreSheetTest`; own solver canary).
+
 Baseline (filled by N1; later columns by N3–N5):
 
 | Class | ejs | own P | own B alone (N3) | own ladder (offline) | own ladder (+ simulated V) |
 |---|---|---|---|---|---|
-| M1 | 32/32 | 32/32 | 32/32 | — | — |
-| M1w | 32/32 | 32/32 | 32/32 | — | — |
-| M2 (member access part) | 32/32 | 32/32 | 32/32 | — | — |
-| M3 | 0/32 (safe) | 0/32 (safe) | 32/32 | — | — |
-| M4 | 32/32 | 32/32 | 32/32 | — | — |
-| M5 | 24/32 (8 safe) | 32/32 | 32/32 | — | — |
-| M6 | 0/32 (safe) | 32/32 | 32/32 | — | — |
-| M7 | 11/32 (21 safe) | 31/32 (1 safe) | 32/32 | — | — |
-| M8 | 32/32 | 32/32 | 32/32 | — | — |
-| M8t | 0/32 (safe) | 32/32 | 32/32 | — | — |
-| M9 | 0/32 (safe) | 32/32 | 32/32 | — | — |
-| M10 | 32/32 | 32/32 | 32/32 | — | — |
-| M11 | 32/32 | 32/32 | 32/32 | — | — |
-| M11f | 32/32 | 32/32 | 32/32 | — | — |
-| **all 448 cases** | **291 (65 %)** | **415 (93 %)** | **448 (100 %)** | — | — |
+| M1 | 32/32 | 32/32 | 32/32 | 0/32 (safe) | 32/32 |
+| M1w | 32/32 | 32/32 | 32/32 | 0/32 (safe) | 32/32 |
+| M2 (member access part) | 32/32 | 32/32 | 32/32 | 0/32 (safe) | 32/32 |
+| M3 | 0/32 (safe) | 0/32 (safe) | 32/32 | 0/32 (safe) | 32/32 |
+| M4 | 32/32 | 32/32 | 32/32 | 0/32 (safe) | 32/32 |
+| M5 | 24/32 (8 safe) | 32/32 | 32/32 | 0/32 (safe) | 24/32 (8 safe) |
+| M6 | 0/32 (safe) | 32/32 | 32/32 | 0/32 (safe) | 32/32 |
+| M7 | 11/32 (21 safe) | 31/32 (1 safe) | 32/32 | 0/32 (safe) | 32/32 |
+| M8 | 32/32 | 32/32 | 32/32 | 0/32 (safe) | 32/32 |
+| M8t | 0/32 (safe) | 32/32 | 32/32 | 0/32 (safe) | 32/32 |
+| M9 | 0/32 (safe) | 32/32 | 32/32 | 0/32 (safe) | 32/32 |
+| M10 | 32/32 | 32/32 | 32/32 | 0/32 (safe) | 32/32 |
+| M11 | 32/32 | 32/32 | 32/32 | 0/32 (safe) | 32/32 |
+| M11f | 32/32 | 32/32 | 32/32 | 0/32 (safe) | 32/32 |
+| **all 448 cases** | **291 (65 %)** | **415 (93 %)** | **448 (100 %)** | **0 (0 %, all safe)** | **440 (98 %)** |
 
 Baseline (N1 done, 2026-10-11): all 32 corpus files (8 players × main/tce/es6/phone) × 14 classes
 = 448 judged cases; survived / files, the rest failed safely; **wrong = 0** in every case, 0

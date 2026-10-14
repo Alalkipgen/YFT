@@ -1,5 +1,19 @@
 # YFT Master Extractor backup
 
+## Phase 1.2 — done (owner closed it on 2026-10-14)
+
+- ✅ Pass criteria (plan §4 "Result"): corpus = ejs 260/260; ladder wrong 0 in every class with and
+  without V; simulated V 344/352 = 98 % of M1–M9 (≥ 95 %); faults 0 wrong / 0 missed; phone speed
+  and live check ✅; flag off = main, CI green (`e5cad15`).
+- ⚠️ Offline survival 0 % (target ≥ 80 %): by design since "V on every signature" (owner, N5b
+  2026-10-12): no signature is used without V; all safe, none wrong.
+- ⚠️ M5: ladder 24 = ejs 24 (not more): on 8 es6 files every step throws at init 3 times, the page
+  too, so the init-error rule declines right answers (safe). Reproduced 2026-10-14 (24/8/0).
+  Phase 1.3 candidate, owner decides.
+- N4b closed (the ladder never uses worker B's M9bs wrong value). N2's n rule stays PENDING
+  (decision; owner run 3 invalid as runs 1–2). Private video skipped (owner).
+- Next: Phase 1.3 (`MASTER_KEY_PHASE1_3_PLAN.md`, owner's plan `f2c144e`).
+
 ## Phase 1.2 — N7 follow-up: page cap 20 s (owner, 2026-10-14; `e5cad15`, CI ✅)
 
 - ✅ Page cap 35 s → 20 s: `OwnPlayerScriptRunner.DEFAULT_PAGE_CAP_MILLIS` (`OwnSolverProbe`, so
@@ -32,7 +46,7 @@
   release app): the same rows (formats, sizes) on §4.3's short progressive, 1080-ladder and Shorts
   videos, a 2160p60 video and the canary's lookup video. Age-restricted video: terminal in both
   ("Sign in to YouTube on this page first", LOGIN_REQUIRED "Sign in to confirm your age" for the
-  visionOS and WEB clients; no bypass). Private video: not run yet.
+  visionOS and WEB clients; no bypass). Private video: skipped (owner, 2026-10-14).
 - Run 3's "no stream" video gives rows in both apps (their first client is visionOS), so run 3's
   FAIL came from the canary lookup's own clients (embedded, then MWEB SABR only) at that moment,
   not from the solver or the app.
