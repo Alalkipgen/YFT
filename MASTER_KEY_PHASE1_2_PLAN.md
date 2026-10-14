@@ -55,7 +55,7 @@ code, without an APK update:
   function ကို မယုံ) + breaker + wiring (flag default off)။ code အကုန်ပြီးမှ test တစ်ခါတည်း (~၅ နာရီ)။
 - N7 ပြီးပါပြီ (`41d8a11`, `f9247bb`, `eecfba7`): owner ဖုန်း (Android 16, WebView 149) ပေါ်မှာ canary ၃ ကြိမ် —
   P/B/E build ၂ ခုလုံး pass၊ P hit 0.3–0.4 s (≤ 2 s ✅)၊ restart နောက် 1.4 s (≤ 8 s ✅)၊ B 1.6–6.9 s (metric)၊
-  page stall ≤ 1.3 s (page cap 35 s → 20 s၊ owner အတည်ပြု 2026-10-14)။ JS heap 1850 MB (B လို ≤ 400 MB)။ V ဖုန်းပေါ်မှာ
+  page stall ≤ 1.3 s (page cap 35 s → 20 s၊ owner အတည်ပြု 2026-10-14၊ `e5cad15` CI ✅)။ JS heap 1850 MB (B လို ≤ 400 MB)။ V ဖုန်းပေါ်မှာ
   မ run ရသေး (signature မလိုတဲ့ video)။ Run 3 FAIL = YouTube က stream မပေး (solver မဟုတ်)။
 
 ## 0. Why (evidence)

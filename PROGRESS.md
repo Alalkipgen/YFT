@@ -1,6 +1,6 @@
 # YFT Master Extractor backup
 
-## Phase 1.2 — N7 follow-up: page cap 20 s (owner, 2026-10-14)
+## Phase 1.2 — N7 follow-up: page cap 20 s (owner, 2026-10-14; `e5cad15`, CI ✅)
 
 - ✅ Page cap 35 s → 20 s: `OwnPlayerScriptRunner.DEFAULT_PAGE_CAP_MILLIS` (`OwnSolverProbe`, so
   the canary, takes the same default) and `scripts/own-solver/ladder.mjs` `STEP_CAPS_MS.page`
@@ -15,7 +15,8 @@
 - Tests: `OwnSolverLadderRunnerTest`: the page deadlines are 20 s; "all four steps slow" now takes
   60 / 60 / 20 / 0 s over four lookups (was 60 / 60 / 60 / 35 / 0 s); new: a page step with only a
   short deadline (10 s left) is not kept and runs again in the next lookup with its full cap.
-  Local: extractor-master solver tests 126/126, JS 227/227. CI: pending.
+  Local: extractor-master solver tests 126/126, JS 227/227. CI ✅ (`e5cad15`): checkpoint validation
+  38490290692, opt-in APK push build 38490284228, own solver canary 38490284161.
 - No new APK needed: the opt-in APK `eecfba7` still has 35 s, but the cap only matters for a page
   job slower than 20 s, and the phone's page jobs took ≤ 1.3 s; the live check and V run on it.
   The next APK built for another reason carries 20 s.
