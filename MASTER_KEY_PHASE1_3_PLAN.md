@@ -1,58 +1,79 @@
-# Master Key — Phase 1.3 Plan v2: own client ladder at own-solver level (YouTube may change visionOS, Master keeps working)
+# Master Key — Phase 1.3 Plan v3: own client ladder at own-solver level — no Master-caused failure (YouTube may change visionOS, Master keeps working)
 
-Status: **plan + prompt, v2.** No code is changed by this document. v2 replaces v1 (2026-10-11,
-kept in this file's git history); every v1 guardrail stays unless §2 marks it **changed**.
-Date: 2026-10-14. Branch: `spike/master-extractor-backup` only.
+Status: **plan + prompt, v3.** No code is changed by this document. v3 extends v2 (`f2c144e`,
+kept in this file's git history) with the owner's four additions of 2026-10-14: an own parser for
+layout changes (**L**), self-healing versions (**A**), an independent HLS leg (**H**) and a weekly
+early-warning check (**W**). Every v2 guardrail stays unless §2 marks it **changed** or **new**.
+Date: 2026-10-14. Branch: `spike/master-extractor-backup` only; main is not touched and the draft
+PR #2 is never merged. **Prerequisite: Phase 1.2 closed — done (`a99e0fb`; §4 G0).**
 Reads: `MASTER_KEY_PHASE1_2_PLAN.md` §0–§4 (the level to match), `PROGRESS.md` "R6", "R9",
-"Phase 1.2 — N2" and "Phase 1.2 — N7", `MASTER_KEY_NOTES.md` §3–§4,
-`docs/YOUTUBE_RISK_REVIEW.md` (P14, P22). Prompt: `MASTER_KEY_PHASE1_3_PROMPT.md` (v2).
+"Phase 1.2 — done", "Phase 1.2 — N2" and "Phase 1.2 — N7", `MASTER_KEY_NOTES.md` §3–§4,
+`docs/YOUTUBE_RISK_REVIEW.md` (P14, P22). Prompt: `MASTER_KEY_PHASE1_3_PROMPT.md` (v3).
 
 Phase 1.2 made the own solver survive YouTube's code changes without ejs: it finds n/sig again
 **in the same player** (B, E), asks **YouTube itself** (V), **remembers** what worked (locator
-cache) and **proves** it on real players (M1–M11, wrong = 0). v2 brings the client side to the
-same level. When YouTube changes visionOS, Master:
+cache) and **proves** it on real players (M1–M11, wrong = 0). v3 brings the client side to the
+same level, with a number for the goal: **no Master-caused failure** (§5.1). When YouTube changes
+visionOS, Master:
 
-- first **adapts visionOS itself** to what its answer now needs: another public version, the
-  player script through the own solver, sizes from YouTube's own probe, or the HLS delivery the
-  same answer already carries;
+- first **adapts visionOS itself** to what its answer now needs: a newer public version (learned,
+  signed, self-healed from public data or bundled), the player script through the own solver,
+  sizes from YouTube's own probe;
+- **finds the formats again by their shape** when the answer's layout changes (L, as strategy B
+  finds n/sig again in the same player), and offers only rows YouTube itself accepts for this
+  video;
+- **downloads through the answer's HLS delivery on its own leg** when the formats cannot be used
+  (H: a standard format, independent of the JSON layout);
 - uses other no-token clients **only where a live census on the phone proved them**;
-- **remembers** the working variant, so the normal lookup stays one request after a change;
+- **remembers** what worked (variant, version, shape map), so the normal lookup stays one request;
+- **tells the owner within a week** what changed (W: a one-minute check on the phone, no
+  background work);
 - never offers a row that YouTube refused, whoever produced it.
 
 ## မြန်မာ အနှစ်ချုပ်
 
-- ရည်မှန်းချက် (မပြောင်း): own solver ကြောင့် ejs ပျက်လည်း Master မပျက်သလို YouTube က visionOS ကို
-  ပြောင်းလည်း Master မပျက်အောင်။ APK update မလိုဘဲ၊ မှားတဲ့ row လုံးဝ မပေးဘဲ။
-- v1 ရဲ့ အားနည်းချက်များ (§0):
-  - ဒုတိယ ခြေထောက် (TV, embedded) က ဒီနေ့ အလုပ်မလုပ်ပါ: embedded "video unavailable"၊ TV "page needs
-    to be reloaded" (safety review က ၂ ကြိမ် ပိတ်ခဲ့)၊ WEB/MWEB SABR only (MWEB stream check 10-11 နဲ့ 10-14 မှာ read ၄ ခုလုံး 403)၊ Android 360p ပဲ။
-  - visionOS ကို "အစားထိုး" ဖို့ပဲ စဉ်းစားပြီး "ပြင်" ဖို့ မစဉ်းစားထားပါ။ own solver က player အသစ် မရှာဘဲ
-    player တစ်ခုတည်းထဲမှာ n/sig ကို ပြန်ရှာသလို visionOS ကိုယ်တိုင်ကို အရင်ပြင်ရပါမယ်။
-  - visionOS answer ထဲမှာ HLS (`hlsManifestUrl`) ပါပေမဲ့ main ရော Master ပါ မသုံးပါ။ YFT မှာ HLS engine
-    ရှိပြီးသားပါ။
-  - version ဟောင်းသွားရင် APK အသစ် လိုနေတုန်းပါ (goal နဲ့ ဆန့်ကျင်)။
-  - V က 403 လို့ သက်သေပြထားတဲ့ R6 row ကို merge rule က ဆက်ထားလို့ wrong row ဖြစ်နိုင်ပါတယ်။
-  - Simulator က အတု TV/embedded answer နဲ့ pass ဖြစ်နိုင်ပါတယ်။ Canary က computer script ဖြစ်ပေမဲ့ owner မှာ
-    computer မရှိပါ။
-- v2 မှာ ပြောင်းတာ:
-  - **D0 အရင်**: ဖုန်းထဲက "YFT client census" tool နဲ့ client တစ်ခုချင်းကို live တိုင်းမယ် (class, V, HLS)။
-    အလုပ်လုပ်တာ သက်သေရှိတဲ့ rung ပဲ table ထဲ ဝင်ပါမယ် (gate)။
-  - **visionOS ကိုယ်တိုင်ကို အရင်ပြင်မယ်** (identity အသစ် မလို): A version အစားထိုး၊ S script ကို own solver
-    နဲ့ဖြေ၊ Z size ကို YouTube probe နဲ့ယူ၊ H HLS လမ်း။
-  - တခြား client (embedded, MWEB, Android) က D0 မှာ live ဖြစ်မှ သုံးမယ်။ TV မပါပါ။
-  - Health v2: အလုပ်ဖြစ်ခဲ့တဲ့ variant ကို မှတ်ထားမယ် (locator cache လို) → ပြောင်းပြီးနောက်လည်း request ၁ ခု။
-  - V က 403 ပြတဲ့ row ကို ဘယ်သူထုတ်ထုတ် ဖယ်မယ်။ lookup တစ်ခုအတွင်း R6 ရဲ့ တူညီတဲ့ request ကို memory ထဲက
-    ပြန်ပေးမယ် (request မထပ်)။
-  - D8 (owner ဆုံးဖြတ်ရန်): R9 signed data နဲ့ identity version ကို APK မလိုဘဲ update လုပ်မယ်။
-  - သက်သေ: parity (visionOS ကောင်းရင် ladder = R6 အတိအကျ၊ request ၁ ခု) + change class V1–V9/T/H/F ×
-    fixture ၅ ခု + wrong = 0 + live-backed column။
-- မကယ်နိုင်တာ: token မလိုတဲ့ client အကုန် ပိတ်ရင်၊ SABR-only အကုန်ဖြစ်ရင်၊ bot check၊ DRM။ အဲဒီအတွက်
-  Phase 1.4 (MSE recording experiment) ကို owner က နောက်မှ ဆုံးဖြတ်ပါ။
-- Task: D0 census → D1 simulator + parity → D2 table + judge → D3 health v2 → D4 row checks (V, H, Z) →
-  D5 visionOS rungs → D6 တခြား client + wiring → D7 canary + ဖုန်းစစ် → D8 signed identity (ဆုံးဖြတ်ရန်)။
-- ခက်ခဲမှု: Medium–High (D5 High; D3, D6 Medium–High)။
+- ရည်မှန်းချက်: YouTube ပြောင်းလို့ Master ပျက်ရင် Master code ကြောင့် ပျက်တာ ၀ ("Master-caused failure"
+  = ၀၊ §5.1)။ YouTube server ဘက်က ခွင့်ပြုထားတဲ့ လမ်းအားလုံး ပိတ်မှသာ verdict မှန်နဲ့ ရပ်ပြီး တစ်ပတ်အတွင်း
+  သိရမယ်။ wrong row ၀ (မပြောင်း)။ APK update မလိုဘဲ။
+- v3 မှာ အသစ် (v2 + owner ရဲ့ ၄ ချက်):
+  1. **L — Own parser (အရေးအကြီးဆုံး):** answer ပုံစံ ပြောင်းရင် (SHAPE_CHANGED) key နာမည်ကို မယုံဘဲ တန်ဖိုး
+     ပုံစံ (itag၊ googlevideo address၊ mime) နဲ့ format တွေကို ပြန်ရှာမယ်။ video နဲ့ ချိတ်စစ်မယ် (videoId၊
+     ကြာချိန်)။ canonical JSON ပြန်ဆောက်ပြီး main copy parser (မပြင်ဘဲ) ကိုပဲ row ထုတ်ခိုင်းမယ်။ row တိုင်း
+     ဒီ lookup ထဲမှာ V pass + init check (file အစ bytes မှန်၊ encryption မပါ) ရမှ ပြမယ်။ unknown ဆို မပြ။
+  2. **A — Self-healing version:** VERSION_REJECTED ဆို public source (token/cookie မလို၊ data ပဲ၊ code
+     မဟုတ်) က version အသစ်ကို app ကိုယ်တိုင် ယူမယ်။ source တစ်ခုချင်းကို D0 မှာ live တိုင်းမယ်။ visionOS
+     အတွက် မရရင် အကြောင်းရင်း ရေးမယ်။ ရရင် D8 အစား သုံးဖို့ owner နဲ့ ညှိမယ်။ version ခန့်မှန်း/တိုးစမ်း လုံးဝ မလုပ်။
+  3. **H — HLS leg သီးသန့်:** format ပုံစံ ပျက်နေရင်တောင် `hlsManifestUrl` တစ်ခုတည်း + video ကြာချိန်နဲ့
+     download ရမယ် (app ထဲမှာ HLS code ရှိပြီးသား)။ token လိုမလို D0 မှာ အဆင့်လိုက် တိုင်းမယ်။
+  4. **W — Early warning:** census tool ထဲမှာ "Weekly check" (≤ ၁ မိနစ်၊ ≤ 2 MB၊ mobile data)။ ပြီးခဲ့တဲ့
+     run နဲ့ diff ပြမယ် (class၊ version၊ shape)။ background request လုံးဝ မရှိ (owner နှိပ်မှ run)။
+- ဆက်တည်: Wi-Fi မရှိ → live တိုင်းတာ အားလုံး mobile data။ D8 မဆုံးဖြတ်ရသေး (D0 ရဲ့ self-heal ရလဒ်ပြီးမှ
+  ဆုံးဖြတ်)။ Phase 1.2 ပိတ်ပြီး (G0 ✅ `a99e0fb`၊ owner 2026-10-14)။ main မထိ၊ PR #2 merge မလုပ်။
+- M5 (Phase 1.2 က ကျန်တာ၊ es6 player ဖိုင် ၈ ခု၊ solver ဘက်) ဒီ plan ထဲ မပါ — owner ဆုံးဖြတ် (§9 ၆)။
+- မထည့်: SABR client၊ PO token၊ MSE recording၊ TV client၊ bypass။
+- သက်သေ: simulator class အသစ် L1–L16 (key ရွှေ့/နာမည်ပြောင်း၊ decoy၊ encrypted)၊ V10–V11 (HLS)၊
+  Y1–Y6 (version) + v2 class တွေ × fixture ၅ ခု → wrong = ၀၊ MCF = ၀။ ဖုန်းပေါ်မှာ live answer ကို memory
+  ထဲမှာပဲ ပုံစံပြောင်းပြီး (`ladderMutate`) L က row ပြန်ရှာနိုင်ကြောင်း စစ်မယ်။
+- မကယ်နိုင်တာ (server ပိတ်): ခွင့်ပြုထားတဲ့ client အားလုံး token လို၊ SABR-only၊ client ဖယ်ရှား၊ bot check၊
+  DRM။ အဲဒီအခါ verdict မှန်နဲ့ ရပ်ပြီး W က သတိပေးမယ်။
+- Task: G0 Phase 1.2 ပိတ် (✅ `a99e0fb`) → D0 census + weekly check → D1 simulator → D2 table + judge → D3 health →
+  D4 checks → D5a A/S/Z → D5b L → D5c H → D6 O + wiring → D7 ဖုန်းစစ် + runbook → D8 (ဆုံးဖြတ်ရန်)။
+- ခက်ခဲမှု: High (D5b High; D3၊ D5a၊ D5c၊ D6 Medium–High)။
 
-## 0. Why v2 (evidence against v1)
+## 0. Why v3
+
+### 0.1 What v3 adds to v2, and why
+
+| Addition | Gap in v2 | v3 |
+|---|---|---|
+| **L** own parser | Layout changes stayed detect-only. One moved or renamed key breaks R0, A, S, Z and every O rung at once, because all of them read answers through the same copied parser; Master then waits for main's parser and an APK. | Find the formats by value shape, bind them to the video, rebuild canonical JSON and let the unchanged copied parser build the rows; every L row passes V and the init check in that lookup (D5b). |
+| **A** self-healing version | ≤ 2 bundled alternates, then D8 or an APK. The owner has no computer, and R9's signing tool is a shell script for one. | D0 measures public version sources per identity; a proven source lets the app follow a version change by itself (D5a). D8 stays undecided until D0. |
+| **H** independent leg | H ran only after the adaptive rows were judged SABR-only or token-refused, from the copied parser's fields. | H needs only a located `hlsManifestUrl` and the video's length, so it also works when no format can be read (D5c). HLS is the standard Apple's players read; its layout does not follow InnerTube's JSON. |
+| **W** early warning | A change was noticed only when a lookup failed. | A weekly ≤ 1 min check on the phone shows the diff against the last run: classes, versions, shape (D0, D7). Owner-started only. |
+| Goal as a number | "Master keeps working" had no failure definition. | Master-caused failure (MCF) = 0 and wrong = 0 (§5.1), in the simulator and live. |
+| Constraints | A Wi-Fi run, an MSE phase and TV as options; v2's video list had 11 entries. | Mobile data only; SABR clients, PO tokens, MSE recording, TV and any bypass excluded; Phase 1.2 closed first (G0, done at `a99e0fb`); PR #2 never merged; 10 numbered videos. |
+
+### 0.2 Evidence against v1 (from v2, still true)
 
 1. **v1's second leg is not alive today.** v1 carries the lookup with the S clients (TV,
    embedded) when visionOS fails. The repository's own measurements say they do not answer:
@@ -94,62 +115,90 @@ same level. When YouTube changes visionOS, Master:
 
 ## 1. The level to match
 
-| Own solver (Phase 1.2) | Own client ladder (v2) |
+| Own solver (Phase 1.2) | Own client ladder (v3) |
 |---|---|
 | Reference ejs; corpus parity: own = ejs 260/260 | Reference the R6 chain (visionOS first); parity: ladder = R6 rows and one request while visionOS is healthy |
 | P: pattern (Phase 1.1 core), fast path | R0: visionOS asked exactly as R6 asks it, fast path |
-| B: find n/sig again in the same player by behaviour | Requirement rungs on visionOS itself: **A** alternate version, **S** player script via the own solver, **Z** sizes from YouTube's probe, **H** the answer's HLS delivery |
-| E: real page, only after an environment error | **O**: other no-token clients, only those the census proved live (the real-player leg, MSE recording, is a later phase) |
-| SelfCheck + V (YouTube judges) | Row rules + SelfCheck + V (Range read); H check (playlists + one segment) |
-| Locator cache per player version | Health v2: per client, the working variant and its cooldown |
-| M1–M11 on 32 real players, wrong = 0 | Change classes V1–V9, T1–T3, H1–H2, F1–F4 on 5 base fixtures; headline counts live-backed rungs only |
-| N7 phone canary | D0/D7 phone census tool (debug app) |
+| B: find n/sig again **in the same player** by behaviour, not by names | **L**: find the formats again **in the same answer** by value shape, not by key names; the copied parser still builds the rows |
+| — | Requirement rungs on visionOS itself: **A** version (learned, signed, self-healed, bundled), **S** player script via the own solver, **Z** sizes from YouTube's probe |
+| E: real page, only after an environment error | **H**: the HLS leg (a standard delivery, independent of the JSON layout); **O**: other no-token clients, census-live only |
+| SelfCheck + V (YouTube judges) | Row rules + SelfCheck + V; for L rows V + init check in every lookup; H check with the length binding |
+| Locator cache per player version | Health v2: per client the working variant, the learned version and the L shape map |
+| M1–M11 (+ M9b, M9c) mutations of 32 real players, wrong = 0 | Classes V1–V11, L1–L16, Y1–Y6, T1–T3, H1–H2, F1–F4 on 5 base fixtures, plus L mutations of live answers on the phone (in memory); wrong = 0, MCF = 0 |
+| N7 phone canary | D0 census (gate) + W weekly check with diff (early warning) |
 
 ## 2. Guardrails
 
-All R6, Phase 1.1, Phase 1.2 and v1 guardrails stay. v2 restates them and marks changes:
+All R6, Phase 1.1, Phase 1.2, v1 and v2 guardrails stay. v3 restates them and marks changes:
 
 1. **Flag** (v1): `-Pyft.clientLadder` (default `false`, BuildConfig `CLIENT_LADDER_ENABLED`,
    never in release); acts only with `masterCapture`; S rungs only with `ownSolver` too. Flag off
    = R6 + Phase 1.1/1.2: `MasterYouTubeParityTest` and `MasterMainMoreSheetTest` unchanged, green.
-2. **Copy, never edit** (v1): main's five copied YouTube files stay byte-identical (drift check);
-   new code only in `modules/youtube/ladder/`; the copies' internal API may be used.
-3. **No token, no cookie, no account** (v1). `NoPoTokenProvider` stays. **TV is not in the table**
-   (the safety review stopped it twice); only the owner can reopen it.
+2. **Copy, never edit** (v1): main's five copied YouTube files (`YouTubeClientProfile`,
+   `YouTubeExtractor`, `YouTubePlayerResponseParser`, `YouTubeSessionAuth`, `YouTubeUrls`) stay
+   byte-identical (drift check); new code only in `modules/youtube/ladder/`; the copies' internal
+   API may be used. **L gives the copied parser canonical JSON through its existing `parse` and
+   never changes a copied file.**
+3. **No token, no cookie, no account** (v1). `NoPoTokenProvider` stays. **Excluded by the owner
+   (v3): SABR clients (SABR/UMP), PO tokens, MSE recording, the TV client and any bypass** — none
+   of them is a rung, an experiment or a later phase of this plan.
 4. **No bypass; the ladder never decides a refusal** (v1): age check, video verdict or DRM → stop,
    the R6 chain decides; bot check → stop plus a 30 min ladder-wide cooldown, no further ladder
    request; ladder rows merge only when the chain did not end in a terminal verdict.
-5. **Identities** (v1): at most 4, all already in main's code — visionOS, Android, embedded, MWEB
-   — each with at most 2 alternate versions listed by a public reference (yt-dlp, YouTube.js or
-   NewPipe) with source and date. Never invented or brute-forced; no TLS or fingerprint tricks.
-6. **Row checks.**
-   - V (v1 rule 6, Phase 1.2 rule 3): the shared `StreamCheck`, only in a user-started lookup,
-     only on the host YouTube returned, the download's headers without cookies, Range ≤ 64 KiB,
-     at most 1 per client per lookup, `unknown` is never `pass`.
-   - **H check (new):** only hosts the answer named (under `googlevideo.com`); the master playlist
-     and one variant playlist, ≤ 256 KiB each; the first segment of that variant, Range ≤ 64 KiB;
-     content type and container start must match (MPEG-TS sync byte, `ftyp`/`styp`/`moof`, EBML);
-     the playlist's total duration within ±2 s of the answer's length; at most 1 per client per
-     lookup.
-   - **Z (new):** the existing one-byte probe's total size (`Answered(totalBytes)`) replaces a
-     missing `contentLength`, only for rows about to be offered, at most 8 per lookup.
-7. **Budget (changed: adds H, Z and the memo).** A healthy, complete visionOS answer stays the
-   whole lookup (one request). Per lookup the ladder itself makes at most 3 player requests,
-   1 watch page fetch, 1 V and 1 H check per client and 8 Z probes. **Same-lookup memo:** a request
-   of the R6 chain byte-identical to one the ladder already made in this lookup (method, address,
-   body, headers) is answered from memory once; never across lookups, never for media hosts.
+5. **Identities and versions (changed).** At most 4 identities, all already in main's code —
+   visionOS, Android, embedded, MWEB. Versions in this order: the learned working version
+   (health); a signed version (D8, only if approved); a **self-healed** version; ≤ 2 bundled
+   alternates listed by a public reference (yt-dlp, YouTube.js or NewPipe) with source and date.
+   **Self-healed:** only from a source D0 proved usable for that identity (public, no token, no
+   cookie, data only: one pattern-matched value, never code); a strict version pattern per
+   client; newer than the bundled version; the version field only (user agent and device stay);
+   fetched at most once a day; kept only after the next answer judges OK and a row passes V.
+   Never invented, counted up or brute-forced; no TLS or fingerprint tricks.
+6. **Row checks (changed: L rows, init check, H binding).**
+   - V (v2): the shared `StreamCheck`, only in a user-started lookup, only on the host YouTube
+     returned, the download's headers without cookies, Range ≤ 64 KiB, at most 1 per client per
+     lookup — **except L rows: one V per offered row (≤ 8), reading the first 4 KiB (≤ 64 KiB)
+     so the init check runs on the same bytes (no extra request)**; `unknown` is never `pass`.
+   - **Init check (new, L rows):** the content type matches the row's type; the container start
+     matches (`ftyp`/`styp`/`moof`/`sidx`, EBML); no encryption marker in the bytes read (MP4
+     `encv`, `enca`, `sinf`, `tenc`, `pssh`; WebM content encryption); the total size in
+     `Content-Range` equals the row's size when one is known.
+   - H check (v2, extended): every address under `googlevideo.com`; the master playlist and one
+     variant playlist, ≤ 256 KiB each; the first segment of that variant, Range ≤ 64 KiB; content
+     type and container start must match (MPEG-TS sync byte, `ftyp`/`styp`/`moof`, EBML); **no
+     `#EXT-X-KEY` or `#EXT-X-SESSION-KEY` other than `METHOD=NONE`**; the playlist's total
+     duration within ±2 s of the video's length — **the binding: H rows are never offered
+     without a known length**; at most 1 per client per lookup.
+   - Z (v2): the existing one-byte probe's total size (`Answered(totalBytes)`) replaces a missing
+     `contentLength`, only for rows about to be offered, at most 8 per lookup.
+7. **Budget (changed).** A healthy, complete visionOS answer stays the whole lookup (one
+   request). Per lookup the ladder itself makes at most 3 player requests, 1 watch page fetch,
+   1 V and 1 H check per client, 8 Z probes and **≤ 8 V for L rows**; **a version source at most
+   once a day per identity (≤ 64 KiB, cached)**. Same-lookup memo (v2): a request of the R6 chain
+   byte-identical to one the ladder already made in this lookup (method, address, body, headers)
+   is answered from memory once; never across lookups, never for media hosts. **Census: a full
+   run ≤ 6 MB; the weekly check ≤ 60 s, ≤ 2 MB, ≤ 20 requests.**
 8. **Health on the phone (changed).** `files/master/client-health.json`: client ID, class, time,
-   counts and the working **variant** (version index, S, H) only; no address, token, visitor data
-   or video ID. No remote code. **Only with the owner's D8 decision:** a signed identity section over
-   R9's envelope may replace identity values (data only; bundled table stays the fallback).
-9. **Never a wrong row (changed merge rule).** Rows come only from the copied parser and pass
-   `MasterSiteModule`'s row check; S values only after SelfCheck; a client without a pass in the
-   last hour needs a V (or H) pass. **A client whose rows V proved refused in this lookup (403
-   with an open control) loses those rows, whoever produced them (ladder or R6 chain; matched by
-   address in memory, never logged).** Otherwise the R6 chain's rows win and the ladder adds only
-   formats the chain did not give. "Never worse than R6" = never fewer working rows, never a
-   worse verdict.
-10. **Spike only.** No main merge, tag or release.
+   counts, the working variant (version index, S, H), **the learned version string (public) and
+   the L shape map (key paths only, no values)**; no address, token, visitor data or video ID.
+   No remote code. Only with the owner's D8 decision: a signed identity section over R9's envelope
+   (data only; the bundled table stays the fallback).
+9. **Never a wrong row (changed).** Rows come only from the copied parser — **on the answer itself
+   or on L's canonical JSON** — and pass `MasterSiteModule`'s row check; S values only after
+   SelfCheck; a client without a pass in the last hour needs a V (or H) pass; **L rows need a V
+   pass and an init-check pass in this lookup, always; `unknown` → not shown.** Merge rule (v2):
+   a client whose rows V proved refused in this lookup (403 with an open control) loses those
+   rows, whoever produced them (ladder or R6 chain; matched by address in memory, never logged);
+   otherwise the R6 chain's rows win and the ladder adds only formats the chain did not give.
+   "Never worse than R6" = never fewer working rows, never a worse verdict.
+10. **Spike only (changed).** No main merge, tag or release; **the draft PR #2 (spike → main, "do
+    not merge") stays a draft and is never merged.**
+11. **No background work (new).** The census and the weekly check run only after the owner's tap,
+    while their screen is open; no WorkManager, AlarmManager, JobScheduler, foreground service,
+    push or other scheduled request; leaving the screen stops them. Lookup checks run only inside
+    a user-started lookup (v2).
+12. **Mobile data only (new).** Every live step is planned for the owner's mobile data (no
+    Wi-Fi); budgets are in MB; no step needs a computer.
 
 ## 3. Architecture
 
@@ -159,82 +208,200 @@ lookup (Master, clientLadder on)
   order    = health v2: learned variant first; pass (24 h) -> unknown -> cooldown (last)
   for each client, within the budget:
     answer = ask(client, its learned variant or the base)   copied request builder, no cookie
-    class  = judge(answer)                                   v1 class table (below)
+    class  = judge(answer)                                   v2 class table (below)
       AGE_CHECK / VIDEO_VERDICT / BOT_CHECK -> stop (bot check: cooldown); the R6 chain decides
-      VERSION_REJECTED   -> A: the next alternate version (table, or signed data with D8), else next
+      VERSION_REJECTED   -> A: learned -> signed (D8) -> self-healed (D0-proven source,
+                            <= 1 fetch a day) -> bundled alternates -> next client
       NEEDS_SCRIPT       -> S: page signals once; ask again with signature timestamp + visitor data;
                             own solver (PlayerScriptRunner.resolve) + SelfCheck; V
       INCOMPLETE (sizes) -> Z: sizes of the rows to offer from the one-byte probe
+      SHAPE_CHANGED      -> L: locate by value shape -> bind to the video -> canonical JSON ->
+                            copied parser -> offer set (<= 8) -> V + init check on every row
       DIRECT             -> V when needed
-      SABR_ONLY, or TOKEN_NEEDED on the adaptive rows, and an HLS address present
-                         -> H: HLS rows (resolution from the master playlist) + H check
-      REFUSED / SHAPE_CHANGED / other -> next client (O rungs: census-live only)
-    health.record(client, class, variant)
+      SABR_ONLY / TOKEN_NEEDED / REFUSED / other -> the adaptive path is not complete
+    adaptive path not complete and an HLS address located (the field or L's locate)
+                         -> H leg: H check with the length binding -> one HLS row
+    still not complete   -> next client (O rungs: census-live only)
+    health.record(client, class, variant, version, shape map)
     complete (P22 rule: a video merged with sound and the audio track itself) -> done
   not complete -> the R6 chain runs unchanged behind the same-lookup memo;
                   merge rule (guardrail 9)
 ```
 
-- **Classes:** v1's table unchanged (`DIRECT`, `NEEDS_SCRIPT`, `SABR_ONLY`, `INCOMPLETE`,
-  `REFUSED`, `VERSION_REJECTED`, `SHAPE_CHANGED`, `TOKEN_NEEDED`, `AGE_CHECK`, `VIDEO_VERDICT`,
-  `BOT_CHECK`), decided from the answer, the HTTP result and the checks, never from the client's
-  name. The judge also records whether the answer carries an HLS address (`hls` yes/no).
-- **Row builder parity:** when R0 completes, the ladder's rows must equal what the R6 chain builds
-  from the same answer (the Phase 1.1 "own = ejs" rule, applied to rows): checked on every parity
-  scenario (D1). Reuse the copies' internal API; duplicate only what is private, with tests.
-- **Shape changes stay detect-only:** rows still come only from the copied parser
-  (`SHAPE_CHANGED` names the miss; main's parser changes first, the copy follows).
-- **Where it plugs in:** `MasterYouTubeModule(http, playerScripts, ladder = null)`; `null` = R6.
-  The app passes a ladder only with `BuildConfig.CLIENT_LADDER_ENABLED`.
-- **New Master-only files** (`extractor-master/.../modules/youtube/ladder/`): `ClientTable.kt`,
-  `AnswerJudge.kt`, `ClientHealth.kt`, `ClientCensus.kt`, `HlsCheck.kt`, `Rungs.kt` (A, S, Z, H),
-  `LookupMemo.kt`, `ClientLadder.kt`; `StreamCheck` reused.
+- **Classes:** v2's table (`DIRECT`, `NEEDS_SCRIPT`, `SABR_ONLY`, `INCOMPLETE`, `REFUSED`,
+  `VERSION_REJECTED`, `SHAPE_CHANGED`, `TOKEN_NEEDED`, `AGE_CHECK`, `VIDEO_VERDICT`, `BOT_CHECK`),
+  decided from the answer, the HTTP result and the checks, never from the client's name.
+  `SHAPE_CHANGED` now has two kinds: **moved** (the copied parser finds no formats while
+  format-like objects exist elsewhere) and **partial** (the copied parser skips rows for a missing
+  field that format-like objects carry under another name). The judge also records `hls` (an HLS
+  address located) and the answer's shape fingerprint (for W).
+- **L — own parser** (`ShapeLocator`, `ShapeNormalizer`):
+  1. Scan the parsed answer (bounded: depth ≤ 16, ≤ 100 000 nodes, answer ≤ 4 MB) for
+     format-like objects: an itag-like integer (1–999, number or digit string); an https address
+     on a `googlevideo.com` host whose `itag` parameter equals it, or a cipher-like string
+     carrying such an address; a mime-like string (`video/…` or `audio/…` with `codecs="…"`).
+     Key names are never trusted; values are.
+  2. Bind to the video: exactly one object carrying the requested `videoId` with a digit
+     `lengthSeconds` (else no L rows); each candidate's duration (an `approxDurationMs`-like value
+     or the address's `dur`) within ±1.5 s of that length (candidates without one are dropped);
+     candidates are grouped by their parent list; two groups that both bind but disagree →
+     ambiguous → no L rows.
+  3. Map each candidate's fields to canonical names by value shape (address, cipher, mime, width,
+     height, fps, bitrate, size, duration, quality label, audio fields); a required field (itag,
+     address or cipher, mime) without exactly one match → that candidate is dropped.
+  4. Playability: the copied parser's verdict, or exactly one located status object; anything
+     but `OK` → stop (= R6); none found → no L rows.
+  5. Canonical JSON (`playabilityStatus`, `videoDetails`, `streamingData` with `formats`,
+     `adaptiveFormats`, `hlsManifestUrl`, canonical keys) → `YouTubePlayerResponseParser.parse`
+     (copied, unchanged): main's row rules (labels, sizes, protection, address checks) apply as
+     they are.
+  6. Offer set: the rows the app would offer (per height the best AVC, then VP9/AV1 row; the best
+     M4A and Opus audio), ≤ 8; each needs V + init check in this lookup; failed or `unknown`
+     rows are dropped; still incomplete → H leg → O rungs → R6 chain.
+  7. Remember the shape map (located paths ↔ canonical names, keyed by the shape fingerprint):
+     the next lookup normalizes without a full scan; V and the init check still run on every L
+     row.
+  8. Page signals: when the copied `pageSignals` misses the player ID, the signature timestamp or
+     visitor data, L locates them by shape (the player script address; the timestamp from the
+     player script the own solver reads; visitor data from the answer's response context), for S
+     only.
+- **H — independent HLS leg** (`HlsLeg`, `HlsCheck`):
+  1. The HLS address: `streamingData.hlsManifestUrl`, else exactly one located https string on
+     `manifest.googlevideo.com` under `/api/manifest/hls_variant/` or
+     `/api/manifest/hls_playlist/`; none or several → no H.
+  2. The video's length: from the copied parser, L's binding or the page (when fetched); none →
+     no H rows (guardrail 6).
+  3. H check pass → one row of kind HLS (the master address) for the app's existing HLS path
+     (`DefaultVariantResolver` → `HlsManifestParser`, `HlsAudioPairing` for a separate audio
+     group; download by `HlsTransferEngine`; `OkHttpMediaValidator`'s HLS facts reused),
+     labelled HLS in details, resolution and audio form from the master playlist.
+  4. Used when the adaptive path cannot complete for any reason (SABR-only, token-refused rows, a
+     layout change L cannot finish, rows failing V, an answer with HLS only). When the adaptive
+     rows are complete, H makes no request in a lookup; the census and W still measure it.
+- **A — versions** (`VersionSource`): per identity only the source D0 proved usable (§4 D0),
+  fetched after `VERSION_REJECTED` of the base (and learned) version, at most once a day;
+  guardrail 5's order and bounds.
+- **W — weekly check:** the census tool's second mode (§4 D0), owner-started, with the diff
+  against the stored last run.
+- **Row builder parity** (v2): when R0 completes, the ladder's rows equal what the R6 chain builds
+  from the same answer. L never runs on a complete answer, and the L round-trip (D1) proves that
+  canonical JSON of an unchanged answer gives the same rows.
+- **Where it plugs in** (v2): `MasterYouTubeModule(http, playerScripts, ladder = null)`; `null` =
+  R6. The app passes a ladder only with `BuildConfig.CLIENT_LADDER_ENABLED`.
+- **New Master-only files** (`extractor-master/.../modules/youtube/ladder/`): v2's
+  `ClientTable.kt`, `AnswerJudge.kt`, `ClientHealth.kt`, `ClientCensus.kt`, `HlsCheck.kt`,
+  `Rungs.kt` (A, S, Z), `LookupMemo.kt`, `ClientLadder.kt`, plus `ShapeLocator.kt`,
+  `ShapeNormalizer.kt`, `ShapeFingerprint.kt`, `InitCheck.kt`, `VersionSource.kt`, `HlsLeg.kt`,
+  `CensusDiff.kt`; `StreamCheck` reused.
 
 ## 4. Tasks
 
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
-| D0 | Phone census tool + live census (gate) | Phase 1.2 (done) | Low–Medium | TODO |
-| D1 | Change simulator, parity gate, baseline | D0 (classes) | Medium | TODO |
-| D2 | Client table v2 + answer judge | D1 | Medium | TODO |
-| D3 | Health v2, order, budget, stop rules | D2 | Medium–High | TODO |
-| D4 | Row checks: V (reuse), H check, Z | D2 | Medium | TODO |
-| D5 | visionOS rungs A, S, Z, H | D3, D4 | High | TODO |
-| D6 | O rungs (census-live only), memo, wiring, flag, merge rule | D5 | Medium–High | TODO |
-| D7 | Canary (the census tool), owner live check, runbook | D6 | Low | TODO |
-| D8 | Signed identity data over R9 (owner decision) | D2 | Medium | DECIDE |
+| G0 | Phase 1.2 closed (gate; Phase 1.2's agent and the owner) | — | Low | Done (`a99e0fb`) |
+| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | TODO |
+| D1 | Change simulator, parity gate, L round-trip, baseline | D0 (classes) | Medium–High | TODO |
+| D2 | Client table v2 + answer judge (shape kinds, HLS locate, fingerprint) | D1 | Medium | TODO |
+| D3 | Health v2, order, budget, stop rules (learned version, shape map) | D2 | Medium–High | TODO |
+| D4 | Row checks: V (reuse), init check, H check, Z | D2 | Medium | TODO |
+| D5a | visionOS rungs A (with self-healed versions), S, Z | D3, D4 | Medium–High | TODO |
+| D5b | Own parser L (locate, bind, canonical JSON, copied parser) | D3, D4 | High | TODO |
+| D5c | H leg (independent HLS) | D4, D5b (locate) | Medium–High | TODO |
+| D6 | O rungs (census-live only), memo, wiring, flag, merge rule | D5a–D5c | Medium–High | TODO |
+| D7 | Owner live check (with live L mutations), weekly check, runbook | D6 | Low–Medium | TODO |
+| D8 | Signed identity data over R9 (owner decision, after D0) | D2 | Medium | DECIDE |
 
-D0 comes first: it decides which rungs exist. Use the highest reasoning level for D3, D5 and D6.
-D8 can run any time after D2, only after the owner's yes.
+G0 is done (`a99e0fb`); D0 is next: it decides which rungs and sources exist and starts the
+weekly check. Use the highest reasoning level for D3, D5a, D5b, D5c and D6. D8 only after the
+owner's yes.
 
-### D0 — Phone census tool and live census (gate)
+### G0 — Phase 1.2 closed (gate) — done (`a99e0fb`)
 
-- `ladder/ClientCensus.kt` (extractor-master, offline-tested with `FakeExtractorHttpClient`) and a
-  debug-only owner tool **"YFT client census"** (launcher entry only with the Master flags on;
-  Start → report → Copy result), built like "YFT stream check" and the N7 solver canary; it reuses
-  `StreamCheckMeasurement`'s request and solve steps for the script clients.
-- Videos: 10 public ones — the three of `MASTER_KEY_PLAN.md` §4.3, plus owner picks: a 2160p
-  video, a music video whose streams need a signature, a Short, a made-for-kids video, a video that
-  disallows embedding, three ordinary videos.
-- Per video, in this order, the whole run stopping at the first bot check (then no new run for
-  30 min):
-  1. visionOS as R6 asks it: class; formats, heights, audio and sizes (counts); V on one AVC row;
-     HLS address present → H check (variants, highest resolution, muxed or separate audio).
+Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done on 2026-10-14**
+(`a99e0fb`, owner): `PROGRESS.md` "Phase 1.2 — done (owner closed it on 2026-10-14)":
+- Phase 1.2 §4 results with evidence: ladder wrong 0 in every class, with and without V;
+  simulated V 344/352 = 98 % of M1–M9; faults 0 wrong / 0 missed; phone speed and live check
+  passed; flag off = main, CI green (`e5cad15`). Offline survival 0 % by design ("V on every
+  signature": no signature is used without V; none wrong).
+- N4b closed (the ladder never uses worker B's M9bs wrong value); N2's n rule stays PENDING by
+  decision (a known limit); the private-video check was skipped by the owner.
+- Carry-over, **not in this plan:** M5 (ladder 24 = ejs 24: on 8 es6 player files every step
+  throws at init, so the init-error rule declines right answers; safe, none wrong). Phase 1.3
+  calls the own solver for S but does not change it; whether M5 becomes its own task is the
+  owner's decision (§9 item 6) and does not block D0.
+
+### D0 — Census tool, weekly check and live census (gate)
+
+- `ladder/ClientCensus.kt`, `ladder/ShapeFingerprint.kt` and `ladder/CensusDiff.kt`
+  (extractor-master, offline-tested with `FakeExtractorHttpClient`) and a debug-only owner tool
+  **"YFT client census"** with two modes, **Full census** and **Weekly check** (launcher entry
+  only with the Master flags on; Start → report → Copy result), built like "YFT stream check"
+  and the N7 solver canary; it reuses `StreamCheckMeasurement`'s request and solve steps for the
+  script clients.
+- Videos, numbered 1–10: 1–3 the three of `MASTER_KEY_PLAN.md` §4.3 (short progressive, 1080
+  ladder, a Short); owner picks: 4 a 2160p video, 5 a music video whose streams need a signature,
+  6 a made-for-kids video, 7 a video that disallows embedding, 8–10 three ordinary videos.
+- **Full census**, per video, in this order, the whole run stopping at the first bot check (then
+  no new run for 30 min):
+  1. visionOS as R6 asks it: class; formats, heights, audio and sizes (counts); V on one AVC
+     row; the shape fingerprint; HLS address present → H check with the **token step** (master
+     playlist, variant playlist and first segment: 2xx or 403 each), variants, highest
+     resolution, audio form (muxed or separate) and codecs.
   2. visionOS again with the page's signature timestamp and visitor data, only when (1) carried
      `signatureCipher` (S).
-  3. Android: class; progressive only or not; V.
-  4. embedded (the page's version and embed context, as main): class; S through the own solver; V.
-  5. MWEB: class; S through the own solver; V (owner stream checks: all four reads 403, so
+  3. Video 1 only: visionOS with each bundled alternate version (≤ 2): class; V (so A is never a
+     fake rung).
+  4. Android: class; progressive only or not; V.
+  5. embedded (the page's version and embed context, as main): class; S through the own solver;
+     V.
+  6. MWEB: class; S through the own solver; V (owner stream checks: all four reads 403, so
      expected not live; kept as one cheap re-check).
-- Budget per video: 1 page fetch, ≤ 6 player requests, ≤ 5 V, 1 H check. About 1–3 MB per run.
-- Report: classes, counts, verdicts, times and bytes only; videos by their list number. No
-  address, value, visitor data or player text.
-- Runs: 3, at least one on Wi-Fi and one on mobile data, at least an hour apart.
+- **Version sources** (once per run, ≤ 64 KiB each; no token, no cookie, data only):
+
+| Identity | Candidate public source | Recorded per run |
+|---|---|---|
+| embedded, MWEB | the client's own YouTube page config (`INNERTUBE_CLIENT_VERSION`) | value found; pattern; accepted (the rung's own request) |
+| visionOS | (1) YouTube's own answers and pages: a field naming a VISIONOS version; (2) the App Store's public lookup for YouTube's visionOS app, if it is listed; (3) a reference's public client table (yt-dlp, YouTube.js) read as text: one pattern-matched value | per source: reachable; exactly one value; same numbering as `clientVersion` ("1.02" today); newer; accepted (1 visionOS request + V on video 1, only for a new valid value) |
+| Android | (1) the Play Store's public app page; (2) a reference's public client table | as visionOS |
+
+  - A source is **usable** for an identity when in 3 of 3 runs it is reachable, gives exactly
+    one value matching the identity's pattern, and that value is accepted (OK + V pass) or equals
+    the bundled one. Expectations, to be measured, not assumed: the web-family pages are usable;
+    visionOS's "1.02" does not look like an App Store release number, so for visionOS only a
+    reference's table may be usable; Android's store page may show no version ("varies with
+    device").
+  - A host Master does not use yet (Apple, Google Play, GitHub raw for a reference) is fetched by
+    the census tool only; using it in lookups needs the owner's yes (§9).
+- Budget per video: 1 page fetch, ≤ 6 player requests (+ ≤ 2 alternates on video 1), ≤ 5 V,
+  1 H check. A full run ≤ 6 MB on mobile data.
+- Report: classes, counts, verdicts, times and bytes; shape fingerprints (key names only); public
+  version strings; videos by their list number. No address, value, visitor data or player text.
+- Runs: **3, all on mobile data (no Wi-Fi), at least an hour apart, ideally at different times of
+  day.**
 - **Gate:** a rung is **live** when it gave V- (or H-) passed rows for ≥ 6 of 10 videos in ≥ 2 of
-  3 runs. Only live rungs become active in the table; the others are stored as "measured, not
-  active" with the date. Results go into §5 and PROGRESS.md.
-- **Done:** the census report; the gate decision; the owner told which rungs are live. If neither
-  H nor any O rung is live, stop and ask the owner (§9): Phase 1.3 then keeps A, S and Z only.
+  3 runs; an alternate version when it was accepted in ≥ 2 of 3 runs; a version source when it is
+  usable (above). Only live rungs and usable sources become active; the others are stored as
+  "measured, not active" with the date. Results go into §5 and `PROGRESS.md`.
+- **Weekly check (W)**, ≤ 60 s, ≤ 2 MB, ≤ 20 requests, on mobile data:
+  - Videos 1 and 5: visionOS as R6 asks it (class, counts, fingerprint, V on one row); the H
+    check on video 1; the version sources only if not fetched in 24 h; Android, embedded and MWEB
+    once on video 1 (class, counts, fingerprint; V on one row when there are rows); from D6 on
+    also the ladder's own lookup of video 1 (which rung answered).
+  - Its summary is stored in `files/master/census-last.json` (the last 8 runs: classes, counts,
+    fingerprints as key-path lists and hashes, public version strings, verdicts, times, bytes;
+    no address, value, visitor data or video ID).
+  - First line: `NO CHANGE`, `CHANGED (n)` or `BROKEN (n)`, and the days since the last run.
+    Then one line per change: class (per client); version (accepted → rejected; a source's value
+    changed); shape (paths added or removed — a removed path the copied parser reads is marked
+    **BREAKING**); H (verdict, token step, highest resolution); the rung that answered. Each line
+    names its runbook step (§7).
+  - No background work (guardrail 11); the screen shows when the last check ran.
+- **Done:** both modes in the opt-in debug APK; unit tests for the diff (each change kind;
+  identical runs = `NO CHANGE`), the report sanitizer and a static check that the census code
+  uses no background API; the owner's 3 full runs and one weekly check; the census table, the
+  version-source table and the gate decision in §5 and `PROGRESS.md`; the owner told which rungs
+  and sources are live. If neither H nor any O rung is live, stop and ask the owner (§9): Phase
+  1.3 then keeps A, S, Z and L.
 
 ### D1 — Change simulator, parity gate and baseline
 
@@ -247,7 +414,7 @@ D8 can run any time after D2, only after the owner's yes.
 
 | ID | Change (made in code) | Real analogue | Remedy |
 |---|---|---|---|
-| V1 | HTTP 400 / "update the app" for the base version | version retired | A (table or D8) |
+| V1 | HTTP 400 / "update the app" for the base version | version retired | A (alternates, a usable source or D8) |
 | V2 | formats carry `signatureCipher` | client starts to need the script | S |
 | V3 | `contentLength` removed | partial answer (P22's M4A without a size) | Z |
 | V4 | adaptive SABR-only, HLS kept | SABR rollout | H |
@@ -265,20 +432,47 @@ D8 can run any time after D2, only after the owner's yes.
 | F2 | V `unknown` (timeout) | network | that client's ladder rows dropped |
 | F3 | H: segment 403, wrong content type, wrong start bytes, another host, wrong duration | HLS faults | H rows dropped |
 | F4 | an answer about another video | response mix-up | `RESPONSE_CHANGED`, dropped |
+| V10 | formats removed, only `hlsManifestUrl` left | delivery change | H |
+| V11 | HLS playlist or segment 403, adaptive rows fine | token rule on HLS only | R0 (H unused) |
+| L1 | `streamingData` moved under another parent | re-nesting | L |
+| L2 | `formats` / `adaptiveFormats` renamed | key rename | L |
+| L3 | the address key renamed | key rename | L |
+| L4 | mime renamed, or split into type and codecs | field split | L (dropped when not mappable) |
+| L5 | `signatureCipher` renamed | `cipher` → `signatureCipher` (2020) | L + S |
+| L6 | types changed (itag or size as string ↔ number) | type drift | L |
+| L7 | list → object map keyed by itag | container change | L |
+| L8 | decoy: another video's format list (another length) | ads, end screens | L binds; this video's rows only |
+| L9 | hard decoy: same length, nothing binds | — | no L rows (clean) |
+| L10 | `playabilityStatus` moved | re-nesting | L when found `OK`; else no rows |
+| L11 | terminal answer (age, login, private) with format-like objects | — | stop = R6 |
+| L12 | protection marker renamed, streams encrypted | DRM layout change | init check drops all (clean) |
+| L13 | `hlsManifestUrl` moved | re-nesting | H via L's locate |
+| L14 | page signals moved (player ID, timestamp, visitor data) | page change | S via L's page locate |
+| L15 | half the formats in the old layout, half in a new one | partial rollout | both read, no duplicates |
+| L16 | 10 000 unrelated objects, deep nesting | noise | bounded scan; time metric |
+| Y1 | base version rejected; the source gives a newer valid one | version retired | A (self-healed) |
+| Y2 | the source gives garbage, a bad pattern, an older or the same value | source change | ignored → alternates |
+| Y3 | the source times out or is unreachable | network | ignored, no retry → alternates |
+| Y4 | the self-healed version is rejected too | — | dropped, not stored → alternates |
+| Y5 | many lookups in a day | — | ≤ 1 source fetch a day (fake clock) |
+| Y6 | the source also names other identity fields | tampering | only the version is read |
 
+- Every L case runs three times: V `pass`, `fail` and `unknown` on the L rows.
 - Columns: R6 chain (own solver off), R6 chain (own solver on), ladder (**live-backed**: R0 and
-  the local remedies A, S, Z, plus only the H and O rungs D0 proved live), ladder (all rungs,
-  simulated).
-- Measured per case: complete / partial / clean stop / **wrong row**; player requests, page
-  fetches, V, H and Z used. A wrong row: any row the case marks as broken (403, SABR, protected,
-  unsolved or wrongly solved, failed H check), a row after an age or video verdict, a row of another
-  video.
+  the local remedies A (the alternates and sources D0 proved), S, Z and L, plus only the H and O
+  rungs D0 proved live), ladder (all rungs, simulated).
+- Measured per case: complete / partial / clean stop / **wrong row** / **MCF** (§5.1); player
+  requests, page fetches, V, init checks, H and Z used. A wrong row: any row the case marks as
+  broken (403, SABR, protected, unsolved or wrongly solved, failed H check), a row after an age or
+  video verdict, a row of another video (a decoy's row included).
 - **Parity gate** (the 20 scenarios of `MasterYouTubeParityTest`, flag on): where visionOS's first
   answer is complete, the same requests, rows, order, labels and sizes as R6 (details may only gain
   ladder lines); where the chain ends in a terminal verdict, the same verdict and no ladder row;
   elsewhere every working R6 row is kept.
-- **Done:** the suite runs in CI's Gradle test step; the R6 baseline and the parity result are
-  written into §5.
+- **L round-trip:** canonical JSON built by L from each of the 5 base fixtures and the 20 parity
+  answers gives exactly the copied parser's rows of the original.
+- **Done:** the suite runs in CI's Gradle test step; the R6 baseline (every class, V10–V11,
+  L1–L16 and Y1–Y6 included), the parity and round-trip results are written into §5.
 
 ### D2 — Client table v2 and answer judge
 
@@ -289,10 +483,15 @@ D8 can run any time after D2, only after the owner's yes.
 - `AnswerJudge`: v1's class table from the copied parser's summary, the HTTP result and a shape
   scan; plus `hls` (an HLS address on a `googlevideo.com` host) and `VERSION_REJECTED` (HTTP 400 or
   the client's "update" answer).
+- v3: the judge's `SHAPE_CHANGED` kinds (moved, partial); `hls` from the field or L's locate;
+  `ShapeFingerprint` (key paths with value types to depth 6, arrays collapsed; key names only,
+  never values). The table also holds each identity's version pattern and its D0 version-source
+  status (usable / measured, not active, with the date).
 - **Done:** a unit test for every class from main's fixtures (`player_visionos.json`,
   `player_bot_check.json`, `player_age_gate.json`, `player_sabr_only.json`, `player_cipher.json`,
   `player_malformed.json`, `player_private.json`, `player_geo.json`, `player_drm.json`,
-  `player_embed_refused.json`); never `DIRECT` for a protected, SABR-only or cipher answer.
+  `player_embed_refused.json`); never `DIRECT` for a protected, SABR-only or cipher answer;
+  `SHAPE_CHANGED` for L1–L7 and L10, never for a terminal answer (L11).
 
 ### D3 — Health v2, order, budget and stop rules
 
@@ -302,10 +501,15 @@ D8 can run any time after D2, only after the owner's yes.
     `SHAPE_CHANGED` 24 h; `BOT_CHECK` 30 min for the whole ladder. A client in cooldown is asked
     only when every other client failed in this lookup, then only the one whose cooldown ends first.
   - A learned variant is tried first; when it fails, the base is tried once, then the next client.
+- v3: per client also the learned version (with its source and time) and the L shape map (keyed
+  by fingerprint; paths only); the version-source clock (≤ 1 fetch a day per identity); a learned
+  version or shape map that fails once is dropped (the base once, then the next rung). A class a
+  rung repaired (A, S, Z, L, H) counts as a pass with its learned variant; a cooldown starts only
+  when the client still fails after its rungs.
 - Order, budget (guardrail 7) and stop rules (guardrail 4) in `ClientLadder`.
 - **Done:** a unit test per rule; no request after a stop; H1 and H2 show the saving.
 
-### D4 — Row checks: V, H check and Z
+### D4 — Row checks: V, init check, H check and Z
 
 - V: reuse `StreamCheck` with the client ID in its budget and cache key; add only the cases the
   probe result does not carry yet (wrong content type, a redirect to another host).
@@ -316,26 +520,55 @@ D8 can run any time after D2, only after the owner's yes.
 - Rule: rows of a client without a pass in the last hour need a `pass`; 403 with an open control →
   `TOKEN_NEEDED` (guardrail 9 applies); `unknown` → that client's ladder rows are dropped for this
   lookup.
+- **Init check** (`InitCheck`, guardrail 6) on V's bytes for L rows: type, container start, no
+  encryption marker (MP4 `encv`, `enca`, `sinf`, `tenc`, `pssh`; WebM content encryption), size.
+- H check (v3): `#EXT-X-KEY` or `#EXT-X-SESSION-KEY` with a method other than `NONE` → `fail`;
+  no known video length → no H rows.
 - **Done:** fake-HTTP unit tests: 2xx, 206, 403 with and without control, timeout, wrong content
   type, wrong start bytes, a redirect to another host, an oversized playlist, a wrong duration;
-  V5 and F2–F3 behave as expected.
+  V5 and F2–F3 behave as expected; every init-check marker, wrong start bytes, a wrong type, a size
+  mismatch, an encryption key and a missing length fail as expected.
 
-### D5 — visionOS rungs: A, S, Z, H
+### D5a — visionOS rungs: A (with self-healed versions), S, Z
 
-- **A:** on `VERSION_REJECTED`, the next alternate version of the same identity (table; signed data
-  with D8). Never a version no reference lists.
+- **A:** on `VERSION_REJECTED`: learned → signed (D8, if approved) → self-healed
+  (`VersionSource`, only a D0-usable source; guardrail 5) → bundled alternates; never a version
+  that neither a reference nor a usable source gives.
 - **S:** watch page signals once per lookup (visitor data, signature timestamp, player ID); ask
   again with them; challenges from `signatureCipher` (s/sp) and `n`; `PlayerScriptRunner.resolve`
   with the own solver (`solver.OwnPlayerScriptRunner`, Phase 1.2 ladder and `SignatureGate`);
   apply; SelfCheck; V. Reuse the copied extractor's challenge and apply code where reachable;
   otherwise a Master-only equivalent tested on `player_cipher.json` and
-  `player_cipher_ladder.json` ("Plan adapted").
+  `player_cipher_ladder.json` ("Plan adapted"). From D5b on, a signal the copied `pageSignals`
+  misses comes from L's page locate.
 - **Z:** as D4, inside the rung.
-- **H:** HLS rows from the same answer: resolution from the master playlist, audio muxed or
-  paired with its separate group the way main's HLS code pairs it; downloaded by the existing HLS
-  engine; used only when the adaptive rows are refused or incomplete, labelled as HLS in details.
-- **Done:** V1–V5, H2 and F1–F3 complete or drop as expected in the simulator with a fake runner;
-  one owner-phone download of an H row: merged or remuxed MP4, duration ±2 s, both tracks.
+- **Done:** V1–V3, Y1–Y6, H2 and F1–F2 complete or drop as expected in the simulator with a fake
+  runner; a self-healed version is stored only after OK + V.
+
+### D5b — Own parser L
+
+- `ShapeLocator` and `ShapeNormalizer` (§3 L, steps 1–8); `SHAPE_CHANGED` → L; L's page locate
+  for S.
+- Tests: L1–L16 × the 5 base fixtures × V `pass` / `fail` / `unknown`; the round-trip (D1); a
+  time bound (JVM ≤ 20 ms for a 300 KB answer; the phone's time is a D7 metric).
+- Census tool update, on each live answer, in memory only (counts in the report): (1) the L
+  round-trip — canonical JSON gives the same rows as the direct parse; (2) mutations L1, L2, L3,
+  L5 and L7 applied to the live answer — L finds the same itags again, and their rows pass V.
+- Debug-only switch for D7: `-Pyft.ladderMutate=L1|L2|L3|L5|L7` (mutates visionOS's live answer
+  in memory before the judge; release `false`).
+- **Done:** wrong = 0 and MCF = 0 in L1–L16; complete in L1–L7, L10 (found), L14 and L15 with V
+  `pass`; no L row with V `fail` or `unknown`; the census steps unit-tested on the fixtures;
+  drift check 0; flag off = R6.
+
+### D5c — H leg (independent HLS)
+
+- `HlsLeg` (§3 H, steps 1–4) with D4's `HlsCheck` and the app's existing HLS path; H moves out
+  of v2's D5.
+- Tests: V4–V6, V10, V11, L1–L13 with the HLS address intact (L13: moved), and F3's faults plus
+  an encryption key and a missing length — complete or clean as expected; wrong = 0.
+- **Done:** the simulator as above; one owner-phone download per audio form D0 saw (muxed,
+  separate): a playable MP4 with both tracks, duration ±2 s. If D0 found that HLS needs a token,
+  H is built but stays "measured, not active", and W keeps measuring it.
 
 ### D6 — O rungs, memo, wiring, flag and merge rule
 
@@ -348,17 +581,21 @@ D8 can run any time after D2, only after the owner's yes.
 - `-Pyft.clientLadder` in `app/build.gradle.kts` (debug only; release `false`); workflow input
   `client_ladder` (default `false` until D7) in `master-optin-debug-apk.yml`;
   `AndroidBrowserMasterFallback.create` passes the ladder only when the flag is on. Debug-only
-  switches for the owner's check: `-Pyft.ladderSkip=visionos` and `=visionos-adaptive`.
+  switches for the owner's check: `-Pyft.ladderSkip=visionos` and `=visionos-adaptive`, and D5b's
+  `-Pyft.ladderMutate`.
 - **Done:** flag-off parity unchanged; parity gate green; in the simulator the ladder is never
-  worse than the chain and wrong rows = 0; the memo saves the chain's repeated visionOS request
-  and page fetch; CI green.
+  worse than the chain, wrong rows = 0 and MCF = 0; the memo saves the chain's repeated visionOS
+  request and page fetch; CI green.
 
-### D7 — Canary, owner live check, runbook
+### D7 — Owner live check, weekly check, runbook
 
-- Canary = the D0 tool: per client its class, whether the ladder completes and which rung
-  answered. Owner-run; never CI.
-- Owner live check on the phone (all flags on), the same 10 videos in three modes: normal;
-  `visionos-adaptive` skipped (H expected); `visionos` skipped (O expected).
+- The canary is the census tool (both modes): per client its class, whether the ladder completes
+  and which rung answered. Owner-run on the phone; never CI.
+- Owner live check (all flags on, mobile data), the same 10 videos in four modes: normal;
+  `visionos-adaptive` skipped (H expected); `visionos` skipped (O expected); `ladderMutate` L1,
+  L3 and L5 (L expected: the normal mode's itags found again, every L row V-passed).
+- The census tool's L round-trip and mutation steps on the live answers of one full run.
+- Two weekly checks, timed (≤ 60 s and ≤ 2 MB each); from then on the owner runs one a week.
 - Runbook (§7) updated with what the census showed.
 - **Done:** the owner's report; §5 targets met or new targets proposed with numbers.
 
@@ -372,38 +609,89 @@ D8 can run any time after D2, only after the owner's yes.
 - Tests like `RemoteRecipesTest`: a signed section changes visionOS's version; unsigned,
   tampered, older, expired, unknown-client, bad-pattern and oversized sections are ignored.
 - Runbook: `VERSION_REJECTED` → the owner signs a table with the reference's new value; phones
-  pick it up within a day, no APK. **If the owner says no:** a retired version needs an APK (v1),
-  recorded as a known limit.
+  pick it up within a day, no APK. **If the owner says no** and no source is usable: a retired
+  version needs an APK (v1), recorded as a known limit.
+- v3: decided after D0. If a usable source self-heals visionOS's version, D8 may be dropped (the
+  owner decides). The owner has no computer, and R9's `scripts/master-recipe-sign.sh` is a shell
+  tool for one: an approved D8 therefore includes a phone path — a `workflow_dispatch` signing
+  workflow with the private key as a repository secret (the owner decides the key's custody),
+  started from the phone.
 
 ## 5. Pass criteria (Phase 1.3 done)
 
-- **Parity:** the D1 parity gate green; flag on and visionOS healthy: one request, the R6 rows;
-  live: the same rows as R6 on 10 of 10 videos (extras only where R6 gave none).
-- **Simulator:** wrong = 0 in every class and fault, in both ladder columns.
-  - T1–T3: the ladder stops at the first such answer, makes no further request, the result equals
-    R6's.
+### 5.1 Master-caused failure (MCF)
+
+A lookup is a **Master-caused failure** when it ends without the complete correct rows (P22 rule)
+although a path existed that uses only the allowed identities and versions (learned, signed,
+self-healed, bundled), needs no token, cookie, SABR, TV, MSE recording or bypass, and whose rows
+pass V or the H check — or when it offers any wrong row.
+
+**Not Master-caused:** a terminal verdict (age, private, removed, geo, DRM, bot check) and a
+**server closure** — every allowed path refused (a token rule, SABR only, the client removed,
+every allowed version rejected). Master then stops cleanly with R6's verdict, and W shows it
+within a week.
+
+Targets: MCF = 0 and wrong = 0 in every simulator class, in both ladder columns; MCF = 0 in the
+owner's D7 check and in every weekly check. A live MCF is a top-priority bug: it is fixed and
+becomes a simulator class (as Phase 1.2 added M9b and M9c). Honest limit: 0 is proved for the
+modelled classes; an unmodelled change ends in a clean stop, W shows it, and it becomes a class.
+
+### 5.2 Criteria
+
+- **Parity:** the D1 parity gate and the L round-trip green; flag on and visionOS healthy: one
+  request, the R6 rows; live: the same rows as R6 on 10 of 10 videos (extras only where R6 gave
+  none).
+- **Simulator:** wrong = 0 and MCF = 0 in every class and fault, in both ladder columns.
+  - T1–T3: the ladder stops at the first such answer, makes no further request, the result
+    equals R6's.
   - The ladder is never worse than R6 in any class.
-  - Live-backed column: complete in V1–V3 (V1 through a bundled alternate or D8); in V4–V5 when
-    D0 found H live; in V6–V9 only through census-live O rungs, else a clean failure with R6's
-    verdict. H1 and H2 save at least one request.
+  - Live-backed column: complete in V1–V3 (V1 through a live alternate, a usable source or D8);
+    in V4–V5 and V10 when D0 found H live; in V6–V9 only through census-live O rungs, else a
+    clean failure with R6's verdict; V11 = R0. H1 and H2 save at least one request.
+  - L: complete in L1–L7, L10 (found), L13 (with H live), L14 and L15 with V `pass`; L8 only
+    this video's rows; L9 and L12 no rows; L11 = R6; no L row with V `fail` or `unknown`; L16
+    within the time bound.
+  - Y: Y1 complete through the self-healed version when a usable source exists (else through an
+    alternate, or a clean stop); Y2–Y6 as listed; ≤ 1 source fetch a day.
   - In every class where R6 is below 100 %, the ladder completes more cases than R6.
-- **Faults:** F1–F4: 0 wrong, 0 missed.
-- **Budget:** guardrail 7; in V1–V5 the whole lookup makes no more requests than R6.
-- **Live (owner, D7):** normal mode = the R6 rows plus at most extra formats; `visionos-adaptive`
-  skipped → ≥ 8 of 10 complete when D0 found H live; `visionos` skipped → targets written after D0
-  with numbers; no bot check caused by the ladder in the session.
-- **Flag off = R6 / main;** CI, `MasterYouTubeParityTest`, `MasterMainMoreSheetTest` green; drift 0.
+- **Faults:** F1–F4, the init-check and the H-check faults: 0 wrong, 0 missed.
+- **Budget:** guardrail 7; in V1–V5 and L1–L15 the whole lookup makes no more player requests
+  than R6.
+- **Live (owner, D7, mobile data):** normal mode = the R6 rows plus at most extra formats;
+  `visionos-adaptive` skipped → ≥ 8 of 10 complete when D0 found H live; `visionos` skipped →
+  targets written after D0 with numbers; `ladderMutate` → every video complete in normal mode is
+  complete again with the same itags, every L row V-passed, wrong 0; no bot check caused by the
+  ladder in the session.
+- **W:** the weekly check ≤ 60 s and ≤ 2 MB on the phone, twice; the diff tests green; no
+  background API in the census code.
+- **Versions:** the version-source table filled; for visionOS either a usable source or the
+  written reason.
+- **Flag off = R6 / main;** CI, `MasterYouTubeParityTest`, `MasterMainMoreSheetTest` green;
+  drift 0.
 
 Census (filled by D0):
 
 | Rung | run 1 | run 2 | run 3 | live? |
 |---|---|---|---|---|
 | R0 visionOS (adaptive rows) | — | — | — | — |
+| A alternates (bundled, ≤ 2) | — | — | — | — |
 | S (visionOS with page signals) | — | — | — | — |
-| H (visionOS HLS) | — | — | — | — |
+| H (token step: master / variant / segment) | — | — | — | — |
 | Android | — | — | — | — |
 | embedded | — | — | — | — |
 | MWEB | — | — | — | — |
+
+Version sources (filled by D0):
+
+| Identity | Source | run 1 | run 2 | run 3 | usable? (or why not) |
+|---|---|---|---|---|---|
+| visionOS | YouTube answers and pages | — | — | — | — |
+| visionOS | App Store lookup | — | — | — | — |
+| visionOS | reference table | — | — | — | — |
+| Android | Play Store page | — | — | — | — |
+| Android | reference table | — | — | — | — |
+| embedded | embed page config | — | — | — | — |
+| MWEB | mobile page config | — | — | — | — |
 
 Baseline (filled by D1; the ladder columns by D6):
 
@@ -418,6 +706,30 @@ Baseline (filled by D1; the ladder columns by D6):
 | V7 | — | — | — | — |
 | V8 | — | — | — | — |
 | V9 | — | — | — | — |
+| V10 | — | — | — | — |
+| V11 | — | — | — | — |
+| L1 | — | — | — | — |
+| L2 | — | — | — | — |
+| L3 | — | — | — | — |
+| L4 | — | — | — | — |
+| L5 | — | — | — | — |
+| L6 | — | — | — | — |
+| L7 | — | — | — | — |
+| L8 | — | — | — | — |
+| L9 | — | — | — | — |
+| L10 | — | — | — | — |
+| L11 | — | — | — | — |
+| L12 | — | — | — | — |
+| L13 | — | — | — | — |
+| L14 | — | — | — | — |
+| L15 | — | — | — | — |
+| L16 | — | — | — | — |
+| Y1 | — | — | — | — |
+| Y2 | — | — | — | — |
+| Y3 | — | — | — | — |
+| Y4 | — | — | — | — |
+| Y5 | — | — | — | — |
+| Y6 | — | — | — | — |
 | T1 | — | — | — | — |
 | T2 | — | — | — | — |
 | T3 | — | — | — | — |
@@ -430,47 +742,77 @@ Baseline (filled by D1; the ladder columns by D6):
 
 ## 6. Risks
 
-- **No live second leg.** D0 may find only R0 (+ H). Then Phase 1.3 saves the requirement changes
-  (version, script, sizes and, with H, SABR or a token rule on the adaptive rows), not a closed
-  visionOS. Reported plainly; Phase 1.4 is the owner's decision (§9).
-- **HLS** may need a token too, top out lower than the adaptive formats, or use other codecs:
-  measured in D0; used only when the adaptive rows fail; labelled per row.
+- **No live second leg.** D0 may find only R0 (+ H). Then Phase 1.3 saves the requirement and
+  layout changes (version, script, sizes, layout and, with H, SABR or a token rule on the
+  adaptive rows), not a closed visionOS. Reported plainly; SABR clients, tokens and MSE recording
+  stay excluded, so the owner decides what follows (§9).
+- **L false positives** (decoys: ads, end screens, another video's data): the binding
+  (`videoId`, length ±1.5 s, the itag inside the address), ambiguity = no rows, V and the init
+  check on every L row; L8, L9 and L12 in the simulator; live mutations in D7.
+- **L hiding a terminal state:** playability must be read (the copied parser, or exactly one
+  located `OK`), else no rows (L10, L11).
+- **L cost:** up to 8 V (4 KiB each) per lookup while a layout change lasts; the shape map saves
+  the scan, not the checks; it ends when main's parser follows the change (drift process).
+- **Self-heal source trust:** a public source can change or be tampered with: the pattern,
+  newer-only, the version field only, kept only after OK + V, ≤ 1 fetch a day; a reference's
+  file is read as text, never run; a new host only with the owner's yes.
+- **HLS** may need a token, top out lower than the adaptive formats or use other codecs: measured
+  in D0; used only when the adaptive path cannot complete; labelled per row; never without the
+  length binding.
+- **Weekly cadence:** a change can stay unseen for up to 7 days; the lookup's own fallbacks cover
+  the gap, and the owner may run the check any time.
+- **Mobile-data-only measurements** show the owner's carrier network only; YouTube may answer
+  other networks differently.
 - **Learned variants go stale:** each has a pass time; a failure falls back to the base once.
 - **Signed data (D8):** a lost key could ship bad identity values; the schema bounds them (4 known
-  clients, patterns, fixed lists, no code, no hosts) and the bundled table stays.
+  clients, patterns, fixed lists, no code, no hosts) and the bundled table stays; a key kept as a
+  repository secret (the phone path) is as safe as the owner's GitHub account.
 - **More exposure under YouTube's terms:** ≤ 4 identities already in main, no fingerprint tricks,
   no cookies, stop on the first bot check, health cooldowns, the budget.
 - **n slowdowns are not visible to V** (Phase 1.2 T4): the census records the time to the first
   64 KiB as a metric only.
 - **Duplicated logic** (row builder, S path): parity gate and fixture tests; the drift check keeps
-  guarding the copies.
+  guarding the copies. L builds no rows of its own (canonical JSON into the copied parser).
 - **Flaky clients** (N7 run 3): the census measures rates over runs; health uses cooldowns, not a
   single answer, to retire a client.
 
 ## 7. Runbook (when a client fails)
 
-1. Run "YFT client census" on one public video: which rung, which class.
-2. `VERSION_REJECTED`: an alternate in the table carries it; else (D8) sign a table with the
-   reference's new value (source and date); else a new APK.
-3. `NEEDS_SCRIPT`: nothing to do while the own solver is on (S).
-4. Missing sizes: nothing to do (Z).
-5. `SABR_ONLY` or `TOKEN_NEEDED` on visionOS's adaptive rows: H carries the lookup when the census
-   shows H live; otherwise only live O rungs.
-6. `SHAPE_CHANGED`: main's parser changes first; the copy follows through the drift process.
-7. A new no-token client in a reference: census first, then the table (≤ 4 identities), then an APK.
+1. Weekly check (W), once a week: `NO CHANGE` → nothing. `CHANGED` or `BROKEN` → copy the result
+   to the agent; each line names a step below.
+2. One video fails: run the full census on it: which rung, which class.
+3. `VERSION_REJECTED`: the learned, signed (D8) or self-healed version (a usable source) or an
+   alternate carries it; else (D8) sign a table with the reference's new value (source and date);
+   else a new APK.
+4. `NEEDS_SCRIPT`: nothing to do while the own solver is on (S).
+5. Missing sizes: nothing to do (Z).
+6. `SHAPE_CHANGED` (W: **BREAKING** paths): L carries the lookup, every row V-passed; the agent
+   adds the change as a simulator class; main's parser changes first, the copy follows through
+   the drift process.
+7. `SABR_ONLY` or `TOKEN_NEEDED` on visionOS's adaptive rows: H carries the lookup when H is
+   live; otherwise only live O rungs.
+8. Every allowed path refused (server closure, §5.1): nothing in Master can carry it; W keeps
+   measuring; the owner decides.
+9. A new no-token client in a reference: census first, then the table (≤ 4 identities), then an
+   APK.
 
 ## 8. Out of scope
 
-Proof-of-origin tokens and attestation, cookies and sign-in, SABR/UMP, DRM, age or geo bypass,
-proxies or VPNs, TLS fingerprinting, remote code, the TV client (unless the owner reopens it), MSE
-recording (the real-player leg, `MASTER_KEY_NOTES.md` §3 (b): a Phase 1.4 candidate with its own
-experiment first), main merge and release.
+Excluded by the owner (v3): SABR clients (SABR/UMP), proof-of-origin tokens and attestation, MSE
+recording, the TV client and any bypass (age, geo, bot check, DRM). Also out: cookies and
+sign-in, proxies or VPNs, TLS fingerprinting, remote code, background or scheduled checks, main
+merge and release, merging PR #2.
 
 ## 9. Owner decisions
 
-1. **Adopt v2** (replaces v1's D1–D7). Needed before D0.
-2. **D8 signed identity data:** yes / no (changes v1's "no remote table"). Needed before D8;
-   recommended yes, because it is the only way a retired version needs no APK.
-3. **TV client:** stays out (recommended) / reopen.
-4. **After the D0 gate:** if neither H nor any O rung is live, choose: finish 1.3 with A, S and Z
-   only, and/or plan Phase 1.4 (MSE recording experiment).
+1. **Adopt v3** (extends v2; v2's D5 becomes D5a–D5c). Needed before D0.
+2. **G0:** done — the owner closed Phase 1.2 on 2026-10-14 (`a99e0fb`: N4b closed, private video
+   skipped, n rule PENDING). Nothing left to decide.
+3. **After D0, version sources:** which usable source may be used in lookups, above all one on a
+   host Master does not use yet (Apple, Google Play, GitHub raw for a reference).
+4. **D8 signed identity data:** yes / no, decided after D0 (item 3); if yes, the phone signing
+   path and the key's custody.
+5. **After the D0 gate:** if neither H nor any O rung is live, Phase 1.3 finishes with A, S, Z and
+   L; no SABR, token or MSE work follows from this plan.
+6. **M5 (Phase 1.2 carry-over, `PROGRESS.md` "Phase 1.2 — done"):** not part of this plan; the
+   owner decides whether it becomes its own solver task. Not needed for D0.
