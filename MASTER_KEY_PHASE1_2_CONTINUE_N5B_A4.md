@@ -25,7 +25,7 @@ STATE (verify; the repo wins)
   N7; option 4 refused: the locator file is data only, code from disk never runs.
 - A.2 ✅ de83094 (CI 38335870863 / 38335874782): request.deadline (core step counters, between
   phases; unfinished kinds → n:budget / sig:budget), wrapper field deadline_ms, Kotlin Next caps
-  worker 40 s / page 35 s / lookup 60 s, budget memory per player|step (≤ 64), protocol
+  worker 40 s / page 35 s (20 s since N7) / lookup 60 s, budget memory per player|step (≤ 64), protocol
   Options.deadlineMillis + Decoded.Solved.budget; runners --ladder send STEP_CAPS_MS.
 - A.3 ✅ 09097f9 (CI 38337512614 / 38337517655): mutation runner --judge ladder|all.
 - Tests at 09097f9: JS 194/194, Kotlin solver package 61/61 (local JVM), CI green.

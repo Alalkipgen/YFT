@@ -863,9 +863,11 @@ class OwnPlayerScriptRunner(
 
         /**
          * A page step's deadline, tighter: it runs only for the kinds the workers left, on the
-         * app's shared renderer (provisional; N7 re-tunes it with the phone's numbers).
+         * app's shared renderer, where a page job holds the in-app browser for about its own
+         * length. N7 (owner, 2026-10-14): 20 s, down from the provisional 35 s; on the phone a page
+         * job stalled the browser 0.8-1.3 s, so 20 s keeps a wide margin and bounds the worst stall.
          */
-        const val DEFAULT_PAGE_CAP_MILLIS: Long = 35_000
+        const val DEFAULT_PAGE_CAP_MILLIS: Long = 20_000
 
         /** One lookup: P's init budget (20 s) + a worker cap, so B keeps its full cap after P. */
         const val DEFAULT_LOOKUP_CAP_MILLIS: Long = 60_000

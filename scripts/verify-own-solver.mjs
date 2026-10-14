@@ -24,7 +24,7 @@
 //                                                 # times and the lookup's time: N5b A.1)
 //   ... --prepare --strategy B                    # also B's prepared sizes in characters (N5b A.1)
 //   ... --ladder --no-deadline                    # N5b A.2: --ladder sends the app's step caps as
-//                                                 # deadlines (worker 40 s, page 35 s); this drops them
+//                                                 # deadlines (worker 40 s, page 20 s); this drops them
 //   N5b A.4 (locator cache): --ladder's worker steps run in locate mode (locator {}: the miss) and
 //   then each file's hits are timed with the parts they gave: P (a) on P's kept program (the same
 //   process), P (b) and B from the player text (after a restart), each in a fresh isolate as the

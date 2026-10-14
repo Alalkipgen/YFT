@@ -247,7 +247,7 @@ class OwnSolverLadderRunnerTest {
         OwnPlayerScriptRunner(players(), worker, next = timed(clock, page)).resolve(request())
 
         assertEquals(listOf<Long?>(40_000, 40_000), deadlines(worker))
-        assertEquals(listOf<Long?>(35_000, 35_000), deadlines(page))
+        assertEquals(listOf<Long?>(20_000, 20_000), deadlines(page))
         assertTrue(worker.inputs.all { it.contains("\"deadline_ms\":40000") })
     }
 
@@ -281,27 +281,63 @@ class OwnSolverLadderRunnerTest {
             assertTrue(page.jobs.isEmpty())
             assertTrue(runner.lastFailures.containsAll(listOf("pP lookup cap", "pB lookup cap")))
 
-            // P is skipped; B has its full cap now (off); page P gets what is left.
+            // P is skipped; B has its full cap now (off); page P gets what is left, 20 s, which is
+            // also its full cap (N7: page 20 s), so page P is off too.
             assertEquals(60_000L, lookup())
             assertTrue(runner.lastFailures.containsAll(listOf("P budget off", "pB lookup cap")))
             assertEquals(listOf<Long?>(40_000, 20_000, 40_000), deadlines(worker))
             assertEquals(listOf<Long?>(20_000), deadlines(page))
 
-            // Both workers skipped: page P with its full cap (off), page B with what is left.
-            assertEquals(60_000L, lookup())
+            // Both workers and page P are skipped: page B with its full cap (off).
+            assertEquals(20_000L, lookup())
             assertEquals(3, worker.jobs.size)
-            assertEquals(listOf<Long?>(20_000, 35_000, 25_000), deadlines(page))
+            assertEquals(listOf<Long?>(20_000, 20_000), deadlines(page))
+            assertTrue(runner.lastFailures.contains("pP budget off"))
 
-            // Page B with its full cap; then every step is off for this player, and nothing runs.
-            assertEquals(35_000L, lookup())
-            assertEquals(listOf<Long?>(20_000, 35_000, 25_000, 35_000), deadlines(page))
+            // Every step is off for this player now, and nothing runs.
             assertEquals(0L, lookup())
             assertEquals(3, worker.jobs.size)
-            assertEquals(4, page.jobs.size)
+            assertEquals(2, page.jobs.size)
             val off = listOf("P budget off", "B budget off", "pP budget off", "pB budget off")
             assertTrue(runner.lastFailures.containsAll(off))
             // A budget is no strike: the breaker still allows every step.
             assertTrue(Step.entries.all { breaker.allows(PLAYER, it) })
+        }
+
+    @Test
+    fun `a page step with only a short deadline is not kept - the next lookup runs it again with its full cap`() =
+        runTest {
+            val clock = FakeClock()
+            val worker = StepEngine { job, events ->
+                if (job.isB) takes(clock, job, events, SLOW) else clean(job, events, initErrors = 1)
+            }
+            val page = StepEngine { job, events ->
+                if (job.isB) takes(clock, job, events, SLOW) else takes(clock, job, events, 10_000, initErrors = 1)
+            }
+            val runner = OwnPlayerScriptRunner(players(), worker, next = timed(clock, page))
+
+            suspend fun lookup(): Long {
+                val start = clock.now
+                runner.resolve(request())
+                return clock.now - start
+            }
+
+            // B runs out with its full cap (off); page P answers in 10 s with an init error, so
+            // page B runs, with the 10 s left (short: not kept).
+            assertEquals(60_000L, lookup())
+            assertEquals(listOf<Long?>(40_000, 40_000), deadlines(worker))
+            assertEquals(listOf<Long?>(20_000, 10_000), deadlines(page))
+
+            // B is skipped; page B runs again, now with its full cap (off).
+            assertEquals(30_000L, lookup())
+            assertEquals(listOf(false, true, false), worker.jobs.map { it.isB })
+            assertEquals(listOf<Long?>(20_000, 10_000, 20_000, 20_000), deadlines(page))
+            assertTrue(runner.lastFailures.contains("B budget off"))
+
+            // Page B is skipped now too.
+            assertEquals(10_000L, lookup())
+            assertEquals(5, page.jobs.size)
+            assertTrue(runner.lastFailures.contains("pB budget off"))
         }
 
     @Test
@@ -460,7 +496,7 @@ class OwnSolverLadderRunnerTest {
     /** N5b A.2: the ladder's clock in these tests; a fake job moves it on by the time it takes. */
     private class FakeClock(var now: Long = 0)
 
-    /** The default caps (worker 40 s, page 35 s, lookup 60 s), on [clock]. */
+    /** The default caps (worker 40 s, page 20 s, lookup 60 s), on [clock]. */
     private fun timed(
         clock: FakeClock,
         page: OwnSolverEngine? = null,

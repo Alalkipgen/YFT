@@ -596,7 +596,7 @@ var yftOwnSolver = (function () {
   var pNow = typeof Date === "function" && typeof Date.now === "function" ? Date.now.bind(Date) : function () { return 0; };
 
   // N5b A.2: the job's deadline. The app sets it per step (min(job cap, the time left in the
-  // lookup): worker steps 40 s, page steps 35 s, lookup 60 s) as `deadline`, milliseconds from the
+  // lookup): worker steps 40 s, page steps 20 s, lookup 60 s) as `deadline`, milliseconds from the
   // call of solve, run or runB. P's and B's step counters stop player code at it (checked every
   // P_TIME_EVERY steps, as P's own time caps), and the core checks it between attempts and
   // phases. At the deadline only kinds whose requested checks all finished (SelfCheck, and the

@@ -55,7 +55,7 @@ code, without an APK update:
   function ကို မယုံ) + breaker + wiring (flag default off)။ code အကုန်ပြီးမှ test တစ်ခါတည်း (~၅ နာရီ)။
 - N7 ပြီးပါပြီ (`41d8a11`, `f9247bb`, `eecfba7`): owner ဖုန်း (Android 16, WebView 149) ပေါ်မှာ canary ၃ ကြိမ် —
   P/B/E build ၂ ခုလုံး pass၊ P hit 0.3–0.4 s (≤ 2 s ✅)၊ restart နောက် 1.4 s (≤ 8 s ✅)၊ B 1.6–6.9 s (metric)၊
-  page stall ≤ 1.3 s (cap 35 s → 20 s အဆိုပြု၊ owner ဆုံးဖြတ်ရန်)။ JS heap 1850 MB (B လို ≤ 400 MB)။ V ဖုန်းပေါ်မှာ
+  page stall ≤ 1.3 s (page cap 35 s → 20 s၊ owner အတည်ပြု 2026-10-14)။ JS heap 1850 MB (B လို ≤ 400 MB)။ V ဖုန်းပေါ်မှာ
   မ run ရသေး (signature မလိုတဲ့ video)။ Run 3 FAIL = YouTube က stream မပေး (solver မဟုတ်)။
 
 ## 0. Why (evidence)
@@ -262,7 +262,7 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 | N5a | Ladder rule (init errors in replies, shared case table), runners `--ladder`/`--dyncode`, M9c; app unchanged | N4b | Medium | Done (`a78626f`, CI 38189985242); measured (§4 note "N5a") |
 | N5b | Page-P step budget, circuit breaker, ladder + locator cache wired behind `ownSolverNext` (default off); M9c fixes: V on every signature, environment tripwire | N5a | Medium–High | Done (TEST_SHA `48dd744`, test cycle 22/22 ✅; A.8 V wiring `df9a1e1`, CI 38413760115 ✅) |
 | N6 | Canary workflow (computer) | N1, N3 | Low–Medium | Done (`0714d76`; push run 38424779157 ✅, owner re-run ✅; label triggers `d390a0e`, CI ✅) |
-| N7 | Owner live check + runbook update | N4, N5, N6 | Low | Done (canary tool `41d8a11`, worker fix `f9247bb`, round 2 prep `eecfba7`; round 2 on the phone ✅: P, B and E pass on both builds, P hit 0.3–0.4 s / 1.4 s after a restart; page cap 20 s proposed; PROGRESS.md N7) |
+| N7 | Owner live check + runbook update | N4, N5, N6 | Low | Done (canary tool `41d8a11`, worker fix `f9247bb`, round 2 prep `eecfba7`; round 2 on the phone ✅: P, B and E pass on both builds, P hit 0.3–0.4 s / 1.4 s after a restart; page cap 35 → 20 s, owner 2026-10-14; PROGRESS.md N7) |
 
 N1 comes first: it measures the baseline that every later task is judged by. N2 can run beside N1.
 
@@ -637,12 +637,12 @@ chose, see A.1) and A.7.
     tripwire when the job asks for it); the rest are `budget`. Tighter caps for page steps.
   - Caps (owner-approved 2026-10-13 from A.1's numbers, phone margin ×4): job cap 40 s (worker
     steps; Kotlin job timeout 45 s − 5 s grace), page cap 35 s (provisional: re-tuned with N7's
-    phone numbers, §5), lookup cap 60 s (`P_INIT_MS` 20 s + job cap).
+    phone numbers, §5; N7: 20 s, owner 2026-10-14), lookup cap 60 s (`P_INIT_MS` 20 s + job cap).
   - Kotlin: `budget` memory keyed `player|step` (≤ 64), no breaker, recorded only when the step
     had the full job cap. When the lookup cap runs out, later steps are not run, not recorded, no
     breaker. A core that ignores the deadline still ends in the job timeout → breaker (unchanged).
   - Short deadline (owner, 2026-10-13): a step whose deadline was below its full cap (job 40 s,
-    page 35 s) because the lookup had less time left, and that ended `budget`, is recorded only the
+    page 20 s; 35 s before N7) because the lookup had less time left, and that ended `budget`, is recorded only the
     second time in a row for the same `player|step`; once is not recorded. "In a row" =
     consecutive runs of that `player|step`: a result other than `budget` in between starts the
     count again; a lookup where the step did not run does not count. All four steps; the same
@@ -763,7 +763,8 @@ chose, see A.1) and A.7.
 - **Option 3 again** (B's prepared program in memory, N5b A.1) only if, on the current YouTube
   player, P fails and B is really used, and B hit > 5 s.
 - **Page cap:** measure how long the in-app browser stalls while a page job runs; re-tune the
-  provisional page cap (35 s, N5b A.2) with the phone numbers (§5).
+  provisional page cap (35 s, N5b A.2) with the phone numbers (§5). Done: 20 s (owner,
+  2026-10-14).
 - **P (b) in total, with V (owner, N5b A.8):** besides the hit time, measure on the phone the
   whole lookup after a restart, from its start to the rows: the player download, the engine's
   cold start, the core run and the V request (a restart forgets Phase 1.1's V passes; with
@@ -782,8 +783,8 @@ chose, see A.1) and A.7.
 - **Result (2026-10-14, PROGRESS.md N7):** round 1 stopped at phone B1 (`WorkerError`: the player's
   own error events reached the host page; fixed in `f9247bb`). Round 2 (`eecfba7`, 3 runs): P, B
   and E pass on both builds; P hit 0.3–0.4 s in the same process ✅, 1.4 s after a restart ✅;
-  first B run 5.2–6.9 s (§4 ≤ 10 s ✅), B hit 1.6–2.9 s; page stall 0.8–1.3 s (page cap: 20 s
-  proposed, owner decides); lookup after a restart 3.3 s (the very first 14.2 s, network); phone
+  first B run 5.2–6.9 s (§4 ≤ 10 s ✅), B hit 1.6–2.9 s; page stall 0.8–1.3 s (page cap 35 → 20 s,
+  owner-approved 2026-10-14); lookup after a restart 3.3 s (the very first 14.2 s, network); phone
   factor about ×1 of the computer (caps keep their room); option 3 again not needed; JS heap
   limit 1850 MB against B's computer need ≤ 400 MB. V was not needed (no signature), so it has not
   run on the phone yet. Run 3's FAIL was YouTube giving the lookup's video no stream (embedded:
@@ -941,10 +942,10 @@ variant, 2 seeds each):
   `onRenderProcessGone`: if the renderer dies, the app process dies with it.
 - **Page job stalls the in-app browser (UX, N5b A.2):** a page step runs on the app's shared
   renderer main thread, so one page job can hold the in-app browser up to the page cap (35 s,
-  provisional). N7 measures the stall on the phone and the cap is re-tuned with those numbers.
+  provisional; 20 s since N7). N7 measures the stall on the phone and the cap is re-tuned with those numbers.
   N7 (phone): a page job stalls it for about its own length, 0.8–1.3 s (page P); the cap only
   bounds a slow job. Proposed 20 s (the corpus's largest page B 7.5 s × the phone's factor 1.4 ×
-  about 2); owner decides.
+  about 2): owner-approved 2026-10-14, now the default (the longest stall 35 → 20 s).
 - **Short-deadline `budget` memory (N5b A.2):** after two short-deadline `budget`s in a row for a
   `player|step`, that step is skipped until the app restarts (or the entry is evicted, ≤ 64), even
   if it would finish with its full cap. The locator cache makes this rarer (a P hit leaves B its
@@ -978,7 +979,7 @@ variant, 2 seeds each):
 - **Caps (N5b A.2, chosen from A.1's numbers):** job 40 s = the Kotlin job timeout 45 s − 5 s grace
   (the deadline is checked every 4096 steps, then the reply and the bridge); lookup 60 s =
   `P_INIT_MS` 20 s + the job cap, so B keeps its full cap after P; page 35 s, tighter because a
-  page step holds the shared renderer (provisional). Phone margin ×4 on the computer's numbers: B
+  page step holds the shared renderer (provisional; 20 s since N7, owner 2026-10-14). Phone margin ×4 on the computer's numbers: B
   fits the corpus up to ×4.9, page B up to ×4.6; on the largest players all four steps (≤ 76 s at
   ×4) pass 60 s, so page steps may be cut and run in the next lookup. If N7's phone factor is
   above ×4.9, B on the largest players ends `budget` (no wrong value, fewer answers): re-tune

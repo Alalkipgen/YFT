@@ -13,7 +13,7 @@ export const LADDER_KINDS = ["n", "sig"];
 // (OwnPlayerScriptRunner.DEFAULT_WORKER_CAP_MILLIS and DEFAULT_PAGE_CAP_MILLIS; ladder.test.mjs
 // checks they match). The lookup cap (60 s over all steps) is the app's alone: the runners run
 // every step on its own.
-export const STEP_CAPS_MS = Object.freeze({ worker: 40000, page: 35000 });
+export const STEP_CAPS_MS = Object.freeze({ worker: 40000, page: 20000 });
 
 // N5b A.3: the mutation runner's exit code (0 pass, 1 fail) by its --judge. "all": any wrong value
 // (ejs, a step on its own, the ladder). "ladder": the ladder's answers only; ejs's and each step's

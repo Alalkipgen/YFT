@@ -1,5 +1,27 @@
 # YFT Master Extractor backup
 
+## Phase 1.2 — N7 follow-up: page cap 20 s (owner, 2026-10-14)
+
+- ✅ Page cap 35 s → 20 s: `OwnPlayerScriptRunner.DEFAULT_PAGE_CAP_MILLIS` (`OwnSolverProbe`, so
+  the canary, takes the same default) and `scripts/own-solver/ladder.mjs` `STEP_CAPS_MS.page`
+  (`ladder.test.mjs` checks it against the Kotlin constant). Why: on the phone a page job stalls
+  the in-app browser for about its own length (0.8–1.3 s, page P); the cap only bounds a slow page
+  job, so the longest possible stall goes 35 → 20 s. 20 s = the corpus's largest page B on the
+  computer (7.5 s, A.1) × the phone's highest factor 1.4 × about 2. Worker 40 s and lookup 60 s
+  unchanged.
+- Effect on the ladder: when the workers use 40 + 20 s, the 20 s left is now page P's full cap, so
+  a page P that ends `budget` there is off at once for that player (before: a short deadline, kept
+  only the second time in a row).
+- Tests: `OwnSolverLadderRunnerTest`: the page deadlines are 20 s; "all four steps slow" now takes
+  60 / 60 / 20 / 0 s over four lookups (was 60 / 60 / 60 / 35 / 0 s); new: a page step with only a
+  short deadline (10 s left) is not kept and runs again in the next lookup with its full cap.
+  Local: extractor-master solver tests 126/126, JS 227/227. CI: pending.
+- No new APK needed: the opt-in APK `eecfba7` still has 35 s, but the cap only matters for a page
+  job slower than 20 s, and the phone's page jobs took ≤ 1.3 s; the live check and V run on it.
+  The next APK built for another reason carries 20 s.
+- Next (owner): live check + V on the phone (debug and release app, the §4.3 videos), and run 3's
+  "no stream" video in the release app.
+
 ## Phase 1.2 — N7 owner live check — done (canary tool `41d8a11`, worker fix `f9247bb`, round 2 prep `eecfba7`; round 2 on the phone ✅: P, B and E pass on both builds, P hit 0.3–0.4 s, 1.4 s after a restart)
 
 - ✅ Canary tool (`41d8a11`, debug build only, opt-in APK `yft-master-optin-debug-apk-next-<sha7>`):
@@ -109,8 +131,8 @@
     lookup cap 60 s keep their room; no re-tune.
   - Option 3 again (B's prepared program in memory): not needed. P passes on today's player and
     B's hit is 1.6–2.9 s (the condition: P fails, B is used and B hit > 5 s).
-  - ⚠️ Page cap 35 s: a page job stalls the in-app browser for about its own length (0.8–1.3 s on
-    the phone, page P). The cap only bounds a slow page job. Proposal, owner decides (not changed):
+  - ✅ Page cap 35 s → 20 s (owner-approved 2026-10-14, N7 follow-up above): a page job stalls the in-app browser for about its own length (0.8–1.3 s on
+    the phone, page P). The cap only bounds a slow page job. Chosen:
     20 s = the corpus's largest page B on the computer (7.5 s, A.1) × 1.4 (the phone's highest
     factor) × about 2; the longest possible stall 35 → 20 s.
   - ⚠️ P (b) in total with V: 3.3 s after a restart on a known player, 14.2 s the very first time
@@ -399,7 +421,7 @@
   - Job cap 40 s (worker steps) = Kotlin job timeout 45 s − 5 s grace (the deadline is checked
     every 4096 steps, then the reply and the bridge). ≥ `P_INIT_MS` 20 s: P's init can use its
     whole budget and P still has 20 s; `B_SCREEN_MS` 40 s stays, the deadline ends B first.
-  - Page cap 35 s (tighter: a page step runs only for kinds the workers left, after a ready wait
+  - Page cap 35 s (20 s since N7, owner 2026-10-14; tighter: a page step runs only for kinds the workers left, after a ready wait
     of up to 20 s, in the renderer that can run out of memory).
   - Lookup cap 60 s = `P_INIT_MS` + job cap: B keeps its full cap after P.
   - Corpus at ×4: P ≤ 10.0 s, B ≤ 32.7 s (fits the cap up to ×4.9), P+B ≤ 39.5 s, pB ≤ 30.1 s
@@ -432,7 +454,7 @@
   main build is recorded separately with no target; B hit is a metric only. Option 3 again only
   if, at N7, P fails on the current player, B is really used and B hit > 5 s. Caps accepted: job
   40 s, page 35 s (provisional; §5: a page job can stall the in-app browser up to the cap, N7
-  measures the stall), lookup 60 s. Added to A.2: a short-deadline `budget` is recorded the second
+  measures the stall; N7: 20 s, owner 2026-10-14), lookup 60 s. Added to A.2: a short-deadline `budget` is recorded the second
   time in a row for a `player|step` (definition and tests in plan §3 N5b A.2; weakness in §5).
   Open for N7: §4 "first B run ≤ 10 s" vs A.1 (computer max 8.2 s, ≈ 33 s at ×4).
 - ✅ A.2 Deadline and caps (tests first; flag off = main: Phase 1.1 jobs carry no deadline and
@@ -444,7 +466,7 @@
   no init count; the report names the phase and the counter's stops (counts only). Wrappers (worker
   and page frame): job field `deadline_ms`, a whole number ≥ 0 (else `BadJob`), counted from the
   job's arrival. Kotlin (`ownSolverNext` only): each step's deadline = min(its cap, the time left in
-  the lookup); caps worker 40 s, page 35 s, lookup 60 s from the ladder's start (the player
+  the lookup); caps worker 40 s, page 35 s (20 s since N7, owner 2026-10-14), lookup 60 s from the ladder's start (the player
   download included). No time left: the step does not run (`<step> lookup cap`; not recorded, no
   breaker); the ready wait never outlasts the lookup. Budget memory per `player|step` (≤ 64, per
   process, no breaker): `budget` with the full cap → the step is skipped (`<step> budget off`) and

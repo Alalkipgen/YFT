@@ -22,7 +22,7 @@
 //   ... --ladder --phases   # N5b A.1: also wall ms per step on every line, phase times per step
 //                           # and the lookup's time at the end (milliseconds and counts only)
 //   ... --ladder --no-deadline   # N5b A.2: --ladder sends the app's step caps as deadlines
-//                                # (worker 40 s, page 35 s); this drops them
+//                                # (worker 40 s, page 20 s); this drops them
 //   ... --ladder --judge ladder  # N5b A.3: exit 1 only on a ladder wrong value (ejs's and each
 //                                # step's own wrong values are still counted and printed);
 //                                # default --judge all: any wrong value fails the run
