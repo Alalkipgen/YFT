@@ -1,6 +1,64 @@
 # YFT Master Extractor backup
 
-## Phase 1.3 — D0 census tool — code done (this push), owner census pending
+## Phase 1.3 — D1 change simulator + R6 baseline (this push); paused: D2 needs the census
+
+- ✅ Built (test sources only, `extractor-master/src/test/.../modules/youtube/ladder/`):
+  - `SimWorld`: one simulated YouTube per base answer (main's 5 fixtures, read in place; every
+    change made in code; HLS playlists made in code; nothing captured). Each identity answers from
+    the base's formats with its own made-up address: visionOS direct (+ HLS address, never sends
+    sts), embedded / MWEB / the page's inline answer with `signatureCipher` + `n` (open only with
+    the right values and, when asked, the page's sts), Android = main's progressive answer. The
+    world knows what every address opens: 403, unsolved or wrong `n`/`sig`, another video,
+    encrypted, failed H, unchecked.
+  - `SimCases`: B0 (control) + V1–V11, L1–L16 (× V pass / fail / unknown on the L rows), Y1–Y6,
+    T1–T3, H1–H2, F1–F4 on each base: 96 per base, 480 cases (500 lookups) per column; each case
+    names the rungs with a checkable complete path (for MCF).
+  - `SimMeasure`: per lookup complete / without sizes / partial / clean stop / wrong row, MCF
+    (§5.1), requests by kind (player, page, probe, HLS, source, media), requests after a bot check.
+  - `MasterClientLadderSimTest` (9 tests): self-checks of the world (ids and classes; every case
+    changes its world; base answers parse and open; the sts rule; HLS passes `HlsCheck` and every
+    F3 fault breaks it; L14 hides player ID, sts and visitor data; V modes touch only the L rows;
+    decoys and encrypted files are wrong) and the R6 baseline, pinned line by line in
+    `src/test/resources/ladder/r6-baseline.txt` (960 lines, so flag off = R6 stays proven);
+    cookie and authorization never sent.
+- R6 baseline (plan §5 table filled; ladder columns with D6). Totals: own solver off wrong 72,
+  MCF 275; on wrong 72, MCF 160.
+  - Wrong rows: V5 / V6 (visionOS's refused adaptive rows offered without V, 22 each); F4
+    (another video's rows, R6 does not check the video ID, 28).
+  - V2 / H2 with the own solver: clean stop (V drops visionOS's signed rows, refused without sts,
+    and the chain is not resumed); without it Android's 360p only. F2 with it: clean stop (V
+    unknown).
+  - V3: complete rows without sizes (R6 reuses visionOS's unsized answer in the chain).
+  - L: R6 reads no moved or renamed layout: clean stop in L1, L2, L4, L7, L8, L10, L13, L16;
+    Android's 360p only in L5, L14, L15; L3 complete only with the own solver (the script
+    clients' ciphers are untouched); L6 complete (the parser takes both types).
+  - T1: 4 player requests after the first bot check (the ladder must stop at once).
+  - V1, V4, V7–V10, Y1–Y6, H1: own solver off = Android's 360p only; on = complete via embedded.
+- Plan adapted (why):
+  - Only the R6 columns now: the parity gate needs D6's ladder seam in `MasterYouTubeModule` and
+    the L round-trip needs D5b's L; both are written with those tasks.
+  - V `fail` / `unknown` act on the L rows only (files the copied parser cannot read; in L14 the
+    files that need the moved page signals; a moved HLS address): rows R6 can read are not L rows.
+  - MCF counts against every simulated path; the live-backed paths come with the D0 census.
+  - "Without sizes" (P22's rule met, a row without size) is listed apart and is not MCF; Z's job.
+  - Not modelled: a renamed DRM marker with the formats in place (L12 moves them).
+- Proposed §5 target changes (D1 stop rule; owner decides):
+  1. Budget "no more player requests than R6" in V2: R6 with the own solver makes 1 and offers
+     nothing; S needs 2 (visionOS + visionOS with the page's sts). Proposal: compare with R6
+     without the own solver (V2: 3) → ladder ≤ 2.
+  2. "Where R6 is below 100 %, the ladder completes more cases": impossible where no checkable
+     path exists (L9, L11, L12, T1–T3, F1–F3: the right answer is no row). Proposal: only in
+     classes with a path; elsewhere the same verdict and wrong 0.
+  3. H2 "saves at least one request": R6 with the own solver makes 1 request per lookup and stops.
+     Proposal: the second lookup ≤ 1 player request and complete (the first needs 2).
+- Tests: ladder 61 / 61; module 483 run / 0 failed (2 skipped); drift 0.
+- Risks: the world's rules are assumptions (cipher without sts → 403; visionOS never sends sts;
+  every identity works, which the live-backed column limits to the census); a class not modelled
+  ends as a clean stop in the ladder, W shows it, and it becomes a class.
+- Paused (⏸): D2 needs the D0 census (3 Full census runs on mobile data, ≥ 1 h apart, + 1 Weekly
+  check) and the gate.
+
+## Phase 1.3 — D0 census tool — code done (`1135afe`, CI ✅), owner census pending
 
 - ✅ Built in extractor-master `modules/youtube/ladder/` (offline tests with
   `FakeExtractorHttpClient`: 52 new, module 474 run / 0 failed, drift 0):

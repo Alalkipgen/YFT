@@ -301,8 +301,8 @@ lookup (Master, clientLadder on)
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
 | G0 | Phase 1.2 closed (gate; Phase 1.2's agent and the owner) | — | Low | Done (`a99e0fb`) |
-| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | Code done; owner census pending |
-| D1 | Change simulator, parity gate, L round-trip, baseline | D0 (classes) | Medium–High | TODO |
+| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | Code done (`1135afe`, CI ✅); owner census pending |
+| D1 | Change simulator, parity gate, L round-trip, baseline | D0 (classes) | Medium–High | Done: simulator + R6 baseline (this push); parity gate with D6, L round-trip with D5b |
 | D2 | Client table v2 + answer judge (shape kinds, HLS locate, fingerprint) | D1 | Medium | TODO |
 | D3 | Health v2, order, budget, stop rules (learned version, shape map) | D2 | Medium–High | TODO |
 | D4 | Row checks: V (reuse), init check, H check, Z | D2 | Medium | TODO |
@@ -477,6 +477,18 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   answers gives exactly the copied parser's rows of the original.
 - **Done:** the suite runs in CI's Gradle test step; the R6 baseline (every class, V10–V11,
   L1–L16 and Y1–Y6 included), the parity and round-trip results are written into §5.
+- **As built (D1, 2026-10-14):** `MasterClientLadderSimTest` + `SimWorld` / `SimCases` /
+  `SimMeasure` (test sources, CI's `:extractor-master:test`). One simulated YouTube per base answer:
+  every identity answers from the base's formats with its own made-up address (visionOS direct
+  with an HLS address; embedded, MWEB and the page's inline answer with `signatureCipher` + `n`;
+  Android = main's progressive answer); a row is judged by what the media host would do with its
+  address (403, unsolved or wrong `n`/`sig`, another video, encrypted, failed H, unchecked).
+  Adapted: the columns R6 off / R6 on are filled; the ladder columns, the parity gate (needs D6's
+  ladder seam in `MasterYouTubeModule`) and the L round-trip (needs D5b's L) come with those tasks;
+  B0 (no change) is a control row; V `fail` / `unknown` act on the L rows only (the files the
+  copied parser cannot read, in L14 the files that need the moved page signals; a moved HLS
+  address too); each case lists the rungs with a checkable complete path (MCF); a renamed DRM
+  marker with the formats in place is not modelled (L12 moves them).
 
 ### D2 — Client table v2 and answer judge
 
@@ -697,52 +709,58 @@ Version sources (filled by D0):
 | embedded | embed page config | — | — | — | — |
 | MWEB | mobile page config | — | — | — | — |
 
-Baseline (filled by D1; the ladder columns by D6):
+Baseline (filled by D1; the ladder columns by D6). D1 (`MasterClientLadderSimTest`, pinned in
+`extractor-master/src/test/resources/ladder/r6-baseline.txt`): each cell counts lookups over the 5 bases
+(L: × V pass / fail / unknown on the L rows; variants as listed in §4 D1); "without sizes" = P22's rule met
+but a row has no size (not MCF); MCF counted against every simulated path (the live-backed paths come with
+the D0 census):
 
 | Class | R6, own solver off | R6, own solver on | ladder, live-backed | ladder, all simulated |
 |---|---|---|---|---|
-| V1 | — | — | — | — |
-| V2 | — | — | — | — |
-| V3 | — | — | — | — |
-| V4 | — | — | — | — |
-| V5 | — | — | — | — |
-| V6 | — | — | — | — |
-| V7 | — | — | — | — |
-| V8 | — | — | — | — |
-| V9 | — | — | — | — |
-| V10 | — | — | — | — |
-| V11 | — | — | — | — |
-| L1 | — | — | — | — |
-| L2 | — | — | — | — |
-| L3 | — | — | — | — |
-| L4 | — | — | — | — |
-| L5 | — | — | — | — |
-| L6 | — | — | — | — |
-| L7 | — | — | — | — |
-| L8 | — | — | — | — |
-| L9 | — | — | — | — |
-| L10 | — | — | — | — |
-| L11 | — | — | — | — |
-| L12 | — | — | — | — |
-| L13 | — | — | — | — |
-| L14 | — | — | — | — |
-| L15 | — | — | — | — |
-| L16 | — | — | — | — |
-| Y1 | — | — | — | — |
-| Y2 | — | — | — | — |
-| Y3 | — | — | — | — |
-| Y4 | — | — | — | — |
-| Y5 | — | — | — | — |
-| Y6 | — | — | — | — |
-| T1 | — | — | — | — |
-| T2 | — | — | — | — |
-| T3 | — | — | — | — |
-| H1 | — | — | — | — |
-| H2 | — | — | — | — |
-| F1 | — | — | — | — |
-| F2 | — | — | — | — |
-| F3 | — | — | — | — |
-| F4 | — | — | — | — |
+| B0 (no change, control) | 5/5 complete; wrong 0, MCF 0 | 5/5 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
+| V1 | 0/5 complete, 5 partial; wrong 0, MCF 5 | 5/5 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
+| V2 | 0/5 complete, 5 partial; wrong 0, MCF 5 | 0/5 complete, 5 clean stop; wrong 0, MCF 5 | — (D6) | — (D6) |
+| V3 | 0/5 complete, 5 without sizes; wrong 0, MCF 0 | 0/5 complete, 5 without sizes; wrong 0, MCF 0 | — (D6) | — (D6) |
+| V4 | 0/5 complete, 5 partial; wrong 0, MCF 5 | 5/5 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
+| V5 | 0/5 complete, 5 with a wrong row; wrong 22, MCF 5 | 0/5 complete, 5 with a wrong row; wrong 22, MCF 5 | — (D6) | — (D6) |
+| V6 | 0/5 complete, 5 with a wrong row; wrong 22, MCF 5 | 0/5 complete, 5 with a wrong row; wrong 22, MCF 5 | — (D6) | — (D6) |
+| V7 | 0/5 complete, 5 partial; wrong 0, MCF 5 | 5/5 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
+| V8 | 0/5 complete, 5 partial; wrong 0, MCF 5 | 5/5 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
+| V9 | 0/5 complete, 5 partial; wrong 0, MCF 5 | 5/5 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
+| V10 | 0/5 complete, 5 partial; wrong 0, MCF 5 | 5/5 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
+| V11 | 5/5 complete; wrong 0, MCF 0 | 5/5 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
+| L1 | 0/15 complete, 15 clean stop; wrong 0, MCF 5 | 0/15 complete, 15 clean stop; wrong 0, MCF 5 | — (D6) | — (D6) |
+| L2 | 0/15 complete, 15 clean stop; wrong 0, MCF 15 | 0/15 complete, 15 clean stop; wrong 0, MCF 15 | — (D6) | — (D6) |
+| L3 | 0/15 complete, 15 clean stop; wrong 0, MCF 15 | 15/15 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
+| L4 | 0/30 complete, 30 clean stop; wrong 0, MCF 30 | 0/30 complete, 30 clean stop; wrong 0, MCF 30 | — (D6) | — (D6) |
+| L5 | 0/15 complete, 15 partial; wrong 0, MCF 15 | 0/15 complete, 15 partial; wrong 0, MCF 15 | — (D6) | — (D6) |
+| L6 | 15/15 complete; wrong 0, MCF 0 | 15/15 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
+| L7 | 0/15 complete, 15 clean stop; wrong 0, MCF 15 | 0/15 complete, 15 clean stop; wrong 0, MCF 15 | — (D6) | — (D6) |
+| L8 | 0/15 complete, 15 clean stop; wrong 0, MCF 5 | 0/15 complete, 15 clean stop; wrong 0, MCF 5 | — (D6) | — (D6) |
+| L9 | 0/15 complete, 15 clean stop; wrong 0, MCF 0 | 0/15 complete, 15 clean stop; wrong 0, MCF 0 | — (D6) | — (D6) |
+| L10 | 0/15 complete, 15 clean stop; wrong 0, MCF 5 | 0/15 complete, 15 clean stop; wrong 0, MCF 5 | — (D6) | — (D6) |
+| L11 | 0/45 complete, 45 clean stop; wrong 0, MCF 0 | 0/45 complete, 45 clean stop; wrong 0, MCF 0 | — (D6) | — (D6) |
+| L12 | 0/15 complete, 15 clean stop; wrong 0, MCF 0 | 0/15 complete, 15 clean stop; wrong 0, MCF 0 | — (D6) | — (D6) |
+| L13 | 0/15 complete, 15 clean stop; wrong 0, MCF 5 | 0/15 complete, 15 clean stop; wrong 0, MCF 5 | — (D6) | — (D6) |
+| L14 | 0/15 complete, 15 partial; wrong 0, MCF 15 | 0/15 complete, 15 partial; wrong 0, MCF 15 | — (D6) | — (D6) |
+| L15 | 0/15 complete, 15 partial; wrong 0, MCF 15 | 0/15 complete, 15 partial; wrong 0, MCF 15 | — (D6) | — (D6) |
+| L16 | 0/15 complete, 15 clean stop; wrong 0, MCF 5 | 0/15 complete, 15 clean stop; wrong 0, MCF 5 | — (D6) | — (D6) |
+| Y1 | 0/5 complete, 5 partial; wrong 0, MCF 5 | 5/5 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
+| Y2 | 0/20 complete, 20 partial; wrong 0, MCF 20 | 20/20 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
+| Y3 | 0/10 complete, 10 partial; wrong 0, MCF 10 | 10/10 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
+| Y4 | 0/5 complete, 5 partial; wrong 0, MCF 5 | 5/5 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
+| Y5 | 0/15 complete, 15 partial; wrong 0, MCF 15 | 15/15 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
+| Y6 | 0/5 complete, 5 partial; wrong 0, MCF 5 | 5/5 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
+| T1 | 0/5 complete, 5 clean stop; wrong 0, MCF 0 | 0/5 complete, 5 clean stop; wrong 0, MCF 0 | — (D6) | — (D6) |
+| T2 | 0/5 complete, 5 clean stop; wrong 0, MCF 0 | 0/5 complete, 5 clean stop; wrong 0, MCF 0 | — (D6) | — (D6) |
+| T3 | 0/20 complete, 20 clean stop; wrong 0, MCF 0 | 0/20 complete, 20 clean stop; wrong 0, MCF 0 | — (D6) | — (D6) |
+| H1 | 0/10 complete, 10 partial; wrong 0, MCF 10 | 10/10 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
+| H2 | 0/10 complete, 10 partial; wrong 0, MCF 10 | 0/10 complete, 10 clean stop; wrong 0, MCF 10 | — (D6) | — (D6) |
+| F1 | 0/10 complete, 10 partial; wrong 0, MCF 0 | 0/10 complete, 5 partial, 5 clean stop; wrong 0, MCF 0 | — (D6) | — (D6) |
+| F2 | 0/5 complete, 5 partial; wrong 0, MCF 0 | 0/5 complete, 5 clean stop; wrong 0, MCF 0 | — (D6) | — (D6) |
+| F3 | 0/25 complete, 25 clean stop; wrong 0, MCF 0 | 0/25 complete, 25 clean stop; wrong 0, MCF 0 | — (D6) | — (D6) |
+| F4 | 0/5 complete, 5 with a wrong row; wrong 28, MCF 5 | 0/5 complete, 5 with a wrong row; wrong 28, MCF 5 | — (D6) | — (D6) |
+| all | wrong 72, MCF 275 (480 cases, 500 lookups) | wrong 72, MCF 160 (480 cases, 500 lookups) | — (D6) | — (D6) |
 
 ## 6. Risks
 
