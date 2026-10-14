@@ -301,7 +301,7 @@ lookup (Master, clientLadder on)
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
 | G0 | Phase 1.2 closed (gate; Phase 1.2's agent and the owner) | — | Low | Done (`a99e0fb`) |
-| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | TODO |
+| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | Code done; owner census pending |
 | D1 | Change simulator, parity gate, L round-trip, baseline | D0 (classes) | Medium–High | TODO |
 | D2 | Client table v2 + answer judge (shape kinds, HLS locate, fingerprint) | D1 | Medium | TODO |
 | D3 | Health v2, order, budget, stop rules (learned version, shape map) | D2 | Medium–High | TODO |

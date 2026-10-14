@@ -1,5 +1,47 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — D0 census tool — code done (this push), owner census pending
+
+- ✅ Built in extractor-master `modules/youtube/ladder/` (offline tests with
+  `FakeExtractorHttpClient`: 52 new, module 474 run / 0 failed, drift 0):
+  - `ClientCensus`: **Full census** per video 1–10 in plan order (visionOS as R6 asks it;
+    visionOS again with the page's sts + visitor data only after `signatureCipher`; video 1:
+    bundled alternates; Android; embedded; MWEB), V on one AVC row, H check; budget per video
+    1 page, ≤ 6 player requests, ≤ 5 V, 1 H; a run ≤ 6 MB. **Weekly check**: videos 1 and 5,
+    ≤ 60 s, ≤ 2 MB, ≤ 20 requests; version sources only when older than 24 h.
+  - `HlsCheck`: token step (master, variant, first segment: 2xx / 403 each), variants, highest
+    resolution, audio form, codecs, duration ±2 s.
+  - `ShapeFingerprint` + `ShapeDictionary`: key names only (arrays collapse; odd or redacted
+    keys become `*`), core and full hash, bounded walk (depth 16, 100 000 nodes).
+  - `CensusSources`: version sources ≤ 64 KiB each, no token, no cookie (web-family page config;
+    visionOS: answer/page field, App Store lookup, yt-dlp and YouTube.js tables read as text;
+    Android: Play Store page, the reference tables); usable = 3 of 3 runs.
+  - `CensusDiff`: `NO CHANGE` / `CHANGED (n)` / `BROKEN (n)` + days since the last run, one line
+    per change (class, version, shape with **BREAKING**, H, stop) naming its runbook step.
+  - `CensusModel`: `files/master/census-last.json` (last 8 runs; no address, value, visitor data
+    or video ID) and `CensusSanitizer` for the report.
+  - `CensusNoBackgroundTest`: the census code uses no background API; the debug manifest has
+    no service, receiver or provider.
+- ✅ Debug owner tool **"YFT client census"** (`ClientCensusActivity`, launcher entry only with
+  the owner tools on): Full census / Weekly check / Copy result; videos 1–3 fixed, 4–10 entered
+  by the owner (kept); Wi-Fi warning; byte meter; last-run line on the screen.
+- Plan adapted (why):
+  - The census copies the extractor's own request and solve steps instead of the app's
+    `StreamCheckMeasurement` (app-only, so it could not be tested offline in extractor-master).
+  - BREAKING = a removed path the copied parser reads to build rows; its negative or alternative
+    signals (cipher, DRM, SABR address, `isLive`, reason texts) are left out (their removal never
+    loses a row; a lost row shows as a class or count line).
+  - HTTP 429 is treated like a bot check: the run stops, no new run for 30 min.
+  - No alternate visionOS version is bundled (the reference table lists only 1.02), so step 3
+    is skipped and the report says so.
+  - embedded and MWEB take their version from the page config; the MWEB value is
+    acceptance-tested with the rung's own request.
+  - The Play Store page is probably larger than 64 KiB; then it is recorded as "over 64 KiB"
+    (not reachable, so not usable), never read past the cap.
+  - Leaving the screen stops a run (no background work, guardrail 11).
+- Pending (owner, phone): 3 Full census runs on mobile data, ≥ 1 h apart, then one Weekly
+  check; then the census table, version-source table and gate decision go into plan §5.
+
 ## Phase 1.2 — done (owner closed it on 2026-10-14)
 
 - ✅ Pass criteria (plan §4 "Result"): corpus = ejs 260/260; ladder wrong 0 in every class with and
