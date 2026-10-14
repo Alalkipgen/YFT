@@ -58,6 +58,8 @@ visionOS, Master:
   DRM။ အဲဒီအခါ verdict မှန်နဲ့ ရပ်ပြီး W က သတိပေးမယ်။
 - Task: G0 Phase 1.2 ပိတ် (✅ `a99e0fb`) → D0 census + weekly check → D1 simulator → D2 table + judge → D3 health →
   D4 checks → D5a A/S/Z → D5b L → D5c H → D6 O + wiring → D7 ဖုန်းစစ် + runbook → D8 (ဆုံးဖြတ်ရန်)။
+- Run mode (owner 2026-10-14): task တစ်ခု ပြီးတိုင်း agent က "✅ Dx ပြီးပြီ" စာတိုရေးပြီး ဆက်လုပ်မယ်။
+  ဖုန်းစစ် (D0 census — အဲဒီအတောအတွင်း D1 လုပ်မယ်၊ D7)၊ owner ဆုံးဖြတ်ချက်၊ STOP ပေါ်မှပဲ ရပ်မယ်။
 - ခက်ခဲမှု: High (D5b High; D3၊ D5a၊ D5c၊ D6 Medium–High)။
 
 ## 0. Why v3
@@ -313,7 +315,9 @@ lookup (Master, clientLadder on)
 
 G0 is done (`a99e0fb`); D0 is next: it decides which rungs and sources exist and starts the
 weekly check. Use the highest reasoning level for D3, D5a, D5b, D5c and D6. D8 only after the
-owner's yes.
+owner's yes. **Run mode (owner, 2026-10-14): continuous** — after each task the agent pushes,
+posts a one-line note (task, commit, CI) and goes on; it pauses only for the owner's phone steps
+(D0's census, during which it does D1; D7), owner decisions and the prompt's stop rules.
 
 ### G0 — Phase 1.2 closed (gate) — done (`a99e0fb`)
 

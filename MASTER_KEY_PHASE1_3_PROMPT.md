@@ -6,11 +6,16 @@ prompt ပါ။ v2 အပြင် L (own parser)၊ self-healing version၊ HL
 
 **သုံးနည်း:**
 - Phase 1.2 ပိတ်ပြီးပါပြီ (G0 ✅ `a99e0fb`: PROGRESS.md "Phase 1.2 — done")။ D0 ကနေ စပါ။
-- Agent chat အသစ်ထဲ အောက်က code block တစ်ခုလုံးကို paste လုပ်ပါ။
-- D0 ကို အရင်လုပ်ပါ။ D0 ပြီးရင် owner က ဖုန်း (mobile data) ထဲက "YFT client census" → Full census ကို
-  ၃ ကြိမ် (တစ်နာရီ အနည်းဆုံးခြား) run ပြီး report ကို ပြန်ပေးရပါမယ်။ Weekly check ကို အပတ်တိုင်း ၁ မိနစ် run ပါ။
-- D3၊ D5a၊ D5b၊ D5c၊ D6 မှာ Reasoning Level အမြင့်ဆုံး သုံးပါ။ D8 က owner "yes" ပြောမှ လုပ်ပါ။
-- Task တစ်ခု ပြီးတိုင်း push လုပ်ပြီး မြန်မာလို report ပေးပြီး ရပ်ပါမယ်။ ဆက်လုပ်ခိုင်းချင်ရင် "Next" လို့ ပြောပါ။
+- Agent chat အသစ်ကို ဖွင့်ပြီး Reasoning Level ကို အစကတည်းက အမြင့်ဆုံး ထားပါ (D3၊ D5a–D5c၊ D6 အတွက်)။
+  ပြီးရင် အောက်က code block တစ်ခုလုံးကို paste လုပ်ပါ။
+- **မရပ်ဘဲ ဆက်လုပ်မယ် (`RUN_MODE: continuous`):** task တစ်ခု ပြီးတိုင်း agent က push လုပ်ပြီး
+  "✅ D1 ပြီးပြီ — …" လို စာတို တစ်ကြောင်း ရေးပြီး နောက် task ကို ချက်ချင်း ဆက်လုပ်ပါမယ် ("Next" မစောင့်)။
+- **"⏸" နဲ့ ရပ်တာ** ဖုန်းစစ်ဖို့ လိုတဲ့အခါ (D0 census၊ D7)၊ owner ဆုံးဖြတ်ဖို့ လိုတဲ့အခါ ဒါမှမဟုတ်
+  ပြဿနာ (STOP AND ASK) ပေါ်တဲ့အခါမှပဲ ဖြစ်ပြီး ဘာလိုလဲ ပြောပါမယ်။ Agent ရပ်သွားရင် "ဆက်လုပ်" လို့ ရိုက်ပါ။
+- D0 code ပြီးရင် ဖုန်း (mobile data) ထဲက "YFT client census" → Full census ကို ၃ ကြိမ် (အနည်းဆုံး
+  ၁ နာရီခြား) run ပြီး report ၃ ခုကို chat ထဲ ပို့ပေးပါ။ အဲဒီအတောအတွင်း agent က D1 ကို ဆက်လုပ်နေပါမယ်။
+  Weekly check ကို အပတ်တိုင်း ၁ မိနစ် run ပါ။
+- D8 က owner "yes" ပြောမှ လုပ်ပါမယ်။ ဆုံးဖြတ်ချက် (source hosts၊ D8) ကို chat ထဲ အချိန်မရွေး ပြောနိုင်ပါတယ်။
 
 ```text
 You are a coding agent on YFT, an ad-free Android video downloader (Kotlin, Jetpack Compose,
@@ -27,6 +32,8 @@ ALLOW_RELEASE: false
 START_AT: D0              (owner may change)
 D8_APPROVED: false        (owner sets true to allow D8)
 SOURCE_HOSTS_APPROVED: none   (after D0 the owner lists version-source hosts lookups may use)
+RUN_MODE: continuous      (owner 2026-10-14: after each task push, post the short note and go
+                          on at once; "step" = stop after each task and wait for "Next")
 
 PREREQUISITE (plan section 4 G0, done at a99e0fb): PROGRESS.md must have the entry
 "Phase 1.2 — done (owner closed it on 2026-10-14)". If it is missing, do not start; report what
@@ -146,18 +153,43 @@ PER TASK
 - Tests first (committed fixtures and fakes; no live calls in unit tests).
 - Run locally: ./gradlew :extractor-master:test (JVM module, JDK 17) and the drift check; CI runs
   the full set and builds the APK. Keep the flag-off gate green.
-- From D1 on, always re-run MasterClientLadderSimTest and report its table.
+- From D1 on, always re-run MasterClientLadderSimTest and record its table in PROGRESS.md.
 - Checkpoint-push to spike/master-extractor-backup with a clear message (for example
   "feat(master): D5b own parser L"). Docs-only pushes start no CI; the newest code commit carries
   the CI result.
 - Update the status board in MASTER_KEY_PHASE1_3_PLAN.md (TODO -> Done, with the commit sha) and
   add a PROGRESS.md section; D0 fills the census and version-source tables, D1 the baseline, D6
   the ladder columns.
-- Report to the owner in short Burmese with ✅/❌: what changed; the census or simulator table
-  (R6 / ladder live-backed / ladder all); wrong rows and MCF; requests, checks and MB used;
-  tests; commit sha and CI run; risks. Then STOP and wait for "Next".
+- After each task, post ONE short Burmese note, then go on with the next task at once (RUN_MODE
+  continuous; do not wait for "Next"):
+    ✅ D1 ပြီးပြီ — <what, one line>; wrong <n>, MCF <n>; commit <sha7>; CI <✅/❌/running>; နောက်: D2
+  The details (tables, requests, checks, MB, tests, risks) go into PROGRESS.md, not the chat.
+- CI: before the next task's first push, check the previous code commit's CI; red -> fix it
+  first (a red CI whose cause is unclear is a stop).
+- Pause only for PHONE STEPS AND DECISIONS or STOP AND ASK (below). Then post one line
+    ⏸ ရပ်ထားတယ် — <why>; လိုတာ: <what the owner does>
+  followed by the full report in short Burmese with ✅/❌: what changed; the census or simulator
+  table (R6 / ladder live-backed / ladder all); wrong rows and MCF; requests, checks and MB used;
+  tests; commit sha and CI run; risks. After the last task post "🏁 Phase 1.3 ပြီးပြီ" with the
+  same report and the open owner decisions.
+- If your session or context restarts, or the owner says "ဆက်လုပ်" or "Next": read the status
+  board and PROGRESS.md and go on with the first task that is not Done.
+- RUN_MODE step: after each task the full report, then STOP and wait for "Next".
 
-STOP AND ASK THE OWNER WHEN
+PHONE STEPS AND DECISIONS (RUN_MODE continuous)
+- D0: when the census tool is pushed and CI has built the opt-in APK, post
+    ✅ D0 code ပြီးပြီ — APK <name>; ဖုန်းမှာ Full census ၃ ကြိမ် (အနည်းဆုံး ၁ နာရီခြား) run ပြီး report ၃ ခု ပို့ပေးပါ
+  and start D1 at once (its live-backed column waits for the census). D2 and later need the
+  census and the D0 gate: if the 3 reports have not come when D1 is done, pause (⏸).
+- With the 3 reports: finish D0 (tables, gate) and post "✅ D0 ပြီးပြီ — live: <rungs>; usable
+  sources: <list>". Ask for SOURCE_HOSTS_APPROVED and D8 in that note, but do not wait: a usable
+  source on a host not in SOURCE_HOSTS_APPROVED stays "measured, not active" (census only), and
+  D8 is skipped while D8_APPROVED is false. A value the owner sends later applies from the next
+  task.
+- D7: post the owner's phone checklist (one line per step, mobile data) and pause (⏸) until the
+  results come; then finish D7.
+
+STOP AND ASK THE OWNER WHEN (pause ⏸ with the full report)
 - PROGRESS.md has no "Phase 1.2 — done" entry (G0), or a task would change the own solver (M5).
 - D0's gate finds neither H nor any O rung live (plan section 9, decision 5).
 - A version source would need a host not in SOURCE_HOSTS_APPROVED for lookups, a token, a
