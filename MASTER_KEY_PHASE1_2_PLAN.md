@@ -255,7 +255,7 @@ resolved values | next strategy | drop the stream (never guess) -> VISIONOS rows
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
 | N1 | Change simulator: mutation suite + baseline (ejs vs own P) | Phase 1.1 | Medium–High | Done (`765e91f`) |
-| N2 | Live check V (+ measure the n behaviour on the owner's phone) | Phase 1.1 S5 | Medium | Done (`9e15101`; measurement pending) |
+| N2 | Live check V (+ measure the n behaviour on the owner's phone) | Phase 1.1 S5 | Medium | Done (`9e15101`; n rule PENDING by decision: owner runs 2 and 3 invalid, all four reads 403) |
 | N3 | Strategy B: register, probe, classify (core + harness) | N1 | High | Done (`52e1945`) |
 | N4 | Strategy E: isolated page environment | N3 | Medium–High | Done (`a7c3dd9`) |
 | N4b | Environment-dependent values (M9b/M9bs), init errors by class | N4 | Medium | Built (`bdb45c6`, harness `8140b27`); measured ❌ (worker B: 1 wrong M9bs value; fix: owner decides; §4 note "N4b") |
@@ -418,6 +418,9 @@ Plan adapted (N1 part 2–3):
     automated safety review** (also after the owner's go-ahead), so it is not done. **Decision:
     the n rule stays PENDING** (safe: V judges sig only; n is accepted only with SelfCheck and
     agreement). Phase 1.3 D1/D2 must settle with the owner how TV may be used before relying on it.
+  - Third owner run (2026-10-14, opt-in APK `eecfba7`, video aqz-KE-bpKQ, mobile data): the same
+    as the second: embedded `ERROR`, MWEB OK, itag 160 with n only (no sig), agree, all four reads
+    403, `valid: false`. Nothing more to measure; the n rule stays PENDING (decision above).
 
 ### N3 — Strategy B
 

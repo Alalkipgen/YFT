@@ -20,6 +20,8 @@
 - No new APK needed: the opt-in APK `eecfba7` still has 35 s, but the cap only matters for a page
   job slower than 20 s, and the phone's page jobs took ≤ 1.3 s; the live check and V run on it.
   The next APK built for another reason carries 20 s.
+- Owner stream check (2026-10-14, `eecfba7`, aqz-KE-bpKQ): MWEB, n only, agree, all four reads 403,
+  `valid: false`, as the 2026-10-11 run: the n rule stays PENDING (plan §2); nothing more to measure.
 - Next (owner): live check + V on the phone (debug and release app, the §4.3 videos), and run 3's
   "no stream" video in the release app.
 
