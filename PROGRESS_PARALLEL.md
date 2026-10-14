@@ -8,6 +8,79 @@ no existing file is edited (copied files, census, `ShapeFingerprint`, `StreamChe
 belong to the main agent; nothing is wired (D6); offline only (fakes, fixtures). Newest first.
 No video ID, address or visitor data in these notes.
 
+## 2026-10-15 — ShapeLocator + ShapeNormalizer (D5b, rung L steps 1–6)
+
+- `ShapeLocator.kt` (step 1, the value-shape scan; pure, no request, no log). Read from values,
+  key names never trusted:
+  - format-like object: exactly one YouTube media-server address with an `itag` parameter
+    (1–999), or none and exactly one cipher-like string (form fields `s` and `url`, the `url` such
+    an address); an integer field (number or 1–3 digit text) equal to that `itag`; exactly one
+    full mime (`video/…` or `audio/…` with `codecs="…"`), or none and one bare type plus one
+    known-codec list (rebuilt into one). An address `mime` parameter must name the same type.
+    Otherwise the object is rejected (counted), or ignored when it has no media address at all.
+  - video object: a direct text equal to the requested video ID and a positive `lengthSeconds`;
+    status object: a direct text from the copied parser's status words (in one object a word
+    other than `OK` wins); HLS address: https `manifest.googlevideo.com` under
+    `/api/manifest/hls_variant/` or `/api/manifest/hls_playlist/` (exactly one → `hls`, §3 H
+    step 1); DRM marker: a `drm…` / `…Drm…` / `…DRM…` key with a value, or a `WIDEVINE`,
+    `PLAYREADY`, `FAIRPLAY` or `DRM_TRACK_TYPE_…` text.
+  - Bounds as ShapeFingerprint: ≤ 4 MiB (parsed with the copied parser, ≤ 400 000 nodes),
+    depth 16, ≤ 100 000 visited nodes (more → incomplete). Plan adapted (deep cut): a container
+    deeper than 16 is not opened; the scan stays complete only when the raw answer mentions
+    `googlevideo.com`, the quoted video ID and the quoted status words no more often than the
+    visited part does (else incomplete → no L rows; no raw text → incomplete).
+  - For D2: `moved` (format-like objects outside `streamingData.formats[]` /
+    `streamingData.adaptiveFormats[]`), `partial` (in those lists, not readable by the copied
+    parser as they are), `hls`, `formatPaths` (ShapeFingerprint-style; a video-ID or not
+    key-like key reads `*`). The scan binds nothing (another video's formats are listed too).
+- `ShapeNormalizer.kt` (steps 2–6): `normalize(answer, videoId, now)` → `Rows` (offer ≤ 8,
+  canonical JSON, bound count and paths, `hls`, length) / `Stop` (a verdict other than `OK`: the
+  R6 chain decides) / `None(why)`:
+  1. Playability: the answer's own `playabilityStatus.status` is the copied parser's verdict.
+     Without one, the located status objects: none → no rows; one `OK` → go on; any other word →
+     `Stop` with the copied parser's verdict on that object (Plan adapted: also when several are
+     located); several, all `OK` → ambiguous, no rows.
+  2. Binding: the video objects with the requested ID must agree on one length (Plan adapted:
+     copies of the same length, such as a microformat, are fine; different lengths → ambiguous);
+     a candidate binds by its address `dur`, else `approxDurationMs`, else an integer field of
+     milliseconds, within ±1.5 s; others are dropped; duplicates (same address or cipher) once;
+     all bound candidates under one parent, else ambiguous, no rows.
+  3. A DRM marker or a live flag → canonical JSON with `drmParams` / `isLive` → the copied
+     parser's stop; never rows.
+  4. Fields (Plan adapted): `itag`, address or cipher and mime from the value rules; the other
+     fields are integers or words whose shape cannot tell them apart, so they are read under
+     their canonical names with normalized types (digit text or number), by shape only where it
+     is distinctive (`1080p60` for `qualityLabel`, `AUDIO_QUALITY_…`). A renamed size stays
+     missing (Z).
+  5. Canonical JSON → the copied `YouTubePlayerResponseParser.parse` (unchanged; main's row
+     rules apply) → `offerSet`: the copied extractor's private `select`, mirrored, ≤ 8 rows
+     (companions, then merged rows by quality, then files).
+- `LRows` + `LRowCheck` (guardrail 6): every offered row needs V and the init check in this
+  lookup (`LRowCheck` = V plus `InitCheck` on the bytes V read; D6 wires it). Companions first;
+  a merged MP4 row only after an AAC companion passed, WebM only after Opus; protected rows
+  (cipher, S's work, D5a) are not checked here; an exception is unknown; unknown is never pass;
+  ≤ 8 checks; `complete` = a merged row and its companion passed.
+- Tests: `ShapeNormalizerTest` (10) — L round-trip on the 5 bases (canonical parse = direct
+  parse, offer = the app's selection); L matrix: 19 mutations (SimCases' L1–L16 copied as
+  `LShapeCases`, L4 and L11 split) × 5 bases × V pass / fail / unknown = 285 runs, 0 wrong
+  rows: L1–L4, L7, L8, L10, L16 give the unchanged rows (28 rows; complete in the 5 V-pass
+  runs), L6 84 rows (complete 15 of 15), L15 40 rows (complete 5), L5 and L14 protected only
+  (no L row; S), L9 ambiguous, L11 ×3 and L12 stop, L13 HLS located, no formats; a 307 KiB
+  answer in 8.0 ms median (budget 20 ms); playability, binding, DRM / live, fields, offer cap,
+  LRows order, print hygiene. `ShapeLocatorTest` (10) — value rules under any key names,
+  rejected and ignored objects, cipher and split mime, video / status / HLS / DRM, deep cut,
+  node / size / depth bounds, `moved` / `partial`, the 5 bases (every format located in the
+  canonical lists), codec helpers, print hygiene.
+- Test substitution: SimWorld's WebM stand-in is a cut EBML header that InitCheck reads as
+  unknown, so the matrix's V reads WebM files as real WebM starts (with the file's encryption).
+- Watch: the deep-cut count reads raw text, so an escaped form (`\u…`) is not counted; real
+  answers do not escape these ASCII words. A real answer deeper than 16 that repeats the video
+  ID below the cut gives no L rows (safe; census L steps will show).
+- Not done: L steps 7–8 (shape map memory, page signals), census L steps,
+  `-Pyft.ladderMutate`. Not wired (D6).
+- Module tests: 552, 0 failures, 2 skipped (`:extractor-master:test`, masterCapture +
+  ownSolver); drift: 107 copied symbols, 0 drifted.
+
 ## 2026-10-15 — LookupMemo, the same-lookup memo (D6 piece, guardrail 7)
 
 - `LookupMemo.kt`: `LookupMemo(http, maxEntries = 8, maxKeptChars = 8 Mi)` wraps one lookup's
