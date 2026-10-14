@@ -1,6 +1,46 @@
 # YFT Master Extractor backup
 
-## Phase 1.3 — D0 follow-up 2: bot checks per video (owner, 2026-10-15; this push); census runs 2–4 not counted; ⏸ census reruns
+## Phase 1.3 — D0 census valid run 1 (owner, 2026-10-14 23:06 UTC; docs only); ⏸ valid runs 2–3 + Weekly; gate question
+
+- ✅ Valid run 1 (`81388f8` APK, mobile data, metered): FULL, 10 videos, 54 requests, 2659 KB
+  (budget 6 MB), 29 s, not stopped. Report `CHANGED (8) — first run`: 8 lines `visionos R0
+  video N: bot check, answered as R6 (visionOS with visitor data: DIRECT) → §7 step 8` (videos 1,
+  3, 4, 5, 7, 8, 9, 10).
+- Per rung (videos with V- or H-passed rows / videos asked):
+  - R0 visionOS: 1 / 10 — video 2 `DIRECT` up to 2160p, V pass; `BOT_CHECK` on 8 (no visitor
+    data); video 6 (made-for-kids) `VIDEO_VERDICT` (UNPLAYABLE "This video is not available").
+  - R0+vd (R6's chain request, not a rung): 8 / 8 `DIRECT`, V pass — the R6 answer works on every
+    bot-checked video.
+  - A: none bundled (0 asked). S: 0 asked (no cipher in a visionOS answer).
+  - H: 1 / 1 (video 2): 2xx / 2xx / 2xx, no key, 17 variants up to 2160p, audio separate, 38
+    segments, duration matches.
+  - Android 21.26.364: 2 / 2 `SABR_ONLY` (only the 360p progressive row, V pass; videos 2, 6).
+  - embedded: 0 / 2 `VIDEO_VERDICT` (error 152-18; videos 2, 6).
+  - MWEB 2.20260708.05.00: 2 / 2 `NEEDS_SCRIPT` → S ok-sig+n, V pass (up to 2160p and 1080p).
+- Pages: 10 / 10 HTTP 200 (MWEB 2.20261014.01.00; signature timestamp, visitor data and key on
+  every page); 3 player scripts in one run (21090930 on 7 pages, 0229cd64 on 2, 6870cdc1 on 1).
+- Version sources: visionOS answer reachable, no value; App Store 21.41.5 with no visionOS device
+  (no visionOS value); yt-dlp visionOS 1.02 and Android 21.26.364 (= bundled); YouTube.js visionOS
+  1.02 (=), Android 21.03.36 (older); Play Store page over 64 KiB; embedded and MWEB page config
+  2.20261014.01.00 (newer, not tried: the acceptance request runs on video 1, which met a bot
+  check). MWEB keeps the bundled version, which works (S, V pass).
+- Findings for D2: (1) visionOS's UNPLAYABLE "This video is not available" on the made-for-kids
+  video is not the video's verdict: MWEB (S) and Android answered it. The ladder stops there and
+  R6's chain decides (guardrail 4), so no MCF; D2's judge takes it as a client refusal to record.
+  (2) The Android answers reached the shape walk's bound (`trunc`): a fingerprint bound, not a cut
+  answer. (3) embedded refuses ordinary videos (152-18), as in Phase 1.2 N7.
+- ⚠️ Gate question (plan §9 item 9, proposed): under the per-video bot-check rule H and the O rungs
+  are asked only on videos whose first visionOS request had no bot check (here 2 of 10), so the
+  gate's "≥ 6 of 10 videos" cannot be met even when every ask passes (MWEB 2 / 2, H 1 / 1).
+  Proposal: count each rung over the videos it was asked on (live: passed on ≥ 60 % of them in
+  ≥ 2 of 3 runs, ≥ 1 asked video in each); the asked counts stay in the table. As written, neither
+  H nor an O rung can be live (§9 decision 5). No code change either way.
+- Plan: §5 census table (valid 1), version-source table (run 1), status board D0, §9 item 9.
+- ⏸ Phone (owner): valid run 2 ≥ 1 h after run 1 (from 00:06 UTC), valid run 3 ≥ 1 h after run 2
+  (ideally another time of day), then one Weekly check; the same APK, normal mobile data, no
+  clearing app data → Copy result each time.
+
+## Phase 1.3 — D0 follow-up 2: bot checks per video (owner, 2026-10-15; `81388f8`, CI ✅); census runs 2–4 not counted
 
 - Owner decisions (2026-10-15):
   - Census runs 2, 3 and 4 (2026-10-14) are not valid: **not counted** (records in the D0 section
@@ -47,7 +87,7 @@
   (T1b), as-built T1b note, §5.2 (T1–T3, T1b), §5 "Not valid" table (runs 2–4), baseline (T1b,
   totals), §7 runbook (the IP note and the owner's line), §9 item 7; prompt rule 4.
 - ⏸ Phone (owner): in the morning, on normal mobile data (no airplane mode or network change; do
-  not clear app data): install this push's APK → "YFT client census" → Full census → Copy
+  not clear app data): install the `81388f8` APK → "YFT client census" → Full census → Copy
   result. 3 Full runs ≥ 1 h apart, then one Weekly check. A stop (bot check or 429) → no retry;
   wait for the next run's time.
 

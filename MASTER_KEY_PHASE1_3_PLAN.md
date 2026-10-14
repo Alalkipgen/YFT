@@ -311,8 +311,8 @@ lookup (Master, clientLadder on)
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
 | G0 | Phase 1.2 closed (gate; Phase 1.2's agent and the owner) | — | Low | Done (`a99e0fb`) |
-| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | Code done (`1135afe`); census runs 1–4 not valid, not counted (§5); bot-check rule (owner, 2026-10-15; `5cb781c`), per video (this push); 3 Full reruns + 1 Weekly check pending |
-| D1 | Change simulator, parity gate, L round-trip, baseline | D0 (classes) | Medium–High | Done: simulator + R6 baseline (`f35b78f`; T1b `5cb781c`, per video in this push); parity gate with D6, L round-trip with D5b |
+| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | Code done (`1135afe`); census runs 1–4 not valid, not counted (§5); bot-check rule (owner, 2026-10-15; `5cb781c`), per video (`81388f8`); valid run 1 done (2026-10-14 23:06 UTC, §5); valid runs 2–3 + 1 Weekly check pending; gate count §9 item 9 |
+| D1 | Change simulator, parity gate, L round-trip, baseline | D0 (classes) | Medium–High | Done: simulator + R6 baseline (`f35b78f`; T1b `5cb781c`, per video `81388f8`); parity gate with D6, L round-trip with D5b |
 | D2 | Client table v2 + answer judge (shape kinds, HLS locate, fingerprint) | D1 | Medium | TODO |
 | D3 | Health v2, order, budget, stop rules (learned version, shape map) | D2 | Medium–High | TODO |
 | D4 | Row checks: V (reuse), init check, H check, Z | D2 | Medium | TODO |
@@ -716,18 +716,18 @@ modelled classes; an unmodelled change ends in a clean stop, W shows it, and it 
 - **Flag off = R6 / main;** CI, `MasterYouTubeParityTest`, `MasterMainMoreSheetTest` green;
   drift 0.
 
-Census (filled by D0; valid 1–3 = the three valid Full runs, under the bot-check rule):
+Census (filled by D0; valid 1–3 = the three valid Full runs, under the bot-check rule; a cell = videos with V- or H-passed rows / videos asked; valid 1: 2026-10-14 23:06 UTC, mobile data, 10 videos, 54 requests, 2659 KB, 29 s; H and the O rungs are asked only on videos without a bot check, see §9 item 9):
 
 | Rung | valid 1 | valid 2 | valid 3 | live? |
 |---|---|---|---|---|
-| R0 visionOS (adaptive rows) | — | — | — | — |
-| R0+vd: visionOS again with the page's visitor data, only after a bot check (R6's chain request, not a ladder rung; does not make R0 live) | — | — | — | — |
-| A alternates (bundled, ≤ 2) | — | — | — | — |
-| S (visionOS with page signals) | — | — | — | — |
-| H (token step: master / variant / segment) | — | — | — | — |
-| Android | — | — | — | — |
-| embedded | — | — | — | — |
-| MWEB | — | — | — | — |
+| R0 visionOS (adaptive rows) | 1 / 10: video 2 `DIRECT` (≤ 2160p, V pass); `BOT_CHECK` 8; video 6 (made-for-kids) `VIDEO_VERDICT` | — | — | — |
+| R0+vd: visionOS again with the page's visitor data, only after a bot check (R6's chain request, not a ladder rung; does not make R0 live) | 8 / 8 `DIRECT`, V pass | — | — | — |
+| A alternates (bundled, ≤ 2) | none bundled (0 asked) | — | — | — |
+| S (visionOS with page signals) | 0 asked (no cipher in a visionOS answer) | — | — | — |
+| H (token step: master / variant / segment) | 1 / 1: 2xx / 2xx / 2xx, no key, 17 variants ≤ 2160p, audio separate, duration matches | — | — | — |
+| Android | 2 / 2 `SABR_ONLY`: the 360p progressive row only (V pass) | — | — | — |
+| embedded | 0 / 2 `VIDEO_VERDICT` (error 152-18) | — | — | — |
+| MWEB | 2 / 2 `NEEDS_SCRIPT` → S ok-sig+n, V pass | — | — | — |
 
 Not valid (not counted for the gate):
 
@@ -742,13 +742,13 @@ Version sources (filled by D0):
 
 | Identity | Source | run 1 | run 2 | run 3 | usable? (or why not) |
 |---|---|---|---|---|---|
-| visionOS | YouTube answers and pages | — | — | — | — |
-| visionOS | App Store lookup | — | — | — | — |
-| visionOS | reference table | — | — | — | — |
-| Android | Play Store page | — | — | — | — |
-| Android | reference table | — | — | — | — |
-| embedded | embed page config | — | — | — | — |
-| MWEB | mobile page config | — | — | — | — |
+| visionOS | YouTube answers and pages | reachable, no value | — | — | — |
+| visionOS | App Store lookup | 21.41.5, no visionOS device (no visionOS value) | — | — | — |
+| visionOS | reference table | yt-dlp 1.02, YouTube.js 1.02 (= bundled) | — | — | — |
+| Android | Play Store page | over 64 KiB (not read past the cap) | — | — | — |
+| Android | reference table | yt-dlp 21.26.364 (= bundled); YouTube.js 21.03.36 (older) | — | — | — |
+| embedded | embed page config | 2.20261014.01.00 from the watch page (client MWEB); newer, not tried (video 1 met a bot check) | — | — | — |
+| MWEB | mobile page config | 2.20261014.01.00, newer, not tried (video 1 met a bot check) | — | — | — |
 
 Baseline (filled by D1; the ladder columns by D6). D1 (`MasterClientLadderSimTest`, pinned in
 `extractor-master/src/test/resources/ladder/r6-baseline.txt`): each cell counts lookups over the 5 bases
@@ -897,3 +897,12 @@ merge and release, merging PR #2.
    (a) V2's budget counted against R6 without the own solver (3) → the ladder ≤ 2; (b) "completes
    more than R6" only in classes with a checkable path, elsewhere the same verdict and wrong 0;
    (c) H2: the second lookup ≤ 1 player request and complete.
+9. **Gate count under the per-video bot-check rule** (proposed after valid run 1, 2026-10-15; owner
+   decides): H and the O rungs are asked only on videos whose first visionOS request had no bot
+   check (valid run 1: 2 of 10), so "≥ 6 of 10 videos" cannot be met even when every ask passes
+   (MWEB 2 / 2, H 1 / 1). Proposal: count a rung over the videos it was asked on — live when its
+   rows passed V (or H) on ≥ 60 % of them in ≥ 2 of 3 runs, with ≥ 1 asked video in each of those
+   runs; the asked counts stay in the table. As written, neither H nor an O rung can be live, and
+   decision 5 applies (A, S, Z, L only). No code change either way; the runs go on with the same
+   APK. Version acceptance runs on video 1 only (no newer version is tried after its bot check), so
+   the web page config values stay "not tried"; MWEB keeps its bundled version, which works.
