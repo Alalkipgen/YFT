@@ -793,6 +793,9 @@ chose, see A.1) and A.7.
   run on the phone yet. Run 3's FAIL was YouTube giving the lookup's video no stream (embedded:
   unavailable; MWEB: SABR only), not the solver. Open: the live check against main on §4.3's
   YouTube URLs and V with a signature video (phone checklist in `MASTER_KEY_PLAN.md` §4.3).
+  V on the phone ✅ (owner, 2026-10-14, `eecfba7`): §4.3's 1080-ladder video needs a signature;
+  the own runner's signatures passed V, rows up to 2160p, MP3 and 720p downloaded (not throttled).
+  Still open: the live check against main (release app) on §4.3's YouTube URLs.
 
 ## 4. Pass criteria (Phase 1.2 done)
 

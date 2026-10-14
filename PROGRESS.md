@@ -22,7 +22,13 @@
   The next APK built for another reason carries 20 s.
 - Owner stream check (2026-10-14, `eecfba7`, aqz-KE-bpKQ): MWEB, n only, agree, all four reads 403,
   `valid: false`, as the 2026-10-11 run: the n rule stays PENDING (plan §2); nothing more to measure.
-- Next (owner): live check + V on the phone (debug and release app, the §4.3 videos), and run 3's
+- ✅ V on the phone (owner, 2026-10-14, opt-in APK `eecfba7`, mobile data): §4.3's 1080-ladder
+  video, whose streams need a signature (MWEB: every format ciphered, checked from the computer).
+  The opt-in build resolves with the own runner only (`OwnSolverSelection`), and
+  `YouTubeSignatureGuard` uses its signatures only after V. Rows: audio M4A 130 kbps and MP3;
+  video 2160p and 1440p (WebM), 1080p, 720p, 480p, 360p (MP4). MP3 (3.3 MB) and 720p (29 MB)
+  downloaded in well under a minute (not throttled).
+- Next (owner): live check on the phone (debug and release app, the other §4.3 videos), and run 3's
   "no stream" video in the release app.
 
 ## Phase 1.2 — N7 owner live check — done (canary tool `41d8a11`, worker fix `f9247bb`, round 2 prep `eecfba7`; round 2 on the phone ✅: P, B and E pass on both builds, P hit 0.3–0.4 s, 1.4 s after a restart)
