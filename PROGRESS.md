@@ -1,6 +1,29 @@
 # YFT Master Extractor backup
 
-## Phase 1.3 — D0 census valid run 3 + gate result (owner, 2026-10-15 02:05 UTC; docs only); ⏸ Weekly check; owner decisions
+## Phase 1.3 — owner decisions after the D0 gate (2026-10-15; docs only); ⏸ Weekly check
+
+- ✅ SOURCE_HOSTS_APPROVED = yes, with conditions (plan §9 item 3; prompt): `raw.githubusercontent.com`
+  only; no redirect followed; ≤ 64 KiB; read as text only; in a lookup fetched only after
+  `VERSION_REJECTED`, at most once a day per identity (guardrails 5 and 7). The reference tables
+  (visionOS: yt-dlp, YouTube.js; Android: yt-dlp) are the usable sources (D0).
+- ✅ D8 dropped (plan §4 D8 "Dropped (owner, 2026-10-15)", status board, §9 item 4; prompt
+  `D8_APPROVED` note). Known limit: when both reference tables lag behind, or the layout changes,
+  a new APK is needed; W shows it. Decided again only if that happens.
+- Queued until the owner sends the Weekly result (no code change and no APK before it):
+  4. `CensusDiff`: a path that is both added and removed is not a change; a bot check answered as
+     R6 with `R0+vd` DIRECT is an info line, not "§7 step 8"; tests first.
+  5. Weekly check: H on a video without a bot check instead of video 1 (valid runs 1–3: video 2
+     never met one), so H can leave "provisional"; within ≤ 20 requests and ≤ 2 MB.
+  6. ⏸ Before D3 (no code): an options table for the owner — visionOS R0 met a bot check on 24 of
+     30, so under guardrail 4 the ladder's rungs (A, S, Z, L, H) do not run in about 80 % of
+     lookups: (က) L / Z / V on R6's `R0+vd` answer with no extra request; (ခ) visitor data reused
+     from the app's session memory only (never on disk), sent from the first request; (ဂ) no
+     change, a known limit — each with risk, requests, MB and guardrail fit.
+  7. D2 only on the owner's "D2 စ" (D2 does not depend on item 6).
+- ⏸ Phone (owner): one Weekly check after 03:05 UTC with the `81388f8` APK, normal mobile data, no
+  clearing app data → Copy result.
+
+## Phase 1.3 — D0 census valid run 3 + gate result (owner, 2026-10-15 02:05 UTC; docs only, `aba372a`)
 
 - ✅ Valid run 3 (2026-10-15 02:05 UTC, 88 min after run 2; `81388f8` APK, mobile data, metered):
   FULL, 10 videos, 54 requests, 2643 KB, 30 s, not stopped. Report `CHANGED (13) — 0 days since

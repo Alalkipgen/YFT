@@ -30,8 +30,10 @@ ALLOW_PUSH: true          (checkpoint pushes to the spike branch only)
 ALLOW_MERGE_MAIN: false   (draft PR #2 stays a draft: never merge it, never mark it ready)
 ALLOW_RELEASE: false
 START_AT: D0              (owner may change)
-D8_APPROVED: false        (owner sets true to allow D8)
-SOURCE_HOSTS_APPROVED: none   (after D0 the owner lists version-source hosts lookups may use)
+D8_APPROVED: false        (owner, 2026-10-15: D8 dropped; plan section 9 item 4)
+SOURCE_HOSTS_APPROVED: raw.githubusercontent.com   (owner, 2026-10-15: only this host, no
+                          redirect, <= 64 KiB, text only; in a lookup only after VERSION_REJECTED,
+                          <= 1 fetch a day per identity; plan section 9 item 3)
 RUN_MODE: continuous      (owner 2026-10-14: after each task push, post the short note and go
                           on at once; "step" = stop after each task and wait for "Next")
 

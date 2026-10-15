@@ -311,7 +311,7 @@ lookup (Master, clientLadder on)
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
 | G0 | Phase 1.2 closed (gate; Phase 1.2's agent and the owner) | — | Low | Done (`a99e0fb`) |
-| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | Code done (`1135afe`); census runs 1–4 not valid, not counted (§5); bot-check rule (owner, 2026-10-15; `5cb781c`), per video (`81388f8`); valid runs 1–3 done (2026-10-14 23:06, 2026-10-15 00:37 and 02:05 UTC); gate (§5, §9 item 9): live Android, MWEB; provisional H, S; not live embedded; usable sources: the reference tables (GitHub raw; lookups need SOURCE_HOSTS_APPROVED); 1 Weekly check pending |
+| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | Code done (`1135afe`); census runs 1–4 not valid, not counted (§5); bot-check rule (owner, 2026-10-15; `5cb781c`), per video (`81388f8`); valid runs 1–3 done (2026-10-14 23:06, 2026-10-15 00:37 and 02:05 UTC); gate (§5, §9 item 9): live Android, MWEB; provisional H, S; not live embedded; usable sources: the reference tables (GitHub raw, approved for lookups with conditions, §9 item 3); D8 dropped; 1 Weekly check pending |
 | D1 | Change simulator, parity gate, L round-trip, baseline | D0 (classes) | Medium–High | Done: simulator + R6 baseline (`f35b78f`; T1b `5cb781c`, per video `81388f8`); parity gate with D6, L round-trip with D5b |
 | D2 | Client table v2 + answer judge (shape kinds, HLS locate, fingerprint) | D1 | Medium | TODO |
 | D3 | Health v2, order, budget, stop rules (learned version, shape map) | D2 | Medium–High | TODO |
@@ -321,7 +321,7 @@ lookup (Master, clientLadder on)
 | D5c | H leg (independent HLS) | D4, D5b (locate) | Medium–High | TODO |
 | D6 | O rungs (census-live only), memo, wiring, flag, merge rule | D5a–D5c | Medium–High | TODO |
 | D7 | Owner live check (with live L mutations), weekly check, runbook | D6 | Low–Medium | TODO |
-| D8 | Signed identity data over R9 (owner decision, after D0) | D2 | Medium | DECIDE |
+| D8 | Signed identity data over R9 (owner decision, after D0) | D2 | Medium | Dropped (owner, 2026-10-15; §9 item 4) |
 
 G0 is done (`a99e0fb`); D0 is next: it decides which rungs and sources exist and starts the
 weekly check. Use the highest reasoning level for D3, D5a, D5b, D5c and D6. D8 only after the
@@ -646,7 +646,12 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
 - Runbook (§7) updated with what the census showed.
 - **Done:** the owner's report; §5 targets met or new targets proposed with numbers.
 
-### D8 — Signed identity data over R9 (owner decision)
+### D8 — Signed identity data over R9 (owner decision) — Dropped (owner, 2026-10-15)
+
+- **Dropped** (§9 item 4): the reference tables are a usable version source (§5; lookups may read
+  them under §9 item 3's conditions). Known limit: when both reference tables lag behind, or the
+  layout changes, a new APK is needed; W shows it. Decided again only if that happens. The text
+  below stays as the design, should it come back.
 
 - A `clientIdentities` section for R9's envelope (ES256, newer-only, expiry, GitHub host lock,
   asked at most once a day): only the four known client names; a strict version pattern per
@@ -756,7 +761,7 @@ Version sources (filled by D0):
 |---|---|---|---|---|---|
 | visionOS | YouTube answers and pages | reachable, no value | = run 1 | = run 1 | no (no value in any run) |
 | visionOS | App Store lookup | 21.41.5, no visionOS device (no visionOS value) | = run 1 | = run 1 | no (no visionOS value: the listing names no visionOS device) |
-| visionOS | reference table | yt-dlp 1.02, YouTube.js 1.02 (= bundled) | = run 1 | = run 1 | **usable** (yt-dlp and YouTube.js = bundled in 3 of 3); GitHub raw: lookups need SOURCE_HOSTS_APPROVED |
+| visionOS | reference table | yt-dlp 1.02, YouTube.js 1.02 (= bundled) | = run 1 | = run 1 | **usable** (yt-dlp and YouTube.js = bundled in 3 of 3); GitHub raw: approved for lookups (owner, 2026-10-15; §9 item 3) |
 | Android | Play Store page | over 64 KiB (not read past the cap) | = run 1 | = run 1 | no (over 64 KiB in every run) |
 | Android | reference table | yt-dlp 21.26.364 (= bundled); YouTube.js 21.03.36 (older) | = run 1 | = run 1 | yt-dlp **usable** (= bundled in 3 of 3; GitHub raw, as above); YouTube.js no (older value) |
 | embedded | embed page config | 2.20261014.01.00 from the watch page (client MWEB); newer, not tried (video 1 met a bot check) | = run 1 | = run 1 | no (the newer value was never tried: video 1 met a bot check in every run); embedded not live |
@@ -893,10 +898,13 @@ merge and release, merging PR #2.
    host Master does not use yet (Apple, Google Play, GitHub raw for a reference). D0 (2026-10-15):
    usable = the reference tables on GitHub raw (visionOS: yt-dlp, YouTube.js; Android: yt-dlp), each
    equal to the bundled value in 3 of 3 runs; the App Store, the Play Store page, the visionOS answer
-   and the web page configs are not usable (§5). Asked: SOURCE_HOSTS_APPROVED (GitHub raw yes / no).
-4. **D8 signed identity data:** yes / no, decided after D0 (item 3); if yes, the phone signing
-   path and the key's custody. D0: a usable source exists for visionOS (the reference tables), so D8
-   may be dropped (owner decides).
+   and the web page configs are not usable (§5). **SOURCE_HOSTS_APPROVED = yes — owner, 2026-10-15,
+   with conditions:** `raw.githubusercontent.com` only; no redirect followed; ≤ 64 KiB; read as text
+   only; in a lookup fetched only after `VERSION_REJECTED`, at most once a day per identity
+   (guardrails 5 and 7).
+4. **D8 signed identity data: dropped — owner, 2026-10-15** (after D0: a usable source exists for
+   visionOS, the reference tables, item 3). Known limit: when both reference tables lag behind, or
+   the layout changes, a new APK is needed; W shows it. Decided again only if that happens.
 5. **After the D0 gate:** if neither H nor any O rung is live, Phase 1.3 finishes with A, S, Z and
    L; no SABR, token or MSE work follows from this plan.
 6. **M5 (Phase 1.2 carry-over, `PROGRESS.md` "Phase 1.2 — done"):** not part of this plan; the
