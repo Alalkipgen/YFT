@@ -1,5 +1,22 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — census test run 3 (owner, 2026-10-15 13:20 UTC; docs only); H meets the gate; ⏸ the owner: a weekly check and the word on H live
+
+- ✅ Test run 3 (`595d259`, mobile data, 1 h 21 min after test 2): FULL, 10 videos, 74 requests,
+  2773 KB, 97 s, not stopped (page 1 took 6490 ms: a slow network). `BROKEN (10)`: H on videos 1
+  and 2, the master request failed on the network (`net`, 1 request each; not a YouTube refusal,
+  no wrong row); visionOS R0 video 2 V `UNKNOWN` (`NETWORK`); MWEB video 2 back to ≤ 2160p (the
+  known flip, back: +`signatureCipher`, MWEB R0 also −`adPlacements`); the App Store reachable
+  again (21.41.5). 8 `INFO` bot checks as tests 1–2.
+- Per rung: R0 0 / 10 (video 2 V `UNKNOWN`); R0+vd 8 / 8; S 0 asked; **H 6 / 9** (67 %; videos
+  1–2 `net`, video 10 `no-segment` again); Android 2 / 2 (360p); embedded 0 / 2 `REFUSED`; MWEB
+  2 / 2 (video 2 ≤ 2160p, video 6 ≤ 1080p). Players 21090930 on 8, 0229cd64 on videos 4 and 10;
+  MWEB page version accepted again; wrong 0.
+- Gate (§9 item 9): H ≥ 60 % in 3 of 3 tests (89 %, 89 %, 67 %), 9 distinct videos, wrong 0 →
+  **H meets the gate (live)**; the client table's H (provisional → live) changes in code only on
+  the owner's word. Android and MWEB stay provisional (videos 2 and 6 only). No code change.
+- ⏸ Next (owner): a weekly check on this APK and the word on H live. No T1c / T1d, no D3.
+
 ## Phase 1.3 — census test run 2 (owner, 2026-10-15 11:59 UTC; docs only); H meets the gate; ⏸ the owner: test run 3 and a weekly check
 
 - ✅ Test run 2 (`595d259`, mobile data, 2 h 44 min after test 1): FULL, 10 videos, 78 requests,

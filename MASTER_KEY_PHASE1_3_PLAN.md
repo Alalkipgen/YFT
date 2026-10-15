@@ -907,14 +907,14 @@ stopped, `FIRST RUN` + 8 `INFO` lines for the answered bot checks):
 
 | Rung | test 1 | test 2 | test 3 |
 |---|---|---|---|
-| R0 visionOS (adaptive rows) | 1 / 10: video 2 `DIRECT` (≤ 2160p, V pass); `BOT_CHECK` 8; video 6 `REFUSED` (V7: "This video is not available"; was `VIDEO_VERDICT`) | 1 / 10: as test 1 | — |
-| R0+vd (R6's chain request) | 8 / 8 `DIRECT`, V pass | 8 / 8 `DIRECT`, V pass | — |
-| A alternates | none bundled | none bundled | — |
-| S (visionOS with page signals) | 0 asked (no cipher in a visionOS answer) | 0 asked | — |
-| H (master / variant / segment) | **8 / 9**: videos 1–5 and 7–9 2xx / 2xx / 2xx, no key, audio separate, duration within 2 s; video 10: master and variant 2xx, but the master's highest variant is 240p (its formats reach 720p) and that variant's playlist held no segment (`no-segment`, 2 requests) | **8 / 9**: as test 1 (video 10 `no-segment` again: repeatable for that video) | — |
-| Android | 2 / 2 `SABR_ONLY`: the 360p progressive row only (V pass) | 2 / 2: as test 1 | — |
-| embedded | 0 / 2 `REFUSED` (error 152-18; V7, was `VIDEO_VERDICT`) | 0 / 2: as test 1 | — |
-| MWEB | 2 / 2 `NEEDS_SCRIPT` → S ok-sig+n, V pass: video 2 ≤ 2160p, video 6 ≤ 1080p (no address-less adaptive answer) | 2 / 2: video 2 adaptive formats without address (29; the bundled and the page's version alike), only the 360p progressive row (S, V pass), as valid run 3; video 6 ≤ 1080p | — |
+| R0 visionOS (adaptive rows) | 1 / 10: video 2 `DIRECT` (≤ 2160p, V pass); `BOT_CHECK` 8; video 6 `REFUSED` (V7: "This video is not available"; was `VIDEO_VERDICT`) | 1 / 10: as test 1 | 0 / 10: video 2 `DIRECT` (≤ 2160p) but V `UNKNOWN` (`NETWORK`); `BOT_CHECK` 8; video 6 `REFUSED` |
+| R0+vd (R6's chain request) | 8 / 8 `DIRECT`, V pass | 8 / 8 `DIRECT`, V pass | 8 / 8 `DIRECT`, V pass |
+| A alternates | none bundled | none bundled | none bundled |
+| S (visionOS with page signals) | 0 asked (no cipher in a visionOS answer) | 0 asked | 0 asked |
+| H (master / variant / segment) | **8 / 9**: videos 1–5 and 7–9 2xx / 2xx / 2xx, no key, audio separate, duration within 2 s; video 10: master and variant 2xx, but the master's highest variant is 240p (its formats reach 720p) and that variant's playlist held no segment (`no-segment`, 2 requests) | **8 / 9**: as test 1 (video 10 `no-segment` again: repeatable for that video) | **6 / 9**: videos 3–5 and 7–9 as test 1; videos 1 and 2: the master request failed on the network (`net`, 1 request each, variant and segment skipped; 2 `BROKEN` lines, §7 step 7; not a YouTube refusal, no wrong row); video 10 `no-segment` again |
+| Android | 2 / 2 `SABR_ONLY`: the 360p progressive row only (V pass) | 2 / 2: as test 1 | 2 / 2: as test 1 |
+| embedded | 0 / 2 `REFUSED` (error 152-18; V7, was `VIDEO_VERDICT`) | 0 / 2: as test 1 | 0 / 2: as test 1 |
+| MWEB | 2 / 2 `NEEDS_SCRIPT` → S ok-sig+n, V pass: video 2 ≤ 2160p, video 6 ≤ 1080p (no address-less adaptive answer) | 2 / 2: video 2 adaptive formats without address (29; the bundled and the page's version alike), only the 360p progressive row (S, V pass), as valid run 3; video 6 ≤ 1080p | 2 / 2: video 2 back to ≤ 2160p (30 adaptive formats with a ciphered address, S ok-sig+n, V pass; as test 1); video 6 ≤ 1080p |
 
 Test 1 also: B5–B9 and V7 as expected (the header lists the 10 videos asked; H on every video
 whose visionOS answer is `DIRECT`; Full ≤ 6 MB; the client table line); pages 10 / 10 HTTP 200
@@ -939,6 +939,20 @@ pages: player 21090930 on 8, 0229cd64 on 2. Gate: H ≥ 60 % in 2 of 2 tests (89
 distinct videos, wrong 0 — the ≥ 2 of 3 rule is met; H is live once test 3 keeps wrong 0 (the
 client table's H changes in code only after that, on the owner's word). Android and MWEB: still
 videos 2 and 6 only (provisional).
+
+Test 3 (13:20 UTC, 1 h 21 min after test 2; 10 videos, 74 requests, 2773 KB, 97 s, not stopped;
+page 1 took 6490 ms, a slow network): `BROKEN (10)` — `BROKEN` because of H on videos 1 and 2
+(two `BROKEN` lines, §7 step 7: the master request failed on the network, `net`, 1 request each,
+variant and segment skipped; not a YouTube refusal, no wrong row); also visionOS R0 video 2's V
+PASS → `UNKNOWN` (`NETWORK`), MWEB video 2 back to its ciphered adaptive answer (R0 and SH:
+0/0/1/29/1 → 0/0/30/0/1, 360p → 2160p, shape +`adaptiveFormats[].signatureCipher`, MWEB R0 also
+−`adPlacements`; the known flip, back) and the App Store reachable again (21.41.5, no visionOS
+device listed). The same 8 answered bot checks (`INFO`); pages: player 21090930 on 8, 0229cd64 on
+videos 4 and 10; MWEB page version accepted again. The `net` failures read as a short
+mobile-network blip (a reading). Gate (§9 item 9): H ≥ 60 % in 3 of 3 tests (89 %, 89 %, 67 %) on
+9 distinct videos, wrong 0 — **H meets the gate (live)**; the client table's H (provisional →
+live) changes in code only on the owner's word. Android and MWEB: still videos 2 and 6 only
+(provisional).
 
 Weekly checks (W, §4 D0; the diff against the last stored run):
 
