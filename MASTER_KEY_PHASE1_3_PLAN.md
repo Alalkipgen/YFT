@@ -915,6 +915,12 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   length checked), the other nine videos listed only; the normal APK also one full census
   (≈ 3.4 MB, ≈ 1 min). The report per APK: complete of 10, the videos (by number) that are not,
   top-quality differences from the normal APK, any bot-check message.
+- **Results** (owner, 2026-10-15 UTC; PROGRESS): six APKs × 11 videos complete, wrong 0, no
+  bot-check message; video 1's top row downloaded once, on `normal` (sound, 0:19; Plan adapted
+  from one per APK); census FULL 78 requests, 2791 KB, 33 s. ❌ Census L steps 0/9 same: L stops
+  on every live visionOS answer (`ShapeLocator`'s DRM marker is wider than the parser's).
+  ⏸ Until the marker is narrowed (the parallel agent's file), then one census FULL again. Left:
+  two weekly checks (≥ 1 h apart), runbook §7.
 
 ### D8 — Signed identity data over R9 (owner decision) — Dropped (owner, 2026-10-15)
 

@@ -1,5 +1,30 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — D7 phone check (owner, 2026-10-15 UTC, census 22:43 UTC; docs only); ⏸ L stops on every live answer
+
+- ✅ Six APKs (`80ccb10`), all flags on, mobile data, the owner's 11 list videos each: `normal`
+  11/11 complete (videos 7 and 11 listed on the reinstall), `skip-visionos` 11/11,
+  `skip-visionos-adaptive` 11/11 (no HLS row), `mutate-L1` 11/11, `mutate-L3` 11/11, `mutate-L5`
+  11/11. Every list as the normal APK's (same top rows and sizes); wrong 0; no bot-check message,
+  no error, every row with a size. Video 9's top row (1920×818) reads 720p (by its short side).
+- ✅ Video 1's top row (240p) downloaded once, on `normal`: sound, length 0:19 (Plan adapted: one
+  download in all instead of one per APK; every trial list was the normal list).
+- ✅ Census FULL on `normal` (mobile data): 10 census videos, 78 requests, 2791 KB, 33 s.
+  CHANGED 3: visionOS R0 census video 2 V UNKNOWN → PASS; MWEB shape +1 (`adPlacements`);
+  H visionOS census video 2 master net → 2xx. visionOS without visitor data: bot check on 8 of 9,
+  each answered as R6 (visionOS with its visitor data: `DIRECT`, V PASS). H: 8 of 9 2xx with the
+  length matched; census video 10 no segment (unchanged). MWEB page version accepted.
+- ❌ Census L steps: round-trip, L1, L2, L3 and L7 0/9 same, L5 9 n/a; each `none (no rows)` =
+  `ShapeNormalizer` gave `Stop`, not rows. Cause (read from the code, not reproduced): an OK,
+  not-live answer stops only on DRM, and `ShapeLocator`'s DRM marker (any key starting with drm or
+  holding Drm / DRM, with a value, anywhere in the answer; a WIDEVINE / PLAYREADY / FAIRPLAY text)
+  is wider than the copied parser's (`streamingData.drmParams`, `playbackTracking.drmSessionId`, a
+  format's `drmFamilies` / `drmTrackType`), which saw no DRM here. So live, L gives no rows; the
+  phone lists stayed complete through R6. D7's "L expected" is not met.
+- ⏸ Needs: `ShapeLocator.kt`'s DRM marker narrowed to the parser's places (the parallel agent's
+  file) and an L case with a non-DRM key holding Drm; then one census FULL again (L steps). Left:
+  two timed weekly checks (≥ 1 h apart), runbook §7.
+
 ## Phase 1.3 — D7 APKs (2026-10-15): job d7-matrix, six phone-check APKs from a push with [d7]
 
 - ✅ `master-optin-debug-apk.yml` job `d7-matrix` (after `build`; only a push whose commit message
