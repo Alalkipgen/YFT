@@ -900,6 +900,36 @@ refuse too: no row, clean stop, wrong 0, MCF 0. Lines in `build/ladder-sim/v7-li
 above that read `VIDEO_VERDICT` for video 6's visionOS answer and the embedded player's error
 152-18 read `REFUSED` (the judge's V7 rule, not a YouTube change).
 
+Census on the B + D2 APK (`595d259`, the fixed debug key; the owner's test runs 1–3, the first
+after the one uninstall, §7; a cell = videos with V- or H-passed rows / videos asked; test 1:
+2026-10-15 09:15 UTC, mobile data (metered), 10 videos (1–10), 78 requests, 3388 KB, 69 s, not
+stopped, `FIRST RUN` + 8 `INFO` lines for the answered bot checks):
+
+| Rung | test 1 | test 2 | test 3 |
+|---|---|---|---|
+| R0 visionOS (adaptive rows) | 1 / 10: video 2 `DIRECT` (≤ 2160p, V pass); `BOT_CHECK` 8; video 6 `REFUSED` (V7: "This video is not available"; was `VIDEO_VERDICT`) | — | — |
+| R0+vd (R6's chain request) | 8 / 8 `DIRECT`, V pass | — | — |
+| A alternates | none bundled | — | — |
+| S (visionOS with page signals) | 0 asked (no cipher in a visionOS answer) | — | — |
+| H (master / variant / segment) | **8 / 9**: videos 1–5 and 7–9 2xx / 2xx / 2xx, no key, audio separate, duration within 2 s; video 10: master and variant 2xx, but the master's highest variant is 240p (its formats reach 720p) and that variant's playlist held no segment (`no-segment`, 2 requests) | — | — |
+| Android | 2 / 2 `SABR_ONLY`: the 360p progressive row only (V pass) | — | — |
+| embedded | 0 / 2 `REFUSED` (error 152-18; V7, was `VIDEO_VERDICT`) | — | — |
+| MWEB | 2 / 2 `NEEDS_SCRIPT` → S ok-sig+n, V pass: video 2 ≤ 2160p, video 6 ≤ 1080p (no address-less adaptive answer) | — | — |
+
+Test 1 also: B5–B9 and V7 as expected (the header lists the 10 videos asked; H on every video
+whose visionOS answer is `DIRECT`; Full ≤ 6 MB; the client table line); pages 10 / 10 HTTP 200
+(MWEB 2.20261014.01.00; player 21090930 on 8, 0229cd64 on videos 6 and 7; S solved both). B7's
+version acceptance (video 2): MWEB with the page's newer 2.20261014.01.00 is **accepted** (the
+same `NEEDS_SCRIPT` answer, 30 formats; the step checks acceptance, not rows) — the first time a
+newer page value was tried; embedded's is not tried (measured, not active). Sources as valid
+runs 1–3, except the App Store (`NETWORK` this time). Video 10's H: the 2xx variant playlist held
+no `#EXTINF` segment and the master listed only ≤ 240p, so YouTube's HLS for that video looked
+incomplete (a reading). R6 answered
+video 10 itself (23 adaptive rows ≤ 720p, V pass) and H gives no row there (no wrong row). Gate
+(§9 item 9) after tests 2–3: H was asked on 9 distinct videos for the first time (8 passed,
+89 %) — live if ≥ 60 % in ≥ 2 of the 3 tests and wrong 0; Android and MWEB still on videos 2
+and 6 only (provisional).
+
 Weekly checks (W, §4 D0; the diff against the last stored run):
 
 | Check | When, network, APK | Requests, bytes, time | Asked | Diff |
@@ -1041,8 +1071,9 @@ the D0 census):
     `a2696dff62331776dee9baf34a150ffcec19e1a358656bc65517d165cc88bbbe`, in each run's summary
     and annotations). Install the first fixed-key APK once after one uninstall; from then on only
     update, never uninstall. That one uninstall loses the census history (the next Full census
-    reads `FIRST RUN`, and so does W), the health file, the cooldown and the slots (re-enter 5, 6
-    and 8–10 with the same videos; 4 and 7 go back to their defaults).
+    reads `FIRST RUN`; the runs after it, W included, compare with it), the health file, the
+    cooldown and the slots (re-enter 5, 6 and 8–10 with the same videos; 4 and 7 go back to
+    their defaults). Done once (owner, 2026-10-15): test run 1 (§5) read `FIRST RUN`.
   - The key is public (it is in the repo): install only APKs from this repo's
     `master-optin-debug-apk` workflow. It signs the debug app (`com.alal.yft.debug`) only, never
     a release or preview build (its `CN=Android Debug` certificate fails

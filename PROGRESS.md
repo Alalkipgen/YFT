@@ -1,5 +1,25 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — census test run 1 on the B + D2 APK (owner, 2026-10-15 09:15 UTC; docs only); ⏸ the owner: test runs 2–3 and a weekly check
+
+- ✅ Test run 1 (`595d259`, the first run after the one uninstall; mobile data, metered): FULL,
+  10 videos (1–10), 78 requests, 3388 KB, 69 s, not stopped; `FIRST RUN` (expected) + 8 `INFO`
+  lines (videos 1, 3, 4, 5, 7, 8, 9, 10: visionOS R0 `BOT_CHECK` → `R0+vd` `DIRECT`, V pass).
+- As expected: B8 header "10 videos (1–10)"; B5 H on every video whose visionOS answer is
+  `DIRECT`; V7 video 6's visionOS and the embedded 152-18 → `REFUSED` (not `VIDEO_VERDICT`); B7
+  on video 2; B9 3388 KB ≤ 6 MB; the client table line.
+- Per rung (passed / asked): R0 1 / 10; R0+vd 8 / 8; S (visionOS) 0 asked; **H 8 / 9** (video 10:
+  master and variant 2xx, the master ≤ 240p while the formats reach 720p, no segment in the
+  variant playlist — YouTube's HLS for it looked incomplete; R6 answered video 10 itself, no wrong
+  row); Android 2 / 2 (360p only); embedded 0 / 2 `REFUSED`; MWEB 2 / 2 (S + V: ≤ 2160p, ≤ 1080p).
+- New: MWEB's page version 2.20261014.01.00 tried for the first time (B7) → **accepted**; the App
+  Store `NETWORK` this time; players 21090930 (8 pages) and 0229cd64 (2), S solved both.
+- Gate (§9 item 9) after tests 2–3: H on 9 distinct videos (8 passed, 89 %) → live if ≥ 60 % in
+  ≥ 2 of the 3 tests and wrong 0; Android and MWEB still on videos 2 and 6 only (provisional).
+- Plan: §5 test-run table (test 1); §7: only the first run after an uninstall reads `FIRST RUN`
+  (the "and so does W" of `595d259` was wrong).
+- ⏸ The owner: test runs 2 and 3 (≥ 1 h apart) and a weekly check. Not started: T1c, T1d, D3.
+
 ## Phase 1.3 — one fixed debug key for the opt-in APK (2026-10-15; build and workflow only, no app code); ⏸ the owner: one uninstall, then one Full census
 
 - The owner (2026-10-15, after `2b62605`): 1. B + D2 OK; the `INCOMPLETE` finding (main's
