@@ -1,5 +1,16 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — D7 APKs (2026-10-15): job d7-matrix, six phone-check APKs from a push with [d7]
+
+- ✅ `master-optin-debug-apk.yml` job `d7-matrix` (after `build`; only a push whose commit message
+  carries `[d7]`): `normal`, `skip-visionos`, `skip-visionos-adaptive`, `mutate-L1`, `mutate-L3`,
+  `mutate-L5`; all flags on; assemble only; spike key, cert SHA-256, package and versionCode
+  checked (a mismatch uploads nothing); artifacts `yft-d7-<mode>`, 14 days. `build` unchanged.
+- ✅ `.github/d7-apks.txt`: the trigger file (a docs-only push runs nothing).
+- ✅ Trial APKs keep the ladder's health in memory only (never the file); `LadderTrialTest` +1.
+- ✅ Workflow tests 17 (+5 D7; `contains()` in the evaluator); module tests 603, 0 failed; drift 0.
+- "Complete" on the phone and the data budget: plan §4 D7. Left: CI, the six links, the phone check.
+
 ## Phase 1.3 — D7 prep (2026-10-15): live-check switches, health file, census fixes
 
 - ✅ `ladder/LadderTrial.kt`: `visionos`, `visionos-adaptive`, `L1`, `L2`, `L3`, `L5`, `L7` on
@@ -10,7 +21,7 @@
 - ✅ `LadderTrialTest` (3): B0 × every mode × own solver off / on, wrong 0; L modes complete via L.
 - ✅ Census L steps (full census, in memory): round-trip + L1, L2, L3, L5, L7 per `DIRECT` visionOS
   answer → `same` / `differs` / `n/a` / `none (<why>)`, and a counts note.
-- CI: `4f884ec` ✅, `be0c52e` ✅, `6402fea` ✅, `e56cc3f` build ✅. Left: the owner's phone check.
+- CI: `4f884ec` ✅, `be0c52e` ✅, `6402fea` ✅, `e56cc3f` ✅, `a4ffd02` ✅. Left: the owner's phone check.
 
 ## Phase 1.3 — D5a S + D6 O rungs (2026-10-15)
 

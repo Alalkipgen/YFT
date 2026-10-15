@@ -61,12 +61,16 @@ class MasterClientLadder internal constructor(
     /** V's day budget for direct answers (guardrail 6: the client ID is the key). */
     internal val vLedger = StreamCheck.MemoryLedger()
 
-    /** The app's ladder: its health in [healthFile] (null: memory only); L rows read by [reader]. */
+    /**
+     * The app's ladder: its health in [healthFile] (null: memory only); L rows read by [reader].
+     * With a live-check [trial] the health stays in memory only — the file is never read or
+     * written — so the normal build's health never holds what a changed answer taught (D7).
+     */
     constructor(
         healthFile: OwnSolverTextFile?,
         reader: MediaStartReader?,
         trial: LadderTrial = LadderTrial.NONE,
-    ) : this(ClientHealth(healthFile), reader, trial)
+    ) : this(ClientHealth(healthFile.takeIf { trial === LadderTrial.NONE }), reader, trial)
 
     internal fun lookup(http: ExtractorHttpClient, request: SiteExtractionRequest): LadderLookup =
         LadderLookup(this, http, request)

@@ -3,6 +3,7 @@ package com.alal.yft.extractor.master.modules.youtube.ladder
 import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.api.json.JsonValue
 import com.alal.yft.extractor.master.modules.youtube.MasterYouTubeModule
+import com.alal.yft.extractor.master.solver.OwnSolverTextFile
 import java.io.File
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.test.runTest
@@ -63,6 +64,28 @@ class LadderTrialTest {
         (LadderTrial.MUTATIONS).forEach { assertNull(it, LadderTrial.mutate(it, bare)) }
         assertNull(LadderTrial.of("visionos-adaptive", "").apply(bare))
         assertNull(LadderTrial.NONE.apply(root))
+    }
+
+    @Test
+    fun `a trial never reads or writes the health file, the normal ladder does (D7)`() {
+        class CountingFile : OwnSolverTextFile {
+            var reads = 0
+            var writes = 0
+
+            override fun read(): String? = null.also { reads += 1 }
+
+            override fun write(text: String): Boolean = true.also { writes += 1 }
+        }
+        for (trial in LadderTrial.SKIPS.map { LadderTrial.of(it, "") } + LadderTrial.MUTATIONS.map { LadderTrial.of("", it) }) {
+            val file = CountingFile()
+            val ladder = MasterClientLadder(healthFile = file, reader = null, trial = trial)
+            ladder.health.record("visionos", CensusClass.SHAPE_CHANGED, repairedBy = ClientHealth.Rung.L)
+            ladder.health.record("android", CensusClass.DIRECT)
+            assertEquals(trial.label, listOf(0, 0), listOf(file.reads, file.writes))
+        }
+        val file = CountingFile()
+        MasterClientLadder(healthFile = file, reader = null).health.record("visionos", CensusClass.DIRECT)
+        assertTrue(file.reads > 0 && file.writes > 0)
     }
 
     @Test

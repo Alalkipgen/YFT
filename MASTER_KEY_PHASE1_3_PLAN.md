@@ -130,7 +130,8 @@ in a row):
    census fixes: MWEB's address-less flip becomes an `INFO` line (not `CHANGED`), and the R6 note
    no longer says "nothing else for this video" when H ran on that answer. **Prep done**
    (2026-10-15, §4 D7 "As built (prep)"): the switches, the workflow inputs, the health file,
-   both census fixes and the census tool's L steps. Left: the owner's phone check.
+   both census fixes and the census tool's L steps; the six APKs from a push with `[d7]` (job
+   `d7-matrix`). Left: the owner's phone check.
 
 The owner's part: one OK for this plan (items 1–2 and the (က+) plan change; §9 items 10–11); a
 weekly check about once a week on mobile data; D7's phone check at the end. Known limits (§5):
@@ -892,9 +893,28 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   addresses (`n/a` when the change has nothing to change, `none (<why>)` when L gives no rows);
   one note per answer and one with the counts. L's rows are the direct parse's own addresses, so
   the answer's V stands for them there; in the app the ladder checks every L row itself
-  (`ClientCensusTest`: the census fixture's formats now carry `approxDurationMs`). The phone check's
-  APKs: one manual run per mode (normal, `ladder_skip` ×2, `ladder_mutate` L1, L3, L5), each
-  with `client_ladder` and `own_solver` on.
+  (`ClientCensusTest`: the census fixture's formats now carry `approxDurationMs`).
+- **The phone check's six APKs (owner, 2026-10-15; "Run workflow" shows only on the default
+  branch):** job `d7-matrix` in `master-optin-debug-apk.yml`, after `build` (its tests run once
+  there; `build` itself unchanged), only for a push whose commit message carries `[d7]` (any
+  case). One APK per mode: `normal`, `skip-visionos`, `skip-visionos-adaptive`, `mutate-L1`,
+  `mutate-L3`, `mutate-L5`, each with every flag on (own solver, its ladder, client ladder);
+  assemble only. The spike debug key is required; the signing cert's SHA-256, the package
+  `com.alal.yft.debug` and gradle.properties' versionCode are checked, a mismatch uploads nothing.
+  Artifacts `yft-d7-<mode>`, kept 14 days. Each installs as an update over the last (same package,
+  key and versionCode). A docs-only push runs nothing (paths-ignore): for the next six, edit
+  `.github/d7-apks.txt` in a commit whose message carries `[d7]`. A trial APK (a skip or a
+  mutation) keeps the ladder's health in memory only, never reading or writing
+  `client-health.json`, so the normal APK's health never holds a trial's verdicts
+  (`LadderTrialTest` +1); no reset is needed.
+- **Complete on the phone** (the P22 rule, as the simulator's `complete`): the quality list shows
+  either the top quality's merged row (video with sound; the normal APK's top: ≤ 1080p AVC,
+  2K / 4K VP9 when offered) with its size and the sound-only row with its size, or one HLS row
+  (≤ 1080p, with sound; expected with `skip-visionos-adaptive`). Partial: only 360p, no sound or
+  no size. Stop: an error. Mobile data: per APK one full download of video 1's top row (sound and
+  length checked), the other nine videos listed only; the normal APK also one full census
+  (≈ 3.4 MB, ≈ 1 min). The report per APK: complete of 10, the videos (by number) that are not,
+  top-quality differences from the normal APK, any bot-check message.
 
 ### D8 — Signed identity data over R9 (owner decision) — Dropped (owner, 2026-10-15)
 

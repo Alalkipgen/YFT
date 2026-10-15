@@ -4,6 +4,9 @@ GitHub shows "Run workflow" only for workflows on the default branch, so the own
 canary with the label run-canary and the opt-in APK with its ladder on (ownSolverNext) with the
 label build-optin-apk (MASTER_KEY_PHASE1_2_PLAN.md §3 N6). The workflows' expressions are
 evaluated for every event they take: a push, a manual run, each label and any other label.
+
+Phase 1.3 D7 (owner 2026-10-15): the opt-in APK workflow's second job, d7-matrix, builds the phone
+check's six debug APKs after the build job, only for a push whose commit message carries [d7].
 """
 
 import pathlib
@@ -33,7 +36,8 @@ def text(value):
 
 class Expression:
     """The GitHub Actions expression subset these workflows use: string, boolean and null
-    literals, context paths, !, ==, !=, &&, || (values, not booleans), parentheses, format()."""
+    literals, context paths, !, ==, !=, &&, || (values, not booleans), parentheses, format() and
+    contains() (a string: any case; an array: an equal item)."""
 
     def __init__(self, source, context):
         source = source.strip()
@@ -108,13 +112,18 @@ class Expression:
             return token[1:-1].replace("''", "'")
         if token in ("true", "false", "null"):
             return {"true": True, "false": False, "null": None}[token]
-        if token == "format":
+        if token in ("format", "contains"):
             self.take("(")
             arguments = [self.either()]
             while self.peek() == ",":
                 self.take()
                 arguments.append(self.either())
             self.take(")")
+            if token == "contains":
+                search, item = arguments
+                if isinstance(search, list):
+                    return any(text(entry).lower() == text(item).lower() for entry in search)
+                return text(item).lower() in text(search).lower()
             return re.sub(r"\{(\d+)\}", lambda m: text(arguments[1 + int(m.group(1))]), arguments[0])
         result = self.context
         for part in token.split("."):
@@ -131,8 +140,9 @@ def render(template, context):
     return re.sub(r"\$\{\{(.*?)\}\}", lambda m: text(evaluate(m.group(1), context)), template)
 
 
-def push():
-    return {"github": {"event_name": "push", "ref": SPIKE, "sha": "pushed-commit", "event": {}}}
+def push(message=None):
+    event = {} if message is None else {"head_commit": {"message": message}}
+    return {"github": {"event_name": "push", "ref": SPIKE, "sha": "pushed-commit", "event": event}}
 
 
 def manual(own_solver=True, own_solver_next=False):
@@ -171,6 +181,15 @@ def on_block(source):
 def trigger(source, name):
     """One trigger's lines in the on: block (up to the next trigger)."""
     return one(rf"^  {name}:\n((?:    .*\n|  #.*\n)*)", on_block(source))
+
+
+def job(source, name):
+    """One job's lines in the jobs: block (up to the next job or a 2-space comment)."""
+    return one(rf"^  {name}:\n((?:    .*\n|\n)+)", source)
+
+
+BUILD = job(APK, "build")
+D7 = job(APK, "d7-matrix")
 
 
 def job_if(source):
@@ -231,8 +250,8 @@ class OptInApkLabelTest(LabelTriggerTest):
         steps = [
             (render(own, context), render(next_, context))
             for own, next_ in zip(
-                re.findall(r"^          OWN_SOLVER: (.+)$", APK, re.M),
-                re.findall(r"^          OWN_SOLVER_NEXT: (.+)$", APK, re.M),
+                re.findall(r"^          OWN_SOLVER: (.+)$", BUILD, re.M),
+                re.findall(r"^          OWN_SOLVER_NEXT: (.+)$", BUILD, re.M),
             )
         ]
         self.assertEqual(2, len(steps))  # the build step and the summary step
@@ -243,9 +262,9 @@ class OptInApkLabelTest(LabelTriggerTest):
         """The context after the "Build commit" step, which keeps BUILD_SHA's first 7 characters."""
         self.assertEqual(
             'run: echo "short=${BUILD_SHA::7}" >> "$GITHUB_OUTPUT"',
-            one(r"^        id: commit\n        shell: bash\n        (run: .+)$", APK),
+            one(r"^        id: commit\n        shell: bash\n        (run: .+)$", BUILD),
         )
-        sha = render(one(r"^      BUILD_SHA: (.+)$", APK), context)
+        sha = render(one(r"^      BUILD_SHA: (.+)$", BUILD), context)
         return {**context, "steps": {"commit": {"outputs": {"short": sha[:7]}}}}, sha
 
     def test_build_optin_apk_label_starts_the_build_without_a_paths_filter(self):
@@ -254,7 +273,7 @@ class OptInApkLabelTest(LabelTriggerTest):
 
     def test_the_job_runs_for_a_push_a_manual_run_and_build_optin_apk_only(self):
         expected = {"push": True, "manual": True, "build-optin-apk": True}
-        self.assert_runs(APK, {**dict.fromkeys(EVENTS, False), **expected})
+        self.assert_runs(BUILD, {**dict.fromkeys(EVENTS, False), **expected})
 
     def test_a_label_build_has_the_own_solver_and_its_ladder_on(self):
         self.assertEqual(("true", "true"), self.flags(label("build-optin-apk")))
@@ -263,8 +282,8 @@ class OptInApkLabelTest(LabelTriggerTest):
         self.assertEqual(("false", "true"), self.flags(manual(False, True)))
 
     def test_a_label_build_is_the_spike_head_and_its_artifact_name_shows_the_ladder(self):
-        self.assert_pr_head_checkout(APK)
-        artifact = one(r"^        uses: actions/upload-artifact@v4\n        with:\n          name: (.+)$", APK)
+        self.assert_pr_head_checkout(BUILD)
+        artifact = one(r"^        uses: actions/upload-artifact@v4\n        with:\n          name: (.+)$", BUILD)
         context, sha = self.build_context(label("build-optin-apk"))
         self.assertEqual("spike-head-commit", sha)
         self.assertEqual("yft-master-optin-debug-apk-next-spike-h", render(artifact, context))
@@ -283,6 +302,63 @@ class OptInApkLabelTest(LabelTriggerTest):
         self.assert_label_groups(APK, "master-optin-debug-apk-")
 
 
+class D7MatrixTest(unittest.TestCase):
+    """Phase 1.3 D7 (owner 2026-10-15): six phone-check APKs, one per mode, all flags on."""
+
+    MODES = {
+        "normal": ("", ""),
+        "skip-visionos": ("visionos", ""),
+        "skip-visionos-adaptive": ("visionos-adaptive", ""),
+        "mutate-L1": ("", "L1"),
+        "mutate-L3": ("", "L3"),
+        "mutate-L5": ("", "L5"),
+    }
+
+    def test_the_six_apks_build_only_after_a_push_whose_message_carries_d7(self):
+        self.assertEqual("build", one(r"^    needs: (.+)$", D7))  # after the build job's tests
+        for name, context in EVENTS.items():
+            with self.subTest(event=name):  # a push without [d7], a manual run, any label
+                self.assertFalse(truthy(evaluate(job_if(D7), context)))
+        self.assertTrue(truthy(evaluate(job_if(D7), push("Phase 1.3 D7: six APKs [d7]"))))
+        self.assertTrue(truthy(evaluate(job_if(D7), push("run 2 [D7]"))))  # contains(): any case
+        self.assertFalse(truthy(evaluate(job_if(D7), push("Phase 1.3 D7 docs"))))
+        self.assertTrue(truthy(evaluate(job_if(BUILD), push("run 2 [d7]"))))  # build runs as before
+
+    def test_each_mode_has_its_switch_and_its_own_14_day_artifact(self):
+        found = re.findall(r"^          - mode: (.+)\n            skip: (.*)\n            mutate: (.*)$", D7, re.M)
+        self.assertEqual(self.MODES, {mode: (skip.strip('"'), mutate.strip('"')) for mode, skip, mutate in found})
+        self.assertEqual(6, len(found))
+        self.assertIn("          D7_SKIP: ${{ matrix.skip }}\n          D7_MUTATE: ${{ matrix.mutate }}\n", D7)
+        name = one(r"^        uses: actions/upload-artifact@v4\n        with:\n          name: (.+)$", D7)
+        names = {render(name, {"matrix": {"mode": mode}}) for mode in self.MODES}
+        self.assertEqual({"yft-d7-" + mode for mode in self.MODES}, names)
+        self.assertIn("          retention-days: 14\n          if-no-files-found: error\n", D7)
+
+    def test_it_only_assembles_with_every_flag_on(self):
+        command = " ".join(one(r"(\./gradlew [^\n\\]*(?:\\\n[^\n\\]*)*)", D7).replace("\\\n", " ").split())
+        for flag in ("masterCapture", "ownSolver", "ownSolverNext", "clientLadder"):
+            self.assertIn(f" -Pyft.{flag}=true ", command)
+        self.assertIn(' -Pyft.ladderSkip="$D7_SKIP" -Pyft.ladderMutate="$D7_MUTATE" ', command)
+        self.assertEqual([":app:assembleDebug"], [word for word in command.split() if word.startswith(":")])
+
+    def test_a_wrong_key_package_or_version_code_uploads_nothing(self):
+        check = D7.index("      - name: Key, package and versionCode")
+        upload = D7.index("      - name: Upload D7 APK")
+        step = D7[check:upload]
+        self.assertIn("test -f app/keystore/spike-debug.keystore.b64\n", D7[:check])  # the key is required
+        self.assertIn('"$digest" != "$expected"', step)
+        self.assertIn('"$package" != "com.alal.yft.debug"', step)
+        self.assertIn("s/^yft.versionCode=//p", step)
+        self.assertTrue(step.endswith('          test "$ok" -eq 1\n'))
+        self.assertNotIn("always()", D7)
+        self.assertNotIn("continue-on-error", D7)
+
+    def test_the_trigger_file_is_not_a_doc_the_push_ignores(self):
+        ignored = re.findall(r'^      - "(.+)"$', trigger(APK, "push"), re.M)
+        self.assertEqual(["docs/**", "**/*.md"], ignored)
+        self.assertTrue((ROOT / ".github" / "d7-apks.txt").is_file())
+
+
 class ExpressionTest(unittest.TestCase):
     def test_the_evaluator_follows_github_rules(self):
         context = {"github": {"event_name": "push"}}
@@ -292,6 +368,8 @@ class ExpressionTest(unittest.TestCase):
         self.assertIsNone(evaluate("github.event.label.name", context))
         self.assertTrue(evaluate("!(github.event.label.name == 'run-canary')", context))
         self.assertEqual("x-1", evaluate("format('x-{0}', '1')", context))
+        self.assertTrue(evaluate("contains('Phase 1.3 [D7] run', '[d7]')", context))  # any case
+        self.assertFalse(evaluate("contains(github.event.head_commit.message, '[d7]')", context))
 
 
 @unittest.skipUnless(yaml, "PyYAML is not installed")
@@ -303,8 +381,12 @@ class WorkflowYamlTest(unittest.TestCase):
                 triggers = document.get("on", document.get(True))  # YAML 1.1 reads `on` as true
                 self.assertEqual({"types": ["labeled"]}, triggers["pull_request"])
                 self.assertEqual({"push", "workflow_dispatch", "pull_request"}, set(triggers))
-                (job,) = document["jobs"].values()
-                self.assertIn("github.event.label.name", job["if"])
+                jobs = document["jobs"]
+                self.assertEqual(["build", "d7-matrix"] if name == "apk" else list(jobs)[:1], list(jobs))
+                self.assertIn("github.event.label.name", next(iter(jobs.values()))["if"])
+        d7 = yaml.safe_load(APK)["jobs"]["d7-matrix"]
+        self.assertEqual("build", d7["needs"])
+        self.assertEqual(list(D7MatrixTest.MODES), [entry["mode"] for entry in d7["strategy"]["matrix"]["include"]])
 
 
 if __name__ == "__main__":
