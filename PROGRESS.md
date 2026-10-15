@@ -1,6 +1,52 @@
 # YFT Master Extractor backup
 
-## Phase 1.3 — owner decisions after the D0 gate (2026-10-15; docs only); ⏸ Weekly check
+## Phase 1.3 — D0 done: weekly check 1 + census fixes (owner items 4–5, 2026-10-15); ⏸ item 6 (before D3), D2 on "D2 စ"
+
+- ✅ Weekly check 1 (owner, 2026-10-15 03:39 UTC, 94 min after valid run 3; `81388f8` APK, mobile
+  data, metered): WEEKLY, 10 videos, 8 requests, 372 KB, 4 s (limits 20 requests, 2 MB, 60 s).
+  Videos 1 and 5: visionOS R0 `BOT_CHECK` → answered as R6 (watch page, `R0+vd` `DIRECT`, V pass;
+  video 1 ≤ 240p, video 5 ≤ 1080p). Video 1's bot check → no H, no Android, embedded or MWEB;
+  version sources read < 24 h ago, not read. Diff `CHANGED (2)`: only the two answered bot checks
+  (item 4's bug). Plan §5 (Weekly checks table, H row), status board.
+- ✅ **D0 done** (plan §4 D0 "Done"): 3 valid Full runs, the gate, the version-source table, weekly
+  check 1; the owner was told which rungs and sources are live.
+- ✅ Item 4 — `CensusDiff` (tests first: the new `CensusDiffTest` cases failed before the fix):
+  - a bot check answered as R6 whose `R0+vd` answer is `DIRECT` with V passed is an `INFO` line
+    (`INFO visionos R0 video N: bot check, answered as R6 (visionOS with visitor data: DIRECT, V
+    PASS)`): no runbook step and not counted, so W 1 would now read `NO CHANGE`; anything else (no
+    `R0+vd`, another class, V not passed) stays `CHANGED … → §7 step 8`, now with V in the text;
+  - shape: paths are gathered per client and step over its videos; a path one video gained and
+    another lost cancels (no change, no `BREAKING` from it); the per-video count lines still show
+    such a video.
+- ✅ Item 5 — W's H on a video without a bot check: when video 1 met one, visionOS is asked on
+  video 2 (no bot check in valid runs 1–3) as R6 asks it (V on one row) and H runs on its HLS
+  address; video 2's own bot check is answered as R6, then no H. A note says which (`H: video 1
+  met a bot check, so the H check ran on video 2`). At most 20 requests (videos 1 and 5 as R6:
+  4–5 each; video 2: 5–6; sources 4); W 1's case becomes 13 requests (17 when the sources are
+  read). Video 1 without a bot check: W as before (H on video 1; video 2 not asked).
+- ✅ Census screen: the intro names video 2's H check and says `INFO` lines need nothing.
+- ✅ Tests: `CensusDiffTest` 14 (+2: `INFO` or `CHANGED`; +/− cancel), `ClientCensusTest` 29 (+3:
+  video 2's H after video 1's bot check, 17 requests; H stays on video 1 without one; video 2's
+  bot check → no H), `CensusR6ParityTest` 5; expectations updated (`INFO`, headlines). Module 563
+  run / 0 failed (2 skipped); drift 0; `:app:compileDebugKotlin` OK.
+- Plan: Burmese summary (D8 dropped), status board (D0 done), §4 D0 W (H on video 2; first line:
+  `INFO`, +/− cancel), §5 (H row, Weekly checks table, D0 done), §7 steps 1 and 3 (D8 dropped),
+  §9 item 9 note, §9 item 10 (asked).
+- ⏸ Item 6 (before D3; no code): the ladder after visionOS's bot check. visionOS R0 met one on 24
+  of 30 census videos; under guardrail 4 the ladder's rungs (A, S, Z, L, H) then stop and R6's
+  chain answers (`R0+vd` 24 / 24 `DIRECT`, V pass), so in about 80 % of lookups the ladder adds
+  nothing. The owner decides (plan §9 item 10); agent's recommendation: (က).
+
+  | Option | Effect | Risk | Requests (a bot-checked lookup) | MB | Guardrails |
+  |---|---|---|---|---|---|
+  | (က) L, Z, V on R6's `R0+vd` answer | L and Z also in the ~80 % of lookups R6's chain answers; A, S, H and O stay off there | low: R6's requests unchanged; L rows still need V + init check; reads only on hosts YouTube returned | +0 player requests; only when the answer is incomplete: Z ≤ 8 one-byte reads, L ≤ 8 reads of 4 KiB | ~0 (≤ 0.05 MB when L runs; cap 0.5 MB) | guardrail 4 wording (owner): after a bot check the ladder's request-making rungs stop, its on-answer steps (L, Z, V) may run; 6, 7, 9 unchanged |
+  | (ခ) visitor data in session memory, sent from the first request | the first request may meet no bot check, so every rung can run | medium–high: avoids the bot check instead of answering it (close to guardrail 4's bypass); one visitor ID links a session's lookups; a refused remembered ID is not measured | −2 per lookup after the session's first when accepted (no refused R0, no page); 3–4 when refused (R6's chain as today) | −0.15 MB on the wire per lookup when accepted (the page, ~0.7 MB unpacked) | changes R6's first request (guardrail 4); needs a memory-only rule (guardrail 8); the census must measure it first |
+  | (ဂ) no change | none | known limit: in ~80 % of lookups a layout change or missing sizes on R6's answer is not rescued (as R6 today); W shows it | 0 | 0 | fits all |
+- ⏸ Item 7: D2 starts on the owner's "D2 စ" (it does not depend on item 6).
+- Phone (owner, when convenient): install this commit's APK; the next Weekly check measures H on
+  video 2 (H leaves provisional at ≥ 4 asked videos, ≥ 60 % passed, wrong 0).
+
+## Phase 1.3 — owner decisions after the D0 gate (2026-10-15; docs only, `015eaab`)
 
 - ✅ SOURCE_HOSTS_APPROVED = yes, with conditions (plan §9 item 3; prompt): `raw.githubusercontent.com`
   only; no redirect followed; ≤ 64 KiB; read as text only; in a lookup fetched only after
@@ -20,8 +66,8 @@
      from the app's session memory only (never on disk), sent from the first request; (ဂ) no
      change, a known limit — each with risk, requests, MB and guardrail fit.
   7. D2 only on the owner's "D2 စ" (D2 does not depend on item 6).
-- ⏸ Phone (owner): one Weekly check after 03:05 UTC with the `81388f8` APK, normal mobile data, no
-  clearing app data → Copy result.
+- Phone (owner): one Weekly check after 03:05 UTC with the `81388f8` APK, normal mobile data, no
+  clearing app data → Copy result. Done: weekly check 1, 03:39 UTC (next section).
 
 ## Phase 1.3 — D0 census valid run 3 + gate result (owner, 2026-10-15 02:05 UTC; docs only, `aba372a`)
 

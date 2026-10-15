@@ -162,11 +162,8 @@ class CensusDiffTest {
     }
 
     @Test
-    fun `each video's answered bot check is one CHANGED line, the one that stopped the run is BROKEN, and no bot check is a class or shape change`() {
-        val bot = direct().copy(
-            answerClass = CensusClass.BOT_CHECK, finalClass = CensusClass.BOT_CHECK, status = "LOGIN_REQUIRED", adaptive = 0,
-            heights = emptyList(), v = null, vTarget = null, hls = false, shapePaths = listOf("playabilityStatus", "playabilityStatus.status"),
-        )
+    fun `each video's answered bot check is shown, the one that stopped the run is BROKEN, and no bot check is a class or shape change`() {
+        val bot = botCheck()
         val slots = mapOf(1 to "a1b2", 2 to "c3d4")
         val earlier = run(0, direct(), direct(video = 2), slots = slots)
         val current = run(
@@ -179,12 +176,69 @@ class CensusDiffTest {
         assertEquals(
             listOf(
                 "BROKEN bot check on visionos R0+vd video 2 (a request with visitor data) — the run stopped; no census for 30 min → §7 step 8",
-                "CHANGED visionos R0 video 1: bot check, answered as R6 (visionOS with visitor data: DIRECT) → §7 step 8",
                 "CHANGED visionos R0 video 2: bot check, answered as R6 (visionOS with visitor data: BOT_CHECK) → §7 step 8",
             ),
             result.lines.map { it.render() },
         )
-        assertEquals("BROKEN (3) — 1 days since the last run", result.headline)
+        assertEquals(listOf("visionos R0 video 1: bot check, answered as R6 (visionOS with visitor data: DIRECT, V PASS)"), result.info)
+        assertEquals("BROKEN (2) — 1 days since the last run", result.headline)
+    }
+
+    @Test
+    fun `a bot check R6 answered with a DIRECT, V-passed answer is an INFO line, not a change (owner, 2026-10-15)`() {
+        val slots = mapOf(1 to "a1b2", 5 to "e5f6")
+        fun weekly(at: Long) = run(
+            at, botCheck(), direct(step = ClientCensus.AGAIN), botCheck(video = 5), direct(video = 5, step = ClientCensus.AGAIN),
+            slots = slots,
+        )
+        val info = listOf(
+            "visionos R0 video 1: bot check, answered as R6 (visionOS with visitor data: DIRECT, V PASS)",
+            "visionos R0 video 5: bot check, answered as R6 (visionOS with visitor data: DIRECT, V PASS)",
+        )
+
+        val first = CensusDiff.compare(emptyList(), weekly(0))
+        assertEquals("FIRST RUN — nothing to compare yet", first.headline)
+        assertTrue(first.lines.isEmpty())
+        assertEquals(info, first.info)
+
+        val same = CensusDiff.compare(listOf(weekly(0)), weekly(HOUR))
+        assertEquals("NO CHANGE — 0 days since the last run", same.headline)
+        assertTrue(same.lines.isEmpty())
+        assertEquals((listOf("NO CHANGE — 0 days since the last run") + info.map { "INFO $it" }).joinToString("\n"), same.text())
+
+        // Anything short of a DIRECT, V-passed answer stays a CHANGED line with its runbook step.
+        fun lines(vararg asks: CensusAsk) = CensusDiff.compare(emptyList(), run(0, *asks)).lines.map { it.render() }
+        val again = direct(step = ClientCensus.AGAIN)
+        assertEquals(
+            listOf("CHANGED visionos R0 video 1: bot check, answered as R6 (visionOS with visitor data: DIRECT, V UNKNOWN) → §7 step 8"),
+            lines(botCheck(), again.copy(v = "UNKNOWN", vTarget = "net")),
+        )
+        assertEquals(
+            listOf("CHANGED visionos R0 video 1: bot check, answered as R6 (visionOS with visitor data: TOKEN_NEEDED, V FAIL) → §7 step 8"),
+            lines(botCheck(), again.copy(finalClass = CensusClass.TOKEN_NEEDED, v = "FAIL", vTarget = "403")),
+        )
+        assertEquals(
+            listOf("CHANGED visionos R0 video 1: bot check, answered as R6 (visionOS not asked again) → §7 step 8"),
+            lines(botCheck()),
+        )
+    }
+
+    @Test
+    fun `a path one video gained and another lost is not a shape change (owner, 2026-10-15)`() {
+        val url = "streamingData.adaptiveFormats[].url"
+        val slots = mapOf(2 to "c3d4", 6 to "e5f6")
+        fun mweb(video: Int, paths: List<String>) = direct(video = video, client = "mweb").copy(shapePaths = paths)
+        val earlier = run(0, mweb(2, PATHS), mweb(6, PATHS - url), slots = slots)
+
+        val swapped = CensusDiff.compare(listOf(earlier), run(DAY, mweb(2, PATHS - url), mweb(6, PATHS), slots = slots))
+        assertEquals("NO CHANGE — 1 days since the last run", swapped.headline)
+        assertTrue(swapped.lines.isEmpty())
+
+        val more = CensusDiff.compare(
+            listOf(earlier),
+            run(DAY, mweb(2, PATHS - url), mweb(6, PATHS + "streamingData.newField"), slots = slots),
+        )
+        assertEquals(listOf("CHANGED shape mweb R0: +1 −0 (+streamingData.newField) → §7 step 6"), more.lines.map { it.render() })
     }
 
     @Test
@@ -229,6 +283,12 @@ class CensusDiffTest {
         shapePaths = PATHS,
     )
 
+    /** visionOS's first request refused with a bot check (no rows, two status paths). */
+    private fun botCheck(video: Int = 1) = direct(video = video).copy(
+        answerClass = CensusClass.BOT_CHECK, finalClass = CensusClass.BOT_CHECK, status = "LOGIN_REQUIRED", adaptive = 0,
+        heights = emptyList(), v = null, vTarget = null, hls = false, shapePaths = listOf("playabilityStatus", "playabilityStatus.status"),
+    )
+
     private fun hls() = HlsCheck.Result(
         master = "2xx", variant = "2xx", segment = "2xx", variants = 2, maxHeight = 1080, audio = "muxed",
         codecs = listOf("avc1", "mp4a"), key = "NONE", segments = 43, durationSeconds = 212.0, durationMatch = true,
@@ -254,7 +314,8 @@ class CensusDiffTest {
     )
 
     private companion object {
-        const val DAY = 24L * 60 * 60 * 1000
+        const val HOUR = 60L * 60 * 1000
+        const val DAY = 24 * HOUR
         val PATHS = listOf(
             "playabilityStatus", "playabilityStatus.status", "streamingData", "streamingData.adaptiveFormats",
             "streamingData.adaptiveFormats[].itag", "streamingData.adaptiveFormats[].url", "videoDetails",

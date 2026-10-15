@@ -47,8 +47,8 @@ visionOS, Master:
      download ရမယ် (app ထဲမှာ HLS code ရှိပြီးသား)။ token လိုမလို D0 မှာ အဆင့်လိုက် တိုင်းမယ်။
   4. **W — Early warning:** census tool ထဲမှာ "Weekly check" (≤ ၁ မိနစ်၊ ≤ 2 MB၊ mobile data)။ ပြီးခဲ့တဲ့
      run နဲ့ diff ပြမယ် (class၊ version၊ shape)။ background request လုံးဝ မရှိ (owner နှိပ်မှ run)။
-- ဆက်တည်: Wi-Fi မရှိ → live တိုင်းတာ အားလုံး mobile data။ D8 မဆုံးဖြတ်ရသေး (D0 ရဲ့ self-heal ရလဒ်ပြီးမှ
-  ဆုံးဖြတ်)။ Phase 1.2 ပိတ်ပြီး (G0 ✅ `a99e0fb`၊ owner 2026-10-14)။ main မထိ၊ PR #2 merge မလုပ်။
+- ဆက်တည်: Wi-Fi မရှိ → live တိုင်းတာ အားလုံး mobile data။ D8 မလုပ်တော့ (owner
+  2026-10-15၊ §9 ၄)။ Phase 1.2 ပိတ်ပြီး (G0 ✅ `a99e0fb`၊ owner 2026-10-14)။ main မထိ၊ PR #2 merge မလုပ်။
 - M5 (Phase 1.2 က ကျန်တာ၊ es6 player ဖိုင် ၈ ခု၊ solver ဘက်) ဒီ plan ထဲ မပါ — owner ဆုံးဖြတ် (§9 ၆)။
 - မထည့်: SABR client၊ PO token၊ MSE recording၊ TV client၊ bypass။
 - သက်သေ: simulator class အသစ် L1–L16 (key ရွှေ့/နာမည်ပြောင်း၊ decoy၊ encrypted)၊ V10–V11 (HLS)၊
@@ -57,7 +57,7 @@ visionOS, Master:
 - မကယ်နိုင်တာ (server ပိတ်): ခွင့်ပြုထားတဲ့ client အားလုံး token လို၊ SABR-only၊ client ဖယ်ရှား၊ bot check၊
   DRM။ အဲဒီအခါ verdict မှန်နဲ့ ရပ်ပြီး W က သတိပေးမယ်။
 - Task: G0 Phase 1.2 ပိတ် (✅ `a99e0fb`) → D0 census + weekly check → D1 simulator → D2 table + judge → D3 health →
-  D4 checks → D5a A/S/Z → D5b L → D5c H → D6 O + wiring → D7 ဖုန်းစစ် + runbook → D8 (ဆုံးဖြတ်ရန်)။
+  D4 checks → D5a A/S/Z → D5b L → D5c H → D6 O + wiring → D7 ဖုန်းစစ် + runbook (D8 မလုပ်တော့)။
 - Bot check (owner 2026-10-15): bot check ပြီးရင် R6 မပို့တဲ့ request ဘယ်တော့မှ မပို့။ R6 လို video (lookup)
   တစ်ခုချင်း: census က video တိုင်းမှာ watch page တစ်ခါ + visionOS ကို page ရဲ့ visitor data နဲ့ တစ်ခါ၊ ပြီးရင်
   နောက် video ဆက်။ visitor data ပါပြီးသား request ကို bot check ဒါမှမဟုတ် HTTP 429 → run ရပ် + ၃၀ မိနစ်။
@@ -311,7 +311,7 @@ lookup (Master, clientLadder on)
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
 | G0 | Phase 1.2 closed (gate; Phase 1.2's agent and the owner) | — | Low | Done (`a99e0fb`) |
-| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | Code done (`1135afe`); census runs 1–4 not valid, not counted (§5); bot-check rule (owner, 2026-10-15; `5cb781c`), per video (`81388f8`); valid runs 1–3 done (2026-10-14 23:06, 2026-10-15 00:37 and 02:05 UTC); gate (§5, §9 item 9): live Android, MWEB; provisional H, S; not live embedded; usable sources: the reference tables (GitHub raw, approved for lookups with conditions, §9 item 3); D8 dropped; 1 Weekly check pending |
+| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | **Done** (2026-10-15): code `1135afe`; census runs 1–4 not valid, not counted (§5); bot-check rule (owner, 2026-10-15; `5cb781c`), per video (`81388f8`); valid runs 1–3 done (2026-10-14 23:06, 2026-10-15 00:37 and 02:05 UTC); gate (§5, §9 item 9): live Android, MWEB; provisional H, S; not live embedded; usable sources: the reference tables (GitHub raw, approved for lookups with conditions, §9 item 3); D8 dropped; Weekly check 1 (2026-10-15 03:39 UTC, §5); then (owner): the diff's `INFO` lines and +/− paths cancel, W's H on video 2 after video 1's bot check |
 | D1 | Change simulator, parity gate, L round-trip, baseline | D0 (classes) | Medium–High | Done: simulator + R6 baseline (`f35b78f`; T1b `5cb781c`, per video `81388f8`); parity gate with D6, L round-trip with D5b |
 | D2 | Client table v2 + answer judge (shape kinds, HLS locate, fingerprint) | D1 | Medium | TODO |
 | D3 | Health v2, order, budget, stop rules (learned version, shape map) | D2 | Medium–High | TODO |
@@ -418,7 +418,12 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
     once on video 1 (class, counts, fingerprint; V on one row when there are rows); from D6 on
     also the ladder's own lookup of video 1 (which rung answered). Bot checks as in the full
     census (videos 1 and 5 each on its own); when video 1 met one, its other clients are not
-    asked.
+    asked. **H on a video without a bot check** (owner, 2026-10-15, after weekly check 1): when
+    video 1 met a bot check (so no H and no other client on it), visionOS is asked on video 2 — no
+    bot check there in valid runs 1–3 — as R6 asks it (class, counts, fingerprint, V on one row),
+    and the H check runs on its HLS address; a bot check on video 2 is answered as R6 and then no
+    H runs (a note says which). At most 20 requests: videos 1 and 5 answered as R6 (4–5 each),
+    video 2 (5–6), the sources (4).
   - Its summary is stored in `files/master/census-last.json` (the last 8 runs: classes, counts,
     fingerprints as key-path lists and hashes, public version strings, verdicts, times, bytes;
     no address, value, visitor data or video ID).
@@ -426,7 +431,11 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
     Then one line per change: class (per client); version (accepted → rejected; a source's value
     changed); shape (paths added or removed — a removed path the copied parser reads is marked
     **BREAKING**); H (verdict, token step, highest resolution); the rung that answered. Each line
-    names its runbook step (§7).
+    names its runbook step (§7). Owner, 2026-10-15 (after weekly check 1): shape paths are
+    gathered per client and step over its videos, and a path one video gained while another lost
+    it is not a change; a bot check answered as R6 whose `R0+vd` answer is `DIRECT` with V passed
+    is an `INFO` line (no runbook step, not counted: `NO CHANGE` when nothing else changed); any
+    other answered bot check stays a `CHANGED` line (step 8).
   - No background work (guardrail 11); the screen shows when the last check ran.
 - **Done:** both modes in the opt-in debug APK; unit tests for the diff (each change kind;
   identical runs = `NO CHANGE`), the report sanitizer and a static check that the census code
@@ -734,7 +743,7 @@ Census (filled by D0; valid 1–3 = the three valid Full runs, under the bot-che
 | R0+vd: visionOS again with the page's visitor data, only after a bot check (R6's chain request, not a ladder rung; does not make R0 live) | 8 / 8 `DIRECT`, V pass | 8 / 8 `DIRECT`, V pass | 8 / 8 `DIRECT`, V pass | R6's chain request, not gated: 24 / 24 `DIRECT`, V pass |
 | A alternates (bundled, ≤ 2) | none bundled (0 asked) | none bundled (0 asked) | none bundled (0 asked) | n/a (none bundled) |
 | S (visionOS with page signals) | 0 asked (no cipher in a visionOS answer) | 0 asked | 0 asked | **provisional** (0 asked: no cipher in any visionOS answer) |
-| H (token step: master / variant / segment) | 1 / 1: 2xx / 2xx / 2xx, no key, 17 variants ≤ 2160p, audio separate, duration matches | 1 / 1: as valid 1 | 1 / 1: as valid 1 | **provisional** (3 / 3 passed, asked on 3 < 4 videos) |
+| H (token step: master / variant / segment) | 1 / 1: 2xx / 2xx / 2xx, no key, 17 variants ≤ 2160p, audio separate, duration matches | 1 / 1: as valid 1 | 1 / 1: as valid 1 | **provisional** (3 / 3 passed, asked on 3 < 4 videos; W 1: not asked, video 1 met a bot check; W now runs H on video 2 then, §4 D0) |
 | Android | 2 / 2 `SABR_ONLY`: the 360p progressive row only (V pass) | 2 / 2: as valid 1 | 2 / 2: as valid 1 | **live** (6 / 6, 3 of 3 runs, wrong 0): the 360p progressive row only (`SABR_ONLY`) |
 | embedded | 0 / 2 `VIDEO_VERDICT` (error 152-18) | 0 / 2: as valid 1 | 0 / 2: as valid 1 | not live (0 / 6): measured, not active (2026-10-15) |
 | MWEB | 2 / 2 `NEEDS_SCRIPT` → S ok-sig+n, V pass | 2 / 2: video 2 as valid 1; video 6 adaptive formats without address or cipher (25), only the 360p progressive row (S, V pass) | 2 / 2: video 2 adaptive formats without address or cipher (29), only the 360p progressive row (S, V pass); video 6 ≤ 1080p (S, V pass) | **live** (6 / 6, 3 of 3 runs, wrong 0); on 2 of 6 answers the adaptive formats had no address (360p only) |
@@ -745,6 +754,14 @@ runs; S path; on 2 of 6 answers the adaptive formats came without address, so 36
 **provisional** — H 3 / 3 (asked on 3 videos) and S (0 asked); **not live** — embedded 0 / 6 (error
 152-18); A: none bundled. R0 is R6's own first request (3 / 30 passed, bot check on 24); `R0+vd`
 24 / 24. §9 decision 5 does not apply (O rungs are live).
+
+Weekly checks (W, §4 D0; the diff against the last stored run):
+
+| Check | When, network, APK | Requests, bytes, time | Asked | Diff |
+|---|---|---|---|---|
+| W 1 | 2026-10-15 03:39 UTC (94 min after valid run 3), mobile data (metered), `81388f8` | 8, 372 KB, 4 s (limits 20, 2 MB, 60 s) | videos 1 and 5: visionOS R0 `BOT_CHECK` → answered as R6 (watch page, `R0+vd` `DIRECT`, V pass; video 1 ≤ 240p, video 5 ≤ 1080p); no H and no Android, embedded or MWEB (video 1 met a bot check); version sources read < 24 h ago, not read | `CHANGED (2)`: only the two answered bot checks; after the owner's fixes (2026-10-15) they are `INFO` lines and the result reads `NO CHANGE` |
+
+D0 is **done** (2026-10-15): 3 valid Full runs, the gate, the version-source table and weekly check 1.
 
 Not valid (not counted for the gate):
 
@@ -864,12 +881,11 @@ the D0 census):
   HTTP 429 stops a run (no retry, no bypass).
 - Do not clear app data to skip the cooldown; it protects the IP the daily app uses.
 
-1. Weekly check (W), once a week: `NO CHANGE` → nothing. `CHANGED` or `BROKEN` → copy the result
-   to the agent; each line names a step below.
+1. Weekly check (W), once a week: `NO CHANGE` → nothing (`INFO` lines need nothing). `CHANGED` or
+   `BROKEN` → copy the result to the agent; each line names a step below.
 2. One video fails: run the full census on it: which rung, which class.
-3. `VERSION_REJECTED`: the learned, signed (D8) or self-healed version (a usable source) or an
-   alternate carries it; else (D8) sign a table with the reference's new value (source and date);
-   else a new APK.
+3. `VERSION_REJECTED`: the learned or self-healed version (a usable source: the reference tables,
+   §9 item 3) or an alternate carries it; else a new APK (D8 dropped, §9 item 4).
 4. `NEEDS_SCRIPT`: nothing to do while the own solver is on (S).
 5. Missing sizes: nothing to do (Z).
 6. `SHAPE_CHANGED` (W: **BREAKING** paths): L carries the lookup, every row V-passed; the agent
@@ -930,6 +946,16 @@ merge and release, merging PR #2.
    required on every row, and the weekly check keeps measuring it until it reaches the minimum. No
    code change; the same APK (`81388f8`). Version acceptance runs on video 1 only (no newer version
    is tried after its bot check), so the web page config values stay "not tried"; MWEB keeps its
-   bundled version, which works. Note: the weekly check asks H, Android, embedded and MWEB on
-   video 1 only, and video 1 met a bot check in every run so far, so W adds samples for a
-   provisional rung only when video 1 escapes it (D7 revisits).
+   bundled version, which works. Note: W asks Android, embedded and MWEB on video 1 only, and
+   video 1 met a bot check in every run so far (W 1 too), so W adds samples for them only when
+   video 1 escapes it (D7 revisits). H: since the owner's fix (2026-10-15, after W 1) W runs it on
+   video 2 when video 1 met a bot check, so W adds an H sample each week; H leaves provisional at
+   ≥ 4 asked videos with ≥ 60 % passed and wrong 0 (recorded in §5; the owner told).
+10. **The ladder after visionOS's bot check (before D3; asked 2026-10-15, after W 1):** visionOS's
+    first request met a bot check on 24 of 30 census videos; under guardrail 4 the ladder's own
+    rungs (A, S, Z, L, H) then stop and R6's chain answers (`R0+vd`: 24 / 24 `DIRECT`, V pass), so
+    in about 80 % of lookups the ladder adds nothing. Options (risk, requests, MB and guardrail
+    fit in `PROGRESS.md`, 2026-10-15): (က) L, Z and V on R6's `R0+vd` answer, no extra player
+    request; (ခ) visitor data kept in the app's session memory only (never on disk) and sent from
+    the first request; (ဂ) no change, a known limit. Agent's recommendation: (က). D3 waits for
+    this decision; D2 does not.

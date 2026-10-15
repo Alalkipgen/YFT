@@ -45,7 +45,8 @@ import kotlinx.coroutines.CancellationException
  *
  * **Weekly check**: videos 1 and 5 visionOS (V on one row, H on video 1), then Android, embedded
  * and MWEB once on video 1 (no S), the version sources only when not read in 24 h; ≤ 60 s,
- * ≤ 2 MB and ≤ 20 requests.
+ * ≤ 2 MB and ≤ 20 requests. H runs on a video without a bot check (owner, 2026-10-15): when video
+ * 1 met one, visionOS is asked on video 2 (as R6 asks it, V on one row) for the H check instead.
  *
  * **Bot checks** (owner, 2026-10-15): after a bot check the census never sends a request R6 would
  * not send, and like R6 it answers each lookup (each video) on its own. A bot check on visionOS's
@@ -262,6 +263,7 @@ class ClientCensus(
                 hlsCheck(session, first, answer)
             }
         }
+        if (session.stopped == null && first.slot in session.answeredAsR6) weeklyHls(session, videos)
         val fifthId = videos[WEEKLY_SECOND_VIDEO]
         if (fifthId == null) {
             session.notes += "video $WEEKLY_SECOND_VIDEO is not set, so the weekly check skipped it"
@@ -283,6 +285,36 @@ class ClientCensus(
             readSources(session, first)
         } else {
             session.notes += "version sources: read less than 24 h ago, not read again"
+        }
+    }
+
+    /**
+     * H on a video without a bot check (owner, 2026-10-15): video 1 met one, so it had no H check;
+     * video 2 (no bot check in valid runs 1–3) is asked as R6 asks it (V on one row) and its HLS
+     * address gets the H check. Its own bot check is answered as R6, and then no H runs. Only
+     * reached after video 1's bot check, so the run stays within its 20 requests: video 1 asks no
+     * other client and tries no version.
+     */
+    private suspend fun weeklyHls(session: Session, videos: Map<Int, String>) {
+        val id = videos[WEEKLY_HLS_VIDEO]
+        if (id == null) {
+            session.notes += "H: video 1 met a bot check and video $WEEKLY_HLS_VIDEO is not set, so no H check ran"
+            return
+        }
+        val video = Video(WEEKLY_HLS_VIDEO, id)
+        session.step("video $WEEKLY_HLS_VIDEO · visionOS")
+        ask(session, video, VISION_OS, R0, NO_PAGE)?.let { answer ->
+            video.visionOs = answer
+            firstAnswer(session, video, answer) {
+                directCheck(session, video, answer, preferProgressive = false)
+                hlsCheck(session, video, answer)
+            }
+        }
+        if (session.stopped != null) return
+        session.notes += when {
+            video.slot in session.answeredAsR6 -> "H: video 1 and video $WEEKLY_HLS_VIDEO met a bot check, so no H check ran"
+            session.hls.any { it.video == video.slot } -> "H: video 1 met a bot check, so the H check ran on video $WEEKLY_HLS_VIDEO"
+            else -> "H: video 1 met a bot check and video $WEEKLY_HLS_VIDEO's visionOS answer had no HLS address, so no H check ran"
         }
     }
 
@@ -1028,6 +1060,9 @@ class ClientCensus(
 
         private const val FIRST_VIDEO = 1
         private const val WEEKLY_SECOND_VIDEO = 5
+
+        /** The weekly H check's video after video 1's bot check: no bot check in valid runs 1–3. */
+        private const val WEEKLY_HLS_VIDEO = 2
 
         /** A client's request as R6 first asks it. */
         internal const val R0 = "R0"

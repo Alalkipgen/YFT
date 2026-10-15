@@ -9,12 +9,15 @@ package com.alal.yft.extractor.master.modules.youtube.ladder
  * naming its runbook step (§7). **BROKEN** is a worsening: a class that got worse (DIRECT → any
  * other class, a working class → a refusal or a verdict), V `PASS` → `FAIL`, an H step `2xx` →
  * anything else, a key or a duration mismatch on H, a **BREAKING** shape (a removed path the copied
- * parser reads, [ShapeFingerprint.PARSER_READS]), or a version accepted → rejected. Bot checks
- * (`ClientCensus`, owner 2026-10-15) are shown even on a first run: each video's bot check the
- * run answered as R6 is one CHANGED line, and the bot check that stopped the run (a request that
- * already carried visitor data) is BROKEN. A bot check refuses the request, not the client, so an
- * answer that is one is never compared as a class, count or shape change. The rung that answered
- * a lookup is added from D6 on.
+ * parser reads, [ShapeFingerprint.PARSER_READS]), or a version accepted → rejected. Shape paths are
+ * gathered per client and step over all its videos; a path one video gained and another lost is
+ * not a change (owner, 2026-10-15). Bot checks (`ClientCensus`, owner 2026-10-15) are shown even
+ * on a first run: a bot check the run answered as R6 whose answer (`R0+vd`) was DIRECT with V
+ * passed is an INFO line — no runbook step, not counted (owner, 2026-10-15); any other answered
+ * bot check is one CHANGED line, and the bot check that stopped the run (a request that already
+ * carried visitor data) is BROKEN. A bot check refuses the request, not the client, so an answer
+ * that is one is never compared as a class, count or shape change. The rung that answered a
+ * lookup is added from D6 on.
  */
 internal object CensusDiff {
     enum class Level { CHANGED, BROKEN }
@@ -23,16 +26,24 @@ internal object CensusDiff {
         fun render(): String = "${level.name} $text → §7 step $step"
     }
 
-    data class Result(val headline: String, val lines: List<Line>, val notes: List<String>) {
+    /** [lines] are the changes the headline counts; [info] lines name no runbook step and count for nothing. */
+    data class Result(
+        val headline: String,
+        val lines: List<Line>,
+        val notes: List<String>,
+        val info: List<String> = emptyList(),
+    ) {
         val broken: Int get() = lines.count { it.level == Level.BROKEN }
 
-        fun text(): String = (listOf(headline) + lines.map(Line::render) + notes.map { "note: $it" })
-            .joinToString("\n")
+        fun text(): String =
+            (listOf(headline) + lines.map(Line::render) + info.map { "INFO $it" } + notes.map { "note: $it" })
+                .joinToString("\n")
     }
 
     private const val DAY_MILLIS = 24L * 60 * 60 * 1000
     private const val MAX_LISTED_PATHS = 8
-    private val VERDICTS = setOf("PASS", "FAIL", "UNKNOWN")
+    private const val PASS = "PASS"
+    private val VERDICTS = setOf(PASS, "FAIL", "UNKNOWN")
 
     /** Sources whose value moves by design (the web pages' own version), so only acceptance counts. */
     private val MOVING_SOURCES = setOf("page")
@@ -42,6 +53,7 @@ internal object CensusDiff {
         val last = earlier.firstOrNull()
         val lines = ArrayList<Line>()
         val notes = ArrayList<String>()
+        val info = ArrayList<String>()
         val botChecks = current.asks.filter { it.answerClass == CensusClass.BOT_CHECK }
         // Nothing is asked after the bot check that stops a run, so it is the run's last one.
         val stopper = if (current.stopped == "bot-check") botChecks.lastOrNull() else null
@@ -57,14 +69,20 @@ internal object CensusDiff {
         // Each video's answered bot check (owner, 2026-10-15): shown even on a first run.
         botChecks.filter { it !== stopper }.forEach { ask ->
             val label = "${ask.client} ${ask.step} video ${ask.video}"
-            lines += if (ask.client == "visionos" && ask.step == ClientCensus.R0) {
-                val again = current.asks.firstOrNull {
-                    it.video == ask.video && it.client == ask.client && it.step == ClientCensus.AGAIN
-                }
-                val next = again?.let { "visionOS with visitor data: ${it.finalClass}" } ?: "visionOS not asked again"
-                Line(Level.CHANGED, "$label: bot check, answered as R6 ($next)", 8)
+            if (ask.client != "visionos" || ask.step != ClientCensus.R0) {
+                lines += Line(Level.CHANGED, "$label: bot check without visitor data, nothing else asked for this video", 8)
+                return@forEach
+            }
+            val again = current.asks.firstOrNull {
+                it.video == ask.video && it.client == ask.client && it.step == ClientCensus.AGAIN
+            }
+            val next = again?.let { "visionOS with visitor data: ${it.finalClass}" + it.v?.let { v -> ", V $v" }.orEmpty() }
+                ?: "visionOS not asked again"
+            // R6 answered the lookup with checked rows (owner, 2026-10-15): nothing to do, so info only.
+            if (again != null && again.finalClass == CensusClass.DIRECT && again.v == PASS) {
+                info += "$label: bot check, answered as R6 ($next)"
             } else {
-                Line(Level.CHANGED, "$label: bot check without visitor data, nothing else asked for this video", 8)
+                lines += Line(Level.CHANGED, "$label: bot check, answered as R6 ($next)", 8)
             }
         }
         if (last != null) {
@@ -87,7 +105,7 @@ internal object CensusDiff {
             last == null -> "FIRST RUN — nothing to compare yet"
             else -> "NO CHANGE — $since"
         }
-        return Result(headline, lines, notes)
+        return Result(headline, lines, notes, info)
     }
 
     private fun sameVideo(run: CensusRun, current: CensusRun, video: Int): Boolean {
@@ -157,7 +175,10 @@ internal object CensusDiff {
             }
         }
         shapes.forEach { (key, change) ->
-            val (added, removed) = change
+            // A path one video gained and another lost is not a change of the client (owner, 2026-10-15).
+            val added = change.first - change.second
+            val removed = change.second - change.first
+            if (added.isEmpty() && removed.isEmpty()) return@forEach
             val breaking = removed.filter { it in ShapeFingerprint.PARSER_READS }.sorted()
             val listed = (added.sorted().map { "+$it" } + removed.sorted().map { "−$it" })
             val shown = listed.take(MAX_LISTED_PATHS).joinToString(", ") +

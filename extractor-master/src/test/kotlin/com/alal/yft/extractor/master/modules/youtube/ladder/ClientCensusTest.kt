@@ -317,10 +317,11 @@ class ClientCensusTest {
         assertTrue(
             run.notes.contains("version acceptance: video 1 met a bot check, so no newer version was tried (R6 sends no such request)"),
         )
-        assertEquals("CHANGED (1) — first run", outcome.firstLine)
+        assertEquals("FIRST RUN — nothing to compare yet", outcome.firstLine)
         assertTrue(
-            outcome.report.contains("CHANGED visionos R0 video 1: bot check, answered as R6 (visionOS with visitor data: DIRECT) → §7 step 8"),
+            outcome.report.contains("INFO visionos R0 video 1: bot check, answered as R6 (visionOS with visitor data: DIRECT, V PASS)"),
         )
+        assertFalse(outcome.report.contains("§7 step 8"))
     }
 
     @Test
@@ -348,11 +349,11 @@ class ClientCensusTest {
             )
             assertTrue(
                 outcome.report.contains(
-                    "CHANGED visionos R0 video $video: bot check, answered as R6 (visionOS with visitor data: DIRECT) → §7 step 8",
+                    "INFO visionos R0 video $video: bot check, answered as R6 (visionOS with visitor data: DIRECT, V PASS)",
                 ),
             )
         }
-        assertEquals("CHANGED (2) — first run", outcome.firstLine)
+        assertEquals("FIRST RUN — nothing to compare yet", outcome.firstLine)
     }
 
     @Test
@@ -372,7 +373,7 @@ class ClientCensusTest {
         assertEquals(List(4) { "VISIONOS" }, againHttp.postedBodies.map(CensusWorld::clientOf))
         assertEquals(Census.VISITOR, againHttp.postedHeaders.last()["X-Goog-Visitor-Id"])
         assertEquals(START + 30 * MINUTE, CensusJson.readState(second.stateJson).cooldownUntil)
-        assertEquals("BROKEN (3) — first run", second.firstLine)
+        assertEquals("BROKEN (2) — first run", second.firstLine)
         assertTrue(second.report.contains("BROKEN bot check on visionos R0+vd video 2 (a request with visitor data)"))
         assertEquals("bot-check", android.stopped)
         assertEquals(listOf("VISIONOS", "ANDROID"), otherHttp.postedBodies.map(CensusWorld::clientOf))
@@ -424,7 +425,73 @@ class ClientCensusTest {
         assertEquals(CensusClass.DIRECT, ask(run, 1, "visionos", "R0+vd").finalClass)
         assertEquals(CensusClass.BOT_CHECK, ask(run, 5, "visionos", "R0").answerClass)
         assertEquals(CensusClass.DIRECT, ask(run, 5, "visionos", "R0+vd").finalClass)
-        assertEquals("CHANGED (2) — first run", outcome.firstLine)
+        assertEquals("FIRST RUN — nothing to compare yet", outcome.firstLine)
+        assertTrue(run.notes.contains("H: video 1 met a bot check and video 2 is not set, so no H check ran"))
+    }
+
+    @Test
+    fun `after video 1's bot check the weekly check asks visionOS on video 2 for H, within 20 requests (owner, 2026-10-15)`() = runTest {
+        val world = CensusWorld().standard(Census.V1).standard(Census.V2).sources().visionOsBotCheck(Census.V1)
+        world.get(Census.pageUrl(Census.V5), Census.page())
+        world.visionOsBotCheck(Census.V5)
+        val http = world.http()
+        val sources = CensusSources.DOCUMENTS.map { it.url }
+
+        val outcome = census(http).run(Mode.WEEKLY, mapOf(1 to Census.V1, 2 to Census.V2, 5 to Census.V5), null)
+
+        assertNull(outcome.stopped)
+        val run = lastRun(outcome)
+        assertEquals(17, calls(http))
+        assertEquals(calls(http), run.requests)
+        assertEquals(List(5) { "VISIONOS" }, http.postedBodies.map(CensusWorld::clientOf))
+        assertEquals(listOf("visionos R0"), run.asks.filter { it.video == 2 }.map { "${it.client} ${it.step}" })
+        assertEquals(listOf("DIRECT", "PASS"), ask(run, 2, "visionos", "R0").let { listOf(it.finalClass.name, it.v) })
+        val hls = run.hls.single()
+        assertEquals(
+            listOf<Any?>(2, "visionos", "2xx", "2xx", "2xx", true),
+            listOf(hls.video, hls.client, hls.result.master, hls.result.variant, hls.result.segment, hls.result.durationMatch),
+        )
+        assertTrue(Census.pageUrl(Census.V2) !in http.requestedUrls)
+        assertTrue(run.notes.contains("H: video 1 met a bot check, so the H check ran on video 2"))
+        assertTrue(run.notes.contains("video 1: answered as R6 after its bot check, so Android, the embedded player and MWEB were not asked"))
+        assertEquals(sources, http.requestedUrls.filter { it in sources })
+        assertEquals("FIRST RUN — nothing to compare yet", outcome.firstLine)
+        assertTrue(outcome.report.contains("INFO visionos R0 video 5: bot check, answered as R6 (visionOS with visitor data: DIRECT, V PASS)"))
+    }
+
+    @Test
+    fun `the weekly check keeps H on video 1 when video 1 met no bot check and then asks video 2 nothing`() = runTest {
+        val world = CensusWorld().standard(Census.V1).standard(Census.V2).sources()
+        world.answer(Census.V5, "VISIONOS", Census.visionOs(Census.V5))
+        val http = world.http()
+
+        val outcome = census(http).run(Mode.WEEKLY, mapOf(1 to Census.V1, 2 to Census.V2, 5 to Census.V5), null)
+
+        assertNull(outcome.stopped)
+        assertTrue("${calls(http)} requests", calls(http) <= ClientCensus.WEEKLY_MAX_REQUESTS)
+        val run = lastRun(outcome)
+        assertEquals(1, run.hls.single().video)
+        assertTrue(run.asks.none { it.video == 2 })
+        assertTrue(http.postedBodies.none { Census.V2 in it })
+        assertTrue(run.notes.none { it.startsWith("H: ") })
+    }
+
+    @Test
+    fun `when video 2 met a bot check too it is answered as R6 and the weekly check runs no H`() = runTest {
+        val world = CensusWorld().standard(Census.V1).standard(Census.V2).sources()
+            .visionOsBotCheck(Census.V1).visionOsBotCheck(Census.V2)
+        val http = world.http()
+
+        val outcome = census(http).run(Mode.WEEKLY, mapOf(1 to Census.V1, 2 to Census.V2), null)
+
+        assertNull(outcome.stopped)
+        val run = lastRun(outcome)
+        assertTrue(run.hls.isEmpty())
+        assertTrue(Census.MASTER !in http.requestedUrls)
+        assertEquals(listOf("visionos R0", "visionos R0+vd"), run.asks.filter { it.video == 2 }.map { "${it.client} ${it.step}" })
+        assertEquals(CensusClass.DIRECT, ask(run, 2, "visionos", "R0+vd").finalClass)
+        assertTrue(run.notes.contains("H: video 1 and video 2 met a bot check, so no H check ran"))
+        assertTrue("${calls(http)} requests", calls(http) <= ClientCensus.WEEKLY_MAX_REQUESTS)
     }
 
     @Test

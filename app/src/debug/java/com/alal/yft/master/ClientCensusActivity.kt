@@ -255,8 +255,9 @@ class ClientCensusActivity : ComponentActivity() {
             "Full census: for each video, YouTube's visionOS, Android, embedded and mobile web answers, " +
             "a one-byte check of one stream each, the HLS playlist, and the public version sources once " +
             "(at most 6 MB). Run it 3 times on mobile data (no Wi-Fi), at least an hour apart.\n" +
-            "Weekly check: videos 1 and 5 and one answer per client (at most 60 s, 2 MB, 20 requests); " +
-            "the first line says NO CHANGE, CHANGED or BROKEN.\n" +
+            "Weekly check: videos 1 and 5 (and video 2 for the HLS check when video 1 meets a bot check) " +
+            "and one answer per client (at most 60 s, 2 MB, 20 requests); " +
+            "the first line says NO CHANGE, CHANGED or BROKEN; INFO lines need nothing.\n" +
             "After a bot check on a video it sends only what YFT's normal lookup sends next (that video's " +
             "page and visionOS once more with the page's visitor data), then goes on with the next video. " +
             "A bot check on a request that already has visitor data, or HTTP 429, stops the run, and no run " +
