@@ -8,6 +8,56 @@ no existing file is edited (copied files, census, `ShapeFingerprint`, `StreamChe
 belong to the main agent; nothing is wired (D6); offline only (fakes, fixtures). Newest first.
 No video ID, address or visitor data in these notes.
 
+## 2026-10-15 — HlsLeg, the H leg (D5c, §3 H steps 1–3)
+
+- `HlsLeg.kt` (new; nothing wired):
+  1. Address (`address`): the answer's `streamingData.hlsManifestUrl` when it is HTTPS on
+     `googlevideo.com` (another host → no H), else ShapeLocator's one located HLS address (none
+     or several → no H).
+  2. Length (`length`): the copied parser's when its answer is for the requested video, else L's
+     bound length, else the page's; none → no H rows (guardrail 6). A verdict from L
+     (`ShapeNormalizer.Stop`: not `OK`, DRM, live) → no H.
+  3. The lookup's H check (`lookup().run`): D0's `HlsCheck`, unchanged (master → highest
+     variant → its playlist, ≤ 256 KiB each; a key other than `METHOD=NONE` → fail; the variant's
+     duration within ±2 s of the length), given a client whose one file check reads the first
+     segment's start instead (`Range: bytes=0-65535`, ≤ 64 KiB). Content type and container
+     start must agree: `video/mp2t` + the sync byte; `video/mp4` / `audio/mp4` + `ftyp`, `styp`,
+     `moof`, `sidx`, `emsg` or `prft`; WebM + EBML. No type or `octet-stream` → unknown;
+     another type → fail. Statuses: 403, 4xx, `host`, `not-m3u8`, `no-variant`, `no-segment` →
+     fail; 5xx, `net`, `too-large` → unknown; a fail wins. Pass → `Row` (the master address; the
+     master's variants, highest resolution and audio form, the segment's container; `detail()`
+     for the details line; `candidate()` = a `MediaCandidate` of kind HLS,
+     `application/vnd.apple.mpegurl`, the length, the expiry from `/expire/`, no cookie, height
+     from the master) for the app's existing HLS path; fail or unknown → `None(why, verdict)`.
+  - One H check per lookup: the same address again returns the first outcome (no request),
+    another address → `SPENT`. ≤ 3 requests (master, variant, segment read; no probe). Headers
+    without `Cookie`, `Cookie2`, `Authorization`, `Proxy-Authorization`, `X-Goog-AuthUser`,
+    `Range`. Nothing logged; outcomes print verdicts, reasons and counts only.
+- Plan adapted: (a) `HlsCheck`'s segment step is D0's one-byte probe and its result holds no
+  address, so the leg's client turns that probe into the segment read (`HlsCheck` not edited;
+  still 3 requests). (b) Bodies come as text (the app's client reads UTF-8), so the start is
+  checked on the decoded characters: the TS sync byte and an MP4 box type at offset 4 survive;
+  a box size that decodes to fewer characters reads fail (no row; safe); D6 may give a byte
+  read later, as for InitCheck. (c) `emsg` and `prft` count as fMP4 segment starts (CMAF)
+  beside `ftyp` / `styp` / `moof` / `sidx`.
+- Tests: `HlsLegTest` (6) — step 1 (the answer's field wins, another host → none, located, two
+  located → none); step 2 (parser for the requested video, L's binding, page, a verdict → none);
+  step 3 on a good HLS (3 requests, no credentials, `Range` on the segment only, row facts and
+  candidate, print hygiene); faults (master / variant 403 fail, unreachable / 503 unknown,
+  segment 403 / type / start / host fail, duration +2.5 s fail and +1.5 s pass, key `AES-128`
+  fail and `NONE` pass, `octet-stream` unknown, fMP4 pass, an MP4 type with a TS start fail;
+  nothing asked off `googlevideo.com`); no address or no length → no request; one H check per
+  lookup. H matrix (D5c's list): V4–V6, V10, V11, L1–L13 (each V mode), F3 ×5, an encryption key
+  and a missing length × 5 bases = 300 runs, 145 rows, wrong 0, no case with an H path missed.
+  Complete through H: V4, V5, V10; L2–L7 in every V mode; L1, L8, L9, L10, L13 with V `pass`.
+  Clean: V6, V11, L11 ×3, L12, F3 ×5, key, length; the moved HLS of L1, L8–L10, L13 with V
+  `fail` / `unknown` (the world refuses what only L finds).
+- For D1 / D6 (no file edited): H also completes L1, L8, L9 and L10 with V `pass` through the
+  located address (20 runs; the world's HLS plays there, truth clean), where `SimCases` lists
+  no H path (written before §3 H step 1's located address).
+- Not done: step 4 (when the leg runs) and the wiring (D6); D5c's owner-phone download (D7).
+- Module tests: 558, 0 failures, 2 skipped; drift: 107 copied symbols, 0 drifted.
+
 ## 2026-10-15 — ShapeLocator + ShapeNormalizer (D5b, rung L steps 1–6)
 
 - `ShapeLocator.kt` (step 1, the value-shape scan; pure, no request, no log). Read from values,
