@@ -1,6 +1,45 @@
 # YFT Master Extractor backup
 
-## Phase 1.3 — D0 census valid run 2 + gate count decided (owner, 2026-10-15; docs only); ⏸ valid run 3 + Weekly
+## Phase 1.3 — D0 census valid run 3 + gate result (owner, 2026-10-15 02:05 UTC; docs only); ⏸ Weekly check; owner decisions
+
+- ✅ Valid run 3 (2026-10-15 02:05 UTC, 88 min after run 2; `81388f8` APK, mobile data, metered):
+  FULL, 10 videos, 54 requests, 2643 KB, 30 s, not stopped. Report `CHANGED (13) — 0 days since
+  the last run`: the 8 answered bot checks (videos 1, 3, 4, 5, 7, 8, 9, 10; each `R0+vd` DIRECT);
+  MWEB video 2 formats 0/0/30/0/1 → 0/0/1/29/1, highest 2160p → 360p (§7 step 2); MWEB video 6
+  back 0/0/1/25/1 → 0/0/26/0/1, 360p → 1080p (§7 steps 4, 2); shape mweb +1 −1
+  (`adaptiveFormats[].signatureCipher`, §7 step 6).
+- Per rung (passed / asked): R0 1 / 10 (video 2 DIRECT; bot check 8; video 6 VIDEO_VERDICT); R0+vd
+  8 / 8; A none; S 0 asked; H 1 / 1 (as before); Android 2 / 2 `SABR_ONLY` (360p progressive only);
+  embedded 0 / 2 (152-18); MWEB 2 / 2 (video 2 adaptive formats without address, only the 360p
+  progressive row; video 6 ≤ 1080p; S ok-sig+n and V pass on both). Pages 10 / 10 (player 21090930
+  on 9, 0229cd64 on 1). Version sources = runs 1–2.
+- ✅ D0 gate (§9 item 9; valid runs 1–3, asked / passed; wrong 0: every answer bound to its video,
+  no V fail):
+  - live: Android 6 / 6 (3 of 3 runs; the 360p progressive row only, `SABR_ONLY`) and MWEB 6 / 6
+    (3 of 3 runs; S path; on 2 of 6 answers the adaptive formats came without address: 360p only);
+  - provisional: H 3 / 3 (asked on 3 videos, < 4) and S (0 asked: no cipher in any visionOS
+    answer) — only a fallback after visionOS fails, V (H) on every row, W keeps measuring;
+  - not live: embedded 0 / 6 (error 152-18) → measured, not active (2026-10-15); A: none bundled;
+  - R0 (R6's own first request): 3 / 30 passed, bot check on 24, `VIDEO_VERDICT` 3 (made-for-kids);
+    R0+vd 24 / 24 DIRECT, V pass. §9 decision 5 does not apply (O rungs live).
+- ✅ Version sources (usable = 3 of 3 runs): visionOS reference tables (yt-dlp 1.02, YouTube.js 1.02
+  = bundled) and Android yt-dlp (21.26.364 = bundled), all on GitHub raw — a host Master's lookups
+  do not use yet, so census only until SOURCE_HOSTS_APPROVED. Not usable: the visionOS answer (no
+  value), App Store (no visionOS value), Play Store (over 64 KiB), YouTube.js Android (older),
+  embedded and MWEB page config (the newer 2.20261014.01.00 was never tried: video 1 met a bot
+  check in every run; MWEB keeps its bundled version, which works).
+- Finding for D2/D3: MWEB's address-less adaptive answer moves between videos and runs (run 2 video
+  6, run 3 video 2): an answer whose adaptive formats have no address means "adaptive path not
+  complete" (not a layout change), each time.
+- Owner decisions asked (not waited for, prompt rule): SOURCE_HOSTS_APPROVED (GitHub raw for the
+  reference tables: yes / no); D8 (signed identity data): yes / no — a usable source exists for
+  visionOS, so D8 may be dropped.
+- D0 left: one Weekly check (owner, ≥ 1 h after run 3: from 03:05 UTC). D2 starts on the owner's
+  word (standing rule).
+- Plan: §5 census table (valid 3, live?), gate paragraph, version-source table (run 3, usable?),
+  status board D0, §9 items 3 and 4.
+
+## Phase 1.3 — D0 census valid run 2 + gate count decided (owner, 2026-10-15; docs only, `30e7537`)
 
 - Owner decision, plan §9 item 9: (က) with a minimum sample — count only the videos where a rung
   was actually asked; live = pass on ≥ 60 % of its asked videos in ≥ 2 of 3 valid runs, asked on

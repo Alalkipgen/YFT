@@ -311,7 +311,7 @@ lookup (Master, clientLadder on)
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
 | G0 | Phase 1.2 closed (gate; Phase 1.2's agent and the owner) | — | Low | Done (`a99e0fb`) |
-| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | Code done (`1135afe`); census runs 1–4 not valid, not counted (§5); bot-check rule (owner, 2026-10-15; `5cb781c`), per video (`81388f8`); valid runs 1–2 done (2026-10-14 23:06 and 2026-10-15 00:37 UTC, §5); gate count decided (owner, §9 item 9); valid run 3 + 1 Weekly check pending |
+| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | Code done (`1135afe`); census runs 1–4 not valid, not counted (§5); bot-check rule (owner, 2026-10-15; `5cb781c`), per video (`81388f8`); valid runs 1–3 done (2026-10-14 23:06, 2026-10-15 00:37 and 02:05 UTC); gate (§5, §9 item 9): live Android, MWEB; provisional H, S; not live embedded; usable sources: the reference tables (GitHub raw; lookups need SOURCE_HOSTS_APPROVED); 1 Weekly check pending |
 | D1 | Change simulator, parity gate, L round-trip, baseline | D0 (classes) | Medium–High | Done: simulator + R6 baseline (`f35b78f`; T1b `5cb781c`, per video `81388f8`); parity gate with D6, L round-trip with D5b |
 | D2 | Client table v2 + answer judge (shape kinds, HLS locate, fingerprint) | D1 | Medium | TODO |
 | D3 | Health v2, order, budget, stop rules (learned version, shape map) | D2 | Medium–High | TODO |
@@ -721,24 +721,25 @@ modelled classes; an unmodelled change ends in a clean stop, W shows it, and it 
 - **Flag off = R6 / main;** CI, `MasterYouTubeParityTest`, `MasterMainMoreSheetTest` green;
   drift 0.
 
-Census (filled by D0; valid 1–3 = the three valid Full runs, under the bot-check rule; a cell = videos with V- or H-passed rows / videos asked; valid 1: 2026-10-14 23:06 UTC, mobile data, 10 videos, 54 requests, 2659 KB, 29 s; valid 2: 2026-10-15 00:37 UTC, the same, 54 requests, 2661 KB, 26 s; H and the O rungs are asked only on videos without a bot check, so the gate counts asked videos, §9 item 9):
+Census (filled by D0; valid 1–3 = the three valid Full runs, under the bot-check rule; a cell = videos with V- or H-passed rows / videos asked; valid 1: 2026-10-14 23:06 UTC, mobile data, 10 videos, 54 requests, 2659 KB, 29 s; valid 2: 2026-10-15 00:37 UTC, the same, 54 requests, 2661 KB, 26 s; valid 3: 2026-10-15 02:05 UTC, the same, 54 requests, 2643 KB, 30 s; H and the O rungs are asked only on videos without a bot check, so the gate counts asked videos, §9 item 9):
 
 | Rung | valid 1 | valid 2 | valid 3 | live? |
 |---|---|---|---|---|
-| R0 visionOS (adaptive rows) | 1 / 10: video 2 `DIRECT` (≤ 2160p, V pass); `BOT_CHECK` 8; video 6 (made-for-kids) `VIDEO_VERDICT` | 1 / 10: as valid 1 | — | — |
-| R0+vd: visionOS again with the page's visitor data, only after a bot check (R6's chain request, not a ladder rung; does not make R0 live) | 8 / 8 `DIRECT`, V pass | 8 / 8 `DIRECT`, V pass | — | — |
-| A alternates (bundled, ≤ 2) | none bundled (0 asked) | none bundled (0 asked) | — | — |
-| S (visionOS with page signals) | 0 asked (no cipher in a visionOS answer) | 0 asked | — | — |
-| H (token step: master / variant / segment) | 1 / 1: 2xx / 2xx / 2xx, no key, 17 variants ≤ 2160p, audio separate, duration matches | 1 / 1: as valid 1 | — | — |
-| Android | 2 / 2 `SABR_ONLY`: the 360p progressive row only (V pass) | 2 / 2: as valid 1 | — | — |
-| embedded | 0 / 2 `VIDEO_VERDICT` (error 152-18) | 0 / 2: as valid 1 | — | — |
-| MWEB | 2 / 2 `NEEDS_SCRIPT` → S ok-sig+n, V pass | 2 / 2: video 2 as valid 1; video 6 adaptive formats without address or cipher (25), only the 360p progressive row (S, V pass) | — | — |
+| R0 visionOS (adaptive rows) | 1 / 10: video 2 `DIRECT` (≤ 2160p, V pass); `BOT_CHECK` 8; video 6 (made-for-kids) `VIDEO_VERDICT` | 1 / 10: as valid 1 | 1 / 10: as valid 1 | R6's own first request, not gated: 3 / 30 passed, bot check on 24, `VIDEO_VERDICT` 3 (video 6) |
+| R0+vd: visionOS again with the page's visitor data, only after a bot check (R6's chain request, not a ladder rung; does not make R0 live) | 8 / 8 `DIRECT`, V pass | 8 / 8 `DIRECT`, V pass | 8 / 8 `DIRECT`, V pass | R6's chain request, not gated: 24 / 24 `DIRECT`, V pass |
+| A alternates (bundled, ≤ 2) | none bundled (0 asked) | none bundled (0 asked) | none bundled (0 asked) | n/a (none bundled) |
+| S (visionOS with page signals) | 0 asked (no cipher in a visionOS answer) | 0 asked | 0 asked | **provisional** (0 asked: no cipher in any visionOS answer) |
+| H (token step: master / variant / segment) | 1 / 1: 2xx / 2xx / 2xx, no key, 17 variants ≤ 2160p, audio separate, duration matches | 1 / 1: as valid 1 | 1 / 1: as valid 1 | **provisional** (3 / 3 passed, asked on 3 < 4 videos) |
+| Android | 2 / 2 `SABR_ONLY`: the 360p progressive row only (V pass) | 2 / 2: as valid 1 | 2 / 2: as valid 1 | **live** (6 / 6, 3 of 3 runs, wrong 0): the 360p progressive row only (`SABR_ONLY`) |
+| embedded | 0 / 2 `VIDEO_VERDICT` (error 152-18) | 0 / 2: as valid 1 | 0 / 2: as valid 1 | not live (0 / 6): measured, not active (2026-10-15) |
+| MWEB | 2 / 2 `NEEDS_SCRIPT` → S ok-sig+n, V pass | 2 / 2: video 2 as valid 1; video 6 adaptive formats without address or cipher (25), only the 360p progressive row (S, V pass) | 2 / 2: video 2 adaptive formats without address or cipher (29), only the 360p progressive row (S, V pass); video 6 ≤ 1080p (S, V pass) | **live** (6 / 6, 3 of 3 runs, wrong 0); on 2 of 6 answers the adaptive formats had no address (360p only) |
 
-After valid runs 1–2 (asked / passed; runs with ≥ 60 %): Android 4 / 4 (2 of 2; the 360p progressive
-row only) and MWEB 4 / 4 (2 of 2) meet the gate unless valid run 3 shows a wrong row; embedded
-4 / 0; H 2 / 2 (2 of 2), asked once per run, so at most 3 → provisional; S 0 asked → provisional;
-A none bundled; wrong 0 (every answer bound to its video, no V fail). R0 is R6's own first request
-(2 / 20 passed, bot check on 16).
+**Gate** (§9 item 9, valid runs 1–3; asked / passed; wrong 0: every answer bound to its video, no V
+fail): **live** — Android 6 / 6 (3 of 3 runs; the 360p progressive row only) and MWEB 6 / 6 (3 of 3
+runs; S path; on 2 of 6 answers the adaptive formats came without address, so 360p only);
+**provisional** — H 3 / 3 (asked on 3 videos) and S (0 asked); **not live** — embedded 0 / 6 (error
+152-18); A: none bundled. R0 is R6's own first request (3 / 30 passed, bot check on 24); `R0+vd`
+24 / 24. §9 decision 5 does not apply (O rungs are live).
 
 Not valid (not counted for the gate):
 
@@ -753,13 +754,13 @@ Version sources (filled by D0):
 
 | Identity | Source | run 1 | run 2 | run 3 | usable? (or why not) |
 |---|---|---|---|---|---|
-| visionOS | YouTube answers and pages | reachable, no value | = run 1 | — | — |
-| visionOS | App Store lookup | 21.41.5, no visionOS device (no visionOS value) | = run 1 | — | — |
-| visionOS | reference table | yt-dlp 1.02, YouTube.js 1.02 (= bundled) | = run 1 | — | — |
-| Android | Play Store page | over 64 KiB (not read past the cap) | = run 1 | — | — |
-| Android | reference table | yt-dlp 21.26.364 (= bundled); YouTube.js 21.03.36 (older) | = run 1 | — | — |
-| embedded | embed page config | 2.20261014.01.00 from the watch page (client MWEB); newer, not tried (video 1 met a bot check) | = run 1 | — | — |
-| MWEB | mobile page config | 2.20261014.01.00, newer, not tried (video 1 met a bot check) | = run 1 | — | — |
+| visionOS | YouTube answers and pages | reachable, no value | = run 1 | = run 1 | no (no value in any run) |
+| visionOS | App Store lookup | 21.41.5, no visionOS device (no visionOS value) | = run 1 | = run 1 | no (no visionOS value: the listing names no visionOS device) |
+| visionOS | reference table | yt-dlp 1.02, YouTube.js 1.02 (= bundled) | = run 1 | = run 1 | **usable** (yt-dlp and YouTube.js = bundled in 3 of 3); GitHub raw: lookups need SOURCE_HOSTS_APPROVED |
+| Android | Play Store page | over 64 KiB (not read past the cap) | = run 1 | = run 1 | no (over 64 KiB in every run) |
+| Android | reference table | yt-dlp 21.26.364 (= bundled); YouTube.js 21.03.36 (older) | = run 1 | = run 1 | yt-dlp **usable** (= bundled in 3 of 3; GitHub raw, as above); YouTube.js no (older value) |
+| embedded | embed page config | 2.20261014.01.00 from the watch page (client MWEB); newer, not tried (video 1 met a bot check) | = run 1 | = run 1 | no (the newer value was never tried: video 1 met a bot check in every run); embedded not live |
+| MWEB | mobile page config | 2.20261014.01.00, newer, not tried (video 1 met a bot check) | = run 1 | = run 1 | no (the newer value was never tried: video 1 met a bot check in every run); MWEB keeps its bundled version, which works |
 
 Baseline (filled by D1; the ladder columns by D6). D1 (`MasterClientLadderSimTest`, pinned in
 `extractor-master/src/test/resources/ladder/r6-baseline.txt`): each cell counts lookups over the 5 bases
@@ -889,9 +890,13 @@ merge and release, merging PR #2.
 2. **G0:** done — the owner closed Phase 1.2 on 2026-10-14 (`a99e0fb`: N4b closed, private video
    skipped, n rule PENDING). Nothing left to decide.
 3. **After D0, version sources:** which usable source may be used in lookups, above all one on a
-   host Master does not use yet (Apple, Google Play, GitHub raw for a reference).
+   host Master does not use yet (Apple, Google Play, GitHub raw for a reference). D0 (2026-10-15):
+   usable = the reference tables on GitHub raw (visionOS: yt-dlp, YouTube.js; Android: yt-dlp), each
+   equal to the bundled value in 3 of 3 runs; the App Store, the Play Store page, the visionOS answer
+   and the web page configs are not usable (§5). Asked: SOURCE_HOSTS_APPROVED (GitHub raw yes / no).
 4. **D8 signed identity data:** yes / no, decided after D0 (item 3); if yes, the phone signing
-   path and the key's custody.
+   path and the key's custody. D0: a usable source exists for visionOS (the reference tables), so D8
+   may be dropped (owner decides).
 5. **After the D0 gate:** if neither H nor any O rung is live, Phase 1.3 finishes with A, S, Z and
    L; no SABR, token or MSE work follows from this plan.
 6. **M5 (Phase 1.2 carry-over, `PROGRESS.md` "Phase 1.2 — done"):** not part of this plan; the
