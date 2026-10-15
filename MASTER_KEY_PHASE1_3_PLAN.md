@@ -61,7 +61,13 @@ visionOS, Master:
 - Bot check (owner 2026-10-15): bot check ပြီးရင် R6 မပို့တဲ့ request ဘယ်တော့မှ မပို့။ R6 လို video (lookup)
   တစ်ခုချင်း: census က video တိုင်းမှာ watch page တစ်ခါ + visionOS ကို page ရဲ့ visitor data နဲ့ တစ်ခါ၊ ပြီးရင်
   နောက် video ဆက်။ visitor data ပါပြီးသား request ကို bot check ဒါမှမဟုတ် HTTP 429 → run ရပ် + ၃၀ မိနစ်။
-  ladder: ကိုယ်ပိုင် rung ရပ်၊ R6 chain ယခင်အတိုင်း။ IP/network ပြောင်းတာ မလုပ် (bypass)။
+  ladder (က+၊ owner 2026-10-15၊ §9 ၁၀): InnerTube (player/page) request အသစ် မပို့၊ R6 chain ယခင်အတိုင်း။
+  R6 ရဲ့ R0+vd answer ပေါ်မှာ L၊ Z၊ V၊ init check၊ H check (lookup တစ်ခု ≤ ၁)၊ S local (R6 ယူပြီးသား
+  player script ရှိမှ) ခွင့်ပြု။ ၃၀ မိနစ် cooldown က request ပို့တဲ့ rung (A၊ O၊ S re-ask၊ version source)
+  ကိုပဲ ပိတ်။ census လည်း R0+vd DIRECT ဆို V၊ H စစ်။ visitor data သိမ်းပြီး ပထမ request ကစ ပို့တာ (ခ)
+  မလုပ် (bot check ကို ရှောင်တာ၊ bypass နဲ့ နီး)။ IP/network ပြောင်းတာ မလုပ် (bypass)။
+- Gate (owner 2026-10-15၊ §9 ၉): H/O rung live ဖြစ်ဖို့ distinct video ≥ ၄ လို။ အခု H (video 2 တစ်ခုတည်း)၊
+  Android နဲ့ MWEB (video 2၊ 6) provisional — fallback အဖြစ်ပဲ ချိတ်၊ row တိုင်း V။
 - Run mode (owner 2026-10-14): task တစ်ခု ပြီးတိုင်း agent က "✅ Dx ပြီးပြီ" စာတိုရေးပြီး ဆက်လုပ်မယ်။
   ဖုန်းစစ် (D0 census — အဲဒီအတောအတွင်း D1 လုပ်မယ်၊ D7)၊ owner ဆုံးဖြတ်ချက်၊ STOP ပေါ်မှပဲ ရပ်မယ်။
 - ခက်ခဲမှု: High (D5b High; D3၊ D5a၊ D5c၊ D6 Medium–High)။
@@ -149,13 +155,22 @@ All R6, Phase 1.1, Phase 1.2, v1 and v2 guardrails stay. v3 restates them and ma
    (v3): SABR clients (SABR/UMP), PO tokens, MSE recording, the TV client and any bypass** — none
    of them is a rung, an experiment or a later phase of this plan.
 4. **No bypass; the ladder never decides a refusal** (v1; bot check **changed**, owner
-   2026-10-15): age check, video verdict or DRM → stop, the R6 chain decides; bot check → the
-   ladder's own rungs stop, plus a 30 min ladder-wide cooldown, and the R6 chain runs as today:
-   after a bot check nothing is sent that R6 would not send (the census, for each video as R6
-   answers each lookup: the watch page once and visionOS once more with the page's visitor data,
-   as R6 asks it; a bot check on a request that already carried visitor data stops the run);
-   never a changed IP or network to avoid a bot check; ladder rows merge only when the chain did
-   not end in a terminal verdict.
+   2026-10-15, twice): age check, video verdict or DRM → stop, the R6 chain decides; bot check →
+   the R6 chain runs as today, and after a bot check no InnerTube request (player or page) is sent
+   that R6 would not send (the census, for each video as R6 answers each lookup: the watch page
+   once and visionOS once more with the page's visitor data, as R6 asks it; a bot check on a
+   request that already carried visitor data stops the run). **(က+)** (owner, 2026-10-15; §9
+   item 10): on R6's `R0+vd` answer the ladder may still run (a) L (local) and Z, V and the init
+   check (reads on the media host YouTube returned; guardrail 6's budget); (b) the H check (its
+   playlists on `manifest.googlevideo.com`, the segment on the media host; ≤ 1 per lookup);
+   (c) S locally — the own solver, SelfCheck and V — only when R6 already fetched the player
+   script (no player request or script fetch of its own); (d) a 30 min cooldown that blocks only
+   the rungs that send requests (A, O, S's re-ask, a version source), never L, Z, V, the init
+   check, H or local S. The census likewise runs the media-host checks (V, H) on an `R0+vd`
+   answer that is `DIRECT`. Never a changed IP or network to avoid a bot check, and never visitor
+   data kept to send from a lookup's first request (option (ခ), rejected: it avoids the bot check
+   instead of answering it); ladder rows merge only when the chain did not end in a terminal
+   verdict.
 5. **Identities and versions (changed).** At most 4 identities, all already in main's code —
    visionOS, Android, embedded, MWEB. Versions in this order: the learned working version
    (health); a signed version (D8, only if approved); a **self-healed** version; ≤ 2 bundled
@@ -220,8 +235,11 @@ lookup (Master, clientLadder on)
   for each client, within the budget:
     answer = ask(client, its learned variant or the base)   copied request builder, no cookie
     class  = judge(answer)                                   v2 class table (below)
-      AGE_CHECK / VIDEO_VERDICT / BOT_CHECK -> stop (bot check: cooldown); the R6 chain decides
-                         (after a bot check nothing R6 would not send; guardrail 4)
+      AGE_CHECK / VIDEO_VERDICT -> stop; the R6 chain decides
+      BOT_CHECK          -> stop asking (30 min cooldown for A, O, S's re-ask, version sources);
+                            the R6 chain runs as today (watch page, R0+vd); on R6's R0+vd answer
+                            only steps without an InnerTube request run ((က+), guardrail 4):
+                            L, Z, V, init check, H check, S locally with R6's player script
       VERSION_REJECTED   -> A: learned -> signed (D8) -> self-healed (D0-proven source,
                             <= 1 fetch a day) -> bundled alternates -> next client
       NEEDS_SCRIPT       -> S: page signals once; ask again with signature timestamp + visitor data;
@@ -237,7 +255,8 @@ lookup (Master, clientLadder on)
     health.record(client, class, variant, version, shape map)
     complete (P22 rule: a video merged with sound and the audio track itself) -> done
   not complete -> the R6 chain runs unchanged behind the same-lookup memo;
-                  merge rule (guardrail 9)
+                  after a bot check the steps above run on the chain's R0+vd answer
+                  (from the memo, this lookup only); merge rule (guardrail 9)
 ```
 
 - **Classes:** v2's table (`DIRECT`, `NEEDS_SCRIPT`, `SABR_ONLY`, `INCOMPLETE`, `REFUSED`,
@@ -311,10 +330,10 @@ lookup (Master, clientLadder on)
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
 | G0 | Phase 1.2 closed (gate; Phase 1.2's agent and the owner) | — | Low | Done (`a99e0fb`) |
-| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | **Done** (2026-10-15): code `1135afe`; census runs 1–4 not valid, not counted (§5); bot-check rule (owner, 2026-10-15; `5cb781c`), per video (`81388f8`); valid runs 1–3 done (2026-10-14 23:06, 2026-10-15 00:37 and 02:05 UTC); gate (§5, §9 item 9): live Android, MWEB; provisional H, S; not live embedded; usable sources: the reference tables (GitHub raw, approved for lookups with conditions, §9 item 3); D8 dropped; Weekly check 1 (2026-10-15 03:39 UTC, §5); then (owner): the diff's `INFO` lines and +/− paths cancel, W's H on video 2 after video 1's bot check |
-| D1 | Change simulator, parity gate, L round-trip, baseline | D0 (classes) | Medium–High | Done: simulator + R6 baseline (`f35b78f`; T1b `5cb781c`, per video `81388f8`); parity gate with D6, L round-trip with D5b |
+| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | **Done** (2026-10-15): code `1135afe`; census runs 1–4 not valid, not counted (§5); bot-check rule (owner, 2026-10-15; `5cb781c`), per video (`81388f8`); valid runs 1–3 done (2026-10-14 23:06, 2026-10-15 00:37 and 02:05 UTC); gate (§5, §9 item 9; distinct videos, owner 2026-10-15 after W 2): provisional H (1 distinct video), Android and MWEB (2 each), S (0 asked); not live embedded; no rung live (§9 item 5: the owner confirms); usable sources: the reference tables (GitHub raw, approved for lookups with conditions, §9 item 3); D8 dropped; Weekly check 1 (2026-10-15 03:39 UTC, §5); then (owner): the diff's `INFO` lines and +/− paths cancel, W's H on video 2 after video 1's bot check (`3e8f378`); Weekly check 2 (04:34 UTC, §5); after a bot check (က+) (§9 item 10) |
+| D1 | Change simulator, parity gate, L round-trip, baseline | D0 (classes) | Medium–High | Done: simulator + R6 baseline (`f35b78f`; T1b `5cb781c`, per video `81388f8`); parity gate with D6, L round-trip with D5b; T1c, T1d ((က+), §4 D1): a follow-up before D3 |
 | D2 | Client table v2 + answer judge (shape kinds, HLS locate, fingerprint) | D1 | Medium | TODO |
-| D3 | Health v2, order, budget, stop rules (learned version, shape map) | D2 | Medium–High | TODO |
+| D3 | Health v2, order, budget, stop rules (learned version, shape map; (က+) after a bot check) | D2 | Medium–High | TODO (after the owner's OK on the (က+) plan change) |
 | D4 | Row checks: V (reuse), init check, H check, Z | D2 | Medium | TODO |
 | D5a | visionOS rungs A (with self-healed versions), S, Z | D3, D4 | Medium–High | TODO |
 | D5b | Own parser L (locate, bind, canonical JSON, copied parser) | D3, D4 | High | TODO |
@@ -363,7 +382,11 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   check on a video's first request (visionOS, no visitor data: R6's own first request) gets what
   R6 sends next and nothing else for that video — its watch page once and visionOS once more with
   the page's visitor data (`R0+vd`, R6's `visionOsInChain` request; V on one row of that answer) —
-  and the run goes on with the next video; no newer version is tried on that video. A bot check on
+  and the run goes on with the next video; no newer version is tried on that video. **(က+)**
+  (owner, 2026-10-15; §9 item 10): when that `R0+vd` answer is `DIRECT`, the media-host checks
+  run on it too — V on one row and the H check with the token step on its HLS address (≤ 3
+  requests; in the census from the next APK) — and still no other client and no other InnerTube
+  request. A bot check on
   a request that already carried visitor data (`R0+vd`, or a client asked with the page's visitor
   data) or HTTP 429 stops the run, without a retry (then no new run for 30 min); a bot check on
   any other request without visitor data ends that video only:
@@ -403,11 +426,13 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
 - Runs: **3, all on mobile data (no Wi-Fi), at least an hour apart, ideally at different times of
   day**, on the owner's normal mobile data only (never a changed IP, airplane mode or another
   network to avoid a bot check: that is a bypass; owner, 2026-10-15).
-- **Gate** (owner, 2026-10-15, §9 item 9: the per-video bot-check rule asks H and the O rungs only
-  on videos without a bot check, so only the videos where a rung was actually asked count): a rung
-  is **live** when its rows passed V (or H) on ≥ 60 % of the videos it was asked on in ≥ 2 of 3
-  valid runs, it was asked on ≥ 4 videos in total over the 3 runs, and wrong = 0. Asked on fewer
-  than 4 videos in total → **provisional**: wired only as a fallback after visionOS fails, V on
+- **Gate** (owner, 2026-10-15, §9 item 9: the per-video bot-check rule asks the O rungs only on
+  videos without a bot check — and H too, until (က+) adds it on `R0+vd` `DIRECT` answers — so only
+  the videos where a rung was actually asked count): a rung is **live** when its rows passed V (or
+  H) on ≥ 60 % of the videos it was asked on in ≥ 2 of 3 valid runs, it was asked on ≥ 4
+  **distinct** videos (by list number) over the valid runs and the weekly checks (owner,
+  2026-10-15, after W 2: H's four samples were all video 2), and wrong = 0. Asked on fewer than 4
+  distinct videos → **provisional**: wired only as a fallback after visionOS fails, V on
   every row, and the weekly check keeps measuring it until it reaches the minimum. An alternate
   version is live when it was accepted in ≥ 2 of 3 runs; a version source when it is usable
   (above). Only live rungs (provisional ones as above) and usable sources become active; the
@@ -442,7 +467,8 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   uses no background API; the owner's 3 full runs and one weekly check; the census table, the
   version-source table and the gate decision in §5 and `PROGRESS.md`; the owner told which rungs
   and sources are live. If neither H nor any O rung is live, stop and ask the owner (§9): Phase
-  1.3 then keeps A, S, Z and L.
+  1.3 then keeps A, S, Z and L. (2026-10-15, distinct count: none live — H, Android and MWEB
+  provisional; asked, §9 item 5.)
 
 ### D1 — Change simulator, parity gate and baseline
 
@@ -464,8 +490,10 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
 | V7 | non-definite refusal ("not on this app", made for kids) | per-video refusal | O (live only) |
 | V8 | formats under a moved key | response shape change | detect only → O |
 | V9 | every request 400 / refused | client closed | O (live only) |
-| T1 | bot check from every identity and the page | IP flagged | own rungs stop + cooldown; the R6 chain runs = R6 |
-| T1b | bot check only for visionOS asked without visitor data (owner, 2026-10-15), per video: three lookups in a row each meet it | carrier IP (census runs 1–4, 2026-10-14) | own rungs stop + cooldown; the R6 chain (watch page, visionOS with the page's visitor data) completes each lookup = R6 |
+| T1 | bot check from every identity and the page | IP flagged | request-sending rungs stop + cooldown; the R6 chain runs = R6 (no `R0+vd` answer to work on) |
+| T1b | bot check only for visionOS asked without visitor data (owner, 2026-10-15), per video: three lookups in a row each meet it | carrier IP (census runs 1–4, 2026-10-14) | request-sending rungs stop + cooldown; the R6 chain (watch page, visionOS with the page's visitor data) completes each lookup = R6 |
+| T1c | bot check as T1b (owner, 2026-10-15, (က+)); R6's `R0+vd` answer has its formats under a moved key (`SHAPE_CHANGED`, as L1) | carrier IP + a layout change | the R6 chain answers (watch page, `R0+vd`); L on that answer (no player request or page fetch of the ladder's own), every L row V + init check → complete |
+| T1d | bot check as T1b (owner, 2026-10-15, (က+)); R6's `R0+vd` answer adaptive SABR-only, HLS kept (as V4) | carrier IP + SABR rollout | the R6 chain answers; the H check on that answer's HLS address (≤ 1 per lookup) → one HLS row → complete |
 | T2 | age check | — | stop, ladder rows dropped = R6 |
 | T3 | private, removed, geo, DRM | — | stop = R6 |
 | H1 | visionOS failed 10 min ago | repeated lookups | skipped; one request fewer |
@@ -529,6 +557,8 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   marker with the formats in place is not modelled (L12 moves them). T1b added on 2026-10-15
   (bot-check rule) and made per video the same day (three lookups in a row): 97 cases per base,
   485 cases (515 lookups) per column; R6 completes each lookup (2 player requests, 1 page each).
+  T1c and T1d ((က+), owner 2026-10-15): a D1 follow-up before D3 adds them (the R6 columns; the
+  ladder columns with D6).
 
 ### D2 — Client table v2 and answer judge
 
@@ -554,16 +584,22 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
 - `ClientHealth`: memory + `files/master/client-health.json` (guardrail 8); a fake clock in tests.
   - Per client: last class, last pass, cooldown end, working variant (version index, S, H).
   - Cooldowns (v1): `REFUSED` 1 h; `SABR_ONLY`, `TOKEN_NEEDED`, `VERSION_REJECTED`,
-    `SHAPE_CHANGED` 24 h; `BOT_CHECK` 30 min for the whole ladder. A client in cooldown is asked
-    only when every other client failed in this lookup, then only the one whose cooldown ends first.
+    `SHAPE_CHANGED` 24 h; `BOT_CHECK` 30 min for the ladder's request-sending rungs (A, O, S's
+    re-ask, a version source; (က+), guardrail 4), never for L, Z, V, the init check, H or local S.
+    A client in cooldown is asked only when every other client failed in this lookup, then only
+    the one whose cooldown ends first (the bot-check cooldown has no such exception).
   - A learned variant is tried first; when it fails, the base is tried once, then the next client.
 - v3: per client also the learned version (with its source and time) and the L shape map (keyed
   by fingerprint; paths only); the version-source clock (≤ 1 fetch a day per identity); a learned
   version or shape map that fails once is dropped (the base once, then the next rung). A class a
   rung repaired (A, S, Z, L, H) counts as a pass with its learned variant; a cooldown starts only
   when the client still fails after its rungs.
-- Order, budget (guardrail 7) and stop rules (guardrail 4) in `ClientLadder`.
-- **Done:** a unit test per rule; no request after a stop; H1 and H2 show the saving.
+- Order, budget (guardrail 7) and stop rules (guardrail 4) in `ClientLadder`. **(က+)** (owner,
+  2026-10-15; §9 item 10): after a bot check the ladder sends no InnerTube request; on R6's
+  `R0+vd` answer (from the memo, this lookup only) it runs its on-answer steps — L, Z, V, the init
+  check, the H check (≤ 1 per lookup) and S locally when R6 already fetched the player script.
+- **Done:** a unit test per rule; no request after a stop (after a bot check: no InnerTube request
+  of the ladder's own, the on-answer steps allowed — T1, T1b–T1d); H1 and H2 show the saving.
 
 ### D4 — Row checks: V, init check, H check and Z
 
@@ -631,7 +667,9 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
 - **O rungs:** embedded, MWEB (S path) and Android, each only when D0 found it live; otherwise
   skipped with the census date in `describe()`.
 - **Memo** (`LookupMemo`, guardrail 7): wraps the HTTP client the R6 chain gets; byte-identical
-  requests of the same lookup are served once from memory; media hosts never.
+  requests of the same lookup are served once from memory; media hosts never. (က+): it also
+  keeps, for this lookup only, R6's `R0+vd` answer and the player script R6 fetched, for the
+  ladder's on-answer steps after a bot check (guardrail 4).
 - `MasterYouTubeModule(http, playerScripts, ladder)`: the ladder first; complete → its answer;
   otherwise the R6 chain runs unchanged behind the memo, then the merge rule (guardrail 9).
 - `-Pyft.clientLadder` in `app/build.gradle.kts` (debug only; release `false`); workflow input
@@ -687,7 +725,7 @@ although a path existed that uses only the allowed identities and versions (lear
 self-healed, bundled), needs no token, cookie, SABR, TV, MSE recording or bypass, and whose rows
 pass V or the H check — or when it offers any wrong row.
 
-**Not Master-caused:** a terminal verdict (age, private, removed, geo, DRM, bot check) and a
+**Not Master-caused:** a terminal verdict (age, private, removed, geo, DRM, a bot check R6's chain does not answer) and a
 **server closure** — every allowed path refused (a token rule, SABR only, the client removed,
 every allowed version rejected). Master then stops cleanly with R6's verdict, and W shows it
 within a week.
@@ -703,9 +741,12 @@ modelled classes; an unmodelled change ends in a clean stop, W shows it, and it 
   request, the R6 rows; live: the same rows as R6 on 10 of 10 videos (extras only where R6 gave
   none).
 - **Simulator:** wrong = 0 and MCF = 0 in every class and fault, in both ladder columns.
-  - T1–T3 and T1b (owner, 2026-10-15): after such an answer the ladder sends no request that R6
-    would not send, and its result equals R6's, in every lookup (T1b: three lookups in a row,
-    each completes as R6 does; the ladder's 30 min cooldown stops only its own rungs).
+  - T1–T3 and T1b–T1d (owner, 2026-10-15): after such an answer the ladder sends no InnerTube
+    request (player or page) that R6 would not send, in every lookup; T1–T3 and T1b: its result
+    equals R6's (T1b: three lookups in a row, each completes as R6 does); T1c and T1d ((က+), §9
+    item 10): complete on R6's `R0+vd` answer through L (T1c) or H (T1d), with no more player
+    requests or page fetches than R6; the 30 min cooldown blocks only the request-sending rungs
+    (A, O, S's re-ask, a version source).
   - The ladder is never worse than R6 in any class.
   - Live-backed column: complete in V1–V3 (V1 through a live alternate, a usable source or D8);
     in V4–V5 and V10 when D0 found H live; in V6–V9 only through census-live O rungs, else a
@@ -743,23 +784,33 @@ Census (filled by D0; valid 1–3 = the three valid Full runs, under the bot-che
 | R0+vd: visionOS again with the page's visitor data, only after a bot check (R6's chain request, not a ladder rung; does not make R0 live) | 8 / 8 `DIRECT`, V pass | 8 / 8 `DIRECT`, V pass | 8 / 8 `DIRECT`, V pass | R6's chain request, not gated: 24 / 24 `DIRECT`, V pass |
 | A alternates (bundled, ≤ 2) | none bundled (0 asked) | none bundled (0 asked) | none bundled (0 asked) | n/a (none bundled) |
 | S (visionOS with page signals) | 0 asked (no cipher in a visionOS answer) | 0 asked | 0 asked | **provisional** (0 asked: no cipher in any visionOS answer) |
-| H (token step: master / variant / segment) | 1 / 1: 2xx / 2xx / 2xx, no key, 17 variants ≤ 2160p, audio separate, duration matches | 1 / 1: as valid 1 | 1 / 1: as valid 1 | **provisional** (3 / 3 passed, asked on 3 < 4 videos; W 1: not asked, video 1 met a bot check; W now runs H on video 2 then, §4 D0) |
-| Android | 2 / 2 `SABR_ONLY`: the 360p progressive row only (V pass) | 2 / 2: as valid 1 | 2 / 2: as valid 1 | **live** (6 / 6, 3 of 3 runs, wrong 0): the 360p progressive row only (`SABR_ONLY`) |
+| H (token step: master / variant / segment) | 1 / 1: 2xx / 2xx / 2xx, no key, 17 variants ≤ 2160p, audio separate, duration matches | 1 / 1: as valid 1 | 1 / 1: as valid 1 | **provisional** (4 / 4 passed, wrong 0 — valid runs 1–3 and W 2 — but all on video 2: 1 distinct video < 4, §9 item 9; W 1: not asked, video 1 met a bot check) |
+| Android | 2 / 2 `SABR_ONLY`: the 360p progressive row only (V pass) | 2 / 2: as valid 1 | 2 / 2: as valid 1 | **provisional** (6 / 6 passed, 3 of 3 runs, wrong 0, but on 2 distinct videos — 2 and 6 — < 4, §9 item 9; live before the distinct count): the 360p progressive row only (`SABR_ONLY`) |
 | embedded | 0 / 2 `VIDEO_VERDICT` (error 152-18) | 0 / 2: as valid 1 | 0 / 2: as valid 1 | not live (0 / 6): measured, not active (2026-10-15) |
-| MWEB | 2 / 2 `NEEDS_SCRIPT` → S ok-sig+n, V pass | 2 / 2: video 2 as valid 1; video 6 adaptive formats without address or cipher (25), only the 360p progressive row (S, V pass) | 2 / 2: video 2 adaptive formats without address or cipher (29), only the 360p progressive row (S, V pass); video 6 ≤ 1080p (S, V pass) | **live** (6 / 6, 3 of 3 runs, wrong 0); on 2 of 6 answers the adaptive formats had no address (360p only) |
+| MWEB | 2 / 2 `NEEDS_SCRIPT` → S ok-sig+n, V pass | 2 / 2: video 2 as valid 1; video 6 adaptive formats without address or cipher (25), only the 360p progressive row (S, V pass) | 2 / 2: video 2 adaptive formats without address or cipher (29), only the 360p progressive row (S, V pass); video 6 ≤ 1080p (S, V pass) | **provisional** (6 / 6 passed, 3 of 3 runs, wrong 0, but on 2 distinct videos — 2 and 6 — < 4, §9 item 9; live before the distinct count); on 2 of 6 answers the adaptive formats had no address (360p only) |
 
-**Gate** (§9 item 9, valid runs 1–3; asked / passed; wrong 0: every answer bound to its video, no V
-fail): **live** — Android 6 / 6 (3 of 3 runs; the 360p progressive row only) and MWEB 6 / 6 (3 of 3
-runs; S path; on 2 of 6 answers the adaptive formats came without address, so 360p only);
-**provisional** — H 3 / 3 (asked on 3 videos) and S (0 asked); **not live** — embedded 0 / 6 (error
-152-18); A: none bundled. R0 is R6's own first request (3 / 30 passed, bot check on 24); `R0+vd`
-24 / 24. §9 decision 5 does not apply (O rungs are live).
+**Gate** (§9 item 9, valid runs 1–3 and W 2; asked / passed; wrong 0: every answer bound to its
+video, no V fail; the minimum counts **distinct** videos, owner 2026-10-15 after W 2): **live** —
+none; **provisional** (asked on fewer than 4 distinct videos) — Android 6 / 6 (videos 2 and 6; 3
+of 3 runs; the 360p progressive row only), MWEB 6 / 6 (videos 2 and 6; 3 of 3 runs; S path; on 2
+of 6 answers the adaptive formats came without address, so 360p only), H 4 / 4 (video 2 only:
+valid runs 1–3 and W 2) and S (0 asked); **not live** — embedded 0 / 6 (error 152-18); A: none
+bundled. R0 is R6's own first request (3 / 30 passed, bot check on 24); `R0+vd` 24 / 24. Before
+the distinct count (`aba372a`): live Android and MWEB, provisional H and S. Provisional rungs are
+wired as fallbacks after visionOS fails, V on every row (§4 D0 gate), so where this plan says
+"live" for H or an O rung (§3, D1's live-backed column, D6, §5.2, §7 step 7) a provisional rung
+counts the same way; §9 decision 5 ("neither H nor any O rung live") therefore does not stop
+Phase 1.3 in the agent's reading — the owner confirms (asked 2026-10-15). Leaving provisional:
+H through the H check on every video whose `R0+vd` answer is `DIRECT` ((က+), from the next Full
+run: up to 9 distinct videos a run); Android and MWEB only on videos without a bot check (no O
+rung is asked after one), so far videos 2 and 6 only.
 
 Weekly checks (W, §4 D0; the diff against the last stored run):
 
 | Check | When, network, APK | Requests, bytes, time | Asked | Diff |
 |---|---|---|---|---|
 | W 1 | 2026-10-15 03:39 UTC (94 min after valid run 3), mobile data (metered), `81388f8` | 8, 372 KB, 4 s (limits 20, 2 MB, 60 s) | videos 1 and 5: visionOS R0 `BOT_CHECK` → answered as R6 (watch page, `R0+vd` `DIRECT`, V pass; video 1 ≤ 240p, video 5 ≤ 1080p); no H and no Android, embedded or MWEB (video 1 met a bot check); version sources read < 24 h ago, not read | `CHANGED (2)`: only the two answered bot checks; after the owner's fixes (2026-10-15) they are `INFO` lines and the result reads `NO CHANGE` |
+| W 2 | 2026-10-15 04:34 UTC (55 min after W 1), mobile data (metered), `3e8f378` | 17, 448 KB, 10.5 s (limits 20, 2 MB, 60 s) | videos 1 and 5: visionOS R0 `BOT_CHECK` → answered as R6 (`R0+vd` `DIRECT`, V pass; video 1 ≤ 240p, video 5 ≤ 1080p); video 2: visionOS R0 `DIRECT` ≤ 2160p (27 adaptive), V pass; H on video 2: 2xx / 2xx / 2xx, 17 variants ≤ 2160p, audio separate, codecs avc1 / mp4a / vp09, key `NONE`, 38 segments, duration matches, 3 requests; no Android, embedded or MWEB (video 1 met a bot check); version sources read: as valid runs 1–3 | `FIRST RUN` (no diff): the owner uninstalled the old app before installing `3e8f378`, which deleted the stored runs (not a bug, no code change; §7); the two bot checks are `INFO` lines (owner item 4 ✅); the header named 6 videos (the slots set) while 3 were asked (fixed in the next census APK) |
 
 D0 is **done** (2026-10-15): 3 valid Full runs, the gate, the version-source table and weekly check 1.
 
@@ -828,6 +879,8 @@ the D0 census):
 | Y6 | 0/5 complete, 5 partial; wrong 0, MCF 5 | 5/5 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
 | T1 | 0/5 complete, 5 clean stop; wrong 0, MCF 0 | 0/5 complete, 5 clean stop; wrong 0, MCF 0 | — (D6) | — (D6) |
 | T1b | 15/15 complete; wrong 0, MCF 0 | 15/15 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
+| T1c | — (D1 follow-up) | — (D1 follow-up) | — (D6) | — (D6) |
+| T1d | — (D1 follow-up) | — (D1 follow-up) | — (D6) | — (D6) |
 | T2 | 0/5 complete, 5 clean stop; wrong 0, MCF 0 | 0/5 complete, 5 clean stop; wrong 0, MCF 0 | — (D6) | — (D6) |
 | T3 | 0/20 complete, 20 clean stop; wrong 0, MCF 0 | 0/20 complete, 20 clean stop; wrong 0, MCF 0 | — (D6) | — (D6) |
 | H1 | 0/10 complete, 10 partial; wrong 0, MCF 10 | 10/10 complete; wrong 0, MCF 0 | — (D6) | — (D6) |
@@ -866,8 +919,9 @@ the D0 census):
   clients, patterns, fixed lists, no code, no hosts) and the bundled table stays; a key kept as a
   repository secret (the phone path) is as safe as the owner's GitHub account.
 - **More exposure under YouTube's terms:** ≤ 4 identities already in main, no fingerprint tricks,
-  no cookies, after a bot check nothing R6 would not send (own rungs stop, 30 min cooldown),
-  health cooldowns, the budget.
+  no cookies, after a bot check no InnerTube request R6 would not send (the request-sending
+  rungs stop for 30 min; on R6's answer only reads on the hosts YouTube returned, (က+)), health
+  cooldowns, the budget.
 - **n slowdowns are not visible to V** (Phase 1.2 T4): the census records the time to the first
   64 KiB as a metric only.
 - **Duplicated logic** (row builder, S path): parity gate and fixture tests; the drift check keeps
@@ -880,6 +934,10 @@ the D0 census):
 - The census uses the same IP as the owner's daily app: keep runs few and at least 1 h apart;
   HTTP 429 stops a run (no retry, no bypass).
 - Do not clear app data to skip the cooldown; it protects the IP the daily app uses.
+- Update the APK over the installed one; never uninstall it first (owner, 2026-10-15, after W 2):
+  uninstalling deletes the app's files — W's stored runs (the next check reads `FIRST RUN`, no
+  diff), the health file, the cooldown and the census video picks (slots 4–10; slots 4 and 7 go
+  back to their defaults).
 
 1. Weekly check (W), once a week: `NO CHANGE` → nothing (`INFO` lines need nothing). `CHANGED` or
    `BROKEN` → copy the result to the agent; each line names a step below.
@@ -922,15 +980,18 @@ merge and release, merging PR #2.
    visionOS, the reference tables, item 3). Known limit: when both reference tables lag behind, or
    the layout changes, a new APK is needed; W shows it. Decided again only if that happens.
 5. **After the D0 gate:** if neither H nor any O rung is live, Phase 1.3 finishes with A, S, Z and
-   L; no SABR, token or MSE work follows from this plan.
+   L; no SABR, token or MSE work follows from this plan. (2026-10-15, after item 9's distinct
+   count: no rung is live — H, Android and MWEB are provisional, wired as fallbacks with V on
+   every row — so the agent reads this item as not applying; the owner confirms.)
 6. **M5 (Phase 1.2 carry-over, `PROGRESS.md` "Phase 1.2 — done"):** not part of this plan; the
    owner decides whether it becomes its own solver task. Not needed for D0.
 7. **Bot-check rule** (proposed after census run 1, 2026-10-14): **yes — owner, 2026-10-15.** After
    a bot check the census and the ladder never send a request R6 would not send. Census, for
    each video (owner, after runs 2–4: R6 answers each lookup on its own): the watch page once and
    visionOS once more with the page's visitor data; a bot check on a request that already carried
-   visitor data, or HTTP 429, stops the run (30 min cooldown). Ladder: its own rungs stop and R6's
-   chain runs as today, so the result equals R6's (D3/D6). Simulator class T1b (per video); §5.2
+   visitor data, or HTTP 429, stops the run (30 min cooldown). Ladder: its request-sending rungs
+   stop and R6's chain runs as today; since item 10 ((က+)) its local and media-host steps run on
+   R6's `R0+vd` answer (D3/D6). Simulator class T1b (per video); §5.2
    T1–T3 reworded; never a changed IP or network to avoid a bot check (a bypass). Census and
    simulator: `5cb781c`; per video: `81388f8`.
 8. **D1 targets** (proposed in the D1 report): **yes — owner, 2026-10-15**, written into §5.2:
@@ -941,21 +1002,32 @@ merge and release, merging PR #2.
    (proposed after valid run 1). H and the O rungs are asked only on videos whose first visionOS
    request had no bot check (valid runs 1–2: 2 of 10 each), so only the videos where a rung was
    actually asked count: **live** = pass (V- or H-passed rows) on ≥ 60 % of its asked videos in ≥ 2
-   of 3 valid runs, AND asked on ≥ 4 videos in total across the 3 runs, AND wrong = 0. Asked on
-   fewer than 4 videos in total → **provisional**: wired only as a fallback after visionOS fails, V
+   of 3 valid runs, AND asked on ≥ 4 **distinct** videos (by list number) across the valid runs and
+   the weekly checks (owner, 2026-10-15, after W 2), AND wrong = 0. Asked on fewer than 4
+   distinct videos → **provisional**: wired only as a fallback after visionOS fails, V
    required on every row, and the weekly check keeps measuring it until it reaches the minimum. No
    code change; the same APK (`81388f8`). Version acceptance runs on video 1 only (no newer version
    is tried after its bot check), so the web page config values stay "not tried"; MWEB keeps its
    bundled version, which works. Note: W asks Android, embedded and MWEB on video 1 only, and
    video 1 met a bot check in every run so far (W 1 too), so W adds samples for them only when
    video 1 escapes it (D7 revisits). H: since the owner's fix (2026-10-15, after W 1) W runs it on
-   video 2 when video 1 met a bot check, so W adds an H sample each week; H leaves provisional at
-   ≥ 4 asked videos with ≥ 60 % passed and wrong 0 (recorded in §5; the owner told).
-10. **The ladder after visionOS's bot check (before D3; asked 2026-10-15, after W 1):** visionOS's
-    first request met a bot check on 24 of 30 census videos; under guardrail 4 the ladder's own
-    rungs (A, S, Z, L, H) then stop and R6's chain answers (`R0+vd`: 24 / 24 `DIRECT`, V pass), so
-    in about 80 % of lookups the ladder adds nothing. Options (risk, requests, MB and guardrail
-    fit in `PROGRESS.md`, 2026-10-15): (က) L, Z and V on R6's `R0+vd` answer, no extra player
-    request; (ခ) visitor data kept in the app's session memory only (never on disk) and sent from
-    the first request; (ဂ) no change, a known limit. Agent's recommendation: (က). D3 waits for
-    this decision; D2 does not.
+   video 2 when video 1 met a bot check, so W adds an H sample each week — always on video 2, which
+   adds no distinct video (W 2: H 4 / 4, all video 2). H leaves provisional at ≥ 4 distinct videos
+   with ≥ 60 % passed and wrong 0: under (က+) (item 10) the next Full run asks H on every video
+   whose `R0+vd` answer is `DIRECT` (recorded in §5; the owner told). Consequence of the distinct
+   count (2026-10-15): Android 6 / 6 and MWEB 6 / 6 were asked on videos 2 and 6 only (2 distinct)
+   and are provisional too; no O rung is asked after a bot check, so they reach 4 distinct videos
+   only when more videos escape one; no rung is live (item 5: the owner confirms).
+10. **The ladder after visionOS's bot check: (က+) — owner, 2026-10-15** (asked after W 1; options
+    in `PROGRESS.md`). visionOS's first request met a bot check on 24 of 30 census videos, and
+    under the old guardrail 4 the ladder's own rungs (A, S, Z, L, H) then stopped while R6's chain
+    answered (`R0+vd`: 24 / 24 `DIRECT`, V pass), so in about 80 % of lookups the ladder added
+    nothing. Decided: after a bot check, on R6's `R0+vd` answer and with no new InnerTube request
+    (player or page): (a) L (local) plus Z, V and the init check (media host, guardrail 6's
+    budget); (b) the H check (≤ 1 per lookup); (c) S locally only — the own solver, SelfCheck and
+    V — when R6 already fetched the player script; (d) the 30 min cooldown blocks only the
+    request-sending rungs (A, O, S's re-ask, a version source). The census likewise: V and H on an
+    `R0+vd` answer that is `DIRECT`. (ခ) rejected (owner: it avoids the bot check instead of
+    answering it, close to a bypass, and one visitor ID would link the lookups); (ဂ) rejected.
+    Written into guardrail 4, §3, D0, D1 (T1c, T1d), D3, D6, §5.1–§5.2, §6 and the prompt's rule
+    4; D3 starts after the owner's OK on this plan change.

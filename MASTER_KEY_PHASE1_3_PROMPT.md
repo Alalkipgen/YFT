@@ -81,12 +81,18 @@ HARD RULES (never break)
    bypass. No token, no cookie, no account: NoPoTokenProvider stays; no Cookie or Authorization
    header to any ladder client, version source or media host; no sign-in.
 4. No bypass; the ladder never decides a refusal. Age check (ladder rows dropped), video verdict
-   or DRM -> stop, the R6 chain decides. Bot check -> the ladder's own rungs stop, 30 min
-   ladder-wide cooldown, R6's chain runs as today: after a bot check nothing is sent that R6
-   would not send (owner, 2026-10-15; census, per video as R6 answers each lookup: the watch page
-   once + visionOS once with the page's visitor data; a bot check on a request that already
-   carried visitor data, or HTTP 429, stops the run). Ladder rows merge only when the chain did
-   not end in a terminal verdict. SABR-only formats are never rows. L never reads past a
+   or DRM -> stop, the R6 chain decides. Bot check -> R6's chain runs as today, and after a bot
+   check no InnerTube request (player or page) is sent that R6 would not send (owner,
+   2026-10-15; census, per video as R6 answers each lookup: the watch page once + visionOS once
+   with the page's visitor data; a bot check on a request that already carried visitor data, or
+   HTTP 429, stops the run). (က+) (owner, 2026-10-15; plan section 9 item 10): on R6's R0+vd
+   answer the ladder may run L (local), Z, V and the init check (media host, rule 6's budget),
+   the H check (<= 1 per lookup) and S locally (own solver + SelfCheck + V) only with the player
+   script R6 already fetched; the 30 min cooldown blocks only the request-sending rungs (A, O,
+   S's re-ask, a version source); the census likewise runs V and H on an R0+vd answer that is
+   DIRECT. Never visitor data kept to send from a lookup's first request (rejected by the owner:
+   it avoids the bot check). Ladder rows merge only when the chain did not end in a terminal
+   verdict. SABR-only formats are never rows. L never reads past a
    playability it cannot find.
 5. Identities: at most 4 (visionOS, Android, embedded, MWEB), all already in main's code.
    Versions: learned -> signed (D8 only) -> self-healed -> <= 2 bundled alternates listed by a
@@ -134,12 +140,13 @@ D0  ClientCensus + ShapeFingerprint + CensusDiff (extractor-master, offline-test
     runs on mobile data apply the gate; write the census and version-source tables into plan
     section 5.
 D1  MasterClientLadderSimTest: 5 base fixtures x V1-V11, L1-L16 (each with V pass / fail /
-    unknown), Y1-Y6, plus T1-T3, H1-H2, F1-F4; columns R6 (own solver off / on), ladder
+    unknown), Y1-Y6, plus T1-T3 (T1b-T1d), H1-H2, F1-F4; columns R6 (own solver off / on), ladder
     live-backed, ladder all simulated; parity gate on the 20 MasterYouTubeParityTest scenarios;
     L round-trip. Baseline into plan section 5.
 D2  MasterClientTable v2 (+ version patterns and source status) + AnswerJudge (+ SHAPE_CHANGED
     kinds, hls locate, shape fingerprint); every class unit-tested from main's fixtures.
-D3  ClientHealth v2 (+ learned version, shape map, source clock), order, budget, stop rules.
+D3  ClientHealth v2 (+ learned version, shape map, source clock), order, budget, stop rules
+    ((က+) after a bot check: rule 4).
 D4  Row checks: StreamCheck reuse, InitCheck, HlsCheck (+ key and length rules), Z probe.
 D5a visionOS rungs A (learned -> signed -> self-healed -> alternates), S, Z.
 D5b Own parser L: ShapeLocator + ShapeNormalizer (plan section 3), page locate for S, census

@@ -1,6 +1,86 @@
 # YFT Master Extractor backup
 
-## Phase 1.3 — D0 done: weekly check 1 + census fixes (owner items 4–5, 2026-10-15); ⏸ item 6 (before D3), D2 on "D2 စ"
+## Phase 1.3 — weekly check 2 + (က+) after a bot check + gate by distinct videos (owner, 2026-10-15; docs only); ⏸ the owner's OK on this plan change
+
+- ✅ **W 2: store reset by owner uninstall, no diff; H 4/4 (all video 2).** Weekly check 2 (owner,
+  2026-10-15 04:34 UTC, 55 min after W 1; `3e8f378` APK, mobile data, metered): 17 requests,
+  448 KB, 10.5 s (limits 20, 2 MB, 60 s) ✅. `FIRST RUN — nothing to compare yet`: the owner
+  uninstalled the old app before installing `3e8f378`, which deleted the stored runs — not a bug,
+  no code change. Slots 6 and 8–10 came back empty (slot 5 was re-entered: the same video, its
+  slot fingerprint unchanged); the next Full census needs them re-entered with the same videos.
+  - Item 4 ✅: videos 1 and 5 visionOS R0 `BOT_CHECK` → answered as R6 (`R0+vd` `DIRECT`, V pass;
+    video 1 ≤ 240p, video 5 ≤ 1080p) → two `INFO` lines, not counted.
+  - Item 5 ✅: video 2 visionOS R0 `DIRECT` ≤ 2160p (27 adaptive), V pass; H on video 2: 2xx / 2xx /
+    2xx, 17 variants ≤ 2160p, audio separate, codecs avc1 / mp4a / vp09, key `NONE`, 38 segments,
+    duration matches, 3 requests (`H: video 1 met a bot check, so the H check ran on video 2`).
+  - Version sources as valid runs 1–3: visionOS yt-dlp and YouTube.js 1.02 (= bundled); Android
+    yt-dlp 21.26.364 (= bundled), YouTube.js 21.03.36 (older); App Store 21.41.5 without a visionOS
+    device; Play Store page over 64 KiB; the web page config 2.20261014.01.00 newer, not tried
+    (video 1 met a bot check). No Android, embedded or MWEB (video 1 met a bot check).
+  - The header said `6 videos` (the slots set: 1–5, 7) while 3 were asked (queued: B8).
+  - Plan §5 Weekly checks table: W 2 row; H row 4 / 4.
+- ✅ Runbook (plan §7): update the APK over the installed one, never uninstall it first —
+  uninstalling deletes W's stored runs, the health file, the cooldown and the census video picks
+  (slots 4–10; 4 and 7 go back to their defaults).
+- ✅ **Item 6 decided: (က+)** (owner). (ခ) rejected (owner: it avoids the bot check instead of
+  answering it, close to a bypass; one visitor ID would link the lookups); (ဂ) rejected. After a
+  bot check, on R6's `R0+vd` answer and with no new InnerTube request (player or page):
+  a. L (local) and Z, V and the init check (reads on the media host YouTube returned; guardrail 6's
+     budget) — Z is the one-byte probe, so it sits with the media-host reads;
+  b. the H check (playlists on `manifest.googlevideo.com`, the segment on the media host; ≤ 1 per
+     lookup);
+  c. S locally only: the own solver + SelfCheck + V, only when R6 already fetched the player
+     script; no player request and no script fetch of the ladder's own;
+  d. the 30 min cooldown blocks only the request-sending rungs (A, O, S's re-ask, a version
+     source), never L, Z, V, the init check, H or local S (and the bot-check cooldown has no
+     "asked when every other client failed" exception).
+  The census likewise: after a bot check answered with `R0+vd` `DIRECT`, V and H run on it (B5).
+  Plan: guardrail 4; §3 flow (`BOT_CHECK` line; the chain's `R0+vd` answer from the memo); §4 D0
+  (census text), D1 (T1, T1b remedies; **T1c** bot check → `R0+vd` + `SHAPE_CHANGED` → L complete;
+  **T1d** bot check → `R0+vd` SABR-only → H complete; a follow-up before D3 adds them to the
+  simulator), D3 (cooldown, stop rules, done), D6 (memo keeps R6's `R0+vd` answer and player
+  script for this lookup); §5.1 (a bot check R6's chain does not answer), §5.2 (T1–T3, T1b–T1d), §5
+  baseline (T1c, T1d rows: "— (D1 follow-up)"); §6 (exposure); §9 items 7 and 10; the Burmese
+  summary; prompt rule 4 (and the D1, D3 lines).
+- ✅ **Gate (plan §9 item 9): the H / O minimum is ≥ 4 distinct videos** (by list number, over the
+  valid Full runs and the weekly checks). Consequence (flagged to the owner):
+
+  | Rung | asked (valid 1–3, W 1–2) | passed | distinct videos | now (before) |
+  |---|---|---|---|---|
+  | H | 4 | 4 | 1 (video 2) | provisional (provisional) |
+  | Android | 6 | 6 | 2 (videos 2, 6) | provisional (live) |
+  | MWEB | 6 | 6 | 2 (videos 2, 6) | provisional (live) |
+  | embedded | 6 | 0 | 2 (videos 2, 6) | not live (not live) |
+  | S | 0 | — | 0 | provisional (provisional) |
+
+  No rung is live. Provisional rungs stay wired as fallbacks after visionOS fails, V on every row
+  (§4 D0 gate), so the agent reads §9 item 5 ("neither H nor any O rung live" → A, S, Z, L only)
+  as not applying — **the owner confirms**. Leaving provisional: H through B5 (the next Full run
+  asks H on every video whose `R0+vd` is `DIRECT`: up to 9 distinct videos); Android and MWEB only
+  on videos without a bot check (no O rung after one, (က+)) — so far only videos 2 and 6; B6 adds
+  samples on video 2 in W, not a new distinct video. Plan: §4 D0 gate (+ the D0 "Done" note), §5
+  (H, Android, MWEB cells; gate paragraph: "live" for H or an O rung includes a provisional one,
+  wired as a fallback), status board (D0, D1, D3 rows), §9 items 5 and 9.
+- Queued — **not started before the owner's OK on this plan change:**
+  - **B** (census code, one APK, tests first): 5. the H check on every video whose `R0+vd` is
+    `DIRECT` (≤ 3 requests a video); 6. W: when video 1 met a bot check, Android and MWEB on video 2
+    too (as H); 7. MWEB asked once more with the page's newer version (2.20261014.01.00) on a video
+    without a bot check (acceptance), and whether the adaptive formats without an address come from
+    the old version; 8. the header counts and lists only the videos actually asked (W 2 = 3);
+    9. budgets: Full ≤ 6 MB; W ≤ 20 requests, ≤ 2 MB, ≤ 60 s. Then push, CI ✅, the APK sha; the
+    owner runs one Full census (update over the installed app, no uninstall; slots 6, 8–10 first).
+  - **C** ("D2 စ", in parallel with B): 10. V7 — a single client's refusal (an error screen without
+    age, login, private, removed, geo or DRM markers; video 6, made for kids: visionOS
+    `UNPLAYABLE` "This video is not available" while MWEB S + V passed 3 / 3) → `REFUSED`, not a
+    terminal `VIDEO_VERDICT`; O rungs may go on; when they do not complete, R6's verdict stays; the
+    census class too (in B's APK). Tests: `player_embed_refused.json` + a video-6-like answer built
+    in code → `REFUSED`, MWEB complete; age, private, geo and DRM stay terminal; simulator V7
+    live-backed MCF 0. 11. Each task: push, CI ✅, a short note.
+  - D1 follow-up (T1c, T1d in the simulator, the R6 columns) before D3; **D3 only after the OK.**
+- ⏸ The owner: OK on this plan change (or changes to it); confirm §9 item 5 does not apply
+  (provisional rungs wired as fallbacks).
+
+## Phase 1.3 — D0 done: weekly check 1 + census fixes (owner items 4–5, 2026-10-15; `3e8f378`, CI ✅); ⏸ item 6 (before D3), D2 on "D2 စ"
 
 - ✅ Weekly check 1 (owner, 2026-10-15 03:39 UTC, 94 min after valid run 3; `81388f8` APK, mobile
   data, metered): WEEKLY, 10 videos, 8 requests, 372 KB, 4 s (limits 20 requests, 2 MB, 60 s).
