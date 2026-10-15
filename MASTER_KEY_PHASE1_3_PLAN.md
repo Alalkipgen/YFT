@@ -907,14 +907,14 @@ stopped, `FIRST RUN` + 8 `INFO` lines for the answered bot checks):
 
 | Rung | test 1 | test 2 | test 3 |
 |---|---|---|---|
-| R0 visionOS (adaptive rows) | 1 / 10: video 2 `DIRECT` (≤ 2160p, V pass); `BOT_CHECK` 8; video 6 `REFUSED` (V7: "This video is not available"; was `VIDEO_VERDICT`) | — | — |
-| R0+vd (R6's chain request) | 8 / 8 `DIRECT`, V pass | — | — |
-| A alternates | none bundled | — | — |
-| S (visionOS with page signals) | 0 asked (no cipher in a visionOS answer) | — | — |
-| H (master / variant / segment) | **8 / 9**: videos 1–5 and 7–9 2xx / 2xx / 2xx, no key, audio separate, duration within 2 s; video 10: master and variant 2xx, but the master's highest variant is 240p (its formats reach 720p) and that variant's playlist held no segment (`no-segment`, 2 requests) | — | — |
-| Android | 2 / 2 `SABR_ONLY`: the 360p progressive row only (V pass) | — | — |
-| embedded | 0 / 2 `REFUSED` (error 152-18; V7, was `VIDEO_VERDICT`) | — | — |
-| MWEB | 2 / 2 `NEEDS_SCRIPT` → S ok-sig+n, V pass: video 2 ≤ 2160p, video 6 ≤ 1080p (no address-less adaptive answer) | — | — |
+| R0 visionOS (adaptive rows) | 1 / 10: video 2 `DIRECT` (≤ 2160p, V pass); `BOT_CHECK` 8; video 6 `REFUSED` (V7: "This video is not available"; was `VIDEO_VERDICT`) | 1 / 10: as test 1 | — |
+| R0+vd (R6's chain request) | 8 / 8 `DIRECT`, V pass | 8 / 8 `DIRECT`, V pass | — |
+| A alternates | none bundled | none bundled | — |
+| S (visionOS with page signals) | 0 asked (no cipher in a visionOS answer) | 0 asked | — |
+| H (master / variant / segment) | **8 / 9**: videos 1–5 and 7–9 2xx / 2xx / 2xx, no key, audio separate, duration within 2 s; video 10: master and variant 2xx, but the master's highest variant is 240p (its formats reach 720p) and that variant's playlist held no segment (`no-segment`, 2 requests) | **8 / 9**: as test 1 (video 10 `no-segment` again: repeatable for that video) | — |
+| Android | 2 / 2 `SABR_ONLY`: the 360p progressive row only (V pass) | 2 / 2: as test 1 | — |
+| embedded | 0 / 2 `REFUSED` (error 152-18; V7, was `VIDEO_VERDICT`) | 0 / 2: as test 1 | — |
+| MWEB | 2 / 2 `NEEDS_SCRIPT` → S ok-sig+n, V pass: video 2 ≤ 2160p, video 6 ≤ 1080p (no address-less adaptive answer) | 2 / 2: video 2 adaptive formats without address (29; the bundled and the page's version alike), only the 360p progressive row (S, V pass), as valid run 3; video 6 ≤ 1080p | — |
 
 Test 1 also: B5–B9 and V7 as expected (the header lists the 10 videos asked; H on every video
 whose visionOS answer is `DIRECT`; Full ≤ 6 MB; the client table line); pages 10 / 10 HTTP 200
@@ -929,6 +929,16 @@ video 10 itself (23 adaptive rows ≤ 720p, V pass) and H gives no row there (no
 (§9 item 9) after tests 2–3: H was asked on 9 distinct videos for the first time (8 passed,
 89 %) — live if ≥ 60 % in ≥ 2 of the 3 tests and wrong 0; Android and MWEB still on videos 2
 and 6 only (provisional).
+
+Test 2 (11:59 UTC, 2 h 44 min after test 1; 10 videos, 78 requests, 3382 KB, 62 s, not stopped):
+`CHANGED (7)` — MWEB video 2's address-less adaptive answer (R0 and SH: 0/0/30/0/1 → 0/0/1/29/1,
+2160p → 360p, shape −`adaptiveFormats[].signatureCipher`), the known flip of valid runs 2–3 (not
+a layout change); and −`streamingData.probeUrl` in the visionOS `R0+vd` answers (YouTube side; no
+Master code reads it; no size missing, V pass on every row). The same 8 answered bot checks;
+pages: player 21090930 on 8, 0229cd64 on 2. Gate: H ≥ 60 % in 2 of 2 tests (89 %, 89 %) on 9
+distinct videos, wrong 0 — the ≥ 2 of 3 rule is met; H is live once test 3 keeps wrong 0 (the
+client table's H changes in code only after that, on the owner's word). Android and MWEB: still
+videos 2 and 6 only (provisional).
 
 Weekly checks (W, §4 D0; the diff against the last stored run):
 

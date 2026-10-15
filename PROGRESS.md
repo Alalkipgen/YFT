@@ -1,5 +1,21 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — census test run 2 (owner, 2026-10-15 11:59 UTC; docs only); H meets the gate; ⏸ the owner: test run 3 and a weekly check
+
+- ✅ Test run 2 (`595d259`, mobile data, 2 h 44 min after test 1): FULL, 10 videos, 78 requests,
+  3382 KB, 62 s, not stopped. `CHANGED (7)`: MWEB video 2's address-less adaptive answer again (R0
+  and SH, 30 → 29 without address, 2160p → 360p, −`signatureCipher`; the known flip of valid runs
+  2–3, not a layout change); −`streamingData.probeUrl` in visionOS `R0+vd` answers (YouTube side;
+  no Master code reads it; no size missing). 8 `INFO` bot checks as test 1.
+- Per rung: R0 1 / 10; R0+vd 8 / 8; S 0 asked; **H 8 / 9** (video 10 `no-segment` again —
+  repeatable for that video); Android 2 / 2 (360p); embedded 0 / 2 `REFUSED`; MWEB 2 / 2 (video 2
+  360p only, video 6 ≤ 1080p). MWEB page version accepted again; App Store `NETWORK` again.
+- Gate (§9 item 9): H 89 % in 2 of 2 tests on 9 distinct videos, wrong 0 → the rule is met; live
+  once test 3 keeps wrong 0 (code change only on the owner's word). Android, MWEB: provisional.
+- Candidates for later (no code change now): MWEB's address-less flip as an `INFO` line, not
+  `CHANGED`; the note "nothing else for this video" (the H check still runs).
+- ⏸ The owner: test run 3 (≥ 1 h after test 2) and a weekly check. Not started: T1c, T1d, D3.
+
 ## Phase 1.3 — census test run 1 on the B + D2 APK (owner, 2026-10-15 09:15 UTC; docs only); ⏸ the owner: test runs 2–3 and a weekly check
 
 - ✅ Test run 1 (`595d259`, the first run after the one uninstall; mobile data, metered): FULL,
