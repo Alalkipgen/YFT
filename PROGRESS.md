@@ -1,5 +1,25 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — D3 + D6 core (2026-10-15): health v2, the ladder v1 in the R6 chain's HTTP path, flag
+
+- ✅ `ladder/ClientHealth.kt` (D3): per-client class, times, pass, cooldown (REFUSED 1 h; SABR_ONLY,
+  TOKEN_NEEDED, VERSION_REJECTED, SHAPE_CHANGED 24 h), working variant, learned version, shape maps,
+  version-source clock (≤ 1 a day), 30 min bot-check window for the request-sending rungs only; JSON
+  with strict patterns (no address, visitor data or video ID). `ClientHealthTest` (10).
+- ✅ `ladder/ClientLadder.kt` (D6 core, Plan adapted): `MasterClientLadder` / `LadderLookup` on the R6
+  chain's HTTP path through `LookupMemo` — another video's answer dropped (F4); visionOS's answer
+  judged: L (V + init check on one ≤ 4 KiB read per row), Z, V when no pass in the last hour (a 403
+  list refused by address, merge rule); after the chain and the own solver's V: the H leg when not
+  complete. `MasterYouTubeModule(http, playerScripts, ladder = null)`; null = R6.
+- ✅ App: `-Pyft.clientLadder` (debug, with masterCapture; BuildConfig `CLIENT_LADDER_ENABLED`, release
+  and preview false), `MasterLadderSwitch` + `OkHttpMediaStartReader`, `BrowserMasterFallback.create`
+  passes the ladder only with the flag; workflow input `client_ladder` (default false).
+- ✅ Simulator (`ClientLadderSimTest`, plan §5 D6 core table): wrong 72 → 0 in both columns; MCF 305 →
+  95 (own solver off: the S classes left for D5a) and 160 → 5 (own solver on: V6 = O, live only);
+  never worse than R6; budget classes within R6's player requests.
+- Module tests: 598, 0 failed, 2 skipped; R6 baseline unchanged; drift 0; workflow trigger tests OK.
+  App code not compiled here (no Android SDK) — CI checks it. Next: D5a (A, S).
+
 ## Phase 1.3 — Final plan items 1–2 (2026-10-15, the owner's OK): client table v3 (H live) + T1c / T1d R6 columns
 
 - ✅ `ClientTable.kt`: `MasterClientTable` v3 — visionOS's H variant provisional → **live** (tests 1–3

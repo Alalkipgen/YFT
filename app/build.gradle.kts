@@ -119,6 +119,12 @@ val ownSolverNext = providers.gradleProperty("yft.ownSolverNext").orElse("false"
 require(ownSolverNext in setOf("true", "false")) {
     "yft.ownSolverNext must be true or false"
 }
+// Phase 1.3 D6: Master's client ladder (MASTER_KEY_PHASE1_3_PLAN.md guardrail 1). Acts only with
+// yft.masterCapture on; off by default, debug builds only (owner test APKs), release false.
+val clientLadder = providers.gradleProperty("yft.clientLadder").orElse("false").get()
+require(clientLadder in setOf("true", "false")) {
+    "yft.clientLadder must be true or false"
+}
 // R9: the public key (X.509 P-256, hex) for Master's signed recipe config; blank = bundled
 // recipes only and no config request. Only read when Master capture is on.
 val masterRecipeKey = providers.gradleProperty("yft.masterRecipeKey").orElse("").get()
@@ -147,6 +153,7 @@ android {
         buildConfigField("boolean", "MASTER_CAPTURE_ENABLED", "false")
         buildConfigField("boolean", "OWN_SOLVER_ENABLED", "false")
         buildConfigField("boolean", "OWN_SOLVER_NEXT_ENABLED", "false")
+        buildConfigField("boolean", "CLIENT_LADDER_ENABLED", "false")
         buildConfigField("String", "MASTER_RECIPE_KEY", "\"$masterRecipeKey\"")
         buildConfigField("String", "MASTER_RECIPE_URL", "\"$masterRecipeUrl\"")
     }
@@ -196,6 +203,7 @@ android {
             buildConfigField("boolean", "MASTER_CAPTURE_ENABLED", masterCapture)
             buildConfigField("boolean", "OWN_SOLVER_ENABLED", ownSolver)
             buildConfigField("boolean", "OWN_SOLVER_NEXT_ENABLED", ownSolverNext)
+            buildConfigField("boolean", "CLIENT_LADDER_ENABLED", (masterCapture == "true" && clientLadder == "true").toString())
             // Owner tools (src/debug, e.g. the N2 stream check): a launcher entry only when both
             // Master flags are on, so a debug build with the flags off stays as before.
             manifestPlaceholders["yftOwnerTools"] =

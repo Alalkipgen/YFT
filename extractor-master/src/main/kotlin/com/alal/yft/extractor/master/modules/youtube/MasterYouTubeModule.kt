@@ -9,6 +9,8 @@ import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.extractor.master.modules.MasterSiteModule
 import com.alal.yft.extractor.master.modules.SiteExtractorModule
+import com.alal.yft.extractor.master.modules.youtube.ladder.LadderLookup
+import com.alal.yft.extractor.master.modules.youtube.ladder.MasterClientLadder
 
 /**
  * R6 (YT-1/YT-2/YT-4): Master's own YouTube reader, the copied [YouTubeExtractor] behind
@@ -22,10 +24,14 @@ import com.alal.yft.extractor.master.modules.SiteExtractorModule
  * solver only for streams that need n/sig, dropping every stream whose value is not verified.
  * Phase 1.2 N5b: its signatures are used only after V ([SignatureGate]; A.8: the app's own
  * reader gets the same gate through [YouTubeSignatureGuard]).
+ * Phase 1.3 D6: with a [ladder] (debug, `-Pyft.clientLadder`; null = R6 as before) each lookup
+ * runs the same reader on the ladder's HTTP path and ends with the ladder's last step
+ * ([MasterClientLadder]).
  */
 class MasterYouTubeModule(
-    http: ExtractorHttpClient,
-    playerScripts: PlayerScriptRunner = NoPlayerScriptRunner,
+    private val http: ExtractorHttpClient,
+    private val playerScripts: PlayerScriptRunner = NoPlayerScriptRunner,
+    private val ladder: MasterClientLadder? = null,
 ) : MasterSiteModule {
     // Phase 1.2 N5b: V for the own solver's signatures (A.8: with ownSolverNext on or off; a
     // runner that hands over no checks gets no gate, and the reader runs as before).
@@ -40,20 +46,26 @@ class MasterYouTubeModule(
     override fun identify(pageUrl: String): SitePageIdentity? = module.identify(pageUrl)
 
     override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
-        val active = gate ?: return read(request)
-        return active.around { read(request) }
+        val clean = request.copy(requestContext = request.requestContext.copy(
+            cookie = null,
+            observedHeaders = request.requestContext.observedHeaders.filterKeys {
+                !it.equals("Cookie", ignoreCase = true) &&
+                    !it.equals("Authorization", ignoreCase = true)
+            },
+        ))
+        // D6: the ladder's last step sees the result after the gate's V, as the user would.
+        val lookup = ladder?.lookup(http, clean)
+        val active = gate
+        val result = if (active == null) read(clean, lookup) else active.around { read(clean, lookup) }
+        return lookup?.finish(result) ?: result
     }
 
-    private suspend fun read(request: SiteExtractionRequest): SiteExtractionResult =
-        module.extract(
-            request.copy(requestContext = request.requestContext.copy(
-                cookie = null,
-                observedHeaders = request.requestContext.observedHeaders.filterKeys {
-                    !it.equals("Cookie", ignoreCase = true) &&
-                        !it.equals("Authorization", ignoreCase = true)
-                },
-            )),
-        )
+    private suspend fun read(clean: SiteExtractionRequest, lookup: LadderLookup?): SiteExtractionResult {
+        lookup ?: return module.extract(clean)
+        return SiteExtractorModule(
+            YouTubeExtractor(lookup.chain, gate?.runner ?: playerScripts, NoPoTokenProvider),
+        ).extract(clean)
+    }
 }
 
 /**

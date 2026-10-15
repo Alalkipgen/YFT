@@ -203,7 +203,8 @@ class AndroidBrowserMasterFallback(
                     OkHttpMediaValidator(client), capture, MasterPolicy(enabled = true),
                     captureSelection = capture::selectMain,
                     // R6: YouTube pages are Master's own module's, never capture's.
-                    modules = listOf(MasterYouTubeModule(http)),
+                    // Phase 1.3 D6: the client ladder only with -Pyft.clientLadder (debug).
+                    modules = listOf(MasterYouTubeModule(http, ladder = MasterLadderSwitch.ladder(client))),
                     // R8: Vimeo/X/Facebook/TikTok/Instagram contract endpoints, then capture;
                     // R9: their recipes from a signed config when the build carries its key.
                     contracts = MasterRecipeConfig.contracts(http),

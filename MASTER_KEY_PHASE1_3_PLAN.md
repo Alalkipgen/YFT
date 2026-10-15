@@ -37,6 +37,10 @@ visionOS, Master:
   provisional (video 2၊ 6 ပဲ၊ fallback)၊ embedded measured, not active၊ A၊ S provisional။ အစဉ်: table v3
   (code) → T1c/T1d → D3 → D4 → D5a → D5b → D5c → D6 → D7 (continuous)။ owner: OK တစ်ခါ၊ တစ်ပတ်တစ်ခါ
   weekly check၊ နောက်ဆုံး D7 ဖုန်းစစ်။ အသေးစိတ်: "Final plan" အပိုင်း။
+- **D3 + D6 core (2026-10-15):** ladder v1 (health၊ wiring၊ flag `-Pyft.clientLadder`၊ memo၊ merge rule၊
+  visionOS answer ပေါ်မှာ L၊ Z၊ V၊ H) ပြီးပြီ — ladder ကိုယ်ပိုင် InnerTube request မပို့သေး။ simulator:
+  wrong 72 → **0** (column နှစ်ခုလုံး)၊ MCF 305 → 95 (own solver off)၊ 160 → **5** (own solver on၊ V6 ပဲ =
+  O live only)။ ကျန်တာ: D5a (A၊ S)၊ O rung၊ D7။ flag off = R6 (မပြောင်း)။
 - ရည်မှန်းချက်: YouTube ပြောင်းလို့ Master ပျက်ရင် Master code ကြောင့် ပျက်တာ ၀ ("Master-caused failure"
   = ၀၊ §5.1)။ YouTube server ဘက်က ခွင့်ပြုထားတဲ့ လမ်းအားလုံး ပိတ်မှသာ verdict မှန်နဲ့ ရပ်ပြီး တစ်ပတ်အတွင်း
   သိရမယ်။ wrong row ၀ (မပြောင်း)။ APK update မလိုဘဲ။
@@ -109,10 +113,16 @@ in a row):
 2. **D1 follow-up — T1c, T1d** ((က+), §9 item 10): the R6 columns in the simulator. **Done**
    (2026-10-15).
 3. **D3** health v2, order, budget and stop rules (learned version, shape map; (က+) after a bot
-   check).
+   check). **Core done** (2026-10-15, with item 6's core): `ClientHealth` (memory; its file with D7),
+   the cooldowns, the bot-check window, order, the version-source clock and the shape maps, one
+   unit test per rule; order and cooldowns steer the ladder's own requests, which come with D5a.
 4. **D4** row checks: V (reuse), init check, H check, Z.
 5. **D5a** visionOS rungs A, S, Z → **D5b** own parser L → **D5c** H leg.
 6. **D6** O rungs (H live; Android and MWEB as fallbacks), memo, wiring, flag and merge rule.
+   **Core done** (2026-10-15): wiring, flag, memo, merge rule; L, Z, V and H on visionOS's answers in
+   the R6 chain's HTTP path (Plan adapted, §4 D6); simulator wrong 72 → 0 in both columns, MCF
+   305 → 95 (own solver off) and 160 → 5 (on; V6 = O, live only), §5. Left: the O rungs and the
+   ladder's own requests (A, S) with D5a.
 7. **D7** the owner's live check (with live L mutations), the weekly check and the runbook, with two
    census fixes: MWEB's address-less flip becomes an `INFO` line (not `CHANGED`), and the R6 note
    no longer says "nothing else for this video" when H ran on that answer.
@@ -714,6 +724,18 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   check, the H check (≤ 1 per lookup) and S locally when R6 already fetched the player script.
 - **Done:** a unit test per rule; no request after a stop (after a bot check: no InnerTube request
   of the ladder's own, the on-answer steps allowed — T1, T1b–T1d); H1 and H2 show the saving.
+- **As built (core, 2026-10-15):** `ladder/ClientHealth.kt` — per client of `MasterClientTable`: last
+  class and time, last pass, cooldown end, working variant (`R0`, `A`, `S`, `Z`, `L`, `H`, `O`), asked
+  and passed counts, learned version (with source and time), shape maps (≤ 4 per client, ≤ 64 key
+  paths each); the version-source clock (≤ 1 a day per identity) and the 30 min bot-check window
+  (`mayAsk(sendsRequest = false)` stays open for L, Z, V, the init check, H and a local S). JSON
+  text through `OwnSolverTextFile`; every stored string matches a strict pattern on write and on
+  read; an unreadable file starts empty. `ClientHealthTest`: 10 tests (each cooldown, a repaired
+  class is a pass, a direct answer without a V pass is no pass, the bot-check window, order and
+  the cooling exception, learned versions, shape maps, the source clock, the file round-trip
+  without an address, visitor data or video ID, a foreign file). Plan adapted: the app keeps
+  health in memory until D7 (the module's `create` has no app `Context`); the ladder v1 sends no
+  request of its own, so order and cooldowns take effect with D5a's A and S.
 
 ### D4 — Row checks: V, init check, H check and Z
 
@@ -794,6 +816,28 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
 - **Done:** flag-off parity unchanged; parity gate green; in the simulator the ladder is never
   worse than the chain, wrong rows = 0 and MCF = 0; the memo saves the chain's repeated visionOS
   request and page fetch; CI green.
+- **As built (core, 2026-10-15) — Plan adapted:** the ladder works **in the R6 chain's HTTP path**
+  (`ladder/ClientLadder.kt`, `MasterClientLadder`, `LadderLookup`): R6 (the copied extractor,
+  unchanged) asks its clients as today through `LookupMemo.chain`, so every row still comes from the
+  copied parser and the row-builder parity holds by construction. Each player answer about another
+  video is dropped (F4, `RESPONSE_CHANGED`); each visionOS answer is judged (`AnswerJudge`):
+  `SHAPE_CHANGED` → L (`ShapeNormalizer`, `LRows`; V and the init check on one ≤ 4 KiB read per row
+  through `MediaStartReader`; the chain gets canonical JSON with the passed rows only);
+  `INCOMPLETE` → Z (sizes of the rows to offer); `DIRECT` (and Z's rows) → V when visionOS has no
+  pass in the last hour (`StreamCheck`, 1 per lookup, budget key = the client ID; a list whose
+  checked row got 403 is refused by address — the merge rule removes those rows from the chain's
+  result, so the chain's requests stay R6's). After the chain and the own solver's V: a verdict
+  about the video keeps R6's result; a complete result too; otherwise the H leg on visionOS's HLS
+  address (length from the copied parser, else L's binding) adds one HLS row. Health records
+  every visionOS class and the rung that repaired it. `MasterYouTubeModule(http, playerScripts,
+  ladder = null)`: null = R6, unchanged. App: `-Pyft.clientLadder` (debug only, with
+  masterCapture; BuildConfig `CLIENT_LADDER_ENABLED`, release and preview `false`),
+  `MasterLadderSwitch` + `OkHttpMediaStartReader` (HTTPS `googlevideo.com` only, also after a
+  redirect; no cookie or credentials; `Range: bytes=0-4095`), `AndroidBrowserMasterFallback.create`
+  passes the ladder only with the flag; workflow input `client_ladder` (default `false`; push and
+  label builds `false` until D7). Simulator: `ClientLadderSimTest` (§5, D6 core table). Not yet:
+  O rungs of its own, A and S (D5a), `-Pyft.ladderSkip` / `-Pyft.ladderMutate` (D7 prep), the
+  health file (D7).
 
 ### D7 — Owner live check, weekly check, runbook
 
@@ -1085,6 +1129,46 @@ the D0 census):
 | F3 | 0/25 complete, 25 clean stop; wrong 0, MCF 0 | 0/25 complete, 25 clean stop; wrong 0, MCF 0 | — (D6) | — (D6) |
 | F4 | 0/5 complete, 5 with a wrong row; wrong 28, MCF 5 | 0/5 complete, 5 with a wrong row; wrong 28, MCF 5 | — (D6) | — (D6) |
 | all | wrong 72, MCF 275 (485 cases, 515 lookups) | wrong 72, MCF 160 (485 cases, 515 lookups) | — (D6) | — (D6) |
+
+D6 core (2026-10-15; `ClientLadderSimTest`, `build/ladder-sim/ladder-summary.md`): every case through
+R6 and through the same reader with the ladder v1 (L, Z, V, H on visionOS's answers; no InnerTube
+request of its own), own solver off and on, each in its own world; with T1b–T1d (495 cases, 545
+lookups per column). Asserted: never worse than R6 in any lookup (complete > without sizes >
+partial > clean stop), no new wrong row, V1–V5 and L1–L15 no more player requests than R6, T1–T3
+and T1b–T1d no player request or page fetch R6 would not send, no credentials, ≤ 8 L reads a
+lookup. The two plan columns above (live-backed, all simulated) are filled when the O rungs and
+D5a's A and S are in; open now: the own-solver-off classes that need S (V1, V7, V9, Y1–Y6, H1),
+F4 without the own solver (a clean partial; the next client's rows need S) and V6 (O, live only).
+
+| Class | R6, own solver off | ladder, own solver off | R6, own solver on | ladder, own solver on |
+|---|---|---|---|---|
+| V2 | 0/5 complete, 5 partial; wrong 0, MCF 5 | 5/5 complete; wrong 0, MCF 0 | 0/5 complete, 5 clean stop; wrong 0, MCF 5 | 5/5 complete; wrong 0, MCF 0 |
+| V3 | 0/5 complete, 5 without sizes; wrong 0, MCF 0 | 5/5 complete; wrong 0, MCF 0 | 0/5 complete, 5 without sizes; wrong 0, MCF 0 | 5/5 complete; wrong 0, MCF 0 |
+| V4 | 0/5 complete, 5 partial; wrong 0, MCF 5 | 5/5 complete; wrong 0, MCF 0 | 5/5 complete; wrong 0, MCF 0 | = R6 |
+| V5 | 0/5 complete, 5 with a wrong row; wrong 22, MCF 5 | 5/5 complete; wrong 0, MCF 0 | 0/5 complete, 5 with a wrong row; wrong 22, MCF 5 | 5/5 complete; wrong 0, MCF 0 |
+| V6 | 0/5 complete, 5 with a wrong row; wrong 22, MCF 5 | 0/5 complete, 3 partial, 2 clean stop; wrong 0, MCF 5 | 0/5 complete, 5 with a wrong row; wrong 22, MCF 5 | 0/5 complete, 3 partial, 2 clean stop; wrong 0, MCF 5 |
+| V8 | 0/5 complete, 5 partial; wrong 0, MCF 5 | 5/5 complete; wrong 0, MCF 0 | 5/5 complete; wrong 0, MCF 0 | = R6 |
+| V10 | 0/5 complete, 5 partial; wrong 0, MCF 5 | 5/5 complete; wrong 0, MCF 0 | 5/5 complete; wrong 0, MCF 0 | = R6 |
+| L1 | 0/15 complete, 15 clean stop; wrong 0, MCF 5 | 5/15 complete, 10 clean stop; wrong 0, MCF 0 | 0/15 complete, 15 clean stop; wrong 0, MCF 5 | 5/15 complete, 10 clean stop; wrong 0, MCF 0 |
+| L2 | 0/15 complete, 15 clean stop; wrong 0, MCF 15 | 15/15 complete; wrong 0, MCF 0 | 0/15 complete, 15 clean stop; wrong 0, MCF 15 | 15/15 complete; wrong 0, MCF 0 |
+| L3 | 0/15 complete, 15 clean stop; wrong 0, MCF 15 | 15/15 complete; wrong 0, MCF 0 | 15/15 complete; wrong 0, MCF 0 | = R6 |
+| L4 | 0/30 complete, 30 clean stop; wrong 0, MCF 30 | 30/30 complete; wrong 0, MCF 0 | 0/30 complete, 30 clean stop; wrong 0, MCF 30 | 30/30 complete; wrong 0, MCF 0 |
+| L5 | 0/15 complete, 15 partial; wrong 0, MCF 15 | 15/15 complete; wrong 0, MCF 0 | 0/15 complete, 15 partial; wrong 0, MCF 15 | 15/15 complete; wrong 0, MCF 0 |
+| L7 | 0/15 complete, 15 clean stop; wrong 0, MCF 15 | 15/15 complete; wrong 0, MCF 0 | 0/15 complete, 15 clean stop; wrong 0, MCF 15 | 15/15 complete; wrong 0, MCF 0 |
+| L8 | 0/15 complete, 15 clean stop; wrong 0, MCF 5 | 5/15 complete, 10 clean stop; wrong 0, MCF 0 | 0/15 complete, 15 clean stop; wrong 0, MCF 5 | 5/15 complete, 10 clean stop; wrong 0, MCF 0 |
+| L10 | 0/15 complete, 15 clean stop; wrong 0, MCF 5 | 5/15 complete, 10 clean stop; wrong 0, MCF 0 | 0/15 complete, 15 clean stop; wrong 0, MCF 5 | 5/15 complete, 10 clean stop; wrong 0, MCF 0 |
+| L13 | 0/15 complete, 15 clean stop; wrong 0, MCF 5 | 5/15 complete, 10 clean stop; wrong 0, MCF 0 | 0/15 complete, 15 clean stop; wrong 0, MCF 5 | 5/15 complete, 10 clean stop; wrong 0, MCF 0 |
+| L14 | 0/15 complete, 15 partial; wrong 0, MCF 15 | 15/15 complete; wrong 0, MCF 0 | 0/15 complete, 15 partial; wrong 0, MCF 15 | 15/15 complete; wrong 0, MCF 0 |
+| L15 | 0/15 complete, 15 partial; wrong 0, MCF 15 | 15/15 complete; wrong 0, MCF 0 | 0/15 complete, 15 partial; wrong 0, MCF 15 | 15/15 complete; wrong 0, MCF 0 |
+| L16 | 0/15 complete, 15 clean stop; wrong 0, MCF 5 | 5/15 complete, 10 clean stop; wrong 0, MCF 0 | 0/15 complete, 15 clean stop; wrong 0, MCF 5 | 5/15 complete, 10 clean stop; wrong 0, MCF 0 |
+| T1c | 0/15 complete, 15 partial; wrong 0, MCF 15 | 15/15 complete; wrong 0, MCF 0 | 15/15 complete; wrong 0, MCF 0 | = R6 |
+| T1d | 0/15 complete, 15 partial; wrong 0, MCF 15 | 15/15 complete; wrong 0, MCF 0 | 15/15 complete; wrong 0, MCF 0 | = R6 |
+| H2 | 0/10 complete, 10 partial; wrong 0, MCF 10 | 10/10 complete; wrong 0, MCF 0 | 0/10 complete, 10 clean stop; wrong 0, MCF 10 | 10/10 complete; wrong 0, MCF 0 |
+| F4 | 0/5 complete, 5 with a wrong row; wrong 28, MCF 5 | 0/5 complete, 5 partial; wrong 0, MCF 5 | 0/5 complete, 5 with a wrong row; wrong 28, MCF 5 | 5/5 complete; wrong 0, MCF 0 |
+| all | wrong 72, MCF 305 | **wrong 0, MCF 95** | wrong 72, MCF 160 | **wrong 0, MCF 5** |
+
+Unchanged (= R6 in both columns): B0, V1, V7, V9, V11, L6, L9, L11, L12, Y1, Y2, Y3, Y4, Y5, Y6, T1, T1b, T2, T3, H1, F1, F2, F3.
+
 
 ## 6. Risks
 
