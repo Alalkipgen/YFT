@@ -19,6 +19,7 @@ import com.alal.yft.extractor.master.MasterResult
 import com.alal.yft.extractor.master.android.CodecSteering
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
 import com.alal.yft.extractor.api.PlayerScriptRunner
+import java.io.File
 import com.alal.yft.extractor.master.verify.OkHttpMediaValidator
 import com.alal.yft.extractor.master.verify.CapturedMediaMetadata
 import com.alal.yft.extractor.master.present.MasterMainPresentation
@@ -189,6 +190,8 @@ class AndroidBrowserMasterFallback(
             sites: SiteAdapterCoordinator,
             // Phase 1.3 D5a: the app's player-script runner, for the ladder's S only.
             playerScripts: PlayerScriptRunner? = null,
+            // Phase 1.3 D7: the app's files directory, for the ladder's health file only.
+            filesDir: (() -> File)? = null,
         ): BrowserMasterFallback {
             if (!enabled) return BrowserMasterFallback.None
             val capture = WebViewPlaybackCapture(
@@ -206,7 +209,7 @@ class AndroidBrowserMasterFallback(
                     captureSelection = capture::selectMain,
                     // R6: YouTube pages are Master's own module's, never capture's.
                     // Phase 1.3 D6: the client ladder only with -Pyft.clientLadder (debug).
-                    modules = listOf(MasterLadderSwitch.youTube(http, client, playerScripts)),
+                    modules = listOf(MasterLadderSwitch.youTube(http, client, playerScripts, filesDir)),
                     // R8: Vimeo/X/Facebook/TikTok/Instagram contract endpoints, then capture;
                     // R9: their recipes from a signed config when the build carries its key.
                     contracts = MasterRecipeConfig.contracts(http),

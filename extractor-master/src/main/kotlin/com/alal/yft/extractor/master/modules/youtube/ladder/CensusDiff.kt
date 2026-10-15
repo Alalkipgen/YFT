@@ -45,6 +45,18 @@ internal object CensusDiff {
     private const val PASS = "PASS"
     private val VERDICTS = setOf(PASS, "FAIL", "UNKNOWN")
 
+    private const val CIPHER_KEY = "signatureCipher"
+
+    /**
+     * MWEB's known flip: progressive, adaptive and sizeless counts the same, and only formats
+     * moving between protected (ciphered) and without an address.
+     */
+    private fun isMwebFlip(prior: CensusAsk, ask: CensusAsk): Boolean =
+        ask.client == "mweb" &&
+            prior.progressive == ask.progressive && prior.adaptive == ask.adaptive &&
+            prior.missingSizes == ask.missingSizes && prior.unaddressed != ask.unaddressed &&
+            prior.protectedFormats + prior.unaddressed == ask.protectedFormats + ask.unaddressed
+
     /** Sources whose value moves by design (the web pages' own version), so only acceptance counts. */
     private val MOVING_SOURCES = setOf("page")
 
@@ -92,7 +104,7 @@ internal object CensusDiff {
                     notes += "video $slot is not the video of the last run; it is compared only with runs of the same video"
                 }
             }
-            compareAsks(earlier, current, lines)
+            compareAsks(earlier, current, lines, info)
             compareHls(earlier, current, lines)
             compareVersions(earlier, current, lines)
         }
@@ -113,7 +125,7 @@ internal object CensusDiff {
         return run.slots[video] == tag
     }
 
-    private fun compareAsks(earlier: List<CensusRun>, current: CensusRun, lines: MutableList<Line>) {
+    private fun compareAsks(earlier: List<CensusRun>, current: CensusRun, lines: MutableList<Line>, info: MutableList<String>) {
         val shapes = LinkedHashMap<String, Pair<MutableSet<String>, MutableSet<String>>>()
         for (ask in current.asks) {
             val prior = earlier.firstNotNullOfOrNull { run ->
@@ -125,9 +137,20 @@ internal object CensusDiff {
             val bothVerdicts = prior.v in VERDICTS && ask.v in VERDICTS
             val before = if (bothVerdicts) prior.finalClass else prior.answerClass
             val now = if (bothVerdicts) ask.finalClass else ask.answerClass
+            val flip = before == now && isMwebFlip(prior, ask)
             if (before != now) {
                 val level = if (now.rank > before.rank) Level.BROKEN else Level.CHANGED
                 lines += Line(level, "$label: class $before → $now", now.runbookStep)
+            } else if (flip) {
+                // MWEB's adaptive answer flips between ciphered and address-less (valid runs 2–3 and
+                // test 2; D7 census fix): the same formats, so an INFO line, not a layout change.
+                info += "$label: formats flipped between ciphered and address-less " +
+                    "(protected/no address ${prior.protectedFormats}/${prior.unaddressed} → " +
+                    "${ask.protectedFormats}/${ask.unaddressed}; the known MWEB flip)"
+                if (bothVerdicts && prior.v != ask.v) {
+                    val level = if (prior.v == "PASS" && ask.v == "FAIL") Level.BROKEN else Level.CHANGED
+                    lines += Line(level, "$label: V ${prior.v} → ${ask.v}", 2)
+                }
             } else {
                 if (bothVerdicts && prior.v != ask.v) {
                     val level = if (prior.v == "PASS" && ask.v == "FAIL") Level.BROKEN else Level.CHANGED
@@ -165,8 +188,10 @@ internal object CensusDiff {
             val pathsBefore = prior.shapePaths
             val pathsNow = ask.shapePaths
             if (pathsBefore != null && pathsNow != null) {
-                val added = pathsNow.toSet() - pathsBefore.toSet()
-                val removed = pathsBefore.toSet() - pathsNow.toSet()
+                // The flip's own path (the cipher key) is not a shape change either.
+                val flipPath: (String) -> Boolean = { flip && it.endsWith(CIPHER_KEY) }
+                val added = (pathsNow.toSet() - pathsBefore.toSet()).filterNot(flipPath)
+                val removed = (pathsBefore.toSet() - pathsNow.toSet()).filterNot(flipPath)
                 if (added.isNotEmpty() || removed.isNotEmpty()) {
                     val entry = shapes.getOrPut("${ask.client} ${ask.step}") { mutableSetOf<String>() to mutableSetOf() }
                     entry.first += added

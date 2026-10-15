@@ -5,9 +5,12 @@ import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.NoPlayerScriptRunner
 import com.alal.yft.extractor.api.PlayerScriptRunner
 import com.alal.yft.extractor.master.modules.youtube.MasterYouTubeModule
+import com.alal.yft.extractor.master.modules.youtube.ladder.LadderTrial
 import com.alal.yft.extractor.master.modules.youtube.ladder.MasterClientLadder
 import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStart
 import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStartReader
+import com.alal.yft.extractor.master.solver.AtomicTextFile
+import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
@@ -22,26 +25,44 @@ import okio.BufferedSource
 /**
  * Phase 1.3 D6 (MASTER_KEY_PHASE1_3_PLAN.md guardrail 1): Master's client ladder, only in a debug
  * build made with `-Pyft.clientLadder=true` and `-Pyft.masterCapture=true`; otherwise Master's
- * YouTube module is R6 exactly as before. Health in memory for now (its file comes with D7).
+ * YouTube module is R6 exactly as before. D7: one ladder per process, its health in the app's
+ * `files/master/client-health.json` (data only; the file is found on first use, off this thread),
+ * and the owner's live-check switch (`-Pyft.ladderSkip` / `-Pyft.ladderMutate`, debug only).
  */
 internal object MasterLadderSwitch {
+    private const val HEALTH_FILE = "master/client-health.json"
+
+    @Volatile
+    private var shared: MasterClientLadder? = null
+
     /**
      * Master's YouTube module. With the ladder, D5a's S (Plan adapted) is the own solver
      * ([playerScripts], used only when the build's own solver is on — never main's runner) in the
      * copied extractor's challenge and apply code, behind the module's signature gate (V).
+     * [filesDir] locates the app's files directory for the health file (null: memory only).
      */
     fun youTube(
         http: ExtractorHttpClient,
         client: OkHttpClient,
         playerScripts: PlayerScriptRunner?,
+        filesDir: (() -> File)? = null,
         enabled: Boolean = BuildConfig.CLIENT_LADDER_ENABLED,
         ownSolver: Boolean = BuildConfig.OWN_SOLVER_ENABLED,
     ): MasterYouTubeModule {
         if (!enabled) return MasterYouTubeModule(http)
-        val ladder = MasterClientLadder(healthFile = null, reader = OkHttpMediaStartReader(client))
         val scripts = playerScripts?.takeIf { ownSolver } ?: NoPlayerScriptRunner
-        return MasterYouTubeModule(http, scripts, ladder)
+        return MasterYouTubeModule(http, scripts, ladder(client, filesDir))
     }
+
+    /** The process's ladder: every tab shares its health (thread-safe), V ledger and switch. */
+    private fun ladder(client: OkHttpClient, filesDir: (() -> File)?): MasterClientLadder =
+        shared ?: synchronized(this) {
+            shared ?: MasterClientLadder(
+                healthFile = filesDir?.let { dir -> AtomicTextFile { File(dir(), HEALTH_FILE) } },
+                reader = OkHttpMediaStartReader(client),
+                trial = LadderTrial.of(BuildConfig.LADDER_SKIP, BuildConfig.LADDER_MUTATE),
+            ).also { shared = it }
+        }
 }
 
 /**

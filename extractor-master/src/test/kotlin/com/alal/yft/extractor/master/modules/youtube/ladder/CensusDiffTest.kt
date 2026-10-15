@@ -224,6 +224,39 @@ class CensusDiffTest {
     }
 
     @Test
+    fun `MWEB's flip between ciphered and address-less is an INFO line, other count changes stay CHANGED (D7 fix)`() {
+        val cipher = "streamingData.adaptiveFormats[].signatureCipher"
+        val slots = mapOf(2 to "c3d4")
+        fun mweb(protected: Int, unaddressed: Int, heights: List<Int>, paths: List<String>) = direct(video = 2, client = "mweb").copy(
+            adaptive = 0, protectedFormats = protected, unaddressed = unaddressed, missingSizes = 1, heights = heights, shapePaths = paths,
+        )
+        val earlier = run(0, mweb(30, 0, listOf(2160), PATHS + cipher), slots = slots)
+
+        val flipped = CensusDiff.compare(listOf(earlier), run(DAY, mweb(1, 29, listOf(360), PATHS), slots = slots))
+        assertEquals("NO CHANGE — 1 days since the last run", flipped.headline)
+        assertTrue(flipped.lines.isEmpty())
+        assertEquals(
+            listOf(
+                "mweb R0 video 2: formats flipped between ciphered and address-less " +
+                    "(protected/no address 30/0 → 1/29; the known MWEB flip)",
+            ),
+            flipped.info,
+        )
+
+        val fewer = CensusDiff.compare(listOf(earlier), run(DAY, mweb(1, 20, listOf(360), PATHS), slots = slots))
+        assertEquals(
+            "CHANGED mweb R0 video 2: formats (progressive/adaptive/protected/no address/no size) 0/0/30/0/1 → 0/0/1/20/1 → §7 step 2",
+            fewer.lines.first().render(),
+        )
+        val visionOs = CensusDiff.compare(
+            listOf(run(0, direct().copy(protectedFormats = 2))),
+            run(DAY, direct().copy(protectedFormats = 0, unaddressed = 2)),
+        )
+        assertTrue(visionOs.info.isEmpty())
+        assertEquals(1, visionOs.lines.size)
+    }
+
+    @Test
     fun `a path one video gained and another lost is not a shape change (owner, 2026-10-15)`() {
         val url = "streamingData.adaptiveFormats[].url"
         val slots = mapOf(2 to "c3d4", 6 to "e5f6")

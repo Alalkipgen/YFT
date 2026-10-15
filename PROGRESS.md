@@ -1,5 +1,15 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — D7 prep (2026-10-15): live-check switches, health file, census fixes
+
+- ✅ `ladder/LadderTrial.kt`: `visionos`, `visionos-adaptive`, `L1`, `L2`, `L3`, `L5`, `L7` on
+  visionOS's live answer in memory (debug only). App `-Pyft.ladderSkip` / `-Pyft.ladderMutate`
+  (checked, one at a time); workflow inputs `ladder_skip` / `ladder_mutate` (default `none`).
+- ✅ One ladder per process; health in `files/master/client-health.json`.
+- ✅ Census fixes: MWEB's address-less flip → `INFO`; the R6 note → "no other client for this video".
+- ✅ `LadderTrialTest` (3): B0 × every mode × own solver off / on, wrong 0; L modes complete via L.
+- CI: `4f884ec` ✅, `be0c52e` ✅, `6402fea` ✅. Left: census L steps + ladder line; owner's phone check.
+
 ## Phase 1.3 — D5a S + D6 O rungs (2026-10-15)
 
 - ✅ O rungs (Plan adapted): the chain's Android, MWEB and embedded answers judged for health; V on

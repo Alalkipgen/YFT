@@ -125,6 +125,19 @@ val clientLadder = providers.gradleProperty("yft.clientLadder").orElse("false").
 require(clientLadder in setOf("true", "false")) {
     "yft.clientLadder must be true or false"
 }
+// Phase 1.3 D7: the owner's live-check switches for the ladder (debug only, with the ladder on;
+// release and preview: none). Blank = none; one of the two at a time.
+val ladderSkip = providers.gradleProperty("yft.ladderSkip").orElse("").get().trim()
+require(ladderSkip in setOf("", "visionos", "visionos-adaptive")) {
+    "yft.ladderSkip must be blank, visionos or visionos-adaptive"
+}
+val ladderMutate = providers.gradleProperty("yft.ladderMutate").orElse("").get().trim()
+require(ladderMutate in setOf("", "L1", "L2", "L3", "L5", "L7")) {
+    "yft.ladderMutate must be blank, L1, L2, L3, L5 or L7"
+}
+require(ladderSkip.isEmpty() || ladderMutate.isEmpty()) {
+    "yft.ladderSkip and yft.ladderMutate are separate modes"
+}
 // R9: the public key (X.509 P-256, hex) for Master's signed recipe config; blank = bundled
 // recipes only and no config request. Only read when Master capture is on.
 val masterRecipeKey = providers.gradleProperty("yft.masterRecipeKey").orElse("").get()
@@ -154,6 +167,8 @@ android {
         buildConfigField("boolean", "OWN_SOLVER_ENABLED", "false")
         buildConfigField("boolean", "OWN_SOLVER_NEXT_ENABLED", "false")
         buildConfigField("boolean", "CLIENT_LADDER_ENABLED", "false")
+        buildConfigField("String", "LADDER_SKIP", "\"\"")
+        buildConfigField("String", "LADDER_MUTATE", "\"\"")
         buildConfigField("String", "MASTER_RECIPE_KEY", "\"$masterRecipeKey\"")
         buildConfigField("String", "MASTER_RECIPE_URL", "\"$masterRecipeUrl\"")
     }
@@ -204,6 +219,8 @@ android {
             buildConfigField("boolean", "OWN_SOLVER_ENABLED", ownSolver)
             buildConfigField("boolean", "OWN_SOLVER_NEXT_ENABLED", ownSolverNext)
             buildConfigField("boolean", "CLIENT_LADDER_ENABLED", (masterCapture == "true" && clientLadder == "true").toString())
+            buildConfigField("String", "LADDER_SKIP", "\"$ladderSkip\"")
+            buildConfigField("String", "LADDER_MUTATE", "\"$ladderMutate\"")
             // Owner tools (src/debug, e.g. the N2 stream check): a launcher entry only when both
             // Master flags are on, so a debug build with the flags off stays as before.
             manifestPlaceholders["yftOwnerTools"] =

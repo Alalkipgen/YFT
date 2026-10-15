@@ -319,7 +319,7 @@ class ClientCensusTest {
         assertTrue(
             run.notes.contains(
                 "video 1: bot check on visionOS without visitor data; answered as R6: the watch page once, " +
-                    "visionOS once more with its visitor data, nothing else for this video",
+                    "visionOS once more with its visitor data, no other client for this video",
             ),
         )
         assertTrue(run.notes.contains("version acceptance: on video 2, the first video without a bot check and with a watch page"))
@@ -355,7 +355,7 @@ class ClientCensusTest {
             assertTrue(
                 run.notes.contains(
                     "video $video: bot check on visionOS without visitor data; answered as R6: the watch page once, " +
-                        "visionOS once more with its visitor data, nothing else for this video",
+                        "visionOS once more with its visitor data, no other client for this video",
                 ),
             )
             assertTrue(

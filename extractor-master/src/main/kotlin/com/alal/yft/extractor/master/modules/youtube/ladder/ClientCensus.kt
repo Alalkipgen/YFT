@@ -437,7 +437,7 @@ class ClientCensus(
         if (session.stopped != null) return
         session.answeredAsR6 += video.slot
         session.notes += "video ${video.slot}: bot check on visionOS without visitor data; " +
-            "answered as R6: the watch page once, visionOS once more with its visitor data, nothing else for this video"
+            "answered as R6: the watch page once, visionOS once more with its visitor data, no other client for this video"
         session.step("video ${video.slot} · watch page")
         val page = video.page ?: page(session, video).also { video.page = it }
         if (session.stopped != null) return

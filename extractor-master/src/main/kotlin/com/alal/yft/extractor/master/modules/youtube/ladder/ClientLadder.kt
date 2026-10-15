@@ -55,12 +55,18 @@ import kotlinx.coroutines.sync.withLock
 class MasterClientLadder internal constructor(
     internal val health: ClientHealth,
     internal val reader: MediaStartReader?,
+    /** D7's live-check switch (debug builds only; [LadderTrial.NONE] everywhere else). */
+    internal val trial: LadderTrial = LadderTrial.NONE,
 ) {
     /** V's day budget for direct answers (guardrail 6: the client ID is the key). */
     internal val vLedger = StreamCheck.MemoryLedger()
 
     /** The app's ladder: its health in [healthFile] (null: memory only); L rows read by [reader]. */
-    constructor(healthFile: OwnSolverTextFile?, reader: MediaStartReader?) : this(ClientHealth(healthFile), reader)
+    constructor(
+        healthFile: OwnSolverTextFile?,
+        reader: MediaStartReader?,
+        trial: LadderTrial = LadderTrial.NONE,
+    ) : this(ClientHealth(healthFile), reader, trial)
 
     internal fun lookup(http: ExtractorHttpClient, request: SiteExtractionRequest): LadderLookup =
         LadderLookup(this, http, request)
@@ -68,7 +74,7 @@ class MasterClientLadder internal constructor(
     /** Health lines for a debug screen: classes, times and rungs; never an address or value. */
     fun describe(): List<String> = health.describe()
 
-    override fun toString(): String = "MasterClientLadder(reader=${reader != null})"
+    override fun toString(): String = "MasterClientLadder(reader=${reader != null}, trial=${trial.label})"
 }
 
 /** Reads the first bytes of a media file: an L row's V and its init check on the same bytes (guardrail 6). */
@@ -167,9 +173,29 @@ internal class LadderLookup(
             notes += "$client: answer about another video dropped"
             return ExtractorHttpResult.Failure(SiteExtractionFailure.RESPONSE_CHANGED, success?.statusCode)
         }
-        if (client == YouTubeClientProfiles.VISION_OS.clientName) return repair(result, success, root)
+        if (client == YouTubeClientProfiles.VISION_OS.clientName) {
+            if (success == null || ladder.trial === LadderTrial.NONE) return repair(result, success, root)
+            return tried(success, root)
+        }
         if (success == null) return result
         return other(client, success, root)
+    }
+
+    /** D7's live-check switch on visionOS's answer, in memory before the judge (debug builds only). */
+    private suspend fun tried(success: ExtractorHttpResult.Success, root: JsonValue?): ExtractorHttpResult {
+        val trial = ladder.trial
+        if (trial.skip == LadderTrial.SKIP_VISION_OS) {
+            notes += "trial ${trial.label}: visionOS's answer not used"
+            return ExtractorHttpResult.Failure(SiteExtractionFailure.RESPONSE_CHANGED, success.statusCode)
+        }
+        val changed = (root as? JsonValue.Object)?.let(trial::apply)
+        if (changed == null) {
+            notes += "trial ${trial.label}: visionOS's answer unchanged (nothing to change)"
+            return repair(success, success, root)
+        }
+        notes += "trial ${trial.label}: visionOS's answer changed in memory"
+        val mutated = success.copy(body = LadderJson.text(changed))
+        return repair(mutated, mutated, changed)
     }
 
     /**
@@ -447,6 +473,9 @@ internal object LadderJson {
         val top = LinkedHashMap(root.entries).apply { put("streamingData", JsonValue.Object(data)) }
         return StringBuilder().also { write(it, JsonValue.Object(top)) }.toString()
     }
+
+    /** [value] as compact JSON text (the trial's changed answer). */
+    fun text(value: JsonValue): String = StringBuilder().also { write(it, value) }.toString()
 
     private fun write(out: StringBuilder, value: JsonValue) {
         when (value) {

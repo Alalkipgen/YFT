@@ -31,6 +31,8 @@ import com.alal.yft.detection.master.BrowserMasterFallback
 import com.alal.yft.BuildConfig
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
 import com.alal.yft.extractor.api.PlayerScriptRunner
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.detection.SiteScope
 import com.alal.yft.detection.TabData
@@ -91,6 +93,8 @@ class BrowserViewModel(
         // Phase 1.3 D5a: the app's player-script runner, handed to Master only for the client
         // ladder's S (debug, -Pyft.clientLadder with the own solver on).
         playerScriptRunner: PlayerScriptRunner,
+        // Phase 1.3 D7: only for the ladder's health file (app-private, found on first use).
+        @ApplicationContext appContext: Context,
     ) : this(
         okHttpClient,
         siteAdapters,
@@ -99,6 +103,7 @@ class BrowserViewModel(
         homeSitesRepository,
         AndroidBrowserMasterFallback.create(
             BuildConfig.MASTER_CAPTURE_ENABLED, okHttpClient, siteAdapters, playerScriptRunner,
+            { appContext.filesDir },
         ),
     )
 

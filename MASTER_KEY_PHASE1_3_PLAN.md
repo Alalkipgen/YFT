@@ -128,7 +128,10 @@ in a row):
    health, V on their direct rows; the simulator totals unchanged. Left: A with D5a.
 7. **D7** the owner's live check (with live L mutations), the weekly check and the runbook, with two
    census fixes: MWEB's address-less flip becomes an `INFO` line (not `CHANGED`), and the R6 note
-   no longer says "nothing else for this video" when H ran on that answer.
+   no longer says "nothing else for this video" when H ran on that answer. **Prep done**
+   (2026-10-15, §4 D7 "As built (prep)"): the switches, the workflow inputs, the health file and
+   both census fixes. Left: the census tool's L steps (round-trip, mutations) and its ladder line;
+   then the owner's phone check.
 
 The owner's part: one OK for this plan (items 1–2 and the (က+) plan change; §9 items 10–11); a
 weekly check about once a week on mobile data; D7's phone check at the end. Known limits (§5):
@@ -848,7 +851,7 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   redirect; no cookie or credentials; `Range: bytes=0-4095`), `AndroidBrowserMasterFallback.create`
   passes the ladder only with the flag; workflow input `client_ladder` (default `false`; push and
   label builds `false` until D7). Simulator: `ClientLadderSimTest` (§5, D6 core table). Not yet:
-  A (D5a), `-Pyft.ladderSkip` / `-Pyft.ladderMutate` (D7 prep), the health file (D7).
+  A (D5a). The switches and the health file: §4 D7 "As built (prep)".
 - **As built (O rungs, 2026-10-15) — Plan adapted:** the O rungs are the chain's own other clients
   (Android, MWEB, embedded), asked by R6 as today: each answer is judged (`AnswerJudge` with that
   client's profile) and recorded in health; V on its direct rows (one per client per lookup,
@@ -869,6 +872,24 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
 - Two weekly checks, timed (≤ 60 s and ≤ 2 MB each); from then on the owner runs one a week.
 - Runbook (§7) updated with what the census showed.
 - **Done:** the owner's report; §5 targets met or new targets proposed with numbers.
+- **As built (prep, 2026-10-15):** `ladder/LadderTrial.kt` — the owner's live-check switch, one
+  at a time, on visionOS's live answer in memory before the judge (never a request):
+  `visionos` (its answer not used; the chain goes on as after a refusal → O), `visionos-adaptive`
+  (its adaptive formats left out → H), `L1`, `L2`, `L3`, `L5`, `L7` (the simulator's layout
+  changes of those names → L; L5 leaves a cipherless answer as it came, noted). The ladder notes
+  each trial (`trial <mode>: …`). App: `-Pyft.ladderSkip` / `-Pyft.ladderMutate` (debug only,
+  checked lists, one at a time; BuildConfig `LADDER_SKIP` / `LADDER_MUTATE`, release and preview
+  blank); workflow inputs `ladder_skip` / `ladder_mutate` (choices, default `none`, only with
+  `client_ladder` on a manual run; summary line). One ladder per process (health thread-safe,
+  shared by every tab), its health in `files/master/client-health.json` (`AtomicTextFile`,
+  `BrowserViewModel` hands the files directory over). Census fixes: MWEB's flip (the same
+  progressive / adaptive / sizeless counts, formats only moving between protected and without
+  an address) is an `INFO` line, its cipher path no shape change; the R6 note says "no other
+  client for this video". Tests: `LadderTrialTest` (3; every mode over the B0 videos, own solver
+  off and on: wrong 0; L1, L2, L3, L7 complete as the normal mode through L's offer set; skipping
+  visionOS → O, its adaptive formats → H or MWEB), `CensusDiffTest` +1. The phone check's
+  APKs: one manual run per mode (normal, `ladder_skip` ×2, `ladder_mutate` L1, L3, L5), each
+  with `client_ladder` and `own_solver` on.
 
 ### D8 — Signed identity data over R9 (owner decision) — Dropped (owner, 2026-10-15)
 

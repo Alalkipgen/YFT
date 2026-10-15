@@ -121,7 +121,7 @@ class ClientLadderSimTest {
     }
 
     /** The media host's first bytes through the world's HTTP (logged as media), as the app's reader returns them. */
-    private class SimStartReader(private val world: SimWorld) : MediaStartReader {
+    internal class SimStartReader(private val world: SimWorld) : MediaStartReader {
         var reads = 0
 
         override suspend fun read(url: String, headers: Map<String, String>, maxBytes: Int): MediaStart {
