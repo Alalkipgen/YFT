@@ -114,7 +114,7 @@ internal class LadderLookup(
     private var normalized: ShapeNormalizer.Outcome? = null
     private var verdictAboutVideo = false
     private var lReads = 0
-    private var vChecks = 0
+    private val vChecks = HashMap<String, Int>()
 
     /** Addresses V proved refused in this lookup (merge rule, guardrail 9); memory only, never logged. */
     private val refused = HashSet<String>()
@@ -167,8 +167,28 @@ internal class LadderLookup(
             notes += "$client: answer about another video dropped"
             return ExtractorHttpResult.Failure(SiteExtractionFailure.RESPONSE_CHANGED, success?.statusCode)
         }
-        if (client != YouTubeClientProfiles.VISION_OS.clientName) return result
-        return repair(result, success, root)
+        if (client == YouTubeClientProfiles.VISION_OS.clientName) return repair(result, success, root)
+        if (success == null) return result
+        return other(client, success, root)
+    }
+
+    /**
+     * Another client of the chain (Android, MWEB, embedded: the O rungs R6 asks; Plan adapted):
+     * judged for health, and V on its direct rows (guardrail 9; a provisional client on every
+     * lookup). Its answer reaches the chain as it came; a refused list is removed by [merge].
+     */
+    private suspend fun other(client: String, success: ExtractorHttpResult.Success, root: JsonValue?): ExtractorHttpResult {
+        val entry = MasterClientTable.ENTRIES.firstOrNull { it.profile.clientName == client } ?: return success
+        val verdict = AnswerJudge.judge(entry.profile, YouTubePlayerResponseParser.inspect(success.body, now), root, success.body, videoId)
+        val answerClass = verdict.answerClass
+        if (verdict.terminal) {
+            ladder.health.record(entry.id, answerClass)
+            return success
+        }
+        val step = vDirect(entry.id, verdict.video, hourSkip = entry.status == MasterClientTable.Status.LIVE)
+        val recorded = if (step?.tokenNeeded == true) AnswerJudge.afterV(answerClass, targetForbidden = true) else answerClass
+        ladder.health.record(entry.id, recorded, passed = step?.passed ?: (answerClass == CensusClass.DIRECT))
+        return success
     }
 
     private suspend fun repair(
@@ -200,7 +220,7 @@ internal class LadderLookup(
         var recorded = answerClass
         var passed = rung != null || answerClass == CensusClass.DIRECT
         if (answerClass == CensusClass.DIRECT || rung == ClientHealth.Rung.Z) {
-            val step = vDirect(verdict.video)
+            val step = vDirect(VISION_OS, verdict.video, hourSkip = true)
             if (step != null) {
                 passed = step.passed
                 if (step.tokenNeeded) recorded = AnswerJudge.afterV(answerClass, targetForbidden = true)
@@ -213,17 +233,17 @@ internal class LadderLookup(
     private class VStep(val passed: Boolean, val tokenNeeded: Boolean)
 
     /**
-     * V on a direct answer (guardrails 6 and 9; D4 rule): skipped when visionOS passed in the last
-     * hour. One target (the best adaptive video row to offer, else a progressive row), one
+     * V on a direct answer of client [id] (guardrails 6 and 9; D4 rule): with [hourSkip] skipped
+     * when that client passed in the last hour. One target (the best adaptive video row to offer, else a progressive row), one
      * control from the other list. The rows of a list whose checked row got 403 are refused for
      * this lookup — the chain still gets the answer as it came (its requests stay R6's) and
      * [merge] removes them by address (a 403 with an open control: `TOKEN_NEEDED`); any other
      * `unknown` keeps the rows as R6 shows them, without a pass. Null when no V ran.
      */
-    private suspend fun vDirect(video: YouTubeVideo?): VStep? {
+    private suspend fun vDirect(id: String, video: YouTubeVideo?, hourSkip: Boolean): VStep? {
         video ?: return null
-        if (ladder.health.passedWithin(VISION_OS, ClientHealth.HOUR_MILLIS)) return null
-        if (vChecks >= MAX_V_PER_LOOKUP) return VStep(passed = false, tokenNeeded = false)
+        if (hourSkip && ladder.health.passedWithin(id, ClientHealth.HOUR_MILLIS)) return null
+        if ((vChecks[id] ?: 0) >= MAX_V_PER_LOOKUP) return VStep(passed = false, tokenNeeded = false)
         fun direct(rows: List<YouTubeStream>) = rows.filter { row -> row.url?.let(YouTubeUrls::isMediaServerRequest) == true }
         val adaptive = direct(video.adaptive)
         val progressive = direct(video.progressive)
@@ -233,7 +253,7 @@ internal class LadderLookup(
         val targetList = if (adaptive.any { it.url == target.url }) ADAPTIVE else FORMATS
         val control = (if (targetList == ADAPTIVE) progressive else adaptive.filter { it.url != target.url }).firstOrNull()
         val hosts = (adaptive + progressive).mapNotNull { row -> row.url?.let(::hostOf) }.toSet()
-        vChecks += 1
+        vChecks[id] = (vChecks[id] ?: 0) + 1
         val checked = streamCheck.check(
             StreamCheck.Request(
                 target = requireNotNull(target.url),
@@ -241,8 +261,8 @@ internal class LadderLookup(
                 returnedHosts = hosts,
                 headers = mediaHeaders(),
                 kinds = setOf(StreamCheck.Kind.SIG),
-                budgetKey = VISION_OS,
-                cacheKey = VISION_OS,
+                budgetKey = id,
+                cacheKey = id,
                 userStarted = true,
             ),
         )
@@ -250,7 +270,7 @@ internal class LadderLookup(
             if (checked.target == StreamCheck.StatusClass.FORBIDDEN_403) add(targetList)
             if (checked.control == StreamCheck.StatusClass.FORBIDDEN_403) add(if (targetList == ADAPTIVE) FORMATS else ADAPTIVE)
         }.distinct()
-        notes += "V: ${checked.verdict} (${checked.reason}" + (if (dropped.isEmpty()) ")" else "; $dropped refused)")
+        notes += "V $id: ${checked.verdict} (${checked.reason}" + (if (dropped.isEmpty()) ")" else "; $dropped refused)")
         for (list in dropped) (if (list == ADAPTIVE) adaptive else progressive).mapNotNullTo(refused, YouTubeStream::url)
         return VStep(passed = checked.verdict == StreamCheck.Verdict.PASS, tokenNeeded = checked.strategyFailed)
     }

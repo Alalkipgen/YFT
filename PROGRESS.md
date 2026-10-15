@@ -1,5 +1,16 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — D5a S + D6 O rungs (2026-10-15)
+
+- ✅ O rungs (Plan adapted): the chain's Android, MWEB and embedded answers judged for health; V on
+  their direct rows (per-client budget; provisional = every lookup); a 403 list refused by the merge
+  rule. Simulator totals unchanged (wrong 0; MCF 95 / 5); Android V 225 pass, 20 refused, 25 unknown.
+- ✅ S (Plan adapted): own solver in the R6 chain under the ladder (copied challenge and apply code,
+  SelfCheck, `SignatureGate` V). App: `MasterLadderSwitch.youTube` (ladder off = R6 as before; on =
+  own runner only with the own solver flag, else none), `AndroidBrowserMasterFallback.create`
+  `playerScripts`, `BrowserViewModel` injects `PlayerScriptRunner`.
+- Local: `:extractor-master:test` 598, 0 failed, 2 skipped; drift 0. Left: A (`VersionSource`), D7 prep.
+
 ## Phase 1.3 — D3 + D6 core (2026-10-15): health v2, the ladder v1 in the R6 chain's HTTP path, flag
 
 - ✅ `ladder/ClientHealth.kt` (D3): per-client class, times, pass, cooldown (REFUSED 1 h; SABR_ONLY,

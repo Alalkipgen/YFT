@@ -117,12 +117,15 @@ in a row):
    the cooldowns, the bot-check window, order, the version-source clock and the shape maps, one
    unit test per rule; order and cooldowns steer the ladder's own requests, which come with D5a.
 4. **D4** row checks: V (reuse), init check, H check, Z.
-5. **D5a** visionOS rungs A, S, Z → **D5b** own parser L → **D5c** H leg.
+5. **D5a** visionOS rungs A, S, Z → **D5b** own parser L → **D5c** H leg. **Progress**
+   (2026-10-15): S under the ladder (Plan adapted, §4 D5a "As built"); Z, L and H on visionOS's
+   answers came with item 6's core. Left: A (`VersionSource`, self-healed versions).
 6. **D6** O rungs (H live; Android and MWEB as fallbacks), memo, wiring, flag and merge rule.
    **Core done** (2026-10-15): wiring, flag, memo, merge rule; L, Z, V and H on visionOS's answers in
    the R6 chain's HTTP path (Plan adapted, §4 D6); simulator wrong 72 → 0 in both columns, MCF
-   305 → 95 (own solver off) and 160 → 5 (on; V6 = O, live only), §5. Left: the O rungs and the
-   ladder's own requests (A, S) with D5a.
+   305 → 95 (own solver off) and 160 → 5 (on; V6 = O, live only), §5. **O rungs done**
+   (2026-10-15, Plan adapted): the chain's other clients (Android, MWEB, embedded) judged for
+   health, V on their direct rows; the simulator totals unchanged. Left: A with D5a.
 7. **D7** the owner's live check (with live L mutations), the weekly check and the runbook, with two
    census fixes: MWEB's address-less flip becomes an `INFO` line (not `CHANGED`), and the R6 note
    no longer says "nothing else for this video" when H ran on that answer.
@@ -772,6 +775,15 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
 - **Z:** as D4, inside the rung.
 - **Done:** V1–V3, Y1–Y6, H2 and F1–F2 complete or drop as expected in the simulator with a fake
   runner; a self-healed version is stored only after OK + V.
+- **As built (S, 2026-10-15) — Plan adapted:** S is the own solver **in the R6 chain under the
+  ladder**: the copied extractor's challenge and apply code (unchanged), the own solver's
+  SelfCheck, and the module's `SignatureGate` (V). App: `MasterLadderSwitch.youTube` — ladder off →
+  `MasterYouTubeModule(http)`, R6 exactly as before; ladder on → the module with the app's
+  `PlayerScriptRunner` only when the own solver is on (with both opt-in flags that runner is
+  `OwnPlayerScriptRunner`, never main's), else `NoPlayerScriptRunner`, plus the ladder;
+  `AndroidBrowserMasterFallback.create(…, playerScripts)` and `BrowserViewModel` hand it over. The
+  simulator's "ladder, own solver on" column is this configuration (§5). Not yet: A
+  (`VersionSource`; Y1–Y6 complete today through the chain's alternates, MWEB with S).
 
 ### D5b — Own parser L
 
@@ -836,8 +848,15 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   redirect; no cookie or credentials; `Range: bytes=0-4095`), `AndroidBrowserMasterFallback.create`
   passes the ladder only with the flag; workflow input `client_ladder` (default `false`; push and
   label builds `false` until D7). Simulator: `ClientLadderSimTest` (§5, D6 core table). Not yet:
-  O rungs of its own, A and S (D5a), `-Pyft.ladderSkip` / `-Pyft.ladderMutate` (D7 prep), the
-  health file (D7).
+  A (D5a), `-Pyft.ladderSkip` / `-Pyft.ladderMutate` (D7 prep), the health file (D7).
+- **As built (O rungs, 2026-10-15) — Plan adapted:** the O rungs are the chain's own other clients
+  (Android, MWEB, embedded), asked by R6 as today: each answer is judged (`AnswerJudge` with that
+  client's profile) and recorded in health; V on its direct rows (one per client per lookup,
+  budget key = the client ID; a provisional client on every lookup, a live one skipped after a
+  pass in the last hour); a list whose checked row got 403 is refused by address (merge rule). The
+  answer reaches the chain as it came. Simulator: totals unchanged; Android V 225 pass, 20 refused
+  (403 without control, L4), 25 unknown (network, L4 / F2); MWEB has no direct rows (cipher rows,
+  V by the gate).
 
 ### D7 — Owner live check, weekly check, runbook
 
