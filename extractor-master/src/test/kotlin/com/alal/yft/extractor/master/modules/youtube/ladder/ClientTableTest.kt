@@ -67,7 +67,7 @@ class ClientTableTest {
     @Test
     fun `a version source is live only on an approved host, and every date is an ISO date`() {
         assertIsoDate(MasterClientTable.DATE)
-        assertEquals(2, MasterClientTable.VERSION)
+        assertEquals(3, MasterClientTable.VERSION)
         for (entry in entries) {
             assertIsoDate(entry.date)
             assertEquals(entry.id, entry.versionSources.size, entry.versionSources.map { it.id }.toSet().size)
@@ -103,10 +103,10 @@ class ClientTableTest {
         val line = MasterClientTable.describe()
         assertFalse(line.contains('\n'))
         assertFalse(line.contains("://"))
-        assertTrue(line, line.startsWith("client table v2 (2026-10-15): "))
+        assertTrue(line, line.startsWith("client table v3 (2026-10-15): "))
         for (entry in entries) assertTrue(entry.id, line.contains("${entry.id} ${entry.rung} ${entry.status.label}"))
         assertEquals(
-            "client table v2 (2026-10-15): visionos R0 live, A provisional, S provisional, H provisional · " +
+            "client table v3 (2026-10-15): visionos R0 live, A provisional, S provisional, H live · " +
                 "android O provisional, A provisional · embedded O measured, not active, S measured, not active · " +
                 "mweb O provisional, S provisional, A measured, not active",
             line,

@@ -1,5 +1,20 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — Final plan items 1–2 (2026-10-15, the owner's OK): client table v3 (H live) + T1c / T1d R6 columns
+
+- ✅ `ClientTable.kt`: `MasterClientTable` v3 — visionOS's H variant provisional → **live** (tests 1–3
+  on `595d259`: 8, 8 and 6 of 9 passed on 9 distinct videos, wrong 0); nothing else changed (Android
+  and MWEB provisional, embedded measured, not active, A and S provisional). The census report's
+  table line now reads `client table v3 (2026-10-15): visionos R0 live, A provisional, S
+  provisional, H live · …`. `ClientTableTest` updated.
+- ✅ `SimCases.kt`: T1c (the bot check as T1b; R6's `R0+vd` answer with its formats under a moved key,
+  as L1) and T1d (as T1b; R6's `R0+vd` answer adaptive SABR-only, HLS kept, as V4), 3 lookups each
+  on the 5 bases. R6 columns pinned in `r6-baseline.txt` (+20 lines, the other lines unchanged):
+  without the own solver 0 / 15 complete (15 partial, MCF 15 — the ladder's (က+) target: L on T1c,
+  H on T1d), with it 15 / 15 (MWEB through the own solver); wrong 0.
+- Module tests: 587, 0 failed, 2 skipped (`:extractor-master:test`, masterCapture + ownSolver);
+  drift 0. Next: D3 (health v2, order, budget, stop rules).
+
 ## Phase 1.3 — weekly check 3 (owner, 2026-10-15 14:40 UTC; docs only) and the Final plan; ⏸ the owner: one OK for the Final plan
 
 - ✅ W 3 (`595d259`, mobile data, 80 min after test 3): 15 requests, 624 KB, 10.9 s (limits 20,

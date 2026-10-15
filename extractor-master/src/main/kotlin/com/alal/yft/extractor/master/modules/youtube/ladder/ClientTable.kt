@@ -5,7 +5,7 @@ import com.alal.yft.extractor.master.modules.youtube.YouTubeClientProfiles
 import com.alal.yft.extractor.master.modules.youtube.YouTubePageSignals
 
 /**
- * Phase 1.3 D2 — the client table v2 (MASTER_KEY_PHASE1_3_PLAN.md §4 D2), data only: the identities
+ * Phase 1.3 D2 — the client table v3 (MASTER_KEY_PHASE1_3_PLAN.md §4 D2, Final plan item 1), data only: the identities
  * the ladder may ask, each with its identity values (the copied profiles, unchanged), where they
  * come from, the class the census measured, its census status with the date (live, provisional:
  * wired as a fallback with V on every row but asked on fewer than 4 distinct videos, §9 item 9, or
@@ -16,10 +16,11 @@ import com.alal.yft.extractor.master.modules.youtube.YouTubePageSignals
  * most 2 bundled visionOS alternates, each from a public reference with source and date (none
  * today: yt-dlp 2026.08.19 and YouTube.js list 1.02 only); a version source is live only on
  * raw.githubusercontent.com (owner, 2026-10-15: no redirect, ≤ 64 KiB, text only) or YouTube's own
- * page. Status from the D0 census (valid runs 1–3, weekly checks 1–2; §5).
+ * page. Status from the D0 census (valid runs 1–3, weekly checks 1–3; §5); v3 (owner, 2026-10-15):
+ * H live after tests 1–3 on `595d259` (§9 item 9's gate met), nothing else changed.
  */
 internal object MasterClientTable {
-    const val VERSION: Int = 2
+    const val VERSION: Int = 3
     const val DATE: String = "2026-10-15"
 
     /** R6's own first request. */
@@ -96,7 +97,7 @@ internal object MasterClientTable {
             variants = listOf(
                 Allowed(Variant.A, Status.PROVISIONAL, "0 asked: no alternate bundled, no newer value in any source"),
                 Allowed(Variant.S, Status.PROVISIONAL, "0 asked: no cipher in any visionOS answer"),
-                Allowed(Variant.H, Status.PROVISIONAL, "4 of 4 passed, 1 distinct video (< 4)"),
+                Allowed(Variant.H, Status.LIVE, "tests 1-3: 8, 8 and 6 of 9 passed on 9 distinct videos, wrong 0"),
             ),
             versionPattern = CensusSources.VISION_OS_VERSION,
             alternates = emptyList(),

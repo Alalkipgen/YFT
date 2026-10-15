@@ -37,7 +37,7 @@ internal class SimCase(
 internal object SimCases {
     /** The classes in the plan's table order, plus B0 (no change) as the control. */
     val CLASSES: List<String> = listOf("B0") + (1..11).map { "V$it" } + (1..16).map { "L$it" } +
-        (1..6).map { "Y$it" } + listOf("T1", "T1b", "T2", "T3") + listOf("H1", "H2") + (1..4).map { "F$it" }
+        (1..6).map { "Y$it" } + listOf("T1", "T1b", "T1c", "T1d", "T2", "T3") + listOf("H1", "H2") + (1..4).map { "F$it" }
 
     fun all(): List<SimCase> = Sim.BASES.flatMap(::forBase)
 
@@ -187,6 +187,19 @@ internal object SimCases {
         case("T1b", setOf(Rung.R0, Rung.O), lookups = 3) {
             val check = fixture("player_bot_check.json")
             override = { ask -> if (ask.client == SimClient.VISION_OS && !ask.visitor) SimReply.Json(check) else null }
+        }
+        // T1c and T1d ((က+), owner 2026-10-15; plan §9 item 10): the bot check as T1b, and R6's
+        // R0+vd answer (the only visionOS answer built) changed: its formats under a moved key (as
+        // L1), or its adaptive formats SABR-only with the HLS address kept (as V4).
+        case("T1c", setOf(Rung.L, Rung.O), lookups = 3) {
+            val check = fixture("player_bot_check.json")
+            override = { ask -> if (ask.client == SimClient.VISION_OS && !ask.visitor) SimReply.Json(check) else null }
+            onVision(::moveStreamingData)
+        }
+        case("T1d", setOf(Rung.H, Rung.O), lookups = 3) {
+            val check = fixture("player_bot_check.json")
+            override = { ask -> if (ask.client == SimClient.VISION_OS && !ask.visitor) SimReply.Json(check) else null }
+            onVision(::sabrOnlyAdaptive)
         }
         case("T2", emptySet(), terminal = true) { everyone(fixture("player_age_gate.json")) }
         for ((name, file) in listOf(
