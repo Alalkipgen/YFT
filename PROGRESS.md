@@ -1,6 +1,6 @@
 # YFT Master Extractor backup
 
-## Phase 1.3 — B (census items 5–9) + D2 code, work in progress (2026-10-15; module 564 run / 0 failed, drift 0); ⏸ the agent's session ended — the next agent continues
+## Phase 1.3 — B (census items 5–9) + D2 done (2026-10-15; code `eac2df3`, tests and plan this commit; module 587 run / 0 failed, drift 0); ⏸ the owner: one Full census on the new APK
 
 - The owner (2026-10-15, 8 points, "decide yourself"); the agent's decisions:
   1. O rungs back to live: **declined** — the gate stays ≥ 4 distinct videos (the owner's own
@@ -13,7 +13,7 @@
   7. Stop on: wrong > 0, MCF > 0 in a modelled class, drift > 0, a flag-off parity failure,
      CI ❌ twice. 8. §9 item 5 does not apply (provisional rungs wired as fallbacks, V on every
      row) — decided 2026-10-15 (the owner delegated).
-- Done in this commit (code and tests; **the plan is not updated yet**):
+- Code (`eac2df3`, CI validate ✅ + build ✅):
   - **D2** `ladder/AnswerJudge.kt` (new): one judge for the census answers. Order on a failure:
     bot-check words (any status) → `BOT_CHECK`; "update to the latest version" →
     `VERSION_REJECTED`; age check → `AGE_CHECK`; an app refusal → `REFUSED`; a definite marker
@@ -36,13 +36,40 @@
     ("3 videos (1, 2, 5)", ranges "1–3"); 9. budgets: Full ≤ 6 MB; W ≤ 20 requests, ≤ 2 MB,
     ≤ 60 s. The census classes come from AnswerJudge (the census's own classify and regexes
     removed); the shape kind is stored (JSON key `kind`).
-  - Tests: ClientCensusTest, CensusR6ParityTest updated (census tests 49 run / 0 failed); module
-    564 run / 2 skipped / 0 failed; drift 0 (107 symbols); `:app:compileDebugKotlin` ✅.
-- Not done (the next agent, in order): AnswerJudgeTest, ClientTableTest, AnswerJudgeSimTest
-  (V7 live-backed probe, MCF 0), more census tests (B8 ranges, V7 in the census, the table line,
-  the shape kind round trip); the plan (status board, §4 D0 and D2 "As built", §5 known limit and
-  the V7 result, §9 items 5 and 9); push, CI ✅, the APK sha → ⏸ the owner: one Full census after
-  updating over the installed app (no uninstall; slots 6, 8–10 re-entered with the same videos).
+- Tests and plan (this commit; no main code changed since `eac2df3`):
+  - `AnswerJudgeTest` (11, new): main's fixtures, never `DIRECT` for a protected, SABR-only or
+    cipher answer, the simulator's L1–L16 over the 5 bases (kinds `MOVED` / `PARTIAL`; L11, L12
+    verdicts; L13 with its located HLS address; L14 `NEEDS_SCRIPT`), V7's texts → `REFUSED` for
+    visionOS, embedded and MWEB, the definite markers → `VIDEO_VERDICT`, version and bot words
+    under `UNPLAYABLE`, `ERROR` and `LOGIN_REQUIRED`, HTTP failures, `afterV`, the HLS host rule,
+    `OK` without streaming data, the bounded reason text. One finding: main's `player_ok.json` and
+    `player_4k.json` are `INCOMPLETE`, not `DIRECT` as the handoff expected — itag 22 (and 251 in
+    ok) carry no size, and v1's rule makes an answer with a format without a size `INCOMPLETE`;
+    the judge is right, the test pins `INCOMPLETE` and `DIRECT` once every size is added.
+  - `ClientTableTest` (6, new): 4 identities in order with main's profiles, the patterns match
+    the bundled versions, ≤ 2 alternates, ISO dates, live version sources only on the approved
+    hosts, no O rung live, `oRungs()` = Android, MWEB, `describe()` one line without an address.
+  - `AnswerJudgeSimTest` (2, new): **V7 live-backed** — 10 worlds (5 bases × the simulator's "not
+    available on this app" and video 6's "This video is not available"): visionOS `REFUSED`, not
+    terminal, 10 / 10; Android the 360p progressive row only (V pass, not complete); MWEB S + V on
+    every row, complete 10 / 10; wrong 0, **MCF 0**, credentials 0. Controls: T2, T3 private, geo,
+    DRM terminal at visionOS (no O request); T3 removed (main's unavailable answer, `REFUSED` by
+    V7) → Android and MWEB refuse too, clean stop, wrong 0, MCF 0 (2 player requests more than
+    R6: plan §5.2 note, the agent's reading of V7 — the owner confirms).
+  - `ClientCensusTest` (+4): B8 ranges ("4 videos (1–3, 5)", "0 videos"), V7 in the census
+    (video 6's visionOS `REFUSED` with no row, the embedded 152-18 `REFUSED`, Android and MWEB
+    asked, the run goes on), the table line after the summary, the shape kind round trip.
+  - Module 587 run / 2 skipped / 0 failed (564 + 23); drift 0 (107 symbols); the R6 baseline
+    unchanged. `:app:compileDebugKotlin`: the agent's sandbox has no Android SDK, so CI's build
+    compiles the app (only tests and docs changed since `eac2df3`, whose build passed).
+  - Plan: status board (D0: B5–B9; D2 done), §4 D0 "B, as built", §4 D2 "As built", §5 (known
+    limit; V7 live-backed probe), §5.2 (T3 removed under V7), §9 items 5 (does not apply,
+    decided) and 9 (O back to live declined), the Burmese summary.
+- ⏸ The owner: install the new APK **over** the installed app (no uninstall), re-enter slots 6
+  and 8–10 with the same videos, run one **Full census** on mobile data and send the result.
+  Expected: the header lists the videos asked; H on every video whose `R0+vd` answer is `DIRECT`
+  (B5); video 6's visionOS and the embedded player's answers `REFUSED` (V7), not
+  `VIDEO_VERDICT`. Not started until the owner says so: T1c, T1d, D3.
 
 ## Phase 1.3 — weekly check 2 + (က+) after a bot check + gate by distinct videos (owner, 2026-10-15; docs only, `2c57124`); ⏸ the owner's OK on this plan change
 

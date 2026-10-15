@@ -4,6 +4,7 @@ import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.ExtractorProbeResult
 import com.alal.yft.extractor.api.PlayerScriptChallengeKind
 import com.alal.yft.extractor.api.SiteExtractionFailure
+import com.alal.yft.extractor.api.json.BoundedJsonParser
 import com.alal.yft.extractor.master.modules.youtube.YouTubeClientProfiles
 import com.alal.yft.extractor.master.modules.youtube.YouTubePlayerResponseParser
 import com.alal.yft.extractor.master.modules.youtube.ladder.ClientCensus.Mode
@@ -798,6 +799,105 @@ class ClientCensusTest {
         }
     }
 
+    @Test
+    fun `B8 - the header lists the videos asked, three or more in a row as a range`() = runTest {
+        val world = CensusWorld().sources()
+        for (id in listOf(Census.V1, Census.V2, V3, Census.V5)) world.standard(id)
+
+        val outcome = census(world.http()).run(Mode.FULL, mapOf(1 to Census.V1, 2 to Census.V2, 3 to V3, 5 to Census.V5), null)
+
+        assertNull(outcome.stopped)
+        assertEquals(listOf(1, 2, 3, 5), lastRun(outcome).asks.map(CensusAsk::video).distinct())
+        assertTrue(outcome.report, outcome.report.contains(" · 4 videos (1\u20133, 5) · "))
+
+        val none = census(CensusWorld().http()).run(Mode.FULL, mapOf(1 to "not a video"), null)
+        assertTrue(none.report, none.report.contains(" · 0 videos · "))
+        assertTrue(lastRun(none).notes.contains("video 1: not a video ID, skipped"))
+        assertEquals(0, lastRun(none).requests)
+    }
+
+    @Test
+    fun `V7 - video 6's visionOS refusal and the embedded player's 152-18 are REFUSED, not terminal, and the run goes on`() = runTest {
+        val world = CensusWorld().standard(V6).standard(V8).standard(V9).sources()
+        // Video 6 (made for kids) as visionOS answered it in valid runs 1-3: no formats, the video's details.
+        world.answer(V6, "VISIONOS", Census.answer(V6, status = "UNPLAYABLE", reason = "This video is not available"))
+        world.answer(V6, "WEB_EMBEDDED_PLAYER", embeddedError152(V6))
+        world.answer(V9, "VISIONOS", Census.answer(V9, status = "LOGIN_REQUIRED", reason = "Sign in to confirm your age"))
+        val http = world.http()
+
+        val outcome = census(http).run(Mode.FULL, mapOf(6 to V6, 8 to V8, 9 to V9), null)
+
+        assertNull(outcome.stopped)
+        val run = lastRun(outcome)
+        val vision = ask(run, 6, "visionos", "R0")
+        assertEquals(listOf("REFUSED", "REFUSED", "UNPLAYABLE"), listOf(vision.answerClass.name, vision.finalClass.name, vision.status))
+        assertFalse(vision.finalClass.terminal)
+        assertEquals(true, vision.bound)
+        assertEquals("skip-no-row", vision.v)
+        val embedded = ask(run, 6, "embedded", "R0")
+        assertEquals(listOf("REFUSED", "ERROR"), listOf(embedded.answerClass.name, embedded.status))
+        assertFalse(embedded.finalClass.terminal)
+        // The other clients answered video 6, as Android and MWEB did in valid runs 1-3, and the run went on.
+        assertEquals(listOf("DIRECT", "PASS"), ask(run, 6, "android", "R0").let { listOf(it.finalClass.name, it.v) })
+        assertEquals(listOf("NEEDS_SCRIPT", "ok-n", "PASS"), ask(run, 6, "mweb", "R0").let { listOf(it.answerClass.name, it.solve, it.v) })
+        assertEquals(CensusClass.DIRECT, ask(run, 8, "visionos", "R0").finalClass)
+        // An age check stays a verdict about the video.
+        val age = ask(run, 9, "visionos", "R0")
+        assertEquals(CensusClass.AGE_CHECK, age.finalClass)
+        assertTrue(age.finalClass.terminal)
+        assertEquals("LOGIN_REQUIRED", age.status)
+        assertTrue(outcome.report.contains(" · 3 videos (6, 8, 9) · "))
+    }
+
+    @Test
+    fun `the report names the client table in one line after the summary`() = runTest {
+        val outcome = census(CensusWorld().standard(Census.V1).sources().http()).run(Mode.FULL, mapOf(1 to Census.V1), null)
+
+        val lines = outcome.report.lines()
+        val summary = lines.indexOfFirst { it.startsWith("${ClientCensus.TOOL_LABEL} · FULL · ") }
+        assertTrue(outcome.report, summary >= 0)
+        assertEquals(MasterClientTable.describe(), lines[summary + 1])
+        assertEquals(1, lines.count { it.startsWith("client table v") })
+    }
+
+    @Test
+    fun `the shape kind is stored and kept through the state's round trip`() = runTest {
+        val world = CensusWorld().standard(Census.V1).sources()
+        val moved = SimJson.obj(SimJson.parse(Census.visionOs(Census.V1))).also(LShapeCases::moveStreamingData)
+        world.answer(Census.V1, "VISIONOS", SimJson.write(moved))
+
+        val outcome = census(world.http()).run(Mode.FULL, mapOf(1 to Census.V1), null)
+
+        val vision = ask(lastRun(outcome), 1, "visionos", "R0")
+        assertEquals(CensusClass.SHAPE_CHANGED, vision.answerClass)
+        assertEquals("moved", vision.shapeKind)
+        assertTrue(outcome.stateJson.contains("\"kind\":\"moved\""))
+        val stored = CensusJson.readState(CensusJson.state(CensusJson.readState(outcome.stateJson)))
+        assertEquals("moved", ask(stored.runs.single(), 1, "visionos", "R0").shapeKind)
+        assertNull(ask(stored.runs.single(), 1, "android", "R0").shapeKind)
+
+        // Only the judge's two kinds are read back.
+        val run = CensusRun(
+            tool = ClientCensus.TOOL_LABEL,
+            mode = Mode.FULL.name,
+            atMillis = START,
+            asks = listOf(
+                CensusAsk(1, "visionos", "R0", "1.02", "200", CensusClass.SHAPE_CHANGED, shapeKind = "partial"),
+                CensusAsk(2, "visionos", "R0", "1.02", "200", CensusClass.SHAPE_CHANGED, shapeKind = "sideways"),
+                CensusAsk(3, "visionos", "R0", "1.02", "200", CensusClass.DIRECT),
+            ),
+        )
+        val read = CensusJson.readRun(BoundedJsonParser.parse(CensusJson.run(run))!!)!!
+        assertEquals(listOf("partial", null, null), read.asks.map(CensusAsk::shapeKind))
+    }
+
+    /** The embedded player's error 152-18 (census videos 2 and 6): an error screen with a button. */
+    private fun embeddedError152(id: String): String =
+        "{\"playabilityStatus\":{\"status\":\"ERROR\",\"reason\":\"This video is unavailable\"," +
+            "\"errorScreen\":{\"playerErrorMessageRenderer\":{\"subreason\":{\"runs\":[{\"text\":\"Error code: 152 - 18\"}]}," +
+            "\"proceedButton\":{\"buttonRenderer\":{\"text\":{\"simpleText\":\"Watch video on YouTube\"}}}}}}," +
+            "\"videoDetails\":{\"videoId\":\"$id\",\"title\":\"Census video\",\"lengthSeconds\":\"212\"}}"
+
     private fun census(
         http: FakeExtractorHttpClient,
         scripts: FakePlayerScriptRunner = FakePlayerScriptRunner(),
@@ -813,6 +913,10 @@ class ClientCensusTest {
 
     private companion object {
         const val START = 1_791_000_000_000L
+        const val V3 = "Census0003x"
+        const val V6 = "Census0006x"
+        const val V8 = "Census0008x"
+        const val V9 = "Census0009x"
         const val MINUTE = 60_000L
         const val HOUR = 60 * MINUTE
         const val DAY = 24 * HOUR

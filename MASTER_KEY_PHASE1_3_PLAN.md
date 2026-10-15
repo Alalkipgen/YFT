@@ -68,6 +68,9 @@ visionOS, Master:
   မလုပ် (bot check ကို ရှောင်တာ၊ bypass နဲ့ နီး)။ IP/network ပြောင်းတာ မလုပ် (bypass)။
 - Gate (owner 2026-10-15၊ §9 ၉): H/O rung live ဖြစ်ဖို့ distinct video ≥ ၄ လို။ အခု H (video 2 တစ်ခုတည်း)၊
   Android နဲ့ MWEB (video 2၊ 6) provisional — fallback အဖြစ်ပဲ ချိတ်၊ row တိုင်း V။
+- D2 ✅ (2026-10-15): client table v2 + answer judge။ V7 (owner): definite marker (age၊ sign-in၊ private၊
+  removed၊ geo၊ DRM …) မပါတဲ့ error screen = client တစ်ခုရဲ့ ငြင်းချက် (`REFUSED`)၊ terminal မဟုတ် → O rung
+  ဆက်မေးနိုင်၊ မပြည့်ရင် R6 ရဲ့ verdict။ simulator V7 live-backed: 10 / 10 MWEB နဲ့ ပြည့်၊ wrong ၀၊ MCF ၀။
 - Run mode (owner 2026-10-14): task တစ်ခု ပြီးတိုင်း agent က "✅ Dx ပြီးပြီ" စာတိုရေးပြီး ဆက်လုပ်မယ်။
   ဖုန်းစစ် (D0 census — အဲဒီအတောအတွင်း D1 လုပ်မယ်၊ D7)၊ owner ဆုံးဖြတ်ချက်၊ STOP ပေါ်မှပဲ ရပ်မယ်။
 - ခက်ခဲမှု: High (D5b High; D3၊ D5a၊ D5c၊ D6 Medium–High)။
@@ -330,9 +333,9 @@ lookup (Master, clientLadder on)
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
 | G0 | Phase 1.2 closed (gate; Phase 1.2's agent and the owner) | — | Low | Done (`a99e0fb`) |
-| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | **Done** (2026-10-15): code `1135afe`; census runs 1–4 not valid, not counted (§5); bot-check rule (owner, 2026-10-15; `5cb781c`), per video (`81388f8`); valid runs 1–3 done (2026-10-14 23:06, 2026-10-15 00:37 and 02:05 UTC); gate (§5, §9 item 9; distinct videos, owner 2026-10-15 after W 2): provisional H (1 distinct video), Android and MWEB (2 each), S (0 asked); not live embedded; no rung live (§9 item 5: the owner confirms); usable sources: the reference tables (GitHub raw, approved for lookups with conditions, §9 item 3); D8 dropped; Weekly check 1 (2026-10-15 03:39 UTC, §5); then (owner): the diff's `INFO` lines and +/− paths cancel, W's H on video 2 after video 1's bot check (`3e8f378`); Weekly check 2 (04:34 UTC, §5); after a bot check (က+) (§9 item 10) |
+| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | **Done** (2026-10-15): code `1135afe`; census runs 1–4 not valid, not counted (§5); bot-check rule (owner, 2026-10-15; `5cb781c`), per video (`81388f8`); valid runs 1–3 done (2026-10-14 23:06, 2026-10-15 00:37 and 02:05 UTC); gate (§5, §9 item 9; distinct videos, owner 2026-10-15 after W 2): provisional H (1 distinct video), Android and MWEB (2 each), S (0 asked); not live embedded; no rung live (§9 item 5: the owner confirms); usable sources: the reference tables (GitHub raw, approved for lookups with conditions, §9 item 3); D8 dropped; Weekly check 1 (2026-10-15 03:39 UTC, §5); then (owner): the diff's `INFO` lines and +/− paths cancel, W's H on video 2 after video 1's bot check (`3e8f378`); Weekly check 2 (04:34 UTC, §5); after a bot check (က+) (§9 item 10); census items B5–B9 (owner items 5–9, 2026-10-15; code `eac2df3`, tests this commit; §4 D0 "B, as built") |
 | D1 | Change simulator, parity gate, L round-trip, baseline | D0 (classes) | Medium–High | Done: simulator + R6 baseline (`f35b78f`; T1b `5cb781c`, per video `81388f8`); parity gate with D6, L round-trip with D5b; T1c, T1d ((က+), §4 D1): a follow-up before D3 |
-| D2 | Client table v2 + answer judge (shape kinds, HLS locate, fingerprint) | D1 | Medium | TODO |
+| D2 | Client table v2 + answer judge (shape kinds, HLS locate, fingerprint) | D1 | Medium | **Done** (2026-10-15): code `eac2df3`, tests and plan this commit (§4 D2 "As built"); V7 (owner): an error screen without a definite marker = one client's refusal (`REFUSED`), not a verdict; V7 live-backed simulator 10 / 10 complete through MWEB, wrong 0, MCF 0 (§5) |
 | D3 | Health v2, order, budget, stop rules (learned version, shape map; (က+) after a bot check) | D2 | Medium–High | TODO (after the owner's OK on the (က+) plan change) |
 | D4 | Row checks: V (reuse), init check, H check, Z | D2 | Medium | TODO |
 | D5a | visionOS rungs A (with self-healed versions), S, Z | D3, D4 | Medium–High | TODO |
@@ -468,7 +471,26 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   version-source table and the gate decision in §5 and `PROGRESS.md`; the owner told which rungs
   and sources are live. If neither H nor any O rung is live, stop and ask the owner (§9): Phase
   1.3 then keeps A, S, Z and L. (2026-10-15, distinct count: none live — H, Android and MWEB
-  provisional; asked, §9 item 5.)
+  provisional; §9 item 5 does not apply — decided 2026-10-15, the owner delegated.)
+- **B, as built** (owner items 5–9, 2026-10-15; code `eac2df3`, tests this commit):
+  5. (က+) in the census: on R6's `R0+vd` answer that is `DIRECT`, V on one row and the H check
+     (token step) on its HLS address — ≤ 1 H a video, ≤ 1 in a weekly run; no other client and
+     no other InnerTube request on that video.
+  6. W, when video 1 met a bot check: on video 2 visionOS as R6 asks it + V (+ H only when no H
+     ran yet), then its watch page, Android + V and MWEB (S, V), under a soft budget: what does
+     not fit the 20 requests is not asked, a note says which, and the run goes on.
+  7. Version acceptance: a new valid value newer than the bundled one is tried once (`SH`: one
+     request and V) on the first video in list order without a bot check and with a watch page (a
+     note names it when that is not video 1; none → a note, no newer version tried); for MWEB the
+     formats without an address are compared between the bundled and the newer version (a note).
+  8. The header counts and lists only the videos asked ("3 videos (1, 2, 5)"; three or more in a
+     row as a range, "1–3").
+  9. Budgets: Full ≤ 6 MB; W ≤ 20 requests, ≤ 2 MB, ≤ 60 s.
+  The census classes every answer with D2's `AnswerJudge` (its own classifier removed): a V7
+  refusal is `REFUSED` and the run goes on; the shape kind is stored (JSON key `kind`: `moved` or
+  `partial`, kept through the state's round trip); the report's second line is the client table
+  (`MasterClientTable.describe()`). Tests: `ClientCensusTest` (+4: B8 ranges, V7 in the census on
+  video 6 and the embedded 152-18, the table line, the shape kind round trip).
 
 ### D1 — Change simulator, parity gate and baseline
 
@@ -577,7 +599,49 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   `player_bot_check.json`, `player_age_gate.json`, `player_sabr_only.json`, `player_cipher.json`,
   `player_malformed.json`, `player_private.json`, `player_geo.json`, `player_drm.json`,
   `player_embed_refused.json`); never `DIRECT` for a protected, SABR-only or cipher answer;
-  `SHAPE_CHANGED` for L1–L7 and L10, never for a terminal answer (L11).
+  `SHAPE_CHANGED` for L1–L7 and L10, never for a terminal answer (L11). **Done** (2026-10-15).
+- **As built** (code `eac2df3`, tests this commit):
+  - `ladder/ClientTable.kt` — `MasterClientTable` v2 (2026-10-15): visionOS R0 live (A, S, H
+    provisional; version sources yt-dlp and YouTube.js live, the App Store and the answer measured,
+    not active); Android O provisional (A provisional; yt-dlp live; YouTube.js and the Play Store
+    not active); embedded O measured, not active (error 152-18 on 6 of 6; the page's version, a
+    fixed fallback without a page); MWEB O provisional (S provisional; the page's newer version
+    not active, never tried). `oRungs()` = Android, MWEB (table order, the inactive ones left out);
+    `describe()` = one line in the census report. Live version sources only on
+    `raw.githubusercontent.com` (§9 item 3).
+  - `ladder/AnswerJudge.kt` — an answer the copied parser refuses, first match: bot-check words
+    (any status) or the parser's bot check → `BOT_CHECK`; YouTube asking for a newer app →
+    `VERSION_REJECTED`; the parser's age check → `AGE_CHECK`; "not available on this app" →
+    `REFUSED`; a definite verdict → `VIDEO_VERDICT`, except **V7**; `LOGIN_REQUIRED` →
+    `VIDEO_VERDICT`; unreadable → `REFUSED`; DRM markers beside located formats →
+    `VIDEO_VERDICT`; a shape change → `SHAPE_CHANGED` with its kind; SABR only → `SABR_ONLY`;
+    else `REFUSED` (e.g. `OK` without streaming data). An answer it reads: a shape change →
+    `SHAPE_CHANGED` (with DRM markers `VIDEO_VERDICT`); then `NEEDS_SCRIPT` (a protected row, or
+    a script client's `n`), `SABR_ONLY`, `INCOMPLETE` (a format without an address or a size, no
+    title or length), `DIRECT`. HTTP 400 → `VERSION_REJECTED`, another failure → `REFUSED`; a 403
+    on V's row → `TOKEN_NEEDED`.
+  - **V7** (owner, 2026-10-15): an `UNPLAYABLE` or `ERROR` screen the copied parser reads as
+    private or unavailable whose words (reason, subreason, messages; markup removed, ≤ 2000
+    characters) name no definite marker — age, "inappropriate for some users", sign-in, log-in,
+    members, membership, premium, purchase, payment, rental, private, removed, deleted, terminated,
+    "no longer available", "available anymore", copyright, violation, country, region, DRM,
+    protected, licence, live, premiere — is one client's refusal:
+    `REFUSED`, not terminal; the O rungs may go on, and when they do not complete R6's verdict
+    stays (video 6's visionOS "This video is not available"; the embedded player's error 152-18;
+    main's `player_unavailable.json`, "This video is unavailable"). With a marker it stays a
+    terminal `VIDEO_VERDICT`.
+  - Shape kinds: `PARTIAL` — renamed keys in the parser's lists, or this video's length unread
+    (L3–L6); `MOVED` — formats outside the lists, the status or the HLS address elsewhere, while
+    the parser read no adaptive video and audio pair (L1, L2, L7–L10, L13, L15, L16). L11 and L12
+    stay verdicts, L14 is `NEEDS_SCRIPT`.
+  - `hls`: the answer's field only on an HTTPS `*.googlevideo.com` host, else the located address
+    on such a host (`HlsLeg`), else none.
+  - Tests: `AnswerJudgeTest` (11): main's fixtures (main's ok and 4k answers are `INCOMPLETE` —
+    itag 22, and 251 in ok, carry no size — and `DIRECT` with every size), never `DIRECT` for a
+    protected, SABR-only or cipher answer, L1–L16 over the 5 bases, V7's texts, the definite
+    markers, version and bot words under every status, HTTP failures, `afterV`, the HLS host
+    rule, `OK` without streaming data, the bounded reason text; `ClientTableTest` (6);
+    `AnswerJudgeSimTest` (2): V7 live-backed (§5).
 
 ### D3 — Health v2, order, budget and stop rules
 
@@ -746,7 +810,13 @@ modelled classes; an unmodelled change ends in a clean stop, W shows it, and it 
     equals R6's (T1b: three lookups in a row, each completes as R6 does); T1c and T1d ((က+), §9
     item 10): complete on R6's `R0+vd` answer through L (T1c) or H (T1d), with no more player
     requests or page fetches than R6; the 30 min cooldown blocks only the request-sending rungs
-    (A, O, S's re-ask, a version source).
+    (A, O, S's re-ask, a version source). T3 "removed" is made from main's
+    `player_unavailable.json` ("This video is unavailable", no definite marker), which V7 (owner,
+    2026-10-15) reads as one client's refusal: the O rungs may be asked (Android and MWEB: 2
+    player requests more than R6, no page beyond R6's), they refuse too and the lookup ends with
+    R6's verdict, wrong 0; a removal in YouTube's own words ("removed", "deleted", "terminated",
+    "no longer available") stays terminal (agent's reading of V7 against this rule; the owner
+    confirms).
   - The ladder is never worse than R6 in any class.
   - Live-backed column: complete in V1–V3 (V1 through a live alternate, a usable source or D8);
     in V4–V5 and V10 when D0 found H live; in V6–V9 only through census-live O rungs, else a
@@ -800,10 +870,30 @@ the distinct count (`aba372a`): live Android and MWEB, provisional H and S. Prov
 wired as fallbacks after visionOS fails, V on every row (§4 D0 gate), so where this plan says
 "live" for H or an O rung (§3, D1's live-backed column, D6, §5.2, §7 step 7) a provisional rung
 counts the same way; §9 decision 5 ("neither H nor any O rung live") therefore does not stop
-Phase 1.3 in the agent's reading — the owner confirms (asked 2026-10-15). Leaving provisional:
+Phase 1.3 (decided 2026-10-15, the owner delegated). Leaving provisional:
 H through the H check on every video whose `R0+vd` answer is `DIRECT` ((က+), from the next Full
 run: up to 9 distinct videos a run); Android and MWEB only on videos without a bot check (no O
 rung is asked after one), so far videos 2 and 6 only.
+
+**Known limit** (2026-10-15): the O rungs were sampled on videos 2 and 6 only (the bot-check rule
+asks no O rung after a bot check). The owner's point 1 of 2026-10-15 (O rungs back to live) was
+declined by the agent with the owner's delegation: 2 distinct videos are thin; the gate stays ≥ 4
+distinct videos; Android and MWEB stay provisional, wired as fallbacks after visionOS fails, V on
+every row (§9 items 5 and 9).
+
+**V7 live-backed probe** (D2, `AnswerJudgeSimTest`, before D6's ladder): 10 simulated worlds — the
+5 bases × visionOS's two V7 answers (the simulator's "not available on this app"; video 6's "This
+video is not available", made in code as the census saw it). visionOS is judged `REFUSED` (not
+terminal) on 10 / 10; then, as the census asks them (the watch page's signals, no cookie or
+token), the table's O rungs: Android gives its 360p progressive row only (`SABR_ONLY`, V pass, not
+complete), MWEB (`NEEDS_SCRIPT`: sig and n through the world's solver, V on every row) completes
+on 10 / 10; wrong 0, MCF 0, credentials 0; 3 player requests, 1 page each. Controls (5 bases):
+T2 and T3 private, geo and DRM stop at visionOS (terminal; 1 player request, no page, no O
+request); T3 removed (main's unavailable answer, `REFUSED` by V7) asks Android and MWEB, which
+refuse too: no row, clean stop, wrong 0, MCF 0. Lines in `build/ladder-sim/v7-live-backed.txt`
+(and `-controls.txt`); the R6 baseline is unchanged. From the B + D2 APK on, the census cells
+above that read `VIDEO_VERDICT` for video 6's visionOS answer and the embedded player's error
+152-18 read `REFUSED` (the judge's V7 rule, not a YouTube change).
 
 Weekly checks (W, §4 D0; the diff against the last stored run):
 
@@ -982,7 +1072,8 @@ merge and release, merging PR #2.
 5. **After the D0 gate:** if neither H nor any O rung is live, Phase 1.3 finishes with A, S, Z and
    L; no SABR, token or MSE work follows from this plan. (2026-10-15, after item 9's distinct
    count: no rung is live — H, Android and MWEB are provisional, wired as fallbacks with V on
-   every row — so the agent reads this item as not applying; the owner confirms.)
+   every row.) **Decided 2026-10-15: does not apply** (the owner delegated the decision to the
+   agent): Phase 1.3 goes on with the provisional H and O rungs as fallbacks.
 6. **M5 (Phase 1.2 carry-over, `PROGRESS.md` "Phase 1.2 — done"):** not part of this plan; the
    owner decides whether it becomes its own solver task. Not needed for D0.
 7. **Bot-check rule** (proposed after census run 1, 2026-10-14): **yes — owner, 2026-10-15.** After
@@ -1017,7 +1108,10 @@ merge and release, merging PR #2.
    whose `R0+vd` answer is `DIRECT` (recorded in §5; the owner told). Consequence of the distinct
    count (2026-10-15): Android 6 / 6 and MWEB 6 / 6 were asked on videos 2 and 6 only (2 distinct)
    and are provisional too; no O rung is asked after a bot check, so they reach 4 distinct videos
-   only when more videos escape one; no rung is live (item 5: the owner confirms).
+   only when more videos escape one; no rung is live (item 5: does not apply, decided
+   2026-10-15). The owner's point 1 of 2026-10-15 (Android and MWEB back to live) was declined by
+   the agent with the owner's delegation: 2 distinct videos are thin, the gate stays ≥ 4 distinct
+   videos, and the provisional rungs are wired as fallbacks with V on every row (known limit, §5).
 10. **The ladder after visionOS's bot check: (က+) — owner, 2026-10-15** (asked after W 1; options
     in `PROGRESS.md`). visionOS's first request met a bot check on 24 of 30 census videos, and
     under the old guardrail 4 the ladder's own rungs (A, S, Z, L, H) then stopped while R6's chain
