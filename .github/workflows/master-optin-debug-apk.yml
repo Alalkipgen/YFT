@@ -3,8 +3,10 @@ name: Master opt-in debug APK (spike)
 # Internal test build for the owner's phone: the debug app (com.alal.yft.debug) with the
 # opt-in Master capture flag on and, since Phase 1.1 S5, Master's own YouTube solver instead of
 # main's ejs runner (turn it off with the manual run's own_solver input). Runs only for the Master spike branch; release builds and the
-# existing workflows are untouched. Uses no repository secret; signed with the runner's
-# throwaway debug key. Label build (GitHub shows "Run workflow" only on the default branch): the
+# existing workflows are untouched. Uses no repository secret. Since Phase 1.3 it is signed with
+# the spike's fixed debug key (app/keystore/spike-debug.keystore.b64; public, debug app only), so
+# each APK installs as an update over the last one; without that file the runner's own debug key
+# signs, which differs per run. Label build (GitHub shows "Run workflow" only on the default branch): the
 # label build-optin-apk on draft PR #2 (spike → main) builds the PR head itself, not its merge
 # with main, with the own solver and its ladder on (ownSolverNext); its artifact name ends in
 # -next-<short sha>. Any other label skips the job.
@@ -97,6 +99,18 @@ jobs:
             scripts/own-solver/tests/tripwire.test.mjs \
             scripts/own-solver/tests/step-budget.test.mjs \
             scripts/own-solver/tests/locator.test.mjs
+      - name: Spike debug key (one key for every opt-in debug APK)
+        shell: bash
+        run: |
+          # Phase 1.3: app/build.gradle.kts signs the debug app (com.alal.yft.debug) and its test
+          # APK with the decoded key when the file exists, so each APK updates the last one. The
+          # key is public in the repo; release and preview builds never use it.
+          if [[ -f app/keystore/spike-debug.keystore.b64 ]]; then
+            base64 -d app/keystore/spike-debug.keystore.b64 > app/keystore/spike-debug.keystore
+            echo "Decoded app/keystore/spike-debug.keystore: the fixed spike debug key signs."
+          else
+            echo "No app/keystore/spike-debug.keystore.b64: the runner's own debug key signs."
+          fi
       - name: Master tests and opt-in debug APK
         shell: bash
         env:
@@ -131,16 +145,50 @@ jobs:
           OWN_SOLVER: ${{ github.event_name != 'workflow_dispatch' || inputs.own_solver }}
           OWN_SOLVER_NEXT: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.own_solver_next) }}
         run: |
+          apksigner="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/35.0.0/apksigner"
+          normalize() { tr -d ': \t' | tr '[:upper:]' '[:lower:]'; }
+          # The spike debug key's certificate, when the key was decoded: every APK must carry it.
+          expected=""
+          signing_key="the runner's own debug key"
+          if [[ -f app/keystore/spike-debug.keystore ]]; then
+            expected="$(keytool -list -v -keystore app/keystore/spike-debug.keystore \
+              -storepass android -alias androiddebugkey | sed -n 's/^[[:space:]]*SHA256: //p' | normalize)"
+            test -n "$expected"
+            signing_key="the fixed spike debug key"
+          fi
+          certs=""
+          mismatch=0
+          for apk in app/build/outputs/apk/debug/*.apk app/build/outputs/apk/androidTest/debug/*.apk; do
+            # apksigner up to 36.x labels the first signer "Signer #1 certificate ..."; build-tools
+            # 37+ labels it per scheme (as in scripts/verify-release-apk.sh). Both are accepted.
+            out="$("$apksigner" verify --print-certs "$apk")"
+            digest="$(printf '%s\n' "$out" |
+              sed -nE 's/^(Signer #1|V[0-9.]+ Signer:) certificate SHA-256 digest: //p' | head -n 1 | normalize)"
+            test -n "$digest"
+            echo "::notice title=APK signing cert SHA-256::$(basename "$apk") $digest"
+            certs+="$(basename "$apk") $digest"$'\n'
+            if [[ -n "$expected" && "$digest" != "$expected" ]]; then
+              echo "::error title=APK signing cert mismatch::$(basename "$apk") $digest is not the spike debug key $expected"
+              mismatch=1
+            fi
+          done
           {
             echo "### Master opt-in debug APK"
             echo "Commit: ${BUILD_SHA}"
             echo "Own YouTube solver: ${OWN_SOLVER}"
             echo "Own solver ladder (ownSolverNext): ${OWN_SOLVER_NEXT}"
+            echo "Signing key: ${signing_key}"
             echo '```'
             sha256sum app/build/outputs/apk/debug/*.apk app/build/outputs/apk/androidTest/debug/*.apk
             echo '```'
+            echo "Signing cert SHA-256:"
+            echo '```'
+            printf '%s' "$certs"
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-      # The test APK (same throwaway key) lets the owner run the opt-in phone tests without a
+          # An APK with another key would not update the installed debug app: no upload.
+          exit "$mismatch"
+      # The test APK (same spike debug key) lets the owner run the opt-in phone tests without a
       # computer, e.g. StreamCheckMeasureTest from Termux over wireless debugging.
       - name: Upload opt-in debug APK
         uses: actions/upload-artifact@v4

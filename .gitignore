@@ -30,3 +30,7 @@ dist/
 # Python bytecode caches
 __pycache__/
 *.pyc
+
+# Spike debug key (master-optin-debug-apk, Phase 1.3): only its base64 text,
+# app/keystore/spike-debug.keystore.b64, is tracked; the decoded keystore never is.
+app/keystore/spike-debug.keystore

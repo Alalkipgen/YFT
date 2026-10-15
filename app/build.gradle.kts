@@ -152,6 +152,20 @@ android {
     }
 
     signingConfigs {
+        // Spike branch only (Phase 1.3): one fixed debug key, so each opt-in debug APK from CI
+        // installs as an update over the last one (the runner's own debug key differs per run).
+        // The master-optin-debug-apk workflow decodes keystore/spike-debug.keystore.b64 into this
+        // untracked file; without it the default debug key signs as before. It signs the debug
+        // app (com.alal.yft.debug) and its test APK only; release and preview never use it.
+        val spikeDebugStore = file("keystore/spike-debug.keystore")
+        if (spikeDebugStore.isFile) {
+            getByName("debug") {
+                storeFile = spikeDebugStore
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
         if (releaseSigning != null) {
             create("release") {
                 storeFile = releaseSigning.storeFile

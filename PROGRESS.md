@@ -1,5 +1,54 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — one fixed debug key for the opt-in APK (2026-10-15; build and workflow only, no app code); ⏸ the owner: one uninstall, then one Full census
+
+- The owner (2026-10-15, after `2b62605`): 1. B + D2 OK; the `INCOMPLETE` finding (main's
+  `player_ok.json` and `player_4k.json`) OK. 2. T3 removed OK: main's unmarked "This video is
+  unavailable" stays `REFUSED` (V7) and O goes on; the definite markers (removed, deleted,
+  terminated, …) stay terminal and are never weakened — plan §5.2 now records it as the owner's
+  decision (it said "the owner confirms"). 3. ⏸ until the census result: no T1c / T1d, no D3.
+- Problem: the `2b62605` APK did not install over the installed debug app: "App not installed as
+  package conflicts with an existing package".
+- Cause: `master-optin-debug-apk.yml` signed with the runner's own debug key, made fresh on each
+  runner, so each run's APK had another signer, and Android refuses an update signed by another
+  key.
+- Fix (main, release and preview signing, the other workflows and the 5 copied files untouched):
+  - `app/keystore/spike-debug.keystore.b64` (new): the base64 text of a new debug keystore
+    (PKCS12, alias `androiddebugkey`, password `android`, RSA 2048, SHA256withRSA,
+    `CN=Android Debug, O=Android, C=US`, 10000 days: 2026-10-15 → 2054-03-02). The decoded
+    `app/keystore/spike-debug.keystore` is never tracked (`.gitignore`: an explicit line next to
+    `*.keystore`).
+  - `app/build.gradle.kts`: when `keystore/spike-debug.keystore` exists, the `debug` signing
+    config uses it (the debug app `com.alal.yft.debug` and its test APK); else the default debug
+    key signs as before.
+  - `master-optin-debug-apk.yml`: a step before the Gradle build decodes the `.b64` (without it:
+    "the runner's own debug key signs"); "Record APK hashes" adds each APK's signing certificate
+    SHA-256 (apksigner 35.0.0, both label forms as in `scripts/verify-release-apk.sh`) to the run
+    summary and as a `::notice` "APK signing cert SHA-256", and fails (no upload) when an APK's
+    certificate is not the decoded key's (keytool). The "throwaway debug key" comments are
+    updated.
+- **Certificate SHA-256** (the debug APK and its test APK):
+  `a2696dff62331776dee9baf34a150ffcec19e1a358656bc65517d165cc88bbbe`.
+- Checks in the agent's sandbox (Android SDK 35, build-tools 35.0.0, NDK 27.3.13750724 and
+  CMake 3.22.1 now installed): the decode step gives the keystore byte for byte;
+  `:app:compileDebugKotlin :app:assembleDebug :app:assembleDebugAndroidTest`
+  (`-Pyft.masterCapture=true -Pyft.ownSolver=true`, as CI) ✅ → `com.alal.yft.debug`, both APKs
+  signed with the certificate above (v2, one signer); without the decoded file
+  `:app:assembleDebug` ✅ signs with the default debug key (another certificate), and the record
+  step's guard, with the key back, fails on that APK after writing the summary; module 587 run /
+  2 skipped / 0 failed (rerun); drift 0 (107 symbols).
+- The key is public: install only APKs from this repo's `master-optin-debug-apk` workflow. It
+  signs the debug app only, never a release or preview build (`scripts/verify-release-apk.sh`
+  rejects a `CN=Android Debug` certificate). The older notes to uninstall first ("CI debug keys
+  can differ": `MASTER_KEY_PLAN.md`, earlier sections here) hold only for APKs before this commit.
+- Plan: §7 Runbook (the fixed key: one uninstall, then only updates; what the uninstall loses),
+  §5.2 (T3 removed: the owner's decision), status board D0 (§9 item 5: decided), the Burmese
+  summary. CI and the APK: this commit's checks (one push, no docs follow-up).
+- ⏸ The owner, once: uninstall `com.alal.yft.debug`, install this commit's APK, re-enter slots
+  5, 6 and 8–10 with the same videos (4 and 7 go back to their defaults), run one **Full census**
+  on mobile data — it reads `FIRST RUN`, since the uninstall deleted the stored runs — and send
+  the result. From then on: update only, never uninstall. Not started: T1c, T1d, D3.
+
 ## Phase 1.3 — B (census items 5–9) + D2 done (2026-10-15; code `eac2df3`, tests and plan `2b62605`, CI ✅; module 587 run / 0 failed, drift 0); ⏸ the owner: one Full census on the new APK
 
 - The owner (2026-10-15, 8 points, "decide yourself"); the agent's decisions:
@@ -56,7 +105,7 @@
     every row, complete 10 / 10; wrong 0, **MCF 0**, credentials 0. Controls: T2, T3 private, geo,
     DRM terminal at visionOS (no O request); T3 removed (main's unavailable answer, `REFUSED` by
     V7) → Android and MWEB refuse too, clean stop, wrong 0, MCF 0 (2 player requests more than
-    R6: plan §5.2 note, the agent's reading of V7 — the owner confirms).
+    R6: plan §5.2 — the owner's decision, 2026-10-15, in the section above).
   - `ClientCensusTest` (+4): B8 ranges ("4 videos (1–3, 5)", "0 videos"), V7 in the census
     (video 6's visionOS `REFUSED` with no row, the embedded 152-18 `REFUSED`, Android and MWEB
     asked, the run goes on), the table line after the summary, the shape kind round trip.

@@ -71,6 +71,11 @@ visionOS, Master:
 - D2 ✅ (2026-10-15): client table v2 + answer judge။ V7 (owner): definite marker (age၊ sign-in၊ private၊
   removed၊ geo၊ DRM …) မပါတဲ့ error screen = client တစ်ခုရဲ့ ငြင်းချက် (`REFUSED`)၊ terminal မဟုတ် → O rung
   ဆက်မေးနိုင်၊ မပြည့်ရင် R6 ရဲ့ verdict။ simulator V7 live-backed: 10 / 10 MWEB နဲ့ ပြည့်၊ wrong ၀၊ MCF ၀။
+  T3 removed (marker မပါတဲ့ "This video is unavailable") → `REFUSED`၊ O ဆက် — owner ဆုံးဖြတ်ချက်
+  (2026-10-15၊ §5.2)၊ marker တွေ terminal ဆက်ဖြစ်၊ ဘယ်တော့မှ မလျှော့။
+- Debug APK key (2026-10-15): CI က opt-in debug APK တိုင်းကို spike debug key တစ်ခုတည်းနဲ့ sign (repo ထဲ
+  public၊ debug app သီးသန့်၊ release မဟုတ်) → နောက် APK တွေ update ရ။ ဒီ key ပါ APK ကို တစ်ခါ uninstall
+  လုပ်ပြီး ထည့်၊ နောက်ပိုင်း update ပဲ (uninstall ဆို census history၊ health၊ slot ပျက်၊ `FIRST RUN`၊ §7)။
 - Run mode (owner 2026-10-14): task တစ်ခု ပြီးတိုင်း agent က "✅ Dx ပြီးပြီ" စာတိုရေးပြီး ဆက်လုပ်မယ်။
   ဖုန်းစစ် (D0 census — အဲဒီအတောအတွင်း D1 လုပ်မယ်၊ D7)၊ owner ဆုံးဖြတ်ချက်၊ STOP ပေါ်မှပဲ ရပ်မယ်။
 - ခက်ခဲမှု: High (D5b High; D3၊ D5a၊ D5c၊ D6 Medium–High)။
@@ -333,7 +338,7 @@ lookup (Master, clientLadder on)
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
 | G0 | Phase 1.2 closed (gate; Phase 1.2's agent and the owner) | — | Low | Done (`a99e0fb`) |
-| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | **Done** (2026-10-15): code `1135afe`; census runs 1–4 not valid, not counted (§5); bot-check rule (owner, 2026-10-15; `5cb781c`), per video (`81388f8`); valid runs 1–3 done (2026-10-14 23:06, 2026-10-15 00:37 and 02:05 UTC); gate (§5, §9 item 9; distinct videos, owner 2026-10-15 after W 2): provisional H (1 distinct video), Android and MWEB (2 each), S (0 asked); not live embedded; no rung live (§9 item 5: the owner confirms); usable sources: the reference tables (GitHub raw, approved for lookups with conditions, §9 item 3); D8 dropped; Weekly check 1 (2026-10-15 03:39 UTC, §5); then (owner): the diff's `INFO` lines and +/− paths cancel, W's H on video 2 after video 1's bot check (`3e8f378`); Weekly check 2 (04:34 UTC, §5); after a bot check (က+) (§9 item 10); census items B5–B9 (owner items 5–9, 2026-10-15; code `eac2df3`, tests `2b62605`; §4 D0 "B, as built") |
+| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | **Done** (2026-10-15): code `1135afe`; census runs 1–4 not valid, not counted (§5); bot-check rule (owner, 2026-10-15; `5cb781c`), per video (`81388f8`); valid runs 1–3 done (2026-10-14 23:06, 2026-10-15 00:37 and 02:05 UTC); gate (§5, §9 item 9; distinct videos, owner 2026-10-15 after W 2): provisional H (1 distinct video), Android and MWEB (2 each), S (0 asked); not live embedded; no rung live (§9 item 5: does not apply, decided 2026-10-15); usable sources: the reference tables (GitHub raw, approved for lookups with conditions, §9 item 3); D8 dropped; Weekly check 1 (2026-10-15 03:39 UTC, §5); then (owner): the diff's `INFO` lines and +/− paths cancel, W's H on video 2 after video 1's bot check (`3e8f378`); Weekly check 2 (04:34 UTC, §5); after a bot check (က+) (§9 item 10); census items B5–B9 (owner items 5–9, 2026-10-15; code `eac2df3`, tests `2b62605`; §4 D0 "B, as built") |
 | D1 | Change simulator, parity gate, L round-trip, baseline | D0 (classes) | Medium–High | Done: simulator + R6 baseline (`f35b78f`; T1b `5cb781c`, per video `81388f8`); parity gate with D6, L round-trip with D5b; T1c, T1d ((က+), §4 D1): a follow-up before D3 |
 | D2 | Client table v2 + answer judge (shape kinds, HLS locate, fingerprint) | D1 | Medium | **Done** (2026-10-15): code `eac2df3`, tests and plan `2b62605` (CI ✅; §4 D2 "As built"); V7 (owner): an error screen without a definite marker = one client's refusal (`REFUSED`), not a verdict; V7 live-backed simulator 10 / 10 complete through MWEB, wrong 0, MCF 0 (§5) |
 | D3 | Health v2, order, budget, stop rules (learned version, shape map; (က+) after a bot check) | D2 | Medium–High | TODO (after the owner's OK on the (က+) plan change) |
@@ -810,13 +815,13 @@ modelled classes; an unmodelled change ends in a clean stop, W shows it, and it 
     equals R6's (T1b: three lookups in a row, each completes as R6 does); T1c and T1d ((က+), §9
     item 10): complete on R6's `R0+vd` answer through L (T1c) or H (T1d), with no more player
     requests or page fetches than R6; the 30 min cooldown blocks only the request-sending rungs
-    (A, O, S's re-ask, a version source). T3 "removed" is made from main's
-    `player_unavailable.json` ("This video is unavailable", no definite marker), which V7 (owner,
-    2026-10-15) reads as one client's refusal: the O rungs may be asked (Android and MWEB: 2
-    player requests more than R6, no page beyond R6's), they refuse too and the lookup ends with
-    R6's verdict, wrong 0; a removal in YouTube's own words ("removed", "deleted", "terminated",
-    "no longer available") stays terminal (agent's reading of V7 against this rule; the owner
-    confirms).
+    (A, O, S's re-ask, a version source). T3 "removed" — **owner decision (2026-10-15, after
+    `2b62605`):** main's `player_unavailable.json` ("This video is unavailable", no definite
+    marker) stays `REFUSED` under V7 (one client's refusal, not terminal) and O goes on: Android
+    and MWEB are asked (2 player requests more than R6, no page beyond R6's), refuse too, and the
+    lookup ends with R6's verdict, wrong 0. A removal in YouTube's own words ("removed",
+    "deleted", "terminated", "no longer available" and the other definite markers) stays
+    terminal; the markers are never weakened.
   - The ladder is never worse than R6 in any class.
   - Live-backed column: complete in V1–V3 (V1 through a live alternate, a usable source or D8);
     in V4–V5 and V10 when D0 found H live; in V6–V9 only through census-live O rungs, else a
@@ -1028,6 +1033,20 @@ the D0 census):
   uninstalling deletes the app's files — W's stored runs (the next check reads `FIRST RUN`, no
   diff), the health file, the cooldown and the census video picks (slots 4–10; slots 4 and 7 go
   back to their defaults).
+  - One fixed debug key (2026-10-15, after `2b62605`): until then each CI debug APK was signed
+    with the runner's own debug key, a new one per run, so the keys differed and the update
+    failed ("App not installed as package conflicts with an existing package"). From the commit
+    that added `app/keystore/spike-debug.keystore.b64` on, every opt-in debug APK and its test APK
+    carry the spike's fixed debug key (certificate SHA-256
+    `a2696dff62331776dee9baf34a150ffcec19e1a358656bc65517d165cc88bbbe`, in each run's summary
+    and annotations). Install the first fixed-key APK once after one uninstall; from then on only
+    update, never uninstall. That one uninstall loses the census history (the next Full census
+    reads `FIRST RUN`, and so does W), the health file, the cooldown and the slots (re-enter 5, 6
+    and 8–10 with the same videos; 4 and 7 go back to their defaults).
+  - The key is public (it is in the repo): install only APKs from this repo's
+    `master-optin-debug-apk` workflow. It signs the debug app (`com.alal.yft.debug`) only, never
+    a release or preview build (its `CN=Android Debug` certificate fails
+    `scripts/verify-release-apk.sh`).
 
 1. Weekly check (W), once a week: `NO CHANGE` → nothing (`INFO` lines need nothing). `CHANGED` or
    `BROKEN` → copy the result to the agent; each line names a step below.
