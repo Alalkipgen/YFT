@@ -1,5 +1,22 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — weekly check 3 (owner, 2026-10-15 14:40 UTC; docs only) and the Final plan; ⏸ the owner: one OK for the Final plan
+
+- ✅ W 3 (`595d259`, mobile data, 80 min after test 3): 15 requests, 624 KB, 10.9 s (limits 20,
+  2 MB, 60 s). `CHANGED (1)`: H video 1 master `net` → 2xx (test 3's network failure gone; §7
+  step 7: nothing to fix) + 2 `INFO` bot checks (videos 1 and 5 answered as R6, `R0+vd` `DIRECT`,
+  V pass). H on video 1's `R0+vd` answer 2xx / 2xx / 2xx (≤ 240p, 3 segments); video 2 (B6):
+  Android `SABR_ONLY` 360p, V pass; MWEB `NEEDS_SCRIPT`, 30 ciphered formats ≤ 2160p, V
+  `skip-needs-S` (W runs no S); no version source read (< 24 h), so no newer version tried (B7).
+  Wrong 0; as designed.
+- Final plan (plan: new "Final plan" section, title "Plan v3 (final, 2026-10-15)"): D0's phone part
+  complete; table v3 = H live (gate met: 89 %, 89 %, 67 %, 9 distinct videos, wrong 0), Android
+  and MWEB provisional (videos 2 and 6 only), embedded measured, not active, A and S provisional.
+  Order: D2 follow-up (table v3, code) → T1c / T1d → D3 → D4 → D5a → D5b → D5c → D6 → D7
+  (continuous). Also §9 items 9 and 11, the Burmese summary, the D0 and D3 rows.
+- ⏸ Next (owner): one OK for the Final plan (table v3 with H live + the (က+) plan change); then the
+  run goes on, stopping only on the stop rules. No code change in this commit.
+
 ## Phase 1.3 — census test run 3 (owner, 2026-10-15 13:20 UTC; docs only); H meets the gate; ⏸ the owner: a weekly check and the word on H live
 
 - ✅ Test run 3 (`595d259`, mobile data, 1 h 21 min after test 2): FULL, 10 videos, 74 requests,
