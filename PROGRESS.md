@@ -1,6 +1,44 @@
 # YFT Master Extractor backup
 
-## Phase 1.3 — D0 census valid run 1 (owner, 2026-10-14 23:06 UTC; docs only); ⏸ valid runs 2–3 + Weekly; gate question
+## Phase 1.3 — D0 census valid run 2 + gate count decided (owner, 2026-10-15; docs only); ⏸ valid run 3 + Weekly
+
+- Owner decision, plan §9 item 9: (က) with a minimum sample — count only the videos where a rung
+  was actually asked; live = pass on ≥ 60 % of its asked videos in ≥ 2 of 3 valid runs, asked on
+  ≥ 4 videos in total, wrong = 0; asked on fewer than 4 → provisional (only a fallback after
+  visionOS fails, V on every row, the weekly check keeps measuring it). No code change, the same
+  APK (`81388f8`). Written into plan §4 D0 (Gate) and §9 item 9.
+- ✅ Valid run 2 (2026-10-15 00:37 UTC, 91 min after run 1; `81388f8` APK, mobile data, metered):
+  FULL, 10 videos, 54 requests, 2661 KB, 26 s, not stopped. Report `CHANGED (11) — 0 days since
+  the last run`: the 8 answered bot checks (videos 1, 3, 4, 5, 7, 8, 9, 10; each `R0+vd` DIRECT)
+  and 3 MWEB lines for video 6: formats (progressive/adaptive/protected/no address/no size)
+  0/0/26/0/1 → 0/0/1/25/1 and highest video 1080p → 360p (§7 step 2); shape
+  −`streamingData.adaptiveFormats[].signatureCipher` (§7 step 6; not BREAKING: a cipher signal).
+- Per rung (passed / asked): R0 1 / 10 (video 2 DIRECT; bot check 8; video 6 VIDEO_VERDICT); R0+vd
+  8 / 8 DIRECT, V pass; A none; S 0 asked; H 1 / 1 (as run 1); Android 2 / 2 `SABR_ONLY` (360p
+  progressive only, V pass); embedded 0 / 2 (152-18); MWEB 2 / 2 (video 2 S ok-sig+n, V pass,
+  ≤ 2160p; video 6 adaptive formats without address or cipher, only the 360p progressive row, S
+  and V pass).
+- Pages 10 / 10 HTTP 200 (MWEB 2.20261014.01.00), all on player 21090930 (run 1: 3 players).
+  Version sources = run 1 (page config 2.20261014.01.00 newer, not tried: video 1 bot check).
+- Gate tracking after valid runs 1–2 (asked / passed): Android 4 / 4 and MWEB 4 / 4 (100 % in both
+  runs, wrong 0) meet the rule unless run 3 shows a wrong row; Android's rows are the 360p
+  progressive row only. embedded 4 / 0 → not live. H 2 / 2, asked once per run → at most 3 →
+  provisional. S 0 asked → provisional. A: none bundled. R0 is R6's own first request (2 / 20
+  passed, bot check on 16).
+- Finding for D2: MWEB's answer for the made-for-kids video turned SABR-style within 91 min
+  (adaptive formats without address or cipher); its one ciphered progressive row keeps the class
+  `NEEDS_SCRIPT`, so D2's judge must mark the adaptive path not complete there (Android's same
+  layout with a direct progressive row is `SABR_ONLY`).
+- Note: the weekly check asks H, Android, embedded and MWEB on video 1 only; video 1 met a bot
+  check in every run so far, so W adds samples for a provisional rung only when video 1 escapes
+  it (D7 revisits).
+- Plan: §4 D0 Gate, §9 item 9 (decided), §5 census table (valid 2 + tracking line),
+  version-source table (run 2), status board D0.
+- ⏸ Phone (owner): valid run 3 ≥ 1 h after run 2 (from 01:37 UTC; ideally another time of day),
+  then one Weekly check; the same APK, normal mobile data, no clearing app data → Copy result
+  each time.
+
+## Phase 1.3 — D0 census valid run 1 (owner, 2026-10-14 23:06 UTC; docs only, `1e457b3`)
 
 - ✅ Valid run 1 (`81388f8` APK, mobile data, metered): FULL, 10 videos, 54 requests, 2659 KB
   (budget 6 MB), 29 s, not stopped. Report `CHANGED (8) — first run`: 8 lines `visionos R0

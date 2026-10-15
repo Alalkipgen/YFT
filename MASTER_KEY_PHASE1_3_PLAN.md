@@ -311,7 +311,7 @@ lookup (Master, clientLadder on)
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
 | G0 | Phase 1.2 closed (gate; Phase 1.2's agent and the owner) | — | Low | Done (`a99e0fb`) |
-| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | Code done (`1135afe`); census runs 1–4 not valid, not counted (§5); bot-check rule (owner, 2026-10-15; `5cb781c`), per video (`81388f8`); valid run 1 done (2026-10-14 23:06 UTC, §5); valid runs 2–3 + 1 Weekly check pending; gate count §9 item 9 |
+| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | Code done (`1135afe`); census runs 1–4 not valid, not counted (§5); bot-check rule (owner, 2026-10-15; `5cb781c`), per video (`81388f8`); valid runs 1–2 done (2026-10-14 23:06 and 2026-10-15 00:37 UTC, §5); gate count decided (owner, §9 item 9); valid run 3 + 1 Weekly check pending |
 | D1 | Change simulator, parity gate, L round-trip, baseline | D0 (classes) | Medium–High | Done: simulator + R6 baseline (`f35b78f`; T1b `5cb781c`, per video `81388f8`); parity gate with D6, L round-trip with D5b |
 | D2 | Client table v2 + answer judge (shape kinds, HLS locate, fingerprint) | D1 | Medium | TODO |
 | D3 | Health v2, order, budget, stop rules (learned version, shape map) | D2 | Medium–High | TODO |
@@ -403,10 +403,15 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
 - Runs: **3, all on mobile data (no Wi-Fi), at least an hour apart, ideally at different times of
   day**, on the owner's normal mobile data only (never a changed IP, airplane mode or another
   network to avoid a bot check: that is a bypass; owner, 2026-10-15).
-- **Gate:** a rung is **live** when it gave V- (or H-) passed rows for ≥ 6 of 10 videos in ≥ 2 of
-  3 runs; an alternate version when it was accepted in ≥ 2 of 3 runs; a version source when it is
-  usable (above). Only live rungs and usable sources become active; the others are stored as
-  "measured, not active" with the date. Results go into §5 and `PROGRESS.md`.
+- **Gate** (owner, 2026-10-15, §9 item 9: the per-video bot-check rule asks H and the O rungs only
+  on videos without a bot check, so only the videos where a rung was actually asked count): a rung
+  is **live** when its rows passed V (or H) on ≥ 60 % of the videos it was asked on in ≥ 2 of 3
+  valid runs, it was asked on ≥ 4 videos in total over the 3 runs, and wrong = 0. Asked on fewer
+  than 4 videos in total → **provisional**: wired only as a fallback after visionOS fails, V on
+  every row, and the weekly check keeps measuring it until it reaches the minimum. An alternate
+  version is live when it was accepted in ≥ 2 of 3 runs; a version source when it is usable
+  (above). Only live rungs (provisional ones as above) and usable sources become active; the
+  others are stored as "measured, not active" with the date. Results go into §5 and `PROGRESS.md`.
 - **Weekly check (W)**, ≤ 60 s, ≤ 2 MB, ≤ 20 requests, on mobile data:
   - Videos 1 and 5: visionOS as R6 asks it (class, counts, fingerprint, V on one row); the H
     check on video 1; the version sources only if not fetched in 24 h; Android, embedded and MWEB
@@ -716,18 +721,24 @@ modelled classes; an unmodelled change ends in a clean stop, W shows it, and it 
 - **Flag off = R6 / main;** CI, `MasterYouTubeParityTest`, `MasterMainMoreSheetTest` green;
   drift 0.
 
-Census (filled by D0; valid 1–3 = the three valid Full runs, under the bot-check rule; a cell = videos with V- or H-passed rows / videos asked; valid 1: 2026-10-14 23:06 UTC, mobile data, 10 videos, 54 requests, 2659 KB, 29 s; H and the O rungs are asked only on videos without a bot check, see §9 item 9):
+Census (filled by D0; valid 1–3 = the three valid Full runs, under the bot-check rule; a cell = videos with V- or H-passed rows / videos asked; valid 1: 2026-10-14 23:06 UTC, mobile data, 10 videos, 54 requests, 2659 KB, 29 s; valid 2: 2026-10-15 00:37 UTC, the same, 54 requests, 2661 KB, 26 s; H and the O rungs are asked only on videos without a bot check, so the gate counts asked videos, §9 item 9):
 
 | Rung | valid 1 | valid 2 | valid 3 | live? |
 |---|---|---|---|---|
-| R0 visionOS (adaptive rows) | 1 / 10: video 2 `DIRECT` (≤ 2160p, V pass); `BOT_CHECK` 8; video 6 (made-for-kids) `VIDEO_VERDICT` | — | — | — |
-| R0+vd: visionOS again with the page's visitor data, only after a bot check (R6's chain request, not a ladder rung; does not make R0 live) | 8 / 8 `DIRECT`, V pass | — | — | — |
-| A alternates (bundled, ≤ 2) | none bundled (0 asked) | — | — | — |
-| S (visionOS with page signals) | 0 asked (no cipher in a visionOS answer) | — | — | — |
-| H (token step: master / variant / segment) | 1 / 1: 2xx / 2xx / 2xx, no key, 17 variants ≤ 2160p, audio separate, duration matches | — | — | — |
-| Android | 2 / 2 `SABR_ONLY`: the 360p progressive row only (V pass) | — | — | — |
-| embedded | 0 / 2 `VIDEO_VERDICT` (error 152-18) | — | — | — |
-| MWEB | 2 / 2 `NEEDS_SCRIPT` → S ok-sig+n, V pass | — | — | — |
+| R0 visionOS (adaptive rows) | 1 / 10: video 2 `DIRECT` (≤ 2160p, V pass); `BOT_CHECK` 8; video 6 (made-for-kids) `VIDEO_VERDICT` | 1 / 10: as valid 1 | — | — |
+| R0+vd: visionOS again with the page's visitor data, only after a bot check (R6's chain request, not a ladder rung; does not make R0 live) | 8 / 8 `DIRECT`, V pass | 8 / 8 `DIRECT`, V pass | — | — |
+| A alternates (bundled, ≤ 2) | none bundled (0 asked) | none bundled (0 asked) | — | — |
+| S (visionOS with page signals) | 0 asked (no cipher in a visionOS answer) | 0 asked | — | — |
+| H (token step: master / variant / segment) | 1 / 1: 2xx / 2xx / 2xx, no key, 17 variants ≤ 2160p, audio separate, duration matches | 1 / 1: as valid 1 | — | — |
+| Android | 2 / 2 `SABR_ONLY`: the 360p progressive row only (V pass) | 2 / 2: as valid 1 | — | — |
+| embedded | 0 / 2 `VIDEO_VERDICT` (error 152-18) | 0 / 2: as valid 1 | — | — |
+| MWEB | 2 / 2 `NEEDS_SCRIPT` → S ok-sig+n, V pass | 2 / 2: video 2 as valid 1; video 6 adaptive formats without address or cipher (25), only the 360p progressive row (S, V pass) | — | — |
+
+After valid runs 1–2 (asked / passed; runs with ≥ 60 %): Android 4 / 4 (2 of 2; the 360p progressive
+row only) and MWEB 4 / 4 (2 of 2) meet the gate unless valid run 3 shows a wrong row; embedded
+4 / 0; H 2 / 2 (2 of 2), asked once per run, so at most 3 → provisional; S 0 asked → provisional;
+A none bundled; wrong 0 (every answer bound to its video, no V fail). R0 is R6's own first request
+(2 / 20 passed, bot check on 16).
 
 Not valid (not counted for the gate):
 
@@ -742,13 +753,13 @@ Version sources (filled by D0):
 
 | Identity | Source | run 1 | run 2 | run 3 | usable? (or why not) |
 |---|---|---|---|---|---|
-| visionOS | YouTube answers and pages | reachable, no value | — | — | — |
-| visionOS | App Store lookup | 21.41.5, no visionOS device (no visionOS value) | — | — | — |
-| visionOS | reference table | yt-dlp 1.02, YouTube.js 1.02 (= bundled) | — | — | — |
-| Android | Play Store page | over 64 KiB (not read past the cap) | — | — | — |
-| Android | reference table | yt-dlp 21.26.364 (= bundled); YouTube.js 21.03.36 (older) | — | — | — |
-| embedded | embed page config | 2.20261014.01.00 from the watch page (client MWEB); newer, not tried (video 1 met a bot check) | — | — | — |
-| MWEB | mobile page config | 2.20261014.01.00, newer, not tried (video 1 met a bot check) | — | — | — |
+| visionOS | YouTube answers and pages | reachable, no value | = run 1 | — | — |
+| visionOS | App Store lookup | 21.41.5, no visionOS device (no visionOS value) | = run 1 | — | — |
+| visionOS | reference table | yt-dlp 1.02, YouTube.js 1.02 (= bundled) | = run 1 | — | — |
+| Android | Play Store page | over 64 KiB (not read past the cap) | = run 1 | — | — |
+| Android | reference table | yt-dlp 21.26.364 (= bundled); YouTube.js 21.03.36 (older) | = run 1 | — | — |
+| embedded | embed page config | 2.20261014.01.00 from the watch page (client MWEB); newer, not tried (video 1 met a bot check) | = run 1 | — | — |
+| MWEB | mobile page config | 2.20261014.01.00, newer, not tried (video 1 met a bot check) | = run 1 | — | — |
 
 Baseline (filled by D1; the ladder columns by D6). D1 (`MasterClientLadderSimTest`, pinned in
 `extractor-master/src/test/resources/ladder/r6-baseline.txt`): each cell counts lookups over the 5 bases
@@ -892,17 +903,20 @@ merge and release, merging PR #2.
    visitor data, or HTTP 429, stops the run (30 min cooldown). Ladder: its own rungs stop and R6's
    chain runs as today, so the result equals R6's (D3/D6). Simulator class T1b (per video); §5.2
    T1–T3 reworded; never a changed IP or network to avoid a bot check (a bypass). Census and
-   simulator: `5cb781c`; per video: this push.
+   simulator: `5cb781c`; per video: `81388f8`.
 8. **D1 targets** (proposed in the D1 report): **yes — owner, 2026-10-15**, written into §5.2:
    (a) V2's budget counted against R6 without the own solver (3) → the ladder ≤ 2; (b) "completes
    more than R6" only in classes with a checkable path, elsewhere the same verdict and wrong 0;
    (c) H2: the second lookup ≤ 1 player request and complete.
-9. **Gate count under the per-video bot-check rule** (proposed after valid run 1, 2026-10-15; owner
-   decides): H and the O rungs are asked only on videos whose first visionOS request had no bot
-   check (valid run 1: 2 of 10), so "≥ 6 of 10 videos" cannot be met even when every ask passes
-   (MWEB 2 / 2, H 1 / 1). Proposal: count a rung over the videos it was asked on — live when its
-   rows passed V (or H) on ≥ 60 % of them in ≥ 2 of 3 runs, with ≥ 1 asked video in each of those
-   runs; the asked counts stay in the table. As written, neither H nor an O rung can be live, and
-   decision 5 applies (A, S, Z, L only). No code change either way; the runs go on with the same
-   APK. Version acceptance runs on video 1 only (no newer version is tried after its bot check), so
-   the web page config values stay "not tried"; MWEB keeps its bundled version, which works.
+9. **Gate count under the per-video bot-check rule: (က) with a minimum sample — owner, 2026-10-15**
+   (proposed after valid run 1). H and the O rungs are asked only on videos whose first visionOS
+   request had no bot check (valid runs 1–2: 2 of 10 each), so only the videos where a rung was
+   actually asked count: **live** = pass (V- or H-passed rows) on ≥ 60 % of its asked videos in ≥ 2
+   of 3 valid runs, AND asked on ≥ 4 videos in total across the 3 runs, AND wrong = 0. Asked on
+   fewer than 4 videos in total → **provisional**: wired only as a fallback after visionOS fails, V
+   required on every row, and the weekly check keeps measuring it until it reaches the minimum. No
+   code change; the same APK (`81388f8`). Version acceptance runs on video 1 only (no newer version
+   is tried after its bot check), so the web page config values stay "not tried"; MWEB keeps its
+   bundled version, which works. Note: the weekly check asks H, Android, embedded and MWEB on
+   video 1 only, and video 1 met a bot check in every run so far, so W adds samples for a
+   provisional rung only when video 1 escapes it (D7 revisits).
