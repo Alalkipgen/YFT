@@ -1,6 +1,6 @@
 # YFT Master Extractor backup
 
-## Phase 1.3 — B (census items 5–9) + D2 done (2026-10-15; code `eac2df3`, tests and plan this commit; module 587 run / 0 failed, drift 0); ⏸ the owner: one Full census on the new APK
+## Phase 1.3 — B (census items 5–9) + D2 done (2026-10-15; code `eac2df3`, tests and plan `2b62605`, CI ✅; module 587 run / 0 failed, drift 0); ⏸ the owner: one Full census on the new APK
 
 - The owner (2026-10-15, 8 points, "decide yourself"); the agent's decisions:
   1. O rungs back to live: **declined** — the gate stays ≥ 4 distinct videos (the owner's own
@@ -36,7 +36,8 @@
     ("3 videos (1, 2, 5)", ranges "1–3"); 9. budgets: Full ≤ 6 MB; W ≤ 20 requests, ≤ 2 MB,
     ≤ 60 s. The census classes come from AnswerJudge (the census's own classify and regexes
     removed); the shape kind is stored (JSON key `kind`).
-- Tests and plan (this commit; no main code changed since `eac2df3`):
+- Tests and plan (`2b62605`, CI validate ✅ 116301011797 + build ✅ 116300996665; no main code changed
+  since `eac2df3`):
   - `AnswerJudgeTest` (11, new): main's fixtures, never `DIRECT` for a protected, SABR-only or
     cipher answer, the simulator's L1–L16 over the 5 bases (kinds `MOVED` / `PARTIAL`; L11, L12
     verdicts; L13 with its located HLS address; L14 `NEEDS_SCRIPT`), V7's texts → `REFUSED` for
@@ -65,6 +66,10 @@
   - Plan: status board (D0: B5–B9; D2 done), §4 D0 "B, as built", §4 D2 "As built", §5 (known
     limit; V7 live-backed probe), §5.2 (T3 removed under V7), §9 items 5 (does not apply,
     decided) and 9 (O back to live declined), the Burmese summary.
+- APK (`2b62605`, "Master opt-in debug APK (spike)" ✅):
+  Run: https://github.com/Alalkipgen/YFT/actions/runs/38698595313
+  Artifact `yft-master-optin-debug-apk`:
+  https://github.com/Alalkipgen/YFT/actions/runs/38698595313/artifacts/11955890077
 - ⏸ The owner: install the new APK **over** the installed app (no uninstall), re-enter slots 6
   and 8–10 with the same videos, run one **Full census** on mobile data and send the result.
   Expected: the header lists the videos asked; H on every video whose `R0+vd` answer is `DIRECT`

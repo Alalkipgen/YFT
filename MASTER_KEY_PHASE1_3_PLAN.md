@@ -333,9 +333,9 @@ lookup (Master, clientLadder on)
 | ID | Task | Depends on | Difficulty | Status |
 |---|---|---|---|---|
 | G0 | Phase 1.2 closed (gate; Phase 1.2's agent and the owner) | — | Low | Done (`a99e0fb`) |
-| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | **Done** (2026-10-15): code `1135afe`; census runs 1–4 not valid, not counted (§5); bot-check rule (owner, 2026-10-15; `5cb781c`), per video (`81388f8`); valid runs 1–3 done (2026-10-14 23:06, 2026-10-15 00:37 and 02:05 UTC); gate (§5, §9 item 9; distinct videos, owner 2026-10-15 after W 2): provisional H (1 distinct video), Android and MWEB (2 each), S (0 asked); not live embedded; no rung live (§9 item 5: the owner confirms); usable sources: the reference tables (GitHub raw, approved for lookups with conditions, §9 item 3); D8 dropped; Weekly check 1 (2026-10-15 03:39 UTC, §5); then (owner): the diff's `INFO` lines and +/− paths cancel, W's H on video 2 after video 1's bot check (`3e8f378`); Weekly check 2 (04:34 UTC, §5); after a bot check (က+) (§9 item 10); census items B5–B9 (owner items 5–9, 2026-10-15; code `eac2df3`, tests this commit; §4 D0 "B, as built") |
+| D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | **Done** (2026-10-15): code `1135afe`; census runs 1–4 not valid, not counted (§5); bot-check rule (owner, 2026-10-15; `5cb781c`), per video (`81388f8`); valid runs 1–3 done (2026-10-14 23:06, 2026-10-15 00:37 and 02:05 UTC); gate (§5, §9 item 9; distinct videos, owner 2026-10-15 after W 2): provisional H (1 distinct video), Android and MWEB (2 each), S (0 asked); not live embedded; no rung live (§9 item 5: the owner confirms); usable sources: the reference tables (GitHub raw, approved for lookups with conditions, §9 item 3); D8 dropped; Weekly check 1 (2026-10-15 03:39 UTC, §5); then (owner): the diff's `INFO` lines and +/− paths cancel, W's H on video 2 after video 1's bot check (`3e8f378`); Weekly check 2 (04:34 UTC, §5); after a bot check (က+) (§9 item 10); census items B5–B9 (owner items 5–9, 2026-10-15; code `eac2df3`, tests `2b62605`; §4 D0 "B, as built") |
 | D1 | Change simulator, parity gate, L round-trip, baseline | D0 (classes) | Medium–High | Done: simulator + R6 baseline (`f35b78f`; T1b `5cb781c`, per video `81388f8`); parity gate with D6, L round-trip with D5b; T1c, T1d ((က+), §4 D1): a follow-up before D3 |
-| D2 | Client table v2 + answer judge (shape kinds, HLS locate, fingerprint) | D1 | Medium | **Done** (2026-10-15): code `eac2df3`, tests and plan this commit (§4 D2 "As built"); V7 (owner): an error screen without a definite marker = one client's refusal (`REFUSED`), not a verdict; V7 live-backed simulator 10 / 10 complete through MWEB, wrong 0, MCF 0 (§5) |
+| D2 | Client table v2 + answer judge (shape kinds, HLS locate, fingerprint) | D1 | Medium | **Done** (2026-10-15): code `eac2df3`, tests and plan `2b62605` (CI ✅; §4 D2 "As built"); V7 (owner): an error screen without a definite marker = one client's refusal (`REFUSED`), not a verdict; V7 live-backed simulator 10 / 10 complete through MWEB, wrong 0, MCF 0 (§5) |
 | D3 | Health v2, order, budget, stop rules (learned version, shape map; (က+) after a bot check) | D2 | Medium–High | TODO (after the owner's OK on the (က+) plan change) |
 | D4 | Row checks: V (reuse), init check, H check, Z | D2 | Medium | TODO |
 | D5a | visionOS rungs A (with self-healed versions), S, Z | D3, D4 | Medium–High | TODO |
@@ -472,7 +472,7 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   and sources are live. If neither H nor any O rung is live, stop and ask the owner (§9): Phase
   1.3 then keeps A, S, Z and L. (2026-10-15, distinct count: none live — H, Android and MWEB
   provisional; §9 item 5 does not apply — decided 2026-10-15, the owner delegated.)
-- **B, as built** (owner items 5–9, 2026-10-15; code `eac2df3`, tests this commit):
+- **B, as built** (owner items 5–9, 2026-10-15; code `eac2df3`, tests `2b62605`):
   5. (က+) in the census: on R6's `R0+vd` answer that is `DIRECT`, V on one row and the H check
      (token step) on its HLS address — ≤ 1 H a video, ≤ 1 in a weekly run; no other client and
      no other InnerTube request on that video.
@@ -600,7 +600,7 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   `player_malformed.json`, `player_private.json`, `player_geo.json`, `player_drm.json`,
   `player_embed_refused.json`); never `DIRECT` for a protected, SABR-only or cipher answer;
   `SHAPE_CHANGED` for L1–L7 and L10, never for a terminal answer (L11). **Done** (2026-10-15).
-- **As built** (code `eac2df3`, tests this commit):
+- **As built** (code `eac2df3`, tests `2b62605`):
   - `ladder/ClientTable.kt` — `MasterClientTable` v2 (2026-10-15): visionOS R0 live (A, S, H
     provisional; version sources yt-dlp and YouTube.js live, the App Store and the answer measured,
     not active); Android O provisional (A provisional; yt-dlp live; YouTube.js and the Play Store
