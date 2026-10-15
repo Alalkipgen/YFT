@@ -1,6 +1,50 @@
 # YFT Master Extractor backup
 
-## Phase 1.3 — weekly check 2 + (က+) after a bot check + gate by distinct videos (owner, 2026-10-15; docs only); ⏸ the owner's OK on this plan change
+## Phase 1.3 — B (census items 5–9) + D2 code, work in progress (2026-10-15; module 564 run / 0 failed, drift 0); ⏸ the agent's session ended — the next agent continues
+
+- The owner (2026-10-15, 8 points, "decide yourself"); the agent's decisions:
+  1. O rungs back to live: **declined** — the gate stays ≥ 4 distinct videos (the owner's own
+     rule; 2 distinct videos are thin; the provisional rungs stay wired as fallbacks, V on every
+     row). Known limit for plan §5: "O rungs sampled on videos 2 and 6 only (bot-check rule)".
+  2. (က+): already in `2c57124`. 3. B (items 5–9) and C (item 10 = D2) now, **one APK**.
+  4. The parallel agent's files (ShapeLocator, ShapeNormalizer, HlsLeg, HlsCheck, InitCheck,
+     ZRung, LookupMemo) are reused, not rewritten. 5. Census results go to plan §5.
+  6. After the B + D2 APK → ⏸: no T1c/T1d simulator work, no D3.
+  7. Stop on: wrong > 0, MCF > 0 in a modelled class, drift > 0, a flag-off parity failure,
+     CI ❌ twice. 8. §9 item 5 does not apply (provisional rungs wired as fallbacks, V on every
+     row) — decided 2026-10-15 (the owner delegated).
+- Done in this commit (code and tests; **the plan is not updated yet**):
+  - **D2** `ladder/AnswerJudge.kt` (new): one judge for the census answers. Order on a failure:
+    bot-check words (any status) → `BOT_CHECK`; "update to the latest version" →
+    `VERSION_REJECTED`; age check → `AGE_CHECK`; an app refusal → `REFUSED`; a definite marker
+    (private, removed, terminated, members-only, copyright, sign-in) → terminal `VIDEO_VERDICT`;
+    **V7:** `UNPLAYABLE` / `ERROR` without such a marker ("This video is not available",
+    "Error code: 152 - 18") → `REFUSED`, not terminal; DRM with formats → `VIDEO_VERDICT`; a moved
+    or partial shape → `SHAPE_CHANGED` (kind `MOVED` / `PARTIAL`); SABR only → `SABR_ONLY`; else
+    `REFUSED`. HTTP failures: 400 → `VERSION_REJECTED`, else `REFUSED`. The HLS address is taken
+    only on a googlevideo host. `afterV` gives the final class.
+  - **D2** `ladder/ClientTable.kt` (new): `MasterClientTable` version 2 (2026-10-15): visionOS R0
+    live; Android O provisional; embedded O "measured, not active"; MWEB O provisional (the
+    page's newer version listed, never tried); `oRungs()` = Android, MWEB; a one-line
+    `describe()` in the census report.
+  - **B** `ClientCensus.kt`, `CensusModel.kt`: 5. H after R6's `R0+vd` `DIRECT` answer (≤ 1 a
+    video, ≤ 1 in a W run); 6. W, when video 1 met a bot check: on video 2 visionOS R0 + V (+ H
+    only when no H ran yet), then the page, Android + V and MWEB, under a soft budget (what does
+    not fit the 20 requests is not asked, a note says which, the run goes on); 7. the version
+    acceptance on the first video without a bot check and with a watch page (a note says which;
+    none → a note, no newer version tried); 8. the header lists the videos asked
+    ("3 videos (1, 2, 5)", ranges "1–3"); 9. budgets: Full ≤ 6 MB; W ≤ 20 requests, ≤ 2 MB,
+    ≤ 60 s. The census classes come from AnswerJudge (the census's own classify and regexes
+    removed); the shape kind is stored (JSON key `kind`).
+  - Tests: ClientCensusTest, CensusR6ParityTest updated (census tests 49 run / 0 failed); module
+    564 run / 2 skipped / 0 failed; drift 0 (107 symbols); `:app:compileDebugKotlin` ✅.
+- Not done (the next agent, in order): AnswerJudgeTest, ClientTableTest, AnswerJudgeSimTest
+  (V7 live-backed probe, MCF 0), more census tests (B8 ranges, V7 in the census, the table line,
+  the shape kind round trip); the plan (status board, §4 D0 and D2 "As built", §5 known limit and
+  the V7 result, §9 items 5 and 9); push, CI ✅, the APK sha → ⏸ the owner: one Full census after
+  updating over the installed app (no uninstall; slots 6, 8–10 re-entered with the same videos).
+
+## Phase 1.3 — weekly check 2 + (က+) after a bot check + gate by distinct videos (owner, 2026-10-15; docs only, `2c57124`); ⏸ the owner's OK on this plan change
 
 - ✅ **W 2: store reset by owner uninstall, no diff; H 4/4 (all video 2).** Weekly check 2 (owner,
   2026-10-15 04:34 UTC, 55 min after W 1; `3e8f378` APK, mobile data, metered): 17 requests,

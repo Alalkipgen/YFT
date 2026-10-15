@@ -18,10 +18,12 @@ import org.junit.Test
  * Phase 1.3 D0, the bot-check rule (owner, 2026-10-15): the census sends R6's requests. Its first
  * request is R6's first request, byte for byte (address, headers in order, body). After a bot
  * check on it, the census sends R6's watch page GET and, when the page gave visitor data, R6's
- * visionOS request with that visitor data — nothing else to YouTube for that video — and V reads
- * one byte of a row that answer returned (a row the download reads); like R6, it does so for each
- * video (each lookup) on its own. R6 is Master's module as the app runs it: the copied extractor,
- * the user's cookie removed, no solver.
+ * visionOS request with that visitor data — nothing else to YouTube for that video — V reads
+ * one byte of a row that answer returned (a row the download reads) and, when that answer is
+ * `DIRECT`, the H check reads its HLS playlists on `manifest.googlevideo.com` and one segment on
+ * the media host ((က+), B5: no YouTube request); like R6, it does so for each video (each lookup)
+ * on its own. R6 is Master's module as the app runs it: the copied extractor, the user's cookie
+ * removed, no solver.
  */
 class CensusR6ParityTest {
     @Test
@@ -53,9 +55,14 @@ class CensusR6ParityTest {
         assertEquals(listOf(r6Posts[0], r6Posts[2]), posts(census))
         assertEquals(Census.VISITOR, census.postedHeaders[1]["X-Goog-Visitor-Id"])
         assertEquals(gets(r6), youTubeGets(census))
-        assertEquals(CensusSources.DOCUMENTS.map { it.url }, gets(census).map(Sent::url) - youTubeGets(census).map(Sent::url).toSet())
-        assertEquals(1, census.probedUrls.size)
-        assertTrue(census.probedUrls.single().startsWith("https://${Census.HOST}/videoplayback?"))
+        // The rest: the H check's two playlists ((က+), B5), then the version sources.
+        assertEquals(
+            listOf(Census.MASTER, Census.VARIANT) + CensusSources.DOCUMENTS.map { it.url },
+            gets(census).map(Sent::url) - youTubeGets(census).map(Sent::url).toSet(),
+        )
+        assertEquals(2, census.probedUrls.size)
+        assertTrue(census.probedUrls[0].startsWith("https://${Census.HOST}/videoplayback?"))
+        assertEquals(Census.SEGMENT, census.probedUrls[1])
         assertNull(outcome.stopped)
         assertNoSignIn(r6, census)
     }
@@ -76,7 +83,9 @@ class CensusR6ParityTest {
         val r6Posts = posts(r6)
         assertEquals(listOf(r6Posts[0], r6Posts[2], r6Posts[3], r6Posts[5]), posts(census))
         assertEquals(gets(r6), youTubeGets(census))
-        assertEquals(2, census.probedUrls.size)
+        // Per video: V on one row and the H check's segment ((က+), B5).
+        assertEquals(4, census.probedUrls.size)
+        assertEquals(2, census.probedUrls.count { it == Census.SEGMENT })
         assertNull(outcome.stopped)
         assertNoSignIn(r6, census)
     }

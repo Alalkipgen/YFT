@@ -19,8 +19,6 @@ import com.alal.yft.extractor.master.modules.youtube.StreamCheck
 import com.alal.yft.extractor.master.modules.youtube.YouTubeClientProfile
 import com.alal.yft.extractor.master.modules.youtube.YouTubeClientProfiles
 import com.alal.yft.extractor.master.modules.youtube.YouTubePageSignals
-import com.alal.yft.extractor.master.modules.youtube.YouTubeParseResult
-import com.alal.yft.extractor.master.modules.youtube.YouTubePlayerResponse
 import com.alal.yft.extractor.master.modules.youtube.YouTubePlayerResponseParser
 import com.alal.yft.extractor.master.modules.youtube.YouTubeStream
 import com.alal.yft.extractor.master.modules.youtube.YouTubeUrls
@@ -41,19 +39,26 @@ import kotlinx.coroutines.CancellationException
  * progressive only or not, V; (5) the embedded player with the page's version and embed context,
  * as main asks it — class, S through the own solver, V; (6) MWEB — class, S, V. After video 1 the
  * public version sources are read once ([CensusSources]); a new valid value newer than the
- * bundled one is tried once on video 1 (`SH`: one request and V).
+ * bundled one is tried once (`SH`: one request and V) on the first video in list order without a
+ * bot check and with a watch page (B7, owner 2026-10-15), with MWEB's formats without an address
+ * compared between the bundled and the newer version. Every answer is classed by D2's
+ * [AnswerJudge].
  *
  * **Weekly check**: videos 1 and 5 visionOS (V on one row, H on video 1), then Android, embedded
- * and MWEB once on video 1 (no S), the version sources only when not read in 24 h; ≤ 60 s,
- * ≤ 2 MB and ≤ 20 requests. H runs on a video without a bot check (owner, 2026-10-15): when video
- * 1 met one, visionOS is asked on video 2 (as R6 asks it, V on one row) for the H check instead.
+ * and MWEB once on video 1 (no S), the version sources only when not read in 24 h, and the
+ * version acceptance on video 1; ≤ 60 s, ≤ 2 MB and ≤ 20 requests. When video 1 met a bot check
+ * (owner, 2026-10-15): H runs on its `R0+vd` answer when that is `DIRECT` (B5), and video 2 (no bot
+ * check in valid runs 1–3) gets the rest under a soft budget ([weeklySecond]): visionOS for H only
+ * when no H ran yet, then its watch page, Android and MWEB (B6) and the version acceptance (B7).
  *
  * **Bot checks** (owner, 2026-10-15): after a bot check the census never sends a request R6 would
  * not send, and like R6 it answers each lookup (each video) on its own. A bot check on visionOS's
  * first request of a video (no visitor data: R6's own first request) is answered as R6 answers it
  * ([answerAsR6]): that video's watch page once and visionOS once more with the page's visitor data
  * (`R0+vd`, R6's `visionOsInChain` request), V on one row of that answer (a one-byte read of a row
- * the download reads), nothing else for that video, and the run goes on with the next video. A
+ * the download reads) and, when it is `DIRECT`, the H check on its HLS address ((က+), owner
+ * 2026-10-15: reads on `manifest.googlevideo.com` and the media host, no YouTube request), nothing
+ * else for that video, and the run goes on with the next video. A
  * bot check on a request that already carried visitor data (`R0+vd`, or a client asked with the
  * page's visitor data) stops the run with no run for 30 min; so does HTTP 429 (no retry). A bot
  * check on any other request without visitor data ends that video only: R6 has no visitor data
@@ -146,12 +151,13 @@ class ClientCensus(
             sourcesAt = if (session.sourcesRead) startedAt else state.sourcesAt,
         )
         val secrets = chosen.values + session.secrets
-        val summary = "$toolLabel · ${mode.name} · ${CensusJson.dateOf(startedAt)} · ${chosen.size} videos · " +
+        val summary = "$toolLabel · ${mode.name} · ${CensusJson.dateOf(startedAt)} · ${videosAsked(run)} · " +
             "${run.requests} requests · ${kilobytes(run.bytes)} KB${if (run.metered) "" else " (bodies only)"} · " +
             "${run.millis / SECOND_MILLIS} s" + (run.stopped?.let { " · stopped: $it" } ?: "")
         val report = buildString {
             append(diff.text()).append('\n')
             append(summary).append('\n')
+            append(MasterClientTable.describe()).append('\n')
             append(CensusJson.run(run))
         }
         return Outcome(
@@ -166,6 +172,7 @@ class ClientCensus(
 
     private suspend fun full(session: Session, videos: Map<Int, String>) {
         var sourcesDone = false
+        var accepted = false
         for ((slot, id) in videos) {
             if (session.stopped != null) break
             val video = fullVideo(session, slot, id)
@@ -173,7 +180,12 @@ class ClientCensus(
                 sourcesDone = true
                 readSources(session, video)
             }
+            if (sourcesDone && !accepted && session.stopped == null && acceptable(session, video)) {
+                accepted = true
+                accept(session, video)
+            }
         }
+        if (sourcesDone && !accepted && session.stopped == null) accept(session, null)
     }
 
     private suspend fun fullVideo(session: Session, slot: Int, id: String): Video {
@@ -241,6 +253,7 @@ class ClientCensus(
         if (page != null && session.open(video)) {
             session.step("video $slot · MWEB")
             ask(session, video, YouTubeClientProfiles.mobileWeb(), R0, page)?.let { mobile ->
+                video.mweb = mobile
                 solveAndCheck(session, video, mobile, page)
                 session.finish(mobile)
             }
@@ -263,7 +276,6 @@ class ClientCensus(
                 hlsCheck(session, first, answer)
             }
         }
-        if (session.stopped == null && first.slot in session.answeredAsR6) weeklyHls(session, videos)
         val fifthId = videos[WEEKLY_SECOND_VIDEO]
         if (fifthId == null) {
             session.notes += "video $WEEKLY_SECOND_VIDEO is not set, so the weekly check skipped it"
@@ -286,35 +298,83 @@ class ClientCensus(
         } else {
             session.notes += "version sources: read less than 24 h ago, not read again"
         }
+        if (session.stopped != null) return
+        if (first.slot in session.answeredAsR6) {
+            weeklySecond(session, videos)
+        } else {
+            accept(session, first.takeIf { acceptable(session, it) })
+        }
     }
 
     /**
-     * H on a video without a bot check (owner, 2026-10-15): video 1 met one, so it had no H check;
-     * video 2 (no bot check in valid runs 1–3) is asked as R6 asks it (V on one row) and its HLS
-     * address gets the H check. Its own bot check is answered as R6, and then no H runs. Only
-     * reached after video 1's bot check, so the run stays within its 20 requests: video 1 asks no
-     * other client and tries no version.
+     * The weekly check after video 1's bot check (owner, 2026-10-15): video 1 was answered as R6,
+     * so video 2 (no bot check in valid runs 1–3) gets what video 1 could not. visionOS is asked
+     * on it as R6 asks it (V on one row) for the H check only when no `R0+vd` answer gave one (B5);
+     * then its watch page, Android (V) and MWEB (V on a row without a script) — B6 — and the version
+     * acceptance on it (B7). Its own bot check is answered as R6, and then no other client is
+     * asked. Under a soft budget: what does not fit in the 20 requests is not asked, the run goes
+     * on (not stopped), and a note names what was left out.
      */
-    private suspend fun weeklyHls(session: Session, videos: Map<Int, String>) {
+    private suspend fun weeklySecond(session: Session, videos: Map<Int, String>) {
         val id = videos[WEEKLY_HLS_VIDEO]
         if (id == null) {
-            session.notes += "H: video 1 met a bot check and video $WEEKLY_HLS_VIDEO is not set, so no H check ran"
+            val h = if (session.hls.isEmpty()) "no H check ran and " else ""
+            session.notes += "video 1 met a bot check and video $WEEKLY_HLS_VIDEO is not set, so ${h}no other client was asked"
+            accept(session, null)
             return
         }
         val video = Video(WEEKLY_HLS_VIDEO, id)
-        session.step("video $WEEKLY_HLS_VIDEO · visionOS")
-        ask(session, video, VISION_OS, R0, NO_PAGE)?.let { answer ->
-            video.visionOs = answer
-            firstAnswer(session, video, answer) {
-                directCheck(session, video, answer, preferProgressive = false)
-                hlsCheck(session, video, answer)
+        session.soft = true
+        try {
+            if (session.hls.isEmpty()) {
+                session.step("video $WEEKLY_HLS_VIDEO · visionOS")
+                ask(session, video, VISION_OS, R0, NO_PAGE)?.let { answer ->
+                    video.visionOs = answer
+                    firstAnswer(session, video, answer) {
+                        directCheck(session, video, answer, preferProgressive = false)
+                        hlsCheck(session, video, answer)
+                    }
+                }
+                if (session.stopped != null) return
+                session.notes += when {
+                    session.hls.any { it.video == video.slot } -> "H: video 1 met a bot check, so the H check ran on video $WEEKLY_HLS_VIDEO"
+                    video.slot in session.answeredAsR6 -> "H: video 1 and video $WEEKLY_HLS_VIDEO met a bot check and gave no H check"
+                    else -> "H: video 1 met a bot check and video $WEEKLY_HLS_VIDEO's visionOS answer had no HLS address, so no H check ran"
+                }
             }
-        }
-        if (session.stopped != null) return
-        session.notes += when {
-            video.slot in session.answeredAsR6 -> "H: video 1 and video $WEEKLY_HLS_VIDEO met a bot check, so no H check ran"
-            session.hls.any { it.video == video.slot } -> "H: video 1 met a bot check, so the H check ran on video $WEEKLY_HLS_VIDEO"
-            else -> "H: video 1 met a bot check and video $WEEKLY_HLS_VIDEO's visionOS answer had no HLS address, so no H check ran"
+            if (video.slot in session.answeredAsR6 || video.closed) {
+                session.notes += "video $WEEKLY_HLS_VIDEO: answered as R6 after its bot check, so Android and MWEB were not asked"
+                accept(session, null)
+                return
+            }
+            session.step("video $WEEKLY_HLS_VIDEO · watch page")
+            val page = page(session, video)
+            video.page = page
+            if (session.open(video)) {
+                session.step("video $WEEKLY_HLS_VIDEO · Android")
+                ask(session, video, ANDROID, R0, page ?: NO_PAGE)?.let { answer ->
+                    video.android = answer
+                    directCheck(session, video, answer, preferProgressive = true)
+                    session.finish(answer)
+                }
+            }
+            if (page != null && session.open(video)) {
+                session.step("video $WEEKLY_HLS_VIDEO · MWEB")
+                ask(session, video, YouTubeClientProfiles.mobileWeb(), R0, page)?.let { answer ->
+                    video.mweb = answer
+                    checkWithoutScript(session, video, answer)
+                    session.finish(answer)
+                }
+            } else if (page == null && session.open(video) && session.left.isEmpty()) {
+                session.notes += "video $WEEKLY_HLS_VIDEO: no watch page, so MWEB was not asked"
+            }
+            if (session.stopped == null) accept(session, video.takeIf { acceptable(session, it) })
+        } finally {
+            session.soft = false
+            if (session.left.isNotEmpty()) {
+                session.notes += "within the weekly check's $WEEKLY_MAX_REQUESTS requests, not asked: " +
+                    session.left.joinToString(", ") + " (the run went on)"
+            }
         }
     }
 
@@ -336,7 +396,7 @@ class ClientCensus(
                 if (!session.open(first)) break
                 session.step("video 1 · ${profile.clientName}")
                 ask(session, first, profile, R0, page)?.let { answer ->
-                    if (profile.id == "embedded") first.embedded = answer
+                    if (profile.id == "embedded") first.embedded = answer else first.mweb = answer
                     checkWithoutScript(session, first, answer)
                     session.finish(answer)
                 }
@@ -366,8 +426,9 @@ class ClientCensus(
      * and `visionOsInChain`), and nothing more: the watch page once, then visionOS once more with
      * the page's visitor data, in the body and as `X-Goog-Visitor-Id`, otherwise as before the
      * page; without visitor data R6 does not ask again, and neither does the census. V reads one
-     * byte of one row of that answer (a row the download reads). No S, alternate, H check,
-     * Android, embedded player or MWEB for this video, and no version is tried on it. A bot check
+     * byte of one row of that answer (a row the download reads) and, when it is `DIRECT`, the H
+     * check reads its HLS address ((က+), B5; no YouTube request). No S, alternate, Android,
+     * embedded player or MWEB for this video, and no version is tried on it. A bot check
      * on that request, which carries visitor data, stops the run ([ask]). R6 answers each lookup
      * on its own, so this runs for every video whose first request met a bot check (owner,
      * 2026-10-15). Only reached while the run is not stopped.
@@ -390,6 +451,7 @@ class ClientCensus(
         val again = ask(session, video, VISION_OS, AGAIN, NO_PAGE.copy(visitorData = visitorData)) ?: return
         if (again.record.answerClass != CensusClass.BOT_CHECK) video.visionOs = again
         directCheck(session, video, again, preferProgressive = false)
+        if (again.record.answerClass == CensusClass.DIRECT) hlsCheck(session, video, again)
         session.finish(again)
     }
 
@@ -429,12 +491,11 @@ class ClientCensus(
         )
         val asked = when (answer) {
             is ExtractorHttpResult.Failure -> {
-                val rejected = answer.statusCode == HTTP_BAD_REQUEST
                 if (answer.statusCode == HTTP_TOO_MANY || answer.reason == SiteExtractionFailure.RATE_LIMITED) {
                     session.stop("rate-limited")
                     session.cooldown = true
                 }
-                val kind = if (rejected) CensusClass.VERSION_REJECTED else CensusClass.REFUSED
+                val kind = AnswerJudge.ofFailure(answer).answerClass
                 Asked(
                     profile, video, null, null,
                     base.copy(http = answer.statusCode?.toString() ?: answer.reason.name, answerClass = kind, finalClass = kind),
@@ -480,14 +541,15 @@ class ClientCensus(
         val body = answer.body
         val response = YouTubePlayerResponseParser.inspect(body, clock())
         val root = BoundedJsonParser.parse(body, maxDepth = MAX_JSON_DEPTH, maxNodes = MAX_JSON_NODES)
-        val parsed = (response.result as? YouTubeParseResult.Success)?.video
+        val verdict = AnswerJudge.judge(profile, response, root, body, video.id)
+        val parsed = verdict.video
         val streams = parsed?.let { it.progressive + it.adaptive }.orEmpty()
         val summary = response.summary
         val shape = root?.let { ShapeFingerprint.of(it, redact = setOfNotNull(video.id, signals.visitorData)) }
         val details = root["videoDetails"]
         val status = root.path("playabilityStatus", "status").asStringOrNull?.takeIf(STATUS_NAME::matches)
             ?: if (summary.readable) "none" else "unreadable"
-        val kind = classify(profile, response, parsed)
+        val kind = verdict.answerClass
         val record = base.copy(
             http = answer.statusCode.toString(),
             answerClass = kind,
@@ -502,7 +564,7 @@ class ClientCensus(
             unaddressed = parsed?.unaddressedFormats ?: summary.adaptiveWithoutAddress,
             missingSizes = streams.count { (it.contentLengthBytes ?: 0L) <= 0L },
             sabr = summary.sabr,
-            hls = hlsAddressOf(root) != null,
+            hls = verdict.hls != null,
             heights = streams.filter(YouTubeStream::hasVideo).mapNotNull(YouTubeStream::height).distinct().sorted(),
             videoCodecs = streams.filter(YouTubeStream::hasVideo).mapNotNull { familyOf(it.codecs.firstOrNull()) }.distinct().sorted(),
             audioCodecs = streams.filter { it.hasAudio && !it.hasVideo }.mapNotNull { familyOf(it.codecs.firstOrNull()) }.distinct().sorted(),
@@ -512,47 +574,10 @@ class ClientCensus(
             shapeFull = shape?.fullHash,
             shapePaths = shape?.core,
             shapeTruncated = shape?.truncated ?: false,
+            shapeKind = verdict.shapeKind?.name?.lowercase(),
             kilobytes = kilobytes(body.length.toLong()),
         )
-        return Asked(profile, video, root, parsed, record)
-    }
-
-    /** v2's classes from the answer itself (D2's judge refines them). */
-    private fun classify(
-        profile: YouTubeClientProfile,
-        response: YouTubePlayerResponse,
-        video: YouTubeVideo?,
-    ): CensusClass {
-        val summary = response.summary
-        val reason = summary.reason.orEmpty()
-        return when (val result = response.result) {
-            is YouTubeParseResult.Failure -> when {
-                result.reason == SiteExtractionFailure.BOT_CHECK -> CensusClass.BOT_CHECK
-                VERSION_REFUSAL.containsMatchIn(reason) -> CensusClass.VERSION_REJECTED
-                result.ageCheck -> CensusClass.AGE_CHECK
-                APP_REFUSAL.containsMatchIn(reason) -> CensusClass.REFUSED
-                result.definite -> CensusClass.VIDEO_VERDICT
-                !summary.readable -> CensusClass.REFUSED
-                summary.sabrOnly || result.reason == SiteExtractionFailure.NO_MEDIA_FOUND -> CensusClass.SABR_ONLY
-                result.reason == SiteExtractionFailure.RESPONSE_CHANGED -> CensusClass.SHAPE_CHANGED
-                else -> CensusClass.REFUSED
-            }
-
-            is YouTubeParseResult.Success -> {
-                val parsed = video ?: result.video
-                val streams = parsed.progressive + parsed.adaptive
-                val needsScript = streams.any(YouTubeStream::isProtected) ||
-                    (profile.usesPlayerScript && streams.any { stream -> stream.url?.let(::rateInput) != null })
-                when {
-                    needsScript -> CensusClass.NEEDS_SCRIPT
-                    parsed.adaptive.isEmpty() && summary.sabr -> CensusClass.SABR_ONLY
-                    parsed.unaddressedFormats > 0 ||
-                        streams.any { (it.contentLengthBytes ?: 0L) <= 0L } ||
-                        parsed.title == null || parsed.durationMillis == null -> CensusClass.INCOMPLETE
-                    else -> CensusClass.DIRECT
-                }
-            }
-        }
+        return Asked(profile, video, root, parsed, record, verdict.hls)
     }
 
     /** R6's player headers (the copied extractor's `playerHeaders`), without a cookie. */
@@ -738,7 +763,7 @@ class ClientCensus(
         control: String?,
         kind: StreamCheck.Kind,
     ) {
-        if (!session.allow(cost = if (control != null) 2 else 1)) {
+        if (!session.allow(cost = if (control != null) 2 else 1, what = "V")) {
             asked.record = asked.record.copy(v = "skip-budget")
             return
         }
@@ -756,11 +781,7 @@ class ClientCensus(
             ),
         )
         session.requests += result.requests
-        val final = if (result.target == StreamCheck.StatusClass.FORBIDDEN_403) {
-            CensusClass.TOKEN_NEEDED
-        } else {
-            asked.record.answerClass
-        }
+        val final = AnswerJudge.afterV(asked.record.answerClass, result.target == StreamCheck.StatusClass.FORBIDDEN_403)
         asked.record = asked.record.copy(
             finalClass = final,
             v = result.verdict.name,
@@ -771,9 +792,11 @@ class ClientCensus(
         )
     }
 
+    /** H on [asked]'s HLS address (the judge's: the field or located): ≤ 1 a video, ≤ 1 a weekly run. */
     private suspend fun hlsCheck(session: Session, video: Video, asked: Asked) {
-        val address = hlsAddressOf(asked.root) ?: return
-        if (!session.allow(cost = 3)) return
+        val address = asked.hls ?: return
+        if (session.hls.any { it.video == video.slot } || (session.mode == Mode.WEEKLY && session.hls.isNotEmpty())) return
+        if (!session.allow(cost = 3, what = "H")) return
         session.step("video ${video.slot} · HLS")
         val result = HlsCheck(http).check(address, mediaHeaders(video.id), asked.record.lengthSeconds)
         session.requests += result.requests
@@ -850,18 +873,31 @@ class ClientCensus(
                 }
             }
         }
-        acceptanceTests(session, first)
     }
 
-    /** One request (and V) on video 1 for the newest valid value newer than the bundled one. */
-    private suspend fun acceptanceTests(session: Session, first: Video) {
-        if (first.slot in session.answeredAsR6 || first.closed) {
-            if (session.versions.any { it.pattern && it.newer == true }) {
-                session.notes += "version acceptance: video ${first.slot} met a bot check, so no newer version was tried " +
-                    "(R6 sends no such request)"
-            }
+    /** B7: a video the version acceptance may use — no bot check answered as R6, not closed, a page. */
+    private fun acceptable(session: Session, video: Video): Boolean =
+        video.slot !in session.answeredAsR6 && !video.closed && video.page != null
+
+    /**
+     * The version acceptance on [video], the first video without a bot check and with a watch page
+     * (B7, owner 2026-10-15), or a note that none had one; nothing when no source gave a newer value.
+     */
+    private suspend fun accept(session: Session, video: Video?) {
+        if (session.versions.none { it.pattern && it.newer == true }) return
+        if (video == null) {
+            session.notes += "version acceptance: no video without a bot check and with a watch page, so no newer version " +
+                "was tried (R6 sends no such request)"
             return
         }
+        if (video.slot != FIRST_VIDEO) {
+            session.notes += "version acceptance: on video ${video.slot}, the first video without a bot check and with a watch page"
+        }
+        acceptanceTests(session, video)
+    }
+
+    /** One request (and V) on [first] for each identity's newest valid value newer than the bundled one. */
+    private suspend fun acceptanceTests(session: Session, first: Video) {
         for (identity in listOf("visionos", "android", "mweb")) {
             if (session.stopped != null) return
             val candidates = session.versions.filter { it.identity == identity && it.pattern && it.newer == true }
@@ -880,6 +916,11 @@ class ClientCensus(
             val asked = ask(session, first, profile, "SH", signals) ?: return
             if (identity == "mweb") checkWithoutScript(session, first, asked) else directCheck(session, first, asked, identity == "android")
             session.finish(asked)
+            val bundled = first.mweb
+            if (identity == "mweb" && bundled != null && asked.video != null) {
+                session.notes += "mweb video ${first.slot}: formats without an address — bundled " +
+                    "${YouTubeClientProfiles.MOBILE_CLIENT_VERSION}: ${bundled.record.unaddressed}, page's $value: ${asked.record.unaddressed}"
+            }
             val verdict = when {
                 asked.record.answerClass == CensusClass.BOT_CHECK -> "bot-check"
                 asked.record.answerClass == CensusClass.VERSION_REJECTED -> "rejected"
@@ -923,10 +964,20 @@ class ClientCensus(
         val notes = ArrayList<String>()
         val secrets = HashSet<String>()
         private var checks = 0
+        private var lastStep = ""
+
+        /** The weekly check's video 2 part: over the request budget means "not asked", not a stop. */
+        var soft = false
+
+        /** What the soft budget left out (step labels without the video, in order). */
+        val left = LinkedHashSet<String>()
 
         fun bytes(): Long = if (metered) (meter.bytes() - meterStart).coerceAtLeast(0) else bodyBytes
 
-        fun step(label: String) = onStep(label)
+        fun step(label: String) {
+            lastStep = label
+            onStep(label)
+        }
 
         fun finish(asked: Asked) {
             asks += asked.record
@@ -944,8 +995,11 @@ class ClientCensus(
             return "census-$checks"
         }
 
-        /** Whether [cost] more requests fit the mode's budget; stops the run when they do not. */
-        fun allow(cost: Int = 1): Boolean {
+        /**
+         * Whether [cost] more requests fit the mode's budget; stops the run when they do not, except
+         * over the weekly request count while [soft]: then [what] (default: the step) is left out.
+         */
+        fun allow(cost: Int = 1, what: String? = null): Boolean {
             if (stopped != null) return false
             val maxBytes = if (mode == Mode.FULL) FULL_MAX_BYTES else WEEKLY_MAX_BYTES
             if (bytes() >= maxBytes) {
@@ -954,6 +1008,11 @@ class ClientCensus(
             }
             if (mode == Mode.WEEKLY) {
                 if (requests + cost > WEEKLY_MAX_REQUESTS) {
+                    if (soft) {
+                        val step = lastStep.substringAfter(" · ")
+                        left += if (what == null) step else "$step $what".trim()
+                        return false
+                    }
                     stop("requests")
                     return false
                 }
@@ -972,6 +1031,7 @@ class ClientCensus(
         var visionOs: Asked? = null
         var android: Asked? = null
         var embedded: Asked? = null
+        var mweb: Asked? = null
         var passedDirect: String? = null
 
         /** A bot check on a request without visitor data, other than visionOS's first: nothing more. */
@@ -986,6 +1046,8 @@ class ClientCensus(
         val root: JsonValue?,
         val video: YouTubeVideo?,
         var record: CensusAsk,
+        /** The judge's HLS address (field or located, a `googlevideo.com` host), or null. */
+        val hls: String? = null,
     ) {
         val streams: List<YouTubeStream>
             get() = video?.let { it.progressive + it.adaptive }.orEmpty()
@@ -1076,7 +1138,6 @@ class ClientCensus(
         private const val MAX_PAGE_BYTES: Long = 4L * 1024 * 1024
         private const val MAX_JSON_DEPTH = 64
         private const val MAX_JSON_NODES = 400_000
-        private const val HTTP_BAD_REQUEST = 400
         private const val HTTP_TOO_MANY = 429
         private const val DAY_MILLIS = 24L * 60 * 60 * 1000
         private const val MINUTE_MILLIS = 60_000L
@@ -1115,15 +1176,6 @@ class ClientCensus(
         private val SIGNATURE_PARAM = Regex("^[A-Za-z]{1,16}$")
         private val RATE_OUTPUT = Regex("^[A-Za-z0-9_-]{2,128}$")
         private val CODEC_FAMILY = Regex("^[a-z0-9-]{2,8}$")
-
-        /** YouTube asking for a newer app: the version, not the video. */
-        private val VERSION_REFUSAL = Regex(
-            "(?i)(update (the|your|to the latest)|no longer supported|" +
-                "(app|client|version) (is )?(not|no longer) supported|unsupported (app|client|version))",
-        )
-
-        /** A refusal of this app rather than a verdict about the video. */
-        private val APP_REFUSAL = Regex("(?i)(not available on this app|isn['\u2019]t available on this app)")
 
         /** The video ID from an ID or a YouTube address (watch, youtu.be, shorts, embed, live). */
         fun videoIdOf(text: String): String? {
@@ -1175,6 +1227,26 @@ class ClientCensus(
 
         private fun kilobytes(bytes: Long): Long = (bytes + 1023) / 1024
 
+        /** B8: the videos the run asked anything about, e.g. `3 videos (1, 2, 5)` or `10 videos (1–10)`. */
+        private fun videosAsked(run: CensusRun): String {
+            val asked = (run.asks.map(CensusAsk::video) + run.pages.map(CensusPage::video) + run.hls.map(CensusHls::video))
+                .toSortedSet().toList()
+            if (asked.isEmpty()) return "0 videos"
+            val parts = ArrayList<String>()
+            var start = 0
+            while (start < asked.size) {
+                var end = start
+                while (end + 1 < asked.size && asked[end + 1] == asked[end] + 1) end += 1
+                if (end - start >= 2) {
+                    parts += "${asked[start]}\u2013${asked[end]}"
+                } else {
+                    (start..end).forEach { parts += asked[it].toString() }
+                }
+                start = end + 1
+            }
+            return "${asked.size} video${if (asked.size == 1) "" else "s"} (${parts.joinToString(", ")})"
+        }
+
         private fun isAvc(stream: YouTubeStream): Boolean = stream.codecs.any { it.startsWith("avc1") }
 
         private fun familyOf(codec: String?): String? =
@@ -1199,9 +1271,6 @@ class ClientCensus(
             StreamCheck.StatusClass.NETWORK -> "net"
             StreamCheck.StatusClass.UNSUPPORTED -> "unsupported"
         }
-
-        private fun hlsAddressOf(root: JsonValue?): String? =
-            root.path("streamingData", "hlsManifestUrl").asStringOrNull?.takeIf { it.startsWith("https://") }
 
         private fun rateInput(url: String): String? = YouTubeUrls.queryParamOf(url, RATE_PARAM)
             ?.let(::decode)

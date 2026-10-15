@@ -43,6 +43,13 @@ internal enum class CensusClass {
             AGE_CHECK, VIDEO_VERDICT -> 4
         }
 
+    /**
+     * A verdict about the video itself (age, sign-in, private, removed, region, DRM, live): no row
+     * may follow and no other client is asked for it (D2; V7 keeps one client's refusal `REFUSED`).
+     */
+    val terminal: Boolean
+        get() = this == AGE_CHECK || this == VIDEO_VERDICT
+
     /** The runbook step (§7) a change to this class points to. */
     val runbookStep: Int
         get() = when (this) {
@@ -103,6 +110,8 @@ internal data class CensusAsk(
     val shapeFull: String? = null,
     val shapePaths: List<String>? = null,
     val shapeTruncated: Boolean = false,
+    /** D2's `SHAPE_CHANGED` kind: `moved` or `partial` ([AnswerJudge.ShapeKind]), else null. */
+    val shapeKind: String? = null,
     val kilobytes: Long = 0,
     val millis: Long = 0,
 ) {
@@ -176,6 +185,7 @@ internal object CensusJson {
     const val FORMAT = 1
     const val MAX_RUNS = 8
     private const val MAX_STATE_NODES = 600_000
+    private val SHAPE_KINDS = setOf("moved", "partial")
 
     fun tagOf(videoId: String): String {
         val digest = MessageDigest.getInstance("SHA-256").digest(videoId.toByteArray(Charsets.UTF_8))
@@ -278,6 +288,7 @@ internal object CensusJson {
         field("shf", ask.shapeFull)
         ask.shapePaths?.let { field("bits", ShapeDictionary.bits(order, it)) }
         if (ask.shapeTruncated) field("trunc", true)
+        field("kind", ask.shapeKind)
         field("kb", ask.kilobytes)
         field("ms", ask.millis)
         append('}')
@@ -440,6 +451,7 @@ internal object CensusJson {
             shapeFull = value["shf"].asStringOrNull,
             shapePaths = value["bits"].asStringOrNull?.let { ShapeDictionary.decode(order, it) },
             shapeTruncated = value["trunc"].asBooleanOrNull ?: false,
+            shapeKind = value["kind"].asStringOrNull?.takeIf { it in SHAPE_KINDS },
             kilobytes = value["kb"].asLongOrNull ?: 0,
             millis = value["ms"].asLongOrNull ?: 0,
         )
