@@ -65,6 +65,8 @@ internal object Census {
             "itag" to itag, "url" to url, "signatureCipher" to cipher,
             "mimeType" to "video/mp4; codecs=\"$codec\"", "width" to height * 16 / 9, "height" to height,
             "contentLength" to size?.toString(), "qualityLabel" to "${height}p",
+            // D7: the length binding L needs (real answers carry it on every format).
+            "approxDurationMs" to (LENGTH * 1000).toString(),
         )
 
     fun audio(itag: Int = 140, codec: String = "mp4a.40.2", url: String? = media(itag), cipher: String? = null) =
@@ -72,6 +74,8 @@ internal object Census {
             "itag" to itag, "url" to url, "signatureCipher" to cipher,
             "mimeType" to "audio/mp4; codecs=\"$codec\"", "contentLength" to "300000",
             "audioQuality" to "AUDIO_QUALITY_MEDIUM", "audioSampleRate" to "44100",
+            // D7: the length binding L needs (real answers carry it on every format).
+            "approxDurationMs" to (LENGTH * 1000).toString(),
         )
 
     fun progressive(itag: Int = 18, url: String? = media(itag), cipher: String? = null) =
@@ -80,6 +84,8 @@ internal object Census {
             "mimeType" to "video/mp4; codecs=\"avc1.42001E, mp4a.40.2\"", "width" to 640, "height" to 360,
             "contentLength" to "2000000", "qualityLabel" to "360p", "audioQuality" to "AUDIO_QUALITY_LOW",
             "audioSampleRate" to "44100",
+            // D7: the length binding L needs (real answers carry it on every format).
+            "approxDurationMs" to (LENGTH * 1000).toString(),
         )
 
     fun answer(

@@ -8,7 +8,9 @@
 - ✅ One ladder per process; health in `files/master/client-health.json`.
 - ✅ Census fixes: MWEB's address-less flip → `INFO`; the R6 note → "no other client for this video".
 - ✅ `LadderTrialTest` (3): B0 × every mode × own solver off / on, wrong 0; L modes complete via L.
-- CI: `4f884ec` ✅, `be0c52e` ✅, `6402fea` ✅. Left: census L steps + ladder line; owner's phone check.
+- ✅ Census L steps (full census, in memory): round-trip + L1, L2, L3, L5, L7 per `DIRECT` visionOS
+  answer → `same` / `differs` / `n/a` / `none (<why>)`, and a counts note.
+- CI: `4f884ec` ✅, `be0c52e` ✅, `6402fea` ✅, `e56cc3f` build ✅. Left: the owner's phone check.
 
 ## Phase 1.3 — D5a S + D6 O rungs (2026-10-15)
 

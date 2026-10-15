@@ -129,9 +129,8 @@ in a row):
 7. **D7** the owner's live check (with live L mutations), the weekly check and the runbook, with two
    census fixes: MWEB's address-less flip becomes an `INFO` line (not `CHANGED`), and the R6 note
    no longer says "nothing else for this video" when H ran on that answer. **Prep done**
-   (2026-10-15, §4 D7 "As built (prep)"): the switches, the workflow inputs, the health file and
-   both census fixes. Left: the census tool's L steps (round-trip, mutations) and its ladder line;
-   then the owner's phone check.
+   (2026-10-15, §4 D7 "As built (prep)"): the switches, the workflow inputs, the health file,
+   both census fixes and the census tool's L steps. Left: the owner's phone check.
 
 The owner's part: one OK for this plan (items 1–2 and the (က+) plan change; §9 items 10–11); a
 weekly check about once a week on mobile data; D7's phone check at the end. Known limits (§5):
@@ -887,7 +886,13 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   an address) is an `INFO` line, its cipher path no shape change; the R6 note says "no other
   client for this video". Tests: `LadderTrialTest` (3; every mode over the B0 videos, own solver
   off and on: wrong 0; L1, L2, L3, L7 complete as the normal mode through L's offer set; skipping
-  visionOS → O, its adaptive formats → H or MWEB), `CensusDiffTest` +1. The phone check's
+  visionOS → O, its adaptive formats → H or MWEB), `CensusDiffTest` +1. Census L steps (full
+  census, each `DIRECT` visionOS answer, in memory, no request): the round-trip and L1, L2, L3,
+  L5, L7 on the live answer, each `same` when L's offer set has the direct parse's itags and
+  addresses (`n/a` when the change has nothing to change, `none (<why>)` when L gives no rows);
+  one note per answer and one with the counts. L's rows are the direct parse's own addresses, so
+  the answer's V stands for them there; in the app the ladder checks every L row itself
+  (`ClientCensusTest`: the census fixture's formats now carry `approxDurationMs`). The phone check's
   APKs: one manual run per mode (normal, `ladder_skip` ×2, `ladder_mutate` L1, L3, L5), each
   with `client_ladder` and `own_solver` on.
 

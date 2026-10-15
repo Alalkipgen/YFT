@@ -186,6 +186,47 @@ class ClientCensus(
             }
         }
         if (sourcesDone && !accepted && session.stopped == null) accept(session, null)
+        lSummary(session)
+    }
+
+    /**
+     * D5b / D7 census L steps on each live `DIRECT` visionOS answer (full census only; in memory,
+     * no request): (1) the L round-trip — the canonical JSON's offer set is the direct parse's;
+     * (2) L1, L2, L3, L5 and L7 ([LadderTrial.mutate]) on the answer — L finds the same rows
+     * (itag and address) again. L's rows are the direct parse's own addresses, so the answer's V
+     * (one row, above) stands for them; the app's ladder checks every L row itself.
+     */
+    private fun lSteps(session: Session, video: Video, asked: Asked) {
+        if (session.mode != Mode.FULL || asked.record.answerClass != CensusClass.DIRECT) return
+        val root = asked.root as? JsonValue.Object ?: return
+        val expected = asked.video?.let(ShapeNormalizer::offerSet)?.map { it.itag to it.url }?.toSet().orEmpty()
+        if (expected.isEmpty()) return
+        val now = clock()
+        fun found(answer: String): String {
+            val outcome = ShapeNormalizer.normalize(answer, video.id, now)
+            val rows = outcome as? ShapeNormalizer.Rows ?: return "none (${(outcome as? ShapeNormalizer.None)?.why ?: "no rows"})"
+            return if (rows.offer.map { it.itag to it.url }.toSet() == expected) "same" else "differs"
+        }
+        val results = linkedMapOf("round-trip" to found(LadderJson.text(root)))
+        for (id in LadderTrial.MUTATIONS) {
+            results[id] = LadderTrial.mutate(id, root)?.let { found(LadderJson.text(it)) } ?: "n/a"
+        }
+        session.lSteps += results
+        session.notes += "video ${video.slot} L (${asked.record.step}, ${expected.size} rows, V ${asked.record.v ?: "none"}): " +
+            results.entries.joinToString(", ") { "${it.key} ${it.value}" }
+    }
+
+    /** The L steps' counts for the report: per step, how many answers L read as the direct parse. */
+    private fun lSummary(session: Session) {
+        if (session.lSteps.isEmpty()) return
+        val total = session.lSteps.size
+        val steps = session.lSteps.first().keys
+        session.notes += "L steps on $total visionOS answers (in memory, no request): " + steps.joinToString(", ") { step ->
+            val values = session.lSteps.map { it[step] }
+            val same = values.count { it == "same" }
+            val skipped = values.count { it == "n/a" }
+            "$step $same/${total - skipped} same" + if (skipped > 0) " ($skipped n/a)" else ""
+        }
     }
 
     private suspend fun fullVideo(session: Session, slot: Int, id: String): Video {
@@ -199,6 +240,7 @@ class ClientCensus(
             return video
         }
         directCheck(session, video, first, preferProgressive = false)
+        lSteps(session, video, first)
         hlsCheck(session, video, first)
         session.finish(first)
         if (session.stopped != null) return video
@@ -451,6 +493,7 @@ class ClientCensus(
         val again = ask(session, video, VISION_OS, AGAIN, NO_PAGE.copy(visitorData = visitorData)) ?: return
         if (again.record.answerClass != CensusClass.BOT_CHECK) video.visionOs = again
         directCheck(session, video, again, preferProgressive = false)
+        lSteps(session, video, again)
         if (again.record.answerClass == CensusClass.DIRECT) hlsCheck(session, video, again)
         session.finish(again)
     }
@@ -962,6 +1005,8 @@ class ClientCensus(
         val hls = ArrayList<CensusHls>()
         val versions = ArrayList<CensusVersion>()
         val notes = ArrayList<String>()
+        /** The L steps' results per visionOS answer (step → same / differs / none / n/a); memory only. */
+        val lSteps = ArrayList<Map<String, String>>()
         val secrets = HashSet<String>()
         private var checks = 0
         private var lastStep = ""

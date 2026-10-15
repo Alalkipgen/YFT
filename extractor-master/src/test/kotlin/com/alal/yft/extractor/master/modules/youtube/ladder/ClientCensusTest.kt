@@ -86,6 +86,11 @@ class ClientCensusTest {
         assertEquals(5, http.probedUrls.size)
         assertEquals(17, run.requests)
         assertTrue(run.notes.any { it.startsWith("alternates: none bundled") })
+        // D7: the L steps on visionOS's DIRECT answer, in memory (no request counted above).
+        val lLine = run.notes.single { it.startsWith("video 1 L (R0, ") }
+        assertTrue(lLine, lLine.endsWith("round-trip same, L1 same, L2 same, L3 same, L5 n/a, L7 same"))
+        assertTrue(lLine, ", V PASS): " in lLine)
+        assertTrue(run.notes.contains("L steps on 1 visionOS answers (in memory, no request): round-trip 1/1 same, L1 1/1 same, L2 1/1 same, L3 1/1 same, L5 0/0 same (1 n/a), L7 1/1 same"))
     }
 
     @Test
