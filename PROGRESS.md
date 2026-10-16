@@ -1,5 +1,27 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 item 2, run 4b `[d7]` on the phone (the owner, 2026-10-17): H gives rows; HLS sound stopped after the first piece → packed audio loses its ID3 tags when the pieces are joined
+
+- **Phone (`h-only` APK from `8ce88b2`):** H works (the sheet lists only HLS rows). Sound only for
+  the first ~5 s (census video 2 1080p, 480p, 360p) or ~1 s (census video 1 240p); census video 2
+  720p had full sound (not explained, same audio group). 2160p/1440p (VP9) have no sound: the
+  pairing joins only AVC + AAC (out of this item).
+- **Cause (live check in the sandbox, census video 2):** the AVC variants are MPEG-TS without
+  sound and name an audio group (HE-AAC or AAC-LC). Those audio renditions are HLS packed audio
+  (RFC 8216 section 3.4): every piece is an ID3 tag (a PRIV transport stream timestamp) and then
+  raw ADTS frames; the timestamps run on without a gap. `HlsTransferEngine` joined the pieces
+  byte for byte, so the second piece's ID3 tag sat inside the AAC stream and the AAC reader
+  stopped there (226 frames, 5.25 s: exactly the first piece).
+- **Fix:** `HlsPackedAudio.payloadStart`: a piece that starts with ID3 tags (syncsafe size, footer
+  flag) followed by ADTS sync is written without the tags; totals and the length checks count
+  the written bytes. TS, fMP4 and an ID3 tag followed by anything else are written as they are.
+  Also covers the "Audio HLS" row.
+- **Tests (CI, `core-download`):** `HlsTransferEngineTest`: 3 packed audio pieces (ID3v2.3, and an
+  ID3v2.4 tag with a footer) give pure ADTS with every frame and `bytesWritten` = the frames; an
+  ID3 tag followed by non-ADTS bytes is kept; the existing TS cases unchanged.
+- **Phone retest (with the next `[d7]` APKs):** `h-only`: census video 1 240p, census video 2
+  1080p/720p/480p/360p and the Audio HLS row must play with sound to the end.
+
 ## Phase 1.4 item 2, run 4b on the phone (the owner, 2026-10-17): H reached but gave no row (`H: SEGMENT`); two fixes + the owner's (က): a generic segment type lets the start decide; new `[d7]` APKs
 
 - **Phone (`h-only` APK from `2dd3433`):** the found page now reaches the ladder. Details:

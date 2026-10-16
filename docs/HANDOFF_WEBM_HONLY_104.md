@@ -11,7 +11,9 @@ item's Done): items 1 and 3 ✅ on the phone (run 4); item 2 showed the adapter'
 (2026-10-17): H ran but gave no row ("H: SEGMENT"): YouTube's segment ignores the range (fixed:
 the ladder's reader keeps 64 KiB) and is `application/octet-stream` (named no container, read as
 unknown) → the owner's (က): a generic type lets the start decide; Try again's adapter rows fixed;
-new `[d7]` APKs (run 4b).
+new `[d7]` APKs (run 4b). Run 4b on the phone: H gives rows, but HLS sound stopped after the
+first piece (packed audio: an ID3 tag before every piece's ADTS frames) → fixed (the tags are
+dropped when the pieces are joined); retest with the next `[d7]` APKs.
 
 ## 0. Rules (every item)
 

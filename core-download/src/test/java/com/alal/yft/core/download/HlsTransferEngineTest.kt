@@ -290,6 +290,56 @@ class HlsTransferEngineTest {
             assertTrue(refused.toString(), refused is HlsTransferResult.Failure)
         }
 
+    @Test
+    fun `packed audio pieces lose their ID3 tags so the AAC stream runs to the end`() = runTest {
+        val frames = List(3) { piece -> adtsFrames(piece) }
+        val pieces = listOf(
+            id3Tag(major = 3, body = 63) + frames[0],
+            id3Tag(major = 3, body = 63) + frames[1],
+            id3Tag(major = 4, body = 20, footer = true) + frames[2],
+        )
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
+                "/audio.m3u8" -> manifestResponse(vodManifest("a.aac", "b.aac", "c.aac"))
+                "/a.aac" -> bytesResponse(pieces[0])
+                "/b.aac" -> bytesResponse(pieces[1])
+                "/c.aac" -> bytesResponse(pieces[2])
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+        val files = files("packed.aac")
+
+        val result = engine.transfer(
+            plan = plan(server.url("/audio.m3u8").toString(), "packed"),
+            destination = files.destination,
+        ) as HlsTransferResult.Completed
+
+        val expected = frames[0] + frames[1] + frames[2]
+        assertArrayEquals(expected, files.completed.readBytes())
+        assertEquals(expected.size.toLong(), result.bytesWritten)
+    }
+
+    @Test
+    fun `an ID3 tag that is not followed by ADTS frames is written as it is`() = runTest {
+        val piece = id3Tag(major = 3, body = 63) + "not-adts-".repeat(10).toByteArray()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
+                "/track.m3u8" -> manifestResponse(vodManifest("one.ts", "two.ts"))
+                "/one.ts", "/two.ts" -> bytesResponse(piece)
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+        val files = files("tagged.ts")
+
+        val result = engine.transfer(
+            plan = plan(server.url("/track.m3u8").toString(), "tagged"),
+            destination = files.destination,
+        ) as HlsTransferResult.Completed
+
+        assertArrayEquals(piece + piece, files.completed.readBytes())
+        assertEquals((piece.size * 2).toLong(), result.bytesWritten)
+    }
+
     private fun engine(
         maxAttempts: Int = 3,
         maxConcurrentChunks: Int = 2,
@@ -341,6 +391,33 @@ class HlsTransferEngineTest {
             appendLine(chunk)
         }
         append("#EXT-X-ENDLIST")
+    }
+
+    private fun id3Tag(major: Int, body: Int, footer: Boolean = false): ByteArray {
+        val header = byteArrayOf(
+            'I'.code.toByte(),
+            'D'.code.toByte(),
+            '3'.code.toByte(),
+            major.toByte(),
+            0,
+            (if (footer) 0x10 else 0).toByte(),
+            (body shr 21 and 0x7F).toByte(),
+            (body shr 14 and 0x7F).toByte(),
+            (body shr 7 and 0x7F).toByte(),
+            (body and 0x7F).toByte(),
+        )
+        val tail = if (footer) {
+            byteArrayOf('3'.code.toByte(), 'D'.code.toByte(), 'I'.code.toByte()) +
+                header.copyOfRange(3, 10)
+        } else {
+            ByteArray(0)
+        }
+        return header + ByteArray(body) { 0x50 } + tail
+    }
+
+    private fun adtsFrames(seed: Int): ByteArray = (0 until 4).fold(ByteArray(0)) { all, frame ->
+        all + byteArrayOf(0xFF.toByte(), 0xF1.toByte(), 0x50, 0x80.toByte()) +
+            ByteArray(12) { (seed * 16 + frame).toByte() }
     }
 
     private fun manifestResponse(body: String): MockResponse = MockResponse()

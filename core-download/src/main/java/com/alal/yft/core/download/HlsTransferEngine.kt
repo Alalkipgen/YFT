@@ -567,8 +567,10 @@ class HlsTransferEngine(
                 .takeIf(File::isFile)
                 ?: throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
         }
-        val totalBytes = files.fold(0L) { total, file ->
-            val length = file.length()
+        // Packed audio pieces lose their leading ID3 tags; every other piece is written whole.
+        val starts = files.map(HlsPackedAudio::payloadStart)
+        val totalBytes = files.indices.fold(0L) { total, index ->
+            val length = files[index].length() - starts[index]
             if (length <= 0 || total > Long.MAX_VALUE - length) {
                 throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
             }
@@ -583,8 +585,9 @@ class HlsTransferEngine(
             output.use {
                 val buffer = ByteArray(policy.bufferBytes)
                 var position = 0L
-                files.forEach { file ->
+                files.forEachIndexed { index, file ->
                     file.inputStream().use { input ->
+                        skipFully(input, starts[index])
                         while (true) {
                             currentCoroutineContext().ensureActive()
                             val read = input.read(buffer)
@@ -613,6 +616,20 @@ class HlsTransferEngine(
         } catch (error: Exception) {
             if (!error.isStorageError()) throw error
             throw HlsAbort(error.toStorageFailure(stage))
+        }
+    }
+
+    private fun skipFully(input: InputStream, count: Long) {
+        var left = count
+        while (left > 0) {
+            val skipped = input.skip(left)
+            if (skipped > 0) {
+                left -= skipped
+            } else if (input.read() == -1) {
+                throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
+            } else {
+                left--
+            }
         }
     }
 
