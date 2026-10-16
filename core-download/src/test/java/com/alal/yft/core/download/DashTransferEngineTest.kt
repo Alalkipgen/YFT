@@ -1,6 +1,7 @@
 package com.alal.yft.core.download
 
 import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.DownloadFailureStage
 import com.alal.yft.core.model.download.DashDownloadPlan
 import com.alal.yft.core.model.download.DashTransferResult
 import com.alal.yft.core.model.download.DownloadProgress
@@ -359,10 +360,86 @@ class DashTransferEngineTest {
         assertEquals(listOf("bytes=0-0", "bytes=2000-2499"), ranges)
     }
 
+    @Test
+    fun `a live-origin whole file with a stale length and short answers completes`() = runTest {
+        val bytes = ByteArray(2_500) { index -> (index % 251).toByte() }
+        server.dispatcher = wholeFileDispatcher(bytes, answerBytes = 400)
+        val files = files("live.mp4")
+
+        val result = engine(maxConcurrentChunks = 1).transfer(
+            plan = wholeFilePlan(
+                url = server.url("/video.mp4?source=yt_live_broadcast").toString(),
+                id = "live",
+                totalBytes = 9_999,
+            ),
+            destination = files.destination,
+        ) as DashTransferResult.Completed
+
+        assertEquals(2_500L, result.bytesWritten)
+        assertArrayEquals(bytes, files.completed.readBytes())
+        val ranges = List(server.requestCount) { server.takeRequest().getHeader("Range") }
+        // The stated 9 999 is ignored: the first range's total (2 500) decides.
+        assertEquals(
+            listOf(
+                "bytes=0-999",
+                "bytes=400-999",
+                "bytes=800-999",
+                "bytes=1000-1999",
+                "bytes=1400-1999",
+                "bytes=1800-1999",
+                "bytes=2000-2499",
+                "bytes=2400-2499",
+            ),
+            ranges,
+        )
+    }
+
+    @Test
+    fun `a normal whole file that answers short fails and names what was asked and what came`() =
+        runTest {
+            val bytes = ByteArray(2_500) { index -> (index % 251).toByte() }
+            server.dispatcher = wholeFileDispatcher(bytes, answerBytes = 400)
+            val files = files("short.mp4")
+
+            val result = engine(maxConcurrentChunks = 1).transfer(
+                plan = wholeFilePlan(server.url("/video.mp4?source=youtube").toString(), "short"),
+                destination = files.destination,
+            ) as DashTransferResult.Failure
+
+            assertEquals(DownloadFailureReason.INTEGRITY_MISMATCH, result.failure.reason)
+            assertEquals(DownloadFailureStage.CONNECT, result.failure.stage)
+            assertEquals(
+                "asked bytes 0-999, got bytes 0-399/2500, length 400",
+                result.failure.detail,
+            )
+            assertFalse(files.completed.exists())
+        }
+
+    @Test
+    fun `a normal whole file whose stated length is wrong still fails`() = runTest {
+        val bytes = ByteArray(1_500) { index -> (index % 13).toByte() }
+        server.dispatcher = wholeFileDispatcher(bytes)
+        val files = files("stale.mp4")
+
+        val result = engine(maxConcurrentChunks = 1).transfer(
+            plan = wholeFilePlan(server.url("/video.mp4").toString(), "stale", totalBytes = 1_800),
+            destination = files.destination,
+        ) as DashTransferResult.Failure
+
+        assertEquals(DownloadFailureReason.INTEGRITY_MISMATCH, result.failure.reason)
+        assertEquals(DownloadFailureStage.CONNECT, result.failure.stage)
+        assertEquals(
+            "asked bytes 1000-1799, got bytes 1000-1499/1500, length 500",
+            result.failure.detail,
+        )
+        assertFalse(files.completed.exists())
+    }
+
     private fun wholeFileDispatcher(
         bytes: ByteArray,
         failFrom: Long? = null,
         ignoreRanges: Boolean = false,
+        answerBytes: Int? = null,
     ): Dispatcher = object : Dispatcher() {
         override fun dispatch(request: RecordedRequest): MockResponse {
             if (request.requestUrl?.encodedPath != "/video.mp4") {
@@ -371,7 +448,9 @@ class DashTransferEngineTest {
             val match = request.getHeader("Range")?.let(RANGE::matchEntire)
             if (ignoreRanges || match == null) return bytesResponse(bytes)
             val start = match.groupValues[1].toInt()
-            val end = minOf(match.groupValues[2].toInt(), bytes.lastIndex)
+            val asked = minOf(match.groupValues[2].toInt(), bytes.lastIndex)
+            // A live-origin server may stop short of the asked end.
+            val end = answerBytes?.let { minOf(asked, start + it - 1) } ?: asked
             if (failFrom != null && start >= failFrom) {
                 return MockResponse().setResponseCode(500)
             }

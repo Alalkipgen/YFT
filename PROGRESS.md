@@ -1,5 +1,35 @@
 # YFT Master Extractor backup
 
+## Owner item 6 (2026-10-17): a recently ended live stream failed every quality and audio (`INTEGRITY_MISMATCH`, CONNECT) → live-origin files trust the first range and take short answers; `[d7]` run 4c
+
+- **Phone (the owner, main preview.78 and D7):** about 2 h after a live stream ended, every
+  quality and the audio failed: `INTEGRITY_MISMATCH`, stage CONNECT, HTTP status and Detail
+  empty, "Start: plan 7.9 s · length 7.9 s (from first range) · first byte –", type Merge (audio
+  + video). Older videos fine; another downloader app works.
+- **Live header check:** not done. YouTube answered `LOGIN_REQUIRED` (bot check) for every client
+  from the sandbox and from the shared browser, so the answer headers are not confirmed.
+- **Reading of the code:** a merge downloads each track with `DashTransferEngine` (whole file).
+  The length came from the first range (no stated length); no byte was written, and the only
+  CONNECT `INTEGRITY_MISMATCH` there is a range answer that is not the asked range (Content-Range
+  end or Content-Length). So the server answered the first range with a different (most likely
+  shorter) part: such a file is still being written after the stream.
+- **Fix (`LiveOriginFile`, `source=yt_live_broadcast` or `yt_premiere_broadcast` in the file
+  address):** `DashTransferEngine`: the stated length is ignored (the first range decides); an
+  answer that starts at the asked byte and ends earlier is kept, and the rest is asked for from
+  the next byte (at most 1 024 short answers in a row per range). `DirectTransferEngine` (single
+  files): the same short answers, no `If-Range`, and the stated size, the answer's total and
+  ETag/Last-Modified are not compared. Every other file is strict as before. A range mismatch
+  now fills Detail: "asked bytes A-B, got <Content-Range>, length <Content-Length>", so a failure
+  on the phone names its cause.
+- **Tests (CI, `core-download`; also run locally in a scratch JVM copy, 77 engine tests green):**
+  `DashTransferEngineTest`: live-origin + stale stated length + short answers → complete, exact
+  bytes and ranges; normal + short answers → `INTEGRITY_MISMATCH` CONNECT with the Detail; normal
+  + wrong stated length → fails. `DirectTransferEngineTest`: live-origin + short answers, another
+  total and a new ETag each time + stale stated size → complete, no `If-Range`; normal + short
+  answers → fails with the Detail; normal + stated size ≠ probe → fails at VERIFY, no request.
+- **Phone retest (`[d7]` run 4c, normal APK):** the recently ended stream (soon after it ends)
+  in a few qualities and audio; if it still fails, send the Details line.
+
 ## Phase 1.4 item 2, run 4b `[d7]` on the phone (the owner, 2026-10-17): H gives rows; HLS sound stopped after the first piece → packed audio loses its ID3 tags when the pieces are joined
 
 - **Phone (`h-only` APK from `8ce88b2`):** H works (the sheet lists only HLS rows). Sound only for

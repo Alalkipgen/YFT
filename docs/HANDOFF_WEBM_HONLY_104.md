@@ -13,7 +13,9 @@ the ladder's reader keeps 64 KiB) and is `application/octet-stream` (named no co
 unknown) → the owner's (က): a generic type lets the start decide; Try again's adapter rows fixed;
 new `[d7]` APKs (run 4b). Run 4b on the phone: H gives rows, but HLS sound stopped after the
 first piece (packed audio: an ID3 tag before every piece's ADTS frames) → fixed (the tags are
-dropped when the pieces are joined); retest with the next `[d7]` APKs.
+dropped when the pieces are joined); retest with the next `[d7]` APKs. Owner item 6: a recently
+ended live stream failed every download (`INTEGRITY_MISMATCH`, CONNECT) → live-origin files trust
+the first range and take short answers, other files stay strict; `[d7]` run 4c.
 
 ## 0. Rules (every item)
 
