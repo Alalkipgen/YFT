@@ -13,6 +13,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -250,7 +251,11 @@ class ClientCensusACheckTest {
         assertTrue(alternate.version.toDouble() > YouTubeClientProfiles.VISION_OS.clientVersion.toDouble())
         assertTrue(alternate.source.startsWith("NewPipe"))
         assertTrue(Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(alternate.date))
-        assertEquals("not bundled before the owner's A check", emptyList<MasterClientTable.Alternate>(), vision.alternates)
+        // Bundled after the owner's A check passed (2026-10-16): one definition, the table's.
+        assertSame(MasterClientTable.VISION_OS_ALTERNATE, alternate)
+        assertEquals(listOf(alternate), vision.alternates)
+        assertEquals("NewPipe Extractor ClientsConstants.java", alternate.source)
+        assertEquals("2026-08-06", alternate.date)
         assertEquals("R0 stays 1.02", "1.02", YouTubeClientProfiles.VISION_OS.clientVersion)
     }
 

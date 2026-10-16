@@ -175,7 +175,8 @@ class VersionSourceTest {
     fun `at most two bundled alternates, valid and not the bundled one`() {
         val alternate = { version: String -> MasterClientTable.Alternate(version, "yt-dlp 2026.08.19", "2026-10-16") }
         val versions = VersionSource(health(), null)
-        assertEquals(emptyList<String>(), versions.alternates(entry, bundled).map { it.version })
+        assertEquals(listOf("1.04"), versions.alternates(entry, bundled).map { it.version })
+        assertEquals(listOf("bundled"), versions.alternates(entry, bundled).map { it.label })
         val listed = entryWith(alternates = listOf(alternate("1.01"), alternate(bundled), alternate("1.04")))
         val got = versions.alternates(listed, bundled)
         assertEquals(listOf("1.01"), got.map { it.version })

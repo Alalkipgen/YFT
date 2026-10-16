@@ -13,11 +13,11 @@ import com.alal.yft.extractor.master.modules.youtube.YouTubePageSignals
  * the HLS check), its version pattern and its D0 version-source status.
  *
  * Guardrail 5 (the test checks it): at most 4 identities (visionOS, Android, embedded, MWEB); at
- * most 2 bundled visionOS alternates, each from a public reference with source and date (none
- * today: yt-dlp 2026.08.19 and YouTube.js list 1.02 only; NewPipe's 1.04 only after the owner's
- * census A check finds it `DIRECT` with a V pass, 2026-10-16); a version source is live only on
- * raw.githubusercontent.com (owner, 2026-10-15: no redirect, ≤ 64 KiB, text only) or YouTube's own
- * page. Status from the D0 census (valid runs 1–3, weekly checks 1–3; §5); v3 (owner, 2026-10-15):
+ * most 2 bundled visionOS alternates, each from a public reference with source and date (one
+ * today, [VISION_OS_ALTERNATE]: NewPipe's 1.04, listed after the owner's census A check found it
+ * `DIRECT` with a V pass, 2026-10-16; yt-dlp 2026.08.19 and YouTube.js list 1.02 only); a version
+ * source is live only on raw.githubusercontent.com (owner, 2026-10-15: no redirect, ≤ 64 KiB, text
+ * only) or YouTube's own page. Status from the D0 census (valid runs 1–3, weekly checks 1–3; §5); v3 (owner, 2026-10-15):
  * H live after tests 1–3 on `595d259` (§9 item 9's gate met), nothing else changed. A (D5a
  * follow-up, 2026-10-16) is wired for visionOS only ([VersionSource], the first live source):
  * still provisional, as no live version change has been seen; Android's A is not wired.
@@ -86,6 +86,19 @@ internal object MasterClientTable {
         signatureTimestamp = null,
     )
 
+    /**
+     * visionOS's one bundled alternate (guardrail 5; Phase 1.4 item 3): NewPipe Extractor's value
+     * (`ClientsConstants.java`: 1.04 since 2026-08-06, after 1.02 from 2026-06-07). Listed after the
+     * owner's census A check (2026-10-16 15:41 UTC: 1.02 `DIRECT`; 1.04 `DIRECT`, V `PASS`). R0 stays
+     * 1.02; only A asks it, after visionOS's answer is judged `VERSION_REJECTED`, after the learned
+     * and the self-healed version. The census A check asks the same value.
+     */
+    val VISION_OS_ALTERNATE: Alternate = Alternate(
+        version = "1.04",
+        source = "NewPipe Extractor ClientsConstants.java",
+        date = "2026-08-06",
+    )
+
     val ENTRIES: List<Entry> = listOf(
         Entry(
             id = "visionos",
@@ -98,12 +111,12 @@ internal object MasterClientTable {
             date = DATE,
             note = "R6's own first request (not gated); R0 DIRECT on 3 of 30, bot check on 24, R0+vd 24 of 24",
             variants = listOf(
-                Allowed(Variant.A, Status.PROVISIONAL, "0 asked: no alternate bundled, no newer value in any source"),
+                Allowed(Variant.A, Status.PROVISIONAL, "0 asked: no version rejected yet; 1.04 bundled after the A check (DIRECT, V pass)"),
                 Allowed(Variant.S, Status.PROVISIONAL, "0 asked: no cipher in any visionOS answer"),
                 Allowed(Variant.H, Status.LIVE, "tests 1-3: 8, 8 and 6 of 9 passed on 9 distinct videos, wrong 0"),
             ),
             versionPattern = CensusSources.VISION_OS_VERSION,
-            alternates = emptyList(),
+            alternates = listOf(VISION_OS_ALTERNATE),
             versionSources = listOf(
                 VersionSource("yt-dlp", RAW, Status.LIVE, DATE, "1.02 = bundled in 3 of 3 runs"),
                 VersionSource("youtube.js", RAW, Status.LIVE, DATE, "1.02 = bundled in 3 of 3 runs"),

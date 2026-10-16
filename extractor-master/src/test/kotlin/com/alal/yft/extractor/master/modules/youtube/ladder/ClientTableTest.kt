@@ -7,6 +7,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -62,6 +63,19 @@ class ClientTableTest {
         assertTrue(CensusSources.ANDROID_VERSION.matches(YouTubeClientProfiles.ANDROID.clientVersion))
         assertTrue(CensusSources.WEB_VERSION.matches(YouTubeClientProfiles.MOBILE_CLIENT_VERSION))
         assertTrue(CensusSources.WEB_VERSION.matches(YouTubeClientProfiles.FALLBACK_CLIENT_VERSION))
+    }
+
+    @Test
+    fun `visionOS has one bundled alternate - NewPipe's 1_04 after the owner's A check - and R0 stays 1_02`() {
+        val vision = MasterClientTable.entry("visionos")!!
+        val alternate = vision.alternates.single()
+        assertSame(MasterClientTable.VISION_OS_ALTERNATE, alternate)
+        assertEquals("1.04", alternate.version)
+        assertEquals("NewPipe Extractor ClientsConstants.java", alternate.source)
+        assertEquals("2026-08-06", alternate.date)
+        assertEquals("1.02", vision.profile.clientVersion)
+        assertEquals("1.02", YouTubeClientProfiles.VISION_OS.clientVersion)
+        assertTrue(entries.filter { it.id != "visionos" }.all { it.alternates.isEmpty() })
     }
 
     @Test

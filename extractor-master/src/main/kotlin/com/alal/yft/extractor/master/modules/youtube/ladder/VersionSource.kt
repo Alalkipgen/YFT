@@ -22,7 +22,8 @@ import java.net.URI
  *    lookup only after `VERSION_REJECTED`, at most once a day per identity (the health's clock,
  *    claimed before the read: a failed read spends the day too); not after a bot check
  *    (guardrail 4); the user's own User-Agent only, no cookie, no token ([VersionSourceReader]);
- * 4. ≤ [MAX_ALTERNATES] **bundled alternates** from a public reference ([alternates]; none today).
+ * 4. ≤ [MAX_ALTERNATES] **bundled alternates** from a public reference ([alternates]; visionOS's
+ *    1.04 today, [MasterClientTable.VISION_OS_ALTERNATE]).
  *
  * The value read today is kept in memory only, for a day, so a later lookup (after a bot check or
  * an answer without a V pass) may try it again without a second read; it is never stored before

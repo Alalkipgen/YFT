@@ -18,11 +18,14 @@ import org.junit.Test
  * Phase 1.3 D5a — A, the self-healed version rung (MASTER_KEY_PHASE1_3_PLAN.md §4 D5a "As built
  * (A)", guardrail 5, §9 item 3), in the change simulator's worlds: the version cases (V1, Y1–Y6)
  * on every base answer, plus the rules A keeps (learned first, one source read a day, only the
- * version changes, kept only after OK + V, quiet after a bot check, none in a trial).
+ * version changes, kept only after OK + V, quiet after a bot check, none in a trial). Phase 1.4
+ * item 3: visionOS's bundled alternate (NewPipe's 1.04, [MasterClientTable.VISION_OS_ALTERNATE])
+ * goes last, once, after the learned and the self-healed version.
  */
 class VersionRungTest {
     private val base = Sim.BASE_VERSION
     private val new = Sim.NEW_VERSION
+    private val alternate = MasterClientTable.VISION_OS_ALTERNATE.version
 
     private class Post(val url: String, val body: String, val headers: Map<String, String>, val maxBodyBytes: Long) {
         val client: String? get() = ShapeLocator.parse(body).path("context", "client", "clientName").asStringOrNull
@@ -165,19 +168,20 @@ class VersionRungTest {
             val r6 = r6(case, lookups = 2)
             assertEquals("$case", r6.map(SimLookup::outcome), ran.lookups.map(SimLookup::outcome))
             assertTrue("$case", ran.lookups.all { it.wrong.isEmpty() })
-            assertEquals("$case", listOf(base, new, base), ran.visionAsks)
+            assertEquals("$case", listOf(base, new, alternate, base), ran.visionAsks)
             assertEquals("$case", 1, ran.sources.size)
             assertNull("$case", ran.health.learnedVersion("visionos"))
             assertTrue("$case", ran.health.cooling("visionos"))
             assertTrue("$case", "A: the yt-dlp version rejected too" in ran.notes[0])
+            assertTrue("$case", "A: the bundled version rejected too" in ran.notes[0])
             assertTrue("$case", "A: no version answered" in ran.notes[0])
             assertTrue("$case", "A: not asked (cooldown or bot check)" in ran.notes[1])
-            assertEquals("$case", r6[0].players + 1, ran.lookups[0].players)
+            assertEquals("$case", r6[0].players + 2, ran.lookups[0].players)
         }
     }
 
     @Test
-    fun `Y2 and Y3 one read, no A request, the outcome R6 gives`() = runTest(timeout = 5.minutes) {
+    fun `Y2 and Y3 one read, only the bundled 1_04 asked, the outcome R6 gives`() = runTest(timeout = 5.minutes) {
         val why = mapOf(
             "garbage" to "A: source no newer version (no value)",
             "pattern" to "A: source no newer version (not the version pattern)",
@@ -190,10 +194,11 @@ class VersionRungTest {
             val ran = run(case)
             assertEquals("$case", r6(case).map(SimLookup::outcome), ran.lookups.map(SimLookup::outcome))
             assertTrue("$case", ran.lookups.all { it.wrong.isEmpty() })
-            assertEquals("$case", listOf(base), ran.visionAsks)
+            assertEquals("$case", listOf(base, alternate), ran.visionAsks)
             assertEquals("$case", 1, ran.lookups.single().sources)
             assertTrue("$case ${ran.allNotes}", why.getValue(case.variant) in ran.allNotes)
-            assertTrue("$case", "A: no version to try" in ran.allNotes)
+            assertTrue("$case", "A: the bundled version rejected too" in ran.allNotes)
+            assertTrue("$case", "A: no version answered" in ran.allNotes)
             assertNull("$case", ran.health.learnedVersion("visionos"))
         }
     }
@@ -254,13 +259,14 @@ class VersionRungTest {
     }
 
     @Test
-    fun `without a source reader A reads nothing and R6's outcome stays`() = runTest(timeout = 5.minutes) {
+    fun `without a source reader A reads nothing, asks the bundled 1_04 once, and R6's outcome stays`() = runTest(timeout = 5.minutes) {
         val case = cases("V1").first()
         val ran = run(case, withSources = false)
-        assertEquals(listOf(base), ran.visionAsks)
+        assertEquals(listOf(base, alternate), ran.visionAsks)
         assertEquals(0, ran.lookups.single().sources)
         assertTrue("A: source not read (no source reader)" in ran.allNotes)
-        assertTrue("A: no version to try" in ran.allNotes)
+        assertTrue("A: the bundled version rejected too" in ran.allNotes)
+        assertTrue("A: no version answered" in ran.allNotes)
         assertEquals(r6(case).map(SimLookup::outcome), ran.lookups.map(SimLookup::outcome))
         assertTrue(ran.health.maySourceRead("visionos"))
     }
@@ -274,14 +280,51 @@ class VersionRungTest {
     }
 
     @Test
-    fun `a closed visionOS reads the source once, sends no A request and cools down`() = runTest(timeout = 5.minutes) {
+    fun `a closed visionOS reads the source once, asks the bundled 1_04 once and cools down`() = runTest(timeout = 5.minutes) {
         for (case in cases("H1")) {
             val ran = run(case)
             assertEquals("$case", r6(case).map(SimLookup::outcome), ran.lookups.map(SimLookup::outcome))
-            assertEquals("$case", listOf(base, base), ran.visionAsks)
+            assertEquals("$case", listOf(base, alternate, base), ran.visionAsks)
             assertEquals("$case", 1, ran.sources.size)
             assertTrue("$case ${ran.notes[0]}", "A: source read failed (HTTP_STATUS 404)" in ran.notes[0])
             assertTrue("$case", "A: not asked (cooldown or bot check)" in ran.notes[1])
         }
+    }
+
+    @Test
+    fun `1_02 rejected and no newer source value - the bundled 1_04 is asked once, checked by V and learned`() = runTest(timeout = 5.minutes) {
+        val accepts: SimWorld.() -> Unit = { acceptedVersions = setOf(alternate) }
+        for (case in cases("Y2").filter { it.variant == "same" }) {
+            val ran = run(case, setup = accepts)
+            val lookup = ran.lookups.single()
+            assertEquals("$case", SimOutcome.COMPLETE, lookup.outcome)
+            assertEquals("$case", 0, lookup.wrong.size)
+            assertEquals("$case", listOf(base, alternate), ran.visionAsks)
+            assertEquals("$case", 1, ran.sources.size)
+            assertTrue("$case ${ran.allNotes}", ran.allNotes.any { it.startsWith("A: the bundled version answered (") })
+            assertEquals("$case", alternate, ran.health.learnedVersion("visionos"))
+            assertTrue("$case", lookup.players <= 1 + LadderLookup.MAX_A_PER_LOOKUP)
+            assertTrue("$case R6", r6(case, setup = accepts).single().outcome != SimOutcome.COMPLETE)
+        }
+    }
+
+    @Test
+    fun `after a bot check the bundled 1_04 is not asked`() = runTest(timeout = 5.minutes) {
+        val health = ClientHealth(null) { Sim.NOW }.apply { record("mweb", CensusClass.BOT_CHECK) }
+        val case = cases("Y2").first { it.variant == "same" }
+        val ran = run(case, health = health, setup = { acceptedVersions = setOf(alternate) })
+        assertEquals(listOf(base), ran.visionAsks)
+        assertTrue(ran.sources.isEmpty())
+        assertTrue("A: not asked (cooldown or bot check)" in ran.allNotes)
+        assertNull(health.learnedVersion("visionos"))
+    }
+
+    @Test
+    fun `the healthy path never asks the bundled 1_04`() = runTest(timeout = 5.minutes) {
+        val case = cases("V1").first()
+        val ran = run(case, setup = { acceptedVersions = setOf(base) })
+        assertEquals(listOf(base), ran.visionAsks)
+        assertTrue(ran.sources.isEmpty())
+        assertTrue(ran.allNotes.none { it.startsWith("A: ") })
     }
 }
