@@ -9,8 +9,9 @@ import kotlinx.coroutines.CancellationException
 
 /**
  * Phase 1.3 D0: the census's H check with the **token step** (MASTER_KEY_PHASE1_3_PLAN.md §4 D0,
- * guardrail 6): the master playlist and the highest-resolution variant playlist (≤ 256 KiB each)
- * and the first segment of that variant (the one-byte file check), each `2xx` or `403`; the
+ * guardrail 6): the master playlist and the highest-resolution variant playlist (≤ 256 KiB each;
+ * a larger one, as a long video's variant can be, is `too-large`, never `2xx`) and the first
+ * segment of that variant (the one-byte file check), each `2xx` or `403`; the
  * master's variants, highest resolution, audio form and codec families; any `#EXT-X-KEY` or
  * `#EXT-X-SESSION-KEY` other than `METHOD=NONE`; the variant's total duration against the video's
  * length (± [DURATION_TOLERANCE_SECONDS]).
@@ -246,14 +247,18 @@ internal class HlsCheck(
         private val FAMILY = Regex("^[a-z0-9-]{2,8}$")
         private val METHOD = Regex("^[A-Z0-9-]{1,20}$")
 
-        /** A status class: `2xx`, `403`, `4xx`, `5xx`, `too-large` or `net`. */
+        /**
+         * A failed read's status class: `too-large`, `403`, `4xx`, `5xx`, `other` or `net`; never
+         * `2xx`. The app's client answers a `2xx` body over the cap as `RESPONSE_TOO_LARGE` with
+         * that `2xx` code, so the reason comes first (census video 10's long variant playlist read
+         * `2xx` and `no-segment` before; HlsLongPlaylistTest).
+         */
         fun statusOf(code: Int?, reason: SiteExtractionFailure?): String = when {
+            reason == SiteExtractionFailure.RESPONSE_TOO_LARGE -> TOO_LARGE
             code == 403 -> "403"
             code != null && code in 400..499 -> "4xx"
             code != null && code in 500..599 -> "5xx"
-            code != null && code in 200..299 -> OK
             code != null -> "other"
-            reason == SiteExtractionFailure.RESPONSE_TOO_LARGE -> TOO_LARGE
             else -> NETWORK
         }
 

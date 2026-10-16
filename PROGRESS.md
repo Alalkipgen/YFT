@@ -1,5 +1,39 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — H status fix: census video 10's `no-segment` was a too-large playlist read as `2xx` (owner, 2026-10-16); ⏸ the owner: one census FULL on this APK
+
+- ✅ Cause, in D0's `HlsCheck.kt` (`1135afe`, ours; not one of the parallel agent's files): the
+  app's client (`OkHttpExtractorClient`) answers a `2xx` body over the read cap as
+  `Failure(RESPONSE_TOO_LARGE, <that 2xx code>)`; `HlsCheck.statusOf` tested the code
+  (`200..299` → `2xx`) before the reason. A variant playlist over 256 KiB therefore read `2xx`
+  with no body → 0 segments → `no-segment`, 2 requests: census video 10's H line in tests 1–3
+  and run 2. Not YouTube's side, as the docs had read it (§7, the Final plan table, §5.2).
+- Evidence: ✅ the new test's result on the old code equals that line field for field (master
+  and variant `2xx`, `no-segment`, 8 variants ≤ 240p, audio separate, avc1 + mp4a + vp09, 0
+  segments, no duration, 2 requests); ✅ video 10 is the census's longest video (1203 s; the
+  other H videos 1–5 and 7–9 are ≤ 888 s and read 2xx / 2xx / 2xx in run 2; video 9's 888 s =
+  171 segments); ✅ the master was read whole (8 variants; on the old code an over-cap master
+  read `not-m3u8`), so its ≤ 240p stays YouTube's. Not measured: the real playlist's size (the
+  census never prints it; nothing asks YouTube here); the test assumes about 1.2 KB a segment
+  line (888 s fits, 1203 s does not). The next census decides: `too-large` confirms; `2xx` +
+  `no-segment` again → a really empty playlist.
+- Fix (`HlsCheck.statusOf`): `RESPONSE_TOO_LARGE` first → `too-large`; a failed read is never
+  `2xx` (another `2xx`-coded failure → `other`). HlsLeg (the parallel agent's) unchanged: it
+  counts `too-large` and `other` as unknown, so video 10 → H unknown (`VARIANT`), no row, never
+  wrong (before: fail on `SEGMENT`, no row). A first segment over the leg's 64 KiB with 200 (a
+  server that ignores `Range`) → unknown too (before: fail on `SEGMENT_START`).
+- Tests: `HlsLongPlaylistTest` (5, new), red on `4628f26` (4 of 5: variant `2xx` / `no-segment`;
+  leg fail `SEGMENT`; `statusOf(200, too large)` = `2xx`; segment fail `SEGMENT_START`), green
+  after. 611 module tests (606 + 5), 0 failed, 2 skipped; flag-off parity
+  (`MasterYouTubeParityTest`) green, the app's in CI; simulator outputs byte-identical (ladder
+  wrong 0, MCF 95 / 5); H matrix unchanged (300 runs, wrong 0); workflow tests 17; drift 0 (base
+  and main).
+- Known limit (runbook §7): some long videos' variant playlist passes 256 KiB → H `too-large` →
+  unknown, no H row, never wrong; the cap stays (guardrail 6) unless the owner raises it.
+- The first census on this APK prints once `BROKEN H visionos video 10: variant 2xx → too-large;
+  segment no-segment → skip` (§7 step 7): expected (the old `2xx` was the misreading); later runs
+  print no line for it.
+
 ## Phase 1.3 — D7 done: census FULL on run 2 (owner, 2026-10-16 04:01 UTC; docs only): L steps 9/9 same; §4 table brought up to date; ⏸ the owner: A (D5a) next, or close with the proposed targets
 
 - ✅ Census FULL on run 2's `normal` APK (`1a62b18`, installed as an update), mobile data, 2 h 57

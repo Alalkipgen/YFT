@@ -102,7 +102,7 @@ checks W 1–W 3 (§4 D0), wrong 0 in every run. The client table this leaves, a
 | Client / rung | Census (tests 1–3, W 1–W 3) | Table v3 |
 |---|---|---|
 | visionOS R0 | the first request met a bot check on 8 of 10 videos; R6's `R0+vd` answer `DIRECT`, V pass, on every such video (8 / 8 in each test; W 1–W 3) | live (as v2) |
-| H (HLS leg) | 8 / 9, 8 / 9, 6 / 9 (89 %, 89 %, 67 %) on 9 distinct videos; test 3's two misses were network failures (`net`); video 10's HLS has no segment (YouTube side); W 2 and W 3 passed | **live** (§9 item 9's gate met) |
+| H (HLS leg) | 8 / 9, 8 / 9, 6 / 9 (89 %, 89 %, 67 %) on 9 distinct videos; test 3's two misses were network failures (`net`); video 10's `no-segment` was our status bug, not YouTube's side (a playlist over 256 KiB read as `2xx`; fixed 2026-10-16, §7); W 2 and W 3 passed | **live** (§9 item 9's gate met) |
 | Android O | the 360p progressive row only (adaptive `SABR_ONLY`), V pass; videos 2 and 6 only | provisional (a fallback, V on every row) |
 | MWEB O | `NEEDS_SCRIPT` → S ok-sig+n, V pass (≤ 2160p, ≤ 1080p); its adaptive answer flips between ciphered and address-less; videos 2 and 6 only | provisional (a fallback, V on every row) |
 | embedded O | `REFUSED` (error 152-18) on 2 / 2 | measured, not active |
@@ -957,6 +957,12 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   with every flag on, as the D7 APKs: MCF ≤ 5, V6 only, until an O rung passes the gate (§9
   item 9); with the own solver off: the simulator's number once A is in (D5a). Open outside D7:
   A (D5a), L steps 7–8 (D5b), H's phone download (D5c).
+- **After D7: H status fix** (owner, 2026-10-16; PROGRESS): census video 10's `no-segment`
+  (tests 1–3, run 2) was D0's `HlsCheck.statusOf` reading the app client's `RESPONSE_TOO_LARGE`
+  (with the answer's `2xx` code) as `2xx`: a variant playlist over 256 KiB → no body → no
+  segment. Fixed (the reason first; a failed read is never `2xx`); HlsLeg unchanged: `too-large`
+  is unknown there (no row, never wrong; before: fail, no row). ⏸ One census FULL on the new APK
+  confirms (`too-large` on video 10; §7).
 
 ### D8 — Signed identity data over R9 (owner decision) — Dropped (owner, 2026-10-15)
 
@@ -1107,7 +1113,7 @@ stopped, `FIRST RUN` + 8 `INFO` lines for the answered bot checks):
 | R0+vd (R6's chain request) | 8 / 8 `DIRECT`, V pass | 8 / 8 `DIRECT`, V pass | 8 / 8 `DIRECT`, V pass |
 | A alternates | none bundled | none bundled | none bundled |
 | S (visionOS with page signals) | 0 asked (no cipher in a visionOS answer) | 0 asked | 0 asked |
-| H (master / variant / segment) | **8 / 9**: videos 1–5 and 7–9 2xx / 2xx / 2xx, no key, audio separate, duration within 2 s; video 10: master and variant 2xx, but the master's highest variant is 240p (its formats reach 720p) and that variant's playlist held no segment (`no-segment`, 2 requests) | **8 / 9**: as test 1 (video 10 `no-segment` again: repeatable for that video) | **6 / 9**: videos 3–5 and 7–9 as test 1; videos 1 and 2: the master request failed on the network (`net`, 1 request each, variant and segment skipped; 2 `BROKEN` lines, §7 step 7; not a YouTube refusal, no wrong row); video 10 `no-segment` again |
+| H (master / variant / segment) | **8 / 9**: videos 1–5 and 7–9 2xx / 2xx / 2xx, no key, audio separate, duration within 2 s; video 10: master and variant 2xx, but the master's highest variant is 240p (its formats reach 720p) and that variant's playlist read no segment (`no-segment`, 2 requests; 2026-10-16: our status bug, a playlist over 256 KiB read as `2xx`, §7) | **8 / 9**: as test 1 (video 10 `no-segment` again: repeatable for that video) | **6 / 9**: videos 3–5 and 7–9 as test 1; videos 1 and 2: the master request failed on the network (`net`, 1 request each, variant and segment skipped; 2 `BROKEN` lines, §7 step 7; not a YouTube refusal, no wrong row); video 10 `no-segment` again |
 | Android | 2 / 2 `SABR_ONLY`: the 360p progressive row only (V pass) | 2 / 2: as test 1 | 2 / 2: as test 1 |
 | embedded | 0 / 2 `REFUSED` (error 152-18; V7, was `VIDEO_VERDICT`) | 0 / 2: as test 1 | 0 / 2: as test 1 |
 | MWEB | 2 / 2 `NEEDS_SCRIPT` → S ok-sig+n, V pass: video 2 ≤ 2160p, video 6 ≤ 1080p (no address-less adaptive answer) | 2 / 2: video 2 adaptive formats without address (29; the bundled and the page's version alike), only the 360p progressive row (S, V pass), as valid run 3; video 6 ≤ 1080p | 2 / 2: video 2 back to ≤ 2160p (30 adaptive formats with a ciphered address, S ok-sig+n, V pass; as test 1); video 6 ≤ 1080p |
@@ -1120,7 +1126,8 @@ same `NEEDS_SCRIPT` answer, 30 formats; the step checks acceptance, not rows) �
 newer page value was tried; embedded's is not tried (measured, not active). Sources as valid
 runs 1–3, except the App Store (`NETWORK` this time). Video 10's H: the 2xx variant playlist held
 no `#EXTINF` segment and the master listed only ≤ 240p, so YouTube's HLS for that video looked
-incomplete (a reading). R6 answered
+incomplete (a reading; corrected 2026-10-16: the `2xx` was our status bug on a playlist over
+256 KiB, §7; the ≤ 240p master stays a reading). R6 answered
 video 10 itself (23 adaptive rows ≤ 720p, V pass) and H gives no row there (no wrong row). Gate
 (§9 item 9) after tests 2–3: H was asked on 9 distinct videos for the first time (8 passed,
 89 %) — live if ≥ 60 % in ≥ 2 of the 3 tests and wrong 0; Android and MWEB still on videos 2
@@ -1370,8 +1377,20 @@ What D7's census runs showed (owner, 2026-10-15/16; PROGRESS):
   2's census FULL +); no Master code reads it, nothing to do. The census names step 6 on every
   shape line; step 6's work is only for a line marked **BREAKING** (a path the copied parser
   reads went away; the check then reads `BROKEN`).
-- H on census video 10: master and variant 2xx, no segment (YouTube side, since D0): nothing to
-  do while it stays on that video; other videos without a segment → step 1.
+- H on census video 10 (tests 1–3, run 2): master and variant `2xx`, `no-segment`, 0 segments, 2
+  requests. **Not YouTube's side** (corrected 2026-10-16; PROGRESS): the app's client answers a
+  body over the cap as `RESPONSE_TOO_LARGE` with its `2xx` code, and D0's `HlsCheck.statusOf`
+  read the code first, so a variant playlist over 256 KiB read `2xx` with no body. Video 10
+  (1203 s) is the census's longest video; its variant lists every segment with its full address
+  (its size is not measured: the census never prints it). Fixed: the reason first, a failed read
+  is never `2xx` (`HlsLongPlaylistTest`). The first census after the update prints once `BROKEN
+  H visionos video 10: variant 2xx → too-large; segment no-segment → skip` (step 7): expected,
+  nothing to do. `2xx` and `no-segment` again on that video → a really empty playlist (YouTube's
+  side): copy the line to the agent. Another video `no-segment` → step 1.
+- Known limit: some long videos' HLS variant playlist passes 256 KiB (guardrail 6's cap) → H
+  `too-large` → unknown, no H row, never a wrong row; the lookup keeps its other rows (video ရှည်
+  တချို့မှာ HLS playlist `too-large` → H unknown ပေး၊ wrong မဖြစ်). A larger cap is the owner's
+  decision.
 - L steps (full census only; in memory, no request): one line per `DIRECT` visionOS answer;
   `same` on each step (L5 `n/a` without a cipher) is the expected reading (run 2's census FULL:
   9/9 `same`). `differs` or `none (…)` → copy the line to the agent.
