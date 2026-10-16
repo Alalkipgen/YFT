@@ -27,6 +27,7 @@ import com.alal.yft.extractor.master.PlaybackCaptureProvider
 import com.alal.yft.extractor.master.ValidationResult
 import com.alal.yft.extractor.master.android.CodecSteering
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
+import com.alal.yft.extractor.master.modules.MasterSiteModule
 import com.alal.yft.extractor.master.contract.SiteContracts
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CompletableDeferred
@@ -132,6 +133,29 @@ class BrowserMasterFallbackTest {
         assertEquals("tiktok:11111", result.candidates.single().videoId)
         assertEquals(1, fixture.factories.get())
         assertEquals(1, fixture.captures.get())
+    }
+
+    /**
+     * Item 2, run 4: the trial's found page is answered by the site's own module (YouTube: the
+     * ladder, so H's row), not by capture. Run 4 showed the adapter's rows: the engine skips a
+     * claimed page unless no adapter answered, so a found page must reach it as unanswered.
+     */
+    @Test
+    fun aFoundPageOfTheMasterFirstSiteIsAnsweredByItsModule() = runTest {
+        val module = FixtureModule()
+        val fixture = Fixture(tiktok, masterFirstSite = "tiktok", modules = listOf(module))
+        val primary = SiteAdapterOutcome.Detected("tiktok", listOf(candidate()))
+        val result = fixture.bridge.recover(tiktok, primary, 100) as SiteAdapterOutcome.Detected
+        assertEquals("master", result.adapterId)
+        assertEquals(MediaKind.HLS, result.candidates.single().kind)
+        assertEquals(FixtureModule.ROW_URL, result.candidates.single().mediaUrl)
+        assertEquals(1, module.calls.get())
+        assertEquals(0, fixture.captures.get())
+        // A failed adapter's answer still stands for a claimed page (the engine's rule, unchanged).
+        val failedPrimary = failed(SiteExtractionFailure.NO_MEDIA_FOUND)
+        val normal = Fixture(tiktok, modules = listOf(module))
+        assertSame(failedPrimary, normal.bridge.recover(tiktok, failedPrimary, 100))
+        assertEquals(1, module.calls.get())
     }
 
     /** Item 2: every other build (no master-first site) and every other site return at once. */
@@ -283,6 +307,7 @@ class BrowserMasterFallbackTest {
         extractor: SiteExtractor = FixtureExtractor(),
         contracts: SiteContracts? = null,
         masterFirstSite: String? = null,
+        modules: List<MasterSiteModule> = emptyList(),
     ) {
         val capture = WebViewPlaybackCapture(enabledBuild)
         val factories = AtomicInteger()
@@ -316,6 +341,7 @@ class BrowserMasterFallbackTest {
                 )
             },
             policy = MasterPolicy(enabled = true),
+            modules = modules,
             contracts = contracts,
         )
         val bridge = AndroidBrowserMasterFallback(
@@ -326,6 +352,31 @@ class BrowserMasterFallbackTest {
             },
             masterFirstSite = masterFirstSite,
         )
+    }
+
+    /** A site module that claims the fixture's TikTok pages and answers one HLS row. */
+    private class FixtureModule : MasterSiteModule {
+        val calls = AtomicInteger()
+        override val siteId = "tiktok"
+        override fun identify(pageUrl: String): SitePageIdentity? {
+            if (!pageUrl.startsWith("https://www.tiktok.com/@fixture/video/")) return null
+            return SitePageIdentity(siteId, pageUrl.substringAfterLast('/'), pageUrl)
+        }
+        override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
+            calls.incrementAndGet()
+            return SiteExtractionResult.Success(
+                listOf(
+                    MediaCandidate(
+                        request.identity.canonicalPageUrl, ROW_URL, setOf(CandidateSource.REQUEST),
+                        MediaKind.HLS, mimeType = "application/vnd.apple.mpegurl",
+                        videoId = "tiktok:${request.identity.contentId}",
+                    ),
+                ),
+            )
+        }
+        companion object {
+            const val ROW_URL = "https://cdn.test/h/index.m3u8"
+        }
     }
 
     private class FixtureExtractor(

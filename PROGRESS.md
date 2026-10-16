@@ -1,5 +1,24 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 run 4 on the phone (the owner, 2026-10-16/17, mobile data): items 1 and 3 ✅; h-only still showed the adapter's rows → fix `[d7]`
+
+- **Item 3 ✅:** the `normal` APK's A check (19:42 UTC): visionOS 1.02 `DIRECT`, 1.04 `DIRECT` with
+  V `PASS`; 3 requests, 37 KB, 1 s, no bot check.
+- **Item 1 ✅:** census video 2's 2160p (about 345 MB) and 1440p (about 147 MB) VP9 + Opus rows
+  downloaded, merged and played with picture and sound.
+- **Item 2 ✗ → fixed:** the `h-only` APK still listed the adapter's rows (census video 1: 240p and
+  144p MP4; census video 2: 2160p/1440p WebM, 1080p MP4). Cause: the found page reached
+  `recover` (`7c7a72a`) with the reason `NO_MEDIA_FOUND`, but Master's engine lets a site's module
+  answer a page it claims only when no site adapter answered (`UNSUPPORTED_URL`); otherwise it
+  returns `Skipped` and `recover` gives the adapter's rows back, silently. The test used a page no
+  module claims, so it passed. Fix: in the h-only trial a found page reaches Master as
+  unanswered (`UNSUPPORTED_URL`), so the YouTube module (the ladder, H) answers; every other build
+  and every failed lookup unchanged (the engine's rule untouched). Test:
+  `BrowserMasterFallbackTest.aFoundPageOfTheMasterFirstSiteIsAnsweredByItsModule` (a module that
+  claims the page answers one HLS row, no capture; a failed adapter's answer still stands).
+- **Next:** the new `h-only` APK (this commit's `d7-matrix`): census videos 1 and 2 → HLS rows
+  only → an AVC row downloads and plays with sound.
+
 ## Phase 1.4 items 1–3 built (the owner's order, 2026-10-16): the WebM merge buffer grows, h-only goes through H, visionOS 1.04 bundled; run 4 APKs `[d7]`
 
 - **Item 3, visionOS 1.04 as the bundled alternate (`f02070a`):** `MasterClientTable.VISION_OS_ALTERNATE`

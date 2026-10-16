@@ -93,7 +93,12 @@ class AndroidBrowserMasterFallback(
         if (primary === SiteAdapterOutcome.NotHandled && !genericOnDemand) return primary
         if (!sites.allowsMasterFallback(lookupUrl)) return primary
         val failure = (primary as? SiteAdapterOutcome.Failed)?.reason
-            ?: SiteExtractionFailure.NO_MEDIA_FOUND
+            // Item 2, run 4 fix: Master's engine lets a site's module (YouTube: the ladder, H)
+            // answer only when no site adapter answered (UNSUPPORTED_URL); with any other
+            // reason a claimed page is skipped and the adapter's rows came back. So the h-only
+            // trial's found page reaches Master as unanswered (the only Detected reaching here).
+            ?: if (primary is SiteAdapterOutcome.Detected) SiteExtractionFailure.UNSUPPORTED_URL
+            else SiteExtractionFailure.NO_MEDIA_FOUND
         // R2: a walled site's bot check, login or player-script answer is final, before capture.
         if (TerminalRules.blocksFallback(failure, lookupUrl)) return primary
         val key = sites.videoKey(lookupUrl)
