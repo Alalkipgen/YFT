@@ -25,8 +25,11 @@
   YouTube page the site adapter found still goes through `AndroidBrowserMasterFallback.recover`
   (`masterFirst`), so the ladder's H gives the rows; every other build is unchanged (a found page
   returns at once). Tests: `BrowserMasterFallbackTest` (2 new), `BrowserMasterFlowTest` (1 new).
-- **CI:** `f02070a` `build` ✅; the run 4 commit runs `build`, `validate` and `d7-matrix` on all
-  three items (`ec1f24e`/`7c7a72a` runs were superseded).
+- **CI of `1d3f41c`** (run 4): `build` ✅, `validate` ✅, `d7-matrix` 7/7 ✅ (Actions run
+  38940779817). Before it: `f02070a` `build` ✅ `validate` ✅; `ec1f24e` `validate` ✅; `8f02d94`
+  (the `[d7]` docs commit) red: `BrowserMasterFlowTest` did not compile (item 2 put
+  `masterFirstSite` last in the `FakeBackup` helper, so trailing-lambda answers bound to it);
+  fixed in `1d3f41c` (test code only, fix 1 of 3).
 - **Run 4 on the phone** (handoff §4, mobile data): (1) `normal`: census video 2 → 1440p and 2160p
   download, merge and play with picture and sound (if one fails, copy its Detail: it now names the
   call and the sizes); the census A check still passes. (2) `h-only`: census videos 1 and 2 → HLS

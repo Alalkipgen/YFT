@@ -5,7 +5,8 @@ at `5a389f1`. For a fresh agent: every code fact below was checked on that commi
 the files you edit. Order: items 1 and 3, then item 2, then the `[d7]` APKs (run 4, §5).
 
 **Status (2026-10-16):** built — item 3 `f02070a`, item 1 `ec1f24e`, item 2 `7c7a72a`; run 4
-APKs `[d7]`; the phone checks (each item's Done) are open.
+APKs `[d7]` from `1d3f41c` (CI green, `d7-matrix` 7/7, run 38940779817); the phone checks (each
+item's Done) are open.
 
 ## 0. Rules (every item)
 
