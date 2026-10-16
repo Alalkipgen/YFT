@@ -53,6 +53,10 @@ visionOS, Master:
   (wrong မဖြစ်)။ 1 MiB APK (`c9c5959`) ပေါ်က census FULL (06:56 UTC): video 10 ရဲ့ H `2xx` ဖြစ်ပြီ (မျှော်ထားတဲ့
   `CHANGED` line တစ်ကြောင်း)၊ H 9/9၊ `BROKEN` မရှိ၊ wrong ၀။ ⏸ owner ဆုံးဖြတ်ရန်: A (D5a) ဆက်လုပ်မလား၊
   target အသစ် (§4 D7 "Done") နဲ့ ပိတ်မလား။
+- **Phase 1.3 ပိတ်ပြီ (2026-10-16၊ owner ဆုံးဖြတ်ချက် (ခ)၊ §9 item 13):** target အသစ်နဲ့ ပိတ်တယ် — flag
+  အားလုံး on (D7 APK တွေလို): MCF ≤ 5 (V6 ပဲ၊ O rung တစ်ခု gate ကျော်တဲ့အထိ)၊ wrong ၀ နေရာတိုင်း၊ own solver
+  off: A ပြီးမှ simulator ရလဒ်နဲ့ target ရေးမယ်။ ပိတ်ပြီးနောက် **A (D5a) ကို နောက်ဆက်တွဲ (follow-up)** အဖြစ်
+  မရပ်ဘဲ ဆက်လုပ်မယ် (owner)။ L steps 7–8 (D5b)၊ H ဖုန်း download (D5c) က open ကျန် (ပိတ်တာထဲ မပါ)။
 - ရည်မှန်းချက်: YouTube ပြောင်းလို့ Master ပျက်ရင် Master code ကြောင့် ပျက်တာ ၀ ("Master-caused failure"
   = ၀၊ §5.1)။ YouTube server ဘက်က ခွင့်ပြုထားတဲ့ လမ်းအားလုံး ပိတ်မှသာ verdict မှန်နဲ့ ရပ်ပြီး တစ်ပတ်အတွင်း
   သိရမယ်။ wrong row ၀ (မပြောင်း)။ APK update မလိုဘဲ။
@@ -133,7 +137,8 @@ in a row):
 5. **D5a** visionOS rungs A, S, Z → **D5b** own parser L → **D5c** H leg. **Progress**
    (2026-10-15): S under the ladder (Plan adapted, §4 D5a "As built"); Z, L and H on visionOS's
    answers came with item 6's core. Left: A (`VersionSource`, self-healed versions); L steps 7–8
-   (D5b: the shape-map memory, L's page locate for S); H's phone download (D5c).
+   (D5b: the shape-map memory, L's page locate for S); H's phone download (D5c). A: the follow-up
+   after the close (owner, 2026-10-16, §9 item 13); L steps 7–8 and H's phone download stay open.
 6. **D6** O rungs (H live; Android and MWEB as fallbacks), memo, wiring, flag and merge rule.
    **Core done** (2026-10-15): wiring, flag, memo, merge rule; L, Z, V and H on visionOS's answers in
    the R6 chain's HTTP path (Plan adapted, §4 D6); simulator wrong 72 → 0 in both columns, MCF
@@ -149,7 +154,8 @@ in a row):
    census L steps 9/9 on run 2, W 4 and W 5, runbook §7; §5.2's MCF = 0 is not met in the
    simulator → targets proposed (§4 D7 "Done", ⏸ the owner). **Closed** (2026-10-16): a census
    FULL confirmed the H status fix; the HLS variant cap is 1 MiB (owner, guardrail 6), and the
-   census FULL on that APK read H 9 / 9 (06:56 UTC).
+   census FULL on that APK read H 9 / 9 (06:56 UTC). **Phase 1.3 closed** (the owner's decision
+   (ခ), 2026-10-16, §9 item 13): on the proposed targets (§5.1); A follows as a follow-up.
 
 The owner's part: one OK for this plan (items 1–2 and the (က+) plan change; §9 items 10–11); a
 weekly check about once a week on mobile data; D7's phone check at the end. Known limits (§5):
@@ -422,11 +428,11 @@ lookup (Master, clientLadder on)
 | D2 | Client table v2 + answer judge (shape kinds, HLS locate, fingerprint) | D1 | Medium | **Done** (2026-10-15): code `eac2df3`, tests and plan `2b62605` (CI ✅; §4 D2 "As built"); V7 (owner): an error screen without a definite marker = one client's refusal (`REFUSED`), not a verdict; V7 live-backed simulator 10 / 10 complete through MWEB, wrong 0, MCF 0 (§5) |
 | D3 | Health v2, order, budget, stop rules (learned version, shape map; (က+) after a bot check) | D2 | Medium–High | **Core done** (2026-10-15, `be0c52e`; §4 D3 "As built"): `ClientHealth`, one test per rule (10); its file with D7 prep (`e56cc3f`); order and cooldowns steer only the ladder's own requests — A's, not built (D5a) |
 | D4 | Row checks: V (reuse), init check, H check, Z | D2 | Medium | **Built** (2026-10-14/15; the parallel agent's pieces, `PROGRESS_PARALLEL.md`): `InitCheck` (`3342508`), Z (`8795699`); the H check = D0's `HlsCheck` inside `HlsLeg` (`240cd4d`); V = `StreamCheck` reused unchanged; all wired with D6 core (`be0c52e`). Not added: `StreamCheck`'s wrong-type and other-host cases (L rows have them through the init check and `OkHttpMediaStartReader`) |
-| D5a | visionOS rungs A (with self-healed versions), S, Z | D3, D4 | Medium–High | **Partly done** (2026-10-15): S (Plan adapted: the own solver in the R6 chain under the ladder, `6402fea`; §4 D5a "As built"), Z (`8795699`); **A not built** (`VersionSource`, self-healed versions; Y1–Y6 complete only with the own solver on, through MWEB and S) |
+| D5a | visionOS rungs A (with self-healed versions), S, Z | D3, D4 | Medium–High | **Partly done** (2026-10-15): S (Plan adapted: the own solver in the R6 chain under the ladder, `6402fea`; §4 D5a "As built"), Z (`8795699`); **A not built** (`VersionSource`, self-healed versions; Y1–Y6 complete only with the own solver on, through MWEB and S); A is the follow-up after the close (owner, 2026-10-16, §9 item 13) |
 | D5b | Own parser L (locate, bind, canonical JSON, copied parser) | D3, D4 | High | **Steps 1–6 done** (2026-10-14/15): `ShapeLocator` + `ShapeNormalizer` (`fdc7dea`, the parallel agent), wired (`be0c52e`), census L steps (`a4ffd02`), DRM marker narrowed (`83ce453`); simulator L1–L16 wrong 0, MCF 0; live L steps 9/9 `same` (D7). **Steps 7–8 not built** (the shape-map memory: `ClientHealth` stores maps, nothing records one; L's page locate for S) |
 | D5c | H leg (independent HLS) | D4, D5b (locate) | Medium–High | **Built** (2026-10-14/15): `HlsLeg` (`240cd4d`, the parallel agent; H matrix 300 runs, wrong 0), wired (`be0c52e`); H live (Final plan, table v3 `4f884ec`; census H 8 of 9 in each Full run). **The phone download through H not done** (D7's `skip-visionos-adaptive` lists were complete through the chain, so H added no row) |
 | D6 | O rungs (census-live only), memo, wiring, flag, merge rule | D5a–D5c | Medium–High | **Core and O rungs done** (2026-10-15, Plan adapted; §4 D6 "As built"): wiring, flag, memo (`8795699`), merge rule, L / Z / V / H on visionOS's answers in the R6 chain's HTTP path (`be0c52e`); O rungs = the chain's Android, MWEB and embedded answers judged, V on their direct rows (`6402fea`); simulator wrong 72 → 0, MCF 305 → 95 (own solver off) and 160 → 5 (on; V6 = O, live only), §5. A with D5a |
-| D7 | Owner live check (with live L mutations), weekly check, runbook | D6 | Low–Medium | **Done** (2026-10-16): phone check ✅ (six APKs, 11/11 each, wrong 0); L DRM marker narrowed (`83ce453`) ✅; census FULL on run 2 (`1a62b18`): L steps 9/9 `same` (L5 n/a), wrong 0 ✅; W 4 and W 5 ✅ (§5); runbook §7 ✅; §5.2's MCF = 0 not met in the simulator → targets proposed (§4 D7 "Done", ⏸ the owner); **closed** (2026-10-16): the census FULL on the H fix APK (`7277fd8`) read `too-large` on video 10 as expected; variant cap 1 MiB (owner, guardrail 6), confirmed by the census FULL on its APK (`c9c5959`, 06:56 UTC: H 9 / 9) |
+| D7 | Owner live check (with live L mutations), weekly check, runbook | D6 | Low–Medium | **Done** (2026-10-16): phone check ✅ (six APKs, 11/11 each, wrong 0); L DRM marker narrowed (`83ce453`) ✅; census FULL on run 2 (`1a62b18`): L steps 9/9 `same` (L5 n/a), wrong 0 ✅; W 4 and W 5 ✅ (§5); runbook §7 ✅; §5.2's MCF = 0 not met in the simulator → targets proposed (§4 D7 "Done") and accepted (owner (ခ), 2026-10-16, §9 item 13: **Phase 1.3 closed**); **closed** (2026-10-16): the census FULL on the H fix APK (`7277fd8`) read `too-large` on video 10 as expected; variant cap 1 MiB (owner, guardrail 6), confirmed by the census FULL on its APK (`c9c5959`, 06:56 UTC: H 9 / 9) |
 | D8 | Signed identity data over R9 (owner decision, after D0) | D2 | Medium | Dropped (owner, 2026-10-15; §9 item 4) |
 
 G0 is done (`a99e0fb`); D0 is next: it decides which rungs and sources exist and starts the
@@ -798,6 +804,9 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
 - **Z:** as D4, inside the rung.
 - **Done:** V1–V3, Y1–Y6, H2 and F1–F2 complete or drop as expected in the simulator with a fake
   runner; a self-healed version is stored only after OK + V.
+- **Follow-up after the close** (owner, 2026-10-16, §9 item 13): A is built after Phase 1.3
+  closed, under this plan's guardrails (5 above all) and stop rules; its "Done" stays the line
+  above; the own-solver-off target is written from the simulator once it is in.
 - **As built (S, 2026-10-15) — Plan adapted:** S is the own solver **in the R6 chain under the
   ladder**: the copied extractor's challenge and apply code (unchanged), the own solver's
   SelfCheck, and the module's `SignatureGate` (V). App: `MasterLadderSwitch.youTube` — ladder off →
@@ -1001,6 +1010,11 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   `same` (L5 n/a); wrong 0, every V pass; **H 9 of 9** `2xx` / `2xx` / `2xx` — the first census
   with every asked H video passing. Nothing to do. ⏸ The owner, as since "Done" above: A (D5a)
   next, or close with the proposed targets.
+- **Phase 1.3 closed** (the owner's decision (ခ), 2026-10-16; §9 item 13; PROGRESS): on the
+  proposed targets above — every flag on (the D7 APKs): MCF ≤ 5, V6 only, until an O rung passes
+  the gate; wrong 0 everywhere; the own solver off: 95 today, its target written from the
+  simulator once A is in. Next, as a follow-up after the close (owner, continuous): A (D5a).
+  Open, not part of the close: L steps 7–8 (D5b), H's phone download (D5c).
 
 ### D8 — Signed identity data over R9 (owner decision) — Dropped (owner, 2026-10-15)
 
@@ -1044,12 +1058,19 @@ owner's D7 check and in every weekly check. A live MCF is a top-priority bug: it
 becomes a simulator class (as Phase 1.2 added M9b and M9c). Honest limit: 0 is proved for the
 modelled classes; an unmodelled change ends in a clean stop, W shows it, and it becomes a class.
 
+**Closing targets** (the owner's decision (ခ), 2026-10-16, §9 item 13; proposed at §4 D7 "Done"):
+Phase 1.3 closed with MCF ≤ 5 with every flag on (the D7 APKs' configuration; V6 only: an O rung,
+live only), until an O rung passes the gate (§9 item 9), and wrong = 0 everywhere; with the own
+solver off: the simulator's number once A is in (the follow-up; 95 at the close: V1 and Y1–Y6 65,
+the classes A is for; V7, V9, H1 and F4 25, which need S; V6 5). MCF = 0 stays the aim.
+
 ### 5.2 Criteria
 
 - **Parity:** the D1 parity gate and the L round-trip green; flag on and visionOS healthy: one
   request, the R6 rows; live: the same rows as R6 on 10 of 10 videos (extras only where R6 gave
   none).
-- **Simulator:** wrong = 0 and MCF = 0 in every class and fault, in both ladder columns.
+- **Simulator:** wrong = 0 and MCF = 0 in every class and fault, in both ladder columns (closed
+  on the closing targets, §5.1).
   - T1–T3 and T1b–T1d (owner, 2026-10-15): after such an answer the ladder sends no InnerTube
     request (player or page) that R6 would not send, in every lookup; T1–T3 and T1b: its result
     equals R6's (T1b: three lookups in a row, each completes as R6 does); T1c and T1d ((က+), §9
@@ -1538,3 +1559,11 @@ merge and release, merging PR #2.
     master's 256 KiB and HlsLeg's 64 KiB segment start unchanged; `HlsLeg.kt`'s comment edited
     with the owner's OK (its code untouched), one line in PROGRESS_PARALLEL.md. Written into
     guardrail 6, §4 D7, §7 and the Final plan table.
+13. **Phase 1.3's close: (ခ) close with the proposed targets, then A as a follow-up — owner,
+    2026-10-16** (asked at D7 "Done": A (D5a) first, or close with the targets): closed on §5.1's
+    closing targets (every flag on: MCF ≤ 5, V6 only, until an O rung passes the gate; wrong 0
+    everywhere; the own solver off: the simulator's number once A is in). After the close, A
+    (D5a: `VersionSource`, self-healed versions; guardrail 5, item 3's host) follows as a
+    follow-up (owner: "(က) A ကို နောက်ဆက်တွဲအနေနဲ့ ဆက်လုပ်"; continuous, without stopping).
+    L steps 7–8 (D5b) and H's phone download (D5c) stay open, not part of the close. Written into
+    the Burmese summary, the Final plan, §4 (D5a, D7), §5.1–§5.2 and the prompt.

@@ -15,6 +15,8 @@ prompt ပါ။ v2 အပြင် L (own parser)၊ self-healing version၊ HL
 - D0 code ပြီးရင် ဖုန်း (mobile data) ထဲက "YFT client census" → Full census ကို ၃ ကြိမ် (အနည်းဆုံး
   ၁ နာရီခြား) run ပြီး report ၃ ခုကို chat ထဲ ပို့ပေးပါ။ အဲဒီအတောအတွင်း agent က D1 ကို ဆက်လုပ်နေပါမယ်။
   Weekly check ကို အပတ်တိုင်း ၁ မိနစ် run ပါ။
+- **Phase 1.3 ပိတ်ပြီ (owner (ခ)၊ 2026-10-16၊ plan §9 item 13):** target အသစ် (plan §5.1)။ နောက်ဆက်တွဲ:
+  A (D5a) ကို မရပ်ဘဲ ဆက်လုပ်မယ်။
 - D8 က owner "yes" ပြောမှ လုပ်ပါမယ်။ ဆုံးဖြတ်ချက် (source hosts၊ D8) ကို chat ထဲ အချိန်မရွေး ပြောနိုင်ပါတယ်။
 
 ```text
@@ -63,7 +65,8 @@ path, and then it stops cleanly with the right verdict.
   W         weekly check in the census tool: <= 60 s, <= 2 MB, diff against the last run,
             owner-started only
   proof     parity + L round-trip + classes V1-V11, L1-L16, Y1-Y6, T1-T3, H1-H2, F1-F4;
-            wrong = 0, MCF = 0
+            wrong = 0, MCF = 0 (closed 2026-10-16 on the owner's closing targets, plan
+            section 5.1 and section 9 item 13; then A as a follow-up)
 NEVER A WRONG ROW: rows only from the copied parser (on the answer or on L's canonical JSON) +
 MasterSiteModule's row check; S values only after SelfCheck; every L row needs a V pass and an
 init-check pass in the same lookup ("unknown" = not shown); rows V proved refused are removed

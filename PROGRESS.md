@@ -1,5 +1,19 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — closed (the owner's decision (ခ), 2026-10-16; docs only): the proposed targets; next: A (D5a) as a follow-up, continuous
+
+- The owner's decision (ခ) (2026-10-16, after the census FULL on the 1 MiB APK): close Phase 1.3
+  with the targets proposed at D7 "Done" (plan §5.1 "Closing targets", §9 item 13): every flag on
+  (the D7 APKs): MCF ≤ 5, V6 only (an O rung, live only), until an O rung passes the gate (§9 item
+  9); wrong 0 everywhere; the own solver off: 95 at the close (V1 and Y1–Y6 65, the classes A is
+  for; V7, V9, H1 and F4 25, which need S; V6 5), its target from the simulator once A is in.
+- Then A (D5a: `VersionSource`, self-healed versions; guardrail 5, §9 item 3's host) as a
+  follow-up after the close (owner); the owner: go on without stopping (continuous).
+- Open, not part of the close: L steps 7–8 (D5b), H's phone download (D5c).
+- At the close: D0–D7 done, D8 dropped; client table v3 (visionOS R0 live, H live, Android and
+  MWEB provisional, embedded measured); wrong 0 in every phone run and in the simulator; MCF 5
+  (own solver on) / 95 (off); drift 0; last code `c9c5959` (its APK on the phone).
+
 ## Phase 1.3 — census FULL on the 1 MiB APK (owner, 2026-10-16 06:56 UTC; docs only): H 9 / 9, no `BROKEN`; ⏸ the owner: A (D5a) next, or close with the proposed targets
 
 - ✅ Census FULL on `c9c5959`'s APK (installed as an update), mobile data, 1 h 30 min after the
