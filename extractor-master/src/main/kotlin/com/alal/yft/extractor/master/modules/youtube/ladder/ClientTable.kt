@@ -14,7 +14,8 @@ import com.alal.yft.extractor.master.modules.youtube.YouTubePageSignals
  *
  * Guardrail 5 (the test checks it): at most 4 identities (visionOS, Android, embedded, MWEB); at
  * most 2 bundled visionOS alternates, each from a public reference with source and date (none
- * today: yt-dlp 2026.08.19 and YouTube.js list 1.02 only); a version source is live only on
+ * today: yt-dlp 2026.08.19 and YouTube.js list 1.02 only; NewPipe's 1.04 only after the owner's
+ * census A check finds it `DIRECT` with a V pass, 2026-10-16); a version source is live only on
  * raw.githubusercontent.com (owner, 2026-10-15: no redirect, ≤ 64 KiB, text only) or YouTube's own
  * page. Status from the D0 census (valid runs 1–3, weekly checks 1–3; §5); v3 (owner, 2026-10-15):
  * H live after tests 1–3 on `595d259` (§9 item 9's gate met), nothing else changed. A (D5a

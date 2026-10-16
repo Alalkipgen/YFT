@@ -42,8 +42,10 @@ import okhttp3.Response
 
 /**
  * Owner tool, debug build only (Phase 1.3 D0): "YFT client census" runs [ClientCensus] on the
- * phone without a computer, in two modes — **Full census** (videos 1–10, every client, the version
- * sources; ≤ 6 MB) and **Weekly check** (≤ 60 s, ≤ 2 MB, ≤ 20 requests). Its launcher entry exists
+ * phone without a computer, in three modes — **Full census** (videos 1–10, every client, the
+ * version sources; ≤ 6 MB), **Weekly check** (≤ 60 s, ≤ 2 MB, ≤ 20 requests) and **A check**
+ * (D5a, owner 2026-10-16: video 2's visionOS 1.02 and, only when that answers directly, 1.04
+ * once; ≤ 4 requests; reported, not kept for the diff). Its launcher entry exists
  * only when the build has `yft.masterCapture` and `yft.ownSolver` on (manifest placeholder
  * `yftOwnerTools`). A run starts only on a tap and belongs to this screen (guardrail 11: nothing
  * is scheduled, closing the tool ends it); the report, which never holds an address, a value or
@@ -87,6 +89,7 @@ class ClientCensusActivity : ComponentActivity() {
         }
         val full = Button(this).apply { text = "Full census" }
         val weekly = Button(this).apply { text = "Weekly check" }
+        val aCheck = Button(this).apply { text = "A check (visionOS 1.04)" }
         val status = TextView(this).apply { textSize = 15f }
         this.status = status
         val result = TextView(this).apply {
@@ -98,7 +101,7 @@ class ClientCensusActivity : ComponentActivity() {
             text = "Copy result"
             isEnabled = false
         }
-        listOf(full, weekly, status, result, copy).forEach(::add)
+        listOf(full, weekly, aCheck, status, result, copy).forEach(::add)
         setContentView(ScrollView(this).apply {
             fitsSystemWindows = true
             addView(column)
@@ -110,6 +113,7 @@ class ClientCensusActivity : ComponentActivity() {
             status.text = "Turned off in this build (needs yft.masterCapture and yft.ownSolver)."
             full.isEnabled = false
             weekly.isEnabled = false
+            aCheck.isEnabled = false
             return
         }
 
@@ -132,6 +136,7 @@ class ClientCensusActivity : ComponentActivity() {
             running = true
             full.isEnabled = false
             weekly.isEnabled = false
+            aCheck.isEnabled = false
             copy.isEnabled = false
             result.text = ""
             status.text = "Starting…"
@@ -157,12 +162,14 @@ class ClientCensusActivity : ComponentActivity() {
                     running = false
                     full.isEnabled = true
                     weekly.isEnabled = true
+                    aCheck.isEnabled = true
                     copy.isEnabled = result.text.isNotEmpty()
                 }
             }
         }
         full.setOnClickListener { start(ClientCensus.Mode.FULL) }
         weekly.setOnClickListener { start(ClientCensus.Mode.WEEKLY) }
+        aCheck.setOnClickListener { start(ClientCensus.Mode.A_CHECK) }
         copy.setOnClickListener {
             getSystemService(ClipboardManager::class.java)
                 ?.setPrimaryClip(ClipData.newPlainText(ClientCensus.TOOL_LABEL, result.text))
@@ -258,6 +265,10 @@ class ClientCensusActivity : ComponentActivity() {
             "Weekly check: videos 1 and 5 (and video 2 for the HLS check when video 1 meets a bot check) " +
             "and one answer per client (at most 60 s, 2 MB, 20 requests); " +
             "the first line says NO CHANGE, CHANGED or BROKEN; INFO lines need nothing.\n" +
+            "A check: video 2 only — visionOS 1.02 as YFT's lookup asks it and, only when that answers " +
+            "directly, 1.04 once (at most 4 requests); a bot check or HTTP 429 stops it at once (no run for 30 min); " +
+            "the first line says whether 1.04 can be bundled. " +
+            "It is not kept for the next diff.\n" +
             "After a bot check on a video it sends only what YFT's normal lookup sends next (that video's " +
             "page and visionOS once more with the page's visitor data), then goes on with the next video. " +
             "A bot check on a request that already has visitor data, or HTTP 429, stops the run, and no run " +

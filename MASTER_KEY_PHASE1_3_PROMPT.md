@@ -19,8 +19,10 @@ prompt ပါ။ v2 အပြင် L (own parser)၊ self-healing version၊ HL
   A (D5a) ကို မရပ်ဘဲ ဆက်လုပ်မယ်။
 - **A (D5a) ✅ (2026-10-16၊ plan §4 D5a "As built (A)"):** visionOS version ပယ်ခံရရင် yt-dlp ရဲ့ table
   ကနေ version အသစ်နဲ့ ပြန်မေး (V pass မှ သုံး)။ own solver off target = MCF ≤ 65 (plan §5.1)။ ဖုန်းစစ် မလို။
-- **Owner order (2026-10-16): A check → D5c → D5b steps 7–8 → `[d7]` APK တစ်ခု။ A check ⏸ (plan §9
-  item 14):** visionOS version 1.02 ထက် အဟောင်း public reference မှာ မရှိ (guardrail 5) → owner ရွေးမှ ဆက်။
+- **Owner order (2026-10-16): A check → D5c → D5b steps 7–8 → `[d7]` APK တစ်ခု။ A check (plan §9
+  item 14):** visionOS version 1.02 ထက် အဟောင်း public reference မှာ မရှိ (guardrail 5) → owner ရွေးချယ်မှု
+  (2): census "A check" ခလုတ် ✅ (video 2: 1.02 → DIRECT ဆိုမှ NewPipe ရဲ့ 1.04 တစ်ခါ)။ နောက် `[d7]` APK မှာ
+  ဖုန်းနဲ့ run ပါ — 1.04 DIRECT + V pass ဆိုရင် visionOS ရဲ့ bundled alternate ဖြစ်မယ် (R0 = 1.02 မပြောင်း)။
 - D8 က owner "yes" ပြောမှ လုပ်ပါမယ်။ ဆုံးဖြတ်ချက် (source hosts၊ D8) ကို chat ထဲ အချိန်မရွေး ပြောနိုင်ပါတယ်။
 
 ```text

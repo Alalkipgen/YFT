@@ -35,7 +35,7 @@ import kotlinx.coroutines.CancellationException
  * address is present; (2)
  * visionOS again with the page's signature timestamp and visitor data, only when (1) carried
  * `signatureCipher` (S through the own solver, V); (3) video 1 only: each bundled alternate
- * version (none are bundled: the references list no second visionOS value); (4) Android — class,
+ * version (none are bundled yet: NewPipe's 1.04 waits for the A check); (4) Android — class,
  * progressive only or not, V; (5) the embedded player with the page's version and embed context,
  * as main asks it — class, S through the own solver, V; (6) MWEB — class, S, V. After video 1 the
  * public version sources are read once ([CensusSources]); a new valid value newer than the
@@ -50,6 +50,13 @@ import kotlinx.coroutines.CancellationException
  * (owner, 2026-10-15): H runs on its `R0+vd` answer when that is `DIRECT` (B5), and video 2 (no bot
  * check in valid runs 1–3) gets the rest under a soft budget ([weeklySecond]): visionOS for H only
  * when no H ran yet, then its watch page, Android and MWEB (B6) and the version acceptance (B7).
+ *
+ * **A check** (D5a, owner 2026-10-16, option 2; [aCheck]): video 2 only — visionOS 1.02 as R6 asks
+ * it (`R0`, no visitor data) and, only when that answer is `DIRECT`, the same request once more
+ * with only the version changed to NewPipe's 1.04 ([A_CHECK_ALTERNATE]; as the ladder's A rung
+ * changes it), then V on one row of that answer; ≤ 4 requests and ≤ 2 MB. A bot check or HTTP 429
+ * on either request stops it at once with no run for 30 min. The run is reported, not kept for
+ * the diff.
  *
  * **Bot checks** (owner, 2026-10-15): after a bot check the census never sends a request R6 would
  * not send, and like R6 it answers each lookup (each video) on its own. A bot check on visionOS's
@@ -80,7 +87,8 @@ class ClientCensus(
     private val clock: () -> Long = System::currentTimeMillis,
     private val toolLabel: String = TOOL_LABEL,
 ) {
-    enum class Mode { FULL, WEEKLY }
+    /** [A_CHECK]: D5a's A check (owner, 2026-10-16), whether visionOS 1.04 may be bundled; not a census run. */
+    enum class Mode { FULL, WEEKLY, A_CHECK }
 
     /** Wire bytes the census's HTTP client moved so far; negative when nothing measures them. */
     fun interface Meter {
@@ -127,6 +135,7 @@ class ClientCensus(
         when (mode) {
             Mode.FULL -> full(session, chosen)
             Mode.WEEKLY -> weekly(session, chosen, state)
+            Mode.A_CHECK -> aCheck(session, chosen)
         }
         val run = CensusRun(
             tool = toolLabel,
@@ -144,16 +153,33 @@ class ClientCensus(
             versions = session.versions,
             notes = session.notes,
         )
+        val secrets = chosen.values + session.secrets
+        val summary = "$toolLabel · ${mode.name} · ${CensusJson.dateOf(startedAt)} · ${videosAsked(run)} · " +
+            "${run.requests} requests · ${kilobytes(run.bytes)} KB${if (run.metered) "" else " (bodies only)"} · " +
+            "${run.millis / SECOND_MILLIS} s" + (run.stopped?.let { " · stopped: $it" } ?: "")
+        if (mode == Mode.A_CHECK) {
+            // Not a census run: no diff, and the stored runs stay as they were; only a cooldown is kept.
+            val kept = state.copy(cooldownUntil = if (session.cooldown) clock() + COOLDOWN_MILLIS else state.cooldownUntil)
+            val headline = aCheckHeadline(run)
+            val report = buildString {
+                append(headline).append('\n')
+                append(summary).append('\n')
+                append(A_CHECK_RULE).append('\n')
+                append(CensusJson.run(run))
+            }
+            return Outcome(
+                firstLine = CensusSanitizer.clean(headline, secrets),
+                report = CensusSanitizer.clean(report, secrets),
+                stateJson = CensusSanitizer.clean(CensusJson.state(kept), secrets),
+                stopped = run.stopped,
+            )
+        }
         val diff = CensusDiff.compare(state.runs, run)
         val next = CensusState(
             runs = (state.runs + run).sortedBy(CensusRun::atMillis).takeLast(CensusJson.MAX_RUNS),
             cooldownUntil = if (session.cooldown) clock() + COOLDOWN_MILLIS else state.cooldownUntil,
             sourcesAt = if (session.sourcesRead) startedAt else state.sourcesAt,
         )
-        val secrets = chosen.values + session.secrets
-        val summary = "$toolLabel · ${mode.name} · ${CensusJson.dateOf(startedAt)} · ${videosAsked(run)} · " +
-            "${run.requests} requests · ${kilobytes(run.bytes)} KB${if (run.metered) "" else " (bodies only)"} · " +
-            "${run.millis / SECOND_MILLIS} s" + (run.stopped?.let { " · stopped: $it" } ?: "")
         val report = buildString {
             append(diff.text()).append('\n')
             append(summary).append('\n')
@@ -168,7 +194,7 @@ class ClientCensus(
         )
     }
 
-    // ---- the two modes ----------------------------------------------------------------------
+    // ---- the modes ----------------------------------------------------------------------------
 
     private suspend fun full(session: Session, videos: Map<Int, String>) {
         var sourcesDone = false
@@ -461,6 +487,73 @@ class ClientCensus(
 
     private fun startedAgo(at: Long): Long = if (at <= 0) Long.MAX_VALUE else clock() - at
 
+    /**
+     * D5a's A check (owner, 2026-10-16, option 2): may NewPipe's visionOS 1.04 be bundled as
+     * visionOS's alternate (guardrail 5)? On video 2 only (no bot check in valid runs 1–3):
+     * visionOS 1.02 as R6 asks it (`R0`, no visitor data, no page); only when that answer is
+     * `DIRECT` (YouTube answers this address now), the same request once more with only the
+     * version changed (the body's `clientVersion` and `X-YouTube-Client-Version`, as the ladder's
+     * A rung changes them), then, when that answer is `DIRECT`, V on one of its rows (the AVC row
+     * and a control). A bot check or HTTP 429 on either request stops it at once ([ask]): no
+     * watch page, no `R0+vd`, no run for 30 min. Nothing else is asked, and 1.04 is not bundled
+     * here: the owner's phone result decides ([aCheckHeadline]).
+     */
+    private suspend fun aCheck(session: Session, videos: Map<Int, String>) {
+        val id = videos[A_CHECK_VIDEO]
+        if (id == null) {
+            session.notes += "video $A_CHECK_VIDEO is not set, so the A check asked nothing"
+            return
+        }
+        val video = Video(A_CHECK_VIDEO, id)
+        session.step("video $A_CHECK_VIDEO · visionOS ${VISION_OS.clientVersion}")
+        val bundled = ask(session, video, VISION_OS, R0, NO_PAGE) ?: return
+        session.finish(bundled)
+        if (session.stopped != null) return
+        if (bundled.record.answerClass != CensusClass.DIRECT) {
+            session.notes += "A check: visionOS ${VISION_OS.clientVersion} answered ${bundled.record.answerClass}, " +
+                "so ${A_CHECK_ALTERNATE.version} was not asked"
+            return
+        }
+        session.step("video $A_CHECK_VIDEO · visionOS ${A_CHECK_ALTERNATE.version}")
+        val alternate = ask(session, video, VISION_OS.copy(clientVersion = A_CHECK_ALTERNATE.version), A_CHECK_STEP, NO_PAGE) ?: return
+        if (session.stopped == null && alternate.record.answerClass == CensusClass.DIRECT) {
+            directCheck(session, video, alternate, preferProgressive = false)
+        }
+        session.finish(alternate)
+    }
+
+    /** The A check's first line: what visionOS 1.02 and 1.04 answered, and whether 1.04 may be bundled. */
+    private fun aCheckHeadline(run: CensusRun): String {
+        val head = "A CHECK — "
+        val alternate = A_CHECK_ALTERNATE.version
+        val cooldown = "; no census for ${COOLDOWN_MILLIS / MINUTE_MILLIS} min"
+        val bundled = run.asks.firstOrNull { it.step == R0 }
+        val asked = run.asks.firstOrNull { it.step == A_CHECK_STEP }
+        fun answered(ask: CensusAsk): String =
+            "visionOS ${ask.version} ${ask.finalClass}" + if (ask.http == HTTP_OK) "" else " (http ${ask.http})"
+        fun stop(ask: CensusAsk, why: String?): String {
+            val what = if (why == "bot-check") "bot check" else "HTTP 429"
+            val then = if (ask === bundled) ", so $alternate was not asked" else " (${bundled?.let(::answered)})"
+            return "${head}stopped: $what on visionOS ${ask.version}$then$cooldown"
+        }
+        val stopped = run.stopped
+        return when {
+            bundled == null && stopped == null -> "${head}video $A_CHECK_VIDEO is not set, so nothing was asked"
+            bundled == null -> "${head}stopped ($stopped) before visionOS was asked"
+            asked == null && (stopped == "bot-check" || stopped == "rate-limited") -> stop(bundled, stopped)
+            bundled.answerClass != CensusClass.DIRECT -> "$head${answered(bundled)}, so $alternate was not asked: nothing decided"
+            asked == null -> "$head${answered(bundled)}; $alternate not asked (stopped: $stopped)"
+            stopped == "bot-check" || stopped == "rate-limited" -> stop(asked, stopped)
+            asked.finalClass != CensusClass.DIRECT -> "$head${answered(bundled)}; ${answered(asked)}: not an alternate"
+            asked.bound == false -> "$head${answered(bundled)}; visionOS $alternate answered about another video: not an alternate"
+            asked.v == StreamCheck.Verdict.PASS.name ->
+                "$head${answered(bundled)}; ${answered(asked)}, V PASS: $alternate can be visionOS's bundled alternate " +
+                    "(${A_CHECK_SOURCE_NAME}, ${A_CHECK_ALTERNATE.date})"
+            asked.v == StreamCheck.Verdict.FAIL.name -> "$head${answered(bundled)}; ${answered(asked)}, V FAIL: not an alternate"
+            else -> "$head${answered(bundled)}; ${answered(asked)}, V ${asked.v ?: "none"}: nothing decided (no V pass)"
+        }
+    }
+
     // ---- after a bot check (owner, 2026-10-15) ----------------------------------------------
 
     /** Records visionOS's first [answer] after its [checks]; a bot check goes to [answerAsR6]. */
@@ -568,7 +661,8 @@ class ClientCensus(
             // a video is answered as R6 answers it (the callers' answerAsR6); any other request
             // without visitor data ends this video only, as R6 has none to ask again with.
             when {
-                signals.visitorData != null -> {
+                // The A check (owner, 2026-10-16): a bot check on either of its requests stops it at once.
+                signals.visitorData != null || session.mode == Mode.A_CHECK -> {
                     session.stop("bot-check")
                     session.cooldown = true
                 }
@@ -1062,6 +1156,10 @@ class ClientCensus(
                 stop("budget")
                 return false
             }
+            if (mode == Mode.A_CHECK && requests + cost > A_CHECK_MAX_REQUESTS) {
+                stop("requests")
+                return false
+            }
             if (mode == Mode.WEEKLY) {
                 if (requests + cost > WEEKLY_MAX_REQUESTS) {
                     if (soft) {
@@ -1176,6 +1274,9 @@ class ClientCensus(
         const val WEEKLY_MAX_REQUESTS: Int = 20
         const val WEEKLY_MAX_MILLIS: Long = 60_000
 
+        /** The A check: visionOS 1.02, 1.04 and V on one row of 1.04 (a target and a control). */
+        const val A_CHECK_MAX_REQUESTS: Int = 4
+
         private const val FIRST_VIDEO = 1
         private const val WEEKLY_SECOND_VIDEO = 5
 
@@ -1187,6 +1288,14 @@ class ClientCensus(
 
         /** visionOS asked again with the page's visitor data, as R6 asks it after a refusal. */
         internal const val AGAIN = "R0+vd"
+
+        /** The A check's 1.04 request (R0 with only the version changed). */
+        internal const val A_CHECK_STEP = "AC"
+
+        /** The A check's video: video 2 (the 1080 ladder), with no bot check in valid runs 1–3. */
+        private const val A_CHECK_VIDEO = 2
+        private const val A_CHECK_SOURCE_NAME = "NewPipe"
+        private const val HTTP_OK = "200"
         private const val MOBILE_CLIENT_NAME = "MWEB"
         private const val ORIGIN = "https://www.youtube.com"
         private const val ACCEPT_LANGUAGE = "en-US,en;q=0.9"
@@ -1210,9 +1319,28 @@ class ClientCensus(
         /**
          * Bundled alternate visionOS versions (guardrail 5: ≤ 2, from a public reference with
          * source and date). None today: yt-dlp (2026.08.19 table, `_base.py`) and YouTube.js
-         * (`Constants.ts`) both list `1.02`, the bundled value, and no second one.
+         * (`Constants.ts`) both list `1.02`, the bundled value, and no second one; NewPipe's 1.04
+         * ([A_CHECK_ALTERNATE]) is bundled only after the owner's A check.
          */
         private val ALTERNATES: List<String> = emptyList()
+
+        /**
+         * The A check's version (D5a, owner 2026-10-16, option 2): NewPipe Extractor's visionOS
+         * value (`ClientsConstants.java`: 1.04 since 2026-08-06, after 1.02 from 2026-06-07), the
+         * only public value other than the bundled 1.02 (yt-dlp and YouTube.js list 1.02 only; no
+         * older one exists). Bundled as visionOS's alternate only after the owner's A check on the
+         * phone finds it `DIRECT` with a V pass; until then nothing asks it but the A check.
+         */
+        internal val A_CHECK_ALTERNATE = MasterClientTable.Alternate(
+            version = "1.04",
+            source = "NewPipe Extractor ClientsConstants.java",
+            date = "2026-08-06",
+        )
+
+        /** The A check's rule, in the report under the summary. */
+        private val A_CHECK_RULE = "A check rule (owner, 2026-10-16): video $A_CHECK_VIDEO only; visionOS 1.02 as R6 asks it, " +
+            "1.04 once only when 1.02 is DIRECT; 1.04 is bundled as visionOS's alternate only when it is DIRECT with a V pass " +
+            "(R0 stays 1.02); a bot check or HTTP 429 stops it at once, with no census for 30 min; this run is not kept for the diff."
 
         /** What R6 asks before the watch page (the copied extractor's `NO_PAGE`). */
         private val NO_PAGE = YouTubePageSignals(

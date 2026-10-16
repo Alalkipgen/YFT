@@ -1,6 +1,40 @@
 # YFT Master Extractor backup
 
-## Phase 1.3 — A check (the owner's order, item 1, 2026-10-16; docs only): no visionOS version older than 1.02 in any public reference; ⏸ the owner: how the A check goes on (guardrail 5)
+## Phase 1.3 — A check built (the owner's choice (2), 2026-10-16): a census "A check" button with NewPipe's visionOS 1.04; the owner runs it on the next APK
+
+- The owner chose (2) (2026-10-16): on video 2, visionOS 1.02 as R6 asks it (`R0`, no visitor
+  data); only if that answer is `DIRECT`, NewPipe's 1.04 the same way, once; a bot check or HTTP
+  429 stops at once. If 1.04 is `DIRECT` with a V pass, it becomes visionOS's bundled alternate
+  (source NewPipe, 2026-08-06) — after the owner's run on the phone; R0 stays 1.02 and parity
+  does not change. Not (3). Then D5c, D5b steps 7–8 and one `[d7]` APK with the three.
+- ✅ Built (`ClientCensus.kt`, mode `A_CHECK`; the census tool's third button "A check (visionOS
+  1.04)"): video 2 only. 1.02 is the full census's own `R0` request (R6's, body and headers);
+  1.04 is that request with only the version changed (the body's `clientVersion` and
+  `X-YouTube-Client-Version`: exactly the ladder's A rung edit, `VersionSource.withVersion`); V on
+  one AVC row of 1.04's answer, only when it is `DIRECT`. ≤ 4 requests, ≤ 2 MB; no watch page,
+  no source read, no `R0+vd`. A bot check or 429 on either request stops it at once with no
+  census for 30 min. The first line gives the outcome, e.g. "A CHECK — visionOS 1.02 DIRECT;
+  visionOS 1.04 DIRECT, V PASS: 1.04 can be visionOS's bundled alternate (NewPipe, 2026-08-06)";
+  the run is reported but not kept in `census-last.json` (no diff, the stored runs stay, only a
+  cooldown is kept). 1.04 is not bundled yet (`MasterClientTable` visionOS `alternates` stays
+  empty; `ClientCensus.A_CHECK_ALTERNATE` holds it with source and date): the phone decides.
+- Tests: `ClientCensusACheckTest` 10 — the order, and both requests equal to the full census's
+  `R0` and the A rung's edit; a bot check or 429 on 1.02 and on 1.04 → stop, 30 min cooldown, no
+  V; 1.02 not `DIRECT` → no 1.04; 1.04 rejected (HTTP 400 or an "update" answer), a 403 (token)
+  or V unknown → not an alternate; not kept for the diff (the next full census's diff unchanged);
+  video 2 needed; no address, ID or visitor data in the report or state; 1.04 valid for visionOS's
+  pattern, newer than 1.02, with source and date. Module 648 tests, 0 failed, 2 skipped;
+  `CensusR6ParityTest` green; the flag-off path and the R6 columns untouched (census code only).
+- Known limit (plan §4 D5a "A check"): how YouTube refuses a visionOS version stays unknown. The
+  judge reads `VERSION_REJECTED` from HTTP 400 or the update / unsupported texts; if YouTube
+  refuses another way, A does not fire and the lookup has R6's outcome (no worse), and the weekly
+  check shows the change.
+- Backlog (plan §10, new): the census's App Store source reads the iOS app; YouTube's visionOS
+  app is a listing of its own (1.05.34: three parts, not visionOS's `^\d{1,2}\.\d{2}$`).
+- Next: D5c (a trial mode with the H row only), then D5b steps 7–8, then one `[d7]` APK with the
+  three, where the owner runs the A check; (ဂ) after its result.
+
+## Phase 1.3 — A check (the owner's order, item 1, 2026-10-16; docs only): no visionOS version older than 1.02 in any public reference; ⏸ the owner: how the A check goes on (guardrail 5) → (2), above
 
 - The owner's order (2026-10-16), in this order, CI green after each commit: (1) the A check
   (ခ) — offline, many old visionOS versions in tests and the simulator; online, an "A check"
