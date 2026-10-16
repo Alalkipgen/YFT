@@ -225,8 +225,8 @@ class BrowserMasterFlowTest {
     )
 
     private inner class FakeBackup(
-        private val answer: suspend () -> SiteAdapterOutcome = { detected() },
         private val masterFirstSite: String? = null,
+        private val answer: suspend () -> SiteAdapterOutcome = { detected() },
     ) : BrowserMasterFallback {
         override val enabled = true
         override fun masterFirst(lookupUrl: String): Boolean = lookupUrl == masterFirstSite
