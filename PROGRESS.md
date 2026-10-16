@@ -29,7 +29,9 @@
   38940779817). Before it: `f02070a` `build` ✅ `validate` ✅; `ec1f24e` `validate` ✅; `8f02d94`
   (the `[d7]` docs commit) red: `BrowserMasterFlowTest` did not compile (item 2 put
   `masterFirstSite` last in the `FakeBackup` helper, so trailing-lambda answers bound to it);
-  fixed in `1d3f41c` (test code only, fix 1 of 3).
+  fixed in `1d3f41c` (test code only, fix 1 of 3). **Emulator smoke** (the owner's Run workflow,
+  `0c077a2`, run 38955756497) ✅: 54 tests, 0 failures, 3 skipped; the new
+  `aVp9KeyframeOver256KibMergesIntoOneWebm` passed (the 355,713-byte VP9 keyframe merges into one WebM).
 - **Run 4 on the phone** (handoff §4, mobile data): (1) `normal`: census video 2 → 1440p and 2160p
   download, merge and play with picture and sound (if one fails, copy its Detail: it now names the
   call and the sizes); the census A check still passes. (2) `h-only`: census videos 1 and 2 → HLS

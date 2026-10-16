@@ -1286,7 +1286,7 @@ P42 — Downloads: Delete file (2026-10-09):
 | Check | Evidence |
 | --- | --- |
 | WebM sample buffer | `MuxSampleBufferTest` (8): a sample that fits keeps the buffer; a larger one grows it to twice the buffer or the sample, rounded up to 256 KiB; at most 32 MiB (over it: none); never smaller; `MuxTrace` names the call and the sizes in an 84-character Detail |
-| 2K/4K WebM merge | `AudioVideoMuxerInstrumentedTest.aVp9KeyframeOver256KibMergesIntoOneWebm` (API 29+): `mux/video-vp9-big-keyframe.webm.b64` (800 × 450 VP9, 25 frames, keyframe 355,713 bytes) + `mux/audio-opus.webm` → one WebM with VP9 + Opus and 25 frames (emulator-smoke, Run workflow) |
+| 2K/4K WebM merge | `AudioVideoMuxerInstrumentedTest.aVp9KeyframeOver256KibMergesIntoOneWebm` (API 29+): `mux/video-vp9-big-keyframe.webm.b64` (800 × 450 VP9, 25 frames, keyframe 355,713 bytes) + `mux/audio-opus.webm` → one WebM with VP9 + Opus and 25 frames (emulator-smoke run 38955756497 on `0c077a2`: 54 tests, 0 failures, 3 skipped) |
 | visionOS 1.04 bundled | `ClientTableTest`, `VersionSourceTest`, `ClientCensusACheckTest`, `ClientCensusTest`, `VersionRungTest` (3 new): one alternate 1.04 (NewPipe, 2026-08-06), R0 1.02; asked only after `VERSION_REJECTED`, never after a bot check or on the healthy path; parity tests unchanged |
 | h-only through H | `BrowserMasterFallbackTest` (2 new): a found page of the trial's site goes through Master (rows `master`); without the trial or on another site it returns at once; `BrowserMasterFlowTest` (1 new): the backup runs once for a found page of that site |
 | Phone | Run 4 `[d7]` APKs: `normal` 1440p/2160p merge with sound, A check; `h-only` HLS rows only, an AVC row with sound |
