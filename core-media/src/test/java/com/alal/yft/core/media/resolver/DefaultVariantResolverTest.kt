@@ -315,6 +315,39 @@ class DefaultVariantResolverTest {
     }
 
     @Test
+    fun `YouTube HLS pairs AVC qualities with the AAC sound and leaves VP9 ones silent`() = runTest {
+        // Master Phase 1.3 D5c (h-only): the sound is one rendition without CODECS, named in each
+        // quality's CODECS first. VP9 with AAC has no container the phone's muxer writes (MP4
+        // takes no VP9, WebM no AAC), so those qualities stay "No sound".
+        val stream = "#EXT-X-STREAM-INF:BANDWIDTH"
+        val master = listOf(
+            "#EXTM3U",
+            """#EXT-X-MEDIA:URI="audio/main.m3u8",TYPE=AUDIO,GROUP-ID="main",NAME="Default",DEFAULT=YES""",
+            """$stream=4500000,CODECS="mp4a.40.2,avc1.640028",RESOLUTION=1920x1080,AUDIO="main"""",
+            "avc/1080.m3u8",
+            """$stream=4000000,CODECS="mp4a.40.2,vp09.00.40.08",RESOLUTION=1920x1080,AUDIO="main"""",
+            "vp9/1080.m3u8",
+            """$stream=18000000,CODECS="mp4a.40.2,vp09.00.51.08",RESOLUTION=3840x2160,AUDIO="main"""",
+            "vp9/2160.m3u8",
+        ).joinToString("\n")
+        server.enqueue(manifestResponse(master, "application/vnd.apple.mpegurl"))
+
+        val result = resolver.resolve(
+            candidate(server.url("/master.m3u8").toString(), MediaKind.HLS),
+        ) as VariantResolutionResult.Success
+
+        val variants = result.asset.variants
+        val avc = variants.single { it.playbackUrl.endsWith("/avc/1080.m3u8") }
+        assertEquals(MediaTrackType.AUDIO_VIDEO, avc.trackType)
+        assertEquals(listOf("avc1.640028"), avc.codecs)
+        assertEquals(listOf("mp4a.40.2"), requireNotNull(avc.audioCompanion).codecs)
+        val vp9 = variants.filter { "/vp9/" in it.playbackUrl }
+        assertEquals(2, vp9.size)
+        assertTrue(vp9.all { it.trackType == MediaTrackType.VIDEO && it.audioCompanion == null })
+        assertEquals(1, variants.count { it.trackType == MediaTrackType.AUDIO })
+    }
+
+    @Test
     fun `DASH resolves separate tracks and marks bitrate sizes estimated`() = runTest {
         server.enqueue(
             manifestResponse(

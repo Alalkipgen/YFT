@@ -80,12 +80,20 @@ visionOS, Master:
   ပြင်ပြီ။ simulator: lookup 990 — H row နဲ့ complete 440၊ H ရဲ့ အကြောင်းရင်းနဲ့ stop 550၊ wrong ၀။ D0 မှာ အသံ
   သီးခြား (audio rendition) ပဲ တွေ့လို့ ဖုန်းမှာ download တစ်ခါ (AVC quality — app က AAC အသံနဲ့ ပေါင်း၊ VP9 က
   "No sound")။ muxed က simulator မှာပဲ။
-- **D5b steps 7–8 ⏸ (owner ရဲ့ order item 3၊ 2026-10-16၊ §9 item 15):** နှစ်ခုလုံး ရလဒ် (row၊ wrong၊ MCF)
-  မပြောင်း။ step 7 (shape map memory) က scan ချိန် (8 ms) ပဲ သက်သာ — သုံးဖို့ `ShapeNormalizer` (parallel agent
-  ဖိုင်) ပြင်ရမယ်၊ ကျွန်တော့်ဘက်က လမ်းတိုနဲ့ဆို DRM / decoy စစ်တာ အားနည်းမယ်။ step 8 (page signal ရှာ): live မှာ
-  signal ၃ ခုလုံး တွေ့ခဲ့၊ S က chain ထဲမှာ page ကို ကိုယ်တိုင်ဖတ်လို့ page ကို ပြင်ပေးရမယ် → R6 မပို့တဲ့ request ထွက်
-  (guardrail 4)၊ answer ထဲက visitor data က ပယ်ထားတဲ့ (ခ)။ ရွေးချယ်စရာ: (1) code မရေးဘဲ ပိတ် → `[d7]` APK (အကြံပြု)၊
-  (2) step 7 ကို parallel agent နဲ့၊ (3) step 8 player ID ပဲ။
+- **D5b steps 7–8 — code မရေးဘဲ ပိတ် (owner ရွေး (1)၊ 2026-10-16၊ §9 item 15):** နှစ်ခုလုံး ရလဒ် (row၊
+  wrong၊ MCF) မပြောင်းလို့ (Plan adapted)။ step 7 (shape map memory) က scan ချိန် (8 ms) ပဲ သက်သာ၊ step 8 (page
+  signal ရှာ) က R6 မပို့တဲ့ request ထွက် (guardrail 4)။ နောက်ဆက်တွဲ ၃ ခု → §10 Backlog "Phase 1.4": (i) trigger
+  (W BREAKING၊ page signal ပျောက်) ပေါ်မှ step 7/8၊ (ii) shape map ကို မှတ်ရုံ (ဖတ်ဖို့ မသုံး)၊ (iii) page မှာ
+  player ID မပါရင် နောက်ဆုံး အောင်မြင်ခဲ့တဲ့ lookup ရဲ့ player ID (V / init check ဆက်ဖွင့်၊ chain ရဲ့ request
+  ပြောင်းလို့ owner ခွင့်ပြုမှ၊ bot check နောက်မှာ ဘယ်တော့မှ မသုံး)။
+- **VP9 HLS အသံ (2026-10-16၊ §10 item 5):** H ရဲ့ HLS မှာ AVC quality တွေကို AAC အသံနဲ့ ပေါင်းပြီး MP4 ရ (P50)၊
+  VP9 quality တွေက "No sound" (Android muxer: MP4 က VP9 မယူ၊ WebM က AAC မယူ) — ချို့ယွင်းချက် မဟုတ်၊ backlog။
+  resolution တစ်ခုမှာ အသံပါ row ကို ပြလို့ 1080p အထိ အသံပါ။
+- **Run 3 APK ၇ ခု (owner ရဲ့ order item 4၊ `[d7]`၊ §4 D7 "Run 3"):** A check ခလုတ် (APK တိုင်းရဲ့ census tool)
+  နဲ့ h-only ပါ။ ဖုန်းစစ်: (1) `normal` → "YFT client census" → "A check (visionOS 1.04)" → report ရဲ့ ပထမ
+  စာကြောင်း ပို့ပါ၊ (2) `h-only` → video 1 → list မှာ HLS quality တွေပဲ → "No sound" မပါတဲ့ row (AVC) တစ်ခု
+  download → MP4 ဖွင့်၊ ပုံ + အသံ ပါ၊ ကြာချိန် ±2 s၊ (3) ကျန် ၅ ခု — optional (run 2 လို list complete)။
+  1.04 DIRECT + V PASS ဆိုရင် visionOS ရဲ့ bundled alternate ထည့်မယ် (R0 = 1.02 မပြောင်း)၊ (ဂ) အဲဒီနောက် ဆုံးဖြတ်။
 - ရည်မှန်းချက်: YouTube ပြောင်းလို့ Master ပျက်ရင် Master code ကြောင့် ပျက်တာ ၀ ("Master-caused failure"
   = ၀၊ §5.1)။ YouTube server ဘက်က ခွင့်ပြုထားတဲ့ လမ်းအားလုံး ပိတ်မှသာ verdict မှန်နဲ့ ရပ်ပြီး တစ်ပတ်အတွင်း
   သိရမယ်။ wrong row ၀ (မပြောင်း)။ APK update မလိုဘဲ။
@@ -458,10 +466,10 @@ lookup (Master, clientLadder on)
 | D3 | Health v2, order, budget, stop rules (learned version, shape map; (က+) after a bot check) | D2 | Medium–High | **Core done** (2026-10-15, `be0c52e`; §4 D3 "As built"): `ClientHealth`, one test per rule (10); its file with D7 prep (`e56cc3f`); order and cooldowns steer only the ladder's own requests — A's since D5a's A (2026-10-16) |
 | D4 | Row checks: V (reuse), init check, H check, Z | D2 | Medium | **Built** (2026-10-14/15; the parallel agent's pieces, `PROGRESS_PARALLEL.md`): `InitCheck` (`3342508`), Z (`8795699`); the H check = D0's `HlsCheck` inside `HlsLeg` (`240cd4d`); V = `StreamCheck` reused unchanged; all wired with D6 core (`be0c52e`). Not added: `StreamCheck`'s wrong-type and other-host cases (L rows have them through the init check and `OkHttpMediaStartReader`) |
 | D5a | visionOS rungs A (with self-healed versions), S, Z | D3, D4 | Medium–High | **Done** (2026-10-16): S (Plan adapted: the own solver in the R6 chain under the ladder, `6402fea`; §4 D5a "As built"), Z (`8795699`), A (the follow-up after the close, owner 2026-10-16, §9 item 13; Plan adapted, §4 D5a "As built (A)": `VersionSource`, self-healed versions from yt-dlp's table; simulator own solver off MCF 95 → 65, on 5, wrong 0) |
-| D5b | Own parser L (locate, bind, canonical JSON, copied parser) | D3, D4 | High | **Steps 1–6 done** (2026-10-14/15): `ShapeLocator` + `ShapeNormalizer` (`fdc7dea`, the parallel agent), wired (`be0c52e`), census L steps (`a4ffd02`), DRM marker narrowed (`83ce453`); simulator L1–L16 wrong 0, MCF 0; live L steps 9/9 `same` (D7). **Steps 7–8 not built** (the shape-map memory: `ClientHealth` stores maps, nothing records one; L's page locate for S). ⏸ 2026-10-16 (the owner's order, item 3): neither changes an outcome; step 7's use needs the parallel agent's `ShapeNormalizer`, step 8 changes the chain's requests (guardrail 4) — the owner decides (§9 item 15) |
-| D5c | H leg (independent HLS) | D4, D5b (locate) | Medium–High | **Built** (2026-10-14/15): `HlsLeg` (`240cd4d`, the parallel agent; H matrix 300 runs, wrong 0), wired (`be0c52e`); H live (Final plan, table v3 `4f884ec`; census H 8 of 9 in each Full run). **The phone download through H not done** (D7's `skip-visionos-adaptive` lists were complete through the chain, so H added no row). **h-only trial built** (2026-10-16, §4 D5c "As built (h-only trial)"): the seventh `[d7]` APK lists H's row alone; H's row now carries the video key (the app had dropped it); the phone download on the next `[d7]` APK |
+| D5b | Own parser L (locate, bind, canonical JSON, copied parser) | D3, D4 | High | **Steps 1–6 done** (2026-10-14/15): `ShapeLocator` + `ShapeNormalizer` (`fdc7dea`, the parallel agent), wired (`be0c52e`), census L steps (`a4ffd02`), DRM marker narrowed (`83ce453`); simulator L1–L16 wrong 0, MCF 0; live L steps 9/9 `same` (D7). **Steps 7–8 closed without code** (2026-10-16, the owner's choice (1), §9 item 15; Plan adapted): neither changes an outcome; step 7's use needs the parallel agent's `ShapeNormalizer`, step 8 changes the chain's requests (guardrail 4); the follow-ups are in §10 (Phase 1.4: steps 7–8 only on a trigger, the shape map recorded only, the last good player ID) |
+| D5c | H leg (independent HLS) | D4, D5b (locate) | Medium–High | **Built** (2026-10-14/15): `HlsLeg` (`240cd4d`, the parallel agent; H matrix 300 runs, wrong 0), wired (`be0c52e`); H live (Final plan, table v3 `4f884ec`; census H 8 of 9 in each Full run). **The phone download through H not done** (D7's `skip-visionos-adaptive` lists were complete through the chain, so H added no row). **h-only trial built** (2026-10-16, §4 D5c "As built (h-only trial)"): the seventh `[d7]` APK lists H's row alone; H's row now carries the video key (the app had dropped it); the phone download on run 3 (§4 D7 "Run 3"; VP9 HLS stays "No sound", §10 item 5) |
 | D6 | O rungs (census-live only), memo, wiring, flag, merge rule | D5a–D5c | Medium–High | **Core and O rungs done** (2026-10-15, Plan adapted; §4 D6 "As built"): wiring, flag, memo (`8795699`), merge rule, L / Z / V / H on visionOS's answers in the R6 chain's HTTP path (`be0c52e`); O rungs = the chain's Android, MWEB and embedded answers judged, V on their direct rows (`6402fea`); simulator wrong 72 → 0, MCF 305 → 95 (own solver off) and 160 → 5 (on; V6 = O, live only), §5. A with D5a (2026-10-16: own solver off 95 → 65) |
-| D7 | Owner live check (with live L mutations), weekly check, runbook | D6 | Low–Medium | **Done** (2026-10-16): phone check ✅ (six APKs, 11/11 each, wrong 0); L DRM marker narrowed (`83ce453`) ✅; census FULL on run 2 (`1a62b18`): L steps 9/9 `same` (L5 n/a), wrong 0 ✅; W 4 and W 5 ✅ (§5); runbook §7 ✅; §5.2's MCF = 0 not met in the simulator → targets proposed (§4 D7 "Done") and accepted (owner (ခ), 2026-10-16, §9 item 13: **Phase 1.3 closed**); **closed** (2026-10-16): the census FULL on the H fix APK (`7277fd8`) read `too-large` on video 10 as expected; variant cap 1 MiB (owner, guardrail 6), confirmed by the census FULL on its APK (`c9c5959`, 06:56 UTC: H 9 / 9) |
+| D7 | Owner live check (with live L mutations), weekly check, runbook | D6 | Low–Medium | **Done** (2026-10-16): phone check ✅ (six APKs, 11/11 each, wrong 0); L DRM marker narrowed (`83ce453`) ✅; census FULL on run 2 (`1a62b18`): L steps 9/9 `same` (L5 n/a), wrong 0 ✅; W 4 and W 5 ✅ (§5); runbook §7 ✅; §5.2's MCF = 0 not met in the simulator → targets proposed (§4 D7 "Done") and accepted (owner (ခ), 2026-10-16, §9 item 13: **Phase 1.3 closed**); **closed** (2026-10-16): the census FULL on the H fix APK (`7277fd8`) read `too-large` on video 10 as expected; variant cap 1 MiB (owner, guardrail 6), confirmed by the census FULL on its APK (`c9c5959`, 06:56 UTC: H 9 / 9); **run 3** (2026-10-16, §4 D7 "Run 3"): the A check and the H download, ⏸ the owner's phone |
 | D8 | Signed identity data over R9 (owner decision, after D0) | D2 | Medium | Dropped (owner, 2026-10-15; §9 item 4) |
 
 G0 is done (`a99e0fb`); D0 is next: it decides which rungs and sources exist and starts the
@@ -927,15 +935,16 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
 - Census tool update, on each live answer, in memory only (counts in the report): (1) the L
   round-trip — canonical JSON gives the same rows as the direct parse; (2) mutations L1, L2, L3,
   L5 and L7 applied to the live answer — L finds the same itags again, and their rows pass V.
-- **Steps 7–8 (2026-10-16, the owner's order, item 3): ⏸ asked (§9 item 15).** Step 7 saves only
-  the scan (8.0 ms median for a 307 KiB answer on the JVM); its use needs a map-based entry in
-  `ShapeNormalizer` (the parallel agent's file), and a shortcut from our side would skip the
-  whole-answer checks (DRM marker, another video's formats, disagreeing groups, several statuses).
-  Step 8: live, the copied `pageSignals` found the player ID, the timestamp and visitor data
-  (S solved MWEB's cipher in every Full run); S is the chain's own path since D6, so located
-  signals would mean a changed page body and requests R6 does not send (guardrail 4; visitor
-  data from an answer is its rejected option (ခ)). Neither changes the simulator's outcomes
-  (L14 complete 15/15 in both ladder columns already).
+- **Steps 7–8 (2026-10-16, the owner's order, item 3): closed without code (the owner chose (1), §9
+  item 15; Plan adapted).** Step 7 saves only the scan (8.0 ms median for a 307 KiB answer on the
+  JVM); its use needs a map-based entry in `ShapeNormalizer` (the parallel agent's file), and a
+  shortcut from our side would skip the whole-answer checks (DRM marker, another video's formats,
+  disagreeing groups, several statuses). Step 8: live, the copied `pageSignals` found the player ID,
+  the timestamp and visitor data (S solved MWEB's cipher in every Full run); S is the chain's own
+  path since D6, so located signals would mean a changed page body and requests R6 does not send
+  (guardrail 4; visitor data from an answer is its rejected option (ခ)). Neither changes the
+  simulator's outcomes (L14 complete 15/15 in both ladder columns already). Follow-ups (§10, Phase
+  1.4): steps 7–8 only when a trigger appears, the shape map recorded only, the last good player ID.
 - Debug-only switch for D7: `-Pyft.ladderMutate=L1|L2|L3|L5|L7` (mutates visionOS's live answer
   in memory before the judge; release `false`).
 - **Done:** wrong = 0 and MCF = 0 in L1–L16; complete in L1–L7, L10 (found), L14 and L15 with V
@@ -1139,6 +1148,23 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   Open, not part of the close: L steps 7–8 (D5b), H's phone download (D5c).
 - **After the close: A** (2026-10-16; §4 D5a "As built (A)"): the own solver off 95 → **65** in
   the simulator, now its target (§5.1); every flag on unchanged (MCF 5, V6 only), wrong 0.
+- **Run 3** (the owner's order, 2026-10-16, item 4; `.github/d7-apks.txt` "run 3", the `[d7]`
+  commit after `9177a90`; artifacts `yft-d7-<mode>`): the seven APKs with the A check (`0a63181`,
+  after run 2; the census tool's third button — the owner tools are on in every `d7-matrix` APK,
+  `yft.masterCapture` and `yft.ownSolver`) and the h-only trial (`e31bb90`). The phone steps
+  (mobile data; each APK installs as an update over the last):
+  1. `normal`: "YFT client census" → **A check (visionOS 1.04)** (video 2; ≤ 4 requests,
+     ≤ 2 MB) → the report's first line ("A CHECK — …"; Copy gives the whole report).
+  2. `h-only`: video 1 in YFT's browser → the list holds H's HLS qualities only: AVC rows (up to
+     1080p) with sound, merged with the AAC rendition; VP9-only rows (above 1080p, when offered)
+     "No sound" (§10 item 5) → download one row without "No sound" → the MP4 plays with picture
+     and sound, its length the video's ±2 s. No list: the error's details (the `ladder H: …` line).
+  3. Optional: the other five APKs, the 10 videos' lists complete as in run 2.
+
+  Then: 1.04 `DIRECT` with V `PASS` → `ClientCensus.A_CHECK_ALTERNATE` goes into
+  `MasterClientTable`'s visionOS `alternates` (R0 stays 1.02; parity unchanged); any other result
+  keeps it out (§9 item 14); (ဂ) is decided then. The H download is D5c's "Done" for the form D0
+  saw (the sound apart).
 
 ### D8 — Signed identity data over R9 (owner decision) — Dropped (owner, 2026-10-15)
 
@@ -1716,18 +1742,21 @@ merge and release, merging PR #2.
     becomes visionOS's bundled alternate (NewPipe, 2026-08-06), R0 stays 1.02 and parity does not
     change; not (3). How YouTube refuses stays a known limit (§4 D5a); the App Store source's
     listing goes to the backlog (§10).
-15. **D5b steps 7–8 (the owner's order, 2026-10-16, item 3): asked 2026-10-16** — neither step
-    changes rows, wrong rows or MCF (§4 D5b). Step 7 (the shape-map memory) saves only the scan
-    (8.0 ms median on the JVM); using a map needs a new entry in `ShapeNormalizer` (the parallel
-    agent's file), else the whole-answer checks are skipped (weaker than today, guardrail 9).
-    Step 8 (L's page locate for S): the copied reader found every signal live; S runs in the R6
+15. **D5b steps 7–8 (the owner's order, 2026-10-16, item 3): asked; answered (1) 2026-10-16** —
+    neither step changes rows, wrong rows or MCF (§4 D5b). Step 7 (the shape-map memory) saves only
+    the scan (8.0 ms median on the JVM); using a map needs a new entry in `ShapeNormalizer` (the
+    parallel agent's file), else the whole-answer checks are skipped (weaker than today, guardrail
+    9). Step 8 (L's page locate for S): the copied reader found every signal live; S runs in the R6
     chain since D6, so located signals need a changed page body, and the chain then sends requests
     R6 does not (guardrail 4 after a bot check; visitor data from an answer = its rejected option
     (ခ)). Options: (1) close steps 7–8 without code (Plan adapted), then the `[d7]` APK —
-    recommended; (2) step 7 with the parallel agent (a map-based entry that keeps the
-    whole-answer checks; I record, use and drop the maps); (3) step 8 for the player ID only, when
-    the copied reader finds none and no bot check came in the lookup (one script fetch R6 would not
-    make; the timestamp and visitor data stay out).
+    recommended; (2) step 7 with the parallel agent (a map-based entry that keeps the whole-answer
+    checks; I record, use and drop the maps); (3) step 8 for the player ID only, when the copied
+    reader finds none and no bot check came in the lookup (one script fetch R6 would not make; the
+    timestamp and visitor data stay out). **The owner chose (1)**: steps 7–8 are closed without code
+    (Plan adapted, §4 D5b); three follow-ups wait in the backlog under Phase 1.4 (§10 items 2–4:
+    steps 7–8 only when a trigger appears; the shape map recorded only; the last good player ID, an
+    exception to D6's "the chain's requests stay R6's"); then the `[d7]` APKs (run 3, §4 D7).
 
 ## 10. Backlog
 
@@ -1744,3 +1773,30 @@ Found on the way and outside every task above; nothing here starts without the o
    which form) and stays under guardrail 5 (a public source with source and date; never
    invented, counted up or brute-forced). Until then the source stays "measured, not active" in
    the client table and A never reads it.
+
+**Phase 1.4** (the owner, 2026-10-16, when D5b steps 7–8 were closed without code; §9 item 15):
+
+2. **L steps 7–8 only when a trigger appears.** Step 7 (the shape-map memory) or step 8 (L's page
+   locate for S) is built only when the live checks show the need: W reports a **BREAKING** shape
+   (a removed path the copied parser reads, `CensusDiff`), or a page signal (the player ID, the
+   signature timestamp, visitor data) is missing for the copied reader. Until then both stay
+   closed (§4 D5b).
+3. **Record the shape map only.** L writes the map it located (the canonical names' paths and the
+   shape fingerprint; no value, address or ID) to `ClientHealth` and W's report; nothing reads
+   with it, so the whole-answer checks stay as they are (guardrail 9). It shows a moved layout
+   before step 7 is needed.
+4. **Fall back to the last good player ID.** When the page names no player ID, S uses the one from
+   the last successful lookup; V and the init check stay on every row, so a stale ID ends in a
+   clean stop, never a wrong row. It changes the chain's requests (a player script R6 would not
+   fetch: an exception to D6's "the chain's requests stay R6's", §4 D6 "As built"), so it needs
+   the owner's go under guardrail 4, and never after a bot check in the lookup.
+
+5. **VP9 HLS qualities have no sound (found 2026-10-16, before the run 3 APKs).** YouTube's HLS
+   names its sound apart (one AAC rendition; D0: codecs avc1, mp4a, vp09). The app pairs each AVC
+   quality with it and merges both into one MP4 (P50, `HlsAudioPairing`); a VP9 quality stays
+   "No sound": Android's muxer writes VP9 only into WebM, which takes no AAC, and its MP4 takes no
+   VP9 (`AudioVideoMuxCompatibility`). At one resolution the row with sound is the one listed
+   (`QuickDownloadChoices`), so over H the rows up to 1080p have sound and 1440p / 2160p (VP9
+   only) say "No sound"; over the chain, 2K and 4K come as VP9 WebM with Opus (P6). Sound for VP9
+   over H would need a merge that writes VP9 and AAC into one file without Android's muxer: new
+   core-download work, proven on a phone first, parity kept (guardrail 1).

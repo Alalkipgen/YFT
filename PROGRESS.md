@@ -1,5 +1,40 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — Run 3 APKs `[d7]` (the owner's order, 2026-10-16, item 4): D5b steps 7–8 closed without code (the owner's (1)), Phase 1.4 backlog; the A check and the h-only trial on the phone; VP9 over HLS stays "No sound"
+
+- **D5b steps 7–8:** the owner chose (1) (plan §9 item 15): closed without code (Plan adapted,
+  §4 D5b; no outcome changes). Backlog, Phase 1.4 (plan §10 items 2–4): steps 7–8 only when a
+  trigger appears (W reports a BREAKING shape, or a page signal is missing for the copied reader);
+  the shape map recorded only (`ClientHealth` and W's report, never read with); the last good
+  player ID when the page names none (V and the init check stay on; a player script R6 would not
+  fetch, so an exception to D6's "the chain's requests stay R6's", needing the owner's go, never
+  after a bot check).
+- **Checked before the APKs** (the order, item 3):
+  - The A check is in every run 3 APK: `ClientCensusActivity` (debug source set) has the button
+    "A check (visionOS 1.04)" since `0a63181`, after run 2 (`1a62b18`); the census tool's launcher
+    entry is on when `yft.masterCapture` and `yft.ownSolver` are (`yftOwnerTools`), as in every
+    `d7-matrix` APK. Run 3 is the first with it.
+  - VP9 over HLS: YouTube's HLS names its sound apart (one AAC rendition). `HlsAudioPairing` (P50)
+    pairs each AVC quality with it; VP9 with AAC has no container Android's muxer writes (MP4 takes
+    no VP9, WebM no AAC; `AudioVideoMuxCompatibility`), so VP9 qualities stay "No sound" (not a
+    fault). At one resolution the row with sound is the one listed (`QuickDownloadChoices`' order),
+    so the h-only list has sound up to 1080p (AVC); VP9-only rows say "No sound". Test (core-media,
+    CI only): `DefaultVariantResolverTest` "YouTube HLS pairs AVC qualities with the AAC sound and
+    leaves VP9 ones silent" (YouTube's form: the rendition without CODECS, the audio codec first in
+    each quality's CODECS). Behaviour unchanged. Backlog item 5 (plan §10): sound for VP9 over H
+    needs a merge without Android's muxer.
+- **Run 3:** `.github/d7-apks.txt` "run 3" with `[d7]` → `d7-matrix` builds the seven APKs on
+  this commit. The phone steps (plan §4 D7 "Run 3"; mobile data):
+  1. `normal`: "YFT client census" → "A check (visionOS 1.04)" → send the report's first line.
+  2. `h-only`: video 1 → the list holds H's HLS qualities only → download one row without
+     "No sound" (AVC) → the MP4 plays with picture and sound, its length the video's ±2 s.
+  3. Optional: the other five APKs, the lists complete as in run 2.
+
+  Then: 1.04 `DIRECT` with V `PASS` → `ClientCensus.A_CHECK_ALTERNATE` into `MasterClientTable`'s
+  visionOS `alternates` (R0 stays 1.02); (ဂ) decided after.
+- CI of `e31bb90`: `validate`'s red was transient — `9177a90`, the same code (docs only), passed
+  `validate`; `e31bb90`'s `build` was ✅.
+
 ## Phase 1.3 — D5b steps 7–8 (the owner's order, item 3, 2026-10-16; docs only): neither changes an outcome; step 7's use needs the parallel agent's file, step 8 changes the chain's requests (guardrail 4); ⏸ the owner (plan §9 item 15)
 
 - **Step 7** (plan §3 L): remember the shape map (located paths ↔ canonical names, by the shape
