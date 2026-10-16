@@ -36,7 +36,10 @@
   solver off target: MCF ≤ 65 (plan §5.1).
 - Known limit: V's budget is 4 a day per client, so while the bundled version stays rejected A
   completes at most 4 lookups a day; then A's answer is dropped (R6's outcome) and visionOS cools
-  down 24 h. An APK with a newer bundled version ends it.
+  down 24 h. An APK with a newer bundled version ends it. And A waits 30 min after a bot check
+  ((က+), plan §9 item 10): visionOS's first request met one on 24 of 30 census videos, so live A
+  would run on few lookups; the simulator's classes have no bot check (95 → 65 is its upper
+  bound; found 2026-10-16 while planning the owner's online check).
 - No phone check now: A acts only when visionOS's bundled 1.02 is rejected and yt-dlp's table
   names a newer version (today both read 1.02). Drift 0. Open, not part of the close: L steps
   7–8 (D5b), H's phone download (D5c).

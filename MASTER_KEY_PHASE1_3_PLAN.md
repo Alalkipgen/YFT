@@ -63,7 +63,9 @@ visionOS, Master:
   တစ်ခု ≤ ၃)။ V pass မှ သုံးပြီး version မှတ်၊ မဟုတ်ရင် ပယ် (R6 အတိုင်း) + visionOS 24 h cooldown။ bot check →
   ရပ်။ simulator: own solver off MCF 95 → **65** (V1၊ Y1၊ Y5၊ Y6 complete)၊ on 5 (မပြောင်း)၊ wrong ၀။ own
   solver off target = **65** (§5.1)။ ကန့်သတ်ချက်: V budget က client တစ်ခု တစ်ရက် ၄ ခါ → bundled version
-  ပယ်ခံနေသရွေ့ A က တစ်ရက် lookup ၄ ခုအထိ (ပြီးရင် R6 အတိုင်း)။ ဖုန်းစစ် အခု မလို။
+  ပယ်ခံနေသရွေ့ A က တစ်ရက် lookup ၄ ခုအထိ (ပြီးရင် R6 အတိုင်း)။ bot check ပြီး ၃၀ မိနစ်အတွင်း A မလုပ်
+  ((က+)၊ §9 item 10): census မှာ visionOS ပထမ request က video ၃၀ ခုမှာ ၂၄ ခု bot check ခံရလို့ app ထဲမှာ
+  A က lookup အများစုမှာ မလုပ်နိုင် — 65 က bot check မပါတဲ့ simulator ဂဏန်း (အများဆုံး)။ ဖုန်းစစ် အခု မလို။
 - ရည်မှန်းချက်: YouTube ပြောင်းလို့ Master ပျက်ရင် Master code ကြောင့် ပျက်တာ ၀ ("Master-caused failure"
   = ၀၊ §5.1)။ YouTube server ဘက်က ခွင့်ပြုထားတဲ့ လမ်းအားလုံး ပိတ်မှသာ verdict မှန်နဲ့ ရပ်ပြီး တစ်ပတ်အတွင်း
   သိရမယ်။ wrong row ၀ (မပြောင်း)။ APK update မလိုဘဲ။
@@ -847,7 +849,12 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   wired (yt-dlp = bundled, no alternates). **Known limit:** V's budget is 4 a day per client
   (`StreamCheck`), so while the bundled version stays rejected A completes at most 4 lookups a
   day; then A's answer is dropped (R6's outcome, never worse) and visionOS cools down 24 h — an
-  APK with the newer bundled version ends it.
+  APK with the newer bundled version ends it. **And A waits out a bot check** ((က+), §9 item 10
+  (d): the request-sending rungs wait 30 min): visionOS's first request (R6's, without visitor
+  data) met a bot check on 24 of 30 census videos, so in census conditions A would run on few
+  lookups, and A's request again without visitor data would likely meet one too. The simulator's
+  V1 and Y classes have no bot check: its 95 → 65 is an upper bound (found 2026-10-16, planning
+  the owner's online check of A).
 - **Done (A, 2026-10-16):** `VersionSourceTest` 11; `VersionRungTest` 13 (12 red with A off; the
   trial test is green either way); `ClientHealthTest` + 1 (the day's read claimed before it
   reads); `ClientLadderSimTest`: a source read at most once a case (one day), only in V1, V9,
@@ -1105,10 +1112,11 @@ modelled classes; an unmodelled change ends in a clean stop, W shows it, and it 
 **Closing targets** (the owner's decision (ခ), 2026-10-16, §9 item 13; proposed at §4 D7 "Done"):
 Phase 1.3 closed with MCF ≤ 5 with every flag on (the D7 APKs' configuration; V6 only: an O rung,
 live only), until an O rung passes the gate (§9 item 9), and wrong = 0 everywhere; with the own
-solver off: **MCF ≤ 65**, the simulator's number once A was in (2026-10-16; 95 at the close: V1
-and Y1–Y6 65, the classes A is for — A completes V1, Y1, Y5 and Y6, 30; left: Y2–Y4 35, where no
-source gives a newer version A could send or its version is rejected too, and V7, V9, H1 and F4
-25 — all need S, i.e. the own solver; V6 5). MCF = 0 stays the aim.
+solver off: **MCF ≤ 65**, the simulator's number once A was in (2026-10-16; no bot check in its
+classes — live, A waits out (က+)'s 30 min after a bot check, §4 D5a "As built (A)"; 95 at the
+close: V1 and Y1–Y6 65, the classes A is for — A completes V1, Y1, Y5 and Y6, 30; left: Y2–Y4 35,
+where no source gives a newer version A could send or its version is rejected too, and V7, V9, H1
+and F4 25 — all need S, i.e. the own solver; V6 5). MCF = 0 stays the aim.
 
 ### 5.2 Criteria
 
