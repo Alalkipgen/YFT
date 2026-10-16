@@ -46,7 +46,9 @@ import kotlinx.coroutines.sync.withLock
  *    verdict about the video (age, private, removed, DRM, geo) keeps the chain's result; a complete
  *    result (P22) too; otherwise the H leg ([HlsLeg], at most one per lookup) on the visionOS
  *    answer's HLS address, bound to the video's length, adds one HLS row (merge rule, guardrail 9:
- *    the chain's rows stay, the ladder adds only a format they lack).
+ *    the chain's rows stay, the ladder adds only a format they lack) with the chain's video key.
+ *    In the `h-only` trial (D5c's phone download, debug builds only; [LadderTrial]) the result is
+ *    that row alone, or no row.
  *
  * A (D5a, built after the close; §4 D5a "As built (A)"): when visionOS's version is rejected
  * (`VERSION_REJECTED`), the chain's request goes out again with only the version changed —
@@ -208,6 +210,10 @@ internal class LadderLookup(
         if (trial.skip == LadderTrial.SKIP_VISION_OS) {
             notes += "trial ${trial.label}: visionOS's answer not used"
             return ExtractorHttpResult.Failure(SiteExtractionFailure.RESPONSE_CHANGED, success.statusCode)
+        }
+        if (trial.hOnly) {
+            notes += "trial ${trial.label}: visionOS's answer as it came"
+            return repair(success, success, root)
         }
         val changed = (root as? JsonValue.Object)?.let(trial::apply)
         if (changed == null) {
@@ -486,6 +492,7 @@ internal class LadderLookup(
     }
 
     private suspend fun merge(result: SiteExtractionResult): SiteExtractionResult {
+        if (ladder.trial.hOnly) return hOnly(result)
         if (verdictAboutVideo) return withNotes(result)
         if (result is SiteExtractionResult.Failure && result.reason in VERDICTS) return withNotes(result)
         val chainRows = (result as? SiteExtractionResult.Success)?.candidates.orEmpty()
@@ -494,7 +501,49 @@ internal class LadderLookup(
         if (complete(rows)) return withNotes(kept)
         val verdict = vision ?: return withNotes(kept)
         if (verdict.terminal) return withNotes(kept)
-        val master = verdict.hls ?: return withNotes(kept.also { notes += "H: no HLS address" })
+        val h = hRow(verdict) ?: return withNotes(kept)
+        if (rows.any { it.mediaUrl == h.candidate.mediaUrl }) return withNotes(kept)
+        ladder.health.repaired(VISION_OS, ClientHealth.Rung.H)
+        notes += "H: one HLS row (${h.row.detail()})"
+        return SiteExtractionResult.Success(rows + h.candidate, detailsOf(kept) + notes.map { "ladder $it" })
+    }
+
+    /**
+     * D5c's phone check (the `h-only` trial, debug builds only): the result is H's one HLS row
+     * alone — the chain's rows are left out, complete or not, and nothing is recorded as repaired —
+     * so the owner's download goes through H. Without an H row: no row (the chain's failure, else
+     * "no media found"), with H's reason in the notes.
+     */
+    private suspend fun hOnly(result: SiteExtractionResult): SiteExtractionResult {
+        val chainRows = (result as? SiteExtractionResult.Success)?.candidates.orEmpty()
+        val left = chainRows.size
+        notes += "trial ${ladder.trial.label}: the chain's $left ${if (left == 1) "row" else "rows"} left out"
+        val verdict = vision
+        val h = when {
+            verdict == null -> null.also { notes += "H: no visionOS answer" }
+            verdict.terminal -> null.also { notes += "H: visionOS's answer ${verdict.answerClass}" }
+            else -> hRow(verdict)
+        }
+        if (h == null) {
+            val failure = result as? SiteExtractionResult.Failure
+                ?: SiteExtractionResult.Failure(SiteExtractionFailure.NO_MEDIA_FOUND, details = detailsOf(result))
+            return withNotes(failure)
+        }
+        notes += "H: one HLS row (${h.row.detail()})"
+        return SiteExtractionResult.Success(listOf(h.candidate), detailsOf(result) + notes.map { "ladder $it" })
+    }
+
+    /** H's row and the candidate the app gets for it. */
+    private class HRow(val row: HlsLeg.Row, val candidate: MediaCandidate)
+
+    /**
+     * The H leg on visionOS's answer [verdict] (one H check per lookup): its HLS address bound to
+     * the video's length (the copied parser's, else L's binding). The candidate carries the video
+     * key the module tags the chain's rows with ("site:contentId"), so the app's browser hook
+     * focuses it with them. Null, with H's reason in the notes, when the check gives no row.
+     */
+    private suspend fun hRow(verdict: AnswerJudge.Verdict): HRow? {
+        val master = verdict.hls ?: return null.also { notes += "H: no HLS address" }
         val parsed = verdict.response?.result
         val bound = normalized ?: verdict.root?.takeIf { (parsed as? YouTubeParseResult.Success)?.video?.durationMillis == null }
             ?.let { ShapeNormalizer.normalize(it, visionBody, videoId, now) }
@@ -503,7 +552,7 @@ internal class LadderLookup(
         val row = outcome as? HlsLeg.Row
         if (row == null) {
             notes += "H: ${(outcome as? HlsLeg.None)?.why ?: "none"}"
-            return withNotes(kept)
+            return null
         }
         val video = verdict.video
         val candidate = row.candidate(
@@ -512,15 +561,13 @@ internal class LadderLookup(
             thumbnailUrl = video?.thumbnailUrl,
             userAgent = request.requestContext.userAgent,
             nowEpochMs = now,
-        )
-        if (rows.any { it.mediaUrl == candidate.mediaUrl }) return withNotes(kept)
-        ladder.health.repaired(VISION_OS, ClientHealth.Rung.H)
-        notes += "H: one HLS row (${row.detail()})"
-        val details = when (kept) {
-            is SiteExtractionResult.Success -> kept.details
-            is SiteExtractionResult.Failure -> kept.details
-        }
-        return SiteExtractionResult.Success(rows + candidate, details + notes.map { "ladder $it" })
+        ).copy(videoId = "${request.identity.siteId}:$videoId")
+        return HRow(row, candidate)
+    }
+
+    private fun detailsOf(result: SiteExtractionResult): List<String> = when (result) {
+        is SiteExtractionResult.Success -> result.details
+        is SiteExtractionResult.Failure -> result.details
     }
 
     /** The chain's result without the refused rows; none left → no media found. */

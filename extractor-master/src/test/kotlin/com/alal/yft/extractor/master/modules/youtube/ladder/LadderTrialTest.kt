@@ -18,7 +18,8 @@ import org.junit.Test
  * Phase 1.3 D7 prep: the owner's live-check switches ([LadderTrial]) — the build's values, each
  * layout change on an answer, and every mode over the simulator's B0 videos (own solver off and
  * on): no wrong row ever; L1, L2, L3 and L7 give the normal mode's outcome through L (its offer set);
- * L5 leaves a cipherless answer as it came; skipping visionOS or its adaptive formats is noted.
+ * L5 leaves a cipherless answer as it came; skipping visionOS or its adaptive formats is noted;
+ * `h-only` (D5c) leaves H's one HLS row alone ([HOnlyTrialTest] for every class).
  */
 class LadderTrialTest {
     @Test
@@ -26,10 +27,13 @@ class LadderTrialTest {
         assertSame(LadderTrial.NONE, LadderTrial.of("", " "))
         assertEquals("visionos", LadderTrial.of("visionos", "").label)
         assertEquals("visionos-adaptive", LadderTrial.of("visionos-adaptive", "").label)
+        assertEquals("h-only", LadderTrial.of("h-only", "").label)
+        assertEquals(listOf("h-only"), (LadderTrial.SKIPS.map { LadderTrial.of(it, "") } + LadderTrial.NONE).filter { it.hOnly }.map { it.label })
         LadderTrial.MUTATIONS.forEach { assertEquals(it, LadderTrial.of("", it).label) }
         assertThrows(IllegalArgumentException::class.java) { LadderTrial.of("android", "") }
         assertThrows(IllegalArgumentException::class.java) { LadderTrial.of("", "L4") }
         assertThrows(IllegalArgumentException::class.java) { LadderTrial.of("visionos", "L1") }
+        assertThrows(IllegalArgumentException::class.java) { LadderTrial.of("h-only", "L3") }
     }
 
     @Test
@@ -64,6 +68,7 @@ class LadderTrialTest {
         (LadderTrial.MUTATIONS).forEach { assertNull(it, LadderTrial.mutate(it, bare)) }
         assertNull(LadderTrial.of("visionos-adaptive", "").apply(bare))
         assertNull(LadderTrial.NONE.apply(root))
+        assertNull("h-only changes no answer", LadderTrial.of("h-only", "").apply(root))
     }
 
     @Test
@@ -115,6 +120,12 @@ class LadderTrialTest {
                             assertTrue(where, notes.any { it.startsWith("trial L5: visionOS's answer unchanged") })
                         }
                         "visionos" -> assertTrue(where, notes.any { it.startsWith("trial visionos: visionOS's answer not used") })
+                        "h-only" -> {
+                            // B0 has an H path: the H row alone, complete.
+                            assertEquals(where, lookups.map { SimOutcome.COMPLETE to 1 }, lookups.map { it.outcome to it.rows })
+                            assertTrue(where, notes.any { it == "trial h-only: visionOS's answer as it came" })
+                            assertTrue(where, notes.any { it.startsWith("H: one HLS row (") })
+                        }
                         else -> assertTrue(where, notes.any { it.startsWith("trial visionos-adaptive: visionOS's answer changed") })
                     }
                 }

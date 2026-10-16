@@ -126,8 +126,12 @@ internal class SimHls(private val lengthSeconds: Long, private val maxHeight: In
     var durationSeconds = lengthSeconds.toDouble()
     var key: String? = null
 
+    /** D5c: the sound as its own rendition (`#EXT-X-MEDIA:TYPE=AUDIO` with a URI, as D0 saw live), not muxed. */
+    var separateAudio = false
+
     val masterUrl = "https://${Sim.MANIFEST_HOST}/api/manifest/hls_variant/expire/4102444800/id/sim/source/youtube/yftsim/hls/file/index.m3u8"
     val variantUrl = "https://${Sim.MANIFEST_HOST}/api/manifest/hls_playlist/expire/4102444800/id/sim/itag/96/yftsim/hls96/file/index.m3u8"
+    val audioUrl = "https://${Sim.MANIFEST_HOST}/api/manifest/hls_playlist/expire/4102444800/id/sim/itag/234/yftsim/hls234/file/index.m3u8"
 
     fun segmentUrl(index: Int) = "https://$segmentHost/videoplayback/id/sim/itag/96/sq/$index/yftsim/seg/file/seg.ts"
 
@@ -140,9 +144,12 @@ internal class SimHls(private val lengthSeconds: Long, private val maxHeight: In
     fun masterText(): String = buildString {
         append("#EXTM3U\n#EXT-X-INDEPENDENT-SEGMENTS\n")
         key?.let { append("#EXT-X-SESSION-KEY:METHOD=$it,URI=\"https://${Sim.MANIFEST_HOST}/key\"\n") }
+        if (separateAudio) append("#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"234\",NAME=\"Default\",DEFAULT=YES,AUTOSELECT=YES,URI=\"$audioUrl\"\n")
         for (height in listOf(maxHeight, 720, 360).filter { it <= maxHeight }.distinct()) {
             append("#EXT-X-STREAM-INF:BANDWIDTH=${height * 4_000},CODECS=\"avc1.4d401f,mp4a.40.2\",")
-            append("RESOLUTION=${height * 16 / 9}x$height,FRAME-RATE=30\n")
+            append("RESOLUTION=${height * 16 / 9}x$height,FRAME-RATE=30")
+            if (separateAudio) append(",AUDIO=\"234\"")
+            append('\n')
             append(if (height == maxHeight) variantUrl else variantUrl.replace("itag/96", "itag/9$height")).append('\n')
         }
     }
@@ -161,9 +168,10 @@ internal class SimHls(private val lengthSeconds: Long, private val maxHeight: In
     }
 
     fun get(url: String): ExtractorHttpResult? = when {
-        !reachable && (url == masterUrl || url == variantUrl || isSegment(url)) -> ExtractorHttpResult.Failure(SiteExtractionFailure.NETWORK)
+        !reachable && (url == masterUrl || url == variantUrl || url == audioUrl || isSegment(url)) -> ExtractorHttpResult.Failure(SiteExtractionFailure.NETWORK)
         url == masterUrl -> reply(master, masterText(), url, PLAYLIST)
         url == variantUrl -> reply(variant, variantText(), url, PLAYLIST)
+        url == audioUrl && separateAudio -> reply(variant, variantText(), url, PLAYLIST)
         isSegment(url) -> reply(segment, startText + "@".repeat(187), url, contentType)
         else -> null
     }

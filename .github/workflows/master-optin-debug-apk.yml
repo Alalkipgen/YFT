@@ -10,7 +10,8 @@ name: Master opt-in debug APK (spike)
 # label build-optin-apk on draft PR #2 (spike → main) builds the PR head itself, not its merge
 # with main, with the own solver and its ladder on (ownSolverNext); its artifact name ends in
 # -next-<short sha>. Any other label skips the job. Phase 1.3 D7 (owner, 2026-10-15): a push whose
-# commit message carries [d7] also builds the phone check's six APKs (job d7-matrix, after build).
+# commit message carries [d7] also builds the phone check's seven APKs (job d7-matrix, after build;
+# D5c, 2026-10-16: the seventh, h-only, offers H's row alone for the phone download through H).
 on:
   push:
     branches: ["spike/master-extractor-backup"]
@@ -32,9 +33,9 @@ on:
         type: boolean
         default: false
       ladder_skip:
-        description: "Phase 1.3 D7 live check (with client_ladder; one switch at a time): skip visionOS's answer or its adaptive formats"
+        description: "Phase 1.3 D7 live check (with client_ladder; one switch at a time): skip visionOS's answer or its adaptive formats; h-only (D5c) keeps H's row only"
         type: choice
-        options: [none, visionos, visionos-adaptive]
+        options: [none, visionos, visionos-adaptive, h-only]
         default: none
       ladder_mutate:
         description: "Phase 1.3 D7 live check (with client_ladder; one switch at a time): change visionOS's answer in memory"
@@ -228,13 +229,13 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
-  # Phase 1.3 D7 (owner, 2026-10-15): the phone check's six debug APKs, one per mode, from a push
+  # Phase 1.3 D7 (owner, 2026-10-15): the phone check's seven debug APKs, one per mode, from a push
   # whose commit message carries [d7] ("Run workflow" shows only on the default branch). It runs
   # after the build job above (the tests run once there) and only assembles: each APK is the same
   # debug app (com.alal.yft.debug), signed with the spike debug key and with gradle.properties'
   # versionCode, so each installs as an update over the last; a mismatch uploads nothing. All
   # flags on (own solver, its ladder, client ladder). A push of docs only runs nothing
-  # (paths-ignore): for the next six, edit .github/d7-apks.txt in a commit with [d7].
+  # (paths-ignore): for the next seven, edit .github/d7-apks.txt in a commit with [d7].
   d7-matrix:
     needs: build
     if: github.event_name == 'push' && contains(github.event.head_commit.message, '[d7]')
@@ -262,6 +263,9 @@ jobs:
           - mode: mutate-L5
             skip: ""
             mutate: L5
+          - mode: h-only
+            skip: h-only
+            mutate: ""
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v5

@@ -74,6 +74,12 @@ visionOS, Master:
   တစ်ခါ မေး (request ≤ ၄)၊ bot check / 429 → ချက်ချင်း ရပ် (၃၀ မိနစ်)။ ဖုန်းမှာ 1.04 DIRECT + V pass ဆိုရင်
   visionOS ရဲ့ bundled alternate (NewPipe၊ 2026-08-06) အဖြစ် ထည့်၊ R0 က 1.02 ပဲ၊ parity မပြောင်း။
   ကန့်သတ်ချက်: YouTube က version ကို ဘယ်လို ပယ်လဲ မသိသေး (§4 D5a)။ App Store source ပြဿနာ → §10 Backlog။
+- **D5c h-only trial ✅ (owner ရဲ့ order item 2၊ 2026-10-16၊ §4 D5c):** trial mode အသစ် `h-only` (debug ပဲ၊
+  `[d7]` APK ၇ ခုမြောက်): list ထဲမှာ H ရဲ့ HLS row တစ်ခုတည်း (chain ရဲ့ row တွေ မပါ)၊ H row မရရင် row မရှိ +
+  အကြောင်းရင်း note။ bug fix: H row မှာ video key မပါလို့ app က ဖယ်ထုတ်ခဲ့ (ဖုန်း list ထဲ H row မရောက်ဖူး) →
+  ပြင်ပြီ။ simulator: lookup 990 — H row နဲ့ complete 440၊ H ရဲ့ အကြောင်းရင်းနဲ့ stop 550၊ wrong ၀။ D0 မှာ အသံ
+  သီးခြား (audio rendition) ပဲ တွေ့လို့ ဖုန်းမှာ download တစ်ခါ (AVC quality — app က AAC အသံနဲ့ ပေါင်း၊ VP9 က
+  "No sound")။ muxed က simulator မှာပဲ။
 - ရည်မှန်းချက်: YouTube ပြောင်းလို့ Master ပျက်ရင် Master code ကြောင့် ပျက်တာ ၀ ("Master-caused failure"
   = ၀၊ §5.1)။ YouTube server ဘက်က ခွင့်ပြုထားတဲ့ လမ်းအားလုံး ပိတ်မှသာ verdict မှန်နဲ့ ရပ်ပြီး တစ်ပတ်အတွင်း
   သိရမယ်။ wrong row ၀ (မပြောင်း)။ APK update မလိုဘဲ။
@@ -447,7 +453,7 @@ lookup (Master, clientLadder on)
 | D4 | Row checks: V (reuse), init check, H check, Z | D2 | Medium | **Built** (2026-10-14/15; the parallel agent's pieces, `PROGRESS_PARALLEL.md`): `InitCheck` (`3342508`), Z (`8795699`); the H check = D0's `HlsCheck` inside `HlsLeg` (`240cd4d`); V = `StreamCheck` reused unchanged; all wired with D6 core (`be0c52e`). Not added: `StreamCheck`'s wrong-type and other-host cases (L rows have them through the init check and `OkHttpMediaStartReader`) |
 | D5a | visionOS rungs A (with self-healed versions), S, Z | D3, D4 | Medium–High | **Done** (2026-10-16): S (Plan adapted: the own solver in the R6 chain under the ladder, `6402fea`; §4 D5a "As built"), Z (`8795699`), A (the follow-up after the close, owner 2026-10-16, §9 item 13; Plan adapted, §4 D5a "As built (A)": `VersionSource`, self-healed versions from yt-dlp's table; simulator own solver off MCF 95 → 65, on 5, wrong 0) |
 | D5b | Own parser L (locate, bind, canonical JSON, copied parser) | D3, D4 | High | **Steps 1–6 done** (2026-10-14/15): `ShapeLocator` + `ShapeNormalizer` (`fdc7dea`, the parallel agent), wired (`be0c52e`), census L steps (`a4ffd02`), DRM marker narrowed (`83ce453`); simulator L1–L16 wrong 0, MCF 0; live L steps 9/9 `same` (D7). **Steps 7–8 not built** (the shape-map memory: `ClientHealth` stores maps, nothing records one; L's page locate for S) |
-| D5c | H leg (independent HLS) | D4, D5b (locate) | Medium–High | **Built** (2026-10-14/15): `HlsLeg` (`240cd4d`, the parallel agent; H matrix 300 runs, wrong 0), wired (`be0c52e`); H live (Final plan, table v3 `4f884ec`; census H 8 of 9 in each Full run). **The phone download through H not done** (D7's `skip-visionos-adaptive` lists were complete through the chain, so H added no row) |
+| D5c | H leg (independent HLS) | D4, D5b (locate) | Medium–High | **Built** (2026-10-14/15): `HlsLeg` (`240cd4d`, the parallel agent; H matrix 300 runs, wrong 0), wired (`be0c52e`); H live (Final plan, table v3 `4f884ec`; census H 8 of 9 in each Full run). **The phone download through H not done** (D7's `skip-visionos-adaptive` lists were complete through the chain, so H added no row). **h-only trial built** (2026-10-16, §4 D5c "As built (h-only trial)"): the seventh `[d7]` APK lists H's row alone; H's row now carries the video key (the app had dropped it); the phone download on the next `[d7]` APK |
 | D6 | O rungs (census-live only), memo, wiring, flag, merge rule | D5a–D5c | Medium–High | **Core and O rungs done** (2026-10-15, Plan adapted; §4 D6 "As built"): wiring, flag, memo (`8795699`), merge rule, L / Z / V / H on visionOS's answers in the R6 chain's HTTP path (`be0c52e`); O rungs = the chain's Android, MWEB and embedded answers judged, V on their direct rows (`6402fea`); simulator wrong 72 → 0, MCF 305 → 95 (own solver off) and 160 → 5 (on; V6 = O, live only), §5. A with D5a (2026-10-16: own solver off 95 → 65) |
 | D7 | Owner live check (with live L mutations), weekly check, runbook | D6 | Low–Medium | **Done** (2026-10-16): phone check ✅ (six APKs, 11/11 each, wrong 0); L DRM marker narrowed (`83ce453`) ✅; census FULL on run 2 (`1a62b18`): L steps 9/9 `same` (L5 n/a), wrong 0 ✅; W 4 and W 5 ✅ (§5); runbook §7 ✅; §5.2's MCF = 0 not met in the simulator → targets proposed (§4 D7 "Done") and accepted (owner (ခ), 2026-10-16, §9 item 13: **Phase 1.3 closed**); **closed** (2026-10-16): the census FULL on the H fix APK (`7277fd8`) read `too-large` on video 10 as expected; variant cap 1 MiB (owner, guardrail 6), confirmed by the census FULL on its APK (`c9c5959`, 06:56 UTC: H 9 / 9) |
 | D8 | Signed identity data over R9 (owner decision, after D0) | D2 | Medium | Dropped (owner, 2026-10-15; §9 item 4) |
@@ -930,6 +936,18 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
 - **Done:** the simulator as above; one owner-phone download per audio form D0 saw (muxed,
   separate): a playable MP4 with both tracks, duration ±2 s. If D0 found that HLS needs a token,
   H is built but stays "measured, not active", and W keeps measuring it.
+- **As built (h-only trial, 2026-10-16; the owner's order, item 2):** a seventh live-check mode
+  (`LadderTrial.H_ONLY`, `-Pyft.ladderSkip=h-only`, debug only; workflow choice `h-only`;
+  `d7-matrix` mode `h-only`): visionOS's answer reaches the chain as it came; after the chain and
+  the own solver's V the result is H's one HLS row alone (the chain's rows left out, complete or
+  not) or, without an H row, no row (the chain's failure, else "no media found") with H's reason
+  noted; nothing recorded as repaired. Fixed on the way (every mode): H's row carries the chain's
+  video key (`site:contentId`); without it the app's browser hook dropped the row, so no H row had
+  reached a phone list. Simulator (`HOnlyTrialTest`, `ladder-h-only.txt`, both audio forms with
+  `SimHls.separateAudio`): 990 lookups, 440 complete with the one H row, 550 stop with H's reason,
+  wrong 0; the other outputs unchanged. D0 saw the sound apart only, so the phone check is one
+  download on `h-only` (an AVC quality: the app pairs it with its AAC rendition, P50; VP9 qualities
+  stay "No sound"); muxed: the simulator only.
 
 ### D6 — O rungs, memo, wiring, flag and merge rule
 
@@ -1013,7 +1031,7 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   the answer's V stands for them there; in the app the ladder checks every L row itself
   (`ClientCensusTest`: the census fixture's formats now carry `approxDurationMs`).
 - **The phone check's six APKs (owner, 2026-10-15; "Run workflow" shows only on the default
-  branch):** job `d7-matrix` in `master-optin-debug-apk.yml`, after `build` (its tests run once
+  branch; seven since D5c's `h-only`, §4 D5c):** job `d7-matrix` in `master-optin-debug-apk.yml`, after `build` (its tests run once
   there; `build` itself unchanged), only for a push whose commit message carries `[d7]` (any
   case). One APK per mode: `normal`, `skip-visionos`, `skip-visionos-adaptive`, `mutate-L1`,
   `mutate-L3`, `mutate-L5`, each with every flag on (own solver, its ladder, client ladder);

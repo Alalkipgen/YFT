@@ -1,5 +1,42 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — D5c h-only trial built (the owner's order, item 2, 2026-10-16): a seventh phone-check APK lists H's one HLS row alone; H's row now carries the video key
+
+- The owner's order, item 2: a trial mode that leaves only the H row, so the phone download goes
+  through H (plan §4 D5c "Done": one download per audio form D0 saw, a playable MP4 with both
+  tracks, duration ±2 s).
+- ✅ Built (`LadderTrial.H_ONLY`; `-Pyft.ladderSkip=h-only`, debug only; workflow `ladder_skip`
+  choice `h-only`; `d7-matrix` mode `h-only`, artifact `yft-d7-h-only`, so seven APKs): visionOS's
+  answer reaches the chain as it came (no layout change; no A in a trial); after the chain and the
+  own solver's V the result is H's one HLS row alone — the chain's rows are left out, complete or
+  not — or, when H gives no row, no row (the chain's failure, else "no media found") with H's
+  reason in the notes ("H: no HLS address", "H: visionOS's answer AGE_CHECK", "H: <why>"). Nothing
+  is recorded as repaired; health stays in memory as in every trial APK. The other modes and the
+  flag-off path: unchanged.
+- 🐞 Found and fixed (every mode): H's row had no video key. The module tags the chain's rows
+  `site:contentId`, and the app's browser hook keeps only rows with the lookup's key, so an H row
+  never reached the phone's list (the simulator counts the module's result, so it did not show).
+  H's row now carries the chain's key (`ClientLadder.hRow`); a test checks it in the normal mode.
+- Simulator: `SimHls.separateAudio` (an `EXT-X-MEDIA` audio rendition, `AUDIO=` on each variant;
+  off by default, every output byte-identical). Tests: `HOnlyTrialTest` 4 — every class × own
+  solver off / on: wrong 0, no credentials, ≤ 1 row and it is H's HLS row with the chain's key,
+  no row ⇒ H's reason in the notes, every class with an H path complete; both audio forms (muxed,
+  sound apart); no H row (no HLS address, an encryption key, a bad segment start, V9, an age
+  check) → no row, never the chain's rows; the normal ladder's H row carries the key.
+  `LadderTrialTest`: `h-only`'s label, refused with a mutation, changes no answer, B0 complete
+  with one row. Module 652 tests, 0 failed, 2 skipped. `ladder-h-only.txt` (990 lookups): 440
+  complete with the one H row, 550 stop with H's reason (no HLS address 190, master 140, a
+  verdict about the video 160, segment 40, length 10, no visionOS answer 10), wrong 0. Every other
+  simulator output byte-identical to `0a63181`, except `ladder-trials.txt` (+10 `h-only` lines).
+  Workflow tests 17 OK; drift 0.
+- On the phone (the next `[d7]` APK, `h-only`): D0 saw visionOS's HLS with the sound apart only
+  (an audio rendition; codecs avc1, mp4a, vp09; 17 variants ≤ 2160p), so one download, sound
+  apart; the muxed form is the simulator's only. The app pairs each AVC quality with its AAC
+  rendition and merges both into one MP4 (P50, `HlsAudioPairing`); VP9 qualities stay "No sound",
+  so the owner picks an AVC quality with sound.
+- Next: D5b steps 7–8, then one `[d7]` APK (seven) where the owner runs the A check (`normal`)
+  and the H download (`h-only`).
+
 ## Phase 1.3 — A check built (the owner's choice (2), 2026-10-16): a census "A check" button with NewPipe's visionOS 1.04; the owner runs it on the next APK
 
 - The owner chose (2) (2026-10-16): on video 2, visionOS 1.02 as R6 asks it (`R0`, no visitor

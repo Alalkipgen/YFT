@@ -6,7 +6,8 @@ label build-optin-apk (MASTER_KEY_PHASE1_2_PLAN.md §3 N6). The workflows' expre
 evaluated for every event they take: a push, a manual run, each label and any other label.
 
 Phase 1.3 D7 (owner 2026-10-15): the opt-in APK workflow's second job, d7-matrix, builds the phone
-check's six debug APKs after the build job, only for a push whose commit message carries [d7].
+check's seven debug APKs (D5c's h-only the seventh) after the build job, only for a push whose commit
+message carries [d7].
 """
 
 import pathlib
@@ -303,7 +304,7 @@ class OptInApkLabelTest(LabelTriggerTest):
 
 
 class D7MatrixTest(unittest.TestCase):
-    """Phase 1.3 D7 (owner 2026-10-15): six phone-check APKs, one per mode, all flags on."""
+    """Phase 1.3 D7 (owner 2026-10-15): seven phone-check APKs, one per mode, all flags on (D5c: h-only)."""
 
     MODES = {
         "normal": ("", ""),
@@ -312,9 +313,10 @@ class D7MatrixTest(unittest.TestCase):
         "mutate-L1": ("", "L1"),
         "mutate-L3": ("", "L3"),
         "mutate-L5": ("", "L5"),
+        "h-only": ("h-only", ""),
     }
 
-    def test_the_six_apks_build_only_after_a_push_whose_message_carries_d7(self):
+    def test_the_seven_apks_build_only_after_a_push_whose_message_carries_d7(self):
         self.assertEqual("build", one(r"^    needs: (.+)$", D7))  # after the build job's tests
         for name, context in EVENTS.items():
             with self.subTest(event=name):  # a push without [d7], a manual run, any label
@@ -327,7 +329,7 @@ class D7MatrixTest(unittest.TestCase):
     def test_each_mode_has_its_switch_and_its_own_14_day_artifact(self):
         found = re.findall(r"^          - mode: (.+)\n            skip: (.*)\n            mutate: (.*)$", D7, re.M)
         self.assertEqual(self.MODES, {mode: (skip.strip('"'), mutate.strip('"')) for mode, skip, mutate in found})
-        self.assertEqual(6, len(found))
+        self.assertEqual(7, len(found))
         self.assertIn("          D7_SKIP: ${{ matrix.skip }}\n          D7_MUTATE: ${{ matrix.mutate }}\n", D7)
         name = one(r"^        uses: actions/upload-artifact@v4\n        with:\n          name: (.+)$", D7)
         names = {render(name, {"matrix": {"mode": mode}}) for mode in self.MODES}

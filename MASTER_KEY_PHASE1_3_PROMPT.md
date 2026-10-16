@@ -23,6 +23,9 @@ prompt ပါ။ v2 အပြင် L (own parser)၊ self-healing version၊ HL
   item 14):** visionOS version 1.02 ထက် အဟောင်း public reference မှာ မရှိ (guardrail 5) → owner ရွေးချယ်မှု
   (2): census "A check" ခလုတ် ✅ (video 2: 1.02 → DIRECT ဆိုမှ NewPipe ရဲ့ 1.04 တစ်ခါ)။ နောက် `[d7]` APK မှာ
   ဖုန်းနဲ့ run ပါ — 1.04 DIRECT + V pass ဆိုရင် visionOS ရဲ့ bundled alternate ဖြစ်မယ် (R0 = 1.02 မပြောင်း)။
+- **D5c h-only trial ✅ (2026-10-16၊ plan §4 D5c "As built (h-only trial)"):** နောက် `[d7]` APK ၇ ခုထဲက
+  `h-only` မှာ H ရဲ့ HLS row တစ်ခုတည်း ပြမယ် — AVC quality (အသံပါ) တစ်ခုကို download လုပ်ပြီး MP4 ဖွင့်လို့ရ၊
+  ပုံ + အသံ ပါ၊ ကြာချိန် ±2 s စစ်ပါ။ H row မှာ video key ပါအောင် ပြင်ပြီ (အရင်က app က ဖယ်ထုတ်ခဲ့)။
 - D8 က owner "yes" ပြောမှ လုပ်ပါမယ်။ ဆုံးဖြတ်ချက် (source hosts၊ D8) ကို chat ထဲ အချိန်မရွေး ပြောနိုင်ပါတယ်။
 
 ```text

@@ -126,10 +126,10 @@ require(clientLadder in setOf("true", "false")) {
     "yft.clientLadder must be true or false"
 }
 // Phase 1.3 D7: the owner's live-check switches for the ladder (debug only, with the ladder on;
-// release and preview: none). Blank = none; one of the two at a time.
+// release and preview: none). Blank = none; one of the two at a time. D5c: h-only = H's row only.
 val ladderSkip = providers.gradleProperty("yft.ladderSkip").orElse("").get().trim()
-require(ladderSkip in setOf("", "visionos", "visionos-adaptive")) {
-    "yft.ladderSkip must be blank, visionos or visionos-adaptive"
+require(ladderSkip in setOf("", "visionos", "visionos-adaptive", "h-only")) {
+    "yft.ladderSkip must be blank, visionos, visionos-adaptive or h-only"
 }
 val ladderMutate = providers.gradleProperty("yft.ladderMutate").orElse("").get().trim()
 require(ladderMutate in setOf("", "L1", "L2", "L3", "L5", "L7")) {
