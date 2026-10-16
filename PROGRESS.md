@@ -1,5 +1,39 @@
 # YFT Master Extractor backup
 
+## Owner item 6, run 4c on the phone (2026-10-17): still `INTEGRITY_MISMATCH` (Merge); the live server's Content-Range is wrong, its Content-Length right → live-origin files are read range after range until the server has no more; `[d7]` run 4d
+
+- **Phone (the owner, normal APK of run 4c, `84c6af4`):** the ID3 fix works (census video 2
+  1080p, 480p and 360p have sound all through). The recently ended live stream still failed,
+  type Merge: `INTEGRITY_MISMATCH` CONNECT, Detail "asked bytes 0-671324, got bytes
+  0-671324/671325, length 1048576", "Start: … length (from first range) · first byte –".
+- **Reading:** the first range asked 1 MiB (`bytes=0-1048575`). The server answered
+  `Content-Range: bytes 0-671324/671325` (a total of about one small piece) with
+  `Content-Length: 1048576`, the whole asked length. The layout took 671 325 as the file's
+  length, so the length check failed. The Content-Range end and total cannot be trusted; the
+  Content-Length can. The real file length is not known before the end.
+- **Fix (`LiveOriginFile` + `GrowingRead`):** a live-origin file (`source=yt_live_broadcast` or
+  `yt_premiere_broadcast`) is read ask after ask from byte 0 (10 MiB each on YouTube) until the
+  server has no more: a 416 or an empty answer ends it (also any 4xx after a short answer); one
+  after a full answer halves the ask at that byte, down to one byte, in case the ask only went
+  past the end. Each answer must start at the asked byte and bring at most what was asked
+  (Content-Length); the stated length, the Content-Range end and total and ETag/Last-Modified
+  are not compared, and no `If-Range` is sent. A failed ask keeps the bytes it wrote and asks
+  again from there (the usual tries), so a broken connection does not start the file over. The
+  progress has no total (length "until the end" in Start). `DashTransferEngine` (merges) reads it
+  as one chunk; `DirectTransferEngine` (audio only) as one file of unknown length. The short
+  answer follow-ups of run 4c are removed: other files are strict as before, and a mismatch
+  keeps its Detail.
+- **Tests (CI, `core-download`; also run locally in a scratch JVM copy, engine tests green):**
+  `DashTransferEngineTest`: live-origin with the phone's headers (Content-Range of a 400-byte file,
+  honest body and Content-Length, 416 past the end) and a wrong stated length → complete, exact
+  bytes, asks 0-999, 1000-1999, 2000-2999, then 2500-3499 (416); no progress total; an answer cut
+  half way → the next ask starts after the kept bytes, never at 0, and the file is exact; a normal
+  file with the same headers → `INTEGRITY_MISMATCH` CONNECT, Detail "asked bytes 0-399, got bytes
+  0-399/400, length 1000" (the phone's case). `DirectTransferEngineTest`: the same two live-origin
+  cases (wrong stated size and probe, a new ETag each answer, no `If-Range`).
+- **Phone retest (`[d7]` run 4d, normal APK):** a recently ended live stream in a few qualities
+  and audio only; if it still fails, send the Details line.
+
 ## Owner item 6 (2026-10-17): a recently ended live stream failed every quality and audio (`INTEGRITY_MISMATCH`, CONNECT) → live-origin files trust the first range and take short answers; `[d7]` run 4c
 
 - **Phone (the owner, main preview.78 and D7):** about 2 h after a live stream ended, every

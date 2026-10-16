@@ -15,7 +15,10 @@ new `[d7]` APKs (run 4b). Run 4b on the phone: H gives rows, but HLS sound stopp
 first piece (packed audio: an ID3 tag before every piece's ADTS frames) → fixed (the tags are
 dropped when the pieces are joined); retest with the next `[d7]` APKs. Owner item 6: a recently
 ended live stream failed every download (`INTEGRITY_MISMATCH`, CONNECT) → live-origin files trust
-the first range and take short answers, other files stay strict; `[d7]` run 4c.
+the first range and take short answers, other files stay strict; `[d7]` run 4c. Run 4c on the
+phone: the ID3 fix works (sound all through); item 6 still failed (Detail "asked bytes 0-671324,
+got bytes 0-671324/671325, length 1048576": the Content-Range is wrong, the Content-Length right)
+→ live-origin files are read ask after ask until the server has no more; `[d7]` run 4d.
 
 ## 0. Rules (every item)
 

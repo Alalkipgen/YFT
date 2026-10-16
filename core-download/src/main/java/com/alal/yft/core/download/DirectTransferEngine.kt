@@ -16,6 +16,7 @@ import com.alal.yft.core.model.download.DownloadFailureStage.WRITE_FILE
 import com.alal.yft.core.model.download.DownloadProgress
 import com.alal.yft.core.model.download.DownloadSegment
 import com.alal.yft.core.model.download.RemoteFileMetadata
+import com.alal.yft.core.model.download.WholeFileTrack
 import java.io.IOException
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
@@ -81,6 +82,35 @@ class DirectTransferEngine(
         resumeFrom: DirectTransferCheckpoint?,
         onProgress: suspend (DownloadProgress) -> Unit,
         onCheckpoint: suspend (DirectTransferCheckpoint) -> Unit,
+    ): DirectTransferResult {
+        // A live-origin file's lengths cannot be trusted: it is read until it ends, as a file
+        // of unknown length (no stated size, no ranges planned, no validators).
+        val growing = listOf(plan.sourceUrl, metadata.finalUrl).any { address ->
+            address.toSafeDownloadUrl()?.let(LiveOriginFile::matches) == true
+        }
+        return transferFile(
+            plan = plan,
+            metadata = if (growing) {
+                metadata.copy(totalBytes = null, supportsByteRanges = false)
+            } else {
+                metadata
+            },
+            growing = growing,
+            destination = destination,
+            resumeFrom = resumeFrom,
+            onProgress = onProgress,
+            onCheckpoint = onCheckpoint,
+        )
+    }
+
+    private suspend fun transferFile(
+        plan: DirectDownloadPlan,
+        metadata: RemoteFileMetadata,
+        growing: Boolean,
+        destination: DownloadDestination,
+        resumeFrom: DirectTransferCheckpoint?,
+        onProgress: suspend (DownloadProgress) -> Unit,
+        onCheckpoint: suspend (DirectTransferCheckpoint) -> Unit,
     ): DirectTransferResult = withContext(Dispatchers.IO) {
         val emptyCheckpoint = metadata.checkpoint(emptyList())
         val credentialOrigin = plan.sourceUrl.toSafeDownloadUrl()
@@ -99,12 +129,10 @@ class DirectTransferEngine(
                 emptyCheckpoint,
             )
         }
-        // A live-origin file's stated length can be stale: the probe decides.
         if (
             plan.expectedBytes != null &&
             metadata.totalBytes != null &&
-            plan.expectedBytes != metadata.totalBytes &&
-            !LiveOriginFile.matches(transferUrl)
+            plan.expectedBytes != metadata.totalBytes
         ) {
             return@withContext DirectTransferResult.Failure(
                 DownloadFailure(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY),
@@ -184,16 +212,27 @@ class DirectTransferEngine(
             } else if (plannedSegments.isNotEmpty()) {
                 resetDestination(destination, metadata.totalBytes)
                 tracker.replace(plannedSegments.map { it.copy(downloadedBytes = 0) })
-                transferSegment(
-                    plan = plan,
-                    metadata = metadata,
-                    credentialOrigin = credentialOrigin,
-                    transferUrl = transferUrl,
-                    destination = destination,
-                    tracker = tracker,
-                    initialSegment = tracker.snapshot().segments.single(),
-                    ranged = false,
-                )
+                if (growing) {
+                    transferGrowing(
+                        plan = plan,
+                        credentialOrigin = credentialOrigin,
+                        transferUrl = transferUrl,
+                        destination = destination,
+                        tracker = tracker,
+                        segment = tracker.snapshot().segments.single(),
+                    )
+                } else {
+                    transferSegment(
+                        plan = plan,
+                        metadata = metadata,
+                        credentialOrigin = credentialOrigin,
+                        transferUrl = transferUrl,
+                        destination = destination,
+                        tracker = tracker,
+                        initialSegment = tracker.snapshot().segments.single(),
+                        ranged = false,
+                    )
+                }
             }
 
             tracker.forceCheckpoint()
@@ -304,8 +343,6 @@ class DirectTransferEngine(
         // Failed requests are retried. A request that completes resets the count, so a segment
         // fetched in many bounded requests is not limited to that many failures overall.
         var failures = 0
-        // Only a live-origin file answers short; the rest is asked for from the next byte.
-        var shortAnswers = 0
         while (true) {
             currentCoroutineContext().ensureActive()
             if (initialSegment.lengthBytes == downloaded) return
@@ -316,7 +353,7 @@ class DirectTransferEngine(
             }
             val requestEnd = requestEnd(plan, initialSegment, downloaded, ranged)
             try {
-                val whole = transferAttempt(
+                transferAttempt(
                     plan = plan,
                     metadata = metadata,
                     credentialOrigin = credentialOrigin,
@@ -328,13 +365,9 @@ class DirectTransferEngine(
                     endByte = requestEnd,
                     ranged = ranged,
                 )
-                if (whole && requestEnd == initialSegment.endByteInclusive) return
+                if (requestEnd == initialSegment.endByteInclusive) return
                 downloaded = tracker.downloadedFor(initialSegment.index)
                 failures = 0
-                shortAnswers = if (whole) 0 else shortAnswers + 1
-                if (shortAnswers > LiveOriginFile.MAX_SHORT_ANSWERS) {
-                    throw TransferAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = CONNECT)
-                }
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (rangeIgnored: RangeIgnoredException) {
@@ -361,6 +394,207 @@ class DirectTransferEngine(
                     )
                 }
                 delay(backoffMillis(failures - 1))
+            }
+        }
+    }
+
+    /**
+     * Reads a live-origin file ([LiveOriginFile]) into [destination], ask after ask from byte 0
+     * until the server has no more ([GrowingRead]). A failed ask keeps what it wrote and is
+     * tried again from there; no If-Range is sent, as the file's validators may change.
+     */
+    private suspend fun transferGrowing(
+        plan: DirectDownloadPlan,
+        credentialOrigin: okhttp3.HttpUrl,
+        transferUrl: okhttp3.HttpUrl,
+        destination: DownloadDestination,
+        tracker: ProgressTracker,
+        segment: DownloadSegment,
+    ) {
+        val read = GrowingRead(plan.maxRequestBytes ?: WholeFileTrack.DEFAULT_MAX_REQUEST_BYTES)
+        var failures = 0
+        val output = destinationCall(OPEN_FILE) { destination.open() }
+        closeAfter(output) {
+            while (true) {
+                currentCoroutineContext().ensureActive()
+                if (read.requests >= GrowingRead.MAX_REQUESTS) {
+                    throw TransferAbort(
+                        DownloadFailureReason.UNSUPPORTED_SOURCE,
+                        stage = READ_SOURCE,
+                    )
+                }
+                val bytes = try {
+                    growingAttempt(
+                        plan = plan,
+                        credentialOrigin = credentialOrigin,
+                        transferUrl = transferUrl,
+                        output = output,
+                        tracker = tracker,
+                        segment = segment,
+                        read = read,
+                    )
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (failure: RetryableTransferException) {
+                    read.keep(tracker.downloadedFor(segment.index))
+                    failures += 1
+                    if (failures == policy.maxAttempts) {
+                        throw TransferAbort(failure.reason, failure.httpStatusCode, CONNECT)
+                    }
+                    delay(backoffMillis(failures - 1))
+                    continue
+                } catch (failure: IOException) {
+                    // Only the source throws I/O errors: destination calls throw TransferAbort.
+                    read.keep(tracker.downloadedFor(segment.index))
+                    failures += 1
+                    if (failures == policy.maxAttempts) {
+                        val source = failure as? SourceException
+                        throw TransferAbort(
+                            DownloadFailure(
+                                reason = DownloadFailureReason.NETWORK,
+                                stage = source?.stage ?: READ_SOURCE,
+                                detail = DownloadFailureDetails.of(source?.cause ?: failure),
+                            ),
+                        )
+                    }
+                    delay(backoffMillis(failures - 1))
+                    continue
+                }
+                read.keep(read.written + bytes)
+                failures = 0
+                if (!read.answered(bytes)) break
+            }
+            if (read.written == 0L) {
+                throw TransferAbort(
+                    DownloadFailure(
+                        reason = DownloadFailureReason.INTEGRITY_MISMATCH,
+                        stage = READ_SOURCE,
+                        detail = read.endDetail,
+                    ),
+                )
+            }
+            destinationCall(WRITE_FILE) { output.sync() }
+            tracker.update(segment.index, read.written, forceCheckpoint = true)
+        }
+    }
+
+    /** One ask of a [GrowingRead]: the bytes it wrote at [GrowingRead.written], 0 when none. */
+    private suspend fun growingAttempt(
+        plan: DirectDownloadPlan,
+        credentialOrigin: okhttp3.HttpUrl,
+        transferUrl: okhttp3.HttpUrl,
+        output: SeekableDownloadOutput,
+        tracker: ProgressTracker,
+        segment: DownloadSegment,
+        read: GrowingRead,
+    ): Long {
+        val startByte = read.written
+        val endByte = startByte + read.ask - 1
+        val execution = try {
+            http.execute(
+                credentialOrigin = credentialOrigin,
+                initialUrl = transferUrl,
+                context = plan.requestContext,
+            ) {
+                get()
+                header("Range", "bytes=$startByte-$endByte")
+            }
+        } catch (error: IOException) {
+            throw SourceException(CONNECT, error)
+        }
+        return when (execution) {
+            is SecureDownloadHttp.Result.Failed ->
+                throw TransferAbort(execution.reason, stage = CONNECT)
+            is SecureDownloadHttp.Result.Completed -> execution.response.use { response ->
+                if (response.code in 500..599) {
+                    throw RetryableTransferException(
+                        reason = DownloadFailureReason.SERVER_ERROR,
+                        httpStatusCode = response.code,
+                    )
+                }
+                val ended = response.code == 416 ||
+                    response.code == 204 ||
+                    (response.code in 400..499 && read.afterShortAnswer)
+                if (ended) {
+                    read.endDetail = DownloadFailureDetails.sanitize(
+                        "HTTP ${response.code}, " +
+                            LiveOriginFile.describe(startByte, endByte, response),
+                    )
+                    return@use 0L
+                }
+                if (response.code != 206) {
+                    throw TransferAbort(response.code.toFailureReason(), response.code, CONNECT)
+                }
+                if (LiveOriginFile.rangeStart(response.header("Content-Range")) != startByte) {
+                    throw rangeMismatch(startByte, endByte, response)
+                }
+                if (
+                    response.header("Content-Encoding")
+                        ?.equals("identity", ignoreCase = true) == false
+                ) {
+                    throw TransferAbort(DownloadFailureReason.MALFORMED_RESPONSE, stage = CONNECT)
+                }
+                val contentType = response.header("Content-Type")
+                    ?.substringBefore(';')
+                    ?.trim()
+                    ?.lowercase(Locale.US)
+                if (contentType == "text/html" || contentType == "application/xhtml+xml") {
+                    throw TransferAbort(DownloadFailureReason.UNSUPPORTED_SOURCE, stage = CONNECT)
+                }
+                val advertised = response.header("Content-Length")
+                    ?.toLongOrNull()
+                    ?.takeIf { it >= 0 }
+                if (advertised != null && advertised > read.ask) {
+                    throw rangeMismatch(startByte, endByte, response)
+                }
+                if (advertised == 0L) {
+                    read.endDetail = LiveOriginFile.describe(startByte, endByte, response)
+                    return@use 0L
+                }
+                val body = response.body
+                    ?: throw TransferAbort(
+                        DownloadFailureReason.MALFORMED_RESPONSE,
+                        stage = CONNECT,
+                    )
+                var got = 0L
+                body.byteStream().use { input ->
+                    val buffer = ByteArray(policy.bufferBytes)
+                    while (true) {
+                        currentCoroutineContext().ensureActive()
+                        val count = try {
+                            input.read(buffer)
+                        } catch (error: IOException) {
+                            throw SourceException(READ_SOURCE, error)
+                        }
+                        if (count == -1) break
+                        if (got + count > read.ask) {
+                            throw TransferAbort(
+                                DownloadFailureReason.INTEGRITY_MISMATCH,
+                                stage = READ_SOURCE,
+                            )
+                        }
+                        destinationCall(WRITE_FILE) {
+                            output.write(
+                                position = startByte + got,
+                                buffer = buffer,
+                                offset = 0,
+                                byteCount = count,
+                            )
+                        }
+                        got += count
+                        tracker.update(segment.index, startByte + got)
+                    }
+                }
+                if (advertised != null && got != advertised) {
+                    throw TransferAbort(
+                        DownloadFailureReason.INTEGRITY_MISMATCH,
+                        stage = READ_SOURCE,
+                    )
+                }
+                if (got == 0L) {
+                    read.endDetail = LiveOriginFile.describe(startByte, endByte, response)
+                }
+                got
             }
         }
     }
@@ -393,9 +627,8 @@ class DirectTransferEngine(
         alreadyDownloaded: Long,
         endByte: Long?,
         ranged: Boolean,
-    ): Boolean {
+    ) {
         val startByte = segment.startByte + alreadyDownloaded
-        val liveOrigin = ranged && LiveOriginFile.matches(transferUrl)
         val execution = try {
             http.execute(
                 credentialOrigin = credentialOrigin,
@@ -405,34 +638,30 @@ class DirectTransferEngine(
                 get()
                 if (ranged) {
                     header("Range", "bytes=$startByte-$endByte")
-                    // A live-origin file's validators may change; its answers are checked by range.
                     (metadata.entityTag ?: metadata.lastModified)
-                        ?.takeUnless { liveOrigin }
                         ?.let { header("If-Range", it) }
                 }
             }
         } catch (error: IOException) {
             throw SourceException(CONNECT, error)
         }
-        return when (execution) {
+        when (execution) {
             is SecureDownloadHttp.Result.Failed ->
                 throw TransferAbort(execution.reason, stage = CONNECT)
             is SecureDownloadHttp.Result.Completed -> execution.response.use { response ->
-                // The last byte this answer carries: the asked end, or less for a live-origin file.
-                val answeredEnd = validateResponse(
+                validateResponse(
                     response = response,
                     metadata = metadata,
                     requestedStart = startByte,
                     requestedEnd = endByte,
                     ranged = ranged,
-                    liveOrigin = liveOrigin,
                 )
                 val body = response.body
                     ?: throw TransferAbort(
                         DownloadFailureReason.MALFORMED_RESPONSE,
                         stage = CONNECT,
                     )
-                val expectedRemaining = answeredEnd?.let { end -> end - startByte + 1 }
+                val expectedRemaining = endByte?.let { end -> end - startByte + 1 }
                 val advertised = response.header("Content-Length")
                     ?.toLongOrNull()
                     ?.takeIf { it >= 0 }
@@ -458,7 +687,7 @@ class DirectTransferEngine(
                                     throw SourceException(READ_SOURCE, error)
                                 }
                                 if (read == -1) break
-                                val remaining = answeredEnd?.let { end ->
+                                val remaining = endByte?.let { end ->
                                     end + 1 - (segment.startByte + downloaded)
                                 }
                                 if (remaining != null && read.toLong() > remaining) {
@@ -480,8 +709,8 @@ class DirectTransferEngine(
                             }
                         }
                         if (
-                            answeredEnd != null &&
-                            segment.startByte + downloaded != answeredEnd + 1
+                            endByte != null &&
+                            segment.startByte + downloaded != endByte + 1
                         ) {
                             throw TransferAbort(
                                 DownloadFailureReason.INTEGRITY_MISMATCH,
@@ -516,25 +745,17 @@ class DirectTransferEngine(
                         throw failure
                     }
                 }
-                answeredEnd == endByte
             }
         }
     }
 
-    /**
-     * Checks an answer and returns the last byte it carries ([requestedEnd], or for a
-     * [liveOrigin] file an earlier end of a part that starts at [requestedStart]). A strict file
-     * must also keep its total and validators.
-     */
     private fun validateResponse(
         response: Response,
         metadata: RemoteFileMetadata,
         requestedStart: Long,
         requestedEnd: Long?,
         ranged: Boolean,
-        liveOrigin: Boolean,
-    ): Long? {
-        var answeredEnd = requestedEnd
+    ) {
         if (ranged && response.code == 200) throw RangeIgnoredException()
         if (response.code in 500..599) {
             throw RetryableTransferException(
@@ -549,14 +770,13 @@ class DirectTransferEngine(
             val returned = response.header("Content-Range")
                 ?.parseContentRange()
                 ?: throw TransferAbort(DownloadFailureReason.MALFORMED_RESPONSE, stage = CONNECT)
-            val fits = returned.startByte == requestedStart && if (liveOrigin) {
-                returned.endByteInclusive <= requestedEnd
-            } else {
-                returned.endByteInclusive == requestedEnd &&
-                    returned.totalBytes == metadata.totalBytes
+            if (
+                returned.startByte != requestedStart ||
+                returned.endByteInclusive != requestedEnd ||
+                returned.totalBytes != metadata.totalBytes
+            ) {
+                throw rangeMismatch(requestedStart, requestedEnd, response)
             }
-            if (!fits) throw rangeMismatch(requestedStart, requestedEnd, response)
-            answeredEnd = returned.endByteInclusive
         } else if (response.code != 200) {
             throw TransferAbort(response.code.toFailureReason(), response.code, CONNECT)
         }
@@ -573,7 +793,6 @@ class DirectTransferEngine(
         if (contentType == "text/html" || contentType == "application/xhtml+xml") {
             throw TransferAbort(DownloadFailureReason.UNSUPPORTED_SOURCE, stage = CONNECT)
         }
-        if (liveOrigin) return answeredEnd
         metadata.entityTag?.let { expected ->
             response.header("ETag")
                 ?.takeIf { it != expected }
@@ -586,19 +805,15 @@ class DirectTransferEngine(
                     ?.let { throw changedFile() }
             }
         }
-        return answeredEnd
     }
 
+    /** INTEGRITY_MISMATCH at CONNECT that names what was asked and what came (the Detail). */
     private fun rangeMismatch(start: Long, end: Long?, response: Response): TransferAbort =
         TransferAbort(
             DownloadFailure(
                 reason = DownloadFailureReason.INTEGRITY_MISMATCH,
                 stage = CONNECT,
-                detail = DownloadFailureDetails.sanitize(
-                    "asked bytes $start-${end ?: ""}, got " +
-                        (response.header("Content-Range") ?: "no Content-Range") +
-                        ", length " + (response.header("Content-Length") ?: "none"),
-                ),
+                detail = LiveOriginFile.describe(start, end, response),
             ),
         )
 
