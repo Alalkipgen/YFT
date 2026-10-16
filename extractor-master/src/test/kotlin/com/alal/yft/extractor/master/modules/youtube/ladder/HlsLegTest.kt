@@ -144,7 +144,12 @@ class HlsLegTest {
             Triple("key", { key = "AES-128" }, Verdict.FAIL to Why.KEY),
             Triple("key and a 403 variant: the fail names the first", { key = "SAMPLE-AES"; variant = SimWorld.FORBIDDEN }, Verdict.FAIL to Why.VARIANT),
             Triple("key NONE", { key = "NONE" }, null),
-            Triple("no content type", { contentType = "application/octet-stream" }, Verdict.UNKNOWN to Why.SEGMENT_TYPE),
+            // The owner's (က), 2026-10-17: a generic binary type lets the start decide.
+            Triple("octet-stream, ts start", { contentType = "application/octet-stream" }, null),
+            Triple("no content type", { contentType = "" }, null),
+            Triple("octet-stream, fragmented mp4 (live)", { contentType = "application/octet-stream"; startText = "\u0000\u0000\u0004\u0074moof" }, null),
+            Triple("octet-stream, html start", { contentType = "application/octet-stream"; startText = "<" }, Verdict.FAIL to Why.SEGMENT_START),
+            Triple("binary/octet-stream, no container", { contentType = "binary/octet-stream"; startText = "@" }, Verdict.FAIL to Why.SEGMENT_START),
             Triple("mp4 type, ts start", { contentType = "video/mp4" }, Verdict.FAIL to Why.SEGMENT_START),
             Triple("fragmented mp4", { contentType = "video/mp4"; startText = "\u0000\u0000\u0000\u0018styp" }, null),
             Triple("ts with charset", { contentType = "video/MP2T; charset=binary" }, null),
@@ -193,6 +198,15 @@ class HlsLegTest {
         }
         val row = HlsLeg(wholeSegment, reader = reader).lookup().run(prepared.address, prepared.length, headers) as HlsLeg.Row
         assertEquals("ts", row.container)
+        // The live answer: 200, application/octet-stream, a moof start; the start decides (the owner's (က)).
+        val live = object : MediaStartReader {
+            override suspend fun read(url: String, headers: Map<String, String>, maxBytes: Int): MediaStart {
+                val whole = ("\u0000\u0000\u0004\u0074moof" + "@".repeat(1_048_568)).toByteArray(Charsets.ISO_8859_1)
+                return MediaStart.Read(200, "application/octet-stream", null, null, whole.copyOf(maxBytes))
+            }
+        }
+        val liveRow = HlsLeg(wholeSegment, reader = live).lookup().run(prepared.address, prepared.length, headers) as HlsLeg.Row
+        assertEquals("mp4", liveRow.container)
         assertEquals(3, row.requests)
         assertEquals(listOf(65_536), asked.map { it.second })
         val names = asked.single().first.keys.map(String::lowercase)

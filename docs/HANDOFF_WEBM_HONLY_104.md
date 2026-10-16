@@ -9,8 +9,9 @@ APKs `[d7]` from `1d3f41c` (CI green, `d7-matrix` 7/7, run 38940779817); the pho
 item's Done): items 1 and 3 ✅ on the phone (run 4); item 2 showed the adapter's rows again
 (the engine skips a claimed page unless no adapter answered) → fixed, new `[d7]` APKs. Run 4b
 (2026-10-17): H ran but gave no row ("H: SEGMENT"): YouTube's segment ignores the range (fixed:
-the ladder's reader keeps 64 KiB) and is `application/octet-stream` (guardrail 6 reads it as
-unknown) → ⏸ the owner, (က) or (ခ) (`PROGRESS.md`); Try again's adapter rows fixed.
+the ladder's reader keeps 64 KiB) and is `application/octet-stream` (named no container, read as
+unknown) → the owner's (က): a generic type lets the start decide; Try again's adapter rows fixed;
+new `[d7]` APKs (run 4b).
 
 ## 0. Rules (every item)
 

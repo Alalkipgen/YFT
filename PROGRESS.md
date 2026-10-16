@@ -1,6 +1,6 @@
 # YFT Master Extractor backup
 
-## Phase 1.4 item 2, run 4b on the phone (the owner, 2026-10-17): H reached but gave no row (`H: SEGMENT`); two fixes; ⏸ the owner — the segment's content type (guardrail 6)
+## Phase 1.4 item 2, run 4b on the phone (the owner, 2026-10-17): H reached but gave no row (`H: SEGMENT`); two fixes + the owner's (က): a generic segment type lets the start decide; new `[d7]` APKs
 
 - **Phone (`h-only` APK from `2dd3433`):** the found page now reaches the ladder. Details:
   "ladder trial h-only: the chain's 9 rows left out", "ladder H: SEGMENT", "master: youtube
@@ -22,14 +22,16 @@
   fails and names the step ("master: h-only: …"); the same video still open (reloaded) keeps the
   module's answer. Every other build unchanged. Test:
   `BrowserMasterFallbackTest.theMasterFirstSiteNeverGetsTheAdapterRowsBack`.
-- **⏸ The owner (guardrail 6):** with cause 1 fixed H still gives no row: guardrail 6 says the
-  segment's content type and container start must match, and `application/octet-stream` names no
-  container, so the check reads it as unknown (never a pass; `HlsLegTest` "no content type").
-  YouTube serves its HLS segments this way, so H cannot pass today. (က) a generic binary type
-  (`application/octet-stream`, `binary/octet-stream`, none) lets the container start decide (TS
-  sync byte, `ftyp`/`styp`/`moof`/`sidx`/`emsg`/`prft`, EBML; any other start still fails; a named
-  type must still match its start); (ခ) keep it: item 2 closes with "H blocked by YouTube's
-  segment type". Then: with (က), new `[d7]` APKs and the h-only check again.
+- **Guardrail 6 → the owner's (က) (2026-10-17):** with cause 1 fixed H still gave no row: the
+  check wanted the segment's content type and container start to match, and
+  `application/octet-stream` names no container, so it read as unknown (never a pass). YouTube
+  serves its HLS segments this way. Now a generic binary type (`application/octet-stream`,
+  `binary/octet-stream`, none) lets the container start decide (TS sync byte,
+  `ftyp`/`styp`/`moof`/`sidx`/`emsg`/`prft`, EBML); any other start still fails; a named type must
+  still match its start; the host, key and duration checks unchanged. Tests: `HlsLegTest`
+  (octet-stream with a TS or `moof` start → row; no type → row; octet-stream with `<` or `@` →
+  `SEGMENT_START`; the run 4 reader case ends in an MP4 row). New `[d7]` APKs (run 4b) → the
+  h-only check again on the phone.
 
 ## Phase 1.4 run 4 on the phone (the owner, 2026-10-16/17, mobile data): items 1 and 3 ✅; h-only still showed the adapter's rows → fix `[d7]`
 

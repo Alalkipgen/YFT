@@ -320,8 +320,11 @@ All R6, Phase 1.1, Phase 1.2, v1 and v2 guardrails stay. v3 restates them and ma
    - H check (v2, extended): every address under `googlevideo.com`; the master playlist ≤ 256 KiB
      and one variant playlist ≤ 1 MiB (owner, 2026-10-16, §9 item 12; was 256 KiB: a variant lists
      every segment with its full address, so it grows with the video; census video 10, 1203 s,
-     passed 256 KiB); the first segment of that variant, Range ≤ 64 KiB; content
-     type and container start must match (MPEG-TS sync byte, `ftyp`/`styp`/`moof`, EBML); **no
+     passed 256 KiB); the first segment of that variant, Range ≤ 64 KiB (at most 64 KiB kept even
+     when the host ignores the range); content type and container start must match (MPEG-TS sync
+     byte, `ftyp`/`styp`/`moof`, EBML); a generic binary type (none, `application/octet-stream`,
+     `binary/octet-stream`) names no container, so the start decides (owner, 2026-10-17, (က):
+     YouTube serves its HLS segments so); any other start fails; **no
      `#EXT-X-KEY` or `#EXT-X-SESSION-KEY` other than `METHOD=NONE`**; the playlist's total
      duration within ±2 s of the video's length — **the binding: H rows are never offered
      without a known length**; at most 1 per client per lookup.

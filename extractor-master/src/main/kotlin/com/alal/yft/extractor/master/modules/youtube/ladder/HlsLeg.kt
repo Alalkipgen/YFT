@@ -30,7 +30,8 @@ import kotlinx.coroutines.sync.withLock
  *    variant → its playlist ≤ 1 MiB; no key other than `METHOD=NONE`; the variant's duration within
  *    ±2 s of the length), whose one file check reads the first segment's start instead (`Range`
  *    ≤ [MAX_SEGMENT_BYTES]): its content type and container start must match (MPEG-TS sync byte;
- *    `ftyp` / `styp` / `moof` / `sidx` / `emsg` / `prft`; EBML). Pass → one [Row] of kind HLS (the
+ *    `ftyp` / `styp` / `moof` / `sidx` / `emsg` / `prft`; EBML); a generic binary type lets the start
+ *    decide (the owner's (က), 2026-10-17, [startOf]). Pass → one [Row] of kind HLS (the
  *    master address) for the app's existing HLS path; fail or unknown → none (unknown is never
  *    pass). Every address HTTPS on `googlevideo.com`; at most 3 requests and one H check per
  *    lookup; the media headers without cookies, credentials or a range.
@@ -181,7 +182,6 @@ internal class HlsLeg(
             when (val start = startOf(reading.contentType, reading.start)) {
                 is Start.Pass -> container = start.container
                 is Start.Fail -> fails += start.why
-                is Start.Unknown -> unknowns += start.why
             }
         }
         return when {
@@ -195,10 +195,15 @@ internal class HlsLeg(
     private sealed class Start {
         class Pass(val container: String) : Start()
         class Fail(val why: Why) : Start()
-        class Unknown(val why: Why) : Start()
     }
 
-    /** The first segment's content type and start bytes (as the client decoded them) agree. */
+    /**
+     * The first segment's content type and start bytes (as the client decoded them) agree. A
+     * generic binary type (none, `application/octet-stream`, `binary/octet-stream`) names no
+     * container, so the start decides (the owner's (က), 2026-10-17, Phase 1.4 run 4b: YouTube
+     * serves its HLS segments as `application/octet-stream`; was unknown, so H never passed). A
+     * named type must match the start; a start that is no container fails either way.
+     */
     private fun startOf(contentType: String?, start: String?): Start {
         val type = contentType?.substringBefore(';')?.trim()?.lowercase()
         val expected = when (type) {
@@ -216,8 +221,7 @@ internal class HlsLeg(
             else -> return Start.Fail(Why.SEGMENT_START)
         }
         return when (expected) {
-            null -> Start.Unknown(Why.SEGMENT_TYPE)
-            found -> Start.Pass(found)
+            null, found -> Start.Pass(found)
             else -> Start.Fail(Why.SEGMENT_START)
         }
     }
