@@ -2,13 +2,16 @@ package com.alal.yft.detection.master
 
 import com.alal.yft.BuildConfig
 import com.alal.yft.extractor.api.ExtractorHttpClient
+import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.NoPlayerScriptRunner
 import com.alal.yft.extractor.api.PlayerScriptRunner
+import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.master.modules.youtube.MasterYouTubeModule
 import com.alal.yft.extractor.master.modules.youtube.ladder.LadderTrial
 import com.alal.yft.extractor.master.modules.youtube.ladder.MasterClientLadder
 import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStart
 import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStartReader
+import com.alal.yft.extractor.master.modules.youtube.ladder.VersionSourceReader
 import com.alal.yft.extractor.master.solver.AtomicTextFile
 import java.io.File
 import java.io.IOException
@@ -17,6 +20,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.CookieJar
+import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -28,6 +32,7 @@ import okio.BufferedSource
  * YouTube module is R6 exactly as before. D7: one ladder per process, its health in the app's
  * `files/master/client-health.json` (data only; the file is found on first use, off this thread),
  * and the owner's live-check switch (`-Pyft.ladderSkip` / `-Pyft.ladderMutate`, debug only).
+ * D5a's A reads its version source through [OkHttpVersionSourceReader] (at most once a day).
  */
 internal object MasterLadderSwitch {
     private const val HEALTH_FILE = "master/client-health.json"
@@ -61,6 +66,7 @@ internal object MasterLadderSwitch {
                 healthFile = filesDir?.let { dir -> AtomicTextFile { File(dir(), HEALTH_FILE) } },
                 reader = OkHttpMediaStartReader(client),
                 trial = LadderTrial.of(BuildConfig.LADDER_SKIP, BuildConfig.LADDER_MUTATE),
+                sources = OkHttpVersionSourceReader(client),
             ).also { shared = it }
         }
 }
@@ -121,5 +127,67 @@ internal class OkHttpMediaStartReader(client: OkHttpClient) : MediaStartReader {
             val name = host.lowercase().trimEnd('.')
             return name == MEDIA_HOST || name.endsWith(".$MEDIA_HOST")
         }
+    }
+}
+
+/**
+ * A's version source (D5a; §9 item 3): one GET of a public source text, HTTPS on
+ * `raw.githubusercontent.com` only ([allowed]), with the user's User-Agent and no other header (no
+ * cookie, no credentials), **no redirect followed** (a 3xx is a failure), at most
+ * `maxBodyBytes` (≤ 64 KiB) read as UTF-8 text, a 10 s call timeout. Nothing is logged.
+ */
+internal class OkHttpVersionSourceReader(
+    client: OkHttpClient,
+    private val allowed: (HttpUrl) -> Boolean = { isSourceAddress(it) },
+) : VersionSourceReader {
+    private val http = client.newBuilder()
+        .cookieJar(CookieJar.NO_COOKIES)
+        .followRedirects(false)
+        .followSslRedirects(false)
+        .callTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .build()
+
+    override suspend fun read(url: String, headers: Map<String, String>, maxBodyBytes: Long): ExtractorHttpResult {
+        val limit = maxBodyBytes.coerceIn(1L, MAX_BYTES)
+        val address = url.toHttpUrlOrNull()?.takeIf(allowed)
+            ?: return ExtractorHttpResult.Failure(SiteExtractionFailure.UNSUPPORTED_URL)
+        val builder = Request.Builder().url(address).get()
+        headers.forEach { (name, value) -> if (name.trim().lowercase() in SENT) builder.header(name, value) }
+        return withContext(Dispatchers.IO) {
+            try {
+                http.newCall(builder.build()).execute().use { response ->
+                    val code = response.code
+                    if (!response.isSuccessful) return@use ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, code)
+                    val body = response.body
+                        ?: return@use ExtractorHttpResult.Failure(SiteExtractionFailure.MALFORMED_RESPONSE, code)
+                    val source = body.source()
+                    if (body.contentLength() > limit || source.request(limit + 1)) {
+                        ExtractorHttpResult.Failure(SiteExtractionFailure.RESPONSE_TOO_LARGE, code)
+                    } else {
+                        ExtractorHttpResult.Success(
+                            statusCode = code,
+                            body = source.readUtf8(),
+                            finalUrl = address.toString(),
+                            contentType = response.header("Content-Type"),
+                        )
+                    }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: IOException) {
+                ExtractorHttpResult.Failure(SiteExtractionFailure.NETWORK)
+            }
+        }
+    }
+
+    companion object {
+        const val MAX_BYTES = 64 * 1024L
+        const val TIMEOUT_SECONDS = 10L
+        private const val SOURCE_HOST = "raw.githubusercontent.com"
+        private val SENT = setOf("user-agent")
+
+        fun isSourceAddress(url: HttpUrl): Boolean = url.isHttps && url.host == SOURCE_HOST && url.port == HTTPS_PORT
+
+        private const val HTTPS_PORT = 443
     }
 }

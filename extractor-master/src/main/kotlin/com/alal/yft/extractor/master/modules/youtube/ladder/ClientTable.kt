@@ -17,7 +17,9 @@ import com.alal.yft.extractor.master.modules.youtube.YouTubePageSignals
  * today: yt-dlp 2026.08.19 and YouTube.js list 1.02 only); a version source is live only on
  * raw.githubusercontent.com (owner, 2026-10-15: no redirect, ≤ 64 KiB, text only) or YouTube's own
  * page. Status from the D0 census (valid runs 1–3, weekly checks 1–3; §5); v3 (owner, 2026-10-15):
- * H live after tests 1–3 on `595d259` (§9 item 9's gate met), nothing else changed.
+ * H live after tests 1–3 on `595d259` (§9 item 9's gate met), nothing else changed. A (D5a
+ * follow-up, 2026-10-16) is wired for visionOS only ([VersionSource], the first live source):
+ * still provisional, as no live version change has been seen; Android's A is not wired.
  */
 internal object MasterClientTable {
     const val VERSION: Int = 3

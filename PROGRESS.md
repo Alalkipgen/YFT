@@ -1,5 +1,46 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — A (D5a, the follow-up after the close, 2026-10-16): self-healed visionOS version; the own solver off MCF 95 → 65
+
+- ✅ A (Plan adapted; plan §4 D5a "As built (A)"), in `VersionSource.kt` (new) and
+  `ClientLadder.kt` (not in `Rungs.kt`, the parallel agent's file). When the R6 chain's visionOS
+  request is answered `VERSION_REJECTED` (once a lookup; never in a live-check trial; only when
+  visionOS may be asked), A sends the chain's request again with only the version changed (the
+  `clientVersion` field and the `X-YouTube-Client-Version` header), ≤ 3 requests a lookup
+  (guardrail 7), in guardrail 5's order: the learned version → a self-healed version → the
+  bundled alternates (none today).
+- Self-healed (`VersionSource`): yt-dlp's table on GitHub raw (§9 item 3's host; YouTube.js stays
+  census-only); ≤ 1 read a day, claimed in the health before it reads, none in a bot-check
+  window; the User-Agent only, no cookie, no redirect followed, ≤ 64 KiB, `text/plain`; one value
+  through the census reader and the visionOS pattern, newer than the bundled one; kept in memory
+  only.
+- Never a wrong row: V on every A answer (provisional, no last-hour skip); only a V pass (or L
+  rows) reaches the chain, and then the version and its source are learned (the health file).
+  Otherwise A's answer is dropped: the chain, H and the health get visionOS's own rejection (its
+  24 h cooldown) — R6's outcome, never worse. A bot check or a 429 stops A (the 30 min window);
+  no answer, or an answer about another video, stops A.
+- App: `OkHttpVersionSourceReader` (`MasterLadderSwitch.kt`): HTTPS on `raw.githubusercontent.com`
+  only, no redirect followed, no cookie, the User-Agent only, ≤ 64 KiB, 10 s. Android's A is not
+  wired (yt-dlp's Android version = bundled; no alternates). Comments: `CensusSources`,
+  `ClientTable`.
+- Tests: `VersionRungTest` 13 (12 red with A off; the live-check trial test green either way),
+  `VersionSourceTest` 11, `ClientHealthTest` + 1 (11), `ClientLadderSimTest`: a source read at
+  most once a case (one day), only in V1, V9, H1 and Y1–Y6; app `OkHttpVersionSourceReaderTest` 6
+  (3 red with the redirect, header and host rules removed; run locally in a JVM copy, the app's
+  run in CI). `:extractor-master:test` 638, 0 failed, 2 skipped; flag-off parity green.
+- Simulator (plan §5): the own solver off MCF 95 → **65** — V1, Y1, Y5 and Y6 complete through A
+  (2 player requests, no page fetch, 1 source read; Y5: 1 read for 3 lookups); left: Y2 20, Y3 10
+  and Y4 5 (no source gives a newer version A could send, or it is rejected too), V7 5, V9 5, H1
+  10 and F4 5 (need S), V6 5 (O, live only). The own solver on: MCF 5, unchanged (V1 now without
+  the page fetch). Wrong 0 everywhere; the R6 columns, the trials and v7 byte-identical. The own
+  solver off target: MCF ≤ 65 (plan §5.1).
+- Known limit: V's budget is 4 a day per client, so while the bundled version stays rejected A
+  completes at most 4 lookups a day; then A's answer is dropped (R6's outcome) and visionOS cools
+  down 24 h. An APK with a newer bundled version ends it.
+- No phone check now: A acts only when visionOS's bundled 1.02 is rejected and yt-dlp's table
+  names a newer version (today both read 1.02). Drift 0. Open, not part of the close: L steps
+  7–8 (D5b), H's phone download (D5c).
+
 ## Phase 1.3 — closed (the owner's decision (ခ), 2026-10-16; docs only): the proposed targets; next: A (D5a) as a follow-up, continuous
 
 - The owner's decision (ခ) (2026-10-16, after the census FULL on the 1 MiB APK): close Phase 1.3

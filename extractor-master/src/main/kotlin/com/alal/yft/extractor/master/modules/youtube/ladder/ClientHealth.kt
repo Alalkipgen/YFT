@@ -193,6 +193,20 @@ internal class ClientHealth(
         save()
     }
 
+    /**
+     * A's read of [id]'s version source (D5a): true — and the day's read spent — when it may read
+     * now, false when it read in the last day; claimed before the read, so a failed read spends it too.
+     */
+    @Synchronized
+    fun claimSourceRead(id: String): Boolean {
+        if (id !in IDS || !maySourceRead(id)) return false
+        sourceRead(id)
+        return true
+    }
+
+    /** The health's clock (A's in-memory day for a value read today). */
+    fun now(): Long = clock()
+
     /** One line per client for a debug screen: class, minutes ago, rung; never an address or value. */
     @Synchronized
     fun describe(): List<String> {
@@ -295,7 +309,8 @@ internal class ClientHealth(
         const val MAX_SHAPES = 4
         const val MAX_PATHS = 64
         val IDS: Set<String> get() = MasterClientTable.ENTRIES.map { it.id }.toSet()
-        private val VERSION = Regex("^[0-9]{1,4}(\\.[0-9]{1,8}){1,3}$")
+        /** Every version the health stores (and A sends): digits and dots only. */
+        val VERSION = Regex("^[0-9]{1,4}(\\.[0-9]{1,8}){1,3}$")
         private val WORD = Regex("^[a-z][a-z0-9.-]{0,31}$")
         private val FINGERPRINT = Regex("^[0-9a-f]{8,64}$")
         private val PATH = Regex("^[A-Za-z0-9_.*\\[\\]]{1,200}$")

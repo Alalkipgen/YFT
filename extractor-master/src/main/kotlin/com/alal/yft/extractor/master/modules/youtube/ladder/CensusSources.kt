@@ -9,9 +9,10 @@ import com.alal.yft.extractor.api.json.get
 /**
  * Phase 1.3 D0: the public version sources the census measures (MASTER_KEY_PHASE1_3_PLAN.md §4 D0
  * table, guardrail 5). Each is read at most once per run, ≤ [MAX_SOURCE_BYTES], with no token and
- * no cookie, as data only: one pattern-matched value, never code. A host Master does not use yet
- * (Apple, Google Play, GitHub raw) is read by the census tool only; using one in lookups needs
- * the owner's yes (§9 item 3).
+ * no cookie, as data only: one pattern-matched value, never code. GitHub raw (the owner's yes,
+ * §9 item 3) is also read in a lookup by A (D5a, [VersionSource]): only after `VERSION_REJECTED`,
+ * at most once a day per identity, yt-dlp's table first. Apple and Google Play are read by the
+ * census tool only.
  */
 internal object CensusSources {
     const val MAX_SOURCE_BYTES: Long = 64L * 1024

@@ -48,29 +48,43 @@ import kotlinx.coroutines.sync.withLock
  *    answer's HLS address, bound to the video's length, adds one HLS row (merge rule, guardrail 9:
  *    the chain's rows stay, the ladder adds only a format they lack).
  *
- * This version sends no InnerTube request (player or page) of its own, so after a bot check it
- * sends none either ((က+), guardrail 4); A and S, the rungs that do, come with D5a. Health
- * ([ClientHealth]) records every visionOS class and the rung that repaired it.
+ * A (D5a, built after the close; §4 D5a "As built (A)"): when visionOS's version is rejected
+ * (`VERSION_REJECTED`), the chain's request goes out again with only the version changed —
+ * learned, then self-healed ([VersionSource]: one read a day of a reference table on
+ * `raw.githubusercontent.com` through [sources]), then the bundled alternates — at most
+ * [LadderLookup.MAX_A_PER_LOOKUP] player requests, once per lookup, never in cooldown, after a
+ * bot check ((က+), guardrail 4) or in a live-check trial. A is provisional: its answer gets L, Z
+ * and V as visionOS's own and reaches the chain only with rows that passed V (or L rows); only then
+ * is the version learned (guardrail 5). Otherwise the chain gets its own answer and the H leg may
+ * use A's HLS address. Health ([ClientHealth]) records every visionOS class and the rung that
+ * repaired it.
  */
 class MasterClientLadder internal constructor(
     internal val health: ClientHealth,
     internal val reader: MediaStartReader?,
     /** D7's live-check switch (debug builds only; [LadderTrial.NONE] everywhere else). */
     internal val trial: LadderTrial = LadderTrial.NONE,
+    /** A's version-source reader (null: A uses the learned version and the bundled alternates only). */
+    internal val sources: VersionSourceReader? = null,
 ) {
     /** V's day budget for direct answers (guardrail 6: the client ID is the key). */
     internal val vLedger = StreamCheck.MemoryLedger()
 
+    /** A's versions (D5a): learned, self-healed (today's value in memory), bundled alternates. */
+    internal val versions = VersionSource(health, sources)
+
     /**
-     * The app's ladder: its health in [healthFile] (null: memory only); L rows read by [reader].
-     * With a live-check [trial] the health stays in memory only — the file is never read or
-     * written — so the normal build's health never holds what a changed answer taught (D7).
+     * The app's ladder: its health in [healthFile] (null: memory only); L rows read by [reader];
+     * A's version sources read by [sources]. With a live-check [trial] the health stays in memory
+     * only — the file is never read or written — so the normal build's health never holds what a
+     * changed answer taught (D7); A does not run in a trial.
      */
     constructor(
         healthFile: OwnSolverTextFile?,
         reader: MediaStartReader?,
         trial: LadderTrial = LadderTrial.NONE,
-    ) : this(ClientHealth(healthFile.takeIf { trial === LadderTrial.NONE }), reader, trial)
+        sources: VersionSourceReader? = null,
+    ) : this(ClientHealth(healthFile.takeIf { trial === LadderTrial.NONE }), reader, trial, sources)
 
     internal fun lookup(http: ExtractorHttpClient, request: SiteExtractionRequest): LadderLookup =
         LadderLookup(this, http, request)
@@ -78,7 +92,8 @@ class MasterClientLadder internal constructor(
     /** Health lines for a debug screen: classes, times and rungs; never an address or value. */
     fun describe(): List<String> = health.describe()
 
-    override fun toString(): String = "MasterClientLadder(reader=${reader != null}, trial=${trial.label})"
+    override fun toString(): String =
+        "MasterClientLadder(reader=${reader != null}, sources=${sources != null}, trial=${trial.label})"
 }
 
 /** Reads the first bytes of a media file: an L row's V and its init check on the same bytes (guardrail 6). */
@@ -125,6 +140,8 @@ internal class LadderLookup(
     private var verdictAboutVideo = false
     private var lReads = 0
     private val vChecks = HashMap<String, Int>()
+    private var aDone = false
+    private var aRequests = 0
 
     /** Addresses V proved refused in this lookup (merge rule, guardrail 9); memory only, never logged. */
     private val refused = HashSet<String>()
@@ -147,7 +164,7 @@ internal class LadderLookup(
         ): ExtractorHttpResult {
             val result = memo.chain.postJson(url, body, headers, maxBodyBytes)
             val client = playerClient(url, body) ?: return result
-            return mutex.withLock { answer(client, result) }
+            return mutex.withLock { answer(client, result, Asked(url, body, headers, maxBodyBytes)) }
         }
 
         override fun toString(): String = "LadderLookup.chain"
@@ -169,7 +186,7 @@ internal class LadderLookup(
     }
 
     /** Every player answer: one about another video is dropped (F4); visionOS's goes to its rungs. */
-    private suspend fun answer(client: String, result: ExtractorHttpResult): ExtractorHttpResult {
+    private suspend fun answer(client: String, result: ExtractorHttpResult, asked: Asked): ExtractorHttpResult {
         val success = result as? ExtractorHttpResult.Success
         val root = success?.let { ShapeLocator.parse(it.body) }
         val answered = root.path("videoDetails", "videoId").asStringOrNull
@@ -178,7 +195,7 @@ internal class LadderLookup(
             return ExtractorHttpResult.Failure(SiteExtractionFailure.RESPONSE_CHANGED, success?.statusCode)
         }
         if (client == YouTubeClientProfiles.VISION_OS.clientName) {
-            if (success == null || ladder.trial === LadderTrial.NONE) return repair(result, success, root)
+            if (success == null || ladder.trial === LadderTrial.NONE) return repair(result, success, root, asked)
             return tried(success, root)
         }
         if (success == null) return result
@@ -225,11 +242,15 @@ internal class LadderLookup(
         result: ExtractorHttpResult,
         success: ExtractorHttpResult.Success?,
         root: JsonValue?,
+        asked: Asked? = null,
     ): ExtractorHttpResult {
         val profile = YouTubeClientProfiles.VISION_OS
         val verdict = when {
             success == null -> AnswerJudge.ofFailure(result as ExtractorHttpResult.Failure)
             else -> AnswerJudge.judge(profile, YouTubePlayerResponseParser.inspect(success.body, now), root, success.body, videoId)
+        }
+        if (verdict.answerClass == CensusClass.VERSION_REJECTED && asked != null) {
+            versionRung(asked)?.let { healed -> healedAnswer(healed)?.let { return it } }
         }
         vision = verdict
         visionBody = success?.body
@@ -258,6 +279,123 @@ internal class LadderLookup(
         }
         ladder.health.record(VISION_OS, recorded, rung.takeIf { passed }, passed)
         return body?.let { success.copy(body = it) } ?: result
+    }
+
+    /** The chain's player request as it went out: A sends it again with only the version changed. */
+    private class Asked(val url: String, val body: String, val headers: Map<String, String>, val maxBodyBytes: Long)
+
+    /** A version A sent that was not rejected: its answer and the answer's verdict. */
+    private class Healed(val candidate: VersionSource.Candidate, val success: ExtractorHttpResult.Success, val verdict: AnswerJudge.Verdict)
+
+    /**
+     * A (D5a; guardrail 5's order): visionOS's version was rejected. Once per lookup, outside a
+     * live-check trial, when visionOS may be asked (no cooldown, no bot check): the chain's request
+     * again with only the version changed — the learned version, then a self-healed one (at most one
+     * source read a day), then the bundled alternates — until one is not rejected, at most
+     * [MAX_A_PER_LOOKUP] requests. A bot check (or 429) stops A and quiets the request-sending rungs.
+     * Null when no version answered.
+     */
+    private suspend fun versionRung(asked: Asked): Healed? {
+        if (aDone || ladder.trial !== LadderTrial.NONE) return null
+        aDone = true
+        val entry = MasterClientTable.entry(VISION_OS) ?: return null
+        val allowed = entry.variants.any { it.variant == MasterClientTable.Variant.A && it.status != MasterClientTable.Status.NOT_ACTIVE }
+        if (!allowed) return null
+        if (!ladder.health.mayAsk(VISION_OS, sendsRequest = true)) return null.also { notes += "A: not asked (cooldown or bot check)" }
+        val profile = entry.profile
+        val bundled = profile.clientVersion
+        val sent = VersionSource.versionOf(asked.body, profile.clientName)
+            ?: return null.also { notes += "A: no version in the request" }
+        val versions = ladder.versions
+        val tried = mutableSetOf(sent, bundled)
+        var offered = 0
+        var stop = false
+
+        suspend fun ask(candidate: VersionSource.Candidate): Healed? {
+            if (stop || candidate.version in tried) return null
+            if (aRequests >= MAX_A_PER_LOOKUP) return null.also { stop = true }
+            tried += candidate.version
+            offered += 1
+            val edited = VersionSource.withVersion(asked.body, asked.headers, profile.clientName, sent, candidate.version)
+                ?: return null.also { notes += "A: no single version field to change"; stop = true }
+            aRequests += 1
+            val got = memo.ladder.postJson(asked.url, edited.body, edited.headers, asked.maxBodyBytes)
+            val success = got as? ExtractorHttpResult.Success
+            val root = success?.let { ShapeLocator.parse(it.body) }
+            val answered = root.path("videoDetails", "videoId").asStringOrNull
+            if (answered != null && answered != videoId) {
+                notes += "A: answer about another video dropped"
+                stop = true
+                return null
+            }
+            val verdict = when (success) {
+                null -> AnswerJudge.ofFailure(got as ExtractorHttpResult.Failure)
+                else -> AnswerJudge.judge(profile, YouTubePlayerResponseParser.inspect(success.body, now), root, success.body, videoId)
+            }
+            val failure = got as? ExtractorHttpResult.Failure
+            return when {
+                verdict.answerClass == CensusClass.VERSION_REJECTED -> null.also {
+                    versions.rejected(VISION_OS, candidate)
+                    notes += "A: the ${candidate.label} version rejected too"
+                }
+                verdict.answerClass == CensusClass.BOT_CHECK || failure?.reason == SiteExtractionFailure.RATE_LIMITED -> null.also {
+                    ladder.health.record(VISION_OS, CensusClass.BOT_CHECK)
+                    notes += "A: bot check, A stops"
+                    stop = true
+                }
+                success == null -> null.also {
+                    notes += "A: no answer (${failure?.reason?.name ?: "failure"})"
+                    stop = true
+                }
+                else -> Healed(candidate, success, verdict)
+            }
+        }
+
+        versions.learned(entry, bundled)?.let { candidate -> ask(candidate)?.let { return it } }
+        if (!stop) {
+            val read = versions.selfHealed(entry, bundled, request.requestContext.userAgent)
+            val candidate = read.candidate
+            if (candidate == null) notes += "A: source ${read.why}" else ask(candidate)?.let { return it }
+        }
+        for (candidate in versions.alternates(entry, bundled)) ask(candidate)?.let { return it }
+        if (!stop) notes += if (offered == 0) "A: no version to try" else "A: no version answered"
+        return null
+    }
+
+    /**
+     * A's answer, provisional (guardrail 9: V on every answer): its rungs as for visionOS's own
+     * answer — L on a shape change, Z on missing sizes, V on direct rows (no last-hour skip). It
+     * reaches the chain only with rows that passed V (or L rows), and only then is the version
+     * learned (guardrail 5) and A the working variant. Otherwise it is dropped (null): the chain,
+     * H and the health get visionOS's own answer, the rejection (its 24 h cooldown).
+     */
+    private suspend fun healedAnswer(healed: Healed): ExtractorHttpResult? {
+        val verdict = healed.verdict
+        val success = healed.success
+        val candidate = healed.candidate
+        val answerClass = verdict.answerClass
+        val before = normalized
+        var body: String? = null
+        var passed = false
+        when (answerClass) {
+            CensusClass.SHAPE_CHANGED -> lRows(verdict, success.body)?.let { body = it; passed = true }
+            CensusClass.INCOMPLETE -> zSizes(verdict, success.body)?.let { body = it }
+            else -> Unit
+        }
+        if (answerClass == CensusClass.DIRECT || (answerClass == CensusClass.INCOMPLETE && body != null)) {
+            passed = vDirect(VISION_OS, verdict.video, hourSkip = false)?.passed == true
+        }
+        if (!passed) {
+            normalized = before
+            notes += "A: the ${candidate.label} version's answer dropped ($answerClass, no V pass)"
+            return null
+        }
+        vision = verdict
+        visionBody = success.body
+        notes += "A: the ${candidate.label} version answered ($answerClass)"
+        if (candidate.kind != VersionSource.Kind.LEARNED) ladder.health.learn(VISION_OS, candidate.version, candidate.source)
+        ladder.health.record(VISION_OS, CensusClass.VERSION_REJECTED, ClientHealth.Rung.A, passed = true)
+        return body?.let { success.copy(body = it) } ?: success
     }
 
     private class VStep(val passed: Boolean, val tokenNeeded: Boolean)
@@ -423,6 +561,9 @@ internal class LadderLookup(
         const val START_BYTES = 4096
         const val HTTP_OK = 200
         const val MAX_V_PER_LOOKUP = 1
+
+        /** A's player requests in one lookup (LookupMemo: ≤ 3 player requests of the ladder's own). */
+        const val MAX_A_PER_LOOKUP = 3
         const val ADAPTIVE = "adaptiveFormats"
         const val FORMATS = "formats"
         val OK_STATUSES = setOf(200, 206)

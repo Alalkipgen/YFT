@@ -16,11 +16,20 @@ import org.junit.Test
  * through the same reader with the ladder ([MasterClientLadder]), own solver off and on, each in
  * its own world. The ladder never offers a wrong row, never ends a lookup worse than R6
  * (complete > without sizes > partial > clean stop), sends no player request R6 would not and
- * stays inside its per-lookup bounds; the cells for plan §5 are written to
+ * stays inside its per-lookup bounds (A, D5a: a version source read only after a version
+ * rejection, once a day); the cells for plan §5 are written to
  * `build/ladder-sim/ladder-summary.md` (never an address or value).
  */
 class ClientLadderSimTest {
-    private class Pair2(val case: SimCase, val solver: Boolean, val r6: SimRun, val ladder: SimRun, val reads: Int, val notes: List<String>)
+    private class Pair2(
+        val case: SimCase,
+        val solver: Boolean,
+        val r6: SimRun,
+        val ladder: SimRun,
+        val reads: Int,
+        val notes: List<String>,
+        val sourceReads: Int,
+    )
 
     @Test
     fun `the ladder over every class in both own-solver columns`() = runTest(timeout = 15.minutes) {
@@ -52,13 +61,17 @@ class ClientLadderSimTest {
         assertEquals("requests over the budget: $morePlayers", emptyList<String>(), morePlayers)
         assertTrue(pairs.all { pair -> pair.ladder.lookups.all { it.credentials == 0 } })
         assertTrue(pairs.all { it.reads <= ShapeNormalizer.MAX_OFFER * it.case.lookups })
+        // A (D5a): a version source is read only after VERSION_REJECTED, at most once a day (one clock here).
+        val sourceReads = pairs.filter { it.sourceReads > (if (it.case.klass in A_CLASSES) 1 else 0) }.map { "${it.case.id} ${column(it.solver)}" }
+        assertEquals("version source reads: $sourceReads", emptyList<String>(), sourceReads)
     }
 
     private suspend fun pair(case: SimCase, solver: Boolean): Pair2 {
         val r6 = SimMeasure.run(case, if (solver) SimColumn.R6_ON else SimColumn.R6_OFF)
         val world = case.world()
         val reader = SimStartReader(world)
-        val ladder = MasterClientLadder(ClientHealth(null) { Sim.NOW }, reader)
+        val sources = SimSourceReader(world)
+        val ladder = MasterClientLadder(ClientHealth(null) { Sim.NOW }, reader, sources = sources)
         val module = if (solver) {
             MasterYouTubeModule(world.http, SimSolver(world), ladder)
         } else {
@@ -75,11 +88,14 @@ class ClientLadderSimTest {
             notes += details.filter { it.startsWith("ladder ") }.map { "#${index + 1} ${it.removePrefix("ladder ")}" }
             SimMeasure.judge(world, case, result, from)
         }
-        return Pair2(case, solver, r6, SimRun(case, r6.column, lookups), reader.reads, notes)
+        return Pair2(case, solver, r6, SimRun(case, r6.column, lookups), reader.reads, notes, sources.reads.size)
     }
 
     private companion object {
         val BUDGET_CLASSES = (1..5).map { "V$it" } + (1..15).map { "L$it" }
+
+        /** The classes whose visionOS answer is a version rejection (A may read a source). */
+        val A_CLASSES = listOf("V1", "V9", "H1") + (1..6).map { "Y$it" }
     }
 
     private fun column(solver: Boolean) = if (solver) "LADDER_ON" else "LADDER_OFF"
@@ -118,6 +134,18 @@ class ClientLadderSimTest {
         }
         append("| total | ").append(totals(false) { it.r6 }).append(" | ").append(totals(false) { it.ladder })
         append(" | ").append(totals(true) { it.r6 }).append(" | ").append(totals(true) { it.ladder }).append(" |\n")
+    }
+
+    /** A's version sources through the world's HTTP (logged as a source when the world serves one). */
+    internal class SimSourceReader(private val world: SimWorld) : VersionSourceReader {
+        class Read(val url: String, val headers: Map<String, String>, val maxBodyBytes: Long)
+
+        val reads = mutableListOf<Read>()
+
+        override suspend fun read(url: String, headers: Map<String, String>, maxBodyBytes: Long): ExtractorHttpResult {
+            reads += Read(url, headers, maxBodyBytes)
+            return world.http.get(url, headers, maxBodyBytes)
+        }
     }
 
     /** The media host's first bytes through the world's HTTP (logged as media), as the app's reader returns them. */

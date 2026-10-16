@@ -150,6 +150,21 @@ class ClientHealthTest {
     }
 
     @Test
+    fun `A claims the day's source read before it reads`() {
+        val health = health()
+        assertTrue(health.claimSourceRead("visionos"))
+        assertFalse(health.claimSourceRead("visionos"))
+        assertFalse(health.maySourceRead("visionos"))
+        assertTrue(health.claimSourceRead("android"))
+        assertFalse(health.claimSourceRead("not-a-client"))
+        now += day - 1
+        assertFalse(health.claimSourceRead("visionos"))
+        now += 1
+        assertTrue(health.claimSourceRead("visionos"))
+        assertEquals(now, health.now())
+    }
+
+    @Test
     fun `the file round-trips and holds no address, visitor data or video ID`() {
         val file = MemoryFile()
         val health = health(file)
