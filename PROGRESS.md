@@ -1,5 +1,36 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 backlog — items 1–3 (the owner's order, 2026-10-16): the WebM merge (2K/4K), h-only through H, visionOS 1.04 as a bundled alternate; handoff `docs/HANDOFF_WEBM_HONLY_104.md`
+
+- **Run 3 on the phone** (owner, 2026-10-16, mobile data, Android 16):
+  - A check ✅ (15:41 UTC): visionOS 1.02 and 1.04 `DIRECT`, V `PASS` on 1.04; 3 requests, 37 KB,
+    1 s, no bot check; both answers the same shape.
+  - `h-only`: the lists held "MP4"/"WebM" rows with sizes, not H's HLS rows — the trial never went
+    through H (Master runs only when the primary adapter fails) → item 2. Census video 1 (240p)
+    and census video 2 (720p MP4) downloaded with picture and sound.
+  - Census video 2, 1440p (VP9 WebM + Opus WebM): fails at MERGE with an `IllegalArgumentException`
+    without a message (3 of 3, `took video 1 min 2 s, merge 2.4 s`; another try `took video 46 s,
+    merge 557 ms`); the same on preview.78 (`main`, the same merge code) → item 1.
+- **CI of `5a389f1`** (run 3): `build` ✅, `validate` ✅, `d7-matrix` 7/7 ✅ (Actions run
+  38919399644).
+- **Backlog, Phase 1.4** (next to plan §10 items 2–5; the handoff gives each item's files, out of
+  scope, stop rules and a review checklist). Order: items 1 and 3, then 2, then the `[d7]` APKs
+  (run 4).
+  1. **WebM merge fix:** first confirm with logs where it throws (`addTrack` video or audio,
+     `readSampleData`, `writeSampleData`) and the largest sample per track. Suspect A: the 256 KiB
+     fallback buffer (`MediaMuxerAudioVideoMuxer`; WebM tracks state no `KEY_MAX_INPUT_SIZE`) is
+     smaller than a VP9 keyframe → the buffer grows to fit the sample, cap 32 MiB. Suspect B: the
+     WebM muxer rejects the Opus track's format → fix what the logs show. A test with a fixture
+     that reproduces it (a VP9 keyframe over 256 KiB). Done: CI green; 1440p and 2160p merge on
+     the phone.
+  2. **h-only through H:** with the h-only trial the primary's rows are not taken
+     (`AndroidBrowserMasterFallback.recover`), so H runs. Done: the list shows HLS rows only, plus
+     a test.
+  3. **visionOS 1.04 as a bundled alternate** (guardrail 5): NewPipe Extractor, 2026-08-06; A
+     check 2026-10-16 15:41 UTC pass; R0 stays 1.02; parity unchanged.
+- Stop rules for all three: a parity test would change, a guardrail would change, or CI stays red
+  after 3 fixes.
+
 ## Phase 1.3 — Run 3 APKs `[d7]` (the owner's order, 2026-10-16, item 4): D5b steps 7–8 closed without code (the owner's (1)), Phase 1.4 backlog; the A check and the h-only trial on the phone; VP9 over HLS stays "No sound"
 
 - **D5b steps 7–8:** the owner chose (1) (plan §9 item 15): closed without code (Plan adapted,
