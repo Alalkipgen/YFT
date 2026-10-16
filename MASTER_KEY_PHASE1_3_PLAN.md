@@ -66,6 +66,11 @@ visionOS, Master:
   ပယ်ခံနေသရွေ့ A က တစ်ရက် lookup ၄ ခုအထိ (ပြီးရင် R6 အတိုင်း)။ bot check ပြီး ၃၀ မိနစ်အတွင်း A မလုပ်
   ((က+)၊ §9 item 10): census မှာ visionOS ပထမ request က video ၃၀ ခုမှာ ၂၄ ခု bot check ခံရလို့ app ထဲမှာ
   A က lookup အများစုမှာ မလုပ်နိုင် — 65 က bot check မပါတဲ့ simulator ဂဏန်း (အများဆုံး)။ ဖုန်းစစ် အခု မလို။
+- **A check ⏸ (owner ရဲ့ order item 1၊ 2026-10-16၊ §9 item 14):** yt-dlp၊ YouTube.js၊ NewPipe git
+  history အားလုံးမှာ visionOS version က 1.02 ထက် အဟောင်း မရှိ (yt-dlp 2026-07-09 ကစ 1.02 ပဲ၊
+  YouTube.js 2026-08-13 ကစ 1.02 ပဲ၊ NewPipe 1.02 → 1.04)။ App Store ရဲ့ visionOS app က 1.05.34။ version
+  အဟောင်း မေးရင် တီထွင်ရမှာမို့ guardrail 5 က မခွင့်ပြု → code မစခင် ရပ်ထား။ ⏸ owner ရွေးရန်: (1) ဒီရလဒ်နဲ့
+  ပြီး၊ (2) NewPipe ရဲ့ 1.04 နဲ့ online စစ် (အကြံ)၊ (3) census ခလုတ်အတွက်ပဲ guardrail 5 ခြွင်းချက်။
 - ရည်မှန်းချက်: YouTube ပြောင်းလို့ Master ပျက်ရင် Master code ကြောင့် ပျက်တာ ၀ ("Master-caused failure"
   = ၀၊ §5.1)။ YouTube server ဘက်က ခွင့်ပြုထားတဲ့ လမ်းအားလုံး ပိတ်မှသာ verdict မှန်နဲ့ ရပ်ပြီး တစ်ပတ်အတွင်း
   သိရမယ်။ wrong row ၀ (မပြောင်း)။ APK update မလိုဘဲ။
@@ -865,6 +870,16 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   without the page fetch); wrong 0 everywhere; the R6 columns, the trials and v7 byte-identical.
   Module 638 tests, 0 failed; parity green; drift 0. No phone check now: A acts only when visionOS's
   1.02 is rejected and yt-dlp's table names a newer version.
+- **A check (the owner's order, item 1, 2026-10-16) — ⏸ stopped before code (§9 item 14):** the
+  order: tests and the simulator with many old visionOS versions, and a census "A check" button
+  (video 2: 1.02 as R6 asks it, then ≤ 3 old versions only if `DIRECT`), with only versions that
+  really existed in yt-dlp / YouTube.js git history (guardrail 5). Found: none older than 1.02 in
+  any public reference — yt-dlp's `visionos` (since 2026-07-09, #17184 and its 6 commits) and
+  YouTube.js's `VISIONOS` (since 2026-08-13, #1213) list 1.02 only; NewPipe went 1.02 → 1.04
+  (2026-08-06); the App Store's visionOS app (its own listing, `com.google.visionosyoutube`, not
+  the iOS app the census reads) is at 1.05.34. Old versions would be invented or counted down,
+  which guardrail 5 forbids. Known: YouTube still answers the old 1.02 `DIRECT`; how it refuses
+  stays unknown; today A could not heal a rejected 1.02 (yt-dlp's table = 1.02, no alternate).
 
 ### D5b — Own parser L
 
@@ -1630,3 +1645,11 @@ merge and release, merging PR #2.
     L steps 7–8 (D5b) and H's phone download (D5c) stay open, not part of the close. Written into
     the Burmese summary, the Final plan, §4 (D5a, D7), §5.1–§5.2 and the prompt. **A done
     2026-10-16** (§4 D5a "As built (A)"): the own solver off 95 → 65, its target in §5.1.
+14. **The A check (the owner's order, 2026-10-16, item 1 of 3: A check, D5c, D5b steps 7–8, then
+    one `[d7]` APK): ⏸ asked** — no visionOS version older than 1.02 exists in yt-dlp, YouTube.js
+    or NewPipe (§4 D5a "A check"), so the order's old versions would break guardrail 5. Options:
+    (1) end the A check with this result; (2) the online check with NewPipe's 1.04 instead (real,
+    newer: whether A's version-only re-ask works live and whether 1.04 can be the bundled
+    alternate; recommended); (3) a guardrail 5 exception for the census button only (invented old
+    versions; the only way to see how YouTube refuses). (ဂ) — A after R0's routine bot check, an
+    exception to (က+) — is decided after the A check's result.

@@ -1,5 +1,44 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — A check (the owner's order, item 1, 2026-10-16; docs only): no visionOS version older than 1.02 in any public reference; ⏸ the owner: how the A check goes on (guardrail 5)
+
+- The owner's order (2026-10-16), in this order, CI green after each commit: (1) the A check
+  (ခ) — offline, many old visionOS versions in tests and the simulator; online, an "A check"
+  button in the census on video 2: 1.02 as R6 asks it (no visitor data), then, only if that
+  answer is `DIRECT`, ≤ 3 old versions; only versions that really existed in yt-dlp / YouTube.js
+  git history (guardrail 5); a bot check or a 429 stops at once (guardrail 4); (2) D5c, a trial
+  mode with the H row only (the phone download); (3) D5b steps 7–8; then one `[d7]` APK with all
+  three. (ဂ) is decided after the A check.
+- Searched first (public GitHub history and the App Store's lookup, read only, from the
+  workspace; no YouTube request):
+  - yt-dlp `yt_dlp/extractor/youtube/_base.py`: `visionos` added 2026-07-09 (#17184) with
+    `clientVersion` 1.02. All 6 commits of that pull request and all 5 later commits on the file
+    (to 2026-10-10): 1.02 only. Before it: no visionOS.
+  - YouTube.js `src/utils/Constants.ts`: `VISIONOS` added 2026-08-13 (#1213, one commit) with
+    1.02; no later change. Before it: none.
+  - NewPipe Extractor (guardrail 5's third reference), `ClientsConstants.java`: 1.02 from
+    2026-06-07, **1.04** since 2026-08-06 (newer, not older).
+  - The App Store: YouTube's visionOS app is a listing of its own (bundle
+    `com.google.visionosyoutube`), not the iOS app the census reads (why D0 found no visionOS
+    value there): version 1.05.34 (2026-09-19), first released 2026-02-12.
+- Result: **no visionOS version older than 1.02 exists in any public reference.** The A check's
+  old versions would have to be invented or counted down, which guardrail 5 forbids ("never
+  invented, counted up or brute-forced"). Stopped before any code (the prompt's STOP AND ASK: a
+  rule would need to change): no button, no test, no live request; items 2 and 3 not started.
+- Known already: 1.02 is itself old — the App Store's app is at 1.05.34, NewPipe sends 1.04 — and
+  YouTube still answers it `DIRECT` (the census: R0, or `R0+vd` after R0's bot check). How
+  YouTube would refuse a version stays unknown (the judge's `VERSION_REJECTED`: HTTP 400, or the
+  update / unsupported texts). And today A could not heal a rejected 1.02: yt-dlp's table names
+  1.02 (not newer) and there is no bundled alternate.
+- ⏸ The owner, one of: (1) end the A check with this result; go on with D5c, D5b and the `[d7]`
+  APK. (2) The A check with NewPipe's 1.04 instead (real and newer; guardrail 5 allows NewPipe
+  for a bundled alternate): video 2, 1.02 as R6 asks it, then only if `DIRECT` 1.04 the same way,
+  once — shows whether A's version-only re-ask works live and whether 1.04 can be A's bundled
+  alternate (then A could heal a rejected 1.02 while yt-dlp lags); not how YouTube refuses.
+  (3) A guardrail 5 exception for the census button only (A unchanged): ≤ 3 invented old
+  versions (for example 1.01, 1.00, 0.10) — the only way to see how YouTube refuses. Recommended:
+  (2). (ဂ) waits for the A check's result.
+
 ## Phase 1.3 — A (D5a, the follow-up after the close, 2026-10-16): self-healed visionOS version; the own solver off MCF 95 → 65
 
 - ✅ A (Plan adapted; plan §4 D5a "As built (A)"), in `VersionSource.kt` (new) and
