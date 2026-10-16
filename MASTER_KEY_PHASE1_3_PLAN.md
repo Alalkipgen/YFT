@@ -41,6 +41,11 @@ visionOS, Master:
   visionOS answer ပေါ်မှာ L၊ Z၊ V၊ H) ပြီးပြီ — ladder ကိုယ်ပိုင် InnerTube request မပို့သေး။ simulator:
   wrong 72 → **0** (column နှစ်ခုလုံး)၊ MCF 305 → 95 (own solver off)၊ 160 → **5** (own solver on၊ V6 ပဲ =
   O live only)။ ကျန်တာ: D5a (A၊ S)၊ O rung၊ D7။ flag off = R6 (မပြောင်း)။
+- **D7 ✅ (2026-10-16):** ဖုန်းစစ် (APK ၆ ခု၊ တစ်ခုစီ ၁၁/၁၁)၊ weekly check ၂ ခါ (W 4၊ W 5 — `NO CHANGE`)၊
+  run 2 ရဲ့ census FULL မှာ L steps 9/9 `same` (L5 n/a)၊ wrong ၀၊ runbook §7။ `CHANGED` တစ်ကြောင်း = visionOS
+  answer မှာ `streamingData.probeUrl` ပြန်ပေါ် (test 2 မှာ ပျောက်ခဲ့၊ Master မဖတ်၊ ဘာမှ မလုပ်)။ မပြီးသေးတာ:
+  A (D5a၊ self-healed version)၊ L steps 7–8 (D5b)၊ H ဖုန်း download (D5c)။ simulator MCF: own solver on ၅
+  (V6)၊ off ၉၅ → owner ဆုံးဖြတ်: A ဆက်လုပ်မလား၊ target အသစ် (§4 D7 "Done") နဲ့ ပိတ်မလား။
 - ရည်မှန်းချက်: YouTube ပြောင်းလို့ Master ပျက်ရင် Master code ကြောင့် ပျက်တာ ၀ ("Master-caused failure"
   = ၀၊ §5.1)။ YouTube server ဘက်က ခွင့်ပြုထားတဲ့ လမ်းအားလုံး ပိတ်မှသာ verdict မှန်နဲ့ ရပ်ပြီး တစ်ပတ်အတွင်း
   သိရမယ်။ wrong row ၀ (မပြောင်း)။ APK update မလိုဘဲ။
@@ -116,10 +121,12 @@ in a row):
    check). **Core done** (2026-10-15, with item 6's core): `ClientHealth` (memory; its file with D7),
    the cooldowns, the bot-check window, order, the version-source clock and the shape maps, one
    unit test per rule; order and cooldowns steer the ladder's own requests, which come with D5a.
-4. **D4** row checks: V (reuse), init check, H check, Z.
+4. **D4** row checks: V (reuse), init check, H check, Z. **Built** (2026-10-14/15; the parallel
+   agent's pieces, wired with item 6's core; §4 table).
 5. **D5a** visionOS rungs A, S, Z → **D5b** own parser L → **D5c** H leg. **Progress**
    (2026-10-15): S under the ladder (Plan adapted, §4 D5a "As built"); Z, L and H on visionOS's
-   answers came with item 6's core. Left: A (`VersionSource`, self-healed versions).
+   answers came with item 6's core. Left: A (`VersionSource`, self-healed versions); L steps 7–8
+   (D5b: the shape-map memory, L's page locate for S); H's phone download (D5c).
 6. **D6** O rungs (H live; Android and MWEB as fallbacks), memo, wiring, flag and merge rule.
    **Core done** (2026-10-15): wiring, flag, memo, merge rule; L, Z, V and H on visionOS's answers in
    the R6 chain's HTTP path (Plan adapted, §4 D6); simulator wrong 72 → 0 in both columns, MCF
@@ -131,7 +138,9 @@ in a row):
    no longer says "nothing else for this video" when H ran on that answer. **Prep done**
    (2026-10-15, §4 D7 "As built (prep)"): the switches, the workflow inputs, the health file,
    both census fixes and the census tool's L steps; the six APKs from a push with `[d7]` (job
-   `d7-matrix`). Left: the owner's phone check.
+   `d7-matrix`). Left: the owner's phone check. **Done** (2026-10-16): the phone check, the
+   census L steps 9/9 on run 2, W 4 and W 5, runbook §7; §5.2's MCF = 0 is not met in the
+   simulator → targets proposed (§4 D7 "Done", ⏸ the owner).
 
 The owner's part: one OK for this plan (items 1–2 and the (က+) plan change; §9 items 10–11); a
 weekly check about once a week on mobile data; D7's phone check at the end. Known limits (§5):
@@ -400,13 +409,13 @@ lookup (Master, clientLadder on)
 | D0 | Census tool: full census + weekly check (W) with diff; live census on mobile data (gate); version sources; H token step | G0 | Medium | **Done** (2026-10-15): code `1135afe`; census runs 1–4 not valid, not counted (§5); bot-check rule (owner, 2026-10-15; `5cb781c`), per video (`81388f8`); valid runs 1–3 done (2026-10-14 23:06, 2026-10-15 00:37 and 02:05 UTC); gate (§5, §9 item 9; distinct videos, owner 2026-10-15 after W 2): provisional H (1 distinct video), Android and MWEB (2 each), S (0 asked); not live embedded; no rung live (§9 item 5: does not apply, decided 2026-10-15); usable sources: the reference tables (GitHub raw, approved for lookups with conditions, §9 item 3); D8 dropped; Weekly check 1 (2026-10-15 03:39 UTC, §5); then (owner): the diff's `INFO` lines and +/− paths cancel, W's H on video 2 after video 1's bot check (`3e8f378`); Weekly check 2 (04:34 UTC, §5); after a bot check (က+) (§9 item 10); census items B5–B9 (owner items 5–9, 2026-10-15; code `eac2df3`, tests `2b62605`; §4 D0 "B, as built"); tests 1–3 and W 3 on `595d259`: H meets the gate (Final plan) |
 | D1 | Change simulator, parity gate, L round-trip, baseline | D0 (classes) | Medium–High | Done: simulator + R6 baseline (`f35b78f`; T1b `5cb781c`, per video `81388f8`); parity gate with D6, L round-trip with D5b; T1c, T1d ((က+), §4 D1): R6 columns done (2026-10-15) |
 | D2 | Client table v2 + answer judge (shape kinds, HLS locate, fingerprint) | D1 | Medium | **Done** (2026-10-15): code `eac2df3`, tests and plan `2b62605` (CI ✅; §4 D2 "As built"); V7 (owner): an error screen without a definite marker = one client's refusal (`REFUSED`), not a verdict; V7 live-backed simulator 10 / 10 complete through MWEB, wrong 0, MCF 0 (§5) |
-| D3 | Health v2, order, budget, stop rules (learned version, shape map; (က+) after a bot check) | D2 | Medium–High | TODO (after the owner's OK on the Final plan, §9 item 11) |
-| D4 | Row checks: V (reuse), init check, H check, Z | D2 | Medium | TODO |
-| D5a | visionOS rungs A (with self-healed versions), S, Z | D3, D4 | Medium–High | TODO |
-| D5b | Own parser L (locate, bind, canonical JSON, copied parser) | D3, D4 | High | TODO |
-| D5c | H leg (independent HLS) | D4, D5b (locate) | Medium–High | TODO |
-| D6 | O rungs (census-live only), memo, wiring, flag, merge rule | D5a–D5c | Medium–High | TODO |
-| D7 | Owner live check (with live L mutations), weekly check, runbook | D6 | Low–Medium | **In progress** (2026-10-16): phone check ✅ (six APKs, 11/11 each, wrong 0); L DRM marker narrowed (`83ce453`) ✅; W 4 and W 5 ✅ (§5); runbook §7 ✅; ⏸ one census FULL on run 2 (`1a62b18`), L steps |
+| D3 | Health v2, order, budget, stop rules (learned version, shape map; (က+) after a bot check) | D2 | Medium–High | **Core done** (2026-10-15, `be0c52e`; §4 D3 "As built"): `ClientHealth`, one test per rule (10); its file with D7 prep (`e56cc3f`); order and cooldowns steer only the ladder's own requests — A's, not built (D5a) |
+| D4 | Row checks: V (reuse), init check, H check, Z | D2 | Medium | **Built** (2026-10-14/15; the parallel agent's pieces, `PROGRESS_PARALLEL.md`): `InitCheck` (`3342508`), Z (`8795699`); the H check = D0's `HlsCheck` inside `HlsLeg` (`240cd4d`); V = `StreamCheck` reused unchanged; all wired with D6 core (`be0c52e`). Not added: `StreamCheck`'s wrong-type and other-host cases (L rows have them through the init check and `OkHttpMediaStartReader`) |
+| D5a | visionOS rungs A (with self-healed versions), S, Z | D3, D4 | Medium–High | **Partly done** (2026-10-15): S (Plan adapted: the own solver in the R6 chain under the ladder, `6402fea`; §4 D5a "As built"), Z (`8795699`); **A not built** (`VersionSource`, self-healed versions; Y1–Y6 complete only with the own solver on, through MWEB and S) |
+| D5b | Own parser L (locate, bind, canonical JSON, copied parser) | D3, D4 | High | **Steps 1–6 done** (2026-10-14/15): `ShapeLocator` + `ShapeNormalizer` (`fdc7dea`, the parallel agent), wired (`be0c52e`), census L steps (`a4ffd02`), DRM marker narrowed (`83ce453`); simulator L1–L16 wrong 0, MCF 0; live L steps 9/9 `same` (D7). **Steps 7–8 not built** (the shape-map memory: `ClientHealth` stores maps, nothing records one; L's page locate for S) |
+| D5c | H leg (independent HLS) | D4, D5b (locate) | Medium–High | **Built** (2026-10-14/15): `HlsLeg` (`240cd4d`, the parallel agent; H matrix 300 runs, wrong 0), wired (`be0c52e`); H live (Final plan, table v3 `4f884ec`; census H 8 of 9 in each Full run). **The phone download through H not done** (D7's `skip-visionos-adaptive` lists were complete through the chain, so H added no row) |
+| D6 | O rungs (census-live only), memo, wiring, flag, merge rule | D5a–D5c | Medium–High | **Core and O rungs done** (2026-10-15, Plan adapted; §4 D6 "As built"): wiring, flag, memo (`8795699`), merge rule, L / Z / V / H on visionOS's answers in the R6 chain's HTTP path (`be0c52e`); O rungs = the chain's Android, MWEB and embedded answers judged, V on their direct rows (`6402fea`); simulator wrong 72 → 0, MCF 305 → 95 (own solver off) and 160 → 5 (on; V6 = O, live only), §5. A with D5a |
+| D7 | Owner live check (with live L mutations), weekly check, runbook | D6 | Low–Medium | **Done** (2026-10-16): phone check ✅ (six APKs, 11/11 each, wrong 0); L DRM marker narrowed (`83ce453`) ✅; census FULL on run 2 (`1a62b18`): L steps 9/9 `same` (L5 n/a), wrong 0 ✅; W 4 and W 5 ✅ (§5); runbook §7 ✅; §5.2's MCF = 0 not met in the simulator → targets proposed (§4 D7 "Done", ⏸ the owner) |
 | D8 | Signed identity data over R9 (owner decision, after D0) | D2 | Medium | Dropped (owner, 2026-10-15; §9 item 4) |
 
 G0 is done (`a99e0fb`); D0 is next: it decides which rungs and sources exist and starts the
@@ -934,6 +943,20 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   7 / 9 s — §5.2 W met. Run 1 stands for run 2 here (no re-run): W has no L steps; its visionOS
   answers were a bot check (judged before DRM) and R6's `DIRECT`. Runbook §7 updated. ⏸ Left: one
   census FULL on run 2's `normal` APK (≥ 1 h after W 5), L steps expected all `same`.
+- **Census FULL on run 2** (owner, 2026-10-16 04:01 UTC, mobile data, 2 h 57 min after W 5;
+  PROGRESS): 10 videos, 78 requests, 3379 KB, 45 s, not stopped. L steps on the 9 `DIRECT`
+  visionOS answers: round-trip, L1, L2, L3 and L7 9/9 `same`, L5 9 `n/a` (no cipher) — L works
+  on live answers. Wrong 0, every V pass; H 8 of 9 (census video 10 no segment, as since D0).
+  `CHANGED (1)`: visionOS `R0+vd` shape +`streamingData.probeUrl` (back after test 2's −; not
+  BREAKING, no Master code reads it; §7).
+- **Done** (2026-10-16): the owner's reports (the phone check, W 4 and W 5, the census FULL on
+  run 2); runbook §7 updated. §5.2: Parity, Faults, Budget, Live, W, Versions and flag off met,
+  wrong 0 everywhere. **Not met: MCF = 0 in the simulator** (§5, D6 core table): own solver on 5
+  (V6: O, live only); own solver off 95 (V1 and Y1–Y6 65, the version classes A is for; V7, V9,
+  H1 and F4 25, which need S, i.e. the own solver; V6 5). **Proposed targets** (⏸ the owner):
+  with every flag on, as the D7 APKs: MCF ≤ 5, V6 only, until an O rung passes the gate (§9
+  item 9); with the own solver off: the simulator's number once A is in (D5a). Open outside D7:
+  A (D5a), L steps 7–8 (D5b), H's phone download (D5c).
 
 ### D8 — Signed identity data over R9 (owner decision) — Dropped (owner, 2026-10-15)
 
@@ -1343,14 +1366,20 @@ What D7's census runs showed (owner, 2026-10-15/16; PROGRESS):
   nothing to do. A bot check on R6 too → step 1.
 - MWEB shape ±`adPlacements`: MWEB's ad data comes and goes between runs (test 3 −, D7 +); not a
   format path, nothing to do.
+- visionOS shape ±`streamingData.probeUrl` (`R0+vd` answers): comes and goes too (test 2 −, run
+  2's census FULL +); no Master code reads it, nothing to do. The census names step 6 on every
+  shape line; step 6's work is only for a line marked **BREAKING** (a path the copied parser
+  reads went away; the check then reads `BROKEN`).
 - H on census video 10: master and variant 2xx, no segment (YouTube side, since D0): nothing to
   do while it stays on that video; other videos without a segment → step 1.
 - L steps (full census only; in memory, no request): one line per `DIRECT` visionOS answer;
-  `same` on each step (L5 `n/a` without a cipher) is the expected reading. `differs` or
-  `none (…)` → copy the line to the agent. `none (stop DRM_PROTECTED; DRM marker at <path>)`
-  names where L saw DRM that the copied parser did not: the agent adds that answer's shape as a
-  test case first, then narrows the marker (as `83ce453` did).
-- W's cost on mobile data, W 1–5: 8–17 requests, 372–624 KB, 4–11 s (limits 20, 2 MB, 60 s).
+  `same` on each step (L5 `n/a` without a cipher) is the expected reading (run 2's census FULL:
+  9/9 `same`). `differs` or `none (…)` → copy the line to the agent.
+  `none (stop DRM_PROTECTED; DRM marker at <path>)` names where L saw DRM that the copied parser
+  did not: the agent adds that answer's shape as a test case first, then narrows the marker (as
+  `83ce453` did).
+- W's cost on mobile data, W 1–5: 8–17 requests, 372–624 KB, 4–11 s (limits 20, 2 MB, 60 s); a
+  full census (D7, runs 1 and 2): 78 requests, 2791–3379 KB, 33–45 s.
 
 ## 8. Out of scope
 

@@ -1,5 +1,44 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — D7 done: census FULL on run 2 (owner, 2026-10-16 04:01 UTC; docs only): L steps 9/9 same; §4 table brought up to date; ⏸ the owner: A (D5a) next, or close with the proposed targets
+
+- ✅ Census FULL on run 2's `normal` APK (`1a62b18`, installed as an update), mobile data, 2 h 57
+  min after W 5: 10 census videos, 78 requests, 3379 KB, 45 s, not stopped (D7: ≈ 3.4 MB, ≈ 1 min).
+- ✅ L steps on the 9 `DIRECT` visionOS answers (in memory, no request): round-trip, L1, L2, L3
+  and L7 9/9 `same`, L5 9 `n/a` (no cipher). Run 1 read 0/9 (L stopped on its DRM marker): the
+  narrowed marker (`83ce453`) works on live answers.
+- ✅ Wrong 0, every V `PASS`. visionOS R0: census video 2 `DIRECT` (27 adaptive rows ≤ 2160p); a
+  bot check on the other 8 asked, each answered as R6 (visionOS with its visitor data: `DIRECT`,
+  V pass; `INFO`). Census video 6: visionOS `REFUSED` ("This video is not available", as
+  before). On census videos 2 and 6: Android `SABR_ONLY` (the 360p progressive row), MWEB
+  `NEEDS_SCRIPT` → S ok-sig+n, embedded `REFUSED` (152-18). H 8 of 9 2xx / 2xx / 2xx, no key,
+  the length matched; census video 10 no segment (unchanged).
+- `CHANGED (1)`: visionOS `R0+vd` shape +1 −0 (+`streamingData.probeUrl`; §7 step 6). Not
+  BREAKING (nothing the copied parser reads went away); no Master code reads the key; L and the
+  parser read every row. Test 2 (2026-10-15) had lost it (−), now it is back: it comes and goes
+  on YouTube's side, like MWEB's `adPlacements`. Nothing to do (runbook §7 notes it).
+- Versions as before: the MWEB page's newer version accepted; visionOS `1.02` = yt-dlp and
+  YouTube.js. Nothing to update.
+- ✅ D7 done (plan §4 D7 "Done"): the phone check, the census L steps (this run), W 4 and W 5,
+  runbook §7 (+ `probeUrl`, the full census's cost). §5.2: Parity, Faults, Budget, Live, W,
+  Versions and flag off met, wrong 0 everywhere. **Not met: MCF = 0 in the simulator** — own
+  solver on 5 (V6: O, live only); own solver off 95 (V1 and Y1–Y6 65, the version classes A is
+  for; V7, V9, H1 and F4 25, which need S, i.e. the own solver; V6 5). Proposed targets: with
+  every flag on, as the D7 APKs: MCF ≤ 5, V6 only, until an O rung passes the gate (§9 item 9);
+  with the own solver off: the simulator's number once A is in.
+- ✅ Plan §4 table brought up to date (owner, 2026-10-16): D3–D6 had read TODO since the Final
+  plan. Now: D3 core done; D4 built; D5a S and Z, **A not built**; D5b steps 1–6 done, **steps
+  7–8 not built** (the shape-map memory — `ClientHealth` stores maps, nothing records one — and
+  L's page locate for S); D5c built and H live, **its phone download not done** (D7's
+  `skip-visionos-adaptive` lists were complete through the chain, so H added no row); D6 core
+  and O rungs done, A with D5a; D7 done. Final plan items 4, 5 and 7 and the Burmese summary
+  likewise.
+- ⏸ The owner: build A next (D5a: after `VERSION_REJECTED`, a self-healed visionOS version from
+  the reference tables on GitHub raw, ≤ 1 fetch a day, §9 item 3; then the simulator's
+  live-backed columns and L steps 7–8), or close Phase 1.3 with the targets above and leave A,
+  L steps 7–8 and H's phone download for later. Weekly check: once a week on run 2's `normal`
+  APK (update only, never uninstall).
+
 ## Phase 1.3 — D7 weekly checks (owner, 2026-10-15/16 UTC; docs only): W 4 and W 5 NO CHANGE within budget; runbook §7
 
 - ✅ W 4 (the owner's D7 W1): 2026-10-15 23:55 UTC (72 min after the census FULL), mobile data,
