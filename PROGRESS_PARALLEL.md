@@ -8,6 +8,10 @@ no existing file is edited (copied files, census, `ShapeFingerprint`, `StreamChe
 belong to the main agent; nothing is wired (D6); offline only (fakes, fixtures). Newest first.
 No video ID, address or visitor data in these notes.
 
+## 2026-10-16 — `HlsLeg.kt`: one comment edited by the main agent (owner OK)
+
+- Step 3's KDoc now reads "master playlist ≤ 256 KiB → highest variant → its playlist ≤ 1 MiB" (guardrail 6: the owner raised `HlsCheck`'s variant cap to 1 MiB; the leg uses that default); code and the 64 KiB segment cap unchanged — owner OK ဖြင့် ပြင်ခဲ့သည်။
+
 ## 2026-10-15 — HlsLeg, the H leg (D5c, §3 H steps 1–3)
 
 - `HlsLeg.kt` (new; nothing wired):

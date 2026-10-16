@@ -46,6 +46,11 @@ visionOS, Master:
   answer မှာ `streamingData.probeUrl` ပြန်ပေါ် (test 2 မှာ ပျောက်ခဲ့၊ Master မဖတ်၊ ဘာမှ မလုပ်)။ မပြီးသေးတာ:
   A (D5a၊ self-healed version)၊ L steps 7–8 (D5b)၊ H ဖုန်း download (D5c)။ simulator MCF: own solver on ၅
   (V6)၊ off ၉၅ → owner ဆုံးဖြတ်: A ဆက်လုပ်မလား၊ target အသစ် (§4 D7 "Done") နဲ့ ပိတ်မလား။
+- **D7 ပိတ်ပြီ (2026-10-16):** H status fix APK (`7277fd8`) ပေါ်က census FULL (05:26 UTC) မှာ video 10 ရဲ့ H
+  က မျှော်လင့်ထားတဲ့အတိုင်း `too-large` (line တစ်ကြောင်း) — fix ကို ဖုန်းပေါ်မှာ အတည်ပြုပြီ၊ wrong ၀၊ L steps 9/9
+  `same`။ Owner ဆုံးဖြတ်ချက် (ခ): guardrail 6 ရဲ့ HLS variant playlist cap 256 KiB → **1 MiB** (master 256 KiB၊
+  segment 64 KiB မပြောင်း)။ video 10 (1203 s) ဆံ့ပြီ၊ ~၁ နာရီထက် ရှည်တဲ့ video ဆို `too-large` → H unknown
+  (wrong မဖြစ်)။
 - ရည်မှန်းချက်: YouTube ပြောင်းလို့ Master ပျက်ရင် Master code ကြောင့် ပျက်တာ ၀ ("Master-caused failure"
   = ၀၊ §5.1)။ YouTube server ဘက်က ခွင့်ပြုထားတဲ့ လမ်းအားလုံး ပိတ်မှသာ verdict မှန်နဲ့ ရပ်ပြီး တစ်ပတ်အတွင်း
   သိရမယ်။ wrong row ၀ (မပြောင်း)။ APK update မလိုဘဲ။
@@ -102,7 +107,7 @@ checks W 1–W 3 (§4 D0), wrong 0 in every run. The client table this leaves, a
 | Client / rung | Census (tests 1–3, W 1–W 3) | Table v3 |
 |---|---|---|
 | visionOS R0 | the first request met a bot check on 8 of 10 videos; R6's `R0+vd` answer `DIRECT`, V pass, on every such video (8 / 8 in each test; W 1–W 3) | live (as v2) |
-| H (HLS leg) | 8 / 9, 8 / 9, 6 / 9 (89 %, 89 %, 67 %) on 9 distinct videos; test 3's two misses were network failures (`net`); video 10's `no-segment` was our status bug, not YouTube's side (a playlist over 256 KiB read as `2xx`; fixed 2026-10-16, §7); W 2 and W 3 passed | **live** (§9 item 9's gate met) |
+| H (HLS leg) | 8 / 9, 8 / 9, 6 / 9 (89 %, 89 %, 67 %) on 9 distinct videos; test 3's two misses were network failures (`net`); video 10's `no-segment` was our status bug, not YouTube's side (a playlist over 256 KiB read as `2xx`; fixed 2026-10-16 and confirmed by the 05:26 UTC census FULL; since then the variant cap is 1 MiB, owner, guardrail 6; §7); W 2 and W 3 passed | **live** (§9 item 9's gate met) |
 | Android O | the 360p progressive row only (adaptive `SABR_ONLY`), V pass; videos 2 and 6 only | provisional (a fallback, V on every row) |
 | MWEB O | `NEEDS_SCRIPT` → S ok-sig+n, V pass (≤ 2160p, ≤ 1080p); its adaptive answer flips between ciphered and address-less; videos 2 and 6 only | provisional (a fallback, V on every row) |
 | embedded O | `REFUSED` (error 152-18) on 2 / 2 | measured, not active |
@@ -140,7 +145,8 @@ in a row):
    both census fixes and the census tool's L steps; the six APKs from a push with `[d7]` (job
    `d7-matrix`). Left: the owner's phone check. **Done** (2026-10-16): the phone check, the
    census L steps 9/9 on run 2, W 4 and W 5, runbook §7; §5.2's MCF = 0 is not met in the
-   simulator → targets proposed (§4 D7 "Done", ⏸ the owner).
+   simulator → targets proposed (§4 D7 "Done", ⏸ the owner). **Closed** (2026-10-16): a census
+   FULL confirmed the H status fix; the HLS variant cap is 1 MiB (owner, guardrail 6).
 
 The owner's part: one OK for this plan (items 1–2 and the (က+) plan change; §9 items 10–11); a
 weekly check about once a week on mobile data; D7's phone check at the end. Known limits (§5):
@@ -265,8 +271,10 @@ All R6, Phase 1.1, Phase 1.2, v1 and v2 guardrails stay. v3 restates them and ma
      matches (`ftyp`/`styp`/`moof`/`sidx`, EBML); no encryption marker in the bytes read (MP4
      `encv`, `enca`, `sinf`, `tenc`, `pssh`; WebM content encryption); the total size in
      `Content-Range` equals the row's size when one is known.
-   - H check (v2, extended): every address under `googlevideo.com`; the master playlist and one
-     variant playlist, ≤ 256 KiB each; the first segment of that variant, Range ≤ 64 KiB; content
+   - H check (v2, extended): every address under `googlevideo.com`; the master playlist ≤ 256 KiB
+     and one variant playlist ≤ 1 MiB (owner, 2026-10-16, §9 item 12; was 256 KiB: a variant lists
+     every segment with its full address, so it grows with the video; census video 10, 1203 s,
+     passed 256 KiB); the first segment of that variant, Range ≤ 64 KiB; content
      type and container start must match (MPEG-TS sync byte, `ftyp`/`styp`/`moof`, EBML); **no
      `#EXT-X-KEY` or `#EXT-X-SESSION-KEY` other than `METHOD=NONE`**; the playlist's total
      duration within ±2 s of the video's length — **the binding: H rows are never offered
@@ -415,7 +423,7 @@ lookup (Master, clientLadder on)
 | D5b | Own parser L (locate, bind, canonical JSON, copied parser) | D3, D4 | High | **Steps 1–6 done** (2026-10-14/15): `ShapeLocator` + `ShapeNormalizer` (`fdc7dea`, the parallel agent), wired (`be0c52e`), census L steps (`a4ffd02`), DRM marker narrowed (`83ce453`); simulator L1–L16 wrong 0, MCF 0; live L steps 9/9 `same` (D7). **Steps 7–8 not built** (the shape-map memory: `ClientHealth` stores maps, nothing records one; L's page locate for S) |
 | D5c | H leg (independent HLS) | D4, D5b (locate) | Medium–High | **Built** (2026-10-14/15): `HlsLeg` (`240cd4d`, the parallel agent; H matrix 300 runs, wrong 0), wired (`be0c52e`); H live (Final plan, table v3 `4f884ec`; census H 8 of 9 in each Full run). **The phone download through H not done** (D7's `skip-visionos-adaptive` lists were complete through the chain, so H added no row) |
 | D6 | O rungs (census-live only), memo, wiring, flag, merge rule | D5a–D5c | Medium–High | **Core and O rungs done** (2026-10-15, Plan adapted; §4 D6 "As built"): wiring, flag, memo (`8795699`), merge rule, L / Z / V / H on visionOS's answers in the R6 chain's HTTP path (`be0c52e`); O rungs = the chain's Android, MWEB and embedded answers judged, V on their direct rows (`6402fea`); simulator wrong 72 → 0, MCF 305 → 95 (own solver off) and 160 → 5 (on; V6 = O, live only), §5. A with D5a |
-| D7 | Owner live check (with live L mutations), weekly check, runbook | D6 | Low–Medium | **Done** (2026-10-16): phone check ✅ (six APKs, 11/11 each, wrong 0); L DRM marker narrowed (`83ce453`) ✅; census FULL on run 2 (`1a62b18`): L steps 9/9 `same` (L5 n/a), wrong 0 ✅; W 4 and W 5 ✅ (§5); runbook §7 ✅; §5.2's MCF = 0 not met in the simulator → targets proposed (§4 D7 "Done", ⏸ the owner) |
+| D7 | Owner live check (with live L mutations), weekly check, runbook | D6 | Low–Medium | **Done** (2026-10-16): phone check ✅ (six APKs, 11/11 each, wrong 0); L DRM marker narrowed (`83ce453`) ✅; census FULL on run 2 (`1a62b18`): L steps 9/9 `same` (L5 n/a), wrong 0 ✅; W 4 and W 5 ✅ (§5); runbook §7 ✅; §5.2's MCF = 0 not met in the simulator → targets proposed (§4 D7 "Done", ⏸ the owner); **closed** (2026-10-16): the census FULL on the H fix APK (`7277fd8`) read `too-large` on video 10 as expected; variant cap 1 MiB (owner, guardrail 6) |
 | D8 | Signed identity data over R9 (owner decision, after D0) | D2 | Medium | Dropped (owner, 2026-10-15; §9 item 4) |
 
 G0 is done (`a99e0fb`); D0 is next: it decides which rungs and sources exist and starts the
@@ -963,6 +971,24 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   segment. Fixed (the reason first; a failed read is never `2xx`); HlsLeg unchanged: `too-large`
   is unknown there (no row, never wrong; before: fail, no row). ⏸ One census FULL on the new APK
   confirms (`too-large` on video 10; §7).
+- **Census FULL on the H fix APK** (owner, 2026-10-16 05:26 UTC, mobile data, 1 h 25 min after
+  run 2's; `7277fd8` installed as an update; PROGRESS): 10 videos, 78 requests, 2791 KB, 71 s, not
+  stopped. `BROKEN (4)`: H video 10 `variant 2xx → too-large; segment no-segment → skip`, the
+  expected line — the fix works on the phone and the variant playlist really passes 256 KiB (not
+  an empty playlist); visionOS `R0+vd` shape −`streamingData.probeUrl` and MWEB R0
+  +`streamingData.probeUrl` (the known come-and-go; no Master code reads it; not BREAKING); the App
+  Store unreachable (`NETWORK`, as in tests 1 and 2; measured, not active; yt-dlp and YouTube.js
+  still read 1.02, the bundled value). L steps 9/9 `same` (L5 n/a); wrong 0, every V pass; H 8 of
+  9 `2xx` (video 10 `too-large` → unknown, no row). **D7 closed.**
+- **Variant cap 1 MiB** (the owner's decision (ခ), 2026-10-16; guardrail 6, §9 item 12; PROGRESS):
+  `HlsCheck.MAX_VARIANT_BYTES` = 1 MiB (was 256 KiB); the master's stays 256 KiB
+  (`MAX_MASTER_BYTES`), HlsLeg's segment start 64 KiB. The census and HlsLeg read with it (HlsLeg's
+  code unchanged; its step-3 comment updated with the owner's OK; PROGRESS_PARALLEL.md). 1 MiB
+  holds about an hour of video (≈ 74 min at ≈ 1.2 KB a segment line, an estimate); longer →
+  `too-large` → unknown, no row, never wrong. Cost: at most 1 MiB more per H check, only on a long
+  video (FULL ≤ 6 MiB; W's H runs on video 1 or 2, both short). `HlsLongPlaylistTest` 5 → 7 (2 red
+  on `7277fd8`). ⏸ One census FULL on the new APK: `CHANGED H visionos video 10: variant too-large
+  → 2xx; segment skip → 2xx` once (§7).
 
 ### D8 — Signed identity data over R9 (owner decision) — Dropped (owner, 2026-10-15)
 
@@ -1373,8 +1399,9 @@ What D7's census runs showed (owner, 2026-10-15/16; PROGRESS):
   nothing to do. A bot check on R6 too → step 1.
 - MWEB shape ±`adPlacements`: MWEB's ad data comes and goes between runs (test 3 −, D7 +); not a
   format path, nothing to do.
-- visionOS shape ±`streamingData.probeUrl` (`R0+vd` answers): comes and goes too (test 2 −, run
-  2's census FULL +); no Master code reads it, nothing to do. The census names step 6 on every
+- visionOS shape ±`streamingData.probeUrl` (`R0+vd` answers; MWEB R0 too): comes and goes too
+  (test 2 −, run 2's census FULL +, the 05:26 UTC census FULL − on visionOS and + on MWEB); no
+  Master code reads it, nothing to do. The census names step 6 on every
   shape line; step 6's work is only for a line marked **BREAKING** (a path the copied parser
   reads went away; the check then reads `BROKEN`).
 - H on census video 10 (tests 1–3, run 2): master and variant `2xx`, `no-segment`, 0 segments, 2
@@ -1383,14 +1410,20 @@ What D7's census runs showed (owner, 2026-10-15/16; PROGRESS):
   read the code first, so a variant playlist over 256 KiB read `2xx` with no body. Video 10
   (1203 s) is the census's longest video; its variant lists every segment with its full address
   (its size is not measured: the census never prints it). Fixed: the reason first, a failed read
-  is never `2xx` (`HlsLongPlaylistTest`). The first census after the update prints once `BROKEN
-  H visionos video 10: variant 2xx → too-large; segment no-segment → skip` (step 7): expected,
-  nothing to do. `2xx` and `no-segment` again on that video → a really empty playlist (YouTube's
+  is never `2xx` (`HlsLongPlaylistTest`). The first census after the update printed once `BROKEN
+  H visionos video 10: variant 2xx → too-large; segment no-segment → skip` (step 7; 2026-10-16
+  05:26 UTC): expected, the cause confirmed. With the variant cap at 1 MiB (owner, 2026-10-16) the
+  next census prints once `CHANGED H visionos video 10: variant too-large → 2xx; segment skip →
+  2xx` (step 7): expected, nothing to do (no line: still over 1 MiB, the known limit). `2xx` and `no-segment` again on that video → a really empty playlist (YouTube's
   side): copy the line to the agent. Another video `no-segment` → step 1.
-- Known limit: some long videos' HLS variant playlist passes 256 KiB (guardrail 6's cap) → H
-  `too-large` → unknown, no H row, never a wrong row; the lookup keeps its other rows (video ရှည်
-  တချို့မှာ HLS playlist `too-large` → H unknown ပေး၊ wrong မဖြစ်). A larger cap is the owner's
-  decision.
+- Known limit: a very long video's HLS variant playlist passes 1 MiB (guardrail 6's variant cap,
+  256 KiB until 2026-10-16; about an hour of video, an estimate) → H `too-large` → unknown, no H
+  row, never a wrong row; the lookup keeps its other rows (video အရှည်ကြီး (~၁ နာရီကျော်) တွေမှာ HLS
+  playlist `too-large` → H unknown ပေး၊ wrong မဖြစ်). A larger cap is the owner's decision (the app's
+  client reads any cap; the cost is bytes on mobile data).
+- `CHANGED version visionos from appstore: unreachable (NETWORK)` (step 3; tests 1 and 2, the
+  05:26 UTC census FULL): the App Store is a measured source, not used for the version; step 3's
+  work is only for `VERSION_REJECTED`; nothing to do.
 - L steps (full census only; in memory, no request): one line per `DIRECT` visionOS answer;
   `same` on each step (L5 `n/a` without a cipher) is the expected reading (run 2's census FULL:
   9/9 `same`). `differs` or `none (…)` → copy the line to the agent.
@@ -1398,7 +1431,7 @@ What D7's census runs showed (owner, 2026-10-15/16; PROGRESS):
   did not: the agent adds that answer's shape as a test case first, then narrows the marker (as
   `83ce453` did).
 - W's cost on mobile data, W 1–5: 8–17 requests, 372–624 KB, 4–11 s (limits 20, 2 MB, 60 s); a
-  full census (D7, runs 1 and 2): 78 requests, 2791–3379 KB, 33–45 s.
+  full census (D7: runs 1 and 2 and the H fix APK): 78 requests, 2791–3379 KB, 33–71 s.
 
 ## 8. Out of scope
 
@@ -1485,3 +1518,8 @@ merge and release, merging PR #2.
 11. **Final plan (2026-10-15, after tests 1–3 and W 3):** asked — one OK for (a) client table v3
     (H live; nothing else changes) and (b) the (က+) plan change (item 10); then the run goes on as
     the "Final plan" section orders it (D2 follow-up → T1c / T1d → D3 → D4 → D5a–D5c → D6 → D7).
+12. **Guardrail 6's HLS variant cap: (ခ) 1 MiB — owner, 2026-10-16** (asked after the H status
+    fix: keep 256 KiB, or raise the variant's): the variant playlist's cap 256 KiB → 1 MiB; the
+    master's 256 KiB and HlsLeg's 64 KiB segment start unchanged; `HlsLeg.kt`'s comment edited
+    with the owner's OK (its code untouched), one line in PROGRESS_PARALLEL.md. Written into
+    guardrail 6, §4 D7, §7 and the Final plan table.

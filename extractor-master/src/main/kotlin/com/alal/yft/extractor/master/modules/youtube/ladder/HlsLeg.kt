@@ -26,8 +26,8 @@ import kotlinx.coroutines.sync.withLock
  * 2. The video's length ([length]): the copied parser's (its answer for the requested video), else
  *    L's binding, else the page's; none → no H rows. A verdict (ShapeNormalizer's `Stop`: not `OK`,
  *    DRM, live) → no H.
- * 3. The lookup's H check ([Lookup.run]): D0's [HlsCheck] (master playlist → highest variant →
- *    its playlist, ≤ 256 KiB each; no key other than `METHOD=NONE`; the variant's duration within
+ * 3. The lookup's H check ([Lookup.run]): D0's [HlsCheck] (master playlist ≤ 256 KiB → highest
+ *    variant → its playlist ≤ 1 MiB; no key other than `METHOD=NONE`; the variant's duration within
  *    ±2 s of the length), whose one file check reads the first segment's start instead (`Range`
  *    ≤ [MAX_SEGMENT_BYTES]): its content type and container start must match (MPEG-TS sync byte;
  *    `ftyp` / `styp` / `moof` / `sidx` / `emsg` / `prft`; EBML). Pass → one [Row] of kind HLS (the

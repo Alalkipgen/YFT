@@ -14,23 +14,62 @@ import org.junit.Test
  * segment `no-segment`, 0 segments, 2 requests, on the census's longest video (1203 s; video 9,
  * 888 s, passed). The app's client (OkHttpExtractorClient) answers a `2xx` body over the read cap
  * as `Failure(RESPONSE_TOO_LARGE, <that 2xx code>)`, and [HlsCheck.statusOf] read the code before
- * the reason: a variant playlist over 256 KiB read `2xx` with no body, so no segment. A long
- * video's variant playlist lists every segment with its full address, so it passes the cap first.
- * Here each segment line is about 1.2 KB (an assumption: the census never prints one; with it
- * 888 s fits and 1203 s does not, as on the phone). Offline; no live call.
+ * the reason: a variant playlist over 256 KiB read `2xx` with no body, so no segment. Fixed in
+ * `7277fd8`; the next census FULL (2026-10-16 05:26 UTC) read `too-large` there, as expected.
+ * A long video's variant playlist lists every segment with its full address, so it grows with the
+ * video: since the owner's decision (2026-10-16, guardrail 6) the variant's cap is 1 MiB and the
+ * master's stays 256 KiB. Here each segment line is about 1.2 KB (an assumption: the census never
+ * prints one; with it 888 s fits 256 KiB and 1203 s does not, as on the phone, and 1 MiB holds
+ * about 74 min). Offline; no live call.
  */
 class HlsLongPlaylistTest {
     private val headers = mapOf("User-Agent" to Census.UA, "Referer" to "https://www.youtube.com/")
 
     @Test
-    fun `a long video's variant playlist over the cap reads too-large, not 2xx without a segment`() = runTest {
+    fun `guardrail 6's caps - the master 256 KiB, the variant 1 MiB, the leg's segment 64 KiB`() {
+        assertEquals(256L * 1024, HlsCheck.MAX_MASTER_BYTES)
+        assertEquals(1024L * 1024, HlsCheck.MAX_VARIANT_BYTES)
+        assertEquals(64L * 1024, HlsLeg.MAX_SEGMENT_BYTES)
+    }
+
+    @Test
+    fun `census video 10's variant playlist fits the variant cap - 2xx, every segment, the duration`() = runTest {
         val long = variantPlaylist(LONG_SECONDS)
-        assertTrue("the fixture passes 256 KiB", long.toByteArray().size > HlsCheck.MAX_PLAYLIST_BYTES)
+        val size = long.toByteArray().size
+        assertTrue("the fixture passes 256 KiB and fits 1 MiB: $size", size > 256 * 1024 && size <= HlsCheck.MAX_VARIANT_BYTES)
         val http = AppLikeClient(MASTER to masterPlaylist(), VARIANT to long)
 
         val result = HlsCheck(http).check(MASTER, headers, LONG_SECONDS)
 
-        // Before the fix this read as the census line: variant 2xx, segment no-segment, 0 segments.
+        // 7277fd8 (both caps 256 KiB): variant too-large, segment skip, 2 requests; before it, the
+        // census line: variant 2xx, segment no-segment.
+        assertEquals(
+            HlsCheck.Result(
+                master = "2xx", variant = "2xx", segment = "2xx", variants = 8, maxHeight = 240,
+                audio = "separate", codecs = listOf("avc1", "mp4a", "vp09"), key = "NONE", segments = 241,
+                durationSeconds = 1203.0, durationMatch = true, requests = 3,
+            ),
+            result,
+        )
+        assertEquals(listOf(MASTER, VARIANT, SEGMENT), http.asked)
+        assertEquals(listOf(HlsCheck.MAX_MASTER_BYTES, HlsCheck.MAX_VARIANT_BYTES), http.limits)
+
+        val shorter = AppLikeClient(MASTER to masterPlaylist(), VARIANT to variantPlaylist(SHORT_SECONDS))
+        val fits = HlsCheck(shorter).check(MASTER, headers, SHORT_SECONDS)
+        assertEquals(listOf("2xx", "2xx", "2xx"), listOf(fits.master, fits.variant, fits.segment))
+        assertEquals(listOf(178, 3), listOf(fits.segments, fits.requests))
+        assertEquals(true, fits.durationMatch)
+    }
+
+    @Test
+    fun `a variant playlist over the variant cap reads too-large, not 2xx without a segment`() = runTest {
+        val longer = variantPlaylist(OVER_SECONDS)
+        assertTrue("the fixture passes 1 MiB", longer.toByteArray().size > HlsCheck.MAX_VARIANT_BYTES)
+        val http = AppLikeClient(MASTER to masterPlaylist(), VARIANT to longer)
+
+        val result = HlsCheck(http).check(MASTER, headers, OVER_SECONDS)
+
+        // Before 7277fd8 a playlist over the cap read as census video 10's line: 2xx, no-segment.
         assertEquals(
             HlsCheck.Result(
                 master = "2xx", variant = "too-large", segment = "skip", variants = 8, maxHeight = 240,
@@ -42,35 +81,35 @@ class HlsLongPlaylistTest {
     }
 
     @Test
-    fun `the same playlists pass when they fit - a shorter video, or a larger cap`() = runTest {
-        val shorter = AppLikeClient(MASTER to masterPlaylist(), VARIANT to variantPlaylist(SHORT_SECONDS))
-        val fits = HlsCheck(shorter).check(MASTER, headers, SHORT_SECONDS)
-        assertEquals(listOf("2xx", "2xx", "2xx"), listOf(fits.master, fits.variant, fits.segment))
-        assertEquals(listOf(178, 3), listOf(fits.segments, fits.requests))
-        assertEquals(true, fits.durationMatch)
+    fun `the master's cap stays 256 KiB`() = runTest {
+        val padded = masterPlaylist() + "# padding\n".repeat(30_000)
+        val size = padded.toByteArray().size
+        assertTrue("the master passes 256 KiB and fits 1 MiB: $size", size > HlsCheck.MAX_MASTER_BYTES && size <= HlsCheck.MAX_VARIANT_BYTES)
+        val http = AppLikeClient(MASTER to padded, VARIANT to variantPlaylist(SHORT_SECONDS))
 
-        val long = AppLikeClient(MASTER to masterPlaylist(), VARIANT to variantPlaylist(LONG_SECONDS))
-        val wide = HlsCheck(long, maxPlaylistBytes = 1024L * 1024).check(MASTER, headers, LONG_SECONDS)
-        assertEquals(listOf("2xx", "2xx", "2xx"), listOf(wide.master, wide.variant, wide.segment))
-        assertEquals(listOf(241, 3), listOf(wide.segments, wide.requests))
-        assertEquals(true, wide.durationMatch)
+        val result = HlsCheck(http).check(MASTER, headers, SHORT_SECONDS)
+
+        assertEquals(HlsCheck.Result(master = "too-large", variant = "skip", segment = "skip", requests = 1), result)
+        assertEquals(listOf(MASTER), http.asked)
     }
 
     @Test
-    fun `the H leg gives unknown and no row for that playlist, never a wrong row`() = runTest {
+    fun `the H leg gives census video 10 its row now, and unknown with no row over the variant cap`() = runTest {
         val http = AppLikeClient(MASTER to masterPlaylist(), VARIANT to variantPlaylist(LONG_SECONDS), SEGMENT to TS_START)
 
-        val outcome = HlsLeg(http).lookup().run(MASTER, LONG_SECONDS, headers)
+        val row = HlsLeg(http).lookup().run(MASTER, LONG_SECONDS, headers)
 
+        assertTrue("a playlist that fits gives the row: $row", row is HlsLeg.Row)
+        assertEquals("ts", (row as HlsLeg.Row).container)
+        // The leg (its code unchanged) reads with HlsCheck's caps, and the segment's start with its own.
+        assertEquals(listOf(HlsCheck.MAX_MASTER_BYTES, HlsCheck.MAX_VARIANT_BYTES, HlsLeg.MAX_SEGMENT_BYTES), http.limits)
+
+        val over = AppLikeClient(MASTER to masterPlaylist(), VARIANT to variantPlaylist(OVER_SECONDS), SEGMENT to TS_START)
+        val outcome = HlsLeg(over).lookup().run(MASTER, OVER_SECONDS, headers)
         assertTrue("no row: $outcome", outcome is HlsLeg.None)
         outcome as HlsLeg.None
         assertEquals(listOf("UNKNOWN", "VARIANT", "2"), listOf(outcome.verdict?.name, outcome.why.name, outcome.requests.toString()))
-        assertEquals(listOf(MASTER, VARIANT), http.asked)
-
-        val shorter = AppLikeClient(MASTER to masterPlaylist(), VARIANT to variantPlaylist(SHORT_SECONDS), SEGMENT to TS_START)
-        val row = HlsLeg(shorter).lookup().run(MASTER, SHORT_SECONDS, headers)
-        assertTrue("a playlist that fits gives the row: $row", row is HlsLeg.Row)
-        assertEquals("ts", (row as HlsLeg.Row).container)
+        assertEquals(listOf(MASTER, VARIANT), over.asked)
     }
 
     @Test
@@ -102,14 +141,17 @@ class HlsLongPlaylistTest {
     /**
      * Answers as the app's OkHttpExtractorClient does: a body over `maxBodyBytes` is
      * `Failure(RESPONSE_TOO_LARGE, 200)` (the answer's own code); a `Range` request that fits is
-     * 206; an address it does not know is 404. Its one file check (`probe`) answers 206.
+     * 206; an address it does not know is 404. Its one file check (`probe`) answers 206. It keeps
+     * each read's `maxBodyBytes` in [limits].
      */
     private class AppLikeClient(vararg bodies: Pair<String, String>) : ExtractorHttpClient {
         private val bodies = bodies.toMap()
         val asked = ArrayList<String>()
+        val limits = ArrayList<Long>()
 
         override suspend fun get(url: String, headers: Map<String, String>, maxBodyBytes: Long): ExtractorHttpResult {
             asked += url
+            limits += maxBodyBytes
             val body = bodies[url] ?: return ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 404)
             if (body.toByteArray().size > maxBodyBytes) {
                 return ExtractorHttpResult.Failure(SiteExtractionFailure.RESPONSE_TOO_LARGE, 200)
@@ -131,6 +173,9 @@ class HlsLongPlaylistTest {
     private companion object {
         const val LONG_SECONDS = 1203L
         const val SHORT_SECONDS = 888L
+
+        /** Two hours: about 1.7 MB with these lines, over the variant cap. */
+        const val OVER_SECONDS = 7200L
         const val MASTER = "https://${Census.HLS_HOST}/api/manifest/hls_variant/id/census.10/file/index.m3u8"
         const val VARIANT = "https://${Census.HLS_HOST}/api/manifest/hls_playlist/id/census.10/itag/229/index.m3u8"
         const val SEGMENT = "https://${Census.HOST}/videoplayback/id/census.10/itag/229/sq/0/file/seg.ts"

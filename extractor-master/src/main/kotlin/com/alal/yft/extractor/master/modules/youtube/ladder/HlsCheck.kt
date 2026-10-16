@@ -9,8 +9,8 @@ import kotlinx.coroutines.CancellationException
 
 /**
  * Phase 1.3 D0: the census's H check with the **token step** (MASTER_KEY_PHASE1_3_PLAN.md §4 D0,
- * guardrail 6): the master playlist and the highest-resolution variant playlist (≤ 256 KiB each;
- * a larger one, as a long video's variant can be, is `too-large`, never `2xx`) and the first
+ * guardrail 6): the master playlist (≤ [MAX_MASTER_BYTES]) and the highest-resolution variant
+ * playlist (≤ [MAX_VARIANT_BYTES]; a larger one is `too-large`, never `2xx`) and the first
  * segment of that variant (the one-byte file check), each `2xx` or `403`; the
  * master's variants, highest resolution, audio form and codec families; any `#EXT-X-KEY` or
  * `#EXT-X-SESSION-KEY` other than `METHOD=NONE`; the variant's total duration against the video's
@@ -23,7 +23,8 @@ import kotlinx.coroutines.CancellationException
  */
 internal class HlsCheck(
     private val http: ExtractorHttpClient,
-    private val maxPlaylistBytes: Long = MAX_PLAYLIST_BYTES,
+    private val maxMasterBytes: Long = MAX_MASTER_BYTES,
+    private val maxVariantBytes: Long = MAX_VARIANT_BYTES,
 ) {
     data class Result(
         val master: String,
@@ -49,7 +50,7 @@ internal class HlsCheck(
         lengthSeconds: Long?,
     ): Result {
         if (!isMediaHost(masterUrl)) return Result(master = HOST, variant = SKIPPED, segment = SKIPPED)
-        val master = get(masterUrl, headers)
+        val master = get(masterUrl, headers, maxMasterBytes)
         if (master.status != OK) return Result(master = master.status, variant = SKIPPED, segment = SKIPPED, requests = 1)
         val body = master.body.orEmpty()
         if (!body.trimStart().startsWith(M3U_HEADER)) {
@@ -74,7 +75,7 @@ internal class HlsCheck(
         val variantUrl = chosen?.uri?.let { resolve(masterUrl, it) }
             ?: return base.copy(variant = NO_VARIANT)
         if (!isMediaHost(variantUrl)) return base.copy(variant = HOST)
-        val variant = get(variantUrl, headers)
+        val variant = get(variantUrl, headers, maxVariantBytes)
         if (variant.status != OK) return base.copy(variant = variant.status, requests = 2)
         val media = MediaPlaylist.parse(variant.body.orEmpty())
         keyMethods += media.keyMethods
@@ -99,9 +100,9 @@ internal class HlsCheck(
 
     private class Fetched(val status: String, val body: String?)
 
-    private suspend fun get(url: String, headers: Map<String, String>): Fetched {
+    private suspend fun get(url: String, headers: Map<String, String>, maxBytes: Long): Fetched {
         val result = try {
-            http.get(url, headers, maxPlaylistBytes)
+            http.get(url, headers, maxBytes)
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (failure: Exception) {
@@ -223,7 +224,15 @@ internal class HlsCheck(
     }
 
     companion object {
-        const val MAX_PLAYLIST_BYTES: Long = 256L * 1024
+        /** The master playlist's read cap (guardrail 6): a list of variants, a few KiB in every census run. */
+        const val MAX_MASTER_BYTES: Long = 256L * 1024
+
+        /**
+         * The variant playlist's read cap (guardrail 6; the owner, 2026-10-16; was 256 KiB): it lists
+         * every segment with its full address, so it grows with the video (census video 10, 1203 s,
+         * passed 256 KiB); 1 MiB holds about an hour (an estimate). Over it → `too-large`.
+         */
+        const val MAX_VARIANT_BYTES: Long = 1024L * 1024
         const val DURATION_TOLERANCE_SECONDS = 2.0
 
         const val OK = "2xx"

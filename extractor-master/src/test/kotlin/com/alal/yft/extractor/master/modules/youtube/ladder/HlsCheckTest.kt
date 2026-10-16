@@ -32,7 +32,7 @@ class HlsCheckTest {
         )
         assertEquals(listOf(Census.MASTER, Census.VARIANT), http.requestedUrls)
         assertEquals(listOf(Census.SEGMENT), http.probedUrls)
-        assertEquals(listOf(HlsCheck.MAX_PLAYLIST_BYTES, HlsCheck.MAX_PLAYLIST_BYTES), http.requestedBodyLimits)
+        assertEquals(listOf(HlsCheck.MAX_MASTER_BYTES, HlsCheck.MAX_VARIANT_BYTES), http.requestedBodyLimits)
         assertTrue((http.requestedHeaders + http.probedHeaders).all { it == headers })
         assertFalse(result.toString().contains("https") || result.toString().contains("googlevideo"))
     }

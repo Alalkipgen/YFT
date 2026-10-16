@@ -106,11 +106,11 @@ HARD RULES (never break)
    YouTube returned, the download's headers without cookies, Range <= 64 KiB, <= 1 per client per
    lookup; L rows: one V per offered row (<= 8), first 4 KiB, the init check on the same bytes
    (type, container start, no encryption marker, size); "unknown" is never "pass". H check: only
-   googlevideo.com addresses, master + one variant playlist <= 256 KiB each, first segment Range
-   <= 64 KiB, content type and start bytes must match, no EXT-X-KEY or EXT-X-SESSION-KEY other
-   than METHOD=NONE, playlist duration within +-2 s of the video's length, no H rows without a
-   known length, <= 1 per client per lookup. Z: the one-byte probe's total size, rows to offer
-   only, <= 8 per lookup.
+   googlevideo.com addresses, master playlist <= 256 KiB, one variant playlist <= 1 MiB (owner,
+   2026-10-16), first segment Range <= 64 KiB, content type and start bytes must match, no
+   EXT-X-KEY or EXT-X-SESSION-KEY other than METHOD=NONE, playlist duration within +-2 s of the
+   video's length, no H rows without a known length, <= 1 per client per lookup. Z: the one-byte
+   probe's total size, rows to offer only, <= 8 per lookup.
 7. Budget: a healthy, complete visionOS answer is the whole lookup (1 request). Per lookup the
    ladder makes <= 3 player requests, <= 1 watch page fetch, <= 1 V and <= 1 H check per client,
    <= 8 V for L rows, <= 8 Z probes; a version source <= 1 fetch a day per identity (<= 64 KiB).
