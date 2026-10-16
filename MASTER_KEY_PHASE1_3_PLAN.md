@@ -50,7 +50,9 @@ visionOS, Master:
   က မျှော်လင့်ထားတဲ့အတိုင်း `too-large` (line တစ်ကြောင်း) — fix ကို ဖုန်းပေါ်မှာ အတည်ပြုပြီ၊ wrong ၀၊ L steps 9/9
   `same`။ Owner ဆုံးဖြတ်ချက် (ခ): guardrail 6 ရဲ့ HLS variant playlist cap 256 KiB → **1 MiB** (master 256 KiB၊
   segment 64 KiB မပြောင်း)။ video 10 (1203 s) ဆံ့ပြီ၊ ~၁ နာရီထက် ရှည်တဲ့ video ဆို `too-large` → H unknown
-  (wrong မဖြစ်)။
+  (wrong မဖြစ်)။ 1 MiB APK (`c9c5959`) ပေါ်က census FULL (06:56 UTC): video 10 ရဲ့ H `2xx` ဖြစ်ပြီ (မျှော်ထားတဲ့
+  `CHANGED` line တစ်ကြောင်း)၊ H 9/9၊ `BROKEN` မရှိ၊ wrong ၀။ ⏸ owner ဆုံးဖြတ်ရန်: A (D5a) ဆက်လုပ်မလား၊
+  target အသစ် (§4 D7 "Done") နဲ့ ပိတ်မလား။
 - ရည်မှန်းချက်: YouTube ပြောင်းလို့ Master ပျက်ရင် Master code ကြောင့် ပျက်တာ ၀ ("Master-caused failure"
   = ၀၊ §5.1)။ YouTube server ဘက်က ခွင့်ပြုထားတဲ့ လမ်းအားလုံး ပိတ်မှသာ verdict မှန်နဲ့ ရပ်ပြီး တစ်ပတ်အတွင်း
   သိရမယ်။ wrong row ၀ (မပြောင်း)။ APK update မလိုဘဲ။
@@ -107,7 +109,7 @@ checks W 1–W 3 (§4 D0), wrong 0 in every run. The client table this leaves, a
 | Client / rung | Census (tests 1–3, W 1–W 3) | Table v3 |
 |---|---|---|
 | visionOS R0 | the first request met a bot check on 8 of 10 videos; R6's `R0+vd` answer `DIRECT`, V pass, on every such video (8 / 8 in each test; W 1–W 3) | live (as v2) |
-| H (HLS leg) | 8 / 9, 8 / 9, 6 / 9 (89 %, 89 %, 67 %) on 9 distinct videos; test 3's two misses were network failures (`net`); video 10's `no-segment` was our status bug, not YouTube's side (a playlist over 256 KiB read as `2xx`; fixed 2026-10-16 and confirmed by the 05:26 UTC census FULL; since then the variant cap is 1 MiB, owner, guardrail 6; §7); W 2 and W 3 passed | **live** (§9 item 9's gate met) |
+| H (HLS leg) | 8 / 9, 8 / 9, 6 / 9 (89 %, 89 %, 67 %) on 9 distinct videos; test 3's two misses were network failures (`net`); video 10's `no-segment` was our status bug, not YouTube's side (a playlist over 256 KiB read as `2xx`; fixed 2026-10-16 and confirmed by the 05:26 UTC census FULL; since then the variant cap is 1 MiB, owner, guardrail 6; §7); W 2 and W 3 passed; the 06:56 UTC census FULL on the 1 MiB APK: 9 / 9 | **live** (§9 item 9's gate met) |
 | Android O | the 360p progressive row only (adaptive `SABR_ONLY`), V pass; videos 2 and 6 only | provisional (a fallback, V on every row) |
 | MWEB O | `NEEDS_SCRIPT` → S ok-sig+n, V pass (≤ 2160p, ≤ 1080p); its adaptive answer flips between ciphered and address-less; videos 2 and 6 only | provisional (a fallback, V on every row) |
 | embedded O | `REFUSED` (error 152-18) on 2 / 2 | measured, not active |
@@ -146,7 +148,8 @@ in a row):
    `d7-matrix`). Left: the owner's phone check. **Done** (2026-10-16): the phone check, the
    census L steps 9/9 on run 2, W 4 and W 5, runbook §7; §5.2's MCF = 0 is not met in the
    simulator → targets proposed (§4 D7 "Done", ⏸ the owner). **Closed** (2026-10-16): a census
-   FULL confirmed the H status fix; the HLS variant cap is 1 MiB (owner, guardrail 6).
+   FULL confirmed the H status fix; the HLS variant cap is 1 MiB (owner, guardrail 6), and the
+   census FULL on that APK read H 9 / 9 (06:56 UTC).
 
 The owner's part: one OK for this plan (items 1–2 and the (က+) plan change; §9 items 10–11); a
 weekly check about once a week on mobile data; D7's phone check at the end. Known limits (§5):
@@ -423,7 +426,7 @@ lookup (Master, clientLadder on)
 | D5b | Own parser L (locate, bind, canonical JSON, copied parser) | D3, D4 | High | **Steps 1–6 done** (2026-10-14/15): `ShapeLocator` + `ShapeNormalizer` (`fdc7dea`, the parallel agent), wired (`be0c52e`), census L steps (`a4ffd02`), DRM marker narrowed (`83ce453`); simulator L1–L16 wrong 0, MCF 0; live L steps 9/9 `same` (D7). **Steps 7–8 not built** (the shape-map memory: `ClientHealth` stores maps, nothing records one; L's page locate for S) |
 | D5c | H leg (independent HLS) | D4, D5b (locate) | Medium–High | **Built** (2026-10-14/15): `HlsLeg` (`240cd4d`, the parallel agent; H matrix 300 runs, wrong 0), wired (`be0c52e`); H live (Final plan, table v3 `4f884ec`; census H 8 of 9 in each Full run). **The phone download through H not done** (D7's `skip-visionos-adaptive` lists were complete through the chain, so H added no row) |
 | D6 | O rungs (census-live only), memo, wiring, flag, merge rule | D5a–D5c | Medium–High | **Core and O rungs done** (2026-10-15, Plan adapted; §4 D6 "As built"): wiring, flag, memo (`8795699`), merge rule, L / Z / V / H on visionOS's answers in the R6 chain's HTTP path (`be0c52e`); O rungs = the chain's Android, MWEB and embedded answers judged, V on their direct rows (`6402fea`); simulator wrong 72 → 0, MCF 305 → 95 (own solver off) and 160 → 5 (on; V6 = O, live only), §5. A with D5a |
-| D7 | Owner live check (with live L mutations), weekly check, runbook | D6 | Low–Medium | **Done** (2026-10-16): phone check ✅ (six APKs, 11/11 each, wrong 0); L DRM marker narrowed (`83ce453`) ✅; census FULL on run 2 (`1a62b18`): L steps 9/9 `same` (L5 n/a), wrong 0 ✅; W 4 and W 5 ✅ (§5); runbook §7 ✅; §5.2's MCF = 0 not met in the simulator → targets proposed (§4 D7 "Done", ⏸ the owner); **closed** (2026-10-16): the census FULL on the H fix APK (`7277fd8`) read `too-large` on video 10 as expected; variant cap 1 MiB (owner, guardrail 6) |
+| D7 | Owner live check (with live L mutations), weekly check, runbook | D6 | Low–Medium | **Done** (2026-10-16): phone check ✅ (six APKs, 11/11 each, wrong 0); L DRM marker narrowed (`83ce453`) ✅; census FULL on run 2 (`1a62b18`): L steps 9/9 `same` (L5 n/a), wrong 0 ✅; W 4 and W 5 ✅ (§5); runbook §7 ✅; §5.2's MCF = 0 not met in the simulator → targets proposed (§4 D7 "Done", ⏸ the owner); **closed** (2026-10-16): the census FULL on the H fix APK (`7277fd8`) read `too-large` on video 10 as expected; variant cap 1 MiB (owner, guardrail 6), confirmed by the census FULL on its APK (`c9c5959`, 06:56 UTC: H 9 / 9) |
 | D8 | Signed identity data over R9 (owner decision, after D0) | D2 | Medium | Dropped (owner, 2026-10-15; §9 item 4) |
 
 G0 is done (`a99e0fb`); D0 is next: it decides which rungs and sources exist and starts the
@@ -989,6 +992,15 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   video (FULL ≤ 6 MiB; W's H runs on video 1 or 2, both short). `HlsLongPlaylistTest` 5 → 7 (2 red
   on `7277fd8`). ⏸ One census FULL on the new APK: `CHANGED H visionos video 10: variant too-large
   → 2xx; segment skip → 2xx` once (§7).
+- **Census FULL on the 1 MiB APK** (owner, 2026-10-16 06:56 UTC, mobile data, 1 h 30 min after
+  the 05:26 UTC run; `c9c5959` installed as an update; PROGRESS): 10 videos, 79 requests, 2781 KB,
+  45 s, not stopped; no `BROKEN`. `CHANGED (3)`: H video 10 `variant too-large → 2xx; segment skip
+  → 2xx`, the expected line (212 segments, 1203.4 s, duration match, 3 requests); MWEB R0 shape
+  −`streamingData.probeUrl` (the come-and-go; not BREAKING); the App Store reachable again (its
+  listing names no visionOS device, so no visionOS value; measured, not active). L steps 9/9
+  `same` (L5 n/a); wrong 0, every V pass; **H 9 of 9** `2xx` / `2xx` / `2xx` — the first census
+  with every asked H video passing. Nothing to do. ⏸ The owner, as since "Done" above: A (D5a)
+  next, or close with the proposed targets.
 
 ### D8 — Signed identity data over R9 (owner decision) — Dropped (owner, 2026-10-15)
 
@@ -1400,8 +1412,8 @@ What D7's census runs showed (owner, 2026-10-15/16; PROGRESS):
 - MWEB shape ±`adPlacements`: MWEB's ad data comes and goes between runs (test 3 −, D7 +); not a
   format path, nothing to do.
 - visionOS shape ±`streamingData.probeUrl` (`R0+vd` answers; MWEB R0 too): comes and goes too
-  (test 2 −, run 2's census FULL +, the 05:26 UTC census FULL − on visionOS and + on MWEB); no
-  Master code reads it, nothing to do. The census names step 6 on every
+  (test 2 −, run 2's census FULL +, the 05:26 UTC census FULL − on visionOS and + on MWEB, the
+  06:56 UTC one − on MWEB); no Master code reads it, nothing to do. The census names step 6 on every
   shape line; step 6's work is only for a line marked **BREAKING** (a path the copied parser
   reads went away; the check then reads `BROKEN`).
 - H on census video 10 (tests 1–3, run 2): master and variant `2xx`, `no-segment`, 0 segments, 2
@@ -1413,8 +1425,9 @@ What D7's census runs showed (owner, 2026-10-15/16; PROGRESS):
   is never `2xx` (`HlsLongPlaylistTest`). The first census after the update printed once `BROKEN
   H visionos video 10: variant 2xx → too-large; segment no-segment → skip` (step 7; 2026-10-16
   05:26 UTC): expected, the cause confirmed. With the variant cap at 1 MiB (owner, 2026-10-16) the
-  next census prints once `CHANGED H visionos video 10: variant too-large → 2xx; segment skip →
-  2xx` (step 7): expected, nothing to do (no line: still over 1 MiB, the known limit). `2xx` and `no-segment` again on that video → a really empty playlist (YouTube's
+  next census printed once `CHANGED H visionos video 10: variant too-large → 2xx; segment skip →
+  2xx` (step 7; 06:56 UTC: 212 segments, duration match): expected, the cap confirmed; later runs
+  print no line for it. `2xx` and `no-segment` again on that video → a really empty playlist (YouTube's
   side): copy the line to the agent. Another video `no-segment` → step 1.
 - Known limit: a very long video's HLS variant playlist passes 1 MiB (guardrail 6's variant cap,
   256 KiB until 2026-10-16; about an hour of video, an estimate) → H `too-large` → unknown, no H
@@ -1423,7 +1436,8 @@ What D7's census runs showed (owner, 2026-10-15/16; PROGRESS):
   client reads any cap; the cost is bytes on mobile data).
 - `CHANGED version visionos from appstore: unreachable (NETWORK)` (step 3; tests 1 and 2, the
   05:26 UTC census FULL): the App Store is a measured source, not used for the version; step 3's
-  work is only for `VERSION_REJECTED`; nothing to do.
+  work is only for `VERSION_REJECTED`; nothing to do. `reachable again` (test 3, the 06:56 UTC
+  census FULL; its listing names no visionOS device, so no visionOS value): nothing to do either.
 - L steps (full census only; in memory, no request): one line per `DIRECT` visionOS answer;
   `same` on each step (L5 `n/a` without a cipher) is the expected reading (run 2's census FULL:
   9/9 `same`). `differs` or `none (…)` → copy the line to the agent.
@@ -1431,7 +1445,8 @@ What D7's census runs showed (owner, 2026-10-15/16; PROGRESS):
   did not: the agent adds that answer's shape as a test case first, then narrows the marker (as
   `83ce453` did).
 - W's cost on mobile data, W 1–5: 8–17 requests, 372–624 KB, 4–11 s (limits 20, 2 MB, 60 s); a
-  full census (D7: runs 1 and 2 and the H fix APK): 78 requests, 2791–3379 KB, 33–71 s.
+  full census (D7: runs 1 and 2, the H fix APK and the 1 MiB APK): 78–79 requests, 2781–3379 KB,
+  33–71 s.
 
 ## 8. Out of scope
 

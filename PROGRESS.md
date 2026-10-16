@@ -1,5 +1,30 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — census FULL on the 1 MiB APK (owner, 2026-10-16 06:56 UTC; docs only): H 9 / 9, no `BROKEN`; ⏸ the owner: A (D5a) next, or close with the proposed targets
+
+- ✅ Census FULL on `c9c5959`'s APK (installed as an update), mobile data, 1 h 30 min after the
+  05:26 UTC run: 10 census videos, 79 requests, 2781 KB, 45 s, not stopped. No `BROKEN`.
+  `CHANGED (3)`, each expected:
+  - H visionOS video 10: `variant too-large → 2xx; segment skip → 2xx` (§7 step 7) — the line the
+    1 MiB cap predicted: the variant playlist fits. Its H row: master `2xx`, 8 variants ≤ 240p,
+    variant `2xx` (212 segments, 1203.4 s, duration match), segment `2xx`, key `NONE`, audio
+    separate, 3 requests.
+  - MWEB R0 shape −`streamingData.probeUrl` (step 6): the known come-and-go (+ at 05:26 UTC); not
+    BREAKING; no Master code reads it; nothing to do.
+  - The App Store reachable again (step 3; `NETWORK` at 05:26 UTC, as in tests 1 and 2): a
+    measured source, not used; its listing names no visionOS device (no visionOS value); yt-dlp
+    and YouTube.js read 1.02 (= bundled); nothing to do.
+  - `INFO`: 8 visionOS R0 bot checks answered as R6 (`R0+vd` `DIRECT`, V pass), as before.
+- L steps on the 9 `DIRECT` visionOS answers: round-trip, L1, L2, L3, L7 9/9 `same`, L5 9 `n/a`.
+  Every V that ran passed; wrong 0. **H 9 of 9** `2xx` / `2xx` / `2xx` (videos 1–5 and 7–10; key
+  `NONE`, audio separate, duration within 2 s; video 6 is `REFUSED` for visionOS, so no H) — the
+  first census with every asked H video passing. Cost: +1 request against 05:26 UTC (video 10's
+  segment); 2781 KB (FULL's budget 6 MiB).
+- Nothing to fix; no code change. Open for the owner (since D7 "Done", plan §4 D7): A (D5a:
+  `VersionSource`, self-healed versions) next, or close Phase 1.3 with the proposed targets (every
+  flag on: MCF ≤ 5, V6 only, until an O rung passes the gate; the own solver off: the simulator's
+  number once A is in). Also open outside D7: L steps 7–8 (D5b), H's phone download (D5c).
+
 ## Phase 1.3 — D7 closed (census FULL on the H fix APK, owner, 2026-10-16 05:26 UTC) + guardrail 6: HLS variant cap 1 MiB (owner); ⏸ the owner: one census FULL on this APK
 
 - ✅ Census FULL on `7277fd8`'s APK (installed as an update), mobile data, 1 h 25 min after run
