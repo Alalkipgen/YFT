@@ -91,7 +91,13 @@ class AndroidBrowserMasterFallback(
         if (!enabled) return primary
         if (primary is SiteAdapterOutcome.Detected && !masterFirst(lookupUrl)) return primary
         if (primary === SiteAdapterOutcome.NotHandled && !genericOnDemand) return primary
-        if (!sites.allowsMasterFallback(lookupUrl)) return primary
+        // Item 2, run 4: the h-only trial's found page never gets the adapter's rows back (run 4's
+        // Try again listed them); when Master cannot answer, the lookup fails and names the step.
+        val hOnly = primary is SiteAdapterOutcome.Detected
+        fun unanswered(step: String): SiteAdapterOutcome = if (!hOnly) primary else failed(
+            primary, SiteExtractionFailure.NO_MEDIA_FOUND, PLAY_FIRST, listOf("master: h-only: $step"),
+        )
+        if (!sites.allowsMasterFallback(lookupUrl)) return unanswered("no backup for this site")
         val failure = (primary as? SiteAdapterOutcome.Failed)?.reason
             // Item 2, run 4 fix: Master's engine lets a site's module (YouTube: the ladder, H)
             // answer only when no site adapter answered (UNSUPPORTED_URL); with any other
@@ -100,14 +106,14 @@ class AndroidBrowserMasterFallback(
             ?: if (primary is SiteAdapterOutcome.Detected) SiteExtractionFailure.UNSUPPORTED_URL
             else SiteExtractionFailure.NO_MEDIA_FOUND
         // R2: a walled site's bot check, login or player-script answer is final, before capture.
-        if (TerminalRules.blocksFallback(failure, lookupUrl)) return primary
+        if (TerminalRules.blocksFallback(failure, lookupUrl)) return unanswered("final answer")
         val key = sites.videoKey(lookupUrl)
         val request = requestFactory(failure, nowEpochMs, key?.substringAfter(':'))
-            ?: return primary
+            ?: return unanswered("no page to ask")
         if (TerminalRules.blocksFallback(failure, request.pageUrl) ||
             !sites.allowsMasterFallback(request.pageUrl) ||
             !relatedPage(lookupUrl, request.pageUrl, key)
-        ) return primary
+        ) return unanswered("another page")
         val result = try {
             // Fresh one-shot capture avoids a cached passive snapshot masking changed playback.
             // R8: the adapter's identity lets Master ask the site's own endpoint for this video.
@@ -120,9 +126,12 @@ class AndroidBrowserMasterFallback(
             return failed(primary, failure, PLAY_FIRST, listOf("master: capture unavailable"))
         }
         val scope = capture.session.currentScope()
-        if (scope == null || scope.generation != request.generation ||
-            scope.pageUrl != request.pageUrl
-        ) return primary
+        val samePage = scope != null && scope.generation == request.generation &&
+            scope.pageUrl == request.pageUrl
+        // Item 2, run 4: the site's module answers for the video, not for the page's state, so in
+        // the h-only trial the same video still open (reloaded, or a changed address) keeps it.
+        val sameVideo = hOnly && scope != null && key != null && sites.videoKey(scope.pageUrl) == key
+        if (!samePage && !sameVideo) return unanswered("the page changed during the lookup")
         return when (result) {
             is MasterResult.Success -> {
                 val focused = capture.appCandidates(result.result.candidates, key)
@@ -162,7 +171,7 @@ class AndroidBrowserMasterFallback(
                 },
                 result.details,
             )
-            is MasterResult.Skipped -> primary
+            is MasterResult.Skipped -> unanswered("skipped (${result.reason})")
         }
     }
 

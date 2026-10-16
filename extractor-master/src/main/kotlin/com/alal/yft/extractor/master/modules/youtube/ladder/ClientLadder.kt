@@ -133,7 +133,7 @@ internal class LadderLookup(
     private val videoId = request.identity.contentId
     private val now = request.nowEpochMs
     private val sizes = ZRung(memo.ladder).lookup()
-    private val hls = HlsLeg(memo.ladder).lookup()
+    private val hls = HlsLeg(memo.ladder, reader = ladder.reader).lookup()
     private val streamCheck = StreamCheck(memo.ladder, V_POLICY, ladder.vLedger) { now }
     private val mutex = Mutex()
     private var vision: AnswerJudge.Verdict? = null

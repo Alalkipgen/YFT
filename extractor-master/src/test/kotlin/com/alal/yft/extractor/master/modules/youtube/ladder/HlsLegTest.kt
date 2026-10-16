@@ -4,6 +4,7 @@ import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.ExtractorProbeResult
+import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.master.modules.youtube.YouTubePlayerResponseParser
 import com.alal.yft.extractor.master.modules.youtube.ladder.HlsLeg.Verdict
 import com.alal.yft.extractor.master.modules.youtube.ladder.HlsLeg.Why
@@ -163,6 +164,39 @@ class HlsLegTest {
         val foreign = SimWorld("player_visionos.json").apply { hls.segmentHost = Sim.FOREIGN_HOST }
         leg(foreign)
         assertEquals("nothing is asked off googlevideo.com", 2, foreign.http.count(SimHttp.Kind.HLS))
+    }
+
+    /**
+     * Phase 1.4 item 2, run 4 (live 2026-10-17): YouTube's HLS segment ignores the range and
+     * answers 200 with the whole segment. Through the HTTP client that is "too large" (H: SEGMENT,
+     * the phone's note); through the ladder's media reader only the first 64 KiB are kept.
+     */
+    @Test
+    fun `run 4 - a host that ignores the range - the reader keeps the start`() = runTest {
+        val world = SimWorld("player_visionos.json")
+        val prepared = prepare(SimJson.write(world.answer(vision)))
+        val wholeSegment = object : ExtractorHttpClient by world.http {
+            override suspend fun get(url: String, headers: Map<String, String>, maxBodyBytes: Long): ExtractorHttpResult =
+                if ("/yftsim/seg/" in url) ExtractorHttpResult.Failure(SiteExtractionFailure.RESPONSE_TOO_LARGE, 200)
+                else world.http.get(url, headers, maxBodyBytes)
+        }
+        val before = HlsLeg(wholeSegment).lookup().run(prepared.address, prepared.length, headers) as HlsLeg.None
+        assertEquals(Verdict.UNKNOWN to Why.SEGMENT, before.verdict to before.why)
+
+        val asked = mutableListOf<Pair<Map<String, String>, Int>>()
+        val reader = object : MediaStartReader {
+            override suspend fun read(url: String, headers: Map<String, String>, maxBytes: Int): MediaStart {
+                asked += headers to maxBytes
+                val whole = ("G" + "@".repeat(1_048_575)).toByteArray(Charsets.ISO_8859_1)
+                return MediaStart.Read(200, "video/mp2t", null, null, whole.copyOf(maxBytes))
+            }
+        }
+        val row = HlsLeg(wholeSegment, reader = reader).lookup().run(prepared.address, prepared.length, headers) as HlsLeg.Row
+        assertEquals("ts", row.container)
+        assertEquals(3, row.requests)
+        assertEquals(listOf(65_536), asked.map { it.second })
+        val names = asked.single().first.keys.map(String::lowercase)
+        assertFalse(names.toString(), names.any { it in setOf("cookie", "authorization", "x-goog-authuser", "range") })
     }
 
     @Test

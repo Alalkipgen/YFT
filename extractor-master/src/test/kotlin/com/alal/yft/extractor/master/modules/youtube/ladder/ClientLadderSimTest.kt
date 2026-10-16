@@ -29,6 +29,7 @@ class ClientLadderSimTest {
         val reads: Int,
         val notes: List<String>,
         val sourceReads: Int,
+        val segmentReads: Int,
     )
 
     @Test
@@ -61,6 +62,8 @@ class ClientLadderSimTest {
         assertEquals("requests over the budget: $morePlayers", emptyList<String>(), morePlayers)
         assertTrue(pairs.all { pair -> pair.ladder.lookups.all { it.credentials == 0 } })
         assertTrue(pairs.all { it.reads <= ShapeNormalizer.MAX_OFFER * it.case.lookups })
+        // Phase 1.4 item 2: H's first segment through the reader, at most one per lookup (one H check).
+        assertTrue(pairs.all { it.segmentReads <= it.case.lookups })
         // A (D5a): a version source is read only after VERSION_REJECTED, at most once a day (one clock here).
         val sourceReads = pairs.filter { it.sourceReads > (if (it.case.klass in A_CLASSES) 1 else 0) }.map { "${it.case.id} ${column(it.solver)}" }
         assertEquals("version source reads: $sourceReads", emptyList<String>(), sourceReads)
@@ -88,7 +91,7 @@ class ClientLadderSimTest {
             notes += details.filter { it.startsWith("ladder ") }.map { "#${index + 1} ${it.removePrefix("ladder ")}" }
             SimMeasure.judge(world, case, result, from)
         }
-        return Pair2(case, solver, r6, SimRun(case, r6.column, lookups), reader.reads, notes, sources.reads.size)
+        return Pair2(case, solver, r6, SimRun(case, r6.column, lookups), reader.reads, notes, sources.reads.size, reader.segmentReads)
     }
 
     private companion object {
@@ -152,8 +155,11 @@ class ClientLadderSimTest {
     internal class SimStartReader(private val world: SimWorld) : MediaStartReader {
         var reads = 0
 
+        /** Phase 1.4 item 2: H's first-segment reads (the H check's third request), apart from L's V reads. */
+        var segmentReads = 0
+
         override suspend fun read(url: String, headers: Map<String, String>, maxBytes: Int): MediaStart {
-            reads += 1
+            if ("/yftsim/seg/" in url) segmentReads += 1 else reads += 1
             return when (val got = world.http.get(url, headers, maxBytes.toLong())) {
                 is ExtractorHttpResult.Success -> {
                     val bytes = got.body.toByteArray(Charsets.ISO_8859_1).take(maxBytes).toByteArray()

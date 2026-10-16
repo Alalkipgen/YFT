@@ -41,6 +41,13 @@ import kotlinx.coroutines.sync.withLock
 internal class HlsLeg(
     private val http: ExtractorHttpClient,
     private val maxSegmentBytes: Long = MAX_SEGMENT_BYTES,
+    /**
+     * Phase 1.4 item 2 (run 4): the first segment's start through the ladder's media reader, which
+     * keeps at most [maxSegmentBytes] even when the host ignores the range (live 2026-10-17:
+     * YouTube's HLS segments answer 200 with the whole segment, so [http] failed as too large
+     * and H gave no row on the phone). Null: [http], as before.
+     */
+    private val reader: MediaStartReader? = null,
 ) {
     enum class Verdict { PASS, FAIL, UNKNOWN }
 
@@ -142,7 +149,7 @@ internal class HlsLeg(
             asked?.let { previous -> return@withLock if (previous == master) first ?: None(Why.SPENT, null, null) else None(Why.SPENT, null, null) }
             asked = master
             val sent = headers.filterKeys { it.trim().lowercase() !in DROPPED_HEADERS }
-            val reading = SegmentReading(http, maxSegmentBytes)
+            val reading = SegmentReading(http, maxSegmentBytes, reader)
             val result = HlsCheck(reading).check(master, sent, lengthSeconds)
             judge(master, lengthSeconds, result, reading).also { first = it }
         }
@@ -220,7 +227,11 @@ internal class HlsLeg(
      * segment) reads the segment's start instead, with `Range` ≤ [maxBytes], and keeps only its
      * content type and first characters. HlsCheck never posts.
      */
-    private class SegmentReading(private val http: ExtractorHttpClient, private val maxBytes: Long) : ExtractorHttpClient {
+    private class SegmentReading(
+        private val http: ExtractorHttpClient,
+        private val maxBytes: Long,
+        private val reader: MediaStartReader?,
+    ) : ExtractorHttpClient {
         var contentType: String? = null
         var start: String? = null
 
@@ -231,7 +242,7 @@ internal class HlsLeg(
             ExtractorHttpResult.Failure(SiteExtractionFailure.NETWORK)
 
         override suspend fun probe(url: String, headers: Map<String, String>, timeoutMillis: Long): ExtractorProbeResult =
-            when (val answer = http.get(url, headers + (RANGE to "bytes=0-${maxBytes - 1}"), maxBytes)) {
+            if (reader != null) read(reader, url, headers) else when (val answer = http.get(url, headers + (RANGE to "bytes=0-${maxBytes - 1}"), maxBytes)) {
                 is ExtractorHttpResult.Success -> {
                     contentType = answer.contentType
                     start = answer.body.take(START_CHARS)
@@ -239,6 +250,21 @@ internal class HlsLeg(
                 }
 
                 is ExtractorHttpResult.Failure -> ExtractorProbeResult.Refused(answer.reason, answer.statusCode)
+            }
+
+        /** The reader sends `Range: bytes=0-(maxBytes - 1)` itself and keeps at most that many bytes. */
+        private suspend fun read(reader: MediaStartReader, url: String, headers: Map<String, String>): ExtractorProbeResult =
+            when (val got = reader.read(url, headers, maxBytes.toInt())) {
+                is MediaStart.Read -> {
+                    contentType = got.contentType
+                    start = String(got.bytes, 0, minOf(got.bytes.size, START_CHARS), Charsets.ISO_8859_1)
+                    ExtractorProbeResult.Answered(got.statusCode)
+                }
+
+                is MediaStart.Failed -> ExtractorProbeResult.Refused(
+                    if (got.statusCode == null) SiteExtractionFailure.NETWORK else SiteExtractionFailure.HTTP_STATUS,
+                    got.statusCode,
+                )
             }
     }
 

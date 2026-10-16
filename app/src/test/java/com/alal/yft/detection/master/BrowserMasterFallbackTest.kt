@@ -158,6 +158,36 @@ class BrowserMasterFallbackTest {
         assertEquals(1, module.calls.get())
     }
 
+    /**
+     * Item 2, run 4: the h-only trial never gives the adapter's rows back. Master cannot ask (no
+     * page), or the page went to another video meanwhile: the lookup fails and names the step;
+     * the same video reloaded meanwhile keeps the module's answer.
+     */
+    @Test
+    fun theMasterFirstSiteNeverGetsTheAdapterRowsBack() = runTest {
+        val primary = SiteAdapterOutcome.Detected("tiktok", listOf(candidate()))
+        val noPage = Fixture(tiktok, masterFirstSite = "tiktok", modules = listOf(FixtureModule()), noRequest = true)
+        val failed = noPage.bridge.recover(tiktok, primary, 100) as SiteAdapterOutcome.Failed
+        assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, failed.reason)
+        assertTrue(failed.details.toString(), failed.details.any { "h-only: no page to ask" in it })
+
+        lateinit var reloaded: Fixture
+        reloaded = Fixture(
+            tiktok, masterFirstSite = "tiktok",
+            modules = listOf(FixtureModule { reloaded.capture.session.navigate(tiktok) }),
+        )
+        val kept = reloaded.bridge.recover(tiktok, primary, 100) as SiteAdapterOutcome.Detected
+        assertEquals(MediaKind.HLS, kept.candidates.single().kind)
+
+        lateinit var moved: Fixture
+        moved = Fixture(
+            tiktok, masterFirstSite = "tiktok",
+            modules = listOf(FixtureModule { moved.capture.session.navigate("https://www.tiktok.com/@fixture/video/22222") }),
+        )
+        val gone = moved.bridge.recover(tiktok, primary, 100) as SiteAdapterOutcome.Failed
+        assertTrue(gone.details.toString(), gone.details.any { "h-only: the page changed" in it })
+    }
+
     /** Item 2: every other build (no master-first site) and every other site return at once. */
     @Test
     fun aFoundPageReturnsAtOnceWithoutTheTrialOrOnAnotherSite() = runTest {
@@ -308,6 +338,7 @@ class BrowserMasterFallbackTest {
         contracts: SiteContracts? = null,
         masterFirstSite: String? = null,
         modules: List<MasterSiteModule> = emptyList(),
+        noRequest: Boolean = false,
     ) {
         val capture = WebViewPlaybackCapture(enabledBuild)
         val factories = AtomicInteger()
@@ -348,14 +379,14 @@ class BrowserMasterFallbackTest {
             capture, sites, engine, MergeSupport { canMerge },
             requestFactory = { reason, now, expected ->
                 factories.incrementAndGet()
-                MasterRequest(page, scope.generation, now, reason, expected)
+                if (noRequest) null else MasterRequest(page, scope.generation, now, reason, expected)
             },
             masterFirstSite = masterFirstSite,
         )
     }
 
     /** A site module that claims the fixture's TikTok pages and answers one HLS row. */
-    private class FixtureModule : MasterSiteModule {
+    private class FixtureModule(private val onExtract: () -> Unit = {}) : MasterSiteModule {
         val calls = AtomicInteger()
         override val siteId = "tiktok"
         override fun identify(pageUrl: String): SitePageIdentity? {
@@ -364,6 +395,7 @@ class BrowserMasterFallbackTest {
         }
         override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
             calls.incrementAndGet()
+            onExtract()
             return SiteExtractionResult.Success(
                 listOf(
                     MediaCandidate(

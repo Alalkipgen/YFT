@@ -7,7 +7,10 @@ the files you edit. Order: items 1 and 3, then item 2, then the `[d7]` APKs (run
 **Status (2026-10-16):** built — item 3 `f02070a`, item 1 `ec1f24e`, item 2 `7c7a72a`; run 4
 APKs `[d7]` from `1d3f41c` (CI green, `d7-matrix` 7/7, run 38940779817); the phone checks (each
 item's Done): items 1 and 3 ✅ on the phone (run 4); item 2 showed the adapter's rows again
-(the engine skips a claimed page unless no adapter answered) → fixed, new `[d7]` APKs.
+(the engine skips a claimed page unless no adapter answered) → fixed, new `[d7]` APKs. Run 4b
+(2026-10-17): H ran but gave no row ("H: SEGMENT"): YouTube's segment ignores the range (fixed:
+the ladder's reader keeps 64 KiB) and is `application/octet-stream` (guardrail 6 reads it as
+unknown) → ⏸ the owner, (က) or (ခ) (`PROGRESS.md`); Try again's adapter rows fixed.
 
 ## 0. Rules (every item)
 

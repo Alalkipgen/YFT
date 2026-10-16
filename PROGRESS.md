@@ -1,5 +1,36 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 item 2, run 4b on the phone (the owner, 2026-10-17): H reached but gave no row (`H: SEGMENT`); two fixes; ⏸ the owner — the segment's content type (guardrail 6)
+
+- **Phone (`h-only` APK from `2dd3433`):** the found page now reaches the ladder. Details:
+  "ladder trial h-only: the chain's 9 rows left out", "ladder H: SEGMENT", "master: youtube
+  module: NO_MEDIA_FOUND" → "No verified media was captured". After Try again the sheet listed
+  the adapter's rows again (census video 2, in the browser), so the downloads with sound were the
+  normal path's, not H's.
+- **Live check (sandbox, 2026-10-17, census video 2, visionOS 1.04):** master 200, variant 200
+  (2160p VP9, fragmented MP4 with `#EXT-X-MAP`), the duration matches; the first segment answers
+  `Range: bytes=0-65535` with **200 and the whole segment** (no length, no `Content-Range`), with
+  either user agent; content type **`application/octet-stream`**; start `moof`.
+- **Cause 1 (fixed, inside guardrail 6):** H read the segment through the HTTP client, which
+  refuses a body over 64 KiB → too large → unknown → "H: SEGMENT". H now reads it through the
+  ladder's media reader (as L rows' V): it sends the range and keeps at most 64 KiB even when the
+  host ignores it; still 3 requests and one H check per lookup. Test: `HlsLegTest` "run 4 - a host
+  that ignores the range - the reader keeps the start"; `ClientLadderSimTest` counts H's segment
+  reads apart from L's V reads (at most one per lookup; the V budget unchanged).
+- **Cause 2 (fixed):** in the h-only trial a lookup Master could not answer (no page to ask,
+  another page, the page changed meanwhile, skipped) gave the adapter's rows back silently. Now it
+  fails and names the step ("master: h-only: …"); the same video still open (reloaded) keeps the
+  module's answer. Every other build unchanged. Test:
+  `BrowserMasterFallbackTest.theMasterFirstSiteNeverGetsTheAdapterRowsBack`.
+- **⏸ The owner (guardrail 6):** with cause 1 fixed H still gives no row: guardrail 6 says the
+  segment's content type and container start must match, and `application/octet-stream` names no
+  container, so the check reads it as unknown (never a pass; `HlsLegTest` "no content type").
+  YouTube serves its HLS segments this way, so H cannot pass today. (က) a generic binary type
+  (`application/octet-stream`, `binary/octet-stream`, none) lets the container start decide (TS
+  sync byte, `ftyp`/`styp`/`moof`/`sidx`/`emsg`/`prft`, EBML; any other start still fails; a named
+  type must still match its start); (ခ) keep it: item 2 closes with "H blocked by YouTube's
+  segment type". Then: with (က), new `[d7]` APKs and the h-only check again.
+
 ## Phase 1.4 run 4 on the phone (the owner, 2026-10-16/17, mobile data): items 1 and 3 ✅; h-only still showed the adapter's rows → fix `[d7]`
 
 - **Item 3 ✅:** the `normal` APK's A check (19:42 UTC): visionOS 1.02 `DIRECT`, 1.04 `DIRECT` with
