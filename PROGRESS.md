@@ -1,5 +1,50 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — D5b steps 7–8 (the owner's order, item 3, 2026-10-16; docs only): neither changes an outcome; step 7's use needs the parallel agent's file, step 8 changes the chain's requests (guardrail 4); ⏸ the owner (plan §9 item 15)
+
+- **Step 7** (plan §3 L): remember the shape map (located paths ↔ canonical names, by the shape
+  fingerprint) so the next lookup normalizes without a full scan; V and the init check still on
+  every L row. Found:
+  - It saves only the scan (plan §8 "L cost": "the shape map saves the scan, not the checks"): a
+    307 KiB answer normalizes in 8.0 ms median on the JVM (budget 20 ms; PROGRESS_PARALLEL), and
+    only while a layout change lasts. Rows, wrong rows and MCF stay as they are.
+  - Using a map needs a normalize entry that reads only the remembered paths. `ShapeNormalizer`
+    has none (each entry scans the whole answer; `Rows.paths` gives the located side), and it and
+    `ShapeLocator` are the parallel agent's files. A shortcut from our side (handing the normalizer
+    only the remembered parts) skips the whole-answer checks — a DRM marker anywhere, another
+    video's formats, two groups that disagree, several status objects: weaker than today
+    (guardrail 9). Recording alone fits our files (`ClientHealth` stores maps; nothing records
+    one), but nothing would read it.
+- **Step 8** (plan §3 L, §4 D5a "S"): when the copied `pageSignals` misses the player ID, the
+  signature timestamp or visitor data, L locates them by shape, for S only. Found:
+  - Live, the copied reader found all three: S solved MWEB's cipher in every Full run (player ID,
+    timestamp) and visionOS was asked again with the page's visitor data; visionOS's answers carry
+    no cipher (S on visionOS asked 0 times). Simulator: L14 (every page signal moved) is complete
+    15/15 in both ladder columns without step 8; S works only with the own solver on, where MCF is
+    5 (V6, O live only). No outcome changes.
+  - Since D6 (Plan adapted) S is the chain's own solve path, and the chain reads the page itself
+    (copied, unchanged). Located signals could reach it only through a changed page body; the
+    chain would then send requests R6 does not: a player script fetch, visionOS again with
+    visitor data. After a bot check that breaks guardrail 4 (no InnerTube request R6 would not
+    send; (က+) (c): no script fetch of the ladder's own), and always D6's "the chain's requests
+    stay R6's" (§4 D6 "As built"). Visitor data from an answer's response context is guardrail
+    4's rejected option (ခ) ("never visitor data kept to send from a lookup's first request").
+    The timestamp from the player script would need the script before the chain's S request: a
+    fetch of the ladder's own or a changed chain request (as A changes the version).
+- Options (plan §9 item 15): **(1)** close steps 7–8 without code (Plan adapted: no outcome
+  change; step 7 saves ≤ 20 ms at the price of a weaker check or the parallel agent's file;
+  step 8 runs into guardrail 4), then the `[d7]` APK — recommended; **(2)** step 7 with the
+  parallel agent: a map-based entry in `ShapeNormalizer` that keeps the whole-answer checks, then
+  I record, use and drop the maps (`ClientLadder`, `ClientHealth`); **(3)** step 8 for the player
+  ID only: L finds the player script address by shape on the page and the ladder hands the chain
+  the page with it, only when the copied reader finds none and no bot check came in this lookup
+  (one script fetch R6 would not make: an exception to D6's "the chain's requests stay R6's",
+  never after a bot check); the timestamp and visitor data stay out.
+- CI of `e31bb90` (D5c): `build` ✅ (Master tests and the opt-in APK); `validate` ❌ 39 s into its
+  Gradle step (green runs spend ~9 min there; the job log needs admin rights, so the cause is not
+  visible). main has not moved since the pull request's base. The pull request's checks run on
+  every push, so this push runs `validate` again on the same code.
+
 ## Phase 1.3 — D5c h-only trial built (the owner's order, item 2, 2026-10-16): a seventh phone-check APK lists H's one HLS row alone; H's row now carries the video key
 
 - The owner's order, item 2: a trial mode that leaves only the H row, so the phone download goes

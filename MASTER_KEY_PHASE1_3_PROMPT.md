@@ -26,6 +26,8 @@ prompt ပါ။ v2 အပြင် L (own parser)၊ self-healing version၊ HL
 - **D5c h-only trial ✅ (2026-10-16၊ plan §4 D5c "As built (h-only trial)"):** နောက် `[d7]` APK ၇ ခုထဲက
   `h-only` မှာ H ရဲ့ HLS row တစ်ခုတည်း ပြမယ် — AVC quality (အသံပါ) တစ်ခုကို download လုပ်ပြီး MP4 ဖွင့်လို့ရ၊
   ပုံ + အသံ ပါ၊ ကြာချိန် ±2 s စစ်ပါ။ H row မှာ video key ပါအောင် ပြင်ပြီ (အရင်က app က ဖယ်ထုတ်ခဲ့)။
+- **D5b steps 7–8 ⏸ (2026-10-16၊ plan §9 item 15):** ရလဒ် မပြောင်းလို့ (1) code မရေးဘဲ ပိတ် (အကြံပြု)၊
+  (2) step 7 ကို parallel agent နဲ့၊ (3) step 8 player ID ပဲ — owner ရွေးပေးပါ။ ပြီးရင် `[d7]` APK ၇ ခု။
 - D8 က owner "yes" ပြောမှ လုပ်ပါမယ်။ ဆုံးဖြတ်ချက် (source hosts၊ D8) ကို chat ထဲ အချိန်မရွေး ပြောနိုင်ပါတယ်။
 
 ```text
