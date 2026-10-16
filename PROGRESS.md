@@ -1,5 +1,38 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 items 1–3 built (the owner's order, 2026-10-16): the WebM merge buffer grows, h-only goes through H, visionOS 1.04 bundled; run 4 APKs `[d7]`
+
+- **Item 3, visionOS 1.04 as the bundled alternate (`f02070a`):** `MasterClientTable.VISION_OS_ALTERNATE`
+  = 1.04 (NewPipe Extractor `ClientsConstants.java`, 2026-08-06), visionOS's one alternate in
+  guardrail 5's order (learned → self-healed → bundled); R0 stays 1.02, table `VERSION` 3, parity
+  tests unchanged. The census A check reads the same constant (no second "1.04"); the weekly
+  census step 3 asks nothing more. The ladder asks 1.04 only after YouTube rejects visionOS's
+  version (`VERSION_REJECTED`), never after a bot check, never on the healthy path. Tests:
+  `ClientTableTest`, `VersionSourceTest`, `ClientCensusACheckTest`, `ClientCensusTest`,
+  `VersionRungTest` (3 new: 1.04 answers and is learned; not asked after a bot check; the healthy
+  path never asks it).
+- **Item 1, the WebM merge (`ec1f24e`):** WebM tracks state no `KEY_MAX_INPUT_SIZE`, so the
+  merge's sample buffer was 256 KiB and a larger VP9 keyframe made `readSampleData` throw a bare
+  `IllegalArgumentException` (suspect A; run 4's Detail confirms it if it still fails). From
+  Android 9 the buffer grows to the next sample before each read (`MuxSampleBuffer`: twice the
+  buffer or the sample, rounded up to 256 KiB, at most 32 MiB, never smaller than before); before
+  Android 9 sizing is unchanged; the MP4 stream copy is untouched. A failure's Detail now names the
+  call that threw and the sizes (`MuxTrace`, e.g. "IllegalArgumentException at readSampleData
+  video: sample 348 KiB, buffer 256 KiB"); the log line adds the largest sample per track. Tests:
+  `MuxSampleBufferTest` (core-download JVM, 8); `AudioVideoMuxerInstrumentedTest.aVp9KeyframeOver256KibMergesIntoOneWebm`
+  (800×450 VP9 whose keyframe is 355,713 bytes, a Base64 asset; emulator-smoke, Run workflow).
+- **Item 2, h-only through H (`7c7a72a`):** in the h-only APK only (`MasterLadderSwitch.hOnly`) a
+  YouTube page the site adapter found still goes through `AndroidBrowserMasterFallback.recover`
+  (`masterFirst`), so the ladder's H gives the rows; every other build is unchanged (a found page
+  returns at once). Tests: `BrowserMasterFallbackTest` (2 new), `BrowserMasterFlowTest` (1 new).
+- **CI:** `f02070a` `build` ✅; the run 4 commit runs `build`, `validate` and `d7-matrix` on all
+  three items (`ec1f24e`/`7c7a72a` runs were superseded).
+- **Run 4 on the phone** (handoff §4, mobile data): (1) `normal`: census video 2 → 1440p and 2160p
+  download, merge and play with picture and sound (if one fails, copy its Detail: it now names the
+  call and the sizes); the census A check still passes. (2) `h-only`: census videos 1 and 2 → HLS
+  rows only → an AVC row downloads and plays with sound, its length the video's ±2 s. (3) Optional:
+  the other five APKs, the lists as in run 3.
+
 ## Phase 1.4 backlog — items 1–3 (the owner's order, 2026-10-16): the WebM merge (2K/4K), h-only through H, visionOS 1.04 as a bundled alternate; handoff `docs/HANDOFF_WEBM_HONLY_104.md`
 
 - **Run 3 on the phone** (owner, 2026-10-16, mobile data, Android 16):

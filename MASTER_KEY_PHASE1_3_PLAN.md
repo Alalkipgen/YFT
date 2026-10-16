@@ -59,7 +59,7 @@ visionOS, Master:
   မရပ်ဘဲ ဆက်လုပ်မယ် (owner)။ L steps 7–8 (D5b)၊ H ဖုန်း download (D5c) က open ကျန် (ပိတ်တာထဲ မပါ)။
 - **A (D5a) ✅ နောက်ဆက်တွဲ (2026-10-16):** visionOS version ကို YouTube က ပယ်ရင် (`VERSION_REJECTED`) —
   learned version → GitHub raw (yt-dlp) ကနေ version အသစ် (တစ်ရက် တစ်ခါ၊ ≤ 64 KiB၊ redirect မလိုက်၊
-  User-Agent ပဲ) → bundled alternates (မရှိသေး)။ chain ရဲ့ request အတိုင်း version ပဲ ပြောင်းပို့ (lookup
+  User-Agent ပဲ) → bundled alternates (visionOS 1.04၊ NewPipe 2026-08-06၊ Phase 1.4 item 3 `f02070a`)။ chain ရဲ့ request အတိုင်း version ပဲ ပြောင်းပို့ (lookup
   တစ်ခု ≤ ၃)။ V pass မှ သုံးပြီး version မှတ်၊ မဟုတ်ရင် ပယ် (R6 အတိုင်း) + visionOS 24 h cooldown။ bot check →
   ရပ်။ simulator: own solver off MCF 95 → **65** (V1၊ Y1၊ Y5၊ Y6 complete)၊ on 5 (မပြောင်း)၊ wrong ၀။ own
   solver off target = **65** (§5.1)။ ကန့်သတ်ချက်: V budget က client တစ်ခု တစ်ရက် ၄ ခါ → bundled version
@@ -467,7 +467,7 @@ lookup (Master, clientLadder on)
 | D4 | Row checks: V (reuse), init check, H check, Z | D2 | Medium | **Built** (2026-10-14/15; the parallel agent's pieces, `PROGRESS_PARALLEL.md`): `InitCheck` (`3342508`), Z (`8795699`); the H check = D0's `HlsCheck` inside `HlsLeg` (`240cd4d`); V = `StreamCheck` reused unchanged; all wired with D6 core (`be0c52e`). Not added: `StreamCheck`'s wrong-type and other-host cases (L rows have them through the init check and `OkHttpMediaStartReader`) |
 | D5a | visionOS rungs A (with self-healed versions), S, Z | D3, D4 | Medium–High | **Done** (2026-10-16): S (Plan adapted: the own solver in the R6 chain under the ladder, `6402fea`; §4 D5a "As built"), Z (`8795699`), A (the follow-up after the close, owner 2026-10-16, §9 item 13; Plan adapted, §4 D5a "As built (A)": `VersionSource`, self-healed versions from yt-dlp's table; simulator own solver off MCF 95 → 65, on 5, wrong 0) |
 | D5b | Own parser L (locate, bind, canonical JSON, copied parser) | D3, D4 | High | **Steps 1–6 done** (2026-10-14/15): `ShapeLocator` + `ShapeNormalizer` (`fdc7dea`, the parallel agent), wired (`be0c52e`), census L steps (`a4ffd02`), DRM marker narrowed (`83ce453`); simulator L1–L16 wrong 0, MCF 0; live L steps 9/9 `same` (D7). **Steps 7–8 closed without code** (2026-10-16, the owner's choice (1), §9 item 15; Plan adapted): neither changes an outcome; step 7's use needs the parallel agent's `ShapeNormalizer`, step 8 changes the chain's requests (guardrail 4); the follow-ups are in §10 (Phase 1.4: steps 7–8 only on a trigger, the shape map recorded only, the last good player ID) |
-| D5c | H leg (independent HLS) | D4, D5b (locate) | Medium–High | **Built** (2026-10-14/15): `HlsLeg` (`240cd4d`, the parallel agent; H matrix 300 runs, wrong 0), wired (`be0c52e`); H live (Final plan, table v3 `4f884ec`; census H 8 of 9 in each Full run). **The phone download through H not done** (D7's `skip-visionos-adaptive` lists were complete through the chain, so H added no row). **h-only trial built** (2026-10-16, §4 D5c "As built (h-only trial)"): the seventh `[d7]` APK lists H's row alone; H's row now carries the video key (the app had dropped it); the phone download on run 3 (§4 D7 "Run 3"; VP9 HLS stays "No sound", §10 item 5) |
+| D5c | H leg (independent HLS) | D4, D5b (locate) | Medium–High | **Built** (2026-10-14/15): `HlsLeg` (`240cd4d`, the parallel agent; H matrix 300 runs, wrong 0), wired (`be0c52e`); H live (Final plan, table v3 `4f884ec`; census H 8 of 9 in each Full run). **The phone download through H not done** (D7's `skip-visionos-adaptive` lists were complete through the chain, so H added no row). **h-only trial built** (2026-10-16, §4 D5c "As built (h-only trial)"): the seventh `[d7]` APK lists H's row alone; H's row now carries the video key (the app had dropped it); the phone download on run 3 (§4 D7 "Run 3"; VP9 HLS stays "No sound", §10 item 5); run 3 showed the normal rows (a found page never reached Master), so since Phase 1.4 item 2 (`7c7a72a`) a found YouTube page goes through Master in the h-only APK only; run 4 decides |
 | D6 | O rungs (census-live only), memo, wiring, flag, merge rule | D5a–D5c | Medium–High | **Core and O rungs done** (2026-10-15, Plan adapted; §4 D6 "As built"): wiring, flag, memo (`8795699`), merge rule, L / Z / V / H on visionOS's answers in the R6 chain's HTTP path (`be0c52e`); O rungs = the chain's Android, MWEB and embedded answers judged, V on their direct rows (`6402fea`); simulator wrong 72 → 0, MCF 305 → 95 (own solver off) and 160 → 5 (on; V6 = O, live only), §5. A with D5a (2026-10-16: own solver off 95 → 65) |
 | D7 | Owner live check (with live L mutations), weekly check, runbook | D6 | Low–Medium | **Done** (2026-10-16): phone check ✅ (six APKs, 11/11 each, wrong 0); L DRM marker narrowed (`83ce453`) ✅; census FULL on run 2 (`1a62b18`): L steps 9/9 `same` (L5 n/a), wrong 0 ✅; W 4 and W 5 ✅ (§5); runbook §7 ✅; §5.2's MCF = 0 not met in the simulator → targets proposed (§4 D7 "Done") and accepted (owner (ခ), 2026-10-16, §9 item 13: **Phase 1.3 closed**); **closed** (2026-10-16): the census FULL on the H fix APK (`7277fd8`) read `too-large` on video 10 as expected; variant cap 1 MiB (owner, guardrail 6), confirmed by the census FULL on its APK (`c9c5959`, 06:56 UTC: H 9 / 9); **run 3** (2026-10-16, §4 D7 "Run 3"): the A check and the H download, ⏸ the owner's phone |
 | D8 | Signed identity data over R9 (owner decision, after D0) | D2 | Medium | Dropped (owner, 2026-10-15; §9 item 4) |
@@ -860,7 +860,8 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   the chain's request again with **only the version changed** (the one `clientVersion` field and
   the `X-YouTube-Client-Version` header; user agent, device and every other byte stay), at most 3
   requests a lookup (guardrail 7), in guardrail 5's order: the learned version (forgotten when
-  rejected) → a self-healed version → the bundled alternates (none today; D8 dropped).
+  rejected) → a self-healed version → the bundled alternates (visionOS: 1.04, NewPipe 2026-08-06, since
+  Phase 1.4 item 3, `f02070a`; D8 dropped).
   Self-healed (`VersionSource`): the first live source in visionOS's table row, **yt-dlp's
   table** (YouTube.js stays census-only); at most one read a day per identity, claimed in the
   health before it reads, none in a bot-check window; the user's User-Agent only, no cookie, no
@@ -1775,6 +1776,10 @@ Found on the way and outside every task above; nothing here starts without the o
    the client table and A never reads it.
 
 **Phase 1.4** (the owner, 2026-10-16, when D5b steps 7–8 were closed without code; §9 item 15):
+
+First built (2026-10-16, the owner's order; `docs/HANDOFF_WEBM_HONLY_104.md`): item 1 the WebM
+merge buffer (`ec1f24e`), item 3 visionOS 1.04 bundled (`f02070a`), item 2 h-only through H
+(`7c7a72a`); the phone checks are run 4's (`PROGRESS.md`).
 
 2. **L steps 7–8 only when a trigger appears.** Step 7 (the shape-map memory) or step 8 (L's page
    locate for S) is built only when the live checks show the need: W reports a **BREAKING** shape
