@@ -195,6 +195,9 @@ class ClientCensus(
      * (2) L1, L2, L3, L5 and L7 ([LadderTrial.mutate]) on the answer — L finds the same rows
      * (itag and address) again. L's rows are the direct parse's own addresses, so the answer's V
      * (one row, above) stands for them; the app's ladder checks every L row itself.
+     * No rows reads `none (<why>)`, or `none (stop <reason>)` when L stops as the copied parser
+     * would (D7, 2026-10-15); a stop on DRM names where L's DRM marker sits (a key path, never a
+     * value).
      */
     private fun lSteps(session: Session, video: Video, asked: Asked) {
         if (session.mode != Mode.FULL || asked.record.answerClass != CensusClass.DIRECT) return
@@ -202,10 +205,11 @@ class ClientCensus(
         val expected = asked.video?.let(ShapeNormalizer::offerSet)?.map { it.itag to it.url }?.toSet().orEmpty()
         if (expected.isEmpty()) return
         val now = clock()
-        fun found(answer: String): String {
-            val outcome = ShapeNormalizer.normalize(answer, video.id, now)
-            val rows = outcome as? ShapeNormalizer.Rows ?: return "none (${(outcome as? ShapeNormalizer.None)?.why ?: "no rows"})"
-            return if (rows.offer.map { it.itag to it.url }.toSet() == expected) "same" else "differs"
+        fun found(answer: String): String = when (val outcome = ShapeNormalizer.normalize(answer, video.id, now)) {
+            is ShapeNormalizer.Rows -> if (outcome.offer.map { it.itag to it.url }.toSet() == expected) "same" else "differs"
+            is ShapeNormalizer.None -> "none (${outcome.why})"
+            is ShapeNormalizer.Stop -> "none (stop ${outcome.failure.reason}" +
+                (if (outcome.failure.reason == SiteExtractionFailure.DRM_PROTECTED) drmMarker(answer, video.id) else "") + ")"
         }
         val results = linkedMapOf("round-trip" to found(LadderJson.text(root)))
         for (id in LadderTrial.MUTATIONS) {
@@ -214,6 +218,13 @@ class ClientCensus(
         session.lSteps += results
         session.notes += "video ${video.slot} L (${asked.record.step}, ${expected.size} rows, V ${asked.record.v ?: "none"}): " +
             results.entries.joinToString(", ") { "${it.key} ${it.value}" }
+    }
+
+    /** Where L's DRM marker fired on [answer] (ShapeLocator's key path, `*` for a key that is not key-like), or "". */
+    private fun drmMarker(answer: String, videoId: String): String {
+        val root = ShapeLocator.parse(answer) ?: return ""
+        val path = ShapeLocator.scan(root, videoId, answer).drmPath ?: return ""
+        return "; DRM marker at $path"
     }
 
     /** The L steps' counts for the report: per step, how many answers L read as the direct parse. */

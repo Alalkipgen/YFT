@@ -1,5 +1,36 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — D7 fix (2026-10-15): L's DRM marker narrowed to the copied parser's keys; L stops named in the census
+
+- ✅ Reproduced first on `8164a39` (tests, no request): a live-like visionOS answer without DRM
+  (status OK; adaptive rows with the live keys and value types; HLS; a SABR address without
+  itag; tracking without a DRM session; a DRM-named player setting and a FAIRPLAY key-system
+  list) → `ShapeNormalizer` `Stop(DRM_PROTECTED)`, and the census L line read
+  `round-trip none (no rows), L1 none (no rows), …` as in the owner's census.
+- ✅ `ShapeLocator.kt` (owner exception for this step): the DRM marker is one of the copied
+  parser's DRM keys (`drmParams`, `drmSessionId`, `drmFamilies`, `drmTrackType`) with a value
+  under any container (never weaker than the parser, also after L1, L2 or L7 moved or renamed
+  it; the deep-cut check counts these keys too), or a WIDEVINE / PLAYREADY / FAIRPLAY /
+  `DRM_TRACK_TYPE_…` text inside a format-like object (a format's renamed DRM key, as the
+  simulator's L12). The starts-with / contains key rule and DRM texts outside a format are gone.
+  `Scan.drmPath` names where the marker sits (a key path, never a value).
+- ✅ `ClientCensus.kt`: an L step that stops reads `none (stop <reason>)` (was `none (no rows)`);
+  a DRM stop adds `; DRM marker at <key path>`.
+- ✅ Tests: `ShapeNormalizerTest` +1 (the live-like answer gives the direct parse's rows on the
+  round-trip and after L1, L2, L3, L7; with each of the parser's four keys added, the parser's
+  own stop on every step); `ShapeLocatorTest` +1 (marker paths; keys and texts that are no
+  marker); L matrix +5 cases (`L12 params`, `L12 session`, `L12 families`, `L12 track`: stop;
+  `L1 config`: rows, complete as L1); `ClientCensusTest` +1 (the L line `same` on every step; a
+  DRM text in each format → `none (stop DRM_PROTECTED; DRM marker at …)`). Red on `8164a39`:
+  4 failures (the new normalizer and census tests, the L matrix's and the judge's `L1 config`).
+- ✅ Checks: module tests 606 (603 + 3), 0 failed, 2 skipped; flag-off parity
+  (`MasterYouTubeParityTest`) green, the app's in CI; simulator outputs byte-identical to
+  `8164a39` (ladder wrong 0, MCF 95 / 5); H matrix unchanged; L matrix only its five new cases
+  (wrong 0); workflow tests 17; drift 0 (base and main).
+- ⏸ Next: CI build + validate; six APKs (`.github/d7-apks.txt` run 2, `[d7]`); the owner installs
+  `normal` and runs one census FULL on mobile data (≥ 1 h after 22:43 UTC): L steps expected 9/9
+  same (L5 n/a), wrong 0; if not, the note's DRM marker path.
+
 ## Phase 1.3 — D7 phone check (owner, 2026-10-15 UTC, census 22:43 UTC; docs only); ⏸ L stops on every live answer
 
 - ✅ Six APKs (`80ccb10`), all flags on, mobile data, the owner's 11 list videos each: `normal`

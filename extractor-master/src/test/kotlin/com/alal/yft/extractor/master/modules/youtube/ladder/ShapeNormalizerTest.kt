@@ -3,6 +3,7 @@ package com.alal.yft.extractor.master.modules.youtube.ladder
 import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.ExtractorProbeResult
 import com.alal.yft.extractor.api.SiteExtractionFailure
+import com.alal.yft.extractor.api.json.JsonValue
 import com.alal.yft.extractor.master.modules.youtube.StreamCheck
 import com.alal.yft.extractor.master.modules.youtube.YouTubeParseResult
 import com.alal.yft.extractor.master.modules.youtube.YouTubePlayerResponseParser
@@ -144,7 +145,7 @@ class ShapeNormalizerTest {
                             if (outcome !is Stop) fail("$label: $outcome")
                             outcome as Stop
                             val own = YouTubePlayerResponseParser.parse(text, Sim.NOW)
-                            if (case.name == "L12") {
+                            if (case.name.substringBefore(' ') == "L12") {
                                 assertEquals(label, SiteExtractionFailure.DRM_PROTECTED, outcome.failure.reason)
                                 assertTrue(label, outcome.failure.definite)
                             } else {
@@ -263,6 +264,46 @@ class ShapeNormalizerTest {
         val stop = ShapeNormalizer.normalize(live, VIDEO, Sim.NOW) as Stop
         assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, stop.failure.reason)
         assertTrue(stop.failure.definite)
+    }
+
+    @Test
+    fun `a live-like visionOS answer without DRM gives the direct parse's rows, also after L1, L2, L3 and L7`() {
+        // D7 (2026-10-15): the owner's census read every L step on live visionOS answers as
+        // "none (no rows)" (0/9 same) while the copied parser found no DRM: L's old DRM marker
+        // (any drm… key, a DRM text anywhere) is wider than the parser's, and DRM-named player
+        // settings like these trip it.
+        val text = answer(*liveLike())
+        val direct = (YouTubePlayerResponseParser.parse(text, Sim.NOW) as YouTubeParseResult.Success).video
+        assertEquals(listOf(137, 136, 248, 140, 251), direct.adaptive.map { it.itag })
+        val expected = ShapeNormalizer.offerSet(direct).map { it.itag to it.url }.toSet()
+        assertTrue(expected.isNotEmpty())
+        for ((step, body) in lSteps(text)) {
+            val outcome = ShapeNormalizer.normalize(body, VIDEO, Sim.NOW)
+            if (outcome !is Rows) fail("$step: $outcome")
+            outcome as Rows
+            assertEquals(step, expected, outcome.offer.map { it.itag to it.url }.toSet())
+            assertEquals(step, 212L, outcome.lengthSeconds)
+            assertEquals(step, LIVE_HLS, outcome.hls)
+        }
+
+        // The copied parser's own DRM keys in the same answer stop it; they stop L too, also
+        // after L1, L2, L3 and L7 moved or renamed their containers.
+        val marked = mapOf(
+            "drmParams" to liveLike(streamingExtra = mapOf("drmParams" to "CgQIARAB")),
+            "drmSessionId" to liveLike(trackingExtra = mapOf("drmSessionId" to "AB12CD34")),
+            "drmFamilies" to liveLike(videoExtra = mapOf("drmFamilies" to listOf("WIDEVINE"))),
+            "drmTrackType" to liveLike(videoExtra = mapOf("drmTrackType" to "DRM_TRACK_TYPE_HD")),
+        )
+        for ((key, top) in marked) {
+            val drm = answer(*top)
+            val own = YouTubePlayerResponseParser.parse(drm, Sim.NOW) as YouTubeParseResult.Failure
+            assertEquals(key, SiteExtractionFailure.DRM_PROTECTED, own.reason)
+            for ((step, body) in lSteps(drm)) {
+                val outcome = ShapeNormalizer.normalize(body, VIDEO, Sim.NOW)
+                if (outcome !is Stop) fail("$key $step: $outcome")
+                assertEquals("$key $step", own, (outcome as Stop).failure)
+            }
+        }
     }
 
     @Test
@@ -424,10 +465,107 @@ class ShapeNormalizerTest {
 
     private fun answer(vararg top: Pair<String, Any?>): String = SimJson.write(linkedMapOf(*top))
 
+    /** The census L steps' answers: [text] written back (the round-trip), then L1, L2, L3 and L7 on it. */
+    private fun lSteps(text: String): Map<String, String> {
+        val root = ShapeLocator.parse(text) as JsonValue.Object
+        return linkedMapOf("round-trip" to LadderJson.text(root)) +
+            listOf("L1", "L2", "L3", "L7").associateWith { id -> LadderJson.text(requireNotNull(LadderTrial.mutate(id, root)) { id }) }
+    }
+
+    /**
+     * An answer with the parts and value types of a live visionOS answer (values made up): direct
+     * adaptive rows with their live keys, HLS, a SABR address without itag, tracking without a
+     * DRM session, and player settings with DRM names but no DRM.
+     */
+    private fun liveLike(
+        videoExtra: Map<String, Any?> = emptyMap(),
+        streamingExtra: Map<String, Any?> = emptyMap(),
+        trackingExtra: Map<String, Any?> = emptyMap(),
+    ): Array<Pair<String, Any?>> {
+        val adaptive = listOf(
+            liveVideo(137, AVC_MIME, 1920, 1080, 88_000_000L).apply { putAll(videoExtra) },
+            liveVideo(136, "video/mp4; codecs=\"avc1.4d401f\"", 1280, 720, 44_000_000L).apply { putAll(videoExtra) },
+            liveVideo(248, "video/webm; codecs=\"vp9\"", 1920, 1080, 61_000_000L).apply { putAll(videoExtra) },
+            liveAudio(140, AAC_MIME, "44100", 3_400_000L),
+            liveAudio(251, "audio/webm; codecs=\"opus\"", "48000", 3_500_000L),
+        )
+        val stats = { kind: String -> linkedMapOf<String, Any?>("baseUrl" to "https://s.youtube.com/api/stats/$kind?cl=1&el=detailpage&len=213") }
+        return arrayOf(
+            "responseContext" to linkedMapOf<String, Any?>(
+                "serviceTrackingParams" to listOf(
+                    linkedMapOf<String, Any?>("service" to "CSI", "params" to listOf(linkedMapOf("key" to "c", "value" to "VISIONOS"))),
+                ),
+                "maxAgeSeconds" to 0,
+            ),
+            "playabilityStatus" to linkedMapOf<String, Any?>("status" to "OK", "playableInEmbed" to true, "contextParams" to "Q0FFU0FnZ0I="),
+            "streamingData" to linkedMapOf<String, Any?>(
+                "expiresInSeconds" to "21540",
+                "adaptiveFormats" to adaptive,
+                "hlsManifestUrl" to LIVE_HLS,
+                "serverAbrStreamingUrl" to "https://$HOST/videoplayback?expire=4102444800&ei=x&id=o-shape&source=youtube&requiressl=yes&sabr=1",
+            ).apply { putAll(streamingExtra) },
+            "playbackTracking" to linkedMapOf<String, Any?>(
+                "videostatsPlaybackUrl" to stats("playback"),
+                "videostatsWatchtimeUrl" to stats("watchtime"),
+                "videostatsScheduledFlushWalltimeSeconds" to listOf(10, 20, 30),
+                "videostatsDefaultFlushIntervalSeconds" to 40,
+            ).apply { putAll(trackingExtra) },
+            "videoDetails" to linkedMapOf<String, Any?>(
+                "videoId" to VIDEO, "title" to "Title", "lengthSeconds" to "212", "channelId" to "UCshape", "isOwnerViewing" to false,
+                "shortDescription" to "Description", "isCrawlable" to true,
+                "thumbnail" to linkedMapOf(
+                    "thumbnails" to listOf(linkedMapOf<String, Any?>("url" to "https://i.ytimg.com/vi/shape/default.jpg", "width" to 120, "height" to 90)),
+                ),
+                "allowRatings" to true, "viewCount" to "1000", "author" to "Author", "isPrivate" to false, "isUnpluggedCorpus" to false,
+                "isLiveContent" to false,
+            ),
+            "playerConfig" to linkedMapOf<String, Any?>(
+                "audioConfig" to linkedMapOf<String, Any?>(
+                    "loudnessDb" to SimJson.Num("-3.5"), "perceptualLoudnessDb" to SimJson.Num("-17.5"), "enablePerFormatLoudness" to true,
+                ),
+                "streamSelectionConfig" to linkedMapOf("maxBitrate" to "6080000"),
+                "mediaCommonConfig" to linkedMapOf<String, Any?>(
+                    "dynamicReadaheadConfig" to linkedMapOf("maxReadAheadMediaTimeMs" to 120_000, "minReadAheadMediaTimeMs" to 15_000),
+                    "keySystems" to listOf("FAIRPLAY"),
+                ),
+                "webDrmConfig" to linkedMapOf<String, Any?>("widevineServiceCert" to "Q0VSVA", "useCobaltWidevine" to true),
+            ),
+            "trackingParams" to "CAAQu2kiEwjx",
+        )
+    }
+
+    private fun liveMedia(itag: Int, mime: String, size: Long, dur: String): String =
+        "https://$HOST/videoplayback?expire=4102444800&ei=x&id=o-shape&itag=$itag&source=youtube&requiressl=yes&mime=" +
+            URLEncoder.encode(mime.substringBefore(';'), Charsets.UTF_8) + "&gir=yes&clen=$size&dur=$dur&lmt=$LIVE_MODIFIED"
+
+    private fun range(start: Int, end: Int) = linkedMapOf<String, Any?>("start" to start.toString(), "end" to end.toString())
+
+    private fun liveVideo(itag: Int, mime: String, width: Int, height: Int, size: Long) = linkedMapOf<String, Any?>(
+        "itag" to itag, "url" to liveMedia(itag, mime, size, "212.040"), "mimeType" to mime, "bitrate" to 4_400_000,
+        "width" to width, "height" to height, "initRange" to range(0, 740), "indexRange" to range(741, 1260),
+        "lastModified" to LIVE_MODIFIED, "contentLength" to size.toString(), "quality" to "hd$height", "fps" to 30,
+        "qualityLabel" to "${height}p", "projectionType" to "RECTANGULAR", "averageBitrate" to 3_300_000, "approxDurationMs" to "212040",
+        "colorInfo" to linkedMapOf<String, Any?>(
+            "primaries" to "COLOR_PRIMARIES_BT709",
+            "transferCharacteristics" to "COLOR_TRANSFER_CHARACTERISTICS_BT709",
+            "matrixCoefficients" to "COLOR_MATRIX_COEFFICIENTS_BT709",
+        ),
+    )
+
+    private fun liveAudio(itag: Int, mime: String, sampleRate: String, size: Long) = linkedMapOf<String, Any?>(
+        "itag" to itag, "url" to liveMedia(itag, mime, size, "212.089"), "mimeType" to mime, "bitrate" to 135_000,
+        "initRange" to range(0, 631), "indexRange" to range(632, 931), "lastModified" to LIVE_MODIFIED,
+        "contentLength" to size.toString(), "quality" to "tiny", "projectionType" to "RECTANGULAR", "averageBitrate" to 129_000,
+        "highReplication" to true, "audioQuality" to "AUDIO_QUALITY_MEDIUM", "approxDurationMs" to "212089",
+        "audioSampleRate" to sampleRate, "audioChannels" to 2, "loudnessDb" to SimJson.Num("-3.5"),
+    )
+
     private companion object {
         const val VIDEO = "Yft0Shape01"
         const val HOST = "rr1---sn-shape.googlevideo.com"
         const val DECOY_HOST = "rr9---sn-decoy.googlevideo.com"
+        const val LIVE_HLS = "https://manifest.googlevideo.com/api/manifest/hls_variant/expire/4102444800/id/o-shape/source/youtube/file/index.m3u8"
+        const val LIVE_MODIFIED = "1700000000000000"
         const val AVC_MIME = "video/mp4; codecs=\"avc1.640028\""
         const val AAC_MIME = "audio/mp4; codecs=\"mp4a.40.2\""
         const val FORBIDDEN = 403

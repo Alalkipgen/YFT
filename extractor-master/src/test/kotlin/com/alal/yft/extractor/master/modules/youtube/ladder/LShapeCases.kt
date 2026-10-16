@@ -5,6 +5,9 @@ package com.alal.yft.extractor.master.modules.youtube.ladder
  * [SimWorld], each with what rung L alone must give. The mutations are copied from SimCases
  * (which stays unchanged; its helpers are private) and do the same to an answer. The other rungs a
  * case needs (S for L5 and L14, H for L13) are not part of L's expectation.
+ * D7 (2026-10-15) adds variants of L12 and L1: the copied parser's own DRM keys under moved or
+ * renamed containers (L stops, as the parser would on them), and DRM-named player settings in
+ * an answer without DRM (L reads the rows).
  */
 internal object LShapeCases {
     enum class Expect {
@@ -89,6 +92,43 @@ internal object LShapeCases {
                 onAll(::moveStreamingData)
             },
         )
+        // D7: the copied parser's four DRM keys with a value, each under a moved or renamed container.
+        add(
+            Case("L12 params", Expect.STOP) {
+                encrypted = true
+                onAll { json -> json.streaming()?.let { it["drmParams"] = "CgQIARAB" } }
+                onAll(::renameLists)
+                onAll(::moveStreamingData)
+            },
+        )
+        add(
+            Case("L12 session", Expect.STOP) {
+                encrypted = true
+                onAll { json -> json["tracking"] = linkedMapOf<String, Any?>("drmSessionId" to "AB12CD34") }
+                onAll(::moveStreamingData)
+            },
+        )
+        add(
+            Case("L12 families", Expect.STOP) {
+                encrypted = true
+                onAll { json -> json.formats().forEach { it["drmFamilies"] = SimJson.parse("""["WIDEVINE"]""") } }
+                onAll(::listsToMaps)
+            },
+        )
+        add(
+            Case("L12 track", Expect.STOP) {
+                encrypted = true
+                onAll { json -> json.formats().forEach { it["drmTrackType"] = "DRM_TRACK_TYPE_HD" } }
+                onAll(::renameLists)
+            },
+        )
+        // D7: DRM-named player settings and a key-system list in an answer without DRM.
+        add(
+            Case("L1 config", Expect.ROWS) {
+                onAll { json -> json["playerConfig"] = playerConfig() }
+                onAll(::moveStreamingData)
+            },
+        )
         add(
             Case("L13", Expect.HLS_ONLY) {
                 onAll(::removeFormats)
@@ -121,6 +161,17 @@ internal object LShapeCases {
 
     /** L16's filler: [count] small objects beside the moved formats. */
     fun noise(count: Int): MutableList<Any?> = MutableList(count) { linkedMapOf<String, Any?>("k" to it, "v" to "x") }
+
+    /**
+     * D7: player settings with DRM names and no DRM, of the kind that stopped L on live visionOS
+     * answers (the live key is not known; names and values made up): a DRM-named settings object
+     * and a list of key systems.
+     */
+    fun playerConfig(): MutableMap<String, Any?> = linkedMapOf(
+        "audioConfig" to linkedMapOf<String, Any?>("loudnessDb" to SimJson.Num("-3.5"), "enablePerFormatLoudness" to true),
+        "mediaCommonConfig" to linkedMapOf<String, Any?>("keySystems" to mutableListOf<Any?>("FAIRPLAY")),
+        "webDrmConfig" to linkedMapOf<String, Any?>("widevineServiceCert" to "Q0VSVA", "useCobaltWidevine" to true),
+    )
 
     // --- copied from SimCases (same edits) ---
 

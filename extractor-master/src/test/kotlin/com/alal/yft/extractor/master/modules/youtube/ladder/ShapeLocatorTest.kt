@@ -132,7 +132,7 @@ class ShapeLocatorTest {
     }
 
     @Test
-    fun `video, status, HLS and DRM objects are read from values`() {
+    fun `video, status and HLS objects are read from values`() {
         val videos = scan(
             "a" to linkedMapOf("id" to VIDEO, "lengthSeconds" to "212"),
             "b" to linkedMapOf("ref" to VIDEO, "lengthSeconds" to 212),
@@ -169,25 +169,62 @@ class ShapeLocatorTest {
             "https://manifest.googlevideo.com:8443x/api/manifest/hls_variant/id/1",
         )
         assertTrue(scan("a" to notHls).hlsAddresses.isEmpty())
+    }
 
+    @Test
+    fun `DRM marker - the copied parser's four keys under any container, a DRM text only inside a format`() {
+        fun drmFormat(key: String, value: Any?) = format(137, AVC_MIME).apply { put(key, value) }
+        // The copied parser's keys with a value: where it reads them, and under moved or renamed
+        // containers (L1, L2, L7), so the marker is never weaker than the parser.
         val marked = listOf(
-            "streamingData" to linkedMapOf("drmParams" to "x"),
-            "f" to linkedMapOf("drmFamiliesV2" to listOf("A")),
+            listOf("streamingData" to linkedMapOf("drmParams" to "x")) to "streamingData.drmParams",
+            listOf("playback" to linkedMapOf("data" to linkedMapOf("drmParams" to "x"))) to "playback.data.drmParams",
+            listOf("playbackTracking" to linkedMapOf("drmSessionId" to "s")) to "playbackTracking.drmSessionId",
+            listOf("playback" to linkedMapOf("tracking" to linkedMapOf("drmSessionId" to "s"))) to "playback.tracking.drmSessionId",
+            listOf("streamingData" to streaming(drmFormat("drmFamilies", listOf("WIDEVINE")))) to "streamingData.adaptiveFormats[].drmFamilies",
+            listOf("streamingData" to linkedMapOf("separateFormats" to listOf(drmFormat("drmFamilies", listOf("A"))))) to
+                "streamingData.separateFormats[].drmFamilies",
+            listOf("streamingData" to linkedMapOf("adaptiveFormats" to linkedMapOf("137" to drmFormat("drmTrackType", "DRM_TRACK_TYPE_HD")))) to
+                "streamingData.adaptiveFormats.*.drmTrackType",
+            listOf("f" to linkedMapOf("drmFamilies" to listOf("A"))) to "f.drmFamilies",
+            // A DRM text inside a format-like object: a format's renamed DRM key (L12).
+            listOf("list" to listOf(drmFormat("drmFamiliesV2", listOf("WIDEVINE")))) to "list[].drmFamiliesV2[]",
+            listOf("list" to listOf(drmFormat("protection", linkedMapOf("system" to "PlayReady")))) to "list[].protection.system",
+            listOf("list" to listOf(drmFormat("track", "DRM_TRACK_TYPE_AUDIO"))) to "list[].track",
+            listOf(VIDEO to listOf(drmFormat("keySystem", "FAIRPLAY"))) to "*[].keySystem",
+            // The first marker in answer order is the one named.
+            listOf("a" to linkedMapOf("drmSessionId" to "s"), "streamingData" to linkedMapOf("drmParams" to "x")) to "a.drmSessionId",
+        )
+        for ((top, path) in marked) {
+            val found = scan(*top.toTypedArray())
+            assertTrue(top.toString(), found.drm)
+            assertEquals(top.toString(), path, found.drmPath)
+        }
+        // Not one of the parser's keys, or a DRM text outside a format-like object: no marker. D7
+        // (2026-10-15): the old rule stopped L on live visionOS answers without DRM, likely on
+        // player settings like these first two.
+        val unmarked = listOf(
+            "playerConfig" to linkedMapOf("webDrmConfig" to linkedMapOf("widevineServiceCert" to "Q0VSVA", "useCobaltWidevine" to true)),
+            "playerConfig" to linkedMapOf("mediaCommonConfig" to linkedMapOf("keySystems" to listOf("FAIRPLAY", "WIDEVINE"))),
             "f" to linkedMapOf("someDrmInfo" to linkedMapOf("k" to 1)),
-            "f" to linkedMapOf("isDRM" to true),
+            "f" to linkedMapOf("isDRM" to true, "drmEnabled" to true, "DRMType" to "x", "drmParamsV2" to "x"),
+            "f" to linkedMapOf("drmFamiliesV2" to listOf("A")),
             "f" to listOf("WIDEVINE"),
             "f" to linkedMapOf("t" to "PLAYREADY"),
             "f" to linkedMapOf("t" to "DRM_TRACK_TYPE_AUDIO"),
-        )
-        for (top in marked) assertTrue(top.toString(), scan(top).drm)
-        val unmarked = listOf(
             "f" to linkedMapOf("drmFamilies" to emptyList<String>()),
             "f" to linkedMapOf("drmParams" to " "),
             "f" to linkedMapOf("drm" to false, "isDrm" to null, "drmCount" to 0),
             "f" to linkedMapOf("hydrometer" to "1"),
-            "f" to linkedMapOf("t" to "widevine.example"),
+            "list" to listOf(drmFormat("note", "widevine.example")),
+            "list" to listOf(drmFormat("drmFamiliesV2", listOf("A"))),
+            "list" to listOf(format(137, AVC_MIME), linkedMapOf("keySystems" to listOf("FAIRPLAY"))),
         )
-        for (top in unmarked) assertFalse(top.toString(), scan(top).drm)
+        for (top in unmarked) {
+            val found = scan(top)
+            assertFalse(top.toString(), found.drm)
+            assertNull(top.toString(), found.drmPath)
+        }
     }
 
     @Test
@@ -214,6 +251,7 @@ class ShapeLocatorTest {
             "the video ID" to linkedMapOf("ref" to VIDEO),
             "a media host" to linkedMapOf("note" to "rr1---sn-shape.googlevideo.com"),
             "a media host in a key" to linkedMapOf("rr1---sn-shape.GoogleVideo.com" to 1),
+            "a DRM key of the copied parser" to linkedMapOf("drmParams" to "x"),
         )
         for ((label, inner) in below) {
             val scan = scan(ok(), details(), "deep" to nest(20, inner))

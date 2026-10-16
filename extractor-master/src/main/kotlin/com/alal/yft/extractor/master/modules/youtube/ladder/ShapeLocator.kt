@@ -23,15 +23,21 @@ import java.net.URLDecoder
  * - **Status object** ([StatusObject]): a direct text from the copied parser's status words.
  * - **HLS addresses**: https on `manifest.googlevideo.com` under `/api/manifest/hls_variant/` or
  *   `/api/manifest/hls_playlist/` (§3 H step 1).
- * - **DRM marker**: a `drm…` key with a value, or a `WIDEVINE` / `PLAYREADY` / `FAIRPLAY` /
- *   `DRM_TRACK_TYPE_…` text (the normalizer then stops, as the copied parser does on DRM).
+ * - **DRM marker** ([Scan.drm], found at [Scan.drmPath]): one of the copied parser's DRM keys
+ *   ([DRM_KEYS]: `drmParams`, `drmSessionId`, `drmFamilies`, `drmTrackType`) with a value under
+ *   any container — never weaker than the parser, also when lists or objects are moved or
+ *   renamed — or a `WIDEVINE` / `PLAYREADY` / `FAIRPLAY` / `DRM_TRACK_TYPE_…` text inside a
+ *   format-like object (a format's renamed DRM key). Other keys and texts are no marker: in the
+ *   owner's census (D7, 2026-10-15) L stopped on every live visionOS answer the copied parser
+ *   read without DRM — the old rule (any `drm…` key, a DRM text anywhere) fired on something
+ *   else there, likely a player setting. The normalizer then stops, as the copied parser does on DRM.
  *
  * Bounded as ShapeFingerprint: an answer of at most [MAX_ANSWER_CHARS] characters (parsed with
  * the copied parser's node bound), containers opened to depth [MAX_DEPTH] and at most [MAX_NODES]
  * visited nodes. More nodes → the scan is incomplete. A container deeper than [MAX_DEPTH] is not
  * opened; the scan is then complete only when the raw answer mentions `googlevideo.com`, the
- * quoted video ID and the quoted status words no more often than the visited part does (so
- * nothing the normalizer judges can hide deeper). An incomplete scan gives no L rows.
+ * quoted video ID, the quoted status words and the quoted DRM keys no more often than the visited
+ * part does (so nothing the normalizer judges can hide deeper). An incomplete scan gives no L rows.
  *
  * The scan binds nothing: candidates from every part of the answer are listed (another video's
  * too); binding to the video is ShapeNormalizer's step 2. D2's judge reuses it ([Scan.moved],
@@ -59,6 +65,9 @@ internal object ShapeLocator {
         "CONTENT_CHECK_REQUIRED",
         "LIVE_STREAM_OFFLINE",
     )
+
+    /** The keys the copied parser's DRM check reads (`isDrmProtected`), wherever L finds them. */
+    val DRM_KEYS: Set<String> = setOf("drmParams", "drmSessionId", "drmFamilies", "drmTrackType")
 
     private val VIDEO_CODECS = setOf("avc1", "avc3", "vp9", "vp09", "vp8", "vp08", "av01", "hev1", "hvc1", "dvh1", "dvhe")
     private val AUDIO_CODECS = setOf("mp4a", "opus", "vorbis", "ec-3", "ac-3", "flac", "mp3")
@@ -104,7 +113,7 @@ internal object ShapeLocator {
             videos = walker.videos,
             statuses = walker.statuses,
             hlsAddresses = walker.hls.toList(),
-            drm = walker.drm,
+            drmPath = walker.drmPath,
         )
     }
 
@@ -165,8 +174,15 @@ internal object ShapeLocator {
         val statuses: List<StatusObject>,
         /** Distinct HLS addresses, in answer order. */
         val hlsAddresses: List<String>,
-        val drm: Boolean,
+        /**
+         * Where the first DRM marker sits (ShapeFingerprint's path form, the key or the text's
+         * place; never a value), or null when the answer has none.
+         */
+        val drmPath: String?,
     ) {
+        /** A DRM marker was found: the normalizer stops (DRM_PROTECTED), as the copied parser does. */
+        val drm: Boolean get() = drmPath != null
+
         /** The HLS address when exactly one was located (§3 H step 1), else null. */
         val hls: String? get() = hlsAddresses.singleOrNull()
 
@@ -193,7 +209,10 @@ internal object ShapeLocator {
         val videos = ArrayList<VideoObject>()
         val statuses = ArrayList<StatusObject>()
         val hls = LinkedHashSet<String>()
-        var drm = false
+        var drmPath: String? = null
+
+        /** How many format-like objects enclose the node being walked (DRM texts count only inside one). */
+        private var formats = 0
 
         private var nextId = 0
         private val ids = IntArray(MAX_DEPTH + 1)
@@ -218,12 +237,14 @@ internal object ShapeLocator {
                     }
                     ids[depth] = nextId++
                     containers[depth] = value
-                    inspect(value, depth)
+                    val format = inspect(value, depth)
+                    if (format) formats += 1
                     for ((key, child) in value.entries) {
                         keys[depth + 1] = key
                         walk(child, depth + 1)
-                        if (capped) return
+                        if (capped) break
                     }
+                    if (format) formats -= 1
                 }
 
                 is JsonValue.Array -> {
@@ -241,26 +262,25 @@ internal object ShapeLocator {
                     }
                 }
 
-                is JsonValue.Text -> leaf(value.value)
+                is JsonValue.Text -> leaf(value.value, depth)
                 else -> Unit
             }
         }
 
-        private fun leaf(text: String) {
+        private fun leaf(text: String, depth: Int) {
             if (text.length in HLS_PREFIX.length..MAX_ADDRESS_CHARS &&
                 text.regionMatches(0, HLS_PREFIX, 0, HLS_PREFIX.length, ignoreCase = true) &&
                 isHls(text)
             ) {
                 hls += text
             }
-            if (!drm && text.length in 8..48 &&
-                (DRM_TEXTS.any { text.equals(it, ignoreCase = true) } || text.startsWith(DRM_TRACK_PREFIX))
-            ) {
-                drm = true
-            }
+            // A DRM text marks only inside a format-like object (a format's renamed DRM key); a
+            // player setting or a list of key systems elsewhere is no DRM statement.
+            if (drmPath == null && formats > 0 && isDrmText(text)) drmPath = path(depth)
         }
 
-        private fun inspect(node: JsonValue.Object, depth: Int) {
+        /** Reads [node]'s direct values; true when [node] is a format-like object ([Candidate]). */
+        private fun inspect(node: JsonValue.Object, depth: Int): Boolean {
             var address: String? = null
             var addresses = 0
             var cipher: String? = null
@@ -269,7 +289,7 @@ internal object ShapeLocator {
             var length: Long? = null
             var status: String? = null
             for ((key, child) in node.entries) {
-                if (!drm && isDrmKey(key) && hasValue(child)) drm = true
+                if (drmPath == null && key in DRM_KEYS && hasValue(child)) drmPath = keyPath(depth, key)
                 if (key == LENGTH_KEY) length = positiveLong(child)
                 val text = (child as? JsonValue.Text)?.value ?: continue
                 when {
@@ -288,13 +308,18 @@ internal object ShapeLocator {
             }
             if (hasId && length != null) videos += VideoObject(path(depth), length, node)
             if (status != null) statuses += StatusObject(path(depth), status, node)
-            if (address == null && cipher == null) return
+            if (address == null && cipher == null) return false
             val candidate = when {
                 addresses == 1 && ciphers == 0 -> candidate(node, depth, address, null)
                 addresses == 0 && ciphers == 1 -> candidate(node, depth, null, cipher)
                 else -> null
             }
-            if (candidate != null) candidates += candidate else rejected += 1
+            if (candidate == null) {
+                rejected += 1
+                return false
+            }
+            candidates += candidate
+            return true
         }
 
         private fun candidate(node: JsonValue.Object, depth: Int, address: String?, cipher: String?): Candidate? {
@@ -374,11 +399,16 @@ internal object ShapeLocator {
                     out.append("[]")
                 } else {
                     if (out.isNotEmpty()) out.append('.')
-                    out.append(if (isKeyLike(key) && key != videoId) key else "*")
+                    out.append(shown(key))
                 }
             }
             return out.toString()
         }
+
+        /** The path of [key], a key of the object at [depth]. */
+        private fun keyPath(depth: Int, key: String): String = path(depth).let { if (it.isEmpty()) shown(key) else "$it.${shown(key)}" }
+
+        private fun shown(key: String): String = if (isKeyLike(key) && key != videoId) key else "*"
     }
 
     /** The deep-cut check: every mention in the raw answer was visited. */
@@ -386,6 +416,7 @@ internal object ShapeLocator {
         val seen = Census(videoId).also { it.walk(root, 0) }
         if (count(answer, MEDIA_HOST, ignoreCase = true) > seen.hosts) return false
         if (videoId != null && count(answer, "\"$videoId\"", ignoreCase = false) > seen.ids) return false
+        if (DRM_KEYS.sumOf { count(answer, "\"$it\"", ignoreCase = false) } > seen.drmKeys) return false
         return STATUS_VALUES.sumOf { count(answer, "\"$it\"", ignoreCase = false) } <= seen.statuses
     }
 
@@ -393,6 +424,7 @@ internal object ShapeLocator {
         var hosts = 0
         var ids = 0
         var statuses = 0
+        var drmKeys = 0
 
         fun walk(value: JsonValue, depth: Int) {
             when (value) {
@@ -418,6 +450,7 @@ internal object ShapeLocator {
             hosts += count(text, MEDIA_HOST, ignoreCase = true)
             if (videoId != null && text == videoId) ids += 1
             if (text in STATUS_VALUES) statuses += 1
+            if (text in DRM_KEYS) drmKeys += 1
         }
     }
 
@@ -488,8 +521,8 @@ internal object ShapeLocator {
             address.host.equals(HLS_HOST, ignoreCase = true) && HLS_PATHS.any { address.rawPath.orEmpty().startsWith(it) }
     }
 
-    private fun isDrmKey(key: String): Boolean =
-        key.startsWith("drm", ignoreCase = true) || key.contains("Drm") || key.contains("DRM")
+    private fun isDrmText(text: String): Boolean =
+        text.length in 8..48 && (DRM_TEXTS.any { text.equals(it, ignoreCase = true) } || text.startsWith(DRM_TRACK_PREFIX))
 
     private fun hasValue(value: JsonValue): Boolean = when (value) {
         is JsonValue.Text -> value.value.isNotBlank()

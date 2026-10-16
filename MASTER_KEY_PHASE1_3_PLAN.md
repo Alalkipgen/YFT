@@ -921,6 +921,14 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   on every live visionOS answer (`ShapeLocator`'s DRM marker is wider than the parser's).
   ⏸ Until the marker is narrowed (the parallel agent's file), then one census FULL again. Left:
   two weekly checks (≥ 1 h apart), runbook §7.
+- **Marker narrowed** (2026-10-15; owner exception for `ShapeLocator.kt` and its L tests;
+  PROGRESS): L's DRM marker is the copied parser's four DRM keys with a value under any
+  container (never weaker than the parser), or a DRM text inside a format-like object;
+  `Scan.drmPath` names its place. The census L line reads a stop as `none (stop <reason>)`, a DRM
+  stop with `; DRM marker at <key path>`. Reproduced first on `8164a39` (a live-like answer
+  without DRM: `Stop`); now rows on the round-trip and L1, L2, L3, L7. L matrix +5 cases; module
+  tests 606, 0 failed; simulator unchanged; drift 0. ⏸ Next: one census FULL on the new `normal`
+  APK (L steps 9/9 expected), two weekly checks, runbook §7.
 
 ### D8 — Signed identity data over R9 (owner decision) — Dropped (owner, 2026-10-15)
 

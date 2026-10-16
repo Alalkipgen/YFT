@@ -896,6 +896,50 @@ class ClientCensusTest {
         assertEquals(listOf("partial", null, null), read.asks.map(CensusAsk::shapeKind))
     }
 
+    @Test
+    fun `the L steps read a live-like visionOS answer as its direct parse, and an L stop on DRM names the marker's place`() = runTest {
+        // D7 (2026-10-15): the owner's census read every L step on live visionOS answers as
+        // "none (no rows)" — L stopped, its old DRM marker wider than the copied parser's;
+        // DRM-named player settings like these tripped it.
+        fun live(formatExtra: Map<String, Any?> = emptyMap()): String {
+            val json = SimJson.obj(SimJson.parse(Census.visionOs(Census.V1)))
+            val streaming = SimJson.obj(json["streamingData"])
+            SimJson.list(streaming["adaptiveFormats"]).map(SimJson::obj).forEach { it.putAll(formatExtra) }
+            streaming["serverAbrStreamingUrl"] = "https://${Census.HOST}/videoplayback?expire=4102444800&source=youtube&sabr=1"
+            json["playbackTracking"] = linkedMapOf<String, Any?>(
+                "videostatsPlaybackUrl" to linkedMapOf<String, Any?>("baseUrl" to "https://s.youtube.com/api/stats/playback?cl=1"),
+            )
+            json["playerConfig"] = LShapeCases.playerConfig()
+            return SimJson.write(json)
+        }
+        suspend fun notes(answer: String): List<String> {
+            val world = CensusWorld().standard(Census.V1).sources()
+            world.answer(Census.V1, "VISIONOS", answer)
+            val run = lastRun(census(world.http()).run(Mode.FULL, mapOf(1 to Census.V1), null))
+            assertEquals(CensusClass.DIRECT, ask(run, 1, "visionos", "R0").answerClass)
+            return run.notes
+        }
+
+        val plain = notes(live())
+        val line = plain.single { it.startsWith("video 1 L (R0, ") }
+        assertTrue(line, line.endsWith("round-trip same, L1 same, L2 same, L3 same, L5 n/a, L7 same"))
+        assertTrue(plain.contains(L_SUMMARY + "round-trip 1/1 same, L1 1/1 same, L2 1/1 same, L3 1/1 same, L5 0/0 same (1 n/a), L7 1/1 same"))
+
+        // A DRM text in a renamed key of each format (as the simulator's L12), which the copied
+        // parser does not read: L stops, and the note names where its marker sits (no value).
+        val drm = notes(live(mapOf("drmFamiliesV2" to mutableListOf<Any?>("WIDEVINE"))))
+        val stopped = drm.single { it.startsWith("video 1 L (R0, ") }
+        val stop = "none (stop DRM_PROTECTED; DRM marker at"
+        val expected = "round-trip $stop streamingData.adaptiveFormats[].drmFamiliesV2[]), " +
+            "L1 $stop playback.streamingData.adaptiveFormats[].drmFamiliesV2[]), " +
+            "L2 $stop streamingData.separateFormats[].drmFamiliesV2[]), " +
+            "L3 $stop streamingData.adaptiveFormats[].drmFamiliesV2[]), L5 n/a, " +
+            "L7 $stop streamingData.adaptiveFormats.*.drmFamiliesV2[])"
+        assertTrue(stopped, stopped.endsWith(expected))
+        assertFalse(stopped, stopped.contains("WIDEVINE") || stopped.contains("://"))
+        assertTrue(drm.contains(L_SUMMARY + "round-trip 0/1 same, L1 0/1 same, L2 0/1 same, L3 0/1 same, L5 0/0 same (1 n/a), L7 0/1 same"))
+    }
+
     /** The embedded player's error 152-18 (census videos 2 and 6): an error screen with a button. */
     private fun embeddedError152(id: String): String =
         "{\"playabilityStatus\":{\"status\":\"ERROR\",\"reason\":\"This video is unavailable\"," +
@@ -925,5 +969,6 @@ class ClientCensusTest {
         const val MINUTE = 60_000L
         const val HOUR = 60 * MINUTE
         const val DAY = 24 * HOUR
+        const val L_SUMMARY = "L steps on 1 visionOS answers (in memory, no request): "
     }
 }
