@@ -406,7 +406,7 @@ lookup (Master, clientLadder on)
 | D5b | Own parser L (locate, bind, canonical JSON, copied parser) | D3, D4 | High | TODO |
 | D5c | H leg (independent HLS) | D4, D5b (locate) | Medium–High | TODO |
 | D6 | O rungs (census-live only), memo, wiring, flag, merge rule | D5a–D5c | Medium–High | TODO |
-| D7 | Owner live check (with live L mutations), weekly check, runbook | D6 | Low–Medium | TODO |
+| D7 | Owner live check (with live L mutations), weekly check, runbook | D6 | Low–Medium | **In progress** (2026-10-16): phone check ✅ (six APKs, 11/11 each, wrong 0); L DRM marker narrowed (`83ce453`) ✅; W 4 and W 5 ✅ (§5); runbook §7 ✅; ⏸ one census FULL on run 2 (`1a62b18`), L steps |
 | D8 | Signed identity data over R9 (owner decision, after D0) | D2 | Medium | Dropped (owner, 2026-10-15; §9 item 4) |
 
 G0 is done (`a99e0fb`); D0 is next: it decides which rungs and sources exist and starts the
@@ -929,6 +929,11 @@ Phase 1.3 starts only when `PROGRESS.md` has the Phase 1.2 closing entry. **Done
   without DRM: `Stop`); now rows on the round-trip and L1, L2, L3, L7. L matrix +5 cases; module
   tests 606, 0 failed; simulator unchanged; drift 0. ⏸ Next: one census FULL on the new `normal`
   APK (L steps 9/9 expected), two weekly checks, runbook §7.
+- **Weekly checks** (owner, mobile data, run 1's `normal` APK; §5 table): W 4 2026-10-15 23:55
+  UTC and W 5 2026-10-16 01:04 UTC (69 min apart), each `NO CHANGE`, 15 requests, 623 / 622 KB,
+  7 / 9 s — §5.2 W met. Run 1 stands for run 2 here (no re-run): W has no L steps; its visionOS
+  answers were a bot check (judged before DRM) and R6's `DIRECT`. Runbook §7 updated. ⏸ Left: one
+  census FULL on run 2's `normal` APK (≥ 1 h after W 5), L steps expected all `same`.
 
 ### D8 — Signed identity data over R9 (owner decision) — Dropped (owner, 2026-10-15)
 
@@ -1129,6 +1134,8 @@ Weekly checks (W, §4 D0; the diff against the last stored run):
 | W 1 | 2026-10-15 03:39 UTC (94 min after valid run 3), mobile data (metered), `81388f8` | 8, 372 KB, 4 s (limits 20, 2 MB, 60 s) | videos 1 and 5: visionOS R0 `BOT_CHECK` → answered as R6 (watch page, `R0+vd` `DIRECT`, V pass; video 1 ≤ 240p, video 5 ≤ 1080p); no H and no Android, embedded or MWEB (video 1 met a bot check); version sources read < 24 h ago, not read | `CHANGED (2)`: only the two answered bot checks; after the owner's fixes (2026-10-15) they are `INFO` lines and the result reads `NO CHANGE` |
 | W 2 | 2026-10-15 04:34 UTC (55 min after W 1), mobile data (metered), `3e8f378` | 17, 448 KB, 10.5 s (limits 20, 2 MB, 60 s) | videos 1 and 5: visionOS R0 `BOT_CHECK` → answered as R6 (`R0+vd` `DIRECT`, V pass; video 1 ≤ 240p, video 5 ≤ 1080p); video 2: visionOS R0 `DIRECT` ≤ 2160p (27 adaptive), V pass; H on video 2: 2xx / 2xx / 2xx, 17 variants ≤ 2160p, audio separate, codecs avc1 / mp4a / vp09, key `NONE`, 38 segments, duration matches, 3 requests; no Android, embedded or MWEB (video 1 met a bot check); version sources read: as valid runs 1–3 | `FIRST RUN` (no diff): the owner uninstalled the old app before installing `3e8f378`, which deleted the stored runs (not a bug, no code change; §7); the two bot checks are `INFO` lines (owner item 4 ✅); the header named 6 videos (the slots set) while 3 were asked (fixed in the next census APK) |
 | W 3 | 2026-10-15 14:40 UTC (80 min after test 3), mobile data (metered), `595d259` | 15, 624 KB, 10.9 s (limits 20, 2 MB, 60 s) | videos 1 and 5: visionOS R0 `BOT_CHECK` → answered as R6 (`R0+vd` `DIRECT`, V pass; video 1 ≤ 240p, video 5 ≤ 1080p); H on video 1's `R0+vd` answer (B5): 2xx / 2xx / 2xx, 8 variants ≤ 240p, audio separate, codecs avc1 / mp4a / vp09, key `NONE`, 3 segments, duration matches, 3 requests; video 2 (B6; visionOS not asked, as H already ran): watch page 200 (MWEB 2.20261014.01.00, player 21090930), Android `SABR_ONLY` (the 360p progressive row, V pass), MWEB `NEEDS_SCRIPT` (30 ciphered adaptive formats ≤ 2160p; V `skip-needs-S`: W runs no S); embedded not asked (measured, not active); version sources read < 24 h ago, not read, so no newer version was tried (B7) | `CHANGED (1)`: H on video 1, master `net` → 2xx, variant and segment skip → 2xx — test 3's network failure gone (§7 step 7: nothing to fix); the two answered bot checks are `INFO` lines; no YouTube-side change |
+| W 4 | 2026-10-15 23:55 UTC (72 min after the D7 census FULL), mobile data (metered), `80ccb10` (D7 run 1 `normal`) | 15, 623 KB, 7 s (limits 20, 2 MB, 60 s) | 3 census videos; videos 1 and 5: visionOS R0 `BOT_CHECK` → answered as R6 (`R0+vd` `DIRECT`, V pass); H on video 1: 2xx, length matched | `NO CHANGE` |
+| W 5 | 2026-10-16 01:04 UTC (69 min after W 4), mobile data (metered), `80ccb10` (D7 run 1 `normal`) | 15, 622 KB, 9 s (limits 20, 2 MB, 60 s) | as W 4 | `NO CHANGE` |
 
 D0 is **done** (2026-10-15): 3 valid Full runs, the gate, the version-source table and weekly check 1.
 
@@ -1328,6 +1335,22 @@ Unchanged (= R6 in both columns): B0, V1, V7, V9, V11, L6, L9, L11, L12, Y1, Y2,
    measuring; the owner decides.
 9. A new no-token client in a reference: census first, then the table (≤ 4 identities), then an
    APK.
+
+What D7's census runs showed (owner, 2026-10-15/16; PROGRESS):
+
+- visionOS R0 `BOT_CHECK` without visitor data (8 of 9 videos in the full census; videos 1 and 5
+  in each W) answered as R6 (visionOS with its visitor data: `DIRECT`, V pass): an `INFO` line,
+  nothing to do. A bot check on R6 too → step 1.
+- MWEB shape ±`adPlacements`: MWEB's ad data comes and goes between runs (test 3 −, D7 +); not a
+  format path, nothing to do.
+- H on census video 10: master and variant 2xx, no segment (YouTube side, since D0): nothing to
+  do while it stays on that video; other videos without a segment → step 1.
+- L steps (full census only; in memory, no request): one line per `DIRECT` visionOS answer;
+  `same` on each step (L5 `n/a` without a cipher) is the expected reading. `differs` or
+  `none (…)` → copy the line to the agent. `none (stop DRM_PROTECTED; DRM marker at <path>)`
+  names where L saw DRM that the copied parser did not: the agent adds that answer's shape as a
+  test case first, then narrows the marker (as `83ce453` did).
+- W's cost on mobile data, W 1–5: 8–17 requests, 372–624 KB, 4–11 s (limits 20, 2 MB, 60 s).
 
 ## 8. Out of scope
 

@@ -1,5 +1,23 @@
 # YFT Master Extractor backup
 
+## Phase 1.3 — D7 weekly checks (owner, 2026-10-15/16 UTC; docs only): W 4 and W 5 NO CHANGE within budget; runbook §7
+
+- ✅ W 4 (the owner's D7 W1): 2026-10-15 23:55 UTC (72 min after the census FULL), mobile data,
+  run 1's `normal` APK (`80ccb10`): `NO CHANGE`; 3 census videos, 15 requests, 623 KB, 7 s.
+- ✅ W 5 (D7 W2): 2026-10-16 01:04 UTC (69 min after W 4), the same APK and network: `NO CHANGE`;
+  3 census videos, 15 requests, 622 KB, 9 s.
+- Both within the limits (20 requests, 2 MB, 60 s; §5.2 W: twice ✅). visionOS R0 bot check on
+  census videos 1 and 5, each answered as R6 (visionOS with its visitor data: `DIRECT`, V pass);
+  H on census video 1 2xx, the length matched.
+- No re-run on run 2's APK (the owner offered, 2026-10-16): run 1 and run 2 differ only in
+  `ShapeLocator`'s DRM marker and the full census's L note (`83ce453`). W has no L steps, and its
+  visionOS answers were a bot check (judged before DRM) and R6's `DIRECT`. The weekly checks from
+  now on run on run 2.
+- ✅ Runbook §7: what D7's census runs showed (bot check → R6 with visitor data; MWEB shape
+  ±`adPlacements`; H census video 10 no segment; how to read the L steps; W's cost).
+- ⏸ Left for D7: one census FULL on run 2's `normal` APK (`1a62b18`; update, no uninstall),
+  ≥ 1 h after W 5 (from 02:04 UTC): L steps expected all `same` (L5 n/a); then D7 Done.
+
 ## Phase 1.3 — D7 fix (2026-10-15): L's DRM marker narrowed to the copied parser's keys; L stops named in the census
 
 - ✅ Reproduced first on `8164a39` (tests, no request): a live-like visionOS answer without DRM
