@@ -14,7 +14,9 @@
   stopped there (226 frames, 5.25 s: exactly the first piece).
 - **Fix:** `HlsPackedAudio.payloadStart`: a piece that starts with ID3 tags (syncsafe size, footer
   flag) followed by ADTS sync is written without the tags; totals and the length checks count
-  the written bytes. TS, fMP4 and an ID3 tag followed by anything else are written as they are.
+  the written bytes (follow-up commit: the check that the pieces are what was downloaded runs
+  before the tags are dropped; `52ee188` compared the written bytes with the downloaded ones and
+  failed its own test). TS, fMP4 and an ID3 tag followed by anything else are written as they are.
   Also covers the "Audio HLS" row.
 - **Tests (CI, `core-download`):** `HlsTransferEngineTest`: 3 packed audio pieces (ID3v2.3, and an
   ID3v2.4 tag with a footer) give pure ADTS with every frame and `bytesWritten` = the frames; an

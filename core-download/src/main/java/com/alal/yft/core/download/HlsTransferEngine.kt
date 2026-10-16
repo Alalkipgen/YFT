@@ -181,11 +181,9 @@ class HlsTransferEngine(
             val bytesWritten = assemble(
                 workspace = workspace,
                 chunks = parsed.chunks,
+                downloadedBytes = completedCheckpoint.downloadedBytes,
                 destination = destination,
             )
-            if (bytesWritten != completedCheckpoint.downloadedBytes) {
-                throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
-            }
             cleanupWorkspace(workspace, strict = false)
             HlsTransferResult.Completed(bytesWritten, completedCheckpoint)
         } catch (cancellation: CancellationException) {
@@ -557,15 +555,23 @@ class HlsTransferEngine(
         }
     }
 
+    /**
+     * Joins the pieces into [destination] and returns the bytes written: the [downloadedBytes]
+     * of the pieces, less the ID3 tags of packed audio pieces.
+     */
     private suspend fun assemble(
         workspace: File,
         chunks: List<HlsDownloadChunk>,
+        downloadedBytes: Long,
         destination: DownloadDestination,
     ): Long {
         val files = chunks.map { chunk ->
             readyFile(workspace, chunk.index)
                 .takeIf(File::isFile)
                 ?: throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
+        }
+        if (files.sumOf { it.length() } != downloadedBytes) {
+            throw HlsAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = VERIFY)
         }
         // Packed audio pieces lose their leading ID3 tags; every other piece is written whole.
         val starts = files.map(HlsPackedAudio::payloadStart)
