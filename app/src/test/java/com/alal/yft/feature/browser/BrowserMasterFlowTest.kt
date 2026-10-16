@@ -52,6 +52,20 @@ class BrowserMasterFlowTest {
         assertEquals(0, backup.calls)
     }
 
+    /** Phase 1.4 item 2: the h-only APK's site goes through the backup even when it was found. */
+    @Test
+    fun aFoundPageOfTheMasterFirstSiteRunsTheBackupOnce() = runTest {
+        val adapter = FixtureExtractor(succeeds = true)
+        val backup = FakeBackup(masterFirstSite = site)
+        val vm = viewModel(backup, adapter)
+        vm.onPageStarted(site)
+        vm.onPageFinished(site, "Fixture")
+        runCurrent()
+        assertEquals(1, adapter.calls)
+        assertEquals(1, backup.calls)
+        assertFalse(backup.onDemand)
+    }
+
     @Test
     fun recoverablePrimaryFailureRunsTheBackupOnceWithoutRecursiveExtraction() = runTest {
         val adapter = FixtureExtractor()
@@ -212,8 +226,10 @@ class BrowserMasterFlowTest {
 
     private inner class FakeBackup(
         private val answer: suspend () -> SiteAdapterOutcome = { detected() },
+        private val masterFirstSite: String? = null,
     ) : BrowserMasterFallback {
         override val enabled = true
+        override fun masterFirst(lookupUrl: String): Boolean = lookupUrl == masterFirstSite
         var calls = 0
         var cancelled = 0
         var onDemand = false

@@ -121,6 +121,36 @@ class BrowserMasterFallbackTest {
         }
     }
 
+    /** Phase 1.4 item 2: the h-only APK's site still goes through Master when its page is found. */
+    @Test
+    fun aFoundPageOfTheMasterFirstSiteGoesThroughMaster() = runTest {
+        val fixture = Fixture(tiktok, masterFirstSite = "tiktok")
+        val primary = SiteAdapterOutcome.Detected("tiktok", listOf(candidate()))
+        val result = fixture.bridge.recover(tiktok, primary, 100) as SiteAdapterOutcome.Detected
+        assertNotSame(primary, result)
+        assertEquals("master", result.adapterId)
+        assertEquals("tiktok:11111", result.candidates.single().videoId)
+        assertEquals(1, fixture.factories.get())
+        assertEquals(1, fixture.captures.get())
+    }
+
+    /** Item 2: every other build (no master-first site) and every other site return at once. */
+    @Test
+    fun aFoundPageReturnsAtOnceWithoutTheTrialOrOnAnotherSite() = runTest {
+        val primary = SiteAdapterOutcome.Detected("tiktok", listOf(candidate()))
+        val normal = Fixture(tiktok)
+        assertSame(primary, normal.bridge.recover(tiktok, primary, 100))
+        val otherSite = Fixture(tiktok, masterFirstSite = AndroidBrowserMasterFallback.YOUTUBE_SITE_ID)
+        assertSame(primary, otherSite.bridge.recover(tiktok, primary, 100))
+        val genericPage = Fixture(generic, masterFirstSite = "tiktok")
+        val found = SiteAdapterOutcome.Detected("generic", listOf(candidate()))
+        assertSame(found, genericPage.bridge.recover(generic, found, 100))
+        for (fixture in listOf(normal, otherSite, genericPage)) {
+            assertEquals(0, fixture.factories.get())
+            assertEquals(0, fixture.captures.get())
+        }
+    }
+
     @Test
     fun recoverableSiteFailureUsesOneCaptureAndKnownFocusedIdentity() = runTest {
         val fixture = Fixture(tiktok)
@@ -252,6 +282,7 @@ class BrowserMasterFallbackTest {
         beforeCapture: suspend () -> Unit = {},
         extractor: SiteExtractor = FixtureExtractor(),
         contracts: SiteContracts? = null,
+        masterFirstSite: String? = null,
     ) {
         val capture = WebViewPlaybackCapture(enabledBuild)
         val factories = AtomicInteger()
@@ -293,6 +324,7 @@ class BrowserMasterFallbackTest {
                 factories.incrementAndGet()
                 MasterRequest(page, scope.generation, now, reason, expected)
             },
+            masterFirstSite = masterFirstSite,
         )
     }
 

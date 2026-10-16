@@ -36,6 +36,13 @@ interface BrowserMasterFallback {
     val capture: WebViewPlaybackCapture? get() = null
     fun mainAndMore(candidates: List<MediaCandidate>): MasterMainPresentation? = null
 
+    /**
+     * Phase 1.4 item 2: whether a page the site adapter found still goes through [recover] —
+     * YouTube in the h-only live-check APK only, so the ladder's H gives the rows. False in every
+     * other build: a found page never reaches the backup.
+     */
+    fun masterFirst(lookupUrl: String): Boolean = false
+
     suspend fun recover(
         lookupUrl: String,
         primary: SiteAdapterOutcome,
@@ -61,6 +68,13 @@ class AndroidBrowserMasterFallback(
     private val mergeSupport: MergeSupport = DeviceMergeSupport(),
     private val requestFactory: suspend (SiteExtractionFailure, Long, String?) -> MasterRequest? =
         capture::request,
+    /**
+     * Phase 1.4 item 2: the site whose found pages still go through Master — YouTube in the
+     * h-only live-check APK only (`-Pyft.ladderSkip=h-only`, [MasterLadderSwitch.hOnly]), so the
+     * ladder's H gives the rows (on run 3 the normal path's rows came first and H never ran).
+     * Every other build: null, and a found page returns at once as before.
+     */
+    private val masterFirstSite: String? = null,
 ) : BrowserMasterFallback {
     override val enabled: Boolean get() = capture.enabled
     override fun mainAndMore(candidates: List<MediaCandidate>): MasterMainPresentation? =
@@ -72,8 +86,10 @@ class AndroidBrowserMasterFallback(
         nowEpochMs: Long,
         genericOnDemand: Boolean,
     ): SiteAdapterOutcome {
-        // Successful/disabled primary paths never sample the page or launch another probe.
-        if (!enabled || primary is SiteAdapterOutcome.Detected) return primary
+        // Successful/disabled primary paths never sample the page or launch another probe
+        // (except the h-only trial's site, item 2: Master's ladder answers instead).
+        if (!enabled) return primary
+        if (primary is SiteAdapterOutcome.Detected && !masterFirst(lookupUrl)) return primary
         if (primary === SiteAdapterOutcome.NotHandled && !genericOnDemand) return primary
         if (!sites.allowsMasterFallback(lookupUrl)) return primary
         val failure = (primary as? SiteAdapterOutcome.Failed)?.reason
@@ -145,6 +161,12 @@ class AndroidBrowserMasterFallback(
         }
     }
 
+    /** Item 2: whether [lookupUrl]'s site is the h-only trial's (never in another build). */
+    override fun masterFirst(lookupUrl: String): Boolean {
+        val site = masterFirstSite ?: return false
+        return enabled && sites.videoKey(lookupUrl)?.substringBefore(':') == site
+    }
+
     private fun relatedPage(lookup: String, page: String, requestedKey: String?): Boolean {
         if (lookup == page || sites.sameContent(lookup, page)) return true
         // A feed's focused permalink can share its tab, but a different named post cannot.
@@ -184,6 +206,9 @@ class AndroidBrowserMasterFallback(
 
         private const val PLAY_FIRST = "Play the video on this page, then tap Try again."
 
+        /** The YouTube adapter's site ID (its video key's prefix). */
+        internal const val YOUTUBE_SITE_ID = "youtube"
+
         fun create(
             enabled: Boolean,
             client: OkHttpClient,
@@ -214,6 +239,8 @@ class AndroidBrowserMasterFallback(
                     // R9: their recipes from a signed config when the build carries its key.
                     contracts = MasterRecipeConfig.contracts(http),
                 ),
+                // Phase 1.4 item 2: in the h-only APK a found YouTube page goes through H too.
+                masterFirstSite = if (MasterLadderSwitch.hOnly) YOUTUBE_SITE_ID else null,
             )
         }
     }

@@ -59,6 +59,14 @@ internal object MasterLadderSwitch {
         return MasterYouTubeModule(http, scripts, ladder(client, filesDir))
     }
 
+    /**
+     * Phase 1.4 item 2: the h-only live-check APK (the ladder on, `-Pyft.ladderSkip=h-only`):
+     * a found YouTube page goes through Master, so H's row is what the owner downloads.
+     */
+    val hOnly: Boolean
+        get() = BuildConfig.CLIENT_LADDER_ENABLED &&
+            LadderTrial.of(BuildConfig.LADDER_SKIP, BuildConfig.LADDER_MUTATE).hOnly
+
     /** The process's ladder: every tab shares its health (thread-safe), V ledger and switch. */
     private fun ladder(client: OkHttpClient, filesDir: (() -> File)?): MasterClientLadder =
         shared ?: synchronized(this) {

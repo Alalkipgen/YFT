@@ -964,7 +964,10 @@ class BrowserViewModel(
                     fresh = fresh,
                     tab = tabData,
                 )
-                if (primary is SiteAdapterOutcome.Failed) {
+                // Phase 1.4 item 2: in the h-only APK a found YouTube page goes through H too.
+                if (primary is SiteAdapterOutcome.Failed ||
+                    (primary is SiteAdapterOutcome.Detected && masterFallback.masterFirst(url))
+                ) {
                     masterFallback.recover(url, primary, clock())
                 } else primary
             }.also { runningLookups[key] = it }
