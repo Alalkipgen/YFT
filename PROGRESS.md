@@ -1,5 +1,39 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 backlog items 2 and 6 (2026-10-17): item 2 stays closed (no trigger), item 6 not built; run 5 APKs
+
+- **Item 2 (L steps 7–8):** no trigger has appeared (no BREAKING shape in W, no page signal
+  missing for the copied reader). Item 3 records a moved layout and item 4 covers a page without
+  a player ID, so the steps stay closed; nothing built.
+- **Item 6 (live WebM pieces, one-file live formats):** not built. Joining WebM pieces needs a
+  Matroska reader and writer proven on real pieces, and the sandbox cannot fetch any now
+  (YouTube asks it to sign in); a wrong join would give a broken file where today says "pick an
+  MP4 quality". The MP4 qualities of such a stream keep working (run 4f).
+- **Run 5 APKs (`[d7]`):** this backlog's items 3, 4, 1 and 5 in one build for the phone check.
+
+## Phase 1.4 backlog item 5 (2026-10-17): VP9 HLS 1440p / 2160p get their AAC sound, copied into one MP4 by YFT's own stream copy (phone proof pending)
+
+- **What:** `HlsAudioPairing` also pairs a VP9 HLS quality (`vp09`) with its group's AAC sound,
+  but only at a height where no quality has sound after the AVC pairing (YouTube's 1440p and
+  2160p over H). At 1080p and below the AVC row keeps the sound and is the one listed, as before.
+- **The merge:** Android's MP4 muxer takes no VP9, so it is the P35 stream copy alone:
+  `Mp4TrackReader` reads the VP9 fMP4 (the `vp09` entry and its `vpcC` copied byte for byte, no
+  NAL lengths) and the new `AdtsTrackReader` reads the joined ADTS sound (each frame without its
+  header, 1024 ticks, an `mp4a` entry whose `esds` holds the AudioSpecificConfig the headers
+  name). ADTS is read this way only next to VP9 video; AVC HLS keeps today's way (MediaMuxer).
+  The read-back check stays; when the copy fails, the fallback fails too (no VP9 in Android's
+  MP4), so the download ends in a merge failure, never a silent file.
+- **Where it is allowed:** `AudioVideoMuxCompatibility.canWriteVideo(..., hlsVp9)` from
+  `VP9_HLS_MP4_MIN_SDK` = 29 (Android 10, whose MediaExtractor reads VP9 in MP4 for the check);
+  `DeviceMergeSupport` passes it for HLS candidates. On Android 9 and below such a row is left
+  out, as the chain's VP9 WebM is.
+- **Tests:** `AdtsStreamCopyReaderTest` (2, local), `StreamCopyAudioVideoMuxerTest` (+2: VP9 with
+  ADTS is stream-copied; ADTS with AVC keeps today's way), `AudioVideoMuxEngineTest`,
+  `MergeSupportTest`, `DefaultVariantResolverTest` (VP9 2160p paired, VP9 1080p not). No
+  extractor-master file changed, so parity stays (`5116af8`).
+- **Phone check:** a 1440p / 2160p row over H that said "No sound" now downloads as one MP4 that
+  plays with sound and seeks.
+
 ## Phase 1.4 backlog item 1 (2026-10-17): the census reads YouTube's visionOS App Store listing and measures its form (full census only); A never reads it
 
 - **What:** `CensusSources.APP_STORE_URL` now looks up `bundleId=com.google.visionosyoutube`

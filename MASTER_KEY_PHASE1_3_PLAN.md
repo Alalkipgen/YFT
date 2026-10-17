@@ -1793,7 +1793,10 @@ merge buffer (`ec1f24e`), item 3 visionOS 1.04 bundled (`f02070a`), item 2 h-onl
    locate for S) is built only when the live checks show the need: W reports a **BREAKING** shape
    (a removed path the copied parser reads, `CensusDiff`), or a page signal (the player ID, the
    signature timestamp, visitor data) is missing for the copied reader. Until then both stay
-   closed (§4 D5b).
+   closed (§4 D5b). **Checked 2026-10-17 (the owner's go for every backlog item): no trigger has
+   appeared** — no W report has shown a BREAKING shape and the copied reader has missed no page
+   signal. Item 3 now records a moved layout (the shape map) and item 4 covers a page without a
+   player ID, so steps 7–8 stay closed; nothing built.
 3. **Record the shape map only.** L writes the map it located (the canonical names' paths and the
    shape fingerprint; no value, address or ID) to `ClientHealth` and W's report; nothing reads
    with it, so the whole-answer checks stay as they are (guardrail 9). It shows a moved layout
@@ -1817,7 +1820,11 @@ merge buffer (`ec1f24e`), item 3 visionOS 1.04 bundled (`f02070a`), item 2 h-onl
    (`QuickDownloadChoices`), so over H the rows up to 1080p have sound and 1440p / 2160p (VP9
    only) say "No sound"; over the chain, 2K and 4K come as VP9 WebM with Opus (P6). Sound for VP9
    over H would need a merge that writes VP9 and AAC into one file without Android's muxer: new
-   core-download work, proven on a phone first, parity kept (guardrail 1).
+   core-download work, proven on a phone first, parity kept (guardrail 1). **Built 2026-10-17
+   (the owner's go for every backlog item, `5116af8`):** `HlsAudioPairing` pairs VP9 with the AAC
+   sound only where no AVC quality of that height has sound (1440p / 2160p); the P35 stream copy
+   writes the VP9 fMP4 and the joined ADTS (`AdtsTrackReader`) into one MP4, from Android 10,
+   check kept; no extractor-master file changed. Phone proof pending.
 
 6. **Live WebM pieces and one-file live formats (found 2026-10-17, owner item 6, run 4f).** A
    recently ended live stream's MP4 qualities are asked piece by piece and joined
@@ -1825,4 +1832,8 @@ merge buffer (`ec1f24e`), item 3 visionOS 1.04 bundled (`f02070a`), item 2 h-onl
    the only 1440p / 2160p) fail with "live WebM pieces are not joined; pick an MP4 quality": each
    piece is a WebM of its own, and joining them needs a Matroska reader and writer. A one-file
    live format (`DirectTransferEngine`) keeps the run 4e reading, which gets only the newest
-   piece of such a file.
+   piece of such a file. **Not built 2026-10-17 (the owner's go for every backlog item):**
+   joining the pieces needs a Matroska reader and writer, proven on real pieces; the sandbox
+   cannot fetch any now (YouTube asks it to sign in), and a wrong join would give a broken file
+   where today gives a clear message. Such a stream's MP4 qualities keep working (run 4f); this
+   stays the next core-download work, phone proof first.
