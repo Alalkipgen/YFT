@@ -1,5 +1,13 @@
 # YFT Master Extractor backup
 
+## visionOS 1.05 A check on the phone (owner, 2026-10-17 19:41 UTC): passed
+
+- Run 6 normal APK, census screen → "A check (visionOS 1.05)", video 2, mobile data: visionOS 1.02
+  `DIRECT`; visionOS 1.05 `DIRECT`, V `PASS` (AVC row) → "1.05 can be visionOS's bundled alternate
+  (App Store, 2026-09-19)". 3 requests, 37 KB, 1 s; both answers bound to the video, the same 27
+  adaptive rows (144p–2160p) and HLS. The bundled alternate 1.05 (`adc1f85`) is confirmed on the
+  phone; nothing else to do.
+
 ## visionOS bundled alternate 1.04 → 1.05 (owner's order, 2026-10-17); run 6 APKs
 
 - **Why:** run 5's full census found the visionOS App Store listing's form 1.05 `DIRECT` with a V

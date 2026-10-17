@@ -1783,7 +1783,8 @@ Found on the way and outside every task above; nothing here starts without the o
    census only (step `ST`, the `appstore` fact's `accepted`); W and A unchanged. The phone's full
    census is the D0 measurement: run 5 (owner, 2026-10-17) answered `1.05` accepted (`yes`);
    on the owner's order (2026-10-17) 1.05 then replaced NewPipe's 1.04 as visionOS's
-   bundled alternate (`MasterClientTable.VISION_OS_ALTERNATE`, also the A check's version); R0 stays 1.02.
+   bundled alternate (`MasterClientTable.VISION_OS_ALTERNATE`, also the A check's version, `adc1f85`); R0 stays 1.02. The owner's A check on the phone
+   (2026-10-17 19:41 UTC): 1.02 `DIRECT`; 1.05 `DIRECT`, V `PASS`.
 
 **Phase 1.4** (the owner, 2026-10-16, when D5b steps 7–8 were closed without code; §9 item 15):
 
