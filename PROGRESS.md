@@ -1,5 +1,45 @@
 # YFT Master Extractor backup
 
+## Owner item 6, run 4e on the phone (2026-10-17): `NETWORK` READ_SOURCE, Detail "… sq 2021/2021 · SocketTimeoutException" → a live stream's file is asked piece by piece (`sq` 0 to the head) and the pieces are joined, as yt-dlp does; `[d7]` run 4f
+
+- **Phone (the owner, run 4e APKs):** the recently ended live stream (2:48:23, ended about 9 h
+  before), 720p and 240p, type Merge: `NETWORK` READ_SOURCE, Detail "live 671325 B/4 asks, last
+  206 bytes 671325-11157084/-2 len 10485760 sq 2021/2021 · SocketTimeoutException" (240p: 230,132
+  B). Another app got the whole 2:48 at 480p.
+- **Reading:** YouTube still serves this file from its live server (`source=yt_live_broadcast`):
+  the address without `sq` sends only the newest piece (sq 2021 of 0…2021, about 5 s each) and
+  then waits for the next one, so every byte-range way gets one piece. yt-dlp (checked in its
+  source) asks a HEAD of the address for `X-Head-Seqnum`, then `sq=0` … `sq=head`; each piece is
+  a fragmented MP4 with its own `moov`.
+- **Fix (owner plan A; `LivePieces.kt`, `DashTransferEngine`; live-origin whole-file DASH
+  tracks only):** 1) a HEAD of the address gives the head (`X-Head-Seqnum`; none → new reason
+  `LIVE_NOT_READY`, "YouTube is still preparing this live video. Try again later."). 2) one plain
+  GET per piece, `sq` 0…head, no Range (a 200, or a 206 that holds the whole piece); piece 0
+  first, and it must start a fragmented MP4 of the track, else `LIVE_NOT_READY` and nothing more
+  is asked; the rest 4 at a time. A piece has 5 attempts for network errors, 5xx, 403 and 429
+  (after its Retry-After, at most 60 s). 3) a missing piece among the newest 2 ends the file
+  there; any other missing piece fails, Detail "live sq N/head · <status> <type> len <length>
+  sq <X-Sequence-Num>/<X-Head-Seqnum>". 4) the pieces are joined (`LivePieceJoin`): piece 0's
+  `ftyp` + `moov`, then of each piece its first `moof` to the end of its last `mdat`; a later
+  piece's `moov` must name the same track (id + `stsd`); a `tfhd` with an absolute data offset
+  is moved with its piece. The joined file is read by the merge's own reader (`Mp4TrackReader`)
+  before it is written (a problem → `INTEGRITY_MISMATCH`, Detail "live: join: …"). 5) when the
+  video's length is known and the joined track is shorter by more than 2 pieces + 1 s →
+  `LIVE_NOT_READY`, Detail "live 1h02m03s of 2h48m23s · n/N pieces" (h/m/s: the Detail's
+  cleaning takes "2:48:23" for an address). WebM live tracks: `UNSUPPORTED_SOURCE`, Detail "live
+  WebM pieces are not joined; pick an MP4 quality". The plan now carries the video's length
+  (`DashDownloadPlan.expectedDurationMillis`, from the variant; video and audio of a Merge).
+  DASH no longer uses the run 4e growing read; `DirectTransferEngine` keeps it (one live file
+  there is not joined). Merge and parity code untouched.
+- **Limits:** WebM pieces are not joined; a stream still on air gets the pieces up to the head
+  at the start; a resume keeps the pieces only while the head is the same.
+- **Tests (CI; also run locally in a scratch JVM copy, `DashTransferEngineTest` and the other
+  engine tests green):** `DashTransferEngineTest`: 10 live piece tests replace the 3 growing-read
+  ones (see `docs/TEST_MATRIX.md`, item 6 row); `DownloadPlanFactoryTest`: a Merge plan's video
+  and audio carry the video's length.
+- **Phone check (next):** the same live stream, 720p and 240p, Merge → one 2:48 file that plays
+  all through; on a failure, the Detail.
+
 ## Owner item 6, run 4d on the phone (2026-10-17): `NETWORK` READ_SOURCE (a socket read timed out in the body) → a live-origin answer is read only up to its Content-Range end, a stalled body keeps its bytes, only a 416 or an empty answer ends the file; `[d7]` run 4e
 
 - **Phone (the owner, normal APK of run 4d, `94728e3`):** the recently ended live stream, type

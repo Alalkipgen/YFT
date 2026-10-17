@@ -223,6 +223,8 @@ class DownloadEnqueuer(
         DownloadFailureReason.STORAGE_UNAVAILABLE -> "Download storage is unavailable."
         DownloadFailureReason.INSUFFICIENT_STORAGE -> "There is not enough free storage."
         DownloadFailureReason.INTEGRITY_MISMATCH -> "The downloaded data failed verification."
+        DownloadFailureReason.LIVE_NOT_READY ->
+            "YouTube is still preparing this live video. Try again later."
     }
 
     companion object {

@@ -125,7 +125,11 @@ class DownloadPlanFactoryTest {
             label = "720p",
             container = "mp4",
             expiresAt = 9_000L,
-        ).copy(codecs = listOf("avc1.4d401f"), audioCompanion = companion(expiresAt = 5_000L))
+        ).copy(
+            codecs = listOf("avc1.4d401f"),
+            audioCompanion = companion(expiresAt = 5_000L),
+            durationMillis = 10_103_000L,
+        )
 
         val request = (factory(merged) as DownloadPlanResult.Ready).request as DownloadRequest.Mux
 
@@ -140,6 +144,9 @@ class DownloadPlanFactoryTest {
         assertEquals(companion().mediaUrl, plan.audio.manifestUrl)
         assertEquals(MediaTrackType.AUDIO, plan.audio.trackType)
         assertEquals(listOf("mp4a.40.2"), plan.audio.codecs)
+        // The page's length, for a live stream's pieces (run 4f).
+        assertEquals(10_103_000L, plan.video.expectedDurationMillis)
+        assertEquals(10_103_000L, plan.audio.expectedDurationMillis)
         // YouTube states the sound's length, so its download needs no length request (P41).
         assertEquals(WholeFileTrack(totalBytes = 1_024), plan.audio.wholeFile)
         assertEquals(5_000L, plan.expiresAtEpochMs)

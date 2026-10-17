@@ -361,84 +361,196 @@ class DashTransferEngineTest {
     }
 
     @Test
-    fun `a live-origin whole file is read up to each Content-Range end, not its length`() =
+    fun `a live stream's pieces are asked from sq 0 to its head and joined into one track`() =
         runTest {
-            val bytes = ByteArray(2_500) { index -> (index % 251).toByte() }
-            server.dispatcher = liveOriginDispatcher(bytes)
+            val (track, pieces) = livePieces()
+            server.dispatcher = livePieceDispatcher(pieces)
             val files = files("live.mp4")
             val progress = mutableListOf<DownloadProgress>()
 
-            val result = engine(maxConcurrentChunks = 1).transfer(
-                plan = wholeFilePlan(
-                    url = server.url("/video.mp4?source=yt_live_broadcast").toString(),
-                    id = "live",
-                    totalBytes = 9_999,
-                ),
+            val result = engine().transfer(
+                plan = livePlan("live", expectedDurationMillis = 1_500),
                 destination = files.destination,
                 onProgress = { progress += it },
             ) as DashTransferResult.Completed
 
-            assertEquals(2_500L, result.bytesWritten)
-            assertArrayEquals(bytes, files.completed.readBytes())
-            val starts = List(server.requestCount) {
-                RANGE.matchEntire(server.takeRequest().getHeader("Range")!!)!!
-                    .groupValues[1].toLong()
+            assertEquals(files.completed.length(), result.bytesWritten)
+            assertSamples(track.samples, files.completed)
+            val first = server.takeRequest()
+            assertEquals("HEAD", first.method)
+            assertEquals(null, first.requestUrl?.queryParameter("sq"))
+            val asked = List(server.requestCount - 1) {
+                server.takeRequest().requestUrl?.queryParameter("sq").orEmpty()
             }
-            // Every answer claims the whole ask in its Content-Length but stops at its
-            // Content-Range end; the next ask starts there, and the 416 after the end ends it.
-            assertEquals(listOf(0L, 400L, 800L, 1_200L, 1_600L, 2_000L, 2_400L, 2_500L), starts)
+            // Piece 0 alone first, then the rest; every piece once, with no Range.
+            assertEquals("0", asked.first())
+            assertEquals(listOf("0", "1", "2", "3"), asked.sorted())
             assertTrue(progress.all { it.totalBytes == null })
-            assertEquals(2_500L, progress.last().downloadedBytes)
         }
 
     @Test
-    fun `a live-origin whole file keeps what a stalled answer brought and asks on from there`() =
-        runTest {
-            val bytes = ByteArray(2_500) { index -> (index % 241).toByte() }
-            server.dispatcher = liveOriginDispatcher(bytes, stallAt = 800)
-            val files = files("stalled.mp4")
+    fun `a live stream whose first piece starts no fragmented MP4 is not ready yet`() = runTest {
+        val (_, pieces) = livePieces()
+        val broken = listOf(Mp4TestFiles.box("mdat", ByteArray(100))) + pieces.drop(1)
+        server.dispatcher = livePieceDispatcher(broken)
+        val files = files("early.mp4")
 
-            val result = engine(maxConcurrentChunks = 1).transfer(
-                plan = wholeFilePlan(
-                    url = server.url("/video.mp4?source=yt_live_broadcast").toString(),
-                    id = "stalled",
-                ),
-                destination = files.destination,
-            ) as DashTransferResult.Completed
-
-            assertEquals(2_500L, result.bytesWritten)
-            assertArrayEquals(bytes, files.completed.readBytes())
-            val starts = List(server.requestCount) {
-                RANGE.matchEntire(server.takeRequest().getHeader("Range")!!)!!
-                    .groupValues[1].toLong()
-            }
-            // The answer at 800 stops after 200 bytes: they stay and the next ask starts at 1000.
-            assertEquals(listOf(0L, 400L, 800L, 1_000L, 1_400L, 1_800L, 2_200L, 2_500L), starts)
-        }
-
-    @Test
-    fun `a live-origin whole file that is refused part way fails and keeps no file`() = runTest {
-        val bytes = ByteArray(2_500) { index -> (index % 251).toByte() }
-        server.dispatcher = liveOriginDispatcher(bytes, forbidFrom = 800)
-        val files = files("refused.mp4")
-
-        val result = engine(maxConcurrentChunks = 1).transfer(
-            plan = wholeFilePlan(
-                url = server.url("/video.mp4?source=yt_live_broadcast").toString(),
-                id = "refused",
-            ),
+        val result = engine().transfer(
+            plan = livePlan("early"),
             destination = files.destination,
         ) as DashTransferResult.Failure
 
-        // A 403 after short answers is not the end of the file: it fails, and says how far.
-        assertEquals(DownloadFailureReason.ACCESS_DENIED, result.failure.reason)
-        assertEquals(403, result.failure.httpStatusCode)
-        assertEquals(DownloadFailureStage.CONNECT, result.failure.stage)
+        assertEquals(DownloadFailureReason.LIVE_NOT_READY, result.failure.reason)
+        assertEquals("live: sq 0 has no moof", result.failure.detail)
+        // The HEAD and piece 0, nothing more.
+        assertEquals(2, server.requestCount)
+        assertFalse(files.completed.exists())
+    }
+
+    @Test
+    fun `a live stream whose server names no head piece is not ready yet`() = runTest {
+        val (_, pieces) = livePieces()
+        server.dispatcher = livePieceDispatcher(pieces, head = null)
+        val files = files("headless.mp4")
+
+        val result = engine().transfer(
+            plan = livePlan("headless"),
+            destination = files.destination,
+        ) as DashTransferResult.Failure
+
+        assertEquals(DownloadFailureReason.LIVE_NOT_READY, result.failure.reason)
+        assertEquals("live head: 200, no X-Head-Seqnum", result.failure.detail)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `a live stream much shorter than its video is not ready yet`() = runTest {
+        val (_, pieces) = livePieces()
+        server.dispatcher = livePieceDispatcher(pieces)
+        val files = files("short-live.mp4")
+
+        val result = engine().transfer(
+            plan = livePlan("short-live", expectedDurationMillis = 10_000),
+            destination = files.destination,
+        ) as DashTransferResult.Failure
+
+        assertEquals(DownloadFailureReason.LIVE_NOT_READY, result.failure.reason)
+        assertEquals("live 0h00m00s of 0h00m10s · 4/4 pieces", result.failure.detail)
+        assertFalse(files.completed.exists())
+    }
+
+    @Test
+    fun `a missing newest piece ends the live file before it`() = runTest {
+        val (track, pieces) = livePieces()
+        server.dispatcher = livePieceDispatcher(pieces) { sq, _ -> 404.takeIf { sq == 3 } }
+        val files = files("tail.mp4")
+
+        engine().transfer(
+            plan = livePlan("tail"),
+            destination = files.destination,
+        ) as DashTransferResult.Completed
+
+        assertSamples(track.fragments.take(3).flatten(), files.completed)
+    }
+
+    @Test
+    fun `a missing piece in the middle fails the live file and names it`() = runTest {
+        val (_, pieces) = livePieces()
+        server.dispatcher = livePieceDispatcher(pieces) { sq, _ -> 404.takeIf { sq == 1 } }
+        val files = files("hole.mp4")
+
+        val result = engine().transfer(
+            plan = livePlan("hole"),
+            destination = files.destination,
+        ) as DashTransferResult.Failure
+
+        assertEquals(DownloadFailureReason.NOT_FOUND, result.failure.reason)
+        assertEquals(404, result.failure.httpStatusCode)
         assertTrue(
             result.failure.detail.orEmpty(),
-            result.failure.detail.orEmpty().startsWith("live 800 B/3 asks, last 403 "),
+            result.failure.detail.orEmpty().startsWith("live sq 1/3 · 404 "),
         )
         assertFalse(files.completed.exists())
+    }
+
+    @Test
+    fun `a live piece refused or rate limited for a while is asked again`() = runTest {
+        val (track, pieces) = livePieces()
+        server.dispatcher = livePieceDispatcher(pieces) { sq, ask ->
+            when {
+                sq == 1 && ask == 1 -> 429
+                sq == 2 && ask <= 2 -> 403
+                else -> null
+            }
+        }
+        val files = files("again.mp4")
+
+        engine().transfer(
+            plan = livePlan("again"),
+            destination = files.destination,
+        ) as DashTransferResult.Completed
+
+        assertSamples(track.samples, files.completed)
+    }
+
+    @Test
+    fun `a live piece refused every time fails as access denied`() = runTest {
+        val (_, pieces) = livePieces()
+        server.dispatcher = livePieceDispatcher(pieces) { sq, _ -> 403.takeIf { sq == 1 } }
+        val files = files("refused.mp4")
+
+        val result = engine().transfer(
+            plan = livePlan("refused"),
+            destination = files.destination,
+        ) as DashTransferResult.Failure
+
+        assertEquals(DownloadFailureReason.ACCESS_DENIED, result.failure.reason)
+        assertTrue(
+            result.failure.detail.orEmpty(),
+            result.failure.detail.orEmpty().startsWith("live sq 1/3 · 403 "),
+        )
+        assertFalse(files.completed.exists())
+    }
+
+    @Test
+    fun `live WebM pieces are not joined and nothing is asked`() = runTest {
+        val (_, pieces) = livePieces()
+        server.dispatcher = livePieceDispatcher(pieces)
+        val files = files("live.webm")
+
+        val result = engine().transfer(
+            plan = livePlan("webm").copy(mimeType = "video/webm", codecs = listOf("vp9")),
+            destination = files.destination,
+        ) as DashTransferResult.Failure
+
+        assertEquals(DownloadFailureReason.UNSUPPORTED_SOURCE, result.failure.reason)
+        assertEquals(
+            "live WebM pieces are not joined; pick an MP4 quality",
+            result.failure.detail,
+        )
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun `a live piece whose tfhd names where its data is keeps it after the join`() = runTest {
+        val track = Mp4TestFiles.video(fragments = 3, perFragment = 4)
+        var time = 0L
+        val pieces = track.fragments.mapIndexed { index, samples ->
+            val header = Mp4TestFiles.header(track) + Mp4TestFiles.box("emsg", ByteArray(index * 7))
+            val piece = header + absoluteMoof(index + 1, time, samples, header.size.toLong()) +
+                Mp4TestFiles.box("mdat", samples.fold(ByteArray(0)) { all, it -> all + it.bytes })
+            time += samples.sumOf { it.duration.toLong() }
+            piece
+        }
+        server.dispatcher = livePieceDispatcher(pieces)
+        val files = files("absolute.mp4")
+
+        engine().transfer(
+            plan = livePlan("absolute"),
+            destination = files.destination,
+        ) as DashTransferResult.Completed
+
+        assertSamples(track.samples, files.completed)
     }
 
     @Test
@@ -501,6 +613,108 @@ class DashTransferEngineTest {
             result.failure.detail,
         )
         assertFalse(files.completed.exists())
+    }
+
+    /** A live stream of [count] pieces, each a fragmented MP4 with its own ftyp and moov. */
+    private fun livePieces(count: Int = 4): Pair<Mp4TestFiles.Track, List<ByteArray>> {
+        val track = Mp4TestFiles.video(fragments = count, perFragment = 5)
+        var time = 0L
+        val pieces = track.fragments.mapIndexed { index, samples ->
+            val data = samples.fold(ByteArray(0)) { all, sample -> all + sample.bytes }
+            val piece = Mp4TestFiles.header(track) +
+                Mp4TestFiles.moof(track, index + 1, time, samples) +
+                Mp4TestFiles.box("mdat", data)
+            time += samples.sumOf { it.duration.toLong() }
+            piece
+        }
+        return track to pieces
+    }
+
+    /** A moof whose tfhd names its data's place in the piece: [at], where the moof is. */
+    private fun absoluteMoof(
+        sequence: Int,
+        decodeTime: Long,
+        samples: List<Mp4TestFiles.Sample>,
+        at: Long,
+    ): ByteArray {
+        val entries = java.nio.ByteBuffer.allocate(samples.size * 16)
+        samples.forEach { sample ->
+            entries.putInt(sample.duration)
+            entries.putInt(sample.size)
+            entries.putInt(if (sample.sync) 0x02000000 else 0x01010000)
+            entries.putInt(sample.compositionOffset)
+        }
+        val tfhd = Mp4TestFiles.fullBox(
+            "tfhd",
+            0,
+            0x000001,
+            Mp4TestFiles.int(1),
+            Mp4TestFiles.long(at),
+        )
+        val tfdt = Mp4TestFiles.fullBox("tfdt", 1, 0, Mp4TestFiles.long(decodeTime))
+        val mfhd = Mp4TestFiles.fullBox("mfhd", 0, 0, Mp4TestFiles.int(sequence))
+        val trunSize = 8 + 4 + 4 + 4 + samples.size * 16
+        val moofSize = 8 + mfhd.size + 8 + tfhd.size + tfdt.size + trunSize
+        val trun = Mp4TestFiles.fullBox(
+            "trun",
+            0,
+            0x001 or 0x100 or 0x200 or 0x400 or 0x800,
+            Mp4TestFiles.int(samples.size),
+            Mp4TestFiles.int(moofSize + 8),
+            entries.array(),
+        )
+        return Mp4TestFiles.box("moof", mfhd, Mp4TestFiles.box("traf", tfhd, tfdt, trun))
+    }
+
+    /** [file] holds one video track with [samples], in order, and nothing else. */
+    private fun assertSamples(samples: List<Mp4TestFiles.Sample>, file: File) {
+        java.io.RandomAccessFile(file, "r").use { input ->
+            val source = FileChannelMp4Source(input.channel)
+            val track = Mp4TrackReader(source, StreamCopyTrackKind.VIDEO).read()
+            assertEquals(samples.size, track.count)
+            samples.forEachIndexed { index, sample ->
+                val bytes = java.nio.ByteBuffer.allocate(track.sizes[index])
+                source.readFully(bytes, track.offsets[index])
+                assertArrayEquals("sample $index", sample.bytes, bytes.array())
+                assertEquals(sample.duration, track.durations[index])
+            }
+        }
+    }
+
+    private fun livePlan(id: String, expectedDurationMillis: Long? = null): DashDownloadPlan =
+        wholeFilePlan(server.url("/video.mp4?source=yt_live_broadcast").toString(), id)
+            .copy(expectedDurationMillis = expectedDurationMillis)
+
+    /**
+     * A live stream's server as yt-dlp and the owner's phone see it: a HEAD of the address names
+     * the newest piece (`X-Head-Seqnum`, none when [head] is null) and `sq=N` sends piece N.
+     * [status] answers the [ask]th request for a piece with an error code instead.
+     */
+    private fun livePieceDispatcher(
+        pieces: List<ByteArray>,
+        head: Int? = pieces.lastIndex,
+        status: (sq: Int, ask: Int) -> Int? = { _, _ -> null },
+    ): Dispatcher = object : Dispatcher() {
+        private val asks = java.util.concurrent.ConcurrentHashMap<Int, AtomicInteger>()
+
+        override fun dispatch(request: RecordedRequest): MockResponse {
+            val response = MockResponse().setHeader("Content-Type", "video/mp4")
+            head?.let { response.setHeader("X-Head-Seqnum", it) }
+            if (request.method == "HEAD") return response.setResponseCode(200)
+            if (request.getHeader("Range") != null) return MockResponse().setResponseCode(400)
+            val sq = request.requestUrl?.queryParameter("sq")?.toIntOrNull()
+                ?: return MockResponse().setResponseCode(400)
+            val ask = asks.getOrPut(sq) { AtomicInteger() }.incrementAndGet()
+            status(sq, ask)?.let { code ->
+                return response.setResponseCode(code)
+                    .setHeader("Content-Type", "text/plain")
+                    .setHeader("Retry-After", "0")
+            }
+            val bytes = pieces.getOrNull(sq) ?: return response.setResponseCode(404)
+            return response.setResponseCode(200)
+                .setHeader("X-Sequence-Num", sq)
+                .setBody(Buffer().write(bytes))
+        }
     }
 
     /**
@@ -589,7 +803,6 @@ class DashTransferEngineTest {
             initialRetryDelayMillis = 0,
             maxConcurrentChunks = maxConcurrentChunks,
             bufferBytes = 1_024,
-            liveStallMillis = 300,
         ),
         clock = { 100 },
     )

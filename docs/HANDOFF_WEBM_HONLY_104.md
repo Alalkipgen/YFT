@@ -22,7 +22,11 @@ got bytes 0-671324/671325, length 1048576": the Content-Range is wrong, the Cont
 on the phone: `NETWORK` READ_SOURCE (a socket read timed out in the body, "Downloading · 8 KB")
 → a live answer is read only up to its Content-Range end, a stalled body keeps its bytes, only a
 416 or an empty answer ends the file, any other 4xx fails, the Detail says how far it got;
-`[d7]` run 4e.
+`[d7]` run 4e. Run 4e on the phone: Detail "… sq 2021/2021": the live address without `sq`
+sends only the newest piece → the file is asked piece by piece (`sq` 0 to the head a HEAD's
+`X-Head-Seqnum` names), as yt-dlp does, and the pieces' fragmented MP4s are joined and read by
+the merge's reader before they are written; not ready on YouTube's side → new `LIVE_NOT_READY`
+("try again later"); WebM live tracks are not joined; `[d7]` run 4f.
 
 ## 0. Rules (every item)
 
