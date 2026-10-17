@@ -101,6 +101,54 @@ require(previewBuild == null || Regex("""\d{1,9}""").matches(previewBuild)) {
     "yft.previewBuild must be a build number"
 }
 
+// Backup-branch experiment only; even an opt-in build never enables the release variant.
+val masterCapture = providers.gradleProperty("yft.masterCapture").orElse("false").get()
+require(masterCapture in setOf("true", "false")) {
+    "yft.masterCapture must be true or false"
+}
+// Phase 1.1 S5: Master's own YouTube n/sig solver instead of main's ejs runner. Used only when
+// yft.masterCapture is on too; off by default, and never in the release variant.
+val ownSolver = providers.gradleProperty("yft.ownSolver").orElse("false").get()
+require(ownSolver in setOf("true", "false")) {
+    "yft.ownSolver must be true or false"
+}
+// Phase 1.2 N5b: the own solver's ladder (worker P, worker B, page E, live check V) instead of
+// Phase 1.1's single worker run. Acts only with yft.ownSolver and yft.masterCapture on; off by
+// default, debug builds only (owner test APKs), never in a public release before N8.
+val ownSolverNext = providers.gradleProperty("yft.ownSolverNext").orElse("false").get()
+require(ownSolverNext in setOf("true", "false")) {
+    "yft.ownSolverNext must be true or false"
+}
+// Phase 1.3 D6: Master's client ladder (MASTER_KEY_PHASE1_3_PLAN.md guardrail 1). Acts only with
+// yft.masterCapture on; off by default, debug builds only (owner test APKs), release false.
+val clientLadder = providers.gradleProperty("yft.clientLadder").orElse("false").get()
+require(clientLadder in setOf("true", "false")) {
+    "yft.clientLadder must be true or false"
+}
+// Phase 1.3 D7: the owner's live-check switches for the ladder (debug only, with the ladder on;
+// release and preview: none). Blank = none; one of the two at a time. D5c: h-only = H's row only.
+val ladderSkip = providers.gradleProperty("yft.ladderSkip").orElse("").get().trim()
+require(ladderSkip in setOf("", "visionos", "visionos-adaptive", "h-only")) {
+    "yft.ladderSkip must be blank, visionos, visionos-adaptive or h-only"
+}
+val ladderMutate = providers.gradleProperty("yft.ladderMutate").orElse("").get().trim()
+require(ladderMutate in setOf("", "L1", "L2", "L3", "L5", "L7")) {
+    "yft.ladderMutate must be blank, L1, L2, L3, L5 or L7"
+}
+require(ladderSkip.isEmpty() || ladderMutate.isEmpty()) {
+    "yft.ladderSkip and yft.ladderMutate are separate modes"
+}
+// R9: the public key (X.509 P-256, hex) for Master's signed recipe config; blank = bundled
+// recipes only and no config request. Only read when Master capture is on.
+val masterRecipeKey = providers.gradleProperty("yft.masterRecipeKey").orElse("").get()
+require(Regex("[0-9a-fA-F]*").matches(masterRecipeKey)) { "yft.masterRecipeKey must be hex" }
+val masterRecipeUrl = providers.gradleProperty("yft.masterRecipeUrl").orElse(
+    "https://raw.githubusercontent.com/Alalkipgen/YFT/spike/master-extractor-backup/recipes/master-recipes.json",
+).get()
+require(Regex("""https://[A-Za-z0-9./_-]+""").matches(masterRecipeUrl)) {
+    "yft.masterRecipeUrl must be an https address"
+}
+
 android {
     namespace = "com.alal.yft"
     compileSdk = 35
@@ -115,9 +163,31 @@ android {
 
         // The YouTube adapter can be switched off per build without touching the adapter list.
         buildConfigField("boolean", "YOUTUBE_ADAPTER_ENABLED", "true")
+        buildConfigField("boolean", "MASTER_CAPTURE_ENABLED", "false")
+        buildConfigField("boolean", "OWN_SOLVER_ENABLED", "false")
+        buildConfigField("boolean", "OWN_SOLVER_NEXT_ENABLED", "false")
+        buildConfigField("boolean", "CLIENT_LADDER_ENABLED", "false")
+        buildConfigField("String", "LADDER_SKIP", "\"\"")
+        buildConfigField("String", "LADDER_MUTATE", "\"\"")
+        buildConfigField("String", "MASTER_RECIPE_KEY", "\"$masterRecipeKey\"")
+        buildConfigField("String", "MASTER_RECIPE_URL", "\"$masterRecipeUrl\"")
     }
 
     signingConfigs {
+        // Spike branch only (Phase 1.3): one fixed debug key, so each opt-in debug APK from CI
+        // installs as an update over the last one (the runner's own debug key differs per run).
+        // The master-optin-debug-apk workflow decodes keystore/spike-debug.keystore.b64 into this
+        // untracked file; without it the default debug key signs as before. It signs the debug
+        // app (com.alal.yft.debug) and its test APK only; release and preview never use it.
+        val spikeDebugStore = file("keystore/spike-debug.keystore")
+        if (spikeDebugStore.isFile) {
+            getByName("debug") {
+                storeFile = spikeDebugStore
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
         if (releaseSigning != null) {
             create("release") {
                 storeFile = releaseSigning.storeFile
@@ -145,6 +215,19 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
+            buildConfigField("boolean", "MASTER_CAPTURE_ENABLED", masterCapture)
+            buildConfigField("boolean", "OWN_SOLVER_ENABLED", ownSolver)
+            buildConfigField("boolean", "OWN_SOLVER_NEXT_ENABLED", ownSolverNext)
+            buildConfigField("boolean", "CLIENT_LADDER_ENABLED", (masterCapture == "true" && clientLadder == "true").toString())
+            buildConfigField("String", "LADDER_SKIP", "\"$ladderSkip\"")
+            buildConfigField("String", "LADDER_MUTATE", "\"$ladderMutate\"")
+            // Owner tools (src/debug, e.g. the N2 stream check): a launcher entry only when both
+            // Master flags are on, so a debug build with the flags off stays as before.
+            manifestPlaceholders["yftOwnerTools"] =
+                (masterCapture == "true" && ownSolver == "true").toString()
+            // Phase 1.2 N7: the solver canary needs the ladder (yft.ownSolverNext) as well.
+            manifestPlaceholders["yftOwnerToolsNext"] =
+                (masterCapture == "true" && ownSolver == "true" && ownSolverNext == "true").toString()
         }
         release {
             isMinifyEnabled = true
@@ -164,6 +247,8 @@ android {
             isDebuggable = false
             matchingFallbacks += listOf("release")
             signingConfig = signingConfigs.findByName("preview")
+            buildConfigField("boolean", "MASTER_CAPTURE_ENABLED", masterCapture)
+            buildConfigField("boolean", "OWN_SOLVER_ENABLED", ownSolver)
         }
     }
 
@@ -208,6 +293,7 @@ dependencies {
     implementation(project(":extractor-api"))
     implementation(project(":extractor-generic"))
     implementation(project(":extractor-sites"))
+    implementation(project(":extractor-master-android"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

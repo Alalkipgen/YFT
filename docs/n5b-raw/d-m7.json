@@ -1,0 +1,38 @@
+{
+  "schema": "n5b-raw/1",
+  "agent": "d",
+  "test": "m7",
+  "test_sha": "48dd744debcdaba0d2112cf801f8dfbe913fda8e",
+  "head": "48dd744debcdaba0d2112cf801f8dfbe913fda8e",
+  "head_ok": true,
+  "list_status": "done",
+  "result": "pass",
+  "node": "v24.14.1",
+  "machine": {
+    "cpus": 2,
+    "mem_gb": 4,
+    "platform": "linux x64"
+  },
+  "totals": {
+    "expected_runs": 1,
+    "runs": 1,
+    "seconds": 459,
+    "max_peak_rss_mb": 2379
+  },
+  "runs": [
+    {
+      "n": "04",
+      "command": "node scripts/verify-own-solver-mutations.mjs --class M7 --strategy P,B --ladder --judge ladder",
+      "exit": 0,
+      "seconds": 459,
+      "peak_rss_mb": 2379,
+      "summary": [
+        "class   | ejs surv/safe/wrong | own P surv/safe/wrong | own B surv/safe/wrong | page P surv/safe/wrong | page B surv/safe/wrong | ladder PB+V   s/s/w | ladder PB off s/s/w | ladder B+V    s/s/w | ladder B off  s/s/w | skipped",
+        "M7      |   11/21/ 0         |    31/ 1/ 0          |    32/ 0/ 0          |     31/ 1/ 0          |     32/ 0/ 0          |       32/ 0/ 0     |        0/32/ 0     |       32/ 0/ 0     |        0/32/ 0     | 0",
+        "32 files x 1 classes x 2 seed(s) (own in the worker and in page mode); wrong values: 0; ladder wrong values: 0; judged by the ladder (other wrong values reported only)"
+      ],
+      "unsafe_lines_dropped": 0,
+      "stderr_lines": 672
+    }
+  ]
+}

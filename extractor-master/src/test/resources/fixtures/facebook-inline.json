@@ -1,0 +1,5 @@
+{
+  "id": "fb-fixture",
+  "browser_native_sd_url": "https://cdn.example.test/facebook-sd.mp4",
+  "dash_manifest_xml_string": "<MPD xmlns='urn:mpeg:dash:schema:mpd:2011' type='static'><Period><AdaptationSet mimeType='video/mp4' codecs='avc1.64001f'><Representation id='video' width='1280' height='720' bandwidth='900000'><BaseURL>https://cdn.example.test/facebook-video.mp4</BaseURL><SegmentBase indexRange='0-100'/></Representation></AdaptationSet><AdaptationSet mimeType='audio/mp4' codecs='mp4a.40.2'><Representation id='audio' bandwidth='128000'><BaseURL>https://cdn.example.test/facebook-audio.m4a</BaseURL><SegmentBase indexRange='0-100'/></Representation></AdaptationSet></Period></MPD>"
+}

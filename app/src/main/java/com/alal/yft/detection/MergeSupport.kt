@@ -5,6 +5,7 @@ import android.os.Build
 import com.alal.yft.core.download.AudioVideoMuxCompatibility
 import com.alal.yft.core.download.MuxCompatibility
 import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.core.model.media.MediaKind
 import java.util.Locale
 
 /**
@@ -18,7 +19,9 @@ fun interface MergeSupport {
 /**
  * The phone's own answer. AVC merges everywhere. VP9 WebM video merges with its Opus WebM sound
  * into one WebM from Android 10 ([AudioVideoMuxCompatibility.WEBM_OPUS_MIN_SDK], P6: YouTube's 2K
- * and 4K). AV1 would merge from Android 14
+ * and 4K). VP9 HLS video merges with its AAC HLS sound into one MP4 from Android 10
+ * ([AudioVideoMuxCompatibility.VP9_HLS_MP4_MIN_SDK], backlog item 5). AV1 would merge from
+ * Android 14
  * ([AudioVideoMuxCompatibility.AV1_MP4_MIN_SDK]) and only with an AV1 decoder to play the result,
  * but is off ([AudioVideoMuxCompatibility.AV1_MP4_ENABLED]): the API 34 emulator's muxer failed.
  */
@@ -40,8 +43,10 @@ class DeviceMergeSupport(
                 sdkInt = sdkInt,
             ) == MuxCompatibility.Compatible
         }
+        // Backlog item 5: VP9 HLS video and its AAC sound go into one MP4 by the stream copy.
+        val hlsVp9 = candidate.kind == MediaKind.HLS
         return candidate.codecs.all { codec ->
-            AudioVideoMuxCompatibility.canWriteVideo(codec, sdkInt, av1Enabled) &&
+            AudioVideoMuxCompatibility.canWriteVideo(codec, sdkInt, av1Enabled, hlsVp9) &&
                 (!codec.trim().lowercase(Locale.US).startsWith(AV1_CODEC_PREFIX) || playsAv1)
         }
     }

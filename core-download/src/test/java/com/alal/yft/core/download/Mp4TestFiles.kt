@@ -74,6 +74,32 @@ internal object Mp4TestFiles {
         },
     )
 
+    /**
+     * Item 5: [track]'s samples as joined ADTS, as an HLS sound is kept (AAC LC, stereo, the
+     * track's rate); [crcEvery] gives every so many frames a CRC (a 9-byte header).
+     */
+    fun adts(track: Track, crcEvery: Int = 0): ByteArray {
+        val index = intArrayOf(96_000, 88_200, 64_000, 48_000, 44_100, 32_000, 24_000)
+            .indexOf(track.timescale)
+        require(index >= 0)
+        val out = ByteArrayOutputStream()
+        track.samples.forEachIndexed { at, sample ->
+            val crc = crcEvery > 0 && at % crcEvery == 0
+            val header = if (crc) 9 else 7
+            val length = header + sample.bytes.size
+            out.write(0xff)
+            out.write(if (crc) 0xf0 else 0xf1)
+            out.write((1 shl 6) or (index shl 2) or (2 shr 2))
+            out.write(((2 and 3) shl 6) or (length shr 11 and 3))
+            out.write(length shr 3 and 0xff)
+            out.write((length and 7 shl 5) or 0x1f)
+            out.write(0xfc)
+            if (crc) out.write(byteArrayOf(0x12, 0x34))
+            out.write(sample.bytes)
+        }
+        return out.toByteArray()
+    }
+
     /** A fragmented file: ftyp, moov, then a moof and an mdat per fragment. */
     fun fragmented(track: Track): ByteArray {
         val out = ByteArrayOutputStream()
@@ -304,7 +330,10 @@ internal object Mp4TestFiles {
                 short(3),
                 byteArrayOf(0x68, 0xce.toByte(), 0x3c),
             )
-            box(track.sampleEntry, fixed.array(), avcC, *extra)
+            // Item 5: a VP9 entry holds a vpcC (profile 0, level 5.1, 8 bits, 4:2:0) instead.
+            val vpcC = fullBox("vpcC", 1, 0, byteArrayOf(0, 51, 0x82.toByte(), 1, 1, 1, 0, 0))
+            val config = if (track.sampleEntry == "vp09") vpcC else avcC
+            box(track.sampleEntry, fixed.array(), config, *extra)
         } else {
             val fixed = ByteBuffer.allocate(28)
             fixed.position(6)

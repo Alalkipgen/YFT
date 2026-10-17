@@ -76,6 +76,59 @@ class StreamCopyAudioVideoMuxerTest {
     }
 
     @Test
+    fun `a VP9 HLS video and its ADTS sound are stream-copied into one MP4 (item 5)`() {
+        val video = Track(
+            video = true,
+            timescale = 15_360,
+            fragments = Mp4TestFiles.video().fragments,
+            sampleEntry = "vp09",
+        )
+        val audio = Mp4TestFiles.audio()
+        val fallback = RecordingFallback()
+        val output = file("merged.mp4")
+
+        val attempt = StreamCopyAudioVideoMuxer(fallback, PASSING).mux(
+            file("video.mp4", Mp4TestFiles.fragmented(video)),
+            file("audio.aac", Mp4TestFiles.adts(audio, crcEvery = 10)),
+            MuxOutput.ToFile(output),
+            "video/mp4",
+        ) { _, _ -> }
+
+        assertEquals("today's way", emptyList<String>(), fallback.calls)
+        assertEquals(LocalMuxResult.Completed(output.length()), attempt.result)
+        val details = attempt.details!!
+        assertEquals(MuxDetails.STREAM_COPY, details.path)
+        assertEquals(90L to 129L, details.videoSamples to details.audioSamples)
+        val merged = output.readBytes()
+        val dump = Mp4Dump(merged)
+        assertEquals(listOf("vide", "soun"), dump.tracks.map { it.handler })
+        assertSamples(video, dump.tracks[0], merged)
+        assertSamples(audio, dump.tracks[1], merged)
+        // The VP9 entry (with its vpcC) stays byte for byte; the sound gets an mp4a entry.
+        val input = Mp4Dump(Mp4TestFiles.fragmented(video)).tracks.single()
+        assertArrayEquals(input.sampleDescription, dump.tracks[0].sampleDescription)
+        val sound = String(dump.tracks[1].sampleDescription, 20, 4, Charsets.ISO_8859_1)
+        assertEquals("mp4a", sound)
+        assertEquals(3_000L, dump.movieDuration)
+    }
+
+    @Test
+    fun `an ADTS sound with AVC video keeps today's way (item 5)`() {
+        val fallback = RecordingFallback()
+
+        val attempt = StreamCopyAudioVideoMuxer(fallback, PASSING).mux(
+            file("video.mp4", Mp4TestFiles.fragmented(Mp4TestFiles.video())),
+            file("audio.aac", Mp4TestFiles.adts(Mp4TestFiles.audio())),
+            MuxOutput.ToFile(file("merged.mp4")),
+            "video/mp4",
+        ) { _, _ -> }
+
+        assertEquals(listOf("video/mp4"), fallback.calls)
+        val note = attempt.details?.streamCopyNote.orEmpty()
+        assertTrue(note, note.startsWith("not supported, "))
+    }
+
+    @Test
     fun `a plain M4A with uneven samples gives tables that match every sample`() {
         val random = kotlin.random.Random(3)
         val samples = List(100) { index ->

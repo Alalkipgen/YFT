@@ -63,6 +63,7 @@ class DirectTransferEngineTest {
                 initialRetryDelayMillis = 0,
                 bufferBytes = 1_024,
                 checkpointIntervalBytes = 1,
+                liveStallMillis = 300,
             ),
         )
     }
@@ -650,6 +651,191 @@ class DirectTransferEngineTest {
             }
         }
     }
+
+    @Test
+    fun `a live-origin file is read up to each Content-Range end, not its length`() =
+        runTest {
+            val content = fixtureBytes(150_000)
+            server.dispatcher = liveOriginDispatcher(content)
+            val files = files("live.bin")
+            val url = server.url("/live.bin?source=yt_live_broadcast").toString()
+
+            val result = engine.transfer(
+                plan = plan(url, expectedBytes = 4_000, segmentCount = 2)
+                    .copy(maxRequestBytes = 65_536),
+                metadata = metadata(url, 400, supportsRanges = true),
+                destination = files.destination,
+            ) as DirectTransferResult.Completed
+
+            assertEquals(content.size.toLong(), result.bytesWritten)
+            assertArrayEquals(content, files.completed.readBytes())
+            val requests = List(server.requestCount) { server.takeRequest() }
+            // The stated 4 000, the probed 400, every Content-Length and ETag are ignored; each
+            // answer stops at its Content-Range end and the 416 after the end ends the file.
+            assertEquals(
+                listOf(
+                    "bytes=0-65535",
+                    "bytes=40000-105535",
+                    "bytes=80000-145535",
+                    "bytes=120000-185535",
+                    "bytes=150000-215535",
+                ),
+                requests.map { it.getHeader("Range") },
+            )
+            assertTrue(requests.all { it.getHeader("If-Range") == null })
+        }
+
+    @Test
+    fun `a live-origin file keeps what a stalled answer brought and asks on from there`() =
+        runTest {
+            val content = fixtureBytes(150_000)
+            server.dispatcher = liveOriginDispatcher(content, stallAt = 40_000)
+            val files = files("stalled.bin")
+            val url = server.url("/stalled.bin?source=yt_live_broadcast").toString()
+
+            val result = engine.transfer(
+                plan = plan(url, expectedBytes = null, segmentCount = 1)
+                    .copy(maxRequestBytes = 65_536),
+                metadata = metadata(url, null, supportsRanges = false),
+                destination = files.destination,
+            ) as DirectTransferResult.Completed
+
+            assertEquals(content.size.toLong(), result.bytesWritten)
+            assertArrayEquals(content, files.completed.readBytes())
+            val starts = List(server.requestCount) {
+                RANGE.matchEntire(server.takeRequest().getHeader("Range")!!)!!
+                    .groupValues[1].toLong()
+            }
+            // The answer at 40 000 stops after 20 000 bytes: they stay, the next ask is at 60 000.
+            assertEquals(listOf(0L, 40_000L, 60_000L, 100_000L, 140_000L, 150_000L), starts)
+        }
+
+    @Test
+    fun `a live-origin file that is refused part way fails and keeps no file`() = runTest {
+        val content = fixtureBytes(150_000)
+        server.dispatcher = liveOriginDispatcher(content, forbidFrom = 80_000)
+        val files = files("refused.bin")
+        val url = server.url("/refused.bin?source=yt_live_broadcast").toString()
+
+        val result = engine.transfer(
+            plan = plan(url, expectedBytes = null, segmentCount = 1)
+                .copy(maxRequestBytes = 65_536),
+            metadata = metadata(url, null, supportsRanges = false),
+            destination = files.destination,
+        ) as DirectTransferResult.Failure
+
+        assertEquals(DownloadFailureReason.ACCESS_DENIED, result.failure.reason)
+        assertEquals(403, result.failure.httpStatusCode)
+        assertEquals(DownloadFailureStage.CONNECT, result.failure.stage)
+        assertTrue(
+            result.failure.detail.orEmpty(),
+            result.failure.detail.orEmpty().startsWith("live 80000 B/3 asks, last 403 "),
+        )
+        assertFalse(files.completed.exists())
+    }
+
+    @Test
+    fun `a normal file that answers short fails and names what was asked and what came`() =
+        runTest {
+            val content = fixtureBytes(1_000)
+            server.dispatcher = shortAnswerDispatcher(content, answerBytes = 150)
+            val files = files("strict.bin")
+            val url = server.url("/strict.bin?source=youtube").toString()
+
+            val result = engine.transfer(
+                plan = plan(url, content.size.toLong(), segmentCount = 1),
+                metadata = metadata(url, content.size.toLong(), supportsRanges = true),
+                destination = files.destination,
+            ) as DirectTransferResult.Failure
+
+            assertEquals(DownloadFailureReason.INTEGRITY_MISMATCH, result.failure.reason)
+            assertEquals(DownloadFailureStage.CONNECT, result.failure.stage)
+            assertEquals(
+                "asked bytes 0-999, got bytes 0-149/1003, length 150",
+                result.failure.detail,
+            )
+            assertFalse(files.completed.exists())
+        }
+
+    @Test
+    fun `a normal file whose stated size differs from the probe still fails`() = runTest {
+        val content = fixtureBytes(1_000)
+        server.dispatcher = rangeDispatcher(content)
+        val files = files("stated.bin")
+        val url = server.url("/stated.bin").toString()
+
+        val result = engine.transfer(
+            plan = plan(url, expectedBytes = 4_000),
+            metadata = metadata(url, content.size.toLong(), supportsRanges = true),
+            destination = files.destination,
+        ) as DirectTransferResult.Failure
+
+        assertEquals(DownloadFailureReason.INTEGRITY_MISMATCH, result.failure.reason)
+        assertEquals(DownloadFailureStage.VERIFY, result.failure.stage)
+        assertEquals(0, server.requestCount)
+    }
+
+    /**
+     * A live-origin server as the phone results suggest: an answer holds at most one
+     * 40 000-byte piece and its Content-Range is true (`bytes S-E/E+1`), but its Content-Length
+     * is the whole ask, after the piece it sends nothing more and each answer has a new ETag;
+     * 416 past the end. [stallAt]: the first answer there sends 20 000 bytes and stops.
+     * [forbidFrom]: 403 from there on.
+     */
+    private fun liveOriginDispatcher(
+        content: ByteArray,
+        stallAt: Int? = null,
+        forbidFrom: Int? = null,
+    ): Dispatcher = object : Dispatcher() {
+        private val answers = java.util.concurrent.atomic.AtomicInteger()
+
+        override fun dispatch(request: RecordedRequest): MockResponse {
+            val match = request.getHeader("Range")?.let(RANGE::matchEntire)
+                ?: return MockResponse().setResponseCode(400)
+            val start = match.groupValues[1].toInt()
+            if (forbidFrom != null && start >= forbidFrom) {
+                return MockResponse().setResponseCode(403)
+            }
+            if (start > content.lastIndex) {
+                return MockResponse()
+                    .setResponseCode(416)
+                    .setHeader("Content-Range", "bytes */${content.size}")
+            }
+            val end = minOf(start + 39_999, content.lastIndex)
+            val answer = answers.incrementAndGet()
+            val response = MockResponse()
+                .setResponseCode(206)
+                .setHeader("Content-Type", "application/octet-stream")
+                .setHeader("ETag", "\"live-$answer\"")
+                .setBody(Buffer().write(content.copyOfRange(start, end + 1)))
+                .setHeader("Content-Range", "bytes $start-$end/${end + 1}")
+                .setHeader("Content-Length", match.groupValues[2].toInt() - start + 1)
+            if (start == stallAt && answer == 2) {
+                response.throttleBody(20_000, 1, TimeUnit.SECONDS)
+            }
+            return response
+        }
+    }
+
+    /** A file still being written: short answers, a total that moves and a new ETag each time. */
+    private fun shortAnswerDispatcher(content: ByteArray, answerBytes: Int): Dispatcher =
+        object : Dispatcher() {
+            private val answers = java.util.concurrent.atomic.AtomicInteger()
+
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val match = RANGE.matchEntire(requireNotNull(request.getHeader("Range")))
+                    ?: return MockResponse().setResponseCode(400)
+                val start = match.groupValues[1].toInt()
+                val end = minOf(match.groupValues[2].toInt(), start + answerBytes - 1)
+                val answer = answers.incrementAndGet()
+                return MockResponse()
+                    .setResponseCode(206)
+                    .setHeader("Content-Range", "bytes $start-$end/${content.size + 3}")
+                    .setHeader("Content-Type", "application/octet-stream")
+                    .setHeader("ETag", "\"live-$answer\"")
+                    .setBody(Buffer().write(content.copyOfRange(start, end + 1)))
+            }
+        }
 
     private fun rangeDispatcher(content: ByteArray): Dispatcher = object : Dispatcher() {
         override fun dispatch(request: RecordedRequest): MockResponse {

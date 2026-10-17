@@ -16,6 +16,7 @@ import com.alal.yft.core.model.download.DownloadFailureStage.WRITE_FILE
 import com.alal.yft.core.model.download.DownloadProgress
 import com.alal.yft.core.model.download.DownloadSegment
 import com.alal.yft.core.model.download.RemoteFileMetadata
+import com.alal.yft.core.model.download.WholeFileTrack
 import java.io.IOException
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
@@ -57,6 +58,8 @@ class DirectTransferEngine(
         val initialRetryDelayMillis: Long = 500,
         val bufferBytes: Int = 64 * 1_024,
         val checkpointIntervalBytes: Long = 256 * 1_024,
+        /** How long a live-origin answer's body may stop before the next ask ([GrowingRead]). */
+        val liveStallMillis: Long = 5_000,
     ) {
         init {
             require(maxRedirects >= 0)
@@ -65,6 +68,7 @@ class DirectTransferEngine(
             require(initialRetryDelayMillis >= 0)
             require(bufferBytes in 1_024..1024 * 1_024)
             require(checkpointIntervalBytes > 0)
+            require(liveStallMillis > 0)
         }
     }
 
@@ -77,6 +81,35 @@ class DirectTransferEngine(
     override suspend fun transfer(
         plan: DirectDownloadPlan,
         metadata: RemoteFileMetadata,
+        destination: DownloadDestination,
+        resumeFrom: DirectTransferCheckpoint?,
+        onProgress: suspend (DownloadProgress) -> Unit,
+        onCheckpoint: suspend (DirectTransferCheckpoint) -> Unit,
+    ): DirectTransferResult {
+        // A live-origin file's lengths cannot be trusted: it is read until it ends, as a file
+        // of unknown length (no stated size, no ranges planned, no validators).
+        val growing = listOf(plan.sourceUrl, metadata.finalUrl).any { address ->
+            address.toSafeDownloadUrl()?.let(LiveOriginFile::matches) == true
+        }
+        return transferFile(
+            plan = plan,
+            metadata = if (growing) {
+                metadata.copy(totalBytes = null, supportsByteRanges = false)
+            } else {
+                metadata
+            },
+            growing = growing,
+            destination = destination,
+            resumeFrom = resumeFrom,
+            onProgress = onProgress,
+            onCheckpoint = onCheckpoint,
+        )
+    }
+
+    private suspend fun transferFile(
+        plan: DirectDownloadPlan,
+        metadata: RemoteFileMetadata,
+        growing: Boolean,
         destination: DownloadDestination,
         resumeFrom: DirectTransferCheckpoint?,
         onProgress: suspend (DownloadProgress) -> Unit,
@@ -182,16 +215,27 @@ class DirectTransferEngine(
             } else if (plannedSegments.isNotEmpty()) {
                 resetDestination(destination, metadata.totalBytes)
                 tracker.replace(plannedSegments.map { it.copy(downloadedBytes = 0) })
-                transferSegment(
-                    plan = plan,
-                    metadata = metadata,
-                    credentialOrigin = credentialOrigin,
-                    transferUrl = transferUrl,
-                    destination = destination,
-                    tracker = tracker,
-                    initialSegment = tracker.snapshot().segments.single(),
-                    ranged = false,
-                )
+                if (growing) {
+                    transferGrowing(
+                        plan = plan,
+                        credentialOrigin = credentialOrigin,
+                        transferUrl = transferUrl,
+                        destination = destination,
+                        tracker = tracker,
+                        segment = tracker.snapshot().segments.single(),
+                    )
+                } else {
+                    transferSegment(
+                        plan = plan,
+                        metadata = metadata,
+                        credentialOrigin = credentialOrigin,
+                        transferUrl = transferUrl,
+                        destination = destination,
+                        tracker = tracker,
+                        initialSegment = tracker.snapshot().segments.single(),
+                        ranged = false,
+                    )
+                }
             }
 
             tracker.forceCheckpoint()
@@ -358,6 +402,107 @@ class DirectTransferEngine(
     }
 
     /**
+     * Reads a live-origin file ([LiveOriginFile]) into [destination], ask after ask from byte 0
+     * until the server has no more ([GrowingRead]). An ask that breaks keeps what it wrote and
+     * the next one starts after it; no If-Range is sent, as the file's validators may change.
+     */
+    private suspend fun transferGrowing(
+        plan: DirectDownloadPlan,
+        credentialOrigin: okhttp3.HttpUrl,
+        transferUrl: okhttp3.HttpUrl,
+        destination: DownloadDestination,
+        tracker: ProgressTracker,
+        segment: DownloadSegment,
+    ) {
+        val read = GrowingRead(
+            plan.maxRequestBytes ?: WholeFileTrack.DEFAULT_MAX_REQUEST_BYTES,
+            policy.liveStallMillis,
+        )
+        val output = destinationCall(OPEN_FILE) { destination.open() }
+        closeAfter(output) {
+            read.readUntilEnd(
+                maxAttempts = policy.maxAttempts,
+                backoffMillis = { attempt -> backoffMillis(attempt) },
+                fail = { failure -> throw TransferAbort(failure) },
+            ) { offset, length ->
+                var position = offset
+                askGrowing(
+                    plan = plan,
+                    credentialOrigin = credentialOrigin,
+                    transferUrl = transferUrl,
+                    read = read,
+                    offset = offset,
+                    length = length,
+                ) { buffer, count ->
+                    destinationCall(WRITE_FILE) {
+                        output.write(
+                            position = position,
+                            buffer = buffer,
+                            offset = 0,
+                            byteCount = count,
+                        )
+                    }
+                    position += count
+                    tracker.update(segment.index, position)
+                }
+            }
+            destinationCall(WRITE_FILE) { output.sync() }
+            tracker.update(segment.index, read.written, forceCheckpoint = true)
+        }
+    }
+
+    /** One ask of a [GrowingRead]: [length] bytes at [offset], the body given to [write]. */
+    private suspend fun askGrowing(
+        plan: DirectDownloadPlan,
+        credentialOrigin: okhttp3.HttpUrl,
+        transferUrl: okhttp3.HttpUrl,
+        read: GrowingRead,
+        offset: Long,
+        length: Long,
+        write: suspend (ByteArray, Int) -> Unit,
+    ): GrowingRead.Outcome {
+        val execution = try {
+            http.execute(
+                credentialOrigin = credentialOrigin,
+                initialUrl = transferUrl,
+                context = plan.requestContext,
+            ) {
+                get()
+                header("Range", "bytes=$offset-${offset + length - 1}")
+            }
+        } catch (error: IOException) {
+            return GrowingRead.Broken(
+                0,
+                DownloadFailure(
+                    reason = DownloadFailureReason.NETWORK,
+                    stage = CONNECT,
+                    detail = DownloadFailureDetails.of(error),
+                ),
+            )
+        }
+        return when (execution) {
+            is SecureDownloadHttp.Result.Failed ->
+                throw TransferAbort(execution.reason, stage = CONNECT)
+            is SecureDownloadHttp.Result.Completed -> execution.response.use { response ->
+                when (val check = read.check(response, offset, length)) {
+                    GrowingRead.End -> GrowingRead.Answered(0)
+                    is GrowingRead.Fail -> throw TransferAbort(check.failure)
+                    is GrowingRead.Retry -> GrowingRead.Broken(0, check.failure)
+                    is GrowingRead.Read -> read.readBody(
+                        body = response.body ?: throw TransferAbort(
+                            DownloadFailureReason.MALFORMED_RESPONSE,
+                            stage = CONNECT,
+                        ),
+                        limit = check.limit,
+                        bufferBytes = policy.bufferBytes,
+                        write = write,
+                    )
+                }
+            }
+        }
+    }
+
+    /**
      * The last byte the next request of [segment] asks for: the segment's end, or less when the
      * plan bounds each request ([DirectDownloadPlan.maxRequestBytes]).
      */
@@ -428,7 +573,7 @@ class DirectTransferEngine(
                     advertised != null &&
                     advertised != expectedRemaining
                 ) {
-                    throw TransferAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = CONNECT)
+                    throw rangeMismatch(startByte, endByte, response)
                 }
 
                 val output = destinationCall(OPEN_FILE) { destination.open() }
@@ -533,7 +678,7 @@ class DirectTransferEngine(
                 returned.endByteInclusive != requestedEnd ||
                 returned.totalBytes != metadata.totalBytes
             ) {
-                throw TransferAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = CONNECT)
+                throw rangeMismatch(requestedStart, requestedEnd, response)
             }
         } else if (response.code != 200) {
             throw TransferAbort(response.code.toFailureReason(), response.code, CONNECT)
@@ -564,6 +709,16 @@ class DirectTransferEngine(
             }
         }
     }
+
+    /** INTEGRITY_MISMATCH at CONNECT that names what was asked and what came (the Detail). */
+    private fun rangeMismatch(start: Long, end: Long?, response: Response): TransferAbort =
+        TransferAbort(
+            DownloadFailure(
+                reason = DownloadFailureReason.INTEGRITY_MISMATCH,
+                stage = CONNECT,
+                detail = LiveOriginFile.describe(start, end, response),
+            ),
+        )
 
     /** The server's file is not the probed one any more: another ETag or Last-Modified. */
     private fun changedFile(): TransferAbort =

@@ -1,0 +1,346 @@
+name: Master opt-in debug APK (spike)
+
+# Internal test build for the owner's phone: the debug app (com.alal.yft.debug) with the
+# opt-in Master capture flag on and, since Phase 1.1 S5, Master's own YouTube solver instead of
+# main's ejs runner (turn it off with the manual run's own_solver input). Runs only for the Master spike branch; release builds and the
+# existing workflows are untouched. Uses no repository secret. Since Phase 1.3 it is signed with
+# the spike's fixed debug key (app/keystore/spike-debug.keystore.b64; public, debug app only), so
+# each APK installs as an update over the last one; without that file the runner's own debug key
+# signs, which differs per run. Label build (GitHub shows "Run workflow" only on the default branch): the
+# label build-optin-apk on draft PR #2 (spike → main) builds the PR head itself, not its merge
+# with main, with the own solver and its ladder on (ownSolverNext); its artifact name ends in
+# -next-<short sha>. Any other label skips the job. Phase 1.3 D7 (owner, 2026-10-15): a push whose
+# commit message carries [d7] also builds the phone check's seven APKs (job d7-matrix, after build;
+# D5c, 2026-10-16: the seventh, h-only, offers H's row alone for the phone download through H).
+on:
+  push:
+    branches: ["spike/master-extractor-backup"]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+  workflow_dispatch:
+    inputs:
+      own_solver:
+        description: "Own YouTube n/sig solver (Phase 1.1) instead of main's ejs runner"
+        type: boolean
+        default: true
+      own_solver_next:
+        description: "Phase 1.2 N5b: the own solver's ladder (P, B, page, live check); owner test APKs only"
+        type: boolean
+        default: false
+      client_ladder:
+        description: "Phase 1.3 D6: Master's client ladder (L, Z, V, H on visionOS's answer); owner test APKs only"
+        type: boolean
+        default: false
+      ladder_skip:
+        description: "Phase 1.3 D7 live check (with client_ladder; one switch at a time): skip visionOS's answer or its adaptive formats; h-only (D5c) keeps H's row only"
+        type: choice
+        options: [none, visionos, visionos-adaptive, h-only]
+        default: none
+      ladder_mutate:
+        description: "Phase 1.3 D7 live check (with client_ladder; one switch at a time): change visionOS's answer in memory"
+        type: choice
+        options: [none, L1, L2, L3, L5, L7]
+        default: none
+  # Owner test APKs from the phone: the label build-optin-apk on draft PR #2 (no paths filter).
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  # One group per label: another label on PR #2 (a run whose job is skipped) never cancels a
+  # running build. Pushes keep their group.
+  group: master-optin-debug-apk-${{ github.ref }}${{ github.event_name == 'pull_request' && format('-{0}', github.event.label.name) || '' }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: github.event_name != 'pull_request' || github.event.label.name == 'build-optin-apk'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # The commit the APK is built from: for a label build the PR head, not its merge with main.
+      BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Build commit
+        id: commit
+        shell: bash
+        run: echo "short=${BUILD_SHA::7}" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Android SDK 35, NDK and CMake
+        shell: bash
+        run: |
+          SDKMANAGER="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}" -path '*/bin/sdkmanager' -type f | head -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" \
+            "ndk;27.3.13750724" "cmake;3.22.1"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Toolkit drift check (R3)
+        shell: bash
+        run: |
+          # The toolkit copies main's helpers; the self-check must match the recorded base and
+          # any change on main since then is reported as a warning for review, not a failure.
+          base="$(sed -n 's/^# base //p' extractor-master/toolkit-provenance.tsv)"
+          git fetch --no-tags --depth=1 origin "$base" +refs/heads/main:refs/remotes/origin/main
+          python3 scripts/master-toolkit-drift.py --ref "$base"
+          python3 scripts/master-toolkit-drift.py --ref origin/main --warn-only
+      - name: Capture, codec and MSE script tests (R2 EME stop, R5 steering, R7 MSE/EME) + own solver (S1 harness, S2–S4 core + SelfCheck, S5 worker, S6 canary, N1 mutators, N3 strategy B, N4 page environment, N4b init errors, N5a ladder rule, N5b tripwire, step budget, locator)
+        shell: bash
+        run: |
+          node --test extractor-master-android/src/test/js/capture.test.cjs \
+            extractor-master-android/src/test/js/codecs.test.cjs \
+            extractor-master-android/src/test/js/mse.test.cjs \
+            scripts/own-solver/tests/harness.test.mjs \
+            scripts/own-solver/tests/core-prepare.test.mjs \
+            scripts/own-solver/tests/core-run.test.mjs \
+            scripts/own-solver/tests/core-selfcheck.test.mjs \
+            scripts/own-solver/tests/worker.test.mjs \
+            scripts/own-solver/tests/canary.test.mjs \
+            scripts/own-solver/tests/mutate.test.mjs \
+            scripts/own-solver/tests/core-strategy-b.test.mjs \
+            scripts/own-solver/tests/page-env.test.mjs \
+            scripts/own-solver/tests/init-errors.test.mjs \
+            scripts/own-solver/tests/ladder.test.mjs \
+            scripts/own-solver/tests/tripwire.test.mjs \
+            scripts/own-solver/tests/step-budget.test.mjs \
+            scripts/own-solver/tests/locator.test.mjs
+      - name: Spike debug key (one key for every opt-in debug APK)
+        shell: bash
+        run: |
+          # Phase 1.3: app/build.gradle.kts signs the debug app (com.alal.yft.debug) and its test
+          # APK with the decoded key when the file exists, so each APK updates the last one. The
+          # key is public in the repo; release and preview builds never use it.
+          if [[ -f app/keystore/spike-debug.keystore.b64 ]]; then
+            base64 -d app/keystore/spike-debug.keystore.b64 > app/keystore/spike-debug.keystore
+            echo "Decoded app/keystore/spike-debug.keystore: the fixed spike debug key signs."
+          else
+            echo "No app/keystore/spike-debug.keystore.b64: the runner's own debug key signs."
+          fi
+      - name: Master tests and opt-in debug APK
+        shell: bash
+        env:
+          # Push: own solver on, ladder off. Manual run: the inputs. Label build: both on.
+          OWN_SOLVER: ${{ github.event_name != 'workflow_dispatch' || inputs.own_solver }}
+          OWN_SOLVER_NEXT: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.own_solver_next) }}
+          # Phase 1.3 D6: the client ladder only on a manual run with client_ladder (default off until D7).
+          CLIENT_LADDER: ${{ github.event_name == 'workflow_dispatch' && inputs.client_ladder }}
+          # Phase 1.3 D7: the owner's live-check switch, only on a manual run with client_ladder.
+          LADDER_SKIP: ${{ github.event_name == 'workflow_dispatch' && inputs.client_ladder && inputs.ladder_skip != 'none' && inputs.ladder_skip || '' }}
+          LADDER_MUTATE: ${{ github.event_name == 'workflow_dispatch' && inputs.client_ladder && inputs.ladder_mutate != 'none' && inputs.ladder_mutate || '' }}
+        run: |
+          set -o pipefail
+          report() {
+            # Job logs need admin rights; the failure's own lines become a public annotation.
+            local lines
+            lines="$(grep -E -A8 'What went wrong|FAILED$|^e: ' gradle-master.log | head -80 |
+              sed -e 's/%/%25/g' | sed -e ':a;N;$!ba;s/\n/%0A/g')"
+            echo "::error title=Master Gradle failure::${lines:-see the job log}"
+            exit 1
+          }
+          ./gradlew --no-daemon -Pyft.masterCapture=true -Pyft.ownSolver="$OWN_SOLVER" -Pyft.ownSolverNext="$OWN_SOLVER_NEXT" \
+            -Pyft.clientLadder="$CLIENT_LADDER" -Pyft.ladderSkip="$LADDER_SKIP" -Pyft.ladderMutate="$LADDER_MUTATE" \
+            :extractor-master:test \
+            :extractor-master-android:testDebugUnitTest \
+            :app:testDebugUnitTest \
+              --tests 'com.alal.yft.feature.browser.MasterMainMoreSheetTest' \
+              --tests 'com.alal.yft.feature.browser.BrowserMasterFlowTest' \
+              --tests 'com.alal.yft.detection.master.BrowserMasterFallbackTest' \
+              --tests 'com.alal.yft.master.SolverCanaryReportTest' \
+            :app:compileDebugAndroidTestKotlin \
+            :app:assembleDebug \
+            :app:assembleDebugAndroidTest 2>&1 | tee gradle-master.log || report
+      - name: Record APK hashes
+        shell: bash
+        env:
+          # Push: own solver on, ladder off. Manual run: the inputs. Label build: both on.
+          OWN_SOLVER: ${{ github.event_name != 'workflow_dispatch' || inputs.own_solver }}
+          OWN_SOLVER_NEXT: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.own_solver_next) }}
+          # Phase 1.3 D6: the client ladder only on a manual run with client_ladder (default off until D7).
+          CLIENT_LADDER: ${{ github.event_name == 'workflow_dispatch' && inputs.client_ladder }}
+          # Phase 1.3 D7: the owner's live-check switch, only on a manual run with client_ladder.
+          LADDER_SKIP: ${{ github.event_name == 'workflow_dispatch' && inputs.client_ladder && inputs.ladder_skip != 'none' && inputs.ladder_skip || '' }}
+          LADDER_MUTATE: ${{ github.event_name == 'workflow_dispatch' && inputs.client_ladder && inputs.ladder_mutate != 'none' && inputs.ladder_mutate || '' }}
+        run: |
+          apksigner="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/35.0.0/apksigner"
+          normalize() { tr -d ': \t' | tr '[:upper:]' '[:lower:]'; }
+          # The spike debug key's certificate, when the key was decoded: every APK must carry it.
+          expected=""
+          signing_key="the runner's own debug key"
+          if [[ -f app/keystore/spike-debug.keystore ]]; then
+            expected="$(keytool -list -v -keystore app/keystore/spike-debug.keystore \
+              -storepass android -alias androiddebugkey | sed -n 's/^[[:space:]]*SHA256: //p' | normalize)"
+            test -n "$expected"
+            signing_key="the fixed spike debug key"
+          fi
+          certs=""
+          mismatch=0
+          for apk in app/build/outputs/apk/debug/*.apk app/build/outputs/apk/androidTest/debug/*.apk; do
+            # apksigner up to 36.x labels the first signer "Signer #1 certificate ..."; build-tools
+            # 37+ labels it per scheme (as in scripts/verify-release-apk.sh). Both are accepted.
+            out="$("$apksigner" verify --print-certs "$apk")"
+            digest="$(printf '%s\n' "$out" |
+              sed -nE 's/^(Signer #1|V[0-9.]+ Signer:) certificate SHA-256 digest: //p' | head -n 1 | normalize)"
+            test -n "$digest"
+            echo "::notice title=APK signing cert SHA-256::$(basename "$apk") $digest"
+            certs+="$(basename "$apk") $digest"$'\n'
+            if [[ -n "$expected" && "$digest" != "$expected" ]]; then
+              echo "::error title=APK signing cert mismatch::$(basename "$apk") $digest is not the spike debug key $expected"
+              mismatch=1
+            fi
+          done
+          {
+            echo "### Master opt-in debug APK"
+            echo "Commit: ${BUILD_SHA}"
+            echo "Own YouTube solver: ${OWN_SOLVER}"
+            echo "Own solver ladder (ownSolverNext): ${OWN_SOLVER_NEXT}"
+            echo "Client ladder (clientLadder): ${CLIENT_LADDER}"
+            echo "Ladder live-check switch: skip ${LADDER_SKIP:-none}, mutate ${LADDER_MUTATE:-none}"
+            echo "Signing key: ${signing_key}"
+            echo '```'
+            sha256sum app/build/outputs/apk/debug/*.apk app/build/outputs/apk/androidTest/debug/*.apk
+            echo '```'
+            echo "Signing cert SHA-256:"
+            echo '```'
+            printf '%s' "$certs"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          # An APK with another key would not update the installed debug app: no upload.
+          exit "$mismatch"
+      # The test APK (same spike debug key) lets the owner run the opt-in phone tests without a
+      # computer, e.g. StreamCheckMeasureTest from Termux over wireless debugging.
+      - name: Upload opt-in debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event_name == 'pull_request' && format('yft-master-optin-debug-apk-next-{0}', steps.commit.outputs.short) || 'yft-master-optin-debug-apk' }}
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/androidTest/debug/*.apk
+          retention-days: 14
+          if-no-files-found: error
+
+  # Phase 1.3 D7 (owner, 2026-10-15): the phone check's seven debug APKs, one per mode, from a push
+  # whose commit message carries [d7] ("Run workflow" shows only on the default branch). It runs
+  # after the build job above (the tests run once there) and only assembles: each APK is the same
+  # debug app (com.alal.yft.debug), signed with the spike debug key and with gradle.properties'
+  # versionCode, so each installs as an update over the last; a mismatch uploads nothing. All
+  # flags on (own solver, its ladder, client ladder). A push of docs only runs nothing
+  # (paths-ignore): for the next seven, edit .github/d7-apks.txt in a commit with [d7].
+  d7-matrix:
+    needs: build
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[d7]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mode: normal
+            skip: ""
+            mutate: ""
+          - mode: skip-visionos
+            skip: visionos
+            mutate: ""
+          - mode: skip-visionos-adaptive
+            skip: visionos-adaptive
+            mutate: ""
+          - mode: mutate-L1
+            skip: ""
+            mutate: L1
+          - mode: mutate-L3
+            skip: ""
+            mutate: L3
+          - mode: mutate-L5
+            skip: ""
+            mutate: L5
+          - mode: h-only
+            skip: h-only
+            mutate: ""
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Android SDK 35, NDK and CMake
+        shell: bash
+        run: |
+          SDKMANAGER="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}" -path '*/bin/sdkmanager' -type f | head -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" \
+            "ndk;27.3.13750724" "cmake;3.22.1"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Spike debug key (required for every D7 APK)
+        shell: bash
+        run: |
+          test -f app/keystore/spike-debug.keystore.b64
+          base64 -d app/keystore/spike-debug.keystore.b64 > app/keystore/spike-debug.keystore
+      - name: D7 debug APK (${{ matrix.mode }}), assemble only
+        shell: bash
+        env:
+          D7_SKIP: ${{ matrix.skip }}
+          D7_MUTATE: ${{ matrix.mutate }}
+        run: |
+          ./gradlew --no-daemon -Pyft.masterCapture=true -Pyft.ownSolver=true -Pyft.ownSolverNext=true \
+            -Pyft.clientLadder=true -Pyft.ladderSkip="$D7_SKIP" -Pyft.ladderMutate="$D7_MUTATE" \
+            :app:assembleDebug
+      - name: Key, package and versionCode (no upload on a mismatch)
+        shell: bash
+        env:
+          D7_MODE: ${{ matrix.mode }}
+        run: |
+          tools="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/35.0.0"
+          normalize() { tr -d ': \t' | tr '[:upper:]' '[:lower:]'; }
+          expected="$(keytool -list -v -keystore app/keystore/spike-debug.keystore \
+            -storepass android -alias androiddebugkey | sed -n 's/^[[:space:]]*SHA256: //p' | normalize)"
+          test -n "$expected"
+          apks=(app/build/outputs/apk/debug/*.apk)
+          test "${#apks[@]}" -eq 1
+          apk="${apks[0]}"
+          # Whole outputs first, then filters that read everything (no early exit under pipefail).
+          certs="$("$tools/apksigner" verify --print-certs "$apk")"
+          digest="$(printf '%s\n' "$certs" |
+            sed -nE 's/^(Signer #1|V[0-9.]+ Signer:) certificate SHA-256 digest: //p' | sed -n '1p' | normalize)"
+          badging="$("$tools/aapt2" dump badging "$apk")"
+          package="$(printf '%s\n' "$badging" | sed -nE "1s/^package: name='([^']+)'.*/\1/p")"
+          code="$(printf '%s\n' "$badging" | sed -nE "1s/.* versionCode='([0-9]+)'.*/\1/p")"
+          wanted="$(sed -n 's/^yft.versionCode=//p' gradle.properties)"
+          {
+            echo "### D7 APK: ${D7_MODE}"
+            echo "Commit: ${{ github.sha }}"
+            echo "Package ${package}, versionCode ${code} (gradle.properties: ${wanted}), signing cert SHA-256 ${digest}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          ok=1
+          if [[ "$digest" != "$expected" ]]; then
+            echo "::error title=D7 signing cert::${D7_MODE}: ${digest} is not the spike debug key ${expected}"
+            ok=0
+          fi
+          if [[ "$package" != "com.alal.yft.debug" ]]; then
+            echo "::error title=D7 package::${D7_MODE}: ${package}, not com.alal.yft.debug"
+            ok=0
+          fi
+          if [[ -z "$code" || "$code" != "$wanted" ]]; then
+            echo "::error title=D7 versionCode::${D7_MODE}: ${code}, not gradle.properties' ${wanted}"
+            ok=0
+          fi
+          test "$ok" -eq 1
+      - name: Upload D7 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: yft-d7-${{ matrix.mode }}
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 14
+          if-no-files-found: error

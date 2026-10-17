@@ -26,4 +26,7 @@ include(
     ":extractor-api",
     ":extractor-generic",
     ":extractor-sites",
+    // Owner-approved backup branch; Android integration is explicitly opt-in.
+    ":extractor-master",
+    ":extractor-master-android",
 )

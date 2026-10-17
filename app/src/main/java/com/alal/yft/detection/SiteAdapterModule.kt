@@ -16,6 +16,15 @@ import com.alal.yft.extractor.api.PoTokenProvider
 import com.alal.yft.extractor.api.SiteAdapterFlags
 import com.alal.yft.extractor.api.SiteExtractor
 import com.alal.yft.extractor.api.SiteExtractorRegistry
+import com.alal.yft.extractor.master.android.solver.OwnSolverAppBreaker
+import com.alal.yft.extractor.master.android.solver.WebViewOwnSolverEngine
+import com.alal.yft.extractor.master.android.solver.WebViewPageSolverEngine
+import com.alal.yft.extractor.master.modules.youtube.YouTubeSignatureGuard
+import com.alal.yft.extractor.master.solver.AtomicTextFile
+import com.alal.yft.extractor.master.solver.OwnPlayerScriptRunner
+import com.alal.yft.extractor.master.solver.OwnSolverLocators
+import com.alal.yft.extractor.master.solver.OwnSolverVLedger
+import com.alal.yft.extractor.master.solver.OwnSolverSelection
 import com.alal.yft.extractor.sites.facebook.FacebookExtractor
 import com.alal.yft.extractor.sites.instagram.InstagramExtractor
 import com.alal.yft.extractor.sites.tiktok.TikTokAgents
@@ -28,6 +37,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import java.io.File
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -65,22 +75,52 @@ object SiteAdapterModule {
      * The YouTube player-script host.
      *
      * Player scripts are larger than adapter pages, so they get their own client with a longer
-     * call timeout; every other transport rule is the same.
+     * call timeout; every other transport rule is the same. Master Phase 1.1 S5: with both
+     * opt-in flags on (`-Pyft.ownSolver`, `-Pyft.masterCapture`) Master's own solver runs instead
+     * of the bundled ejs solver; otherwise this is main's runner, built exactly as on main.
      */
     @Provides
     @Singleton
     fun providePlayerScriptRunner(
         @ApplicationContext context: Context,
         client: OkHttpClient,
-    ): PlayerScriptRunner = YouTubePlayerScriptRunner(
-        http = OkHttpExtractorClient(
+    ): PlayerScriptRunner {
+        val http = OkHttpExtractorClient(
             client = client,
             policy = OkHttpExtractorClient.Policy(
                 callTimeoutSeconds = PLAYER_FETCH_TIMEOUT_SECONDS,
             ),
-        ),
-        engine = WebViewSolverEngine(context),
-    )
+        )
+        return OwnSolverSelection.runner(
+            ownSolver = BuildConfig.OWN_SOLVER_ENABLED,
+            masterCapture = BuildConfig.MASTER_CAPTURE_ENABLED,
+            own = {
+                OwnPlayerScriptRunner(
+                    http = http,
+                    engine = WebViewOwnSolverEngine(context),
+                    // Phase 1.2 N5b: the ladder only with -Pyft.ownSolverNext (debug builds). A.4/A.5:
+                    // the locator cache and the V ledger in app-private files (data only; each
+                    // file is found on first use, off this thread).
+                    next = if (BuildConfig.OWN_SOLVER_NEXT_ENABLED) {
+                        OwnPlayerScriptRunner.Next(
+                            page = WebViewPageSolverEngine(context),
+                            // N7: the breaker the debug build's owner canary shares (one per process).
+                            breaker = OwnSolverAppBreaker.get(context),
+                            locators = OwnSolverLocators(
+                                AtomicTextFile { File(context.filesDir, OWN_SOLVER_LOCATORS_FILE) },
+                            ),
+                            ledger = OwnSolverVLedger(
+                                AtomicTextFile { File(context.filesDir, OWN_SOLVER_V_LEDGER_FILE) },
+                            ),
+                        )
+                    } else {
+                        null
+                    },
+                )
+            },
+            main = { YouTubePlayerScriptRunner(http = http, engine = WebViewSolverEngine(context)) },
+        )
+    }
 
     /**
      * The YouTube proof-of-origin host (ADR-006).
@@ -127,7 +167,11 @@ object SiteAdapterModule {
         ),
         FacebookExtractor(http),
         VimeoExtractor(http),
-        YouTubeExtractor(http, playerScripts, poTokens),
+        // Phase 1.2 N5b A.8: with the own solver (ownSolver, with or without ownSolverNext) its
+        // signatures are used only after the live check V; main's runner gets the reader as is.
+        YouTubeSignatureGuard.guard(http, playerScripts) { runner ->
+            YouTubeExtractor(http, runner, poTokens)
+        },
         // P48: X's public embed answer for a post's video (whole MP4 files with sound).
         XExtractor(http),
         // P49: Instagram's own answers (app API when signed in, GraphQL, page, embed page).
@@ -163,6 +207,10 @@ object SiteAdapterModule {
 
     private const val YOUTUBE_ADAPTER_ID = "youtube"
     private const val PLAYER_FETCH_TIMEOUT_SECONDS = 60L
+
+    /** N5b A.4/A.5 (ownSolverNext only), under `filesDir`: data only, never code. */
+    private const val OWN_SOLVER_LOCATORS_FILE = "own-solver/locators.json"
+    private const val OWN_SOLVER_V_LEDGER_FILE = "own-solver/v-ledger.json"
 }
 
 /** The WebView's own user agent (the tab's, without the WebView marks), read once on Main. */

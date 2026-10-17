@@ -249,6 +249,7 @@ internal fun failureLabel(reason: DownloadFailureReason): String = when (reason)
     DownloadFailureReason.STORAGE_UNAVAILABLE -> "storage unavailable"
     DownloadFailureReason.INSUFFICIENT_STORAGE -> "not enough storage"
     DownloadFailureReason.INTEGRITY_MISMATCH -> "integrity mismatch"
+    DownloadFailureReason.LIVE_NOT_READY -> "YouTube still preparing this live video, try later"
 }
 
 /** The step a download failed at, for the failure details (P21). */

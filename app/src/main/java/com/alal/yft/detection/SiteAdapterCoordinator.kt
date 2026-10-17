@@ -376,6 +376,10 @@ class SiteAdapterCoordinator @Inject constructor(
     fun handles(pageUrl: String): Boolean =
         registry.select(pageUrl) is SiteAdapterSelection.Matched
 
+    /** The backup experiment must not turn an explicitly disabled match into a fallback. */
+    fun allowsMasterFallback(pageUrl: String): Boolean =
+        registry.select(pageUrl) !is SiteAdapterSelection.Disabled
+
     /**
      * The video [pageUrl] shows as "site:contentId", the same for every address of it, or null
      * when no enabled adapter handles the page (P12: one lookup per video).
@@ -384,6 +388,10 @@ class SiteAdapterCoordinator @Inject constructor(
         (registry.select(pageUrl) as? SiteAdapterSelection.Matched)?.identity?.let { identity ->
             "${identity.siteId}:${identity.contentId}"
         }
+
+    /** R8 (Master): the video an enabled adapter identified for [pageUrl], or null. */
+    fun identity(pageUrl: String): SitePageIdentity? =
+        (registry.select(pageUrl) as? SiteAdapterSelection.Matched)?.identity
 
     /**
      * Whether two addresses show the same post of the same site, for example when the site adds

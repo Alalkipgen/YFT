@@ -148,7 +148,14 @@ internal class StreamCopyAudioVideoMuxer(
                 val video = FileChannelMp4Source(videoInput.channel)
                 val audio = FileChannelMp4Source(audioInput.channel)
                 val videoTrack = Mp4TrackReader(video, StreamCopyTrackKind.VIDEO).read()
-                val audioTrack = Mp4TrackReader(audio, StreamCopyTrackKind.AUDIO).read()
+                // Item 5: VP9 HLS video takes its HLS sound as joined ADTS; AVC keeps today's way.
+                val audioTrack = if (
+                    videoTrack.sampleEntryType == VP9_ENTRY && AdtsTrackReader.isAdts(audio)
+                ) {
+                    AdtsTrackReader(audio).read()
+                } else {
+                    Mp4TrackReader(audio, StreamCopyTrackKind.AUDIO).read()
+                }
                 if (videoTrack.count.toLong() + audioTrack.count > Mp4TrackReader.MAX_SAMPLES) {
                     unsupported("too many samples")
                 }
@@ -197,6 +204,7 @@ internal class StreamCopyAudioVideoMuxer(
     private class StreamCopyCheckFailed(reason: String) : Exception(reason)
 
     companion object {
+        private const val VP9_ENTRY = "vp09"
         const val DEFAULT_BUFFER_BYTES = 4 * 1_024 * 1_024
         private const val NANOS_PER_MILLI = 1_000_000L
     }
