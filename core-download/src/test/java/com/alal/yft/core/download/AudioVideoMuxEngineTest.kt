@@ -91,6 +91,10 @@ class AudioVideoMuxEngineTest {
         assertTrue(AudioVideoMuxCompatibility.canWriteVideo(" AV01.0.05M.08", 34, true))
         assertFalse(AudioVideoMuxCompatibility.canWriteVideo("av01.0.05M.08", 33, true))
         assertFalse(AudioVideoMuxCompatibility.canWriteVideo("vp09.00.31.08", sdkInt = 35))
+        // Backlog item 5: VP9 only for an HLS video, by the stream copy, from Android 10.
+        assertTrue(AudioVideoMuxCompatibility.canWriteVideo("vp09.00.51.08", 29, hlsVp9 = true))
+        assertFalse(AudioVideoMuxCompatibility.canWriteVideo("vp09.00.51.08", 28, hlsVp9 = true))
+        assertFalse(AudioVideoMuxCompatibility.canWriteVideo("vp9", 35, hlsVp9 = true))
         assertFalse(AudioVideoMuxCompatibility.canWriteVideo("hvc1.1.6.L93.B0", sdkInt = 35))
     }
 

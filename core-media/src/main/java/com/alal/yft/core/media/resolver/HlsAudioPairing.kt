@@ -13,8 +13,10 @@ import java.util.Locale
  * playlists merged into one MP4, so it is not listed as "No sound".
  *
  * Only where the phone's MP4 muxer takes both: AVC video (`avc1`, `avc3`) and AAC sound
- * (`mp4a.40.*`), both stated in the master's `CODECS`. Any other quality stays as it was. The
- * audio renditions stay listed on their own.
+ * (`mp4a.40.*`), both stated in the master's `CODECS`. Backlog item 5: a VP9 quality (`vp09`)
+ * with AAC sound is paired too, merged by YFT's own stream copy, but only at a height where no
+ * quality has sound after the AVC pairing (YouTube's 1440p and 2160p), so the AVC rows stay the
+ * ones listed. Any other quality stays as it was. The audio renditions stay listed on their own.
  */
 internal object HlsAudioPairing {
     fun pair(variants: List<MediaVariant>): List<MediaVariant> {
@@ -24,12 +26,25 @@ internal object HlsAudioPairing {
             .groupBy { it.audioGroupId }
             .mapValues { (_, renditions) -> renditions.first() }
         if (audioByGroup.isEmpty()) return variants
-        return variants.map { variant -> withCompanion(variant, audioByGroup) }
+        val withAvc = variants.map { variant -> withCompanion(variant, audioByGroup, ::isAvc) }
+        val heightsWithSound = withAvc
+            .filter { it.kind == MediaKind.HLS && it.trackType == MediaTrackType.AUDIO_VIDEO }
+            .mapNotNull { it.height }
+            .toSet()
+        return withAvc.map { variant ->
+            val height = variant.height
+            if (height == null || height in heightsWithSound) {
+                variant
+            } else {
+                withCompanion(variant, audioByGroup, ::isVp9)
+            }
+        }
     }
 
     private fun withCompanion(
         variant: MediaVariant,
         audioByGroup: Map<String?, MediaVariant>,
+        videoCodec: (String) -> Boolean,
     ): MediaVariant {
         if (variant.kind != MediaKind.HLS || variant.trackType != MediaTrackType.VIDEO) {
             return variant
@@ -38,7 +53,7 @@ internal object HlsAudioPairing {
         val audio = variant.audioGroupId?.let(audioByGroup::get) ?: return variant
         val videoCodecs = variant.codecs.filterNot(::isAudioCodec)
         val audioCodecs = audio.codecs.ifEmpty { variant.codecs.filter(::isAudioCodec) }
-        if (videoCodecs.isEmpty() || !videoCodecs.all(::isAvc)) return variant
+        if (videoCodecs.isEmpty() || !videoCodecs.all(videoCodec)) return variant
         if (audioCodecs.isEmpty() || !audioCodecs.all(::isAac)) return variant
         return variant.copy(
             trackType = MediaTrackType.AUDIO_VIDEO,
@@ -57,6 +72,9 @@ internal object HlsAudioPairing {
 
     private fun isAvc(codec: String): Boolean =
         codec.trim().lowercase(Locale.US).let { it.startsWith("avc1") || it.startsWith("avc3") }
+
+    private fun isVp9(codec: String): Boolean =
+        codec.trim().lowercase(Locale.US).startsWith("vp09.")
 
     private fun isAac(codec: String): Boolean =
         codec.trim().lowercase(Locale.US).startsWith("mp4a.40.")

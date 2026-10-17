@@ -315,10 +315,11 @@ class DefaultVariantResolverTest {
     }
 
     @Test
-    fun `YouTube HLS pairs AVC qualities with the AAC sound and leaves VP9 ones silent`() = runTest {
+    fun `YouTube HLS pairs AVC qualities with the AAC sound and VP9 only above them`() = runTest {
         // Master Phase 1.3 D5c (h-only): the sound is one rendition without CODECS, named in each
-        // quality's CODECS first. VP9 with AAC has no container the phone's muxer writes (MP4
-        // takes no VP9, WebM no AAC), so those qualities stay "No sound".
+        // quality's CODECS first. Backlog item 5: VP9 with AAC goes into one MP4 by YFT's own
+        // stream copy, so a VP9 quality is paired where no AVC one has sound (2160p); at 1080p
+        // the AVC row keeps the sound and the VP9 one stays "No sound".
         val stream = "#EXT-X-STREAM-INF:BANDWIDTH"
         val master = listOf(
             "#EXTM3U",
@@ -341,9 +342,13 @@ class DefaultVariantResolverTest {
         assertEquals(MediaTrackType.AUDIO_VIDEO, avc.trackType)
         assertEquals(listOf("avc1.640028"), avc.codecs)
         assertEquals(listOf("mp4a.40.2"), requireNotNull(avc.audioCompanion).codecs)
-        val vp9 = variants.filter { "/vp9/" in it.playbackUrl }
-        assertEquals(2, vp9.size)
-        assertTrue(vp9.all { it.trackType == MediaTrackType.VIDEO && it.audioCompanion == null })
+        val vp9 = variants.single { it.playbackUrl.endsWith("/vp9/1080.m3u8") }
+        assertEquals(MediaTrackType.VIDEO, vp9.trackType)
+        assertEquals(null, vp9.audioCompanion)
+        val vp9Uhd = variants.single { it.playbackUrl.endsWith("/vp9/2160.m3u8") }
+        assertEquals(MediaTrackType.AUDIO_VIDEO, vp9Uhd.trackType)
+        assertEquals(listOf("vp09.00.51.08"), vp9Uhd.codecs)
+        assertEquals(listOf("mp4a.40.2"), requireNotNull(vp9Uhd.audioCompanion).codecs)
         assertEquals(1, variants.count { it.trackType == MediaTrackType.AUDIO })
     }
 

@@ -104,6 +104,13 @@ object AudioVideoMuxCompatibility {
      */
     const val FAST_MERGE_ENABLED = true
 
+    /**
+     * Backlog item 5: VP9 HLS video and its AAC HLS sound (joined ADTS) go into one MP4 by the
+     * stream copy alone — Android's MP4 muxer takes no VP9, so its fallback fails — from Android
+     * 10, whose MediaExtractor reads VP9 in MP4 for the stream copy's check.
+     */
+    const val VP9_HLS_MP4_MIN_SDK = 29
+
     fun evaluate(
         plan: AudioVideoMuxDownloadPlan,
         sdkInt: Int = Build.VERSION.SDK_INT,
@@ -177,7 +184,9 @@ object AudioVideoMuxCompatibility {
         }
         if (
             plan.video.codecs.isEmpty() ||
-            plan.video.codecs.any { codec -> !canWriteVideo(codec, sdkInt, av1Enabled) }
+            plan.video.codecs.any { codec ->
+                !canWriteVideo(codec, sdkInt, av1Enabled, hlsVp9 = plan.video.hlsPlaylist)
+            }
         ) {
             return MuxCompatibility.Incompatible(MuxIncompatibilityReason.VIDEO_CODEC)
         }
@@ -194,16 +203,19 @@ object AudioVideoMuxCompatibility {
 
     /**
      * Whether the MP4 muxer of Android [sdkInt] writes video in [codec], such as `avc1.64001f`;
-     * AV1 only while [av1Enabled] ([AV1_MP4_ENABLED]) and from [AV1_MP4_MIN_SDK].
+     * AV1 only while [av1Enabled] ([AV1_MP4_ENABLED]) and from [AV1_MP4_MIN_SDK]; VP9 only for
+     * an HLS video ([hlsVp9], backlog item 5) and from [VP9_HLS_MP4_MIN_SDK].
      */
     fun canWriteVideo(
         codec: String,
         sdkInt: Int = Build.VERSION.SDK_INT,
         av1Enabled: Boolean = AV1_MP4_ENABLED,
+        hlsVp9: Boolean = false,
     ): Boolean {
         val normalized = codec.trim().lowercase(Locale.US)
         return VIDEO_CODEC_PREFIXES.any(normalized::startsWith) ||
-            (av1Enabled && normalized.startsWith(AV1_CODEC_PREFIX) && sdkInt >= AV1_MP4_MIN_SDK)
+            (av1Enabled && normalized.startsWith(AV1_CODEC_PREFIX) && sdkInt >= AV1_MP4_MIN_SDK) ||
+            (hlsVp9 && normalized.startsWith(VP9_CODEC_PREFIX) && sdkInt >= VP9_HLS_MP4_MIN_SDK)
     }
 
     private fun String?.normalizedMime(): String? =

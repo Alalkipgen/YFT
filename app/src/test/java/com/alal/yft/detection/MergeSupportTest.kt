@@ -68,6 +68,17 @@ class MergeSupportTest {
     }
 
     @Test
+    fun vp9HlsWithAacMergesIntoOneMp4FromAndroid10() {
+        // Backlog item 5: YouTube's HLS 1440p and 2160p are VP9 with the AAC HLS sound, merged
+        // into one MP4 by YFT's own stream copy (Android's MP4 muxer takes no VP9).
+        val hls = vp9.copy(kind = MediaKind.HLS, mimeType = "application/x-mpegURL")
+
+        assertFalse(DeviceMergeSupport(sdkInt = 28, hasDecoder = { true }).canMerge(hls))
+        assertTrue(DeviceMergeSupport(sdkInt = 29, hasDecoder = { false }).canMerge(hls))
+        assertFalse(DeviceMergeSupport(sdkInt = 35, hasDecoder = { true }).canMerge(vp9))
+    }
+
+    @Test
     fun theDecoderListIsReadOnceAndOnlyForAv1() {
         var lookups = 0
         val support =

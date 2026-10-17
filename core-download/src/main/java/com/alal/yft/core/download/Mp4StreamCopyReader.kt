@@ -33,7 +33,8 @@ internal fun unsupported(reason: String): Nothing = throw StreamCopyUnsupported(
 
 /** Which track a merge input holds (P35), with its `hdlr` type and the sample entries copied. */
 internal enum class StreamCopyTrackKind(val handler: String, val sampleEntries: Set<String>) {
-    VIDEO("vide", setOf("avc1", "avc3")),
+    /** `vp09` only for VP9 HLS with its AAC sound (item 5, [AudioVideoMuxCompatibility]). */
+    VIDEO("vide", setOf("avc1", "avc3", "vp09")),
     AUDIO("soun", setOf("mp4a")),
 }
 
@@ -158,6 +159,19 @@ internal class Mp4Track(
     fun compositionOffset(index: Int): Int = compositionOffsets?.get(index) ?: 0
 
     fun isSync(index: Int): Boolean = sync?.get(index) ?: true
+
+    /** The type of the one sample entry, such as `avc1`, `vp09` or `mp4a` (item 5). */
+    val sampleEntryType: String
+        get() = if (sampleDescription.size >= SAMPLE_ENTRY_TYPE_END) {
+            String(sampleDescription, SAMPLE_ENTRY_TYPE_END - 4, 4, Charsets.ISO_8859_1)
+        } else {
+            ""
+        }
+
+    private companion object {
+        /** stsd header 8, version and flags 4, entry count 4, entry size 4, then its type. */
+        const val SAMPLE_ENTRY_TYPE_END = 24
+    }
 }
 
 /**
