@@ -1,7 +1,8 @@
 # Master Key — Phase 1.4 backlog item 7: YouTube routing B (plan)
 
-**Status:** R1 built (2026-10-17; §7 "As built"): the per-lookup recorder, flag off = today. R2–R6
-next, one commit each. Plan written 2026-10-17 (docs only).
+**Status:** R1–R2 built (2026-10-17; §7 "As built"): the per-lookup recorder and route B's Master
+wrappers (replay, refusals, 429 stop; nothing puts them into a lookup before R3), flag off = today.
+R3–R6 next, one commit each. Plan written 2026-10-17 (docs only).
 Backlog pointer: `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Same contract as the social sites:
 `MASTER_KEY_SOCIAL_PLAN.md` §2.1 decisions #7 (routing B / B+ / A) and #8 (lookup = main + Master,
 per-lookup request recorder). Agent prompt: `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md`.
@@ -115,3 +116,34 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   player-script, PO-token and TikTok clients are separate); a lookup that joins another caller's
   running shared lookup (P17) records into that caller's record; home and pasted-link lookups carry
   none. Nothing reads the record yet (R2, R3).
+- **R2 (2026-10-17).** `RouteBLookup` (`extractor-master` `lookup`): one route-B run of Master's
+  YouTube module over the lookup's record, a coroutine context element the engine adds (R3); it counts
+  replayed / new / refused (numbers only; `summary()` = `replayed N; new M` and `; refused K` when any,
+  for the Details line). Without it the wrappers only pass through: `RouteBHttpClient` (the module's
+  client, so the copied chain, the ladder's memo, A, O, V, Z and H's playlists), `RouteBMediaStartReader`
+  (L's V and init reads, H's first segment) and `RouteBPlayerScripts.wrap` (the own solver; keeps
+  `SignatureVerdicts`, so `SignatureGate.of` sees the same kind). Rules per request, in order:
+  (1) authorized (non-blank `Cookie` / `Authorization` / `Proxy-Authorization`) → refused, never sent;
+  (2) identical to main's kept unauthenticated answer → replayed, once; (3) after a 429 in the lookup,
+  main's or Master's → refused `RATE_LIMITED`; (4) endpoint (method, address, body; not a media host)
+  already asked in the lookup — main's answer authorized, not kept or already replayed, or Master's own
+  — → refused; (5) otherwise new: sent, listed as Master's, never kept. File checks and media reads:
+  never replayed (as in the ladder's memo), rules 1, 3 and 5. **Plan adapted:** a refusal reads as a
+  request without an answer (`NETWORK`, no status; never `UNSUPPORTED_URL`), not a new reason; the
+  watch page falls under rule 4, so main's page stays the lookup's one (guardrail 7); an O rung's
+  request that differs from main's in its body (main's carried a PO token) is new, one that differs
+  only in headers (main's carried the cookie) is refused; Z's file checks are new requests of a rung
+  main lacks, inside its bound; the own solver fetches its script with its own client, so it is only
+  refused after a 429 (its fetches are not counted); A's version source (D5a, not YouTube, at most once
+  a day) is outside the rules. App: `MasterLadderSwitch.youTube(..., routeB)` gives the module
+  `YouTubeRouteB.masterClient` / `masterScripts` / `masterReader` in a route-B build (the process's
+  ladder makes its reader once); every other build: the same objects as before. Simulator
+  (`RouteBSimTest`, §4): main (`extractor-sites`, test only) then Master in the same world, every class
+  and base, own solver off and on, Master after every main result as R4's trial runs it (990 runs):
+  0 wrong rows, 0 credentials, ≤ 1 watch page per lookup (main + Master), Master ≤ 3 player requests
+  and never more than the ladder alone; after a recoverable failure (230 runs: L2, L4, L7, L10, L13,
+  F3) never worse than the ladder alone; moved shape (L2, L4, L7): complete from main's replayed
+  visionOS answer, 0 player requests, 0 pages; after main's 429 nothing sent. Note: L1 (streaming data
+  moved) ends main with `LOGIN_REQUIRED` in the simulator (final, so no route B there). Limit: a
+  refused visionOS request would count as a refusal in the ladder's client health (practically never:
+  main asks visionOS first, unauthenticated, so Master's identical request is replayed).

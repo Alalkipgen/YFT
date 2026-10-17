@@ -275,7 +275,10 @@ class AndroidBrowserMasterFallback(
                     captureSelection = capture::selectMain,
                     // R6: YouTube pages are Master's own module's, never capture's.
                     // Phase 1.3 D6: the client ladder only with -Pyft.clientLadder (debug).
-                    modules = listOf(MasterLadderSwitch.youTube(http, client, playerScripts, filesDir)),
+                    // Phase 1.4 item 7 R2: route B's wrappers only with -Pyft.youtubeRouteB (debug).
+                    modules = listOf(
+                        MasterLadderSwitch.youTube(http, client, playerScripts, filesDir, routeB = youtubeRouteB),
+                    ),
                     // R8: Vimeo/X/Facebook/TikTok/Instagram contract endpoints, then capture;
                     // R9: their recipes from a signed config when the build carries its key.
                     contracts = MasterRecipeConfig.contracts(http),

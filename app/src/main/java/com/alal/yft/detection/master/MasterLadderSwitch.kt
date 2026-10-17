@@ -45,6 +45,10 @@ internal object MasterLadderSwitch {
      * ([playerScripts], used only when the build's own solver is on — never main's runner) in the
      * copied extractor's challenge and apply code, behind the module's signature gate (V).
      * [filesDir] locates the app's files directory for the health file (null: memory only).
+     * Phase 1.4 item 7 route B R2: in a route-B build ([routeB], `-Pyft.youtubeRouteB`, debug only)
+     * the module's client, the own solver's runner and the ladder's media reader are route B's
+     * ([YouTubeRouteB]); they only pass through until the engine runs the module after main's
+     * recoverable failure (R3). Otherwise every piece is as before.
      */
     fun youTube(
         http: ExtractorHttpClient,
@@ -53,10 +57,12 @@ internal object MasterLadderSwitch {
         filesDir: (() -> File)? = null,
         enabled: Boolean = BuildConfig.CLIENT_LADDER_ENABLED,
         ownSolver: Boolean = BuildConfig.OWN_SOLVER_ENABLED,
+        routeB: Boolean = YouTubeRouteB.enabled,
     ): MasterYouTubeModule {
-        if (!enabled) return MasterYouTubeModule(http)
-        val scripts = playerScripts?.takeIf { ownSolver } ?: NoPlayerScriptRunner
-        return MasterYouTubeModule(http, scripts, ladder(client, filesDir))
+        val masterHttp = YouTubeRouteB.masterClient(http, routeB)
+        if (!enabled) return MasterYouTubeModule(masterHttp)
+        val scripts = YouTubeRouteB.masterScripts(playerScripts?.takeIf { ownSolver } ?: NoPlayerScriptRunner, routeB)
+        return MasterYouTubeModule(masterHttp, scripts, ladder(client, filesDir, routeB))
     }
 
     /**
@@ -67,12 +73,15 @@ internal object MasterLadderSwitch {
         get() = BuildConfig.CLIENT_LADDER_ENABLED &&
             LadderTrial.of(BuildConfig.LADDER_SKIP, BuildConfig.LADDER_MUTATE).hOnly
 
-    /** The process's ladder: every tab shares its health (thread-safe), V ledger and switch. */
-    private fun ladder(client: OkHttpClient, filesDir: (() -> File)?): MasterClientLadder =
+    /**
+     * The process's ladder: every tab shares its health (thread-safe), V ledger and switch. Its
+     * reader is made once, as the build's route-B switch says (route B R2).
+     */
+    private fun ladder(client: OkHttpClient, filesDir: (() -> File)?, routeB: Boolean): MasterClientLadder =
         shared ?: synchronized(this) {
             shared ?: MasterClientLadder(
                 healthFile = filesDir?.let { dir -> AtomicTextFile { File(dir(), HEALTH_FILE) } },
-                reader = OkHttpMediaStartReader(client),
+                reader = YouTubeRouteB.masterReader(OkHttpMediaStartReader(client), routeB),
                 trial = LadderTrial.of(BuildConfig.LADDER_SKIP, BuildConfig.LADDER_MUTATE),
                 sources = OkHttpVersionSourceReader(client),
             ).also { shared = it }

@@ -1,5 +1,41 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 item 7 R2: route B's Master wrappers for the YouTube module (2026-10-17)
+
+- New in `extractor-master` `lookup`: `RouteBLookup` — one route-B run of Master's YouTube module over
+  the lookup's record (a coroutine context element; counts replayed / new / refused, numbers only;
+  `summary()` = `replayed N; new M` and `; refused K` when any, for R3's Details line) — and three
+  wrappers that only pass through without it: `RouteBHttpClient` (the module's client),
+  `RouteBMediaStartReader` (the ladder's media reads: L's V and init checks, H's first segment) and
+  `RouteBPlayerScripts.wrap` (the own solver's runner; keeps `SignatureVerdicts`, so the module's
+  signature gate is as before).
+- Each request of Master's module, in order: with the user's session (`Cookie` / `Authorization`) →
+  refused, never sent; identical to one whose unauthenticated answer main got → replayed from the
+  record, once; after a 429 in the lookup (main's or Master's) → refused `RATE_LIMITED`, nothing new
+  goes out; an endpoint (method, address, body; media hosts aside) already asked in the lookup →
+  refused (so the watch page stays main's one per lookup); otherwise new — sent and listed as Master's,
+  never kept. File checks and media reads are never replayed (as in the ladder's memo). A refusal
+  reads as a request without an answer (`NETWORK`, no status), never `UNSUPPORTED_URL`. The own
+  solver is not run after a 429 (its script fetch would be new).
+- App: in a route-B build `MasterLadderSwitch.youTube` (`AndroidBrowserMasterFallback.create`) gives
+  Master's module `YouTubeRouteB.masterClient` / `masterScripts` / `masterReader`; every other build:
+  the very same objects as before. Nothing puts a `RouteBLookup` into a lookup yet (R3's engine), so
+  every lookup, the census and every other site run as before.
+- Simulator (`RouteBSimTest`): one lookup = main (`extractor-sites`, test only) then Master with the
+  ladder through the wrappers, in the same world, every class on every base, own solver off and on;
+  Master after every main result, as R4's trial will run it (990 runs). 0 wrong rows, 0 credentials,
+  main + Master at most one watch page per lookup, Master at most 3 player requests and never more
+  than the ladder alone, every request it sent listed in the record. After main's recoverable failure
+  (230 runs: L2, L4, L7, L10, L13, F3) Master never ends worse than the ladder alone. Moved shape
+  (L2, L4, L7): main fails, Master is complete from main's replayed visionOS answer with 0 player
+  requests and 0 watch pages. After main's 429 Master sends nothing.
+- Tests: `RouteBHttpClientTest` (11), `RouteBGatesTest` (5), `RouteBSimTest` (3), `YouTubeRouteBTest`
+  +3. Local: `:extractor-master:test` 697 green (2 skipped as before), `:extractor-sites:test` 280
+  green, all app unit tests with the flags off 974 green (66 skipped as before), the four Master app
+  classes with `masterCapture` + `ownSolver` on green (38) and again with `clientLadder` +
+  `youtubeRouteB` on (38), drift 0 (107 symbols), workflow script tests green. Locked files and
+  `extractor-sites` unchanged.
+
 ## Phase 1.4 item 7 R1: per-lookup request recorder for YouTube routing B (2026-10-17)
 
 - Owner decisions (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §5): the plan's proposed values are used —
