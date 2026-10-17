@@ -18,7 +18,11 @@ ended live stream failed every download (`INTEGRITY_MISMATCH`, CONNECT) → live
 the first range and take short answers, other files stay strict; `[d7]` run 4c. Run 4c on the
 phone: the ID3 fix works (sound all through); item 6 still failed (Detail "asked bytes 0-671324,
 got bytes 0-671324/671325, length 1048576": the Content-Range is wrong, the Content-Length right)
-→ live-origin files are read ask after ask until the server has no more; `[d7]` run 4d.
+→ live-origin files are read ask after ask until the server has no more; `[d7]` run 4d. Run 4d
+on the phone: `NETWORK` READ_SOURCE (a socket read timed out in the body, "Downloading · 8 KB")
+→ a live answer is read only up to its Content-Range end, a stalled body keeps its bytes, only a
+416 or an empty answer ends the file, any other 4xx fails, the Detail says how far it got;
+`[d7]` run 4e.
 
 ## 0. Rules (every item)
 

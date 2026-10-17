@@ -361,7 +361,7 @@ class DashTransferEngineTest {
     }
 
     @Test
-    fun `a live-origin whole file is read range after range until the server has no more`() =
+    fun `a live-origin whole file is read up to each Content-Range end, not its length`() =
         runTest {
             val bytes = ByteArray(2_500) { index -> (index % 251).toByte() }
             server.dispatcher = liveOriginDispatcher(bytes)
@@ -380,28 +380,28 @@ class DashTransferEngineTest {
 
             assertEquals(2_500L, result.bytesWritten)
             assertArrayEquals(bytes, files.completed.readBytes())
-            val ranges = List(server.requestCount) { server.takeRequest().getHeader("Range") }
-            // The stated 9 999 and every Content-Range end and total are ignored; the short
-            // third answer and the 416 after it end the file.
-            assertEquals(
-                listOf("bytes=0-999", "bytes=1000-1999", "bytes=2000-2999", "bytes=2500-3499"),
-                ranges,
-            )
+            val starts = List(server.requestCount) {
+                RANGE.matchEntire(server.takeRequest().getHeader("Range")!!)!!
+                    .groupValues[1].toLong()
+            }
+            // Every answer claims the whole ask in its Content-Length but stops at its
+            // Content-Range end; the next ask starts there, and the 416 after the end ends it.
+            assertEquals(listOf(0L, 400L, 800L, 1_200L, 1_600L, 2_000L, 2_400L, 2_500L), starts)
             assertTrue(progress.all { it.totalBytes == null })
             assertEquals(2_500L, progress.last().downloadedBytes)
         }
 
     @Test
-    fun `a live-origin whole file keeps what a broken answer brought and asks on from there`() =
+    fun `a live-origin whole file keeps what a stalled answer brought and asks on from there`() =
         runTest {
             val bytes = ByteArray(2_500) { index -> (index % 241).toByte() }
-            server.dispatcher = liveOriginDispatcher(bytes, breakAt = 1_000)
-            val files = files("broken.mp4")
+            server.dispatcher = liveOriginDispatcher(bytes, stallAt = 800)
+            val files = files("stalled.mp4")
 
             val result = engine(maxConcurrentChunks = 1).transfer(
                 plan = wholeFilePlan(
                     url = server.url("/video.mp4?source=yt_live_broadcast").toString(),
-                    id = "broken",
+                    id = "stalled",
                 ),
                 destination = files.destination,
             ) as DashTransferResult.Completed
@@ -412,13 +412,34 @@ class DashTransferEngineTest {
                 RANGE.matchEntire(server.takeRequest().getHeader("Range")!!)!!
                     .groupValues[1].toLong()
             }
-            assertEquals(listOf(0L, 1_000L), starts.take(2))
-            // The broken answer's bytes stay: the next ask starts after them, never at 0.
-            assertTrue(starts[2] in 1_001L..1_999L)
-            assertTrue(starts.drop(1).none { it == 0L })
-            // A 416 after a full answer halves the ask down to one byte before the file ends.
-            assertEquals(2_500L, starts.last())
+            // The answer at 800 stops after 200 bytes: they stay and the next ask starts at 1000.
+            assertEquals(listOf(0L, 400L, 800L, 1_000L, 1_400L, 1_800L, 2_200L, 2_500L), starts)
         }
+
+    @Test
+    fun `a live-origin whole file that is refused part way fails and keeps no file`() = runTest {
+        val bytes = ByteArray(2_500) { index -> (index % 251).toByte() }
+        server.dispatcher = liveOriginDispatcher(bytes, forbidFrom = 800)
+        val files = files("refused.mp4")
+
+        val result = engine(maxConcurrentChunks = 1).transfer(
+            plan = wholeFilePlan(
+                url = server.url("/video.mp4?source=yt_live_broadcast").toString(),
+                id = "refused",
+            ),
+            destination = files.destination,
+        ) as DashTransferResult.Failure
+
+        // A 403 after short answers is not the end of the file: it fails, and says how far.
+        assertEquals(DownloadFailureReason.ACCESS_DENIED, result.failure.reason)
+        assertEquals(403, result.failure.httpStatusCode)
+        assertEquals(DownloadFailureStage.CONNECT, result.failure.stage)
+        assertTrue(
+            result.failure.detail.orEmpty(),
+            result.failure.detail.orEmpty().startsWith("live 800 B/3 asks, last 403 "),
+        )
+        assertFalse(files.completed.exists())
+    }
 
     @Test
     fun `a normal whole file with the live server's headers fails and names them`() = runTest {
@@ -483,37 +504,43 @@ class DashTransferEngineTest {
     }
 
     /**
-     * A live-origin server as on the owner's phone: every Content-Range claims 400 bytes of a
-     * 400-byte file past its start, the body and its Content-Length are honest, 416 past the
-     * end. [breakAt]: the first answer from there closes half way through its body.
+     * A live-origin server as the phone results suggest: an answer holds at most one 400-byte
+     * piece and its Content-Range is true (`bytes S-E/E+1`), but its Content-Length is the whole
+     * ask and after the piece it sends nothing more; 416 past the end. [stallAt]: the first
+     * answer there sends 200 bytes and stops. [forbidFrom]: 403 from there on.
      */
-    private fun liveOriginDispatcher(bytes: ByteArray, breakAt: Long? = null): Dispatcher =
-        object : Dispatcher() {
-            private val broken = java.util.concurrent.atomic.AtomicBoolean(false)
+    private fun liveOriginDispatcher(
+        bytes: ByteArray,
+        stallAt: Int? = null,
+        forbidFrom: Int? = null,
+    ): Dispatcher = object : Dispatcher() {
+        private val stalled = java.util.concurrent.atomic.AtomicBoolean(false)
 
-            override fun dispatch(request: RecordedRequest): MockResponse {
-                val match = request.getHeader("Range")?.let(RANGE::matchEntire)
-                    ?: return MockResponse().setResponseCode(400)
-                val start = match.groupValues[1].toInt()
-                if (start > bytes.lastIndex) {
-                    return MockResponse()
-                        .setResponseCode(416)
-                        .setHeader("Content-Range", "bytes */400")
-                }
-                val end = minOf(match.groupValues[2].toInt(), bytes.lastIndex)
-                val response = MockResponse()
-                    .setResponseCode(206)
-                    .setHeader("Content-Range", "bytes $start-${start + 399}/${start + 400}")
-                    .setHeader("Content-Type", "video/mp4")
-                    .setBody(Buffer().write(bytes.copyOfRange(start, end + 1)))
-                if (start.toLong() == breakAt && broken.compareAndSet(false, true)) {
-                    response.setSocketPolicy(
-                        okhttp3.mockwebserver.SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY,
-                    )
-                }
-                return response
+        override fun dispatch(request: RecordedRequest): MockResponse {
+            val match = request.getHeader("Range")?.let(RANGE::matchEntire)
+                ?: return MockResponse().setResponseCode(400)
+            val start = match.groupValues[1].toInt()
+            if (forbidFrom != null && start >= forbidFrom) {
+                return MockResponse().setResponseCode(403)
             }
+            if (start > bytes.lastIndex) {
+                return MockResponse()
+                    .setResponseCode(416)
+                    .setHeader("Content-Range", "bytes */${bytes.size}")
+            }
+            val end = minOf(start + 399, bytes.lastIndex)
+            val response = MockResponse()
+                .setResponseCode(206)
+                .setHeader("Content-Type", "video/mp4")
+                .setBody(Buffer().write(bytes.copyOfRange(start, end + 1)))
+                .setHeader("Content-Range", "bytes $start-$end/${end + 1}")
+                .setHeader("Content-Length", match.groupValues[2].toInt() - start + 1)
+            if (start == stallAt && stalled.compareAndSet(false, true)) {
+                response.throttleBody(200, 1, TimeUnit.SECONDS)
+            }
+            return response
         }
+    }
 
     private fun wholeFileDispatcher(
         bytes: ByteArray,
@@ -562,6 +589,7 @@ class DashTransferEngineTest {
             initialRetryDelayMillis = 0,
             maxConcurrentChunks = maxConcurrentChunks,
             bufferBytes = 1_024,
+            liveStallMillis = 300,
         ),
         clock = { 100 },
     )

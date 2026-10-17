@@ -108,6 +108,8 @@ class DashTransferEngine(
         val mediaHostConcurrentChunks: Int = 4,
         /** The shortest time between two progress updates: 4 a second (P41). */
         val progressIntervalMillis: Long = 250,
+        /** How long a live-origin answer's body may stop before the next ask ([GrowingRead]). */
+        val liveStallMillis: Long = 5_000,
     ) {
         init {
             require(maxRedirects >= 0)
@@ -122,6 +124,7 @@ class DashTransferEngine(
             require(firstRangeBytes > 0)
             require(mediaHostConcurrentChunks in 1..8)
             require(progressIntervalMillis >= 0)
+            require(liveStallMillis > 0)
         }
     }
 
@@ -918,8 +921,8 @@ class DashTransferEngine(
 
     /**
      * Reads a live-origin whole file ([LiveOriginFile]) into [temporary], ask after ask from
-     * byte 0 until the server has no more ([GrowingRead]); returns the bytes written. A failed
-     * ask keeps what it wrote and is tried again from there, so the file never starts over.
+     * byte 0 until the server has no more ([GrowingRead]); returns the bytes written. An ask
+     * that breaks keeps what it wrote and the next one starts after it.
      */
     private suspend fun receiveGrowing(
         plan: DashDownloadPlan,
@@ -929,48 +932,46 @@ class DashTransferEngine(
         temporary: File,
         counter: RangeCounter,
     ): Long {
-        val read = GrowingRead(firstAsk)
-        var failures = 0
-        while (true) {
-            currentCoroutineContext().ensureActive()
-            if (read.requests >= GrowingRead.MAX_REQUESTS) {
-                throw DashAbort(DownloadFailureReason.UNSUPPORTED_SOURCE, stage = READ_SOURCE)
-            }
-            val asked = ResolvedByteRange(read.written, read.ask)
-            val bytes = try {
-                receiveGrowingOnce(plan, credentialOrigin, url, asked, read, temporary, counter)
-            } catch (retry: RetryableDashFailure) {
-                read.keep(fileLength(temporary))
-                if (++failures >= policy.maxAttempts) throw DashAbort(retry.failure())
-                delay(backoffMillis(failures - 1))
-                continue
-            }
-            read.keep(read.written + bytes)
-            failures = 0
-            if (!read.answered(bytes)) break
+        val read = GrowingRead(firstAsk, policy.liveStallMillis)
+        val file = try {
+            FileOutputStream(temporary, true)
+        } catch (error: IOException) {
+            throw DashAbort(error.toStorageFailure(OPEN_FILE))
         }
-        if (read.written == 0L) {
-            throw DashAbort(
-                DownloadFailure(
-                    reason = DownloadFailureReason.INTEGRITY_MISMATCH,
-                    stage = READ_SOURCE,
-                    detail = read.endDetail,
-                ),
-            )
+        return file.use { output ->
+            val written = read.readUntilEnd(
+                maxAttempts = policy.maxAttempts,
+                backoffMillis = { attempt -> backoffMillis(attempt) },
+                fail = { failure -> throw DashAbort(failure) },
+            ) { offset, length ->
+                askGrowing(plan, credentialOrigin, url, read, offset, length) { buffer, count ->
+                    try {
+                        output.write(buffer, 0, count)
+                    } catch (error: IOException) {
+                        throw DashAbort(error.toStorageFailure(WRITE_FILE))
+                    }
+                    counter.add(count.toLong())
+                }
+            }
+            try {
+                output.fd.sync()
+            } catch (error: IOException) {
+                throw DashAbort(error.toStorageFailure(WRITE_FILE))
+            }
+            written
         }
-        return read.written
     }
 
-    /** One ask of a [GrowingRead]: the bytes it appended to [temporary], 0 when none came. */
-    private suspend fun receiveGrowingOnce(
+    /** One ask of a [GrowingRead]: [length] bytes at [offset], the body given to [write]. */
+    private suspend fun askGrowing(
         plan: DashDownloadPlan,
         credentialOrigin: HttpUrl,
         url: HttpUrl,
-        asked: ResolvedByteRange,
         read: GrowingRead,
-        temporary: File,
-        counter: RangeCounter,
-    ): Long {
+        offset: Long,
+        length: Long,
+        write: suspend (ByteArray, Int) -> Unit,
+    ): GrowingRead.Outcome {
         val execution = try {
             http.execute(
                 credentialOrigin = credentialOrigin,
@@ -978,26 +979,34 @@ class DashTransferEngine(
                 context = plan.requestContext,
             ) {
                 get()
-                header("Range", "bytes=${asked.offset}-${asked.endInclusive}")
+                header("Range", "bytes=$offset-${offset + length - 1}")
             }
         } catch (error: IOException) {
-            throw RetryableDashFailure.network(CONNECT, error)
+            return GrowingRead.Broken(
+                0,
+                DownloadFailure(
+                    reason = DownloadFailureReason.NETWORK,
+                    stage = CONNECT,
+                    detail = DownloadFailureDetails.of(error),
+                ),
+            )
         }
         return when (execution) {
             is SecureDownloadHttp.Result.Failed ->
                 throw DashAbort(execution.reason, stage = CONNECT)
             is SecureDownloadHttp.Result.Completed -> execution.response.use { response ->
-                val answered = validateGrowingResponse(response, asked, read)
-                if (answered == 0L) {
-                    0L
-                } else {
-                    writeChunk(
-                        response = response,
-                        expectedBytes = answered,
-                        destination = temporary,
-                        counter = counter,
-                        maxBytes = asked.length,
-                        allowEmpty = true,
+                when (val check = read.check(response, offset, length)) {
+                    GrowingRead.End -> GrowingRead.Answered(0)
+                    is GrowingRead.Fail -> throw DashAbort(check.failure)
+                    is GrowingRead.Retry -> GrowingRead.Broken(0, check.failure)
+                    is GrowingRead.Read -> read.readBody(
+                        body = response.body ?: throw DashAbort(
+                            DownloadFailureReason.MALFORMED_RESPONSE,
+                            stage = CONNECT,
+                        ),
+                        limit = check.limit,
+                        bufferBytes = policy.bufferBytes,
+                        write = write,
                     )
                 }
             }
@@ -1005,72 +1014,13 @@ class DashTransferEngine(
     }
 
     /**
-     * Checks one answer of a [GrowingRead] and returns how many bytes it carries: its
-     * Content-Length (null: none, at most the ask), 0 when the file has no more there. The
-     * Content-Range must start at the asked byte; its end and total are not read.
-     */
-    private fun validateGrowingResponse(
-        response: Response,
-        asked: ResolvedByteRange,
-        read: GrowingRead,
-    ): Long? {
-        if (response.code in 500..599) {
-            throw RetryableDashFailure(DownloadFailureReason.SERVER_ERROR, response.code)
-        }
-        val ended = response.code == 416 ||
-            response.code == 204 ||
-            (response.code in 400..499 && read.afterShortAnswer)
-        if (ended) {
-            read.endDetail = DownloadFailureDetails.sanitize(
-                "HTTP ${response.code}, " +
-                    LiveOriginFile.describe(asked.offset, asked.endInclusive, response),
-            )
-            return 0
-        }
-        if (response.code != 206) {
-            throw DashAbort(response.code.toFailureReason(), response.code, CONNECT)
-        }
-        if (LiveOriginFile.rangeStart(response.header("Content-Range")) != asked.offset) {
-            throw rangeMismatch(asked, response)
-        }
-        if (
-            response.header("Content-Encoding")
-                ?.equals("identity", ignoreCase = true) == false
-        ) {
-            throw DashAbort(DownloadFailureReason.MALFORMED_RESPONSE, stage = CONNECT)
-        }
-        val advertised = response.header("Content-Length")
-            ?.toLongOrNull()
-            ?.takeIf { it >= 0 }
-        if (advertised != null && advertised > asked.length) {
-            throw rangeMismatch(asked, response)
-        }
-        val mimeType = response.header("Content-Type")
-            ?.substringBefore(';')
-            ?.trim()
-            ?.lowercase(Locale.US)
-        if (mimeType == "text/html" || mimeType == "application/xhtml+xml") {
-            throw DashAbort(DownloadFailureReason.UNSUPPORTED_SOURCE, stage = CONNECT)
-        }
-        if (advertised == 0L) {
-            read.endDetail = LiveOriginFile.describe(asked.offset, asked.endInclusive, response)
-        }
-        return advertised
-    }
-
-    private fun fileLength(file: File): Long = if (file.isFile) file.length() else 0L
-
-    /**
-     * Appends [response]'s body to [destination]; it must be [expectedBytes] when known and at
-     * most [maxBytes]. An empty body is an error unless [allowEmpty] (then 0 is returned).
+     * Appends [response]'s body to [destination]; it must be [expectedBytes] when known.
      */
     private suspend fun writeChunk(
         response: Response,
         expectedBytes: Long?,
         destination: File,
         counter: RangeCounter,
-        maxBytes: Long = policy.maxChunkBytes,
-        allowEmpty: Boolean = false,
     ): Long {
         val body = response.body
             ?: throw DashAbort(DownloadFailureReason.MALFORMED_RESPONSE, stage = CONNECT)
@@ -1092,7 +1042,7 @@ class DashTransferEngine(
                         throw RetryableDashFailure.network(READ_SOURCE, error)
                     }
                     if (read == -1) break
-                    if (written > maxBytes - read) {
+                    if (written > policy.maxChunkBytes - read) {
                         throw DashAbort(
                             DownloadFailureReason.UNSUPPORTED_SOURCE,
                             stage = READ_SOURCE,
@@ -1107,7 +1057,6 @@ class DashTransferEngine(
                     counter.add(read.toLong())
                 }
                 if (written == 0L) {
-                    if (allowEmpty && expectedBytes == null) return@use 0L
                     throw DashAbort(DownloadFailureReason.INTEGRITY_MISMATCH, stage = READ_SOURCE)
                 }
                 expectedBytes?.let { expected ->

@@ -58,6 +58,8 @@ class DirectTransferEngine(
         val initialRetryDelayMillis: Long = 500,
         val bufferBytes: Int = 64 * 1_024,
         val checkpointIntervalBytes: Long = 256 * 1_024,
+        /** How long a live-origin answer's body may stop before the next ask ([GrowingRead]). */
+        val liveStallMillis: Long = 5_000,
     ) {
         init {
             require(maxRedirects >= 0)
@@ -66,6 +68,7 @@ class DirectTransferEngine(
             require(initialRetryDelayMillis >= 0)
             require(bufferBytes in 1_024..1024 * 1_024)
             require(checkpointIntervalBytes > 0)
+            require(liveStallMillis > 0)
         }
     }
 
@@ -400,8 +403,8 @@ class DirectTransferEngine(
 
     /**
      * Reads a live-origin file ([LiveOriginFile]) into [destination], ask after ask from byte 0
-     * until the server has no more ([GrowingRead]). A failed ask keeps what it wrote and is
-     * tried again from there; no If-Range is sent, as the file's validators may change.
+     * until the server has no more ([GrowingRead]). An ask that breaks keeps what it wrote and
+     * the next one starts after it; no If-Range is sent, as the file's validators may change.
      */
     private suspend fun transferGrowing(
         plan: DirectDownloadPlan,
@@ -411,85 +414,53 @@ class DirectTransferEngine(
         tracker: ProgressTracker,
         segment: DownloadSegment,
     ) {
-        val read = GrowingRead(plan.maxRequestBytes ?: WholeFileTrack.DEFAULT_MAX_REQUEST_BYTES)
-        var failures = 0
+        val read = GrowingRead(
+            plan.maxRequestBytes ?: WholeFileTrack.DEFAULT_MAX_REQUEST_BYTES,
+            policy.liveStallMillis,
+        )
         val output = destinationCall(OPEN_FILE) { destination.open() }
         closeAfter(output) {
-            while (true) {
-                currentCoroutineContext().ensureActive()
-                if (read.requests >= GrowingRead.MAX_REQUESTS) {
-                    throw TransferAbort(
-                        DownloadFailureReason.UNSUPPORTED_SOURCE,
-                        stage = READ_SOURCE,
-                    )
-                }
-                val bytes = try {
-                    growingAttempt(
-                        plan = plan,
-                        credentialOrigin = credentialOrigin,
-                        transferUrl = transferUrl,
-                        output = output,
-                        tracker = tracker,
-                        segment = segment,
-                        read = read,
-                    )
-                } catch (cancellation: CancellationException) {
-                    throw cancellation
-                } catch (failure: RetryableTransferException) {
-                    read.keep(tracker.downloadedFor(segment.index))
-                    failures += 1
-                    if (failures == policy.maxAttempts) {
-                        throw TransferAbort(failure.reason, failure.httpStatusCode, CONNECT)
-                    }
-                    delay(backoffMillis(failures - 1))
-                    continue
-                } catch (failure: IOException) {
-                    // Only the source throws I/O errors: destination calls throw TransferAbort.
-                    read.keep(tracker.downloadedFor(segment.index))
-                    failures += 1
-                    if (failures == policy.maxAttempts) {
-                        val source = failure as? SourceException
-                        throw TransferAbort(
-                            DownloadFailure(
-                                reason = DownloadFailureReason.NETWORK,
-                                stage = source?.stage ?: READ_SOURCE,
-                                detail = DownloadFailureDetails.of(source?.cause ?: failure),
-                            ),
+            read.readUntilEnd(
+                maxAttempts = policy.maxAttempts,
+                backoffMillis = { attempt -> backoffMillis(attempt) },
+                fail = { failure -> throw TransferAbort(failure) },
+            ) { offset, length ->
+                var position = offset
+                askGrowing(
+                    plan = plan,
+                    credentialOrigin = credentialOrigin,
+                    transferUrl = transferUrl,
+                    read = read,
+                    offset = offset,
+                    length = length,
+                ) { buffer, count ->
+                    destinationCall(WRITE_FILE) {
+                        output.write(
+                            position = position,
+                            buffer = buffer,
+                            offset = 0,
+                            byteCount = count,
                         )
                     }
-                    delay(backoffMillis(failures - 1))
-                    continue
+                    position += count
+                    tracker.update(segment.index, position)
                 }
-                read.keep(read.written + bytes)
-                failures = 0
-                if (!read.answered(bytes)) break
-            }
-            if (read.written == 0L) {
-                throw TransferAbort(
-                    DownloadFailure(
-                        reason = DownloadFailureReason.INTEGRITY_MISMATCH,
-                        stage = READ_SOURCE,
-                        detail = read.endDetail,
-                    ),
-                )
             }
             destinationCall(WRITE_FILE) { output.sync() }
             tracker.update(segment.index, read.written, forceCheckpoint = true)
         }
     }
 
-    /** One ask of a [GrowingRead]: the bytes it wrote at [GrowingRead.written], 0 when none. */
-    private suspend fun growingAttempt(
+    /** One ask of a [GrowingRead]: [length] bytes at [offset], the body given to [write]. */
+    private suspend fun askGrowing(
         plan: DirectDownloadPlan,
         credentialOrigin: okhttp3.HttpUrl,
         transferUrl: okhttp3.HttpUrl,
-        output: SeekableDownloadOutput,
-        tracker: ProgressTracker,
-        segment: DownloadSegment,
         read: GrowingRead,
-    ): Long {
-        val startByte = read.written
-        val endByte = startByte + read.ask - 1
+        offset: Long,
+        length: Long,
+        write: suspend (ByteArray, Int) -> Unit,
+    ): GrowingRead.Outcome {
         val execution = try {
             http.execute(
                 credentialOrigin = credentialOrigin,
@@ -497,104 +468,36 @@ class DirectTransferEngine(
                 context = plan.requestContext,
             ) {
                 get()
-                header("Range", "bytes=$startByte-$endByte")
+                header("Range", "bytes=$offset-${offset + length - 1}")
             }
         } catch (error: IOException) {
-            throw SourceException(CONNECT, error)
+            return GrowingRead.Broken(
+                0,
+                DownloadFailure(
+                    reason = DownloadFailureReason.NETWORK,
+                    stage = CONNECT,
+                    detail = DownloadFailureDetails.of(error),
+                ),
+            )
         }
         return when (execution) {
             is SecureDownloadHttp.Result.Failed ->
                 throw TransferAbort(execution.reason, stage = CONNECT)
             is SecureDownloadHttp.Result.Completed -> execution.response.use { response ->
-                if (response.code in 500..599) {
-                    throw RetryableTransferException(
-                        reason = DownloadFailureReason.SERVER_ERROR,
-                        httpStatusCode = response.code,
+                when (val check = read.check(response, offset, length)) {
+                    GrowingRead.End -> GrowingRead.Answered(0)
+                    is GrowingRead.Fail -> throw TransferAbort(check.failure)
+                    is GrowingRead.Retry -> GrowingRead.Broken(0, check.failure)
+                    is GrowingRead.Read -> read.readBody(
+                        body = response.body ?: throw TransferAbort(
+                            DownloadFailureReason.MALFORMED_RESPONSE,
+                            stage = CONNECT,
+                        ),
+                        limit = check.limit,
+                        bufferBytes = policy.bufferBytes,
+                        write = write,
                     )
                 }
-                val ended = response.code == 416 ||
-                    response.code == 204 ||
-                    (response.code in 400..499 && read.afterShortAnswer)
-                if (ended) {
-                    read.endDetail = DownloadFailureDetails.sanitize(
-                        "HTTP ${response.code}, " +
-                            LiveOriginFile.describe(startByte, endByte, response),
-                    )
-                    return@use 0L
-                }
-                if (response.code != 206) {
-                    throw TransferAbort(response.code.toFailureReason(), response.code, CONNECT)
-                }
-                if (LiveOriginFile.rangeStart(response.header("Content-Range")) != startByte) {
-                    throw rangeMismatch(startByte, endByte, response)
-                }
-                if (
-                    response.header("Content-Encoding")
-                        ?.equals("identity", ignoreCase = true) == false
-                ) {
-                    throw TransferAbort(DownloadFailureReason.MALFORMED_RESPONSE, stage = CONNECT)
-                }
-                val contentType = response.header("Content-Type")
-                    ?.substringBefore(';')
-                    ?.trim()
-                    ?.lowercase(Locale.US)
-                if (contentType == "text/html" || contentType == "application/xhtml+xml") {
-                    throw TransferAbort(DownloadFailureReason.UNSUPPORTED_SOURCE, stage = CONNECT)
-                }
-                val advertised = response.header("Content-Length")
-                    ?.toLongOrNull()
-                    ?.takeIf { it >= 0 }
-                if (advertised != null && advertised > read.ask) {
-                    throw rangeMismatch(startByte, endByte, response)
-                }
-                if (advertised == 0L) {
-                    read.endDetail = LiveOriginFile.describe(startByte, endByte, response)
-                    return@use 0L
-                }
-                val body = response.body
-                    ?: throw TransferAbort(
-                        DownloadFailureReason.MALFORMED_RESPONSE,
-                        stage = CONNECT,
-                    )
-                var got = 0L
-                body.byteStream().use { input ->
-                    val buffer = ByteArray(policy.bufferBytes)
-                    while (true) {
-                        currentCoroutineContext().ensureActive()
-                        val count = try {
-                            input.read(buffer)
-                        } catch (error: IOException) {
-                            throw SourceException(READ_SOURCE, error)
-                        }
-                        if (count == -1) break
-                        if (got + count > read.ask) {
-                            throw TransferAbort(
-                                DownloadFailureReason.INTEGRITY_MISMATCH,
-                                stage = READ_SOURCE,
-                            )
-                        }
-                        destinationCall(WRITE_FILE) {
-                            output.write(
-                                position = startByte + got,
-                                buffer = buffer,
-                                offset = 0,
-                                byteCount = count,
-                            )
-                        }
-                        got += count
-                        tracker.update(segment.index, startByte + got)
-                    }
-                }
-                if (advertised != null && got != advertised) {
-                    throw TransferAbort(
-                        DownloadFailureReason.INTEGRITY_MISMATCH,
-                        stage = READ_SOURCE,
-                    )
-                }
-                if (got == 0L) {
-                    read.endDetail = LiveOriginFile.describe(startByte, endByte, response)
-                }
-                got
             }
         }
     }

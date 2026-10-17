@@ -1,5 +1,42 @@
 # YFT Master Extractor backup
 
+## Owner item 6, run 4d on the phone (2026-10-17): `NETWORK` READ_SOURCE (a socket read timed out in the body) → a live-origin answer is read only up to its Content-Range end, a stalled body keeps its bytes, only a 416 or an empty answer ends the file; `[d7]` run 4e
+
+- **Phone (the owner, normal APK of run 4d, `94728e3`):** the recently ended live stream, type
+  Merge: `NETWORK` READ_SOURCE, Detail "SocketTimeoutException: timeout; cause SocketException:
+  Socket closed", "Start: plan 0.0 s · length 0.0 s (until the end) · first byte 15.3 s · first
+  progress 15.3 s"; the row showed "Downloading · 8 KB" and then stood still.
+- **Reading:** an HTTP/1.1 socket read timed out inside a body. Run 4d read every answer until
+  its Content-Length; with the run 4c headers (Content-Range `bytes 0-671324/671325`,
+  Content-Length 1048576) that waits for bytes the server never sends. The reading the owner
+  forwarded (another agent): the Content-Length lies, the Content-Range is true and the server
+  stops after the Content-Range end. Not proven (the live header check is blocked by YouTube's
+  bot check), but it fits both phone results.
+- **Fix (`LiveOriginFile.kt`, `GrowingRead`, shared by `DashTransferEngine` and
+  `DirectTransferEngine`; live-origin files only):** 1) an answer is read up to its Content-Range
+  end (at most the ask) and closed, never waiting for its Content-Length; the next ask starts at
+  the next byte. 2) a live answer's body may stand still for 5 s (`liveStallMillis`, the body
+  only: the first byte took 15 s on the phone); then, or when it breaks, its bytes stay and the
+  next ask starts after them (at most 8 such answers in a row; an ask that brings nothing has the
+  usual attempts). 3) only a 416 or an empty answer ends the file (after a full answer the ask is
+  halved first, as before); a 403, 404 or any other 4xx now fails (run 4d took a 4xx after a
+  short answer as the end), so a cut file is never kept as done. 4) a live failure's Detail:
+  "live <bytes> B/<asks> asks, last <status> <Content-Range> len <Content-Length>", plus
+  "sq <X-Sequence-Num>/<X-Head-Seqnum>" when the server sends them and the error class when the
+  network broke. Other files stay strict; merge and parity are untouched.
+- **If it still fails:** the Detail tells how far it got and what the last answer said. If it
+  shows `sq` numbers, the file is probably served piece by piece (`sq=`); a piece-by-piece
+  download would also change the merge → owner decision first.
+- **Tests (CI, `core-download`; also run locally in a scratch JVM copy, engine tests green):**
+  `DashTransferEngineTest` and `DirectTransferEngineTest`: a live server whose Content-Length is
+  the whole ask but which sends nothing after the Content-Range end completes, exact bytes, each
+  ask at the last Content-Range end + 1; an answer that stalls half way keeps its bytes and the
+  next ask starts after them; a 403 part way fails (`ACCESS_DENIED`, Detail "live …", no file).
+  The strict tests stay (a normal file with the phone's headers still fails with "asked bytes
+  0-399, got bytes 0-399/400, length 1000").
+- **Phone retest (`[d7]` run 4e, normal APK):** the recently ended live stream; if it fails,
+  the Detail line.
+
 ## Owner item 6, run 4c on the phone (2026-10-17): still `INTEGRITY_MISMATCH` (Merge); the live server's Content-Range is wrong, its Content-Length right → live-origin files are read range after range until the server has no more; `[d7]` run 4d
 
 - **Phone (the owner, normal APK of run 4c, `84c6af4`):** the ID3 fix works (census video 2
