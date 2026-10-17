@@ -1,5 +1,20 @@
 # YFT Master Extractor backup
 
+## Run 5 phone check (owner, 2026-10-17): Phase 1.4 item 5 proven, item 1 D0 measured
+
+- **Normal APK:** 1080p video with sound, MP3 320k and 2160p video with sound all download and play.
+- **h-only APK (item 5):** over H the 2K / 4K rows no longer say "No sound"; a 2160p download is
+  one MP4 with sound and seeking works; 1080p keeps its sound. Item 5 is proven on the phone.
+- **Full census (item 1, the D0 measurement):** FULL, 10 videos, mobile data. The `appstore` fact
+  reads the visionOS listing (1.05.34 → `1.05`) and step `ST` answered it accepted (`yes`, DIRECT,
+  V PASS). The census line `CHANGED version visionos from appstore` only records the source moving
+  from the iOS listing to the visionOS listing (the §7 step 3 hint is for a rejected value; 1.05 was
+  accepted), so nothing to do. The bundled visionOS values are unchanged; changing them needs the
+  owner's go.
+- **INFO lines as before:** visionOS R0 BOT_CHECK without visitor data, answered by R6 (visitor
+  data, DIRECT, V PASS); one video UNPLAYABLE for visionOS; the Play Store source reports "over 64
+  KiB" (not new). All L steps unchanged.
+
 ## Phase 1.4 backlog items 2 and 6 (2026-10-17): item 2 stays closed (no trigger), item 6 not built; run 5 APKs
 
 - **Item 2 (L steps 7–8):** no trigger has appeared (no BREAKING shape in W, no page signal

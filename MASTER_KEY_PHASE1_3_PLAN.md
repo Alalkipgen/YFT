@@ -1781,7 +1781,8 @@ Found on the way and outside every task above; nothing here starts without the o
    the client table and A never reads it. **Built 2026-10-17 (the owner's go for every backlog
    item):** the census reads the visionOS listing; its two-part form is asked once in a full
    census only (step `ST`, the `appstore` fact's `accepted`); W and A unchanged. The phone's full
-   census is the D0 measurement.
+   census is the D0 measurement: run 5 (owner, 2026-10-17) answered `1.05` accepted (`yes`);
+   the bundled values stay as they are until the owner says otherwise.
 
 **Phase 1.4** (the owner, 2026-10-16, when D5b steps 7–8 were closed without code; §9 item 15):
 
@@ -1824,7 +1825,8 @@ merge buffer (`ec1f24e`), item 3 visionOS 1.04 bundled (`f02070a`), item 2 h-onl
    (the owner's go for every backlog item, `5116af8`):** `HlsAudioPairing` pairs VP9 with the AAC
    sound only where no AVC quality of that height has sound (1440p / 2160p); the P35 stream copy
    writes the VP9 fMP4 and the joined ADTS (`AdtsTrackReader`) into one MP4, from Android 10,
-   check kept; no extractor-master file changed. Phone proof pending.
+   check kept; no extractor-master file changed. Proven on the phone (run 5, owner, 2026-10-17):
+   a 2160p download over H is one MP4 with sound that seeks; 1080p unchanged.
 
 6. **Live WebM pieces and one-file live formats (found 2026-10-17, owner item 6, run 4f).** A
    recently ended live stream's MP4 qualities are asked piece by piece and joined
