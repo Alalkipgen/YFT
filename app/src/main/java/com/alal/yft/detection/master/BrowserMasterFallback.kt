@@ -18,6 +18,7 @@ import com.alal.yft.extractor.master.MasterRequest
 import com.alal.yft.extractor.master.MasterResult
 import com.alal.yft.extractor.master.android.CodecSteering
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
+import com.alal.yft.extractor.master.lookup.LookupRecord
 import com.alal.yft.extractor.api.PlayerScriptRunner
 import java.io.File
 import com.alal.yft.extractor.master.verify.OkHttpMediaValidator
@@ -25,6 +26,8 @@ import com.alal.yft.extractor.master.verify.CapturedMediaMetadata
 import com.alal.yft.extractor.master.present.MasterMainPresentation
 import com.alal.yft.extractor.master.policy.TerminalRules
 import java.net.URI
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -42,6 +45,14 @@ interface BrowserMasterFallback {
      * other build: a found page never reaches the backup.
      */
     fun masterFirst(lookupUrl: String): Boolean = false
+
+    /**
+     * Phase 1.4 item 7 (YouTube routing B) R1: what [lookupUrl]'s lookup (main's adapter, then
+     * [recover]) runs in — a new [LookupRecord] for a YouTube page in a route-B build
+     * (`-Pyft.youtubeRouteB`, debug only), so main's requests are recorded for that lookup alone.
+     * Every other build and page: nothing, the lookup runs as before.
+     */
+    fun lookupContext(lookupUrl: String): CoroutineContext = EmptyCoroutineContext
 
     suspend fun recover(
         lookupUrl: String,
@@ -75,6 +86,12 @@ class AndroidBrowserMasterFallback(
      * Every other build: null, and a found page returns at once as before.
      */
     private val masterFirstSite: String? = null,
+    /**
+     * Phase 1.4 item 7 (YouTube routing B) R1: true only in a route-B build
+     * (`-Pyft.youtubeRouteB`, debug only, [YouTubeRouteB]); then each YouTube lookup gets its own
+     * record ([lookupContext]). Every other build: false, no record.
+     */
+    private val youtubeRouteB: Boolean = false,
 ) : BrowserMasterFallback {
     override val enabled: Boolean get() = capture.enabled
     override fun mainAndMore(candidates: List<MediaCandidate>): MasterMainPresentation? =
@@ -181,6 +198,14 @@ class AndroidBrowserMasterFallback(
         return enabled && sites.videoKey(lookupUrl)?.substringBefore(':') == site
     }
 
+    /** Item 7 R1: a new record per YouTube lookup in a route-B build (memory only); else nothing. */
+    override fun lookupContext(lookupUrl: String): CoroutineContext =
+        if (youtubeRouteB && enabled && sites.videoKey(lookupUrl)?.substringBefore(':') == YOUTUBE_SITE_ID) {
+            LookupRecord()
+        } else {
+            EmptyCoroutineContext
+        }
+
     private fun relatedPage(lookup: String, page: String, requestedKey: String?): Boolean {
         if (lookup == page || sites.sameContent(lookup, page)) return true
         // A feed's focused permalink can share its tab, but a different named post cannot.
@@ -231,6 +256,8 @@ class AndroidBrowserMasterFallback(
             playerScripts: PlayerScriptRunner? = null,
             // Phase 1.3 D7: the app's files directory, for the ladder's health file only.
             filesDir: (() -> File)? = null,
+            // Phase 1.4 item 7 R1: route B's per-lookup record (-Pyft.youtubeRouteB, debug only).
+            youtubeRouteB: Boolean = YouTubeRouteB.enabled,
         ): BrowserMasterFallback {
             if (!enabled) return BrowserMasterFallback.None
             val capture = WebViewPlaybackCapture(
@@ -255,6 +282,7 @@ class AndroidBrowserMasterFallback(
                 ),
                 // Phase 1.4 item 2: in the h-only APK a found YouTube page goes through H too.
                 masterFirstSite = if (MasterLadderSwitch.hOnly) YOUTUBE_SITE_ID else null,
+                youtubeRouteB = youtubeRouteB,
             )
         }
     }

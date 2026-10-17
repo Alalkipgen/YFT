@@ -1,0 +1,224 @@
+package com.alal.yft.extractor.master.lookup
+
+import com.alal.yft.extractor.api.ExtractorHttpResult
+import com.alal.yft.extractor.api.ExtractorProbeResult
+import com.alal.yft.extractor.api.SiteExtractionFailure
+import com.alal.yft.extractor.master.modules.youtube.ladder.LookupMemo
+import kotlin.coroutines.AbstractCoroutineContextElement
+import kotlin.coroutines.CoroutineContext
+
+/**
+ * Phase 1.4 item 7 (YouTube routing B, `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §3 R1; social plan
+ * decision 8): the **per-lookup request record**. One record per user lookup (main + Master),
+ * carried in the lookup's coroutine context, in memory only and dropped with the lookup.
+ * [LookupRecorder] writes main's asks into it: it wraps the client main's adapters share and,
+ * with no record in the context, only passes through.
+ *
+ * Per ask ([Ask]) it lists who asked, the short hash (method, address, body, authorization
+ * state), the HTTP status or failure, whether it was a 429, when it started from the lookup's
+ * start and how long it took ([elapsedMillis], [timeLeftMillis]: no time budget of its own). It
+ * knows each endpoint asked ([asked]: method, address and body) and whether any 429 came
+ * ([rateLimited]).
+ *
+ * Kept for replay ([replay]; route B's Master wrapper, R2): only main's unauthenticated answers
+ * ([LookupAsk.authorized] false) to an HTTPS address that is not a media host
+ * ([LookupMemo.memoable]) — a success without the cookies it set, or a failure (no body). A file
+ * check is never kept. Each kept answer serves one identical request (method, address, body and
+ * headers in order) once. Bounded: at most [maxKept] answers and [maxKeptChars] characters, at
+ * most [MAX_LISTED] asks listed (more are counted). Nothing is logged; [toString] and the counts
+ * show no address, body or header.
+ */
+class LookupRecord(
+    private val clock: () -> Long = System::currentTimeMillis,
+    private val maxKept: Int = MAX_KEPT,
+    private val maxKeptChars: Long = MAX_KEPT_CHARS,
+) : AbstractCoroutineContextElement(LookupRecord) {
+    init {
+        require(maxKept in 1..MAX_KEPT)
+        require(maxKeptChars in 1..MAX_KEPT_CHARS)
+    }
+
+    /** Who asked: main's adapter (through [LookupRecorder]) or Master (route B's new requests). */
+    enum class Asker { MAIN, MASTER }
+
+    /** One ask as listed: no address, body or header. */
+    data class Ask(
+        val asker: Asker,
+        val method: String,
+        val hash: String,
+        val authorized: Boolean,
+        /** False when no answer came (the ask was cancelled). */
+        val answered: Boolean,
+        /** The answer's HTTP status, or null (a network error, a refused file check). */
+        val statusCode: Int?,
+        /** Null for an answer that came (2xx, a file that answered); otherwise the failure. */
+        val failure: SiteExtractionFailure?,
+        val rateLimited: Boolean,
+        /** Kept for one replay. */
+        val kept: Boolean,
+        /** Milliseconds from the lookup's start to the ask, and how long it took. */
+        val atMillis: Long,
+        val tookMillis: Long,
+    )
+
+    private val lock = Any()
+    private val startedAt = clock()
+    private val listed = ArrayList<Ask>()
+    private val counts = IntArray(Asker.entries.size)
+    private val endpoints = HashSet<String>()
+    private val kept = HashMap<LookupAsk, ArrayDeque<ExtractorHttpResult>>()
+    private var keptEntries = 0
+    private var keptChars = 0L
+    private var keptTotal = 0
+    private var replayedTotal = 0
+    private var rateLimitedTotal = 0
+
+    /** The lookup's clock, for an ask's start. */
+    fun now(): Long = clock()
+
+    /** Milliseconds since the lookup began. */
+    fun elapsedMillis(): Long = (clock() - startedAt).coerceAtLeast(0)
+
+    /** What is left of [budgetMillis] counted from the lookup's start (never below 0). */
+    fun timeLeftMillis(budgetMillis: Long): Long = (budgetMillis - elapsedMillis()).coerceAtLeast(0)
+
+    /** Requests main's adapters sent in this lookup. */
+    val mainAsks: Int get() = synchronized(lock) { counts[Asker.MAIN.ordinal] }
+
+    /** New requests Master sent in this lookup (route B). */
+    val masterAsks: Int get() = synchronized(lock) { counts[Asker.MASTER.ordinal] }
+
+    /** Whether any ask of this lookup (main's or Master's) got HTTP 429 or a rate limit. */
+    val rateLimited: Boolean get() = synchronized(lock) { rateLimitedTotal > 0 }
+
+    /** Answers kept so far (replayed ones included). */
+    val keptCount: Int get() = synchronized(lock) { keptTotal }
+
+    /** Requests answered from this record. */
+    val replayedCount: Int get() = synchronized(lock) { replayedTotal }
+
+    /** The listed asks, in order (at most [MAX_LISTED]). */
+    fun asks(): List<Ask> = synchronized(lock) { listed.toList() }
+
+    /** Whether [ask]'s endpoint (method, address and body, whatever the headers) was asked. */
+    fun asked(ask: LookupAsk): Boolean = synchronized(lock) { ask.endpoint in endpoints }
+
+    /** [ask]'s answer [result]; main's unauthenticated answer is kept for one replay. */
+    fun record(ask: LookupAsk, result: ExtractorHttpResult, startedAtMillis: Long, asker: Asker = Asker.MAIN) {
+        val keep = asker == Asker.MAIN && keepable(ask)
+        val copy = when (result) {
+            is ExtractorHttpResult.Success -> result.copy(cookies = emptyList())
+            is ExtractorHttpResult.Failure -> result
+        }
+        val chars = (copy as? ExtractorHttpResult.Success)?.body?.length?.toLong() ?: 0L
+        val (status, failure) = when (result) {
+            is ExtractorHttpResult.Success -> result.statusCode to null
+            is ExtractorHttpResult.Failure -> result.statusCode to result.reason
+        }
+        val limited = failure != null && (status == HTTP_TOO_MANY || failure == SiteExtractionFailure.RATE_LIMITED)
+        synchronized(lock) {
+            val stored = keep && keptEntries < maxKept && keptChars + chars <= maxKeptChars
+            if (stored) {
+                kept.getOrPut(ask) { ArrayDeque() }.addLast(copy)
+                keptEntries++
+                keptChars += chars
+                keptTotal++
+            }
+            add(ask, asker, answered = true, status, failure, limited, stored, startedAtMillis)
+        }
+    }
+
+    /** [ask]'s file check answer [result]; never kept. */
+    fun record(ask: LookupAsk, result: ExtractorProbeResult, startedAtMillis: Long, asker: Asker = Asker.MAIN) {
+        val (status, failure) = when (result) {
+            is ExtractorProbeResult.Answered -> result.statusCode to null
+            is ExtractorProbeResult.Refused -> result.statusCode to result.reason
+            ExtractorProbeResult.Unsupported -> null to null
+        }
+        val limited = failure != null && (status == HTTP_TOO_MANY || failure == SiteExtractionFailure.RATE_LIMITED)
+        synchronized(lock) { add(ask, asker, answered = true, status, failure, limited, false, startedAtMillis) }
+    }
+
+    /** [ask] went out but no answer came (cancelled): its endpoint still counts as asked. */
+    fun unanswered(ask: LookupAsk, startedAtMillis: Long, asker: Asker = Asker.MAIN) {
+        synchronized(lock) { add(ask, asker, answered = false, null, null, false, false, startedAtMillis) }
+    }
+
+    /**
+     * Main's kept answer to a request identical to [ask] (method, address, body and headers in
+     * order), once; null when none waits. A kept body over [maxBodyBytes] answers
+     * `RESPONSE_TOO_LARGE`, as the client itself would.
+     */
+    fun replay(ask: LookupAsk, maxBodyBytes: Long): ExtractorHttpResult? {
+        if (!keepable(ask)) return null
+        val result = synchronized(lock) {
+            val queue = kept[ask] ?: return null
+            val first = queue.removeFirst()
+            if (queue.isEmpty()) kept.remove(ask)
+            keptEntries--
+            keptChars -= (first as? ExtractorHttpResult.Success)?.body?.length ?: 0
+            replayedTotal++
+            first
+        }
+        if (result is ExtractorHttpResult.Success && result.body.toByteArray(Charsets.UTF_8).size > maxBodyBytes) {
+            return ExtractorHttpResult.Failure(SiteExtractionFailure.RESPONSE_TOO_LARGE, result.statusCode)
+        }
+        return result
+    }
+
+    /** The lookup's end: every kept answer is dropped (the counts stay). */
+    fun clear() {
+        synchronized(lock) {
+            kept.clear()
+            keptEntries = 0
+            keptChars = 0
+        }
+    }
+
+    override fun toString(): String = synchronized(lock) {
+        "LookupRecord(main=${counts[Asker.MAIN.ordinal]}, master=${counts[Asker.MASTER.ordinal]}, " +
+            "kept=$keptTotal, replayed=$replayedTotal, waiting=$keptEntries, rateLimited=${rateLimitedTotal > 0})"
+    }
+
+    private fun keepable(ask: LookupAsk): Boolean =
+        !ask.authorized && ask.method != LookupAsk.PROBE && LookupMemo.memoable(ask.url)
+
+    /** Under [lock]. */
+    private fun add(
+        ask: LookupAsk,
+        asker: Asker,
+        answered: Boolean,
+        status: Int?,
+        failure: SiteExtractionFailure?,
+        limited: Boolean,
+        stored: Boolean,
+        startedAtMillis: Long,
+    ) {
+        counts[asker.ordinal]++
+        endpoints += ask.endpoint
+        if (limited) rateLimitedTotal++
+        if (listed.size >= MAX_LISTED) return
+        val now = clock()
+        listed += Ask(
+            asker = asker,
+            method = ask.method,
+            hash = ask.hash,
+            authorized = ask.authorized,
+            answered = answered,
+            statusCode = status,
+            failure = failure,
+            rateLimited = limited,
+            kept = stored,
+            atMillis = (startedAtMillis - startedAt).coerceAtLeast(0),
+            tookMillis = (now - startedAtMillis).coerceAtLeast(0),
+        )
+    }
+
+    companion object Key : CoroutineContext.Key<LookupRecord> {
+        /** More than main's YouTube asks in one lookup (visionOS, page, page client, fallbacks). */
+        const val MAX_KEPT = 16
+        const val MAX_KEPT_CHARS = 8L * 1024 * 1024
+        const val MAX_LISTED = 64
+        private const val HTTP_TOO_MANY = 429
+    }
+}

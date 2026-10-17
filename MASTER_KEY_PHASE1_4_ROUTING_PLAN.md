@@ -1,6 +1,7 @@
 # Master Key — Phase 1.4 backlog item 7: YouTube routing B (plan)
 
-**Status:** plan only (2026-10-17, docs only). No code yet; the owner's go is needed before R1.
+**Status:** R1 built (2026-10-17; §7 "As built"): the per-lookup recorder, flag off = today. R2–R6
+next, one commit each. Plan written 2026-10-17 (docs only).
 Backlog pointer: `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Same contract as the social sites:
 `MASTER_KEY_SOCIAL_PLAN.md` §2.1 decisions #7 (routing B / B+ / A) and #8 (lookup = main + Master,
 per-lookup request recorder). Agent prompt: `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md`.
@@ -90,3 +91,27 @@ main က page ကို တွေ့ရင် (UNSUPPORTED_URL မဟုတ်�
 
 STOP AND ASK when: a locked file or `extractor-sites` would change; flag-off behavior would differ
 from today; a final reason would be answered; a test needs weakening; CI fails twice on the same step.
+
+## 7. As built
+
+- **R1 (2026-10-17).** Owner decisions (§5): the proposed values are used — `-Pyft.youtubeRouteB`
+  default off (debug only; release and preview false); the §2 recoverable set; main's unauthenticated
+  answers kept in memory per lookup (size-capped); guardrail 7's budgets, no new numbers; no promotion
+  before R5. **Plan adapted:** the record and the recorder live in `extractor-master`
+  (`lookup` package: `LookupRecord`, `LookupAsk`, `LookupRecorder`; plain Kotlin), not in `app`, so
+  R2's Master wrapper and the simulator test use the same object. The app installs them:
+  `SiteAdapterModule` wraps main adapters' shared client in `LookupRecorder` (`YouTubeRouteB.mainClient`,
+  route-B build only), and `BrowserViewModel.lookUp` runs each YouTube browser lookup (main's adapter,
+  then `recover`) with a new `LookupRecord` in its coroutine context
+  (`BrowserMasterFallback.lookupContext`; every other build and site: nothing). Record per ask: who
+  asked (main / Master), a 12-hex hash of method + address + body + authorization state, status or
+  failure, 429 seen, start and duration from the lookup's start; `asked` (endpoint = method, address,
+  body), `rateLimited`. "Time left" = those times plus `timeLeftMillis(budget)` against an existing
+  budget; the record has no budget of its own. Kept for one replay: main's unauthenticated, non-media
+  HTTPS answers (cookies dropped; ≤ 16 answers, ≤ 8 MiB), served only to an identical request
+  (method, address, body, headers in order). Authorized answers (non-blank `Cookie`,
+  `Authorization`, `Proxy-Authorization`) and file checks are listed but never kept. Nothing is
+  logged; `toString` shows counts only. Limits: only the shared adapter client is recorded (the
+  player-script, PO-token and TikTok clients are separate); a lookup that joins another caller's
+  running shared lookup (P17) records into that caller's record; home and pasted-link lookups carry
+  none. Nothing reads the record yet (R2, R3).

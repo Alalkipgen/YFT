@@ -29,10 +29,13 @@ import com.alal.yft.extractor.master.android.CodecSteering
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
 import com.alal.yft.extractor.master.modules.MasterSiteModule
 import com.alal.yft.extractor.master.contract.SiteContracts
+import com.alal.yft.extractor.master.lookup.LookupRecord
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -205,6 +208,45 @@ class BrowserMasterFallbackTest {
         }
     }
 
+    /**
+     * Phase 1.4 item 7 (YouTube routing B) R1: a route-B build gives each YouTube lookup a new
+     * record; another site, a page no enabled adapter claims, Master off in the build and every
+     * other build (the switch off) get nothing, so their lookups run as before.
+     */
+    @Test
+    fun aRouteBBuildGivesEachYouTubeLookupItsOwnRecordAndNothingElseOne() {
+        val routeB = Fixture(YOUTUBE_PAGE, extractor = youTubeExtractor(), youtubeRouteB = true)
+        val first = routeB.bridge.lookupContext(YOUTUBE_PAGE)[LookupRecord]
+        val second = routeB.bridge.lookupContext(YOUTUBE_PAGE)[LookupRecord]
+        assertNotNull(first)
+        assertNotNull(second)
+        assertNotSame(first, second)
+        assertEquals(0, first!!.mainAsks)
+        assertEquals(0, first.keptCount)
+
+        val none = EmptyCoroutineContext
+        assertSame(none, routeB.bridge.lookupContext(generic))
+        assertSame(none, Fixture(YOUTUBE_PAGE, extractor = youTubeExtractor()).bridge.lookupContext(YOUTUBE_PAGE))
+        assertSame(none, Fixture(tiktok, youtubeRouteB = true).bridge.lookupContext(tiktok))
+        val adapterOff = Fixture(YOUTUBE_PAGE, enabledSite = false, extractor = youTubeExtractor(), youtubeRouteB = true)
+        assertSame(none, adapterOff.bridge.lookupContext(YOUTUBE_PAGE))
+        val masterOff = Fixture(YOUTUBE_PAGE, enabledBuild = false, extractor = youTubeExtractor(), youtubeRouteB = true)
+        assertSame(none, masterOff.bridge.lookupContext(YOUTUBE_PAGE))
+        assertSame(none, BrowserMasterFallback.None.lookupContext(YOUTUBE_PAGE))
+    }
+
+    /** Item 7 R1: the record changes nothing yet — a found YouTube page still returns at once. */
+    @Test
+    fun aRouteBRecordLeavesTheLookupAsBefore() = runTest {
+        val fixture = Fixture(YOUTUBE_PAGE, extractor = youTubeExtractor(), youtubeRouteB = true)
+        val record = fixture.bridge.lookupContext(YOUTUBE_PAGE)
+        val found = SiteAdapterOutcome.Detected("youtube", listOf(candidate()))
+        assertSame(found, withContext(record) { fixture.bridge.recover(YOUTUBE_PAGE, found, 100) })
+        assertEquals(0, fixture.factories.get())
+        assertEquals(0, fixture.captures.get())
+        assertEquals(0, record[LookupRecord]!!.mainAsks)
+    }
+
     @Test
     fun recoverableSiteFailureUsesOneCaptureAndKnownFocusedIdentity() = runTest {
         val fixture = Fixture(tiktok)
@@ -320,6 +362,8 @@ class BrowserMasterFallbackTest {
         assertEquals(1, fixture.probes.get())
     }
 
+    private fun youTubeExtractor() = FixtureExtractor("youtube", YOUTUBE_PREFIX)
+
     private fun failed(reason: SiteExtractionFailure) =
         SiteAdapterOutcome.Failed("tiktok", reason, "Fixture failure", true)
 
@@ -339,6 +383,7 @@ class BrowserMasterFallbackTest {
         masterFirstSite: String? = null,
         modules: List<MasterSiteModule> = emptyList(),
         noRequest: Boolean = false,
+        youtubeRouteB: Boolean = false,
     ) {
         val capture = WebViewPlaybackCapture(enabledBuild)
         val factories = AtomicInteger()
@@ -382,6 +427,7 @@ class BrowserMasterFallbackTest {
                 if (noRequest) null else MasterRequest(page, scope.generation, now, reason, expected)
             },
             masterFirstSite = masterFirstSite,
+            youtubeRouteB = youtubeRouteB,
         )
     }
 
@@ -425,6 +471,8 @@ class BrowserMasterFallbackTest {
     }
 
     private companion object {
+        const val YOUTUBE_PREFIX = "https://www.youtube.com/watch/"
+        const val YOUTUBE_PAGE = "${YOUTUBE_PREFIX}Yft0Fixture"
         const val VIMEO_CONFIG = "{\"video\":{\"id\":123456789,\"title\":\"Fixture\"}," +
             "\"request\":{\"files\":{\"progressive\":[{\"url\":\"https://cdn.test/v720.mp4\"," +
             "\"mime\":\"video/mp4\",\"width\":1280,\"height\":720}]}}}"

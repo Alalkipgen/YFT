@@ -156,6 +156,7 @@ jobs:
               --tests 'com.alal.yft.feature.browser.MasterMainMoreSheetTest' \
               --tests 'com.alal.yft.feature.browser.BrowserMasterFlowTest' \
               --tests 'com.alal.yft.detection.master.BrowserMasterFallbackTest' \
+              --tests 'com.alal.yft.detection.master.YouTubeRouteBTest' \
               --tests 'com.alal.yft.master.SolverCanaryReportTest' \
             :app:compileDebugAndroidTestKotlin \
             :app:assembleDebug \

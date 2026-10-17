@@ -1,5 +1,31 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 item 7 R1: per-lookup request recorder for YouTube routing B (2026-10-17)
+
+- Owner decisions (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §5): the plan's proposed values are used —
+  `-Pyft.youtubeRouteB`, default off, debug only (release and preview false); the §2 recoverable set
+  (named in `TerminalRules` in R3, tested per reason); main's unauthenticated answers kept in memory per
+  lookup, size-capped; guardrail 7's budgets, no new numbers; no promotion before the R5 phone runs.
+- New `extractor-master` package `lookup`: `LookupRecord` (one per lookup, a coroutine context element,
+  memory only, never logged): per ask who asked, a short hash of method + address + body + authorization
+  state, status or failure, 429 seen, start and duration from the lookup's start; the endpoints asked;
+  main's unauthenticated non-media answers kept for **one identical** replay (method, address, body,
+  headers in order; cookies dropped; at most 16 answers / 8 MiB); authorized answers and file checks
+  never kept. `LookupAsk` (hash, endpoint, authorization state) and `LookupRecorder` (wraps main
+  adapters' shared client; without a record it only passes through).
+- App: `BuildConfig.YOUTUBE_ROUTE_B` (debug, only with `yft.masterCapture`); `YouTubeRouteB.mainClient`
+  wraps the shared adapter client in a route-B build (`SiteAdapterModule`);
+  `BrowserMasterFallback.lookupContext` gives each YouTube browser lookup its own record
+  (`BrowserViewModel.lookUp`: main's adapter, then `recover`). Flag off: the same client, no record,
+  every lookup as before. Nothing reads the record yet (R2 replay, R3 claim rule).
+- Tests: `LookupRecordTest` (15: two lookups at once, identical-only replay, authorized never kept,
+  429 by status / reason / file check, bounds, timing, nothing shown), `BrowserMasterFallbackTest` +2,
+  `BrowserMasterFlowTest` +2, new `YouTubeRouteBTest` (added to the opt-in workflow's list). Local:
+  `:extractor-master:test` 678 green (2 skipped as before), `:extractor-sites:test` 280 green, all
+  app unit tests with the flags off 971 green (66 skipped as before), the four Master app classes with
+  `masterCapture` + `ownSolver` on green, drift 0 (107 symbols), workflow script tests green. Locked
+  files and `extractor-sites` unchanged.
+
 ## Phase 1.4 backlog item 7: YouTube routing B plan (the owner, 2026-10-17; docs only)
 
 - New `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` and `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md`;

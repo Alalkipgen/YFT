@@ -955,7 +955,9 @@ class BrowserViewModel(
         val key = siteAdapters.videoKey(url) ?: url
         if (!fresh) foundLookups[key]?.let { return it }
         val lookup = runningLookups[key]?.takeIf { it.isActive }
-            ?: viewModelScope.async(pageProbeJob) {
+            // Phase 1.4 item 7 R1: a route-B build's YouTube lookup carries its own request
+            // record (main's adapter and the backup); every other lookup runs as before.
+            ?: viewModelScope.async(pageProbeJob + masterFallback.lookupContext(url)) {
                 // P17: the shared lookup cache answers unless this is Try again.
                 val primary = siteAdapters.inspect(
                     pageUrl = url,
