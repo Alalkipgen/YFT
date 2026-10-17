@@ -19,7 +19,7 @@ import org.junit.Test
 
 /**
  * Phase 1.3 D5a's A check (owner, 2026-10-16, option 2) against a scripted YouTube; no live calls:
- * video 2 only, visionOS 1.02 as R6 asks it, 1.04 once only when 1.02 is DIRECT, a stop at once
+ * video 2 only, visionOS 1.02 as R6 asks it, 1.05 once only when 1.02 is DIRECT, a stop at once
  * on a bot check or HTTP 429, and a run that is reported but not kept for the diff.
  */
 class ClientCensusACheckTest {
@@ -37,15 +37,15 @@ class ClientCensusACheckTest {
         val outcome = census(http).run(Mode.A_CHECK, VIDEOS, null)
 
         assertEquals(
-            "A CHECK — visionOS 1.02 DIRECT; visionOS 1.04 DIRECT, V PASS: 1.04 can be visionOS's bundled alternate (NewPipe, 2026-08-06)",
+            "A CHECK — visionOS 1.02 DIRECT; visionOS 1.05 DIRECT, V PASS: 1.05 can be visionOS's bundled alternate (App Store, 2026-09-19)",
             outcome.firstLine,
         )
         assertNull(outcome.stopped)
         assertEquals(listOf("VISIONOS", "VISIONOS"), http.postedBodies.map(CensusWorld::clientOf))
-        assertEquals(listOf("1.02", "1.04"), http.postedBodies.map(CensusWorld::versionOf))
+        assertEquals(listOf("1.02", "1.05"), http.postedBodies.map(CensusWorld::versionOf))
         assertTrue(http.postedBodies.all { Census.V2 in it && Census.V1 !in it })
         assertTrue("no watch page, no source", http.requestedUrls.isEmpty())
-        assertEquals("V on 1.04's AVC row only", 1, http.probedUrls.size)
+        assertEquals("V on 1.05's AVC row only", 1, http.probedUrls.size)
         assertTrue(calls(http) <= ClientCensus.A_CHECK_MAX_REQUESTS)
 
         // 1.02 is the full census's own R0 request (CensusR6ParityTest: R6's), body and headers.
@@ -55,8 +55,8 @@ class ClientCensusACheckTest {
         assertEquals(full.postedHeaders.first(), http.postedHeaders[0])
         assertFalse(http.postedHeaders.any { it.keys.any { name -> name.equals("X-Goog-Visitor-Id", ignoreCase = true) } })
         assertFalse(http.postedBodies.any { Census.VISITOR in it })
-        // 1.04 is that request with only the version changed, as the ladder's A rung changes it.
-        val edited = VersionSource.withVersion(http.postedBodies[0], http.postedHeaders[0], "VISIONOS", "1.02", "1.04")!!
+        // 1.05 is that request with only the version changed, as the ladder's A rung changes it.
+        val edited = VersionSource.withVersion(http.postedBodies[0], http.postedHeaders[0], "VISIONOS", "1.02", "1.05")!!
         assertEquals(edited.body, http.postedBodies[1])
         assertEquals(edited.headers, http.postedHeaders[1])
         assertEquals(http.postedUrls[0], http.postedUrls[1])
@@ -67,7 +67,7 @@ class ClientCensusACheckTest {
         assertTrue(run.asks.all { it.video == 2 && it.client == "visionos" })
         val (bundled, alternate) = run.asks
         assertEquals(listOf("1.02", "DIRECT", null), listOf(bundled.version, bundled.finalClass.name, bundled.v))
-        assertEquals(listOf("1.04", "DIRECT", "PASS"), listOf(alternate.version, alternate.finalClass.name, alternate.v))
+        assertEquals(listOf("1.05", "DIRECT", "PASS"), listOf(alternate.version, alternate.finalClass.name, alternate.v))
         assertTrue(outcome.report.lines()[2].startsWith("A check rule (owner, 2026-10-16): video 2 only"))
     }
 
@@ -79,7 +79,7 @@ class ClientCensusACheckTest {
 
         val outcome = census.run(Mode.A_CHECK, VIDEOS, null)
 
-        assertEquals("A CHECK — stopped: bot check on visionOS 1.02, so 1.04 was not asked; no census for 30 min", outcome.firstLine)
+        assertEquals("A CHECK — stopped: bot check on visionOS 1.02, so 1.05 was not asked; no census for 30 min", outcome.firstLine)
         assertEquals("bot-check", outcome.stopped)
         assertEquals("one request, no watch page and no R0+vd", 1, http.postedBodies.size)
         assertTrue(http.requestedUrls.isEmpty() && http.probedUrls.isEmpty())
@@ -101,7 +101,7 @@ class ClientCensusACheckTest {
 
         val outcome = census(http).run(Mode.A_CHECK, VIDEOS, null)
 
-        assertEquals("A CHECK — stopped: HTTP 429 on visionOS 1.02, so 1.04 was not asked; no census for 30 min", outcome.firstLine)
+        assertEquals("A CHECK — stopped: HTTP 429 on visionOS 1.02, so 1.05 was not asked; no census for 30 min", outcome.firstLine)
         assertEquals("rate-limited", outcome.stopped)
         assertEquals(1, calls(http))
         assertEquals(START + 30 * MINUTE, CensusJson.readState(outcome.stateJson).cooldownUntil)
@@ -115,10 +115,10 @@ class ClientCensusACheckTest {
 
         val outcome = census(http).run(Mode.A_CHECK, VIDEOS, null)
 
-        assertEquals("A CHECK — visionOS 1.02 NEEDS_SCRIPT, so 1.04 was not asked: nothing decided", outcome.firstLine)
+        assertEquals("A CHECK — visionOS 1.02 NEEDS_SCRIPT, so 1.05 was not asked: nothing decided", outcome.firstLine)
         assertNull(outcome.stopped)
         assertEquals(1, calls(http))
-        assertTrue(outcome.report.contains("A check: visionOS 1.02 answered NEEDS_SCRIPT, so 1.04 was not asked"))
+        assertTrue(outcome.report.contains("A check: visionOS 1.02 answered NEEDS_SCRIPT, so 1.05 was not asked"))
         assertEquals(0L, CensusJson.readState(outcome.stateJson).cooldownUntil)
     }
 
@@ -131,7 +131,7 @@ class ClientCensusACheckTest {
             val world = CensusWorld().standard(Census.V2)
             world.answers[Census.V2 to "VISIONOS"] = { body ->
                 when {
-                    CensusWorld.versionOf(body) != "1.04" ->
+                    CensusWorld.versionOf(body) != "1.05" ->
                         ExtractorHttpResult.Success(200, Census.visionOs(Census.V2), Census.PLAYER_URL, "application/json")
                     refusal == null -> ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 429)
                     else -> ExtractorHttpResult.Success(200, refusal, Census.PLAYER_URL, "application/json")
@@ -142,7 +142,7 @@ class ClientCensusACheckTest {
             val outcome = census(http).run(Mode.A_CHECK, VIDEOS, null)
 
             assertEquals(
-                "A CHECK — stopped: $line on visionOS 1.04 (visionOS 1.02 DIRECT); no census for 30 min",
+                "A CHECK — stopped: $line on visionOS 1.05 (visionOS 1.02 DIRECT); no census for 30 min",
                 outcome.firstLine,
             )
             assertEquals(if (refusal == null) "rate-limited" else "bot-check", outcome.stopped)
@@ -155,15 +155,15 @@ class ClientCensusACheckTest {
     @Test
     fun `1_04 refused, needing a token or without a V pass is not an alternate`() = runTest {
         val cases = listOf(
-            "rejected" to "A CHECK — visionOS 1.02 DIRECT; visionOS 1.04 VERSION_REJECTED (http 400): not an alternate",
-            "token" to "A CHECK — visionOS 1.02 DIRECT; visionOS 1.04 TOKEN_NEEDED: not an alternate",
-            "unknown" to "A CHECK — visionOS 1.02 DIRECT; visionOS 1.04 DIRECT, V UNKNOWN: nothing decided (no V pass)",
-            "update" to "A CHECK — visionOS 1.02 DIRECT; visionOS 1.04 VERSION_REJECTED: not an alternate",
+            "rejected" to "A CHECK — visionOS 1.02 DIRECT; visionOS 1.05 VERSION_REJECTED (http 400): not an alternate",
+            "token" to "A CHECK — visionOS 1.02 DIRECT; visionOS 1.05 TOKEN_NEEDED: not an alternate",
+            "unknown" to "A CHECK — visionOS 1.02 DIRECT; visionOS 1.05 DIRECT, V UNKNOWN: nothing decided (no V pass)",
+            "update" to "A CHECK — visionOS 1.02 DIRECT; visionOS 1.05 VERSION_REJECTED: not an alternate",
         )
         for ((case, line) in cases) {
             val world = CensusWorld().standard(Census.V2)
             world.answers[Census.V2 to "VISIONOS"] = { body ->
-                val newer = CensusWorld.versionOf(body) == "1.04"
+                val newer = CensusWorld.versionOf(body) == "1.05"
                 when {
                     newer && case == "rejected" -> ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 400)
                     newer && case == "update" -> ExtractorHttpResult.Success(
@@ -232,7 +232,7 @@ class ClientCensusACheckTest {
 
         val outcome = census(world.http()).run(Mode.A_CHECK, VIDEOS, null) { steps += it }
 
-        assertEquals(listOf("video 2 · visionOS 1.02", "video 2 · visionOS 1.04"), steps)
+        assertEquals(listOf("video 2 · visionOS 1.02", "video 2 · visionOS 1.05"), steps)
         for (text in listOf(outcome.report, outcome.stateJson, outcome.firstLine)) {
             for (secret in listOf(Census.V1, Census.V2, Census.VISITOR, Census.HOST, "googlevideo", "videoplayback", Census.API_KEY)) {
                 assertFalse(secret, text.contains(secret))
@@ -241,21 +241,21 @@ class ClientCensusACheckTest {
     }
 
     @Test
-    fun `the A check's version is NewPipe's 1_04 - valid for visionOS, newer than the bundled one, with source and date`() {
+    fun `the A check's version is the App Store's 1_05 - valid for visionOS, newer than the bundled one, with source and date`() {
         val alternate = ClientCensus.A_CHECK_ALTERNATE
         val vision = MasterClientTable.entry("visionos")!!
-        assertEquals("1.04", alternate.version)
+        assertEquals("1.05", alternate.version)
         assertTrue(vision.versionPattern.matches(alternate.version))
         assertTrue(ClientHealth.VERSION.matches(alternate.version))
         assertNotEquals(YouTubeClientProfiles.VISION_OS.clientVersion, alternate.version)
         assertTrue(alternate.version.toDouble() > YouTubeClientProfiles.VISION_OS.clientVersion.toDouble())
-        assertTrue(alternate.source.startsWith("NewPipe"))
+        assertTrue(alternate.source.startsWith("App Store"))
         assertTrue(Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(alternate.date))
         // Bundled after the owner's A check passed (2026-10-16): one definition, the table's.
         assertSame(MasterClientTable.VISION_OS_ALTERNATE, alternate)
         assertEquals(listOf(alternate), vision.alternates)
-        assertEquals("NewPipe Extractor ClientsConstants.java", alternate.source)
-        assertEquals("2026-08-06", alternate.date)
+        assertEquals("App Store listing com.google.visionosyoutube 1.05.34", alternate.source)
+        assertEquals("2026-09-19", alternate.date)
         assertEquals("R0 stays 1.02", "1.02", YouTubeClientProfiles.VISION_OS.clientVersion)
     }
 

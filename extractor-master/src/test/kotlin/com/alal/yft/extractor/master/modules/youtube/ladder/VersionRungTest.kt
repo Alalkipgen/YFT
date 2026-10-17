@@ -19,7 +19,7 @@ import org.junit.Test
  * (A)", guardrail 5, §9 item 3), in the change simulator's worlds: the version cases (V1, Y1–Y6)
  * on every base answer, plus the rules A keeps (learned first, one source read a day, only the
  * version changes, kept only after OK + V, quiet after a bot check, none in a trial). Phase 1.4
- * item 3: visionOS's bundled alternate (NewPipe's 1.04, [MasterClientTable.VISION_OS_ALTERNATE])
+ * item 3: visionOS's bundled alternate (the App Store's 1.05, [MasterClientTable.VISION_OS_ALTERNATE])
  * goes last, once, after the learned and the self-healed version.
  */
 class VersionRungTest {

@@ -85,7 +85,7 @@ class ClientCensusTest {
         assertTrue(solved.contains("n=N" + Census.N_INPUT.reversed()) && solved.contains("sig=S" + Census.SIG_INPUT.reversed()))
         assertEquals(5, http.probedUrls.size)
         assertEquals(17, run.requests)
-        assertTrue(run.notes.any { it.startsWith("alternates: none in step 3 (visionOS 1.04, the bundled alternate, ") })
+        assertTrue(run.notes.any { it.startsWith("alternates: none in step 3 (visionOS 1.05, the bundled alternate, ") })
         // D7: the L steps on visionOS's DIRECT answer, in memory (no request counted above).
         val lLine = run.notes.single { it.startsWith("video 1 L (R0, ") }
         assertTrue(lLine, lLine.endsWith("round-trip same, L1 same, L2 same, L3 same, L5 n/a, L7 same"))

@@ -14,8 +14,8 @@ import com.alal.yft.extractor.master.modules.youtube.YouTubePageSignals
  *
  * Guardrail 5 (the test checks it): at most 4 identities (visionOS, Android, embedded, MWEB); at
  * most 2 bundled visionOS alternates, each from a public reference with source and date (one
- * today, [VISION_OS_ALTERNATE]: NewPipe's 1.04, listed after the owner's census A check found it
- * `DIRECT` with a V pass, 2026-10-16; yt-dlp 2026.08.19 and YouTube.js list 1.02 only); a version
+ * today, [VISION_OS_ALTERNATE]: the visionOS App Store listing's 1.05, bundled after the owner's
+ * full census found it `DIRECT` with a V pass, run 5, 2026-10-17; NewPipe's 1.04 before it; yt-dlp 2026.08.19 and YouTube.js list 1.02 only); a version
  * source is live only on raw.githubusercontent.com (owner, 2026-10-15: no redirect, ≤ 64 KiB, text
  * only) or YouTube's own page. Status from the D0 census (valid runs 1–3, weekly checks 1–3; §5); v3 (owner, 2026-10-15):
  * H live after tests 1–3 on `595d259` (§9 item 9's gate met), nothing else changed. A (D5a
@@ -87,16 +87,18 @@ internal object MasterClientTable {
     )
 
     /**
-     * visionOS's one bundled alternate (guardrail 5; Phase 1.4 item 3): NewPipe Extractor's value
-     * (`ClientsConstants.java`: 1.04 since 2026-08-06, after 1.02 from 2026-06-07). Listed after the
-     * owner's census A check (2026-10-16 15:41 UTC: 1.02 `DIRECT`; 1.04 `DIRECT`, V `PASS`). R0 stays
-     * 1.02; only A asks it, after visionOS's answer is judged `VERSION_REJECTED`, after the learned
+     * visionOS's one bundled alternate (guardrail 5; Phase 1.4 item 3; the owner's order of
+     * 2026-10-17): the two-part form of YouTube's visionOS App Store listing
+     * (`com.google.visionosyoutube` 1.05.34, released 2026-09-19; §10 item 1). The owner's full
+     * census (run 5, 2026-10-17, step `ST`) found 1.05 `DIRECT` with a V `PASS`. Before it: NewPipe
+     * Extractor's 1.04 (`ClientsConstants.java`, 2026-08-06; A check 2026-10-16: `DIRECT`, V
+     * `PASS`). R0 stays 1.02; only A asks it, after visionOS's answer is judged `VERSION_REJECTED`, after the learned
      * and the self-healed version. The census A check asks the same value.
      */
     val VISION_OS_ALTERNATE: Alternate = Alternate(
-        version = "1.04",
-        source = "NewPipe Extractor ClientsConstants.java",
-        date = "2026-08-06",
+        version = "1.05",
+        source = "App Store listing com.google.visionosyoutube 1.05.34",
+        date = "2026-09-19",
     )
 
     val ENTRIES: List<Entry> = listOf(
@@ -111,7 +113,7 @@ internal object MasterClientTable {
             date = DATE,
             note = "R6's own first request (not gated); R0 DIRECT on 3 of 30, bot check on 24, R0+vd 24 of 24",
             variants = listOf(
-                Allowed(Variant.A, Status.PROVISIONAL, "0 asked: no version rejected yet; 1.04 bundled after the A check (DIRECT, V pass)"),
+                Allowed(Variant.A, Status.PROVISIONAL, "0 asked: no version rejected yet; 1.05 bundled after the census ST (DIRECT, V pass)"),
                 Allowed(Variant.S, Status.PROVISIONAL, "0 asked: no cipher in any visionOS answer"),
                 Allowed(Variant.H, Status.LIVE, "tests 1-3: 8, 8 and 6 of 9 passed on 9 distinct videos, wrong 0"),
             ),

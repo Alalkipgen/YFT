@@ -66,13 +66,13 @@ class ClientTableTest {
     }
 
     @Test
-    fun `visionOS has one bundled alternate - NewPipe's 1_04 after the owner's A check - and R0 stays 1_02`() {
+    fun `visionOS has one bundled alternate - the App Store's 1_05 after run 5's census - and R0 stays 1_02`() {
         val vision = MasterClientTable.entry("visionos")!!
         val alternate = vision.alternates.single()
         assertSame(MasterClientTable.VISION_OS_ALTERNATE, alternate)
-        assertEquals("1.04", alternate.version)
-        assertEquals("NewPipe Extractor ClientsConstants.java", alternate.source)
-        assertEquals("2026-08-06", alternate.date)
+        assertEquals("1.05", alternate.version)
+        assertEquals("App Store listing com.google.visionosyoutube 1.05.34", alternate.source)
+        assertEquals("2026-09-19", alternate.date)
         assertEquals("1.02", vision.profile.clientVersion)
         assertEquals("1.02", YouTubeClientProfiles.VISION_OS.clientVersion)
         assertTrue(entries.filter { it.id != "visionos" }.all { it.alternates.isEmpty() })

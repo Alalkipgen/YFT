@@ -44,7 +44,7 @@ import okhttp3.Response
  * Owner tool, debug build only (Phase 1.3 D0): "YFT client census" runs [ClientCensus] on the
  * phone without a computer, in three modes — **Full census** (videos 1–10, every client, the
  * version sources; ≤ 6 MB), **Weekly check** (≤ 60 s, ≤ 2 MB, ≤ 20 requests) and **A check**
- * (D5a, owner 2026-10-16: video 2's visionOS 1.02 and, only when that answers directly, 1.04
+ * (D5a, owner 2026-10-16: video 2's visionOS 1.02 and, only when that answers directly, 1.05
  * once; ≤ 4 requests; reported, not kept for the diff). Its launcher entry exists
  * only when the build has `yft.masterCapture` and `yft.ownSolver` on (manifest placeholder
  * `yftOwnerTools`). A run starts only on a tap and belongs to this screen (guardrail 11: nothing
@@ -89,7 +89,7 @@ class ClientCensusActivity : ComponentActivity() {
         }
         val full = Button(this).apply { text = "Full census" }
         val weekly = Button(this).apply { text = "Weekly check" }
-        val aCheck = Button(this).apply { text = "A check (visionOS 1.04)" }
+        val aCheck = Button(this).apply { text = "A check (visionOS 1.05)" }
         val status = TextView(this).apply { textSize = 15f }
         this.status = status
         val result = TextView(this).apply {
@@ -266,8 +266,8 @@ class ClientCensusActivity : ComponentActivity() {
             "and one answer per client (at most 60 s, 2 MB, 20 requests); " +
             "the first line says NO CHANGE, CHANGED or BROKEN; INFO lines need nothing.\n" +
             "A check: video 2 only — visionOS 1.02 as YFT's lookup asks it and, only when that answers " +
-            "directly, 1.04 once (at most 4 requests); a bot check or HTTP 429 stops it at once (no run for 30 min); " +
-            "the first line says whether 1.04 can be bundled. " +
+            "directly, 1.05 once (at most 4 requests); a bot check or HTTP 429 stops it at once (no run for 30 min); " +
+            "the first line says whether 1.05 can be bundled. " +
             "It is not kept for the next diff.\n" +
             "After a bot check on a video it sends only what YFT's normal lookup sends next (that video's " +
             "page and visionOS once more with the page's visitor data), then goes on with the next video. " +

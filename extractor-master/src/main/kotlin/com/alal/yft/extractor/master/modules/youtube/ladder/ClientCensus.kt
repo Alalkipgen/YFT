@@ -35,7 +35,7 @@ import kotlinx.coroutines.CancellationException
  * address is present; (2)
  * visionOS again with the page's signature timestamp and visitor data, only when (1) carried
  * `signatureCipher` (S through the own solver, V); (3) video 1 only: each bundled alternate
- * version (none are bundled yet: NewPipe's 1.04 waits for the A check); (4) Android — class,
+ * version (none: the bundled alternate is asked by the A check only); (4) Android — class,
  * progressive only or not, V; (5) the embedded player with the page's version and embed context,
  * as main asks it — class, S through the own solver, V; (6) MWEB — class, S, V. After video 1 the
  * public version sources are read once ([CensusSources]); a new valid value newer than the
@@ -53,9 +53,9 @@ import kotlinx.coroutines.CancellationException
  *
  * **A check** (D5a, owner 2026-10-16, option 2; [aCheck]): video 2 only — visionOS 1.02 as R6 asks
  * it (`R0`, no visitor data) and, only when that answer is `DIRECT`, the same request once more
- * with only the version changed to NewPipe's 1.04 ([A_CHECK_ALTERNATE]; as the ladder's A rung
- * changes it; since the check passed, 2026-10-16, it is visionOS's bundled alternate,
- * [MasterClientTable.VISION_OS_ALTERNATE]), then V on one row of that answer; ≤ 4 requests and ≤ 2 MB. A bot check or HTTP 429
+ * with only the version changed to visionOS's bundled alternate ([A_CHECK_ALTERNATE], 1.05 from
+ * the App Store listing since 2026-10-17, NewPipe's 1.04 before; as the ladder's A rung changes it;
+ * one definition, [MasterClientTable.VISION_OS_ALTERNATE]), then V on one row of that answer; ≤ 4 requests and ≤ 2 MB. A bot check or HTTP 429
  * on either request stops it at once with no run for 30 min. The run is reported, not kept for
  * the diff.
  *
@@ -88,7 +88,7 @@ class ClientCensus(
     private val clock: () -> Long = System::currentTimeMillis,
     private val toolLabel: String = TOOL_LABEL,
 ) {
-    /** [A_CHECK]: D5a's A check (owner, 2026-10-16), whether visionOS 1.04 may be bundled; not a census run. */
+    /** [A_CHECK]: D5a's A check (owner, 2026-10-16), whether visionOS's alternate may be bundled; not a census run. */
     enum class Mode { FULL, WEEKLY, A_CHECK }
 
     /** Wire bytes the census's HTTP client moved so far; negative when nothing measures them. */
@@ -489,14 +489,14 @@ class ClientCensus(
     private fun startedAgo(at: Long): Long = if (at <= 0) Long.MAX_VALUE else clock() - at
 
     /**
-     * D5a's A check (owner, 2026-10-16, option 2): may NewPipe's visionOS 1.04 be bundled as
+     * D5a's A check (owner, 2026-10-16, option 2): may visionOS's alternate ([A_CHECK_ALTERNATE]) be bundled as
      * visionOS's alternate (guardrail 5)? On video 2 only (no bot check in valid runs 1–3):
      * visionOS 1.02 as R6 asks it (`R0`, no visitor data, no page); only when that answer is
      * `DIRECT` (YouTube answers this address now), the same request once more with only the
      * version changed (the body's `clientVersion` and `X-YouTube-Client-Version`, as the ladder's
      * A rung changes them), then, when that answer is `DIRECT`, V on one of its rows (the AVC row
      * and a control). A bot check or HTTP 429 on either request stops it at once ([ask]): no
-     * watch page, no `R0+vd`, no run for 30 min. Nothing else is asked, and 1.04 is not bundled
+     * watch page, no `R0+vd`, no run for 30 min. Nothing else is asked, and nothing is bundled
      * here: the owner's phone result decides ([aCheckHeadline]).
      */
     private suspend fun aCheck(session: Session, videos: Map<Int, String>) {
@@ -523,7 +523,7 @@ class ClientCensus(
         session.finish(alternate)
     }
 
-    /** The A check's first line: what visionOS 1.02 and 1.04 answered, and whether 1.04 may be bundled. */
+    /** The A check's first line: what visionOS 1.02 and the alternate answered, and whether it may be bundled. */
     private fun aCheckHeadline(run: CensusRun): String {
         val head = "A CHECK — "
         val alternate = A_CHECK_ALTERNATE.version
@@ -1304,7 +1304,7 @@ class ClientCensus(
         const val WEEKLY_MAX_REQUESTS: Int = 20
         const val WEEKLY_MAX_MILLIS: Long = 60_000
 
-        /** The A check: visionOS 1.02, 1.04 and V on one row of 1.04 (a target and a control). */
+        /** The A check: visionOS 1.02, the alternate and V on one row of it (a target and a control). */
         const val A_CHECK_MAX_REQUESTS: Int = 4
 
         private const val FIRST_VIDEO = 1
@@ -1319,12 +1319,12 @@ class ClientCensus(
         /** visionOS asked again with the page's visitor data, as R6 asks it after a refusal. */
         internal const val AGAIN = "R0+vd"
 
-        /** The A check's 1.04 request (R0 with only the version changed). */
+        /** The A check's alternate request (R0 with only the version changed). */
         internal const val A_CHECK_STEP = "AC"
 
         /** The A check's video: video 2 (the 1080 ladder), with no bot check in valid runs 1–3. */
         private const val A_CHECK_VIDEO = 2
-        private const val A_CHECK_SOURCE_NAME = "NewPipe"
+        private const val A_CHECK_SOURCE_NAME = "App Store"
         private const val HTTP_OK = "200"
         private const val MOBILE_CLIENT_NAME = "MWEB"
         private const val ORIGIN = "https://www.youtube.com"
@@ -1348,26 +1348,25 @@ class ClientCensus(
         private val ANDROID = YouTubeClientProfiles.ANDROID
 
         /**
-         * The versions step 3 asks on video 1: none. visionOS's one bundled alternate, NewPipe's 1.04
-         * ([MasterClientTable.VISION_OS_ALTERNATE], bundled after the owner's A check passed,
-         * 2026-10-16), is asked by the A check ([aCheck], video 2) only, so the weekly census sends
+         * The versions step 3 asks on video 1: none. visionOS's one bundled alternate, 1.05 from the
+         * App Store listing ([MasterClientTable.VISION_OS_ALTERNATE], bundled after run 5's full
+         * census, 2026-10-17; NewPipe's 1.04 before), is asked by the A check ([aCheck], video 2) only, so the weekly census sends
          * no extra request (yt-dlp's 2026.08.19 `_base.py` and YouTube.js's `Constants.ts` list
          * `1.02`, the bundled value, only).
          */
         private val ALTERNATES: List<String> = emptyList()
 
         /**
-         * The A check's version (D5a, owner 2026-10-16, option 2): NewPipe Extractor's visionOS
-         * value (`ClientsConstants.java`: 1.04 since 2026-08-06, after 1.02 from 2026-06-07), the
-         * only public value other than the bundled 1.02 (yt-dlp and YouTube.js list 1.02 only; no
-         * older one exists). The owner's A check on the phone found it `DIRECT` with a V pass
-         * (2026-10-16 15:41 UTC), so it is visionOS's bundled alternate: one definition, the table's.
+         * The A check's version (D5a, owner 2026-10-16, option 2): visionOS's bundled alternate, one
+         * definition, the table's. Since 2026-10-17 (the owner's order) the visionOS App Store
+         * listing's 1.05 (run 5's full census: `DIRECT`, V pass); before it NewPipe Extractor's 1.04
+         * (`ClientsConstants.java`, 2026-08-06; A check 2026-10-16 15:41 UTC: `DIRECT`, V pass).
          */
         internal val A_CHECK_ALTERNATE: MasterClientTable.Alternate = MasterClientTable.VISION_OS_ALTERNATE
 
         /** The A check's rule, in the report under the summary. */
         private val A_CHECK_RULE = "A check rule (owner, 2026-10-16): video $A_CHECK_VIDEO only; visionOS 1.02 as R6 asks it, " +
-            "1.04 once only when 1.02 is DIRECT; 1.04 is bundled as visionOS's alternate only when it is DIRECT with a V pass " +
+            "${A_CHECK_ALTERNATE.version} once only when 1.02 is DIRECT; ${A_CHECK_ALTERNATE.version} is bundled as visionOS's alternate only when it is DIRECT with a V pass " +
             "(R0 stays 1.02); a bot check or HTTP 429 stops it at once, with no census for 30 min; this run is not kept for the diff."
 
         /** What R6 asks before the watch page (the copied extractor's `NO_PAGE`). */
