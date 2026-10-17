@@ -1,5 +1,24 @@
 # YFT Master Extractor backup
 
+## Final plan: next level for Instagram, TikTok, Facebook and X (the owner, 2026-10-17; docs only)
+
+- `MASTER_KEY_SOCIAL_PLAN.md` is now the **final plan** (the owner's approval after the review round).
+  Decided (§2.1, §8 items 7–9): **routing B** — Master acts only after main fails, for all four
+  sites, as site packs inside the generic engine (no claiming module, no ~4,700-line copy of main's
+  adapters); **B+** later (Master adds only the formats main lacks, main's rows untouched); **A** only
+  if B+ is measured insufficient, through a real Master-owned route state (never `ADAPTER_DISABLED`,
+  never relabeling a found page as `UNSUPPORTED_URL`). **Lookup** = the user's whole lookup (main +
+  Master), with an app-side per-lookup request recorder (memory only) against repeated asks and for
+  the 429 / bot-check stop; it replaces R8's "same endpoint may be asked a second time" for these
+  sites (pointer added in `MASTER_KEY_ARCHITECTURE.md`). **R8** becomes a small budgeted ladder per
+  site pack.
+- Corrected: "never worse than main" is split into no regression under the same policy (structural
+  under B) and listed policy differences (S4, S6, S7); the memo no longer "covers main's asks"; YouTube's
+  module (R6) is not the routing model (it answers only after `UNSUPPORTED_URL`, run 3). Steps: S0 =
+  recorder + census, S1 = kit with the pilot site only, pilot Facebook or TikTok by S0, Instagram and X
+  first stop the repeated ask, S6 = B+. Items 1–6 still need the owner's answer; nothing is built until
+  the owner says go. No code changed.
+
 ## Plan: next level for Instagram, TikTok, Facebook and X (owner's Plan Mode, 2026-10-17)
 
 - New `MASTER_KEY_SOCIAL_PLAN.md` (plan only, no code): audit of main's four adapters and Master's

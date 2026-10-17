@@ -82,6 +82,9 @@ authorized playback) → `LayerStack` (L2 → L4 → L1 → L3; L3 adds only) �
   bundled code, as on main. It asks only for the caller's identity, never after a login,
   bot-check or player-script failure, never twice. Without `contracts` the engine is unchanged.
   Cost accepted: after a main failure the same endpoint may be asked a second time (Vimeo, X).
+  Planned, not built (`MASTER_KEY_SOCIAL_PLAN.md` §2.1, decisions 8–9, final plan 2026-10-17): for
+  Instagram, TikTok, Facebook and X a per-lookup request recorder stops that second ask, and the one
+  ask becomes a small budgeted ladder per site pack (the engine fetches; layers still only read).
 - Layer order is configuration. It decides probe order under the budget, so changing it is a
   behavior change and needs the R1 parity harness.
 - Recipes are data. A renamed site key is a one-line edit in `PayloadRecipes.NODE_RULES`.
