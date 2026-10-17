@@ -1,5 +1,20 @@
 # YFT Master Extractor backup
 
+## visionOS bundled alternate 1.04 → 1.05 (owner's order, 2026-10-17); run 6 APKs
+
+- **Why:** run 5's full census found the visionOS App Store listing's form 1.05 `DIRECT` with a V
+  pass (step `ST`); the owner said to change it ("ပြောင်း").
+- **Change:** `MasterClientTable.VISION_OS_ALTERNATE` is now 1.05 (source: the App Store listing
+  `com.google.visionosyoutube` 1.05.34, date 2026-09-19); NewPipe's 1.04 is no longer bundled. It
+  is still the one alternate (guardrail 5), asked by A last and once, only after
+  `VERSION_REJECTED`; R0 stays 1.02, so nothing changes on the healthy path. The census A check
+  asks the same constant, so its button and headline now say 1.05 (App Store, 2026-09-19).
+  Ladder files and the census debug screen only; no copied file, parity tests unchanged.
+- **Tests:** `ClientTableTest`, `ClientCensusACheckTest`, `VersionSourceTest`, `VersionRungTest`,
+  `ClientCensusTest` updated for 1.05; extractor-master tests pass locally.
+- **Phone (optional):** census screen → "A check (visionOS 1.05)" should say
+  `visionOS 1.02 DIRECT; visionOS 1.05 DIRECT, V PASS`.
+
 ## Run 5 phone check (owner, 2026-10-17): Phase 1.4 item 5 proven, item 1 D0 measured
 
 - **Normal APK:** 1080p video with sound, MP3 320k and 2160p video with sound all download and play.
