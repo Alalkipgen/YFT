@@ -1,5 +1,13 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 backlog item 7: YouTube routing B plan (the owner, 2026-10-17; docs only)
+
+- New `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` and `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md`;
+  `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7 points to them. Finding: the YouTube ladder never answers a
+  user lookup today (P12: a found page is `Skipped` unless `UNSUPPORTED_URL`). Plan: route B behind a
+  debug flag (default off = today), recoverable reasons only, per-lookup recorder with replay of main's
+  unauthenticated answers, 429 stop, steps R1–R6, phone proof before promotion. No code, no tests run.
+
 ## Final plan: next level for Instagram, TikTok, Facebook and X (the owner, 2026-10-17; docs only)
 
 - `MASTER_KEY_SOCIAL_PLAN.md` is now the **final plan** (the owner's approval after the review round).
