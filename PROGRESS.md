@@ -1,5 +1,33 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 backlog item 4 (2026-10-17): the last good player ID when the page names none (the owner's go under guardrail 4)
+
+- **What:** the ladder sees the chain's watch page. When the page names a player ID, the lookup
+  keeps it, and after a **successful** lookup the health file keeps it (`"player":{"id","at"}`;
+  public, the player script's version label; the strict pattern `^[A-Za-z0-9_-]{4,32}$` on write
+  and read). When the page names **none** the copied reader can use, the ladder puts the last good
+  ID in front of the page, so the copied reader finds it first and S runs with it; nothing else
+  in the page changes. **Never after a bot check** (the health's 30-min bot-check window, which a
+  bot check in this lookup opens). V and the init check stay on every row, so a stale ID ends in
+  a clean stop, never a wrong row.
+- **Requests:** a player script R6 would not fetch, only when the page names no player ID (the
+  exception to D6's "the chain's requests stay R6's", approved with the backlog). The lookup's
+  details say "S: the page names no player ID; none kept / the last good one used / … not used
+  after a bot check".
+- **Code:** `PagePlayerId.kt` (new, ladder: the copied reader's `jsUrl` / `PLAYER_JS_URL`
+  pattern + `YouTubeUrls.playerId`), `LadderLookup.chain.get` (the watch page only) and `finish`
+  (keeps the ID after a success), `ClientHealth.rememberPlayerId` / `lastPlayerId`. The copied
+  files are not touched.
+- **Tests:** `PagePlayerIdTest` (4): the copied reader reads the put-in-front ID on a page with no
+  `jsUrl` and on one with an unusable `jsUrl`; a successful lookup keeps the page's ID; on a sim
+  world whose page names none (visionOS answers with ciphers): no ID kept → no script asked; the
+  last good ID → S asks with it, the same rows as a page that names the ID, no wrong row; after a
+  bot check → not used, no script asked; the health file round-trips only a valid ID. Local:
+  PagePlayerIdTest 4/0, ClientHealthTest 12/0, ClientLadderSimTest 1/0, MasterClientLadderSimTest
+  9/0, MasterYouTubeParityTest 6/0, LadderTrialTest 4/0, HOnlyTrialTest 4/0.
+- **Phone:** nothing to see while YouTube's page names the player ID (today); it acts only when
+  a page stops naming it.
+
 ## Phase 1.4 backlog item 3 (2026-10-17): the shape map L located is recorded only (`ClientHealth` and the census record), nothing reads with it
 
 - **What:** when L runs on a `SHAPE_CHANGED` visionOS answer, the ladder writes the map it

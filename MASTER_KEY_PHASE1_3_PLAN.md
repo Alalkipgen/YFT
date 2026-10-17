@@ -339,7 +339,9 @@ All R6, Phase 1.1, Phase 1.2, v1 and v2 guardrails stay. v3 restates them and ma
    run ≤ 6 MB; the weekly check ≤ 60 s, ≤ 2 MB, ≤ 20 requests.**
 8. **Health on the phone (changed).** `files/master/client-health.json`: client ID, class, time,
    counts, the working variant (version index, S, H), **the learned version string (public) and
-   the L shape map (key paths only, no values)**; no address, token, visitor data or video ID.
+   the L shape map (key paths only, no values)**; since 2026-10-17 (§10 item 4) also the last
+   good player ID (public, the player script's version label); no address, token, visitor data
+   or video ID.
    No remote code. Only with the owner's D8 decision: a signed identity section over R9's envelope
    (data only; the bundled table stays the fallback).
 9. **Never a wrong row (changed).** Rows come only from the copied parser — **on the answer itself
@@ -1799,7 +1801,10 @@ merge buffer (`ec1f24e`), item 3 visionOS 1.04 bundled (`f02070a`), item 2 h-onl
    the last successful lookup; V and the init check stay on every row, so a stale ID ends in a
    clean stop, never a wrong row. It changes the chain's requests (a player script R6 would not
    fetch: an exception to D6's "the chain's requests stay R6's", §4 D6 "As built"), so it needs
-   the owner's go under guardrail 4, and never after a bot check in the lookup.
+   the owner's go under guardrail 4, and never after a bot check in the lookup. **Built
+   2026-10-17 (the owner's go for every backlog item):** `PagePlayerId` + `LadderLookup` — the
+   page's ID is kept after a successful lookup (health file `player`, public); a page naming none
+   gets the last good one in front, never in the bot-check window; V and the init check stay.
 
 5. **VP9 HLS qualities have no sound (found 2026-10-16, before the run 3 APKs).** YouTube's HLS
    names its sound apart (one AAC rendition; D0: codecs avc1, mp4a, vp09). The app pairs each AVC

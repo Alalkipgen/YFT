@@ -144,6 +144,10 @@ internal class LadderLookup(
     private val vChecks = HashMap<String, Int>()
     private var aDone = false
     private var aRequests = 0
+    private val pageUrl = YouTubeUrls.watchPageFetchUrl(videoId)
+
+    /** Phase 1.4 item 4: the player ID this lookup's page named (kept after a successful lookup). */
+    private var pagePlayerId: String? = null
 
     /** Addresses V proved refused in this lookup (merge rule, guardrail 9); memory only, never logged. */
     private val refused = HashSet<String>()
@@ -152,8 +156,12 @@ internal class LadderLookup(
     val notes = mutableListOf<String>()
 
     val chain: ExtractorHttpClient = object : ExtractorHttpClient {
-        override suspend fun get(url: String, headers: Map<String, String>, maxBodyBytes: Long): ExtractorHttpResult =
-            memo.chain.get(url, headers, maxBodyBytes)
+        override suspend fun get(url: String, headers: Map<String, String>, maxBodyBytes: Long): ExtractorHttpResult {
+            val result = memo.chain.get(url, headers, maxBodyBytes)
+            if (url != pageUrl) return result
+            val page = result as? ExtractorHttpResult.Success ?: return result
+            return mutex.withLock { page(page) }
+        }
 
         override suspend fun probe(url: String, headers: Map<String, String>, timeoutMillis: Long): ExtractorProbeResult =
             memo.chain.probe(url, headers, timeoutMillis)
@@ -174,9 +182,25 @@ internal class LadderLookup(
 
     /** The chain's [result] after the ladder's last step: the H leg and the merge rule. */
     suspend fun finish(result: SiteExtractionResult): SiteExtractionResult = try {
-        mutex.withLock { merge(result) }
+        mutex.withLock { merge(result) }.also { merged ->
+            if (merged is SiteExtractionResult.Success) pagePlayerId?.let(ladder.health::rememberPlayerId)
+        }
     } finally {
         memo.clear()
+    }
+
+    /**
+     * Phase 1.4 item 4: the watch page. When it names no player ID, S gets the one from the last
+     * successful lookup ([PagePlayerId]); never after a bot check. V and the init check stay.
+     */
+    private fun page(page: ExtractorHttpResult.Success): ExtractorHttpResult {
+        PagePlayerId.named(page.body)?.let { pagePlayerId = it; return page }
+        val last = ladder.health.lastPlayerId() ?: return page.also { notes += "S: the page names no player ID; none kept" }
+        if (ladder.health.botChecked()) {
+            return page.also { notes += "S: the page names no player ID; the last good one is not used after a bot check" }
+        }
+        notes += "S: the page names no player ID; the last good one used"
+        return page.copy(body = PagePlayerId.withPlayerId(page.body, last))
     }
 
     /** The client name of a player request for this video, or null for any other request. */

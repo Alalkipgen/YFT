@@ -60,6 +60,8 @@ internal class ClientHealth(
     private val clients = LinkedHashMap<String, Client>()
     private val sourceReads = LinkedHashMap<String, Long>()
     private var botCheckUntil = 0L
+    private var playerId: String? = null
+    private var playerAt = 0L
     private var loaded = false
 
     @Synchronized
@@ -177,6 +179,23 @@ internal class ClientHealth(
     @Synchronized
     fun shape(id: String, fingerprint: String): List<String>? = load().clients[id]?.shapes?.get(fingerprint)
 
+    /**
+     * Phase 1.4 item 4: the player ID the page named in the last successful lookup (public: the
+     * player script's version label, never an address); S's fallback when a page names none.
+     */
+    @Synchronized
+    fun rememberPlayerId(playerId: String) {
+        if (!PLAYER_ID.matches(playerId)) return
+        load()
+        if (this.playerId == playerId) return
+        this.playerId = playerId
+        playerAt = clock()
+        save()
+    }
+
+    @Synchronized
+    fun lastPlayerId(): String? = load().playerId
+
     @Synchronized
     fun dropShape(id: String, fingerprint: String) {
         if (load().clients[id]?.shapes?.remove(fingerprint) != null) save()
@@ -258,7 +277,9 @@ internal class ClientHealth(
             if (index > 0) append(',')
             append('"').append(id).append("\":").append(at)
         }
-        append("}}")
+        append('}')
+        playerId?.let { append(",\"player\":{\"id\":\"").append(it).append("\",\"at\":").append(playerAt).append('}') }
+        append('}')
     }
 
     private fun save() {
@@ -294,6 +315,10 @@ internal class ClientHealth(
         (root.entries["sources"] as? JsonValue.Object)?.entries?.forEach { (id, at) ->
             if (id in IDS) number(at)?.let { sourceReads[id] = it }
         }
+        (root.entries["player"] as? JsonValue.Object)?.let { node ->
+            playerId = text(node.entries["id"])?.takeIf(PLAYER_ID::matches)
+            playerAt = number(node.entries["at"]) ?: 0L
+        }
         return this
     }
 
@@ -313,6 +338,7 @@ internal class ClientHealth(
         val VERSION = Regex("^[0-9]{1,4}(\\.[0-9]{1,8}){1,3}$")
         private val WORD = Regex("^[a-z][a-z0-9.-]{0,31}$")
         private val FINGERPRINT = Regex("^[0-9a-f]{8,64}$")
+        private val PLAYER_ID = Regex("^[A-Za-z0-9_-]{4,32}$")
         private val PATH = Regex("^[A-Za-z0-9_.*\\[\\]]{1,200}$")
 
         fun cooldownOf(answerClass: CensusClass): Long? = when (answerClass) {
