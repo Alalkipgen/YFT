@@ -15,8 +15,8 @@
 - **Fix (`LiveOriginFile.kt`, `GrowingRead`, shared by `DashTransferEngine` and
   `DirectTransferEngine`; live-origin files only):** 1) an answer is read up to its Content-Range
   end (at most the ask) and closed, never waiting for its Content-Length; the next ask starts at
-  the next byte. 2) a live answer's body may stand still for 5 s (`liveStallMillis`, the body
-  only: the first byte took 15 s on the phone); then, or when it breaks, its bytes stay and the
+  the next byte. 2) a live answer's body may stand still for 5 s (`liveStallMillis`) once its
+  first byte came (that byte took 15 s on the phone, so it keeps the usual timeout); then, or when it breaks, its bytes stay and the
   next ask starts after them (at most 8 such answers in a row; an ask that brings nothing has the
   usual attempts). 3) only a 416 or an empty answer ends the file (after a full answer the ask is
   halved first, as before); a 403, 404 or any other 4xx now fails (run 4d took a 4xx after a

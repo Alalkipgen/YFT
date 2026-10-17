@@ -54,12 +54,12 @@ internal object LiveOriginFile {
  * Reads a [LiveOriginFile] until its end, one ask after another from the next byte.
  *
  * Each answer must start at the asked byte; it is read up to its Content-Range end (its
- * Content-Length is never waited for) and closed. A body that stops for [stallMillis] or breaks
- * keeps what it brought and the next ask starts after it, so the file never starts over. The
- * file ends only at a 416 or an empty answer; one that comes after a full answer may only mean
- * the ask went past the end, so the ask is halved there, down to one byte. Any other 4xx fails:
- * a cut file is never kept as done. A failure's Detail says what was read and what the last
- * answer said ([summary]).
+ * Content-Length is never waited for) and closed. A body that stops for [stallMillis] after its
+ * first byte, or breaks, keeps what it brought and the next ask starts after it, so the file
+ * never starts over. The file ends only at a 416 or an empty answer; one that comes after a
+ * full answer may only mean the ask went past the end, so the ask is halved there, down to one
+ * byte. Any other 4xx fails: a cut file is never kept as done. A failure's Detail says what was
+ * read and what the last answer said ([summary]).
  */
 internal class GrowingRead(firstAsk: Long, private val stallMillis: Long) {
     init {
@@ -142,7 +142,7 @@ internal class GrowingRead(firstAsk: Long, private val stallMillis: Long) {
 
     /**
      * Reads at most [limit] bytes of [body] into [write]; a body that stops for [stallMillis]
-     * or breaks returns what it brought as [Broken].
+     * after its first byte, or breaks, returns what it brought as [Broken].
      */
     suspend fun readBody(
         body: ResponseBody,
@@ -151,8 +151,6 @@ internal class GrowingRead(firstAsk: Long, private val stallMillis: Long) {
         write: suspend (ByteArray, Int) -> Unit,
     ): Outcome {
         val source = body.source()
-        // Only the body: the first byte of an answer took 15 s on the owner's phone.
-        source.timeout().timeout(stallMillis, TimeUnit.MILLISECONDS)
         val buffer = ByteArray(bufferBytes)
         var got = 0L
         while (got < limit) {
@@ -170,6 +168,10 @@ internal class GrowingRead(firstAsk: Long, private val stallMillis: Long) {
                 )
             }
             if (count == -1) break
+            if (got == 0L) {
+                // From the first byte on: on the owner's phone the first one took 15 s.
+                source.timeout().timeout(stallMillis, TimeUnit.MILLISECONDS)
+            }
             write(buffer, count)
             got += count
         }
