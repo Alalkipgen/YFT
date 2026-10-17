@@ -120,7 +120,10 @@ internal object MasterClientTable {
             versionSources = listOf(
                 VersionSource("yt-dlp", RAW, Status.LIVE, DATE, "1.02 = bundled in 3 of 3 runs"),
                 VersionSource("youtube.js", RAW, Status.LIVE, DATE, "1.02 = bundled in 3 of 3 runs"),
-                VersionSource("app-store", "itunes.apple.com", Status.NOT_ACTIVE, DATE, "no visionOS device listed"),
+                VersionSource(
+                    "app-store", "itunes.apple.com", Status.NOT_ACTIVE, DATE,
+                    "visionOS listing since 2026-10-17 (the iOS app listed no visionOS device); measured by the census only",
+                ),
                 VersionSource("answer", WATCH_HOST, Status.NOT_ACTIVE, DATE, "no value in any run"),
             ),
         ),

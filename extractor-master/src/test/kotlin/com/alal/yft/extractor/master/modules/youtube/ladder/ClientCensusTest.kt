@@ -108,7 +108,7 @@ class ClientCensusTest {
         val older = fact("android", "youtubejs")
         assertEquals(listOf("21.03.36", false, null), listOf(older.value, older.newer, older.accepted))
         val store = fact("visionos", "appstore")
-        assertEquals(listOf(false, "21.40.4", "lists visionOS"), listOf(store.pattern, store.value, store.note))
+        assertEquals(listOf(true, "1.02", "lists visionOS; listing 1.02.10", "equal"), listOf(store.pattern, store.value, store.note, store.accepted))
         val play = fact("android", "playstore")
         assertEquals(listOf(false, "over 64 KiB"), listOf(play.reachable, play.note))
         assertEquals("yes", fact("embedded", "page").accepted)
@@ -671,6 +671,26 @@ class ClientCensusTest {
         assertEquals(listOf("1.03", "PASS"), listOf(tried.version, tried.v))
         val fact = run.versions.single { it.identity == "visionos" && it.source == "ytdlp" }
         assertEquals(listOf("1.03", true, "yes"), listOf(fact.value, fact.newer, fact.accepted))
+    }
+
+    @Test
+    fun `the visionOS App Store listing's form is asked once in a full census only, and A never reads it`() = runTest {
+        val store = "{\"resultCount\":1,\"results\":[{\"version\":\"1.05.34\",\"supportedDevices\":[\"AppleVisionPro-AppleVisionPro\"]}]}"
+        val http = CensusWorld().standard(Census.V1).sources(vision = "1.03", store = store).http()
+
+        val run = lastRun(census(http).run(Mode.FULL, mapOf(1 to Census.V1), null))
+
+        assertEquals(1, http.postedBodies.count { CensusWorld.clientOf(it) == "VISIONOS" && CensusWorld.versionOf(it) == "1.05" })
+        assertEquals(1, http.postedBodies.count { CensusWorld.clientOf(it) == "VISIONOS" && CensusWorld.versionOf(it) == "1.03" })
+        assertEquals(listOf("1.05", "PASS"), ask(run, 1, "visionos", "ST").let { listOf(it.version, it.v) })
+        val fact = run.versions.single { it.identity == "visionos" && it.source == "appstore" }
+        assertEquals(listOf("1.05", true, "yes", "lists visionOS; listing 1.05.34"), listOf(fact.value, fact.newer, fact.accepted, fact.note))
+        assertEquals("yes", run.versions.single { it.identity == "visionos" && it.source == "ytdlp" }.accepted)
+        assertFalse(VersionSource.approved(CensusSources.APP_STORE_URL, "itunes.apple.com"))
+
+        val weekly = CensusWorld().standard(Census.V1).sources(store = store).http()
+        census(weekly).run(Mode.WEEKLY, mapOf(1 to Census.V1), null)
+        assertEquals(0, weekly.postedBodies.count { CensusWorld.versionOf(it) == "1.05" })
     }
 
     @Test

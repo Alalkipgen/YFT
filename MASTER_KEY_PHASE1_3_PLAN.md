@@ -1778,7 +1778,10 @@ Found on the way and outside every task above; nothing here starts without the o
    Reading it would need a D0 measurement first (does YouTube answer the listing's value, and in
    which form) and stays under guardrail 5 (a public source with source and date; never
    invented, counted up or brute-forced). Until then the source stays "measured, not active" in
-   the client table and A never reads it.
+   the client table and A never reads it. **Built 2026-10-17 (the owner's go for every backlog
+   item):** the census reads the visionOS listing; its two-part form is asked once in a full
+   census only (step `ST`, the `appstore` fact's `accepted`); W and A unchanged. The phone's full
+   census is the D0 measurement.
 
 **Phase 1.4** (the owner, 2026-10-16, when D5b steps 7–8 were closed without code; §9 item 15):
 

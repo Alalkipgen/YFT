@@ -1,5 +1,26 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 backlog item 1 (2026-10-17): the census reads YouTube's visionOS App Store listing and measures its form (full census only); A never reads it
+
+- **What:** `CensusSources.APP_STORE_URL` now looks up `bundleId=com.google.visionosyoutube`
+  (YouTube's visionOS app, a listing of its own; the iOS app listed no visionOS device). A store
+  version has three parts (`1.05.34`), so the census reads its first two (`1.05`, cut, never
+  counted up; guardrail 5) and notes the listing ("lists visionOS; listing 1.05.34").
+- **The D0 measurement:** in a **full** census only (never the weekly check, so W's 20 requests
+  stay as they were), when that form is newer than the bundled value it is asked once on video 1
+  (step `ST`, visionOS, V on its row) and the `appstore` fact says `yes` / `rejected` / `no` /
+  `bot-check`. The other sources' acceptance is unchanged (the App Store form never takes their
+  place).
+- **A:** unchanged; the client table keeps the source "measured, not active"
+  (`VersionSource.approved` stays false for `itunes.apple.com`).
+- **Tests:** `ClientCensusTest` (36/0) new "the visionOS App Store listing's form is asked once in
+  a full census only, and A never reads it" (1.05.34 → one ask with 1.05, V PASS, `yes`; yt-dlp's
+  newer 1.03 still tried; weekly → no 1.05 ask); `CensusSourcesTest` (forms, the visionOS
+  bundle). CensusR6ParityTest 5/0, ClientCensusACheckTest 10/0, VersionSourceTest 11/0,
+  ClientTableTest 7/0, CensusNoBackgroundTest 2/0.
+- **Phone (the D0 measurement):** run the full census once; its versions line for `appstore`
+  shows the form and whether YouTube took it.
+
 ## Phase 1.4 backlog item 4 (2026-10-17): the last good player ID when the page names none (the owner's go under guardrail 4)
 
 - **What:** the ladder sees the chain's watch page. When the page names a player ID, the lookup

@@ -206,8 +206,8 @@ internal object Census {
     const val YOUTUBE_JS_TEXT = "export const CLIENTS = {\n  VISIONOS: {\n    NAME: 'VISIONOS',\n    VERSION: '1.02'\n  },\n" +
         "  ANDROID: {\n    NAME: 'ANDROID',\n    VERSION: '21.03.36',\n    SDK_VERSION: 33\n  }\n};\n"
 
-    const val APP_STORE_TEXT = "{\"resultCount\":1,\"results\":[{\"version\":\"21.40.4\"," +
-        "\"supportedDevices\":[\"iPhone15-iPhone15\",\"AppleVisionPro-AppleVisionPro\"]}]}"
+    const val APP_STORE_TEXT = "{\"resultCount\":1,\"results\":[{\"version\":\"1.02.10\"," +
+        "\"supportedDevices\":[\"AppleVisionPro-AppleVisionPro\"]}]}"
 }
 
 /** One scripted YouTube: answers per (video, client name), pages, playlists, sources and V. */
@@ -250,10 +250,10 @@ internal class CensusWorld {
         get(Census.VARIANT, Census.variantPlaylist())
     }
 
-    fun sources(vision: String = "1.02"): CensusWorld = apply {
+    fun sources(vision: String = "1.02", store: String = Census.APP_STORE_TEXT): CensusWorld = apply {
         get(CensusSources.YT_DLP_URL, Census.ytDlp(vision))
         get(CensusSources.YOUTUBE_JS_URL, Census.YOUTUBE_JS_TEXT)
-        get(CensusSources.APP_STORE_URL, Census.APP_STORE_TEXT)
+        get(CensusSources.APP_STORE_URL, store)
         gets[CensusSources.PLAY_STORE_URL] = ExtractorHttpResult.Failure(SiteExtractionFailure.RESPONSE_TOO_LARGE)
     }
 

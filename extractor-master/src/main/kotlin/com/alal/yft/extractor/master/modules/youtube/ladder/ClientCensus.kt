@@ -1003,7 +1003,9 @@ class ClientCensus(
                     is ExtractorHttpResult.Success -> {
                         session.bodyBytes += result.body.length
                         val note = if (document.id == "appstore") {
-                            if (CensusSources.appStoreListsVision(result.body)) "lists visionOS" else "no visionOS device listed"
+                            val listed = if (CensusSources.appStoreListsVision(result.body)) "lists visionOS" else "no visionOS device listed"
+                            val store = CensusSources.appStoreValues(result.body).filter { CensusSources.appStoreForm(it) != null }
+                            if (store.size == 1) "$listed; listing ${store.single()}" else listed
                         } else {
                             null
                         }
@@ -1034,7 +1036,7 @@ class ClientCensus(
      * (B7, owner 2026-10-15), or a note that none had one; nothing when no source gave a newer value.
      */
     private suspend fun accept(session: Session, video: Video?) {
-        if (session.versions.none { it.pattern && it.newer == true }) return
+        if (session.versions.none { it.pattern && it.newer == true && (it.source != APP_STORE || session.mode == Mode.FULL) }) return
         if (video == null) {
             session.notes += "version acceptance: no video without a bot check and with a watch page, so no newer version " +
                 "was tried (R6 sends no such request)"
@@ -1050,7 +1052,7 @@ class ClientCensus(
     private suspend fun acceptanceTests(session: Session, first: Video) {
         for (identity in listOf("visionos", "android", "mweb")) {
             if (session.stopped != null) return
-            val candidates = session.versions.filter { it.identity == identity && it.pattern && it.newer == true }
+            val candidates = session.versions.filter { it.identity == identity && it.pattern && it.newer == true && it.source != APP_STORE }
             val value = candidates.mapNotNull(CensusVersion::value).distinct()
                 .sortedWith { a, b -> CensusSources.compare(a, b) ?: 0 }
                 .lastOrNull() ?: continue
@@ -1083,6 +1085,32 @@ class ClientCensus(
             }
             // A bot check says nothing about the version; no newer version is tried after it.
             if (first.closed) return
+        }
+        if (session.mode == Mode.FULL) storeForm(session, first)
+    }
+
+    /**
+     * §10 item 1, the D0 measurement (FULL runs only, never W): the visionOS App Store listing's
+     * two-part form, when newer than the bundled value, asked once on [first] (step `ST`) and
+     * marked on the `appstore` fact. A never reads it (the client table's "measured, not active").
+     */
+    private suspend fun storeForm(session: Session, first: Video) {
+        if (session.stopped != null || first.closed) return
+        val value = session.versions.firstOrNull { it.identity == "visionos" && it.source == APP_STORE && it.pattern && it.newer == true }
+            ?.value ?: return
+        val profile = VISION_OS.copy(clientVersion = value)
+        session.step("video ${first.slot} · ${profile.clientName} $value (App Store form)")
+        val asked = ask(session, first, profile, "ST", NO_PAGE) ?: return
+        directCheck(session, first, asked, false)
+        session.finish(asked)
+        val verdict = when {
+            asked.record.answerClass == CensusClass.BOT_CHECK -> "bot-check"
+            asked.record.answerClass == CensusClass.VERSION_REJECTED -> "rejected"
+            asked.record.status == "OK" && asked.record.v == StreamCheck.Verdict.PASS.name -> "yes"
+            else -> "no"
+        }
+        session.versions.replaceAll { fact ->
+            if (fact.identity == "visionos" && fact.source == APP_STORE && fact.value == value) fact.copy(accepted = verdict) else fact
         }
     }
 
@@ -1316,6 +1344,7 @@ class ClientCensus(
         private const val FAILED_RATE_PREFIX = "enhanced_except"
 
         private val VISION_OS = YouTubeClientProfiles.VISION_OS
+        private const val APP_STORE = "appstore"
         private val ANDROID = YouTubeClientProfiles.ANDROID
 
         /**

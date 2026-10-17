@@ -22,8 +22,13 @@ internal object CensusSources {
     const val YOUTUBE_JS_URL =
         "https://raw.githubusercontent.com/LuanRT/YouTube.js/main/src/utils/Constants.ts"
 
-    /** The App Store's public lookup for YouTube's app (its visionOS build, if listed). */
-    const val APP_STORE_URL = "https://itunes.apple.com/lookup?bundleId=com.google.ios.youtube"
+    /**
+     * The App Store's public lookup for YouTube's visionOS app, a listing of its own (§10 item 1,
+     * 2026-10-17; `com.google.ios.youtube` is the iOS app, which lists no visionOS device).
+     * Measured by the census only ([appStoreForms]); A never reads it (the client table's
+     * "measured, not active").
+     */
+    const val APP_STORE_URL = "https://itunes.apple.com/lookup?bundleId=com.google.visionosyoutube"
     const val PLAY_STORE_URL =
         "https://play.google.com/store/apps/details?id=com.google.android.youtube&hl=en_US&gl=US"
 
@@ -59,7 +64,7 @@ internal object CensusSources {
                 Reader("android", matches(YOUTUBE_JS_ANDROID)),
             ),
         ),
-        Document("appstore", APP_STORE_URL, listOf(Reader("visionos", ::appStoreValues))),
+        Document("appstore", APP_STORE_URL, listOf(Reader("visionos", ::appStoreForms))),
         Document("playstore", PLAY_STORE_URL, listOf(Reader("android", matches(PLAY_STORE_VERSION)))),
     )
 
@@ -78,6 +83,18 @@ internal object CensusSources {
         val root = BoundedJsonParser.parse(text, maxDepth = 16, maxNodes = 50_000) ?: return emptyList()
         return root["results"].asArrayOrEmpty.mapNotNull { it["version"].asStringOrNull }
     }
+
+    /**
+     * The listing's versions in the form visionOS's pattern carries: a store version has three
+     * parts (`1.05.34`), so its first two are the measured form (`1.05`; the D0 measurement of
+     * §10 item 1: does YouTube answer it). Cut, never counted up; any other text stays as it is
+     * (and fails the pattern).
+     */
+    fun appStoreForms(text: String): List<String> = appStoreValues(text).map { appStoreForm(it) ?: it }
+
+    fun appStoreForm(version: String): String? = STORE_VERSION.find(version.trim())?.groupValues?.get(1)
+
+    private val STORE_VERSION = Regex("^(\\d{1,2}\\.\\d{2})\\.\\d{1,4}$")
 
     /** Whether the App Store's answer lists a visionOS device (a note, not a value). */
     fun appStoreListsVision(text: String): Boolean = VISION_DEVICE.containsMatchIn(text)
