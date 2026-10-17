@@ -26,7 +26,8 @@ on the phone: `NETWORK` READ_SOURCE (a socket read timed out in the body, "Downl
 sends only the newest piece → the file is asked piece by piece (`sq` 0 to the head a HEAD's
 `X-Head-Seqnum` names), as yt-dlp does, and the pieces' fragmented MP4s are joined and read by
 the merge's reader before they are written; not ready on YouTube's side → new `LIVE_NOT_READY`
-("try again later"); WebM live tracks are not joined; `[d7]` run 4f.
+("try again later"); WebM live tracks are not joined; `[d7]` run 4f. Run 4f on the phone ✅: two
+recently ended streams that fail on `main` (2:35:00, 8:56:00) download whole; item 6 closed.
 
 ## 0. Rules (every item)
 

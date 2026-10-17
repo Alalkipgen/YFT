@@ -1808,3 +1808,11 @@ merge buffer (`ec1f24e`), item 3 visionOS 1.04 bundled (`f02070a`), item 2 h-onl
    only) say "No sound"; over the chain, 2K and 4K come as VP9 WebM with Opus (P6). Sound for VP9
    over H would need a merge that writes VP9 and AAC into one file without Android's muxer: new
    core-download work, proven on a phone first, parity kept (guardrail 1).
+
+6. **Live WebM pieces and one-file live formats (found 2026-10-17, owner item 6, run 4f).** A
+   recently ended live stream's MP4 qualities are asked piece by piece and joined
+   (`LivePieces.kt`, `DashTransferEngine`; proven on the phone). Its WebM qualities (VP9, often
+   the only 1440p / 2160p) fail with "live WebM pieces are not joined; pick an MP4 quality": each
+   piece is a WebM of its own, and joining them needs a Matroska reader and writer. A one-file
+   live format (`DirectTransferEngine`) keeps the run 4e reading, which gets only the newest
+   piece of such a file.

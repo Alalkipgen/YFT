@@ -1,5 +1,13 @@
 # YFT Master Extractor backup
 
+## Owner item 6, run 4f on the phone (2026-10-17): ✅ recently ended live streams download whole (2:35:00 and 8:56:00, both failing on `main`); item 6 closed
+
+- **Phone (the owner, normal APK of run 4f, `2026d8c`):** two recently ended live streams that
+  fail on `main` (2:35:00 and 8:56:00) downloaded and play with their whole length (2:35:00 and
+  8:56:00). The pieces-and-join way works on YouTube's live server.
+- **Item 6:** closed. Left open (backlog, plan §10 item 6): live WebM qualities are not joined
+  ("pick an MP4 quality"); the direct engine's one-file live formats keep the run 4e reading.
+
 ## Owner item 6, run 4e on the phone (2026-10-17): `NETWORK` READ_SOURCE, Detail "… sq 2021/2021 · SocketTimeoutException" → a live stream's file is asked piece by piece (`sq` 0 to the head) and the pieces are joined, as yt-dlp does; `[d7]` run 4f
 
 - **Phone (the owner, run 4e APKs):** the recently ended live stream (2:48:23, ended about 9 h
