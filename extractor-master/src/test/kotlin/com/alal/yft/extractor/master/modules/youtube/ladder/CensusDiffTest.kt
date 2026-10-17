@@ -282,6 +282,7 @@ class CensusDiffTest {
             videoCodecs = listOf("avc1", "vp09"), audioCodecs = listOf("mp4a"), videoRows = 3, audioRows = 1,
             solve = "ok-sig+n", vControl = "2xx", vReason = "CHECKED", vRow = "avc1 720p",
             shapeCore = "0123456789ab", shapeFull = "ba9876543210", shapeTruncated = true, kilobytes = 41, millis = 812,
+            lMap = listOf("playback.streamingData.adaptiveFormats[]", "videoDetails.lengthSeconds"),
         )
         val run = CensusRun(
             tool = ClientCensus.TOOL_LABEL, mode = "FULL", atMillis = 1_791_000_000_000L, millis = 61_000, bytes = 5_000_000,

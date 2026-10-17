@@ -452,6 +452,7 @@ internal class LadderLookup(
     /** L: canonical JSON with only the rows that passed V and the init check in this lookup. */
     private suspend fun lRows(verdict: AnswerJudge.Verdict, body: String): String? {
         val root = verdict.root ?: return null
+        if (LocatedShapeMap.record(ladder.health, VISION_OS, root, verdict.scan, videoId)) notes += "L: shape map recorded"
         val outcome = ShapeNormalizer.normalize(root, body, videoId, now)
         normalized = outcome
         val rows = outcome as? ShapeNormalizer.Rows ?: return null.also { notes += "L: ${outcome.javaClass.simpleName}" }

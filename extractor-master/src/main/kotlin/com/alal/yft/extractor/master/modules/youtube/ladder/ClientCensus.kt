@@ -724,6 +724,7 @@ class ClientCensus(
             shapePaths = shape?.core,
             shapeTruncated = shape?.truncated ?: false,
             shapeKind = verdict.shapeKind?.name?.lowercase(),
+            lMap = verdict.scan?.takeIf { verdict.shapeKind != null }?.let(LocatedShapeMap::paths)?.takeIf { it.isNotEmpty() },
             kilobytes = kilobytes(body.length.toLong()),
         )
         return Asked(profile, video, root, parsed, record, verdict.hls)

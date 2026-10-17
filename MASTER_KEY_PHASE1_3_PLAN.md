@@ -1792,7 +1792,9 @@ merge buffer (`ec1f24e`), item 3 visionOS 1.04 bundled (`f02070a`), item 2 h-onl
 3. **Record the shape map only.** L writes the map it located (the canonical names' paths and the
    shape fingerprint; no value, address or ID) to `ClientHealth` and W's report; nothing reads
    with it, so the whole-answer checks stay as they are (guardrail 9). It shows a moved layout
-   before step 7 is needed.
+   before step 7 is needed. **Built 2026-10-17 (the owner's go for every backlog item):**
+   `LocatedShapeMap` — on L's run, fingerprint (core hash) → the located key paths in the health
+   file's `shapes`, and `lmap` on the census's `SHAPE_CHANGED` records; nothing reads it.
 4. **Fall back to the last good player ID.** When the page names no player ID, S uses the one from
    the last successful lookup; V and the init check stay on every row, so a stale ID ends in a
    clean stop, never a wrong row. It changes the chain's requests (a player script R6 would not

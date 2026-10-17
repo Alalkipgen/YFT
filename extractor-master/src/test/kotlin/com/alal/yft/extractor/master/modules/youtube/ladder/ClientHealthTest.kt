@@ -202,6 +202,34 @@ class ClientHealthTest {
         assertEquals(mapOf("abcdef01" to listOf("ok.path")), vision.shapeMaps)
     }
 
+    @Test
+    fun `L records the map it located, key paths only`() {
+        val id = "abcdefghijk"
+        val address = "https://rr1---sn-abc.googlevideo.com/videoplayback?expire=1&itag=137"
+        val answer = "{\"playabilityStatus\":{\"status\":\"OK\"}," +
+            "\"videoDetails\":{\"videoId\":\"$id\",\"lengthSeconds\":\"61\"}," +
+            "\"playback\":{\"streamingData\":{\"adaptiveFormats\":[{\"itag\":137,\"url\":\"$address\"," +
+            "\"mimeType\":\"video/mp4; codecs=\\\"avc1.640028\\\"\",\"contentLength\":\"1000\",\"width\":1920,\"height\":1080}]}}}"
+        val root = requireNotNull(ShapeLocator.parse(answer))
+        val scan = ShapeLocator.scan(root, id, answer)
+        assertTrue(scan.moved)
+        val paths = LocatedShapeMap.paths(scan)
+        assertEquals("playback.streamingData.adaptiveFormats[]", paths.first())
+        assertTrue(paths.toString(), "videoDetails.lengthSeconds" in paths)
+        assertTrue(paths.all(LocatedShapeMap::isPath))
+        val file = MemoryFile()
+        val health = health(file)
+        assertTrue(LocatedShapeMap.record(health, "visionos", root, scan, id))
+        val fingerprint = LocatedShapeMap.fingerprint(root, id)
+        assertEquals(12, fingerprint.length)
+        assertEquals(paths, health(file).shape("visionos", fingerprint))
+        assertEquals(1, health.client("visionos")!!.shapeMaps.size)
+        val text = requireNotNull(file.text)
+        for (forbidden in listOf("http", "googlevideo", id, "61", "1920")) assertFalse(forbidden, text.contains(forbidden))
+        assertFalse(LocatedShapeMap.record(health, "visionos", null, scan, id))
+        assertFalse(LocatedShapeMap.record(health, "visionos", root, null, id))
+    }
+
     private class MemoryFile(var text: String? = null) : OwnSolverTextFile {
         override fun read(): String? = text
 

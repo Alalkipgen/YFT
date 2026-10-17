@@ -112,6 +112,8 @@ internal data class CensusAsk(
     val shapeTruncated: Boolean = false,
     /** D2's `SHAPE_CHANGED` kind: `moved` or `partial` ([AnswerJudge.ShapeKind]), else null. */
     val shapeKind: String? = null,
+    /** Phase 1.4 item 3: the paths L located in a `SHAPE_CHANGED` answer ([LocatedShapeMap]; key paths only). */
+    val lMap: List<String>? = null,
     val kilobytes: Long = 0,
     val millis: Long = 0,
 ) {
@@ -289,6 +291,7 @@ internal object CensusJson {
         ask.shapePaths?.let { field("bits", ShapeDictionary.bits(order, it)) }
         if (ask.shapeTruncated) field("trunc", true)
         field("kind", ask.shapeKind)
+        ask.lMap?.let { list("lmap", it.map(::quote), inline = true) }
         field("kb", ask.kilobytes)
         field("ms", ask.millis)
         append('}')
@@ -452,6 +455,8 @@ internal object CensusJson {
             shapePaths = value["bits"].asStringOrNull?.let { ShapeDictionary.decode(order, it) },
             shapeTruncated = value["trunc"].asBooleanOrNull ?: false,
             shapeKind = value["kind"].asStringOrNull?.takeIf { it in SHAPE_KINDS },
+            lMap = value["lmap"].asArrayOrEmpty.mapNotNull { it.asStringOrNull?.takeIf(LocatedShapeMap::isPath) }
+                .take(ClientHealth.MAX_PATHS).takeIf { it.isNotEmpty() },
             kilobytes = value["kb"].asLongOrNull ?: 0,
             millis = value["ms"].asLongOrNull ?: 0,
         )

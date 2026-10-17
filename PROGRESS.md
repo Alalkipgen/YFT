@@ -1,5 +1,24 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 backlog item 3 (2026-10-17): the shape map L located is recorded only (`ClientHealth` and the census record), nothing reads with it
+
+- **What:** when L runs on a `SHAPE_CHANGED` visionOS answer, the ladder writes the map it
+  located to the health file (`files/master/client-health.json`, the existing `shapes` entry):
+  the shape fingerprint (core hash) → the canonical names' key paths (where the format lists sit,
+  the video object's `lengthSeconds`, the status object's `status`, the first DRM marker's place).
+  The census (W) keeps the same paths on a `SHAPE_CHANGED` record (`lmap`). Key paths only, never
+  a value, address or ID; at most 4 maps × 64 paths (`ClientHealth` bounds).
+- **Nothing reads with it:** rows, the whole-answer checks, V and the init check are unchanged
+  (guardrail 9); the lookup's details say "L: shape map recorded". Parity tests unchanged.
+- **Code:** `LocatedShapeMap.kt` (new, ladder), one call in `ClientLadder.lRows`, `lMap` in
+  `CensusAsk` / `CensusJson`, set in `ClientCensus`.
+- **Tests:** `ClientHealthTest` "L records the map it located, key paths only" (a moved layout:
+  the paths, the 12-digit fingerprint, the file has no address, ID or value); `CensusDiffTest`
+  round trip with `lmap`. Local: ClientHealthTest 12/0, ClientCensusTest 35/0, CensusDiffTest
+  15/0, ShapeLocatorTest 11/0.
+- **Phone:** nothing to see unless YouTube moves its layout (the debug screen's health line then
+  says "shape maps 1").
+
 ## Owner item 6, run 4f on the phone (2026-10-17): ✅ recently ended live streams download whole (2:35:00 and 8:56:00, both failing on `main`); item 6 closed
 
 - **Phone (the owner, normal APK of run 4f, `2026d8c`):** two recently ended live streams that
