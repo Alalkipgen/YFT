@@ -1,5 +1,12 @@
 # YFT Master Extractor backup
 
+## Plan: next level for Instagram, TikTok, Facebook and X (owner's Plan Mode, 2026-10-17)
+
+- New `MASTER_KEY_SOCIAL_PLAN.md` (plan only, no code): audit of main's four adapters and Master's
+  generic path, the gaps against Master YouTube's layers, what can be reused (Master YouTube, main,
+  Master generic, core-download, app, CI), guardrails S1–S10, layers L0–L8, per-site rungs, steps
+  S0–S5 and six owner decisions. Nothing is built until the owner says go.
+
 ## visionOS 1.05 A check on the phone (owner, 2026-10-17 19:41 UTC): passed
 
 - Run 6 normal APK, census screen → "A check (visionOS 1.05)", video 2, mobile data: visionOS 1.02
