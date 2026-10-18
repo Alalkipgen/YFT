@@ -20,7 +20,7 @@ main က page ကို တွေ့ရင် (UNSUPPORTED_URL မဟုတ်�
 ပြန်သုံး (recorder)။ အဆင့် R1–R6၊ commit တစ်ခု တစ်ဆင့်၊ CI green။ ဖုန်းစစ်ပြီးမှ promote။
 
 **R5 ရလဒ် (owner, 2026-10-18):** `normal` ယခင်အတိုင်း ✅။ `routeb`: video 1 မှာ Try again နှိပ်ပြီးနောက်
-Master rows ရ (`replayed 1; new 1`၊ 720p / 360p ဖိုင် ဖွင့်လို့ ရ)။ video 2–3 မှာ main ဆီက ပြန်သုံးတဲ့ visionOS
+Master rows ရ (`replayed 1; new 1`၊ 720p / 360p ဖိုင် ဖွင့်လို့ ရ၊ ကြာချိန် 3:33၊ 360p ဖိုင် 640×360)။ video 2–3 မှာ main ဆီက ပြန်သုံးတဲ့ visionOS
 အဖြေက bot check ဖြစ်ပြီး နောက်တစ်ဆင့် watch page မှာ browser cookie ပါလို့ route B က မပို့ — Master rows မရ၊
 main ရဲ့ failure ပဲ ကျန် (rule အတိုင်း)။ ပထမအကြိမ် ဖွင့်ရင် Try again လိုတတ်။ Flag off ဆက်ထား၊ promote
 မလုပ်ရသေး (owner ဆုံးဖြတ်ရန်)။
@@ -216,7 +216,8 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   P17; for the first opens not logged). (3) Try again: V1 → Master's rows (MP3 192 / 128 made on the
   phone, 2160p / 1440p WebM, 1080p, 720p, 360p …) and the notice `master: route B after
   RESPONSE_CHANGED; replayed 1; new 1`; 720p and 360p downloaded: they play with picture and sound
-  and seek (the duration and 360p's height were not sent separately); a retest gave the same. V2
+  and seek, the duration is 3:33 (the page's) and the 360p file is 640×360 (as its row says); a
+  retest gave the same. V2
   and V3 → no rows, main's failure kept, Details `master: route B after RESPONSE_CHANGED; replayed 1;
   new 0; refused 1`, `client VISIONOS: LOGIN_REQUIRED; with URLs: 0 progressive, 0 adaptive; SABR
   no`, `client VISIONOS reason: Sign in to confirm you're not a bot`, `visionOS first: no playable
@@ -227,7 +228,7 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   `pageHeaders(request.requestContext)` → `LookupAsk.authorized`), so `RouteBLookup` rule 1 never
   sends it and it reads as `NETWORK`. (4) Main gave no bot check, sign-in or try-later on these
   videos (`normal` found all four); the bot check Master met inside route B gave no rows and main's
-  failure stayed, so §2's rule held. Wrong rows: none seen.
+  failure stayed, so §2's rule held. Wrong rows: 0 (the 360p row checked).
 - **R6 (2026-10-18).** Docs only, no code: R5's results above, this plan's status,
   `PROGRESS.md`, `MASTER_KEY_ARCHITECTURE.md` (layout `lookup/` and `YouTubeRouteB`, flow, the R8
   note, next) and `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7.

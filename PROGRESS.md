@@ -6,12 +6,12 @@
   `dQw4w9WgXcQ`, V2 `jNQXAC9IVRw`, V3 `aqz-KE-bpKQ`, V4 the Short `BGQWPY4IigY`): `normal` unchanged —
   main's rows as before on all four, no notice. `routeb`: V1 (after Try again) → Master's rows (MP3
   192 / 128, 2160p / 1440p WebM, 1080p, 720p, 360p …) with the notice `master: route B after
-  RESPONSE_CHANGED; replayed 1; new 1`; 720p and 360p downloaded: picture, sound and seek work; a
-  retest gave the same.
+  RESPONSE_CHANGED; replayed 1; new 1`; 720p and 360p downloaded: picture, sound and seek work,
+  duration 3:33 (the page's), the 360p file 640×360 (as its row says); a retest gave the same.
 - V2 and V3 → no rows, main's failure kept (`replayed 1; new 0; refused 1`): the replayed visionOS
   answer was a bot check ("Sign in to confirm you're not a bot"), and the module's next step, the
   watch page, carries the tab's cookie, so route B never sends it (`RouteBLookup` rule 1). V4: the
-  same message, no Details. The bot check stayed final; wrong rows: none seen.
+  same message, no Details. The bot check stayed final; wrong rows: 0.
 - A first open showed the trial's message with only `master: route B trial: main's N rows set aside`:
   route B did not run (no request of main's in the lookup's record — a reused answer, P17 — or an
   early stop; not logged). Try again (a fresh lookup) runs it. R4's documented limit.
