@@ -2,6 +2,7 @@ package com.alal.yft.detection.master
 
 import com.alal.yft.BuildConfig
 import com.alal.yft.detection.OkHttpExtractorClient
+import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.PlayerScriptRunner
 import com.alal.yft.extractor.master.lookup.LookupRecorder
@@ -19,6 +20,23 @@ import okhttp3.OkHttpClient
  */
 internal object YouTubeRouteB {
     val enabled: Boolean get() = BuildConfig.YOUTUBE_ROUTE_B
+
+    /**
+     * Route B R4: the route-B trial (the D7 APK `routeb`, `-Pyft.routeBTrial=true` with route B
+     * on): a YouTube page main found is answered as main's failure, so Master's route B answers
+     * on the phone ([BrowserMasterFallback.trialPrimary]). Every other build: false.
+     */
+    val trial: Boolean get() = BuildConfig.YOUTUBE_ROUTE_B_TRIAL
+
+    /** Route B R4: the start of route B's Details line (the engine's, R3). */
+    const val LINE = "master: route B after "
+
+    /**
+     * Route B R4: route B's line of rows Master found (`master: route B after <reason>; replayed N;
+     * new M`), for the browser's notice; null for every other answer (no route-B build has one).
+     */
+    fun notice(outcome: SiteAdapterOutcome): String? =
+        (outcome as? SiteAdapterOutcome.Detected)?.details?.firstOrNull { it.startsWith(LINE) }
 
     /**
      * Route B R1: the client main's site adapters share. In a route-B build it records each request

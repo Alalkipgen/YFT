@@ -28,6 +28,7 @@ import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.detection.master.AndroidBrowserMasterFallback
 import com.alal.yft.detection.master.BrowserMasterFallback
+import com.alal.yft.detection.master.YouTubeRouteB
 import com.alal.yft.BuildConfig
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
 import com.alal.yft.extractor.api.PlayerScriptRunner
@@ -850,6 +851,11 @@ class BrowserViewModel(
                     }
                     candidateStore.submitAll(found)
                     showPageVideo(key, livePageUrl, pageTitle, found)
+                    // Phase 1.4 item 7 R4: a route-B build names route B's answer and its counts
+                    // (`master: route B after <reason>; replayed N; new M`); every other: nothing.
+                    YouTubeRouteB.notice(outcome)?.let { notice ->
+                        mutableUiState.update { it.copy(siteNotice = notice) }
+                    }
                 }
 
                 is SiteAdapterOutcome.Failed -> {
@@ -959,12 +965,17 @@ class BrowserViewModel(
             // record (main's adapter and the backup); every other lookup runs as before.
             ?: viewModelScope.async(pageProbeJob + masterFallback.lookupContext(url)) {
                 // P17: the shared lookup cache answers unless this is Try again.
-                val primary = siteAdapters.inspect(
-                    pageUrl = url,
-                    requestContext = requestContext,
-                    nowEpochMs = clock(),
-                    fresh = fresh,
-                    tab = tabData,
+                // Phase 1.4 item 7 R4: in the route-B trial APK a YouTube page main found is
+                // answered as main's failure (after main asked); every other build: main's answer.
+                val primary = masterFallback.trialPrimary(
+                    url,
+                    siteAdapters.inspect(
+                        pageUrl = url,
+                        requestContext = requestContext,
+                        nowEpochMs = clock(),
+                        fresh = fresh,
+                        tab = tabData,
+                    ),
                 )
                 // Phase 1.4 item 2: in the h-only APK a found YouTube page goes through H too.
                 if (primary is SiteAdapterOutcome.Failed ||

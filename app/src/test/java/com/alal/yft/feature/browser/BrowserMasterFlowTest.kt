@@ -188,6 +188,57 @@ class BrowserMasterFlowTest {
         }
     }
 
+    /**
+     * Item 7 R4: the route-B trial APK — main finds the YouTube page, its rows are set aside as
+     * main's RESPONSE_CHANGED after main asked, Master's module answers from the lookup's record
+     * (main's request replayed, nothing new) and the browser names route B with its counts;
+     * Master's row is the page's video. Route B without the trial keeps main's row, no notice.
+     */
+    @Test
+    fun theRouteBTrialShowsMastersRowAndRouteBsCounts() = runTest {
+        for (trial in listOf(true, false)) {
+            val http = Answering()
+            val adapter = YouTubeAdapter(LookupRecorder(http), reason = null)
+            val sites = SiteAdapterCoordinator(SiteExtractorRegistry(listOf(adapter)), MergeSupport { true })
+            val capture = WebViewPlaybackCapture(true)
+            val scope = capture.session.navigate(youtube)!!
+            val module = YouTubeModule(RouteBHttpClient(http))
+            val engine = MasterFallbackEngine(
+                MasterMediaValidator { found, _ -> ValidationResult.Valid(found) },
+                policy = MasterPolicy(enabled = true, youtubeRouteB = true),
+                modules = listOf(module),
+            )
+            val bridge = AndroidBrowserMasterFallback(
+                capture, sites, engine, MergeSupport { true },
+                requestFactory = { failure, now, expected ->
+                    MasterRequest(youtube, scope.generation, now, failure, expected)
+                },
+                youtubeRouteB = true,
+                routeBTrial = trial,
+            )
+            val store = DetectedMediaStore()
+            val vm = BrowserViewModel(OkHttpClient(), sites, store, masterFallback = bridge)
+            vm.onPageStarted(youtube)
+            vm.onPageFinished(youtube, "Fixture")
+            settle { adapter.calls == 1 && !vm.uiState.value.pageLookupRunning }
+
+            assertEquals("trial $trial", 1, http.asked) // main's request; Master's was replayed
+            val notice = vm.uiState.value.siteNotice
+            assertTrue("trial $trial", vm.openPageVideo())
+            val rows = store.selection.value!!.candidates.map { it.mediaUrl }
+            if (trial) {
+                assertEquals(1, module.calls)
+                assertEquals(1, module.runs.single()!!.replayed)
+                assertEquals(listOf(ROW), rows)
+                assertEquals("master: route B after RESPONSE_CHANGED; replayed 1; new 0", notice)
+            } else {
+                assertEquals(0, module.calls)
+                assertEquals(listOf(MAIN_ROW), rows)
+                assertNull(notice)
+            }
+        }
+    }
+
     @Test
     fun ordinaryGenericPageDoesNotStartTheBackupAutomatically() = runTest {
         val backup = FakeBackup()
@@ -396,10 +447,13 @@ class BrowserMasterFlowTest {
         ): ExtractorHttpResult = get(url, headers, maxBodyBytes)
     }
 
-    /** Item 7 R3: main's YouTube adapter stand-in — asks the player endpoint once, then fails. */
+    /**
+     * Item 7 R3: main's YouTube adapter stand-in — asks the player endpoint once, then fails with
+     * [reason] (R4: null = finds its own row, [MAIN_ROW]).
+     */
     private inner class YouTubeAdapter(
         private val http: ExtractorHttpClient,
-        private val reason: SiteExtractionFailure,
+        private val reason: SiteExtractionFailure?,
     ) : SiteExtractor {
         override val id = "youtube"
         override val displayName = "Fixture YouTube"
@@ -409,7 +463,15 @@ class BrowserMasterFlowTest {
         override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
             calls++
             http.postJson(PLAYER, PLAYER_BODY, emptyMap(), MAX_BODY)
-            return SiteExtractionResult.Failure(reason)
+            return reason?.let { SiteExtractionResult.Failure(it) } ?: SiteExtractionResult.Success(
+                listOf(
+                    MediaCandidate(
+                        youtube, MAIN_ROW, setOf(CandidateSource.REQUEST), MediaKind.DIRECT,
+                        mimeType = "video/mp4", confidence = CandidateConfidence.HIGH,
+                        contentLengthBytes = 100_000, videoId = "youtube:$YOUTUBE_ID",
+                    ),
+                ),
+            )
         }
     }
 
@@ -464,5 +526,6 @@ class BrowserMasterFlowTest {
         const val PLAYER_BODY = "{\"videoId\":\"Yft0Fixture\"}"
         const val MAX_BODY = 2L * 1024 * 1024
         const val ROW = "https://cdn.test/yt/master.mp4"
+        const val MAIN_ROW = "https://cdn.test/yt/main.mp4"
     }
 }

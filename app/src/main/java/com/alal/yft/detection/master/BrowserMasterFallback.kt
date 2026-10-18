@@ -54,6 +54,15 @@ interface BrowserMasterFallback {
      */
     fun lookupContext(lookupUrl: String): CoroutineContext = EmptyCoroutineContext
 
+    /**
+     * Phase 1.4 item 7 (YouTube routing B) R4: main's answer as the lookup takes it. In the
+     * route-B trial APK (D7 `routeb`: `-Pyft.routeBTrial` with `-Pyft.youtubeRouteB`, debug only)
+     * a YouTube page main found is answered as main's reading failing (`RESPONSE_CHANGED`), after
+     * main asked (its requests stay in the lookup's record), so Master's route B answers on the
+     * phone. Every other build, page and answer: [primary] itself.
+     */
+    fun trialPrimary(lookupUrl: String, primary: SiteAdapterOutcome): SiteAdapterOutcome = primary
+
     suspend fun recover(
         lookupUrl: String,
         primary: SiteAdapterOutcome,
@@ -92,6 +101,12 @@ class AndroidBrowserMasterFallback(
      * record ([lookupContext]). Every other build: false, no record.
      */
     private val youtubeRouteB: Boolean = false,
+    /**
+     * Phase 1.4 item 7 R4: true only in the route-B trial APK (D7 `routeb`, [YouTubeRouteB.trial],
+     * with [youtubeRouteB]); then [trialPrimary] sets main's found YouTube rows aside. Every other
+     * build: false.
+     */
+    private val routeBTrial: Boolean = false,
 ) : BrowserMasterFallback {
     override val enabled: Boolean get() = capture.enabled
     override fun mainAndMore(candidates: List<MediaCandidate>): MasterMainPresentation? =
@@ -180,6 +195,9 @@ class AndroidBrowserMasterFallback(
                     else -> SiteAdapterOutcome.Detected(
                         (primary as? SiteAdapterOutcome.Failed)?.adapterId ?: "master",
                         kept,
+                        // Item 7 R4: route B's rows carry its details (its line first), so a
+                        // route-B build shows its counts; every other answer: none, as before.
+                        details = if (routeB) DiagnosticTextSanitizer.details(result.result.details) else emptyList(),
                     )
                 }
             }
@@ -207,6 +225,24 @@ class AndroidBrowserMasterFallback(
     override fun masterFirst(lookupUrl: String): Boolean {
         val site = masterFirstSite ?: return false
         return enabled && sites.videoKey(lookupUrl)?.substringBefore(':') == site
+    }
+
+    /**
+     * Item 7 R4: the route-B trial's main answer — a YouTube page main found becomes main's
+     * `RESPONSE_CHANGED` (main's adapter, Try again, no page files), so route B answers from the
+     * lookup's record; when Master gives no rows the trial's message stays with Master's details.
+     * Main's failures (a bot check stays final), another site's page and every other build: as is.
+     */
+    override fun trialPrimary(lookupUrl: String, primary: SiteAdapterOutcome): SiteAdapterOutcome {
+        if (!routeBTrial || !youtubeRouteB || !enabled || primary !is SiteAdapterOutcome.Detected) return primary
+        if (sites.videoKey(lookupUrl)?.substringBefore(':') != YOUTUBE_SITE_ID) return primary
+        return SiteAdapterOutcome.Failed(
+            adapterId = primary.adapterId,
+            reason = SiteExtractionFailure.RESPONSE_CHANGED,
+            message = ROUTE_B_TRIAL_MESSAGE,
+            allowsGenericFallback = false,
+            details = listOf("$ROUTE_B_TRIAL_DETAIL ${primary.candidates.size} rows set aside"),
+        )
     }
 
     /** Item 7 R1: a new record per YouTube lookup in a route-B build (memory only); else nothing. */
@@ -256,6 +292,13 @@ class AndroidBrowserMasterFallback(
 
         private const val PLAY_FIRST = "Play the video on this page, then tap Try again."
 
+        /** Item 7 R4: the route-B trial's answer when Master gives no rows (main's were set aside). */
+        internal const val ROUTE_B_TRIAL_MESSAGE =
+            "Route B trial: main's rows were set aside and Master found none. Tap Try again."
+
+        /** Item 7 R4: the route-B trial's Details line (main's row count follows). */
+        internal const val ROUTE_B_TRIAL_DETAIL = "master: route B trial: main's"
+
         /** The YouTube adapter's site ID (its video key's prefix). */
         internal const val YOUTUBE_SITE_ID = "youtube"
 
@@ -269,6 +312,8 @@ class AndroidBrowserMasterFallback(
             filesDir: (() -> File)? = null,
             // Phase 1.4 item 7 R1: route B's per-lookup record (-Pyft.youtubeRouteB, debug only).
             youtubeRouteB: Boolean = YouTubeRouteB.enabled,
+            // Phase 1.4 item 7 R4: the route-B trial (D7 `routeb`, -Pyft.routeBTrial, debug only).
+            routeBTrial: Boolean = YouTubeRouteB.trial,
         ): BrowserMasterFallback {
             if (!enabled) return BrowserMasterFallback.None
             val capture = WebViewPlaybackCapture(
@@ -299,6 +344,7 @@ class AndroidBrowserMasterFallback(
                 // Phase 1.4 item 2: in the h-only APK a found YouTube page goes through H too.
                 masterFirstSite = if (MasterLadderSwitch.hOnly) YOUTUBE_SITE_ID else null,
                 youtubeRouteB = youtubeRouteB,
+                routeBTrial = routeBTrial,
             )
         }
     }

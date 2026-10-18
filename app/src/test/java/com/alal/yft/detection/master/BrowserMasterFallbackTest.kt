@@ -277,7 +277,47 @@ class BrowserMasterFallbackTest {
             assertEquals(reason.name, 1, http.asked.get()) // main's one request only
             assertEquals(reason.name, 0, fixture.captures.get())
             assertEquals(reason.name, 0, fixture.probes.get())
+            // Item 7 R4: the rows carry route B's line first — the browser's notice in a route-B build.
+            val line = "master: route B after ${reason.name}; replayed 1; new 0"
+            assertEquals(reason.name, line, found.details.first())
+            assertEquals(reason.name, line, YouTubeRouteB.notice(found))
         }
+    }
+
+    /**
+     * Item 7 R4: the route-B trial APK answers a YouTube page main found as main's failure —
+     * RESPONSE_CHANGED (recoverable, so route B answers), main's adapter, Try again, no page files,
+     * main's row count in Details. Main's failures (a bot check stays final), nothing found,
+     * another site's page and every build without the trial keep main's answer itself.
+     */
+    @Test
+    fun theRouteBTrialAnswersMainsFoundYouTubePageAsMainsFailure() {
+        val found = SiteAdapterOutcome.Detected("youtube", listOf(candidate(), candidate()))
+        val trial = Fixture(YOUTUBE_PAGE, extractor = youTubeExtractor(), youtubeRouteB = true, routeBTrial = true).bridge
+
+        val forced = trial.trialPrimary(YOUTUBE_PAGE, found) as SiteAdapterOutcome.Failed
+        assertEquals("youtube", forced.adapterId)
+        assertEquals(SiteExtractionFailure.RESPONSE_CHANGED, forced.reason)
+        assertTrue(TerminalRules.routeBRecoverable(forced.reason))
+        assertTrue(forced.canRetry)
+        assertFalse(forced.allowsGenericFallback)
+        assertEquals(AndroidBrowserMasterFallback.ROUTE_B_TRIAL_MESSAGE, forced.message)
+        assertEquals(listOf("master: route B trial: main's 2 rows set aside"), forced.details)
+
+        val botCheck = youTubeFailed(SiteExtractionFailure.BOT_CHECK)
+        assertSame(botCheck, trial.trialPrimary(YOUTUBE_PAGE, botCheck))
+        assertSame(SiteAdapterOutcome.NotHandled, trial.trialPrimary(YOUTUBE_PAGE, SiteAdapterOutcome.NotHandled))
+        val tiktokFound = SiteAdapterOutcome.Detected("tiktok", listOf(candidate()))
+        assertSame(tiktokFound, Fixture(tiktok, youtubeRouteB = true, routeBTrial = true).bridge.trialPrimary(tiktok, tiktokFound))
+        // Every build without the trial (route B alone, the trial without route B, Master off): as is.
+        assertSame(found, Fixture(YOUTUBE_PAGE, extractor = youTubeExtractor(), youtubeRouteB = true).bridge.trialPrimary(YOUTUBE_PAGE, found))
+        assertSame(found, Fixture(YOUTUBE_PAGE, extractor = youTubeExtractor(), routeBTrial = true).bridge.trialPrimary(YOUTUBE_PAGE, found))
+        assertSame(
+            found,
+            Fixture(YOUTUBE_PAGE, enabledBuild = false, extractor = youTubeExtractor(), youtubeRouteB = true, routeBTrial = true)
+                .bridge.trialPrimary(YOUTUBE_PAGE, found),
+        )
+        assertSame(found, BrowserMasterFallback.None.trialPrimary(YOUTUBE_PAGE, found))
     }
 
     /** Item 7 R3: bot check, login, player script, 429 and the other final reasons stay final. */
@@ -508,6 +548,7 @@ class BrowserMasterFallbackTest {
 
         assertEquals("vimeo", outcome.adapterId)
         assertEquals(listOf("https://cdn.test/v720.mp4"), outcome.candidates.map { it.mediaUrl })
+        assertTrue(outcome.details.isEmpty()) // item 7 R4: only route B's rows carry details
         assertEquals(listOf("https://player.vimeo.com/video/123456789/config"), asked)
         assertEquals(0, fixture.captures.get())
         assertEquals(1, fixture.probes.get())
@@ -545,6 +586,7 @@ class BrowserMasterFallbackTest {
         modules: List<MasterSiteModule> = emptyList(),
         noRequest: Boolean = false,
         youtubeRouteB: Boolean = false,
+        routeBTrial: Boolean = false,
     ) {
         val capture = WebViewPlaybackCapture(enabledBuild)
         val factories = AtomicInteger()
@@ -590,6 +632,7 @@ class BrowserMasterFallbackTest {
             },
             masterFirstSite = masterFirstSite,
             youtubeRouteB = youtubeRouteB,
+            routeBTrial = routeBTrial,
         )
     }
 

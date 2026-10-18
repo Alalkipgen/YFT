@@ -1,5 +1,17 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 item 7 — route B R4: trial switch and the routeb APK (2026-10-17)
+
+- Debug switch `-Pyft.routeBTrial` (default off, with `-Pyft.youtubeRouteB` only; release and preview
+  false): in the trial a YouTube page main found is answered as main's `RESPONSE_CHANGED` after main
+  asked (`BrowserMasterFallback.trialPrimary`), so Master's route B answers from the lookup's record;
+  main's failures (bot check, login, player script, 429) stay final; every other build unchanged.
+- Route B's rows now carry their details (`SiteAdapterOutcome.Detected.details`, default none) and the
+  page lookup shows route B's line as the page notice: `master: route B after <reason>; replayed N; new M`.
+- New D7 APK `routeb` (matrix entry in `master-optin-debug-apk.yml`; `.github/d7-apks.txt` = run 7),
+  built by this `[d7]` push. Tests: `BrowserMasterFallbackTest`, `BrowserMasterFlowTest`,
+  `YouTubeRouteBTest`. Next: R5 phone check (owner), list in `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §7.
+
 ## Phase 1.4 item 7 R3: route B's claim rule — Master's YouTube module answers after main's recoverable failure (2026-10-17)
 
 - One place for the recoverable set (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §2):

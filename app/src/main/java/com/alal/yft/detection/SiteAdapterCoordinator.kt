@@ -26,6 +26,12 @@ sealed interface SiteAdapterOutcome {
     data class Detected(
         val adapterId: String,
         val candidates: List<MediaCandidate>,
+        /**
+         * Phase 1.4 item 7 (YouTube routing B) R4: the backup's details of rows it found — only
+         * route B's (its line first: `master: route B after <reason>; replayed N; new M`), so a
+         * route-B build can show them. Every other answer: none.
+         */
+        val details: List<String> = emptyList(),
     ) : SiteAdapterOutcome
 
     data class Failed(

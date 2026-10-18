@@ -165,3 +165,34 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   `UNSUPPORTED_URL`, never a final one); (3) the same video still open after a reload during the lookup
   keeps the module's rows (as the h-only trial, item 2 run 4). Limit: found rows carry no details, so
   the counts show only in a failure's Details; R4 shows them on the phone.
+- **R4 (2026-10-17).** Debug switch `-Pyft.routeBTrial` (true / false, default false; acts only with
+  `-Pyft.youtubeRouteB` and `-Pyft.masterCapture`; `BuildConfig.YOUTUBE_ROUTE_B_TRIAL`, debug only,
+  release and preview false; `YouTubeRouteB.trial`). `BrowserMasterFallback.trialPrimary`: in the trial a
+  YouTube page main **found** is answered as main's `RESPONSE_CHANGED` (main's adapter, Try again, no
+  page files, Details `master: route B trial: main's N rows set aside`) inside the lookup, after main
+  asked, so its requests stay in the lookup's record and R3's rule lets Master's module answer; main's
+  failures go on as they are (a bot check, login, player script or 429 stays final), another site's
+  page and every other build: main's answer itself (`BrowserViewModel.lookUp`). **Counts on the
+  phone (R3's limit):** `SiteAdapterOutcome.Detected` carries `details` (default none); only route B's
+  rows fill it (the engine's details, its line first), and the browser's page lookup shows route B's
+  line as the page notice (`YouTubeRouteB.notice`: `master: route B after <reason>; replayed N; new M`).
+  When Master gives no rows the trial's message stays (R3) with Master's Details. **Plan adapted:**
+  the D7 modes live in the workflow's matrix, so the new APK `routeb` is a matrix entry in
+  `.github/workflows/master-optin-debug-apk.yml` (route B and the trial on; every other mode: off) and
+  `.github/d7-apks.txt` says `run 7`; pushed with `[d7]` (eight APKs). Limits: the notice is shown for
+  the page lookup only (a feed's focused lookup shows the rows without it); a lookup answered from
+  main's shared cache (P17) has no request of main's in its record, so the trial's message comes
+  back — tap Try again (a fresh lookup asks main again). Tests: `BrowserMasterFallbackTest`
+  (`theRouteBTrialAnswersMainsFoundYouTubePageAsMainsFailure`, route B's rows carry the line, other
+  rows none), `BrowserMasterFlowTest` (`theRouteBTrialShowsMastersRowAndRouteBsCounts`: trial →
+  Master's row, notice `replayed 1; new 0`, main asked once; route B alone → main's row, no notice),
+  `YouTubeRouteBTest` (trial needs route B; the notice is route B's line only).
+- **R5 phone check (owner; ⏸).** From the `[d7]` run's artifacts: (1) `yft-d7-normal`: a YouTube
+  video's Download shows main's rows as before, no `master: route B` notice. (2) `yft-d7-routeb`
+  (installs over it): open a YouTube watch page (not the Shorts feed) and wait; the notice reads
+  `master: route B after RESPONSE_CHANGED; replayed N; new M` — send the line; Download → download one
+  AVC quality with sound (720p or 1080p): the file plays, picture and sound, duration ±2 s of the
+  page's; one more row (another height): its height is what the row says (wrong rows 0). Two or three
+  videos. (3) If the sheet says "Route B trial: main's rows were set aside and Master found none":
+  send Details, then tap Try again once. (4) A bot check, sign-in or "try again later" in `routeb`
+  stays as in `normal` (no Master rows).

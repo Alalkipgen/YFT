@@ -2,6 +2,7 @@ package com.alal.yft.detection.master
 
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.detection.OkHttpExtractorClient
+import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.ExtractorProbeResult
@@ -29,12 +30,32 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Phase 1.4 item 7 (YouTube routing B) R1–R2: the app's wiring of the recorder and of route B's Master wrappers. */
 class YouTubeRouteBTest {
+    /**
+     * Item 7 R4: the trial acts only with route B on (debug, `-Pyft.routeBTrial`); the browser's
+     * notice is route B's line of rows Master found, nothing for any other answer.
+     */
+    @Test
+    fun theTrialNeedsRouteBAndTheNoticeIsRouteBsLine() {
+        assertTrue(!YouTubeRouteB.trial || YouTubeRouteB.enabled)
+        val line = "master: route B after RESPONSE_CHANGED; replayed 1; new 0"
+        assertEquals(line, YouTubeRouteB.notice(SiteAdapterOutcome.Detected("youtube", emptyList(), listOf(line, "h: 1 rows"))))
+        assertNull(YouTubeRouteB.notice(SiteAdapterOutcome.Detected("youtube", emptyList())))
+        assertNull(YouTubeRouteB.notice(SiteAdapterOutcome.Detected("youtube", emptyList(), listOf("master: h-only: 1 rows"))))
+        assertNull(
+            YouTubeRouteB.notice(
+                SiteAdapterOutcome.Failed("youtube", SiteExtractionFailure.RESPONSE_CHANGED, "m", true, listOf(line)),
+            ),
+        )
+        assertNull(YouTubeRouteB.notice(SiteAdapterOutcome.NotHandled))
+    }
+
     @Test
     fun theSharedAdapterClientRecordsOnlyInARouteBBuild() {
         val client = OkHttpClient()
