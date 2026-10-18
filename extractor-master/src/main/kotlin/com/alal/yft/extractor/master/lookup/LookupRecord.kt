@@ -19,6 +19,9 @@ import kotlin.coroutines.CoroutineContext
  * start and how long it took ([elapsedMillis], [timeLeftMillis]: no time budget of its own). It
  * knows each endpoint asked ([asked]: method, address and body) and whether any 429 came
  * ([rateLimited]; also one of main's player-script fetches, which are not listed: [unlisted]).
+ * F2: when main's answer reached the lookup without main asking in it (P17's remembered answer, or
+ * another caller's running lookup, which records into that caller's record), it notes how
+ * ([reuse]), so a skipped route B can say why.
  *
  * Kept for replay ([replay]; route B's Master wrapper, R2): only main's unauthenticated answers
  * ([LookupAsk.authorized] false) to an HTTPS address that is not a media host
@@ -40,6 +43,16 @@ class LookupRecord(
 
     /** Who asked: main's adapter (through [LookupRecorder]) or Master (route B's new requests). */
     enum class Asker { MAIN, MASTER }
+
+    /**
+     * F2 (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §8): how main's answer reached this lookup without
+     * main asking in it (P17's shared lookup): its remembered answer, or another caller's running
+     * lookup, whose requests go to that caller's record.
+     */
+    enum class Reuse(val label: String) {
+        REMEMBERED("its remembered answer (P17)"),
+        JOINED("another caller's running lookup (P17)"),
+    }
 
     /** One ask as listed: no address, body or header. */
     data class Ask(
@@ -72,6 +85,7 @@ class LookupRecord(
     private var keptTotal = 0
     private var replayedTotal = 0
     private var rateLimitedTotal = 0
+    private var reused: Reuse? = null
 
     /** The lookup's clock, for an ask's start. */
     fun now(): Long = clock()
@@ -90,6 +104,14 @@ class LookupRecord(
 
     /** Whether any ask of this lookup (main's or Master's) got HTTP 429 or a rate limit. */
     val rateLimited: Boolean get() = synchronized(lock) { rateLimitedTotal > 0 }
+
+    /** F2: how main's answer reached this lookup without main asking in it; null: not noted. */
+    val reuse: Reuse? get() = synchronized(lock) { reused }
+
+    /** F2: main's answer reached this lookup [how] (P17), without main asking in it. */
+    fun noteReuse(how: Reuse) {
+        synchronized(lock) { reused = how }
+    }
 
     /** Answers kept so far (replayed ones included). */
     val keptCount: Int get() = synchronized(lock) { keptTotal }

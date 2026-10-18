@@ -297,6 +297,23 @@ class LookupRecordTest {
     }
 
     @Test
+    fun `F2 - a reused answer is noted, the latest note stays, nothing else changes`() {
+        val record = LookupRecord()
+        assertNull(record.reuse)
+
+        record.noteReuse(LookupRecord.Reuse.REMEMBERED)
+        assertEquals(LookupRecord.Reuse.REMEMBERED, record.reuse)
+        record.noteReuse(LookupRecord.Reuse.JOINED)
+        assertEquals(LookupRecord.Reuse.JOINED, record.reuse)
+
+        assertEquals(0, record.mainAsks)
+        assertTrue(record.asks().isEmpty())
+        assertEquals("LookupRecord(main=0, master=0, kept=0, replayed=0, waiting=0, rateLimited=false)", record.toString())
+        assertEquals("its remembered answer (P17)", LookupRecord.Reuse.REMEMBERED.label)
+        assertEquals("another caller's running lookup (P17)", LookupRecord.Reuse.JOINED.label)
+    }
+
+    @Test
     fun `clear drops the kept answers, the counts stay`() = runTest {
         val record = LookupRecord()
         withContext(record) { LookupRecorder(counting()).postJson(player, body, headers, MAX) }

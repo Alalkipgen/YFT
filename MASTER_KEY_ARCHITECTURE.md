@@ -47,7 +47,8 @@ extractor-master/ (pure JVM)            com.alal.yft.extractor.master
   parity/   ParityUrls, ParityReport,   R1: frozen list parser, host + content-ID report,
             ParityVerdict               §4.2 pass checks (offline baseline test in tests)
   lookup/   LookupAsk, LookupRecord,    Phase 1.4 item 7 (YouTube route B, debug flag off):
-            LookupRecorder              the lookup's record of main's asks (memory only);
+            LookupRecorder              the lookup's record of main's asks (memory only;
+                                        a reused answer noted, F2);
             RouteBLookup, RouteBHttpClient, RouteBMediaStartReader, RouteBPlayerScripts,
             RouteBScriptClient:         route B's rules (replay, refusals, 429 stop, counts;
                                         the player-script client too, F1)
@@ -145,4 +146,5 @@ authorized playback) → `LayerStack` (L2 → L4 → L1 → L3; L3 adds only) �
   request) + `scripts/master-recipe-sign.sh`; the hosted config is the owner's to sign.
 - Phase 1.4 item 7 (YouTube routing B): built behind `-Pyft.youtubeRouteB` (debug, off),
   phone-checked 2026-10-18 (partial), not promoted — `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §7;
-  review follow-ups F1–F4 in its §8 (F1, the player-script client, done).
+  review follow-ups F1–F4 in its §8 (F1, the player-script client, and F2, why route B did not
+  run in Details, done; next a `routeb` phone run).

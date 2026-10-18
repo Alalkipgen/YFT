@@ -1,5 +1,21 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 item 7 — route B F2: Details say why route B did not run (2026-10-18)
+
+- Review follow-up (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §8): R5's first opens showed the trial's
+  message with no Master line and no reason. In a route-B build a YouTube page main failed that gets
+  no answer from route B now keeps main's failure (reason, message, retry) with one Details line:
+  `master: route B not run: <REASON> is final` / `no page to ask` / `another page` /
+  `skipped (<REASON>); no lookup record` / `skipped (<REASON>); main's requests in this lookup: N`
+  (+ `main's answer reused: its remembered answer (P17)` or `another caller's running lookup (P17)`),
+  or `master: route B answer dropped: the page changed during the lookup`.
+- The reuse is noted by the shared lookup (`SiteAdapterCoordinator.inspect`) in the lookup's record
+  (`LookupRecord.reuse`); only a route-B build's YouTube lookup has a record. Flag off and the h-only
+  APK: unchanged (main's answer itself; `master: h-only: <step>`).
+- Tests: `BrowserMasterFallbackTest` (3 updated to expect the line, 1 new incl. flag off),
+  `SiteLookupCacheTest` (1 new), `LookupRecordTest` (1 new); lookup tests 47 and
+  `MasterFallbackEngineTest` pass locally. D7 run 8 (`[d7]`) builds `routeb` for the phone run (⏸ owner).
+
 ## Phase 1.4 item 7 — route B F1: the player-script client follows route B's rules (2026-10-18)
 
 - Review follow-up (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §8): the runners fetch the player script

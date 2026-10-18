@@ -9,8 +9,9 @@ the counts (`replayed 1; new 1`) and downloads that play; on two the replayed vi
 bot check, so route B gave no rows and main's failure stayed (as §2 wants); a first open needed Try
 again (why route B did not run there is not logged), and a 429 or bot check of main's was not met.
 R6 docs 2026-10-18. Review follow-ups (§8): F1 done 2026-10-18 (the player-script client: a 429 on a
-script fetch stops route B, Master's script fetches are counted); next F2 (why route B was skipped,
-in Details) and a `routeb` phone run. Promotion (flag on in normal builds) is the owner's decision
+script fetch stops route B, Master's script fetches are counted); F2 done 2026-10-18 (a lookup where
+route B gives no answer says why in Details: `master: route B not run: …`); next a `routeb` phone run
+(D7 run 8, ⏸ owner), then F3 / F4. Promotion (flag on in normal builds) is the owner's decision
 (§5.5), after F4.
 Backlog pointer: `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Same contract as the social sites:
 `MASTER_KEY_SOCIAL_PLAN.md` §2.1 decisions #7 (routing B / B+ / A) and #8 (lookup = main + Master,
@@ -260,13 +261,34 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   (`thePlayerScriptClientIsRouteBsOnlyInARouteBBuild`); the lookup tests (46), `RouteBSimTest` and
   `MasterFallbackEngineTest` pass. Limit: the PO-token client (main's BotGuard, with its own
   transport too) stays outside the record; Master's module asks no PO token.
+- **F2 — why route B did not run (2026-10-18, review follow-up §8).** R5's first opens showed the
+  trial's message with no Master line, and nothing said why. Now, in a route-B build, route B's page
+  (a YouTube page main failed) that gets no answer from route B keeps main's failure — reason,
+  message, retry — with one Details line after main's (`AndroidBrowserMasterFallback`):
+  `master: route B not run: <REASON> is final` (R2's final reasons); `… no page to ask` (no capture
+  request); `… another page` (the page to ask shows another video); `… skipped (<REASON>); no lookup
+  record`, or `… skipped (<REASON>); main's requests in this lookup: N` with, when main's answer
+  reached the lookup without asking, `; main's answer reused: its remembered answer (P17)` or
+  `… another caller's running lookup (P17)` (the engine's skip, read from the lookup's record; N > 0
+  means the engine's own rule declined); and `master: route B answer dropped: the page changed during
+  the lookup` (route B answered for a video the page no longer shows). The reuse is noted by the
+  shared lookup (`SiteAdapterCoordinator.inspect`: a remembered answer, or joining another caller's
+  running lookup, whose requests go to that caller's record) in the lookup's record
+  (`LookupRecord.reuse`, `noteReuse`); only a route-B build's YouTube lookup has a record, so every
+  other lookup is unchanged. Flag off (and the h-only APK): every step answers exactly as before
+  (main's answer itself; `master: h-only: <step>`). Tests: `BrowserMasterFallbackTest`
+  (`routeBNeverAnswersAFinalReason`, `routeBWithoutMainsRequestsKeepsMainsAnswer`,
+  `routeBKeepsTheRowsOfTheSameVideoReloadedMeanwhile` now expect main's failure with the line;
+  new `routeBSaysWhyItNeverAskedMaster`, flag off: main's answer itself), `SiteLookupCacheTest`
+  (`aLookupsRecordNotesAnAnswerItDidNotAskFor`), `LookupRecordTest` (the note); the lookup tests
+  (47) and `MasterFallbackEngineTest` pass. D7 run 8 builds `routeb` with it for the phone run.
 - **Item 7 status (2026-10-18): built behind the flag, not promoted.** `-Pyft.youtubeRouteB` stays
   off in every normal build (flag off = today, P12); promotion is the owner's decision (§5.5).
   Limits seen on the phone: (a) when the replayed visionOS answer is a bot check (or another
   unplayable answer), the module's next step, the watch page, carries the tab's cookie and is never
   sent (rule 1), so route B gives no rows and main's failure stays; (b) a lookup answered from
   main's reused answer (P17's shared lookup or cache) has no request of main's in its record, so
-  route B is skipped and the trial needs Try again. Possible follow-ups, not planned (the owner's
+  route B is skipped and the trial needs Try again (F2: Details now say so, and which reuse). Possible follow-ups, not planned (the owner's
   call): a route-B way past a bot-checked visionOS answer (for example the watch page without the
   user's cookie; it needs a decision on §2's rules); the trial asking main afresh on a first open.
 
@@ -277,10 +299,10 @@ commit, tests + CI green before the next; §6's stop rules hold.
 
 - **F1 — script 429 (done, §7).** The player-script client follows route B's rules; a 429 on a
   script fetch, main's or Master's, stops route B.
-- **F2 — why route B was skipped (next).** A lookup where route B does not run gets a Details line
-  saying why (no record; a record without main's requests: a reused cached answer or a joined shared
-  lookup, P17; a final reason; the flag off), shown in the trial's sheet; then one `routeb` phone run
-  (⏸ owner) on first opens.
+- **F2 — why route B was skipped (done, §7).** A lookup where route B does not run gets a Details
+  line saying why (no record; a record without main's requests: a reused cached answer or a joined
+  shared lookup, P17; a final reason; no page to ask or another page; the page changed), shown in the
+  trial's sheet; next one `routeb` phone run (⏸ owner, D7 run 8) on first opens.
 - **F3 — the joined lookup (if F2 shows it).** A lookup that joined another caller's shared lookup
   records into that caller's record, so its own record has no request of main's and route B is
   skipped, also after a real failure.

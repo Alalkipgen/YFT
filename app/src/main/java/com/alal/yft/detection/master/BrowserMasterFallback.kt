@@ -30,6 +30,7 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 
@@ -137,24 +138,35 @@ class AndroidBrowserMasterFallback(
             // trial's found page reaches Master as unanswered (the only Detected reaching here).
             ?: if (primary is SiteAdapterOutcome.Detected) SiteExtractionFailure.UNSUPPORTED_URL
             else SiteExtractionFailure.NO_MEDIA_FOUND
-        // R2: a walled site's bot check, login or player-script answer is final, before capture.
-        if (TerminalRules.blocksFallback(failure, lookupUrl)) return unanswered("final answer")
         val key = sites.videoKey(lookupUrl)
-        // Phase 1.4 item 7 (YouTube routing B) R3: in a route-B build a YouTube page main failed
-        // with a recoverable reason is answered by Master's module (the engine's rule, inside the
-        // lookup's record). When it gives no rows, main's failure stays the lookup's answer — its
-        // reason, message and retry — with Master's details added. Every other build: false.
-        val routeB = youtubeRouteB && primary is SiteAdapterOutcome.Failed &&
-            key?.substringBefore(':') == YOUTUBE_SITE_ID && TerminalRules.routeBRecoverable(failure)
+        // Phase 1.4 item 7 (YouTube routing B) F2: route B's page — a YouTube page main failed, in
+        // a route-B build. When route B gives it no answer, main's failure stays the lookup's answer
+        // (its reason, message and retry) with a Details line saying why (`master: route B not run:
+        // <why>`). Every other build: false, each step answers as before.
+        val routeBPage = youtubeRouteB && primary is SiteAdapterOutcome.Failed &&
+            key?.substringBefore(':') == YOUTUBE_SITE_ID
+        fun mains(details: List<String>) =
+            failed(primary, failure, (primary as SiteAdapterOutcome.Failed).message, details)
+        fun notRun(why: String) = mains(listOf("$ROUTE_B_NOT_RUN $why"))
+        // R2: a walled site's bot check, login or player-script answer is final, before capture.
+        if (TerminalRules.blocksFallback(failure, lookupUrl)) {
+            return if (routeBPage) notRun("${failure.name} is final") else unanswered("final answer")
+        }
+        // Item 7 R3: in a route-B build a YouTube page main failed with a recoverable reason is
+        // answered by Master's module (the engine's rule, inside the lookup's record). When it gives
+        // no rows, main's failure stays the lookup's answer — its reason, message and retry — with
+        // Master's details added. Every other build: false.
+        val routeB = routeBPage && TerminalRules.routeBRecoverable(failure)
         fun noRows(reason: SiteExtractionFailure, message: String, details: List<String>) =
-            if (routeB) failed(primary, failure, (primary as SiteAdapterOutcome.Failed).message, details)
-            else failed(primary, reason, message, details)
+            if (routeB) mains(details) else failed(primary, reason, message, details)
+        // F2: route B's lookup that never reached Master says why; every other lookup as before.
+        fun unrouted(step: String) = if (routeB) notRun(step) else unanswered(step)
         val request = requestFactory(failure, nowEpochMs, key?.substringAfter(':'))
-            ?: return unanswered("no page to ask")
+            ?: return unrouted("no page to ask")
         if (TerminalRules.blocksFallback(failure, request.pageUrl) ||
             !sites.allowsMasterFallback(request.pageUrl) ||
             !relatedPage(lookupUrl, request.pageUrl, key)
-        ) return unanswered("another page")
+        ) return unrouted("another page")
         val result = try {
             // Fresh one-shot capture avoids a cached passive snapshot masking changed playback.
             // R8: the adapter's identity lets Master ask the site's own endpoint for this video.
@@ -166,6 +178,9 @@ class AndroidBrowserMasterFallback(
         } catch (_: Exception) {
             return noRows(failure, PLAY_FIRST, listOf("master: capture unavailable"))
         }
+        // F2: the engine skipped route B (no record, or main asked nothing in it): the line says
+        // which, from the lookup's record; main's failure stays, whatever the page shows now.
+        if (routeB && result is MasterResult.Skipped) return notRun(skipped(result.reason))
         val scope = capture.session.currentScope()
         val samePage = scope != null && scope.generation == request.generation &&
             scope.pageUrl == request.pageUrl
@@ -174,7 +189,10 @@ class AndroidBrowserMasterFallback(
         // Item 7 R3: route B's answer is the module's too.
         val sameVideo = (hOnly || routeB) && scope != null && key != null &&
             sites.videoKey(scope.pageUrl) == key
-        if (!samePage && !sameVideo) return unanswered("the page changed during the lookup")
+        if (!samePage && !sameVideo) {
+            // F2: route B's answer was for a video the page no longer shows: dropped, and said so.
+            return if (routeB) mains(listOf(ROUTE_B_DROPPED)) else unanswered("the page changed during the lookup")
+        }
         return when (result) {
             is MasterResult.Success -> {
                 val focused = capture.appCandidates(result.result.candidates, key)
@@ -219,6 +237,18 @@ class AndroidBrowserMasterFallback(
             )
             is MasterResult.Skipped -> unanswered("skipped (${result.reason})")
         }
+    }
+
+    /**
+     * Item 7 F2: why the engine skipped route B after main's [reason], from the lookup's record —
+     * none, or main's requests in it (none: how main's answer reached the lookup without asking,
+     * [LookupRecord.reuse], P17; some: the engine's own rule declined).
+     */
+    private suspend fun skipped(reason: SiteExtractionFailure): String {
+        val record = currentCoroutineContext()[LookupRecord]
+            ?: return "skipped (${reason.name}); no lookup record"
+        val reuse = record.reuse?.let { "; main's answer reused: ${it.label}" }.orEmpty()
+        return "skipped (${reason.name}); main's requests in this lookup: ${record.mainAsks}$reuse"
     }
 
     /** Item 2: whether [lookupUrl]'s site is the h-only trial's (never in another build). */
@@ -298,6 +328,12 @@ class AndroidBrowserMasterFallback(
 
         /** Item 7 R4: the route-B trial's Details line (main's row count follows). */
         internal const val ROUTE_B_TRIAL_DETAIL = "master: route B trial: main's"
+
+        /** Item 7 F2: route B's page without route B's answer — the Details line (why follows). */
+        internal const val ROUTE_B_NOT_RUN = "master: route B not run:"
+
+        /** Item 7 F2: route B answered for a video the page no longer shows. */
+        internal const val ROUTE_B_DROPPED = "master: route B answer dropped: the page changed during the lookup"
 
         /** The YouTube adapter's site ID (its video key's prefix). */
         internal const val YOUTUBE_SITE_ID = "youtube"

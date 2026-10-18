@@ -320,7 +320,10 @@ class BrowserMasterFallbackTest {
         assertSame(found, BrowserMasterFallback.None.trialPrimary(YOUTUBE_PAGE, found))
     }
 
-    /** Item 7 R3: bot check, login, player script, 429 and the other final reasons stay final. */
+    /**
+     * Item 7 R3: bot check, login, player script, 429 and the other final reasons stay final —
+     * main's failure itself; F2: with a Details line saying route B did not run and why.
+     */
     @Test
     fun routeBNeverAnswersAFinalReason() = runTest {
         for (reason in listOf(
@@ -340,7 +343,11 @@ class BrowserMasterFallbackTest {
             val record = mainAsked(http)
             val primary = youTubeFailed(reason)
 
-            assertSame(reason.name, primary, withContext(record) { fixture.bridge.recover(YOUTUBE_PAGE, primary, 100) })
+            assertEquals(
+                reason.name,
+                primary.copy(details = listOf("master: route B not run: ${reason.name} is final")),
+                withContext(record) { fixture.bridge.recover(YOUTUBE_PAGE, primary, 100) },
+            )
             assertEquals(reason.name, 0, module.calls.get())
             assertEquals(reason.name, 0, fixture.factories.get())
             assertEquals(reason.name, 0, fixture.captures.get())
@@ -365,18 +372,74 @@ class BrowserMasterFallbackTest {
         }
     }
 
-    /** Item 7 R3: a lookup without main's recorded requests (none, or joined) keeps the skip. */
+    /**
+     * Item 7 R3: a lookup without main's recorded requests (none, or a reused answer) keeps the
+     * skip — main's failure stays; F2: with a Details line saying why, from the lookup's record
+     * (none; main's requests in it; how main's answer was reused, P17).
+     */
     @Test
     fun routeBWithoutMainsRequestsKeepsMainsAnswer() = runTest {
         val http = YouTubeHttp()
         val module = YouTubeModule(http)
         val fixture = Fixture(YOUTUBE_PAGE, extractor = youTubeExtractor(), modules = listOf(module), youtubeRouteB = true)
         val primary = youTubeFailed(SiteExtractionFailure.RESPONSE_CHANGED)
+        fun skipped(why: String) =
+            primary.copy(details = listOf("master: route B not run: skipped (RESPONSE_CHANGED); $why"))
+        val remembered = LookupRecord().apply { noteReuse(LookupRecord.Reuse.REMEMBERED) }
+        val joined = LookupRecord().apply { noteReuse(LookupRecord.Reuse.JOINED) }
 
-        assertSame(primary, fixture.bridge.recover(YOUTUBE_PAGE, primary, 100))
-        assertSame(primary, withContext(LookupRecord()) { fixture.bridge.recover(YOUTUBE_PAGE, primary, 100) })
+        assertEquals(skipped("no lookup record"), fixture.bridge.recover(YOUTUBE_PAGE, primary, 100))
+        assertEquals(
+            skipped("main's requests in this lookup: 0"),
+            withContext(LookupRecord()) { fixture.bridge.recover(YOUTUBE_PAGE, primary, 100) },
+        )
+        assertEquals(
+            skipped("main's requests in this lookup: 0; main's answer reused: its remembered answer (P17)"),
+            withContext(remembered) { fixture.bridge.recover(YOUTUBE_PAGE, primary, 100) },
+        )
+        assertEquals(
+            skipped("main's requests in this lookup: 0; main's answer reused: another caller's running lookup (P17)"),
+            withContext(joined) { fixture.bridge.recover(YOUTUBE_PAGE, primary, 100) },
+        )
+        assertTrue((fixture.bridge.recover(YOUTUBE_PAGE, primary, 100) as SiteAdapterOutcome.Failed).canRetry)
         assertEquals(0, module.calls.get())
         assertEquals(0, http.asked.get())
+    }
+
+    /**
+     * Item 7 F2: route B's lookup that never reached Master keeps main's failure — its reason,
+     * message and retry — with a Details line saying why: no page to ask, or the page to ask shows
+     * another video. Route B off: main's answer itself, as before.
+     */
+    @Test
+    fun routeBSaysWhyItNeverAskedMaster() = runTest {
+        val http = YouTubeHttp()
+        val module = YouTubeModule(http)
+        val primary = youTubeFailed(SiteExtractionFailure.RESPONSE_CHANGED).copy(details = listOf("youtube: main step"))
+        fun notRun(why: String) = primary.copy(details = listOf("youtube: main step", "master: route B not run: $why"))
+        val otherVideo = "${YOUTUBE_PREFIX}Yft1Fixture"
+
+        for (routeB in listOf(true, false)) {
+            val noPage = Fixture(
+                YOUTUBE_PAGE, extractor = youTubeExtractor(), modules = listOf(module), noRequest = true, youtubeRouteB = routeB,
+            )
+            val another = Fixture(
+                YOUTUBE_PAGE, extractor = youTubeExtractor(), modules = listOf(module), requestPage = otherVideo, youtubeRouteB = routeB,
+            )
+            val unasked = withContext(mainAsked(http)) { noPage.bridge.recover(YOUTUBE_PAGE, primary, 100) }
+            val elsewhere = withContext(mainAsked(http)) { another.bridge.recover(YOUTUBE_PAGE, primary, 100) }
+            if (routeB) {
+                assertEquals(notRun("no page to ask"), unasked)
+                assertEquals(notRun("another page"), elsewhere)
+            } else {
+                assertSame(primary, unasked)
+                assertSame(primary, elsewhere)
+            }
+            assertEquals("route B $routeB", 1, noPage.factories.get())
+            assertEquals("route B $routeB", 1, another.factories.get())
+        }
+        assertEquals(0, module.calls.get())
+        assertEquals(4, http.asked.get()) // main's requests only
     }
 
     /**
@@ -415,7 +478,7 @@ class BrowserMasterFallbackTest {
 
     /**
      * Item 7 R3: the module answers for the video, so the same video still open (reloaded)
-     * keeps its rows; another video opened meanwhile leaves main's answer.
+     * keeps its rows; another video opened meanwhile leaves main's answer (F2: with a line).
      */
     @Test
     fun routeBKeepsTheRowsOfTheSameVideoReloadedMeanwhile() = runTest {
@@ -435,7 +498,11 @@ class BrowserMasterFallbackTest {
             YOUTUBE_PAGE, extractor = youTubeExtractor(), youtubeRouteB = true,
             modules = listOf(YouTubeModule(other) { moved.capture.session.navigate("${YOUTUBE_PREFIX}Yft1Fixture") }),
         )
-        assertSame(primary, withContext(mainAsked(other)) { moved.bridge.recover(YOUTUBE_PAGE, primary, 100) })
+        // F2: the answer for a video the page no longer shows is dropped, and the line says so.
+        assertEquals(
+            primary.copy(details = listOf("master: route B answer dropped: the page changed during the lookup")),
+            withContext(mainAsked(other)) { moved.bridge.recover(YOUTUBE_PAGE, primary, 100) },
+        )
     }
 
     @Test
@@ -585,6 +652,7 @@ class BrowserMasterFallbackTest {
         masterFirstSite: String? = null,
         modules: List<MasterSiteModule> = emptyList(),
         noRequest: Boolean = false,
+        requestPage: String? = null,
         youtubeRouteB: Boolean = false,
         routeBTrial: Boolean = false,
     ) {
@@ -628,7 +696,7 @@ class BrowserMasterFallbackTest {
             capture, sites, engine, MergeSupport { canMerge },
             requestFactory = { reason, now, expected ->
                 factories.incrementAndGet()
-                if (noRequest) null else MasterRequest(page, scope.generation, now, reason, expected)
+                if (noRequest) null else MasterRequest(requestPage ?: page, scope.generation, now, reason, expected)
             },
             masterFirstSite = masterFirstSite,
             youtubeRouteB = youtubeRouteB,
