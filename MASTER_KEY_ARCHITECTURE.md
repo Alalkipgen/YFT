@@ -150,5 +150,5 @@ authorized playback) → `LayerStack` (L2 → L4 → L1 → L3; L3 adds only) �
   phone-checked 2026-10-18 (partial), not promoted — `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §7;
   review follow-ups in its §8 (F1, the player-script client, and F2, why route B did not run in
   Details, done; D7 run 8 checked) and the final plan in its §9 (F5, the owner's cookie decision:
-  Master reads main's watch page from the lookup and never sends a cookie, done; then F4 and D7
-  run 9; F3 deferred).
+  Master reads main's watch page from the lookup and never sends a cookie, done; F4, a failure
+  midway checked offline, done (tests only); then D7 run 9; F3 deferred).

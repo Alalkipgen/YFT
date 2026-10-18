@@ -1852,4 +1852,5 @@ merge buffer (`ec1f24e`), item 3 visionOS 1.04 bundled (`f02070a`), item 2 h-onl
    four; where the replayed visionOS answer was a bot check, no rows (main's failure kept).
    Promotion: the owner's decision. Plan: `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` (steps R1–R6,
    owner decisions §5, results §7, final plan §9: F5 the owner's cookie
-   decision, then F4 and D7 run 9; F3 deferred); prompt: `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md`.
+   decision and F4, a failure midway offline, done; then D7 run 9; F3 deferred); prompt:
+   `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md`.

@@ -4,8 +4,18 @@ import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.ExtractorProbeResult
 import com.alal.yft.extractor.api.NoPlayerScriptRunner
+import com.alal.yft.extractor.api.PlayerScriptRequest
+import com.alal.yft.extractor.api.PlayerScriptResult
+import com.alal.yft.extractor.api.PlayerScriptRunner
+import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionRequest
 import com.alal.yft.extractor.api.SiteExtractionResult
+import com.alal.yft.extractor.master.MasterFallbackEngine
+import com.alal.yft.extractor.master.MasterMediaValidator
+import com.alal.yft.extractor.master.MasterPolicy
+import com.alal.yft.extractor.master.MasterRequest
+import com.alal.yft.extractor.master.MasterResult
+import com.alal.yft.extractor.master.ValidationResult
 import com.alal.yft.extractor.master.lookup.LookupRecord
 import com.alal.yft.extractor.master.lookup.LookupRecorder
 import com.alal.yft.extractor.master.lookup.RouteBHttpClient
@@ -42,6 +52,12 @@ import org.junit.Test
  * holds (`build/routeb-sim/routeb-f5-lines.txt`), and after a bot-checked visionOS answer Master
  * completes from main's page with no new page, no new player request and nothing that carries a
  * credential or the account's identity.
+ *
+ * F4 (§8, a failure midway): the same lookup with Master's engine after main (its claim rule, R3):
+ * after main's recoverable failure Master's rows come from main's replayed answers and the
+ * engine's first line is route B's with the record's counts; when Master finds nothing its failure
+ * names route B first; after main's final reason, or with the flag off, nothing of Master's goes
+ * out; after a 429 midway nothing new does.
  */
 class RouteBSimTest {
     private class Step(
@@ -257,6 +273,166 @@ class RouteBSimTest {
         }
     }
 
+    /**
+     * F4 (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §8 (1), a failure midway): main asks and then fails
+     * with a recoverable reason, and Master's engine answers in the same lookup, whose record names
+     * the page as the app's route-B build does. A moved shape main's parser cannot read, in every
+     * identity's answer (L2, L4, L7): Master's L reads main's replayed visionOS answer. After a
+     * bot-checked visionOS answer (F5): every identity asked without the tab's cookie meets the bot
+     * check, main reads the page with the cookie and its own player-script step fails there (its
+     * script fetch: HTTP_STATUS — streams that existed but became no download, a verdict main ranks
+     * above the bot check); Master's own solver reads main's replayed page. Master's rows are
+     * complete, none wrong; the engine's first line names route B with its counts (`master: route B
+     * after <reason>; replayed N; new M`, the browser's notice); no new player request, no new page,
+     * nothing with a credential.
+     */
+    @Test
+    fun `F4 - main fails midway and Master's engine answers from main's replayed answers`() = runTest(timeout = 10.minutes) {
+        val moved = Sim.BASES.flatMap(SimCases::forBase).filter { it.klass in MOVED_SHAPE && it.vMode == VMode.PASS }
+        assertTrue(moved.size >= Sim.BASES.size * MOVED_SHAPE.size)
+        for (case in moved) for (solver in listOf(false, true)) {
+            val name = "${case.id} ${column(solver)}"
+            val step = viaEngine(case, solver)
+            assertAnswered(name, step)
+            assertTrue(name, step.record.replayedCount >= 1)
+        }
+        val check = Fixtures.read("youtube/player_bot_check.json")
+        for (base in Sim.BASES) {
+            val case = SimCases.forBase(base).first { it.klass == "B0" }
+            val name = "${case.id} bot-checked without the cookie"
+            val step = viaEngine(case, solver = true, mainScripts = { FailedScripts(SiteExtractionFailure.HTTP_STATUS) }) {
+                override = { ask -> if (ask.client != SimClient.PAGE) SimReply.Json(check) else null }
+            }
+            assertEquals(name, SiteExtractionFailure.HTTP_STATUS, (step.mainResult as? SiteExtractionResult.Failure)?.reason)
+            assertAnswered(name, step)
+            assertEquals(name, 1, step.main.pages) // main read the page with the tab's cookie
+            assertTrue(name, step.record.replayedCount >= 2) // visionOS and the page
+        }
+    }
+
+    /**
+     * F4 (2): when Master's engine finds nothing after main's recoverable failure (F3: H's playlist
+     * fails its checks; L10 and L13 when V fails or cannot answer), its failure names route B first
+     * with its counts and Master's own reason last — the details the browser adds after main's while
+     * main's failure stays (`AndroidBrowserMasterFallback`); no wrong row, no second page, nothing
+     * with a credential.
+     */
+    @Test
+    fun `F4 - when Master's engine finds nothing its failure names route B first`() = runTest(timeout = 5.minutes) {
+        val cases = Sim.BASES.flatMap(SimCases::forBase)
+            .filter { it.klass == "F3" || (it.klass in listOf("L10", "L13") && it.vMode != VMode.PASS) }
+        assertTrue(cases.size >= Sim.BASES.size * 4)
+        for (case in cases) for (solver in listOf(false, true)) {
+            val name = "${case.id} ${column(solver)}"
+            val step = viaEngine(case, solver)
+            val reason = (step.mainResult as? SiteExtractionResult.Failure)?.reason
+            assertTrue("$name: main failed ($reason)", reason in TerminalRules.ROUTE_B_RECOVERABLE)
+            val failure = step.result as? MasterResult.Failure
+            assertTrue("$name: ${step.result}", failure != null)
+            assertTrue(name, step.master.wrong.isEmpty())
+            assertTrue(name, step.main.pages + step.master.pages <= 1)
+            assertEquals(name, 0, step.master.credentials)
+            assertTrue(name, step.sent.none(Seen.Sent::credential))
+            assertEquals(name, step.logged - step.sourceReads, step.record.masterAsks)
+            assertLine(name, reason!!, step, failure!!.details.first())
+            assertEquals(name, "master: youtube module: ${failure.reason.name}", failure.details.last())
+        }
+    }
+
+    /**
+     * F4 (3): after main's final reason Master's engine skips the page and nothing of Master's goes
+     * out — L11 (a sign-in answer in every identity's answer and the page's), and a moved shape
+     * after a bot-checked visionOS answer: main reads the page with the tab's cookie, cannot read
+     * its moved answer, and its failure is the bot check (main ranks a bot check as the page's own
+     * verdict, above a changed or empty answer), so route B never runs there (§2). With the
+     * route-B flag off a page main failed recoverably is skipped as today (P12).
+     */
+    @Test
+    fun `F4 - a final reason or the flag off sends nothing of Master's`() = runTest(timeout = 5.minutes) {
+        val check = Fixtures.read("youtube/player_bot_check.json")
+        val botChecked: SimWorld.() -> Unit = {
+            override = { ask -> if (ask.client == SimClient.VISION_OS) SimReply.Json(check) else null }
+        }
+        val moved = Sim.BASES.flatMap(SimCases::forBase).filter { it.klass in MOVED_SHAPE && it.vMode == VMode.PASS }
+        val final = Sim.BASES.flatMap(SimCases::forBase).filter { it.klass == "L11" && it.vMode == VMode.PASS }
+        assertTrue(final.isNotEmpty())
+        val steps = final.map { it.id to viaEngine(it, solver = true) } +
+            moved.map { "${it.id} bot-checked visionOS" to viaEngine(it, solver = true, change = botChecked) }
+        for ((name, step) in steps) {
+            val reason = (step.mainResult as? SiteExtractionResult.Failure)?.reason
+            assertTrue("$name: main failed ($reason)", reason != null && reason !in TerminalRules.ROUTE_B_RECOVERABLE)
+            if ("bot-checked" in name) {
+                assertEquals(name, SiteExtractionFailure.BOT_CHECK, reason)
+                assertEquals(name, 1, step.main.pages) // main read the page after the bot check
+            }
+            assertEquals(name, MasterResult.Skipped(reason!!), step.result)
+            assertEquals(name, 0, step.logged)
+            assertEquals(name, 0, step.record.masterAsks)
+            assertEquals(name, 0, step.record.replayedCount)
+        }
+        for (case in moved) {
+            val step = viaEngine(case, solver = true, routeB = false)
+            val reason = (step.mainResult as? SiteExtractionResult.Failure)?.reason
+            assertTrue("${case.id}: main failed ($reason)", reason in TerminalRules.ROUTE_B_RECOVERABLE)
+            assertEquals(case.id, MasterResult.Skipped(reason!!), step.result)
+            assertEquals(case.id, 0, step.logged)
+            assertEquals(case.id, 0, step.record.masterAsks)
+            assertEquals(case.id, 0, step.record.replayedCount)
+        }
+    }
+
+    /**
+     * F4 (3): a 429 midway — Android's answer in main's lookup — while main's own failure is
+     * recoverable (L2: main's verdict is the page's moved answer, which ranks above a fallback's
+     * 429): Master's engine runs route B and sends nothing new; its line names the refusals.
+     */
+    @Test
+    fun `F4 - after a 429 midway in main's lookup Master's engine sends nothing new`() = runTest(timeout = 5.minutes) {
+        for (base in Sim.BASES) for (solver in listOf(false, true)) {
+            val case = SimCases.forBase(base).first { it.klass == "L2" && it.vMode == VMode.PASS }
+            val name = "${case.id} ${column(solver)}"
+            val step = viaEngine(case, solver) {
+                override = { ask -> if (ask.client == SimClient.ANDROID) SimReply.Status(SimWorld.TOO_MANY) else null }
+            }
+            val reason = (step.mainResult as? SiteExtractionResult.Failure)?.reason
+            assertTrue("$name: main failed ($reason)", reason in TerminalRules.ROUTE_B_RECOVERABLE)
+            assertTrue(name, step.record.rateLimited)
+            assertEquals(name, 0, step.logged)
+            assertEquals(name, 0, step.record.masterAsks)
+            assertTrue(name, step.master.wrong.isEmpty())
+            val details = when (val result = step.result) {
+                is MasterResult.Success -> result.result.details
+                is MasterResult.Failure -> result.details
+                else -> emptyList()
+            }
+            val first = details.firstOrNull().orEmpty()
+            assertTrue("$name: $first", Regex("^master: route B after ${reason!!.name}; replayed \\d+; new 0; refused [1-9]\\d*$").matches(first))
+        }
+    }
+
+    /** F4: Master's engine answered after main's recoverable failure, from main's replayed answers. */
+    private fun assertAnswered(name: String, step: EngineStep) {
+        val reason = (step.mainResult as? SiteExtractionResult.Failure)?.reason
+        assertTrue("$name: main failed ($reason)", reason in TerminalRules.ROUTE_B_RECOVERABLE)
+        val found = step.result as? MasterResult.Success
+        assertTrue("$name: ${step.result}", found != null)
+        assertEquals(name, SimOutcome.COMPLETE, step.master.outcome)
+        assertTrue(name, step.master.wrong.isEmpty())
+        assertEquals(name, 0, step.master.players)
+        assertEquals(name, 0, step.master.pages)
+        assertEquals(name, 0, step.master.credentials)
+        assertTrue(name, step.sent.none(Seen.Sent::credential))
+        assertTrue(name, step.main.pages <= 1)
+        assertEquals(name, step.logged - step.sourceReads, step.record.masterAsks)
+        assertLine(name, reason!!, step, found!!.result.details.first())
+    }
+
+    /** F4: route B's line (`master: route B after <reason>; replayed N; new M[; refused K]`) with the record's counts. */
+    private fun assertLine(name: String, reason: SiteExtractionFailure, step: EngineStep, line: String) {
+        val counts = "master: route B after ${reason.name}; replayed ${step.record.replayedCount}; new ${step.record.masterAsks}"
+        assertTrue("$name: $line", Regex("^${Regex.escape(counts)}(; refused \\d+)?$").matches(line))
+    }
+
     @Test
     fun `after a 429 in main's lookup Master sends nothing new`() = runTest(timeout = 5.minutes) {
         for (base in Sim.BASES) for (solver in listOf(false, true)) {
@@ -312,6 +488,75 @@ class RouteBSimTest {
             )
         }
         return Run(case, solver, steps, plain, reader.reads, reader.segmentReads, sources.reads.size)
+    }
+
+    /** F4: main's player-script runner whose script fetch failed with [reason] (Master's own solver is another runner). */
+    private class FailedScripts(private val reason: SiteExtractionFailure) : PlayerScriptRunner {
+        override val isAvailable: Boolean = true
+        override suspend fun resolve(request: PlayerScriptRequest): PlayerScriptResult = PlayerScriptResult.Failed(reason)
+    }
+
+    /** F4: one lookup through Master's engine ([viaEngine]). */
+    private class EngineStep(
+        val mainResult: SiteExtractionResult,
+        val main: SimLookup,
+        val result: MasterResult,
+        val master: SimLookup,
+        val record: LookupRecord,
+        /** Requests in the world's log during the engine's run. */
+        val logged: Int,
+        val sourceReads: Int,
+        val sent: List<Seen.Sent>,
+    )
+
+    /**
+     * F4: one lookup as the app's route-B build runs it — main (its record names the lookup's watch
+     * page), then Master's engine with the YouTube module (the ladder through route B's wrappers)
+     * after main's failure; [routeB] is the engine's flag, [mainScripts] main's player-script runner
+     * (Master's own solver is the world's when [solver]).
+     */
+    private suspend fun viaEngine(
+        case: SimCase,
+        solver: Boolean,
+        routeB: Boolean = true,
+        mainScripts: (SimWorld) -> PlayerScriptRunner = ::SimSolver,
+        change: SimWorld.() -> Unit = {},
+    ): EngineStep {
+        val world = case.world().apply(change)
+        val request = SimMeasure.request()
+        val main = MainYouTubeExtractor(LookupRecorder(world.http), mainScripts(world))
+        val sources = ClientLadderSimTest.SimSourceReader(world)
+        val ladder = MasterClientLadder(
+            ClientHealth(null) { Sim.NOW },
+            RouteBMediaStartReader(ClientLadderSimTest.SimStartReader(world)),
+            sources = sources,
+        )
+        val scripts = RouteBPlayerScripts.wrap(if (solver) SimSolver(world) else NoPlayerScriptRunner)
+        val seen = Seen(world.http)
+        val engine = MasterFallbackEngine(
+            MasterMediaValidator { found, _ -> ValidationResult.Valid(found) },
+            policy = MasterPolicy(enabled = true, youtubeRouteB = routeB),
+            modules = listOf(MasterYouTubeModule(RouteBHttpClient(seen), scripts, ladder)),
+        )
+        val record = LookupRecord(clock = { Sim.NOW }, watchPageVideoId = Sim.VIDEO_ID)
+        val mainFrom = world.http.log.size
+        val mainResult = withContext(record) { main.extract(request) }
+        val mainJudged = SimMeasure.judge(world, case, mainResult, mainFrom)
+        val reason = (mainResult as? SiteExtractionResult.Failure)?.reason ?: SiteExtractionFailure.UNSUPPORTED_URL
+        val from = world.http.log.size
+        val sourcesFrom = sources.reads.size
+        val result = withContext(record) {
+            engine.extract(MasterRequest(Sim.MOBILE_PAGE, 1, Sim.NOW, reason, Sim.VIDEO_ID, request.requestContext))
+        }
+        val asSite = when (result) {
+            is MasterResult.Success -> result.result
+            is MasterResult.Failure -> SiteExtractionResult.Failure(result.reason, details = result.details)
+            else -> SiteExtractionResult.Failure(reason)
+        }
+        return EngineStep(
+            mainResult, mainJudged, result, SimMeasure.judge(world, case, asSite, from), record,
+            world.http.log.size - from, sources.reads.size - sourcesFrom, seen.sent.toList(),
+        )
     }
 
     /** The ladder alone in its own world ([ClientLadderSimTest]'s column): what Master would do without main. */

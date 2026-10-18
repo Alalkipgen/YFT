@@ -1,5 +1,32 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 item 7 — route B F4: a failure midway, offline (2026-10-18)
+
+- Review follow-up F4 (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §8): main asks and then fails with a
+  recoverable reason (§2), not the trial's found page. Tests only — they found no bug, so no app or
+  extractor code changed and there is no `[d7]`: D7 run 9's APKs (F5) stay the latest.
+- (1) Master's rows reach the sheet: `BrowserMasterFlowTest` (the app as built, the real bridge and
+  engine) for each recoverable reason, with and without main's watch page read with the tab's
+  cookie — answered from the lookup's record (`replayed 1` / `2`, `new 0`, only main's page carried
+  the cookie), notice `master: route B after <REASON>; replayed N; new 0`. `RouteBSimTest` (Master's
+  engine after main over the same record): a moved shape (L2, L4, L7) completes from main's
+  replayed visionOS answer with 0 player requests and 0 pages; after a bot-checked visionOS answer
+  (main's script fetch failed, `HTTP_STATUS`) Master completes from main's replayed page, 0 new pages.
+- (2) Master finds nothing: main's failure stays (reason, message, notice, Try again — as in a build
+  without route B) with Master's details after main's (route B's line first, `master: youtube
+  module: <REASON>` last); Try again asks afresh in a new record.
+- (3) Main's final reasons (nine): `master: route B not run: <REASON> is final`, Master never runs,
+  nothing of Master's sent; a 429 midway: `replayed 1; new 0; refused 1`, nothing new, main's
+  failure kept; main's success untouched; flag off skipped as today (P12). Covers R5's open check (4)
+  offline.
+- Finding (no bug; §2 holds): main ranks a bot check as the page's own verdict, above a changed or
+  empty answer — after a bot-checked visionOS answer such a page fails `BOT_CHECK` (final) and route
+  B never runs; F5's page replay serves a real failure only when main's verdict outranks the bot
+  check (streams found but no download), otherwise the trial's found page (run 9's `routeb` check).
+- Tests: `RouteBSimTest` +4, `BrowserMasterFlowTest` +3 (stand-ins extended, nothing removed);
+  `extractor-master` 731 (2 skipped), `extractor-sites` 280, app 992 (66 skipped) pass locally.
+  Next: D7 run 9 phone check (⏸ owner).
+
 ## Phase 1.4 item 7 — route B F5: Master reads main's watch page from the lookup (2026-10-18)
 
 - The owner's cookie decision (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §8–§9, limit (a) of D7 run 8):

@@ -18,8 +18,9 @@ first opens skipped on a remembered answer (P17, limit (b), trial only); the joi
 never showed. **Final plan (§9, 2026-10-18):** F3 deferred; **F5** (the owner's cookie decision:
 Master reads main's watch page from the lookup, never sends a cookie) — **done 2026-10-18** (§7:
 main's cookie GET of the looked-up video's page answers Master's identical cookie-less GET once,
-replayed, never sent; ≤ 1 watch page per lookup) → **F4** (a real failure midway, offline) → D7
-run 9 (⏸ owner) → promotion (flag on in normal builds), the owner's decision (§5.5).
+replayed, never sent; ≤ 1 watch page per lookup) → **F4** (a real failure midway, offline) —
+**done 2026-10-18** (§7: tests only, no bug found, no code changed, no `[d7]`) → D7 run 9
+(⏸ owner) → promotion (flag on in normal builds), the owner's decision (§5.5).
 Backlog pointer: `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Same contract as the social sites:
 `MASTER_KEY_SOCIAL_PLAN.md` §2.1 decisions #7 (routing B / B+ / A) and #8 (lookup = main + Master,
 per-lookup request recorder). Agent prompt: `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md`.
@@ -52,6 +53,14 @@ cookie မပါဘဲ key လုပ်ပြီး တစ်ကြိမ်စ�
 တစ်ခုမှာ watch page တစ်ခုပဲ။ Simulator: bot check ဖြစ်တဲ့ visionOS နောက် Master rows complete (page အသစ် 0၊
 player request အသစ် 0၊ credential 0)။ ပြင်ချက်: run 8 ရဲ့ `refused 1` က rule 1 မဟုတ် — Master ရဲ့ page GET မှာ
 cookie မပါ (module က cookie ဖယ်ထား)၊ main က cookie နဲ့ မေးပြီးသား (အဖြေ မသိမ်း) endpoint မို့ rule 4 က ငြင်းတာ။
+
+**F4 ပြီး (2026-10-18):** main တကယ်ကျတဲ့ case တွေ (main မေးပြီးမှ recoverable reason နဲ့ ကျ) ကို offline tests နဲ့
+စစ်ပြီး — bug မတွေ့လို့ code မပြင်၊ `[d7]` မလို (D7 run 9 APK တွေ ဆက်သုံး)။ (1) Master rows က main ရဲ့ replayed
+အဖြေတွေကနေ sheet ထိ ရောက် (`master: route B after <REASON>; replayed N; new 0`)။ (2) Master ဘာမှ မတွေ့ရင် main ရဲ့
+failure (reason၊ message၊ Try again) ကျန်ပြီး Details မှာ Master ရဲ့ lines က main ရဲ့နောက်မှာ။ (3) final reasons မှာ route B
+မ run၊ 429 နောက် request အသစ် 0၊ main အောင်မြင်ရင် မထိ၊ flag off = ယနေ့။ တွေ့ချက်: bot check ဖြစ်တဲ့ visionOS နောက်
+page ရဲ့ အဖြေကို main မဖတ်နိုင်ရင် main ရဲ့ failure က `BOT_CHECK` (final) ဖြစ်လို့ route B မ run (rule အတိုင်း)၊ ဒါကြောင့်
+F5 ရဲ့ page replay က အများအားဖြင့် trial (main တွေ့တဲ့ page) မှာ အသုံးဝင် — run 9 `routeb` မှာ စစ်ရန်။
 
 ## 1. Today (verified 2026-10-17, spike `4235716`)
 
@@ -340,7 +349,7 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   main's reused answer (P17's shared lookup or cache) has no request of main's in its record, so
   route B is skipped and the trial needs Try again (F2: Details now say so, and which reuse). Next (§9, final plan): (a) → F5, Master
   reads main's watch page from the lookup (no cookie-less page; done, below); (b) stays (trial only,
-  Try again); then F4 and D7 run 9.
+  Try again); then F4 (done, below) and D7 run 9.
 - **F5 — main's watch page for route B (2026-10-18, review follow-up §8; the owner's cookie
   decision, §5.6).** `extractor-master` `lookup` and the app's record (no locked file, no
   `extractor-sites` change). The app's route-B build names the lookup's video in its record
@@ -381,6 +390,55 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   `extractor-master` 727 (2 skipped), `extractor-sites` 280 and the app's unit tests 989 (66 skipped) pass.
   Flag off and every other build: no record, unchanged (P12). D7 run 9 (`[d7]`) builds `routeb` with
   it for the phone check (§9 item 3).
+- **F4 — a failure midway, offline (2026-10-18, review follow-up §8).** Tests only: they found no
+  bug, so no app or extractor code changed (no locked file, no `extractor-sites` change) and there is
+  no `[d7]`; D7 run 9's APKs (F5) stay the latest for the phone check. Main asks and then fails with
+  a recoverable reason (§2's set), not the trial's found page. (1) **Master's rows reach the sheet.**
+  `BrowserMasterFlowTest` (the app as built: main's adapter in the coordinator, Master's engine with
+  the module, `AndroidBrowserMasterFallback` with route B on and the trial off, the view model and
+  the store): for each of the six recoverable reasons, with main's player request alone and with
+  main's watch page read with the tab's cookie after it, Master's module asks the same requests
+  without the cookie and is answered from the lookup's record (`replayed 1` or `2`, `new 0`; only
+  main's page carried the cookie), and Master's row reaches the sheet with the notice `master: route
+  B after <REASON>; replayed N; new 0`. `RouteBSimTest` (main, then Master's engine with the YouTube
+  module over the same record, which names the page as the app's route-B build does): a moved shape
+  main cannot read (L2, L4, L7; both own-solver columns) — complete from main's replayed visionOS
+  answer, wrong rows 0, 0 player requests, 0 pages, nothing with a credential, and the engine's first
+  line is route B's with the record's counts (observed `replayed 1`–`2; new 3`–`6`, none a player
+  request or a page); after a bot-checked visionOS answer (every identity asked without the cookie
+  meets the bot check; main reads the page with the cookie and its script fetch fails,
+  `HTTP_STATUS`) — Master's own solver completes from main's replayed page with 0 new pages and 0
+  player requests (observed `master: route B after HTTP_STATUS; replayed 4; new 1`, the new request
+  to the media host). (2) **Master finds nothing.** `BrowserMasterFlowTest`: main's failure stays —
+  the same reason, message, notice and Try again as in a build without route B (there main's answer
+  itself, no record, Master never asked: P12) — with Master's details after main's (`master: route B
+  after RESPONSE_CHANGED; replayed 2; new 0`, the module's own, `master: youtube module:
+  BOT_CHECK`); nothing of Master's is sent; Try again asks afresh in a new record and shows Master's
+  row. `RouteBSimTest`: where Master's engine finds nothing (F3; L10 and L13 when V fails or cannot
+  answer) its failure names route B first with the record's counts (observed `replayed 5; new
+  1`–`9`) and its own reason last; wrong rows 0, ≤ 1 page, nothing with a credential. (3) **Final
+  reasons, a 429, main's success, flag off.** `BrowserMasterFlowTest`: each final reason
+  (`NEVER_FALLBACK` and `BROWSER_REQUIRED`, nine) keeps main's failure with `master: route B not run:
+  <REASON> is final`; Master's module never runs and nothing of Master's goes out (main's 429 answers
+  `RATE_LIMITED`); a 429 midway in a lookup main then failed recoverably: Master's identical request
+  is answered with main's 429 (replayed), its other request is refused, nothing new goes out, and
+  `master: route B after RESPONSE_CHANGED; replayed 1; new 0; refused 1` and `master: youtube
+  module: RATE_LIMITED` follow main's details (main's failure and Try again kept); main's success is
+  untouched (main's row, no notice, Master never asked). `RouteBSimTest`: L11 (`LOGIN_REQUIRED`) and
+  a moved shape after a bot-checked visionOS answer (main's `BOT_CHECK`): the engine skips, nothing
+  is logged; a 429 in Android's answer while main's failure is recoverable (L2): route B runs and
+  sends nothing new (`replayed 5; new 0; refused 3`–`9`); flag off: skipped as today (P12).
+  `BrowserMasterFallbackTest`'s route-B tests (the bridge alone, R3–F5) are unchanged. This covers
+  R5's open check (4) — a 429 or bot check of main's stays final — offline. **Finding (no bug; §2
+  holds):** main ranks a bot check as the page's own verdict; only a delivery verdict (streams found
+  but no download: an expired address, or its player-script step refused, including a recoverable
+  failure of its script fetch, `HTTP_STATUS` or `RESPONSE_TOO_LARGE`) outranks it. So after a
+  bot-checked visionOS answer a moved or empty answer makes main fail `BOT_CHECK` (final) and route B
+  never runs, and main's app runner fails `PLAYER_SCRIPT_REQUIRED` (final) when it cannot solve.
+  F5's page replay therefore serves a real failure only where main's verdict outranks the bot check,
+  and otherwise the trial's found page (run 9's `routeb` check, §9 item 3). Tests: `RouteBSimTest`
+  +4, `BrowserMasterFlowTest` +3 (its stand-ins extended, nothing removed); `extractor-master` 731
+  (2 skipped), `extractor-sites` 280 and the app's unit tests 992 (66 skipped) pass locally.
 
 ## 8. Review follow-ups (2026-10-18)
 
@@ -399,9 +457,10 @@ commit, tests + CI green before the next; §6's stop rules hold.
   skipped, also after a real failure. D7 run 8 showed only the remembered answer, so F3 is not built
   now; not seen is no proof of no risk — reopen when a Details line says `another caller's running
   lookup (P17)`.
-- **F4 — a failure midway (offline; after F5).** App-flow tests (`BrowserMasterFlowTest`,
-  `BrowserMasterFallbackTest`; the engine and the simulator where they need it) where main asks and
-  then fails with a recoverable reason (§2's set) — not the trial's found page — check three things:
+- **F4 — a failure midway (offline; after F5; done 2026-10-18, §7: tests only, no bug found).**
+  App-flow tests (`BrowserMasterFlowTest`, `BrowserMasterFallbackTest`; the engine and the
+  simulator where they need it) where main asks and then fails with a recoverable reason (§2's set)
+  — not the trial's found page — check three things:
   (1) Master's rows reach the sheet with route B's notice and counts: from main's replayed visionOS
   answer (a moved shape: L, 0 new player requests) and, with F5, from main's replayed watch page
   after a bot-checked visionOS answer (0 new pages); (2) when Master finds nothing, main's own
@@ -444,15 +503,16 @@ follow-ups). Decisions:
 | Limit (b), the trial's first open | Unchanged: tap Try again; no cache change | Trial only: a real failure is never remembered, and Try again asks afresh |
 | Limit (a), the cookie rule | F5: Master reads main's watch page from the lookup and never sends a cookie (done, §7) | 0 new requests, ≤ 1 page per lookup; Master's request context holds the tab's cookie, its module drops it (`cookie = null`) and never sends it |
 | A cookie-less watch page | Not done | A second page per lookup (guardrail 7), more 429 risk, likely the same bot check |
-| F4 | Needed, after F5 | Proves the real-failure path and R5's open check (4), offline |
+| F4 | Done 2026-10-18 (§7): tests only, no bug found, no `[d7]` | Proves the real-failure path and R5's open check (4), offline |
 | Promotion (§5.5) | The owner's, after F5, F4 and run 9 | Flag on in normal builds changes real lookups |
 
 Order (one step per commit, tests + CI green before the next; §6's stop rules hold):
 
 1. **F5** (§8; done 2026-10-18, §7): push with `[d7]` (`.github/d7-apks.txt` `run 9`), so the APKs
    are ready for the owner.
-2. **F4** (§8): tests; fix only what they find. No `[d7]` unless app or extractor code changed (then
-   the run number moves on and the owner tests the latest run).
+2. **F4** (§8; done 2026-10-18, §7): tests; fix only what they find. No `[d7]` unless app or
+   extractor code changed (then the run number moves on and the owner tests the latest run). The
+   tests found nothing to fix: no code changed, no `[d7]`, so run 9 (F5's APKs) is the latest.
 3. **D7 run 9 (⏸ owner):** (1) `normal`: V1–V3 as before, no notice. (2) `routeb`: V1–V3 from the
    address bar; if Details say `main's answer reused: its remembered answer (P17)`, tap Try again
    once. Expected: Master's rows with `master: route B after RESPONSE_CHANGED; replayed N; new M` on

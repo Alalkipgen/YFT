@@ -29,6 +29,7 @@ import com.alal.yft.extractor.master.lookup.LookupRecorder
 import com.alal.yft.extractor.master.lookup.RouteBHttpClient
 import com.alal.yft.extractor.master.lookup.RouteBLookup
 import com.alal.yft.extractor.master.modules.MasterSiteModule
+import com.alal.yft.extractor.master.policy.TerminalRules
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import com.alal.yft.testing.MainDispatcherRule
 import kotlin.coroutines.CoroutineContext
@@ -286,6 +287,179 @@ class BrowserMasterFlowTest {
         assertEquals("master: route B after RESPONSE_CHANGED; replayed 2; new 0", notice)
     }
 
+    /**
+     * Item 7 F4 (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §8 (1)): a real failure midway, the trial
+     * off. Main asks the player endpoint — and, as after a bot-checked visionOS answer, reads the
+     * watch page with the tab's cookie — then fails with each recoverable reason (§2). Master's
+     * module asks the same requests without the cookie: answered from the lookup's record (replayed
+     * 1 or 2, new 0), nothing goes out again and only main's page carried the cookie. Master's row
+     * reaches the sheet with route B's notice and counts.
+     */
+    @Test
+    fun aRecoverableFailureMidwayShowsMastersRowFromMainsReplayedAnswers() = runTest {
+        for (reason in TerminalRules.ROUTE_B_RECOVERABLE) for (page in listOf(false, true)) {
+            val name = "$reason, page $page"
+            val http = Answering()
+            val browser = RouteBBrowser(
+                YouTubeAdapter(LookupRecorder(http), reason, pageHeaders = MAIN_PAGE_HEADERS.takeIf { page }),
+                YouTubeModule(RouteBHttpClient(http), pageHeaders = MASTER_PAGE_HEADERS.takeIf { page }),
+            )
+            browser.open()
+            settle { browser.adapter.calls == 1 && !browser.vm.uiState.value.pageLookupRunning }
+
+            val asked = if (page) 2 else 1
+            assertEquals(name, asked, http.asked) // main's requests; Master's were replayed
+            assertEquals(name, if (page) 1 else 0, http.withCookie) // main's page only
+            assertEquals(name, reason, (browser.bridge.primaries.single() as SiteAdapterOutcome.Failed).reason)
+            val run = browser.module.runs.single()!!
+            assertSame(name, browser.adapter.records.single(), run.record)
+            assertEquals(name, asked, run.replayed)
+            assertEquals(name, 0, run.newRequests)
+            assertEquals(name, if (page) listOf<String?>(PAGE_BODY) else emptyList<String?>(), browser.module.pages)
+            assertNull(name, browser.store.lookup.value)
+            assertEquals(
+                name,
+                "master: route B after ${reason.name}; replayed $asked; new 0",
+                browser.vm.uiState.value.siteNotice,
+            )
+            assertTrue(name, browser.vm.openPageVideo())
+            assertEquals(name, listOf(ROW), browser.store.selection.value!!.candidates.map { it.mediaUrl })
+        }
+    }
+
+    /**
+     * Item 7 F4 (2): when Master finds nothing after main's failure midway, main's own failure
+     * stays — its message, notice, Try again and Details — with Master's details after main's
+     * (route B's line first, Master's own reason last), compared with the same lookup in a build
+     * without route B (P12: main's answer itself, no record, no line, Master never asked). Try
+     * again asks afresh in a new record and then shows Master's row.
+     */
+    @Test
+    fun whenMasterFindsNothingMainsFailureStaysWithMastersDetailsAndTryAgain() = runTest {
+        val nothing = SiteExtractionResult.Failure(
+            SiteExtractionFailure.BOT_CHECK, details = listOf("client VISIONOS: LOGIN_REQUIRED"),
+        )
+        fun browser(routeB: Boolean, http: Answering) = RouteBBrowser(
+            YouTubeAdapter(LookupRecorder(http), SiteExtractionFailure.RESPONSE_CHANGED, pageHeaders = MAIN_PAGE_HEADERS),
+            YouTubeModule(
+                RouteBHttpClient(http), pageHeaders = MASTER_PAGE_HEADERS,
+                answer = { call -> nothing.takeIf { call == 1 } },
+            ),
+            routeB = routeB,
+        )
+        val offHttp = Answering()
+        val off = browser(routeB = false, offHttp)
+        off.open()
+        settle { off.adapter.calls == 1 && !off.vm.uiState.value.pageLookupRunning }
+        val today = off.store.lookup.value!!
+        assertSame(off.bridge.primaries.single(), off.bridge.answers.single())
+        assertEquals(listOf<LookupRecord?>(null), off.adapter.records)
+        assertEquals(0, off.module.calls)
+        assertEquals(2, offHttp.asked)
+        assertTrue(today.canRetry)
+        assertTrue(today.details.none { it.startsWith("master: route B") })
+
+        val http = Answering()
+        val on = browser(routeB = true, http)
+        on.open()
+        settle { on.adapter.calls == 1 && !on.vm.uiState.value.pageLookupRunning }
+        val masters = listOf(
+            "master: route B after RESPONSE_CHANGED; replayed 2; new 0",
+            "client VISIONOS: LOGIN_REQUIRED",
+            "master: youtube module: BOT_CHECK",
+        )
+        val primary = on.bridge.primaries.single() as SiteAdapterOutcome.Failed
+        assertEquals(primary.copy(details = primary.details + masters), on.bridge.answers.single())
+        val lookup = on.store.lookup.value!!
+        assertEquals(today.failure, lookup.failure)
+        assertEquals(today.canRetry, lookup.canRetry)
+        assertEquals(today.details + masters, lookup.details)
+        assertNotNull(on.vm.uiState.value.siteNotice)
+        assertEquals(off.vm.uiState.value.siteNotice, on.vm.uiState.value.siteNotice)
+        assertNull(on.store.selection.value)
+        assertEquals(1, on.module.calls)
+        assertEquals(2, http.asked) // nothing of Master's went out
+
+        on.vm.retrySiteLookup()
+        settle { on.adapter.calls == 2 && !on.vm.uiState.value.pageLookupRunning }
+        assertEquals(2, on.module.calls)
+        assertEquals(2, on.adapter.records.size)
+        assertNotSame(on.adapter.records[0], on.adapter.records[1])
+        assertSame(on.adapter.records[1], on.module.runs[1]!!.record)
+        assertEquals(4, http.asked) // main asked afresh; Master's were replayed again
+        assertEquals("master: route B after RESPONSE_CHANGED; replayed 2; new 0", on.vm.uiState.value.siteNotice)
+        assertTrue(on.vm.openPageVideo())
+        assertEquals(listOf(ROW), on.store.selection.value!!.candidates.map { it.mediaUrl })
+    }
+
+    /**
+     * Item 7 F4 (3): main's final reasons never reach Master — main's failure stays with route B's
+     * line saying why (`master: route B not run: <reason> is final`), Master's module never runs
+     * and nothing of Master's goes out (main's 429 answers RATE_LIMITED, final). A 429 midway in a
+     * lookup main then failed recoverably: Master's identical request is answered with main's 429
+     * (replayed), its other request is refused, nothing new goes out and main's failure stays.
+     * Main's success: untouched (main's row, no notice, the backup never asked).
+     */
+    @Test
+    fun noRouteBOnMainsFinalReasonsNothingNewAfterMains429AndMainsSuccessUntouched() = runTest {
+        val final = SiteExtractionFailure.entries - TerminalRules.ROUTE_B_RECOVERABLE - SiteExtractionFailure.UNSUPPORTED_URL
+        assertEquals(TerminalRules.NEVER_FALLBACK + TerminalRules.BROWSER_REQUIRED, final.toSet())
+        for (reason in final) {
+            val http = Answering(tooMany = reason == SiteExtractionFailure.RATE_LIMITED)
+            val browser = RouteBBrowser(
+                YouTubeAdapter(LookupRecorder(http), reason, pageHeaders = MAIN_PAGE_HEADERS),
+                YouTubeModule(RouteBHttpClient(http), pageHeaders = MASTER_PAGE_HEADERS),
+            )
+            browser.open()
+            settle { browser.adapter.calls == 1 && !browser.vm.uiState.value.pageLookupRunning }
+
+            val line = "master: route B not run: ${reason.name} is final"
+            val primary = browser.bridge.primaries.single() as SiteAdapterOutcome.Failed
+            assertEquals(reason.name, primary.copy(details = primary.details + line), browser.bridge.answers.single())
+            assertEquals(reason.name, line, browser.store.lookup.value!!.details.last())
+            assertEquals(reason.name, 0, browser.module.calls)
+            assertEquals(reason.name, 2, http.asked) // main's only
+            assertNull(reason.name, browser.store.selection.value)
+        }
+
+        val http = Answering(tooMany = true)
+        val midway = RouteBBrowser(
+            YouTubeAdapter(LookupRecorder(http), SiteExtractionFailure.RESPONSE_CHANGED),
+            YouTubeModule(
+                RouteBHttpClient(http), otherClient = true,
+                answer = { SiteExtractionResult.Failure(SiteExtractionFailure.RATE_LIMITED) },
+            ),
+        )
+        midway.open()
+        settle { midway.adapter.calls == 1 && !midway.vm.uiState.value.pageLookupRunning }
+        assertTrue(midway.adapter.records.single()!!.rateLimited)
+        val run = midway.module.runs.single()!!
+        assertEquals(1, run.replayed) // main's 429
+        assertEquals(1, run.refused) // the other request
+        assertEquals(0, run.newRequests)
+        assertEquals(1, http.asked) // main's request only
+        val lines = listOf("master: route B after RESPONSE_CHANGED; replayed 1; new 0; refused 1", "master: youtube module: RATE_LIMITED")
+        val primary = midway.bridge.primaries.single() as SiteAdapterOutcome.Failed
+        assertEquals(primary.copy(details = primary.details + lines), midway.bridge.answers.single())
+        assertEquals(primary.details + lines, midway.store.lookup.value!!.details)
+        assertTrue(midway.store.lookup.value!!.canRetry)
+        assertNull(midway.store.selection.value)
+
+        val foundHttp = Answering()
+        val found = RouteBBrowser(
+            YouTubeAdapter(LookupRecorder(foundHttp), reason = null, pageHeaders = MAIN_PAGE_HEADERS),
+            YouTubeModule(RouteBHttpClient(foundHttp), pageHeaders = MASTER_PAGE_HEADERS),
+        )
+        found.open()
+        settle { found.adapter.calls == 1 && !found.vm.uiState.value.pageLookupRunning }
+        assertTrue(found.bridge.primaries.isEmpty())
+        assertEquals(0, found.module.calls)
+        assertEquals(2, foundHttp.asked)
+        assertNull(found.vm.uiState.value.siteNotice)
+        assertTrue(found.vm.openPageVideo())
+        assertEquals(listOf(MAIN_ROW), found.store.selection.value!!.candidates.map { it.mediaUrl })
+    }
+
     @Test
     fun ordinaryGenericPageDoesNotStartTheBackupAutomatically() = runTest {
         val backup = FakeBackup()
@@ -479,14 +653,65 @@ class BrowserMasterFlowTest {
         }
     }
 
-    /** Answers every request (no live call); F5: the watch page answers [PAGE_BODY]. */
-    private class Answering : ExtractorHttpClient {
+    /**
+     * Item 7 F4: one route-B YouTube browser as the app builds it — main's adapter in the
+     * coordinator, Master's engine with the module, the bridge (route B as [routeB], the trial
+     * off) as the browser holds it ([Watching]), the store and the view model.
+     */
+    private inner class RouteBBrowser(val adapter: YouTubeAdapter, val module: YouTubeModule, routeB: Boolean = true) {
+        val sites = SiteAdapterCoordinator(SiteExtractorRegistry(listOf(adapter)), MergeSupport { true })
+        val capture = WebViewPlaybackCapture(true)
+        val scope = capture.session.navigate(youtube)!!
+        val engine = MasterFallbackEngine(
+            MasterMediaValidator { found, _ -> ValidationResult.Valid(found) },
+            policy = MasterPolicy(enabled = true, youtubeRouteB = routeB),
+            modules = listOf(module),
+        )
+        val bridge = Watching(
+            AndroidBrowserMasterFallback(
+                capture, sites, engine, MergeSupport { true },
+                requestFactory = { failure, now, expected ->
+                    MasterRequest(youtube, scope.generation, now, failure, expected)
+                },
+                youtubeRouteB = routeB,
+            ),
+        )
+        val store = DetectedMediaStore()
+        val vm = BrowserViewModel(OkHttpClient(), sites, store, masterFallback = bridge)
+
+        fun open() {
+            vm.onPageStarted(youtube)
+            vm.onPageFinished(youtube, "Fixture")
+        }
+    }
+
+    /** Item 7 F4: the bridge, noting main's answer it was given and its own answer. */
+    private class Watching(private val inner: BrowserMasterFallback) : BrowserMasterFallback by inner {
+        val primaries = mutableListOf<SiteAdapterOutcome>()
+        val answers = mutableListOf<SiteAdapterOutcome>()
+        override suspend fun recover(
+            lookupUrl: String,
+            primary: SiteAdapterOutcome,
+            nowEpochMs: Long,
+            genericOnDemand: Boolean,
+        ): SiteAdapterOutcome {
+            primaries += primary
+            return inner.recover(lookupUrl, primary, nowEpochMs, genericOnDemand).also { answers += it }
+        }
+    }
+
+    /**
+     * Answers every request (no live call); F5: the watch page answers [PAGE_BODY]. F4: with
+     * [tooMany] the player endpoint answers 429.
+     */
+    private class Answering(private val tooMany: Boolean = false) : ExtractorHttpClient {
         var asked = 0
         var withCookie = 0
         override suspend fun get(url: String, headers: Map<String, String>, maxBodyBytes: Long): ExtractorHttpResult {
             asked++
             if (headers.keys.any { it.equals("Cookie", ignoreCase = true) }) withCookie++
             if (url == WATCH_PAGE) return ExtractorHttpResult.Success(200, PAGE_BODY, url, "text/html")
+            if (tooMany && url == PLAYER) return ExtractorHttpResult.Failure(SiteExtractionFailure.RATE_LIMITED, 429)
             return ExtractorHttpResult.Success(200, "{}", url, "application/json")
         }
         override suspend fun postJson(
@@ -500,7 +725,8 @@ class BrowserMasterFlowTest {
     /**
      * Item 7 R3: main's YouTube adapter stand-in — asks the player endpoint once, then fails with
      * [reason] (R4: null = finds its own row, [MAIN_ROW]). F5: with [pageHeaders] it then reads
-     * the watch page with them (the tab's cookie), as after a bot-checked visionOS answer.
+     * the watch page with them (the tab's cookie), as after a bot-checked visionOS answer. F4: it
+     * notes the lookup record it ran in ([records]).
      */
     private inner class YouTubeAdapter(
         private val http: ExtractorHttpClient,
@@ -510,10 +736,12 @@ class BrowserMasterFlowTest {
         override val id = "youtube"
         override val displayName = "Fixture YouTube"
         var calls = 0
+        val records = mutableListOf<LookupRecord?>()
         override fun identify(pageUrl: String): SitePageIdentity? =
             if (pageUrl == youtube) SitePageIdentity(id, YOUTUBE_ID, pageUrl) else null
         override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
             calls++
+            records += coroutineContext[LookupRecord]
             http.postJson(PLAYER, PLAYER_BODY, emptyMap(), MAX_BODY)
             pageHeaders?.let { http.get(WATCH_PAGE, it, MAX_BODY) }
             return reason?.let { SiteExtractionResult.Failure(it) } ?: SiteExtractionResult.Success(
@@ -530,11 +758,15 @@ class BrowserMasterFlowTest {
 
     /**
      * Item 7 R3: Master's YouTube module stand-in — main's request again, through route B. F5: with
-     * [pageHeaders] it then reads the watch page with them (no cookie) and keeps what it got.
+     * [pageHeaders] it then reads the watch page with them (no cookie) and keeps what it got. F4:
+     * with [otherClient] it also asks another client's player request; [answer] (by call number)
+     * replaces its row, as when Master finds nothing.
      */
     private inner class YouTubeModule(
         private val http: ExtractorHttpClient,
         private val pageHeaders: Map<String, String>? = null,
+        private val otherClient: Boolean = false,
+        private val answer: (Int) -> SiteExtractionResult? = { null },
     ) : MasterSiteModule {
         var calls = 0
         val runs = mutableListOf<RouteBLookup?>()
@@ -547,6 +779,8 @@ class BrowserMasterFlowTest {
             runs += coroutineContext[RouteBLookup]
             http.postJson(PLAYER, PLAYER_BODY, emptyMap(), MAX_BODY)
             pageHeaders?.let { pages += (http.get(WATCH_PAGE, it, MAX_BODY) as? ExtractorHttpResult.Success)?.body }
+            if (otherClient) http.postJson(PLAYER, OTHER_BODY, emptyMap(), MAX_BODY)
+            answer(calls)?.let { return it }
             return SiteExtractionResult.Success(
                 listOf(
                     MediaCandidate(
@@ -585,6 +819,9 @@ class BrowserMasterFlowTest {
         const val YOUTUBE_ID = "Yft0Fixture"
         const val PLAYER = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
         const val PLAYER_BODY = "{\"videoId\":\"Yft0Fixture\"}"
+
+        /** F4: another client's player request for the same video (not one of main's). */
+        const val OTHER_BODY = "{\"videoId\":\"Yft0Fixture\",\"context\":{\"client\":{\"clientName\":\"OTHER\"}}}"
         const val MAX_BODY = 2L * 1024 * 1024
         const val ROW = "https://cdn.test/yt/master.mp4"
         const val MAIN_ROW = "https://cdn.test/yt/main.mp4"
