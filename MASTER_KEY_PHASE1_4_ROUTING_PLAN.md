@@ -10,9 +10,14 @@ bot check, so route B gave no rows and main's failure stayed (as §2 wants); a f
 again (why route B did not run there is not logged), and a 429 or bot check of main's was not met.
 R6 docs 2026-10-18. Review follow-ups (§8): F1 done 2026-10-18 (the player-script client: a 429 on a
 script fetch stops route B, Master's script fetches are counted); F2 done 2026-10-18 (a lookup where
-route B gives no answer says why in Details: `master: route B not run: …`); next a `routeb` phone run
-(D7 run 8, ⏸ owner), then F3 / F4. Promotion (flag on in normal builds) is the owner's decision
-(§5.5), after F4.
+route B gives no answer says why in Details: `master: route B not run: …`). D7 run 8 (owner's phone,
+2026-10-18, §7): V1 Master's rows after Try again (`replayed 1; new 0`); V2 / V3 no rows — the
+replayed visionOS answer was a bot check and the module's watch page (with the tab's cookie) was
+refused, limit (a); first opens skipped on a remembered answer (P17, limit (b), trial only); the
+joined lookup (F3) never showed. **Final plan (§9, 2026-10-18):** F3 deferred; **F5** (the owner's
+cookie decision: Master reads main's watch page from the lookup, never sends a cookie) → **F4** (a
+real failure midway, offline) → D7 run 9 (⏸ owner) → promotion (flag on in normal builds), the
+owner's decision (§5.5).
 Backlog pointer: `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Same contract as the social sites:
 `MASTER_KEY_SOCIAL_PLAN.md` §2.1 decisions #7 (routing B / B+ / A) and #8 (lookup = main + Master,
 per-lookup request recorder). Agent prompt: `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md`.
@@ -29,6 +34,15 @@ Master rows ရ (`replayed 1; new 1`၊ 720p / 360p ဖိုင် ဖွင့
 အဖြေက bot check ဖြစ်ပြီး နောက်တစ်ဆင့် watch page မှာ browser cookie ပါလို့ route B က မပို့ — Master rows မရ၊
 main ရဲ့ failure ပဲ ကျန် (rule အတိုင်း)။ ပထမအကြိမ် ဖွင့်ရင် Try again လိုတတ်။ Flag off ဆက်ထား၊ promote
 မလုပ်ရသေး (owner ဆုံးဖြတ်ရန်)။
+
+**D7 run 8 ရလဒ်နဲ့ Final plan (owner, 2026-10-18):** V1 — ပထမဖွင့်ရင် route B မ run (main ရဲ့ မှတ်ထားတဲ့
+အဖြေကို ပြန်သုံး၊ P17)၊ Try again နှိပ်မှ Master rows ရ (`replayed 1; new 0`)။ V2/V3 — route B run တယ်၊
+ပြန်သုံးတဲ့ visionOS အဖြေက bot check ဖြစ်ပြီး tab cookie ပါတဲ့ watch page ကို မပို့လို့ (`refused 1`) rows မရ၊
+main ရဲ့ failure ပဲ ကျန် (rule အတိုင်း)။ Wrong rows 0၊ cookie ပါတဲ့ request 0၊ JOINED မတွေ့။ **ဆုံးဖြတ်ချက် (§9):**
+F3 ရွှေ့ထား (JOINED တွေ့မှ ပြန်ဖွင့်)။ Trial ရဲ့ ပထမဖွင့်တဲ့ကိစ္စ မပြင် (Try again)။ Cookie rule ကို owner က
+agent ဆုံးဖြတ်ခွင့်ပေး → **F5:** Master က cookie ဘယ်တော့မှ မပို့၊ main ဖတ်ပြီးသား watch page အဖြေကို lookup
+အတွင်း memory ကနေ တစ်ကြိမ် ပြန်ဖတ်ခွင့် (request အသစ် 0)။ Cookie မပါတဲ့ watch page ကို ထပ်တောင်းတာ မလုပ်။
+ပြီးရင် **F4** (main တကယ်ကျတဲ့ case တွေ offline tests) → **D7 run 9** ဖုန်းစစ် → promote လုပ်မလား owner ဆုံးဖြတ်။
 
 ## 1. Today (verified 2026-10-17, spike `4235716`)
 
@@ -59,12 +73,14 @@ main ရဲ့ failure ပဲ ကျန် (rule အတိုင်း)။ ပ�
 - Never: main success touched; NEVER_FALLBACK or BROWSER_REQUIRED reasons answered on YouTube;
   `masterFirstSite` changed (stays debug only); a found page relabeled `UNSUPPORTED_URL`.
 - One lookup = main + Master (decision #8). Main's identical unauthenticated answers are replayed
-  from memory, not asked again; authorized (cookie) answers are never kept or replayed; after a 429
-  in the lookup no new YouTube request; new requests only from rungs main lacks (A/O/H/V) within
-  existing budgets (guardrail 7; D1 target H2 ≤ 1 player request, complete).
-- Out of scope (Phase 1.3 §8 kept): SABR, PO tokens, MSE, TV, bypass, cookies / sign-in, main merge
-  and release. **B+** (Master adds formats main lacks) and **A** (Master primary, separate flag,
-  ground rule 2) are later items, not this one.
+  from memory, not asked again; authorized (cookie) answers are never kept or replayed — one
+  exception from F5 (§9, the owner's cookie decision 2026-10-18): main's watch page answer, read
+  once by Master from the lookup instead of asking again; Master never sends a cookie or another
+  authorization; after a 429 in the lookup no new YouTube request; new requests only from rungs main
+  lacks (A/O/H/V) within existing budgets (guardrail 7; D1 target H2 ≤ 1 player request, complete).
+- Out of scope (Phase 1.3 §8 kept): SABR, PO tokens, MSE, TV, bypass, cookies / sign-in (Master
+  never sends them; F5 only reads main's page), main merge and release. **B+** (Master adds formats
+  main lacks) and **A** (Master primary, separate flag, ground rule 2) are later items, not this one.
 - Locked and unchanged: the 5 copied YouTube files (byte-for-byte, drift 0), `ShapeLocator`,
   `ShapeNormalizer`, `Rungs`; `extractor-sites` untouched (tests-only dependency stays).
 
@@ -103,6 +119,11 @@ main ရဲ့ failure ပဲ ကျန် (rule အတိုင်း)။ ပ�
 3. Is keeping main's unauthenticated answers in memory for replay allowed?
 4. Budget numbers (new requests per lookup; H2 ≤ 1 player request).
 5. Promotion (flag on in normal builds) only after the R5 phone runs.
+6. **Cookie rule (owner, 2026-10-18, after D7 run 8):** the agent's call ("do what works",
+   approved). Chosen (§9, F5): Master never sends a cookie; main's watch page answer may be read once
+   from the lookup's memory. Not chosen: a cookie-less watch page asked again.
+7. **F3 and the trial's first open (2026-10-18):** F3 deferred until a joined lookup shows; the
+   trial's first open stays (Try again). F4 is needed before promotion (§9).
 
 ## 6. Stop rules
 
@@ -282,15 +303,32 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   new `routeBSaysWhyItNeverAskedMaster`, flag off: main's answer itself), `SiteLookupCacheTest`
   (`aLookupsRecordNotesAnAnswerItDidNotAskFor`), `LookupRecordTest` (the note); the lookup tests
   (47) and `MasterFallbackEngineTest` pass. D7 run 8 builds `routeb` with it for the phone run.
+- **D7 run 8 phone check (owner, 2026-10-18; run 39095306817 on `8584519`, `routeb`).** V1
+  `dQw4w9WgXcQ`: first open → the trial's message with `master: route B not run: skipped
+  (RESPONSE_CHANGED); main's requests in this lookup: 0; main's answer reused: its remembered answer
+  (P17)`; Try again → Master's rows (MP3 192 / 128 made on the phone, 2160p / 1440p WebM, 1080p,
+  720p, 480p, 360p, 240p MP4; 3:33) and the notice `master: route B after RESPONSE_CHANGED; replayed
+  1; new 0`. V2 `jNQXAC9IVRw` (main's 3 rows set aside) and V3 `aqz-KE-bpKQ` (9): route B ran and
+  gave no rows, the trial's message kept, the same on Try again — Details `master: route B after
+  RESPONSE_CHANGED; replayed 1; new 0; refused 1`, `client VISIONOS: LOGIN_REQUIRED; with URLs: 0
+  progressive, 0 adaptive; SABR no`, `client VISIONOS reason: Sign in to confirm you're not a bot`,
+  `visionOS first: no playable answer, so the watch page is read`, `watch page GET failed (NETWORK)`,
+  `ladder H: no HLS address`, `master: youtube module: NETWORK`; V2 re-opened: the remembered-answer
+  line. **Reading:** limit (b) is P17's cache — main's success is remembered and a lookup in its
+  window asks nothing, so the record holds no request of main's and the engine skips; trial only (a
+  real failure is never remembered, and Try again asks afresh). The joined lookup (F3) never showed.
+  Limit (a) as in R5: the module's watch page GET carries the tab's cookie and rule 1 refuses it. §2
+  held: wrong rows 0, nothing with a cookie sent, main's failure kept whenever Master had no rows.
+  V1's `new 0` (R5: `new 1`): Master's rows came from the replayed visionOS answer alone.
 - **Item 7 status (2026-10-18): built behind the flag, not promoted.** `-Pyft.youtubeRouteB` stays
   off in every normal build (flag off = today, P12); promotion is the owner's decision (§5.5).
   Limits seen on the phone: (a) when the replayed visionOS answer is a bot check (or another
   unplayable answer), the module's next step, the watch page, carries the tab's cookie and is never
   sent (rule 1), so route B gives no rows and main's failure stays; (b) a lookup answered from
   main's reused answer (P17's shared lookup or cache) has no request of main's in its record, so
-  route B is skipped and the trial needs Try again (F2: Details now say so, and which reuse). Possible follow-ups, not planned (the owner's
-  call): a route-B way past a bot-checked visionOS answer (for example the watch page without the
-  user's cookie; it needs a decision on §2's rules); the trial asking main afresh on a first open.
+  route B is skipped and the trial needs Try again (F2: Details now say so, and which reuse). Next (§9, final plan): (a) → F5, Master
+  reads main's watch page from the lookup (no cookie-less page); (b) stays (trial only, Try again);
+  then F4 and D7 run 9.
 
 ## 8. Review follow-ups (2026-10-18)
 
@@ -302,11 +340,72 @@ commit, tests + CI green before the next; §6's stop rules hold.
 - **F2 — why route B was skipped (done, §7).** A lookup where route B does not run gets a Details
   line saying why (no record; a record without main's requests: a reused cached answer or a joined
   shared lookup, P17; a final reason; no page to ask or another page; the page changed), shown in the
-  trial's sheet; next one `routeb` phone run (⏸ owner, D7 run 8) on first opens.
-- **F3 — the joined lookup (if F2 shows it).** A lookup that joined another caller's shared lookup
-  records into that caller's record, so its own record has no request of main's and route B is
-  skipped, also after a real failure.
-- **F4 — a failure midway (offline).** Tests where main fails with a recoverable reason after it asked
-  (not the trial's found page), so route B's answer is shown on a real failure; then the owner's
-  promotion decision (§5.5).
+  trial's sheet. D7 run 8 (§7): first opens said `main's answer reused: its remembered answer (P17)`;
+  the joined lookup never showed.
+- **F3 — the joined lookup (deferred, 2026-10-18).** A lookup that joined another caller's shared
+  lookup records into that caller's record, so its own record has no request of main's and route B is
+  skipped, also after a real failure. D7 run 8 showed only the remembered answer, so F3 is not built
+  now; not seen is no proof of no risk — reopen when a Details line says `another caller's running
+  lookup (P17)`.
+- **F4 — a failure midway (offline; after F5).** App-flow tests (`BrowserMasterFlowTest`,
+  `BrowserMasterFallbackTest`; the engine and the simulator where they need it) where main asks and
+  then fails with a recoverable reason (§2's set) — not the trial's found page — check three things:
+  (1) Master's rows reach the sheet with route B's notice and counts: from main's replayed visionOS
+  answer (a moved shape: L, 0 new player requests) and, with F5, from main's replayed watch page
+  after a bot-checked visionOS answer (0 new pages); (2) when Master finds nothing, main's own
+  failure stays (reason, message, Try again) with Master's details after main's; (3) no route B on
+  main's final reasons (`BOT_CHECK`, `LOGIN_REQUIRED`, `PLAYER_SCRIPT_REQUIRED`, `RATE_LIMITED`, …),
+  nothing new after main's 429, main's success untouched, flag off = today (P12). This covers R5's
+  open check (4) offline. Tests first; a bug they find is fixed in the same step (§6).
+- **F5 — main's watch page for route B (the owner's cookie decision, 2026-10-18; before F4).**
+  Limit (a): after a bot-checked visionOS answer (run 8: V2, V3) main's rows come from the watch
+  page main read with the tab's cookie; that answer is never kept and Master's own GET of the page is
+  refused (rule 1), so route B can never help there, also after a real failure. Change
+  (`extractor-master` `lookup` only; no locked file): the lookup's record also keeps main's answer to
+  the lookup's watch page GET (the looked-up video's page address, one per lookup) when main's
+  request carried the cookie — kept as rule 2 keeps main's other answers (Set-Cookie dropped, inside
+  the caps, dropped at the lookup's end) but keyed without the cookie (its value is neither kept nor
+  compared); Master's GET of that address (same method, address and body; same headers but
+  `Cookie`) is answered from it once — replayed, counted, never sent. Unchanged: Master never sends a
+  cookie or another authorization (rule 1 refuses every other authorized request); no other
+  authorized answer is kept; Master's new requests carry at most what main's own requests from that
+  page carried (its visitor data, P22), never the cookie, an authorization, the account's data-sync
+  identifier or a PO token; a 429 stops new requests; ≤ 1 watch page per lookup (guardrail 7);
+  nothing logged; flag off and every other build unchanged (no record). Not done: a cookie-less
+  watch page asked again (a second page per lookup, more 429 risk, and likely the same bot check
+  the cookie-less visionOS request met). Tests: `LookupRecordTest` and `RouteBHttpClientTest` (main's
+  page kept for main only, once, within the caps and the lookup; other authorized answers never kept;
+  another address refused; no cookie in any text), `RouteBSimTest` (bot-checked visionOS: Master
+  complete from main's page, 0 credentials sent, ≤ 1 page), `BrowserMasterFlowTest` (the trial on a
+  V2-like page: Master's row and `replayed 2`). Push with `[d7]` (`.github/d7-apks.txt` `run 9`).
 
+## 9. Final plan (2026-10-18, after D7 run 8)
+
+The owner (2026-10-18): the cookie rule is the agent's call ("do what works", approved); this plan is
+pushed docs only and the next agent goes on from it (prompt: `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md`,
+follow-ups). Decisions:
+
+| Item | Decision | Why |
+|---|---|---|
+| F3, the joined lookup | Deferred; reopen on an `another caller's running lookup (P17)` line | Run 8 showed only the remembered answer |
+| Limit (b), the trial's first open | Unchanged: tap Try again; no cache change | Trial only: a real failure is never remembered, and Try again asks afresh |
+| Limit (a), the cookie rule | F5: Master reads main's watch page from the lookup and never sends a cookie | 0 new requests, ≤ 1 page per lookup; Master already holds the tab's cookie in its request context and still never sends it |
+| A cookie-less watch page | Not done | A second page per lookup (guardrail 7), more 429 risk, likely the same bot check |
+| F4 | Needed, after F5 | Proves the real-failure path and R5's open check (4), offline |
+| Promotion (§5.5) | The owner's, after F5, F4 and run 9 | Flag on in normal builds changes real lookups |
+
+Order (one step per commit, tests + CI green before the next; §6's stop rules hold):
+
+1. **F5** (§8): push with `[d7]` (`.github/d7-apks.txt` `run 9`), so the APKs are ready for the
+   owner.
+2. **F4** (§8): tests; fix only what they find. No `[d7]` unless app or extractor code changed (then
+   the run number moves on and the owner tests the latest run).
+3. **D7 run 9 (⏸ owner):** (1) `normal`: V1–V3 as before, no notice. (2) `routeb`: V1–V3 from the
+   address bar; if Details say `main's answer reused: its remembered answer (P17)`, tap Try again
+   once. Expected: Master's rows with `master: route B after RESPONSE_CHANGED; replayed N; new M` on
+   all three (V2 / V3 now N ≥ 2: visionOS and the page); per video download one AVC row with sound:
+   it plays, duration ±2 s of the page's, height as its row says (wrong rows 0). (3) No rows: send
+   Details; an `another caller's running lookup` line reopens F3.
+4. **Promotion (owner, §5.5).** Suggested gate: F5 and F4 green; run 9 gives Master's rows on V1–V3
+   that play, wrong rows 0, `normal` unchanged; Master sent nothing with a cookie (tests). Promotion
+   turns `-Pyft.youtubeRouteB` on in normal builds; the trial switch stays debug only.

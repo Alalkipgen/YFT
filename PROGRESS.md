@@ -1,5 +1,18 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 item 7 — route B D7 run 8 phone check and the final plan (2026-10-18), docs only
+
+- D7 run 8 (`routeb`, run 39095306817 on `8584519`, owner's phone): V1 — first open skipped
+  (`main's answer reused: its remembered answer (P17)`), Try again → Master's rows and
+  `replayed 1; new 0`; V2 / V3 — route B ran, the replayed visionOS answer was a bot check and the
+  module's watch page (with the tab's cookie) was refused: `replayed 1; new 0; refused 1`, no rows,
+  main's failure kept. The joined lookup (F3) never showed. Wrong rows 0; nothing with a cookie sent.
+- Final plan (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §9): F3 deferred; the trial's first open
+  unchanged (Try again); the owner's cookie decision → F5: Master reads main's watch page from the
+  lookup once and never sends a cookie (no cookie-less page asked again); then F4 (a real failure
+  midway, offline), D7 run 9 (⏸ owner) and the owner's promotion decision. Next agent's prompt:
+  `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md` (follow-ups). No code.
+
 ## Phase 1.4 item 7 — route B F2: Details say why route B did not run (2026-10-18)
 
 - Review follow-up (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §8): R5's first opens showed the trial's
