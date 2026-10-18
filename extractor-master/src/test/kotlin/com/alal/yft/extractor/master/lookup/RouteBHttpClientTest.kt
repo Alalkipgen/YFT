@@ -28,6 +28,10 @@ class RouteBHttpClientTest {
     private val other = """{"context":{"client":{"clientName":"VISIONOS","clientVersion":"2.0"}},"videoId":"Yft0Fixture"}"""
     private val headers = linkedMapOf("Content-Type" to "application/json", "User-Agent" to "YftTest/1.0")
 
+    /** F5: main's watch page GET with the tab's cookie, and the same GET without it (Master's). */
+    private val signedInPage = linkedMapOf("User-Agent" to "YftTest/1.0", "Cookie" to "SID=fixture", "Accept-Language" to "en", "Accept" to "text/html")
+    private val pageHeaders = linkedMapOf("User-Agent" to "YftTest/1.0", "Accept-Language" to "en", "Accept" to "text/html")
+
     @Test
     fun `without a route-B lookup every request passes through, also inside a lookup's record`() = runTest {
         val http = counting()
@@ -302,6 +306,128 @@ class RouteBHttpClientTest {
         assertEquals("replayed 0; new 0", RouteBLookup(LookupRecord()).summary())
     }
 
+    @Test
+    fun `F5 - Master's cookie-less GET of the watch page main read with the cookie is replayed once, never sent`() = runTest {
+        val http = counting()
+        val record = LookupRecord(watchPageVideoId = VIDEO)
+        withContext(record) { LookupRecorder(http).get(page, signedInPage, MAX) }
+        val route = RouteBLookup(record)
+        val master = RouteBHttpClient(http)
+
+        val (first, second) = withContext(record + route) {
+            master.get(page, LinkedHashMap(pageHeaders), MAX) to master.get(page, pageHeaders, MAX)
+        }
+
+        assertEquals("answer 1", (first as ExtractorHttpResult.Success).body)
+        assertEquals(SiteExtractionFailure.NETWORK, (second as ExtractorHttpResult.Failure).reason)
+        assertEquals(1, http.requestedUrls.size) // main's page only
+        assertEquals(1, route.replayed)
+        assertEquals(0, route.newRequests)
+        assertEquals(1, route.refused)
+        assertEquals(0, record.masterAsks)
+        assertEquals("replayed 1; new 0; refused 1", route.summary())
+    }
+
+    @Test
+    fun `F5 - another page GET is refused, never sent - one watch page per lookup`() = runTest {
+        val http = counting()
+        val record = LookupRecord(watchPageVideoId = VIDEO)
+        withContext(record) { LookupRecorder(http).get(page, signedInPage, MAX) }
+        val route = RouteBLookup(record)
+        val master = RouteBHttpClient(http)
+        val refused = listOf(
+            page to signedInPage, // the cookie: rule 1
+            page to pageHeaders + ("Authorization" to "SAPISIDHASH fixture"),
+            page to pageHeaders + ("User-Agent" to "YftTest/2.0"), // other headers: main asked it (rule 4)
+            page to pageHeaders + ("X-Goog-Visitor-Id" to "v"),
+            "$page&x=1" to pageHeaders, // another address of the page
+            "https://www.youtube.com/watch?v=Yft1Fixture&bpctr=9999999999&has_verified=1" to pageHeaders, // another video's
+            "https://www.youtube.com/watch?v=$VIDEO" to pageHeaders,
+            "https://m.youtube.com/watch?v=$VIDEO" to pageHeaders,
+            "https://www.youtube.com/embed/$VIDEO" to pageHeaders,
+        )
+
+        withContext(record + route) {
+            for ((address, sent) in refused) {
+                assertEquals(address, SiteExtractionFailure.NETWORK, (master.get(address, sent, MAX) as ExtractorHttpResult.Failure).reason)
+            }
+            // The page itself still answers once, from main's answer.
+            assertTrue(master.get(page, pageHeaders, MAX) is ExtractorHttpResult.Success)
+        }
+
+        assertEquals(1, http.requestedUrls.size)
+        assertEquals(refused.size, route.refused)
+        assertEquals(1, route.replayed)
+        assertEquals(0, route.newRequests)
+    }
+
+    @Test
+    fun `F5 - Master's own page goes out only when no page was asked in the lookup, once`() = runTest {
+        val http = counting()
+        val record = LookupRecord(watchPageVideoId = VIDEO)
+        withContext(record) { LookupRecorder(http).postJson(player, body, headers, MAX) }
+        val route = RouteBLookup(record)
+        val master = RouteBHttpClient(http)
+
+        withContext(record + route) {
+            assertTrue(master.get(page, pageHeaders, MAX) is ExtractorHttpResult.Success) // new, as before F5
+            val other = "https://www.youtube.com/watch?v=Yft1Fixture&bpctr=9999999999&has_verified=1"
+            assertEquals(SiteExtractionFailure.NETWORK, (master.get(other, pageHeaders, MAX) as ExtractorHttpResult.Failure).reason)
+            assertEquals(SiteExtractionFailure.NETWORK, (master.get("$page&x=1", pageHeaders, MAX) as ExtractorHttpResult.Failure).reason)
+        }
+
+        assertEquals(1, http.requestedUrls.size) // Master's one page
+        assertEquals(1, route.newRequests)
+        assertEquals(2, route.refused)
+    }
+
+    @Test
+    fun `F5 - other authorized answers are never kept or replayed, and nothing new goes out after a 429`() = runTest {
+        val http = FakeExtractorHttpClient(
+            postResponder = { _, sent -> if (sent == body) ok("player") else ExtractorHttpResult.Failure(SiteExtractionFailure.RATE_LIMITED, 429) },
+            getResponder = { _, _ -> ok("page") },
+        )
+        val record = LookupRecord(watchPageVideoId = VIDEO)
+        withContext(record) {
+            val main = LookupRecorder(http)
+            main.get(page, signedInPage, MAX)
+            main.postJson(player, body, signedInPage, MAX) // the page client with the cookie: never kept
+        }
+        val route = RouteBLookup(record)
+        val master = RouteBHttpClient(http)
+        withContext(record + route) {
+            assertEquals("page", (master.get(page, pageHeaders, MAX) as ExtractorHttpResult.Success).body)
+            // Main's authorized answer is not replayed, and its endpoint is not asked again (rule 4).
+            assertEquals(SiteExtractionFailure.NETWORK, (master.postJson(player, body, pageHeaders, MAX) as ExtractorHttpResult.Failure).reason)
+            assertEquals(SiteExtractionFailure.NETWORK, (master.postJson(player, body, signedInPage, MAX) as ExtractorHttpResult.Failure).reason)
+        }
+        assertEquals(1, http.requestedUrls.size)
+        assertEquals(1, http.postedUrls.size)
+        assertEquals("replayed 1; new 0; refused 2", route.summary())
+        assertEquals(1, record.keptCount) // the page only
+
+        // After main's 429 the page is still replayed, and nothing new goes out.
+        val limited = LookupRecord(watchPageVideoId = VIDEO)
+        withContext(limited) {
+            val main = LookupRecorder(http)
+            main.get(page, signedInPage, MAX)
+            main.postJson(player, other, headers, MAX) // 429
+        }
+        assertTrue(limited.rateLimited)
+        val after = RouteBLookup(limited)
+        withContext(limited + after) {
+            assertEquals("page", (master.get(page, pageHeaders, MAX) as ExtractorHttpResult.Success).body)
+            assertEquals(SiteExtractionFailure.RATE_LIMITED, (master.postJson(player, body, pageHeaders, MAX) as ExtractorHttpResult.Failure).reason)
+            assertEquals(SiteExtractionFailure.NETWORK, (master.postJson(player, body, signedInPage, MAX) as ExtractorHttpResult.Failure).reason)
+        }
+        assertEquals(2, http.requestedUrls.size) // main's two pages
+        assertEquals(2, http.postedUrls.size) // main's two player requests
+        assertEquals("replayed 1; new 0; refused 2", after.summary())
+
+        val text = listOf(route.summary(), route.toString(), record, record.asks(), limited, limited.asks()).joinToString(" ")
+        for (shown in listOf("SID", "fixture", "youtube", VIDEO, "Cookie")) assertFalse(shown, text.contains(shown, ignoreCase = true))
+    }
+
     private fun counting(): FakeExtractorHttpClient {
         var calls = 0
         return FakeExtractorHttpClient(
@@ -316,5 +442,6 @@ class RouteBHttpClientTest {
     private companion object {
         const val MAX = 2L * 1024 * 1024
         const val MEDIA = "https://rr1---sn-test.googlevideo.com/videoplayback?itag=18&id=o-test"
+        const val VIDEO = "Yft0Fixture"
     }
 }

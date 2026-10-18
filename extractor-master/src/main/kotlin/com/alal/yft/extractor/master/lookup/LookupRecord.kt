@@ -3,6 +3,7 @@ package com.alal.yft.extractor.master.lookup
 import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.ExtractorProbeResult
 import com.alal.yft.extractor.api.SiteExtractionFailure
+import com.alal.yft.extractor.master.modules.youtube.YouTubeUrls
 import com.alal.yft.extractor.master.modules.youtube.ladder.LookupMemo
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
@@ -30,11 +31,23 @@ import kotlin.coroutines.CoroutineContext
  * headers in order) once. Bounded: at most [maxKept] answers and [maxKeptChars] characters, at
  * most [MAX_LISTED] asks listed (more are counted). Nothing is logged; [toString] and the counts
  * show no address, body or header.
+ *
+ * F5 (the owner's cookie decision, `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §8): a record that names
+ * the lookup's video ([watchPageVideoId], set by the app's route-B build for a YouTube lookup) also
+ * keeps main's answer to that video's watch page GET (`YouTubeUrls.watchPageFetchUrl`, no body)
+ * when main's request carried the tab's cookie and no other credential — main's first such GET in
+ * the lookup only, inside the same caps, without the cookies the answer set, and keyed by the same
+ * request without its `Cookie` header ([LookupAsk.withoutCookie]): the cookie's value is neither
+ * kept nor compared, and only a request that carries no credential is ever answered from it.
+ * Every other authorized answer is still never kept. Without a name (every other record) nothing
+ * changes.
  */
 class LookupRecord(
     private val clock: () -> Long = System::currentTimeMillis,
     private val maxKept: Int = MAX_KEPT,
     private val maxKeptChars: Long = MAX_KEPT_CHARS,
+    /** F5: the lookup's YouTube video ID; null (or not an ID): no watch page is kept. */
+    watchPageVideoId: String? = null,
 ) : AbstractCoroutineContextElement(LookupRecord) {
     init {
         require(maxKept in 1..MAX_KEPT)
@@ -87,6 +100,15 @@ class LookupRecord(
     private var rateLimitedTotal = 0
     private var reused: Reuse? = null
 
+    /** F5: the address of the lookup's watch page, or null when this record keeps none. */
+    private val watchPage: String? = watchPageVideoId?.takeIf(VIDEO_ID::matches)?.let(YouTubeUrls::watchPageFetchUrl)
+
+    /** F5: main's first cookie GET of [watchPage] came (kept or over the caps). */
+    private var watchPageTaken = false
+
+    /** F5 (guardrail 7): watch pages asked in this lookup, main's or Master's ([LookupAsk.watchPage]). */
+    private var watchPagesAsked = 0
+
     /** The lookup's clock, for an ask's start. */
     fun now(): Long = clock()
 
@@ -125,9 +147,17 @@ class LookupRecord(
     /** Whether [ask]'s endpoint (method, address and body, whatever the headers) was asked. */
     fun asked(ask: LookupAsk): Boolean = synchronized(lock) { ask.endpoint in endpoints }
 
-    /** [ask]'s answer [result]; main's unauthenticated answer is kept for one replay. */
+    /** F5 (guardrail 7): whether a watch page was asked in this lookup, by main or by Master. */
+    val watchPageAsked: Boolean get() = synchronized(lock) { watchPagesAsked > 0 }
+
+    /**
+     * [ask]'s answer [result]; main's unauthenticated answer is kept for one replay, and (F5) main's
+     * first cookie GET of the named watch page, keyed without the cookie.
+     */
     fun record(ask: LookupAsk, result: ExtractorHttpResult, startedAtMillis: Long, asker: Asker = Asker.MAIN) {
-        val keep = asker == Asker.MAIN && keepable(ask)
+        val page = asker == Asker.MAIN && isNamedPage(ask)
+        val keep = asker == Asker.MAIN && (keepable(ask) || page)
+        val key = if (page) ask.withoutCookie() else ask
         val copy = when (result) {
             is ExtractorHttpResult.Success -> result.copy(cookies = emptyList())
             is ExtractorHttpResult.Failure -> result
@@ -139,9 +169,11 @@ class LookupRecord(
         }
         val limited = limited(status, failure)
         synchronized(lock) {
-            val stored = keep && keptEntries < maxKept && keptChars + chars <= maxKeptChars
+            val first = !page || !watchPageTaken
+            if (page) watchPageTaken = true
+            val stored = keep && first && keptEntries < maxKept && keptChars + chars <= maxKeptChars
             if (stored) {
-                kept.getOrPut(ask) { ArrayDeque() }.addLast(copy)
+                kept.getOrPut(key) { ArrayDeque() }.addLast(copy)
                 keptEntries++
                 keptChars += chars
                 keptTotal++
@@ -224,6 +256,10 @@ class LookupRecord(
     private fun keepable(ask: LookupAsk): Boolean =
         !ask.authorized && ask.method != LookupAsk.PROBE && LookupMemo.memoable(ask.url)
 
+    /** F5: a GET of the named watch page (no body) that carries the tab's cookie and no other credential. */
+    private fun isNamedPage(ask: LookupAsk): Boolean = watchPage != null && ask.method == LookupAsk.GET &&
+        ask.url == watchPage && ask.body == null && ask.cookieOnly && LookupMemo.memoable(ask.url)
+
     /** An answer that is a 429 or a rate limit. */
     private fun limited(status: Int?, failure: SiteExtractionFailure?): Boolean =
         failure != null && (status == HTTP_TOO_MANY || failure == SiteExtractionFailure.RATE_LIMITED)
@@ -241,6 +277,7 @@ class LookupRecord(
     ) {
         counts[asker.ordinal]++
         endpoints += ask.endpoint
+        if (ask.watchPage) watchPagesAsked++
         if (limited) rateLimitedTotal++
         if (listed.size >= MAX_LISTED) return
         val now = clock()
@@ -265,5 +302,6 @@ class LookupRecord(
         const val MAX_KEPT_CHARS = 8L * 1024 * 1024
         const val MAX_LISTED = 64
         private const val HTTP_TOO_MANY = 429
+        private val VIDEO_ID = Regex("^[A-Za-z0-9_-]{11}$")
     }
 }

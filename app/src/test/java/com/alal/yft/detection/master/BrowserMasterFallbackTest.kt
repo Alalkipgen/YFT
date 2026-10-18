@@ -29,6 +29,7 @@ import com.alal.yft.extractor.master.android.CodecSteering
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
 import com.alal.yft.extractor.master.modules.MasterSiteModule
 import com.alal.yft.extractor.master.contract.SiteContracts
+import com.alal.yft.extractor.master.lookup.LookupAsk
 import com.alal.yft.extractor.master.lookup.LookupRecord
 import com.alal.yft.extractor.master.lookup.LookupRecorder
 import com.alal.yft.extractor.master.lookup.RouteBHttpClient
@@ -238,6 +239,32 @@ class BrowserMasterFallbackTest {
         val masterOff = Fixture(YOUTUBE_PAGE, enabledBuild = false, extractor = youTubeExtractor(), youtubeRouteB = true)
         assertSame(none, masterOff.bridge.lookupContext(YOUTUBE_PAGE))
         assertSame(none, BrowserMasterFallback.None.lookupContext(YOUTUBE_PAGE))
+    }
+
+    /**
+     * Item 7 F5: a route-B YouTube lookup's record names the looked-up video's watch page — main's
+     * GET of it with the tab's cookie is kept for one replay of the same GET without the cookie;
+     * another video's page is not kept.
+     */
+    @Test
+    fun aRouteBRecordKeepsMainsCookieGetOfTheLookedUpVideosPageForOneReplay() = runTest {
+        val bridge = Fixture(YOUTUBE_PAGE, extractor = youTubeExtractor(), youtubeRouteB = true).bridge
+        val record = bridge.lookupContext(YOUTUBE_PAGE)[LookupRecord]!!
+        val http = YouTubeHttp()
+        val withCookie = linkedMapOf("User-Agent" to "YftTest/1.0", "Cookie" to "SID=fixture", "Accept-Language" to "en")
+        val cookieLess = linkedMapOf("User-Agent" to "YftTest/1.0", "Accept-Language" to "en")
+        val other = "https://www.youtube.com/watch?v=Yft1Fixture&bpctr=9999999999&has_verified=1"
+        withContext(record) {
+            LookupRecorder(http).get(WATCH_PAGE, withCookie, YouTubeHttp.MAX)
+            LookupRecorder(http).get(other, withCookie, YouTubeHttp.MAX)
+        }
+
+        assertEquals(2, http.asked.get())
+        assertEquals(1, record.keptCount)
+        assertNull(record.replay(LookupAsk(LookupAsk.GET, other, null, cookieLess), YouTubeHttp.MAX))
+        assertNull(record.replay(LookupAsk(LookupAsk.GET, WATCH_PAGE, null, withCookie), YouTubeHttp.MAX))
+        assertNotNull(record.replay(LookupAsk(LookupAsk.GET, WATCH_PAGE, null, cookieLess), YouTubeHttp.MAX))
+        assertNull(record.replay(LookupAsk(LookupAsk.GET, WATCH_PAGE, null, cookieLess), YouTubeHttp.MAX))
     }
 
     /** Item 7 R1: the record changes nothing yet — a found YouTube page still returns at once. */
@@ -805,6 +832,7 @@ class BrowserMasterFallbackTest {
     private companion object {
         const val YOUTUBE_PREFIX = "https://www.youtube.com/watch/"
         const val YOUTUBE_PAGE = "${YOUTUBE_PREFIX}Yft0Fixture"
+        const val WATCH_PAGE = "https://www.youtube.com/watch?v=Yft0Fixture&bpctr=9999999999&has_verified=1"
         const val MAIN_MESSAGE = "Main's fixture failure"
         const val VIMEO_CONFIG = "{\"video\":{\"id\":123456789,\"title\":\"Fixture\"}," +
             "\"request\":{\"files\":{\"progressive\":[{\"url\":\"https://cdn.test/v720.mp4\"," +

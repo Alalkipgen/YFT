@@ -3,4 +3,4 @@ R4; job d7-matrix in
 .github/workflows/master-optin-debug-apk.yml) build after a push that changes this file
 (or any other non-doc file) in a commit whose message carries [d7]. Change the line below.
 
-run 8 (Phase 1.4 item 7 F2: routeb says why route B did not run)
+run 9 (Phase 1.4 item 7 F5: routeb reads main's watch page from the lookup)

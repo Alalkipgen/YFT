@@ -48,7 +48,9 @@ extractor-master/ (pure JVM)            com.alal.yft.extractor.master
             ParityVerdict               §4.2 pass checks (offline baseline test in tests)
   lookup/   LookupAsk, LookupRecord,    Phase 1.4 item 7 (YouTube route B, debug flag off):
             LookupRecorder              the lookup's record of main's asks (memory only;
-                                        a reused answer noted, F2);
+                                        a reused answer noted, F2; main's cookie GET of the
+                                        looked-up video's page kept for one cookie-less
+                                        replay, F5);
             RouteBLookup, RouteBHttpClient, RouteBMediaStartReader, RouteBPlayerScripts,
             RouteBScriptClient:         route B's rules (replay, refusals, 429 stop, counts;
                                         the player-script client too, F1)
@@ -147,5 +149,6 @@ authorized playback) → `LayerStack` (L2 → L4 → L1 → L3; L3 adds only) �
 - Phase 1.4 item 7 (YouTube routing B): built behind `-Pyft.youtubeRouteB` (debug, off),
   phone-checked 2026-10-18 (partial), not promoted — `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §7;
   review follow-ups in its §8 (F1, the player-script client, and F2, why route B did not run in
-  Details, done; D7 run 8 checked) and the final plan in its §9 (F5, the owner's cookie decision,
-  then F4 and D7 run 9; F3 deferred).
+  Details, done; D7 run 8 checked) and the final plan in its §9 (F5, the owner's cookie decision:
+  Master reads main's watch page from the lookup and never sends a cookie, done; then F4 and D7
+  run 9; F3 deferred).

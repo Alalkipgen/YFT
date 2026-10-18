@@ -30,6 +30,10 @@ class LookupRecordTest {
     private val body = """{"context":{"client":{"clientName":"VISIONOS","clientVersion":"1.0"}},"videoId":"Yft0Fixture"}"""
     private val headers = linkedMapOf("Content-Type" to "application/json", "User-Agent" to "YftTest/1.0")
 
+    /** F5: main's watch page GET with the tab's cookie, and the same GET without it (Master's). */
+    private val signedInPage = linkedMapOf("User-Agent" to "YftTest/1.0", "Cookie" to "SID=fixture", "Accept-Language" to "en", "Accept" to "text/html")
+    private val pageHeaders = linkedMapOf("User-Agent" to "YftTest/1.0", "Accept-Language" to "en", "Accept" to "text/html")
+
     @Test
     fun `without a record the recorder only passes through`() = runTest {
         val http = counting()
@@ -347,6 +351,208 @@ class LookupRecordTest {
         assertEquals(LookupAsk.HASH_CHARS, ask.hash.length)
     }
 
+    @Test
+    fun `F5 - main's cookie GET of the lookup's watch page answers Master's identical cookie-less GET once`() = runTest {
+        val record = LookupRecord(watchPageVideoId = VIDEO)
+        val main = withContext(record) { LookupRecorder(counting()).get(page, signedInPage, MAX) }
+
+        val others = listOf(
+            LookupAsk(LookupAsk.GET, page, null, signedInPage), // the cookie itself: authorized
+            LookupAsk(LookupAsk.GET, page, null, pageHeaders + ("Cookie" to "SID=other")), // another cookie
+            LookupAsk(LookupAsk.GET, page, null, pageHeaders + ("Authorization" to "SAPISIDHASH fixture")),
+            LookupAsk(LookupAsk.GET, page, null, pageHeaders + ("User-Agent" to "YftTest/2.0")), // another value
+            LookupAsk(LookupAsk.GET, page, null, pageHeaders + ("X-Goog-Visitor-Id" to "v")), // one more header
+            LookupAsk(LookupAsk.GET, page, null, pageHeaders - "Accept"), // one header less
+            LookupAsk(LookupAsk.GET, page, null, linkedMapOf("Accept-Language" to "en", "User-Agent" to "YftTest/1.0", "Accept" to "text/html")),
+            LookupAsk(LookupAsk.GET, "$page&x=1", null, pageHeaders), // another address
+            LookupAsk(LookupAsk.POST, page, "", pageHeaders), // another method
+        )
+        for (other in others) assertNull(other.toString(), record.replay(other, MAX))
+
+        val cookieLess = LookupAsk(LookupAsk.GET, page, null, LinkedHashMap(pageHeaders))
+        assertEquals((main as ExtractorHttpResult.Success).body, (record.replay(cookieLess, MAX) as ExtractorHttpResult.Success).body)
+        assertNull(record.replay(cookieLess, MAX))
+        assertEquals(1, record.keptCount)
+        assertEquals(1, record.replayedCount)
+        val listed = record.asks().single()
+        assertTrue(listed.authorized && listed.kept)
+        assertEquals("LookupRecord(main=1, master=0, kept=1, replayed=1, waiting=0, rateLimited=false)", record.toString())
+    }
+
+    @Test
+    fun `F5 - only the named video's watch page is kept, and only for a record that names it`() = runTest {
+        val unnamed = LookupRecord()
+        val otherVideo = LookupRecord(watchPageVideoId = "Yft1Fixture")
+        val notAnId = LookupRecord(watchPageVideoId = "Yft0Fixture&x")
+        for (record in listOf(unnamed, otherVideo, notAnId)) {
+            withContext(record) { LookupRecorder(counting()).get(page, signedInPage, MAX) }
+            assertEquals(0, record.keptCount)
+            assertNull(record.replay(LookupAsk(LookupAsk.GET, page, null, pageHeaders), MAX))
+            assertTrue(record.asked(LookupAsk(LookupAsk.GET, page, null, pageHeaders)))
+        }
+
+        val named = LookupRecord(watchPageVideoId = VIDEO)
+        val canonical = "https://www.youtube.com/watch?v=$VIDEO"
+        withContext(named) {
+            val recorder = LookupRecorder(counting())
+            recorder.get(canonical, signedInPage, MAX) // another address of the same video
+            recorder.get("https://www.youtube.com/watch?v=Yft1Fixture&bpctr=9999999999&has_verified=1", signedInPage, MAX)
+            recorder.postJson(page, body, signedInPage, MAX) // not a GET
+            recorder.get(player, signedInPage, MAX) // not the page
+            recorder.probe(page, signedInPage, 5_000) // a file check
+        }
+        assertEquals(5, named.mainAsks)
+        assertEquals(0, named.keptCount)
+        assertNull(named.replay(LookupAsk(LookupAsk.GET, canonical, null, pageHeaders), MAX))
+        assertNull(named.replay(LookupAsk(LookupAsk.GET, player, null, pageHeaders), MAX))
+    }
+
+    @Test
+    fun `F5 - a page GET that carries an authorization is never kept`() = runTest {
+        val authorized = listOf(
+            signedInPage + ("Authorization" to "SAPISIDHASH fixture"),
+            pageHeaders + ("Authorization" to "SAPISIDHASH fixture"),
+            signedInPage + ("Proxy-Authorization" to "Basic fixture"),
+        )
+        for (each in authorized) {
+            val record = LookupRecord(watchPageVideoId = VIDEO)
+            withContext(record) { LookupRecorder(counting()).get(page, each, MAX) }
+            assertEquals(each.keys.toString(), 0, record.keptCount)
+            assertNull(record.replay(LookupAsk(LookupAsk.GET, page, null, pageHeaders), MAX))
+            assertFalse(record.asks().single().kept)
+        }
+        // A blank cookie carries no session: kept as main's other unauthenticated answers, as it came.
+        val blank = linkedMapOf("User-Agent" to "YftTest/1.0", "Cookie" to " ", "Accept-Language" to "en", "Accept" to "text/html")
+        val record = LookupRecord(watchPageVideoId = VIDEO)
+        withContext(record) { LookupRecorder(counting()).get(page, blank, MAX) }
+        assertNull(record.replay(LookupAsk(LookupAsk.GET, page, null, pageHeaders), MAX))
+        assertNotNull(record.replay(LookupAsk(LookupAsk.GET, page, null, blank), MAX))
+    }
+
+    @Test
+    fun `F5 - only main's first cookie GET of the page is kept, inside the caps`() = runTest {
+        val twice = LookupRecord(watchPageVideoId = VIDEO)
+        withContext(twice) { repeat(2) { LookupRecorder(counting()).get(page, signedInPage, MAX) } }
+        assertEquals(1, twice.keptCount)
+        assertEquals(listOf(true, false), twice.asks().map { it.kept })
+        assertNotNull(twice.replay(LookupAsk(LookupAsk.GET, page, null, pageHeaders), MAX))
+        assertNull(twice.replay(LookupAsk(LookupAsk.GET, page, null, pageHeaders), MAX))
+
+        // The caps hold: a full record keeps no page, and a later page GET is not kept either.
+        val full = LookupRecord(watchPageVideoId = VIDEO, maxKept = 1)
+        withContext(full) {
+            val recorder = LookupRecorder(counting())
+            recorder.postJson(player, body, headers, MAX)
+            recorder.get(page, signedInPage, MAX)
+        }
+        assertEquals(1, full.keptCount)
+        full.replay(LookupAsk(LookupAsk.POST, player, body, headers), MAX)
+        withContext(full) { LookupRecorder(counting()).get(page, signedInPage, MAX) }
+        assertEquals(1, full.keptCount)
+        assertNull(full.replay(LookupAsk(LookupAsk.GET, page, null, pageHeaders), MAX))
+
+        val small = LookupRecord(watchPageVideoId = VIDEO, maxKeptChars = 5)
+        withContext(small) { LookupRecorder(counting()).get(page, signedInPage, MAX) } // "answer 1": 8 characters
+        assertEquals(0, small.keptCount)
+        assertNull(small.replay(LookupAsk(LookupAsk.GET, page, null, pageHeaders), MAX))
+    }
+
+    @Test
+    fun `F5 - Master's page answers are never kept, and two lookups keep only their own page`() = runTest {
+        val record = LookupRecord(watchPageVideoId = VIDEO)
+        record.record(LookupAsk(LookupAsk.GET, page, null, signedInPage), ok("master"), record.now(), LookupRecord.Asker.MASTER)
+        record.record(LookupAsk(LookupAsk.GET, page, null, pageHeaders), ok("master"), record.now(), LookupRecord.Asker.MASTER)
+        assertEquals(0, record.keptCount)
+        assertNull(record.replay(LookupAsk(LookupAsk.GET, page, null, pageHeaders), MAX))
+
+        val first = LookupRecord(watchPageVideoId = VIDEO)
+        val second = LookupRecord(watchPageVideoId = VIDEO)
+        val recorder = LookupRecorder(counting())
+        coroutineScope {
+            listOf(
+                async(first) { recorder.get(page, signedInPage, MAX) },
+                async(second) { recorder.postJson(player, body, headers, MAX) },
+            ).awaitAll()
+        }
+        assertNull(second.replay(LookupAsk(LookupAsk.GET, page, null, pageHeaders), MAX))
+        assertNotNull(first.replay(LookupAsk(LookupAsk.GET, page, null, pageHeaders), MAX))
+    }
+
+    @Test
+    fun `F5 - the kept page drops the cookies its answer set and goes with clear`() = runTest {
+        val set = ResponseCookie("YSC", "fixture", "youtube.com", hostOnly = false)
+        val http = FakeExtractorHttpClient(getResponder = { _, _ -> ok("page").copy(cookies = listOf(set)) })
+        val record = LookupRecord(watchPageVideoId = VIDEO)
+        withContext(record) { LookupRecorder(http).get(page, signedInPage, MAX) }
+        val replayed = record.replay(LookupAsk(LookupAsk.GET, page, null, pageHeaders), MAX) as ExtractorHttpResult.Success
+        assertEquals("page", replayed.body)
+        assertTrue(replayed.cookies.isEmpty())
+
+        val cleared = LookupRecord(watchPageVideoId = VIDEO)
+        withContext(cleared) { LookupRecorder(http).get(page, signedInPage, MAX) }
+        cleared.clear()
+        assertNull(cleared.replay(LookupAsk(LookupAsk.GET, page, null, pageHeaders), MAX))
+        assertEquals(1, cleared.keptCount)
+    }
+
+    @Test
+    fun `F5 - the cookie's value is neither kept nor shown`() = runTest {
+        val secret = "SID=f5-secret-session; SAPISID=f5-secret-hash"
+        val withSecret = linkedMapOf("User-Agent" to "YftTest/1.0", "Cookie" to secret, "Accept-Language" to "en", "Accept" to "text/html")
+        val record = LookupRecord(watchPageVideoId = VIDEO)
+        withContext(record) {
+            LookupRecorder(counting()).get(page, withSecret, MAX)
+            LookupRecorder(counting()).postJson(player, body, withSecret, MAX)
+        }
+        assertEquals(1, record.keptCount)
+
+        val text = listOf(record, record.asks(), LookupAsk(LookupAsk.GET, page, null, withSecret)).joinToString(" ")
+        for (shown in listOf("f5-secret", "SID", "SAPISID", "Cookie", "youtube", VIDEO)) {
+            assertFalse(shown, text.contains(shown, ignoreCase = true))
+        }
+        // Nothing the record holds (its kept answers and their keys included) has the value.
+        val held = strings(record)
+        assertTrue(held.isNotEmpty())
+        assertTrue(held.any { it == "answer 1" }) // the kept page itself is walked
+        assertEquals(emptyList<String>(), held.filter { "f5-secret" in it })
+        // Main's ask still compares with the cookie, Master's copy without it.
+        val ask = LookupAsk(LookupAsk.GET, page, null, withSecret)
+        assertEquals(listOf("User-Agent", "Accept-Language", "Accept"), ask.withoutCookie().headers.map { it.first })
+        assertFalse(ask.withoutCookie().authorized)
+        assertTrue(ask.authorized)
+    }
+
+    /** Every string reachable from [root] through this project's objects, collections, maps and pairs. */
+    private fun strings(root: Any): List<String> {
+        val found = ArrayList<String>()
+        val seen = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Any, Boolean>())
+        val queue = ArrayDeque<Any>().apply { add(root) }
+        while (queue.isNotEmpty()) {
+            val each = queue.removeFirst()
+            if (!seen.add(each)) continue
+            when (each) {
+                is String -> found += each
+                is Map<*, *> -> each.forEach { (key, value) -> key?.let(queue::add); value?.let(queue::add) }
+                is Iterable<*> -> each.forEach { it?.let(queue::add) }
+                is Array<*> -> each.forEach { it?.let(queue::add) }
+                is Pair<*, *> -> { each.first?.let(queue::add); each.second?.let(queue::add) }
+                is Function<*> -> Unit // the record's clock
+                else -> if (each.javaClass.name.startsWith(OWN)) {
+                    var type: Class<*>? = each.javaClass
+                    while (type != null && type.name.startsWith(OWN)) {
+                        for (field in type.declaredFields) {
+                            if (java.lang.reflect.Modifier.isStatic(field.modifiers)) continue
+                            field.isAccessible = true
+                            field.get(each)?.let(queue::add)
+                        }
+                        type = type.superclass
+                    }
+                }
+            }
+        }
+        return found
+    }
+
     private fun counting(): FakeExtractorHttpClient {
         var calls = 0
         return FakeExtractorHttpClient(
@@ -361,5 +567,7 @@ class LookupRecordTest {
     private companion object {
         const val MAX = 2L * 1024 * 1024
         const val MEDIA = "https://rr1---sn-test.googlevideo.com/videoplayback?itag=18&id=o-test"
+        const val VIDEO = "Yft0Fixture"
+        const val OWN = "com.alal.yft."
     }
 }

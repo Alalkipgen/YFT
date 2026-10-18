@@ -51,7 +51,9 @@ interface BrowserMasterFallback {
      * Phase 1.4 item 7 (YouTube routing B) R1: what [lookupUrl]'s lookup (main's adapter, then
      * [recover]) runs in — a new [LookupRecord] for a YouTube page in a route-B build
      * (`-Pyft.youtubeRouteB`, debug only), so main's requests are recorded for that lookup alone.
-     * Every other build and page: nothing, the lookup runs as before.
+     * F5: the record names the page's video, so it also keeps main's answer to that video's watch
+     * page for Master's one cookie-less replay. Every other build and page: nothing, the lookup
+     * runs as before.
      */
     fun lookupContext(lookupUrl: String): CoroutineContext = EmptyCoroutineContext
 
@@ -275,13 +277,18 @@ class AndroidBrowserMasterFallback(
         )
     }
 
-    /** Item 7 R1: a new record per YouTube lookup in a route-B build (memory only); else nothing. */
-    override fun lookupContext(lookupUrl: String): CoroutineContext =
-        if (youtubeRouteB && enabled && sites.videoKey(lookupUrl)?.substringBefore(':') == YOUTUBE_SITE_ID) {
-            LookupRecord()
+    /**
+     * Item 7 R1: a new record per YouTube lookup in a route-B build (memory only); else nothing.
+     * F5: it names the lookup's video, so main's watch page GET of it is kept for Master's replay.
+     */
+    override fun lookupContext(lookupUrl: String): CoroutineContext {
+        val key = sites.videoKey(lookupUrl)
+        return if (youtubeRouteB && enabled && key?.substringBefore(':') == YOUTUBE_SITE_ID) {
+            LookupRecord(watchPageVideoId = key.substringAfter(':'))
         } else {
             EmptyCoroutineContext
         }
+    }
 
     private fun relatedPage(lookup: String, page: String, requestedKey: String?): Boolean {
         if (lookup == page || sites.sameContent(lookup, page)) return true

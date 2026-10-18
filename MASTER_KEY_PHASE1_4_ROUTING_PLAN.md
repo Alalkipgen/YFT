@@ -12,12 +12,14 @@ R6 docs 2026-10-18. Review follow-ups (§8): F1 done 2026-10-18 (the player-scri
 script fetch stops route B, Master's script fetches are counted); F2 done 2026-10-18 (a lookup where
 route B gives no answer says why in Details: `master: route B not run: …`). D7 run 8 (owner's phone,
 2026-10-18, §7): V1 Master's rows after Try again (`replayed 1; new 0`); V2 / V3 no rows — the
-replayed visionOS answer was a bot check and the module's watch page (with the tab's cookie) was
-refused, limit (a); first opens skipped on a remembered answer (P17, limit (b), trial only); the
-joined lookup (F3) never showed. **Final plan (§9, 2026-10-18):** F3 deferred; **F5** (the owner's
-cookie decision: Master reads main's watch page from the lookup, never sends a cookie) → **F4** (a
-real failure midway, offline) → D7 run 9 (⏸ owner) → promotion (flag on in normal builds), the
-owner's decision (§5.5).
+replayed visionOS answer was a bot check and the module's cookie-less GET of the watch page was
+refused (main had read that page with the tab's cookie, an answer never kept: rule 4), limit (a);
+first opens skipped on a remembered answer (P17, limit (b), trial only); the joined lookup (F3)
+never showed. **Final plan (§9, 2026-10-18):** F3 deferred; **F5** (the owner's cookie decision:
+Master reads main's watch page from the lookup, never sends a cookie) — **done 2026-10-18** (§7:
+main's cookie GET of the looked-up video's page answers Master's identical cookie-less GET once,
+replayed, never sent; ≤ 1 watch page per lookup) → **F4** (a real failure midway, offline) → D7
+run 9 (⏸ owner) → promotion (flag on in normal builds), the owner's decision (§5.5).
 Backlog pointer: `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Same contract as the social sites:
 `MASTER_KEY_SOCIAL_PLAN.md` §2.1 decisions #7 (routing B / B+ / A) and #8 (lookup = main + Master,
 per-lookup request recorder). Agent prompt: `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md`.
@@ -43,6 +45,13 @@ F3 ရွှေ့ထား (JOINED တွေ့မှ ပြန်ဖွင့�
 agent ဆုံးဖြတ်ခွင့်ပေး → **F5:** Master က cookie ဘယ်တော့မှ မပို့၊ main ဖတ်ပြီးသား watch page အဖြေကို lookup
 အတွင်း memory ကနေ တစ်ကြိမ် ပြန်ဖတ်ခွင့် (request အသစ် 0)။ Cookie မပါတဲ့ watch page ကို ထပ်တောင်းတာ မလုပ်။
 ပြီးရင် **F4** (main တကယ်ကျတဲ့ case တွေ offline tests) → **D7 run 9** ဖုန်းစစ် → promote လုပ်မလား owner ဆုံးဖြတ်။
+
+**F5 ပြီး (2026-10-18):** main က tab cookie နဲ့ ဖတ်ခဲ့တဲ့ ဒီ video ရဲ့ watch page အဖြေကို lookup record က
+cookie မပါဘဲ key လုပ်ပြီး တစ်ကြိမ်စာ သိမ်းထား (Set-Cookie ဖယ်၊ cookie တန်ဖိုး မသိမ်း မနှိုင်းယှဉ်)။ Master ရဲ့ cookie
+မပါတဲ့ တူညီ GET ကို အဲဒီကနေ ပြန်ဖြေ (replayed၊ မပို့)။ Master က cookie / authorization ဘယ်တော့မှ မပို့၊ lookup
+တစ်ခုမှာ watch page တစ်ခုပဲ။ Simulator: bot check ဖြစ်တဲ့ visionOS နောက် Master rows complete (page အသစ် 0၊
+player request အသစ် 0၊ credential 0)။ ပြင်ချက်: run 8 ရဲ့ `refused 1` က rule 1 မဟုတ် — Master ရဲ့ page GET မှာ
+cookie မပါ (module က cookie ဖယ်ထား)၊ main က cookie နဲ့ မေးပြီးသား (အဖြေ မသိမ်း) endpoint မို့ rule 4 က ငြင်းတာ။
 
 ## 1. Today (verified 2026-10-17, spike `4235716`)
 
@@ -251,9 +260,10 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   answer, so the watch page is read`, `watch page GET failed (NETWORK)`, `ladder H: no HLS address`,
   `master: youtube module: NETWORK`. V4 (the Short): the same message, no Details sent. Reading (the
   code): replayed 1 = the visionOS player request, main's own answer (here a bot check); refused 1 =
-  the module's watch-page GET, which carries the tab's `Cookie` (`YouTubeExtractor`
-  `pageHeaders(request.requestContext)` → `LookupAsk.authorized`), so `RouteBLookup` rule 1 never
-  sends it and it reads as `NETWORK`. (4) Main gave no bot check, sign-in or try-later on these
+  the module's watch-page GET: main had asked the same page with the tab's `Cookie` (`YouTubeExtractor`
+  `pageHeaders(request.requestContext)`), an authorized answer that is never kept, so `RouteBLookup`
+  rule 4 never sends Master's GET of it (which carries no cookie: `MasterYouTubeModule` asks with
+  `cookie = null`) and it reads as `NETWORK` (corrected in F5; this reading first said rule 1). (4) Main gave no bot check, sign-in or try-later on these
   videos (`normal` found all four); the bot check Master met inside route B gave no rows and main's
   failure stayed, so §2's rule held. Wrong rows: 0 (the 360p row checked). **R5 is partial**
   (review, 2026-10-18): check (4) — a 429 or bot check of main's stays final — was not exercised on
@@ -317,18 +327,60 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   line. **Reading:** limit (b) is P17's cache — main's success is remembered and a lookup in its
   window asks nothing, so the record holds no request of main's and the engine skips; trial only (a
   real failure is never remembered, and Try again asks afresh). The joined lookup (F3) never showed.
-  Limit (a) as in R5: the module's watch page GET carries the tab's cookie and rule 1 refuses it. §2
+  Limit (a) as in R5: main read the watch page with the tab's cookie (never kept), so rule 4 refuses
+  the module's cookie-less GET of it (corrected in F5; first read as rule 1). §2
   held: wrong rows 0, nothing with a cookie sent, main's failure kept whenever Master had no rows.
   V1's `new 0` (R5: `new 1`): Master's rows came from the replayed visionOS answer alone.
 - **Item 7 status (2026-10-18): built behind the flag, not promoted.** `-Pyft.youtubeRouteB` stays
   off in every normal build (flag off = today, P12); promotion is the owner's decision (§5.5).
   Limits seen on the phone: (a) when the replayed visionOS answer is a bot check (or another
-  unplayable answer), the module's next step, the watch page, carries the tab's cookie and is never
-  sent (rule 1), so route B gives no rows and main's failure stays; (b) a lookup answered from
+  unplayable answer), the module's next step is the watch page, which main asked with the tab's
+  cookie (an answer never kept), so Master's GET of it is never sent (rule 4) and route B gives no
+  rows and main's failure stays (F5, below, answers it from main's page); (b) a lookup answered from
   main's reused answer (P17's shared lookup or cache) has no request of main's in its record, so
   route B is skipped and the trial needs Try again (F2: Details now say so, and which reuse). Next (§9, final plan): (a) → F5, Master
-  reads main's watch page from the lookup (no cookie-less page); (b) stays (trial only, Try again);
-  then F4 and D7 run 9.
+  reads main's watch page from the lookup (no cookie-less page; done, below); (b) stays (trial only,
+  Try again); then F4 and D7 run 9.
+- **F5 — main's watch page for route B (2026-10-18, review follow-up §8; the owner's cookie
+  decision, §5.6).** `extractor-master` `lookup` and the app's record (no locked file, no
+  `extractor-sites` change). The app's route-B build names the lookup's video in its record
+  (`BrowserMasterFallback.lookupContext`: `LookupRecord(watchPageVideoId = …)` from
+  `sites.videoKey`, a YouTube lookup only). Such a record also keeps main's first GET of that video's
+  page (`YouTubeUrls.watchPageFetchUrl`, no body) when it carries the tab's `Cookie` and no other
+  credential (`LookupAsk.cookieOnly`): the success without the cookies it set, inside the same caps
+  (16 answers, 8 Mi characters), dropped at the lookup's end, keyed by the same request without its `Cookie`
+  header (`LookupAsk.withoutCookie`), so the cookie's value is neither kept nor compared and only a
+  request with no credential is answered from it. Master's GET of the page (same method, address,
+  body; same headers in order but `Cookie`) is answered from it once by rule 2: replayed, counted,
+  never sent. Every other authorized answer is still never kept (the page client's POST with the
+  cookie included), and Master still never sends a cookie or another authorization (rule 1;
+  `MasterYouTubeModule` drops the cookie). One watch page per lookup (guardrail 7):
+  `LookupAsk.watchPage` (an HTTPS GET of a youtube.com host's `/watch` or `/embed/…`) and
+  `LookupRecord.watchPageAsked`; `RouteBLookup`'s rule 4 also refuses Master's page GET once any page
+  was asked in the lookup (main's or Master's; another address or video included), so Master's own
+  page goes out only when main asked none (as before F5), once. Correction: Master's page GET never
+  carried the cookie; R5's and run 8's `refused 1` was rule 4 (readings above corrected).
+  **Simulator** (`RouteBSimTest`): the sweep over every class with the page named
+  (`build/routeb-sim/routeb-f5-lines.txt`, 1,090 steps) keeps every rule of R2's sweep (wrong rows 0,
+  credentials 0, ≤ 1 page, ≤ 3 player requests and never more than the ladder alone, every request
+  listed); where route B answers in the app (230 recoverable steps, 560 of the trial's found page)
+  none ends worse than before F5 and 226 end better (STOP → COMPLETE or PARTIAL, as the ladder alone:
+  T1b–T1d, V7, V9, Y2–Y4, H1, F1, F2, F4); after a final reason (route B never runs there; the sweep
+  runs Master after every main result) L9 (main `LOGIN_REQUIRED`; a decoy of the same length) now
+  reads the page as the ladder alone does and stops as designed (10 lines COMPLETE → STOP, the
+  ladder alone STOP). Totals: replayed 1,090 → 3,504, refused 920 → 0, new 2,918 → 3,591 (player
+  166 → 315, all inside the bounds above), Master's own pages 4 → 4. After a bot-checked visionOS
+  answer (T1b; a V2-like page whose visionOS answer is always a bot check; the same signed in: the
+  page names an account, the cookie holds a session) Master completes from main's replayed page with
+  0 pages, 0 player requests, 0 credentials and `replayed` ≥ 2; before F5 it did not complete. Signed
+  in over every class, Master's requests carry no cookie, authorization, session header or account
+  identity. Tests: `LookupRecordTest` (+7), `RouteBHttpClientTest` (+4), `RouteBSimTest` (+3),
+  `BrowserMasterFlowTest` (`theRouteBTrialOnAV2LikePageShowsMastersRowFromMainsWatchPage`: Master's
+  row with `master: route B after RESPONSE_CHANGED; replayed 2; new 0`), `BrowserMasterFallbackTest`
+  (`aRouteBRecordKeepsMainsCookieGetOfTheLookedUpVideosPageForOneReplay`); the lookup tests (58),
+  `extractor-master` 727 (2 skipped), `extractor-sites` 280 and the app's unit tests 989 (66 skipped) pass.
+  Flag off and every other build: no record, unchanged (P12). D7 run 9 (`[d7]`) builds `routeb` with
+  it for the phone check (§9 item 3).
 
 ## 8. Review follow-ups (2026-10-18)
 
@@ -357,10 +409,11 @@ commit, tests + CI green before the next; §6's stop rules hold.
   main's final reasons (`BOT_CHECK`, `LOGIN_REQUIRED`, `PLAYER_SCRIPT_REQUIRED`, `RATE_LIMITED`, …),
   nothing new after main's 429, main's success untouched, flag off = today (P12). This covers R5's
   open check (4) offline. Tests first; a bug they find is fixed in the same step (§6).
-- **F5 — main's watch page for route B (the owner's cookie decision, 2026-10-18; before F4).**
-  Limit (a): after a bot-checked visionOS answer (run 8: V2, V3) main's rows come from the watch
-  page main read with the tab's cookie; that answer is never kept and Master's own GET of the page is
-  refused (rule 1), so route B can never help there, also after a real failure. Change
+- **F5 — main's watch page for route B (done 2026-10-18, §7; the owner's cookie decision; before
+  F4).** Limit (a): after a bot-checked visionOS answer (run 8: V2, V3) main's rows come from the
+  watch page main read with the tab's cookie; that answer is never kept and Master's own (cookie-less)
+  GET of the page is refused (rule 4: main asked it), so route B can never help there, also after a
+  real failure. Change
   (`extractor-master` `lookup` only; no locked file): the lookup's record also keeps main's answer to
   the lookup's watch page GET (the looked-up video's page address, one per lookup) when main's
   request carried the cookie — kept as rule 2 keeps main's other answers (Set-Cookie dropped, inside
@@ -389,15 +442,15 @@ follow-ups). Decisions:
 |---|---|---|
 | F3, the joined lookup | Deferred; reopen on an `another caller's running lookup (P17)` line | Run 8 showed only the remembered answer |
 | Limit (b), the trial's first open | Unchanged: tap Try again; no cache change | Trial only: a real failure is never remembered, and Try again asks afresh |
-| Limit (a), the cookie rule | F5: Master reads main's watch page from the lookup and never sends a cookie | 0 new requests, ≤ 1 page per lookup; Master already holds the tab's cookie in its request context and still never sends it |
+| Limit (a), the cookie rule | F5: Master reads main's watch page from the lookup and never sends a cookie (done, §7) | 0 new requests, ≤ 1 page per lookup; Master's request context holds the tab's cookie, its module drops it (`cookie = null`) and never sends it |
 | A cookie-less watch page | Not done | A second page per lookup (guardrail 7), more 429 risk, likely the same bot check |
 | F4 | Needed, after F5 | Proves the real-failure path and R5's open check (4), offline |
 | Promotion (§5.5) | The owner's, after F5, F4 and run 9 | Flag on in normal builds changes real lookups |
 
 Order (one step per commit, tests + CI green before the next; §6's stop rules hold):
 
-1. **F5** (§8): push with `[d7]` (`.github/d7-apks.txt` `run 9`), so the APKs are ready for the
-   owner.
+1. **F5** (§8; done 2026-10-18, §7): push with `[d7]` (`.github/d7-apks.txt` `run 9`), so the APKs
+   are ready for the owner.
 2. **F4** (§8): tests; fix only what they find. No `[d7]` unless app or extractor code changed (then
    the run number moves on and the owner tests the latest run).
 3. **D7 run 9 (⏸ owner):** (1) `normal`: V1–V3 as before, no notice. (2) `routeb`: V1–V3 from the

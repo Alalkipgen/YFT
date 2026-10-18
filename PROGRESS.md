@@ -1,5 +1,33 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 item 7 — route B F5: Master reads main's watch page from the lookup (2026-10-18)
+
+- The owner's cookie decision (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §8–§9, limit (a) of D7 run 8):
+  the app's route-B build names the lookup's video in its record
+  (`BrowserMasterFallback.lookupContext` → `LookupRecord(watchPageVideoId)`); the record keeps main's
+  first GET of that video's watch page when it carries the tab's cookie and no other credential —
+  Set-Cookie dropped, inside the caps, dropped at the lookup's end, keyed without the cookie (its
+  value is neither kept nor compared). Master's identical cookie-less GET is answered from it once:
+  replayed, counted, never sent. Every other authorized answer is still never kept; Master never
+  sends a cookie or an authorization (its module drops the cookie).
+- One watch page per lookup (guardrail 7): `LookupAsk.watchPage`, `LookupRecord.watchPageAsked`;
+  `RouteBLookup` refuses Master's page GET after any page of the lookup (another address or video
+  included); Master's own page goes out only when main asked none, once.
+- Correction: Master's page GET never carried the cookie — R5's and run 8's `refused 1` was rule 4
+  (main had asked that page with the cookie, an answer never kept), not rule 1; the plan's readings
+  are corrected.
+- Simulator (`RouteBSimTest`): the F5 sweep (1,090 steps) keeps every R2 rule; where route B answers
+  in the app none ends worse than before F5 and 226 end better (STOP → COMPLETE / PARTIAL, as the
+  ladder alone); after a final reason (route B never runs there) L9 stops as the ladder alone does.
+  After a bot-checked visionOS answer (T1b, V2-like, V2-like signed in) Master completes from main's
+  page: 0 pages, 0 player requests, 0 credentials, `replayed` ≥ 2. Signed in over every class,
+  Master's requests carry no cookie, authorization, session header or account identity.
+- Tests: `LookupRecordTest` +7, `RouteBHttpClientTest` +4, `RouteBSimTest` +3,
+  `BrowserMasterFlowTest` +1 (Master's row with `replayed 2; new 0` on a V2-like page),
+  `BrowserMasterFallbackTest` +1; lookup tests 58, `extractor-master` 727 (2 skipped),
+  `extractor-sites` 280, app 989 (66 skipped) pass locally. Flag off and every other build
+  unchanged. D7 run 9 (`[d7]`) builds `routeb` for the phone check (⏸ owner); next F4 (offline).
+
 ## Phase 1.4 item 7 — route B D7 run 8 phone check and the final plan (2026-10-18), docs only
 
 - D7 run 8 (`routeb`, run 39095306817 on `8584519`, owner's phone): V1 — first open skipped
@@ -54,7 +82,8 @@
   duration 3:33 (the page's), the 360p file 640×360 (as its row says); a retest gave the same.
 - V2 and V3 → no rows, main's failure kept (`replayed 1; new 0; refused 1`): the replayed visionOS
   answer was a bot check ("Sign in to confirm you're not a bot"), and the module's next step, the
-  watch page, carries the tab's cookie, so route B never sends it (`RouteBLookup` rule 1). V4: the
+  watch page, was asked by main with the tab's cookie (an answer never kept), so route B never sends
+  Master's cookie-less GET of it (`RouteBLookup` rule 4; first written as rule 1, corrected in F5). V4: the
   same message, no Details. The bot check stayed final; wrong rows: 0.
 - A first open showed the trial's message with only `master: route B trial: main's N rows set aside`:
   route B did not run (no request of main's in the lookup's record — a reused answer, P17 — or an

@@ -239,6 +239,53 @@ class BrowserMasterFlowTest {
         }
     }
 
+    /**
+     * Item 7 F5 (D7 run 8: V2, V3): the route-B trial on a page whose visionOS answer is a bot
+     * check. Main asks the player endpoint, then reads the watch page with the tab's cookie and
+     * finds its row (set aside by the trial); Master's module asks the same player request and the
+     * same page without the cookie — both answered from the lookup's record (replayed 2, new 0),
+     * nothing goes out again and only main's page carried the cookie. Master read main's page, and
+     * its row reaches the sheet with route B's counts.
+     */
+    @Test
+    fun theRouteBTrialOnAV2LikePageShowsMastersRowFromMainsWatchPage() = runTest {
+        val http = Answering()
+        val adapter = YouTubeAdapter(LookupRecorder(http), reason = null, pageHeaders = MAIN_PAGE_HEADERS)
+        val sites = SiteAdapterCoordinator(SiteExtractorRegistry(listOf(adapter)), MergeSupport { true })
+        val capture = WebViewPlaybackCapture(true)
+        val scope = capture.session.navigate(youtube)!!
+        val module = YouTubeModule(RouteBHttpClient(http), pageHeaders = MASTER_PAGE_HEADERS)
+        val engine = MasterFallbackEngine(
+            MasterMediaValidator { found, _ -> ValidationResult.Valid(found) },
+            policy = MasterPolicy(enabled = true, youtubeRouteB = true),
+            modules = listOf(module),
+        )
+        val bridge = AndroidBrowserMasterFallback(
+            capture, sites, engine, MergeSupport { true },
+            requestFactory = { failure, now, expected ->
+                MasterRequest(youtube, scope.generation, now, failure, expected)
+            },
+            youtubeRouteB = true,
+            routeBTrial = true,
+        )
+        val store = DetectedMediaStore()
+        val vm = BrowserViewModel(OkHttpClient(), sites, store, masterFallback = bridge)
+        vm.onPageStarted(youtube)
+        vm.onPageFinished(youtube, "Fixture")
+        settle { adapter.calls == 1 && !vm.uiState.value.pageLookupRunning }
+
+        assertEquals(2, http.asked) // main's player request and page; Master's were replayed
+        assertEquals(1, http.withCookie) // main's page only
+        assertEquals(1, module.calls)
+        assertEquals(2, module.runs.single()!!.replayed)
+        assertEquals(0, module.runs.single()!!.newRequests)
+        assertEquals(listOf<String?>(PAGE_BODY), module.pages) // Master read main's page
+        val notice = vm.uiState.value.siteNotice
+        assertTrue(vm.openPageVideo())
+        assertEquals(listOf(ROW), store.selection.value!!.candidates.map { it.mediaUrl })
+        assertEquals("master: route B after RESPONSE_CHANGED; replayed 2; new 0", notice)
+    }
+
     @Test
     fun ordinaryGenericPageDoesNotStartTheBackupAutomatically() = runTest {
         val backup = FakeBackup()
@@ -432,11 +479,14 @@ class BrowserMasterFlowTest {
         }
     }
 
-    /** Answers every request (no live call). */
+    /** Answers every request (no live call); F5: the watch page answers [PAGE_BODY]. */
     private class Answering : ExtractorHttpClient {
         var asked = 0
+        var withCookie = 0
         override suspend fun get(url: String, headers: Map<String, String>, maxBodyBytes: Long): ExtractorHttpResult {
             asked++
+            if (headers.keys.any { it.equals("Cookie", ignoreCase = true) }) withCookie++
+            if (url == WATCH_PAGE) return ExtractorHttpResult.Success(200, PAGE_BODY, url, "text/html")
             return ExtractorHttpResult.Success(200, "{}", url, "application/json")
         }
         override suspend fun postJson(
@@ -449,11 +499,13 @@ class BrowserMasterFlowTest {
 
     /**
      * Item 7 R3: main's YouTube adapter stand-in — asks the player endpoint once, then fails with
-     * [reason] (R4: null = finds its own row, [MAIN_ROW]).
+     * [reason] (R4: null = finds its own row, [MAIN_ROW]). F5: with [pageHeaders] it then reads
+     * the watch page with them (the tab's cookie), as after a bot-checked visionOS answer.
      */
     private inner class YouTubeAdapter(
         private val http: ExtractorHttpClient,
         private val reason: SiteExtractionFailure?,
+        private val pageHeaders: Map<String, String>? = null,
     ) : SiteExtractor {
         override val id = "youtube"
         override val displayName = "Fixture YouTube"
@@ -463,6 +515,7 @@ class BrowserMasterFlowTest {
         override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
             calls++
             http.postJson(PLAYER, PLAYER_BODY, emptyMap(), MAX_BODY)
+            pageHeaders?.let { http.get(WATCH_PAGE, it, MAX_BODY) }
             return reason?.let { SiteExtractionResult.Failure(it) } ?: SiteExtractionResult.Success(
                 listOf(
                     MediaCandidate(
@@ -475,10 +528,17 @@ class BrowserMasterFlowTest {
         }
     }
 
-    /** Item 7 R3: Master's YouTube module stand-in — main's request again, through route B. */
-    private inner class YouTubeModule(private val http: ExtractorHttpClient) : MasterSiteModule {
+    /**
+     * Item 7 R3: Master's YouTube module stand-in — main's request again, through route B. F5: with
+     * [pageHeaders] it then reads the watch page with them (no cookie) and keeps what it got.
+     */
+    private inner class YouTubeModule(
+        private val http: ExtractorHttpClient,
+        private val pageHeaders: Map<String, String>? = null,
+    ) : MasterSiteModule {
         var calls = 0
         val runs = mutableListOf<RouteBLookup?>()
+        val pages = mutableListOf<String?>()
         override val siteId = "youtube"
         override fun identify(pageUrl: String): SitePageIdentity? =
             if (pageUrl == youtube) SitePageIdentity(siteId, YOUTUBE_ID, pageUrl) else null
@@ -486,6 +546,7 @@ class BrowserMasterFlowTest {
             calls++
             runs += coroutineContext[RouteBLookup]
             http.postJson(PLAYER, PLAYER_BODY, emptyMap(), MAX_BODY)
+            pageHeaders?.let { pages += (http.get(WATCH_PAGE, it, MAX_BODY) as? ExtractorHttpResult.Success)?.body }
             return SiteExtractionResult.Success(
                 listOf(
                     MediaCandidate(
@@ -527,5 +588,11 @@ class BrowserMasterFlowTest {
         const val MAX_BODY = 2L * 1024 * 1024
         const val ROW = "https://cdn.test/yt/master.mp4"
         const val MAIN_ROW = "https://cdn.test/yt/main.mp4"
+
+        /** F5: the looked-up video's watch page as main's adapter and Master's module read it. */
+        const val WATCH_PAGE = "https://www.youtube.com/watch?v=Yft0Fixture&bpctr=9999999999&has_verified=1"
+        const val PAGE_BODY = "<html>main's watch page</html>"
+        val MAIN_PAGE_HEADERS = linkedMapOf("User-Agent" to "YftTest/1.0", "Cookie" to "SID=fixture", "Accept-Language" to "en-US,en;q=0.9")
+        val MASTER_PAGE_HEADERS = linkedMapOf("User-Agent" to "YftTest/1.0", "Accept-Language" to "en-US,en;q=0.9")
     }
 }

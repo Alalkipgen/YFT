@@ -20,12 +20,16 @@ import kotlin.coroutines.CoroutineContext
  * One lookup = main + Master (social plan decision 8). Each request of Master's module, in order:
  *  1. carrying the user's session or credentials ([LookupAsk.authorized]): refused, never sent;
  *  2. identical to one whose unauthenticated answer main got in this lookup: answered from the
- *     record, once ([replayed]);
+ *     record, once ([replayed]). F5: so is Master's cookie-less GET of the lookup's watch page when
+ *     main's identical GET carried the tab's cookie ([LookupRecord]'s named page): Master reads the
+ *     page main read, and never sends a cookie;
  *  3. after a 429 (or a rate limit) in this lookup, main's or Master's: refused, nothing new goes
  *     out (a `RATE_LIMITED` failure, no status);
  *  4. to an endpoint (method, address, body; not a media host) already asked in this lookup —
  *     main's answer was authorized, too large to keep or already replayed, or Master asked it —
- *     refused: what was asked is not asked again;
+ *     refused: what was asked is not asked again. F5 (guardrail 7, one watch page per lookup): a
+ *     watch or embed page GET ([LookupAsk.watchPage]) after any page of this lookup, main's or
+ *     Master's (another address or video included), is refused too;
  *  5. otherwise new ([newRequests]): sent and listed in the record as Master's (never kept). Only
  *     the rungs main lacks ask what main did not (A's version, the O rungs' requests in a form
  *     main did not send, V, H, L's reads, Z's file checks), each inside its own guardrail-7 bound.
@@ -42,6 +46,9 @@ class RouteBLookup(val record: LookupRecord) : AbstractCoroutineContextElement(R
 
     /** Endpoints Master sent in this run, answered or still in flight. */
     private val sent = HashSet<String>()
+
+    /** F5: Master sent a watch page in this run (under [sent]'s lock). */
+    private var pageClaimed = false
 
     /** Master's requests answered from main's record. */
     val replayed: Int get() = replayedCount.get()
@@ -134,9 +141,13 @@ class RouteBLookup(val record: LookupRecord) : AbstractCoroutineContextElement(R
         }
     }
 
-    /** Rule 4: [ask]'s endpoint was not asked in this lookup, and now it is Master's. */
+    /**
+     * Rule 4: [ask]'s endpoint was not asked in this lookup, and now it is Master's; for a watch
+     * page (F5), no page was asked in this lookup either, and now Master's one page is.
+     */
     private fun claim(ask: LookupAsk): Boolean = synchronized(sent) {
-        !record.asked(ask) && sent.add(ask.endpoint)
+        if (ask.watchPage && (pageClaimed || record.watchPageAsked)) return false
+        (!record.asked(ask) && sent.add(ask.endpoint)).also { if (it && ask.watchPage) pageClaimed = true }
     }
 
     private fun refuse(failure: ExtractorHttpResult.Failure): ExtractorHttpResult {
