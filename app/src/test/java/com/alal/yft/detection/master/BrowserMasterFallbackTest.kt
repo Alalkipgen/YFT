@@ -30,8 +30,13 @@ import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
 import com.alal.yft.extractor.master.modules.MasterSiteModule
 import com.alal.yft.extractor.master.contract.SiteContracts
 import com.alal.yft.extractor.master.lookup.LookupRecord
+import com.alal.yft.extractor.master.lookup.LookupRecorder
+import com.alal.yft.extractor.master.lookup.RouteBHttpClient
+import com.alal.yft.extractor.master.lookup.RouteBLookup
+import com.alal.yft.extractor.master.policy.TerminalRules
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.EmptyCoroutineContext
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
@@ -247,6 +252,152 @@ class BrowserMasterFallbackTest {
         assertEquals(0, record[LookupRecord]!!.mainAsks)
     }
 
+    /**
+     * Phase 1.4 item 7 (YouTube routing B) R3: in a route-B build a YouTube page main failed with
+     * a recoverable reason is answered by Master's module inside a route-B run over the lookup's
+     * record (main's identical answer replayed, not asked again); the rows keep main's adapter.
+     */
+    @Test
+    fun routeBAnswersAYouTubePageMainFailedForARecoverableReason() = runTest {
+        for (reason in TerminalRules.ROUTE_B_RECOVERABLE) {
+            val http = YouTubeHttp()
+            val module = YouTubeModule(http)
+            val fixture = Fixture(YOUTUBE_PAGE, extractor = youTubeExtractor(), modules = listOf(module), youtubeRouteB = true)
+            val record = mainAsked(http)
+            val primary = youTubeFailed(reason)
+
+            val result = withContext(record) { fixture.bridge.recover(YOUTUBE_PAGE, primary, 100) }
+
+            val found = result as SiteAdapterOutcome.Detected
+            assertEquals(reason.name, "youtube", found.adapterId)
+            assertEquals(reason.name, listOf(YouTubeModule.ROW_URL), found.candidates.map { it.mediaUrl })
+            assertEquals(reason.name, 1, module.calls.get())
+            assertSame(reason.name, record, module.runs.single()!!.record)
+            assertEquals(reason.name, 1, module.runs.single()!!.replayed)
+            assertEquals(reason.name, 1, http.asked.get()) // main's one request only
+            assertEquals(reason.name, 0, fixture.captures.get())
+            assertEquals(reason.name, 0, fixture.probes.get())
+        }
+    }
+
+    /** Item 7 R3: bot check, login, player script, 429 and the other final reasons stay final. */
+    @Test
+    fun routeBNeverAnswersAFinalReason() = runTest {
+        for (reason in listOf(
+            SiteExtractionFailure.BOT_CHECK,
+            SiteExtractionFailure.LOGIN_REQUIRED,
+            SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED,
+            SiteExtractionFailure.RATE_LIMITED,
+            SiteExtractionFailure.NETWORK,
+            SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
+            SiteExtractionFailure.GEO_RESTRICTED,
+            SiteExtractionFailure.DRM_PROTECTED,
+            SiteExtractionFailure.ADAPTER_DISABLED,
+        )) {
+            val http = YouTubeHttp()
+            val module = YouTubeModule(http)
+            val fixture = Fixture(YOUTUBE_PAGE, extractor = youTubeExtractor(), modules = listOf(module), youtubeRouteB = true)
+            val record = mainAsked(http)
+            val primary = youTubeFailed(reason)
+
+            assertSame(reason.name, primary, withContext(record) { fixture.bridge.recover(YOUTUBE_PAGE, primary, 100) })
+            assertEquals(reason.name, 0, module.calls.get())
+            assertEquals(reason.name, 0, fixture.factories.get())
+            assertEquals(reason.name, 0, fixture.captures.get())
+            assertEquals(reason.name, 1, http.asked.get())
+        }
+    }
+
+    /** Item 7 R3: every other build (route B off) keeps main's failure for a claimed page (P12). */
+    @Test
+    fun withoutRouteBAYouTubePageMainFailedKeepsMainsAnswer() = runTest {
+        for (reason in TerminalRules.ROUTE_B_RECOVERABLE) {
+            val http = YouTubeHttp()
+            val module = YouTubeModule(http)
+            val fixture = Fixture(YOUTUBE_PAGE, extractor = youTubeExtractor(), modules = listOf(module))
+            val record = mainAsked(http)
+            val primary = youTubeFailed(reason)
+
+            assertSame(reason.name, primary, withContext(record) { fixture.bridge.recover(YOUTUBE_PAGE, primary, 100) })
+            assertSame(reason.name, primary, fixture.bridge.recover(YOUTUBE_PAGE, primary, 100))
+            assertEquals(reason.name, 0, module.calls.get())
+            assertEquals(reason.name, 0, fixture.captures.get())
+        }
+    }
+
+    /** Item 7 R3: a lookup without main's recorded requests (none, or joined) keeps the skip. */
+    @Test
+    fun routeBWithoutMainsRequestsKeepsMainsAnswer() = runTest {
+        val http = YouTubeHttp()
+        val module = YouTubeModule(http)
+        val fixture = Fixture(YOUTUBE_PAGE, extractor = youTubeExtractor(), modules = listOf(module), youtubeRouteB = true)
+        val primary = youTubeFailed(SiteExtractionFailure.RESPONSE_CHANGED)
+
+        assertSame(primary, fixture.bridge.recover(YOUTUBE_PAGE, primary, 100))
+        assertSame(primary, withContext(LookupRecord()) { fixture.bridge.recover(YOUTUBE_PAGE, primary, 100) })
+        assertEquals(0, module.calls.get())
+        assertEquals(0, http.asked.get())
+    }
+
+    /**
+     * Item 7 R3: when Master's module gives no rows the lookup's answer stays main's failure —
+     * its reason, message and retry — and Master's details follow main's, route B named first.
+     */
+    @Test
+    fun routeBWithoutRowsKeepsMainsFailureAndAddsMastersDetails() = runTest {
+        val http = YouTubeHttp()
+        val module = YouTubeModule(
+            http,
+            answer = SiteExtractionResult.Failure(SiteExtractionFailure.BOT_CHECK, details = listOf("ladder: fixture")),
+        )
+        val fixture = Fixture(YOUTUBE_PAGE, extractor = youTubeExtractor(), modules = listOf(module), youtubeRouteB = true)
+        val record = mainAsked(http)
+        val primary = youTubeFailed(SiteExtractionFailure.RESPONSE_CHANGED).copy(details = listOf("youtube: main step"))
+
+        val result = withContext(record) { fixture.bridge.recover(YOUTUBE_PAGE, primary, 100) }
+
+        assertEquals(
+            SiteAdapterOutcome.Failed(
+                "youtube", SiteExtractionFailure.RESPONSE_CHANGED, MAIN_MESSAGE, true,
+                listOf(
+                    "youtube: main step",
+                    "master: route B after RESPONSE_CHANGED; replayed 1; new 0",
+                    "ladder: fixture",
+                    "master: youtube module: BOT_CHECK",
+                ),
+            ),
+            result,
+        )
+        assertTrue((result as SiteAdapterOutcome.Failed).canRetry)
+        assertEquals(1, module.calls.get())
+        assertEquals(0, fixture.captures.get())
+    }
+
+    /**
+     * Item 7 R3: the module answers for the video, so the same video still open (reloaded)
+     * keeps its rows; another video opened meanwhile leaves main's answer.
+     */
+    @Test
+    fun routeBKeepsTheRowsOfTheSameVideoReloadedMeanwhile() = runTest {
+        lateinit var reloaded: Fixture
+        val http = YouTubeHttp()
+        reloaded = Fixture(
+            YOUTUBE_PAGE, extractor = youTubeExtractor(), youtubeRouteB = true,
+            modules = listOf(YouTubeModule(http) { reloaded.capture.session.navigate(YOUTUBE_PAGE) }),
+        )
+        val primary = youTubeFailed(SiteExtractionFailure.RESPONSE_CHANGED)
+        val kept = withContext(mainAsked(http)) { reloaded.bridge.recover(YOUTUBE_PAGE, primary, 100) }
+        assertEquals(listOf(YouTubeModule.ROW_URL), (kept as SiteAdapterOutcome.Detected).candidates.map { it.mediaUrl })
+
+        lateinit var moved: Fixture
+        val other = YouTubeHttp()
+        moved = Fixture(
+            YOUTUBE_PAGE, extractor = youTubeExtractor(), youtubeRouteB = true,
+            modules = listOf(YouTubeModule(other) { moved.capture.session.navigate("${YOUTUBE_PREFIX}Yft1Fixture") }),
+        )
+        assertSame(primary, withContext(mainAsked(other)) { moved.bridge.recover(YOUTUBE_PAGE, primary, 100) })
+    }
+
     @Test
     fun recoverableSiteFailureUsesOneCaptureAndKnownFocusedIdentity() = runTest {
         val fixture = Fixture(tiktok)
@@ -364,6 +515,16 @@ class BrowserMasterFallbackTest {
 
     private fun youTubeExtractor() = FixtureExtractor("youtube", YOUTUBE_PREFIX)
 
+    private fun youTubeFailed(reason: SiteExtractionFailure) =
+        SiteAdapterOutcome.Failed("youtube", reason, MAIN_MESSAGE, true)
+
+    /** Item 7 R3: a lookup's record in which main asked the player endpoint once. */
+    private suspend fun mainAsked(http: YouTubeHttp): LookupRecord {
+        val record = LookupRecord()
+        withContext(record) { LookupRecorder(http).postJson(YouTubeHttp.PLAYER, YouTubeHttp.BODY, YouTubeHttp.HEADERS, YouTubeHttp.MAX) }
+        return record
+    }
+
     private fun failed(reason: SiteExtractionFailure) =
         SiteAdapterOutcome.Failed("tiktok", reason, "Fixture failure", true)
 
@@ -416,7 +577,8 @@ class BrowserMasterFallbackTest {
                     ),
                 )
             },
-            policy = MasterPolicy(enabled = true),
+            // Item 7 R3: the engine's route-B rule follows the build's switch, as in create().
+            policy = MasterPolicy(enabled = true, youtubeRouteB = youtubeRouteB),
             modules = modules,
             contracts = contracts,
         )
@@ -457,6 +619,65 @@ class BrowserMasterFallbackTest {
         }
     }
 
+    /** Item 7 R3: YouTube's player endpoint, answered without a live call. */
+    private class YouTubeHttp : ExtractorHttpClient {
+        val asked = AtomicInteger()
+        override suspend fun get(url: String, headers: Map<String, String>, maxBodyBytes: Long): ExtractorHttpResult =
+            postJson(url, "", headers, maxBodyBytes)
+        override suspend fun postJson(
+            url: String,
+            body: String,
+            headers: Map<String, String>,
+            maxBodyBytes: Long,
+        ): ExtractorHttpResult {
+            asked.incrementAndGet()
+            return ExtractorHttpResult.Success(200, "{}", url, "application/json")
+        }
+        companion object {
+            const val PLAYER = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
+            const val BODY = "{\"videoId\":\"Yft0Fixture\"}"
+            const val MAX = 2L * 1024 * 1024
+            val HEADERS = linkedMapOf("Content-Type" to "application/json")
+        }
+    }
+
+    /**
+     * Item 7 R3: Master's YouTube module stand-in. It asks main's player request again through
+     * route B's client and answers one HLS row (or [answer]); it notes the route-B run it saw.
+     */
+    private class YouTubeModule(
+        http: ExtractorHttpClient,
+        private val answer: SiteExtractionResult? = null,
+        private val onExtract: () -> Unit = {},
+    ) : MasterSiteModule {
+        private val client = RouteBHttpClient(http)
+        val calls = AtomicInteger()
+        val runs = mutableListOf<RouteBLookup?>()
+        override val siteId = "youtube"
+        override fun identify(pageUrl: String): SitePageIdentity? {
+            if (!pageUrl.startsWith(YOUTUBE_PREFIX)) return null
+            return SitePageIdentity(siteId, pageUrl.substringAfterLast('/'), pageUrl)
+        }
+        override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
+            calls.incrementAndGet()
+            runs += coroutineContext[RouteBLookup]
+            client.postJson(YouTubeHttp.PLAYER, YouTubeHttp.BODY, YouTubeHttp.HEADERS, YouTubeHttp.MAX)
+            onExtract()
+            return answer ?: SiteExtractionResult.Success(
+                listOf(
+                    MediaCandidate(
+                        request.identity.canonicalPageUrl, ROW_URL, setOf(CandidateSource.REQUEST),
+                        MediaKind.HLS, mimeType = "application/vnd.apple.mpegurl",
+                        videoId = "youtube:${request.identity.contentId}",
+                    ),
+                ),
+            )
+        }
+        companion object {
+            const val ROW_URL = "https://cdn.test/yt/index.m3u8"
+        }
+    }
+
     private class FixtureExtractor(
         override val id: String = "tiktok",
         private val prefix: String = "https://www.tiktok.com/@fixture/video/",
@@ -473,6 +694,7 @@ class BrowserMasterFallbackTest {
     private companion object {
         const val YOUTUBE_PREFIX = "https://www.youtube.com/watch/"
         const val YOUTUBE_PAGE = "${YOUTUBE_PREFIX}Yft0Fixture"
+        const val MAIN_MESSAGE = "Main's fixture failure"
         const val VIMEO_CONFIG = "{\"video\":{\"id\":123456789,\"title\":\"Fixture\"}," +
             "\"request\":{\"files\":{\"progressive\":[{\"url\":\"https://cdn.test/v720.mp4\"," +
             "\"mime\":\"video/mp4\",\"width\":1280,\"height\":720}]}}}"

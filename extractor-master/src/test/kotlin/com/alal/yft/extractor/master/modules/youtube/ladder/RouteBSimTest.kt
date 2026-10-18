@@ -1,7 +1,6 @@
 package com.alal.yft.extractor.master.modules.youtube.ladder
 
 import com.alal.yft.extractor.api.NoPlayerScriptRunner
-import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.master.lookup.LookupRecord
 import com.alal.yft.extractor.master.lookup.LookupRecorder
@@ -10,6 +9,7 @@ import com.alal.yft.extractor.master.lookup.RouteBLookup
 import com.alal.yft.extractor.master.lookup.RouteBMediaStartReader
 import com.alal.yft.extractor.master.lookup.RouteBPlayerScripts
 import com.alal.yft.extractor.master.modules.youtube.MasterYouTubeModule
+import com.alal.yft.extractor.master.policy.TerminalRules
 import com.alal.yft.extractor.sites.youtube.YouTubeExtractor as MainYouTubeExtractor
 import java.io.File
 import kotlin.time.Duration.Companion.minutes
@@ -43,7 +43,7 @@ class RouteBSimTest {
         val sourceReads: Int,
     ) {
         val recoverable: Boolean
-            get() = (mainResult as? SiteExtractionResult.Failure)?.reason in RECOVERABLE
+            get() = (mainResult as? SiteExtractionResult.Failure)?.reason in TerminalRules.ROUTE_B_RECOVERABLE
     }
 
     private class Run(
@@ -200,16 +200,6 @@ class RouteBSimTest {
     }
 
     private companion object {
-        /** Plan §2's recoverable set (route B R3 names it in the engine's rules). */
-        val RECOVERABLE = setOf(
-            SiteExtractionFailure.NO_MEDIA_FOUND,
-            SiteExtractionFailure.EXPIRED_LINK,
-            SiteExtractionFailure.RESPONSE_CHANGED,
-            SiteExtractionFailure.HTTP_STATUS,
-            SiteExtractionFailure.MALFORMED_RESPONSE,
-            SiteExtractionFailure.RESPONSE_TOO_LARGE,
-        )
-
         /** Guardrail 7: the ladder's player requests per lookup. */
         const val MAX_PLAYERS = 3
 

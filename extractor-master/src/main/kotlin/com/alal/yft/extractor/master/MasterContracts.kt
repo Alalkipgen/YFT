@@ -103,6 +103,13 @@ data class MasterPolicy(
     val timeoutMillis: Long = 20_000,
     /** R8: the contract ask's own share, so a slow endpoint still leaves time for capture. */
     val contractTimeoutMillis: Long = 6_000,
+    /**
+     * Phase 1.4 item 7 (YouTube routing B) R3: Master's YouTube module may answer a page main
+     * failed with a recoverable reason ([com.alal.yft.extractor.master.policy.TerminalRules.ROUTE_B_RECOVERABLE]),
+     * inside the lookup's record. Off (every build but `-Pyft.youtubeRouteB`, debug only): P12
+     * exactly, a claimed page main looked up is skipped.
+     */
+    val youtubeRouteB: Boolean = false,
 ) {
     init {
         require(maxCandidates in 1..50)

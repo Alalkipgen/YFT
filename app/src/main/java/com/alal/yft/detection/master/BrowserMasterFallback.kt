@@ -125,6 +125,15 @@ class AndroidBrowserMasterFallback(
         // R2: a walled site's bot check, login or player-script answer is final, before capture.
         if (TerminalRules.blocksFallback(failure, lookupUrl)) return unanswered("final answer")
         val key = sites.videoKey(lookupUrl)
+        // Phase 1.4 item 7 (YouTube routing B) R3: in a route-B build a YouTube page main failed
+        // with a recoverable reason is answered by Master's module (the engine's rule, inside the
+        // lookup's record). When it gives no rows, main's failure stays the lookup's answer — its
+        // reason, message and retry — with Master's details added. Every other build: false.
+        val routeB = youtubeRouteB && primary is SiteAdapterOutcome.Failed &&
+            key?.substringBefore(':') == YOUTUBE_SITE_ID && TerminalRules.routeBRecoverable(failure)
+        fun noRows(reason: SiteExtractionFailure, message: String, details: List<String>) =
+            if (routeB) failed(primary, failure, (primary as SiteAdapterOutcome.Failed).message, details)
+            else failed(primary, reason, message, details)
         val request = requestFactory(failure, nowEpochMs, key?.substringAfter(':'))
             ?: return unanswered("no page to ask")
         if (TerminalRules.blocksFallback(failure, request.pageUrl) ||
@@ -140,14 +149,16 @@ class AndroidBrowserMasterFallback(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
-            return failed(primary, failure, PLAY_FIRST, listOf("master: capture unavailable"))
+            return noRows(failure, PLAY_FIRST, listOf("master: capture unavailable"))
         }
         val scope = capture.session.currentScope()
         val samePage = scope != null && scope.generation == request.generation &&
             scope.pageUrl == request.pageUrl
         // Item 2, run 4: the site's module answers for the video, not for the page's state, so in
         // the h-only trial the same video still open (reloaded, or a changed address) keeps it.
-        val sameVideo = hOnly && scope != null && key != null && sites.videoKey(scope.pageUrl) == key
+        // Item 7 R3: route B's answer is the module's too.
+        val sameVideo = (hOnly || routeB) && scope != null && key != null &&
+            sites.videoKey(scope.pageUrl) == key
         if (!samePage && !sameVideo) return unanswered("the page changed during the lookup")
         return when (result) {
             is MasterResult.Success -> {
@@ -157,12 +168,12 @@ class AndroidBrowserMasterFallback(
                 }
                 val kept = focused.filter(mergeSupport::canMerge)
                 when {
-                    focused.isEmpty() -> failed(
-                        primary, failure, PLAY_FIRST,
+                    focused.isEmpty() -> noRows(
+                        failure, PLAY_FIRST,
                         result.result.details + "master: focused content identity required",
                     )
-                    kept.isEmpty() -> failed(
-                        primary, SiteExtractionFailure.NO_MEDIA_FOUND,
+                    kept.isEmpty() -> noRows(
+                        SiteExtractionFailure.NO_MEDIA_FOUND,
                         "This phone cannot merge the captured tracks.",
                         result.result.details + "master: device merge gate rejected tracks",
                     )
@@ -173,14 +184,14 @@ class AndroidBrowserMasterFallback(
                 }
             }
             is MasterResult.NeedsPlayback ->
-                failed(primary, failure, PLAY_FIRST, result.details)
-            is MasterResult.NeedsSelection -> failed(
-                primary, failure,
+                noRows(failure, PLAY_FIRST, result.details)
+            is MasterResult.NeedsSelection -> noRows(
+                failure,
                 "Play only the video you want, then tap Try again.",
                 result.details,
             )
-            is MasterResult.Failure -> failed(
-                primary, result.reason,
+            is MasterResult.Failure -> noRows(
+                result.reason,
                 if (result.reason == SiteExtractionFailure.DRM_PROTECTED) {
                     "Protected media cannot be captured."
                 } else {
@@ -271,7 +282,9 @@ class AndroidBrowserMasterFallback(
                 capture,
                 sites,
                 MasterFallbackEngine(
-                    OkHttpMediaValidator(client), capture, MasterPolicy(enabled = true),
+                    // Item 7 R3: the engine's route-B rule only in a route-B build.
+                    OkHttpMediaValidator(client), capture,
+                    MasterPolicy(enabled = true, youtubeRouteB = youtubeRouteB),
                     captureSelection = capture::selectMain,
                     // R6: YouTube pages are Master's own module's, never capture's.
                     // Phase 1.3 D6: the client ladder only with -Pyft.clientLadder (debug).

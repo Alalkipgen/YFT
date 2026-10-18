@@ -9,7 +9,10 @@ import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.extractor.generic.normalizer.CandidateNormalizer
 import com.alal.yft.extractor.master.contract.SiteContracts
 import com.alal.yft.extractor.master.layers.LayerStack
+import com.alal.yft.extractor.master.lookup.LookupRecord
+import com.alal.yft.extractor.master.lookup.RouteBLookup
 import com.alal.yft.extractor.master.modules.MasterSiteModule
+import com.alal.yft.extractor.master.modules.youtube.YouTubeUrls
 import com.alal.yft.extractor.master.policy.SnapshotBudget
 import com.alal.yft.extractor.master.policy.TerminalRules
 import com.alal.yft.extractor.master.toolkit.UrlPolicy
@@ -19,6 +22,7 @@ import com.alal.yft.extractor.master.verify.ProbeSession
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.coroutineContext
@@ -42,7 +46,9 @@ typealias MasterCaptureSelection = suspend (
  * alone, and only when no site adapter looked the video up first (P12). R8: with [contracts],
  * the identified video's own site endpoint is asked once first (L2 contract); its answer is read
  * like any snapshot and shares the probe budget. It is never asked after a login, bot-check or
- * player-script failure (that answer needs the user's own playback).
+ * player-script failure (that answer needs the user's own playback). Phase 1.4 item 7 (YouTube
+ * routing B) R3: with [MasterPolicy.youtubeRouteB] the YouTube module also answers a page main
+ * failed with a recoverable reason, inside the lookup's record ([routeB]); off, P12 exactly.
  */
 class MasterFallbackEngine(
     private val validator: MasterMediaValidator,
@@ -68,19 +74,27 @@ class MasterFallbackEngine(
         val claim = modules.firstNotNullOfOrNull { module ->
             module.identify(request.pageUrl)?.let { module to it }
         }
+        // Item 7 R3: route B's run for a claimed page main failed recoverably, else null.
+        val route = claim?.let { routeB(it.first, request) }
         // A claimed page never reaches layers or capture. The module asks only when no site
-        // adapter answered for this page: after the adapter's lookup, its answer stands.
-        if (claim != null && request.primaryFailure != SiteExtractionFailure.UNSUPPORTED_URL) {
+        // adapter answered for this page: after the adapter's lookup, its answer stands (route B
+        // aside: then the module answers within the same lookup, main's answers replayed).
+        if (claim != null && request.primaryFailure != SiteExtractionFailure.UNSUPPORTED_URL &&
+            route == null
+        ) {
             return MasterResult.Skipped(request.primaryFailure)
         }
         return try {
             withTimeout(policy.timeoutMillis) {
-                if (claim == null) run(request) else answer(claim.first, claim.second, request)
+                if (claim == null) run(request) else answer(claim.first, claim.second, request, route)
             }
         } catch (timeout: TimeoutCancellationException) {
             // Only our own timeout becomes a result. An enclosing timeout remains cancellation.
             coroutineContext.ensureActive()
-            failure(SiteExtractionFailure.NETWORK, listOf("master: bounded lookup timed out"))
+            failure(
+                SiteExtractionFailure.NETWORK,
+                routed(route, request) + "master: bounded lookup timed out",
+            )
         } catch (cancellation: CancellationException) {
             throw cancellation
         }
@@ -225,34 +239,55 @@ class MasterFallbackEngine(
         }
     }
 
+    /**
+     * Phase 1.4 item 7 (YouTube routing B) R3: the route-B run for a page [module] claims, or null
+     * (P12: skipped as before). Only with [MasterPolicy.youtubeRouteB], for the YouTube module,
+     * after main failed with a recoverable reason ([TerminalRules.ROUTE_B_RECOVERABLE]; final
+     * reasons were skipped above), in a lookup whose record ([LookupRecord]) holds main's own
+     * requests: one lookup = main + Master, so a lookup without them (no record, one that joined
+     * another caller's lookup or a cached answer) stays skipped.
+     */
+    private suspend fun routeB(module: MasterSiteModule, request: MasterRequest): RouteBLookup? {
+        if (!policy.youtubeRouteB || module.siteId != YouTubeUrls.SITE_ID) return null
+        if (!TerminalRules.routeBRecoverable(request.primaryFailure)) return null
+        val record = coroutineContext[LookupRecord]?.takeIf { it.mainAsks > 0 } ?: return null
+        return RouteBLookup(record)
+    }
+
+    /** Item 7 R3: route B's Details line first (`master: route B after <reason>; replayed N; new M`). */
+    private fun routed(route: RouteBLookup?, request: MasterRequest): List<String> =
+        route?.let { listOf("master: route B after ${request.primaryFailure.name}; ${it.summary()}") }.orEmpty()
+
     private suspend fun answer(
         module: MasterSiteModule,
         identity: SitePageIdentity,
         request: MasterRequest,
+        route: RouteBLookup? = null,
     ): MasterResult {
         if (request.expectedContentId != null && request.expectedContentId != identity.contentId) {
             return failure(
                 SiteExtractionFailure.RESPONSE_CHANGED,
-                listOf("master: the page shows a different video than requested"),
+                routed(route, request) + "master: the page shows a different video than requested",
             )
         }
         val label = "master: ${module.siteId} module"
-        return when (
-            val result = module.extract(
-                SiteExtractionRequest(identity, request.requestContext, request.nowEpochMs),
-            )
-        ) {
+        val asked = SiteExtractionRequest(identity, request.requestContext, request.nowEpochMs)
+        // Item 7 R3: the module's requests run inside route B's rules (replay, refusals, counts).
+        val result = if (route == null) module.extract(asked) else withContext(route) { module.extract(asked) }
+        return when (result) {
             is SiteExtractionResult.Success -> MasterResult.Success(
                 SiteExtractionResult.Success(
                     result.candidates,
                     DiagnosticTextSanitizer.details(
-                        result.details + "$label: ${result.candidates.size} rows",
+                        routed(route, request) + result.details + "$label: ${result.candidates.size} rows",
                     ),
                 ),
                 MasterStage.SITE_MODULE,
             )
-            is SiteExtractionResult.Failure ->
-                failure(result.reason, result.details + "$label: ${result.reason.name}")
+            is SiteExtractionResult.Failure -> failure(
+                result.reason,
+                routed(route, request) + result.details + "$label: ${result.reason.name}",
+            )
         }
     }
 

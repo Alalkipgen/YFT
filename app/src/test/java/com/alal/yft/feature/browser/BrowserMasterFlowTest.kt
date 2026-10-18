@@ -7,6 +7,7 @@ import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.detection.MergeSupport
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
+import com.alal.yft.detection.master.AndroidBrowserMasterFallback
 import com.alal.yft.detection.master.BrowserMasterFallback
 import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.ExtractorHttpResult
@@ -17,8 +18,17 @@ import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.api.SiteExtractor
 import com.alal.yft.extractor.api.SiteExtractorRegistry
 import com.alal.yft.extractor.api.SitePageIdentity
+import com.alal.yft.extractor.master.MasterFallbackEngine
+import com.alal.yft.extractor.master.MasterMediaValidator
+import com.alal.yft.extractor.master.MasterPolicy
+import com.alal.yft.extractor.master.MasterRequest
+import com.alal.yft.extractor.master.ValidationResult
+import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
 import com.alal.yft.extractor.master.lookup.LookupRecord
 import com.alal.yft.extractor.master.lookup.LookupRecorder
+import com.alal.yft.extractor.master.lookup.RouteBHttpClient
+import com.alal.yft.extractor.master.lookup.RouteBLookup
+import com.alal.yft.extractor.master.modules.MasterSiteModule
 import com.alal.yft.feature.detectedmedia.DetectedMediaStore
 import com.alal.yft.testing.MainDispatcherRule
 import kotlin.coroutines.CoroutineContext
@@ -29,6 +39,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import org.junit.Assert.*
@@ -46,6 +57,7 @@ class BrowserMasterFlowTest {
     private val page = "https://page.test/watch"
     private val site = "https://www.tiktok.com/@fixture/video/11111"
     private val media = "https://cdn.test/main.mp4"
+    private val youtube = "https://www.youtube.com/watch?v=$YOUTUBE_ID"
 
     @Test
     fun primarySuccessNeverCallsTheBackup() = runTest {
@@ -127,6 +139,53 @@ class BrowserMasterFlowTest {
         assertEquals(listOf<LookupRecord?>(null), adapter.records)
         assertEquals(listOf<LookupRecord?>(null), backup.seen)
         assertEquals(1, http.asked)
+    }
+
+    /**
+     * Item 7 R3: a route-B page lookup is main, then Master — after main's RESPONSE_CHANGED the
+     * module answers inside the lookup's record (main's request replayed, not asked again) and
+     * its row is the page's video; after a bot check main's failure stays and Master never runs.
+     */
+    @Test
+    fun aRouteBYouTubeLookupShowsMastersRowOnlyAfterARecoverableFailure() = runTest {
+        for (reason in listOf(SiteExtractionFailure.RESPONSE_CHANGED, SiteExtractionFailure.BOT_CHECK)) {
+            val http = Answering()
+            val adapter = YouTubeAdapter(LookupRecorder(http), reason)
+            val sites = SiteAdapterCoordinator(SiteExtractorRegistry(listOf(adapter)), MergeSupport { true })
+            val capture = WebViewPlaybackCapture(true)
+            val scope = capture.session.navigate(youtube)!!
+            val module = YouTubeModule(RouteBHttpClient(http))
+            val engine = MasterFallbackEngine(
+                MasterMediaValidator { found, _ -> ValidationResult.Valid(found) },
+                policy = MasterPolicy(enabled = true, youtubeRouteB = true),
+                modules = listOf(module),
+            )
+            val bridge = AndroidBrowserMasterFallback(
+                capture, sites, engine, MergeSupport { true },
+                requestFactory = { failure, now, expected ->
+                    MasterRequest(youtube, scope.generation, now, failure, expected)
+                },
+                youtubeRouteB = true,
+            )
+            val store = DetectedMediaStore()
+            val vm = BrowserViewModel(OkHttpClient(), sites, store, masterFallback = bridge)
+            vm.onPageStarted(youtube)
+            vm.onPageFinished(youtube, "Fixture")
+            settle { adapter.calls == 1 && !vm.uiState.value.pageLookupRunning }
+
+            assertEquals(reason.name, 1, http.asked) // main's request; Master's was replayed
+            if (reason == SiteExtractionFailure.RESPONSE_CHANGED) {
+                assertEquals(1, module.calls)
+                assertEquals(1, module.runs.single()!!.replayed)
+                assertNull(store.lookup.value)
+                assertTrue(vm.openPageVideo())
+                assertEquals(listOf(ROW), store.selection.value!!.candidates.map { it.mediaUrl })
+            } else {
+                assertEquals(0, module.calls)
+                assertNotNull(store.lookup.value!!.failure)
+                assertNull(store.selection.value)
+            }
+        }
     }
 
     @Test
@@ -251,6 +310,19 @@ class BrowserMasterFlowTest {
         assertEquals(0, backup.calls)
     }
 
+    /**
+     * Item 7 R3: the backup's engine runs on a background thread (Dispatchers.Default); the test
+     * thread runs the browser's coroutines until [done], for at most a few seconds.
+     */
+    private fun TestScope.settle(done: () -> Boolean) {
+        repeat(500) {
+            runCurrent()
+            if (done()) return
+            Thread.sleep(10)
+        }
+        fail("the lookup did not finish")
+    }
+
     private fun viewModel(
         backup: FakeBackup,
         adapter: FixtureExtractor? = null,
@@ -324,6 +396,46 @@ class BrowserMasterFlowTest {
         ): ExtractorHttpResult = get(url, headers, maxBodyBytes)
     }
 
+    /** Item 7 R3: main's YouTube adapter stand-in — asks the player endpoint once, then fails. */
+    private inner class YouTubeAdapter(
+        private val http: ExtractorHttpClient,
+        private val reason: SiteExtractionFailure,
+    ) : SiteExtractor {
+        override val id = "youtube"
+        override val displayName = "Fixture YouTube"
+        var calls = 0
+        override fun identify(pageUrl: String): SitePageIdentity? =
+            if (pageUrl == youtube) SitePageIdentity(id, YOUTUBE_ID, pageUrl) else null
+        override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
+            calls++
+            http.postJson(PLAYER, PLAYER_BODY, emptyMap(), MAX_BODY)
+            return SiteExtractionResult.Failure(reason)
+        }
+    }
+
+    /** Item 7 R3: Master's YouTube module stand-in — main's request again, through route B. */
+    private inner class YouTubeModule(private val http: ExtractorHttpClient) : MasterSiteModule {
+        var calls = 0
+        val runs = mutableListOf<RouteBLookup?>()
+        override val siteId = "youtube"
+        override fun identify(pageUrl: String): SitePageIdentity? =
+            if (pageUrl == youtube) SitePageIdentity(siteId, YOUTUBE_ID, pageUrl) else null
+        override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult {
+            calls++
+            runs += coroutineContext[RouteBLookup]
+            http.postJson(PLAYER, PLAYER_BODY, emptyMap(), MAX_BODY)
+            return SiteExtractionResult.Success(
+                listOf(
+                    MediaCandidate(
+                        youtube, ROW, setOf(CandidateSource.REQUEST), MediaKind.DIRECT,
+                        mimeType = "video/mp4", confidence = CandidateConfidence.HIGH,
+                        contentLengthBytes = 100_000, videoId = "youtube:$YOUTUBE_ID",
+                    ),
+                ),
+            )
+        }
+    }
+
     private inner class FixtureExtractor(
         private val succeeds: Boolean = false,
         private val http: ExtractorHttpClient? = null,
@@ -344,5 +456,13 @@ class BrowserMasterFlowTest {
                 )
             } else SiteExtractionResult.Failure(SiteExtractionFailure.NO_MEDIA_FOUND)
         }
+    }
+
+    private companion object {
+        const val YOUTUBE_ID = "Yft0Fixture"
+        const val PLAYER = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
+        const val PLAYER_BODY = "{\"videoId\":\"Yft0Fixture\"}"
+        const val MAX_BODY = 2L * 1024 * 1024
+        const val ROW = "https://cdn.test/yt/master.mp4"
     }
 }

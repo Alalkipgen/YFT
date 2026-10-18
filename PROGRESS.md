@@ -1,5 +1,41 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 item 7 R3: route B's claim rule — Master's YouTube module answers after main's recoverable failure (2026-10-17)
+
+- One place for the recoverable set (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §2):
+  `TerminalRules.ROUTE_B_RECOVERABLE` = `NO_MEDIA_FOUND`, `EXPIRED_LINK`, `RESPONSE_CHANGED`,
+  `HTTP_STATUS`, `MALFORMED_RESPONSE`, `RESPONSE_TOO_LARGE` (`routeBRecoverable`). Never a
+  `NEVER_FALLBACK` or `BROWSER_REQUIRED` reason; `UNSUPPORTED_URL` is answered as before.
+- Engine (`MasterFallbackEngine`, new `MasterPolicy.youtubeRouteB`, default off): a page Master's
+  YouTube module claims, after main failed with one of these reasons, in a lookup whose record holds
+  main's own requests, is answered by the module inside a `RouteBLookup` over that record (R2's
+  rules: main's identical answers replayed, authorized requests refused, nothing new after a 429),
+  within the engine's own time bound (no new numbers). Its rows or its failure name it first:
+  `master: route B after <reason>; replayed N; new M` (`; refused K` when any; also on a timeout).
+  Switch off, any other reason, no record, or a record without main's requests (a lookup that joined
+  another caller's, or a cached answer) → `Skipped` as today (P12).
+- App (`AndroidBrowserMasterFallback`): in a route-B build the engine gets the switch
+  (`create`); Master's rows keep main's adapter ID; when Master's module gives no rows, main's failure
+  stays the lookup's answer (reason, message, Try again) with Master's details after main's, so the
+  answer never turns into another reason; the same video reloaded during the lookup keeps the rows
+  (as the h-only trial). Every other build: the very same calls as before.
+- Not yet: found rows carry no details, so on a found page the counts are not shown (a failure shows
+  them in the sheet's Details); R4 (trial switch, `routeb` APK) shows them for the phone check.
+- Tests: `RouteBClaimRuleTest` (10: the set; switch off = P12 for every reason; on: each recoverable
+  reason answered from main's replayed answer, every final reason skipped, no record or no main
+  request skipped, `UNSUPPORTED_URL` as before, only the YouTube module, nothing sent after main's
+  429, a new request counted, the engine's own timeout); `BrowserMasterFallbackTest` +6 (each
+  recoverable reason → Master's row; bot check, login, player script, 429 and the other final reasons
+  → main's answer, no request; switch off → main's answer; no main request → main's answer; no rows →
+  main's failure + Master's details; same video reloaded → rows kept); `BrowserMasterFlowTest` +1
+  (a route-B page lookup: `RESPONSE_CHANGED` → Master's row is the page's video, main's request
+  replayed; bot check → main's failure, Master never runs). `RouteBSimTest` reads the shared set.
+- Local: `:extractor-master:test` 707 green (2 skipped as before), `:extractor-sites:test` 280 green,
+  all app unit tests with the flags off 981 green (66 skipped as before), the four Master app classes
+  with `masterCapture` + `ownSolver` on green (45) and again with `clientLadder` + `youtubeRouteB` on
+  (45), drift 0 (107 symbols), workflow script tests green. Locked files and `extractor-sites`
+  unchanged.
+
 ## Phase 1.4 item 7 R2: route B's Master wrappers for the YouTube module (2026-10-17)
 
 - New in `extractor-master` `lookup`: `RouteBLookup` — one route-B run of Master's YouTube module over

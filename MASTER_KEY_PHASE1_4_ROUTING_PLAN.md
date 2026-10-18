@@ -1,8 +1,9 @@
 # Master Key — Phase 1.4 backlog item 7: YouTube routing B (plan)
 
-**Status:** R1–R2 built (2026-10-17; §7 "As built"): the per-lookup recorder and route B's Master
-wrappers (replay, refusals, 429 stop; nothing puts them into a lookup before R3), flag off = today.
-R3–R6 next, one commit each. Plan written 2026-10-17 (docs only).
+**Status:** R1–R3 built (2026-10-17; §7 "As built"): the per-lookup recorder, route B's Master
+wrappers (replay, refusals, 429 stop) and the engine's claim rule (in a route-B build Master's
+YouTube module answers after main's recoverable failure), flag off = today. R4–R6 next, one commit
+each. Plan written 2026-10-17 (docs only).
 Backlog pointer: `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Same contract as the social sites:
 `MASTER_KEY_SOCIAL_PLAN.md` §2.1 decisions #7 (routing B / B+ / A) and #8 (lookup = main + Master,
 per-lookup request recorder). Agent prompt: `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md`.
@@ -147,3 +148,20 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   moved) ends main with `LOGIN_REQUIRED` in the simulator (final, so no route B there). Limit: a
   refused visionOS request would count as a refusal in the ladder's client health (practically never:
   main asks visionOS first, unauthenticated, so Master's identical request is replayed).
+- **R3 (2026-10-17).** `TerminalRules.ROUTE_B_RECOVERABLE` (`routeBRecoverable`) is §2's set, the one
+  place the engine, the app and the simulator read; it never overlaps `NEVER_FALLBACK` /
+  `BROWSER_REQUIRED`. `MasterPolicy.youtubeRouteB` (default false; `AndroidBrowserMasterFallback.create`
+  sets it from `YouTubeRouteB.enabled`). Engine: a claimed page whose primary failure is not
+  `UNSUPPORTED_URL` is skipped (P12) unless the switch is on, the module is YouTube's (`siteId`
+  `youtube`), the reason is recoverable and the lookup's record holds at least one request of main's;
+  then the module runs once in a `RouteBLookup` over that record, inside the engine's own timeout, and
+  its rows or failure carry the Details line first: `master: route B after <reason>; replayed N; new M`
+  (`; refused K` when any; also on a timeout and for a different requested video). **Plan adapted:**
+  (1) a lookup whose record has no request of main's (no record: home, pasted link; a lookup that
+  joined another caller's shared lookup, P17; a cached answer) stays skipped — Master would otherwise
+  ask again what main asked; (2) when Master's module gives no rows (its failure, no focused row, the
+  merge gate, a timeout), the app keeps main's failure — reason, message, Try again — and adds
+  Master's details after main's, so route B never turns main's answer into another reason (never
+  `UNSUPPORTED_URL`, never a final one); (3) the same video still open after a reload during the lookup
+  keeps the module's rows (as the h-only trial, item 2 run 4). Limit: found rows carry no details, so
+  the counts show only in a failure's Details; R4 shows them on the phone.
