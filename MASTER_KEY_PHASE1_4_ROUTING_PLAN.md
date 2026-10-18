@@ -1,9 +1,13 @@
 # Master Key — Phase 1.4 backlog item 7: YouTube routing B (plan)
 
-**Status:** R1–R3 built (2026-10-17; §7 "As built"): the per-lookup recorder, route B's Master
-wrappers (replay, refusals, 429 stop) and the engine's claim rule (in a route-B build Master's
-YouTube module answers after main's recoverable failure), flag off = today. R4–R6 next, one commit
-each. Plan written 2026-10-17 (docs only).
+**Status:** R1–R6 done (§7 "As built"): built behind the debug flag, **not promoted**. R1–R4
+(2026-10-17): the per-lookup recorder, route B's Master wrappers (replay, refusals, 429 stop), the
+engine's claim rule (in a route-B build Master's YouTube module answers after main's recoverable
+failure) and the trial switch with the D7 APK `routeb`; flag off = today. R5 phone check (owner,
+2026-10-18): `normal` unchanged; in `routeb` one video of four got Master's rows with the counts
+(`replayed 1; new 1`) and downloads that play; on two the replayed visionOS answer was a bot check,
+so route B gave no rows and main's failure stayed (as §2 wants); a first open needed Try again.
+R6 docs 2026-10-18. Promotion (flag on in normal builds) is the owner's decision (§5.5).
 Backlog pointer: `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Same contract as the social sites:
 `MASTER_KEY_SOCIAL_PLAN.md` §2.1 decisions #7 (routing B / B+ / A) and #8 (lookup = main + Master,
 per-lookup request recorder). Agent prompt: `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md`.
@@ -14,6 +18,12 @@ main က page ကို တွေ့ရင် (UNSUPPORTED_URL မဟုတ်�
 ဖြေမယ် (route B)၊ debug flag နောက်မှာ (default off = ယနေ့နဲ့ အတူတူ)။ main အောင်မြင်ရင် မထိ၊ final
 အကြောင်းပြချက် (BOT_CHECK၊ LOGIN၊ 429 …) တွေ final ဆက်ဖြစ်။ main မေးပြီးသား အဖြေကို ထပ်မမေးဘဲ memory ထဲက
 ပြန်သုံး (recorder)။ အဆင့် R1–R6၊ commit တစ်ခု တစ်ဆင့်၊ CI green။ ဖုန်းစစ်ပြီးမှ promote။
+
+**R5 ရလဒ် (owner, 2026-10-18):** `normal` ယခင်အတိုင်း ✅။ `routeb`: video 1 မှာ Try again နှိပ်ပြီးနောက်
+Master rows ရ (`replayed 1; new 1`၊ 720p / 360p ဖိုင် ဖွင့်လို့ ရ)။ video 2–3 မှာ main ဆီက ပြန်သုံးတဲ့ visionOS
+အဖြေက bot check ဖြစ်ပြီး နောက်တစ်ဆင့် watch page မှာ browser cookie ပါလို့ route B က မပို့ — Master rows မရ၊
+main ရဲ့ failure ပဲ ကျန် (rule အတိုင်း)။ ပထမအကြိမ် ဖွင့်ရင် Try again လိုတတ်။ Flag off ဆက်ထား၊ promote
+မလုပ်ရသေး (owner ဆုံးဖြတ်ရန်)။
 
 ## 1. Today (verified 2026-10-17, spike `4235716`)
 
@@ -187,7 +197,7 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   rows none), `BrowserMasterFlowTest` (`theRouteBTrialShowsMastersRowAndRouteBsCounts`: trial →
   Master's row, notice `replayed 1; new 0`, main asked once; route B alone → main's row, no notice),
   `YouTubeRouteBTest` (trial needs route B; the notice is route B's line only).
-- **R5 phone check (owner; ⏸).** From the `[d7]` run's artifacts: (1) `yft-d7-normal`: a YouTube
+- **R5 phone check (owner, 2026-10-18; D7 run 39084859828 on `44493f8`).** From the `[d7]` run's artifacts: (1) `yft-d7-normal`: a YouTube
   video's Download shows main's rows as before, no `master: route B` notice. (2) `yft-d7-routeb`
   (installs over it): open a YouTube watch page (not the Shorts feed) and wait; the notice reads
   `master: route B after RESPONSE_CHANGED; replayed N; new M` — send the line; Download → download one
@@ -196,3 +206,37 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   videos. (3) If the sheet says "Route B trial: main's rows were set aside and Master found none":
   send Details, then tap Try again once. (4) A bot check, sign-in or "try again later" in `routeb`
   stays as in `normal` (no Master rows).
+  **Results** (owner's screenshots; V1 `dQw4w9WgXcQ`, V2 `jNQXAC9IVRw`, V3 `aqz-KE-bpKQ`, V4 the
+  Short `BGQWPY4IigY`, each opened from the address bar): (1) `normal`: pass — main's rows as before
+  on all four (V1 2160p / 1440p WebM, 1080p / 720p MP4; V2 M4A / MP3, 240p / 144p; V3 2160p60 /
+  1440p60 / 1080p60; V4 720p 608×1080, 360p), no notice. (2) `routeb`, first open of each video
+  (V1 also re-opened twice): the trial's message with Details only `master: route B trial: main's N
+  rows set aside` (V1 9, V2 3, V3 9) — route B did not run (no Master line: the lookup's record held
+  no request of main's, R4's limit, or the fallback stopped early; for V1's re-opens a reused answer,
+  P17; for the first opens not logged). (3) Try again: V1 → Master's rows (MP3 192 / 128 made on the
+  phone, 2160p / 1440p WebM, 1080p, 720p, 360p …) and the notice `master: route B after
+  RESPONSE_CHANGED; replayed 1; new 1`; 720p and 360p downloaded: they play with picture and sound
+  and seek (the duration and 360p's height were not sent separately); a retest gave the same. V2
+  and V3 → no rows, main's failure kept, Details `master: route B after RESPONSE_CHANGED; replayed 1;
+  new 0; refused 1`, `client VISIONOS: LOGIN_REQUIRED; with URLs: 0 progressive, 0 adaptive; SABR
+  no`, `client VISIONOS reason: Sign in to confirm you're not a bot`, `visionOS first: no playable
+  answer, so the watch page is read`, `watch page GET failed (NETWORK)`, `ladder H: no HLS address`,
+  `master: youtube module: NETWORK`. V4 (the Short): the same message, no Details sent. Reading (the
+  code): replayed 1 = the visionOS player request, main's own answer (here a bot check); refused 1 =
+  the module's watch-page GET, which carries the tab's `Cookie` (`YouTubeExtractor`
+  `pageHeaders(request.requestContext)` → `LookupAsk.authorized`), so `RouteBLookup` rule 1 never
+  sends it and it reads as `NETWORK`. (4) Main gave no bot check, sign-in or try-later on these
+  videos (`normal` found all four); the bot check Master met inside route B gave no rows and main's
+  failure stayed, so §2's rule held. Wrong rows: none seen.
+- **R6 (2026-10-18).** Docs only, no code: R5's results above, this plan's status,
+  `PROGRESS.md`, `MASTER_KEY_ARCHITECTURE.md` (layout `lookup/` and `YouTubeRouteB`, flow, the R8
+  note, next) and `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7.
+- **Item 7 status (2026-10-18): built behind the flag, not promoted.** `-Pyft.youtubeRouteB` stays
+  off in every normal build (flag off = today, P12); promotion is the owner's decision (§5.5).
+  Limits seen on the phone: (a) when the replayed visionOS answer is a bot check (or another
+  unplayable answer), the module's next step, the watch page, carries the tab's cookie and is never
+  sent (rule 1), so route B gives no rows and main's failure stays; (b) a lookup answered from
+  main's reused answer (P17's shared lookup or cache) has no request of main's in its record, so
+  route B is skipped and the trial needs Try again. Possible follow-ups, not planned (the owner's
+  call): a route-B way past a bot-checked visionOS answer (for example the watch page without the
+  user's cookie; it needs a decision on §2's rules); the trial asking main afresh on a first open.

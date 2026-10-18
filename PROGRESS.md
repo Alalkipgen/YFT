@@ -1,5 +1,28 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 item 7 — route B R5 phone check and R6 docs (2026-10-18): built behind the flag, not promoted
+
+- R5 (owner's phone; D7 run 7 APKs `normal` and `routeb`, run 39084859828 on `44493f8`; V1
+  `dQw4w9WgXcQ`, V2 `jNQXAC9IVRw`, V3 `aqz-KE-bpKQ`, V4 the Short `BGQWPY4IigY`): `normal` unchanged —
+  main's rows as before on all four, no notice. `routeb`: V1 (after Try again) → Master's rows (MP3
+  192 / 128, 2160p / 1440p WebM, 1080p, 720p, 360p …) with the notice `master: route B after
+  RESPONSE_CHANGED; replayed 1; new 1`; 720p and 360p downloaded: picture, sound and seek work; a
+  retest gave the same.
+- V2 and V3 → no rows, main's failure kept (`replayed 1; new 0; refused 1`): the replayed visionOS
+  answer was a bot check ("Sign in to confirm you're not a bot"), and the module's next step, the
+  watch page, carries the tab's cookie, so route B never sends it (`RouteBLookup` rule 1). V4: the
+  same message, no Details. The bot check stayed final; wrong rows: none seen.
+- A first open showed the trial's message with only `master: route B trial: main's N rows set aside`:
+  route B did not run (no request of main's in the lookup's record — a reused answer, P17 — or an
+  early stop; not logged). Try again (a fresh lookup) runs it. R4's documented limit.
+- Status: item 7 is built behind `-Pyft.youtubeRouteB` (off in every normal build), **not promoted**;
+  promotion is the owner's decision. Possible follow-ups, not planned: a route-B way past a
+  bot-checked visionOS answer (needs a decision on the plan's §2 rules); the trial asking main afresh
+  on a first open.
+- R6 docs: `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` (status, §7 R5 results, R6, item status),
+  `MASTER_KEY_ARCHITECTURE.md` (layout `lookup/` and `YouTubeRouteB`, flow, R8 note, next),
+  `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Docs only, no code.
+
 ## Phase 1.4 item 7 — route B R4: trial switch and the routeb APK (2026-10-17)
 
 - Debug switch `-Pyft.routeBTrial` (default off, with `-Pyft.youtubeRouteB` only; release and preview

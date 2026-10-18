@@ -46,12 +46,17 @@ extractor-master/ (pure JVM)            com.alal.yft.extractor.master
   capture/  InMemoryCaptureStore        per-tab, memory-only snapshot store
   parity/   ParityUrls, ParityReport,   R1: frozen list parser, host + content-ID report,
             ParityVerdict               §4.2 pass checks (offline baseline test in tests)
+  lookup/   LookupAsk, LookupRecord,    Phase 1.4 item 7 (YouTube route B, debug flag off):
+            LookupRecorder              the lookup's record of main's asks (memory only);
+            RouteBLookup, RouteBHttpClient, RouteBMediaStartReader, RouteBPlayerScripts:
+                                        route B's rules (replay, refusals, 429 stop, counts)
 extractor-master-android/               com.alal.yft.extractor.master.android
   WebViewPlaybackCapture, MasterBrowserSession, CaptureFrame, CaptureFocusGuard,
   MasterMainSelection, assets/yft-master-capture.js
   R5: CodecSteering + assets/yft-master-codecs.js (document-start codec steering)
   R7: assets/yft-master-mse.js (document-start MSE facts + EME stop) → fed CapturedRequest
 app/ BrowserMasterFallback              hook; reads TerminalRules (no own copy)
+app/ YouTubeRouteB                      item 7: route B's switches (flag, trial), wiring, notice
 app/src/androidTest/.../MasterParityLiveTest, assets/parity/parity-urls.json; scripts/canary.sh
 scripts/master-youtube-canary.sh (R6 YouTube client-table canary, owner-run)
 extractor-master/toolkit-provenance.tsv; scripts/master-toolkit-drift.py (R3 copy drift)
@@ -60,7 +65,9 @@ extractor-master/toolkit-provenance.tsv; scripts/master-toolkit-drift.py (R3 cop
 ## 2. Flow
 
 `TerminalRules` → R6 module claim (claimed page: module only when no adapter answered, else
-skipped; never layers/capture) → stages: R8 `CONTRACT` (the identified video's own endpoint,
+skipped; in a route-B build also after main's recoverable failure, over the lookup's record —
+Phase 1.4 item 7, flag off; never layers/capture) → stages: R8 `CONTRACT`
+(the identified video's own endpoint,
 asked once by the engine) → `PAGE_DATA` → `PLAYBACK_CAPTURE`; per stage: snapshot gates (generation, same page, access failure, `SnapshotBudget`,
 authorized playback) → `LayerStack` (L2 → L4 → L1 → L3; L3 adds only) → `CandidateNormalizer` →
 `CandidateGate` → capture-stage selection hook → `FocusSelection` → `ProbeSession`
@@ -85,6 +92,7 @@ authorized playback) → `LayerStack` (L2 → L4 → L1 → L3; L3 adds only) �
   Planned, not built (`MASTER_KEY_SOCIAL_PLAN.md` §2.1, decisions 8–9, final plan 2026-10-17): for
   Instagram, TikTok, Facebook and X a per-lookup request recorder stops that second ask, and the one
   ask becomes a small budgeted ladder per site pack (the engine fetches; layers still only read).
+  The recorder itself exists since Phase 1.4 item 7 (`lookup/`); so far only YouTube route B uses it.
 - Layer order is configuration. It decides probe order under the budget, so changing it is a
   behavior change and needs the R1 parity harness.
 - Recipes are data. A renamed site key is a one-line edit in `PayloadRecipes.NODE_RULES`.
@@ -134,3 +142,5 @@ authorized playback) → `LayerStack` (L2 → L4 → L1 → L3; L3 adds only) �
 - R9: done — `recipes/RemoteRecipes*` (signed ES256 envelope, schema
   `extractor-master/recipes/master-recipes.schema.json`, data only; no key = bundled recipes, no
   request) + `scripts/master-recipe-sign.sh`; the hosted config is the owner's to sign.
+- Phase 1.4 item 7 (YouTube routing B): built behind `-Pyft.youtubeRouteB` (debug, off),
+  phone-checked 2026-10-18, not promoted — `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §7.
