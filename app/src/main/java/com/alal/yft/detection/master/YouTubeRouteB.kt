@@ -9,6 +9,7 @@ import com.alal.yft.extractor.master.lookup.LookupRecorder
 import com.alal.yft.extractor.master.lookup.RouteBHttpClient
 import com.alal.yft.extractor.master.lookup.RouteBMediaStartReader
 import com.alal.yft.extractor.master.lookup.RouteBPlayerScripts
+import com.alal.yft.extractor.master.lookup.RouteBScriptClient
 import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStartReader
 import okhttp3.OkHttpClient
 
@@ -56,6 +57,15 @@ internal object YouTubeRouteB {
      */
     fun masterClient(http: ExtractorHttpClient, routeB: Boolean = enabled): ExtractorHttpClient =
         if (routeB) RouteBHttpClient(http) else http
+
+    /**
+     * Route B: the player-script client the runners share (the own solver's, main's). In a route-B
+     * build Master's script fetches in a route-B run follow route B's rules (counted, nothing new
+     * after a 429) and a 429 of main's script fetch is marked in the lookup's record
+     * ([RouteBScriptClient]); any other run only passes through. Otherwise it is [http] itself.
+     */
+    fun scriptClient(http: ExtractorHttpClient, routeB: Boolean = enabled): ExtractorHttpClient =
+        if (routeB) RouteBScriptClient(http) else http
 
     /** Route B R2: the own solver's runner for Master's module, not asked after a 429 in a route-B run. */
     fun masterScripts(runner: PlayerScriptRunner, routeB: Boolean = enabled): PlayerScriptRunner =

@@ -48,8 +48,9 @@ extractor-master/ (pure JVM)            com.alal.yft.extractor.master
             ParityVerdict               §4.2 pass checks (offline baseline test in tests)
   lookup/   LookupAsk, LookupRecord,    Phase 1.4 item 7 (YouTube route B, debug flag off):
             LookupRecorder              the lookup's record of main's asks (memory only);
-            RouteBLookup, RouteBHttpClient, RouteBMediaStartReader, RouteBPlayerScripts:
-                                        route B's rules (replay, refusals, 429 stop, counts)
+            RouteBLookup, RouteBHttpClient, RouteBMediaStartReader, RouteBPlayerScripts,
+            RouteBScriptClient:         route B's rules (replay, refusals, 429 stop, counts;
+                                        the player-script client too, F1)
 extractor-master-android/               com.alal.yft.extractor.master.android
   WebViewPlaybackCapture, MasterBrowserSession, CaptureFrame, CaptureFocusGuard,
   MasterMainSelection, assets/yft-master-capture.js
@@ -143,4 +144,5 @@ authorized playback) → `LayerStack` (L2 → L4 → L1 → L3; L3 adds only) �
   `extractor-master/recipes/master-recipes.schema.json`, data only; no key = bundled recipes, no
   request) + `scripts/master-recipe-sign.sh`; the hosted config is the owner's to sign.
 - Phase 1.4 item 7 (YouTube routing B): built behind `-Pyft.youtubeRouteB` (debug, off),
-  phone-checked 2026-10-18, not promoted — `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §7.
+  phone-checked 2026-10-18 (partial), not promoted — `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §7;
+  review follow-ups F1–F4 in its §8 (F1, the player-script client, done).

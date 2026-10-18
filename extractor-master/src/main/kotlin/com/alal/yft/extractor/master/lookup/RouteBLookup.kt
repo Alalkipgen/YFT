@@ -14,7 +14,8 @@ import kotlin.coroutines.CoroutineContext
  * run of Master's YouTube module, over the lookup's [record] (main's asks, R1). It is put in the
  * coroutine context of Master's run only after main failed with a recoverable reason (the engine,
  * route B R3); without it Master's route-B wrappers ([RouteBHttpClient], [RouteBMediaStartReader],
- * [RouteBPlayerScripts]) only pass through.
+ * [RouteBPlayerScripts], [RouteBScriptClient]) only pass through (the script client still marks a
+ * 429 of main's script fetch in the record).
  *
  * One lookup = main + Master (social plan decision 8). Each request of Master's module, in order:
  *  1. carrying the user's session or credentials ([LookupAsk.authorized]): refused, never sent;
@@ -28,9 +29,11 @@ import kotlin.coroutines.CoroutineContext
  *  5. otherwise new ([newRequests]): sent and listed in the record as Master's (never kept). Only
  *     the rungs main lacks ask what main did not (A's version, the O rungs' requests in a form
  *     main did not send, V, H, L's reads, Z's file checks), each inside its own guardrail-7 bound.
- * File checks and media reads (never replayed, as in the ladder's memo) follow 1, 3 and 5. A
- * refusal reads as a request that got no answer (`NETWORK`, no status); it is never
- * `UNSUPPORTED_URL`. Counts only: nothing is logged; [toString] and [summary] show numbers.
+ * File checks and media reads (never replayed, as in the ladder's memo) follow 1, 3 and 5, and so
+ * do the own solver's player-script fetches ([RouteBScriptClient]; its own client, so main's record
+ * keeps no answer to replay, and the ladder fetches its script again in a later run). A refusal
+ * reads as a request that got no answer (`NETWORK`, no status); it is never `UNSUPPORTED_URL`.
+ * Counts only: nothing is logged; [toString] and [summary] show numbers.
  */
 class RouteBLookup(val record: LookupRecord) : AbstractCoroutineContextElement(RouteBLookup) {
     private val replayedCount = AtomicInteger()
@@ -65,15 +68,18 @@ class RouteBLookup(val record: LookupRecord) : AbstractCoroutineContextElement(R
         record.replay(ask, maxBodyBytes)?.let { replayedCount.incrementAndGet(); return it }
         if (record.rateLimited) return refuse(RATE_LIMITED)
         if (LookupMemo.memoable(ask.url) && !claim(ask)) return refuse(NOT_SENT)
-        newCount.incrementAndGet()
-        val started = record.now()
-        var result: ExtractorHttpResult? = null
-        try {
-            return send().also { result = it }
-        } finally {
-            result?.let { record.record(ask, it, started, LookupRecord.Asker.MASTER) }
-                ?: record.unanswered(ask, started, LookupRecord.Asker.MASTER)
-        }
+        return sent(ask, send)
+    }
+
+    /**
+     * A player-script fetch of the runner Master's module asks ([ask], [RouteBScriptClient]): rules
+     * 1, 3 and 5, so a 429 stops what follows (the runner's other address of the same script
+     * included) and each fetch that goes out is new.
+     */
+    internal suspend fun script(ask: LookupAsk, send: suspend () -> ExtractorHttpResult): ExtractorHttpResult {
+        if (ask.authorized) return refuse(NOT_SENT)
+        if (record.rateLimited) return refuse(RATE_LIMITED)
+        return sent(ask, send)
     }
 
     /** A file check of Master's module ([ask]): never replayed. */
@@ -108,11 +114,24 @@ class RouteBLookup(val record: LookupRecord) : AbstractCoroutineContextElement(R
         }
     }
 
-    /** Whether the player script may run: not after a 429 in this lookup (its script fetch would be new). */
+    /** Whether the player script may run: not after a 429 in this lookup (a script fetch would be new). */
     internal fun scriptsAllowed(): Boolean {
         if (!record.rateLimited) return true
         refusedCount.incrementAndGet()
         return false
+    }
+
+    /** Rule 5: [ask] goes out, new, listed in the record as Master's (never kept). */
+    private suspend fun sent(ask: LookupAsk, send: suspend () -> ExtractorHttpResult): ExtractorHttpResult {
+        newCount.incrementAndGet()
+        val started = record.now()
+        var result: ExtractorHttpResult? = null
+        try {
+            return send().also { result = it }
+        } finally {
+            result?.let { record.record(ask, it, started, LookupRecord.Asker.MASTER) }
+                ?: record.unanswered(ask, started, LookupRecord.Asker.MASTER)
+        }
     }
 
     /** Rule 4: [ask]'s endpoint was not asked in this lookup, and now it is Master's. */

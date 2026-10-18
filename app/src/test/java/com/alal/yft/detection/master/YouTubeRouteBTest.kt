@@ -19,6 +19,7 @@ import com.alal.yft.extractor.master.lookup.LookupRecorder
 import com.alal.yft.extractor.master.lookup.RouteBHttpClient
 import com.alal.yft.extractor.master.lookup.RouteBLookup
 import com.alal.yft.extractor.master.lookup.RouteBMediaStartReader
+import com.alal.yft.extractor.master.lookup.RouteBScriptClient
 import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStart
 import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStartReader
 import com.alal.yft.extractor.master.solver.OwnSolverBreaker
@@ -91,6 +92,15 @@ class YouTubeRouteBTest {
         assertTrue(wrapped !== ownSolver && wrapped is SignatureVerdicts)
         assertFalse(YouTubeRouteB.masterScripts(runner, routeB = true) is SignatureVerdicts)
         assertSame(NoPlayerScriptRunner, YouTubeRouteB.masterScripts(NoPlayerScriptRunner, routeB = true))
+    }
+
+    @Test
+    fun thePlayerScriptClientIsRouteBsOnlyInARouteBBuild() {
+        val http = CountingHttp()
+        // Every other build: the runners' client is the very same object as before.
+        assertSame(http, YouTubeRouteB.scriptClient(http, routeB = false))
+        // A route-B build: route B's script client (it passes through outside a lookup).
+        assertTrue(YouTubeRouteB.scriptClient(http, routeB = true) is RouteBScriptClient)
     }
 
     @Test

@@ -83,7 +83,10 @@ object SiteAdapterModule {
      * Player scripts are larger than adapter pages, so they get their own client with a longer
      * call timeout; every other transport rule is the same. Master Phase 1.1 S5: with both
      * opt-in flags on (`-Pyft.ownSolver`, `-Pyft.masterCapture`) Master's own solver runs instead
-     * of the bundled ejs solver; otherwise this is main's runner, built exactly as on main.
+     * of the bundled ejs solver; otherwise this is main's runner, built exactly as on main. Phase
+     * 1.4 item 7 (YouTube routing B): in a route-B build (`-Pyft.youtubeRouteB`, debug only) the
+     * player client follows route B's rules in a route-B run and marks a 429 in the lookup's record
+     * (`YouTubeRouteB.scriptClient`); otherwise it is the plain client.
      */
     @Provides
     @Singleton
@@ -91,10 +94,12 @@ object SiteAdapterModule {
         @ApplicationContext context: Context,
         client: OkHttpClient,
     ): PlayerScriptRunner {
-        val http = OkHttpExtractorClient(
-            client = client,
-            policy = OkHttpExtractorClient.Policy(
-                callTimeoutSeconds = PLAYER_FETCH_TIMEOUT_SECONDS,
+        val http = YouTubeRouteB.scriptClient(
+            OkHttpExtractorClient(
+                client = client,
+                policy = OkHttpExtractorClient.Policy(
+                    callTimeoutSeconds = PLAYER_FETCH_TIMEOUT_SECONDS,
+                ),
             ),
         )
         return OwnSolverSelection.runner(

@@ -10,11 +10,13 @@ import kotlin.coroutines.coroutineContext
 
 /**
  * Phase 1.4 item 7 (YouTube routing B) R2: Master's player-script runner (the own solver) in a
- * route-B build. The runner fetches the player script with its own client, so under a
- * [RouteBLookup] it is not asked after a 429 in the lookup (`RATE_LIMITED`; the script fetch
- * would be a new YouTube request); otherwise it answers as before. The wrapper keeps the
- * runner's kind: a runner that hands V its checks ([SignatureVerdicts]) still does, so the
- * module's signature gate is exactly as without route B; no runner stays no runner.
+ * route-B build. The runner fetches the player script with its own client — in a route-B build
+ * [RouteBScriptClient], so under a [RouteBLookup] each fetch follows route B's rules and is
+ * counted — and under a [RouteBLookup] the runner is not asked at all after a 429 in the lookup
+ * (`RATE_LIMITED`; a script fetch would be a new YouTube request); otherwise it answers as before.
+ * The wrapper keeps the runner's kind: a runner that hands V its checks ([SignatureVerdicts])
+ * still does, so the module's signature gate is exactly as without route B; no runner stays no
+ * runner.
  */
 object RouteBPlayerScripts {
     fun wrap(runner: PlayerScriptRunner): PlayerScriptRunner = when (runner) {

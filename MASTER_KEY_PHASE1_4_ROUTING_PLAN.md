@@ -4,10 +4,14 @@
 (2026-10-17): the per-lookup recorder, route B's Master wrappers (replay, refusals, 429 stop), the
 engine's claim rule (in a route-B build Master's YouTube module answers after main's recoverable
 failure) and the trial switch with the D7 APK `routeb`; flag off = today. R5 phone check (owner,
-2026-10-18): `normal` unchanged; in `routeb` one video of four got Master's rows with the counts
-(`replayed 1; new 1`) and downloads that play; on two the replayed visionOS answer was a bot check,
-so route B gave no rows and main's failure stayed (as §2 wants); a first open needed Try again.
-R6 docs 2026-10-18. Promotion (flag on in normal builds) is the owner's decision (§5.5).
+2026-10-18), **partial**: `normal` unchanged; in `routeb` one video of four got Master's rows with
+the counts (`replayed 1; new 1`) and downloads that play; on two the replayed visionOS answer was a
+bot check, so route B gave no rows and main's failure stayed (as §2 wants); a first open needed Try
+again (why route B did not run there is not logged), and a 429 or bot check of main's was not met.
+R6 docs 2026-10-18. Review follow-ups (§8): F1 done 2026-10-18 (the player-script client: a 429 on a
+script fetch stops route B, Master's script fetches are counted); next F2 (why route B was skipped,
+in Details) and a `routeb` phone run. Promotion (flag on in normal builds) is the owner's decision
+(§5.5), after F4.
 Backlog pointer: `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Same contract as the social sites:
 `MASTER_KEY_SOCIAL_PLAN.md` §2.1 decisions #7 (routing B / B+ / A) and #8 (lookup = main + Master,
 per-lookup request recorder). Agent prompt: `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md`.
@@ -145,7 +149,8 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   request that differs from main's in its body (main's carried a PO token) is new, one that differs
   only in headers (main's carried the cookie) is refused; Z's file checks are new requests of a rung
   main lacks, inside its bound; the own solver fetches its script with its own client, so it is only
-  refused after a 429 (its fetches are not counted); A's version source (D5a, not YouTube, at most once
+  refused after a 429 (its fetches are not counted; **superseded by F1**: that client follows route
+  B's rules and its fetches are counted); A's version source (D5a, not YouTube, at most once
   a day) is outside the rules. App: `MasterLadderSwitch.youTube(..., routeB)` gives the module
   `YouTubeRouteB.masterClient` / `masterScripts` / `masterReader` in a route-B build (the process's
   ladder makes its reader once); every other build: the same objects as before. Simulator
@@ -228,10 +233,33 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   `pageHeaders(request.requestContext)` → `LookupAsk.authorized`), so `RouteBLookup` rule 1 never
   sends it and it reads as `NETWORK`. (4) Main gave no bot check, sign-in or try-later on these
   videos (`normal` found all four); the bot check Master met inside route B gave no rows and main's
-  failure stayed, so §2's rule held. Wrong rows: 0 (the 360p row checked).
+  failure stayed, so §2's rule held. Wrong rows: 0 (the 360p row checked). **R5 is partial**
+  (review, 2026-10-18): check (4) — a 429 or bot check of main's stays final — was not exercised on
+  the phone (main met none), and why route B did not run on the first opens is not known (not
+  logged; §8 F2).
 - **R6 (2026-10-18).** Docs only, no code: R5's results above, this plan's status,
   `PROGRESS.md`, `MASTER_KEY_ARCHITECTURE.md` (layout `lookup/` and `YouTubeRouteB`, flow, the R8
   note, next) and `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7.
+- **F1 — the player-script client (2026-10-18, review follow-up §8).** Gap found in review: the
+  runners (the own solver, main's ejs runner) fetch the player script with the player client
+  (`SiteAdapterModule.providePlayerScriptRunner`), not the adapters' client, so neither the
+  recorder nor `RouteBHttpClient` saw those fetches. Under route B a 429 on Master's script fetch did
+  not stop the runner's second address (`OwnPlayerScriptRunner.fetchPlayer`: the page's player, then
+  the desktop build of it) nor Master's next requests, and main's script 429 was not in the record
+  (an offline probe: 2 script fetches, `rateLimited` false, the next request sent) — against §2's
+  "after a 429 in the lookup no new YouTube request". Fix: `RouteBScriptClient` (`lookup`), the
+  player client in a route-B build (`YouTubeRouteB.scriptClient`; every other build: the same client,
+  so flag off = today). In Master's route-B run each script fetch follows rules 1, 3 and 5
+  (`RouteBLookup.script`: never replayed, not refused as asked before — a later run of the ladder
+  fetches its script again), so it counts in `new M` and a 429 stops what follows, the second
+  address included; in main's lookup each fetch goes out unchanged and a 429 or rate limit is marked
+  in the record (`LookupRecord.unlisted`: not listed, counted or kept); outside a lookup it only
+  passes through. `RouteBPlayerScripts`' gate (the runner not asked after a 429) stays. So R5's
+  `new 1` (V1) counted no script fetch; the same lookup now shows each one in `new M`. Tests:
+  `RouteBScriptClientTest` (5, the probe's case first), `YouTubeRouteBTest`
+  (`thePlayerScriptClientIsRouteBsOnlyInARouteBBuild`); the lookup tests (46), `RouteBSimTest` and
+  `MasterFallbackEngineTest` pass. Limit: the PO-token client (main's BotGuard, with its own
+  transport too) stays outside the record; Master's module asks no PO token.
 - **Item 7 status (2026-10-18): built behind the flag, not promoted.** `-Pyft.youtubeRouteB` stays
   off in every normal build (flag off = today, P12); promotion is the owner's decision (§5.5).
   Limits seen on the phone: (a) when the replayed visionOS answer is a bot check (or another
@@ -241,3 +269,22 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   route B is skipped and the trial needs Try again. Possible follow-ups, not planned (the owner's
   call): a route-B way past a bot-checked visionOS answer (for example the watch page without the
   user's cookie; it needs a decision on §2's rules); the trial asking main afresh on a first open.
+
+## 8. Review follow-ups (2026-10-18)
+
+A review of R1–R6 kept route B behind the flag and found one gap and two open questions. One step per
+commit, tests + CI green before the next; §6's stop rules hold.
+
+- **F1 — script 429 (done, §7).** The player-script client follows route B's rules; a 429 on a
+  script fetch, main's or Master's, stops route B.
+- **F2 — why route B was skipped (next).** A lookup where route B does not run gets a Details line
+  saying why (no record; a record without main's requests: a reused cached answer or a joined shared
+  lookup, P17; a final reason; the flag off), shown in the trial's sheet; then one `routeb` phone run
+  (⏸ owner) on first opens.
+- **F3 — the joined lookup (if F2 shows it).** A lookup that joined another caller's shared lookup
+  records into that caller's record, so its own record has no request of main's and route B is
+  skipped, also after a real failure.
+- **F4 — a failure midway (offline).** Tests where main fails with a recoverable reason after it asked
+  (not the trial's found page), so route B's answer is shown on a real failure; then the owner's
+  promotion decision (§5.5).
+

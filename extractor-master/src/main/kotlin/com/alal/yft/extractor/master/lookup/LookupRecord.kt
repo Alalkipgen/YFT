@@ -18,7 +18,7 @@ import kotlin.coroutines.CoroutineContext
  * state), the HTTP status or failure, whether it was a 429, when it started from the lookup's
  * start and how long it took ([elapsedMillis], [timeLeftMillis]: no time budget of its own). It
  * knows each endpoint asked ([asked]: method, address and body) and whether any 429 came
- * ([rateLimited]).
+ * ([rateLimited]; also one of main's player-script fetches, which are not listed: [unlisted]).
  *
  * Kept for replay ([replay]; route B's Master wrapper, R2): only main's unauthenticated answers
  * ([LookupAsk.authorized] false) to an HTTPS address that is not a media host
@@ -115,7 +115,7 @@ class LookupRecord(
             is ExtractorHttpResult.Success -> result.statusCode to null
             is ExtractorHttpResult.Failure -> result.statusCode to result.reason
         }
-        val limited = failure != null && (status == HTTP_TOO_MANY || failure == SiteExtractionFailure.RATE_LIMITED)
+        val limited = limited(status, failure)
         synchronized(lock) {
             val stored = keep && keptEntries < maxKept && keptChars + chars <= maxKeptChars
             if (stored) {
@@ -135,8 +135,27 @@ class LookupRecord(
             is ExtractorProbeResult.Refused -> result.statusCode to result.reason
             ExtractorProbeResult.Unsupported -> null to null
         }
-        val limited = failure != null && (status == HTTP_TOO_MANY || failure == SiteExtractionFailure.RATE_LIMITED)
+        val limited = limited(status, failure)
         synchronized(lock) { add(ask, asker, answered = true, status, failure, limited, false, startedAtMillis) }
+    }
+
+    /**
+     * Route B (the player script): [result] of a request of this lookup that no ask lists — main's
+     * player-script fetch, which the runner sends with its own client ([RouteBScriptClient]).
+     * Nothing is listed, counted or kept; a 429 (or a rate limit) still makes [rateLimited] true, so
+     * route B sends nothing new after it.
+     */
+    fun unlisted(result: ExtractorHttpResult) {
+        if (result is ExtractorHttpResult.Failure && limited(result.statusCode, result.reason)) {
+            synchronized(lock) { rateLimitedTotal++ }
+        }
+    }
+
+    /** [unlisted] for a file check's answer. */
+    fun unlisted(result: ExtractorProbeResult) {
+        if (result is ExtractorProbeResult.Refused && limited(result.statusCode, result.reason)) {
+            synchronized(lock) { rateLimitedTotal++ }
+        }
     }
 
     /** [ask] went out but no answer came (cancelled): its endpoint still counts as asked. */
@@ -182,6 +201,10 @@ class LookupRecord(
 
     private fun keepable(ask: LookupAsk): Boolean =
         !ask.authorized && ask.method != LookupAsk.PROBE && LookupMemo.memoable(ask.url)
+
+    /** An answer that is a 429 or a rate limit. */
+    private fun limited(status: Int?, failure: SiteExtractionFailure?): Boolean =
+        failure != null && (status == HTTP_TOO_MANY || failure == SiteExtractionFailure.RATE_LIMITED)
 
     /** Under [lock]. */
     private fun add(

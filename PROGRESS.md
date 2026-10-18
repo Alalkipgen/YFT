@@ -1,5 +1,20 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 item 7 — route B F1: the player-script client follows route B's rules (2026-10-18)
+
+- Review follow-up (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §8): the runners fetch the player script
+  with their own client, which route B did not see — a 429 on Master's script fetch did not stop the
+  runner's second address or Master's next requests, and main's script 429 was not in the lookup's
+  record (offline probe: 2 fetches, `rateLimited` false, the next request sent).
+- Fix: `RouteBScriptClient` (`extractor-master` `lookup`) is the player client in a route-B build
+  (`YouTubeRouteB.scriptClient` in `SiteAdapterModule`; every other build the same client, flag off =
+  today). Master's script fetches in a route-B run: rules 1, 3, 5 (`RouteBLookup.script`), counted in
+  `new M`, nothing new after a 429; main's: unchanged, a 429 marked in the record
+  (`LookupRecord.unlisted`, not listed or kept).
+- R5 marked **partial** (main's 429 / bot check not met on the phone; first-open skips not logged).
+  Tests: `RouteBScriptClientTest` (5), `YouTubeRouteBTest`; lookup tests 46, `RouteBSimTest`,
+  `MasterFallbackEngineTest` pass. Next: F2 (why route B was skipped, in Details), then a phone run.
+
 ## Phase 1.4 item 7 — route B R5 phone check and R6 docs (2026-10-18): built behind the flag, not promoted
 
 - R5 (owner's phone; D7 run 7 APKs `normal` and `routeb`, run 39084859828 on `44493f8`; V1
