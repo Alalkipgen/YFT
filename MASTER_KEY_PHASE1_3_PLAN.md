@@ -1844,13 +1844,14 @@ merge buffer (`ec1f24e`), item 3 visionOS 1.04 bundled (`f02070a`), item 2 h-onl
 
 7. **YouTube routing B (found 2026-10-17, owner).** The ladder (A/S/Z/L/H/O, V) answers only the
    census and the h-only trial: a page main finds is `Skipped` unless main says `UNSUPPORTED_URL`
-   (P12), so Master never answers a real lookup. **Built behind the flag, not promoted (R1–R4
-   2026-10-17; R5 phone check and R6 docs 2026-10-18):** Master answers only after main fails with
-   a recoverable reason, behind a debug flag (`-Pyft.youtubeRouteB`, default off = today), main's
-   answers replayed from a per-lookup request recorder; final reasons stay final. Phone: `normal`
-   unchanged; `routeb` gave Master's rows (`replayed 1; new 1`, downloads play) on one video of
-   four; where the replayed visionOS answer was a bot check, no rows (main's failure kept).
-   Promotion: the owner's decision. Plan: `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` (steps R1–R6,
-   owner decisions §5, results §7, final plan §9: F5 the owner's cookie
-   decision and F4, a failure midway offline, done; then D7 run 9; F3 deferred); prompt:
+   (P12), so Master never answers a real lookup. **Done, closed 2026-10-20 (R1–R6 2026-10-17 /
+   18; promoted 2026-10-19; D7 run 14 2026-10-20):** Master answers only after main fails with a
+   recoverable reason (`-Pyft.youtubeRouteB`, on by default since the owner's promotion in every
+   debug build with Master capture; release and preview off), main's answers replayed from a
+   per-lookup request recorder; final reasons stay final. Phone, D7 run 14: V3 downloads and plays
+   in `normal` and in the trial APK `routeb` (route B's rows are main's own links, 9 of 9;
+   `replayed 3; new 0`). Main's stale YouTube session (a 403 while the link has time left) now
+   says "YouTube refused" and offers "Reset YouTube session" (Track B: B1, B3); B2 / B4 only if it
+   comes back. Plan: `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` (steps R1–R6, owner decisions §5,
+   results §7, review follow-ups §8, final plan §9: F4–F8 and Track B done, F3 deferred); prompt:
    `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md`.

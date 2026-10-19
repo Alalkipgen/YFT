@@ -1,5 +1,35 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 item 7 — D7 run 14 phone check: no refusal as the app was; item 7 closed (2026-10-20)
+
+- D7 run 14 (owner, run 39309047458; plan §9 3h's test rule). (a) As the app was, no clear:
+  `normal`, installed as an update, downloaded V3 (Big Buck Bunny) 360p (27 MB, 02:22) and again
+  after a Force stop only (02:24); `routeb`, installed as an update, the same (02:27, and again
+  after a Force stop). No row said "YouTube refused" and none had a 403: runs 12–13b's "first
+  1 MiB, then 403" did not come back after run 13c's Clear browsing data, so step (b) (Preview,
+  Clear cache, Reset YouTube session, Clear browsing data) was not needed; B1's chip and B3's reset
+  were not met on the phone.
+- A later open of V3 in `routeb` (02:28): "Route B trial: main's rows were set aside and Master
+  found none. Tap Try again.", Details `master: route B trial: main's 9 rows set aside` and
+  `master: route B not run: skipped (RESPONSE_CHANGED); main's requests in this lookup: 0; main's
+  answer reused: its remembered answer (P17)`. Run 8's limit (b), the trial's only: a remembered
+  answer asks nothing, so route B has nothing to replay, and F2's line says so; Try again skips the
+  remembered answer and a Force stop drops it. `normal` has no trial.
+- (c) After Clear browsing data: `routeb`'s first open of V3, without Try again (02:40):
+  `master: route B after RESPONSE_CHANGED; replayed 3; new 0; check: 206×8; 2nd range: 206×8;
+  same as main's: 9 of 9 rows, headers same`; 360p downloaded. Then `normal`, installed as an
+  update, downloaded V3 360p. The owner played both start to end (10:35).
+- Reading: in a working session `normal` downloads with main's rows (route B, now on, answers only
+  main's failures), and route B's rows in `routeb` are main's own links (9 of 9, headers same)
+  with nothing new asked (`new 0`; run 13c's `new 1` came on the first lookup after an install, as
+  read there). Which part of the stored data caused run 13's refusal (B2) stays open; the test
+  rule stays for when it comes back.
+- Item 7 closed: route B is on in every debug build with Master capture (the trial only in
+  `routeb`); release and preview unchanged. Docs only (the routing plan's status, §7 and §9 3h,
+  `MASTER_KEY_ARCHITECTURE.md`, `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7); no code changed.
+- Next: none in item 7. B2 / B4 only if the refusal comes back (plan §9 3h); merge and release stay
+  the owner's.
+
 ## Phase 1.4 item 7 — D7 run 13b / 13c: V3's 403 followed the debug app's browser data; the owner's decisions; F8 trim; promotion; B1; B3 (2026-10-19)
 
 - D7 run 13b (owner, run 13's APKs, no new build): run 13's `normal` APK as it was fails V3 360p

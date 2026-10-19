@@ -46,7 +46,7 @@ extractor-master/ (pure JVM)            com.alal.yft.extractor.master
   capture/  InMemoryCaptureStore        per-tab, memory-only snapshot store
   parity/   ParityUrls, ParityReport,   R1: frozen list parser, host + content-ID report,
             ParityVerdict               §4.2 pass checks (offline baseline test in tests)
-  lookup/   LookupAsk, LookupRecord,    Phase 1.4 item 7 (YouTube route B, debug flag off):
+  lookup/   LookupAsk, LookupRecord,    Phase 1.4 item 7 (YouTube route B, on with Master capture):
             LookupRecorder              the lookup's record of main's asks (memory only;
                                         a reused answer noted, F2; main's cookie GET of the
                                         looked-up video's page kept for one cookie-less
@@ -70,7 +70,7 @@ extractor-master/toolkit-provenance.tsv; scripts/master-toolkit-drift.py (R3 cop
 
 `TerminalRules` → R6 module claim (claimed page: module only when no adapter answered, else
 skipped; in a route-B build also after main's recoverable failure, over the lookup's record —
-Phase 1.4 item 7, flag off; never layers/capture) → stages: R8 `CONTRACT`
+Phase 1.4 item 7, on with Master capture since 2026-10-19; never layers/capture) → stages: R8 `CONTRACT`
 (the identified video's own endpoint,
 asked once by the engine) → `PAGE_DATA` → `PLAYBACK_CAPTURE`; per stage: snapshot gates (generation, same page, access failure, `SnapshotBudget`,
 authorized playback) → `LayerStack` (L2 → L4 → L1 → L3; L3 adds only) → `CandidateNormalizer` →
@@ -146,9 +146,11 @@ authorized playback) → `LayerStack` (L2 → L4 → L1 → L3; L3 adds only) �
 - R9: done — `recipes/RemoteRecipes*` (signed ES256 envelope, schema
   `extractor-master/recipes/master-recipes.schema.json`, data only; no key = bundled recipes, no
   request) + `scripts/master-recipe-sign.sh`; the hosted config is the owner's to sign.
-- Phase 1.4 item 7 (YouTube routing B): built behind `-Pyft.youtubeRouteB` (debug, off),
-  phone-checked 2026-10-18 (partial), not promoted — `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §7;
-  review follow-ups in its §8 (F1, the player-script client, and F2, why route B did not run in
-  Details, done; D7 run 8 checked) and the final plan in its §9 (F5, the owner's cookie decision:
-  Master reads main's watch page from the lookup and never sends a cookie, done; F4, a failure
-  midway checked offline, done (tests only); then D7 run 9; F3 deferred).
+- Phase 1.4 item 7 (YouTube routing B): done, closed 2026-10-20 (D7 run 14). Promoted by the
+  owner 2026-10-19: `-Pyft.youtubeRouteB` is on by default, so every debug build with Master
+  capture has route B (the D7 trial only in `routeb`); release, preview and builds without Master
+  capture: off. `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §7 (as built and phone checks), §8 (F1,
+  the player-script client; F2, why route B did not run, in Details) and §9 (F5, the owner's
+  cookie decision: Master reads main's watch page from the lookup and never sends a cookie; F4;
+  F6–F8, the download's diagnostics, the trial's check and the refused range's one re-ask; Track
+  B: B1 "YouTube refused", B3 "Reset YouTube session"; F3 deferred).

@@ -1,6 +1,7 @@
 # Master Key — Phase 1.4 backlog item 7: YouTube routing B (plan)
 
-**Status:** R1–R6 done (§7 "As built"): built behind the debug flag; **promoted 2026-10-19** (§9 4: on
+**Status:** **closed 2026-10-20** (D7 run 14, §7). R1–R6 done (§7 "As built"): built behind the
+debug flag; **promoted 2026-10-19** (§9 4: on
 in every Master-capture debug build, the trial only in `routeb`). R1–R4
 (2026-10-17): the per-lookup recorder, route B's Master wrappers (replay, refusals, 429 stop), the
 engine's claim rule (in a route-B build Master's YouTube module answers after main's recoverable
@@ -44,8 +45,11 @@ default, so every Master-capture debug build has route B; the trial stays `route
 **done 2026-10-19** (§7: a 403 at `CONNECT` on a YouTube media link with a minute or more left is
 `YOUTUBE_REFUSED`, chip "YouTube refused", Details say what to try) → **B3** — **done
 2026-10-19** (§7: "Reset YouTube session" on that failure forgets YouTube's cookies, site storage
-and remembered lookups only) → `[d7]` run 14 →
-D7 run 14 (⏸ owner), which closes item 7.
+and remembered lookups only) → `[d7]` run 14 → D7 run 14 — **done 2026-10-20** (§7: as the
+app was, V3 downloads and plays in `normal` and `routeb`, no refusal, so Track B's steps were not
+needed; after Clear browsing data `routeb`'s first open: `replayed 3; new 0; check: 206×8; 2nd
+range: 206×8; same as main's: 9 of 9 rows, headers same`) → **item 7 closed**. B2 / B4 only if
+the refusal comes back (§9 3h).
 Backlog pointer: `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Same contract as the social sites:
 `MASTER_KEY_SOCIAL_PLAN.md` §2.1 decisions #7 (routing B / B+ / A) and #8 (lookup = main + Master,
 per-lookup request recorder). Agent prompt: `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md`.
@@ -149,6 +153,15 @@ YouTube lookups ကိုပဲ ဖျက်။ Google အပါအဝင် တ
 မဖျက် (site အားလုံးနဲ့ ဝေမျှထား)။ Snackbar က cookie ဘယ်နှခု ဖျက်ပြီး page ပြန်ဖွင့်ဖို့ ပြော (ကျန်ခဲ့ရင် Clear browsing
 data နဲ့ ဖျက်ဖို့)။ Hint: နောက်မှ ထပ်စမ်း သို့ Reset YouTube session → page ပြန်ဖွင့်၊ ထပ်ငြင်းရင် Clear browsing data။
 နောက်: `[d7]` run 14 → D7 run 14 (⏸ ပိုင်ရှင်)။
+
+**D7 run 14 ဖုန်းစစ် (2026-10-20):** app ရှိရင်းအတိုင်း (data မဖျက်) `normal` နဲ့ `routeb` နှစ်ခုလုံး V3 360p ရ၊
+Force stop ပြီး ထပ် download လည်း ရ — "YouTube refused" / 403 ပြန်မပေါ်လို့ test rule ရဲ့ (b) (Preview၊ Clear
+cache၊ Reset YouTube session၊ Clear browsing data) မလိုခဲ့ (B1 chip နဲ့ B3 ခလုတ်ကို ဖုန်းပေါ်မှာ မမြင်ရသေး)။
+`routeb` မှာ V3 ကို နောက်တစ်ကြိမ် ဖွင့်တော့ "Master found none" — main က မှတ်ထားတဲ့ အဖြေ (P17) ကို ပြန်သုံးလို့
+request 0၊ route B မှာ replay စရာ မရှိ (run 8 ရဲ့ limit (b)၊ trial မှာပဲ၊ Try again / Force stop နဲ့ အသစ်ရှာ)။ Clear
+browsing data ပြီး `routeb` က Try again မလိုဘဲ `replayed 3; new 0; check: 206×8; 2nd range: 206×8; same as
+main's: 9 of 9 rows, headers same`၊ 360p ရ၊ `normal` လည်း ရ၊ နှစ်ခုလုံး အစအဆုံး play ရ။ **Item 7 ပိတ်။** B2 / B4
+က refusal ပြန်ပေါ်မှ။
 
 ## 1. Today (verified 2026-10-17, spike `4235716`)
 
@@ -748,6 +761,27 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   names the reset before Clear browsing data). `YouTubeSessionResetTest` passes locally (without
   WebView); the app's tests run in CI. No route-B, extractor or locked file changed. `[d7]` run 14
   builds the D7 APKs with promotion, B1 and B3.
+- **D7 run 14 phone check (owner, 2026-10-20; run 39309047458; §9 3h's test rule).** (a) As the app
+  was, no clear: `normal`, installed as an update, downloaded V3 (Big Buck Bunny) 360p (27 MB,
+  02:22) and again after a Force stop only (02:24); `routeb`, installed as an update, the same
+  (02:27, and again after a Force stop). No row said "YouTube refused" and none had a 403: runs
+  12–13b's "first 1 MiB, then 403" did not come back after run 13c's Clear browsing data, so step
+  (b) (the Preview app, Clear cache, Reset YouTube session, Clear browsing data) was not needed;
+  B1's chip and B3's reset were not met on the phone. A later open of V3 in `routeb` (02:28): the
+  trial's "Route B trial: main's rows were set aside and Master found none. Tap Try again.",
+  Details `master: route B trial: main's 9 rows set aside` and `master: route B not run: skipped
+  (RESPONSE_CHANGED); main's requests in this lookup: 0; main's answer reused: its remembered answer
+  (P17)` — run 8's limit (b), the trial's only: a remembered answer asks nothing, so route B has
+  nothing to replay (F2's line says so); Try again skips the remembered answer, a Force stop drops
+  it. (c) After Clear browsing data: `routeb`'s first open of V3, without Try again (02:40):
+  `master: route B after RESPONSE_CHANGED; replayed 3; new 0; check: 206×8; 2nd range: 206×8; same
+  as main's: 9 of 9 rows, headers same`, 360p downloaded; then `normal`, installed as an update,
+  downloaded V3 360p; the owner played both start to end (10:35). **Reading:** in a working session
+  `normal` downloads with main's rows (route B, now on, answers only main's failures), and route
+  B's rows in `routeb` are main's own links (9 of 9, headers same) with nothing new asked (`new 0`;
+  run 13c's `new 1` came on the first lookup after an install, as read there). Which part of the
+  stored data caused run 13's refusal (B2) stays open; the test rule stays for when it comes back.
+  **Item 7 closed** (docs only; no code changed).
 
 ## 8. Review follow-ups (2026-10-18)
 
@@ -893,7 +927,8 @@ Order (one step per commit, tests + CI green before the next; §6's stop rules h
    session", offered on that failure: YouTube's cookies and site storage only, other sites' sign-ins
    kept (**done 2026-10-19**, §7 "B3"); **B4** an extractor-side change (another client, a token, a lookup with a fresh visitor ID)
    only with evidence, a STOP (extractor-sites). Order: F8 trim → promotion → B1 → B3 (`[d7]` run
-   14) → D7 run 14 (⏸ owner).
+   14) → D7 run 14 — **done 2026-10-20** (§7 "D7 run 14": no refusal as the app was; both builds
+   download and play) → **item 7 closed**.
    **D7 test rule (from run 14):** (a) first V3 as the app is, no clear: download, note the result.
    (b) On "the first 1 MiB, then 403" (Details `403×N at X MiB`): try the main Preview app; then
    Force stop the debug app, Android App info → Storage → Clear cache (cookies stay; the remembered
