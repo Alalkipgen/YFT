@@ -1,6 +1,6 @@
 # YFT Master Extractor backup
 
-## Phase 1.4 item 7 — D7 run 10 phone check, F7 (Master's rows against main's) and its crash fix, D7 run 12, F8 (2026-10-19)
+## Phase 1.4 item 7 — D7 run 10 phone check, F7 (Master's rows against main's) and its crash fix, D7 run 12, F8, D7 run 13 (2026-10-19)
 
 - D7 run 10 (owner, run 39233263437): `routeb` V3 360p "Link expired" → Details: `ACCESS_DENIED`,
   `CONNECT`, HTTP 403, `VISIONOS itag 134+140 · pot no · sig yes · ends 359 min (app 358) · 0 KB ·
@@ -31,8 +31,18 @@
   range (the download's 2nd request, 1 MiB on): `; 2nd range: 206×N` or `403×N`. No extractor or
   locked file changed. Tests: `MediaHostRefusalsTest` 6, `DashMediaHostRefusalTest` 4,
   `RouteBTrialCheckTest` +3.
-- Next: D7 run 13 (owner): `routeb` V3 → the notice (its `2nd range:` part) → 360p download (it may
-  stay at 0% up to 45 s); if it fails, its Details. Then the owner's choice and promotion.
+- D7 run 13 (owner, run 39257316082): `routeb` V1 and V2 download. V3 notice: `… replayed 3; new 0;
+  check: 206×8; 2nd range: 206×4, 403×4; same as main's: 9 of 9 rows, headers same`. V3 360p
+  (VISIONOS 134+140) fails twice after ~45 s at 7%: `2048 KB · 45 s; 403×8 at 1 MiB, 3 at once,
+  43 s` and `… 403×8 at 11 MiB, 3 at once, 43 s`. Reading: YouTube gives each V3 file its first
+  1 MiB and refuses every later range, also asked alone, for 43 s; F8's wait did not help (not the
+  download's pace). The links are main's own. V1 720p (29 MB) downloads (run 12: `replayed 1`,
+  visionOS's first answer); V2's files are under 1 MiB each; V3's lookup read the watch page
+  (`replayed 3`). "First MBs, then 403" is how YouTube began asking a token of another client in
+  Aug 2026 (yt-dlp #17456).
+- Next: D7 run 13b (owner, no new build): run 13's `normal` APK → V3 → 360p download. Downloads:
+  route B's lookup differs (app side). Same 403: YouTube limits these links for main too, so a fix
+  is main's extractor (STOP, the owner's choice).
 
 ## Phase 1.4 item 7 — D7 run 9 phone check and F6: what a "Link expired" download was (2026-10-19)
 

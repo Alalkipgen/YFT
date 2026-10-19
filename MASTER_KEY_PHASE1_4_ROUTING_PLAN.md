@@ -31,8 +31,9 @@ main thread) → **F7 fix** (`[d7]` run 12) → D7 run 12 — **done 2026-10-19*
 `check: 206×8; same as main's: 9 of 9 rows, headers same`, yet V3's download still 403: §9 reading
 (b), a download-time difference) → **F8** (§7: a YouTube download asks a refused range again, one
 at a time, for up to 45 s; the trial's notice also checks each file's 2nd range; `[d7]` run 13) →
-D7 run 13 (⏸ owner: `routeb` V3 360p download, §9 3f) → the owner's choice for V3 (§9) → promotion
-(flag on in normal builds),
+D7 run 13 — **done 2026-10-19** (§7: V3's files give their first 1 MiB, then 403 for 43 s; F8's
+wait did not help) → D7 run 13b (⏸ owner: `normal` V3 360p, §9 3g) → the owner's choice for V3 (§9)
+→ promotion (flag on in normal builds),
 the owner's decision (§5.5).
 Backlog pointer: `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Same contract as the social sites:
 `MASTER_KEY_SOCIAL_PLAN.md` §2.1 decisions #7 (routing B / B+ / A) and #8 (lookup = main + Master,
@@ -102,6 +103,10 @@ download လုပ်ပုံ ကွာတာ (app ဘက်) → **F8**။
 ဖြစ်နိုင် (yt-dlp က ကြော်ငြာ အချိန် စောင့်ပြီးမှ download)။ ပြင်ချက် (build အားလုံး): YouTube က 403 နဲ့ ငြင်းရင်
 အဲဒီ file ရဲ့ အပိုင်းတွေကို တစ်ခုချင်း၊ ခဏ စောင့်ပြီး ပြန်မေး (၄၅ စက္ကန့်အထိ)၊ မရရင် Details မှာ
 `403×N at X MiB, K at once, T s`။ trial notice မှာ `2nd range:` (file ရဲ့ ဒုတိယ အပိုင်း ယူမယူ) ပါ → D7 run 13။
+run 13: V1 / V2 ရ၊ V3 360p မရ — YouTube က file တစ်ခုစီရဲ့ ပထမ 1 MiB ပဲ ပေးပြီး ကျန်တာ 403
+(တစ်ခုချင်း ၄၃ စက္ကန့် မေးလည်း မရ)၊ notice `2nd range: 206×4, 403×4`။ စောင့်တာ မကူ။ link တွေက main ရဲ့
+link တွေ — ဒါကြောင့် `normal` APK နဲ့ V3 360p စမ်း (run 13b): ရရင် route B ဘက် ကွာတာ (app ဘက်)၊
+မရရင် main ပါ မရ (extractor = STOP၊ ပိုင်ရှင် ဆုံးဖြတ်)။
 
 ## 1. Today (verified 2026-10-17, spike `4235716`)
 
@@ -580,6 +585,22 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   good: fails with the Detail; another host: fails at once; wait 0: as before),
   `RouteBTrialCheckTest` +3; the download's other tests here (47) and the trial check's (8) pass
   locally. No extractor or locked file changed.
+- **D7 run 13 phone check (owner, 2026-10-19; run 39257316082).** `routeb`: V1 720p (29 MB) and V2
+  240p (725 KB) download. V3 (Big Buck Bunny) notice: `master: route B after RESPONSE_CHANGED;
+  replayed 3; new 0; check: 206×8; 2nd range: 206×4, 403×4; same as main's: 9 of 9 rows, headers
+  same`. V3 360p (134+140, Merge) stays at 7% (2 of 27 MB) and fails twice: `ACCESS_DENIED`,
+  `CONNECT`, HTTP 403, `VISIONOS itag 134+140 · pot no · sig yes · ends 358 min (app 357) · 2048 KB
+  · 45 s; 403×8 at 1 MiB, 3 at once, 43 s` (the other try: `… 46 s; 403×8 at 11 MiB, 3 at once,
+  43 s`). Reading: YouTube gives each of V3's two files its first 1 MiB (2048 KB) and refuses every
+  later range, also asked alone, 8 times over 43 s; at the lookup it refused 4 of the 8 files' 2nd
+  range asked once each. Not the download's pace or its parallel asks: F8's wait did not help.
+  The links are main's own (9 of 9). V1's lookup took visionOS's first answer (run 12: `replayed
+  1`); V2's files are under 1 MiB each (only first ranges); V3's lookup read the watch page
+  (`replayed 3`). "The first MBs, then 403" is how YouTube began asking a token of another
+  client (`android_vr`) in Aug 2026 (yt-dlp #17456: "able to download the first few MB of a video
+  and then failing with a 403"). Run 9's `normal` downloaded V3, so whether main's own lookup gets
+  such links now is open → §9 3g. F8 stays: it changes only a download already refused (it now
+  fails after about 45 s, its Detail saying where).
 
 ## 8. Review follow-ups (2026-10-18)
 
@@ -690,14 +711,21 @@ Order (one step per commit, tests + CI green before the next; §6's stop rules h
    main's extractor or a locked file is a STOP (ask the owner). As built: a refused range on
    YouTube's media host is asked again, one at a time, for up to 45 s; the trial's notice also
    asks each file's 2nd range (`2nd range: …`).
-3f. **D7 run 13 (⏸ owner):** `routeb`: V3 (Try again if asked) → screenshot the notice → 360p
-   download (it may stay at 0% for up to 45 s). Readings: (a) it downloads — F8 fixed it (with
-   `2nd range: 403×…`, YouTube refused the later ranges at first and the wait was enough) → 4.
-   (b) it fails, Details `403×N at X MiB, K at once, T s`, notice `2nd range: 206×…` — YouTube gives
-   one ask the 2nd range yet refuses the download's (its pace, the merge's two files, its request):
+3f. **D7 run 13 (owner; done 2026-10-19, §7):** `routeb`: V3 (Try again if asked) → screenshot the
+   notice → 360p download (it may stay at 0% for up to 45 s). Readings: (a) it downloads — F8
+   fixed it (with `2nd range: 403×…`, YouTube refused the later ranges at first and the wait was
+   enough) → 4. (b) it fails, Details `403×N at X MiB, K at once, T s`, notice `2nd range: 206×…` — YouTube
+   gives one ask the 2nd range yet refuses the download's (its pace, the merge's two files, its request):
    fixed in the app again. (c) it fails with `2nd range: 403×…` — YouTube refuses that link's later
    ranges past 45 s (its ads' wait, or a token): main's extractor is a STOP; the owner chooses (a
-   known limit, a longer wait, or a main fix later).
+   known limit, a longer wait, or a main fix later). **Result:** neither (b) nor (c) alone —
+   `2nd range: 206×4, 403×4`, and the download's two files give 1 MiB each, then 403 for 43 s → 3g.
+3g. **D7 run 13b (⏸ owner, no new build):** run 13's `normal` APK → V3 → 360p download → done, or
+   its Details. Readings: (a) it downloads — main's lookup in a normal build gets links YouTube
+   serves; route B's lookup (the trial's Try again, a second lookup soon after the first) gets
+   ones it limits: fixed on the app / trial side. (b) the same `403×N at … MiB` — YouTube limits
+   these visionOS links for main too: not route B; a fix is main's extractor (another client for
+   such a lookup, or a token), a STOP: the owner chooses (a known limit, or a main fix later).
 4. **Promotion (owner, §5.5).** Suggested gate: F5 and F4 green; run 9 / 10 give Master's rows on V1–V3
    that play, wrong rows 0, `normal` unchanged; Master sent nothing with a cookie (tests). Promotion
    turns `-Pyft.youtubeRouteB` on in normal builds; the trial switch stays debug only.
