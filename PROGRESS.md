@@ -1,6 +1,6 @@
 # YFT Master Extractor backup
 
-## Phase 1.4 item 7 — D7 run 10 phone check, F7 (Master's rows against main's) and its crash fix (2026-10-19)
+## Phase 1.4 item 7 — D7 run 10 phone check, F7 (Master's rows against main's) and its crash fix, D7 run 12 (2026-10-19)
 
 - D7 run 10 (owner, run 39233263437): `routeb` V3 360p "Link expired" → Details: `ACCESS_DENIED`,
   `CONNECT`, HTTP 403, `VISIONOS itag 134+140 · pot no · sig yes · ends 359 min (app 358) · 0 KB ·
@@ -15,8 +15,12 @@
   check closed its answers on the main thread (route B's lookup runs there), where reading the
   network is stopped by Android. F7 fix (`[d7]` run 12): the check asks and closes off that thread,
   and any failure only says `trial check failed (<type>)` on the line. Tests +2.
-- Next: D7 run 12 (owner): `routeb` V3 and V1 → screenshot the notice; then the owner's choice
-  (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §9 item 3d), then promotion.
+- D7 run 12 (owner, run 39246815918): no crash. `routeb` V1 and V3 notices: `check: 206×8; same as
+  main's: 9 of 9 rows, headers same` (Master's rows are main's own; YouTube gives each file's first
+  byte). V3 360p (VISIONOS 134+140) still fails at download: 403 at CONNECT, `pot no`, 0 KB; V1 360p
+  downloads. Reading (b): a download-time difference in the app (plan §9 3e, F8).
+- Next: F8 — find what V3's download asks that the check does not and fix it in the app's download;
+  then `[d7]` run 13 (`routeb` V3 360p download), then the owner's choice and promotion.
 
 ## Phase 1.4 item 7 — D7 run 9 phone check and F6: what a "Link expired" download was (2026-10-19)
 

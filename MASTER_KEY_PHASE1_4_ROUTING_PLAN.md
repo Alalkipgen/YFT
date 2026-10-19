@@ -27,7 +27,10 @@ download shows its reason and its link's facts, `[d7]` run 10) → D7 run 10 —
 wrong — main never adds a token to visionOS links either) → **F7** (the route-B trial's notice
 checks Master's files once and compares Master's rows with main's set-aside rows, `[d7]` run 11)
 → D7 run 11 — the `routeb` APK closed on a YouTube video (§7: the check closed its answers on the
-main thread) → **F7 fix** (`[d7]` run 12) → D7 run 12 (⏸ owner) → the owner's choice for V3 (§9) → promotion (flag on in normal builds),
+main thread) → **F7 fix** (`[d7]` run 12) → D7 run 12 — **done 2026-10-19** (§7: no crash; V1 / V3
+`check: 206×8; same as main's: 9 of 9 rows, headers same`, yet V3's download still 403: §9 reading
+(b), a download-time difference) → **F8** (find it and fix it in the app's download, ⏸ next) → the
+owner's choice for V3 (§9) → promotion (flag on in normal builds),
 the owner's decision (§5.5).
 Backlog pointer: `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Same contract as the social sites:
 `MASTER_KEY_SOCIAL_PLAN.md` §2.1 decisions #7 (routing B / B+ / A) and #8 (lookup = main + Master,
@@ -89,6 +92,9 @@ visionOS client ရဲ့ link၊ အသစ် (၃၅၉ မိနစ် ကျ
 (`check: 206×N` ယူ / `403×N` ငြင်း) (2) Master ရဲ့ rows က main ရဲ့ rows နဲ့ link / header တူမတူ
 (`same as main's: X of Y rows`)၊ မတူရင် ကွာတဲ့ နာမည်တွေ (တန်ဖိုး မပါ)။ run 11 ရဲ့ `routeb` APK က YouTube video
 ဖွင့်ရင် app ပိတ်သွား (crash): စစ်ချက်က အဖြေကို main thread ပေါ်မှာ ပိတ်လို့ — **F7 fix** (`[d7]` run 12) နဲ့ ပြင်ပြီး။
+run 12: crash မဖြစ်တော့။ V1 / V3 notice `check: 206×8; same as main's: 9 of 9 rows, headers same` (Master ရဲ့ rows =
+main ရဲ့ link နဲ့ header တွေ၊ YouTube က file တွေရဲ့ ပထမ byte ကို ပေး)၊ ဒါပေမဲ့ V3 360p download က 403 ဆဲ —
+download လုပ်ပုံ ကွာတာ (app ဘက်) → **F8**။
 
 ## 1. Today (verified 2026-10-17, spike `4235716`)
 
@@ -533,6 +539,16 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   (sockets that count reads and writes on the caller's thread: the old check read there twice, now
   none), `BrowserMasterFallbackTest` +1 (a failing check only says so); the app's `detection.*` and
   `feature.browser.*` tests (334) pass locally. No extractor or locked file changed.
+- **D7 run 12 phone check (owner, 2026-10-19; run 39246815918).** No crash. `routeb` V3 (Big Buck
+  Bunny) notice: `master: route B after RESPONSE_CHANGED; replayed 3; new 0; check: 206×8; same as
+  main's: 9 of 9 rows, headers same`; V1 (Rick Astley): `… replayed 1; new 0; check: 206×8; same as
+  main's: 9 of 9 rows, headers same`. Master's rows are main's own links and headers, and YouTube
+  answers a one-byte ranged GET of each file (≤ 8) with 206. Yet V3 360p (134+140, Merge) still
+  fails: `ACCESS_DENIED`, `CONNECT`, HTTP 403, `VISIONOS itag 134+140 · pot no · sig yes · ends 359
+  min (app 358) · 0 KB`; one try `first byte 0.2 s · first progress 0.2 s · 0 s`, another `first
+  byte – · first progress – · 2 s`. V1 360p downloaded (11 MB). §9 3d reading (b): not Master's
+  rows — what the download asks differs from the check's one byte (its requests after the first
+  byte, the other part of the merge, retries), the app's download side → F8 (§9 3e).
 
 ## 8. Review follow-ups (2026-10-18)
 
@@ -634,7 +650,13 @@ Order (one step per commit, tests + CI green before the next; §6's stop rules h
    (extractor-sites), so the owner chooses (a known limit, or a main fix later). (b) `check: 206×…`
    but the download still fails — a download-time difference, fixed in the app. (c) not the same
    (`differ: …`) — Master's links differ from main's: fixed in Master (the names say where; `main's
-   check` says whether main's would download).
+   check` says whether main's would download). **Done 2026-10-19 (§7):** no crash; V1 and V3
+   `check: 206×8; same as main's: 9 of 9 rows, headers same`; V3 360p still 403 at download →
+   reading (b) → 3e.
+3e. **F8 (⏸ next):** find what V3's download asks that the check does not (the download's requests:
+   `Range` form and size, chunks, parallel connections, the audio part, retries, headers, client)
+   and fix it in the app's download; tests, then `[d7]` run 13 (`routeb`: V3 360p download). A fix
+   in main's extractor or a locked file is a STOP (ask the owner).
 4. **Promotion (owner, §5.5).** Suggested gate: F5 and F4 green; run 9 / 10 give Master's rows on V1–V3
    that play, wrong rows 0, `normal` unchanged; Master sent nothing with a cookie (tests). Promotion
    turns `-Pyft.youtubeRouteB` on in normal builds; the trial switch stays debug only.
