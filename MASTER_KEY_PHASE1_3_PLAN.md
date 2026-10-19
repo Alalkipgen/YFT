@@ -1841,6 +1841,9 @@ merge buffer (`ec1f24e`), item 3 visionOS 1.04 bundled (`f02070a`), item 2 h-onl
    cannot fetch any now (YouTube asks it to sign in), and a wrong join would give a broken file
    where today gives a clear message. Such a stream's MP4 qualities keep working (run 4f); this
    stays the next core-download work, phone proof first.
+   **Parked (the owner, 2026-10-20):** built later, only when it is needed (a stream the owner
+   needs whose only wanted quality is WebM); until then nothing changes: the MP4 qualities keep
+   working and the WebM ones keep the clear message. Phone proof first when it comes back.
 
 7. **YouTube routing B (found 2026-10-17, owner).** The ladder (A/S/Z/L/H/O, V) answers only the
    census and the h-only trial: a page main finds is `Skipped` unless main says `UNSUPPORTED_URL`

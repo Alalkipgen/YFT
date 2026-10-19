@@ -3,7 +3,8 @@
 Status: **final plan** — the owner's Plan Mode request (2026-10-17), reviewed and approved by the
 owner as the final plan the same day. This document changes no code. Decided: routing, lookup
 scope and the R8 ladder (§2.1, §8 items 7–9). Still open: §8 items 1–6. Nothing here is built
-until the owner says go, one step at a time (§7, §8).
+until the owner says go, one step at a time (§7, §8). **S0 started on the owner's go
+(2026-10-20): §7.1.**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -368,6 +369,61 @@ With no adapter copies (B), the build is also about 4,700 lines smaller than the
 | **S5** | — | Promote per site to preview / release after 3 phone runs with 0 wrong rows | the owner's go |
 | **S6** | M | **B+** (the owner's go, after B's phone proof): when main's answer is weak by an objective signal (no HD row, no sound row), Master adds only the missing formats; main's rows stay (merge rule); budgeted | phone proof; **A** only if B+ is measured insufficient (decision 7) |
 
+
+### 7.1 S0 — as built (started 2026-10-20, the owner's go)
+
+S0 measures only: it changes no lookup. Main's adapters, the app's lookups and Master's engine stay
+as they are; Master's way in the census is today's R8 contract of each site; the census screen is
+an owner tool of debug builds (nothing in release or preview).
+
+| Sub-step | What | Done when |
+| --- | --- | --- |
+| **S0a** | The recorder's labels (`LookupRecord`, additive: a record given none is today's, so route B and every lookup stay as they are): each listed ask gets its way, its reading of the answer and a short shape fingerprint; the record counts repeated asks (an endpoint already asked in the lookup), asks after a stop (a host that answered 429 or a bot check, asked again) and bot checks, and names the hosts that stopped. The site table (`SiteWays`): each site's way labels, media hosts and readings, its census kinds and what each kind expects | JVM tests; the route B tests unchanged |
+| **S0b** | The census engine (`SiteCensus`) and the one-row check (`SiteRowCheck`, V) | JVM tests with fake sites |
+| **S0c** | The debug screen "YFT site census" (`SiteCensusActivity`, like "YFT client census"): the owner's links per slot, a run per site or all, the report and its JSON export | CI green; APK |
+| **S0d** | The owner's run on the phone; the shares recorded here and in `PROGRESS.md` | the pilot and the order (§8 item 1) |
+
+**Row rules** (a row is one link of the owner's list, in its slot):
+
+- **Main:** main's own lookup with the four adapters as the app builds them (TikTok's hidden page
+  and `tikwm.com` included), fresh (no remembered answer), with the browser's identity: the agent
+  YFT's tab sends and the browser's cookies for the post's link (the report says only whether a
+  session was there). There is no tab, so no tab data: the page read, then the hidden page, as main
+  does. The census's clients retry nothing (each ask once; main's own order of ways stays); at most
+  90 s per row (Home's limit). Every ask is listed with its way, status, reading and shape, and the
+  ways main did not reach are named.
+- **Master:** today's R8 way of the site, once, under route B's rules in the same record (main's
+  identical unauthenticated answer replayed, an endpoint main asked not asked again, nothing new
+  after a 429; all counted). After main's failure with a reason Master's engine answers (not final,
+  not browser-required), as route B would. After main's success or the site's final answer about
+  the post (private or removed, region), once as a trial (main's failure given as `NO_MEDIA_FOUND`;
+  marked "trial"). Not after a browser-required reason (the engine asks no contract then), a network
+  failure, a rate limit, a bot check or main's time limit, and not for a short link Master's
+  contracts do not read.
+- **V:** one row of each answer (main's best, Master's best: the tallest, then the highest
+  bitrate) gets a one-byte check with the headers the download sends for that row, only on the
+  site's media hosts. An HLS row or any other host is `unknown`, never a pass; a DASH row checks its
+  video file.
+- **Judge:** each ask's reading (data, no post, no data, not JSON, login page, bot check) and each
+  row's class from main's reason as Master's engine sees it — **recoverable** (Master's contract
+  would be asked), **browser** (`TerminalRules.BROWSER_REQUIRED`), **final**
+  (`TerminalRules.NEVER_FALLBACK`) — against what the slot's kind expects (§6's lists: video kinds
+  expect rows; removed, private, photo-only and sign-in-only kinds expect a final answer, and a
+  different answer is "not as expected"). Each site's number: main's recoverable failures ÷ the
+  rows that should download, and how many of them Master's way recovered (rows that passed V).
+
+**Stops and budgets:** a 429 or a bot check (any ask, the hidden page included) stops that site for
+the run and for 30 minutes after (the screen's state file); at most 40 MB and 150 requests per site
+(the census's own clients; the hidden page's own loads are neither counted nor listed, and the
+report says so).
+
+**Privacy (S8):** the links stay on the phone (the screen's own store); the report and the export
+hold only sites, slot numbers, kinds, way labels, classes, counts, sizes and short fingerprints; a
+last guard masks any address and the given values (the link, the post ID, handles).
+
+**Not in S0** (the owner's decisions): measuring Instagram's `doc_id` sources (§8 item 3; S0 shows
+only whether main's GraphQL answers the post), X2 (§8 item 2), any new way.
+
 ## 8. Owner decisions
 
 Decided (the owner, 2026-10-17; details in §2.1):
@@ -384,7 +440,8 @@ Still open (the owner's answer is needed before the step that uses it):
 
 1. **Pilot and order:** recommended: S0 first; the pilot is Facebook or TikTok (both have a real
    second way today), picked by S0's share of recoverable failures; Instagram and X first get the
-   repeated-ask stop; or another order.
+   repeated-ask stop; or another order. **The owner, 2026-10-20: S0 now (§7.1); the pilot and
+   the order from S0's run.**
 2. **X2** (X's signed-out web API with a guest token): allow or not. Recommended: not now; decide after
    S0 shows how often the embed answer fails.
 3. **Self-heal sources for Instagram's `doc_id`:** Instagram's own scripts, yt-dlp's raw file, or both

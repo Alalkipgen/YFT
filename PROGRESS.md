@@ -1,5 +1,23 @@
 # YFT Master Extractor backup
 
+## Social plan S0 started (measuring only); Phase 1.3 backlog item 6 parked (2026-10-20)
+
+- The owner (2026-10-20): item 6 (live WebM pieces, one-file live formats) is parked, built later
+  and only when it is needed; until then such a stream's MP4 qualities keep working and its WebM
+  qualities keep the clear message (`MASTER_KEY_PHASE1_3_PLAN.md` §10 item 6).
+- The owner's go for the social plan's S0 (`MASTER_KEY_SOCIAL_PLAN.md` §7.1, new): it measures
+  only. Main, the app's lookups and Master's engine stay as they are; the census screen is an owner
+  tool of debug builds. Sub-steps: S0a the recorder's labels and the site table, S0b the census
+  engine and the one-row check, S0c the screen "YFT site census" and its APK, S0d the owner's run
+  and the pilot.
+- Row rules (§7.1): main's own lookup, fresh, with the browser's identity (the tab's agent and the
+  browser's cookies for the post; no tab data), no retry, 90 s; Master's R8 way once under route B's
+  rules after main's recoverable failure, or once as a marked trial after main's success or a final
+  answer about the post; V on one row of each answer; each row judged against its slot's kind. A 429
+  or a bot check stops the site for the run and 30 minutes; at most 40 MB and 150 requests per site;
+  the links stay on the phone.
+- Docs only: the social plan's status, §7.1 and §8 item 1; the Phase 1.3 plan's item 6. Next: S0a.
+
 ## Phase 1.4 item 7 — D7 run 14 phone check: no refusal as the app was; item 7 closed (2026-10-20)
 
 - D7 run 14 (owner, run 39309047458; plan §9 3h's test rule). (a) As the app was, no clear:
