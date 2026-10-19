@@ -297,7 +297,7 @@ internal fun failureDetailsText(
     val stage = failure?.stage?.let { stage -> "${stageLabel(stage)} (${stage.name})" }
     return listOfNotNull(
         "YFT download failure",
-        "Reason: ${reason ?: UNKNOWN}",
+        "Reason: ${reason ?: unknownReason(row)}",
         "What to do: $AUDIO_FROM_VIDEO_HINT".takeIf { row.isAudioFromIncompatibleSound() },
         "Stage: ${stage ?: UNKNOWN}",
         "HTTP status: ${failure?.httpStatusCode ?: UNKNOWN}",
@@ -313,6 +313,24 @@ internal fun failureDetailsText(
         "Android: ${androidRelease.ifBlank { UNKNOWN }} (API $sdkInt)",
     ).joinToString("\n")
 }
+
+/**
+ * F6: a download that needs a fresh link shows its details too, like a failed one: its link
+ * either failed (the reason and the link's facts) or was never tried ([unknownReason]).
+ */
+internal val DownloadRowUiState.showsFailureDetails: Boolean
+    get() = status == DownloadTaskStatus.FAILED || status == DownloadTaskStatus.NEEDS_REFRESH
+
+/**
+ * A download that needs a fresh link without a recorded failure was never tried with its link:
+ * the app keeps a download's link only while it runs, so after a restart the link is gone.
+ */
+private fun unknownReason(row: DownloadRowUiState): String =
+    if (row.status == DownloadTaskStatus.NEEDS_REFRESH) NOT_TRIED_REASON else UNKNOWN
+
+internal const val NOT_TRIED_REASON =
+    "Link not tried (the app was closed or restarted, and YFT keeps a download's link only " +
+        "while it runs)"
 
 /**
  * An M4A or MP3 made from a video whose sound is not AAC fails as INCOMPATIBLE_TRACKS: the

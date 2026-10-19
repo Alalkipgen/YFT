@@ -614,7 +614,7 @@ private fun cardActions(
                 )
             }
         }
-    if (row.status == DownloadTaskStatus.FAILED) {
+    if (row.showsFailureDetails) {
         add(
             CardAction(
                 label = "Failure details",
@@ -703,7 +703,7 @@ private fun DownloadCard(
             }
         }
     }
-    if (detailsOpen && row.status == DownloadTaskStatus.FAILED) {
+    if (detailsOpen && row.showsFailureDetails) {
         FailureDetailsDialog(row = row, onDismiss = { detailsOpen = false })
     }
 }
@@ -896,7 +896,7 @@ private fun StatusRow(
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
-            if (row.status == DownloadTaskStatus.FAILED) {
+            if (row.showsFailureDetails) {
                 YftTextButton(
                     text = "Details",
                     onClick = onDetails,

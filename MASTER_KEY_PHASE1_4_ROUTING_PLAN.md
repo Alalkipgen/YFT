@@ -19,8 +19,12 @@ never showed. **Final plan (§9, 2026-10-18):** F3 deferred; **F5** (the owner's
 Master reads main's watch page from the lookup, never sends a cookie) — **done 2026-10-18** (§7:
 main's cookie GET of the looked-up video's page answers Master's identical cookie-less GET once,
 replayed, never sent; ≤ 1 watch page per lookup) → **F4** (a real failure midway, offline) —
-**done 2026-10-18** (§7: tests only, no bug found, no code changed, no `[d7]`) → D7 run 9
-(⏸ owner) → promotion (flag on in normal builds), the owner's decision (§5.5).
+**done 2026-10-18** (§7: tests only, no bug found, no code changed, no `[d7]`) → D7 run 9 —
+**done 2026-10-19** (§7: `normal` ✅; `routeb` Master's rows on V1–V3 after Try again, V1 / V2
+download, V3's links all "Link expired" before any byte; likely Master's links lack main's
+proof-of-origin token) → **F6** (diagnostics: a "Link expired" download shows its reason and its
+link's facts, `[d7]` run 10) → D7 run 10 (⏸ owner) → the owner's choice for V3 (§9) → promotion
+(flag on in normal builds), the owner's decision (§5.5).
 Backlog pointer: `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Same contract as the social sites:
 `MASTER_KEY_SOCIAL_PLAN.md` §2.1 decisions #7 (routing B / B+ / A) and #8 (lookup = main + Master,
 per-lookup request recorder). Agent prompt: `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md`.
@@ -61,6 +65,15 @@ failure (reason၊ message၊ Try again) ကျန်ပြီး Details မှ
 မ run၊ 429 နောက် request အသစ် 0၊ main အောင်မြင်ရင် မထိ၊ flag off = ယနေ့။ တွေ့ချက်: bot check ဖြစ်တဲ့ visionOS နောက်
 page ရဲ့ အဖြေကို main မဖတ်နိုင်ရင် main ရဲ့ failure က `BOT_CHECK` (final) ဖြစ်လို့ route B မ run (rule အတိုင်း)၊ ဒါကြောင့်
 F5 ရဲ့ page replay က အများအားဖြင့် trial (main တွေ့တဲ့ page) မှာ အသုံးဝင် — run 9 `routeb` မှာ စစ်ရန်။
+
+**D7 run 9 ဖုန်းစစ် (2026-10-19):** `normal` V1–V3 ✅ (V3 ရဲ့ 720p / 480p / 360p download ရ)။ `routeb`: Try again
+နောက် Master rows ရ (V2 / V3 `replayed 3; new 0`)၊ V1 360p နဲ့ V2 240p download ရ၊ V3 ရဲ့ quality အားလုံး byte
+မရခင် "Link expired" (ပြန်စမ်းလည်း အတူတူ)။ ဖြစ်နိုင်ချေ: main က page / mweb client ရဲ့ media link မှာ
+proof-of-origin token (`pot`, BotGuard) ထည့်တယ်၊ Master မှာ token maker မပါ (`NoPoTokenProvider`) — YouTube
+က token မပါတဲ့ link ကို 403 နဲ့ ငြင်းရင် app က "Link expired" ပြ။ **F6** (debug diagnostics, `[d7]` run 10):
+"Link expired" item မှာလည်း Details ပြ (reason၊ HTTP status၊ link facts: client၊ itag၊ `pot` ရှိ/မရှိ၊ `sig`၊
+ကုန်ချိန်)၊ link ကိုယ်တိုင် မပါ။ run 10 ရလဒ်ပေါ်မူတည်ပြီး owner ရွေးရန်: A Master ကို main ရဲ့ token maker
+သုံးခွင့် (scope change)၊ B route B က token လိုတဲ့ rows ကို ဖယ်၊ C known limit အဖြစ်ထား။
 
 ## 1. Today (verified 2026-10-17, spike `4235716`)
 
@@ -439,6 +452,33 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   and otherwise the trial's found page (run 9's `routeb` check, §9 item 3). Tests: `RouteBSimTest`
   +4, `BrowserMasterFlowTest` +3 (its stand-ins extended, nothing removed); `extractor-master` 731
   (2 skipped), `extractor-sites` 280 and the app's unit tests 992 (66 skipped) pass locally.
+- **D7 run 9 phone check (owner, 2026-10-19; run 39107280386).** V1 Rick Astley `dQw4w9WgXcQ`, V2
+  Me at the zoo `jNQXAC9IVRw`, V3 Big Buck Bunny 60fps 4K `aqz-KE-bpKQ`. `normal`: V1–V3 rows, no
+  notice; downloads V1 360p, V2 240p and V3 720p, 480p, 360p complete (twice). `routeb`: each first
+  open is the trial's P17 skip (`main's answer reused: its remembered answer (P17)`, limit (b)); Try
+  again gives Master's rows (V2 / V3 `master: route B after RESPONSE_CHANGED; replayed 3; new 0`).
+  V1 360p (11 MB) and V2 240p (725 KB) download; V3 720p, 480p and 360p all end "Link expired"
+  (`NEEDS_REFRESH`) before any byte, again on a second try. The Downloads screen showed no reason
+  (Details was offered for `FAILED` only). Reading of the code: "Link expired" is a link that expired
+  by the clock or a 401 / 403 / 410 answer, or a link lost on a restart. Master's rows come from
+  main's replayed answers (0 new requests) and the same request context; the one difference found is
+  the proof-of-origin token: main's extractor adds `pot` (BotGuard, `BotGuardPoTokenProvider`) to the
+  media links of the page and mweb clients, Master's module has `NoPoTokenProvider` (Phase 1.4 scope:
+  no tokens). V1's rows likely come from visionOS (run 8: `replayed 1`; no token needed); V2's
+  725 KB file may finish before YouTube refuses a link without a token. Likely V3's rows are page or
+  mweb links YouTube refuses (403) without the token; F6 shows it.
+- **F6 — what a "Link expired" download was (2026-10-19, debug diagnostics, `[d7]` run 10).** (1)
+  `DownloadQueue.failTask`: when a download of a YouTube media link (host `googlevideo.com`) fails,
+  its failure detail starts with the link's facts (`GoogleVideoLinkFacts`), then the engine's detail:
+  `WEB itag 136+140 · pot no · sig yes · ends 352 min (app 352) · 0 KB · 3 s; 403 text/plain len 0`
+  — the client (`c`), the stream numbers (video first), whether the link carries `pot` and a solved
+  signature, the minutes the link's `expire` and the app's plan had left, the bytes and the task's
+  age. Names and numbers only: never the link, its host or a value (sanitized, 120 characters). (2)
+  The app offers Details (button and menu) for a `NEEDS_REFRESH` download too: reason, stage, HTTP
+  status, detail. One whose link was never tried (lost on a restart) says `Reason: Link not tried
+  (…)`. No extractor or locked file changed; the flag, the trial and the rows are unchanged. Tests:
+  `GoogleVideoLinkFactsTest` (4), `DownloadQueueTest` +1, `DownloadLabelsTest` +1,
+  `DownloadsScreenTest` +1.
 
 ## 8. Review follow-ups (2026-10-18)
 
@@ -518,7 +558,16 @@ Order (one step per commit, tests + CI green before the next; §6's stop rules h
    once. Expected: Master's rows with `master: route B after RESPONSE_CHANGED; replayed N; new M` on
    all three (V2 / V3 now N ≥ 2: visionOS and the page); per video download one AVC row with sound:
    it plays, duration ±2 s of the page's, height as its row says (wrong rows 0). (3) No rows: send
-   Details; an `another caller's running lookup` line reopens F3.
-4. **Promotion (owner, §5.5).** Suggested gate: F5 and F4 green; run 9 gives Master's rows on V1–V3
+   Details; an `another caller's running lookup` line reopens F3. **Done 2026-10-19 (§7):** `normal`
+   ✅; `routeb` Master's rows on V1–V3 after Try again, V1 / V2 download, V3's 720p / 480p / 360p all
+   "Link expired" before any byte → F6.
+3a. **F6** (§7; done 2026-10-19): Details on a "Link expired" download, with the link's facts; `[d7]`
+   (`.github/d7-apks.txt` `run 10`).
+3b. **D7 run 10 (⏸ owner):** `routeb`: V3 (Try again if asked) → download any quality → Downloads →
+   the "Link expired" item → Details → screenshot. `pot no` with HTTP 403 on a page / mweb link
+   confirms the missing token; then the owner chooses: **A** Master uses main's token maker (scope
+   change), **B** route B drops rows that need a token it does not have, **C** a known limit. Another
+   reading (the clock, a restart, 410) is fixed in the app or Master first.
+4. **Promotion (owner, §5.5).** Suggested gate: F5 and F4 green; run 9 / 10 give Master's rows on V1–V3
    that play, wrong rows 0, `normal` unchanged; Master sent nothing with a cookie (tests). Promotion
    turns `-Pyft.youtubeRouteB` on in normal builds; the trial switch stays debug only.

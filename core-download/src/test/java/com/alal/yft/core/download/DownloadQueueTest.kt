@@ -326,6 +326,46 @@ class DownloadQueueTest {
             assertEquals("No second transfer", 1, runner.destinations.size)
         }
 
+    /**
+     * F6: a refused YouTube media link needs a fresh link, and its details start with the
+     * link's facts, then the engine's own detail; never the link itself.
+     */
+    @Test
+    fun `a refused youtube link keeps its facts in the details without the link`() = runTest {
+        val refused = DownloadFailure(
+            reason = DownloadFailureReason.ACCESS_DENIED,
+            httpStatusCode = 403,
+            stage = DownloadFailureStage.CONNECT,
+            detail = "403 text/plain len 0",
+        )
+        val store = InMemoryStore()
+        val queue = DownloadQueue(
+            store,
+            ScriptedRunner { _, _ -> refused },
+            backgroundScope,
+            clock = { CLOCK_MS },
+        )
+        val link = "https://rr2---sn-fixture.googlevideo.com/videoplayback?expire=" +
+            "${CLOCK_MS / 1_000 + 3_600}&c=WEB&itag=18&sig=fixture&n=fixture"
+        queue.enqueue(
+            plan("yt").copy(sourceUrl = link, expiresAtEpochMs = CLOCK_MS + 30 * 60_000),
+            metadata(),
+            TestDestination(),
+        )
+        runCurrent()
+
+        val task = queue.tasks.value.single()
+        assertEquals(DownloadTaskStatus.NEEDS_REFRESH, task.status)
+        assertEquals(403, task.failure?.httpStatusCode)
+        assertEquals(
+            "WEB itag 18 · pot no · sig yes · ends 60 min (app 30) · 0 KB · 0 s; " +
+                "403 text/plain len 0",
+            task.failure?.detail,
+        )
+        assertEquals(task.failure, store.snapshot().single().failure)
+        assertFalse(task.failure?.detail.orEmpty().contains("googlevideo"))
+    }
+
     private fun plan(id: String): DirectDownloadPlan = DirectDownloadPlan(
         taskId = id,
         sourceUrl = "http://localhost/file.bin",
@@ -516,6 +556,7 @@ class DownloadQueueTest {
     }
 
     private companion object {
+        const val CLOCK_MS = 1_800_000_000_000L
         const val TOTAL_BYTES = 10L
         const val PARTIAL_BYTES = 4L
         const val ETAG = "\"fixture\""

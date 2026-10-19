@@ -776,6 +776,25 @@ class DownloadQueue(
     ) = gate.withLock {
         val current = taskLocked(id) ?: return@withLock
         val needsRefresh = result.failure.reason in REFRESH_FAILURES
+        val now = clock()
+        // F6 (debug spike): a YouTube media link's facts lead the details, without the link.
+        val failure = runtimeTasks[id]?.plan
+            ?.let { plan ->
+                GoogleVideoLinkFacts.describe(
+                    plan = plan,
+                    nowEpochMs = now,
+                    downloadedBytes = result.checkpoint.downloadedBytes,
+                    ageMs = now - current.createdAtEpochMs,
+                )
+            }
+            ?.let { facts ->
+                result.failure.copy(
+                    detail = DownloadFailureDetails.sanitize(
+                        listOfNotNull(facts, result.failure.detail).joinToString("; "),
+                    ),
+                )
+            }
+            ?: result.failure
         val checkpointTotal = (result.checkpoint as? DirectTransferCheckpoint)?.totalBytes
         val failed = current.copy(
             status = if (needsRefresh) {
@@ -790,10 +809,10 @@ class DownloadQueue(
                 },
             downloadedBytes = result.checkpoint.downloadedBytes,
             requiresLinkRefresh = needsRefresh,
-            failureReason = result.failure.reason,
-            failure = result.failure,
+            failureReason = failure.reason,
+            failure = failure,
             checkpoint = result.checkpoint,
-            updatedAtEpochMs = clock(),
+            updatedAtEpochMs = now,
         )
         if (needsRefresh) runtimeTasks.remove(id)
         saveAndPublishLocked(failed)

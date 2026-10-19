@@ -318,8 +318,48 @@ class DownloadsScreenTest {
         composeRule.onAllNodesWithTag("download-menu-details-f").assertCountEquals(0)
     }
 
+    /**
+     * F6: a download whose link expired or was refused offers its details too, with the
+     * reason, the HTTP status and the link's facts, from its button and from its menu.
+     */
     @Test
-    fun onlyAFailedTaskOffersDetails() {
+    fun aTaskThatNeedsAFreshLinkOffersItsDetails() {
+        setScreen(
+            DownloadsUiState(
+                listOf(
+                    row(
+                        id = "r",
+                        status = DownloadTaskStatus.NEEDS_REFRESH,
+                        downloaded = 0,
+                        total = null,
+                        progressPercent = 0,
+                        requiresLinkRefresh = true,
+                        failureReason = DownloadFailureReason.ACCESS_DENIED,
+                    ).copy(
+                        failure = DownloadFailure(
+                            reason = DownloadFailureReason.ACCESS_DENIED,
+                            httpStatusCode = 403,
+                            stage = DownloadFailureStage.CONNECT,
+                            detail = "WEB itag 18 · pot no · sig yes · ends 352 min (app 352)",
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        composeRule.onNodeWithTag("download-failure-details").performClick()
+
+        composeRule.onNodeWithTag("download-failure-text", useUnmergedTree = true)
+            .assert(hasText("HTTP status: 403", substring = true))
+            .assert(hasText("Detail: WEB itag 18 · pot no · sig yes", substring = true))
+        composeRule.onNodeWithTag("download-failure-close").performClick()
+        composeRule.onNodeWithTag("download-r").performClick()
+        composeRule.onNodeWithTag("download-menu-details-r").performClick()
+        composeRule.onNodeWithTag("download-failure-dialog").assertIsDisplayed()
+    }
+
+    @Test
+    fun onlyAFailedOrRefreshTaskOffersDetails() {
         setScreen(
             DownloadsUiState(
                 listOf(

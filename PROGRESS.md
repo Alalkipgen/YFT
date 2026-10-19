@@ -1,5 +1,21 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 item 7 — D7 run 9 phone check and F6: what a "Link expired" download was (2026-10-19)
+
+- D7 run 9 (owner, run 39107280386): `normal` V1–V3 ✅ (V3 720p / 480p / 360p download). `routeb`:
+  Master's rows on V1–V3 after Try again (V2 / V3 `replayed 3; new 0`); V1 360p and V2 240p
+  download; V3's 720p, 480p and 360p all end "Link expired" before any byte, twice. Likely cause:
+  main adds its proof-of-origin token (`pot`, BotGuard) to the page / mweb clients' media links,
+  Master has no token maker (`NoPoTokenProvider`, Phase 1.4 scope), so YouTube refuses those links.
+- F6 (debug diagnostics, `[d7]` run 10): a failed download of a YouTube media link keeps the link's
+  facts at the start of its detail (`GoogleVideoLinkFacts`: client, itags, `pot` / `sig` yes or no,
+  minutes left on the link and the plan, bytes, age; never the link or a value), and the Downloads
+  screen offers Details for a "Link expired" (`NEEDS_REFRESH`) download too; one never tried says
+  `Reason: Link not tried (…)`. No extractor or locked file changed; flag, trial and rows unchanged.
+- Next: D7 run 10 (owner): `routeb` V3 → download → the "Link expired" item → Details. Then the
+  owner's choice for V3 (A token maker for Master, B drop rows that need a token, C known limit;
+  `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §9 item 3b), then promotion.
+
 ## Phase 1.4 item 7 — route B F4: a failure midway, offline (2026-10-18)
 
 - Review follow-up F4 (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §8): main asks and then fails with a

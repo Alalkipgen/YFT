@@ -191,6 +191,23 @@ class DownloadLabelsTest {
         }
     }
 
+    /** F6: a download whose link was never tried says so instead of an unknown reason. */
+    @Test
+    fun failureDetailsOfALinkNeverTriedSayWhy() {
+        val restored = row(DownloadTaskStatus.NEEDS_REFRESH).copy(requiresLinkRefresh = true)
+
+        val lines = failureDetailsText(restored, "1.0", "15", 35).lines()
+
+        assertEquals("Reason: $NOT_TRIED_REASON", lines[1])
+        assertEquals("Stage: \u2014", lines[2])
+        assertTrue(restored.showsFailureDetails)
+        assertFalse(row(DownloadTaskStatus.QUEUED).showsFailureDetails)
+        assertEquals(
+            "Reason: \u2014",
+            failureDetailsText(row(DownloadTaskStatus.FAILED), "1.0", "15", 35).lines()[1],
+        )
+    }
+
     @Test
     fun failureDetailsOfATaskSavedBeforeP21SayWhatIsNotKnown() {
         val old = row(
