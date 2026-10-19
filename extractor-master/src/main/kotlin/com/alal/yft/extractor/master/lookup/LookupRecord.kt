@@ -5,8 +5,10 @@ import com.alal.yft.extractor.api.ExtractorProbeResult
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.master.modules.youtube.YouTubeUrls
 import com.alal.yft.extractor.master.modules.youtube.ladder.LookupMemo
+import java.net.URI
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
+import kotlinx.coroutines.CancellationException
 
 /**
  * Phase 1.4 item 7 (YouTube routing B, `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §3 R1; social plan
@@ -41,6 +43,15 @@ import kotlin.coroutines.CoroutineContext
  * kept nor compared, and only a request that carries no credential is ever answered from it.
  * Every other authorized answer is still never kept. Without a name (every other record) nothing
  * changes.
+ *
+ * Social plan S0a (`MASTER_KEY_SOCIAL_PLAN.md` §7.1, the site census): a record given [AskLabels]
+ * also writes each listed ask's way ([Ask.way]) and its 2xx answer's reading ([Ask.mark],
+ * [Ask.shape]: a mark and a short fingerprint, never a value), and counts [repeatedAsks] (an
+ * endpoint already asked in this lookup), [asksAfterStop] (an ask to a host that had stopped: it
+ * answered 429 or a bot check) and [botChecks], and names the hosts that stopped ([stopHosts]).
+ * The labels are read outside the lock and a label that throws is none. A bot check is not a
+ * rate limit here: [rateLimited] stays the 429 (route B's rule 3). Without labels (every lookup of
+ * the app, route B included) the record is as before: no label, nothing more counted.
  */
 class LookupRecord(
     private val clock: () -> Long = System::currentTimeMillis,
@@ -48,6 +59,8 @@ class LookupRecord(
     private val maxKeptChars: Long = MAX_KEPT_CHARS,
     /** F5: the lookup's YouTube video ID; null (or not an ID): no watch page is kept. */
     watchPageVideoId: String? = null,
+    /** S0a: the site census's labels for each ask; null (every lookup of the app): none. */
+    private val labels: AskLabels? = null,
 ) : AbstractCoroutineContextElement(LookupRecord) {
     init {
         require(maxKept in 1..MAX_KEPT)
@@ -85,7 +98,20 @@ class LookupRecord(
         /** Milliseconds from the lookup's start to the ask, and how long it took. */
         val atMillis: Long,
         val tookMillis: Long,
+        /** S0a: the way that asked ([AskLabels.way]); null without labels or when none fits. */
+        val way: String? = null,
+        /** S0a: what the 2xx answer held ([AskLabels.read]); null without labels or not read. */
+        val mark: AnswerMark? = null,
+        /** S0a: the answer's short shape fingerprint; null when not read. */
+        val shape: String? = null,
+        /** S0a: the endpoint was already asked in this lookup (a labelled record only). */
+        val repeated: Boolean = false,
+        /** S0a: the host had stopped (a 429 or a bot check) before this ask (a labelled record only). */
+        val afterStop: Boolean = false,
     )
+
+    /** S0a: an ask's labels, read outside the lock; null: the record has no labels. */
+    private class Label(val way: String?, val reading: AskReading?)
 
     private val lock = Any()
     private val startedAt = clock()
@@ -99,6 +125,12 @@ class LookupRecord(
     private var replayedTotal = 0
     private var rateLimitedTotal = 0
     private var reused: Reuse? = null
+
+    /** S0a: each host that stopped (a 429 or a bot check) and when, in the order they stopped. */
+    private val stopAt = LinkedHashMap<String, Long>()
+    private var repeatedTotal = 0
+    private var afterStopTotal = 0
+    private var botCheckTotal = 0
 
     /** F5: the address of the lookup's watch page, or null when this record keeps none. */
     private val watchPage: String? = watchPageVideoId?.takeIf(VIDEO_ID::matches)?.let(YouTubeUrls::watchPageFetchUrl)
@@ -150,6 +182,18 @@ class LookupRecord(
     /** F5 (guardrail 7): whether a watch page was asked in this lookup, by main or by Master. */
     val watchPageAsked: Boolean get() = synchronized(lock) { watchPagesAsked > 0 }
 
+    /** S0a: asks of an endpoint already asked in this lookup; 0 without labels. */
+    val repeatedAsks: Int get() = synchronized(lock) { repeatedTotal }
+
+    /** S0a: asks to a host after it stopped (a 429 or a bot check); 0 without labels. */
+    val asksAfterStop: Int get() = synchronized(lock) { afterStopTotal }
+
+    /** S0a: answers read as a bot check ([AnswerMark.BOT_CHECK]); 0 without labels. */
+    val botChecks: Int get() = synchronized(lock) { botCheckTotal }
+
+    /** S0a: the hosts that stopped (a 429 or a bot check), in order; empty without labels. */
+    fun stopHosts(): List<String> = synchronized(lock) { stopAt.keys.toList() }
+
     /**
      * [ask]'s answer [result]; main's unauthenticated answer is kept for one replay, and (F5) main's
      * first cookie GET of the named watch page, keyed without the cookie.
@@ -168,6 +212,7 @@ class LookupRecord(
             is ExtractorHttpResult.Failure -> result.statusCode to result.reason
         }
         val limited = limited(status, failure)
+        val label = label(ask, result as? ExtractorHttpResult.Success)
         synchronized(lock) {
             val first = !page || !watchPageTaken
             if (page) watchPageTaken = true
@@ -178,7 +223,7 @@ class LookupRecord(
                 keptChars += chars
                 keptTotal++
             }
-            add(ask, asker, answered = true, status, failure, limited, stored, startedAtMillis)
+            add(ask, asker, answered = true, status, failure, limited, stored, startedAtMillis, label)
         }
     }
 
@@ -190,7 +235,8 @@ class LookupRecord(
             ExtractorProbeResult.Unsupported -> null to null
         }
         val limited = limited(status, failure)
-        synchronized(lock) { add(ask, asker, answered = true, status, failure, limited, false, startedAtMillis) }
+        val label = label(ask, null)
+        synchronized(lock) { add(ask, asker, answered = true, status, failure, limited, false, startedAtMillis, label) }
     }
 
     /**
@@ -214,7 +260,8 @@ class LookupRecord(
 
     /** [ask] went out but no answer came (cancelled): its endpoint still counts as asked. */
     fun unanswered(ask: LookupAsk, startedAtMillis: Long, asker: Asker = Asker.MAIN) {
-        synchronized(lock) { add(ask, asker, answered = false, null, null, false, false, startedAtMillis) }
+        val label = label(ask, null)
+        synchronized(lock) { add(ask, asker, answered = false, null, null, false, false, startedAtMillis, label) }
     }
 
     /**
@@ -264,6 +311,17 @@ class LookupRecord(
     private fun limited(status: Int?, failure: SiteExtractionFailure?): Boolean =
         failure != null && (status == HTTP_TOO_MANY || failure == SiteExtractionFailure.RATE_LIMITED)
 
+    /**
+     * S0a: [ask]'s way and, for a 2xx [success], its reading; null without labels. Outside the
+     * lock; a label that throws is none.
+     */
+    private fun label(ask: LookupAsk, success: ExtractorHttpResult.Success?): Label? {
+        val labels = labels ?: return null
+        val way = guarded { labels.way(ask) }
+        val reading = success?.let { answer -> guarded { labels.read(ask, way, answer) } }
+        return Label(way, reading)
+    }
+
     /** Under [lock]. */
     private fun add(
         ask: LookupAsk,
@@ -274,13 +332,30 @@ class LookupRecord(
         limited: Boolean,
         stored: Boolean,
         startedAtMillis: Long,
+        label: Label? = null,
     ) {
+        // S0a: only a labelled record counts repeats and stops (before this ask is noted).
+        var labelledAt: Long? = null
+        var repeated = false
+        var afterStop = false
+        if (label != null) {
+            val at = clock()
+            labelledAt = at
+            repeated = ask.endpoint in endpoints
+            val host = hostOf(ask.url)
+            afterStop = host != null && stopAt[host]?.let { startedAtMillis >= it } == true
+            if (repeated) repeatedTotal++
+            if (afterStop) afterStopTotal++
+            val mark = label.reading?.mark
+            if (mark == AnswerMark.BOT_CHECK) botCheckTotal++
+            if (host != null && (limited || mark?.stops == true) && host !in stopAt) stopAt[host] = at
+        }
         counts[asker.ordinal]++
         endpoints += ask.endpoint
         if (ask.watchPage) watchPagesAsked++
         if (limited) rateLimitedTotal++
         if (listed.size >= MAX_LISTED) return
-        val now = clock()
+        val now = labelledAt ?: clock()
         listed += Ask(
             asker = asker,
             method = ask.method,
@@ -293,6 +368,11 @@ class LookupRecord(
             kept = stored,
             atMillis = (startedAtMillis - startedAt).coerceAtLeast(0),
             tookMillis = (now - startedAtMillis).coerceAtLeast(0),
+            way = label?.way,
+            mark = label?.reading?.mark,
+            shape = label?.reading?.shape,
+            repeated = repeated,
+            afterStop = afterStop,
         )
     }
 
@@ -303,5 +383,18 @@ class LookupRecord(
         const val MAX_LISTED = 64
         private const val HTTP_TOO_MANY = 429
         private val VIDEO_ID = Regex("^[A-Za-z0-9_-]{11}$")
+
+        /** S0a: [url]'s host, lowercase without a trailing dot; null when it has none. */
+        private fun hostOf(url: String): String? = runCatching { URI(url).host }.getOrNull()
+            ?.lowercase()?.trimEnd('.')?.takeIf(String::isNotEmpty)
+
+        /** S0a: [block]'s value, or null when it throws (a cancellation still ends the lookup). */
+        private inline fun <T> guarded(block: () -> T): T? = try {
+            block()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Exception) {
+            null
+        }
     }
 }

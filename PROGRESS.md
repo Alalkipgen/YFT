@@ -1,5 +1,21 @@
 # YFT Master Extractor backup
 
+## Social plan S0a — the recorder's labels and the site table (2026-10-20)
+
+- `LookupRecord` takes labels (`AskLabels`, additive): a record given none is today's, so route B
+  and every lookup stay as they are. A labelled ask gets its way, its reading of the answer and a
+  short shape fingerprint; the record counts repeated asks (the same endpoint, any identity: a
+  Facebook public page asked again as a page and TikTok phone then desktop count as repeated), asks
+  after a stop (a host that answered 429 or a bot check, asked again) and bot checks, and names the
+  hosts that stopped.
+- The site table (`social/SiteWays`, `SiteLabels`, `SiteReadings`): each site's way labels, media
+  hosts and readings, copied from main with provenance headers; 41 census slots (Facebook 13,
+  TikTok 10, Instagram 10, X 8), each with its kind and what it expects.
+- `toolkit-provenance.tsv`: 23 new rows for the copies (old rows unchanged; self-check against
+  `34a41890`: 0 drifted).
+- Tests: `LookupRecordLabelsTest` (11), `SiteWaysTest` (13), `SiteWaysDriftTest` (7: main's real
+  adapters and Master's contracts under route B). Next: S0b (`SiteRowCheck`, `SiteCensus`).
+
 ## Social plan S0 started (measuring only); Phase 1.3 backlog item 6 parked (2026-10-20)
 
 - The owner (2026-10-20): item 6 (live WebM pieces, one-file live formats) is parked, built later
