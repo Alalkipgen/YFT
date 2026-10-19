@@ -1,5 +1,6 @@
 package com.alal.yft.detection.master
 
+import com.alal.yft.BuildConfig
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.detection.OkHttpExtractorClient
 import com.alal.yft.detection.SiteAdapterOutcome
@@ -55,6 +56,17 @@ class YouTubeRouteBTest {
             ),
         )
         assertNull(YouTubeRouteB.notice(SiteAdapterOutcome.NotHandled))
+    }
+
+    /**
+     * Item 7 promotion (the owner, 2026-10-19, plan §9 4): route B goes with Master capture. The
+     * CI runs this in its two builds: the Master build (`-Pyft.masterCapture=true`, route B's
+     * default) has it on; the plain validation build (no Master capture) has it off, as do release
+     * and preview. Only a build made with `-Pyft.youtubeRouteB=false` (P12 as before) differs.
+     */
+    @Test
+    fun routeBIsOnWhereverMasterCaptureIs() {
+        assertEquals(BuildConfig.MASTER_CAPTURE_ENABLED, YouTubeRouteB.enabled)
     }
 
     @Test

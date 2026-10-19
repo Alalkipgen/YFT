@@ -1,6 +1,7 @@
 # Master Key — Phase 1.4 backlog item 7: YouTube routing B (plan)
 
-**Status:** R1–R6 done (§7 "As built"): built behind the debug flag, **not promoted**. R1–R4
+**Status:** R1–R6 done (§7 "As built"): built behind the debug flag; **promoted 2026-10-19** (§9 4: on
+in every Master-capture debug build, the trial only in `routeb`). R1–R4
 (2026-10-17): the per-lookup recorder, route B's Master wrappers (replay, refusals, 429 stop), the
 engine's claim rule (in a route-B build Master's YouTube module answers after main's recoverable
 failure) and the trial switch with the D7 APK `routeb`; flag off = today. R5 phone check (owner,
@@ -38,7 +39,9 @@ the app's Clear browsing data, then `normal` and `routeb` downloaded V3; which p
 not isolated, the visitor ID most likely) → the owner's decisions (2026-10-19, §9 3h): routeb's V3
 plays (play check passed), **promotion approved**, F8's wait cut to one re-ask after 3 s, and
 Track B (main's stale YouTube session: the failure's wording, a YouTube-only session reset) →
-**F8 trim** — **done 2026-10-19** (§7: one re-ask after 3 s) → **promotion** (flag on in normal builds, §9 4) → **B1** → **B3** (`[d7]` run 14) →
+**F8 trim** — **done 2026-10-19** (§7: one re-ask after 3 s) → **promotion** (flag on in normal builds, §9 4) — **done 2026-10-19** (§7: `-Pyft.youtubeRouteB` on by
+default, so every Master-capture debug build has route B; the trial stays `routeb`'s) → **B1** → **B3**
+(`[d7]` run 14) →
 D7 run 14 (⏸ owner), which closes item 7.
 Backlog pointer: `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Same contract as the social sites:
 `MASTER_KEY_SOCIAL_PLAN.md` §2.1 decisions #7 (routing B / B+ / A) and #8 (lookup = main + Master,
@@ -125,6 +128,11 @@ web storage၊ HTTP cache၊ မှတ်ထားတဲ့ lookups (P17) ကိ
 ပြန်မေးအောင် လျှော့၊ Track B (main ဘက်: 403 ကို "Link expired" လို့ မပြ၊ YouTube session ပဲ reset လုပ်တဲ့ ခလုတ်)၊
 ပြီးရင် `[d7]` run 14 နဲ့ ဖုန်းစစ် တစ်ကြိမ် → item 7 ပိတ်။
 
+**F8 trim / promotion (2026-10-19):** F8 ရဲ့ စောင့်ချိန် ၄၅ s → ငြင်းပြီး 3 s နောက် တစ်ကြိမ်ပဲ ပြန်မေး (ထပ်ငြင်းရင်
+ယခင်လို ကျ၊ Details `403×N at X MiB, K at once, 3 s`)။ Promotion: `-Pyft.youtubeRouteB` default on — Master capture
+ပါတဲ့ debug build တိုင်း (CI ရဲ့ Master build၊ D7 APK ၈ ခုလုံး) မှာ route B ဖွင့်၊ trial က `routeb` မှာပဲ၊ release /
+preview မှာ မပါ။ နောက်: B1 → B3 (`[d7]` run 14) → D7 run 14။
+
 ## 1. Today (verified 2026-10-17, spike `4235716`)
 
 - `BrowserViewModel` (L967-972) sends only `SiteAdapterOutcome.Failed` (or `Detected` when the debug
@@ -199,7 +207,8 @@ web storage၊ HTTP cache၊ မှတ်ထားတဲ့ lookups (P17) ကိ
 2. Recoverable set (§2).
 3. Is keeping main's unauthenticated answers in memory for replay allowed?
 4. Budget numbers (new requests per lookup; H2 ≤ 1 player request).
-5. Promotion (flag on in normal builds) only after the R5 phone runs.
+5. Promotion (flag on in normal builds) only after the R5 phone runs. Approved and done 2026-10-19
+   (§9 4).
 6. **Cookie rule (owner, 2026-10-18, after D7 run 8):** the agent's call ("do what works",
    approved). Chosen (§9, F5): Master never sends a cookie; main's watch page answer may be read once
    from the lookup's memory. Not chosen: a cookie-less watch page asked again.
@@ -403,7 +412,8 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   the module's cookie-less GET of it (corrected in F5; first read as rule 1). §2
   held: wrong rows 0, nothing with a cookie sent, main's failure kept whenever Master had no rows.
   V1's `new 0` (R5: `new 1`): Master's rows came from the replayed visionOS answer alone.
-- **Item 7 status (2026-10-18): built behind the flag, not promoted.** `-Pyft.youtubeRouteB` stays
+- **Item 7 status (2026-10-18): built behind the flag, not promoted** (promoted 2026-10-19: below,
+  "Promotion"). `-Pyft.youtubeRouteB` stays
   off in every normal build (flag off = today, P12); promotion is the owner's decision (§5.5).
   Limits seen on the phone: (a) when the replayed visionOS answer is a bot check (or another
   unplayable answer), the module's next step is the watch page, which main asked with the tab's
@@ -658,6 +668,18 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   refusal before the four ranges the download asks at once came in (at most 1 s): on a slow machine
   the first 403 came back before the other first asks, a race in the fixture (no assertion
   changed). The download's tests here pass locally (106). No extractor or locked file changed.
+- **Promotion (2026-10-19, §9 3h / 4; the owner's decision).** `-Pyft.youtubeRouteB` is on by
+  default (`app/build.gradle.kts`): every debug build made with `-Pyft.masterCapture=true` has route
+  B — the CI's Master build (its tests now run with it) and all eight D7 APKs (the D7 job no longer
+  passes the flag; `routeb` adds `-Pyft.routeBTrial=true` only, the trial's default stays off).
+  Release, preview and every build without Master capture: off (`YOUTUBE_ROUTE_B` false, as
+  before); `-Pyft.youtubeRouteB=false` gives P12 as before. Route B with the client ladder off (the
+  push's Master build: own solver on, ladder off) runs R6's module through route B's client, whose
+  rules hold for any module (`YouTubeRouteBTest`: nothing new after main's 429, a pass-through
+  outside a route-B run); never phone-checked, every D7 APK has the ladder. Test: `YouTubeRouteBTest`
+  +1 (route B goes with Master capture: on in the CI's Master build, off in its plain validation
+  build). No route-B code changed; no extractor or locked file changed. The prompt's rule (promotion
+  is the owner's decision, `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md`) is met by §9 3h.
 
 ## 8. Review follow-ups (2026-10-18)
 
@@ -723,7 +745,7 @@ follow-ups). Decisions:
 | Limit (a), the cookie rule | F5: Master reads main's watch page from the lookup and never sends a cookie (done, §7) | 0 new requests, ≤ 1 page per lookup; Master's request context holds the tab's cookie, its module drops it (`cookie = null`) and never sends it |
 | A cookie-less watch page | Not done | A second page per lookup (guardrail 7), more 429 risk, likely the same bot check |
 | F4 | Done 2026-10-18 (§7): tests only, no bug found, no `[d7]` | Proves the real-failure path and R5's open check (4), offline |
-| Promotion (§5.5) | The owner's, after F5, F4 and run 9 | Flag on in normal builds changes real lookups |
+| Promotion (§5.5) | The owner's, after F5, F4 and run 9 (approved and done 2026-10-19, item 4) | Flag on in normal builds changes real lookups |
 
 Order (one step per commit, tests + CI green before the next; §6's stop rules hold):
 
@@ -813,4 +835,5 @@ Order (one step per commit, tests + CI green before the next; §6's stop rules h
 4. **Promotion (owner, §5.5) — approved 2026-10-19** (§9 3h: the play check passed; V3's failure was
    the session's, in both builds alike). Suggested gate: F5 and F4 green; run 9 / 10 give Master's rows on V1–V3
    that play, wrong rows 0, `normal` unchanged; Master sent nothing with a cookie (tests). Promotion
-   turns `-Pyft.youtubeRouteB` on in normal builds; the trial switch stays debug only.
+   turns `-Pyft.youtubeRouteB` on in normal builds; the trial switch stays debug only. **Done
+   2026-10-19 (§7, "Promotion").**

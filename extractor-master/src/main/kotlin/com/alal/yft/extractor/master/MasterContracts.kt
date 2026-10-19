@@ -106,8 +106,9 @@ data class MasterPolicy(
     /**
      * Phase 1.4 item 7 (YouTube routing B) R3: Master's YouTube module may answer a page main
      * failed with a recoverable reason ([com.alal.yft.extractor.master.policy.TerminalRules.ROUTE_B_RECOVERABLE]),
-     * inside the lookup's record. Off (every build but `-Pyft.youtubeRouteB`, debug only): P12
-     * exactly, a claimed page main looked up is skipped.
+     * inside the lookup's record. Off (the default here; the app's builds without Master capture,
+     * or made with `-Pyft.youtubeRouteB=false`): P12 exactly, a claimed page main looked up is
+     * skipped. The app turns it on in its Master-capture debug builds (promoted 2026-10-19).
      */
     val youtubeRouteB: Boolean = false,
 ) {

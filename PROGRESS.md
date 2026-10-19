@@ -1,6 +1,6 @@
 # YFT Master Extractor backup
 
-## Phase 1.4 item 7 — D7 run 13b / 13c: V3's 403 followed the debug app's browser data; the owner's decisions; F8 trim (2026-10-19)
+## Phase 1.4 item 7 — D7 run 13b / 13c: V3's 403 followed the debug app's browser data; the owner's decisions; F8 trim; promotion (2026-10-19)
 
 - D7 run 13b (owner, run 13's APKs, no new build): run 13's `normal` APK as it was fails V3 360p
   like `routeb`: `VISIONOS itag 134+140 · pot no · sig yes · ends 359 min (app 358) · 2048 KB · 45 s;
@@ -29,7 +29,12 @@
   403, Details `403×N at X MiB, K at once, 3 s`. One range at a time after a refusal stays. Tests:
   `MediaHostRefusalsTest` +2, `DashMediaHostRefusalTest` +1; that test's fixture now answers no 403
   before the ranges asked at once came in (a race seen on a slow machine; no assertion changed).
-- Next: promotion → B1 → B3 (`[d7]` run 14) → D7 run 14 (owner), which closes item 7.
+- Promotion (the owner's decision, plan §9 3h / 4): `-Pyft.youtubeRouteB` is on by default, so every
+  debug build with Master capture has route B: the CI's Master build (its tests run with it) and
+  all eight D7 APKs (`routeb` adds only the trial, whose default stays off). Release, preview and
+  builds without Master capture: off as before; `-Pyft.youtubeRouteB=false` gives P12 as before.
+  Test: `YouTubeRouteBTest` +1 (route B goes with Master capture). No route-B code changed.
+- Next: B1 → B3 (`[d7]` run 14) → D7 run 14 (owner), which closes item 7.
 
 ## Phase 1.4 item 7 — D7 run 10 phone check, F7 (Master's rows against main's) and its crash fix, D7 run 12, F8, D7 run 13 (2026-10-19)
 

@@ -140,8 +140,9 @@ require(ladderSkip.isEmpty() || ladderMutate.isEmpty()) {
 }
 // Phase 1.4 item 7 (YouTube routing B, MASTER_KEY_PHASE1_4_ROUTING_PLAN.md): Master answers a
 // YouTube page only after main failed with a recoverable reason. Acts only with yft.masterCapture
-// on; off by default, debug builds only (owner test APKs), release and preview false.
-val youtubeRouteB = providers.gradleProperty("yft.youtubeRouteB").orElse("false").get()
+// on (debug builds only, the owner's test APKs); release and preview false. Promoted (the owner,
+// 2026-10-19, plan section 9 item 4): on by default; -Pyft.youtubeRouteB=false gives P12 as before.
+val youtubeRouteB = providers.gradleProperty("yft.youtubeRouteB").orElse("true").get()
 require(youtubeRouteB in setOf("true", "false")) {
     "yft.youtubeRouteB must be true or false"
 }

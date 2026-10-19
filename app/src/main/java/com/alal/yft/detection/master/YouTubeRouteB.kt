@@ -15,9 +15,10 @@ import okhttp3.OkHttpClient
 
 /**
  * Phase 1.4 item 7 (YouTube routing B, `MASTER_KEY_PHASE1_4_ROUTING_PLAN.md`): the build's
- * route-B switch and its app wiring. On only in a debug build made with `-Pyft.youtubeRouteB=true`
- * and `-Pyft.masterCapture=true`; release, preview and every other build: off, and each piece here
- * is exactly today's.
+ * route-B switch and its app wiring. On in every debug build made with `-Pyft.masterCapture=true`
+ * (promoted 2026-10-19, plan §9 4: `-Pyft.youtubeRouteB` is on by default; `=false` turns it off);
+ * release, preview and every build without Master capture: off, and each piece here is exactly
+ * today's.
  */
 internal object YouTubeRouteB {
     val enabled: Boolean get() = BuildConfig.YOUTUBE_ROUTE_B
