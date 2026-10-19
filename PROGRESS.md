@@ -1,5 +1,19 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 item 7 — D7 run 10 phone check and F7: Master's rows against main's (2026-10-19)
+
+- D7 run 10 (owner, run 39233263437): `routeb` V3 360p "Link expired" → Details: `ACCESS_DENIED`,
+  `CONNECT`, HTTP 403, `VISIONOS itag 134+140 · pot no · sig yes · ends 359 min (app 358) · 0 KB ·
+  0 s`. A fresh visionOS link refused at once. Run 9's token reading was wrong: main never adds
+  `pot` to visionOS links either. Code reading: Master's rows are made from main's replayed answers
+  by the same code, so they are likely main's own set-aside links of that lookup.
+- F7 (route-B trial APK only, `[d7]` run 11): route B's notice also checks Master's files once
+  (`check: 403×2`: a one-byte ranged GET like the download's first) and compares Master's rows with
+  main's set-aside rows (`same as main's: X of Y rows, headers same`; else the names that differ,
+  never a value). No extractor or locked file changed; every other build unchanged.
+- Next: D7 run 11 (owner): `routeb` V3 and V1 → screenshot the notice; then the owner's choice
+  (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §9 item 3d), then promotion.
+
 ## Phase 1.4 item 7 — D7 run 9 phone check and F6: what a "Link expired" download was (2026-10-19)
 
 - D7 run 9 (owner, run 39107280386): `normal` V1–V3 ✅ (V3 720p / 480p / 360p download). `routeb`:

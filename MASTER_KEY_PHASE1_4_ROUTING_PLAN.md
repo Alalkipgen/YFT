@@ -21,10 +21,13 @@ main's cookie GET of the looked-up video's page answers Master's identical cooki
 replayed, never sent; ≤ 1 watch page per lookup) → **F4** (a real failure midway, offline) —
 **done 2026-10-18** (§7: tests only, no bug found, no code changed, no `[d7]`) → D7 run 9 —
 **done 2026-10-19** (§7: `normal` ✅; `routeb` Master's rows on V1–V3 after Try again, V1 / V2
-download, V3's links all "Link expired" before any byte; likely Master's links lack main's
-proof-of-origin token) → **F6** (diagnostics: a "Link expired" download shows its reason and its
-link's facts, `[d7]` run 10) → D7 run 10 (⏸ owner) → the owner's choice for V3 (§9) → promotion
-(flag on in normal builds), the owner's decision (§5.5).
+download, V3's links all "Link expired" before any byte) → **F6** (diagnostics: a "Link expired"
+download shows its reason and its link's facts, `[d7]` run 10) → D7 run 10 — **done 2026-10-19**
+(§7: V3's link is visionOS's, fresh, refused at once with 403, `pot no`; run 9's token reading was
+wrong — main never adds a token to visionOS links either) → **F7** (the route-B trial's notice
+checks Master's files once and compares Master's rows with main's set-aside rows, `[d7]` run 11)
+→ D7 run 11 (⏸ owner) → the owner's choice for V3 (§9) → promotion (flag on in normal builds),
+the owner's decision (§5.5).
 Backlog pointer: `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Same contract as the social sites:
 `MASTER_KEY_SOCIAL_PLAN.md` §2.1 decisions #7 (routing B / B+ / A) and #8 (lookup = main + Master,
 per-lookup request recorder). Agent prompt: `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md`.
@@ -73,7 +76,17 @@ proof-of-origin token (`pot`, BotGuard) ထည့်တယ်၊ Master မှ�
 က token မပါတဲ့ link ကို 403 နဲ့ ငြင်းရင် app က "Link expired" ပြ။ **F6** (debug diagnostics, `[d7]` run 10):
 "Link expired" item မှာလည်း Details ပြ (reason၊ HTTP status၊ link facts: client၊ itag၊ `pot` ရှိ/မရှိ၊ `sig`၊
 ကုန်ချိန်)၊ link ကိုယ်တိုင် မပါ။ run 10 ရလဒ်ပေါ်မူတည်ပြီး owner ရွေးရန်: A Master ကို main ရဲ့ token maker
-သုံးခွင့် (scope change)၊ B route B က token လိုတဲ့ rows ကို ဖယ်၊ C known limit အဖြစ်ထား။
+သုံးခွင့် (scope change)၊ B route B က token လိုတဲ့ rows ကို ဖယ်၊ C known limit အဖြစ်ထား။ (run 10: ဒီ token
+မှန်းချက် မှား — အောက်မှာ။)
+
+**D7 run 10 ဖုန်းစစ် (2026-10-19):** `routeb` V3 360p (134+140) "Link expired" ရဲ့ Details: `ACCESS_DENIED`၊
+`CONNECT`၊ HTTP 403၊ `VISIONOS itag 134+140 · pot no · sig yes · ends 359 min (app 358) · 0 KB · 0 s`။ link က
+visionOS client ရဲ့ link၊ အသစ် (၃၅၉ မိနစ် ကျန်)၊ YouTube က ချက်ချင်း ငြင်း။ main ကလည်း visionOS link မှာ token
+မထည့် (page / mweb မှာပဲ) — ဒါကြောင့် token မှန်းချက် မှား။ code ဖတ်ချက်: Master ရဲ့ rows ကို main ရဲ့ answer
+တွေ (replay) ကနေ main နဲ့ တူတဲ့ code နဲ့ လုပ် — main ဘေးဖယ်ထားတဲ့ link တွေနဲ့ တူဖို့ များ။ **F7** (trial APK
+မှာပဲ၊ `[d7]` run 11): route B ရဲ့ notice စာကြောင်းမှာ (1) Master ရဲ့ file တွေကို YouTube ယူမယူ ၁ byte စစ်
+(`check: 206×N` ယူ / `403×N` ငြင်း) (2) Master ရဲ့ rows က main ရဲ့ rows နဲ့ link / header တူမတူ
+(`same as main's: X of Y rows`)၊ မတူရင် ကွာတဲ့ နာမည်တွေ (တန်ဖိုး မပါ)။
 
 ## 1. Today (verified 2026-10-17, spike `4235716`)
 
@@ -466,7 +479,8 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   media links of the page and mweb clients, Master's module has `NoPoTokenProvider` (Phase 1.4 scope:
   no tokens). V1's rows likely come from visionOS (run 8: `replayed 1`; no token needed); V2's
   725 KB file may finish before YouTube refuses a link without a token. Likely V3's rows are page or
-  mweb links YouTube refuses (403) without the token; F6 shows it.
+  mweb links YouTube refuses (403) without the token; F6 shows it. (Run 10: wrong — V3's link is
+  visionOS's; see below.)
 - **F6 — what a "Link expired" download was (2026-10-19, debug diagnostics, `[d7]` run 10).** (1)
   `DownloadQueue.failTask`: when a download of a YouTube media link (host `googlevideo.com`) fails,
   its failure detail starts with the link's facts (`GoogleVideoLinkFacts`), then the engine's detail:
@@ -479,6 +493,31 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   (…)`. No extractor or locked file changed; the flag, the trial and the rows are unchanged. Tests:
   `GoogleVideoLinkFactsTest` (4), `DownloadQueueTest` +1, `DownloadLabelsTest` +1,
   `DownloadsScreenTest` +1.
+- **D7 run 10 phone check (owner, 2026-10-19; run 39233263437).** `routeb` V3 (Big Buck Bunny) 360p
+  (134+140), "Link expired" → Details: `Reason: Access denied (ACCESS_DENIED)`, `Stage: CONNECT`,
+  `HTTP status: 403`, `Detail: VISIONOS itag 134+140 · pot no · sig yes · ends 359 min (app 358) ·
+  0 KB · 0 s`, first byte 0.4 s. A fresh visionOS link, refused at once. Run 9's token reading was
+  wrong: main adds `pot` only to the page and mweb clients' links, never to visionOS's, so main's
+  own visionOS links have none either; `sig yes` says nothing (every direct link carries `sig`).
+  Code reading: V3's `replayed 3; new 0` is visionOS refused, the watch page, then visionOS again
+  with the page's visitor data; Master makes its rows from those replayed answers with the same
+  candidate and media-context code as main's (diffed; same headers: User-Agent, Referer, Accept).
+  So Master's V3 links are likely main's own set-aside links of that lookup, which YouTube would
+  refuse as well; `normal`'s V3 rows may come from another answer (a normal build shows no details
+  for rows). F7 checks this on the phone.
+- **F7 — Master's rows against main's set-aside rows (2026-10-19, route-B trial APK only, `[d7]` run
+  11).** `AndroidBrowserMasterFallback.trialPrimary` keeps the rows it sets aside (memory, by video,
+  that lookup only); when route B answers, `RouteBTrialCheck` appends to route B's line (the
+  browser's notice) `; check: <status>×<count>` — one one-byte ranged GET of each distinct file of
+  Master's rows (≤ 8; the download's first request: the row's headers, `Accept-Encoding: identity`,
+  `Range: bytes=0-0`, 8 s) — then `; same as main's: X of Y rows, headers same` (or `headers differ
+  (<names>)`), and for a link that is not main's: `; differ: <query names>`, `; Master's only: …`,
+  `; main's only: …` (against main's link of the same `itag`), `; streams not in main's: N` and
+  `; main's check: …`. Names, statuses and counts only: never a link, a host or a value (odd names
+  `?`, ≤ 6 names). Every other build: nothing set aside, no check, the line as before. No extractor
+  or locked file changed. Tests: `RouteBTrialCheckTest` (4), `BrowserMasterFallbackTest` +1,
+  `BrowserMasterFlowTest` (its 2 trial notices carry the comparison); the app's `detection.*` and
+  `feature.browser.*` tests (332) pass locally.
 
 ## 8. Review follow-ups (2026-10-18)
 
@@ -567,7 +606,18 @@ Order (one step per commit, tests + CI green before the next; §6's stop rules h
    the "Link expired" item → Details → screenshot. `pot no` with HTTP 403 on a page / mweb link
    confirms the missing token; then the owner chooses: **A** Master uses main's token maker (scope
    change), **B** route B drops rows that need a token it does not have, **C** a known limit. Another
-   reading (the clock, a restart, 410) is fixed in the app or Master first.
+   reading (the clock, a restart, 410) is fixed in the app or Master first. **Done 2026-10-19 (§7):**
+   a visionOS link, 403 at once, `pot no` — not the token (visionOS links never get one) → F7.
+3c. **F7** (§7; done 2026-10-19): the trial's notice checks Master's files once and compares Master's
+   rows with main's set-aside rows; `[d7]` (`.github/d7-apks.txt` `run 11`).
+3d. **D7 run 11 (⏸ owner):** `routeb`: V3, then V1 (Try again if asked) → screenshot the notice
+   (`master: route B after …; check: …; same as main's: …`). Readings: (a) `same as main's: Y of Y
+   rows, headers same` with `check: 403×…` — Master's links are main's own and YouTube refuses that
+   lookup's links (main's visionOS-again answer): not route B; main's extractor is a STOP
+   (extractor-sites), so the owner chooses (a known limit, or a main fix later). (b) `check: 206×…`
+   but the download still fails — a download-time difference, fixed in the app. (c) not the same
+   (`differ: …`) — Master's links differ from main's: fixed in Master (the names say where; `main's
+   check` says whether main's would download).
 4. **Promotion (owner, §5.5).** Suggested gate: F5 and F4 green; run 9 / 10 give Master's rows on V1–V3
    that play, wrong rows 0, `normal` unchanged; Master sent nothing with a cookie (tests). Promotion
    turns `-Pyft.youtubeRouteB` on in normal builds; the trial switch stays debug only.

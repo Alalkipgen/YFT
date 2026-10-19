@@ -348,6 +348,54 @@ class BrowserMasterFallbackTest {
     }
 
     /**
+     * Item 7 F7: in the route-B trial, route B's line (the browser's notice) also says whether
+     * YouTube takes Master's files now (a one-byte check) and whether Master's rows are main's rows
+     * the trial set aside in that lookup; a lookup that set nothing aside (main's own failure)
+     * keeps the line as before, without a check.
+     */
+    @Test
+    fun theRouteBTrialLineComparesMastersRowsWithMainsSetAsideRows() = runTest {
+        val http = YouTubeHttp()
+        val checked = mutableListOf<String>()
+        val fixture = Fixture(
+            YOUTUBE_PAGE, extractor = youTubeExtractor(), modules = listOf(YouTubeModule(http)),
+            youtubeRouteB = true, routeBTrial = true,
+            fileCheck = RouteBTrialCheck.FileCheck { url, _ ->
+                checked += url
+                403
+            },
+        )
+        val mains = SiteAdapterOutcome.Detected(
+            "youtube",
+            listOf(
+                MediaCandidate(
+                    YOUTUBE_PAGE, YouTubeModule.ROW_URL, setOf(CandidateSource.REQUEST), MediaKind.HLS,
+                    mimeType = "application/vnd.apple.mpegurl",
+                ),
+            ),
+        )
+
+        val found = withContext(mainAsked(http)) {
+            fixture.bridge.recover(YOUTUBE_PAGE, fixture.bridge.trialPrimary(YOUTUBE_PAGE, mains), 100)
+        } as SiteAdapterOutcome.Detected
+
+        assertEquals(
+            "master: route B after RESPONSE_CHANGED; replayed 1; new 0; check: 403×1; " +
+                "same as main's: 1 of 1 rows, headers same",
+            YouTubeRouteB.notice(found),
+        )
+        assertEquals(listOf(YouTubeModule.ROW_URL), checked)
+
+        val mainsOwn = fixture.bridge.trialPrimary(YOUTUBE_PAGE, youTubeFailed(SiteExtractionFailure.RESPONSE_CHANGED))
+        val again = withContext(mainAsked(http)) {
+            fixture.bridge.recover(YOUTUBE_PAGE, mainsOwn, 100)
+        } as SiteAdapterOutcome.Detected
+
+        assertEquals("master: route B after RESPONSE_CHANGED; replayed 1; new 0", YouTubeRouteB.notice(again))
+        assertEquals(1, checked.size)
+    }
+
+    /**
      * Item 7 R3: bot check, login, player script, 429 and the other final reasons stay final —
      * main's failure itself; F2: with a Details line saying route B did not run and why.
      */
@@ -682,6 +730,7 @@ class BrowserMasterFallbackTest {
         requestPage: String? = null,
         youtubeRouteB: Boolean = false,
         routeBTrial: Boolean = false,
+        fileCheck: RouteBTrialCheck.FileCheck? = null,
     ) {
         val capture = WebViewPlaybackCapture(enabledBuild)
         val factories = AtomicInteger()
@@ -728,6 +777,7 @@ class BrowserMasterFallbackTest {
             masterFirstSite = masterFirstSite,
             youtubeRouteB = youtubeRouteB,
             routeBTrial = routeBTrial,
+            trialFileCheck = fileCheck,
         )
     }
 

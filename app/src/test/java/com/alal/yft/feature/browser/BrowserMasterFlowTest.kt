@@ -231,7 +231,8 @@ class BrowserMasterFlowTest {
                 assertEquals(1, module.calls)
                 assertEquals(1, module.runs.single()!!.replayed)
                 assertEquals(listOf(ROW), rows)
-                assertEquals("master: route B after RESPONSE_CHANGED; replayed 1; new 0", notice)
+                // F7: the trial's line compares Master's row with main's set-aside one (another link).
+                assertEquals("master: route B after RESPONSE_CHANGED; replayed 1; new 0$F7_OTHER_ROW", notice)
             } else {
                 assertEquals(0, module.calls)
                 assertEquals(listOf(MAIN_ROW), rows)
@@ -284,7 +285,7 @@ class BrowserMasterFlowTest {
         val notice = vm.uiState.value.siteNotice
         assertTrue(vm.openPageVideo())
         assertEquals(listOf(ROW), store.selection.value!!.candidates.map { it.mediaUrl })
-        assertEquals("master: route B after RESPONSE_CHANGED; replayed 2; new 0", notice)
+        assertEquals("master: route B after RESPONSE_CHANGED; replayed 2; new 0$F7_OTHER_ROW", notice)
     }
 
     /**
@@ -825,6 +826,9 @@ class BrowserMasterFlowTest {
         const val MAX_BODY = 2L * 1024 * 1024
         const val ROW = "https://cdn.test/yt/master.mp4"
         const val MAIN_ROW = "https://cdn.test/yt/main.mp4"
+
+        /** Item 7 F7: the trial line's comparison when Master's row is another link than main's. */
+        const val F7_OTHER_ROW = "; same as main's: 0 of 1 rows, no main's stream to compare; streams not in main's: 1"
 
         /** F5: the looked-up video's watch page as main's adapter and Master's module read it. */
         const val WATCH_PAGE = "https://www.youtube.com/watch?v=Yft0Fixture&bpctr=9999999999&has_verified=1"

@@ -26,6 +26,7 @@ import com.alal.yft.extractor.master.verify.CapturedMediaMetadata
 import com.alal.yft.extractor.master.present.MasterMainPresentation
 import com.alal.yft.extractor.master.policy.TerminalRules
 import java.net.URI
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlinx.coroutines.CancellationException
@@ -110,8 +111,19 @@ class AndroidBrowserMasterFallback(
      * build: false.
      */
     private val routeBTrial: Boolean = false,
+    /**
+     * Phase 1.4 item 7 F7: in the route-B trial APK only, the one-byte check of Master's files that
+     * route B's line reports ([RouteBTrialCheck]); null in every other build (and no check).
+     */
+    private val trialFileCheck: RouteBTrialCheck.FileCheck? = null,
 ) : BrowserMasterFallback {
     override val enabled: Boolean get() = capture.enabled
+
+    /**
+     * Item 7 F7: main's rows the route-B trial set aside, by video, until that lookup's [recover]
+     * compares Master's rows with them (memory only; the trial APK only, else always empty).
+     */
+    private val setAside = ConcurrentHashMap<String, List<MediaCandidate>>()
     override fun mainAndMore(candidates: List<MediaCandidate>): MasterMainPresentation? =
         capture.mainAndMore(candidates)
 
@@ -141,6 +153,8 @@ class AndroidBrowserMasterFallback(
             ?: if (primary is SiteAdapterOutcome.Detected) SiteExtractionFailure.UNSUPPORTED_URL
             else SiteExtractionFailure.NO_MEDIA_FOUND
         val key = sites.videoKey(lookupUrl)
+        // Item 7 F7: the rows the trial set aside for this lookup (the trial APK only, else null).
+        val mains = if (routeBTrial) key?.let(setAside::remove) else null
         // Phase 1.4 item 7 (YouTube routing B) F2: route B's page — a YouTube page main failed, in
         // a route-B build. When route B gives it no answer, main's failure stays the lookup's answer
         // (its reason, message and retry) with a Details line saying why (`master: route B not run:
@@ -217,7 +231,10 @@ class AndroidBrowserMasterFallback(
                         kept,
                         // Item 7 R4: route B's rows carry its details (its line first), so a
                         // route-B build shows its counts; every other answer: none, as before.
-                        details = if (routeB) DiagnosticTextSanitizer.details(result.result.details) else emptyList(),
+                        // F7: in the trial its line also compares the rows with main's set aside.
+                        details = if (routeB) {
+                            compared(DiagnosticTextSanitizer.details(result.result.details), kept, mains)
+                        } else emptyList(),
                     )
                 }
             }
@@ -253,6 +270,23 @@ class AndroidBrowserMasterFallback(
         return "skipped (${reason.name}); main's requests in this lookup: ${record.mainAsks}$reuse"
     }
 
+    /**
+     * Item 7 F7: route B's line with the trial's comparison of Master's [rows] with main's
+     * set-aside [mains] appended ([RouteBTrialCheck]: a one-byte check of the files now, whether
+     * the links and download headers are main's, names only). No set-aside rows: [details] as is.
+     */
+    private suspend fun compared(
+        details: List<String>,
+        rows: List<MediaCandidate>,
+        mains: List<MediaCandidate>?,
+    ): List<String> {
+        if (mains == null) return details
+        val at = details.indexOfFirst { it.startsWith(YouTubeRouteB.LINE) }
+        if (at < 0) return details
+        val segment = RouteBTrialCheck.segment(rows, mains, trialFileCheck)
+        return details.toMutableList().also { it[at] = it[at] + segment }
+    }
+
     /** Item 2: whether [lookupUrl]'s site is the h-only trial's (never in another build). */
     override fun masterFirst(lookupUrl: String): Boolean {
         val site = masterFirstSite ?: return false
@@ -264,10 +298,16 @@ class AndroidBrowserMasterFallback(
      * `RESPONSE_CHANGED` (main's adapter, Try again, no page files), so route B answers from the
      * lookup's record; when Master gives no rows the trial's message stays with Master's details.
      * Main's failures (a bot check stays final), another site's page and every other build: as is.
+     * F7: the rows set aside are kept (memory) until that lookup's [recover] compares Master's
+     * rows with them.
      */
     override fun trialPrimary(lookupUrl: String, primary: SiteAdapterOutcome): SiteAdapterOutcome {
-        if (!routeBTrial || !youtubeRouteB || !enabled || primary !is SiteAdapterOutcome.Detected) return primary
-        if (sites.videoKey(lookupUrl)?.substringBefore(':') != YOUTUBE_SITE_ID) return primary
+        if (!routeBTrial || !youtubeRouteB || !enabled) return primary
+        val key = sites.videoKey(lookupUrl)?.takeIf { it.substringBefore(':') == YOUTUBE_SITE_ID } ?: return primary
+        // F7: this lookup's set-aside rows only — none from an earlier lookup of the video.
+        setAside.remove(key)
+        if (primary !is SiteAdapterOutcome.Detected) return primary
+        setAside[key] = primary.candidates
         return SiteAdapterOutcome.Failed(
             adapterId = primary.adapterId,
             reason = SiteExtractionFailure.RESPONSE_CHANGED,
@@ -388,6 +428,8 @@ class AndroidBrowserMasterFallback(
                 masterFirstSite = if (MasterLadderSwitch.hOnly) YOUTUBE_SITE_ID else null,
                 youtubeRouteB = youtubeRouteB,
                 routeBTrial = routeBTrial,
+                // Item 7 F7: the trial's one-byte file check (the trial APK only).
+                trialFileCheck = if (routeBTrial && youtubeRouteB) RouteBTrialCheck.OkHttpFileCheck(client) else null,
             )
         }
     }
