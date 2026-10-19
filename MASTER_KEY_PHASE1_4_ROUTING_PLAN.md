@@ -26,7 +26,8 @@ download shows its reason and its link's facts, `[d7]` run 10) → D7 run 10 —
 (§7: V3's link is visionOS's, fresh, refused at once with 403, `pot no`; run 9's token reading was
 wrong — main never adds a token to visionOS links either) → **F7** (the route-B trial's notice
 checks Master's files once and compares Master's rows with main's set-aside rows, `[d7]` run 11)
-→ D7 run 11 (⏸ owner) → the owner's choice for V3 (§9) → promotion (flag on in normal builds),
+→ D7 run 11 — the `routeb` APK closed on a YouTube video (§7: the check closed its answers on the
+main thread) → **F7 fix** (`[d7]` run 12) → D7 run 12 (⏸ owner) → the owner's choice for V3 (§9) → promotion (flag on in normal builds),
 the owner's decision (§5.5).
 Backlog pointer: `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Same contract as the social sites:
 `MASTER_KEY_SOCIAL_PLAN.md` §2.1 decisions #7 (routing B / B+ / A) and #8 (lookup = main + Master,
@@ -86,7 +87,8 @@ visionOS client ရဲ့ link၊ အသစ် (၃၅၉ မိနစ် ကျ
 တွေ (replay) ကနေ main နဲ့ တူတဲ့ code နဲ့ လုပ် — main ဘေးဖယ်ထားတဲ့ link တွေနဲ့ တူဖို့ များ။ **F7** (trial APK
 မှာပဲ၊ `[d7]` run 11): route B ရဲ့ notice စာကြောင်းမှာ (1) Master ရဲ့ file တွေကို YouTube ယူမယူ ၁ byte စစ်
 (`check: 206×N` ယူ / `403×N` ငြင်း) (2) Master ရဲ့ rows က main ရဲ့ rows နဲ့ link / header တူမတူ
-(`same as main's: X of Y rows`)၊ မတူရင် ကွာတဲ့ နာမည်တွေ (တန်ဖိုး မပါ)။
+(`same as main's: X of Y rows`)၊ မတူရင် ကွာတဲ့ နာမည်တွေ (တန်ဖိုး မပါ)။ run 11 ရဲ့ `routeb` APK က YouTube video
+ဖွင့်ရင် app ပိတ်သွား (crash): စစ်ချက်က အဖြေကို main thread ပေါ်မှာ ပိတ်လို့ — **F7 fix** (`[d7]` run 12) နဲ့ ပြင်ပြီး။
 
 ## 1. Today (verified 2026-10-17, spike `4235716`)
 
@@ -518,6 +520,19 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   or locked file changed. Tests: `RouteBTrialCheckTest` (4), `BrowserMasterFallbackTest` +1,
   `BrowserMasterFlowTest` (its 2 trial notices carry the comparison); the app's `detection.*` and
   `feature.browser.*` tests (332) pass locally.
+- **D7 run 11 (owner, 2026-10-19; run 39239845145): the `routeb` APK closed** when a YouTube video
+  played (no notice reached). Cause, found by reading and shown in a test (no crash report seen
+  yet): F7's check resumed on its caller's thread — route B's lookup runs on the main thread — and
+  closed each answer there; closing an answer whose body has not all arrived reads the network on
+  that thread, which Android stops with an error that is not an `IOException`, so nothing caught
+  it. The trial APK only (`normal` makes no check).
+- **F7 fix (2026-10-19, `[d7]` run 12).** `RouteBTrialCheck.OkHttpFileCheck` asks off its caller's
+  thread (`Dispatchers.IO`) and closes each answer on OkHttp's thread as soon as its status is known;
+  any failure is "no answer". `compared` turns any failure of the trial's comparison into
+  `; trial check failed (<type>)` on the line; the rows stand. Tests: `RouteBTrialCheckTest` +1
+  (sockets that count reads and writes on the caller's thread: the old check read there twice, now
+  none), `BrowserMasterFallbackTest` +1 (a failing check only says so); the app's `detection.*` and
+  `feature.browser.*` tests (334) pass locally. No extractor or locked file changed.
 
 ## 8. Review follow-ups (2026-10-18)
 
@@ -609,8 +624,10 @@ Order (one step per commit, tests + CI green before the next; §6's stop rules h
    reading (the clock, a restart, 410) is fixed in the app or Master first. **Done 2026-10-19 (§7):**
    a visionOS link, 403 at once, `pot no` — not the token (visionOS links never get one) → F7.
 3c. **F7** (§7; done 2026-10-19): the trial's notice checks Master's files once and compares Master's
-   rows with main's set-aside rows; `[d7]` (`.github/d7-apks.txt` `run 11`).
-3d. **D7 run 11 (⏸ owner):** `routeb`: V3, then V1 (Try again if asked) → screenshot the notice
+   rows with main's set-aside rows; `[d7]` (`.github/d7-apks.txt` `run 11`). Run 11's `routeb` APK
+   closed on a YouTube video → **F7 fix** (§7; done 2026-10-19), `[d7]` run 12.
+3d. **D7 run 12 (⏸ owner; run 11's APK closed):** `routeb`: V3, then V1 (Try again if asked) →
+   screenshot the notice
    (`master: route B after …; check: …; same as main's: …`). Readings: (a) `same as main's: Y of Y
    rows, headers same` with `check: 403×…` — Master's links are main's own and YouTube refuses that
    lookup's links (main's visionOS-again answer): not route B; main's extractor is a STOP

@@ -1,6 +1,6 @@
 # YFT Master Extractor backup
 
-## Phase 1.4 item 7 — D7 run 10 phone check and F7: Master's rows against main's (2026-10-19)
+## Phase 1.4 item 7 — D7 run 10 phone check, F7 (Master's rows against main's) and its crash fix (2026-10-19)
 
 - D7 run 10 (owner, run 39233263437): `routeb` V3 360p "Link expired" → Details: `ACCESS_DENIED`,
   `CONNECT`, HTTP 403, `VISIONOS itag 134+140 · pot no · sig yes · ends 359 min (app 358) · 0 KB ·
@@ -11,7 +11,11 @@
   (`check: 403×2`: a one-byte ranged GET like the download's first) and compares Master's rows with
   main's set-aside rows (`same as main's: X of Y rows, headers same`; else the names that differ,
   never a value). No extractor or locked file changed; every other build unchanged.
-- Next: D7 run 11 (owner): `routeb` V3 and V1 → screenshot the notice; then the owner's choice
+- D7 run 11 (owner, run 39239845145): the `routeb` APK closed when a YouTube video played. F7's
+  check closed its answers on the main thread (route B's lookup runs there), where reading the
+  network is stopped by Android. F7 fix (`[d7]` run 12): the check asks and closes off that thread,
+  and any failure only says `trial check failed (<type>)` on the line. Tests +2.
+- Next: D7 run 12 (owner): `routeb` V3 and V1 → screenshot the notice; then the owner's choice
   (`MASTER_KEY_PHASE1_4_ROUTING_PLAN.md` §9 item 3d), then promotion.
 
 ## Phase 1.4 item 7 — D7 run 9 phone check and F6: what a "Link expired" download was (2026-10-19)

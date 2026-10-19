@@ -283,7 +283,14 @@ class AndroidBrowserMasterFallback(
         if (mains == null) return details
         val at = details.indexOfFirst { it.startsWith(YouTubeRouteB.LINE) }
         if (at < 0) return details
-        val segment = RouteBTrialCheck.segment(rows, mains, trialFileCheck)
+        // The trial's check never fails the lookup: a failure only says so on the line.
+        val segment = try {
+            RouteBTrialCheck.segment(rows, mains, trialFileCheck)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            "; trial check failed (${error.javaClass.simpleName})"
+        }
         return details.toMutableList().also { it[at] = it[at] + segment }
     }
 

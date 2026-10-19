@@ -9,10 +9,13 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.OkHttpClient
@@ -95,33 +98,43 @@ object RouteBTrialCheck {
         }.take(MAX_SEGMENT_CHARS)
     }
 
-    /** F7: the trial's file check over [client] — the download's own first request, one byte. */
+    /**
+     * F7: the trial's file check over [client] — the download's own first request, one byte. The
+     * whole call runs off the caller's thread, and the answer is closed on OkHttp's thread as soon
+     * as its status is known: route B's lookup runs on the main thread, where closing an answer
+     * whose body has not all arrived reads the network, which Android stops with a crash (D7 run
+     * 11's first trial APK closed its answers there). Any failure is "no answer", never an error.
+     */
     class OkHttpFileCheck(client: OkHttpClient) : FileCheck {
         private val client = client.newBuilder()
             .callTimeout(CHECK_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .build()
 
-        override suspend fun status(url: String, context: BrowserRequestContext): Int? {
-            val request = try {
-                Request.Builder()
-                    .url(url)
-                    .apply {
-                        context.replayHeaders().forEach { (name, value) -> runCatching { header(name, value) } }
-                        header("Accept-Encoding", "identity")
-                        header("Range", "bytes=0-0")
-                    }
-                    .build()
-            } catch (_: IllegalArgumentException) {
-                return null
+        override suspend fun status(url: String, context: BrowserRequestContext): Int? =
+            withContext(Dispatchers.IO) {
+                val request = try {
+                    Request.Builder()
+                        .url(url)
+                        .apply {
+                            context.replayHeaders().forEach { (name, value) -> runCatching { header(name, value) } }
+                            header("Accept-Encoding", "identity")
+                            header("Range", "bytes=0-0")
+                        }
+                        .build()
+                } catch (_: IllegalArgumentException) {
+                    return@withContext null
+                }
+                try {
+                    client.newCall(request).status()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    null
+                }
             }
-            return try {
-                client.newCall(request).await().use { it.code }
-            } catch (_: IOException) {
-                null
-            }
-        }
 
-        private suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation ->
+        /** The answer's status; the answer itself is closed on OkHttp's thread, unread. */
+        private suspend fun Call.status(): Int = suspendCancellableCoroutine { continuation ->
             continuation.invokeOnCancellation { cancel() }
             enqueue(
                 object : Callback {
@@ -130,7 +143,9 @@ object RouteBTrialCheck {
                     }
 
                     override fun onResponse(call: Call, response: Response) {
-                        if (continuation.isActive) continuation.resume(response) else response.close()
+                        val code = response.code
+                        runCatching { response.close() }
+                        if (continuation.isActive) continuation.resume(code)
                     }
                 },
             )

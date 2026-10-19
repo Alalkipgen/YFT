@@ -395,6 +395,36 @@ class BrowserMasterFallbackTest {
         assertEquals(1, checked.size)
     }
 
+    /** F7 fix (D7 run 11's crash): a failing trial check only says so on the line; the rows stand. */
+    @Test
+    fun aFailingRouteBTrialCheckOnlySaysSoOnTheLine() = runTest {
+        val http = YouTubeHttp()
+        val fixture = Fixture(
+            YOUTUBE_PAGE, extractor = youTubeExtractor(), modules = listOf(YouTubeModule(http)),
+            youtubeRouteB = true, routeBTrial = true,
+            fileCheck = RouteBTrialCheck.FileCheck { _, _ -> throw IllegalStateException("not on this thread") },
+        )
+        val mains = SiteAdapterOutcome.Detected(
+            "youtube",
+            listOf(
+                MediaCandidate(
+                    YOUTUBE_PAGE, YouTubeModule.ROW_URL, setOf(CandidateSource.REQUEST), MediaKind.HLS,
+                    mimeType = "application/vnd.apple.mpegurl",
+                ),
+            ),
+        )
+
+        val found = withContext(mainAsked(http)) {
+            fixture.bridge.recover(YOUTUBE_PAGE, fixture.bridge.trialPrimary(YOUTUBE_PAGE, mains), 100)
+        } as SiteAdapterOutcome.Detected
+
+        assertEquals(
+            "master: route B after RESPONSE_CHANGED; replayed 1; new 0; trial check failed (IllegalStateException)",
+            YouTubeRouteB.notice(found),
+        )
+        assertEquals(listOf(YouTubeModule.ROW_URL), found.candidates.map { it.mediaUrl })
+    }
+
     /**
      * Item 7 R3: bot check, login, player script, 429 and the other final reasons stay final —
      * main's failure itself; F2: with a Details line saying route B did not run and why.

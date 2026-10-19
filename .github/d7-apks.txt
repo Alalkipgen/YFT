@@ -3,4 +3,4 @@ R4; job d7-matrix in
 .github/workflows/master-optin-debug-apk.yml) build after a push that changes this file
 (or any other non-doc file) in a commit whose message carries [d7]. Change the line below.
 
-run 11 (Phase 1.4 item 7 F7: the route-B trial's notice checks Master's files once and compares them with main's rows)
+run 12 (Phase 1.4 item 7 F7 fix: the route-B trial's file check no longer closes the app on a YouTube video)
