@@ -10,6 +10,8 @@ import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.MediaTrackType
 import java.io.File
 import java.util.Collections
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.runBlocking
@@ -63,7 +65,7 @@ class DashMediaHostRefusalTest {
     fun `a media host that refuses the later ranges for a while is asked again one at a time`() =
         runBlocking {
             val bytes = fileBytes(6_000)
-            val refusing = Refusing(bytes, refuseFrom = 1_000, forMillis = 400)
+            val refusing = Refusing(bytes, refuseFrom = 1_000, forMillis = 400, atOnce = 4)
             server.dispatcher = refusing
             val asks = Asks(server.url("/video.mp4"))
             val files = files("later")
@@ -84,7 +86,12 @@ class DashMediaHostRefusalTest {
 
     @Test
     fun `a media host that refuses for good fails after the wait and says so`() = runBlocking {
-        val refusing = Refusing(fileBytes(4_000), refuseFrom = 1_000, forMillis = Long.MAX_VALUE)
+        val refusing = Refusing(
+            fileBytes(4_000),
+            refuseFrom = 1_000,
+            forMillis = Long.MAX_VALUE,
+            atOnce = 4,
+        )
         server.dispatcher = refusing
         val asks = Asks(server.url("/video.mp4"))
         val files = files("refused")
@@ -107,6 +114,46 @@ class DashMediaHostRefusalTest {
         assertEquals(1, asks.mostAtOnceAfterRefusal.get())
         assertFalse(files.completed.exists())
     }
+
+    @Test
+    fun `with the download's own times a media host that refuses for good is asked again once`() =
+        runBlocking {
+            val refusing = Refusing(
+                fileBytes(4_000),
+                refuseFrom = 1_000,
+                forMillis = Long.MAX_VALUE,
+                atOnce = 4,
+            )
+            server.dispatcher = refusing
+            val asks = Asks(server.url("/video.mp4"))
+            val own = DashTransferEngine.Policy()
+            val startedAt = System.nanoTime()
+
+            val result = engine(
+                asks,
+                waitMillis = own.mediaHostRefusalWaitMillis,
+                firstWaitMillis = own.mediaHostRefusalFirstWaitMillis,
+                maxWaitMillis = own.mediaHostRefusalMaxWaitMillis,
+            ).transfer(
+                plan = plan("own", MEDIA_URL),
+                destination = files("own").destination,
+            ) as DashTransferResult.Failure
+
+            val tookMillis = (System.nanoTime() - startedAt) / 1_000_000
+            assertEquals(DownloadFailureReason.ACCESS_DENIED, result.failure.reason)
+            assertEquals(403, result.failure.httpStatusCode)
+            assertEquals(DownloadFailureStage.CONNECT, result.failure.stage)
+            val detail = result.failure.detail.orEmpty()
+            assertTrue(detail, DETAIL.matches(detail))
+            assertTrue(detail, detail.endsWith(", 3 s"))
+            // F8 trim: the ranges asked at once are refused (3), one is asked again alone 3 s
+            // later and refused too, so the file fails, before a second ask would start (9 s).
+            assertEquals(4, refusing.refused.get())
+            val firstRefusal = refusing.refusedAt.first()
+            assertEquals(1, refusing.refusedAt.count { it - firstRefusal >= 2_500 })
+            assertTrue("$tookMillis ms", tookMillis in 3_000L..8_000L)
+            assertEquals(1, asks.mostAtOnceAfterRefusal.get())
+        }
 
     @Test
     fun `another host that refuses a range fails at once`() = runBlocking {
@@ -142,27 +189,35 @@ class DashMediaHostRefusalTest {
 
     /**
      * Serves the file in ranges, the first one slowly; a range from [refuseFrom] is refused with
-     * 403 until [forMillis] after the first request.
+     * 403 until [forMillis] after the first request. With [atOnce], no refusal is answered before
+     * that many requests came in (at most a second), so the ranges the download asks at once
+     * are all asked before it hears of a refusal, however slow the machine.
      */
     private class Refusing(
         bytes: ByteArray,
         private val refuseFrom: Long,
         private val forMillis: Long,
+        private val atOnce: Int = 0,
     ) : Dispatcher() {
         private val ranges = RangeFileDispatcher(bytes) { start ->
             Throttle(250, 100).takeIf { start == 0L }
         }
         private var firstAt: Long? = null
+        private val firstAsks = CountDownLatch(atOnce)
         val refused = AtomicInteger(0)
+        val refusedAt: MutableList<Long> = Collections.synchronizedList(mutableListOf())
         val answered: MutableList<String> = Collections.synchronizedList(mutableListOf())
 
         override fun dispatch(request: RecordedRequest): MockResponse {
             val now = System.nanoTime() / 1_000_000
             val first = synchronized(this) { firstAt ?: now.also { firstAt = it } }
+            firstAsks.countDown()
             val range = request.getHeader("Range").orEmpty()
             val start = range.substringAfter("bytes=").substringBefore('-').toLongOrNull()
             if (start != null && start >= refuseFrom && now - first < forMillis) {
+                firstAsks.await(1, TimeUnit.SECONDS)
                 refused.incrementAndGet()
+                refusedAt += System.nanoTime() / 1_000_000
                 return MockResponse().setResponseCode(403)
             }
             answered += range
@@ -206,7 +261,12 @@ class DashMediaHostRefusalTest {
         }
     }
 
-    private fun engine(asks: Asks, waitMillis: Long = 600): DashTransferEngine =
+    private fun engine(
+        asks: Asks,
+        waitMillis: Long = 600,
+        firstWaitMillis: Long = 100,
+        maxWaitMillis: Long = 200,
+    ): DashTransferEngine =
         DashTransferEngine(
             client = OkHttpClient.Builder().addInterceptor(asks).build(),
             workspaceRoot = workspaceRoot,
@@ -215,8 +275,8 @@ class DashMediaHostRefusalTest {
                 initialRetryDelayMillis = 0,
                 bufferBytes = 1_024,
                 mediaHostRefusalWaitMillis = waitMillis,
-                mediaHostRefusalFirstWaitMillis = 100,
-                mediaHostRefusalMaxWaitMillis = 200,
+                mediaHostRefusalFirstWaitMillis = firstWaitMillis,
+                mediaHostRefusalMaxWaitMillis = maxWaitMillis,
             ),
             clock = { 100 },
         )

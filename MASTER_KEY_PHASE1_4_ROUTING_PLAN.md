@@ -38,7 +38,7 @@ the app's Clear browsing data, then `normal` and `routeb` downloaded V3; which p
 not isolated, the visitor ID most likely) → the owner's decisions (2026-10-19, §9 3h): routeb's V3
 plays (play check passed), **promotion approved**, F8's wait cut to one re-ask after 3 s, and
 Track B (main's stale YouTube session: the failure's wording, a YouTube-only session reset) →
-**F8 trim** → **promotion** (flag on in normal builds, §9 4) → **B1** → **B3** (`[d7]` run 14) →
+**F8 trim** — **done 2026-10-19** (§7: one re-ask after 3 s) → **promotion** (flag on in normal builds, §9 4) → **B1** → **B3** (`[d7]` run 14) →
 D7 run 14 (⏸ owner), which closes item 7.
 Backlog pointer: `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Same contract as the social sites:
 `MASTER_KEY_SOCIAL_PLAN.md` §2.1 decisions #7 (routing B / B+ / A) and #8 (lookup = main + Master,
@@ -645,6 +645,19 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   8 refusals over 43 s, none answered), and the chip said "Link expired" while the link had 359 min
   left and Details said `ACCESS_DENIED`; reopening the page with the same session would not have
   helped → the owner's decisions, §9 3h.
+- **F8 trim (2026-10-19, §9 3h).** `DashTransferEngine.Policy.mediaHostRefusalWaitMillis` 45 s →
+  5 s: with the first wait of 3 s (unchanged) a refused range is asked again once, alone, 3 s after
+  the last refusal; refused again, a next ask would start 9 s after the row's first refusal, past
+  5 s, so the download fails as before (`ACCESS_DENIED`, HTTP 403, `CONNECT`) about 3 s after its
+  first 403, Details `403×N at X MiB, K at once, 3 s`. Unchanged: one range at a time once the file
+  is refused, an answer ends the row (the file goes on), other hosts, live streams and other errors.
+  Tests: `MediaHostRefusalsTest` +2 (virtual time, the download's own times: three ranges refused
+  at once, one asked again at 3.1 s and refused, `403×4 at 1 MiB, 3 at once, 3 s`; asked again and
+  answered, the file goes on), `DashMediaHostRefusalTest` +1 (a local server that refuses for good:
+  4 refusals, one of them 3 s after the first, fails in 3–8 s). That test's fixture now answers no
+  refusal before the four ranges the download asks at once came in (at most 1 s): on a slow machine
+  the first 403 came back before the other first asks, a race in the fixture (no assertion
+  changed). The download's tests here pass locally (106). No extractor or locked file changed.
 
 ## 8. Review follow-ups (2026-10-18)
 
@@ -780,7 +793,7 @@ Order (one step per commit, tests + CI green before the next; §6's stop rules h
    `routeb`'s V3 360p plays start to end, its duration YouTube's. (3a) Promotion approved → 4.
    (3b) **F8 trim:** F8's wait is cut — a refused range is asked again once, 3 s after the refusal;
    refused again, the download fails as before. One range at a time after a refusal and the Detail
-   `403×N at X MiB, K at once, T s` stay (they found this). (4) One step per commit, tests and CI
+   `403×N at X MiB, K at once, T s` stay (they found this). **Done 2026-10-19 (§7).** (4) One step per commit, tests and CI
    green, then `[d7]` run 14 and one phone check, which closes item 7. **Track B, main's stale
    YouTube session** (not route B; approved): **B1** the failure's wording — a 403 at `CONNECT` on a
    YouTube media link with time left on it no longer says "Link expired" ("reopen the page" does not

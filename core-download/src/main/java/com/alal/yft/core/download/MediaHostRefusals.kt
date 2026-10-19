@@ -17,7 +17,10 @@ import kotlinx.coroutines.sync.withLock
  * to a range asked after the row began ends the row. A refused range is asked again
  * ([mayAskAgain]) while its next turn starts within [limitMillis] of the row's first refusal,
  * at most [MAX_REFUSALS] times for the file. [describe] is the Detail of a file refused for good.
- * It keeps counts and times only, never an address.
+ * It keeps counts and times only, never an address. The download's own times
+ * ([DashTransferEngine.Policy], F8 trim, owner 2026-10-19): a refused range is asked again once,
+ * 3 s after the refusal; refused again, the file fails (D7 runs 13 and 13b: 45 s of asking again
+ * never got an answer).
  */
 internal class MediaHostRefusals(
     private val limitMillis: Long,

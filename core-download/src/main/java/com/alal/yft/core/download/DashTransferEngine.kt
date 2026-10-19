@@ -118,9 +118,11 @@ class DashTransferEngine(
          * asks its ranges one at a time and the refused range again ([MediaHostRefusals]), the
          * first time after [mediaHostRefusalFirstWaitMillis], then twice as long each time up to
          * [mediaHostRefusalMaxWaitMillis], while it is within this time of its first refusal in
-         * a row; 0: a 403 fails at once, as before.
+         * a row; 0: a 403 fails at once, as before. F8 trim (owner, 2026-10-19, after D7 runs 13
+         * and 13b, where 45 s of asking again never got an answer): 5 s, so a refused range is
+         * asked again once, 3 s after the refusal (the next wait, 6 s, would end past it).
          */
-        val mediaHostRefusalWaitMillis: Long = 45_000,
+        val mediaHostRefusalWaitMillis: Long = 5_000,
         val mediaHostRefusalFirstWaitMillis: Long = 3_000,
         val mediaHostRefusalMaxWaitMillis: Long = 8_000,
     ) {

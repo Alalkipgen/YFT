@@ -2,6 +2,7 @@ package com.alal.yft.core.download
 
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -118,6 +119,75 @@ class MediaHostRefusalsTest {
         assertEquals(listOf(0L, 1_000L, 3_000L, 3_000L, 4_000L), asks)
         assertTrue(refusals.mayAskAgain())
         assertEquals("403×3 at 0 MiB, 1 at once, 3 s", refusals.describe())
+    }
+
+    @Test
+    fun `the download's own times ask a refused range again once, 3 s after the refusal`() =
+        runTest {
+            val policy = DashTransferEngine.Policy()
+            val refusals = refusals(
+                limitMillis = policy.mediaHostRefusalWaitMillis,
+                firstWaitMillis = policy.mediaHostRefusalFirstWaitMillis,
+                maxWaitMillis = policy.mediaHostRefusalMaxWaitMillis,
+            )
+            val asks = Collections.synchronizedList(mutableListOf<Long>())
+
+            val failed = runCatching {
+                coroutineScope {
+                    // Three ranges in flight are refused, as V3's were (D7 run 13: "3 at once").
+                    List(3) { index ->
+                        launch {
+                            while (true) {
+                                val refused = runCatching {
+                                    refusals.turn((1L + 10 * index) * MIB) {
+                                        asks += testScheduler.currentTime
+                                        delay(100)
+                                        throw Refused()
+                                    }
+                                }
+                                assertTrue(refused.exceptionOrNull() is Refused)
+                                if (!refusals.mayAskAgain()) {
+                                    throw IllegalStateException(refusals.describe())
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // F8 trim (owner, 2026-10-19): one range is asked again alone 3 s after the last
+            // refusal; refused again, the file fails (a second ask would wait 6 s more).
+            assertEquals(listOf(0L, 0L, 0L, 3_100L), asks.toList())
+            assertEquals("403×4 at 1 MiB, 3 at once, 3 s", failed.exceptionOrNull()?.message)
+        }
+
+    @Test
+    fun `the download's own times go on once the range asked again is answered`() = runTest {
+        val policy = DashTransferEngine.Policy()
+        val refusals = refusals(
+            limitMillis = policy.mediaHostRefusalWaitMillis,
+            firstWaitMillis = policy.mediaHostRefusalFirstWaitMillis,
+            maxWaitMillis = policy.mediaHostRefusalMaxWaitMillis,
+        )
+        val asks = mutableListOf<Long>()
+        var refuse = true
+
+        while (true) {
+            val answer = runCatching {
+                refusals.turn(MIB.toLong()) {
+                    asks += testScheduler.currentTime
+                    if (refuse) throw Refused()
+                }
+            }
+            if (answer.isSuccess) break
+            assertTrue(refusals.mayAskAgain())
+            refuse = false
+        }
+        refusals.turn(2L * MIB) { asks += testScheduler.currentTime }
+
+        // Asked again 3 s after the refusal and answered: the row is over, the next range asks
+        // at once (still one at a time).
+        assertEquals(listOf(0L, 3_000L, 3_000L), asks)
     }
 
     @Test

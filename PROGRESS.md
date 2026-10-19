@@ -1,6 +1,6 @@
 # YFT Master Extractor backup
 
-## Phase 1.4 item 7 — D7 run 13b / 13c: V3's 403 followed the debug app's browser data; the owner's decisions (2026-10-19)
+## Phase 1.4 item 7 — D7 run 13b / 13c: V3's 403 followed the debug app's browser data; the owner's decisions; F8 trim (2026-10-19)
 
 - D7 run 13b (owner, run 13's APKs, no new build): run 13's `normal` APK as it was fails V3 360p
   like `routeb`: `VISIONOS itag 134+140 · pot no · sig yes · ends 359 min (app 358) · 2048 KB · 45 s;
@@ -23,7 +23,13 @@
   extractor-side only with evidence (STOP). D7 test rule from run 14: V3 first as the app is; on
   "1 MiB, then 403": Preview, then Force stop + App info Clear cache, then Reset YouTube session,
   then Clear browsing data, noting which step fixed it; then `normal` / `routeb` on one clean state.
-- Next: F8 trim → promotion → B1 → B3 (`[d7]` run 14) → D7 run 14 (owner), which closes item 7.
+- F8 trim (every build's YouTube downloads): a 403 at CONNECT from YouTube's media host now asks
+  the refused range again once, 3 s after the refusal (`mediaHostRefusalWaitMillis` 45 s → 5 s,
+  first wait 3 s unchanged); refused again, the download fails as before, about 3 s after its first
+  403, Details `403×N at X MiB, K at once, 3 s`. One range at a time after a refusal stays. Tests:
+  `MediaHostRefusalsTest` +2, `DashMediaHostRefusalTest` +1; that test's fixture now answers no 403
+  before the ranges asked at once came in (a race seen on a slow machine; no assertion changed).
+- Next: promotion → B1 → B3 (`[d7]` run 14) → D7 run 14 (owner), which closes item 7.
 
 ## Phase 1.4 item 7 — D7 run 10 phone check, F7 (Master's rows against main's) and its crash fix, D7 run 12, F8, D7 run 13 (2026-10-19)
 
