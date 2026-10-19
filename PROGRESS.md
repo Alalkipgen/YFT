@@ -1,6 +1,6 @@
 # YFT Master Extractor backup
 
-## Phase 1.4 item 7 — D7 run 13b / 13c: V3's 403 followed the debug app's browser data; the owner's decisions; F8 trim; promotion (2026-10-19)
+## Phase 1.4 item 7 — D7 run 13b / 13c: V3's 403 followed the debug app's browser data; the owner's decisions; F8 trim; promotion; B1 (2026-10-19)
 
 - D7 run 13b (owner, run 13's APKs, no new build): run 13's `normal` APK as it was fails V3 360p
   like `routeb`: `VISIONOS itag 134+140 · pot no · sig yes · ends 359 min (app 358) · 2048 KB · 45 s;
@@ -34,7 +34,17 @@
   all eight D7 APKs (`routeb` adds only the trial, whose default stays off). Release, preview and
   builds without Master capture: off as before; `-Pyft.youtubeRouteB=false` gives P12 as before.
   Test: `YouTubeRouteBTest` +1 (route B goes with Master capture). No route-B code changed.
-- Next: B1 → B3 (`[d7]` run 14) → D7 run 14 (owner), which closes item 7.
+- B1 (Track B, main's stale YouTube session; every build): a 403 at CONNECT from YouTube's media
+  host while every link still has a minute or more left (its own `expire`, and the app's end when
+  known) is now `YOUTUBE_REFUSED`, not `ACCESS_DENIED`: chip "YouTube refused" (was "Link
+  expired"), the row's note and Details' "What to do:" say reopening the page with the same session
+  may not help — try again later, or Clear browsing data (signs out of every site in YFT), then
+  reopen the page; notice "— YouTube refused". It still needs a fresh link (`NEEDS_REFRESH`), F6's
+  facts lead the Detail; every other refresh failure still says "Link expired". Tests:
+  `GoogleVideoLinkFactsTest` +2, `DownloadQueueTest` +1, `DownloadLabelsTest` +1,
+  `DownloadsScreenTest` +1, `DownloadNotificationTextTest` +1; local download tests 108 pass, and
+  the queue's 19 (`DownloadQueueTest`, `StreamDownloadQueueTest`, without the store's Room part).
+- Next: B3 "Reset YouTube session" (`[d7]` run 14) → D7 run 14 (owner), which closes item 7.
 
 ## Phase 1.4 item 7 — D7 run 10 phone check, F7 (Master's rows against main's) and its crash fix, D7 run 12, F8, D7 run 13 (2026-10-19)
 

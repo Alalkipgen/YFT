@@ -40,7 +40,9 @@ not isolated, the visitor ID most likely) → the owner's decisions (2026-10-19,
 plays (play check passed), **promotion approved**, F8's wait cut to one re-ask after 3 s, and
 Track B (main's stale YouTube session: the failure's wording, a YouTube-only session reset) →
 **F8 trim** — **done 2026-10-19** (§7: one re-ask after 3 s) → **promotion** (flag on in normal builds, §9 4) — **done 2026-10-19** (§7: `-Pyft.youtubeRouteB` on by
-default, so every Master-capture debug build has route B; the trial stays `routeb`'s) → **B1** → **B3**
+default, so every Master-capture debug build has route B; the trial stays `routeb`'s) → **B1** —
+**done 2026-10-19** (§7: a 403 at `CONNECT` on a YouTube media link with a minute or more left is
+`YOUTUBE_REFUSED`, chip "YouTube refused", Details say what to try) → **B3**
 (`[d7]` run 14) →
 D7 run 14 (⏸ owner), which closes item 7.
 Backlog pointer: `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Same contract as the social sites:
@@ -132,6 +134,13 @@ web storage၊ HTTP cache၊ မှတ်ထားတဲ့ lookups (P17) ကိ
 ယခင်လို ကျ၊ Details `403×N at X MiB, K at once, 3 s`)။ Promotion: `-Pyft.youtubeRouteB` default on — Master capture
 ပါတဲ့ debug build တိုင်း (CI ရဲ့ Master build၊ D7 APK ၈ ခုလုံး) မှာ route B ဖွင့်၊ trial က `routeb` မှာပဲ၊ release /
 preview မှာ မပါ။ နောက်: B1 → B3 (`[d7]` run 14) → D7 run 14။
+
+**B1 (2026-10-19):** YouTube media link မှာ အချိန် (တစ်မိနစ်နဲ့ အထက်) ကျန်သေးလျက် `CONNECT` မှာ 403 ငြင်းရင်
+"Link expired" မပြတော့ — reason `YOUTUBE_REFUSED`၊ chip "YouTube refused"၊ note နဲ့ Details "What to do:" က
+session တူနဲ့ page ပြန်ဖွင့်ရုံ မကူညီနိုင်၊ နောက်မှ ထပ်စမ်း သို့ Settings → Clear browsing data (site အားလုံး sign out)
+ပြီး page ပြန်ဖွင့်ဖို့ ပြော (B3 မှာ "Reset YouTube session" နဲ့ အစားထိုးမယ်)၊ notice "— YouTube refused"။ link
+အသစ် လိုတုန်း (`NEEDS_REFRESH`)၊ F6 ရဲ့ facts မပြောင်း။ တခြား failure တွေ ("Link expired") မပြောင်း။ နောက်: B3
+(`[d7]` run 14) → D7 run 14။
 
 ## 1. Today (verified 2026-10-17, spike `4235716`)
 
@@ -680,6 +689,31 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   +1 (route B goes with Master capture: on in the CI's Master build, off in its plain validation
   build). No route-B code changed; no extractor or locked file changed. The prompt's rule (promotion
   is the owner's decision, `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md`) is met by §9 3h.
+- **B1 (2026-10-19, §9 3h; Track B, main's stale YouTube session).** A download YouTube's media
+  host refuses while its link still has time left no longer says "Link expired". `DownloadQueue`
+  reports the failure as the new `DownloadFailureReason.YOUTUBE_REFUSED` when
+  `GoogleVideoLinkFacts.refusedWithTimeLeft` holds: the engine's `ACCESS_DENIED` with HTTP 403 at
+  `CONNECT`, every link of the plan on `googlevideo.com` with its own `expire` a minute or more
+  away, and the app's end for it (`expiresAtEpochMs`), when known, a minute or more away (runs 13 /
+  13b: `ends 359 min (app 358)`). The task still needs a fresh link (`NEEDS_REFRESH`; the
+  remembered lookup of its video is dropped as before), F6's facts still lead the Detail, and the
+  reason is saved by name like the others. Its row: the chip "YouTube refused" (was "Link
+  expired"); the note under it and Details' new "What to do:" line say YouTube refused the download
+  while its link had time left, so reopening the page with the same session may not help — try
+  again later, or Settings → Clear browsing data (which signs out of every site in YFT), then reopen
+  the page (B3 replaces this with "Reset YouTube session"); Details' reason "YouTube refused the
+  download (YOUTUBE_REFUSED)"; the notice "Download failed · <title> — YouTube refused". Unchanged:
+  every other failure that needs a fresh link (a link at or within a minute of its end, the app's
+  end passed, another server, a link without its `expire`, 410, a 403 at another stage) says "Link
+  expired" with `ACCESS_DENIED` as before; the engine (F8's re-ask) is untouched. Tests:
+  `GoogleVideoLinkFactsTest` +2 (time left on a single and a merged download, with or without the
+  app's end; a minute short, ended, the app's end passed, another host or a look-alike, no
+  `expire`, other statuses, stages and reasons), `DownloadQueueTest` +1 (a VISIONOS link with 60
+  min left → `YOUTUBE_REFUSED`, `NEEDS_REFRESH`, F6's Detail, saved; the same refusal of an ended
+  link stays `ACCESS_DENIED`), `DownloadLabelsTest` +1, `DownloadsScreenTest` +1,
+  `DownloadNotificationTextTest` +1. The download's tests here pass locally (108, and
+  `DownloadQueueTest` / `StreamDownloadQueueTest` 19 with the store's Room part left out); the
+  app's tests run in CI. No route-B, extractor or locked file changed.
 
 ## 8. Review follow-ups (2026-10-18)
 
@@ -819,7 +853,8 @@ Order (one step per commit, tests + CI green before the next; §6's stop rules h
    green, then `[d7]` run 14 and one phone check, which closes item 7. **Track B, main's stale
    YouTube session** (not route B; approved): **B1** the failure's wording — a 403 at `CONNECT` on a
    YouTube media link with time left on it no longer says "Link expired" ("reopen the page" does not
-   help with the same session) but that YouTube refused the download, with what to try; **B2** when
+   help with the same session) but that YouTube refused the download, with what to try (**done
+   2026-10-19**, §7 "B1"); **B2** when
    it comes back, the D7 test rule below finds which part of the data it is; **B3** "Reset YouTube
    session", offered on that failure: YouTube's cookies and site storage only, other sites' sign-ins
    kept; **B4** an extractor-side change (another client, a token, a lookup with a fresh visitor ID)

@@ -225,6 +225,7 @@ class DownloadEnqueuer(
         DownloadFailureReason.INTEGRITY_MISMATCH -> "The downloaded data failed verification."
         DownloadFailureReason.LIVE_NOT_READY ->
             "YouTube is still preparing this live video. Try again later."
+        DownloadFailureReason.YOUTUBE_REFUSED -> "YouTube refused this download. Try again later."
     }
 
     companion object {

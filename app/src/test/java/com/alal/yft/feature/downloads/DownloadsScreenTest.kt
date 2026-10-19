@@ -405,6 +405,55 @@ class DownloadsScreenTest {
         assertEquals(listOf(DownloadAction.DELETE to "old"), actions)
     }
 
+    /**
+     * Item 7 Track B1: YouTube refused the download while its link had time left: the row says
+     * so instead of "Link expired" and says what to try instead of "reopen the page"; it still
+     * offers only removal and its details.
+     */
+    @Test
+    fun aYouTubeRefusalSaysWhatToTryInsteadOfLinkExpired() {
+        val actions = mutableListOf<Pair<DownloadAction, String>>()
+        setScreen(
+            DownloadsUiState(
+                listOf(
+                    row(
+                        id = "yt",
+                        status = DownloadTaskStatus.NEEDS_REFRESH,
+                        downloaded = 1_048_576,
+                        total = 27_000_000,
+                        progressPercent = 3,
+                        requiresLinkRefresh = true,
+                        failureReason = DownloadFailureReason.YOUTUBE_REFUSED,
+                    ).copy(
+                        failure = DownloadFailure(
+                            reason = DownloadFailureReason.YOUTUBE_REFUSED,
+                            httpStatusCode = 403,
+                            stage = DownloadFailureStage.CONNECT,
+                        ),
+                    ),
+                ),
+            ),
+            onAction = { action, id -> actions += action to id },
+        )
+
+        composeRule.onNodeWithText("YouTube refused").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Link expired").assertCountEquals(0)
+        composeRule.onNodeWithTag("download-refresh-note-yt", useUnmergedTree = true)
+            .assertIsDisplayed()
+            .assertTextEquals(YOUTUBE_REFUSED_HINT)
+        composeRule.onAllNodesWithText("Reopen the page in the browser to get a fresh link.")
+            .assertCountEquals(0)
+        composeRule.onAllNodesWithTag("download-action-retry-yt").assertCountEquals(0)
+        composeRule.onNodeWithTag("download-failure-details").performClick()
+        composeRule.onNodeWithTag("download-failure-text", useUnmergedTree = true)
+            .assert(hasText("What to do: $YOUTUBE_REFUSED_HINT", substring = true))
+        composeRule.onNodeWithTag("download-failure-close").performClick()
+
+        composeRule.onNodeWithTag("download-action-delete-yt").performClick()
+
+        assertEquals(listOf(DownloadAction.DELETE to "yt"), actions)
+    }
+
     @Test
     fun pauseAllForwardsTheBulkControl() {
         var pauseAllCount = 0

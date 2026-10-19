@@ -274,6 +274,14 @@ enum class DownloadFailureReason {
      * numbers, a first piece that is not a fragmented MP4 start, or pieces shorter than the video.
      */
     LIVE_NOT_READY,
+
+    /**
+     * Item 7 Track B1: YouTube's media host refused the download (HTTP 403 while connecting) while
+     * its link still had time left, so the link did not expire: YouTube refused this session's
+     * download, and reopening the page with the same session may not help (D7 runs 13 / 13b).
+     * The download still needs a fresh link.
+     */
+    YOUTUBE_REFUSED,
 }
 
 data class DownloadFailure(

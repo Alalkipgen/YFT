@@ -888,7 +888,11 @@ private fun StatusRow(
             }
             if (row.requiresLinkRefresh || row.status == DownloadTaskStatus.NEEDS_REFRESH) {
                 Text(
-                    text = "Reopen the page in the browser to get a fresh link.",
+                    text = if (row.isYouTubeRefusal()) {
+                        YOUTUBE_REFUSED_HINT
+                    } else {
+                        "Reopen the page in the browser to get a fresh link."
+                    },
                     modifier = Modifier
                         .padding(top = 6.dp)
                         .testTag("download-refresh-note-${row.id}"),

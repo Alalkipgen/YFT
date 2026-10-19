@@ -206,7 +206,11 @@ internal fun statusChip(
         tone = YftStatusTone.Failed,
     )
 
-    DownloadTaskStatus.NEEDS_REFRESH -> DownloadStatusChip("Link expired", YftStatusTone.Failed)
+    DownloadTaskStatus.NEEDS_REFRESH -> DownloadStatusChip(
+        text = if (row.isYouTubeRefusal()) "YouTube refused" else "Link expired",
+        tone = YftStatusTone.Failed,
+    )
+
     DownloadTaskStatus.CANCELLED -> DownloadStatusChip("Cancelled", YftStatusTone.Neutral)
     else -> null
 }
@@ -250,6 +254,7 @@ internal fun failureLabel(reason: DownloadFailureReason): String = when (reason)
     DownloadFailureReason.INSUFFICIENT_STORAGE -> "not enough storage"
     DownloadFailureReason.INTEGRITY_MISMATCH -> "integrity mismatch"
     DownloadFailureReason.LIVE_NOT_READY -> "YouTube still preparing this live video, try later"
+    DownloadFailureReason.YOUTUBE_REFUSED -> "YouTube refused the download"
 }
 
 /** The step a download failed at, for the failure details (P21). */
@@ -299,6 +304,7 @@ internal fun failureDetailsText(
         "YFT download failure",
         "Reason: ${reason ?: unknownReason(row)}",
         "What to do: $AUDIO_FROM_VIDEO_HINT".takeIf { row.isAudioFromIncompatibleSound() },
+        "What to do: $YOUTUBE_REFUSED_HINT".takeIf { row.isYouTubeRefusal() },
         "Stage: ${stage ?: UNKNOWN}",
         "HTTP status: ${failure?.httpStatusCode ?: UNKNOWN}",
         "Detail: ${DownloadFailureDetails.sanitize(failure?.detail) ?: UNKNOWN}",
@@ -341,6 +347,19 @@ internal fun DownloadRowUiState.isAudioFromIncompatibleSound(): Boolean =
 
 internal const val AUDIO_FROM_VIDEO_HINT =
     "This video's sound can't be saved as audio. Download the video instead."
+
+/**
+ * Item 7 Track B1: YouTube refused the download while its link still had time left
+ * ([DownloadFailureReason.YOUTUBE_REFUSED]): the link did not expire, so the row must not say
+ * "Link expired" or that reopening the page gets a working one.
+ */
+internal fun DownloadRowUiState.isYouTubeRefusal(): Boolean =
+    (failure?.reason ?: failureReason) == DownloadFailureReason.YOUTUBE_REFUSED
+
+internal const val YOUTUBE_REFUSED_HINT =
+    "YouTube refused this download while its link still had time left, so reopening the page " +
+        "with the same session may not help. Try again later, or use Clear browsing data in " +
+        "Settings (it signs you out of every site in YFT), then reopen the page."
 
 private const val UNKNOWN = "\u2014"
 private const val BYTES_PER_KB = 1_024L

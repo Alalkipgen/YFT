@@ -3,6 +3,9 @@ package com.alal.yft.core.download
 import com.alal.yft.core.model.download.AudioVideoMuxDownloadPlan
 import com.alal.yft.core.model.download.DashDownloadPlan
 import com.alal.yft.core.model.download.DirectDownloadPlan
+import com.alal.yft.core.model.download.DownloadFailure
+import com.alal.yft.core.model.download.DownloadFailureReason
+import com.alal.yft.core.model.download.DownloadFailureStage
 import com.alal.yft.core.model.download.DownloadPlan
 import com.alal.yft.core.model.download.HlsDownloadPlan
 import java.net.URI
@@ -27,13 +30,7 @@ internal object GoogleVideoLinkFacts {
         downloadedBytes: Long,
         ageMs: Long,
     ): String? {
-        val urls = when (plan) {
-            is DirectDownloadPlan -> listOf(plan.sourceUrl)
-            is AudioVideoMuxDownloadPlan -> listOf(plan.video.manifestUrl, plan.audio.manifestUrl)
-            is DashDownloadPlan -> listOf(plan.manifestUrl)
-            is HlsDownloadPlan -> listOf(plan.playlistUrl)
-        }
-        val links = urls.map { url -> parameters(url) ?: return null }
+        val links = urls(plan).map { url -> parameters(url) ?: return null }
         val client = links.joined { link -> link["c"]?.takeIf(CLIENT::matches) ?: UNKNOWN }
         val itags = links.joinToString("+") { link ->
             link["itag"]?.takeIf(ITAG::matches) ?: UNKNOWN
@@ -50,6 +47,40 @@ internal object GoogleVideoLinkFacts {
         return "$client itag $itags · pot $pot · sig $sig · ends $linkEnds min (app $appEnds) · " +
             "${downloadedBytes.coerceAtLeast(0) / BYTES_PER_KB} KB · ${age(ageMs)}"
     }
+
+    /**
+     * Item 7 Track B1: true when [failure] is YouTube's media host refusing [plan]'s link while
+     * it still had time left — HTTP 403 while connecting ([DownloadFailureReason.ACCESS_DENIED])
+     * with at least a minute left on each link's own `expire` and on the app's end for it, when
+     * known. Such a link did not expire: YouTube refused this session's download, so "Link
+     * expired" and "reopen the page" would be wrong (D7 runs 13 / 13b: `ends 359 min (app 358)`).
+     * False for other servers, a link without its `expire`, and every other failure.
+     */
+    fun refusedWithTimeLeft(plan: DownloadPlan, failure: DownloadFailure, nowEpochMs: Long): Boolean {
+        if (failure.reason != DownloadFailureReason.ACCESS_DENIED ||
+            failure.httpStatusCode != HTTP_FORBIDDEN ||
+            failure.stage != DownloadFailureStage.CONNECT
+        ) {
+            return false
+        }
+        val ends = urls(plan).map { url ->
+            parameters(url)?.get("expire")?.toLongOrNull() ?: return false
+        }
+        val linkLeft = ends.all { expire ->
+            expire >= (nowEpochMs + MIN_TIME_LEFT_MS).ceilDiv(MILLIS_PER_SECOND)
+        }
+        val appLeft = plan.expiresAtEpochMs?.let { it - nowEpochMs >= MIN_TIME_LEFT_MS } ?: true
+        return linkLeft && appLeft
+    }
+
+    private fun urls(plan: DownloadPlan): List<String> = when (plan) {
+        is DirectDownloadPlan -> listOf(plan.sourceUrl)
+        is AudioVideoMuxDownloadPlan -> listOf(plan.video.manifestUrl, plan.audio.manifestUrl)
+        is DashDownloadPlan -> listOf(plan.manifestUrl)
+        is HlsDownloadPlan -> listOf(plan.playlistUrl)
+    }
+
+    private fun Long.ceilDiv(other: Long): Long = -Math.floorDiv(-this, other)
 
     /** The link's query names and values, or null when it is not a YouTube media link. */
     private fun parameters(url: String): Map<String, String>? {
@@ -83,6 +114,8 @@ internal object GoogleVideoLinkFacts {
     }
 
     private const val MEDIA_HOST = "googlevideo.com"
+    private const val HTTP_FORBIDDEN = 403
+    private const val MIN_TIME_LEFT_MS = 60_000L
     private const val UNKNOWN = "?"
     private const val BYTES_PER_KB = 1_024L
     private const val MILLIS_PER_SECOND = 1_000L
