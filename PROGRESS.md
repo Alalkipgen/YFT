@@ -1,5 +1,30 @@
 # YFT Master Extractor backup
 
+## Phase 1.4 item 7 — D7 run 13b / 13c: V3's 403 followed the debug app's browser data; the owner's decisions (2026-10-19)
+
+- D7 run 13b (owner, run 13's APKs, no new build): run 13's `normal` APK as it was fails V3 360p
+  like `routeb`: `VISIONOS itag 134+140 · pot no · sig yes · ends 359 min (app 358) · 2048 KB · 45 s;
+  403×8 at 11 MiB, 3 at once, 43 s`, chip "Link expired". Two minutes before, on the same phone and
+  5G, the main Preview app (`com.alal.yft.preview`, its own data) downloaded V3 360p (27 MB).
+- D7 run 13c: after the debug app's Clear browsing data the same `normal` APK downloads V3 360p and
+  720p; run 13's `routeb` APK (an update, then Clear browsing data): `… replayed 3; new 1; check:
+  206×8; 2nd range: 206×8; same as main's: 9 of 9 rows, headers same`, 360p downloads, and plays
+  start to end with YouTube's duration (owner).
+- Reading: the failure followed the debug app's stored browser data (every D7 APK is
+  `com.alal.yft.debug`, so runs 9–13 shared one session); not route B, not the build, not the
+  network. Not isolated: Clear browsing data resets cookies (the visitor ID), web storage, the HTTP
+  cache and the remembered lookups at once; the visitor ID is the most likely (V1, which takes no
+  visitor data from the tab, downloaded in that state; V3's lookup reads the watch page with the
+  tab's cookie). `new 1`: likely Master's own player-script fetch after the install (≤ 1 player
+  request). F8's wait never helped (3 of 3 tries).
+- The owner's decisions (plan §9 3h): promotion approved; F8 trim (one re-ask after 3 s; one at a
+  time and the Detail stay); Track B, main's stale session: B1 a 403 with time left on the link is
+  no longer "Link expired", B3 "Reset YouTube session" (YouTube's cookies and storage only), B4
+  extractor-side only with evidence (STOP). D7 test rule from run 14: V3 first as the app is; on
+  "1 MiB, then 403": Preview, then Force stop + App info Clear cache, then Reset YouTube session,
+  then Clear browsing data, noting which step fixed it; then `normal` / `routeb` on one clean state.
+- Next: F8 trim → promotion → B1 → B3 (`[d7]` run 14) → D7 run 14 (owner), which closes item 7.
+
 ## Phase 1.4 item 7 — D7 run 10 phone check, F7 (Master's rows against main's) and its crash fix, D7 run 12, F8, D7 run 13 (2026-10-19)
 
 - D7 run 10 (owner, run 39233263437): `routeb` V3 360p "Link expired" → Details: `ACCESS_DENIED`,

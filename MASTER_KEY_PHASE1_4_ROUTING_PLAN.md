@@ -32,9 +32,14 @@ main thread) → **F7 fix** (`[d7]` run 12) → D7 run 12 — **done 2026-10-19*
 (b), a download-time difference) → **F8** (§7: a YouTube download asks a refused range again, one
 at a time, for up to 45 s; the trial's notice also checks each file's 2nd range; `[d7]` run 13) →
 D7 run 13 — **done 2026-10-19** (§7: V3's files give their first 1 MiB, then 403 for 43 s; F8's
-wait did not help) → D7 run 13b (⏸ owner: `normal` V3 360p, §9 3g) → the owner's choice for V3 (§9)
-→ promotion (flag on in normal builds),
-the owner's decision (§5.5).
+wait did not help) → D7 run 13b / 13c — **done 2026-10-19** (§7: V3's "first 1 MiB, then 403"
+followed the debug app's stored browser data, not route B or the build: `normal` failed alike until
+the app's Clear browsing data, then `normal` and `routeb` downloaded V3; which part of the data is
+not isolated, the visitor ID most likely) → the owner's decisions (2026-10-19, §9 3h): routeb's V3
+plays (play check passed), **promotion approved**, F8's wait cut to one re-ask after 3 s, and
+Track B (main's stale YouTube session: the failure's wording, a YouTube-only session reset) →
+**F8 trim** → **promotion** (flag on in normal builds, §9 4) → **B1** → **B3** (`[d7]` run 14) →
+D7 run 14 (⏸ owner), which closes item 7.
 Backlog pointer: `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Same contract as the social sites:
 `MASTER_KEY_SOCIAL_PLAN.md` §2.1 decisions #7 (routing B / B+ / A) and #8 (lookup = main + Master,
 per-lookup request recorder). Agent prompt: `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md`.
@@ -107,6 +112,18 @@ run 13: V1 / V2 ရ၊ V3 360p မရ — YouTube က file တစ်ခုစီ
 (တစ်ခုချင်း ၄၃ စက္ကန့် မေးလည်း မရ)၊ notice `2nd range: 206×4, 403×4`။ စောင့်တာ မကူ။ link တွေက main ရဲ့
 link တွေ — ဒါကြောင့် `normal` APK နဲ့ V3 360p စမ်း (run 13b): ရရင် route B ဘက် ကွာတာ (app ဘက်)၊
 မရရင် main ပါ မရ (extractor = STOP၊ ပိုင်ရှင် ဆုံးဖြတ်)။
+
+**D7 run 13b / 13c ဖုန်းစစ် (2026-10-19):** run 13 ရဲ့ `normal` APK (data မဖျက်ဘဲ) နဲ့ V3 360p — routeb လိုပဲ
+ကျ (`403×8 at 11 MiB, 3 at once, 43 s`၊ chip "Link expired")။ နှစ်မိနစ်အလိုမှာ ဖုန်း၊ 5G တူတူနဲ့ main Preview app
+(data သီးသန့်) က V3 ရ။ Debug app ရဲ့ Clear browsing data နောက် `normal` က 360p / 720p ရ၊ `routeb` (update
+install + clear) က notice `2nd range: 206×8` (run 13: `206×4, 403×4`) နဲ့ 360p ရ၊ အစအဆုံး play ရ၊ ကြာချိန် YouTube
+နဲ့ တူ။ **ဖတ်ချက်:** route B ကြောင့် မဟုတ် (link 9 of 9 main ရဲ့၊ `normal` လည်း တူတူကျ)၊ build ကြောင့် မဟုတ်
+(APK တူ clear ပြီး ရ)၊ network / YouTube တစ်ခုလုံး မဟုတ် (Preview ရ) — debug app ရဲ့ သိမ်းထားတဲ့ browser data
+(run 9 ကစ D7 APK အားလုံး `com.alal.yft.debug` မို့ session တစ်ခုတည်း)။ Clear browsing data က cookies (visitor ID)၊
+web storage၊ HTTP cache၊ မှတ်ထားတဲ့ lookups (P17) ကို တပြိုင်နက် ဖျက်လို့ ဘယ်ဟာလဲ မခွဲရသေး — visitor ID
+ဖြစ်နိုင်ခြေ အများဆုံး။ **ပိုင်ရှင် ဆုံးဖြတ်ချက် (§9 3h):** promotion ခွင့်ပြု၊ F8 စောင့်ချိန်ကို 3 s နောက် တစ်ကြိမ်ပဲ
+ပြန်မေးအောင် လျှော့၊ Track B (main ဘက်: 403 ကို "Link expired" လို့ မပြ၊ YouTube session ပဲ reset လုပ်တဲ့ ခလုတ်)၊
+ပြီးရင် `[d7]` run 14 နဲ့ ဖုန်းစစ် တစ်ကြိမ် → item 7 ပိတ်။
 
 ## 1. Today (verified 2026-10-17, spike `4235716`)
 
@@ -601,6 +618,33 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   and then failing with a 403"). Run 9's `normal` downloaded V3, so whether main's own lookup gets
   such links now is open → §9 3g. F8 stays: it changes only a download already refused (it now
   fails after about 45 s, its Detail saying where).
+- **D7 run 13b / 13c phone check (owner, 2026-10-19; run 39257316082's APKs, no new build).** Every
+  D7 APK is the debug app `com.alal.yft.debug` and installs as an update over the last, so runs 9–13
+  shared one browser session (cookies, site storage, cache). 13b, run 13's `normal` APK as it was:
+  V3 (Big Buck Bunny) 360p fails like run 13's `routeb`: `ACCESS_DENIED`, `CONNECT`, HTTP 403,
+  `VISIONOS itag 134+140 · pot no · sig yes · ends 359 min (app 358) · 2048 KB · 45 s; 403×8 at 11
+  MiB, 3 at once, 43 s` (21:50), the row's chip "Link expired". Two minutes before (21:48), on the
+  same phone and 5G, the main Preview app (`com.alal.yft.preview`, its own data) downloaded V3 360p
+  (27 MB). 13c: after the debug app's Settings → Clear browsing data, the same `normal` APK
+  downloaded V3 360p (21:51) and 720p (21:53); then run 13's `routeb` APK, installed as an update,
+  after Clear browsing data: notice `master: route B after RESPONSE_CHANGED; replayed 3; new 1;
+  check: 206×8; 2nd range: 206×8; same as main's: 9 of 9 rows, headers same` (21:57; run 13 `2nd
+  range: 206×4, 403×4`) and 360p downloaded (21:58); the owner played it start to end, its duration
+  YouTube's. **Reading:** the failure followed the debug app's stored browser data — the same APKs,
+  network and video failed before the clear and downloaded after. Not route B (its links are main's,
+  9 of 9, and `normal` failed alike), not the build (the same APKs passed after the clear), not the
+  network or YouTube as a whole (Preview passed). Not isolated: Clear browsing data resets at once
+  the cookies (YouTube's visitor ID with them), web storage, the HTTP cache and the remembered
+  lookups (P17; `PrivacyCleaners`). The visitor ID is the most likely: in that state run 13's V1
+  (visionOS's first answer, no visitor data from the tab) downloaded 29 MB, while V3's lookup reads
+  the watch page with the tab's cookie and takes its visitor data; the cache is unlikely (the
+  player script is kept per player version; the link was fresh, 359 min). Why the session went bad
+  is not known (a day of lookups, Try again, trial checks and F8's re-asks on one session). `new
+  1`: likely Master's own player-script fetch, the first lookup after the install having none
+  kept, within §5.4's budget (≤ 1 player request). F8's wait never helped (run 13 twice, 13b once:
+  8 refusals over 43 s, none answered), and the chip said "Link expired" while the link had 359 min
+  left and Details said `ACCESS_DENIED`; reopening the page with the same session would not have
+  helped → the owner's decisions, §9 3h.
 
 ## 8. Review follow-ups (2026-10-18)
 
@@ -726,6 +770,34 @@ Order (one step per commit, tests + CI green before the next; §6's stop rules h
    ones it limits: fixed on the app / trial side. (b) the same `403×N at … MiB` — YouTube limits
    these visionOS links for main too: not route B; a fix is main's extractor (another client for
    such a lookup, or a token), a STOP: the owner chooses (a known limit, or a main fix later).
-4. **Promotion (owner, §5.5).** Suggested gate: F5 and F4 green; run 9 / 10 give Master's rows on V1–V3
+   **Done 2026-10-19 (§7, runs 13b / 13c): neither alone** — `normal` failed the same way (`403×8 at
+   11 MiB, 3 at once, 43 s`) while the main Preview app (its own data) downloaded V3 on the same
+   phone and network; after the debug app's Clear browsing data `normal` (360p, 720p) and `routeb`
+   (360p, `2nd range: 206×8`) downloaded V3. Reading (c): the debug app's stored browser data
+   (cookies with the visitor ID, web storage, HTTP cache, remembered lookups: not isolated, the
+   visitor ID most likely); not route B, not the build → 3h.
+3h. **The owner's decisions (2026-10-19, after runs 13b / 13c).** (1) These docs. (2) Play check:
+   `routeb`'s V3 360p plays start to end, its duration YouTube's. (3a) Promotion approved → 4.
+   (3b) **F8 trim:** F8's wait is cut — a refused range is asked again once, 3 s after the refusal;
+   refused again, the download fails as before. One range at a time after a refusal and the Detail
+   `403×N at X MiB, K at once, T s` stay (they found this). (4) One step per commit, tests and CI
+   green, then `[d7]` run 14 and one phone check, which closes item 7. **Track B, main's stale
+   YouTube session** (not route B; approved): **B1** the failure's wording — a 403 at `CONNECT` on a
+   YouTube media link with time left on it no longer says "Link expired" ("reopen the page" does not
+   help with the same session) but that YouTube refused the download, with what to try; **B2** when
+   it comes back, the D7 test rule below finds which part of the data it is; **B3** "Reset YouTube
+   session", offered on that failure: YouTube's cookies and site storage only, other sites' sign-ins
+   kept; **B4** an extractor-side change (another client, a token, a lookup with a fresh visitor ID)
+   only with evidence, a STOP (extractor-sites). Order: F8 trim → promotion → B1 → B3 (`[d7]` run
+   14) → D7 run 14 (⏸ owner).
+   **D7 test rule (from run 14):** (a) first V3 as the app is, no clear: download, note the result.
+   (b) On "the first 1 MiB, then 403" (Details `403×N at X MiB`): try the main Preview app; then
+   Force stop the debug app, Android App info → Storage → Clear cache (cookies stay; the remembered
+   lookups, kept in memory, go with the stop) → retry; still failing: Reset YouTube session (B3) →
+   retry; still failing: the app's Settings → Clear browsing data → retry. Note which step fixed it;
+   never during a running download. (c) Then Clear browsing data and compare `normal` / `routeb` on
+   that same clean state. Never clear the Preview app (it stays as a normal user's would).
+4. **Promotion (owner, §5.5) — approved 2026-10-19** (§9 3h: the play check passed; V3's failure was
+   the session's, in both builds alike). Suggested gate: F5 and F4 green; run 9 / 10 give Master's rows on V1–V3
    that play, wrong rows 0, `normal` unchanged; Master sent nothing with a cookie (tests). Promotion
    turns `-Pyft.youtubeRouteB` on in normal builds; the trial switch stays debug only.
