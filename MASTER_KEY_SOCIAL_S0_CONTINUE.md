@@ -1,4 +1,4 @@
-# Continue the social plan's S0 (after S0a)
+# Continue the social plan's S0 (after S0b)
 
 You continue YFT's Master Extractor work on branch `spike/master-extractor-backup` only.
 Read first: `AGENTS.md`, `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md` (working rules),
@@ -26,25 +26,14 @@ Reply to the owner in Burmese (English technical terms), short, outcome first.
 - S0a (2026-10-20): `lookup/AskLabels`, labels in `LookupRecord` (way, reading, shape, repeated,
   after-stop, bot checks, stopped hosts; a record given none is today's), `social/SiteWays`,
   `SiteLabels`, `SiteReadings` (41 slots: FB 13, TikTok 10, IG 10, X 8), tests
-  `LookupRecordLabelsTest` (11), `SiteWaysTest` (13), `SiteWaysDriftTest` (7). First check that
-  the S0a commit's CI is green.
+  `LookupRecordLabelsTest` (11), `SiteWaysTest` (13), `SiteWaysDriftTest` (7).
+- S0b (2026-10-20): `social/SiteRowCheck` (V), `social/SiteCensus` (`LinkIdentity`, `MainAnswer`,
+  `MainLookup`, the engine) and `social/SiteCensusReport` (rows, each site's number, the report,
+  the JSON export, the state, the privacy guard); tests `SiteRowCheckTest` (8), `SiteCensusTest`
+  (16). Nothing copied from main. First check that the S0b commit's CI is green.
 
 ## Next
 
-- **S0b** — `SiteRowCheck` (V): a one-byte probe with `candidate.requestContext.replayHeaders()`,
-  only to the site's media hosts (`Site.mediaHost`); HLS / other → unknown; DASH → its video file.
-  `SiteCensus(main: MainLookup, masterHttp, validator, meter, clock)` with
-  `MainLookup { identify(link); suspend lookup(link, identity): MainAnswer }`
-  (`Found` / `Failed` / `NotHandled`, plus the hidden page label). Per row:
-  `LookupRecord(labels = site.labels())`; main inside `withContext(record)`; Master via
-  `MasterFallbackEngine(validator, NoPlaybackCaptureProvider, MasterPolicy(enabled = true,
-  contractTimeoutMillis = 6 s, timeoutMillis = 20 s), modules = emptyList(),
-  contracts = SiteContracts(RouteBHttpClient(masterHttp)))` inside `withContext(RouteBLookup(record))`;
-  Master's rules and the marked trial as in §7.1; judge classes recoverable / browser / final against
-  the slot's `Expect`. Stops: a 429 or a bot check stops the site for the run and 30 minutes (state
-  file `files/master/site-census-last.json`); at most 40 MB and 150 requests per site. JSON report
-  (reuse the internal `CensusJson.quote`); the sanitizer masks addresses and given values. JVM tests
-  with fake sites.
 - **S0c** — debug `SiteCensusActivity` like `ClientCensusActivity`; `app/src/debug/AndroidManifest.xml`
   label "YFT site census", `android:enabled="${yftOwnerTools}"`, taskAffinity
   `com.alal.yft.ownertools`. Clients: `OkHttpExtractorClient(NetworkConfiguration.createClient()
@@ -53,6 +42,14 @@ Reply to the owner in Burmese (English technical terms), short, outcome first.
   `sendResponseCookies = true`); the copied WebView agent; `SiteAdapterCoordinator(registry,
   DeviceMergeSupport(), SiteLookupCache(), recording hidden-page wrapper)`, `inspect(fresh = true)`;
   identity = the WebView user agent + `CookieManager.getCookie(link)`. Docs, CI green, APK.
+  The engine's use (S0b): the screen's `MainLookup` gives `identify(link)` →
+  `LinkIdentity(page, userAgent, cookie)` (null when no adapter handles the link) and
+  `lookup(link, identity)` → `MainAnswer` (`Found` / `Failed(reason, statusCode)` / `NotHandled`,
+  each with the hidden page's `AnswerMark` when it was read); its asks go through the recorder into
+  the record in the coroutine context. `SiteCensus(main, masterHttp, validator, meter, clock)
+  .run(sites, links (site ID → slot → link), stateJson, context (the network type), onStep)` →
+  `Outcome(firstLine, report, json, stateJson, stopped)`; the screen writes `stateJson` back to its
+  state file; `SiteCensus.statusOf(stateJson, now)` is its status line, `TOOL_LABEL` its title.
 - **S0d** — the owner's phone run; then the report and the pilot (§8 item 1).
 
 ## Report to the owner after S0c

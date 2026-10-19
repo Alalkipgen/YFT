@@ -1,5 +1,32 @@
 # YFT Master Extractor backup
 
+## Social plan S0b — the census engine and the one-row check (2026-10-20)
+
+- `social/SiteRowCheck` (V): one row of each answer (the best: the tallest, then the highest
+  bitrate) gets a one-byte file check with the headers the download sends for that row, only on
+  the site's media hosts. An HLS row or any other host is `unknown`, never a pass; an expired row
+  fails unasked; a DASH row's manifest is read (one bounded ask on a media host, Master's own
+  `InlineDashReader`) and its tallest video file is checked; a 429 is a rate limit.
+- `social/SiteCensus` (`SiteCensusReport`: rows, each site's number, the report, the JSON export,
+  the state): per row, main's own lookup (`MainLookup`: fresh, the browser's identity, at most
+  90 s) inside the row's labelled `LookupRecord`; Master's R8 way once in the same record under
+  route B's rules (`RouteBLookup`: main's identical unauthenticated answer replayed, an endpoint
+  main asked not asked again) after main's recoverable failure, or once as a marked trial after
+  main's rows or the site's final answer; never after a browser-required reason, a network failure,
+  a rate limit, a bot check, main's time limit, nor for a short link. V on main's and Master's best
+  rows; each row judged (recoverable, browser, final) against its slot's kind. Each site's number:
+  main's recoverable failures of the rows that should download, and how many Master's way
+  recovered (route B rows that passed V).
+- Stops and budgets: a 429 or a bot check (any ask, the hidden page and V included) stops the site
+  for the run and for 30 minutes (the state, the screen's file in S0c); at most 150 requests and
+  40 MB per site (a budget stop has no cooldown). Privacy (S8): the report, the export and the
+  state hold only sites, slots, kinds, way labels, classes, counts, sizes and short fingerprints; a
+  last guard masks any address and the link's values (the link, the post ID, handles, codes).
+- Nothing copied from main (self-check against `34a41890`: 0 drifted); main, the app's lookups,
+  Master's engine, `RouteBLookup` and `RouteBHttpClient` unchanged.
+- Tests: `SiteRowCheckTest` (8), `SiteCensusTest` (16: main's real adapters over fixtures or a
+  scripted main, Master's real contracts). Next: S0c (the screen "YFT site census" and its APK).
+
 ## Social plan S0a — the recorder's labels and the site table (2026-10-20)
 
 - `LookupRecord` takes labels (`AskLabels`, additive): a record given none is today's, so route B
