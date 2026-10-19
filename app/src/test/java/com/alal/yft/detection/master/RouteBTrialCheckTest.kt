@@ -73,6 +73,47 @@ class RouteBTrialCheckTest {
         }
     }
 
+    /**
+     * F8: D7 run 12's one-byte check said 206×8 while the V3 download had 403 at once. The check
+     * now also asks each long file's second range, as the download asks it after its 1 MiB first.
+     */
+    @Test
+    fun theSecondRangeOfEachLongFileIsAskedAsTheDownloadAsksIt() = runTest {
+        val asked = mutableListOf<String>()
+        val rows = listOf(row("$VIDEO_134&clen=30000000", "$AUDIO_140&clen=3000000"), row("$VIDEO_133&clen=900000"))
+        val check = object : RouteBTrialCheck.FileCheck {
+            override val asksRanges: Boolean
+                get() = true
+
+            override suspend fun status(url: String, context: BrowserRequestContext): Int = 206
+
+            override suspend fun rangeStatus(
+                url: String,
+                context: BrowserRequestContext,
+                first: Long,
+                last: Long,
+            ): Int {
+                asked += "${itag(url)} $first-$last"
+                return if ("itag=134" in url) 403 else 206
+            }
+        }
+
+        val segment = RouteBTrialCheck.segment(rows, rows.map { it.copy() }, check)
+
+        assertEquals("; check: 206×3; 2nd range: 403×1, 206×1; same as main's: 2 of 2 rows, headers same", segment)
+        // 1 MiB on: ten MiB, or to the file's end; the short file has no second range.
+        assertEquals(listOf("134 1048576-11534335", "140 1048576-2999999"), asked)
+    }
+
+    @Test
+    fun aCheckThatAsksNoRangesLeavesTheSecondRangeOut() = runTest {
+        val rows = listOf(row("$VIDEO_134&clen=30000000"))
+
+        val segment = RouteBTrialCheck.segment(rows, rows, RouteBTrialCheck.FileCheck { _, _ -> 206 })
+
+        assertEquals("; check: 206×1; same as main's: 1 of 1 rows, headers same", segment)
+    }
+
     @Test
     fun aStreamMainNeverHadIsCountedAndNoCheckRunsWithoutOne() = runTest {
         val segment = RouteBTrialCheck.segment(listOf(row(VIDEO_133)), listOf(row(VIDEO_134)), check = null)
@@ -144,6 +185,33 @@ class RouteBTrialCheckTest {
         }
     }
 
+    /** F8: the second range is asked like the one byte, with its own Range, and left unread. */
+    @Test
+    fun theFileCheckAsksARangeWithTheRowsHeaders() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(206).setBody("x".repeat(64 * 1024)))
+        server.start()
+        try {
+            val status = runBlocking {
+                RouteBTrialCheck.OkHttpFileCheck(OkHttpClient()).rangeStatus(
+                    server.url("/videoplayback?itag=134").toString(),
+                    BrowserRequestContext(PAGE, "Agent-Range", null),
+                    first = 1_048_576,
+                    last = 11_534_335,
+                )
+            }
+
+            assertEquals(206, status)
+            val request = server.takeRequest(5, TimeUnit.SECONDS)
+            assertNotNull(request)
+            assertEquals("bytes=1048576-11534335", request!!.getHeader("Range"))
+            assertEquals("identity", request.getHeader("Accept-Encoding"))
+            assertEquals("Agent-Range", request.getHeader("User-Agent"))
+        } finally {
+            server.shutdown()
+        }
+    }
+
     /** Plain sockets that report each read, write or flush, as Android's main-thread rule sees them. */
     private class WatchedSockets(private val touched: () -> Unit) : SocketFactory() {
         override fun createSocket(): Socket = object : Socket() {
@@ -199,6 +267,8 @@ class RouteBTrialCheckTest {
 
         private fun unsupported(): Nothing = throw UnsupportedOperationException("OkHttp asks createSocket()")
     }
+
+    private fun itag(url: String): String = url.substringAfter("itag=").substringBefore('&')
 
     private fun row(video: String, audio: String? = null, agent: String = "Agent") = MediaCandidate(
         pageUrl = PAGE,

@@ -1,5 +1,6 @@
 package com.alal.yft.detection.master
 
+import com.alal.yft.core.model.download.WholeFileTrack
 import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.MediaCandidate
 import java.io.IOException
@@ -35,11 +36,27 @@ import okhttp3.Response
  * download headers. When a link is not main's, it names the query names whose values differ or
  * that only one side has (against main's link of the same stream, `itag`) and checks main's link
  * too. Names, statuses and counts only: never a link, a host, a query value or a header value.
+ *
+ * F8: D7 run 12's check said `206×8` and the V3 download still had 403 at once. The download asks
+ * more than the check's one byte: a 1 MiB first range and then 10 MiB ranges, four of a file at
+ * once. So the check also asks each file's second range once, as the download asks it, unread:
+ * `; check: 206×8; 2nd range: 403×6; same as main's: …` (only files longer than the first range).
  */
 object RouteBTrialCheck {
     fun interface FileCheck {
         /** The HTTP status of a one-byte ranged GET of [url] with [context]'s headers; null: none. */
         suspend fun status(url: String, context: BrowserRequestContext): Int?
+
+        /** F8: whether the check asks [rangeStatus]; one that does not leaves the 2nd range out. */
+        val asksRanges: Boolean
+            get() = false
+
+        /**
+         * F8: the HTTP status of a GET of [url]'s bytes [first] to [last] with [context]'s headers,
+         * the answer unread; null: no answer.
+         */
+        suspend fun rangeStatus(url: String, context: BrowserRequestContext, first: Long, last: Long): Int? =
+            null
     }
 
     /** The segment for Master's [rows] against main's set-aside [mains]; [check] null: no check. */
@@ -80,10 +97,12 @@ object RouteBTrialCheck {
             .distinctBy(Link::url)
             .take(MAX_CHECKED)
         val statuses = check?.let { statuses(checked, it) }
+        val secondRanges = check?.takeIf { it.asksRanges }?.let { secondRanges(checked, it) }
         val mainStatuses = check?.takeIf { mainChecked.isNotEmpty() }?.let { statuses(mainChecked, it) }
 
         return buildString {
             statuses?.let { append("; check: ").append(it) }
+            secondRanges?.let { append("; 2nd range: ").append(it) }
             append("; same as main's: ").append(sameRows).append(" of ").append(rows.size).append(" rows")
             when {
                 matched == 0 -> append(", no main's stream to compare")
@@ -110,7 +129,14 @@ object RouteBTrialCheck {
             .callTimeout(CHECK_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .build()
 
+        override val asksRanges: Boolean
+            get() = true
+
         override suspend fun status(url: String, context: BrowserRequestContext): Int? =
+            rangeStatus(url, context, first = 0, last = 0)
+
+        /** F8: any range, asked and closed like the one byte: off the caller's thread, unread. */
+        override suspend fun rangeStatus(url: String, context: BrowserRequestContext, first: Long, last: Long): Int? =
             withContext(Dispatchers.IO) {
                 val request = try {
                     Request.Builder()
@@ -118,7 +144,7 @@ object RouteBTrialCheck {
                         .apply {
                             context.replayHeaders().forEach { (name, value) -> runCatching { header(name, value) } }
                             header("Accept-Encoding", "identity")
-                            header("Range", "bytes=0-0")
+                            header("Range", "bytes=$first-$last")
                         }
                         .build()
                 } catch (_: IllegalArgumentException) {
@@ -161,12 +187,29 @@ object RouteBTrialCheck {
 
     private suspend fun statuses(links: List<Link>, check: FileCheck): String = coroutineScope {
         val answers = links.map { link -> async { check.status(link.url, link.context) } }.awaitAll()
-        if (answers.isEmpty()) return@coroutineScope "none"
-        answers.groupingBy { it?.toString() ?: "no answer" }
-            .eachCount()
-            .entries
-            .joinToString(", ") { (status, count) -> "$status×$count" }
+        if (answers.isEmpty()) "none" else counts(answers)
     }
+
+    /**
+     * F8: the download's second range of each of [links] longer than its first range, asked once
+     * each: the download asks a YouTube file of stated length `clen` in a [FIRST_RANGE_BYTES]
+     * first range and then ranges of [WholeFileTrack.DEFAULT_MAX_REQUEST_BYTES] (FAST_START, P41).
+     * Null when no file is that long.
+     */
+    private suspend fun secondRanges(links: List<Link>, check: FileCheck): String? = coroutineScope {
+        val asks = links.mapNotNull { link ->
+            val length = query(link.url)["clen"]?.toLongOrNull()?.takeIf { it > FIRST_RANGE_BYTES }
+                ?: return@mapNotNull null
+            val last = minOf(FIRST_RANGE_BYTES + WholeFileTrack.DEFAULT_MAX_REQUEST_BYTES, length) - 1
+            async { check.rangeStatus(link.url, link.context, FIRST_RANGE_BYTES, last) }
+        }
+        if (asks.isEmpty()) null else counts(asks.awaitAll())
+    }
+
+    private fun counts(answers: List<Int?>): String = answers.groupingBy { it?.toString() ?: "no answer" }
+        .eachCount()
+        .entries
+        .joinToString(", ") { (status, count) -> "$status×$count" }
 
     /** Header names whose values differ or that one side lacks (case aside); never a value. */
     private fun headerDifference(master: BrowserRequestContext, main: BrowserRequestContext): Set<String> {
@@ -225,5 +268,8 @@ object RouteBTrialCheck {
     private const val MAX_NAMES = 6
     private const val MAX_SEGMENT_CHARS = 220
     private const val CHECK_TIMEOUT_SECONDS = 8L
+
+    /** The download's first range of a whole file (DashTransferEngine.Policy.firstRangeBytes). */
+    private const val FIRST_RANGE_BYTES = 1_024L * 1_024
     private val SAFE_NAME = Regex("[A-Za-z][A-Za-z0-9_-]{0,23}")
 }

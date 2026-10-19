@@ -29,8 +29,10 @@ checks Master's files once and compares Master's rows with main's set-aside rows
 → D7 run 11 — the `routeb` APK closed on a YouTube video (§7: the check closed its answers on the
 main thread) → **F7 fix** (`[d7]` run 12) → D7 run 12 — **done 2026-10-19** (§7: no crash; V1 / V3
 `check: 206×8; same as main's: 9 of 9 rows, headers same`, yet V3's download still 403: §9 reading
-(b), a download-time difference) → **F8** (find it and fix it in the app's download, ⏸ next) → the
-owner's choice for V3 (§9) → promotion (flag on in normal builds),
+(b), a download-time difference) → **F8** (§7: a YouTube download asks a refused range again, one
+at a time, for up to 45 s; the trial's notice also checks each file's 2nd range; `[d7]` run 13) →
+D7 run 13 (⏸ owner: `routeb` V3 360p download, §9 3f) → the owner's choice for V3 (§9) → promotion
+(flag on in normal builds),
 the owner's decision (§5.5).
 Backlog pointer: `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Same contract as the social sites:
 `MASTER_KEY_SOCIAL_PLAN.md` §2.1 decisions #7 (routing B / B+ / A) and #8 (lookup = main + Master,
@@ -95,6 +97,11 @@ visionOS client ရဲ့ link၊ အသစ် (၃၅၉ မိနစ် ကျ
 run 12: crash မဖြစ်တော့။ V1 / V3 notice `check: 206×8; same as main's: 9 of 9 rows, headers same` (Master ရဲ့ rows =
 main ရဲ့ link နဲ့ header တွေ၊ YouTube က file တွေရဲ့ ပထမ byte ကို ပေး)၊ ဒါပေမဲ့ V3 360p download က 403 ဆဲ —
 download လုပ်ပုံ ကွာတာ (app ဘက်) → **F8**။
+**F8** (`[d7]` run 13): check က file တစ်ခုစီရဲ့ ပထမ byte ကိုပဲ မေး၊ download က ပထမ 1 MiB ပြီးရင် 10 MiB
+အပိုင်းတွေ၊ file တစ်ခုကို ၄ ပိုင်း တပြိုင်နက် မေး။ YouTube က link အသစ်ရဲ့ နောက်အပိုင်းတွေကို ခဏ ငြင်းတာ
+ဖြစ်နိုင် (yt-dlp က ကြော်ငြာ အချိန် စောင့်ပြီးမှ download)။ ပြင်ချက် (build အားလုံး): YouTube က 403 နဲ့ ငြင်းရင်
+အဲဒီ file ရဲ့ အပိုင်းတွေကို တစ်ခုချင်း၊ ခဏ စောင့်ပြီး ပြန်မေး (၄၅ စက္ကန့်အထိ)၊ မရရင် Details မှာ
+`403×N at X MiB, K at once, T s`။ trial notice မှာ `2nd range:` (file ရဲ့ ဒုတိယ အပိုင်း ယူမယူ) ပါ → D7 run 13။
 
 ## 1. Today (verified 2026-10-17, spike `4235716`)
 
@@ -549,6 +556,30 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   byte – · first progress – · 2 s`. V1 360p downloaded (11 MB). §9 3d reading (b): not Master's
   rows — what the download asks differs from the check's one byte (its requests after the first
   byte, the other part of the merge, retries), the app's download side → F8 (§9 3e).
+- **F8 (2026-10-19, `[d7]` run 13).** What V3's download asks that the check does not, from the
+  code: the check asked each file once for its first byte (`bytes=0-0`); a whole-file download
+  (`DashTransferEngine`) asks a file's first 1 MiB (the fast start), then 10 MiB ranges
+  (`WholeFileTrack.DEFAULT_MAX_REQUEST_BYTES`), four of the file at once on YouTube's media host,
+  the merge's video and audio files at the same time, and one refused range fails the whole
+  download at once (a 403 was never asked again). Likely reading, not yet seen on the phone:
+  YouTube gives a fresh link's first bytes but refuses its other ranges for a while — yt-dlp waits
+  before it downloads a video with pre-roll ads (`available_at`, the ads' length: "not waiting is
+  likely to throw a 403") — or refuses one file's ranges asked at once. Fix, every build
+  (`MediaHostRefusals`, used by `DashTransferEngine`): once a whole file (not live) on a
+  `googlevideo.com` host gets a 403 at CONNECT, its ranges are asked one at a time; while refusals
+  come in a row a range waits 3 s after the last, twice as long after each refusal asked alone (at
+  most 8 s); a refused range is asked again while its next turn starts within 45 s of the row's
+  first refusal (at most 64 refusals a file); then the download fails as before (`ACCESS_DENIED`,
+  HTTP 403, `CONNECT`) with the Detail `403×N at X MiB, K at once, T s` (refusals, where the first
+  was, how many of the file's ranges were in flight then, seconds from the first to the last).
+  Other hosts, live streams, other errors and a file never refused: unchanged. Route-B trial APK
+  only: the notice's check also asks each checked file over 1 MiB for its 2nd range
+  (`bytes=1048576-…`, the download's 2nd request): `; 2nd range: 206×N` (or `403×N`, …) right
+  after `check: …`. Tests: `MediaHostRefusalsTest` 6 (virtual time), `DashMediaHostRefusalTest` 4
+  (a local server that refuses for a while: the file completes, one range at a time; refuses for
+  good: fails with the Detail; another host: fails at once; wait 0: as before),
+  `RouteBTrialCheckTest` +3; the download's other tests here (47) and the trial check's (8) pass
+  locally. No extractor or locked file changed.
 
 ## 8. Review follow-ups (2026-10-18)
 
@@ -653,10 +684,20 @@ Order (one step per commit, tests + CI green before the next; §6's stop rules h
    check` says whether main's would download). **Done 2026-10-19 (§7):** no crash; V1 and V3
    `check: 206×8; same as main's: 9 of 9 rows, headers same`; V3 360p still 403 at download →
    reading (b) → 3e.
-3e. **F8 (⏸ next):** find what V3's download asks that the check does not (the download's requests:
-   `Range` form and size, chunks, parallel connections, the audio part, retries, headers, client)
-   and fix it in the app's download; tests, then `[d7]` run 13 (`routeb`: V3 360p download). A fix
-   in main's extractor or a locked file is a STOP (ask the owner).
+3e. **F8** (§7; done 2026-10-19): find what V3's download asks that the check does not (the
+   download's requests: `Range` form and size, chunks, parallel connections, the audio part,
+   retries, headers, client) and fix it in the app's download; tests, then `[d7]` run 13. A fix in
+   main's extractor or a locked file is a STOP (ask the owner). As built: a refused range on
+   YouTube's media host is asked again, one at a time, for up to 45 s; the trial's notice also
+   asks each file's 2nd range (`2nd range: …`).
+3f. **D7 run 13 (⏸ owner):** `routeb`: V3 (Try again if asked) → screenshot the notice → 360p
+   download (it may stay at 0% for up to 45 s). Readings: (a) it downloads — F8 fixed it (with
+   `2nd range: 403×…`, YouTube refused the later ranges at first and the wait was enough) → 4.
+   (b) it fails, Details `403×N at X MiB, K at once, T s`, notice `2nd range: 206×…` — YouTube gives
+   one ask the 2nd range yet refuses the download's (its pace, the merge's two files, its request):
+   fixed in the app again. (c) it fails with `2nd range: 403×…` — YouTube refuses that link's later
+   ranges past 45 s (its ads' wait, or a token): main's extractor is a STOP; the owner chooses (a
+   known limit, a longer wait, or a main fix later).
 4. **Promotion (owner, §5.5).** Suggested gate: F5 and F4 green; run 9 / 10 give Master's rows on V1–V3
    that play, wrong rows 0, `normal` unchanged; Master sent nothing with a cookie (tests). Promotion
    turns `-Pyft.youtubeRouteB` on in normal builds; the trial switch stays debug only.

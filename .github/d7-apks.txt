@@ -3,4 +3,4 @@ R4; job d7-matrix in
 .github/workflows/master-optin-debug-apk.yml) build after a push that changes this file
 (or any other non-doc file) in a commit whose message carries [d7]. Change the line below.
 
-run 12 (Phase 1.4 item 7 F7 fix: the route-B trial's file check no longer closes the app on a YouTube video)
+run 13 (Phase 1.4 item 7 F8: a YouTube download asks a refused range again, one at a time, for up to 45 s; the route-B trial's notice also checks each file's 2nd range)

@@ -113,6 +113,16 @@ class DashTransferEngine(
         val progressIntervalMillis: Long = 250,
         /** Attempts for one piece of a live stream ([LivePieces]): thousands are asked. */
         val livePieceAttempts: Int = 5,
+        /**
+         * F8 (D7 run 12): a whole file on YouTube's media hosts whose range is refused with 403
+         * asks its ranges one at a time and the refused range again ([MediaHostRefusals]), the
+         * first time after [mediaHostRefusalFirstWaitMillis], then twice as long each time up to
+         * [mediaHostRefusalMaxWaitMillis], while it is within this time of its first refusal in
+         * a row; 0: a 403 fails at once, as before.
+         */
+        val mediaHostRefusalWaitMillis: Long = 45_000,
+        val mediaHostRefusalFirstWaitMillis: Long = 3_000,
+        val mediaHostRefusalMaxWaitMillis: Long = 8_000,
     ) {
         init {
             require(maxRedirects >= 0)
@@ -128,6 +138,9 @@ class DashTransferEngine(
             require(mediaHostConcurrentChunks in 1..8)
             require(progressIntervalMillis >= 0)
             require(livePieceAttempts in 1..8)
+            require(mediaHostRefusalWaitMillis >= 0)
+            require(mediaHostRefusalFirstWaitMillis > 0)
+            require(mediaHostRefusalMaxWaitMillis >= mediaHostRefusalFirstWaitMillis)
         }
     }
 
@@ -225,6 +238,7 @@ class DashTransferEngine(
 
             var pending = parsed.chunks.filterNot { initial.chunks[it.index].completed }
             val pieces = parsed.chunks.size.takeIf { live }
+            val refusals = refusalsFor(plan, credentialOrigin, live)
             val download: suspend (DashDownloadChunk) -> Unit = { chunk ->
                 val opened = firstRange?.takeIf { chunk.index == 0 }?.take()
                 val bytes = try {
@@ -237,6 +251,7 @@ class DashTransferEngine(
                         start = start,
                         opened = opened,
                         livePieces = pieces,
+                        refusals = refusals,
                     )
                 } catch (abort: DashAbort) {
                     // The newest pieces may not be served: a missing one ends the file there.
@@ -338,9 +353,40 @@ class DashTransferEngine(
     /** Ranges at once: more for a whole file on YouTube's media hosts with FAST_START (P41). */
     private fun concurrentChunksFor(plan: DashDownloadPlan, fileUrl: HttpUrl): Int {
         if (plan.wholeFile == null || !policy.fastStart) return policy.maxConcurrentChunks
+        return if (isMediaHost(fileUrl)) {
+            policy.mediaHostConcurrentChunks
+        } else {
+            policy.maxConcurrentChunks
+        }
+    }
+
+    /**
+     * F8: the refusals of a whole file on YouTube's media hosts, which asks a range refused with
+     * 403 again ([Policy.mediaHostRefusalWaitMillis]); null: a 403 fails at once.
+     */
+    private fun refusalsFor(
+        plan: DashDownloadPlan,
+        fileUrl: HttpUrl,
+        live: Boolean,
+    ): MediaHostRefusals? {
+        if (plan.wholeFile == null || live || policy.mediaHostRefusalWaitMillis == 0L) return null
+        if (!isMediaHost(fileUrl)) return null
+        return MediaHostRefusals(
+            limitMillis = policy.mediaHostRefusalWaitMillis,
+            firstWaitMillis = policy.mediaHostRefusalFirstWaitMillis,
+            maxWaitMillis = policy.mediaHostRefusalMaxWaitMillis,
+            elapsedMillis = elapsedMillis,
+            isRefusal = { error ->
+                error is DashAbort &&
+                    error.failure.httpStatusCode == HTTP_FORBIDDEN &&
+                    error.failure.stage == CONNECT
+            },
+        )
+    }
+
+    private fun isMediaHost(fileUrl: HttpUrl): Boolean {
         val host = fileUrl.host.lowercase(Locale.US)
-        val mediaHost = host == MEDIA_HOST || host.endsWith(".$MEDIA_HOST")
-        return if (mediaHost) policy.mediaHostConcurrentChunks else policy.maxConcurrentChunks
+        return host == MEDIA_HOST || host.endsWith(".$MEDIA_HOST")
     }
 
     private suspend fun manifestLayout(
@@ -967,7 +1013,9 @@ class DashTransferEngine(
     /**
      * Downloads one chunk, trying a network error or a 5xx answer again. The bytes an attempt
      * counted in the progress are taken back when it fails (P41). [opened] is the first range's
-     * answer that is already open, for the first attempt.
+     * answer that is already open, for the first attempt. With [refusals] (F8: a whole file on
+     * YouTube's media hosts) the chunk is asked in the file's turn and a 403 is asked again
+     * while the file may wait; then it fails with the refusals' Detail.
      */
     private suspend fun downloadChunkWithRetry(
         plan: DashDownloadPlan,
@@ -978,14 +1026,15 @@ class DashTransferEngine(
         start: StartTimelineRecorder,
         opened: Response? = null,
         livePieces: Int? = null,
+        refusals: MediaHostRefusals? = null,
     ): Long {
-        var lastRetryReason = DownloadFailureReason.NETWORK
         var response = opened
         val attempts = if (livePieces != null) policy.livePieceAttempts else policy.maxAttempts
-        repeat(attempts) { attempt ->
+        var attempt = 0
+        while (true) {
             val counter = RangeCounter(tracker, start)
-            try {
-                return downloadChunkOnce(
+            val once: suspend () -> Long = {
+                downloadChunkOnce(
                     plan = plan,
                     credentialOrigin = credentialOrigin,
                     workspace = workspace,
@@ -994,17 +1043,29 @@ class DashTransferEngine(
                     opened = response.also { response = null },
                     livePieces = livePieces,
                 )
+            }
+            try {
+                return if (refusals != null) {
+                    refusals.turn(chunk.byteRange?.offset ?: 0L, once)
+                } else {
+                    once()
+                }
             } catch (retry: RetryableDashFailure) {
                 counter.takeBack()
-                lastRetryReason = retry.reason
                 if (attempt == attempts - 1) throw DashAbort(retry.failure())
                 delay(retry.retryAfterMillis ?: backoffMillis(attempt))
+                attempt += 1
+            } catch (abort: DashAbort) {
+                counter.takeBack()
+                if (refusals == null || !refusals.isRefusal(abort)) throw abort
+                if (!refusals.mayAskAgain()) {
+                    throw DashAbort(abort.failure.copy(detail = refusals.describe()))
+                }
             } catch (error: Throwable) {
                 counter.takeBack()
                 throw error
             }
         }
-        throw DashAbort(lastRetryReason, stage = CONNECT)
     }
 
     private suspend fun downloadChunkOnce(
@@ -1672,6 +1733,7 @@ class DashTransferEngine(
         val FIRST_BYTE_RANGE = Regex("""(?i)^bytes\s+0-0/(\d+)$""")
         val FIRST_RANGE = Regex("""(?i)^bytes\s+0-\d+/(\d+)$""")
         const val MEDIA_HOST = "googlevideo.com"
+        const val HTTP_FORBIDDEN = 403
         const val MAX_RETRY_AFTER_SECONDS = 60L
         val WHOLE_RANGE = Regex("""(?i)^bytes\s+0-(\d+)/(\d+)$""")
         val MISSING_FIRST_PIECE = setOf(

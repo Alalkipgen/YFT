@@ -1,6 +1,6 @@
 # YFT Master Extractor backup
 
-## Phase 1.4 item 7 — D7 run 10 phone check, F7 (Master's rows against main's) and its crash fix, D7 run 12 (2026-10-19)
+## Phase 1.4 item 7 — D7 run 10 phone check, F7 (Master's rows against main's) and its crash fix, D7 run 12, F8 (2026-10-19)
 
 - D7 run 10 (owner, run 39233263437): `routeb` V3 360p "Link expired" → Details: `ACCESS_DENIED`,
   `CONNECT`, HTTP 403, `VISIONOS itag 134+140 · pot no · sig yes · ends 359 min (app 358) · 0 KB ·
@@ -19,8 +19,20 @@
   main's: 9 of 9 rows, headers same` (Master's rows are main's own; YouTube gives each file's first
   byte). V3 360p (VISIONOS 134+140) still fails at download: 403 at CONNECT, `pot no`, 0 KB; V1 360p
   downloads. Reading (b): a download-time difference in the app (plan §9 3e, F8).
-- Next: F8 — find what V3's download asks that the check does not and fix it in the app's download;
-  then `[d7]` run 13 (`routeb` V3 360p download), then the owner's choice and promotion.
+- F8 (every build's YouTube downloads, `[d7]` run 13): the check asked each file's first byte once;
+  the download asks a file's first 1 MiB, then 10 MiB ranges, four of the file at once, beside the
+  other file of the merge. Likely: YouTube gives a fresh link's first bytes but refuses its other
+  ranges for a while (yt-dlp waits for the video's ads before it downloads, `available_at`), or
+  refuses one file's ranges asked at once. Fix (`DashTransferEngine`, new `MediaHostRefusals`):
+  after a 403 at CONNECT from YouTube's media host, that file's ranges are asked one at a time and
+  a refused range is asked again after 3 s, then twice as long (at most 8 s), for up to 45 s; then
+  it fails as before, its Details `403×N at X MiB, K at once, T s`. Other hosts, live streams and
+  other failures unchanged. Route-B trial APK only: the notice also asks each checked file's 2nd
+  range (the download's 2nd request, 1 MiB on): `; 2nd range: 206×N` or `403×N`. No extractor or
+  locked file changed. Tests: `MediaHostRefusalsTest` 6, `DashMediaHostRefusalTest` 4,
+  `RouteBTrialCheckTest` +3.
+- Next: D7 run 13 (owner): `routeb` V3 → the notice (its `2nd range:` part) → 360p download (it may
+  stay at 0% up to 45 s); if it fails, its Details. Then the owner's choice and promotion.
 
 ## Phase 1.4 item 7 — D7 run 9 phone check and F6: what a "Link expired" download was (2026-10-19)
 
