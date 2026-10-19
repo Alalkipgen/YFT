@@ -356,10 +356,19 @@ internal const val AUDIO_FROM_VIDEO_HINT =
 internal fun DownloadRowUiState.isYouTubeRefusal(): Boolean =
     (failure?.reason ?: failureReason) == DownloadFailureReason.YOUTUBE_REFUSED
 
+/** Item 7 Track B3: offered on a [isYouTubeRefusal] row, on its card and in its menu. */
+internal const val RESET_YOUTUBE_LABEL = "Reset YouTube session"
+
 internal const val YOUTUBE_REFUSED_HINT =
     "YouTube refused this download while its link still had time left, so reopening the page " +
-        "with the same session may not help. Try again later, or use Clear browsing data in " +
-        "Settings (it signs you out of every site in YFT), then reopen the page."
+        "with the same session may not help. Try again later, or tap $RESET_YOUTUBE_LABEL (it " +
+        "signs you out of YouTube in YFT only), then reopen the page. Still refused: Clear " +
+        "browsing data in Settings (it signs you out of every site in YFT)."
+
+internal const val YOUTUBE_RESET_QUESTION =
+    "YFT's browser forgets YouTube's cookies, site data and remembered YouTube lookups, so you " +
+        "are signed out of YouTube in YFT. Other sites, Google's included, keep their sign-ins, " +
+        "and downloads and files stay. Then reopen the video's page and download again."
 
 private const val UNKNOWN = "\u2014"
 private const val BYTES_PER_KB = 1_024L

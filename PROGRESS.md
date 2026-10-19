@@ -1,6 +1,6 @@
 # YFT Master Extractor backup
 
-## Phase 1.4 item 7 — D7 run 13b / 13c: V3's 403 followed the debug app's browser data; the owner's decisions; F8 trim; promotion; B1 (2026-10-19)
+## Phase 1.4 item 7 — D7 run 13b / 13c: V3's 403 followed the debug app's browser data; the owner's decisions; F8 trim; promotion; B1; B3 (2026-10-19)
 
 - D7 run 13b (owner, run 13's APKs, no new build): run 13's `normal` APK as it was fails V3 360p
   like `routeb`: `VISIONOS itag 134+140 · pot no · sig yes · ends 359 min (app 358) · 2048 KB · 45 s;
@@ -44,7 +44,17 @@
   `GoogleVideoLinkFactsTest` +2, `DownloadQueueTest` +1, `DownloadLabelsTest` +1,
   `DownloadsScreenTest` +1, `DownloadNotificationTextTest` +1; local download tests 108 pass, and
   the queue's 19 (`DownloadQueueTest`, `StreamDownloadQueueTest`, without the store's Room part).
-- Next: B3 "Reset YouTube session" (`[d7]` run 14) → D7 run 14 (owner), which closes item 7.
+- B3 (Track B; every build): "Reset YouTube session" on a `YOUTUBE_REFUSED` download (a button on
+  its card and an item in its menu), asked first: YFT's browser forgets YouTube's cookies
+  (`www.`, `m.`, `music.`, `youtube.com`; each as the host's own, for `youtube.com` and for the
+  host), those origins' site storage and YouTube's remembered lookups; other sites' sign-ins,
+  Google's included, the HTTP cache, downloads and files stay. The snackbar says how many cookies
+  went and to reopen the page (any that stayed: Clear browsing data removes them). The refused
+  row's hint: try again later, or Reset YouTube session, then reopen the page; still refused,
+  Clear browsing data. Tests: `YouTubeSessionResetTest` +6 (local pass without WebView),
+  `DownloadsViewModelYouTubeResetTest` +4, `DownloadsScreenTest` +1, `DownloadLabelsTest` (hint).
+  `[d7]` run 14 builds the D7 APKs with promotion, B1 and B3.
+- Next: D7 run 14 (owner; plan §9 3h test rule), which closes item 7.
 
 ## Phase 1.4 item 7 — D7 run 10 phone check, F7 (Master's rows against main's) and its crash fix, D7 run 12, F8, D7 run 13 (2026-10-19)
 

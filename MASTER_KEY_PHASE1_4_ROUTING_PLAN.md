@@ -42,8 +42,9 @@ Track B (main's stale YouTube session: the failure's wording, a YouTube-only ses
 **F8 trim** — **done 2026-10-19** (§7: one re-ask after 3 s) → **promotion** (flag on in normal builds, §9 4) — **done 2026-10-19** (§7: `-Pyft.youtubeRouteB` on by
 default, so every Master-capture debug build has route B; the trial stays `routeb`'s) → **B1** —
 **done 2026-10-19** (§7: a 403 at `CONNECT` on a YouTube media link with a minute or more left is
-`YOUTUBE_REFUSED`, chip "YouTube refused", Details say what to try) → **B3**
-(`[d7]` run 14) →
+`YOUTUBE_REFUSED`, chip "YouTube refused", Details say what to try) → **B3** — **done
+2026-10-19** (§7: "Reset YouTube session" on that failure forgets YouTube's cookies, site storage
+and remembered lookups only) → `[d7]` run 14 →
 D7 run 14 (⏸ owner), which closes item 7.
 Backlog pointer: `MASTER_KEY_PHASE1_3_PLAN.md` §10 item 7. Same contract as the social sites:
 `MASTER_KEY_SOCIAL_PLAN.md` §2.1 decisions #7 (routing B / B+ / A) and #8 (lookup = main + Master,
@@ -141,6 +142,13 @@ session တူနဲ့ page ပြန်ဖွင့်ရုံ မကူည�
 ပြီး page ပြန်ဖွင့်ဖို့ ပြော (B3 မှာ "Reset YouTube session" နဲ့ အစားထိုးမယ်)၊ notice "— YouTube refused"။ link
 အသစ် လိုတုန်း (`NEEDS_REFRESH`)၊ F6 ရဲ့ facts မပြောင်း။ တခြား failure တွေ ("Link expired") မပြောင်း။ နောက်: B3
 (`[d7]` run 14) → D7 run 14။
+
+**B3 (2026-10-19):** `YOUTUBE_REFUSED` download ရဲ့ card နဲ့ menu မှာ "Reset YouTube session" — အရင်မေး (dialog)၊
+ပြီးရင် YFT browser ထဲက YouTube ရဲ့ cookies (`www.` / `m.` / `music.` / `youtube.com`)၊ site storage နဲ့ မှတ်ထားတဲ့
+YouTube lookups ကိုပဲ ဖျက်။ Google အပါအဝင် တခြား site တွေရဲ့ sign-in မပျက်၊ downloads / files မထိ၊ HTTP cache
+မဖျက် (site အားလုံးနဲ့ ဝေမျှထား)။ Snackbar က cookie ဘယ်နှခု ဖျက်ပြီး page ပြန်ဖွင့်ဖို့ ပြော (ကျန်ခဲ့ရင် Clear browsing
+data နဲ့ ဖျက်ဖို့)။ Hint: နောက်မှ ထပ်စမ်း သို့ Reset YouTube session → page ပြန်ဖွင့်၊ ထပ်ငြင်းရင် Clear browsing data။
+နောက်: `[d7]` run 14 → D7 run 14 (⏸ ပိုင်ရှင်)။
 
 ## 1. Today (verified 2026-10-17, spike `4235716`)
 
@@ -714,6 +722,32 @@ from today; a final reason would be answered; a test needs weakening; CI fails t
   `DownloadNotificationTextTest` +1. The download's tests here pass locally (108, and
   `DownloadQueueTest` / `StreamDownloadQueueTest` 19 with the store's Room part left out); the
   app's tests run in CI. No route-B, extractor or locked file changed.
+- **B3 (2026-10-19, §9 3h; Track B).** "Reset YouTube session" is offered on a download YouTube
+  refused (`YOUTUBE_REFUSED`, B1): a button on its card and an item in its menu. It asks first
+  ("Reset YouTube session?": YFT's browser forgets YouTube's cookies, site data and remembered
+  YouTube lookups, so the user is signed out of YouTube in YFT; other sites, Google's included,
+  keep their sign-ins; downloads and files stay). `CookieYouTubeSessionReset` (new,
+  `feature/settings/YouTubeSessionReset.kt`) expires every cookie WebView sends to
+  `https://www.youtube.com/`, `m.`, `music.` and `youtube.com`, each three ways — as the host's
+  own, for `Domain=youtube.com` and for `Domain=<host>` (a cookie only goes when its name, domain
+  and path match, and the browser does not say which it is; `Max-Age=0`, `Path=/`, `Secure`) —
+  flushes, deletes those four origins' site storage (`WebStorage.deleteOrigin`) and forgets
+  YouTube's remembered lookups (`SiteLookupCache.forgetSite("youtube")`). The HTTP cache, shared
+  by every site, stays (Clear browsing data clears it). The snackbar: "YouTube session reset (N
+  cookies removed). Reopen the page in the browser, then download again."; a cookie that stayed:
+  "YouTube session partly reset: N cookies stayed, which Clear browsing data in Settings removes
+  (…)"; a failure: "Could not reset the YouTube session". The refused row's hint names it: "…Try
+  again later, or tap Reset YouTube session (it signs you out of YouTube in YFT only), then reopen
+  the page. Still refused: Clear browsing data in Settings (it signs you out of every site in
+  YFT)." No download changes; the row still needs a fresh link. Tests: `YouTubeSessionResetTest`
+  +6 (a fake jar with host-only and domain cookies: YouTube's seven go; Google's sign-in,
+  Instagram's and a look-alike `notyoutube.com` stay; only YouTube's pages, with expired Secure
+  cookies for "/"; the four origins' storage only; YouTube's lookups go, another site's stay; a
+  kept cookie counts as left; no YouTube cookies, nothing removed), `DownloadsViewModelYouTubeResetTest`
+  +4, `DownloadsScreenTest` +1 (and the expired-link test: no reset), `DownloadLabelsTest` (the hint
+  names the reset before Clear browsing data). `YouTubeSessionResetTest` passes locally (without
+  WebView); the app's tests run in CI. No route-B, extractor or locked file changed. `[d7]` run 14
+  builds the D7 APKs with promotion, B1 and B3.
 
 ## 8. Review follow-ups (2026-10-18)
 
@@ -857,14 +891,14 @@ Order (one step per commit, tests + CI green before the next; §6's stop rules h
    2026-10-19**, §7 "B1"); **B2** when
    it comes back, the D7 test rule below finds which part of the data it is; **B3** "Reset YouTube
    session", offered on that failure: YouTube's cookies and site storage only, other sites' sign-ins
-   kept; **B4** an extractor-side change (another client, a token, a lookup with a fresh visitor ID)
+   kept (**done 2026-10-19**, §7 "B3"); **B4** an extractor-side change (another client, a token, a lookup with a fresh visitor ID)
    only with evidence, a STOP (extractor-sites). Order: F8 trim → promotion → B1 → B3 (`[d7]` run
    14) → D7 run 14 (⏸ owner).
    **D7 test rule (from run 14):** (a) first V3 as the app is, no clear: download, note the result.
    (b) On "the first 1 MiB, then 403" (Details `403×N at X MiB`): try the main Preview app; then
    Force stop the debug app, Android App info → Storage → Clear cache (cookies stay; the remembered
-   lookups, kept in memory, go with the stop) → retry; still failing: Reset YouTube session (B3) →
-   retry; still failing: the app's Settings → Clear browsing data → retry. Note which step fixed it;
+   lookups, kept in memory, go with the stop) → retry; still failing: Reset YouTube session (B3, on
+   the refused download's card) → retry; still failing: the app's Settings → Clear browsing data → retry. Note which step fixed it;
    never during a running download. (c) Then Clear browsing data and compare `normal` / `routeb` on
    that same clean state. Never clear the Preview app (it stays as a normal user's would).
 4. **Promotion (owner, §5.5) — approved 2026-10-19** (§9 3h: the play check passed; V3's failure was

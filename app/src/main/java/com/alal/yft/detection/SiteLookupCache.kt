@@ -87,6 +87,14 @@ class SiteLookupCache @Inject constructor() {
         }.forEach { forgetDownload(it.id) }
     }
 
+    /**
+     * Item 7 Track B3, Reset YouTube session: every remembered answer of the site [siteId], read
+     * with the session that was reset, goes; other sites' answers stay.
+     */
+    fun forgetSite(siteId: String) {
+        synchronized(lock) { entries.keys.removeAll { it.siteId == siteId } }
+    }
+
     /** Clear browsing data: answers read with the old session must not outlive it. */
     fun clear() {
         synchronized(lock) {

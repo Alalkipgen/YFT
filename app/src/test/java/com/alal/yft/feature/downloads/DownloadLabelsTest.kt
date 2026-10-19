@@ -240,6 +240,12 @@ class DownloadLabelsTest {
         assertEquals("Stage: Connecting to the server (CONNECT)", lines[3])
         assertEquals("HTTP status: 403", lines[4])
         assertFalse(YOUTUBE_REFUSED_HINT.contains("expired"))
+        // B3: the hint names Reset YouTube session before Clear browsing data, which signs out
+        // of every site.
+        val reset = YOUTUBE_REFUSED_HINT.indexOf("tap $RESET_YOUTUBE_LABEL")
+        assertTrue(YOUTUBE_REFUSED_HINT, reset >= 0)
+        val clear = YOUTUBE_REFUSED_HINT.indexOf("Clear browsing data")
+        assertTrue(YOUTUBE_REFUSED_HINT, reset < clear)
         // Any other link that needs refreshing still says it expired, without the hint.
         val expired = row(DownloadTaskStatus.NEEDS_REFRESH, failure = DownloadFailureReason.ACCESS_DENIED)
         assertEquals("Link expired", statusChip(expired, TransferNetworkState.ALLOWED)?.text)

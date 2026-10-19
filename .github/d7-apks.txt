@@ -3,4 +3,4 @@ R4; job d7-matrix in
 .github/workflows/master-optin-debug-apk.yml) build after a push that changes this file
 (or any other non-doc file) in a commit whose message carries [d7]. Change the line below.
 
-run 13 (Phase 1.4 item 7 F8: a YouTube download asks a refused range again, one at a time, for up to 45 s; the route-B trial's notice also checks each file's 2nd range)
+run 14 (Phase 1.4 item 7: route B on in every Master-capture build, F8 one re-ask after 3 s, B1 YouTube refused wording, B3 Reset YouTube session; plan section 9 3h D7 test rule)
