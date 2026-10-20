@@ -128,8 +128,15 @@ class SiteWaysTest {
         val removed = SiteWays.FACEBOOK.kind(13)!!.expect
         assertEquals(setOf(PRIVATE_OR_UNAVAILABLE), removed.reasons)
         assertFalse(removed.wantsRows(session = true))
-        assertEquals(removed, SiteWays.INSTAGRAM.kind(10)!!.expect)
         assertEquals(removed, SiteWays.TIKTOK.kind(9)!!.expect)
+        // 0.4: Instagram's removed slot, signed out, cannot tell its sign-in answer from a shown post's.
+        assertEquals(removed.copy(ambiguousWithoutSession = setOf(LOGIN_REQUIRED)), SiteWays.INSTAGRAM.kind(10)!!.expect)
+        assertEquals("removed", SiteWays.INSTAGRAM.kind(10)!!.label)
+        assertEquals(
+            "no other kind is ambiguous",
+            listOf(SiteWays.INSTAGRAM.kind(10)),
+            SiteWays.ALL.flatMap { it.slots }.filter { it.expect.ambiguousWithoutSession.isNotEmpty() },
+        )
 
         assertEquals(setOf(NO_MEDIA_FOUND), SiteWays.TIKTOK.kind(6)!!.expect.reasons)
         assertEquals(setOf(PRIVATE_OR_UNAVAILABLE, LOGIN_REQUIRED), SiteWays.TIKTOK.kind(7)!!.expect.reasons)

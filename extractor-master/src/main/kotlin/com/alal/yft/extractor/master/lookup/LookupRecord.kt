@@ -6,6 +6,8 @@ import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.master.modules.youtube.YouTubeUrls
 import com.alal.yft.extractor.master.modules.youtube.ladder.LookupMemo
 import java.net.URI
+import java.nio.ByteBuffer
+import java.security.MessageDigest
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CancellationException
@@ -52,6 +54,14 @@ import kotlinx.coroutines.CancellationException
  * The labels are read outside the lock and a label that throws is none. A bot check is not a
  * rate limit here: [rateLimited] stays the 429 (route B's rule 3). Without labels (every lookup of
  * the app, route B included) the record is as before: no label, nothing more counted.
+ *
+ * Social plan 0.4 (§7.3, the census fixes): a labelled record also splits the asks main sent
+ * again by a report key of its own — the method, address, body and identity class (whether the
+ * ask carries the user's credentials, and the agent it names; never a cookie's value), hashed: an
+ * ask whose key was seen is a repeat ([Ask.repeat], [repeatAsks]); one whose method and address
+ * were asked with another body or identity class is a variant ([Ask.variant], [variantAsks]).
+ * The key is the report's only: [LookupAsk.endpoint] (route B's R2 key), the endpoint rule, its
+ * enforcement and the host stops stay as they are, and no key or hash leaves the record.
  */
 class LookupRecord(
     private val clock: () -> Long = System::currentTimeMillis,
@@ -108,10 +118,17 @@ class LookupRecord(
         val repeated: Boolean = false,
         /** S0a: the host had stopped (a 429 or a bot check) before this ask (a labelled record only). */
         val afterStop: Boolean = false,
+        /** 0.4: the same report key (method, address, body, identity class) was asked before. */
+        val repeat: Boolean = false,
+        /** 0.4: the same method and address were asked before with another body or identity class. */
+        val variant: Boolean = false,
     )
 
-    /** S0a: an ask's labels, read outside the lock; null: the record has no labels. */
-    private class Label(val way: String?, val reading: AskReading?)
+    /**
+     * S0a: an ask's labels, read outside the lock; null: the record has no labels. 0.4: [key] is
+     * the ask's report key and [target] its method and address, both hashed.
+     */
+    private class Label(val way: String?, val reading: AskReading?, val key: String, val target: String)
 
     private val lock = Any()
     private val startedAt = clock()
@@ -131,6 +148,12 @@ class LookupRecord(
     private var repeatedTotal = 0
     private var afterStopTotal = 0
     private var botCheckTotal = 0
+
+    /** 0.4: the report keys and the targets (method and address) asked so far (a labelled record only). */
+    private val reportKeys = HashSet<String>()
+    private val targets = HashSet<String>()
+    private var repeatTotal = 0
+    private var variantTotal = 0
 
     /** F5: the address of the lookup's watch page, or null when this record keeps none. */
     private val watchPage: String? = watchPageVideoId?.takeIf(VIDEO_ID::matches)?.let(YouTubeUrls::watchPageFetchUrl)
@@ -193,6 +216,12 @@ class LookupRecord(
 
     /** S0a: the hosts that stopped (a 429 or a bot check), in order; empty without labels. */
     fun stopHosts(): List<String> = synchronized(lock) { stopAt.keys.toList() }
+
+    /** 0.4: asks whose report key was asked before in this lookup (repeats); 0 without labels. */
+    val repeatAsks: Int get() = synchronized(lock) { repeatTotal }
+
+    /** 0.4: asks of a method and address asked before with another body or identity class; 0 without labels. */
+    val variantAsks: Int get() = synchronized(lock) { variantTotal }
 
     /**
      * [ask]'s answer [result]; main's unauthenticated answer is kept for one replay, and (F5) main's
@@ -319,7 +348,7 @@ class LookupRecord(
         val labels = labels ?: return null
         val way = guarded { labels.way(ask) }
         val reading = success?.let { answer -> guarded { labels.read(ask, way, answer) } }
-        return Label(way, reading)
+        return Label(way, reading, reportKey(ask), digest(ask.method, ask.url))
     }
 
     /** Under [lock]. */
@@ -338,10 +367,17 @@ class LookupRecord(
         var labelledAt: Long? = null
         var repeated = false
         var afterStop = false
+        var repeat = false
+        var variant = false
         if (label != null) {
             val at = clock()
             labelledAt = at
             repeated = ask.endpoint in endpoints
+            // 0.4: the report's split (its own key; the endpoint rule above is untouched).
+            repeat = !reportKeys.add(label.key)
+            variant = !repeat && !targets.add(label.target)
+            if (repeat) repeatTotal++
+            if (variant) variantTotal++
             val host = hostOf(ask.url)
             afterStop = host != null && stopAt[host]?.let { startedAtMillis >= it } == true
             if (repeated) repeatedTotal++
@@ -373,6 +409,8 @@ class LookupRecord(
             shape = label?.reading?.shape,
             repeated = repeated,
             afterStop = afterStop,
+            repeat = repeat,
+            variant = variant,
         )
     }
 
@@ -383,6 +421,34 @@ class LookupRecord(
         const val MAX_LISTED = 64
         private const val HTTP_TOO_MANY = 429
         private val VIDEO_ID = Regex("^[A-Za-z0-9_-]{11}$")
+
+        private const val USER_AGENT = "user-agent"
+
+        /**
+         * 0.4: [ask]'s report key: its method, address and body and its identity class (whether it
+         * carries the user's credentials, and the agent it names), hashed. A cookie's value is not
+         * in it: a cookie the site renewed between two asks is still the same identity class.
+         */
+        private fun reportKey(ask: LookupAsk): String {
+            val agent = ask.headers.lastOrNull { (name, _) -> name.trim().lowercase() == USER_AGENT }?.second?.trim()
+            return digest(ask.method, ask.url, ask.body, ask.authorized.toString(), agent)
+        }
+
+        /** 0.4: SHA-256 over length-prefixed parts (a missing part differs from an empty one). */
+        private fun digest(vararg parts: String?): String {
+            val sha = MessageDigest.getInstance("SHA-256")
+            for (part in parts) {
+                if (part == null) {
+                    sha.update(0.toByte())
+                } else {
+                    val bytes = part.toByteArray(Charsets.UTF_8)
+                    sha.update(1.toByte())
+                    sha.update(ByteBuffer.allocate(Int.SIZE_BYTES).putInt(bytes.size).array())
+                    sha.update(bytes)
+                }
+            }
+            return sha.digest().joinToString("") { "%02x".format(it) }
+        }
 
         /** S0a: [url]'s host, lowercase without a trailing dot; null when it has none. */
         private fun hostOf(url: String): String? = runCatching { URI(url).host }.getOrNull()

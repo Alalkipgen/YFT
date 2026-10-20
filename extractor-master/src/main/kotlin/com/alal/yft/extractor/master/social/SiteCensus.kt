@@ -39,13 +39,44 @@ class LinkIdentity(
         "LinkIdentity(site=${page.siteId}, agent=${!userAgent.isNullOrBlank()}, cookie=${!cookie.isNullOrBlank()})"
 }
 
+/**
+ * Social plan 0.4 (§7.3): which item of the post main's answer is, [number] of [count], as main's
+ * answer line says it ([of]). X: the place a `/video/N` link names (among the post's media, the
+ * card's or the quoted post's) of the post's videos; Instagram: the carousel's item of the post's
+ * items. Numbers only.
+ */
+data class PostItem(val number: Int, val count: Int) {
+    companion object {
+        private const val MAX = 1_000
+
+        /** X's answer line (`XExtractor`): "answer: [the quoted post's |the card's ]video N, M in the post". */
+        private val X_LINE = Regex("""^answer: (?:the quoted post's |the card's )?(?:video|GIF) (\d+), (\d+) in the post""")
+
+        /** Instagram's item line (`InstagramExtractor`): "item N of M: ...". */
+        private val ITEM_LINE = Regex("""^item (\d+) of (\d+): """)
+
+        /** The item main's answer [details] name, or null (another site, no such line). */
+        fun of(details: List<String>): PostItem? = details.firstNotNullOfOrNull { line ->
+            val text = line.trim()
+            val match = X_LINE.find(text) ?: ITEM_LINE.find(text) ?: return@firstNotNullOfOrNull null
+            val number = match.groupValues[1].toIntOrNull()
+            val count = match.groupValues[2].toIntOrNull()
+            if (number != null && count != null && number in 1..MAX && count in 1..MAX) PostItem(number, count) else null
+        }
+    }
+}
+
 /** S0b: main's answer to one census lookup; [hiddenPage]: the hidden page's mark when main read it. */
 sealed interface MainAnswer {
     val hiddenPage: AnswerMark?
 
-    /** Main's [rows]. */
-    class Found(val rows: List<MediaCandidate>, override val hiddenPage: AnswerMark? = null) : MainAnswer {
-        override fun toString(): String = "MainAnswer.Found(rows=${rows.size}, hiddenPage=$hiddenPage)"
+    /** Main's [rows]; 0.4: [item], the post's item they are, when main's answer names it. */
+    class Found(
+        val rows: List<MediaCandidate>,
+        override val hiddenPage: AnswerMark? = null,
+        val item: PostItem? = null,
+    ) : MainAnswer {
+        override fun toString(): String = "MainAnswer.Found(rows=${rows.size}, hiddenPage=$hiddenPage, item=$item)"
     }
 
     /** Main's failure: its [reason] and the HTTP [statusCode] it gave. */
@@ -95,7 +126,13 @@ interface MainLookup {
  *   limit, nor for a link the contracts do not read (a short link).
  * - **V:** [SiteRowCheck] on main's best row and on Master's best row.
  * - **Judge:** the row's class from main's reason as Master's engine sees it (recoverable,
- *   browser, final) against the slot's [Expect].
+ *   browser, final) against the slot's [Expect]; a reason the slot calls ambiguous without the
+ *   session ([Expect.ambiguousWithoutSession]) is "ambiguous (no session)", neither way (0.4).
+ *
+ * Social plan 0.4 (§7.3, the census fixes): each row also holds its setup time (main's identity
+ * of the link) and its end-to-end time, the best row's duration and the post's item main's answer
+ * names (main's and Master's), and the record's repeats and variants (its report key, beside the
+ * endpoint rule).
  *
  * **Stops:** a 429 or a bot check (any ask, the hidden page included, V's too) stops the site for
  * the run and for [COOLDOWN_MILLIS] after (the state). **Budgets** (checked before each step): at
@@ -244,8 +281,10 @@ class SiteCensus(
         private fun step(what: String) = onStep("${site.name} slot $slot: $what")
 
         suspend fun run(): Row {
+            val rowStarted = clock()
             step("main")
             val identity = guarded { main.identify(link) }
+            val setup = (clock() - rowStarted).coerceAtLeast(0)
             if (identity == null) {
                 result = CensusRowResult(slot, kind, skipped = NOT_HANDLED)
                 return this
@@ -284,6 +323,8 @@ class SiteCensus(
                 master = master,
                 requests = record.mainAsks + record.masterAsks + (v?.requests ?: 0) +
                     (master.v?.requests ?: 0) + master.checks,
+                setupMillis = setup,
+                millis = (clock() - rowStarted).coerceAtLeast(0),
             )
             return this
         }
@@ -349,6 +390,7 @@ class SiteCensus(
                 },
                 rows = rows.size,
                 tallest = SiteRowCheck.tallest(rows),
+                bestMillis = SiteRowCheck.best(rows)?.durationMillis,
                 replayed = route.replayed,
                 newRequests = route.newRequests,
                 refused = route.refused,
@@ -382,7 +424,8 @@ class SiteCensus(
             }
         }
 
-        private fun judge(rowClass: RowClass, main: MainPart, session: Boolean): Pair<Boolean, String?> {
+        /** Whether the row is as its slot expects; null with [AMBIGUOUS]: neither way (0.4). */
+        private fun judge(rowClass: RowClass, main: MainPart, session: Boolean): Pair<Boolean?, String?> {
             val expect = kind.expect
             return when {
                 expect.wantsRows(session) && rowClass == RowClass.ROWS -> {
@@ -392,6 +435,7 @@ class SiteCensus(
                 expect.wantsRows(session) -> false to "rows wanted"
                 rowClass == RowClass.ROWS -> false to "rows found"
                 main.reason != null && main.reason in expect.reasons -> true to null
+                !session && main.reason != null && main.reason in expect.ambiguousWithoutSession -> null to AMBIGUOUS
                 else -> false to "another answer"
             }
         }
@@ -401,7 +445,8 @@ class SiteCensus(
             val asks = record.asks().filter { it.asker == LookupRecord.Asker.MAIN }
             val seen = asks.mapNotNullTo(HashSet()) { it.way }
             val hidden = main?.hiddenPage
-            val rows = (main as? MainAnswer.Found)?.rows.orEmpty()
+            val found = main as? MainAnswer.Found
+            val rows = found?.rows.orEmpty()
             return MainPart(
                 answer = when (main) {
                     null -> if (answer == Looked.TimeLimit) "time limit" else "error"
@@ -413,6 +458,8 @@ class SiteCensus(
                 statusCode = (main as? MainAnswer.Failed)?.statusCode,
                 rows = rows.size,
                 tallest = SiteRowCheck.tallest(rows),
+                bestMillis = SiteRowCheck.best(rows)?.durationMillis,
+                item = found?.item,
                 millis = millis,
                 asks = asks,
                 notReached = site.mainWays.filter { way ->
@@ -420,6 +467,8 @@ class SiteCensus(
                 },
                 hiddenPage = hidden,
                 repeated = record.repeatedAsks,
+                repeats = record.repeatAsks,
+                variants = record.variantAsks,
                 afterStop = record.asksAfterStop,
                 botChecks = record.botChecks,
                 stopHosts = record.stopHosts().size,
@@ -499,6 +548,9 @@ class SiteCensus(
         const val STOP_429 = "429"
         const val STOP_BOT_CHECK = "bot check"
         const val STOP_RATE_LIMIT = "rate limit"
+
+        /** 0.4: the judge's word for a reason that, without the session, says nothing about the slot. */
+        const val AMBIGUOUS = "ambiguous (no session)"
         private const val MINUTE_MILLIS = 60_000L
 
         /** Master's engine as route B builds it: on, no module, no capture, the R8 time shares. */

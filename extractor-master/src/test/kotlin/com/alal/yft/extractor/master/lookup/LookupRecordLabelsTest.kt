@@ -19,7 +19,9 @@ import org.junit.Test
 /**
  * Social plan S0a: a record given the census's labels writes each ask's way, its 2xx answer's
  * reading and shape, and counts repeated asks, asks after a stop and bot checks; a record given
- * none (every lookup of the app, route B included) is as before. No live calls.
+ * none (every lookup of the app, route B included) is as before. 0.4: a labelled record also
+ * splits the asks sent again into repeats (its report key: method, address, body, identity class)
+ * and variants (the same method and address, another body or identity class). No live calls.
  */
 class LookupRecordLabelsTest {
     private val page = "https://www.example.test/post/1"
@@ -67,8 +69,12 @@ class LookupRecordLabelsTest {
             assertNull(ask.shape)
             assertFalse(ask.repeated)
             assertFalse(ask.afterStop)
+            assertFalse(ask.repeat)
+            assertFalse(ask.variant)
         }
         assertEquals(0, record.repeatedAsks)
+        assertEquals(0, record.repeatAsks)
+        assertEquals(0, record.variantAsks)
         assertEquals(0, record.asksAfterStop)
         assertEquals(0, record.botChecks)
         assertEquals(emptyList<String>(), record.stopHosts())
@@ -120,6 +126,45 @@ class LookupRecordLabelsTest {
     }
 
     @Test
+    fun `0_4 - a repeat is the same report key, a variant the same address with another body or identity class`() = runTest {
+        val record = LookupRecord(labels = TestLabels())
+        withContext(record) {
+            val http = LookupRecorder(serving())
+            http.get(page, headers, MAX)
+            http.get(page, headers, MAX)
+            http.get(page, linkedMapOf("User-Agent" to "Other/2.0"), MAX)
+            http.get(page, headers + ("Cookie" to "sessionid=a"), MAX)
+            // The cookie's value is not the identity class: a renewed cookie is the same ask.
+            http.get(page, headers + ("Cookie" to "sessionid=b"), MAX)
+            http.postJson(api, "{\"a\":1}", headers, MAX)
+            http.postJson(api, "{\"a\":2}", headers, MAX)
+            http.postJson(api, "{\"a\":1}", headers, MAX)
+            http.get(OTHER, linkedMapOf("user-agent" to "YftTest/1.0"), MAX)
+            http.get(OTHER, linkedMapOf("Accept" to "*/*", "USER-AGENT" to " YftTest/1.0 "), MAX)
+        }
+
+        val asks = record.asks()
+        assertEquals(
+            listOf(false, true, false, false, true, false, false, true, false, true),
+            asks.map { it.repeat },
+        )
+        assertEquals(
+            listOf(false, false, true, true, false, false, true, false, false, false),
+            asks.map { it.variant },
+        )
+        assertEquals(4, record.repeatAsks)
+        assertEquals(3, record.variantAsks)
+        // The endpoint's own count (route B's R2 key: method, address and body, any headers) is as before.
+        assertEquals(
+            listOf(false, true, true, true, true, false, false, true, false, true),
+            asks.map { it.repeated },
+        )
+        assertEquals(6, record.repeatedAsks)
+        assertEquals(10, record.mainAsks)
+        assertFalse("no key in its text", record.toString().contains("key"))
+    }
+
+    @Test
     fun `a 429 stops its host - a later ask there is after the stop, one already running is not`() {
         var now = 1_000L
         val record = LookupRecord(clock = { now }, labels = TestLabels())
@@ -158,6 +203,7 @@ class LookupRecordLabelsTest {
         assertEquals(listOf("cdn.example.test"), record.stopHosts())
         assertEquals(listOf(false, true), record.asks().map { it.afterStop })
         assertEquals(listOf(false, true), record.asks().map { it.repeated })
+        assertEquals("the same file check again", listOf(false, true), record.asks().map { it.repeat })
     }
 
     @Test
@@ -239,6 +285,8 @@ class LookupRecordLabelsTest {
         assertEquals(LookupRecord.MAX_LISTED, record.asks().size)
         assertEquals(LookupRecord.MAX_LISTED + 6, record.mainAsks)
         assertEquals(LookupRecord.MAX_LISTED + 5, record.repeatedAsks)
+        assertEquals(LookupRecord.MAX_LISTED + 5, record.repeatAsks)
+        assertEquals(0, record.variantAsks)
     }
 
     @Test

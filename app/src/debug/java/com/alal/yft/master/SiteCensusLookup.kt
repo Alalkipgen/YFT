@@ -11,16 +11,24 @@ import com.alal.yft.detection.SiteLookupCache
 import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.SiteAdapterSelection
 import com.alal.yft.extractor.api.SiteExtractionFailure
+import com.alal.yft.extractor.api.SiteExtractionRequest
+import com.alal.yft.extractor.api.SiteExtractionResult
+import com.alal.yft.extractor.api.SiteExtractor
 import com.alal.yft.extractor.api.SiteExtractorRegistry
 import com.alal.yft.extractor.master.lookup.AnswerMark
 import com.alal.yft.extractor.master.social.LinkIdentity
 import com.alal.yft.extractor.master.social.MainAnswer
 import com.alal.yft.extractor.master.social.MainLookup
+import com.alal.yft.extractor.master.social.PostItem
 import com.alal.yft.extractor.sites.facebook.FacebookExtractor
 import com.alal.yft.extractor.sites.instagram.InstagramExtractor
 import com.alal.yft.extractor.sites.tiktok.TikTokAgents
 import com.alal.yft.extractor.sites.tiktok.TikTokExtractor
 import com.alal.yft.extractor.sites.x.XExtractor
+import kotlin.coroutines.AbstractCoroutineContextElement
+import kotlin.coroutines.CoroutineContext
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.withContext
 
 /**
  * Social plan S0c (`MASTER_KEY_SOCIAL_PLAN.md` §7.1): main's own lookup for the site census, as
@@ -32,6 +40,11 @@ import com.alal.yft.extractor.sites.x.XExtractor
  * The identity is the browser's: [userAgent] (the agent YFT's tab sends) and [cookies] (the
  * browser's cookies for the link; only whether a session was there reaches the report). The
  * hidden page's own loads are not asks of a client: only its mark comes back ([markOf]).
+ *
+ * Social plan 0.4 (§7.3): the coordinator keeps no answer line for rows, so [registry]'s adapters
+ * are tapped ([Tapped]: each adapter as it is) and a successful answer's lines reach the lookup
+ * ([AnswerLines], in its coroutine context): the post's item main's answer names ("item N of M")
+ * comes from them. Main's own code is unchanged.
  */
 class SiteCensusLookup(
     private val registry: SiteExtractorRegistry,
@@ -49,13 +62,34 @@ class SiteCensusLookup(
 
     override suspend fun lookup(link: String, identity: LinkIdentity): MainAnswer {
         val marked = MarkedHiddenPages(hiddenPages)
-        val outcome = SiteAdapterCoordinator(registry, mergeSupport(), SiteLookupCache(), marked).inspect(
-            pageUrl = link,
-            requestContext = BrowserRequestContext(link, identity.userAgent, identity.cookie),
-            nowEpochMs = clock(),
-            fresh = true,
-        )
-        return answerOf(outcome, marked.mark)
+        val lines = AnswerLines()
+        val outcome = withContext(lines) {
+            SiteAdapterCoordinator(registry, mergeSupport(), SiteLookupCache(), marked).inspect(
+                pageUrl = link,
+                requestContext = BrowserRequestContext(link, identity.userAgent, identity.cookie),
+                nowEpochMs = clock(),
+                fresh = true,
+            )
+        }
+        return answerOf(outcome, marked.mark, lines.details)
+    }
+
+    /** 0.4: the last successful answer's lines of one lookup, as [Tapped] hands them over. */
+    private class AnswerLines : AbstractCoroutineContextElement(AnswerLines) {
+        @Volatile
+        var details: List<String> = emptyList()
+
+        companion object Key : CoroutineContext.Key<AnswerLines>
+    }
+
+    /** 0.4: [adapter] as it is; its successful answer's lines also go to the lookup's [AnswerLines]. */
+    private class Tapped(private val adapter: SiteExtractor) : SiteExtractor by adapter {
+        override suspend fun extract(request: SiteExtractionRequest): SiteExtractionResult =
+            adapter.extract(request).also { result ->
+                if (result is SiteExtractionResult.Success) {
+                    currentCoroutineContext()[AnswerLines]?.details = result.details
+                }
+            }
     }
 
     /** The hidden page as main reads it; [mark] is its answer's mark, null when it was not read. */
@@ -76,7 +110,8 @@ class SiteCensusLookup(
         /**
          * The census's four adapters as the app builds them (`SiteAdapterModule`): TikTok on its
          * own client ([tikTokHttp]: a short link's redirect cookies go on), the WebView's agent and
-         * the public download service; Facebook, X and Instagram on [http].
+         * the public download service; Facebook, X and Instagram on [http]. 0.4: each tapped
+         * ([Tapped]), so a lookup also gets its answer's lines.
          */
         fun registry(
             http: ExtractorHttpClient,
@@ -92,13 +127,20 @@ class SiteCensusLookup(
                 FacebookExtractor(http),
                 XExtractor(http),
                 InstagramExtractor(http),
-            ),
+            ).map(::Tapped),
         )
 
-        /** Main's answer from the coordinator's [outcome]; the HTTP status from its Details line. */
-        fun answerOf(outcome: SiteAdapterOutcome, hiddenPage: AnswerMark?): MainAnswer = when (outcome) {
+        /**
+         * Main's answer from the coordinator's [outcome]; the HTTP status from its Details line;
+         * 0.4: the post's item from main's answer lines ([details]).
+         */
+        fun answerOf(
+            outcome: SiteAdapterOutcome,
+            hiddenPage: AnswerMark?,
+            details: List<String> = emptyList(),
+        ): MainAnswer = when (outcome) {
             SiteAdapterOutcome.NotHandled -> MainAnswer.NotHandled
-            is SiteAdapterOutcome.Detected -> MainAnswer.Found(outcome.candidates, hiddenPage)
+            is SiteAdapterOutcome.Detected -> MainAnswer.Found(outcome.candidates, hiddenPage, PostItem.of(details))
             is SiteAdapterOutcome.Failed -> MainAnswer.Failed(
                 reason = outcome.reason,
                 statusCode = outcome.details.firstNotNullOfOrNull { line ->

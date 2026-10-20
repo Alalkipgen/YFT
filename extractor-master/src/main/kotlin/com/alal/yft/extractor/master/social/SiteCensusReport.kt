@@ -44,7 +44,11 @@ internal enum class RowClass(val label: String) {
 /** S0b: how Master's way ran for a row. */
 internal enum class MasterRun(val label: String) { ROUTE_B("route B"), TRIAL("trial"), NOT_RUN("not run") }
 
-/** S0b: main's part of a row: its answer, its asks (labelled) and the ways it did not reach. */
+/**
+ * S0b: main's part of a row: its answer, its asks (labelled) and the ways it did not reach. 0.4:
+ * [bestMillis], the best row's duration; [item], the post's item main's answer names; [repeats]
+ * and [variants], the record's split of the asks sent again ([repeated] is the endpoint's count).
+ */
 internal class MainPart(
     val answer: String,
     val reason: SiteExtractionFailure?,
@@ -59,9 +63,13 @@ internal class MainPart(
     val afterStop: Int,
     val botChecks: Int,
     val stopHosts: Int,
+    val bestMillis: Long? = null,
+    val item: PostItem? = null,
+    val repeats: Int = 0,
+    val variants: Int = 0,
 )
 
-/** S0b: Master's part of a row: how it ran (or why not), its answer, route B's counts, V. */
+/** S0b: Master's part of a row: how it ran (or why not), its answer, route B's counts, V; 0.4: the best row's duration. */
 internal class MasterPart(
     val run: MasterRun,
     val why: String?,
@@ -69,6 +77,7 @@ internal class MasterPart(
     val reason: SiteExtractionFailure? = null,
     val rows: Int = 0,
     val tallest: Int? = null,
+    val bestMillis: Long? = null,
     val replayed: Int = 0,
     val newRequests: Int = 0,
     val refused: Int = 0,
@@ -79,7 +88,11 @@ internal class MasterPart(
     val millis: Long = 0,
 )
 
-/** S0b: one row (a link in its [slot]); [skipped] says why it was not looked up. */
+/**
+ * S0b: one row (a link in its [slot]); [skipped] says why it was not looked up. 0.4: a looked-up
+ * row's [setupMillis] (main's identity of the link) and [millis] (end to end: main, V, Master);
+ * [ambiguous]: the judge said neither way ([expected] null, its [note] says why).
+ */
 internal class CensusRowResult(
     val slot: Int,
     val kind: Kind,
@@ -93,7 +106,11 @@ internal class CensusRowResult(
     val vSkipped: String? = null,
     val master: MasterPart? = null,
     val requests: Int = 0,
-)
+    val setupMillis: Long = 0,
+    val millis: Long = 0,
+) {
+    val ambiguous: Boolean get() = main != null && expected == null
+}
 
 /** S0b: one site of a run; [bytes] is -1 when not measured; [cooldownFrom]: when a 429 or bot check stopped it. */
 internal class CensusSiteResult(
@@ -121,8 +138,9 @@ internal class CensusRunResult(
 /**
  * S0b: a site's number (§7.1): main's recoverable failures among the rows that should download
  * (the slot's kind wants rows, with the session when it was there), and how many of them Master's
- * way recovered (route B rows that passed V); the other classes, the rows not as expected, V on
- * main's rows and the trials beside it.
+ * way recovered (route B rows that passed V); the other classes, the rows not as expected (0.4:
+ * and the ambiguous ones, which are not counted as either), V on main's rows and the trials
+ * beside it.
  */
 internal class SiteNumber(rows: List<CensusRowResult>) {
     private val looked = rows.filter { it.main != null }
@@ -139,6 +157,7 @@ internal class SiteNumber(rows: List<CensusRowResult>) {
     val final = download.count { it.rowClass == RowClass.FINAL }
     val timeLimit = download.count { it.rowClass == RowClass.TIME_LIMIT }
     val notAsExpected = looked.count { it.expected == false }
+    val ambiguous = looked.count { it.ambiguous }
     val routeB = looked.count { it.master?.run == MasterRun.ROUTE_B }
     val trialCount = trials.size
     val trialRows = trials.count { (it.master?.rows ?: 0) > 0 }
@@ -183,6 +202,7 @@ internal object SiteCensusJson {
                 field("final", number.final)
                 field("timeLimit", number.timeLimit)
                 field("notAsExpected", number.notAsExpected)
+                field("ambiguous", number.ambiguous)
                 field("routeB", number.routeB)
                 field("trials", number.trialCount)
                 field("trialRows", number.trialRows)
@@ -202,8 +222,11 @@ internal object SiteCensusJson {
         field("skipped", row.skipped)
         field("class", row.rowClass?.label)
         field("expected", row.expected)
+        if (row.ambiguous) field("ambiguous", true)
         field("note", row.note)
         field("req", row.requests.takeIf { row.main != null })
+        field("setupMs", row.setupMillis.takeIf { row.main != null })
+        field("ms", row.millis.takeIf { row.main != null })
         row.main?.let { raw("main", main(it)) }
         row.v?.let { raw("v", checked(it)) }
         field("vSkipped", row.vSkipped)
@@ -216,10 +239,15 @@ internal object SiteCensusJson {
         field("status", main.statusCode)
         field("rows", main.rows)
         field("tallest", main.tallest)
+        main.bestMillis?.let { raw("bestS", decimalSeconds(it)) }
+        field("item", main.item?.number)
+        field("items", main.item?.count)
         field("ms", main.millis)
         field("hiddenPage", main.hiddenPage?.label)
         strings("notReached", main.notReached)
         field("repeated", main.repeated)
+        field("repeats", main.repeats)
+        field("variants", main.variants)
         field("afterStop", main.afterStop)
         field("botChecks", main.botChecks)
         field("stopHosts", main.stopHosts)
@@ -234,6 +262,7 @@ internal object SiteCensusJson {
             field("reason", master.reason?.name)
             field("rows", master.rows)
             field("tallest", master.tallest)
+            master.bestMillis?.let { raw("bestS", decimalSeconds(it)) }
             field("replayed", master.replayed)
             field("new", master.newRequests)
             field("refused", master.refused)
@@ -265,9 +294,14 @@ internal object SiteCensusJson {
         if (!ask.answered) field("noAnswer", true)
         if (ask.authorized) field("authorized", true)
         if (ask.repeated) field("repeated", true)
+        if (ask.repeat) field("repeat", true)
+        if (ask.variant) field("variant", true)
         if (ask.afterStop) field("afterStop", true)
         if (ask.rateLimited) field("rateLimited", true)
     }
+
+    /** 0.4: [millis] as seconds with one decimal ("31.5"), a JSON number. */
+    fun decimalSeconds(millis: Long): String = String.format(Locale.US, "%.1f", millis.coerceAtLeast(0) / 1000.0)
 
     /** One JSON object; fields with a null value are left out. */
     internal fun obj(build: Fields.() -> Unit): String = Fields().apply(build).text()
@@ -331,6 +365,15 @@ internal object SiteCensusReport {
                 "hosts only (HLS or another host: unknown).",
         )
         appendLine("The hidden page's own loads are neither counted nor listed.")
+        appendLine(
+            "Asks sent again: a repeat is the same ask (method, address, body, signed in or not, agent); " +
+                "a variant, the same method and address with another body or identity.",
+        )
+        appendLine(
+            "Times: main's lookup, the row's setup (main's identity of the link) and the whole row; " +
+                "best: the best row's duration; item N of M: X's /video/N place of the post's videos, " +
+                "Instagram's item of the post's items.",
+        )
         if (run.notes.isNotEmpty()) appendLine("Notes: ${run.notes.joinToString("; ")}")
         run.sites.forEach { site -> site(site) }
     }
@@ -354,7 +397,7 @@ internal object SiteCensusReport {
         )
         appendLine(
             "  also: browser ${number.browser}, final ${number.final}, time limit ${number.timeLimit}; " +
-                "not as expected ${number.notAsExpected}; main's V pass ${number.mainPass}, " +
+                "not as expected ${number.notAsExpected}, ambiguous ${number.ambiguous}; main's V pass ${number.mainPass}, " +
                 "fail ${number.mainFail}, unknown ${number.mainUnknown}; route B ${number.routeB}; " +
                 "trials ${number.trialCount} (rows ${number.trialRows}, V pass ${number.trialPass})",
         )
@@ -370,19 +413,27 @@ internal object SiteCensusReport {
             return
         }
         val answer = when (main.answer) {
-            "rows" -> "rows ${main.rows}" + (main.tallest?.let { " (tallest $it)" } ?: "")
+            "rows" -> "rows ${main.rows}" + rowsNote(main.tallest, main.bestMillis, main.item)
             "failed" -> "failed ${main.reason?.name}" + (main.statusCode?.let { " $it" } ?: "")
             else -> main.answer
         }
         val v = row.v?.let { ", V ${checked(it)}" } ?: row.vSkipped?.let { ", V not run ($it)" } ?: ""
-        val verdict = if (row.expected == true) "as expected" else "not as expected (${row.note})"
-        appendLine("$head: $answer [${row.rowClass?.label}]$v — $verdict; requests ${row.requests}, ${main.millis} ms")
+        val verdict = when (row.expected) {
+            true -> "as expected"
+            null -> row.note ?: SiteCensus.AMBIGUOUS
+            false -> "not as expected (${row.note})"
+        }
+        appendLine(
+            "$head: $answer [${row.rowClass?.label}]$v — $verdict; requests ${row.requests}, " +
+                "${main.millis} ms (setup ${row.setupMillis} ms, row ${row.millis} ms)",
+        )
         val asks = main.asks.joinToString(" · ") { ask(it) }.ifEmpty { "no ask" }
         appendLine("    main: $asks")
         val extra = listOfNotNull(
             main.hiddenPage?.let { "hidden page: ${it.label}" },
             main.notReached.takeIf { it.isNotEmpty() }?.let { "not reached: ${it.joinToString(", ")}" },
-            main.repeated.takeIf { it > 0 }?.let { "repeated $it" },
+            main.repeats.takeIf { it > 0 }?.let { "repeats $it" },
+            main.variants.takeIf { it > 0 }?.let { "variants $it" },
             main.afterStop.takeIf { it > 0 }?.let { "after a stop $it" },
             main.botChecks.takeIf { it > 0 }?.let { "bot checks $it" },
             main.stopHosts.takeIf { it > 0 }?.let { "stopped hosts $it" },
@@ -398,7 +449,7 @@ internal object SiteCensusReport {
         }
         val run = master.run.label + (master.why?.let { " after $it" } ?: "")
         val answer = when (master.answer) {
-            "rows" -> "rows ${master.rows}" + (master.tallest?.let { " (tallest $it)" } ?: "")
+            "rows" -> "rows ${master.rows}" + rowsNote(master.tallest, master.bestMillis, null)
             "failed", "skipped" -> "${master.answer} ${master.reason?.name}"
             else -> master.answer
         }
@@ -414,11 +465,19 @@ internal object SiteCensusReport {
         checked.verdict.label + listOfNotNull(checked.statusCode?.toString(), checked.why)
             .joinToString(" ").let { if (it.isEmpty()) "" else " $it" }
 
+    /** " (tallest 1280; best 31.5 s; item 2 of 2)", each part when known; "" when none is. */
+    private fun rowsNote(tallest: Int?, bestMillis: Long?, item: PostItem?): String = listOfNotNull(
+        tallest?.let { "tallest $it" },
+        bestMillis?.let { "best ${SiteCensusJson.decimalSeconds(it)} s" },
+        item?.let { "item ${it.number} of ${it.count}" },
+    ).joinToString("; ").let { if (it.isEmpty()) "" else " ($it)" }
+
     private fun ask(ask: LookupRecord.Ask): String {
         val answer = ask.statusCode?.toString() ?: ask.failure?.name ?: if (ask.answered) "answered" else "no answer"
         val flags = listOfNotNull(
             "authorized".takeIf { ask.authorized },
-            "repeated".takeIf { ask.repeated },
+            "repeat".takeIf { ask.repeat },
+            "variant".takeIf { ask.variant },
             "after a stop".takeIf { ask.afterStop },
             "429".takeIf { ask.rateLimited && ask.statusCode != HTTP_TOO_MANY },
         )

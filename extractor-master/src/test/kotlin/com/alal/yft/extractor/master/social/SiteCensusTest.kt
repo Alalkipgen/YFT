@@ -17,6 +17,7 @@ import com.alal.yft.extractor.api.json.BoundedJsonParser
 import com.alal.yft.extractor.api.json.JsonValue
 import com.alal.yft.extractor.api.json.asArrayOrEmpty
 import com.alal.yft.extractor.api.json.asBooleanOrNull
+import com.alal.yft.extractor.api.json.asDoubleOrNull
 import com.alal.yft.extractor.api.json.asLongOrNull
 import com.alal.yft.extractor.api.json.asStringOrNull
 import com.alal.yft.extractor.api.json.get
@@ -102,9 +103,18 @@ class SiteCensusTest {
         assertEquals("YFT site census: X recoverable 0 of 1, Master 0", outcome.firstLine)
         assertNull(outcome.stopped)
         val lines = outcome.report.lines()
-        assertTrue(lines.toString(), lines.contains("  slot 1 video, session: rows 3 (tallest 1280) [rows], V pass 206 — as expected; requests 6, 0 ms"))
+        assertTrue(
+            lines.toString(),
+            lines.contains(
+                "  slot 1 video, session: rows 3 (tallest 1280; best 31.5 s; item 1 of 1) [rows], V pass 206 — as expected; " +
+                    "requests 6, 0 ms (setup 0 ms, row 0 ms)",
+            ),
+        )
         assertTrue(lines.toString(), lines.contains("    main: tweet-result GET 200 data ${main["asks"][0]["shape"].asStringOrNull} 0 ms"))
-        assertTrue(lines.toString(), lines.contains("    Master trial: rows 3 (tallest 1280), V pass 206; replayed 1, new 0, refused 0, checks 3, 0 ms"))
+        assertTrue(
+            lines.toString(),
+            lines.contains("    Master trial: rows 3 (tallest 1280; best 31.5 s), V pass 206; replayed 1, new 0, refused 0, checks 3, 0 ms"),
+        )
     }
 
     @Test
@@ -141,7 +151,9 @@ class SiteCensusTest {
         assertEquals("YFT site census: TikTok recoverable 1 of 1, Master 1", outcome.firstLine)
         assertTrue(
             outcome.report,
-            outcome.report.lines().any { it.startsWith("    Master route B after RESPONSE_CHANGED: rows 1 (tallest 1280), V pass 206;") },
+            outcome.report.lines().any {
+                it.startsWith("    Master route B after RESPONSE_CHANGED: rows 1 (tallest 1280; best 12.0 s), V pass 206;")
+            },
         )
     }
 
@@ -528,6 +540,135 @@ class SiteCensusTest {
         assertEquals(5L, state.lastAtMillis)
     }
 
+    @Test
+    fun `0_4 - a row holds its setup and end-to-end times, the best row's duration and the post's item`() = runTest {
+        val http = FakeExtractorHttpClient(
+            getResponder = { url, _ ->
+                FakeExtractorHttpClient.json(Fixtures.read("x/tweet_card_carousel.json"), url).takeIf { url.startsWith(WIDGET) }
+            },
+            probeResponder = { _, _ -> ExtractorProbeResult.Answered(206, 1_000L) },
+        )
+        val app = AppMain(http)
+        val timed = object : MainLookup {
+            override suspend fun identify(link: String): LinkIdentity? {
+                now += 40
+                return app.identify(link)
+            }
+
+            override suspend fun lookup(link: String, identity: LinkIdentity): MainAnswer {
+                now += 1_200
+                return app.lookup(link, identity)
+            }
+        }
+
+        val outcome = census(timed, http).run(listOf(SiteWays.X), mapOf("x" to mapOf(SEVERAL to X_CAROUSEL_2)), null)
+
+        val row = json(outcome.json)["sites"][0]["rows"][0]
+        assertEquals("main's identity of the link", 40L, row["setupMs"].asLongOrNull)
+        assertEquals(1_200L, row["main"]["ms"].asLongOrNull)
+        assertEquals("the whole row: setup, main, V and Master", 1_240L, row["ms"].asLongOrNull)
+        assertEquals("the card's second video: 9 009 ms", 9.0, row["main"]["bestS"].asDoubleOrNull)
+        assertEquals(2L, row["main"]["item"].asLongOrNull)
+        assertEquals(2L, row["main"]["items"].asLongOrNull)
+        assertEquals("pass", row["v"]["verdict"].asStringOrNull)
+        assertTrue(
+            outcome.report,
+            outcome.report.lines().any {
+                it.startsWith("  slot 6 several videos: rows 2 (tallest 1280; best 9.0 s; item 2 of 2) [rows], V pass 206 — as expected;") &&
+                    it.endsWith(", 1200 ms (setup 40 ms, row 1240 ms)")
+            },
+        )
+        val skipped = census(timed, http).run(listOf(SiteWays.X), mapOf("x" to mapOf(1 to TT_POST)), null)
+        assertNull("a row not looked up has no times", json(skipped.json)["sites"][0]["rows"][0]["setupMs"])
+    }
+
+    @Test
+    fun `0_4 - the post's item comes from main's answer line, X's or Instagram's, and nothing else`() {
+        assertEquals(
+            PostItem(2, 2),
+            PostItem.of(listOf("widget: 200", "answer: the card's video 2, 2 in the post · 2 MP4 files (1280/568)")),
+        )
+        assertEquals(PostItem(1, 1), PostItem.of(listOf("answer: the quoted post's video 1, 1 in the post · 3 MP4 files")))
+        assertEquals("X's place counts the post's photos", PostItem(3, 1), PostItem.of(listOf("answer: GIF 3, 1 in the post · 1 MP4 files")))
+        assertEquals(PostItem(2, 3), PostItem.of(listOf("item 2 of 3: 2 files (1080/720), DASH none")))
+        assertNull(
+            PostItem.of(
+                listOf("answer: photos only", "answer: none · no file opened", "item 0 of 3: 1 files", "the item 2 of 3: 1 files"),
+            ),
+        )
+        assertNull(PostItem.of(emptyList()))
+    }
+
+    @Test
+    fun `0_4 - Instagram's removed slot signed out is ambiguous, signed in it is not as expected, and a photo post stays no media`() =
+        runTest {
+            val http = FakeExtractorHttpClient()
+            val links = mapOf("instagram" to mapOf(IG_REMOVED to IG_REEL))
+            val login = MainAnswer.Failed(SiteExtractionFailure.LOGIN_REQUIRED, 401)
+
+            val signedOut = census(ScriptedMain { _, _ -> login }, http).run(listOf(SiteWays.INSTAGRAM), links, null)
+            val signedIn = census(
+                ScriptedMain(cookies = mapOf("instagram" to "sessionid=$COOKIE_VALUE")) { _, _ -> login },
+                http,
+            ).run(listOf(SiteWays.INSTAGRAM), links, null)
+            val photo = census(ScriptedMain { _, _ -> MainAnswer.Failed(SiteExtractionFailure.NO_MEDIA_FOUND) }, FakeExtractorHttpClient())
+                .run(listOf(SiteWays.TIKTOK), mapOf("tiktok" to mapOf(TT_PHOTO to TT_POST)), null)
+
+            val out = json(signedOut.json)["sites"][0]
+            val row = out["rows"][0]
+            assertNull("neither way", row["expected"])
+            assertEquals(true, row["ambiguous"].asBooleanOrNull)
+            assertEquals(SiteCensus.AMBIGUOUS, row["note"].asStringOrNull)
+            assertEquals(1L, out["number"]["ambiguous"].asLongOrNull)
+            assertEquals(0L, out["number"]["notAsExpected"].asLongOrNull)
+            assertTrue(
+                signedOut.report,
+                signedOut.report.lines().contains(
+                    "  slot 10 removed: failed LOGIN_REQUIRED 401 [browser] — ambiguous (no session); " +
+                        "requests 0, 0 ms (setup 0 ms, row 0 ms)",
+                ),
+            )
+            assertTrue(signedOut.report, signedOut.report.lines().any { "not as expected 0, ambiguous 1;" in it })
+            val inRow = json(signedIn.json)["sites"][0]["rows"][0]
+            assertEquals(true, inRow["session"].asBooleanOrNull)
+            assertEquals("with the session, sign-in is no answer for a removed post", false, inRow["expected"].asBooleanOrNull)
+            assertEquals("another answer", inRow["note"].asStringOrNull)
+            assertNull(inRow["ambiguous"])
+            assertEquals(0L, json(signedIn.json)["sites"][0]["number"]["ambiguous"].asLongOrNull)
+            val photoRow = json(photo.json)["sites"][0]["rows"][0]
+            assertEquals("NO_MEDIA_FOUND", photoRow["main"]["reason"].asStringOrNull)
+            assertEquals(true, photoRow["expected"].asBooleanOrNull)
+            assertNull(photoRow["ambiguous"])
+            assertTrue("Instagram: nothing asked", http.requestedUrls.isEmpty() && http.probedUrls.isEmpty())
+        }
+
+    @Test
+    fun `0_4 - main's asks sent again are split into repeats and variants, beside the endpoint's count`() = runTest {
+        val http = xSite()
+        val recorder = LookupRecorder(http)
+        val main = ScriptedMain { _, identity ->
+            val agent = mapOf("User-Agent" to identity.userAgent.orEmpty())
+            recorder.get("$WIDGET?id=1", agent, 1_000_000)
+            recorder.get("$WIDGET?id=1", agent, 1_000_000)
+            recorder.get("$WIDGET?id=1", mapOf("User-Agent" to "Other/2.0"), 1_000_000)
+            MainAnswer.Failed(SiteExtractionFailure.LOGIN_REQUIRED)
+        }
+
+        val outcome = census(main, http).run(listOf(SiteWays.X), mapOf("x" to mapOf(X_AGE_LIMITED to X_POST)), null)
+
+        val row = json(outcome.json)["sites"][0]["rows"][0]
+        assertEquals("the endpoint's own count, as before", 2L, row["main"]["repeated"].asLongOrNull)
+        assertEquals(1L, row["main"]["repeats"].asLongOrNull)
+        assertEquals("the same address with another agent", 1L, row["main"]["variants"].asLongOrNull)
+        val asks = row["main"]["asks"].asArrayOrEmpty
+        assertEquals(listOf(null, true, null), asks.map { it["repeat"].asBooleanOrNull })
+        assertEquals(listOf(null, null, true), asks.map { it["variant"].asBooleanOrNull })
+        assertEquals("not run", row["master"]["run"].asStringOrNull)
+        assertTrue(outcome.report, outcome.report.lines().contains("    repeats 1; variants 1"))
+        assertTrue(outcome.report, "(repeat)" in outcome.report && "(variant)" in outcome.report)
+        assertEquals(3, http.requestedUrls.size)
+    }
+
     private fun census(
         main: MainLookup,
         http: ExtractorHttpClient,
@@ -567,7 +708,7 @@ class SiteCensusTest {
                 NOW_MS,
             )
             return when (val result = selected.extractor.extract(request)) {
-                is SiteExtractionResult.Success -> MainAnswer.Found(result.candidates)
+                is SiteExtractionResult.Success -> MainAnswer.Found(result.candidates, item = PostItem.of(result.details))
                 is SiteExtractionResult.Failure -> MainAnswer.Failed(result.reason, result.httpStatusCode)
             }
         }
@@ -601,8 +742,15 @@ class SiteCensusTest {
 
         /** The slots of the site table these tests use (SiteWays). */
         const val X_REMOVED = 8
+        const val X_AGE_LIMITED = 7
+        const val SEVERAL = 6
         const val SIGN_IN_ONLY_IG = 9
+        const val IG_REMOVED = 10
         const val DESKTOP_HD = 10
+        const val TT_PHOTO = 6
+
+        /** extractor-sites' fixture `x/tweet_card_carousel.json` (a made-up post), its second video. */
+        const val X_CAROUSEL_2 = "https://x.com/fixture_user/status/1786000000000000090/video/2"
 
         /** Master's embed player's shape with a file on TikTok's media host, its size stated. */
         val TT_EMBED_CDN: String = TT_EMBED

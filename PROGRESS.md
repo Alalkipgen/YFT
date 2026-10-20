@@ -1,5 +1,31 @@
 # YFT Master Extractor backup
 
+## Social plan 0.4 (a) — the census fixes (2026-10-20)
+
+- Times: each looked-up row holds its setup time (main's identity of the link) and its end-to-end
+  time (main, V, Master) beside main's own time; the report's row line says "N ms (setup N ms,
+  row N ms)", the export `setupMs` and `ms`.
+- A report key of the record's own (labelled records only, so the census only): the method,
+  address, body and identity class (signed in or not, and the agent named; never a cookie's
+  value), hashed and never exported. It splits main's asks sent again into repeats (the same key)
+  and variants (the same method and address with another body or identity class): per ask
+  (`repeat`, `variant`), per row (`repeats`, `variants`; the report's "repeats N; variants N").
+  `LookupAsk` (its `endpoint`, route B's R2 key) is unchanged, and so are the endpoint rule, its
+  enforcement, the host stops and the endpoint's own count (`repeated`, still in the export).
+- The best row's duration (seconds, one decimal; main's and Master's, `bestS`) and the post's
+  item main's answer names ("item N of M", `item` / `items`): X's answer line (the place a
+  `/video/N` link names, of the post's videos; the card's or the quoted post's included) and
+  Instagram's carousel item of the post's items. The screen's main (debug only) taps the four
+  adapters, each as it is, so a lookup gets its answer's lines; main's code is unchanged.
+- The judge: Instagram's removed slot, signed out, with main's sign-in answer reads "ambiguous (no
+  session)" (`ambiguous`; neither as expected nor not, counted apart in the site's number and the
+  report's "also" line); with the session it stays "not as expected". The photo posts keep
+  `NO_MEDIA_FOUND`. The state's format stays 1; an older export only lacks the new fields.
+- Tests: `SiteCensusTest` +4 (20), `LookupRecordLabelsTest` +1 (12), `SiteWaysTest` (Instagram's
+  removed kind), `SiteCensusLookupTest` +1 (6, the app's debug tests). Local (JDK 17):
+  `:extractor-master:test` 792 tests (2 skipped) and `SiteCensusLookupTest` 6 passed. Next: 0.4
+  (b), the site census diff, then the census APK.
+
 ## Social plan 0.1 — X's card fix in main (2026-10-20)
 
 - Main's X reader (`XSyndication.parse`) reads the post's own media (`mediaDetails`), then the

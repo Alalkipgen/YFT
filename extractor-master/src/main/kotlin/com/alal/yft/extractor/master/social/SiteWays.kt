@@ -19,13 +19,16 @@ import java.net.URI
  * about the post, one of [reasons], is the right answer and anything else is "not as expected".
  * [rowsWithSession]: a sign-in-only kind downloads when the browser has the site's session.
  * [minHeight]: the tallest row should be at least this tall (a post only the desktop page lists
- * in HD).
+ * in HD). Social plan 0.4: [ambiguousWithoutSession]: main's reasons that, without the site's
+ * session in the browser, say nothing about this kind (Instagram asks every signed-out visitor to
+ * sign in, S0d): such a row is neither as expected nor not, but "ambiguous (no session)".
  */
 data class Expect(
     val rows: Boolean,
     val reasons: Set<SiteExtractionFailure> = emptySet(),
     val minHeight: Int? = null,
     val rowsWithSession: Boolean = false,
+    val ambiguousWithoutSession: Set<SiteExtractionFailure> = emptySet(),
 ) {
     /** Whether the slot should download, with or without the site's [session] in the browser. */
     fun wantsRows(session: Boolean): Boolean = rows || rowsWithSession && session
@@ -79,7 +82,7 @@ class Site internal constructor(
  *   sign-in); region-limited (region, or private: TikTok's status for one page is not final, P46);
  *   removed; a post only the desktop page lists in HD (rows, at least 720 lines).
  * - **Instagram** (10): 3 single videos, 3 reels, a carousel with videos; photo-only (no media);
- *   sign-in-only (as Facebook's); removed.
+ *   sign-in-only (as Facebook's); removed (signed out, main's sign-in answer is ambiguous: 0.4).
  * - **X** (8): 3 videos, a GIF, a quoted post's video, several videos; age-limited and removed. X's
  *   main answers a post its widget does not show (a 404, an empty answer, a tombstone) with no
  *   media and its own message (P48), so those kinds also accept [NO_MEDIA_FOUND].
@@ -171,7 +174,9 @@ object SiteWays {
             Kind("carousel with videos", Expect(rows = true)),
             Kind("photo-only", Expect(rows = false, reasons = setOf(NO_MEDIA_FOUND))),
             signInOnly,
-            removed,
+            // 0.4: Instagram answers every signed-out ask with sign-in (S0d), so without the
+            // session that answer cannot tell a removed post from a shown one.
+            Kind("removed", removed.expect.copy(ambiguousWithoutSession = setOf(LOGIN_REQUIRED))),
         ),
         mediaPath = null,
         newLabels = ::InstagramLabels,

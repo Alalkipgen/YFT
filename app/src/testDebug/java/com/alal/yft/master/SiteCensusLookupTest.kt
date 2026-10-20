@@ -21,6 +21,7 @@ import com.alal.yft.extractor.master.lookup.AnswerMark
 import com.alal.yft.extractor.master.lookup.LookupRecord
 import com.alal.yft.extractor.master.lookup.LookupRecorder
 import com.alal.yft.extractor.master.social.MainAnswer
+import com.alal.yft.extractor.master.social.PostItem
 import com.alal.yft.extractor.master.social.SiteCensus
 import com.alal.yft.extractor.master.social.SiteWays
 import kotlinx.coroutines.test.runTest
@@ -128,6 +129,26 @@ class SiteCensusLookupTest {
         assertNull("not read: no mark", noPage.hiddenPage)
         assertEquals(AnswerMark.DATA, SiteCensusLookup.markOf(found()))
         assertNull("turned off: not read", SiteCensusLookup.markOf(HiddenPageResult.Off))
+    }
+
+    @Test
+    fun `0_4 - main's rows carry the post's item from its answer line, through the tapped adapters`() = runTest {
+        val http = FakeHttp(answer = { url -> X_ANSWER.takeIf { url.startsWith(WIDGET) }?.let { json(it, url) } })
+        val lookup = lookup(http)
+
+        val answer = lookup.lookup(X_POST, checkNotNull(lookup.identify(X_POST)))
+        assertTrue(answer.toString(), answer is MainAnswer.Found)
+        assertEquals("X's answer line: video 1, 1 in the post", PostItem(1, 1), (answer as MainAnswer.Found).item)
+        assertEquals(3, answer.rows.size)
+        assertEquals(
+            "the adapters as the app builds them",
+            listOf("tiktok", "facebook", "x", "instagram"),
+            SiteCensusLookup.registry(http, http) { AGENT }.adapterIds,
+        )
+        val detected = SiteAdapterOutcome.Detected("instagram", answer.rows)
+        val carousel = SiteCensusLookup.answerOf(detected, null, listOf("item 2 of 3: 1 files (1080), DASH none"))
+        assertEquals(PostItem(2, 3), (carousel as MainAnswer.Found).item)
+        assertNull("no answer line: no item", (SiteCensusLookup.answerOf(detected, null) as MainAnswer.Found).item)
     }
 
     @Test
