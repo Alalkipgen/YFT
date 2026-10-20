@@ -222,8 +222,11 @@ class AndroidBrowserMasterFallback(
         }
         return when (result) {
             is MasterResult.Success -> {
-                // S1a (3): the ladder's rows carry the key of the video it read (a share link's video).
-                val rowsKey = if (social && result.stage == MasterStage.CONTRACT) {
+                // S1a (3): the ladder's rows carry the key of the video it read (a share link's video);
+                // S1a (4): F2's rows too (main's pages: the page data; this request has no snapshot).
+                val rowsKey = if (
+                    social && (result.stage == MasterStage.CONTRACT || result.stage == MasterStage.PAGE_DATA)
+                ) {
                     SocialLadder.rowsKey(sites, lookupUrl, key)
                 } else {
                     key

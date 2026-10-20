@@ -579,6 +579,15 @@ earlier):
   resolved link (`MainPages.resolved`; none or two videos: not asked), the rows keyed to that
   video; flag off = today; `FacebookLadderTest` 7, `SocialLadderF1Test` 3. Next: F2, S7, S6, the
   mutation tests, the simulator world.
+- **(4) built (2026-10-20), behind the flag:** F2, main's pages: when F1 leaves nothing to read,
+  the pages main read in the lookup for the link (`MainPages`) are read again with Master's
+  layers, no request (the JSON data scripts that name the video; L4's keys, L3's shape search;
+  rows bound to the video ID) and each judged as F1's answer is: rows → V (the page data stage);
+  DRM → final; the page's route → final only when every page main read for the link says the same
+  and the plugin player did not name the video; another video's page, a page over the bound and a
+  related video's files → no rows, never final; a link main did not resolve: its page judged for
+  the route only; flag off = today; `FacebookLadderF2Test` 6, `SocialLadderF2Test` 3. Next: S7,
+  S6, the mutation tests, the simulator world.
 
 **S2b TikTok:** T1 the embed player (`embed/v2`), judged; a bot check stops; a photo post stops
 with no request; T2 L3; T3 capture; TikTok's own client (not the shared one) wrapped by the

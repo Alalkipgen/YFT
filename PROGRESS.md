@@ -1,5 +1,37 @@
 # YFT Master Extractor backup
 
+## Social plan S1a (4) — F2, main's pages, behind the flag (2026-10-20)
+
+- F2 (`FacebookLadder`, `extractor-master` `social/`): in a Facebook lookup with its own record,
+  when F1 leaves nothing to read (no rows, no final answer), the pages main read in this lookup
+  for the link (`MainPages`: the link's own page, the video's) are read again with Master's
+  layers, with no request: each page's JSON data scripts that name the video (at most 16, within
+  the snapshot's characters) through L4's keys and L3's shape search, the rows bound to the video
+  ID (the main rows of the video's key only; a related video's files never count), and each page
+  judged as F1's answer is (`FacebookAnswerJudge`). Rows → the engine's media checks (the page
+  data stage); DRM → final; the page's own route (private, removed) → final only when every page
+  main read for the link was read and says the same and the plugin player did not name the video
+  ("needs playback"); else the next stage (the tab's own playback).
+- A link main did not resolve to a video (a post's page that stays on the post): its page is
+  judged for the route only (no rows), so a post's private page ends the lookup with nothing
+  asked. Another video's page (its final address names another video) and a page over
+  `MainPages`' bound: not read, never final. After F1's 429 (nothing new goes out) F2 still reads
+  main's pages; F1's rows and final answers still go first.
+- App, flag on only: F2's rows carry the key of the video read (a share link's video;
+  `SocialLadder.rowsKey`, as F1's); its private or removed answer in main's words. Lines:
+  `master: facebook F2 main's pages: page N: <class> (<evidence>)`, `…: next: <step>`, `…: no
+  page main read for the video; nothing to read`: short labels, never a link, an ID or the page's
+  words.
+- Flag off (every CI build): no record and no main's pages for a Facebook lookup, so no ladder and
+  no F2: R8's path, the rows' key and the messages are today's. Route B, the parity tests,
+  `FixtureBaselineTest`, the drift check, the census and the YouTube files unchanged.
+- Tests: `FacebookLadderF2Test` 6 (new, JVM; main's real Facebook adapter over synthetic pages);
+  `SocialLadderF2Test` 3 (new, app; each case passes the switch itself). Local (JDK 17):
+  `:extractor-master:test` 822 tests (2 skipped), `:extractor-master-android:testDebugUnitTest`
+  69 and `:app:testDebugUnitTest` 1035 (66 skipped) passed; `:app:lintDebug` and
+  `:app:assembleDebug` passed.
+- Next in S1a: S7, S6, the mutation tests, the simulator world.
+
 ## Social plan S1a (3) — F1 judged, with the links main resolves first, behind the flag (2026-10-20)
 
 - `FacebookLadder` (new, `extractor-master` `social/`; the engine's `SocialStage`, new): in a
