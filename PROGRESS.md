@@ -1,5 +1,24 @@
 # YFT Master Extractor backup
 
+## Social plan — the final plan of the steps after S0d (the owner, 2026-10-20), docs only
+
+- The owner approved the plan of the steps (plan §7.3, §8): the pilot Facebook, then TikTok, X,
+  Instagram (item 1); X2 not now (item 2); no third-party service in Master (item 4); the test
+  lists stay on the phone (item 6); main fixes as the owner's exceptions, one commit each (item 10:
+  X's card go; Facebook's access check after its evidence; Instagram after its check; X's
+  age-limited and removed posts keep `NO_MEDIA_FOUND`); one item per link, an "all items" feature
+  after the release (item 11); the release gate S0–S5 on all four sites before PR #2 and P8 (item
+  12). Open: item 3 (after the Instagram check), item 5 (before S4).
+- Steps: Stage 0 (0.1 X's card fix in main, 0.2 the Instagram check, 0.3 Facebook's access-check
+  evidence, 0.4 the census fixes and the site census diff, 0.5 the owner's baseline B0) → S1a (the
+  kit's minimum + Facebook's pack, flag `-Pyft.socialLadder`) → S2b TikTok → S2c X → S2d
+  Instagram → S3 → S4 → S5 per site → PR #2 → P8 (beta.4). After the release: S1b, X2, the "all
+  items" feature, B+ (S6), A.
+- The plan's §4 S1 gets the exception for main fixes, §9 defines B0 (a fixed config: the VPN with
+  S0d's US exit for all four sites, and Facebook, Instagram, X without it, at the same weekday and
+  time); `MASTER_KEY_SOCIAL_S0_CONTINUE.md`'s next steps point to §7.3. No code changed. Next:
+  Stage 0.
+
 ## Social plan S0d — the owner's census run (2026-10-20)
 
 - Two runs of "YFT site census" on the owner's phone (the S0c commit's APK; the owner's public

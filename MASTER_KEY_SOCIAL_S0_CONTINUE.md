@@ -15,7 +15,8 @@ Reply to the owner in Burmese (English technical terms), short, outcome first.
 - Wait for CI green before the next push. STOP and ask the owner if CI fails twice on the same
   step, or if docs and code disagree.
 - Locked files are never edited: the 5 copied YouTube files, `ShapeLocator`, `ShapeNormalizer`,
-  `Rungs`; avoid editing `RouteBLookup` / `RouteBHttpClient`. `extractor-sites` (main) is untouched.
+  `Rungs`; avoid editing `RouteBLookup` / `RouteBHttpClient`. `extractor-sites` (main) is untouched,
+  except the owner's main fixes (plan §8 item 10: one commit each, on the owner's go; X's card: go).
 - Code copied from main gets a provenance header and rows in
   `extractor-master/toolkit-provenance.tsv` (`python3 scripts/master-toolkit-drift.py --write`);
   self-check with `--ref 34a4189002b7c9aaf6085ae4adab27b343ca28dc` (0 drifted). Old rows unchanged.
@@ -48,14 +49,16 @@ Reply to the owner in Burmese (English technical terms), short, outcome first.
   Shares: Facebook 0/11, TikTok 0/6, Instagram 0/7, X 2/6 (videos only in X's card). No code
   changed.
 
-## Next
+## Next (the owner, 2026-10-20: plan §7.3, §8 items 1, 2, 4, 6, 10–12)
 
-- **The owner's answer on §8 item 1** (the pilot and the order). Recommended (§7.2): the pilot
-  Facebook, then TikTok, X, Instagram (Instagram after item 3, `doc_id`). Also asked: a small fix
-  in main's X reader (the card's videos), only on the owner's go.
-- **S1** after the answer: the kit, built with the pilot site only (§7; §3.2's counterparts that
-  site needs). For Facebook, S2a's known gaps (§7.2 finding 3): the links main resolves first,
-  the access check by wording, the plugin player's empty answer.
+- **Stage 0** (§7.3): 0.1 X's card fix in main (the owner's go); 0.2 the Instagram check (no code,
+  locally only, never on public CI); 0.3 Facebook's access-check evidence (no code); 0.4 the census
+  fixes and the site census diff (debug builds only); then the census APK (0.1 + 0.4) for the
+  owner's baseline run B0 (0.5, §9).
+- **S1a** (the kit's minimum + Facebook's pack, flag `-Pyft.socialLadder`, off = today): its JVM
+  work may start before B0; its first phone APK only after B0.
+- Main fixes for Facebook (after 0.3) and Instagram (after 0.2) only on the owner's go; the site is
+  re-baselined after each.
 - A census run again (the same screen; the links stay on the phone): TikTok needs the owner's VPN
   on the owner's network. A site stopped by a 429 or a bot check runs again only after its 30
   minutes (the status line says how long).
@@ -71,3 +74,8 @@ WebM) stays parked until needed.
 In Burmese: the commit and its CI; the shares per site (both runs); X's two card posts (Master's
 rows were HLS, so V unknown); ask §8 item 1 (the pilot and the order) and the X reader fix (go or
 not); §8 item 3 still open.
+
+## Report to the owner after Stage 0
+
+In Burmese: each commit and its CI; the census APK for B0 and the fixed config (§9); 0.2's verdict
+(a, b or c) and 0.3's verdict, each with its proposal waiting for the owner's go; §8 item 3.

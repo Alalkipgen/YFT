@@ -2,9 +2,11 @@
 
 Status: **final plan** — the owner's Plan Mode request (2026-10-17), reviewed and approved by the
 owner as the final plan the same day. This document changes no code. Decided: routing, lookup
-scope and the R8 ladder (§2.1, §8 items 7–9). Still open: §8 items 1–6. Nothing here is built
-until the owner says go, one step at a time (§7, §8). **S0 started on the owner's go
-(2026-10-20): §7.1; the owner's run (S0d): §7.2.**
+scope and the R8 ladder (§2.1, §8 items 7–9). Nothing here is built until the owner says go, one
+step at a time (§7, §8). **S0 started on the owner's go (2026-10-20): §7.1; the owner's run (S0d):
+§7.2. The final plan of the steps after S0d (the owner, 2026-10-20): §7.3; decided §8 items 1, 2,
+4, 6 and 10–12; open: item 3 (after the Instagram check, §7.3 item 0.2) and item 5 (before S4).
+Next: Stage 0 (§7.3).**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -41,14 +43,24 @@ until the owner says go, one step at a time (§7, §8). **S0 started on the owne
   code ပါ။ YouTube ဖိုင်တွေကို မပြင်ပါ။
 - **Layer 0–8 (§5):** policy → site table → answer judge → own parser → ladder/health → row check →
   self-heal → early warning → repair channel။
-- **အစဉ် (§7):** S0 recorder + census (တိုင်းတာမှုသက်သက်) → S1 kit (ပထမ site အတွက် လိုတာပဲ) → pilot
-  site pack (Facebook သို့ TikTok — တကယ့် ဒုတိယလမ်း ရှိပြီးသား၊ S0 ရဲ့ ပြန်ကယ်လို့ရတဲ့ failure
-  အချိုးနဲ့ ရွေး) → ကျန် site (IG/X က ထပ်မေးတာ အရင်ရပ်) → weekly check → remote recipe live →
-  နောက်မှ B+။
-- **ဆုံးဖြတ်ပြီး:** §8 #7–#9။ **ပိုင်ရှင် ဖြေရန် ကျန်:** §8 #1–#6။
+- **အစဉ် (§7၊ §7.3):** S0 (ပြီးပြီ) → **Stage 0** (0.1 main ရဲ့ X card fix၊ 0.2 Instagram check၊
+  0.3 Facebook access check evidence၊ 0.4 census fix + site census diff၊ 0.5 ပိုင်ရှင်ရဲ့ baseline
+  B0) → **S1a** kit အနည်းဆုံး + Facebook pack (pilot) → **S2b** TikTok → **S2c** X → **S2d**
+  Instagram → S3 weekly check → S4 remote recipe live → S5 site တစ်ခုစီ phone run ၃ ခါ → PR #2
+  merge → P8 (beta.4)။ release ပြီးမှ: S1b၊ X2၊ "item အားလုံး" feature၊ B+ (S6)၊ A။
+- **ဆုံးဖြတ်ပြီး:** §8 #1၊ #2၊ #4၊ #6–#12။ **ကျန်:** #3 (Instagram check 0.2 ပြီးမှ)၊ #5 (S4
+  မတိုင်မီ)။
 - **S0d (2026-10-20, §7.2):** ပိုင်ရှင်ရဲ့ phone run ၂ ခု။ Recoverable failure: Facebook 0/11၊
-  TikTok 0/6၊ Instagram 0/7၊ X 2/6 (main မဖတ်တဲ့ card ထဲက video)။ Pilot အကြံ: Facebook →
-  TikTok → X → Instagram (ပိုင်ရှင် အတည်ပြုရန်၊ §8 #1)။
+  TikTok 0/6၊ Instagram 0/7၊ X 2/6 (main မဖတ်တဲ့ card ထဲက video)။ Pilot: Facebook → TikTok →
+  X → Instagram (ပိုင်ရှင် အတည်ပြုပြီး၊ 2026-10-20၊ §8 #1)။
+- **Final Plan (ပိုင်ရှင်၊ 2026-10-20၊ §7.3):** X2 အခု မလုပ်ပါ (#2)၊ Master မှာ third party
+  မသုံးပါ (#4)။ main fix ကို ပိုင်ရှင် ခွင့်ပြုတဲ့ ခြွင်းချက်အဖြစ် fix တစ်ခု commit တစ်ခုနဲ့ပဲ
+  လုပ်ပါမယ် (#10): X card (go)၊ Facebook access check (evidence ပြီးမှ)၊ Instagram (check
+  ပြီးမှ)။ X ရဲ့ age-limited / removed reason (`NO_MEDIA_FOUND`) မပြောင်းပါ။ link တစ်ခုကို item
+  တစ်ခုပဲ ပြပါမယ် (IG `img_index`၊ X `/video/N`၊ မပါရင် ပထမ item; #11)၊ "item အားလုံး" feature
+  က release ပြီးမှ။ Release gate (#12): site ၄ ခုလုံး S0–S5 ပြီးမှ PR #2 merge → P8 (beta.4) →
+  တခြားသူတွေ။ S1b နဲ့ B+ (S6) က release ပြီးမှ။ Baseline B0 (§9) ထက် main အောင်မြင်တဲ့ lookup
+  ရဲ့ request/အချိန် မများရပါ။
 
 ## 1. Audit — what exists today
 
@@ -251,6 +263,9 @@ With no adapter copies (B), the build is also about 4,700 lines smaller than the
   third-party service in Master (S4; main's TikTok `tikwm.com` way has no Master counterpart), a row
   only after V passes (S6; `unknown` is not a pass), and the stop rules (S7; e.g. Instagram's main
   keeps asking after a 429, Master does not).
+  **Exception (the owner, 2026-10-20; §8 item 10):** a fix in main's adapter code only as its own
+  commit with its own tests, on the owner's go for that fix (X's card: go; Facebook's access check:
+  after §7.3 item 0.3; Instagram: after item 0.2); the site is re-baselined after it (§9).
 - **S2 The user's own session only.** Only the cookies of YFT's browser, only to the site's own host
   (as main does), never to a CDN. YFT never signs in. No sign-in, age, private or region bypass;
   DRM → stop.
@@ -363,14 +378,17 @@ With no adapter copies (B), the build is also about 4,700 lines smaller than the
 
 | Step | Size | What | Done when |
 | --- | --- | --- | --- |
-| **S0** | M | The per-lookup request recorder (app side, memory only; decision 8) + the site census tool (`SiteCensusActivity`, like "YFT client census"): each way of each site asked once on the owner's test list, judged, shape fingerprint, V on one row; the recorder's counts (which way failed and how, 429 / bot checks, repeated asks); JSON export with slots only | the owner's run gives each site's share of recoverable failures → the pilot and the order (§8 item 1) |
-| **S1** | L | The kit, built with the first site only (only the §3.2 counterparts that site needs): judge classes, site table, the contract stage's small ladder (decision 9) / `SiteHealth` / recorder + memo / budget, `SiteRowCheck` + `InitCheck`, site anchors on the toolkit walk, post-identity mutation tests (missing or renamed ID, a related-video decoy, an ambiguous page), a simulator world per site (renamed key, moved block, 429, sign-in wall, stale `doc_id`), flag `-Pyft.socialLadder` | JVM tests and simulator green; flag off = today |
-| **S2a** | M | Pilot site pack: Facebook or TikTok (both have a real second way today), picked by S0: rungs, judge, anchors, tests, D7-style APK (skip / mutate per rung) | phone proof |
-| **S2b–d** | M each | The other site packs. Instagram and X first: stop Master's repeated ask (recorder); new ways only on the owner's decisions (item 3 `doc_id`, item 2 X2) | phone proof per site |
+| **S0** | M | The per-lookup request recorder (app side, memory only; decision 8) + the site census tool (`SiteCensusActivity`, like "YFT client census"): each way of each site asked once on the owner's test list, judged, shape fingerprint, V on one row; the recorder's counts (which way failed and how, 429 / bot checks, repeated asks); JSON export with slots only | the owner's run gives each site's share of recoverable failures → the pilot and the order (§8 item 1) — **done** (§7.1, §7.2) |
+| **Stage 0** | M | Five items, in parallel, before S1a's first phone APK (§7.3): **0.1** X's card fix in main (the owner's go); **0.2** the Instagram check (no code); **0.3** Facebook's access-check evidence (no code); **0.4** the census fixes and the site census diff (debug builds only); **0.5** the owner's baseline run B0 (§9) | 0.1 and 0.4: CI green and the census APK; 0.2 and 0.3: a verdict each (§7.3); 0.5: B0 recorded |
+| **S1a** | L | The kit's minimum with the pilot's pack, Facebook (the first draft's S1 and S2a together), flag `-Pyft.socialLadder` (off = today): the recorder in the app's lookup path, judge classes, the site table, one judged request rung + L3 + capture, budgets and the 30-minute cooldown (S7), `SiteRowCheck` + `InitCheck` on every Master row, Facebook's anchors, post-identity mutation tests, a simulator world (§7.3) | JVM tests, simulator and CI green; flag off = today; the D7-style APK's phone proof (§7.3) |
+| **S2b** | M | TikTok's pack (§7.3) | phone proof; wrong rows 0; no regression against B0 |
+| **S2c** | M | X's pack: main's answer replayed, no new ask (X2 not now; §7.3) | the same |
+| **S2d** | M | Instagram's pack by the Instagram check's verdict (0.2); the owner's signed-in census first (§7.3) | the same |
 | **S3** | S–M | Weekly check W for all four + runbook (each CHANGED / BREAKING line and its fix: a data change via R9, or code) | the owner's first W run |
-| **S4** | S | R9 live: the owner signs and hosts the config; kill switch per rung; one repair drill (a key changed by config on the phone, no APK) | drill passed |
-| **S5** | — | Promote per site to preview / release after 3 phone runs with 0 wrong rows | the owner's go |
-| **S6** | M | **B+** (the owner's go, after B's phone proof): when main's answer is weak by an objective signal (no HD row, no sound row), Master adds only the missing formats; main's rows stay (merge rule); budgeted | phone proof; **A** only if B+ is measured insufficient (decision 7) |
+| **S4** | S | R9 live: the owner signs and hosts the config (§8 item 5, decided before S4); kill switch per rung; one repair drill (a key changed by config on the phone, no APK) | drill passed |
+| **S5** | — | Promote per site after 3 phone runs on different days with 0 wrong rows and no regression against B0; then the release gate (§7.3): all four sites, the first W run and the R9 drill passed, the intended differences in `docs/SUPPORT_MATRIX.md` → PR #2 merged → P8 (beta.4) | the owner's go |
+| **S1b** | M | After the release, on the owner's go: the rest of the kit — several request rungs per site with `SiteHealth` (the last good rung first) and self-healed values (L6). Needed only if X2 is allowed or Instagram's `doc_id` needs self-healing: Facebook, TikTok and Instagram each have one request rung in S1a–S2d | JVM tests; phone proof per site |
+| **S6** | M | **B+** (the owner's go, after the release and B's phone proof): when main's answer is weak by an objective signal (no HD row, no sound row), Master adds only the missing formats; main's rows stay (merge rule); budgeted | phone proof; **A** only if B+ is measured insufficient (decision 7) |
 
 
 ### 7.1 S0 — as built (started 2026-10-20, the owner's go)
@@ -492,8 +510,76 @@ Findings (both runs, unless said):
 own ways answered every video post. S0's only recoverable failures are X's two card posts (a fix in
 main's reader). Under route B's rules Master repeated no ask (X: main's answer replayed; Instagram:
 refused). Recommended: the pilot **Facebook** (the most kinds and ways; Master's way gives rows on
-8 of 8; its gaps are S2a's work: the links main resolves first, the access check by wording, the
+8 of 8; its gaps are S2a's work (now S1a, §7.3): the links main resolves first, the access check by wording, the
 plugin player's empty answer), then TikTok, X, Instagram (after item 3). Waiting for the owner.
+
+### 7.3 The final plan of the steps (the owner, 2026-10-20)
+
+After S0d the owner approved this plan of the steps; it records §8 items 1, 2, 4, 6 and 10–12.
+Each step still starts on the owner's go (S10), and a phone proof comes before "live". The first
+draft's S1 (the kit) and S2a (the pilot pack) are now one step, S1a; the rest of the kit is S1b,
+after the release.
+
+**Stage 0** — five items in parallel, before S1a's first phone APK (S1a's JVM work may start
+earlier):
+
+| Item | What | Done when |
+| --- | --- | --- |
+| **0.1 X's card fix (main; the owner's go)** | In main's X reader (`XSyndication.parse`): the post's own `mediaDetails` first, then the post's own card (`card.binding_values.unified_card.string_value`, JSON in a string → its `media_entities`, read by the existing `videoOf`), then the quoted post as today; the quoted post's card is not read. A card's several videos keep the card's own order (its own media list, not the key order of `media_entities`). The choice (`/video/N`, else the first), MP4 first and the host guard stay as they are. X's age-limited and removed posts keep `NO_MEDIA_FOUND` (by design: the generic detector stays reachable). Synthetic fixtures for both card types (`video_website`, `video_multi_dest_carousel_website`), decoys (a card with no video, a quoted post's card, a media link off X's media hosts) and `/video/2` on a carousel card; `FixtureBaselineTest` holds. Drift: both copies of `parse` (`ContractRecipes`, `SiteReadings`) reviewed in the same commit; the census reading reads a card's video as `data` | CI green; the owner's X-only census run: slots 3 and 6 give MP4 rows with V pass, slots 1, 2, 4 and 5 unchanged |
+| **0.2 The Instagram check (no code)** | Locally only, never on public CI: main's GraphQL ask against yt-dlp's current Instagram extractor (its commit and date): endpoint, `doc_id`, variables, headers. The question: does an ask work signed out without TLS impersonation? Verdict: (a) yes → a fix proposal for main (the owner's go, its own commit); (b) only with impersonation → S3 forbids it; Instagram's stage may then use only the visible tab's own fetch (WebView), on the owner's go; (c) 401 signed out always → a documented limitation. Also answered: main's 401 → `LOGIN_REQUIRED` mapping (keep or change) and §8 item 3 (the `doc_id` sources) | the verdict here and in `PROGRESS.md` (structure only; no ID or link) |
+| **0.3 Facebook's access-check evidence (no code)** | The "content isn't available" page in English against at least one other language (a made-up video ID, not a real post; the page's structure, not its wording): is there a language-independent signal? Yes → a fix proposal for main's `FacebookPageParser` (the owner's go, its own commit); no → Master's judge stays conservative (a final answer only on positive evidence). Slot 12's expectation after the owner's check (the owner's tasks below) | the verdict here and in `PROGRESS.md` |
+| **0.4 The census fixes (debug builds only)** | Per row `setup_ms` and the end-to-end ms; a social report key (method + URL + body + identity class, hashed; a new key: `LookupAsk.endpoint` is route B's R2 key and stays as it is) that splits a "repeat" (the same key) from a "variant" (the same endpoint, another body or identity) — the endpoint rule, its enforcement and the host stops stay as they are; the best row's duration (s) and "item N of M"; Instagram's removed slot signed out reads "ambiguous (no session)"; a photo post stays `NO_MEDIA_FOUND`; the site census diff: two JSON exports → per-slot CHANGED / BREAKING lines | JVM tests; CI green; the census APK with 0.1 |
+| **0.5 The baseline B0 (the owner's run)** | §9's fixed config with the APK of 0.1 and 0.4 = §9's "before"; a site is re-baselined after any new main fix | the shares and the requests and time per lookup recorded here and in `PROGRESS.md` |
+
+**S1a — the kit's minimum and Facebook's pack (the pilot)**, flag `-Pyft.socialLadder` (off = today):
+
+- The request recorder in the app's real lookup path, behind the flag.
+- Rungs: F1 the plugin player (`plugins/video.php`, today's R8 way), judged; F2 L3 rows on pages
+  already read (no fetch); F3 the visible tab's own playback (capture). Master reads the links main
+  resolves first (slots 8, 9, 10 and 13) through main's resolved link.
+- The judge is conservative: a final answer only on positive evidence; "needs playback" → F3 or
+  the browser; no shape hash in the judge.
+- S7: no repeated ask; a host stop after a 429 or a bot check; F1's 30-minute cooldown across
+  lookups; the budgets.
+- S6: V and the init check on every Master row (at most 8 rows); `unknown` is not a pass; the
+  link lifetime (`oe`).
+- Post identity bound to the Facebook video ID; mutation tests (a missing or renamed ID, a
+  related-video decoy, a page with two videos → no rows); a simulator world (a renamed key, a
+  moved block, a 429, a sign-in wall, the unavailable page in two languages).
+- Flag off: the route B tests, the parity tests, `FixtureBaselineTest` and the drift check as they
+  are; no YouTube file changes.
+- **Done when:** JVM tests, simulator and CI green; a D7-style APK (main's Facebook skipped or
+  mutated): every Master row passes V; wrong rows 0 (the video ID matches; a trial's duration
+  within ±1 s of main's); slots 8–10 give Master rows; slot 13 `PRIVATE_OR_UNAVAILABLE` with and
+  without the VPN if 0.3 found a signal, else no wrong final answer and a documented limitation;
+  slot 12 by the owner's check; requests and time on main-success lookups not above B0 (§9); docs.
+
+**S2b TikTok:** T1 the embed player (`embed/v2`), judged; a bot check stops; a photo post stops
+with no request; T2 L3; T3 capture; TikTok's own client (not the shared one) wrapped by the
+recorder; V and the init check; the lower quality (at most 1280) documented.
+**S2c X:** main's answer replayed, no new ask (X2 not now); a hidden post → the browser; a photo
+post stops; an HLS row only with a known duration (V).
+**S2d Instagram:** by 0.2's verdict; no repeat of main's embed ask; `RATE_LIMITED` → the cooldown;
+`doc_id` self-healing only if 0.2 shows it rotates (then S1b); the owner's signed-in census before
+this stage.
+Each site: a D7-style phone proof, wrong rows 0, no regression against B0.
+
+**S3 and S4** as in §7: W (≤ 1 min, ≤ 2 MB per site) with the diff and the runbook; R9 live (the
+owner signs and hosts the config, a kill switch per rung, one repair drill on the phone).
+
+**The release gate (§8 item 12):** each site's S5 (3 phone runs on different days, wrong rows 0,
+no regression against B0), the first W run passed, the R9 drill passed, the intended differences
+listed in `docs/SUPPORT_MATRIX.md` → PR #2 merged → P8 (beta.4) → others get the app.
+
+**After the release** (each on the owner's go): S1b, X2, the "all items" feature, B+ (S6), A.
+
+**Not done:** X's reason for the age-limited and removed posts changed; `LookupAsk.endpoint` or a
+YouTube file edited; a shape hash in a judge; yt-dlp on public CI; IDs, links or names in docs,
+fixtures or logs.
+
+**The owner's tasks:** slot 12 checked signed in (replaced on the phone if it is gone); the weekly
+census in the fixed config (§9), the B0 run first; Instagram's signed-in census before S2d; R9's
+hosting before S4. Instagram slot 7's check in the app is no longer needed (one item per link).
 
 ## 8. Owner decisions
 
@@ -507,22 +593,32 @@ Decided (the owner, 2026-10-17; details in §2.1):
 9. **R8 ladder:** a small, budgeted ladder per site pack in the contract stage; each new rung on the
    owner's go.
 
+Decided (the owner, 2026-10-20; §7.3):
+
+- **1 — Pilot and order:** the pilot Facebook, then TikTok, X, Instagram (S1a, S2b–S2d). S0d's
+  shares did not separate Facebook and TikTok (0 of 11, 0 of 6); Facebook has the most kinds and
+  ways, and Master's way gave rows on 8 of 8 trials.
+- **2 — X2** (X's signed-out web API with a guest token): not now; S0d's embed answer carried every
+  video post's media (2 of 6 only in the card, fixed in main by §7.3 item 0.1). After the release,
+  on the owner's go.
+- **4 — Third-party services in Master:** none; main's `tikwm.com` stays main's.
+- **6 — Census test lists:** the owner's public posts, kept on the phone only; a gone link is
+  replaced on the phone.
+- **10 — Main fixes:** exceptions to S1, each its own commit on the owner's go: X's card (go, item
+  0.1); Facebook's access check (after item 0.3's evidence); Instagram (after item 0.2's check). X's
+  age-limited and removed posts keep main's reason (`NO_MEDIA_FOUND`, by design).
+- **11 — One item per link:** Instagram's `img_index`, X's `/video/N`, else the first item; an "all
+  items" feature after the release.
+- **12 — The release gate:** S0–S5 for all four sites before PR #2's merge and P8 (beta.4); S1b and
+  B+ (S6) after the release.
+
 Still open (the owner's answer is needed before the step that uses it):
 
-1. **Pilot and order:** recommended: S0 first; the pilot is Facebook or TikTok (both have a real
-   second way today), picked by S0's share of recoverable failures; Instagram and X first get the
-   repeated-ask stop; or another order. **The owner, 2026-10-20: S0 now (§7.1); the pilot and
-   the order from S0's run.** S0d (§7.2): the shares do not separate Facebook and TikTok (0 of 11,
-   0 of 6); recommended: the pilot Facebook, then TikTok, X, Instagram. Waiting for the owner.
-2. **X2** (X's signed-out web API with a guest token): allow or not. Recommended: not now; decide after
-   S0 shows how often the embed answer fails. S0d (§7.2): the embed answer carried every video
-   post's media (2 of 6 only in the card main does not read), so X2 is still not needed.
-3. **Self-heal sources for Instagram's `doc_id`:** Instagram's own scripts, yt-dlp's raw file, or both
-   measured in S0 (recommended: measure both, use only the proven one). S0d (§7.2): signed out,
-   main's GraphQL answered 401 on 10 of 10; main gave 6 of 7 video rows (5 from the embed page).
-4. **Third-party services in Master:** none (recommended); main's `tikwm.com` stays as it is.
-5. **R9 hosting:** the owner signs and hosts the recipe config (needed for repair without an APK).
-6. **Census test lists:** the owner picks the public posts (kept on the phone only, never in docs).
+- **3 — Self-heal sources for Instagram's `doc_id`:** Instagram's own scripts, yt-dlp's raw file, or
+  both; decided after the Instagram check (§7.3 item 0.2). S0d (§7.2): signed out, main's GraphQL
+  answered 401 on 10 of 10; main gave 6 of 7 video rows (5 from the embed page).
+- **5 — R9 hosting:** the owner signs and hosts the recipe config (needed for repair without an
+  APK); decided before S4.
 
 ## 9. Tests and docs per step
 
@@ -530,7 +626,12 @@ Still open (the owner's answer is needed before the step that uses it):
   covers only JSON with an `id`); recorder tests (main's asks seen, no repeated ask, stop after a 429
   or a bot check); parity tests unchanged; drift check for every symbol copy; `FixtureBaselineTest`;
   CI green before any APK.
-- No-regression measure (S1): requests and time per lookup, before and after, on the census list.
+- No-regression measure (S1): requests and time per lookup on the lookups main answers, before and
+  after, on the census list. **Baseline B0** (§7.3 item 0.5) is "before": the owner's run in a fixed
+  config — all four sites through the owner's VPN with the same US exit as S0d, and Facebook,
+  Instagram and X without the VPN, at the same weekday and time window each time — with the APK of
+  items 0.1 and 0.4; "after" is the same config with the step's APK. A site is re-baselined after
+  any new main fix. A step's requests and time on main-success lookups may not exceed B0's.
 - Docs per change: `PROGRESS.md` entry, a `docs/TEST_MATRIX.md` row, `docs/SUPPORT_MATRIX.md` where
   a site's behaviour changes, and this plan's step status.
 
