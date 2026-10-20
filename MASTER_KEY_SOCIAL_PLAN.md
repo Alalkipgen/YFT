@@ -570,6 +570,15 @@ earlier):
   (`LookupRecorder`, `MainPageRecorder`); main's requests unchanged; Master reads nothing of it
   yet; `MainPagesTest` 4, `SocialLadderTest` 4. Next: F1 judged with the links main resolves
   first, F2, S7, S6, the mutation tests, the simulator world.
+- **(3) built (2026-10-20), behind the flag:** F1 judged: in a Facebook lookup with its own record
+  Master's first stage is `FacebookLadder` (the engine's `SocialStage`) in place of R8's unjudged
+  ask: the plugin player asked once under route B's rules, read for the video and judged
+  (`FacebookAnswerJudge`): rows → V; final only on the page's route (private, removed) or DRM, in
+  main's words in the app; "needs playback", a sign-in wall, a 429 or a bot check and no evidence
+  → the tab's own playback, no second ask; the links main resolves first read through main's
+  resolved link (`MainPages.resolved`; none or two videos: not asked), the rows keyed to that
+  video; flag off = today; `FacebookLadderTest` 7, `SocialLadderF1Test` 3. Next: F2, S7, S6, the
+  mutation tests, the simulator world.
 
 **S2b TikTok:** T1 the embed player (`embed/v2`), judged; a bot check stops; a photo post stops
 with no request; T2 L3; T3 capture; TikTok's own client (not the shared one) wrapped by the

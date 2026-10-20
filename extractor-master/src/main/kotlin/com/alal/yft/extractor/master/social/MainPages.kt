@@ -1,6 +1,7 @@
 package com.alal.yft.extractor.master.social
 
 import com.alal.yft.extractor.api.ExtractorHttpResult
+import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.extractor.master.lookup.LookupAsk
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
@@ -51,6 +52,21 @@ class MainPages(
 
     /** Main's 2xx GET answers not listed (over [maxPages]). */
     val unlisted: Int get() = synchronized(lock) { unlistedTotal }
+
+    /**
+     * S1a (3): the video Master reads for [identity], a link main resolves first (a share link, a
+     * post; [SitePageIdentity.requiresCanonicalResolution]): the one video the final addresses of
+     * main's listed page answers for it name ([identify]: the same site's, itself resolved). Null
+     * when main read no such page in this lookup, none led to a video, or two led to different
+     * videos (no guess). Another identity: itself.
+     */
+    fun resolved(identity: SitePageIdentity, identify: (String) -> SitePageIdentity?): SitePageIdentity? {
+        if (!identity.requiresCanonicalResolution) return identity
+        val finals = synchronized(lock) { listed.filter { it.url == identity.canonicalPageUrl }.map { it.finalUrl } }
+        return finals.mapNotNull { url ->
+            identify(url)?.takeIf { it.siteId == identity.siteId && !it.requiresCanonicalResolution }
+        }.distinctBy { it.contentId }.singleOrNull()
+    }
 
     /** Main's answer [result] to its GET of [url] with [headers]; only a success (2xx) is kept. */
     internal fun note(url: String, headers: Map<String, String>, result: ExtractorHttpResult) {

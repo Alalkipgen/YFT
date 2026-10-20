@@ -1,12 +1,18 @@
 package com.alal.yft.detection.master
 
 import com.alal.yft.BuildConfig
+import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.extractor.api.ExtractorHttpClient
+import com.alal.yft.extractor.api.SiteExtractionFailure
+import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.extractor.master.lookup.LookupRecord
+import com.alal.yft.extractor.master.social.FacebookLadder
 import com.alal.yft.extractor.master.social.MainPageRecorder
 import com.alal.yft.extractor.master.social.MainPages
 import com.alal.yft.extractor.master.social.SiteWays
+import com.alal.yft.extractor.master.social.SocialStage
 import kotlin.coroutines.CoroutineContext
+import kotlinx.coroutines.currentCoroutineContext
 import okhttp3.OkHttpClient
 
 /**
@@ -43,4 +49,36 @@ internal object SocialLadder {
      * [MainPages]; memory only, dropped with the lookup.
      */
     fun lookupContext(): CoroutineContext = LookupRecord(labels = SiteWays.FACEBOOK.labels()) + MainPages()
+
+    /**
+     * S1a (3): Master's social rung in a social-ladder build: Facebook's ladder ([FacebookLadder]:
+     * F1, the plugin player, judged) over Master's own client [http], claiming only a lookup with
+     * its own record ([lookupContext]); [identify]: main's adapters. Its recipes come from the same
+     * source as the engine's ([MasterRecipeConfig]). Every other build: null, the engine as before.
+     */
+    fun stage(
+        http: ExtractorHttpClient,
+        identify: (String) -> SitePageIdentity?,
+        social: Boolean = enabled,
+    ): SocialStage? = if (social) FacebookLadder(http, identify, MasterRecipeConfig::contracts) else null
+
+    /**
+     * S1a (3): the video key the ladder's rows carry in [lookupUrl]'s lookup: for a link main
+     * resolves first (a share link, a post), the one video main's resolved link names (the
+     * lookup's [MainPages]); else the lookup's [key].
+     */
+    suspend fun rowsKey(sites: SiteAdapterCoordinator, lookupUrl: String, key: String?): String? {
+        val identity = sites.identity(lookupUrl) ?: return key
+        val resolved = currentCoroutineContext()[MainPages]?.resolved(identity, sites::identity) ?: return key
+        return "${resolved.siteId}:${resolved.contentId}"
+    }
+
+    /**
+     * S1a (3): main's words for the ladder's final answer (the page's route: private or removed),
+     * so a Facebook lookup says what main says for it; null for every other reason (as before).
+     */
+    fun finalMessage(reason: SiteExtractionFailure): String? = when (reason) {
+        SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE -> "This Facebook post is private or no longer available."
+        else -> null
+    }
 }

@@ -1,5 +1,39 @@
 # YFT Master Extractor backup
 
+## Social plan S1a (3) — F1 judged, with the links main resolves first, behind the flag (2026-10-20)
+
+- `FacebookLadder` (new, `extractor-master` `social/`; the engine's `SocialStage`, new): in a
+  Facebook lookup with its own record (the social-ladder build's, S1a (2)) Master's first stage is
+  Facebook's ladder, in place of R8's unjudged ask. F1: the plugin player (`plugins/video.php`,
+  R8's recipe: desktop Safari, no session) asked once under route B's rules (`RouteBLookup` over
+  the lookup's record: never the user's credentials, nothing new after a 429 in the lookup, an
+  endpoint asked once), read with the recipe's key table (rows bound to the video ID) and judged
+  (`FacebookAnswerJudge`, S1a (1)): rows → the engine's media checks; a final answer only on the
+  page's own route (the error route with its privacy flag, the video's not-found route:
+  `PRIVATE_OR_UNAVAILABLE`, in every language) or DRM; "needs playback" (the player names the
+  video, no file), a sign-in wall, a 429 or a bot check, no evidence and another video's page leave
+  it to the next stage (the tab's own playback), with no second ask. Main's sign-in failure and
+  another video's page: not asked (as R8).
+- The links main resolves first (a share link, a post): read through main's resolved link
+  (`MainPages.resolved`: the one video the final addresses of main's page answers for it name;
+  none, or two different: not asked, and a line says so); the rows carry that video's key and the
+  app keeps them for the lookup (`SocialLadder.rowsKey`).
+- App, flag on only: the engine gets the ladder (`SocialLadder.stage`; the engine's recipe source);
+  the ladder's private or removed answer ends the lookup in main's words ("This Facebook post is
+  private or no longer available."). Lines: `master: facebook ladder after <main's reason>;
+  replayed N; new M[; refused K]`, R8's contract line, `master: facebook F1 plugin player: <class>
+  (<evidence>); next: <step>`: short labels, never a link, an ID or the page's words.
+- Flag off (every CI build): no ladder (`SocialLadder.stage` gives none) and no record for a
+  Facebook lookup, so R8's path, the rows' key and the messages are today's; the engine without a
+  ladder is exactly as before. Route B, the parity tests, `FixtureBaselineTest`, the drift check,
+  the census and the YouTube files unchanged.
+- Tests: `FacebookLadderTest` 7 (new, JVM); `SocialLadderF1Test` 3 (new, app; each case passes the
+  switch itself; main's real Facebook adapter over synthetic pages). Local (JDK 17):
+  `:extractor-master:test` 816 tests (2 skipped), `:extractor-master-android:testDebugUnitTest`
+  69 and `:app:testDebugUnitTest` 1032 (66 skipped) passed; `:app:lintDebug` and
+  `:app:assembleDebug` passed.
+- Next in S1a: F2, S7, S6, the mutation tests, the simulator world.
+
 ## Social plan S1a (2) — the recorder in the app's lookup path, behind the flag (2026-10-20)
 
 - The flag `-Pyft.socialLadder` (new; `app/build.gradle.kts`, `BuildConfig.SOCIAL_LADDER`): off by

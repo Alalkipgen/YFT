@@ -15,6 +15,7 @@ import com.alal.yft.extractor.master.modules.MasterSiteModule
 import com.alal.yft.extractor.master.modules.youtube.YouTubeUrls
 import com.alal.yft.extractor.master.policy.SnapshotBudget
 import com.alal.yft.extractor.master.policy.TerminalRules
+import com.alal.yft.extractor.master.social.SocialStage
 import com.alal.yft.extractor.master.toolkit.UrlPolicy
 import com.alal.yft.extractor.master.verify.CandidateGate
 import com.alal.yft.extractor.master.verify.FocusSelection
@@ -57,6 +58,12 @@ class MasterFallbackEngine(
     private val captureSelection: MasterCaptureSelection? = null,
     private val modules: List<MasterSiteModule> = emptyList(),
     private val contracts: SiteContracts? = null,
+    /**
+     * Social plan S1a (3): a social site's ladder ([SocialStage], Facebook's: `FacebookLadder`);
+     * for a lookup it claims it answers the first stage in place of R8's ask. Null (every build
+     * but the social-ladder one): the engine exactly as before.
+     */
+    private val social: SocialStage? = null,
 ) {
     private val layers = contracts?.let { LayerStack.standard(it::recipeOf) } ?: LayerStack.standard()
     private val normalizer = CandidateNormalizer(
@@ -107,8 +114,17 @@ class MasterFallbackEngine(
         val probes = ProbeSession(validator, request, policy.maxCandidates)
 
         for (index in 0..2) {
+            // S1a (3): a social rung's snapshot is read for the video it asked about.
+            var read = request
             val stage = when (index) {
-                0 -> contract(request, details)
+                0 -> if (social != null && social.claims(request)) {
+                    social.stage(request, policy, details)?.let { staged ->
+                        read = staged.request
+                        staged.stage to staged.snapshot
+                    }
+                } else {
+                    contract(request, details)
+                }
                 1 -> request.snapshot?.let { MasterStage.PAGE_DATA to it }
                 else -> {
                     details += "master: one browser-assisted capture requested"
@@ -145,7 +161,7 @@ class MasterFallbackEngine(
                 details += "master: authorized browser playback is required"
                 continue
             }
-            val evidence = layers.collect(request, snapshot)
+            val evidence = layers.collect(read, snapshot)
             details += evidence.details
             evidence.terminalFailure?.let { return failure(it, details) }
             val normalized = CandidateGate.admit(

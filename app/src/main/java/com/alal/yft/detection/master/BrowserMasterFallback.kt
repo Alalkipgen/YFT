@@ -16,6 +16,7 @@ import com.alal.yft.extractor.master.MasterFallbackEngine
 import com.alal.yft.extractor.master.MasterPolicy
 import com.alal.yft.extractor.master.MasterRequest
 import com.alal.yft.extractor.master.MasterResult
+import com.alal.yft.extractor.master.MasterStage
 import com.alal.yft.extractor.master.android.CodecSteering
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
 import com.alal.yft.extractor.master.lookup.LookupRecord
@@ -159,6 +160,10 @@ class AndroidBrowserMasterFallback(
             ?: if (primary is SiteAdapterOutcome.Detected) SiteExtractionFailure.UNSUPPORTED_URL
             else SiteExtractionFailure.NO_MEDIA_FOUND
         val key = sites.videoKey(lookupUrl)
+        // Social plan S1a (3): a Facebook lookup in a social-ladder build — Facebook's ladder's rows
+        // name the video main's resolved link names, and its final answer gets main's words. Every
+        // other build and page: false, each step as before.
+        val social = socialLadder && SocialLadder.claims(key)
         // Item 7 F7: the rows the trial set aside for this lookup (the trial APK only, else null).
         val mains = if (routeBTrial) key?.let(setAside::remove) else null
         // Phase 1.4 item 7 (YouTube routing B) F2: route B's page — a YouTube page main failed, in
@@ -217,9 +222,15 @@ class AndroidBrowserMasterFallback(
         }
         return when (result) {
             is MasterResult.Success -> {
-                val focused = capture.appCandidates(result.result.candidates, key)
+                // S1a (3): the ladder's rows carry the key of the video it read (a share link's video).
+                val rowsKey = if (social && result.stage == MasterStage.CONTRACT) {
+                    SocialLadder.rowsKey(sites, lookupUrl, key)
+                } else {
+                    key
+                }
+                val focused = capture.appCandidates(result.result.candidates, rowsKey)
                     ?: result.result.candidates.filter {
-                    key == null || it.videoId == key
+                    rowsKey == null || it.videoId == rowsKey
                 }
                 val kept = focused.filter(mergeSupport::canMerge)
                 when {
@@ -253,11 +264,13 @@ class AndroidBrowserMasterFallback(
             )
             is MasterResult.Failure -> noRows(
                 result.reason,
-                if (result.reason == SiteExtractionFailure.DRM_PROTECTED) {
-                    "Protected media cannot be captured."
-                } else {
-                    "No verified media was captured. Play the video and tap Try again."
-                },
+                // S1a (3): the ladder's final answer (private or removed) in main's words.
+                SocialLadder.finalMessage(result.reason)?.takeIf { social }
+                    ?: if (result.reason == SiteExtractionFailure.DRM_PROTECTED) {
+                        "Protected media cannot be captured."
+                    } else {
+                        "No verified media was captured. Play the video and tap Try again."
+                    },
                 result.details,
             )
             is MasterResult.Skipped -> unanswered("skipped (${result.reason})")
@@ -442,6 +455,8 @@ class AndroidBrowserMasterFallback(
                     // R8: Vimeo/X/Facebook/TikTok/Instagram contract endpoints, then capture;
                     // R9: their recipes from a signed config when the build carries its key.
                     contracts = MasterRecipeConfig.contracts(http),
+                    // Social plan S1a (3): Facebook's ladder only with -Pyft.socialLadder (debug).
+                    social = SocialLadder.stage(http, sites::identity, socialLadder),
                 ),
                 // Phase 1.4 item 2: in the h-only APK a found YouTube page goes through H too.
                 masterFirstSite = if (MasterLadderSwitch.hOnly) YOUTUBE_SITE_ID else null,
