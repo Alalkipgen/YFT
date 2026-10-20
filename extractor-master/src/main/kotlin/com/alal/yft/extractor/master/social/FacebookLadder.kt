@@ -20,6 +20,7 @@ import com.alal.yft.extractor.master.policy.SnapshotBudget
 import com.alal.yft.extractor.master.policy.TerminalRules
 import com.alal.yft.extractor.master.recipes.PayloadRecipes
 import com.alal.yft.extractor.master.toolkit.PageScripts
+import java.util.WeakHashMap
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.coroutineContext
@@ -48,6 +49,16 @@ import kotlinx.coroutines.withTimeoutOrNull
  * main did not resolve to a video: its pages are judged for the route only (no rows); another
  * video's page (its final address names another video) is not read.
  *
+ * S1a (5), S7: stops and budgets. F1 asks only when none of its hosts stopped in this lookup (a
+ * bot check in the lookup's record, main's asks included), none cools ([cooldown]: 30 minutes
+ * after a host's last 429 or bot check, across lookups) and the lookup's [budget] holds (main's
+ * and Master's asks so far, the time since the lookup began, Master's answers' characters); else
+ * F1 is not asked and F2 still reads. After a 429 in this lookup route B's rule refuses the ask,
+ * as before; an endpoint already asked in the lookup, by main or by Master, is not asked again
+ * (route B's rules: main's answer replayed, else refused). The hosts that stopped in the lookup
+ * and F1's own after its 429 or bot check (a checkpoint address) start their cooldown when the
+ * stage ends.
+ *
  * Claims only a Facebook lookup with its own record ([LookupRecord]: the social-ladder build's,
  * `-Pyft.socialLadder`); every other lookup keeps R8's path. [identify] names a page's video (the
  * app's adapters); [contractsOf] builds the recipe source around the ladder's client (the app's
@@ -58,8 +69,13 @@ class FacebookLadder(
     http: ExtractorHttpClient,
     private val identify: (String) -> SitePageIdentity?,
     contractsOf: (ExtractorHttpClient) -> SiteContracts = ::SiteContracts,
+    private val cooldown: SocialCooldown = SocialCooldown(),
+    private val budget: SocialBudget = SocialBudget.FACEBOOK,
 ) : SocialStage {
     private val contracts = contractsOf(Keeping(RouteBHttpClient(http)))
+
+    /** S7: the characters of Master's answers per lookup (its record), dropped with the record. */
+    private val spent = WeakHashMap<LookupRecord, Long>()
 
     override suspend fun claims(request: MasterRequest): Boolean =
         request.identity?.siteId == SITE_ID && coroutineContext[LookupRecord] != null
@@ -70,6 +86,22 @@ class FacebookLadder(
         details: MutableList<String>,
     ): SocialStage.Staged? {
         val record = coroutineContext[LookupRecord] ?: return null
+        // S1a (5), S7: the hosts that answered a 429 or a bot check in this lookup (main's asks
+        // included) cool from the stage's end, whatever it answers.
+        return try {
+            climb(record, request, policy, details)
+        } finally {
+            cooldown.note(record.stopHosts())
+        }
+    }
+
+    /** The ladder's rungs for [request]'s lookup ([record]): F1, then F2. */
+    private suspend fun climb(
+        record: LookupRecord,
+        request: MasterRequest,
+        policy: MasterPolicy,
+        details: MutableList<String>,
+    ): SocialStage.Staged? {
         val asked = request.identity?.takeIf { it.siteId == SITE_ID } ?: return null
         // As R8: a sign-in or bot-check failure is the user's own playback's; another video's
         // page is not asked about.
@@ -108,15 +140,24 @@ class FacebookLadder(
         policy: MasterPolicy,
         details: MutableList<String>,
     ): Plugin? {
+        // S1a (5), S7: a stopped or cooling host, or the lookup's budget spent: not asked.
+        stopped(record)?.let { why ->
+            details += "$F1: $why; not asked"
+            return null
+        }
         val read = request.copy(
             identity = identity,
             expectedContentId = request.expectedContentId?.let { identity.contentId },
         )
         val route = RouteBLookup(record)
-        val kept = Kept()
-        val outcome = withTimeoutOrNull(minOf(policy.contractTimeoutMillis, policy.timeoutMillis)) {
+        val kept = Kept(limit = bytesLeft(record))
+        val wait = minOf(policy.contractTimeoutMillis, policy.timeoutMillis, record.timeLeftMillis(budget.millis))
+        val outcome = withTimeoutOrNull(wait) {
             withContext(route + kept) { contracts.ask(read) }
         }
+        // S7: what went out counts against the lookup's characters (an answer over the bound
+        // spends them all: the client read up to it).
+        if (route.newRequests > 0) spend(record, kept)
         details += "$LINE after ${request.primaryFailure.name}; ${route.summary()}"
         val answer = kept.result
         when (outcome) {
@@ -138,6 +179,9 @@ class FacebookLadder(
             namesVideo(contract.body, identity.contentId, recipe.nodeIdFields)
         val judged = FacebookAnswerJudge.judge(answer, rows, needsPlayback = needsPlayback, drm = drm)
         details += "$F1: ${judged.answerClass.name} (${judged.evidence}); next: ${judged.next.name}"
+        // S7: F1's own 429 or bot check (a checkpoint address, which the labels read as a login
+        // page) cools F1's hosts too.
+        if (route.newRequests > 0 && judged.next == Next.STOP_SITE) cooldown.note(hosts())
         val staged = when (judged.next) {
             Next.CHECK_ROWS -> (outcome as? SiteContracts.Asked.Answer)?.let {
                 SocialStage.Staged(MasterStage.CONTRACT, it.snapshot, read)
@@ -152,6 +196,44 @@ class FacebookLadder(
             Next.NEXT_RUNG, Next.PLAYBACK, Next.BROWSER, Next.STOP_SITE -> null
         }
         return Plugin(staged, judged)
+    }
+
+    /**
+     * S1a (5), S7: why F1 may not ask in [record]'s lookup, or null. After a 429 in the lookup
+     * route B's rule refuses the ask (null here); else not asked: a host F1 asks stopped in the
+     * lookup (a bot check), one still cooling, or the lookup's request, time or byte budget spent.
+     */
+    private fun stopped(record: LookupRecord): String? {
+        if (record.rateLimited) return null
+        val hosts = hosts()
+        val stops = record.stopHosts()
+        return when {
+            hosts.any(stops::contains) -> "the host stopped in this lookup (a bot check)"
+            hosts.any(cooldown::cooling) -> "cooling down after a 429 or a bot check"
+            record.mainAsks + record.masterAsks >= budget.requests -> "over the lookup's request budget"
+            record.elapsedMillis() >= budget.millis -> "over the lookup's time budget"
+            bytesLeft(record) <= 0 -> "over the lookup's byte budget"
+            else -> null
+        }
+    }
+
+    /** F1's hosts: its recipe's answer hosts (its endpoint is one of them), lowercase. */
+    private fun hosts(): Set<String> =
+        contracts.recipeOf(SITE_ID)?.answerHosts.orEmpty().map { it.lowercase().trimEnd('.') }.toSet()
+
+    /** S7: the characters left of [record]'s lookup's byte budget for Master's answers. */
+    private fun bytesLeft(record: LookupRecord): Long =
+        (budget.bytes - synchronized(spent) { spent[record] ?: 0L }).coerceAtLeast(0)
+
+    /** S7: [kept]'s answer's characters (its whole bound when it was over it) spent in [record]'s lookup. */
+    private fun spend(record: LookupRecord, kept: Kept) {
+        val answer = kept.result
+        val chars = when {
+            answer is ExtractorHttpResult.Success -> answer.body.length.toLong()
+            (answer as? ExtractorHttpResult.Failure)?.reason == SiteExtractionFailure.RESPONSE_TOO_LARGE -> kept.limit
+            else -> 0L
+        }
+        if (chars > 0) synchronized(spent) { spent[record] = (spent[record] ?: 0L) + chars }
     }
 
     /**
@@ -285,28 +367,38 @@ class FacebookLadder(
 
     override fun toString(): String = "FacebookLadder"
 
-    /** The rung's one HTTP answer, kept for the judge (each ask its own, in its context). */
-    private class Kept : AbstractCoroutineContextElement(Kept) {
+    /**
+     * The rung's one HTTP answer, kept for the judge (each ask its own, in its context); [limit]:
+     * S7's characters left in the lookup, the most the ask reads.
+     */
+    private class Kept(val limit: Long = Long.MAX_VALUE) : AbstractCoroutineContextElement(Kept) {
         @Volatile
         var result: ExtractorHttpResult? = null
 
         companion object Key : CoroutineContext.Key<Kept>
     }
 
-    /** The ladder's client: each answer (a refusal included) also kept in the ask's [Kept]. */
+    /**
+     * The ladder's client: each answer (a refusal included) also kept in the ask's [Kept]; S7: an
+     * ask reads at most the lookup's characters left ([Kept.limit]).
+     */
     private class Keeping(private val http: ExtractorHttpClient) : ExtractorHttpClient {
         override suspend fun get(url: String, headers: Map<String, String>, maxBodyBytes: Long): ExtractorHttpResult =
-            http.get(url, headers, maxBodyBytes).also { coroutineContext[Kept]?.result = it }
+            http.get(url, headers, limited(maxBodyBytes)).also { coroutineContext[Kept]?.result = it }
 
         override suspend fun postJson(
             url: String,
             body: String,
             headers: Map<String, String>,
             maxBodyBytes: Long,
-        ): ExtractorHttpResult = http.postJson(url, body, headers, maxBodyBytes).also { coroutineContext[Kept]?.result = it }
+        ): ExtractorHttpResult =
+            http.postJson(url, body, headers, limited(maxBodyBytes)).also { coroutineContext[Kept]?.result = it }
 
         override suspend fun probe(url: String, headers: Map<String, String>, timeoutMillis: Long): ExtractorProbeResult =
             http.probe(url, headers, timeoutMillis)
+
+        private suspend fun limited(maxBodyBytes: Long): Long =
+            coroutineContext[Kept]?.let { minOf(maxBodyBytes, it.limit) } ?: maxBodyBytes
 
         override fun toString(): String = "FacebookLadder.Keeping"
     }

@@ -588,6 +588,15 @@ earlier):
   related video's files → no rows, never final; a link main did not resolve: its page judged for
   the route only; flag off = today; `FacebookLadderF2Test` 6, `SocialLadderF2Test` 3. Next: S7,
   S6, the mutation tests, the simulator world.
+- **(5) built (2026-10-20), behind the flag:** S7, stops and budgets: F1 asks only when none of
+  its hosts stopped in the lookup (a bot check, main's asks included), none cools (30 minutes
+  after a host's last 429 or bot check, across lookups; `SocialCooldown`, memory only) and the
+  lookup's budget holds (`SocialBudget.FACEBOOK`: 4 requests, main's and Master's; 20 s; 8 MiB of
+  Master's answers; F1 waits at most the time left, reads at most the characters left); else not
+  asked, F2 still reads; no endpoint asked twice in a lookup, by main or by Master (route B's
+  rules); main's 429 and bot checks and F1's own cool the host from the stage's end (the app:
+  before main's final 429 ends the lookup); flag off = today; `FacebookLadderS7Test` 5,
+  `SocialLadderS7Test` 2. Next: S6, the mutation tests, the simulator world.
 
 **S2b TikTok:** T1 the embed player (`embed/v2`), judged; a bot check stops; a photo post stops
 with no request; T2 L3; T3 capture; TikTok's own client (not the shared one) wrapped by the

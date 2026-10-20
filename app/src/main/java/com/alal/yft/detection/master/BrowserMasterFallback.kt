@@ -26,6 +26,7 @@ import com.alal.yft.extractor.master.verify.OkHttpMediaValidator
 import com.alal.yft.extractor.master.verify.CapturedMediaMetadata
 import com.alal.yft.extractor.master.present.MasterMainPresentation
 import com.alal.yft.extractor.master.policy.TerminalRules
+import com.alal.yft.extractor.master.social.SocialCooldown
 import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.CoroutineContext
@@ -123,6 +124,11 @@ class AndroidBrowserMasterFallback(
      * ([lookupContext]). Every other build: false, no record.
      */
     private val socialLadder: Boolean = false,
+    /**
+     * Social plan S1a (5), S7: where a social-ladder build's Facebook lookup notes the hosts that
+     * answered a 429 or a bot check ([SocialLadder.noteStops]); the app's own by default.
+     */
+    private val socialCooldown: SocialCooldown = SocialLadder.cooldown,
 ) : BrowserMasterFallback {
     override val enabled: Boolean get() = capture.enabled
 
@@ -164,6 +170,9 @@ class AndroidBrowserMasterFallback(
         // name the video main's resolved link names, and its final answer gets main's words. Every
         // other build and page: false, each step as before.
         val social = socialLadder && SocialLadder.claims(key)
+        // S1a (5), S7: such a lookup's hosts that answered a 429 or a bot check (main's asks; its
+        // 429 is final below) cool for 30 minutes for Master's rungs that ask. Else nothing.
+        if (social) SocialLadder.noteStops(socialCooldown)
         // Item 7 F7: the rows the trial set aside for this lookup (the trial APK only, else null).
         val mains = if (routeBTrial) key?.let(setAside::remove) else null
         // Phase 1.4 item 7 (YouTube routing B) F2: route B's page — a YouTube page main failed, in

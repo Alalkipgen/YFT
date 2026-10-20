@@ -10,6 +10,7 @@ import com.alal.yft.extractor.master.social.FacebookLadder
 import com.alal.yft.extractor.master.social.MainPageRecorder
 import com.alal.yft.extractor.master.social.MainPages
 import com.alal.yft.extractor.master.social.SiteWays
+import com.alal.yft.extractor.master.social.SocialCooldown
 import com.alal.yft.extractor.master.social.SocialStage
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.currentCoroutineContext
@@ -26,6 +27,13 @@ internal object SocialLadder {
 
     /** The pilot's site ID (main's Facebook adapter; its video key's prefix). */
     const val FACEBOOK_SITE_ID = "facebook"
+
+    /**
+     * S1a (5), S7: the hosts cooling after a 429 or a bot check (30 minutes), the app process's:
+     * Facebook's ladder does not ask a cooling host in any lookup ([stage], [noteStops]). Memory
+     * only; untouched in every other build (no ladder, nothing noted).
+     */
+    val cooldown = SocialCooldown()
 
     /**
      * S1a (2): the client main's site adapters share. In a social-ladder build it records each
@@ -54,13 +62,25 @@ internal object SocialLadder {
      * S1a (3): Master's social rung in a social-ladder build: Facebook's ladder ([FacebookLadder]:
      * F1, the plugin player, judged) over Master's own client [http], claiming only a lookup with
      * its own record ([lookupContext]); [identify]: main's adapters. Its recipes come from the same
-     * source as the engine's ([MasterRecipeConfig]). Every other build: null, the engine as before.
+     * source as the engine's ([MasterRecipeConfig]); S1a (5): its stops cool in [cooldown] (the
+     * app's, by default). Every other build: null, the engine as before.
      */
     fun stage(
         http: ExtractorHttpClient,
         identify: (String) -> SitePageIdentity?,
         social: Boolean = enabled,
-    ): SocialStage? = if (social) FacebookLadder(http, identify, MasterRecipeConfig::contracts) else null
+        cooldown: SocialCooldown = SocialLadder.cooldown,
+    ): SocialStage? = if (social) FacebookLadder(http, identify, MasterRecipeConfig::contracts, cooldown) else null
+
+    /**
+     * S1a (5), S7: the hosts that answered a 429 or a bot check in the current lookup (its record:
+     * main's asks included) start their 30-minute cooldown in [cooldown]; main's own 429 ends the
+     * lookup before Master runs, so the next lookups' F1 does not ask that host. A lookup without
+     * a record: nothing.
+     */
+    suspend fun noteStops(cooldown: SocialCooldown = SocialLadder.cooldown) {
+        currentCoroutineContext()[LookupRecord]?.stopHosts()?.let(cooldown::note)
+    }
 
     /**
      * S1a (3): the video key the ladder's rows carry in [lookupUrl]'s lookup: for a link main
