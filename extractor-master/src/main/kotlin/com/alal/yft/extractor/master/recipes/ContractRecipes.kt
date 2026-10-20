@@ -39,6 +39,11 @@
  *                                                   (no cookie for the embed), displayTitle
  *                                                   (the caption, else the owner's name)
  * Adapted: the same endpoints, headers and keys as data that ContractLayer interprets.
+ * Reviewed (social plan 0.1, main's X card fix on this branch): main's XSyndication.parse now also
+ *   reads the post's own card (`card.binding_values.unified_card`, JSON in a string) after its own
+ *   media and before the quoted post. The X recipe stays as it is (the `mediaDetails` items, then
+ *   the quoted post): under route B Master runs only after main fails, and its shape layer (L3)
+ *   reads JSON inside strings. The table's rows keep their base hashes (34a41890).
  */
 package com.alal.yft.extractor.master.recipes
 

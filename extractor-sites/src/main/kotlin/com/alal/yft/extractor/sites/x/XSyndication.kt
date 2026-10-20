@@ -25,7 +25,8 @@ internal enum class XMediaType { VIDEO, GIF }
 
 /**
  * One video of a post: its MP4 files, highest bitrate first, and its HLS playlist. [position] is
- * its 1-based place among the post's media, the number a `/video/N` link names.
+ * its 1-based place among the post's media (a card's: among the card's media, in the card's own
+ * order), the number a `/video/N` link names.
  */
 internal data class XVideo(
     val position: Int,
@@ -38,7 +39,10 @@ internal data class XVideo(
     val height: Int?,
 )
 
-/** A post's videos; [quoted] when they are the quoted post's, the post itself having none. */
+/**
+ * A post's videos: its own media's, else its own card's ([card]), else the quoted post's media's
+ * ([quoted]); the quoted post's card is not read.
+ */
 internal data class XPost(
     val id: String?,
     val text: String?,
@@ -47,6 +51,7 @@ internal data class XPost(
     val videos: List<XVideo>,
     val photoCount: Int,
     val quoted: Boolean,
+    val card: Boolean = false,
 )
 
 internal sealed interface XParseResult {
@@ -156,20 +161,23 @@ internal object XSyndication {
             return XParseResult.Failure("answer: X shows no post (tombstone)", unavailable = true)
         }
         val own = videosOf(root)
+        val card = if (own.isEmpty()) cardVideosOf(root) else emptyList()
+        val ownOrCard = own.ifEmpty { card }
         val quoted = root["quoted_tweet"]
-        val quotedVideos = if (own.isEmpty()) videosOf(quoted) else emptyList()
+        val quotedVideos = if (ownOrCard.isEmpty()) videosOf(quoted) else emptyList()
         val user = root["user"]
         val post = XPost(
             id = root["id_str"].asStringOrNull,
             text = root["text"].asStringOrNull,
             userName = user["name"].asStringOrNull,
             screenName = user["screen_name"].asStringOrNull,
-            videos = own.ifEmpty { quotedVideos },
+            videos = ownOrCard.ifEmpty { quotedVideos },
             photoCount = max(
                 root["mediaDetails"].asArrayOrEmpty.count { it["type"].asStringOrNull == PHOTO },
                 root["photos"].asArrayOrEmpty.size,
             ),
-            quoted = own.isEmpty() && quotedVideos.isNotEmpty(),
+            quoted = ownOrCard.isEmpty() && quotedVideos.isNotEmpty(),
+            card = own.isEmpty() && card.isNotEmpty(),
         )
         if (post.videos.isEmpty()) {
             return XParseResult.Failure(
@@ -184,6 +192,40 @@ internal object XSyndication {
         tweet["mediaDetails"].asArrayOrEmpty.mapIndexedNotNull { index, media ->
             videoOf(index + 1, media)
         }
+
+    /**
+     * Social plan 0.1: the videos of the post's own card (`card.binding_values.unified_card`, a
+     * JSON text, as in the card types `video_website` and `video_multi_dest_carousel_website`),
+     * each read as a post's media is. Their order is the card's own media list (its components in
+     * order: a `media` component's item, a `swipeable_media` component's items in their order),
+     * not the key order of `media_entities`; an item the list does not name is not read.
+     */
+    private fun cardVideosOf(tweet: JsonValue?): List<XVideo> {
+        val text = tweet.path("card", "binding_values", UNIFIED_CARD, "string_value").asStringOrNull
+            ?: return emptyList()
+        val card = (BoundedJsonParser.read(text) as? JsonReadResult.Read)?.value
+            ?: return emptyList()
+        val entities = card["media_entities"]
+        return cardMediaIds(card).mapNotNull { id -> entities[id] }
+            .mapIndexedNotNull { index, media -> videoOf(index + 1, media) }
+    }
+
+    /** The media IDs a card shows, in order: its `components` list, else `component_objects`'. */
+    private fun cardMediaIds(card: JsonValue): List<String> {
+        val components = (card["component_objects"] as? JsonValue.Object)?.entries
+            ?: return emptyList()
+        val names = card[CARD_COMPONENTS].asArrayOrEmpty.mapNotNull { it.asStringOrNull }
+            .ifEmpty { components.keys.toList() }
+        return names.mapNotNull(components::get).flatMap { component ->
+            val data = component["data"]
+            when (component["type"].asStringOrNull) {
+                MEDIA_COMPONENT -> listOfNotNull(data["id"].asStringOrNull)
+                SWIPEABLE_MEDIA_COMPONENT ->
+                    data["media_list"].asArrayOrEmpty.mapNotNull { it["id"].asStringOrNull }
+                else -> emptyList()
+            }
+        }.distinct()
+    }
 
     private fun videoOf(position: Int, media: JsonValue): XVideo? {
         val type = when (media["type"].asStringOrNull) {
@@ -241,6 +283,10 @@ internal object XSyndication {
     private const val MP4 = "video/mp4"
     private const val HLS = "application/x-mpegurl"
     private const val VIDEO_HOST = "video.twimg.com"
+    private const val UNIFIED_CARD = "unified_card"
+    private const val CARD_COMPONENTS = "components"
+    private const val MEDIA_COMPONENT = "media"
+    private const val SWIPEABLE_MEDIA_COMPONENT = "swipeable_media"
     private val ZEROS_OR_POINT = Regex("0+|\\.")
     private val SIZE_IN_PATH = Regex("/vid/(?:[a-z0-9]+/)?([0-9]{2,5})x([0-9]{2,5})/")
 }

@@ -9,6 +9,11 @@
  *   extractor-sites/.../instagram/InstagramUrls.kt  isLoginWall
  *   extractor-sites/.../x/XSyndication.kt  parse, TOMBSTONE (a tombstone or an empty answer is
  *                                        no post)
+ * Reviewed (social plan 0.1, main's X card fix on this branch): main's parse now also reads the
+ *   post's own card (`card.binding_values.unified_card`, JSON in a string) after its own media and
+ *   before the quoted post, never the quoted post's card; tweetResult reads the same three as
+ *   data. The table's row keeps its base hash (34a41890): the drift check against main reports
+ *   it once this fix reaches main.
  */
 package com.alal.yft.extractor.master.social
 
@@ -127,13 +132,18 @@ internal object SiteReadings {
         return AskReading(mark, pageShape(body, IG_MARKERS))
     }
 
-    /** X's widget: a tombstone or an empty answer is no post; a video or GIF with files is data. */
+    /**
+     * X's widget: a tombstone or an empty answer is no post; a video or GIF with files is data: in
+     * the post's own media, its own card's media (0.1: `unified_card`, JSON in a string) or the
+     * quoted post's media, the three places main reads (as main, not the quoted post's card).
+     */
     fun tweetResult(result: ExtractorHttpResult.Success): AskReading? = json(result) { root ->
         when {
             root !is JsonValue.Object -> NO_DATA
             root.entries.isEmpty() || root["__typename"].asStringOrNull == TOMBSTONE || root["tombstone"] != null ->
                 NO_POST
-            hasVideo(root["mediaDetails"]) || hasVideo(root.path("quoted_tweet", "mediaDetails")) -> DATA
+            hasVideo(root["mediaDetails"]) || hasVideo(cardMedia(root)) ||
+                hasVideo(root.path("quoted_tweet", "mediaDetails")) -> DATA
             else -> NO_DATA
         }
     }
@@ -176,6 +186,14 @@ internal object SiteReadings {
 
     private fun hasVideo(items: JsonValue?): Boolean = items.asArrayOrEmpty.any { item ->
         item["type"].asStringOrNull in X_VIDEO_TYPES && item.path("video_info", "variants").asArrayOrEmpty.isNotEmpty()
+    }
+
+    /** The media of a post's own unified card (a JSON text), as an array; none when unreadable. */
+    private fun cardMedia(tweet: JsonValue): JsonValue? {
+        val text = tweet.path("card", "binding_values", "unified_card", "string_value").asStringOrNull ?: return null
+        val card = (BoundedJsonParser.read(text) as? JsonReadResult.Read)?.value ?: return null
+        val media = card["media_entities"] as? JsonValue.Object ?: return null
+        return JsonValue.Array(media.entries.values.toList())
     }
 
     private fun facebookWall(url: String): Boolean {

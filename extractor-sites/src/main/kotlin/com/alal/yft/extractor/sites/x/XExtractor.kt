@@ -17,11 +17,12 @@ import com.alal.yft.extractor.api.SitePageIdentity
  * P48: X (Twitter) adapter for a public post's video.
  *
  * X's own pages build their player with scripts and a signed-in API, so the adapter reads the
- * public answer X's embedded-post widget reads ([XSyndication]): the post's MP4 files, each a
- * whole file with its sound, at every size X made (320p to 1080p). It sends no X cookie: the
- * answer is public, and its host is not x.com. A post the answer does not show (age-restricted,
- * protected, deleted) or that has photos only fails with a reason that keeps the generic
- * detector, so the browser's own finds still count.
+ * public answer X's embedded-post widget reads ([XSyndication]): the post's MP4 files (its own
+ * media's, else its own card's, else the quoted post's), each a whole file with its sound, at
+ * every size X made (320p to 1080p). It sends no X cookie: the answer is public, and its host is
+ * not x.com. A post the answer does not show (age-restricted, protected, deleted) or that has
+ * photos only fails with a reason that keeps the generic detector, so the browser's own finds
+ * still count.
  */
 class XExtractor(
     private val http: ExtractorHttpClient,
@@ -70,7 +71,13 @@ class XExtractor(
         val candidates = candidatesOf(post, video, pageUrl, request)
         val choice = buildString {
             append("answer: ")
-            append(if (post.quoted) "the quoted post's " else "")
+            append(
+                when {
+                    post.quoted -> "the quoted post's "
+                    post.card -> "the card's "
+                    else -> ""
+                },
+            )
             append(if (video.type == XMediaType.GIF) "GIF" else "video")
             append(" ${video.position}, ${post.videos.size} in the post")
             append(" · ${video.variants.size} MP4 files")

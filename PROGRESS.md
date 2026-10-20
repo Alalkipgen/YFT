@@ -1,5 +1,36 @@
 # YFT Master Extractor backup
 
+## Social plan 0.1 — X's card fix in main (2026-10-20)
+
+- Main's X reader (`XSyndication.parse`) reads the post's own media (`mediaDetails`), then the
+  post's own card (`card.binding_values.unified_card.string_value`, JSON in a string: its
+  `media_entities`, each read by the existing `videoOf`), then the quoted post's media as before;
+  the quoted post's card is not read. A card's videos keep the card's own order (its `components`:
+  a `media` component's item, a `swipeable_media` component's list in order), not the key order of
+  `media_entities`; an item the list does not name is not read. The choice (`/video/N`, else the
+  first), MP4 first and the host guard (`video.twimg.com`) are unchanged; the answer line says
+  "the card's video N, M in the post". A tombstone or an empty answer keeps `NO_MEDIA_FOUND`; a
+  card without a video, or with files only off X's video host, keeps "no video"
+  (`RESPONSE_CHANGED`), as before.
+- Tests: 5 synthetic fixtures (made-up IDs and hosts): `tweet_card_video` (`video_website`),
+  `tweet_card_carousel` (`video_multi_dest_carousel_website`: two videos that `media_entities`
+  holds the other way round, one file off X's video host) and the decoys `tweet_card_no_video`,
+  `tweet_card_off_host`, `tweet_quoted_card`. `XSyndicationTest` +3 (the card's order, also
+  without its `components` list; the post's own media before its card, the card before the quoted
+  post; the decoys), `XExtractorTest` +2 (MP4 rows from a card, `/video/2` on the carousel; the
+  decoys keep `RESPONSE_CHANGED` and the generic detector).
+- Master: the census reading (`SiteReadings.tweetResult`) reads the post's own card's video as data
+  (not the quoted post's card); `SiteWaysTest` lists the five fixtures; `FixtureBaselineTest`'s
+  baseline +5 entries (only additions). The X contract recipe stays as it is, documented in its
+  provenance header (under route B Master runs only after main fails; its shape layer reads JSON
+  in strings). The provenance table keeps its rows and base hashes: the self-check against the
+  base reports 0 drifted; against this branch only `parse` (its 2 reviewed rows) differs, which the
+  check against main will report once the fix reaches main. `docs/SUPPORT_MATRIX.md`'s X row
+  names the card.
+- Local (JDK 17): `:extractor-sites:test` 285 and `:extractor-master:test` 787 passed. Next: the
+  census fixes (0.4), then the census APK; the owner's X-only check after it (slots 3 and 6 → MP4
+  rows with V pass; slots 1, 2, 4 and 5 unchanged).
+
 ## Social plan — the final plan of the steps after S0d (the owner, 2026-10-20), docs only
 
 - The owner approved the plan of the steps (plan §7.3, §8): the pilot Facebook, then TikTok, X,

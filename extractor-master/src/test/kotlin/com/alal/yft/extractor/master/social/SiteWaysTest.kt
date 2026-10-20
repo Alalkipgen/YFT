@@ -386,6 +386,13 @@ class SiteWaysTest {
             "tweet_quoted" to DATA,
             "tweet_photos" to NO_DATA,
             "tweet_tombstone" to NO_POST,
+            // 0.1: the post's own card is read, the quoted post's card is not; like the post's
+            // media, a card's file counts as data before main's host guard.
+            "tweet_card_video" to DATA,
+            "tweet_card_carousel" to DATA,
+            "tweet_card_off_host" to DATA,
+            "tweet_card_no_video" to NO_DATA,
+            "tweet_quoted_card" to NO_DATA,
         )
         assertEquals(fixtures("x"), tweets.keys)
         for ((name, mark) in tweets) {
