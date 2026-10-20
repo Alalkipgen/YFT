@@ -349,7 +349,8 @@ internal object SiteCensusReport {
                     "Master ${number.masterRecovered}" + (site.stop?.let { ", stopped ($it)" } ?: ""))
         }
 
-    fun text(run: CensusRunResult): String = buildString {
+    /** The report; 0.4 (b): [diff], this run against the last one, after the rules. */
+    fun text(run: CensusRunResult, diff: SiteCensusDiff.Result? = null): String = buildString {
         val rows = run.sites.sumOf { it.rows.size }
         appendLine(
             "${SiteCensus.TOOL_LABEL} — ${SiteCensusJson.dateOf(run.atMillis)} — ${run.sites.size} sites, " +
@@ -375,6 +376,12 @@ internal object SiteCensusReport {
                 "Instagram's item of the post's items.",
         )
         if (run.notes.isNotEmpty()) appendLine("Notes: ${run.notes.joinToString("; ")}")
+        diff?.let {
+            appendLine()
+            appendLine("Diff: ${it.headline}")
+            it.lines.forEach { line -> appendLine("  ${line.render()}") }
+            it.notes.forEach { note -> appendLine("  note: $note") }
+        }
         run.sites.forEach { site -> site(site) }
     }
 
@@ -495,12 +502,14 @@ internal object SiteCensusReport {
 
 /**
  * S0b: the screen's state file (`files/master/site-census-last.json`): each site's cooldown after
- * a 429 or a bot check ([stops]: until when, why), the last run's time and its export.
+ * a 429 or a bot check ([stops]: until when, why), the last run's time and its export ([lastJson]
+ * to write; 0.4 (b): [last], the stored export as read, for the diff).
  */
 internal class SiteCensusState(
     val stops: Map<String, Stop>,
     val lastAtMillis: Long = 0,
     val lastJson: String? = null,
+    val last: JsonValue? = null,
 ) {
     class Stop(val untilMillis: Long, val why: String)
 
@@ -520,7 +529,7 @@ internal class SiteCensusState(
                 if (SiteWays.site(id) == null) return@mapNotNull null
                 id to Stop(until, value["why"].asStringOrNull?.takeIf { it in WHY } ?: "stop")
             }.toMap()
-            return SiteCensusState(stops, root["lastAt"].asLongOrNull ?: 0)
+            return SiteCensusState(stops, root["lastAt"].asLongOrNull ?: 0, last = root["last"] as? JsonValue.Object)
         }
 
         fun write(state: SiteCensusState): String = SiteCensusJson.obj {

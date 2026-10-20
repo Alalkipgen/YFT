@@ -669,6 +669,32 @@ class SiteCensusTest {
         assertEquals(3, http.requestedUrls.size)
     }
 
+    @Test
+    fun `0_4 b - the report holds the diff against the last run the state kept`() = runTest {
+        val http = FakeExtractorHttpClient()
+        var answer: MainAnswer = MainAnswer.Failed(SiteExtractionFailure.LOGIN_REQUIRED)
+        val census = census(ScriptedMain { _, _ -> answer }, http)
+        val links = mapOf("x" to mapOf(X_AGE_LIMITED to X_POST))
+
+        val first = census.run(listOf(SiteWays.X), links, null)
+        answer = MainAnswer.Failed(SiteExtractionFailure.LOGIN_REQUIRED, 401)
+        val second = census.run(listOf(SiteWays.X), links, first.stateJson)
+
+        assertTrue(first.report, first.report.lines().contains("Diff: FIRST RUN — nothing to compare yet"))
+        val lines = second.report.lines()
+        assertTrue(second.report, lines.contains("Diff: CHANGED (1) — against the run of ${SiteCensusJson.dateOf(NOW_MS)}"))
+        assertTrue(
+            second.report,
+            lines.contains("  CHANGED X slot 7 (age-limited): main failed LOGIN_REQUIRED [browser] → failed LOGIN_REQUIRED 401 [browser]"),
+        )
+        assertNull("the diff is the report's, not the export's", json(second.json)["diff"])
+        val third = census.run(listOf(SiteWays.X), links, second.stateJson)
+        assertTrue(third.report, third.report.lines().contains("Diff: NO CHANGE — against the run of ${SiteCensusJson.dateOf(NOW_MS)}"))
+        val noLast = census.run(listOf(SiteWays.X), links, "{\"fmt\":1,\"stops\":{},\"lastAt\":5}")
+        assertTrue("a state without the last export: a first run", noLast.report.contains("Diff: FIRST RUN"))
+        assertTrue("nothing asked", http.requestedUrls.isEmpty())
+    }
+
     private fun census(
         main: MainLookup,
         http: ExtractorHttpClient,

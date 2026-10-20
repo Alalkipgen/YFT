@@ -1,5 +1,29 @@
 # YFT Master Extractor backup
 
+## Social plan 0.4 (b) — the site census diff (2026-10-20)
+
+- `SiteCensusDiff` (`extractor-master`, JVM): two exports of "YFT site census" (the earlier run's
+  and the later's, as texts or parsed, bounded) → a headline and, per site, one line per slot that
+  changed. **BREAKING** is a worsening: main's rows gone, a row as expected that no longer is,
+  main's V `pass` → `fail`, a row Master recovered (route B, V pass) that it no longer recovers,
+  or a site stopped by the site (a 429, a bot check, its rate limit) where it was not.
+  **CHANGED** is any other difference: main's answer, class, reason, status, rows or tallest row;
+  the judge (as expected, not as expected, ambiguous); V; the post's item; the best row's
+  duration; Master's way, answer, rows or V; the session; a stop gone, or the census's own budget.
+- Headlines: "FIRST RUN — nothing to compare yet"; "NO CHANGE", "CHANGED (n)" or "BREAKING (n)" —
+  "against the run of" the earlier run's date; "NOT COMPARED — the earlier (or later) file is not
+  a site census export" (not JSON, another tool's export, another format).
+- Not compared, a note each: a site or a slot in one run only, a skipped site, a row not looked
+  up. A field an older export lacks (before 0.4: the times, the best row's duration, the item) is
+  compared only when both runs hold it; times and request counts move from run to run and are
+  not compared. The lines hold sites, slots, kinds, labels, reasons and numbers only, as the
+  exports do.
+- The screen (debug only): after its rules the report holds the diff against the last run the
+  state kept (the state's stored export; its format stays 1); the export holds no diff. The
+  runbook step per line is W's (S3), not 0.4's.
+- Tests: `SiteCensusDiffTest` 5 (new), `SiteCensusTest` +1 (21). Local (JDK 17):
+  `:extractor-master:test` 798 tests (2 skipped) passed. Next: the census APK (0.1 with 0.4).
+
 ## Social plan 0.4 (a) — the census fixes (2026-10-20)
 
 - Times: each looked-up row holds its setup time (main's identity of the link) and its end-to-end

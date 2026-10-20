@@ -132,7 +132,8 @@ interface MainLookup {
  * Social plan 0.4 (§7.3, the census fixes): each row also holds its setup time (main's identity
  * of the link) and its end-to-end time, the best row's duration and the post's item main's answer
  * names (main's and Master's), and the record's repeats and variants (its report key, beside the
- * endpoint rule).
+ * endpoint rule). 0.4 (b): after its rules the report holds the diff against the last run the
+ * state kept ([SiteCensusDiff]: per slot CHANGED / BREAKING lines).
  *
  * **Stops:** a 429 or a bot check (any ask, the hidden page included, V's too) stops the site for
  * the run and for [COOLDOWN_MILLIS] after (the state). **Budgets** (checked before each step): at
@@ -207,10 +208,12 @@ class SiteCensus(
             sites = results,
         )
         val json = CensusText.clean(SiteCensusJson.run(run), secrets)
+        // 0.4 (b): this run against the last one the state kept (its export).
+        val diff = SiteCensusDiff.compare(state.last, SiteCensusDiff.parse(json))
         val stopped = results.filter { it.stop != null }.joinToString("; ") { "${it.site.name}: ${it.stop}" }
         return Outcome(
             firstLine = CensusText.clean(SiteCensusReport.headline(run), secrets),
-            report = CensusText.clean(SiteCensusReport.text(run), secrets),
+            report = CensusText.clean(SiteCensusReport.text(run, diff), secrets),
             json = json,
             stateJson = SiteCensusState.write(SiteCensusState(stops, startedAt, json)),
             stopped = stopped.ifEmpty { null },
