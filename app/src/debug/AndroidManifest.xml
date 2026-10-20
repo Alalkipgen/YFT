@@ -29,6 +29,21 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- Social plan S0c: the site census (main's lookups, V, Master's way once). It keeps
+             running when the phone turns; nothing runs unless the owner taps, and only while
+             the screen is open. -->
+        <activity
+            android:name="com.alal.yft.master.SiteCensusActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:enabled="${yftOwnerTools}"
+            android:exported="true"
+            android:label="YFT site census"
+            android:taskAffinity="com.alal.yft.ownertools">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
         <!-- Phase 1.2 N7: the phone solver canary, only when yft.ownSolverNext is on as well
              (placeholder yftOwnerToolsNext). It keeps running when the phone turns. -->
         <activity

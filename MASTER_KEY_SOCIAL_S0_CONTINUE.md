@@ -1,4 +1,4 @@
-# Continue the social plan's S0 (after S0b)
+# Continue the social plan's S0 (after S0c)
 
 You continue YFT's Master Extractor work on branch `spike/master-extractor-backup` only.
 Read first: `AGENTS.md`, `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md` (working rules),
@@ -30,27 +30,28 @@ Reply to the owner in Burmese (English technical terms), short, outcome first.
 - S0b (2026-10-20): `social/SiteRowCheck` (V), `social/SiteCensus` (`LinkIdentity`, `MainAnswer`,
   `MainLookup`, the engine) and `social/SiteCensusReport` (rows, each site's number, the report,
   the JSON export, the state, the privacy guard); tests `SiteRowCheckTest` (8), `SiteCensusTest`
-  (16). Nothing copied from main. First check that the S0b commit's CI is green.
+  (16). Nothing copied from main.
+- S0c (2026-10-20): debug `SiteCensusActivity` ("YFT site census", `android:enabled="${yftOwnerTools}"`,
+  taskAffinity `com.alal.yft.ownertools`): a link field per slot (the screen's own store, prefs
+  `site-census`), "Run <site>" / "Run all sites", "Copy report" / "Copy JSON", the state file
+  `files/master/site-census-last.json`, the status line `SiteCensus.statusOf`. `SiteCensusLookup`
+  (the screen's `MainLookup`): `SiteAdapterCoordinator(registry, DeviceMergeSupport(),
+  SiteLookupCache(), the hidden page with its mark)`, `inspect(fresh = true)`; identity = the copied
+  `WebViewAgent` + `CookieManager.getCookie(link)`. Clients: `OkHttpExtractorClient` over the app's
+  `NetworkConfiguration` client with a byte meter, `Policy(callTimeoutSeconds = 60,
+  retryDelaysMillis = emptyList())`, main's through `LookupRecorder` (TikTok's with
+  `sendResponseCookies = true`). Tests `SiteCensusLookupTest` (5), `CensusNoBackgroundTest` +1.
+  First check that the S0c commit's CI is green.
 
 ## Next
 
-- **S0c** — debug `SiteCensusActivity` like `ClientCensusActivity`; `app/src/debug/AndroidManifest.xml`
-  label "YFT site census", `android:enabled="${yftOwnerTools}"`, taskAffinity
-  `com.alal.yft.ownertools`. Clients: `OkHttpExtractorClient(NetworkConfiguration.createClient()
-  .newBuilder().eventListener(meter).build(), Policy(callTimeoutSeconds = 60,
-  retryDelaysMillis = emptyList()))` wrapped in `LookupRecorder` (TikTok's own client with
-  `sendResponseCookies = true`); the copied WebView agent; `SiteAdapterCoordinator(registry,
-  DeviceMergeSupport(), SiteLookupCache(), recording hidden-page wrapper)`, `inspect(fresh = true)`;
-  identity = the WebView user agent + `CookieManager.getCookie(link)`. Docs, CI green, APK.
-  The engine's use (S0b): the screen's `MainLookup` gives `identify(link)` →
-  `LinkIdentity(page, userAgent, cookie)` (null when no adapter handles the link) and
-  `lookup(link, identity)` → `MainAnswer` (`Found` / `Failed(reason, statusCode)` / `NotHandled`,
-  each with the hidden page's `AnswerMark` when it was read); its asks go through the recorder into
-  the record in the coroutine context. `SiteCensus(main, masterHttp, validator, meter, clock)
-  .run(sites, links (site ID → slot → link), stateJson, context (the network type), onStep)` →
-  `Outcome(firstLine, report, json, stateJson, stopped)`; the screen writes `stateJson` back to its
-  state file; `SiteCensus.statusOf(stateJson, now)` is its status line, `TOOL_LABEL` its title.
-- **S0d** — the owner's phone run; then the report and the pilot (§8 item 1).
+- **S0d** — the owner's phone run: the owner installs the APK of the S0c commit's "Master opt-in
+  debug APK (spike)" run, opens "YFT site census", pastes public links into the slots (§8 item 6:
+  the owner picks them; they stay on the phone, never in docs), taps "Run <site>" or "Run all
+  sites", keeps the screen open until the end, then sends the "Copy report" text (and "Copy JSON").
+  Record each site's number and the shares in §7.1 and `PROGRESS.md` (no link, ID or name); then
+  the pilot and the order (§8 item 1). A site stopped by a 429 or a bot check runs again only
+  after its 30 minutes (the status line says how long).
 
 ## Report to the owner after S0c
 

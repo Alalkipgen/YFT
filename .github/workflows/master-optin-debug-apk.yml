@@ -163,6 +163,7 @@ jobs:
               --tests 'com.alal.yft.detection.master.BrowserMasterFallbackTest' \
               --tests 'com.alal.yft.detection.master.YouTubeRouteBTest' \
               --tests 'com.alal.yft.master.SolverCanaryReportTest' \
+              --tests 'com.alal.yft.master.SiteCensusLookupTest' \
             :app:compileDebugAndroidTestKotlin \
             :app:assembleDebug \
             :app:assembleDebugAndroidTest 2>&1 | tee gradle-master.log || report

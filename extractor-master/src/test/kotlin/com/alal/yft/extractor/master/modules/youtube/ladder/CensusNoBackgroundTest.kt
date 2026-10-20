@@ -7,7 +7,8 @@ import org.junit.Test
 /**
  * Phase 1.3 D0, guardrail 11: the census and the weekly check run only while their owner tool is
  * open and after a tap. A static check that their code (the ladder sources and the app's debug
- * census tool) names no API that schedules or keeps work running in the background.
+ * census tool) names no API that schedules or keeps work running in the background. Social plan
+ * S0c: the site census (Master's `social` sources and the app's debug screen) is held to the same.
  */
 class CensusNoBackgroundTest {
     @Test
@@ -26,6 +27,23 @@ class CensusNoBackgroundTest {
         }
         val manifest = File(module.parentFile, "app/src/debug/AndroidManifest.xml").readText()
         for (tag in listOf("<service", "<receiver", "<provider")) assertTrue("debug manifest has $tag", tag !in manifest)
+    }
+
+    @Test
+    fun `the site census code uses no background or scheduling API`() {
+        val module = File(System.getProperty("user.dir"))
+        val social = File(module, "src/main/kotlin/com/alal/yft/extractor/master/social")
+        val tool = File(module.parentFile, "app/src/debug/java/com/alal/yft/master")
+        val files = social.listFiles { file -> file.extension == "kt" }.orEmpty().toList() +
+            tool.listFiles { file -> file.name.startsWith("SiteCensus") && file.extension == "kt" }.orEmpty()
+
+        assertTrue("site census sources not found under $social", files.any { it.name == "SiteCensus.kt" })
+        assertTrue("site census screen not found under $tool", files.any { it.name == "SiteCensusActivity.kt" })
+        assertTrue("its lookup not found under $tool", files.any { it.name == "SiteCensusLookup.kt" })
+        for (file in files) {
+            val code = codeOf(file.readText())
+            for (api in FORBIDDEN) assertTrue("${file.name} uses ${api.pattern}", !api.containsMatchIn(code))
+        }
     }
 
     @Test

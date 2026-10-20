@@ -1,5 +1,34 @@
 # YFT Master Extractor backup
 
+## Social plan S0c — the screen "YFT site census" (2026-10-20)
+
+- `SiteCensusActivity` (debug builds only; its launcher entry "YFT site census" exists only with
+  `yft.masterCapture` and `yft.ownSolver` on, placeholder `yftOwnerTools`, like "YFT client
+  census"): a link field per slot (41: Facebook 13, TikTok 10, Instagram 10, X 8; kept in the
+  screen's own store on the phone, empty slots skipped, HTTPS links only), "Run <site>" or "Run all
+  sites" on a tap, then the report with "Copy report" and "Copy JSON" (the export). The status line
+  shows the last run and any cooldown; the state (cooldowns, the last run) is the file
+  `files/master/site-census-last.json`, written whole and then moved. The screen stays on while it
+  runs; leaving the screen stops the run (turning the phone does not); the report notes the network
+  type (Wi-Fi or mobile data).
+- `SiteCensusLookup` (main as Home runs it): the app's `SiteAdapterCoordinator` over the four
+  adapters as `SiteAdapterModule` builds them (TikTok on its own client that sends a short link's
+  redirect cookies, with the WebView's agent and the public download service; Facebook, X,
+  Instagram), the phone's merge rule, a new answer cache per lookup (fresh), TikTok's hidden page
+  (`TikTokPageEngine`, the owner's settings) after a failed page read, its answer as the row's mark.
+  Identity: the agent YFT's tab sends and the browser's cookies for the link. Main's failure keeps
+  its reason and the adapter's HTTP status.
+- Clients: the app's `NetworkConfiguration` client under `OkHttpExtractorClient` with no retry (each
+  ask once, at most 60 s), its wire bytes counted for the 40 MB budget; main's asks go through
+  `LookupRecorder` into each row's record; Master's contracts and V use the same client, Master's
+  media checks are the app's (`OkHttpMediaValidator`).
+- Copied from main (provenance header, a row in `toolkit-provenance.tsv`): `WebViewAgent` from
+  `SiteAdapterModule.kt` (private there). Self-check against `34a41890`: 131 symbols, 0 drifted.
+  Main, the app's lookups, Master's engine, `RouteBLookup` and `RouteBHttpClient` unchanged.
+- Tests: `SiteCensusLookupTest` (5, the app's debug unit tests; also in the Master APK workflow's
+  list); `CensusNoBackgroundTest` +1 (the site census's sources and screen name no background or
+  scheduling API, as the client census). Next: S0d (the owner's run on the phone).
+
 ## Social plan S0b — the census engine and the one-row check (2026-10-20)
 
 - `social/SiteRowCheck` (V): one row of each answer (the best: the tallest, then the highest
