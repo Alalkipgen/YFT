@@ -1,5 +1,43 @@
 # YFT Master Extractor backup
 
+## Social plan 0.3 — Facebook's access-check evidence (2026-10-20), docs only
+
+- From the sandbox, signed out, with main's page headers (its desktop agent, `Accept-Language`
+  en-US unless noted): Facebook's pages for made-up IDs (no real post; the IDs are not kept) in seven
+  link forms, each in English and in Burmese (by `Accept-Language`, and by the `locale` cookie,
+  which wins over main's en-US); the /watch/ form also in German (the cookie). The pages'
+  structure was compared, not their wording; main's `FacebookPageParser` was run locally over the
+  saved pages (a throwaway test; no page kept as a fixture).
+
+| Link form | The page, the same in every language | Main today: English | Main today: Burmese |
+|---|---|---|---|
+| A group's post | "This content isn't available right now": the page's route (`canonicalRouteName`) `comet.fbweb.CometErrorRoute`, the error root's props `privacy: true`, `tracePolicy` `comet.error`; only the title and body are translated | `PRIVATE_OR_UNAVAILABLE` (the English title) | `RESPONSE_CHANGED` |
+| /watch/, a page's video | the video's not-found route `comet.fbweb.CometVideoHomeVideoNotFoundRoute` (the title "popular videos", translated) | `RESPONSE_CHANGED` | `RESPONSE_CHANGED` |
+| A reel | the reels route; its root query's answer `data.video: null`, final | `RESPONSE_CHANGED` | `RESPONSE_CHANGED` |
+| A share link | the older login page (its login form) | `LOGIN_REQUIRED` ("You must log in to continue") | `RESPONSE_CHANGED` |
+| video.php, permalink.php | a redirect to the login page | the login wall (main's final-address check) | the same |
+
+- **Verdict: yes**, a language-independent signal: the Comet router's route in the page's own
+  JSON (`canonicalRouteName`, with the error root's `privacy` flag). It matches S0d's slot 13 (the
+  removed post: `PRIVATE_OR_UNAVAILABLE` with the VPN, a recoverable reading without it): only the
+  English title matches main's phrase.
+- **The fix proposal for main's `FacebookPageParser`** (the owner's go, its own commit; not
+  built): after the existing markers (the English readings stay), and still only on a page
+  without playable media, the page's route `comet.fbweb.CometErrorRoute` with its root's
+  `privacy: true` → `PRIVATE_OR_UNAVAILABLE`, and `comet.fbweb.CometVideoHomeVideoNotFoundRoute` →
+  `PRIVATE_OR_UNAVAILABLE`. Tests on synthetic pages: the error route in two languages, the
+  not-found route; decoys (unchanged): the error route without `privacy: true`, a route name on a
+  page with media. Not proposed: the reel's `video: null` (no real reel was asked, so no control)
+  and the share link's login form (the same form sits on other signed-out pages).
+- Until then Master's judge stays conservative (a final answer only on positive evidence); the
+  two routes are such evidence for S1a's judge. Slot 12 (sign-in-only, its link unverified, a page
+  of the removed slot's shape): its expectation waits for the owner's check of the link; if it is
+  gone, it is a removed slot (`PRIVATE_OR_UNAVAILABLE` with the fix).
+- Also seen: main's login-form markers (`id="loginform"`, `login_form_container`) are not on
+  today's login page (its form is `login_form`); main's final-address check catches the login
+  redirect, so nothing changes.
+- No code and no test kept. Next: S1a, JVM only, behind `-Pyft.socialLadder` (off by default).
+
 ## Social plan 0.2 — the Instagram check (2026-10-20), docs only
 
 - Locally and statically; nothing was asked of Instagram. Main's GraphQL ask
