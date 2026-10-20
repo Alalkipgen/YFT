@@ -1,5 +1,48 @@
 # YFT Master Extractor backup
 
+## Social plan 0.2 — the Instagram check (2026-10-20), docs only
+
+- Locally and statically; nothing was asked of Instagram. Main's GraphQL ask
+  (`InstagramExtractor`) against yt-dlp's current Instagram extractor: the file as of yt-dlp's
+  commit `1f1101d0` (2026-07-21; the release 2026.08.19, `594bd50c`, holds the same file), its
+  signed-out ask from `f49b551a` (2026-06-28, the extractor's rework) and its fallback without
+  impersonation from `8b8e3e3c` (2026-07-01). Structure only: no `doc_id`, app ID or header value.
+
+| | Main (the GraphQL source) | yt-dlp now |
+|---|---|---|
+| When | signed in and out, after the app API (signed in only) | signed out only (signed in: the app API, as main) |
+| Before it | nothing | the home page (its LSD token) and the access check `GET /api/v1/web/get_ruling_for_content/` (the CSRF cookie, used only on `status: ok`) |
+| Endpoint | `GET /graphql/query/` (a query string) | `POST /api/graphql` (a form body) |
+| `doc_id` | yt-dlp's previous one (its file 2024-10-07 to 2026-06-28) | another (since 2026-06-28) |
+| Variables | `shortcode` and three nulls | `media_id` (the shortcode's number) |
+| Body | — | `lsd`, `fb_api_caller_class`, `fb_api_req_friendly_name` (the signed-out post query's name), `server_timestamps` |
+| Headers | the web app ID (the same), `X-ASBD-ID` (another value), `X-IG-WWW-Claim`, `X-Requested-With`, `Origin`, `Referer`, `Accept`, `Accept-Language`; `X-CSRFToken` only from the user's cookie | the same app ID, another `X-ASBD-ID`, `X-IG-WWW-Claim`, `Origin`, `Accept`, and `X-FB-Friendly-Name`, `X-FB-LSD`, `X-CSRFToken` (from the access check), `X-Requested-With`, `Referer` |
+| Answer read | `data.xdt_shortcode_media` (or `data.shortcode_media`) | `data.xig_polaris_media.if_not_gated_logged_out` (the app API's item shape) |
+| TLS | the app's own client | **sent only with TLS impersonation** (`impersonate=True`; not sent when it is unavailable) |
+| Without it | — | the post's page: its `data-sjs` script JSON (`RelayPrefetchedStreamCache` → `xig_polaris_media`); a login redirect → login required (the signed-out rate limit) |
+
+- yt-dlp's history (the file's 54 commits since 2021): the post's query changed twice, a
+  `query_hash` (2022-07), a `doc_id` (2024-10, main's), another `doc_id` (2026-06), each time with
+  a new request (endpoint, variables or the answer's path), never the value alone.
+- **Verdict (b): only with impersonation.** yt-dlp sends today's signed-out GraphQL ask only with
+  TLS impersonation and, without it, reads the post's page instead; main's ask (the previous
+  endpoint and `doc_id`, other variables, no access check before it) answered 401 signed out on 10
+  of 10 (S0d). S3 forbids impersonation, so there is no fix for main's GraphQL ask, and signed out
+  it is a documented limitation: main's signed-out ways are the post's page (its JSON scripts,
+  read by shape) and the embed page (S0d: 6 of 7 video rows). Instagram's stage (S2d) may use
+  only the visible tab's own fetch (the WebView's own requests), on the owner's go.
+- Main's 401 → `LOGIN_REQUIRED`: **keep.** Signed in, a 401 or 403 is the session's refusal (the
+  signed-in message). Signed out, the browser class sends the user to YFT's browser, where signing
+  in opens the app API and where the only allowed further way (the tab's own fetch) would run;
+  it is not a final answer, and the census reads the removed slot's as "ambiguous (no session)"
+  (0.4 a). Optional, on the owner's go (its own commit): the signed-out wording, since a 401 alone
+  does not show that a post is for signed-in viewers only (S0d's slot 5, a reel, read so).
+- §8 item 3 (the `doc_id` sources), the recommendation: no `doc_id` self-healing now (no S1b for
+  it), since the value never changed alone and today's request needs impersonation; if the owner
+  allows S2d's tab fetch, the source is Instagram's own scripts as the tab loads them, and
+  yt-dlp's raw file stays the owner's local reference, never read by the app. The owner decides.
+- No code and no test. Next: 0.3, Facebook's access-check evidence.
+
 ## Social plan 0.4 (b) — the site census diff (2026-10-20)
 
 - `SiteCensusDiff` (`extractor-master`, JVM): two exports of "YFT site census" (the earlier run's
