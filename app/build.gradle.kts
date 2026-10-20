@@ -153,6 +153,14 @@ val routeBTrial = providers.gradleProperty("yft.routeBTrial").orElse("false").ge
 require(routeBTrial in setOf("true", "false")) {
     "yft.routeBTrial must be true or false"
 }
+// Social plan S1a (MASTER_KEY_SOCIAL_PLAN.md section 7.3): Master's social ladder, Facebook first
+// (the pilot): the per-lookup request record in the app's lookup path, then the judged rungs.
+// Acts only with yft.masterCapture on; off by default, debug builds only (the owner's test APKs),
+// release and preview false.
+val socialLadder = providers.gradleProperty("yft.socialLadder").orElse("false").get()
+require(socialLadder in setOf("true", "false")) {
+    "yft.socialLadder must be true or false"
+}
 // R9: the public key (X.509 P-256, hex) for Master's signed recipe config; blank = bundled
 // recipes only and no config request. Only read when Master capture is on.
 val masterRecipeKey = providers.gradleProperty("yft.masterRecipeKey").orElse("").get()
@@ -186,6 +194,7 @@ android {
         buildConfigField("String", "LADDER_MUTATE", "\"\"")
         buildConfigField("boolean", "YOUTUBE_ROUTE_B", "false")
         buildConfigField("boolean", "YOUTUBE_ROUTE_B_TRIAL", "false")
+        buildConfigField("boolean", "SOCIAL_LADDER", "false")
         buildConfigField("String", "MASTER_RECIPE_KEY", "\"$masterRecipeKey\"")
         buildConfigField("String", "MASTER_RECIPE_URL", "\"$masterRecipeUrl\"")
     }
@@ -243,6 +252,7 @@ android {
                 "boolean", "YOUTUBE_ROUTE_B_TRIAL",
                 (masterCapture == "true" && youtubeRouteB == "true" && routeBTrial == "true").toString(),
             )
+            buildConfigField("boolean", "SOCIAL_LADDER", (masterCapture == "true" && socialLadder == "true").toString())
             // Owner tools (src/debug, e.g. the N2 stream check): a launcher entry only when both
             // Master flags are on, so a debug build with the flags off stays as before.
             manifestPlaceholders["yftOwnerTools"] =

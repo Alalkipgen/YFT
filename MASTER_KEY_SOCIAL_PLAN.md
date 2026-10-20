@@ -562,6 +562,14 @@ earlier):
   `SiteAnswerJudgeTest` 7. No caller yet (the flag comes with the first wiring slice); region and
   age wait for evidence. Next: the recorder behind the flag, F1 judged, F2, S7, S6, the mutation
   tests, the simulator world; the phone APK on the owner's go.
+- **(2) built (2026-10-20), behind the flag:** the flag `-Pyft.socialLadder` (debug only, with
+  Master capture; off = today, no CI build passes it); with it on each Facebook lookup (every link
+  form) runs in its own record with Facebook's labels and its own `MainPages` (main's 2xx GET
+  answers: the address asked, the final address, the credentials flag and the page; at most 4
+  answers and 8 Mi characters; no cookie; memory only), written by main's shared client
+  (`LookupRecorder`, `MainPageRecorder`); main's requests unchanged; Master reads nothing of it
+  yet; `MainPagesTest` 4, `SocialLadderTest` 4. Next: F1 judged with the links main resolves
+  first, F2, S7, S6, the mutation tests, the simulator world.
 
 **S2b TikTok:** T1 the embed player (`embed/v2`), judged; a bot check stops; a photo post stops
 with no request; T2 L3; T3 capture; TikTok's own client (not the shared one) wrapped by the

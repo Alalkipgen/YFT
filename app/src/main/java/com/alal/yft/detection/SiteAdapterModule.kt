@@ -4,6 +4,7 @@ import android.content.Context
 import android.webkit.WebSettings
 import com.alal.yft.BuildConfig
 import com.alal.yft.core.browser.policy.BrowserUserAgent
+import com.alal.yft.detection.master.SocialLadder
 import com.alal.yft.detection.master.YouTubeRouteB
 import com.alal.yft.detection.potoken.BotGuardPoTokenProvider
 import com.alal.yft.detection.script.WebViewSolverEngine
@@ -56,12 +57,14 @@ object SiteAdapterModule {
     /**
      * The client the site adapters share. Phase 1.4 item 7 (YouTube routing B) R1: in a route-B
      * build (`-Pyft.youtubeRouteB`, debug only) it records each lookup's requests; otherwise it is
-     * the plain client.
+     * the plain client. Social plan S1a (2): in a social-ladder build (`-Pyft.socialLadder`, debug
+     * only) it records them and keeps main's pages too ([SocialLadder.mainClient]); flag off: as
+     * before.
      */
     @Provides
     @Singleton
     fun provideExtractorHttpClient(client: OkHttpClient): ExtractorHttpClient =
-        YouTubeRouteB.mainClient(client)
+        SocialLadder.mainClient(client)
 
     @Provides
     @Singleton

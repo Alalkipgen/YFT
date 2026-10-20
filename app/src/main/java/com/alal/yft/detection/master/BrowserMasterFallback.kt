@@ -116,6 +116,12 @@ class AndroidBrowserMasterFallback(
      * route B's line reports ([RouteBTrialCheck]); null in every other build (and no check).
      */
     private val trialFileCheck: RouteBTrialCheck.FileCheck? = null,
+    /**
+     * Social plan S1a (2): true only in a social-ladder build (`-Pyft.socialLadder`, debug only,
+     * [SocialLadder]); then each Facebook lookup gets its own labelled record and main's pages
+     * ([lookupContext]). Every other build: false, no record.
+     */
+    private val socialLadder: Boolean = false,
 ) : BrowserMasterFallback {
     override val enabled: Boolean get() = capture.enabled
 
@@ -327,11 +333,15 @@ class AndroidBrowserMasterFallback(
     /**
      * Item 7 R1: a new record per YouTube lookup in a route-B build (memory only); else nothing.
      * F5: it names the lookup's video, so main's watch page GET of it is kept for Master's replay.
+     * Social plan S1a (2): in a social-ladder build a Facebook lookup (every link form) gets its
+     * own record with Facebook's labels and its own `MainPages` ([SocialLadder.lookupContext]).
      */
     override fun lookupContext(lookupUrl: String): CoroutineContext {
         val key = sites.videoKey(lookupUrl)
         return if (youtubeRouteB && enabled && key?.substringBefore(':') == YOUTUBE_SITE_ID) {
             LookupRecord(watchPageVideoId = key.substringAfter(':'))
+        } else if (socialLadder && enabled && SocialLadder.claims(key)) {
+            SocialLadder.lookupContext()
         } else {
             EmptyCoroutineContext
         }
@@ -404,6 +414,8 @@ class AndroidBrowserMasterFallback(
             youtubeRouteB: Boolean = YouTubeRouteB.enabled,
             // Phase 1.4 item 7 R4: the route-B trial (D7 `routeb`, -Pyft.routeBTrial, debug only).
             routeBTrial: Boolean = YouTubeRouteB.trial,
+            // Social plan S1a (2): the social ladder's per-lookup record (-Pyft.socialLadder, debug only).
+            socialLadder: Boolean = SocialLadder.enabled,
         ): BrowserMasterFallback {
             if (!enabled) return BrowserMasterFallback.None
             val capture = WebViewPlaybackCapture(
@@ -437,6 +449,7 @@ class AndroidBrowserMasterFallback(
                 routeBTrial = routeBTrial,
                 // Item 7 F7: the trial's one-byte file check (the trial APK only).
                 trialFileCheck = if (routeBTrial && youtubeRouteB) RouteBTrialCheck.OkHttpFileCheck(client) else null,
+                socialLadder = socialLadder,
             )
         }
     }

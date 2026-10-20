@@ -1,5 +1,33 @@
 # YFT Master Extractor backup
 
+## Social plan S1a (2) — the recorder in the app's lookup path, behind the flag (2026-10-20)
+
+- The flag `-Pyft.socialLadder` (new; `app/build.gradle.kts`, `BuildConfig.SOCIAL_LADDER`): off by
+  default, acts only with `-Pyft.masterCapture=true` in a debug build; release and preview false.
+  No CI build passes it (no workflow change, no APK with it on).
+- Flag on: each Facebook lookup in the browser (every link form: video, reel, watch, share, post,
+  group post) runs in its own `LookupRecord` with Facebook's labels (each ask's way and its
+  answer's mark, the census's reading; S7's stops read them) and its own `MainPages` (new,
+  `extractor-master`; `AndroidBrowserMasterFallback.lookupContext`, `SocialLadder`). Main's shared
+  adapter client records each ask there (route B's `LookupRecorder`) and keeps main's pages
+  (`MainPageRecorder`, new): main's 2xx GET answers with the address asked, the final address, the
+  status, the content type, whether main's request carried the user's credentials, and the page
+  (at most 4 answers and 8 Mi characters; over the bound the addresses only); never a cookie the
+  answer set, a request header, a post or a file check; memory only, dropped with the lookup;
+  nothing logged. Main's requests and answers are unchanged; Master reads nothing of it yet (F1,
+  F2 and the links main resolves first: the next slices).
+- Flag off (every CI build): the shared client and each lookup's context are today's
+  (`SocialLadder.mainClient` gives `YouTubeRouteB.mainClient`'s client; a Facebook lookup gets no
+  record). Route B, the parity tests, `FixtureBaselineTest`, the drift check, the census and the
+  YouTube files unchanged.
+- Tests: `MainPagesTest` 4 (new, JVM); `SocialLadderTest` 4 (new, app; each case passes the switch
+  itself, so it holds whatever the build's flags; main's real Facebook adapter over synthetic
+  pages). Local (JDK 17): `:extractor-master:test` 809 tests (2 skipped),
+  `:extractor-master-android:testDebugUnitTest` 69 and `:app:testDebugUnitTest` 1029 (66 skipped)
+  passed; `:app:lintDebug` and `:app:assembleDebug` passed.
+- Next in S1a: F1 judged with the links main resolves first, F2, S7, S6, the mutation tests, the
+  simulator world.
+
 ## Social plan S1a (1) — the answer judge, Facebook's rules (2026-10-20), JVM only
 
 - `SiteAnswerJudge.kt` (`extractor-master`, JVM): L2's classes (plan §5) — `DIRECT`, `PARTIAL`
