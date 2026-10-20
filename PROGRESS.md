@@ -1,5 +1,42 @@
 # YFT Master Extractor backup
 
+## Social plan S1a (6) — S6, row checks, behind the flag (2026-10-20)
+
+- S6 (`SocialRowCheck`, `OkHttpRowReader`, `extractor-master` `social/`): in a social lookup (its
+  own record and main's pages: the social-ladder build's Facebook lookups) every row Master offers
+  (F1's, F2's, the tab's page data's and its own playback's, a row's sound file too) passes V and
+  the init check in place of the engine's file check; every other lookup keeps the engine's check
+  as it is.
+- V: one read of the file's first 4096 bytes (a `Range`, at most 64 KiB) with the download's own
+  headers, never the user's session (no cookie, no credentials), only on the host the answer gave
+  when it is one of the site's media hosts (Facebook: `fbcdn.net`, HTTPS) and did not stop in the
+  lookup; no redirect followed, a 10 s call timeout. Each file is read once a lookup (a later row
+  of the same file reuses the bytes), at most 8 files. Each read follows route B's rules: listed
+  in the lookup's record as Master's, none after a 429 in the lookup.
+- The init check (the YouTube ladder's, on the same bytes): the row's type (its own, else its
+  address's extension; a sound file answered `video/mp4` counts as its own), the container start,
+  no encryption marker, the size. Only `pass` passes: `unknown` (a generic or missing type, too
+  few bytes, a size without a total, a manifest row, another host, no answer, the reads spent) is
+  never a pass; a row the bytes prove wrong is not offered; an encryption marker is DRM (final,
+  the engine's rule).
+- The link's lifetime: a row's expiry is the earlier of its own and its link's `oe`; a link that
+  expired or lives less than 60 s more fails unasked (a 410 reads as expired). A passed row
+  carries its type, the file's size (the `Content-Range` total) and that expiry.
+- Intended policy difference (S1), flag on only: in a Facebook lookup an HLS or DASH manifest row
+  is never offered (no file start to check; Facebook's rows are files).
+- App, flag on only: the engine's check is `SocialLadder.validator` (the row check around
+  `OkHttpMediaValidator`, reading with `OkHttpRowReader`). Flag off (every CI build): the engine's
+  check is today's `OkHttpMediaValidator` itself (no reader built): R8's path, capture and the
+  messages are today's. Route B, the parity tests, `FixtureBaselineTest`, the drift check, the
+  census and the YouTube files unchanged.
+- Tests: `FacebookLadderS6Test` 7 (new, JVM; main's real Facebook adapter over synthetic pages, a
+  fake file reader), `OkHttpRowReaderTest` 4 (new, JVM; a local HTTPS server under Facebook's
+  media host names), `SocialLadderS6Test` 2 (new, app; the switch passed explicitly). Local (JDK
+  17): `:extractor-master:test` 838 tests (2 skipped), `:extractor-master-android:testDebugUnitTest`
+  69 and `:app:testDebugUnitTest` 1039 (66 skipped) passed; `:app:lintDebug` and
+  `:app:assembleDebug` passed.
+- Next in S1a: the mutation tests, the simulator world.
+
 ## Social plan S1a (5) — S7, stops and budgets, behind the flag (2026-10-20)
 
 - S7 (`FacebookLadder`, `SocialStops.kt`, `extractor-master` `social/`): in a Facebook lookup with

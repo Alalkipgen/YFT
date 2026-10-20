@@ -5,12 +5,15 @@ import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SitePageIdentity
+import com.alal.yft.extractor.master.MasterMediaValidator
 import com.alal.yft.extractor.master.lookup.LookupRecord
+import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStartReader
 import com.alal.yft.extractor.master.social.FacebookLadder
 import com.alal.yft.extractor.master.social.MainPageRecorder
 import com.alal.yft.extractor.master.social.MainPages
 import com.alal.yft.extractor.master.social.SiteWays
 import com.alal.yft.extractor.master.social.SocialCooldown
+import com.alal.yft.extractor.master.social.SocialRowCheck
 import com.alal.yft.extractor.master.social.SocialStage
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.currentCoroutineContext
@@ -71,6 +74,19 @@ internal object SocialLadder {
         social: Boolean = enabled,
         cooldown: SocialCooldown = SocialLadder.cooldown,
     ): SocialStage? = if (social) FacebookLadder(http, identify, MasterRecipeConfig::contracts, cooldown) else null
+
+    /**
+     * S1a (6), S6: the engine's file check. In a social-ladder build a Facebook lookup (its own
+     * record and [MainPages], [lookupContext]) checks every row Master offers with V and the init
+     * check ([SocialRowCheck]: the file's first bytes, read by [reader]'s reader under route B's
+     * rules) instead of [validator]; every other lookup gets [validator] itself. Every other build:
+     * [validator] itself, and [reader] is never called.
+     */
+    fun validator(
+        validator: MasterMediaValidator,
+        social: Boolean = enabled,
+        reader: () -> MediaStartReader,
+    ): MasterMediaValidator = if (social) SocialRowCheck(validator, reader()) else validator
 
     /**
      * S1a (5), S7: the hosts that answered a 429 or a bot check in the current lookup (its record:

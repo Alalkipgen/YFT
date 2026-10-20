@@ -597,6 +597,15 @@ earlier):
   rules); main's 429 and bot checks and F1's own cool the host from the stage's end (the app:
   before main's final 429 ends the lookup); flag off = today; `FacebookLadderS7Test` 5,
   `SocialLadderS7Test` 2. Next: S6, the mutation tests, the simulator world.
+- **(6) built (2026-10-20), behind the flag:** S6, row checks: in a Facebook lookup (its own
+  record and main's pages) every Master row passes V (one read of the file's first 4096 bytes,
+  the download's headers without the session, the answer's host only when a media host, no
+  redirect; each file once, at most 8 a lookup; route B's rules) and the init check on the same
+  bytes (type, container start, no encryption marker, size) in place of the engine's check;
+  `unknown` is not a pass (a manifest row too), an encryption marker → DRM (final); the link's
+  lifetime (`oe`, at least 60 s left); flag off = today (the engine's check itself);
+  `FacebookLadderS6Test` 7, `OkHttpRowReaderTest` 4, `SocialLadderS6Test` 2. Next: the mutation
+  tests, the simulator world.
 
 **S2b TikTok:** T1 the embed player (`embed/v2`), judged; a bot check stops; a photo post stops
 with no request; T2 L3; T3 capture; TikTok's own client (not the shared one) wrapped by the
