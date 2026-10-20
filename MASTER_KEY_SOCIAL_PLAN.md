@@ -553,6 +553,15 @@ earlier):
   within ±1 s of main's); slots 8–10 give Master rows; slot 13 `PRIVATE_OR_UNAVAILABLE` with and
   without the VPN if 0.3 found a signal, else no wrong final answer and a documented limitation;
   slot 12 by the owner's check; requests and time on main-success lookups not above B0 (§9); docs.
+- **(1) built (2026-10-20), JVM only, not wired:** the answer judge (`SiteAnswerJudge.kt`): L2's
+  classes and `NEEDS_PLAYBACK`, each with its next step; Facebook's rules final only on 0.3's
+  route (the error route with `privacy: true` → `PRIVATE`, the video's not-found route →
+  `REMOVED`), in every language; the words, a route without the flag or two that disagree, the
+  reel's `video: null` and a login form → `SHAPE_CHANGED` (the next rung); rows bound to the video
+  ID over any page signal; a 429 or a checkpoint → the host stop; a login address → the browser;
+  `SiteAnswerJudgeTest` 7. No caller yet (the flag comes with the first wiring slice); region and
+  age wait for evidence. Next: the recorder behind the flag, F1 judged, F2, S7, S6, the mutation
+  tests, the simulator world; the phone APK on the owner's go.
 
 **S2b TikTok:** T1 the embed player (`embed/v2`), judged; a bot check stops; a photo post stops
 with no request; T2 L3; T3 capture; TikTok's own client (not the shared one) wrapped by the

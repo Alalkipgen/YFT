@@ -1,5 +1,38 @@
 # YFT Master Extractor backup
 
+## Social plan S1a (1) — the answer judge, Facebook's rules (2026-10-20), JVM only
+
+- `SiteAnswerJudge.kt` (`extractor-master`, JVM): L2's classes (plan §5) — `DIRECT`, `PARTIAL`
+  (fewer heights), `LOGIN_WALL`, `BOT_CHECK`, `RATE_LIMITED`, `REMOVED`, `PRIVATE`,
+  `AGE_LIMITED`, `REGION_LIMITED`, `PHOTO_ONLY`, `DRM`, `VALUE_REJECTED`, `SHAPE_CHANGED`,
+  `TRANSIENT` — and S1a's `NEEDS_PLAYBACK`, each with its next step (V and the init check on the
+  rows, the next rung, the tab's playback or the browser, the browser, the host stop, final) and
+  the reason given when the lookup ends on it. A judged answer's evidence is a short label (a
+  status, the final address's kind, the route's kind), never the page's words, a link or an ID.
+- `FacebookAnswerJudge` (the pilot), conservative: final only on 0.3's language-independent
+  evidence, the page's own `initialRouteInfo.route`: `comet.fbweb.CometErrorRoute` with the
+  root's `privacy: true` (a JSON true only) → `PRIVATE`;
+  `comet.fbweb.CometVideoHomeVideoNotFoundRoute` → `REMOVED` (both `PRIVATE_OR_UNAVAILABLE`).
+  No evidence, so `SHAPE_CHANGED` (the next rung): the page's words, the error route without the
+  flag, a broken or renamed route, two routes that disagree, the reel's `video: null`, a login
+  form inside a page; no shape hash.
+- The order: a failed answer (a 429 or the client's rate limit → `RATE_LIMITED`, a bot check →
+  `BOT_CHECK`, both the host stop; any other → `TRANSIENT` with its own reason); the final address
+  (Facebook's login path → `LOGIN_WALL`, the browser; its checkpoint → `BOT_CHECK`; another host
+  → `SHAPE_CHANGED`); rows bound to the video ID (`DIRECT`, `PARTIAL`) over any page signal; DRM
+  (the reader's, never guessed); the plugin player's "needs playback"; the route. Region and age:
+  no such page seen yet, so no Facebook rule. Reads only: no request, no log.
+- Not wired: no caller yet; the flag `-Pyft.socialLadder` (off = today) comes with the first
+  slice that wires the judge in. Route B, the parity tests, `FixtureBaselineTest`, the drift check
+  and the YouTube files unchanged.
+- Tests: `SiteAnswerJudgeTest` 7 (new; synthetic pages of 0.3's route structure with the test's
+  own words, the unavailable page in English and in Burmese; mutations and decoys never final;
+  each class's next step against `TerminalRules`). Local (JDK 17): `:extractor-master:test` 805
+  tests (2 skipped) passed.
+- Next in S1a, each its own commit: the recorder in the app's lookup path behind the flag, F1
+  judged, F2 L3 rows, the budgets and F1's cooldown, V and the init check, the post-identity
+  mutation tests, the simulator world. S1a's phone APK: the owner's go.
+
 ## Social plan 0.3 — Facebook's access-check evidence (2026-10-20), docs only
 
 - From the sandbox, signed out, with main's page headers (its desktop agent, `Accept-Language`
