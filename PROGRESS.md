@@ -1,5 +1,28 @@
 # YFT Master Extractor backup
 
+## Social plan S0d — the owner's census run (2026-10-20)
+
+- Two runs of "YFT site census" on the owner's phone (the S0c commit's APK; the owner's public
+  posts kept on the phone, 40 of 41 slots): run 1 all four sites through the owner's VPN with a US
+  exit (TikTok needs it on the owner's network), 40 rows, 192 s; run 2 Facebook, Instagram and X
+  without the VPN. No 429, bot check, stop or time limit; at most 67 requests and 5.9 MB per site.
+- Shares (main's recoverable failures ÷ rows that should download), the same in both runs:
+  Facebook 0 of 11, TikTok 0 of 6 (run 1), Instagram 0 of 7, X 2 of 6; Master recovered 0. Every
+  row main gave passed V. Master's trials after main's rows: Facebook 8 (8 with rows, V pass 8),
+  TikTok 8 (6, 6), Instagram 6 (1, 1), X 4 (4, 4).
+- X: the 2 are posts whose videos sit only in the card (`unified_card`, JSON in a string), which
+  main's `XSyndication.parse` and Master's X contract do not read; Master's engine found rows in
+  main's replayed answer (4 and 8, tallest 720; its shape layer), but its best row was HLS (V
+  unknown). Instagram: GraphQL 401 on 10 of 10 signed out, main gave 6 of 7 (5 from the embed page); a reel
+  (slot 5) and the removed post (slot 10) read as sign-in (browser); Master's trials were refused
+  (the embed page main had read), so Master adds nothing today. Facebook: the sign-in-only slot
+  reads as `RESPONSE_CHANGED`; the removed post was final with the VPN and `NO_MEDIA_FOUND`
+  without it (main's access markers are English phrases); Master's contracts do not read the four
+  links main resolves first. TikTok: all as expected; main's tallest 1920, Master's 1280.
+- Recorded in the plan §7.2 and §8 items 1–3 (counts only; no link, ID or name). No code changed.
+  Next: the owner's answer on §8 item 1 (the pilot and the order; recommended Facebook, then
+  TikTok, X, Instagram), then S1 with the pilot site.
+
 ## Social plan S0c — the screen "YFT site census" (2026-10-20)
 
 - `SiteCensusActivity` (debug builds only; its launcher entry "YFT site census" exists only with

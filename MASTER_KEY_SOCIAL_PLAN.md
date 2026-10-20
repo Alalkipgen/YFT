@@ -4,7 +4,7 @@ Status: **final plan** — the owner's Plan Mode request (2026-10-17), reviewed 
 owner as the final plan the same day. This document changes no code. Decided: routing, lookup
 scope and the R8 ladder (§2.1, §8 items 7–9). Still open: §8 items 1–6. Nothing here is built
 until the owner says go, one step at a time (§7, §8). **S0 started on the owner's go
-(2026-10-20): §7.1.**
+(2026-10-20): §7.1; the owner's run (S0d): §7.2.**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -46,6 +46,9 @@ until the owner says go, one step at a time (§7, §8). **S0 started on the owne
   အချိုးနဲ့ ရွေး) → ကျန် site (IG/X က ထပ်မေးတာ အရင်ရပ်) → weekly check → remote recipe live →
   နောက်မှ B+။
 - **ဆုံးဖြတ်ပြီး:** §8 #7–#9။ **ပိုင်ရှင် ဖြေရန် ကျန်:** §8 #1–#6။
+- **S0d (2026-10-20, §7.2):** ပိုင်ရှင်ရဲ့ phone run ၂ ခု။ Recoverable failure: Facebook 0/11၊
+  TikTok 0/6၊ Instagram 0/7၊ X 2/6 (main မဖတ်တဲ့ card ထဲက video)။ Pilot အကြံ: Facebook →
+  TikTok → X → Instagram (ပိုင်ရှင် အတည်ပြုရန်၊ §8 #1)။
 
 ## 1. Audit — what exists today
 
@@ -381,7 +384,7 @@ an owner tool of debug builds (nothing in release or preview).
 | **S0a** | The recorder's labels (`LookupRecord`, additive: a record given none is today's, so route B and every lookup stay as they are): each listed ask gets its way, its reading of the answer and a short shape fingerprint; the record counts repeated asks (an endpoint already asked in the lookup), asks after a stop (a host that answered 429 or a bot check, asked again) and bot checks, and names the hosts that stopped. The site table (`SiteWays`): each site's way labels, media hosts and readings, its census kinds and what each kind expects | JVM tests; the route B tests unchanged — **built (2026-10-20)**: 41 slots (Facebook 13, TikTok 10, Instagram 10, X 8), drift tests against main's adapters |
 | **S0b** | The census engine (`SiteCensus`) and the one-row check (`SiteRowCheck`, V) | JVM tests with fake sites — **built (2026-10-20)**: the row rules, the stops and budgets and the privacy guard below; V checks a DASH row's tallest video file through its manifest; 24 JVM tests |
 | **S0c** | The debug screen "YFT site census" (`SiteCensusActivity`, like "YFT client census"): the owner's links per slot, a run per site or all, the report and its JSON export | CI green; APK — **built (2026-10-20)**: a link field per slot (kept on the phone), "Run <site>" / "Run all sites", "Copy report" / "Copy JSON", the state file `files/master/site-census-last.json`; main as Home runs it (`SiteCensusLookup`: the app's adapter coordinator, fresh, TikTok's hidden page, the browser's identity) on clients with no retry, wire bytes counted; `WebViewAgent` copied from main; 5 JVM tests and the no-background guard |
-| **S0d** | The owner's run on the phone; the shares recorded here and in `PROGRESS.md` | the pilot and the order (§8 item 1) |
+| **S0d** | The owner's run on the phone; the shares recorded here and in `PROGRESS.md` | the pilot and the order (§8 item 1) — **run (2026-10-20)**: two runs, §7.2; the pilot and the order wait for the owner |
 
 **Row rules** (a row is one link of the owner's list, in its slot):
 
@@ -424,6 +427,74 @@ last guard masks any address and the given values (the link, the post ID, handle
 **Not in S0** (the owner's decisions): measuring Instagram's `doc_id` sources (§8 item 3; S0 shows
 only whether main's GraphQL answers the post), X2 (§8 item 2), any new way.
 
+### 7.2 S0d — the owner's run (2026-10-20)
+
+The owner ran "YFT site census" on the phone (the S0c commit's APK) with the owner's public test
+posts (kept on the phone; 40 of the 41 slots, TikTok's private slot empty):
+
+- **Run 1** (02:14 UTC): all four sites, 40 rows, 192 s, mobile data, through the owner's VPN with
+  a US exit (TikTok needs a VPN on the owner's network).
+- **Run 2** (02:39–02:43 UTC): Facebook, Instagram and X without the VPN; TikTok not run.
+
+No 429, bot check, stop or time limit in either run; the most one site used is 67 requests and
+5.9 MB (the budgets: 150 and 40 MB). Every row main gave passed V (Facebook 11, TikTok 6,
+Instagram 6, X 4; fail 0, unknown 0).
+
+| Site | Run | Should download | Recoverable | Master recovered | Browser | Not as expected | Route B | Trials (with rows, V pass) | Requests · MB · s |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Facebook | 1 | 11 | 0 | 0 | 0 | 1 (slot 12) | 1 | 8 (8, 8) | 67 · 5.6 · 75 |
+| Facebook | 2 | 11 | 0 | 0 | 0 | 2 (slots 12, 13) | 1 | 8 (8, 8) | 67 · 5.9 · 74 |
+| TikTok | 1 | 6 | 0 | 0 | 0 | 0 | 1 | 8 (6, 6) | 59 · 1.6 · 65 |
+| Instagram | 1 | 7 | 0 | 0 | 1 | 2 (slots 5, 10) | 1 | 6 (1, 1) | 38 · 2.1 · 31 |
+| Instagram | 2 | 7 | 0 | 0 | 1 | 2 (slots 5, 10) | 1 | 6 (1, 1) | 38 · 2.1 · 33 |
+| X | 1 | 6 | 2 | 0 | 0 | 2 (slots 3, 6) | 4 | 4 (4, 4) | 38 · 0.1 · 21 |
+| X | 2 | 6 | 2 | 0 | 0 | 2 (slots 3, 6) | 4 | 4 (4, 4) | 38 · 0.1 · 11 |
+
+Findings (both runs, unless said):
+
+1. **X — videos only in the card (slots 3 and 6).** The embed's answer (`tweet-result`, 200)
+   carries these posts' videos only in the post's card (`card.binding_values.unified_card.string_value`:
+   JSON inside a string; card types `video_website` and `video_multi_dest_carousel_website`), not
+   in `mediaDetails`, which main's reader (`XSyndication.parse`) and Master's X contract
+   (`mediaDetails/*`, then the quoted post) read; main says `RESPONSE_CHANGED`. Under route B
+   Master's engine found rows in main's replayed answer (no new ask): 4 and 8 rows, tallest 720,
+   through its shape layer (L3 reads JSON inside strings). Its best row was HLS, so V said
+   `unknown` and the census counts no recovery. The card also lists MP4 files up to 720p (checked
+   off the phone). The age-limited and removed slots (7, 8) read "no post" → `NO_MEDIA_FOUND`, as
+   expected. A small fix in main's X reader (the card's videos) would make both main's rows; only
+   on the owner's go, not part of S0.
+2. **Instagram — signed out, the embed page is the one way.** Main's GraphQL answered 401 on 10 of
+   10 (no session); main gave 6 of the 7 video rows: 5 from the embed page (one shape,
+   `hd098d70a`), the carousel's from the post's page. Slot 5 (a reel): the embed page had no data (`h8295e9f2`) →
+   `LOGIN_REQUIRED` (browser), so Master is not asked (signed out, off the phone, yt-dlp found it
+   as DASH). Slot 10 (removed): the embed page answers as for the photo-only and sign-in-only
+   slots (`h484533f7`) → `LOGIN_REQUIRED`, not a final answer. Slot 7 (three videos): main 1 row,
+   Master's trial (the embed page) 1 row, tallest 720. Master's other five trials were refused (its
+   way is the embed page main had read; one page per lookup), so Master adds nothing on Instagram
+   today; a gain needs another way (§8 item 3).
+3. **Facebook — every video row; two wrong readings.** Main gave rows on 11 of 11 video slots;
+   Master's plugin player gave rows on 8 of 8 trials, V pass 8. Slot 12 (sign-in-only; the link
+   itself is not verified, it may be gone) reads as `RESPONSE_CHANGED` (recoverable) on a page of
+   the removed slot's shape (`h0cd5c634`); Master's route B (the plugin player) found nothing
+   ("needs playback"). Slot 13 (removed): `PRIVATE_OR_UNAVAILABLE` (final) with the VPN,
+   `NO_MEDIA_FOUND` (recoverable) without it, the same page shape: main's access markers
+   (`FacebookPageParser`) are mostly English phrases and the page's wording likely differed, so a
+   removed post shows as "no media". Master's way did not run on slots 8, 9, 10 and 13 (a share
+   link, a post with a video, a group post, the removed post): links main resolves first
+   (`requiresCanonicalResolution`), which Master's contracts do not read.
+4. **TikTok (run 1) — all as expected.** 6 of 6 video rows; main's tallest 1920 on slots 1 and 10
+   (the desktop page), Master's embed player at most 1280; region-limited `GEO_RESTRICTED` and
+   removed `PRIVATE_OR_UNAVAILABLE` (final; the download service 403, Master's embed player 400);
+   the photo post `NO_MEDIA_FOUND` (Master's route B the same). Main's desktop page after the phone
+   page counts as a repeated ask (the same endpoint) on 7 of 9 rows.
+
+**Reading for §8 item 1:** the shares do not separate Facebook and TikTok (0 of 11, 0 of 6): main's
+own ways answered every video post. S0's only recoverable failures are X's two card posts (a fix in
+main's reader). Under route B's rules Master repeated no ask (X: main's answer replayed; Instagram:
+refused). Recommended: the pilot **Facebook** (the most kinds and ways; Master's way gives rows on
+8 of 8; its gaps are S2a's work: the links main resolves first, the access check by wording, the
+plugin player's empty answer), then TikTok, X, Instagram (after item 3). Waiting for the owner.
+
 ## 8. Owner decisions
 
 Decided (the owner, 2026-10-17; details in §2.1):
@@ -441,11 +512,14 @@ Still open (the owner's answer is needed before the step that uses it):
 1. **Pilot and order:** recommended: S0 first; the pilot is Facebook or TikTok (both have a real
    second way today), picked by S0's share of recoverable failures; Instagram and X first get the
    repeated-ask stop; or another order. **The owner, 2026-10-20: S0 now (§7.1); the pilot and
-   the order from S0's run.**
+   the order from S0's run.** S0d (§7.2): the shares do not separate Facebook and TikTok (0 of 11,
+   0 of 6); recommended: the pilot Facebook, then TikTok, X, Instagram. Waiting for the owner.
 2. **X2** (X's signed-out web API with a guest token): allow or not. Recommended: not now; decide after
-   S0 shows how often the embed answer fails.
+   S0 shows how often the embed answer fails. S0d (§7.2): the embed answer carried every video
+   post's media (2 of 6 only in the card main does not read), so X2 is still not needed.
 3. **Self-heal sources for Instagram's `doc_id`:** Instagram's own scripts, yt-dlp's raw file, or both
-   measured in S0 (recommended: measure both, use only the proven one).
+   measured in S0 (recommended: measure both, use only the proven one). S0d (§7.2): signed out,
+   main's GraphQL answered 401 on 10 of 10; main gave 6 of 7 video rows (5 from the embed page).
 4. **Third-party services in Master:** none (recommended); main's `tikwm.com` stays as it is.
 5. **R9 hosting:** the owner signs and hosts the recipe config (needed for repair without an APK).
 6. **Census test lists:** the owner picks the public posts (kept on the phone only, never in docs).

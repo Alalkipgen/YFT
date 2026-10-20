@@ -1,8 +1,9 @@
-# Continue the social plan's S0 (after S0c)
+# Continue the social plan (after S0d)
 
 You continue YFT's Master Extractor work on branch `spike/master-extractor-backup` only.
 Read first: `AGENTS.md`, `MASTER_KEY_PHASE1_4_ROUTING_PROMPT.md` (working rules),
-`MASTER_KEY_SOCIAL_PLAN.md` §7.1 (S0 as built) and §8, the top entries of `PROGRESS.md`.
+`MASTER_KEY_SOCIAL_PLAN.md` §7.1 (S0 as built), §7.2 (the owner's run) and §8, the top entries
+of `PROGRESS.md`.
 Reply to the owner in Burmese (English technical terms), short, outcome first.
 
 ## Rules (unchanged)
@@ -42,19 +43,31 @@ Reply to the owner in Burmese (English technical terms), short, outcome first.
   retryDelaysMillis = emptyList())`, main's through `LookupRecorder` (TikTok's with
   `sendResponseCookies = true`). Tests `SiteCensusLookupTest` (5), `CensusNoBackgroundTest` +1.
   First check that the S0c commit's CI is green.
+- S0d (2026-10-20): the owner's two runs (run 1 all four sites through a VPN with a US exit; run 2
+  Facebook, Instagram, X without it), recorded in the plan §7.2, §8 items 1–3 and `PROGRESS.md`.
+  Shares: Facebook 0/11, TikTok 0/6, Instagram 0/7, X 2/6 (videos only in X's card). No code
+  changed.
 
 ## Next
 
-- **S0d** — the owner's phone run: the owner installs the APK of the S0c commit's "Master opt-in
-  debug APK (spike)" run, opens "YFT site census", pastes public links into the slots (§8 item 6:
-  the owner picks them; they stay on the phone, never in docs), taps "Run <site>" or "Run all
-  sites", keeps the screen open until the end, then sends the "Copy report" text (and "Copy JSON").
-  Record each site's number and the shares in §7.1 and `PROGRESS.md` (no link, ID or name); then
-  the pilot and the order (§8 item 1). A site stopped by a 429 or a bot check runs again only
-  after its 30 minutes (the status line says how long).
+- **The owner's answer on §8 item 1** (the pilot and the order). Recommended (§7.2): the pilot
+  Facebook, then TikTok, X, Instagram (Instagram after item 3, `doc_id`). Also asked: a small fix
+  in main's X reader (the card's videos), only on the owner's go.
+- **S1** after the answer: the kit, built with the pilot site only (§7; §3.2's counterparts that
+  site needs). For Facebook, S2a's known gaps (§7.2 finding 3): the links main resolves first,
+  the access check by wording, the plugin player's empty answer.
+- A census run again (the same screen; the links stay on the phone): TikTok needs the owner's VPN
+  on the owner's network. A site stopped by a 429 or a bot check runs again only after its 30
+  minutes (the status line says how long).
 
 ## Report to the owner after S0c
 
 In Burmese: the defaults (browser identity, no retry, Master's trial, budgets and stops) and ask
 §8 item 3 (are Instagram's `doc_id` sources measured in S0 or not). Phase 1.3 backlog item 6 (live
 WebM) stays parked until needed.
+
+## Report to the owner after S0d
+
+In Burmese: the commit and its CI; the shares per site (both runs); X's two card posts (Master's
+rows were HLS, so V unknown); ask §8 item 1 (the pilot and the order) and the X reader fix (go or
+not); §8 item 3 still open.
