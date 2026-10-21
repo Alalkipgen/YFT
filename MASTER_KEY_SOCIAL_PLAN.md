@@ -11,8 +11,9 @@ done (2026-10-21; step 4's runs: §7.4); step 6's APK (S1a (9)) built (2026-10-2
 first run (the owner, 2026-10-21: §7.4) and its fixes (S1a (10), behind the flag) built
 (2026-10-21); step 6's re-run (the owner, 2026-10-21): S1a's phone proof passed (§7.4). Instagram's
 census and X's B0 (the owner, 2026-10-21): §7.4; decided §8 items 3, 18 and 19; open: item 5
-(before S4). Decision 18 (link 9's desktop form, main) built (2026-10-21; §8). Next: S2b
-(TikTok), S2c (X) and S2d (Instagram, part 1), then the owner's phone session (§7.4).**
+(before S4). Decision 18 (link 9's desktop form, main) built (2026-10-21; §8). S2b (TikTok's
+ladder, behind the flag) built (2026-10-21; §7.3). Next: S2c (X) and S2d (Instagram, part 1),
+then the owner's phone session (§7.4).**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -118,6 +119,17 @@ census and X's B0 (the owner, 2026-10-21): §7.4; decided §8 items 3, 18 and 19
   မျှော်လင့်ပါတယ် (redirect မရှိလို့ F1 အတွက် video link မရပါ — documented limitation)။ Facebook ကို
   နောက် phone session မှာ re-baseline လုပ်ပါမယ်။ နောက်တစ်ဆင့်: S2b (TikTok)၊ S2c (X)၊ S2d
   (Instagram အပိုင်း ၁)။
+- **S2b ပြီးပါပြီ (TikTok၊ flag နောက်မှာ၊ debug only၊ 2026-10-21၊ §7.3):** main ရဲ့ TikTok adapter
+  မအောင်မြင်မှ TikTok ladder က ဖြေပါတယ်။ Photo post ဆိုရင် request မပို့ဘဲ final ဖြစ်ပါတယ်
+  (`NO_MEDIA_FOUND`၊ main ရဲ့ စကား)။ T1 က embed player (`embed/v2`) ကို cookie မပါဘဲ တစ်ခါပဲ
+  မေးပြီး judge လုပ်ပါတယ် — row တွေကို item ID နဲ့ ချိတ်ပြီး V နဲ့ init check ကို TikTok ရဲ့ media
+  host မှာ စစ်ပါတယ်။ 429 ဒါမှမဟုတ် bot check ဆိုရင် host ကို ဆက်မမေးဘဲ 30 မိနစ် cooldown ပါ။ T2 က
+  main ဖတ်ပြီးသား page တွေကို request မပို့ဘဲ ပြန်ဖတ်ပါတယ်၊ မရရင် visible tab ရဲ့ playback (T3)
+  ပါ။ TikTok ရဲ့ budget (`SocialBudget.TIKTOK`: request 20၊ 4 MiB၊ 30 s)။ "T2 before T1" ကို
+  မရွေးပါ — TikTok page ရဲ့ file တွေက အဲဒီ page answer ရဲ့ cookie (`tt_chain_token`) နဲ့ပဲ ပွင့်ပြီး
+  V က cookie မပို့လို့ပါ (R20)။ Intended difference: T1 rows က embed ရဲ့ file (1280 lines အထိ)။
+  `yft-d7-fb-trial` APK က Facebook နဲ့ TikTok နှစ်ခုလုံးကို trial လုပ်ပါတယ်။ Flag off = ဒီနေ့
+  အတိုင်း။ နောက်တစ်ဆင့်: S2c (X)။
 
 ## 1. Audit — what exists today
 
@@ -716,6 +728,13 @@ earlier):
 **S2b TikTok:** T1 the embed player (`embed/v2`), judged; a bot check stops; a photo post stops
 with no request; T2 L3; T3 capture; TikTok's own client (not the shared one) wrapped by the
 recorder; V and the init check; the lower quality (at most 1280) documented.
+**S2b built (2026-10-21, behind the flag; `PROGRESS.md`):** the photo check first (no request,
+final in main's words); T1 judged (`TikTokAnswerJudge`); T2 main's pages (no request); T3 the
+tab's own playback; main's TikTok client wrapped by the recorder and main's pages
+(`SocialLadder.tiktokClient`); V and the init check on TikTok's media hosts (`MainPages(site)`);
+`SocialBudget.TIKTOK` (20 requests, 4 MiB, 30 s); T1 before T2 (§7.4's note); the lower quality
+and T2's cookie limit (R20) in `docs/SUPPORT_MATRIX.md`; the trial APK `fb-trial` sets aside
+TikTok's pages too. Its phone proof: the owner's next session (§7.4).
 **S2c X:** main's answer replayed, no new ask (X2 not now); a hidden post → the browser; a photo
 post stops; an HLS row only with a known duration (V).
 **S2d Instagram:** by 0.2's verdict; no repeat of main's embed ask; `RATE_LIMITED` → the cooldown;
@@ -1079,7 +1098,9 @@ same day; no link or ID kept (S8).
 decision 18), link 9's desktop form (`yft-d7-normal`, the flag off: main's rows of the post's
 video only, no list of the page's videos; `yft-d7-fb-trial`: expected "Master found none" with
 its step in Details, as link 10's limitation) and a short regression set; TikTok's, X's and
-Instagram's D7-style proofs (§7.3); Instagram's tab-fetch probe.
+Instagram's D7-style proofs (§7.3; TikTok's with `yft-d7-fb-trial`, which since S2b sets aside
+TikTok's pages too, T1's positives possibly in runs at least 30 minutes apart); Instagram's
+tab-fetch probe.
 
 **For S2b (TikTok), noted now** (inputs to S2b's design, §7.3; not decided):
 
@@ -1098,6 +1119,16 @@ Instagram's D7-style proofs (§7.3); Instagram's tab-fetch probe.
 - One hypothesis for one controlled test (the owner's go, as it uses the user's session): T1 with
   YFT's browser cookies to TikTok's own host (S2 allows it, as main does); so far the 429s came
   only on the embed's asks without a cookie.
+
+**S2b's choices (built 2026-10-21; `PROGRESS.md`):** T1 before T2 — "T2 before T1" not chosen:
+TikTok's page files open only with the cookies of the page answer that gave them (R20:
+`tt_chain_token`), which V never sends (S2) and `MainPages` never keeps, so T2's rows would mostly
+fail V, while T1's embed files open without cookies; the order stays code until a phone run shows
+T2's rows pass V. After T1's 429 or bot check: no new ask to the host in the lookup, T2 still
+reads (no request), then the tab's own playback (never a capture or a retry by itself). TikTok's
+own budget (`SocialBudget.TIKTOK`: 20 requests, sized by main's at most 19 asks and T1's one; 4 MiB
+of Master's answers; 30 s). Not built (the owner's go): the mutated-main APK for TikTok (on the
+phone T2 runs when T1 cools or the budget is spent) and T1 with YFT's browser cookies.
 
 **Parked:**
 
