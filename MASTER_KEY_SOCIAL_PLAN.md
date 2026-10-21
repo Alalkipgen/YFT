@@ -6,7 +6,8 @@ scope and the R8 ladder (§2.1, §8 items 7–9). Nothing here is built until th
 step at a time (§7, §8). **S0 started on the owner's go (2026-10-20): §7.1; the owner's run (S0d):
 §7.2. The final plan of the steps after S0d (the owner, 2026-10-20): §7.3; decided §8 items 1, 2,
 4, 6 and 10–12; open: item 3 (after the Instagram check, §7.3 item 0.2) and item 5 (before S4).
-Next: Stage 0 (§7.3).**
+The plan after S1a (8) (the owner, 2026-10-21): §7.4; decided §8 items 13–16. Next: S1a (7) and
+(8), then §7.4.**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -48,7 +49,7 @@ Next: Stage 0 (§7.3).**
   B0) → **S1a** kit အနည်းဆုံး + Facebook pack (pilot) → **S2b** TikTok → **S2c** X → **S2d**
   Instagram → S3 weekly check → S4 remote recipe live → S5 site တစ်ခုစီ phone run ၃ ခါ → PR #2
   merge → P8 (beta.4)။ release ပြီးမှ: S1b၊ X2၊ "item အားလုံး" feature၊ B+ (S6)၊ A။
-- **ဆုံးဖြတ်ပြီး:** §8 #1၊ #2၊ #4၊ #6–#12။ **ကျန်:** #3 (Instagram check 0.2 ပြီးမှ)၊ #5 (S4
+- **ဆုံးဖြတ်ပြီး:** §8 #1၊ #2၊ #4၊ #6–#16။ **ကျန်:** #3 (Instagram check 0.2 ပြီးမှ)၊ #5 (S4
   မတိုင်မီ)။
 - **S0d (2026-10-20, §7.2):** ပိုင်ရှင်ရဲ့ phone run ၂ ခု။ Recoverable failure: Facebook 0/11၊
   TikTok 0/6၊ Instagram 0/7၊ X 2/6 (main မဖတ်တဲ့ card ထဲက video)။ Pilot: Facebook → TikTok →
@@ -61,6 +62,12 @@ Next: Stage 0 (§7.3).**
   က release ပြီးမှ။ Release gate (#12): site ၄ ခုလုံး S0–S5 ပြီးမှ PR #2 merge → P8 (beta.4) →
   တခြားသူတွေ။ S1b နဲ့ B+ (S6) က release ပြီးမှ။ Baseline B0 (§9) ထက် main အောင်မြင်တဲ့ lookup
   ရဲ့ request/အချိန် မများရပါ။
+- **S1a (8) ပြီးနောက် Plan (ပိုင်ရှင်၊ 2026-10-21၊ §7.4၊ §8 #13–#16):** census fix 0.4 (c) (debug
+  only) ကို အရင်လုပ်ပြီး Facebook access fix A1 ("0.3 fix"၊ main၊ commit တစ်ခု) ကို နောက်မှ
+  လုပ်ပါမယ်။ Phone test ကို commit ၂ ခုလုံးပါတဲ့ APK နဲ့ တစ်ခါပဲ (FB-only VPN နဲ့ no-VPN) run
+  ပါမယ်။ A2 (reel ရဲ့ `video: null` ကို final ယူခြင်း) ကို main မှာ အပြီးပိတ်ပါပြီ — design အရ
+  recoverable ပါ။ FB slot 12 ကို signed out ဆိုရင် "ambiguous (no session)" လို့ ပြပါမယ်။
+  TikTok အပိုင်းကို ပိုင်ရှင်က နောက်မှ ထပ်ဖြည့်ပါမယ်။
 
 ## 1. Audit — what exists today
 
@@ -634,6 +641,111 @@ fixtures or logs.
 census in the fixed config (§9), the B0 run first; Instagram's signed-in census before S2d; R9's
 hosting before S4. Instagram slot 7's check in the app is no longer needed (one item per link).
 
+### 7.4 After S1a (8): the census fix and Facebook's access fix (the owner, 2026-10-21)
+
+After Facebook's B0 runs (2026-10-21, with and without the VPN) the owner approved this plan for
+the steps after S1a (8); it records §8 items 13–16. Each step still starts on the owner's go
+(S10). TikTok's part (its B0, step 1) is added later by the owner.
+
+**Why** (read in the code at `1028829`; no new test run):
+
+- `PRIVATE_OR_UNAVAILABLE` is final (`NEVER_FALLBACK`; the generic detector off too). Main reads
+  the English "content isn't available" page so today, and the same page in another language
+  `RESPONSE_CHANGED` (0.3; S0d's slot 13). A1 makes that verdict independent of the language with
+  0.3's signal; it is not a new verdict.
+- A2 (a reel's `video: null` read as final) would be a new verdict from missing data. If Facebook
+  moved a reel's video data out of the page (loaded later), every public reel would read
+  "private", final, and Master would be off where it is needed most; the census would see it
+  (slots 4–6), but users could not download until an app update, and more evidence cannot remove
+  a risk that comes from a future change. Master's judge already reads the reel's `video: null` as
+  no evidence (`SHAPE_CHANGED`, the next rung; S1a (1)); X keeps the generic detector for what it
+  cannot see (item 0.1). One policy for both. A private reel's extra cost stays within S7's
+  Facebook budget (4 requests, 20 s).
+- The census: a 429 or a bot check in a slot's Master part stops the whole site, so the later
+  slots' main is not looked up; the diff compares the last run only (any site, with or without
+  the VPN: two false BREAKING so far) and reads "NO CHANGE" when nothing was compared.
+- Slot 12 (`sign-in-only`) expects `LOGIN_REQUIRED` signed out, but signed out Facebook answers a
+  friends-only reel as it answers a missing one: its signed-out answer is ambiguous, like
+  Instagram's removed slot (item 0.4 (a)).
+
+**Decided** (§8 items 13–16):
+
+- The census fix 0.4 (c): go, debug builds only.
+- A1, Facebook's access fix ("0.3 fix"): go; main, its own commit (§8 item 10's exception).
+- A2: not in main, closed; a reel's `video: null` stays recoverable by design.
+- Facebook's slot 12 signed out: `PRIVATE_OR_UNAVAILABLE` or `RESPONSE_CHANGED` reads "ambiguous
+  (no session)", counted apart; signed in: rows, as today. No `LOGIN_REQUIRED` guessed without
+  evidence.
+- One phone test, with the APK of both commits (not one per commit).
+- No real link or ID in the repo, fixtures, docs, logs or prompts (S8).
+
+**The steps:**
+
+0. **Now (the agent):** S1a (7) and (8), the running task. No other code commit before its report
+   is checked (the SHAs and CI).
+1. **TikTok:** added later by the owner (TikTok's B0 is not complete).
+2. **The agent, commit 1 — "Social plan 0.4 (c)": the census (debug builds only).**
+   - The order within a site: (i) every slot's main and main's V; (ii) route B for main's
+     failures; (iii) the trials. A slot's Master part runs in that slot's own `LookupRecord` (the
+     replay rules unchanged), with a memory cap for the whole run (a record keeps at most 16
+     answers, 8 Mi chars).
+   - Stops: a 429 or a bot check in (i) stops the site, as today; in (ii) or (iii) it skips only
+     the remaining Master parts and keeps main's results; the report reads "main N/N · trials
+     incomplete (429)".
+   - The budget and the cooldowns shared by all phases (no reset per phase); a row's time is the
+     sum of its own steps.
+   - The baseline: one per site, VPN (on or off) and session; the VPN read by Android
+     (`NetworkCapabilities.TRANSPORT_VPN`, as the screen reads Wi-Fi), not chosen by the owner;
+     the baseline is the last run whose (i) completed, pass or fail; a run stopped in (i) does not
+     replace it.
+   - Nothing compared → "NOT COMPARED", never "NO CHANGE".
+   - A slot's link changed → seen by a local fingerprint (never exported); the slot reads "new
+     link" and starts a new baseline.
+   - Facebook's slot 12 rule (above). The state's format 2; format 1's cooldowns kept.
+   - Not touched: main's lookups, Master's engine and contracts, `RouteBLookup`,
+     `RouteBHttpClient`, `LookupAsk.endpoint`, the YouTube files, the workflows.
+   - Tests: a trial's 429 does not stop the later slots' main; main's 429 still stops the site;
+     the deferred replay; the memory cap; the baseline's choice; NOT COMPARED; a new link; slot
+     12; format 1's state.
+   - Docs: a `PROGRESS.md` top entry (it also records this plan), a `docs/TEST_MATRIX.md` row,
+     item 0.4's status in §7.3.
+3. **The agent, commit 2 — "Social plan 0.3 fix": A1 (main)**, pushed only when commit 1's CI is
+   green.
+   - Only when the page has no playable media and no existing marker matches, the page's own
+     route (`initialRouteInfo.route`): the error route with the root's `privacy` JSON `true` →
+     `PRIVATE_OR_UNAVAILABLE`; the video's not-found route → `PRIVATE_OR_UNAVAILABLE`. In
+     `accessFailure`, so both parser paths are covered; the English markers stay; the route scan
+     bounded as in Master's judge (4 route infos, 256 KiB).
+   - The final answer only from the session page (main's last page read): the public page alone
+     never ends the lookup, and a video on the public page wins (today's flow, locked by tests).
+   - Today's reason kept for: no flag; a flag as a string or `false`; a route only in another
+     script; two routes that disagree; a renamed key (as Master's judge's 0.3 rule). The lookup
+     flow unchanged; a reel's route with `video: null` stays as today (locked by a test).
+   - Tests (synthetic, made-up IDs): English and Burmese; both parser paths; the not-found route;
+     decoys and media precedence; a public page's error with a video on the session page → rows;
+     a post link never `NO_MEDIA_FOUND`; `FixtureBaselineTest` unchanged.
+   - The provenance-tracked symbols unchanged; if one must change, its copy and its provenance
+     row in the same commit (R3).
+   - Docs: `docs/SUPPORT_MATRIX.md` (Facebook's unavailable page in any language; a reel's
+     `video: null` stays recoverable, A2), a `PROGRESS.md` entry, a `docs/TEST_MATRIX.md` row.
+4. **The owner** (the APK of step 3's SHA, signed out): Facebook only with the VPN (§9's US exit)
+   and Facebook only without it, the same day. Pass: slots 1–11 rows 11 of 11 and V pass 11; slot
+   13 `PRIVATE_OR_UNAVAILABLE` (final) in both runs; slot 12 ambiguous; not as expected 0;
+   requests and time not above Facebook's B0 (about 68 requests, 65 s). The new state has no
+   baseline yet, so these runs are compared with B0 by hand; they become Facebook's new baseline
+   (a main fix re-baselines its site, §9). Instagram and X need no new run.
+5. **Docs only:** Facebook's new baseline (TikTok's B0 with step 1).
+6. **S1a's phone proof (the owner's go):** §7.3's done-when, with slot 13 = main's final answer
+   and slot 12 = ambiguous; optional: slot 12 once signed in (rows). Then S2b (§7.3).
+
+**Parked:**
+
+- Master's two-source rule (final only when all of main's pages show the reel's `video: null` and
+  F1 shows a language-independent unavailable signal): after the release, only with evidence.
+- A private reel's message to the user: today the `RESPONSE_CHANGED` wording ("the page could not
+  be read … try again") misleads; only the message would change, not the reason; decided after
+  S1a's phone proof, by what the user sees.
+
 ## 8. Owner decisions
 
 Decided (the owner, 2026-10-17; details in §2.1):
@@ -664,6 +776,20 @@ Decided (the owner, 2026-10-20; §7.3):
   items" feature after the release.
 - **12 — The release gate:** S0–S5 for all four sites before PR #2's merge and P8 (beta.4); S1b and
   B+ (S6) after the release.
+
+Decided (the owner, 2026-10-21; §7.4):
+
+- **13 — The census fix 0.4 (c):** go (debug builds only): every slot's main first, then route B,
+  then the trials; a stop in Master's part keeps main's results; a baseline per site, VPN and
+  session; "NOT COMPARED" when nothing is compared; Facebook's slot 12 signed out reads "ambiguous
+  (no session)" (counted apart; signed in: rows, as today).
+- **14 — Facebook's access fix (A1, "0.3 fix"):** go (item 10's exception, its own commit): main
+  reads 0.3's route only when the page has no playable media and no existing marker matches; the
+  English markers stay.
+- **15 — A reel's `video: null` (A2):** not a final answer in main (closed); recoverable by design,
+  as in Master's judge. The two-source rule is parked (§7.4).
+- **16 — One phone test:** the APK of both commits, Facebook only with and without the VPN, the
+  same day (§7.4 step 4); not one per commit.
 
 Still open (the owner's answer is needed before the step that uses it):
 
