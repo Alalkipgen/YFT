@@ -1,5 +1,20 @@
 # YFT Master Extractor backup
 
+## CI (spike): the Android SDK install tries three times; the D7 workflow test's nine modes (2026-10-21)
+
+- Why: decision 18's push (`0cf7b61`) built and tested green (the build job; checkpoint run 39635690734)
+  and eight of the nine D7 APKs (run 39635683499); the ninth, `routeb`,
+  failed in "Install Android SDK 35, NDK and CMake" after about 2 minutes (a runner's download; the
+  same step passed on the other eight in about 1 minute), before any of the commit's code ran.
+- `checkpoint-validation.yml` (one step) and `master-optin-debug-apk.yml` (two steps): the
+  `sdkmanager` install tries three times, 20 s apart, then fails the job as before. Nothing else in
+  the workflows changed (the modes, flags, keys, checks and artifacts as before).
+- `scripts/tests/test_spike_label_triggers.py` (not run by CI; run locally): `D7MatrixTest.MODES`
+  had seven modes since D5c; it now lists `routeb` and `fb-trial` too (nine; its two stale failures
+  fixed) and a new case checks the three install steps' three tries. 18 tests, all passed.
+- Code: none (the app, the extractors and their tests as in `0cf7b61`). This commit's runs re-prove
+  `0cf7b61`'s nine APKs.
+
 ## Social plan decision 18 — a Page post's story.php with the Page's name is asked on the Page's posts path (main) (2026-10-21)
 
 - `FacebookUrls` (`extractor-sites`, main's Facebook addresses; P3-FIX's `postAddress`): story.php

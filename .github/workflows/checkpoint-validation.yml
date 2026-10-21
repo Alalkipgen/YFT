@@ -37,8 +37,16 @@ jobs:
           SDKMANAGER="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}" -path '*/bin/sdkmanager' -type f | head -n 1)"
           test -n "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" \
-            "ndk;27.3.13750724" "cmake;3.22.1"
+          # A runner's download can fail (a network flake; 0cf7b61's routeb job): three tries.
+          for try in 1 2 3; do
+            if "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" \
+              "ndk;27.3.13750724" "cmake;3.22.1"; then
+              exit 0
+            fi
+            echo "sdkmanager: try $try of 3 failed" >&2
+            sleep 20
+          done
+          exit 1
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"

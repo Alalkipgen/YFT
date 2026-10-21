@@ -6,7 +6,7 @@ label build-optin-apk (MASTER_KEY_PHASE1_2_PLAN.md §3 N6). The workflows' expre
 evaluated for every event they take: a push, a manual run, each label and any other label.
 
 Phase 1.3 D7 (owner 2026-10-15): the opt-in APK workflow's second job, d7-matrix, builds the phone
-check's seven debug APKs (D5c's h-only the seventh) after the build job, only for a push whose commit
+check's debug APKs (D5c's h-only the seventh; routeb and fb-trial since: nine) after the build job, only for a push whose commit
 message carries [d7].
 """
 
@@ -23,6 +23,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
 CANARY = (WORKFLOWS / "own-solver-canary.yml").read_text(encoding="utf-8")
 APK = (WORKFLOWS / "master-optin-debug-apk.yml").read_text(encoding="utf-8")
+CHECKPOINT = (WORKFLOWS / "checkpoint-validation.yml").read_text(encoding="utf-8")
 SPIKE = "refs/heads/spike/master-extractor-backup"
 TOKEN = re.compile(r"\s*(\|\||&&|==|!=|!|\(|\)|,|'(?:[^']|'')*'|[A-Za-z_][\w.-]*)")
 
@@ -304,7 +305,8 @@ class OptInApkLabelTest(LabelTriggerTest):
 
 
 class D7MatrixTest(unittest.TestCase):
-    """Phase 1.3 D7 (owner 2026-10-15): seven phone-check APKs, one per mode, all flags on (D5c: h-only)."""
+    """Phase 1.3 D7 (owner 2026-10-15): the phone-check APKs, one per mode, all flags on (D5c: h-only;
+    then routeb, route B's trial, and fb-trial, the social ladder's trial: nine)."""
 
     MODES = {
         "normal": ("", ""),
@@ -314,6 +316,8 @@ class D7MatrixTest(unittest.TestCase):
         "mutate-L3": ("", "L3"),
         "mutate-L5": ("", "L5"),
         "h-only": ("h-only", ""),
+        "routeb": ("", ""),
+        "fb-trial": ("", ""),
     }
 
     def test_the_seven_apks_build_only_after_a_push_whose_message_carries_d7(self):
@@ -329,7 +333,7 @@ class D7MatrixTest(unittest.TestCase):
     def test_each_mode_has_its_switch_and_its_own_14_day_artifact(self):
         found = re.findall(r"^          - mode: (.+)\n            skip: (.*)\n            mutate: (.*)$", D7, re.M)
         self.assertEqual(self.MODES, {mode: (skip.strip('"'), mutate.strip('"')) for mode, skip, mutate in found})
-        self.assertEqual(7, len(found))
+        self.assertEqual(9, len(found))
         self.assertIn("          D7_SKIP: ${{ matrix.skip }}\n          D7_MUTATE: ${{ matrix.mutate }}\n", D7)
         name = one(r"^        uses: actions/upload-artifact@v4\n        with:\n          name: (.+)$", D7)
         names = {render(name, {"matrix": {"mode": mode}}) for mode in self.MODES}
@@ -354,6 +358,18 @@ class D7MatrixTest(unittest.TestCase):
         self.assertTrue(step.endswith('          test "$ok" -eq 1\n'))
         self.assertNotIn("always()", D7)
         self.assertNotIn("continue-on-error", D7)
+
+    def test_the_sdk_install_tries_three_times_before_the_job_fails(self):
+        # 0cf7b61's routeb job: a runner's SDK download failed; the other eight built.
+        for name, source, steps in (("apk", APK, 2), ("checkpoint", CHECKPOINT, 1)):
+            with self.subTest(workflow=name):
+                parts = source.split("      - name: Install Android SDK 35, NDK and CMake\n")[1:]
+                self.assertEqual(steps, len(parts))
+                for part in parts:
+                    step = part.split("      - uses: gradle/actions/setup-gradle@v4")[0]
+                    self.assertIn("for try in 1 2 3; do\n", step)
+                    self.assertIn('"ndk;27.3.13750724" "cmake;3.22.1"; then\n', step)
+                    self.assertTrue(step.endswith("          exit 1\n"))
 
     def test_the_trigger_file_is_not_a_doc_the_push_ignores(self):
         ignored = re.findall(r'^      - "(.+)"$', trigger(APK, "push"), re.M)
