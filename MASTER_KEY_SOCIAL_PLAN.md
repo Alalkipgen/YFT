@@ -11,8 +11,8 @@ done (2026-10-21; step 4's runs: §7.4); step 6's APK (S1a (9)) built (2026-10-2
 first run (the owner, 2026-10-21: §7.4) and its fixes (S1a (10), behind the flag) built
 (2026-10-21); step 6's re-run (the owner, 2026-10-21): S1a's phone proof passed (§7.4). Instagram's
 census and X's B0 (the owner, 2026-10-21): §7.4; decided §8 items 3, 18 and 19; open: item 5
-(before S4). Next: decision 18 (link 9's desktop form, main), then S2b (TikTok), S2c (X) and S2d
-(Instagram, part 1), then the owner's phone session (§7.4).**
+(before S4). Decision 18 (link 9's desktop form, main) built (2026-10-21; §8). Next: S2b
+(TikTok), S2c (X) and S2d (Instagram, part 1), then the owner's phone session (§7.4).**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -110,6 +110,14 @@ census and X's B0 (the owner, 2026-10-21): §7.4; decided §8 items 3, 18 and 19
   visible tab ရဲ့ fetch ကို စည်းကမ်း (i)–(vi) နဲ့ပဲ သုံးနိုင်ပါတယ်၊ ပထမဆုံး debug-only probe ပါ။
   နောက်တစ်ဆင့်: #18၊ S2b (TikTok)၊ S2c (X)၊ S2d (Instagram အပိုင်း ၁)၊ ပြီးရင် ပိုင်ရှင်ရဲ့ phone
   session (§7.4)။
+- **ဆုံးဖြတ်ချက် #18 ပြီးပါပြီ (main၊ 2026-10-21၊ §8):** `story.php`/`permalink.php` ရဲ့ `id` က Page
+  နာမည် (Facebook ရဲ့ surface မဟုတ်တဲ့ နာမည်) ဖြစ်ရင်လည်း main က Page ရဲ့ `/posts/` address ကို
+  မေးပါတယ်၊ ဒါကြောင့် link 9 ရဲ့ desktop form မှာ lookup run ပါပြီ (flag off/on နှစ်မျိုးလုံး)။
+  Sandbox live check (2026-10-21၊ session မပါ၊ shape only): desktop Chrome နဲ့ 200၊ redirect မရှိ၊
+  post ရဲ့ video တစ်ခုတည်း။ Master ရဲ့ trial က link 10 လိုပဲ "Master found none" ဖြစ်မယ်လို့
+  မျှော်လင့်ပါတယ် (redirect မရှိလို့ F1 အတွက် video link မရပါ — documented limitation)။ Facebook ကို
+  နောက် phone session မှာ re-baseline လုပ်ပါမယ်။ နောက်တစ်ဆင့်: S2b (TikTok)၊ S2c (X)၊ S2d
+  (Instagram အပိုင်း ၁)။
 
 ## 1. Audit — what exists today
 
@@ -1021,8 +1029,8 @@ UTC, without it 14:31–14:45 UTC. **S1a's phone proof: PASS.**
   (yes), and links 1–2 gave rows on the first lookup.
 - **For S5 (before the release):** Master's rows 2 against main's 3 on every link: fixed, or
   listed in `docs/SUPPORT_MATRIX.md` as an intended difference.
-- Next: decision 18 (link 9's desktop form, main; §8), then S2b. Facebook is re-baselined in the
-  next phone session (below).
+- Next: decision 18 (link 9's desktop form, main; §8; built 2026-10-21), then S2b. Facebook is
+  re-baselined in the next phone session (below).
 
 **Instagram's census (the owner's runs, 2026-10-21; S2d's input).** The census, mobile data, the
 same day; no link or ID kept (S8).
@@ -1068,8 +1076,10 @@ same day; no link or ID kept (S8).
 
 **The next phone session (the owner, after S2d part 1; the list is in S2d part 1's report and
 `PROGRESS.md`):** Facebook's census with and without the VPN, signed out (the re-baseline after
-decision 18), link 9's desktop form and a short regression set; TikTok's, X's and Instagram's
-D7-style proofs (§7.3); Instagram's tab-fetch probe.
+decision 18), link 9's desktop form (`yft-d7-normal`, the flag off: main's rows of the post's
+video only, no list of the page's videos; `yft-d7-fb-trial`: expected "Master found none" with
+its step in Details, as link 10's limitation) and a short regression set; TikTok's, X's and
+Instagram's D7-style proofs (§7.3); Instagram's tab-fetch probe.
 
 **For S2b (TikTok), noted now** (inputs to S2b's design, §7.3; not decided):
 
@@ -1159,7 +1169,11 @@ Decided (the owner, 2026-10-21, after step 6's re-run and Instagram's census; §
   time with a new request, never the value alone; today's signed-out request needs impersonation,
   S3.)
 - **18 — Link 9's desktop form:** fixed in main (an exception to S1, its own commit), before
-  Facebook's S5; Facebook is re-baselined in the next phone session.
+  Facebook's S5; Facebook is re-baselined in the next phone session. **Built (2026-10-21):**
+  `FacebookUrls`' story.php and permalink.php take a Page's name as the owner's `id` too (not one
+  of Facebook's surfaces) → the Page's `/posts/` path, a post identity, as the numeric form; flag
+  off and on alike. The posts path answers without a redirect (sandbox, 2026-10-21), so Master's
+  trial on this form meets link 10's limitation (no video link for F1; F2 binds no row to a post).
 - **19 — Instagram's visible-tab fetch (0.2's verdict (b)):** Instagram's stage may use the
   visible tab's own fetch, only so: (i) every tab-fetch request goes through the request recorder
   and the ledger (the budget; a 429 or a bot check → the stop and the cooldown; no second ask;

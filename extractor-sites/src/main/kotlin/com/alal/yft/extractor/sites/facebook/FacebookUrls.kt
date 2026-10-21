@@ -37,6 +37,9 @@ internal object FacebookUrls {
     /** A profile, page or group name as it appears in a path. */
     private val HANDLE = Regex("^[A-Za-z0-9._-]{1,80}$")
 
+    /** A Page's name in story.php's `id` (decision 18): a [HANDLE] with at least one letter. */
+    private val PAGE_NAME = Regex("^(?=.*[A-Za-z])[A-Za-z0-9._-]{1,80}$")
+
     private const val DESKTOP = "https://www.facebook.com"
     private const val POST_PREFIX = "post:"
 
@@ -262,6 +265,11 @@ internal object FacebookUrls {
      * unresolved. Facebook's desktop page sends story.php and permalink.php to its login wall
      * but redirects /{owner}/posts/{id} to the video's own page (sandbox live check,
      * 2026-10-05), so that is the address the adapter asks.
+     *
+     * The owner's `id` is a numeric ID or a Page's name (decision 18): the app's browser opens a
+     * Page post's desktop link as Facebook's mobile page, whose story.php names the Page, not its
+     * ID. The Page's /posts/ path answers with the post's page and its one video, without a
+     * redirect (sandbox live check, 2026-10-21). A name that is a Facebook surface is no owner.
      */
     private fun postAddress(
         segments: List<String>,
@@ -271,7 +279,7 @@ internal object FacebookUrls {
         if (head in STORY_SEGMENTS) {
             if (segments.size != 1) return null
             val story = query["story_fbid"]?.takeIf(POST_ID::matches) ?: return null
-            val owner = query["id"]?.takeIf(NUMERIC_ID::matches) ?: return null
+            val owner = query["id"]?.takeIf(::isOwner) ?: return null
             return story to "$DESKTOP/$owner/posts/$story"
         }
         if (head == "groups") {
@@ -286,6 +294,11 @@ internal object FacebookUrls {
         val story = segments.getOrNull(2)?.takeIf(POST_ID::matches) ?: return null
         return story to "$DESKTOP/$handle/posts/$story"
     }
+
+    /** story.php's `id`: a numeric ID, or a Page's name that is not a Facebook surface. */
+    private fun isOwner(id: String): Boolean =
+        NUMERIC_ID.matches(id) ||
+            (PAGE_NAME.matches(id) && id.lowercase(Locale.US) !in RESERVED_HANDLES)
 
     private fun postFrom(segments: List<String>, query: Map<String, String>): Post? {
         val head = segments.firstOrNull()?.lowercase(Locale.US) ?: return null

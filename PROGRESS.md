@@ -1,5 +1,49 @@
 # YFT Master Extractor backup
 
+## Social plan decision 18 — a Page post's story.php with the Page's name is asked on the Page's posts path (main) (2026-10-21)
+
+- `FacebookUrls` (`extractor-sites`, main's Facebook addresses; P3-FIX's `postAddress`): story.php
+  and permalink.php take as the owner's `id` a numeric ID (as before) or a Page's name
+  (`PAGE_NAME`: letters, digits, `.`, `_`, `-`, at most 80 with at least one letter; not one of
+  Facebook's surfaces in `RESERVED_HANDLES`, in any case) →
+  `https://www.facebook.com/{page}/posts/{story_fbid}`, a post identity (`post:{id}`, unresolved),
+  as the numeric form. Any other `id` (`/` raw or encoded, a space, a non-ASCII letter, dots only,
+  a number that is no ID, empty, over 80 characters) → no site page, as before.
+- Why (decision 18, the owner, 2026-10-21): link 9 of step 6's re-run (a Page post's desktop link)
+  opens in the app's browser as Facebook's mobile page, whose story.php names the Page, not its
+  ID; main knew no site page there, so no lookup ran (main's or Master's), no trial line, and the
+  Download button listed every video the page loaded, the related video (b) too, with the flag off
+  too (main's bug).
+- Live (sandbox, 2026-10-21, no session; shape only, no link or ID kept, S8): the Page's posts path
+  as desktop Chrome → 200 without a redirect, the post's page with `browser_native_hd_url`,
+  `browser_native_sd_url` and the DASH manifest, one video ID; as a phone (`www.` and `m.`) → 200
+  without media and without a story.php address in the page: the story.php form comes from the app's
+  browser (not reproducible with curl; consistent with S1a (10)'s cause).
+- Flag off and on alike (main's code); every other link's lookup as before. Master's trial on this
+  form: the posts path answers without a redirect, so `MainPages.resolved` gives F1 no video link
+  ("a link main resolves first, no video in main's answer; not asked") and F2 binds no row to a
+  post → expected "Master found none" with its step in Details, as link 10's documented limitation
+  (the same video's share/v link gives Master rows); Master's code not changed here.
+- Not touched: `FacebookExtractor`, `FacebookPageParser`, `LONG_HOSTS`, `SHORT_HOSTS`,
+  `isAccessWall`, `WALL_PATHS` (provenance-tracked; the drift check unchanged), Master's code, the
+  workflows.
+- Tests (JVM, made-up names and IDs): `FacebookUrlsTest` +1 "a story page that names its Page is
+  asked on the Page's posts path" (story.php on `m.` with extra parameters and on `www.` with a
+  numeric post ID, permalink.php with `id` first → the Page's posts path, unresolved, a post,
+  `post:{id}`; `groups`, `Watch`, `profile.php`, `MARKETPLACE`, `Fixture/Page`, `Fixture%2FPage`,
+  `Fixture%20Page`, a Burmese letter, `..`, `12345`, empty and 81 characters → no identity);
+  `FacebookExtractorTest` +1 (the same form: the Page's posts path asked first; a 200 without a
+  redirect with the post's one video → that video's rows, its watch page). The P3-FIX cases (a
+  numeric `id`) unchanged.
+- Local checks: `extractor-sites` 293 (+2), `extractor-master` 870 (2 skipped),
+  `extractor-master-android` 69, `app` 1057 (66 skipped), all passed; lint 0 errors; assemble and
+  assemble with the flags on (`-Pyft.masterCapture -Pyft.socialLadder -Pyft.socialTrial`) built;
+  drift 0.
+- Next: S2b (TikTok). The next phone session (after S2d part 1): Facebook's census with and without
+  the VPN, signed out (the re-baseline after decision 18); link 9's desktop form with
+  `yft-d7-normal` (the flag off: main's rows of the post's video only, no list of the page's
+  videos) and with `yft-d7-fb-trial` (expected "Master found none", its step in Details).
+
 ## Social plan §7.4 step 6's re-run, Instagram's census, X's B0 and §8 decisions 3, 18 and 19 (the owner's runs; docs only) (2026-10-21)
 
 - **Step 6's re-run** (the owner, 2026-10-21; `MASTER_KEY_SOCIAL_PLAN.md` §7.4, "Step 6's re-run —
