@@ -7,7 +7,8 @@ step at a time (§7, §8). **S0 started on the owner's go (2026-10-20): §7.1; t
 §7.2. The final plan of the steps after S0d (the owner, 2026-10-20): §7.3; decided §8 items 1, 2,
 4, 6 and 10–12; open: item 3 (after the Instagram check, §7.3 item 0.2) and item 5 (before S4).
 The plan after S1a (8) (the owner, 2026-10-21): §7.4; decided §8 items 13–17; its steps 0–5
-done (2026-10-21; step 4's runs: §7.4). Next: §7.4 step 6 (the owner's go).**
+done (2026-10-21; step 4's runs: §7.4); step 6's APK (S1a (9)) built (2026-10-21). Next: §7.4
+step 6 (the owner's go) with `yft-d7-fb-trial`.**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -640,6 +641,18 @@ earlier):
   (final on its route, never on its words); 14 cases × 2 link forms, wrong rows 0; in each lookup
   the rows only the video's, each file read once, the budgets, no repeated ask, none after a stop,
   bare lines; flag off = today; `FacebookWorldTest` 7. Next: §7.4.
+- **(9) built (2026-10-21), behind the flag:** the Facebook trial APK for S1a's phone proof (§7.4
+  step 6; d7-matrix's ninth mode `fb-trial`, artifact `yft-d7-fb-trial`: `-Pyft.socialTrial` with
+  `-Pyft.socialLadder`, debug only, `BuildConfig.SOCIAL_TRIAL`): in a Facebook lookup (every link
+  form) a page main found is answered as main's `RESPONSE_CHANGED` ("Facebook trial: main's rows
+  were set aside and Master found none. Tap Try again."; Details "master: facebook trial: main's N
+  rows set aside") after main asked (its pages and resolved link kept: F2, slots 8–10), its rows
+  set aside for that lookup only (memory), so the ladder answers every Facebook lookup (YouTube's
+  `routeb`, item 7 F7, the model); main's failures (final ones too) and every other site as is;
+  when Master gives rows, Facebook's line compares them ("; trial: Master's rows M, main's N; the
+  same video: yes|no; duration within 1 s: yes|no|unknown"; it never fails the lookup), shown where
+  route B's trial line is; the other eight APKs and the push build unchanged; flag off or trial
+  off = today; `SocialTrialTest` 11. Next: §7.4 step 6.
 
 **S2b TikTok:** T1 the embed player (`embed/v2`), judged; a bot check stops; a photo post stops
 with no request; T2 L3; T3 capture; TikTok's own client (not the shared one) wrapped by the
@@ -808,7 +821,9 @@ Lake City run.
    site, §9). Instagram and X need no new run. **Done (2026-10-21; the runs below).**
 5. **Docs only:** Facebook's new baseline and TikTok's B0 (step 4's runs). **Done (2026-10-21).**
 6. **S1a's phone proof (the owner's go):** §7.3's done-when, with slot 13 = main's final answer
-   and slot 12 = ambiguous; optional: slot 12 once signed in (rows). Then S2b (§7.3).
+   and slot 12 = ambiguous; optional: slot 12 once signed in (rows). The APK: `yft-d7-fb-trial`
+   (d7-matrix's `fb-trial`, S1a (9): the social ladder and its Facebook trial on, so the ladder
+   answers every Facebook page main found). Then S2b (§7.3).
 
 **Step 4 — the owner's runs (2026-10-21).** The census with the APK of step 3's SHA (`6b011da`'s
 "Master opt-in debug APK (spike)"), signed out, mobile data, the same day, in step 4's order; the
@@ -852,7 +867,7 @@ rows from its two reports).
 - The runs came before the F2 follow-up (`4f67209`: in Master's F2 the route on pages read without
   the session never ends the lookup); it is behind `-Pyft.socialLadder`, which no CI build passes,
   so the runs stand (no rerun).
-- Next: step 6 (the owner's go). Its APK needs the flag on, which no CI build passes today.
+- Next: step 6 (the owner's go). Its APK, with the flag on: `yft-d7-fb-trial` (S1a (9), 2026-10-21).
 
 **For S2b (TikTok), noted now** (inputs to S2b's design, §7.3; not decided):
 

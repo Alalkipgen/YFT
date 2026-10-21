@@ -28,6 +28,7 @@ import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.detection.master.AndroidBrowserMasterFallback
 import com.alal.yft.detection.master.BrowserMasterFallback
+import com.alal.yft.detection.master.SocialLadder
 import com.alal.yft.detection.master.YouTubeRouteB
 import com.alal.yft.BuildConfig
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
@@ -853,7 +854,9 @@ class BrowserViewModel(
                     showPageVideo(key, livePageUrl, pageTitle, found)
                     // Phase 1.4 item 7 R4: a route-B build names route B's answer and its counts
                     // (`master: route B after <reason>; replayed N; new M`); every other: nothing.
-                    YouTubeRouteB.notice(outcome)?.let { notice ->
+                    // Social plan S1a (9): the Facebook trial APK names Facebook's line with the
+                    // trial's comparison (`…; trial: Master's rows M, main's N; …`) the same way.
+                    (YouTubeRouteB.notice(outcome) ?: SocialLadder.trialNotice(outcome))?.let { notice ->
                         mutableUiState.update { it.copy(siteNotice = notice) }
                     }
                 }
@@ -967,6 +970,7 @@ class BrowserViewModel(
                 // P17: the shared lookup cache answers unless this is Try again.
                 // Phase 1.4 item 7 R4: in the route-B trial APK a YouTube page main found is
                 // answered as main's failure (after main asked); every other build: main's answer.
+                // Social plan S1a (9): a Facebook page so too in the Facebook trial APK.
                 val primary = masterFallback.trialPrimary(
                     url,
                     siteAdapters.inspect(

@@ -1,5 +1,68 @@
 # YFT Master Extractor backup
 
+## Social plan S1a (9) — the Facebook trial APK for S1a's phone proof (debug only, behind the flag) (2026-10-21)
+
+- Why (`MASTER_KEY_SOCIAL_PLAN.md` §7.3 S1a's done-when, §7.4 step 6): no CI build passed
+  `-Pyft.socialLadder`, and on the phone main finds every public Facebook video, so Master's ladder
+  (F1 → F2 → F3) never answered. The trial sets main's found Facebook rows aside, as YouTube's
+  `routeb` APK does (item 7 R4/F7, the model), so the ladder answers every Facebook lookup.
+- Gradle (`app/build.gradle.kts`): `-Pyft.socialTrial` (true/false, default false; a `require` like
+  the others). `BuildConfig.SOCIAL_TRIAL` = `masterCapture && socialLadder && socialTrial` in the
+  debug build type only; false in `defaultConfig`, so release and preview are false.
+- The app (`AndroidBrowserMasterFallback.trialPrimary`, beside YouTube's trial; YouTube's branch
+  unchanged): with `SOCIAL_TRIAL` only, and only in a Facebook lookup (`SocialLadder.claims`, every
+  link form: a watch link, a reel, a short link), main's `Detected` → `Failed(RESPONSE_CHANGED)`
+  (main's adapter, `allowsGenericFallback` false) with the message "Facebook trial: main's rows were
+  set aside and Master found none. Tap Try again." and the Details line "master: facebook trial:
+  main's N rows set aside". Main asks as today: its pages stay in `MainPages` and its resolved link
+  stays, so F2 and the links main resolves first (slots 8–10) work. Main's failures (final ones
+  too, e.g. a removed post's `PRIVATE_OR_UNAVAILABLE`), `NotHandled` and every other site's page: as
+  is. The set-aside rows: memory only, that lookup's only (cleared at its start, as F7's), taken
+  once and only with that lookup's own trial answer, so no later lookup or other answer gets them.
+- The comparison (as F7's; it never fails the lookup): when Master gives rows, Facebook's line (the
+  ladder's, Master's first `master: facebook` line; without one, one first) gets "; trial: Master's
+  rows M, main's N; the same video: yes|no; duration within 1 s: yes|no|unknown"
+  (`SocialLadder.trialSegment`, from `videoId` and `durationMillis`). The same video: main's rows
+  name one video and every Master row names it (main's rows carry the link's own key, so a link
+  main resolves first counts as the video its resolved link names, as Master's rows do). The
+  duration: every one Master's rows state within 1 s of every one main's state; unknown when either
+  side states none. A check that throws says "check failed (<type>)". Counts and yes/no only: no
+  link, ID or page words. The browser shows the line where route B's trial line is shown (the site
+  notice: `SocialLadder.trialNotice` after `YouTubeRouteB.notice`).
+- When Master gives no rows its own answer stays, as in every ladder build (e.g. the tab's
+  playback: "Play the video on this page, then tap Try again.", one capture asked), the trial's line
+  first in Details; when Master does not answer, the trial's own failure is the answer (as F7's).
+- The workflow (`master-optin-debug-apk.yml`): d7-matrix's ninth mode, `fb-trial` (`social:
+  "true"`, `social_trial: "true"`); its Gradle line passes `-Pyft.socialLadder` and
+  `-Pyft.socialTrial`, false for the other eight modes, so their APKs are unchanged; artifact
+  `yft-d7-fb-trial`; the header comment says so. The push build (job `build`) unchanged: flag off.
+- Flag off or trial off: today's lookups (`trialPrimary` gives main's answer itself; nothing set
+  aside, compared or shown). Not touched: main (`extractor-sites`), Master's engine and contracts,
+  `FacebookLadder`, the census, `RouteBLookup`, the provenance-tracked symbols, the YouTube route-B
+  trial's behavior, the other workflows, `.github/d7-apks.txt` (this commit has code, so its `[d7]`
+  builds the APKs).
+- Tests: `SocialTrialTest` 11 (new; JVM, Robolectric; main's real Facebook adapter over synthetic
+  pages and the plugin player, made-up IDs, the switches passed explicitly): trial off (the ladder
+  alone, the trial without the ladder, Master off, no backup) → main's answer itself; trial on, a
+  watch link, a reel and a short link main found → `Failed(RESPONSE_CHANGED)` with the message and
+  "main's 2 rows set aside"; main's final `PRIVATE_OR_UNAVAILABLE` (a removed post, Burmese words;
+  Master not asked), main's `RESPONSE_CHANGED`, `NotHandled`, YouTube's and TikTok's pages → as is,
+  YouTube's route-B trial exactly as `routeb`'s; the ladder answers every link form (F1's rows, no
+  capture) with "…; trial: Master's rows 2, main's 2; the same video: yes; duration within 1 s:
+  yes"; the same video no (main's rows of another video); the duration no (1.001 s off), yes (1 s),
+  unknown (either side none); the comparison's rules (a row without a key, main's rows of two
+  videos, no row, a link main resolves first); no set-aside rows in a later lookup or another answer
+  (a lookup that never reached Master included); Master without rows: its own answer, the trial's
+  line first, one capture; the browser's notice with the trial (Master's rows) and without (main's
+  rows, no notice, Master not asked); no link, ID or page words in any line. No existing
+  expectation changed. Local (JDK 17): `:extractor-master:test` 865 tests (2 skipped),
+  `:extractor-master-android:testDebugUnitTest` 69 and `:app:testDebugUnitTest` 1052 (66
+  skipped; 1041 + 11) passed; `:extractor-sites:test` 291 passed; `:app:lintDebug` (0 errors) and
+  `:app:assembleDebug` passed, and `:app:assembleDebug` once more with the flags on
+  (`-Pyft.masterCapture=true -Pyft.socialLadder=true -Pyft.socialTrial=true`); drift check 0
+  drifted.
+- Next: the owner's phone proof with yft-d7-fb-trial (§7.4 step 6).
+
 ## Social plan §7.4 steps 4–5 — TikTok's B0 and Facebook's new baseline (the owner's runs; docs only) (2026-10-21)
 
 - The owner's step 4 (`MASTER_KEY_SOCIAL_PLAN.md` §7.4): the census with the APK of step 3's SHA

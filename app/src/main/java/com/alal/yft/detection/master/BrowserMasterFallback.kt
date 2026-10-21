@@ -66,7 +66,9 @@ interface BrowserMasterFallback {
      * route-B trial APK (D7 `routeb`: `-Pyft.routeBTrial` with `-Pyft.youtubeRouteB`, debug only)
      * a YouTube page main found is answered as main's reading failing (`RESPONSE_CHANGED`), after
      * main asked (its requests stay in the lookup's record), so Master's route B answers on the
-     * phone. Every other build, page and answer: [primary] itself.
+     * phone. Social plan S1a (9): in the Facebook trial APK (D7 `fb-trial`: `-Pyft.socialTrial` with
+     * `-Pyft.socialLadder`, debug only) a Facebook page main found is answered so too, so Master's
+     * social ladder answers. Every other build, page and answer: [primary] itself.
      */
     fun trialPrimary(lookupUrl: String, primary: SiteAdapterOutcome): SiteAdapterOutcome = primary
 
@@ -130,6 +132,12 @@ class AndroidBrowserMasterFallback(
      * answered a 429 or a bot check ([SocialLadder.noteStops]); the app's own by default.
      */
     private val socialCooldown: SocialCooldown = SocialLadder.cooldown,
+    /**
+     * Social plan S1a (9): true only in the Facebook trial APK (D7 `fb-trial`, [SocialLadder.trial],
+     * with [socialLadder]); then [trialPrimary] sets main's found Facebook rows aside. Every other
+     * build: false.
+     */
+    private val socialTrial: Boolean = false,
 ) : BrowserMasterFallback {
     override val enabled: Boolean get() = capture.enabled
 
@@ -138,6 +146,17 @@ class AndroidBrowserMasterFallback(
      * compares Master's rows with them (memory only; the trial APK only, else always empty).
      */
     private val setAside = ConcurrentHashMap<String, List<MediaCandidate>>()
+
+    /**
+     * S1a (9): main's rows the Facebook trial set aside, by video, with the trial's answer that set
+     * them aside, until that lookup's [recover] compares Master's rows with them (memory only; the
+     * Facebook trial APK only, else always empty).
+     */
+    private val socialSetAside = ConcurrentHashMap<String, SetAside>()
+
+    /** S1a (9): main's [rows] the trial's [answer] set aside (one lookup's). */
+    private class SetAside(val answer: SiteAdapterOutcome, val rows: List<MediaCandidate>)
+
     override fun mainAndMore(candidates: List<MediaCandidate>): MasterMainPresentation? =
         capture.mainAndMore(candidates)
 
@@ -176,6 +195,9 @@ class AndroidBrowserMasterFallback(
         if (social) SocialLadder.noteStops(socialCooldown)
         // Item 7 F7: the rows the trial set aside for this lookup (the trial APK only, else null).
         val mains = if (routeBTrial) key?.let(setAside::remove) else null
+        // S1a (9): the rows the Facebook trial set aside for this lookup — with [primary], its own
+        // answer — taken once (the Facebook trial APK only, else null).
+        val socialMains = if (social && socialTrial) key?.let { setAsideFor(it, primary) } else null
         // Phase 1.4 item 7 (YouTube routing B) F2: route B's page — a YouTube page main failed, in
         // a route-B build. When route B gives it no answer, main's failure stays the lookup's answer
         // (its reason, message and retry) with a Details line saying why (`master: route B not run:
@@ -262,8 +284,13 @@ class AndroidBrowserMasterFallback(
                         // Item 7 R4: route B's rows carry its details (its line first), so a
                         // route-B build shows its counts; every other answer: none, as before.
                         // F7: in the trial its line also compares the rows with main's set aside.
+                        // S1a (9): in the Facebook trial, Facebook's line compares them so too.
                         details = if (routeB) {
                             compared(DiagnosticTextSanitizer.details(result.result.details), kept, mains)
+                        } else if (socialMains != null) {
+                            facebookCompared(
+                                DiagnosticTextSanitizer.details(result.result.details), kept, socialMains, lookupUrl, key,
+                            )
                         } else emptyList(),
                     )
                 }
@@ -326,6 +353,43 @@ class AndroidBrowserMasterFallback(
         return details.toMutableList().also { it[at] = it[at] + segment }
     }
 
+    /**
+     * S1a (9): Facebook's line (Master's first `master: facebook` line, the ladder's) with the
+     * Facebook trial's comparison of Master's [rows] with main's set-aside [mains] appended
+     * ([SocialLadder.trialSegment]; main's rows carry [key], the link's, so a link main resolves
+     * first counts as the video its resolved link names, as Master's rows do); details without
+     * such a line (the tab's own playback alone) get one first. The comparison never fails the
+     * lookup: a failure only says so on the line.
+     */
+    private suspend fun facebookCompared(
+        details: List<String>,
+        rows: List<MediaCandidate>,
+        mains: List<MediaCandidate>,
+        lookupUrl: String,
+        key: String?,
+    ): List<String> {
+        val segment = try {
+            val resolved = SocialLadder.rowsKey(sites, lookupUrl, key)
+            SocialLadder.trialSegment(rows, mains) { id -> if (id != null && id == key) resolved else id }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            "${SocialLadder.TRIAL_SEGMENT}check failed (${error.javaClass.simpleName})"
+        }
+        val at = details.indexOfFirst { it.startsWith(SocialLadder.LINE) }
+        if (at < 0) return listOf(SocialLadder.LINE + segment) + details
+        return details.toMutableList().also { it[at] = it[at] + segment }
+    }
+
+    /**
+     * S1a (9): the rows the Facebook trial set aside for [key] with [answer] (that lookup's own
+     * answer, [trialPrimary]), taken once; null for any other answer (none reused by a later one).
+     */
+    private fun setAsideFor(key: String, answer: SiteAdapterOutcome): List<MediaCandidate>? {
+        val kept = socialSetAside[key]?.takeIf { it.answer === answer } ?: return null
+        return kept.rows.takeIf { socialSetAside.remove(key, kept) }
+    }
+
     /** Item 2: whether [lookupUrl]'s site is the h-only trial's (never in another build). */
     override fun masterFirst(lookupUrl: String): Boolean {
         val site = masterFirstSite ?: return false
@@ -341,6 +405,8 @@ class AndroidBrowserMasterFallback(
      * rows with them.
      */
     override fun trialPrimary(lookupUrl: String, primary: SiteAdapterOutcome): SiteAdapterOutcome {
+        // Social plan S1a (9): the Facebook trial's own branch (null: not its build or lookup).
+        facebookTrial(lookupUrl, primary)?.let { return it }
         if (!routeBTrial || !youtubeRouteB || !enabled) return primary
         val key = sites.videoKey(lookupUrl)?.takeIf { it.substringBefore(':') == YOUTUBE_SITE_ID } ?: return primary
         // F7: this lookup's set-aside rows only — none from an earlier lookup of the video.
@@ -354,6 +420,31 @@ class AndroidBrowserMasterFallback(
             allowsGenericFallback = false,
             details = listOf("$ROUTE_B_TRIAL_DETAIL ${primary.candidates.size} rows set aside"),
         )
+    }
+
+    /**
+     * Social plan S1a (9): the Facebook trial's main answer (D7 `fb-trial`) — a Facebook page main
+     * found, every link form, becomes main's `RESPONSE_CHANGED` (main's adapter, Try again, no page
+     * files), so Master's ladder answers. Main asked as today: its pages and its resolved link stay
+     * in the lookup's `MainPages` (F2, the links main resolves first). Main's failures (final ones
+     * too) stay as they are. Its rows are kept (memory) until that lookup's [recover] compares
+     * Master's rows with them. Null in every other build and for every other site's page.
+     */
+    private fun facebookTrial(lookupUrl: String, primary: SiteAdapterOutcome): SiteAdapterOutcome? {
+        if (!socialTrial || !socialLadder || !enabled) return null
+        val key = sites.videoKey(lookupUrl)?.takeIf { SocialLadder.claims(it) } ?: return null
+        // This lookup's set-aside rows only — none from an earlier lookup of the video.
+        socialSetAside.remove(key)
+        if (primary !is SiteAdapterOutcome.Detected) return primary
+        val trial = SiteAdapterOutcome.Failed(
+            adapterId = primary.adapterId,
+            reason = SiteExtractionFailure.RESPONSE_CHANGED,
+            message = SocialLadder.TRIAL_MESSAGE,
+            allowsGenericFallback = false,
+            details = listOf("${SocialLadder.TRIAL_DETAIL} ${primary.candidates.size} rows set aside"),
+        )
+        socialSetAside[key] = SetAside(trial, primary.candidates)
+        return trial
     }
 
     /**
@@ -442,6 +533,8 @@ class AndroidBrowserMasterFallback(
             routeBTrial: Boolean = YouTubeRouteB.trial,
             // Social plan S1a (2): the social ladder's per-lookup record (-Pyft.socialLadder, debug only).
             socialLadder: Boolean = SocialLadder.enabled,
+            // Social plan S1a (9): the Facebook trial (D7 `fb-trial`, -Pyft.socialTrial, debug only).
+            socialTrial: Boolean = SocialLadder.trial,
         ): BrowserMasterFallback {
             if (!enabled) return BrowserMasterFallback.None
             val capture = WebViewPlaybackCapture(
@@ -479,6 +572,7 @@ class AndroidBrowserMasterFallback(
                 // Item 7 F7: the trial's one-byte file check (the trial APK only).
                 trialFileCheck = if (routeBTrial && youtubeRouteB) RouteBTrialCheck.OkHttpFileCheck(client) else null,
                 socialLadder = socialLadder,
+                socialTrial = socialTrial,
             )
         }
     }

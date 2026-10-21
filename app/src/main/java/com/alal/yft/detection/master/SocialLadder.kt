@@ -1,7 +1,9 @@
 package com.alal.yft.detection.master
 
 import com.alal.yft.BuildConfig
+import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.detection.SiteAdapterCoordinator
+import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SitePageIdentity
@@ -16,6 +18,7 @@ import com.alal.yft.extractor.master.social.SocialCooldown
 import com.alal.yft.extractor.master.social.SocialRowCheck
 import com.alal.yft.extractor.master.social.SocialStage
 import kotlin.coroutines.CoroutineContext
+import kotlin.math.abs
 import kotlinx.coroutines.currentCoroutineContext
 import okhttp3.OkHttpClient
 
@@ -27,6 +30,14 @@ import okhttp3.OkHttpClient
  */
 internal object SocialLadder {
     val enabled: Boolean get() = BuildConfig.SOCIAL_LADDER
+
+    /**
+     * S1a (9): the Facebook trial (the D7 APK `fb-trial`, S1a's phone proof): on only in a debug
+     * build made with `-Pyft.socialTrial=true` as well (the ladder and Master capture on); then a
+     * Facebook page main found is answered as main's failure, so Master's ladder answers
+     * ([AndroidBrowserMasterFallback.trialPrimary]). Every other build: off.
+     */
+    val trial: Boolean get() = BuildConfig.SOCIAL_TRIAL
 
     /** The pilot's site ID (main's Facebook adapter; its video key's prefix). */
     const val FACEBOOK_SITE_ID = "facebook"
@@ -117,4 +128,50 @@ internal object SocialLadder {
         SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE -> "This Facebook post is private or no longer available."
         else -> null
     }
+
+    /** S1a (9): the start of Facebook's lines in Master's details (the ladder's first). */
+    const val LINE = "master: facebook"
+
+    /** S1a (9): the Facebook trial's answer when Master gives none (main's rows were set aside). */
+    const val TRIAL_MESSAGE = "Facebook trial: main's rows were set aside and Master found none. Tap Try again."
+
+    /** S1a (9): the Facebook trial's Details line (main's row count follows). */
+    const val TRIAL_DETAIL = "master: facebook trial: main's"
+
+    /** S1a (9): the start of the trial's segment on Facebook's line ([trialSegment]). */
+    const val TRIAL_SEGMENT = "; trial: "
+
+    /** S1a (9): the most two durations may differ and still count as the same, in milliseconds. */
+    private const val DURATION_SLACK_MILLIS = 1_000L
+
+    /**
+     * S1a (9): the Facebook trial's comparison of Master's [rows] with main's set-aside [mains], for
+     * Facebook's line: `; trial: Master's rows M, main's N; the same video: yes|no; duration within
+     * 1 s: yes|no|unknown`. The same video: every row of Master's names the one video main's rows
+     * name ([video]: the video a row's key names in the lookup — main's rows carry the link's own
+     * key, so a link main resolves first names the video its resolved link names); a row without a
+     * key is not. The duration: every duration Master's rows state within 1 s of every one main's
+     * state; unknown when either side states none. Counts and yes/no only: never a link or an ID.
+     */
+    fun trialSegment(rows: List<MediaCandidate>, mains: List<MediaCandidate>, video: (String?) -> String?): String {
+        val mainVideo = mains.map { video(it.videoId) }.distinct().singleOrNull()
+        val sameVideo = mainVideo != null && rows.isNotEmpty() && rows.all { video(it.videoId) == mainVideo }
+        val masterMillis = rows.mapNotNull { row -> row.durationMillis?.takeIf { it > 0 } }
+        val mainMillis = mains.mapNotNull { row -> row.durationMillis?.takeIf { it > 0 } }
+        val duration = when {
+            masterMillis.isEmpty() || mainMillis.isEmpty() -> "unknown"
+            masterMillis.all { master -> mainMillis.all { abs(master - it) <= DURATION_SLACK_MILLIS } } -> "yes"
+            else -> "no"
+        }
+        return "${TRIAL_SEGMENT}Master's rows ${rows.size}, main's ${mains.size}; " +
+            "the same video: ${if (sameVideo) "yes" else "no"}; duration within 1 s: $duration"
+    }
+
+    /**
+     * S1a (9): the Facebook trial's line of rows Master found (Facebook's line with the trial's
+     * segment, [trialSegment]), for the browser's notice; null for every other answer (no other
+     * build has one).
+     */
+    fun trialNotice(outcome: SiteAdapterOutcome): String? =
+        (outcome as? SiteAdapterOutcome.Detected)?.details?.firstOrNull { it.startsWith(LINE) && TRIAL_SEGMENT in it }
 }

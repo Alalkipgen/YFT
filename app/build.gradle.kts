@@ -161,6 +161,14 @@ val socialLadder = providers.gradleProperty("yft.socialLadder").orElse("false").
 require(socialLadder in setOf("true", "false")) {
     "yft.socialLadder must be true or false"
 }
+// Social plan S1a (9): the Facebook trial (the D7 APK "fb-trial", S1a's phone proof): a Facebook
+// page main found is answered as main's failure, so Master's social ladder answers on the phone.
+// Acts only with yft.socialLadder and yft.masterCapture on; debug builds only, release and preview
+// false.
+val socialTrial = providers.gradleProperty("yft.socialTrial").orElse("false").get()
+require(socialTrial in setOf("true", "false")) {
+    "yft.socialTrial must be true or false"
+}
 // R9: the public key (X.509 P-256, hex) for Master's signed recipe config; blank = bundled
 // recipes only and no config request. Only read when Master capture is on.
 val masterRecipeKey = providers.gradleProperty("yft.masterRecipeKey").orElse("").get()
@@ -195,6 +203,7 @@ android {
         buildConfigField("boolean", "YOUTUBE_ROUTE_B", "false")
         buildConfigField("boolean", "YOUTUBE_ROUTE_B_TRIAL", "false")
         buildConfigField("boolean", "SOCIAL_LADDER", "false")
+        buildConfigField("boolean", "SOCIAL_TRIAL", "false")
         buildConfigField("String", "MASTER_RECIPE_KEY", "\"$masterRecipeKey\"")
         buildConfigField("String", "MASTER_RECIPE_URL", "\"$masterRecipeUrl\"")
     }
@@ -253,6 +262,10 @@ android {
                 (masterCapture == "true" && youtubeRouteB == "true" && routeBTrial == "true").toString(),
             )
             buildConfigField("boolean", "SOCIAL_LADDER", (masterCapture == "true" && socialLadder == "true").toString())
+            buildConfigField(
+                "boolean", "SOCIAL_TRIAL",
+                (masterCapture == "true" && socialLadder == "true" && socialTrial == "true").toString(),
+            )
             // Owner tools (src/debug, e.g. the N2 stream check): a launcher entry only when both
             // Master flags are on, so a debug build with the flags off stays as before.
             manifestPlaceholders["yftOwnerTools"] =
