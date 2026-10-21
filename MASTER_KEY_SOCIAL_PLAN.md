@@ -6,8 +6,8 @@ scope and the R8 ladder (§2.1, §8 items 7–9). Nothing here is built until th
 step at a time (§7, §8). **S0 started on the owner's go (2026-10-20): §7.1; the owner's run (S0d):
 §7.2. The final plan of the steps after S0d (the owner, 2026-10-20): §7.3; decided §8 items 1, 2,
 4, 6 and 10–12; open: item 3 (after the Instagram check, §7.3 item 0.2) and item 5 (before S4).
-The plan after S1a (8) (the owner, 2026-10-21): §7.4; decided §8 items 13–17. Next: S1a (8),
-then §7.4.**
+The plan after S1a (8) (the owner, 2026-10-21): §7.4; decided §8 items 13–17; its steps 0–5
+done (2026-10-21; step 4's runs: §7.4). Next: §7.4 step 6 (the owner's go).**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -70,6 +70,12 @@ then §7.4.**
   TikTok (§8 #17): လက်ရှိ APK နဲ့ ထပ်မ run ပါ။ Commit ၂ ခုပါတဲ့ APK ရမှ VPN (US exit) နဲ့
   TikTok-only ကို အရင်ဆုံး run ပါမယ်။ Census က slot အားလုံးရဲ့ main ကို အရင် run တာမို့ embed မှာ
   429 ထွက်လည်း main ပြည့်ပါမယ်။ ဒီ run က TikTok ရဲ့ B0 ပါ။ S2b အတွက် မှတ်ချက်တွေ §7.4 မှာ ပါပါတယ်။
+- **§7.4 step 4–5 (ပိုင်ရှင်၊ 2026-10-21၊ `6b011da` ရဲ့ APK၊ sign out):** TikTok (VPN) main 9/9၊
+  not as expected 0၊ V pass 6/6 — TikTok ရဲ့ B0 ရပါပြီ (embed 429 ကြောင့် trials မပြီးတာက note ပဲ
+  ဖြစ်ပါတယ်)။ Facebook (VPN ပါ/မပါ) rows 11/11၊ V pass 11၊ trials 8/8၊ requests 68၊ time 65 s /
+  52 s — B0 ထက် မပိုပါ။ VPN မပါတဲ့ run မှာ slot 13 က `PRIVATE_OR_UNAVAILABLE` (final) ဖြစ်လာပါပြီ
+  (A1 ကို ဖုန်းပေါ်မှာ သက်သေပြပြီ)။ Slot 12 က "ambiguous (no session)" ပါ။ ဒီ run ၃ ခုက baseline
+  အသစ်တွေ ဖြစ်ပါတယ်။ နောက်တစ်ဆင့်: step 6 (S1a ရဲ့ phone proof၊ ပိုင်ရှင် go ပေးမှ)။
 
 ## 1. Audit — what exists today
 
@@ -538,7 +544,7 @@ earlier):
 | **0.2 The Instagram check (no code)** | Locally only, never on public CI: main's GraphQL ask against yt-dlp's current Instagram extractor (its commit and date): endpoint, `doc_id`, variables, headers. The question: does an ask work signed out without TLS impersonation? Verdict: (a) yes → a fix proposal for main (the owner's go, its own commit); (b) only with impersonation → S3 forbids it; Instagram's stage may then use only the visible tab's own fetch (WebView), on the owner's go; (c) 401 signed out always → a documented limitation. Also answered: main's 401 → `LOGIN_REQUIRED` mapping (keep or change) and §8 item 3 (the `doc_id` sources) | the verdict here and in `PROGRESS.md` (structure only; no ID or link) — **checked (2026-10-20): verdict (b)**, only with impersonation: yt-dlp's current file (commit `1f1101d0`, 2026-07-21) sends its signed-out GraphQL ask (`POST /api/graphql`, another `doc_id`, `media_id`, the page's LSD token, after the access check) only with TLS impersonation, else it reads the post's page; main's ask (yt-dlp's previous endpoint and `doc_id`, other variables) answered 401 signed out on 10 of 10 (S0d). No fix for main's GraphQL (S3), a documented limitation signed out; Instagram's stage (S2d) may use only the visible tab's own fetch, on the owner's go. Main's 401 → `LOGIN_REQUIRED`: keep (the signed-out wording optional, the owner's go). §8 item 3: see there |
 | **0.3 Facebook's access-check evidence (no code)** | The "content isn't available" page in English against at least one other language (a made-up video ID, not a real post; the page's structure, not its wording): is there a language-independent signal? Yes → a fix proposal for main's `FacebookPageParser` (the owner's go, its own commit); no → Master's judge stays conservative (a final answer only on positive evidence). Slot 12's expectation after the owner's check (the owner's tasks below) | the verdict here and in `PROGRESS.md` — **checked (2026-10-20): yes**: the page's own route (`canonicalRouteName`: `comet.fbweb.CometErrorRoute` with the error root's `privacy: true`; `comet.fbweb.CometVideoHomeVideoNotFoundRoute`) is the same in English, Burmese and German (made-up IDs, signed out, from the sandbox); main reads the English error page `PRIVATE_OR_UNAVAILABLE` and the Burmese one `RESPONSE_CHANGED` (S0d's slot 13). The fix proposal for `FacebookPageParser` is in `PROGRESS.md` (the owner's go, its own commit); until then Master's judge stays conservative; slot 12 after the owner's check |
 | **0.4 The census fixes (debug builds only)** | Per row `setup_ms` and the end-to-end ms; a social report key (method + URL + body + identity class, hashed; a new key: `LookupAsk.endpoint` is route B's R2 key and stays as it is) that splits a "repeat" (the same key) from a "variant" (the same endpoint, another body or identity) — the endpoint rule, its enforcement and the host stops stay as they are; the best row's duration (s) and "item N of M"; Instagram's removed slot signed out reads "ambiguous (no session)"; a photo post stays `NO_MEDIA_FOUND`; the site census diff: two JSON exports → per-slot CHANGED / BREAKING lines | JVM tests; CI green; the census APK with 0.1 — **(a) built (2026-10-20)**: per row the setup and end-to-end ms; the record's own report key (method, address, body, identity class: signed in or not and the agent; hashed, never exported) splits repeats from variants, while `LookupAsk.endpoint`, the endpoint rule, its enforcement and the host stops stay as they are; the best row's duration (s) and "item N of M" (X's and Instagram's answer lines; the screen's main taps the four adapters, main's code unchanged); Instagram's removed slot signed out reads "ambiguous (no session)" (counted apart); the photo posts keep `NO_MEDIA_FOUND`; `SiteCensusTest` +4, `LookupRecordLabelsTest` +1, `SiteCensusLookupTest` +1; **(b) built (2026-10-20)**: `SiteCensusDiff`, two exports → per-slot CHANGED / BREAKING lines (BREAKING: main's rows gone, as expected no longer, V pass → fail, Master's route-B recovery lost, a new site stop: a 429, a bot check, the rate limit), a note for each site or slot not compared (in one run only, skipped), an older export's missing fields not compared; the screen's report holds the diff against the last run the state kept; `SiteCensusDiffTest` 5, `SiteCensusTest` +1; next the census APK; **(c) built (2026-10-21)** (§7.4 step 2): per site (i) every slot's main and V, (ii) route B, (iii) the trials (after the final answers, then after rows, each in slot order), each slot's Master part in its own record (at most 16 answers, 8 Mi chars, kept until its Master part); a 429 or a bot check in (i) stops the site, in (ii) or (iii) only the remaining Master parts (`masterStop`: "main N/N · trials incomplete (429)"; its cooldown skips only the Master parts); the diff: `masterStop` alone a note, a Master part not run or limited not compared, nothing compared → "NOT COMPARED"; a baseline per site, VPN (Android's `TRANSPORT_VPN`) and session, the last run whose (i) completed; a changed link → "new link" (a local fingerprint, never exported); Facebook's slot 12 signed out → "ambiguous (no session)"; the state's format 2 (format 1's cooldowns kept); `SiteCensusTest` +11, `SiteCensusDiffTest` +2; next §7.4 step 3, then step 4's runs with the APK of both commits |
-| **0.5 The baseline B0 (the owner's run)** | §9's fixed config with the APK of 0.1 and 0.4 = §9's "before"; a site is re-baselined after any new main fix | the shares and the requests and time per lookup recorded here and in `PROGRESS.md` |
+| **0.5 The baseline B0 (the owner's run)** | §9's fixed config with the APK of 0.1 and 0.4 = §9's "before"; a site is re-baselined after any new main fix | the shares and the requests and time per lookup recorded here and in `PROGRESS.md`; **2026-10-21:** Facebook's B0 (00:09 UTC with the VPN, 00:21 UTC without); TikTok's B0 and Facebook's new baseline (after A1): §7.4 step 4 |
 
 **S1a — the kit's minimum and Facebook's pack (the pilot)**, flag `-Pyft.socialLadder` (off = today):
 
@@ -733,7 +739,8 @@ Lake City run.
    when their trials run; the trials: any number (a Master-phase 429 is a note). A 429 in (i): not
    B0; one rerun on another day, after the cooldown; a second one → its cause is looked at before
    S2b, not by trying VPN exits.
-2. **The agent, commit 1 — "Social plan 0.4 (c)": the census (debug builds only).**
+2. **The agent, commit 1 — "Social plan 0.4 (c)": the census (debug builds only).** **Built
+   (2026-10-21, `11c64d2`).**
    - The order within a site: (i) every slot's main and main's V; (ii) route B for main's
      failures; (iii) the trials. A slot's Master part runs in that slot's own `LookupRecord` (the
      replay rules unchanged), with a memory cap for the whole run (a record keeps at most 16
@@ -774,7 +781,7 @@ Lake City run.
    - Docs: a `PROGRESS.md` top entry (it also records this plan), a `docs/TEST_MATRIX.md` row,
      item 0.4's status in §7.3.
 3. **The agent, commit 2 — "Social plan 0.3 fix": A1 (main)**, pushed only when commit 1's CI is
-   green.
+   green. **Built (2026-10-21, `6b011da`); F2's follow-up `4f67209` (Master, behind the flag).**
    - Only when the page has no playable media and no existing marker matches, the page's own
      route (`initialRouteInfo.route`): the error route with the root's `privacy` JSON `true` →
      `PRIVATE_OR_UNAVAILABLE`; the video's not-found route → `PRIVATE_OR_UNAVAILABLE`. In
@@ -798,10 +805,54 @@ Lake City run.
    (final) in both runs; slot 12 ambiguous; not as expected 0; requests and time not above
    Facebook's B0 (about 68 requests, 65 s). The new state has no baseline yet, so these runs are
    compared with B0 by hand; they become Facebook's new baseline (a main fix re-baselines its
-   site, §9). Instagram and X need no new run.
-5. **Docs only:** Facebook's new baseline and TikTok's B0 (step 4's runs).
+   site, §9). Instagram and X need no new run. **Done (2026-10-21; the runs below).**
+5. **Docs only:** Facebook's new baseline and TikTok's B0 (step 4's runs). **Done (2026-10-21).**
 6. **S1a's phone proof (the owner's go):** §7.3's done-when, with slot 13 = main's final answer
    and slot 12 = ambiguous; optional: slot 12 once signed in (rows). Then S2b (§7.3).
+
+**Step 4 — the owner's runs (2026-10-21).** The census with the APK of step 3's SHA (`6b011da`'s
+"Master opt-in debug APK (spike)"), signed out, mobile data, the same day, in step 4's order; the
+VPN through its US exit (Boston), as in Facebook's B0 runs; without it the owner's mobile network,
+the same one as Facebook's no-VPN B0 run, so the two compare (TikTok runs only with the VPN on it,
+§7.2). The new state had no baseline yet, so Facebook's runs were compared with B0 by hand (B0's
+rows from its two reports).
+
+| Site | VPN | UTC | Should download | Recoverable | Master recovered | Browser | Not as expected | Ambiguous | Route B | Trials (with rows, V pass) | Requests · MB · s |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| TikTok | on | 05:59 | 6 | 0 | 0 | 0 | 0 | 0 | 1 | 0 (0, 0): trials incomplete (429) | 39 · 1.2 · 49 |
+| Facebook | on | 06:01 | 11 | 0 | 0 | 0 | 0 | 1 (slot 12) | 1 | 8 (8, 8) | 68 · 5.1 · 65 |
+| Facebook | off | 06:04 | 11 | 0 | 0 | 0 | 0 | 1 (slot 12) | 1 | 8 (8, 8) | 68 · 5.3 · 52 |
+| Facebook B0 | on | 00:09 | 11 | 0 | 0 | 0 | 1 (slot 12) | 0 | 1 | 8 (8, 8) | 68 · 5.1 · 65 |
+| Facebook B0 | off | 00:21 | 11 | 0 | 0 | 0 | 2 (slots 12, 13) | 0 | 1 | 8 (8, 8) | 68 · 5.2 · 63 |
+
+- **TikTok — B0 (step 1's pass).** Main's phase completed: 9 of 9 filled slots looked up (slot 7,
+  the private slot, empty), no 429 or bot check in main's asks; rows on 6 of 6 video slots, main's
+  V pass 6 (fail 0, unknown 0); the desktop-only HD slot (10) tallest 1920 (slot 1 too); not as
+  expected 0. The photo post (slot 6) `NO_MEDIA_FOUND`, as expected; its route B asked the embed
+  player once: 429 → `masterStop` ("main 9/9 · trials incomplete (429)"; its 30-minute cooldown
+  for the Master parts only), so the other Master parts did not run ("stopped (429)"): trials 0,
+  no Master row on slots 8–9. Region-limited (slot 8) `GEO_RESTRICTED` and removed (slot 9)
+  `PRIVATE_OR_UNAVAILABLE`, both final (the download service 403). The diff: "FIRST RUN"; the run
+  is TikTok's baseline (VPN on, signed out). For S2b: this time the embed's first ask got the 429
+  (before: its third or fourth); the cause is still not known.
+- **Facebook with the VPN — the new baseline (VPN on, signed out).** Against B0 (00:09 UTC): the
+  same rows on every slot, V pass 11, trials 8 (8, 8), the same requests (68) and time (65 s); one
+  change: slot 12 (sign-in-only: `RESPONSE_CHANGED`; its route B, the plugin player, no data →
+  "needs playback") reads "ambiguous (no session)", not "not as expected" (commit 1's rule). Slot
+  13 (removed) `PRIVATE_OR_UNAVAILABLE` (final, one request), as in B0. Master not run on slots 8,
+  9, 10 and 13 (links main resolves first, as in S0d).
+- **Facebook without the VPN — the new baseline (VPN off, signed out); A1's phone proof.** Against
+  B0 (00:21 UTC): 68 requests (B0 68), 52 s (B0 63 s); the same rows, V pass 11 and trials 8 (8,
+  8); not as expected 2 → 0: slot 13 `PRIVATE_OR_UNAVAILABLE` (final, one request) where B0 read
+  `NO_MEDIA_FOUND` (recoverable; main's English words did not match): main now reads the page's
+  own route, in any language (A1); slot 12 ambiguous, as with the VPN.
+- Step 4's pass is met by all three runs. The census's diff read "NOT COMPARED" in both Facebook
+  runs (no format-2 baseline yet); each run starts its site's baseline (VPN, session) on the
+  phone. Instagram and X: no new run, as step 4 says.
+- The runs came before the F2 follow-up (`4f67209`: in Master's F2 the route on pages read without
+  the session never ends the lookup); it is behind `-Pyft.socialLadder`, which no CI build passes,
+  so the runs stand (no rerun).
+- Next: step 6 (the owner's go). Its APK needs the flag on, which no CI build passes today.
 
 **For S2b (TikTok), noted now** (inputs to S2b's design, §7.3; not decided):
 

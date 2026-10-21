@@ -1,5 +1,45 @@
 # YFT Master Extractor backup
 
+## Social plan §7.4 steps 4–5 — TikTok's B0 and Facebook's new baseline (the owner's runs; docs only) (2026-10-21)
+
+- The owner's step 4 (`MASTER_KEY_SOCIAL_PLAN.md` §7.4): the census with the APK of step 3's SHA
+  (`6b011da`'s "Master opt-in debug APK (spike)", run 39547725367), signed out, mobile data, the
+  same day, in step 4's order; the VPN through its US exit (Boston), as in Facebook's B0 runs;
+  without it the owner's mobile network, the same one as Facebook's no-VPN B0 run, so the two
+  compare (TikTok runs only with the VPN on it). The record and its table: the plan's §7.4 ("Step
+  4 — the owner's runs").
+- TikTok, VPN on (05:59 UTC): 9 rows (slot 7, the private slot, empty), 39 requests, 1.2 MB, 49 s.
+  Main 9/9 (no 429 or bot check in main's asks); rows on 6 of 6 video slots, main's V pass 6 (fail
+  0, unknown 0), the desktop-only HD slot tallest 1920; not as expected 0, ambiguous 0. The photo
+  post's route B: the embed player's first ask answered 429 → `masterStop` ("main 9/9 · trials
+  incomplete (429)", 30 minutes, the Master parts only); the other Master parts not run, trials 0,
+  no Master row on slots 8–9 (`GEO_RESTRICTED`, `PRIVATE_OR_UNAVAILABLE`, both final). The diff:
+  "FIRST RUN". Step 1's pass met: **TikTok's B0** (VPN on, signed out). For S2b: the embed's 429
+  came at its first ask this time; the cause is still not known.
+- Facebook, VPN on (06:01 UTC): 13 rows, 68 requests, 5.1 MB, 65 s; rows 11/11, main's V pass 11,
+  recoverable 0, Master recovered 0, browser 0, not as expected 0, ambiguous 1 (slot 12), route B
+  1, trials 8 (rows 8, V pass 8); slot 13 (removed) `PRIVATE_OR_UNAVAILABLE` (final). Against B0
+  (00:09 UTC: 68 requests, 5.1 MB, 65 s, not as expected 1): the same rows on every slot, the same
+  requests and time; only slot 12 changed, "not as expected" → "ambiguous (no session)" (commit
+  1's rule; `RESPONSE_CHANGED`, its route B "needs playback").
+- Facebook, VPN off (06:04 UTC): 13 rows, 68 requests, 5.3 MB, 52 s; the same counts as with the
+  VPN. Against B0 (00:21 UTC: 68 requests, 5.2 MB, 63 s, not as expected 2): requests 68 = 68,
+  time 52 s < 63 s, not as expected 2 → 0. **A1's phone proof:** slot 13 `PRIVATE_OR_UNAVAILABLE`
+  (final) where B0 read `NO_MEDIA_FOUND` (recoverable; main's English words did not match); slot
+  12 ambiguous.
+- Step 4's Facebook pass met in both runs (slots 1–11 rows 11/11 and V pass 11, slot 13 final,
+  slot 12 ambiguous, not as expected 0, requests and time not above B0): **Facebook's new
+  baseline** (VPN on and off, signed out; a main fix re-baselines its site, §9). The census's diff
+  read "NOT COMPARED" (no format-2 baseline yet); each run starts its baseline on the phone.
+  Instagram and X: no new run.
+- The runs came before the F2 follow-up (`4f67209`); that fix is in Master's F2, behind
+  `-Pyft.socialLadder`, which no CI build passes, so the runs stand (no rerun).
+- Docs only: the plan (the top status, §0, §7.3 item 0.5, §7.4's steps and the step 4 record),
+  this entry (and the F2 entry's Next line), `docs/TEST_MATRIX.md`. No code, test or workflow
+  changed.
+- Next: §7.4 step 6, S1a's phone proof (the owner's go; §7.3's done-when). Its APK needs
+  `-Pyft.socialLadder` on, which no CI build passes today.
+
 ## Social plan 0.3 fix — F2: the route on main's public page alone never ends a reel's lookup (Master, behind the flag) (2026-10-21)
 
 - `FacebookLadder` (`extractor-master` `social/`, F2's `mainPages`; §7.4 step 3, §7.3's "a final
@@ -34,8 +74,8 @@
   865 tests (2 skipped), `:extractor-master-android:testDebugUnitTest` 69 and
   `:app:testDebugUnitTest` 1041 (66 skipped) passed; `:extractor-sites:test` 291 passed;
   `:app:lintDebug` and `:app:assembleDebug` passed; drift check 0 drifted.
-- Next: §7.4 step 4, the owner, with the APK of this commit's SHA (signed out, the same day: TikTok
-  only with the VPN, Facebook only with the VPN, Facebook only without it); then step 5 (docs only).
+- Next: §7.4 step 5 (docs only). Step 4 ran with `6b011da`'s APK, before this commit; this fix is
+  behind the flag (no CI build passes it), so the runs stand.
 
 ## Social plan 0.3 fix — Facebook's unavailable page read by its own route, in any language (main) (2026-10-21)
 
