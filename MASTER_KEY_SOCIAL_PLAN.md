@@ -12,8 +12,8 @@ first run (the owner, 2026-10-21: §7.4) and its fixes (S1a (10), behind the fla
 (2026-10-21); step 6's re-run (the owner, 2026-10-21): S1a's phone proof passed (§7.4). Instagram's
 census and X's B0 (the owner, 2026-10-21): §7.4; decided §8 items 3, 18 and 19; open: item 5
 (before S4). Decision 18 (link 9's desktop form, main) built (2026-10-21; §8). S2b (TikTok's
-ladder, behind the flag) built (2026-10-21; §7.3). Next: S2c (X) and S2d (Instagram, part 1),
-then the owner's phone session (§7.4).**
+ladder, behind the flag) built (2026-10-21; §7.3). S2c (X's ladder, behind the flag) built
+(2026-10-21; §7.3, §7.4). Next: S2d (Instagram, part 1), then the owner's phone session (§7.4).**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -130,6 +130,19 @@ then the owner's phone session (§7.4).**
   V က cookie မပို့လို့ပါ (R20)။ Intended difference: T1 rows က embed ရဲ့ file (1280 lines အထိ)။
   `yft-d7-fb-trial` APK က Facebook နဲ့ TikTok နှစ်ခုလုံးကို trial လုပ်ပါတယ်။ Flag off = ဒီနေ့
   အတိုင်း။ နောက်တစ်ဆင့်: S2c (X)။
+- **S2c ပြီးပါပြီ (X၊ flag နောက်မှာ၊ debug only၊ 2026-10-21၊ §7.3၊ §7.4):** main ရဲ့ X adapter
+  မအောင်မြင်မှ X ladder က ဖြေပါတယ်။ X1 က main ရဲ့ widget answer (`tweet-result`) ကို request အသစ်
+  မပို့ဘဲ ပြန်ဖတ်ပြီး judge လုပ်ပါတယ် (token self-check မလုပ်၊ X2 မရှိ — decision 2)။ Link ရဲ့ item
+  (`/video/N`၊ မရှိရင် ပထမ video) ရဲ့ rows ပဲ ယူပါတယ် — MP4 rows အရင်၊ duration က main ရဲ့ answer
+  ကနေ၊ HLS row က MP4 မရှိပြီး duration သိမှသာ။ Rows ကို post ID နဲ့ ချိတ်ပြီး V နဲ့ init check ကို
+  X ရဲ့ video host မှာ စစ်ပါတယ်။ Photo post နဲ့ widget ရဲ့ 404 ဆိုရင် request မပို့ဘဲ final ပါ။ Live
+  shape check (2026-10-21၊ sign out၊ shape only): age-limited post က empty tombstone (→ browser)၊
+  deleted post နဲ့ protected post က X ရဲ့ notice link ပါတဲ့ tombstone တူတူ (ခွဲမရလို့ ဒီနေ့ reason
+  အတိုင်း needs playback)၊ မရှိတဲ့ ID က 404 (→ `REMOVED` final)၊ token မပါရင် `{}` (→
+  `VALUE_REJECTED`၊ final မဟုတ်)။ X ရဲ့ budget (`SocialBudget.X`: request 9၊ 2 MiB၊ 20 s)။
+  `yft-d7-fb-trial` က X ရဲ့ rows ကိုလည်း ဘေးဖယ်ပြီး item နဲ့ duration ကို နှိုင်းယှဉ်ပါတယ်။ Intended
+  differences ကို `docs/SUPPORT_MATRIX.md` မှာ ရေးထားပါတယ် (ပိုင်ရှင် ဆုံးဖြတ်ရန်)။ Flag off = ဒီနေ့
+  အတိုင်း။ နောက်တစ်ဆင့်: S2d (Instagram အပိုင်း ၁)။
 
 ## 1. Audit — what exists today
 
@@ -437,7 +450,8 @@ With no adapter copies (B), the build is also about 4,700 lines smaller than the
   token" rule unless the owner allows it; X3 the visible tab's own playback (the user's own X
   sign-in; capture).
 - **Judge signals:** tombstone (age or sensitive) → `AGE_LIMITED` (browser required); 404 or an empty
-  answer → `REMOVED`; protected → `PRIVATE`; 429 → `RATE_LIMITED`.
+  answer → `REMOVED`; protected → `PRIVATE`; 429 → `RATE_LIMITED`. (S2c as built, by the live
+  shapes of 2026-10-21: §7.3.)
 - **Row checks:** each MP4 row on X's media host; HLS only with a known duration.
 - **Recorder (first fix under B):** Master's R8 for X asks main's endpoint a second time today; the
   site pack stops that first (decision 8). A new way only through decision 2 (X2).
@@ -450,8 +464,8 @@ With no adapter copies (B), the build is also about 4,700 lines smaller than the
 | **S0** | M | The per-lookup request recorder (app side, memory only; decision 8) + the site census tool (`SiteCensusActivity`, like "YFT client census"): each way of each site asked once on the owner's test list, judged, shape fingerprint, V on one row; the recorder's counts (which way failed and how, 429 / bot checks, repeated asks); JSON export with slots only | the owner's run gives each site's share of recoverable failures → the pilot and the order (§8 item 1) — **done** (§7.1, §7.2) |
 | **Stage 0** | M | Five items, in parallel, before S1a's first phone APK (§7.3): **0.1** X's card fix in main (the owner's go); **0.2** the Instagram check (no code); **0.3** Facebook's access-check evidence (no code); **0.4** the census fixes and the site census diff (debug builds only); **0.5** the owner's baseline run B0 (§9) | 0.1 and 0.4: CI green and the census APK; 0.2 and 0.3: a verdict each (§7.3); 0.5: B0 recorded |
 | **S1a** | L | The kit's minimum with the pilot's pack, Facebook (the first draft's S1 and S2a together), flag `-Pyft.socialLadder` (off = today): the recorder in the app's lookup path, judge classes, the site table, one judged request rung + L3 + capture, budgets and the 30-minute cooldown (S7), `SiteRowCheck` + `InitCheck` on every Master row, Facebook's anchors, post-identity mutation tests, a simulator world (§7.3) | JVM tests, simulator and CI green; flag off = today; the D7-style APK's phone proof (§7.3) — **passed (2026-10-21, §7.4 step 6's re-run)** |
-| **S2b** | M | TikTok's pack (§7.3) | phone proof; wrong rows 0; no regression against B0 |
-| **S2c** | M | X's pack: main's answer replayed, no new ask (X2 not now; §7.3) | the same |
+| **S2b** | M | TikTok's pack (§7.3) | phone proof; wrong rows 0; no regression against B0 — built (2026-10-21, behind the flag); its proof: the next phone session (§7.4) |
+| **S2c** | M | X's pack: main's answer replayed, no new ask (X2 not now; §7.3) | the same — built (2026-10-21, behind the flag); its proof: the next phone session (§7.4) |
 | **S2d** | M | Instagram's pack by the Instagram check's verdict (0.2); the owner's signed-in census first (§7.3) | the same |
 | **S3** | S–M | Weekly check W for all four + runbook (each CHANGED / BREAKING line and its fix: a data change via R9, or code) | the owner's first W run |
 | **S4** | S | R9 live: the owner signs and hosts the config (§8 item 5, decided before S4); kill switch per rung; one repair drill (a key changed by config on the phone, no APK) | drill passed |
@@ -737,6 +751,21 @@ and T2's cookie limit (R20) in `docs/SUPPORT_MATRIX.md`; the trial APK `fb-trial
 TikTok's pages too. Its phone proof: the owner's next session (§7.4).
 **S2c X:** main's answer replayed, no new ask (X2 not now); a hidden post → the browser; a photo
 post stops; an HLS row only with a known duration (V).
+**S2c built (2026-10-21, behind the flag; `PROGRESS.md`):** X1 main's answer from the widget
+(`tweet-result`) replayed with no new ask (no token self-check, no X2), judged by its shape
+(`XAnswerJudge`); `MainPages` also keeps main's refused GETs (status and reason only), so main's
+404 is judged without asking again. Rows of the link's item only (`/video/N` among the post's own
+or card's media, else the first; the quoted post's video when the post has none), bound to the
+link's post ID; MP4 rows first with main's length, an HLS row only without MP4 and with a known
+length; V and the init check on X's video host; `SocialBudget.X` (9 requests, 2 MiB, 20 s).
+Final, no request: a photo post (main's words) and the widget's 404 (`PRIVATE_OR_UNAVAILABLE`,
+"This X post is no longer available."). By the live shapes (2026-10-21, signed out): the empty
+tombstone (age-limited) → the browser; X's notice tombstone (a deleted post's and a protected
+post's alike) → needs playback, today's reason; `{}` (no widget token) → `VALUE_REJECTED`, not
+final — so §6.4's "an empty answer → `REMOVED`" and "protected → `PRIVATE`" are not built (the
+shapes do not show them); intended differences in `docs/SUPPORT_MATRIX.md`. The trial APK
+`fb-trial` sets aside X's rows too and compares the item and the duration. Its phone proof: the
+owner's next session (§7.4).
 **S2d Instagram:** by 0.2's verdict; no repeat of main's embed ask; `RATE_LIMITED` → the cooldown;
 `doc_id` self-healing only if 0.2 shows it rotates (then S1b); the owner's signed-in census before
 this stage.
@@ -1093,14 +1122,31 @@ same day; no link or ID kept (S8).
   The proof: on these 8 slots Master's trial rows are main's item, with its duration, and V passes
   on every video slot.
 
+  **S2c's answers (built 2026-10-21; `PROGRESS.md`):** 1 — the item's MP4 rows with main's length,
+  each checked by V; an HLS row only when the item has no MP4 file and its length is known (V never
+  passes a playlist: an HLS-only post ends in the tab's playback). 2 — the link's item only (slot
+  6: video 1's rows, as main's); the trial's line compares the item ("the same item: yes" only when
+  every Master row names main's one item by its file's path) and the duration. 3 — the live shapes
+  (2026-10-21, signed out, shape only, nothing kept): an age-limited post → an empty tombstone (→
+  the browser: slot 7 needs playback, "AGE_LIMITED … next: BROWSER"); a deleted post and a protected
+  account's post → the same tombstone with X's notice link (not told apart → today's reason: needs
+  playback); a made-up ID → 404 (→ `REMOVED`, final: "This X post is no longer available."); no
+  widget token → `{}` (→ `VALUE_REJECTED`, not final). Slot 8 (removed) follows its answer's shape:
+  X's notice tombstone → needs playback, a 404 → final. Note: the census's Master trial still runs
+  R8's way for X (task 6b runs the site packs there); until then X's proof runs in the app's
+  browser with `yft-d7-fb-trial`.
+
 **The next phone session (the owner, after S2d part 1; the list is in S2d part 1's report and
 `PROGRESS.md`):** Facebook's census with and without the VPN, signed out (the re-baseline after
 decision 18), link 9's desktop form (`yft-d7-normal`, the flag off: main's rows of the post's
 video only, no list of the page's videos; `yft-d7-fb-trial`: expected "Master found none" with
 its step in Details, as link 10's limitation) and a short regression set; TikTok's, X's and
 Instagram's D7-style proofs (§7.3; TikTok's with `yft-d7-fb-trial`, which since S2b sets aside
-TikTok's pages too, T1's positives possibly in runs at least 30 minutes apart); Instagram's
-tab-fetch probe.
+TikTok's pages too, T1's positives possibly in runs at least 30 minutes apart; X's on B0's 8
+slots, VPN Boston and none, signed out, with `yft-d7-fb-trial`, which since S2c sets aside X's
+pages too: slots 1–6 Master's rows of main's item, "the same item: yes; duration within 1 s:
+yes", V pass, slot 6 video 1's rows only; slot 7 needs playback; slot 8 as its answer's shape
+(S2c's answers above); wrong rows 0; no regression against X's B0); Instagram's tab-fetch probe.
 
 **For S2b (TikTok), noted now** (inputs to S2b's design, §7.3; not decided):
 
