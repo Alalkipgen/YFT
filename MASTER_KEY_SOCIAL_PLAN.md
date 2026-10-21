@@ -6,8 +6,8 @@ scope and the R8 ladder (§2.1, §8 items 7–9). Nothing here is built until th
 step at a time (§7, §8). **S0 started on the owner's go (2026-10-20): §7.1; the owner's run (S0d):
 §7.2. The final plan of the steps after S0d (the owner, 2026-10-20): §7.3; decided §8 items 1, 2,
 4, 6 and 10–12; open: item 3 (after the Instagram check, §7.3 item 0.2) and item 5 (before S4).
-The plan after S1a (8) (the owner, 2026-10-21): §7.4; decided §8 items 13–16. Next: S1a (7) and
-(8), then §7.4.**
+The plan after S1a (8) (the owner, 2026-10-21): §7.4; decided §8 items 13–17. Next: S1a (8),
+then §7.4.**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -49,7 +49,7 @@ The plan after S1a (8) (the owner, 2026-10-21): §7.4; decided §8 items 13–16
   B0) → **S1a** kit အနည်းဆုံး + Facebook pack (pilot) → **S2b** TikTok → **S2c** X → **S2d**
   Instagram → S3 weekly check → S4 remote recipe live → S5 site တစ်ခုစီ phone run ၃ ခါ → PR #2
   merge → P8 (beta.4)။ release ပြီးမှ: S1b၊ X2၊ "item အားလုံး" feature၊ B+ (S6)၊ A။
-- **ဆုံးဖြတ်ပြီး:** §8 #1၊ #2၊ #4၊ #6–#16။ **ကျန်:** #3 (Instagram check 0.2 ပြီးမှ)၊ #5 (S4
+- **ဆုံးဖြတ်ပြီး:** §8 #1၊ #2၊ #4၊ #6–#17။ **ကျန်:** #3 (Instagram check 0.2 ပြီးမှ)၊ #5 (S4
   မတိုင်မီ)။
 - **S0d (2026-10-20, §7.2):** ပိုင်ရှင်ရဲ့ phone run ၂ ခု။ Recoverable failure: Facebook 0/11၊
   TikTok 0/6၊ Instagram 0/7၊ X 2/6 (main မဖတ်တဲ့ card ထဲက video)။ Pilot: Facebook → TikTok →
@@ -62,12 +62,14 @@ The plan after S1a (8) (the owner, 2026-10-21): §7.4; decided §8 items 13–16
   က release ပြီးမှ။ Release gate (#12): site ၄ ခုလုံး S0–S5 ပြီးမှ PR #2 merge → P8 (beta.4) →
   တခြားသူတွေ။ S1b နဲ့ B+ (S6) က release ပြီးမှ။ Baseline B0 (§9) ထက် main အောင်မြင်တဲ့ lookup
   ရဲ့ request/အချိန် မများရပါ။
-- **S1a (8) ပြီးနောက် Plan (ပိုင်ရှင်၊ 2026-10-21၊ §7.4၊ §8 #13–#16):** census fix 0.4 (c) (debug
+- **S1a (8) ပြီးနောက် Plan (ပိုင်ရှင်၊ 2026-10-21၊ §7.4၊ §8 #13–#17):** census fix 0.4 (c) (debug
   only) ကို အရင်လုပ်ပြီး Facebook access fix A1 ("0.3 fix"၊ main၊ commit တစ်ခု) ကို နောက်မှ
   လုပ်ပါမယ်။ Phone test ကို commit ၂ ခုလုံးပါတဲ့ APK နဲ့ တစ်ခါပဲ (FB-only VPN နဲ့ no-VPN) run
   ပါမယ်။ A2 (reel ရဲ့ `video: null` ကို final ယူခြင်း) ကို main မှာ အပြီးပိတ်ပါပြီ — design အရ
   recoverable ပါ။ FB slot 12 ကို signed out ဆိုရင် "ambiguous (no session)" လို့ ပြပါမယ်။
-  TikTok အပိုင်းကို ပိုင်ရှင်က နောက်မှ ထပ်ဖြည့်ပါမယ်။
+  TikTok (§8 #17): လက်ရှိ APK နဲ့ ထပ်မ run ပါ။ Commit ၂ ခုပါတဲ့ APK ရမှ VPN (US exit) နဲ့
+  TikTok-only ကို အရင်ဆုံး run ပါမယ်။ Census က slot အားလုံးရဲ့ main ကို အရင် run တာမို့ embed မှာ
+  429 ထွက်လည်း main ပြည့်ပါမယ်။ ဒီ run က TikTok ရဲ့ B0 ပါ။ S2b အတွက် မှတ်ချက်တွေ §7.4 မှာ ပါပါတယ်။
 
 ## 1. Audit — what exists today
 
@@ -656,7 +658,8 @@ hosting before S4. Instagram slot 7's check in the app is no longer needed (one 
 
 After Facebook's B0 runs (2026-10-21, with and without the VPN) the owner approved this plan for
 the steps after S1a (8); it records §8 items 13–16. Each step still starts on the owner's go
-(S10). TikTok's part (its B0, step 1) is added later by the owner.
+(S10). TikTok's part (step 1, §8 item 17) was added by the owner on 2026-10-21, after the Salt
+Lake City run.
 
 **Why** (read in the code at `1028829`; no new test run):
 
@@ -678,8 +681,23 @@ the steps after S1a (8); it records §8 items 13–16. Each step still starts on
 - Slot 12 (`sign-in-only`) expects `LOGIN_REQUIRED` signed out, but signed out Facebook answers a
   friends-only reel as it answers a missing one: its signed-out answer is ambiguous, like
   Instagram's removed slot (item 0.4 (a)).
+- TikTok (the owner's four runs, all with the VPN): S0d (2026-10-20 02:14 UTC) asked the embed
+  player 9 times with no 429; three later runs (two through S0d's exit, one through another US
+  exit) got a 429 at the embed's third or fourth ask. The census then stopped the site, so the
+  later slots' main (from slot 4 or 5) was not looked up: TikTok's B0 is not complete. Main's asks
+  got no 429, but after the 429 main was not asked again. Main's page asks carry the browser's
+  cookie (authorized); the embed's asks do not. The cause is not known: another VPN exit is not
+  shown to fix it, nor shown not to matter.
+- `PRIVATE_OR_UNAVAILABLE` and `GEO_RESTRICTED` are final (`NEVER_FALLBACK`). The census tries
+  Master after them only as a trial (given `NO_MEDIA_FOUND`): a check that Master gives no rows
+  (S2: no private or region bypass), not a recovery. S0d already ran slots 8–9's trials (the embed
+  answered 400: "needs playback", no rows) and slot 6's route B (200, no data).
+- With the phase order, a slot whose main ran but whose Master part did not (the Master phase
+  stopped) would still be compared today: CHANGED, or BREAKING when the earlier run's route B
+  recovered it. A stop's 30-minute cooldown skips the whole site in the next run, main too, while
+  S7's cooldown is for the rungs that send requests.
 
-**Decided** (§8 items 13–16):
+**Decided** (§8 items 13–17):
 
 - The census fix 0.4 (c): go, debug builds only.
 - A1, Facebook's access fix ("0.3 fix"): go; main, its own commit (§8 item 10's exception).
@@ -689,12 +707,24 @@ the steps after S1a (8); it records §8 items 13–16. Each step still starts on
   evidence.
 - One phone test, with the APK of both commits (not one per commit).
 - No real link or ID in the repo, fixtures, docs, logs or prompts (S8).
+- TikTok (§8 item 17): no TikTok run before step 4; TikTok's B0 is step 4's first run, with the
+  VPN's US exit; no VPN-exit or slot-split runs. Commit 1 also gets step 2's TikTok items (the two
+  stops, the Master parts not compared, the Master-phase cooldown, the trial order).
+  `PRIVATE_OR_UNAVAILABLE` and `GEO_RESTRICTED` stay final; a Master row on those slots is a
+  failure (S2).
 
 **The steps:**
 
 0. **Now (the agent):** S1a (7) and (8), the running task. No other code commit before its report
    is checked (the SHAs and CI).
-1. **TikTok:** added later by the owner (TikTok's B0 is not complete).
+1. **TikTok (the owner, 2026-10-21):** no TikTok run with today's APK, through another VPN exit
+   or of only some slots (each stops again after 2–3 embed asks; mixed runs make no baseline).
+   TikTok's B0 is step 4's first run. Its pass: (i) completed, every filled slot's main looked up
+   (9 of 9; the private slot is empty); not as expected 0; main's V pass on every slot with rows
+   (the desktop-only HD slot at least 720 high, as its slot expects); no Master row on slots 8–9
+   when their trials run; the trials: any number (a Master-phase 429 is a note). A 429 in (i): not
+   B0; one rerun on another day, after the cooldown; a second one → its cause is looked at before
+   S2b, not by trying VPN exits.
 2. **The agent, commit 1 — "Social plan 0.4 (c)": the census (debug builds only).**
    - The order within a site: (i) every slot's main and main's V; (ii) route B for main's
      failures; (iii) the trials. A slot's Master part runs in that slot's own `LookupRecord` (the
@@ -703,6 +733,19 @@ the steps after S1a (8); it records §8 items 13–16. Each step still starts on
    - Stops: a 429 or a bot check in (i) stops the site, as today; in (ii) or (iii) it skips only
      the remaining Master parts and keeps main's results; the report reads "main N/N · trials
      incomplete (429)".
+   - The two stops apart in the export: `stop` (in (i)) and `masterStop` (in (ii) or (iii)). The
+     diff: `stop` as today; a change of `masterStop` alone is a note, never CHANGED or BREAKING;
+     the headline adds "· trials incomplete (429)" (or the stop's word) when the later run has one.
+   - A Master part that did not run because of `masterStop`, or whose own ask got the 429 or the
+     bot check, is not compared (a note), never CHANGED or BREAKING (route B's "no longer
+     recovers" too); Master parts that ran in both runs are compared as today; main's rules are
+     unchanged; a field an export lacks (format 1) is not compared.
+   - A `masterStop`'s 30-minute cooldown skips only the Master parts of a run inside it (main
+     runs; S7's cooldown is for the rungs that send requests); a stop in (i) cools the whole site,
+     as today.
+   - Within (iii): the trials after main's final answers (`PRIVATE_OR_UNAVAILABLE`,
+     `GEO_RESTRICTED`) first, then the trials after main's rows, each in slot order (low priority:
+     S0d already ran both kinds once).
    - The budget and the cooldowns shared by all phases (no reset per phase); a row's time is the
      sum of its own steps.
    - The baseline: one per site, VPN (on or off) and session; the VPN read by Android
@@ -717,7 +760,9 @@ the steps after S1a (8); it records §8 items 13–16. Each step still starts on
      `RouteBHttpClient`, `LookupAsk.endpoint`, the YouTube files, the workflows.
    - Tests: a trial's 429 does not stop the later slots' main; main's 429 still stops the site;
      the deferred replay; the memory cap; the baseline's choice; NOT COMPARED; a new link; slot
-     12; format 1's state.
+     12; format 1's state; `masterStop` alone never CHANGED or BREAKING; a Master part that did
+     not run (or got the 429) not compared, route B's too; the Master-phase cooldown keeps main;
+     the trial order.
    - Docs: a `PROGRESS.md` top entry (it also records this plan), a `docs/TEST_MATRIX.md` row,
      item 0.4's status in §7.3.
 3. **The agent, commit 2 — "Social plan 0.3 fix": A1 (main)**, pushed only when commit 1's CI is
@@ -739,15 +784,34 @@ the steps after S1a (8); it records §8 items 13–16. Each step still starts on
      row in the same commit (R3).
    - Docs: `docs/SUPPORT_MATRIX.md` (Facebook's unavailable page in any language; a reel's
      `video: null` stays recoverable, A2), a `PROGRESS.md` entry, a `docs/TEST_MATRIX.md` row.
-4. **The owner** (the APK of step 3's SHA, signed out): Facebook only with the VPN (§9's US exit)
-   and Facebook only without it, the same day. Pass: slots 1–11 rows 11 of 11 and V pass 11; slot
-   13 `PRIVATE_OR_UNAVAILABLE` (final) in both runs; slot 12 ambiguous; not as expected 0;
-   requests and time not above Facebook's B0 (about 68 requests, 65 s). The new state has no
-   baseline yet, so these runs are compared with B0 by hand; they become Facebook's new baseline
-   (a main fix re-baselines its site, §9). Instagram and X need no new run.
-5. **Docs only:** Facebook's new baseline (TikTok's B0 with step 1).
+4. **The owner** (the APK of step 3's SHA, signed out), the same day, in this order: TikTok only
+   with the VPN (§9's US exit; step 1's pass), Facebook only with the VPN, Facebook only without
+   it. Facebook's pass: slots 1–11 rows 11 of 11 and V pass 11; slot 13 `PRIVATE_OR_UNAVAILABLE`
+   (final) in both runs; slot 12 ambiguous; not as expected 0; requests and time not above
+   Facebook's B0 (about 68 requests, 65 s). The new state has no baseline yet, so these runs are
+   compared with B0 by hand; they become Facebook's new baseline (a main fix re-baselines its
+   site, §9). Instagram and X need no new run.
+5. **Docs only:** Facebook's new baseline and TikTok's B0 (step 4's runs).
 6. **S1a's phone proof (the owner's go):** §7.3's done-when, with slot 13 = main's final answer
    and slot 12 = ambiguous; optional: slot 12 once signed in (rows). Then S2b (§7.3).
+
+**For S2b (TikTok), noted now** (inputs to S2b's design, §7.3; not decided):
+
+- T2 before T1: T2 reads main's pages (`MainPages`, S1a (2)) with no fetch, so a success saves an
+  embed ask; its V and init-check requests still count in the budget. The order may be the site
+  table's data (L4).
+- After T1's 429 or bot check: no new request to that host in the lookup (S7); T2 may still run
+  (no request); then "needs playback" (T3 is the user's own playback in the visible tab), never an
+  automatic capture or a retry.
+- TikTok's own budget in `SocialBudget` (today Facebook's only), sized by TikTok's main, T1 and
+  V, not copied from Facebook's.
+- The proof: positives (named public slots give Master rows: the item ID matches, the duration
+  within ±1 s of main's, V pass) and wrong rows 0; no Master row on slots 7–9 (private, region,
+  removed; S2); per way: run, not run (cooldown), rows, wrong rows. A D7-style APK with main
+  mutated tries T2 with no embed ask; T1's positive slots may need runs at least 30 minutes apart.
+- One hypothesis for one controlled test (the owner's go, as it uses the user's session): T1 with
+  YFT's browser cookies to TikTok's own host (S2 allows it, as main does); so far the 429s came
+  only on the embed's asks without a cookie.
 
 **Parked:**
 
@@ -801,6 +865,12 @@ Decided (the owner, 2026-10-21; §7.4):
   as in Master's judge. The two-source rule is parked (§7.4).
 - **16 — One phone test:** the APK of both commits, Facebook only with and without the VPN, the
   same day (§7.4 step 4); not one per commit.
+- **17 — TikTok after the Salt Lake City run:** no TikTok run with today's APK, no VPN-exit or
+  slot-split runs; TikTok's B0 is §7.4 step 4's first run (the APK of both commits, the VPN's US
+  exit). The census fix also keeps the two stops apart, compares no Master part that did not run,
+  cools only Master's parts after a Master-phase stop, and runs the trials after main's final
+  answers first. `PRIVATE_OR_UNAVAILABLE` and `GEO_RESTRICTED` stay final. The S2b notes (§7.4)
+  are inputs, not decisions.
 
 Still open (the owner's answer is needed before the step that uses it):
 
