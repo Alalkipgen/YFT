@@ -29,3 +29,20 @@ interface SocialStage {
      */
     class Staged(val stage: MasterStage, val snapshot: PageSnapshot, val request: MasterRequest)
 }
+
+/**
+ * Social plan S2b (`MASTER_KEY_SOCIAL_PLAN.md` §7.3): a build's social ladders as one stage
+ * (Facebook's, TikTok's). A lookup is the first ladder's that [claims] it (each claims only its own
+ * site's lookups); one no ladder claims keeps the engine's own path (R8's ask), as before.
+ */
+class SocialStages(private val stages: List<SocialStage>) : SocialStage {
+    override suspend fun claims(request: MasterRequest): Boolean = stages.any { it.claims(request) }
+
+    override suspend fun stage(
+        request: MasterRequest,
+        policy: MasterPolicy,
+        details: MutableList<String>,
+    ): SocialStage.Staged? = stages.firstOrNull { it.claims(request) }?.stage(request, policy, details)
+
+    override fun toString(): String = "SocialStages(${stages.joinToString()})"
+}

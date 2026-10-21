@@ -2,6 +2,7 @@ package com.alal.yft.detection.master
 
 import com.alal.yft.BuildConfig
 import com.alal.yft.core.model.media.MediaCandidate
+import com.alal.yft.detection.OkHttpExtractorClient
 import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.extractor.api.ExtractorHttpClient
@@ -9,6 +10,7 @@ import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.extractor.master.MasterMediaValidator
 import com.alal.yft.extractor.master.lookup.LookupRecord
+import com.alal.yft.extractor.master.lookup.LookupRecorder
 import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStartReader
 import com.alal.yft.extractor.master.social.FacebookLadder
 import com.alal.yft.extractor.master.social.MainPageRecorder
@@ -17,6 +19,8 @@ import com.alal.yft.extractor.master.social.SiteWays
 import com.alal.yft.extractor.master.social.SocialCooldown
 import com.alal.yft.extractor.master.social.SocialRowCheck
 import com.alal.yft.extractor.master.social.SocialStage
+import com.alal.yft.extractor.master.social.SocialStages
+import com.alal.yft.extractor.master.social.TikTokLadder
 import kotlin.coroutines.CoroutineContext
 import kotlin.math.abs
 import kotlinx.coroutines.currentCoroutineContext
@@ -24,9 +28,9 @@ import okhttp3.OkHttpClient
 
 /**
  * Social plan S1a (`MASTER_KEY_SOCIAL_PLAN.md` §7.3): the build's social-ladder switch and its app
- * wiring, Facebook first (the pilot). On only in a debug build made with `-Pyft.socialLadder=true`
- * and `-Pyft.masterCapture=true`; release, preview and every other build: off, and each piece here
- * is exactly today's.
+ * wiring, Facebook first (the pilot); S2b: TikTok's too ([SITES]). On only in a debug build made
+ * with `-Pyft.socialLadder=true` and `-Pyft.masterCapture=true`; release, preview and every other
+ * build: off, and each piece here is exactly today's.
  */
 internal object SocialLadder {
     val enabled: Boolean get() = BuildConfig.SOCIAL_LADDER
@@ -41,6 +45,12 @@ internal object SocialLadder {
 
     /** The pilot's site ID (main's Facebook adapter; its video key's prefix). */
     const val FACEBOOK_SITE_ID = "facebook"
+
+    /** S2b: TikTok's site ID (main's TikTok adapter; its video key's prefix). */
+    const val TIKTOK_SITE_ID = "tiktok"
+
+    /** S2b: the sites with a ladder (each lookup's own record and pages, its trial): Facebook, TikTok. */
+    val SITES: Set<String> = setOf(FACEBOOK_SITE_ID, TIKTOK_SITE_ID)
 
     /**
      * S1a (5), S7: the hosts cooling after a 429 or a bot check (30 minutes), the app process's:
@@ -62,29 +72,65 @@ internal object SocialLadder {
     fun pages(http: ExtractorHttpClient, social: Boolean = enabled): ExtractorHttpClient =
         if (social) MainPageRecorder(http) else http
 
-    /** S1a (2): whether [videoKey] ("site:contentId") is the pilot's: every Facebook link form. */
-    fun claims(videoKey: String?): Boolean = videoKey?.substringBefore(':') == FACEBOOK_SITE_ID
+    /**
+     * S2b: main's TikTok adapter's own client (P39: the answers' cookies sent back, today's). In a
+     * social-ladder build it also records each request into the lookup's record and keeps main's
+     * pages in the lookup's [MainPages] (T2 reads them; the S7 stops and budget count its asks); a
+     * lookup without them only passes through. Otherwise it is today's client.
+     */
+    fun tiktokClient(client: OkHttpClient, social: Boolean = enabled): ExtractorHttpClient {
+        val http = OkHttpExtractorClient(
+            client = client,
+            policy = OkHttpExtractorClient.Policy(sendResponseCookies = true),
+        )
+        return if (social) pages(LookupRecorder(http), social) else http
+    }
 
     /**
-     * S1a (2): a new lookup's context for a Facebook page — its own request record with Facebook's
-     * labels (each ask's way and its answer's mark: the S7 stops read them) and its own
-     * [MainPages]; memory only, dropped with the lookup.
+     * S1a (2): whether [videoKey] ("site:contentId") is a ladder's: every Facebook link form; S2b:
+     * every TikTok link form too ([SITES]).
      */
-    fun lookupContext(): CoroutineContext = LookupRecord(labels = SiteWays.FACEBOOK.labels()) + MainPages()
+    fun claims(videoKey: String?): Boolean = siteOf(videoKey) != null
+
+    /** S2b: [videoKey]'s site when it has a ladder ([SITES]), else null. */
+    fun siteOf(videoKey: String?): String? = videoKey?.substringBefore(':')?.takeIf { it in SITES }
+
+    /**
+     * S1a (2): a new lookup's context for a ladder's page ([videoKey]'s site; Facebook's without
+     * one) — its own request record with the site's labels (each ask's way and its answer's mark:
+     * the S7 stops read them) and its own [MainPages], which names the site (S2b: V asks that
+     * site's media hosts); memory only, dropped with the lookup.
+     */
+    fun lookupContext(videoKey: String? = null): CoroutineContext {
+        val site = siteOf(videoKey) ?: FACEBOOK_SITE_ID
+        val labels = checkNotNull(SiteWays.site(site)) { site }.labels()
+        return LookupRecord(labels = labels) + MainPages(site = site)
+    }
 
     /**
      * S1a (3): Master's social rung in a social-ladder build: Facebook's ladder ([FacebookLadder]:
-     * F1, the plugin player, judged) over Master's own client [http], claiming only a lookup with
-     * its own record ([lookupContext]); [identify]: main's adapters. Its recipes come from the same
-     * source as the engine's ([MasterRecipeConfig]); S1a (5): its stops cool in [cooldown] (the
-     * app's, by default). Every other build: null, the engine as before.
+     * F1, the plugin player, judged) and S2b TikTok's ([TikTokLadder]: T1, the embed player,
+     * judged; T2, main's pages), each claiming only its own site's lookup with its own record
+     * ([lookupContext]; [SocialStages]: the first that claims it), over Master's own client
+     * [http]; [identify]: main's adapters. Their recipes come from the same source as the
+     * engine's ([MasterRecipeConfig]); S1a (5): their stops cool in [cooldown] (the app's, by
+     * default). Every other build: null, the engine as before.
      */
     fun stage(
         http: ExtractorHttpClient,
         identify: (String) -> SitePageIdentity?,
         social: Boolean = enabled,
         cooldown: SocialCooldown = SocialLadder.cooldown,
-    ): SocialStage? = if (social) FacebookLadder(http, identify, MasterRecipeConfig::contracts, cooldown) else null
+    ): SocialStage? = if (social) {
+        SocialStages(
+            listOf(
+                FacebookLadder(http, identify, MasterRecipeConfig::contracts, cooldown),
+                TikTokLadder(http, identify, MasterRecipeConfig::contracts, cooldown),
+            ),
+        )
+    } else {
+        null
+    }
 
     /**
      * S1a (6), S6: the engine's file check. In a social-ladder build a Facebook lookup (its own
@@ -122,15 +168,46 @@ internal object SocialLadder {
 
     /**
      * S1a (3): main's words for the ladder's final answer (the page's route: private or removed),
-     * so a Facebook lookup says what main says for it; null for every other reason (as before).
+     * so a Facebook lookup says what main says for it; S2b: a TikTok lookup's photo post (the
+     * ladder's PHOTO_ONLY line with its final step in [details]: TikTok's ladder said it, no other
+     * stage) in main's words for it. Null for every other reason and site (as before).
      */
-    fun finalMessage(reason: SiteExtractionFailure): String? = when (reason) {
-        SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE -> "This Facebook post is private or no longer available."
+    fun finalMessage(
+        reason: SiteExtractionFailure,
+        videoKey: String? = null,
+        details: List<String> = emptyList(),
+    ): String? = when (siteOf(videoKey) ?: FACEBOOK_SITE_ID) {
+        FACEBOOK_SITE_ID -> when (reason) {
+            SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE -> "This Facebook post is private or no longer available."
+            else -> null
+        }
+        TIKTOK_SITE_ID -> "This TikTok post has no downloadable video.".takeIf {
+            reason == SiteExtractionFailure.NO_MEDIA_FOUND && details.any { line ->
+                line.startsWith(line(videoKey)) && "PHOTO_ONLY" in line && "next: FINAL" in line
+            }
+        }
         else -> null
     }
 
     /** S1a (9): the start of Facebook's lines in Master's details (the ladder's first). */
     const val LINE = "master: facebook"
+
+    /** S2b: the start of [videoKey]'s site's lines in Master's details (Facebook's without one). */
+    fun line(videoKey: String?): String = "master: ${siteOf(videoKey) ?: FACEBOOK_SITE_ID}"
+
+    /** S2b: the trial's answer when Master gives none, for [videoKey]'s site (Facebook's: [TRIAL_MESSAGE]). */
+    fun trialMessage(videoKey: String?): String =
+        "${nameOf(videoKey)} trial: main's rows were set aside and Master found none. Tap Try again."
+
+    /** S2b: the trial's Details line for [videoKey]'s site (Facebook's: [TRIAL_DETAIL]). */
+    fun trialDetail(videoKey: String?): String = "${line(videoKey)} trial: main's"
+
+    /** S2b: the "not used" line's start for [videoKey]'s site (Facebook's: [NOT_USED]). */
+    fun notUsed(videoKey: String?): String = "${line(videoKey)}: Master's answer not used:"
+
+    /** S2b: [videoKey]'s site's name as main says it (Facebook, TikTok). */
+    private fun nameOf(videoKey: String?): String =
+        SiteWays.site(siteOf(videoKey) ?: FACEBOOK_SITE_ID)?.name ?: "Facebook"
 
     /** S1a (9): the Facebook trial's answer when Master gives none (main's rows were set aside). */
     const val TRIAL_MESSAGE = "Facebook trial: main's rows were set aside and Master found none. Tap Try again."
@@ -180,9 +257,11 @@ internal object SocialLadder {
 
     /**
      * S1a (9): the Facebook trial's line of rows Master found (Facebook's line with the trial's
-     * segment, [trialSegment]), for the browser's notice; null for every other answer (no other
-     * build has one).
+     * segment, [trialSegment]), for the browser's notice; S2b: TikTok's too (any ladder site's
+     * line). Null for every other answer (no other build has one).
      */
     fun trialNotice(outcome: SiteAdapterOutcome): String? =
-        (outcome as? SiteAdapterOutcome.Detected)?.details?.firstOrNull { it.startsWith(LINE) && TRIAL_SEGMENT in it }
+        (outcome as? SiteAdapterOutcome.Detected)?.details?.firstOrNull { detail ->
+            SITES.any { detail.startsWith("master: $it") } && TRIAL_SEGMENT in detail
+        }
 }

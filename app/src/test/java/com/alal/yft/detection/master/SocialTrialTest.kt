@@ -60,10 +60,10 @@ import org.robolectric.annotation.Config
  * `-Pyft.socialLadder`, debug only) for S1a's phone proof. A Facebook page main found (a watch
  * link, a reel, a short link) is answered as main's `RESPONSE_CHANGED` after main asked, its rows
  * set aside for that lookup only, so Master's ladder answers; Facebook's line then compares
- * Master's rows with main's (the same video, the duration within 1 s). Main's failures (final ones
- * too), YouTube's and TikTok's pages and every build without the trial: as before. Main's real
- * Facebook adapter over synthetic pages with made-up IDs; each case passes the switches
- * explicitly. No live calls.
+ * Master's rows with main's (the same video, the duration within 1 s). S2b: a TikTok page main
+ * found is set aside the same way (TikTok's words and line). Main's failures (final ones too),
+ * YouTube's pages and every build without the trial: as before. Main's real Facebook adapter over
+ * synthetic pages with made-up IDs; each case passes the switches explicitly. No live calls.
  *
  * S1a (10), step 6's first run: the plugin player's answer names no length (as here now), so
  * Master's rows state their files' own (S6's read of each file's start, made in code here) and
@@ -126,11 +126,17 @@ class SocialTrialTest {
             assertSame(link, changed, fixture.bridge.trialPrimary(link, changed))
         }
         assertSame(SiteAdapterOutcome.NotHandled, fixture.bridge.trialPrimary(WATCH, SiteAdapterOutcome.NotHandled))
-        // YouTube's and TikTok's pages main found: as is (the Facebook trial claims no other site).
+        // YouTube's page main found: as is (the trial claims no other site). S2b: TikTok's page
+        // main found is set aside too, with TikTok's message and line.
         val youtubeFound = SiteAdapterOutcome.Detected("youtube", listOf(row(YOUTUBE_PAGE, "youtube:Yft0Fixture")))
         val tiktokFound = SiteAdapterOutcome.Detected("tiktok", listOf(row(TIKTOK_PAGE, "tiktok:11111")))
         assertSame(youtubeFound, fixture.bridge.trialPrimary(YOUTUBE_PAGE, youtubeFound))
-        assertSame(tiktokFound, fixture.bridge.trialPrimary(TIKTOK_PAGE, tiktokFound))
+        val tiktokTrial = SiteAdapterOutcome.Failed(
+            "tiktok", SiteExtractionFailure.RESPONSE_CHANGED,
+            "TikTok trial: main's rows were set aside and Master found none. Tap Try again.", false,
+            listOf("master: tiktok trial: main's 1 rows set aside"),
+        )
+        assertEquals(tiktokTrial, fixture.bridge.trialPrimary(TIKTOK_PAGE, tiktokFound))
         // The route-B trial with the Facebook trial: YouTube's answer exactly as routeb's.
         val both = Fixture(WATCH, youtubeRouteB = true, routeBTrial = true)
         val routeB = both.bridge.trialPrimary(YOUTUBE_PAGE, youtubeFound) as SiteAdapterOutcome.Failed
@@ -141,7 +147,7 @@ class SocialTrialTest {
             ),
             routeB,
         )
-        assertSame(tiktokFound, both.bridge.trialPrimary(TIKTOK_PAGE, tiktokFound))
+        assertEquals(tiktokTrial, both.bridge.trialPrimary(TIKTOK_PAGE, tiktokFound))
     }
 
     @Test

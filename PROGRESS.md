@@ -1,5 +1,87 @@
 # YFT Master Extractor backup
 
+## Social plan S2b — TikTok's ladder: T1 the embed player judged, T2 main's pages, a photo post stops with no request (debug only, behind the flag) (2026-10-21)
+
+- Flag off (every CI build but the D7 social APKs, release, preview): today's path; main's TikTok
+  adapter keeps today's client (`OkHttpExtractorClient`, P39's `sendResponseCookies = true`), R8's
+  unjudged ask for TikTok as before. Flag on (`-Pyft.socialLadder` with `-Pyft.masterCapture`,
+  debug only): a TikTok lookup (every link form) gets its own record with TikTok's labels and its
+  own `MainPages`, and Master's social rung answers it with TikTok's ladder.
+- `TikTokLadder` (new, `extractor-master` `social/`; built as `FacebookLadder`, inside the same
+  rules). Claims only a TikTok lookup with its own record; every other lookup keeps R8's path.
+  - **The photo check first, no request:** the link (or the video main's resolved link names) at
+    a photo address, one of main's pages for the link that landed on one, or main's page data for
+    the item stating its photo list (the recipe's `imagePost`) → the lookup's final answer
+    `NO_MEDIA_FOUND` in main's words ("This TikTok post has no downloadable video."); line
+    `master: tiktok ladder: PHOTO_ONLY (<why>); next: FINAL; not asked`. No ask, no capture.
+  - **T1, the embed player** (`embed/v2`, R8's recipe: the tab's own agent, never the user's
+    cookies): asked once inside the lookup's record under route B's rules (never the user's
+    credentials, nothing new after a 429, an endpoint asked once), read with the recipe's key table
+    (rows bound to the item ID), judged by `TikTokAnswerJudge`: rows → the engine's media checks
+    (V and the init check, S6, on TikTok's media hosts); a photo post or DRM → final; a 429 or a
+    bot check → the site stops (no new ask to its host in the lookup, its 30-minute cooldown, S7);
+    TikTok's status for the post, the login address, "names the video, no file" and no evidence →
+    T2. Line `master: tiktok T1 embed player: <class> (<evidence>); next: <next>`.
+  - **T2, main's pages (no request):** the pages main read in this lookup for the link (the phone
+    page, the desktop page) read with the same key table, which also reads main's page shapes
+    (`itemStruct`, `bitrateInfo`, the play address; the watermarked download address only without
+    them); the data block is found by its content (the object with the item ID and a video), not by
+    its script ID, so a renamed key falls to L4 + L3 on the same page. The page with the most rows →
+    the engine's media checks; DRM → final; TikTok's status on main's page is never final here
+    (main's P46 rule). A page that names another video, or over `MainPages`' bound, is not read.
+    Else null: the next stage, the visible tab's own playback (T3). Line `master: tiktok T2 main's
+    pages: …`.
+  - **S7:** T1 asks only when its host did not stop in this lookup (main's asks included), is not
+    cooling (across lookups) and the lookup's budget holds — `SocialBudget.TIKTOK` (new): 20
+    requests, 4 MiB of Master's answers, 30 s, sized by TikTok's main (at most 19 asks: the phone and
+    desktop page, 8 file checks, the download service and its 8), T1's one ask and its 3 MiB bound,
+    not copied from Facebook's (4, 8 MiB, 20 s); else T1 is not asked and T2 still reads. A short
+    link: the video main's resolved link names, else nothing is asked. Main's own 429 or verify page
+    in the lookup → its host is not asked.
+- `TikTokAnswerJudge` (new; reads only): conservative as Facebook's (one anonymous answer says
+  nothing final, main's P46 rule): only a photo post and DRM end the lookup, as the reader states
+  them; rows bound to the item ID win over any page signal; a 429 and a verify page (without
+  TikTok's data) stop; the login address, TikTok's status and "names the video" → needs playback
+  (T2, then the tab); the page's words are no evidence. Copies main's `TikTokPageParser.kindOf` and
+  `CHALLENGE_MARKERS` (provenance header; 2 rows in `toolkit-provenance.tsv`; drift 0).
+- Kit: `SocialStages` (new, `SocialStage.kt`): the ladders in order, the first that claims the
+  lookup; `MainPages(site)`: the lookup's site, so `SocialRowCheck` (V, the init check) asks only
+  that site's media hosts (TikTok's hosts and video file paths; a lookup without one: the check's
+  own site, Facebook's, as before).
+- App: `SocialLadder` — `SITES` (Facebook, TikTok); `claims` both sites' video keys;
+  `lookupContext(key)` the site's labels and `MainPages(site)`; `stage` →
+  `SocialStages(FacebookLadder, TikTokLadder)`; `tiktokClient` (main's TikTok client; flag on: the
+  lookup's recorder and main's pages around it); `finalMessage` (Facebook's as before; TikTok: the
+  ladder's final photo line → main's words); each site's `line`, `trialMessage`, `trialDetail` and
+  `notUsed` (Facebook's equal to the constants as before); `trialNotice` reads any ladder site's
+  line. `SiteAdapterModule`: main's TikTok adapter gets `SocialLadder.tiktokClient(client)`.
+  `BrowserMasterFallback`: the site's lines and words per lookup; the trial APK (`fb-trial`) sets
+  aside a TikTok page main found too ("TikTok trial: main's rows were set aside and Master found
+  none. Tap Try again.", `master: tiktok trial: main's N rows set aside`) and compares Master's
+  rows with main's on TikTok's line.
+- **T1 before T2** (the §7.4 note "T2 before T1": not chosen): TikTok's page files open only with
+  the cookies of the page answer that gave them (R20: `tt_chain_token`), which V never sends (S2)
+  and `MainPages` never keeps, so T2's rows would mostly fail V, while T1's embed files open
+  without cookies; T2 still reads after T1's 429 or bot check (no request). The order stays code,
+  not the site table's data, until a phone run shows T2's rows pass V.
+- Intended differences (listed in `docs/SUPPORT_MATRIX.md`): T1's rows are the embed player's
+  files (at most 1280 lines; main's desktop page lists more qualities); T2's rows can fail V for
+  the cookie reason above; a photo post ends with no request.
+- Not done (open; the owner's go): T1 with YFT's browser cookies to TikTok's own host (§7.4's
+  hypothesis); a D7 mode with main's TikTok reader mutated (on the phone T2 runs when T1 cools
+  after a 429, or the budget is spent). The D7 matrix is unchanged: `fb-trial` now covers
+  Facebook's and TikTok's pages (its flags: the ladder and the trial for every claimed site).
+- Tests (JVM, synthetic pages, made-up IDs): `TikTokAnswerJudgeTest` 7 and `TikTokLadderTest` 11
+  (`extractor-master`, new); `SocialLadderTikTokTest` 5 (app, new); `SocialLadderTest` (claims: TikTok
+  yes, Instagram, X and YouTube no; a TikTok lookup's own record and pages naming TikTok; flag off:
+  none) and `SocialTrialTest` (a TikTok page main found → the trial's TikTok answer, in both
+  fixtures) changed; no other expectation changed.
+- Local checks: `extractor-sites` 293, `extractor-master` 888 (+18; 2 skipped),
+  `extractor-master-android` 69, `app` 1062 (+5; 66 skipped), all passed; lint 0 errors; assemble
+  and assemble with the flags on (`-Pyft.masterCapture -Pyft.socialLadder -Pyft.socialTrial`)
+  built; drift 0 (133 copied symbols).
+- Next: S2c (X), with the owner's three inputs (§7.4).
+
 ## CI (spike): the Android SDK install tries three times; the D7 workflow test's nine modes (2026-10-21)
 
 - Why: decision 18's push (`0cf7b61`) built and tested green (the build job; checkpoint run 39635690734)

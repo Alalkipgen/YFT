@@ -124,7 +124,7 @@ class AndroidBrowserMasterFallback(
     /**
      * Social plan S1a (2): true only in a social-ladder build (`-Pyft.socialLadder`, debug only,
      * [SocialLadder]); then each Facebook lookup gets its own labelled record and main's pages
-     * ([lookupContext]). Every other build: false, no record.
+     * ([lookupContext]; S2b: each TikTok lookup too). Every other build: false, no record.
      */
     private val socialLadder: Boolean = false,
     /**
@@ -134,8 +134,8 @@ class AndroidBrowserMasterFallback(
     private val socialCooldown: SocialCooldown = SocialLadder.cooldown,
     /**
      * Social plan S1a (9): true only in the Facebook trial APK (D7 `fb-trial`, [SocialLadder.trial],
-     * with [socialLadder]); then [trialPrimary] sets main's found Facebook rows aside. Every other
-     * build: false.
+     * with [socialLadder]); then [trialPrimary] sets main's found Facebook rows aside (S2b: TikTok's
+     * too). Every other build: false.
      */
     private val socialTrial: Boolean = false,
 ) : BrowserMasterFallback {
@@ -173,8 +173,9 @@ class AndroidBrowserMasterFallback(
         if (primary === SiteAdapterOutcome.NotHandled && !genericOnDemand) return primary
         val key = sites.videoKey(lookupUrl)
         // Social plan S1a (3): a Facebook lookup in a social-ladder build — Facebook's ladder's rows
-        // name the video main's resolved link names, and its final answer gets main's words. Every
-        // other build and page: false, each step as before.
+        // name the video main's resolved link names, and its final answer gets main's words; S2b:
+        // a TikTok lookup too (TikTok's ladder). Every other build and page: false, each step as
+        // before.
         val social = socialLadder && SocialLadder.claims(key)
         // Item 2, run 4: the h-only trial's found page never gets the adapter's rows back (run 4's
         // Try again listed them); when Master cannot answer, the lookup fails and names the step.
@@ -189,7 +190,7 @@ class AndroidBrowserMasterFallback(
         // backup and main's final answer stay as they are. Every other lookup: [unanswered].
         fun notUsed(step: String, lines: List<String> = emptyList()): SiteAdapterOutcome =
             if (social && primary is SiteAdapterOutcome.Failed) {
-                failed(primary, primary.reason, primary.message, listOf("${SocialLadder.NOT_USED} $step") + lines)
+                failed(primary, primary.reason, primary.message, listOf("${SocialLadder.notUsed(key)} $step") + lines)
             } else {
                 unanswered(step)
             }
@@ -207,7 +208,7 @@ class AndroidBrowserMasterFallback(
         // Item 7 F7: the rows the trial set aside for this lookup (the trial APK only, else null).
         val mains = if (routeBTrial) key?.let(setAside::remove) else null
         // S1a (9): the rows the Facebook trial set aside for this lookup — with [primary], its own
-        // answer — taken once (the Facebook trial APK only, else null).
+        // answer — taken once (the Facebook trial APK only, else null); S2b: TikTok's too.
         val socialMains = if (social && socialTrial) key?.let { setAsideFor(it, primary) } else null
         // Phase 1.4 item 7 (YouTube routing B) F2: route B's page — a YouTube page main failed, in
         // a route-B build. When route B gives it no answer, main's failure stays the lookup's answer
@@ -310,11 +311,12 @@ class AndroidBrowserMasterFallback(
                         // Item 7 R4: route B's rows carry its details (its line first), so a
                         // route-B build shows its counts; every other answer: none, as before.
                         // F7: in the trial its line also compares the rows with main's set aside.
-                        // S1a (9): in the Facebook trial, Facebook's line compares them so too.
+                        // S1a (9): in the Facebook trial, Facebook's line compares them so too
+                        // (S2b: TikTok's line, in a TikTok lookup).
                         details = if (routeB) {
                             compared(DiagnosticTextSanitizer.details(result.result.details), kept, mains)
                         } else if (socialMains != null) {
-                            facebookCompared(
+                            socialCompared(
                                 DiagnosticTextSanitizer.details(result.result.details), kept, socialMains, lookupUrl, key,
                             )
                         } else emptyList(),
@@ -330,8 +332,9 @@ class AndroidBrowserMasterFallback(
             )
             is MasterResult.Failure -> noRows(
                 result.reason,
-                // S1a (3): the ladder's final answer (private or removed) in main's words.
-                SocialLadder.finalMessage(result.reason)?.takeIf { social }
+                // S1a (3): the ladder's final answer (private or removed) in main's words; S2b:
+                // TikTok's photo post too.
+                SocialLadder.finalMessage(result.reason, key, result.details)?.takeIf { social }
                     ?: if (result.reason == SiteExtractionFailure.DRM_PROTECTED) {
                         "Protected media cannot be captured."
                     } else {
@@ -394,9 +397,10 @@ class AndroidBrowserMasterFallback(
      * ([SocialLadder.trialSegment]; main's rows carry [key], the link's, so a link main resolves
      * first counts as the video its resolved link names, as Master's rows do); details without
      * such a line (the tab's own playback alone) get one first. The comparison never fails the
-     * lookup: a failure only says so on the line.
+     * lookup: a failure only says so on the line. S2b: a TikTok lookup's line (`master: tiktok`,
+     * [SocialLadder.line]) so too.
      */
-    private suspend fun facebookCompared(
+    private suspend fun socialCompared(
         details: List<String>,
         rows: List<MediaCandidate>,
         mains: List<MediaCandidate>,
@@ -411,8 +415,9 @@ class AndroidBrowserMasterFallback(
         } catch (error: Exception) {
             "${SocialLadder.TRIAL_SEGMENT}check failed (${error.javaClass.simpleName})"
         }
-        val at = details.indexOfFirst { it.startsWith(SocialLadder.LINE) }
-        if (at < 0) return listOf(SocialLadder.LINE + segment) + details
+        val line = SocialLadder.line(key)
+        val at = details.indexOfFirst { it.startsWith(line) }
+        if (at < 0) return listOf(line + segment) + details
         return details.toMutableList().also { it[at] = it[at] + segment }
     }
 
@@ -440,8 +445,9 @@ class AndroidBrowserMasterFallback(
      * rows with them.
      */
     override fun trialPrimary(lookupUrl: String, primary: SiteAdapterOutcome): SiteAdapterOutcome {
-        // Social plan S1a (9): the Facebook trial's own branch (null: not its build or lookup).
-        facebookTrial(lookupUrl, primary)?.let { return it }
+        // Social plan S1a (9): the Facebook trial's own branch (null: not its build or lookup);
+        // S2b: TikTok's pages too.
+        socialTrial(lookupUrl, primary)?.let { return it }
         if (!routeBTrial || !youtubeRouteB || !enabled) return primary
         val key = sites.videoKey(lookupUrl)?.takeIf { it.substringBefore(':') == YOUTUBE_SITE_ID } ?: return primary
         // F7: this lookup's set-aside rows only — none from an earlier lookup of the video.
@@ -463,9 +469,11 @@ class AndroidBrowserMasterFallback(
      * files), so Master's ladder answers. Main asked as today: its pages and its resolved link stay
      * in the lookup's `MainPages` (F2, the links main resolves first). Main's failures (final ones
      * too) stay as they are. Its rows are kept (memory) until that lookup's [recover] compares
-     * Master's rows with them. Null in every other build and for every other site's page.
+     * Master's rows with them. S2b: a TikTok page main found so too (the same APK; TikTok's message
+     * and line, [SocialLadder.trialMessage]). Null in every other build and for every other site's
+     * page.
      */
-    private fun facebookTrial(lookupUrl: String, primary: SiteAdapterOutcome): SiteAdapterOutcome? {
+    private fun socialTrial(lookupUrl: String, primary: SiteAdapterOutcome): SiteAdapterOutcome? {
         if (!socialTrial || !socialLadder || !enabled) return null
         val key = sites.videoKey(lookupUrl)?.takeIf { SocialLadder.claims(it) } ?: return null
         // This lookup's set-aside rows only — none from an earlier lookup of the video.
@@ -474,9 +482,9 @@ class AndroidBrowserMasterFallback(
         val trial = SiteAdapterOutcome.Failed(
             adapterId = primary.adapterId,
             reason = SiteExtractionFailure.RESPONSE_CHANGED,
-            message = SocialLadder.TRIAL_MESSAGE,
+            message = SocialLadder.trialMessage(key),
             allowsGenericFallback = false,
-            details = listOf("${SocialLadder.TRIAL_DETAIL} ${primary.candidates.size} rows set aside"),
+            details = listOf("${SocialLadder.trialDetail(key)} ${primary.candidates.size} rows set aside"),
         )
         socialSetAside[key] = SetAside(trial, primary.candidates)
         return trial
@@ -486,14 +494,15 @@ class AndroidBrowserMasterFallback(
      * Item 7 R1: a new record per YouTube lookup in a route-B build (memory only); else nothing.
      * F5: it names the lookup's video, so main's watch page GET of it is kept for Master's replay.
      * Social plan S1a (2): in a social-ladder build a Facebook lookup (every link form) gets its
-     * own record with Facebook's labels and its own `MainPages` ([SocialLadder.lookupContext]).
+     * own record with Facebook's labels and its own `MainPages` ([SocialLadder.lookupContext]);
+     * S2b: a TikTok lookup its own with TikTok's.
      */
     override fun lookupContext(lookupUrl: String): CoroutineContext {
         val key = sites.videoKey(lookupUrl)
         return if (youtubeRouteB && enabled && key?.substringBefore(':') == YOUTUBE_SITE_ID) {
             LookupRecord(watchPageVideoId = key.substringAfter(':'))
         } else if (socialLadder && enabled && SocialLadder.claims(key)) {
-            SocialLadder.lookupContext()
+            SocialLadder.lookupContext(key)
         } else {
             EmptyCoroutineContext
         }

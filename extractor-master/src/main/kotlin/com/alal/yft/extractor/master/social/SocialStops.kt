@@ -17,6 +17,15 @@ data class SocialBudget(val requests: Int, val bytes: Long, val millis: Long) {
          * answer is at most 6 MiB (its recipe's bound).
          */
         val FACEBOOK = SocialBudget(requests = 4, bytes = 8L * 1024 * 1024, millis = 20_000)
+
+        /**
+         * S2b, TikTok's, sized by TikTok's main, T1 and V (not copied from Facebook's): main asks
+         * at most 19 in a lookup (the phone and the desktop page, 8 file checks, the download
+         * service and its 8; each file check is an ask in the record), so T1's one ask (the embed
+         * player) fits after main's most; T1's answer is at most 3 MiB (its recipe's bound). Main's
+         * pages take long (two pages, the file checks, the service), so the lookup's time is 30 s.
+         */
+        val TIKTOK = SocialBudget(requests = 20, bytes = 4L * 1024 * 1024, millis = 30_000)
     }
 }
 

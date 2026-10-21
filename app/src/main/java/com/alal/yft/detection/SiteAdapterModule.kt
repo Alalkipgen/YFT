@@ -169,11 +169,10 @@ object SiteAdapterModule {
     ): List<SiteExtractor> = listOf(
         // P39 (TT_AGENT=CHROME, TT_HOME_COOKIES=ON): TikTok's pages are asked with the WebView's
         // own agent and desktop Chrome, and a short link's redirect cookies reach its page.
+        // Social plan S2b: in a social-ladder build its asks and pages are kept in the lookup
+        // (TikTok's ladder reads them, T2); flag off: today's client.
         TikTokExtractor(
-            http = OkHttpExtractorClient(
-                client = client,
-                policy = OkHttpExtractorClient.Policy(sendResponseCookies = true),
-            ),
+            http = SocialLadder.tiktokClient(client),
             agents = TikTokAgents(webViewAgent = WebViewAgent(context)::get),
             // P46 (owner's choice B, TT_SERVICE=ON): the public download service when
             // TikTok's own pages give no file; only the post's address goes there.

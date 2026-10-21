@@ -21,9 +21,11 @@ import kotlinx.coroutines.withContext
 /**
  * Social plan S1a (6), S6 (`MASTER_KEY_SOCIAL_PLAN.md` §4 S6, §5 L5, §6.1 "Row checks"): V and the
  * init check on every row Master offers in a social lookup (one with its own record and main's
- * pages: the social-ladder build's Facebook lookups, `-Pyft.socialLadder`), in place of the
- * engine's file check for those rows: F1's, F2's, the tab's page data's and its own playback's,
- * each file once (a row's sound file too, as the engine asks it).
+ * pages: the social-ladder build's Facebook lookups, `-Pyft.socialLadder`; S2b: TikTok's too), in
+ * place of the engine's file check for those rows: F1's, F2's, the tab's page data's and its own
+ * playback's (TikTok: T1's, T2's, T3's), each file once (a row's sound file too, as the engine asks
+ * it). S2b: the media hosts are the lookup's site's ([MainPages.site]: TikTok's hosts and its video
+ * file paths), else [site]'s.
  *
  * - **Lifetime** (`oe`): the row's link expiry ([UrlPolicy.expiry]: Facebook's `oe`, hex seconds)
  *   is the row's; a link that has expired or lives less than [MIN_LIFETIME_MILLIS] more fails
@@ -62,12 +64,14 @@ class SocialRowCheck(
     override suspend fun validate(candidate: MediaCandidate, nowEpochMs: Long): ValidationResult {
         val context = coroutineContext
         val record = context[LookupRecord]
-        if (record == null || context[MainPages] == null) return validator.validate(candidate, nowEpochMs)
-        return check(record, candidate, nowEpochMs)
+        val pages = context[MainPages]
+        if (record == null || pages == null) return validator.validate(candidate, nowEpochMs)
+        // S2b: the lookup's own site's media hosts (its MainPages names it), else the check's site.
+        return check(record, candidate, nowEpochMs, pages.site?.let(SiteWays::site) ?: site)
     }
 
-    /** S6 on [row] in [record]'s lookup at [now]. */
-    private suspend fun check(record: LookupRecord, row: MediaCandidate, now: Long): ValidationResult {
+    /** S6 on [row] in [record]'s lookup at [now], [site]'s media hosts only. */
+    private suspend fun check(record: LookupRecord, row: MediaCandidate, now: Long, site: Site): ValidationResult {
         if (row.drmHint == true) return rejected(SiteExtractionFailure.DRM_PROTECTED)
         val expires = listOfNotNull(row.expiresAtEpochMs, UrlPolicy.expiry(row.mediaUrl)).minOrNull()
         if (expires != null && expires - now < MIN_LIFETIME_MILLIS) return rejected(SiteExtractionFailure.EXPIRED_LINK)

@@ -56,7 +56,12 @@ class SocialLadderTest {
         assertTrue(!SocialLadder.enabled || BuildConfig.MASTER_CAPTURE_ENABLED)
         assertTrue(SocialLadder.claims("facebook:1000000000000001"))
         assertTrue(SocialLadder.claims("facebook:AbCdEf123"))
-        assertFalse(SocialLadder.claims("tiktok:11111"))
+        // S2b: TikTok's lookups too; no other site's.
+        assertTrue(SocialLadder.claims("tiktok:11111"))
+        assertTrue(SocialLadder.claims("tiktok:ZMabcdef1"))
+        assertFalse(SocialLadder.claims("instagram:AbCdEf123"))
+        assertFalse(SocialLadder.claims("x:1000000000000000001"))
+        assertFalse(SocialLadder.claims("youtube:Yft0Fixture"))
         assertFalse(SocialLadder.claims(null))
     }
 
@@ -85,11 +90,17 @@ class SocialLadderTest {
             assertNotSame(first[LookupRecord], second[LookupRecord])
             assertNotSame(first[MainPages], second[MainPages])
         }
-        // Another site's page and a page no adapter names: nothing, as before.
-        assertSame(EmptyCoroutineContext, social.lookupContext(TIKTOK))
+        // S2b: a TikTok lookup its own record and pages, which name TikTok (V asks TikTok's hosts).
+        val tiktok = social.lookupContext(TIKTOK)
+        assertNotNull(tiktok[LookupRecord])
+        assertEquals("tiktok", tiktok[MainPages]?.site)
+        assertNotSame(tiktok[MainPages], social.lookupContext(TIKTOK)[MainPages])
+        assertEquals("facebook", social.lookupContext(WATCH)[MainPages]?.site)
+        // A page no adapter names: nothing, as before.
         assertSame(EmptyCoroutineContext, social.lookupContext("https://page.test/watch"))
         // Flag off, Master capture off, the build without Master: nothing for Facebook.
         assertSame(EmptyCoroutineContext, Fixture(socialLadder = false).bridge.lookupContext(WATCH))
+        assertSame(EmptyCoroutineContext, Fixture(socialLadder = false).bridge.lookupContext(TIKTOK))
         assertSame(EmptyCoroutineContext, Fixture(socialLadder = true, enabledBuild = false).bridge.lookupContext(WATCH))
         assertSame(EmptyCoroutineContext, BrowserMasterFallback.None.lookupContext(WATCH))
     }

@@ -21,10 +21,15 @@ import kotlin.coroutines.CoroutineContext
  * counted, [unlisted]) and at most [maxChars] characters of pages; a page over the bound keeps its
  * addresses only (no body). Nothing is logged; [toString] shows counts only, never an address or
  * a page.
+ *
+ * Social plan S2b: [site], the lookup's site (main's site ID: `facebook`, `tiktok`), so the rows'
+ * check (V, `SocialRowCheck`) asks only that site's media hosts; null (a lookup built before S2b):
+ * the check's own site.
  */
 class MainPages(
     private val maxPages: Int = MAX_PAGES,
     private val maxChars: Long = MAX_CHARS,
+    val site: String? = null,
 ) : AbstractCoroutineContextElement(Key) {
     /** One of main's 2xx GET answers; [body] null when the page was over the bound. */
     class Page(
@@ -89,7 +94,10 @@ class MainPages(
     }
 
     companion object Key : CoroutineContext.Key<MainPages> {
-        /** More than main's Facebook GETs in one lookup (the public page, the page, the AVC ladder). */
+        /**
+         * More than main's Facebook GETs in one lookup (the public page, the page, the AVC ladder)
+         * and TikTok's (S2b: the phone page, the desktop page, the download service).
+         */
         const val MAX_PAGES = 4
 
         /** Main's page bound is 6 MiB; two such pages at most. */
