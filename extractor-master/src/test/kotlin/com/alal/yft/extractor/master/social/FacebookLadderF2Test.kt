@@ -32,8 +32,9 @@ import org.junit.Test
  * pages main's real Facebook adapter read in the lookup are read again, without a request: rows
  * bound to the video on a page whose keys main no longer knows go to the media checks (the page
  * data); the page's own route on main's page (private or removed, in any language: slot 13) is
- * final when every page main read for the link says the same; DRM is final. Pages that disagree,
- * the plugin player's "needs playback", a page over the bound, another video's page and a
+ * final when every page main read for the link says the same and a page read with the session
+ * says it; DRM is final. Pages that disagree, the route only on a page without the session, the
+ * plugin player's "needs playback", a page over the bound, another video's page and a
  * related video's files are not final and give no rows. Synthetic pages; no live calls.
  */
 class FacebookLadderF2Test {
@@ -162,6 +163,17 @@ class FacebookLadderF2Test {
             NotFinal(
                 REEL, publicOnly(), answering(embedUrl(reel) to NO_DATA, contentType = HTML), MainPages(maxChars = 64),
                 listOf("$F2: page 1: not kept (over the bound)", "$F2: next: PLAYBACK"),
+                mainFailure = SiteExtractionFailure.HTTP_STATUS,
+            ),
+            // A reel: the route on main's public page alone (its session page a 500), the plugin
+            // player without the video: not final (§7.4 step 3: the public page alone never ends
+            // the lookup).
+            NotFinal(
+                REEL, publicOnly(), answering(embedUrl(reel) to NO_DATA, contentType = HTML), MainPages(),
+                listOf(
+                    "$F2: page 1: PRIVATE (route: error (privacy))",
+                    "$F2: the route only on a page without the session; next: PLAYBACK",
+                ),
                 mainFailure = SiteExtractionFailure.HTTP_STATUS,
             ),
         )

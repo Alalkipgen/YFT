@@ -1,5 +1,42 @@
 # YFT Master Extractor backup
 
+## Social plan 0.3 fix — F2: the route on main's public page alone never ends a reel's lookup (Master, behind the flag) (2026-10-21)
+
+- `FacebookLadder` (`extractor-master` `social/`, F2's `mainPages`; §7.4 step 3, §7.3's "a final
+  answer only on positive evidence"): the page's own route (private or removed) is final only when
+  a page read with the session says it. When every page main read for the link agrees on the route
+  but none was read with the user's credentials (`MainPages.Page.authorized` false on every kept
+  page; `MainPages` keeps main's 2xx GETs only, so a session page that answered 500 is not among
+  them), F2 is not final: "master: facebook F2 main's pages: the route only on a page without the
+  session; next: PLAYBACK", then the next stage (F3, the tab's own playback). The check comes after
+  the plugin player's "needs playback" (its line first when both hold) and before the final answer;
+  rows, DRM, pages that disagree and a page over the bound as before.
+- The bug (the 0.3 fix entry's open item, confirmed by a scratch run on `6b011da`): a reel whose
+  public page (no `Cookie`) shows the error route (`comet.fbweb.CometErrorRoute`, its root's
+  `privacy: true`, Burmese words) while its session page (with the `Cookie`) answers HTTP 500 → main
+  `HTTP_STATUS`; the plugin player without the video (`NO_DATA`), no bound: F2 ended the lookup
+  `Failure(PRIVATE_OR_UNAVAILABLE)` from the public page alone, captures 0, against §7.4 step 3's
+  "the public page alone never ends the lookup". Now `NeedsPlayback`, capture 1.
+- Trade-off: when every page kept was read without the `Cookie` (a signed-out lookup's too), F2
+  never ends the lookup on the route. Main (A1, `FacebookPageParser`) is still final when its last
+  page shows the route (Master skipped, nothing captured), as in the 0.3 fix.
+- Flag off (`-Pyft.socialLadder`): unchanged (the fix is in Master, behind the flag). Not touched:
+  main (`FacebookExtractor`, `FacebookPageParser`), `MainPages`, the provenance-tracked symbols, the
+  workflows; route B, the parity tests, `FixtureBaselineTest` and the drift check unchanged. The F2
+  rule's wording says the same (the class's and `mainPages`' KDoc, the route's comment,
+  `FacebookLadderF2Test`'s KDoc).
+- Tests: `FacebookLadderF2Test` "pages that disagree, the plugin player's needs playback and a page
+  over the bound are not final" +1 case (still 6 tests): a reel, the route on main's public page
+  alone (its session page a 500), the plugin player `NO_DATA`, `MainPages()` → main `HTTP_STATUS`,
+  `NeedsPlayback` with "…: page 1: PRIVATE (route: error (privacy))" and "…: the route only on a
+  page without the session; next: PLAYBACK", capture 1, nothing checked, no ID, link or page words
+  in the lines. No existing test expectation changed. Local (JDK 17): `:extractor-master:test`
+  865 tests (2 skipped), `:extractor-master-android:testDebugUnitTest` 69 and
+  `:app:testDebugUnitTest` 1041 (66 skipped) passed; `:extractor-sites:test` 291 passed;
+  `:app:lintDebug` and `:app:assembleDebug` passed; drift check 0 drifted.
+- Next: §7.4 step 4, the owner, with the APK of this commit's SHA (signed out, the same day: TikTok
+  only with the VPN, Facebook only with the VPN, Facebook only without it); then step 5 (docs only).
+
 ## Social plan 0.3 fix — Facebook's unavailable page read by its own route, in any language (main) (2026-10-21)
 
 - `FacebookPageParser` (`extractor-sites`, main's Facebook reader; §7.4 step 3, A1): only when the
@@ -49,10 +86,11 @@
   `flagOffTheSameLookupsAnswerAsToday`, the post: `NO_MEDIA_FOUND`, "Play the video on this page,
   then tap Try again.", captures 1 → `PRIVATE_OR_UNAVAILABLE`, "This Facebook post is private or no
   longer available.", captures 0 (today's engine and the switch off still equal).
-- Open: F2 (Master, behind the flag) still ends a reel's lookup `PRIVATE_OR_UNAVAILABLE` from the
-  public page alone when the session page was not read (a 500: main `HTTP_STATUS`, the route only on
-  the public page; `FacebookLadder`'s route rule), against §7.4's "the public page alone never ends
-  the lookup"; fix pending in its own commit.
+- Open (fixed by the next commit, the entry above): F2 (Master, behind the flag) still ends a reel's
+  lookup `PRIVATE_OR_UNAVAILABLE` from the public page alone when the session page was not read (a
+  500: main `HTTP_STATUS`, the route only on the public page; `FacebookLadder`'s route rule),
+  against §7.4's "the public page alone never ends the lookup"; fixed in its own commit: the route
+  is now final only when a page read with the session says it.
 - Tests: `FacebookPageRouteTest` 6 (new; JVM: the route in English and Burmese on both parser
   paths; the markers first and a playable video over any route; the decoys keep today's reason; the
   scan's bound; a watch link and a post end on the route; a reel's public page alone never ends the

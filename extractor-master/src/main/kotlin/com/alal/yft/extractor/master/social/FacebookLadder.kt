@@ -45,7 +45,9 @@ import kotlinx.coroutines.withTimeoutOrNull
  * request (the data scripts that name the video; L4's keys and L3's shape search; rows bound to
  * the video ID), each judged as F1's answer is. Rows → the engine's media checks (the page data);
  * DRM → final; the page's own route → final only when every page main read for the link was read
- * and says the same and the plugin player did not name the video; else the next stage. A link
+ * and says the same, a page read with the session among them ([MainPages.Page.authorized]), and
+ * the plugin player did not name the video; else the next stage (the route only on pages read
+ * without the session, a signed-out lookup's too, never ends the lookup). A link
  * main did not resolve to a video: its pages are judged for the route only (no rows); another
  * video's page (its final address names another video) is not read.
  *
@@ -261,8 +263,11 @@ class FacebookLadder(
      * request: each page's data scripts that name the video ([documents]) through Master's layers
      * (L4's keys, L3's shape search: rows bound to the video ID), and the page judged as F1's
      * answer. Rows on a page → the page data's media checks; DRM → final; the page's own route →
-     * final only when every page main read for the link was read and says the same, and the
-     * plugin player ([plugin], F1's judgement) did not name the video. Else null: the next stage.
+     * final only when every page main read for the link was read and says the same, a page read
+     * with the session ([MainPages.Page.authorized]: main's request carried the user's
+     * credentials) among them, and the plugin player ([plugin], F1's judgement) did not name the
+     * video. Else null: the next stage (the route only on pages read without the session never
+     * ends the lookup).
      */
     private fun mainPages(
         pages: MainPages,
@@ -346,10 +351,15 @@ class FacebookLadder(
             val snapshot = PageSnapshot(request.pageUrl, request.generation, apiResponses = bounded(rows, policy))
             return SocialStage.Staged(MasterStage.PAGE_DATA, snapshot, read)
         }
-        // The page's own route: final only when every page main read for the link says the same.
+        // The page's own route: final only when every page main read for the link says the same
+        // and a page read with the session says it (the public page alone never ends the lookup).
         val agreed = finals.distinct().singleOrNull()?.reason
         if (agreed != null && plugin?.answerClass == AnswerClass.NEEDS_PLAYBACK) {
             details += "$F2: the plugin player names the video; next: ${Next.PLAYBACK.name}"
+            return null
+        }
+        if (agreed != null && forLink.none(MainPages.Page::authorized)) {
+            details += "$F2: the route only on a page without the session; next: ${Next.PLAYBACK.name}"
             return null
         }
         if (agreed != null) return final(agreed)
