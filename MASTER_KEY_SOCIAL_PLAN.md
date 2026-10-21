@@ -9,7 +9,10 @@ step at a time (§7, §8). **S0 started on the owner's go (2026-10-20): §7.1; t
 The plan after S1a (8) (the owner, 2026-10-21): §7.4; decided §8 items 13–17; its steps 0–5
 done (2026-10-21; step 4's runs: §7.4); step 6's APK (S1a (9)) built (2026-10-21); step 6's
 first run (the owner, 2026-10-21: §7.4) and its fixes (S1a (10), behind the flag) built
-(2026-10-21). Next: §7.4 step 6's re-run (the owner's go) with `yft-d7-fb-trial`.**
+(2026-10-21); step 6's re-run (the owner, 2026-10-21): S1a's phone proof passed (§7.4). Instagram's
+census and X's B0 (the owner, 2026-10-21): §7.4; decided §8 items 3, 18 and 19; open: item 5
+(before S4). Next: decision 18 (link 9's desktop form, main), then S2b (TikTok), S2c (X) and S2d
+(Instagram, part 1), then the owner's phone session (§7.4).**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -51,8 +54,7 @@ first run (the owner, 2026-10-21: §7.4) and its fixes (S1a (10), behind the fla
   B0) → **S1a** kit အနည်းဆုံး + Facebook pack (pilot) → **S2b** TikTok → **S2c** X → **S2d**
   Instagram → S3 weekly check → S4 remote recipe live → S5 site တစ်ခုစီ phone run ၃ ခါ → PR #2
   merge → P8 (beta.4)။ release ပြီးမှ: S1b၊ X2၊ "item အားလုံး" feature၊ B+ (S6)၊ A။
-- **ဆုံးဖြတ်ပြီး:** §8 #1၊ #2၊ #4၊ #6–#17။ **ကျန်:** #3 (Instagram check 0.2 ပြီးမှ)၊ #5 (S4
-  မတိုင်မီ)။
+- **ဆုံးဖြတ်ပြီး:** §8 #1–#4၊ #6–#19။ **ကျန်:** #5 (S4 မတိုင်မီ)။
 - **S0d (2026-10-20, §7.2):** ပိုင်ရှင်ရဲ့ phone run ၂ ခု။ Recoverable failure: Facebook 0/11၊
   TikTok 0/6၊ Instagram 0/7၊ X 2/6 (main မဖတ်တဲ့ card ထဲက video)။ Pilot: Facebook → TikTok →
   X → Instagram (ပိုင်ရှင် အတည်ပြုပြီး၊ 2026-10-20၊ §8 #1)။
@@ -89,6 +91,25 @@ first run (the owner, 2026-10-21: §7.4) and its fixes (S1a (10), behind the fla
   မသုံးရင် Details မှာ step ကို ပြပါတယ်။ Link 9–10 ရဲ့ desktop form နဲ့ link 12–13 က documented
   limitation ပါ (link 9–10 ရဲ့ share link တွေက Master rows ပေးပါတယ်)။ နောက်တစ်ဆင့်: step 6 ရဲ့
   re-run (link 13 ခု နဲ့ share/p link တစ်ခု၊ VPN ပါ/မပါ)။
+- **§7.4 step 6 ရဲ့ re-run (ပိုင်ရှင်၊ 2026-10-21၊ `042d57a` ရဲ့ `yft-d7-fb-trial`၊ sign out၊ VPN
+  ပါ/မပါ): S1a ရဲ့ phone proof PASS ပါ။** Link 1–8 နဲ့ 11 မှာ ပထမ lookup ကတည်းက Master rows ရပြီး
+  trial line က "Master's rows 2, main's 3; the same video: yes; duration within 1 s: yes" ပါ။ Link
+  9–10 ရဲ့ share/v link တွေ Master rows ပေးပါတယ်။ Link 9 ရဲ့ desktop form က main ရဲ့ bug ပါ (#18:
+  main မှာ commit သီးသန့်နဲ့ ပြင်ပါမယ်)။ Link 10 ရဲ့ desktop form နဲ့ link 12–13 က documented
+  limitation ပါ။ Master wrong rows 0 ပါ။ S5 မတိုင်မီ: Master rows 2 နဲ့ main rows 3 ကွာတာကို ပြင်ရန်
+  ဒါမှမဟုတ် `docs/SUPPORT_MATRIX.md` မှာ ရေးရန်ပါ။
+- **Instagram census နဲ့ X ရဲ့ B0 (ပိုင်ရှင်၊ 2026-10-21၊ §7.4):** Instagram sign out (VPN မပါ)
+  GraphQL 401 10/10၊ main rows video slot 7 ခုမှာ 6 ခု — Instagram ရဲ့ baseline (VPN off၊ sign
+  out)။ Sign in ဆိုရင် app API နဲ့ rows 7/7 (VPN မပါ) နဲ့ 8 (VPN ပါ)၊ slot 10 (removed) က
+  `RESPONSE_CHANGED` ပါ။ X (VPN ပါ/မပါ) main slot 1–6 rows၊ V pass 6/6၊ slot 7–8 က
+  `NO_MEDIA_FOUND` (as expected) — X ရဲ့ B0 ရပါပြီ။ Master trial မှာ HLS row (duration မသိ)၊ slot 6
+  မှာ video ၂ ခုလုံးရဲ့ rows နဲ့ removed post ကို "needs playback" ပြတာတွေကို S2c မှာ ပြင်ပါမယ်။
+- **ဆုံးဖြတ်ချက် #3၊ #18၊ #19 (ပိုင်ရှင်၊ 2026-10-21၊ §8):** #3 — `doc_id` self-healing အခု မလုပ်ပါ
+  (`VALUE_REJECTED` ဆိုရင် နောက် stage ကို သွားပါတယ်၊ value ကို ခန့်မှန်းမထည့်ပါ)။ #18 — link 9 ရဲ့
+  desktop form ကို main မှာ ပြင်ပါမယ် (S1 ရဲ့ ခြွင်းချက်၊ commit သီးသန့်)။ #19 — Instagram stage က
+  visible tab ရဲ့ fetch ကို စည်းကမ်း (i)–(vi) နဲ့ပဲ သုံးနိုင်ပါတယ်၊ ပထမဆုံး debug-only probe ပါ။
+  နောက်တစ်ဆင့်: #18၊ S2b (TikTok)၊ S2c (X)၊ S2d (Instagram အပိုင်း ၁)၊ ပြီးရင် ပိုင်ရှင်ရဲ့ phone
+  session (§7.4)။
 
 ## 1. Audit — what exists today
 
@@ -408,7 +429,7 @@ With no adapter copies (B), the build is also about 4,700 lines smaller than the
 | --- | --- | --- | --- |
 | **S0** | M | The per-lookup request recorder (app side, memory only; decision 8) + the site census tool (`SiteCensusActivity`, like "YFT client census"): each way of each site asked once on the owner's test list, judged, shape fingerprint, V on one row; the recorder's counts (which way failed and how, 429 / bot checks, repeated asks); JSON export with slots only | the owner's run gives each site's share of recoverable failures → the pilot and the order (§8 item 1) — **done** (§7.1, §7.2) |
 | **Stage 0** | M | Five items, in parallel, before S1a's first phone APK (§7.3): **0.1** X's card fix in main (the owner's go); **0.2** the Instagram check (no code); **0.3** Facebook's access-check evidence (no code); **0.4** the census fixes and the site census diff (debug builds only); **0.5** the owner's baseline run B0 (§9) | 0.1 and 0.4: CI green and the census APK; 0.2 and 0.3: a verdict each (§7.3); 0.5: B0 recorded |
-| **S1a** | L | The kit's minimum with the pilot's pack, Facebook (the first draft's S1 and S2a together), flag `-Pyft.socialLadder` (off = today): the recorder in the app's lookup path, judge classes, the site table, one judged request rung + L3 + capture, budgets and the 30-minute cooldown (S7), `SiteRowCheck` + `InitCheck` on every Master row, Facebook's anchors, post-identity mutation tests, a simulator world (§7.3) | JVM tests, simulator and CI green; flag off = today; the D7-style APK's phone proof (§7.3) |
+| **S1a** | L | The kit's minimum with the pilot's pack, Facebook (the first draft's S1 and S2a together), flag `-Pyft.socialLadder` (off = today): the recorder in the app's lookup path, judge classes, the site table, one judged request rung + L3 + capture, budgets and the 30-minute cooldown (S7), `SiteRowCheck` + `InitCheck` on every Master row, Facebook's anchors, post-identity mutation tests, a simulator world (§7.3) | JVM tests, simulator and CI green; flag off = today; the D7-style APK's phone proof (§7.3) — **passed (2026-10-21, §7.4 step 6's re-run)** |
 | **S2b** | M | TikTok's pack (§7.3) | phone proof; wrong rows 0; no regression against B0 |
 | **S2c** | M | X's pack: main's answer replayed, no new ask (X2 not now; §7.3) | the same |
 | **S2d** | M | Instagram's pack by the Instagram check's verdict (0.2); the owner's signed-in census first (§7.3) | the same |
@@ -583,7 +604,8 @@ earlier):
   documented limitation; their mobile share links must give Master rows); slot 13
   `PRIVATE_OR_UNAVAILABLE` with and without the VPN if 0.3 found a signal, else no wrong final
   answer and a documented limitation; slot 12 by the owner's check; requests and time on
-  main-success lookups not above B0 (§9); docs.
+  main-success lookups not above B0 (§9); docs. **Met (the owner, 2026-10-21): §7.4 step 6's
+  re-run, S1a's phone proof PASS; for S5: Master's rows 2 against main's 3 on every link (§7.4).**
 - **(1) built (2026-10-20), JVM only, not wired:** the answer judge (`SiteAnswerJudge.kt`): L2's
   classes and `NEEDS_PLAYBACK`, each with its next step; Facebook's rules final only on 0.3's
   route (the error route with `privacy: true` → `PRIVATE`, the video's not-found route →
@@ -853,7 +875,7 @@ Lake City run.
    and slot 12 = ambiguous; optional: slot 12 once signed in (rows). The APK: `yft-d7-fb-trial`
    (d7-matrix's `fb-trial`, S1a (9): the social ladder and its Facebook trial on, so the ladder
    answers every Facebook page main found). Then S2b (§7.3). **First run (2026-10-21): below; its
-   fixes: S1a (10) (§7.3), behind the flag. Next: its re-run (below).**
+   fixes: S1a (10) (§7.3), behind the flag. Its re-run (2026-10-21, `042d57a`): PASS (below).**
 
 **Step 4 — the owner's runs (2026-10-21).** The census with the APK of step 3's SHA (`6b011da`'s
 "Master opt-in debug APK (spike)"), signed out, mobile data, the same day, in step 4's order; the
@@ -982,6 +1004,73 @@ link 9 as in the first run (main's bug, the owner's call) and link 10 "Master fo
 step in Details (documented limitations), their share/v links Master rows; links 12–13 as in the
 first run (documented).
 
+**Step 6's re-run — the owner's run (2026-10-21).** `yft-d7-fb-trial` of `042d57a` (S1a (10)),
+the app's browser, signed out, mobile data; with the VPN through its US exit (Boston) 14:14–14:27
+UTC, without it 14:31–14:45 UTC. **S1a's phone proof: PASS.**
+
+| Link | Both networks |
+| --- | --- |
+| 1–8, 11 | Master's rows on the first lookup (no Try again); the trial line "Master's rows 2, main's 3; the same video: yes; duration within 1 s: yes" |
+| 9, 10 by their share/v links | Master's rows (and one more share/v link, without the VPN) |
+| 9 (a Page post's desktop form) | no lookup; "Found on this page 2" with the related video (b), with the flag off too: main's bug → decision 18 (§8) |
+| 10 (a group post's desktop form) | "Master found none", Details name the step: the documented limitation |
+| 12–13 | Facebook's sign-in page (documented) |
+| share/p | not run: the owner found none (Facebook's Share gives share/v for a video post) |
+
+- Master's wrong rows 0 everywhere. S1a (10)'s fixes hold: every trial line compared the lengths
+  (yes), and links 1–2 gave rows on the first lookup.
+- **For S5 (before the release):** Master's rows 2 against main's 3 on every link: fixed, or
+  listed in `docs/SUPPORT_MATRIX.md` as an intended difference.
+- Next: decision 18 (link 9's desktop form, main; §8), then S2b. Facebook is re-baselined in the
+  next phone session (below).
+
+**Instagram's census (the owner's runs, 2026-10-21; S2d's input).** The census, mobile data, the
+same day; no link or ID kept (S8).
+
+- **15:00 UTC, without the VPN, signed out — Instagram's baseline (VPN off, signed out):** 38
+  requests, 2.1 MB, 31 s. Main's GraphQL 401 on 10 of 10; main's rows on 6 of 7 video slots
+  (slots 1–4 and 6 from the embed page, 7 from the page data); slot 5 (a reel) `LOGIN_REQUIRED`
+  (the embed: no data); slot 8 (a photo post) `NO_MEDIA_FOUND`; slot 9 `LOGIN_REQUIRED`; slot 10
+  (removed) `LOGIN_REQUIRED`, "ambiguous (no session)". Master's trials: needs playback on slots
+  1–4 and 6; slot 7 rows 1, V pass.
+- **15:04 UTC, without the VPN, signed in:** 41 requests, 0.8 MB, 20 s. Main by the app API: rows
+  on 7 of 7 video slots, V pass 7. Slot 9 was a photo post (mislabeled; the owner replaced it with
+  a sign-in-only reel). Slot 10 `RESPONSE_CHANGED` [recoverable] (the app API 400, GraphQL 400,
+  the page and the embed no data): not as expected. Master's trials 7: rows 6, V pass 6 (slot 5
+  needs playback); Master's tallest row differs from main's on slots 1, 4, 6 and 7.
+- **15:13 UTC, with the VPN (Boston), signed in (the new slot 9):** 42 requests, 0.8 MB, 44 s.
+  Main's rows on slots 1–7 and 9 (slot 9: 1 row, 360, 106.3 s), V pass 8; only slot 10 not as
+  expected (`RESPONSE_CHANGED`). Master's trials 8: rows 6, V pass 6 (slots 5 and 9 need
+  playback).
+
+**X's B0 (the owner's runs, 2026-10-21).** The census with the phone's current debug APK (of
+`042d57a`), signed out, mobile data; no link or ID kept (S8).
+
+| VPN | UTC | Slots | Requests · MB · s | Main | Master's trials |
+| --- | --- | --- | --- | --- | --- |
+| on (Boston) | 15:52 | 8 | 40 · 0.1 · 23 | slots 1–6 rows, all as expected, V pass 6/6; one ask per lookup (`tweet-result` GET 200, about 0.5 s; slot 1 2.4 s); slots 7 (age-limited) and 8 (removed) `NO_MEDIA_FOUND` [recoverable], as expected; route B: needs playback | 6 (each: replayed 1, new 0): rows 6, V pass 4 |
+| off | 15:56 | 8 | 40 · 0.1 · 11 | the same answers (main about 0.7–1.0 s per lookup) | the same |
+
+- These runs are X's B0 (VPN on and off, signed out).
+- **For S2c (X), the owner's inputs (2026-10-21; both runs show them; S2c must cover them):**
+  1. Slots 3 and 6: Master's rows include an HLS row, Master's answer states no duration, and V
+     checked the HLS row (unknown). An HLS row only with a known duration (S6); MP4 rows first; V
+     checks an MP4 row.
+  2. Slot 6 (several videos; main: item 1 of 2, 3 rows): Master's trial gave 8 rows, likely both
+     videos'. Only the link's item (`/video/N`, else the first; decision 11); the trial compares
+     the item.
+  3. Slots 7 and 8 both answer "no post" with different shapes; Master says "needs playback" for
+     the removed post too. If the answers tell them apart, removed → `REMOVED` (§6.4),
+     age-limited → the browser; else today's reason stays.
+
+  The proof: on these 8 slots Master's trial rows are main's item, with its duration, and V passes
+  on every video slot.
+
+**The next phone session (the owner, after S2d part 1; the list is in S2d part 1's report and
+`PROGRESS.md`):** Facebook's census with and without the VPN, signed out (the re-baseline after
+decision 18), link 9's desktop form and a short regression set; TikTok's, X's and Instagram's
+D7-style proofs (§7.3); Instagram's tab-fetch probe.
+
 **For S2b (TikTok), noted now** (inputs to S2b's design, §7.3; not decided):
 
 - T2 before T1: T2 reads main's pages (`MainPages`, S1a (2)) with no fetch, so a success saves an
@@ -1059,16 +1148,31 @@ Decided (the owner, 2026-10-21; §7.4):
   answers first. `PRIVATE_OR_UNAVAILABLE` and `GEO_RESTRICTED` stay final. The S2b notes (§7.4)
   are inputs, not decisions.
 
+Decided (the owner, 2026-10-21, after step 6's re-run and Instagram's census; §7.4):
+
+- **3 — Instagram's `doc_id` (moved from "Still open"):** no `doc_id` self-healing now (no S1b for
+  it). The query's values are data (S9) with their source and date; `VALUE_REJECTED` → the next
+  stage, never a guessed value (S5). If ever: Instagram's own scripts as the visible tab loads
+  them; yt-dlp's file stays the owner's local reference, never read by the app. Revisited only
+  when `VALUE_REJECTED` is seen (W or the phone) and a value-only change would fix it. (0.2's
+  recommendation, 2026-10-20: in yt-dlp's file the post's query changed twice in four years, each
+  time with a new request, never the value alone; today's signed-out request needs impersonation,
+  S3.)
+- **18 — Link 9's desktop form:** fixed in main (an exception to S1, its own commit), before
+  Facebook's S5; Facebook is re-baselined in the next phone session.
+- **19 — Instagram's visible-tab fetch (0.2's verdict (b)):** Instagram's stage may use the
+  visible tab's own fetch, only so: (i) every tab-fetch request goes through the request recorder
+  and the ledger (the budget; a 429 or a bot check → the stop and the cooldown; no second ask;
+  the census and Details show them); (ii) no `addJavascriptInterface` on the visible tab:
+  `evaluateJavascript` with a read-back (as `BrowserReads`), or `addWebMessageListener` for
+  Instagram's origin only; (iii) only on `instagram.com` in the visible tab, only after main
+  fails, the last request rung, behind its own switch; (iv) an answer for a post whose page shows
+  a sign-in or age wall is never used (S2); (v) first a debug-only probe (S2d part 1), the rung
+  only after the owner's phone result; (vi) a removed post is the judge's call from what was
+  already read, never a tab fetch.
+
 Still open (the owner's answer is needed before the step that uses it):
 
-- **3 — Self-heal sources for Instagram's `doc_id`:** Instagram's own scripts, yt-dlp's raw file, or
-  both; decided after the Instagram check (§7.3 item 0.2). S0d (§7.2): signed out, main's GraphQL
-  answered 401 on 10 of 10; main gave 6 of 7 video rows (5 from the embed page).
-  0.2's recommendation (2026-10-20): in yt-dlp's file the post's query changed twice in four years,
-  each time with a new request, never the value alone, and today's signed-out request needs
-  impersonation (S3); so no `doc_id` self-healing now (no S1b for it). If the owner allows S2d's
-  visible-tab fetch, the source is Instagram's own scripts as the tab loads them; yt-dlp's raw file
-  stays the owner's local reference, never read by the app. The owner's decision.
 - **5 — R9 hosting:** the owner signs and hosts the recipe config (needed for repair without an
   APK); decided before S4.
 

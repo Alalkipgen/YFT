@@ -1,5 +1,80 @@
 # YFT Master Extractor backup
 
+## Social plan §7.4 step 6's re-run, Instagram's census, X's B0 and §8 decisions 3, 18 and 19 (the owner's runs; docs only) (2026-10-21)
+
+- **Step 6's re-run** (the owner, 2026-10-21; `MASTER_KEY_SOCIAL_PLAN.md` §7.4, "Step 6's re-run —
+  the owner's run"): `yft-d7-fb-trial` of `042d57a` (S1a (10)), the app's browser, signed out; with
+  the VPN (Boston) 14:14–14:27 UTC, without it 14:31–14:45 UTC. **S1a's phone proof: PASS.** Links
+  1–8 and 11: Master's rows on the first lookup (no Try again), the trial line "Master's rows 2,
+  main's 3; the same video: yes; duration within 1 s: yes", both networks. Links 9 and 10 by their
+  share/v links: Master's rows, both networks (and one more share/v link without the VPN). Link 9's
+  desktop form: no lookup, "Found on this page 2" with the related video (b), with the flag off
+  too (main's bug → decision 18). Link 10's desktop form: "Master found none", Details name the
+  step (the documented limitation). Links 12–13: the sign-in page (documented). share/p: not run
+  (the owner found none; Facebook's Share gives share/v for a video post). Master's wrong rows 0
+  everywhere. For S5: Master's rows 2 against main's 3 on every link → fixed, or listed in
+  `docs/SUPPORT_MATRIX.md` before the release.
+- **Instagram's census** (the owner, 2026-10-21; plan §7.4): 15:00 UTC, without the VPN, signed out
+  (Instagram's baseline, VPN off, signed out): 38 requests, 2.1 MB, 31 s; GraphQL 401 on 10 of 10;
+  main's rows on 6 of 7 video slots (1–4 and 6 the embed page, 7 the page data); slot 5 (a reel)
+  `LOGIN_REQUIRED` (the embed: no data); slot 8 (photo) `NO_MEDIA_FOUND`; slot 9 `LOGIN_REQUIRED`;
+  slot 10 (removed) `LOGIN_REQUIRED` ("ambiguous (no session)"); Master's trials: needs playback on
+  1–4 and 6, slot 7 rows 1 with V pass. 15:04 UTC, without the VPN, signed in: 41 requests, 0.8 MB,
+  20 s; main by the app API: rows on 7 of 7 video slots, V pass 7; slot 9 was a photo post
+  (mislabeled; the owner replaced it with a sign-in-only reel); slot 10 `RESPONSE_CHANGED`
+  [recoverable] (the app API 400, GraphQL 400, the page and the embed no data), not as expected;
+  Master's trials 7: rows 6, V pass 6 (slot 5 needs playback); Master's tallest row differs from
+  main's on slots 1, 4, 6 and 7. 15:13 UTC, with the VPN (Boston), signed in (the new slot 9): 42
+  requests, 0.8 MB, 44 s; main's rows on 1–7 and 9 (slot 9: 1 row, 360, 106.3 s), V pass 8; only
+  slot 10 not as expected (`RESPONSE_CHANGED`); Master's trials 8: rows 6, V pass 6 (5 and 9 need
+  playback).
+- **X's B0** (the owner, 2026-10-21; plan §7.4): the census with the phone's debug APK of
+  `042d57a`, signed out, mobile data. 15:52 UTC with the VPN (Boston): 8 slots, 40 requests,
+  0.1 MB, 23 s; main: slots 1–6 rows, all as expected, V pass 6/6; one ask per lookup
+  (`tweet-result` GET 200, about 0.5 s; slot 1 2.4 s); slots 7 (age-limited) and 8 (removed)
+  `NO_MEDIA_FOUND` [recoverable], as expected; Master's route B: needs playback; Master's trials 6
+  (each: replayed 1, new 0): rows 6, V pass 4. 15:56 UTC without the VPN: 8 slots, 40 requests,
+  0.1 MB, 11 s; the same answers (main about 0.7–1.0 s per lookup) and the same trials. → X's B0
+  (VPN on and off, signed out). The owner's three S2c inputs (both runs; S2c must cover them; plan
+  §7.4): (1) slots 3 and 6: Master's rows include an HLS row, Master's answer states no duration,
+  and V checked the HLS row (unknown) → an HLS row only with a known duration (S6), MP4 rows first,
+  V checks an MP4 row; (2) slot 6 (several videos; main: item 1 of 2, 3 rows): Master's trial gave
+  8 rows, likely both videos' → only the link's item (`/video/N`, else the first; decision 11), the
+  trial compares the item; (3) slots 7 and 8 both answer "no post" with different shapes, and
+  Master says "needs playback" for the removed post too → if the answers tell them apart, removed
+  → `REMOVED` (§6.4), age-limited → the browser, else today's reason. The proof: on these 8 slots
+  Master's trial rows are main's item, with its duration, and V passes on every video slot.
+- **The owner's decisions (2026-10-21; plan §8):** **3** (moved from "Still open"): no `doc_id`
+  self-healing now (no S1b for it); the query's values are data (S9) with source and date;
+  `VALUE_REJECTED` → the next stage, never a guessed value (S5); if ever, Instagram's own scripts
+  as the visible tab loads them (yt-dlp's file stays the owner's local reference, never read by the
+  app); revisited only when `VALUE_REJECTED` is seen (W or the phone) and a value-only change
+  would fix it. **18:** link 9's desktop form is fixed in main (an exception to S1, its own
+  commit), before Facebook's S5; Facebook is re-baselined in the next phone session. **19**
+  (0.2's verdict (b)): Instagram's stage may use the visible tab's own fetch only so: (i) every
+  tab-fetch request through the request recorder and the ledger (the budget; a 429 or a bot check
+  → the stop and the cooldown; no second ask; the census and Details show them); (ii) no
+  `addJavascriptInterface` on the visible tab (`evaluateJavascript` with a read-back, as
+  `BrowserReads`, or `addWebMessageListener` for Instagram's origin only); (iii) only on
+  `instagram.com` in the visible tab, only after main fails, the last request rung, behind its own
+  switch; (iv) never an answer for a post whose page shows a sign-in or age wall (S2); (v) first a
+  debug-only probe (S2d part 1), the rung only after the owner's phone result; (vi) a removed post
+  is the judge's call from what was already read, never a tab fetch.
+- Docs only: the plan (the top status, §0, §7's S1a row, §7.3's S1a done-when, §7.4's step 6, the
+  re-run's record, Instagram's census, X's B0 with the S2c inputs, the next phone session; §8
+  items 3, 18 and 19, "Still open" now item 5 only), this entry (and S1a (10)'s Next line),
+  `docs/TEST_MATRIX.md` (a row). No code, test or workflow changed; no link or ID recorded (S8).
+- Next (the owner's plan, 2026-10-21; each its own commit on this branch, pushed as soon as its
+  local checks pass, `[d7]` for the code tasks): **task 2** — decision 18 in main
+  (`FacebookUrls.postAddress`: `story.php` and `permalink.php` also take a Page name as `id` → the
+  posts path main already asks; `FacebookUrlsTest`; `docs/SUPPORT_MATRIX.md`'s Facebook row);
+  **task 3** — S2b TikTok (§7.3, §6.2; §7.4's S2b notes chosen with reasons; T1 with the user's
+  cookie not now; the trial covers TikTok); **task 4** — S2c X (§7.3, §6.4 and the owner's three
+  inputs above; X2 not now; the trial covers X); **task 5** — S2d Instagram part 1 (§7.3, §6.3,
+  decisions 3 and 19: no repeat of main's embed ask, the judge, I2, I3, the tab-fetch probe in
+  debug builds only; the trial covers Instagram). The phone APK: the last task's trial APK, the
+  ladder and the trial on for all four sites. Then the owner's phone session (plan §7.4).
+
 ## Social plan S1a (10) — fixes from step 6's first phone run (debug only, behind the flag) (2026-10-21)
 
 - Step 6's first run (the owner, 2026-10-21; `MASTER_KEY_SOCIAL_PLAN.md` §7.4, "Step 6 — the
@@ -109,7 +184,8 @@
   (`-Pyft.masterCapture=true -Pyft.socialLadder=true -Pyft.socialTrial=true`); drift check 0
   drifted.
 - Next: the owner re-runs step 6 with `yft-d7-fb-trial` of this commit (the 13 links and one
-  share/p link of a post with a video, VPN and no VPN; the plan's §7.4, "Step 6's re-run").
+  share/p link of a post with a video, VPN and no VPN; the plan's §7.4, "Step 6's re-run"). **Done
+  (the owner, 2026-10-21): PASS (the entry above).**
 
 ## Social plan S1a (9) — the Facebook trial APK for S1a's phone proof (debug only, behind the flag) (2026-10-21)
 
