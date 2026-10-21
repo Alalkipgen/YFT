@@ -1,5 +1,53 @@
 # YFT Master Extractor backup
 
+## Social plan S1a (8) — the simulator world, behind the flag (2026-10-21)
+
+- `FacebookWorldTest` (`extractor-master` `social/`, a test only; no main or Master code changed):
+  one made-up Facebook on a fake clock (a video's watch and reel pages with a related video beside
+  it, the plugin player, the media host's files), asked in the app's order: main's real Facebook
+  adapter first, Master's engine after main's failure, each lookup in its own record and main's
+  pages; the ladder, S6's row check and S7's cooldown built once and shared by the world's lookups
+  (as the app holds them). Made-up IDs and hosts; no live calls.
+- The world's rules, checked in every lookup: rows only the video's files, bound to its ID (main's
+  and Master's); each file read once (its first 4096 bytes, never with the session), every row
+  Master offers read, at most 8 reads; a related video's file never read nor offered; main's and
+  Master's page asks within the lookup's 4 requests and 20 s, the plugin player asked at most once,
+  within 8 MiB; no other endpoint asked; no ask repeated, none after a stop; the engine's own file
+  check never asked (S6's is); the lines without a link, an ID or the page's words.
+- A renamed key (the file keys; the delivery block's and the file keys): main fails
+  (`NO_MEDIA_FOUND`; `RESPONSE_CHANGED`), Master's rows come from the plugin player's files (F1; a
+  related video's item beside them not offered) or, the player needing playback, from main's page
+  (F2), only the video's; a file whose first bytes are a page → that row not offered, the other is.
+  A moved block: one level down in the video's object → F2's rows; outside the video's object or
+  under the related video → no rows, nothing read, the tab's own playback.
+- A 429 at the player: the site stops in the lookup (no file read after it, so no row; Master fails
+  with no rows); 10 minutes later F1 cools (not asked) and F2's rows from main's page are offered;
+  31 minutes after the stop F1 is asked again. A sign-in wall on main's page (redirected to the
+  login, or a login form in its place) → main's `LOGIN_REQUIRED`, the tab's own playback, Master
+  asks nothing; at the player → the browser's rung (not final), F2 still gives main's page's rows (a
+  page without data: the tab's playback).
+- The unavailable page in two languages: main's English words → main's own final
+  `PRIVATE_OR_UNAVAILABLE`, Master skipped; other English or Burmese words on the error route with
+  its privacy flag → main `RESPONSE_CHANGED` (today's), Master's final `PRIVATE_OR_UNAVAILABLE`
+  (private; on the video-not-found route: removed), nothing read, no capture; the words alone or the
+  error route without its privacy flag → not final, the tab's playback. §7.4's A1 (main reads the
+  route) makes these main's own final answer; these checks change with it, as
+  `FacebookLadderF2Test`'s.
+- Every case for both link forms: 14 cases × 2 = 28 lookups, wrong rows 0 (main's and Master's), the
+  world's rules in each.
+- Found by the world, today's and unchanged: main asks a reel's page twice (without, then with the
+  session), which the record counts as a variant, not a repeat: the only address asked twice. A
+  renamed delivery block alone (its file keys kept) is still main's (the keys mark its media node),
+  so the world renames both.
+- Flag off: unchanged (a test only): R8's path, the rows and the messages are today's; route B, the
+  parity tests, `FixtureBaselineTest`, the drift check, the census and the YouTube files unchanged.
+- Tests: `FacebookWorldTest` 7 (new, JVM; main's real Facebook adapter over synthetic pages, a fake
+  clock, a fake file reader). Local (JDK 17): `:extractor-master:test` 852 tests (2 skipped),
+  `:extractor-master-android:testDebugUnitTest` 69 and `:app:testDebugUnitTest` 1041 (66 skipped)
+  passed; `:app:lintDebug` and `:app:assembleDebug` passed.
+- Next: §7.4's steps, each on the owner's go (commit 1, the census fix 0.4 (c); commit 2, Facebook's
+  access fix A1); S1a's phone proof is its step 6.
+
 ## Social plan S1a (7) — post identity bound to the video ID, mutation tests, behind the flag (2026-10-21)
 
 - `FacebookIdentity` (`extractor-master` `social/`, used by `FacebookLadder` only): in a Facebook

@@ -626,6 +626,14 @@ earlier):
   object lacks or leaves empty, the player's second item claiming the video when the first has no
   file; flag off = today; `FacebookIdentityTest` 7, `SocialLadderIdTest` 2. Next: the simulator
   world.
+- **(8) built (2026-10-21), behind the flag:** the simulator world (`FacebookWorldTest`, a test
+  only): one made-up Facebook on a fake clock (watch and reel pages with a related video, the plugin
+  player, the media host), main's real adapter first and Master after its failure, the ladder, S6
+  and S7 shared by the lookups; a renamed key, a moved block, a 429 (the site stopped in the lookup,
+  F1 cooled 30 minutes, F2 still reads), a sign-in wall, the unavailable page in two languages
+  (final on its route, never on its words); 14 cases × 2 link forms, wrong rows 0; in each lookup
+  the rows only the video's, each file read once, the budgets, no repeated ask, none after a stop,
+  bare lines; flag off = today; `FacebookWorldTest` 7. Next: §7.4.
 
 **S2b TikTok:** T1 the embed player (`embed/v2`), judged; a bot check stops; a photo post stops
 with no request; T2 L3; T3 capture; TikTok's own client (not the shared one) wrapped by the
