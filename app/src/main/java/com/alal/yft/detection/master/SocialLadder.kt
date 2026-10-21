@@ -21,6 +21,8 @@ import com.alal.yft.extractor.master.social.SocialRowCheck
 import com.alal.yft.extractor.master.social.SocialStage
 import com.alal.yft.extractor.master.social.SocialStages
 import com.alal.yft.extractor.master.social.TikTokLadder
+import com.alal.yft.extractor.master.social.XLadder
+import com.alal.yft.extractor.sites.x.XExtractor
 import kotlin.coroutines.CoroutineContext
 import kotlin.math.abs
 import kotlinx.coroutines.currentCoroutineContext
@@ -28,7 +30,7 @@ import okhttp3.OkHttpClient
 
 /**
  * Social plan S1a (`MASTER_KEY_SOCIAL_PLAN.md` §7.3): the build's social-ladder switch and its app
- * wiring, Facebook first (the pilot); S2b: TikTok's too ([SITES]). On only in a debug build made
+ * wiring, Facebook first (the pilot); S2b: TikTok's too; S2c: X's ([SITES]). On only in a debug build made
  * with `-Pyft.socialLadder=true` and `-Pyft.masterCapture=true`; release, preview and every other
  * build: off, and each piece here is exactly today's.
  */
@@ -49,8 +51,14 @@ internal object SocialLadder {
     /** S2b: TikTok's site ID (main's TikTok adapter; its video key's prefix). */
     const val TIKTOK_SITE_ID = "tiktok"
 
-    /** S2b: the sites with a ladder (each lookup's own record and pages, its trial): Facebook, TikTok. */
-    val SITES: Set<String> = setOf(FACEBOOK_SITE_ID, TIKTOK_SITE_ID)
+    /** S2c: X's site ID (main's X adapter; its video key's prefix). */
+    const val X_SITE_ID = "x"
+
+    /**
+     * S2b: the sites with a ladder (each lookup's own record and pages, its trial): Facebook,
+     * TikTok; S2c: X.
+     */
+    val SITES: Set<String> = setOf(FACEBOOK_SITE_ID, TIKTOK_SITE_ID, X_SITE_ID)
 
     /**
      * S1a (5), S7: the hosts cooling after a 429 or a bot check (30 minutes), the app process's:
@@ -88,7 +96,7 @@ internal object SocialLadder {
 
     /**
      * S1a (2): whether [videoKey] ("site:contentId") is a ladder's: every Facebook link form; S2b:
-     * every TikTok link form too ([SITES]).
+     * every TikTok link form too; S2c: every X link form ([SITES]).
      */
     fun claims(videoKey: String?): Boolean = siteOf(videoKey) != null
 
@@ -109,8 +117,9 @@ internal object SocialLadder {
 
     /**
      * S1a (3): Master's social rung in a social-ladder build: Facebook's ladder ([FacebookLadder]:
-     * F1, the plugin player, judged) and S2b TikTok's ([TikTokLadder]: T1, the embed player,
-     * judged; T2, main's pages), each claiming only its own site's lookup with its own record
+     * F1, the plugin player, judged), S2b TikTok's ([TikTokLadder]: T1, the embed player,
+     * judged; T2, main's pages) and S2c X's ([XLadder]: X1, main's answer replayed, judged, no new
+     * ask), each claiming only its own site's lookup with its own record
      * ([lookupContext]; [SocialStages]: the first that claims it), over Master's own client
      * [http]; [identify]: main's adapters. Their recipes come from the same source as the
      * engine's ([MasterRecipeConfig]); S1a (5): their stops cool in [cooldown] (the app's, by
@@ -126,6 +135,7 @@ internal object SocialLadder {
             listOf(
                 FacebookLadder(http, identify, MasterRecipeConfig::contracts, cooldown),
                 TikTokLadder(http, identify, MasterRecipeConfig::contracts, cooldown),
+                XLadder(http, identify, MasterRecipeConfig::contracts, cooldown),
             ),
         )
     } else {
@@ -170,7 +180,10 @@ internal object SocialLadder {
      * S1a (3): main's words for the ladder's final answer (the page's route: private or removed),
      * so a Facebook lookup says what main says for it; S2b: a TikTok lookup's photo post (the
      * ladder's PHOTO_ONLY line with its final step in [details]: TikTok's ladder said it, no other
-     * stage) in main's words for it. Null for every other reason and site (as before).
+     * stage) in main's words for it. S2c: an X lookup's photo post (X's PHOTO_ONLY line, its final
+     * step) in main's words ([XExtractor.PHOTOS_MESSAGE]), and X's no-such-post answer (X's REMOVED
+     * line, its final step: the widget's 404) so said. Null for every other reason and site (as
+     * before).
      */
     fun finalMessage(
         reason: SiteExtractionFailure,
@@ -182,12 +195,24 @@ internal object SocialLadder {
             else -> null
         }
         TIKTOK_SITE_ID -> "This TikTok post has no downloadable video.".takeIf {
-            reason == SiteExtractionFailure.NO_MEDIA_FOUND && details.any { line ->
-                line.startsWith(line(videoKey)) && "PHOTO_ONLY" in line && "next: FINAL" in line
-            }
+            reason == SiteExtractionFailure.NO_MEDIA_FOUND && finalLine(videoKey, details, "PHOTO_ONLY")
+        }
+        X_SITE_ID -> when (reason) {
+            SiteExtractionFailure.NO_MEDIA_FOUND ->
+                XExtractor.PHOTOS_MESSAGE.takeIf { finalLine(videoKey, details, "PHOTO_ONLY") }
+            SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE ->
+                X_REMOVED_MESSAGE.takeIf { finalLine(videoKey, details, "REMOVED") }
+            else -> null
         }
         else -> null
     }
+
+    /** S2c: X's words for its no-such-post answer (the widget's 404, X's REMOVED line). */
+    const val X_REMOVED_MESSAGE = "This X post is no longer available."
+
+    /** S2b: whether [details] has [videoKey]'s site's ladder line of [answerClass] with its final step. */
+    private fun finalLine(videoKey: String?, details: List<String>, answerClass: String): Boolean =
+        details.any { line -> line.startsWith(line(videoKey)) && answerClass in line && "next: FINAL" in line }
 
     /** S1a (9): the start of Facebook's lines in Master's details (the ladder's first). */
     const val LINE = "master: facebook"
@@ -205,7 +230,7 @@ internal object SocialLadder {
     /** S2b: the "not used" line's start for [videoKey]'s site (Facebook's: [NOT_USED]). */
     fun notUsed(videoKey: String?): String = "${line(videoKey)}: Master's answer not used:"
 
-    /** S2b: [videoKey]'s site's name as main says it (Facebook, TikTok). */
+    /** S2b: [videoKey]'s site's name as main says it (Facebook, TikTok; S2c: X). */
     private fun nameOf(videoKey: String?): String =
         SiteWays.site(siteOf(videoKey) ?: FACEBOOK_SITE_ID)?.name ?: "Facebook"
 
@@ -239,11 +264,18 @@ internal object SocialLadder {
      * state; unknown when either side states none. S1a (10): Master's rows state their files' own
      * lengths (S6's read of each file's start, [SocialRowCheck]; the plugin player's answer names
      * none, so on step 6's first run every line said unknown); main's rows the page's. Counts and
-     * yes/no only: never a link or an ID.
+     * yes/no only: never a link or an ID. S2c: X's rows (main's rows' key is X's) compare the item
+     * (owner's input 2, decision 11): `the same item: yes` only when the same video's rows also name
+     * the one item main's rows name (its file's path on X's video host, [XLadder.itemOf]: one video
+     * of a post with several).
      */
     fun trialSegment(rows: List<MediaCandidate>, mains: List<MediaCandidate>, video: (String?) -> String?): String {
         val mainVideo = mains.map { video(it.videoId) }.distinct().singleOrNull()
         val sameVideo = mainVideo != null && rows.isNotEmpty() && rows.all { video(it.videoId) == mainVideo }
+        // S2c: X's rows name one item of the post (one video of several), as main's must.
+        val item = mains.firstOrNull()?.videoId?.startsWith("$X_SITE_ID:") == true
+        val mainItem = mains.map { XLadder.itemOf(it.mediaUrl) }.distinct().singleOrNull()
+        val same = sameVideo && (!item || mainItem != null && rows.all { XLadder.itemOf(it.mediaUrl) == mainItem })
         val masterMillis = rows.mapNotNull { row -> row.durationMillis?.takeIf { it > 0 } }
         val mainMillis = mains.mapNotNull { row -> row.durationMillis?.takeIf { it > 0 } }
         val duration = when {
@@ -252,13 +284,13 @@ internal object SocialLadder {
             else -> "no"
         }
         return "${TRIAL_SEGMENT}Master's rows ${rows.size}, main's ${mains.size}; " +
-            "the same video: ${if (sameVideo) "yes" else "no"}; duration within 1 s: $duration"
+            "the same ${if (item) "item" else "video"}: ${if (same) "yes" else "no"}; duration within 1 s: $duration"
     }
 
     /**
      * S1a (9): the Facebook trial's line of rows Master found (Facebook's line with the trial's
      * segment, [trialSegment]), for the browser's notice; S2b: TikTok's too (any ladder site's
-     * line). Null for every other answer (no other build has one).
+     * line; S2c: X's). Null for every other answer (no other build has one).
      */
     fun trialNotice(outcome: SiteAdapterOutcome): String? =
         (outcome as? SiteAdapterOutcome.Detected)?.details?.firstOrNull { detail ->

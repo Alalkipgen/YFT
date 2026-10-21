@@ -56,11 +56,11 @@ class SocialLadderTest {
         assertTrue(!SocialLadder.enabled || BuildConfig.MASTER_CAPTURE_ENABLED)
         assertTrue(SocialLadder.claims("facebook:1000000000000001"))
         assertTrue(SocialLadder.claims("facebook:AbCdEf123"))
-        // S2b: TikTok's lookups too; no other site's.
+        // S2b: TikTok's lookups too; S2c: X's; no other site's.
         assertTrue(SocialLadder.claims("tiktok:11111"))
         assertTrue(SocialLadder.claims("tiktok:ZMabcdef1"))
+        assertTrue(SocialLadder.claims("x:1000000000000000001"))
         assertFalse(SocialLadder.claims("instagram:AbCdEf123"))
-        assertFalse(SocialLadder.claims("x:1000000000000000001"))
         assertFalse(SocialLadder.claims("youtube:Yft0Fixture"))
         assertFalse(SocialLadder.claims(null))
     }

@@ -9,8 +9,9 @@ import kotlin.coroutines.coroutineContext
  * Social plan S1a (2): the client main's site adapters share, keeping main's pages. The app wraps
  * its shared adapter client in it only in a social-ladder build (`-Pyft.socialLadder`, debug
  * only). In a lookup whose coroutine context carries [MainPages] each GET goes out unchanged and
- * its 2xx answer is then kept there; a post, a file check and every lookup without [MainPages]
- * only pass through. Nothing is changed, asked again or logged here.
+ * its 2xx answer is then kept there (S2c: a refused GET as its status and reason only); a post, a
+ * file check and every lookup without [MainPages] only pass through. Nothing is changed, asked
+ * again or logged here.
  */
 class MainPageRecorder(private val http: ExtractorHttpClient) : ExtractorHttpClient {
     override suspend fun get(url: String, headers: Map<String, String>, maxBodyBytes: Long): ExtractorHttpResult {

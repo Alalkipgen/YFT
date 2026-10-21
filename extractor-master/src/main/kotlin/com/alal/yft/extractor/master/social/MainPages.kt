@@ -1,6 +1,7 @@
 package com.alal.yft.extractor.master.social
 
 import com.alal.yft.extractor.api.ExtractorHttpResult
+import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.extractor.master.lookup.LookupAsk
 import kotlin.coroutines.AbstractCoroutineContextElement
@@ -25,6 +26,11 @@ import kotlin.coroutines.CoroutineContext
  * Social plan S2b: [site], the lookup's site (main's site ID: `facebook`, `tiktok`), so the rows'
  * check (V, `SocialRowCheck`) asks only that site's media hosts; null (a lookup built before S2b):
  * the check's own site.
+ *
+ * Social plan S2c: main's GETs that got no 2xx answer ([Refusal]: a 404, another status, a network
+ * failure) are kept too, as their address, status and main's reason only (no page, no header, no
+ * cookie), at most [maxPages] of them: X's ladder judges main's refused answer without asking again
+ * (a 404 from X's widget is no such post).
  */
 class MainPages(
     private val maxPages: Int = MAX_PAGES,
@@ -44,8 +50,17 @@ class MainPages(
             "Page(status=$statusCode, authorized=$authorized, chars=${body?.length ?: "none"})"
     }
 
+    /**
+     * S2c: one of main's GETs that got no 2xx answer: the address asked, its status (null: no
+     * answer, a network failure) and main's [reason] for it.
+     */
+    class Refusal(val url: String, val statusCode: Int?, val reason: SiteExtractionFailure) {
+        override fun toString(): String = "Refusal(status=$statusCode, reason=$reason)"
+    }
+
     private val lock = Any()
     private val listed = ArrayList<Page>()
+    private val refused = ArrayList<Refusal>()
     private var keptChars = 0L
     private var unlistedTotal = 0
 
@@ -54,6 +69,9 @@ class MainPages(
 
     /** The final address of main's first listed 2xx GET of [url], or null. */
     fun finalUrlOf(url: String): String? = synchronized(lock) { listed.firstOrNull { it.url == url }?.finalUrl }
+
+    /** S2c: main's refused GETs in the order they came, at most [maxPages] (more are not kept). */
+    fun refusals(): List<Refusal> = synchronized(lock) { refused.toList() }
 
     /** Main's 2xx GET answers not listed (over [maxPages]). */
     val unlisted: Int get() = synchronized(lock) { unlistedTotal }
@@ -73,9 +91,20 @@ class MainPages(
         }.distinctBy { it.contentId }.singleOrNull()
     }
 
-    /** Main's answer [result] to its GET of [url] with [headers]; only a success (2xx) is kept. */
+    /**
+     * Main's answer [result] to its GET of [url] with [headers]: a success (2xx) is kept as a
+     * [Page]; S2c: a failure as a [Refusal] (no page).
+     */
     internal fun note(url: String, headers: Map<String, String>, result: ExtractorHttpResult) {
-        val success = result as? ExtractorHttpResult.Success ?: return
+        val success = when (result) {
+            is ExtractorHttpResult.Success -> result
+            is ExtractorHttpResult.Failure -> {
+                synchronized(lock) {
+                    if (refused.size < maxPages) refused += Refusal(url, result.statusCode, result.reason)
+                }
+                return
+            }
+        }
         val authorized = LookupAsk(LookupAsk.GET, url, null, headers).authorized
         synchronized(lock) {
             if (listed.size >= maxPages) {
@@ -96,7 +125,8 @@ class MainPages(
     companion object Key : CoroutineContext.Key<MainPages> {
         /**
          * More than main's Facebook GETs in one lookup (the public page, the page, the AVC ladder)
-         * and TikTok's (S2b: the phone page, the desktop page, the download service).
+         * and TikTok's (S2b: the phone page, the desktop page, the download service); X's one (S2c:
+         * the widget's answer).
          */
         const val MAX_PAGES = 4
 

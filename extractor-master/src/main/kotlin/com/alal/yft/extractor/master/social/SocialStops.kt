@@ -26,6 +26,15 @@ data class SocialBudget(val requests: Int, val bytes: Long, val millis: Long) {
          * pages take long (two pages, the file checks, the service), so the lookup's time is 30 s.
          */
         val TIKTOK = SocialBudget(requests = 20, bytes = 4L * 1024 * 1024, millis = 30_000)
+
+        /**
+         * S2c, X's, sized by X's main and V (not copied from TikTok's): main asks once in a lookup
+         * (the widget's answer) and X's ladder asks nothing (main's answer replayed), so the rows
+         * go to V only while main's ask and V's reads (at most 8) fit; the answer the ladder reads
+         * is main's, at most 2 MiB (main's bound). Main's one ask is short, so the lookup's time
+         * is 20 s, as Facebook's.
+         */
+        val X = SocialBudget(requests = 9, bytes = 2L * 1024 * 1024, millis = 20_000)
     }
 }
 

@@ -18,7 +18,8 @@ import org.junit.Test
  * Social plan S1a (2): [MainPageRecorder] keeps main's 2xx GET answers in the lookup's
  * [MainPages] (the addresses, the status, the credentials flag and the page within the bound;
  * never a cookie the answer set) and only passes through without one, and for posts and file
- * checks. Synthetic answers only; no live calls.
+ * checks. S2c: a refused GET only as its address, status and reason. Synthetic answers only; no
+ * live calls.
  */
 class MainPagesTest {
     private val share = "https://www.facebook.com/share/v/Fixture1/"
@@ -120,7 +121,7 @@ class MainPagesTest {
     }
 
     @Test
-    fun `a failure is not kept and each lookup has its own pages`() = runTest {
+    fun `a failure is no page and each lookup has its own pages`() = runTest {
         val first = MainPages()
         val second = MainPages()
         val http = FakeExtractorHttpClient(
@@ -134,7 +135,42 @@ class MainPagesTest {
 
         assertEquals(emptyList<MainPages.Page>(), first.pages())
         assertEquals(listOf(resolved), second.pages().map { it.url })
+        // S2c: the refused GET is kept as its address, status and reason only; not in another lookup.
+        val refusal = first.refusals().single()
+        assertEquals(share, refusal.url)
+        assertEquals(429, refusal.statusCode)
+        assertEquals(SiteExtractionFailure.HTTP_STATUS, refusal.reason)
+        assertEquals(emptyList<MainPages.Refusal>(), second.refusals())
         assertSame(MainPages, MainPages.Key)
+    }
+
+    @Test
+    fun `S2c refused GETs keep no page, header or cookie, within the bound, and say no address`() = runTest {
+        val pages = MainPages(maxPages = 2)
+        val http = FakeExtractorHttpClient(
+            getResponder = { url, _ ->
+                if (url.endsWith("/net")) ExtractorHttpResult.Failure(SiteExtractionFailure.NETWORK) else null
+            },
+        )
+        withContext(pages) {
+            listOf("$resolved&a", "https://cdn.syndication.twimg.com/net", "$resolved&c").forEach { url ->
+                MainPageRecorder(http).get(url, signedIn, MAX)
+            }
+        }
+
+        assertEquals(listOf("$resolved&a", "https://cdn.syndication.twimg.com/net"), pages.refusals().map { it.url })
+        assertEquals(listOf(404, null), pages.refusals().map { it.statusCode })
+        assertEquals(
+            listOf(SiteExtractionFailure.HTTP_STATUS, SiteExtractionFailure.NETWORK),
+            pages.refusals().map { it.reason },
+        )
+        assertEquals(emptyList<MainPages.Page>(), pages.pages())
+        assertEquals(0, pages.unlisted)
+        pages.refusals().forEach { refusal ->
+            assertFalse(refusal.toString(), refusal.toString().contains("facebook") || refusal.toString().contains("twimg"))
+            assertFalse(refusal.toString(), refusal.toString().contains("c_user"))
+        }
+        assertEquals("Refusal(status=404, reason=HTTP_STATUS)", pages.refusals().first().toString())
     }
 
     private companion object {

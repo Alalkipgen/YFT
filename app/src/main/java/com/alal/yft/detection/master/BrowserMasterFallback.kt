@@ -174,8 +174,8 @@ class AndroidBrowserMasterFallback(
         val key = sites.videoKey(lookupUrl)
         // Social plan S1a (3): a Facebook lookup in a social-ladder build — Facebook's ladder's rows
         // name the video main's resolved link names, and its final answer gets main's words; S2b:
-        // a TikTok lookup too (TikTok's ladder). Every other build and page: false, each step as
-        // before.
+        // a TikTok lookup too (TikTok's ladder); S2c: an X lookup (X's). Every other build and
+        // page: false, each step as before.
         val social = socialLadder && SocialLadder.claims(key)
         // Item 2, run 4: the h-only trial's found page never gets the adapter's rows back (run 4's
         // Try again listed them); when Master cannot answer, the lookup fails and names the step.
@@ -333,7 +333,7 @@ class AndroidBrowserMasterFallback(
             is MasterResult.Failure -> noRows(
                 result.reason,
                 // S1a (3): the ladder's final answer (private or removed) in main's words; S2b:
-                // TikTok's photo post too.
+                // TikTok's photo post too; S2c: X's photo post and its no-such-post answer.
                 SocialLadder.finalMessage(result.reason, key, result.details)?.takeIf { social }
                     ?: if (result.reason == SiteExtractionFailure.DRM_PROTECTED) {
                         "Protected media cannot be captured."
@@ -398,7 +398,7 @@ class AndroidBrowserMasterFallback(
      * first counts as the video its resolved link names, as Master's rows do); details without
      * such a line (the tab's own playback alone) get one first. The comparison never fails the
      * lookup: a failure only says so on the line. S2b: a TikTok lookup's line (`master: tiktok`,
-     * [SocialLadder.line]) so too.
+     * [SocialLadder.line]) so too; S2c: an X lookup's (`master: x`), comparing the item.
      */
     private suspend fun socialCompared(
         details: List<String>,
@@ -446,7 +446,7 @@ class AndroidBrowserMasterFallback(
      */
     override fun trialPrimary(lookupUrl: String, primary: SiteAdapterOutcome): SiteAdapterOutcome {
         // Social plan S1a (9): the Facebook trial's own branch (null: not its build or lookup);
-        // S2b: TikTok's pages too.
+        // S2b: TikTok's pages too; S2c: X's.
         socialTrial(lookupUrl, primary)?.let { return it }
         if (!routeBTrial || !youtubeRouteB || !enabled) return primary
         val key = sites.videoKey(lookupUrl)?.takeIf { it.substringBefore(':') == YOUTUBE_SITE_ID } ?: return primary
@@ -495,7 +495,7 @@ class AndroidBrowserMasterFallback(
      * F5: it names the lookup's video, so main's watch page GET of it is kept for Master's replay.
      * Social plan S1a (2): in a social-ladder build a Facebook lookup (every link form) gets its
      * own record with Facebook's labels and its own `MainPages` ([SocialLadder.lookupContext]);
-     * S2b: a TikTok lookup its own with TikTok's.
+     * S2b: a TikTok lookup its own with TikTok's; S2c: an X lookup its own with X's.
      */
     override fun lookupContext(lookupUrl: String): CoroutineContext {
         val key = sites.videoKey(lookupUrl)

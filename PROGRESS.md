@@ -1,5 +1,101 @@
 # YFT Master Extractor backup
 
+## Social plan S2c — X's ladder: X1 main's answer replayed and judged, the link's item only, a photo post stops with no request (debug only, behind the flag) (2026-10-21)
+
+- Flag off (every CI build but the D7 social APKs, release, preview): today's path; main's X
+  adapter and R8's unjudged ask for X as before. Flag on (`-Pyft.socialLadder` with
+  `-Pyft.masterCapture`, debug only): an X lookup (every link form) gets its own record with X's
+  labels and its own `MainPages` naming X, and Master's social rung answers it with X's ladder.
+- `XLadder` (new, `extractor-master` `social/`; built as `TikTokLadder`, inside the same rules).
+  Claims only an X lookup with its own record; every other lookup keeps R8's path.
+  - **X1, main's answer replayed, no new ask** (no token self-check, no X2: decision 2): the answer
+    main's adapter got from X's embedded-post widget (`tweet-result`) for the link's post in this
+    lookup (its kept page, else its refused GET's status and reason), read and judged by
+    `XAnswerJudge`. Not read: after a sign-in or bot-check failure (the user's own playback, as
+    R8), for another post, a link main resolves first with no post in main's answer, a page over
+    `MainPages`' bound.
+  - **The link's item only** (the owner's input 2, decision 11): the post's own media, else its own
+    card's (`unified_card`, in the card's media order), else the quoted post's (main's order, 0.1);
+    the link's `/video/N` among the post's own or card's media, else the first. The item alone is
+    read by X's recipe (L3, as main's answer for that one item), its rows bound to the link's post
+    ID (a quoted post's files too). Line `master: x X1 item: the post's own video 1, 2 in the post;
+    MP4 files 3; playlist yes; length known` (counts and words only).
+  - **MP4 rows first, an HLS row only with a known length** (the owner's input 1, S6): the item's
+    MP4 files with the length main's answer states; the playlist is a row only when the item has
+    no MP4 file and its length is known (else nothing to check: needs playback). V and the init
+    check on every row (X's video host only); V never passes a playlist (no file start), so an
+    HLS-only post ends in the tab's playback (an intended difference).
+  - **A renamed key:** when the recipe reads nothing in the item, main's whole answer is read by the
+    recipe (L4 + L3) and staged only when its rows are one item's (their files' paths,
+    `XLadder.itemOf`); rows of two items are no evidence.
+  - **Final, no request:** a photo post (photos, and no media of the post, its card or its quoted
+    post typed video or GIF) → `NO_MEDIA_FOUND` in main's words ("This post has photos only, no
+    video."); the widget's 404 → `PRIVATE_OR_UNAVAILABLE` ("This X post is no longer available.").
+    Else null (the next stage: the visible tab's own playback, X3, then the user's browser; main's
+    reason stays). Line `master: x X1 main's answer: <class> (<evidence>); next: <next>`.
+  - **S7:** `SocialBudget.X` (new): 9 requests (main's one ask, V's at most 8 reads), 2 MiB (main's
+    answer bound), 20 s; sized by X's main and V, not copied from TikTok's (20, 4 MiB, 30 s). Over
+    it the rows are not checked (null). A 429 in main's answer → the site stops, its host cools 30
+    minutes (as TikTok's); main's own `RATE_LIMITED` → Master not asked (as before).
+- `XAnswerJudge` (new; reads only; by shape, never by words): rows bound to the post ID → the
+  checks (`DIRECT`; by shape and one item's: `PARTIAL`); the widget's 404 → `REMOVED` (final);
+  photos and no video → `PHOTO_ONLY` (final); an empty tombstone (an age-limited post's) →
+  `AGE_LIMITED` (the browser); a tombstone with X's notice link (a deleted post's and a protected
+  account's post's: the same shape and link, only the words differ; the link found within a bound
+  and only as a link) and any other tombstone → needs playback, never final; `{}` →
+  `VALUE_REJECTED` (the next rung: X answers so without the widget's token, a wrong token still
+  gets the whole answer; its line says "check value", as Details drop every line with the word
+  token); a 429 → the site stops; another status or no answer → `TRANSIENT`; off the widget's host,
+  another post, not JSON, an unknown shape → `SHAPE_CHANGED`. Copies main's `HOST`, `TOMBSTONE`,
+  `parse`'s empty-answer rule and `HTTP_NOT_FOUND`; `XLadder` copies main's `parse` order,
+  `videosOf`, `videoOf`, `isMediaUrl`, `extract`'s item choice and `XUrls`' `/video/N` (provenance
+  headers; 15 rows in `toolkit-provenance.tsv`; drift 0).
+- **The owner's input 3** (live shape check, 2026-10-21, signed out, shape only, nothing kept): a
+  public post 200 with the post; without the widget's token 200 `{}`; a deleted post and a
+  protected account's post the same tombstone with X's notice link; an age-limited post an empty
+  tombstone; a made-up ID 404. So the age-limited post is told apart (→ the browser), a deleted
+  post is not told apart from a protected one (→ today's reason, needs playback), and only the 404
+  is final as removed. Slot 7 (age-limited) → needs playback, `AGE_LIMITED … next: BROWSER`; slot
+  8 (removed) by its answer: X's notice tombstone → needs playback (today's reason), a 404 →
+  "This X post is no longer available." (final).
+- Kit: `MainPages` also keeps main's refused GETs (`Refusal`: the address, the status, main's
+  reason; no page, header or cookie; at most 4) so X1 judges main's 404 without asking again;
+  `MainPageRecorder` notes them. `SocialBudget.X`.
+- App: `SocialLadder` — `SITES` + X (`X_SITE_ID`); `claims` X's video keys; `stage` →
+  `SocialStages(FacebookLadder, TikTokLadder, XLadder)`; `finalMessage`: X's photo post (its final
+  PHOTO_ONLY line) in main's words (`XExtractor.PHOTOS_MESSAGE`), X's no-such-post answer (its
+  final REMOVED line) → `X_REMOVED_MESSAGE`; `trialSegment`: X's rows compare the item ("the same
+  item: yes" only when every Master row names main's one item by its file's path) and the
+  duration; Facebook's and TikTok's "the same video" as before. Main's X adapter already asks
+  through the shared adapter client (`SocialLadder.mainClient`: the recorder and main's pages), so
+  no new client. `BrowserMasterFallback`: comments only. The trial APK (`fb-trial`) now sets aside
+  X's rows too ("X trial: main's rows were set aside and Master found none. Tap Try again.",
+  `master: x trial: main's N rows set aside`).
+- Intended differences (listed in `docs/SUPPORT_MATRIX.md`, the owner's call): `{}` is not final
+  (§6.4 said empty → removed); X's notice tombstone → needs playback; the 404 → final as removed
+  (main: `NO_MEDIA_FOUND`, "may be protected, age-restricted or deleted"); an HLS-only post gets no
+  row that passes V; the photo check stricter than main's (a renamed video key never makes one).
+- Not done: X2 (a new ask; decision 2); the census's Master trial still runs R8's way for X (task
+  6b runs the site packs there).
+- Tests (JVM, synthetic answers, made-up IDs): `XAnswerJudgeTest` 6 and `XLadderTest` 10
+  (`extractor-master`, new); `MainPagesTest` +1 (refused GETs: no page, header or cookie, within
+  the bound, no address in its text; one test renamed); `SocialLadderXTest` 5 (app, new);
+  `SocialLadderTest` changed (claims: X yes). No other expectation changed.
+- Local checks: `extractor-sites` 293, `extractor-master` 905 (+17; 2 skipped),
+  `extractor-master-android` 69, `app` 1067 (+5; 66 skipped), all passed; lint 0 errors; assemble
+  and assemble with the flags on (`-Pyft.masterCapture -Pyft.socialLadder -Pyft.socialTrial`)
+  built; drift 0 (148 copied symbols).
+- The next phone session (the owner, after S2d part 1; `yft-d7-normal` and `yft-d7-fb-trial` of
+  the last pushed `[d7]` commit): Facebook's census with and without the VPN, signed out, flag off
+  (the re-baseline after decision 18), link 9's desktop form (`yft-d7-normal`: the post's video
+  only; `yft-d7-fb-trial`: "Master found none" with its step in Details) and a short regression
+  set; TikTok's proof against its B0 (`yft-d7-fb-trial`; T1's positives possibly in runs at least
+  30 minutes apart); X's proof on B0's 8 slots, VPN Boston and none, signed out
+  (`yft-d7-fb-trial` in the app's browser: slots 1–6 Master's rows of main's item, "the same item:
+  yes; duration within 1 s: yes", V pass; slot 7 needs playback; slot 8 as its answer above;
+  wrong rows 0; no regression against B0); Instagram's proof and its tab-fetch probe (S2d part 1).
+- Next: S2d (Instagram, part 1).
+
 ## Social plan S2b — TikTok's ladder: T1 the embed player judged, T2 main's pages, a photo post stops with no request (debug only, behind the flag) (2026-10-21)
 
 - Flag off (every CI build but the D7 social APKs, release, preview): today's path; main's TikTok
