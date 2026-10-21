@@ -1,5 +1,68 @@
 # YFT Master Extractor backup
 
+## Social plan 0.3 fix — Facebook's unavailable page read by its own route, in any language (main) (2026-10-21)
+
+- `FacebookPageParser` (`extractor-sites`, main's Facebook reader; §7.4 step 3, A1): only when the
+  page has no playable media and no English marker matches (`ACCESS_MARKERS`, unchanged, read
+  first), `accessFailure` reads the page's own route (`initialRouteInfo.route`): the error route
+  (`comet.fbweb.CometErrorRoute`) with its root's `privacy` a JSON `true` → `PRIVATE_OR_UNAVAILABLE`;
+  the video's not-found route (`comet.fbweb.CometVideoHomeVideoNotFoundRoute`) →
+  `PRIVATE_OR_UNAVAILABLE`. In `accessFailure`, so both parser paths (no video node; a video node
+  without a playable file) are covered; the scan bounded as in Master's judge (at most 4 route
+  infos, each at most 256 KiB, read as strict JSON); one route for the page, else none.
+- Today's reason kept for: the words alone; no flag; a flag as a string or `false`; a route's name
+  only elsewhere on the page; two routes that disagree; renamed keys (`initialRouteInfo`, `route`,
+  `rootView`, `privacy`, `canonicalRouteName`), a renamed or lowercase route, a broken route info;
+  a reel's route with `video: null` (A2: it stays recoverable; locked by a test).
+- The lookup's flow unchanged (`FacebookExtractor` not touched): the final answer only from the
+  session page (main's last page read): a reel's public page alone never ends the lookup (its error
+  with the video on the session page → rows; its video with the session page's error → its files);
+  a post link's unavailable page → `PRIVATE_OR_UNAVAILABLE`, never `NO_MEDIA_FOUND` (a post's page
+  without the route: `NO_MEDIA_FOUND`, as today).
+- Flag off (`-Pyft.socialLadder`): today's lookups except this verdict (on such a page it is main's
+  own final answer: Master is skipped, nothing captured). Not touched: Master's code,
+  `FacebookExtractor`, the provenance-tracked symbols (`FacebookPageParser`'s 16 rows in
+  `toolkit-provenance.tsv`, `ACCESS_MARKERS` included), the workflows; route B, the parity tests,
+  `FixtureBaselineTest` and the drift check unchanged.
+- Changed test expectations (the pages A1 now reads): `FacebookWorldTest` "the unavailable page in
+  two languages - final on its route, never on its words": the route cases (another English,
+  Burmese, the not-found route; both link forms): main `RESPONSE_CHANGED` → `PRIVATE_OR_UNAVAILABLE`,
+  Master `Failure(PRIVATE_OR_UNAVAILABLE)` with F2's lines → `Skipped(PRIVATE_OR_UNAVAILABLE)`, every
+  ask main's page (no file ask, captures 0, as before); `FacebookWorldTest` "every mutation, every
+  link form - …": "private, Burmese" and "removed, Burmese" `FINAL` → `MAIN_FINAL`;
+  `FacebookLadderF2Test` "the page's own route on main's page is final in any language, never
+  captured": main `RESPONSE_CHANGED` (watch, share) and `NO_MEDIA_FOUND` (post) →
+  `PRIVATE_OR_UNAVAILABLE`, Master `Failure(PRIVATE_OR_UNAVAILABLE)` with F2's lines (a watch link's
+  plugin player asked once; a post's and a share link's "not asked" line) →
+  `Skipped(PRIVATE_OR_UNAVAILABLE)`, the plugin player not asked (capture 0 and main's one page, as
+  before); `FacebookLadderF2Test` "pages that disagree, the plugin player's needs playback and a page
+  over the bound are not final" (the owner's go, 2026-10-21): cases 2 and 3 (a watch link, the
+  Burmese error route with `privacy: true`; the plugin player names the video, or a bound of 64
+  characters): `NeedsPlayback` with F1's and F2's lines, capture 1 → main `PRIVATE_OR_UNAVAILABLE`,
+  `Skipped(PRIVATE_OR_UNAVAILABLE)`, capture 0, nothing checked, the plugin player not asked; their
+  F2 checks run in two new cases (a reel: the route on main's public page, its session page a 500 →
+  main `HTTP_STATUS`, F2 reads the public page alone): the plugin player names the video → old case
+  2's three lines, a bound of 64 → old case 3's two lines, both `NeedsPlayback`, capture 1; case 1
+  unchanged, still 6 tests; `SocialLadderF2Test` `aPostsPrivatePageEndsTheLookupInMainsWordsWithNothingAsked`:
+  the details' "master: facebook F2 main's pages: next: FINAL" → no "master: facebook" line (the
+  reason, the message, the asks and the captures as before); `SocialLadderF2Test`
+  `flagOffTheSameLookupsAnswerAsToday`, the post: `NO_MEDIA_FOUND`, "Play the video on this page,
+  then tap Try again.", captures 1 → `PRIVATE_OR_UNAVAILABLE`, "This Facebook post is private or no
+  longer available.", captures 0 (today's engine and the switch off still equal).
+- Open: F2 (Master, behind the flag) still ends a reel's lookup `PRIVATE_OR_UNAVAILABLE` from the
+  public page alone when the session page was not read (a 500: main `HTTP_STATUS`, the route only on
+  the public page; `FacebookLadder`'s route rule), against §7.4's "the public page alone never ends
+  the lookup"; fix pending in its own commit.
+- Tests: `FacebookPageRouteTest` 6 (new; JVM: the route in English and Burmese on both parser
+  paths; the markers first and a playable video over any route; the decoys keep today's reason; the
+  scan's bound; a watch link and a post end on the route; a reel's public page alone never ends the
+  lookup). Local (JDK 17): `:extractor-master:test` 865 tests (2 skipped),
+  `:extractor-master-android:testDebugUnitTest` 69 and `:app:testDebugUnitTest` 1041 (66 skipped)
+  passed; `:extractor-sites:test` 291 passed; `:app:lintDebug` and `:app:assembleDebug` passed;
+  drift check 0 drifted.
+- Next: §7.4 step 4, the owner, with the APK of this commit's SHA (signed out, the same day: TikTok
+  only with the VPN, Facebook only with the VPN, Facebook only without it); then step 5 (docs only).
+
 ## Social plan 0.4 (c) — the census's phases, its two stops and a baseline per site, VPN and session (debug builds only) (2026-10-21)
 
 - The plan, recorded (the owner, 2026-10-21; `MASTER_KEY_SOCIAL_PLAN.md` §7.4, §8 items 13–17): the

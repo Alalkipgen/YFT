@@ -218,19 +218,20 @@ class FacebookWorldTest {
             assertTrue(mains.asks.all { it.kind == Kind.PAGE })
             assertRules(english, mains)
 
-            // Words main does not know (another English, Burmese): the page's route, final.
+            // Words main does not know (another English, Burmese): main reads the page's route
+            // (§7.4's A1), final as its English words; Master asks nothing.
             val routes = listOf(
-                routePage(FacebookAnswerJudge.ERROR_ROUTE, privacy = true, title = ENGLISH) to "PRIVATE (route: error (privacy))",
-                routePage(FacebookAnswerJudge.ERROR_ROUTE, privacy = true, title = BURMESE) to "PRIVATE (route: error (privacy))",
-                routePage(FacebookAnswerJudge.NOT_FOUND_ROUTE, title = BURMESE) to "REMOVED (route: video not found)",
+                routePage(FacebookAnswerJudge.ERROR_ROUTE, privacy = true, title = ENGLISH),
+                routePage(FacebookAnswerJudge.ERROR_ROUTE, privacy = true, title = BURMESE),
+                routePage(FacebookAnswerJudge.NOT_FOUND_ROUTE, title = BURMESE),
             )
-            for ((body, line) in routes) {
+            for (body in routes) {
                 val world = World()
                 world.page = { url, _ -> ok(body, url) }
                 val lookup = world.lookup(link)
-                assertEquals(SiteExtractionFailure.RESPONSE_CHANGED, lookup.mainFailure)
-                assertEquals(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, (lookup.master as MasterResult.Failure).reason)
-                assertLines(lookup, "$F2: page 1: $line", "$F2: next: FINAL")
+                assertEquals(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, lookup.mainFailure)
+                assertEquals(MasterResult.Skipped(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE), lookup.master)
+                assertTrue(lookup.asks.all { it.kind == Kind.PAGE })
                 assertTrue(lookup.of(Kind.FILE).isEmpty())
                 assertEquals(0, lookup.captures)
                 assertRules(world, lookup)
@@ -266,8 +267,8 @@ class FacebookWorldTest {
             Case("a 429 at the player", Shape.FILE_KEYS, Player.LIMITED, Outcome.NO_ROWS),
             Case("the player's sign-in wall", Shape.FILE_KEYS, Player.SIGN_IN, Outcome.ROWS),
             Case("main's sign-in wall", Shape.SIGN_IN, Player.FILES, Outcome.PLAYBACK),
-            Case("private, Burmese", Shape.PRIVATE, Player.NONE, Outcome.FINAL),
-            Case("removed, Burmese", Shape.REMOVED, Player.NONE, Outcome.FINAL),
+            Case("private, Burmese", Shape.PRIVATE, Player.NONE, Outcome.MAIN_FINAL),
+            Case("removed, Burmese", Shape.REMOVED, Player.NONE, Outcome.MAIN_FINAL),
             Case("private, main's English", Shape.MAIN_WORDS, Player.NONE, Outcome.MAIN_FINAL),
             Case("the words alone", Shape.WORDS, Player.NONE, Outcome.PLAYBACK),
         )

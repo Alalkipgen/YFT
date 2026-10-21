@@ -81,12 +81,12 @@ class FacebookLadderF2Test {
         val post = identify(POST)
         val share = identify(SHARE)
         val cases = listOf(
-            // Main reads these RESPONSE_CHANGED (its markers are English words, not these), a post
-            // NO_MEDIA_FOUND (S0d's slot 13); Master reads the page's route.
-            Route(WATCH, routePage(FacebookAnswerJudge.ERROR_ROUTE, privacy = true, title = ENGLISH), SiteExtractionFailure.RESPONSE_CHANGED, "PRIVATE (route: error (privacy))"),
-            Route(WATCH, routePage(FacebookAnswerJudge.ERROR_ROUTE, privacy = true, title = BURMESE), SiteExtractionFailure.RESPONSE_CHANGED, "PRIVATE (route: error (privacy))"),
-            Route(POST, routePage(FacebookAnswerJudge.ERROR_ROUTE, privacy = true, title = BURMESE), SiteExtractionFailure.NO_MEDIA_FOUND, "PRIVATE (route: error (privacy))"),
-            Route(SHARE, routePage(FacebookAnswerJudge.NOT_FOUND_ROUTE, title = BURMESE), SiteExtractionFailure.RESPONSE_CHANGED, "REMOVED (route: video not found)"),
+            // Main reads the page's route (§7.4's A1; its English markers are not these words): final
+            // in any language, a post's too (S0d's slot 13); Master is skipped.
+            Route(WATCH, routePage(FacebookAnswerJudge.ERROR_ROUTE, privacy = true, title = ENGLISH), SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE),
+            Route(WATCH, routePage(FacebookAnswerJudge.ERROR_ROUTE, privacy = true, title = BURMESE), SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE),
+            Route(POST, routePage(FacebookAnswerJudge.ERROR_ROUTE, privacy = true, title = BURMESE), SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE),
+            Route(SHARE, routePage(FacebookAnswerJudge.NOT_FOUND_ROUTE, title = BURMESE), SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE),
         )
         for (case in cases) {
             val identity = identify(case.link)
@@ -98,21 +98,11 @@ class FacebookLadderF2Test {
             val lookup = lookup(case.link, main, plugin, capture = capture)
 
             assertEquals(case.link, case.mainFailure, lookup.mainFailure)
-            val failure = lookup.result as MasterResult.Failure
-            assertEquals(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, failure.reason)
+            // Main's own final answer: Master is skipped (no F2 line), nothing asked or captured.
+            assertEquals(MasterResult.Skipped(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE), lookup.result)
             assertEquals(0, capture.calls)
             assertEquals(listOf(identity.canonicalPageUrl), main.requestedUrls)
-            val details = failure.details
-            assertTrue(details.toString(), "$F2: page 1: ${case.line}" in details)
-            assertTrue(details.toString(), "$F2: next: FINAL" in details)
-            if (case.link == WATCH) {
-                assertEquals(listOf(embedUrl(identity)), plugin.requestedUrls)
-            } else {
-                // Unresolved (no video in main's answer): judged for the route only, nothing asked.
-                assertTrue(plugin.requestedUrls.isEmpty())
-                assertTrue(details.toString(), "$LADDER: a link main resolves first, no video in main's answer; not asked" in details)
-            }
-            assertBare(details)
+            assertTrue(plugin.requestedUrls.isEmpty())
         }
         assertTrue(post.requiresCanonicalResolution && share.requiresCanonicalResolution)
     }
@@ -132,24 +122,47 @@ class FacebookLadderF2Test {
                 }
             },
         )
+        // A reel: main's public page shows the route, its session page answers 500 (main:
+        // HTTP_STATUS); F2 reads the public page alone.
+        fun publicOnly() = FakeExtractorHttpClient(
+            getResponder = { url, headers ->
+                when {
+                    url != reel.canonicalPageUrl -> null
+                    "Cookie" in headers -> ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 500)
+                    else -> ExtractorHttpResult.Success(200, private, url, HTML)
+                }
+            },
+        )
         val cases = listOf(
             NotFinal(
                 REEL, disagreeing, answering(embedUrl(reel) to NO_DATA, contentType = HTML), MainPages(),
                 listOf("$F2: page 1: PRIVATE (route: error (privacy))", "$F2: page 2: SHAPE_CHANGED (no rows; no route)", "$F2: next: PLAYBACK"),
             ),
+            // A watch link's page with the route: main's own final answer (§7.4's A1), as main's
+            // English page; Master is skipped, the plugin player not asked.
             NotFinal(
                 WATCH, answering(watch.canonicalPageUrl to private, contentType = HTML),
                 answering(embedUrl(watch) to embed(VIDEO), contentType = HTML), MainPages(),
+                emptyList(), mainFailure = SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
+            ),
+            NotFinal(
+                WATCH, answering(watch.canonicalPageUrl to private, contentType = HTML),
+                answering(embedUrl(watch) to NO_DATA, contentType = HTML), MainPages(maxChars = 64),
+                emptyList(), mainFailure = SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
+            ),
+            NotFinal(
+                REEL, publicOnly(), answering(embedUrl(reel) to embed(REEL_VIDEO), contentType = HTML), MainPages(),
                 listOf(
                     "$F1: NEEDS_PLAYBACK (the plugin player: needs playback); next: PLAYBACK",
                     "$F2: page 1: PRIVATE (route: error (privacy))",
                     "$F2: the plugin player names the video; next: PLAYBACK",
                 ),
+                mainFailure = SiteExtractionFailure.HTTP_STATUS,
             ),
             NotFinal(
-                WATCH, answering(watch.canonicalPageUrl to private, contentType = HTML),
-                answering(embedUrl(watch) to NO_DATA, contentType = HTML), MainPages(maxChars = 64),
+                REEL, publicOnly(), answering(embedUrl(reel) to NO_DATA, contentType = HTML), MainPages(maxChars = 64),
                 listOf("$F2: page 1: not kept (over the bound)", "$F2: next: PLAYBACK"),
+                mainFailure = SiteExtractionFailure.HTTP_STATUS,
             ),
         )
         for (case in cases) {
@@ -158,6 +171,15 @@ class FacebookLadderF2Test {
 
             val lookup = lookup(case.link, case.main, case.plugin, pages = case.pages, validator = validator, capture = capture)
 
+            case.mainFailure?.let { assertEquals(case.link, it, lookup.mainFailure) }
+            if (case.mainFailure == SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE) {
+                // Main's own final answer: Master is skipped, nothing asked, checked or captured.
+                assertEquals(MasterResult.Skipped(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE), lookup.result)
+                assertEquals(0, capture.calls)
+                assertTrue(validator.seen.isEmpty())
+                assertTrue(case.plugin.requestedUrls.isEmpty())
+                continue
+            }
             // The tab's own playback follows (here it has none): no rows, no final answer.
             val details = (lookup.result as MasterResult.NeedsPlayback).details
             case.lines.forEach { assertTrue(details.toString(), it in details) }
@@ -283,7 +305,7 @@ class FacebookLadderF2Test {
         val asked: SitePageIdentity,
     )
 
-    private class Route(val link: String, val page: String, val mainFailure: SiteExtractionFailure, val line: String)
+    private class Route(val link: String, val page: String, val mainFailure: SiteExtractionFailure)
 
     private class NotFinal(
         val link: String,
@@ -291,6 +313,8 @@ class FacebookLadderF2Test {
         val plugin: FakeExtractorHttpClient,
         val pages: MainPages,
         val lines: List<String>,
+        /** Main's answer, when the case checks it; PRIVATE_OR_UNAVAILABLE is final (Master skipped). */
+        val mainFailure: SiteExtractionFailure? = null,
     )
 
     private fun engine(
@@ -326,7 +350,6 @@ class FacebookLadderF2Test {
         const val POST = "https://www.facebook.com/fixturepage/posts/$POST_ID"
         const val COOKIE = "c_user=0; xs=fixture-cookie"
         const val HTML = "text/html"
-        const val LADDER = "master: facebook ladder"
         const val F1 = "master: facebook F1 plugin player"
         const val F2 = "master: facebook F2 main's pages"
         const val ENGLISH = "This content is not here for you now"

@@ -70,7 +70,8 @@ class SocialLadderF2Test {
         assertEquals(1, fixture.main.asked.size)
         assertTrue(fixture.master.asked.isEmpty())
         assertEquals(0, fixture.captures.get())
-        assertTrue(failed.details.toString(), "master: facebook F2 main's pages: next: FINAL" in failed.details)
+        // Main's own final answer (§7.4's A1, the page's route): Master is skipped, no F2 line.
+        assertTrue(failed.details.toString(), failed.details.none { it.startsWith("master: facebook") })
         assertTrue(failed.details.none { BURMESE in it || POST_ID in it })
     }
 
@@ -78,12 +79,13 @@ class SocialLadderF2Test {
     fun flagOffTheSameLookupsAnswerAsToday() = runTest {
         // Today's engine (no ladder), and the ladder present with the switch off: no record and no
         // main's pages, so it claims nothing and R8's path answers (a link main resolves first is
-        // not asked about), in today's words.
+        // not asked about), in today's words; the post's unavailable page is main's own final
+        // answer (§7.4's A1), nothing captured.
         val cases = listOf(
-            SHARE to SiteExtractionFailure.RESPONSE_CHANGED,
-            POST to SiteExtractionFailure.NO_MEDIA_FOUND,
+            Triple(SHARE, SiteExtractionFailure.RESPONSE_CHANGED, "Play the video on this page, then tap Try again."),
+            Triple(POST, SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, "This Facebook post is private or no longer available."),
         )
-        for ((page, reason) in cases) {
+        for ((page, reason, message) in cases) {
             val today = Fixture(page = page, socialLadder = false, ladder = false)
             val off = Fixture(page = page, socialLadder = false, ladder = true)
 
@@ -92,9 +94,10 @@ class SocialLadderF2Test {
 
             assertEquals(todays, offs)
             assertEquals(reason, offs.reason)
-            assertEquals("Play the video on this page, then tap Try again.", offs.message)
+            assertEquals(message, offs.message)
             assertTrue(off.master.asked.isEmpty())
-            assertEquals(1, off.captures.get())
+            // The user's own playback only after a reason that is not final.
+            assertEquals(if (reason == SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE) 0 else 1, off.captures.get())
             assertTrue(offs.details.none { it.startsWith("master: facebook") })
         }
     }
