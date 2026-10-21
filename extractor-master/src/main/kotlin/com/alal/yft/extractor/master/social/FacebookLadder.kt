@@ -59,6 +59,14 @@ import kotlinx.coroutines.withTimeoutOrNull
  * and F1's own after its 429 or bot check (a checkpoint address) start their cooldown when the
  * stage ends.
  *
+ * S1a (7): the rows bound to the video ID only when the answer holds one video under it
+ * ([FacebookIdentity]): F1's answer and each of F2's pages that gave rows are walked once more
+ * (the same documents the readers read); two videos under the ID (an ID-less list of other or
+ * whole videos, two objects with the ID giving one field disjoint files, a list item's file
+ * under a field the video's object has empty or with another file, a row's file listed only
+ * under another ID) or a walk over its bound → no rows from that answer (a short line says why;
+ * F1: the next rung, F2 still reads; an F2 page: not staged).
+ *
  * Claims only a Facebook lookup with its own record ([LookupRecord]: the social-ladder build's,
  * `-Pyft.socialLadder`); every other lookup keeps R8's path. [identify] names a page's video (the
  * app's adapters); [contractsOf] builds the recipe source around the ladder's client (the app's
@@ -173,9 +181,21 @@ class FacebookLadder(
         val contract = (outcome as? SiteContracts.Asked.Answer)?.snapshot?.contract
         val recipe = contract?.let { contracts.recipeOf(it.site) }
         val evidence = if (contract != null && recipe != null) ContractReader(read, recipe, contract).read() else null
-        val rows = evidence?.candidates?.size ?: 0
+        // S1a (7): the rows only when the answer holds one video under the video ID.
+        val candidates = evidence?.candidates.orEmpty()
+        val mixed = if (contract != null && recipe != null && candidates.isNotEmpty()) {
+            FacebookIdentity.read(
+                FacebookIdentity.pluginDocuments(contract.body, recipe),
+                identity.contentId,
+                candidates.map { it.mediaUrl },
+            ).takeIf { it != FacebookIdentity.Reading.ONE_VIDEO }
+        } else {
+            null
+        }
+        mixed?.let { details += "$F1: ${it.line}" }
+        val rows = if (mixed != null) 0 else candidates.size
         val drm = evidence?.terminalFailure == SiteExtractionFailure.DRM_PROTECTED
-        val needsPlayback = contract != null && recipe != null && rows == 0 && !drm &&
+        val needsPlayback = mixed == null && contract != null && recipe != null && rows == 0 && !drm &&
             namesVideo(contract.body, identity.contentId, recipe.nodeIdFields)
         val judged = FacebookAnswerJudge.judge(answer, rows, needsPlayback = needsPlayback, drm = drm)
         details += "$F1: ${judged.answerClass.name} (${judged.evidence}); next: ${judged.next.name}"
@@ -282,11 +302,20 @@ class FacebookLadder(
                         PageSnapshot(request.pageUrl, request.generation, apiResponses = documents),
                     )
                     val bound = identity?.let { "$SITE_ID:${it.contentId}" }
-                    val found = if (bound == null || evidence.terminalFailure != null) {
-                        0
+                    val boundRows = if (bound == null || evidence.terminalFailure != null) {
+                        emptyList()
                     } else {
-                        evidence.candidates.count { it.pageRole == PageMediaRole.MAIN && it.videoId == bound }
+                        evidence.candidates.filter { it.pageRole == PageMediaRole.MAIN && it.videoId == bound }
                     }
+                    // S1a (7): the rows only when the page holds one video under the video ID.
+                    val mixed = if (identity != null && boundRows.isNotEmpty()) {
+                        FacebookIdentity.read(documents, identity.contentId, boundRows.map { it.mediaUrl })
+                            .takeIf { it != FacebookIdentity.Reading.ONE_VIDEO }
+                    } else {
+                        null
+                    }
+                    mixed?.let { details += "$line: ${it.line}" }
+                    val found = if (mixed != null) 0 else boundRows.size
                     val judged = FacebookAnswerJudge.judge(
                         ExtractorHttpResult.Success(page.statusCode, body, page.finalUrl, page.contentType),
                         found,

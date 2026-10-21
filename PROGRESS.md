@@ -1,5 +1,48 @@
 # YFT Master Extractor backup
 
+## Social plan S1a (7) — post identity bound to the video ID, mutation tests, behind the flag (2026-10-21)
+
+- `FacebookIdentity` (`extractor-master` `social/`, used by `FacebookLadder` only): in a Facebook
+  lookup with its own record (the social-ladder build's) the rows bound to the video ID count only
+  when the answer they came from holds one video under that ID. F1's answer (the plugin player) and
+  each of F2's pages (main's pages) that gave rows are walked once more over the documents the
+  readers read (F1: the JSON scripts and the loader calls, as `ContractReader` reads them; F2: the
+  page's data scripts that name the video), the JSON texts inside them too, at most 500,000 values.
+- An object's own ID: `video_id`, `videoId`, `shortcode`, `code` or `rest_id`, else a numeric `id`
+  (a story's or a fragment's text ID names no video); an object without one is in its parent's
+  scope. A file: an https address whose path ends in a media file's extension (a manifest or an
+  image is none), compared by its path (copies of a file differ in their signatures).
+- Two videos under the ID, in the video's scope: an ID-less list item holds two or more files (a
+  list of related or of whole videos; another ID's subtree aside); two objects with the video's ID
+  give one field disjoint files (copies share theirs: the legacy fields, another script's copy); an
+  ID-less list item holds a file under a field an object above it has empty or with another file
+  (outside a list only another file counts: the delivery copies' shape); a row's file is listed only
+  under another ID (a related video by a plain or a numeric ID, which the readers do not take for
+  one).
+- Two videos, or the walk over its bound → no rows from that answer: F1 → the line "two videos under
+  the video ID; no rows" (or "the video ID not proven (over the walk's bound); no rows"), judged
+  with no rows: the next rung, F2 still reads; an F2 page → the line, judged with no rows, not
+  staged. Lines: short labels, never a link, an ID or the page's words.
+- Known limits: an ID-less entry inside the video's object with one file under a field the object
+  lacks or leaves empty still reads as the video's (a single rendition looks the same); the plugin
+  player's second item claiming the video, when the first lists no file, is taken (as main would);
+  what the readers find outside these documents is not walked; the rows of several pages are not
+  compared. The plugin player's item without its own ID (the player naming the video) with two
+  files: not proven the video's, no rows.
+- Already right, now kept by the tests: the video's ID missing, its key renamed or naming another
+  video → no rows; a related video with its own ID beside the video or inside it → only the video's
+  rows; a share link's rows keyed to the video main resolved; a post main did not resolve (two
+  videos on its page) → F1 not asked, F2 judges the route only.
+- Flag off: no record and no ladder for a Facebook lookup, so no walk: R8's path, the rows and the
+  messages are today's; route B, the parity tests, `FixtureBaselineTest`, the drift check, the
+  census and the YouTube files unchanged.
+- Tests: `FacebookIdentityTest` 7 (new, JVM; main's real Facebook adapter over synthetic pages),
+  `SocialLadderIdTest` 2 (new, app; the switch passed explicitly). Local (JDK 17):
+  `:extractor-master:test` 845 tests (2 skipped), `:extractor-master-android:testDebugUnitTest` 69
+  and `:app:testDebugUnitTest` 1041 (66 skipped) passed; `:app:lintDebug` and `:app:assembleDebug`
+  passed.
+- Next in S1a: the simulator world.
+
 ## Social plan S1a (6) — S6, row checks, behind the flag (2026-10-20)
 
 - S6 (`SocialRowCheck`, `OkHttpRowReader`, `extractor-master` `social/`): in a social lookup (its

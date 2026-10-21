@@ -613,6 +613,17 @@ earlier):
   lifetime (`oe`, at least 60 s left); flag off = today (the engine's check itself);
   `FacebookLadderS6Test` 7, `OkHttpRowReaderTest` 4, `SocialLadderS6Test` 2. Next: the mutation
   tests, the simulator world.
+- **(7) built (2026-10-21), behind the flag:** post identity bound to the video ID: in a Facebook
+  lookup F1's answer and each of F2's pages that gave rows are walked once more (`FacebookIdentity`:
+  the documents the readers read, the JSON texts inside, at most 500,000 values; an object's own ID,
+  else its parent's; files compared by their path); two videos under the ID (an ID-less list item
+  with two or more files, two objects with the ID giving one field disjoint files, a list item's
+  file under a field the video's object has empty or with another file, a row's file listed only
+  under another ID) or the walk over its bound → no rows from that answer (F1: the next rung, F2
+  still reads; an F2 page: not staged); known limits: one ID-less file under a field the video's
+  object lacks or leaves empty, the player's second item claiming the video when the first has no
+  file; flag off = today; `FacebookIdentityTest` 7, `SocialLadderIdTest` 2. Next: the simulator
+  world.
 
 **S2b TikTok:** T1 the embed player (`embed/v2`), judged; a bot check stops; a photo post stops
 with no request; T2 L3; T3 capture; TikTok's own client (not the shared one) wrapped by the
