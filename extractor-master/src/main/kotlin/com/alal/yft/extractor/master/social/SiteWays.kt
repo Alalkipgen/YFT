@@ -10,6 +10,7 @@ import com.alal.yft.extractor.api.SiteExtractionFailure.GEO_RESTRICTED
 import com.alal.yft.extractor.api.SiteExtractionFailure.LOGIN_REQUIRED
 import com.alal.yft.extractor.api.SiteExtractionFailure.NO_MEDIA_FOUND
 import com.alal.yft.extractor.api.SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE
+import com.alal.yft.extractor.api.SiteExtractionFailure.RESPONSE_CHANGED
 import com.alal.yft.extractor.master.lookup.AskLabels
 import java.net.URI
 
@@ -77,7 +78,8 @@ class Site internal constructor(
  * value); the readings ([SiteReadings]) mark what a 2xx answer held. The census kinds:
  *
  * - **Facebook** (13): 3 videos, 3 reels, a watch link, a share link, a post with a video, a group
- *   post, a live replay; sign-in-only (rows with the session, else sign-in is asked); removed.
+ *   post, a live replay; sign-in-only (rows with the session, else sign-in is asked; signed out,
+ *   main's private or changed-page answer is ambiguous: 0.4 (c)); removed.
  * - **TikTok** (10): 4 single videos, a long video; a photo post (no media); private (private or
  *   sign-in); region-limited (region, or private: TikTok's status for one page is not final, P46);
  *   removed; a post only the desktop page lists in HD (rows, at least 720 lines).
@@ -131,7 +133,9 @@ object SiteWays {
             Kind("post with a video", Expect(rows = true)),
             Kind("group post", Expect(rows = true)),
             Kind("live replay", Expect(rows = true)),
-            signInOnly,
+            // 0.4 (c): signed out, Facebook answers a friends-only post as it answers a missing one,
+            // so without the session that answer is neither way; no sign-in answer is guessed.
+            Kind("sign-in-only", signInOnly.expect.copy(ambiguousWithoutSession = setOf(PRIVATE_OR_UNAVAILABLE, RESPONSE_CHANGED))),
             removed,
         ),
         mediaPath = null,

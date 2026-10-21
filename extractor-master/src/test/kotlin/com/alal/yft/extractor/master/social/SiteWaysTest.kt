@@ -5,6 +5,7 @@ import com.alal.yft.extractor.api.SiteExtractionFailure.GEO_RESTRICTED
 import com.alal.yft.extractor.api.SiteExtractionFailure.LOGIN_REQUIRED
 import com.alal.yft.extractor.api.SiteExtractionFailure.NO_MEDIA_FOUND
 import com.alal.yft.extractor.api.SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE
+import com.alal.yft.extractor.api.SiteExtractionFailure.RESPONSE_CHANGED
 import com.alal.yft.extractor.api.SiteExtractor
 import com.alal.yft.extractor.api.json.BoundedJsonParser
 import com.alal.yft.extractor.api.json.JsonReadResult
@@ -132,9 +133,15 @@ class SiteWaysTest {
         // 0.4: Instagram's removed slot, signed out, cannot tell its sign-in answer from a shown post's.
         assertEquals(removed.copy(ambiguousWithoutSession = setOf(LOGIN_REQUIRED)), SiteWays.INSTAGRAM.kind(10)!!.expect)
         assertEquals("removed", SiteWays.INSTAGRAM.kind(10)!!.label)
+        // 0.4 (c): Facebook's sign-in-only slot, signed out, answers as a missing post does.
+        assertEquals(
+            SiteWays.INSTAGRAM.kind(9)!!.expect.copy(ambiguousWithoutSession = setOf(PRIVATE_OR_UNAVAILABLE, RESPONSE_CHANGED)),
+            SiteWays.FACEBOOK.kind(12)!!.expect,
+        )
+        assertEquals("sign-in-only", SiteWays.FACEBOOK.kind(12)!!.label)
         assertEquals(
             "no other kind is ambiguous",
-            listOf(SiteWays.INSTAGRAM.kind(10)),
+            listOf(SiteWays.FACEBOOK.kind(12), SiteWays.INSTAGRAM.kind(10)),
             SiteWays.ALL.flatMap { it.slots }.filter { it.expect.ambiguousWithoutSession.isNotEmpty() },
         )
 

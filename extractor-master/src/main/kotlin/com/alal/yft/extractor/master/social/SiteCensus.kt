@@ -5,6 +5,9 @@ import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SitePageIdentity
+import com.alal.yft.extractor.api.json.asArrayOrEmpty
+import com.alal.yft.extractor.api.json.asStringOrNull
+import com.alal.yft.extractor.api.json.get
 import com.alal.yft.extractor.master.MasterFallbackEngine
 import com.alal.yft.extractor.master.MasterMediaValidator
 import com.alal.yft.extractor.master.MasterPolicy
@@ -18,6 +21,7 @@ import com.alal.yft.extractor.master.lookup.LookupRecord
 import com.alal.yft.extractor.master.lookup.RouteBHttpClient
 import com.alal.yft.extractor.master.lookup.RouteBLookup
 import com.alal.yft.extractor.master.policy.TerminalRules
+import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
@@ -135,8 +139,21 @@ interface MainLookup {
  * endpoint rule). 0.4 (b): after its rules the report holds the diff against the last run the
  * state kept ([SiteCensusDiff]: per slot CHANGED / BREAKING lines).
  *
- * **Stops:** a 429 or a bot check (any ask, the hidden page included, V's too) stops the site for
- * the run and for [COOLDOWN_MILLIS] after (the state). **Budgets** (checked before each step): at
+ * Social plan 0.4 (c) (§7.4 step 2): a site runs in three phases: (i) every slot's main and V on
+ * main's best row, in slot order; (ii) route B after main's failures; (iii) the trials, after the
+ * site's final answers about the post first, then after main's rows, each in slot order. A slot's
+ * Master part runs in the slot's own record (the replay rules unchanged): each record keeps at
+ * most [LookupRecord.MAX_KEPT] answers and [LookupRecord.MAX_KEPT_CHARS] characters for the whole
+ * run, and drops them once no Master part can replay them. A row's time is the sum of its own
+ * steps. The diff compares each site with its own baseline ([SiteCensusState]: the run's VPN, the
+ * site's session; the last run whose (i) completed); a slot whose link changed (a local
+ * fingerprint, never exported) reads "new link".
+ *
+ * **Stops:** a 429 or a bot check in (i) (any ask, the hidden page included, V's too) stops the
+ * site for the run and for [COOLDOWN_MILLIS] after (the state); in (ii) or (iii) (Master's asks,
+ * its media checks, V on its rows) it skips only the remaining Master parts and keeps main's
+ * results (the site's Master-phase stop), and for [COOLDOWN_MILLIS] after only the site's Master
+ * parts are skipped (main runs). **Budgets** (checked before each step, shared by the phases): at
  * most [MAX_REQUESTS] requests (main's and Master's asks, V's requests, Master's media checks) and
  * [MAX_BYTES] ([meter]'s wire bytes, when measured) per site. The report, the export and the state
  * hold sites, slots, kinds, way labels, classes, counts, sizes and short fingerprints only; a last
@@ -175,28 +192,36 @@ class SiteCensus(
     /**
      * Runs [sites] (their order) over [links] (site ID → slot → link) against the stored
      * [stateJson] (the screen's state file, or null). [context] lines (the network type) go into
-     * the notes; [onStep] gets short progress labels (site, slot, step; never a link).
+     * the notes; 0.4 (c): [vpn], whether Android's network is a VPN (the screen reads it), keys each
+     * site's baseline with the site's session; [onStep] gets short progress labels (site, slot,
+     * step; never a link).
      */
     suspend fun run(
         sites: List<Site>,
         links: Map<String, Map<Int, String>>,
         stateJson: String?,
         context: List<String> = emptyList(),
+        vpn: Boolean = false,
         onStep: (String) -> Unit = {},
     ): Outcome {
         val startedAt = clock()
         val state = SiteCensusState.read(stateJson)
         val stops = state.stops.filterValues { it.untilMillis > startedAt }.toMutableMap()
+        val masterStops = state.masterStops.filterValues { it.untilMillis > startedAt }.toMutableMap()
         val secrets = HashSet<String>()
         val results = sites.distinctBy(Site::id).map { site ->
             val active = stops[site.id]
             if (active != null) {
-                val minutes = (active.untilMillis - startedAt + MINUTE_MILLIS - 1) / MINUTE_MILLIS
-                CensusSiteResult(site, skipped = "cooldown $minutes min (${active.why})")
+                CensusSiteResult(site, skipped = "cooldown ${minutesLeft(active, startedAt)} min (${active.why})")
             } else {
-                runSite(site, links[site.id].orEmpty(), secrets, onStep).also { result ->
+                // 0.4 (c): a Master-phase stop's cooldown skips only the site's Master parts.
+                val masterCooldown = masterStops[site.id]?.let { "cooldown ${minutesLeft(it, startedAt)} min (${it.why})" }
+                runSite(site, links[site.id].orEmpty(), masterCooldown, secrets, onStep).also { result ->
                     if (result.cooldownFrom != null && result.stop != null) {
                         stops[site.id] = SiteCensusState.Stop(result.cooldownFrom + COOLDOWN_MILLIS, result.stop)
+                    }
+                    if (result.masterCooldownFrom != null && result.masterStop != null) {
+                        masterStops[site.id] = SiteCensusState.Stop(result.masterCooldownFrom + COOLDOWN_MILLIS, result.masterStop)
                     }
                 }
             }
@@ -206,16 +231,47 @@ class SiteCensus(
             millis = (clock() - startedAt).coerceAtLeast(0),
             notes = context.mapNotNull { CensusText.note(it) },
             sites = results,
+            vpn = vpn,
         )
         val json = CensusText.clean(SiteCensusJson.run(run), secrets)
-        // 0.4 (b): this run against the last one the state kept (its export).
-        val diff = SiteCensusDiff.compare(state.last, SiteCensusDiff.parse(json))
+        val export = SiteCensusDiff.parse(json)
+        val exported = export["sites"].asArrayOrEmpty.associateBy { it["site"].asStringOrNull }
+        // 0.4 (c): each site against its own baseline (the run's VPN, the site's session); the
+        // last run whose (i) completed, pass or fail, becomes it. A slot whose link's fingerprint
+        // changed reads "new link" and starts again in the new baseline.
+        val baselines = state.baselines.toMutableMap()
+        val compared = LinkedHashMap<String, SiteCensusDiff.Baseline>()
+        val notes = ArrayList<String>()
+        for (result in results) {
+            if (result.skipped != null) continue
+            val key = SiteCensusState.Key(result.site.id, vpn, result.session)
+            val prints = links[result.site.id].orEmpty()
+                .filter { (slot, link) -> slot in 1..result.site.slots.size && link.isNotBlank() }
+                .mapValues { (_, link) -> fingerprintOf(link) }
+            val completed = result.stop == null
+            val baseline = state.baselines[key]
+            if (baseline == null) {
+                notes += "${result.site.name}: no baseline yet (${key.label})" + if (completed) "; this run starts it" else ""
+            } else {
+                val newLinks = baseline.links.filter { (slot, print) -> prints[slot]?.let { it != print } == true }.keys
+                compared[result.site.id] = SiteCensusDiff.Baseline(baseline.site, baseline.date, newLinks)
+            }
+            val site = exported[result.site.id]
+            if (!completed) {
+                notes += "${result.site.name}: stopped before every slot's main (${result.stop}): not a baseline"
+            } else if (site != null) {
+                baselines[key] = SiteCensusState.Baseline(startedAt, SiteCensusJson.dateOf(startedAt), prints, site)
+            }
+        }
+        val diff = SiteCensusDiff.compare(export, compared, notes, firstRun = state.baselines.isEmpty())
         val stopped = results.filter { it.stop != null }.joinToString("; ") { "${it.site.name}: ${it.stop}" }
         return Outcome(
             firstLine = CensusText.clean(SiteCensusReport.headline(run), secrets),
             report = CensusText.clean(SiteCensusReport.text(run, diff), secrets),
             json = json,
-            stateJson = SiteCensusState.write(SiteCensusState(stops, startedAt, json)),
+            stateJson = SiteCensusState.write(
+                SiteCensusState(stops, startedAt, json, masterStops = masterStops, baselines = baselines),
+            ),
             stopped = stopped.ifEmpty { null },
         )
     }
@@ -223,97 +279,210 @@ class SiteCensus(
     private suspend fun runSite(
         site: Site,
         links: Map<Int, String>,
+        masterCooldown: String?,
         secrets: MutableSet<String>,
         onStep: (String) -> Unit,
     ): CensusSiteResult {
         val startedAt = clock()
-        val budget = Budget(meter)
         val notes = links.keys.filter { it !in 1..site.slots.size }.sorted()
             .map { "slot $it: outside the site's list, skipped" }
         val chosen = links.filter { (slot, link) -> slot in 1..site.slots.size && link.isNotBlank() }.toSortedMap()
         chosen.values.forEach { secrets += CensusText.secretsOf(it, null) }
         if (chosen.isEmpty()) return CensusSiteResult(site, skipped = "no links", notes = notes)
-        val rows = ArrayList<CensusRowResult>()
-        var stop: String? = null
-        var cooldownFrom: Long? = null
+        val phases = Phases(site, Budget(meter), masterCooldown, secrets, onStep)
+        // (i): every slot's main and V on main's best row, in slot order; a stop here stops the site.
+        val rows = ArrayList<Row>()
         for ((slot, link) in chosen) {
-            val kind = checkNotNull(site.kind(slot))
+            val row = Row(phases, slot, checkNotNull(site.kind(slot)), link.trim())
+            rows += row
+            val stop = phases.stop
             if (stop != null) {
-                rows += CensusRowResult(slot, kind, skipped = "site stopped ($stop)")
+                row.skip("site stopped ($stop)")
                 continue
             }
-            budget.over()?.let { over ->
-                stop = over
-                rows += CensusRowResult(slot, kind, skipped = over)
-            } ?: run {
-                val row = Row(site, slot, kind, link.trim(), budget, secrets, onStep).run()
-                rows += row.result
-                row.stop?.let {
-                    stop = it
-                    if (it != Budget.STOP) cooldownFrom = clock()
-                }
-            }
+            phases.budget.over()?.let { over ->
+                phases.stopSite(over, clock())
+                row.skip(over)
+            } ?: row.main()
         }
+        // (ii): route B after main's failures; (iii): the trials, after the site's final answers
+        // about the post first, then after main's rows; each in slot order.
+        rows.forEach(Row::planMaster)
+        val routeB = rows.filter { it.runs == MasterRun.ROUTE_B }
+        val (afterFinal, afterRows) = rows.filter { it.runs == MasterRun.TRIAL }.partition(Row::failed)
+        for (row in routeB + afterFinal + afterRows) row.master()
         return CensusSiteResult(
             site = site,
-            rows = rows,
-            requests = budget.requests,
-            bytes = budget.bytes(),
-            stop = stop,
-            cooldownFrom = cooldownFrom,
+            rows = rows.map(Row::result),
+            requests = phases.budget.requests,
+            bytes = phases.budget.bytes(),
+            stop = phases.stop,
+            cooldownFrom = phases.cooldownFrom,
             millis = (clock() - startedAt).coerceAtLeast(0),
             notes = notes,
+            masterStop = phases.masterStop,
+            masterCooldownFrom = phases.masterCooldownFrom,
+            masterCooldown = masterCooldown.takeIf { phases.cooled },
         )
     }
 
-    /** One row of [site]: main, V on main's best, Master's way, V on Master's best, the judge. */
-    private inner class Row(
-        private val site: Site,
-        private val slot: Int,
-        private val kind: Kind,
-        private val link: String,
-        private val budget: Budget,
-        private val secrets: MutableSet<String>,
-        private val onStep: (String) -> Unit,
+    /**
+     * 0.4 (c): one site's run across its phases: the budget, the stop in (i) ([stop]: the site
+     * stops) and the stop in (ii) or (iii) ([masterStop]: only the remaining Master parts are
+     * skipped), and an earlier Master-phase stop's [cooldown] (the site's Master parts skipped).
+     */
+    private class Phases(
+        val site: Site,
+        val budget: Budget,
+        private val cooldown: String?,
+        val secrets: MutableSet<String>,
+        val onStep: (String) -> Unit,
     ) {
         var stop: String? = null
             private set
-        lateinit var result: CensusRowResult
+        var cooldownFrom: Long? = null
+            private set
+        var masterStop: String? = null
+            private set
+        var masterCooldownFrom: Long? = null
             private set
 
-        private fun step(what: String) = onStep("${site.name} slot $slot: $what")
+        /** Whether [cooldown] skipped a Master part of this run. */
+        var cooled = false
+            private set
 
-        suspend fun run(): Row {
+        /** (i)'s stop at [now], the first one only; the budget's has no cooldown. */
+        fun stopSite(why: String?, now: Long) {
+            if (why == null || stop != null) return
+            stop = why
+            if (why != Budget.STOP) cooldownFrom = now
+        }
+
+        /** (ii)'s or (iii)'s stop at [now], the first one only; the budget's has no cooldown. */
+        fun stopMaster(why: String?, now: Long) {
+            if (why == null || masterStop != null) return
+            masterStop = why
+            if (why != Budget.STOP) masterCooldownFrom = now
+        }
+
+        /** Why a Master part cannot run now ([why]) and the stop it is not compared by ([word]), or null. */
+        fun masterSkip(): Pair<String, String>? {
+            masterStop?.let { return "stopped ($it)" to it }
+            return cooldown?.let {
+                cooled = true
+                it to COOLDOWN
+            }
+        }
+    }
+
+    /**
+     * One row of a site: in (i) main and V on main's best row ([main]); in (ii) or (iii) Master's
+     * way and V on Master's best row ([master]); then the judge ([result]).
+     */
+    private inner class Row(
+        private val phases: Phases,
+        private val slot: Int,
+        private val kind: Kind,
+        private val link: String,
+    ) {
+        private val site: Site get() = phases.site
+        private var skipped: String? = null
+        private var identity: LinkIdentity? = null
+        private var record: LookupRecord? = null
+        private var answer: Looked = Looked.Error
+        private var mainPart: MainPart? = null
+        private var session = false
+        private var setup = 0L
+
+        /** 0.4 (c): the row's time, the sum of its own steps (setup, main, V, Master, V). */
+        private var millis = 0L
+        private var v: SiteRowCheck.Checked? = null
+        private var vSkipped: String? = null
+        private var plan: Plan? = null
+        private var masterPart: MasterPart? = null
+
+        /** How Master's way runs for the row (after [planMaster]); null for a row not looked up. */
+        val runs: MasterRun? get() = plan?.run
+
+        /** Whether main failed (a trial after the site's final answer about the post), not gave rows. */
+        val failed: Boolean get() = mainPart?.reason != null
+
+        private fun step(what: String) = phases.onStep("${site.name} slot $slot: $what")
+
+        fun skip(why: String) {
+            skipped = why
+        }
+
+        /** (i): main's lookup, then V on main's best row. */
+        suspend fun main() {
             val rowStarted = clock()
             step("main")
             val identity = guarded { main.identify(link) }
-            val setup = (clock() - rowStarted).coerceAtLeast(0)
+            setup = (clock() - rowStarted).coerceAtLeast(0)
+            millis = setup
             if (identity == null) {
-                result = CensusRowResult(slot, kind, skipped = NOT_HANDLED)
-                return this
+                skipped = NOT_HANDLED
+                return
             }
-            secrets += CensusText.secretsOf(link, identity.page)
+            phases.secrets += CensusText.secretsOf(link, identity.page)
             if (identity.page.siteId != site.id) {
-                result = CensusRowResult(slot, kind, skipped = ANOTHER_SITE)
-                return this
+                skipped = ANOTHER_SITE
+                return
             }
-            val session = sessionOf(site.id, identity.cookie)
-            val record = LookupRecord(clock = clock, labels = site.labels())
+            this.identity = identity
+            session = sessionOf(site.id, identity.cookie)
+            val record = LookupRecord(
+                clock = clock,
+                maxKept = LookupRecord.MAX_KEPT,
+                maxKeptChars = LookupRecord.MAX_KEPT_CHARS,
+                labels = site.labels(),
+            )
+            this.record = record
             val started = clock()
             val answer = withContext(record) {
                 guarded { withTimeoutOrNull(ROW_MILLIS) { Looked.Answer(main.lookup(link, identity)) } ?: Looked.TimeLimit }
                     ?: Looked.Error
             }
-            val mainPart = mainPart(record, answer, (clock() - started).coerceAtLeast(0))
-            budget.add(record.mainAsks)
-            stop = stopOf(record, mainPart.reason, mainPart.hiddenPage, botChecksBefore = 0)
+            this.answer = answer
+            val lookupMillis = (clock() - started).coerceAtLeast(0)
+            millis += lookupMillis
+            val mainPart = mainPart(record, answer, lookupMillis)
+            this.mainPart = mainPart
+            phases.budget.add(record.mainAsks)
+            phases.stopSite(stopOf(record, mainPart.reason, mainPart.hiddenPage, botChecksBefore = 0), clock())
 
             val rows = ((answer as? Looked.Answer)?.answer as? MainAnswer.Found)?.rows.orEmpty()
-            val (v, vSkipped) = checkBest(rows)
-            val master = master(identity, answer, record)
+            val (v, vSkipped) = checkBest(rows, master = false)
+            this.v = v
+            this.vSkipped = vSkipped
+        }
+
+        /** After (i): how Master's way runs; a row whose Master part will not run drops its kept answers. */
+        fun planMaster() {
+            val identity = identity ?: return
+            val plan = planOf(identity, answer)
+            this.plan = plan
+            if (plan.notRun != null) record?.clear()
+        }
+
+        /** (ii) or (iii): Master's way once (unless the Master phase stopped), then V on Master's best. */
+        suspend fun master() {
+            val identity = checkNotNull(identity)
+            val plan = checkNotNull(plan)
+            val record = checkNotNull(record)
+            masterPart = runMaster(identity, plan, record)
+            // 0.4 (c): nothing replays main's answers after the slot's Master part.
+            record.clear()
+        }
+
+        fun result(): CensusRowResult {
+            skipped?.let { return CensusRowResult(slot, kind, skipped = it) }
+            val mainPart = checkNotNull(mainPart)
+            val record = checkNotNull(record)
+            val master = masterPart ?: MasterPart(MasterRun.NOT_RUN, plan?.notRun)
             val rowClass = classOf(answer)
             val (expected, note) = judge(rowClass, mainPart, session)
-            result = CensusRowResult(
+            return CensusRowResult(
                 slot = slot,
                 kind = kind,
                 session = session,
@@ -327,33 +496,39 @@ class SiteCensus(
                 requests = record.mainAsks + record.masterAsks + (v?.requests ?: 0) +
                     (master.v?.requests ?: 0) + master.checks,
                 setupMillis = setup,
-                millis = (clock() - rowStarted).coerceAtLeast(0),
+                millis = millis,
             )
-            return this
         }
 
-        /** V on the best of [rows], unless the site stopped or the budget is spent. */
-        private suspend fun checkBest(rows: List<MediaCandidate>): Pair<SiteRowCheck.Checked?, String?> {
+        /**
+         * V on the best of [rows], unless the site stopped or the budget is spent; Master's V
+         * ([master]) also not after the Master phase's stop, and its 429 is that phase's stop.
+         */
+        private suspend fun checkBest(rows: List<MediaCandidate>, master: Boolean): Pair<SiteRowCheck.Checked?, String?> {
             val best = SiteRowCheck.best(rows) ?: return null to null
-            stop?.let { return null to "site stopped" }
-            budget.over()?.let { over ->
-                stop = over
+            phases.stop?.let { return null to "site stopped" }
+            if (master) phases.masterSkip()?.let { (why, _) -> return null to why }
+            phases.budget.over()?.let { over ->
+                if (master) phases.stopMaster(over, clock()) else phases.stopSite(over, clock())
                 return null to over
             }
             step("V")
+            val started = clock()
             val checked = guarded { rowCheck.check(site, best, clock()) }
                 ?: SiteRowCheck.Checked(SiteRowCheck.Verdict.UNKNOWN, "error")
-            budget.add(checked.requests)
-            if (checked.rateLimited) stop = STOP_429
+            millis += (clock() - started).coerceAtLeast(0)
+            phases.budget.add(checked.requests)
+            if (checked.rateLimited) {
+                if (master) phases.stopMaster(STOP_429, clock()) else phases.stopSite(STOP_429, clock())
+            }
             return checked to null
         }
 
-        private suspend fun master(identity: LinkIdentity, answer: Looked, record: LookupRecord): MasterPart {
-            val plan = planOf(identity, answer)
-            if (plan.notRun != null) return MasterPart(MasterRun.NOT_RUN, plan.notRun)
-            budget.over()?.let { over ->
-                stop = over
-                return MasterPart(MasterRun.NOT_RUN, over)
+        private suspend fun runMaster(identity: LinkIdentity, plan: Plan, record: LookupRecord): MasterPart {
+            phases.masterSkip()?.let { (why, word) -> return MasterPart(MasterRun.NOT_RUN, why, stopped = word) }
+            phases.budget.over()?.let { over ->
+                phases.stopMaster(over, clock())
+                return MasterPart(MasterRun.NOT_RUN, over, stopped = over)
             }
             step("Master")
             val checks = RowValidator(validator, record)
@@ -377,11 +552,12 @@ class SiteCensus(
             val botChecks = record.botChecks
             val started = clock()
             val result = withContext(route) { guarded { engine.extract(request) } }
-            val millis = (clock() - started).coerceAtLeast(0)
-            budget.add(record.masterAsks + checks.calls)
-            stop = stop ?: stopOf(record, null, null, botChecks) ?: STOP_429.takeIf { checks.rateLimited }
+            val masterMillis = (clock() - started).coerceAtLeast(0)
+            millis += masterMillis
+            phases.budget.add(record.masterAsks + checks.calls)
+            phases.stopMaster(stopOf(record, null, null, botChecks) ?: STOP_429.takeIf { checks.rateLimited }, clock())
             val rows = (result as? MasterResult.Success)?.result?.candidates.orEmpty()
-            val (v, vSkipped) = checkBest(rows)
+            val (v, vSkipped) = checkBest(rows, master = true)
             return MasterPart(
                 run = plan.run,
                 why = plan.failure?.takeIf { plan.run == MasterRun.ROUTE_B }?.name,
@@ -401,12 +577,14 @@ class SiteCensus(
                 asks = record.asks().filter { it.asker == LookupRecord.Asker.MASTER },
                 v = v,
                 vSkipped = vSkipped,
-                millis = millis,
+                millis = masterMillis,
+                // 0.4 (c): this part's own ask, check or V met the Master phase's stop.
+                stopped = phases.masterStop,
             )
         }
 
         private fun planOf(identity: LinkIdentity, answer: Looked): Plan {
-            stop?.let { return Plan.notRun("site stopped") }
+            phases.stop?.let { return Plan.notRun("site stopped") }
             val main = when (answer) {
                 Looked.TimeLimit -> return Plan.notRun("time limit")
                 Looked.Error -> return Plan.notRun("error")
@@ -554,7 +732,11 @@ class SiteCensus(
 
         /** 0.4: the judge's word for a reason that, without the session, says nothing about the slot. */
         const val AMBIGUOUS = "ambiguous (no session)"
+
+        /** 0.4 (c): the word of a Master part skipped by an earlier Master-phase stop's cooldown. */
+        const val COOLDOWN = "cooldown"
         private const val MINUTE_MILLIS = 60_000L
+        private const val FINGERPRINT_BYTES = 8
 
         /** Master's engine as route B builds it: on, no module, no capture, the R8 time shares. */
         private val POLICY = MasterPolicy(enabled = true, timeoutMillis = 20_000, contractTimeoutMillis = 6_000)
@@ -581,7 +763,7 @@ class SiteCensus(
             }
         }
 
-        /** The screen's status line: the last run and each site's cooldown. */
+        /** The screen's status line: the last run and each site's cooldown (0.4 (c): and its Master parts'). */
         fun statusOf(stateJson: String?, nowMillis: Long): String {
             val state = SiteCensusState.read(stateJson)
             val last = if (state.lastAtMillis <= 0) {
@@ -590,12 +772,24 @@ class SiteCensus(
                 val minutes = ((nowMillis - state.lastAtMillis) / MINUTE_MILLIS).coerceAtLeast(0)
                 "Last run: ${SiteCensusJson.dateOf(state.lastAtMillis)}, $minutes min ago."
             }
-            val stops = state.stops.filterValues { it.untilMillis > nowMillis }.entries.joinToString("; ") { (id, stop) ->
-                val minutes = (stop.untilMillis - nowMillis + MINUTE_MILLIS - 1) / MINUTE_MILLIS
-                "${SiteWays.site(id)?.name ?: id} $minutes min (${stop.why})"
-            }
-            return if (stops.isEmpty()) last else "$last Stopped: $stops."
+            val stops = cooling(state.stops, nowMillis)
+            val master = cooling(state.masterStops, nowMillis)
+            return last + (if (stops.isEmpty()) "" else " Stopped: $stops.") +
+                (if (master.isEmpty()) "" else " Master's parts stopped: $master.")
         }
+
+        /** 0.4 (c): a link's local fingerprint (the state's only, never exported): 16 hex digits of its SHA-256. */
+        internal fun fingerprintOf(link: String): String =
+            MessageDigest.getInstance("SHA-256").digest(link.trim().toByteArray(Charsets.UTF_8))
+                .take(FINGERPRINT_BYTES).joinToString("") { "%02x".format(it) }
+
+        private fun cooling(stops: Map<String, SiteCensusState.Stop>, nowMillis: Long): String =
+            stops.filterValues { it.untilMillis > nowMillis }.entries.joinToString("; ") { (id, stop) ->
+                "${SiteWays.site(id)?.name ?: id} ${minutesLeft(stop, nowMillis)} min (${stop.why})"
+            }
+
+        private fun minutesLeft(stop: SiteCensusState.Stop, nowMillis: Long): Long =
+            (stop.untilMillis - nowMillis + MINUTE_MILLIS - 1) / MINUTE_MILLIS
 
         private fun classOf(answer: Looked): RowClass = when (answer) {
             Looked.TimeLimit -> RowClass.TIME_LIMIT

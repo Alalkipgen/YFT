@@ -28,7 +28,7 @@ class SiteCensusDiffTest {
         assertEquals(
             "another format is not one either",
             "NOT COMPARED — the earlier file is not a site census export",
-            SiteCensusDiff.compare(run.replace("\"fmt\":1", "\"fmt\":2"), run).headline,
+            SiteCensusDiff.compare(run.replace("\"fmt\":2", "\"fmt\":3"), run).headline,
         )
         assertEquals("NOT COMPARED — the later file is not a site census export", SiteCensusDiff.compare(run, "[]").headline)
         val same = SiteCensusDiff.compare(run, run)
@@ -149,7 +149,7 @@ class SiteCensusDiffTest {
 
         val diff = SiteCensusDiff.compare(before, after)
 
-        assertEquals("NO CHANGE — against the run of $DATE", diff.headline)
+        assertEquals("NOT COMPARED — no slot looked up in both runs, against the run of $DATE", diff.headline)
         assertEquals(
             listOf(
                 "TikTok: skipped in the later run (cooldown 20 min (bot check))",
@@ -186,9 +186,87 @@ class SiteCensusDiffTest {
         assertTrue(diff.notes.isEmpty())
     }
 
-    private fun export(vararg sites: String, date: String = DATE): String = SiteCensusJson.obj {
+    @Test
+    fun `0_4 c - the Master phase's stop is a note, and a Master part it stopped is not compared, route B's recovery too`() {
+        val before = export(
+            site(
+                "x", "X",
+                row(1),
+                row(2),
+                row(3, cls = "recoverable", expected = false, note = "rows wanted", answer = "failed", reason = "RESPONSE_CHANGED",
+                    v = null, master = master("route B", rows = 1, v = "pass")),
+            ),
+        )
+        val after = export(
+            site(
+                "x", "X",
+                row(1, master = master("trial", answer = "failed", reason = "RATE_LIMITED", stopped = "429", asks = listOf(ask(limited = true)))),
+                row(2, v = "fail", master = master("not run", why = "stopped (429)", stopped = "429")),
+                row(3, cls = "recoverable", expected = false, note = "rows wanted", answer = "failed", reason = "RESPONSE_CHANGED",
+                    v = null, master = master("not run", why = "stopped (429)", stopped = "429")),
+                masterStop = "429",
+            ),
+        )
+
+        val diff = SiteCensusDiff.compare(before, after)
+
+        assertEquals("BREAKING (1) — against the run of $DATE · trials incomplete (429)", diff.headline)
+        assertEquals("main's rules unchanged", listOf("BREAKING X slot 2 (video): V pass → fail"), diff.lines.map(SiteCensusDiff.Line::render))
+        assertEquals(
+            listOf(
+                "X: trials incomplete in the later run (429)",
+                "X slot 1 (video): Master not compared (the later run: 429)",
+                "X slot 2 (video): Master not compared (the later run: 429)",
+                "X slot 3 (video): Master not compared (the later run: 429)",
+            ),
+            diff.notes,
+        )
+        val back = SiteCensusDiff.compare(after, before)
+        assertEquals("CHANGED (1) — against the run of $DATE", back.headline)
+        assertEquals(listOf("CHANGED X slot 2 (video): V fail → pass"), back.lines.map(SiteCensusDiff.Line::render))
+        assertEquals("X: trials incomplete in the earlier run (429)", back.notes.first())
+        assertEquals("X slot 3 (video): Master not compared (the earlier run: 429)", back.notes.last())
+        val stopOnly = SiteCensusDiff.compare(export(site("x", "X", row(1), masterStop = "bot check")), export(site("x", "X", row(1), masterStop = "429")))
+        assertEquals("the stop alone", "NO CHANGE — against the run of $DATE · trials incomplete (429)", stopOnly.headline)
+        assertEquals(listOf("X: trials incomplete (bot check → 429)"), stopOnly.notes)
+    }
+
+    @Test
+    fun `0_4 c - a format 1 export - its Master part's own 429 is not compared, and it holds no Master-phase stop to compare`() {
+        val older = export(
+            site(
+                "tiktok", "TikTok",
+                row(1, master = master("trial", answer = "failed", reason = "RATE_LIMITED", asks = listOf(ask(limited = true)))),
+                row(2, skipped = "site stopped (429)"),
+                stop = "429",
+            ),
+            format = 1,
+        )
+        val newer = export(
+            site(
+                "tiktok", "TikTok",
+                row(1, master = master("trial", answer = "failed", reason = "BOT_CHECK", stopped = "bot check", asks = listOf(ask(mark = "bot check")))),
+                row(2, master = master("not run", why = "stopped (bot check)", stopped = "bot check")),
+                masterStop = "bot check",
+            ),
+        )
+
+        val diff = SiteCensusDiff.compare(older, newer)
+
+        assertEquals("CHANGED (1) — against the run of $DATE · trials incomplete (bot check)", diff.headline)
+        assertEquals(listOf("CHANGED TikTok: no stop (the earlier run stopped: 429)"), diff.lines.map(SiteCensusDiff.Line::render))
+        assertEquals(
+            listOf(
+                "TikTok slot 1 (video): Master not compared (the earlier run: 429; the later run: bot check)",
+                "TikTok slot 2 (video): not looked up in the earlier run (site stopped (429))",
+            ),
+            diff.notes,
+        )
+    }
+
+    private fun export(vararg sites: String, date: String = DATE, format: Int = SiteCensusState.FORMAT): String = SiteCensusJson.obj {
         field("tool", SiteCensus.TOOL_LABEL)
-        field("fmt", SiteCensusState.FORMAT)
+        field("fmt", format)
         field("at", 1_791_000_000_000L)
         field("date", date)
         field("ms", 1_000)
@@ -196,12 +274,20 @@ class SiteCensusDiffTest {
         list("sites", sites.toList())
     }
 
-    private fun site(id: String, name: String, vararg rows: String, stop: String? = null, skipped: String? = null): String =
+    private fun site(
+        id: String,
+        name: String,
+        vararg rows: String,
+        stop: String? = null,
+        skipped: String? = null,
+        masterStop: String? = null,
+    ): String =
         SiteCensusJson.obj {
             field("site", id)
             field("name", name)
             field("skipped", skipped)
             field("stop", stop)
+            field("masterStop", masterStop)
             field("req", 10)
             list("rows", rows.toList())
         }
@@ -257,16 +343,36 @@ class SiteCensusDiffTest {
         master?.let { raw("master", it) }
     }
 
-    private fun master(run: String, answer: String = "rows", rows: Int = 0, reason: String? = null, v: String? = null, why: String? = null) =
+    private fun master(
+        run: String,
+        answer: String = "rows",
+        rows: Int = 0,
+        reason: String? = null,
+        v: String? = null,
+        why: String? = null,
+        stopped: String? = null,
+        asks: List<String> = emptyList(),
+    ) =
         SiteCensusJson.obj {
             field("run", run)
             field("why", why)
+            field("stopped", stopped)
             if (run == "not run") return@obj
             field("answer", answer)
             field("reason", reason)
             field("rows", rows)
+            if (asks.isNotEmpty()) list("asks", asks)
             v?.let { raw("v", SiteCensusJson.obj { field("verdict", it) }) }
         }
+
+    /** 0.4 (c): one of Master's asks: a 429 ([limited]) or a reading's [mark]. */
+    private fun ask(limited: Boolean = false, mark: String? = null) = SiteCensusJson.obj {
+        field("way", "embed player")
+        field("m", "GET")
+        field("status", if (limited) 429 else 200)
+        field("mark", mark)
+        if (limited) field("rateLimited", true)
+    }
 
     private companion object {
         const val DATE = "2026-10-20 10:00 UTC"

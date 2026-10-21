@@ -4,6 +4,8 @@ import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.extractor.api.json.BoundedJsonParser
 import com.alal.yft.extractor.api.json.JsonValue
+import com.alal.yft.extractor.api.json.asArrayOrEmpty
+import com.alal.yft.extractor.api.json.asBooleanOrNull
 import com.alal.yft.extractor.api.json.asLongOrNull
 import com.alal.yft.extractor.api.json.asStringOrNull
 import com.alal.yft.extractor.api.json.get
@@ -69,7 +71,12 @@ internal class MainPart(
     val variants: Int = 0,
 )
 
-/** S0b: Master's part of a row: how it ran (or why not), its answer, route B's counts, V; 0.4: the best row's duration. */
+/**
+ * S0b: Master's part of a row: how it ran (or why not), its answer, route B's counts, V; 0.4: the
+ * best row's duration; 0.4 (c): [stopped], the Master phase's stop the part met (not run because
+ * of it or of an earlier one's cooldown, or its own ask, check or V got the 429 or the bot check):
+ * the diff does not compare such a part.
+ */
 internal class MasterPart(
     val run: MasterRun,
     val why: String?,
@@ -86,6 +93,7 @@ internal class MasterPart(
     val v: SiteRowCheck.Checked? = null,
     val vSkipped: String? = null,
     val millis: Long = 0,
+    val stopped: String? = null,
 )
 
 /**
@@ -112,7 +120,12 @@ internal class CensusRowResult(
     val ambiguous: Boolean get() = main != null && expected == null
 }
 
-/** S0b: one site of a run; [bytes] is -1 when not measured; [cooldownFrom]: when a 429 or bot check stopped it. */
+/**
+ * S0b: one site of a run; [bytes] is -1 when not measured; [cooldownFrom]: when a 429 or bot check
+ * stopped it. 0.4 (c): [stop] is (i)'s; [masterStop], the stop in (ii) or (iii) (only the
+ * remaining Master parts skipped; [masterCooldownFrom]: when a 429 or bot check stopped them);
+ * [masterCooldown]: an earlier Master-phase stop's cooldown skipped this run's Master parts.
+ */
 internal class CensusSiteResult(
     val site: Site,
     val rows: List<CensusRowResult> = emptyList(),
@@ -123,16 +136,29 @@ internal class CensusSiteResult(
     val skipped: String? = null,
     val millis: Long = 0,
     val notes: List<String> = emptyList(),
+    val masterStop: String? = null,
+    val masterCooldownFrom: Long? = null,
+    val masterCooldown: String? = null,
 ) {
     val number: SiteNumber by lazy { SiteNumber(rows) }
+
+    /** 0.4 (c): whether a looked-up row had the site's session (the baseline's key). */
+    val session: Boolean get() = rows.any { it.main != null && it.session }
+
+    /** 0.4 (c): "main N/M · trials incomplete (why)" when the Master phase stopped or cooled down. */
+    val incomplete: String?
+        get() = (masterStop ?: masterCooldown)?.let { why ->
+            "main ${rows.count { it.main != null }}/${rows.size} · trials incomplete ($why)"
+        }
 }
 
-/** S0b: one run of the census. */
+/** S0b: one run of the census; 0.4 (c): [vpn], whether Android's network was a VPN. */
 internal class CensusRunResult(
     val atMillis: Long,
     val millis: Long,
     val notes: List<String>,
     val sites: List<CensusSiteResult>,
+    val vpn: Boolean = false,
 )
 
 /**
@@ -177,6 +203,7 @@ internal object SiteCensusJson {
         field("at", run.atMillis)
         field("date", dateOf(run.atMillis))
         field("ms", run.millis)
+        field("vpn", run.vpn)
         strings("notes", run.notes)
         list("sites", run.sites.map(::site))
     }
@@ -188,6 +215,8 @@ internal object SiteCensusJson {
         field("slots", result.site.slots.size)
         field("skipped", result.skipped)
         field("stop", result.stop)
+        field("masterStop", result.masterStop)
+        field("masterCooldown", result.masterCooldown)
         field("req", result.requests)
         field("bytes", result.bytes)
         field("ms", result.millis)
@@ -257,6 +286,7 @@ internal object SiteCensusJson {
     private fun master(master: MasterPart): String = obj {
         field("run", master.run.label)
         field("why", master.why)
+        field("stopped", master.stopped)
         if (master.run != MasterRun.NOT_RUN) {
             field("answer", master.answer)
             field("reason", master.reason?.name)
@@ -346,7 +376,8 @@ internal object SiteCensusReport {
             val number = site.number
             site.skipped?.let { "${site.site.name} $it" }
                 ?: ("${site.site.name} recoverable ${number.recoverable} of ${number.shouldDownload}, " +
-                    "Master ${number.masterRecovered}" + (site.stop?.let { ", stopped ($it)" } ?: ""))
+                    "Master ${number.masterRecovered}" + (site.stop?.let { ", stopped ($it)" } ?: "") +
+                    (site.incomplete?.let { ", $it" } ?: ""))
         }
 
     /** The report; 0.4 (b): [diff], this run against the last one, after the rules. */
@@ -360,6 +391,15 @@ internal object SiteCensusReport {
         appendLine(
             "Master: the site's R8 way once, under route B's rules (\"trial\": after main's rows " +
                 "or the site's final answer about the post).",
+        )
+        appendLine(
+            "Order per site: every slot's main and V, then route B, then the trials (after the site's " +
+                "final answers, then after main's rows); a 429 or a bot check in main's phase stops the site, " +
+                "in Master's only Master's parts (30 min).",
+        )
+        appendLine(
+            "VPN ${if (run.vpn) "on" else "off"} (Android's network); the diff: each site against its own " +
+                "baseline (VPN, session), the last run whose main phase completed.",
         )
         appendLine(
             "V: one byte of one row per answer, with the download's headers, on the site's media " +
@@ -400,7 +440,8 @@ internal object SiteCensusReport {
         )
         appendLine(
             "  requests ${result.requests}, ${bytes(result.bytes)}, ${seconds(result.millis)}" +
-                (result.stop?.let { "; stopped: $it" + if (result.cooldownFrom != null) " (30 min)" else "" } ?: ""),
+                (result.stop?.let { "; stopped: $it" + if (result.cooldownFrom != null) " (30 min)" else "" } ?: "") +
+                (result.incomplete?.let { "; $it" + if (result.masterCooldownFrom != null) " (30 min)" else "" } ?: ""),
         )
         appendLine(
             "  also: browser ${number.browser}, final ${number.final}, time limit ${number.timeLimit}; " +
@@ -503,50 +544,108 @@ internal object SiteCensusReport {
 /**
  * S0b: the screen's state file (`files/master/site-census-last.json`): each site's cooldown after
  * a 429 or a bot check ([stops]: until when, why), the last run's time and its export ([lastJson]
- * to write; 0.4 (b): [last], the stored export as read, for the diff).
+ * to write). 0.4 (c), format 2: each site's cooldown after a Master-phase stop ([masterStops]:
+ * only its Master parts wait) and its [baselines], one per site, VPN and session: the last run
+ * whose (i) completed, pass or fail (its part of the export and each slot's link fingerprint,
+ * local only). Format 1's cooldowns (and its last run's time) are read; its export is no baseline.
  */
 internal class SiteCensusState(
     val stops: Map<String, Stop>,
     val lastAtMillis: Long = 0,
     val lastJson: String? = null,
-    val last: JsonValue? = null,
+    val masterStops: Map<String, Stop> = emptyMap(),
+    val baselines: Map<Key, Baseline> = emptyMap(),
 ) {
     class Stop(val untilMillis: Long, val why: String)
 
+    /** 0.4 (c): a baseline's key: the site, the VPN (on or off, as Android read it) and the session. */
+    data class Key(val site: String, val vpn: Boolean, val session: Boolean) {
+        val label: String get() = "VPN ${if (vpn) "on" else "off"}, signed ${if (session) "in" else "out"}"
+    }
+
+    /** 0.4 (c): a site's baseline: its run's time and date, each slot's link fingerprint, the site's part of the export. */
+    class Baseline(val atMillis: Long, val date: String?, val links: Map<Int, String>, val site: JsonValue)
+
     companion object {
-        const val FORMAT = 1
+        const val FORMAT = 2
+        private const val FORMAT_1 = 1L
         private const val MAX_STATE_NODES = 400_000
         private val WHY = setOf(SiteCensus.STOP_429, SiteCensus.STOP_BOT_CHECK, SiteCensus.STOP_RATE_LIMIT)
+        private val FINGERPRINT = Regex("[0-9a-f]{16}")
 
         /** The stored state; an empty one when [text] is missing or unreadable. */
         fun read(text: String?): SiteCensusState {
             val empty = SiteCensusState(emptyMap())
             if (text.isNullOrBlank()) return empty
             val root = BoundedJsonParser.parse(text, maxDepth = 32, maxNodes = MAX_STATE_NODES) ?: return empty
-            if (root["fmt"].asLongOrNull != FORMAT.toLong()) return empty
-            val stops = (root["stops"] as? JsonValue.Object)?.entries.orEmpty().mapNotNull { (id, value) ->
-                val until = value["until"].asLongOrNull ?: return@mapNotNull null
-                if (SiteWays.site(id) == null) return@mapNotNull null
-                id to Stop(until, value["why"].asStringOrNull?.takeIf { it in WHY } ?: "stop")
-            }.toMap()
-            return SiteCensusState(stops, root["lastAt"].asLongOrNull ?: 0, last = root["last"] as? JsonValue.Object)
+            val format = root["fmt"].asLongOrNull
+            if (format != FORMAT.toLong() && format != FORMAT_1) return empty
+            val stops = stopsOf(root["stops"])
+            val lastAt = root["lastAt"].asLongOrNull ?: 0
+            if (format == FORMAT_1) return SiteCensusState(stops, lastAt)
+            return SiteCensusState(stops, lastAt, masterStops = stopsOf(root["masterStops"]), baselines = baselinesOf(root["baselines"]))
         }
 
         fun write(state: SiteCensusState): String = SiteCensusJson.obj {
             field("fmt", FORMAT)
-            raw(
-                "stops",
-                SiteCensusJson.obj {
-                    state.stops.forEach { (id, stop) ->
-                        raw(id, SiteCensusJson.obj {
-                            field("until", stop.untilMillis)
-                            field("why", stop.why)
-                        })
+            raw("stops", stopsText(state.stops))
+            raw("masterStops", stopsText(state.masterStops))
+            field("lastAt", state.lastAtMillis)
+            list(
+                "baselines",
+                state.baselines.map { (key, baseline) ->
+                    SiteCensusJson.obj {
+                        field("site", key.site)
+                        field("vpn", key.vpn)
+                        field("session", key.session)
+                        field("at", baseline.atMillis)
+                        field("date", baseline.date)
+                        raw("links", SiteCensusJson.obj { baseline.links.toSortedMap().forEach { (slot, print) -> field("$slot", print) } })
+                        raw("export", text(baseline.site))
                     }
                 },
             )
-            field("lastAt", state.lastAtMillis)
             state.lastJson?.let { raw("last", it) }
+        }
+
+        private fun stopsOf(value: JsonValue?): Map<String, Stop> =
+            (value as? JsonValue.Object)?.entries.orEmpty().mapNotNull { (id, stop) ->
+                val until = stop["until"].asLongOrNull ?: return@mapNotNull null
+                if (SiteWays.site(id) == null) return@mapNotNull null
+                id to Stop(until, stop["why"].asStringOrNull?.takeIf { it in WHY } ?: "stop")
+            }.toMap()
+
+        private fun stopsText(stops: Map<String, Stop>): String = SiteCensusJson.obj {
+            stops.forEach { (id, stop) ->
+                raw(id, SiteCensusJson.obj {
+                    field("until", stop.untilMillis)
+                    field("why", stop.why)
+                })
+            }
+        }
+
+        private fun baselinesOf(value: JsonValue?): Map<Key, Baseline> = value.asArrayOrEmpty.mapNotNull { entry ->
+            val id = entry["site"].asStringOrNull?.takeIf { SiteWays.site(it) != null } ?: return@mapNotNull null
+            val vpn = entry["vpn"].asBooleanOrNull ?: return@mapNotNull null
+            val session = entry["session"].asBooleanOrNull ?: return@mapNotNull null
+            val site = (entry["export"] as? JsonValue.Object)?.takeIf { it["site"].asStringOrNull == id } ?: return@mapNotNull null
+            val links = (entry["links"] as? JsonValue.Object)?.entries.orEmpty().mapNotNull { (slot, print) ->
+                val number = slot.toIntOrNull() ?: return@mapNotNull null
+                number to (print.asStringOrNull?.takeIf(FINGERPRINT::matches) ?: return@mapNotNull null)
+            }.toMap()
+            Key(id, vpn, session) to Baseline(entry["at"].asLongOrNull ?: 0, entry["date"].asStringOrNull, links, site)
+        }.toMap()
+
+        /** [value] as JSON text again (a kept baseline's part of its export). */
+        private fun text(value: JsonValue): String = when (value) {
+            JsonValue.Null -> "null"
+            is JsonValue.Bool -> value.value.toString()
+            is JsonValue.Number -> value.text
+            is JsonValue.Text -> CensusJson.quote(value.value)
+            is JsonValue.Array -> value.items.joinToString(",", "[", "]") { text(it) }
+            is JsonValue.Object -> value.entries.entries.joinToString(",", "{", "}") { (key, item) ->
+                CensusJson.quote(key) + ":" + text(item)
+            }
         }
     }
 }

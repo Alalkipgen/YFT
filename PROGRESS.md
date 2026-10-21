@@ -1,5 +1,118 @@
 # YFT Master Extractor backup
 
+## Social plan 0.4 (c) — the census's phases, its two stops and a baseline per site, VPN and session (debug builds only) (2026-10-21)
+
+- The plan, recorded (the owner, 2026-10-21; `MASTER_KEY_SOCIAL_PLAN.md` §7.4, §8 items 13–17): the
+  census fix 0.4 (c): go, debug builds only (this entry); A1, Facebook's access fix ("0.3 fix"): go,
+  in main, its own commit (§8 item 10's exception); A2: not in main, closed (a reel's `video: null`
+  stays recoverable by design); Facebook's slot 12 signed out: main's `PRIVATE_OR_UNAVAILABLE` or
+  `RESPONSE_CHANGED` reads "ambiguous (no session)", counted apart, signed in: rows, as today, no
+  `LOGIN_REQUIRED` guessed without evidence; one phone test, with the APK of both commits (not one
+  per commit); no real link or ID in the repo, fixtures, docs, logs or prompts (S8); TikTok (§8 item
+  17): no TikTok run before step 4, no VPN-exit or slot-split runs, TikTok's B0 is step 4's first
+  run, with the VPN's US exit; `PRIVATE_OR_UNAVAILABLE` and `GEO_RESTRICTED` stay final (a Master
+  row on those slots is a failure, S2).
+- §7.4's steps: 0, S1a (7) and (8) (the running task, no other code commit before its report is
+  checked); 1, TikTok (the owner): no run with today's APK; B0's pass: (i) completed, every filled
+  slot's main looked up (9 of 9), not as expected 0, main's V pass on every slot with rows (the
+  desktop-only HD slot at least 720 high), no Master row on slots 8–9 when their trials run, the
+  trials any number (a Master-phase 429 is a note); a 429 in (i): not B0, one rerun on another day
+  after the cooldown, a second one → its cause looked at before S2b, not by trying VPN exits; 2,
+  this commit; 3, commit 2, A1 in main, pushed only when this commit's CI is green; 4, the owner,
+  with the APK of step 3's SHA, signed out, the same day: TikTok only with the VPN (§9's US exit;
+  step 1's pass), Facebook only with the VPN, Facebook only without it; Facebook's pass: slots 1–11
+  rows 11 of 11 and V pass 11, slot 13 `PRIVATE_OR_UNAVAILABLE` (final) in both runs, slot 12
+  ambiguous, not as expected 0, requests and time not above Facebook's B0 (about 68 requests, 65 s);
+  the new state has no baseline yet, so these runs are compared with B0 by hand and become
+  Facebook's new baseline; Instagram and X need no new run; 5, docs only (Facebook's new baseline,
+  TikTok's B0); 6, S1a's phone proof (the owner's go; slot 13 main's final answer, slot 12
+  ambiguous; optional: slot 12 once signed in), then S2b.
+- S2b's notes (inputs, not decisions): T2 before T1 (main's pages, no fetch; its V and init-check
+  requests count in the budget); after T1's 429 or bot check no new request to that host in the
+  lookup, T2 may still run, then "needs playback", never an automatic capture or a retry; TikTok's
+  own budget in `SocialBudget`, sized by TikTok's main, T1 and V; the proof (named public slots give
+  Master rows with the item ID, the duration within ±1 s of main's, V pass; wrong rows 0; no Master
+  row on slots 7–9; a D7-style APK tries T2 with no embed ask); one hypothesis for one controlled
+  test, on the owner's go: T1 with YFT's browser cookies to TikTok's own host. Parked: Master's
+  two-source rule (after the release, only with evidence); a private reel's message to the user
+  (only the message, decided after S1a's phone proof).
+- `SiteCensus` (`extractor-master` `social/`, the debug census only): a site runs in three phases:
+  (i) every slot's main and V on main's best row, in slot order; (ii) route B after main's failures;
+  (iii) the trials, after main's final answers about the post (`PRIVATE_OR_UNAVAILABLE`,
+  `GEO_RESTRICTED`) first, then after main's rows, each in slot order. A slot's Master part runs in
+  the slot's own `LookupRecord` (the replay rules unchanged; main's answers replayed later); a row's
+  time is the sum of its own steps (setup, main, V, Master, Master's V); the budget (150 requests,
+  40 MB per site) and the cooldowns shared by all phases (no reset per phase).
+- Stops: a 429 or a bot check in (i) (any ask, the hidden page and V included) stops the site, as
+  today (no Master part runs: "site stopped"; the whole site cools for 30 minutes); in (ii) or (iii)
+  (Master's asks, its media checks, V on its rows) it skips only the remaining Master parts and
+  keeps main's results: the site's `masterStop` (the budget's: "budget", no cooldown); the report
+  reads "main N/N · trials incomplete (429)". The Master-phase stop's 30-minute cooldown (the
+  state's `masterStops`) skips only the Master parts of a run inside it ("trials incomplete
+  (cooldown 20 min (429))"; main runs); S7's cooldown is the rungs', unchanged.
+- The export (format 2, additions only): the run's `vpn`, a site's `masterStop` and
+  `masterCooldown`, a Master part's `stopped` (the stop it met: not run because of it or of its
+  cooldown, or its own ask, check or V got the 429 or the bot check).
+- `SiteCensusDiff`: `stop` as today; a change of `masterStop` alone is a note ("trials incomplete in
+  the later run (429)", "… in the earlier run …", "(429 → bot check)"), never CHANGED or BREAKING;
+  the headline adds "· trials incomplete (429)" (or the stop's word, "cooldown") when the later run
+  has one. A Master part that did not run because of a Master-phase stop, or whose own ask got the
+  429 or the bot check, in either run, is not compared: a note ("TikTok slot 1 (single video):
+  Master not compared (the earlier run: 429; the later run: cooldown)"), never CHANGED or BREAKING
+  (route B's "no longer recovers" too); Master parts that ran in both runs are compared as today;
+  main's rules unchanged; a field an export lacks (format 1) is not compared. Nothing compared →
+  "NOT COMPARED — no slot looked up in both runs, …" (or "— no baseline yet for this run's sites"),
+  never "NO CHANGE"; no baseline at all → "FIRST RUN". Two export files are still compared (formats
+  1 and 2).
+- The baseline (the state's format 2): one per site, VPN (on or off) and session (a looked-up row
+  had the site's session); the VPN read by Android (`NetworkCapabilities.TRANSPORT_VPN` of the
+  active network, as the screen reads Wi-Fi), not chosen by the owner; the baseline is the last run
+  whose (i) completed, pass or fail; a run stopped in (i) does not replace it (a note: "stopped
+  before every slot's main (429): not a baseline"); a site without one: "no baseline yet (VPN off,
+  signed out); this run starts it". Each site is compared with its own baseline (the headline names
+  its date, or each site's).
+- A slot's link changed → seen by a local fingerprint (16 hex digits of its SHA-256, in the state
+  only, never exported): the slot reads "new link" (not compared) and the new baseline holds the new
+  fingerprint. Facebook's slot 12 (`SiteWays`, sign-in-only): signed out, main's
+  `PRIVATE_OR_UNAVAILABLE` or `RESPONSE_CHANGED` reads "ambiguous (no session)", counted apart;
+  signed in: rows, as today; `LOGIN_REQUIRED` as expected, none guessed. The state: `fmt` 2
+  (`stops`, `masterStops`, `baselines`, `lastAt`, `last`); format 1's cooldowns (and its last run's
+  time) kept, its export no baseline (the first run after it: "FIRST RUN"); any other format: no
+  state, as today.
+- The screen (`SiteCensusActivity`, debug only): reads the VPN and gives it to the run; its intro
+  (per site, the lookups first, then the backup's ways; the two stops; each site against its own
+  last run of the same kind); the report's header: the order per site and the stops, the run's VPN
+  and the diff's baselines; the status line: each site's cooldown and its Master parts'.
+  `SiteCensusLookup` unchanged.
+- Readings: "a memory cap for the whole run (a record keeps at most 16 answers, 8 Mi chars)" is read
+  as each slot's record's own cap (`LookupRecord.MAX_KEPT`, `MAX_KEPT_CHARS`, unchanged) kept
+  through the run until that slot's Master part and dropped right after it (or after (i) when its
+  Master part will not run), not one pool for every slot (it would refuse later slots' replays); a
+  stop in (i): the earlier slots' Master parts, which now wait for (ii) and (iii), read "site
+  stopped" too.
+- Changed test expectations: `SiteWaysTest` "each kind expects rows or the site's final answer": the
+  ambiguous kinds `[Instagram 10]` → `[Facebook 12, Instagram 10]` (slot 12's expectation and label
+  asserted); `SiteCensusTest` "a broken, foreign or old state file is no state, and a first run says
+  so": the foreign format's sample `"fmt":2` → `"fmt":3` (2 is today's); `SiteCensusDiffTest` "a
+  first run, a file that is no site census export, and the same run twice": the foreign export `fmt`
+  1 → 2 becomes 2 → 3 (as above); `SiteCensusDiffTest` "what was not compared is a note - a site or
+  slot in one run only, a skipped site or row": the headline "NO CHANGE — against the run of …" →
+  "NOT COMPARED — no slot looked up in both runs, against the run of …" (nothing compared).
+- Not touched: main's lookups, Master's engine and contracts, `RouteBLookup`, `RouteBHttpClient`,
+  `LookupAsk.endpoint`, `LookupRecord`, the YouTube files (`CensusJson` used only), the workflows;
+  flag off (`-Pyft.socialLadder`): today's; route B, the parity tests, `FixtureBaselineTest` and the
+  drift check unchanged.
+- Tests: `SiteCensusTest` +11 (a trial's 429 keeps the later slots' main; main's 429 still stops the
+  site; the deferred replay and each row's own time; the memory cap; the baseline's choice; a new
+  link and NOT COMPARED; slot 12; format 1's state; a stopped Master part not compared, route B's
+  lost recovery no BREAKING; the Master-phase cooldown keeps main; the trial order),
+  `SiteCensusDiffTest` +2 (`masterStop` alone a note, never CHANGED or BREAKING; a format 1 export's
+  own 429 not compared). Local (JDK 17): `:extractor-master:test` 865 tests (2 skipped),
+  `:extractor-master-android:testDebugUnitTest` 69 and `:app:testDebugUnitTest` 1041 (66 skipped)
+  passed; `:app:lintDebug` and `:app:assembleDebug` passed.
+- Next: §7.4 step 3 (commit 2, A1 in main), pushed when this commit's CI is green; then the owner's
+  step 4 with the APK of its SHA.
+
 ## Social plan S1a (8) — the simulator world, behind the flag (2026-10-21)
 
 - `FacebookWorldTest` (`extractor-master` `social/`, a test only; no main or Master code changed):

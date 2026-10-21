@@ -24,6 +24,7 @@ import com.alal.yft.extractor.api.json.get
 import com.alal.yft.extractor.master.MasterMediaValidator
 import com.alal.yft.extractor.master.ValidationResult
 import com.alal.yft.extractor.master.lookup.AnswerMark
+import com.alal.yft.extractor.master.lookup.LookupRecord
 import com.alal.yft.extractor.master.lookup.LookupRecorder
 import com.alal.yft.extractor.master.modules.youtube.testing.FakeExtractorHttpClient
 import com.alal.yft.extractor.master.modules.youtube.testing.Fixtures
@@ -526,7 +527,7 @@ class SiteCensusTest {
     @Test
     fun `a broken, foreign or old state file is no state, and a first run says so`() {
         assertEquals("No run yet.", SiteCensus.statusOf(null, NOW_MS))
-        for (text in listOf("", "{", "[]", "{\"fmt\":2,\"stops\":{\"x\":{\"until\":9999999999999,\"why\":\"429\"}}}")) {
+        for (text in listOf("", "{", "[]", "{\"fmt\":3,\"stops\":{\"x\":{\"until\":9999999999999,\"why\":\"429\"}}}")) {
             val state = SiteCensusState.read(text)
             assertTrue(text, state.stops.isEmpty())
             assertEquals(text, 0L, state.lastAtMillis)
@@ -695,6 +696,415 @@ class SiteCensusTest {
         assertTrue("nothing asked", http.requestedUrls.isEmpty())
     }
 
+    @Test
+    fun `0_4 c - a trial's 429 stops only the Master parts - every slot's main runs and the trials read incomplete`() = runTest {
+        val http = ttEmbedLimited()
+        val main = ScriptedMain { link, _ -> MainAnswer.Found(listOf(row(TT_CDN_FILE, 1280, page = link))) }
+        val links = mapOf("tiktok" to mapOf(1 to TT_POST, 2 to TT_POST_2, 3 to TT_POST_3))
+
+        val outcome = census(main, http).run(listOf(SiteWays.TIKTOK), links, null)
+
+        val site = json(outcome.json)["sites"][0]
+        assertNull("main's phase completed: no site stop", site["stop"])
+        assertEquals("429", site["masterStop"].asStringOrNull)
+        val rows = site["rows"].asArrayOrEmpty
+        assertEquals("every slot's main", listOf("rows", "rows", "rows"), rows.map { it["main"]["answer"].asStringOrNull })
+        assertEquals(listOf("pass", "pass", "pass"), rows.map { it["v"]["verdict"].asStringOrNull })
+        assertEquals("trial", rows[0]["master"]["run"].asStringOrNull)
+        assertEquals("its own ask got the 429", "429", rows[0]["master"]["stopped"].asStringOrNull)
+        assertEquals(true, rows[0]["master"]["asks"][0]["rateLimited"].asBooleanOrNull)
+        for (row in rows.drop(1)) {
+            assertEquals("not run", row["master"]["run"].asStringOrNull)
+            assertEquals("stopped (429)", row["master"]["why"].asStringOrNull)
+            assertEquals("429", row["master"]["stopped"].asStringOrNull)
+        }
+        assertEquals("one embed ask, then none", 1, http.requestedUrls.count { it.startsWith(TT_EMBED_PREFIX) })
+        assertEquals("V on each slot's main row", 3, http.probedUrls.size)
+        assertNull("only main's phase stops the site", outcome.stopped)
+        assertTrue(outcome.firstLine, outcome.firstLine.endsWith(", main 3/3 · trials incomplete (429)"))
+        val lines = outcome.report.lines()
+        assertTrue(outcome.report, lines.any { it.endsWith("; main 3/3 · trials incomplete (429) (30 min)") })
+        assertTrue(outcome.report, lines.contains("Diff: FIRST RUN — nothing to compare yet · trials incomplete (429)"))
+        val state = json(outcome.stateJson)
+        assertNull("no cooldown of the whole site", state["stops"]["tiktok"])
+        assertEquals(NOW_MS + SiteCensus.COOLDOWN_MILLIS, state["masterStops"]["tiktok"]["until"].asLongOrNull)
+        assertEquals("429", state["masterStops"]["tiktok"]["why"].asStringOrNull)
+        assertEquals("a run whose main phase completed is the baseline", 1, state["baselines"].asArrayOrEmpty.size)
+    }
+
+    @Test
+    fun `0_4 c - a Master-phase stop's cooldown skips only the Master parts - main runs, after 30 minutes Master runs again`() =
+        runTest {
+            val http = ttEmbedLimited()
+            var lookups = 0
+            val main = ScriptedMain { link, _ ->
+                lookups++
+                MainAnswer.Found(listOf(row(TT_CDN_FILE, 1280, page = link)))
+            }
+            val census = census(main, http)
+            val links = mapOf("tiktok" to mapOf(1 to TT_POST, 2 to TT_POST_2))
+            val first = census.run(listOf(SiteWays.TIKTOK), links, null)
+            assertEquals(1, http.requestedUrls.size)
+
+            now = NOW_MS + 10 * MINUTE
+            assertEquals(
+                "Last run: ${SiteCensusJson.dateOf(NOW_MS)}, 10 min ago. Master's parts stopped: TikTok 20 min (429).",
+                SiteCensus.statusOf(first.stateJson, now),
+            )
+            val second = census.run(listOf(SiteWays.TIKTOK), links, first.stateJson)
+
+            val site = json(second.json)["sites"][0]
+            assertNull("the site is not skipped", site["skipped"])
+            assertEquals("main ran again", 4, lookups)
+            assertEquals("cooldown 20 min (429)", site["masterCooldown"].asStringOrNull)
+            assertNull(site["masterStop"])
+            for (row in site["rows"].asArrayOrEmpty) {
+                assertEquals("rows", row["main"]["answer"].asStringOrNull)
+                assertEquals("pass", row["v"]["verdict"].asStringOrNull)
+                assertEquals("not run", row["master"]["run"].asStringOrNull)
+                assertEquals("cooldown 20 min (429)", row["master"]["why"].asStringOrNull)
+                assertEquals(SiteCensus.COOLDOWN, row["master"]["stopped"].asStringOrNull)
+            }
+            assertEquals("no Master ask inside the cooldown", 1, http.requestedUrls.size)
+            assertTrue(second.firstLine, second.firstLine.endsWith(", main 2/2 · trials incomplete (cooldown 20 min (429))"))
+            assertEquals(
+                "the cooldown is kept",
+                NOW_MS + SiteCensus.COOLDOWN_MILLIS,
+                json(second.stateJson)["masterStops"]["tiktok"]["until"].asLongOrNull,
+            )
+            val lines = second.report.lines()
+            assertTrue(
+                second.report,
+                lines.contains("Diff: NO CHANGE — against the run of ${SiteCensusJson.dateOf(NOW_MS)} · trials incomplete (cooldown)"),
+            )
+            assertTrue(second.report, lines.contains("  note: TikTok: trials incomplete (429 → cooldown)"))
+            assertTrue(
+                second.report,
+                lines.contains("  note: TikTok slot 1 (single video): Master not compared (the earlier run: 429; the later run: cooldown)"),
+            )
+
+            now = NOW_MS + 31 * MINUTE
+            val third = census.run(listOf(SiteWays.TIKTOK), links, second.stateJson)
+
+            assertNull(json(third.json)["sites"][0]["masterCooldown"])
+            assertEquals("Master asks again", 2, http.requestedUrls.size)
+            assertEquals(now + SiteCensus.COOLDOWN_MILLIS, json(third.stateJson)["masterStops"]["tiktok"]["until"].asLongOrNull)
+            assertEquals(6, lookups)
+        }
+
+    @Test
+    fun `0_4 c - a 429 in main's phase still stops the whole site - no Master part runs, and the run is no baseline`() = runTest {
+        val http = xSite()
+        val limited = LookupRecorder(
+            FakeExtractorHttpClient(getResponder = { _, _ -> ExtractorHttpResult.Failure(SiteExtractionFailure.RATE_LIMITED, 429) }),
+        )
+        val main = ScriptedMain { link, _ ->
+            if (link == X_POST_2) {
+                limited.get("$WIDGET?id=2", emptyMap(), 1_000)
+                MainAnswer.Failed(SiteExtractionFailure.RESPONSE_CHANGED)
+            } else {
+                MainAnswer.Found(listOf(row(X_FILE, 1280, page = link)))
+            }
+        }
+
+        val outcome = census(main, http).run(listOf(SiteWays.X), mapOf("x" to mapOf(1 to X_POST, 2 to X_POST_2, 3 to X_POST_3)), null)
+
+        val site = json(outcome.json)["sites"][0]
+        assertEquals("429", site["stop"].asStringOrNull)
+        assertNull(site["masterStop"])
+        val rows = site["rows"].asArrayOrEmpty
+        assertEquals("pass", rows[0]["v"]["verdict"].asStringOrNull)
+        assertEquals("an earlier slot's Master part waits for main's phase", "site stopped", rows[0]["master"]["why"].asStringOrNull)
+        assertEquals("site stopped", rows[1]["master"]["why"].asStringOrNull)
+        assertEquals("site stopped (429)", rows[2]["skipped"].asStringOrNull)
+        assertTrue("Master asked nothing", http.requestedUrls.isEmpty())
+        val state = json(outcome.stateJson)
+        assertEquals(NOW_MS + SiteCensus.COOLDOWN_MILLIS, state["stops"]["x"]["until"].asLongOrNull)
+        assertNull(state["masterStops"]["x"])
+        assertTrue("no baseline", state["baselines"].asArrayOrEmpty.isEmpty())
+        assertTrue(outcome.report, outcome.report.lines().contains("  note: X: stopped before every slot's main (429): not a baseline"))
+        assertEquals("X: 429", outcome.stopped)
+    }
+
+    @Test
+    fun `0_4 c - every slot's main comes first, each Master part replays its own slot's answer, and a row's time is its own steps`() =
+        runTest {
+            var gets = 0
+            val http = FakeExtractorHttpClient(
+                getResponder = { url, _ ->
+                    if (url.startsWith(WIDGET)) {
+                        gets++
+                        now += gets * 1_000L
+                        FakeExtractorHttpClient.json(Fixtures.read("x/tweet_video.json"), url)
+                    } else {
+                        null
+                    }
+                },
+                probeResponder = { _, _ -> ExtractorProbeResult.Answered(206, 1_000L) },
+            )
+            val steps = mutableListOf<String>()
+
+            val outcome = census(AppMain(http), http)
+                .run(listOf(SiteWays.X), mapOf("x" to mapOf(1 to X_POST, 2 to X_POST_2)), null, onStep = steps::add)
+
+            // The widget's fixture names slot 1's post: Master's rows for slot 1 only (V on them).
+            assertEquals(
+                listOf(
+                    "X slot 1: main", "X slot 1: V", "X slot 2: main", "X slot 2: V",
+                    "X slot 1: Master", "X slot 1: V", "X slot 2: Master",
+                ),
+                steps,
+            )
+            val site = json(outcome.json)["sites"][0]
+            val rows = site["rows"].asArrayOrEmpty
+            assertEquals("each slot's own answer, replayed", listOf(1L, 1L), rows.map { it["master"]["replayed"].asLongOrNull })
+            assertEquals(listOf(0L, 0L), rows.map { it["master"]["new"].asLongOrNull })
+            assertEquals("main's two widget asks, none of Master's", 2, http.requestedUrls.size)
+            assertEquals("a row's own steps: slot 1's main took 1 s, slot 2's 2 s", listOf(1_000L, 2_000L), rows.map { it["ms"].asLongOrNull })
+            assertEquals(3_000L, site["ms"].asLongOrNull)
+        }
+
+    @Test
+    fun `0_4 c - a slot's record keeps at most 16 answers until its Master part, then main's ask is not sent again`() = runTest {
+        val http = xSite()
+        val app = AppMain(http)
+        val recorder = LookupRecorder(http)
+        val filled = object : MainLookup {
+            override suspend fun identify(link: String): LinkIdentity? = app.identify(link)
+
+            override suspend fun lookup(link: String, identity: LinkIdentity): MainAnswer {
+                repeat(LookupRecord.MAX_KEPT) { recorder.get("$WIDGET?fixture=$it", emptyMap(), 1_000_000) }
+                return app.lookup(link, identity)
+            }
+        }
+        val links = mapOf("x" to mapOf(1 to X_POST))
+
+        val plain = census(app, http).run(listOf(SiteWays.X), links, null)
+        val asked = http.requestedUrls.size
+        val full = census(filled, http).run(listOf(SiteWays.X), links, null)
+
+        assertEquals("under the cap: main's answer replayed", 1L, json(plain.json)["sites"][0]["rows"][0]["master"]["replayed"].asLongOrNull)
+        val master = json(full.json)["sites"][0]["rows"][0]["master"]
+        assertEquals("the record is full: main's widget answer was not kept", 0L, master["replayed"].asLongOrNull)
+        assertEquals("main asked it: not sent again", 1L, master["refused"].asLongOrNull)
+        assertEquals(0L, master["new"].asLongOrNull)
+        assertEquals("16 asks and main's, none of Master's", asked + LookupRecord.MAX_KEPT + 1, http.requestedUrls.size)
+    }
+
+    @Test
+    fun `0_4 c - each site's baseline is the last run of its VPN and session whose main phase completed`() = runTest {
+        val http = FakeExtractorHttpClient()
+        var answer: MainAnswer = MainAnswer.Failed(SiteExtractionFailure.LOGIN_REQUIRED)
+        val signedOut = census(ScriptedMain { _, _ -> answer }, http)
+        val signedIn = census(ScriptedMain(cookies = mapOf("x" to "auth_token=$COOKIE_VALUE")) { _, _ -> answer }, http)
+        val links = mapOf("x" to mapOf(X_AGE_LIMITED to X_POST))
+        fun date(minutes: Int) = SiteCensusJson.dateOf(NOW_MS + minutes * MINUTE)
+
+        val first = signedOut.run(listOf(SiteWays.X), links, null)
+        assertTrue(first.report, first.report.lines().contains("Diff: FIRST RUN — nothing to compare yet"))
+        assertTrue(first.report, first.report.lines().contains("  note: X: no baseline yet (VPN off, signed out); this run starts it"))
+
+        answer = MainAnswer.Failed(SiteExtractionFailure.LOGIN_REQUIRED, 401)
+        now = NOW_MS + 2 * MINUTE
+        val vpn = signedOut.run(listOf(SiteWays.X), links, first.stateJson, vpn = true)
+        assertTrue(vpn.report, vpn.report.lines().contains("Diff: NOT COMPARED — no baseline yet for this run's sites"))
+        assertTrue(vpn.report, vpn.report.lines().contains("  note: X: no baseline yet (VPN on, signed out); this run starts it"))
+        assertEquals(true, json(vpn.json)["vpn"].asBooleanOrNull)
+
+        now = NOW_MS + 4 * MINUTE
+        val session = signedIn.run(listOf(SiteWays.X), links, vpn.stateJson)
+        assertTrue(session.report, session.report.lines().contains("  note: X: no baseline yet (VPN off, signed in); this run starts it"))
+
+        now = NOW_MS + 6 * MINUTE
+        val fourth = signedOut.run(listOf(SiteWays.X), links, session.stateJson)
+        assertTrue(fourth.report, fourth.report.lines().contains("Diff: CHANGED (1) — against the run of ${date(0)}"))
+
+        answer = MainAnswer.Failed(SiteExtractionFailure.BOT_CHECK)
+        now = NOW_MS + 8 * MINUTE
+        val stopped = signedOut.run(listOf(SiteWays.X), links, fourth.stateJson)
+        assertTrue(stopped.report, stopped.report.lines().any { it.startsWith("Diff: BREAKING") && it.endsWith("against the run of ${date(6)}") })
+        assertTrue(stopped.report, stopped.report.lines().contains("  note: X: stopped before every slot's main (bot check): not a baseline"))
+
+        answer = MainAnswer.Failed(SiteExtractionFailure.LOGIN_REQUIRED, 401)
+        now = NOW_MS + 40 * MINUTE
+        val after = signedOut.run(listOf(SiteWays.X), links, stopped.stateJson)
+        assertTrue(after.report, after.report.lines().contains("Diff: NO CHANGE — against the run of ${date(6)}"))
+
+        val baselines = json(after.stateJson)["baselines"].asArrayOrEmpty
+        assertEquals(
+            listOf("off out ${date(40)}", "on out ${date(2)}", "off in ${date(4)}"),
+            baselines.map { base ->
+                val vpnText = if (base["vpn"].asBooleanOrNull == true) "on" else "off"
+                val sessionText = if (base["session"].asBooleanOrNull == true) "in" else "out"
+                "$vpnText $sessionText ${base["date"].asStringOrNull}"
+            },
+        )
+        assertTrue("nothing asked", http.requestedUrls.isEmpty())
+    }
+
+    @Test
+    fun `0_4 c - a slot whose link changed reads new link, nothing compared is NOT COMPARED, and the next run compares it`() = runTest {
+        val http = FakeExtractorHttpClient()
+        val census = census(ScriptedMain { _, _ -> MainAnswer.Failed(SiteExtractionFailure.LOGIN_REQUIRED) }, http)
+
+        val first = census.run(listOf(SiteWays.X), mapOf("x" to mapOf(X_AGE_LIMITED to X_POST)), null)
+        now = NOW_MS + 2 * MINUTE
+        val second = census.run(listOf(SiteWays.X), mapOf("x" to mapOf(X_AGE_LIMITED to X_POST_2)), first.stateJson)
+        now = NOW_MS + 4 * MINUTE
+        val third = census.run(listOf(SiteWays.X), mapOf("x" to mapOf(X_AGE_LIMITED to X_POST_2)), second.stateJson)
+
+        val lines = second.report.lines()
+        assertTrue(
+            second.report,
+            lines.contains("Diff: NOT COMPARED — no slot looked up in both runs, against the run of ${SiteCensusJson.dateOf(NOW_MS)}"),
+        )
+        assertTrue(second.report, lines.contains("  note: X slot 7 (age-limited): new link"))
+        assertTrue(
+            third.report,
+            third.report.lines().contains("Diff: NO CHANGE — against the run of ${SiteCensusJson.dateOf(NOW_MS + 2 * MINUTE)}"),
+        )
+        val print = SiteCensus.fingerprintOf(X_POST_2)
+        assertEquals("the state's own fingerprint", print, json(third.stateJson)["baselines"][0]["links"]["7"].asStringOrNull)
+        for (text in listOf(third.json, third.report, third.firstLine)) assertFalse(text, print in text)
+        assertFalse("the old link's fingerprint is gone", SiteCensus.fingerprintOf(X_POST) in third.stateJson)
+        assertTrue("nothing asked", http.requestedUrls.isEmpty())
+    }
+
+    @Test
+    fun `0_4 c - Facebook's sign-in-only slot signed out - a private or changed page is ambiguous, sign-in as expected`() = runTest {
+        val http = FakeExtractorHttpClient()
+        val links = mapOf("facebook" to mapOf(FB_SIGN_IN_ONLY to FB_WATCH))
+        val signIn = mapOf("facebook" to "c_user=1; xs=$COOKIE_VALUE")
+        suspend fun run(answer: MainAnswer, cookies: Map<String, String> = emptyMap()) =
+            json(census(ScriptedMain(cookies) { _, _ -> answer }, http).run(listOf(SiteWays.FACEBOOK), links, null).json)["sites"][0]
+
+        for (reason in listOf(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, SiteExtractionFailure.RESPONSE_CHANGED)) {
+            val site = run(MainAnswer.Failed(reason))
+            val row = site["rows"][0]
+            assertEquals("sign-in-only", row["kind"].asStringOrNull)
+            assertNull("$reason: neither way", row["expected"])
+            assertEquals(true, row["ambiguous"].asBooleanOrNull)
+            assertEquals(SiteCensus.AMBIGUOUS, row["note"].asStringOrNull)
+            assertEquals(1L, site["number"]["ambiguous"].asLongOrNull)
+            assertEquals(0L, site["number"]["notAsExpected"].asLongOrNull)
+        }
+        val login = run(MainAnswer.Failed(SiteExtractionFailure.LOGIN_REQUIRED))["rows"][0]
+        assertEquals("main's sign-in answer stays as expected", true, login["expected"].asBooleanOrNull)
+        assertNull(login["ambiguous"])
+        val rows = run(MainAnswer.Found(listOf(row(FB_FILE, 720, page = FB_WATCH))), signIn)["rows"][0]
+        assertEquals(true, rows["session"].asBooleanOrNull)
+        assertEquals("signed in it downloads, as today", true, rows["expected"].asBooleanOrNull)
+        val privateSignedIn = run(MainAnswer.Failed(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE), signIn)["rows"][0]
+        assertEquals(false, privateSignedIn["expected"].asBooleanOrNull)
+        assertEquals("rows wanted", privateSignedIn["note"].asStringOrNull)
+        assertNull(privateSignedIn["ambiguous"])
+    }
+
+    @Test
+    fun `0_4 c - a state of format 1 keeps its cooldowns, holds no baseline, and is written again as format 2`() = runTest {
+        val http = FakeExtractorHttpClient()
+        val census = census(ScriptedMain { _, _ -> MainAnswer.Failed(SiteExtractionFailure.LOGIN_REQUIRED) }, http)
+        val old = "{\"fmt\":1,\"stops\":{\"tiktok\":{\"until\":${NOW_MS + 10 * MINUTE},\"why\":\"429\"}}," +
+            "\"lastAt\":${NOW_MS - MINUTE},\"last\":{\"tool\":\"${SiteCensus.TOOL_LABEL}\",\"fmt\":1,\"sites\":[]}}"
+        assertEquals(
+            "Last run: ${SiteCensusJson.dateOf(NOW_MS - MINUTE)}, 1 min ago. Stopped: TikTok 10 min (429).",
+            SiteCensus.statusOf(old, NOW_MS),
+        )
+
+        val outcome = census.run(
+            listOf(SiteWays.TIKTOK, SiteWays.X),
+            mapOf("tiktok" to mapOf(1 to TT_POST), "x" to mapOf(X_AGE_LIMITED to X_POST)),
+            old,
+        )
+
+        assertEquals("cooldown 10 min (429)", json(outcome.json)["sites"][0]["skipped"].asStringOrNull)
+        assertTrue(outcome.report, outcome.report.lines().contains("Diff: FIRST RUN — nothing to compare yet"))
+        val state = json(outcome.stateJson)
+        assertEquals(SiteCensusState.FORMAT.toLong(), state["fmt"].asLongOrNull)
+        assertEquals(2L, state["fmt"].asLongOrNull)
+        assertEquals("format 1's cooldown kept", NOW_MS + 10 * MINUTE, state["stops"]["tiktok"]["until"].asLongOrNull)
+        assertEquals("429", state["stops"]["tiktok"]["why"].asStringOrNull)
+        assertEquals(listOf("x"), state["baselines"].asArrayOrEmpty.map { it["site"].asStringOrNull })
+        assertTrue("TikTok is not asked", http.requestedUrls.isEmpty())
+    }
+
+    @Test
+    fun `0_4 c - a Master part the Master phase's 429 stopped is not compared, and route B's lost recovery is no BREAKING`() = runTest {
+        var limited = false
+        val http = FakeExtractorHttpClient(
+            getResponder = { url, _ ->
+                when {
+                    !url.startsWith(TT_EMBED_PREFIX) -> null
+                    limited -> ExtractorHttpResult.Failure(SiteExtractionFailure.RATE_LIMITED, 429)
+                    url == TT_EMBED_URL -> FakeExtractorHttpClient.html(TT_EMBED_CDN, url)
+                    else -> null
+                }
+            },
+            probeResponder = { _, _ -> ExtractorProbeResult.Answered(206, 5_000_000L) },
+        )
+        val main = ScriptedMain { link, _ ->
+            if (link == TT_POST) {
+                MainAnswer.Failed(SiteExtractionFailure.RESPONSE_CHANGED)
+            } else {
+                MainAnswer.Found(listOf(row(TT_CDN_FILE, 1280, page = link)))
+            }
+        }
+        val census = census(main, http)
+        val links = mapOf("tiktok" to mapOf(1 to TT_POST, 2 to TT_POST_2))
+
+        val first = census.run(listOf(SiteWays.TIKTOK), links, null)
+        assertEquals("route B recovered slot 1", 1L, json(first.json)["sites"][0]["number"]["master"].asLongOrNull)
+        limited = true
+        now = NOW_MS + 2 * MINUTE
+        val second = census.run(listOf(SiteWays.TIKTOK), links, first.stateJson)
+
+        val site = json(second.json)["sites"][0]
+        assertEquals("429", site["rows"][0]["master"]["stopped"].asStringOrNull)
+        assertEquals("stopped (429)", site["rows"][1]["master"]["why"].asStringOrNull)
+        val lines = second.report.lines()
+        assertTrue(
+            second.report,
+            lines.contains("Diff: NO CHANGE — against the run of ${SiteCensusJson.dateOf(NOW_MS)} · trials incomplete (429)"),
+        )
+        assertTrue(second.report, lines.none { it.startsWith("  BREAKING") || it.startsWith("  CHANGED") })
+        assertTrue(second.report, lines.contains("  note: TikTok: trials incomplete in the later run (429)"))
+        assertTrue(second.report, lines.contains("  note: TikTok slot 1 (single video): Master not compared (the later run: 429)"))
+        assertTrue(second.report, lines.contains("  note: TikTok slot 2 (single video): Master not compared (the later run: 429)"))
+    }
+
+    @Test
+    fun `0_4 c - the phases - every main first, then route B, then the trials after final answers, then after rows, in slot order`() =
+        runTest {
+            val http = xSite()
+            val main = ScriptedMain { link, _ ->
+                when (link) {
+                    X_POST_2 -> MainAnswer.Failed(SiteExtractionFailure.GEO_RESTRICTED)
+                    X_POST_3 -> MainAnswer.Failed(SiteExtractionFailure.RESPONSE_CHANGED)
+                    X_POST_8 -> MainAnswer.Failed(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, 404)
+                    else -> MainAnswer.Found(listOf(row(X_FILE, 1280, page = link)))
+                }
+            }
+            val steps = mutableListOf<String>()
+            val links = mapOf("x" to mapOf(1 to X_POST, 2 to X_POST_2, 3 to X_POST_3, 5 to X_POST_5, X_REMOVED to X_POST_8))
+
+            val outcome = census(main, http).run(listOf(SiteWays.X), links, null, onStep = steps::add)
+
+            assertEquals(listOf(1, 2, 3, 5, 8).map { "X slot $it: main" }, steps.filter { it.endsWith(": main") })
+            val masters = steps.filter { it.endsWith(": Master") }
+            assertEquals(listOf(3, 2, 8, 1, 5).map { "X slot $it: Master" }, masters)
+            assertTrue(steps.toString(), steps.indexOfLast { it.endsWith(": main") } < steps.indexOf(masters.first()))
+            val runs = json(outcome.json)["sites"][0]["rows"].asArrayOrEmpty.map { it["master"]["run"].asStringOrNull }
+            assertEquals(listOf("trial", "trial", "route B", "trial", "trial"), runs)
+        }
+
+    /** TikTok: the embed player answers 429 (Master's asks), the media host's files answer V. */
+    private fun ttEmbedLimited() = FakeExtractorHttpClient(
+        getResponder = { url, _ ->
+            ExtractorHttpResult.Failure(SiteExtractionFailure.RATE_LIMITED, 429).takeIf { url.startsWith(TT_EMBED_PREFIX) }
+        },
+        probeResponder = { _, _ -> ExtractorProbeResult.Answered(206, 5_000_000L) },
+    )
+
     private fun census(
         main: MainLookup,
         http: ExtractorHttpClient,
@@ -758,6 +1168,9 @@ class SiteCensusTest {
         const val WIDGET = "https://cdn.syndication.twimg.com/tweet-result"
         const val X_POST = "https://x.com/fixture_user/status/1785999999999999999"
         const val X_POST_2 = "https://x.com/fixture_user/status/1785999999999999998"
+        const val X_POST_3 = "https://x.com/fixture_user/status/1785999999999999997"
+        const val X_POST_5 = "https://x.com/fixture_user/status/1785999999999999995"
+        const val X_POST_8 = "https://x.com/fixture_user/status/1785999999999999992"
         const val X_FILE = "https://video.twimg.com/ext_tw_video/1785999990000000000/pu/vid/avc1/720x1280/a720.mp4?tag=12"
         const val TT_POST_2 = "https://www.tiktok.com/@fixture_user/video/7311234567890123457"
         const val TT_POST_3 = "https://www.tiktok.com/@fixture_user/video/7311234567890123458"
@@ -765,6 +1178,9 @@ class SiteCensusTest {
         const val TT_CDN_FILE = "https://v16-webapp-prime.tiktokcdn.com/video/tos/useast5/fixture/embed.mp4" +
             "?mime_type=video_mp4&expire=4102444800"
         const val OTHER_FILE = "https://v16m.example-cdn.test/hd/fixture.mp4"
+        const val TT_EMBED_PREFIX = "https://www.tiktok.com/embed/"
+        const val FB_WATCH = "https://www.facebook.com/watch/?v=1000000000000012"
+        const val FB_FILE = "https://video.fixture.fbcdn.net/v/t42/fixture.mp4?oh=fixture"
 
         /** The slots of the site table these tests use (SiteWays). */
         const val X_REMOVED = 8
@@ -774,6 +1190,7 @@ class SiteCensusTest {
         const val IG_REMOVED = 10
         const val DESKTOP_HD = 10
         const val TT_PHOTO = 6
+        const val FB_SIGN_IN_ONLY = 12
 
         /** extractor-sites' fixture `x/tweet_card_carousel.json` (a made-up post), its second video. */
         const val X_CAROUSEL_2 = "https://x.com/fixture_user/status/1786000000000000090/video/2"

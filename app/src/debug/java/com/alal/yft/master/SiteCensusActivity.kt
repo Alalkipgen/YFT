@@ -64,6 +64,12 @@ import okhttp3.Response
  * and its JSON export, which never hold a link, a post ID, a name or an address, are shown with
  * copy buttons, and the state (cooldowns, the last run) is kept in
  * `files/master/site-census-last.json`.
+ *
+ * Social plan 0.4 (c) (§7.4 step 2): per site, every slot's main and V first, then the backup's
+ * parts (route B, then the trials); a 429 or a bot check in the backup's parts skips only its
+ * remaining parts (and its parts of the next runs for 30 minutes; main still runs). The run gets
+ * whether Android's network is a VPN ([onVpn], as the screen reads Wi-Fi): the state keeps each
+ * site's baseline per VPN and session (with each slot's link fingerprint, never in the export).
  */
 class SiteCensusActivity : ComponentActivity() {
     private var running = false
@@ -175,8 +181,9 @@ class SiteCensusActivity : ComponentActivity() {
             job = lifecycleScope.launch {
                 try {
                     val network = networkNote()
+                    val vpn = onVpn()
                     val outcome = withContext(Dispatchers.Default) {
-                        census.run(sites, links, readState(stateFile), listOf(network)) { step ->
+                        census.run(sites, links, readState(stateFile), listOf(network), vpn = vpn) { step ->
                             runOnUiThread { status.text = step }
                         }
                     }
@@ -299,6 +306,13 @@ class SiteCensusActivity : ComponentActivity() {
 
     private fun networkNote(): String = if (onWifi()) "network: Wi-Fi" else "network: mobile data"
 
+    /** 0.4 (c): whether Android's active network is a VPN (each site's baseline is kept per VPN). */
+    private fun onVpn(): Boolean = runCatching {
+        val connectivity = getSystemService(ConnectivityManager::class.java)
+        connectivity?.getNetworkCapabilities(connectivity.activeNetwork)
+            ?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+    }.getOrDefault(false)
+
     private fun key(site: Site, slot: Int) = "${site.id}-$slot"
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
@@ -315,8 +329,13 @@ class SiteCensusActivity : ComponentActivity() {
             "YFT's browser, each request once, at most 90 s), a one-byte check of its best quality, " +
             "and the backup's way once (after a failure the backup would take, or as a trial).\n" +
             "A sign-in-only slot downloads only when you are signed in to the site in YFT's browser.\n" +
-            "An HTTP 429 or a bot check stops that site for the run and no run of it starts for 30 min. " +
+            "Per site, every link's own lookup and check come first, then the backup's ways (after failures, " +
+            "then the trials).\n" +
+            "An HTTP 429 or a bot check in YFT's own lookups stops that site for the run and no run of it starts " +
+            "for 30 min; in the backup's ways it stops only the backup's ways (for 30 min; YFT's own lookups still run). " +
             "At most 150 requests and 40 MB per site.\n" +
+            "Each site is compared with its own last run of the same kind (VPN on or off, as Android reports it; " +
+            "signed in or not).\n" +
             "Nothing runs unless you tap, and only while this screen stays open (leaving it stops the run). " +
             "The links stay on this phone; the report and the JSON hold no link, post ID, name or address.\n\n" +
             "Links per site (empty slots are skipped):"
