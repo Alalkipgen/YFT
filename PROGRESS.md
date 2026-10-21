@@ -1,5 +1,116 @@
 # YFT Master Extractor backup
 
+## Social plan S1a (10) — fixes from step 6's first phone run (debug only, behind the flag) (2026-10-21)
+
+- Step 6's first run (the owner, 2026-10-21; `MASTER_KEY_SOCIAL_PLAN.md` §7.4, "Step 6 — the
+  owner's first run", with its table): `yft-d7-fb-trial` of `ef4a546`, the app's browser, signed
+  out; with the VPN (Boston) 10:52–11:43 UTC, all 13 links; without it 11:46–11:53 UTC, links 1,
+  8, 9, 10 and 13. Wherever a trial line showed: the same video yes, wrong rows 0. Links 3–8 and
+  11 (VPN), 1 and 8 (no VPN): rows on the first lookup (Master's 1–2, often "Quality unknown";
+  main's 1–3; the sizes fit the length). Not met: link 9 (a Page post's desktop link; it opens as
+  `story.php`): no ladder or trial line, and "Found on this page 2" with another video (b: 1:00,
+  360x640, "360p · Data saver") beside the post's (a: 2:13, 360x360), both under the post's title;
+  link 10 (a group post's desktop link): "Facebook trial: main's rows were set aside and Master
+  found none" (main's 2 rows with the VPN, 3 without), also after playing and Try again; every
+  trial line "duration within 1 s: unknown" (the sheet showed 0:03 to 1:15:24); links 1–2 (watch
+  links, VPN): "Master found none" on the first lookup, rows after one Try again (Master's 2,
+  main's 3; link 1 without the VPN: rows at once); links 12–13: Facebook's sign-in page, no
+  lookup, "No video on screen to download. Scroll to a video and tap Download again." (not slot
+  13's `PRIVATE_OR_UNAVAILABLE`). Links 9 and 10 by their share/v links: Master's rows 2 and 1
+  (240p only), main's 3 and 2, the same video yes.
+- The owner's decision (2026-10-21): links 9 and 10 are desktop link forms; the owner (the only
+  user now) mostly pastes mobile share links (share/v, share/r), and those work. Link 9 must never
+  offer a video that is not the post's own; if (b) shows with the flag off too, it is main's bug
+  (its fix the owner's call). The trial on these two forms only if cheap and safe, else a
+  documented limitation with the evidence. The duration (a must) and links 1–2 as asked. §7.3's
+  done-when: slots 9–10 in their desktop forms may end as a documented limitation; their mobile
+  share links must give Master rows (amended there). Step 6's re-run adds one share/p link of a
+  post with a video (the app's Share on a post can give share/p, which may open a post page).
+- The duration (all 13 links), the cause: the plugin player's answer (F1) names no length (its
+  video's data: the ID, the HD and SD files, the picture size); S1a (9)'s test player wrongly had
+  `playable_duration_in_ms`, so its tests passed. F2's rows state one only where the page does (an
+  ISO length); main's rows carry the page's. So Master's rows stated none and the ±1 s check never
+  ran (the sheet measured the files itself). The fix (`extractor-master` `social/StartDuration.kt`,
+  new; `SocialRowCheck`): a Master row that passes S6 (V and the init check) and states no length
+  gets its file's own from the bytes S6 already read (its first 4 KiB; no new request): the movie
+  header (`mvhd`, versions 0 and 1, read though the bytes cut its `moov`), else a fragmented file's
+  own length (`mehd` over `mvhd`'s timescale; a DASH file's `mvhd` states 0), else the first whole
+  top-level index (`sidx`, through `SegmentIndexReader`); at most 256 boxes; 1 ms to 48 hours, else
+  none. Checked on real files' starts (no link kept): a whole file's `mvhd` comes first in its
+  `moov`; a DASH file's `moov`, `sidx` and first `moof` fit in the 4 KiB. A row's own length
+  stays. So the trial's line says yes or no whenever main's rows state a length
+  (`SocialLadder.trialSegment` unchanged; its KDoc says where Master's lengths come from).
+- Links 1–2, the cause (found in the code, not proven on the phone: the line named no step):
+  "Master found none" is the trial's own answer, kept only when Master's answer was not used (no
+  page to ask, another page, the page changed during the lookup, skipped); Master finding nothing
+  says "Play the video on this page, then tap Try again." The most likely step: the page changed
+  during the lookup (a watch link's page moves to the video's own address, or starts again, after
+  the early lookup began; later with the VPN). The fix (`AndroidBrowserMasterFallback.recover`):
+  in a Facebook lookup of a social-ladder build, the ladder's rows (stage `CONTRACT` or
+  `PAGE_DATA`: F1, F2, the video's own, bound to its ID) stay while the same video stays open (the
+  tab's page names the lookup's video: the same address again, or the same video's other
+  address); the tab's playback (F3) and every other answer still need the same page, as before.
+  When Master's answer is not used there, the trial's or main's own answer stays (its reason,
+  message and Try again) with the Details line "master: facebook: Master's answer not used:
+  <step>" (`SocialLadder.NOT_USED`; the step: no page to ask, another page, the page changed
+  during the lookup with the change — the page closed, the same address again, another address of
+  the same video, another page — or skipped), then Master's own lines (how far it got); words
+  only, never a link or an ID. A site without a backup and main's final answer: as before (no
+  line). No wait was added: the first lookup's rows come from the plugin player, not from the
+  page's media, so a wait for the player's media would not help; the re-run's Details show the
+  step.
+- Link 9: main's bug and a documented limitation (no code). In the app's browser the post opens as
+  Facebook's mobile page and its address becomes `story.php` with the Page's name, not a numeric
+  ID; main's post addresses (`FacebookUrls`, P3-FIX) need a numeric ID, so the page is no site page
+  (no video key): no lookup (main's or Master's), no trial line; the Download button lists every
+  video the page loaded (`MediaGroups.pageVideos` without a site page), the related video (b) too.
+  The flag changes none of this (no lookup runs), so (b) shows with the flag off too: **main's
+  bug** (the browser's list on a Facebook page main does not know); its fix is the owner's call,
+  not in this commit. The trial on this form needs main's address rule changed → a documented
+  limitation; the same video's share/v link gives Master rows.
+- Link 10: a documented limitation (no code). The lookup's key is the post's, not a video's: main
+  reads the post and finds its video (its rows set aside by the trial), but F1 is not asked (no
+  resolved video link), F2 binds no row to the post (rows are bound to a video's ID), and F3's
+  focus check (the video in focus against the post) never matches, so the capture reloads the
+  page and its answer is dropped ("the page changed during the lookup") → "Master found none",
+  every time, also after playing. Binding a post to its video needs the page's own data (not in
+  S1a (10)); the same video's share/v link gives Master rows. The re-run's Details name the step;
+  a share/p link that opens a post page may behave as link 9 or 10 (the re-run's extra link).
+- Links 12–13: docs only, a documented limitation. Signed out, the app's browser lands on
+  Facebook's sign-in page, so no lookup runs and the button finds no video (no wrong answer); step
+  4's census reads slot 13 by main's own request.
+- Flag off, and every other build, site and answer: today's (`notUsed` answers as `unanswered`;
+  the rows need the same page, or route B's and the h-only trial's the same video, as before;
+  `SocialRowCheck` only in the ladder). Not touched: main (`extractor-sites`), the engine and the
+  contracts, `FacebookLadder`, `CapturedMp4Facts` and the capture, the census, the workflows and
+  `.github/d7-apks.txt` (this commit has code, so its `[d7]` builds the APKs), the provenance-
+  tracked symbols.
+- Tests (JVM, synthetic, made-up IDs): `StartDurationTest` 4 (new; MP4 starts made in code): a
+  whole file's movie header (versions 0 and 1; 48 hours the longest) gives its length though the
+  read cuts its `moov`; a fragmented file's `mehd` (versions 0 and 1) over the movie's timescale,
+  else its index, and a movie header that states a length first; none from the init check's start,
+  a movie header the read cuts or outside a `moov`, over 48 hours, fragments without a timescale,
+  a cut index, a page, zeros, nothing, more boxes than the bound; every cut of a start and random
+  bytes → a bounded length or none, never a failure. `FacebookLadderS6Test` +1 (8): a row that
+  states no length gets its file's own from the bytes read, and its own length stays.
+  `SocialTrialTest` +5 (16; its fixture now as the real player: the plugin player's answer names
+  no length, its files on Facebook's media host, S6 reading each file's start, a made-up MP4
+  start): Master's rows state their files' own lengths (each file read once; the ladder alone the
+  same; flag off none and nothing read); the ladder's rows stay while the same video stays open
+  (the same address again, the video's own address); another page during the lookup → the
+  trial's answer with "…: the page changed during the lookup: another page" and Master's own
+  lines; the tab's playback still needs the same page ("…: the same address again", one capture);
+  flag off, a page change during the lookup → main's answer itself, as today. Changed: the
+  fixture (above) and the duration test's setup (Master's lengths from its files, the same
+  expected lines). Local (JDK 17): `:extractor-master:test` 870 tests (2 skipped),
+  `:extractor-master-android:testDebugUnitTest` 69 and `:app:testDebugUnitTest` 1057
+  (66 skipped; 1052 + 5) passed; `:extractor-sites:test` 291 passed; `:app:lintDebug` (0
+  errors) and `:app:assembleDebug` passed, and `:app:assembleDebug` once more with the flags on
+  (`-Pyft.masterCapture=true -Pyft.socialLadder=true -Pyft.socialTrial=true`); drift check 0
+  drifted.
+- Next: the owner re-runs step 6 with `yft-d7-fb-trial` of this commit (the 13 links and one
+  share/p link of a post with a video, VPN and no VPN; the plan's §7.4, "Step 6's re-run").
+
 ## Social plan S1a (9) — the Facebook trial APK for S1a's phone proof (debug only, behind the flag) (2026-10-21)
 
 - Why (`MASTER_KEY_SOCIAL_PLAN.md` §7.3 S1a's done-when, §7.4 step 6): no CI build passed

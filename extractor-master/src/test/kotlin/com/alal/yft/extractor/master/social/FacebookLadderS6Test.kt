@@ -43,8 +43,9 @@ import org.junit.Test
  * the user's session, on the host the answer gave when it is a media host) and the init check on
  * the same bytes; `unknown` is never a pass; a row the bytes prove wrong is not offered; an
  * encryption marker is DRM (final); at most 8 files a lookup, each read once; the link's lifetime
- * (`oe`). Every other lookup: the engine's own V, unchanged. Main's real Facebook adapter over
- * synthetic pages and a fake file reader; no live calls.
+ * (`oe`); S1a (10): a row that states no length gets its file's own from the same bytes. Every
+ * other lookup: the engine's own V, unchanged. Main's real Facebook adapter over synthetic pages
+ * and a fake file reader; no live calls.
  */
 class FacebookLadderS6Test {
     @Test
@@ -227,6 +228,35 @@ class FacebookLadderS6Test {
         assertEquals(listOf(hd(VIDEO)), files.urls)
         assertTrue(record.rateLimited)
         assertEquals(1, record.masterAsks)
+    }
+
+    @Test
+    fun `a row that states no length gets its file's own from the bytes read, and its own length stays`() = runTest {
+        // S1a (10): the plugin player's rows (and F2's here: the page states none) state no length.
+        val progressive = Files { start(bytes = LengthBytes.progressive(LengthBytes.mvhd(1_000, 23_891))) }
+        val passed = checked(SocialRowCheck(RecordingValidator(), progressive), row()) as ValidationResult.Valid
+        assertEquals(23_891L, passed.candidate.durationMillis)
+        assertEquals(1, progressive.asked.size)
+        // A DASH file: its fragments' length over the movie's timescale.
+        val dash = Files {
+            start(bytes = LengthBytes.fragmented(LengthBytes.mvhd(29_857, 0), LengthBytes.mehd(709_000), LengthBytes.sidx(1_000, 23_746)))
+        }
+        val fragmented = checked(SocialRowCheck(RecordingValidator(), dash), row()) as ValidationResult.Valid
+        assertEquals(23_746L, fragmented.candidate.durationMillis)
+        // A row's own length stays; bytes without one leave it unknown; a row that fails gets none.
+        val own = checked(SocialRowCheck(RecordingValidator(), progressive), row().copy(durationMillis = 61_000)) as ValidationResult.Valid
+        assertEquals(61_000L, own.candidate.durationMillis)
+        val none = checked(SocialRowCheck(RecordingValidator(), Files { start() }), row()) as ValidationResult.Valid
+        assertEquals(null, none.candidate.durationMillis)
+        val wrongSize = checked(SocialRowCheck(RecordingValidator(), progressive), row(size = 1_000))
+        assertEquals(SiteExtractionFailure.RESPONSE_CHANGED, reasonOf(wrongSize))
+
+        // In the lookup: each row Master offers states its file's length; still one read a file.
+        val files = Files { start(bytes = LengthBytes.progressive(LengthBytes.mvhd(1_000, 23_891))) }
+        val success = lookup(record(), files) as MasterResult.Success
+        assertEquals(2, success.result.candidates.size)
+        success.result.candidates.forEach { assertEquals(23_891L, it.durationMillis) }
+        assertEquals(2, files.asked.size)
     }
 
     @Test

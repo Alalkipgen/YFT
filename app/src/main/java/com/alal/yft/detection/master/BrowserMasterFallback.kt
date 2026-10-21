@@ -171,12 +171,28 @@ class AndroidBrowserMasterFallback(
         if (!enabled) return primary
         if (primary is SiteAdapterOutcome.Detected && !masterFirst(lookupUrl)) return primary
         if (primary === SiteAdapterOutcome.NotHandled && !genericOnDemand) return primary
+        val key = sites.videoKey(lookupUrl)
+        // Social plan S1a (3): a Facebook lookup in a social-ladder build — Facebook's ladder's rows
+        // name the video main's resolved link names, and its final answer gets main's words. Every
+        // other build and page: false, each step as before.
+        val social = socialLadder && SocialLadder.claims(key)
         // Item 2, run 4: the h-only trial's found page never gets the adapter's rows back (run 4's
         // Try again listed them); when Master cannot answer, the lookup fails and names the step.
         val hOnly = primary is SiteAdapterOutcome.Detected
         fun unanswered(step: String): SiteAdapterOutcome = if (!hOnly) primary else failed(
             primary, SiteExtractionFailure.NO_MEDIA_FOUND, PLAY_FIRST, listOf("master: h-only: $step"),
         )
+        // S1a (10): a social lookup Master could not answer (no page to ask, another page, the page
+        // changed during the lookup, skipped) keeps its own answer (the trial's or main's: reason,
+        // message, retry) with a Details line naming the step, then Master's [lines] (how far it
+        // got); step 6's first run showed "Master found none" without a step. A site without a
+        // backup and main's final answer stay as they are. Every other lookup: [unanswered].
+        fun notUsed(step: String, lines: List<String> = emptyList()): SiteAdapterOutcome =
+            if (social && primary is SiteAdapterOutcome.Failed) {
+                failed(primary, primary.reason, primary.message, listOf("${SocialLadder.NOT_USED} $step") + lines)
+            } else {
+                unanswered(step)
+            }
         if (!sites.allowsMasterFallback(lookupUrl)) return unanswered("no backup for this site")
         val failure = (primary as? SiteAdapterOutcome.Failed)?.reason
             // Item 2, run 4 fix: Master's engine lets a site's module (YouTube: the ladder, H)
@@ -185,11 +201,6 @@ class AndroidBrowserMasterFallback(
             // trial's found page reaches Master as unanswered (the only Detected reaching here).
             ?: if (primary is SiteAdapterOutcome.Detected) SiteExtractionFailure.UNSUPPORTED_URL
             else SiteExtractionFailure.NO_MEDIA_FOUND
-        val key = sites.videoKey(lookupUrl)
-        // Social plan S1a (3): a Facebook lookup in a social-ladder build — Facebook's ladder's rows
-        // name the video main's resolved link names, and its final answer gets main's words. Every
-        // other build and page: false, each step as before.
-        val social = socialLadder && SocialLadder.claims(key)
         // S1a (5), S7: such a lookup's hosts that answered a 429 or a bot check (main's asks; its
         // 429 is final below) cool for 30 minutes for Master's rungs that ask. Else nothing.
         if (social) SocialLadder.noteStops(socialCooldown)
@@ -219,7 +230,7 @@ class AndroidBrowserMasterFallback(
         fun noRows(reason: SiteExtractionFailure, message: String, details: List<String>) =
             if (routeB) mains(details) else failed(primary, reason, message, details)
         // F2: route B's lookup that never reached Master says why; every other lookup as before.
-        fun unrouted(step: String) = if (routeB) notRun(step) else unanswered(step)
+        fun unrouted(step: String) = if (routeB) notRun(step) else notUsed(step)
         val request = requestFactory(failure, nowEpochMs, key?.substringAfter(':'))
             ?: return unrouted("no page to ask")
         if (TerminalRules.blocksFallback(failure, request.pageUrl) ||
@@ -246,11 +257,26 @@ class AndroidBrowserMasterFallback(
         // Item 2, run 4: the site's module answers for the video, not for the page's state, so in
         // the h-only trial the same video still open (reloaded, or a changed address) keeps it.
         // Item 7 R3: route B's answer is the module's too.
-        val sameVideo = (hOnly || routeB) && scope != null && key != null &&
-            sites.videoKey(scope.pageUrl) == key
-        if (!samePage && !sameVideo) {
+        val videoOpen = scope != null && key != null && sites.videoKey(scope.pageUrl) == key
+        val sameVideo = (hOnly || routeB) && videoOpen
+        // S1a (10): a social lookup's ladder rows (F1, the plugin player; F2, main's pages) are the
+        // video's too, so the same video still open keeps them — step 6's first lookup of a watch
+        // link (VPN) most likely lost its rows so, while the page settled. The tab's own playback
+        // (F3) and every other answer still need the same page.
+        val ladderRows = social && videoOpen && result is MasterResult.Success &&
+            (result.stage == MasterStage.CONTRACT || result.stage == MasterStage.PAGE_DATA)
+        if (!samePage && !sameVideo && !ladderRows) {
             // F2: route B's answer was for a video the page no longer shows: dropped, and said so.
-            return if (routeB) mains(listOf(ROUTE_B_DROPPED)) else unanswered("the page changed during the lookup")
+            if (routeB) return mains(listOf(ROUTE_B_DROPPED))
+            // S1a (10): a social lookup's line says which change (words only) and how far Master got.
+            val change = when {
+                !social -> ""
+                scope == null -> ": the page closed"
+                scope.pageUrl == request.pageUrl -> ": the same address again"
+                videoOpen -> ": another address of the same video"
+                else -> ": another page"
+            }
+            return notUsed("the page changed during the lookup$change", linesOf(result))
         }
         return when (result) {
             is MasterResult.Success -> {
@@ -313,8 +339,17 @@ class AndroidBrowserMasterFallback(
                     },
                 result.details,
             )
-            is MasterResult.Skipped -> unanswered("skipped (${result.reason})")
+            is MasterResult.Skipped -> notUsed("skipped (${result.reason})")
         }
+    }
+
+    /** S1a (10): Master's own Details lines of [result] (none for a skipped lookup). */
+    private fun linesOf(result: MasterResult): List<String> = when (result) {
+        is MasterResult.Success -> result.result.details
+        is MasterResult.Failure -> result.details
+        is MasterResult.NeedsPlayback -> result.details
+        is MasterResult.NeedsSelection -> result.details
+        is MasterResult.Skipped -> emptyList()
     }
 
     /**

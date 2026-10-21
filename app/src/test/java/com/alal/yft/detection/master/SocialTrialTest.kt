@@ -26,6 +26,8 @@ import com.alal.yft.extractor.master.ValidationResult
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
 import com.alal.yft.extractor.master.contract.SiteContracts
 import com.alal.yft.extractor.master.lookup.LookupRecorder
+import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStart
+import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStartReader
 import com.alal.yft.extractor.master.social.SocialCooldown
 import com.alal.yft.extractor.sites.facebook.FacebookExtractor
 import com.alal.yft.feature.browser.BrowserViewModel
@@ -62,6 +64,12 @@ import org.robolectric.annotation.Config
  * too), YouTube's and TikTok's pages and every build without the trial: as before. Main's real
  * Facebook adapter over synthetic pages with made-up IDs; each case passes the switches
  * explicitly. No live calls.
+ *
+ * S1a (10), step 6's first run: the plugin player's answer names no length (as here now), so
+ * Master's rows state their files' own (S6's read of each file's start, made in code here) and
+ * the line compares them; the ladder's rows stay while the same video stays open (the page's
+ * address changed or it started again during the lookup), and when Master's answer is not used
+ * the Details say which step.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -174,15 +182,119 @@ class SocialTrialTest {
 
     @Test
     fun theLineSaysWhenTheDurationsDifferOrAreNotKnown() = runTest {
-        val later = Fixture(WATCH, plugin = embed(VIDEO, MAIN_MILLIS + 1_001)).lookup() as SiteAdapterOutcome.Detected
-        val within = Fixture(WATCH, plugin = embed(VIDEO, MAIN_MILLIS - 1_000)).lookup() as SiteAdapterOutcome.Detected
-        val masterNone = Fixture(WATCH, plugin = embed(VIDEO, null)).lookup() as SiteAdapterOutcome.Detected
+        // S1a (10): Master's length is its files' (their starts'), as the plugin player names none.
+        val later = Fixture(WATCH, fileMillis = MAIN_MILLIS + 1_001).lookup() as SiteAdapterOutcome.Detected
+        val within = Fixture(WATCH, fileMillis = MAIN_MILLIS - 1_000).lookup() as SiteAdapterOutcome.Detected
+        val masterNone = Fixture(WATCH, fileMillis = null).lookup() as SiteAdapterOutcome.Detected
         val mainNone = Fixture(WATCH, mainPage = mainPage(VIDEO, null)).lookup() as SiteAdapterOutcome.Detected
 
         assertTrue(SocialLadder.trialNotice(later)!!.endsWith("; the same video: yes; duration within 1 s: no"))
         assertTrue(SocialLadder.trialNotice(within)!!.endsWith("; the same video: yes; duration within 1 s: yes"))
         assertTrue(SocialLadder.trialNotice(masterNone)!!.endsWith("; the same video: yes; duration within 1 s: unknown"))
         assertTrue(SocialLadder.trialNotice(mainNone)!!.endsWith("; the same video: yes; duration within 1 s: unknown"))
+    }
+
+    @Test
+    fun mastersRowsStateTheirFilesOwnLengthsAsThePluginPlayerNamesNone() = runTest {
+        // Step 6's first run: every trial line said "unknown" — the plugin player's answer has no
+        // length (nor has this one), and Master's rows stated none.
+        assertFalse(embed(VIDEO).contains("duration"))
+        val fixture = Fixture(WATCH)
+
+        val found = fixture.lookup() as SiteAdapterOutcome.Detected
+
+        assertEquals(listOf(hd(VIDEO), sd(VIDEO)), found.candidates.map { it.mediaUrl })
+        found.candidates.forEach { assertEquals(MASTER_MILLIS, it.durationMillis) }
+        // Each file's start read once (S6's own read, nothing more asked for the length).
+        assertEquals(listOf(hd(VIDEO), sd(VIDEO)), fixture.reads.toList())
+        assertTrue(SocialLadder.trialNotice(found)!!.endsWith("duration within 1 s: yes"))
+        // The ladder alone without the trial: the same rows and lengths, no line.
+        val ladder = Fixture(WATCH, socialTrial = false, mainPage = PAGE_BODY).lookup() as SiteAdapterOutcome.Detected
+        ladder.candidates.forEach { assertEquals(MASTER_MILLIS, it.durationMillis) }
+        assertNull(SocialLadder.trialNotice(ladder))
+        // Flag off: the engine's own check, no file read, no length (as today).
+        val off = Fixture(WATCH, socialLadder = false, socialTrial = false, mainPage = PAGE_BODY)
+        val today = off.lookup() as SiteAdapterOutcome.Detected
+        today.candidates.forEach { assertNull(it.durationMillis) }
+        assertTrue(off.reads.isEmpty())
+    }
+
+    @Test
+    fun theLaddersRowsStayWhileTheSameVideoStaysOpenDuringTheLookup() = runTest {
+        // The page starts again at its address, or its address changes to the same video's, while
+        // Master asks (step 6's first lookups of a watch link, VPN, most likely): the rows stay.
+        for (change in listOf(WATCH, VIDEO_PAGE)) {
+            val fixture = Fixture(WATCH)
+            fixture.duringAsk = { fixture.capture.session.navigate(change) }
+
+            val found = fixture.lookup() as SiteAdapterOutcome.Detected
+
+            assertEquals(change, listOf(hd(VIDEO), sd(VIDEO)), found.candidates.map { it.mediaUrl })
+            assertEquals(change, change, fixture.capture.session.currentScope()?.pageUrl)
+            assertTrue(change, SocialLadder.trialNotice(found)!!.endsWith("the same video: yes; duration within 1 s: yes"))
+        }
+    }
+
+    @Test
+    fun anotherPageDuringTheLookupDropsTheRowsAndTheDetailsSayWhichStep() = runTest {
+        val fixture = Fixture(WATCH)
+        fixture.duringAsk = { fixture.capture.session.navigate(OTHER_WATCH) }
+
+        val failed = fixture.lookup() as SiteAdapterOutcome.Failed
+
+        // The trial's own answer (reason, message, retry), with the step and Master's own lines.
+        assertEquals(SiteExtractionFailure.RESPONSE_CHANGED, failed.reason)
+        assertEquals(SocialLadder.TRIAL_MESSAGE, failed.message)
+        assertFalse(failed.allowsGenericFallback)
+        assertTrue(failed.canRetry)
+        assertEquals(
+            listOf(
+                "master: facebook trial: main's 2 rows set aside",
+                "master: facebook: Master's answer not used: the page changed during the lookup: another page",
+            ),
+            failed.details.take(2),
+        )
+        assertTrue(failed.details.toString(), failed.details.drop(2).any { it.startsWith("master: facebook ladder after") })
+        assertBare("another page", failed.details)
+    }
+
+    @Test
+    fun theTabsOwnPlaybackStillNeedsTheSamePageAndTheDetailsSaySo() = runTest {
+        // No rung but the tab's playback could answer; its page starts again while it is read (as
+        // its focus check does when the tab shows another video): no answer from it, as before.
+        val fixture = Fixture(WATCH, mainPage = PAGE_BODY, plugin = embed(VIDEO, files = false))
+        fixture.duringCapture = { fixture.capture.session.navigate(WATCH) }
+
+        val failed = withContext(fixture.bridge.lookupContext(WATCH)) {
+            fixture.inspect()
+            fixture.bridge.recover(WATCH, fixture.bridge.trialPrimary(WATCH, mainsRows()), NOW)
+        } as SiteAdapterOutcome.Failed
+
+        assertEquals(1, fixture.captures.get())
+        assertEquals(SocialLadder.TRIAL_MESSAGE, failed.message)
+        assertEquals(
+            "master: facebook: Master's answer not used: the page changed during the lookup: the same address again",
+            failed.details[1],
+        )
+        assertTrue(failed.details.toString(), "master: one browser-assisted capture requested" in failed.details)
+        assertBare("playback", failed.details)
+    }
+
+    @Test
+    fun flagOffAPageChangeDuringTheLookupAnswersAsToday() = runTest {
+        // Main fails (its page names no file), R8 asks the plugin player: rows on a settled page.
+        val settled = Fixture(WATCH, socialLadder = false, socialTrial = false, mainPage = PAGE_BODY)
+        assertTrue(settled.lookup() is SiteAdapterOutcome.Detected)
+        // The same video's other address meanwhile: main's own answer itself, no line (today's).
+        for (change in listOf(VIDEO_PAGE, OTHER_WATCH)) {
+            val fixture = Fixture(WATCH, socialLadder = false, socialTrial = false, mainPage = PAGE_BODY)
+            fixture.duringAsk = { fixture.capture.session.navigate(change) }
+            val primary = fixture.inspect()
+
+            assertTrue(change, primary is SiteAdapterOutcome.Failed)
+            assertSame(change, primary, fixture.bridge.recover(WATCH, primary, NOW))
+            assertEquals(change, listOf(embedUrl(WATCH)), fixture.master.asked)
+        }
     }
 
     @Test
@@ -279,7 +391,7 @@ class SocialTrialTest {
     fun whenMasterFindsNoRowsTheTrialsLineStaysFirstInDetails() = runTest {
         // The plugin player names no file and main's page holds none to read again (main's rows
         // made up here): no rung gives rows, and the tab's playback gives none either.
-        val fixture = Fixture(WATCH, mainPage = PAGE_BODY, plugin = embed(VIDEO, MASTER_MILLIS, files = false))
+        val fixture = Fixture(WATCH, mainPage = PAGE_BODY, plugin = embed(VIDEO, files = false))
 
         val failed = withContext(fixture.bridge.lookupContext(WATCH)) {
             fixture.inspect()
@@ -337,7 +449,7 @@ class SocialTrialTest {
     /** S8: no link, host, ID or page words in a line. */
     private fun assertBare(case: String, lines: List<String>) {
         lines.forEach { line ->
-            listOf("://", VIDEO, OTHER_VIDEO, SHORT_CODE, BURMESE, "example-cdn").forEach { word ->
+            listOf("://", VIDEO, OTHER_VIDEO, SHORT_CODE, BURMESE, "example-cdn", "fbcdn", "fixture").forEach { word ->
                 assertFalse("$case: $line", word in line)
             }
         }
@@ -374,7 +486,10 @@ class SocialTrialTest {
     /**
      * One Facebook lookup as the app wires it in the trial APK ([socialTrial] with [socialLadder]):
      * main's real adapter over [mainPage] (the short link resolves to the watch page), Master's
-     * ladder over the plugin player [plugin] (null: a 404), capture with nothing to give.
+     * ladder over the plugin player [plugin] (null: a 404), S6's row check reading each file's start
+     * (made in code: an MP4 start whose movie header states [fileMillis]; null: none), capture with
+     * nothing to give. [duringAsk] runs when the plugin player is asked, [duringCapture] when the
+     * tab's playback is read (a page change during the lookup).
      */
     private class Fixture(
         val page: String,
@@ -384,8 +499,11 @@ class SocialTrialTest {
         youtubeRouteB: Boolean = false,
         routeBTrial: Boolean = false,
         var mainPage: String = mainPage(VIDEO, MAIN_MILLIS),
-        plugin: String? = embed(VIDEO, MASTER_MILLIS),
+        plugin: String? = embed(VIDEO),
+        var fileMillis: Long? = MASTER_MILLIS,
     ) {
+        var duringAsk: () -> Unit = {}
+        var duringCapture: () -> Unit = {}
         val main = Answers { url ->
             when (url) {
                 WATCH, REEL -> ok(mainPage, url)
@@ -394,7 +512,22 @@ class SocialTrialTest {
             }
         }
         val master = Answers { url ->
-            plugin?.takeIf { url == embedUrl(WATCH) || url == embedUrl(REEL) }?.let { ok(it, url) }
+            plugin?.takeIf { url == embedUrl(WATCH) || url == embedUrl(REEL) }?.let {
+                duringAsk()
+                ok(it, url)
+            }
+        }
+
+        /** The files' starts S6 read, by address (Facebook's media host only; another host: a 404). */
+        val reads = CopyOnWriteArrayList<String>()
+        private val files = MediaStartReader { url, _, maxBytes ->
+            reads += url
+            if (!url.startsWith("https://$MEDIA_HOST/")) {
+                MediaStart.Failed(404)
+            } else {
+                val bytes = mp4Start(fileMillis).copyOf(maxBytes)
+                MediaStart.Read(206, "video/mp4", "bytes 0-${bytes.size - 1}/$FILE_BYTES", bytes.size.toLong(), bytes)
+            }
         }
         val captures = AtomicInteger()
         val capture = WebViewPlaybackCapture(enabledBuild)
@@ -415,9 +548,14 @@ class SocialTrialTest {
             capture,
             sites,
             MasterFallbackEngine(
-                MasterMediaValidator { found, _ -> ValidationResult.Valid(found.copy(contentLengthBytes = 4096)) },
+                // The app's wiring: S6's row check in a Facebook lookup with the ladder, else the engine's V.
+                SocialLadder.validator(
+                    MasterMediaValidator { found, _ -> ValidationResult.Valid(found.copy(contentLengthBytes = 4096)) },
+                    socialLadder,
+                ) { files },
                 PlaybackCaptureProvider {
                     captures.incrementAndGet()
+                    duringCapture()
                     CaptureResult.Unavailable
                 },
                 MasterPolicy(enabled = true, youtubeRouteB = youtubeRouteB),
@@ -455,6 +593,10 @@ class SocialTrialTest {
         const val OTHER_VIDEO = "1000000000000010"
         const val SHORT_CODE = "FixTrial9"
         const val WATCH = "https://www.facebook.com/watch/?v=$VIDEO"
+        const val OTHER_WATCH = "https://www.facebook.com/watch/?v=$OTHER_VIDEO"
+
+        /** The same video's page under its Page's address (`/<page>/videos/<id>/`, a made-up Page). */
+        const val VIDEO_PAGE = "https://www.facebook.com/fixture/videos/$VIDEO/"
         const val REEL = "https://www.facebook.com/reel/$VIDEO"
         const val SHORT = "https://fb.watch/$SHORT_CODE"
         const val YOUTUBE_PREFIX = "https://www.youtube.com/watch/"
@@ -471,9 +613,13 @@ class SocialTrialTest {
         fun embedUrl(page: String) = "https://www.facebook.com/plugins/video.php?href=" +
             URLEncoder.encode(page, StandardCharsets.UTF_8).replace("+", "%20")
 
-        fun hd(video: String) = "https://video.example-cdn.test/v/$video-hd.mp4?oe=F2A52380&oh=fixture"
+        /** Facebook's media host's form (a made-up name under it, as S6's tests): S6 reads only such files. */
+        const val MEDIA_HOST = "video.fixture.fbcdn.net"
+        const val FILE_BYTES = 9_437_184L
 
-        fun sd(video: String) = "https://video.example-cdn.test/v/$video-sd.mp4?oe=F2A52380&oh=fixture"
+        fun hd(video: String) = "https://$MEDIA_HOST/v/$video-hd.mp4?oe=F2A52380&oh=fixture"
+
+        fun sd(video: String) = "https://$MEDIA_HOST/v/$video-sd.mp4?oe=F2A52380&oh=fixture"
 
         fun mainHd(video: String) = "https://video.example-cdn.test/m/$video-hd.mp4?oe=F2A52380&oh=main"
 
@@ -500,18 +646,33 @@ class SocialTrialTest {
                 "</body></html>"
         }
 
-        /** The plugin player's shape (FacebookContractTest's) for [video]: its two files ([files]) and duration. */
-        fun embed(video: String, millis: Long?, files: Boolean = true): String {
-            val duration = millis?.let { ",\"playable_duration_in_ms\":$it" }.orEmpty()
+        /**
+         * The plugin player's shape (FacebookContractTest's) for [video]: its two files ([files]).
+         * S1a (10): no length, as the real answer (its video data names none).
+         */
+        fun embed(video: String, files: Boolean = true): String {
             val hd = if (files) "\"${hd(video).replace("/", "\\/")}\"" else "null"
             val sd = if (files) "\"${sd(video).replace("/", "\\/")}\"" else "null"
             return "<!DOCTYPE html><html><head><title>Facebook</title></head><body>" +
                 "<script nonce=\"fixture\">requireLazy([\"TimeSliceImpl\",\"ServerJS\"],function(TimeSlice,ServerJS){" +
                 "var s=(new ServerJS());s.handle({\"instances\":[[\"__inst_fixture\",[\"VideoConfig\"],[{" +
                 "\"ad_client_token\":null,\"video_id\":\"$video\",\"videoData\":[{\"is_hls\":false," +
-                "\"video_id\":\"$video\"$duration,\"hd_src\":$hd,\"sd_src\":$sd,\"dash_manifest\":null," +
+                "\"video_id\":\"$video\",\"hd_src\":$hd,\"sd_src\":$sd,\"dash_manifest\":null," +
                 "\"original_height\":720,\"original_width\":1280,\"videoLicenseUriMap\":{}," +
                 "\"graphApiVideoLicenseUri\":null,\"OzDrmHelper\":null}]}],1]]});});</script></body></html>"
+        }
+
+        /**
+         * A progressive MP4 file's first 4096 bytes, made in code: the file type, then a `moov` longer
+         * than the read whose movie header (timescale 1000) states [millis] (null: 0, no length).
+         */
+        fun mp4Start(millis: Long?): ByteArray {
+            fun u32(value: Long) = ByteArray(4) { ((value ushr (24 - 8 * it)) and 0xFF).toByte() }
+            fun box(type: String, payload: ByteArray) = u32(8L + payload.size) + type.toByteArray() + payload
+            val ftyp = box("ftyp", "isom".toByteArray() + u32(512) + "isom".toByteArray() + "mp41".toByteArray())
+            val mvhd = box("mvhd", u32(0) + u32(0) + u32(0) + u32(1_000) + u32(millis ?: 0) + ByteArray(80))
+            val moov = u32(65_536) + "moov".toByteArray() + mvhd + u32(60_000) + "trak".toByteArray()
+            return (ftyp + moov).copyOf(4_096)
         }
 
         /** Facebook's unavailable page: the error route with its root's privacy flag ([title]: any language). */

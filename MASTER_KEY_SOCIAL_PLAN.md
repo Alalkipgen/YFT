@@ -7,8 +7,9 @@ step at a time (§7, §8). **S0 started on the owner's go (2026-10-20): §7.1; t
 §7.2. The final plan of the steps after S0d (the owner, 2026-10-20): §7.3; decided §8 items 1, 2,
 4, 6 and 10–12; open: item 3 (after the Instagram check, §7.3 item 0.2) and item 5 (before S4).
 The plan after S1a (8) (the owner, 2026-10-21): §7.4; decided §8 items 13–17; its steps 0–5
-done (2026-10-21; step 4's runs: §7.4); step 6's APK (S1a (9)) built (2026-10-21). Next: §7.4
-step 6 (the owner's go) with `yft-d7-fb-trial`.**
+done (2026-10-21; step 4's runs: §7.4); step 6's APK (S1a (9)) built (2026-10-21); step 6's
+first run (the owner, 2026-10-21: §7.4) and its fixes (S1a (10), behind the flag) built
+(2026-10-21). Next: §7.4 step 6's re-run (the owner's go) with `yft-d7-fb-trial`.**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -77,6 +78,17 @@ step 6 (the owner's go) with `yft-d7-fb-trial`.**
   52 s — B0 ထက် မပိုပါ။ VPN မပါတဲ့ run မှာ slot 13 က `PRIVATE_OR_UNAVAILABLE` (final) ဖြစ်လာပါပြီ
   (A1 ကို ဖုန်းပေါ်မှာ သက်သေပြပြီ)။ Slot 12 က "ambiguous (no session)" ပါ။ ဒီ run ၃ ခုက baseline
   အသစ်တွေ ဖြစ်ပါတယ်။ နောက်တစ်ဆင့်: step 6 (S1a ရဲ့ phone proof၊ ပိုင်ရှင် go ပေးမှ)။
+- **§7.4 step 6 ရဲ့ ပထမ run (ပိုင်ရှင်၊ 2026-10-21၊ `ef4a546` ရဲ့ `yft-d7-fb-trial`၊ sign out၊ VPN
+  ပါ/မပါ):** trial line ပြတဲ့ နေရာတိုင်းမှာ the same video yes၊ wrong rows 0 ပါ။ ဒါပေမဲ့ link 9
+  (Page post ရဲ့ desktop link) မှာ trial line မပြဘဲ post ရဲ့ video မဟုတ်တဲ့ video (b) ကိုပါ ပြပါတယ်
+  — main က ဒီ address ကို site page လို့ မသိလို့ပါ၊ flag ပိတ်ထားလည်း ဒီအတိုင်းပါပဲ (main ရဲ့ bug၊
+  fix က ပိုင်ရှင် ဆုံးဖြတ်ရန်)။ Link 10 (group post) "Master found none"၊ duration line အားလုံး
+  "unknown"၊ link 1–2 ရဲ့ ပထမ lookup "Master found none"၊ link 12–13 က sign-in page ပါ။ S1a (10)
+  (flag နောက်မှာ): Master row ရဲ့ length ကို S6 ဖတ်ပြီးသား file အစကနေ ယူပါတယ်၊ lookup အတွင်း page
+  ပြောင်းသွားပေမဲ့ video အတူတူ ဖွင့်ထားဆဲဆိုရင် ladder rows ကို ထားပါတယ်၊ Master ရဲ့ အဖြေကို
+  မသုံးရင် Details မှာ step ကို ပြပါတယ်။ Link 9–10 ရဲ့ desktop form နဲ့ link 12–13 က documented
+  limitation ပါ (link 9–10 ရဲ့ share link တွေက Master rows ပေးပါတယ်)။ နောက်တစ်ဆင့်: step 6 ရဲ့
+  re-run (link 13 ခု နဲ့ share/p link တစ်ခု၊ VPN ပါ/မပါ)။
 
 ## 1. Audit — what exists today
 
@@ -566,9 +578,12 @@ earlier):
   are; no YouTube file changes.
 - **Done when:** JVM tests, simulator and CI green; a D7-style APK (main's Facebook skipped or
   mutated): every Master row passes V; wrong rows 0 (the video ID matches; a trial's duration
-  within ±1 s of main's); slots 8–10 give Master rows; slot 13 `PRIVATE_OR_UNAVAILABLE` with and
-  without the VPN if 0.3 found a signal, else no wrong final answer and a documented limitation;
-  slot 12 by the owner's check; requests and time on main-success lookups not above B0 (§9); docs.
+  within ±1 s of main's); slots 8–10 give Master rows (the owner, 2026-10-21, after step 6's
+  first run: slots 9–10 in their desktop forms, a Page post and a group post, may end as a
+  documented limitation; their mobile share links must give Master rows); slot 13
+  `PRIVATE_OR_UNAVAILABLE` with and without the VPN if 0.3 found a signal, else no wrong final
+  answer and a documented limitation; slot 12 by the owner's check; requests and time on
+  main-success lookups not above B0 (§9); docs.
 - **(1) built (2026-10-20), JVM only, not wired:** the answer judge (`SiteAnswerJudge.kt`): L2's
   classes and `NEEDS_PLAYBACK`, each with its next step; Facebook's rules final only on 0.3's
   route (the error route with `privacy: true` → `PRIVATE`, the video's not-found route →
@@ -653,6 +668,20 @@ earlier):
   same video: yes|no; duration within 1 s: yes|no|unknown"; it never fails the lookup), shown where
   route B's trial line is; the other eight APKs and the push build unchanged; flag off or trial
   off = today; `SocialTrialTest` 11. Next: §7.4 step 6.
+- **(10) built (2026-10-21), behind the flag:** the fixes from step 6's first run (§7.4 step 6).
+  The length: a Master row that passes S6 and states none gets its file's own from the bytes S6
+  read (`StartDuration`: a whole file's movie header, else a fragmented file's own length, else
+  its index; bounded, no new request), so the trial's line compares it with main's (the plugin
+  player's answer names no length, so every line said "unknown"). A Facebook lookup whose Master
+  answer is not used keeps its own answer (the trial's or main's) with the Details line "master:
+  facebook: Master's answer not used: <step>" (no page to ask, another page, the page changed
+  during the lookup and which change, skipped), then Master's own lines; the ladder's rows (F1,
+  F2: the video's own) stay while the same video stays open (the page started again, or the same
+  video's other address), the tab's playback (F3) and every other answer still need the same
+  page. Links 9–10's desktop forms (a Page post, a group post) and links 12–13 (the sign-in page):
+  documented limitations (§7.4 step 6); link 9's other video is main's (flag off too: main's bug,
+  its fix the owner's call). Flag off = today; `StartDurationTest` 4, `FacebookLadderS6Test` +1,
+  `SocialTrialTest` +5 (16). Next: §7.4 step 6's re-run.
 
 **S2b TikTok:** T1 the embed player (`embed/v2`), judged; a bot check stops; a photo post stops
 with no request; T2 L3; T3 capture; TikTok's own client (not the shared one) wrapped by the
@@ -823,7 +852,8 @@ Lake City run.
 6. **S1a's phone proof (the owner's go):** §7.3's done-when, with slot 13 = main's final answer
    and slot 12 = ambiguous; optional: slot 12 once signed in (rows). The APK: `yft-d7-fb-trial`
    (d7-matrix's `fb-trial`, S1a (9): the social ladder and its Facebook trial on, so the ladder
-   answers every Facebook page main found). Then S2b (§7.3).
+   answers every Facebook page main found). Then S2b (§7.3). **First run (2026-10-21): below; its
+   fixes: S1a (10) (§7.3), behind the flag. Next: its re-run (below).**
 
 **Step 4 — the owner's runs (2026-10-21).** The census with the APK of step 3's SHA (`6b011da`'s
 "Master opt-in debug APK (spike)"), signed out, mobile data, the same day, in step 4's order; the
@@ -867,7 +897,90 @@ rows from its two reports).
 - The runs came before the F2 follow-up (`4f67209`: in Master's F2 the route on pages read without
   the session never ends the lookup); it is behind `-Pyft.socialLadder`, which no CI build passes,
   so the runs stand (no rerun).
-- Next: step 6 (the owner's go). Its APK, with the flag on: `yft-d7-fb-trial` (S1a (9), 2026-10-21).
+- Then step 6 (the owner's go) with `yft-d7-fb-trial` (S1a (9), 2026-10-21): its first run below.
+
+**Step 6 — the owner's first run (2026-10-21).** `yft-d7-fb-trial` of `ef4a546` (S1a (9)), the
+app's browser, signed out, mobile data; with the VPN through its US exit (Boston) 10:52–11:43 UTC,
+all 13 links; without it 11:46–11:53 UTC, links 1, 8, 9, 10 and 13 (link N is slot N). Wherever a
+trial line showed: the same video yes, wrong rows 0. §7.3's done-when was not met (links 9 and
+10, the duration).
+
+| Link | VPN | What the app showed |
+| --- | --- | --- |
+| 1–2 (watch links) | on | the first lookup: "Master found none"; one Try again: rows (Master's 2, main's 3) |
+| 1 | off | rows on the first lookup |
+| 3–8, 11 | on | rows on the first lookup: Master's 1–2 (often "Quality unknown"), main's 1–3; the sizes fit the length |
+| 8 | off | the same |
+| 9 (a Page post's desktop link; it opens as `story.php`) | on, off | no ladder or trial line; "Found on this page 2": (a) the post's video (2:13, the owner: 2:12; 360x360) and (b) another video (1:00, 360x640, "360p · Data saver", "Video + audio"), both under the post's title and at first its thumbnail: (b) is a wrong item. The same video's share/v link (it opens as a watch page): Master's rows 2, main's 3, the same video yes |
+| 10 (a group post's desktop link) | on, off | "Facebook trial: main's rows were set aside and Master found none" (main's 2 rows with the VPN, 3 without), also after playing the video on the page and Try again. The same video's share/v link (it opens as a reel): Master's rows 1 (240p only), main's 2, the same video yes |
+| 12–13 | on, off | the page lands on Facebook's mobile sign-in page; no lookup; the Download button: "No video on screen to download. Scroll to a video and tap Download again." No wrong answer, but not slot 13's `PRIVATE_OR_UNAVAILABLE` (step 4's census) |
+| all 13 | | every trial line "duration within 1 s: unknown", though the sheet shows the length (0:03 to 1:15:24): the ±1 s check never ran |
+
+The owner's decision (2026-10-21, after this run): links 9 and 10 are desktop link forms; the
+owner (the only user now) mostly pastes mobile share links (share/v, share/r), and those work
+(links 9 and 10 by share/v gave Master rows). Link 9 must never offer a video that is not the
+post's own; if its other video shows with the flag off too, it is main's bug (its fix the owner's
+call). The trial on these two forms only if cheap and safe, else a documented limitation with the
+evidence; the duration (a must) and links 1–2 stay as asked; §7.3's done-when amended (slots 9–10
+there); the re-run adds one share/p link.
+
+What the agent found, and S1a (10)'s fixes (behind the flag; flag off = today):
+
+- **The duration (all 13 links).** The plugin player's answer (F1) names no length (its video's
+  data: the ID, the HD and SD files, the picture size); S1a (9)'s test player wrongly had one, so
+  its tests passed. F2's rows state one only where the page does (an ISO length); main's rows
+  carry the page's. Master's rows stated none, so every line said "unknown" (the sheet measured
+  the files itself). **Fix:** a Master row that passes S6 and states no length gets its file's
+  own from the bytes S6 already read (`StartDuration`; the first 4 KiB, which hold it, as checked
+  on real files' starts: a whole file's movie header comes first, a DASH file's own length and
+  index fit in them): the movie header (`mvhd`), else a fragmented file's own length (`mehd`),
+  else its index (`sidx`); no new request. The line then says yes or no whenever main's rows
+  state a length.
+- **Links 1–2 (watch links, VPN): "Master found none" on the first lookup.** That message is the
+  trial's own answer, kept only when Master's answer was not used (no page to ask, another page,
+  the page changed during the lookup, skipped); Master finding nothing says "Play the video on
+  this page, then tap Try again." So the first lookup's answer was most likely dropped as "the
+  page changed during the lookup": a watch link's page moves to the video's own address (or
+  starts again) after the early lookup began, later with the VPN's slower answers. Not proven:
+  the line named no step. **Fix:** the ladder's rows (F1, F2: the video's own, bound to its ID)
+  stay while the same video stays open (the same address again, or the same video's other
+  address); the tab's playback (F3) and every other answer still need the same page. When
+  Master's answer is not used, Details now name the step ("master: facebook: Master's answer not
+  used: the page changed during the lookup: another page"; the change: the page closed, the same
+  address again, another address of the same video, another page) and add Master's own lines. No
+  wait was added: the rows come from the plugin player (F1), not from the page's media, so a wait
+  for the player's media would not help; the re-run's Details will show the step.
+- **Link 9 (a Page post's desktop link): main's bug, and a documented limitation.** In the app's
+  browser the post opens as Facebook's mobile page; its address becomes `story.php` with the
+  Page's name, not a numeric ID. Main's post addresses (P3-FIX) need a numeric ID, so main knows
+  no site page there: no lookup (main's or Master's), no trial line. The Download button then
+  lists every video the page loaded ("Found on this page"), so the related video (b) is offered
+  too. The flag changes none of this (no lookup runs), so (b) shows with the flag off too:
+  **main's bug** (the browser's list on a Facebook page main does not know); its fix is the
+  owner's call, not in S1a (10). The trial on this form would need main's address rule changed
+  (main's code) → a documented limitation; the same video's share/v link gives Master rows.
+- **Link 10 (a group post's desktop link): a documented limitation.** Main reads the post and
+  finds its video (its rows set aside by the trial), but the post's ID is not the video's: F1 is
+  not asked (no video link resolved); F2 binds no row to the post (rows are bound to a video's
+  ID); F3 (the tab's playback) checks the video in focus against the post, they never match, so
+  the capture reloads the page and its answer is dropped ("the page changed during the lookup")
+  → "Master found none", also after playing. Binding a post to its video needs the page's own
+  data → not in S1a (10); the same video's share/v link gives Master rows. The re-run's Details
+  will name the step. A share/p link that opens a post page may behave as link 9 or 10 (the
+  re-run's extra link shows which).
+- **Links 12–13: a documented limitation (docs only).** Signed out, Facebook sends these links to
+  its sign-in page in the app's browser, so no lookup runs and the button finds no video: no wrong
+  answer. Step 4's census reads slot 13 by main's own request (`PRIVATE_OR_UNAVAILABLE`), not in
+  the browser.
+
+**Step 6's re-run (the owner's go).** `yft-d7-fb-trial` of S1a (10)'s SHA, the app's browser,
+signed out, with the VPN (Boston) and without it: the 13 links and one share/p link of a post
+with a video (the app's Share on a post can give share/p, which may open a post page like link
+9). Expected: wrong rows 0; every trial line says the duration yes or no (unknown only when
+main's rows state no length); links 1–2 rows on the first lookup, else Details name the step;
+link 9 as in the first run (main's bug, the owner's call) and link 10 "Master found none" with its
+step in Details (documented limitations), their share/v links Master rows; links 12–13 as in the
+first run (documented).
 
 **For S2b (TikTok), noted now** (inputs to S2b's design, §7.3; not decided):
 

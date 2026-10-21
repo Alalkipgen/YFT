@@ -141,6 +141,14 @@ internal object SocialLadder {
     /** S1a (9): the start of the trial's segment on Facebook's line ([trialSegment]). */
     const val TRIAL_SEGMENT = "; trial: "
 
+    /**
+     * S1a (10): a Facebook lookup's Details line when Master could not answer it (the trial's or
+     * main's own answer stays): the step follows (no page to ask, another page, the page changed
+     * during the lookup and which change, skipped), then Master's own lines. Words only: never a
+     * link or an ID.
+     */
+    const val NOT_USED = "master: facebook: Master's answer not used:"
+
     /** S1a (9): the most two durations may differ and still count as the same, in milliseconds. */
     private const val DURATION_SLACK_MILLIS = 1_000L
 
@@ -151,7 +159,10 @@ internal object SocialLadder {
      * name ([video]: the video a row's key names in the lookup — main's rows carry the link's own
      * key, so a link main resolves first names the video its resolved link names); a row without a
      * key is not. The duration: every duration Master's rows state within 1 s of every one main's
-     * state; unknown when either side states none. Counts and yes/no only: never a link or an ID.
+     * state; unknown when either side states none. S1a (10): Master's rows state their files' own
+     * lengths (S6's read of each file's start, [SocialRowCheck]; the plugin player's answer names
+     * none, so on step 6's first run every line said unknown); main's rows the page's. Counts and
+     * yes/no only: never a link or an ID.
      */
     fun trialSegment(rows: List<MediaCandidate>, mains: List<MediaCandidate>, video: (String?) -> String?): String {
         val mainVideo = mains.map { video(it.videoId) }.distinct().singleOrNull()

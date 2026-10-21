@@ -39,6 +39,10 @@ import kotlinx.coroutines.withContext
  *   container start, no encryption marker, the size. Only `pass` passes: `unknown` (a generic or
  *   missing type, too few bytes, a size without a total, a manifest row, another host, no answer,
  *   the reads spent) is never a pass; an encryption marker is DRM (final, the engine's rule).
+ * - **Length** (S1a (10)): a row that passes and states no length gets its file's own, from the
+ *   same bytes ([StartDuration]: the movie header, a fragmented file's length or its index), so
+ *   the Facebook trial's line can compare it with main's (the plugin player's answer names none).
+ *   A row's own length stays; bytes without one leave it unknown.
  *
  * Every other lookup: [validator] (the engine's own V), unchanged. Nothing is logged; a result
  * names a reason only, never an address, a header or a byte.
@@ -85,6 +89,8 @@ class SocialRowCheck(
                     mimeType = row.mimeType ?: type,
                     contentLengthBytes = row.contentLengthBytes ?: total,
                     expiresAtEpochMs = expires,
+                    // S1a (10): the file's own length when the row states none (read, never asked).
+                    durationMillis = row.durationMillis ?: StartDuration.millis(read.bytes),
                 ),
             )
             StreamCheck.Verdict.FAIL -> rejected(
