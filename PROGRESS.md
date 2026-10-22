@@ -1,5 +1,70 @@
 # YFT Master Extractor backup
 
+## Social plan task 12 — the engine's capture answer keeps the ladder's Details lines and the trial's social lookups ask main every time (observations b, a and g; debug only, behind the flag) (2026-10-22)
+
+- **(b) The Details lines** (`MasterFallbackEngine`): in a lookup a social ladder claims (a
+  social-ladder build only, `-Pyft.socialLadder`), the answer of the app's capture selection at
+  `PLAYBACK_CAPTURE` (`MasterMainSelection`: needs playback, its failures, its rows, two videos)
+  keeps the lines before it (the ladder's: I2's, X1's, F2's, T2's, the probe's; the capture's
+  request and evidence) first and its own last, whole within the 32-line bound
+  (`DiagnosticTextSanitizer.MAX_STEPS`: the earlier lines are cut, never the selection's own); a
+  skipped answer as is. Before, the selection's answer replaced them (the phone: Instagram slots 1
+  and 5 and X slot 8 showed the selection's line, no I2 or X1 line). Every other lookup (YouTube's,
+  a page no ladder claims, every build without the ladder): the selection's own answer, as before.
+- **(a) and (g) The first lookup's gap, the cause:** in the trial APK (`-Pyft.socialTrial` with
+  `-Pyft.socialLadder`) main's found answer is remembered in the app's shared lookup
+  (`SiteLookupCache`, P17: 10 minutes, shared with Home) though the trial answers it as main's
+  `RESPONSE_CHANGED` (`trialPrimary`). A later lookup of the same video in a new page (the page
+  started again; Home's lookup of the link first) took the remembered answer: main asked nothing in
+  it (`LookupRecord.reuse`), `MainPages` was empty, I2 and X1 said "none kept for the post; nothing
+  to read", the tab's playback asked for a fresh playback and (b) dropped the lines. Try again asks
+  main afresh, so its ladder read main's answer and gave rows.
+- **The fix:** in the trial APK a Facebook, TikTok, X or Instagram page's lookup asks main every
+  time (`BrowserMasterFallback.asksMainFresh`, read by `BrowserViewModel.lookUp`: Try again's way,
+  for main's ask only), so I2, X1, F2 and T2 and the trial's comparison read this lookup's main.
+  Every other build and page (YouTube, another page, the ladder alone, the trial without the ladder,
+  Master off): `false`, P17 as before. The cost, the trial APK only: each social page's lookup asks
+  main's pages again within P17's 10 minutes, as Try again does.
+- **The rest, named:** joining another caller's running lookup (P17: Home's lookup of the link
+  still running when the page asks) still leaves main's asks in that caller's record. I2's and
+  X1's "none kept" line now says how main's answer came without an ask (`MainPages.unasked`):
+  "none kept for the post (main asked nothing in this lookup: its remembered answer (P17)); nothing
+  to read", or "… another caller's running lookup (P17)) …"; a lookup where main asked: the line
+  as before. The census reads it as before (`not run (nothing to read)`).
+- **W's lines:** unchanged (the census asks main itself, never a remembered answer; C1–C3 stand).
+  No main adapter change (S1), no YouTube file, `LookupAsk.endpoint` unchanged; drift 0.
+- Tests (JVM; synthetic pages, made-up IDs; no live calls): `MasterCaptureDetailsTest` 3 (new;
+  extractor-master): a claimed lookup's capture answer keeps the ladder's lines first and its own
+  last (needs playback, a failure, rows, two videos; the reason, rows and stage unchanged); every
+  other lookup's capture answer is the selection's own, as before (no ladder, a ladder that does
+  not claim it; a skipped answer as is); a long ladder keeps the selection's own lines within the
+  bound. `SocialFirstLookupTest` 4 (new; app, Robolectric; main's real adapters over fakes): only
+  the trial's social lookups ask main every time (X, Instagram, Facebook, TikTok: yes; another
+  page, the trial without the ladder, the ladder alone, Master off, `None`: no); the trial's first
+  lookup after a remembered answer (X, Instagram) asks main again (2 asks) and gives the ladder's
+  row (the trial line "Master's rows 1, main's 1; the same item: yes", S6's read, no capture);
+  without the trial a remembered answer stays main's rows as before (main asked once, no Master, no
+  notice); the tab's playback answer keeps X1's lines and the capture's request before the
+  selection's own line (the ladder alone; without it the selection's line alone, as before).
+  `XLadderTest` and `InstagramLadderTest`: the "none kept" line's words for each way main asked
+  nothing (in existing tests). Without the fix, `theTrialsFirstLookupAfterARememberedAnswerReadsMainsAnswer`
+  fails (main asked once).
+- Local checks (JDK 17): `extractor-sites` 293, `extractor-master` 946 (2 skipped; +3),
+  `extractor-master-android` 69, `app` 1098 (66 skipped; +4), all pass; lint 0 errors;
+  `assembleDebug` and the flags-on build; drift 0; `test_spike_label_triggers.py` 19;
+  `SiteWeeklyTest` 7 (it reads §7.5, unchanged).
+- The next phone session (the owner, after tasks 12–14 are pushed; `yft-d7-social-trial` of the
+  last code commit's APK run; §7.4): Instagram no VPN, signed out, the rung's switch on (slot 5 the
+  rung's rows on the first lookup and its Details line; slot 9 sign-in words, no row; slot 8 photos
+  only, no request); the first lookup (task 12, built: Instagram slots 1 and 5, X slot 6: rows on
+  the first lookup, no Try again, also after the same link's lookup on Home first and after the
+  page started again; X slots 7 and 8: X1's line in Details before the tab's playback line, and
+  task 14's words; any "none kept … (main asked nothing in this lookup: …)" line: its words and
+  what ran just before); B3's short set again on the same networks (TikTok on New York); W on the
+  VPN New York signed out, no VPN signed out, no VPN with Instagram signed in, against C1–C3; then
+  S5 (decision 26) on that APK if no code changes.
+- Next: task 13 (S2d part 2, Instagram's probe rung; decision 24), then task 14 (the playback words).
+
 ## Social plan task 11 — the owner's decisions 23–26 after the phone session of 2026-10-22 (TikTok's T1 difference accepted; S2d part 2, the probe's rung: go; the VPN's New York exit for TikTok and W; S5's rule) and the release gate's state (docs only) (2026-10-22)
 
 - **The phone session of 2026-10-22** (the owner; `yft-d7-social-trial` of `430da9f`, then of

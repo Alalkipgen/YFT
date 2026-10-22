@@ -366,6 +366,17 @@ class InstagramLadderTest {
         }
         assertTrue(elsewhere.toString(), "$I2: none kept for the post; nothing to read" in detailsOf(elsewhere))
         assertTrue(elsewhere is MasterResult.NeedsPlayback)
+        // Task 12: main's answer remembered (P17), main asked nothing in this lookup: the line says so.
+        for (reuse in LookupRecord.Reuse.entries) {
+            val unasked = withContext(record().also { it.noteReuse(reuse) } + MainPages(site = SITE)) {
+                engine(FakeExtractorHttpClient()).extract(contractRequest(REEL, identify(REEL), SiteExtractionFailure.RESPONSE_CHANGED))
+            }
+            assertTrue(
+                unasked.toString(),
+                "$I2: none kept for the post (main asked nothing in this lookup: ${reuse.label}); nothing to read" in detailsOf(unasked),
+            )
+            assertTrue(unasked is MasterResult.NeedsPlayback)
+        }
         val bounded = lookup(REEL, main(SiteWays.GRAPHQL to json(reel)), pages = MainPages(maxChars = 64, site = SITE))
         val boundedDetails = detailsOf(bounded.result)
         assertTrue(boundedDetails.toString(), "$I2 main's GraphQL: not kept (over the bound)" in boundedDetails)

@@ -35,7 +35,9 @@ S1, its own commit) built (2026-10-22; §7.3, §8). The owner's phone session of
 10's APKs (`36ec093`; `docs/PHONE_TEST_NOTES.md`): A, B and C passed (W's first runs C1–C3);
 decided §8 items 23–26 (TikTok's T1 difference accepted; S2d part 2, the probe's rung: go; the
 VPN's New York exit for TikTok and W; S5's rule), recorded by task 11 (docs only; §7.3's gate
-state). Next: tasks 12–14 (§7.3: the engine's Details lines and the first lookup's gap; the
+state). Task 12 (the engine's capture answer keeps the ladder's Details lines; the trial's social
+lookups ask main every time, so the first lookup's ladder reads main's answer: observations (a),
+(b) and (g); debug only, behind the flag) built (2026-10-22; §7.3). Next: tasks 13–14 (§7.3: the
 probe's rung; the playback words), then the owner's phone session (§7.4).**
 
 ## 0. အကျဉ်းချုပ်
@@ -287,8 +289,11 @@ probe's rung; the playback words), then the owner's phone session (§7.4).**
   ပထမနဲ့ နောက်ဆုံး အနည်းဆုံး 24 နာရီ ခြား; final code ရဲ့ APK နဲ့ပဲ ရေတွက် (site ရဲ့ pack၊ engine
   ဒါမှမဟုတ် main ပြောင်းရင် အဲဒီ site ရဲ့ count အစက ပြန်စ); Master မ run ခဲ့တဲ့ run (429၊ cooldown၊
   not reached) မရေတွက်; session တစ်ခုမှာ site ၄ ခုလုံး run လို့ရ။ §7.3 မှာ release gate ရဲ့ site
-  တစ်ခုစီ state ဇယား ပါပါတယ်။ နောက်တစ်ဆင့်: task 12 (Details lines နဲ့ ပထမ lookup ရဲ့ gap)၊ task 13
-  (probe rung)၊ task 14 (playback words)၊ ပြီးရင် ပိုင်ရှင်ရဲ့ phone session (§7.4)။
+  တစ်ခုစီ state ဇယား ပါပါတယ်။ Task 12 ပြီးပါပြီ (2026-10-22; debug only၊ flag နောက်မှာ): ladder
+  claim တဲ့ lookup မှာ capture ရဲ့ answer က ladder ရဲ့ Details lines ကို ရှေ့မှာ ထိန်းထား (b); trial APK
+  မှာ social lookup တိုင်း main ကို အမြဲ မေး (P17 ရဲ့ remembered answer ကြောင့် ပထမ lookup မှာ main
+  မမေးခဲ့လို့ I2/X1 ဖတ်စရာ မရှိခဲ့: (a)၊ (g))။ နောက်တစ်ဆင့်: task 13 (probe rung)၊ task 14 (playback
+  words)၊ ပြီးရင် ပိုင်ရှင်ရဲ့ phone session (§7.4)။
 
 ## 1. Audit — what exists today
 
@@ -1073,11 +1078,27 @@ download service` (P46's census: its `download service GET 200` ask). Next: the 
 session (§7.4).
 **Tasks 11–14 (the owner, 2026-10-22, after the phone session of 2026-10-22; each its own
 commit, in order; `PROGRESS.md`):** **task 11** (docs only, done): decisions 23–26 (§8), S5's rule,
-the gate's state below, §7.4's next phone session. **Task 12** (behind the flag; not built): the
-engine's Details lines kept on every result kind (observation (b): the capture's needs-playback
-answer and its failures replaced them), and the first lookup's gap (observations (a) and (g):
-Instagram slots 1 and 5 and X slot 6 gave no Master row on the first trial lookup, I2's and X1's
-rows only on Try again). **Task 13** (behind the flag; not built): S2d part 2, the probe's rung
+the gate's state below, §7.4's next phone session. **Task 12** (behind the flag; built
+2026-10-22): the engine's Details lines kept on every result kind (observation (b): the capture's
+needs-playback answer and its failures replaced them), and the first lookup's gap (observations
+(a) and (g): Instagram slots 1 and 5 and X slot 6 gave no Master row on the first trial lookup,
+I2's and X1's rows only on Try again). *Built:* (b) in a lookup a social ladder claims, the
+answer of the app's capture selection (needs playback, its failures, its rows, two videos) keeps
+the lines before it (the ladder's, the capture's request and evidence) first and its own last,
+whole within the 32-line bound; every other lookup as before (`MasterFallbackEngine`). (a)/(g)
+the cause: in the trial APK main's found answer is remembered in the app's shared lookup (P17, 10
+minutes, shared with Home) though the trial answers it as main's `RESPONSE_CHANGED`; a later
+lookup of the video in a new page (the page started again; Home's lookup first) took the
+remembered answer, main asked nothing in it, `MainPages` was empty (I2, X1: "none kept for the
+post; nothing to read"), the tab's playback asked for a fresh playback and (b) dropped the lines;
+Try again asks main afresh. The fix: in the trial APK (`-Pyft.socialTrial` with
+`-Pyft.socialLadder`) a Facebook, TikTok, X or Instagram page's lookup asks main every time
+(`BrowserMasterFallback.asksMainFresh`: Try again's way for main's ask only); every other build:
+P17 as before. The rest named: joining another caller's running lookup (Home's, still running)
+leaves main's asks in that caller's record; I2's and X1's "none kept" line now says how ("(main
+asked nothing in this lookup: its remembered answer (P17) | another caller's running lookup
+(P17))"; the census reads it as before, `not run (nothing to read)`). W's lines: unchanged (the
+census asks main itself, never a remembered answer). **Task 13** (behind the flag; not built): S2d part 2, the probe's rung
 (decision 24; above). **Task 14** (behind the flag; not built): the playback words only where a
 video can play (observation (e)): a sign-in or an age wall → sign-in words; no video in the tab →
 main's reason with Try again; only the words change (X's 404 stays never final, task 0; an
@@ -1094,17 +1115,19 @@ Master ran; wrong rows 0, no regression against B0), the first W run passed, the
 the intended differences listed in `docs/SUPPORT_MATRIX.md` → PR #2 merged → P8 (beta.4) →
 others get the app.
 
-**The gate's state** (after the phone session of 2026-10-22 and task 11; kept current by each
+**The gate's state** (after the phone session of 2026-10-22 and task 12; kept current by each
 commit):
 
 | Site | Its pack and phone proof | W's first run (C) | Intended differences listed | S5 (decision 26) |
 | --- | --- | --- | --- | --- |
 | Facebook | S1a built; phone proof PASS (2026-10-21); A PASS (2026-10-22, `430da9f`) | C1, C2 PASS | Master's rows 2 against main's 3 (task 7) | not started |
 | TikTok | S2b built; main PASS (`36ec093`); T1 proven on New York (rows 6 of 6, wrong 0); T2 untested | C1 PASS (VPN only: no network without it) | T1 one row, at most 1280 (decision 23) | not started |
-| X | S2c and task 0 built; A PASS (`36ec093`); tasks 12 and 14 change its lookups | C1, C2 PASS | `{}`, the notice tombstone, the 404 never final (decision 21) | not started |
-| Instagram | S2d part 1 built; A PASS on 3 sessions; part 2 (decision 24) not built; tasks 12–14 change its lookups | C1, C2, C3 PASS | the 360p file, never "removed" (decision 20) | not started |
+| X | S2c and task 0 built; A PASS (`36ec093`); task 12 built (the first lookup, X1's lines kept); task 14 changes its lookups | C1, C2 PASS | `{}`, the notice tombstone, the 404 never final (decision 21) | not started |
+| Instagram | S2d part 1 built; A PASS on 3 sessions; task 12 built (the first lookup, I2's lines kept); part 2 (decision 24) not built; tasks 13–14 change its lookups | C1, C2, C3 PASS | the 360p file, never "removed" (decision 20) | not started |
 
-Every site: S4 (R9 live, its drill) waits for decision 5; then S5, PR #2's merge, P8.
+Every site: S4 (R9 live, its drill) waits for decision 5; then S5, PR #2's merge, P8. Task 12
+changed the engine for every site's claimed lookups (the capture's answer keeps the ladder's lines)
+and the trial's lookups (main asked every time): S5 starts on the APK after tasks 12–14 anyway.
 
 **After the release** (each on the owner's go): S1b, X2, the "all items" feature, B+ (S6), A.
 
@@ -1490,8 +1513,11 @@ commit and the run; the VPN is New York for TikTok and W, Boston elsewhere: deci
   - slot 9 (the age-restricted reel): task 14's sign-in words, no row (the rung's line: video no,
     or a wall).
   - slot 8 (photos only): main's words, no request (the rung not asked).
-- **The first lookup (task 12), signed out, no VPN:** Instagram slots 1 and 5 and X slot 6 → rows
-  on the first lookup, no Try again; X slots 7 and 8 → X1's line in Details and task 14's words.
+- **The first lookup (task 12, built), signed out, no VPN:** Instagram slots 1 and 5 and X slot 6
+  → rows on the first lookup, no Try again (also after the same link's lookup on Home first, and
+  after the page started again); X slots 7 and 8 → X1's line in Details before the tab's playback
+  line and task 14's words. Any "none kept for the post (main asked nothing in this lookup: …)"
+  line: note which words and what ran just before (Home's lookup of the same link still running).
 - **B3's short set again, `yft-d7-social-trial`, the same networks as on 2026-10-22:** Facebook
   links 1 and 10, Instagram slots 1 and 8, TikTok slots 1 and 6 (the VPN New York), X slots 6 and
   8; each as §7.4 B said before (Facebook 1: Master's rows of the same video, yes/yes; Facebook
@@ -1502,7 +1528,7 @@ commit and the run; the VPN is New York for TikTok and W, Boston elsewhere: deci
   decision 25). Expected: `NO CHANGE` on every site that runs (main unchanged; Master's part on
   slot 1 as before: Facebook F1 2 against 3, TikTok T1, Instagram I2, X X1, wrong 0); TikTok
   without the VPN stops at 60 s again (not a failure). Tasks 12–14 say here any W line they
-  change.
+  change (task 12: none).
 - **Then S5 (decision 26)** starts on that APK, if no code changes: per site 3 runs, each at least
   6 h after the previous one, the first and the last at least 24 h apart, only where Master ran.
 

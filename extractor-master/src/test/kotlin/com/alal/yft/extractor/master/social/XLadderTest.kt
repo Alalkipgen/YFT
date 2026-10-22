@@ -388,6 +388,17 @@ class XLadderTest {
             engine(FakeExtractorHttpClient()).extract(contractRequest(page(VIDEO), identify(page(VIDEO)), SiteExtractionFailure.NO_MEDIA_FOUND))
         }
         assertTrue(elsewhere.toString(), "$X1: none kept for the post; nothing to read" in detailsOf(elsewhere))
+        // Task 12: main's answer remembered (P17), main asked nothing in this lookup: the line says so.
+        for (reuse in LookupRecord.Reuse.entries) {
+            val unasked = withContext(record().also { it.noteReuse(reuse) } + MainPages(site = SITE)) {
+                engine(FakeExtractorHttpClient()).extract(contractRequest(page(VIDEO), identify(page(VIDEO)), SiteExtractionFailure.RESPONSE_CHANGED))
+            }
+            assertTrue(
+                unasked.toString(),
+                "$X1: none kept for the post (main asked nothing in this lookup: ${reuse.label}); nothing to read" in detailsOf(unasked),
+            )
+            assertTrue(unasked is MasterResult.NeedsPlayback)
+        }
         val bounded = lookup(page(VIDEO), main(VIDEO, video), pages = MainPages(maxChars = 64, site = SITE))
         assertTrue(bounded.result.toString(), "$X1: not kept (over the bound); nothing to read" in detailsOf(bounded.result))
         assertTrue(bounded.result is MasterResult.NeedsPlayback)

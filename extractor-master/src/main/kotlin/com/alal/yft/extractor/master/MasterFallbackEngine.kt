@@ -112,13 +112,15 @@ class MasterFallbackEngine(
         var ambiguous = false
         var lastFailure: SiteExtractionFailure? = null
         val probes = ProbeSession(validator, request, policy.maxCandidates)
+        // S1a (3): a lookup a social site's ladder claims (the social-ladder build only, else false).
+        val claimed = social != null && social.claims(request)
 
         for (index in 0..2) {
             // S1a (3): a social rung's snapshot is read for the video it asked about.
             var read = request
             val stage = when (index) {
-                0 -> if (social != null && social.claims(request)) {
-                    social.stage(request, policy, details)?.let { staged ->
+                0 -> if (claimed) {
+                    checkNotNull(social).stage(request, policy, details)?.let { staged ->
                         read = staged.request
                         staged.stage to staged.snapshot
                     }
@@ -170,8 +172,11 @@ class MasterFallbackEngine(
                 request.nowEpochMs,
             )
             if (name == MasterStage.PLAYBACK_CAPTURE) {
+                // Social plan task 12 (observation b): a claimed lookup's capture answer keeps the
+                // lines before it (the ladder's, the capture's request and evidence) ahead of its
+                // own, as every other answer here does. Every other lookup: as before.
                 captureSelection?.invoke(request, snapshot, normalized, probes::probe)
-                    ?.let { return it }
+                    ?.let { return if (claimed) it.after(details) else it }
             }
             val selected = FocusSelection.select(normalized, snapshot)
             if (normalized.isNotEmpty() && selected.isEmpty()) {
@@ -217,6 +222,26 @@ class MasterFallbackEngine(
             else -> MasterResult.NeedsPlayback(
                 safeDetails + "Open the page, play its video, and supply a fresh capture.",
             )
+        }
+    }
+
+    /**
+     * Social plan task 12 (observation b): this capture answer with the lookup's earlier [lines]
+     * first, its own last (kept whole within [DiagnosticTextSanitizer.MAX_STEPS]); a skipped
+     * answer as is.
+     */
+    private fun MasterResult.after(lines: List<String>): MasterResult {
+        fun kept(own: List<String>): List<String> {
+            val last = DiagnosticTextSanitizer.details(own)
+            val first = DiagnosticTextSanitizer.details(lines)
+            return first.take((DiagnosticTextSanitizer.MAX_STEPS - last.size).coerceAtLeast(0)) + last
+        }
+        return when (this) {
+            is MasterResult.Success -> copy(result = result.copy(details = kept(result.details)))
+            is MasterResult.Failure -> copy(details = kept(details))
+            is MasterResult.NeedsPlayback -> copy(details = kept(details))
+            is MasterResult.NeedsSelection -> copy(details = kept(details))
+            is MasterResult.Skipped -> this
         }
     }
 

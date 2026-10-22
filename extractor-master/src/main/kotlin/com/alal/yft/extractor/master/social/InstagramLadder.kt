@@ -140,7 +140,7 @@ class InstagramLadder(
         }
         val chosen = InstagramAnswerJudge.aggregate(judged, readings)
         if (chosen == null) {
-            details += "$I2: none kept for the post; nothing to read"
+            details += "$I2: none kept for the post${MainPages.unasked(record)}; nothing to read"
             probe(record, request, policy, code, mediaId, details)
             return null
         }

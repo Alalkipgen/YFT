@@ -1016,13 +1016,15 @@ class BrowserViewModel(
                 // Phase 1.4 item 7 R4: in the route-B trial APK a YouTube page main found is
                 // answered as main's failure (after main asked); every other build: main's answer.
                 // Social plan S1a (9): a Facebook page so too in the Facebook trial APK.
+                // Social plan task 12: in that APK a social page's lookup asks main every time (P17's
+                // remembered answer would leave the ladder nothing of main's to read); else as before.
                 val primary = masterFallback.trialPrimary(
                     url,
                     siteAdapters.inspect(
                         pageUrl = url,
                         requestContext = requestContext,
                         nowEpochMs = clock(),
-                        fresh = fresh,
+                        fresh = fresh || masterFallback.asksMainFresh(url),
                         tab = tabData,
                     ),
                 )

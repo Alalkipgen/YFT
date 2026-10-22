@@ -4,6 +4,7 @@ import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.extractor.master.lookup.LookupAsk
+import com.alal.yft.extractor.master.lookup.LookupRecord
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 
@@ -136,5 +137,13 @@ class MainPages(
 
         /** Main's page bound is 6 MiB; two such pages at most. */
         const val MAX_CHARS = 8L * 1024 * 1024
+
+        /**
+         * Social plan task 12 (observation g): for a rung's "none kept" line, how main's answer
+         * reached [record]'s lookup without main asking in it (P17's shared lookup: its remembered
+         * answer, or another caller's running lookup, [LookupRecord.reuse]); empty when main asked.
+         */
+        internal fun unasked(record: LookupRecord): String =
+            record.reuse?.let { " (main asked nothing in this lookup: ${it.label})" }.orEmpty()
     }
 }

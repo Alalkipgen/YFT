@@ -120,7 +120,7 @@ class XLadder(
         val read = request.copy(identity = identity, expectedContentId = identity.contentId)
         val kept = pages?.let { answerOf(it, identity.contentId) }
         if (kept == null) {
-            details += "$X1: none kept for the post; nothing to read"
+            details += "$X1: none kept for the post${MainPages.unasked(record)}; nothing to read"
             return null
         }
         val answer = kept.answer ?: run {

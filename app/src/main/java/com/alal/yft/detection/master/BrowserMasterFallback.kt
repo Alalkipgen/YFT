@@ -71,6 +71,18 @@ interface BrowserMasterFallback {
      */
     fun trialPrimary(lookupUrl: String, primary: SiteAdapterOutcome): SiteAdapterOutcome = primary
 
+    /**
+     * Social plan task 12 (the phone session of 2026-10-22, observations a and g): whether
+     * [lookupUrl]'s lookup asks main even when the app's shared lookup (P17) remembers main's answer
+     * for the video, as Try again does — a Facebook, TikTok, X or Instagram page in the trial APK
+     * (D7 `social-trial`: `-Pyft.socialTrial` with `-Pyft.socialLadder`, debug only), so main's
+     * answers are in the lookup's own record for the ladder (I2, X1, F2, T2) and the trial compares
+     * this lookup's rows. The phone's first lookups found main's answer remembered (an earlier
+     * lookup of the video: Home's or an earlier page's), main asked nothing in them, and the ladder
+     * had nothing to read. Every other build and page: false, P17 as before.
+     */
+    fun asksMainFresh(lookupUrl: String): Boolean = false
+
     suspend fun recover(
         lookupUrl: String,
         primary: SiteAdapterOutcome,
@@ -488,6 +500,10 @@ class AndroidBrowserMasterFallback(
         socialSetAside[key] = SetAside(trial, primary.candidates)
         return trial
     }
+
+    /** Task 12: the trial's social lookups ask main every time (Try again's way); else false. */
+    override fun asksMainFresh(lookupUrl: String): Boolean =
+        socialTrial && socialLadder && enabled && SocialLadder.claims(sites.videoKey(lookupUrl))
 
     /**
      * Item 7 R1: a new record per YouTube lookup in a route-B build (memory only); else nothing.
