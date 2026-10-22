@@ -2,6 +2,12 @@
 
 ## Current handoff (2026-10-09)
 
+- **Spike branch (`spike/master-extractor-backup`, not on `main`; 2026-10-22): decision 22.**
+  The owner turned TikTok's public download service (`tikwm.com`) off in main (P46's choice B
+  reversed, `TT_SERVICE=OFF`; social plan task 10): the app and its site census never ask it,
+  flag off and on alike. A post TikTok's own pages and the hidden page give no file ends with
+  TikTok's own reason and Details. Back on only on the owner's go
+  ([`MASTER_KEY_SOCIAL_PLAN.md`](../MASTER_KEY_SOCIAL_PLAN.md) §8, decision 22).
 - **Phase:** 15 — Preview #6 field fixes, merged (P44) into `work/phase-15-integration`: TikTok
   from TikTok's own page (tab data, TikTok's own API answers, a hidden TikTok page for Home) with
   every failure explained in Details (P39, P40); YouTube % and speed within seconds (P41);
@@ -59,6 +65,12 @@
   browser's Instagram cookies); HLS qualities with their sound apart are merged with their audio
   playlist into one MP4. **Preview #11:** [38009471066](https://github.com/Alalkipgen/YFT/actions/runs/38009471066) (`fdb3769`; validation [38009471238](https://github.com/Alalkipgen/YFT/actions/runs/38009471238), smoke [38009471040](https://github.com/Alalkipgen/YFT/actions/runs/38009471040), all green). `main` fast-forwarded
   to P50 with the owner's approval (2026-10-10: "Main ကို Push လိုက်").
+
+## Known limitations (spike branch, decision 22)
+
+- TikTok: a public post that only the download service could give (TikTok's pages call it
+  private, or none of its files opens) now fails with TikTok's own reason and Details; the cost
+  the owner accepted. Preview #10's P46 note on the service (below) no longer applies here.
 
 ## Known limitations (Preview #11)
 

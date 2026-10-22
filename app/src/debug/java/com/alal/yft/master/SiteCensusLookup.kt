@@ -109,9 +109,9 @@ class SiteCensusLookup(
 
         /**
          * The census's four adapters as the app builds them (`SiteAdapterModule`): TikTok on its
-         * own client ([tikTokHttp]: a short link's redirect cookies go on), the WebView's agent and
-         * the public download service; Facebook, X and Instagram on [http]. 0.4: each tapped
-         * ([Tapped]), so a lookup also gets its answer's lines.
+         * own client ([tikTokHttp]: a short link's redirect cookies go on) and the WebView's agent;
+         * Facebook, X and Instagram on [http]. 0.4: each tapped ([Tapped]), so a lookup also gets
+         * its answer's lines.
          */
         fun registry(
             http: ExtractorHttpClient,
@@ -122,7 +122,8 @@ class SiteCensusLookup(
                 TikTokExtractor(
                     http = tikTokHttp,
                     agents = TikTokAgents(webViewAgent = webViewAgent),
-                    askDownloadService = true,
+                    // Decision 22: as the app, no download service (the census's main is the app's).
+                    askDownloadService = false,
                 ),
                 FacebookExtractor(http),
                 XExtractor(http),

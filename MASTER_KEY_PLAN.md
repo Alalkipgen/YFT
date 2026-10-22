@@ -107,7 +107,7 @@ Goal: grow Master from a **secondary fallback** into a "master key". A master ke
   2. The phone page with the WebView's own agent (`TikTokAgents.phone`, never "YFT").
   3. The desktop page (`TikTokAgents.desktop`, desktop Chrome with the same major version) when the phone page fails or lists fewer than 2 qualities. `moreQualities` and `joinedTo` join rows by height and codec (P46/P47).
   4. The hidden page (`TikTokPageEngine` with `WebViewHiddenPages`: desktop Chrome, images off, media answered empty, shared cookie store).
-  5. Optionally `TikTokDownloadService` (tikwm.com; owner choice B, `askDownloadService`/`TT_SERVICE`). It receives the post address only, never a cookie.
+  5. `TikTokDownloadService` (tikwm.com; owner choice B, `askDownloadService`/`TT_SERVICE`): off since decision 22 (the owner, 2026-10-22; `MASTER_KEY_SOCIAL_PLAN.md` §8): the app and its site census never ask it; the class and its tests are kept, and turning it back on (the owner's go) is one argument per place. When on, it receives the post address only, never a cookie.
 - **Page data** (`TikTokPageParser`):
   - `scripts()` finds scripts by their **`id` attribute**: `__UNIVERSAL_DATA_FOR_REHYDRATION__`, then any `__DEFAULT_SCOPE__` key that holds `itemInfo.itemStruct` (`webapp.video-detail` or `webapp.reflow.video.detail`). `SIGI_STATE` is still read.
   - `lenientRead` decodes HTML entities and uses `balancedObject`.
@@ -360,7 +360,7 @@ Keep the list as data (`parity-urls.json`, no secrets), like yt-dlp's per-extrac
 | MK-7 | X | Capture fallback for `video.twimg.com` MP4/HLS; T7 sizes from the path | `XSyndication` (token) as a module | Low–Medium | Syndication endpoint changes; separate HLS audio (P50) |
 | MK-8 | Facebook | T3/T4 anchored walk with FB keys, T6 DASH, T7 ladder | Safari AVC-ladder agent, URL surfaces, `efg` | Medium–High | Related video in the same payload; AV1/VP9-only ladder; access walls; cookie leaks |
 | MK-9 | Instagram | T1/T3 over v1, GraphQL and embed shapes; T6/T7 | `doc_id`, app ID, CSRF, session gating, `mediaIdOf` | Medium–High | `doc_id` rotation; login wall; carousel index |
-| MK-10 | TikTok | T1/T2 scripts by `id`, T7/T8 | Agents, `tt_chain_token`, hidden page, status codes, watermark rule, download service (owner flag) | High | Agent sensitivity; web check (**user's "Show check" only, never solved in code**) |
+| MK-10 | TikTok | T1/T2 scripts by `id`, T7/T8 | Agents, `tt_chain_token`, hidden page, status codes, watermark rule, download service (owner flag; off since decision 22) | High | Agent sensitivity; web check (**user's "Show check" only, never solved in code**) |
 | MK-11 | Primary experiment | `-Pyft.masterPrimary` (default false): Master (recipes + modules) first, main adapters as fallback | — | High | Owner decision; no merge to main or release without approval |
 
 Every step must pass §4.2 for its site and the flag-off gate. Each step can be rolled back by turning the flag off or reverting its spike commit.

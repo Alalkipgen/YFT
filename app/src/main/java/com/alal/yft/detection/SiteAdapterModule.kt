@@ -174,9 +174,11 @@ object SiteAdapterModule {
         TikTokExtractor(
             http = SocialLadder.tiktokClient(client),
             agents = TikTokAgents(webViewAgent = WebViewAgent(context)::get),
-            // P46 (owner's choice B, TT_SERVICE=ON): the public download service when
-            // TikTok's own pages give no file; only the post's address goes there.
-            askDownloadService = true,
+            // Decision 22 (the owner, 2026-10-22; P46's choice B reversed, TT_SERVICE=OFF): the
+            // public download service (tikwm.com) is never asked, flag off and on alike; a post
+            // TikTok's own pages and the hidden page give no file fails with TikTok's own reason.
+            // Back on only on the owner's go (MASTER_KEY_SOCIAL_PLAN.md section 8, decision 22).
+            askDownloadService = false,
         ),
         FacebookExtractor(http),
         VimeoExtractor(http),

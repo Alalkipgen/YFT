@@ -29,8 +29,11 @@ only, in a social-ladder build only; flag off and the full census unchanged) bui
 §7.3, §7.5). Task 9 (S6's row reader checks each read against its lookup's site: one reader for
 every site, another site's host refused before any ask and counted refused, never `NETWORK`;
 Facebook unchanged; from the phone session of 2026-10-22; debug only, behind the flag) built
-(2026-10-22; §7.3, §7.4). Next: the owner's phone session (§7.4: Master on X first, then TikTok
-after its 429's cooldown, then Instagram; W's first run last).**
+(2026-10-22; §7.3, §7.4). Task 10 (main: TikTok's public download service `tikwm.com` off, decision
+22: P46's choice B reversed; the app and its site census, flag off and on alike; an exception to
+S1, its own commit) built (2026-10-22; §7.3, §8). Next: the owner's phone session with task 10's
+APKs (§7.4: Master on X first, then TikTok after its 429's cooldown, then Instagram; TikTok's main
+asks no download service; W's first run last).**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -253,6 +256,21 @@ after its 429's cooldown, then Instagram; W's first run last).**
   Facebook ရဲ့ behavior နဲ့ ရှိပြီးသား tests မပြောင်းပါ။ နောက်တစ်ဆင့်: phone session မှာ Master ကို X
   အရင်၊ ပြီးရင် TikTok (429 cooldown ပြီးမှ)၊ ပြီးရင် Instagram ပြန်စမ်း; B1၊ A-FB နဲ့ X/TikTok ရဲ့ main
   results တွေ ဆက်တည်ပါတယ်။
+- **Task 10 — main ရဲ့ TikTok download service (`tikwm.com`) ပိတ် (2026-10-22၊ decision 22၊ main ပြင်ချက်
+  — S1 ရဲ့ exception (decision 10 လို)၊ commit သီးသန့်၊ flag off/on တူ၊ §7.3၊ §8):** P46 ရဲ့ choice B
+  ကို ပြန်ပြောင်းပါတယ် (`TT_SERVICE=OFF`)။ App ရဲ့ TikTok adapter နဲ့ site census ရဲ့ main (app ရဲ့ adapter)
+  က public download service ကို မမေးတော့ပါ။ အကြောင်းရင်း: အကျိုး မပြနိုင် (census မှာ slots 8၊ 9 မှာပဲ
+  မေးခဲ့ပြီး 403 ပြန်၊ post တစ်ခုမှ မကယ်နိုင်; P46 ရဲ့ case ကို မစမ်းရသေး)၊ check အားနည်း (service ရဲ့ file
+  address တွေမှာ host check မရှိ၊ short link ရဲ့ post id မစစ်၊ file check က playable file လို့ပဲ ပြပြီး ဒီ
+  post ရဲ့ file လို့ မပြ)၊ privacy (`tikwm.com` က post address နဲ့ public IP (VPN ရဲ့ IP) ကို မြင်၊ file host
+  က IP ကို မြင်; cookie မပို့)။ လက်ခံတဲ့ cost: service ကပဲ ပေးနိုင်တဲ့ public post က TikTok ရဲ့ ကိုယ်ပိုင်
+  reason နဲ့ Details နဲ့ fail ပါမယ်။ ပြန်ဖွင့်ရင် ပိုင်ရှင်ရဲ့ go နဲ့ပဲ: (i) service ကပဲ ပေးတဲ့ public post
+  တွေ ရှိမှ၊ (ii) file တွေကို TikTok ရဲ့ media hosts နဲ့ `tikwm.com` ပဲ ခွင့်ပြု၊ (iii) short link အတွက်လည်း
+  post id ကို resolved link ကနေ စစ်။ `TikTokDownloadService` နဲ့ tests၊ `SiteWays` (`TIKTOK.mainWays`)၊
+  `SiteLabels`၊ `SiteReadings`၊ `SiteWaysDriftTest` မပြောင်းပါ (census က way ကို "not reached" လို့
+  ပြ); ပြန်ဖွင့်ရင် နေရာတစ်ခုကို argument တစ်ခု။ တခြား main ပြင်ချက် မရှိ၊ Master မပြောင်းပါ။ နောက်တစ်ဆင့်:
+  phone session (§7.4; A ရဲ့ TikTok မှာ "download service" ask မရှိ၊ slots 8၊ 9 က `GEO_RESTRICTED`၊
+  `PRIVATE_OR_UNAVAILABLE` ဆက်ဖြစ်; main ရဲ့ တခြား answer တွေ အရင်အတိုင်း)။
 
 ## 1. Audit — what exists today
 
@@ -278,7 +296,7 @@ after its 429's cooldown, then Instagram; W's first run last).**
 | Site | Lines | Ways asked, always in this order | Row check | Hard-coded values | Weak point |
 | --- | --- | --- | --- | --- | --- |
 | Instagram | 740 | app API (only with the browser's session) → web GraphQL → post page → public embed | none | the GraphQL `doc_id`, app ID, ASBD ID | the `doc_id` rotates; sign-in walls; 429; the same order every lookup |
-| TikTok | 1,585 | the tab's (or hidden page's) post data → phone page → desktop page → hidden page → `tikwm.com` (public download service, last) | one-byte check per quality (≤ 8) | page-data block and key names, status codes | a renamed data block; bot checks; a third-party service as the last way |
+| TikTok | 1,585 | the tab's (or hidden page's) post data → phone page → desktop page → hidden page (the public download service `tikwm.com`, P46's last way, off since decision 22, §8) | one-byte check per quality (≤ 8) | page-data block and key names, status codes | a renamed data block; bot checks |
 | Facebook | 1,842 | public Safari page (reels) → session page → AVC ladder | none (link expiry is read) | media key lists (`MEDIA_KEYS`, `LEGACY_FIELDS`) | renamed page-data keys; sign-in walls |
 | X | 523 | the embed widget's answer (`tweet-result` with the widget token) | none | the token arithmetic, one endpoint | one way only: if it breaks, main has nothing |
 
@@ -452,7 +470,7 @@ With no adapter copies (B), the build is also about 4,700 lines smaller than the
   (1) **no regression under the same policy and config** — under B this is structural (main's
   success is returned untouched); requests and time per lookup are still measured, and capture stays
   the last fallback; (2) **intended policy differences**, listed per site in each step's docs: no
-  third-party service in Master (S4; main's TikTok `tikwm.com` way has no Master counterpart), a row
+  third-party service in Master (S4; main's TikTok `tikwm.com` way, off since decision 22, has no Master counterpart), a row
   only after V passes (S6; `unknown` is not a pass), and the stop rules (S7; e.g. Instagram's main
   keeps asking after a 429, Master does not).
   **Exception (the owner, 2026-10-20; §8 item 10):** a fix in main's adapter code only as its own
@@ -465,7 +483,7 @@ With no adapter copies (B), the build is also about 4,700 lines smaller than the
   fingerprint, IP or proxy changes, no automatic captcha answers (the user answers a check in the
   visible browser, as main's "Show check").
 - **S4 No third-party services in Master** (download sites, mirror APIs). Main's `tikwm.com` stays
-  main's decision.
+  main's decision (off since decision 22, §8).
 - **S5 Self-healed values** (guardrail 5's rule): only from a source S0 proved (the site's own page or
   script, or a public raw file such as yt-dlp's); one pattern-matched value, never code; at most once
   a day per value; kept only after an OK answer and a V pass; bundled alternates with source and
@@ -521,7 +539,8 @@ With no adapter copies (B), the build is also about 4,700 lines smaller than the
 ### 6.2 TikTok
 
 - **Rungs:** T0 = main itself, first and not copied (tab or hidden-page data → phone page → desktop
-  page → hidden page → `tikwm.com`; Master has no counterpart of `tikwm.com`, S4). After main fails:
+  page → hidden page; its last way, `tikwm.com`, off since decision 22; Master has no counterpart of
+  it, S4). After main fails:
   T1 `embed/v2` (today's R8, judged); T2 L3 rows when the data block or its keys move (the block is
   found by content — the one holding the item ID and a video object — not by its script ID); T3 the
   visible tab's own playback.
@@ -602,7 +621,7 @@ an owner tool of debug builds (nothing in release or preview).
 **Row rules** (a row is one link of the owner's list, in its slot):
 
 - **Main:** main's own lookup with the four adapters as the app builds them (TikTok's hidden page
-  and `tikwm.com` included), fresh (no remembered answer), with the browser's identity: the agent
+  included; `tikwm.com` not asked since decision 22, named "not reached"), fresh (no remembered answer), with the browser's identity: the agent
   YFT's tab sends and the browser's cookies for the post's link (the report says only whether a
   session was there). There is no tab, so no tab data: the page read, then the hidden page, as main
   does. The census's clients retry nothing (each ask once; main's own order of ways stays); at most
@@ -992,6 +1011,27 @@ once on their own host; another site's host refused; no answer still `NETWORK`),
 `OkHttpRowReaderTest` and `SiteCensusLadderTest` +1 each; Facebook's behavior and existing tests
 unchanged. Next: the owner's phone session (§7.4: Master on X first, then TikTok after its 429's
 cooldown, then Instagram).
+**Task 10 built (2026-10-22; main, an exception to S1 as decision 10's, its own commit; flag off
+and on alike; `PROGRESS.md`; decision 22, §8):** main no longer asks TikTok's public download
+service (`tikwm.com`; P46's choice B reversed, `TT_SERVICE=OFF`). The app's TikTok adapter
+(`SiteAdapterModule`) and the site census's (`SiteCensusLookup.registry`, the app's) are built with
+`askDownloadService = false` (the adapter's own default), with no flag branch; a post TikTok's own
+pages and the hidden page give no file fails with TikTok's own reason (its status: private,
+region, removed; its files refused: `NO_MEDIA_FOUND`) and its Details, with no "download service"
+line, and the census names the way "not reached" (`not reached: download service`). Kept as they
+are: `TikTokDownloadService` and its tests, `SiteWays` (`TIKTOK.mainWays` still lists the way),
+`SiteLabels`, `SiteReadings`, `SiteWaysDriftTest`; turning it back on is one argument per place
+(those two), on the owner's go with decision 22's three conditions. No other main change; Master
+unchanged (S4: it never had the service). JVM tests (made-up posts, IDs and addresses; no live
+calls): `SiteAdapterTikTokServiceTest` 3 (new; Robolectric, the app's wiring over an OkHttp
+interceptor): a post both pages call private → `PRIVATE_OR_UNAVAILABLE` after the hidden page,
+TikTok's two pages the only asks, no service line; files refused on the page and in the hidden
+page's data → `NO_MEDIA_FOUND`; P46's wiring over the same fakes took the service's files in both;
+a post the phone page gives, or the desktop page after the phone page's private status → the
+same rows and asks as P46's wiring. `SiteCensusTikTokServiceTest` 4 (new; the census's main): the
+same three, the row's record without the service's way, and the census row's `not reached:
+download service` (P46's census: its `download service GET 200` ask). Next: the owner's phone
+session (§7.4).
 Each site: a D7-style phone proof, wrong rows 0, no regression against B0.
 
 **S3 and S4** as in §7: W (≤ 1 min, ≤ 2 MB per site) with the diff and the runbook; R9 live (the
@@ -1364,7 +1404,8 @@ same day; no link or ID kept (S8).
 
 **The next phone session (the owner, after this run's last pushed task — S2d part 1, task 6a's
 one trial APK, task 0 (X's 404 never final), task 6b (the census's ladder), task 7, task 8 (W) and
-task 9 (S6's reads on the lookup's site) are pushed;
+task 9 (S6's reads on the lookup's site) and task 10 (main: TikTok's download service off, decision
+22) are pushed;
 `yft-d7-social-trial` and `yft-d7-normal` of the last pushed `[d7]` commit, never an older run's
 APK (not `fb-trial`, not task 6a's); the run's report and `PROGRESS.md` name the commit and the
 artifacts):**
@@ -1373,7 +1414,7 @@ artifacts):**
   Facebook census (A-FB) and X's and TikTok's main results stand (not run again). A's X census
   (signed out, the VPN on, 10:48 UTC): slots 1–6's Master trials failed (`NETWORK`, each ask
   "unlabelled GET NETWORK 1–2 ms", the ladder's rows 0) as S6's reader allowed Facebook's media
-  hosts only; task 9 fixes it. **A's Master parts again, with task 9's APKs, in this order:** X
+  hosts only; task 9 fixes it. **A's Master parts again, with task 10's APKs (task 9's fix and decision 22), in this order:** X
   first (both networks; S6's reads answered on X's video host, no `GET NETWORK` ask of 1–2 ms),
   then TikTok after its 429's cooldown (30 min; `T1 not run (cooldown)` until then, never waited
   out within a run), then Instagram (its three sessions). Then B2 (Instagram's probe), B3 (the
@@ -1388,7 +1429,10 @@ artifacts):**
   - TikTok, signed out, B0's US VPN exit (Boston): T1's or T2's rows of the post on video slots
     (1–5, 10); slot 6 (photo) main's words, no request; slots 8–9 no Master row. T1's positives may
     need runs at least 30 minutes apart; after a 429 `T1 not run (cooldown)` — never waited out or
-    bypassed within a run.
+    bypassed within a run. Main (decision 22, task 10): no `download service` ask on any slot
+    (each row's `not reached: download service`); slots 8 and 9 keep `GEO_RESTRICTED` and
+    `PRIVATE_OR_UNAVAILABLE`, one ask fewer each (the service's 403 is gone; request counts are not
+    compared, so no CHANGED line from it); every other main answer as before.
   - X, signed out, the VPN Boston and no VPN, B0's 8 slots: slots 1–6 Master's rows of main's item
     ("the same item: yes; duration within 1 s: yes"), slot 6 video 1's rows only; slots 7 and 8 no
     Master row (slot 8: `X3 not run (no tab)`), never "removed" (a widget 404 alone is not final:
@@ -1427,7 +1471,9 @@ artifacts):**
   check) `not run (cooldown N min (…))` — never waited out, not a pass: W again after the cooldown.
   A later W run (another day, the same network and session) is the first comparison: `NO CHANGE`,
   or CHANGED / BREAKING lines each ending `→ W runbook step N (…)` (§7.5: what to check, the fix).
-  Copy report and Copy JSON (the export says `"mode":"weekly"`).
+  Copy report and Copy JSON (the export says `"mode":"weekly"`). W's first TikTok run is its
+  baseline without the download service (decision 22): slot 9 `failed PRIVATE_OR_UNAVAILABLE`,
+  `not reached: download service`.
 
 **For S2b (TikTok), noted now** (inputs to S2b's design, §7.3; not decided):
 
@@ -1586,7 +1632,8 @@ Decided (the owner, 2026-10-20; §7.3):
 - **2 — X2** (X's signed-out web API with a guest token): not now; S0d's embed answer carried every
   video post's media (2 of 6 only in the card, fixed in main by §7.3 item 0.1). After the release,
   on the owner's go.
-- **4 — Third-party services in Master:** none; main's `tikwm.com` stays main's.
+- **4 — Third-party services in Master:** none; main's `tikwm.com` stays main's (off in main too
+  since decision 22).
 - **6 — Census test lists:** the owner's public posts, kept on the phone only; a gone link is
   replaced on the phone.
 - **10 — Main fixes:** exceptions to S1, each its own commit on the owner's go: X's card (go, item
@@ -1663,6 +1710,26 @@ each one's implementation status):
   stays. Not yet proved on the phone.
 - These acceptances are not a waiver: each site's phone proof, its regression check and the
   release gate (decision 12) still apply.
+
+Decided (the owner, 2026-10-22, task 10; recorded in task 10's commit):
+
+- **22 — Main's TikTok download service (`tikwm.com`): off** (P46's choice B reversed,
+  `TT_SERVICE=OFF`; an exception to S1 as decision 10's, its own commit on the spike branch).
+  Main no longer asks the public download service, flag off and on alike: the app's TikTok
+  adapter and the site census's (the app's). Why: (i) no benefit shown: the census asked it only
+  on slots 8 and 9, it answered 403 and rescued no post; P46's own case was never tested; (ii)
+  weak checks: the service's file addresses have no host check (`TikTokDownloadService.address`),
+  a short link's post id is not checked, and the file check proves a playable file, not this
+  post's; (iii) privacy: `tikwm.com` sees the post's address and the phone's (or the VPN's)
+  public IP, and the file host sees the IP (no cookie went there). Cost, accepted: a public post
+  only the service could give now fails with TikTok's own reason and its Details. Back on only on
+  the owner's go, with (i) public posts only the service gives, (ii) its files limited to TikTok's
+  media hosts and `tikwm.com`, (iii) the post id checked for short links too (from the resolved
+  link). Kept as they are: `TikTokDownloadService` and its tests, `SiteWays` (`TIKTOK.mainWays`),
+  `SiteLabels`, `SiteReadings`, `SiteWaysDriftTest`; turning it back on is one argument per place
+  (`SiteAdapterModule`, `SiteCensusLookup`). No other main change; Master unchanged (decision 4,
+  S4). *Status:* built in task 10's commit (2026-10-22, §7.3); not yet seen on the phone (§7.4's
+  next phone session: A's TikTok, C).
 
 Still open (the owner's answer is needed before the step that uses it):
 

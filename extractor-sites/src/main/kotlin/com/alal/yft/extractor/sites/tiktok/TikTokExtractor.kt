@@ -63,7 +63,9 @@ class TikTokExtractor(
     private val askDesktopPage: Boolean = true,
     /**
      * P46 (owner's choice B, `TT_SERVICE=ON`): whether a public download service is asked
-     * when TikTok's own pages give no file. Only the post's address goes there.
+     * when TikTok's own pages give no file. Only the post's address goes there. Off in the app
+     * (and its site census) since decision 22 (the owner, 2026-10-22: P46's choice B reversed,
+     * `TT_SERVICE=OFF`); turning it back on is one argument per place, on the owner's go.
      */
     private val askDownloadService: Boolean = false,
     private val serviceEndpoint: String = TikTokDownloadService.ENDPOINT,

@@ -24,6 +24,13 @@ for every APK given to users, because Android refuses to install a lower one.
   desktop page's files of other heights are joined, so a video can list 720p and 480p; the
   desktop page is also asked when one height comes in two codecs.
 
+### Changed
+
+- TikTok no longer asks a third-party download service (`tikwm.com`; the owner's decision 22,
+  2026-10-22, reversing P46's choice): YFT reads TikTok's own pages, the tab's data and its
+  hidden page only. A public post that only the service could give now ends with TikTok's own
+  reason, and Details say why.
+
 ### Fixed
 
 - Download as names a phone video after its short side (P47): 720 × 1280 is "720p · HD", not
