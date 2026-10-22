@@ -1,5 +1,65 @@
 # YFT Master Extractor backup
 
+## Social plan task 10 — main: TikTok's download service (`tikwm.com`) off (decision 22: P46's choice B reversed, `TT_SERVICE=OFF`; the app and its site census, flag off and on alike; Master unchanged) (2026-10-22)
+
+- **Decision 22** (the owner, 2026-10-22; an exception to S1 as decision 10's, its own commit on
+  the spike branch; `MASTER_KEY_SOCIAL_PLAN.md` §8): main no longer asks TikTok's public download
+  service, flag off and on alike. Why: no benefit shown (the census asked it only on slots 8 and 9,
+  it answered 403 and rescued no post; P46's own case was never tested); weak checks (no host check
+  on the service's file addresses, `TikTokDownloadService.address`; a short link's post id not
+  checked; the file check proves a playable file, not this post's); privacy (`tikwm.com` sees the
+  post's address and the phone's or the VPN's public IP; the file host sees the IP; no cookie went
+  there). Cost, accepted: a public post only the service could give now fails with TikTok's own
+  reason and its Details. Back on only on the owner's go, with (i) public posts only the service
+  gives, (ii) its files limited to TikTok's media hosts and `tikwm.com`, (iii) the post id checked
+  for short links too (from the resolved link).
+- **Built** (code commit `36ec093`): the app's TikTok adapter (`SiteAdapterModule`) and the site
+  census's (`SiteCensusLookup.registry`, the app's adapters) are built with
+  `askDownloadService = false` (the adapter's own default; no flag branch); `TikTokExtractor`'s
+  KDoc says so. A post TikTok's own pages and the hidden page give no file fails with TikTok's own
+  reason (its status: private, region, removed; files refused: `NO_MEDIA_FOUND`) and its Details,
+  with no "download service" line; the census row names the way `not reached: download service`.
+- **Kept as they are:** `TikTokDownloadService` and its tests (`TikTokDownloadServiceTest`),
+  `SiteWays` (`TIKTOK.mainWays` still lists the way), `SiteLabels`, `SiteReadings`,
+  `SiteWaysDriftTest`. Turning it back on is one argument per place (`SiteAdapterModule`,
+  `SiteCensusLookup`). No other main change; Master unchanged (S4: it never had the service);
+  YouTube's files unchanged; drift 0.
+- Tests (JVM; made-up posts, IDs and addresses; no live calls): `SiteAdapterTikTokServiceTest` 3
+  (new; app, Robolectric: `SiteAdapterModule.provideSiteExtractors` and the app's coordinator over
+  an OkHttp interceptor): a post both pages call private → `PRIVATE_OR_UNAVAILABLE` after the
+  hidden page (read once), TikTok's two pages the only asks, no service line in Details; files
+  refused on the page and in the hidden page's data → `NO_MEDIA_FOUND` ("answer: none · no file
+  opened", "data: no file opened"); P46's wiring (`askDownloadService = true`) over the same fakes
+  took the service's two files in both; a post the phone page gives, or the desktop page after the
+  phone page's private status → the same rows and the same asks as P46's wiring, no service ask.
+  `SiteCensusTikTokServiceTest` 4 (new; app's debug tests, the census's main): the same three
+  through `SiteCensusLookup` (the row's record without the service's way; P46's census: the
+  `download service` way in its record), and the census row of a private post (slot 9):
+  `failed PRIVATE_OR_UNAVAILABLE`, `not reached: download service`, no `download service GET`
+  ask (P46's census: `download service GET 200`).
+- Local checks: `extractor-sites` 293, `extractor-master` 943 (2 skipped),
+  `extractor-master-android` 69, `app` 1094 (+7; 66 skipped), all passed; lint 0 errors (170
+  warnings); assemble (flag off) and assemble with the three flags on; drift 0;
+  `test_spike_label_triggers.py` 19; `SiteWeeklyTest` 7 again after the plan's edits (it reads
+  §7.5, unchanged).
+- **APK identity:** CI's d7-matrix step "Key, package and versionCode (no upload on a mismatch)"
+  passed for each APK, `yft-d7-normal` and `yft-d7-social-trial` included (APK run 39784454576,
+  10/10); locally the flag-off and social-trial APKs both `com.alal.yft.debug`, versionCode 3,
+  signed with the spike key (certificate SHA-256 `a2696dff…bbbe`).
+- Docs: `MASTER_KEY_SOCIAL_PLAN.md` (the top status, §0's task 10 bullet, §1.2's TikTok row, the
+  intended differences, S4, T0, the census's main, §7.3's task 10 paragraph, §7.4's next phone
+  session, §8 decisions 4 and 22), `docs/SUPPORT_MATRIX.md` (the TikTok adapter row),
+  `docs/HANDOFF.md` (the spike branch's status and known limitation), `MASTER_KEY_PLAN.md`
+  (TikTok's order, MK-10), `CHANGELOG.md` ([Unreleased] Changed), `docs/TEST_MATRIX.md` (the task
+  10 row), this file.
+- The next phone session (the owner; `yft-d7-social-trial` and `yft-d7-normal` of `36ec093`'s
+  APK run, 39784454576, never an older run's APK): §7.4 as before (A's Master retests: X first, then
+  TikTok after its 429's cooldown, then Instagram; B2, B3, C last). A's TikTok main: no
+  `download service` ask on any slot (each row's `not reached: download service`); slots 8 and 9
+  keep `GEO_RESTRICTED` and `PRIVATE_OR_UNAVAILABLE`, one ask fewer each; every other main answer
+  as before. C: W's first TikTok run is its baseline without the service.
+- Next: the owner's phone session (§7.4).
+
 ## Social plan task 9 — S6's row reader checks each read against its lookup's site (one reader for every site; another site's host refused before any ask, counted refused, never NETWORK; Facebook unchanged; debug only, behind the flag) (2026-10-22)
 
 - **Phone evidence** (the owner, A's X census, `yft-d7-social-trial` of `430da9f`, signed out,
