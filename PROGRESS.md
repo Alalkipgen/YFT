@@ -1,5 +1,78 @@
 # YFT Master Extractor backup
 
+## Social plan task 9 — S6's row reader checks each read against its lookup's site (one reader for every site; another site's host refused before any ask, counted refused, never NETWORK; Facebook unchanged; debug only, behind the flag) (2026-10-22)
+
+- **Phone evidence** (the owner, A's X census, `yft-d7-social-trial` of `430da9f`, signed out,
+  the VPN on, 2026-10-22 10:48 UTC): slots 1–6 each Master trial "failed NETWORK; new 3 (GIF 1),
+  refused 0", each of its asks "unlabelled GET NETWORK 1–2 ms"; the ladder's rows 0. Main's V on
+  the same host: pass (206).
+- **Cause:** `OkHttpRowReader(client, site = SiteWays.FACEBOOK)` checked `site.mediaHost(url)`
+  itself and answered `MediaStart.Failed(null)` before any network. The app's lookups
+  (`BrowserMasterFallback`) and the site census (`SiteCensusActivity`) built it with no site, so
+  every row off Facebook's hosts (X's `video.twimg.com`, TikTok's, Instagram's
+  `cdninstagram.com`) failed unsent, though `SocialRowCheck` already chose the lookup's own site
+  (S2b, `MainPages.site`); the reader did not. Route B's reader (`RouteBMediaStartReader`) lists
+  the ask before the inner reader runs, and the refusal's `Failed(null)` is an `IOException`'s
+  too, so each refused read showed as a new `NETWORK` ask.
+- **Fix** (code commit `7610d69`): **one reader for every site.** `OkHttpRowReader(client)` holds
+  no site (the `FACEBOOK` default removed, so no call site can fall back to it silently). Each
+  read carries the site `SocialRowCheck` chose for its lookup (the new `RowReadSite`, in the
+  read's context), and the reader asks only that site's media hosts and paths (`Site.mediaHost`,
+  the address as given and as sent); a read without a site sends nothing. The app's lookups and
+  the census get S6 from one factory, `SocialLadder.validator(validator, client)`: one check and
+  one reader for all lookups (`BrowserMasterFallback`, `SiteCensusActivity`).
+- **Hosts not widened:** no union of the sites' hosts, no host the lookup's site does not name;
+  HTTPS only, no redirect, no cookie or credential, at most 64 KiB, the 10 s call timeout, no
+  retry, as before.
+- **Counting:** a file off the lookup's site's media hosts (another site's host, no HTTPS, a path
+  outside the site's video paths) is refused in `SocialRowCheck` before route B lists an ask:
+  never sent, no new ask, the row unknown (`NO_MEDIA_FOUND`, no pass), never `NETWORK`; the
+  census's Master part counts it in `refused` (each file once a lookup; `SocialRowCheck.refused`).
+  A real network failure (no answer) stays `NETWORK`, with its one new ask.
+- **Facebook unchanged:** a Facebook lookup's files are read on Facebook's media hosts as before.
+  Facebook's existing tests unchanged (`FacebookLadderS6Test`, `FacebookWorldTest`,
+  `SocialLadderS6Test`, `SocialLadderIdTest`, `SocialTrialTest`); `OkHttpRowReaderTest`'s four
+  tests unchanged in their bodies (only its setup: each read in a Facebook lookup, as S6 reads).
+  `SocialRowCheck`'s own site for a lookup whose `MainPages` names none stays Facebook's (S2b);
+  the app's and the census's lookups always name theirs.
+- **Flag off unchanged:** every other build's engine gets its own V (`OkHttpMediaValidator`), no
+  check and no reader. Not changed: main (S1), YouTube's files (`RouteBMediaStartReader`,
+  `RouteBLookup` and `LookupRecord` included), `LookupAsk.endpoint`, the ladders, the symbols
+  Master copies (drift 0).
+- Tests (JVM; a local HTTPS server under the sites' media host names, made-up addresses and IDs,
+  no live calls): `SocialLadderRowReadTest` 4 (new; app): S6 through `SocialLadder.validator`'s
+  factory over Master's client, in the app's lookup (`SocialLadder.lookupContext`) and the
+  census's Master part (its record and `MainPages`): X's (`video.twimg.com`), TikTok's,
+  Instagram's (`cdninstagram.com`) and Facebook's files each reach the server once (their own
+  host, `Range: bytes=0-4095`, no cookie) and pass, one new ask each, a repeat not asked again;
+  another site's host (and a TikTok address outside its video paths) is refused: no request, no
+  ask, refused 1, never `NETWORK`; a file that gets no answer → `NETWORK`, one new ask, refused 0;
+  flag off → the check given itself. `OkHttpRowReaderTest` 5 (+1): one reader reads X's host
+  under X's site; under Facebook's or with no site it sends nothing. `SiteCensusLadderTest` 8
+  (+1): a TikTok census slot whose embed answer names Facebook's file → Master's rows 0, not
+  `NETWORK`, `new 1, refused 1`, no `GET NETWORK` line; the same with TikTok's file → read once,
+  `new 2, refused 0`, rows 1.
+- Local checks: `extractor-sites` 293, `extractor-master` 943 (+2; 2 skipped),
+  `extractor-master-android` 69, `app` 1087 (+4; 66 skipped), all passed; lint 0 errors (170
+  warnings); assemble (flag off) and assemble with the three flags on; drift 0;
+  `test_spike_label_triggers.py` 19.
+- **APK identity:** CI's d7-matrix step "Key, package and versionCode (no upload on a mismatch)"
+  passed for each APK, `yft-d7-normal` and `yft-d7-social-trial` included (APK run 39777404563,
+  10/10); locally the flag-off and social-trial APKs both `com.alal.yft.debug`, versionCode 3,
+  signed with the spike key (certificate SHA-256 `a2696dff…bbbe`).
+- Docs: `MASTER_KEY_SOCIAL_PLAN.md` (the top status, §0's task 9 bullet, §7.3's task 9 paragraph,
+  §7.4's next phone session), `docs/SUPPORT_MATRIX.md` (the TikTok, X and Instagram ladder rows),
+  `docs/TEST_MATRIX.md` (the task 9 row), this file.
+- The next phone session (the owner; `yft-d7-social-trial` and `yft-d7-normal` of `7610d69`'s
+  APK run, 39777404563, never an older run's APK): A's Master retests, in this order — X first
+  (signed out, the VPN Boston and no VPN: slots 1–6 Master's rows of main's item, S6's reads on
+  X's host, refused 0, no `GET NETWORK` ask of 1–2 ms), then TikTok after its 429's cooldown (30
+  min; `T1 not run (cooldown)` until then, never waited out within a run), then Instagram. B1
+  (link 9's desktop form), A's Facebook census (A-FB) and X's and TikTok's main results of
+  2026-10-22 stand (not run again). Then §7.4's rest (B2 Instagram's probe, B3 the short
+  regression set, C W's first run, last).
+- Next: the owner's phone session (§7.4).
+
 ## Social plan task 8 — S3's weekly check W in the site census (three slots per site, each way once, per site 60 s, 2 MB and 24 requests; each CHANGED or BREAKING line names its runbook step; debug only, a social-ladder build only) (2026-10-22)
 
 - **W** (code commit `430da9f`): "YFT site census" → **Weekly check W (all sites)**, in a

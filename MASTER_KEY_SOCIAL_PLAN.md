@@ -26,8 +26,11 @@ pinned with the trial; tests and docs only) done (2026-10-22; §7.3, §7.4). Tas
 check W in the site census: three slots per site, each way at most once, per site at most 60 s,
 2 MB and 24 requests, W's own baselines, each CHANGED or BREAKING line with its runbook step; debug
 only, in a social-ladder build only; flag off and the full census unchanged) built (2026-10-22;
-§7.3, §7.5). Next: the owner's
-phone session (§7.4; W's first run last).**
+§7.3, §7.5). Task 9 (S6's row reader checks each read against its lookup's site: one reader for
+every site, another site's host refused before any ask and counted refused, never `NETWORK`;
+Facebook unchanged; from the phone session of 2026-10-22; debug only, behind the flag) built
+(2026-10-22; §7.3, §7.4). Next: the owner's phone session (§7.4: Master on X first, then TikTok
+after its 429's cooldown, then Instagram; W's first run last).**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -236,6 +239,20 @@ phone session (§7.4; W's first run last).**
   "→ W runbook step N (…)" နဲ့ (§7.5 ရဲ့ runbook: line kind ၈ မျိုး၊ ဘာစစ်ရမလဲ၊ S4 live ဖြစ်ရင် R9 နဲ့
   data ပြင်မလား code ပြင်မလား)။ YouTube ရဲ့ W design ကို ပြန်သုံးပြီး YouTube file မပြောင်းပါ။ S4 မဆောက်ရသေး
   (decision 5 ဖွင့်ထား)။ နောက်တစ်ဆင့်: ပိုင်ရှင်ရဲ့ phone session (§7.4; W ရဲ့ first run က C၊ နောက်ဆုံး)။
+- **Task 9 — S6 ရဲ့ row reader က read တစ်ခုစီကို lookup ရဲ့ site နဲ့ စစ် (2026-10-22၊ debug only၊ flag
+  နောက်ကွယ်၊ flag off မပြောင်း၊ §7.3၊ §7.4):** 2026-10-22 phone session (A ရဲ့ X census၊ `430da9f` ရဲ့
+  `yft-d7-social-trial`၊ signed out၊ VPN on၊ 10:48 UTC) မှာ slots 1–6 ရဲ့ Master trial တွေ "failed NETWORK;
+  new 3 (GIF 1), refused 0"၊ ask တစ်ခုစီ "unlabelled GET NETWORK 1–2 ms"၊ ladder rows 0 (main ရဲ့ V က host
+  တူမှာ pass 206)။ အကြောင်းရင်း: `OkHttpRowReader` ရဲ့ default site က Facebook ဖြစ်ပြီး app နဲ့ census က site
+  မပေးလို့ Facebook မဟုတ်တဲ့ host (X ရဲ့ `video.twimg.com`၊ TikTok၊ Instagram ရဲ့ `cdninstagram.com`) ရဲ့ file တွေကို မပို့ဘဲ fail
+  လုပ်ခဲ့ပြီး route B က အဲဒါကို `NETWORK` ask အသစ်အဖြစ် ရေတွက်ခဲ့ပါတယ်။ ပြင်ချက်: site အားလုံးအတွက် reader
+  တစ်ခုတည်း (`FACEBOOK` default ဖယ်)၊ read တစ်ခုစီက `SocialRowCheck` ရွေးတဲ့ lookup ရဲ့ site
+  (`RowReadSite`) ကို ယူသွားပြီး အဲဒီ site ရဲ့ media hosts ကိုပဲ မေးပါတယ် (hosts မချဲ့; HTTPS only၊
+  redirect မလိုက်၊ cookie မပို့၊ 64 KiB၊ 10 s၊ retry မရှိ — အရင်အတိုင်း)။ တခြား site ရဲ့ host ကို ask
+  မမှတ်ခင် refuse (မပို့၊ refused ရေတွက်၊ `NETWORK` မဟုတ်)၊ တကယ့် network failure က `NETWORK` ဆက်ဖြစ်ပါတယ်။
+  Facebook ရဲ့ behavior နဲ့ ရှိပြီးသား tests မပြောင်းပါ။ နောက်တစ်ဆင့်: phone session မှာ Master ကို X
+  အရင်၊ ပြီးရင် TikTok (429 cooldown ပြီးမှ)၊ ပြီးရင် Instagram ပြန်စမ်း; B1၊ A-FB နဲ့ X/TikTok ရဲ့ main
+  results တွေ ဆက်တည်ပါတယ်။
 
 ## 1. Audit — what exists today
 
@@ -956,6 +973,25 @@ numbered steps); no YouTube file changed. JVM tests (`SiteWeeklyTest`, made-up I
 each way once, the three caps, a 429's cooldown read as not run, W's and the census's baselines
 apart, the lines and their steps, the runbook's entry for each step. Not S4 (R9 live); decision 5
 open. Next: the owner's phone session (§7.4; W's first run: C).
+**Task 9 built (2026-10-22, debug only, behind the flag; flag off unchanged; `PROGRESS.md`):**
+S6's row reader checks each read against its lookup's site. The phone session of 2026-10-22 (A's
+X census, `yft-d7-social-trial` of `430da9f`, signed out, the VPN on, 10:48 UTC): slots 1–6 each
+Master trial "failed NETWORK; new 3 (GIF 1), refused 0", each ask "unlabelled GET NETWORK 1–2
+ms", the ladder's rows 0, while main's V on the same host passed (206). Cause: `OkHttpRowReader`'s
+own site (Facebook by default; the app and the census named none) refused every file off
+Facebook's media hosts before any network, after route B had listed the ask, so the refusal read
+as a new `NETWORK` ask. Fix: one reader for every site, holding no site (the default removed);
+each read carries the site `SocialRowCheck` chose for its lookup (`RowReadSite`: the lookup's
+`MainPages` site), and only that site's media hosts and paths are asked (no union of the sites'
+hosts; HTTPS only, no redirect, no cookie or credential, 64 KiB, 10 s, no retry, as before); a
+file off them is refused before route B lists an ask (never sent, counted refused, never
+`NETWORK`); a real network failure stays `NETWORK`. The app and the census wire S6 through one
+factory (`SocialLadder.validator(validator, client)`: one check, one reader). JVM tests through
+that factory (`SocialLadderRowReadTest`: X's, TikTok's, Instagram's and Facebook's files each read
+once on their own host; another site's host refused; no answer still `NETWORK`), and
+`OkHttpRowReaderTest` and `SiteCensusLadderTest` +1 each; Facebook's behavior and existing tests
+unchanged. Next: the owner's phone session (§7.4: Master on X first, then TikTok after its 429's
+cooldown, then Instagram).
 Each site: a D7-style phone proof, wrong rows 0, no regression against B0.
 
 **S3 and S4** as in §7: W (≤ 1 min, ≤ 2 MB per site) with the diff and the runbook; R9 live (the
@@ -1327,12 +1363,21 @@ same day; no link or ID kept (S8).
   tab: `X3 not run (no tab)`).
 
 **The next phone session (the owner, after this run's last pushed task — S2d part 1, task 6a's
-one trial APK, task 0 (X's 404 never final), task 6b (the census's ladder), task 7 and task 8 (W)
-are pushed;
+one trial APK, task 0 (X's 404 never final), task 6b (the census's ladder), task 7, task 8 (W) and
+task 9 (S6's reads on the lookup's site) are pushed;
 `yft-d7-social-trial` and `yft-d7-normal` of the last pushed `[d7]` commit, never an older run's
 APK (not `fb-trial`, not task 6a's); the run's report and `PROGRESS.md` name the commit and the
 artifacts):**
 
+- **The session of 2026-10-22 (`430da9f`'s APKs) and task 9:** B1 (link 9's desktop form), A's
+  Facebook census (A-FB) and X's and TikTok's main results stand (not run again). A's X census
+  (signed out, the VPN on, 10:48 UTC): slots 1–6's Master trials failed (`NETWORK`, each ask
+  "unlabelled GET NETWORK 1–2 ms", the ladder's rows 0) as S6's reader allowed Facebook's media
+  hosts only; task 9 fixes it. **A's Master parts again, with task 9's APKs, in this order:** X
+  first (both networks; S6's reads answered on X's video host, no `GET NETWORK` ask of 1–2 ms),
+  then TikTok after its 429's cooldown (30 min; `T1 not run (cooldown)` until then, never waited
+  out within a run), then Instagram (its three sessions). Then B2 (Instagram's probe), B3 (the
+  short regression set) and C below.
 - **A — `yft-d7-social-trial`, "YFT site census" (the probe's box off), one run per network and
   session below:** each site against its baseline: wrong rows 0, no regression, unknown rows apart
   (wrong rows 0 alone is not parity); main's part (the site's line, B0's columns) apart from
