@@ -14,7 +14,8 @@ import org.junit.Test
  * only on the post's own page on Instagram's web host; the page's own POST of yt-dlp's signed-out
  * query (same origin, the page's cookies; the form in yt-dlp's order with the page's LSD value; the
  * query's headers, `X-FB-LSD`, `X-CSRFToken` from the tab's cookie); its answer read back bounded
- * and forgotten; no LSD, no script, no answer in time each said. A fake tab; no live calls.
+ * and forgotten; no LSD, no script, no answer in time each said. Task 13 (the rung): a tab whose
+ * own cookies name a session asks nothing. A fake tab; no live calls.
  */
 class InstagramProbeScriptTest {
     @Test
@@ -157,6 +158,29 @@ class InstagramProbeScriptTest {
         assertEquals(0, late.status)
         assertNull(late.body)
         assertTrue(slow.scripts.last().startsWith("if (window.__yftProbe) { delete"))
+    }
+
+    @Test
+    fun aSignedInTabAsksNothing() = runTest {
+        // Task 13: the tab's own cookies for Instagram's web host name a session: nothing runs.
+        val tab = FakeTab()
+        val signedIn = InstagramProbeScript.run(
+            REQUEST, PAGE, tab::evaluate, tabCookie = { "csrftoken=fixture; sessionid=1%3Afixture; ds_user_id=1" },
+        )
+        assertEquals(InstagramTabProbe.SIGNED_IN, (signedIn as InstagramTabProbe.Reply.NotAsked).why)
+        assertTrue(InstagramTabProbe.SIGNED_IN in InstagramTabProbe.REASONS)
+        assertTrue(tab.scripts.isEmpty())
+        assertEquals("https://www.instagram.com/", InstagramProbeScript.COOKIE_PAGE)
+
+        // Signed out: no session, or an empty one; the script runs.
+        for (cookie in listOf(null, "", "csrftoken=fixture; mid=fixture", "sessionid=", "sessionid= ; csrftoken=fixture", "xsessionid=1")) {
+            assertFalse(cookie.toString(), InstagramProbeScript.signedIn(cookie))
+        }
+        assertTrue(InstagramProbeScript.signedIn("mid=fixture;sessionid=1%3Afixture"))
+        val out = FakeTab(started = null)
+        val asked = InstagramProbeScript.run(REQUEST, PAGE, out::evaluate, tabCookie = { "csrftoken=fixture" })
+        assertEquals(InstagramTabProbe.NO_ANSWER, (asked as InstagramTabProbe.Reply.NotAsked).why)
+        assertEquals(1, out.scripts.size)
     }
 
     /** A tab that answers the start script with [started] and each poll with the next of [polls] ("null" after). */

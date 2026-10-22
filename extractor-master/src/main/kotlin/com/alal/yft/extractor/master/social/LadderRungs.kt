@@ -8,7 +8,8 @@ import com.alal.yft.extractor.master.MasterResult
  * rungs: Facebook's F1 (the plugin player), F2 (main's pages) and F3 (the visible tab's own
  * playback); TikTok's T1 (the embed player), T2 (main's pages) and T3; X's X1 (main's answer) and
  * X3; Instagram's I2 (main's answers) and I3. The census has no tab, so F3, T3, X3 and I3 never run:
- * "not run (no tab)" when the engine got that far.
+ * "not run (no tab)" when the engine got that far. Instagram's tab-fetch rung (decision 24, task 13)
+ * needs the tab too: it is never asked in a census (no probe in its context) and is not listed.
  *
  * A rung's state, from its own lines (its label's, [FacebookLadder.F1] …):
  *

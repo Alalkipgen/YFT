@@ -78,9 +78,12 @@ import okhttp3.Response
  * whether Android's network is a VPN ([onVpn], as the screen reads Wi-Fi): the state keeps each
  * site's baseline per VPN and session (with each slot's link fingerprint, never in the export).
  *
- * Social plan S2d part 1 (decision 19 (v)): in a social-ladder build the screen also holds the own
- * switch of Instagram's tab-fetch probe ("Instagram's tab-fetch probe", off by default,
- * [InstagramProbeSwitch]); the browser's Instagram lookups ask the probe only while it is on.
+ * Social plan S2d (decisions 19 and 24): in a social-ladder build the screen also holds the own
+ * switches of Instagram's tab-fetch rung ([InstagramProbeSwitch], each off by default): "Instagram's
+ * tab-fetch rung (signed out)" (part 2, task 13: the browser's Instagram lookups ask the rung only
+ * while it is on, after I2 gave no rows) and "Instagram rung proof: set I2's rows aside" (debug:
+ * with I2's rows, the rung is asked in their place, so a post main answers shows the rung's own
+ * rows). The census itself has no tab: the rung is never asked in it.
  *
  * Social plan task 6b: in a social-ladder build each ladder site's backup part is that site's
  * ladder as the browser runs it ([census]'s pack: the rungs, each row checked against main's), and
@@ -133,13 +136,18 @@ class SiteCensusActivity : ComponentActivity() {
         listOf(status, all).forEach(::add)
         perSite.values.forEach(::add)
         weeklyButton?.let(::add)
-        // S2d part 1: the probe's own switch under the Run buttons, off by default (a social-ladder
-        // build only); it stays as set until the owner turns it off.
+        // S2d (task 13): the rung's own switches under the Run buttons, each off by default (a
+        // social-ladder build only); they stay as set until the owner turns them off.
         if (SocialLadder.enabled) {
             add(CheckBox(this).apply {
-                text = "Instagram's tab-fetch probe"
+                text = "Instagram's tab-fetch rung (signed out)"
                 isChecked = InstagramProbeSwitch.on(this@SiteCensusActivity)
                 setOnCheckedChangeListener { _, checked -> InstagramProbeSwitch.set(this@SiteCensusActivity, checked) }
+            })
+            add(CheckBox(this).apply {
+                text = "Instagram rung proof: set I2's rows aside"
+                isChecked = InstagramProbeSwitch.proof(this@SiteCensusActivity)
+                setOnCheckedChangeListener { _, checked -> InstagramProbeSwitch.setProof(this@SiteCensusActivity, checked) }
             })
         }
         listOf(copy, copyJson, result).forEach(::add)

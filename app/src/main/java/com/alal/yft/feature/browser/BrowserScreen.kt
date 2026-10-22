@@ -260,9 +260,10 @@ fun BrowserRoute(
             }
         }
     }
-    // Social plan S2d part 1 (decision 19 (v), debug only): Instagram's tab-fetch probe, run in
-    // the tab only while it is on the post's page (a social-ladder build with the probe's own
-    // switch on asks it; every other build asks none). One at a time.
+    // Social plan S2d (decisions 19 and 24, debug only): Instagram's tab-fetch rung, run in the
+    // tab only while it is on the post's page and signed out (task 13: the tab's own cookies for
+    // Instagram's web host name no session); a social-ladder build with the rung's own switch on
+    // asks it, every other build asks none. One at a time.
     LaunchedEffect(webView, viewModel) {
         val browser = webView ?: return@LaunchedEffect
         viewModel.instagramProbes.collect { request ->
@@ -272,6 +273,9 @@ fun BrowserRoute(
                     request = request.probe,
                     tabUrl = browser.url,
                     evaluate = { script, reply -> browser.evaluateJavascript(script) { reply(it) } },
+                    tabCookie = {
+                        runCatching { CookieManager.getInstance().getCookie(InstagramProbeScript.COOKIE_PAGE) }.getOrNull()
+                    },
                 ),
             )
         }

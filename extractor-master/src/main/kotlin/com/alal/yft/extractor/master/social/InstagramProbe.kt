@@ -25,7 +25,8 @@ import kotlin.coroutines.CoroutineContext
  * TLS, cookies and origin: S3 forbids imitating them), as yt-dlp sends it. Data only: the query's
  * names and values, its form's fields in yt-dlp's order, its headers, and the reading of its
  * answer ([videoInAnswer]). Its values may rotate; the probe's line says whether they still
- * answer (the owner's phone session), and part 2's rung, if any, is the owner's go.
+ * answer (the owner's phone session). Part 2 (decision 24, task 13): the same query is Instagram's
+ * tab-fetch rung, whose answer Instagram's ladder reads for rows ([InstagramLadder]).
  */
 object InstagramProbeQuery {
     /** Where the query's values were read (S9). */
@@ -83,17 +84,25 @@ object InstagramProbeQuery {
     /**
      * Whether [body] (the query's answer) shows the post [code] ([mediaId]) signed out with a video
      * file or manifest: the answer's post ([ANSWER_PATH]) names the post and holds a video's key with
-     * a value. Reads only; never a row (decision 19 (v): the probe only says yes or no).
+     * a value. Reads only: the rung's line says yes or no; its rows are the ladder's reading.
      */
     fun videoInAnswer(body: String, code: String, mediaId: String?): Boolean {
         if (body.length > MAX_ANSWER_CHARS) return false
         val root = (BoundedJsonParser.read(body.trim()) as? JsonReadResult.Read)?.value ?: return false
         val post = root.path(*ANSWER_PATH.toTypedArray()) as? JsonValue.Object ?: return false
         val named = post["code"].asStringOrNull ?: post["shortcode"].asStringOrNull
-        val pk = post["pk"].asStringOrNull ?: post["id"].asStringOrNull?.substringBefore('_')
-        val ours = named == code || (named == null && mediaId != null && pk == mediaId)
+        val ours = named == code || (named == null && mediaId != null && pkOf(post) == mediaId)
         return ours && VIDEO.containsMatchIn(body)
     }
+
+    /**
+     * The answer's [post]'s media ID: its `pk` (text or number), else its `id` before `_` (the
+     * owner's ID after it); null for none.
+     */
+    internal fun pkOf(post: JsonValue.Object): String? =
+        post["pk"].asStringOrNull
+            ?: (post["pk"] as? JsonValue.Number)?.text
+            ?: post["id"].asStringOrNull?.substringBefore('_')?.takeIf(String::isNotBlank)
 
     /** Whether [body] is the query's checkpoint answer (Instagram's bot check). */
     fun checkpoint(body: String): Boolean {
@@ -111,18 +120,27 @@ object InstagramProbeQuery {
 }
 
 /**
- * Social plan S2d part 1 (decision 19): the visible tab's own fetch of [InstagramProbeQuery], a
- * debug-only probe. The app's browser puts one in an Instagram lookup's context (a social-ladder
- * build only); Instagram's ladder ([InstagramLadder]) asks it at most once in a lookup, after
- * main failed and after I2, and reads its answer for one Details line only: no row, no download,
- * no other use (decision 19 (v): the rung only after the owner's phone result). [on]: the probe's
- * own switch (the census screen's; off by default).
+ * Social plan S2d (decisions 19 and 24): the visible tab's own fetch of [InstagramProbeQuery],
+ * Instagram's tab-fetch rung (part 2, task 13; part 1's debug-only probe was its line alone). The
+ * app's browser puts one in an Instagram lookup's context (a social-ladder build only); Instagram's
+ * ladder ([InstagramLadder]) asks it at most once in a lookup, after main failed and I2 gave no
+ * rows, the last request rung: its answer's rows bound to the post go to V and the init check (S6)
+ * as the tab's own answer, its line in Details. [on]: the rung's own switch (the census screen's;
+ * off by default); [proof]: its debug proof, I2's rows set aside so the rung is asked (off by
+ * default).
  */
 interface InstagramTabProbe : CoroutineContext.Element {
     override val key: CoroutineContext.Key<*> get() = Key
 
-    /** Whether the probe's own switch is on. */
+    /** Whether the rung's own switch is on. */
     fun on(): Boolean
+
+    /**
+     * Whether the rung's proof is on (debug, the census screen's): when I2 has rows, they are set
+     * aside and the rung is asked (its line says so), so a post main answers shows the rung's own
+     * rows. Off: I2's rows stand and the rung is not asked.
+     */
+    fun proof(): Boolean = false
 
     /** The tab's own fetch for [request], or why nothing went out ([Reply.NotAsked]). */
     suspend fun ask(request: Request): Reply
@@ -170,7 +188,13 @@ interface InstagramTabProbe : CoroutineContext.Element {
         /** The tab's script gave no answer in time. */
         const val NO_ANSWER = "the tab gave no answer"
 
+        /**
+         * Task 13: the tab's own cookies for Instagram's web host hold a session (`sessionid`): the
+         * rung is the signed-out query, so nothing goes out.
+         */
+        const val SIGNED_IN = "the tab is signed in"
+
         /** The reasons a [Reply.NotAsked] may say in a Details line, word for word. */
-        val REASONS: Set<String> = setOf(NO_TAB, NOT_ON_POST, NO_LSD, NO_ANSWER)
+        val REASONS: Set<String> = setOf(NO_TAB, NOT_ON_POST, NO_LSD, NO_ANSWER, SIGNED_IN)
     }
 }

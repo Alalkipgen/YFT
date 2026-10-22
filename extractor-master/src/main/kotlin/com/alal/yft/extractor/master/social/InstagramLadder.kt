@@ -7,7 +7,7 @@
  *                                        main's order: the app API signed in, GraphQL, the post's
  *                                        page, the embed page), graphQlUrl (its variables name the
  *                                        post's code)
- * The probe's query is data from yt-dlp ([InstagramProbeQuery]: S9, no row).
+ * The tab-fetch rung's query is data from yt-dlp ([InstagramProbeQuery]: S9, no row).
  */
 package com.alal.yft.extractor.master.social
 
@@ -62,14 +62,19 @@ import kotlinx.coroutines.withTimeoutOrNull
  *   host cools, S7), no post in an answer, the embed's `EmbedIsBroken`, a changed shape. Never
  *   REMOVED (decision 19 (vi): no answer read tells a removed post apart).
  *
- * **The tab-fetch probe** (decision 19 (v), debug only, off by default): with an
- * [InstagramTabProbe] in the lookup's context and its switch on, after I2 (not after a final
- * answer or a stop), once: the visible tab's own fetch of yt-dlp's signed-out query
- * ([InstagramProbeQuery]), recorded in the lookup's record (Master's ask: the budget, a 429 stops
- * the site and cools the host, a checkpoint cools it: signed out, Instagram's challenge of
- * Master's own ask is a bot check for S7; no second ask) and said in one line (its
- * status and size, whether its answer holds the post's video, whether the tab shows a wall); its
- * answer is never a row. Signed in (main's session), it is not asked: it is the signed-out query.
+ * **The tab-fetch rung** (S2d part 2, decision 24, task 13; its switch off by default): with an
+ * [InstagramTabProbe] in the lookup's context and its switch on, after I2 gave no rows (not after
+ * a final answer or a stop), once, the last request rung: the visible tab's own fetch of yt-dlp's
+ * signed-out query ([InstagramProbeQuery]), recorded in the lookup's record (Master's ask: the
+ * budget, a 429 stops the site and cools the host, a checkpoint cools it: signed out, Instagram's
+ * challenge of Master's own ask is a bot check for S7; no second ask), read by the same recipe and
+ * judge as I2 (rows bound to the post by its code or its pk, the link's item only; its 400 or
+ * `errors` is VALUE_REJECTED: no other value is tried) and said in one line (its status and size,
+ * whether its answer holds the post's video, whether the tab shows a wall, its rows). Its rows go
+ * to V and the init check (S6) as the tab's own answer; a page with a wall is never read. Signed
+ * in (main's session), it is not asked: it is the signed-out query. With I2's rows it is not asked
+ * either, but when its debug proof is on ([InstagramTabProbe.proof]: I2's rows set aside). In a
+ * census or W there is no tab: it is never asked there (as I3).
  *
  * S7: Instagram's own budget ([SocialBudget.INSTAGRAM]). Main's Instagram code and reasons stay
  * (decision 10). Claims only an Instagram lookup with its own record ([LookupRecord]: the
@@ -94,7 +99,7 @@ class InstagramLadder(
         details: MutableList<String>,
     ): SocialStage.Staged? {
         val record = coroutineContext[LookupRecord] ?: return null
-        // S7: a host that answered a 429 (main's or the probe's) cools from the stage's end.
+        // S7: a host that answered a 429 (main's or the rung's) cools from the stage's end.
         return try {
             climb(record, request, policy, details)
         } finally {
@@ -102,7 +107,7 @@ class InstagramLadder(
         }
     }
 
-    /** I2 for [request]'s lookup ([record]), then the probe. */
+    /** I2 for [request]'s lookup ([record]), then the tab-fetch rung when I2 gave no rows. */
     private suspend fun climb(
         record: LookupRecord,
         request: MasterRequest,
@@ -130,7 +135,7 @@ class InstagramLadder(
                 details += "$I2 main's $way: not kept (over the bound)"
                 continue
             }
-            val reading = (answer as? ExtractorHttpResult.Success)?.let { readAnswer(way, it, code, read, recipe) }
+            val reading = (answer as? ExtractorHttpResult.Success)?.let { readAnswer(way, it, code, mediaId, read, recipe) }
                 ?: Read()
             val verdict = InstagramAnswerJudge.judge(way, answer, reading.reading)
             details += "$I2 main's $way: ${verdict.answerClass.name} (${verdict.evidence})"
@@ -141,8 +146,7 @@ class InstagramLadder(
         val chosen = InstagramAnswerJudge.aggregate(judged, readings)
         if (chosen == null) {
             details += "$I2: none kept for the post${MainPages.unasked(record)}; nothing to read"
-            probe(record, request, policy, code, mediaId, details)
-            return null
+            return rung(record, request, policy, code, mediaId, read, recipe, details)
         }
         val (way, verdict) = chosen
         details += "$I2: ${verdict.answerClass.name} ($way: ${verdict.evidence}); next: ${verdict.next.name}"
@@ -151,8 +155,18 @@ class InstagramLadder(
                 val answer = staged[way]
                 val why = answer?.let { over(record, it.body.length.toLong()) }
                 why?.let { details += "$I2: $it; not checked" }
-                probe(record, request, policy, code, mediaId, details)
-                if (answer == null || why != null) return null
+                if (answer == null || why != null) return rung(record, request, policy, code, mediaId, read, recipe, details)
+                // Decision 24: I2's rows; the rung is not asked, but when its proof (debug) sets them aside.
+                val probe = coroutineContext[InstagramTabProbe]
+                when {
+                    probe == null -> Unit
+                    !probe.on() -> details += "$PROBE: off"
+                    !probe.proof() -> details += "$PROBE: not asked (I2's rows)"
+                    else -> {
+                        details += "$PROBE: I2's rows set aside (the rung's proof)"
+                        return rung(record, request, policy, code, mediaId, read, recipe, details)
+                    }
+                }
                 SocialStage.Staged(
                     MasterStage.PAGE_DATA,
                     PageSnapshot(request.pageUrl, request.generation, contract = answer),
@@ -173,10 +187,7 @@ class InstagramLadder(
                 }
                 null
             }
-            Next.NEXT_RUNG, Next.PLAYBACK, Next.BROWSER -> {
-                probe(record, request, policy, code, mediaId, details)
-                null
-            }
+            Next.NEXT_RUNG, Next.PLAYBACK, Next.BROWSER -> rung(record, request, policy, code, mediaId, read, recipe, details)
         }
     }
 
@@ -196,21 +207,33 @@ class InstagramLadder(
     }
 
     /**
-     * Decision 19 (v): the tab-fetch probe for the post [code] ([mediaId]) in [record]'s lookup,
-     * once, its line in [details]; nothing without a probe in the lookup's context.
+     * Decision 24 (S2d part 2): the tab-fetch rung for the post [code] ([mediaId]) in [record]'s
+     * lookup, the last request rung, once, after I2 gave no rows (or its proof set them aside): the
+     * visible tab's own fetch of the signed-out query ([InstagramProbeQuery]), recorded as Master's
+     * ask (the budget; a 429 stops the site and cools the host, a checkpoint cools it; no second
+     * ask), read by Instagram's recipe for [read] ([recipe]: rows bound to the post, by its code or
+     * its pk, and to the link's item) and said in one line: its status and size, whether its answer
+     * holds the post's video, whether the tab shows a wall, and its rows. An answer whose page shows
+     * a wall is never read (decision 19 (iv)); its 400 or `errors` is VALUE_REJECTED: no other value
+     * is tried. Its rows go to V and the init check (S6) as the tab's own answer
+     * ([PageSnapshot.authorizedPlayback]: the user's own tab, signed out, its page without a wall),
+     * so main's signed-out LOGIN_REQUIRED does not set them aside; none → null (the tab's own
+     * playback, I3; main's reason stays). Nothing without a probe in the lookup's context.
      */
-    private suspend fun probe(
+    private suspend fun rung(
         record: LookupRecord,
         request: MasterRequest,
         policy: MasterPolicy,
         code: String,
         mediaId: String?,
+        read: MasterRequest,
+        recipe: ContractRecipe?,
         details: MutableList<String>,
-    ) {
-        val probe = coroutineContext[InstagramTabProbe] ?: return
+    ): SocialStage.Staged? {
+        val probe = coroutineContext[InstagramTabProbe] ?: return null
         if (!probe.on()) {
             details += "$PROBE: off"
-            return
+            return null
         }
         val ask = mediaId?.let { id ->
             LookupAsk(
@@ -227,13 +250,13 @@ class InstagramLadder(
             record.mainAsks + record.masterAsks >= budget.requests -> "over the lookup's request budget"
             record.elapsedMillis() >= budget.millis -> "over the lookup's time budget"
             ask == null || mediaId == null -> "no media ID in the code"
-            signedIn(request.requestContext.cookie) -> "signed in: the probe is the signed-out query"
+            signedIn(request.requestContext.cookie) -> "signed in: the rung is the signed-out query"
             record.asked(ask) -> "already asked in this lookup"
             else -> null
         }
         if (why != null || ask == null || mediaId == null) {
             details += "$PROBE: not asked (${why ?: "no media ID in the code"})"
-            return
+            return null
         }
         val startedAt = record.now()
         val wait = minOf(PROBE_TIMEOUT_MILLIS, policy.contractTimeoutMillis, policy.timeoutMillis, record.timeLeftMillis(budget.millis))
@@ -245,21 +268,45 @@ class InstagramLadder(
                 // It may have gone out: it counts as asked (no second ask).
                 record.unanswered(ask, startedAt, LookupRecord.Asker.MASTER)
                 details += "$PROBE: no answer in time"
+                return null
             }
             is InstagramTabProbe.Reply.NotAsked -> {
                 val said = reply.why.takeIf { it in InstagramTabProbe.REASONS } ?: "the tab's own reason"
                 details += "$PROBE: not asked ($said)"
+                return null
             }
             is InstagramTabProbe.Reply.Answered -> {
-                record.record(ask, resultOf(reply), startedAt, LookupRecord.Asker.MASTER)
+                val result = resultOf(reply)
+                record.record(ask, result, startedAt, LookupRecord.Asker.MASTER)
                 val checkpoint = checkpoint(reply)
                 // S7: a checkpoint is a bot check: the host cools (a 429 cools by the record).
                 if (checkpoint) cooldown.note(listOf(WEB_HOST))
                 val body = reply.body
                 val video = body != null && InstagramProbeQuery.videoInAnswer(body, code, mediaId)
+                // Decision 19 (iv): the answer of a post whose page shows a wall is never read.
+                val reading = (result as? ExtractorHttpResult.Success)?.takeUnless { checkpoint || reply.wall }
+                    ?.let { readAnswer(SiteWays.TAB_FETCH, it, code, mediaId, read, recipe) } ?: Read()
+                val verdict = when {
+                    checkpoint -> Judged(AnswerClass.BOT_CHECK, AnswerClass.BOT_CHECK.reason, "a checkpoint: the site cools")
+                    reply.wall -> Judged(AnswerClass.LOGIN_WALL, AnswerClass.LOGIN_WALL.reason, "a wall on the page: never read")
+                    else -> InstagramAnswerJudge.judge(SiteWays.TAB_FETCH, result, reading.reading)
+                }
+                val answer = reading.staged?.takeIf { verdict.next == Next.CHECK_ROWS }
+                val over = answer?.let { over(record, it.body.length.toLong()) }
+                val rows = when {
+                    answer == null -> "rows 0 (${verdict.answerClass.name}: ${verdict.evidence})"
+                    over != null -> "rows ${reading.reading.rows} (${verdict.answerClass.name}), not checked ($over)"
+                    else -> "rows ${reading.reading.rows} (${verdict.answerClass.name})"
+                }
                 details += "$PROBE: " + (if (reply.status > 0) "HTTP ${reply.status}" else "no HTTP answer") +
                     ", ${reply.bytes.coerceAtLeast(0)} bytes; the post's video in the answer: ${yes(video)}; " +
-                    "a wall on the page: ${yes(reply.wall)}" + (if (checkpoint) "; a checkpoint: the site cools" else "")
+                    "a wall on the page: ${yes(reply.wall)}; $rows"
+                if (answer == null || over != null) return null
+                return SocialStage.Staged(
+                    MasterStage.PAGE_DATA,
+                    PageSnapshot(request.pageUrl, request.generation, authorizedPlayback = true, contract = answer),
+                    read,
+                )
             }
         }
     }
@@ -286,22 +333,25 @@ class InstagramLadder(
     }
 
     /**
-     * Main's 2xx answer [main] from [way] for the post [code], read for [read] by [recipe]: the
-     * post's node (a JSON answer's post, else a page's node with the post's code), whether it is a
-     * video by type and a carousel, and the recipe's rows of the link's item (by shape when the key
-     * table read none). Another host and another post are the judge's alone.
+     * Main's 2xx answer [main] from [way] for the post [code] ([mediaId]), read for [read] by
+     * [recipe]: the post's node (a JSON answer's post, else a page's node with the post's code),
+     * whether it is a video by type and a carousel, and the recipe's rows of the link's item (by
+     * shape when the key table read none). Another host and another post are the judge's alone.
+     * Task 13: the tab-fetch rung's answer ([SiteWays.TAB_FETCH]) so too; its post may name only
+     * its pk ([namedPost]).
      */
     private fun readAnswer(
         way: String,
         main: ExtractorHttpResult.Success,
         code: String,
+        mediaId: String?,
         read: MasterRequest,
         recipe: ContractRecipe?,
     ): Read {
         val uri = runCatching { URI(main.finalUrl.trim()) }.getOrNull()
         if (uri == null || !InstagramAnswerJudge.instagramHost(uri)) return Read()
         val json = way in InstagramAnswerJudge.JSON_WAYS
-        val found = if (json) jsonPost(way, main.body, code) else pagePost(main.body, code)
+        val found = if (json) jsonPost(way, main.body, code, mediaId) else pagePost(main.body, code)
         val base = InstagramReading(
             carousel = InstagramAnswerJudge.carousel(main.body),
             post = found.node != null,
@@ -309,7 +359,9 @@ class InstagramLadder(
             videoTyped = found.node?.let(::videoTyped) == true,
         )
         if (found.other || recipe == null) return Read(base)
-        val answer = ContractAnswer(SITE_ID, if (json) wrapped(main.body) else main.body, main.finalUrl)
+        // The recipe binds rows to a node naming the post's code: a post named by its pk alone gets it.
+        val body = if (found.byPk && mediaId != null) namedPost(main.body, code, mediaId) ?: return Read(base) else main.body
+        val answer = ContractAnswer(SITE_ID, if (json) wrapped(body) else body, main.finalUrl)
         val evidence = ContractReader(read, recipe, answer).read()
         val rows = evidence.candidates.size
         return Read(
@@ -322,21 +374,48 @@ class InstagramLadder(
         )
     }
 
-    /** A post found in an answer: its [node], or [other]: the answer's post is another one. */
-    private class Found(val node: JsonValue? = null, val other: Boolean = false)
+    /**
+     * A post found in an answer: its [node], or [other]: the answer's post is another one; [byPk]:
+     * the rung's post names no code, its pk is the post's media ID.
+     */
+    private class Found(val node: JsonValue? = null, val other: Boolean = false, val byPk: Boolean = false)
 
-    /** The app API's first item, GraphQL's shortcode media (main's scopes), when it is the post [code]. */
-    private fun jsonPost(way: String, body: String, code: String): Found {
+    /**
+     * The app API's first item, GraphQL's shortcode media (main's scopes), the rung's signed-out
+     * post ([InstagramProbeQuery.ANSWER_PATH]), when it is the post [code]; the rung's post naming
+     * no code is the post when its pk is [mediaId], another post by another pk.
+     */
+    private fun jsonPost(way: String, body: String, code: String, mediaId: String?): Found {
         val root = BalancedJson.lenientParse(body.trim(), MAX_NODES) ?: return Found()
-        val node = if (way == SiteWays.APP_API) {
-            root["items"].asArrayOrEmpty.firstOrNull()
-        } else {
-            root.path("data", "xdt_shortcode_media")?.takeIf { it is JsonValue.Object }
+        val node = when (way) {
+            SiteWays.APP_API -> root["items"].asArrayOrEmpty.firstOrNull()
+            SiteWays.TAB_FETCH -> root.path(*InstagramProbeQuery.ANSWER_PATH.toTypedArray())
+            else -> root.path("data", "xdt_shortcode_media")?.takeIf { it is JsonValue.Object }
                 ?: root.path("data", "shortcode_media")
         }
         if (node !is JsonValue.Object) return Found()
         val named = node["code"].asStringOrNull ?: node["shortcode"].asStringOrNull
-        return if (named != null && named != code) Found(other = true) else Found(node)
+        if (named != null) return if (named != code) Found(other = true) else Found(node)
+        if (way != SiteWays.TAB_FETCH) return Found(node)
+        return when (InstagramProbeQuery.pkOf(node)) {
+            null -> Found()
+            mediaId -> Found(node, byPk = true)
+            else -> Found(other = true)
+        }
+    }
+
+    /**
+     * The rung's answer [body] whose post names only its pk ([mediaId], the post [code]'s) with the
+     * code named first in that post, so the recipe binds its rows to it (its own rule); null when the
+     * named answer's post is not the post by both (no row).
+     */
+    private fun namedPost(body: String, code: String, mediaId: String): String? {
+        if (!CODE.matches(code)) return null
+        val at = POST_START.find(body) ?: return null
+        val named = body.substring(0, at.range.last + 1) + "\"code\":\"$code\"," + body.substring(at.range.last + 1)
+        val root = BalancedJson.lenientParse(named.trim(), MAX_NODES) ?: return null
+        val post = root.path(*InstagramProbeQuery.ANSWER_PATH.toTypedArray()) as? JsonValue.Object ?: return null
+        return named.takeIf { post["code"].asStringOrNull == code && InstagramProbeQuery.pkOf(post) == mediaId }
     }
 
     /** A page's first node naming the post [code] (`shortcode` or `code`), in its data scripts and texts. */
@@ -382,11 +461,14 @@ class InstagramLadder(
 
         internal const val LINE = "master: instagram ladder"
         internal const val I2 = "master: instagram I2"
-        private const val PROBE = "master: instagram probe"
+        /** The tab-fetch rung's line (S2d part 1's probe's label, decision 24's rung: its Details line). */
+        const val PROBE = "master: instagram probe"
         private const val WEB_HOST = "www.instagram.com"
         private const val BY_SHAPE = "by shape (key table changed)"
         private const val SESSION_COOKIE = "sessionid"
         private const val PROBE_TIMEOUT_MILLIS = 5_000L
+        private val CODE = Regex("[A-Za-z0-9_-]{1,64}")
+        private val POST_START = Regex(""""if_not_gated_logged_out"\s*:\s*\{""")
         private const val MAX_NODES = 200_000
         private const val MAX_DOCUMENTS = 64
         private val SKIPPED = setOf(SiteExtractionFailure.BOT_CHECK, SiteExtractionFailure.PLAYER_SCRIPT_REQUIRED)

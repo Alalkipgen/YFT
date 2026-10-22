@@ -300,10 +300,17 @@ internal object SocialLadder {
     /**
      * S1a (9): the Facebook trial's line of rows Master found (Facebook's line with the trial's
      * segment, [trialSegment]), for the browser's notice; S2b: TikTok's too (any ladder site's
-     * line; S2c: X's). Null for every other answer (no other build has one).
+     * line; S2c: X's). Task 13 (observation f): with Instagram's tab-fetch rung's lines in the
+     * answer ([InstagramLadder.PROBE]), its last too (its answer: its status, bytes, video, wall and
+     * rows; else why it was not asked), on its own line after the trial's, so a lookup with rows
+     * shows it as well. Null for every other answer (no other build has one).
      */
-    fun trialNotice(outcome: SiteAdapterOutcome): String? =
-        (outcome as? SiteAdapterOutcome.Detected)?.details?.firstOrNull { detail ->
+    fun trialNotice(outcome: SiteAdapterOutcome): String? {
+        val details = (outcome as? SiteAdapterOutcome.Detected)?.details ?: return null
+        val trial = details.firstOrNull { detail ->
             SITES.any { detail.startsWith("master: $it") } && TRIAL_SEGMENT in detail
         }
+        val rung = details.lastOrNull { it.startsWith(InstagramLadder.PROBE + ":") }
+        return listOfNotNull(trial, rung).takeIf { it.isNotEmpty() }?.joinToString("\n")
+    }
 }

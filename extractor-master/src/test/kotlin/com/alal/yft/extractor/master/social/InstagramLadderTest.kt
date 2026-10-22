@@ -21,6 +21,9 @@ import com.alal.yft.extractor.master.lookup.AnswerMark
 import com.alal.yft.extractor.master.lookup.LookupAsk
 import com.alal.yft.extractor.master.lookup.LookupRecord
 import com.alal.yft.extractor.master.lookup.LookupRecorder
+import com.alal.yft.extractor.master.modules.youtube.ladder.InitBytes
+import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStart
+import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStartReader
 import com.alal.yft.extractor.master.modules.youtube.testing.FakeExtractorHttpClient
 import com.alal.yft.extractor.master.modules.youtube.testing.Fixtures
 import com.alal.yft.extractor.sites.facebook.FacebookExtractor
@@ -42,17 +45,21 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S2d part 1: Instagram's ladder in Master's engine. I2 reads main's own answers in
- * this lookup ([MainPages]: the app API signed in, GraphQL, the post's page, the embed page; each
- * way's page or refused GET) with no new ask, judges each and gives one answer for the lookup:
- * the link's item's rows bound to the post (main's files, and the 360p file main drops), checked
- * by V; a photo post final with main's reason; a rate limit, a checkpoint, a login wall, no post
- * and a broken embed never final, never REMOVED; rows after main's LOGIN_REQUIRED stay unused
- * (the engine's rule). A renamed key: by shape, one item only. The tab-fetch probe: off by its
- * switch, asked once after I2 and only signed out, recorded as Master's ask (a 429 stops the site,
- * a checkpoint cools it), said in one line, never a row. S7's budget; SocialStages gives an
- * Instagram lookup Instagram's ladder. Main's real Instagram adapter over main's fixtures; Master's
- * client is never asked; no live calls.
+ * Social plan S2d: Instagram's ladder in Master's engine. I2 reads main's own answers in this
+ * lookup ([MainPages]: the app API signed in, GraphQL, the post's page, the embed page; each way's
+ * page or refused GET) with no new ask, judges each and gives one answer for the lookup: the link's
+ * item's rows bound to the post (main's files, and the 360p file main drops), checked by V; a photo
+ * post final with main's reason; a rate limit, a checkpoint, a login wall, no post, a broken embed
+ * and the embed's video without files never final, never REMOVED; rows after main's
+ * LOGIN_REQUIRED stay unused (the engine's rule). A renamed key: by shape, one item only. Part 2
+ * (task 13), the tab-fetch rung: off by its switch, asked once after I2 gave no rows (beside I2's
+ * rows only by its proof) and only signed out, recorded as Master's ask (a 429 stops the site, a
+ * checkpoint cools it), said in one line; its rows bound to the post (its code or its pk) and to
+ * the link's item go to V and the init check (at most 8) as the tab's own answer; a wall, another
+ * post, a rejected value, a too-big answer, photos: no row, never final, main's reason. S7's
+ * budget; SocialStages gives an Instagram lookup Instagram's ladder. Main's real Instagram adapter
+ * over main's fixtures (one made-up embed without files); Master's client is never asked; no live
+ * calls.
  */
 class InstagramLadderTest {
     @Test
@@ -242,6 +249,12 @@ class InstagramLadderTest {
                 main(SiteWays.EMBED_PAGE to html(fixture("embed_no_video.html"))), SiteExtractionFailure.RESPONSE_CHANGED,
                 "$I2: NEEDS_PLAYBACK (embed page: not embeddable: removed, private or not embeddable alike); next: PLAYBACK",
             ),
+            // Task 13 (observation d): the embed signed out names the video, no file: the tab-fetch
+            // rung's (none in this lookup: the user's own playback), never a shape change.
+            Never(
+                embedNoFiles(), SiteExtractionFailure.RESPONSE_CHANGED,
+                "$I2: VIDEO_WITHOUT_FILES (embed page: a video, no files read); next: NEXT_RUNG",
+            ),
         )
         for (case in cases) {
             val validator = RecordingValidator()
@@ -386,32 +399,44 @@ class InstagramLadderTest {
     }
 
     @Test
-    fun `the probe - off by its switch, on asked once after I2 by the tab, its answer one line and never a row`() = runTest {
-        // Off: one line, nothing asked.
-        val off = Probe(on = false) { error("not asked") }
-        val quiet = lookup(REEL, main(SiteWays.GRAPHQL to json(fixture("graphql_reel.json"))), probe = off)
-        assertTrue("$PROBE: off" in detailsOf(quiet.result))
+    fun `the rung - off by its switch, on asked once after I2 gave no rows, its rows bound to the post go to V as the tab's own answer`() = runTest {
+        // Off: one line, nothing asked, after I2's no rows and beside I2's rows alike.
+        val off = Probe(on = false, proof = true) { error("not asked") }
+        val quiet = lookup(REEL, embedNoFiles(), probe = off)
+        val quietDetails = (quiet.result as MasterResult.NeedsPlayback).details
+        assertTrue(quietDetails.toString(), "$PROBE: off" in quietDetails)
+        val beside = lookup(REEL, main(SiteWays.GRAPHQL to json(fixture("graphql_reel.json"))), probe = off)
+        assertEquals(6, (beside.result as MasterResult.Success).result.candidates.size)
+        assertTrue("$PROBE: off" in detailsOf(beside.result))
         assertTrue(off.asked.isEmpty())
 
-        // On, beside rows: the tab's answer holds the post's video; the rows stay main's answer's.
+        // On, after I2's video without files (main's embed signed out): the tab's answer's row.
         val record = record()
         val master = FakeExtractorHttpClient()
+        val validator = RecordingValidator()
+        val capture = CountingCapture()
         val probe = Probe { answered(200, PROBE_VIDEO) }
-        val lookup = lookup(REEL, main(SiteWays.GRAPHQL to json(fixture("graphql_reel.json"))), master, record, probe = probe)
+        val lookup = lookup(REEL, embedNoFiles(), master, record, validator = validator, capture = capture, probe = probe)
         val success = lookup.result as MasterResult.Success
-        assertEquals(6, success.result.candidates.size)
-        assertFalse(success.result.candidates.any { "/probe.mp4" in it.mediaUrl })
+        assertEquals(MasterStage.PAGE_DATA, success.stage)
+        val row = success.result.candidates.single()
+        assertTrue(row.mediaUrl, "/probe.mp4" in row.mediaUrl)
+        assertEquals(1280, row.height)
+        assertEquals(KEY, row.videoId)
+        assertEquals(listOf(row.mediaUrl), validator.seen.map { it.mediaUrl })
+        assertEquals(0, capture.calls)
         val asked = probe.asked.single()
         assertEquals(REEL_CODE, asked.code)
         assertEquals(REEL_ID, asked.mediaId)
         assertEquals(REEL, asked.pageUrl)
         val details = success.result.details
-        val bytes = PROBE_VIDEO.toByteArray(StandardCharsets.UTF_8).size
-        assertTrue(
-            details.toString(),
-            "$PROBE: HTTP 200, $bytes bytes; the post's video in the answer: yes; a wall on the page: no" in details,
-        )
-        // The probe is Master's ask in the record, its query's, read as data; Master's client never asked.
+        assertTrue(details.toString(), "$I2 main's embed page: VIDEO_WITHOUT_FILES (a video, no files read)" in details)
+        assertTrue(details.toString(), "$I2: VIDEO_WITHOUT_FILES (embed page: a video, no files read); next: NEXT_RUNG" in details)
+        val line = "$PROBE: HTTP 200, ${bytes(PROBE_VIDEO)} bytes; the post's video in the answer: yes; a wall on the page: no; rows 1 (DIRECT)"
+        assertTrue(details.toString(), line in details)
+        // The rung's line comes after I2's answer.
+        assertTrue(details.indexOf(line) > details.indexOfFirst { it.startsWith("$I2:") })
+        // The rung is Master's ask in the record, its query's, read as data; Master's client never asked.
         assertEquals(1, record.masterAsks)
         val ask = record.asks().last()
         assertEquals(LookupRecord.Asker.MASTER, ask.asker)
@@ -420,28 +445,151 @@ class InstagramLadderTest {
         assertTrue(record.asked(probeAsk(REEL_ID)))
         assertNothingAsked(master)
 
-        // On, after I2's no post: the tab's answer has none either, and its page shows a wall.
-        val walled = Probe { answered(200, PROBE_NONE, wall = true) }
-        val none = record()
-        val nothing = lookup(
-            REEL,
-            main(SiteWays.GRAPHQL to json(fixture("graphql_null.json")), SiteWays.EMBED_PAGE to html(fixture("embed_no_video.html"))),
-            record = none, probe = walled,
-        )
-        val noneDetails = (nothing.result as MasterResult.NeedsPlayback).details
-        val noneBytes = PROBE_NONE.toByteArray(StandardCharsets.UTF_8).size
+        // The answer's post named by its pk alone: the same row, bound to the post.
+        val byPk = lookup(REEL, embedNoFiles(), probe = Probe { answered(200, PROBE_BY_PK) })
+        val pkRow = (byPk.result as MasterResult.Success).result.candidates.single()
+        assertTrue(pkRow.mediaUrl, "/probe.mp4" in pkRow.mediaUrl)
+        assertEquals(KEY, pkRow.videoId)
         assertTrue(
-            noneDetails.toString(),
-            "$PROBE: HTTP 200, $noneBytes bytes; the post's video in the answer: no; a wall on the page: yes" in noneDetails,
+            detailsOf(byPk.result).toString(),
+            "$PROBE: HTTP 200, ${bytes(PROBE_BY_PK)} bytes; the post's video in the answer: yes; a wall on the page: no; rows 1 (DIRECT)"
+                in detailsOf(byPk.result),
         )
-        assertEquals(AnswerMark.NO_POST, none.asks().last().mark)
-        // The probe's line comes after I2's answer.
-        assertTrue(noneDetails.indexOfFirst { it.startsWith(PROBE) } > noneDetails.indexOfFirst { it.startsWith("$I2:") })
-        assertBare(detailsOf(quiet.result) + details + noneDetails)
+
+        // After main's LOGIN_REQUIRED (its signed-out GraphQL a 401): the tab's own answer, signed
+        // out, its page without a wall, so its rows are used (I2's own rows would stay unused).
+        val walled = lookup(
+            REEL, main(SiteWays.GRAPHQL to refused(401), SiteWays.EMBED_PAGE to html(EMBED_NO_FILES)),
+            probe = Probe { answered(200, PROBE_VIDEO) },
+        )
+        assertEquals(SiteExtractionFailure.LOGIN_REQUIRED, (walled.main as SiteExtractionResult.Failure).reason)
+        val walledRow = (walled.result as MasterResult.Success).result.candidates.single()
+        assertTrue(walledRow.mediaUrl, "/probe.mp4" in walledRow.mediaUrl)
+        val walledDetails = detailsOf(walled.result)
+        assertTrue(walledDetails.toString(), "$I2: LOGIN_WALL (GraphQL: status 401); next: BROWSER" in walledDetails)
+        assertFalse(walledDetails.toString(), "master: authorized browser playback is required" in walledDetails)
+        assertBare(quietDetails + detailsOf(beside.result) + details + detailsOf(byPk.result) + walledDetails)
     }
 
     @Test
-    fun `the probe's stops - a 429 stops the site and cools the host, a checkpoint cools it, no answer in time counts as asked`() = runTest {
+    fun `the rung beside I2's rows - not asked, but when its proof sets them aside`() = runTest {
+        val reel = main(SiteWays.GRAPHQL to json(fixture("graphql_reel.json")))
+        val idle = Probe { error("not asked") }
+        val kept = lookup(REEL, reel, probe = idle)
+        val keptRows = (kept.result as MasterResult.Success).result.candidates
+        assertEquals(6, keptRows.size)
+        assertTrue(detailsOf(kept.result).toString(), "$PROBE: not asked (I2's rows)" in detailsOf(kept.result))
+        assertTrue(idle.asked.isEmpty())
+
+        // The proof: I2's rows set aside, the rung asked; its own row only.
+        val record = record()
+        val proof = Probe(proof = true) { answered(200, PROBE_VIDEO) }
+        val proved = lookup(REEL, reel, record = record, probe = proof)
+        val row = (proved.result as MasterResult.Success).result.candidates.single()
+        assertTrue(row.mediaUrl, "/probe.mp4" in row.mediaUrl)
+        val details = detailsOf(proved.result)
+        val aside = "$PROBE: I2's rows set aside (the rung's proof)"
+        val line = "$PROBE: HTTP 200, ${bytes(PROBE_VIDEO)} bytes; the post's video in the answer: yes; a wall on the page: no; rows 1 (DIRECT)"
+        assertTrue(details.toString(), "$I2: DIRECT (GraphQL: rows 6 of the link's item, bound to the post); next: CHECK_ROWS" in details)
+        assertTrue(details.toString(), details.indexOf(aside) in 0 until details.indexOf(line))
+        assertEquals(1, proof.asked.size)
+        assertEquals(1, record.masterAsks)
+        assertBare(detailsOf(kept.result) + details)
+    }
+
+    @Test
+    fun `the rung's answer without a row - no post, a wall, another post, a rejected value, too big, photos - its line and main's reason`() = runTest {
+        val other = "100000000000000001"
+        val cases = listOf(
+            answered(200, PROBE_NONE) to
+                "no; a wall on the page: no; rows 0 (NEEDS_PLAYBACK: no post in the answer: removed, private or gated alike)",
+            answered(200, PROBE_VIDEO, wall = true) to "yes; a wall on the page: yes; rows 0 (LOGIN_WALL: a wall on the page: never read)",
+            answered(200, PROBE_VIDEO.replace(REEL_CODE, "C9fixtOTHR1")) to
+                "no; a wall on the page: no; rows 0 (SHAPE_CHANGED: names another post)",
+            answered(200, PROBE_BY_PK.replace(REEL_ID, other)) to "no; a wall on the page: no; rows 0 (SHAPE_CHANGED: names another post)",
+            answered(400, REJECTED_ANSWER) to "no; a wall on the page: no; rows 0 (VALUE_REJECTED: status 400)",
+            answered(200, ERRORS_ANSWER) to "no; a wall on the page: no; rows 0 (VALUE_REJECTED: the answer: errors)",
+            answered(200, PROBE_PHOTO) to "no; a wall on the page: no; rows 0 (PHOTO_ONLY: photos only, no video)",
+        )
+        for ((reply, end) in cases) {
+            val validator = RecordingValidator()
+            val capture = CountingCapture()
+            val lookup = lookup(REEL, embedNoFiles(), validator = validator, capture = capture, probe = Probe { reply })
+            val details = (lookup.result as MasterResult.NeedsPlayback).details
+            val line = "$PROBE: HTTP ${reply.status}, ${reply.bytes} bytes; the post's video in the answer: $end"
+            assertTrue(details.toString(), line in details)
+            assertTrue(end, validator.seen.isEmpty())
+            assertEquals(end, 1, capture.calls)
+            assertBare(details)
+        }
+
+        // Over the script's bound: no text handed back, never read.
+        val big = InstagramTabProbe.Reply.Answered(200, InstagramProbeQuery.MAX_ANSWER_CHARS + 1L, null, JSON, PROBE_ENDPOINT, false)
+        val tooBig = lookup(REEL, embedNoFiles(), probe = Probe { big })
+        assertTrue(
+            detailsOf(tooBig.result).toString(),
+            "$PROBE: HTTP 200, ${InstagramProbeQuery.MAX_ANSWER_CHARS + 1} bytes; the post's video in the answer: no; " +
+                "a wall on the page: no; rows 0 (TRANSIENT: failed: RESPONSE_TOO_LARGE 200)" in detailsOf(tooBig.result),
+        )
+
+        // Over the lookup's byte budget: its rows are not checked.
+        val validator = RecordingValidator()
+        val small = InstagramLadder(FakeExtractorHttpClient(), budget = SocialBudget.INSTAGRAM.copy(bytes = 64))
+        val over = lookup(REEL, embedNoFiles(), validator = validator, ladder = small, probe = Probe { answered(200, PROBE_VIDEO) })
+        assertTrue(
+            detailsOf(over.result).toString(),
+            "$PROBE: HTTP 200, ${bytes(PROBE_VIDEO)} bytes; the post's video in the answer: yes; a wall on the page: no; " +
+                "rows 1 (DIRECT), not checked (over the lookup's byte budget)" in detailsOf(over.result),
+        )
+        assertTrue(over.result is MasterResult.NeedsPlayback)
+        assertTrue(validator.seen.isEmpty())
+        assertBare(detailsOf(tooBig.result) + detailsOf(over.result))
+    }
+
+    @Test
+    fun `the rung reads only the link's item of a carousel - its img_index, else its first video`() = runTest {
+        val main = main(SiteWays.EMBED_PAGE to html(EMBED_NO_FILES.replace(REEL_CODE, SIDE)))
+        val cases = listOf(
+            "$SIDECAR?img_index=2" to ("/item2.mp4" to 1920),
+            SIDECAR to ("/item1.mp4" to 1280),
+        )
+        for ((link, item) in cases) {
+            val probe = Probe { answered(200, PROBE_CAROUSEL) }
+            val lookup = lookup(link, main, probe = probe)
+            val row = (lookup.result as MasterResult.Success).result.candidates.single()
+            assertTrue(link, item.first in row.mediaUrl)
+            assertEquals(link, item.second, row.height)
+            assertEquals(link, "instagram:$SIDE", row.videoId)
+            assertEquals(SIDE, probe.asked.single().code)
+            assertTrue(
+                detailsOf(lookup.result).toString(),
+                "$PROBE: HTTP 200, ${bytes(PROBE_CAROUSEL)} bytes; the post's video in the answer: yes; a wall on the page: no; rows 1 (DIRECT)"
+                    in detailsOf(lookup.result),
+            )
+            assertBare(detailsOf(lookup.result))
+        }
+    }
+
+    @Test
+    fun `the rung's rows - V and the init check on at most 8`() = runTest {
+        val files = Files { start() }
+        val validator = SocialRowCheck(RecordingValidator(), files, site = SiteWays.INSTAGRAM)
+        val record = record()
+        val lookup = lookup(REEL, embedNoFiles(), record = record, validator = validator, probe = Probe { answered(200, PROBE_MANY) })
+        val rows = (lookup.result as MasterResult.Success).result.candidates
+        assertEquals(SocialRowCheck.MAX_READS, files.asked.size)
+        assertTrue(rows.size.toString(), rows.size in 1..SocialRowCheck.MAX_READS)
+        rows.forEach { assertTrue(it.mediaUrl, it.mediaUrl in files.asked) }
+        assertTrue(
+            detailsOf(lookup.result).toString(),
+            "$PROBE: HTTP 200, ${bytes(PROBE_MANY)} bytes; the post's video in the answer: yes; a wall on the page: no; rows 10 (DIRECT)"
+                in detailsOf(lookup.result),
+        )
+        assertBare(detailsOf(lookup.result))
+    }
+
+    @Test
+    fun `the rung's stops - a 429 stops the site and cools the host, a checkpoint cools it, no answer in time counts as asked`() = runTest {
         val graphql = main(SiteWays.GRAPHQL to json(fixture("graphql_null.json")))
 
         // A 429: the record stops the host; the host cools from the stage's end.
@@ -451,10 +599,10 @@ class InstagramLadderTest {
             REEL, graphql, record = limitedRecord, cooldown = limitedCooldown,
             probe = Probe { answered(429, RATE_ANSWER) },
         )
-        val rateBytes = RATE_ANSWER.toByteArray(StandardCharsets.UTF_8).size
         assertTrue(
             detailsOf(limited.result).toString(),
-            "$PROBE: HTTP 429, $rateBytes bytes; the post's video in the answer: no; a wall on the page: no" in detailsOf(limited.result),
+            "$PROBE: HTTP 429, ${bytes(RATE_ANSWER)} bytes; the post's video in the answer: no; a wall on the page: no; " +
+                "rows 0 (RATE_LIMITED: status 429)" in detailsOf(limited.result),
         )
         assertTrue(limitedRecord.rateLimited)
         assertEquals(listOf(WEB_HOST), limitedRecord.stopHosts())
@@ -463,10 +611,11 @@ class InstagramLadderTest {
         // A checkpoint, by its answer or by the tab's address: the host cools.
         val checkpoints = listOf(
             answered(400, CHECKPOINT_ANSWER) to
-                "$PROBE: HTTP 400, ${CHECKPOINT_ANSWER.toByteArray(StandardCharsets.UTF_8).size} bytes; " +
-                "the post's video in the answer: no; a wall on the page: no; a checkpoint: the site cools",
+                "$PROBE: HTTP 400, ${bytes(CHECKPOINT_ANSWER)} bytes; the post's video in the answer: no; a wall on the page: no; " +
+                "rows 0 (BOT_CHECK: a checkpoint: the site cools)",
             answered(200, "<html></html>", final = CHECKPOINT_PAGE, wall = true) to
-                "$PROBE: HTTP 200, 13 bytes; the post's video in the answer: no; a wall on the page: yes; a checkpoint: the site cools",
+                "$PROBE: HTTP 200, 13 bytes; the post's video in the answer: no; a wall on the page: yes; " +
+                "rows 0 (BOT_CHECK: a checkpoint: the site cools)",
         )
         for ((reply, line) in checkpoints) {
             val cooldown = SocialCooldown()
@@ -487,18 +636,20 @@ class InstagramLadderTest {
         val failed = lookup(REEL, graphql, probe = Probe { answered(0, null) })
         assertTrue(
             detailsOf(failed.result).toString(),
-            "$PROBE: no HTTP answer, 0 bytes; the post's video in the answer: no; a wall on the page: no" in detailsOf(failed.result),
+            "$PROBE: no HTTP answer, 0 bytes; the post's video in the answer: no; a wall on the page: no; " +
+                "rows 0 (TRANSIENT: failed: NETWORK)" in detailsOf(failed.result),
         )
         assertBare(detailsOf(limited.result) + detailsOf(slow.result) + detailsOf(failed.result))
     }
 
     @Test
-    fun `the probe is not asked - the tab's reasons, signed in, after a final answer or a stop, cooling, the budget, twice`() = runTest {
+    fun `the rung is not asked - the tab's reasons, signed in, after a final answer or a stop, cooling, the budget, twice`() = runTest {
         val graphql = main(SiteWays.GRAPHQL to json(fixture("graphql_null.json")))
         val tab = listOf(
             InstagramTabProbe.NO_LSD to "$PROBE: not asked (no LSD value on the page)",
             InstagramTabProbe.NOT_ON_POST to "$PROBE: not asked (the tab is not on the post)",
             InstagramTabProbe.NO_TAB to "$PROBE: not asked (no visible tab)",
+            InstagramTabProbe.SIGNED_IN to "$PROBE: not asked (the tab is signed in)",
             "TypeError at https://www.instagram.com/reel/$REEL_CODE/?x=1" to "$PROBE: not asked (the tab's own reason)",
         )
         for ((why, line) in tab) {
@@ -514,33 +665,30 @@ class InstagramLadderTest {
         val cooling = SocialCooldown().apply { note(listOf(WEB_HOST)) }
         val asked = record().apply { record(probeAsk(REEL_ID), ExtractorHttpResult.Success(200, PROBE_NONE, PROBE_ENDPOINT, JSON), NOW, LookupRecord.Asker.MASTER) }
         val cases = listOf(
-            // Signed in: main's session; the probe is the signed-out query.
-            Skip(
-                main(SiteWays.APP_API to json(fixture("api_info_reel.json"))), record(), SocialCooldown(), SESSION,
-                "$PROBE: not asked (signed in: the probe is the signed-out query)",
-            ),
+            // Signed in: main's session; the rung is the signed-out query.
+            Skip(graphql, record(), SocialCooldown(), SESSION, "$PROBE: not asked (signed in: the rung is the signed-out query)"),
             Skip(main(SiteWays.GRAPHQL to json(fixture("graphql_photo.json"))), record(), SocialCooldown(), null, "$PROBE: not asked (the answer is final)", PHOTO),
             Skip(
                 main(SiteWays.GRAPHQL to json(fixture("graphql_login.json"))), record(), SocialCooldown(), null,
                 "$PROBE: not asked (the site stopped in this lookup)",
             ),
+            // Main's 429 beside rows: even the proof does not ask.
             Skip(
                 main(SiteWays.GRAPHQL to refused(429, SiteExtractionFailure.RATE_LIMITED), SiteWays.EMBED_PAGE to html(fixture("embed_captioned.html").replace("video_url", "video_link"))),
-                record(), SocialCooldown(), null, "$PROBE: not asked (a 429 in this lookup)",
+                record(), SocialCooldown(), null, "$PROBE: not asked (a 429 in this lookup)", proof = true,
             ),
             Skip(graphql, record(), cooling, null, "$PROBE: not asked (cooling down after a 429 or a bot check)"),
             Skip(graphql, busy(), SocialCooldown(), null, "$PROBE: not asked (over the lookup's request budget)"),
             Skip(graphql, asked, SocialCooldown(), null, "$PROBE: not asked (already asked in this lookup)"),
         )
         for (case in cases) {
-            val probe = Probe { error("not asked") }
+            val probe = Probe(proof = case.proof) { error("not asked") }
             val lookup = lookup(case.link, case.main, record = case.record, cooldown = case.cooldown, probe = probe, cookie = case.cookie)
             assertTrue(detailsOf(lookup.result).toString(), case.line in detailsOf(lookup.result))
             assertTrue(case.line, probe.asked.isEmpty())
             assertBare(detailsOf(lookup.result))
         }
     }
-
     @Test
     fun `SocialStages gives an Instagram lookup Instagram's ladder, and only an Instagram lookup inside its record`() = runTest {
         val http = FakeExtractorHttpClient()
@@ -687,20 +835,34 @@ class InstagramLadderTest {
         val cookie: String?,
         val line: String,
         val link: String = REEL,
+        val proof: Boolean = false,
     )
 
-    /** A fake tab: its switch [on]; its [reply] to each ask; the asks, in order. */
+    /** A fake tab: the rung's switch [on] and its [proof]; its [reply] to each ask; the asks, in order. */
     private class Probe(
         private val on: Boolean = true,
+        private val proof: Boolean = false,
         private val reply: suspend (InstagramTabProbe.Request) -> InstagramTabProbe.Reply,
     ) : InstagramTabProbe {
         val asked = mutableListOf<InstagramTabProbe.Request>()
 
         override fun on(): Boolean = on
 
+        override fun proof(): Boolean = proof
+
         override suspend fun ask(request: InstagramTabProbe.Request): InstagramTabProbe.Reply {
             asked += request
             return reply(request)
+        }
+    }
+
+    /** A fake file reader (S6's route B): [answer] for each address; the addresses asked, in order. */
+    private class Files(private val answer: (String) -> MediaStart) : MediaStartReader {
+        val asked = mutableListOf<String>()
+
+        override suspend fun read(url: String, headers: Map<String, String>, maxBytes: Int): MediaStart {
+            asked += url
+            return answer(url)
         }
     }
 
@@ -789,8 +951,54 @@ class InstagramLadderTest {
         /** Instagram's checkpoint answer. */
         const val CHECKPOINT_ANSWER = """{"message":"checkpoint_required","checkpoint_url":"/challenge/","lock":true,"status":"fail"}"""
 
+        /** The query's answer naming the post by its pk alone (its `id` the pk and the owner's ID), with a video's file. */
+        val PROBE_BY_PK = """{"data":{"xig_polaris_media":{"if_not_gated_logged_out":{"pk":"$REEL_ID","id":"${REEL_ID}_1234",""" +
+            """"media_type":2,"video_versions":[{"width":720,"height":1280,"url":"https://instagram.fxyz1-1.fna.fbcdn.net/o1/v/t16/f2/m86/probe.mp4"}]}}},"status":"ok"}"""
+
+        /** The query's answer for the carousel [SIDE]: two videos, each its own file. */
+        val PROBE_CAROUSEL = """{"data":{"xig_polaris_media":{"if_not_gated_logged_out":{"code":"$SIDE","media_type":8,"carousel_media":[""" +
+            """{"media_type":2,"video_versions":[{"width":720,"height":1280,"url":"https://instagram.fxyz1-1.fna.fbcdn.net/o1/v/t16/f2/m86/item1.mp4"}]},""" +
+            """{"media_type":2,"video_versions":[{"width":1080,"height":1920,"url":"https://instagram.fxyz1-1.fna.fbcdn.net/o1/v/t16/f2/m86/item2.mp4"}]}""" +
+            """]}}},"status":"ok"}"""
+
+        /** The query's answer with ten files for the post's video (more than S6 reads). */
+        val PROBE_MANY = """{"data":{"xig_polaris_media":{"if_not_gated_logged_out":{"code":"$REEL_CODE","media_type":2,"video_versions":[""" +
+            (1..10).joinToString(",") {
+                """{"width":${700 + it},"height":${1200 + it},"url":"https://instagram.fxyz1-1.fna.fbcdn.net/o1/v/t16/f2/m86/many$it.mp4?oe=7A000000&oh=00_fixture"}"""
+            } + """]}}},"status":"ok"}"""
+
+        /** The query's answer for a photo post. */
+        val PROBE_PHOTO = """{"data":{"xig_polaris_media":{"if_not_gated_logged_out":{"code":"$REEL_CODE","media_type":1,""" +
+            """"image_versions2":{"candidates":[{"width":1080,"height":1080,"url":"https://instagram.fxyz1-1.fna.fbcdn.net/v/photo.jpg"}]}}}},"status":"ok"}"""
+
+        /** The query's 400: the value is rejected (no other value is tried). */
+        const val REJECTED_ANSWER = """{"message":"fixture","status":"fail"}"""
+
+        /** The query's answer with errors. */
+        const val ERRORS_ANSWER = """{"errors":[{"message":"fixture","severity":"CRITICAL"}],"status":"ok"}"""
+
+        /** Main's embed page signed out: the post a video by its type, its file not listed (decision 24's case). */
+        val EMBED_NO_FILES: String = fixture("embed_captioned.html").let { page ->
+            val start = page.indexOf("\\\"video_url\\\"")
+            check(start > 0) { "embed fixture: no video_url" }
+            page.removeRange(start, page.indexOf("\\\",", start) + 3)
+        }
+
+        /** A file's size for S6's fake reads (32 KiB). */
+        const val TOTAL = 32_768L
+
 
         fun fixture(name: String) = Fixtures.read("instagram/$name")
+
+        /** Main's embed page only, signed out: a video without files (GraphQL and the post's page a 404). */
+        fun embedNoFiles() = main(SiteWays.EMBED_PAGE to html(EMBED_NO_FILES))
+
+        /** [text]'s bytes as UTF-8. */
+        fun bytes(text: String) = text.toByteArray(StandardCharsets.UTF_8).size
+
+        /** A file's first bytes as its host answers them: an MP4 start of a 32 KiB file. */
+        fun start(bytes: ByteArray = InitBytes.mp4()) =
+            MediaStart.Read(206, "video/mp4", "bytes 0-${bytes.size - 1}/$TOTAL", bytes.size.toLong(), bytes)
 
         fun identifyOrNull(url: String): SitePageIdentity? = InstagramExtractor(FakeExtractorHttpClient()).identify(url)
 

@@ -85,9 +85,11 @@ class BrowserViewModel(
     private val clock: () -> Long = System::currentTimeMillis,
     private val homeSitesRepository: HomeSitesRepository? = null,
     private val masterFallback: BrowserMasterFallback = BrowserMasterFallback.None,
-    // Social plan S2d part 1 (decision 19 (v)): the switch of Instagram's tab-fetch probe; null
-    // (no probe in any lookup) in every build but a social-ladder one.
+    // Social plan S2d (decisions 19 and 24): the switch of Instagram's tab-fetch rung; null (no
+    // rung in any lookup) in every build but a social-ladder one.
     private val instagramProbeOn: (() -> Boolean)? = null,
+    // Task 13: the rung's debug proof (I2's rows set aside so the rung is asked); null: off.
+    private val instagramRungProof: (() -> Boolean)? = null,
 ) : ViewModel(), BrowserObservationSink {
     /**
      * Production entry point. Dagger has no sensible binding for the test clock lambda, so the
@@ -115,6 +117,7 @@ class BrowserViewModel(
             { appContext.filesDir },
         ),
         InstagramProbeSwitch.reader(appContext),
+        InstagramProbeSwitch.proofReader(appContext),
     )
 
     val masterCapture: WebViewPlaybackCapture? get() = masterFallback.capture
@@ -143,18 +146,20 @@ class BrowserViewModel(
         MutableSharedFlow<InstagramProbeRequest>(extraBufferCapacity = TAB_DATA_BUFFER)
 
     /**
-     * Social plan S2d part 1 (`MASTER_KEY_SOCIAL_PLAN.md` decision 19 (v), debug only): the asks of
-     * Instagram's tab-fetch probe the screen runs in its tab (`InstagramProbeScript`), at most one
-     * per Instagram lookup, only in a social-ladder build with the probe's own switch on
-     * (Instagram's ladder asks it after I2). While no screen collects them there is no tab to
-     * fetch in, and the ladder's line says so.
+     * Social plan S2d (`MASTER_KEY_SOCIAL_PLAN.md` decisions 19 and 24, debug only): the asks of
+     * Instagram's tab-fetch rung the screen runs in its tab (`InstagramProbeScript`), at most one
+     * per Instagram lookup, only in a social-ladder build with the rung's own switch on
+     * (Instagram's ladder asks it after I2 gave no rows). While no screen collects them there is
+     * no tab to fetch in, and the ladder's line says so.
      */
     val instagramProbes: Flow<InstagramProbeRequest> = instagramProbeRequests.asSharedFlow()
 
-    /** S2d part 1: the probe an Instagram lookup's context carries; none in every other build. */
+    /** S2d: the rung an Instagram lookup's context carries; none in every other build. */
     private val instagramProbe: InstagramTabProbe? = instagramProbeOn?.let { switch ->
         object : InstagramTabProbe {
             override fun on(): Boolean = switch()
+
+            override fun proof(): Boolean = instagramRungProof?.invoke() == true
 
             override suspend fun ask(request: InstagramTabProbe.Request): InstagramTabProbe.Reply {
                 if (instagramProbeRequests.subscriptionCount.value == 0) {

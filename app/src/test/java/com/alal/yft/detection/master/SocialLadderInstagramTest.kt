@@ -187,22 +187,56 @@ class SocialLadderInstagramTest {
         assertEquals(ladder + segment, SocialLadder.trialNotice(outcome))
         val none = SiteAdapterOutcome.Detected("instagram", listOf(row(FILE_720, KEY, 9_000, 720)), listOf(ladder))
         assertNull(SocialLadder.trialNotice(none))
+
+        // Task 13 (observation f): the tab-fetch rung's line too, on its own line, with rows.
+        val rung = "master: instagram probe: HTTP 200, 2048 bytes; the post's video in the answer: yes; " +
+            "a wall on the page: no; rows 1 (DIRECT)"
+        val both = SiteAdapterOutcome.Detected("instagram", listOf(row(FILE_720, KEY, 9_000, 720)), listOf(ladder + segment, rung))
+        assertEquals(ladder + segment + "\n" + rung, SocialLadder.trialNotice(both))
+        val alone = SiteAdapterOutcome.Detected("instagram", listOf(row(FILE_720, KEY, 9_000, 720)), listOf(ladder, rung))
+        assertEquals(rung, SocialLadder.trialNotice(alone))
+        // The proof's lines: the rung's answer, its last.
+        val proof = SiteAdapterOutcome.Detected(
+            "instagram", listOf(row(FILE_720, KEY, 9_000, 720)),
+            listOf(ladder, "master: instagram probe: I2's rows set aside (the rung's proof)", rung),
+        )
+        assertEquals(rung, SocialLadder.trialNotice(proof))
+        // Only the rung's own line (its label and a colon), never another of Instagram's.
+        val other = SiteAdapterOutcome.Detected(
+            "instagram", listOf(row(FILE_720, KEY, 9_000, 720)), listOf(ladder, "master: instagram I2: DIRECT (GraphQL: rows 1)"),
+        )
+        assertNull(SocialLadder.trialNotice(other))
     }
 
     @Test
-    fun theProbesSwitchIsOffByDefaultAndOnlyInASocialLadderBuild() {
+    fun theRungsSwitchAndItsProofAreOffByDefaultAndOnlyInASocialLadderBuild() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        context.getSharedPreferences(InstagramProbeSwitch.PREFERENCES, Context.MODE_PRIVATE).edit().clear().commit()
-        // Every other build: no probe at all, whatever the preference says.
+        val preferences = context.getSharedPreferences(InstagramProbeSwitch.PREFERENCES, Context.MODE_PRIVATE)
+        preferences.edit().clear().commit()
+        // Every other build: no rung at all, whatever the preferences say.
         assertNull(InstagramProbeSwitch.reader(context, social = false))
+        assertNull(InstagramProbeSwitch.proofReader(context, social = false))
         val reader = checkNotNull(InstagramProbeSwitch.reader(context, social = true))
+        val proof = checkNotNull(InstagramProbeSwitch.proofReader(context, social = true))
         assertFalse(reader()) // off by default
+        assertFalse(proof())
+        // Task 13: part 1's probe setting is not carried over (a new key).
+        preferences.edit().putBoolean("tab_fetch_probe", true).commit()
+        assertFalse(reader())
+        assertEquals("tab_fetch_rung", InstagramProbeSwitch.KEY)
         InstagramProbeSwitch.set(context, true)
         assertTrue(reader())
+        assertFalse(proof()) // its own switch
         assertTrue(InstagramProbeSwitch.on(context, social = true))
         assertFalse(InstagramProbeSwitch.on(context, social = false))
+        InstagramProbeSwitch.setProof(context, true)
+        assertTrue(proof())
+        assertTrue(InstagramProbeSwitch.proof(context, social = true))
+        assertFalse(InstagramProbeSwitch.proof(context, social = false))
         InstagramProbeSwitch.set(context, false)
+        InstagramProbeSwitch.setProof(context, false)
         assertFalse(reader())
+        assertFalse(proof())
     }
 
     private fun row(

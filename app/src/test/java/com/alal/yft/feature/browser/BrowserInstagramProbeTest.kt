@@ -30,9 +30,10 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Social plan S2d part 1 (decision 19 (v)): the browser's side of Instagram's tab-fetch probe.
+ * Social plan S2d (decisions 19 (v) and 24): the browser's side of Instagram's tab-fetch rung.
  * Every other build (no switch): no lookup carries a probe. A social-ladder build: an Instagram
- * lookup's context carries it (its own switch read each time), another site's none; without a
+ * lookup's context carries it (its own switch and, task 13, its proof read each time; no proof
+ * switch: off), another site's none; without a
  * screen collecting the asks there is no tab; with one, the ask names the post and the screen's
  * answer goes back to the ladder. Fixture adapters and a fake backup; no live calls.
  */
@@ -53,14 +54,19 @@ class BrowserInstagramProbeTest {
     @Test
     fun anInstagramLookupCarriesTheProbeAndWithoutAScreenThereIsNoTab() = runTest {
         var on = false
+        var proof = false
         val backup = ProbingBackup()
-        val vm = viewModel(backup, probeOn = { on })
+        val vm = viewModel(backup, probeOn = { on }, proofOn = { proof })
         open(vm, REEL)
         settle { backup.calls == 1 }
         val probe = checkNotNull(backup.probes.single())
         assertFalse(probe.on()) // off by default
         on = true
         assertTrue(probe.on()) // read each time
+        // Task 13: the rung's proof, its own switch, read each time too.
+        assertFalse(probe.proof())
+        proof = true
+        assertTrue(probe.proof())
         assertEquals(InstagramTabProbe.NO_TAB, (backup.replies.single() as InstagramTabProbe.Reply.NotAsked).why)
     }
 
@@ -81,6 +87,8 @@ class BrowserInstagramProbeTest {
         settle { backup.calls == 1 && backup.replies.isNotEmpty() }
         assertEquals(CODE, asked.single().code)
         assertEquals(MEDIA_ID, asked.single().mediaId)
+        // No proof switch given: the proof is off.
+        assertFalse(checkNotNull(backup.probes.single()).proof())
         val reply = backup.replies.single() as InstagramTabProbe.Reply.Answered
         assertEquals(200, reply.status)
         assertEquals("{}", reply.body)
@@ -110,7 +118,11 @@ class BrowserInstagramProbeTest {
         fail("the lookup did not finish")
     }
 
-    private fun viewModel(backup: ProbingBackup, probeOn: (() -> Boolean)?) = BrowserViewModel(
+    private fun viewModel(
+        backup: ProbingBackup,
+        probeOn: (() -> Boolean)?,
+        proofOn: (() -> Boolean)? = null,
+    ) = BrowserViewModel(
         OkHttpClient(),
         SiteAdapterCoordinator(
             SiteExtractorRegistry(listOf(Failing("instagram", REEL, CODE), Failing("tiktok", TIKTOK, "11111"))),
@@ -119,6 +131,7 @@ class BrowserInstagramProbeTest {
         DetectedMediaStore(),
         masterFallback = backup,
         instagramProbeOn = probeOn,
+        instagramRungProof = proofOn,
     )
 
     /** A backup that notes the probe its lookup's context carries and asks it once. */

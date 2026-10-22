@@ -111,8 +111,9 @@ object SiteWays {
     const val EMBED_PAGE = "embed page"
 
     /**
-     * S2d part 1: the tab-fetch probe's ask (decision 19 (v), debug only, off by default): the
-     * visible tab's own fetch of yt-dlp's signed-out query, Master's, never a row.
+     * S2d: the tab-fetch rung's ask (part 1's probe, decision 19 (v); part 2's rung, decision 24,
+     * task 13; its switch off by default): the visible tab's own fetch of yt-dlp's signed-out
+     * query, Master's; its rows bound to the post go to V.
      */
     const val TAB_FETCH = "tab fetch"
 

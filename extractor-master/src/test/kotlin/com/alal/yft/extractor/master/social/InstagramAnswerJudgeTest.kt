@@ -11,13 +11,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Social plan S2d part 1: Instagram's judge, for main's own answers in the lookup (the app API,
- * GraphQL, the post's page, the embed page) that I2 reads with no new ask. Rows of the link's item
- * bound to the post go to the checks (by shape only for a one-item post); a 429 and the rate-limit
- * answer stop the site; 401, 403, the login and checkpoint addresses, a login-required and a
- * checkpoint answer are the browser's (main's rule, §6.3); photos with no video are final (main's words); no post in an answer, the
- * embed's `EmbedIsBroken` and a page without the post's data need playback; never REMOVED (no
- * answer read tells a removed post apart). Main's fixtures and synthetic answers; no request.
+ * Social plan S2d: Instagram's judge, for main's own answers in the lookup (the app API, GraphQL,
+ * the post's page, the embed page) that I2 reads with no new ask, and (task 13) the tab-fetch
+ * rung's answer by the same JSON rules. Rows of the link's item bound to the post go to the checks
+ * (by shape only for a one-item post); a 429 and the rate-limit answer stop the site; 401, 403, the
+ * login and checkpoint addresses, a login-required and a checkpoint answer are the browser's (main's
+ * rule, §6.3); photos with no video are final (main's words); no post in an answer, the embed's
+ * `EmbedIsBroken` and a page without the post's data need playback; the embed's video without
+ * files is the rung's (its own class, never a shape change); never REMOVED (no answer read tells a
+ * removed post apart). Main's fixtures and synthetic answers; no request.
  */
 class InstagramAnswerJudgeTest {
     @Test
@@ -30,6 +32,9 @@ class InstagramAnswerJudgeTest {
             Triple(SiteWays.PAGE, failed(403), Expected(AnswerClass.LOGIN_WALL, "status 403", SiteExtractionFailure.LOGIN_REQUIRED)),
             Triple(SiteWays.APP_API, failed(400), Expected(AnswerClass.VALUE_REJECTED, "status 400", SiteExtractionFailure.RESPONSE_CHANGED)),
             Triple(SiteWays.GRAPHQL, failed(400), Expected(AnswerClass.VALUE_REJECTED, "status 400", SiteExtractionFailure.RESPONSE_CHANGED)),
+            // Task 13: the tab-fetch rung's 400 is a rejected value too (no other value is tried).
+            Triple(SiteWays.TAB_FETCH, failed(400), Expected(AnswerClass.VALUE_REJECTED, "status 400", SiteExtractionFailure.RESPONSE_CHANGED)),
+            Triple(SiteWays.TAB_FETCH, failed(429), Expected(AnswerClass.RATE_LIMITED, "status 429", SiteExtractionFailure.RATE_LIMITED)),
             Triple(SiteWays.PAGE, failed(400), Expected(AnswerClass.TRANSIENT, "failed: HTTP_STATUS 400", SiteExtractionFailure.HTTP_STATUS)),
             Triple(SiteWays.PAGE, failed(404), Expected(AnswerClass.TRANSIENT, "failed: HTTP_STATUS 404", SiteExtractionFailure.HTTP_STATUS)),
             Triple(SiteWays.EMBED_PAGE, failed(503), Expected(AnswerClass.TRANSIENT, "failed: HTTP_STATUS 503", SiteExtractionFailure.HTTP_STATUS)),
@@ -130,7 +135,6 @@ class InstagramAnswerJudgeTest {
         val cases = listOf(
             Triple("<html></html>", InstagramReading(post = true, photos = true), Expected(AnswerClass.PHOTO_ONLY, "photos only, no video", SiteExtractionFailure.NO_MEDIA_FOUND)),
             Triple(embedBroken, InstagramReading(), Expected(AnswerClass.NEEDS_PLAYBACK, "not embeddable: removed, private or not embeddable alike", null)),
-            Triple("<html></html>", InstagramReading(post = true, videoTyped = true), Expected(AnswerClass.SHAPE_CHANGED, "a video, no files read", SiteExtractionFailure.RESPONSE_CHANGED)),
             Triple("<html></html>", InstagramReading(post = true), Expected(AnswerClass.SHAPE_CHANGED, "no video read", SiteExtractionFailure.RESPONSE_CHANGED)),
             Triple("<html><body>fixture</body></html>", InstagramReading(), Expected(AnswerClass.NEEDS_PLAYBACK, "no post data in the page", null)),
         )
@@ -139,6 +143,21 @@ class InstagramAnswerJudgeTest {
                 expected.assert("$way ${body.take(40)}", InstagramAnswerJudge.judge(way, answer(body), reading))
             }
         }
+
+        // Task 13 (observation d): a video without files. The embed page signed out lists none by
+        // its design: the tab-fetch rung's, its own class (W never flags it); the post's page: a
+        // shape change, as before.
+        val video = InstagramReading(post = true, videoTyped = true)
+        val embed = InstagramAnswerJudge.judge(SiteWays.EMBED_PAGE, answer("<html></html>"), video)
+        Expected(AnswerClass.VIDEO_WITHOUT_FILES, "a video, no files read", null).assert("embed", embed)
+        assertEquals(Next.NEXT_RUNG, embed.next)
+        Expected(AnswerClass.SHAPE_CHANGED, "a video, no files read", SiteExtractionFailure.RESPONSE_CHANGED)
+            .assert("page", InstagramAnswerJudge.judge(SiteWays.PAGE, answer("<html></html>"), video))
+        // A broken embed and photos come first.
+        assertEquals(
+            AnswerClass.NEEDS_PLAYBACK,
+            InstagramAnswerJudge.judge(SiteWays.EMBED_PAGE, answer(embedBroken), video).answerClass,
+        )
     }
 
     @Test
@@ -179,6 +198,7 @@ class InstagramAnswerJudgeTest {
         val rejected = Judged(AnswerClass.VALUE_REJECTED, SiteExtractionFailure.RESPONSE_CHANGED, "status 400")
         val changed = Judged(AnswerClass.SHAPE_CHANGED, SiteExtractionFailure.RESPONSE_CHANGED, "no video read")
         val transient = Judged(AnswerClass.TRANSIENT, SiteExtractionFailure.NETWORK, "failed: NETWORK")
+        val bare = judged(AnswerClass.VIDEO_WITHOUT_FILES, "a video, no files read")
         val none = InstagramReading()
 
         assertNull(InstagramAnswerJudge.aggregate(emptyList(), emptyList()))
@@ -216,6 +236,10 @@ class InstagramAnswerJudgeTest {
             listOf(SiteWays.GRAPHQL to changed, SiteWays.PAGE to rejected) to (SiteWays.PAGE to rejected),
             listOf(SiteWays.GRAPHQL to transient, SiteWays.EMBED_PAGE to changed) to (SiteWays.EMBED_PAGE to changed),
             listOf(SiteWays.GRAPHQL to transient, SiteWays.EMBED_PAGE to playback) to (SiteWays.EMBED_PAGE to playback),
+            // Task 13: the embed's video without files, after the walls, before every other stop.
+            listOf(SiteWays.GRAPHQL to wall, SiteWays.EMBED_PAGE to bare) to (SiteWays.GRAPHQL to wall),
+            listOf(SiteWays.GRAPHQL to playback, SiteWays.PAGE to changed, SiteWays.EMBED_PAGE to bare) to (SiteWays.EMBED_PAGE to bare),
+            listOf(SiteWays.GRAPHQL to rejected, SiteWays.PAGE to transient, SiteWays.EMBED_PAGE to bare) to (SiteWays.EMBED_PAGE to bare),
             listOf(SiteWays.GRAPHQL to transient) to (SiteWays.GRAPHQL to transient),
         )
         for ((judged, expected) in stops) {

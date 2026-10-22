@@ -40,6 +40,12 @@ internal enum class AnswerClass(val next: Next, val reason: SiteExtractionFailur
     /** A stale value (a `doc_id`, a token); its self-healing is S1b's. */
     VALUE_REJECTED(Next.NEXT_RUNG, SiteExtractionFailure.RESPONSE_CHANGED),
     SHAPE_CHANGED(Next.NEXT_RUNG, SiteExtractionFailure.RESPONSE_CHANGED),
+    /**
+     * Social plan task 13 (observation d): a page that shows the post is a video and lists no file,
+     * as its own design (Instagram's signed-out embed page): not a shape change; the next rung
+     * (Instagram's tab-fetch rung, decision 24), else main's reason stays.
+     */
+    VIDEO_WITHOUT_FILES(Next.NEXT_RUNG, null),
     /** A network failure or another HTTP status: no answer about the post. */
     TRANSIENT(Next.NEXT_RUNG, null),
     NEEDS_PLAYBACK(Next.PLAYBACK, null),
