@@ -1,5 +1,57 @@
 # YFT Master Extractor backup
 
+## Social plan task 8 — S3's weekly check W in the site census (three slots per site, each way once, per site 60 s, 2 MB and 24 requests; each CHANGED or BREAKING line names its runbook step; debug only, a social-ladder build only) (2026-10-22)
+
+- **W** (code commit `430da9f`): "YFT site census" → **Weekly check W (all sites)**, in a
+  social-ladder build only (behind the flag; every other build's census screen as before, no W
+  button or note). The census's own steps (`SiteCensus.run` with `ClientCensus.Mode.WEEKLY`; the
+  new `SiteWeekly`) on three of the owner's census slots per site, by case kind, never a link:
+  Facebook 1 (video), 8 (share link), 13 (removed); TikTok 1 (single video), 6 (photo post), 9
+  (removed); Instagram 1 (single video), 8 (photo-only), 10 (removed); X 1 (video), 6 (several
+  videos), 8 (removed). An empty W slot is a note (`W slot N (kind): no link, not run`).
+- **YouTube's W reused, no YouTube file changed:** `ClientCensus.Mode.WEEKLY` and its caps
+  (`WEEKLY_MAX_MILLIS` 60 s, `WEEKLY_MAX_BYTES` 2 MB), `CensusDiff`'s CHANGED / BREAKING lines with
+  a runbook beside them, `MASTER_KEY_PHASE1_2_PLAN.md` §6's numbered steps.
+- **Each way at most once:** main's lookup once per W slot (no retry), V once on main's best row,
+  Master's part (the site's ladder, each rung at most once, S7) on slot 1 only and V once on its
+  best row; the other W slots `W: main only`; Instagram's probe never part of it.
+- **Caps per site:** at most 60 s, 2 MB and 24 requests (sized from B0: Facebook, the most asking
+  site, about 5 requests per slot with V), each checked before every step; the time left also
+  bounds each step (main's lookup, V, Master's part), so a step it cuts is not run (`time`). A cap
+  reached stops the site's rest (`stopped (requests | bytes | time): the rest not run`) with no
+  cooldown; the report's W header prints each site's spend (`ran, N requests, X MB, S s`).
+- **Stops and cooldowns:** the census's (a 429 or a bot check stops the site and cools it 30 min):
+  a cooling site is `not run (cooldown N min (why))` — never waited out, never retried, never a
+  pass; W's first line (`W (weekly check): …`) names each site not run or stopped.
+- **W's own baselines** (the state's `weekly` list, per site, VPN and session; written only once W
+  ran): W never compares with a full census run, nor the census with W's. W's export says
+  `"mode":"weekly"`. **W's diff** (`SiteCensusDiff.compare(…, weekly = true)`): one line per change,
+  each ending `→ W runbook step N (…)` — 1 the site's stop, 2 main's answer, 3 the slot's verdict, 4
+  V, 5 the item or the length, 6 Master's part, 7 Master's wrong rows, 8 the run's conditions.
+- **The runbook:** `MASTER_KEY_SOCIAL_PLAN.md` §7.5 (new): each line kind → what to check and the
+  fix, a data change through R9 once S4 is live or a code commit (until S4 is live every fix is
+  code; a main fix waits for the owner's go), and W's first run.
+- **Flag off and the full census unchanged:** `Mode.FULL` (the default; the Run buttons) reads,
+  prints and writes as before, byte for byte (a census-only state holds no `weekly` list; the
+  census's export has no `mode` field; its diff lines are joined as before; no extra clock read).
+  `Mode.A_CHECK` is refused (YouTube's only). Not S4 (R9 live); decision 5 open.
+- Not changed: main (S1), YouTube's files, `LookupAsk.endpoint`, the symbols Master copies (drift
+  0), the ladders, the probe.
+- Local checks: `extractor-sites` 293, `extractor-master` 941 (+7; 2 skipped),
+  `extractor-master-android` 69, `app` 1083 (66 skipped), all passed; lint 0 errors (170 warnings: +1, `SetTextI18n` on the W button's label, as on the other buttons); assemble
+  (flag off) and assemble with the three flags on; drift 0; `test_spike_label_triggers.py` 19.
+- Docs: `MASTER_KEY_SOCIAL_PLAN.md` (the top status, §0's task 8 bullet, S3's row, §7.3's task 8
+  paragraph, §7.4's next phone session (C: W's first run), the new §7.5 W's runbook),
+  `docs/SUPPORT_MATRIX.md` (the new W row), `docs/TEST_MATRIX.md` (the task 8 row), this file.
+- The next phone session (the owner, after this task; `yft-d7-social-trial` and `yft-d7-normal`
+  of `430da9f`'s APK run, 39751939477, never an older run's APK): §7.4's list — A, the census per site,
+  network and session; B, the app's browser (link 9's desktop form with both APKs, Instagram's
+  probe on slots 1, 5 and 9, a short regression set); C, W's first run, last (`yft-d7-social-trial`,
+  signed out with the VPN Boston and without, Instagram signed in too; expected `W (weekly check):
+  FIRST RUN — nothing to compare yet`, each site within its caps, a cooling site not run).
+- Next: the owner's phone session (§7.4: A, B, then C). After W's first and second runs: S3's
+  status from them; S4 (R9 live) waits for decision 5; S5's three phone runs per site.
+
 ## Social plan task 7 — Facebook's Master rows 2 against main's 3 (main's audio row: an intended difference) and link 9's desktop form pinned with the trial (a test and docs; no behavior change) (2026-10-22)
 
 - **The row Master lacks** (§7.4 step 6's re-run: "Master's rows 2, main's 3" on every link):
