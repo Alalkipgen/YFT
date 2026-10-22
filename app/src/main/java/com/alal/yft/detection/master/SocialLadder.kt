@@ -16,6 +16,7 @@ import com.alal.yft.extractor.master.social.FacebookLadder
 import com.alal.yft.extractor.master.social.InstagramLadder
 import com.alal.yft.extractor.master.social.MainPageRecorder
 import com.alal.yft.extractor.master.social.MainPages
+import com.alal.yft.extractor.master.social.OkHttpRowReader
 import com.alal.yft.extractor.master.social.SiteWays
 import com.alal.yft.extractor.master.social.SocialCooldown
 import com.alal.yft.extractor.master.social.SocialRowCheck
@@ -151,17 +152,31 @@ internal object SocialLadder {
     }
 
     /**
-     * S1a (6), S6: the engine's file check. In a social-ladder build a Facebook lookup (its own
-     * record and [MainPages], [lookupContext]) checks every row Master offers with V and the init
-     * check ([SocialRowCheck]: the file's first bytes, read by [reader]'s reader under route B's
-     * rules) instead of [validator]; every other lookup gets [validator] itself. Every other build:
-     * [validator] itself, and [reader] is never called.
+     * S1a (6), S6: the engine's file check. In a social-ladder build a ladder's lookup (its own
+     * record and [MainPages], [lookupContext]: Facebook's, TikTok's, X's, Instagram's) checks every
+     * row Master offers with V and the init check ([SocialRowCheck]: the file's first bytes, read
+     * by [reader]'s reader under route B's rules, on the lookup's own site's media hosts) instead
+     * of [validator]; every other lookup gets [validator] itself. Every other build: [validator]
+     * itself, and [reader] is never called.
      */
     fun validator(
         validator: MasterMediaValidator,
         social: Boolean = enabled,
         reader: () -> MediaStartReader,
     ): MasterMediaValidator = if (social) SocialRowCheck(validator, reader()) else validator
+
+    /**
+     * Task 9: [validator]'s S6 as the app's lookups and the site census wire it: one check over one
+     * [OkHttpRowReader] on Master's [client] for every lookup and site. Each read asks only the
+     * media hosts of the site the check chose for its lookup (`RowReadSite`: the lookup's
+     * [MainPages] site), never a site fixed when it was built; a file off them is refused before
+     * any ask (counted refused, never sent). Every other build: [validator] itself, no reader.
+     */
+    fun validator(
+        validator: MasterMediaValidator,
+        client: OkHttpClient,
+        social: Boolean = enabled,
+    ): MasterMediaValidator = validator(validator, social) { OkHttpRowReader(client) }
 
     /**
      * S1a (5), S7: the hosts that answered a 429 or a bot check in the current lookup (its record:

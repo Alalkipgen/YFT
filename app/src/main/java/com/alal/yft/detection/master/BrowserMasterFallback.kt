@@ -26,7 +26,6 @@ import com.alal.yft.extractor.master.verify.OkHttpMediaValidator
 import com.alal.yft.extractor.master.verify.CapturedMediaMetadata
 import com.alal.yft.extractor.master.present.MasterMainPresentation
 import com.alal.yft.extractor.master.policy.TerminalRules
-import com.alal.yft.extractor.master.social.OkHttpRowReader
 import com.alal.yft.extractor.master.social.SocialCooldown
 import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
@@ -593,8 +592,9 @@ class AndroidBrowserMasterFallback(
                 sites,
                 MasterFallbackEngine(
                     // Item 7 R3: the engine's route-B rule only in a route-B build.
-                    // Social plan S1a (6): S6's row check in a Facebook lookup only with -Pyft.socialLadder (debug).
-                    SocialLadder.validator(OkHttpMediaValidator(client), socialLadder) { OkHttpRowReader(client) }, capture,
+                    // Social plan S1a (6): S6's row check in a ladder's lookup only with -Pyft.socialLadder (debug);
+                    // task 9: one check and reader for every site, each read on its own lookup's site's hosts.
+                    SocialLadder.validator(OkHttpMediaValidator(client), client, socialLadder), capture,
                     MasterPolicy(enabled = true, youtubeRouteB = youtubeRouteB),
                     captureSelection = capture::selectMain,
                     // R6: YouTube pages are Master's own module's, never capture's.

@@ -25,7 +25,9 @@ import kotlinx.coroutines.withContext
  * place of the engine's file check for those rows: F1's, F2's, the tab's page data's and its own
  * playback's (TikTok: T1's, T2's, T3's), each file once (a row's sound file too, as the engine asks
  * it). S2b: the media hosts are the lookup's site's ([MainPages.site]: TikTok's hosts and its video
- * file paths), else [site]'s.
+ * file paths), else [site]'s. Task 9: one check and one [reader] serve every site's lookups: each
+ * read carries the site chosen for its lookup ([RowReadSite]), and the reader asks that site's
+ * hosts only, never a site fixed when it was built.
  *
  * - **Lifetime** (`oe`): the row's link expiry ([UrlPolicy.expiry]: Facebook's `oe`, hex seconds)
  *   is the row's; a link that has expired or lives less than [MIN_LIFETIME_MILLIS] more fails
@@ -36,6 +38,9 @@ import kotlinx.coroutines.withContext
  *   stop in the lookup (S7); each file read once a lookup (a later row of the same file reuses
  *   the bytes), at most [maxReads] files. Each read follows route B's rules ([RouteBLookup] over
  *   the lookup's record): listed in the record as Master's, none after a 429 in the lookup.
+ *   Task 9: a file off the site's media hosts ([RowReadSite.address]: another site's host, no
+ *   HTTPS, another path) is **refused** before route B lists an ask: never sent, no new ask, never
+ *   `NETWORK`; [refused] counts such files (each once a lookup; the site census's `refused`).
  * - **Init check** ([InitCheck]) on the same bytes: the row's type (its own, else its address's
  *   extension; Facebook's sound-only MP4 answers `video/mp4`, as the engine's V knows), the
  *   container start, no encryption marker, the size. Only `pass` passes: `unknown` (a generic or
@@ -75,13 +80,14 @@ class SocialRowCheck(
         if (row.drmHint == true) return rejected(SiteExtractionFailure.DRM_PROTECTED)
         val expires = listOfNotNull(row.expiresAtEpochMs, UrlPolicy.expiry(row.mediaUrl)).minOrNull()
         if (expires != null && expires - now < MIN_LIFETIME_MILLIS) return rejected(SiteExtractionFailure.EXPIRED_LINK)
-        // Unknown, so no pass: a manifest row (no file start), another host, a host that stopped
-        // in the lookup, a type the check cannot read, the lookup's reads spent. None is asked.
-        if (manifest(row) || !site.mediaHost(row.mediaUrl) || hostOf(row.mediaUrl) in record.stopHosts()) {
+        // Unknown, so no pass: a manifest row (no file start), a host that stopped in the lookup, a
+        // type the check cannot read, another host (refused, task 9), the lookup's reads spent.
+        // None is asked.
+        if (manifest(row) || hostOf(row.mediaUrl) in record.stopHosts()) {
             return rejected(SiteExtractionFailure.NO_MEDIA_FOUND)
         }
         val type = typeOf(row) ?: return rejected(SiteExtractionFailure.NO_MEDIA_FOUND)
-        val read = start(record, row) ?: return rejected(SiteExtractionFailure.NO_MEDIA_FOUND)
+        val read = start(record, row, RowReadSite(site)) ?: return rejected(SiteExtractionFailure.NO_MEDIA_FOUND)
         if (read is MediaStart.Failed) return rejected(failure(read.statusCode))
         read as MediaStart.Read
         if (read.statusCode !in OK_STATUSES) return rejected(SiteExtractionFailure.HTTP_STATUS)
@@ -109,27 +115,44 @@ class SocialRowCheck(
     }
 
     /**
-     * [row]'s file's first bytes in [record]'s lookup: read once (a later row of the same file
-     * gets the same bytes), while fewer than [maxReads] files were read; null when they are spent.
+     * [row]'s file's first bytes in [record]'s lookup, read on [site]'s media hosts only: read once
+     * (a later row of the same file gets the same bytes), while fewer than [maxReads] files were
+     * read; null when they are spent, or (task 9) when the file is off [site]'s media hosts: refused
+     * here, before route B lists an ask, and counted ([refused]).
      */
-    private suspend fun start(record: LookupRecord, row: MediaCandidate): MediaStart? {
+    private suspend fun start(record: LookupRecord, row: MediaCandidate, site: RowReadSite): MediaStart? {
         val url = row.mediaUrl
         val reads = synchronized(lookups) { lookups.getOrPut(record) { Reads() } }
         synchronized(reads) {
             reads.files[url]?.let { return it }
+            if (site.address(url) == null) {
+                reads.refused += url
+                return null
+            }
             if (reads.asked >= maxReads) return null
             reads.asked++
         }
         val headers = row.requestContext.replayHeaders().filterKeys { it.trim().lowercase() !in UNSENT }
-        val read = withContext(RouteBLookup(record)) { reader.read(url, headers, START_BYTES) }
+        // Task 9: the read carries its lookup's site; the reader asks that site's hosts only.
+        val read = withContext(RouteBLookup(record) + site) { reader.read(url, headers, START_BYTES) }
         synchronized(reads) { reads.files[url] = read }
         return read
     }
 
-    /** One lookup's reads: the files read (by address) and how many were asked. */
+    /**
+     * Task 9: the files [record]'s lookup refused (off its site's media hosts, never sent), each
+     * once; 0 for a lookup this check never saw.
+     */
+    fun refused(record: LookupRecord): Int {
+        val reads = synchronized(lookups) { lookups[record] } ?: return 0
+        return synchronized(reads) { reads.refused.size }
+    }
+
+    /** One lookup's reads: the files read (by address), how many were asked, the files refused. */
     private class Reads {
         val files = HashMap<String, MediaStart>()
         var asked = 0
+        val refused = HashSet<String>()
     }
 
     override fun toString(): String = "SocialRowCheck(${site.id})"

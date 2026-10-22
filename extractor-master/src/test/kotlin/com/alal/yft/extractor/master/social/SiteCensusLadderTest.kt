@@ -22,6 +22,7 @@ import com.alal.yft.extractor.api.json.get
 import com.alal.yft.extractor.master.MasterMediaValidator
 import com.alal.yft.extractor.master.MasterResult
 import com.alal.yft.extractor.master.ValidationResult
+import com.alal.yft.extractor.master.contract.answering
 import com.alal.yft.extractor.master.lookup.LookupRecorder
 import com.alal.yft.extractor.master.modules.youtube.ladder.InitBytes
 import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStart
@@ -380,6 +381,41 @@ class SiteCensusLadderTest {
         assertTrue(SiteCensusDiff.compare(plain, plain).let { it.lines.isEmpty() && it.notes.isEmpty() })
     }
 
+    @Test
+    fun `task 9 - S6 refuses another site's file before any ask - the Master part counts it refused, not new, never NETWORK`() = runTest {
+        val links = mapOf("tiktok" to mapOf(1 to TT_POST))
+        val failed = ScriptedMain { _, _ -> MainAnswer.Failed(SiteExtractionFailure.RESPONSE_CHANGED) }
+        // T1's embed answer names Facebook's file in a TikTok lookup.
+        val http = answering(TT_EMBED_URL to tiktokEmbed(FB_FILE_OE), contentType = "text/html")
+        val files = Files()
+
+        val outcome = census(failed, http, pack(http, files = files)).run(listOf(SiteWays.TIKTOK), links, null)
+
+        val master = json(outcome.json)["sites"][0]["rows"][0]["master"]
+        assertEquals("route B", master["run"].asStringOrNull)
+        assertEquals(true, master["ladder"].asBooleanOrNull)
+        assertEquals(0L, master["rows"].asLongOrNull)
+        assertTrue(master.toString(), master["reason"].asStringOrNull != SiteExtractionFailure.NETWORK.name)
+        // T1's embed GET is the part's one new ask; S6 sent nothing for the file and counts it refused.
+        assertEquals(listOf(1L, 1L), listOf(master["new"].asLongOrNull, master["refused"].asLongOrNull))
+        assertEquals(listOf(SiteWays.EMBED_PLAYER), master["asks"].asArrayOrEmpty.map { it["way"].asStringOrNull })
+        assertEquals(listOf(TT_EMBED_URL), http.requestedUrls)
+        assertTrue(files.asked.isEmpty())
+        val line = outcome.report.lines().first { it.startsWith("    Master route B (ladder) after RESPONSE_CHANGED: ") }
+        assertTrue(line, line.contains("; replayed 0, new 1, refused 1, checks "))
+        assertFalse(outcome.report, outcome.report.lines().any { it.contains(" GET NETWORK ") })
+
+        // The same lookup with the file on TikTok's own host: S6 reads it once (new 2), none refused.
+        now = NOW_MS
+        val own = answering(TT_EMBED_URL to tiktokEmbed(TT_FILE), contentType = "text/html")
+        val ownFiles = Files()
+        val read = census(failed, own, pack(own, files = ownFiles)).run(listOf(SiteWays.TIKTOK), links, null)
+        val readMaster = json(read.json)["sites"][0]["rows"][0]["master"]
+        assertEquals(listOf(2L, 0L), listOf(readMaster["new"].asLongOrNull, readMaster["refused"].asLongOrNull))
+        assertEquals(listOf(TT_FILE), ownFiles.asked)
+        assertEquals(1L, readMaster["rows"].asLongOrNull)
+    }
+
     private fun census(main: MainLookup, http: ExtractorHttpClient, pack: SiteCensus.Pack? = null) =
         SiteCensus(main, http, VALID, SiteCensus.Meter.NONE, clock, pack = pack)
 
@@ -492,6 +528,11 @@ class SiteCensusLadderTest {
         const val X_POST_8 = "https://x.com/fixture_user/status/1785999999999999992"
         const val X_REMOVED = 8
         const val TT_SHORT = "https://vm.tiktok.com/ZMfixture1/"
+        const val TT_VIDEO = "7311234567890123456"
+        const val TT_POST = "https://www.tiktok.com/@fixture_user/video/$TT_VIDEO"
+        const val TT_EMBED_URL = "https://www.tiktok.com/embed/v2/$TT_VIDEO"
+        const val TT_FILE = "https://v16m.tiktokcdn.com/video/tos/useast5/fixture-embed.mp4?mime_type=video_mp4&expire=4102444800"
+        const val FB_FILE_OE = "https://video.fixture.fbcdn.net/v/t42/fixture-embed.mp4?oe=F2A52380&oh=fixture"
         const val FB_VIDEO = "1000000000000012"
         const val FB_WATCH = "https://www.facebook.com/watch/?v=$FB_VIDEO"
         const val FB_PAGE = "https://www.facebook.com/fixture/page/"
@@ -515,6 +556,13 @@ class SiteCensusLadderTest {
         fun identityOf(link: String): SitePageIdentity? = (ADAPTERS.select(link) as? SiteAdapterSelection.Matched)?.identity
 
         fun xFile(item: Int) = "https://video.twimg.com/ext_tw_video/178599999000000000$item/pu/vid/avc1/720x1280/a720.mp4?tag=12"
+
+        /** TikTok's embed page (TikTokLadderTest's shape) for [TT_VIDEO], its one file [file]. */
+        fun tiktokEmbed(file: String) = """
+            <!DOCTYPE html><html><head><title>TikTok</title></head><body>
+            <script id="__FRONTITY_CONNECT_STATE__" type="application/json">{"source":{"data":{"/embed/v2/$TT_VIDEO":{"isFetching":false,"isReady":true,"route":"/embed/v2/$TT_VIDEO/","code":200,"isError":false,"pageName":"video_v2","videoData":{"itemInfos":{"id":"$TT_VIDEO","text":"Sunrise over the harbour","covers":["https://p19-common-sign.example-cdn.test/obj/cover-embed"],"video":{"urls":["$file"],"videoMeta":{"width":720,"height":1280,"ratio":26,"duration":26}},"secret":false,"forFriend":false},"authorInfos":{"uniqueId":"fixture_user"},"imagePostInfo":null}},"strategy":{"page_context":{"biz_name":"Embed"}}}}}</script>
+            </body></html>
+        """.trimIndent()
 
         fun row(url: String, page: String = X_POST, key: String?, millis: Long? = null, height: Int = 720) = MediaCandidate(
             pageUrl = page,

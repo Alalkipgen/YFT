@@ -664,8 +664,10 @@ class SiteCensus(
             }
             step("Master")
             val checks = RowValidator(validator, record)
+            // Task 9: the pack's file check (S6), kept so its refused files count in the part.
+            val fileCheck = ladder?.validator?.invoke(checks)
             val engine = MasterFallbackEngine(
-                ladder?.validator?.invoke(checks) ?: checks,
+                fileCheck ?: checks,
                 NoPlaybackCaptureProvider,
                 POLICY,
                 modules = emptyList(),
@@ -699,6 +701,8 @@ class SiteCensus(
             val rows = (result as? MasterResult.Success)?.result?.candidates.orEmpty()
             val (v, vSkipped) = checkBest(rows, master = true)
             val ladderPart = ladder?.let { pack -> ladderPart(pack, identity, result, rows) }
+            // Task 9: S6's files off the site's media hosts (refused before any ask) count as refused.
+            val fileRefused = (fileCheck as? SocialRowCheck)?.refused(record) ?: 0
             return MasterPart(
                 run = plan.run,
                 why = plan.failure?.takeIf { plan.run == MasterRun.ROUTE_B }?.name,
@@ -714,7 +718,7 @@ class SiteCensus(
                 // Task 6b: the ladder's rungs and S6 ask through their own route B over the record.
                 replayed = if (ladder != null) record.replayedCount - replayed else route.replayed,
                 newRequests = if (ladder != null) record.masterAsks else route.newRequests,
-                refused = route.refused + (if (ladder != null) LadderRungs.refusedOf(site.id, result) else 0),
+                refused = route.refused + (if (ladder != null) LadderRungs.refusedOf(site.id, result) + fileRefused else 0),
                 checks = checks.calls,
                 asks = record.asks().filter { it.asker == LookupRecord.Asker.MASTER },
                 v = v,

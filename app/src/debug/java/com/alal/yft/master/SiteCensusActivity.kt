@@ -42,7 +42,6 @@ import com.alal.yft.extractor.api.SiteAdapterSelection
 import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.extractor.master.lookup.LookupRecorder
 import com.alal.yft.extractor.master.modules.youtube.ladder.ClientCensus
-import com.alal.yft.extractor.master.social.OkHttpRowReader
 import com.alal.yft.extractor.master.social.Site
 import com.alal.yft.extractor.master.social.SiteCensus
 import com.alal.yft.extractor.master.social.SiteWays
@@ -323,7 +322,8 @@ class SiteCensusActivity : ComponentActivity() {
             pack = SocialLadder.stage(http, identify)?.let { stage ->
                 SiteCensus.Pack(
                     stage = stage,
-                    validator = { checks -> SocialLadder.validator(checks) { OkHttpRowReader(client) } },
+                    // Task 9: the app's S6 wiring: one check and reader, each read on its lookup's site's hosts.
+                    validator = { checks -> SocialLadder.validator(checks, client) },
                     identify = identify,
                     sites = SocialLadder.SITES,
                     cooldown = SocialLadder.cooldown,
