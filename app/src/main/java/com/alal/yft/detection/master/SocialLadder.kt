@@ -22,12 +22,11 @@ import com.alal.yft.extractor.master.social.SocialRowCheck
 import com.alal.yft.extractor.master.social.SocialStage
 import com.alal.yft.extractor.master.social.SocialStages
 import com.alal.yft.extractor.master.social.TikTokLadder
+import com.alal.yft.extractor.master.social.TrialCompare
 import com.alal.yft.extractor.master.social.XLadder
 import com.alal.yft.extractor.sites.instagram.InstagramExtractor
 import com.alal.yft.extractor.sites.x.XExtractor
-import java.net.URI
 import kotlin.coroutines.CoroutineContext
-import kotlin.math.abs
 import kotlinx.coroutines.currentCoroutineContext
 import okhttp3.OkHttpClient
 
@@ -41,7 +40,7 @@ internal object SocialLadder {
     val enabled: Boolean get() = BuildConfig.SOCIAL_LADDER
 
     /**
-     * S1a (9): the Facebook trial (the D7 APK `fb-trial`, S1a's phone proof): on only in a debug
+     * S1a (9): the Facebook trial (the D7 APK `social-trial`, S1a's phone proof): on only in a debug
      * build made with `-Pyft.socialTrial=true` as well (the ladder and Master capture on); then a
      * Facebook page main found is answered as main's failure, so Master's ladder answers
      * ([AndroidBrowserMasterFallback.trialPrimary]). Every other build: off.
@@ -259,9 +258,6 @@ internal object SocialLadder {
      */
     const val NOT_USED = "master: facebook: Master's answer not used:"
 
-    /** S1a (9): the most two durations may differ and still count as the same, in milliseconds. */
-    private const val DURATION_SLACK_MILLIS = 1_000L
-
     /**
      * S1a (9): the Facebook trial's comparison of Master's [rows] with main's set-aside [mains], for
      * Facebook's line: `; trial: Master's rows M, main's N; the same video: yes|no; duration within
@@ -280,44 +276,11 @@ internal object SocialLadder {
      * same video's rows share a file with main's rows (a row's file path, or its audio's, among
      * main's: Master's rows add the 360p files main drops, so not every row is one of main's), and
      * the line ends `; tallest: Master's H, main's H` (each side's tallest row, `unknown` when its
-     * rows state no height).
+     * rows state no height). Task 6b: the comparison is [TrialCompare]'s (the site census's ladder
+     * part reads the same), the words unchanged.
      */
-    fun trialSegment(rows: List<MediaCandidate>, mains: List<MediaCandidate>, video: (String?) -> String?): String {
-        val mainVideo = mains.map { video(it.videoId) }.distinct().singleOrNull()
-        val sameVideo = mainVideo != null && rows.isNotEmpty() && rows.all { video(it.videoId) == mainVideo }
-        // S2c: X's rows name one item of the post (one video of several), as main's must.
-        val site = mains.firstOrNull()?.videoId?.substringBefore(':', missingDelimiterValue = "")
-        val x = site == X_SITE_ID
-        val instagram = site == INSTAGRAM_SITE_ID
-        val item = x || instagram
-        val mainItem = mains.map { XLadder.itemOf(it.mediaUrl) }.distinct().singleOrNull()
-        val same = sameVideo && when {
-            x -> mainItem != null && rows.all { XLadder.itemOf(it.mediaUrl) == mainItem }
-            // S2d: one item's files: at least one of Master's rows is one of main's files.
-            instagram -> pathsOf(mains).let { paths -> rows.any { row -> pathsOf(listOf(row)).any(paths::contains) } }
-            else -> true
-        }
-        val masterMillis = rows.mapNotNull { row -> row.durationMillis?.takeIf { it > 0 } }
-        val mainMillis = mains.mapNotNull { row -> row.durationMillis?.takeIf { it > 0 } }
-        val duration = when {
-            masterMillis.isEmpty() || mainMillis.isEmpty() -> "unknown"
-            masterMillis.all { master -> mainMillis.all { abs(master - it) <= DURATION_SLACK_MILLIS } } -> "yes"
-            else -> "no"
-        }
-        val tallest = if (instagram) "; tallest: Master's ${tallestOf(rows)}, main's ${tallestOf(mains)}" else ""
-        return "${TRIAL_SEGMENT}Master's rows ${rows.size}, main's ${mains.size}; " +
-            "the same ${if (item) "item" else "video"}: ${if (same) "yes" else "no"}; duration within 1 s: $duration" +
-            tallest
-    }
-
-    /** S2d: the file paths of [rows] (each row's file and its audio's; no host, no query). */
-    private fun pathsOf(rows: List<MediaCandidate>): Set<String> = rows.flatMap { row ->
-        listOfNotNull(row.mediaUrl, row.audioCompanion?.mediaUrl)
-    }.mapNotNull { url -> runCatching { URI(url).path }.getOrNull()?.takeIf { it.isNotEmpty() } }.toSet()
-
-    /** S2d: the tallest height [rows] state, `unknown` when none states one. */
-    private fun tallestOf(rows: List<MediaCandidate>): String =
-        rows.mapNotNull { row -> row.height?.takeIf { it > 0 } }.maxOrNull()?.toString() ?: "unknown"
+    fun trialSegment(rows: List<MediaCandidate>, mains: List<MediaCandidate>, video: (String?) -> String?): String =
+        TRIAL_SEGMENT + TrialCompare.compare(rows, mains, video).trialText()
 
     /**
      * S1a (9): the Facebook trial's line of rows Master found (Facebook's line with the trial's

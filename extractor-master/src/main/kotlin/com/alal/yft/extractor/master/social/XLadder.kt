@@ -330,8 +330,8 @@ class XLadder(
         /** Main's X adapter's site ID (the video key's prefix). */
         const val SITE_ID = "x"
 
-        private const val LINE = "master: x ladder"
-        private const val X1 = "master: x X1 main's answer"
+        internal const val LINE = "master: x ladder"
+        internal const val X1 = "master: x X1 main's answer"
         private const val ITEM = "master: x X1 item"
 
         private const val WIDGET_PATH = "/tweet-result"

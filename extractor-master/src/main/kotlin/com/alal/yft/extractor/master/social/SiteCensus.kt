@@ -23,6 +23,7 @@ import com.alal.yft.extractor.master.lookup.RouteBLookup
 import com.alal.yft.extractor.master.policy.TerminalRules
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -158,6 +159,22 @@ interface MainLookup {
  * [MAX_BYTES] ([meter]'s wire bytes, when measured) per site. The report, the export and the state
  * hold sites, slots, kinds, way labels, classes, counts, sizes and short fingerprints only; a last
  * guard masks any address and the links' values. It runs only when called (the owner's tap).
+ *
+ * **Task 6b, the ladder** (a social-ladder build: the screen gives a [Pack]): a site of the
+ * pack's [Pack.sites] runs its Master parts with the site's ladder instead of the R8 way — the
+ * engine as the app builds it (the pack's [Pack.stage] first; R8's contracts after a ladder that
+ * does not claim the lookup; no tab), with S6's file check around the census's media checks
+ * ([Pack.validator]) and S7's stops and budgets, over the row's own record and main's pages
+ * ([MainPages], kept by main's clients during main's lookup in (i): at most [MainPages.MAX_PAGES]
+ * pages and [MainPages.MAX_CHARS] characters per row, dropped once the row's Master part ran or
+ * will not run). The row's record clock stops between main's lookup and the Master part, so the
+ * ladder's time budget counts the row's own time. A link main resolves first (a short link) runs
+ * too (the ladder reads the video from main's pages). Main's 429s and bot checks cool in the
+ * pack's [Pack.cooldown] (the app's), as in the app. Each such part names each rung's state
+ * ([LadderRungs]) and compares Master's rows with main's ([TrialCompare]: the same video or item,
+ * the duration, the rows proven another post's and those proven neither way; [LadderPart]). Main's
+ * parts, the phases, the stops and the budgets are unchanged; without a pack (every other build)
+ * the census is exactly as before, its export and report byte for byte.
  */
 class SiteCensus(
     private val main: MainLookup,
@@ -166,6 +183,7 @@ class SiteCensus(
     private val meter: Meter = Meter.NONE,
     private val clock: () -> Long = System::currentTimeMillis,
     private val rowCheck: SiteRowCheck = SiteRowCheck(masterHttp),
+    private val pack: Pack? = null,
 ) {
     /** Wire bytes the census's clients moved so far; negative when nothing measures them. */
     fun interface Meter {
@@ -174,6 +192,23 @@ class SiteCensus(
         companion object {
             val NONE: Meter = Meter { -1L }
         }
+    }
+
+    /**
+     * Task 6b: the social ladders, as a social-ladder build of the app builds them: [stage], the
+     * sites' ladders (Master's own client, the app's cooldown); [validator], S6's file check around
+     * the census's media checks; [identify], main's adapters (the video a resolved link names);
+     * [sites], the sites whose Master parts the ladder runs; [cooldown], where main's 429s and bot
+     * checks cool (the app's; null: nowhere).
+     */
+    class Pack(
+        val stage: SocialStage,
+        val validator: (MasterMediaValidator) -> MasterMediaValidator,
+        val identify: (String) -> SitePageIdentity?,
+        val sites: Set<String>,
+        val cooldown: SocialCooldown? = null,
+    ) {
+        override fun toString(): String = "SiteCensus.Pack(sites=$sites)"
     }
 
     /** [report], [json] and [stateJson] are sanitized; [stopped] names each site that stopped, or null. */
@@ -323,7 +358,38 @@ class SiteCensus(
             masterStop = phases.masterStop,
             masterCooldownFrom = phases.masterCooldownFrom,
             masterCooldown = masterCooldown.takeIf { phases.cooled },
+            ladder = ladderOf(site) != null,
         )
+    }
+
+    /** Task 6b: the pack when [site]'s Master parts are its ladder's, else null. */
+    private fun ladderOf(site: Site): Pack? = pack?.takeIf { site.id in it.sites }
+
+    /**
+     * Task 6b: a ladder row's record clock: [pause]d after main's lookup, [resume]d for the row's
+     * Master part, so the ladder's time budget counts the row's own time (not the other slots').
+     */
+    private class RowClock(private val clock: () -> Long) {
+        private val lock = Any()
+        private var pausedAt: Long? = null
+        private var offset = 0L
+
+        fun now(): Long = synchronized(lock) { pausedAt ?: (clock() - offset) }
+
+        fun pause() {
+            synchronized(lock) {
+                if (pausedAt == null) pausedAt = clock() - offset
+            }
+        }
+
+        fun resume() {
+            synchronized(lock) {
+                pausedAt?.let { at ->
+                    offset = clock() - at
+                    pausedAt = null
+                }
+            }
+        }
     }
 
     /**
@@ -401,6 +467,11 @@ class SiteCensus(
         private var plan: Plan? = null
         private var masterPart: MasterPart? = null
 
+        /** Task 6b: the pack when the site's ladder runs the row's Master part; main's pages and the record's clock. */
+        private val ladder: Pack? = ladderOf(phases.site)
+        private var pages: MainPages? = null
+        private var rowClock: RowClock? = null
+
         /** How Master's way runs for the row (after [planMaster]); null for a row not looked up. */
         val runs: MasterRun? get() = plan?.run
 
@@ -431,18 +502,26 @@ class SiteCensus(
             }
             this.identity = identity
             session = sessionOf(site.id, identity.cookie)
+            // Task 6b: a ladder row's record runs on its own clock and keeps main's pages.
+            val rowClock = ladder?.let { RowClock(clock) }
+            this.rowClock = rowClock
             val record = LookupRecord(
-                clock = clock,
+                clock = rowClock?.let { it::now } ?: clock,
                 maxKept = LookupRecord.MAX_KEPT,
                 maxKeptChars = LookupRecord.MAX_KEPT_CHARS,
                 labels = site.labels(),
             )
             this.record = record
+            val pages = ladder?.let { MainPages(site = site.id) }
+            this.pages = pages
             val started = clock()
-            val answer = withContext(record) {
+            val answer = withContext(if (pages != null) record + pages else record) {
                 guarded { withTimeoutOrNull(ROW_MILLIS) { Looked.Answer(main.lookup(link, identity)) } ?: Looked.TimeLimit }
                     ?: Looked.Error
             }
+            rowClock?.pause()
+            // Task 6b, S7: main's 429s and bot checks cool the hosts in the pack's cooldown, as in the app.
+            ladder?.cooldown?.let { cooldown -> record.stopHosts().takeIf { it.isNotEmpty() }?.let(cooldown::note) }
             this.answer = answer
             val lookupMillis = (clock() - started).coerceAtLeast(0)
             millis += lookupMillis
@@ -462,7 +541,10 @@ class SiteCensus(
             val identity = identity ?: return
             val plan = planOf(identity, answer)
             this.plan = plan
-            if (plan.notRun != null) record?.clear()
+            if (plan.notRun != null) {
+                record?.clear()
+                pages = null
+            }
         }
 
         /** (ii) or (iii): Master's way once (unless the Master phase stopped), then V on Master's best. */
@@ -471,8 +553,9 @@ class SiteCensus(
             val plan = checkNotNull(plan)
             val record = checkNotNull(record)
             masterPart = runMaster(identity, plan, record)
-            // 0.4 (c): nothing replays main's answers after the slot's Master part.
+            // 0.4 (c): nothing replays main's answers after the slot's Master part (task 6b: nor reads its pages).
             record.clear()
+            pages = null
         }
 
         fun result(): CensusRowResult {
@@ -533,11 +616,12 @@ class SiteCensus(
             step("Master")
             val checks = RowValidator(validator, record)
             val engine = MasterFallbackEngine(
-                checks,
+                ladder?.validator?.invoke(checks) ?: checks,
                 NoPlaybackCaptureProvider,
                 POLICY,
                 modules = emptyList(),
                 contracts = contracts,
+                social = ladder?.stage,
             )
             val page = identity.page.canonicalPageUrl
             val request = MasterRequest(
@@ -550,14 +634,19 @@ class SiteCensus(
             )
             val route = RouteBLookup(record)
             val botChecks = record.botChecks
+            val replayed = record.replayedCount
+            // Task 6b: the ladder reads the row's record and main's pages from the lookup's context.
+            val context: CoroutineContext = if (ladder != null) route + record + (pages ?: MainPages(site = site.id)) else route
+            rowClock?.resume()
             val started = clock()
-            val result = withContext(route) { guarded { engine.extract(request) } }
+            val result = withContext(context) { guarded { engine.extract(request) } }
             val masterMillis = (clock() - started).coerceAtLeast(0)
             millis += masterMillis
             phases.budget.add(record.masterAsks + checks.calls)
             phases.stopMaster(stopOf(record, null, null, botChecks) ?: STOP_429.takeIf { checks.rateLimited }, clock())
             val rows = (result as? MasterResult.Success)?.result?.candidates.orEmpty()
             val (v, vSkipped) = checkBest(rows, master = true)
+            val ladderPart = ladder?.let { pack -> ladderPart(pack, identity, result, rows) }
             return MasterPart(
                 run = plan.run,
                 why = plan.failure?.takeIf { plan.run == MasterRun.ROUTE_B }?.name,
@@ -570,9 +659,10 @@ class SiteCensus(
                 rows = rows.size,
                 tallest = SiteRowCheck.tallest(rows),
                 bestMillis = SiteRowCheck.best(rows)?.durationMillis,
-                replayed = route.replayed,
-                newRequests = route.newRequests,
-                refused = route.refused,
+                // Task 6b: the ladder's rungs and S6 ask through their own route B over the record.
+                replayed = if (ladder != null) record.replayedCount - replayed else route.replayed,
+                newRequests = if (ladder != null) record.masterAsks else route.newRequests,
+                refused = route.refused + (if (ladder != null) LadderRungs.refusedOf(site.id, result) else 0),
                 checks = checks.calls,
                 asks = record.asks().filter { it.asker == LookupRecord.Asker.MASTER },
                 v = v,
@@ -580,6 +670,41 @@ class SiteCensus(
                 millis = masterMillis,
                 // 0.4 (c): this part's own ask, check or V met the Master phase's stop.
                 stopped = phases.masterStop,
+                ladder = ladderPart,
+            )
+        }
+
+        /**
+         * Task 6b: the ladder's part of [result]: each rung's state and Master's [rows] against
+         * main's (main's rows carry the link's key: a link main resolves first counts as the video
+         * its resolved link names, as in the app); without main's rows, every row is wrong where the
+         * slot wants none and proven neither way where it downloads.
+         */
+        private fun ladderPart(pack: Pack, identity: LinkIdentity, result: MasterResult?, rows: List<MediaCandidate>): LadderPart {
+            val rungs = LadderRungs.of(site.id, result).orEmpty()
+            if (rows.isEmpty()) return LadderPart(rungs)
+            val mains = ((answer as? Looked.Answer)?.answer as? MainAnswer.Found)?.rows.orEmpty()
+            if (mains.isEmpty()) {
+                val wantsNone = !kind.expect.wantsRows(false) && !kind.expect.wantsRows(true)
+                return LadderPart(
+                    rungs = rungs,
+                    compare = if (wantsNone) LadderPart.COMPARE_NONE_WANTED else LadderPart.COMPARE_MAIN_NONE,
+                    wrong = if (wantsNone) rows.size else 0,
+                    unknown = if (wantsNone) 0 else rows.size,
+                )
+            }
+            val key = "${identity.page.siteId}:${identity.page.contentId}"
+            val resolved = pages?.resolved(identity.page, pack.identify)?.let { "${it.siteId}:${it.contentId}" } ?: key
+            val compared = TrialCompare.compare(rows, mains) { id -> if (id != null && id == key) resolved else id }
+            return LadderPart(
+                rungs = rungs,
+                compare = LadderPart.COMPARE_MAIN,
+                item = compared.item,
+                same = if (compared.same) "yes" else "no",
+                duration = compared.duration,
+                wrong = compared.wrong,
+                unknown = compared.unknown,
+                mainRows = mains.size,
             )
         }
 
@@ -591,7 +716,8 @@ class SiteCensus(
                 is Looked.Answer -> answer.answer
             }
             if (main is MainAnswer.NotHandled) return Plan.notRun(NOT_HANDLED)
-            if (!contracts.reads(identity.page)) {
+            // Task 6b: the ladder reads a link main resolves first from main's pages.
+            if (ladder == null && !contracts.reads(identity.page)) {
                 return Plan.notRun(if (identity.page.requiresCanonicalResolution) "short link" else "no contract")
             }
             val reason = (main as? MainAnswer.Failed)?.reason ?: return Plan.TRIAL

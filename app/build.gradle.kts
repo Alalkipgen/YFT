@@ -161,7 +161,7 @@ val socialLadder = providers.gradleProperty("yft.socialLadder").orElse("false").
 require(socialLadder in setOf("true", "false")) {
     "yft.socialLadder must be true or false"
 }
-// Social plan S1a (9): the Facebook trial (the D7 APK "fb-trial", S1a's phone proof): a Facebook
+// Social plan S1a (9): the Facebook trial (the D7 APK "social-trial", S1a's phone proof): a Facebook
 // page main found is answered as main's failure, so Master's social ladder answers on the phone.
 // Acts only with yft.socialLadder and yft.masterCapture on; debug builds only, release and preview
 // false.

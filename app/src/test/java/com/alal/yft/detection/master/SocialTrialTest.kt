@@ -56,7 +56,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Social plan S1a (9): the Facebook trial APK (D7 `fb-trial`, `-Pyft.socialTrial` with
+ * Social plan S1a (9): the Facebook trial APK (D7 `social-trial`, `-Pyft.socialTrial` with
  * `-Pyft.socialLadder`, debug only) for S1a's phone proof. A Facebook page main found (a watch
  * link, a reel, a short link) is answered as main's `RESPONSE_CHANGED` after main asked, its rows
  * set aside for that lookup only, so Master's ladder answers; Facebook's line then compares

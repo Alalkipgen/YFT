@@ -18,8 +18,10 @@ default; behind the flag) built (2026-10-22; §7.3, §7.4). Task 6a (one trial A
 sites: d7-matrix's `social-trial`, artifact `yft-d7-social-trial`, `fb-trial` before) built
 (2026-10-22; §7.3 S1a (9)). The owner's acceptance of S2c's and S2d part 1's intended differences
 (2026-10-22): §8 decisions 20 and 21. Task 0 (X's widget 404 never final, by decision 21; behind
-the flag) built (2026-10-22; §7.3). Next: the census's site packs (task 6b), then the owner's phone
-session (§7.4).**
+the flag) built (2026-10-22; §7.3). Task 6b (the site census runs each site's ladder in a
+social-ladder build: the rungs, wrong and unknown rows; flag off unchanged) built (2026-10-22;
+§7.3, §7.4). Next: task 7 (Facebook's Master rows 2 against main's 3; link 9's desktop form
+pinned), task 8 (S3's weekly check W), then the owner's phone session (§7.4).**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -192,6 +194,16 @@ session (§7.4).**
   request အသစ်၊ X2၊ token self-healing၊ route အသစ် မရှိပါ; main၊ auth gates၊ photo-only final၊
   empty tombstone၊ 429/cooldown၊ flag off မပြောင်းပါ။ App ရဲ့ "This X post is no longer available."
   စကားကို ဖယ်လိုက်ပါတယ် (X ladder မှာ removed final မရှိတော့လို့)။ နောက်တစ်ဆင့်: task 6b။
+- **Task 6b — site census က social-ladder build မှာ site တစ်ခုစီရဲ့ ladder ကို run ပါတယ် (2026-10-22၊
+  flag နောက်မှာ၊ debug only၊ §7.3):** `yft-d7-social-trial` ရဲ့ "YFT site census" မှာ Facebook၊ TikTok၊ X၊
+  Instagram slot တစ်ခုစီရဲ့ Master part က R8 ရဲ့ way အစား site ရဲ့ ladder (census ရဲ့ main lookup က
+  pages ပေါ်မှာ၊ S6 file check၊ S7 stops/budgets/cooldown) ကို run ပါတယ်။ Rung တစ်ခုစီရဲ့ state (rows၊
+  run၊ not run (cooldown/budget/…)၊ not reached) နဲ့ main ရဲ့ rows နဲ့ တိုက်စစ်ချက် (the same video/item၊
+  duration within 1 s၊ **wrong rows** နဲ့ **unknown rows** ခွဲပြီး) ကို report/export မှာ ပြပါတယ်။ Main ရဲ့
+  part၊ requests၊ time မပြောင်းပါ (B0 နဲ့ နှိုင်းယှဉ်လို့ရ)။ Export က field တွေပဲ တိုးပြီး SiteCensusDiff က
+  အဟောင်းတွေကို ဆက်ဖတ်ပါတယ်; ladder တစ်ဖက်ပဲပါရင် Master part ကို မနှိုင်းယှဉ်ပါ၊ wrong 0 → 1+ က BREAKING။
+  Flag off မှာ census ဟာ ဒီနေ့အတိုင်း (byte-identical)။ Site တစ်ခုစီရဲ့ proof က network တစ်ခုစီ census
+  run တစ်ခု ဖြစ်လာပါတယ် — wrong rows 0 က parity မဟုတ်၊ release readiness မဟုတ်ပါ။ နောက်တစ်ဆင့်: task 7။
 
 ## 1. Audit — what exists today
 
@@ -849,6 +861,23 @@ line; never a row. The trial APK `fb-trial` sets aside Instagram's rows too and 
 tallest row. The census's tallest difference (signed in, slots 1, 4, 6, 7): its Master trial read
 R8's public embed page (no cookie), main the app API with the session. Its phone proof and the
 probe's result: the owner's next session (§7.4).
+**Task 6b built (2026-10-22, behind the flag; `PROGRESS.md`):** in a social-ladder build
+(`yft-d7-social-trial`) the site census's Master part of each Facebook, TikTok, X and Instagram
+slot runs the site's pack in place of R8's way: the site's ladder (the app's `SocialLadder.stage`)
+on main's pages from the census's own main lookup of that slot (`MainPages`), S6's file check and
+S7's stops, budgets and cooldown (the app's); the row's record clock stops between main's lookup
+and Master's part (a ladder's time budget is the row's own time); a short link runs too. Each part
+names its rungs (Facebook F1–F3, TikTok T1–T3, X X1 and X3, Instagram I2 and I3: rows, rows not
+checked, run, not run with why — cooldown, stop, request/time/byte budget, no video, nothing to
+read, final, no tab — not reached, unknown after the engine's time limit) and compares Master's
+rows with main's (`TrialCompare`, the app's trial comparison: the same video or item, the duration
+within 1 s, wrong rows and unknown rows apart; main with no rows: every Master row wrong on a slot
+that wants none, unknown otherwise). Main's part, its requests and its time stay as they are and
+apart from Master's (B0 stays comparable); the export only gains fields (format 2); the diff still
+reads older exports, compares Master's parts only when both runs have the ladder, and a part's
+first wrong row is BREAKING. Flag off: today's census, byte for byte. So each site's proof is one
+census run per network (§7.4's next phone session); no wrong row is not parity or release
+readiness.
 Each site: a D7-style phone proof, wrong rows 0, no regression against B0.
 
 **S3 and S4** as in §7: W (≤ 1 min, ≤ 2 MB per site) with the diff and the runbook; R9 live (the
@@ -1213,32 +1242,39 @@ same day; no link or ID kept (S8).
   playback); a made-up ID → 404 (→ needs playback, never final since task 0: a 404 alone does not
   prove deletion); no widget token → `{}` (→ `VALUE_REJECTED`, not final). Slot 8 (removed): needs
   playback whatever its answer (X's notice tombstone or a 404), main's reason when the tab's
-  playback finds nothing, never "removed". Note: the census's Master trial still runs
-  R8's way for X (task 6b runs the site packs there); until then X's proof runs in the app's
-  browser with `yft-d7-social-trial` (`yft-d7-fb-trial` before task 6a).
+  playback finds nothing, never "removed". Note: since task 6b the census's Master trial runs X's
+  ladder (X1 on main's kept answer) in a social-ladder build (`yft-d7-social-trial`), so X's proof
+  is the census's run; slot 8's playback (X3) still needs the app's browser (the census has no
+  tab: `X3 not run (no tab)`).
 
 **The next phone session (the owner, after this run's last pushed task — S2d part 1, the
-four-site trial APK (task 6a: `yft-d7-social-trial`, `yft-d7-fb-trial` before) and task 0 (X's
-404 never final) are pushed; the list is in the run's report and `PROGRESS.md`):** Facebook's census with and without the VPN, signed out (the re-baseline after
-decision 18), link 9's desktop form (`yft-d7-normal`, the flag off: main's rows of the post's
-video only, no list of the page's videos; `yft-d7-social-trial`: expected "Master found none" with
-its step in Details, as link 10's limitation) and a short regression set; TikTok's, X's and
-Instagram's D7-style proofs (§7.3; TikTok's with `yft-d7-social-trial`, which since S2b sets aside
-TikTok's pages too, T1's positives possibly in runs at least 30 minutes apart; X's on B0's 8
-slots, VPN Boston and none, signed out, with `yft-d7-social-trial`, which since S2c sets aside X's
-pages too: slots 1–6 Master's rows of main's item, "the same item: yes; duration within 1 s:
-yes", V pass, slot 6 video 1's rows only; slot 7 needs playback; slot 8 needs playback whatever
-its answer (task 0), main's reason after the tab's playback finds nothing, never "removed"; wrong
-rows 0; no regression against X's B0); Instagram's proof (S2d part 1,
-`yft-d7-social-trial` in the app's browser, the census's three configs: signed out without the VPN;
-signed in without and with the VPN Boston): on every video slot main answers, Master's rows of
-main's item ("the same item: yes; duration within 1 s: yes; tallest: Master's H, main's H", the same
-H), V pass, wrong rows 0; slot 8 (photo) in main's words; the slots main does not answer (signed
-out: 5, 9 and 10) keep main's reason, never "removed"; Instagram's tab-fetch probe (the probe's box
-on in "YFT site census"; slots 1, 5 and 9, signed out, in the app's browser with
-`yft-d7-social-trial`): one `master: instagram probe:` Details line per lookup (HTTP status, bytes, the
-post's video in the answer yes/no, a wall on the page yes/no), no row from it, no second probe (the
-owner notes each slot's line; S2d part 2, the probe's rung, waits for it).
+four-site trial APK (task 6a: `yft-d7-social-trial`, `yft-d7-fb-trial` before), task 0 (X's 404
+never final) and task 6b (the census's ladder) are pushed; `yft-d7-normal` and
+`yft-d7-social-trial` of the last pushed `[d7]` commit; the list is in the run's report and
+`PROGRESS.md`):**
+
+- **A — `yft-d7-normal` (the flag off):** "YFT site census", Facebook with and without the VPN,
+  signed out (the re-baseline after decision 18); in the app's browser link 9's desktop form
+  (main's rows of the post's video only, no list of the page's videos) and a short regression set.
+- **B — `yft-d7-social-trial`, "YFT site census", one run per network (task 6b):** Run all sites
+  on Wi-Fi without the VPN, then with the VPN Boston, signed out; Instagram also signed in without
+  and with the VPN Boston. Read each site's `ladder:` line and each slot's `rungs:` line. Expected:
+  wrong rows 0 on every site, unknown rows reported apart (Instagram's 360p rows: decision 20), V
+  pass on every video slot main answers, main's parts with no regression against each site's B0.
+  Facebook: the ladder's rows of the same video, the duration within 1 s. TikTok: T1's or T2's rows
+  of the post (T1's positives possibly in runs at least 30 minutes apart; after a 429 `T1 not run
+  (cooldown)`); slots 7–9 no Master row. X (B0's 8 slots): slots 1–6 Master's rows of main's item
+  ("the same item: yes; duration within 1 s: yes"), slot 6 video 1's rows only; slots 7 and 8 no
+  Master row (slot 8: `X3 not run (no tab)`), never "removed". Instagram: on every video slot main answers
+  the same item, the duration and the same tallest; slot 8 (photo) in main's words; the slots main
+  does not answer (signed out: 5, 9 and 10) no Master row, never "removed".
+- **C — `yft-d7-social-trial`, the app's browser:** link 9's desktop form (expected "Master found
+  none" with its step in Details, as link 10's limitation); X's slot 8 (needs playback whatever
+  its answer, main's reason after the tab's playback finds nothing, never "removed"); Instagram's
+  tab-fetch probe (the probe's box on in "YFT site census"; slots 1, 5 and 9, signed out): one
+  `master: instagram probe:` Details line per lookup (HTTP status, bytes, the post's video in the
+  answer yes/no, a wall on the page yes/no), no row from it, no second probe (the owner notes each
+  slot's line; S2d part 2, the probe's rung, waits for it).
 
 **For S2b (TikTok), noted now** (inputs to S2b's design, §7.3; not decided):
 

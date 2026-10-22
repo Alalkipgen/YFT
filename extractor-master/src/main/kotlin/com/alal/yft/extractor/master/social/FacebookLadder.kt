@@ -446,9 +446,9 @@ class FacebookLadder(
         /** Main's Facebook adapter's site ID (the video key's prefix). */
         const val SITE_ID = "facebook"
 
-        private const val LINE = "master: facebook ladder"
-        private const val F1 = "master: facebook F1 plugin player"
-        private const val F2 = "master: facebook F2 main's pages"
+        internal const val LINE = "master: facebook ladder"
+        internal const val F1 = "master: facebook F1 plugin player"
+        internal const val F2 = "master: facebook F2 main's pages"
 
         /**
          * "Needs playback": the player's answer names the video (one of the recipe's ID fields

@@ -380,8 +380,8 @@ class InstagramLadder(
         /** Main's Instagram adapter's site ID (the video key's prefix). */
         const val SITE_ID = "instagram"
 
-        private const val LINE = "master: instagram ladder"
-        private const val I2 = "master: instagram I2"
+        internal const val LINE = "master: instagram ladder"
+        internal const val I2 = "master: instagram I2"
         private const val PROBE = "master: instagram probe"
         private const val WEB_HOST = "www.instagram.com"
         private const val BY_SHAPE = "by shape (key table changed)"

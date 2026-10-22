@@ -402,9 +402,9 @@ class TikTokLadder(
         /** Main's TikTok adapter's site ID (the video key's prefix). */
         const val SITE_ID = "tiktok"
 
-        private const val LINE = "master: tiktok ladder"
-        private const val T1 = "master: tiktok T1 embed player"
-        private const val T2 = "master: tiktok T2 main's pages"
+        internal const val LINE = "master: tiktok ladder"
+        internal const val T1 = "master: tiktok T1 embed player"
+        internal const val T2 = "master: tiktok T2 main's pages"
 
         /**
          * A TikTok photo address: a TikTok host whose path names a photo post (`/photo/{id}`,

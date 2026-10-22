@@ -34,6 +34,14 @@ import java.util.Locale
  * compared (a note), route B's lost recovery too; main's rules are unchanged. Nothing compared →
  * "NOT COMPARED", never "NO CHANGE". The census's own diff ([compare] with baselines): each site
  * against its own baseline, a slot whose link changed reads "new link" (a note).
+ *
+ * Task 6b: a site whose Master parts were its ladder's in one run only (`ladder`: a social-ladder
+ * build's census against another build's) has its Master parts not compared (a note); main's
+ * are. Both runs the ladder's: Master's part also compares the ladder's comparison (the same
+ * video or item, the duration, the wrong and the unknown rows), and a ladder part with no wrong
+ * row that has one in the later run is BREAKING. The rungs' states are not compared (a cooling
+ * host moves them from run to run). An export without these fields (an older one) reads as
+ * before.
  */
 internal object SiteCensusDiff {
     enum class Level { CHANGED, BREAKING }
@@ -166,6 +174,11 @@ internal object SiteCensusDiff {
                 else -> "trials incomplete (${before.masterStop} → ${after.masterStop})"
             }
         }
+        // Task 6b: the ladder's Master parts against another build's are not compared.
+        val masters = before.ladder == after.ladder
+        if (!masters) {
+            notes += "$name: Master's parts not compared (the ladder in the ${if (after.ladder) "later" else "earlier"} run only)"
+        }
         var compared = 0
         for ((slot, row) in after.rows) {
             val prior = before.rows[slot]
@@ -179,7 +192,7 @@ internal object SiteCensusDiff {
                 }
                 else -> {
                     compared++
-                    compareRow(label, prior, row, notes)?.let(lines::add)
+                    compareRow(label, prior, row, notes, masters)?.let(lines::add)
                 }
             }
         }
@@ -190,7 +203,7 @@ internal object SiteCensusDiff {
     }
 
     /** One line for a slot both runs looked up, or null when nothing compared changed. */
-    private fun compareRow(label: String, before: RowView, after: RowView, notes: MutableList<String>): Line? {
+    private fun compareRow(label: String, before: RowView, after: RowView, notes: MutableList<String>, masters: Boolean = true): Line? {
         val changes = ArrayList<String>()
         var breaking = false
         if (before.kind != null && after.kind != null && before.kind != after.kind) {
@@ -219,17 +232,20 @@ internal object SiteCensusDiff {
         }
         // 0.4 (c): a Master part the Master phase's stop kept from running (or its cooldown),
         // or whose own ask, check or V met it, is not compared; route B's lost recovery too.
-        if (before.masterStopped != null || after.masterStopped != null) {
+        // Task 6b: nor one of the ladder's against another build's (the site's note says so).
+        if (masters && (before.masterStopped != null || after.masterStopped != null)) {
             notes += "$label: Master not compared (" + listOfNotNull(
                 before.masterStopped?.let { "the earlier run: $it" },
                 after.masterStopped?.let { "the later run: $it" },
             ).joinToString("; ") + ")"
-        } else {
+        } else if (masters) {
             val masterBefore = before.masterText()
             val masterAfter = after.masterText()
             if (masterBefore != masterAfter) {
                 changes += "Master $masterBefore → $masterAfter"
                 if (before.recovered && !after.recovered) breaking = true
+                // Task 6b: the ladder's rows proven another post's, where it had none.
+                if (before.wrong == 0L && after.wrong > 0) breaking = true
             }
         }
         if (changes.isEmpty()) return null
@@ -267,7 +283,15 @@ internal object SiteCensusDiff {
             slot to RowView(row)
         }.toMap(sortedMapOf())
         val masterStop = site["masterStop"].asStringOrNull ?: site["masterCooldown"].asStringOrNull?.let { SiteCensus.COOLDOWN }
-        return id to SiteView(site["name"].asStringOrNull ?: id, site["skipped"].asStringOrNull, site["stop"].asStringOrNull, rows, format, masterStop)
+        return id to SiteView(
+            site["name"].asStringOrNull ?: id,
+            site["skipped"].asStringOrNull,
+            site["stop"].asStringOrNull,
+            rows,
+            format,
+            masterStop,
+            ladder = site["ladder"].asBooleanOrNull == true,
+        )
     }
 
     private fun yesNo(value: Boolean): String = if (value) "yes" else "no"
@@ -284,6 +308,7 @@ internal object SiteCensusDiff {
         val rows: Map<Int, RowView>,
         val format: Long?,
         val masterStop: String?,
+        val ladder: Boolean = false,
     )
 
     /** One row of an export, as the diff reads it; a missing field is null. */
@@ -313,6 +338,15 @@ internal object SiteCensusDiff {
         private val masterReason = master["reason"].asStringOrNull
         private val masterRows = master["rows"].asLongOrNull
         private val masterV = master["v"]["verdict"].asStringOrNull
+
+        /** Task 6b: the ladder's comparison (an older export, or a part without rows: none). */
+        private val same = master["same"].asStringOrNull
+        private val duration = master["duration"].asStringOrNull
+        private val unknown = master["unknown"].asLongOrNull
+
+        /** Task 6b: the ladder's rows proven another post's (0 without the field). */
+        val wrong: Long = master["wrong"].asLongOrNull ?: 0
+        private val ladderWrong = master["wrong"].asLongOrNull
 
         /**
          * 0.4 (c): the Master phase's stop this row's Master part met, or null: it did not run by
@@ -353,7 +387,14 @@ internal object SiteCensusDiff {
                 "failed", "skipped" -> "$masterAnswer ${masterReason ?: "?"}"
                 null -> "no answer"
                 else -> masterAnswer
-            } + (masterV?.let { ", V $it" } ?: "")
+            } + (masterV?.let { ", V $it" } ?: "") + ladderText()
         }
+
+        /** Task 6b: `, same yes, duration yes, wrong 0 (unknown 0)`, the fields the part has; "" without. */
+        private fun ladderText(): String = listOfNotNull(
+            same?.let { "same $it" },
+            duration?.let { "duration $it" },
+            ladderWrong?.let { "wrong $it" + (unknown?.let { count -> " (unknown $count)" } ?: "") },
+        ).joinToString(", ").let { if (it.isEmpty()) "" else ", $it" }
     }
 }

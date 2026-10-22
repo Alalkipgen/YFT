@@ -66,7 +66,7 @@ interface BrowserMasterFallback {
      * route-B trial APK (D7 `routeb`: `-Pyft.routeBTrial` with `-Pyft.youtubeRouteB`, debug only)
      * a YouTube page main found is answered as main's reading failing (`RESPONSE_CHANGED`), after
      * main asked (its requests stay in the lookup's record), so Master's route B answers on the
-     * phone. Social plan S1a (9): in the Facebook trial APK (D7 `fb-trial`: `-Pyft.socialTrial` with
+     * phone. Social plan S1a (9): in the Facebook trial APK (D7 `social-trial`: `-Pyft.socialTrial` with
      * `-Pyft.socialLadder`, debug only) a Facebook page main found is answered so too, so Master's
      * social ladder answers. Every other build, page and answer: [primary] itself.
      */
@@ -133,7 +133,7 @@ class AndroidBrowserMasterFallback(
      */
     private val socialCooldown: SocialCooldown = SocialLadder.cooldown,
     /**
-     * Social plan S1a (9): true only in the Facebook trial APK (D7 `fb-trial`, [SocialLadder.trial],
+     * Social plan S1a (9): true only in the Facebook trial APK (D7 `social-trial`, [SocialLadder.trial],
      * with [socialLadder]); then [trialPrimary] sets main's found Facebook rows aside (S2b: TikTok's
      * too). Every other build: false.
      */
@@ -464,7 +464,7 @@ class AndroidBrowserMasterFallback(
     }
 
     /**
-     * Social plan S1a (9): the Facebook trial's main answer (D7 `fb-trial`) — a Facebook page main
+     * Social plan S1a (9): the Facebook trial's main answer (D7 `social-trial`) — a Facebook page main
      * found, every link form, becomes main's `RESPONSE_CHANGED` (main's adapter, Try again, no page
      * files), so Master's ladder answers. Main asked as today: its pages and its resolved link stay
      * in the lookup's `MainPages` (F2, the links main resolves first). Main's failures (final ones
@@ -577,7 +577,7 @@ class AndroidBrowserMasterFallback(
             routeBTrial: Boolean = YouTubeRouteB.trial,
             // Social plan S1a (2): the social ladder's per-lookup record (-Pyft.socialLadder, debug only).
             socialLadder: Boolean = SocialLadder.enabled,
-            // Social plan S1a (9): the Facebook trial (D7 `fb-trial`, -Pyft.socialTrial, debug only).
+            // Social plan S1a (9): the Facebook trial (D7 `social-trial`, -Pyft.socialTrial, debug only).
             socialTrial: Boolean = SocialLadder.trial,
         ): BrowserMasterFallback {
             if (!enabled) return BrowserMasterFallback.None

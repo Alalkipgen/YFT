@@ -38,7 +38,10 @@ import com.alal.yft.detection.master.SocialLadder
 import com.alal.yft.detection.tiktok.TikTokPageEngine
 import com.alal.yft.detection.tiktok.TikTokPageScript
 import com.alal.yft.detection.tiktok.TikTokPageSettings
+import com.alal.yft.extractor.api.SiteAdapterSelection
+import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.extractor.master.lookup.LookupRecorder
+import com.alal.yft.extractor.master.social.OkHttpRowReader
 import com.alal.yft.extractor.master.social.Site
 import com.alal.yft.extractor.master.social.SiteCensus
 import com.alal.yft.extractor.master.social.SiteWays
@@ -77,6 +80,10 @@ import okhttp3.Response
  * Social plan S2d part 1 (decision 19 (v)): in a social-ladder build the screen also holds the own
  * switch of Instagram's tab-fetch probe ("Instagram's tab-fetch probe", off by default,
  * [InstagramProbeSwitch]); the browser's Instagram lookups ask the probe only while it is on.
+ *
+ * Social plan task 6b: in a social-ladder build each ladder site's backup part is that site's
+ * ladder as the browser runs it ([census]'s pack: the rungs, each row checked against main's), and
+ * the screen says so ([LADDER_NOTE]); every other build: the screen and the census as before.
  */
 class SiteCensusActivity : ComponentActivity() {
     private var running = false
@@ -93,7 +100,7 @@ class SiteCensusActivity : ComponentActivity() {
         fun add(view: View) = column.addView(view, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
 
         add(TextView(this).apply {
-            text = INTRO
+            text = if (SocialLadder.enabled) INTRO.replace(LINKS_LINE, LADDER_NOTE + LINKS_LINE) else INTRO
             textSize = 15f
         })
         val status = TextView(this).apply { textSize = 15f }
@@ -251,7 +258,11 @@ class SiteCensusActivity : ComponentActivity() {
      * cookies (as the app's), the others share one. TikTok's hidden page is the app's own
      * ([TikTokPageEngine], the owner's settings). Master's contracts and V use the same client
      * class without the recorder (route B records Master's asks itself); Master's media checks
-     * are the app's ([OkHttpMediaValidator]) on the counted client.
+     * are the app's ([OkHttpMediaValidator]) on the counted client. Task 6b: in a social-ladder
+     * build main's clients also keep main's pages ([SocialLadder.pages], outermost, as the app's)
+     * and the census runs each ladder site's Master part as the app's ladder
+     * ([SiteCensus.Pack]: [SocialLadder.stage] on Master's client, S6's row check around the
+     * media checks, main's adapters, the app's cooldown); every other build: no pack, as before.
      */
     private fun census(): SiteCensus {
         val bytes = AtomicLong()
@@ -274,10 +285,13 @@ class SiteCensusActivity : ComponentActivity() {
         }
         val client = NetworkConfiguration.createClient().newBuilder().eventListener(meter).build()
         val http = OkHttpExtractorClient(client, NO_RETRY)
-        val main = LookupRecorder(http)
-        val tikTok = LookupRecorder(OkHttpExtractorClient(client, NO_RETRY.copy(sendResponseCookies = true)))
+        val main = SocialLadder.pages(LookupRecorder(http))
+        val tikTok = SocialLadder.pages(LookupRecorder(OkHttpExtractorClient(client, NO_RETRY.copy(sendResponseCookies = true))))
         val agent = WebViewAgent(applicationContext)
         val registry = SiteCensusLookup.registry(main, tikTok, agent::get)
+        val identify: (String) -> SitePageIdentity? = { link ->
+            (registry.select(link) as? SiteAdapterSelection.Matched)?.identity
+        }
         val hiddenPages = TikTokPageEngine(
             context = applicationContext,
             settings = TikTokPageSettings.OWNER,
@@ -293,6 +307,15 @@ class SiteCensusActivity : ComponentActivity() {
             masterHttp = http,
             validator = OkHttpMediaValidator(client),
             meter = SiteCensus.Meter { bytes.get() },
+            pack = SocialLadder.stage(http, identify)?.let { stage ->
+                SiteCensus.Pack(
+                    stage = stage,
+                    validator = { checks -> SocialLadder.validator(checks) { OkHttpRowReader(client) } },
+                    identify = identify,
+                    sites = SocialLadder.SITES,
+                    cooldown = SocialLadder.cooldown,
+                )
+            },
         )
     }
 
@@ -340,6 +363,14 @@ class SiteCensusActivity : ComponentActivity() {
         /** Each ask once, at most 60 s: the census records a failure instead of repeating it. */
         val NO_RETRY = OkHttpExtractorClient.Policy(callTimeoutSeconds = 60, retryDelaysMillis = emptyList())
 
+        const val LINKS_LINE = "Links per site (empty slots are skipped):"
+
+        /** Task 6b: the intro's added lines in a social-ladder build only (before [LINKS_LINE]). */
+        const val LADDER_NOTE = "This build runs the social ladder: for Facebook, TikTok, X and Instagram the backup's " +
+            "part is that site's ladder as the browser runs it (no tab here, so no capture), with each rung's state " +
+            "and each row checked against YFT's own (wrong rows and unknown rows apart). A ladder with no wrong row " +
+            "is not parity and not release readiness.\n\n"
+
         const val INTRO = "YFT site census (owner tool, debug build)\n\n" +
             "For each link: YFT's own lookup as Home runs it (fresh, with the agent and cookies of " +
             "YFT's browser, each request once, at most 90 s), a one-byte check of its best quality, " +
@@ -354,7 +385,7 @@ class SiteCensusActivity : ComponentActivity() {
             "signed in or not).\n" +
             "Nothing runs unless you tap, and only while this screen stays open (leaving it stops the run). " +
             "The links stay on this phone; the report and the JSON hold no link, post ID, name or address.\n\n" +
-            "Links per site (empty slots are skipped):"
+            LINKS_LINE
     }
 }
 

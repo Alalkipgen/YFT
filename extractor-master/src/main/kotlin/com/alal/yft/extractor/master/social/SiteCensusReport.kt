@@ -94,7 +94,45 @@ internal class MasterPart(
     val vSkipped: String? = null,
     val millis: Long = 0,
     val stopped: String? = null,
+    val ladder: LadderPart? = null,
 )
+
+/**
+ * Task 6b: a Master part the site's ladder ran (the census's pack, a social-ladder build): each
+ * rung's state ([rungs], [LadderRungs]) and Master's rows against main's ([compare]: `main`,
+ * main's rows; `slot wants none`, no row of main's and the slot never downloads; `main none`, no
+ * row of main's for a slot that downloads; null: Master found no row; [mainRows], main's rows):
+ * [same] and [duration] as
+ * the trial line says them ([TrialCompare]; [item]: X's and Instagram's "the same item"), the
+ * rows proven another post's ([wrong]: every row where the slot wants none) and the rows not
+ * proven either way ([unknown]: every row when main has none for a slot that downloads). A part
+ * the ladder did not run holds no rung ([rungs] empty).
+ */
+internal class LadderPart(
+    val rungs: List<LadderRungs.Rung> = emptyList(),
+    val compare: String? = null,
+    val item: Boolean = false,
+    val same: String? = null,
+    val duration: String? = null,
+    val wrong: Int = 0,
+    val unknown: Int = 0,
+    val mainRows: Int = 0,
+) {
+    /** `rungs: F1 rows · F2 not reached · F3 not reached; …` (the report's line); [masterRows], the part's rows. */
+    fun text(masterRows: Int): String = "rungs: " + rungs.joinToString(" · ") { it.text() } + when (compare) {
+        null -> ""
+        COMPARE_MAIN -> "; Master's rows $masterRows, main's $mainRows; the same ${if (item) "item" else "video"}: $same; " +
+            "duration within 1 s: $duration; wrong rows $wrong (unknown $unknown)"
+        COMPARE_NONE_WANTED -> "; main's rows none, the slot wants none: wrong rows $wrong (unknown $unknown)"
+        else -> "; main's rows none: wrong rows $wrong (unknown $unknown)"
+    }
+
+    companion object {
+        const val COMPARE_MAIN = "main"
+        const val COMPARE_NONE_WANTED = "slot wants none"
+        const val COMPARE_MAIN_NONE = "main none"
+    }
+}
 
 /**
  * S0b: one row (a link in its [slot]); [skipped] says why it was not looked up. 0.4: a looked-up
@@ -125,6 +163,7 @@ internal class CensusRowResult(
  * stopped it. 0.4 (c): [stop] is (i)'s; [masterStop], the stop in (ii) or (iii) (only the
  * remaining Master parts skipped; [masterCooldownFrom]: when a 429 or bot check stopped them);
  * [masterCooldown]: an earlier Master-phase stop's cooldown skipped this run's Master parts.
+ * Task 6b: [ladder], the site's Master parts are its ladder's (the census's pack).
  */
 internal class CensusSiteResult(
     val site: Site,
@@ -139,6 +178,7 @@ internal class CensusSiteResult(
     val masterStop: String? = null,
     val masterCooldownFrom: Long? = null,
     val masterCooldown: String? = null,
+    val ladder: Boolean = false,
 ) {
     val number: SiteNumber by lazy { SiteNumber(rows) }
 
@@ -191,6 +231,21 @@ internal class SiteNumber(rows: List<CensusRowResult>) {
     val mainPass = looked.count { it.v?.verdict == SiteRowCheck.Verdict.PASS }
     val mainFail = looked.count { it.v?.verdict == SiteRowCheck.Verdict.FAIL }
     val mainUnknown = looked.count { it.v?.verdict == SiteRowCheck.Verdict.UNKNOWN }
+
+    /** Task 6b: the Master parts the site's ladder ran, and of them: with rows, the same video (or item), V pass. */
+    private val ladders = looked.filter { it.master?.ladder != null && it.master.run != MasterRun.NOT_RUN }
+    val ladderParts = ladders.size
+    val ladderRows = ladders.count { (it.master?.rows ?: 0) > 0 }
+    val ladderSame = ladders.count { it.master?.ladder?.same == YES }
+    val ladderPass = ladders.count { it.master?.v?.verdict == SiteRowCheck.Verdict.PASS }
+
+    /** Task 6b: Master's rows proven another post's, and those not proven either way, over the site's ladder parts. */
+    val ladderWrong = ladders.sumOf { it.master?.ladder?.wrong ?: 0 }
+    val ladderUnknown = ladders.sumOf { it.master?.ladder?.unknown ?: 0 }
+
+    private companion object {
+        const val YES = "yes"
+    }
 }
 
 /** S0b: the export (one run) as JSON: labels, counts, sizes and fingerprints only. */
@@ -239,9 +294,19 @@ internal object SiteCensusJson {
                 field("vPass", number.mainPass)
                 field("vFail", number.mainFail)
                 field("vUnknown", number.mainUnknown)
+                // Task 6b: the ladder's numbers, at the end (an older export has none).
+                if (result.ladder) {
+                    field("ladderParts", number.ladderParts)
+                    field("ladderRows", number.ladderRows)
+                    field("ladderSame", number.ladderSame)
+                    field("ladderPass", number.ladderPass)
+                    field("ladderWrong", number.ladderWrong)
+                    field("ladderUnknown", number.ladderUnknown)
+                }
             },
         )
         list("rows", result.rows.map(::row))
+        if (result.ladder) field("ladder", true)
     }
 
     private fun row(row: CensusRowResult): String = obj {
@@ -301,6 +366,28 @@ internal object SiteCensusJson {
             list("asks", master.asks.map(::ask))
             master.v?.let { raw("v", checked(it)) }
             field("vSkipped", master.vSkipped)
+        }
+        // Task 6b: the ladder's part, at the end (an older export has none).
+        master.ladder?.let { ladder ->
+            field("ladder", true)
+            if (master.run != MasterRun.NOT_RUN) {
+                list(
+                    "rungs",
+                    ladder.rungs.map { rung ->
+                        obj {
+                            field("rung", rung.name)
+                            field("state", rung.state)
+                            field("why", rung.why)
+                        }
+                    },
+                )
+                field("compare", ladder.compare)
+                if (ladder.item) field("item", true)
+                field("same", ladder.same)
+                field("duration", ladder.duration)
+                field("wrong", ladder.wrong)
+                field("unknown", ladder.unknown)
+            }
         }
     }
 
@@ -415,6 +502,15 @@ internal object SiteCensusReport {
                 "best: the best row's duration; item N of M: X's /video/N place of the post's videos, " +
                 "Instagram's item of the post's items.",
         )
+        if (run.sites.any { it.ladder }) {
+            appendLine(
+                "Ladder (a social-ladder build): Master's part is the site's ladder (its rungs on main's pages from this " +
+                    "census's own lookup, S6's file check, S7's stops and budgets) instead of the R8 way; a wrong row is " +
+                    "another post's (another video or item, a duration more than 1 s from every one main's rows state, or a " +
+                    "row where the slot wants none), an unknown row is proven neither way; no wrong row is not parity or " +
+                    "release readiness.",
+            )
+        }
         if (run.notes.isNotEmpty()) appendLine("Notes: ${run.notes.joinToString("; ")}")
         diff?.let {
             appendLine()
@@ -449,6 +545,13 @@ internal object SiteCensusReport {
                 "fail ${number.mainFail}, unknown ${number.mainUnknown}; route B ${number.routeB}; " +
                 "trials ${number.trialCount} (rows ${number.trialRows}, V pass ${number.trialPass})",
         )
+        if (result.ladder) {
+            val same = if (result.site.id == XLadder.SITE_ID || result.site.id == InstagramLadder.SITE_ID) "item" else "video"
+            appendLine(
+                "  ladder: Master parts ${number.ladderParts}, rows ${number.ladderRows}, the same $same ${number.ladderSame}, " +
+                    "V pass ${number.ladderPass}, wrong rows ${number.ladderWrong} (unknown ${number.ladderUnknown})",
+            )
+        }
         result.notes.forEach { appendLine("  $it") }
         result.rows.forEach { row(it) }
     }
@@ -495,7 +598,7 @@ internal object SiteCensusReport {
             appendLine("    Master not run: ${master.why}")
             return
         }
-        val run = master.run.label + (master.why?.let { " after $it" } ?: "")
+        val run = master.run.label + (if (master.ladder != null) " (ladder)" else "") + (master.why?.let { " after $it" } ?: "")
         val answer = when (master.answer) {
             "rows" -> "rows ${master.rows}" + rowsNote(master.tallest, master.bestMillis, null)
             "failed", "skipped" -> "${master.answer} ${master.reason?.name}"
@@ -507,6 +610,7 @@ internal object SiteCensusReport {
                 "refused ${master.refused}, checks ${master.checks}, ${master.millis} ms",
         )
         if (master.asks.isNotEmpty()) appendLine("      ${master.asks.joinToString(" · ") { ask(it) }}")
+        master.ladder?.let { appendLine("      ${it.text(master.rows)}") }
     }
 
     private fun checked(checked: SiteRowCheck.Checked): String =
