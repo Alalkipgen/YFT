@@ -6,8 +6,9 @@ label build-optin-apk (MASTER_KEY_PHASE1_2_PLAN.md §3 N6). The workflows' expre
 evaluated for every event they take: a push, a manual run, each label and any other label.
 
 Phase 1.3 D7 (owner 2026-10-15): the opt-in APK workflow's second job, d7-matrix, builds the phone
-check's debug APKs (D5c's h-only the seventh; routeb and fb-trial since: nine) after the build job, only for a push whose commit
-message carries [d7].
+check's debug APKs (D5c's h-only the seventh; routeb and fb-trial since: nine; the social plan's task
+6a renamed fb-trial social-trial, the one trial APK for all four sites) after the build job, only for a
+push whose commit message carries [d7].
 """
 
 import pathlib
@@ -306,7 +307,7 @@ class OptInApkLabelTest(LabelTriggerTest):
 
 class D7MatrixTest(unittest.TestCase):
     """Phase 1.3 D7 (owner 2026-10-15): the phone-check APKs, one per mode, all flags on (D5c: h-only;
-    then routeb, route B's trial, and fb-trial, the social ladder's trial: nine)."""
+    then routeb, route B's trial, and fb-trial, the social ladder's trial: nine; task 6a: social-trial)."""
 
     MODES = {
         "normal": ("", ""),
@@ -317,7 +318,7 @@ class D7MatrixTest(unittest.TestCase):
         "mutate-L5": ("", "L5"),
         "h-only": ("h-only", ""),
         "routeb": ("", ""),
-        "fb-trial": ("", ""),
+        "social-trial": ("", ""),
     }
 
     def test_the_seven_apks_build_only_after_a_push_whose_message_carries_d7(self):
@@ -346,6 +347,29 @@ class D7MatrixTest(unittest.TestCase):
             self.assertIn(f" -Pyft.{flag}=true ", command)
         self.assertIn(' -Pyft.ladderSkip="$D7_SKIP" -Pyft.ladderMutate="$D7_MUTATE" ', command)
         self.assertEqual([":app:assembleDebug"], [word for word in command.split() if word.startswith(":")])
+
+    def test_only_social_trial_turns_the_social_ladder_and_its_trial_on(self):
+        # Social plan task 6a: the ninth mode, social-trial (fb-trial before), is the one trial APK
+        # for Facebook, TikTok, X and Instagram; the other eight modes and the push build leave both
+        # flags at the Gradle default (off). Instagram's probe has no build flag (its own switch).
+        entries = re.findall(r"^          - mode: (.+)\n((?:            .*\n)+)", D7, re.M)
+        keys = {mode: dict(re.findall(r'^            (\w+): "?([^"\n]*)"?$', body, re.M)) for mode, body in entries}
+        self.assertEqual(list(self.MODES), list(keys))
+        self.assertEqual({"social-trial"}, {mode for mode, key in keys.items() if key.get("social") == "true"})
+        self.assertEqual({"social-trial"}, {mode for mode, key in keys.items() if key.get("social_trial") == "true"})
+        self.assertEqual({"routeb"}, {mode for mode, key in keys.items() if key.get("routeb") == "true"})
+        self.assertIn(
+            "          D7_SOCIAL: ${{ matrix.social || 'false' }}\n"
+            "          D7_SOCIAL_TRIAL: ${{ matrix.social_trial || 'false' }}\n",
+            D7,
+        )
+        command = " ".join(one(r"(\./gradlew [^\n\\]*(?:\\\n[^\n\\]*)*)", D7).replace("\\\n", " ").split())
+        self.assertIn(' -Pyft.socialLadder="$D7_SOCIAL" -Pyft.socialTrial="$D7_SOCIAL_TRIAL" ', command)
+        for flag in ("socialLadder", "socialTrial", "Probe"):
+            with self.subTest(flag=flag):
+                self.assertNotIn(flag, BUILD)  # the push build: off
+        self.assertNotIn("-Pyft.instagramProbe", APK)
+        self.assertNotIn("fb-trial", D7.replace("(fb-trial before", ""))
 
     def test_a_wrong_key_package_or_version_code_uploads_nothing(self):
         check = D7.index("      - name: Key, package and versionCode")

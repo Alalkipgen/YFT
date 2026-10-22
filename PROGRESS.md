@@ -1,5 +1,51 @@
 # YFT Master Extractor backup
 
+## Social plan task 6a — one trial APK for the four sites: d7-matrix's ninth mode `social-trial` (artifact `yft-d7-social-trial`, `fb-trial` before) (2026-10-22)
+
+- The workflow (`master-optin-debug-apk.yml`): d7-matrix's ninth mode `fb-trial` is now
+  `social-trial`, so its artifact is `yft-d7-social-trial` (`yft-d7-` + the mode, 14 days). Its
+  switches are as before: `social: "true"` and `social_trial: "true"` (`-Pyft.socialLadder=true
+  -Pyft.socialTrial=true`, debug only), so the ladder and the trial cover Facebook, TikTok, X and
+  Instagram (the app since S2d part 1, `dd761c8`). Instagram's tab-fetch probe stays off by
+  default: it has no build flag, only its own switch ("Instagram's tab-fetch probe" in "YFT site
+  census", read each time a lookup would ask it). The header comment, the job's comment and the
+  mode's comment say so. The other eight modes, their flags and the push build (job `build`: no
+  social flag, so off) are unchanged.
+- `scripts/tests/test_spike_label_triggers.py` (not run by CI; run locally): `D7MatrixTest.MODES`
+  lists `social-trial` in place of `fb-trial`; a new case checks that only `social-trial` sets
+  `social` and `social_trial`, only `routeb` sets its trial, the push build sets neither social
+  flag, no build flag exists for Instagram's probe, and no `fb-trial` is left in d7-matrix. 19
+  tests (+1), all passed.
+- Code: none (the app, the extractors and their tests as in `dd761c8`; its local checks:
+  `extractor-sites` 293, `extractor-master` 926 (2 skipped), `extractor-master-android` 69, `app`
+  1081 (66 skipped), lint 0, both assembles, drift 0). This commit's `[d7]` run builds the nine
+  APKs, `yft-d7-social-trial` the ninth.
+- Docs: `MASTER_KEY_SOCIAL_PLAN.md` (the top status, §0's Burmese bullet, §7.3 S1a (9)'s note,
+  §7.4's phone session with the new name), `docs/SUPPORT_MATRIX.md` (the TikTok, X and Instagram
+  rows' phone proof: `yft-d7-social-trial`), `docs/TEST_MATRIX.md` (the 6a row). Older entries keep
+  `yft-d7-fb-trial` where they record runs of it.
+- The next phone session (the owner, after the last pushed task; `yft-d7-normal` and
+  `yft-d7-social-trial` of the last pushed `[d7]` commit): Facebook's census with and without the
+  VPN, signed out, flag off (the re-baseline after decision 18), link 9's desktop form
+  (`yft-d7-normal`: the post's video only; `yft-d7-social-trial`: "Master found none" with its step
+  in Details) and a short regression set; TikTok's proof against its B0 (`yft-d7-social-trial`; T1's
+  positives possibly in runs at least 30 minutes apart); X's proof on B0's 8 slots, VPN Boston and
+  none, signed out (`yft-d7-social-trial` in the app's browser: slots 1–6 Master's rows of main's
+  item, "the same item: yes; duration within 1 s: yes", V pass; slot 7 needs playback; slot 8 as
+  its answer; wrong rows 0; no regression against B0); **Instagram's proof**
+  (`yft-d7-social-trial` in the app's browser, the census's three configs: signed out without the
+  VPN; signed in without and with the VPN Boston): on every video slot main answered, Master's rows
+  of main's item ("Instagram trial" line: "the same item: yes; duration within 1 s: yes; tallest:
+  Master's H, main's H" with the same H), V pass, wrong rows 0; slot 8 (photo) "This post has
+  photos only, no video."; slots main does not answer (signed out: 5, 9 and 10) keep main's reason
+  (sign-in), never "removed"; **Instagram's probe** (the probe's box on in "YFT site census", then
+  slots 1, 5 and 9, signed out, in the app's browser with `yft-d7-social-trial`): one Details line
+  `master: instagram probe: HTTP …, … bytes; the post's video in the answer: yes|no; a wall on the
+  page: yes|no` per lookup, no row from it, no second probe in the lookup (the owner notes each
+  slot's line; the probe's rung waits for it). Task 6b, once pushed, moves the four sites' proofs
+  into one census run per network.
+- Next: task 6b (the census's Master trial runs the site packs with the ladder flag on).
+
 ## Social plan S2d (part 1) — Instagram's ladder: I2 main's answers judged, the link's item only, a photo post stops with no request; the tab-fetch probe, off by default (debug only, behind the flag) (2026-10-22)
 
 - Flag off (every CI build but the D7 social APKs, release, preview): today's path; main's

@@ -14,8 +14,10 @@ census and X's B0 (the owner, 2026-10-21): §7.4; decided §8 items 3, 18 and 19
 (before S4). Decision 18 (link 9's desktop form, main) built (2026-10-21; §8). S2b (TikTok's
 ladder, behind the flag) built (2026-10-21; §7.3). S2c (X's ladder, behind the flag) built
 (2026-10-21; §7.3, §7.4). S2d part 1 (Instagram's ladder, I2, and the tab-fetch probe, off by
-default; behind the flag) built (2026-10-22; §7.3, §7.4). Next: the four-site trial APK and the
-census's site packs, then the owner's phone session (§7.4).**
+default; behind the flag) built (2026-10-22; §7.3, §7.4). Task 6a (one trial APK for the four
+sites: d7-matrix's `social-trial`, artifact `yft-d7-social-trial`, `fb-trial` before) built
+(2026-10-22; §7.3 S1a (9)). Next: the census's site packs (task 6b), then the owner's phone
+session (§7.4).**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -166,6 +168,12 @@ census's site packs, then the owner's phone session (§7.4).**
   Intended differences (360p file၊ removed မခေါ်တာ) ကို `docs/SUPPORT_MATRIX.md` မှာ ရေးထားပါတယ်။
   Flag off = ဒီနေ့ အတိုင်း။ နောက်တစ်ဆင့်: site ၄ ခုလုံးအတွက် trial APK နဲ့ census၊ ပြီးရင် ပိုင်ရှင်ရဲ့
   phone session။
+- **Task 6a — site ၄ ခုအတွက် trial APK တစ်ခု (2026-10-22):** d7-matrix ရဲ့ ninth mode `fb-trial` ကို
+  `social-trial` (artifact `yft-d7-social-trial`) လို့ အမည်ပြောင်းပါတယ်။ App က S2d part 1 နဲ့
+  အတူတူပါ: ladder နဲ့ trial က Facebook၊ TikTok၊ X၊ Instagram လေးခုလုံးမှာ ဖွင့်ထားပြီး Instagram ရဲ့
+  tab-fetch probe က default off ပါ (build flag မရှိ၊ "YFT site census" ရဲ့ box နဲ့ပဲ ဖွင့်ရ)။ ကျန် mode
+  ရှစ်ခုနဲ့ push build မပြောင်းပါ (flag off)။ နောက်တစ်ဆင့်: census ရဲ့ Master trial မှာ site pack တွေ
+  (task 6b)၊ ပြီးရင် ပိုင်ရှင်ရဲ့ phone session (`yft-d7-social-trial`)။
 
 ## 1. Audit — what exists today
 
@@ -736,7 +744,9 @@ earlier):
   the rows only the video's, each file read once, the budgets, no repeated ask, none after a stop,
   bare lines; flag off = today; `FacebookWorldTest` 7. Next: §7.4.
 - **(9) built (2026-10-21), behind the flag:** the Facebook trial APK for S1a's phone proof (§7.4
-  step 6; d7-matrix's ninth mode `fb-trial`, artifact `yft-d7-fb-trial`: `-Pyft.socialTrial` with
+  step 6; d7-matrix's ninth mode `fb-trial`, artifact `yft-d7-fb-trial` — since task 6a
+  (2026-10-22) `social-trial`, artifact `yft-d7-social-trial`, the one trial APK for Facebook,
+  TikTok, X and Instagram, Instagram's probe off by default: `-Pyft.socialTrial` with
   `-Pyft.socialLadder`, debug only, `BuildConfig.SOCIAL_TRIAL`): in a Facebook lookup (every link
   form) a page main found is answered as main's `RESPONSE_CHANGED` ("Facebook trial: main's rows
   were set aside and Master found none. Tap Try again."; Details "master: facebook trial: main's N
@@ -1174,27 +1184,27 @@ same day; no link or ID kept (S8).
   widget token → `{}` (→ `VALUE_REJECTED`, not final). Slot 8 (removed) follows its answer's shape:
   X's notice tombstone → needs playback, a 404 → final. Note: the census's Master trial still runs
   R8's way for X (task 6b runs the site packs there); until then X's proof runs in the app's
-  browser with `yft-d7-fb-trial`.
+  browser with `yft-d7-social-trial` (`yft-d7-fb-trial` before task 6a).
 
-**The next phone session (the owner, after this run's last pushed task — S2d part 1 is pushed, the
-four-site trial APK, task 6, renames `yft-d7-fb-trial`; the list is in the run's report and
-`PROGRESS.md`):** Facebook's census with and without the VPN, signed out (the re-baseline after
+**The next phone session (the owner, after this run's last pushed task — S2d part 1 and the
+four-site trial APK (task 6a: `yft-d7-social-trial`, `yft-d7-fb-trial` before) are pushed; the list
+is in the run's report and `PROGRESS.md`):** Facebook's census with and without the VPN, signed out (the re-baseline after
 decision 18), link 9's desktop form (`yft-d7-normal`, the flag off: main's rows of the post's
-video only, no list of the page's videos; `yft-d7-fb-trial`: expected "Master found none" with
+video only, no list of the page's videos; `yft-d7-social-trial`: expected "Master found none" with
 its step in Details, as link 10's limitation) and a short regression set; TikTok's, X's and
-Instagram's D7-style proofs (§7.3; TikTok's with `yft-d7-fb-trial`, which since S2b sets aside
+Instagram's D7-style proofs (§7.3; TikTok's with `yft-d7-social-trial`, which since S2b sets aside
 TikTok's pages too, T1's positives possibly in runs at least 30 minutes apart; X's on B0's 8
-slots, VPN Boston and none, signed out, with `yft-d7-fb-trial`, which since S2c sets aside X's
+slots, VPN Boston and none, signed out, with `yft-d7-social-trial`, which since S2c sets aside X's
 pages too: slots 1–6 Master's rows of main's item, "the same item: yes; duration within 1 s:
 yes", V pass, slot 6 video 1's rows only; slot 7 needs playback; slot 8 as its answer's shape
 (S2c's answers above); wrong rows 0; no regression against X's B0); Instagram's proof (S2d part 1,
-`yft-d7-fb-trial` in the app's browser, the census's three configs: signed out without the VPN;
+`yft-d7-social-trial` in the app's browser, the census's three configs: signed out without the VPN;
 signed in without and with the VPN Boston): on every video slot main answers, Master's rows of
 main's item ("the same item: yes; duration within 1 s: yes; tallest: Master's H, main's H", the same
 H), V pass, wrong rows 0; slot 8 (photo) in main's words; the slots main does not answer (signed
 out: 5, 9 and 10) keep main's reason, never "removed"; Instagram's tab-fetch probe (the probe's box
 on in "YFT site census"; slots 1, 5 and 9, signed out, in the app's browser with
-`yft-d7-fb-trial`): one `master: instagram probe:` Details line per lookup (HTTP status, bytes, the
+`yft-d7-social-trial`): one `master: instagram probe:` Details line per lookup (HTTP status, bytes, the
 post's video in the answer yes/no, a wall on the page yes/no), no row from it, no second probe (the
 owner notes each slot's line; S2d part 2, the probe's rung, waits for it).
 
