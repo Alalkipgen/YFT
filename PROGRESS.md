@@ -1,5 +1,56 @@
 # YFT Master Extractor backup
 
+## Social plan task 7 — Facebook's Master rows 2 against main's 3 (main's audio row: an intended difference) and link 9's desktop form pinned with the trial (a test and docs; no behavior change) (2026-10-22)
+
+- **The row Master lacks** (§7.4 step 6's re-run: "Master's rows 2, main's 3" on every link):
+  **main's audio row.** Main reads each link's video through its watch page, whose inline DASH
+  manifest (`dash_manifest_xml_string`) holds video-only tracks (AV1 today) and AAC audio. Main's
+  `FacebookDashOffers` offers the best AAC track alone (an M4A row) and merges the video tracks
+  with it; the app drops those merges on every phone (AV1 merges are off,
+  `AudioVideoMuxCompatibility.AV1_MP4_ENABLED`), so main's rows are HD and SD (the page's
+  progressive files) and the audio row. Found from main's code and today's page shape (a sandbox
+  check of a public test video's watch page and plugin player, signed out, shape only, nothing
+  kept); the next phone session's Facebook items show it.
+- **F1's and F2's own answers:** F1 (the plugin player) names HD and SD (`hd_src`, `sd_src`) and no
+  manifest (`"dash_manifest":null`); its page holds only a player prefetch block (byte ranges of one
+  AVC video and one AAC audio representation, linked by the video's prefetched representation IDs,
+  outside the video's own data), which S1a's recipe (`ContractRecipes.FACEBOOK`) does not read. F2
+  (main's pages, `InlineDashReader`) would read the AAC track, but runs only when F1 leaves nothing
+  to read (S1a (4)).
+- **Not fixed (no row made up to match the count): listed in `docs/SUPPORT_MATRIX.md`** (the new
+  "Facebook backup ladder" row) as an intended difference with that reason. The user sees the same
+  video qualities (the trial's line: the same video yes, the duration within 1 s yes); the sheet's
+  Audio (M4A, MP3) is still offered from the video's own sound (`AudioFromVideo`), a bigger download
+  than main's audio-only file. Options, the owner's call (not built): (a) F1 reads the prefetched
+  audio representation (a new binding rule by representation IDs, V on it); (b) F2 after F1's rows
+  for the audio track only (S1a (4)'s order changes).
+- **Link 9's desktop form pinned with the trial** (`SocialTrialTest`, made-up IDs: a Page post's
+  `story.php` form; main reads the Page's posts path, decision 18): main's 2 rows set aside; F1 not
+  asked; F2 no row bound to the post; F3's focus check (a post's ID never matches its video's)
+  starts the page again → "Facebook trial: main's rows were set aside and Master found none. Tap
+  Try again." with Details `master: facebook trial: main's 2 rows set aside`, `master: facebook:
+  Master's answer not used: the page changed during the lookup: the same address again` and the
+  ladder's `a link main resolves first, no video in main's answer; not asked`; the plugin player
+  never asked; without the trial main's rows of the post's video as they are. No behavior change.
+- **An option, the owner's call (not built):** when main's post page names exactly one video
+  (S1a (7)'s one-video check), F2 could bind that video's rows with no new ask (links 9 and 10's
+  desktop forms would get Master rows).
+- Not changed: app and extractor code (a test only), main (S1), YouTube, `LookupAsk.endpoint`, the
+  symbols Master copies (drift 0); flag off as before.
+- Local checks: `extractor-sites` 293, `extractor-master` 934 (2 skipped),
+  `extractor-master-android` 69, `app` 1083 (+1; 66 skipped), all passed; lint 0 errors; assemble
+  (flag off) and assemble with the three flags on; drift 0; `test_spike_label_triggers.py` 19.
+- Docs: `docs/SUPPORT_MATRIX.md` (the Facebook backup ladder row), `MASTER_KEY_SOCIAL_PLAN.md` (the
+  top status, §0's task 7 bullet, §7.3's S1a note and task 7 paragraph, §7.4's S5 note and the next
+  phone session as A, B and C), `docs/TEST_MATRIX.md` (the task 7 row), this file.
+- The next phone session (the owner, after the last pushed task; `yft-d7-social-trial` and
+  `yft-d7-normal` of the last pushed `[d7]` commit, never an older run's APK): §7.4's list — A, the
+  census per site, network and session (Facebook's re-baseline after decision 18; TikTok on B0's
+  US exit, no cooldown waited out; X's B0 slots, a widget 404 not final; Instagram signed out and
+  signed in, with and without the VPN); B, the app's browser (link 9's desktop form with both APKs,
+  Instagram's probe on slots 1, 5 and 9, a short regression set); C, W's first run after task 8.
+- Next: task 8 (S3's weekly check W).
+
 ## Social plan task 6b — the site census runs each site's ladder in a social-ladder build (the rungs, wrong and unknown rows; flag off unchanged) (debug only, behind the flag) (2026-10-22)
 
 - **What the census does now (a social-ladder build only, `yft-d7-social-trial`).** Each slot's
