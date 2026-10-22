@@ -1,5 +1,64 @@
 # YFT Master Extractor backup
 
+## Social plan task 0 — X's widget 404 is never final (needs playback; main's reason stays), and the owner's decisions 20–21 (debug only, behind the flag) (2026-10-22)
+
+- **The owner's decisions (2026-10-22; `MASTER_KEY_SOCIAL_PLAN.md` §8 decisions 20 and 21,
+  `docs/SUPPORT_MATRIX.md`'s Instagram and X ladder rows).** Instagram (S2d part 1): accepted —
+  Master's rows keeping the 360p file main drops, only when they are the link's post and item
+  (never wrong rows, never fewer of the higher qualities main offers); a removed post never final
+  from today's ambiguous answers, main's reason stays; neither authorizes S2d part 2's tab-fetch
+  rung or `doc_id` self-healing. X (S2c): accepted — `{}` → `VALUE_REJECTED`, not final; X's notice
+  tombstone (deleted and protected alike) → `NEEDS_PLAYBACK`, not final; **not accepted** — the
+  widget's 404 → final as removed (a 404 alone must not establish deletion or end the recovery).
+  Not a waiver of the phone proof, the regression check or the release gate. Implementation status:
+  Instagram's two and X's first two as built (`dd761c8`, `efc3670`); X's 404 changed here.
+- `XAnswerJudge`: the widget's 404 → `NEEDS_PLAYBACK` with no reason of its own (evidence "status
+  404: no post in the widget's answer, not proof of removal"), the existing non-final path; the
+  constant copied from main (`HTTP_NOT_FOUND`) is unchanged, only the verdict. `XLadder`: no code
+  change (a `PLAYBACK` next was already null: the engine's next stages, the visible tab's own
+  playback, X3, then the user's browser); its KDoc and `MainPages`' say the 404 is never final.
+  The app (`SocialLadder.finalMessage`): X's REMOVED branch and `X_REMOVED_MESSAGE` ("This X post
+  is no longer available.") removed (no X line can be final as removed any more); an X lookup's
+  photo post keeps main's words; `BrowserMasterFallback`: a comment. When the tab's playback finds
+  nothing, the engine's `NeedsPlayback` keeps main's failure (`NO_MEDIA_FOUND`, Try again) with
+  "Play the video on this page, then tap Try again.", as for every needs-playback answer.
+- Not changed: main (S1), no new widget request, no X2, no token self-healing, no new route; the
+  auth gates, the photo post's final, the empty tombstone (the browser), the 429's stop and
+  cooldown, flag off (no stage: main's X path only). No YouTube file, no `LookupAsk.endpoint`.
+- Tests (JVM, synthetic answers, made-up IDs): `XAnswerJudgeTest` (a) the 404 → `NEEDS_PLAYBACK`,
+  next `PLAYBACK`, no reason, never `REMOVED` (main's `HTTP_STATUS` and a `PRIVATE_OR_UNAVAILABLE`
+  failure with 404 alike); the 429 → `RATE_LIMITED`, `STOP_SITE` as before. `XLadderTest` +1 (11):
+  (b) after the widget's 404 X1 asks nothing (Master 0, main 1), the existing capture is asked once
+  and, finding nothing, the lookup needs playback (no `REMOVED`, no `FINAL`, no
+  `PRIVATE_OR_UNAVAILABLE` line, the widget's host not cooled, the 404 kept as main's refused GET
+  only); when the tab's authorized playback shows the post's MP4, that capture is the answer
+  (`PLAYBACK_CAPTURE`); the 404 joins the never-final cases; (d) the photo post stays final with no
+  request, never captured, and the 429 never final, cooling the widget's host. `SocialLadderXTest`
+  +1 (6, app, Robolectric): (c) the app's lookup over main's real X adapter (the widget's 404), X's
+  ladder and a capture that finds nothing keeps main's reason (`NO_MEDIA_FOUND`, Try again), X1's
+  needs-playback line in Details, Master asked nothing; `finalMessage` is null for X's 404 line and
+  for an earlier build's REMOVED line, for every reason; the photo post's words as before.
+- Local checks: `extractor-sites` 293, `extractor-master` 927 (+1; 2 skipped),
+  `extractor-master-android` 69, `app` 1082 (+1; 66 skipped), all passed; lint 0 errors; assemble
+  (flag off) and assemble with the three flags on; drift 0; `test_spike_label_triggers.py` 19.
+- Docs: `MASTER_KEY_SOCIAL_PLAN.md` (the top status, §0's two Burmese bullets and the S2c bullet,
+  §6.4's judge signals, §7.3's S2c paragraph and task 0's, §7.4's S2c answers and the next phone
+  session, §8 decisions 20–21), `docs/SUPPORT_MATRIX.md` (X's and Instagram's ladder rows),
+  `docs/TEST_MATRIX.md` (the task 0 row; S2c's row marked), this file (S2c's entry marked where it
+  said the 404 was final).
+- The next phone session (the owner, after the last pushed task; `yft-d7-normal` and
+  `yft-d7-social-trial` of the last pushed `[d7]` commit): as task 6a's list below, with X's slot 8
+  now: needs playback whatever its answer (X's notice tombstone or a 404), main's reason after the
+  tab's playback finds nothing, never "removed". Facebook's census with and without the VPN, signed
+  out, flag off (the re-baseline after decision 18), link 9's desktop form (`yft-d7-normal`: the
+  post's video only; `yft-d7-social-trial`: "Master found none" with its step in Details) and a
+  short regression set; TikTok's proof against its B0; X's proof on B0's 8 slots, VPN Boston and
+  none, signed out (slots 1–6 Master's rows of main's item, "the same item: yes; duration within 1
+  s: yes", V pass; slot 7 needs playback; slot 8 as above; wrong rows 0; no regression against B0);
+  Instagram's proof (the census's three configs) and Instagram's probe (slots 1, 5 and 9, signed
+  out). Task 6b, once pushed, moves the four sites' proofs into one census run per network.
+- Next: task 6b (the census's Master trial runs the site packs with the ladder flag on).
+
 ## Social plan task 6a — one trial APK for the four sites: d7-matrix's ninth mode `social-trial` (artifact `yft-d7-social-trial`, `fb-trial` before) (2026-10-22)
 
 - The workflow (`master-optin-debug-apk.yml`): d7-matrix's ninth mode `fb-trial` is now
@@ -207,7 +266,8 @@
     `XLadder.itemOf`); rows of two items are no evidence.
   - **Final, no request:** a photo post (photos, and no media of the post, its card or its quoted
     post typed video or GIF) → `NO_MEDIA_FOUND` in main's words ("This post has photos only, no
-    video."); the widget's 404 → `PRIVATE_OR_UNAVAILABLE` ("This X post is no longer available.").
+    video."); the widget's 404 → `PRIVATE_OR_UNAVAILABLE` ("This X post is no longer available.")
+    (superseded by task 0, 2026-10-22: the 404 → needs playback, never final; those words removed).
     Else null (the next stage: the visible tab's own playback, X3, then the user's browser; main's
     reason stays). Line `master: x X1 main's answer: <class> (<evidence>); next: <next>`.
   - **S7:** `SocialBudget.X` (new): 9 requests (main's one ask, V's at most 8 reads), 2 MiB (main's
@@ -215,7 +275,8 @@
     it the rows are not checked (null). A 429 in main's answer → the site stops, its host cools 30
     minutes (as TikTok's); main's own `RATE_LIMITED` → Master not asked (as before).
 - `XAnswerJudge` (new; reads only; by shape, never by words): rows bound to the post ID → the
-  checks (`DIRECT`; by shape and one item's: `PARTIAL`); the widget's 404 → `REMOVED` (final);
+  checks (`DIRECT`; by shape and one item's: `PARTIAL`); the widget's 404 → `REMOVED` (final;
+  superseded by task 0: → `NEEDS_PLAYBACK`, never final);
   photos and no video → `PHOTO_ONLY` (final); an empty tombstone (an age-limited post's) →
   `AGE_LIMITED` (the browser); a tombstone with X's notice link (a deleted post's and a protected
   account's post's: the same shape and link, only the words differ; the link found within a bound
@@ -232,16 +293,17 @@
   protected account's post the same tombstone with X's notice link; an age-limited post an empty
   tombstone; a made-up ID 404. So the age-limited post is told apart (→ the browser), a deleted
   post is not told apart from a protected one (→ today's reason, needs playback), and only the 404
-  is final as removed. Slot 7 (age-limited) → needs playback, `AGE_LIMITED … next: BROWSER`; slot
-  8 (removed) by its answer: X's notice tombstone → needs playback (today's reason), a 404 →
-  "This X post is no longer available." (final).
+  is final as removed (superseded by task 0, 2026-10-22: the 404 is never final either). Slot 7
+  (age-limited) → needs playback, `AGE_LIMITED … next: BROWSER`; slot 8 (removed) by its answer: X's
+  notice tombstone → needs playback (today's reason), a 404 → "This X post is no longer available."
+  (final; since task 0: needs playback, main's reason).
 - Kit: `MainPages` also keeps main's refused GETs (`Refusal`: the address, the status, main's
   reason; no page, header or cookie; at most 4) so X1 judges main's 404 without asking again;
   `MainPageRecorder` notes them. `SocialBudget.X`.
 - App: `SocialLadder` — `SITES` + X (`X_SITE_ID`); `claims` X's video keys; `stage` →
   `SocialStages(FacebookLadder, TikTokLadder, XLadder)`; `finalMessage`: X's photo post (its final
   PHOTO_ONLY line) in main's words (`XExtractor.PHOTOS_MESSAGE`), X's no-such-post answer (its
-  final REMOVED line) → `X_REMOVED_MESSAGE`; `trialSegment`: X's rows compare the item ("the same
+  final REMOVED line) → `X_REMOVED_MESSAGE` (removed by task 0); `trialSegment`: X's rows compare the item ("the same
   item: yes" only when every Master row names main's one item by its file's path) and the
   duration; Facebook's and TikTok's "the same video" as before. Main's X adapter already asks
   through the shared adapter client (`SocialLadder.mainClient`: the recorder and main's pages), so
@@ -250,7 +312,8 @@
   `master: x trial: main's N rows set aside`).
 - Intended differences (listed in `docs/SUPPORT_MATRIX.md`, the owner's call): `{}` is not final
   (§6.4 said empty → removed); X's notice tombstone → needs playback; the 404 → final as removed
-  (main: `NO_MEDIA_FOUND`, "may be protected, age-restricted or deleted"); an HLS-only post gets no
+  (main: `NO_MEDIA_FOUND`, "may be protected, age-restricted or deleted"; not accepted by the owner,
+  decision 21: since task 0 the 404 → needs playback, never final); an HLS-only post gets no
   row that passes V; the photo check stricter than main's (a renamed video key never makes one).
 - Not done: X2 (a new ask; decision 2); the census's Master trial still runs R8's way for X (task
   6b runs the site packs there).
