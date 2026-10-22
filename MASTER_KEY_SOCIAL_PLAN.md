@@ -13,7 +13,9 @@ first run (the owner, 2026-10-21: §7.4) and its fixes (S1a (10), behind the fla
 census and X's B0 (the owner, 2026-10-21): §7.4; decided §8 items 3, 18 and 19; open: item 5
 (before S4). Decision 18 (link 9's desktop form, main) built (2026-10-21; §8). S2b (TikTok's
 ladder, behind the flag) built (2026-10-21; §7.3). S2c (X's ladder, behind the flag) built
-(2026-10-21; §7.3, §7.4). Next: S2d (Instagram, part 1), then the owner's phone session (§7.4).**
+(2026-10-21; §7.3, §7.4). S2d part 1 (Instagram's ladder, I2, and the tab-fetch probe, off by
+default; behind the flag) built (2026-10-22; §7.3, §7.4). Next: the four-site trial APK and the
+census's site packs, then the owner's phone session (§7.4).**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -143,6 +145,27 @@ ladder, behind the flag) built (2026-10-21; §7.3). S2c (X's ladder, behind the 
   `yft-d7-fb-trial` က X ရဲ့ rows ကိုလည်း ဘေးဖယ်ပြီး item နဲ့ duration ကို နှိုင်းယှဉ်ပါတယ်။ Intended
   differences ကို `docs/SUPPORT_MATRIX.md` မှာ ရေးထားပါတယ် (ပိုင်ရှင် ဆုံးဖြတ်ရန်)။ Flag off = ဒီနေ့
   အတိုင်း။ နောက်တစ်ဆင့်: S2d (Instagram အပိုင်း ၁)။
+- **S2d အပိုင်း ၁ ပြီးပါပြီ (Instagram၊ flag နောက်မှာ၊ debug only၊ 2026-10-22၊ §7.3၊ §7.4):** main ရဲ့
+  Instagram adapter မအောင်မြင်မှ Instagram ladder က ဖြေပါတယ်။ I2 က main ဒီ lookup မှာ ရထားတဲ့
+  answers (sign in ထားရင် app API၊ GraphQL၊ post page၊ embed page) ကို request အသစ် မပို့ဘဲ ဖတ်ပြီး
+  judge လုပ်ပါတယ် (main ရဲ့ embed ask ကို ထပ်မမေး၊ Master ကိုယ်ပိုင် GraphQL ask မရှိ — decision 3)။
+  Link ရဲ့ item (`img_index`၊ မရှိရင် file ပါတဲ့ ပထမ item) ရဲ့ rows ပဲ ယူပြီး post နဲ့ ချိတ်၊ V နဲ့ init
+  check ကို Instagram ရဲ့ media hosts မှာ စစ်ပါတယ် (DASH ဆိုရင် video နဲ့ sound နှစ်ခုလုံး)။ Photo post
+  ဆိုရင် request မပို့ဘဲ main ရဲ့ စကားနဲ့ final ပါ။ Sign-in wall (checkpoint အပါ)၊ `VALUE_REJECTED`၊
+  post မပါတာ၊ `EmbedIsBroken` တို့က final မဟုတ်ဘဲ tab ရဲ့ playback ဆီ သွားပါတယ်; 429 သို့မဟုတ်
+  "wait a few minutes" ဆိုရင် site ရပ်ပြီး host ကို ၃၀ မိနစ် cool လုပ်ပါတယ်။ Removed post ကို
+  ဘယ်တော့မှ `REMOVED` မခေါ်ပါ (decision 19 (vi): sign out အဖြေတွေက private / sign-in-only post နဲ့
+  တူလို့)။ Budget `SocialBudget.INSTAGRAM` (request 13၊ 7 MiB၊ 30 s)။ Tab-fetch probe (decision 19၊
+  debug only၊ default off): "YFT site census" ထဲက "Instagram's tab-fetch probe" box နဲ့ ဖွင့်ရပြီး
+  ဖွင့်ထားရင် app browser ရဲ့ Instagram lookup တစ်ခုမှာ I2 ပြီးနောက် တစ်ကြိမ်ပဲ visible tab ရဲ့ ကိုယ်ပိုင်
+  fetch နဲ့ yt-dlp ရဲ့ signed-out query ကို မေးပြီး Details line တစ်ကြောင်း (HTTP status၊ bytes၊
+  post ရဲ့ video ပါ/မပါ၊ wall ရှိ/မရှိ) ပြပါတယ်; row ဘယ်တော့မှ မဖြစ်ပါ။ `yft-d7-fb-trial` က
+  Instagram ရဲ့ rows ကိုလည်း ဘေးဖယ်ပြီး item၊ duration နဲ့ tallest ကို နှိုင်းယှဉ်ပါတယ်။ Census မှာ
+  tallest ကွာတာက census ရဲ့ Master trial က R8 ရဲ့ public embed page (cookie မပါ) ကို ဖတ်ပြီး main
+  က session နဲ့ app API ကို ဖတ်လို့ပါ; I2 က main ရဲ့ answers ကို ဖတ်လို့ trial မှာ တူသင့်ပါတယ်။
+  Intended differences (360p file၊ removed မခေါ်တာ) ကို `docs/SUPPORT_MATRIX.md` မှာ ရေးထားပါတယ်။
+  Flag off = ဒီနေ့ အတိုင်း။ နောက်တစ်ဆင့်: site ၄ ခုလုံးအတွက် trial APK နဲ့ census၊ ပြီးရင် ပိုင်ရှင်ရဲ့
+  phone session။
 
 ## 1. Audit — what exists today
 
@@ -466,7 +489,7 @@ With no adapter copies (B), the build is also about 4,700 lines smaller than the
 | **S1a** | L | The kit's minimum with the pilot's pack, Facebook (the first draft's S1 and S2a together), flag `-Pyft.socialLadder` (off = today): the recorder in the app's lookup path, judge classes, the site table, one judged request rung + L3 + capture, budgets and the 30-minute cooldown (S7), `SiteRowCheck` + `InitCheck` on every Master row, Facebook's anchors, post-identity mutation tests, a simulator world (§7.3) | JVM tests, simulator and CI green; flag off = today; the D7-style APK's phone proof (§7.3) — **passed (2026-10-21, §7.4 step 6's re-run)** |
 | **S2b** | M | TikTok's pack (§7.3) | phone proof; wrong rows 0; no regression against B0 — built (2026-10-21, behind the flag); its proof: the next phone session (§7.4) |
 | **S2c** | M | X's pack: main's answer replayed, no new ask (X2 not now; §7.3) | the same — built (2026-10-21, behind the flag); its proof: the next phone session (§7.4) |
-| **S2d** | M | Instagram's pack by the Instagram check's verdict (0.2); the owner's signed-in census first (§7.3) | the same |
+| **S2d** | M | Instagram's pack by the Instagram check's verdict (0.2); the owner's signed-in census first (§7.3) | the same — part 1 built (2026-10-22, behind the flag: I2 and the tab-fetch probe, off by default); its proof and the probe's result: the next phone session (§7.4); part 2 (the probe's rung) only after that result |
 | **S3** | S–M | Weekly check W for all four + runbook (each CHANGED / BREAKING line and its fix: a data change via R9, or code) | the owner's first W run |
 | **S4** | S | R9 live: the owner signs and hosts the config (§8 item 5, decided before S4); kill switch per rung; one repair drill (a key changed by config on the phone, no APK) | drill passed |
 | **S5** | — | Promote per site after 3 phone runs on different days with 0 wrong rows and no regression against B0; then the release gate (§7.3): all four sites, the first W run and the R9 drill passed, the intended differences in `docs/SUPPORT_MATRIX.md` → PR #2 merged → P8 (beta.4) | the owner's go |
@@ -769,6 +792,23 @@ owner's next session (§7.4).
 **S2d Instagram:** by 0.2's verdict; no repeat of main's embed ask; `RATE_LIMITED` → the cooldown;
 `doc_id` self-healing only if 0.2 shows it rotates (then S1b); the owner's signed-in census before
 this stage.
+**S2d part 1 built (2026-10-22, behind the flag; `PROGRESS.md`):** I2, main's answers in the lookup
+(`MainPages`: the app API signed in, GraphQL, the post's page, the embed page; each way's kept page,
+else its refused GET's status and reason) read with no new ask (main's embed ask never repeated, no
+GraphQL ask of Master's own: decision 3) and judged (`InstagramAnswerJudge`: a sign-in wall, the
+checkpoint too, → the browser; a 429 or "wait a few minutes" → the site stops, the host cools; a JSON
+way's 400 or `errors` → `VALUE_REJECTED`, the next stage; photos only → final in main's words; no
+post, `EmbedIsBroken` → needs playback; never `REMOVED`: decision 19 (vi)). Rows of the link's item
+(`img_index`, else the first item with files, as main), bound to the post, V and the init check
+(DASH: the video and its sound); Master's recipe keeps the 360p file main drops (an intended
+difference). `SocialBudget.INSTAGRAM` (13 requests, 7 MiB, 30 s). I3: the tab's own playback. The
+tab-fetch probe (decision 19 (i)–(v), debug only): its own switch, off by default ("YFT site
+census" → "Instagram's tab-fetch probe"), once per lookup after I2, only on the post's own page in
+the visible tab, signed out; Master's ask in the record (budget, stops, no second ask); one Details
+line; never a row. The trial APK `fb-trial` sets aside Instagram's rows too and also says each side's
+tallest row. The census's tallest difference (signed in, slots 1, 4, 6, 7): its Master trial read
+R8's public embed page (no cookie), main the app API with the session. Its phone proof and the
+probe's result: the owner's next session (§7.4).
 Each site: a D7-style phone proof, wrong rows 0, no regression against B0.
 
 **S3 and S4** as in §7: W (≤ 1 min, ≤ 2 MB per site) with the diff and the runbook; R9 live (the
@@ -1136,7 +1176,8 @@ same day; no link or ID kept (S8).
   R8's way for X (task 6b runs the site packs there); until then X's proof runs in the app's
   browser with `yft-d7-fb-trial`.
 
-**The next phone session (the owner, after S2d part 1; the list is in S2d part 1's report and
+**The next phone session (the owner, after this run's last pushed task — S2d part 1 is pushed, the
+four-site trial APK, task 6, renames `yft-d7-fb-trial`; the list is in the run's report and
 `PROGRESS.md`):** Facebook's census with and without the VPN, signed out (the re-baseline after
 decision 18), link 9's desktop form (`yft-d7-normal`, the flag off: main's rows of the post's
 video only, no list of the page's videos; `yft-d7-fb-trial`: expected "Master found none" with
@@ -1146,7 +1187,16 @@ TikTok's pages too, T1's positives possibly in runs at least 30 minutes apart; X
 slots, VPN Boston and none, signed out, with `yft-d7-fb-trial`, which since S2c sets aside X's
 pages too: slots 1–6 Master's rows of main's item, "the same item: yes; duration within 1 s:
 yes", V pass, slot 6 video 1's rows only; slot 7 needs playback; slot 8 as its answer's shape
-(S2c's answers above); wrong rows 0; no regression against X's B0); Instagram's tab-fetch probe.
+(S2c's answers above); wrong rows 0; no regression against X's B0); Instagram's proof (S2d part 1,
+`yft-d7-fb-trial` in the app's browser, the census's three configs: signed out without the VPN;
+signed in without and with the VPN Boston): on every video slot main answers, Master's rows of
+main's item ("the same item: yes; duration within 1 s: yes; tallest: Master's H, main's H", the same
+H), V pass, wrong rows 0; slot 8 (photo) in main's words; the slots main does not answer (signed
+out: 5, 9 and 10) keep main's reason, never "removed"; Instagram's tab-fetch probe (the probe's box
+on in "YFT site census"; slots 1, 5 and 9, signed out, in the app's browser with
+`yft-d7-fb-trial`): one `master: instagram probe:` Details line per lookup (HTTP status, bytes, the
+post's video in the answer yes/no, a wall on the page yes/no), no row from it, no second probe (the
+owner notes each slot's line; S2d part 2, the probe's rung, waits for it).
 
 **For S2b (TikTok), noted now** (inputs to S2b's design, §7.3; not decided):
 
