@@ -42,12 +42,18 @@ import java.util.Locale
  * row that has one in the later run is BREAKING. The rungs' states are not compared (a cooling
  * host moves them from run to run). An export without these fields (an older one) reads as
  * before.
+ *
+ * Task 8 (S3, the weekly check W; `compare(..., weekly = true)`): the same rules, but one line per
+ * change (a slot's main, judge, V, item or length, Master's part, kind or session; a site's
+ * stop), each naming its W runbook step ([Line.step], [SiteWeekly.Step]: `→ W runbook step N
+ * (…)`, §7.5). The census's lines (W off) are as before, byte for byte.
  */
 internal object SiteCensusDiff {
     enum class Level { CHANGED, BREAKING }
 
-    data class Line(val level: Level, val text: String) {
-        fun render(): String = "${level.name} $text"
+    /** Task 8: [step], W's runbook step for the line (W's lines only; the census's have none). */
+    data class Line(val level: Level, val text: String, val step: SiteWeekly.Step? = null) {
+        fun render(): String = "${level.name} $text" + (step?.let { " → ${it.label}" } ?: "")
     }
 
     /** [lines]: the changes the headline counts; [notes]: what was not compared and why. */
@@ -108,8 +114,15 @@ internal object SiteCensusDiff {
      * 0.4 (c): the census's own diff: [after] (the run's export) site by site against [baselines]
      * (site ID → its baseline for the run's VPN and the site's session; a site without one is not
      * compared, the caller's [notes] say why). [firstRun]: the state holds no baseline at all.
+     * Task 8: [weekly], W's diff (a line per change, each with its runbook step).
      */
-    fun compare(after: JsonValue?, baselines: Map<String, Baseline>, notes: List<String>, firstRun: Boolean): Result {
+    fun compare(
+        after: JsonValue?,
+        baselines: Map<String, Baseline>,
+        notes: List<String>,
+        firstRun: Boolean,
+        weekly: Boolean = false,
+    ): Result {
         if (after == null || !isExport(after)) return notCompared(LATER)
         val trials = incomplete(after)
         val lines = ArrayList<Line>()
@@ -124,7 +137,7 @@ internal object SiteCensusDiff {
             val baseline = baselines[id] ?: continue
             val prior = viewOf(baseline.site, SiteCensusState.FORMAT.toLong())?.second ?: continue
             dates[site.name] = baseline.date ?: "?"
-            compared += compareSite(prior, site, lines, siteNotes, baseline.newLinks)
+            compared += compareSite(prior, site, lines, siteNotes, baseline.newLinks, weekly)
         }
         siteNotes += notes
         if (dates.isEmpty()) {
@@ -151,6 +164,7 @@ internal object SiteCensusDiff {
         lines: MutableList<Line>,
         notes: MutableList<String>,
         newLinks: Set<Int> = emptySet(),
+        weekly: Boolean = false,
     ): Int {
         val name = after.name
         if (before.skipped != null || after.skipped != null) {
@@ -159,11 +173,12 @@ internal object SiteCensusDiff {
             return 0
         }
         if (before.stop != after.stop) {
+            val step = SiteWeekly.Step.SITE_STOP.takeIf { weekly }
             when {
-                after.stop == null -> lines += Line(Level.CHANGED, "$name: no stop (the earlier run stopped: ${before.stop})")
+                after.stop == null -> lines += Line(Level.CHANGED, "$name: no stop (the earlier run stopped: ${before.stop})", step)
                 after.stop in SITE_STOPS && before.stop !in SITE_STOPS ->
-                    lines += Line(Level.BREAKING, "$name: stopped (${after.stop})" + (before.stop?.let { "; the earlier run: $it" } ?: ""))
-                else -> lines += Line(Level.CHANGED, "$name: stopped (${after.stop})" + (before.stop?.let { "; the earlier run: $it" } ?: ""))
+                    lines += Line(Level.BREAKING, "$name: stopped (${after.stop})" + (before.stop?.let { "; the earlier run: $it" } ?: ""), step)
+                else -> lines += Line(Level.CHANGED, "$name: stopped (${after.stop})" + (before.stop?.let { "; the earlier run: $it" } ?: ""), step)
             }
         }
         // 0.4 (c): the Master phase's stop alone is a note; an export without it (format 1) is not compared.
@@ -192,7 +207,7 @@ internal object SiteCensusDiff {
                 }
                 else -> {
                     compared++
-                    compareRow(label, prior, row, notes, masters)?.let(lines::add)
+                    lines += compareRow(label, prior, row, notes, masters, weekly)
                 }
             }
         }
@@ -202,33 +217,53 @@ internal object SiteCensusDiff {
         return compared
     }
 
-    /** One line for a slot both runs looked up, or null when nothing compared changed. */
-    private fun compareRow(label: String, before: RowView, after: RowView, notes: MutableList<String>, masters: Boolean = true): Line? {
-        val changes = ArrayList<String>()
-        var breaking = false
+    /**
+     * The line for a slot both runs looked up (none when nothing compared changed); task 8: in W
+     * ([weekly]), a line per change, each with its runbook step.
+     */
+    private fun compareRow(
+        label: String,
+        before: RowView,
+        after: RowView,
+        notes: MutableList<String>,
+        masters: Boolean = true,
+        weekly: Boolean = false,
+    ): List<Line> {
+        val changes = ArrayList<Change>()
         if (before.kind != null && after.kind != null && before.kind != after.kind) {
-            changes += "kind ${before.kind} → ${after.kind}"
+            changes += Change("kind ${before.kind} → ${after.kind}", SiteWeekly.Step.CONDITIONS)
         }
-        if (before.session != after.session) changes += "session ${yesNo(before.session)} → ${yesNo(after.session)}"
+        if (before.session != after.session) {
+            changes += Change("session ${yesNo(before.session)} → ${yesNo(after.session)}", SiteWeekly.Step.CONDITIONS)
+        }
         val mainBefore = before.mainText()
         val mainAfter = after.mainText()
         if (mainBefore != mainAfter) {
-            changes += "main $mainBefore → $mainAfter"
-            if (before.mainAnswer == ROWS && after.mainAnswer != ROWS) breaking = true
+            changes += Change(
+                "main $mainBefore → $mainAfter",
+                SiteWeekly.Step.MAIN,
+                breaking = before.mainAnswer == ROWS && after.mainAnswer != ROWS,
+            )
         }
         if (before.judge() != after.judge()) {
-            changes += "${before.judge()} → ${after.judge()}"
-            if (before.expected == true && after.expected == false) breaking = true
+            changes += Change(
+                "${before.judge()} → ${after.judge()}",
+                SiteWeekly.Step.VERDICT,
+                breaking = before.expected == true && after.expected == false,
+            )
         }
         if (before.v != after.v) {
-            changes += "V ${before.v ?: "not run"} → ${after.v ?: "not run"}"
-            if (before.v == PASS && after.v == FAIL) breaking = true
+            changes += Change(
+                "V ${before.v ?: "not run"} → ${after.v ?: "not run"}",
+                SiteWeekly.Step.FILE_CHECK,
+                breaking = before.v == PASS && after.v == FAIL,
+            )
         }
         if (before.item != null && after.item != null && before.item != after.item) {
-            changes += "item ${before.item} → ${after.item}"
+            changes += Change("item ${before.item} → ${after.item}", SiteWeekly.Step.POST)
         }
         if (before.bestS != null && after.bestS != null && before.bestS != after.bestS) {
-            changes += "best ${seconds(before.bestS)} → ${seconds(after.bestS)}"
+            changes += Change("best ${seconds(before.bestS)} → ${seconds(after.bestS)}", SiteWeekly.Step.POST)
         }
         // 0.4 (c): a Master part the Master phase's stop kept from running (or its cooldown),
         // or whose own ask, check or V met it, is not compared; route B's lost recovery too.
@@ -242,15 +277,23 @@ internal object SiteCensusDiff {
             val masterBefore = before.masterText()
             val masterAfter = after.masterText()
             if (masterBefore != masterAfter) {
-                changes += "Master $masterBefore → $masterAfter"
-                if (before.recovered && !after.recovered) breaking = true
                 // Task 6b: the ladder's rows proven another post's, where it had none.
-                if (before.wrong == 0L && after.wrong > 0) breaking = true
+                val wrong = before.wrong == 0L && after.wrong > 0
+                changes += Change(
+                    "Master $masterBefore → $masterAfter",
+                    if (wrong) SiteWeekly.Step.WRONG_ROWS else SiteWeekly.Step.MASTER,
+                    breaking = (before.recovered && !after.recovered) || wrong,
+                )
             }
         }
-        if (changes.isEmpty()) return null
-        return Line(if (breaking) Level.BREAKING else Level.CHANGED, "$label: ${changes.joinToString("; ")}")
+        if (changes.isEmpty()) return emptyList()
+        if (weekly) return changes.map { Line(if (it.breaking) Level.BREAKING else Level.CHANGED, "$label: ${it.text}", it.step) }
+        val level = if (changes.any(Change::breaking)) Level.BREAKING else Level.CHANGED
+        return listOf(Line(level, "$label: ${changes.joinToString("; ") { it.text }}"))
     }
+
+    /** Task 8: one change of a slot, its W runbook step and whether it is a worsening. */
+    private class Change(val text: String, val step: SiteWeekly.Step, val breaking: Boolean = false)
 
     /** An export's text, parsed (bounded); null when it is not JSON. */
     fun parse(text: String): JsonValue? = BoundedJsonParser.parse(text, maxDepth = 32, maxNodes = MAX_NODES)

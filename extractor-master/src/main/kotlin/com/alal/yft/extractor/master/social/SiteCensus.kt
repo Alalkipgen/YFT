@@ -20,6 +20,7 @@ import com.alal.yft.extractor.master.lookup.AnswerMark
 import com.alal.yft.extractor.master.lookup.LookupRecord
 import com.alal.yft.extractor.master.lookup.RouteBHttpClient
 import com.alal.yft.extractor.master.lookup.RouteBLookup
+import com.alal.yft.extractor.master.modules.youtube.ladder.ClientCensus
 import com.alal.yft.extractor.master.policy.TerminalRules
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicInteger
@@ -175,6 +176,15 @@ interface MainLookup {
  * the duration, the rows proven another post's and those proven neither way; [LadderPart]). Main's
  * parts, the phases, the stops and the budgets are unchanged; without a pack (every other build)
  * the census is exactly as before, its export and report byte for byte.
+ *
+ * **Task 8, the weekly check W** (S3, §7.5; [run] with [ClientCensus.Mode.WEEKLY], the screen's W
+ * button in a social-ladder build): the same steps on [SiteWeekly.SLOTS] only (three per site, by case kind), Master's part
+ * on [SiteWeekly.MASTER_SLOT] only, per site [weeklyCaps] (at most 60 s, 2 MB and
+ * [SiteWeekly.MAX_REQUESTS] requests, each checked before every step; the time left also bounds
+ * each step), W's own baselines in the state and the diff's lines one per change, each with its
+ * runbook step ([SiteWeekly.Step]). A cap reached stops the site's rest with no cooldown; the
+ * census's stops and cooldowns are W's ("not run", never waited out). [ClientCensus.Mode.FULL]
+ * (the default) is the census as before, its report, export and state byte for byte.
  */
 class SiteCensus(
     private val main: MainLookup,
@@ -184,6 +194,7 @@ class SiteCensus(
     private val clock: () -> Long = System::currentTimeMillis,
     private val rowCheck: SiteRowCheck = SiteRowCheck(masterHttp),
     private val pack: Pack? = null,
+    private val weeklyCaps: SiteWeekly.Caps = SiteWeekly.Caps(),
 ) {
     /** Wire bytes the census's clients moved so far; negative when nothing measures them. */
     fun interface Meter {
@@ -229,7 +240,8 @@ class SiteCensus(
      * [stateJson] (the screen's state file, or null). [context] lines (the network type) go into
      * the notes; 0.4 (c): [vpn], whether Android's network is a VPN (the screen reads it), keys each
      * site's baseline with the site's session; [onStep] gets short progress labels (site, slot,
-     * step; never a link).
+     * step; never a link). Task 8: [mode] [ClientCensus.Mode.WEEKLY] runs the weekly check W
+     * ([SiteWeekly]); [ClientCensus.Mode.A_CHECK] is YouTube's only.
      */
     suspend fun run(
         sites: List<Site>,
@@ -237,8 +249,11 @@ class SiteCensus(
         stateJson: String?,
         context: List<String> = emptyList(),
         vpn: Boolean = false,
+        mode: ClientCensus.Mode = ClientCensus.Mode.FULL,
         onStep: (String) -> Unit = {},
     ): Outcome {
+        require(mode != ClientCensus.Mode.A_CHECK) { "the A check is YouTube's only" }
+        val weekly = mode == ClientCensus.Mode.WEEKLY
         val startedAt = clock()
         val state = SiteCensusState.read(stateJson)
         val stops = state.stops.filterValues { it.untilMillis > startedAt }.toMutableMap()
@@ -251,7 +266,7 @@ class SiteCensus(
             } else {
                 // 0.4 (c): a Master-phase stop's cooldown skips only the site's Master parts.
                 val masterCooldown = masterStops[site.id]?.let { "cooldown ${minutesLeft(it, startedAt)} min (${it.why})" }
-                runSite(site, links[site.id].orEmpty(), masterCooldown, secrets, onStep).also { result ->
+                runSite(site, links[site.id].orEmpty(), masterCooldown, secrets, onStep, weekly).also { result ->
                     if (result.cooldownFrom != null && result.stop != null) {
                         stops[site.id] = SiteCensusState.Stop(result.cooldownFrom + COOLDOWN_MILLIS, result.stop)
                     }
@@ -267,14 +282,17 @@ class SiteCensus(
             notes = context.mapNotNull { CensusText.note(it) },
             sites = results,
             vpn = vpn,
+            weekly = weekly,
         )
         val json = CensusText.clean(SiteCensusJson.run(run), secrets)
         val export = SiteCensusDiff.parse(json)
         val exported = export["sites"].asArrayOrEmpty.associateBy { it["site"].asStringOrNull }
         // 0.4 (c): each site against its own baseline (the run's VPN, the site's session); the
         // last run whose (i) completed, pass or fail, becomes it. A slot whose link's fingerprint
-        // changed reads "new link" and starts again in the new baseline.
-        val baselines = state.baselines.toMutableMap()
+        // changed reads "new link" and starts again in the new baseline. Task 8: W keeps its own
+        // baselines (its slots and caps), apart from the full census's.
+        val kept = if (weekly) state.weekly else state.baselines
+        val baselines = kept.toMutableMap()
         val compared = LinkedHashMap<String, SiteCensusDiff.Baseline>()
         val notes = ArrayList<String>()
         for (result in results) {
@@ -282,9 +300,10 @@ class SiteCensus(
             val key = SiteCensusState.Key(result.site.id, vpn, result.session)
             val prints = links[result.site.id].orEmpty()
                 .filter { (slot, link) -> slot in 1..result.site.slots.size && link.isNotBlank() }
+                .let { if (weekly) SiteWeekly.linksOf(result.site, it) else it }
                 .mapValues { (_, link) -> fingerprintOf(link) }
             val completed = result.stop == null
-            val baseline = state.baselines[key]
+            val baseline = kept[key]
             if (baseline == null) {
                 notes += "${result.site.name}: no baseline yet (${key.label})" + if (completed) "; this run starts it" else ""
             } else {
@@ -298,14 +317,23 @@ class SiteCensus(
                 baselines[key] = SiteCensusState.Baseline(startedAt, SiteCensusJson.dateOf(startedAt), prints, site)
             }
         }
-        val diff = SiteCensusDiff.compare(export, compared, notes, firstRun = state.baselines.isEmpty())
+        val diff = SiteCensusDiff.compare(export, compared, notes, firstRun = kept.isEmpty(), weekly = weekly)
         val stopped = results.filter { it.stop != null }.joinToString("; ") { "${it.site.name}: ${it.stop}" }
+        val firstLine = if (weekly) SiteWeekly.headline(run, diff) else SiteCensusReport.headline(run)
+        val report = (if (weekly) SiteWeekly.header(run, weeklyCaps) else "") + SiteCensusReport.text(run, diff)
         return Outcome(
-            firstLine = CensusText.clean(SiteCensusReport.headline(run), secrets),
-            report = CensusText.clean(SiteCensusReport.text(run, diff), secrets),
+            firstLine = CensusText.clean(firstLine, secrets),
+            report = CensusText.clean(report, secrets),
             json = json,
             stateJson = SiteCensusState.write(
-                SiteCensusState(stops, startedAt, json, masterStops = masterStops, baselines = baselines),
+                SiteCensusState(
+                    stops,
+                    startedAt,
+                    json,
+                    masterStops = masterStops,
+                    baselines = if (weekly) state.baselines else baselines,
+                    weekly = if (weekly) baselines else state.weekly,
+                ),
             ),
             stopped = stopped.ifEmpty { null },
         )
@@ -317,14 +345,18 @@ class SiteCensus(
         masterCooldown: String?,
         secrets: MutableSet<String>,
         onStep: (String) -> Unit,
+        weekly: Boolean = false,
     ): CensusSiteResult {
         val startedAt = clock()
-        val notes = links.keys.filter { it !in 1..site.slots.size }.sorted()
+        val outside = links.keys.filter { it !in 1..site.slots.size }.sorted()
             .map { "slot $it: outside the site's list, skipped" }
-        val chosen = links.filter { (slot, link) -> slot in 1..site.slots.size && link.isNotBlank() }.toSortedMap()
-        chosen.values.forEach { secrets += CensusText.secretsOf(it, null) }
-        if (chosen.isEmpty()) return CensusSiteResult(site, skipped = "no links", notes = notes)
-        val phases = Phases(site, Budget(meter), masterCooldown, secrets, onStep)
+        val listed = links.filter { (slot, link) -> slot in 1..site.slots.size && link.isNotBlank() }.toSortedMap()
+        listed.values.forEach { secrets += CensusText.secretsOf(it, null) }
+        // Task 8: W runs its slots only (a W slot the owner left empty: a note).
+        val chosen = if (weekly) SiteWeekly.linksOf(site, listed).toSortedMap() else listed
+        val notes = if (weekly) outside + SiteWeekly.missing(site, listed) else outside
+        if (chosen.isEmpty()) return CensusSiteResult(site, skipped = if (weekly) SiteWeekly.NO_LINKS else "no links", notes = notes)
+        val phases = Phases(site, Budget(meter, clock, weeklyCaps.takeIf { weekly }), masterCooldown, secrets, onStep, weekly)
         // (i): every slot's main and V on main's best row, in slot order; a stop here stops the site.
         val rows = ArrayList<Row>()
         for ((slot, link) in chosen) {
@@ -396,6 +428,7 @@ class SiteCensus(
      * 0.4 (c): one site's run across its phases: the budget, the stop in (i) ([stop]: the site
      * stops) and the stop in (ii) or (iii) ([masterStop]: only the remaining Master parts are
      * skipped), and an earlier Master-phase stop's [cooldown] (the site's Master parts skipped).
+     * Task 8: [weekly], a W run (Master's part on [SiteWeekly.MASTER_SLOT] only).
      */
     private class Phases(
         val site: Site,
@@ -403,6 +436,7 @@ class SiteCensus(
         private val cooldown: String?,
         val secrets: MutableSet<String>,
         val onStep: (String) -> Unit,
+        val weekly: Boolean = false,
     ) {
         var stop: String? = null
             private set
@@ -417,18 +451,18 @@ class SiteCensus(
         var cooled = false
             private set
 
-        /** (i)'s stop at [now], the first one only; the budget's has no cooldown. */
+        /** (i)'s stop at [now], the first one only; the budget's (task 8: and W's caps') has no cooldown. */
         fun stopSite(why: String?, now: Long) {
             if (why == null || stop != null) return
             stop = why
-            if (why != Budget.STOP) cooldownFrom = now
+            if (why !in Budget.STOPS) cooldownFrom = now
         }
 
-        /** (ii)'s or (iii)'s stop at [now], the first one only; the budget's has no cooldown. */
+        /** (ii)'s or (iii)'s stop at [now], the first one only; the budget's (task 8: and W's caps') has no cooldown. */
         fun stopMaster(why: String?, now: Long) {
             if (why == null || masterStop != null) return
             masterStop = why
-            if (why != Budget.STOP) masterCooldownFrom = now
+            if (why !in Budget.STOPS) masterCooldownFrom = now
         }
 
         /** Why a Master part cannot run now ([why]) and the stop it is not compared by ([word]), or null. */
@@ -515,8 +549,10 @@ class SiteCensus(
             val pages = ladder?.let { MainPages(site = site.id) }
             this.pages = pages
             val started = clock()
+            // Task 8: W's time left bounds main's lookup too (shorter than main's own limit).
+            val limit = phases.budget.limit(ROW_MILLIS)
             val answer = withContext(if (pages != null) record + pages else record) {
-                guarded { withTimeoutOrNull(ROW_MILLIS) { Looked.Answer(main.lookup(link, identity)) } ?: Looked.TimeLimit }
+                guarded { withTimeoutOrNull(limit) { Looked.Answer(main.lookup(link, identity)) } ?: Looked.TimeLimit }
                     ?: Looked.Error
             }
             rowClock?.pause()
@@ -529,6 +565,13 @@ class SiteCensus(
             this.mainPart = mainPart
             phases.budget.add(record.mainAsks)
             phases.stopSite(stopOf(record, mainPart.reason, mainPart.hiddenPage, botChecksBefore = 0), clock())
+            if (answer == Looked.TimeLimit && limit < ROW_MILLIS) {
+                // Task 8: W's time cut main's lookup: the slot is not run (never a pass), the site's rest neither.
+                phases.budget.cut()
+                phases.stopSite(SiteWeekly.TIME, clock())
+                skipped = SiteWeekly.TIME
+                return
+            }
 
             val rows = ((answer as? Looked.Answer)?.answer as? MainAnswer.Found)?.rows.orEmpty()
             val (v, vSkipped) = checkBest(rows, master = false)
@@ -539,7 +582,8 @@ class SiteCensus(
         /** After (i): how Master's way runs; a row whose Master part will not run drops its kept answers. */
         fun planMaster() {
             val identity = identity ?: return
-            val plan = planOf(identity, answer)
+            // Task 8: W's Master part runs on its slot 1 only (each way once); its other slots: main only.
+            val plan = if (phases.weekly && slot != SiteWeekly.MASTER_SLOT) Plan.notRun(SiteWeekly.MAIN_ONLY) else planOf(identity, answer)
             this.plan = plan
             if (plan.notRun != null) {
                 record?.clear()
@@ -597,9 +641,14 @@ class SiteCensus(
             }
             step("V")
             val started = clock()
-            val checked = guarded { rowCheck.check(site, best, clock()) }
-                ?: SiteRowCheck.Checked(SiteRowCheck.Verdict.UNKNOWN, "error")
+            val within = guarded { phases.budget.within { rowCheck.check(site, best, clock()) } }
             millis += (clock() - started).coerceAtLeast(0)
+            if (within == null && phases.budget.timeUp()) {
+                // Task 8: W's time cut V: not run (never a pass); the phase's rest stops.
+                if (master) phases.stopMaster(SiteWeekly.TIME, clock()) else phases.stopSite(SiteWeekly.TIME, clock())
+                return null to SiteWeekly.TIME
+            }
+            val checked = within ?: SiteRowCheck.Checked(SiteRowCheck.Verdict.UNKNOWN, "error")
             phases.budget.add(checked.requests)
             if (checked.rateLimited) {
                 if (master) phases.stopMaster(STOP_429, clock()) else phases.stopSite(STOP_429, clock())
@@ -639,18 +688,21 @@ class SiteCensus(
             val context: CoroutineContext = if (ladder != null) route + record + (pages ?: MainPages(site = site.id)) else route
             rowClock?.resume()
             val started = clock()
-            val result = withContext(context) { guarded { engine.extract(request) } }
+            val result = withContext(context) { guarded { phases.budget.within { engine.extract(request) } } }
             val masterMillis = (clock() - started).coerceAtLeast(0)
             millis += masterMillis
             phases.budget.add(record.masterAsks + checks.calls)
             phases.stopMaster(stopOf(record, null, null, botChecks) ?: STOP_429.takeIf { checks.rateLimited }, clock())
+            // Task 8: W's time cut Master's part: not finished (never a pass); Master's rest stops.
+            val cut = result == null && phases.budget.timeUp()
+            if (cut) phases.stopMaster(SiteWeekly.TIME, clock())
             val rows = (result as? MasterResult.Success)?.result?.candidates.orEmpty()
             val (v, vSkipped) = checkBest(rows, master = true)
             val ladderPart = ladder?.let { pack -> ladderPart(pack, identity, result, rows) }
             return MasterPart(
                 run = plan.run,
                 why = plan.failure?.takeIf { plan.run == MasterRun.ROUTE_B }?.name,
-                answer = answerOf(result),
+                answer = if (cut) "time limit" else answerOf(result),
                 reason = when (result) {
                     is MasterResult.Failure -> result.reason
                     is MasterResult.Skipped -> result.reason
@@ -783,11 +835,19 @@ class SiteCensus(
         }
     }
 
-    /** A site's spend so far: requests counted by the census, bytes by [meter] (when it measures). */
-    private class Budget(private val meter: Meter) {
+    /**
+     * A site's spend so far: requests counted by the census, bytes by [meter] (when it measures).
+     * Task 8: in W, [caps] instead of the census's (and the time, from the site's start by [clock]).
+     */
+    private class Budget(private val meter: Meter, private val clock: () -> Long, private val caps: SiteWeekly.Caps? = null) {
         private val start = meter.bytes()
+        /** Task 8: W's start (the census reads no clock here). */
+        private val startedAt = if (caps != null) clock() else 0L
         var requests = 0
             private set
+
+        /** Task 8: W's time cut a step. */
+        private var cut = false
 
         fun add(count: Int) {
             requests += count
@@ -796,11 +856,44 @@ class SiteCensus(
         /** Bytes since the site's start, or -1 when not measured. */
         fun bytes(): Long = if (start < 0) -1 else (meter.bytes() - start).coerceAtLeast(0)
 
-        /** [STOP] when a cap is reached, else null. */
-        fun over(): String? = STOP.takeIf { requests >= MAX_REQUESTS || bytes() >= MAX_BYTES }
+        /** Task 8: W's time left for the site; the census has no such cap. */
+        private fun millisLeft(): Long = caps?.let { (it.millis - (clock() - startedAt)).coerceAtLeast(0) } ?: Long.MAX_VALUE
+
+        /** Task 8: [max], or W's time left when that is shorter. */
+        fun limit(max: Long): Long = minOf(max, millisLeft())
+
+        /** Task 8: whether W's time is spent (or cut a step); never in the census. */
+        fun timeUp(): Boolean = caps != null && (cut || millisLeft() == 0L)
+
+        /** Task 8: W's time cut a step. */
+        fun cut() {
+            if (caps != null) cut = true
+        }
+
+        /** Task 8: [block] within W's time left (null: the time cut it); in the census, [block] as it is. */
+        suspend fun <T : Any> within(block: suspend () -> T): T? {
+            if (caps == null) return block()
+            val value = withTimeoutOrNull(millisLeft()) { block() }
+            if (value == null) cut = true
+            return value
+        }
+
+        /** [STOP] when a cap is reached, else null; task 8: in W, the cap's own word. */
+        fun over(): String? {
+            val caps = caps ?: return STOP.takeIf { requests >= MAX_REQUESTS || bytes() >= MAX_BYTES }
+            return when {
+                requests >= caps.requests -> SiteWeekly.REQUESTS
+                bytes() >= caps.bytes -> SiteWeekly.BYTES
+                timeUp() -> SiteWeekly.TIME
+                else -> null
+            }
+        }
 
         companion object {
             const val STOP = "budget"
+
+            /** The caps' stops (the census's budget, W's caps): none cools the site. */
+            val STOPS = setOf(STOP, SiteWeekly.REQUESTS, SiteWeekly.BYTES, SiteWeekly.TIME)
         }
     }
 

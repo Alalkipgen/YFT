@@ -41,10 +41,12 @@ import com.alal.yft.detection.tiktok.TikTokPageSettings
 import com.alal.yft.extractor.api.SiteAdapterSelection
 import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.extractor.master.lookup.LookupRecorder
+import com.alal.yft.extractor.master.modules.youtube.ladder.ClientCensus
 import com.alal.yft.extractor.master.social.OkHttpRowReader
 import com.alal.yft.extractor.master.social.Site
 import com.alal.yft.extractor.master.social.SiteCensus
 import com.alal.yft.extractor.master.social.SiteWays
+import com.alal.yft.extractor.master.social.SiteWeekly
 import com.alal.yft.extractor.master.verify.OkHttpMediaValidator
 import java.io.File
 import java.util.concurrent.atomic.AtomicLong
@@ -84,6 +86,13 @@ import okhttp3.Response
  * Social plan task 6b: in a social-ladder build each ladder site's backup part is that site's
  * ladder as the browser runs it ([census]'s pack: the rungs, each row checked against main's), and
  * the screen says so ([LADDER_NOTE]); every other build: the screen and the census as before.
+ *
+ * Social plan task 8 (S3, §7.5): in a social-ladder build only (behind the flag), "Weekly check W
+ * (all sites)" runs the census's weekly check W ([SiteWeekly]: three slots per site, the backup's
+ * part (the site's ladder) on slot 1 only, each way once, at most 60 s, 2 MB and 24 requests per
+ * site, W's own baselines, each CHANGED or BREAKING line with its runbook step) and the intro says
+ * so ([WEEKLY_NOTE]); the Run buttons run the full census as before; every other build: no W, the
+ * screen as before.
  */
 class SiteCensusActivity : ComponentActivity() {
     private var running = false
@@ -100,12 +109,14 @@ class SiteCensusActivity : ComponentActivity() {
         fun add(view: View) = column.addView(view, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
 
         add(TextView(this).apply {
-            text = if (SocialLadder.enabled) INTRO.replace(LINKS_LINE, LADDER_NOTE + LINKS_LINE) else INTRO
+            text = if (SocialLadder.enabled) INTRO.replace(LINKS_LINE, LADDER_NOTE + WEEKLY_NOTE + LINKS_LINE) else INTRO
             textSize = 15f
         })
         val status = TextView(this).apply { textSize = 15f }
         this.status = status
         val all = Button(this).apply { text = "Run all sites" }
+        // Task 8: W's button, a social-ladder build only (behind the flag; every other build as before).
+        val weeklyButton = if (SocialLadder.enabled) Button(this).apply { text = "Weekly check W (all sites)" } else null
         val perSite = SiteWays.ALL.associateWith { site -> Button(this).apply { text = "Run ${site.name}" } }
         val result = TextView(this).apply {
             setTextIsSelectable(true)
@@ -122,6 +133,7 @@ class SiteCensusActivity : ComponentActivity() {
         }
         listOf(status, all).forEach(::add)
         perSite.values.forEach(::add)
+        weeklyButton?.let(::add)
         // S2d part 1: the probe's own switch under the Run buttons, off by default (a social-ladder
         // build only); it stays as set until the owner turns it off.
         if (SocialLadder.enabled) {
@@ -158,14 +170,14 @@ class SiteCensusActivity : ComponentActivity() {
 
         val stateFile = File(filesDir, STATE_PATH)
         status.text = SiteCensus.statusOf(readState(stateFile), System.currentTimeMillis())
-        val runButtons = listOf(all) + perSite.values
+        val runButtons = listOf(all) + perSite.values + listOfNotNull(weeklyButton)
         if (!(BuildConfig.MASTER_CAPTURE_ENABLED && BuildConfig.OWN_SOLVER_ENABLED)) {
             status.text = "Turned off in this build (needs yft.masterCapture and yft.ownSolver)."
             runButtons.forEach { it.isEnabled = false }
             return
         }
 
-        fun start(sites: List<Site>) {
+        fun start(sites: List<Site>, mode: ClientCensus.Mode = ClientCensus.Mode.FULL) {
             if (running) return
             val links = LinkedHashMap<String, Map<Int, String>>()
             for (site in sites) {
@@ -206,7 +218,7 @@ class SiteCensusActivity : ComponentActivity() {
                     val network = networkNote()
                     val vpn = onVpn()
                     val outcome = withContext(Dispatchers.Default) {
-                        census.run(sites, links, readState(stateFile), listOf(network), vpn = vpn) { step ->
+                        census.run(sites, links, readState(stateFile), listOf(network), vpn = vpn, mode = mode) { step ->
                             runOnUiThread { status.text = step }
                         }
                     }
@@ -229,6 +241,7 @@ class SiteCensusActivity : ComponentActivity() {
             }
         }
         all.setOnClickListener { start(SiteWays.ALL) }
+        weeklyButton?.setOnClickListener { start(SiteWays.ALL, ClientCensus.Mode.WEEKLY) }
         perSite.forEach { (site, button) -> button.setOnClickListener { start(listOf(site)) } }
         copy.setOnClickListener { copyText(result.text) }
         copyJson.setOnClickListener { copyText(exported) }
@@ -364,6 +377,14 @@ class SiteCensusActivity : ComponentActivity() {
         val NO_RETRY = OkHttpExtractorClient.Policy(callTimeoutSeconds = 60, retryDelaysMillis = emptyList())
 
         const val LINKS_LINE = "Links per site (empty slots are skipped):"
+
+        /** Task 8: the weekly check W's lines, a social-ladder build only (after [LADDER_NOTE]). */
+        val WEEKLY_NOTE: String = "Weekly check W: slots " +
+            SiteWeekly.SLOTS.entries.joinToString(" · ") { (id, slots) -> "${SiteWays.site(id)?.name ?: id} ${slots.joinToString(", ")}" } +
+            ", the backup's part on slot ${SiteWeekly.MASTER_SLOT} only, each way once, at most ${SiteWeekly.MAX_MILLIS / 1000} s, " +
+            "${SiteWeekly.MAX_BYTES / (1024 * 1024)} MB and ${SiteWeekly.MAX_REQUESTS} requests per site; compared with W's own " +
+            "last run on the same VPN state and session (never the full census's), each change with its runbook step. A " +
+            "stopped or cooling site is not run (never waited out).\n\n"
 
         /** Task 6b: the intro's added lines in a social-ladder build only (before [LINKS_LINE]). */
         const val LADDER_NOTE = "This build runs the social ladder: for Facebook, TikTok, X and Instagram the backup's " +

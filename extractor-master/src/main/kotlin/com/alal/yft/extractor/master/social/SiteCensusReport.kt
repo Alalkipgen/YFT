@@ -192,13 +192,14 @@ internal class CensusSiteResult(
         }
 }
 
-/** S0b: one run of the census; 0.4 (c): [vpn], whether Android's network was a VPN. */
+/** S0b: one run of the census; 0.4 (c): [vpn], whether Android's network was a VPN; task 8: [weekly], a W run. */
 internal class CensusRunResult(
     val atMillis: Long,
     val millis: Long,
     val notes: List<String>,
     val sites: List<CensusSiteResult>,
     val vpn: Boolean = false,
+    val weekly: Boolean = false,
 )
 
 /**
@@ -259,6 +260,8 @@ internal object SiteCensusJson {
         field("date", dateOf(run.atMillis))
         field("ms", run.millis)
         field("vpn", run.vpn)
+        // Task 8: a W run's export says so (the census's has no such field, as before).
+        if (run.weekly) field("mode", "weekly")
         strings("notes", run.notes)
         list("sites", run.sites.map(::site))
     }
@@ -652,6 +655,8 @@ internal object SiteCensusReport {
  * only its Master parts wait) and its [baselines], one per site, VPN and session: the last run
  * whose (i) completed, pass or fail (its part of the export and each slot's link fingerprint,
  * local only). Format 1's cooldowns (and its last run's time) are read; its export is no baseline.
+ * Task 8: the weekly check W's own baselines ([weekly], keyed alike; written only once W ran, so a
+ * census-only state is as before).
  */
 internal class SiteCensusState(
     val stops: Map<String, Stop>,
@@ -659,6 +664,7 @@ internal class SiteCensusState(
     val lastJson: String? = null,
     val masterStops: Map<String, Stop> = emptyMap(),
     val baselines: Map<Key, Baseline> = emptyMap(),
+    val weekly: Map<Key, Baseline> = emptyMap(),
 ) {
     class Stop(val untilMillis: Long, val why: String)
 
@@ -687,7 +693,13 @@ internal class SiteCensusState(
             val stops = stopsOf(root["stops"])
             val lastAt = root["lastAt"].asLongOrNull ?: 0
             if (format == FORMAT_1) return SiteCensusState(stops, lastAt)
-            return SiteCensusState(stops, lastAt, masterStops = stopsOf(root["masterStops"]), baselines = baselinesOf(root["baselines"]))
+            return SiteCensusState(
+                stops,
+                lastAt,
+                masterStops = stopsOf(root["masterStops"]),
+                baselines = baselinesOf(root["baselines"]),
+                weekly = baselinesOf(root["weekly"]),
+            )
         }
 
         fun write(state: SiteCensusState): String = SiteCensusJson.obj {
@@ -695,21 +707,20 @@ internal class SiteCensusState(
             raw("stops", stopsText(state.stops))
             raw("masterStops", stopsText(state.masterStops))
             field("lastAt", state.lastAtMillis)
-            list(
-                "baselines",
-                state.baselines.map { (key, baseline) ->
-                    SiteCensusJson.obj {
-                        field("site", key.site)
-                        field("vpn", key.vpn)
-                        field("session", key.session)
-                        field("at", baseline.atMillis)
-                        field("date", baseline.date)
-                        raw("links", SiteCensusJson.obj { baseline.links.toSortedMap().forEach { (slot, print) -> field("$slot", print) } })
-                        raw("export", text(baseline.site))
-                    }
-                },
-            )
+            list("baselines", state.baselines.map { (key, baseline) -> entry(key, baseline) })
+            // Task 8: W's baselines, only once W ran (a census-only state as before).
+            if (state.weekly.isNotEmpty()) list("weekly", state.weekly.map { (key, baseline) -> entry(key, baseline) })
             state.lastJson?.let { raw("last", it) }
+        }
+
+        private fun entry(key: Key, baseline: Baseline): String = SiteCensusJson.obj {
+            field("site", key.site)
+            field("vpn", key.vpn)
+            field("session", key.session)
+            field("at", baseline.atMillis)
+            field("date", baseline.date)
+            raw("links", SiteCensusJson.obj { baseline.links.toSortedMap().forEach { (slot, print) -> field("$slot", print) } })
+            raw("export", text(baseline.site))
         }
 
         private fun stopsOf(value: JsonValue?): Map<String, Stop> =

@@ -22,8 +22,12 @@ the flag) built (2026-10-22; §7.3). Task 6b (the site census runs each site's l
 social-ladder build: the rungs, wrong and unknown rows; flag off unchanged) built (2026-10-22;
 §7.3, §7.4). Task 7 (Facebook's Master rows 2 against main's 3: main's audio row from the page's
 DASH manifest, listed in `docs/SUPPORT_MATRIX.md` as an intended difference; link 9's desktop form
-pinned with the trial; tests and docs only) done (2026-10-22; §7.3, §7.4). Next: task 8 (S3's
-weekly check W), then the owner's phone session (§7.4).**
+pinned with the trial; tests and docs only) done (2026-10-22; §7.3, §7.4). Task 8 (S3's weekly
+check W in the site census: three slots per site, each way at most once, per site at most 60 s,
+2 MB and 24 requests, W's own baselines, each CHANGED or BREAKING line with its runbook step; debug
+only, in a social-ladder build only; flag off and the full census unchanged) built (2026-10-22;
+§7.3, §7.5). Next: the owner's
+phone session (§7.4; W's first run last).**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -220,6 +224,18 @@ weekly check W), then the owner's phone session (§7.4).**
   "Master found none" + Details မှာ step ("the page changed during the lookup: the same address
   again")။ Option (မဆောက်ပါ): main ရဲ့ post page မှာ video တစ်ခုတည်းရှိရင် F2 က အဲဒီ video ရဲ့ rows ကို
   ချိတ်နိုင် (request အသစ် မလို)။ နောက်တစ်ဆင့်: task 8 (S3 ရဲ့ weekly check W)။
+- **Task 8 — S3 ရဲ့ weekly check W (2026-10-22၊ debug only၊ social-ladder build (flag on) မှာပဲ၊ flag off
+  နဲ့ full census မပြောင်း၊ §7.3၊ §7.5):** "YFT site census" မှာ **Weekly check W (all sites)** button
+  အသစ် (social-ladder build မှာပဲ; တခြား build ရဲ့ census screen အရင်အတိုင်း)။ Site တစ်ခုစီရဲ့ census slot
+  ၃ ခု (case kind အလိုက်၊ link မဟုတ်: Facebook 1, 8, 13; TikTok 1, 6, 9; Instagram 1, 8, 10; X 1, 6, 8)
+  ကိုပဲ census ရဲ့ steps အတိုင်း run ပါတယ်: way တစ်ခုကို အများဆုံး တစ်ခါ (main lookup slot တစ်ခုကို
+  တစ်ခါ၊ V best row ပေါ် တစ်ခါ၊ Master part က slot 1 မှာပဲ)။ Site တစ်ခုစီ အများဆုံး 60 s၊ 2 MB၊
+  requests 24 (step တိုင်း မစခင် စစ်ပြီး time က step တစ်ခုစီကိုလည်း ကန့်သတ်)၊ cap ရောက်ရင် ကျန်တာ
+  "not run" (cooldown မရှိ)။ 429 / bot check ဆိုရင် census ရဲ့ 30 min cooldown — "not run"၊ မစောင့်၊
+  pass မရေတွက်။ W ရဲ့ baseline က census ရဲ့နဲ့ သီးခြား; diff ရဲ့ CHANGED / BREAKING line တစ်ကြောင်းစီ
+  "→ W runbook step N (…)" နဲ့ (§7.5 ရဲ့ runbook: line kind ၈ မျိုး၊ ဘာစစ်ရမလဲ၊ S4 live ဖြစ်ရင် R9 နဲ့
+  data ပြင်မလား code ပြင်မလား)။ YouTube ရဲ့ W design ကို ပြန်သုံးပြီး YouTube file မပြောင်းပါ။ S4 မဆောက်ရသေး
+  (decision 5 ဖွင့်ထား)။ နောက်တစ်ဆင့်: ပိုင်ရှင်ရဲ့ phone session (§7.4; W ရဲ့ first run က C၊ နောက်ဆုံး)။
 
 ## 1. Audit — what exists today
 
@@ -546,7 +562,7 @@ With no adapter copies (B), the build is also about 4,700 lines smaller than the
 | **S2b** | M | TikTok's pack (§7.3) | phone proof; wrong rows 0; no regression against B0 — built (2026-10-21, behind the flag); its proof: the next phone session (§7.4) |
 | **S2c** | M | X's pack: main's answer replayed, no new ask (X2 not now; §7.3) | the same — built (2026-10-21, behind the flag); its proof: the next phone session (§7.4) |
 | **S2d** | M | Instagram's pack by the Instagram check's verdict (0.2); the owner's signed-in census first (§7.3) | the same — part 1 built (2026-10-22, behind the flag: I2 and the tab-fetch probe, off by default); its proof and the probe's result: the next phone session (§7.4); part 2 (the probe's rung) only after that result |
-| **S3** | S–M | Weekly check W for all four + runbook (each CHANGED / BREAKING line and its fix: a data change via R9, or code) | the owner's first W run |
+| **S3** | S–M | Weekly check W for all four + runbook (each CHANGED / BREAKING line and its fix: a data change via R9, or code) | the owner's first W run — built (2026-10-22, debug only, a social-ladder build: the census's "Weekly check W"; its runbook §7.5); its first run: the next phone session (§7.4, C) |
 | **S4** | S | R9 live: the owner signs and hosts the config (§8 item 5, decided before S4); kill switch per rung; one repair drill (a key changed by config on the phone, no APK) | drill passed |
 | **S5** | — | Promote per site after 3 phone runs on different days with 0 wrong rows and no regression against B0; then the release gate (§7.3): all four sites, the first W run and the R9 drill passed, the intended differences in `docs/SUPPORT_MATRIX.md` → PR #2 merged → P8 (beta.4) | the owner's go |
 | **S1b** | M | After the release, on the owner's go: the rest of the kit — several request rungs per site with `SiteHealth` (the last good rung first) and self-healed values (L6). Needed only if X2 is allowed or Instagram's `doc_id` needs self-healing: Facebook, TikTok and Instagram each have one request rung in S1a–S2d | JVM tests; phone proof per site |
@@ -922,6 +938,24 @@ the lookup: the same address again"); without the trial, main's rows of the post
 option, the owner's call (not built): when main's post page names exactly one video (S1a (7)'s
 one-video check), F2 binds that video's rows with no new ask (links 9 and 10's desktop forms would
 get Master rows). Next: task 8 (S3's weekly check W).
+**Task 8 built (2026-10-22, debug only; flag off and the full census unchanged; `PROGRESS.md`):**
+S3's weekly check W in the site census (§7.5, W's runbook). In a social-ladder build only (behind
+the flag; every other build's census screen as before), "YFT site census" → "Weekly check W (all
+sites)" runs the census's own steps (`SiteCensus.run` with `ClientCensus.Mode.WEEKLY`;
+`SiteWeekly`) on three slots per site by case kind (Facebook 1, 8, 13; TikTok 1, 6, 9; Instagram
+1, 8, 10; X 1, 6, 8), each way at most once (Master's part, the site's ladder, on slot 1 only, the others `W:
+main only`), per site at most 60 s, 2 MB and 24 requests (each checked before every step; the time
+left bounds each step too), a cap stopping the site's rest with no cooldown, and the census's
+stops and cooldowns ("not run", never waited out or passed). W keeps its own baselines (per site,
+VPN and session; never the census's) and its diff prints one line per change, each with its
+runbook step (`→ W runbook step N (…)`; eight steps: the site's stop, main's answer, the slot's
+verdict, V, the item or the length, Master's part, Master's wrong rows, the run's conditions; each
+with what to check and its fix: data via R9 once S4 is live, or code). YouTube's W's design reused
+(`ClientCensus`'s caps, `CensusDiff`'s lines with a runbook, `MASTER_KEY_PHASE1_2_PLAN.md` §6's
+numbered steps); no YouTube file changed. JVM tests (`SiteWeeklyTest`, made-up IDs): the slots and
+each way once, the three caps, a 429's cooldown read as not run, W's and the census's baselines
+apart, the lines and their steps, the runbook's entry for each step. Not S4 (R9 live); decision 5
+open. Next: the owner's phone session (§7.4; W's first run: C).
 Each site: a D7-style phone proof, wrong rows 0, no regression against B0.
 
 **S3 and S4** as in §7: W (≤ 1 min, ≤ 2 MB per site) with the diff and the runbook; R9 live (the
@@ -1293,7 +1327,8 @@ same day; no link or ID kept (S8).
   tab: `X3 not run (no tab)`).
 
 **The next phone session (the owner, after this run's last pushed task — S2d part 1, task 6a's
-one trial APK, task 0 (X's 404 never final), task 6b (the census's ladder) and task 7 are pushed;
+one trial APK, task 0 (X's 404 never final), task 6b (the census's ladder), task 7 and task 8 (W)
+are pushed;
 `yft-d7-social-trial` and `yft-d7-normal` of the last pushed `[d7]` commit, never an older run's
 APK (not `fb-trial`, not task 6a's); the run's report and `PROGRESS.md` name the commit and the
 artifacts):**
@@ -1332,8 +1367,22 @@ artifacts):**
     words, no request) and slot 1 (the post's rows only); X slot 6 (video 1's rows only) and slot 8
     (needs playback, main's reason after the tab's playback finds nothing, never "removed");
     Instagram slot 8 (photo: main's words) and slot 1 (the post's item).
-- **C — W's first run (S3), last:** task 8 (not built yet; its section will say the slots, the
-  caps, the expected lines and the runbook steps).
+- **C — W's first run (S3, task 8), last:** `yft-d7-social-trial` (the same APK as A and B),
+  "YFT site census" → **Weekly check W (all sites)**, the probe's box off; the links already in the
+  census's slots (W reads only its slots: Facebook 1 video, 8 share link, 13 removed; TikTok 1
+  single video, 6 photo post, 9 removed; Instagram 1 single video, 8 photo-only, 10 removed; X 1
+  video, 6 several videos, 8 removed). Runs, each after A's census on the same network: (1) signed
+  out, the VPN Boston (TikTok's B0 exit); (2) signed out, no VPN (TikTok's lines there are what W
+  reads on that network, not a failure); (3) Instagram signed in, no VPN (W's baselines are per
+  session). Caps per site: at most 60 s, 2 MB and 24 requests (the header's `ran, N requests, X
+  MB, S s` line per site). Expected: the first line `W (weekly check): FIRST RUN — nothing to
+  compare yet` (W's baselines start; the census's stay apart); each site `ran` within its caps;
+  Master's part on slot 1 only (in this APK the site's ladder: rows of the same video or item,
+  wrong rows 0), the other W slots `W: main only`; a site cooling after A's runs (a 429 or a bot
+  check) `not run (cooldown N min (…))` — never waited out, not a pass: W again after the cooldown.
+  A later W run (another day, the same network and session) is the first comparison: `NO CHANGE`,
+  or CHANGED / BREAKING lines each ending `→ W runbook step N (…)` (§7.5: what to check, the fix).
+  Copy report and Copy JSON (the export says `"mode":"weekly"`).
 
 **For S2b (TikTok), noted now** (inputs to S2b's design, §7.3; not decided):
 
@@ -1370,6 +1419,107 @@ phone T2 runs when T1 cools or the budget is spent) and T1 with YFT's browser co
 - A private reel's message to the user: today the `RESPONSE_CHANGED` wording ("the page could not
   be read … try again") misleads; only the message would change, not the reason; decided after
   S1a's phone proof, by what the user sees.
+
+### 7.5 W's runbook (task 8, S3)
+
+W's runbook (task 8, 2026-10-22): what each line of the weekly check W says, what to check and how
+to fix it. W is the census's own steps on a few slots: "YFT site census" → **Weekly check W (all
+sites)**, debug only, in a social-ladder build only (behind the flag: `yft-d7-social-trial`; every
+other build's census screen has no W, as before), on the owner's tap (`SiteWeekly`; `SiteCensus.run` with
+`ClientCensus.Mode.WEEKLY`; YouTube's W's design — `ClientCensus`'s caps, `CensusDiff`'s lines with
+a runbook, `MASTER_KEY_PHASE1_2_PLAN.md` §6's numbered steps — with no YouTube file changed).
+
+- **Slots** (case kinds, never links; the census's own slots, so nothing new to fill): Facebook 1
+  (video), 8 (share link), 13 (removed); TikTok 1 (single video), 6 (photo post), 9 (removed);
+  Instagram 1 (single video), 8 (photo-only), 10 (removed); X 1 (video), 6 (several videos), 8
+  (removed). An empty W slot: `W slot N (kind): no link, not run`; a site with none: `not run (no
+  link in W's slots)`.
+- **Each way at most once:** main's lookup once per W slot (no retry), V once on main's best row,
+  Master's part on slot 1 only (the site's ladder once, as the social-ladder build's census runs
+  it: each rung at most once, S7), V once on Master's best row; the other W slots `W:
+  main only`. Instagram's tab-fetch probe is never part of it.
+- **Caps per site:** at most 60 s, 2 MB (YouTube's W's) and 24 requests (sized from B0: Facebook,
+  the most asking site, about 5 per slot with V, so three slots and one Master part fit with room),
+  each checked before every step (main's lookup, V, Master's part); the time left also bounds each
+  step, so no site runs past 60 s (a step it cuts is not run: `time`). A step that starts under the
+  request and byte caps finishes, so a site can pass them by that one step's asks; the header
+  prints each site's spend (`ran, N requests, X MB, S s`). A cap reached stops the site's rest
+  (`stopped (requests | bytes | time): the rest not run`), with no cooldown.
+- **Stops and cooldowns:** the census's (a 429 or a bot check stops the site and cools it 30 min;
+  in Master's part, only Master's parts): a cooling site reads `not run (cooldown N min (why))` —
+  never waited out, never retried, never a pass. W's first line names each site not run or stopped.
+- **Baselines:** W's own (per site, VPN and session, keyed as the census keys them; the last W run
+  whose main phase completed), apart from the full census's: W never compares with a census run,
+  nor the census with W's. W's export says `"mode":"weekly"`; the full census's report, export and
+  state are as before (a state gets its `weekly` list only once W ran).
+- **Lines:** first `W (weekly check): FIRST RUN | NO CHANGE | CHANGED (n) | BREAKING (n) | NOT
+  COMPARED …` (then each site not run or stopped); then one line per change, each ending `→ W
+  runbook step N (…)`, the step below. A slot W did not look up is a note, never NO CHANGE.
+
+**The fix, two kinds.** *Data:* once S4 is live (R9's signed config, hosted by the owner; §8 item
+5, open), a recipe key or path, a site's media hosts or a rung's kill switch changes by config, with
+no APK. *Code:* a commit on the work branch (JVM tests, the census, W again, the phone). Until S4 is
+live, every fix below is code. Main's adapters are main's code: a main fix waits for the owner's
+go; meanwhile Master's ladder (behind the flag) is the backup.
+
+1. **W runbook step 1 (the site's stop)** — `BREAKING <Site>: stopped (429 | bot check | rate
+   limit)` where the baseline had none; `CHANGED <Site>: stopped (requests | bytes | time)` (a W
+   cap); `CHANGED <Site>: no stop (the earlier run stopped: …)`. Check: the header's spend line
+   against the baseline's, the network (the VPN exit), the time since the last run, and whether the
+   full census on the same network stops too. Fix: a 429 or a bot check is the site's limit, not a
+   fault: W skips the site for 30 min (not run); run W again after it, another day if it repeats;
+   never a bypass (guardrail S3) or a retry. On every run and network → the site tightened: code
+   (fewer asks: main's order, Master's budget). A W cap → the site asks or moves more than in the
+   baseline: compare the slots' `main:` lines (asks, repeats, variants) with the baseline's; a new
+   ask is step 2's; bigger pages → code (the cap in `SiteWeekly`, re-sized only on the owner's OK).
+2. **W runbook step 2 (main's answer)** — `<Site> slot N (kind): main <before> → <after>`; BREAKING
+   when main's rows are gone. Check: the slot's `main:` lines (each ask's way, status, reading and
+   shape fingerprint) against the baseline's; the full census and Home's own lookup of the same
+   post. Fix: a status on a public post (403, 404, 410) → open the post in a browser: removed or
+   private → a new link for the slot (the census screen; the next run reads `new link`); a new
+   reading or shape (the site moved its data) → main's adapter: code in `extractor-sites` with a
+   fixture, on the owner's go; meanwhile Master's part covers it (step 6), and with S4 live a
+   Master rung's key or path is data.
+3. **W runbook step 3 (the slot's verdict)** — `as expected → not as expected (why)` (BREAKING),
+   the reverse, or `ambiguous (no session)`. Check: main's line of the same slot (step 2), the
+   session (step 8), the slot's kind and its expectation (`SiteWays`). Fix: main's answer changed →
+   step 2; the post changed (deleted, private, region-limited) → a new link for the slot; the site
+   now answers the case another way (a removed post's reason) → code: the slot's expectation
+   (`SiteWays`), on the owner's OK.
+4. **W runbook step 4 (V)** — `V pass → fail` (BREAKING), `V … → not run`, `V … → unknown`. Check:
+   V's line (status, bytes); `not run` follows a stop or a cap (step 1) or main's rows gone (step
+   2); `fail` with 403 or 410 → the file wants the page's cookies or a fresh signature; `unknown` →
+   another host (or HLS). Fix: a new media host or path → data via R9 once S4 is live (the site's
+   media hosts), code before; a signed file address → code (the reading of the address); V never
+   sends cookies (guardrail S2).
+5. **W runbook step 5 (the item or the length)** — `item N of M → …`, `best X s → Y s`. Check: the
+   post (a re-upload, a changed carousel or several-video post), X's `/video/N`, Instagram's
+   carousel index. Fix: the post changed → a new link for the slot; main reads another item → code
+   (main's item rule) with a fixture; Master's rows are bound by item and duration, so a mismatch
+   there is step 7's.
+6. **W runbook step 6 (Master's part)** — `Master <before> → <after>`; BREAKING when route B's
+   recovery (rows that passed V) is lost. Check: the slot's `Master` and `rungs:` lines (each rung:
+   rows, run, not run (cooldown, budget), not reached) and main's line (step 2). Fix: a cooling host or a spent budget → no fix (W again after the
+   cooldown); a rung's reading moved → data via R9 once S4 is live (the rung's recipe key or path;
+   its kill switch while it is fixed), code before (the site's ladder in `extractor-master`, behind
+   the flag).
+7. **W runbook step 7 (Master's wrong rows)** — `BREAKING … Master … wrong 0 → … wrong N`: a row
+   proven another post's (another video or item, a duration more than 1 s from every one of main's
+   rows, or a row where the slot wants none). Check: the slot's `ladder:` and `rungs:` lines (which
+   rung gave it) and main's rows. Fix: first, before anything else — the rung's kill switch via R9
+   once S4 is live, else code (the rung's binding to the post: its ID, item or duration check), and
+   the site's flag stays off; S5 and the release gate need wrong rows 0.
+8. **W runbook step 8 (the run's conditions)** — `session no → yes` (or the reverse), `kind A → B`.
+   Check: the header's network, the site's sign-in in YFT's browser, the build. Fix: none in code —
+   W's baselines are per VPN and session, so run W again in the baseline's conditions; a kind
+   change means the census's slot list changed (another build): its baseline starts again.
+
+**W's first run** (C of §7.4's next phone session; the release gate's "the first W run passed" is
+the owner's call): its first line is `FIRST RUN` (W's baselines start). What to look for: each site
+`ran` within its caps (a cap stop or `not run` is not passed: W again after the cooldown), main's
+part of each W slot as in the site's census run of the same network and session, slot 1's V pass,
+and Master's part on slot 1 with wrong rows 0. The next W run (another day, the same network and
+session) is the first comparison: `NO CHANGE`, or lines with their steps above.
 
 ## 8. Owner decisions
 
