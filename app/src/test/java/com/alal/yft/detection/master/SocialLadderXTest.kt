@@ -156,7 +156,7 @@ class SocialLadderXTest {
         val ladder = "master: x ladder after RESPONSE_CHANGED; main's answer replayed, no new ask"
         assertEquals("master: x$segment", SocialLadder.trialNotice(detected(listOf(ladder, "master: x$segment"))))
         assertNull(SocialLadder.trialNotice(detected(listOf(ladder))))
-        assertNull(SocialLadder.trialNotice(detected(listOf("master: instagram$segment"))))
+        assertNull(SocialLadder.trialNotice(detected(listOf("master: vimeo$segment"))))
     }
 
     private fun detected(details: List<String>): SiteAdapterOutcome.Detected =

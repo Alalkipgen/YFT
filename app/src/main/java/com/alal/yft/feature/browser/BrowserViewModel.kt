@@ -28,10 +28,12 @@ import com.alal.yft.detection.SiteAdapterCoordinator
 import com.alal.yft.detection.SiteAdapterOutcome
 import com.alal.yft.detection.master.AndroidBrowserMasterFallback
 import com.alal.yft.detection.master.BrowserMasterFallback
+import com.alal.yft.detection.master.InstagramProbeSwitch
 import com.alal.yft.detection.master.SocialLadder
 import com.alal.yft.detection.master.YouTubeRouteB
 import com.alal.yft.BuildConfig
 import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
+import com.alal.yft.extractor.master.social.InstagramTabProbe
 import com.alal.yft.extractor.api.PlayerScriptRunner
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -48,6 +50,8 @@ import com.alal.yft.ui.components.isSavable
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.net.URI
 import javax.inject.Inject
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -81,6 +85,9 @@ class BrowserViewModel(
     private val clock: () -> Long = System::currentTimeMillis,
     private val homeSitesRepository: HomeSitesRepository? = null,
     private val masterFallback: BrowserMasterFallback = BrowserMasterFallback.None,
+    // Social plan S2d part 1 (decision 19 (v)): the switch of Instagram's tab-fetch probe; null
+    // (no probe in any lookup) in every build but a social-ladder one.
+    private val instagramProbeOn: (() -> Boolean)? = null,
 ) : ViewModel(), BrowserObservationSink {
     /**
      * Production entry point. Dagger has no sensible binding for the test clock lambda, so the
@@ -107,6 +114,7 @@ class BrowserViewModel(
             BuildConfig.MASTER_CAPTURE_ENABLED, okHttpClient, siteAdapters, playerScriptRunner,
             { appContext.filesDir },
         ),
+        InstagramProbeSwitch.reader(appContext),
     )
 
     val masterCapture: WebViewPlaybackCapture? get() = masterFallback.capture
@@ -130,6 +138,41 @@ class BrowserViewModel(
      * screen collects them there is no tab to read, and lookups go on without waiting.
      */
     val tabDataReads: Flow<TabDataRequest> = tabDataRequests.asSharedFlow()
+
+    private val instagramProbeRequests =
+        MutableSharedFlow<InstagramProbeRequest>(extraBufferCapacity = TAB_DATA_BUFFER)
+
+    /**
+     * Social plan S2d part 1 (`MASTER_KEY_SOCIAL_PLAN.md` decision 19 (v), debug only): the asks of
+     * Instagram's tab-fetch probe the screen runs in its tab (`InstagramProbeScript`), at most one
+     * per Instagram lookup, only in a social-ladder build with the probe's own switch on
+     * (Instagram's ladder asks it after I2). While no screen collects them there is no tab to
+     * fetch in, and the ladder's line says so.
+     */
+    val instagramProbes: Flow<InstagramProbeRequest> = instagramProbeRequests.asSharedFlow()
+
+    /** S2d part 1: the probe an Instagram lookup's context carries; none in every other build. */
+    private val instagramProbe: InstagramTabProbe? = instagramProbeOn?.let { switch ->
+        object : InstagramTabProbe {
+            override fun on(): Boolean = switch()
+
+            override suspend fun ask(request: InstagramTabProbe.Request): InstagramTabProbe.Reply {
+                if (instagramProbeRequests.subscriptionCount.value == 0) {
+                    return InstagramTabProbe.Reply.NotAsked(InstagramTabProbe.NO_TAB)
+                }
+                val asked = InstagramProbeRequest(request)
+                if (!instagramProbeRequests.tryEmit(asked)) {
+                    return InstagramTabProbe.Reply.NotAsked(InstagramTabProbe.NO_TAB)
+                }
+                // The ladder's own wait bounds this one.
+                return try {
+                    asked.await()
+                } finally {
+                    asked.giveUp()
+                }
+            }
+        }
+    }
 
     /** P40: the tab's data for a TikTok post; other sites have none to read. */
     private val tabData = TabDataSource { siteId, postId ->
@@ -966,7 +1009,9 @@ class BrowserViewModel(
         val lookup = runningLookups[key]?.takeIf { it.isActive }
             // Phase 1.4 item 7 R1: a route-B build's YouTube lookup carries its own request
             // record (main's adapter and the backup); every other lookup runs as before.
-            ?: viewModelScope.async(pageProbeJob + masterFallback.lookupContext(url)) {
+            // Social plan S2d part 1: an Instagram lookup carries the tab-fetch probe too (a
+            // social-ladder build only).
+            ?: viewModelScope.async(pageProbeJob + masterFallback.lookupContext(url) + probeContext(url)) {
                 // P17: the shared lookup cache answers unless this is Try again.
                 // Phase 1.4 item 7 R4: in the route-B trial APK a YouTube page main found is
                 // answered as main's failure (after main asked); every other build: main's answer.
@@ -1024,6 +1069,13 @@ class BrowserViewModel(
         }
         return true
     }
+
+    /**
+     * Social plan S2d part 1: [url]'s lookup's probe: Instagram's tab-fetch probe on an Instagram
+     * page in a social-ladder build ([instagramProbe]); nothing on every other page and build.
+     */
+    private fun probeContext(url: String): CoroutineContext =
+        instagramProbe?.takeIf { siteAdapters.siteId(url) == SocialLadder.INSTAGRAM_SITE_ID } ?: EmptyCoroutineContext
 
     /**
      * P40 step 2: asks the screen for the TikTok tab's own data for [postId] and waits at most

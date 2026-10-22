@@ -95,7 +95,7 @@ class SocialLadderTikTokTest {
         assertEquals("master: tiktok trial: main's", SocialLadder.trialDetail(key))
         assertEquals("master: tiktok: Master's answer not used:", SocialLadder.notUsed(key))
         assertEquals("tiktok", SocialLadder.siteOf(key))
-        assertNull(SocialLadder.siteOf("instagram:AbCdEf123"))
+        assertNull(SocialLadder.siteOf("vimeo:76979871"))
     }
 
     @Test
@@ -142,7 +142,7 @@ class SocialLadderTikTokTest {
         val facebook = detected(listOf("master: facebook$segment"))
         assertEquals("master: facebook$segment", SocialLadder.trialNotice(facebook))
         // No ladder site's line, or no trial segment: null.
-        assertNull(SocialLadder.trialNotice(detected(listOf("master: instagram$segment"))))
+        assertNull(SocialLadder.trialNotice(detected(listOf("master: vimeo$segment"))))
         assertNull(SocialLadder.trialNotice(detected(listOf("master: tiktok ladder after RESPONSE_CHANGED"))))
     }
 

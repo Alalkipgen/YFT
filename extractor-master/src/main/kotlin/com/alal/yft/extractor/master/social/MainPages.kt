@@ -31,6 +31,9 @@ import kotlin.coroutines.CoroutineContext
  * failure) are kept too, as their address, status and main's reason only (no page, no header, no
  * cookie), at most [maxPages] of them: X's ladder judges main's refused answer without asking again
  * (a 404 from X's widget is no such post).
+ *
+ * Social plan S2d part 1: Instagram's four GETs (the app API when signed in, GraphQL, the post's
+ * page, the embed page) fit [MAX_PAGES]; I2 reads each way's kept answer or refusal, no new ask.
  */
 class MainPages(
     private val maxPages: Int = MAX_PAGES,
@@ -126,7 +129,8 @@ class MainPages(
         /**
          * More than main's Facebook GETs in one lookup (the public page, the page, the AVC ladder)
          * and TikTok's (S2b: the phone page, the desktop page, the download service); X's one (S2c:
-         * the widget's answer).
+         * the widget's answer); Instagram's four at most (S2d: the app API, GraphQL, the page, the
+         * embed page).
          */
         const val MAX_PAGES = 4
 

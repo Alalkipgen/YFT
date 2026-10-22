@@ -1,5 +1,136 @@
 # YFT Master Extractor backup
 
+## Social plan S2d (part 1) — Instagram's ladder: I2 main's answers judged, the link's item only, a photo post stops with no request; the tab-fetch probe, off by default (debug only, behind the flag) (2026-10-22)
+
+- Flag off (every CI build but the D7 social APKs, release, preview): today's path; main's
+  Instagram adapter and R8's unjudged ask for Instagram as before. Flag on (`-Pyft.socialLadder`
+  with `-Pyft.masterCapture`, debug only): an Instagram lookup (every link form) gets its own
+  record with Instagram's labels and its own `MainPages` naming Instagram, and Master's social rung
+  answers it with Instagram's ladder.
+- `InstagramLadder` (new, `extractor-master` `social/`; built as `XLadder`, inside the same rules;
+  in place of R8's unjudged ask, so main's embed ask is never repeated and Master makes no GraphQL
+  ask of its own: decision 3, no `doc_id` self-healing). Claims only an Instagram lookup with its
+  own record; every other lookup keeps R8's path.
+  - **I2, main's answers judged, no new ask:** the answers main's adapter got for the link's post
+    in this lookup (`MainPages`: the app API when signed in, GraphQL, the post's page, the embed
+    page; each way's last kept page, else its last refused GET's status and reason), each read by
+    Instagram's recipe (L3, as main's answer for the link's item) and judged by
+    `InstagramAnswerJudge`, then one answer for the lookup in main's order (rows first; a photo post
+    only when no answer shows a video; then the strongest stop). Not read: after main's bot check or
+    player-script failure (the user's own playback, as R8), for another post. Lines
+    `master: instagram ladder after <main's reason>; main's answers read, no new ask`,
+    `master: instagram I2 main's <way>: <class> (<evidence>)` and
+    `master: instagram I2: <class> (<way>: <evidence>); next: <next>` (labels and counts only).
+  - **The link's item only** (decision 11): the post's own node (its code), the item its
+    `img_index` names, else its first item with files (main's choice); rows bound to the post; V and
+    the init check on Instagram's media hosts (`cdninstagram.com`, `fbcdn.net`; a DASH row's video
+    and its sound). Master's recipe also keeps the item's 360p file main drops (one row more than
+    main's: an intended difference).
+  - **A renamed key:** the recipe's open read, anchored to the post, only for a post with one item
+    (a carousel's item is unknown → no evidence).
+  - **Final, no request:** a photo post by the post's own marks (every item), only when no answer
+    shows a video → `NO_MEDIA_FOUND` in main's words ("This post has photos only, no video.").
+    **Never `REMOVED`** (decision 19 (vi)): signed out, the census's removed post answered 401 and no
+    data, as a private or sign-in-only post does; nothing read tells it apart, so main's reason
+    stays.
+  - **Nothing to read** (null: the visible tab's own playback, I3, then the user's browser; main's
+    reason stays): a sign-in wall (401, 403, the login or checkpoint address, a login-required or
+    checkpoint answer: main's rule and §6.3's), GraphQL's or the app API's 400 or `errors`
+    (`VALUE_REJECTED`: the next stage, never a guessed value), no post in a JSON answer, the embed's
+    `EmbedIsBroken`, a page without the post's data, another host or post, a changed shape. A 429 or
+    the rate-limit answer (`Please wait a few minutes`, the only words read) → the site stops and
+    Instagram's web host cools 30 minutes (S7). After main's `LOGIN_REQUIRED` I2 still reads and says
+    what it found, but the engine keeps its rows for the user's own playback (its rule for a sign-in
+    failure); main's own `RATE_LIMITED` → Master not asked (as before).
+  - **S7:** `SocialBudget.INSTAGRAM` (new): 13 requests (main's four asks, the probe's one, V's at
+    most 8 reads), 7 MiB (main's 6 MiB bound and the probe's 1 MiB), 30 s (main's four pages take
+    long, as TikTok's). Over it the rows are not checked (null).
+- **The tab-fetch probe** (decision 19 (i)–(v); debug only, off by default; the rung only after the
+  owner's phone result). **Its switch:** "YFT site census" → the check box "Instagram's tab-fetch
+  probe" under the Run buttons (only in a social-ladder APK, today `yft-d7-fb-trial`; an app
+  preference, `InstagramProbeSwitch`, it stays as set until turned off; no other build). While it is
+  on, the browser's Instagram lookups carry the probe (`InstagramTabProbe` in the lookup's context);
+  after I2, only when nothing was final and the site did not stop, once per lookup (main's set-aside
+  rows in the trial count as main's failure), before I3: the visible tab's own `fetch` of yt-dlp's
+  signed-out post query (`InstagramProbeQuery`: endpoint, `doc_id`, variables, form order and
+  headers as data with their source, yt-dlp's `instagram.py` at 1f1101d0, 2026-07-21; S9), POST,
+  same origin with the page's own cookies and its LSD value, only while the tab is on the post's own
+  page on `www.instagram.com` (iii); `evaluateJavascript` with a read-back (`InstagramProbeScript`;
+  no `addJavascriptInterface`, (ii)); the answer bounded (1 MiB; over it its size only) and
+  forgotten after the read. It is Master's ask in the lookup's record (i): the budget; a 429 stops
+  the site and cools the host; a checkpoint (Instagram's challenge of this signed-out ask) cools it
+  too; no second ask; no answer in time counts as asked. One Details line `master: instagram probe:
+  HTTP <status>, <bytes> bytes; the post's video in the answer: yes|no; a wall on the page: yes|no`;
+  its answer is never a row or a download (iv). Not asked (its reason in the line): signed in (it
+  is the signed-out query), after a final answer or a stop, while the host cools, over the budget,
+  the tab not on the post, no LSD value on the page. The census runs no probe (no visible tab); its
+  labels name the tab fetch as its own way (`tab fetch`).
+- `InstagramAnswerJudge` (new; reads only; by status, address and shape): rows of the link's item →
+  the checks (`DIRECT`; by shape and one item's: `PARTIAL`); a 429 or the rate-limit answer →
+  `RATE_LIMITED` (the site stops); 401, 403, the login or checkpoint address, a login-required or
+  checkpoint answer → `LOGIN_WALL` (the browser); photos and no video → `PHOTO_ONLY` (final); a JSON
+  way's 400 or `errors` → `VALUE_REJECTED`; no post, `EmbedIsBroken`, a page without the post's data
+  → needs playback, never final; never `REMOVED` or `PRIVATE`; another host, another post, a video
+  without files, not JSON → `SHAPE_CHANGED`; another status or no answer → `TRANSIENT`. Copies main's
+  `LOGIN_STATUSES`, `LOGIN_REQUIRED_MESSAGE` and `isLoginWall`; `InstagramLadder` copies
+  `mediaIdOf`, `ALPHABET`, `MEDIA_ID_CHARS`, `embedUrl`, `ask` and `graphQlUrl` (provenance
+  headers; 9 rows in `toolkit-provenance.tsv`; drift 0).
+- Kit: `SiteWays.TAB_FETCH`; `InstagramLabels` names the probe's query (`/api/graphql`) as its own
+  way; `SiteReadings.instagramTabFetch` (a login or checkpoint address or a login-required answer →
+  a login page; no post where the signed-out query shows it → no post; a video's file → data);
+  `MainPages` comments (Instagram's four GETs fit its bound); `SocialBudget.INSTAGRAM`.
+- App: `SocialLadder` — `SITES` + Instagram (`INSTAGRAM_SITE_ID`); `claims` Instagram's video
+  keys; `stage` → `SocialStages(FacebookLadder, TikTokLadder, XLadder, InstagramLadder)`;
+  `finalMessage`: Instagram's photo post (its final PHOTO_ONLY line) in main's words
+  (`InstagramExtractor.PHOTOS_MESSAGE`); `trialSegment`: Instagram's rows compare the item ("the
+  same item: yes" when Master's rows share a file with main's: a row's file or its sound's path;
+  Master's rows add the 360p file) and end `; tallest: Master's <H>, main's <H>`. Main's Instagram
+  adapter already asks through the shared adapter client (`SocialLadder.mainClient`), so no new
+  client. The browser: `BrowserViewModel` puts the probe into an Instagram lookup's context only in
+  a social-ladder build (`InstagramProbeSwitch.reader`: null in every other build), and
+  `BrowserScreen` runs its requests (`InstagramProbeRequest`) in the visible tab, one at a time. The
+  trial APK (`fb-trial`) now sets aside Instagram's rows too ("Instagram trial: main's rows were set
+  aside and Master found none. Tap Try again.").
+- **The tallest difference** (the census, signed in, slots 1, 4, 6 and 7): the census's Master trial
+  still runs R8's way for Instagram, the public embed page asked with no cookie (its `video_url`, one
+  progressive file), while main read the app API with the session (every `video_versions` file and
+  the DASH qualities, highest first). I2 reads main's own answers, so in the trial Master's tallest
+  should be main's; the trial's line says both. Task 6b moves the census's Master trial to the pack.
+- Intended differences (listed in `docs/SUPPORT_MATRIX.md`, the owner's call): the 360p file main
+  drops; never final as removed (a removed post keeps main's reason); no `doc_id` self-healing.
+- Not done: the probe as a rung (decision 19 (v): after the owner's phone result); `doc_id`
+  self-healing (decision 3); X2; the census's Master trial for the four sites (task 6b).
+- Tests (JVM, synthetic answers, made-up codes): `InstagramAnswerJudgeTest` 8 and
+  `InstagramLadderTest` 13 (`extractor-master`, new); `SocialLadderInstagramTest` 6,
+  `InstagramProbeScriptTest` 4 and `BrowserInstagramProbeTest` 4 (app, new); `SocialLadderTest`
+  changed (claims: Instagram yes; the unclaimed site is now Vimeo), `SocialLadderTikTokTest` and
+  `SocialLadderXTest` (the unclaimed site is now Vimeo). No other expectation changed.
+- Local checks: `extractor-sites` 293, `extractor-master` 926 (+21; 2 skipped),
+  `extractor-master-android` 69, `app` 1081 (+14; 66 skipped), all passed; lint 0 errors; assemble
+  and assemble with the flags on (`-Pyft.masterCapture -Pyft.socialLadder -Pyft.socialTrial`) built;
+  drift 0 (157 copied symbols).
+- The next phone session (the owner, after the last pushed task; `yft-d7-normal` and
+  `yft-d7-fb-trial` of the last pushed `[d7]` commit; task 6a renames the trial APK): Facebook's
+  census with and without the VPN, signed out, flag off (the re-baseline after decision 18), link
+  9's desktop form (`yft-d7-normal`: the post's video only; `yft-d7-fb-trial`: "Master found none"
+  with its step in Details) and a short regression set; TikTok's proof against its B0
+  (`yft-d7-fb-trial`; T1's positives possibly in runs at least 30 minutes apart); X's proof on B0's
+  8 slots, VPN Boston and none, signed out (`yft-d7-fb-trial` in the app's browser: slots 1–6
+  Master's rows of main's item, "the same item: yes; duration within 1 s: yes", V pass; slot 7
+  needs playback; slot 8 as its answer; wrong rows 0; no regression against B0); **Instagram's
+  proof** (`yft-d7-fb-trial` in the app's browser, the census's three configs: signed out without
+  the VPN; signed in without and with the VPN Boston): on every video slot main answered, Master's
+  rows of main's item ("Instagram trial" line: "the same item: yes; duration within 1 s: yes;
+  tallest: Master's H, main's H" with the same H), V pass, wrong rows 0; slot 8 (photo) "This post
+  has photos only, no video."; slots main does not answer (signed out: 5, 9 and 10) keep main's
+  reason (sign-in), never "removed"; **Instagram's probe** (the probe's box on in "YFT site
+  census", then slots 1, 5 and 9, signed out, in the app's browser with `yft-d7-fb-trial`): one
+  Details line `master: instagram probe: HTTP …, … bytes; the post's video in the answer: yes|no; a
+  wall on the page: yes|no` per lookup, no row from it, no second probe in the lookup (the owner
+  notes each slot's line; the probe's rung waits for it).
+- Next: task 6a (the trial APK for the four sites: `fb-trial` → `social-trial`, artifact
+  `yft-d7-social-trial`), then 6b (the census's Master trial runs the site packs).
+
 ## Social plan S2c — X's ladder: X1 main's answer replayed and judged, the link's item only, a photo post stops with no request (debug only, behind the flag) (2026-10-21)
 
 - Flag off (every CI build but the D7 social APKs, release, preview): today's path; main's X

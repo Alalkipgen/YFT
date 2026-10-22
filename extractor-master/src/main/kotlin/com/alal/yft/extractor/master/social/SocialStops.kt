@@ -35,6 +35,16 @@ data class SocialBudget(val requests: Int, val bytes: Long, val millis: Long) {
          * is 20 s, as Facebook's.
          */
         val X = SocialBudget(requests = 9, bytes = 2L * 1024 * 1024, millis = 20_000)
+
+        /**
+         * S2d, Instagram's, sized by Instagram's main, the probe and V (not copied from X's): main
+         * asks at most four in a lookup (the app API when signed in, GraphQL, the post's page, the
+         * embed page), I2 asks nothing (main's answers read), the tab-fetch probe at most once, so
+         * the rows go to V only while those and V's reads (at most 8) fit; the answer I2 reads is
+         * main's, at most 6 MiB (main's bound), and the probe's at most 1 MiB (its script's bound).
+         * Main's four pages take long, so the lookup's time is 30 s, as TikTok's.
+         */
+        val INSTAGRAM = SocialBudget(requests = 13, bytes = 7L * 1024 * 1024, millis = 30_000)
     }
 }
 

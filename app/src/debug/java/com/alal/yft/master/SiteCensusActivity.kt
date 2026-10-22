@@ -19,6 +19,7 @@ import android.view.WindowManager
 import android.webkit.CookieManager
 import android.webkit.WebSettings
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -32,6 +33,8 @@ import com.alal.yft.core.browser.policy.BrowserAddressResult
 import com.alal.yft.core.browser.policy.BrowserUserAgent
 import com.alal.yft.core.data.network.NetworkConfiguration
 import com.alal.yft.detection.OkHttpExtractorClient
+import com.alal.yft.detection.master.InstagramProbeSwitch
+import com.alal.yft.detection.master.SocialLadder
 import com.alal.yft.detection.tiktok.TikTokPageEngine
 import com.alal.yft.detection.tiktok.TikTokPageScript
 import com.alal.yft.detection.tiktok.TikTokPageSettings
@@ -70,6 +73,10 @@ import okhttp3.Response
  * remaining parts (and its parts of the next runs for 30 minutes; main still runs). The run gets
  * whether Android's network is a VPN ([onVpn], as the screen reads Wi-Fi): the state keeps each
  * site's baseline per VPN and session (with each slot's link fingerprint, never in the export).
+ *
+ * Social plan S2d part 1 (decision 19 (v)): in a social-ladder build the screen also holds the own
+ * switch of Instagram's tab-fetch probe ("Instagram's tab-fetch probe", off by default,
+ * [InstagramProbeSwitch]); the browser's Instagram lookups ask the probe only while it is on.
  */
 class SiteCensusActivity : ComponentActivity() {
     private var running = false
@@ -108,6 +115,15 @@ class SiteCensusActivity : ComponentActivity() {
         }
         listOf(status, all).forEach(::add)
         perSite.values.forEach(::add)
+        // S2d part 1: the probe's own switch under the Run buttons, off by default (a social-ladder
+        // build only); it stays as set until the owner turns it off.
+        if (SocialLadder.enabled) {
+            add(CheckBox(this).apply {
+                text = "Instagram's tab-fetch probe"
+                isChecked = InstagramProbeSwitch.on(this@SiteCensusActivity)
+                setOnCheckedChangeListener { _, checked -> InstagramProbeSwitch.set(this@SiteCensusActivity, checked) }
+            })
+        }
         listOf(copy, copyJson, result).forEach(::add)
 
         val preferences = getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)

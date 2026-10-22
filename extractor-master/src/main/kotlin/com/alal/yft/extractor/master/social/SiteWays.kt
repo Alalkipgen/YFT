@@ -110,6 +110,12 @@ object SiteWays {
     const val GRAPHQL = "GraphQL"
     const val EMBED_PAGE = "embed page"
 
+    /**
+     * S2d part 1: the tab-fetch probe's ask (decision 19 (v), debug only, off by default): the
+     * visible tab's own fetch of yt-dlp's signed-out query, Master's, never a row.
+     */
+    const val TAB_FETCH = "tab fetch"
+
     const val TWEET_RESULT = "tweet-result"
 
     private val video = Kind("video", Expect(rows = true))

@@ -122,6 +122,7 @@ import com.alal.yft.core.model.media.MediaGroups
 import com.alal.yft.core.model.media.PageVideoList
 import com.alal.yft.core.model.settings.HomeSite
 import com.alal.yft.core.model.settings.SearchEngine
+import com.alal.yft.detection.reads.InstagramProbeScript
 import com.alal.yft.detection.tiktok.TikTokApiCapture
 import com.alal.yft.detection.tiktok.TikTokPageScript
 import com.alal.yft.feature.home.HomeLinks
@@ -257,6 +258,22 @@ fun BrowserRoute(
                 }.getOrNull()
                 request.answer(result, cookie)
             }
+        }
+    }
+    // Social plan S2d part 1 (decision 19 (v), debug only): Instagram's tab-fetch probe, run in
+    // the tab only while it is on the post's page (a social-ladder build with the probe's own
+    // switch on asks it; every other build asks none). One at a time.
+    LaunchedEffect(webView, viewModel) {
+        val browser = webView ?: return@LaunchedEffect
+        viewModel.instagramProbes.collect { request ->
+            if (!request.isWaiting) return@collect
+            request.answer(
+                InstagramProbeScript.run(
+                    request = request.probe,
+                    tabUrl = browser.url,
+                    evaluate = { script, reply -> browser.evaluateJavascript(script) { reply(it) } },
+                ),
+            )
         }
     }
     // P37: the sheet's "Reload page and try again" reloads the tab once without its cache; the

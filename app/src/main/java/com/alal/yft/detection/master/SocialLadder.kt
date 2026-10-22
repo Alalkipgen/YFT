@@ -13,6 +13,7 @@ import com.alal.yft.extractor.master.lookup.LookupRecord
 import com.alal.yft.extractor.master.lookup.LookupRecorder
 import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStartReader
 import com.alal.yft.extractor.master.social.FacebookLadder
+import com.alal.yft.extractor.master.social.InstagramLadder
 import com.alal.yft.extractor.master.social.MainPageRecorder
 import com.alal.yft.extractor.master.social.MainPages
 import com.alal.yft.extractor.master.social.SiteWays
@@ -22,7 +23,9 @@ import com.alal.yft.extractor.master.social.SocialStage
 import com.alal.yft.extractor.master.social.SocialStages
 import com.alal.yft.extractor.master.social.TikTokLadder
 import com.alal.yft.extractor.master.social.XLadder
+import com.alal.yft.extractor.sites.instagram.InstagramExtractor
 import com.alal.yft.extractor.sites.x.XExtractor
+import java.net.URI
 import kotlin.coroutines.CoroutineContext
 import kotlin.math.abs
 import kotlinx.coroutines.currentCoroutineContext
@@ -30,7 +33,7 @@ import okhttp3.OkHttpClient
 
 /**
  * Social plan S1a (`MASTER_KEY_SOCIAL_PLAN.md` §7.3): the build's social-ladder switch and its app
- * wiring, Facebook first (the pilot); S2b: TikTok's too; S2c: X's ([SITES]). On only in a debug build made
+ * wiring, Facebook first (the pilot); S2b: TikTok's too; S2c: X's; S2d: Instagram's ([SITES]). On only in a debug build made
  * with `-Pyft.socialLadder=true` and `-Pyft.masterCapture=true`; release, preview and every other
  * build: off, and each piece here is exactly today's.
  */
@@ -54,11 +57,14 @@ internal object SocialLadder {
     /** S2c: X's site ID (main's X adapter; its video key's prefix). */
     const val X_SITE_ID = "x"
 
+    /** S2d: Instagram's site ID (main's Instagram adapter; its video key's prefix). */
+    const val INSTAGRAM_SITE_ID = "instagram"
+
     /**
      * S2b: the sites with a ladder (each lookup's own record and pages, its trial): Facebook,
-     * TikTok; S2c: X.
+     * TikTok; S2c: X; S2d: Instagram.
      */
-    val SITES: Set<String> = setOf(FACEBOOK_SITE_ID, TIKTOK_SITE_ID, X_SITE_ID)
+    val SITES: Set<String> = setOf(FACEBOOK_SITE_ID, TIKTOK_SITE_ID, X_SITE_ID, INSTAGRAM_SITE_ID)
 
     /**
      * S1a (5), S7: the hosts cooling after a 429 or a bot check (30 minutes), the app process's:
@@ -96,7 +102,7 @@ internal object SocialLadder {
 
     /**
      * S1a (2): whether [videoKey] ("site:contentId") is a ladder's: every Facebook link form; S2b:
-     * every TikTok link form too; S2c: every X link form ([SITES]).
+     * every TikTok link form too; S2c: every X link form; S2d: every Instagram link form ([SITES]).
      */
     fun claims(videoKey: String?): Boolean = siteOf(videoKey) != null
 
@@ -118,8 +124,10 @@ internal object SocialLadder {
     /**
      * S1a (3): Master's social rung in a social-ladder build: Facebook's ladder ([FacebookLadder]:
      * F1, the plugin player, judged), S2b TikTok's ([TikTokLadder]: T1, the embed player,
-     * judged; T2, main's pages) and S2c X's ([XLadder]: X1, main's answer replayed, judged, no new
-     * ask), each claiming only its own site's lookup with its own record
+     * judged; T2, main's pages), S2c X's ([XLadder]: X1, main's answer replayed, judged, no new
+     * ask) and S2d Instagram's ([InstagramLadder]: I2, main's answers judged, no new ask; the
+     * tab-fetch probe, off by default, when the lookup's context has one), each claiming only its
+     * own site's lookup with its own record
      * ([lookupContext]; [SocialStages]: the first that claims it), over Master's own client
      * [http]; [identify]: main's adapters. Their recipes come from the same source as the
      * engine's ([MasterRecipeConfig]); S1a (5): their stops cool in [cooldown] (the app's, by
@@ -136,6 +144,7 @@ internal object SocialLadder {
                 FacebookLadder(http, identify, MasterRecipeConfig::contracts, cooldown),
                 TikTokLadder(http, identify, MasterRecipeConfig::contracts, cooldown),
                 XLadder(http, identify, MasterRecipeConfig::contracts, cooldown),
+                InstagramLadder(http, MasterRecipeConfig::contracts, cooldown),
             ),
         )
     } else {
@@ -182,8 +191,10 @@ internal object SocialLadder {
      * ladder's PHOTO_ONLY line with its final step in [details]: TikTok's ladder said it, no other
      * stage) in main's words for it. S2c: an X lookup's photo post (X's PHOTO_ONLY line, its final
      * step) in main's words ([XExtractor.PHOTOS_MESSAGE]), and X's no-such-post answer (X's REMOVED
-     * line, its final step: the widget's 404) so said. Null for every other reason and site (as
-     * before).
+     * line, its final step: the widget's 404) so said. S2d: an Instagram lookup's photo post
+     * (Instagram's PHOTO_ONLY line, its final step) in main's words
+     * ([InstagramExtractor.PHOTOS_MESSAGE]); Instagram's ladder has no REMOVED answer (decision 19
+     * (vi)). Null for every other reason and site (as before).
      */
     fun finalMessage(
         reason: SiteExtractionFailure,
@@ -203,6 +214,9 @@ internal object SocialLadder {
             SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE ->
                 X_REMOVED_MESSAGE.takeIf { finalLine(videoKey, details, "REMOVED") }
             else -> null
+        }
+        INSTAGRAM_SITE_ID -> InstagramExtractor.PHOTOS_MESSAGE.takeIf {
+            reason == SiteExtractionFailure.NO_MEDIA_FOUND && finalLine(videoKey, details, "PHOTO_ONLY")
         }
         else -> null
     }
@@ -230,7 +244,7 @@ internal object SocialLadder {
     /** S2b: the "not used" line's start for [videoKey]'s site (Facebook's: [NOT_USED]). */
     fun notUsed(videoKey: String?): String = "${line(videoKey)}: Master's answer not used:"
 
-    /** S2b: [videoKey]'s site's name as main says it (Facebook, TikTok; S2c: X). */
+    /** S2b: [videoKey]'s site's name as main says it (Facebook, TikTok; S2c: X; S2d: Instagram). */
     private fun nameOf(videoKey: String?): String =
         SiteWays.site(siteOf(videoKey) ?: FACEBOOK_SITE_ID)?.name ?: "Facebook"
 
@@ -267,15 +281,28 @@ internal object SocialLadder {
      * yes/no only: never a link or an ID. S2c: X's rows (main's rows' key is X's) compare the item
      * (owner's input 2, decision 11): `the same item: yes` only when the same video's rows also name
      * the one item main's rows name (its file's path on X's video host, [XLadder.itemOf]: one video
-     * of a post with several).
+     * of a post with several). S2d: Instagram's rows (main's rows' key is Instagram's) compare the
+     * item too (decision 19 (iv): the link's item of a carousel): `the same item: yes` only when the
+     * same video's rows share a file with main's rows (a row's file path, or its audio's, among
+     * main's: Master's rows add the 360p files main drops, so not every row is one of main's), and
+     * the line ends `; tallest: Master's H, main's H` (each side's tallest row, `unknown` when its
+     * rows state no height).
      */
     fun trialSegment(rows: List<MediaCandidate>, mains: List<MediaCandidate>, video: (String?) -> String?): String {
         val mainVideo = mains.map { video(it.videoId) }.distinct().singleOrNull()
         val sameVideo = mainVideo != null && rows.isNotEmpty() && rows.all { video(it.videoId) == mainVideo }
         // S2c: X's rows name one item of the post (one video of several), as main's must.
-        val item = mains.firstOrNull()?.videoId?.startsWith("$X_SITE_ID:") == true
+        val site = mains.firstOrNull()?.videoId?.substringBefore(':', missingDelimiterValue = "")
+        val x = site == X_SITE_ID
+        val instagram = site == INSTAGRAM_SITE_ID
+        val item = x || instagram
         val mainItem = mains.map { XLadder.itemOf(it.mediaUrl) }.distinct().singleOrNull()
-        val same = sameVideo && (!item || mainItem != null && rows.all { XLadder.itemOf(it.mediaUrl) == mainItem })
+        val same = sameVideo && when {
+            x -> mainItem != null && rows.all { XLadder.itemOf(it.mediaUrl) == mainItem }
+            // S2d: one item's files: at least one of Master's rows is one of main's files.
+            instagram -> pathsOf(mains).let { paths -> rows.any { row -> pathsOf(listOf(row)).any(paths::contains) } }
+            else -> true
+        }
         val masterMillis = rows.mapNotNull { row -> row.durationMillis?.takeIf { it > 0 } }
         val mainMillis = mains.mapNotNull { row -> row.durationMillis?.takeIf { it > 0 } }
         val duration = when {
@@ -283,9 +310,20 @@ internal object SocialLadder {
             masterMillis.all { master -> mainMillis.all { abs(master - it) <= DURATION_SLACK_MILLIS } } -> "yes"
             else -> "no"
         }
+        val tallest = if (instagram) "; tallest: Master's ${tallestOf(rows)}, main's ${tallestOf(mains)}" else ""
         return "${TRIAL_SEGMENT}Master's rows ${rows.size}, main's ${mains.size}; " +
-            "the same ${if (item) "item" else "video"}: ${if (same) "yes" else "no"}; duration within 1 s: $duration"
+            "the same ${if (item) "item" else "video"}: ${if (same) "yes" else "no"}; duration within 1 s: $duration" +
+            tallest
     }
+
+    /** S2d: the file paths of [rows] (each row's file and its audio's; no host, no query). */
+    private fun pathsOf(rows: List<MediaCandidate>): Set<String> = rows.flatMap { row ->
+        listOfNotNull(row.mediaUrl, row.audioCompanion?.mediaUrl)
+    }.mapNotNull { url -> runCatching { URI(url).path }.getOrNull()?.takeIf { it.isNotEmpty() } }.toSet()
+
+    /** S2d: the tallest height [rows] state, `unknown` when none states one. */
+    private fun tallestOf(rows: List<MediaCandidate>): String =
+        rows.mapNotNull { row -> row.height?.takeIf { it > 0 } }.maxOrNull()?.toString() ?: "unknown"
 
     /**
      * S1a (9): the Facebook trial's line of rows Master found (Facebook's line with the trial's

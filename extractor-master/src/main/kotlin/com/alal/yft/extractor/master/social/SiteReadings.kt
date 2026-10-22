@@ -120,6 +120,24 @@ internal object SiteReadings {
         }
     }
 
+    /**
+     * S2d part 1: the tab-fetch probe's answer (yt-dlp's signed-out query): a login or checkpoint
+     * address or a login-required answer is a login page; no post where the query shows it signed
+     * out ([InstagramProbeQuery.ANSWER_PATH]) is no post; a video's file or manifest is data.
+     */
+    fun instagramTabFetch(result: ExtractorHttpResult.Success): AskReading? {
+        if (instagramWall(result.finalUrl)) return AskReading(LOGIN_PAGE)
+        return json(result) { root ->
+            when {
+                root["require_login"].asBooleanOrNull == true || root["message"].asStringOrNull == "login_required" ->
+                    LOGIN_PAGE
+                root.path(*InstagramProbeQuery.ANSWER_PATH.toTypedArray()) !is JsonValue.Object -> NO_POST
+                IG_VIDEO.containsMatchIn(result.body) -> DATA
+                else -> NO_DATA
+            }
+        }
+    }
+
     /** The post's page or the embed page. */
     fun instagramPage(result: ExtractorHttpResult.Success): AskReading? {
         val body = result.body

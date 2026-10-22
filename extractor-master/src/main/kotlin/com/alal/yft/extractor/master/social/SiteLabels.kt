@@ -91,6 +91,7 @@ internal class InstagramLabels : AskLabels {
         if (!AskParts.hostIn(uri, listOf(INSTAGRAM_HOST))) return null
         val path = uri.path.orEmpty().lowercase()
         return when {
+            path == TAB_FETCH_PATH || path.startsWith("$TAB_FETCH_PATH/") -> SiteWays.TAB_FETCH
             path.startsWith(API_PATH) -> SiteWays.APP_API
             path.startsWith(GRAPHQL_PATH) -> SiteWays.GRAPHQL
             path.contains(EMBED_PATH) -> SiteWays.EMBED_PAGE
@@ -102,11 +103,14 @@ internal class InstagramLabels : AskLabels {
         SiteWays.APP_API -> SiteReadings.instagramJson(result, appApi = true)
         SiteWays.GRAPHQL -> SiteReadings.instagramJson(result, appApi = false)
         SiteWays.PAGE, SiteWays.EMBED_PAGE -> SiteReadings.instagramPage(result)
+        SiteWays.TAB_FETCH -> SiteReadings.instagramTabFetch(result)
         else -> null
     }
 
     private companion object {
         const val INSTAGRAM_HOST = "instagram.com"
+        /** S2d part 1: the tab-fetch probe's query (`InstagramProbeQuery.ENDPOINT`). */
+        const val TAB_FETCH_PATH = "/api/graphql"
         const val API_PATH = "/api/v1/"
         const val GRAPHQL_PATH = "/graphql/"
         const val EMBED_PATH = "/embed"
