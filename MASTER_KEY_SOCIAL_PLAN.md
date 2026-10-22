@@ -20,8 +20,10 @@ sites: d7-matrix's `social-trial`, artifact `yft-d7-social-trial`, `fb-trial` be
 (2026-10-22): §8 decisions 20 and 21. Task 0 (X's widget 404 never final, by decision 21; behind
 the flag) built (2026-10-22; §7.3). Task 6b (the site census runs each site's ladder in a
 social-ladder build: the rungs, wrong and unknown rows; flag off unchanged) built (2026-10-22;
-§7.3, §7.4). Next: task 7 (Facebook's Master rows 2 against main's 3; link 9's desktop form
-pinned), task 8 (S3's weekly check W), then the owner's phone session (§7.4).**
+§7.3, §7.4). Task 7 (Facebook's Master rows 2 against main's 3: main's audio row from the page's
+DASH manifest, listed in `docs/SUPPORT_MATRIX.md` as an intended difference; link 9's desktop form
+pinned with the trial; tests and docs only) done (2026-10-22; §7.3, §7.4). Next: task 8 (S3's
+weekly check W), then the owner's phone session (§7.4).**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -204,6 +206,20 @@ pinned), task 8 (S3's weekly check W), then the owner's phone session (§7.4).**
   အဟောင်းတွေကို ဆက်ဖတ်ပါတယ်; ladder တစ်ဖက်ပဲပါရင် Master part ကို မနှိုင်းယှဉ်ပါ၊ wrong 0 → 1+ က BREAKING။
   Flag off မှာ census ဟာ ဒီနေ့အတိုင်း (byte-identical)။ Site တစ်ခုစီရဲ့ proof က network တစ်ခုစီ census
   run တစ်ခု ဖြစ်လာပါတယ် — wrong rows 0 က parity မဟုတ်၊ release readiness မဟုတ်ပါ။ နောက်တစ်ဆင့်: task 7။
+- **Task 7 — Facebook ရဲ့ Master rows 2 နဲ့ main ရဲ့ 3 (2026-10-22၊ tests နဲ့ docs ပဲ၊ behavior မပြောင်း၊
+  §7.3):** Master မှာ မပါတဲ့ row က main ရဲ့ **audio row** ပါ — watch page ရဲ့ inline DASH manifest ထဲက
+  အကောင်းဆုံး AAC track (`FacebookDashOffers`; manifest ရဲ့ video track တွေက ဒီနေ့ AV1 ဖြစ်ပြီး app က AV1
+  merge ကို phone တိုင်းမှာ ပိတ်ထားလို့ main မှာ HD၊ SD၊ Audio = 3)။ F1 (plugin player) မှာ manifest မရှိပါ
+  (`dash_manifest` null; prefetch block ပဲ ရှိပြီး S1a ရဲ့ recipe က မဖတ်ပါ)၊ F2 က F1 ဘာမှ မပေးမှ run ပါတယ်။
+  S1a ရဲ့ rules ထဲမှာ ပြင်လို့ မရလို့ `docs/SUPPORT_MATRIX.md` မှာ intended difference အဖြစ် ရေးထားပါတယ်
+  (count တူအောင် row မဖန်တီးပါ)။ User မြင်တာ: video quality တွေ အတူတူ (the same video yes, duration yes);
+  sheet ရဲ့ Audio (M4A, MP3) ကို video ရဲ့ ကိုယ်ပိုင် sound ကနေ ဆက်ပေးပါတယ် (download ပိုကြီး)။ Option
+  (ပိုင်ရှင်ဆုံးဖြတ်ရန်၊ မဆောက်ပါ): (a) F1 က prefetched audio representation ကို video ရဲ့ representation ID
+  နဲ့ ချိတ်ဖတ် (V စစ်)၊ (b) F1 ရဲ့ rows နောက်မှာ F2 ကို audio track အတွက်ပဲ run (S1a (4) ရဲ့ order ပြောင်း)။
+  Link 9 ရဲ့ desktop form ကို trial နဲ့ JVM test (`SocialTrialTest`၊ made-up IDs) နဲ့ pin လုပ်ထားပါတယ်:
+  "Master found none" + Details မှာ step ("the page changed during the lookup: the same address
+  again")။ Option (မဆောက်ပါ): main ရဲ့ post page မှာ video တစ်ခုတည်းရှိရင် F2 က အဲဒီ video ရဲ့ rows ကို
+  ချိတ်နိုင် (request အသစ် မလို)။ နောက်တစ်ဆင့်: task 8 (S3 ရဲ့ weekly check W)။
 
 ## 1. Audit — what exists today
 
@@ -702,7 +718,8 @@ earlier):
   `PRIVATE_OR_UNAVAILABLE` with and without the VPN if 0.3 found a signal, else no wrong final
   answer and a documented limitation; slot 12 by the owner's check; requests and time on
   main-success lookups not above B0 (§9); docs. **Met (the owner, 2026-10-21): §7.4 step 6's
-  re-run, S1a's phone proof PASS; for S5: Master's rows 2 against main's 3 on every link (§7.4).**
+  re-run, S1a's phone proof PASS; for S5: Master's rows 2 against main's 3 on every link (§7.4):
+  listed as an intended difference by task 7 (`docs/SUPPORT_MATRIX.md`; main's audio row).**
 - **(1) built (2026-10-20), JVM only, not wired:** the answer judge (`SiteAnswerJudge.kt`): L2's
   classes and `NEEDS_PLAYBACK`, each with its next step; Facebook's rules final only on 0.3's
   route (the error route with `privacy: true` → `PRIVATE`, the video's not-found route →
@@ -878,6 +895,33 @@ reads older exports, compares Master's parts only when both runs have the ladder
 first wrong row is BREAKING. Flag off: today's census, byte for byte. So each site's proof is one
 census run per network (§7.4's next phone session); no wrong row is not parity or release
 readiness.
+**Task 7 done (2026-10-22, tests and docs only, no behavior change; `PROGRESS.md`):** Facebook's
+Master rows 2 against main's 3 (§7.4 step 6's re-run, every link). The row Master lacks is main's
+**audio row**: main reads each link's video through its watch page, whose inline DASH manifest
+(`dash_manifest_xml_string`) holds video-only tracks (AV1 today) and AAC audio; main's
+`FacebookDashOffers` offers the best AAC track alone as an M4A row and merges the video tracks,
+which the app drops on every phone (AV1 merges are off), so main's rows are HD and SD (the page's
+progressive files) and the audio row. F1 (the plugin player) names the HD and SD files and no
+manifest (`dash_manifest` null); its page holds only a player prefetch block (byte ranges of one
+AVC video and one AAC audio representation, named by the video's prefetched representation IDs,
+outside the video's own data), which S1a's recipe does not read. F2 (main's pages, which hold the
+manifest) runs only when F1 leaves nothing to read (S1a (4)). So no fix within S1a's rules (no row
+made up to match the count): listed in `docs/SUPPORT_MATRIX.md` as an intended difference. What
+the user sees: the same video qualities (the trial's line: the same video yes, the duration within
+1 s yes); the sheet's Audio (M4A, MP3) still offered from the video's own sound (the MP4's AAC
+track), from a bigger download than main's audio-only file. Options, the owner's call (not built):
+(a) F1 reads the prefetched audio representation, bound by the video's representation IDs, V on
+it; (b) F2 after F1's rows, for the audio track only (S1a (4)'s order changes). Found from main's
+code and today's page shape (a sandbox check of a public test video, signed out, nothing kept);
+the next phone session's Facebook items show it. **Link 9's desktop form** is pinned with the trial
+in `SocialTrialTest` (made-up IDs): main's rows of the post's video set aside; F1 not asked (no
+video link resolved: "a link main resolves first, no video in main's answer; not asked"); F2 no row
+bound to the post; F3's focus check never matches a post's ID, so the tab's page starts again →
+"Master found none" with its step in Details ("Master's answer not used: the page changed during
+the lookup: the same address again"); without the trial, main's rows of the post's one video. An
+option, the owner's call (not built): when main's post page names exactly one video (S1a (7)'s
+one-video check), F2 binds that video's rows with no new ask (links 9 and 10's desktop forms would
+get Master rows). Next: task 8 (S3's weekly check W).
 Each site: a D7-style phone proof, wrong rows 0, no regression against B0.
 
 **S3 and S4** as in §7: W (≤ 1 min, ≤ 2 MB per site) with the diff and the runbook; R9 live (the
@@ -1185,7 +1229,8 @@ UTC, without it 14:31–14:45 UTC. **S1a's phone proof: PASS.**
 - Master's wrong rows 0 everywhere. S1a (10)'s fixes hold: every trial line compared the lengths
   (yes), and links 1–2 gave rows on the first lookup.
 - **For S5 (before the release):** Master's rows 2 against main's 3 on every link: fixed, or
-  listed in `docs/SUPPORT_MATRIX.md` as an intended difference.
+  listed in `docs/SUPPORT_MATRIX.md` as an intended difference. **Task 7 (2026-10-22): listed**
+  (main's audio row from the page's DASH manifest; §7.3's task 7 paragraph).
 - Next: decision 18 (link 9's desktop form, main; §8; built 2026-10-21), then S2b. Facebook is
   re-baselined in the next phone session (below).
 
@@ -1247,34 +1292,48 @@ same day; no link or ID kept (S8).
   is the census's run; slot 8's playback (X3) still needs the app's browser (the census has no
   tab: `X3 not run (no tab)`).
 
-**The next phone session (the owner, after this run's last pushed task — S2d part 1, the
-four-site trial APK (task 6a: `yft-d7-social-trial`, `yft-d7-fb-trial` before), task 0 (X's 404
-never final) and task 6b (the census's ladder) are pushed; `yft-d7-normal` and
-`yft-d7-social-trial` of the last pushed `[d7]` commit; the list is in the run's report and
-`PROGRESS.md`):**
+**The next phone session (the owner, after this run's last pushed task — S2d part 1, task 6a's
+one trial APK, task 0 (X's 404 never final), task 6b (the census's ladder) and task 7 are pushed;
+`yft-d7-social-trial` and `yft-d7-normal` of the last pushed `[d7]` commit, never an older run's
+APK (not `fb-trial`, not task 6a's); the run's report and `PROGRESS.md` name the commit and the
+artifacts):**
 
-- **A — `yft-d7-normal` (the flag off):** "YFT site census", Facebook with and without the VPN,
-  signed out (the re-baseline after decision 18); in the app's browser link 9's desktop form
-  (main's rows of the post's video only, no list of the page's videos) and a short regression set.
-- **B — `yft-d7-social-trial`, "YFT site census", one run per network (task 6b):** Run all sites
-  on Wi-Fi without the VPN, then with the VPN Boston, signed out; Instagram also signed in without
-  and with the VPN Boston. Read each site's `ladder:` line and each slot's `rungs:` line. Expected:
-  wrong rows 0 on every site, unknown rows reported apart (Instagram's 360p rows: decision 20), V
-  pass on every video slot main answers, main's parts with no regression against each site's B0.
-  Facebook: the ladder's rows of the same video, the duration within 1 s. TikTok: T1's or T2's rows
-  of the post (T1's positives possibly in runs at least 30 minutes apart; after a 429 `T1 not run
-  (cooldown)`); slots 7–9 no Master row. X (B0's 8 slots): slots 1–6 Master's rows of main's item
-  ("the same item: yes; duration within 1 s: yes"), slot 6 video 1's rows only; slots 7 and 8 no
-  Master row (slot 8: `X3 not run (no tab)`), never "removed". Instagram: on every video slot main answers
-  the same item, the duration and the same tallest; slot 8 (photo) in main's words; the slots main
-  does not answer (signed out: 5, 9 and 10) no Master row, never "removed".
-- **C — `yft-d7-social-trial`, the app's browser:** link 9's desktop form (expected "Master found
-  none" with its step in Details, as link 10's limitation); X's slot 8 (needs playback whatever
-  its answer, main's reason after the tab's playback finds nothing, never "removed"); Instagram's
-  tab-fetch probe (the probe's box on in "YFT site census"; slots 1, 5 and 9, signed out): one
-  `master: instagram probe:` Details line per lookup (HTTP status, bytes, the post's video in the
-  answer yes/no, a wall on the page yes/no), no row from it, no second probe (the owner notes each
-  slot's line; S2d part 2, the probe's rung, waits for it).
+- **A — `yft-d7-social-trial`, "YFT site census" (the probe's box off), one run per network and
+  session below:** each site against its baseline: wrong rows 0, no regression, unknown rows apart
+  (wrong rows 0 alone is not parity); main's part (the site's line, B0's columns) apart from
+  Master's (each site's `ladder:` line, each slot's `rungs:` line).
+  - Facebook, signed out, the VPN Boston and no VPN: main's parts are the re-baseline after
+    decision 18. Master: the ladder's rows of the same video, the duration within 1 s, V pass;
+    Master's rows 2 against main's 3 (main's audio row: task 7's intended difference).
+  - TikTok, signed out, B0's US VPN exit (Boston): T1's or T2's rows of the post on video slots
+    (1–5, 10); slot 6 (photo) main's words, no request; slots 8–9 no Master row. T1's positives may
+    need runs at least 30 minutes apart; after a 429 `T1 not run (cooldown)` — never waited out or
+    bypassed within a run.
+  - X, signed out, the VPN Boston and no VPN, B0's 8 slots: slots 1–6 Master's rows of main's item
+    ("the same item: yes; duration within 1 s: yes"), slot 6 video 1's rows only; slots 7 and 8 no
+    Master row (slot 8: `X3 not run (no tab)`), never "removed" (a widget 404 alone is not final:
+    task 0).
+  - Instagram: signed out, no VPN; signed in, no VPN; signed in, the VPN Boston. On every video slot
+    main answers: the same item, the duration, the same tallest (the 360p rows unknown: decision
+    20); slot 8 (photo) in main's words; the slots main does not answer (signed out: 5, 9 and 10) no
+    Master row, never "removed".
+- **B — the app's browser (signed out, no VPN unless said):**
+  - Link 9's desktop form (a Page post): `yft-d7-normal` — main's rows of the post's video only (no
+    list of the page's videos); `yft-d7-social-trial` — "Master found none" with its step in Details
+    ("Master's answer not used: the page changed during the lookup: …"), no wrong row.
+  - Instagram's tab-fetch probe, `yft-d7-social-trial`: the switch on ("YFT site census" →
+    Instagram's tab-fetch probe), slots 1, 5 and 9: one `master: instagram probe:` Details line per
+    lookup (HTTP status, bytes, the post's video in the answer yes/no, a wall on the page yes/no),
+    no row from it, no second probe — a diagnostic, not a promise of rows (S2d part 2, the probe's
+    rung, waits for it and the owner's decision); then the switch off.
+  - A short regression set, `yft-d7-social-trial`: Facebook link 1 (a watch link: Master's rows of
+    the same video, the trial line yes/yes; the sheet's Audio from the video's own sound) and link
+    10 (a group post's desktop form: "Master found none" with its step); TikTok slot 6 (photo: main's
+    words, no request) and slot 1 (the post's rows only); X slot 6 (video 1's rows only) and slot 8
+    (needs playback, main's reason after the tab's playback finds nothing, never "removed");
+    Instagram slot 8 (photo: main's words) and slot 1 (the post's item).
+- **C — W's first run (S3), last:** task 8 (not built yet; its section will say the slots, the
+  caps, the expected lines and the runbook steps).
 
 **For S2b (TikTok), noted now** (inputs to S2b's design, §7.3; not decided):
 

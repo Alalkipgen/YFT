@@ -114,6 +114,50 @@ class SocialTrialTest {
     }
 
     @Test
+    fun aPagePostsDesktopFormFindsNoneWithItsStepInDetails() = runTest {
+        // Task 7 (link 9's desktop form, decision 18): main reads the post's page and finds its one
+        // video; the trial sets main's rows aside. Main resolved no video link (the post's page names
+        // the post, not the video), so the plugin player (F1) is not asked and main's pages (F2) give
+        // no row bound to the post. The tab's playback (F3): on a feed site the capture's focus check
+        // needs the video in focus to be the post's ID, which a post's video never is, so it starts
+        // the page again at the same address (WebViewPlaybackCapture; made up here as that reload).
+        // Master's answer is then not used: the trial's "Master found none", the step in Details.
+        // No behavior changed here; this pins it.
+        val fixture = Fixture(STORY)
+        val found = fixture.inspect() as SiteAdapterOutcome.Detected
+        assertEquals(2, found.candidates.size)
+        assertTrue(fixture.main.asked.toString(), fixture.main.asked.all { it.startsWith(POSTS) })
+        fixture.duringCapture = { fixture.capture.session.navigate(STORY) }
+
+        val failed = fixture.lookup() as SiteAdapterOutcome.Failed
+
+        val lines = failed.details.toString()
+        assertEquals(lines, SiteExtractionFailure.RESPONSE_CHANGED, failed.reason)
+        assertEquals(lines, SocialLadder.TRIAL_MESSAGE, failed.message)
+        assertEquals(lines, "Facebook trial: main's rows were set aside and Master found none. Tap Try again.", failed.message)
+        assertFalse(lines, failed.allowsGenericFallback)
+        assertTrue(lines, failed.canRetry)
+        assertEquals(lines, "master: facebook trial: main's 2 rows set aside", failed.details.first())
+        assertEquals(
+            lines,
+            "master: facebook: Master's answer not used: the page changed during the lookup: the same address again",
+            failed.details[1],
+        )
+        assertTrue(lines, "master: facebook ladder: a link main resolves first, no video in main's answer; not asked" in failed.details)
+        // The plugin player is never asked; the tab's playback once.
+        assertTrue(fixture.master.asked.toString(), fixture.master.asked.isEmpty())
+        assertEquals(1, fixture.captures.get())
+        assertBare("a Page post", failed.details)
+        listOf(POST_ID, PAGE_NAME).forEach { word -> assertFalse(word, failed.details.any { word in it }) }
+
+        // Without the trial (yft-d7-normal's way): main's rows of the post's one video, as they are.
+        val plain = Fixture(STORY, socialTrial = false)
+        val primary = plain.inspect()
+        assertSame(primary, plain.bridge.trialPrimary(STORY, primary))
+        assertEquals(2, (primary as SiteAdapterOutcome.Detected).candidates.size)
+    }
+
+    @Test
     fun mainsFailuresAndOtherSitesStayAsTheyAre() {
         val fixture = Fixture(WATCH, youtubeRouteB = true)
         val removed = SiteAdapterOutcome.Failed(
@@ -514,6 +558,8 @@ class SocialTrialTest {
             when (url) {
                 WATCH, REEL -> ok(mainPage, url)
                 SHORT -> ok(mainPage, WATCH)
+                // Task 7: a Page post's page (decision 18's address), its one video, no redirect.
+                POSTS, "$POSTS/" -> ok(mainPage, url)
                 else -> null
             }
         }
@@ -604,6 +650,16 @@ class SocialTrialTest {
         /** The same video's page under its Page's address (`/<page>/videos/<id>/`, a made-up Page). */
         const val VIDEO_PAGE = "https://www.facebook.com/fixture/videos/$VIDEO/"
         const val REEL = "https://www.facebook.com/reel/$VIDEO"
+
+        /**
+         * Task 7: link 9's form — a Page post's desktop link as the app's browser opens it (Facebook's
+         * mobile `story.php` naming the Page, a made-up one) and the address main reads for it
+         * (decision 18: the Page's posts path).
+         */
+        const val POST_ID = "1000000000000077"
+        const val PAGE_NAME = "YftTrialPage"
+        const val STORY = "https://m.facebook.com/story.php?story_fbid=$POST_ID&id=$PAGE_NAME"
+        const val POSTS = "https://www.facebook.com/$PAGE_NAME/posts/$POST_ID"
         const val SHORT = "https://fb.watch/$SHORT_CODE"
         const val YOUTUBE_PREFIX = "https://www.youtube.com/watch/"
         const val YOUTUBE_PAGE = "${YOUTUBE_PREFIX}Yft0Fixture"
