@@ -1,5 +1,80 @@
 # YFT Master Extractor backup
 
+## Social plan task 6b — the site census runs each site's ladder in a social-ladder build (the rungs, wrong and unknown rows; flag off unchanged) (debug only, behind the flag) (2026-10-22)
+
+- **What the census does now (a social-ladder build only, `yft-d7-social-trial`).** Each slot's
+  Master part of Facebook, TikTok, X and Instagram runs the site's pack in place of R8's way: the
+  site's ladder (`SocialLadder.stage`, the app's), on main's pages from the census's own main
+  lookup of that slot (`MainPages`, kept by `SocialLadder.pages` around main's clients), with S6's
+  file check (`SocialRowCheck`: V and the init check) and S7's stops, budgets and cooldown (the
+  app's `SocialLadder.cooldown`; main's 429s and bot checks cool there too). The row's record
+  clock stops after main's lookup and starts again right before Master's part, so a ladder's time
+  budget counts the row's own time, never the wait while the site's other slots run. A short link
+  runs too (the ladder reads the video main resolved). Main's part, its requests and its time are
+  as before and apart from Master's (B0 stays comparable).
+- **Each ladder part says** its rungs (Facebook F1, F2, F3; TikTok T1, T2, T3; X X1, X3; Instagram
+  I2, I3): `rows`, `rows not checked (why)`, `run (CLASS)`, `run (no answer in time)`, `not run
+  (cooldown | stop | request budget | time budget | byte budget | no video | nothing to read |
+  final | no tab)`, `not reached`, `unknown (time limit)` when the engine's time limit cut the
+  lines; then Master's rows against main's (`TrialCompare`: the app's trial comparison moved to
+  extractor-master, the app's words unchanged): the same video (X and Instagram: item), the
+  duration within 1 s, **wrong rows** (each row on its own: a video none of main's rows name, an
+  X item none of main's files name, an Instagram row of another post, a length more than 1 s from
+  every one of main's) and **unknown rows** (not proven either way: main's rows name several
+  videos and the row one of them, a row without a video, an X file with no item, an Instagram row
+  sharing no file with main's — the 360p file main drops, decision 20; a matching length alone
+  proves nothing). Main with no rows: a slot that wants none (removed, private, photo posts,
+  region-limited, X's age-limited) → every Master row wrong; else unknown.
+- **The report:** one "Ladder (a social-ladder build): …" line (only when a site ran it; "no wrong
+  row is not parity or release readiness"), per site `ladder: Master parts N, rows M, the same
+  video|item K, V pass P, wrong rows W (unknown U)`, per slot `Master trial (ladder): …` and
+  `rungs: F1 rows · F2 not reached · F3 not reached; Master's rows M, main's N; the same video:
+  yes; duration within 1 s: yes; wrong rows 0 (unknown 0)`. **The export** only gains fields
+  (format 2): site `ladder`; number `ladderParts`, `ladderRows`, `ladderSame`, `ladderPass`,
+  `ladderWrong`, `ladderUnknown`; master `ladder`, `rungs` (`rung`, `state`, `why`), `compare`
+  (`main`, `slot wants none`, `main none`), `item`, `same`, `duration`, `wrong`, `unknown`.
+  **The diff** still reads older exports; Master's parts of a site are not compared when only one
+  run has the ladder (a note says so); with both, `same`, `duration` and `wrong` are compared, and
+  a part's first wrong row (0 → more) is BREAKING.
+- The app: `SiteCensusActivity` (debug) builds the pack only when `SocialLadder.stage` is not null
+  (a social-ladder build), and its intro then says the backup's part is the site's ladder (no tab
+  here, so no capture); `SocialLadder.trialSegment` calls `TrialCompare`. The ladders' line
+  constants are `internal` (read by the census; no behavior change). Comments: `fb-trial` →
+  `social-trial`.
+- **Flag off = today:** no pack (`SocialLadder.stage` null, `SocialLadder.pages` the client
+  itself): main's context, the clock, the short-link and no-contract rule, R8's way, the export and
+  the report as before (pinned: main's parts identical with and without the pack, no `ladder` or
+  `rungs` field or line without it). Not changed: main (S1), the ladders, YouTube, `LookupAsk.endpoint`,
+  the symbols Master copies (drift 0).
+- Tests (JVM, synthetic answers, made-up IDs): `SiteCensusLadderTest` 7 (new): X's three slots
+  run X1 on main's kept answers (rungs `X1 rows · X3 not reached`, the same item, duration, wrong 0,
+  V pass, X1 asks nothing; the paused clock keeps X's 20 s budget for every slot) and the same run
+  without the pack keeps main's parts and adds no ladder field or line; Master's rows where main has
+  none (wrong for a slot that wants none, unknown otherwise); Facebook's rungs not asked (a cooling
+  host, the lookup's request budget, nothing to read, no tab: nothing sent to the player); a TikTok
+  short link runs the ladder (`T1 not run (no video)`), "short link" without the pack;
+  `TrialCompare`'s per-row verdicts (a video or item none of main's names, or a length more than
+  1 s from all of main's → wrong, also when main's rows name several; not proven → unknown; the
+  resolved video's key); `LadderRungs` from the ladders' own lines; the diff (the ladder in one
+  run only → a note, no Master compare; wrong 0 → 1 BREAKING; an older export read). The app's
+  trial tests unchanged and green (the words byte-identical).
+- Local checks: `extractor-sites` 293, `extractor-master` 934 (+7; 2 skipped),
+  `extractor-master-android` 69, `app` 1082 (66 skipped), all passed; lint 0 errors; assemble
+  (flag off) and assemble with the three flags on; drift 0; `test_spike_label_triggers.py` 19.
+- Docs: `MASTER_KEY_SOCIAL_PLAN.md` (the top status, §0's task 6b bullet, §7.3's task 6b
+  paragraph, §7.4's X note and the next phone session), `docs/TEST_MATRIX.md` (the task 6b row),
+  this file.
+- The next phone session (the owner, after the last pushed task; `yft-d7-normal` and
+  `yft-d7-social-trial` of the last pushed `[d7]` commit): as task 0's list below, with the four
+  sites' proofs now **one "YFT site census" run per network with `yft-d7-social-trial`** (Run all
+  sites; Wi-Fi without the VPN, then the VPN Boston; signed out, and Instagram's signed-in config):
+  read each site's `ladder:` line and each slot's `rungs:` line; expected wrong rows 0 on every
+  site, unknown rows reported apart (Instagram's 360p rows), V pass on every video slot main
+  answers; X slot 8 and Instagram's slots main does not answer: no Master row, never "removed".
+  The app's browser stays for link 9's desktop form, X's slot 8 playback and Instagram's probe.
+- Next: task 7 (Facebook's Master rows 2 against main's 3; link 9's desktop form pinned in a JVM
+  test), then task 8 (S3's weekly check W).
+
 ## Social plan task 0 — X's widget 404 is never final (needs playback; main's reason stays), and the owner's decisions 20–21 (debug only, behind the flag) (2026-10-22)
 
 - **The owner's decisions (2026-10-22; `MASTER_KEY_SOCIAL_PLAN.md` §8 decisions 20 and 21,
@@ -57,7 +132,7 @@
   s: yes", V pass; slot 7 needs playback; slot 8 as above; wrong rows 0; no regression against B0);
   Instagram's proof (the census's three configs) and Instagram's probe (slots 1, 5 and 9, signed
   out). Task 6b, once pushed, moves the four sites' proofs into one census run per network.
-- Next: task 6b (the census's Master trial runs the site packs with the ladder flag on).
+- Next: task 6b (the census's Master trial runs the site packs with the ladder flag on; done, above).
 
 ## Social plan task 6a — one trial APK for the four sites: d7-matrix's ninth mode `social-trial` (artifact `yft-d7-social-trial`, `fb-trial` before) (2026-10-22)
 
