@@ -30,7 +30,7 @@ import kotlin.coroutines.CoroutineContext
  * Social plan S2c: main's GETs that got no 2xx answer ([Refusal]: a 404, another status, a network
  * failure) are kept too, as their address, status and main's reason only (no page, no header, no
  * cookie), at most [maxPages] of them: X's ladder judges main's refused answer without asking again
- * (a 404 from X's widget is no such post).
+ * (a 404 from X's widget: no post in its answer, never final on its own, task 0).
  *
  * Social plan S2d part 1: Instagram's four GETs (the app API when signed in, GraphQL, the post's
  * page, the embed page) fit [MAX_PAGES]; I2 reads each way's kept answer or refusal, no new ask.

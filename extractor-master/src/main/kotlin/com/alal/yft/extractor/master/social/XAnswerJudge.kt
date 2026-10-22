@@ -40,8 +40,10 @@ internal data class XReading(
  *
  * - Rows of the link's item bound to the post ID → the media checks (V, S6); rows found by shape
  *   (a renamed key) only when they are one item's.
- * - A 404 from the widget's host → REMOVED (final): the widget answers so for an ID with no post
- *   (a deleted post's answer is a tombstone).
+ * - A 404 from the widget's host → NEEDS_PLAYBACK, never final (the owner's call, task 0): the
+ *   widget answers so for an ID with no post it shows, and a 404 alone does not prove the post was
+ *   deleted, so it never ends the lookup as removed; the tab's own playback and the user's browser
+ *   follow, and main's reason stays when they find nothing.
  * - Photos and no video → PHOTO_ONLY (final): main's own answer.
  * - An empty tombstone (`"tombstone":{}`, the age-limited post's) → AGE_LIMITED: the browser.
  * - A tombstone with X's notice link (`help.x.com/…/notices-on-x`): a deleted post's and a
@@ -143,8 +145,9 @@ internal object XAnswerJudge {
     private fun failure(answer: ExtractorHttpResult.Failure): Judged = when {
         answer.statusCode == 429 || answer.reason == SiteExtractionFailure.RATE_LIMITED ->
             Judged(AnswerClass.RATE_LIMITED, AnswerClass.RATE_LIMITED.reason, "status 429")
+        // Task 0: a 404 alone is no proof the post was deleted: never final, the tab's playback next.
         answer.statusCode == HTTP_NOT_FOUND ->
-            Judged(AnswerClass.REMOVED, AnswerClass.REMOVED.reason, "status 404: no such post")
+            Judged(AnswerClass.NEEDS_PLAYBACK, null, "status 404: no post in the widget's answer, not proof of removal")
         else -> Judged(
             AnswerClass.TRANSIENT,
             answer.reason,

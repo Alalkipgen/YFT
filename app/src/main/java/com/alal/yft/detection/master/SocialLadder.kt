@@ -190,8 +190,9 @@ internal object SocialLadder {
      * so a Facebook lookup says what main says for it; S2b: a TikTok lookup's photo post (the
      * ladder's PHOTO_ONLY line with its final step in [details]: TikTok's ladder said it, no other
      * stage) in main's words for it. S2c: an X lookup's photo post (X's PHOTO_ONLY line, its final
-     * step) in main's words ([XExtractor.PHOTOS_MESSAGE]), and X's no-such-post answer (X's REMOVED
-     * line, its final step: the widget's 404) so said. S2d: an Instagram lookup's photo post
+     * step) in main's words ([XExtractor.PHOTOS_MESSAGE]); X's ladder has no REMOVED answer (task 0:
+     * the widget's 404 alone is no proof the post was deleted, so it is never final and main's
+     * reason and words stay). S2d: an Instagram lookup's photo post
      * (Instagram's PHOTO_ONLY line, its final step) in main's words
      * ([InstagramExtractor.PHOTOS_MESSAGE]); Instagram's ladder has no REMOVED answer (decision 19
      * (vi)). Null for every other reason and site (as before).
@@ -208,21 +209,14 @@ internal object SocialLadder {
         TIKTOK_SITE_ID -> "This TikTok post has no downloadable video.".takeIf {
             reason == SiteExtractionFailure.NO_MEDIA_FOUND && finalLine(videoKey, details, "PHOTO_ONLY")
         }
-        X_SITE_ID -> when (reason) {
-            SiteExtractionFailure.NO_MEDIA_FOUND ->
-                XExtractor.PHOTOS_MESSAGE.takeIf { finalLine(videoKey, details, "PHOTO_ONLY") }
-            SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE ->
-                X_REMOVED_MESSAGE.takeIf { finalLine(videoKey, details, "REMOVED") }
-            else -> null
+        X_SITE_ID -> XExtractor.PHOTOS_MESSAGE.takeIf {
+            reason == SiteExtractionFailure.NO_MEDIA_FOUND && finalLine(videoKey, details, "PHOTO_ONLY")
         }
         INSTAGRAM_SITE_ID -> InstagramExtractor.PHOTOS_MESSAGE.takeIf {
             reason == SiteExtractionFailure.NO_MEDIA_FOUND && finalLine(videoKey, details, "PHOTO_ONLY")
         }
         else -> null
     }
-
-    /** S2c: X's words for its no-such-post answer (the widget's 404, X's REMOVED line). */
-    const val X_REMOVED_MESSAGE = "This X post is no longer available."
 
     /** S2b: whether [details] has [videoKey]'s site's ladder line of [answerClass] with its final step. */
     private fun finalLine(videoKey: String?, details: List<String>, answerClass: String): Boolean =

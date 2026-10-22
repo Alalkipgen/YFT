@@ -333,7 +333,7 @@ class AndroidBrowserMasterFallback(
             is MasterResult.Failure -> noRows(
                 result.reason,
                 // S1a (3): the ladder's final answer (private or removed) in main's words; S2b:
-                // TikTok's photo post too; S2c: X's photo post and its no-such-post answer.
+                // TikTok's photo post too; S2c: X's photo post (task 0: X's widget 404 is never final).
                 SocialLadder.finalMessage(result.reason, key, result.details)?.takeIf { social }
                     ?: if (result.reason == SiteExtractionFailure.DRM_PROTECTED) {
                         "Protected media cannot be captured."

@@ -16,7 +16,9 @@ ladder, behind the flag) built (2026-10-21; §7.3). S2c (X's ladder, behind the 
 (2026-10-21; §7.3, §7.4). S2d part 1 (Instagram's ladder, I2, and the tab-fetch probe, off by
 default; behind the flag) built (2026-10-22; §7.3, §7.4). Task 6a (one trial APK for the four
 sites: d7-matrix's `social-trial`, artifact `yft-d7-social-trial`, `fb-trial` before) built
-(2026-10-22; §7.3 S1a (9)). Next: the census's site packs (task 6b), then the owner's phone
+(2026-10-22; §7.3 S1a (9)). The owner's acceptance of S2c's and S2d part 1's intended differences
+(2026-10-22): §8 decisions 20 and 21. Task 0 (X's widget 404 never final, by decision 21; behind
+the flag) built (2026-10-22; §7.3). Next: the census's site packs (task 6b), then the owner's phone
 session (§7.4).**
 
 ## 0. အကျဉ်းချုပ်
@@ -139,10 +141,11 @@ session (§7.4).**
   မပို့ဘဲ ပြန်ဖတ်ပြီး judge လုပ်ပါတယ် (token self-check မလုပ်၊ X2 မရှိ — decision 2)။ Link ရဲ့ item
   (`/video/N`၊ မရှိရင် ပထမ video) ရဲ့ rows ပဲ ယူပါတယ် — MP4 rows အရင်၊ duration က main ရဲ့ answer
   ကနေ၊ HLS row က MP4 မရှိပြီး duration သိမှသာ။ Rows ကို post ID နဲ့ ချိတ်ပြီး V နဲ့ init check ကို
-  X ရဲ့ video host မှာ စစ်ပါတယ်။ Photo post နဲ့ widget ရဲ့ 404 ဆိုရင် request မပို့ဘဲ final ပါ။ Live
+  X ရဲ့ video host မှာ စစ်ပါတယ်။ Photo post ဆိုရင် request မပို့ဘဲ final ပါ (widget ရဲ့ 404 က task 0
+  ကစပြီး final မဟုတ်ပါ)။ Live
   shape check (2026-10-21၊ sign out၊ shape only): age-limited post က empty tombstone (→ browser)၊
   deleted post နဲ့ protected post က X ရဲ့ notice link ပါတဲ့ tombstone တူတူ (ခွဲမရလို့ ဒီနေ့ reason
-  အတိုင်း needs playback)၊ မရှိတဲ့ ID က 404 (→ `REMOVED` final)၊ token မပါရင် `{}` (→
+  အတိုင်း needs playback)၊ မရှိတဲ့ ID က 404 (task 0 ကစပြီး → needs playback၊ final မဟုတ်)၊ token မပါရင် `{}` (→
   `VALUE_REJECTED`၊ final မဟုတ်)။ X ရဲ့ budget (`SocialBudget.X`: request 9၊ 2 MiB၊ 20 s)။
   `yft-d7-fb-trial` က X ရဲ့ rows ကိုလည်း ဘေးဖယ်ပြီး item နဲ့ duration ကို နှိုင်းယှဉ်ပါတယ်။ Intended
   differences ကို `docs/SUPPORT_MATRIX.md` မှာ ရေးထားပါတယ် (ပိုင်ရှင် ဆုံးဖြတ်ရန်)။ Flag off = ဒီနေ့
@@ -174,6 +177,21 @@ session (§7.4).**
   tab-fetch probe က default off ပါ (build flag မရှိ၊ "YFT site census" ရဲ့ box နဲ့ပဲ ဖွင့်ရ)။ ကျန် mode
   ရှစ်ခုနဲ့ push build မပြောင်းပါ (flag off)။ နောက်တစ်ဆင့်: census ရဲ့ Master trial မှာ site pack တွေ
   (task 6b)၊ ပြီးရင် ပိုင်ရှင်ရဲ့ phone session (`yft-d7-social-trial`)။
+- **ပိုင်ရှင်ရဲ့ ဆုံးဖြတ်ချက် 20–21 (2026-10-22၊ §8):** Instagram (S2d part 1): main ချန်ထားတဲ့ 360p
+  file ကို Master က ထားတာ — မှန်တဲ့ post/item ဖြစ်ပြီး wrong row မရှိ၊ အမြင့် quality မပျောက်မှ —
+  လက်ခံပါတယ်; removed post ကို ဒီနေ့ ambiguous answers ကနေ final မလုပ်ဘဲ main ရဲ့ reason ထားတာ
+  လက်ခံပါတယ်; ဒါက part 2 ရဲ့ tab-fetch rung နဲ့ `doc_id` self-healing ကို ခွင့်မပြုပါ။ X (S2c): `{}` →
+  `VALUE_REJECTED` (final မဟုတ်) နဲ့ notice tombstone (deleted/protected ခွဲမရ) → `NEEDS_PLAYBACK`
+  (final မဟုတ်) လက်ခံပါတယ်; widget ရဲ့ 404 → removed final ကို **လက်မခံပါ** (404 တစ်ခုတည်းက
+  ဖျက်ထားတာကို မပြနိုင်၊ recovery ကို မရပ်ရ)။ လက်ခံချက်တွေက phone proof၊ regression နဲ့ release gate
+  ကို မလျှော့ပါ။
+- **Task 0 — X widget ရဲ့ 404 က final မဟုတ်တော့ပါ (2026-10-22၊ flag နောက်မှာ၊ debug only၊ §7.3):**
+  decision 21 အတိုင်း X1 က widget ရဲ့ 404 ကို `NEEDS_PLAYBACK` (final မဟုတ်၊ reason မပေး) လို့ judge
+  လုပ်ပါတယ်။ ရှိပြီးသား လမ်းကြောင်း (visible tab ရဲ့ ကိုယ်ပိုင် playback၊ ပြီးရင် user ရဲ့ browser) ဆက်ပြီး
+  ဘာမှ မတွေ့ရင် main ရဲ့ reason (`NO_MEDIA_FOUND`၊ main ရဲ့ စကား) ကျန်ပြီး Try again ရပါတယ်။ Widget
+  request အသစ်၊ X2၊ token self-healing၊ route အသစ် မရှိပါ; main၊ auth gates၊ photo-only final၊
+  empty tombstone၊ 429/cooldown၊ flag off မပြောင်းပါ။ App ရဲ့ "This X post is no longer available."
+  စကားကို ဖယ်လိုက်ပါတယ် (X ladder မှာ removed final မရှိတော့လို့)။ နောက်တစ်ဆင့်: task 6b။
 
 ## 1. Audit — what exists today
 
@@ -480,9 +498,11 @@ With no adapter copies (B), the build is also about 4,700 lines smaller than the
   (`TweetResultByRestId`), which needs the public web bearer and a guest token — against the "no
   token" rule unless the owner allows it; X3 the visible tab's own playback (the user's own X
   sign-in; capture).
-- **Judge signals:** tombstone (age or sensitive) → `AGE_LIMITED` (browser required); 404 or an empty
-  answer → `REMOVED`; protected → `PRIVATE`; 429 → `RATE_LIMITED`. (S2c as built, by the live
-  shapes of 2026-10-21: §7.3.)
+- **Judge signals:** tombstone (age or sensitive) → `AGE_LIMITED` (browser required); protected →
+  `PRIVATE`; 429 → `RATE_LIMITED`. The plan's "404 or an empty answer → `REMOVED`" is not built:
+  `{}` → `VALUE_REJECTED` (S2c), and the 404 → needs playback, never final (task 0, decision 21: a
+  404 alone does not prove the post was deleted). (S2c as built, by the live shapes of 2026-10-21:
+  §7.3.)
 - **Row checks:** each MP4 row on X's media host; HLS only with a known duration.
 - **Recorder (first fix under B):** Master's R8 for X asks main's endpoint a second time today; the
   site pack stops that first (decision 8). A new way only through decision 2 (X2).
@@ -791,14 +811,24 @@ post stops; an HLS row only with a known duration (V).
 or card's media, else the first; the quoted post's video when the post has none), bound to the
 link's post ID; MP4 rows first with main's length, an HLS row only without MP4 and with a known
 length; V and the init check on X's video host; `SocialBudget.X` (9 requests, 2 MiB, 20 s).
-Final, no request: a photo post (main's words) and the widget's 404 (`PRIVATE_OR_UNAVAILABLE`,
-"This X post is no longer available."). By the live shapes (2026-10-21, signed out): the empty
+Final, no request: a photo post (main's words). (S2c also made the widget's 404 final as removed;
+task 0 undid that, below.) By the live shapes (2026-10-21, signed out): the empty
 tombstone (age-limited) → the browser; X's notice tombstone (a deleted post's and a protected
 post's alike) → needs playback, today's reason; `{}` (no widget token) → `VALUE_REJECTED`, not
 final — so §6.4's "an empty answer → `REMOVED`" and "protected → `PRIVATE`" are not built (the
 shapes do not show them); intended differences in `docs/SUPPORT_MATRIX.md`. The trial APK
 `fb-trial` sets aside X's rows too and compares the item and the duration. Its phone proof: the
 owner's next session (§7.4).
+**Task 0 built (2026-10-22, behind the flag; `PROGRESS.md`; decision 21):** X1 judges the widget's
+404 `NEEDS_PLAYBACK` with no reason of its own (line `master: x X1 main's answer: NEEDS_PLAYBACK
+(status 404: no post in the widget's answer, not proof of removal); next: PLAYBACK`): never final,
+so the engine's existing next stages follow (the visible tab's own playback, X3, then the user's
+browser), and when they find nothing the lookup keeps main's reason (`NO_MEDIA_FOUND`, main's
+words, Try again). No new ask (no widget request, no X2, no token check, no new route); X's ladder
+has no final "removed" answer left, so the app's X words for one ("This X post is no longer
+available.") are gone. Unchanged: main, the auth gates (a sign-in or bot-check failure skips the
+ladder), the photo post's final, the empty tombstone (the browser), the 429's stop and cooldown,
+and flag off.
 **S2d Instagram:** by 0.2's verdict; no repeat of main's embed ask; `RATE_LIMITED` → the cooldown;
 `doc_id` self-healing only if 0.2 shows it rotates (then S1b); the owner's signed-in census before
 this stage.
@@ -1180,15 +1210,16 @@ same day; no link or ID kept (S8).
   (2026-10-21, signed out, shape only, nothing kept): an age-limited post → an empty tombstone (→
   the browser: slot 7 needs playback, "AGE_LIMITED … next: BROWSER"); a deleted post and a protected
   account's post → the same tombstone with X's notice link (not told apart → today's reason: needs
-  playback); a made-up ID → 404 (→ `REMOVED`, final: "This X post is no longer available."); no
-  widget token → `{}` (→ `VALUE_REJECTED`, not final). Slot 8 (removed) follows its answer's shape:
-  X's notice tombstone → needs playback, a 404 → final. Note: the census's Master trial still runs
+  playback); a made-up ID → 404 (→ needs playback, never final since task 0: a 404 alone does not
+  prove deletion); no widget token → `{}` (→ `VALUE_REJECTED`, not final). Slot 8 (removed): needs
+  playback whatever its answer (X's notice tombstone or a 404), main's reason when the tab's
+  playback finds nothing, never "removed". Note: the census's Master trial still runs
   R8's way for X (task 6b runs the site packs there); until then X's proof runs in the app's
   browser with `yft-d7-social-trial` (`yft-d7-fb-trial` before task 6a).
 
-**The next phone session (the owner, after this run's last pushed task — S2d part 1 and the
-four-site trial APK (task 6a: `yft-d7-social-trial`, `yft-d7-fb-trial` before) are pushed; the list
-is in the run's report and `PROGRESS.md`):** Facebook's census with and without the VPN, signed out (the re-baseline after
+**The next phone session (the owner, after this run's last pushed task — S2d part 1, the
+four-site trial APK (task 6a: `yft-d7-social-trial`, `yft-d7-fb-trial` before) and task 0 (X's
+404 never final) are pushed; the list is in the run's report and `PROGRESS.md`):** Facebook's census with and without the VPN, signed out (the re-baseline after
 decision 18), link 9's desktop form (`yft-d7-normal`, the flag off: main's rows of the post's
 video only, no list of the page's videos; `yft-d7-social-trial`: expected "Master found none" with
 its step in Details, as link 10's limitation) and a short regression set; TikTok's, X's and
@@ -1196,8 +1227,9 @@ Instagram's D7-style proofs (§7.3; TikTok's with `yft-d7-social-trial`, which s
 TikTok's pages too, T1's positives possibly in runs at least 30 minutes apart; X's on B0's 8
 slots, VPN Boston and none, signed out, with `yft-d7-social-trial`, which since S2c sets aside X's
 pages too: slots 1–6 Master's rows of main's item, "the same item: yes; duration within 1 s:
-yes", V pass, slot 6 video 1's rows only; slot 7 needs playback; slot 8 as its answer's shape
-(S2c's answers above); wrong rows 0; no regression against X's B0); Instagram's proof (S2d part 1,
+yes", V pass, slot 6 video 1's rows only; slot 7 needs playback; slot 8 needs playback whatever
+its answer (task 0), main's reason after the tab's playback finds nothing, never "removed"; wrong
+rows 0; no regression against X's B0); Instagram's proof (S2d part 1,
 `yft-d7-social-trial` in the app's browser, the census's three configs: signed out without the VPN;
 signed in without and with the VPN Boston): on every video slot main answers, Master's rows of
 main's item ("the same item: yes; duration within 1 s: yes; tallest: Master's H, main's H", the same
@@ -1321,6 +1353,26 @@ Decided (the owner, 2026-10-21, after step 6's re-run and Instagram's census; §
   a sign-in or age wall is never used (S2); (v) first a debug-only probe (S2d part 1), the rung
   only after the owner's phone result; (vi) a removed post is the judge's call from what was
   already read, never a tab fetch.
+
+Decided (the owner, 2026-10-22, before tasks 0–8; recorded in task 0's commit; decisions, then
+each one's implementation status):
+
+- **20 — Instagram, S2d part 1's intended differences: accepted.** (i) Master's rows may keep the
+  360p file main drops, only when they are the link's post and item: never wrong rows, never fewer
+  of the higher qualities main offers. (ii) A removed post is never final from today's ambiguous
+  answers (decision 19 (vi)); main's reason stays. Neither authorizes S2d part 2's tab-fetch rung
+  or `doc_id` self-healing (decision 3 stands). *Status:* both as built in S2d part 1 (`dd761c8`);
+  not yet proved on the phone (§7.4's next phone session); the census's site packs (task 6b)
+  compare Master's rows with the census's own main answer.
+- **21 — X, S2c's intended differences.** (i) `{}` → `VALUE_REJECTED`, not final: accepted. (ii)
+  X's notice tombstone (a deleted and a protected account's post look alike) → `NEEDS_PLAYBACK`,
+  not final: accepted. (iii) The widget's 404 → final as removed: **not accepted**: a 404 alone
+  must not establish deletion or end the recovery. *Status:* (i) and (ii) as built in S2c
+  (`efc3670`); (iii) changed by task 0 (2026-10-22, §7.3): the 404 → `NEEDS_PLAYBACK`, never
+  final; the existing playback and browser fallback follow; when they find nothing, main's reason
+  stays. Not yet proved on the phone.
+- These acceptances are not a waiver: each site's phone proof, its regression check and the
+  release gate (decision 12) still apply.
 
 Still open (the owner's answer is needed before the step that uses it):
 

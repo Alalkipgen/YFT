@@ -54,13 +54,13 @@ import kotlin.coroutines.coroutineContext
  *   item, read with X's recipe: its MP4 files first, its playlist only without them and only with
  *   a known length (the item's playlist alone, no length: nothing to check). A renamed key: main's
  *   whole answer read by the recipe (L4 + L3 included), only when its rows are one item's.
- * - **Final:** a photo post (main's own answer, `NO_MEDIA_FOUND`, in main's words; photos and no
- *   video or GIF by the media's types, so a renamed key never makes one) and the widget's 404 (no
- *   such post: `PRIVATE_OR_UNAVAILABLE`).
+ * - **Final:** a photo post only (main's own answer, `NO_MEDIA_FOUND`, in main's words; photos and
+ *   no video or GIF by the media's types, so a renamed key never makes one).
  * - **Nothing to read** (null: the next stage, the visible tab's own playback, X3, and the user's
- *   browser; main's reason stays): a tombstone (an age-limited post's empty one; a deleted or a
- *   protected post's with X's notice, which one answer cannot tell apart), `{}`, another status,
- *   another post's answer or an unknown shape.
+ *   browser; main's reason stays): the widget's 404 (no post in its answer; a 404 alone is no proof
+ *   the post was deleted, so it never ends the lookup: the owner's call, task 0), a tombstone (an
+ *   age-limited post's empty one; a deleted or a protected post's with X's notice, which one answer
+ *   cannot tell apart), `{}`, another status, another post's answer or an unknown shape.
  *
  * S7: X's own budget ([SocialBudget.X]): the rows go to V only while main's and Master's asks, the
  * lookup's time and the answer's characters hold. Main's X code and reasons stay (decision 10).

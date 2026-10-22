@@ -1,5 +1,6 @@
 package com.alal.yft.detection.master
 
+import com.alal.yft.core.model.media.BrowserRequestContext
 import com.alal.yft.core.model.media.CandidateSource
 import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
@@ -12,8 +13,19 @@ import com.alal.yft.extractor.api.SiteAdapterFlags
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractorRegistry
 import com.alal.yft.extractor.api.SitePageIdentity
+import com.alal.yft.extractor.master.CaptureResult
+import com.alal.yft.extractor.master.MasterFallbackEngine
+import com.alal.yft.extractor.master.MasterMediaValidator
+import com.alal.yft.extractor.master.MasterPolicy
 import com.alal.yft.extractor.master.MasterRequest
+import com.alal.yft.extractor.master.PlaybackCaptureProvider
+import com.alal.yft.extractor.master.ValidationResult
+import com.alal.yft.extractor.master.android.WebViewPlaybackCapture
+import com.alal.yft.extractor.master.contract.SiteContracts
 import com.alal.yft.extractor.master.lookup.LookupRecord
+import com.alal.yft.extractor.master.lookup.LookupRecorder
+import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStart
+import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStartReader
 import com.alal.yft.extractor.master.social.MainPages
 import com.alal.yft.extractor.master.social.SocialCooldown
 import com.alal.yft.extractor.master.social.SocialStages
@@ -38,7 +50,8 @@ import org.robolectric.annotation.Config
  * Social plan S2c: the app's X wiring. Flag off: no stage. Flag on: Master's social rung has X's
  * ladder too, claiming only an X lookup with its record (X's labels, a MainPages naming X, so V
  * asks X's media host); X's Details lines and trial words; X's final words only on X's final
- * lines (a photo post in main's words, the widget's 404 as no such post); the trial compares the
+ * line (a photo post in main's words); task 0: the widget's 404 is never final, so after the tab's
+ * playback finds nothing the lookup keeps main's reason (Try again stays); the trial compares the
  * item (one video of a post with several); the trial's notice reads X's line. Each case passes the
  * switch explicitly, so it holds whatever the build's flags are. Synthetic rows and made-up IDs;
  * no live calls.
@@ -82,21 +95,22 @@ class SocialLadderXTest {
     }
 
     @Test
-    fun anXPhotoPostAndNoSuchPostEndInTheirWordsOnlyOnXsFinalLines() {
+    fun anXPhotoPostEndsInMainsWordsOnlyOnXsFinalLineAndTheWidgets404NeverDoes() {
         val photo = "master: x X1 main's answer: PHOTO_ONLY (photos only, no video); next: FINAL"
-        val removed = "master: x X1 main's answer: REMOVED (status 404: no such post); next: FINAL"
         assertEquals(
             "This post has photos only, no video.", // main's own for a photo post
             SocialLadder.finalMessage(SiteExtractionFailure.NO_MEDIA_FOUND, KEY, listOf("master: x ladder after NO_MEDIA_FOUND", photo)),
         )
-        assertEquals(
-            "This X post is no longer available.",
-            SocialLadder.finalMessage(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, KEY, listOf(removed)),
-        )
+        // Task 0: the widget's 404 is never final (X1 names no reason), and no X line ends a lookup
+        // as removed, not even an earlier build's REMOVED line.
+        val removed = "master: x X1 main's answer: REMOVED (status 404: no such post); next: FINAL"
+        for (reason in SiteExtractionFailure.entries) {
+            assertNull("$reason", SocialLadder.finalMessage(reason, KEY, listOf(NOT_FOUND_LINE)))
+            assertNull("$reason", SocialLadder.finalMessage(reason, KEY, listOf(removed)))
+        }
         // Not X's final line for that reason: null (the engine's own words, as before).
         assertNull(SocialLadder.finalMessage(SiteExtractionFailure.NO_MEDIA_FOUND, KEY))
         assertNull(SocialLadder.finalMessage(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, KEY))
-        assertNull(SocialLadder.finalMessage(SiteExtractionFailure.NO_MEDIA_FOUND, KEY, listOf(removed)))
         assertNull(SocialLadder.finalMessage(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, KEY, listOf(photo)))
         assertNull(SocialLadder.finalMessage(SiteExtractionFailure.LOGIN_REQUIRED, KEY, listOf(photo, removed)))
         assertNull(
@@ -119,6 +133,29 @@ class SocialLadderXTest {
             "This Facebook post is private or no longer available.",
             SocialLadder.finalMessage(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, "facebook:1000000000000001", listOf(removed)),
         )
+    }
+
+    @Test
+    fun theWidgets404AfterTheTabsPlaybackFindsNothingKeepsMainsReason() = runTest {
+        // Task 0 (c): main's widget answer is a 404; X1 asks nothing, the tab's own playback finds
+        // nothing, and the lookup keeps main's reason (not final: Try again stays), never "removed".
+        val fixture = NotFoundFixture()
+
+        val (primary, recovered) = fixture.lookup()
+
+        val main = primary as SiteAdapterOutcome.Failed
+        assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, main.reason)
+        val failed = recovered as SiteAdapterOutcome.Failed
+        assertEquals(main.reason, failed.reason)
+        assertTrue(failed.canRetry)
+        assertEquals("Play the video on this page, then tap Try again.", failed.message)
+        assertTrue(failed.details.toString(), failed.details.any { it.startsWith(NOT_FOUND_LINE) })
+        assertTrue(failed.details.toString(), failed.details.none { "REMOVED" in it || "next: FINAL" in it })
+        // No new widget request (no X2, no token check): Master asks nothing; main asked once.
+        assertEquals(0, fixture.master.asked.get())
+        assertEquals(1, fixture.main.asked.get())
+        assertEquals(1, fixture.captures.get())
+        assertFalse(fixture.cooldown.cooling(WIDGET_HOST))
     }
 
     @Test
@@ -202,7 +239,77 @@ class SocialLadderXTest {
         }
     }
 
+    /** Main's client: every GET a 404 (the widget's answer for the post). */
+    private class NotFound : ExtractorHttpClient {
+        val asked = AtomicInteger()
+        override suspend fun get(url: String, headers: Map<String, String>, maxBodyBytes: Long): ExtractorHttpResult {
+            asked.incrementAndGet()
+            return ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 404)
+        }
+
+        override suspend fun postJson(
+            url: String,
+            body: String,
+            headers: Map<String, String>,
+            maxBodyBytes: Long,
+        ): ExtractorHttpResult = ExtractorHttpResult.Failure(SiteExtractionFailure.NETWORK)
+    }
+
+    /**
+     * One X lookup as the app wires it in a social-ladder build: main's real X adapter over
+     * [main] (the widget's 404), Master's engine with X's ladder over [master] (never asked) and a
+     * tab playback that finds nothing.
+     */
+    private class NotFoundFixture {
+        val cooldown = SocialCooldown()
+        val main = NotFound()
+        val master = NoAsks()
+        val captures = AtomicInteger()
+        private val capture = WebViewPlaybackCapture(true)
+        private val sites = SiteAdapterCoordinator(
+            SiteExtractorRegistry(
+                listOf(XExtractor(SocialLadder.pages(LookupRecorder(main), true))),
+                SiteAdapterFlags { true },
+            ),
+            MergeSupport { true },
+        )
+        private val scope = capture.session.navigate(POST)!!
+        private val bridge = AndroidBrowserMasterFallback(
+            capture,
+            sites,
+            MasterFallbackEngine(
+                SocialLadder.validator(
+                    MasterMediaValidator { found, _ -> ValidationResult.Valid(found.copy(contentLengthBytes = 4096)) },
+                    social = true,
+                ) { MediaStartReader { _, _, _ -> MediaStart.Failed(404) } },
+                PlaybackCaptureProvider {
+                    captures.incrementAndGet()
+                    CaptureResult.Unavailable
+                },
+                MasterPolicy(enabled = true),
+                contracts = SiteContracts(master),
+                social = SocialLadder.stage(master, sites::identity, social = true, cooldown = cooldown),
+            ),
+            MergeSupport { true },
+            requestFactory = { reason, at, expected -> MasterRequest(POST, scope.generation, at, reason, expected) },
+            socialLadder = true,
+            socialCooldown = cooldown,
+        )
+
+        /** Main's answer, then Master's, in one lookup. */
+        suspend fun lookup(): Pair<SiteAdapterOutcome, SiteAdapterOutcome> = withContext(bridge.lookupContext(POST)) {
+            val primary = sites.inspect(POST, BrowserRequestContext(POST, "Browser", null), NOW)
+            primary to bridge.recover(POST, primary, NOW)
+        }
+    }
+
     private companion object {
+        const val NOW = 1_800_000_000_000L
+        const val WIDGET_HOST = "cdn.syndication.twimg.com"
+
+        /** Task 0: X1's line for the widget's 404 (never final; the tab's own playback next). */
+        const val NOT_FOUND_LINE =
+            "master: x X1 main's answer: NEEDS_PLAYBACK (status 404: no post in the widget's answer, not proof of removal); next: PLAYBACK"
         const val POST = "https://x.com/fixture_user/status/1000000000000000001"
         const val KEY = "x:1000000000000000001"
         const val FILE_720 = "https://video.twimg.com/amplify_video/1000000000000000002/vid/avc1/1280x720/a.mp4?tag=16"

@@ -9,12 +9,15 @@ import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractionResult
 import com.alal.yft.extractor.api.SitePageIdentity
+import com.alal.yft.extractor.master.CaptureResult
+import com.alal.yft.extractor.master.CapturedRequest
 import com.alal.yft.extractor.master.MasterFallbackEngine
 import com.alal.yft.extractor.master.MasterMediaValidator
 import com.alal.yft.extractor.master.MasterPolicy
 import com.alal.yft.extractor.master.MasterResult
 import com.alal.yft.extractor.master.MasterStage
 import com.alal.yft.extractor.master.NOW
+import com.alal.yft.extractor.master.PageSnapshot
 import com.alal.yft.extractor.master.RecordingValidator
 import com.alal.yft.extractor.master.ValidationResult
 import com.alal.yft.extractor.master.contract.AGENT
@@ -47,9 +50,9 @@ import org.junit.Test
  * lookup ([MainPages]: its page or its refused GET) with no new ask and judges it: the link's item
  * only (its `/video/N` among the post's own or card's media, else the first; a quoted post's video
  * bound to the link's post), its MP4 files first, its playlist only without them and with a known
- * length; a photo post and the widget's 404 are final; a tombstone (age-limited: the browser;
- * X's notice, removed or protected alike: playback), `{}`, another post, another status and a 429
- * are never final. A renamed key: main's whole answer by shape, only as one item's rows. S7's
+ * length; a photo post is final; the widget's 404 (task 0: no proof of removal; the tab's own
+ * playback next, main's reason stays), a tombstone (age-limited: the browser; X's notice, removed
+ * or protected alike: playback), `{}`, another post, another status and a 429 are never final. A renamed key: main's whole answer by shape, only as one item's rows. S7's
  * budget; [SocialStages] gives an X lookup X's ladder; V asks X's media host only and cannot pass
  * a playlist. Main's real X adapter over main's fixtures; Master never asks; no live calls.
  */
@@ -134,15 +137,11 @@ class XLadderTest {
     }
 
     @Test
-    fun `a photo post and the widget's 404 are final with no request, never captured`() = runTest {
+    fun `a photo post is final with no request, never captured (unchanged by task 0)`() = runTest {
         val cases = listOf(
             Final(
                 main(PHOTOS, Fixtures.read("x/tweet_photos.json")), page(PHOTOS), SiteExtractionFailure.NO_MEDIA_FOUND,
                 "$X1: PHOTO_ONLY (photos only, no video); next: FINAL",
-            ),
-            Final(
-                FakeExtractorHttpClient(), page(OTHER), SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE,
-                "$X1: REMOVED (status 404: no such post); next: FINAL",
             ),
         )
         for (case in cases) {
@@ -165,17 +164,65 @@ class XLadderTest {
             assertEquals(case.line, 1, case.main.requestedUrls.size)
             assertBare(failure.details)
         }
-        // The 404 was kept as main's refused GET only: no page.
-        val pages = MainPages(site = SITE)
-        lookup(page(OTHER), FakeExtractorHttpClient(), pages = pages)
-        assertTrue(pages.pages().isEmpty())
-        assertEquals(404, pages.refusals().single().statusCode)
     }
 
     @Test
-    fun `a tombstone, an empty answer, another post, another status and a 429 are never final`() = runTest {
+    fun `task 0 - the widget's 404 is never final - no new ask, the tab's own playback next, main's reason stays`() = runTest {
+        // (b) Nothing found by the tab's playback: needs playback (the existing fallback), no reason of
+        // Master's own, so main's reason stays; never REMOVED, never final.
+        val validator = RecordingValidator()
+        val capture = CountingCapture()
+        val master = FakeExtractorHttpClient()
+        val main = FakeExtractorHttpClient() // every GET a 404: the widget's 404 for the post
+        val pages = MainPages(site = SITE)
+        val cooldown = SocialCooldown()
+
+        val lookup = lookup(
+            page(OTHER), main, master, pages = pages, validator = validator, capture = capture,
+            ladder = XLadder(master, ::identifyOrNull, cooldown = cooldown),
+        )
+
+        assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, (lookup.main as SiteExtractionResult.Failure).reason)
+        val details = (lookup.result as MasterResult.NeedsPlayback).details
+        assertTrue(details.toString(), NOT_FOUND_LINE in details)
+        assertTrue(details.toString(), details.none { "REMOVED" in it || "next: FINAL" in it })
+        assertTrue(details.toString(), details.none { "PRIVATE_OR_UNAVAILABLE" in it })
+        assertEquals(1, capture.calls)
+        assertTrue(validator.seen.isEmpty())
+        // No new widget request, no X2, no token check: Master asks nothing; main asked once.
+        assertTrue(master.requestedUrls.isEmpty())
+        assertEquals(1, main.requestedUrls.size)
+        // A 404 is no 429: the widget's host does not cool.
+        assertFalse(cooldown.cooling(WIDGET_HOST))
+        assertBare(details)
+        // The 404 was kept as main's refused GET only: no page.
+        assertTrue(pages.pages().isEmpty())
+        assertEquals(404, pages.refusals().single().statusCode)
+
+        // (b) The tab's own playback finds the post's video: the existing capture fallback answers.
+        val file = "https://video.twimg.com/ext_tw_video/$VIDEO_FILES/pu/vid/avc1/720x1280/fixture.mp4"
+        val played = CountingCapture(
+            CaptureResult.Available(
+                PageSnapshot(
+                    page(OTHER), 1, requests = listOf(CapturedRequest(file, mimeType = "video/mp4")),
+                    playingMediaUrl = file, authorizedPlayback = true,
+                ),
+            ),
+        )
+        val replayed = FakeExtractorHttpClient()
+        val recovered = lookup(page(OTHER), FakeExtractorHttpClient(), replayed, capture = played)
+        val success = recovered.result as MasterResult.Success
+        assertEquals(MasterStage.PLAYBACK_CAPTURE, success.stage)
+        assertEquals(file, success.result.candidates.single().mediaUrl)
+        assertEquals(1, played.calls)
+        assertTrue(replayed.requestedUrls.isEmpty())
+    }
+
+    @Test
+    fun `the widget's 404, a tombstone, an empty answer, another post, another status and a 429 are never final`() = runTest {
         val video = Fixtures.read("x/tweet_video.json")
         val cases = listOf(
+            Never(main(VIDEO) { ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 404) }, NOT_FOUND_LINE),
             Never(main(VIDEO, EMPTY), "$X1: VALUE_REJECTED (an empty answer, as without the widget's check value); next: NEXT_RUNG"),
             Never(main(VIDEO, EMPTY_TOMBSTONE), "$X1: AGE_LIMITED (an empty tombstone); next: BROWSER"),
             Never(
@@ -507,6 +554,9 @@ class XLadderTest {
         const val JSON = "application/json"
         const val LADDER = "master: x ladder"
         const val X1 = "master: x X1 main's answer"
+
+        /** Task 0: X1's line for the widget's 404 (never final; the tab's own playback next). */
+        const val NOT_FOUND_LINE = "$X1: NEEDS_PLAYBACK (status 404: no post in the widget's answer, not proof of removal); next: PLAYBACK"
         const val ITEM = "master: x X1 item"
         const val TIKTOK_PAGE = "https://www.tiktok.com/@fixture_user/video/7311234567890123456"
         const val X_FILE = "https://video.twimg.com/ext_tw_video/$VIDEO_FILES/pu/vid/avc1/720x1280/a720.mp4?tag=12"
