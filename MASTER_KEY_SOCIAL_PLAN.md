@@ -31,9 +31,12 @@ every site, another site's host refused before any ask and counted refused, neve
 Facebook unchanged; from the phone session of 2026-10-22; debug only, behind the flag) built
 (2026-10-22; §7.3, §7.4). Task 10 (main: TikTok's public download service `tikwm.com` off, decision
 22: P46's choice B reversed; the app and its site census, flag off and on alike; an exception to
-S1, its own commit) built (2026-10-22; §7.3, §8). Next: the owner's phone session with task 10's
-APKs (§7.4: Master on X first, then TikTok after its 429's cooldown, then Instagram; TikTok's main
-asks no download service; W's first run last).**
+S1, its own commit) built (2026-10-22; §7.3, §8). The owner's phone session of 2026-10-22 on task
+10's APKs (`36ec093`; `docs/PHONE_TEST_NOTES.md`): A, B and C passed (W's first runs C1–C3);
+decided §8 items 23–26 (TikTok's T1 difference accepted; S2d part 2, the probe's rung: go; the
+VPN's New York exit for TikTok and W; S5's rule), recorded by task 11 (docs only; §7.3's gate
+state). Next: tasks 12–14 (§7.3: the engine's Details lines and the first lookup's gap; the
+probe's rung; the playback words), then the owner's phone session (§7.4).**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -73,9 +76,9 @@ asks no download service; W's first run last).**
 - **အစဉ် (§7၊ §7.3):** S0 (ပြီးပြီ) → **Stage 0** (0.1 main ရဲ့ X card fix၊ 0.2 Instagram check၊
   0.3 Facebook access check evidence၊ 0.4 census fix + site census diff၊ 0.5 ပိုင်ရှင်ရဲ့ baseline
   B0) → **S1a** kit အနည်းဆုံး + Facebook pack (pilot) → **S2b** TikTok → **S2c** X → **S2d**
-  Instagram → S3 weekly check → S4 remote recipe live → S5 site တစ်ခုစီ phone run ၃ ခါ → PR #2
+  Instagram → S3 weekly check → S4 remote recipe live → S5 site တစ်ခုစီ phone run ၃ ခါ (#26) → PR #2
   merge → P8 (beta.4)။ release ပြီးမှ: S1b၊ X2၊ "item အားလုံး" feature၊ B+ (S6)၊ A။
-- **ဆုံးဖြတ်ပြီး:** §8 #1–#4၊ #6–#19။ **ကျန်:** #5 (S4 မတိုင်မီ)။
+- **ဆုံးဖြတ်ပြီး:** §8 #1–#4၊ #6–#26။ **ကျန်:** #5 (S4 မတိုင်မီ)။
 - **S0d (2026-10-20, §7.2):** ပိုင်ရှင်ရဲ့ phone run ၂ ခု။ Recoverable failure: Facebook 0/11၊
   TikTok 0/6၊ Instagram 0/7၊ X 2/6 (main မဖတ်တဲ့ card ထဲက video)။ Pilot: Facebook → TikTok →
   X → Instagram (ပိုင်ရှင် အတည်ပြုပြီး၊ 2026-10-20၊ §8 #1)။
@@ -271,6 +274,21 @@ asks no download service; W's first run last).**
   ပြ); ပြန်ဖွင့်ရင် နေရာတစ်ခုကို argument တစ်ခု။ တခြား main ပြင်ချက် မရှိ၊ Master မပြောင်းပါ။ နောက်တစ်ဆင့်:
   phone session (§7.4; A ရဲ့ TikTok မှာ "download service" ask မရှိ၊ slots 8၊ 9 က `GEO_RESTRICTED`၊
   `PRIVATE_OR_UNAVAILABLE` ဆက်ဖြစ်; main ရဲ့ တခြား answer တွေ အရင်အတိုင်း)။
+- **2026-10-22 phone session နဲ့ ပိုင်ရှင်ရဲ့ ဆုံးဖြတ်ချက် 23–26 (task 11၊ docs only၊ §7.3၊ §8၊
+  `docs/PHONE_TEST_NOTES.md`):** `36ec093` ရဲ့ `yft-d7-social-trial` နဲ့ A (site ၄ ခုလုံး PASS၊ wrong rows
+  0)၊ B1၊ B2 (Instagram probe)၊ B3 (8/8)၊ C (W ရဲ့ first runs C1–C3) PASS ပါ။ **#23** — TikTok ရဲ့ T1 က
+  post တစ်ခုကို row တစ်ခု (အမြင့်ဆုံး 1280 အထိ)၊ main က row ၄ ခုအထိ (1920) — Master က main ရဲ့
+  fallback ပဲ ဖြစ်လို့ လက်ခံပါတယ် (`docs/SUPPORT_MATRIX.md`)။ **#24** — Instagram ရဲ့ probe rung (S2d
+  part 2) go: sign out ထားတဲ့ slot 5 မှာ probe ရဲ့ answer ထဲ post ရဲ့ video ပါပြီး slot 9 (age-restricted
+  reel) မှာ မပါ (sign in ပဲ); rules က §7.3 (task 13)။ **#25** — TikTok ရဲ့ VPN runs နဲ့ W ရဲ့ VPN run
+  အတွက် Boston အစား New York exit (Boston က T1 ရဲ့ ပထမ embed ask ကို 429 သုံးခါ ပြန်); Facebook၊ X၊
+  Instagram ရဲ့ VPN census က Boston ဆက်; TikTok ရဲ့ New York baseline က 14:59 UTC census (`36ec093`)၊
+  W ရဲ့ baselines က C1–C3။ **#26** — S5: site တစ်ခုစီ run ၃ ခု၊ တစ်ခုနဲ့တစ်ခု အနည်းဆုံး 6 နာရီ ခြား၊
+  ပထမနဲ့ နောက်ဆုံး အနည်းဆုံး 24 နာရီ ခြား; final code ရဲ့ APK နဲ့ပဲ ရေတွက် (site ရဲ့ pack၊ engine
+  ဒါမှမဟုတ် main ပြောင်းရင် အဲဒီ site ရဲ့ count အစက ပြန်စ); Master မ run ခဲ့တဲ့ run (429၊ cooldown၊
+  not reached) မရေတွက်; session တစ်ခုမှာ site ၄ ခုလုံး run လို့ရ။ §7.3 မှာ release gate ရဲ့ site
+  တစ်ခုစီ state ဇယား ပါပါတယ်။ နောက်တစ်ဆင့်: task 12 (Details lines နဲ့ ပထမ lookup ရဲ့ gap)၊ task 13
+  (probe rung)၊ task 14 (playback words)၊ ပြီးရင် ပိုင်ရှင်ရဲ့ phone session (§7.4)။
 
 ## 1. Audit — what exists today
 
@@ -595,12 +613,12 @@ With no adapter copies (B), the build is also about 4,700 lines smaller than the
 | **S0** | M | The per-lookup request recorder (app side, memory only; decision 8) + the site census tool (`SiteCensusActivity`, like "YFT client census"): each way of each site asked once on the owner's test list, judged, shape fingerprint, V on one row; the recorder's counts (which way failed and how, 429 / bot checks, repeated asks); JSON export with slots only | the owner's run gives each site's share of recoverable failures → the pilot and the order (§8 item 1) — **done** (§7.1, §7.2) |
 | **Stage 0** | M | Five items, in parallel, before S1a's first phone APK (§7.3): **0.1** X's card fix in main (the owner's go); **0.2** the Instagram check (no code); **0.3** Facebook's access-check evidence (no code); **0.4** the census fixes and the site census diff (debug builds only); **0.5** the owner's baseline run B0 (§9) | 0.1 and 0.4: CI green and the census APK; 0.2 and 0.3: a verdict each (§7.3); 0.5: B0 recorded |
 | **S1a** | L | The kit's minimum with the pilot's pack, Facebook (the first draft's S1 and S2a together), flag `-Pyft.socialLadder` (off = today): the recorder in the app's lookup path, judge classes, the site table, one judged request rung + L3 + capture, budgets and the 30-minute cooldown (S7), `SiteRowCheck` + `InitCheck` on every Master row, Facebook's anchors, post-identity mutation tests, a simulator world (§7.3) | JVM tests, simulator and CI green; flag off = today; the D7-style APK's phone proof (§7.3) — **passed (2026-10-21, §7.4 step 6's re-run)** |
-| **S2b** | M | TikTok's pack (§7.3) | phone proof; wrong rows 0; no regression against B0 — built (2026-10-21, behind the flag); its proof: the next phone session (§7.4) |
-| **S2c** | M | X's pack: main's answer replayed, no new ask (X2 not now; §7.3) | the same — built (2026-10-21, behind the flag); its proof: the next phone session (§7.4) |
-| **S2d** | M | Instagram's pack by the Instagram check's verdict (0.2); the owner's signed-in census first (§7.3) | the same — part 1 built (2026-10-22, behind the flag: I2 and the tab-fetch probe, off by default); its proof and the probe's result: the next phone session (§7.4); part 2 (the probe's rung) only after that result |
-| **S3** | S–M | Weekly check W for all four + runbook (each CHANGED / BREAKING line and its fix: a data change via R9, or code) | the owner's first W run — built (2026-10-22, debug only, a social-ladder build: the census's "Weekly check W"; its runbook §7.5); its first run: the next phone session (§7.4, C) |
+| **S2b** | M | TikTok's pack (§7.3) | phone proof; wrong rows 0; no regression against B0 — built (2026-10-21, behind the flag); the phone (2026-10-22, `36ec093`): main PASS, T1's rows 6 of 6 on the New York exit, wrong 0; T2 untested; its intended difference accepted (decision 23) |
+| **S2c** | M | X's pack: main's answer replayed, no new ask (X2 not now; §7.3) | the same — built (2026-10-21, behind the flag); the phone (2026-10-22, `36ec093`): A PASS, wrong 0; tasks 12 and 14 (§7.3) before its S5 |
+| **S2d** | M | Instagram's pack by the Instagram check's verdict (0.2); the owner's signed-in census first (§7.3) | the same — part 1 built (2026-10-22, behind the flag: I2 and the tab-fetch probe, off by default); the phone (2026-10-22, `36ec093`): A PASS on 3 sessions, wrong 0; the probe: slot 5 video yes, slot 9 no; part 2 (the probe's rung): go (decision 24), task 13; tasks 12 and 14 too |
+| **S3** | S–M | Weekly check W for all four + runbook (each CHANGED / BREAKING line and its fix: a data change via R9, or code) | the owner's first W run — built (2026-10-22, debug only, a social-ladder build: the census's "Weekly check W"; its runbook §7.5); its first runs C1–C3 PASS (2026-10-22, `36ec093`; W's baselines per network and session: decision 25) |
 | **S4** | S | R9 live: the owner signs and hosts the config (§8 item 5, decided before S4); kill switch per rung; one repair drill (a key changed by config on the phone, no APK) | drill passed |
-| **S5** | — | Promote per site after 3 phone runs on different days with 0 wrong rows and no regression against B0; then the release gate (§7.3): all four sites, the first W run and the R9 drill passed, the intended differences in `docs/SUPPORT_MATRIX.md` → PR #2 merged → P8 (beta.4) | the owner's go |
+| **S5** | — | Promote per site after 3 phone runs by decision 26's rule (each at least 6 h after the previous one, the first and the last at least 24 h apart, on an APK of the final code, only where Master ran) with 0 wrong rows and no regression against B0; then the release gate (§7.3): all four sites, the first W run and the R9 drill passed, the intended differences in `docs/SUPPORT_MATRIX.md` → PR #2 merged → P8 (beta.4) | the owner's go |
 | **S1b** | M | After the release, on the owner's go: the rest of the kit — several request rungs per site with `SiteHealth` (the last good rung first) and self-healed values (L6). Needed only if X2 is allowed or Instagram's `doc_id` needs self-healing: Facebook, TikTok and Instagram each have one request rung in S1a–S2d | JVM tests; phone proof per site |
 | **S6** | M | **B+** (the owner's go, after the release and B's phone proof): when main's answer is weak by an objective signal (no HD row, no sound row), Master adds only the missing formats; main's rows stay (merge rule); budgeted | phone proof; **A** only if B+ is measured insufficient (decision 7) |
 
@@ -930,6 +948,27 @@ line; never a row. The trial APK `fb-trial` sets aside Instagram's rows too and 
 tallest row. The census's tallest difference (signed in, slots 1, 4, 6, 7): its Master trial read
 R8's public embed page (no cookie), main the app API with the session. Its phone proof and the
 probe's result: the owner's next session (§7.4).
+**S2d part 1's phone proof and the probe's result (the owner, 2026-10-22, `36ec093`; §7.4,
+`docs/PHONE_TEST_NOTES.md`):** A PASS on three sessions (signed out, no VPN; signed in, no VPN;
+signed in, the VPN Boston): ladder rows 6, 8 and 8, the same item, wrong 0; signed-in slot 10
+`RESPONSE_CHANGED`, the known gap. B2 (the probe): slot 5 video yes, slot 9 video no →
+decision 24.
+**S2d part 2 — the probe's rung (decision 24, the owner, 2026-10-22; task 13, not built):** the
+rung is the probe's ask, now read for rows, within decision 19 (i)–(vi) and decision 3: only in a
+social-ladder build (debug), behind its own switch (the census screen's probe box, renamed for the
+rung; its default in `social-trial` is the owner's call); only on `instagram.com` in the visible
+tab; signed out only (no session in the tab); only after main fails and I2 gives no rows; once
+per lookup through the recorder and the ledger (no second ask; a 429 or a bot check → the stop
+and the 30-minute cooldown); the last request rung, before I3. The query's `doc_id` and values
+stay data with their source and date (S9); no `doc_id` self-healing; `VALUE_REJECTED` → I3,
+never a guessed value. Rows: L3 on the rung's answer, bound to the post (shortcode or pk) and the
+link's item (`img_index`, else the first), V and the init check on each row, at most 8 rows; an
+answer for a post whose page shows a sign-in or an age wall is never used (19 (iv)); a post the
+judge called removed is never asked (19 (vi)). Main's "video without files" reading of the
+signed-out embed page gets its own class leading to the rung (not `SHAPE_CHANGED`, so W does not
+flag it). The rung's Details line (HTTP status, bytes, video yes/no, wall yes/no, rows) shows on
+a row lookup too (the trial's banner, the sheet's Details). The census and W count the rung in
+Instagram's caps (24 requests, 2 MB, 60 s).
 **Task 6b built (2026-10-22, behind the flag; `PROGRESS.md`):** in a social-ladder build
 (`yft-d7-social-trial`) the site census's Master part of each Facebook, TikTok, X and Instagram
 slot runs the site's pack in place of R8's way: the site's ladder (the app's `SocialLadder.stage`)
@@ -1032,14 +1071,40 @@ same rows and asks as P46's wiring. `SiteCensusTikTokServiceTest` 4 (new; the ce
 same three, the row's record without the service's way, and the census row's `not reached:
 download service` (P46's census: its `download service GET 200` ask). Next: the owner's phone
 session (§7.4).
+**Tasks 11–14 (the owner, 2026-10-22, after the phone session of 2026-10-22; each its own
+commit, in order; `PROGRESS.md`):** **task 11** (docs only, done): decisions 23–26 (§8), S5's rule,
+the gate's state below, §7.4's next phone session. **Task 12** (behind the flag; not built): the
+engine's Details lines kept on every result kind (observation (b): the capture's needs-playback
+answer and its failures replaced them), and the first lookup's gap (observations (a) and (g):
+Instagram slots 1 and 5 and X slot 6 gave no Master row on the first trial lookup, I2's and X1's
+rows only on Try again). **Task 13** (behind the flag; not built): S2d part 2, the probe's rung
+(decision 24; above). **Task 14** (behind the flag; not built): the playback words only where a
+video can play (observation (e)): a sign-in or an age wall → sign-in words; no video in the tab →
+main's reason with Try again; only the words change (X's 404 stays never final, task 0; an
+Instagram removed post stays not final, decision 20 (ii)).
 Each site: a D7-style phone proof, wrong rows 0, no regression against B0.
 
 **S3 and S4** as in §7: W (≤ 1 min, ≤ 2 MB per site) with the diff and the runbook; R9 live (the
 owner signs and hosts the config, a kill switch per rung, one repair drill on the phone).
 
-**The release gate (§8 item 12):** each site's S5 (3 phone runs on different days, wrong rows 0,
-no regression against B0), the first W run passed, the R9 drill passed, the intended differences
-listed in `docs/SUPPORT_MATRIX.md` → PR #2 merged → P8 (beta.4) → others get the app.
+**The release gate (§8 item 12):** each site's S5 (decision 26: 3 phone runs, each at least 6 h
+after the previous one, the first and the last at least 24 h apart, counted only on an APK of the
+final code — a change to the site's pack, the engine or main restarts its count — and only where
+Master ran; wrong rows 0, no regression against B0), the first W run passed, the R9 drill passed,
+the intended differences listed in `docs/SUPPORT_MATRIX.md` → PR #2 merged → P8 (beta.4) →
+others get the app.
+
+**The gate's state** (after the phone session of 2026-10-22 and task 11; kept current by each
+commit):
+
+| Site | Its pack and phone proof | W's first run (C) | Intended differences listed | S5 (decision 26) |
+| --- | --- | --- | --- | --- |
+| Facebook | S1a built; phone proof PASS (2026-10-21); A PASS (2026-10-22, `430da9f`) | C1, C2 PASS | Master's rows 2 against main's 3 (task 7) | not started |
+| TikTok | S2b built; main PASS (`36ec093`); T1 proven on New York (rows 6 of 6, wrong 0); T2 untested | C1 PASS (VPN only: no network without it) | T1 one row, at most 1280 (decision 23) | not started |
+| X | S2c and task 0 built; A PASS (`36ec093`); tasks 12 and 14 change its lookups | C1, C2 PASS | `{}`, the notice tombstone, the 404 never final (decision 21) | not started |
+| Instagram | S2d part 1 built; A PASS on 3 sessions; part 2 (decision 24) not built; tasks 12–14 change its lookups | C1, C2, C3 PASS | the 360p file, never "removed" (decision 20) | not started |
+
+Every site: S4 (R9 live, its drill) waits for decision 5; then S5, PR #2's merge, P8.
 
 **After the release** (each on the owner's go): S1b, X2, the "all items" feature, B+ (S6), A.
 
@@ -1402,78 +1467,44 @@ same day; no link or ID kept (S8).
   is the census's run; slot 8's playback (X3) still needs the app's browser (the census has no
   tab: `X3 not run (no tab)`).
 
-**The next phone session (the owner, after this run's last pushed task — S2d part 1, task 6a's
-one trial APK, task 0 (X's 404 never final), task 6b (the census's ladder), task 7, task 8 (W) and
-task 9 (S6's reads on the lookup's site) and task 10 (main: TikTok's download service off, decision
-22) are pushed;
-`yft-d7-social-trial` and `yft-d7-normal` of the last pushed `[d7]` commit, never an older run's
-APK (not `fb-trial`, not task 6a's); the run's report and `PROGRESS.md` name the commit and the
-artifacts):**
+**The phone session of 2026-10-22 (done; `430da9f`'s and `36ec093`'s APKs; the log and its summary:
+`docs/PHONE_TEST_NOTES.md`):** A (each site's census) PASS on every site — Facebook (`430da9f`;
+Boston and no VPN; ladder rows on 9 slots, the same video, wrong 0), X (`36ec093`, both networks;
+task 9 verified: ladder rows 6, the same item, wrong 0), TikTok (`36ec093`; main: no download
+service ask, task 10 verified; Master's T1 rows 6 of 6 on the New York exit, wrong 0, after
+Boston's 429 on T1's first ask three times; T2 untested), Instagram (signed out, no VPN; signed in,
+no VPN; signed in, Boston: ladder rows 6, 8 and 8, the same item, wrong 0); B1 and links 9–10's
+desktop forms PASS; B2 (the probe): slot 5 video yes, slot 9 video no (decision 24); B3 8 of 8; C
+(W's first runs: C1 VPN New York, C2 no VPN, C3 Instagram signed in) PASS. Observations (a)–(g) →
+tasks 12–14 (§7.3); the owner's decisions 23–26 (§8).
 
-- **The session of 2026-10-22 (`430da9f`'s APKs) and task 9:** B1 (link 9's desktop form), A's
-  Facebook census (A-FB) and X's and TikTok's main results stand (not run again). A's X census
-  (signed out, the VPN on, 10:48 UTC): slots 1–6's Master trials failed (`NETWORK`, each ask
-  "unlabelled GET NETWORK 1–2 ms", the ladder's rows 0) as S6's reader allowed Facebook's media
-  hosts only; task 9 fixes it. **A's Master parts again, with task 10's APKs (task 9's fix and decision 22), in this order:** X
-  first (both networks; S6's reads answered on X's video host, no `GET NETWORK` ask of 1–2 ms),
-  then TikTok after its 429's cooldown (30 min; `T1 not run (cooldown)` until then, never waited
-  out within a run), then Instagram (its three sessions). Then B2 (Instagram's probe), B3 (the
-  short regression set) and C below.
-- **A — `yft-d7-social-trial`, "YFT site census" (the probe's box off), one run per network and
-  session below:** each site against its baseline: wrong rows 0, no regression, unknown rows apart
-  (wrong rows 0 alone is not parity); main's part (the site's line, B0's columns) apart from
-  Master's (each site's `ladder:` line, each slot's `rungs:` line).
-  - Facebook, signed out, the VPN Boston and no VPN: main's parts are the re-baseline after
-    decision 18. Master: the ladder's rows of the same video, the duration within 1 s, V pass;
-    Master's rows 2 against main's 3 (main's audio row: task 7's intended difference).
-  - TikTok, signed out, B0's US VPN exit (Boston): T1's or T2's rows of the post on video slots
-    (1–5, 10); slot 6 (photo) main's words, no request; slots 8–9 no Master row. T1's positives may
-    need runs at least 30 minutes apart; after a 429 `T1 not run (cooldown)` — never waited out or
-    bypassed within a run. Main (decision 22, task 10): no `download service` ask on any slot
-    (each row's `not reached: download service`); slots 8 and 9 keep `GEO_RESTRICTED` and
-    `PRIVATE_OR_UNAVAILABLE`, one ask fewer each (the service's 403 is gone; request counts are not
-    compared, so no CHANGED line from it); every other main answer as before.
-  - X, signed out, the VPN Boston and no VPN, B0's 8 slots: slots 1–6 Master's rows of main's item
-    ("the same item: yes; duration within 1 s: yes"), slot 6 video 1's rows only; slots 7 and 8 no
-    Master row (slot 8: `X3 not run (no tab)`), never "removed" (a widget 404 alone is not final:
-    task 0).
-  - Instagram: signed out, no VPN; signed in, no VPN; signed in, the VPN Boston. On every video slot
-    main answers: the same item, the duration, the same tallest (the 360p rows unknown: decision
-    20); slot 8 (photo) in main's words; the slots main does not answer (signed out: 5, 9 and 10) no
-    Master row, never "removed".
-- **B — the app's browser (signed out, no VPN unless said):**
-  - Link 9's desktop form (a Page post): `yft-d7-normal` — main's rows of the post's video only (no
-    list of the page's videos); `yft-d7-social-trial` — "Master found none" with its step in Details
-    ("Master's answer not used: the page changed during the lookup: …"), no wrong row.
-  - Instagram's tab-fetch probe, `yft-d7-social-trial`: the switch on ("YFT site census" →
-    Instagram's tab-fetch probe), slots 1, 5 and 9: one `master: instagram probe:` Details line per
-    lookup (HTTP status, bytes, the post's video in the answer yes/no, a wall on the page yes/no),
-    no row from it, no second probe — a diagnostic, not a promise of rows (S2d part 2, the probe's
-    rung, waits for it and the owner's decision); then the switch off.
-  - A short regression set, `yft-d7-social-trial`: Facebook link 1 (a watch link: Master's rows of
-    the same video, the trial line yes/yes; the sheet's Audio from the video's own sound) and link
-    10 (a group post's desktop form: "Master found none" with its step); TikTok slot 6 (photo: main's
-    words, no request) and slot 1 (the post's rows only); X slot 6 (video 1's rows only) and slot 8
-    (needs playback, main's reason after the tab's playback finds nothing, never "removed");
-    Instagram slot 8 (photo: main's words) and slot 1 (the post's item).
-- **C — W's first run (S3, task 8), last:** `yft-d7-social-trial` (the same APK as A and B),
-  "YFT site census" → **Weekly check W (all sites)**, the probe's box off; the links already in the
-  census's slots (W reads only its slots: Facebook 1 video, 8 share link, 13 removed; TikTok 1
-  single video, 6 photo post, 9 removed; Instagram 1 single video, 8 photo-only, 10 removed; X 1
-  video, 6 several videos, 8 removed). Runs, each after A's census on the same network: (1) signed
-  out, the VPN Boston (TikTok's B0 exit); (2) signed out, no VPN (TikTok's lines there are what W
-  reads on that network, not a failure); (3) Instagram signed in, no VPN (W's baselines are per
-  session). Caps per site: at most 60 s, 2 MB and 24 requests (the header's `ran, N requests, X
-  MB, S s` line per site). Expected: the first line `W (weekly check): FIRST RUN — nothing to
-  compare yet` (W's baselines start; the census's stay apart); each site `ran` within its caps;
-  Master's part on slot 1 only (in this APK the site's ladder: rows of the same video or item,
-  wrong rows 0), the other W slots `W: main only`; a site cooling after A's runs (a 429 or a bot
-  check) `not run (cooldown N min (…))` — never waited out, not a pass: W again after the cooldown.
-  A later W run (another day, the same network and session) is the first comparison: `NO CHANGE`,
-  or CHANGED / BREAKING lines each ending `→ W runbook step N (…)` (§7.5: what to check, the fix).
-  Copy report and Copy JSON (the export says `"mode":"weekly"`). W's first TikTok run is its
-  baseline without the download service (decision 22): slot 9 `failed PRIVATE_OR_UNAVAILABLE`,
-  `not reached: download service`.
+**The next phone session (the owner, after tasks 12–14 are pushed; `yft-d7-social-trial` of the
+last code commit's APK run, never an older run's APK; the run's report and `PROGRESS.md` name the
+commit and the run; the VPN is New York for TikTok and W, Boston elsewhere: decision 25):**
+
+- **Instagram, no VPN, signed out, the rung's switch on** (task 13; "YFT site census" → the
+  rung's box, the probe's box renamed), the app's browser, each slot's first lookup:
+  - slot 5: the rung's rows on the first lookup — the same item, V pass, wrong 0, and its Details
+    line (HTTP status, bytes, video yes, wall no, rows N). Main's signed-out answer for slot 5
+    varies (observation (c)): when main gives its row, task 13 says how the rung is proved anyway.
+  - slot 9 (the age-restricted reel): task 14's sign-in words, no row (the rung's line: video no,
+    or a wall).
+  - slot 8 (photos only): main's words, no request (the rung not asked).
+- **The first lookup (task 12), signed out, no VPN:** Instagram slots 1 and 5 and X slot 6 → rows
+  on the first lookup, no Try again; X slots 7 and 8 → X1's line in Details and task 14's words.
+- **B3's short set again, `yft-d7-social-trial`, the same networks as on 2026-10-22:** Facebook
+  links 1 and 10, Instagram slots 1 and 8, TikTok slots 1 and 6 (the VPN New York), X slots 6 and
+  8; each as §7.4 B said before (Facebook 1: Master's rows of the same video, yes/yes; Facebook
+  10: "Master found none" with its step; TikTok 6 and Instagram 8: main's words, no request;
+  TikTok 1 and Instagram 1: the post's rows; X 6: video 1's rows only; X 8: never "removed").
+- **W (the census → Weekly check W, the rung's box off):** (1) the VPN New York, signed out; (2) no
+  VPN, signed out; (3) no VPN, Instagram signed in — each against its baseline (C1, C2, C3:
+  decision 25). Expected: `NO CHANGE` on every site that runs (main unchanged; Master's part on
+  slot 1 as before: Facebook F1 2 against 3, TikTok T1, Instagram I2, X X1, wrong 0); TikTok
+  without the VPN stops at 60 s again (not a failure). Tasks 12–14 say here any W line they
+  change.
+- **Then S5 (decision 26)** starts on that APK, if no code changes: per site 3 runs, each at least
+  6 h after the previous one, the first and the last at least 24 h apart, only where Master ran.
 
 **For S2b (TikTok), noted now** (inputs to S2b's design, §7.3; not decided):
 
@@ -1605,7 +1636,8 @@ go; meanwhile Master's ladder (behind the flag) is the backup.
    W's baselines are per VPN and session, so run W again in the baseline's conditions; a kind
    change means the census's slot list changed (another build): its baseline starts again.
 
-**W's first run** (C of §7.4's next phone session; the release gate's "the first W run passed" is
+**W's first run** (C of §7.4's phone session of 2026-10-22: C1–C3 PASS, `docs/PHONE_TEST_NOTES.md`;
+W's baselines per network and session: decision 25; the release gate's "the first W run passed" is
 the owner's call): its first line is `FIRST RUN` (W's baselines start). What to look for: each site
 `ran` within its caps (a cap stop or `not run` is not passed: W again after the cooldown), main's
 part of each W slot as in the site's census run of the same network and session, slot 1's V pass,
@@ -1699,15 +1731,17 @@ each one's implementation status):
   of the higher qualities main offers. (ii) A removed post is never final from today's ambiguous
   answers (decision 19 (vi)); main's reason stays. Neither authorizes S2d part 2's tab-fetch rung
   or `doc_id` self-healing (decision 3 stands). *Status:* both as built in S2d part 1 (`dd761c8`);
-  not yet proved on the phone (§7.4's next phone session); the census's site packs (task 6b)
-  compare Master's rows with the census's own main answer.
+  the census's site packs (task 6b) compare Master's rows with the census's own main answer; seen
+  on the phone (2026-10-22, `36ec093`, A on three sessions: the same item, wrong 0; slots 5, 9 and
+  10 never "removed"); S2d part 2's rung: decision 24.
 - **21 — X, S2c's intended differences.** (i) `{}` → `VALUE_REJECTED`, not final: accepted. (ii)
   X's notice tombstone (a deleted and a protected account's post look alike) → `NEEDS_PLAYBACK`,
   not final: accepted. (iii) The widget's 404 → final as removed: **not accepted**: a 404 alone
   must not establish deletion or end the recovery. *Status:* (i) and (ii) as built in S2c
   (`efc3670`); (iii) changed by task 0 (2026-10-22, §7.3): the 404 → `NEEDS_PLAYBACK`, never
   final; the existing playback and browser fallback follow; when they find nothing, main's reason
-  stays. Not yet proved on the phone.
+  stays. Seen on the phone (2026-10-22, `36ec093`, A on both networks and B3: slots 7 and 8 need
+  playback, never "removed"); task 14 changes only the words shown there.
 - These acceptances are not a waiver: each site's phone proof, its regression check and the
   release gate (decision 12) still apply.
 
@@ -1728,8 +1762,50 @@ Decided (the owner, 2026-10-22, task 10; recorded in task 10's commit):
   link). Kept as they are: `TikTokDownloadService` and its tests, `SiteWays` (`TIKTOK.mainWays`),
   `SiteLabels`, `SiteReadings`, `SiteWaysDriftTest`; turning it back on is one argument per place
   (`SiteAdapterModule`, `SiteCensusLookup`). No other main change; Master unchanged (decision 4,
-  S4). *Status:* built in task 10's commit (2026-10-22, §7.3); not yet seen on the phone (§7.4's
-  next phone session: A's TikTok, C).
+  S4). *Status:* built in task 10's commit (2026-10-22, §7.3); seen on the phone (2026-10-22,
+  `36ec093`: A's TikTok and C1, no download service ask; slots 8 and 9 `GEO_RESTRICTED` and
+  `PRIVATE_OR_UNAVAILABLE`, final).
+
+Decided (the owner, 2026-10-22, after the phone session of 2026-10-22 on `36ec093`'s APKs
+(`docs/PHONE_TEST_NOTES.md`); recorded in task 11's commit, docs only; decisions, then each one's
+status):
+
+- **23 — TikTok, S2b's intended difference: accepted.** Master's T1 gives one row per post, its
+  tallest at most 1280 (the embed player's file), where main gives up to 4 rows and 1920 (the
+  desktop page): Master is only main's fallback, so its rows show only where main has none. Not a
+  waiver: the phone proof, the regression check and the release gate (decision 12) still apply.
+  *Status:* as built in S2b (2026-10-21); seen on the phone on the New York exit (2026-10-22 14:59
+  UTC, `36ec093`: T1's rows on 6 of 6 video slots, the same video, wrong 0; the tallest equal on
+  4, lower on 2: 1276 and 1280 against main's 1920); listed in `docs/SUPPORT_MATRIX.md` (the
+  TikTok backup ladder). T2 (main's pages; its files may fail V without the page's cookie) is
+  still untested on the phone.
+- **24 — Instagram, S2d part 2 (the probe's rung): go.** Decision 19 (v)'s phone result (§7.4
+  B2, 2026-10-22, signed out, no VPN, the probe's box on): slot 5 — the probe's HTTP 200, 351,862
+  bytes, the post's video in its answer, no wall (main and I2 gave no row on that lookup), so a
+  rung would rescue it; slot 9 (an age-restricted reel) — HTTP 200, 157 bytes, no video: sign-in
+  only, no rung can help. The rung's rules: §7.3 S2d part 2 (task 13), within decision 19
+  (i)–(vi) and decision 3 (no `doc_id` self-healing; `VALUE_REJECTED` → I3, never a guessed
+  value). *Status:* not built (task 13).
+- **25 — The VPN's New York exit replaces Boston for TikTok's VPN runs and W's VPN run.** Boston
+  answered T1's first embed ask with a 429 three times (B0, 10:43 and 14:18 UTC); New York proved
+  T1 at 14:59 UTC. Facebook's, X's and Instagram's VPN census runs stay on Boston. The census and W
+  key a baseline by the VPN (on or off) and the session, not by the exit, so the exit is named in
+  the run's notes. TikTok's census baseline on New York: the 14:59 UTC census on `36ec093` (its
+  main part complete and NO CHANGE against Boston's 14:18 UTC run; Master's part ran on every
+  slot, no 429), no new baseline run. W's baselines, per network and session (§7.5): VPN on,
+  signed out — C1 (15:25 UTC, New York, all four sites); VPN off, signed out — C2 (15:30 UTC:
+  Facebook, Instagram, X) and C3 for Facebook and X (15:35 UTC, NO CHANGE against C2); TikTok has
+  none without the VPN (not reachable on the owner's network: a 60 s `time` stop, never a
+  baseline, not a failure); VPN off, Instagram signed in — C3 (Instagram). *Status:* §7.4's next
+  phone session; no code change (the census and W unchanged).
+- **26 — S5's rule (replaces "3 phone runs on different days"):** per site, 3 runs, each at
+  least 6 h after the previous one, the first and the last at least 24 h apart; counted only on an
+  APK of the final code — a change to that site's pack, the engine or main restarts that site's
+  count; a run where Master did not run (a 429, a cooldown, not reached) does not count. One
+  session may run all four sites. Each counted run: wrong rows 0, no regression against the
+  site's baseline (as before). *Status:* not started; tasks 12–14 change the engine and
+  Instagram's and X's lookups, so S5 starts on the APK of the last code commit after §7.4's next
+  phone session, if no code changes.
 
 Still open (the owner's answer is needed before the step that uses it):
 

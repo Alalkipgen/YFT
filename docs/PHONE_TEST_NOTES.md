@@ -24,14 +24,21 @@ post IDs and post words stay on the phone and are left out here.
 | C W's first runs (36ec093, probe box off) | PASS: C1 (VPN New York) "FIRST RUN", C2 (no VPN) "NOT COMPARED", C3 (Instagram signed in) "NO CHANGE" (Facebook and X against C2). Every site that ran stayed within 24 requests, 2 MB and 60 s. Slot 1 got ladder rows on every reachable site, wrong 0, no 429. Without the VPN, TikTok can't be reached on the owner's network: it stops at the 60 s cap and is never a baseline there (§7.4: not a failure). |
 
 ### Owner decisions
-- **2026-10-22: TikTok differences accepted.** Master's T1 gives 1 row per post with its tallest at
-  most 1280 (main gives up to 4 rows and 1920), because Master is only main's fallback. To record
-  in `docs/SUPPORT_MATRIX.md` as an intended difference.
-- **Open** (recommendation in brackets):
-  - (2) S2d part 2, the probe's rung. Slot 5 would be rescued, slot 9 not.
-  - (3) The New York exit instead of Boston for TikTok's VPN runs and W's VPN run [yes].
-  - (4) S5's rule: 3 runs at least 6 h apart, the first and the last at least 24 h apart, counted
-    only after the code is final [yes].
+All four decided on 2026-10-22; recorded by task 11 as `MASTER_KEY_SOCIAL_PLAN.md` §8 decisions 23–26
+(each with its status there).
+- **(1) TikTok differences accepted (decision 23).** Master's T1 gives 1 row per post with its
+  tallest at most 1280 (main gives up to 4 rows and 1920), because Master is only main's fallback.
+  Recorded in `docs/SUPPORT_MATRIX.md` (the TikTok backup ladder) as an intended difference.
+- **(2) S2d part 2, the probe's rung: yes (decision 24).** Slot 5 would be rescued, slot 9 not
+  (sign-in only). Its rules: the plan's §7.3 S2d part 2 (task 13).
+- **(3) The New York exit instead of Boston for TikTok's VPN runs and W's VPN run: yes (decision
+  25).** Facebook's, X's and Instagram's VPN census runs stay on Boston. TikTok's census baseline
+  on New York: the 14:59 UTC census on 36ec093. W's baselines: C1 (VPN on, signed out), C2 and C3
+  (VPN off, signed out; TikTok none there), C3 (VPN off, Instagram signed in).
+- **(4) S5's rule: yes (decision 26).** Per site 3 runs, each at least 6 h after the previous one,
+  the first and the last at least 24 h apart; counted only on an APK of the final code (a change
+  to that site's pack, the engine or main restarts that site's count); a run where Master did not
+  run (a 429, a cooldown, not reached) does not count. One session may run all four sites.
 
 ### For the coding agent (observations, not FAILs)
 - (a) Instagram slots 1 and 5: the 1st trial lookup gave no Master row though main had 1. Try again gave I2's rows.

@@ -1,5 +1,50 @@
 # YFT Master Extractor backup
 
+## Social plan task 11 — the owner's decisions 23–26 after the phone session of 2026-10-22 (TikTok's T1 difference accepted; S2d part 2, the probe's rung: go; the VPN's New York exit for TikTok and W; S5's rule) and the release gate's state (docs only) (2026-10-22)
+
+- **The phone session of 2026-10-22** (the owner; `yft-d7-social-trial` of `430da9f`, then of
+  `36ec093`, run 39784454576; the log and its summary: `docs/PHONE_TEST_NOTES.md`, pushed as
+  `9ffc29b`): A PASS on every site (Facebook, X, TikTok's main and T1 on the VPN's New York exit,
+  Instagram on three sessions; wrong rows 0), B1 PASS, B2 (the Instagram probe: slot 5 video yes,
+  slot 9 video no), B3 8 of 8, C (W's first runs C1–C3) PASS. Observations (a)–(g) for the coding
+  agent → tasks 12–14.
+- **Decisions** (the owner, 2026-10-22; `MASTER_KEY_SOCIAL_PLAN.md` §8, each with its status):
+  **23** TikTok's T1 difference accepted (one row per post, the tallest at most 1280, where main
+  gives up to 4 rows and 1920; Master is only main's fallback) — listed in `docs/SUPPORT_MATRIX.md`;
+  **24** S2d part 2, the probe's rung: go (slot 5 rescued, slot 9 sign-in only) — its rules in §7.3,
+  task 13, not built; **25** the VPN's New York exit replaces Boston for TikTok's VPN runs and W's
+  VPN run (Boston 429'd T1's first embed ask three times), Facebook's, X's and Instagram's VPN
+  census runs stay on Boston; TikTok's census baseline on New York is the 14:59 UTC census on
+  `36ec093` (no new baseline run: the census and W key baselines by the VPN on or off and the
+  session, not by the exit); W's baselines C1 (VPN on, signed out), C2 and C3 (VPN off, signed out;
+  TikTok none: not reachable there), C3 (VPN off, Instagram signed in); **26** S5's rule: per site
+  3 runs, each at least 6 h after the previous one, the first and the last at least 24 h apart,
+  counted only on an APK of the final code (a change to the site's pack, the engine or main
+  restarts its count), not a run where Master did not run (a 429, a cooldown, not reached); one
+  session may run all four sites.
+- Docs: `MASTER_KEY_SOCIAL_PLAN.md` (the top status, §0's bullet, §7's steps table: S2b, S2c,
+  S2d, S3 and S5, §7.3: S2d part 1's phone proof, S2d part 2's rules, tasks 11–14, the release gate
+  with decision 26 and the gate's state per site, §7.4: the session of 2026-10-22 and the next phone
+  session, §7.5: W's first run, §8: decisions 20–22's status and decisions 23–26),
+  `docs/SUPPORT_MATRIX.md` (the TikTok backup ladder: decision 23, its phone result),
+  `docs/PHONE_TEST_NOTES.md` (the owner's decisions: open → decided), `docs/TEST_MATRIX.md` (the
+  task 11 row), this file. No code; `SiteWeeklyTest` 7 again after the plan's edits (it reads
+  §7.5's step lines, unchanged).
+- **The release gate's state** (§7.3): Facebook — S1a's phone proof PASS, A PASS, C1–C2 PASS, its
+  difference listed (task 7); TikTok — main PASS, T1 proven on New York, T2 untested, C1 PASS (VPN
+  only), decision 23; X — A PASS, C1–C2 PASS, decision 21, tasks 12 and 14 change its lookups;
+  Instagram — A PASS on 3 sessions, C1–C3 PASS, decision 20, part 2 not built (task 13), tasks 12–14
+  change its lookups. S5 not started on any site (decision 26: after tasks 12–14's APK); S4 waits
+  for decision 5.
+- The next phone session (the owner, after tasks 12–14 are pushed; `yft-d7-social-trial` of the
+  last code commit's APK run; §7.4): Instagram no VPN, signed out, the rung's switch on (slot 5 the
+  rung's rows on the first lookup and its Details line; slot 9 sign-in words, no row; slot 8 photos
+  only, no request); the first lookup (Instagram slots 1 and 5, X slot 6: rows on the first lookup;
+  X slots 7 and 8: X1's line and task 14's words); B3's short set again on the same networks
+  (TikTok on New York); W on the VPN New York signed out, no VPN signed out, no VPN with Instagram
+  signed in, against C1–C3; then S5 (decision 26) on that APK if no code changes.
+- Next: task 12 (the engine's Details lines on every result kind; the first lookup's gap).
+
 ## Social plan task 10 — main: TikTok's download service (`tikwm.com`) off (decision 22: P46's choice B reversed, `TT_SERVICE=OFF`; the app and its site census, flag off and on alike; Master unchanged) (2026-10-22)
 
 - **Decision 22** (the owner, 2026-10-22; an exception to S1 as decision 10's, its own commit on
