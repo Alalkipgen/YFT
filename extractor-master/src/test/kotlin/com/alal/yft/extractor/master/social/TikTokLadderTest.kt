@@ -31,6 +31,7 @@ import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStart
 import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStartReader
 import com.alal.yft.extractor.master.modules.youtube.testing.FakeExtractorHttpClient
 import com.alal.yft.extractor.master.modules.youtube.testing.Fixtures
+import com.alal.yft.extractor.master.recipes.SignedRecipes
 import com.alal.yft.extractor.sites.facebook.FacebookExtractor
 import com.alal.yft.extractor.sites.tiktok.TikTokExtractor
 import java.net.URLEncoder
@@ -428,6 +429,56 @@ class TikTokLadderTest {
         }
         assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, (before as ValidationResult.Rejected).reason)
         assertEquals(listOf(TIKTOK_FILE), files.asked)
+    }
+
+    @Test
+    fun `S4 - T1, T2 and T3 off in the signed config - their lines, nothing asked for them, the next one runs`() = runTest {
+        // T1 off: the embed player is never asked; T2 reads main's pages (no request).
+        val embed = answering(EMBED_URL to EMBED, contentType = HTML)
+        val record = record()
+        val t1 = lookup(PAGE, main(VIDEO_PAGE), embed, record = record, ladder = TikTokLadder(embed, ::identifyOrNull, SignedRecipes.rungsOff("T1")))
+        val success = t1.result as MasterResult.Success
+        assertEquals(MasterStage.PAGE_DATA, success.stage)
+        assertEquals(BEST_FILE, success.result.candidates.first().mediaUrl)
+        assertTrue(embed.requestedUrls.isEmpty())
+        assertEquals(0, record.masterAsks)
+        val details = success.result.details
+        assertTrue(details.toString(), "$T1: off (config); not run" in details)
+        assertTrue(details.toString(), "$T2: next: CHECK_ROWS" in details)
+        assertBare(details)
+
+        // T2 off after T1's answer without rows: its line; the tab's own playback next.
+        val missing = FakeExtractorHttpClient(responses = mapOf(EMBED_URL to html(MISSING, EMBED_URL)))
+        val capture = CountingCapture()
+        val t2 = lookup(PAGE, main(VIDEO_PAGE), missing, capture = capture, ladder = TikTokLadder(missing, ::identifyOrNull, SignedRecipes.rungsOff("T2")))
+        val t2Details = (t2.result as MasterResult.NeedsPlayback).details
+        assertTrue(t2Details.toString(), "$T1: SHAPE_CHANGED (no rows; no status); next: NEXT_RUNG" in t2Details)
+        assertTrue(t2Details.toString(), "$T2: off (config); not run" in t2Details)
+        assertFalse(t2Details.toString(), t2Details.any { it.startsWith("$T2: page ") })
+        assertEquals(listOf(EMBED_URL), missing.requestedUrls)
+        assertEquals(1, capture.calls)
+
+        // T3 off too: no capture asked, the ladder's lines end the answer.
+        val quiet = FakeExtractorHttpClient(responses = mapOf(EMBED_URL to html(MISSING, EMBED_URL)))
+        val noCapture = CountingCapture()
+        val t3 = lookup(
+            PAGE, main(VIDEO_PAGE), quiet, capture = noCapture,
+            ladder = TikTokLadder(quiet, ::identifyOrNull, SignedRecipes.rungsOff("T2", "T3")),
+        )
+        val t3Details = (t3.result as MasterResult.NeedsPlayback).details
+        assertEquals(0, noCapture.calls)
+        assertEquals("master: tiktok T3: off (config); not run", t3Details.last())
+        assertFalse(t3Details.toString(), t3Details.any { it.startsWith("Open the page") || it == "master: one browser-assisted capture requested" })
+        assertBare(t2Details + t3Details)
+
+        // The photo check is no rung: with T1 off a photo post is still final, with no request.
+        val photo = FakeExtractorHttpClient()
+        val photoResult = withContext(record() + MainPages(site = SITE)) {
+            engine(photo, ladder = TikTokLadder(photo, ::identifyOrNull, SignedRecipes.rungsOff("T1", "T3")))
+                .extract(contractRequest(PHOTO_LINK, identify(PHOTO_LINK), SiteExtractionFailure.NO_MEDIA_FOUND, COOKIE))
+        }
+        assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, (photoResult as MasterResult.Failure).reason)
+        assertTrue(photo.requestedUrls.isEmpty())
     }
 
     /** One lookup: main's real adapter over [main] (its pages and asks kept in the lookup), then Master's engine. */

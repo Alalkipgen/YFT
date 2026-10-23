@@ -64,6 +64,10 @@ import kotlin.coroutines.coroutineContext
  *
  * S7: X's own budget ([SocialBudget.X]): the rows go to V only while main's and Master's asks, the
  * lookup's time and the answer's characters hold. Main's X code and reasons stay (decision 10).
+ *
+ * S4: a rung the signed recipe config turns off ([RungsOff]: X1, X3) is not run, its line says
+ * so; the config is asked for (when due, on its own) as the stage starts.
+ *
  * Claims only an X lookup with its own record ([LookupRecord]: the social-ladder build's,
  * `-Pyft.socialLadder`); every other lookup keeps R8's path. [contractsOf] gives the recipe the
  * engine reads with, around [http] (never asked here); [identify] names a page's post (the app's
@@ -88,6 +92,8 @@ class XLadder(
         details: MutableList<String>,
     ): SocialStage.Staged? {
         val record = coroutineContext[LookupRecord] ?: return null
+        // S4: the signed config's ask when due (outside the lookup), so its rungs off apply here.
+        contracts.refresh()
         // S7: a host that answered main's ask with a 429 cools from the stage's end, as TikTok's.
         return try {
             climb(record, request, details)
@@ -95,6 +101,10 @@ class XLadder(
             cooldown.note(record.stopHosts())
         }
     }
+
+    /** S4: X3, the visible tab's own playback, when the signed config turns it off. */
+    override suspend fun captureOff(request: MasterRequest): String? =
+        RungsOff.line(X3).takeIf { "X3" in contracts.rungsOff() }
 
     /** X1 for [request]'s lookup ([record]): main's answer for the post, judged. */
     private suspend fun climb(
@@ -108,6 +118,11 @@ class XLadder(
         if (TerminalRules.needsAuthorizedPlayback(request.primaryFailure) ||
             request.expectedContentId?.let { it != asked.contentId } == true
         ) {
+            return null
+        }
+        // S4: X1 off in the signed config: not run (nothing else to read).
+        if ("X1" in contracts.rungsOff()) {
+            details += RungsOff.line(X1)
             return null
         }
         val pages = coroutineContext[MainPages]
@@ -332,6 +347,9 @@ class XLadder(
 
         internal const val LINE = "master: x ladder"
         internal const val X1 = "master: x X1 main's answer"
+
+        /** S4: X3, the visible tab's own playback (its line only when the config turns it off). */
+        internal const val X3 = "master: x X3"
         private const val ITEM = "master: x X1 item"
 
         private const val WIDGET_PATH = "/tweet-result"

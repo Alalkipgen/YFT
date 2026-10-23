@@ -133,11 +133,20 @@ class MasterFallbackEngine(
                 }
                 1 -> request.snapshot?.let { MasterStage.PAGE_DATA to it }
                 else -> {
-                    details += "master: one browser-assisted capture requested"
-                    when (val captured = capture.capture(request)) {
-                        is CaptureResult.Available ->
-                            MasterStage.PLAYBACK_CAPTURE to captured.snapshot
-                        CaptureResult.Unavailable -> null
+                    // Social plan S4: the claimed lookup's capture rung off in the signed config:
+                    // no capture asked, the ladder's lines end the answer (as F4's last word).
+                    val off = if (claimed) checkNotNull(social).captureOff(request) else null
+                    if (off != null) {
+                        details += off
+                        last = true
+                        null
+                    } else {
+                        details += "master: one browser-assisted capture requested"
+                        when (val captured = capture.capture(request)) {
+                            is CaptureResult.Available ->
+                                MasterStage.PLAYBACK_CAPTURE to captured.snapshot
+                            CaptureResult.Unavailable -> null
+                        }
                     }
                 }
             } ?: continue
@@ -223,7 +232,8 @@ class MasterFallbackEngine(
         return when {
             lastFailure != null -> failure(checkNotNull(lastFailure), details)
             ambiguous -> MasterResult.NeedsSelection(safeDetails)
-            // F4: the ladder's last word asked for no capture, so its lines end the answer.
+            // F4: the ladder's last word asked for no capture, so its lines end the answer (S4: so
+            // does a capture rung the signed config turned off).
             last -> MasterResult.NeedsPlayback(safeDetails)
             else -> MasterResult.NeedsPlayback(
                 safeDetails + "Open the page, play its video, and supply a fresh capture.",

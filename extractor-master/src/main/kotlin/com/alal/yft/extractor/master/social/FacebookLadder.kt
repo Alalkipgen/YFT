@@ -69,6 +69,9 @@ import kotlinx.coroutines.withTimeoutOrNull
  * under another ID) or a walk over its bound → no rows from that answer (a short line says why;
  * F1: the next rung, F2 still reads; an F2 page: not staged).
  *
+ * S4: a rung the signed recipe config turns off ([RungsOff]: F1, F2, F3) is not run, its line
+ * says so; the config is asked for (when due, on its own) as the stage starts.
+ *
  * Claims only a Facebook lookup with its own record ([LookupRecord]: the social-ladder build's,
  * `-Pyft.socialLadder`); every other lookup keeps R8's path. [identify] names a page's video (the
  * app's adapters); [contractsOf] builds the recipe source around the ladder's client (the app's
@@ -96,6 +99,8 @@ class FacebookLadder(
         details: MutableList<String>,
     ): SocialStage.Staged? {
         val record = coroutineContext[LookupRecord] ?: return null
+        // S4: the signed config's ask when due (outside the lookup), so its rungs off apply here.
+        contracts.refresh()
         // S1a (5), S7: the hosts that answered a 429 or a bot check in this lookup (main's asks
         // included) cool from the stage's end, whatever it answers.
         return try {
@@ -104,6 +109,10 @@ class FacebookLadder(
             cooldown.note(record.stopHosts())
         }
     }
+
+    /** S4: F3, the visible tab's own playback, when the signed config turns it off. */
+    override suspend fun captureOff(request: MasterRequest): String? =
+        RungsOff.line(F3).takeIf { "F3" in contracts.rungsOff() }
 
     /** The ladder's rungs for [request]'s lookup ([record]): F1, then F2. */
     private suspend fun climb(
@@ -129,12 +138,21 @@ class FacebookLadder(
         if (identity == null) {
             details += "$LINE: a link main resolves first, no video in main's answer; not asked"
         }
-        val plugin = if (identity != null && contracts.reads(identity)) {
-            pluginPlayer(record, request, identity, policy, details)
-        } else {
-            null
+        // S4: a rung the signed config turns off is not run.
+        val off = contracts.rungsOff()
+        val plugin = when {
+            identity == null || !contracts.reads(identity) -> null
+            "F1" in off -> {
+                details += RungsOff.line(F1)
+                null
+            }
+            else -> pluginPlayer(record, request, identity, policy, details)
         }
         plugin?.staged?.let { return it }
+        if (pages != null && "F2" in off) {
+            details += RungsOff.line(F2)
+            return null
+        }
         // S1a (4): F2, main's pages (no request), when F1 left nothing to read.
         return pages?.let { mainPages(it, request, asked, identity, plugin?.judged, policy, details) }
     }
@@ -449,6 +467,9 @@ class FacebookLadder(
         internal const val LINE = "master: facebook ladder"
         internal const val F1 = "master: facebook F1 plugin player"
         internal const val F2 = "master: facebook F2 main's pages"
+
+        /** S4: F3, the visible tab's own playback (its line only when the config turns it off). */
+        internal const val F3 = "master: facebook F3"
 
         /**
          * "Needs playback": the player's answer names the video (one of the recipe's ID fields

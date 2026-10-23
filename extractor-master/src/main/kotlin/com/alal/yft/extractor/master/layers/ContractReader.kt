@@ -52,6 +52,13 @@ import com.alal.yft.extractor.master.toolkit.UrlPolicy
  * ("site:contentId") and form one page video. When the key table finds nothing (a renamed key),
  * L4 + L3 read the same answer; access phrases count only when no file was found at all.
  */
+/**
+ * Social plan S4: the end of a contract's line when its key table read no file and its open read
+ * found them by shape (`<label>: N files by shape (key table changed)`): a renamed key, R9's data
+ * fix (the drill's `drill-key-change` config). A social-ladder build's notice of rows shows it.
+ */
+const val KEY_TABLE_CHANGED = "files by shape (key table changed)"
+
 internal class ContractReader(
     private val request: MasterRequest,
     private val recipe: ContractRecipe,
@@ -100,7 +107,7 @@ internal class ContractReader(
             val open = openRead()
             open.terminalFailure?.let { return Evidence(emptyList(), details, it) }
             rows = open.candidates
-            if (rows.isNotEmpty()) details += "$label: ${rows.size} files by shape (key table changed)"
+            if (rows.isNotEmpty()) details += "$label: ${rows.size} $KEY_TABLE_CHANGED"
         }
         if (rows.isEmpty()) {
             val access = recipe.accessMarkers.firstOrNull { (marker, _) ->

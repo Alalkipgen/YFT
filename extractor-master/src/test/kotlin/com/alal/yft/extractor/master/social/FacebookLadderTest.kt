@@ -1,5 +1,6 @@
 package com.alal.yft.extractor.master.social
 
+import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.ExtractorHttpResult
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SitePageIdentity
@@ -7,6 +8,7 @@ import com.alal.yft.extractor.master.MasterFallbackEngine
 import com.alal.yft.extractor.master.MasterPolicy
 import com.alal.yft.extractor.master.MasterResult
 import com.alal.yft.extractor.master.MasterStage
+import com.alal.yft.extractor.master.NOW
 import com.alal.yft.extractor.master.RecordingValidator
 import com.alal.yft.extractor.master.contract.CountingCapture
 import com.alal.yft.extractor.master.contract.SiteContracts
@@ -15,7 +17,11 @@ import com.alal.yft.extractor.master.contract.contractRequest
 import com.alal.yft.extractor.master.lookup.LookupAsk
 import com.alal.yft.extractor.master.lookup.LookupRecord
 import com.alal.yft.extractor.master.modules.youtube.testing.FakeExtractorHttpClient
+import com.alal.yft.extractor.master.recipes.ContractRecipes
+import com.alal.yft.extractor.master.recipes.RemoteRecipes
+import com.alal.yft.extractor.master.recipes.SignedRecipes
 import com.alal.yft.extractor.sites.facebook.FacebookExtractor
+import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.test.runTest
@@ -255,14 +261,149 @@ class FacebookLadderTest {
         assertTrue(result.toString(), result is MasterResult.NeedsPlayback)
     }
 
+    @Test
+    fun `S4 - F1 and F2 off in the signed config - their lines, nothing asked, the tab's own playback next`() = runTest {
+        val identity = identify(WATCH)
+        // F1 off: the plugin player is never asked; F2 still reads main's pages.
+        val http = answering(embedUrl(identity) to embed(VIDEO), contentType = HTML)
+        val record = record()
+        val capture = CountingCapture()
+        val result = withContext(record + MainPages()) {
+            engine(http, capture = capture, contractsOf = SignedRecipes.rungsOff("F1"))
+                .extract(contractRequest(WATCH, identity, cookie = COOKIE))
+        }
+        val details = (result as MasterResult.NeedsPlayback).details
+        assertTrue(details.toString(), "$F1: off (config); not run" in details)
+        assertTrue(details.toString(), details.any { it.startsWith("$F2: ") && "off (config)" !in it })
+        assertTrue(http.requestedUrls.isEmpty())
+        assertEquals(0, record.masterAsks)
+        assertEquals(1, capture.calls)
+        assertTrue(details.toString(), CAPTURE in details)
+        assertBare(details)
+
+        // F1 and F2 off: both lines, nothing read; the tab's own playback as before.
+        val both = answering(embedUrl(identity) to embed(VIDEO), contentType = HTML)
+        val bothCapture = CountingCapture()
+        val bothResult = withContext(record() + MainPages()) {
+            engine(both, capture = bothCapture, contractsOf = SignedRecipes.rungsOff("F1", "F2"))
+                .extract(contractRequest(WATCH, identity, cookie = COOKIE))
+        }
+        val bothDetails = (bothResult as MasterResult.NeedsPlayback).details
+        assertEquals(
+            bothDetails.toString(),
+            listOf("$F1: off (config); not run", "$F2: off (config); not run"),
+            bothDetails.filter { it.startsWith(F1) || it.startsWith(F2) },
+        )
+        assertTrue(both.requestedUrls.isEmpty())
+        assertEquals(1, bothCapture.calls)
+        // F2 off alone: F1's rows answer as before.
+        val rows = answering(embedUrl(identity) to embed(VIDEO), contentType = HTML)
+        val rowsResult = withContext(record() + MainPages()) {
+            engine(rows, contractsOf = SignedRecipes.rungsOff("F2")).extract(contractRequest(WATCH, identity, cookie = COOKIE))
+        }
+        assertEquals(listOf(hd(VIDEO), sd(VIDEO)), (rowsResult as MasterResult.Success).result.candidates.map { it.mediaUrl })
+        assertFalse(rowsResult.result.details.any { "off (config)" in it })
+    }
+
+    @Test
+    fun `S4 - F3 off in the signed config - no capture asked, the ladder's lines end the answer`() = runTest {
+        val identity = identify(WATCH)
+        val http = answering(embedUrl(identity) to embed(VIDEO, files = false), contentType = HTML)
+        val capture = CountingCapture()
+
+        val result = withContext(record() + MainPages()) {
+            engine(http, capture = capture, contractsOf = SignedRecipes.rungsOff("F3"))
+                .extract(contractRequest(WATCH, identity, cookie = COOKIE))
+        }
+
+        val details = (result as MasterResult.NeedsPlayback).details
+        assertEquals(0, capture.calls)
+        assertEquals("master: facebook F3: off (config); not run", details.last())
+        assertFalse(details.toString(), CAPTURE in details)
+        assertFalse(details.toString(), details.any { it.startsWith("Open the page") })
+        assertTrue(details.toString(), details.any { it.startsWith("$F1: NEEDS_PLAYBACK") })
+        assertEquals(listOf(embedUrl(identity)), http.requestedUrls)
+        assertTrue(RungsOff.captureOff(details))
+        assertBare(details)
+
+        // Without the lookup's record (R8's path: no ladder) the config's F3 is never read.
+        val plainCapture = CountingCapture()
+        val plain = engine(answering(embedUrl(identity) to embed(VIDEO, files = false), contentType = HTML), capture = plainCapture,
+            contractsOf = SignedRecipes.rungsOff("F3"))
+            .extract(contractRequest(WATCH, identity))
+        assertTrue(plain.toString(), plain is MasterResult.NeedsPlayback)
+        assertEquals(1, plainCapture.calls)
+    }
+
+    @Test
+    fun `S4 - the config is asked as the stage starts, on the ladder's client but outside the lookup`() = runTest {
+        val identity = identify(WATCH)
+        val envelope = SignedRecipes.sign(SignedRecipes.keys, SignedRecipes.payload(rungsOff = listOf("F1")))
+        val http = answering(SignedRecipes.CONFIG_URL to envelope, embedUrl(identity) to embed(VIDEO), contentType = HTML)
+        val remotes = mutableListOf<RemoteRecipes>()
+        val contractsOf = { client: ExtractorHttpClient ->
+            val remote = RemoteRecipes(client, SignedRecipes.CONFIG_URL, SignedRecipes.signature(), ContractRecipes.ALL) { NOW }
+            remotes += remote
+            SiteContracts(client, remote)
+        }
+        val record = record()
+
+        val result = withContext(record + MainPages()) {
+            engine(http, contractsOf = contractsOf).extract(contractRequest(WATCH, identity, cookie = COOKIE))
+        }
+
+        // The config came in this lookup, through the ladder's own client, and turned F1 off at once.
+        val details = (result as MasterResult.NeedsPlayback).details
+        assertTrue(details.toString(), "$F1: off (config); not run" in details)
+        assertEquals(listOf(SignedRecipes.CONFIG_URL), http.requestedUrls)
+        assertNull(http.requestedHeaders.single()["Cookie"])
+        assertTrue(remotes.any { it.version == 1L })
+        // Never one of the lookup's asks: the record has none, and F1 asked nothing.
+        assertTrue(record.asks().toString(), record.asks().isEmpty())
+        assertEquals(0, record.masterAsks)
+        assertBare(details)
+    }
+
+    @Test
+    fun `S4 - the drill's renamed media key - the key table reads none, the open read finds F1's files`() = runTest {
+        val identity = identify(WATCH)
+        val docs = File(checkNotNull(System.getProperty("yft.recipeDocs")) { "recipe docs unset" })
+        suspend fun lookup(config: String): MasterResult.Success {
+            val text = File(docs, "configs/$config.json").readText()
+            val remote = SignedRecipes.applied(text.trim().removeSuffix("}").trimEnd() + ""","version":1,"expires":"2027-12-31"}""")
+            val http = answering(embedUrl(identity) to embed(VIDEO), contentType = HTML)
+            return withContext(record() + MainPages()) {
+                engine(http, contractsOf = { client -> SiteContracts(client, remote) })
+                    .extract(contractRequest(WATCH, identity, cookie = COOKIE))
+            } as MasterResult.Success
+        }
+
+        val changed = lookup("drill-key-change")
+        fun files(result: MasterResult.Success) =
+            result.result.details.filter { it.startsWith("master: facebook contract: ") && " files " in it }
+        val changedLines = files(changed)
+        assertEquals(
+            changed.result.details.toString(),
+            listOf("master: facebook contract: 0 files from the key table", "master: facebook contract: 2 files by shape (key table changed)"),
+            changedLines,
+        )
+        assertEquals(setOf(hd(VIDEO), sd(VIDEO)), changed.result.candidates.map { it.mediaUrl }.toSet())
+        assertBare(changed.result.details)
+
+        val defaults = lookup("defaults")
+        assertEquals(listOf("master: facebook contract: 2 files from the key table"), files(defaults))
+        assertEquals(listOf(hd(VIDEO), sd(VIDEO)), defaults.result.candidates.map { it.mediaUrl })
+    }
+
     private fun engine(
         http: FakeExtractorHttpClient,
         validator: RecordingValidator = RecordingValidator(),
         capture: CountingCapture = CountingCapture(),
+        contractsOf: (ExtractorHttpClient) -> SiteContracts = ::SiteContracts,
     ) = MasterFallbackEngine(
         validator, capture, MasterPolicy(enabled = true),
-        contracts = SiteContracts(http),
-        social = FacebookLadder(http, ::identifyOrNull),
+        contracts = contractsOf(http),
+        social = FacebookLadder(http, ::identifyOrNull, contractsOf),
     )
 
     private fun record() = LookupRecord(labels = SiteWays.FACEBOOK.labels())
@@ -289,6 +430,8 @@ class FacebookLadderTest {
         const val HTML = "text/html"
         const val LADDER = "master: facebook ladder"
         const val F1 = "master: facebook F1 plugin player"
+        const val F2 = "master: facebook F2 main's pages"
+        const val CAPTURE = "master: one browser-assisted capture requested"
         const val ENGLISH = "This content is not here for you now"
         const val BURMESE = "ဒီအကြောင်းအရာကို အခု ကြည့်လို့ မရပါ"
         val BROWSER = mapOf("User-Agent" to "Browser", "Cookie" to "c_user=fixture")

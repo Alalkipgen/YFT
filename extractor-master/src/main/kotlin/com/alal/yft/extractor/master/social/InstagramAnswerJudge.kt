@@ -69,6 +69,9 @@ internal data class InstagramReading(
  *   → VIDEO_WITHOUT_FILES: the tab-fetch rung's (decision 24), never a shape change. Task 15 (F2):
  *   a page's post is main's ([InstagramPageRule], a Master copy of main's rule), so the real embed
  *   page main calls "video without files" is so here too.
+ * - L3 (the retest of 2026-10-23): a page that names the post's code only in a node without its
+ *   data (no video mark, no file) where main's rule finds no post → NEEDS_PLAYBACK, as main's "no
+ *   post" (its counts said), never a shape change; main's post without a video read stays one.
  * - Another host, another post, a video without files read elsewhere, a page whose post's files
  *   main's rule reads but the recipe read no row (task 15), not JSON → SHAPE_CHANGED; another
  *   status or no answer → TRANSIENT. Task 15 (F2): a shape change read in an answer says what was
@@ -183,7 +186,11 @@ internal object InstagramAnswerJudge {
         reading.videoTyped && way == SiteWays.EMBED_PAGE ->
             Judged(AnswerClass.VIDEO_WITHOUT_FILES, null, "a video, no files read")
         reading.videoTyped -> shapeChanged("a video, no files read", page, reading, true)
-        reading.post -> shapeChanged("no video read", page, reading, true)
+        reading.post && reading.rulePost -> shapeChanged("no video read", page, reading, true)
+        // L3 (the retest of 2026-10-23): a node names the post's code without its data — no video
+        // mark, no file, and main's rule finds no post in the page: main's "no post", so too here
+        // (never a shape change), with what was read.
+        reading.post -> Judged(AnswerClass.NEEDS_PLAYBACK, null, "no post data in the page, as main's rule reads it; " + read(page, reading, true))
         else -> Judged(AnswerClass.NEEDS_PLAYBACK, null, "no post data in the page")
     }
 
@@ -214,12 +221,17 @@ internal object InstagramAnswerJudge {
      * the line says which marker was missing.
      */
     private fun shapeChanged(evidence: String, answer: ExtractorHttpResult.Success, reading: InstagramReading, page: Boolean): Judged {
+        return shapeChanged("$evidence; ${read(answer, reading, page)}")
+    }
+
+    /** Task 15 (F2), L3: what was read in [answer], counts and marks only (a [page]'s or a JSON answer's). */
+    private fun read(answer: ExtractorHttpResult.Success, reading: InstagramReading, page: Boolean): String {
         val read = if (page) {
             "the page: ${answer.body.length} characters; documents: ${reading.documents}; main's post: ${yes(reading.rulePost)}"
         } else {
             "the answer: ${answer.body.length} characters; the post: ${yes(reading.post)}"
         }
-        return shapeChanged("$evidence; $read; a video mark: ${yes(reading.videoTyped)}; files: ${reading.files}")
+        return "$read; a video mark: ${yes(reading.videoTyped)}; files: ${reading.files}"
     }
 
     private fun yes(value: Boolean) = if (value) "yes" else "no"

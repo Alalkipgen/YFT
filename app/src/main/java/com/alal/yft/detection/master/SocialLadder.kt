@@ -9,6 +9,7 @@ import com.alal.yft.extractor.api.ExtractorHttpClient
 import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.extractor.master.MasterMediaValidator
+import com.alal.yft.extractor.master.layers.KEY_TABLE_CHANGED
 import com.alal.yft.extractor.master.lookup.LookupRecord
 import com.alal.yft.extractor.master.lookup.LookupRecorder
 import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStartReader
@@ -17,6 +18,7 @@ import com.alal.yft.extractor.master.social.InstagramLadder
 import com.alal.yft.extractor.master.social.MainPageRecorder
 import com.alal.yft.extractor.master.social.MainPages
 import com.alal.yft.extractor.master.social.OkHttpRowReader
+import com.alal.yft.extractor.master.social.RungsOff
 import com.alal.yft.extractor.master.social.SiteWays
 import com.alal.yft.extractor.master.social.SocialCooldown
 import com.alal.yft.extractor.master.social.SocialRowCheck
@@ -253,12 +255,16 @@ internal object SocialLadder {
      * its rung's "the post's video in the answer: yes"; Facebook's plugin player, TikTok's "names
      * the video", X's item playlist) → [Words.PLAYBACK], the page can play it; (3) a sign-in or age
      * wall (`LOGIN_WALL`, `AGE_LIMITED`) → [Words.SIGN_IN]; (4) else, no video in the tab →
-     * [Words.MAINS] (X's widget 404 or tombstone, Instagram's "no post", nothing read).
+     * [Words.MAINS] (X's widget 404 or tombstone, Instagram's "no post", nothing read). Social plan
+     * S4: before (1), the tab's own playback off in the signed config ([RungsOff.captureOff]) →
+     * [Words.MAINS] (no capture was asked, so playing the video again gives nothing).
      */
     fun playbackWords(videoKey: String?, details: List<String>, tabVideo: Boolean): WordsPick {
         // Task 15 (F4): the rung's proof left no row (debug): main's words (the trial's), as the
         // proof gives none again on Try again; before the tab's video, which the proof never reads.
         if (InstagramLadder.PROOF_STOP in details) return WordsPick(Words.MAINS, PROOF_WHY)
+        // S4: the signed config turned the tab's own playback off: playing it again gives nothing.
+        if (RungsOff.captureOff(details)) return WordsPick(Words.MAINS, CAPTURE_OFF_WHY)
         if (tabVideo) return WordsPick(Words.PLAYBACK, "the tab shows a video")
         val lines = details.filter { it.startsWith(line(videoKey)) }
         lines.firstNotNullOfOrNull { line ->
@@ -277,6 +283,9 @@ internal object SocialLadder {
      * (X's age wall: main's reason is `NO_MEDIA_FOUND`) — the app's own words for that reason.
      */
     fun signInMessage(videoKey: String?): String = "Sign in to ${nameOf(videoKey)} on this page first, then try again."
+
+    /** S4: the words line's why when the signed config turned the tab's own playback off. */
+    private const val CAPTURE_OFF_WHY = "the tab's playback off (config)"
 
     /** Task 15 (F4): the words line's why when the rung's proof left no row. */
     private const val PROOF_WHY = "the rung's proof: I2's rows set aside, the rung gave none"
@@ -383,8 +392,10 @@ internal object SocialLadder {
      * shows it as well. Task 15 (F1): every lookup that ends with Master's rows — without the
      * trial's comparison (main failed: no rows to compare), the site's ladder line (`master: <site>
      * ladder after <reason>; …`) — and (F4) each of Instagram's probe lines ([probeLines]: the
-     * proof's line too). Null for an answer without a ladder site's line or a probe line (every
-     * other build and site).
+     * proof's line too). S4: before the probe's, a contract's line whose rows came by shape — its
+     * key table read none ([keyTableLines]: a renamed key, R9's data fix; the drill's config). Null
+     * for an answer without a ladder site's line, a probe line or such a line (every other build
+     * and site).
      */
     fun trialNotice(outcome: SiteAdapterOutcome): String? {
         val details = (outcome as? SiteAdapterOutcome.Detected)?.details ?: return null
@@ -392,8 +403,22 @@ internal object SocialLadder {
         val site = details.firstOrNull { detail ->
             SITES.any { detail.startsWith("master: $it") } && TRIAL_SEGMENT in detail
         } ?: details.firstOrNull { detail -> SITES.any { detail.startsWith("master: $it ladder") } }
-        return (listOfNotNull(site) + probeLines(details)).takeIf { it.isNotEmpty() }?.joinToString("\n")
+        return (listOfNotNull(site) + keyTableLines(details) + probeLines(details))
+            .takeIf { it.isNotEmpty() }?.joinToString("\n")
     }
+
+    /**
+     * S4: a ladder site's contract lines that read its rows by shape (`master: <site> contract: N
+     * files by shape (key table changed)`), each once, at most [MAX_KEY_TABLE_LINES]: the only
+     * sign on a lookup with rows that the key table read none (rows, counts and words otherwise
+     * as with it), so the R9 drill's renamed key shows on the phone.
+     */
+    private fun keyTableLines(details: List<String>): List<String> = details.filter { detail ->
+        SITES.any { detail.startsWith("master: $it ") } && detail.endsWith(" $KEY_TABLE_CHANGED")
+    }.distinct().take(MAX_KEY_TABLE_LINES)
+
+    /** S4: one lookup's contracts by shape (a site's own, and a second read's). */
+    private const val MAX_KEY_TABLE_LINES = 2
 
     /**
      * Task 15 (F4): the browser's notice of a failed lookup in which the rung's proof set I2's rows

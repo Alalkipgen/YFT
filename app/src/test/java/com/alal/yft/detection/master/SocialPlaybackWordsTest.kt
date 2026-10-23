@@ -68,12 +68,22 @@ class SocialPlaybackWordsTest {
             "master: instagram I2 main's page: SHAPE_CHANGED (a video, no files read; the page: 9000 characters; " +
                 "documents: 1; main's post: yes; a video mark: yes; files: 0)",
             "master: instagram I2 main's embed page: SHAPE_CHANGED (no video read; the page: 228000 characters; " +
-                "documents: 1; main's post: no; a video mark: no; files: 0)",
+                "documents: 1; main's post: yes; a video mark: no; files: 0)",
             "master: instagram I2: LOGIN_WALL (GraphQL: status 401); next: BROWSER",
         )
         assertEquals(
             SocialLadder.WordsPick(SocialLadder.Words.SIGN_IN, "LOGIN_WALL; no video in the tab"),
             SocialLadder.playbackWords(INSTAGRAM, details, tabVideo = false),
+        )
+        // L3 (the retest of 2026-10-23): a page main's rule finds no post in is "needs playback"
+        // with what was read; it names no video, so the words stay as before (main's, no wall).
+        val noPost = listOf(
+            "master: instagram I2 main's page: NEEDS_PLAYBACK (no post data in the page, as main's rule reads it; " +
+                "the page: 9000 characters; documents: 1; main's post: no; a video mark: no; files: 0)",
+        )
+        assertEquals(
+            SocialLadder.WordsPick(SocialLadder.Words.MAINS, "no video in the tab"),
+            SocialLadder.playbackWords(INSTAGRAM, noPost, tabVideo = false),
         )
         // A JSON answer's shape change so too.
         val json = listOf(
@@ -156,6 +166,39 @@ class SocialPlaybackWordsTest {
         )
         assertEquals(SocialLadder.Words.MAINS, SocialLadder.playbackWords(X, other, tabVideo = false).words)
         assertEquals(SocialLadder.Words.MAINS, SocialLadder.playbackWords(X, emptyList(), tabVideo = false).words)
+    }
+
+    @Test
+    fun aCaptureRungOffInTheSignedConfigGetsMainsWordsEvenWithAVideoInTheTab() {
+        // Social plan S4: the tab's own playback off in the signed config: no capture was asked,
+        // so playing the video again gives nothing; main's words, whatever else the lines name.
+        val named = mapOf(
+            FACEBOOK to "master: facebook F1 plugin player: NEEDS_PLAYBACK (the plugin player: needs playback); next: PLAYBACK",
+            TIKTOK to "master: tiktok T1 embed player: NEEDS_PLAYBACK (names the video, no file); next: PLAYBACK",
+            X to "master: x X1 main's answer: AGE_LIMITED (an empty tombstone); next: BROWSER",
+            INSTAGRAM to "master: instagram I2: LOGIN_WALL (GraphQL: status 401); next: BROWSER",
+        )
+        val off = mapOf(
+            FACEBOOK to "master: facebook F3: off (config); not run",
+            TIKTOK to "master: tiktok T3: off (config); not run",
+            X to "master: x X3: off (config); not run",
+            INSTAGRAM to "master: instagram I3: off (config); not run",
+        )
+        for ((key, line) in named) {
+            val details = listOf(line, off.getValue(key))
+            val pick = SocialLadder.WordsPick(SocialLadder.Words.MAINS, "the tab's playback off (config)")
+            assertEquals(key, pick, SocialLadder.playbackWords(key, details, tabVideo = true))
+            assertEquals(key, pick, SocialLadder.playbackWords(key, details, tabVideo = false))
+        }
+        assertEquals(
+            "master: x words: main's (the tab's playback off (config))",
+            SocialLadder.wordsLine(X, SocialLadder.playbackWords(X, listOf(off.getValue(X)), tabVideo = true)),
+        )
+        // A rung off before the tab's playback (F1, the tab-fetch rung) leaves the words as before.
+        val earlier = listOf("master: facebook F1 plugin player: off (config); not run")
+        assertEquals(SocialLadder.Words.PLAYBACK, SocialLadder.playbackWords(FACEBOOK, earlier, tabVideo = true).words)
+        val probe = listOf(named.getValue(INSTAGRAM), "master: instagram probe: off (config); not run")
+        assertEquals(SocialLadder.Words.SIGN_IN, SocialLadder.playbackWords(INSTAGRAM, probe, tabVideo = false).words)
     }
 
     @Test

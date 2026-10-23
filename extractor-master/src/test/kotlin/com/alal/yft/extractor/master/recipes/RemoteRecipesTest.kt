@@ -33,7 +33,8 @@ import org.junit.Test
 /**
  * R9: a signed, schema-checked, data-only recipe config. A good config changes recipe data and
  * the engine reads with it; a bad, unsigned, older or expired config is ignored and the bundled
- * recipes keep working; the config is asked only from GitHub, without cookies, at most once a day.
+ * recipes keep working; the config is asked only from GitHub, without cookies, at most every six
+ * hours after an answer (S4; once a day before).
  */
 class RemoteRecipesTest {
     private val keys = keyPair()
@@ -169,7 +170,7 @@ class RemoteRecipesTest {
     }
 
     @Test
-    fun `the config is asked only from GitHub, without cookies, at most once a day`() = runTest {
+    fun `the config is asked only from GitHub, without cookies, at most every six hours after an answer`() = runTest {
         var now = NOW
         var answer: ExtractorHttpResult = ExtractorHttpResult.Failure(
             com.alal.yft.extractor.api.SiteExtractionFailure.HTTP_STATUS, 404,
@@ -183,8 +184,8 @@ class RemoteRecipesTest {
         now += RemoteRecipes.RETRY_MILLIS
         answer = ExtractorHttpResult.Success(200, sign(keys, config()), CONFIG_URL, "text/plain")
         assertEquals("recipe config 1 applied", remote.refreshIfDue())
-        now += RemoteRecipes.DAY_MILLIS - 1
-        assertNull("once a day", remote.refreshIfDue())
+        now += RemoteRecipes.ANSWERED_MILLIS - 1
+        assertNull("every six hours after an answer", remote.refreshIfDue())
         now += 1
         answer = ExtractorHttpResult.Success(200, sign(keys, config(version = "2")), "https://evil.example/c", "text/plain")
         assertEquals("recipe config ignored: the answer left GitHub", remote.refreshIfDue())
@@ -242,6 +243,8 @@ class RemoteRecipesTest {
         assertEquals(RemoteRecipeConfig.HEADERS.toSet(), enum(obj(defs, "site", "properties", "headers").entries["propertyNames"]))
         assertEquals(RemoteRecipeConfig.MIMES, enum(obj(defs, "media", "properties").entries["mime"]))
         assertEquals(ContractOrder.entries.map { it.name }.toSet(), enum(obj(defs, "media", "properties").entries["order"]))
+        // S4: the rungs a config may turn off, as the reader names them.
+        assertEquals(RemoteRecipeConfig.RUNGS.toSet(), enum(obj(schema, "properties", "rungsOff").entries["items"]))
     }
 
     private fun remote(http: FakeExtractorHttpClient?) =

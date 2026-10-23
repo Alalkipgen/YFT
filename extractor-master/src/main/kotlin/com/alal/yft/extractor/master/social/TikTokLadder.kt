@@ -62,6 +62,10 @@ import kotlinx.coroutines.withTimeoutOrNull
  * characters); else T1 is not asked and T2 still reads. A short link: the video main's resolved
  * link names ([MainPages.resolved]), else nothing is asked.
  *
+ * S4: a rung the signed recipe config turns off ([RungsOff]: T1, T2, T3) is not run, its line
+ * says so (the photo check is no rung: it still reads); the config is asked for (when due, on
+ * its own) as the stage starts.
+ *
  * Claims only a TikTok lookup with its own record ([LookupRecord]: the social-ladder build's,
  * `-Pyft.socialLadder`); every other lookup keeps R8's path. [identify] names a page's video (the
  * app's adapters); [contractsOf] builds the recipe source around the ladder's client. Lines: short
@@ -88,6 +92,8 @@ class TikTokLadder(
         details: MutableList<String>,
     ): SocialStage.Staged? {
         val record = coroutineContext[LookupRecord] ?: return null
+        // S4: the signed config's ask when due (outside the lookup), so its rungs off apply here.
+        contracts.refresh()
         // S7: the hosts that answered a 429 or a bot check in this lookup (main's asks included)
         // cool from the stage's end, whatever it answers.
         return try {
@@ -96,6 +102,10 @@ class TikTokLadder(
             cooldown.note(record.stopHosts())
         }
     }
+
+    /** S4: T3, the visible tab's own playback, when the signed config turns it off. */
+    override suspend fun captureOff(request: MasterRequest): String? =
+        RungsOff.line(T3).takeIf { "T3" in contracts.rungsOff() }
 
     /** The ladder's steps for [request]'s lookup ([record]): the photo check, T1, then T2. */
     private suspend fun climb(
@@ -128,8 +138,18 @@ class TikTokLadder(
             details += "$LINE: ${AnswerClass.PHOTO_ONLY.name} ($why); next: ${Next.FINAL.name}; not asked"
             return final(request, read, SiteExtractionFailure.NO_MEDIA_FOUND)
         }
+        // S4: a rung the signed config turns off is not run.
+        val off = contracts.rungsOff()
         if (identity != null && contracts.reads(identity)) {
-            embedPlayer(record, request, identity, policy, details)?.let { return it }
+            if ("T1" in off) {
+                details += RungsOff.line(T1)
+            } else {
+                embedPlayer(record, request, identity, policy, details)?.let { return it }
+            }
+        }
+        if (pages != null && "T2" in off) {
+            details += RungsOff.line(T2)
+            return null
         }
         // T2, main's pages (no request), when T1 left nothing to read.
         return pages?.let { mainPages(it, readings, request, read, details) }
@@ -405,6 +425,9 @@ class TikTokLadder(
         internal const val LINE = "master: tiktok ladder"
         internal const val T1 = "master: tiktok T1 embed player"
         internal const val T2 = "master: tiktok T2 main's pages"
+
+        /** S4: T3, the visible tab's own playback (its line only when the config turns it off). */
+        internal const val T3 = "master: tiktok T3"
 
         /**
          * A TikTok photo address: a TikTok host whose path names a photo post (`/photo/{id}`,

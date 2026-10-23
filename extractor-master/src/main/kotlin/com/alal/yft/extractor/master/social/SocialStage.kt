@@ -23,6 +23,13 @@ interface SocialStage {
     suspend fun stage(request: MasterRequest, policy: MasterPolicy, details: MutableList<String>): Staged?
 
     /**
+     * Social plan S4: for a lookup the ladder claims, its capture rung's off line ([RungsOff]: the
+     * visible tab's own playback, F3, T3, X3 or I3) when the signed config in use turns it off —
+     * the engine then asks no capture — else null (the capture as before). Asked after [stage].
+     */
+    suspend fun captureOff(request: MasterRequest): String? = null
+
+    /**
      * A rung's answer: its [snapshot] (of the request's page and generation), read as [stage] for
      * [request] — the lookup's request with the video the rung asked about (a link main resolves
      * first: the video main's resolved link names). Task 15 (F4): [last] — the ladder's last word
@@ -52,6 +59,9 @@ class SocialStages(private val stages: List<SocialStage>) : SocialStage {
         policy: MasterPolicy,
         details: MutableList<String>,
     ): SocialStage.Staged? = stages.firstOrNull { it.claims(request) }?.stage(request, policy, details)
+
+    override suspend fun captureOff(request: MasterRequest): String? =
+        stages.firstOrNull { it.claims(request) }?.captureOff(request)
 
     override fun toString(): String = "SocialStages(${stages.joinToString()})"
 }

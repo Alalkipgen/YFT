@@ -210,7 +210,8 @@ class SiteCensus(
      * sites' ladders (Master's own client, the app's cooldown); [validator], S6's file check around
      * the census's media checks; [identify], main's adapters (the video a resolved link names);
      * [sites], the sites whose Master parts the ladder runs; [cooldown], where main's 429s and bot
-     * checks cool (the app's; null: nowhere).
+     * checks cool (the app's; null: nowhere); S4: [contracts], the engine's recipes as the app
+     * builds them (its signed config's, the ladders' own source; null: the bundled ones).
      */
     class Pack(
         val stage: SocialStage,
@@ -218,6 +219,7 @@ class SiteCensus(
         val identify: (String) -> SitePageIdentity?,
         val sites: Set<String>,
         val cooldown: SocialCooldown? = null,
+        val contracts: SiteContracts? = null,
     ) {
         override fun toString(): String = "SiteCensus.Pack(sites=$sites)"
     }
@@ -682,7 +684,8 @@ class SiteCensus(
                 NoPlaybackCaptureProvider,
                 POLICY,
                 modules = emptyList(),
-                contracts = contracts,
+                // S4: the pack's recipes (the app's signed config) when it has them.
+                contracts = ladder?.contracts ?: contracts,
                 social = ladder?.stage,
             )
             val page = identity.page.canonicalPageUrl

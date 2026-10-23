@@ -76,6 +76,11 @@ import kotlinx.coroutines.withTimeoutOrNull
  * either, but when its debug proof is on ([InstagramTabProbe.proof]: I2's rows set aside). In a
  * census or W there is no tab: it is never asked there (as I3).
  *
+ * S4: a rung the signed recipe config turns off ([RungsOff]: I2, the tab-fetch rung `probe`, I3)
+ * is not run, its line says so: I2 off, the tab-fetch rung next; the rung off wins over its
+ * switch (its line wherever a probe is in the lookup's context). The config is asked for (when
+ * due, on its own) as the stage starts.
+ *
  * S7: Instagram's own budget ([SocialBudget.INSTAGRAM]). Main's Instagram code and reasons stay
  * (decision 10). Claims only an Instagram lookup with its own record ([LookupRecord]: the
  * social-ladder build's, `-Pyft.socialLadder`); every other lookup keeps R8's path. [contractsOf]
@@ -99,6 +104,8 @@ class InstagramLadder(
         details: MutableList<String>,
     ): SocialStage.Staged? {
         val record = coroutineContext[LookupRecord] ?: return null
+        // S4: the signed config's ask when due (outside the lookup), so its rungs off apply here.
+        contracts.refresh()
         // S7: a host that answered a 429 (main's or the rung's) cools from the stage's end.
         return try {
             climb(record, request, policy, details)
@@ -106,6 +113,16 @@ class InstagramLadder(
             cooldown.note(record.stopHosts())
         }
     }
+
+    /** S4: I3, the visible tab's own playback, when the signed config turns it off. */
+    override suspend fun captureOff(request: MasterRequest): String? =
+        RungsOff.line(I3).takeIf { "I3" in contracts.rungsOff() }
+
+    /** S4: whether the signed config turns the tab-fetch rung off (over its switch). */
+    private fun probeOff(): Boolean = PROBE_RUNG in contracts.rungsOff()
+
+    /** S4: the tab-fetch rung's line when a probe is in the lookup's context: off by the config, else [line]. */
+    private fun probeLine(line: String): String = if (probeOff()) RungsOff.line(PROBE) else line
 
     /** I2 for [request]'s lookup ([record]), then the tab-fetch rung when I2 gave no rows. */
     private suspend fun climb(
@@ -121,11 +138,16 @@ class InstagramLadder(
         if (request.primaryFailure in SKIPPED || request.expectedContentId?.let { it != identity.contentId } == true) {
             return null
         }
-        details += "$LINE after ${request.primaryFailure.name}; main's answers read, no new ask"
         val code = identity.contentId
         val mediaId = mediaIdOf(code)
         val read = request.copy(identity = identity, expectedContentId = code)
         val recipe = contracts.recipeOf(SITE_ID)
+        // S4: I2 off in the signed config: not run; the tab-fetch rung next.
+        if ("I2" in contracts.rungsOff()) {
+            details += RungsOff.line(I2)
+            return rung(record, request, policy, code, mediaId, read, recipe, details)
+        }
+        details += "$LINE after ${request.primaryFailure.name}; main's answers read, no new ask"
         val judged = ArrayList<Pair<String, Judged>>()
         val readings = ArrayList<InstagramReading>()
         val staged = HashMap<String, ContractAnswer>()
@@ -160,6 +182,7 @@ class InstagramLadder(
                 val probe = coroutineContext[InstagramTabProbe]
                 when {
                     probe == null -> Unit
+                    probeOff() -> details += RungsOff.line(PROBE)
                     !probe.on() -> details += "$PROBE: off"
                     !probe.proof() -> details += "$PROBE: not asked (I2's rows)"
                     else -> {
@@ -179,7 +202,7 @@ class InstagramLadder(
             }
             Next.FINAL -> {
                 if (coroutineContext[InstagramTabProbe] != null) {
-                    details += "$PROBE: not asked (the answer is final)"
+                    details += probeLine("$PROBE: not asked (the answer is final)")
                 }
                 judged(verdict, request, read)
             }
@@ -187,7 +210,7 @@ class InstagramLadder(
                 // S7: the site stops; its host cools (main's 429 is in the record too).
                 cooldown.note(listOf(WEB_HOST))
                 if (coroutineContext[InstagramTabProbe] != null) {
-                    details += "$PROBE: not asked (the site stopped in this lookup)"
+                    details += probeLine("$PROBE: not asked (the site stopped in this lookup)")
                 }
                 null
             }
@@ -235,8 +258,9 @@ class InstagramLadder(
         details: MutableList<String>,
     ): SocialStage.Staged? {
         val probe = coroutineContext[InstagramTabProbe] ?: return null
-        if (!probe.on()) {
-            details += "$PROBE: off"
+        // S4: the signed config's rung off wins over the switch.
+        if (probeOff() || !probe.on()) {
+            details += probeLine("$PROBE: off")
             return null
         }
         val ask = mediaId?.let { id ->
@@ -489,6 +513,12 @@ class InstagramLadder(
 
         internal const val LINE = "master: instagram ladder"
         internal const val I2 = "master: instagram I2"
+
+        /** S4: I3, the visible tab's own playback (its line only when the config turns it off). */
+        internal const val I3 = "master: instagram I3"
+
+        /** S4: the tab-fetch rung's name in the signed config's `rungsOff`. */
+        internal const val PROBE_RUNG = "probe"
         /** The tab-fetch rung's line (S2d part 1's probe's label, decision 24's rung: its Details line). */
         const val PROBE = "master: instagram probe"
 

@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "sites": {
+    "facebook": {
+      "media": [{ "path": ["drill_missing_key"], "mime": "video/mp4" }]
+    }
+  }
+}

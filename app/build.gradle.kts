@@ -170,11 +170,19 @@ require(socialTrial in setOf("true", "false")) {
     "yft.socialTrial must be true or false"
 }
 // R9: the public key (X.509 P-256, hex) for Master's signed recipe config; blank = bundled
-// recipes only and no config request. Only read when Master capture is on.
+// recipes only and no config request. Only read when Master capture is on. Social plan S4: a
+// social-ladder debug build (yft.socialLadder with yft.masterCapture) carries the committed key,
+// extractor-master/recipes/master-recipes.pub.hex, unless yft.masterRecipeKey names one; every
+// other build as before (no key unless given). The config's address: the recipes branch, where
+// the master-recipes-publish workflow puts each signed config.
 val masterRecipeKey = providers.gradleProperty("yft.masterRecipeKey").orElse("").get()
 require(Regex("[0-9a-fA-F]*").matches(masterRecipeKey)) { "yft.masterRecipeKey must be hex" }
+val socialRecipeKey = providers.gradleProperty("yft.masterRecipeKey").orElse(
+    providers.fileContents(rootProject.layout.projectDirectory.file("extractor-master/recipes/master-recipes.pub.hex"))
+        .asText.map(String::trim),
+)
 val masterRecipeUrl = providers.gradleProperty("yft.masterRecipeUrl").orElse(
-    "https://raw.githubusercontent.com/Alalkipgen/YFT/spike/master-extractor-backup/recipes/master-recipes.json",
+    "https://raw.githubusercontent.com/Alalkipgen/YFT/recipes/master-recipes.json",
 ).get()
 require(Regex("""https://[A-Za-z0-9./_-]+""").matches(masterRecipeUrl)) {
     "yft.masterRecipeUrl must be an https address"
@@ -262,6 +270,12 @@ android {
                 (masterCapture == "true" && youtubeRouteB == "true" && routeBTrial == "true").toString(),
             )
             buildConfigField("boolean", "SOCIAL_LADDER", (masterCapture == "true" && socialLadder == "true").toString())
+            // S4: the social-ladder build's recipe key (the committed one unless yft.masterRecipeKey names one).
+            if (masterCapture == "true" && socialLadder == "true") {
+                val key = socialRecipeKey.get()
+                require(Regex("[0-9a-fA-F]*").matches(key)) { "the social build's recipe key must be hex" }
+                buildConfigField("String", "MASTER_RECIPE_KEY", "\"$key\"")
+            }
             buildConfigField(
                 "boolean", "SOCIAL_TRIAL",
                 (masterCapture == "true" && socialLadder == "true" && socialTrial == "true").toString(),

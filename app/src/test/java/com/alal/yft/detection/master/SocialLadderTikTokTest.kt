@@ -14,6 +14,7 @@ import com.alal.yft.extractor.api.SiteExtractionFailure
 import com.alal.yft.extractor.api.SiteExtractorRegistry
 import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.extractor.master.MasterRequest
+import com.alal.yft.extractor.master.layers.KEY_TABLE_CHANGED
 import com.alal.yft.extractor.master.social.MainPageRecorder
 import com.alal.yft.extractor.master.social.SocialCooldown
 import com.alal.yft.extractor.master.social.SocialStages
@@ -154,6 +155,31 @@ class SocialLadderTikTokTest {
         assertEquals(
             "master: tiktok ladder after RESPONSE_CHANGED",
             SocialLadder.trialNotice(detected(listOf("master: tiktok ladder after RESPONSE_CHANGED", "master: tiktok T1 embed player: x"))),
+        )
+    }
+
+    @Test
+    fun s4TheNoticeShowsAContractReadByShape() {
+        // S4 (the R9 drill's renamed key): rows the key table read none of, found by shape, show
+        // the contract's line under the site's (each once); the key table's count line is not shown.
+        val segment = "; trial: Master's rows 2, main's 3; the same video: yes; duration within 1 s: yes"
+        val site = "master: facebook ladder after LOGIN_REQUIRED; replayed 0; new 1$segment"
+        val shape = "master: facebook contract: 2 $KEY_TABLE_CHANGED"
+        assertEquals("master: facebook contract: 2 files by shape (key table changed)", shape)
+        val none = "master: facebook contract: 0 files from the key table"
+        assertEquals(site + "\n" + shape, SocialLadder.trialNotice(detected(listOf(site, none, shape, shape))))
+        // The key table's own read: the site's line alone, as before.
+        val read = "master: facebook contract: 2 files from the key table"
+        assertEquals(site, SocialLadder.trialNotice(detected(listOf(site, read))))
+        // Not a ladder site's contract: nothing.
+        assertNull(SocialLadder.trialNotice(detected(listOf("master: vimeo contract: 1 $KEY_TABLE_CHANGED"))))
+        // Instagram's probe lines stay last.
+        val ladder = "master: instagram ladder after LOGIN_REQUIRED; main's answers read, no new ask"
+        val byShape = "master: instagram contract: 1 $KEY_TABLE_CHANGED"
+        val probe = "master: instagram probe: off (config); not run"
+        assertEquals(
+            listOf(ladder, byShape, probe).joinToString("\n"),
+            SocialLadder.trialNotice(detected(listOf(ladder, probe, byShape))),
         )
     }
 

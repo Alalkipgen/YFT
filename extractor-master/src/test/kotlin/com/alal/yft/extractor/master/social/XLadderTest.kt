@@ -33,6 +33,7 @@ import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStart
 import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStartReader
 import com.alal.yft.extractor.master.modules.youtube.testing.FakeExtractorHttpClient
 import com.alal.yft.extractor.master.modules.youtube.testing.Fixtures
+import com.alal.yft.extractor.master.recipes.SignedRecipes
 import com.alal.yft.extractor.sites.facebook.FacebookExtractor
 import com.alal.yft.extractor.sites.tiktok.TikTokExtractor
 import com.alal.yft.extractor.sites.x.XExtractor
@@ -474,6 +475,42 @@ class XLadderTest {
         assertNull(XLadder.itemOf("not a link"))
         assertEquals(3, XLadder.videoNumberOf("https://x.com/fixture_user/status/$MIXED/video/3"))
         assertNull(XLadder.videoNumberOf("https://x.com/fixture_user/status/$MIXED"))
+    }
+
+    @Test
+    fun `S4 - X1 and X3 off in the signed config - their lines, main's answer not read, no capture when X3 is off`() = runTest {
+        val master = FakeExtractorHttpClient()
+        val record = record()
+        val capture = CountingCapture()
+        val main = main(VIDEO, Fixtures.read("x/tweet_video.json"))
+
+        val lookup = lookup(
+            page(VIDEO), main, master, record, capture = capture,
+            ladder = XLadder(master, ::identifyOrNull, SignedRecipes.rungsOff("X1")),
+        )
+
+        val details = (lookup.result as MasterResult.NeedsPlayback).details
+        assertTrue(details.toString(), "$X1: off (config); not run" in details)
+        assertFalse(details.toString(), details.any { it.startsWith("$LADDER after") || it.startsWith("$ITEM") })
+        assertEquals(1, capture.calls)
+        assertTrue(details.toString(), "master: one browser-assisted capture requested" in details)
+        assertTrue(master.requestedUrls.isEmpty())
+        assertEquals(1, main.requestedUrls.size)
+        assertEquals(0, record.masterAsks)
+        assertBare(details)
+
+        // X3 off after the widget's 404 (the tab's own playback next): no capture asked.
+        val quiet = CountingCapture()
+        val notFound = lookup(
+            page(OTHER), FakeExtractorHttpClient(), FakeExtractorHttpClient(), capture = quiet,
+            ladder = XLadder(FakeExtractorHttpClient(), ::identifyOrNull, SignedRecipes.rungsOff("X3")),
+        )
+        val notFoundDetails = (notFound.result as MasterResult.NeedsPlayback).details
+        assertTrue(notFoundDetails.toString(), NOT_FOUND_LINE in notFoundDetails)
+        assertEquals("master: x X3: off (config); not run", notFoundDetails.last())
+        assertEquals(0, quiet.calls)
+        assertFalse(notFoundDetails.toString(), notFoundDetails.any { it.startsWith("Open the page") })
+        assertBare(notFoundDetails)
     }
 
     /** One lookup: main's real X adapter over [main] (its answer kept in the lookup), then Master's engine. */

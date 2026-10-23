@@ -286,7 +286,7 @@ class SocialTrialTest {
         assertEquals(listOf(hd(VIDEO), sd(VIDEO)), fixture.reads.toList())
         assertEquals(listOf(embedUrl(WATCH)), fixture.master.asked)
         // Main's rows here state no height (its page has no manifest): Master's heights, then main's.
-        assertTrue(SocialLadder.trialNotice(found)!!.endsWith("duration within 1 s: yes; heights 720,360 vs unknown"))
+        assertTrue(SocialLadder.trialNotice(found)!!.endsWith("duration within 1 s: yes; heights 720,360 vs not stated"))
         assertBare("sized", found.details)
         // Files whose starts state no size: unknown, as before.
         val unsized = Fixture(WATCH).lookup() as SiteAdapterOutcome.Detected
@@ -426,7 +426,7 @@ class SocialTrialTest {
                 .endsWith("duration within 1 s: yes; heights 720,360 vs 720,360"),
         )
         assertTrue(segment(listOf(row(WATCH, "facebook:$VIDEO", 60_000, 720)), sized).endsWith("; heights 720 vs 720,360"))
-        assertTrue(segment(listOf(row(WATCH, "facebook:$VIDEO", 60_000)), sized).endsWith("; heights unknown vs 720,360"))
+        assertTrue(segment(listOf(row(WATCH, "facebook:$VIDEO", 60_000)), sized).endsWith("; heights not stated vs 720,360"))
         // Another video, a row without a video key, main's rows of two videos, no row: not the same.
         assertTrue(segment(listOf(row(WATCH, "facebook:$OTHER_VIDEO", 60_000))).contains("the same video: no"))
         assertTrue(segment(listOf(row(WATCH, null, 60_000))).contains("the same video: no"))
@@ -747,7 +747,7 @@ class SocialTrialTest {
         )
 
         /** Task 16 (F6): the line's end when neither side's rows state a height (these fixtures' pages and files). */
-        const val NO_HEIGHTS = "; heights unknown vs unknown"
+        const val NO_HEIGHTS = "; heights not stated vs not stated"
 
         /** Main's two rows for the watch page (as main's adapter gives them). */
         fun mainsRows() = SiteAdapterOutcome.Detected(

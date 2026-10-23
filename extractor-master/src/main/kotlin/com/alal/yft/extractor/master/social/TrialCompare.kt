@@ -19,9 +19,11 @@ import kotlin.math.abs
  * one of main's. **The duration**: every duration Master's rows state within 1 s of every one
  * main's rows state; unknown when either side states none. **The heights** (task 16, F6):
  * Facebook's line adds the heights each side's rows state (`; heights 720,360 vs 720,360`:
- * Master's, then main's; each side's distinct heights, tallest first, `unknown` when its rows state
- * none), so the retest checks each of Master's against main's; Instagram's adds each side's
- * tallest (`; tallest: Master's H, main's H`).
+ * Master's, then main's; each side's distinct heights, tallest first, `not stated` when its rows
+ * state none — L1, the retest of 2026-10-23: main's Facebook rows state no height when the line is
+ * made, the sheet measuring them later, P25), so the retest checks each of Master's against main's
+ * when both sides state theirs; Instagram's adds each side's tallest (`; tallest: Master's H,
+ * main's H`).
  *
  * Task 6b, each row ([Verdict]), stricter than the set and never kinder:
  *
@@ -50,7 +52,7 @@ object TrialCompare {
      * ("the same item"), [same] and [duration] as the trial line says them, each side's tallest
      * height ([masterTallest], [mainTallest]: `unknown` when its rows state none), task 16's
      * heights for Facebook's line ([facebook]: [masterHeights], [mainHeights], `720,360` or
-     * `unknown`) and one [verdicts] entry per row of Master's, in order.
+     * `not stated`, L1) and one [verdicts] entry per row of Master's, in order.
      */
     class Compared(
         val masterRows: Int,
@@ -63,8 +65,8 @@ object TrialCompare {
         val mainTallest: String,
         val verdicts: List<Verdict>,
         val facebook: Boolean = false,
-        val masterHeights: String = UNKNOWN,
-        val mainHeights: String = UNKNOWN,
+        val masterHeights: String = NOT_STATED,
+        val mainHeights: String = NOT_STATED,
     ) {
         /** Rows proven another post's. */
         val wrong: Int get() = verdicts.count { it == Verdict.WRONG }
@@ -163,9 +165,15 @@ object TrialCompare {
     private fun tallestOf(rows: List<MediaCandidate>): String =
         rows.mapNotNull { row -> row.height?.takeIf { it > 0 } }.maxOrNull()?.toString() ?: UNKNOWN
 
-    /** Task 16: the heights [rows] state, each once, tallest first (`720,360`); `unknown` when none states one. */
+    /**
+     * Task 16: the heights [rows] state, each once, tallest first (`720,360`); L1: `not stated` when
+     * none states one (the rows name no height: nothing to check, not a fault).
+     */
     private fun heightsOf(rows: List<MediaCandidate>): String =
-        rows.mapNotNull { row -> row.height?.takeIf { it > 0 } }.distinct().sortedDescending().joinToString(",").ifEmpty { UNKNOWN }
+        rows.mapNotNull { row -> row.height?.takeIf { it > 0 } }.distinct().sortedDescending().joinToString(",").ifEmpty { NOT_STATED }
 
     private const val UNKNOWN = "unknown"
+
+    /** L1: a side whose rows state no height (Facebook's heights). */
+    private const val NOT_STATED = "not stated"
 }

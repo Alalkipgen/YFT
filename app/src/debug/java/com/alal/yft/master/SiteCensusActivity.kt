@@ -34,6 +34,7 @@ import com.alal.yft.core.browser.policy.BrowserUserAgent
 import com.alal.yft.core.data.network.NetworkConfiguration
 import com.alal.yft.detection.OkHttpExtractorClient
 import com.alal.yft.detection.master.InstagramProbeSwitch
+import com.alal.yft.detection.master.MasterRecipeConfig
 import com.alal.yft.detection.master.SocialLadder
 import com.alal.yft.detection.tiktok.TikTokPageEngine
 import com.alal.yft.detection.tiktok.TikTokPageScript
@@ -41,6 +42,7 @@ import com.alal.yft.detection.tiktok.TikTokPageSettings
 import com.alal.yft.extractor.api.SiteAdapterSelection
 import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.extractor.master.lookup.LookupRecorder
+import com.alal.yft.extractor.master.lookup.RouteBHttpClient
 import com.alal.yft.extractor.master.modules.youtube.ladder.ClientCensus
 import com.alal.yft.extractor.master.social.Site
 import com.alal.yft.extractor.master.social.SiteCensus
@@ -116,6 +118,8 @@ class SiteCensusActivity : ComponentActivity() {
         })
         val status = TextView(this).apply { textSize = 15f }
         this.status = status
+        // S4: the signed recipe config in use, a social-ladder build only (asked again on open).
+        val recipes = if (SocialLadder.enabled) TextView(this).apply { textSize = 14f } else null
         val all = Button(this).apply { text = "Run all sites" }
         // Task 8: W's button, a social-ladder build only (behind the flag; every other build as before).
         val weeklyButton = if (SocialLadder.enabled) Button(this).apply { text = "Weekly check W (all sites)" } else null
@@ -133,7 +137,9 @@ class SiteCensusActivity : ComponentActivity() {
             text = "Copy JSON"
             isEnabled = false
         }
-        listOf(status, all).forEach(::add)
+        add(status)
+        recipes?.let(::add)
+        add(all)
         perSite.values.forEach(::add)
         weeklyButton?.let(::add)
         // S2d (task 13): the rung's own switches under the Run buttons, each off by default (a
@@ -183,6 +189,16 @@ class SiteCensusActivity : ComponentActivity() {
             runButtons.forEach { it.isEnabled = false }
             return
         }
+        // S4: the config is asked for on open (one bounded ask, whatever its interval), then shown.
+        recipes?.let { line ->
+            line.text = MasterRecipeConfig.status()
+            lifecycleScope.launch {
+                withContext(Dispatchers.Default) {
+                    MasterRecipeConfig.refreshNow(OkHttpExtractorClient(NetworkConfiguration.createClient()))
+                }
+                line.text = MasterRecipeConfig.status()
+            }
+        }
 
         fun start(sites: List<Site>, mode: ClientCensus.Mode = ClientCensus.Mode.FULL) {
             if (running) return
@@ -224,8 +240,10 @@ class SiteCensusActivity : ComponentActivity() {
                 try {
                     val network = networkNote()
                     val vpn = onVpn()
+                    // S4: the recipe config in use is one of the report's notes (a social-ladder build only).
+                    val notes = listOf(network) + listOfNotNull(recipes?.let { MasterRecipeConfig.status() })
                     val outcome = withContext(Dispatchers.Default) {
-                        census.run(sites, links, readState(stateFile), listOf(network), vpn = vpn, mode = mode) { step ->
+                        census.run(sites, links, readState(stateFile), notes, vpn = vpn, mode = mode) { step ->
                             runOnUiThread { status.text = step }
                         }
                     }
@@ -241,6 +259,7 @@ class SiteCensusActivity : ComponentActivity() {
                 } finally {
                     window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     running = false
+                    recipes?.text = MasterRecipeConfig.status()
                     runButtons.forEach { it.isEnabled = true }
                     copy.isEnabled = result.text.isNotEmpty()
                     copyJson.isEnabled = exported.isNotEmpty()
@@ -335,6 +354,8 @@ class SiteCensusActivity : ComponentActivity() {
                     identify = identify,
                     sites = SocialLadder.SITES,
                     cooldown = SocialLadder.cooldown,
+                    // S4: the engine's recipes as the app's (its signed config, the ladders' own source).
+                    contracts = MasterRecipeConfig.contracts(RouteBHttpClient(http)),
                 )
             },
         )

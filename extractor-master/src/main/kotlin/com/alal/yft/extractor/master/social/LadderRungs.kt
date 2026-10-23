@@ -21,6 +21,7 @@ import com.alal.yft.extractor.master.MasterResult
  *   still cooling after a 429 or a bot check), `request budget`, `time budget`, `byte budget`;
  *   `nothing to read` (main read nothing for it); `no video` (a link main resolves first, and
  *   main's answer named no video); `final` (TikTok's photo post on main's pages); `no tab`;
+ *   `config` (S4: the signed recipe config turns the rung off, [RungsOff]; a capture rung too);
  * - **not reached** — no line: an earlier rung answered, or the ladder did not claim the lookup;
  * - **unknown (time limit | error)** — the engine's bounded lookup timed out (its lines are
  *   gone) or the part threw.
@@ -46,6 +47,10 @@ internal object LadderRungs {
     private const val CAPTURE = "master: one browser-assisted capture requested"
     private const val TIMED_OUT = "master: bounded lookup timed out"
     private const val NOT_ASKED = "; not asked"
+
+    /** S4: an off rung's own words (its label and ":" taken off), and its state's why. */
+    private val OFF = RungsOff.SUFFIX.removePrefix(":").trim()
+    private const val CONFIG = "config"
     private const val NOT_CHECKED_LINE = "; not checked"
     private const val NO_ANSWER = "no answer in time"
     private const val NOTHING = "nothing to read"
@@ -76,7 +81,12 @@ internal object LadderRungs {
         if (TIMED_OUT in lines) return ladder.rungs.map { (name, _) -> Rung(name, UNKNOWN, "time limit") }
         return ladder.rungs.mapIndexed { index, (name, label) ->
             when {
-                label == null -> if (CAPTURE in lines) Rung(name, NOT_RUN, "no tab") else Rung(name, NOT_REACHED)
+                label == null -> when {
+                    // S4: the capture rung off in the signed config (its own label's line).
+                    RungsOff.CAPTURES[site]?.let { RungsOff.line(it) in lines } == true -> Rung(name, NOT_RUN, CONFIG)
+                    CAPTURE in lines -> Rung(name, NOT_RUN, "no tab")
+                    else -> Rung(name, NOT_REACHED)
+                }
                 else -> stateOf(
                     name,
                     lines.filter { it.startsWith("$label:") || it.startsWith("$label ") }.map { it.removePrefix(label).removePrefix(":").trim() },
@@ -111,6 +121,8 @@ internal object LadderRungs {
                 else -> Rung(name, NOT_RUN, "no video")
             }
         }
+        // S4: the rung off in the signed config.
+        if (OFF in own) return Rung(name, NOT_RUN, CONFIG)
         own.firstOrNull { it.endsWith(NOT_ASKED) }?.let { return Rung(name, NOT_RUN, whyOf(it.removeSuffix(NOT_ASKED))) }
         own.firstOrNull { it.endsWith(NOT_CHECKED_LINE) }?.let { return Rung(name, NOT_CHECKED, whyOf(it.removeSuffix(NOT_CHECKED_LINE))) }
         own.lastOrNull { NEXT.containsMatchIn(it) }?.let { line ->

@@ -26,6 +26,7 @@ import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStart
 import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStartReader
 import com.alal.yft.extractor.master.modules.youtube.testing.FakeExtractorHttpClient
 import com.alal.yft.extractor.master.modules.youtube.testing.Fixtures
+import com.alal.yft.extractor.master.recipes.SignedRecipes
 import com.alal.yft.extractor.sites.facebook.FacebookExtractor
 import com.alal.yft.extractor.sites.instagram.InstagramExtractor
 import com.alal.yft.extractor.sites.tiktok.TikTokExtractor
@@ -318,20 +319,25 @@ class InstagramLadderTest {
         assertBare(details)
 
         // Main's rule finds no post (the post's node gone) while the embed's context still names
-        // the code: a shape change, saying what it read — counts and marks only.
+        // the code. L3 (the retest of 2026-10-23): main's "no post", so too I2's — needs playback,
+        // never a shape change — saying what it read, counts and marks only; on the post's own page
+        // the same (the retest's page).
         val contextOnly = realEmbed(post = false)
-        val gone = lookup(REEL, main(SiteWays.GRAPHQL to refused(401), SiteWays.EMBED_PAGE to html(contextOnly)))
-        assertTrue(
-            (gone.main as SiteExtractionResult.Failure).details.toString(),
-            "embed page: 200 (${contextOnly.length} characters), no post" in (gone.main as SiteExtractionResult.Failure).details,
-        )
-        val goneDetails = detailsOf(gone.result)
-        assertTrue(
-            goneDetails.toString(),
-            "$I2 main's embed page: SHAPE_CHANGED (no video read; the page: ${contextOnly.length} characters; " +
-                "documents: 1; main's post: no; a video mark: no; files: 0)" in goneDetails,
-        )
-        assertBare(goneDetails)
+        for ((way, name) in listOf(SiteWays.EMBED_PAGE to "embed page", SiteWays.PAGE to "page")) {
+            val gone = lookup(REEL, main(SiteWays.GRAPHQL to refused(401), way to html(contextOnly)))
+            assertTrue(
+                (gone.main as SiteExtractionResult.Failure).details.toString(),
+                "$name: 200 (${contextOnly.length} characters), no post" in (gone.main as SiteExtractionResult.Failure).details,
+            )
+            val goneDetails = detailsOf(gone.result)
+            assertTrue(
+                goneDetails.toString(),
+                "$I2 main's $name: NEEDS_PLAYBACK (no post data in the page, as main's rule reads it; " +
+                    "the page: ${contextOnly.length} characters; documents: 1; main's post: no; a video mark: no; files: 0)" in goneDetails,
+            )
+            assertTrue(goneDetails.toString(), goneDetails.none { "SHAPE_CHANGED" in it })
+            assertBare(goneDetails)
+        }
 
         // The same post's data on the post's own page: a video without files there is a shape
         // change, as before (only the embed page lists no file by its design), now with its counts.
@@ -878,6 +884,81 @@ class InstagramLadderTest {
             SiteWays.GRAPHQL,
             labels.way(LookupAsk(LookupAsk.GET, "https://www.instagram.com/graphql/query/?doc_id=8845758582119845", null)),
         )
+    }
+
+    @Test
+    fun `S4 - I2 off in the signed config - its line, main's answers not read, the rung next`() = runTest {
+        val reel = main(SiteWays.GRAPHQL to json(fixture("graphql_reel.json")))
+        val record = record()
+        val capture = CountingCapture()
+        val probe = Probe { answered(200, PROBE_VIDEO) }
+
+        val lookup = lookup(
+            REEL, reel, record = record, capture = capture, probe = probe,
+            ladder = InstagramLadder(FakeExtractorHttpClient(), SignedRecipes.rungsOff("I2")),
+        )
+
+        // I2's six rows are not read; the rung's row answers as the tab's own.
+        val success = lookup.result as MasterResult.Success
+        assertEquals(MasterStage.PAGE_DATA, success.stage)
+        assertTrue(success.result.candidates.single().mediaUrl.contains("/probe.mp4"))
+        val details = success.result.details
+        assertTrue(details.toString(), "$I2: off (config); not run" in details)
+        assertFalse(details.toString(), details.any { it.startsWith("$LADDER after") || it.startsWith("$I2 main's") })
+        assertEquals(1, probe.asked.size)
+        assertEquals(0, capture.calls)
+        assertEquals(1, record.masterAsks)
+        assertBare(details)
+
+        // I2 off without a tab (a census, W): the line, then the tab's own playback as before.
+        val plainCapture = CountingCapture()
+        val plain = lookup(REEL, reel, capture = plainCapture, ladder = InstagramLadder(FakeExtractorHttpClient(), SignedRecipes.rungsOff("I2")))
+        val plainDetails = (plain.result as MasterResult.NeedsPlayback).details
+        assertTrue(plainDetails.toString(), "$I2: off (config); not run" in plainDetails)
+        assertEquals(1, plainCapture.calls)
+    }
+
+    @Test
+    fun `S4 - the rung off in the signed config wins over its switch, wherever a probe is in the lookup`() = runTest {
+        val off = "$PROBE: off (config); not run"
+        fun ladder() = InstagramLadder(FakeExtractorHttpClient(), SignedRecipes.rungsOff(InstagramLadder.PROBE_RUNG))
+        // Switch on, I2 gave no rows: the line, never asked; the tab's own playback next.
+        val probe = Probe(on = true, proof = true) { error("not asked") }
+        val capture = CountingCapture()
+        val quiet = lookup(REEL, embedNoFiles(), capture = capture, probe = probe, ladder = ladder())
+        val quietDetails = (quiet.result as MasterResult.NeedsPlayback).details
+        assertTrue(quietDetails.toString(), off in quietDetails)
+        assertFalse(quietDetails.toString(), quietDetails.any { it.startsWith(PROBE) && it != off })
+        assertEquals(1, capture.calls)
+        // Beside I2's rows, the proof on: I2's rows stay, the rung is not asked.
+        val beside = lookup(REEL, main(SiteWays.GRAPHQL to json(fixture("graphql_reel.json"))), probe = probe, ladder = ladder())
+        assertEquals(6, (beside.result as MasterResult.Success).result.candidates.size)
+        assertTrue(detailsOf(beside.result).toString(), off in detailsOf(beside.result))
+        assertFalse(detailsOf(beside.result).toString(), InstagramLadder.PROOF_STOP in detailsOf(beside.result))
+        // After a final answer and after a stop: the same line.
+        val photo = lookup(PHOTO, main(SiteWays.GRAPHQL to json(fixture("graphql_photo.json"))), probe = probe, ladder = ladder())
+        assertTrue(detailsOf(photo.result).toString(), off in detailsOf(photo.result))
+        val stopped = lookup(REEL, main(SiteWays.GRAPHQL to json(fixture("graphql_login.json"))), probe = probe, ladder = ladder())
+        assertTrue(detailsOf(stopped.result).toString(), off in detailsOf(stopped.result))
+        assertTrue(probe.asked.isEmpty())
+        // Switch off: the config's line all the same.
+        val switchedOff = lookup(REEL, embedNoFiles(), probe = Probe(on = false) { error("not asked") }, ladder = ladder())
+        assertTrue(detailsOf(switchedOff.result).toString(), off in detailsOf(switchedOff.result))
+        // No probe in the lookup (a census, W): no line of the rung at all.
+        val census = lookup(REEL, embedNoFiles(), ladder = ladder())
+        assertFalse(detailsOf(census.result).toString(), detailsOf(census.result).any { it.startsWith(PROBE) })
+        assertBare(quietDetails + detailsOf(beside.result) + detailsOf(photo.result) + detailsOf(stopped.result))
+
+        // I3 off: no capture asked after the rung's switch off and I2's no rows.
+        val noCapture = CountingCapture()
+        val i3 = lookup(
+            REEL, embedNoFiles(), capture = noCapture, probe = Probe(on = false) { error("not asked") },
+            ladder = InstagramLadder(FakeExtractorHttpClient(), SignedRecipes.rungsOff("I3")),
+        )
+        val i3Details = (i3.result as MasterResult.NeedsPlayback).details
+        assertEquals(0, noCapture.calls)
+        assertEquals("master: instagram I3: off (config); not run", i3Details.last())
+        assertTrue(i3Details.toString(), "$PROBE: off" in i3Details)
     }
 
     /** One lookup: main's real Instagram adapter over [main] (its answers kept in the lookup), then Master's engine. */

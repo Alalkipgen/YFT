@@ -38,6 +38,21 @@ class SiteContracts internal constructor(
 
     private val recipes: List<ContractRecipe> get() = remote?.recipes() ?: bundled
 
+    /**
+     * Social plan S4: the signed config's one bounded ask when due ([RemoteRecipes.refreshIfDue]:
+     * on its own, outside the caller's lookup), so a ladder's lookup reads the config's rungs off
+     * ([rungsOff]) before its first rung; nothing without a key.
+     */
+    internal suspend fun refresh() {
+        remote?.refreshIfDue()
+    }
+
+    /** S4: the ladder rungs the signed config in use turns off; none without one. */
+    internal fun rungsOff(): Set<String> = remote?.rungsOff().orEmpty()
+
+    /** S4: the config in use, one line ([RemoteRecipes.status]); a build without a key: bundled. */
+    fun status(): String = remote?.status() ?: "recipes: bundled (no key in this build)"
+
     /** The recipe L2 reads an answer with: the same source the endpoint was asked from. */
     internal fun recipeOf(site: String): ContractRecipe? = recipes.firstOrNull { it.site == site }
 
@@ -52,7 +67,8 @@ class SiteContracts internal constructor(
             recipes.any { it.site == identity.siteId }
 
     internal suspend fun ask(request: MasterRequest): Asked {
-        // R9: at most one bounded config ask a day, before the site is asked; never a cookie.
+        // R9: at most one bounded config ask every six hours, before the site is asked; never a
+        // cookie (S4: on its own, outside the lookup).
         remote?.refreshIfDue()
         val identity = request.identity?.takeIf { reads(it) } ?: return Asked.Unanswered(null)
         val recipe = recipeOf(identity.siteId) ?: return Asked.Unanswered(null)

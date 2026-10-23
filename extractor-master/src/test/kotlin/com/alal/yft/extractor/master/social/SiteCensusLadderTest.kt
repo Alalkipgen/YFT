@@ -22,6 +22,7 @@ import com.alal.yft.extractor.api.json.get
 import com.alal.yft.extractor.master.MasterMediaValidator
 import com.alal.yft.extractor.master.MasterResult
 import com.alal.yft.extractor.master.ValidationResult
+import com.alal.yft.extractor.master.contract.SiteContracts
 import com.alal.yft.extractor.master.contract.answering
 import com.alal.yft.extractor.master.lookup.LookupRecorder
 import com.alal.yft.extractor.master.modules.youtube.ladder.InitBytes
@@ -29,6 +30,7 @@ import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStart
 import com.alal.yft.extractor.master.modules.youtube.ladder.MediaStartReader
 import com.alal.yft.extractor.master.modules.youtube.testing.FakeExtractorHttpClient
 import com.alal.yft.extractor.master.modules.youtube.testing.Fixtures
+import com.alal.yft.extractor.master.recipes.SignedRecipes
 import com.alal.yft.extractor.master.social.SiteWaysTest.Companion.BROWSER_AGENT
 import com.alal.yft.extractor.sites.facebook.FacebookExtractor
 import com.alal.yft.extractor.sites.instagram.InstagramExtractor
@@ -233,7 +235,7 @@ class SiteCensusLadderTest {
         ) { it }
         assertTrue(sized.trialText(), sized.trialText().endsWith("; duration within 1 s: unknown; heights 720,360 vs 720,360"))
         val unsized = TrialCompare.compare(listOf(row(FB_FILE, page = FB_WATCH, key = facebook, height = 0)), mains) { it }
-        assertTrue(unsized.trialText(), unsized.trialText().endsWith("; heights unknown vs 720"))
+        assertTrue(unsized.trialText(), unsized.trialText().endsWith("; heights not stated vs 720"))
 
         // X: the item; a file on another host names none.
         val x = "x:1785999999999999999"
@@ -429,23 +431,74 @@ class SiteCensusLadderTest {
         assertEquals(1L, readMaster["rows"].asLongOrNull)
     }
 
+    @Test
+    fun `S4 - a rung the signed config turns off reads not run (config), a capture rung too`() {
+        fun answer(vararg lines: String) = MasterResult.NeedsPlayback(lines.toList())
+        fun texts(site: String, result: MasterResult?) = LadderRungs.of(site, result)?.map { it.text() }
+
+        assertEquals(
+            listOf("F1 not run (config)", "F2 not run (config)", "F3 not run (config)"),
+            texts("facebook", answer(RungsOff.line(FacebookLadder.F1), RungsOff.line(FacebookLadder.F2), RungsOff.line(FacebookLadder.F3))),
+        )
+        assertEquals(
+            listOf("F1 not run (config)", "F2 run (PLAYBACK)", "F3 not run (no tab)"),
+            texts("facebook", answer(RungsOff.line(FacebookLadder.F1), "${FacebookLadder.F2}: next: PLAYBACK", CAPTURE)),
+        )
+        assertEquals(
+            listOf("T1 not run (config)", "T2 rows", "T3 not reached"),
+            texts("tiktok", answer(RungsOff.line(TikTokLadder.T1), "${TikTokLadder.T2}: next: CHECK_ROWS")),
+        )
+        assertEquals(
+            listOf("X1 not run (config)", "X3 not run (config)"),
+            texts("x", answer(RungsOff.line(XLadder.X1), RungsOff.line(XLadder.X3))),
+        )
+        assertEquals(
+            listOf("I2 not run (config)", "I3 not run (no tab)"),
+            texts("instagram", answer(RungsOff.line(InstagramLadder.I2), CAPTURE)),
+        )
+        // Another site's capture rung off is not this site's.
+        assertEquals(listOf("X1 not run (config)", "X3 not reached"), texts("x", answer(RungsOff.line(XLadder.X1), RungsOff.line(TikTokLadder.T3))))
+    }
+
+    @Test
+    fun `S4 - the census reads with the pack's recipes - a rung off is not run there, nothing asked for it`() = runTest {
+        val links = mapOf("x" to mapOf(1 to X_POST))
+        val http = xWidget()
+
+        val outcome = census(AppMain(http), http, pack(http, contractsOf = SignedRecipes.rungsOff("X1")))
+            .run(listOf(SiteWays.X), links, null, listOf("recipes: remote version 1, signed"))
+
+        val master = json(outcome.json)["sites"][0]["rows"][0]["master"]
+        assertEquals(listOf("X1 not run (config)", "X3 not run (no tab)"), rungsOf(master))
+        assertEquals(0L, master["new"].asLongOrNull)
+        assertEquals(1, http.requestedUrls.count { it.startsWith(WIDGET) })
+        assertTrue(outcome.report, outcome.report.lines().any { it.startsWith("      rungs: X1 not run (config) · X3 not run (no tab)") })
+        assertTrue(outcome.report, "recipes: remote version 1, signed" in outcome.report)
+    }
+
     private fun census(main: MainLookup, http: ExtractorHttpClient, pack: SiteCensus.Pack? = null) =
         SiteCensus(main, http, VALID, SiteCensus.Meter.NONE, clock, pack = pack)
 
     /** The pack as a social-ladder build makes it, over Master's client [http]; S6 reads [files]. */
-    private fun pack(http: ExtractorHttpClient, cooldown: SocialCooldown = SocialCooldown(), files: Files = Files()) = SiteCensus.Pack(
+    private fun pack(
+        http: ExtractorHttpClient,
+        cooldown: SocialCooldown = SocialCooldown(),
+        files: Files = Files(),
+        contractsOf: (ExtractorHttpClient) -> SiteContracts = ::SiteContracts,
+    ) = SiteCensus.Pack(
         stage = SocialStages(
             listOf(
-                FacebookLadder(http, ::identityOf, cooldown = cooldown),
-                TikTokLadder(http, ::identityOf, cooldown = cooldown),
-                XLadder(http, ::identityOf, cooldown = cooldown),
-                InstagramLadder(http, cooldown = cooldown),
+                FacebookLadder(http, ::identityOf, contractsOf, cooldown = cooldown),
+                TikTokLadder(http, ::identityOf, contractsOf, cooldown = cooldown),
+                XLadder(http, ::identityOf, contractsOf, cooldown = cooldown),
+                InstagramLadder(http, contractsOf, cooldown = cooldown),
             ),
         ),
         validator = { validator -> SocialRowCheck(validator, files) },
         identify = ::identityOf,
         sites = LadderRungs.SITES,
         cooldown = cooldown,
+        contracts = contractsOf(http),
     )
 
     /** X's widget answering the video post's fixture for the post asked (its ID in the answer); each answer takes [advance] ms. */

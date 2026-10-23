@@ -182,14 +182,27 @@ class InstagramAnswerJudgeTest {
             Triple("<html></html>", InstagramReading(post = true, photos = true), Expected(AnswerClass.PHOTO_ONLY, "photos only, no video", SiteExtractionFailure.NO_MEDIA_FOUND)),
             Triple(embedBroken, InstagramReading(), Expected(AnswerClass.NEEDS_PLAYBACK, "not embeddable: removed, private or not embeddable alike", null)),
             // Task 15 (F2): a shape change says what was read, counts and marks only (the page's
-            // size, its JSON documents, main's post, a video mark, the post's files).
+            // size, its JSON documents, main's post, a video mark, the post's files): main's post
+            // with no video read.
+            Triple(
+                "<html></html>",
+                InstagramReading(post = true, documents = 1, rulePost = true),
+                Expected(
+                    AnswerClass.SHAPE_CHANGED,
+                    "no video read; the page: 13 characters; documents: 1; main's post: yes; a video mark: no; files: 0",
+                    SiteExtractionFailure.RESPONSE_CHANGED,
+                ),
+            ),
+            // L3 (the retest of 2026-10-23): a node names the post's code with no data (no video
+            // mark, no file) and main's rule finds no post: main's "no post", never a shape change;
+            // the line still says what was read.
             Triple(
                 "<html></html>",
                 InstagramReading(post = true),
                 Expected(
-                    AnswerClass.SHAPE_CHANGED,
-                    "no video read; the page: 13 characters; documents: 0; main's post: no; a video mark: no; files: 0",
-                    SiteExtractionFailure.RESPONSE_CHANGED,
+                    AnswerClass.NEEDS_PLAYBACK,
+                    "no post data in the page, as main's rule reads it; the page: 13 characters; documents: 0; main's post: no; a video mark: no; files: 0",
+                    null,
                 ),
             ),
             // Main's rule read the post's files, the recipe no row: the recipe's shape, on either page.

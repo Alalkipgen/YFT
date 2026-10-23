@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 # R9: keys and signing for Master's data-only recipe config (MASTER_KEY_PHASE1_PLAN.md R9).
-# The app carries only the public key (-Pyft.masterRecipeKey=<hex>); keep the private key off
-# the repo. Schema: extractor-master/recipes/master-recipes.schema.json.
+# The app carries only the public key (-Pyft.masterRecipeKey=<hex>; a social-ladder debug build:
+# extractor-master/recipes/master-recipes.pub.hex); keep the private key off the repo. Schema:
+# extractor-master/recipes/master-recipes.schema.json.
 #
 #   bash scripts/master-recipe-sign.sh keygen ~/yft-recipe-key.pem    # once; prints the public key
 #   bash scripts/master-recipe-sign.sh pubkey ~/yft-recipe-key.pem
 #   bash scripts/master-recipe-sign.sh sign ~/yft-recipe-key.pem config.json recipes/master-recipes.json
 #
-# The signed file goes to the address in yft.masterRecipeUrl (default: recipes/master-recipes.json
-# on the spike branch, raw.githubusercontent.com). Raise "version" for every new config.
+# The signed file goes to the address in yft.masterRecipeUrl (default: master-recipes.json on the
+# branch "recipes", raw.githubusercontent.com). Raise "version" for every new config. Social plan
+# S4: the master-recipes-publish workflow signs and publishes the committed configs
+# (extractor-master/recipes/configs/) with the repository's key; this script is its signer.
 set -euo pipefail
 
 pubkey_hex() {
@@ -36,7 +39,7 @@ import json, re, sys
 text = open(sys.argv[1], encoding="utf-8", newline="").read()
 config = json.loads(text)
 assert isinstance(config, dict), "config must be an object"
-extra = set(config) - {"schema", "version", "expires", "sites"}
+extra = set(config) - {"schema", "version", "expires", "sites", "rungsOff"}
 assert not extra, f"unknown keys {sorted(extra)}"
 assert config.get("schema") == 1, "schema must be 1"
 assert isinstance(config.get("version"), int) and config["version"] >= 1, "version must be >= 1"
@@ -55,7 +58,7 @@ with open(sys.argv[3], "w", encoding="utf-8") as out:
     echo "signed $config -> $out" >&2
     ;;
   *)
-    sed -n '2,11p' "$0"
+    sed -n '2,14p' "$0"
     exit 2
     ;;
 esac

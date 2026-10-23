@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "YFT Master recipe config (R9, data only)",
-  "description": "Read by RemoteRecipeConfig, which also enforces what a schema cannot: an endpoint keeps the bundled recipe's host, header names match case-insensitively, DRM/no-video/wall paths are only added. Signed with scripts/master-recipe-sign.sh.",
+  "description": "Read by RemoteRecipeConfig, which also enforces what a schema cannot: an endpoint keeps the bundled recipe's host, header names match case-insensitively, DRM/no-video/wall paths are only added. Signed with scripts/master-recipe-sign.sh; published by the master-recipes-publish workflow (social plan S4).",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "version", "expires", "sites"],
@@ -19,6 +19,13 @@
         "tiktok": { "$ref": "#/$defs/site" },
         "instagram": { "$ref": "#/$defs/site" }
       }
+    },
+    "rungsOff": {
+      "description": "Social plan S4: social ladder rungs turned off, each at most once (off only; a rung off is not run, its line says so).",
+      "type": "array",
+      "maxItems": 11,
+      "uniqueItems": true,
+      "items": { "enum": ["F1", "F2", "F3", "T1", "T2", "T3", "X1", "X3", "I2", "probe", "I3"] }
     }
   },
   "$defs": {

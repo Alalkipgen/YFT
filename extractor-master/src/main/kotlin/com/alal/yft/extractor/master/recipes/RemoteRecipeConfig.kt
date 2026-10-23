@@ -11,6 +11,11 @@
  * Hosts, cookie domains, body caps, regular expressions, photo/access answers and stop rules
  * never come from a config. An unknown site or key, a wrong type or a value out of bounds rejects
  * the whole config, and the bundled recipes stay. No code is ever loaded.
+ *
+ * Social plan S4 (`MASTER_KEY_SOCIAL_PLAN.md` §7.3): `rungsOff`, optional, turns social ladder
+ * rungs off by name ([RUNGS]: Facebook's F1–F3, TikTok's T1–T3, X's X1 and X3, Instagram's I2,
+ * its tab-fetch rung `probe` and I3), each at most once; a rung off is not run (its line says
+ * so) and the next one is. Off only: a config never turns on what a build or a switch leaves off.
  */
 package com.alal.yft.extractor.master.recipes
 
@@ -21,7 +26,10 @@ internal object RemoteRecipeConfig {
     const val SCHEMA = 1L
     const val MAX_CHARS = 64 * 1024
 
-    val TOP_KEYS = setOf("schema", "version", "expires", "sites")
+    val TOP_KEYS = setOf("schema", "version", "expires", "sites", "rungsOff")
+
+    /** S4: the ladder rungs a config may turn off (`rungsOff`), in ladder order. */
+    val RUNGS = listOf("F1", "F2", "F3", "T1", "T2", "T3", "X1", "X3", "I2", "probe", "I3")
     val SITE_KEYS = setOf(
         "endpoint", "headers", "agent", "idPaths", "nodeIdFields", "items", "media", "titlePaths",
         "durationMillisPaths", "durationSecondsPaths", "thumbnailPaths", "drmPaths", "noVideoPaths",
@@ -49,7 +57,12 @@ internal object RemoteRecipeConfig {
     private val URL_CHARS = Regex("[A-Za-z0-9._~:/?&=%+,;!*'()\\[\\]{}-]+")
 
     sealed interface Parsed {
-        data class Valid(val version: Long, val expiresEpochDay: Long, val recipes: List<ContractRecipe>) : Parsed
+        data class Valid(
+            val version: Long,
+            val expiresEpochDay: Long,
+            val recipes: List<ContractRecipe>,
+            val rungsOff: Set<String> = emptySet(),
+        ) : Parsed
         data class Invalid(val reason: String) : Parsed
     }
 
@@ -74,10 +87,19 @@ internal object RemoteRecipeConfig {
                 val recipe = bundled.firstOrNull { it.site == site } ?: reject("unknown site $site")
                 overlay(recipe, value as? JsonValue.Object ?: reject("$site must be an object"))
             }
-            Parsed.Valid(version, expires, bundled.map { overlays[it.site] ?: it })
+            val off = root.entries["rungsOff"]?.let(::rungsOff).orEmpty()
+            Parsed.Valid(version, expires, bundled.map { overlays[it.site] ?: it }, off)
         } catch (rejected: Rejected) {
             Parsed.Invalid(rejected.reason)
         }
+    }
+
+    /** S4: the rungs off, each a known name ([RUNGS]) at most once; anything else rejects the config. */
+    private fun rungsOff(value: JsonValue): Set<String> {
+        val names = list(value, "rungsOff", RUNGS.size).map { text(it, "rungsOff") }
+        names.firstOrNull { it !in RUNGS }?.let { reject("rungsOff: unknown rung $it") }
+        if (names.toSet().size != names.size) reject("rungsOff names a rung twice")
+        return names.toSet()
     }
 
     private fun overlay(recipe: ContractRecipe, site: JsonValue.Object): ContractRecipe {
