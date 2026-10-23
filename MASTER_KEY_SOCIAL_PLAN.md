@@ -52,7 +52,11 @@ UI only) built (2026-10-23; §7.3). Task 16 (F6: a Master row whose answer state
 takes its file's own, read from the bytes its file check read; Facebook's trial line gives each
 side's heights; Facebook's fewer Master rows listed as intended; decision 29) built (2026-10-23;
 §7.3). The owner's retest of tasks 15 and 16 (2026-10-23, `a87820e`; `docs/PHONE_TEST_NOTES.md`):
-all PASS (§7.4); its backlog L1–L3 (§7.4; not blocking, not fixed now). Next: S4 (task 17).**
+all PASS (§7.4); its backlog L1–L3 (§7.4; not blocking). Decision 5 (R9's key and hosting; the
+owner, 2026-10-22: the agent makes them) done, and S4 (task 17: R9 live in a social-ladder build,
+a kill switch per rung, the publish workflow; with it the backlog's L1 and L3 fixed, L2 left for
+S6; debug only, behind the flag) built (2026-10-23; §7.3, §8). Next: S4's phone session (the R9
+drill, then B3's short set; §7.4); S5 after it, on that APK.**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -94,7 +98,7 @@ all PASS (§7.4); its backlog L1–L3 (§7.4; not blocking, not fixed now). Next
   B0) → **S1a** kit အနည်းဆုံး + Facebook pack (pilot) → **S2b** TikTok → **S2c** X → **S2d**
   Instagram → S3 weekly check → S4 remote recipe live → S5 site တစ်ခုစီ phone run ၃ ခါ (#26) → PR #2
   merge → P8 (beta.4)။ release ပြီးမှ: S1b၊ X2၊ "item အားလုံး" feature၊ B+ (S6)၊ A။
-- **ဆုံးဖြတ်ပြီး:** §8 #1–#4၊ #6–#29။ **ကျန်:** #5 (S4 မတိုင်မီ)။
+- **ဆုံးဖြတ်ပြီး:** §8 #1–#29 (#5: 2026-10-22 — R9 ရဲ့ key နဲ့ hosting ကို agent က လုပ်)။ **ကျန်:** မရှိ။
 - **S0d (2026-10-20, §7.2):** ပိုင်ရှင်ရဲ့ phone run ၂ ခု။ Recoverable failure: Facebook 0/11၊
   TikTok 0/6၊ Instagram 0/7၊ X 2/6 (main မဖတ်တဲ့ card ထဲက video)။ Pilot: Facebook → TikTok →
   X → Instagram (ပိုင်ရှင် အတည်ပြုပြီး၊ 2026-10-20၊ §8 #1)။
@@ -331,7 +335,19 @@ all PASS (§7.4); its backlog L1–L3 (§7.4; not blocking, not fixed now). Next
   နာမည်ပေး (ဥပမာ "720p · HD"၊ "1280 × 720 · MP4"); Facebook trial line မှာ နှစ်ဖက်ရဲ့ heights
   ("heights 720,360 vs 720,360"); Facebook ရဲ့ Master rows main ထက် နည်းတာ intended (decision 29)။
   Tasks 15–16 ရဲ့ retest (2026-10-23၊ `a87820e`) အားလုံး PASS (§7.4); backlog L1–L3 (release ကို
-  မပိတ်၊ အခု မပြင်)။ နောက်တစ်ဆင့်: S4 (task 17)။
+  မပိတ်; L1၊ L3 ကို task 17 မှာ ပြင်ပြီး၊ L2 က S6)။ Task 17 ပြီး (S4၊ 2026-10-23၊ debug only၊ social-ladder build သာ၊ flag off =
+  ယနေ့အတိုင်း): decision 5 အတိုင်း agent က P-256 key လုပ်၊ private key ကို repository secret
+  `YFT_RECIPE_KEY` ထဲ ထည့်ပြီး ပိုင်ရှင်ကို zip နဲ့ ပေး (agent ဘက်က copies ဖျက်ပြီး)၊ public key ကို
+  commit (`extractor-master/recipes/master-recipes.pub.hex`)။ Config ကို `master-recipes-publish`
+  workflow က sign ပြီး branch `recipes` ပေါ် တင် (PR #2 ပေါ်က ပိုင်ရှင်ရဲ့ label `recipes:<name>` နဲ့
+  စ)။ App က ladder စတိုင်း အချိန်ကျရင် တစ်ခါ မေး (1.5 s; answer ရရင် 6 နာရီ တစ်ခါ; census screen
+  ဖွင့်ရင် ချက်ချင်း)၊ lookup ရဲ့ ask မဟုတ်။ Rung တစ်ခုစီ kill switch (`rungsOff`): off ဆို မ run၊ line
+  "…: off (config); not run"; capture rung off ဆို tab capture မလုပ်။ Census screen မှာ "recipes:
+  remote version N, signed"; key table က file မတွေ့ပဲ shape နဲ့ တွေ့ရင် rows ရဲ့ banner မှာ "…files by
+  shape (key table changed)"။ L1: Facebook trial line မှာ height မပြောတဲ့ဘက်ကို "not stated" လို့ ပြ
+  ("unknown" မဟုတ်တော့)။ L3: main ရဲ့ rule က post မတွေ့တဲ့ page ကို I2 က `NEEDS_PLAYBACK` (main ရဲ့
+  "no post" အတိုင်း၊ `SHAPE_CHANGED` မဟုတ်)။ L2 က S6 (B+)။ နောက်တစ်ဆင့်: S4 ရဲ့ phone session (R9
+  drill version 1–4၊ ပြီးရင် B3 short set; §7.4)၊ ပြီးမှ S5။
 
 ## 1. Audit — what exists today
 
@@ -660,7 +676,7 @@ With no adapter copies (B), the build is also about 4,700 lines smaller than the
 | **S2c** | M | X's pack: main's answer replayed, no new ask (X2 not now; §7.3) | the same — built (2026-10-21, behind the flag); the phone (2026-10-22, `36ec093`): A PASS, wrong 0; tasks 12 and 14 (§7.3) before its S5 |
 | **S2d** | M | Instagram's pack by the Instagram check's verdict (0.2); the owner's signed-in census first (§7.3) | the same — part 1 built (2026-10-22, behind the flag: I2 and the tab-fetch probe, off by default); the phone (2026-10-22, `36ec093`): A PASS on 3 sessions, wrong 0; the probe: slot 5 video yes, slot 9 no; part 2 (the probe's rung, decision 24): built (task 13, 2026-10-22; behind its own switch, off by default: decision 28), its phone proof (2026-10-23, `c3e9147`): slot 5 rescued, 2 of 2; tasks 12 and 14 built; task 15 built (F1–F5, F3b; §7.3); task 16 built (F6: a row without a stated size takes its file's own, every site's; §7.3); the retest next (§7.4) |
 | **S3** | S–M | Weekly check W for all four + runbook (each CHANGED / BREAKING line and its fix: a data change via R9, or code) | the owner's first W run — built (2026-10-22, debug only, a social-ladder build: the census's "Weekly check W"; its runbook §7.5); its first runs C1–C3 PASS (2026-10-22, `36ec093`; W's baselines per network and session: decision 25); 2026-10-23 (`c3e9147`): NO CHANGE but Instagram on New York (every ask walled: the exit's address; task 15's F5 built: such a run is never a baseline, the stored one set aside) |
-| **S4** | S | R9 live: the owner signs and hosts the config (§8 item 5, decided before S4); kill switch per rung; one repair drill (a key changed by config on the phone, no APK) | drill passed |
+| **S4** | S | R9 live: the signed config hosted (§8 item 5, decided 2026-10-22: the agent makes the key and the hosting); kill switch per rung; one repair drill (a key changed by config on the phone, no APK) | drill passed — built (task 17, 2026-10-23, `2dcd0d1`; debug only, a social-ladder build: the key in the secret `YFT_RECIPE_KEY`, the config on the branch `recipes` by the `master-recipes-publish` workflow, `rungsOff`; §7.3); the drill: S4's phone session (§7.4) |
 | **S5** | — | Promote per site after 3 phone runs by decision 26's rule (each at least 6 h after the previous one, the first and the last at least 24 h apart, on an APK of the final code, only where Master ran) with 0 wrong rows and no regression against B0; then the release gate (§7.3): all four sites, the first W run and the R9 drill passed, the intended differences in `docs/SUPPORT_MATRIX.md` → PR #2 merged → P8 (beta.4) | the owner's go |
 | **S1b** | M | After the release, on the owner's go: the rest of the kit — several request rungs per site with `SiteHealth` (the last good rung first) and self-healed values (L6). Needed only if X2 is allowed or Instagram's `doc_id` needs self-healing: Facebook, TikTok and Instagram each have one request rung in S1a–S2d | JVM tests; phone proof per site |
 | **S6** | M | **B+** (the owner's go, after the release and B's phone proof): when main's answer is weak by an objective signal (no HD row, no sound row), Master adds only the missing formats; main's rows stay (merge rule); budgeted | phone proof; **A** only if B+ is measured insufficient (decision 7) |
@@ -1326,6 +1342,61 @@ Each site: a D7-style phone proof, wrong rows 0, no regression against B0.
 **S3 and S4** as in §7: W (≤ 1 min, ≤ 2 MB per site) with the diff and the runbook; R9 live (the
 owner signs and hosts the config, a kill switch per rung, one repair drill on the phone).
 
+**Task 17 (S4; the owner's go, 2026-10-23; decision 5: the agent makes the key and the hosting;
+debug only, a social-ladder build; flag off = today; `2dcd0d1`, `[d7]`; `PROGRESS.md`):** R9 live,
+a kill switch per rung, and the drill. *The key* (§8 item 5): P-256, made by the agent; the private key only in the
+repository secret `YFT_RECIPE_KEY` and the owner's zip (the agent's copies deleted; never
+committed, printed or logged); the public key committed (`extractor-master/recipes/master-recipes.pub.hex`).
+A social-ladder debug build (`yft.socialLadder` with `yft.masterCapture`) carries it
+(`yft.masterRecipeKey` still names another); every other build as before (no key: the bundled
+recipes, no ask). *The hosting:* `master-recipes.json` on the branch `recipes`
+(raw.githubusercontent.com; `yft.masterRecipeUrl`'s default), written only by
+`.github/workflows/master-recipes-publish.yml` on the owner's label `recipes:<name>` on PR #2
+(another label, person or repository: skipped; runs never overlap): the committed config
+`extractor-master/recipes/configs/<name>.json` at the PR's head, the next version (the live one
+plus one), an expiry a year on, the schema's and the reader's checks
+(`scripts/master-recipes-publish.py`), the secret's key against the committed one, the signature
+(`scripts/master-recipe-sign.sh`) verified with the committed key, then one new commit on
+`recipes`, never forced (`master-recipes.json`, `published/v<N>-<name>.json`, `history.tsv`); the
+label is taken off (it can publish again). Configs: `defaults` (the bundled recipes, no rung off),
+`drill-rung-off` (Instagram's probe off), `drill-key-change` (Facebook's media key renamed). *The
+ask* (`RemoteRecipes`): one bounded GET (1.5 s, at most 128 KB, the GitHub raw host only, no
+cookies) outside the lookup — its own job with none of the lookup's context: never one of the
+lookup's asks or records, its answer never the lookup's — at a ladder's start when due (the first;
+then six hours after an answer, an hour after none) and on the census screen's open (whatever the
+interval). A config applies when signed by the build's key, valid, newer than the one in use and
+unexpired; else the one in use stays (the bundled recipes when none), for the app's process. The
+census screen's line: `recipes: remote version N, signed` (with `(last check: …)` when the last ask
+did not confirm it), else `recipes: bundled (why)`; the census report's notes carry it. *The kill
+switch:* `rungsOff` (`F1`, `F2`, `F3`, `T1`, `T2`, `T3`, `X1`, `X3`, `I2`, `probe`, `I3`; off only,
+each at most once; the schema's list is the reader's): a rung off is not run, its line `<the
+rung's label>: off (config); not run`, and the ladder goes on as when the rung gives nothing
+(Instagram's probe off wins over its own switch, in every branch); a capture rung off (F3, T3, X3,
+I3): no capture of the tab — the answer needs playback with the ladder's lines and the app shows
+main's words ("master: <site> words: main's (the tab's playback off (config))"); the census's
+`rungs:` line `<rung> not run (config)`. *The repair's sign:* a lookup with rows that its contract
+read by shape — the key table read none — shows `master: <site> contract: N files by shape (key
+table changed)` under the banner's trial line (a renamed key; the drill's step 3). *Data or code*
+(§7.5): a site's recipe keys and paths, its endpoint's path and query (the same host), its headers,
+its DRM, no-video and wall paths (only added) and a rung's kill switch are data; the media hosts
+and everything else are code. *The retest's backlog* (§7.4): L1 — Facebook's trial line says `not
+stated` for a side whose rows state no height (`heights 720,400 vs not stated`), no longer
+`unknown`; L3 — where main's rule finds no post in a page and a node names the post's code with no
+data (no video mark, no file), I2's line is `NEEDS_PLAYBACK (no post data in the page, as main's
+rule reads it; …)`, saying what it read, as main's "no post", never `SHAPE_CHANGED`; main's post
+with no video read stays a shape change; L2 stays for S6 (B+). JVM tests (made-up keys, posts and
+addresses; a throwaway key; no live calls): `RemoteRecipesS4Test` 6 (new: `rungsOff` read and refused; the status lines in turn;
+the census's ask now and the six hours; the ask apart from a lookup's record, route B and a 429;
+the committed configs read and composed; a publish-shaped envelope applies with its key, the
+committed key valid and refusing it; the schema's list), `RemoteRecipesTest` (the interval, the
+schema), `FacebookLadderTest` +4, `TikTokLadderTest` +1, `XLadderTest` +1, `InstagramLadderTest`
++2, `SiteCensusLadderTest` +2, the app's `SocialPlaybackWordsTest` +1 and `SocialLadderTikTokTest`
++1 (the key table's line); L1's and L3's lines in `SiteCensusLadderTest`, `InstagramAnswerJudgeTest`
+(main's post with no video still a shape change), `InstagramLadderTest` (the embed page and the
+post's page) and the app's `SocialTrialTest`, `SocialLadderXTest` and `SocialPlaybackWordsTest`;
+`scripts/tests/test_master_recipes_publish.py` 7. *The drill:* S4's phone session (§7.4); S5
+starts after it, on that APK.
+
 **The release gate (§8 item 12):** each site's S5 (decision 26: 3 phone runs, each at least 6 h
 after the previous one, the first and the last at least 24 h apart, counted only on an APK of the
 final code — a change to the site's pack, the engine or main restarts its count — and only where
@@ -1334,7 +1405,7 @@ the intended differences listed in `docs/SUPPORT_MATRIX.md` → PR #2 merged →
 others get the app.
 
 **The gate's state** (after the phone sessions of 2026-10-22 and 2026-10-23 and tasks 12–16, the
-retest, all PASS on 2026-10-23; kept current by each commit):
+retest, all PASS on 2026-10-23, and task 17 (S4) built; kept current by each commit):
 
 | Site | Its pack and phone proof | W's first run (C) | Intended differences listed | S5 (decision 26) |
 | --- | --- | --- | --- | --- |
@@ -1343,7 +1414,8 @@ retest, all PASS on 2026-10-23; kept current by each commit):
 | X | S2c and task 0 built; A PASS (`36ec093`); task 12 built (the first lookup, X1's lines kept); task 14 built (the 404's and the tombstones' words: main's, with Try again; the empty tombstone's: the sign-in words); 2026-10-23 PASS: slot 6 3 = 3 on the first lookup, slots 7 and 8 task 14's words | C1, C2 PASS; NO CHANGE on New York and without the VPN (2026-10-23) | `{}`, the notice tombstone, the 404 never final (decision 21) | not started |
 | Instagram | S2d part 1 built; A PASS on 3 sessions; task 12 built (the first lookup, I2's lines kept); part 2 (decision 24) built (task 13: the rung, its own switch off by default, decision 28); the rung's phone proof PASS (2026-10-23: slot 5 rescued, 2 of 2); task 14 built (a wall's words: main's sign-in words, e.g. slot 9; seen 2026-10-23); task 15 built (F1–F5, F3b), task 16 built (F6); the retest PASS (2026-10-23, `a87820e`: F1, F2, F3, F3b, F4) | C1, C2, C3 PASS; NO CHANGE without the VPN, signed out and signed in (2026-10-23); on New York every ask walled (02:24 UTC: the exit's address; F5 built: never a baseline, the stored one set aside); the retest's W (2026-10-23, `a87820e`): NO CHANGE without the VPN and on New York, the walled baseline set aside (F5 seen) | the 360p file, never "removed" (decision 20) | not started |
 
-Every site: S4 (R9 live, its drill; task 17) next; then S5, PR #2's merge, P8. Task 12
+Every site: S4 built (task 17, 2026-10-23: R9 live in a social-ladder build; L1 and L3 fixed); its
+drill (S4's phone session, §7.4) next; then S5, PR #2's merge, P8. Task 12
 changed the engine for every site's claimed lookups (the capture's answer keeps the ladder's lines)
 and the trial's lookups (main asked every time), task 13 Instagram's pack (the rung), task 14 the
 words of every site's claimed lookups that need playback (words only), task 15 Instagram's pack
@@ -1359,7 +1431,9 @@ fixtures or logs.
 
 **The owner's tasks:** slot 12 checked signed in (replaced on the phone if it is gone); the weekly
 census in the fixed config (§9), the B0 run first; Instagram's signed-in census before S2d; R9's
-hosting before S4. Instagram slot 7's check in the app is no longer needed (one item per link).
+hosting before S4 (decision 5: the agent's, done in task 17; the owner keeps the private key's zip
+offline); the drill's labels on PR #2 (§7.4). Instagram slot 7's check in the app is no longer
+needed (one item per link).
 
 ### 7.4 After S1a (8): the census fix and Facebook's access fix (the owner, 2026-10-21)
 
@@ -1812,20 +1886,69 @@ VPN → NO CHANGE (TikTok stopped (time) without the VPN: not a baseline); VPN N
 Instagram's walled 02:24 UTC baseline set aside, this run starts it (F5). Afterwards both census
 boxes off and the owner signed out of Instagram.
 
-**The retest's backlog (not blocking the release; not fixed now; each when convenient):**
+**The retest's backlog (not blocking the release; L1 and L3 fixed in task 17, L2 for S6):**
 
 - **L1:** Facebook's trial line says "heights … vs unknown": main's Facebook rows state no height
   when the line is made (the sheet measures them later, P25), so the line cannot cross-check
-  Master's heights against main's. A later fix: words such as "main's: not stated", or the line
-  after the sheet's measure.
+  Master's heights against main's. *Fixed in task 17:* a side whose rows state no height reads `not
+  stated` (`heights 720,400 vs not stated`); the cross-check stays for when both sides state theirs
+  (S4's session, step 5).
 - **L2:** on the same Instagram post the rung's 720p row was 897 KB against the tab capture's 720p
   at 1.9 MB (both 720 × 1280): the rung may pick a lower-bitrate version of one height. For S6
   (B+), and before the rung's default turns on (decision 28).
 - **L3 (cosmetic):** I2's page line says `SHAPE_CHANGED` where main's Details say "no post" for
-  the same page (the post page, not the embed page).
+  the same page (the post page, not the embed page). *Fixed in task 17:* where main's rule finds no
+  post in a page (a node names the post's code with no data), I2's line is `NEEDS_PLAYBACK (no post
+  data in the page, as main's rule reads it; …)` with its counts, as main's "no post"; main's post
+  with no video read stays a shape change.
 
-**The next phone session:** S4's (task 17: the R9 drill, then B3's short set once more), written
-here by task 17's code commit; S5 (decision 26) starts after it, on that APK.
+**S4's phone session (task 17: the R9 drill, then B3's short set once more; one session, the
+owner, after task 17's code commit's APK run is green; one test at a time, in this order;
+`yft-d7-social-trial` of task 17's last code commit's APK run, never an older run's; the run's
+report and `PROGRESS.md` name the commit and the run):**
+
+- **Install.** The APK run of task 17's code commit (`2dcd0d1`, run 39948738272) → the artifact
+  `yft-d7-social-trial` → its APK → install it as an **Update** (the census's stored runs, its boxes and the sign-ins stay).
+  Signed out of Instagram (as after the retest); no VPN unless said. In steps 1–4 no census run
+  and no W (their baselines stay clear of the drill's configs).
+- **Publishing a config** (the owner, on GitHub; steps 2–4): PR #2 → **Labels** → the step's
+  label (`recipes:<name>`) → the **Actions** tab: "master-recipes-publish" green, and the label is
+  gone from PR #2 (the run takes it off) → wait 5 minutes (the raw host's cache) → on the phone
+  "YFT site census" (its open asks at once). A red run: send its log; no next step.
+
+1. **Version 1.** "YFT site census" → the line `recipes: remote version 1, signed` (version 1: the
+   bundled recipes, `recipes:defaults`, published by task 17 before the session: `recipes`
+   `e67b2df`, 2026-10-23). Another line
+   (`recipes: bundled (…)` or another version): close the screen, open it again after a minute;
+   still so → send the line.
+2. **The kill switch (`recipes:drill-rung-off`, version 2).** Publish it → the census screen:
+   `recipes: remote version 2, signed`. Tick "Instagram's tab-fetch rung (signed out)" → YFT's
+   browser → Instagram slot 5's link → **Download**. Expected: no row; the playback words ("Play
+   the video on this page, then tap Try again.") with Try again; in Details `master: instagram
+   probe: off (config); not run` and no `probe: HTTP …` line (the rung not asked, its box ticked).
+3. **A key changed by config (`recipes:drill-key-change`, version 3).** Publish it → the census
+   screen: `recipes: remote version 3, signed`. Facebook link 1 → **Download**. Expected: Master's
+   rows as before (720p · HD and 360p, each with its size) and, under the banner's trial line,
+   `master: facebook contract: N files by shape (key table changed)` (N: Master's rows, e.g. 2):
+   the key table read none, the contract read the files by shape — a renamed key, rows with no
+   APK; a download of one of Master's rows plays. Then Instagram slot 5 again (the box still
+   ticked) → **Download** → a row on the first Download and the probe's `probe: HTTP 200 …` line
+   (version 3 turns no rung off).
+4. **Back to the defaults (`recipes:defaults`, version 4).** Publish it → the census screen:
+   `recipes: remote version 4, signed`. Facebook link 1 → **Download** → its rows, with no `key
+   table changed` line. Untick the rung's box.
+5. **B3's short set** (version 4; signed out; no VPN unless said): Facebook links 1 and 10,
+   Instagram slots 1 and 8, X slots 6 and 8, TikTok slots 6 and 1 (VPN New York). Expected: as the
+   retest and B3 — link 1 Master's rows 2 against main's 3, its trial line ending `heights 720,400
+   vs not stated` (L1: no longer `unknown`); link 10 the group-post form's "Master found none" with
+   its step; Instagram slot 1 I2's rows, slot 8 main's photos-only words with no Try again; X slot
+   6 3 = 3 on the first lookup, slot 8 main's words; TikTok slot 6 the photos-only words with no
+   Try again, slot 1 its rows. L3, where it shows: an I2 line for a page whose main's line says "no
+   post" reads `NEEDS_PLAYBACK (no post data in the page, as main's rule reads it; …)`, never
+   `SHAPE_CHANGED`.
+
+Then send the results. After this session passes: S5 (decision 26) on this APK, its count from its
+first run.
 
 **For S2b (TikTok), noted now** (inputs to S2b's design, §7.3; not decided):
 
@@ -1902,11 +2025,16 @@ a runbook, `MASTER_KEY_PHASE1_2_PLAN.md` §6's numbered steps — with no YouTub
   COMPARED …` (then each site not run or stopped); then one line per change, each ending `→ W
   runbook step N (…)`, the step below. A slot W did not look up is a note, never NO CHANGE.
 
-**The fix, two kinds.** *Data:* once S4 is live (R9's signed config, hosted by the owner; §8 item
-5, open), a recipe key or path, a site's media hosts or a rung's kill switch changes by config, with
-no APK. *Code:* a commit on the work branch (JVM tests, the census, W again, the phone). Until S4 is
-live, every fix below is code. Main's adapters are main's code: a main fix waits for the owner's
-go; meanwhile Master's ladder (behind the flag) is the backup.
+**The fix, two kinds.** *Data* (S4, task 17: R9 live in a social-ladder build; §8 item 5): a
+site's recipe keys and paths, its endpoint's path and query (the same host), its headers, its DRM,
+no-video and wall paths (only added) and a rung's kill switch (`rungsOff`) change by config, with
+no APK — the config in `extractor-master/recipes/configs/<name>.json` (a commit on the work branch;
+the JVM tests read the committed configs), then the owner's label `recipes:<name>` on PR #2 (the
+`master-recipes-publish` workflow signs and publishes the next version; §7.4's S4 session: how);
+the app takes it at a ladder's start within six hours, at once on the census screen's open (its
+`recipes:` line names the version). *Code:* a commit on the work branch (JVM tests, the census, W
+again, the phone): the media hosts and everything else. Main's adapters are main's code: a main
+fix waits for the owner's go; meanwhile Master's ladder (behind the flag) is the backup.
 
 1. **W runbook step 1 (the site's stop)** — `BREAKING <Site>: stopped (429 | bot check | rate
    limit)` where the baseline had none; `CHANGED <Site>: stopped (requests | bytes | time)` (a W
@@ -1924,8 +2052,8 @@ go; meanwhile Master's ladder (behind the flag) is the backup.
    post. Fix: a status on a public post (403, 404, 410) → open the post in a browser: removed or
    private → a new link for the slot (the census screen; the next run reads `new link`); a new
    reading or shape (the site moved its data) → main's adapter: code in `extractor-sites` with a
-   fixture, on the owner's go; meanwhile Master's part covers it (step 6), and with S4 live a
-   Master rung's key or path is data.
+   fixture, on the owner's go; meanwhile Master's part covers it (step 6), and a Master rung's
+   key or path is data (S4).
 3. **W runbook step 3 (the slot's verdict)** — `as expected → not as expected (why)` (BREAKING),
    the reverse, or `ambiguous (no session)`. Check: main's line of the same slot (step 2), the
    session (step 8), the slot's kind and its expectation (`SiteWays`). Fix: main's answer changed →
@@ -1935,9 +2063,9 @@ go; meanwhile Master's ladder (behind the flag) is the backup.
 4. **W runbook step 4 (V)** — `V pass → fail` (BREAKING), `V … → not run`, `V … → unknown`. Check:
    V's line (status, bytes); `not run` follows a stop or a cap (step 1) or main's rows gone (step
    2); `fail` with 403 or 410 → the file wants the page's cookies or a fresh signature; `unknown` →
-   another host (or HLS). Fix: a new media host or path → data via R9 once S4 is live (the site's
-   media hosts), code before; a signed file address → code (the reading of the address); V never
-   sends cookies (guardrail S2).
+   another host (or HLS). Fix: a new media host → code (the media hosts stay code in S4); the
+   file's key or path in the answer renamed → data (S4: the rung's recipe, step 6); a signed file
+   address → code (the reading of the address); V never sends cookies (guardrail S2).
 5. **W runbook step 5 (the item or the length)** — `item N of M → …`, `best X s → Y s`. Check: the
    post (a re-upload, a changed carousel or several-video post), X's `/video/N`, Instagram's
    carousel index. Fix: the post changed → a new link for the slot; main reads another item → code
@@ -1946,15 +2074,18 @@ go; meanwhile Master's ladder (behind the flag) is the backup.
 6. **W runbook step 6 (Master's part)** — `Master <before> → <after>`; BREAKING when route B's
    recovery (rows that passed V) is lost. Check: the slot's `Master` and `rungs:` lines (each rung:
    rows, run, not run (cooldown, budget), not reached) and main's line (step 2). Fix: a cooling host or a spent budget → no fix (W again after the
-   cooldown); a rung's reading moved → data via R9 once S4 is live (the rung's recipe key or path;
-   its kill switch while it is fixed), code before (the site's ladder in `extractor-master`, behind
+   cooldown); a rung's reading moved → data (S4: the rung's recipe key or path in a config; its
+   kill switch while it is fixed) — its sign on a lookup: the banner's `master: <site> contract: N
+   files by shape (key table changed)` (the key table read none, the contract read by shape: a
+   renamed key); beyond the recipe's data → code (the site's ladder in `extractor-master`, behind
    the flag).
 7. **W runbook step 7 (Master's wrong rows)** — `BREAKING … Master … wrong 0 → … wrong N`: a row
    proven another post's (another video or item, a duration more than 1 s from every one of main's
    rows, or a row where the slot wants none). Check: the slot's `ladder:` and `rungs:` lines (which
-   rung gave it) and main's rows. Fix: first, before anything else — the rung's kill switch via R9
-   once S4 is live, else code (the rung's binding to the post: its ID, item or duration check), and
-   the site's flag stays off; S5 and the release gate need wrong rows 0.
+   rung gave it) and main's rows. Fix: first, before anything else — the rung's kill switch (S4:
+   `rungsOff` with the rung in a config, the label on PR #2; its line `<rung>: off (config); not
+   run`), then code (the rung's binding to the post: its ID, item or duration check), and the
+   site's flag stays off; S5 and the release gate need wrong rows 0.
 8. **W runbook step 8 (the run's conditions)** — `session no → yes` (or the reverse), `kind A → B`.
    Check: the header's network, the site's sign-in in YFT's browser, the build. Fix: none in code —
    W's baselines are per VPN and session, so run W again in the baseline's conditions; a kind
@@ -2183,10 +2314,20 @@ Decided (the owner, 2026-10-23, in task 16's brief; recorded in task 16's commit
   blocking S5 (its rule: wrong rows 0). *Status:* F6 built in task 16 (2026-10-23; §7.3), its
   phone proof in §7.4's retest (step 6); the difference listed in `docs/SUPPORT_MATRIX.md`.
 
-Still open (the owner's answer is needed before the step that uses it):
+- **5 — R9's key and hosting (moved from "Still open"; the owner, 2026-10-22: the agent makes the
+  key and the hosting).** The key: P-256, made by the agent; the private key only in the
+  repository secret `YFT_RECIPE_KEY` and the owner's zip, kept offline (the agent's copies
+  deleted; never committed, printed or logged); the public key committed
+  (`extractor-master/recipes/master-recipes.pub.hex`), carried by a social-ladder build only. The
+  hosting: `master-recipes.json` on the branch `recipes` (raw.githubusercontent.com), written only
+  by the `master-recipes-publish` workflow on the owner's label `recipes:<name>` on PR #2 (a
+  committed config, the next version, a year's expiry, signed, verified with the committed key;
+  never forced). A new key (lost or leaked): a new pair by the same steps, the secret replaced,
+  the new public key committed (a code commit: its APK carries it); the new APK refuses the old
+  key's configs (the bundled recipes until the new key's first). *Status:* built in task 17
+  (2026-10-23; §7.3); its drill: S4's phone session (§7.4).
 
-- **5 — R9 hosting:** the owner signs and hosts the recipe config (needed for repair without an
-  APK); decided before S4.
+Still open (the owner's answer is needed before the step that uses it): none.
 
 ## 9. Tests and docs per step
 

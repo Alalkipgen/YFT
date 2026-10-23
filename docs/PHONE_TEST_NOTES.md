@@ -29,7 +29,7 @@ commit (docs only). **All PASS.**
 
 Afterwards both census boxes off; the owner signed out of Instagram.
 
-### Backlog from the retest (not blocking; not fixed now; plan §7.4)
+### Backlog from the retest (not blocking; plan §7.4; L1 and L3 fixed in task 17, L2 for S6)
 - **L1:** Facebook's trial line says "heights … vs unknown": main's Facebook rows state no height
   when the line is made (the sheet measures them later), so the line cannot cross-check Master's
   heights.

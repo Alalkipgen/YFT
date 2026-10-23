@@ -1,5 +1,70 @@
 # YFT Master Extractor backup
 
+## Social plan task 17 — S4: R9 live in a social-ladder build (the key, the hosting, a kill switch per rung, the drill's configs); the retest's L1 and L3 fixed (2026-10-23)
+
+- **Decision 5** (plan §8; the owner, 2026-10-22: the agent makes the key and the hosting) —
+  *done*: a P-256 key pair made by the agent; the private key put in the repository secret
+  `YFT_RECIPE_KEY` and given to the owner as a zip, kept offline (the agent's copies deleted; never
+  committed, printed or logged); the public key committed
+  (`extractor-master/recipes/master-recipes.pub.hex`). §8 item 5 moved to "Decided"; still open:
+  none.
+- **S4** — *Built* (`2dcd0d1`, `[d7]`; debug only, a social-ladder build, behind the flag; flag off
+  = today; main's adapters, `LookupAsk.endpoint` and every YouTube file unchanged):
+  - *The hosting:* `.github/workflows/master-recipes-publish.yml` with
+    `scripts/master-recipes-publish.py` — on the owner's label `recipes:<name>` on PR #2 (another
+    label, person or repository: skipped; runs never overlap): the committed config
+    `extractor-master/recipes/configs/<name>.json` at the PR's head, the next version (the live one
+    plus one), an expiry a year on, the schema's and the reader's checks, the secret's key against
+    the committed one, the signature (`scripts/master-recipe-sign.sh`) verified with the committed
+    key, then one new commit on the branch `recipes`, never forced (`master-recipes.json`,
+    `published/v<N>-<name>.json`, `history.tsv`); the label is taken off. Configs: `defaults` (the
+    bundled recipes, no rung off), `drill-rung-off` (Instagram's probe off), `drill-key-change`
+    (Facebook's media key renamed).
+  - *The app:* a social-ladder debug build carries the committed key and the address
+    (raw.githubusercontent.com, the branch `recipes`; `yft.masterRecipeKey` and
+    `yft.masterRecipeUrl` still name others); every other build: no key, the bundled recipes, no
+    ask. `RemoteRecipes`: one bounded GET (1.5 s, at most 128 KB, the GitHub raw host only, no
+    cookies) outside the lookup — never one of its asks or records — at a ladder's start when due
+    (the first; six hours after an answer, an hour after none) and on the census screen's open; a
+    config applies only when signed by the build's key, valid, newer than the one in use and
+    unexpired, for the app's process. The census screen's line `recipes: remote version N, signed`
+    (else `recipes: bundled (why)`), in the census report's notes too.
+  - *The kill switch:* `rungsOff` (`F1`, `F2`, `F3`, `T1`, `T2`, `T3`, `X1`, `X3`, `I2`, `probe`,
+    `I3`; off only): a rung off is not run (`<rung>: off (config); not run`) and the ladder goes on
+    as when it gives nothing (Instagram's probe off wins over its own switch); a capture rung off:
+    no capture of the tab, main's words (`master: <site> words: main's (the tab's playback off
+    (config))`); the census's `rungs:` line `<rung> not run (config)`.
+  - *The repair's sign:* a lookup whose contract read its rows by shape (the key table none) shows
+    `master: <site> contract: N files by shape (key table changed)` under the banner's trial line.
+- **The retest's backlog:** *L1 fixed* — Facebook's trial line says `not stated` for a side whose
+  rows state no height (`heights 720,400 vs not stated`), no longer `unknown`. *L3 fixed* — where
+  main's rule finds no post in a page and a node names the post's code with no data, I2's line is
+  `NEEDS_PLAYBACK (no post data in the page, as main's rule reads it; …)` with its counts, as
+  main's "no post", never `SHAPE_CHANGED`; main's post with no video read stays a shape change.
+  *L2* stays for S6 (B+).
+- **Tests** (made-up keys, posts and addresses; a throwaway key; no live calls): extractor-master
+  977 (+16; 2 skipped; one YouTube timing test is flaky under load and passes alone) —
+  `RemoteRecipesS4Test` 6 (new), `FacebookLadderTest` 11 (+4), `TikTokLadderTest` 12 (+1),
+  `XLadderTest` 12 (+1), `InstagramLadderTest` 21 (+2; L3 on the embed page and the post's page),
+  `SiteCensusLadderTest` 10 (+2; L1), `InstagramAnswerJudgeTest` 8 (L3's case and main's post with
+  no video), `RemoteRecipesTest` 5; extractor-master-android 70; app 1115 (66 skipped;
+  `SocialLadderTikTokTest` +1, the key table's line; `SocialPlaybackWordsTest` +1; L1's words in
+  `SocialTrialTest` and `SocialLadderXTest`; L3's in `SocialPlaybackWordsTest`); `:app:lintDebug`;
+  `:app:assembleDebug` flags off and on (the social build's `MASTER_RECIPE_KEY` the committed key);
+  Python 56 (`test_master_recipes_publish.py` 7, new); drift 0 (177 symbols); actionlint. CI on
+  `2dcd0d1`: the checkpoint (39948743777) and the APK run (39948738272: 10 of 10, with `yft-d7-social-trial`) green.
+- **Published:** version 1 (`defaults`) on the branch `recipes` (`e67b2df`, by the workflow's run 39951998134 on the
+  label `recipes:defaults` on PR #2; the label taken off), expiring 2027-10-23, verified with the
+  committed key (`scripts/master-recipes-publish.py verify`); the labels `recipes:defaults`,
+  `recipes:drill-rung-off` and `recipes:drill-key-change` made, each with its description.
+- Docs: the plan (the status lines, the Burmese summary, §7.3's task 17, the gate's state, §7.4's
+  backlog and S4's phone session, §7.5's data and code, §8 item 5 decided), `docs/SUPPORT_MATRIX.md`
+  (W's row: S4; Facebook's L1; Instagram's L3), `docs/RELEASE.md` (`YFT_RECIPE_KEY` is not a
+  release secret), `docs/PHONE_TEST_NOTES.md` (the backlog's heading), `docs/TEST_MATRIX.md` (its
+  row) and this entry.
+- **Next:** S4's phone session (plan §7.4: the R9 drill, versions 1–4, then B3's short set) on
+  `yft-d7-social-trial` of `2dcd0d1` (run 39948738272); S5 (decision 26) on this APK after it passes.
+
 ## Social plan task 17, first commit — the retest of tasks 15 and 16 recorded (all PASS); its backlog L1–L3 (docs only, 2026-10-23)
 
 - **The retest** (the owner, 2026-10-23, `yft-d7-social-trial` of `a87820e`, run 39917638495, as
