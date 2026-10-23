@@ -1,5 +1,85 @@
 # YFT Master Extractor backup
 
+## Social plan task 14 — the playback words only where a video can play (observation e; words only, debug only, behind the flag) (2026-10-23)
+
+- **Observation (e)** (the phone session of 2026-10-22, `docs/PHONE_TEST_NOTES.md`): "Play the
+  video on this page, then tap Try again." showed over Instagram slot 9's age wall and X slot 8's
+  "post not found" page, where there is no video to play; Try again repeated it.
+- **The words** (`AndroidBrowserMasterFallback`, app): in a social-ladder build
+  (`-Pyft.socialLadder`), a lookup a social ladder claims (Facebook, TikTok, X, Instagram) that
+  Master answers "needs playback" after main failed (the tab's own playback found nothing) gets its
+  words from `SocialLadder.playbackWords`, in this order: (1) the tab showed a video → the playback
+  words, as before; (2) the site's own answer names the post's video — Master's lines of the
+  lookup's site only: rows read and none kept (`DIRECT`, `PARTIAL`), Instagram's
+  `VIDEO_WITHOUT_FILES` or the rung's "the post's video in the answer: yes", Facebook's plugin
+  player, TikTok's "names the video", X's item playlist → the playback words (the page plays it
+  once the user does; a lookup before the tab's first frame keeps them); (3) a sign-in or an age
+  wall (`LOGIN_WALL`, `AGE_LIMITED`) → the sign-in words: main's own when its reason is
+  `LOGIN_REQUIRED` (Instagram signed out: `InstagramExtractor.LOGIN_MESSAGE`, "Instagram shows this
+  post only to signed-in viewers. Log in to Instagram in YFT's browser, then try again."; signed
+  in: `SIGNED_IN_REFUSED_MESSAGE`), else `SocialLadder.signInMessage`, the app's words for
+  `LOGIN_REQUIRED` ("Sign in to <site> on this page first, then try again."; X's empty tombstone,
+  where main's reason is `NO_MEDIA_FOUND`); (4) else, no video in the tab → main's words (X's
+  widget 404 and its tombstones: `XExtractor.HIDDEN_MESSAGE`, "X shows this post only to signed-in
+  viewers (it may be protected, age-restricted or deleted). Open it in YFT's browser, sign in to X
+  and play the video."; Instagram's "no post"; the trial's "Master found none").
+- **The tab's video** (`MasterBrowserSession.videoShown`, extractor-master-android): a frame of the
+  lookup's page and generation listed a visible `<video>` tag or its focused player (paused too);
+  memory only (one flag), reset by a new page and by `clear`; another scope's frame does not count.
+- **The line:** "master: <site> words: playback | sign-in | main's (why)" — e.g. "master:
+  instagram words: sign-in (LOGIN_WALL; no video in the tab)", "master: x words: main's (no video
+  in the tab)", "master: x words: playback (the tab shows a video)" — first among Master's lines
+  (the capture's selection line stays the last, task 12). Words only, never a link or an ID.
+- **Only the words change:** the reason stays main's (Try again where it is not final: X's 404
+  never final, task 0; an Instagram removed post not final, decision 20 (ii)); no new request, no
+  new row, no new switch. YouTube's lookups, a lookup no ladder claims and every other build (flag
+  off): the playback words as before (the flag-off tests F1, F2, Id, S6 and S7 unchanged). No main
+  adapter change (S1), no YouTube file, `LookupAsk.endpoint` unchanged; drift 0.
+- **The proposal (the owner's call):** the playback words unchanged and only where (1) or (2); the
+  sign-in words main's own for `LOGIN_REQUIRED`, else "Sign in to <site> on this page first, then
+  try again."; main's own words, with Try again, when the tab shows no video. Change any of them
+  (or drop (2), so only the tab's own video counts): say which.
+- Tests (JVM; synthetic answers and lines, made-up IDs; no live calls): `SocialPlaybackWordsTest`
+  7 (new; lines in each ladder's shape): slot 9's shape (GraphQL's 401, no post data, the rung's
+  video no) → sign-in; slot 5's (the embed page's `VIDEO_WITHOUT_FILES`) and the rung's video yes
+  → playback; the rung's wall → sign-in; Instagram's no post → main's; X's notice tombstone →
+  main's, its empty tombstone → sign-in, its playlist → playback; Facebook's plugin player and
+  TikTok's "names the video" → playback, TikTok's status → main's; a video in the tab wins over a
+  wall; another site's lines are not read; the sign-in words per site. `SocialLadderXTest` 7 (+1;
+  the real X adapter and ladder over fake clients): the widget's 404 → main's words
+  (`HIDDEN_MESSAGE`, Try again), its words line before X1's; the empty tombstone → the sign-in
+  words, X1's `AGE_LIMITED` line, main's `NO_MEDIA_FOUND` kept; with a video in the tab (the
+  tombstone, the 404) → the playback words. `MasterBrowserSessionTest` 10 (+1): the tab's video
+  only after a frame of its scope showed one (a tag, or the focused player paused), never another
+  scope's, after a new page or a cleared session.
+- Local checks (JDK 17): `extractor-sites` 293, `extractor-master` 950 (2 skipped),
+  `extractor-master-android` 70 (+1), `app` 1107 (66 skipped; +8), all pass; lint 0 errors;
+  `assembleDebug` and the flags-on build; drift 0 (157 symbols); `test_spike_label_triggers.py` 19.
+- CI on `c3e9147`: the APK run 39878500080 green (the build and its 9 `d7` matrix jobs, `social-trial`
+  among them: the artifact `yft-d7-social-trial` for the next phone session); the checkpoint
+  39878505458 green. Task 13's red checkpoint (39872679812, Robolectric's network failure at
+  `:core-browser:testDebugUnitTest`): its docs-only commit `468626a` ran the same code again,
+  checkpoint 39875522684 green.
+- The next phone session (the owner; `yft-d7-social-trial` of `c3e9147`'s APK run 39878500080, the last
+  code commit; §7.4): Instagram no VPN, signed out, the box "Instagram's tab-fetch rung (signed
+  out)" on (slot 5: the rung's rows on the first lookup, the same item, V pass, wrong 0, and its
+  line as the banner's second line; when main gives its row: "not asked (I2's rows)", then the
+  proof box on and Try again: the rung's own rows; slot 9: no row, task 14's sign-in words, main's
+  own, with "master: instagram words: sign-in (LOGIN_WALL; no video in the tab)"; slot 8: photos
+  only, no request; signed in: "not asked (signed in …)"); the first lookup (task 12: Instagram
+  slots 1 and 5, X slot 6: rows on the first lookup, no Try again; X slots 7 and 8: X1's line in
+  Details and task 14's words, main's "X shows this post only to signed-in viewers (…)" with Try
+  again, never "removed"); on every lookup that needs playback, the words and the line "master:
+  <site> words: …" (playback only on a page whose video plays); B3's short set again on the same
+  networks (TikTok on New York); W (the rung's box off) on the VPN New York signed out, no VPN
+  signed out, no VPN with Instagram signed in, against C1–C3 (task 14 changes no W line); then S5
+  (decision 26) on that APK if no code changes.
+- Commits: `c3e9147` (the code, its tests, the plan and `docs/SUPPORT_MATRIX.md`); this entry and
+  the TEST_MATRIX row in the docs-only commit after it (the push's size limit).
+- Next: the owner's phone session (§7.4) on `c3e9147`'s APK; the owner's calls: task 14's words,
+  the rung's default in `social-trial` (off; proposed on). Then S5 (decision 26) per site, S4
+  after decision 5, PR #2's merge, P8.
+
 ## Social plan task 13 — S2d part 2: Instagram's tab-fetch rung (decision 24; observations d and f; debug only, behind the flag and the rung's own switch, off by default) (2026-10-22)
 
 - **The rung** (`InstagramLadder`, extractor-master): part 1's probe's ask, now read for rows
