@@ -1,5 +1,26 @@
 # YFT Master Extractor backup
 
+## CI — a docs-only push to the work branch skips the checkpoint's Gradle job (2026-10-23)
+
+- **Why it ran** (the owner's question): "Work-branch checkpoint validation" starts on draft PR
+  #2's pushes (`pull_request`), and a pull request's `paths-ignore` looks at the whole pull request
+  (every commit against main): since this branch changes code, every push started the full Gradle
+  job (about 20 minutes), documentation only or not (`2e790b2`: run 39984388802) — against
+  AGENTS.md's "docs-only pushes start no CI".
+- **The fix** (`.github/workflows/checkpoint-validation.yml` only; no app, Gradle or test file): a
+  new job `scope` looks at the pushed commits alone (the event's before...after, GitHub's compare):
+  every changed file under `docs/` or ending in `.md`, and the previous head's run of this workflow
+  passed → `validate` is skipped (a skipped job counts as passed; the code is the passed run's).
+  Any other file, a force push, an opened or reopened pull request, a push to `work/**`, a manual
+  run, a previous run failed or not finished, or a failed lookup → `validate` runs as before.
+  Checked locally against the real commits: docs only after a passed run → skipped; a code commit,
+  a force push, an opened pull request, a push → runs; the previous run failed or unfinished, the
+  lookup failed → runs.
+- **Reading a docs-only commit's CI:** its run passes in about a minute with `validate` skipped;
+  the newest code commit's run carries the code's result, as before.
+- **Next:** this commit's own run (a workflow change, so `validate` runs) green; then the next
+  docs-only push (task 18's `docs/TEST_MATRIX.md` rows) shows `validate` skipped.
+
 ## Social plan task 18 — S4's phone session (steps 1–5 PASS; its O1 a bug); the open read and L3 never take a player's stand-in file, a site's build resource or the video's own page (2026-10-23)
 
 - **S4's phone session** (the owner, 2026-10-23, `yft-d7-social-trial` of `2dcd0d1` (run

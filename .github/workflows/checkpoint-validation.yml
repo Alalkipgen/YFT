@@ -3,7 +3,9 @@ name: Work-branch checkpoint validation
 on:
   # Documentation-only pushes (plans, prompts, status notes) start no Gradle run; a push that
   # also changes code, scripts, Gradle files or workflows still runs it. Run by hand with
-  # workflow_dispatch when needed.
+  # workflow_dispatch when needed. A pull request's paths filter looks at the whole pull request
+  # (every commit against main), so once its branch changes code every push to it starts this
+  # workflow, documentation only or not: the job "scope" then looks at the pushed commits alone.
   push:
     branches:
       - "work/**"
@@ -22,7 +24,57 @@ permissions:
   contents: read
 
 jobs:
+  scope:
+    # A pull request's push (before...after): every changed file under docs/ or ending in .md (as
+    # paths-ignore above) and the previous head's run of this workflow passed -> "validate" is
+    # skipped (a skipped job counts as passed; the code is the passed run's). Any other file, a
+    # force push, an opened or reopened pull request, a push to work/**, a manual run, a previous
+    # run not passed or not finished, or a failed lookup -> "validate" runs.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      code: ${{ steps.scope.outputs.code }}
+    steps:
+      - name: Do the pushed commits change more than documentation?
+        id: scope
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+          REPO: ${{ github.repository }}
+        run: |
+          code=true
+          if [[ "$EVENT" == pull_request && "$ACTION" == synchronize && -n "$BEFORE" && -n "$AFTER" ]] &&
+            compare="$(gh api "repos/$REPO/compare/$BEFORE...$AFTER")" &&
+            [[ "$(jq -r '.status' <<<"$compare")" == ahead ]] &&
+            count="$(jq -r '.files | length' <<<"$compare")" && (( count > 0 && count < 300 )) &&
+            files="$(jq -r '.files[] | .filename, (.previous_filename // empty)' <<<"$compare")" &&
+            runs="$(gh api "repos/$REPO/actions/workflows/checkpoint-validation.yml/runs?head_sha=$BEFORE&per_page=5")" &&
+            [[ "$(jq -r '.workflow_runs[0] | "\(.status) \(.conclusion)"' <<<"$runs")" == "completed success" ]]; then
+            code=false
+            while IFS= read -r file; do
+              if [[ "$file" != docs/* && "$file" != *.md ]]; then
+                code=true
+                break
+              fi
+            done <<<"$files"
+          fi
+          if [[ "$code" == false ]]; then
+            echo "Documentation only since ${BEFORE:0:7}, whose run passed: the Gradle job is skipped."
+          else
+            echo "The Gradle job runs."
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
   validate:
+    needs: scope
+    if: needs.scope.outputs.code != 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
