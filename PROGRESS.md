@@ -45,7 +45,28 @@
   - F1 — every lookup that ends with Master's rows shows the banner (the site's ladder line and,
     on Instagram, the probe line); the rung's row reads its video's width and height. F4 — signed
     in, the rung's proof on: the row that came though the rung was not asked (its step, its item),
-    and "probe: I2's rows set aside (the rung's proof)" in the banner. *To do.*
+    and "probe: I2's rows set aside (the rung's proof)" in the banner. *Built* (`80f5518`): `BrowserMasterFallback` gives a social lookup's rows Master's lines also without the
+    trial's comparison (main failed), so `SocialLadder.trialNotice` shows the site's ladder line
+    (`master: <site> ladder after <reason>; …`, when no trial line) and each of Instagram's probe
+    lines (the proof's, the rung's; at most 3); Instagram's recipe lets a file whose entry states
+    no size take its video's own (`original_width`/`original_height`, else `dimensions`; the
+    file's own first), so the rung's row has a height. F4: the phone's row came from the tab's own
+    playback (I3: the engine's capture after the rung gave none; signed in the tab plays the post,
+    its file none of main's, so the item check said no); now the proof tests the rung alone — when
+    it set I2's rows aside and the rung gives none, `InstagramLadder` returns its stop
+    (`SocialStage.Staged.last`: no page data, no capture after it; `MasterFallbackEngine` ends the
+    lookup with the ladder's lines, no "supply a fresh capture" line) with "master: instagram
+    probe: no row (the proof set I2's rows aside and the rung gave none)"; `SocialLadder`'s words
+    are main's (the trial's) for it, even with a video in the tab, and `proofNotice` puts the
+    proof's lines under the words in the browser's banner (debug only: the proof's box). Tests:
+    `InstagramLadderTest` +1 (the rung's row's size from `original_*` or `dimensions`, a file's own
+    first) and the proof test (signed in: no row, no capture, the stop the last probe line; the
+    rung's answer without the post: the same; without the proof: I2's 6 rows);
+    `SocialLadderInstagramTest` +1 (the proof's words and banner) and the notice test (the ladder
+    line alone; with the rung's; with the proof's); `SocialLadderTikTokTest` (TikTok's ladder line
+    without a trial) and `SocialLadderS6Test` (Facebook's rows after main's failure: the banner's
+    ladder line, no link); `SocialTrialTest` and `SocialLadderXTest` (no comparison: the ladder's
+    line alone, never a comparison; main's own rows: no banner, as before).
   - F2 — I2 judges the real embed page as main's "video without files" (a Master copy of main's
     rule), and a counts-only reason on `SHAPE_CHANGED`. *To do.*
   - F5 — W: a run in which every ask of a site was walled: BREAKING kept, the note "every ask
@@ -61,11 +82,18 @@
   out, both boxes off; W without the VPN, signed out (NO CHANGE), and on New York, signed out (F5's
   note if walled; the baseline rule). Only then does the owner send S4 (task 16); S5 counts only
   on the final APK.
+- CI on `755492b`: the APK run 39900272577 green (the build and its 9 `d7` matrix jobs); the
+  checkpoint 39900277973 red at `:core-browser:testDebugUnitTest`
+  (`DomMediaProbeTest > parserMarksPreviewsAndThePagesNamedStream`; the job's log from the owner):
+  Robolectric could not download its Android jar (`MavenArtifactFetcher`,
+  `java.net.SocketException`), a network failure before the test ran, as on `a9b4673` — not task
+  15's code (`core-browser` unchanged); the same tree's checkpoint at `55e964d` (39900323632)
+  green, so no fix commit.
 - Commits: `611ce8a` (docs only: the session, decisions 27–28, the plan's task 15 and §7.4's
-  retest); `755492b` (F3 and F3b, `[d7]`; this entry's F3 bullet in the docs-only commit after it:
-  the push's size limit); the other fixes' commits next; the TEST_MATRIX rows in the last,
-  docs-only commit.
-- Next: F1 and F4 (the next commit).
+  retest); `755492b` (F3 and F3b, `[d7]`) and `80f5518` (F1 and F4, `[d7]`), each fix's bullet
+  here in the docs-only commit after it (`55e964d` for F3 and F3b; the push's size limit); the
+  other fixes' commits next; the TEST_MATRIX rows in the last, docs-only commit.
+- Next: F2 (the next commit).
 
 ## Social plan task 14 — the playback words only where a video can play (observation e; words only, debug only, behind the flag) (2026-10-23)
 
