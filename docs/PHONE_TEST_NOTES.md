@@ -1,4 +1,4 @@
-# Phone test notes: the social plan (S1a phone proof; §7.4 A, B and C), 2026-10-21 and 2026-10-22
+# Phone test notes: the social plan (S1a phone proof; §7.4 A, B and C; the retest of tasks 12–14), 2026-10-21 to 2026-10-23
 
 The owner's phone sessions, logged while they ran and pushed as docs only. The test posts' links,
 post IDs and post words stay on the phone and are left out here.
@@ -9,6 +9,54 @@ post IDs and post words stay on the phone and are left out here.
   - 2026-10-21: `fb-trial` of ef4a546, then 042d57a (run 39608538096).
   - 2026-10-22 morning: `normal` and `social-trial` of 430da9f (run 39751939477).
   - 2026-10-22 from ~14:10 UTC: `social-trial` of 36ec093 (run 39784454576; tasks 9 and 10). The Instagram probe (B2), B3 and C used 36ec093 only.
+  - 2026-10-23: `social-trial` of c3e9147 (run 39878500080; tasks 12–14). The whole session used c3e9147 only.
+
+## Summary of the 2026-10-23 session (§7.4's next phone session after tasks 12–14; `c3e9147`)
+
+The owner, 2026-10-23, `yft-d7-social-trial` of c3e9147 (run 39878500080); no VPN and signed out
+unless said; the VPN's New York exit for TikTok and W's VPN run (decision 25). Recorded by task 15
+(docs only); its fixes F1–F5 and F3b: task 15's code commits (`MASTER_KEY_SOCIAL_PLAN.md` §7.3).
+
+| Part | Result |
+| --- | --- |
+| Instagram slot 5, signed out, the rung's box on against off (2 of 2 each) | PASS: on → a row on the first Download; off → no row, the sign-in words. The rung rescues the post (decision 24's goal met). The rung's row came with no banner and "Quality unknown" (F1); with the box off, I2 read the embed page as `SHAPE_CHANGED` where main's Details say "video without files" (F2). |
+| Instagram slots 1, 9 and 8, signed out | PASS: slot 1 I2's rows, the banner's trial line and "probe: not asked (I2's rows)"; slot 9 (the age wall) the sign-in words and the words line; slot 8 (photos only) the probe not asked. Slot 8's final answer still offers Try again (F3b). |
+| Instagram signed in, the rung's box on | The proof box off: "probe: not asked (I2's rows)", the same item yes, 640 = 640 — PASS. The proof box on: "probe: not asked (signed in: the rung is the signed-out query)" (the signed-in rule works), but Master still gave 1 row with "the same item: no" (the duration yes, 640 = 640), and the banner had no "I2's rows set aside" line (F4). |
+| X slots 6, 8 and 7 | PASS: slot 6 3 = 3 on the first lookup (observation (g) fixed); slot 8 main's words; slot 7 (sensitive) the sign-in words, `AGE_LIMITED`. |
+| Facebook links 10 and 1 | PASS: link 10's group-post form, the trial's "Master found none" with its step (as B4); link 1, 2 against 3 (as B3). |
+| TikTok slots 6 and 1 (VPN New York) | PASS, as B3. Slot 6's final answer (photos only) still offers Try again (F3b). |
+| The failure sheet | Long Details and the Try again button under them were cut off: the sheet does not scroll (F3). |
+| W | VPN New York, signed out (02:24 UTC): Facebook, TikTok and X NO CHANGE; Instagram BREAKING (6): every Instagram ask on all three slots got the wall (GraphQL 401; the page and the embed page: the login page). No VPN, minutes later: NO CHANGE (Instagram slot 1 rows, I2 612 = 612). Main's Instagram code is unchanged since C1's APK, so the exit's address walled it, not the app; the walled run became Instagram's baseline there (F5). No VPN, Instagram signed in: NO CHANGE against C3. |
+
+### Owner decisions (2026-10-23)
+Recorded by task 15 as `MASTER_KEY_SOCIAL_PLAN.md` §8 decisions 27–28 (each with its status there).
+- **(1) Task 14's words: accepted as built (decision 27)**, including the agent's addition: the
+  playback words also when the site's own answer names the post's video (not only when the tab
+  shows one).
+- **(2) Instagram's tab-fetch rung: off by default in `social-trial` (decision 28).** The owner
+  turns it on in the census ("Instagram's tab-fetch rung (signed out)") for a test; the box keeps
+  its state across updates (an app preference; Clear browsing data leaves it).
+
+### For the coding agent (2026-10-23: task 15's fixes)
+- **F1:** the rung's rows (Instagram slot 5, signed out: main `LOGIN_REQUIRED`, so no trial
+  comparison) showed no banner: neither Instagram's ladder line nor "master: instagram probe: …"
+  (task 13's observation (f) is met only when I2 gives rows). The rung's row has no height
+  ("Quality unknown").
+- **F2:** the rung off (the default, decision 28), slot 5 signed out got the sign-in words: main's
+  own Details call the embed page (about 227k chars) "video without files", but I2 read that page
+  as "SHAPE_CHANGED (no video read)", then `LOGIN_WALL` → `BROWSER`, so decision 27's rule (the
+  playback words when the site's answer names the post's video) never fired. Task 13's
+  `VIDEO_WITHOUT_FILES` passes on the synthetic page, not on the real one.
+- **F3:** the failure sheet (`QuickDownloadScreen`'s `Failure()`) does not scroll: long Details
+  and the Try again button under them are cut off. Wanted: the content scrolls (Try again always
+  reachable) and a "Copy details" button (the Details as shown; words only).
+- **F3b:** a final answer (photos only: Instagram slot 8, TikTok slot 6) still offers Try again.
+- **F4:** signed in, the rung and its proof on, Instagram slot 1 (one video): I2's rows are set
+  aside and the rung is not asked (signed in), yet Master gave 1 row, "the same item: no" (the
+  duration yes, 640 = 640); the banner lacks "probe: I2's rows set aside (the rung's proof)".
+- **F5 (W):** a run where every ask of a site got the site's login wall while its baseline had data
+  (Instagram over a VPN exit) shows BREAKING and then becomes that site's baseline, so the next run
+  from a good address shows CHANGED.
 
 ## Summary of the 2026-10-22 session (§7.4 A, B and C)
 
@@ -511,3 +559,64 @@ Verified: head cb1c84d; 8 commits 22b98d1 025fd38 ec4590c 8c193c5 e007536 bf6d34
 - Every site that could run stayed within its caps (24 req / 2 MB / 60 s). Slot 1 ladder rows on every reachable site, wrong 0. No 429, no cooldown.
 - TikTok without VPN can't be reached. It stops at the 60 s cap and is never a baseline on that network; the plan says this is not a failure. TikTok's W is VPN-only in practice.
 - Next: owner decisions (1 TikTok differences, 2 S2d probe rung, 3 New York exit, 4 S5 amendment), then the hand-off for the coding agent (observations a–g + notes).
+
+## 2026-10-23 — the retest of §7.4 on `social-trial` c3e9147 (run 39878500080)
+Rebuilt from the owner's summary of the session (task 15's brief); the phone's own notes, links
+and posts stay on the phone. No VPN and signed out unless said; the VPN's New York exit for TikTok
+and W's VPN run. Times: only W's VPN run was logged in UTC (02:24).
+
+### Instagram slot 5, signed out, no VPN — the rung's box ON against OFF, 2 of 2 each — PASS (decision 24's goal met)
+- ON: a row on the first Download, both times: the rung rescues the post.
+  - No banner on that lookup: main answered `LOGIN_REQUIRED` (no trial comparison), and neither
+    Instagram's ladder line nor "master: instagram probe: …" showed (F1). Task 13's observation (f)
+    holds only when I2 gives rows.
+  - The row: "Quality unknown", no height read (F1).
+- OFF: no row, the sign-in words, both times.
+  - Main's own Details call the embed page (about 227k chars) "video without files"; I2 read the
+    same page as "SHAPE_CHANGED (no video read)", then `LOGIN_WALL` → `BROWSER`, so the playback
+    words' rule (the site's answer names the post's video) never fired (F2).
+
+### Instagram slots 1, 9 and 8, signed out, no VPN — PASS
+- Slot 1: I2's rows; the banner: the trial line and "probe: not asked (I2's rows)".
+- Slot 9 (the age wall): the sign-in words and the words line.
+- Slot 8 (photos only): the probe not asked. Its final answer still offers Try again (F3b).
+
+### Instagram signed in, no VPN, the rung's box ON
+- The proof box OFF, slot 1: "probe: not asked (I2's rows)", the same item yes, 640 = 640 — PASS.
+- The proof box ON, slot 1 (one video): "probe: not asked (signed in: the rung is the signed-out
+  query)" — the signed-in rule works. But I2's rows were set aside and the rung was not asked, yet
+  Master still gave 1 row, and the banner said "the same item: no" (the duration yes, 640 = 640),
+  with no "I2's rows set aside (the rung's proof)" line (F4).
+
+### X, signed out, no VPN — PASS
+- Slot 6: 3 = 3 on the first lookup (observation (g) fixed).
+- Slot 8: main's words.
+- Slot 7 (sensitive): the sign-in words, `AGE_LIMITED`.
+
+### Facebook, signed out, no VPN — PASS
+- Link 10's group-post form: the trial's "Master found none" with its step (as B4).
+- Link 1: Master's 2 rows against main's 3 (as B3).
+
+### TikTok, VPN New York, signed out — PASS
+- Slots 6 and 1, as B3. Slot 6's final answer (photos only) still offers Try again (F3b).
+
+### The failure sheet (any long failure)
+- Long Details and the Try again button under them were cut off: the sheet does not scroll (F3).
+
+### W — VPN New York, signed out, 02:24 UTC — Facebook, TikTok and X NO CHANGE; Instagram BREAKING (6)
+- Instagram: every ask on all three slots got the wall — GraphQL 401; the page and the embed page:
+  the login page.
+- Main's Instagram code is unchanged since C1's APK, so the exit's address walled it, not the app.
+- The walled run became Instagram's baseline for VPN on, signed out, so the next run from a good
+  address would read CHANGED (F5).
+
+### W — no VPN, signed out, minutes later — NO CHANGE
+- Instagram slot 1's rows, I2 612 = 612.
+
+### W — no VPN, Instagram signed in — NO CHANGE against C3
+
+### Verdict of 2026-10-23
+- PASS: B3's short set, X's first lookup (observation (g)), the rung's rescue of slot 5 (decision
+  24), the signed-in rule, task 14's words (decision 27), W's NO CHANGE on New York for Facebook,
+  TikTok and X, and without the VPN (signed out; Instagram signed in).
+- To fix (task 15): F1–F5 and F3b; then the retest (`MASTER_KEY_SOCIAL_PLAN.md` §7.4, click by click).

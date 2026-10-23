@@ -1,5 +1,56 @@
 # YFT Master Extractor backup
 
+## Social plan task 15 — the c3e9147 phone session's fixes: the rung's rows and banner (F1), I2's read of the real embed page (F2), a failure sheet that scrolls, with Copy details (F3), final answers without Try again (F3b), the proof's row (F4), W's walled runs (F5); decisions 27–28 (in progress) (2026-10-23)
+
+- **The phone session of 2026-10-23** (the owner, `yft-d7-social-trial` of `c3e9147`, run
+  39878500080; no VPN and signed out unless said; the log and its summary:
+  `docs/PHONE_TEST_NOTES.md`): PASS — Instagram slot 1 (I2's rows; the banner's trial line and
+  "probe: not asked (I2's rows)"), slot 9 (the age wall: the sign-in words and the words line),
+  slot 8 (photos only; the probe not asked); X slot 6 (3 = 3 on the first lookup: observation (g)
+  fixed), slot 8 (main's words), slot 7 (the sign-in words, `AGE_LIMITED`); Facebook link 10's
+  group-post form ("Master found none" with its step, as B4) and link 1 (2 against 3, as B3);
+  TikTok slots 6 and 1 (VPN New York, as B3). Instagram slot 5 with the rung's box on against off,
+  2 of 2 each: on → a row on the first Download, off → no row, the sign-in words: the rung rescues
+  the post (decision 24's goal met). Signed in, the rung on: the proof off → "probe: not asked
+  (I2's rows)", the same item, 640 = 640; the proof on → "probe: not asked (signed in: the rung is
+  the signed-out query)", but see F4. W: VPN New York, signed out (02:24 UTC) → Facebook, TikTok
+  and X NO CHANGE, Instagram BREAKING (6): every Instagram ask on all three slots walled (GraphQL
+  401; the page and the embed page: the login page); no VPN, minutes later → NO CHANGE (Instagram
+  slot 1's rows, I2 612 = 612): the exit's address, not the app (main's Instagram code unchanged
+  since C1's APK); no VPN with Instagram signed in → NO CHANGE against C3.
+- **The owner's decisions** (plan §8): **27** task 14's words accepted as built, including the
+  agent's addition (the playback words also when the site's answer names the post's video); **28**
+  Instagram's tab-fetch rung off by default in `social-trial`: the owner turns it on in the census
+  for a test (an app preference: it persists across updates).
+- **The fixes** (Master's side and the UI only, never main's adapters; flag off = today but F3's
+  UI; each its own `[d7]` commit, in this order; plan §7.3's task 15):
+  - F3 — the failure sheet scrolls (Try again always reachable) and "Copy details" copies its
+    Details (words only); F3b — a final answer (photos only) without Try again, or listed in
+    `docs/SUPPORT_MATRIX.md`. *To do.*
+  - F1 — every lookup that ends with Master's rows shows the banner (the site's ladder line and,
+    on Instagram, the probe line); the rung's row reads its video's width and height. F4 — signed
+    in, the rung's proof on: the row that came though the rung was not asked (its step, its item),
+    and "probe: I2's rows set aside (the rung's proof)" in the banner. *To do.*
+  - F2 — I2 judges the real embed page as main's "video without files" (a Master copy of main's
+    rule), and a counts-only reason on `SHAPE_CHANGED`. *To do.*
+  - F5 — W: a run in which every ask of a site was walled: BREAKING kept, the note "every ask
+    walled: likely this network's address, §7.5", never a baseline (a stored one set aside); §7.5's
+    step. *To do.*
+- **The next phone session** (the retest, after task 15's last commit; plan §7.4, click by click):
+  the `social-trial` APK of task 15's last code commit as an Update; sign out first (Settings →
+  Clear browsing data); Instagram slot 5 signed out, the rung on (a row with its height, the banner
+  with the ladder line and the probe line: F1) and off (the playback words with Try again, I2's
+  embed line no longer `SHAPE_CHANGED`: F2); a long failure, slot 9 (the Details scroll, Try again
+  reachable, Copy details: F3); slot 8 and TikTok slot 6 (Try again as F3b is built); signed in,
+  the rung and its proof on, slot 1 (the proof's line, the same item or no row: F4), then signed
+  out, both boxes off; W without the VPN, signed out (NO CHANGE), and on New York, signed out (F5's
+  note if walled; the baseline rule). Only then does the owner send S4 (task 16); S5 counts only
+  on the final APK.
+- Commits: this entry's first commit (docs only: the session, decisions 27–28, the plan's task 15
+  and §7.4's retest); the fixes' commits next; the TEST_MATRIX rows in the last, docs-only commit
+  (the push's size limit).
+- Next: F3 and F3b (the next commit).
+
 ## Social plan task 14 — the playback words only where a video can play (observation e; words only, debug only, behind the flag) (2026-10-23)
 
 - **Observation (e)** (the phone session of 2026-10-22, `docs/PHONE_TEST_NOTES.md`): "Play the
