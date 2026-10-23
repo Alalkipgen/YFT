@@ -7,7 +7,8 @@ import org.junit.Test
  * Social plan task 14 (observation e): which words a social lookup's "needs playback" answer shows
  * ([SocialLadder.playbackWords]): the playback words only when the tab shows a video or the site's
  * answer names the post's video; a sign-in or age wall the sign-in words; else main's words.
- * Synthetic lines in each ladder's shape (words only; made-up keys), no lookup.
+ * Task 15 (F2): a shape change's counts and marks never pick the playback words. Synthetic lines
+ * in each ladder's shape (words only; made-up keys), no lookup.
  */
 class SocialPlaybackWordsTest {
 
@@ -55,6 +56,31 @@ class SocialPlaybackWordsTest {
             SocialLadder.WordsPick(SocialLadder.Words.PLAYBACK, "the site's answer names the video: the post's video in the answer: yes"),
             SocialLadder.playbackWords(INSTAGRAM, rung, tabVideo = false),
         )
+    }
+
+    @Test
+    fun anInstagramShapeChangeSaysWhatItReadAndKeepsTheWordsAsBefore() {
+        // Task 15 (F2): a shape change's counts and marks (the page's size, its documents, main's
+        // post, a video mark, the files) never pick the playback words: a wall still gets the
+        // sign-in words, as before.
+        val details = listOf(
+            "master: instagram I2 main's GraphQL: LOGIN_WALL (status 401)",
+            "master: instagram I2 main's page: SHAPE_CHANGED (a video, no files read; the page: 9000 characters; " +
+                "documents: 1; main's post: yes; a video mark: yes; files: 0)",
+            "master: instagram I2 main's embed page: SHAPE_CHANGED (no video read; the page: 228000 characters; " +
+                "documents: 1; main's post: no; a video mark: no; files: 0)",
+            "master: instagram I2: LOGIN_WALL (GraphQL: status 401); next: BROWSER",
+        )
+        assertEquals(
+            SocialLadder.WordsPick(SocialLadder.Words.SIGN_IN, "LOGIN_WALL; no video in the tab"),
+            SocialLadder.playbackWords(INSTAGRAM, details, tabVideo = false),
+        )
+        // A JSON answer's shape change so too.
+        val json = listOf(
+            "master: instagram I2 main's GraphQL: SHAPE_CHANGED (a video, no files read; the answer: 1200 characters; " +
+                "the post: yes; a video mark: yes; files: 0)",
+        )
+        assertEquals(SocialLadder.Words.MAINS, SocialLadder.playbackWords(INSTAGRAM, json, tabVideo = false).words)
     }
 
     @Test

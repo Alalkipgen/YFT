@@ -184,9 +184,15 @@ class InstagramLadderTest {
 
         // A renamed key in a carousel: no file read by shape for its item, no guess.
         val validator = RecordingValidator()
-        val renamed = lookup("$SIDECAR?img_index=3", main(SiteWays.GRAPHQL to json(carousel.replace("video_url", "video_link"))), validator = validator)
+        val renamedBody = carousel.replace("video_url", "video_link")
+        val renamed = lookup("$SIDECAR?img_index=3", main(SiteWays.GRAPHQL to json(renamedBody)), validator = validator)
         val details = (renamed.result as MasterResult.NeedsPlayback).details
-        assertTrue(details.toString(), "$I2: SHAPE_CHANGED (GraphQL: a video, no files read); next: NEXT_RUNG" in details)
+        // Task 15 (F2): the shape change says what it read (counts and marks only).
+        assertTrue(
+            details.toString(),
+            "$I2: SHAPE_CHANGED (GraphQL: a video, no files read; the answer: ${renamedBody.length} characters; " +
+                "the post: yes; a video mark: yes; files: 0); next: NEXT_RUNG" in details,
+        )
         assertTrue(validator.seen.isEmpty())
         assertBare(details)
     }
@@ -290,6 +296,57 @@ class InstagramLadderTest {
         )
         assertEquals(MasterResult.Skipped(SiteExtractionFailure.RATE_LIMITED), limited.result)
         assertEquals(0, capture.calls)
+    }
+
+    @Test
+    fun `the real embed page signed out - I2 reads main's post, a video without files as main says, and a shape change says what it read`() = runTest {
+        // Task 15 (F2, the phone session of 2026-10-23: slot 5 signed out, the rung off): main's
+        // Details called the real embed page (about 227k characters) "video without files", I2's
+        // "SHAPE_CHANGED (no video read)": I2's first node naming the code was the embed's own
+        // context (a camelCase video mark), not the post. A page's post is now main's (a Master copy
+        // of main's rule, main unchanged): VIDEO_WITHOUT_FILES, the class the playback words read.
+        assertTrue(REAL_EMBED.length.toString(), REAL_EMBED.length in 220_000..235_000)
+        val lookup = lookup(REEL, main(SiteWays.GRAPHQL to refused(401), SiteWays.EMBED_PAGE to html(REAL_EMBED)))
+
+        val mains = lookup.main as SiteExtractionResult.Failure
+        assertEquals(SiteExtractionFailure.LOGIN_REQUIRED, mains.reason)
+        assertTrue(mains.details.toString(), "embed page: 200 (${REAL_EMBED.length} characters), video without files" in mains.details)
+        val details = detailsOf(lookup.result)
+        assertTrue(details.toString(), "$I2 main's embed page: VIDEO_WITHOUT_FILES (a video, no files read)" in details)
+        assertTrue(details.toString(), "$I2: LOGIN_WALL (GraphQL: status 401); next: BROWSER" in details)
+        assertTrue(details.toString(), details.none { "SHAPE_CHANGED" in it })
+        assertBare(details)
+
+        // Main's rule finds no post (the post's node gone) while the embed's context still names
+        // the code: a shape change, saying what it read — counts and marks only.
+        val contextOnly = realEmbed(post = false)
+        val gone = lookup(REEL, main(SiteWays.GRAPHQL to refused(401), SiteWays.EMBED_PAGE to html(contextOnly)))
+        assertTrue(
+            (gone.main as SiteExtractionResult.Failure).details.toString(),
+            "embed page: 200 (${contextOnly.length} characters), no post" in (gone.main as SiteExtractionResult.Failure).details,
+        )
+        val goneDetails = detailsOf(gone.result)
+        assertTrue(
+            goneDetails.toString(),
+            "$I2 main's embed page: SHAPE_CHANGED (no video read; the page: ${contextOnly.length} characters; " +
+                "documents: 1; main's post: no; a video mark: no; files: 0)" in goneDetails,
+        )
+        assertBare(goneDetails)
+
+        // The same post's data on the post's own page: a video without files there is a shape
+        // change, as before (only the embed page lists no file by its design), now with its counts.
+        val page = lookup(REEL, main(SiteWays.GRAPHQL to refused(401), SiteWays.PAGE to html(REAL_EMBED)))
+        assertTrue(
+            (page.main as SiteExtractionResult.Failure).details.toString(),
+            "page: 200 (${REAL_EMBED.length} characters), video without files" in (page.main as SiteExtractionResult.Failure).details,
+        )
+        val pageDetails = detailsOf(page.result)
+        assertTrue(
+            pageDetails.toString(),
+            "$I2 main's page: SHAPE_CHANGED (a video, no files read; the page: ${REAL_EMBED.length} characters; " +
+                "documents: 1; main's post: yes; a video mark: yes; files: 0)" in pageDetails,
+        )
+        assertBare(pageDetails)
     }
 
     @Test
@@ -1033,6 +1090,36 @@ class InstagramLadderTest {
 
         /** A file's size for S6's fake reads (32 KiB). */
         const val TOTAL = 32_768L
+
+        /**
+         * Task 15 (F2): a made-up embed page signed out in the real page's shape (about 227k
+         * characters, as slot 5's on the phone): styles and scripts first, then the embed's data —
+         * its own context naming the post's code with a camelCase video mark, then (with [post])
+         * the post's GraphQL node, a video by its type, its file not listed.
+         */
+        fun realEmbed(post: Boolean = true): String {
+            val context = "\"context\":{\"media_id\":\"3310536259357233439\",\"shortcode\":\"$REEL_CODE\"," +
+                "\"type\":\"GraphVideo\",\"isVideo\":true,\"captionTitle\":\"Embed caption\"}"
+            val node = ",\"gql_data\":{\"shortcode_media\":{\"__typename\":\"GraphVideo\",\"shortcode\":\"$REEL_CODE\"," +
+                "\"is_video\":true,\"dimensions\":{\"height\":1136,\"width\":640}," +
+                "\"display_url\":\"https://instagram.fxyz1-1.fna.fbcdn.net/v/e.jpg\",\"video_duration\":15.2," +
+                "\"owner\":{\"username\":\"fixture.creator\",\"full_name\":\"Fixture Creator\"}}}"
+            val data = "{" + context + (if (post) node else "") + "}"
+            val escaped = data.replace("\\", "\\\\").replace("\"", "\\\"")
+            return buildString {
+                append("<!DOCTYPE html><html><head><style>")
+                repeat(5_400) { append(".e$it{margin:0;padding:0;color:#262626}") }
+                append("</style></head><body><div class=\"Embed\"></div><script>")
+                repeat(400) { append("function f$it(a){return a+$it;}") }
+                append("requireLazy([\"TimeSliceImpl\",\"ServerJS\"],function(TimeSlice,ServerJS){var s=(new ServerJS());")
+                append("s.handle({\"require\":[[\"PolarisEmbedSimple\",\"init\",[],[{\"contextJSON\":\"")
+                append(escaped)
+                append("\"}]]]});});</script></body></html>")
+            }
+        }
+
+        /** Task 15 (F2): the real embed page's shape with the post's node. */
+        val REAL_EMBED: String = realEmbed()
 
 
         fun fixture(name: String) = Fixtures.read("instagram/$name")

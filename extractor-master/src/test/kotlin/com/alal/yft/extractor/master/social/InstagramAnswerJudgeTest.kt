@@ -19,7 +19,9 @@ import org.junit.Test
  * rule, §6.3); photos with no video are final (main's words); no post in an answer, the embed's
  * `EmbedIsBroken` and a page without the post's data need playback; the embed's video without
  * files is the rung's (its own class, never a shape change); never REMOVED (no answer read tells a
- * removed post apart). Main's fixtures and synthetic answers; no request.
+ * removed post apart). Task 15 (F2): a shape change says what was read, counts and marks only, and
+ * a video whose files main's rule reads with no row read is a shape change on any way. Main's
+ * fixtures and synthetic answers; no request.
  */
 class InstagramAnswerJudgeTest {
     @Test
@@ -104,6 +106,7 @@ class InstagramAnswerJudgeTest {
 
     @Test
     fun `a JSON answer - the rate-limit words, the checkpoint, login required, photos, errors, no post, no files`() {
+        val noVideo = """{"data":{"xdt_shortcode_media":{"shortcode":"$REEL"}}}"""
         val cases = listOf(
             // Main's fixture: the rate-limit answer also says require_login; it stops first.
             Triple(Fixtures.read("instagram/graphql_login.json"), InstagramReading(), Expected(AnswerClass.RATE_LIMITED, "a rate-limit answer", SiteExtractionFailure.RATE_LIMITED)),
@@ -111,14 +114,57 @@ class InstagramAnswerJudgeTest {
             Triple("""{"require_login":true,"status":"fail"}""", InstagramReading(), Expected(AnswerClass.LOGIN_WALL, "the answer: login required", SiteExtractionFailure.LOGIN_REQUIRED)),
             Triple("""{"message":"login_required","status":"fail"}""", InstagramReading(), Expected(AnswerClass.LOGIN_WALL, "the answer: login required", SiteExtractionFailure.LOGIN_REQUIRED)),
             Triple(Fixtures.read("instagram/graphql_photo.json"), InstagramReading(post = true, photos = true), Expected(AnswerClass.PHOTO_ONLY, "photos only, no video", SiteExtractionFailure.NO_MEDIA_FOUND)),
-            // Photos marked, but a video by its type: never final.
-            Triple(GRAPHQL_CAROUSEL, InstagramReading(post = true, photos = true, videoTyped = true, carousel = true), Expected(AnswerClass.SHAPE_CHANGED, "a video, no files read", SiteExtractionFailure.RESPONSE_CHANGED)),
+            // Photos marked, but a video by its type: never final. Task 15 (F2): a shape change says
+            // what was read, counts and marks only (the answer's size, the post, a video mark, files).
+            Triple(
+                GRAPHQL_CAROUSEL,
+                InstagramReading(post = true, photos = true, videoTyped = true, carousel = true),
+                Expected(
+                    AnswerClass.SHAPE_CHANGED,
+                    "a video, no files read; the answer: ${GRAPHQL_CAROUSEL.length} characters; the post: yes; a video mark: yes; files: 0",
+                    SiteExtractionFailure.RESPONSE_CHANGED,
+                ),
+            ),
             Triple("""{"errors":[{"message":"fixture"}],"status":"fail"}""", InstagramReading(), Expected(AnswerClass.VALUE_REJECTED, "the answer: errors", SiteExtractionFailure.RESPONSE_CHANGED)),
             Triple(Fixtures.read("instagram/graphql_null.json"), InstagramReading(), Expected(AnswerClass.NEEDS_PLAYBACK, "no post in the answer: removed, private or gated alike", null)),
-            Triple(GRAPHQL_REEL, InstagramReading(post = true, videoTyped = true), Expected(AnswerClass.SHAPE_CHANGED, "a video, no files read", SiteExtractionFailure.RESPONSE_CHANGED)),
-            Triple("""{"data":{"xdt_shortcode_media":{"shortcode":"$REEL"}}}""", InstagramReading(post = true), Expected(AnswerClass.SHAPE_CHANGED, "no video read", SiteExtractionFailure.RESPONSE_CHANGED)),
-            Triple("<html><body>fixture</body></html>", InstagramReading(), Expected(AnswerClass.SHAPE_CHANGED, "not a JSON object", SiteExtractionFailure.RESPONSE_CHANGED)),
-            Triple("[1,2]", InstagramReading(), Expected(AnswerClass.SHAPE_CHANGED, "not a JSON object", SiteExtractionFailure.RESPONSE_CHANGED)),
+            Triple(
+                GRAPHQL_REEL,
+                InstagramReading(post = true, videoTyped = true),
+                Expected(
+                    AnswerClass.SHAPE_CHANGED,
+                    "a video, no files read; the answer: ${GRAPHQL_REEL.length} characters; the post: yes; a video mark: yes; files: 0",
+                    SiteExtractionFailure.RESPONSE_CHANGED,
+                ),
+            ),
+            // Task 15 (F2): main's rule read the post's files, the recipe no row: the recipe's shape.
+            Triple(
+                GRAPHQL_REEL,
+                InstagramReading(post = true, videoTyped = true, files = 2),
+                Expected(
+                    AnswerClass.SHAPE_CHANGED,
+                    "a video with files, no rows read; the answer: ${GRAPHQL_REEL.length} characters; the post: yes; a video mark: yes; files: 2",
+                    SiteExtractionFailure.RESPONSE_CHANGED,
+                ),
+            ),
+            Triple(
+                noVideo,
+                InstagramReading(post = true),
+                Expected(
+                    AnswerClass.SHAPE_CHANGED,
+                    "no video read; the answer: ${noVideo.length} characters; the post: yes; a video mark: no; files: 0",
+                    SiteExtractionFailure.RESPONSE_CHANGED,
+                ),
+            ),
+            Triple(
+                "<html><body>fixture</body></html>",
+                InstagramReading(),
+                Expected(AnswerClass.SHAPE_CHANGED, "not a JSON object; the answer: 33 characters; the post: no; a video mark: no; files: 0", SiteExtractionFailure.RESPONSE_CHANGED),
+            ),
+            Triple(
+                "[1,2]",
+                InstagramReading(),
+                Expected(AnswerClass.SHAPE_CHANGED, "not a JSON object; the answer: 5 characters; the post: no; a video mark: no; files: 0", SiteExtractionFailure.RESPONSE_CHANGED),
+            ),
         )
         for ((body, reading, expected) in cases) {
             for (way in InstagramAnswerJudge.JSON_WAYS) {
@@ -135,7 +181,27 @@ class InstagramAnswerJudgeTest {
         val cases = listOf(
             Triple("<html></html>", InstagramReading(post = true, photos = true), Expected(AnswerClass.PHOTO_ONLY, "photos only, no video", SiteExtractionFailure.NO_MEDIA_FOUND)),
             Triple(embedBroken, InstagramReading(), Expected(AnswerClass.NEEDS_PLAYBACK, "not embeddable: removed, private or not embeddable alike", null)),
-            Triple("<html></html>", InstagramReading(post = true), Expected(AnswerClass.SHAPE_CHANGED, "no video read", SiteExtractionFailure.RESPONSE_CHANGED)),
+            // Task 15 (F2): a shape change says what was read, counts and marks only (the page's
+            // size, its JSON documents, main's post, a video mark, the post's files).
+            Triple(
+                "<html></html>",
+                InstagramReading(post = true),
+                Expected(
+                    AnswerClass.SHAPE_CHANGED,
+                    "no video read; the page: 13 characters; documents: 0; main's post: no; a video mark: no; files: 0",
+                    SiteExtractionFailure.RESPONSE_CHANGED,
+                ),
+            ),
+            // Main's rule read the post's files, the recipe no row: the recipe's shape, on either page.
+            Triple(
+                "<html></html>",
+                InstagramReading(post = true, videoTyped = true, documents = 2, rulePost = true, files = 1),
+                Expected(
+                    AnswerClass.SHAPE_CHANGED,
+                    "a video with files, no rows read; the page: 13 characters; documents: 2; main's post: yes; a video mark: yes; files: 1",
+                    SiteExtractionFailure.RESPONSE_CHANGED,
+                ),
+            ),
             Triple("<html><body>fixture</body></html>", InstagramReading(), Expected(AnswerClass.NEEDS_PLAYBACK, "no post data in the page", null)),
         )
         for ((body, reading, expected) in cases) {
@@ -146,13 +212,16 @@ class InstagramAnswerJudgeTest {
 
         // Task 13 (observation d): a video without files. The embed page signed out lists none by
         // its design: the tab-fetch rung's, its own class (W never flags it); the post's page: a
-        // shape change, as before.
-        val video = InstagramReading(post = true, videoTyped = true)
+        // shape change, as before (task 15: with what was read).
+        val video = InstagramReading(post = true, videoTyped = true, documents = 1, rulePost = true)
         val embed = InstagramAnswerJudge.judge(SiteWays.EMBED_PAGE, answer("<html></html>"), video)
         Expected(AnswerClass.VIDEO_WITHOUT_FILES, "a video, no files read", null).assert("embed", embed)
         assertEquals(Next.NEXT_RUNG, embed.next)
-        Expected(AnswerClass.SHAPE_CHANGED, "a video, no files read", SiteExtractionFailure.RESPONSE_CHANGED)
-            .assert("page", InstagramAnswerJudge.judge(SiteWays.PAGE, answer("<html></html>"), video))
+        Expected(
+            AnswerClass.SHAPE_CHANGED,
+            "a video, no files read; the page: 13 characters; documents: 1; main's post: yes; a video mark: yes; files: 0",
+            SiteExtractionFailure.RESPONSE_CHANGED,
+        ).assert("page", InstagramAnswerJudge.judge(SiteWays.PAGE, answer("<html></html>"), video))
         // A broken embed and photos come first.
         assertEquals(
             AnswerClass.NEEDS_PLAYBACK,

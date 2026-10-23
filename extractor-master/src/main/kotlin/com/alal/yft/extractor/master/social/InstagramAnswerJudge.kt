@@ -27,7 +27,10 @@ import java.util.Locale
  * them, anchored to the post); [carousel], the answer holds a carousel's items; [photos], the
  * post's node (every item) is marked a photo; [post], the answer names the link's post (its code);
  * [otherPost], a JSON answer's post is another one; [videoTyped], the post (or an item) is a video
- * by its type, files or not.
+ * by its type, files or not. Task 15 (F2), counts and marks only, for a shape change's reason: a
+ * page's [documents] (its JSON documents that name the post or a video, by main's rule,
+ * [InstagramPageRule]) and [rulePost] (main's rule found the post in them); [files], the post's
+ * files by main's rule (HTTPS `video_versions` and `video_url`, every item's).
  */
 internal data class InstagramReading(
     val rows: Int = 0,
@@ -37,6 +40,9 @@ internal data class InstagramReading(
     val post: Boolean = false,
     val otherPost: Boolean = false,
     val videoTyped: Boolean = false,
+    val documents: Int = 0,
+    val rulePost: Boolean = false,
+    val files: Int = 0,
 )
 
 /**
@@ -60,9 +66,14 @@ internal data class InstagramReading(
  *   judged** in part 1: none of these answers tells a removed post apart (decision 19 (vi): the
  *   judge's call from what was read, and nothing read tells it yet).
  * - The embed page's video without files (signed out, by its design; task 13, observation (d))
- *   → VIDEO_WITHOUT_FILES: the tab-fetch rung's (decision 24), never a shape change.
- * - Another host, another post, a video without files read elsewhere, not JSON → SHAPE_CHANGED;
- *   another status or no answer → TRANSIENT.
+ *   → VIDEO_WITHOUT_FILES: the tab-fetch rung's (decision 24), never a shape change. Task 15 (F2):
+ *   a page's post is main's ([InstagramPageRule], a Master copy of main's rule), so the real embed
+ *   page main calls "video without files" is so here too.
+ * - Another host, another post, a video without files read elsewhere, a page whose post's files
+ *   main's rule reads but the recipe read no row (task 15), not JSON → SHAPE_CHANGED; another
+ *   status or no answer → TRANSIENT. Task 15 (F2): a shape change read in an answer says what was
+ *   read, counts and marks only: the answer's size (a page's JSON documents and main's post too),
+ *   a video mark and the post's files.
  * - Task 13: the tab-fetch rung's answer ([SiteWays.TAB_FETCH], a JSON way) by the same rules:
  *   its 400 or `errors` → VALUE_REJECTED (the query's values; the tab's own playback next, never
  *   a guessed value), no post (`null`: gated or gone alike) → NEEDS_PLAYBACK.
@@ -128,7 +139,7 @@ internal object InstagramAnswerJudge {
 
     private fun jsonAnswer(page: ExtractorHttpResult.Success, reading: InstagramReading): Judged {
         val root = (BoundedJsonParser.read(page.body.trim()) as? JsonReadResult.Read)?.value
-        if (root !is JsonValue.Object) return shapeChanged("not a JSON object")
+        if (root !is JsonValue.Object) return shapeChanged("not a JSON object", page, reading, false)
         val message = root["message"].asStringOrNull
         // The rate-limit answer also says require_login: it is a stop first.
         if (message != null && RATE_WORDS.containsMatchIn(message)) {
@@ -149,7 +160,13 @@ internal object InstagramAnswerJudge {
         if (!reading.post) {
             return Judged(AnswerClass.NEEDS_PLAYBACK, null, "no post in the answer: removed, private or gated alike")
         }
-        return shapeChanged(if (reading.videoTyped) "a video, no files read" else "no video read")
+        val evidence = when {
+            // Task 15 (F2): main's rule reads the post's files and the recipe read no row.
+            reading.videoTyped && reading.files > 0 -> "a video with files, no rows read"
+            reading.videoTyped -> "a video, no files read"
+            else -> "no video read"
+        }
+        return shapeChanged(evidence, page, reading, false)
     }
 
     private fun pageAnswer(way: String, page: ExtractorHttpResult.Success, reading: InstagramReading): Judged = when {
@@ -157,12 +174,16 @@ internal object InstagramAnswerJudge {
             Judged(AnswerClass.PHOTO_ONLY, AnswerClass.PHOTO_ONLY.reason, "photos only, no video")
         page.body.contains(EMBED_BROKEN) ->
             Judged(AnswerClass.NEEDS_PLAYBACK, null, "not embeddable: removed, private or not embeddable alike")
-        // Task 13 (observation d): the embed page signed out names the video and lists no file by
-        // its design (main reads it so too): the tab-fetch rung's, not a shape change.
+        // Task 15 (F2): main's rule reads the post's files and the recipe read no row: the
+        // recipe's shape, never the embed's design.
+        reading.videoTyped && reading.files > 0 -> shapeChanged("a video with files, no rows read", page, reading, true)
+        // Task 13 (observation d), task 15 (F2): the embed page signed out names the video and lists
+        // no file by its design — main's rule reads it so ("video without files"), and so does I2
+        // with main's post (a Master copy of main's rule): the tab-fetch rung's, not a shape change.
         reading.videoTyped && way == SiteWays.EMBED_PAGE ->
             Judged(AnswerClass.VIDEO_WITHOUT_FILES, null, "a video, no files read")
-        reading.videoTyped -> shapeChanged("a video, no files read")
-        reading.post -> shapeChanged("no video read")
+        reading.videoTyped -> shapeChanged("a video, no files read", page, reading, true)
+        reading.post -> shapeChanged("no video read", page, reading, true)
         else -> Judged(AnswerClass.NEEDS_PLAYBACK, null, "no post data in the page")
     }
 
@@ -184,6 +205,24 @@ internal object InstagramAnswerJudge {
 
     private fun shapeChanged(evidence: String) =
         Judged(AnswerClass.SHAPE_CHANGED, AnswerClass.SHAPE_CHANGED.reason, evidence)
+
+    /**
+     * Task 15 (F2): a shape change read in [answer] ([reading]; a [page] or a JSON answer): its
+     * [evidence], then what was read, counts and marks only (S8: never a link, an ID or the answer's
+     * words) — the answer's size in characters (as main's line counts it; a page's JSON documents
+     * and whether main's rule found the post in them too), a video mark and the post's files — so
+     * the line says which marker was missing.
+     */
+    private fun shapeChanged(evidence: String, answer: ExtractorHttpResult.Success, reading: InstagramReading, page: Boolean): Judged {
+        val read = if (page) {
+            "the page: ${answer.body.length} characters; documents: ${reading.documents}; main's post: ${yes(reading.rulePost)}"
+        } else {
+            "the answer: ${answer.body.length} characters; the post: ${yes(reading.post)}"
+        }
+        return shapeChanged("$evidence; $read; a video mark: ${yes(reading.videoTyped)}; files: ${reading.files}")
+    }
+
+    private fun yes(value: Boolean) = if (value) "yes" else "no"
 
     /** Main's JSON ways (their answers are JSON documents); the others are pages. */
     val JSON_WAYS: Set<String> = setOf(SiteWays.APP_API, SiteWays.GRAPHQL, SiteWays.TAB_FETCH)

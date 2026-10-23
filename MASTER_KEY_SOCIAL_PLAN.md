@@ -647,7 +647,7 @@ With no adapter copies (B), the build is also about 4,700 lines smaller than the
 | **S1a** | L | The kit's minimum with the pilot's pack, Facebook (the first draft's S1 and S2a together), flag `-Pyft.socialLadder` (off = today): the recorder in the app's lookup path, judge classes, the site table, one judged request rung + L3 + capture, budgets and the 30-minute cooldown (S7), `SiteRowCheck` + `InitCheck` on every Master row, Facebook's anchors, post-identity mutation tests, a simulator world (§7.3) | JVM tests, simulator and CI green; flag off = today; the D7-style APK's phone proof (§7.3) — **passed (2026-10-21, §7.4 step 6's re-run)** |
 | **S2b** | M | TikTok's pack (§7.3) | phone proof; wrong rows 0; no regression against B0 — built (2026-10-21, behind the flag); the phone (2026-10-22, `36ec093`): main PASS, T1's rows 6 of 6 on the New York exit, wrong 0; T2 untested; its intended difference accepted (decision 23) |
 | **S2c** | M | X's pack: main's answer replayed, no new ask (X2 not now; §7.3) | the same — built (2026-10-21, behind the flag); the phone (2026-10-22, `36ec093`): A PASS, wrong 0; tasks 12 and 14 (§7.3) before its S5 |
-| **S2d** | M | Instagram's pack by the Instagram check's verdict (0.2); the owner's signed-in census first (§7.3) | the same — part 1 built (2026-10-22, behind the flag: I2 and the tab-fetch probe, off by default); the phone (2026-10-22, `36ec093`): A PASS on 3 sessions, wrong 0; the probe: slot 5 video yes, slot 9 no; part 2 (the probe's rung, decision 24): built (task 13, 2026-10-22; behind its own switch, off by default: decision 28), its phone proof (2026-10-23, `c3e9147`): slot 5 rescued, 2 of 2; tasks 12 and 14 built; task 15 (F1, F2, F4) in progress (§7.3) |
+| **S2d** | M | Instagram's pack by the Instagram check's verdict (0.2); the owner's signed-in census first (§7.3) | the same — part 1 built (2026-10-22, behind the flag: I2 and the tab-fetch probe, off by default); the phone (2026-10-22, `36ec093`): A PASS on 3 sessions, wrong 0; the probe: slot 5 video yes, slot 9 no; part 2 (the probe's rung, decision 24): built (task 13, 2026-10-22; behind its own switch, off by default: decision 28), its phone proof (2026-10-23, `c3e9147`): slot 5 rescued, 2 of 2; tasks 12 and 14 built; task 15's F1, F2 and F4 built (§7.3), the retest next (§7.4) |
 | **S3** | S–M | Weekly check W for all four + runbook (each CHANGED / BREAKING line and its fix: a data change via R9, or code) | the owner's first W run — built (2026-10-22, debug only, a social-ladder build: the census's "Weekly check W"; its runbook §7.5); its first runs C1–C3 PASS (2026-10-22, `36ec093`; W's baselines per network and session: decision 25); 2026-10-23 (`c3e9147`): NO CHANGE but Instagram on New York (every ask walled: the exit's address; task 15's F5) |
 | **S4** | S | R9 live: the owner signs and hosts the config (§8 item 5, decided before S4); kill switch per rung; one repair drill (a key changed by config on the phone, no APK) | drill passed |
 | **S5** | — | Promote per site after 3 phone runs by decision 26's rule (each at least 6 h after the previous one, the first and the last at least 24 h apart, on an APK of the final code, only where Master ran) with 0 wrong rows and no regression against B0; then the release gate (§7.3): all four sites, the first W run and the R9 drill passed, the intended differences in `docs/SUPPORT_MATRIX.md` → PR #2 merged → P8 (beta.4) | the owner's go |
@@ -1236,7 +1236,23 @@ proof now tests the rung alone — when it set I2's rows aside and the rung give
 ends with no row and no capture (`SocialStage.Staged.last`), "master: instagram probe: no row (the
 proof set I2's rows aside and the rung gave none)", main's (the trial's) words with Try again, and
 the banner shows the words, then the proof's lines (`SocialLadder.proofNotice`); debug only
-(the proof's box). To do, in this order: F2, F5; then the retest (§7.4).
+(the proof's box). *Built (F2):* I2 reads a page's post by main's own rule (`InstagramPageRule`,
+a Master copy of main's `InstagramPageDocuments` and `InstagramMedia.find`, in the drift check's
+table; main unchanged): the page's JSON documents that name the post or a video, in each the post
+by its code, of the posts the first with a file, else the first; I2's old read (a page's first node
+naming the code) stays only where main's rule finds no post. On the real embed page that first node
+was the embed's own context (its video mark in another casing), not the post: "no video read".
+Now the embed page's video without files is `VIDEO_WITHOUT_FILES` (the tab-fetch rung's; with the
+rung off, decision 27's playback words with Try again), as main says "video without files"; a
+video whose files main's rule reads while the recipe reads no row is a shape change on any way. A
+shape change read in an answer says what was read, counts and marks only: the answer's size in
+characters, on a page its JSON documents and whether main's rule found the post, a video mark and
+the post's files ("SHAPE_CHANGED (no video read; the page: N characters; documents: 1; main's
+post: no; a video mark: no; files: 0)"). The test page is made up, shaped like the real one (about
+228k characters: style and script rules first, then the embed's context and the post's data, no
+file): the old read gives it the phone's "SHAPE_CHANGED (no video read)", the new one main's
+"video without files"; debug only (behind the flag). To do, in this order: F5; then the retest
+(§7.4).
 Each site: a D7-style phone proof, wrong rows 0, no regression against B0.
 
 **S3 and S4** as in §7: W (≤ 1 min, ≤ 2 MB per site) with the diff and the runbook; R9 live (the
@@ -1257,7 +1273,7 @@ others get the app.
 | Facebook | S1a built; phone proof PASS (2026-10-21); A PASS (2026-10-22, `430da9f`); links 1 and 10 PASS (2026-10-23, `c3e9147`) | C1, C2 PASS; NO CHANGE on New York and without the VPN (2026-10-23) | Master's rows 2 against main's 3 (task 7) | not started |
 | TikTok | S2b built; main PASS (`36ec093`); T1 proven on New York (rows 6 of 6, wrong 0); T2 untested; slots 1 and 6 PASS on New York (2026-10-23) | C1 PASS (VPN only: no network without it); NO CHANGE on New York (2026-10-23) | T1 one row, at most 1280 (decision 23) | not started |
 | X | S2c and task 0 built; A PASS (`36ec093`); task 12 built (the first lookup, X1's lines kept); task 14 built (the 404's and the tombstones' words: main's, with Try again; the empty tombstone's: the sign-in words); 2026-10-23 PASS: slot 6 3 = 3 on the first lookup, slots 7 and 8 task 14's words | C1, C2 PASS; NO CHANGE on New York and without the VPN (2026-10-23) | `{}`, the notice tombstone, the 404 never final (decision 21) | not started |
-| Instagram | S2d part 1 built; A PASS on 3 sessions; task 12 built (the first lookup, I2's lines kept); part 2 (decision 24) built (task 13: the rung, its own switch off by default, decision 28); the rung's phone proof PASS (2026-10-23: slot 5 rescued, 2 of 2); task 14 built (a wall's words: main's sign-in words, e.g. slot 9; seen 2026-10-23); task 15 (F1, F2, F4) in progress | C1, C2, C3 PASS; NO CHANGE without the VPN, signed out and signed in (2026-10-23); on New York every ask walled (02:24 UTC: the exit's address; F5) | the 360p file, never "removed" (decision 20) | not started |
+| Instagram | S2d part 1 built; A PASS on 3 sessions; task 12 built (the first lookup, I2's lines kept); part 2 (decision 24) built (task 13: the rung, its own switch off by default, decision 28); the rung's phone proof PASS (2026-10-23: slot 5 rescued, 2 of 2); task 14 built (a wall's words: main's sign-in words, e.g. slot 9; seen 2026-10-23); task 15's F1, F2 and F4 built, the retest next (§7.4) | C1, C2, C3 PASS; NO CHANGE without the VPN, signed out and signed in (2026-10-23); on New York every ask walled (02:24 UTC: the exit's address; F5) | the 360p file, never "removed" (decision 20) | not started |
 
 Every site: S4 (R9 live, its drill) waits for decision 5; then S5, PR #2's merge, P8. Task 12
 changed the engine for every site's claimed lookups (the capture's answer keeps the ladder's lines)
@@ -1673,10 +1689,12 @@ commits brings its step's words up to date, as built):**
    the page: no; rows N (DIRECT)"). Note the row's quality and both banner lines.
 4. **Instagram slot 5, the rung off (F2).** "YFT site census" → untick the rung's box → slot 5's
    link again → **Download**. Expected: no row; the playback words ("Play the video on this page,
-   then tap Try again.") with Try again; in Details, "master: instagram words: playback (the
-   site's answer names the video: VIDEO_WITHOUT_FILES)", and I2's embed line no longer
-   `SHAPE_CHANGED`. If a line still says `SHAPE_CHANGED`: tap **Copy details** and keep the
-   line's reason (counts only).
+   then tap Try again.") with Try again; in Details, I2's embed line "master: instagram I2 main's
+   embed page: VIDEO_WITHOUT_FILES (a video, no files read)" (no longer `SHAPE_CHANGED`) and
+   "master: instagram words: playback (the site's answer names the video:
+   VIDEO_WITHOUT_FILES)". If a line still says `SHAPE_CHANGED`: tap **Copy details** and keep the
+   line: its reason says what was read, counts only ("…; the page: N characters; documents: N;
+   main's post: yes or no; a video mark: yes or no; files: N").
 5. **A long failure: Instagram slot 9 (F3).** Slot 9's link → **Download**. Expected: the
    sign-in words; tap **Details**: the lines scroll to their last one, and Try again stays under
    them; tap **Copy details** (beside "Hide details") → paste into a note: the same lines, each

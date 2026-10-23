@@ -338,9 +338,11 @@ class InstagramLadder(
 
     /**
      * Main's 2xx answer [main] from [way] for the post [code] ([mediaId]), read for [read] by
-     * [recipe]: the post's node (a JSON answer's post, else a page's node with the post's code),
-     * whether it is a video by type and a carousel, and the recipe's rows of the link's item (by
-     * shape when the key table read none). Another host and another post are the judge's alone.
+     * [recipe]: the post's node (a JSON answer's post; a page's post by main's rule, task 15 (F2),
+     * else its node with the post's code), whether it is a video by type and a carousel, main's
+     * rule's counts (a page's documents, the post's files; task 15), and the recipe's rows of the
+     * link's item (by shape when the key table read none). Another host and another post are the
+     * judge's alone.
      * Task 13: the tab-fetch rung's answer ([SiteWays.TAB_FETCH]) so too; its post may name only
      * its pk ([namedPost]).
      */
@@ -355,12 +357,20 @@ class InstagramLadder(
         val uri = runCatching { URI(main.finalUrl.trim()) }.getOrNull()
         if (uri == null || !InstagramAnswerJudge.instagramHost(uri)) return Read()
         val json = way in InstagramAnswerJudge.JSON_WAYS
-        val found = if (json) jsonPost(way, main.body, code, mediaId) else pagePost(main.body, code)
+        // Task 15 (F2): a page's post is main's (a Master copy of main's rule), else, when main's
+        // rule finds none, the page's first node naming the code (a renamed media key: a shape
+        // change); a JSON answer's post node is read by main's rule too (its items' files and marks).
+        val page = if (json) null else InstagramPageRule.page(main.body, code)
+        val found = if (json) jsonPost(way, main.body, code, mediaId) else page?.post?.let { Found(it.node) } ?: pagePost(main.body, code)
+        val rule = if (json) (found.node as? JsonValue.Object)?.let(InstagramPageRule::post) else page?.post
         val base = InstagramReading(
             carousel = InstagramAnswerJudge.carousel(main.body),
             post = found.node != null,
             otherPost = found.other,
-            videoTyped = found.node?.let(::videoTyped) == true,
+            videoTyped = rule?.video == true || found.node?.let(::videoTyped) == true,
+            documents = page?.documents ?: 0,
+            rulePost = page?.post != null,
+            files = rule?.files ?: 0,
         )
         if (found.other || recipe == null) return Read(base)
         // The recipe binds rows to a node naming the post's code: a post named by its pk alone gets it.
@@ -422,7 +432,11 @@ class InstagramLadder(
         return named.takeIf { post["code"].asStringOrNull == code && InstagramProbeQuery.pkOf(post) == mediaId }
     }
 
-    /** A page's first node naming the post [code] (`shortcode` or `code`), in its data scripts and texts. */
+    /**
+     * A page's first node naming the post [code] (`shortcode` or `code`), in its data scripts and
+     * texts. Task 15 (F2): only where main's rule ([InstagramPageRule]) finds no post — on the real
+     * embed page this node was the embed's own context (a camelCase video mark), not the post.
+     */
     private fun pagePost(body: String, code: String): Found {
         val documents = (
             PageScripts.embeddedDocuments(body) +
