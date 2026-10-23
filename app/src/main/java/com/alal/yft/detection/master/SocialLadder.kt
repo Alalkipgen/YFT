@@ -232,6 +232,63 @@ internal object SocialLadder {
         else -> null
     }
 
+    /**
+     * Social plan task 14 (observation e): the words of a social lookup Master answered "needs
+     * playback" (the tab's own playback, I3 or F3, found nothing). [PLAYBACK]: "Play the video on
+     * this page, then tap Try again."; [SIGN_IN]: the sign-in words ([signInMessage], or main's own
+     * when its reason is `LOGIN_REQUIRED`); [MAINS]: main's words. Only the words change: the reason
+     * stays main's (Try again where it is not final), as before.
+     */
+    enum class Words(val label: String) { PLAYBACK("playback"), SIGN_IN("sign-in"), MAINS("main's") }
+
+    /** Task 14: the [words] picked and [why] (words only: never a link or an ID). */
+    data class WordsPick(val words: Words, val why: String)
+
+    /**
+     * Task 14 (observation e): which words a social lookup's "needs playback" answer shows, from
+     * whether the tab showed a video ([tabVideo], `MasterBrowserSession.videoShown`) and the judge's
+     * classes in [videoKey]'s site's lines of [details] (Master's own; another site's are not
+     * read): (1) the tab showed a video → [Words.PLAYBACK]; (2) the site's answers name the post's
+     * video (rows read and none kept, `DIRECT` or `PARTIAL`; Instagram's `VIDEO_WITHOUT_FILES` or
+     * its rung's "the post's video in the answer: yes"; Facebook's plugin player, TikTok's "names
+     * the video", X's item playlist) → [Words.PLAYBACK], the page can play it; (3) a sign-in or age
+     * wall (`LOGIN_WALL`, `AGE_LIMITED`) → [Words.SIGN_IN]; (4) else, no video in the tab →
+     * [Words.MAINS] (X's widget 404 or tombstone, Instagram's "no post", nothing read).
+     */
+    fun playbackWords(videoKey: String?, details: List<String>, tabVideo: Boolean): WordsPick {
+        if (tabVideo) return WordsPick(Words.PLAYBACK, "the tab shows a video")
+        val lines = details.filter { it.startsWith(line(videoKey)) }
+        lines.firstNotNullOfOrNull { line ->
+            VIDEO_CLASSES.find(line)?.value ?: VIDEO_MARKS.firstOrNull(line::contains)
+        }?.let { return WordsPick(Words.PLAYBACK, "the site's answer names the video: $it") }
+        lines.firstNotNullOfOrNull { WALL_CLASSES.find(it)?.value }
+            ?.let { return WordsPick(Words.SIGN_IN, "$it; no video in the tab") }
+        return WordsPick(Words.MAINS, "no video in the tab")
+    }
+
+    /** Task 14: the Details line of [pick], before Master's lines: `master: <site> words: <words> (<why>)`. */
+    fun wordsLine(videoKey: String?, pick: WordsPick): String = "${line(videoKey)} words: ${pick.words.label} (${pick.why})"
+
+    /**
+     * Task 14: the sign-in words for [videoKey]'s site where main's reason is not `LOGIN_REQUIRED`
+     * (X's age wall: main's reason is `NO_MEDIA_FOUND`) — the app's own words for that reason.
+     */
+    fun signInMessage(videoKey: String?): String = "Sign in to ${nameOf(videoKey)} on this page first, then try again."
+
+    /** Task 14: the judge's classes of a read video (rows read, none kept; a video without files). */
+    private val VIDEO_CLASSES = Regex("""\b(DIRECT|PARTIAL|VIDEO_WITHOUT_FILES)\b""")
+
+    /** Task 14: the judges' evidence that names the post's video (each site's "needs playback" with a video). */
+    private val VIDEO_MARKS = listOf(
+        "the post's video in the answer: yes",
+        "the plugin player",
+        "names the video",
+        "the item's playlist only",
+    )
+
+    /** Task 14: the judge's classes of a sign-in or age wall. */
+    private val WALL_CLASSES = Regex("""\b(LOGIN_WALL|AGE_LIMITED)\b""")
+
     /** S2b: whether [details] has [videoKey]'s site's ladder line of [answerClass] with its final step. */
     private fun finalLine(videoKey: String?, details: List<String>, answerClass: String): Boolean =
         details.any { line -> line.startsWith(line(videoKey)) && answerClass in line && "next: FINAL" in line }

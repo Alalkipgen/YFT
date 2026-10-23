@@ -149,6 +149,12 @@ class AndroidBrowserMasterFallback(
      * too). Every other build: false.
      */
     private val socialTrial: Boolean = false,
+    /**
+     * Social plan task 14 (observation e): whether the lookup's tab showed a video (a frame of the
+     * request's page and generation, `MasterBrowserSession.videoShown`); read only for a social
+     * lookup's "needs playback" answer in a social-ladder build ([SocialLadder.playbackWords]).
+     */
+    private val tabVideo: (MasterRequest) -> Boolean = { capture.session.videoShown(it.pageUrl, it.generation) },
 ) : BrowserMasterFallback {
     override val enabled: Boolean get() = capture.enabled
 
@@ -334,8 +340,24 @@ class AndroidBrowserMasterFallback(
                     )
                 }
             }
-            is MasterResult.NeedsPlayback ->
+            // Task 14 (observation e): a social lookup's words follow the judge's class and the tab
+            // (a wall: the sign-in words; no video in the tab: main's words, with Try again; the
+            // playback words only when the tab has a video to play), with a line saying which and
+            // why before Master's own. Only the words change: the reason stays main's. Every other
+            // lookup and build: the playback words, as before.
+            is MasterResult.NeedsPlayback -> if (social && primary is SiteAdapterOutcome.Failed) {
+                val pick = SocialLadder.playbackWords(key, result.details, tabVideo(request))
+                val message = when (pick.words) {
+                    SocialLadder.Words.PLAYBACK -> PLAY_FIRST
+                    SocialLadder.Words.SIGN_IN -> primary.message
+                        .takeIf { primary.reason == SiteExtractionFailure.LOGIN_REQUIRED }
+                        ?: SocialLadder.signInMessage(key)
+                    SocialLadder.Words.MAINS -> primary.message
+                }
+                noRows(failure, message, listOf(SocialLadder.wordsLine(key, pick)) + result.details)
+            } else {
                 noRows(failure, PLAY_FIRST, result.details)
+            }
             is MasterResult.NeedsSelection -> noRows(
                 failure,
                 "Play only the video you want, then tap Try again.",

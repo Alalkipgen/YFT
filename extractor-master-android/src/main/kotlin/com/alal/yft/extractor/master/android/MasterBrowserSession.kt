@@ -29,6 +29,8 @@ class MasterBrowserSession {
     private var previousPlayer: FramePlayer? = null
     private var previousSampleAt = 0L
     private var protected = false
+    /** Social plan task 14 (observation e): a frame of this scope showed a visible video. */
+    private var sawVideo = false
 
     @Synchronized
     fun navigate(pageUrl: String): BrowserCaptureScope? {
@@ -51,6 +53,18 @@ class MasterBrowserSession {
             protected
         ) return null
         return previousPlayer?.takeIf { it.visible && !it.paused && it.ready >= 2 }
+    }
+
+    /**
+     * Social plan task 14 (observation e): whether a frame sampled on [pageUrl]'s page of
+     * [generation] (the current scope only) showed a video — a visible `<video>` of the page or
+     * its focused player — so the lookup's words may ask the user to play it. False for another
+     * scope, after navigation and after [clear]. Memory only; no address or frame is kept for it.
+     */
+    @Synchronized
+    fun videoShown(pageUrl: String, generation: Long): Boolean {
+        val current = scope ?: return false
+        return current.pageUrl == pageUrl && current.generation == generation && sawVideo
     }
 
     @Synchronized
@@ -92,6 +106,9 @@ class MasterBrowserSession {
         val current = scope ?: return false
         if (frame.pageUrl != current.pageUrl || frame.generation != current.generation) return false
         protected = protected || frame.protected
+        // Task 14: the page's script lists only visible videos (their tags) and its focused player.
+        sawVideo = sawVideo || frame.player != null ||
+            frame.html?.contains("<video", ignoreCase = true) == true
         frame.html?.let { store.recordHtml(current.generation, it) }
         frame.payloads.forEach { body ->
             if (body.hashCode() !in payloadHashes &&
@@ -167,6 +184,7 @@ class MasterBrowserSession {
         previousPlayer = null
         previousSampleAt = 0
         protected = false
+        sawVideo = false
     }
 
     override fun toString(): String = "MasterBrowserSession(memoryOnly=true)"

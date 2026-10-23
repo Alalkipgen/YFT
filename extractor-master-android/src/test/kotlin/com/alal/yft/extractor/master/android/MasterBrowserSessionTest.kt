@@ -118,6 +118,34 @@ class MasterBrowserSessionTest {
     }
 
     @Test
+    fun theTabShowsAVideoOnlyAfterAFrameOfItsScopeShowedOne() {
+        // Social plan task 14 (observation e): a frame with a visible video's tag or the focused
+        // player says the tab has a video to play; a page without one (a wall, X's "not found")
+        // does not, nor does another scope's frame, a new page or a cleared session.
+        val session = MasterBrowserSession()
+        val first = session.navigate(page)!!
+        assertFalse(session.videoShown(page, first.generation))
+        val none = frame(first, 1.0).copy(player = null, html = "<meta property=\"og:title\" content=\"x\">")
+        assertTrue(session.accept(none, 100))
+        assertFalse(session.videoShown(page, first.generation))
+        // The script lists a visible video's own tag even when no player is focused (two alike).
+        assertTrue(session.accept(none.copy(html = "<VIDEO src=\"blob:x\"></VIDEO>"), 300))
+        assertTrue(session.videoShown(page, first.generation))
+        assertFalse(session.videoShown(page, first.generation + 1))
+        assertFalse(session.videoShown("$page/other", first.generation))
+
+        val second = session.navigate(page)!!
+        assertFalse(session.videoShown(page, second.generation))
+        assertFalse(session.accept(frame(first, 2.0), 500))
+        assertFalse(session.videoShown(page, second.generation))
+        // The focused player alone (paused too) is a video in the tab.
+        assertTrue(session.accept(frame(second, 0.0, paused = true), 700))
+        assertTrue(session.videoShown(page, second.generation))
+        session.clear()
+        assertFalse(session.videoShown(page, second.generation))
+    }
+
+    @Test
     fun debugTextNeverIncludesPathsAddressesBodiesOrCredentials() {
         val session = MasterBrowserSession()
         val scope = session.navigate(page)!!

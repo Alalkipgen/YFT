@@ -148,14 +148,52 @@ class SocialLadderXTest {
         val failed = recovered as SiteAdapterOutcome.Failed
         assertEquals(main.reason, failed.reason)
         assertTrue(failed.canRetry)
-        assertEquals("Play the video on this page, then tap Try again.", failed.message)
+        // Task 14 (observation e): no video in the tab (X's "post not found" page), so main's own
+        // words (with Try again), not the playback words; its line says which, before X1's.
+        assertEquals(XExtractor.HIDDEN_MESSAGE, failed.message)
+        assertEquals(main.message, failed.message)
+        val words = failed.details.indexOf("master: x words: main's (no video in the tab)")
+        assertTrue(failed.details.toString(), words >= 0)
         assertTrue(failed.details.toString(), failed.details.any { it.startsWith(NOT_FOUND_LINE) })
+        assertTrue(words < failed.details.indexOfFirst { it.startsWith(NOT_FOUND_LINE) })
         assertTrue(failed.details.toString(), failed.details.none { "REMOVED" in it || "next: FINAL" in it })
         // No new widget request (no X2, no token check): Master asks nothing; main asked once.
         assertEquals(0, fixture.master.asked.get())
         assertEquals(1, fixture.main.asked.get())
         assertEquals(1, fixture.captures.get())
         assertFalse(fixture.cooldown.cooling(WIDGET_HOST))
+    }
+
+    @Test
+    fun anAgeWallGetsTheSignInWordsAndAVideoInTheTabThePlaybackWords() = runTest {
+        // Task 14 (observation e): X's empty tombstone (X1: AGE_LIMITED, the browser next), the
+        // tab without a video: the sign-in words, main's reason kept (Try again); the same answer
+        // with a video in the tab, and the widget's 404 so too: the playback words.
+        val wall = NotFoundFixture(widget = "{\"__typename\":\"TweetTombstone\",\"tombstone\":{}}")
+
+        val (primary, recovered) = wall.lookup()
+
+        val main = primary as SiteAdapterOutcome.Failed
+        assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, main.reason)
+        val failed = recovered as SiteAdapterOutcome.Failed
+        assertEquals(main.reason, failed.reason)
+        assertTrue(failed.canRetry)
+        assertEquals("Sign in to X on this page first, then try again.", failed.message)
+        assertEquals(SocialLadder.signInMessage(KEY), failed.message)
+        assertTrue(failed.details.toString(), "master: x words: sign-in (AGE_LIMITED; no video in the tab)" in failed.details)
+        assertTrue(failed.details.toString(), failed.details.any { it.startsWith("master: x X1 main's answer: AGE_LIMITED (") })
+        assertEquals(1, wall.captures.get())
+
+        for (fixture in listOf(
+            NotFoundFixture(widget = "{\"__typename\":\"TweetTombstone\",\"tombstone\":{}}", tabVideo = true),
+            NotFoundFixture(tabVideo = true),
+        )) {
+            val played = fixture.lookup().second as SiteAdapterOutcome.Failed
+            assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, played.reason)
+            assertTrue(played.canRetry)
+            assertEquals("Play the video on this page, then tap Try again.", played.message)
+            assertTrue(played.details.toString(), "master: x words: playback (the tab shows a video)" in played.details)
+        }
     }
 
     @Test
@@ -239,12 +277,13 @@ class SocialLadderXTest {
         }
     }
 
-    /** Main's client: every GET a 404 (the widget's answer for the post). */
-    private class NotFound : ExtractorHttpClient {
+    /** Main's client: every GET a 404 (the widget's answer for the post), or [widget] (task 14). */
+    private class NotFound(private val widget: String? = null) : ExtractorHttpClient {
         val asked = AtomicInteger()
         override suspend fun get(url: String, headers: Map<String, String>, maxBodyBytes: Long): ExtractorHttpResult {
             asked.incrementAndGet()
-            return ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 404)
+            return widget?.let { ExtractorHttpResult.Success(200, it, url, "application/json") }
+                ?: ExtractorHttpResult.Failure(SiteExtractionFailure.HTTP_STATUS, 404)
         }
 
         override suspend fun postJson(
@@ -258,11 +297,12 @@ class SocialLadderXTest {
     /**
      * One X lookup as the app wires it in a social-ladder build: main's real X adapter over
      * [main] (the widget's 404), Master's engine with X's ladder over [master] (never asked) and a
-     * tab playback that finds nothing.
+     * tab playback that finds nothing; task 14: main's [widget] answer instead of the 404, and
+     * whether the tab showed a video ([tabVideo]).
      */
-    private class NotFoundFixture {
+    private class NotFoundFixture(widget: String? = null, tabVideo: Boolean = false) {
         val cooldown = SocialCooldown()
-        val main = NotFound()
+        val main = NotFound(widget)
         val master = NoAsks()
         val captures = AtomicInteger()
         private val capture = WebViewPlaybackCapture(true)
@@ -294,6 +334,7 @@ class SocialLadderXTest {
             requestFactory = { reason, at, expected -> MasterRequest(POST, scope.generation, at, reason, expected) },
             socialLadder = true,
             socialCooldown = cooldown,
+            tabVideo = { tabVideo },
         )
 
         /** Main's answer, then Master's, in one lookup. */

@@ -39,8 +39,10 @@ state). Task 12 (the engine's capture answer keeps the ladder's Details lines; t
 lookups ask main every time, so the first lookup's ladder reads main's answer: observations (a),
 (b) and (g); debug only, behind the flag) built (2026-10-22; §7.3). Task 13 (S2d part 2:
 Instagram's tab-fetch rung, decision 24; observations (d) and (f); debug only, behind the flag and
-the rung's own switch, off by default) built (2026-10-22; §7.3). Next: task 14 (§7.3: the playback
-words), then the owner's phone session (§7.4).**
+the rung's own switch, off by default) built (2026-10-22; §7.3). Task 14 (the playback words only
+where a video can play: a wall → the sign-in words, no video in the tab → main's words with Try
+again; observation (e); words only, debug only, behind the flag; the words are the owner's call)
+built (2026-10-23; §7.3). Next: the owner's phone session (§7.4).**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -300,7 +302,14 @@ words), then the owner's phone session (§7.4).**
   တစ်ခုမှာ တစ်ခါပဲ မေး၊ post နဲ့ link ရဲ့ item ရဲ့ row ကိုပဲ V နဲ့ init check ပြီးမှ သုံး (wall ပြတဲ့
   page ရဲ့ answer ကို ဘယ်တော့မှ မဖတ်); embed page ရဲ့ "video ရှိပေမဲ့ file မပါ" က
   `VIDEO_WITHOUT_FILES` (d); rung ရဲ့ Details line က row ရတဲ့ lookup မှာလည်း trial banner ထဲ ပေါ် (f)။
-  နောက်တစ်ဆင့်: task 14 (playback words)၊ ပြီးရင် ပိုင်ရှင်ရဲ့ phone session (§7.4)။
+  Task 14 ပြီးပါပြီ (2026-10-23; debug only၊ flag နောက်မှာ၊ words ပဲ ပြောင်း): ladder claim တဲ့ lookup
+  က playback လိုသေးရင် "Play the video on this page, then tap Try again." ကို tab မှာ video ပြမှ
+  (ဒါမှမဟုတ် site ရဲ့ answer က post ရဲ့ video ကို ပြောမှ) ပဲ ပြ; sign-in wall ဒါမှမဟုတ် age wall
+  (`LOGIN_WALL`၊ `AGE_LIMITED`) → sign-in words (main ရဲ့ reason က `LOGIN_REQUIRED` ဆို main ရဲ့ ကိုယ်ပိုင်
+  words); tab မှာ video မရှိ → main ရဲ့ words၊ Try again နဲ့ (e)။ Reason က main ရဲ့ အတိုင်း (X ရဲ့ 404
+  final မဖြစ်: task 0; Instagram ရဲ့ removed post final မဖြစ်: decision 20 (ii)); Details line
+  "master: <site> words: …" က ဘယ် words လဲ၊ ဘာကြောင့်လဲ ပြော။ Words တွေက ပိုင်ရှင်ရဲ့ ဆုံးဖြတ်ချက်
+  (§7.3)။ နောက်တစ်ဆင့်: ပိုင်ရှင်ရဲ့ phone session (§7.4)။
 
 ## 1. Audit — what exists today
 
@@ -627,7 +636,7 @@ With no adapter copies (B), the build is also about 4,700 lines smaller than the
 | **S1a** | L | The kit's minimum with the pilot's pack, Facebook (the first draft's S1 and S2a together), flag `-Pyft.socialLadder` (off = today): the recorder in the app's lookup path, judge classes, the site table, one judged request rung + L3 + capture, budgets and the 30-minute cooldown (S7), `SiteRowCheck` + `InitCheck` on every Master row, Facebook's anchors, post-identity mutation tests, a simulator world (§7.3) | JVM tests, simulator and CI green; flag off = today; the D7-style APK's phone proof (§7.3) — **passed (2026-10-21, §7.4 step 6's re-run)** |
 | **S2b** | M | TikTok's pack (§7.3) | phone proof; wrong rows 0; no regression against B0 — built (2026-10-21, behind the flag); the phone (2026-10-22, `36ec093`): main PASS, T1's rows 6 of 6 on the New York exit, wrong 0; T2 untested; its intended difference accepted (decision 23) |
 | **S2c** | M | X's pack: main's answer replayed, no new ask (X2 not now; §7.3) | the same — built (2026-10-21, behind the flag); the phone (2026-10-22, `36ec093`): A PASS, wrong 0; tasks 12 and 14 (§7.3) before its S5 |
-| **S2d** | M | Instagram's pack by the Instagram check's verdict (0.2); the owner's signed-in census first (§7.3) | the same — part 1 built (2026-10-22, behind the flag: I2 and the tab-fetch probe, off by default); the phone (2026-10-22, `36ec093`): A PASS on 3 sessions, wrong 0; the probe: slot 5 video yes, slot 9 no; part 2 (the probe's rung, decision 24): built (task 13, 2026-10-22; behind its own switch, off by default), its phone proof next (§7.4); task 12 built, task 14 next |
+| **S2d** | M | Instagram's pack by the Instagram check's verdict (0.2); the owner's signed-in census first (§7.3) | the same — part 1 built (2026-10-22, behind the flag: I2 and the tab-fetch probe, off by default); the phone (2026-10-22, `36ec093`): A PASS on 3 sessions, wrong 0; the probe: slot 5 video yes, slot 9 no; part 2 (the probe's rung, decision 24): built (task 13, 2026-10-22; behind its own switch, off by default), its phone proof next (§7.4); tasks 12 and 14 built |
 | **S3** | S–M | Weekly check W for all four + runbook (each CHANGED / BREAKING line and its fix: a data change via R9, or code) | the owner's first W run — built (2026-10-22, debug only, a social-ladder build: the census's "Weekly check W"; its runbook §7.5); its first runs C1–C3 PASS (2026-10-22, `36ec093`; W's baselines per network and session: decision 25) |
 | **S4** | S | R9 live: the owner signs and hosts the config (§8 item 5, decided before S4); kill switch per rung; one repair drill (a key changed by config on the phone, no APK) | drill passed |
 | **S5** | — | Promote per site after 3 phone runs by decision 26's rule (each at least 6 h after the previous one, the first and the last at least 24 h apart, on an APK of the final code, only where Master ran) with 0 wrong rows and no regression against B0; then the release gate (§7.3): all four sites, the first W run and the R9 drill passed, the intended differences in `docs/SUPPORT_MATRIX.md` → PR #2 merged → P8 (beta.4) | the owner's go |
@@ -1148,10 +1157,32 @@ and W: no tab, so the rung is never asked there and not listed among the rungs (
 within W's Instagram caps, 24 requests, 2 MB, 60 s, or the census's); W's lines against C1–C3:
 none change (where the embed page's video without files is I2's answer, I2's state reads `run
 (VIDEO_WITHOUT_FILES)` in place of another class; the diff compares no rung's state).
-**Task 14** (behind the flag; not built): the playback words only where a
-video can play (observation (e)): a sign-in or an age wall → sign-in words; no video in the tab →
-main's reason with Try again; only the words change (X's 404 stays never final, task 0; an
-Instagram removed post stays not final, decision 20 (ii)).
+**Task 14** (observation (e); debug only, behind the flag; built 2026-10-23): the playback words
+only where a video can play. A lookup a social ladder claims that Master answers "needs playback"
+(the tab's own playback found nothing) gets its words by the tab and the judge's class, in this
+order (`SocialLadder.playbackWords`): (1) the tab showed a video — a frame of the lookup's page and
+generation listed a visible `<video>` or its focused player (`MasterBrowserSession.videoShown`;
+memory only, reset by a new page) → the playback words, "Play the video on this page, then tap Try
+again.", as before; (2) the site's own answer names the post's video — Master's lines of the site
+(another site's are not read): rows read and none kept (`DIRECT`, `PARTIAL`), Instagram's
+`VIDEO_WITHOUT_FILES` or the rung's "the post's video in the answer: yes", Facebook's plugin
+player, TikTok's "names the video", X's item playlist → the playback words (the page plays it once
+the user does; a lookup before the tab's first frame keeps them); (3) a sign-in or an age wall
+(`LOGIN_WALL`, `AGE_LIMITED`) → the sign-in words: main's own when its reason is `LOGIN_REQUIRED`
+(Instagram signed out: "Instagram shows this post only to signed-in viewers. Log in to Instagram in
+YFT's browser, then try again."; signed in: its own refusal's), else the app's words for that
+reason, "Sign in to <site> on this page first, then try again." (X's empty tombstone: main's reason
+is `NO_MEDIA_FOUND`); (4) else, no video in the tab → main's words (X's widget 404 and its
+tombstones: "X shows this post only to signed-in viewers (it may be protected, age-restricted or
+deleted). Open it in YFT's browser, sign in to X and play the video."; Instagram's "no post"; the
+trial's "Master found none"). A Details line says which and why, first among Master's lines:
+"master: <site> words: playback (the tab shows a video)", "… words: playback (the site's answer
+names the video: CLASS or its mark)", "… words: sign-in (LOGIN_WALL; no video in the tab)", "…
+words: main's (no video in the tab)" — words only, never a link or an ID. Only the words change:
+the reason stays main's, so Try again stays where it is not final (X's 404 never final, task 0; an
+Instagram removed post not final, decision 20 (ii)); no new request, no new row; YouTube's lookups,
+a lookup no ladder claims and every other build as before. **The words are the owner's call**
+(proposed here: the order above and main's own words; §7.4 shows them on the phone).
 Each site: a D7-style phone proof, wrong rows 0, no regression against B0.
 
 **S3 and S4** as in §7: W (≤ 1 min, ≤ 2 MB per site) with the diff and the runbook; R9 live (the
@@ -1164,20 +1195,21 @@ Master ran; wrong rows 0, no regression against B0), the first W run passed, the
 the intended differences listed in `docs/SUPPORT_MATRIX.md` → PR #2 merged → P8 (beta.4) →
 others get the app.
 
-**The gate's state** (after the phone session of 2026-10-22 and tasks 12–13; kept current by each
+**The gate's state** (after the phone session of 2026-10-22 and tasks 12–14; kept current by each
 commit):
 
 | Site | Its pack and phone proof | W's first run (C) | Intended differences listed | S5 (decision 26) |
 | --- | --- | --- | --- | --- |
 | Facebook | S1a built; phone proof PASS (2026-10-21); A PASS (2026-10-22, `430da9f`) | C1, C2 PASS | Master's rows 2 against main's 3 (task 7) | not started |
 | TikTok | S2b built; main PASS (`36ec093`); T1 proven on New York (rows 6 of 6, wrong 0); T2 untested | C1 PASS (VPN only: no network without it) | T1 one row, at most 1280 (decision 23) | not started |
-| X | S2c and task 0 built; A PASS (`36ec093`); task 12 built (the first lookup, X1's lines kept); task 14 changes its lookups | C1, C2 PASS | `{}`, the notice tombstone, the 404 never final (decision 21) | not started |
-| Instagram | S2d part 1 built; A PASS on 3 sessions; task 12 built (the first lookup, I2's lines kept); part 2 (decision 24) built (task 13: the rung, its own switch off by default; its phone proof next, §7.4); task 14 changes its lookups | C1, C2, C3 PASS | the 360p file, never "removed" (decision 20) | not started |
+| X | S2c and task 0 built; A PASS (`36ec093`); task 12 built (the first lookup, X1's lines kept); task 14 built (the 404's and the tombstones' words: main's, with Try again; the empty tombstone's: the sign-in words) | C1, C2 PASS | `{}`, the notice tombstone, the 404 never final (decision 21) | not started |
+| Instagram | S2d part 1 built; A PASS on 3 sessions; task 12 built (the first lookup, I2's lines kept); part 2 (decision 24) built (task 13: the rung, its own switch off by default; its phone proof next, §7.4); task 14 built (a wall's words: main's sign-in words, e.g. slot 9) | C1, C2, C3 PASS | the 360p file, never "removed" (decision 20) | not started |
 
 Every site: S4 (R9 live, its drill) waits for decision 5; then S5, PR #2's merge, P8. Task 12
 changed the engine for every site's claimed lookups (the capture's answer keeps the ladder's lines)
-and the trial's lookups (main asked every time), task 13 Instagram's pack (the rung): S5 starts on
-the APK after tasks 12–14 anyway.
+and the trial's lookups (main asked every time), task 13 Instagram's pack (the rung), task 14 the
+words of every site's claimed lookups that need playback (words only): S5 starts on the APK after
+tasks 12–14 anyway.
 
 **After the release** (each on the owner's go): S1b, X2, the "all items" feature, B+ (S6), A.
 
@@ -1567,17 +1599,29 @@ commit and the run; the VPN is New York for TikTok and W, Boston elsewhere: deci
     again (Try again: a new lookup; the rung asks once per lookup), and the lines read "I2's rows set aside
     (the rung's proof)" and the rung's own line with rows N: Master's rows (the rung's) of the same
     item, V pass, wrong 0; then turn the proof box off.
-  - slot 9 (the age-restricted reel): task 14's sign-in words, no row (the rung's line: video no,
-    "rows 0 (NEEDS_PLAYBACK: no post in the answer: …)", or a wall: "rows 0 (LOGIN_WALL: a wall
-    on the page: never read)").
+  - slot 9 (the age-restricted reel): task 14's sign-in words, main's own ("Instagram shows this
+    post only to signed-in viewers. Log in to Instagram in YFT's browser, then try again.", Try
+    again kept), and in Details, first among Master's lines, "master: instagram words: sign-in
+    (LOGIN_WALL; no video in the tab)"; no row (the rung's line: video no, "rows 0
+    (NEEDS_PLAYBACK: no post in the answer: …)", or a wall: "rows 0 (LOGIN_WALL: a wall on the
+    page: never read)"). "words: playback (the tab shows a video)" there: note it (a video behind
+    the wall), a finding for the words, not a failure of the rows.
   - slot 8 (photos only): main's words, no request (the rung not asked).
   - signed in (any slot, the same box on): the rung's line "not asked (signed in: the rung is the
     signed-out query)" or "not asked (the tab is signed in)", no rung request.
 - **The first lookup (task 12, built), signed out, no VPN:** Instagram slots 1 and 5 and X slot 6
   → rows on the first lookup, no Try again (also after the same link's lookup on Home first, and
   after the page started again); X slots 7 and 8 → X1's line in Details before the tab's playback
-  line and task 14's words. Any "none kept for the post (main asked nothing in this lookup: …)"
-  line: note which words and what ran just before (Home's lookup of the same link still running).
+  line, and task 14's words: main's ("X shows this post only to signed-in viewers (…)", Try again
+  kept, never "removed"), the line "master: x words: main's (no video in the tab)" first among
+  Master's lines. Any "none kept for the post (main asked nothing in this lookup: …)" line: note
+  which words and what ran just before (Home's lookup of the same link still running).
+- **Task 14's words (built; the owner's call), on every lookup above that needs playback:** note
+  the words and the line "master: <site> words: …". Expected: "words: playback" only on a page
+  whose video plays (Facebook's plugin player, Instagram slot 5 without the rung's rows: "the
+  site's answer names the video: VIDEO_WITHOUT_FILES", or "the tab shows a video"); a wall: the
+  sign-in words; X's "post not found" and every page without a video: main's words, with Try
+  again. Words to change: the owner says which (the proposal: §7.3's task 14).
 - **B3's short set again, `yft-d7-social-trial`, the same networks as on 2026-10-22:** Facebook
   links 1 and 10, Instagram slots 1 and 8, TikTok slots 1 and 6 (the VPN New York), X slots 6 and
   8; each as §7.4 B said before (Facebook 1: Master's rows of the same video, yes/yes; Facebook
@@ -1589,7 +1633,8 @@ commit and the run; the VPN is New York for TikTok and W, Boston elsewhere: deci
   slot 1 as before: Facebook F1 2 against 3, TikTok T1, Instagram I2, X X1, wrong 0); TikTok
   without the VPN stops at 60 s again (not a failure). Tasks 12–14 say here any W line they
   change (task 12: none; task 13: none — W has no tab, so the rung is never asked; I2's state may
-  read `run (VIDEO_WITHOUT_FILES)`, a state the diff does not compare).
+  read `run (VIDEO_WITHOUT_FILES)`, a state the diff does not compare; task 14: none — W shows no
+  words and has no tab).
 - **Then S5 (decision 26)** starts on that APK, if no code changes: per site 3 runs, each at least
   6 h after the previous one, the first and the last at least 24 h apart, only where Master ran.
 
@@ -1828,7 +1873,8 @@ each one's implementation status):
   (`efc3670`); (iii) changed by task 0 (2026-10-22, §7.3): the 404 → `NEEDS_PLAYBACK`, never
   final; the existing playback and browser fallback follow; when they find nothing, main's reason
   stays. Seen on the phone (2026-10-22, `36ec093`, A on both networks and B3: slots 7 and 8 need
-  playback, never "removed"); task 14 changes only the words shown there.
+  playback, never "removed"); task 14 (built, 2026-10-23) changes only the words shown there:
+  main's words with Try again when the tab shows no video, the playback words only when it does.
 - These acceptances are not a waiver: each site's phone proof, its regression check and the
   release gate (decision 12) still apply.
 
