@@ -688,7 +688,7 @@ for TikTok. No census run and no W in steps 1–4. The drill's versions publishe
 - Facebook link 1: step 4's lookup. Link 10 (the group post): "Facebook trial: main's rows were set
   aside and Master found none. Tap Try again."
 - Instagram slot 1: 720p · HD (612 × 612); `Master's rows 1, main's 1; the same item: yes; duration
-  within 1 s: yes; tallest: 612 vs 612` (I2; the probe off). Slot 8: "This post has photos only,
+  within 1 s: yes; tallest: Master's 612, main's 612` (I2; the probe off). Slot 8: "This post has photos only,
   no video.", no Try again.
 - X slot 6: `Master's rows 3, main's 3; the same item: yes; duration within 1 s: yes` on the first
   Download (720p, 480p, 360p). Slot 8: main's words ("X shows this post only to signed-in
@@ -708,3 +708,68 @@ for TikTok. No census run and no W in steps 1–4. The drill's versions publishe
   set; L1 and L3 seen.
 - O1 fixed by task 18 (`ac0dd2c`); next: the re-drill (`MASTER_KEY_SOCIAL_PLAN.md` §7.4), then S5
   from its first run.
+
+## 2026-10-23 — the re-drill (task 18) and S5's run 1 on `social-trial` ac0dd2c (run 39981426179)
+Rebuilt from the owner's screenshots and reports in the session; the phone's own notes, links and
+posts stay on the phone. As an Update; signed out; both census boxes unticked; no VPN unless said;
+the VPN's New York exit for TikTok. No census run and no W until test 3 ended. The drill's versions
+published 17:02 and 17:11 UTC (`MASTER_KEY_SOCIAL_PLAN.md` §7.4).
+
+### Test 1 — the key change again (`drill-key-change`, version 6, run 39991768868) — PASS
+- Facebook link 1: Master's rows 720p · HD (720 × 720, 4.5 MB) and 360p (400 × 400, 1.7 MB), the
+  audio rows M4A (size unknown) and MP3 128 kbps (~695 KB, made on the phone);
+  `master: facebook ladder after RESPONSE_CHANGED; replayed 0; new 1; trial: Master's rows 2,
+  main's 3; the same video: yes; duration within 1 s: yes; heights 720,400 vs not stated` and under
+  it `master: facebook contract: 2 files by shape (key table changed)`.
+- The 720p download plays with sound. O1 gone: S4's step 3 read "5 files by shape", Master's rows
+  3 (720, 400, 224), duration no.
+
+### Test 2 — back to the defaults (`defaults`, version 7, run 39992973006) — PASS
+- Facebook link 1: the same trial line, no key table line; a download plays with sound.
+
+### Test 3 — B3's short set (version 7) — PASS
+- Facebook link 10 (the group post): "Facebook trial: main's rows were set aside and Master found
+  none. Tap Try again."
+- Instagram slot 1: `master: instagram ladder after RESPONSE_CHANGED; main's answers read, no new
+  ask; trial: Master's rows 1, main's 1; the same item: yes; duration within 1 s: yes; tallest:
+  Master's 612, main's 612` and `master: instagram probe: off`. Slot 8: "This post has photos only,
+  no video.", no Try again.
+- X slot 6: `master: x ladder after RESPONSE_CHANGED; main's answer replayed, no new ask; trial:
+  Master's rows 3, main's 3; the same item: yes; duration within 1 s: yes`. Slot 8: main's words
+  ("X shows this post only to signed-in viewers (it may be protected, age-restricted or deleted).
+  …") with main's Try again, no row.
+- TikTok, VPN New York: slot 6 "This TikTok post has no downloadable video.", no Try again; slot 1
+  `master: tiktok ladder after RESPONSE_CHANGED; replayed 0; new 1; trial: Master's rows 1, main's
+  3; the same video: yes; duration within 1 s: yes`.
+
+### S5's run 1 — the census, every site (version 7; mobile data) — PASS, counted
+- TikTok, VPN New York, 17:27 UTC: 9 rows, 56 requests, 1.5 MB, 55 s; NO CHANGE against 2026-10-23
+  14:15 UTC; all 9 as expected; main's V pass 6; ladder: parts 9, rows 6, the same video 6, V pass
+  6, wrong 0, unknown 0 (T1's rows on slots 1–5 and 10: the embed player, then the file check;
+  slots 8 and 9 needs playback: the embed player's 400, T2 playback, T3 no tab; slot 6 route B
+  NO_MEDIA_FOUND, T1 not run (final)).
+- Facebook, no VPN, 17:28 UTC: 13 rows, 73 requests, 5.4 MB, 60 s; NO CHANGE against 2026-10-22
+  11:23 UTC; not as expected 0, ambiguous 1 (slot 12 sign-in-only, no session); main's V pass 11;
+  ladder: parts 13, rows 9, the same video 9, V pass 9, wrong 0, unknown 0 (F1's rows 2 against
+  main's 3 on slots 1–8 and 11: the plugin player, then 2 file checks; slots 9 and 10 needs
+  playback: F1 not run (no video), F2 playback; slot 12 route B: F1 SHAPE_CHANGED, F2 playback;
+  slot 13 final, F2 FINAL).
+- Instagram, no VPN, signed out, 17:29 UTC: 10 rows, 46 requests, 2.0 MB, 33 s; NO CHANGE against
+  2026-10-22 14:22 UTC; not as expected 1 (slot 5 reel LOGIN_REQUIRED [browser], = baseline,
+  main's known signed-out gap), ambiguous 1 (slot 10 removed, no session); main's V pass 6; ladder:
+  parts 7, rows 6, the same item 6, V pass 6, wrong 0, unknown 0 (I2's rows on slots 1–4, 6 and 7:
+  Master's tallest = main's on slots 1–4 and 6; slot 7 item 1 of 3, main's states no size,
+  duration unknown; slot 8 route B I2 PHOTO_ONLY; slots 5, 9 and 10 Master not run,
+  browser-required).
+- X, no VPN, 17:31 UTC: 8 rows, 36 requests, 0.1 MB, 11 s; NO CHANGE against 2026-10-22 14:13 UTC;
+  all 8 as expected; main's V pass 6; ladder: parts 8, rows 6, the same item 6, V pass 6, wrong 0,
+  unknown 0 (X1's rows = main's on slots 1–6; slot 4 the GIF, duration unknown; slots 7 and 8 route
+  B needs playback: X1 AGE_LIMITED, NEEDS_PLAYBACK).
+- Counted for S5 (decision 26): Master ran on every site; each report's notes `recipes: remote
+  version 7, signed`.
+
+### Verdict of the re-drill and S5's run 1
+- PASS: the key change read by shape with exactly the video's 2 files (O1 fixed by task 18), back
+  to the defaults, B3's short set.
+- S5: run 1 of 3 on every site; run 2 per site from 6 h later (2026-10-23 23:27–23:31 UTC), run 3
+  from 2026-10-24 17:27–17:31 UTC and 6 h after run 2.

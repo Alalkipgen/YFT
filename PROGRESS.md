@@ -1,5 +1,33 @@
 # YFT Master Extractor backup
 
+## Social plan — the re-drill PASS on task 18's APK; S5's run 1 of 3 PASS on every site (2026-10-23)
+
+- **The re-drill** (the owner, 2026-10-23 17:02–17:25 UTC; `yft-d7-social-trial` of `ac0dd2c` (run
+  39981426179), as an Update; signed out; plan §7.4, `docs/PHONE_TEST_NOTES.md`): **PASS** — (1)
+  version 6, `drill-key-change` (the workflow's run 39991768868, `27df6a8`): Facebook link 1's rows
+  720p · HD (720 × 720) and 360p (400 × 400), `master: facebook contract: 2 files by shape (key
+  table changed)`, `Master's rows 2, main's 3; the same video: yes; duration within 1 s: yes;
+  heights 720,400 vs not stated`, the 720p download plays with sound — O1 gone; (2) version 7,
+  `defaults` (run 39992973006): no key table line, the same trial line; (3) B3's short set as S4's
+  step 5 (Instagram slot 1's line reads `tallest: Master's 612, main's 612`; the docs' earlier
+  quote `612 vs 612` corrected).
+- **S5's run 1** (decision 26; right after; the same APK, version 7, signed out, the boxes
+  unticked, no W): **PASS on every site, counted** — TikTok 17:27 UTC (New York), Facebook 17:28,
+  Instagram 17:29, X 17:31: wrong rows 0 on each (Master's rows 6, 9, 6 and 6, each the same video
+  or item, V pass), NO CHANGE against each site's baseline; Instagram's slot 5 not as expected
+  (main's known signed-out gap, as its baseline); Facebook's slot 12 and Instagram's slot 10
+  ambiguous (no session).
+- **CI** (`ec13c40`'s fix seen working): `ec13c40` ran in full (a workflow change: the checkpoint
+  39987806939 and the APK push build 39987799877 green); the docs-only `27df6a8`: the checkpoint
+  39990428177 with `scope` passed and `validate` skipped, in about a minute.
+- Docs: the plan (the status lines, the Burmese summary, the S4 and S5 rows, task 18's re-drill,
+  the gate's state, §7.4's results, decision 26's status; Instagram slot 1's quote),
+  `docs/PHONE_TEST_NOTES.md` (the re-drill and S5's run 1; slot 1's quote), `docs/SUPPORT_MATRIX.md`
+  (R9's row: the re-drill), `docs/TEST_MATRIX.md` (1 row) and this entry.
+- **Next:** S5's run 2 per site from 6 h after its run 1 (2026-10-23 23:27–23:31 UTC), run 3 from
+  2026-10-24 17:27–17:31 UTC and 6 h after run 2; the same way; no label and no change to a site's
+  pack, the engine or main meanwhile (it restarts that site's count).
+
 ## CI — a docs-only push to the work branch skips the checkpoint's Gradle job (2026-10-23)
 
 - **Why it ran** (the owner's question): "Work-branch checkpoint validation" starts on draft PR
