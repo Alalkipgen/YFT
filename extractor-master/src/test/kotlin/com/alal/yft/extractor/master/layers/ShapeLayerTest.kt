@@ -80,6 +80,30 @@ class ShapeLayerTest {
     }
 
     @Test
+    fun `a player's stand-in file and a site's build resource are never the video's (task 18, O1)`() {
+        // The Facebook plugin player's config (S4's phone session, 2026-10-23): its own video ID
+        // anchors its stand-in file (`abortDummy`) as well as its 2 files.
+        val config = """{"video_id":"555","videoData":[{"video_id":"555",""" +
+            """"hd_src":"https://video.example-cdn.test/v/main-720.mp4",""" +
+            """"sd_file_v2":"https://video.example-cdn.test/v/main-360.mp4"}],""" +
+            """"abortDummy":"https://static.example-cdn.test/rsrc.php/v/stand-in.mp4",""" +
+            """"placeholder":{"src":"https://media.example-cdn.test/v/blank.mp4"},""" +
+            """"dummy_videos":["https://media.example-cdn.test/v/dummy-1.mp4"],""" +
+            """"endScreen":{"clip":"https://static.example-cdn.test/rsrc.php/v/end.mp4"}}"""
+        val files = setOf(
+            "https://video.example-cdn.test/v/main-720.mp4",
+            "https://video.example-cdn.test/v/main-360.mp4",
+        )
+        listOf("555", null).forEach { id ->
+            assertEquals("id $id", files, collect(PAGE, api = config, id = id).candidates.map { it.mediaUrl }.toSet())
+        }
+        // The control: the same neutral key off the build path is read, anchored to the video.
+        val control = config.replace("rsrc.php/v/end.mp4", "v/end.mp4")
+        val end = collect(PAGE, api = control, id = "555").candidates.single { it.mediaUrl.endsWith("/v/end.mp4") }
+        assertEquals(PageMediaRole.MAIN, end.pageRole)
+    }
+
+    @Test
     fun `finders read scripts by type, assignments, JSON in strings and entity-encoded JSON`() {
         val found = collect("https://www.example.test/watch/555", html = shape("finders.html"), id = "555")
         assertEquals(

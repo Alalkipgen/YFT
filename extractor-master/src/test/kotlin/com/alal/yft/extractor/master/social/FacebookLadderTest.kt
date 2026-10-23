@@ -452,15 +452,22 @@ class FacebookLadderTest {
         /** Main's page answer for a link, its final address [finalUrl]. */
         fun page(finalUrl: String) = ExtractorHttpResult.Success(200, "<html>main's page</html>", finalUrl, HTML)
 
-        /** The plugin player's shape (FacebookContractTest's, live 2026-10-10) for [video]. */
+        /**
+         * The plugin player's shape (FacebookContractTest's, live 2026-10-10 and 2026-10-23: the
+         * video's page link under `video_url` and the player's stand-in file under `abortDummy`)
+         * for [video].
+         */
         fun embed(video: String, files: Boolean = true): String {
             val hd = if (files) "\"${hd(video).replace("/", "\\/")}\"" else "null"
             val sd = if (files) "\"${sd(video).replace("/", "\\/")}\"" else "null"
             return "<!DOCTYPE html><html><head><title>Facebook</title></head><body>" +
                 "<script nonce=\"fixture\">requireLazy([\"TimeSliceImpl\",\"ServerJS\"],function(TimeSlice,ServerJS){" +
                 "var s=(new ServerJS());s.handle({\"instances\":[[\"__inst_fixture\",[\"VideoConfig\"],[{" +
-                "\"ad_client_token\":null,\"video_id\":\"$video\",\"videoData\":[{\"is_hls\":false," +
-                "\"video_id\":\"$video\",\"hd_src\":$hd,\"sd_src\":$sd,\"dash_manifest\":null," +
+                "\"ad_client_token\":null,\"video_id\":\"$video\",\"video_url\":\"\\/fixture\\/videos\\/$video\\/\"," +
+                "\"abortDummy\":\"https:\\/\\/static.example-cdn.test\\/rsrc.php\\/v\\/stand-in.mp4\"," +
+                "\"videoData\":[{\"is_hls\":false,\"video_id\":\"$video\"," +
+                "\"video_url\":\"https:\\/\\/www.facebook.com\\/fixture\\/videos\\/$video\\/\"," +
+                "\"hd_src\":$hd,\"sd_src\":$sd,\"dash_manifest\":null," +
                 "\"original_height\":720,\"original_width\":1280,\"videoLicenseUriMap\":{}," +
                 "\"graphApiVideoLicenseUri\":null,\"OzDrmHelper\":null}]}],1]]});});</script></body></html>"
         }

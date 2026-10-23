@@ -9,7 +9,6 @@ import com.alal.yft.extractor.api.json.JsonValue
 import com.alal.yft.extractor.api.json.asLongOrNull
 import com.alal.yft.extractor.api.json.asStringOrNull
 import com.alal.yft.extractor.api.json.get
-import com.alal.yft.extractor.generic.classifier.MediaUrlClassifier
 import com.alal.yft.extractor.master.MasterRequest
 import com.alal.yft.extractor.master.PageSnapshot
 import com.alal.yft.extractor.master.policy.TerminalRules
@@ -33,6 +32,9 @@ import java.net.URI
  * MIME type, or a media-hinted key next to file facts (width, bitrate, …). Every node is
  * **anchored to the expected content ID** ([AnchoredMediaWalk]); without one, nothing L3 finds
  * is named the page's main video, so only the playing file (or its group) can select it.
+ * Social plan task 18 (O1): never a player's stand-in file ([MediaKeyTable.STAND_IN_HINTS] on its
+ * key, its object's or its list's: the Facebook plugin player's `abortDummy`, anchored by the
+ * config's own video ID) nor a site's build resource ([UrlPolicy.buildResource]).
  *
  * Additive: [LayerStack] drops what an earlier layer already found, and L3 rows are
  * [CandidateConfidence.MEDIUM], so they never displace L1/L2/L4 rows under the candidate cap.
@@ -234,6 +236,12 @@ internal class ShapeLayer : MasterLayer {
             }
             if (MediaKeyTable.hinted(name, MediaKeyTable.IMAGE_HINTS)) return null
             if (MediaKeyTable.AD_HINTS.containsMatchIn(name)) return null
+            // Task 18 (O1): a player's stand-in file (its key, its object's or its list's says so)
+            // or a site's build resource is no video's file, anchored or not.
+            if (listOf(name, visit.key, listParent).any { MediaKeyTable.hinted(it, MediaKeyTable.STAND_IN_HINTS) }) {
+                return null
+            }
+            if (UrlPolicy.buildResource(raw)) return null
             if (imageExtension(raw)) return null
             val siblingMime = sibling(visit.node)?.takeIf { addressKey(name) }
             if (siblingMime != null) return siblingMime
@@ -311,15 +319,8 @@ internal class ShapeLayer : MasterLayer {
 
         fun host(url: String): String? = runCatching { URI(url).host?.lowercase() }.getOrNull()
 
-        private fun extension(url: String): String =
-            runCatching { URI(url).path }.getOrNull().orEmpty()
-                .substringAfterLast('/').substringAfterLast('.', "").lowercase()
+        fun hasMediaExtension(url: String): Boolean = UrlPolicy.mediaExtension(url)
 
-        fun hasMediaExtension(url: String): Boolean {
-            val ext = extension(url)
-            return ext == "m3u8" || ext == "mpd" || MediaUrlClassifier.isDirectExtension(ext)
-        }
-
-        fun imageExtension(url: String): Boolean = extension(url) in MediaKeyTable.IMAGE_EXTENSIONS
+        fun imageExtension(url: String): Boolean = UrlPolicy.extension(url) in MediaKeyTable.IMAGE_EXTENSIONS
     }
 }

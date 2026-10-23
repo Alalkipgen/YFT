@@ -344,7 +344,8 @@ internal class ContractReader(
     /**
      * L4 + L3 over the whole answer when the key table found nothing (a renamed key). A JSON
      * answer is one video's; a page may also list others, so only rows anchored to the
-     * identified video count there.
+     * identified video count there. Social plan task 18 (O1): nor the video's own page on the
+     * answer's host ([pageOfAnswer]).
      */
     private fun openRead(): Evidence {
         val snapshot = if (recipe.html) {
@@ -357,13 +358,27 @@ internal class ContractReader(
             .collect(request.copy(expectedContentId = anchor, snapshot = null), snapshot)
         return found.copy(
             candidates = found.candidates.filter { row ->
-                allowedHost(row) && (anchor == null || row.pageRole == PageMediaRole.MAIN)
+                allowedHost(row) && !pageOfAnswer(row) && (anchor == null || row.pageRole == PageMediaRole.MAIN)
             },
             // An anonymous answer (no cookie of the user's) never decides access; DRM still stops.
             terminalFailure = found.terminalFailure?.takeIf {
                 it == SiteExtractionFailure.DRM_PROTECTED || recipe.cookieDomain != null
             },
         )
+    }
+
+    /**
+     * Social plan task 18 (O1, S4's phone session of 2026-10-23): the video's own page on one of
+     * the answer's hosts — its ID a path segment, no media file's extension — is no file: the
+     * plugin player's `video_url` (the key Instagram's file has), read twice by the open read
+     * ("5 files by shape": its 2 files, the page twice and the player's stand-in file). Left out,
+     * so no media check asks the site's page host for it; a play address there stays (TikTok's
+     * `/aweme/v1/play/`, no ID in its path).
+     */
+    private fun pageOfAnswer(row: MediaCandidate): Boolean {
+        val id = request.identity?.contentId ?: return false
+        return SiteContracts.hostIn(row.mediaUrl, recipe.answerHosts) &&
+            !UrlPolicy.mediaExtension(row.mediaUrl) && UrlPolicy.pathSegment(row.mediaUrl, id)
     }
 
     /** The values at [path] from [start]; `*` visits each item or value ([preferredBy] first). */

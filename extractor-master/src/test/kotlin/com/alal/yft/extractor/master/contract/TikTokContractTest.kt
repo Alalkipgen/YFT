@@ -174,6 +174,13 @@ class TikTokContractTest {
         assertEquals(listOf(EMBED_FILE), rows.map { it.mediaUrl })
         rows.forEach { assertEquals(KEY, it.videoId) }
 
+        // Task 18 (O1): a play address on the answer's own host is a file, not the video's page.
+        val play = "https://www.tiktok.com/aweme/v1/play/?file_id=fixture&item_id=$VIDEO&is_play_url=1"
+        val onHost = renamed.replace(EMBED_FILE, play).replace("\"videoMeta\":{", "\"width\":720,\"videoMeta\":{")
+        val played = contractEngine(answering(embedUrl(identity) to onHost, contentType = "text/html"))
+            .extract(contractRequest(PAGE, identity))
+        assertEquals(listOf(play), (played as MasterResult.Success).result.candidates.map { it.mediaUrl })
+
         listOf(
             EMBED.replace(VIDEO, "7399999999999999999"),
             Fixtures.read("tiktok/changed_markup.html"),

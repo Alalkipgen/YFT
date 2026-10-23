@@ -139,8 +139,14 @@ class FacebookContractTest {
         val found = contractEngine(answering(embedUrl(identity) to renamed, contentType = "text/html"), validator)
             .extract(contractRequest(WATCH, identity))
 
+        // Task 18 (O1): only its 2 files, never the page link or the player's stand-in file.
         val rows = (found as MasterResult.Success).result.candidates
-        assertTrue(rows.any { "embed-hd.mp4" in it.mediaUrl })
+        val files = setOf(
+            "https://video.example-cdn.test/v/embed-hd.mp4?oe=F2A52380&oh=fixture",
+            "https://video.example-cdn.test/v/embed-sd.mp4?oe=F2A52380&oh=fixture",
+        )
+        assertEquals(files, rows.map { it.mediaUrl }.toSet())
+        assertEquals(files, validator.seen.map { it.mediaUrl }.toSet())
         rows.forEach { assertEquals(KEY, it.videoId) }
 
         // Main's changed page: a renamed delivery key, found by shape under the video's own ID.
@@ -189,10 +195,14 @@ class FacebookContractTest {
         fun embedUrl(identity: SitePageIdentity) =
             "https://www.facebook.com/plugins/video.php?href=" + encode(identity.canonicalPageUrl)
 
-        /** The embed page's shape (live 2026-10-10), with fixture addresses. */
+        /**
+         * The embed page's shape (live 2026-10-10; 2026-10-23: the video's page link under
+         * `video_url`, in its data and relative beside it, and the player's stand-in file under
+         * `abortDummy`), with fixture addresses.
+         */
         val EMBED = """
             <!DOCTYPE html><html><head><title>Facebook</title></head><body>
-            <script nonce="fixture">requireLazy(["TimeSliceImpl","ServerJS"],function(TimeSlice,ServerJS){var s=(new ServerJS());s.handle({"instances":[["__inst_fixture",["VideoConfig"],[{"ad_client_token":null,"video_id":"$VIDEO","videoData":[{"is_hls":false,"video_id":"$VIDEO","hd_src":"https:\/\/video.example-cdn.test\/v\/embed-hd.mp4?oe=F2A52380&oh=fixture","sd_src":"https:\/\/video.example-cdn.test\/v\/embed-sd.mp4?oe=F2A52380&oh=fixture","dash_manifest":null,"original_height":720,"original_width":1280,"videoLicenseUriMap":{},"graphApiVideoLicenseUri":null,"OzDrmHelper":null}]}],1]]});});</script>
+            <script nonce="fixture">requireLazy(["TimeSliceImpl","ServerJS"],function(TimeSlice,ServerJS){var s=(new ServerJS());s.handle({"instances":[["__inst_fixture",["VideoConfig"],[{"ad_client_token":null,"video_id":"$VIDEO","video_url":"\/fixture\/videos\/$VIDEO\/","abortDummy":"https:\/\/static.example-cdn.test\/rsrc.php\/v\/stand-in.mp4","videoData":[{"is_hls":false,"video_id":"$VIDEO","video_url":"https:\/\/www.facebook.com\/fixture\/videos\/$VIDEO\/","hd_src":"https:\/\/video.example-cdn.test\/v\/embed-hd.mp4?oe=F2A52380&oh=fixture","sd_src":"https:\/\/video.example-cdn.test\/v\/embed-sd.mp4?oe=F2A52380&oh=fixture","dash_manifest":null,"original_height":720,"original_width":1280,"videoLicenseUriMap":{},"graphApiVideoLicenseUri":null,"OzDrmHelper":null}]}],1]]});});</script>
             </body></html>
         """.trimIndent()
     }

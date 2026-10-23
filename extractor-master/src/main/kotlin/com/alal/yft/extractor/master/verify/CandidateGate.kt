@@ -4,12 +4,17 @@ import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.PageMediaRole
 import com.alal.yft.extractor.master.toolkit.UrlPolicy
 
-/** What may be offered at all: HTTPS, unexpired, not DRM, not an ad and not a preview. */
+/**
+ * What may be offered at all: HTTPS, unexpired, not DRM, not an ad, not a preview and not a site's
+ * build resource ([UrlPolicy.buildResource], social plan task 18: whichever layer or capture found
+ * it).
+ */
 internal object CandidateGate {
     fun eligible(candidate: MediaCandidate, now: Long): Boolean =
         UrlPolicy.secure(candidate.mediaUrl) != null && candidate.drmHint != true &&
             candidate.pageRole != PageMediaRole.PREVIEW &&
             !UrlPolicy.looksLikeAd(candidate.mediaUrl) &&
+            !UrlPolicy.buildResource(candidate.mediaUrl) &&
             candidate.expiresAtEpochMs?.let { it > now } != false
 
     /**

@@ -20,7 +20,8 @@ import com.alal.yft.extractor.master.recipes.PayloadRecipes
  * media after a site renames a key. Changing a list here is a behavior change: bump [VERSION].
  */
 internal object MediaKeyTable {
-    const val VERSION = 1
+    /** 2: social plan task 18's [STAND_IN_HINTS]. */
+    const val VERSION = 2
 
     /** Known single-address keys and the MIME type L4 gives them (null: read from a sibling). */
     val ADDRESS_KEYS: Map<String, String?> = buildMap {
@@ -106,6 +107,13 @@ internal object MediaKeyTable {
     )
     val PREVIEW_HINTS = listOf("preview", "teaser", "trailer", "animated", "hover", "loop_")
     val AD_HINTS = Regex("""(?i)(?:^|_|\b)(?:ads?|advert|vast|preroll|pre_roll|sponsor)(?:_|$|\b)""")
+
+    /**
+     * Social plan task 18 (O1, S4's phone session of 2026-10-23): a key naming a player's stand-in
+     * file — the Facebook plugin player's `abortDummy`, one 400 × 224 frame of 0.03 s it loads to
+     * stop a download — names no video's file (the address's own key, its object's or its list's).
+     */
+    val STAND_IN_HINTS = listOf("dummy", "placeholder", "abort")
 
     /** Subtrees L3 never reads: YouTube streams belong to the YouTube module only (R2/R6). */
     val SKIP_SUBTREES = setOf("streamingData", "adPlacements", "playerAds", "adSlots")
