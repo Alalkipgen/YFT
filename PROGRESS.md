@@ -1,5 +1,86 @@
 # YFT Master Extractor backup
 
+## Social plan task 16 — Master's rows take their picture size from their files when the answer states none, and Facebook's trial line gives each side's heights (F6); Facebook's fewer rows listed as intended; decision 29 (2026-10-23)
+
+- **The finding** (the phone session of 2026-10-23, `yft-d7-social-trial` of `c3e9147`;
+  `docs/PHONE_TEST_NOTES.md`): Facebook link 1, no VPN: both of Master's 2 rows showed "Quality
+  unknown · As the page plays it" while main's 3 rows had their heights — the plugin player's
+  answer names no size (as it names no length: S1a (10)); Instagram slot 5's rung row too (F1 reads
+  the answer's size since `80f5518`; F6 is the fallback); TikTok slot 1's Master row stated its
+  size (720p, 718 × 1276): rows with a size stay as they are.
+- **The owner's decision 29** (plan §8; the task's brief): a Master row without a stated size takes
+  its file's own (F6); Facebook's fewer Master rows (2 against 3 on 2026-10-23: Master gives the
+  files the plugin player plays) are an intended difference, as B3 (`docs/SUPPORT_MATRIX.md`),
+  never a wrong row, not blocking S5 (wrong rows 0). F6 is task 16, so S4 is task 17.
+- **F6** — *Built* (`a87820e`, `[d7]`; debug only, behind the flag; Master's side only, main's adapters
+  unchanged): `StartPicture` (new, pure: never decodes, plays or asks) reads a file's picture size
+  from the bytes V already read of it (`SocialRowCheck.START_BYTES`, 4096): in its `moov` (a
+  progressive file's, walked as far as the bytes go, or a fragmented one's), track by track, a
+  picture track's header (`tkhd`, 16.16; the track's handler `vide`, or with no handler in the bytes
+  a non-zero size), else its first visual sample entry (`stsd`: `avc1`, `avc3`, `hvc1`, `hev1`,
+  `vp09`, `av01`); a 90° or 270° matrix swaps them; the first picture track with a size wins; each
+  side 16–8192; each box read only whole, at most 256 boxes. **Which box gives the size:** the track
+  header whenever it states one (a picture track's header normally states its presentation size:
+  link 1's progressive HD and SD files are expected to give it there); the sample entry only when
+  the header states 0 × 0. None (as today, "Quality unknown") for a picture track past the bytes
+  read (a `moov` after the samples, or a sound track first whose tables fill the read), a
+  sound-only file, a side out of bounds, bytes that are no MP4. `SocialRowCheck` (every site's
+  Master rows): a picture row (`video/…`) that passes and states no width and no height takes its
+  file's size (a stated side never overwritten; no other read, no larger read, no new ask in the
+  record). The sheet names it through main's path, no new words: `QuickDownloadMetadata.asset`
+  copies the row's size and `QuickDownloadChoices` names it (`standardHeight`: 1280 × 720 → "720p ·
+  HD", 718 × 1276 → 720p, 640 × 360 → "360p"; the detail "1280 × 720 · MP4"); P25's `updateSizes`
+  renames a row only after a later size probe measures its picture, so it is not needed (the row
+  states its size from the start); two rows at one height: the sheet's one row per resolution.
+  `TrialCompare`: Facebook's trial line ends `; heights M vs N` (Master's rows' heights, then
+  main's: each once, tallest first, `720,360`; `unknown` for a side whose rows state none); the
+  app's `SocialLadder.trialSegment` gives it unchanged. W's diff and the census report: no change
+  (neither prints the trial line).
+- Tests: `StartPictureTest` 6 (new; MP4 starts made in code: progressive with the picture and sound
+  tracks either way round, a cut `moov`, `tkhd` version 1, HEVC; fragmented (`mvex`, no samples),
+  VP9, AV1; 90° and 270° swapped, 180° not; `tkhd` 0 × 0 → `stsd`'s size, an unknown entry none;
+  sound-only, a `moov` past the bytes, a box longer than the read, garbage, every cut and 500
+  random starts → none or the size, never a failure); `FacebookLadderS6Test` +1 (a row without a
+  size takes its file's, turned and DASH too, the one read V makes; a row's own size, one side
+  alone too, kept; no size, sound-only, a sound row: unknown; in the lookup each row its file's);
+  `SiteCensusLadderTest` (Facebook's line ends with the heights: `720,360 vs 720,360`, `unknown vs
+  720`); `SocialTrialTest` +1 (link 1's form: the rows take 1280 × 720 and 640 × 360 from their
+  files' starts, each read once, nothing more asked, the line "…; heights 720,360 vs unknown";
+  starts without a size: unknown; flag off: no read, no size) and every Facebook line's new end;
+  `SocialLadderInstagramTest`, `SocialLadderXTest` (Facebook's line); `QuickDownloadChoicesTest` +1
+  (the sheet's names and details; one row at one height; "Quality unknown" without a size). Local:
+  `extractor-sites` 293, `extractor-master` 961 (2 skipped), `extractor-master-android` 70, `app`
+  1113 (66 skipped); lint 0 errors; `assembleDebug` and the flags-on build; drift 0 (177 symbols).
+- Docs: the plan (the status lines, the Burmese summary, §7.3's task 16 *Built*, §7.4 step 6 as
+  built, §8 decision 29, the stage and gate tables) and `docs/SUPPORT_MATRIX.md` (decision 29 in
+  Facebook's row; F6 in each ladder site's row) in `a87820e`; this entry and `docs/TEST_MATRIX.md`'s row
+  in this commit.
+- CI on `a87820e`: the APK run 39917638495 green (the build and its 9 `d7` matrix jobs); the
+  checkpoint 39917644283 green. CI on `4cb6a66` (task 15's TEST_MATRIX rows, docs only): the
+  checkpoint 39915501513 green.
+- **The next phone session** (the owner; one session for tasks 15 and 16, the retest; plan §7.4,
+  click by click, one test at a time, in this order): the artifact `yft-d7-social-trial` of
+  `a87820e`'s APK run 39917638495 (task 16's last code commit; never an older run's), installed as an
+  **Update** (the census's runs, both Instagram boxes and the sign-in stay); still signed in to
+  Instagram: (1) F4: VPN off, the rung and its proof on, slot 1 → the proof's line in the banner,
+  the same item yes or no row (as built: no row, the trial's words and both probe lines); (2) the
+  proof off, sign out (Settings → Clear browsing data); (3) F1: the rung on, slot 5 → a row with its
+  height on the first Download, the banner's ladder line and probe line; (4) F2: the rung off, slot
+  5 → the playback words with Try again, I2's embed line `VIDEO_WITHOUT_FILES`, not `SHAPE_CHANGED`
+  (if it is: Copy details, its counts); (5) F3: slot 9 → the Details scroll to their end, Try again
+  reachable, Copy details (each site's bare host); F3b: slot 8 → main's photos-only words, no Try
+  again; (6) F6: Facebook link 1, no VPN → Master's rows each with a quality ("720p · HD", "360p")
+  and the detail "W × H · MP4", not "Quality unknown"; the trial line's end "heights M vs N"
+  (Master's, then main's): each of Master's heights one main also has; one download plays; (7) W:
+  no VPN, signed out → NO CHANGE; VPN New York, signed out → Instagram's stored walled baseline set
+  aside ("…; this run starts it"), F5's note if walled again (then another New York address, W
+  again). Then the results; only after this session passes does the owner send S4 (task 17); S5
+  counts only on the final APK.
+- Commits: `a87820e` (F6, `[d7]`: the code, its tests, the plan and `docs/SUPPORT_MATRIX.md`); this
+  entry and the TEST_MATRIX row in the docs-only commit after it (the push's size limit).
+- Next: the owner's one retest of tasks 15 and 16 (§7.4, the list above) on `a87820e`'s APK; then S4
+  (task 17) on the owner's go, after decision 5; S5 (decision 26) only on the final APK.
+
 ## Social plan task 15 — the c3e9147 phone session's fixes: the rung's rows and banner (F1), I2's read of the real embed page (F2), a failure sheet that scrolls, with Copy details (F3), final answers without Try again (F3b), the proof's row (F4), W's walled runs (F5); decisions 27–28 (2026-10-23)
 
 - **The phone session of 2026-10-23** (the owner, `yft-d7-social-trial` of `c3e9147`, run
