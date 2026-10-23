@@ -1,4 +1,4 @@
-# Phone test notes: the social plan (S1a phone proof; §7.4 A, B and C; the retest of tasks 12–14), 2026-10-21 to 2026-10-23
+# Phone test notes: the social plan (S1a phone proof; §7.4 A, B and C; the retests of tasks 12–14 and 15–16), 2026-10-21 to 2026-10-23
 
 The owner's phone sessions, logged while they ran and pushed as docs only. The test posts' links,
 post IDs and post words stay on the phone and are left out here.
@@ -10,6 +10,34 @@ post IDs and post words stay on the phone and are left out here.
   - 2026-10-22 morning: `normal` and `social-trial` of 430da9f (run 39751939477).
   - 2026-10-22 from ~14:10 UTC: `social-trial` of 36ec093 (run 39784454576; tasks 9 and 10). The Instagram probe (B2), B3 and C used 36ec093 only.
   - 2026-10-23: `social-trial` of c3e9147 (run 39878500080; tasks 12–14). The whole session used c3e9147 only.
+  - 2026-10-23, later (the retest of tasks 15–16): `social-trial` of a87820e (run 39917638495), installed as an Update. The retest used a87820e only.
+
+## Summary of the 2026-10-23 retest (tasks 15–16; `a87820e`)
+
+The owner, 2026-10-23, `yft-d7-social-trial` of a87820e (run 39917638495); no VPN and signed out
+unless said; the VPN's New York exit for W's VPN run (decision 25). Recorded by task 17's first
+commit (docs only). **All PASS.**
+
+| Test | Result |
+| --- | --- |
+| 1. F4: Instagram signed in, the rung and its proof on, slot 1 | PASS: the banner's proof line ("I2's rows set aside (the rung's proof)"), "not asked (signed in: the rung is the signed-out query)" and "no row (the proof set I2's rows aside and the rung gave none)" under the trial's words; no row, and no capture of the tab (0 observations). |
+| 2. F1: signed out, the rung on, slot 5 | PASS: the banner's ladder line ("after LOGIN_REQUIRED; main's answers read, no new ask") and probe line ("HTTP 200, N bytes; the post's video in the answer: yes; a wall on the page: no; rows 3 (DIRECT)"); on the first Download a row 720p · HD, 720 × 1280. |
+| 3. F2: the rung off, slot 5 | PASS: the playback words with Try again; Copy details: main's embed page (about 228k characters) "video without files", I2's embed line `VIDEO_WITHOUT_FILES`. 3b: following the words (play, then Try again) gave a 720p · HD row, 720 × 1280. |
+| 4. F3: slot 9; F3b: slot 8 | PASS: slot 9 the sign-in words, the Details scroll to their end, Try again pinned and reachable, Copy details works; slot 8 main's photos-only words and no Try again (I2 `PHOTO_ONLY`, final; the probe "not asked (the answer is final)"). |
+| 5. F6: Facebook link 1 | PASS: Master's rows 720p · HD (720 × 720 · MP4) and 360p (400 × 400 · MP4); a download plays with picture and sound; the trial line ends "heights 720,400 vs unknown" (L1 below). |
+| 6. W | PASS: no VPN (08:36 UTC) NO CHANGE (TikTok stopped (time) without the VPN: not a baseline); VPN New York (08:40 UTC) NO CHANGE, with the note "Instagram: the baseline of 02:24 UTC (VPN on, signed out) had every ask walled: set aside; this run starts it" (F5); Instagram not walled this time. |
+
+Afterwards both census boxes off; the owner signed out of Instagram.
+
+### Backlog from the retest (not blocking; not fixed now; plan §7.4)
+- **L1:** Facebook's trial line says "heights … vs unknown": main's Facebook rows state no height
+  when the line is made (the sheet measures them later), so the line cannot cross-check Master's
+  heights.
+- **L2:** on the same Instagram post (slot 5) the rung's 720p row was 897 KB against the tab
+  capture's 720p at 1.9 MB (both 720 × 1280): the rung may pick a lower bitrate (S6/B+; before the
+  rung's default turns on).
+- **L3 (cosmetic):** I2's page line says `SHAPE_CHANGED` where main's Details say "no post" for the
+  same page.
 
 ## Summary of the 2026-10-23 session (§7.4's next phone session after tasks 12–14; `c3e9147`)
 

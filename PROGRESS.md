@@ -1,5 +1,28 @@
 # YFT Master Extractor backup
 
+## Social plan task 17, first commit — the retest of tasks 15 and 16 recorded (all PASS); its backlog L1–L3 (docs only, 2026-10-23)
+
+- **The retest** (the owner, 2026-10-23, `yft-d7-social-trial` of `a87820e`, run 39917638495, as
+  an Update; no VPN and signed out unless said; `docs/PHONE_TEST_NOTES.md`): **all PASS** — F4
+  (signed in, the rung and its proof on, slot 1: the proof's line, no row, no capture of the tab);
+  F1 (signed out, the rung on, slot 5: the banner's ladder and probe lines, 720p · HD 720 × 1280
+  on the first Download); F2 (the rung off: the playback words with Try again, I2's embed page
+  `VIDEO_WITHOUT_FILES`; play, then Try again: a 720p row); F3 (slot 9: the Details scroll, Try
+  again pinned, Copy details) and F3b (slot 8: no Try again); F6 (Facebook link 1: 720p · HD 720 ×
+  720 and 360p 400 × 400; plays with sound); W without the VPN and on New York NO CHANGE,
+  Instagram's walled baseline set aside (F5).
+- **Backlog** (plan §7.4; not blocking the release, not fixed now): L1 Facebook's trial line
+  "heights … vs unknown" (main's rows state no height when the line is made); L2 the rung's 720p
+  row 897 KB against the tab capture's 1.9 MB on one post (S6/B+, before the rung's default turns
+  on); L3 I2's page line `SHAPE_CHANGED` where main says "no post" (cosmetic).
+- Docs: `docs/PHONE_TEST_NOTES.md` (the retest's summary and backlog), `docs/TEST_MATRIX.md` (its
+  row), the plan (the status lines, the Burmese summary, the gate's state, §7.4's result and
+  backlog) and this entry. No code.
+- **Next:** task 17's code (S4: R9 live — the recipe key in a GitHub secret, the signed config
+  hosted, a kill switch per rung, the drill; plan §7.3, §8 item 5) in the commits after this one;
+  then S4's phone session (the R9 drill and B3's short set, §7.4, written by task 17's code
+  commit); S5 (decision 26) only on the APK of task 17's last code commit, after that session.
+
 ## Social plan task 16 — Master's rows take their picture size from their files when the answer states none, and Facebook's trial line gives each side's heights (F6); Facebook's fewer rows listed as intended; decision 29 (2026-10-23)
 
 - **The finding** (the phone session of 2026-10-23, `yft-d7-social-trial` of `c3e9147`;

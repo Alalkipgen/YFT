@@ -51,7 +51,8 @@ details, final answers without Try again, the proof's row, W's walled runs; Mast
 UI only) built (2026-10-23; §7.3). Task 16 (F6: a Master row whose answer states no picture size
 takes its file's own, read from the bytes its file check read; Facebook's trial line gives each
 side's heights; Facebook's fewer Master rows listed as intended; decision 29) built (2026-10-23;
-§7.3); next: the owner's one retest of tasks 15 and 16 (§7.4); S4 is task 17.**
+§7.3). The owner's retest of tasks 15 and 16 (2026-10-23, `a87820e`; `docs/PHONE_TEST_NOTES.md`):
+all PASS (§7.4); its backlog L1–L3 (§7.4; not blocking, not fixed now). Next: S4 (task 17).**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -329,7 +330,8 @@ side's heights; Facebook's fewer Master rows listed as intended; decision 29) bu
   bytes ထဲက ကိုယ်ပိုင် size (video track ရဲ့ `tkhd`၊ 0 × 0 ဆိုရင် `stsd`) ကို ယူ၊ sheet က main လို
   နာမည်ပေး (ဥပမာ "720p · HD"၊ "1280 × 720 · MP4"); Facebook trial line မှာ နှစ်ဖက်ရဲ့ heights
   ("heights 720,360 vs 720,360"); Facebook ရဲ့ Master rows main ထက် နည်းတာ intended (decision 29)။
-  နောက်တစ်ဆင့်: tasks 15–16 ရဲ့ retest တစ်ခါ (§7.4)၊ S4 က task 17။
+  Tasks 15–16 ရဲ့ retest (2026-10-23၊ `a87820e`) အားလုံး PASS (§7.4); backlog L1–L3 (release ကို
+  မပိတ်၊ အခု မပြင်)။ နောက်တစ်ဆင့်: S4 (task 17)။
 
 ## 1. Audit — what exists today
 
@@ -1332,21 +1334,22 @@ the intended differences listed in `docs/SUPPORT_MATRIX.md` → PR #2 merged →
 others get the app.
 
 **The gate's state** (after the phone sessions of 2026-10-22 and 2026-10-23 and tasks 12–16, the
-retest next; kept current by each commit):
+retest, all PASS on 2026-10-23; kept current by each commit):
 
 | Site | Its pack and phone proof | W's first run (C) | Intended differences listed | S5 (decision 26) |
 | --- | --- | --- | --- | --- |
-| Facebook | S1a built; phone proof PASS (2026-10-21); A PASS (2026-10-22, `430da9f`); links 1 and 10 PASS (2026-10-23, `c3e9147`); task 16 built (F6: the rows' sizes from their files), the retest next (§7.4) | C1, C2 PASS; NO CHANGE on New York and without the VPN (2026-10-23) | Master's rows 2 against main's 3 (task 7; decision 29: intended, never a wrong row, not blocking S5) | not started |
+| Facebook | S1a built; phone proof PASS (2026-10-21); A PASS (2026-10-22, `430da9f`); links 1 and 10 PASS (2026-10-23, `c3e9147`); task 16 built (F6: the rows' sizes from their files); the retest PASS (2026-10-23, `a87820e`: link 1's rows 720p · HD and 360p with their sizes, a download plays with sound) | C1, C2 PASS; NO CHANGE on New York and without the VPN (2026-10-23) | Master's rows 2 against main's 3 (task 7; decision 29: intended, never a wrong row, not blocking S5) | not started |
 | TikTok | S2b built; main PASS (`36ec093`); T1 proven on New York (rows 6 of 6, wrong 0); T2 untested; slots 1 and 6 PASS on New York (2026-10-23) | C1 PASS (VPN only: no network without it); NO CHANGE on New York (2026-10-23) | T1 one row, at most 1280 (decision 23) | not started |
 | X | S2c and task 0 built; A PASS (`36ec093`); task 12 built (the first lookup, X1's lines kept); task 14 built (the 404's and the tombstones' words: main's, with Try again; the empty tombstone's: the sign-in words); 2026-10-23 PASS: slot 6 3 = 3 on the first lookup, slots 7 and 8 task 14's words | C1, C2 PASS; NO CHANGE on New York and without the VPN (2026-10-23) | `{}`, the notice tombstone, the 404 never final (decision 21) | not started |
-| Instagram | S2d part 1 built; A PASS on 3 sessions; task 12 built (the first lookup, I2's lines kept); part 2 (decision 24) built (task 13: the rung, its own switch off by default, decision 28); the rung's phone proof PASS (2026-10-23: slot 5 rescued, 2 of 2); task 14 built (a wall's words: main's sign-in words, e.g. slot 9; seen 2026-10-23); task 15 built (F1–F5, F3b), task 16 built (F6), the retest next (§7.4) | C1, C2, C3 PASS; NO CHANGE without the VPN, signed out and signed in (2026-10-23); on New York every ask walled (02:24 UTC: the exit's address; F5 built: never a baseline, the stored one set aside) | the 360p file, never "removed" (decision 20) | not started |
+| Instagram | S2d part 1 built; A PASS on 3 sessions; task 12 built (the first lookup, I2's lines kept); part 2 (decision 24) built (task 13: the rung, its own switch off by default, decision 28); the rung's phone proof PASS (2026-10-23: slot 5 rescued, 2 of 2); task 14 built (a wall's words: main's sign-in words, e.g. slot 9; seen 2026-10-23); task 15 built (F1–F5, F3b), task 16 built (F6); the retest PASS (2026-10-23, `a87820e`: F1, F2, F3, F3b, F4) | C1, C2, C3 PASS; NO CHANGE without the VPN, signed out and signed in (2026-10-23); on New York every ask walled (02:24 UTC: the exit's address; F5 built: never a baseline, the stored one set aside); the retest's W (2026-10-23, `a87820e`): NO CHANGE without the VPN and on New York, the walled baseline set aside (F5 seen) | the 360p file, never "removed" (decision 20) | not started |
 
-Every site: S4 (R9 live, its drill) waits for decision 5; then S5, PR #2's merge, P8. Task 12
+Every site: S4 (R9 live, its drill; task 17) next; then S5, PR #2's merge, P8. Task 12
 changed the engine for every site's claimed lookups (the capture's answer keeps the ladder's lines)
 and the trial's lookups (main asked every time), task 13 Instagram's pack (the rung), task 14 the
 words of every site's claimed lookups that need playback (words only), task 15 Instagram's pack
 (F1, F2, F4), W (F5) and the failure sheet (F3, every build), task 16 every site's Master rows
-without a stated size (F6): S5 starts on the APK after task 16 and §7.4's retest.
+without a stated size (F6); their retest passed (2026-10-23). S4 (task 17) changes code, so S5
+starts only on the APK of task 17's last code commit, after S4's phone session (§7.4).
 
 **After the release** (each on the owner's go): S1b, X2, the "all items" feature, B+ (S6), A.
 
@@ -1736,8 +1739,8 @@ signed out and with Instagram signed in: NO CHANGE (against C2 and C3); W on New
 (main's Instagram code unchanged since C1's APK; no VPN, minutes later: NO CHANGE). Findings F1–F5
 and F3b → task 15 (§7.3); the owner's decisions 27–28 (§8).
 
-**The next phone session (one session for tasks 15 and 16, the retest; the owner, after task 16's
-last commit is pushed; one test at a time, in this order; `yft-d7-social-trial` of task 16's last
+**The retest of tasks 15 and 16 (passed 2026-10-23 on `a87820e`: its result below; one session, the
+owner, after task 16's last commit was pushed; one test at a time, in this order; `yft-d7-social-trial` of task 16's last
 code commit's APK run, never an older run's; the run's report and `PROGRESS.md` name the commit and
 the run; each commit brings its step's words up to date, as built):**
 
@@ -1792,6 +1795,37 @@ the run; each commit brings its step's words up to date, as built):**
 
 Then send the results. Only after this session passes does the owner send S4 (task 17). S5
 (decision 26) counts only on the final APK.
+
+**The retest's result (the owner, 2026-10-23, `yft-d7-social-trial` of `a87820e`, run
+39917638495, as an Update; no VPN and signed out unless said; recorded by task 17's first commit,
+docs only; `docs/PHONE_TEST_NOTES.md`): all PASS.** (1) F4: signed in, the rung and its proof on,
+slot 1 → the proof's line, "not asked (signed in: …)" and "no row (the proof set I2's rows aside
+and the rung gave none)"; no row, no capture of the tab (0 observations). (2)–(3) F1: signed out,
+the rung on, slot 5 → the banner's ladder line and probe line (HTTP 200; the post's video in the
+answer: yes; a wall on the page: no; rows 3 (DIRECT)); on the first Download 720p · HD, 720 ×
+1280. (4) F2: the rung off, slot 5 → the playback words with Try again; I2's embed page (about
+228k characters) `VIDEO_WITHOUT_FILES`; following the words (play, then Try again) gave a 720p
+row. (5) F3: slot 9 → the Details scroll to their end, Try again pinned and reachable, Copy
+details works; F3b: slot 8 → the photos-only words, no Try again. (6) F6: Facebook link 1 →
+Master's rows 720p · HD (720 × 720) and 360p (400 × 400); a download plays with sound. (7) W: no
+VPN → NO CHANGE (TikTok stopped (time) without the VPN: not a baseline); VPN New York → NO CHANGE,
+Instagram's walled 02:24 UTC baseline set aside, this run starts it (F5). Afterwards both census
+boxes off and the owner signed out of Instagram.
+
+**The retest's backlog (not blocking the release; not fixed now; each when convenient):**
+
+- **L1:** Facebook's trial line says "heights … vs unknown": main's Facebook rows state no height
+  when the line is made (the sheet measures them later, P25), so the line cannot cross-check
+  Master's heights against main's. A later fix: words such as "main's: not stated", or the line
+  after the sheet's measure.
+- **L2:** on the same Instagram post the rung's 720p row was 897 KB against the tab capture's 720p
+  at 1.9 MB (both 720 × 1280): the rung may pick a lower-bitrate version of one height. For S6
+  (B+), and before the rung's default turns on (decision 28).
+- **L3 (cosmetic):** I2's page line says `SHAPE_CHANGED` where main's Details say "no post" for
+  the same page (the post page, not the embed page).
+
+**The next phone session:** S4's (task 17: the R9 drill, then B3's short set once more), written
+here by task 17's code commit; S5 (decision 26) starts after it, on that APK.
 
 **For S2b (TikTok), noted now** (inputs to S2b's design, §7.3; not decided):
 
