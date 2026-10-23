@@ -1,5 +1,106 @@
 # YFT Master Extractor backup
 
+## Social plan task 13 — S2d part 2: Instagram's tab-fetch rung (decision 24; observations d and f; debug only, behind the flag and the rung's own switch, off by default) (2026-10-22)
+
+- **The rung** (`InstagramLadder`, extractor-master): part 1's probe's ask, now read for rows
+  (decision 24, within decision 19 (i)–(vi) and decision 3). Only in a social-ladder build
+  (`-Pyft.socialLadder`), only with its own switch on, only in a lookup in the visible tab on a
+  post's page of `instagram.com`: after main failed (the ladder's claim) and I2 gave no rows (none
+  kept, its next rung, the tab's playback or the browser, or I2's answer over the lookup's byte
+  budget), once per lookup, the last request rung before I3 (the tab's own playback). Recorded as
+  Master's ask in the lookup's record (`LookupRecord`; Instagram's lookup budget,
+  `SocialBudget.INSTAGRAM`: 13 requests, 7 MiB, 30 s); never a second ask; a 429 stops the site and
+  cools the host 30 minutes, a checkpoint is a bot check and cools it. Not after a final answer
+  (photos only) or a stop.
+- **Signed out only, told two ways:** the lookup's cookie (the tab's own cookies the browser hands
+  Master) names no `sessionid` (else "not asked (signed in: the rung is the signed-out query)");
+  right before the fetch, the tab's cookies for `https://www.instagram.com/` in the app's cookie
+  store (`CookieManager`; `InstagramProbeScript.COOKIE_PAGE`) name no non-blank `sessionid` (else
+  "not asked (the tab is signed in)"). Not on the post's page, no LSD value: not asked, as in part 1.
+- **The rows:** the rung's answer is read by the same recipe and judge as I2's
+  (`SiteWays.TAB_FETCH`, a JSON way of `InstagramAnswerJudge`; L3's key table, by shape when it
+  changed): rows bound to the post by its code, or by its pk when the answer's post names no code
+  (`InstagramProbeQuery.pkOf`: the code is named in that post only when both match, so the recipe
+  binds the rows), and to the link's item (`img_index`, else the first); V and the init check on
+  each row (S6, `SocialRowCheck`: at most 8 reads), as the tab's own answer
+  (`PageSnapshot.authorizedPlayback`: the user's own visible tab, signed out, its page without a
+  wall, Instagram's own signed-out answer), so main's signed-out `LOGIN_REQUIRED` (GraphQL's 401)
+  does not set them aside — else the rung could never help the signed-out case it is for. No row,
+  main's reason stays (I3 next): another post; no post (`if_not_gated_logged_out` null: an
+  age-gated, private or removed post alike, `NEEDS_PLAYBACK`, never final, never "removed": 19
+  (vi)); photos only (never final from the rung); its 400 or `errors` (`VALUE_REJECTED`: no other
+  value is tried); an answer over the budget (not checked); a checkpoint; a 429. An answer whose
+  page shows a wall (a sign-in form, the login or checkpoint address) is never read (19 (iv)). The
+  query's `doc_id` and values stay data (`InstagramProbeQuery`, S9), no self-healing.
+- **(d)** `AnswerClass.VIDEO_WITHOUT_FILES` (`SiteAnswerJudge`; the next rung, no reason of its
+  own): Instagram's signed-out embed page naming a video and listing no file ("a video, no files
+  read") is its design, not a changed shape: it leads to the rung (before: `SHAPE_CHANGED`); the
+  post's page so still reads `SHAPE_CHANGED`. Instagram's order of I2's answers: `RATE_LIMITED`,
+  `BOT_CHECK`, `AGE_LIMITED`, `LOGIN_WALL`, `VIDEO_WITHOUT_FILES`, `NEEDS_PLAYBACK`,
+  `VALUE_REJECTED`, `SHAPE_CHANGED`, `TRANSIENT`.
+- **(f)** The rung's Details line — "master: instagram probe: HTTP 200, N bytes; the post's video
+  in the answer: yes; a wall on the page: no; rows N (DIRECT)", or "rows 0 (CLASS: why)", or "not
+  asked (why)" — is the trial banner's second line (`SocialLadder.trialNotice`: the trial's line,
+  then the rung's last line; a social-ladder build without the trial: the rung's line alone), so a
+  lookup with rows shows it too (its sheet's Details show the file's info); a lookup without rows:
+  the sheet's Details as well.
+- **The switches** (`InstagramProbeSwitch`; the site census screen, a social-ladder build only,
+  each off by default): "Instagram's tab-fetch rung (signed out)" (`tab_fetch_rung`, a new key:
+  part 1's `tab_fetch_probe` is not carried over, so the rung starts off) and "Instagram rung
+  proof: set I2's rows aside" (`rung_proof`). **The proof when main gives its row** (observation
+  (c)): with I2's rows the rung is not asked ("not asked (I2's rows)"); with the proof on, I2's
+  rows are set aside ("I2's rows set aside (the rung's proof)"), the rung is asked and its own
+  rows are the lookup's. The rung's default in `social-trial`: off; on is the owner's call
+  (proposed: on, so the next session needs no tap).
+- **The census and W:** no tab, so the rung is never asked there and not listed among the rungs:
+  nothing more is asked within W's Instagram caps (24 requests, 2 MB, 60 s) or the census's. W's
+  lines against C1–C3: none change (I2's state may read `run (VIDEO_WITHOUT_FILES)` where the embed
+  page's video without files is its answer; the diff compares no rung's state).
+- Flag off (every other build): no rung, no switch; main's Instagram path only. No main adapter
+  change (S1), no YouTube file, `LookupAsk.endpoint` unchanged; drift 0.
+- Tests (JVM; synthetic answers, made-up IDs; no live calls): `InstagramLadderTest` 17 (13 before;
+  the probe's tests now the rung's): off by its switch; on, asked once after I2 gave no rows, its
+  rows bound to the post (by its code, by its pk alone) go to V as the tab's own answer, also after
+  main's `LOGIN_REQUIRED` (GraphQL's 401, the embed page's video without files); beside I2's rows
+  not asked, but when its proof sets them aside; no row from no post, a wall, another post, a
+  rejected value (400, `errors`), too big, over the byte budget, photos — each with its line and
+  main's reason; only the link's item of a carousel; V and the init check on at most 8 of 10 rows;
+  its stops (a 429 stops the site and cools the host, a checkpoint cools it, no answer in time
+  counts as asked); not asked for the tab's reasons, signed in (the lookup's cookie, the tab's),
+  after a final answer or a stop, cooling, over the budget, twice. `InstagramAnswerJudgeTest` 8
+  (the rung's 400 and 429, the embed page's `VIDEO_WITHOUT_FILES` against the post's page's
+  `SHAPE_CHANGED`, the order). App: `InstagramProbeScriptTest` 5 (+1: a signed-in tab asks
+  nothing), `BrowserInstagramProbeTest` 4 (the proof read at each ask; without its reader:
+  off), `SocialLadderInstagramTest` 6 (the banner's rung line: with the trial's, alone, the last
+  of two; the switches off by default, a social-ladder build only, part 1's key not carried over).
+- Local checks (JDK 17): `extractor-sites` 293, `extractor-master` 950 (2 skipped; +4),
+  `extractor-master-android` 69, `app` 1099 (66 skipped; +1), all pass; lint 0 errors; `assembleDebug` and
+  the flags-on build; drift 0; `test_spike_label_triggers.py` 19.
+- CI on `a9b4673`: the APK run 39872675456 green (the build and its 9 `d7` matrix jobs); the
+  checkpoint 39872679812 red at `:core-browser:testDebugUnitTest`
+  (`DomMediaProbeTest > parserMarksPreviewsAndThePagesNamedStream`): Robolectric could not download
+  its Android jar (`MavenArtifactFetcher`, `java.net.SocketException`), a network failure before
+  the test ran, not task 13's code (`core-browser` unchanged since task 12's green checkpoint; every
+  module's lint passed in that run). The same tests pass locally on `a9b4673` (`core-browser`,
+  `core-data`, `core-download`, `core-media`, `core-model`, `extractor-api`, `extractor-generic`);
+  this docs-only commit's checkpoint runs the same code again (no code change).
+- The next phone session (the owner, after tasks 12–14 are pushed; `yft-d7-social-trial` of the
+  last code commit's APK run; §7.4): Instagram no VPN, signed out, the box "Instagram's tab-fetch
+  rung (signed out)" on (slot 5: the rung's rows on the first lookup, the same item, V pass, wrong
+  0, and its line as the banner's second line; when main gives its row: "not asked (I2's rows)",
+  then the proof box on and Try again: the rung's own rows; slot 9: no row, task 14's sign-in
+  words, the rung's line video no or a wall; slot 8: photos only, no request; signed in: "not
+  asked (signed in …)"); the first lookup (task 12: Instagram slots 1 and 5, X slot 6: rows on the
+  first lookup, no Try again, also after the same link's lookup on Home first and after the page
+  started again; X slots 7 and 8: X1's line in Details before the tab's playback line, and task
+  14's words; any "none kept … (main asked nothing in this lookup: …)" line: its words and what ran
+  just before); B3's short set again on the same networks (TikTok on New York); W (the rung's box
+  off) on the VPN New York signed out, no VPN signed out, no VPN with Instagram signed in, against
+  C1–C3; then S5 (decision 26) on that APK if no code changes.
+- Commits: `a9b4673` (the code, its tests, the plan and `docs/SUPPORT_MATRIX.md`); this entry and
+  the TEST_MATRIX row in the docs-only commit after it (the push's size limit).
+- Next: task 14 (the playback words only where a video can play; observation (e)).
+
 ## Social plan task 12 — the engine's capture answer keeps the ladder's Details lines and the trial's social lookups ask main every time (observations b, a and g; debug only, behind the flag) (2026-10-22)
 
 - **(b) The Details lines** (`MasterFallbackEngine`): in a lookup a social ladder claims (a
