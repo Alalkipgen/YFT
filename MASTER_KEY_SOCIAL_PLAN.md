@@ -1215,8 +1215,17 @@ rows set aside (the rung's proof)" in the banner. **F5** — W: a run in which e
 got the site's wall while its baseline had data keeps its BREAKING lines, adds the note "every ask
 walled: likely this network's address, §7.5" and is never a baseline (as a `stopped (time)` run);
 a stored baseline that is such a run is set aside. *State:* the session and decisions 27–28
-recorded (docs only); F1–F5 and F3b to do, in this order: F3 and F3b, F1 and F4, F2, F5; then the
-retest (§7.4).
+recorded (docs only). *Built (F3, F3b):* the failure's message and Details sit in one scroll (its
+own tag, `quick-error-scroll`), with Try again and the reload pinned under it; the shown Details
+offer "Copy details" beside "Hide details" — the lines as shown, each cleaned once more by the
+diagnostics sanitizer and each link as its site's host only (`copiedDetails`: words, never a link;
+the shown lines unchanged); every build (UI only). A ladder's photos-only answer (TikTok's, X's or
+Instagram's `NO_MEDIA_FOUND` with its site's `PHOTO_ONLY` line ending in `FINAL`:
+`SocialLadder.photosOnly`) is final (`SiteAdapterOutcome.Failed.final`, set only by Master's
+browser fallback in a social-ladder build): no Try again in the sheet or the banner — a small UI
+change outside main's adapters; Facebook's private answer keeps Try again; Home's lookups and every
+other build keep main's photos-only answer with Try again (`docs/SUPPORT_MATRIX.md`). To do, in
+this order: F1 and F4, F2, F5; then the retest (§7.4).
 Each site: a D7-style phone proof, wrong rows 0, no regression against B0.
 
 **S3 and S4** as in §7: W (≤ 1 min, ≤ 2 MB per site) with the diff and the runbook; R9 live (the
@@ -1657,10 +1666,12 @@ commits brings its step's words up to date, as built):**
    `SHAPE_CHANGED`. If a line still says `SHAPE_CHANGED`: tap **Copy details** and keep the
    line's reason (counts only).
 5. **A long failure: Instagram slot 9 (F3).** Slot 9's link → **Download**. Expected: the
-   sign-in words; the Details scroll to their last line; Try again reachable under them; **Copy
-   details** → paste into a note: the same lines, words only (no link, no ID).
+   sign-in words; tap **Details**: the lines scroll to their last one, and Try again stays under
+   them; tap **Copy details** (beside "Hide details") → paste into a note: the same lines, each
+   site's address as its bare host (no link, no ID).
 6. **A final answer (F3b): Instagram slot 8; then TikTok slot 6 on VPN New York.** Expected:
-   main's words (photos only: a final answer), and Try again as task 15's F3b is built (§7.3).
+   main's words ("This post has photos only, no video."; TikTok's "This TikTok post has no
+   downloadable video.") and **no Try again** (a ladder's photos-only answer is final).
 7. **Instagram signed in, the rung and its proof on, slot 1 (F4).** VPN off → sign in to Instagram
    in YFT's browser → "YFT site census" → tick both boxes → slot 1's link → **Download**.
    Expected: the banner with "master: instagram probe: I2's rows set aside (the rung's proof)" and

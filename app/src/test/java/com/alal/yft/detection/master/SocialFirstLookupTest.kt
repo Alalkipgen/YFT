@@ -169,6 +169,35 @@ class SocialFirstLookupTest {
         }
     }
 
+    @Test
+    fun aLaddersPhotosOnlyAnswerIsFinalWithoutTryAgain() = runTest {
+        // Social plan task 15 (F3b, the phone session of 2026-10-23: Instagram slot 8, TikTok slot
+        // 6): main's photos-only answer, the ladder's PHOTO_ONLY line ending in FINAL, no request:
+        // main's words and no Try again. Without the ladder (every other build): Try again as before.
+        for (social in listOf(true, false)) {
+            val fixture = Fixture(REEL, socialLadder = social, socialTrial = social, graphQl = photoGraphQl())
+            val failed = fixture.lookup() as SiteAdapterOutcome.Failed
+
+            assertEquals(SiteExtractionFailure.NO_MEDIA_FOUND, failed.reason)
+            if (social) {
+                assertEquals(InstagramExtractor.PHOTOS_MESSAGE, failed.message)
+                assertTrue(failed.details.toString(), failed.details.any { "PHOTO_ONLY" in it && "next: FINAL" in it })
+                assertTrue(failed.final)
+                assertFalse(failed.canRetry)
+                assertTrue(fixture.master.asked.isEmpty())
+                assertEquals(0, fixture.captures.get())
+            } else {
+                assertFalse(failed.final)
+                assertTrue(failed.canRetry)
+            }
+        }
+        // Main's own answer (Home's lookup, or no Master): not final, Try again as before.
+        val mains = Fixture(REEL, graphQl = photoGraphQl()).remember() as SiteAdapterOutcome.Failed
+        assertEquals(InstagramExtractor.PHOTOS_MESSAGE, mains.message)
+        assertFalse(mains.final)
+        assertTrue(mains.canRetry)
+    }
+
     /** The engine runs on a background thread; the test thread runs the browser's coroutines. */
     private fun TestScope.settle(done: () -> Boolean) {
         repeat(500) {
@@ -326,6 +355,12 @@ class SocialFirstLookupTest {
         fun graphQl() = "{\"data\":{\"xdt_shortcode_media\":{\"__typename\":\"XDTGraphVideo\"," +
             "\"id\":\"$INSTAGRAM_MEDIA_ID\",\"shortcode\":\"C9fixtREEL1\",\"is_video\":true," +
             "\"video_url\":\"$INSTAGRAM_FILE\",\"video_duration\":15.2,\"dimensions\":{\"height\":1280,\"width\":720}}}," +
+            "\"status\":\"ok\"}"
+
+        /** Task 15 (F3b): Instagram's GraphQL answer for a photos-only post (the reel's made-up code). */
+        fun photoGraphQl() = "{\"data\":{\"xdt_shortcode_media\":{\"__typename\":\"XDTGraphImage\"," +
+            "\"id\":\"$INSTAGRAM_MEDIA_ID\",\"shortcode\":\"C9fixtREEL1\",\"is_video\":false," +
+            "\"display_url\":\"https://scontent.cdninstagram.com/v/fixture.jpg\",\"dimensions\":{\"height\":1080,\"width\":1080}}}," +
             "\"status\":\"ok\"}"
 
         /**

@@ -289,6 +289,17 @@ internal object SocialLadder {
     /** Task 14: the judge's classes of a sign-in or age wall. */
     private val WALL_CLASSES = Regex("""\b(LOGIN_WALL|AGE_LIMITED)\b""")
 
+    /**
+     * Social plan task 15 (F3b): whether Master's answer for [videoKey] is a ladder's photos-only
+     * answer — TikTok's, X's or Instagram's `NO_MEDIA_FOUND` with its site's `PHOTO_ONLY` line
+     * ending in `FINAL` (the post has no video: [finalMessage]'s words) — so the browser offers no
+     * Try again. Facebook's and every other answer: false (Try again as before).
+     */
+    fun photosOnly(reason: SiteExtractionFailure, videoKey: String?, details: List<String>): Boolean =
+        reason == SiteExtractionFailure.NO_MEDIA_FOUND &&
+            siteOf(videoKey) in setOf(TIKTOK_SITE_ID, X_SITE_ID, INSTAGRAM_SITE_ID) &&
+            finalLine(videoKey, details, "PHOTO_ONLY")
+
     /** S2b: whether [details] has [videoKey]'s site's ladder line of [answerClass] with its final step. */
     private fun finalLine(videoKey: String?, details: List<String>, answerClass: String): Boolean =
         details.any { line -> line.startsWith(line(videoKey)) && answerClass in line && "next: FINAL" in line }

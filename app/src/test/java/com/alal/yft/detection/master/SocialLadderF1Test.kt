@@ -68,6 +68,8 @@ class SocialLadderF1Test {
 
         assertEquals(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, failed.reason)
         assertEquals("This Facebook post is private or no longer available.", failed.message)
+        // Task 15 (F3b): only a photos-only answer drops Try again; a private post keeps it.
+        assertTrue(failed.canRetry)
         assertEquals(listOf(embedUrl(REEL)), fixture.master.asked)
         assertEquals(0, fixture.captures.get())
         assertTrue(failed.details.none { BURMESE in it || REEL_VIDEO in it })

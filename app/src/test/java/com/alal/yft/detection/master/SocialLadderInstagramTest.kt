@@ -100,6 +100,11 @@ class SocialLadderInstagramTest {
             SocialLadder.finalMessage(SiteExtractionFailure.NO_MEDIA_FOUND, KEY, listOf(ladder, perWay, final)),
         )
         assertEquals("This post has photos only, no video.", InstagramExtractor.PHOTOS_MESSAGE)
+        // Task 15 (F3b): that answer is final (no Try again); without the final line it is not.
+        assertTrue(SocialLadder.photosOnly(SiteExtractionFailure.NO_MEDIA_FOUND, KEY, listOf(ladder, perWay, final)))
+        assertFalse(SocialLadder.photosOnly(SiteExtractionFailure.NO_MEDIA_FOUND, KEY, listOf(ladder, perWay)))
+        assertFalse(SocialLadder.photosOnly(SiteExtractionFailure.LOGIN_REQUIRED, KEY, listOf(ladder, final)))
+        assertFalse(SocialLadder.photosOnly(SiteExtractionFailure.NO_MEDIA_FOUND, X_KEY, listOf(final)))
         // Not Instagram's final line: null (the engine's own words, as before).
         assertNull(SocialLadder.finalMessage(SiteExtractionFailure.NO_MEDIA_FOUND, KEY))
         assertNull(SocialLadder.finalMessage(SiteExtractionFailure.NO_MEDIA_FOUND, KEY, listOf(ladder, perWay)))

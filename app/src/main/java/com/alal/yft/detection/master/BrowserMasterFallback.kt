@@ -245,8 +245,8 @@ class AndroidBrowserMasterFallback(
         // no rows, main's failure stays the lookup's answer — its reason, message and retry — with
         // Master's details added. Every other build: false.
         val routeB = routeBPage && TerminalRules.routeBRecoverable(failure)
-        fun noRows(reason: SiteExtractionFailure, message: String, details: List<String>) =
-            if (routeB) mains(details) else failed(primary, reason, message, details)
+        fun noRows(reason: SiteExtractionFailure, message: String, details: List<String>, final: Boolean = false) =
+            if (routeB) mains(details) else failed(primary, reason, message, details, final)
         // F2: route B's lookup that never reached Master says why; every other lookup as before.
         fun unrouted(step: String) = if (routeB) notRun(step) else notUsed(step)
         val request = requestFactory(failure, nowEpochMs, key?.substringAfter(':'))
@@ -374,6 +374,9 @@ class AndroidBrowserMasterFallback(
                         "No verified media was captured. Play the video and tap Try again."
                     },
                 result.details,
+                // Task 15 (F3b): a ladder's photos-only answer is final (no Try again: the post has
+                // no video, so asking again cannot change it); every other answer as before.
+                final = social && SocialLadder.photosOnly(result.reason, key, result.details),
             )
             is MasterResult.Skipped -> notUsed("skipped (${result.reason})")
         }
@@ -559,6 +562,8 @@ class AndroidBrowserMasterFallback(
         reason: SiteExtractionFailure,
         message: String,
         details: List<String>,
+        // Task 15 (F3b): a final answer whatever its reason (a ladder's photos-only answer).
+        final: Boolean = false,
     ): SiteAdapterOutcome.Failed {
         val old = primary as? SiteAdapterOutcome.Failed
         return SiteAdapterOutcome.Failed(
@@ -567,6 +572,7 @@ class AndroidBrowserMasterFallback(
             message = message,
             allowsGenericFallback = old?.allowsGenericFallback ?: true,
             details = DiagnosticTextSanitizer.details(old?.details.orEmpty() + details),
+            final = final,
         )
     }
 

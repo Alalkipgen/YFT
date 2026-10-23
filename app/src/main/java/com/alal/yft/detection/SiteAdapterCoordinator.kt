@@ -41,10 +41,17 @@ sealed interface SiteAdapterOutcome {
         val message: String,
         val allowsGenericFallback: Boolean,
         val details: List<String> = emptyList(),
+        /**
+         * Social plan task 15 (F3b): the answer is final whatever its [reason] — a social ladder's
+         * photos-only answer (Instagram, TikTok, X: the post has no video), so asking again cannot
+         * change it. Only Master's browser fallback sets it, in a social-ladder build; every other
+         * answer: false, as before.
+         */
+        val final: Boolean = false,
     ) : SiteAdapterOutcome {
         /** Whether asking again can change the answer, so the browser offers Try again. */
         val canRetry: Boolean
-            get() = reason !in FINAL_REASONS
+            get() = !final && reason !in FINAL_REASONS
 
         /**
          * Whether the site's own player playing the video is what the lookup waits for, so the

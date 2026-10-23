@@ -106,6 +106,14 @@ class SocialLadderTikTokTest {
         val words = "This TikTok post has no downloadable video." // main's own for a photo post
         assertEquals(words, SocialLadder.finalMessage(SiteExtractionFailure.NO_MEDIA_FOUND, tiktok, listOf(photo)))
         assertEquals(words, SocialLadder.finalMessage(SiteExtractionFailure.NO_MEDIA_FOUND, tiktok, listOf("x", t1)))
+        // Task 15 (F3b): the photo stop is final (no Try again); Facebook's private answer is not.
+        assertTrue(SocialLadder.photosOnly(SiteExtractionFailure.NO_MEDIA_FOUND, tiktok, listOf(photo)))
+        assertTrue(SocialLadder.photosOnly(SiteExtractionFailure.NO_MEDIA_FOUND, tiktok, listOf("x", t1)))
+        assertFalse(SocialLadder.photosOnly(SiteExtractionFailure.NO_MEDIA_FOUND, tiktok, emptyList()))
+        assertFalse(
+            SocialLadder.photosOnly(SiteExtractionFailure.PRIVATE_OR_UNAVAILABLE, "facebook:1000000000000001", listOf(photo)),
+        )
+        assertFalse(SocialLadder.photosOnly(SiteExtractionFailure.NO_MEDIA_FOUND, "facebook:1", listOf(photo)))
         // Not the ladder's photo stop: null (the engine's own words, as before).
         assertNull(SocialLadder.finalMessage(SiteExtractionFailure.NO_MEDIA_FOUND, tiktok))
         assertNull(

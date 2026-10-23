@@ -33,6 +33,9 @@ for every APK given to users, because Android refuses to install a lower one.
 
 ### Fixed
 
+- The download sheet's failure scrolls (the owner's phone session of 2026-10-23): long Details no
+  longer push Try again off the sheet, as it stays under them; shown Details offer Copy details
+  (the lines as shown, each link as its site's host only, so the copy holds words, never a link).
 - Download as names a phone video after its short side (P47): 720 × 1280 is "720p · HD", not
   "1280p · Full HD".
 

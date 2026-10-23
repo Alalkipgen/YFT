@@ -101,6 +101,9 @@ class SocialLadderXTest {
             "This post has photos only, no video.", // main's own for a photo post
             SocialLadder.finalMessage(SiteExtractionFailure.NO_MEDIA_FOUND, KEY, listOf("master: x ladder after NO_MEDIA_FOUND", photo)),
         )
+        // Task 15 (F3b): that photo answer is final (no Try again); the 404's is not.
+        assertTrue(SocialLadder.photosOnly(SiteExtractionFailure.NO_MEDIA_FOUND, KEY, listOf(photo)))
+        assertFalse(SocialLadder.photosOnly(SiteExtractionFailure.NO_MEDIA_FOUND, KEY, listOf(NOT_FOUND_LINE)))
         // Task 0: the widget's 404 is never final (X1 names no reason), and no X line ends a lookup
         // as removed, not even an earlier build's REMOVED line.
         val removed = "master: x X1 main's answer: REMOVED (status 404: no such post); next: FINAL"
