@@ -1,5 +1,59 @@
 # YFT Master Extractor backup
 
+## Social plan task 18 — S4's phone session (steps 1–5 PASS; its O1 a bug); the open read and L3 never take a player's stand-in file, a site's build resource or the video's own page (2026-10-23)
+
+- **S4's phone session** (the owner, 2026-10-23, `yft-d7-social-trial` of `2dcd0d1` (run
+  39948738272), as an Update; no VPN and signed out unless said; plan §7.4,
+  `docs/PHONE_TEST_NOTES.md`): **steps 1–5 PASS** — (1) `recipes: remote version 1, signed`;
+  (2) the label went on twice, so versions 2 and 3 are both `drill-rung-off` (the workflow's runs
+  39960156863 and 39960304422; `recipes` `ea313d2`, `3d030b7`): on version 3 Instagram slot 5 (the
+  rung's box ticked) gave no row, the playback words with Try again and `master: instagram probe:
+  off (config); not run`; L3 seen; (3) version 4, `drill-key-change` (run 39961695997, `4f63c10`):
+  Facebook link 1's rows as before (720p · HD 720 × 720, 360p 400 × 400) with `master: facebook
+  contract: 5 files by shape (key table changed)`, a 720p download plays with sound, L1's `vs not
+  stated`; Instagram slot 5 (the box ticked) 720p · HD 720 × 1280 on the first Download, `probe:
+  HTTP 200 …; rows 3 (DIRECT)`; (4) version 5, `defaults` (run 39964441458, `622303c`): link 1 with
+  no key table line, `Master's rows 2, main's 3; … duration within 1 s: yes; heights 720,400 vs
+  not stated`; (5) B3's short set (version 5): Facebook links 1 and 10, Instagram slots 1 (612 =
+  612) and 8, X slots 6 (3 = 3 on the first lookup) and 8, TikTok slots 6 and 1 (VPN New York), all
+  as the retest and B3. Afterwards TikTok's census run (14:15 UTC, VPN New York, version 5): PASS,
+  wrong rows 0, NO CHANGE against 2026-10-22 14:59 UTC; not counted for S5 (task 18 changes the
+  engine).
+- **O1** (step 3; a bug): Master's rows 3 (720, 400, 224) and "duration within 1 s: no" — the
+  drill's open read (the key table renamed; L4 and L3 over the plugin player's page) took the
+  player's stand-in file `abortDummy` (one 400 × 224 frame of 0.03 s, 1856 bytes, on Meta's
+  `/rsrc.php/` path; a direct field of the player's config, which carries the video's ID, so
+  anchored to the video, and taken by its `.mp4`) and the video's own page under `video_url` twice
+  (L4's Instagram file key; refused by the media check): "5 files by shape". The census would count
+  the stand-in a wrong row; the key table reads neither. Seen again with the real code on the plugin
+  player's live pages of 2 videos (local only, never committed).
+- **Task 18** — *Built* (`ac0dd2c`, `[d7]`; debug only, behind the flag; flag off = today; main's
+  adapters, `LookupAsk.endpoint` and every YouTube file unchanged): L3 takes no address whose key,
+  object's key or list's key names a stand-in (`MediaKeyTable.STAND_IN_HINTS`: `dummy`,
+  `placeholder`, `abort`; the key table's version 2); a site's build resource (`/rsrc.php/` in the
+  path; `UrlPolicy.buildResource`) is no media for L3 and never eligible in `CandidateGate`,
+  whichever layer or capture found it; the contract's open read leaves out the video's own page on
+  the answer's host (its ID a path segment, no media file's extension), a play address there kept
+  (TikTok's `/aweme/v1/play/`). On the live pages: `drill-key-change` → "2 files by shape (key
+  table changed)", the 2 files; `defaults` → "2 files from the key table".
+- **Tests** (made-up IDs and addresses; no live calls): extractor-master 980 (+3; 2 skipped) —
+  `ShapeLayerTest` 9 (+1: a stand-in under each hint and a build resource, anchored or not, never
+  the video's; the control read), `CandidateGateTest` 2 (new), `FacebookContractTest` 6 and
+  `FacebookLadderTest` 11 (the plugin player's page in its live shape of 2026-10-23: the page link
+  in its data and beside it, the stand-in file; the renamed key's rows exactly the 2 files, the
+  media checks only theirs; the drill's "2 files by shape (key table changed)"), `TikTokContractTest`
+  7 (a play address on the answer's host stays). Without the fix 6 fail — among them
+  `FacebookLadderTest`'s plugin answers with no file, where the stand-in alone became a row
+  (DIRECT, not needs playback): the bug was not the drill's only. CI on `ac0dd2c`: the checkpoint (39981434462) and the APK run (39981426179: 10 of 10, with `yft-d7-social-trial`) green.
+- Docs: the plan (the status lines, the Burmese summary, the S4 row, §7.3's task 18, the gate's
+  state, §7.4's S4 result, O1 and the re-drill, decision 26's status), `docs/SUPPORT_MATRIX.md`
+  (Facebook's row: task 18; W's row: S4's drill), `docs/PHONE_TEST_NOTES.md` (S4's phone session),
+  `docs/TEST_MATRIX.md` (2 rows) and this entry.
+- **Next:** the re-drill (plan §7.4: `recipes:drill-key-change` → version 6, link 1 "2 files by
+  shape (key table changed)" with rows 2 and duration yes; `recipes:defaults` → version 7; B3's
+  short set) on `yft-d7-social-trial` of `ac0dd2c` (run 39981426179); then S5 (decision 26) on this
+  APK, from its first run, on version 7.
+
 ## Social plan task 17 — S4: R9 live in a social-ladder build (the key, the hosting, a kill switch per rung, the drill's configs); the retest's L1 and L3 fixed (2026-10-23)
 
 - **Decision 5** (plan §8; the owner, 2026-10-22: the agent makes the key and the hosting) —

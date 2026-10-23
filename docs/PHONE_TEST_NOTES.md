@@ -648,3 +648,63 @@ and W's VPN run. Times: only W's VPN run was logged in UTC (02:24).
   24), the signed-in rule, task 14's words (decision 27), W's NO CHANGE on New York for Facebook,
   TikTok and X, and without the VPN (signed out; Instagram signed in).
 - To fix (task 15): F1–F5 and F3b; then the retest (`MASTER_KEY_SOCIAL_PLAN.md` §7.4, click by click).
+
+## 2026-10-23 — S4's phone session on `social-trial` 2dcd0d1 (run 39948738272)
+Rebuilt from the owner's screenshots and messages in the session; the phone's own notes, links and
+posts stay on the phone. As an Update; no VPN and signed out unless said; the VPN's New York exit
+for TikTok. No census run and no W in steps 1–4. The drill's versions published 13:18–13:49 UTC
+(`MASTER_KEY_SOCIAL_PLAN.md` §7.4).
+
+### Step 1 — version 1 (`defaults`) — PASS
+- The census screen: `recipes: remote version 1, signed`.
+
+### Step 2 — the kill switch (`drill-rung-off`, version 3) — PASS
+- The label went on twice: versions 2 and 3 are both `drill-rung-off` (the workflow's runs
+  39960156863 and 39960304422); the step ran on version 3. A label goes on once from now on.
+- Instagram slot 5, the rung's box ticked: no row; the playback words with Try again; `master:
+  instagram probe: off (config); not run`; no `probe: HTTP …` line.
+- L3 seen: a page main's line calls "no post" → I2's `NEEDS_PLAYBACK (no post data in the page, as
+  main's rule reads it; …)`, not `SHAPE_CHANGED`.
+
+### Step 3 — a key changed by config (`drill-key-change`, version 4, run 39961695997) — PASS, with O1
+- Facebook link 1: Master's rows as before, 720p · HD (720 × 720) and 360p (400 × 400); under the
+  trial line `master: facebook contract: 5 files by shape (key table changed)`; the 720p download
+  plays with sound, the right video; L1: the trial line ends `vs not stated`.
+- O1: the trial line's Master's rows 3 (720, 400, 224) and "duration within 1 s: no"; the sheet
+  showed the 2 rows, its found list one video. A bug (task 18): the open read took the plugin
+  player's stand-in file (one 400 × 224 frame of 0.03 s) and the video's own page (twice; the
+  media check refused it).
+- Instagram slot 5, the box still ticked: 720p · HD 720 × 1280 on the first Download; `probe: HTTP
+  200 …; rows 3 (DIRECT)`.
+- The census line once read `recipes: remote version 4, signed (last check: no answer in time)`:
+  a later ask unanswered in time, version 4 kept.
+
+### Step 4 — back to the defaults (`defaults`, version 5, run 39964441458) — PASS
+- Facebook link 1: no key table line; `Master's rows 2, main's 3; … duration within 1 s: yes;
+  heights 720,400 vs not stated`.
+- The rung's box unticked.
+
+### Step 5 — B3's short set (version 5) — PASS
+- Facebook link 1: step 4's lookup. Link 10 (the group post): "Facebook trial: main's rows were set
+  aside and Master found none. Tap Try again."
+- Instagram slot 1: 720p · HD (612 × 612); `Master's rows 1, main's 1; the same item: yes; duration
+  within 1 s: yes; tallest: 612 vs 612` (I2; the probe off). Slot 8: "This post has photos only,
+  no video.", no Try again.
+- X slot 6: `Master's rows 3, main's 3; the same item: yes; duration within 1 s: yes` on the first
+  Download (720p, 480p, 360p). Slot 8: main's words ("X shows this post only to signed-in
+  viewers…"), no row.
+- TikTok, VPN New York: slot 6 "This TikTok post has no downloadable video.", no Try again; slot 1
+  720p · HD (718 × 1276), `Master's rows 1, main's 3; the same video: yes; duration within 1 s:
+  yes`.
+
+### TikTok census — VPN New York, signed out, 14:15 UTC (version 5) — PASS, not counted for S5
+- Wrong rows 0; NO CHANGE against the run of 2026-10-22 14:59 UTC; all 9 slots as expected; the
+  report's notes `recipes: remote version 5, signed`.
+- Not counted: task 18 changes the engine (decision 26); S5 starts on task 18's APK after the
+  re-drill.
+
+### Verdict of S4's phone session
+- PASS: steps 1–5 — the signed config, the kill switch, a key changed by config and back, B3's short
+  set; L1 and L3 seen.
+- O1 fixed by task 18 (`ac0dd2c`); next: the re-drill (`MASTER_KEY_SOCIAL_PLAN.md` §7.4), then S5
+  from its first run.
