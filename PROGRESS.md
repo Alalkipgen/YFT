@@ -68,7 +68,29 @@
     ladder line, no link); `SocialTrialTest` and `SocialLadderXTest` (no comparison: the ladder's
     line alone, never a comparison; main's own rows: no banner, as before).
   - F2 — I2 judges the real embed page as main's "video without files" (a Master copy of main's
-    rule), and a counts-only reason on `SHAPE_CHANGED`. *To do.*
+    rule), and a counts-only reason on `SHAPE_CHANGED`. *Built* (`573f977`): `InstagramPageRule`
+    (new; a Master copy of main's `InstagramPageDocuments.documents` and `mentions`,
+    `InstagramMedia.find`, `isPost`, `postOf` and `itemOf`, with `ask`'s "the first post with a
+    file, else the first"; 20 rows in `toolkit-provenance.tsv`: 177 symbols, drift 0 against
+    `34a4189`) reads a page's post as main does; `InstagramLadder.readAnswer` takes it for a page
+    (its old read, a page's first node naming the code, only where main's rule finds none: on the
+    real embed page that node was the embed's own context, its video mark in another casing, so
+    "no video read") and main's rule's marks and files for a JSON answer's post too.
+    `InstagramAnswerJudge`: the embed page's video without files → `VIDEO_WITHOUT_FILES` (the
+    rung's; with the rung off, decision 27's playback words with Try again); a video whose files
+    main's rule reads while the recipe reads no row → `SHAPE_CHANGED` "a video with files, no rows
+    read" on any way; a shape change read in an answer adds what was read, counts and marks only
+    ("…; the page: N characters; documents: N; main's post: yes or no; a video mark: yes or no;
+    files: N"; a JSON answer's "the answer: N characters; the post: yes or no; …"). Tests:
+    `InstagramLadderTest` +1 (a made-up embed page in the real one's shape, about 228k characters:
+    main's "video without files", I2's `VIDEO_WITHOUT_FILES`, then `LOGIN_WALL` → BROWSER, no
+    shape change, no link or ID in the lines — the old read gave it the phone's "SHAPE_CHANGED (no
+    video read)"; the embed's context alone: main's "no post", I2's shape change with its counts;
+    the same data on the post's own page: a shape change with its counts) and the carousel test's
+    renamed key (its counts); `InstagramAnswerJudgeTest` (the counts on each shape change; a video
+    with files and no row, on a page and in a JSON answer); `SocialPlaybackWordsTest` +1 (a shape
+    change's counts never pick the playback words: a wall keeps the sign-in words). Debug only
+    (behind the flag).
   - F5 — W: a run in which every ask of a site was walled: BREAKING kept, the note "every ask
     walled: likely this network's address, §7.5", never a baseline (a stored one set aside); §7.5's
     step. *To do.*
@@ -88,12 +110,14 @@
   Robolectric could not download its Android jar (`MavenArtifactFetcher`,
   `java.net.SocketException`), a network failure before the test ran, as on `a9b4673` — not task
   15's code (`core-browser` unchanged); the same tree's checkpoint at `55e964d` (39900323632)
-  green, so no fix commit.
+  green, so no fix commit. CI on `80f5518`: the APK run 39902953244 and the checkpoint
+  39902957164 green; `54b0ccf`'s checkpoint 39903067574 green.
 - Commits: `611ce8a` (docs only: the session, decisions 27–28, the plan's task 15 and §7.4's
-  retest); `755492b` (F3 and F3b, `[d7]`) and `80f5518` (F1 and F4, `[d7]`), each fix's bullet
-  here in the docs-only commit after it (`55e964d` for F3 and F3b; the push's size limit); the
-  other fixes' commits next; the TEST_MATRIX rows in the last, docs-only commit.
-- Next: F2 (the next commit).
+  retest); `755492b` (F3 and F3b, `[d7]`), `80f5518` (F1 and F4, `[d7]`) and `573f977` (F2,
+  `[d7]`), each fix's bullet here in the docs-only commit after it (`55e964d` for F3 and F3b,
+  `54b0ccf` for F1 and F4; the push's size limit); F5's commit next; the TEST_MATRIX rows in the
+  last, docs-only commit.
+- Next: F5 (the next commit).
 
 ## Social plan task 14 — the playback words only where a video can play (observation e; words only, debug only, behind the flag) (2026-10-23)
 
