@@ -25,8 +25,23 @@
 - **The fixes** (Master's side and the UI only, never main's adapters; flag off = today but F3's
   UI; each its own `[d7]` commit, in this order; plan §7.3's task 15):
   - F3 — the failure sheet scrolls (Try again always reachable) and "Copy details" copies its
-    Details (words only); F3b — a final answer (photos only) without Try again, or listed in
-    `docs/SUPPORT_MATRIX.md`. *To do.*
+    Details (words only); F3b — a final answer (photos only) without Try again. *Built*
+    (`755492b`): `QuickDownloadScreen`'s `Failure()` puts the message and the Details in one
+    scroll (`quick-error-scroll`), Try again and the reload pinned under it (every build, UI only:
+    the same words and flow); shown Details offer "Copy details" beside "Hide details"
+    (`quick-error-copy`; `copiedDetails`: the lines as shown, cleaned once more, each link as its
+    site's host only; "Details copied" on Android 12 and older). F3b, the small UI change: a
+    ladder's photos-only answer (`SocialLadder.photosOnly`: TikTok's, X's or Instagram's
+    `NO_MEDIA_FOUND` with its `PHOTO_ONLY` … `FINAL` line) is final
+    (`SiteAdapterOutcome.Failed.final`, set only by `BrowserMasterFallback` in a social-ladder
+    build) → no Try again in the sheet or the banner; Facebook's private answer keeps Try again;
+    Home's lookups and every other build keep main's photos-only answer with Try again (listed in
+    `docs/SUPPORT_MATRIX.md`). Tests: `QuickDownloadScreenTest` +1 (a long failure: the Details
+    scroll to their end, Try again on the screen under them, Copy details' text, Hide details);
+    `SocialFirstLookupTest` +1 (Instagram's photos-only post through main's real adapter and the
+    ladder: final, no Try again, no request; without the ladder and main's own answer: Try again);
+    `SocialLadderInstagramTest`, `SocialLadderTikTokTest`, `SocialLadderXTest` (`photosOnly` per
+    site) and `SocialLadderF1Test` (Facebook's private answer keeps Try again): new asserts.
   - F1 — every lookup that ends with Master's rows shows the banner (the site's ladder line and,
     on Instagram, the probe line); the rung's row reads its video's width and height. F4 — signed
     in, the rung's proof on: the row that came though the rung was not asked (its step, its item),
@@ -46,10 +61,11 @@
   out, both boxes off; W without the VPN, signed out (NO CHANGE), and on New York, signed out (F5's
   note if walled; the baseline rule). Only then does the owner send S4 (task 16); S5 counts only
   on the final APK.
-- Commits: this entry's first commit (docs only: the session, decisions 27–28, the plan's task 15
-  and §7.4's retest); the fixes' commits next; the TEST_MATRIX rows in the last, docs-only commit
-  (the push's size limit).
-- Next: F3 and F3b (the next commit).
+- Commits: `611ce8a` (docs only: the session, decisions 27–28, the plan's task 15 and §7.4's
+  retest); `755492b` (F3 and F3b, `[d7]`; this entry's F3 bullet in the docs-only commit after it:
+  the push's size limit); the other fixes' commits next; the TEST_MATRIX rows in the last,
+  docs-only commit.
+- Next: F1 and F4 (the next commit).
 
 ## Social plan task 14 — the playback words only where a video can play (observation e; words only, debug only, behind the flag) (2026-10-23)
 
