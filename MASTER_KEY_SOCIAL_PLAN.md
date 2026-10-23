@@ -2283,8 +2283,10 @@ status):
   session may run all four sites. Each counted run: wrong rows 0, no regression against the
   site's baseline (as before). *Status:* not started; tasks 12–16 change the engine and
   Instagram's and X's lookups (task 15 also W and the failure sheet; task 16 every site's Master
-  rows without a stated size), so S5 starts on the APK of task 16's last code commit after §7.4's
-  retest, if no code changes.
+  rows without a stated size), and task 17 (S4) the engine and every site's pack, so S5 starts on
+  the APK of task 17's last code commit (`2dcd0d1`) once S4's phone session (§7.4) passes, if no
+  code changes — never during the drill (its versions 2 and 3 change the live config): its runs
+  on version 4 (`defaults`); the first may follow the session the same day.
 
 Decided (the owner, 2026-10-23, after the phone session of 2026-10-23 on `c3e9147`'s APK
 (`docs/PHONE_TEST_NOTES.md`); recorded in task 15's first commit, docs only; decisions, then each
