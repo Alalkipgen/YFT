@@ -61,7 +61,9 @@ Facebook plugin player's stand-in file and the video's own page) a bug, fixed by
 read and L3 never take a player's stand-in file, a site's build resource or the video's own page;
 debug only, behind the flag) built (2026-10-23; §7.3). The re-drill on task 18's APK (2026-10-23,
 `ac0dd2c`; §7.4): PASS. S5 (decision 26) on that APK: run 1 of 3 PASS on every site (2026-10-23
-17:27–17:31 UTC, version 7: wrong rows 0, NO CHANGE); next: its run 2, then its run 3 (§7.4).**
+17:27–17:31 UTC, version 7: wrong rows 0, NO CHANGE); next: its run 2, then its run 3 (§7.4).
+Decision 30 (the owner, 2026-10-23; §8): the signed release carries Master on, for 5–10 friends;
+after S5's gate, one release commit, Preview #12 (normal and trial), PR #2's merge, then P8.**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -101,9 +103,21 @@ debug only, behind the flag) built (2026-10-23; §7.3). The re-drill on task 18'
 - **အစဉ် (§7၊ §7.3):** S0 (ပြီးပြီ) → **Stage 0** (0.1 main ရဲ့ X card fix၊ 0.2 Instagram check၊
   0.3 Facebook access check evidence၊ 0.4 census fix + site census diff၊ 0.5 ပိုင်ရှင်ရဲ့ baseline
   B0) → **S1a** kit အနည်းဆုံး + Facebook pack (pilot) → **S2b** TikTok → **S2c** X → **S2d**
-  Instagram → S3 weekly check → S4 remote recipe live → S5 site တစ်ခုစီ phone run ၃ ခါ (#26) → PR #2
-  merge → P8 (beta.4)။ release ပြီးမှ: S1b၊ X2၊ "item အားလုံး" feature၊ B+ (S6)၊ A။
-- **ဆုံးဖြတ်ပြီး:** §8 #1–#29 (#5: 2026-10-22 — R9 ရဲ့ key နဲ့ hosting ကို agent က လုပ်)။ **ကျန်:** မရှိ။
+  Instagram → S3 weekly check → S4 remote recipe live → S5 site တစ်ခုစီ phone run ၃ ခါ (#26) →
+  release commit → Preview #12 (normal နဲ့ trial; #30) → PR #2 merge → P8 (beta.4၊ Master ON)။
+  release ပြီးမှ: S1b၊ X2၊ "item အားလုံး" feature၊ B+ (S6)၊ A။
+- **ဆုံးဖြတ်ပြီး:** §8 #1–#30 (#5: 2026-10-22 — R9 ရဲ့ key နဲ့ hosting ကို agent က လုပ်၊ #30:
+  2026-10-23 — signed release မှာ Master ON)။ **ကျန်:** မရှိ။
+- **Release မှာ Master ON (ပိုင်ရှင်၊ 2026-10-23၊ §8 #30):** signed `1.0.0-beta.4` မှာ main နဲ့ fix
+  အားလုံးအပြင် Master (YouTube route B၊ site ၄ ခုရဲ့ ladder၊ browser capture၊ R9 နဲ့ rung kill
+  switch) ပါမယ်။ Master က main ကျမှပဲ ဝင်မယ် (#7)။ Trial၊ test hook၊ census၊ W၊ canary၊ stream
+  check နဲ့ Instagram tab-fetch rung က debug မှာပဲ။ Settings မှာ "Backup finder" switch (default
+  ON; OFF ဆို Master မမေး၊ GitHub raw ကို ဘာမှ မပို့)။ About › Privacy ရဲ့ ပထမစာကြောင်းမှာ GitHub
+  raw ကိုပါ ရေးမယ်။ Merge မတိုင်ခင် release commit တစ်ခုကနေ Preview ၂ ခု (app ID သီးခြား၊
+  ဘေးချင်းယှဉ်): **#12 normal** (release အတိုင်း) နဲ့ **#12 trial** (main ရဲ့ အဖြေ OFF၊ Master ON —
+  main က site ကို မေးဆဲမို့ Master ဖတ်စရာ record ရှိ၊ main ရဲ့ row တွေကို ဘေးဖယ်ပြီး နှိုင်းယှဉ်)။
+  Trial ကို debug နဲ့ preview မှာပဲ ခွင့်ပြု၊ release က ဘယ်တော့မှ မဖတ်။ Fail ရင် merge မတိုင်ခင်
+  ပြင် (feature အသစ် မထည့်)။ ပြီးမှ PR #2 merge → P8 → install/upgrade စစ် → friend ၅–၁၀ ယောက်။
 - **S0d (2026-10-20, §7.2):** ပိုင်ရှင်ရဲ့ phone run ၂ ခု။ Recoverable failure: Facebook 0/11၊
   TikTok 0/6၊ Instagram 0/7၊ X 2/6 (main မဖတ်တဲ့ card ထဲက video)။ Pilot: Facebook → TikTok →
   X → Instagram (ပိုင်ရှင် အတည်ပြုပြီး၊ 2026-10-20၊ §8 #1)။
@@ -2469,6 +2483,41 @@ Decided (the owner, 2026-10-23, in task 16's brief; recorded in task 16's commit
   the new public key committed (a code commit: its APK carries it); the new APK refuses the old
   key's configs (the bundled recipes until the new key's first). *Status:* built in task 17
   (2026-10-23; §7.3); its drill: S4's phone session (§7.4).
+
+Decided (the owner, 2026-10-23, in chat after S5's run 1; recorded docs only, nothing built; the
+decision, then its status):
+
+- **30 — The signed release carries Master on; 5–10 of the owner's friends use it.** Decision 12's
+  gate stays (S0–S5 on the four sites first); the release is no longer main alone. The signed
+  `1.0.0-beta.4` (still a beta: a pre-release, or the APK sent directly, as the repository is
+  public) carries main with every fix and Master on: YouTube's route B (the own solver, the client
+  ladder, the version lookup on GitHub raw after `VERSION_REJECTED`, at most once a day), the four
+  sites' ladders (L3 included), the browser's capture as built (a visible tab; the user plays) and
+  R9 (decision 5's committed public key, now in the release too; the `recipes` branch; each social
+  rung's kill switch, `rungsOff`). Master acts only after main fails (decision 7); a lookup main
+  answers no slower and with no more requests than B0 (§9). Never in the release: the trials, the
+  test hooks (skip, mutate), the census, W, the canary and the stream check (debug only; W stays
+  the owner's weekly check in the debug APK), and Instagram's tab-fetch rung (decision 28).
+  (i) **A Settings switch "Backup finder", on by default:** off, no lookup asks Master and nothing
+  goes to GitHub raw (R9's config, YouTube's version tables). (ii) **About › Privacy:** its first
+  line ("YFT only contacts the sites you open and the media servers they point to.") names GitHub
+  raw too, in the same commit. (iii) **The proof before the merge — two preview APKs of one release
+  commit, side by side** (each its own app ID and name): **#12 normal**, the release's flags
+  exactly (main's lookups as before; downloads, sound, notifications, delete); **#12 trial**, the
+  same with the trials on (route B's for YouTube, the social one for the four sites): main's answer
+  off and Master on — main still asks, so its requests stay in the lookup's record that Master's
+  rungs and route B read (a main that asks nothing leaves them nothing to read: task 12; route B's
+  "main asked nothing"), and its rows are set aside and compared — so Master answers every lookup
+  on the shrunk (R8) build. The trials' rule "debug only, release and preview false" becomes "debug
+  and preview only; the release never reads them". In both: when Master finds nothing too, the
+  error comes in bounded time and Cancel works. A failure is fixed before the merge; nothing new
+  joins (B+ and "all items" after the release). (iv) **The order:** S5's runs 2 and 3 → the gate →
+  the release commit (the release's and the previews' flags, the key, R8 rules, the switch, the
+  privacy line; CI green; no site pack, engine or main lookup change, so S5's count stands and its
+  proof is #12) → #12 normal and #12 trial on the owner's phone → PR #2's merge (a merge commit) →
+  P8 (the tag, the signed APK, its install and upgrade on the owner's phone) → the friends (their
+  reports: the failure sheet's Details, copied or shared; data fixes by R9, code fixes in beta.5).
+  *Status:* recorded (2026-10-23); nothing built; the release commit after S5's gate.
 
 Still open (the owner's answer is needed before the step that uses it): none.
 

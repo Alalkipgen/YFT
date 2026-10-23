@@ -1,5 +1,19 @@
 # YFT Master Extractor backup
 
+## Social plan — decision 30: the signed release carries Master on (2026-10-23)
+
+- **Decision 30** (the owner, 2026-10-23, in chat after S5's run 1; plan §8): the signed
+  `1.0.0-beta.4` carries main and Master on (YouTube's route B, the four sites' ladders, the
+  capture as built, R9), Master only after main fails; the trials, the test hooks, the census, W,
+  the canary, the stream check and Instagram's tab-fetch rung stay debug only. A "Backup finder"
+  switch (on by default; off: no Master and nothing to GitHub raw); About › Privacy's first line
+  names GitHub raw. Before PR #2's merge: two preview APKs of one release commit, side by side —
+  #12 normal (the release's flags) and #12 trial (main's answer off, Master on: main still asks,
+  so Master's rungs have its record; its rows set aside and compared); the trials' rule becomes
+  "debug and preview only; the release never reads them". Then the merge, P8 and 5–10 friends.
+  Nothing built; S5 untouched (its runs 2 and 3 next; the release commit after the gate).
+- Docs: the plan (the status line, the Burmese summary, §8 decision 30) (docs only).
+
 ## Social plan — the re-drill PASS on task 18's APK; S5's run 1 of 3 PASS on every site (2026-10-23)
 
 - **The re-drill** (the owner, 2026-10-23 17:02–17:25 UTC; `yft-d7-social-trial` of `ac0dd2c` (run
