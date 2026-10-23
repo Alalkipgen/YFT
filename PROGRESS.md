@@ -1,6 +1,6 @@
 # YFT Master Extractor backup
 
-## Social plan task 15 — the c3e9147 phone session's fixes: the rung's rows and banner (F1), I2's read of the real embed page (F2), a failure sheet that scrolls, with Copy details (F3), final answers without Try again (F3b), the proof's row (F4), W's walled runs (F5); decisions 27–28 (in progress) (2026-10-23)
+## Social plan task 15 — the c3e9147 phone session's fixes: the rung's rows and banner (F1), I2's read of the real embed page (F2), a failure sheet that scrolls, with Copy details (F3), final answers without Try again (F3b), the proof's row (F4), W's walled runs (F5); decisions 27–28 (2026-10-23)
 
 - **The phone session of 2026-10-23** (the owner, `yft-d7-social-trial` of `c3e9147`, run
   39878500080; no VPN and signed out unless said; the log and its summary:
@@ -93,17 +93,43 @@
     (behind the flag).
   - F5 — W: a run in which every ask of a site was walled: BREAKING kept, the note "every ask
     walled: likely this network's address, §7.5", never a baseline (a stored one set aside); §7.5's
-    step. *To do.*
-- **The next phone session** (the retest, after task 15's last commit; plan §7.4, click by click):
-  the `social-trial` APK of task 15's last code commit as an Update; sign out first (Settings →
-  Clear browsing data); Instagram slot 5 signed out, the rung on (a row with its height, the banner
-  with the ladder line and the probe line: F1) and off (the playback words with Try again, I2's
-  embed line no longer `SHAPE_CHANGED`: F2); a long failure, slot 9 (the Details scroll, Try again
-  reachable, Copy details: F3); slot 8 and TikTok slot 6 (Try again as F3b is built); signed in,
-  the rung and its proof on, slot 1 (the proof's line, the same item or no row: F4), then signed
-  out, both boxes off; W without the VPN, signed out (NO CHANGE), and on New York, signed out (F5's
-  note if walled; the baseline rule). Only then does the owner send S4 (task 16); S5 counts only
-  on the final APK.
+    step. *Built* (this commit, task 15's last): `SiteWeekly.walled` reads a site's part of a W run
+    as walled when its slots made at least one ask and every ask, main's and Master's, got the
+    login page (its reading) or a login status (`LOGIN_REQUIRED`: 401, 403), with no rows read on
+    either side (one answer of another kind — data, a removed post's word, a 429, no answer — and
+    it is not); `SiteCensus.run` (W only) keeps the site's lines (BREAKING against a baseline with
+    data), adds one note, "<Site>: every ask walled: likely this network's address, §7.5; not a
+    baseline", and never stores the run as W's baseline (as a stopped run); a stored W baseline
+    that was such a run (an earlier APK kept Instagram's of 2026-10-23 02:24 UTC on New York) is
+    set aside — "<Site>: the baseline of <date> (<VPN, session>) had every ask walled: set aside"
+    ("; this run starts it" when this run is good): not compared, dropped, so the next good run
+    starts it and is never CHANGED against the walled one. A partly walled run and the full census
+    as before. §7.5's entry "Every ask walled (task 15's F5)" after step 8 (check: the site's
+    `main:` and Master's lines, the header's network; fix: none in code — another exit, then W
+    again). Tests: `SiteWeeklyTest` 9 (+2: an all-walled run → its BREAKING lines and one note,
+    the first run stays the baseline, a good run then NO CHANGE against it, a partly walled run no
+    note and the baseline; a stored walled baseline → set aside, none kept, then a good run "NOT
+    COMPARED — no baseline yet" that starts it, no CHANGED or BREAKING line) and the runbook test
+    (§7.5 names the note). Local: `extractor-sites` 293, `extractor-master` 954 (2 skipped),
+    `extractor-master-android` 70, `app` 1111 (66 skipped); lint 0 errors; the flags-on build;
+    drift 0. Debug only (behind the flag: W is the census's).
+- **The next phone session** (one session for tasks 15 and 16, the retest, after task 16's last
+  commit; plan §7.4, click by click, one test at a time, in this order): the
+  `yft-d7-social-trial` APK of task 16's last code commit's APK run as an Update (the census's
+  runs, both Instagram boxes and the sign-in stay); (1) F4: Instagram signed in, VPN off, the
+  rung and its proof on, slot 1 → the proof's line in the banner, the same item yes or no row (as
+  built: no row, the trial's words and both probe lines); (2) the proof off, sign out (Settings →
+  Clear browsing data); (3) F1: the rung on, slot 5 → a row with its height on the first Download,
+  the banner's ladder line and probe line; (4) F2: the rung off, slot 5 → the playback words with
+  Try again, I2's embed line `VIDEO_WITHOUT_FILES`, not `SHAPE_CHANGED` (if it is: Copy details,
+  its counts); (5) F3: slot 9 → the Details scroll to their end, Try again reachable, Copy details
+  (each site's bare host); F3b: slot 8 → main's photos-only words, no Try again; (6) F6: Facebook
+  link 1, no VPN → Master's rows each with a quality and the detail "W × H", each height on the
+  trial line one main also has, one download plays (task 16; its commit brings the step's words up
+  to date); (7) W: no VPN, signed out → NO CHANGE; VPN New York, signed out → Instagram's stored
+  walled baseline set aside ("…; this run starts it"), F5's note if walled again (then another New
+  York address, W again). Then the results; only after this session passes does the owner send
+  S4 (task 17); S5 counts only on the final APK.
 - CI on `755492b`: the APK run 39900272577 green (the build and its 9 `d7` matrix jobs); the
   checkpoint 39900277973 red at `:core-browser:testDebugUnitTest`
   (`DomMediaProbeTest > parserMarksPreviewsAndThePagesNamedStream`; the job's log from the owner):
@@ -111,13 +137,18 @@
   `java.net.SocketException`), a network failure before the test ran, as on `a9b4673` — not task
   15's code (`core-browser` unchanged); the same tree's checkpoint at `55e964d` (39900323632)
   green, so no fix commit. CI on `80f5518`: the APK run 39902953244 and the checkpoint
-  39902957164 green; `54b0ccf`'s checkpoint 39903067574 green.
+  39902957164 green; `54b0ccf`'s checkpoint 39903067574 green. CI on `573f977`: the APK run
+  39905376833 and the checkpoint 39905383734 green; `91491f1`'s checkpoint 39905426448 green.
+  `755492b`'s checkpoint not rerun: no way to start a run from the agent's session (its GitHub
+  tools push commits; runs are read from the public API); its red stands as that network failure
+  (every later commit green).
 - Commits: `611ce8a` (docs only: the session, decisions 27–28, the plan's task 15 and §7.4's
   retest); `755492b` (F3 and F3b, `[d7]`), `80f5518` (F1 and F4, `[d7]`) and `573f977` (F2,
   `[d7]`), each fix's bullet here in the docs-only commit after it (`55e964d` for F3 and F3b,
-  `54b0ccf` for F1 and F4; the push's size limit); F5's commit next; the TEST_MATRIX rows in the
-  last, docs-only commit.
-- Next: F5 (the next commit).
+  `54b0ccf` for F1 and F4, `91491f1` for F2; the push's size limit); F5 (`[d7]`, this commit,
+  its bullet with it); the TEST_MATRIX rows, one per part, in the next, docs-only commit.
+- Next: the TEST_MATRIX rows (docs only), which complete task 15; then task 16 (F6 and its docs:
+  plan §7.3); then the one retest of tasks 15 and 16 (§7.4).
 
 ## Social plan task 14 — the playback words only where a video can play (observation e; words only, debug only, behind the flag) (2026-10-23)
 

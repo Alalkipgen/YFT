@@ -48,7 +48,9 @@ built (2026-10-23; §7.3). The owner's phone session of 2026-10-23 on task 14's 
 words accepted; the rung off by default in `social-trial`). Task 15 (the session's fixes: the
 rung's rows and banner, I2's read of the real embed page, a failure sheet that scrolls with Copy
 details, final answers without Try again, the proof's row, W's walled runs; Master's side and the
-UI only) in progress (§7.3). Next: task 15's code commits, then the owner's retest (§7.4).**
+UI only) built (2026-10-23; §7.3). Task 16 (F6: a Master row whose answer states no picture size
+takes its file's own; Facebook's fewer Master rows listed as intended; decision 29) next (§7.3);
+then the owner's one retest of tasks 15 and 16 (§7.4); S4 is task 17.**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -90,7 +92,7 @@ UI only) in progress (§7.3). Next: task 15's code commits, then the owner's ret
   B0) → **S1a** kit အနည်းဆုံး + Facebook pack (pilot) → **S2b** TikTok → **S2c** X → **S2d**
   Instagram → S3 weekly check → S4 remote recipe live → S5 site တစ်ခုစီ phone run ၃ ခါ (#26) → PR #2
   merge → P8 (beta.4)။ release ပြီးမှ: S1b၊ X2၊ "item အားလုံး" feature၊ B+ (S6)၊ A။
-- **ဆုံးဖြတ်ပြီး:** §8 #1–#4၊ #6–#26။ **ကျန်:** #5 (S4 မတိုင်မီ)။
+- **ဆုံးဖြတ်ပြီး:** §8 #1–#4၊ #6–#28။ **ကျန်:** #5 (S4 မတိုင်မီ)။
 - **S0d (2026-10-20, §7.2):** ပိုင်ရှင်ရဲ့ phone run ၂ ခု။ Recoverable failure: Facebook 0/11၊
   TikTok 0/6၊ Instagram 0/7၊ X 2/6 (main မဖတ်တဲ့ card ထဲက video)။ Pilot: Facebook → TikTok →
   X → Instagram (ပိုင်ရှင် အတည်ပြုပြီး၊ 2026-10-20၊ §8 #1)။
@@ -317,10 +319,13 @@ UI only) in progress (§7.3). Next: task 15's code commits, then the owner's ret
   "master: <site> words: …" က ဘယ် words လဲ၊ ဘာကြောင့်လဲ ပြော။ Words တွေက ပိုင်ရှင်ရဲ့ ဆုံးဖြတ်ချက်
   (§7.3)။ 2026-10-23 ရဲ့ phone session (`c3e9147`) မှာ B3၊ X slot 6 ရဲ့ ပထမ lookup၊ rung က Instagram
   slot 5 ကို ကယ်တာ (decision 24) နဲ့ W PASS; ပိုင်ရှင်ရဲ့ decisions 27–28 (§8: task 14 ရဲ့ words
-  လက်ခံ; rung က `social-trial` မှာ default off)။ Task 15 လုပ်ဆဲ (§7.3): rung ရဲ့ rows မှာ banner နဲ့
+  လက်ခံ; rung က `social-trial` မှာ default off)။ Task 15 ပြီး (§7.3): rung ရဲ့ rows မှာ banner နဲ့
   height (F1)၊ I2 က တကယ့် embed page ကို main လို "video without files" ဖတ် (F2)၊ failure sheet
-  scroll နဲ့ Copy details (F3)၊ final answer မှာ Try again (F3b)၊ proof ရဲ့ row (F4)၊ W ရဲ့ walled run
-  ကို baseline မလုပ် (F5)။ နောက်တစ်ဆင့်: task 15 ပြီးရင် ပိုင်ရှင်ရဲ့ retest (§7.4)။
+  scroll နဲ့ Copy details (F3)၊ final answer (photos only) မှာ Try again မပြ (F3b)၊ proof ရဲ့ row
+  (F4)၊ W မှာ site ရဲ့ ask တိုင်း login wall ရရင် BREAKING lines ထား၊ note တစ်ကြောင်း ("every ask
+  walled: likely this network's address, §7.5")၊ baseline မလုပ်; သိမ်းထားတဲ့ walled baseline ကို
+  ဘေးဖယ် (F5)။ နောက်တစ်ဆင့်: task 16 (F6: answer က size မပြောတဲ့ Master row က file ရဲ့ ကိုယ်ပိုင်
+  size ကို ယူ)၊ ပြီးရင် tasks 15–16 ရဲ့ retest တစ်ခါ (§7.4)၊ S4 က task 17။
 
 ## 1. Audit — what exists today
 
@@ -647,8 +652,8 @@ With no adapter copies (B), the build is also about 4,700 lines smaller than the
 | **S1a** | L | The kit's minimum with the pilot's pack, Facebook (the first draft's S1 and S2a together), flag `-Pyft.socialLadder` (off = today): the recorder in the app's lookup path, judge classes, the site table, one judged request rung + L3 + capture, budgets and the 30-minute cooldown (S7), `SiteRowCheck` + `InitCheck` on every Master row, Facebook's anchors, post-identity mutation tests, a simulator world (§7.3) | JVM tests, simulator and CI green; flag off = today; the D7-style APK's phone proof (§7.3) — **passed (2026-10-21, §7.4 step 6's re-run)** |
 | **S2b** | M | TikTok's pack (§7.3) | phone proof; wrong rows 0; no regression against B0 — built (2026-10-21, behind the flag); the phone (2026-10-22, `36ec093`): main PASS, T1's rows 6 of 6 on the New York exit, wrong 0; T2 untested; its intended difference accepted (decision 23) |
 | **S2c** | M | X's pack: main's answer replayed, no new ask (X2 not now; §7.3) | the same — built (2026-10-21, behind the flag); the phone (2026-10-22, `36ec093`): A PASS, wrong 0; tasks 12 and 14 (§7.3) before its S5 |
-| **S2d** | M | Instagram's pack by the Instagram check's verdict (0.2); the owner's signed-in census first (§7.3) | the same — part 1 built (2026-10-22, behind the flag: I2 and the tab-fetch probe, off by default); the phone (2026-10-22, `36ec093`): A PASS on 3 sessions, wrong 0; the probe: slot 5 video yes, slot 9 no; part 2 (the probe's rung, decision 24): built (task 13, 2026-10-22; behind its own switch, off by default: decision 28), its phone proof (2026-10-23, `c3e9147`): slot 5 rescued, 2 of 2; tasks 12 and 14 built; task 15's F1, F2 and F4 built (§7.3), the retest next (§7.4) |
-| **S3** | S–M | Weekly check W for all four + runbook (each CHANGED / BREAKING line and its fix: a data change via R9, or code) | the owner's first W run — built (2026-10-22, debug only, a social-ladder build: the census's "Weekly check W"; its runbook §7.5); its first runs C1–C3 PASS (2026-10-22, `36ec093`; W's baselines per network and session: decision 25); 2026-10-23 (`c3e9147`): NO CHANGE but Instagram on New York (every ask walled: the exit's address; task 15's F5) |
+| **S2d** | M | Instagram's pack by the Instagram check's verdict (0.2); the owner's signed-in census first (§7.3) | the same — part 1 built (2026-10-22, behind the flag: I2 and the tab-fetch probe, off by default); the phone (2026-10-22, `36ec093`): A PASS on 3 sessions, wrong 0; the probe: slot 5 video yes, slot 9 no; part 2 (the probe's rung, decision 24): built (task 13, 2026-10-22; behind its own switch, off by default: decision 28), its phone proof (2026-10-23, `c3e9147`): slot 5 rescued, 2 of 2; tasks 12 and 14 built; task 15 built (F1–F5, F3b; §7.3); task 16 (F6) next, then the retest (§7.4) |
+| **S3** | S–M | Weekly check W for all four + runbook (each CHANGED / BREAKING line and its fix: a data change via R9, or code) | the owner's first W run — built (2026-10-22, debug only, a social-ladder build: the census's "Weekly check W"; its runbook §7.5); its first runs C1–C3 PASS (2026-10-22, `36ec093`; W's baselines per network and session: decision 25); 2026-10-23 (`c3e9147`): NO CHANGE but Instagram on New York (every ask walled: the exit's address; task 15's F5 built: such a run is never a baseline, the stored one set aside) |
 | **S4** | S | R9 live: the owner signs and hosts the config (§8 item 5, decided before S4); kill switch per rung; one repair drill (a key changed by config on the phone, no APK) | drill passed |
 | **S5** | — | Promote per site after 3 phone runs by decision 26's rule (each at least 6 h after the previous one, the first and the last at least 24 h apart, on an APK of the final code, only where Master ran) with 0 wrong rows and no regression against B0; then the release gate (§7.3): all four sites, the first W run and the R9 drill passed, the intended differences in `docs/SUPPORT_MATRIX.md` → PR #2 merged → P8 (beta.4) | the owner's go |
 | **S1b** | M | After the release, on the owner's go: the rest of the kit — several request rungs per site with `SiteHealth` (the last good rung first) and self-healed values (L6). Needed only if X2 is allowed or Instagram's `doc_id` needs self-healing: Facebook, TikTok and Instagram each have one request rung in S1a–S2d | JVM tests; phone proof per site |
@@ -1251,8 +1256,38 @@ the post's files ("SHAPE_CHANGED (no video read; the page: N characters; documen
 post: no; a video mark: no; files: 0)"). The test page is made up, shaped like the real one (about
 228k characters: style and script rules first, then the embed's context and the post's data, no
 file): the old read gives it the phone's "SHAPE_CHANGED (no video read)", the new one main's
-"video without files"; debug only (behind the flag). To do, in this order: F5; then the retest
-(§7.4).
+"video without files"; debug only (behind the flag). *Built (F5):* W's run in which every ask of a
+site got the site's login wall — at least one ask, main's and Master's on every slot looked up,
+each the login page (its reading) or a login status (401, 403: `LOGIN_REQUIRED`), and no rows
+read (`SiteWeekly.walled`) — keeps its lines (BREAKING against a baseline with data) and adds one
+note, `<Site>: every ask walled: likely this network's address, §7.5; not a baseline`, and is never
+the site's baseline (as a `stopped (time)` run), with or without one; a stored W baseline that was
+such a run (the stored runs keep each ask's reading, so the 2026-10-23 02:24 UTC one is found) is
+set aside — not compared and dropped, `<Site>: the baseline of <date> (<VPN, session>) had every
+ask walled: set aside; this run starts it` — so the next run from a good address starts the
+baseline, never CHANGED against the walled one. A partly walled run, and the full census, are as
+before; §7.5 says what to do (another VPN exit, then W again). Debug only (W: a social-ladder
+build). Task 15 is done; next: task 16 (F6), then one retest of both (§7.4).
+
+**Task 16** (the owner, 2026-10-23, after the same phone session; Master's side only, never
+main's adapters (S1); flag off = today; `PROGRESS.md`): **F6** — Facebook link 1 (no VPN): both of
+Master's 2 rows showed "Quality unknown · As the page plays it" while main's 3 rows had their
+heights: the plugin player's answer names no size (as it names no length: S1a (10)); Instagram
+slot 5's rung row too (F1 now reads the answer's size; F6 is the fallback); TikTok slot 1's
+Master row stated its size (720p, 718 × 1276): rows with a size stay as they are. The fix: in
+`SocialRowCheck`, a row that passes and states no width or height takes its file's own size from
+the bytes its check already read (as `StartDuration` reads the length): the video track's `tkhd`
+width × height (16.16; a track with a non-zero size, or handler `vide`), else the visual sample
+entry's size in `stsd` (`avc1`, `avc3`, `hvc1`, `hev1`, `vp09`, `av01`); progressive or
+fragmented; a `moov` past the bytes read gives none; a 90° or 270° `tkhd` matrix swaps them; each
+16–8192, else none; no extra request, no larger read, no new ask in the record. A row's own size
+is never overwritten; bytes without a size, or a sound-only file: as today. The sheet names the
+row as main names that size (`QuickDownloadChoices`' `standardHeight`; the detail "W × H"),
+through main's path, no new words; two rows at one height: the sheet's one row per resolution. The
+Facebook trial line adds the heights each side gives (numbers only: "heights 720,360 vs
+720,360"). Facebook's Master rows can be fewer than main's (2 against 3: the files the plugin
+player plays): an intended difference (as B3, `docs/SUPPORT_MATRIX.md`), never a wrong row, not
+blocking S5 (decision 29). *To do* (the next commit).
 Each site: a D7-style phone proof, wrong rows 0, no regression against B0.
 
 **S3 and S4** as in §7: W (≤ 1 min, ≤ 2 MB per site) with the diff and the runbook; R9 live (the
@@ -1265,22 +1300,22 @@ Master ran; wrong rows 0, no regression against B0), the first W run passed, the
 the intended differences listed in `docs/SUPPORT_MATRIX.md` → PR #2 merged → P8 (beta.4) →
 others get the app.
 
-**The gate's state** (after the phone sessions of 2026-10-22 and 2026-10-23, tasks 12–14, and task
-15 in progress; kept current by each commit):
+**The gate's state** (after the phone sessions of 2026-10-22 and 2026-10-23, tasks 12–15, and task
+16 next; kept current by each commit):
 
 | Site | Its pack and phone proof | W's first run (C) | Intended differences listed | S5 (decision 26) |
 | --- | --- | --- | --- | --- |
 | Facebook | S1a built; phone proof PASS (2026-10-21); A PASS (2026-10-22, `430da9f`); links 1 and 10 PASS (2026-10-23, `c3e9147`) | C1, C2 PASS; NO CHANGE on New York and without the VPN (2026-10-23) | Master's rows 2 against main's 3 (task 7) | not started |
 | TikTok | S2b built; main PASS (`36ec093`); T1 proven on New York (rows 6 of 6, wrong 0); T2 untested; slots 1 and 6 PASS on New York (2026-10-23) | C1 PASS (VPN only: no network without it); NO CHANGE on New York (2026-10-23) | T1 one row, at most 1280 (decision 23) | not started |
 | X | S2c and task 0 built; A PASS (`36ec093`); task 12 built (the first lookup, X1's lines kept); task 14 built (the 404's and the tombstones' words: main's, with Try again; the empty tombstone's: the sign-in words); 2026-10-23 PASS: slot 6 3 = 3 on the first lookup, slots 7 and 8 task 14's words | C1, C2 PASS; NO CHANGE on New York and without the VPN (2026-10-23) | `{}`, the notice tombstone, the 404 never final (decision 21) | not started |
-| Instagram | S2d part 1 built; A PASS on 3 sessions; task 12 built (the first lookup, I2's lines kept); part 2 (decision 24) built (task 13: the rung, its own switch off by default, decision 28); the rung's phone proof PASS (2026-10-23: slot 5 rescued, 2 of 2); task 14 built (a wall's words: main's sign-in words, e.g. slot 9; seen 2026-10-23); task 15's F1, F2 and F4 built, the retest next (§7.4) | C1, C2, C3 PASS; NO CHANGE without the VPN, signed out and signed in (2026-10-23); on New York every ask walled (02:24 UTC: the exit's address; F5) | the 360p file, never "removed" (decision 20) | not started |
+| Instagram | S2d part 1 built; A PASS on 3 sessions; task 12 built (the first lookup, I2's lines kept); part 2 (decision 24) built (task 13: the rung, its own switch off by default, decision 28); the rung's phone proof PASS (2026-10-23: slot 5 rescued, 2 of 2); task 14 built (a wall's words: main's sign-in words, e.g. slot 9; seen 2026-10-23); task 15 built (F1–F5, F3b), the retest after task 16 (§7.4) | C1, C2, C3 PASS; NO CHANGE without the VPN, signed out and signed in (2026-10-23); on New York every ask walled (02:24 UTC: the exit's address; F5 built: never a baseline, the stored one set aside) | the 360p file, never "removed" (decision 20) | not started |
 
 Every site: S4 (R9 live, its drill) waits for decision 5; then S5, PR #2's merge, P8. Task 12
 changed the engine for every site's claimed lookups (the capture's answer keeps the ladder's lines)
 and the trial's lookups (main asked every time), task 13 Instagram's pack (the rung), task 14 the
 words of every site's claimed lookups that need playback (words only), task 15 Instagram's pack
-(F1, F2, F4), W (F5) and the failure sheet (F3, every build): S5 starts on the APK after task 15
-and §7.4's retest.
+(F1, F2, F4), W (F5) and the failure sheet (F3, every build), task 16 every site's Master rows
+without a stated size (F6): S5 starts on the APK after task 16 and §7.4's retest.
 
 **After the release** (each on the owner's go): S1b, X2, the "all items" feature, B+ (S6), A.
 
@@ -1670,54 +1705,60 @@ signed out and with Instagram signed in: NO CHANGE (against C2 and C3); W on New
 (main's Instagram code unchanged since C1's APK; no VPN, minutes later: NO CHANGE). Findings F1–F5
 and F3b → task 15 (§7.3); the owner's decisions 27–28 (§8).
 
-**The next phone session (the retest; the owner, after task 15's last commit is pushed; one test at
-a time, in this order; `yft-d7-social-trial` of task 15's last code commit's APK run, never an
-older run's; the run's report and `PROGRESS.md` name the commit and the run; each of task 15's
-commits brings its step's words up to date, as built):**
+**The next phone session (one session for tasks 15 and 16, the retest; the owner, after task 16's
+last commit is pushed; one test at a time, in this order; `yft-d7-social-trial` of task 16's last
+code commit's APK run, never an older run's; the run's report and `PROGRESS.md` name the commit and
+the run; each commit brings its step's words up to date, as built):**
 
-1. **Install.** The APK run of task 15's last commit → the artifact `yft-d7-social-trial` → its
-   APK → install it as an **Update** over the app (the census's stored runs and both Instagram
-   boxes stay).
-2. **Sign out first.** YFT → Settings → **Clear browsing data** → confirm (every site signed out;
-   downloads and settings stay). VPN off.
-3. **Instagram slot 5, signed out, the rung on (F1).** "YFT site census" → tick "Instagram's
-   tab-fetch rung (signed out)"; leave "Instagram rung proof: set I2's rows aside" unticked → YFT's
-   browser → slot 5's link → **Download** once. Expected: a row on the first Download with its
-   height (not "Quality unknown"); the banner with two lines: Instagram's ladder line ("master:
-   instagram ladder after LOGIN_REQUIRED; main's answers read, no new ask") and the probe line
-   ("master: instagram probe: HTTP 200, N bytes; the post's video in the answer: yes; a wall on
-   the page: no; rows N (DIRECT)"). Note the row's quality and both banner lines.
-4. **Instagram slot 5, the rung off (F2).** "YFT site census" → untick the rung's box → slot 5's
-   link again → **Download**. Expected: no row; the playback words ("Play the video on this page,
-   then tap Try again.") with Try again; in Details, I2's embed line "master: instagram I2 main's
-   embed page: VIDEO_WITHOUT_FILES (a video, no files read)" (no longer `SHAPE_CHANGED`) and
-   "master: instagram words: playback (the site's answer names the video:
-   VIDEO_WITHOUT_FILES)". If a line still says `SHAPE_CHANGED`: tap **Copy details** and keep the
-   line: its reason says what was read, counts only ("…; the page: N characters; documents: N;
-   main's post: yes or no; a video mark: yes or no; files: N").
-5. **A long failure: Instagram slot 9 (F3).** Slot 9's link → **Download**. Expected: the
-   sign-in words; tap **Details**: the lines scroll to their last one, and Try again stays under
-   them; tap **Copy details** (beside "Hide details") → paste into a note: the same lines, each
-   site's address as its bare host (no link, no ID).
-6. **A final answer (F3b): Instagram slot 8; then TikTok slot 6 on VPN New York.** Expected:
-   main's words ("This post has photos only, no video."; TikTok's "This TikTok post has no
-   downloadable video.") and **no Try again** (a ladder's photos-only answer is final).
-7. **Instagram signed in, the rung and its proof on, slot 1 (F4).** VPN off → sign in to Instagram
-   in YFT's browser → "YFT site census" → tick both boxes → slot 1's link → **Download**.
-   Expected: **no row**; the trial's words ("Instagram trial: main's rows were set aside and
-   Master found none. Tap Try again.") in the banner, with three lines under them: "master:
-   instagram probe: I2's rows set aside (the rung's proof)", "master: instagram probe: not asked
-   (signed in: the rung is the signed-out query)" and "master: instagram probe: no row (the proof
-   set I2's rows aside and the rung gave none)". Then Settings → **Clear browsing data** (signed
-   out) → "YFT site census" → untick both boxes.
-8. **W without the VPN, signed out.** "YFT site census" → **Weekly check W (all sites)**.
-   Expected: NO CHANGE (TikTok stops at 60 s without the VPN: not a failure).
-9. **W on VPN New York, signed out.** VPN on (New York) → **Weekly check W (all sites)**.
-   Expected: NO CHANGE on Facebook, TikTok and X; Instagram NO CHANGE, or, if every Instagram ask
-   is walled again, BREAKING with F5's note and never a baseline (then reconnect for another New
-   York address and run W again: §7.5); the walled 02:24 UTC baseline as F5 is built.
-10. **Then** send the results. Only after this session passes does the owner send S4 (task 16).
-   S5 (decision 26) counts only on the final APK.
+- **Install.** The APK run of task 16's last commit → the artifact `yft-d7-social-trial` → its APK
+  → install it as an **Update** over the app (the census's stored runs, both Instagram boxes and
+  the sign-in stay). The owner is still signed in to Instagram, so in this order:
+
+1. **F4: Instagram signed in, the rung and its proof on, slot 1.** VPN off → "YFT site census" →
+   tick "Instagram's tab-fetch rung (signed out)" and "Instagram rung proof: set I2's rows aside"
+   → YFT's browser → slot 1's link → **Download**. Expected: the proof's line in the banner
+   ("master: instagram probe: I2's rows set aside (the rung's proof)"), and either a row with "the
+   same item: yes", or no row: the trial's words ("Instagram trial: main's rows were set aside and
+   Master found none. Tap Try again.") with "master: instagram probe: not asked (signed in: the
+   rung is the signed-out query)" and "master: instagram probe: no row (the proof set I2's rows
+   aside and the rung gave none)" under them (as built: no row).
+2. **The proof off; sign out.** "YFT site census" → untick the proof's box (the rung's box stays
+   ticked) → YFT → Settings → **Clear browsing data** → confirm (every site signed out; downloads
+   and settings stay). VPN off.
+3. **F1: Instagram slot 5, signed out, the rung on.** Slot 5's link → **Download** once.
+   Expected: a row on the first Download with its height (not "Quality unknown"); the banner with
+   Instagram's ladder line ("master: instagram ladder after LOGIN_REQUIRED; main's answers read,
+   no new ask") and the probe line ("master: instagram probe: HTTP 200, N bytes; the post's video
+   in the answer: yes; a wall on the page: no; rows N (DIRECT)"). Note the row's quality and both
+   lines.
+4. **F2: slot 5, the rung off.** "YFT site census" → untick the rung's box → slot 5's link →
+   **Download**. Expected: no row; the playback words ("Play the video on this page, then tap Try
+   again.") with Try again; in Details, I2's embed line "master: instagram I2 main's embed page:
+   VIDEO_WITHOUT_FILES (a video, no files read)", not `SHAPE_CHANGED`. If a line still says
+   `SHAPE_CHANGED`: tap **Copy details** and keep it: its reason says what was read, counts only
+   ("…; the page: N characters; documents: N; main's post: yes or no; a video mark: yes or no;
+   files: N").
+5. **F3: Instagram slot 9; F3b: slot 8.** Slot 9's link → **Download** → the sign-in words; tap
+   **Details**: the lines scroll to their last one, Try again stays reachable under them; tap
+   **Copy details** (beside "Hide details") → paste into a note: the same lines, each site's
+   address as its bare host (no link, no ID). Then slot 8's link → **Download** → main's words
+   ("This post has photos only, no video.") and **no Try again**.
+6. **F6: Facebook link 1, no VPN** (task 16; its commit brings these words up to date). Link 1 →
+   **Download**. Expected: Master's rows each show a quality (e.g. 720p, 360p; the detail "W ×
+   H"), not "Quality unknown"; the banner's trial line gives the heights each side has ("heights
+   720,360 vs 720,360": Master's, then main's): each of Master's heights is one main also has;
+   download one of Master's rows: it plays.
+7. **W.** VPN off, signed out → "YFT site census" → **Weekly check W (all sites)** → NO CHANGE
+   (TikTok stops at 60 s without the VPN: not a failure). Then VPN on (New York), signed out → W
+   again → Facebook, TikTok and X NO CHANGE; Instagram: the stored walled baseline (2026-10-23
+   02:24 UTC) is set aside ("note: Instagram: the baseline of 2026-10-23 02:24 UTC (VPN on, signed
+   out) had every ask walled: set aside; this run starts it"); if every Instagram ask is walled
+   again, also F5's note ("note: Instagram: every ask walled: likely this network's address, §7.5;
+   not a baseline") and no baseline kept: reconnect for another New York address and run W again
+   (§7.5).
+
+Then send the results. Only after this session passes does the owner send S4 (task 17). S5
+(decision 26) counts only on the final APK.
 
 **For S2b (TikTok), noted now** (inputs to S2b's design, §7.3; not decided):
 
@@ -1786,7 +1827,10 @@ a runbook, `MASTER_KEY_PHASE1_2_PLAN.md` §6's numbered steps — with no YouTub
 - **Baselines:** W's own (per site, VPN and session, keyed as the census keys them; the last W run
   whose main phase completed), apart from the full census's: W never compares with a census run,
   nor the census with W's. W's export says `"mode":"weekly"`; the full census's report, export and
-  state are as before (a state gets its `weekly` list only once W ran).
+  state are as before (a state gets its `weekly` list only once W ran). Task 15's F5: a run in
+  which every ask of a site got the site's login wall (the login page, or a login status: 401,
+  403) is never that site's baseline, and a stored baseline that was such a run is set aside (the
+  entry after step 8); a partly walled run is as before.
 - **Lines:** first `W (weekly check): FIRST RUN | NO CHANGE | CHANGED (n) | BREAKING (n) | NOT
   COMPARED …` (then each site not run or stopped); then one line per change, each ending `→ W
   runbook step N (…)`, the step below. A slot W did not look up is a note, never NO CHANGE.
@@ -1848,6 +1892,22 @@ go; meanwhile Master's ladder (behind the flag) is the backup.
    Check: the header's network, the site's sign-in in YFT's browser, the build. Fix: none in code —
    W's baselines are per VPN and session, so run W again in the baseline's conditions; a kind
    change means the census's slot list changed (another build): its baseline starts again.
+
+**Every ask walled (task 15's F5)** —
+`note: <Site>: every ask walled: likely this network's address, §7.5; not a baseline`: every ask
+of the site (main's and Master's, on every slot looked up) got the login page or a login status
+(401, 403), and no rows were read. The site's lines stay (BREAKING against a baseline with data:
+main's rows gone, the verdicts), but the run is never the baseline, so the next run from a good
+address compares with the last good one; a stored baseline that was such a run (an earlier APK
+kept it: Instagram's on New York, 2026-10-23 02:24 UTC) reads
+`note: <Site>: the baseline of <date> (<VPN, session>) had every ask walled: set aside`
+(`; this run starts it` when this run is good): not compared, dropped. Check: the site's `main:` and
+Master's lines (each ask the login page or 401/403, none `data`), the header's network (the VPN's
+exit), and the same W without the VPN minutes later (2026-10-23: NO CHANGE). Fix: none in code —
+the site walls this network's address, not the app: reconnect the VPN for another exit (another
+city, or the same city's next address) and run W again; NO CHANGE there → done. Walled on every
+exit and without the VPN, signed out → the site now walls every signed-out ask: step 2 (main's
+answer), main's fix on the owner's go, Master's ladder meanwhile.
 
 **W's first run** (C of §7.4's phone session of 2026-10-22: C1–C3 PASS, `docs/PHONE_TEST_NOTES.md`;
 W's baselines per network and session: decision 25; the release gate's "the first W run passed" is
@@ -2016,16 +2076,17 @@ status):
   baseline, not a failure); VPN off, Instagram signed in — C3 (Instagram). *Status:* no code
   change; seen on the phone (2026-10-23, `c3e9147`): TikTok slots 1 and 6 on New York PASS; W on
   New York, signed out (02:24 UTC): Facebook, TikTok and X NO CHANGE against C1, every Instagram
-  ask walled (the exit's address), and that run became Instagram's baseline there (task 15's F5:
-  such a run is never a baseline, §7.5).
+  ask walled (the exit's address), and that run became Instagram's baseline there (task 15's F5,
+  built: such a run is never a baseline, and the stored one is set aside, §7.5).
 - **26 — S5's rule (replaces "3 phone runs on different days"):** per site, 3 runs, each at
   least 6 h after the previous one, the first and the last at least 24 h apart; counted only on an
   APK of the final code — a change to that site's pack, the engine or main restarts that site's
   count; a run where Master did not run (a 429, a cooldown, not reached) does not count. One
   session may run all four sites. Each counted run: wrong rows 0, no regression against the
-  site's baseline (as before). *Status:* not started; tasks 12–15 change the engine and
-  Instagram's and X's lookups (task 15 also W and the failure sheet), so S5 starts on the APK of
-  task 15's last code commit after §7.4's retest, if no code changes.
+  site's baseline (as before). *Status:* not started; tasks 12–16 change the engine and
+  Instagram's and X's lookups (task 15 also W and the failure sheet; task 16 every site's Master
+  rows without a stated size), so S5 starts on the APK of task 16's last code commit after §7.4's
+  retest, if no code changes.
 
 Decided (the owner, 2026-10-23, after the phone session of 2026-10-23 on `c3e9147`'s APK
 (`docs/PHONE_TEST_NOTES.md`); recorded in task 15's first commit, docs only; decisions, then each

@@ -285,6 +285,110 @@ class SiteWeeklyTest {
     }
 
     @Test
+    fun `F5 - a W run whose every ask got the login wall keeps its BREAKING lines and one note, and is never the baseline`() = runTest {
+        val walled = HashSet<String>()
+        val (http, main) = walledSite(walled)
+        val census = census(main, http)
+        val first = census.run(listOf(SiteWays.X), X_LINKS, null, mode = ClientCensus.Mode.WEEKLY)
+
+        now += MINUTE
+        walled += W_POSTS
+        val asked = http.requestedUrls.size
+        val second = census.run(listOf(SiteWays.X), X_LINKS, first.stateJson, mode = ClientCensus.Mode.WEEKLY)
+        val site = checkNotNull(json(second.json)["sites"][0])
+        val asks = site["rows"].asArrayOrEmpty.flatMap { it["main"]["asks"].asArrayOrEmpty + it["master"]["asks"].asArrayOrEmpty }
+        assertEquals("each ask listed", http.requestedUrls.size - asked, asks.size)
+        assertTrue("main's three W slots at least", asks.size >= 3)
+        assertEquals("every ask got the wall (a login status)", List(asks.size) { "LOGIN_REQUIRED" }, asks.map { it["failure"].asStringOrNull })
+        assertTrue(SiteWeekly.walled(site))
+        assertTrue(second.firstLine, second.firstLine.startsWith("W (weekly check): BREAKING ("))
+        val lines = second.report.lines()
+        assertTrue(
+            "the BREAKING lines kept: $lines",
+            lines.any { it.startsWith("  BREAKING X slot 1 (video): main rows 1") && "failed LOGIN_REQUIRED 401" in it },
+        )
+        assertEquals(
+            "one note, the baseline kept",
+            listOf("  note: X: every ask walled: likely this network's address, §7.5; not a baseline"),
+            lines.filter { it.startsWith("  note: ") && ("walled" in it || "baseline" in it) },
+        )
+        assertEquals("W's baseline stays the first run's", listOf(NOW_MS), json(second.stateJson)["weekly"].asArrayOrEmpty.map { it["at"].asLongOrNull })
+
+        now += MINUTE
+        walled.clear()
+        val third = census.run(listOf(SiteWays.X), X_LINKS, second.stateJson, mode = ClientCensus.Mode.WEEKLY)
+        assertEquals(
+            "a good address again: NO CHANGE against the first run, never CHANGED against the walled one",
+            "W (weekly check): NO CHANGE — against the run of ${SiteCensusJson.dateOf(NOW_MS)}",
+            third.firstLine,
+        )
+
+        now += MINUTE
+        walled += X_POST
+        val partly = census.run(listOf(SiteWays.X), X_LINKS, third.stateJson, mode = ClientCensus.Mode.WEEKLY)
+        assertFalse(SiteWeekly.walled(checkNotNull(json(partly.json)["sites"][0])))
+        assertTrue(partly.firstLine, partly.firstLine.startsWith("W (weekly check): BREAKING ("))
+        assertFalse("a partly walled run: no note", "walled" in partly.report)
+        assertEquals("and it is the baseline, as before", listOf(now), json(partly.stateJson)["weekly"].asArrayOrEmpty.map { it["at"].asLongOrNull })
+    }
+
+    @Test
+    fun `F5 - a stored W baseline whose every ask was walled is set aside, and the next run from a good address starts it`() = runTest {
+        val walled = HashSet<String>(W_POSTS)
+        val (http, main) = walledSite(walled)
+        val census = census(main, http)
+        val walledRun = census.run(listOf(SiteWays.X), X_LINKS, null, mode = ClientCensus.Mode.WEEKLY)
+        assertEquals("no baseline yet, none started", 0, json(walledRun.stateJson)["weekly"].asArrayOrEmpty.size)
+        assertTrue(
+            walledRun.report,
+            walledRun.report.lines().containsAll(
+                listOf(
+                    "  note: X: no baseline yet (VPN off, signed out)",
+                    "  note: X: every ask walled: likely this network's address, §7.5; not a baseline",
+                ),
+            ),
+        )
+        // An earlier APK's state: the walled run kept as W's baseline (2026-10-23, 02:24 UTC).
+        val prints = SiteWeekly.linksOf(SiteWays.X, X_LINKS.getValue("x")).mapValues { (_, link) -> SiteCensus.fingerprintOf(link) }
+        val stored = SiteCensusState.write(
+            SiteCensusState(
+                emptyMap(),
+                weekly = mapOf(
+                    SiteCensusState.Key("x", vpn = false, session = false) to
+                        SiteCensusState.Baseline(NOW_MS, DATE, prints, checkNotNull(json(walledRun.json)["sites"][0])),
+                ),
+            ),
+        )
+
+        now += MINUTE
+        val again = census.run(listOf(SiteWays.X), X_LINKS, stored, mode = ClientCensus.Mode.WEEKLY)
+        assertTrue(
+            again.report,
+            again.report.lines().containsAll(
+                listOf(
+                    "  note: X: the baseline of $DATE (VPN off, signed out) had every ask walled: set aside",
+                    "  note: X: every ask walled: likely this network's address, §7.5; not a baseline",
+                ),
+            ),
+        )
+        assertEquals("set aside, none kept", 0, json(again.stateJson)["weekly"].asArrayOrEmpty.size)
+
+        now += MINUTE
+        walled.clear()
+        val good = census.run(listOf(SiteWays.X), X_LINKS, stored, mode = ClientCensus.Mode.WEEKLY)
+        assertEquals("W (weekly check): NOT COMPARED — no baseline yet for this run's sites", good.firstLine)
+        assertTrue(
+            "never CHANGED (or BREAKING) against the walled run: ${good.report}",
+            good.report.lines().none { it.startsWith("  CHANGED ") || it.startsWith("  BREAKING ") },
+        )
+        assertTrue(
+            good.report,
+            good.report.lines().contains("  note: X: the baseline of $DATE (VPN off, signed out) had every ask walled: set aside; this run starts it"),
+        )
+        assertEquals("this run is the baseline", listOf(now), json(good.stateJson)["weekly"].asArrayOrEmpty.map { it["at"].asLongOrNull })
+    }
+
+    @Test
     fun `W's diff - a line per change, each naming its runbook step - and the census's diff joins them as before`() {
         val before = site(
             "x", "X",
@@ -390,6 +494,7 @@ class SiteWeeklyTest {
         for (step in Step.entries) {
             assertTrue("§7.5 lacks ${step.label}", section.contains("\n${step.number}. **${step.label}**"))
         }
+        assertTrue("§7.5 says what to do with a walled run (F5)", section.contains("note: <Site>: ${SiteWeekly.WALLED}; not a baseline"))
     }
 
     private fun census(
@@ -406,6 +511,30 @@ class SiteWeeklyTest {
         },
         probeResponder = { _, _ -> ExtractorProbeResult.Answered(206, 1_000L) },
     )
+
+    /**
+     * F5: X's widget (main's ask and Master's) answering the fixture, or a login status (401) for
+     * the posts in [walled]; main's answer for those the wall too (LOGIN_REQUIRED).
+     */
+    private fun walledSite(walled: Set<String>): Pair<FakeExtractorHttpClient, MainLookup> {
+        fun post(url: String): String? = W_POSTS.firstOrNull { it.substringAfterLast('/') in url }
+        val http = FakeExtractorHttpClient(
+            getResponder = { url, _ ->
+                when {
+                    !url.startsWith(WIDGET) -> null
+                    post(url) in walled -> ExtractorHttpResult.Failure(SiteExtractionFailure.LOGIN_REQUIRED, 401)
+                    else -> FakeExtractorHttpClient.json(Fixtures.read("x/tweet_video.json"), url)
+                }
+            },
+            probeResponder = { _, _ -> ExtractorProbeResult.Answered(206, 1_000L) },
+        )
+        val recorder = LookupRecorder(http)
+        val main = ScriptedMain { link ->
+            recorder.get("$WIDGET?id=${link.substringAfterLast('/')}", emptyMap(), 1_024)
+            if (link in walled) MainAnswer.Failed(SiteExtractionFailure.LOGIN_REQUIRED, 401) else answerOf(link)
+        }
+        return http to main
+    }
 
     private fun json(text: String): JsonValue = checkNotNull(BoundedJsonParser.parse(text)) { "not JSON: $text" }
 
@@ -522,6 +651,9 @@ class SiteWeeklyTest {
         const val X_REMOVED = 8
 
         val X_LINKS = mapOf("x" to mapOf(1 to X_POST, 2 to X_POST_2, 3 to X_POST_3, SEVERAL to X_POST_6, X_REMOVED to X_POST_8))
+
+        /** X's W slots' posts (1, 6, 8). */
+        val W_POSTS = listOf(X_POST, X_POST_6, X_POST_8)
 
         val VALID = MasterMediaValidator { candidate, _ -> ValidationResult.Valid(candidate) }
 

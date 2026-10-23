@@ -241,7 +241,8 @@ class SiteCensus(
      * the notes; 0.4 (c): [vpn], whether Android's network is a VPN (the screen reads it), keys each
      * site's baseline with the site's session; [onStep] gets short progress labels (site, slot,
      * step; never a link). Task 8: [mode] [ClientCensus.Mode.WEEKLY] runs the weekly check W
-     * ([SiteWeekly]); [ClientCensus.Mode.A_CHECK] is YouTube's only.
+     * ([SiteWeekly]); [ClientCensus.Mode.A_CHECK] is YouTube's only. Task 15 (F5): a W run whose
+     * every ask of a site got its login wall is never that site's baseline ([SiteWeekly.walled]).
      */
     suspend fun run(
         sites: List<Site>,
@@ -290,7 +291,9 @@ class SiteCensus(
         // 0.4 (c): each site against its own baseline (the run's VPN, the site's session); the
         // last run whose (i) completed, pass or fail, becomes it. A slot whose link's fingerprint
         // changed reads "new link" and starts again in the new baseline. Task 8: W keeps its own
-        // baselines (its slots and caps), apart from the full census's.
+        // baselines (its slots and caps), apart from the full census's. Task 15 (F5): in W, a
+        // site whose every ask got its login wall (SiteWeekly.walled) keeps its lines and one note,
+        // and is never the baseline; a stored baseline that was walled is set aside.
         val kept = if (weekly) state.weekly else state.baselines
         val baselines = kept.toMutableMap()
         val compared = LinkedHashMap<String, SiteCensusDiff.Baseline>()
@@ -303,17 +306,25 @@ class SiteCensus(
                 .let { if (weekly) SiteWeekly.linksOf(result.site, it) else it }
                 .mapValues { (_, link) -> fingerprintOf(link) }
             val completed = result.stop == null
-            val baseline = kept[key]
-            if (baseline == null) {
-                notes += "${result.site.name}: no baseline yet (${key.label})" + if (completed) "; this run starts it" else ""
+            val site = exported[result.site.id]
+            val walled = weekly && site != null && SiteWeekly.walled(site)
+            val stored = kept[key]
+            val setAside = weekly && stored != null && SiteWeekly.walled(stored.site)
+            val starts = if (completed && !walled) "; this run starts it" else ""
+            val baseline = stored.takeUnless { setAside }
+            if (setAside) {
+                notes += "${result.site.name}: the baseline of ${stored?.date ?: "?"} (${key.label}) had every ask walled: set aside$starts"
+                baselines.remove(key)
+            } else if (baseline == null) {
+                notes += "${result.site.name}: no baseline yet (${key.label})$starts"
             } else {
                 val newLinks = baseline.links.filter { (slot, print) -> prints[slot]?.let { it != print } == true }.keys
                 compared[result.site.id] = SiteCensusDiff.Baseline(baseline.site, baseline.date, newLinks)
             }
-            val site = exported[result.site.id]
+            if (walled) notes += "${result.site.name}: ${SiteWeekly.WALLED}" + if (completed) "; not a baseline" else ""
             if (!completed) {
                 notes += "${result.site.name}: stopped before every slot's main (${result.stop}): not a baseline"
-            } else if (site != null) {
+            } else if (site != null && !walled) {
                 baselines[key] = SiteCensusState.Baseline(startedAt, SiteCensusJson.dateOf(startedAt), prints, site)
             }
         }

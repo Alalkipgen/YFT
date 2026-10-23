@@ -1,5 +1,11 @@
 package com.alal.yft.extractor.master.social
 
+import com.alal.yft.extractor.api.SiteExtractionFailure
+import com.alal.yft.extractor.api.json.JsonValue
+import com.alal.yft.extractor.api.json.asArrayOrEmpty
+import com.alal.yft.extractor.api.json.asStringOrNull
+import com.alal.yft.extractor.api.json.get
+import com.alal.yft.extractor.master.lookup.AnswerMark
 import com.alal.yft.extractor.master.modules.youtube.ladder.ClientCensus
 import java.util.Locale
 
@@ -32,6 +38,11 @@ import java.util.Locale
  * - **Baselines and the diff:** W's own baselines (per site, VPN and session, as the census keys
  *   them; apart from the full census's), and `SiteCensusDiff`'s lines one per change, each naming
  *   its runbook [Step].
+ * - **Walled runs** (task 15's F5, [walled]): a site whose every ask got its login wall (the login
+ *   page, or a login status) read what this network's address gets, not what the app does: its
+ *   lines stay (BREAKING against a baseline with data), one note says so ([WALLED]), and the run is
+ *   never the site's baseline; a stored baseline that was walled (an earlier APK kept it) is set
+ *   aside, so the next run starts it. A partly walled run is as before.
  */
 object SiteWeekly {
     /**
@@ -61,6 +72,9 @@ object SiteWeekly {
 
     /** A site whose W slots the owner left empty. */
     const val NO_LINKS = "no link in W's slots"
+
+    /** Task 15 (F5): the note of a site whose every ask in a W run got its login wall ([walled]; §7.5). */
+    const val WALLED = "every ask walled: likely this network's address, §7.5"
 
     /** One site's caps in a W run (tests size them smaller). */
     class Caps(val requests: Int = MAX_REQUESTS, val bytes: Long = MAX_BYTES, val millis: Long = MAX_MILLIS) {
@@ -92,6 +106,26 @@ object SiteWeekly {
     fun missing(site: Site, links: Map<Int, String>): List<String> = SLOTS[site.id].orEmpty()
         .filter { slot -> links[slot].isNullOrBlank() }
         .map { slot -> "W slot $slot (${site.kind(slot)?.label ?: "?"}): no link, not run" }
+
+    /**
+     * Task 15 (F5): whether every ask of [site] (its part of a W export, or a stored baseline's)
+     * got the site's login wall: at least one ask, main's and Master's on every slot looked up, each
+     * the login page (its reading) or a login status (401, 403: `LOGIN_REQUIRED`), and no rows read
+     * (main's or Master's). One answer of another kind (data, a removed post's word, a 429, no
+     * answer) and the run is not walled.
+     */
+    internal fun walled(site: JsonValue): Boolean {
+        val rows = site["rows"].asArrayOrEmpty.filter { it["skipped"].asStringOrNull == null }
+        val asks = rows.flatMap { it["main"]["asks"].asArrayOrEmpty + it["master"]["asks"].asArrayOrEmpty }
+        return asks.isNotEmpty() && asks.all(::walledAsk) &&
+            rows.none { it["main"]["answer"].asStringOrNull == ROWS || it["master"]["answer"].asStringOrNull == ROWS }
+    }
+
+    private fun walledAsk(ask: JsonValue): Boolean =
+        ask["mark"].asStringOrNull == AnswerMark.LOGIN_PAGE.label ||
+            ask["failure"].asStringOrNull == SiteExtractionFailure.LOGIN_REQUIRED.name
+
+    private const val ROWS = "rows"
 
     /** W's first line: its diff's headline, then each site not run or stopped, and why. */
     internal fun headline(run: CensusRunResult, diff: SiteCensusDiff.Result): String {
