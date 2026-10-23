@@ -93,7 +93,7 @@
     (behind the flag).
   - F5 — W: a run in which every ask of a site was walled: BREAKING kept, the note "every ask
     walled: likely this network's address, §7.5", never a baseline (a stored one set aside); §7.5's
-    step. *Built* (this commit, task 15's last): `SiteWeekly.walled` reads a site's part of a W run
+    step. *Built* (`8599514`, task 15's last): `SiteWeekly.walled` reads a site's part of a W run
     as walled when its slots made at least one ask and every ask, main's and Master's, got the
     login page (its reading) or a login status (`LOGIN_REQUIRED`: 401, 403), with no rows read on
     either side (one answer of another kind — data, a removed post's word, a 429, no answer — and
@@ -141,14 +141,15 @@
   39905376833 and the checkpoint 39905383734 green; `91491f1`'s checkpoint 39905426448 green.
   `755492b`'s checkpoint not rerun: no way to start a run from the agent's session (its GitHub
   tools push commits; runs are read from the public API); its red stands as that network failure
-  (every later commit green).
+  (every later commit green). CI on `8599514`: the APK run 39913218765 (the build and its 9 `d7`
+  matrix jobs) and the checkpoint 39913223347 green.
 - Commits: `611ce8a` (docs only: the session, decisions 27–28, the plan's task 15 and §7.4's
   retest); `755492b` (F3 and F3b, `[d7]`), `80f5518` (F1 and F4, `[d7]`) and `573f977` (F2,
   `[d7]`), each fix's bullet here in the docs-only commit after it (`55e964d` for F3 and F3b,
-  `54b0ccf` for F1 and F4, `91491f1` for F2; the push's size limit); F5 (`[d7]`, this commit,
-  its bullet with it); the TEST_MATRIX rows, one per part, in the next, docs-only commit.
-- Next: the TEST_MATRIX rows (docs only), which complete task 15; then task 16 (F6 and its docs:
-  plan §7.3); then the one retest of tasks 15 and 16 (§7.4).
+  `54b0ccf` for F1 and F4, `91491f1` for F2; the push's size limit); F5 (`8599514`, `[d7]`, its
+  bullet with it); the TEST_MATRIX rows, one per part, and F5's CI here in the docs-only commit
+  after it (this commit), which completes task 15.
+- Next: task 16 (F6 and its docs: plan §7.3); then the one retest of tasks 15 and 16 (§7.4).
 
 ## Social plan task 14 — the playback words only where a video can play (observation e; words only, debug only, behind the flag) (2026-10-23)
 
