@@ -49,8 +49,9 @@ words accepted; the rung off by default in `social-trial`). Task 15 (the session
 rung's rows and banner, I2's read of the real embed page, a failure sheet that scrolls with Copy
 details, final answers without Try again, the proof's row, W's walled runs; Master's side and the
 UI only) built (2026-10-23; §7.3). Task 16 (F6: a Master row whose answer states no picture size
-takes its file's own; Facebook's fewer Master rows listed as intended; decision 29) next (§7.3);
-then the owner's one retest of tasks 15 and 16 (§7.4); S4 is task 17.**
+takes its file's own, read from the bytes its file check read; Facebook's trial line gives each
+side's heights; Facebook's fewer Master rows listed as intended; decision 29) built (2026-10-23;
+§7.3); next: the owner's one retest of tasks 15 and 16 (§7.4); S4 is task 17.**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -92,7 +93,7 @@ then the owner's one retest of tasks 15 and 16 (§7.4); S4 is task 17.**
   B0) → **S1a** kit အနည်းဆုံး + Facebook pack (pilot) → **S2b** TikTok → **S2c** X → **S2d**
   Instagram → S3 weekly check → S4 remote recipe live → S5 site တစ်ခုစီ phone run ၃ ခါ (#26) → PR #2
   merge → P8 (beta.4)။ release ပြီးမှ: S1b၊ X2၊ "item အားလုံး" feature၊ B+ (S6)၊ A။
-- **ဆုံးဖြတ်ပြီး:** §8 #1–#4၊ #6–#28။ **ကျန်:** #5 (S4 မတိုင်မီ)။
+- **ဆုံးဖြတ်ပြီး:** §8 #1–#4၊ #6–#29။ **ကျန်:** #5 (S4 မတိုင်မီ)။
 - **S0d (2026-10-20, §7.2):** ပိုင်ရှင်ရဲ့ phone run ၂ ခု။ Recoverable failure: Facebook 0/11၊
   TikTok 0/6၊ Instagram 0/7၊ X 2/6 (main မဖတ်တဲ့ card ထဲက video)။ Pilot: Facebook → TikTok →
   X → Instagram (ပိုင်ရှင် အတည်ပြုပြီး၊ 2026-10-20၊ §8 #1)။
@@ -324,8 +325,11 @@ then the owner's one retest of tasks 15 and 16 (§7.4); S4 is task 17.**
   scroll နဲ့ Copy details (F3)၊ final answer (photos only) မှာ Try again မပြ (F3b)၊ proof ရဲ့ row
   (F4)၊ W မှာ site ရဲ့ ask တိုင်း login wall ရရင် BREAKING lines ထား၊ note တစ်ကြောင်း ("every ask
   walled: likely this network's address, §7.5")၊ baseline မလုပ်; သိမ်းထားတဲ့ walled baseline ကို
-  ဘေးဖယ် (F5)။ နောက်တစ်ဆင့်: task 16 (F6: answer က size မပြောတဲ့ Master row က file ရဲ့ ကိုယ်ပိုင်
-  size ကို ယူ)၊ ပြီးရင် tasks 15–16 ရဲ့ retest တစ်ခါ (§7.4)၊ S4 က task 17။
+  ဘေးဖယ် (F5)။ Task 16 ပြီး (F6): answer က size မပြောတဲ့ Master row က V ဖတ်ပြီးသား file ရဲ့ ပထမ
+  bytes ထဲက ကိုယ်ပိုင် size (video track ရဲ့ `tkhd`၊ 0 × 0 ဆိုရင် `stsd`) ကို ယူ၊ sheet က main လို
+  နာမည်ပေး (ဥပမာ "720p · HD"၊ "1280 × 720 · MP4"); Facebook trial line မှာ နှစ်ဖက်ရဲ့ heights
+  ("heights 720,360 vs 720,360"); Facebook ရဲ့ Master rows main ထက် နည်းတာ intended (decision 29)။
+  နောက်တစ်ဆင့်: tasks 15–16 ရဲ့ retest တစ်ခါ (§7.4)၊ S4 က task 17။
 
 ## 1. Audit — what exists today
 
@@ -652,7 +656,7 @@ With no adapter copies (B), the build is also about 4,700 lines smaller than the
 | **S1a** | L | The kit's minimum with the pilot's pack, Facebook (the first draft's S1 and S2a together), flag `-Pyft.socialLadder` (off = today): the recorder in the app's lookup path, judge classes, the site table, one judged request rung + L3 + capture, budgets and the 30-minute cooldown (S7), `SiteRowCheck` + `InitCheck` on every Master row, Facebook's anchors, post-identity mutation tests, a simulator world (§7.3) | JVM tests, simulator and CI green; flag off = today; the D7-style APK's phone proof (§7.3) — **passed (2026-10-21, §7.4 step 6's re-run)** |
 | **S2b** | M | TikTok's pack (§7.3) | phone proof; wrong rows 0; no regression against B0 — built (2026-10-21, behind the flag); the phone (2026-10-22, `36ec093`): main PASS, T1's rows 6 of 6 on the New York exit, wrong 0; T2 untested; its intended difference accepted (decision 23) |
 | **S2c** | M | X's pack: main's answer replayed, no new ask (X2 not now; §7.3) | the same — built (2026-10-21, behind the flag); the phone (2026-10-22, `36ec093`): A PASS, wrong 0; tasks 12 and 14 (§7.3) before its S5 |
-| **S2d** | M | Instagram's pack by the Instagram check's verdict (0.2); the owner's signed-in census first (§7.3) | the same — part 1 built (2026-10-22, behind the flag: I2 and the tab-fetch probe, off by default); the phone (2026-10-22, `36ec093`): A PASS on 3 sessions, wrong 0; the probe: slot 5 video yes, slot 9 no; part 2 (the probe's rung, decision 24): built (task 13, 2026-10-22; behind its own switch, off by default: decision 28), its phone proof (2026-10-23, `c3e9147`): slot 5 rescued, 2 of 2; tasks 12 and 14 built; task 15 built (F1–F5, F3b; §7.3); task 16 (F6) next, then the retest (§7.4) |
+| **S2d** | M | Instagram's pack by the Instagram check's verdict (0.2); the owner's signed-in census first (§7.3) | the same — part 1 built (2026-10-22, behind the flag: I2 and the tab-fetch probe, off by default); the phone (2026-10-22, `36ec093`): A PASS on 3 sessions, wrong 0; the probe: slot 5 video yes, slot 9 no; part 2 (the probe's rung, decision 24): built (task 13, 2026-10-22; behind its own switch, off by default: decision 28), its phone proof (2026-10-23, `c3e9147`): slot 5 rescued, 2 of 2; tasks 12 and 14 built; task 15 built (F1–F5, F3b; §7.3); task 16 built (F6: a row without a stated size takes its file's own, every site's; §7.3); the retest next (§7.4) |
 | **S3** | S–M | Weekly check W for all four + runbook (each CHANGED / BREAKING line and its fix: a data change via R9, or code) | the owner's first W run — built (2026-10-22, debug only, a social-ladder build: the census's "Weekly check W"; its runbook §7.5); its first runs C1–C3 PASS (2026-10-22, `36ec093`; W's baselines per network and session: decision 25); 2026-10-23 (`c3e9147`): NO CHANGE but Instagram on New York (every ask walled: the exit's address; task 15's F5 built: such a run is never a baseline, the stored one set aside) |
 | **S4** | S | R9 live: the owner signs and hosts the config (§8 item 5, decided before S4); kill switch per rung; one repair drill (a key changed by config on the phone, no APK) | drill passed |
 | **S5** | — | Promote per site after 3 phone runs by decision 26's rule (each at least 6 h after the previous one, the first and the last at least 24 h apart, on an APK of the final code, only where Master ran) with 0 wrong rows and no regression against B0; then the release gate (§7.3): all four sites, the first W run and the R9 drill passed, the intended differences in `docs/SUPPORT_MATRIX.md` → PR #2 merged → P8 (beta.4) | the owner's go |
@@ -1267,7 +1271,7 @@ set aside — not compared and dropped, `<Site>: the baseline of <date> (<VPN, s
 ask walled: set aside; this run starts it` — so the next run from a good address starts the
 baseline, never CHANGED against the walled one. A partly walled run, and the full census, are as
 before; §7.5 says what to do (another VPN exit, then W again). Debug only (W: a social-ladder
-build). Task 15 is done; next: task 16 (F6), then one retest of both (§7.4).
+build). Task 15 is done; task 16 (F6) is built; next: one retest of both (§7.4).
 
 **Task 16** (the owner, 2026-10-23, after the same phone session; Master's side only, never
 main's adapters (S1); flag off = today; `PROGRESS.md`): **F6** — Facebook link 1 (no VPN): both of
@@ -1287,7 +1291,34 @@ through main's path, no new words; two rows at one height: the sheet's one row p
 Facebook trial line adds the heights each side gives (numbers only: "heights 720,360 vs
 720,360"). Facebook's Master rows can be fewer than main's (2 against 3: the files the plugin
 player plays): an intended difference (as B3, `docs/SUPPORT_MATRIX.md`), never a wrong row, not
-blocking S5 (decision 29). *To do* (the next commit).
+blocking S5 (decision 29). *Built* (2026-10-23; debug only, behind the flag): `StartPicture`
+(new, pure) reads the size from the bytes V already read of the file (`SocialRowCheck.START_BYTES`,
+4096): in the file's `moov` (a progressive file's, walked as far as the bytes go, or a fragmented
+one's), track by track, a picture track's header (`tkhd`: its handler `vide`, or with no handler in
+the bytes a non-zero size), else its first visual sample entry (`stsd`); the first picture track
+with a size wins; each box read only whole, at most 256 boxes, never a failure. **Which box gives
+the size:** the track header (`tkhd`) whenever it states one — a picture track's header normally
+states its presentation size (ISO BMFF), so on link 1's files (the plugin player's HD and SD MP4s)
+it is expected to come from the header; the sample entry (`stsd`) only when the header states
+0 × 0. None (as today: "Quality unknown") when the picture track is past the bytes read (a `moov`
+after the samples, or a sound track first whose tables fill the read), for a sound-only file, a
+side outside 16–8192 or bytes that are no MP4. `SocialRowCheck`: a picture row (`video/…`) that passes and
+states no width and no height takes its file's size (a stated side is never overwritten; no other
+read, no larger read, no new ask in the record), for every site's Master rows. The sheet names it
+through main's path: `QuickDownloadMetadata.asset` copies the row's size, `QuickDownloadChoices`
+names it (`standardHeight`: "720p · HD", 718 × 1276 → 720p, 640 × 360 → "360p"; the detail "1280
+× 720 · MP4"); P25's `updateSizes` renames a row only after a later size probe measures its
+picture, so it is not needed here (the row states its size from the start); two rows at one
+height: the sheet's one row per resolution. `TrialCompare`: Facebook's trial line ends `; heights
+M vs N` (Master's rows' heights, then main's, each once, tallest first; `unknown` for a side whose
+rows state none), numbers only. Tests: `StartPictureTest` (6: progressive with the picture and
+sound tracks either way round, a cut `moov`, version 1, HEVC; fragmented (`mvex`, no samples), VP9
+and AV1; 90° and 270° swapped, 180° not; `tkhd` 0 × 0 → `stsd`'s size, an unknown entry none;
+sound-only, a `moov` past the bytes, garbage, cuts and random bytes → none, never a failure),
+`FacebookLadderS6Test` +1 (a row without a size takes its file's, a row's own kept),
+`SiteCensusLadderTest` (Facebook's heights), `SocialTrialTest` +1 (link 1's two rows take 1280 ×
+720 and 640 × 360 from their files' starts, each read once, nothing more asked; the trial line's
+heights; flag off: no read, no size) and `QuickDownloadChoicesTest` +1 (the sheet's names).
 Each site: a D7-style phone proof, wrong rows 0, no regression against B0.
 
 **S3 and S4** as in §7: W (≤ 1 min, ≤ 2 MB per site) with the diff and the runbook; R9 live (the
@@ -1300,15 +1331,15 @@ Master ran; wrong rows 0, no regression against B0), the first W run passed, the
 the intended differences listed in `docs/SUPPORT_MATRIX.md` → PR #2 merged → P8 (beta.4) →
 others get the app.
 
-**The gate's state** (after the phone sessions of 2026-10-22 and 2026-10-23, tasks 12–15, and task
-16 next; kept current by each commit):
+**The gate's state** (after the phone sessions of 2026-10-22 and 2026-10-23 and tasks 12–16, the
+retest next; kept current by each commit):
 
 | Site | Its pack and phone proof | W's first run (C) | Intended differences listed | S5 (decision 26) |
 | --- | --- | --- | --- | --- |
-| Facebook | S1a built; phone proof PASS (2026-10-21); A PASS (2026-10-22, `430da9f`); links 1 and 10 PASS (2026-10-23, `c3e9147`) | C1, C2 PASS; NO CHANGE on New York and without the VPN (2026-10-23) | Master's rows 2 against main's 3 (task 7) | not started |
+| Facebook | S1a built; phone proof PASS (2026-10-21); A PASS (2026-10-22, `430da9f`); links 1 and 10 PASS (2026-10-23, `c3e9147`); task 16 built (F6: the rows' sizes from their files), the retest next (§7.4) | C1, C2 PASS; NO CHANGE on New York and without the VPN (2026-10-23) | Master's rows 2 against main's 3 (task 7; decision 29: intended, never a wrong row, not blocking S5) | not started |
 | TikTok | S2b built; main PASS (`36ec093`); T1 proven on New York (rows 6 of 6, wrong 0); T2 untested; slots 1 and 6 PASS on New York (2026-10-23) | C1 PASS (VPN only: no network without it); NO CHANGE on New York (2026-10-23) | T1 one row, at most 1280 (decision 23) | not started |
 | X | S2c and task 0 built; A PASS (`36ec093`); task 12 built (the first lookup, X1's lines kept); task 14 built (the 404's and the tombstones' words: main's, with Try again; the empty tombstone's: the sign-in words); 2026-10-23 PASS: slot 6 3 = 3 on the first lookup, slots 7 and 8 task 14's words | C1, C2 PASS; NO CHANGE on New York and without the VPN (2026-10-23) | `{}`, the notice tombstone, the 404 never final (decision 21) | not started |
-| Instagram | S2d part 1 built; A PASS on 3 sessions; task 12 built (the first lookup, I2's lines kept); part 2 (decision 24) built (task 13: the rung, its own switch off by default, decision 28); the rung's phone proof PASS (2026-10-23: slot 5 rescued, 2 of 2); task 14 built (a wall's words: main's sign-in words, e.g. slot 9; seen 2026-10-23); task 15 built (F1–F5, F3b), the retest after task 16 (§7.4) | C1, C2, C3 PASS; NO CHANGE without the VPN, signed out and signed in (2026-10-23); on New York every ask walled (02:24 UTC: the exit's address; F5 built: never a baseline, the stored one set aside) | the 360p file, never "removed" (decision 20) | not started |
+| Instagram | S2d part 1 built; A PASS on 3 sessions; task 12 built (the first lookup, I2's lines kept); part 2 (decision 24) built (task 13: the rung, its own switch off by default, decision 28); the rung's phone proof PASS (2026-10-23: slot 5 rescued, 2 of 2); task 14 built (a wall's words: main's sign-in words, e.g. slot 9; seen 2026-10-23); task 15 built (F1–F5, F3b), task 16 built (F6), the retest next (§7.4) | C1, C2, C3 PASS; NO CHANGE without the VPN, signed out and signed in (2026-10-23); on New York every ask walled (02:24 UTC: the exit's address; F5 built: never a baseline, the stored one set aside) | the 360p file, never "removed" (decision 20) | not started |
 
 Every site: S4 (R9 live, its drill) waits for decision 5; then S5, PR #2's merge, P8. Task 12
 changed the engine for every site's claimed lookups (the capture's answer keeps the ladder's lines)
@@ -1743,11 +1774,13 @@ the run; each commit brings its step's words up to date, as built):**
    **Copy details** (beside "Hide details") → paste into a note: the same lines, each site's
    address as its bare host (no link, no ID). Then slot 8's link → **Download** → main's words
    ("This post has photos only, no video.") and **no Try again**.
-6. **F6: Facebook link 1, no VPN** (task 16; its commit brings these words up to date). Link 1 →
-   **Download**. Expected: Master's rows each show a quality (e.g. 720p, 360p; the detail "W ×
-   H"), not "Quality unknown"; the banner's trial line gives the heights each side has ("heights
-   720,360 vs 720,360": Master's, then main's): each of Master's heights is one main also has;
-   download one of Master's rows: it plays.
+6. **F6: Facebook link 1, no VPN** (task 16, as built). Link 1 → **Download**. Expected:
+   Master's rows each show a quality (e.g. "720p · HD" and "360p"), each with its detail "W × H ·
+   MP4" (e.g. "1280 × 720 · MP4"), not "Quality unknown · As the page plays it"; the banner's trial
+   line ends with the heights each side has ("…; heights 720,360 vs 720,360": Master's, then
+   main's): each of Master's heights is one main also has; download one of Master's rows: it plays.
+   If a row still says "Quality unknown": its file's first bytes named no size (e.g. its picture
+   track past them); note it with the trial line, no other step.
 7. **W.** VPN off, signed out → "YFT site census" → **Weekly check W (all sites)** → NO CHANGE
    (TikTok stops at 60 s without the VPN: not a failure). Then VPN on (New York), signed out → W
    again → Facebook, TikTok and X NO CHANGE; Instagram: the stored walled baseline (2026-10-23
@@ -2103,6 +2136,18 @@ one's status):
   the census ("Instagram's tab-fetch rung (signed out)") for a test; it persists across updates
   (an app preference; Clear browsing data leaves it). *Status:* as built in task 13 (the default
   off; no code change).
+
+Decided (the owner, 2026-10-23, in task 16's brief; recorded in task 16's commit):
+
+- **29 — A Master row without a stated size takes its file's own (F6); Facebook's fewer Master
+  rows are an intended difference.** A row whose site's answer states no width and no height (the
+  plugin player's names none) states its file's own picture size, read from the bytes its file
+  check already read (no other request; a stated size never overwritten), and the sheet names it
+  as main names that size. Facebook's Master rows can be fewer than main's (2 against 3 on
+  2026-10-23, link 1: Master gives the files the plugin player plays; main also its manifest's
+  audio row, task 7): intended, as B3 (`docs/SUPPORT_MATRIX.md`), never a wrong row, and not
+  blocking S5 (its rule: wrong rows 0). *Status:* F6 built in task 16 (2026-10-23; §7.3), its
+  phone proof in §7.4's retest (step 6); the difference listed in `docs/SUPPORT_MATRIX.md`.
 
 Still open (the owner's answer is needed before the step that uses it):
 

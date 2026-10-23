@@ -216,10 +216,10 @@ class SocialLadderXTest {
         assertTrue(SocialLadder.trialSegment(listOf(row(OFF_HOST, KEY, 9_000)), mains, key).contains("the same item: no"))
         assertTrue(SocialLadder.trialSegment(listOf(row(FILE_720, "x:2", 9_000)), mains, key).contains("the same item: no"))
         assertTrue(SocialLadder.trialSegment(emptyList(), mains, key).contains("the same item: no"))
-        // Facebook's: the same video, as before (no item).
+        // Facebook's: the same video, as before (no item); task 16 (F6): each side's heights, none stated here.
         val facebook = "facebook:1000000000000001"
         assertEquals(
-            "; trial: Master's rows 1, main's 1; the same video: yes; duration within 1 s: yes",
+            "; trial: Master's rows 1, main's 1; the same video: yes; duration within 1 s: yes; heights unknown vs unknown",
             SocialLadder.trialSegment(
                 listOf(row("https://video.fixture.fbcdn.net/v/a.mp4", facebook, 9_000)),
                 listOf(row("https://video.fixture.fbcdn.net/v/b.mp4", facebook, 9_000)),

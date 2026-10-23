@@ -17,7 +17,11 @@ import kotlin.math.abs
  * Instagram's (decision 19 (iv)): at least one of Master's rows shares a file (its file's path or
  * its audio's) with main's rows — Master's rows add the 360p files main drops, so not every row is
  * one of main's. **The duration**: every duration Master's rows state within 1 s of every one
- * main's rows state; unknown when either side states none.
+ * main's rows state; unknown when either side states none. **The heights** (task 16, F6):
+ * Facebook's line adds the heights each side's rows state (`; heights 720,360 vs 720,360`:
+ * Master's, then main's; each side's distinct heights, tallest first, `unknown` when its rows state
+ * none), so the retest checks each of Master's against main's; Instagram's adds each side's
+ * tallest (`; tallest: Master's H, main's H`).
  *
  * Task 6b, each row ([Verdict]), stricter than the set and never kinder:
  *
@@ -44,8 +48,9 @@ object TrialCompare {
     /**
      * Master's [masterRows] rows against main's [mainRows]: [item] for X's and Instagram's rows
      * ("the same item"), [same] and [duration] as the trial line says them, each side's tallest
-     * height ([masterTallest], [mainTallest]: `unknown` when its rows state none) and one
-     * [verdicts] entry per row of Master's, in order.
+     * height ([masterTallest], [mainTallest]: `unknown` when its rows state none), task 16's
+     * heights for Facebook's line ([facebook]: [masterHeights], [mainHeights], `720,360` or
+     * `unknown`) and one [verdicts] entry per row of Master's, in order.
      */
     class Compared(
         val masterRows: Int,
@@ -57,6 +62,9 @@ object TrialCompare {
         val masterTallest: String,
         val mainTallest: String,
         val verdicts: List<Verdict>,
+        val facebook: Boolean = false,
+        val masterHeights: String = UNKNOWN,
+        val mainHeights: String = UNKNOWN,
     ) {
         /** Rows proven another post's. */
         val wrong: Int get() = verdicts.count { it == Verdict.WRONG }
@@ -69,7 +77,11 @@ object TrialCompare {
 
         /** The trial line's words after `; trial: ` (the app's segment). */
         fun trialText(): String = "Master's rows $masterRows, main's $mainRows; $sameText; duration within 1 s: $duration" +
-            if (instagram) "; tallest: Master's $masterTallest, main's $mainTallest" else ""
+            when {
+                instagram -> "; tallest: Master's $masterTallest, main's $mainTallest"
+                facebook -> "; heights $masterHeights vs $mainHeights"
+                else -> ""
+            }
     }
 
     /**
@@ -83,6 +95,7 @@ object TrialCompare {
         val site = mains.firstOrNull()?.videoId?.substringBefore(':', missingDelimiterValue = "")
         val x = site == XLadder.SITE_ID
         val instagram = site == InstagramLadder.SITE_ID
+        val facebook = site == FacebookLadder.SITE_ID
         val mainItem = mains.map { XLadder.itemOf(it.mediaUrl) }.distinct().singleOrNull()
         val mainPaths = pathsOf(mains)
         val same = sameVideo && when {
@@ -133,6 +146,9 @@ object TrialCompare {
             masterTallest = tallestOf(rows),
             mainTallest = tallestOf(mains),
             verdicts = verdicts,
+            facebook = facebook,
+            masterHeights = heightsOf(rows),
+            mainHeights = heightsOf(mains),
         )
     }
 
@@ -145,5 +161,11 @@ object TrialCompare {
 
     /** The tallest height [rows] state, `unknown` when none states one. */
     private fun tallestOf(rows: List<MediaCandidate>): String =
-        rows.mapNotNull { row -> row.height?.takeIf { it > 0 } }.maxOrNull()?.toString() ?: "unknown"
+        rows.mapNotNull { row -> row.height?.takeIf { it > 0 } }.maxOrNull()?.toString() ?: UNKNOWN
+
+    /** Task 16: the heights [rows] state, each once, tallest first (`720,360`); `unknown` when none states one. */
+    private fun heightsOf(rows: List<MediaCandidate>): String =
+        rows.mapNotNull { row -> row.height?.takeIf { it > 0 } }.distinct().sortedDescending().joinToString(",").ifEmpty { UNKNOWN }
+
+    private const val UNKNOWN = "unknown"
 }

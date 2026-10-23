@@ -222,7 +222,7 @@ class SocialTrialTest {
             assertEquals(
                 page,
                 "master: facebook ladder after RESPONSE_CHANGED; replayed 0; new 1; " +
-                    "trial: Master's rows 2, main's 2; the same video: yes; duration within 1 s: yes",
+                    "trial: Master's rows 2, main's 2; the same video: yes; duration within 1 s: yes$NO_HEIGHTS",
                 line,
             )
             assertEquals(page, line, found.details.first { it.startsWith("master: facebook") })
@@ -238,10 +238,10 @@ class SocialTrialTest {
         val masterNone = Fixture(WATCH, fileMillis = null).lookup() as SiteAdapterOutcome.Detected
         val mainNone = Fixture(WATCH, mainPage = mainPage(VIDEO, null)).lookup() as SiteAdapterOutcome.Detected
 
-        assertTrue(SocialLadder.trialNotice(later)!!.endsWith("; the same video: yes; duration within 1 s: no"))
-        assertTrue(SocialLadder.trialNotice(within)!!.endsWith("; the same video: yes; duration within 1 s: yes"))
-        assertTrue(SocialLadder.trialNotice(masterNone)!!.endsWith("; the same video: yes; duration within 1 s: unknown"))
-        assertTrue(SocialLadder.trialNotice(mainNone)!!.endsWith("; the same video: yes; duration within 1 s: unknown"))
+        assertTrue(SocialLadder.trialNotice(later)!!.endsWith("; the same video: yes; duration within 1 s: no$NO_HEIGHTS"))
+        assertTrue(SocialLadder.trialNotice(within)!!.endsWith("; the same video: yes; duration within 1 s: yes$NO_HEIGHTS"))
+        assertTrue(SocialLadder.trialNotice(masterNone)!!.endsWith("; the same video: yes; duration within 1 s: unknown$NO_HEIGHTS"))
+        assertTrue(SocialLadder.trialNotice(mainNone)!!.endsWith("; the same video: yes; duration within 1 s: unknown$NO_HEIGHTS"))
     }
 
     @Test
@@ -257,7 +257,7 @@ class SocialTrialTest {
         found.candidates.forEach { assertEquals(MASTER_MILLIS, it.durationMillis) }
         // Each file's start read once (S6's own read, nothing more asked for the length).
         assertEquals(listOf(hd(VIDEO), sd(VIDEO)), fixture.reads.toList())
-        assertTrue(SocialLadder.trialNotice(found)!!.endsWith("duration within 1 s: yes"))
+        assertTrue(SocialLadder.trialNotice(found)!!.endsWith("duration within 1 s: yes$NO_HEIGHTS"))
         // The ladder alone without the trial: the same rows and lengths, no comparison — the
         // ladder's own line (task 15, F1).
         val ladder = Fixture(WATCH, socialTrial = false, mainPage = PAGE_BODY).lookup() as SiteAdapterOutcome.Detected
@@ -267,6 +267,36 @@ class SocialTrialTest {
         val off = Fixture(WATCH, socialLadder = false, socialTrial = false, mainPage = PAGE_BODY)
         val today = off.lookup() as SiteAdapterOutcome.Detected
         today.candidates.forEach { assertNull(it.durationMillis) }
+        assertTrue(off.reads.isEmpty())
+    }
+
+    @Test
+    fun mastersRowsStateTheirFilesOwnPictureSizesAndTheLineGivesEachSidesHeights() = runTest {
+        // Task 16 (F6): link 1's rows showed "Quality unknown" — the plugin player's answer names no
+        // size (as it names no length): each row takes its file's own, from the start S6 reads.
+        val fixture = Fixture(WATCH)
+        fixture.picture = { url -> if (url == hd(VIDEO)) 1280 to 720 else 640 to 360 }
+
+        val found = fixture.lookup() as SiteAdapterOutcome.Detected
+
+        assertEquals(listOf(hd(VIDEO), sd(VIDEO)), found.candidates.map { it.mediaUrl })
+        assertEquals(listOf(1280 to 720, 640 to 360), found.candidates.map { it.width to it.height })
+        found.candidates.forEach { assertEquals(MASTER_MILLIS, it.durationMillis) }
+        // Each file's start read once, as before: nothing more read or asked for the size.
+        assertEquals(listOf(hd(VIDEO), sd(VIDEO)), fixture.reads.toList())
+        assertEquals(listOf(embedUrl(WATCH)), fixture.master.asked)
+        // Main's rows here state no height (its page has no manifest): Master's heights, then main's.
+        assertTrue(SocialLadder.trialNotice(found)!!.endsWith("duration within 1 s: yes; heights 720,360 vs unknown"))
+        assertBare("sized", found.details)
+        // Files whose starts state no size: unknown, as before.
+        val unsized = Fixture(WATCH).lookup() as SiteAdapterOutcome.Detected
+        unsized.candidates.forEach { assertNull(it.width); assertNull(it.height) }
+        assertTrue(SocialLadder.trialNotice(unsized)!!.endsWith(NO_HEIGHTS))
+        // Flag off: the engine's own check, no file read, no size (as today).
+        val off = Fixture(WATCH, socialLadder = false, socialTrial = false, mainPage = PAGE_BODY)
+        off.picture = { 1280 to 720 }
+        val today = off.lookup() as SiteAdapterOutcome.Detected
+        today.candidates.forEach { assertNull(it.height) }
         assertTrue(off.reads.isEmpty())
     }
 
@@ -282,7 +312,7 @@ class SocialTrialTest {
 
             assertEquals(change, listOf(hd(VIDEO), sd(VIDEO)), found.candidates.map { it.mediaUrl })
             assertEquals(change, change, fixture.capture.session.currentScope()?.pageUrl)
-            assertTrue(change, SocialLadder.trialNotice(found)!!.endsWith("the same video: yes; duration within 1 s: yes"))
+            assertTrue(change, SocialLadder.trialNotice(found)!!.endsWith("the same video: yes; duration within 1 s: yes$NO_HEIGHTS"))
         }
     }
 
@@ -364,7 +394,7 @@ class SocialTrialTest {
 
         assertEquals(
             "master: facebook ladder after RESPONSE_CHANGED; replayed 0; new 1; " +
-                "trial: Master's rows 2, main's 2; the same video: no; duration within 1 s: yes",
+                "trial: Master's rows 2, main's 2; the same video: no; duration within 1 s: yes$NO_HEIGHTS",
             SocialLadder.trialNotice(found),
         )
     }
@@ -377,17 +407,26 @@ class SocialTrialTest {
             SocialLadder.trialSegment(rows, main, ::video)
 
         assertEquals(
-            "; trial: Master's rows 1, main's 2; the same video: yes; duration within 1 s: yes",
+            "; trial: Master's rows 1, main's 2; the same video: yes; duration within 1 s: yes$NO_HEIGHTS",
             segment(listOf(row(WATCH, "facebook:$VIDEO", 61_000))),
         )
         // Within 1 s of every one of main's; one of main's 1.4 s away: no.
-        assertTrue(segment(listOf(row(WATCH, "facebook:$VIDEO", 59_300))).endsWith("duration within 1 s: no"))
-        assertTrue(segment(listOf(row(WATCH, "facebook:$VIDEO", 61_401))).endsWith("duration within 1 s: no"))
-        assertTrue(segment(listOf(row(WATCH, "facebook:$VIDEO", null))).endsWith("duration within 1 s: unknown"))
+        assertTrue(segment(listOf(row(WATCH, "facebook:$VIDEO", 59_300))).endsWith("duration within 1 s: no$NO_HEIGHTS"))
+        assertTrue(segment(listOf(row(WATCH, "facebook:$VIDEO", 61_401))).endsWith("duration within 1 s: no$NO_HEIGHTS"))
+        assertTrue(segment(listOf(row(WATCH, "facebook:$VIDEO", null))).endsWith("duration within 1 s: unknown$NO_HEIGHTS"))
         assertTrue(
             segment(listOf(row(WATCH, "facebook:$VIDEO", 60_000)), listOf(row(WATCH, "facebook:$VIDEO", null)))
-                .endsWith("duration within 1 s: unknown"),
+                .endsWith("duration within 1 s: unknown$NO_HEIGHTS"),
         )
+        // Task 16 (F6): each side's heights, each once, tallest first — Master's, then main's;
+        // a side whose rows state none: unknown. Numbers only.
+        val sized = listOf(row(WATCH, "facebook:$VIDEO", 60_000, 720), row(WATCH, "facebook:$VIDEO", 60_400, 360))
+        assertTrue(
+            segment(listOf(row(WATCH, "facebook:$VIDEO", 60_000, 360), row(WATCH, "facebook:$VIDEO", 60_000, 720)), sized)
+                .endsWith("duration within 1 s: yes; heights 720,360 vs 720,360"),
+        )
+        assertTrue(segment(listOf(row(WATCH, "facebook:$VIDEO", 60_000, 720)), sized).endsWith("; heights 720 vs 720,360"))
+        assertTrue(segment(listOf(row(WATCH, "facebook:$VIDEO", 60_000)), sized).endsWith("; heights unknown vs 720,360"))
         // Another video, a row without a video key, main's rows of two videos, no row: not the same.
         assertTrue(segment(listOf(row(WATCH, "facebook:$OTHER_VIDEO", 60_000))).contains("the same video: no"))
         assertTrue(segment(listOf(row(WATCH, null, 60_000))).contains("the same video: no"))
@@ -475,7 +514,7 @@ class SocialTrialTest {
             if (trial) {
                 assertEquals(
                     "master: facebook ladder after RESPONSE_CHANGED; replayed 0; new 1; " +
-                        "trial: Master's rows 2, main's 2; the same video: yes; duration within 1 s: yes",
+                        "trial: Master's rows 2, main's 2; the same video: yes; duration within 1 s: yes$NO_HEIGHTS",
                     notice,
                 )
                 assertEquals(listOf(hd(VIDEO), sd(VIDEO)).toSet(), rows.toSet())
@@ -565,6 +604,8 @@ class SocialTrialTest {
         plugin: String? = embed(VIDEO),
         var fileMillis: Long? = MASTER_MILLIS,
     ) {
+        /** Task 16 (F6): each file's picture size its start states, by address (none: no track header). */
+        var picture: (String) -> Pair<Int, Int>? = { null }
         var duringAsk: () -> Unit = {}
         var duringCapture: () -> Unit = {}
         val main = Answers { url ->
@@ -590,7 +631,7 @@ class SocialTrialTest {
             if (!url.startsWith("https://$MEDIA_HOST/")) {
                 MediaStart.Failed(404)
             } else {
-                val bytes = mp4Start(fileMillis).copyOf(maxBytes)
+                val bytes = mp4Start(fileMillis, picture(url)).copyOf(maxBytes)
                 MediaStart.Read(206, "video/mp4", "bytes 0-${bytes.size - 1}/$FILE_BYTES", bytes.size.toLong(), bytes)
             }
         }
@@ -700,10 +741,13 @@ class SocialTrialTest {
 
         fun mainSd(video: String) = "https://video.example-cdn.test/m/$video-sd.mp4?oe=F2A52380&oh=main"
 
-        fun row(page: String, videoId: String?, millis: Long? = null) = MediaCandidate(
+        fun row(page: String, videoId: String?, millis: Long? = null, height: Int? = null) = MediaCandidate(
             page, "https://video.example-cdn.test/r.mp4", setOf(CandidateSource.MANIFEST), MediaKind.DIRECT,
-            mimeType = "video/mp4", durationMillis = millis, videoId = videoId,
+            mimeType = "video/mp4", durationMillis = millis, videoId = videoId, height = height,
         )
+
+        /** Task 16 (F6): the line's end when neither side's rows state a height (these fixtures' pages and files). */
+        const val NO_HEIGHTS = "; heights unknown vs unknown"
 
         /** Main's two rows for the watch page (as main's adapter gives them). */
         fun mainsRows() = SiteAdapterOutcome.Detected(
@@ -740,13 +784,19 @@ class SocialTrialTest {
         /**
          * A progressive MP4 file's first 4096 bytes, made in code: the file type, then a `moov` longer
          * than the read whose movie header (timescale 1000) states [millis] (null: 0, no length).
+         * Task 16 (F6): with a [picture] (width to height), a whole picture track first, whose header
+         * (`tkhd`, version 0, the identity matrix) states it.
          */
-        fun mp4Start(millis: Long?): ByteArray {
+        fun mp4Start(millis: Long?, picture: Pair<Int, Int>? = null): ByteArray {
             fun u32(value: Long) = ByteArray(4) { ((value ushr (24 - 8 * it)) and 0xFF).toByte() }
             fun box(type: String, payload: ByteArray) = u32(8L + payload.size) + type.toByteArray() + payload
             val ftyp = box("ftyp", "isom".toByteArray() + u32(512) + "isom".toByteArray() + "mp41".toByteArray())
             val mvhd = box("mvhd", u32(0) + u32(0) + u32(0) + u32(1_000) + u32(millis ?: 0) + ByteArray(80))
-            val moov = u32(65_536) + "moov".toByteArray() + mvhd + u32(60_000) + "trak".toByteArray()
+            val track = picture?.let { (width, height) ->
+                val identity = listOf(0x10000L, 0L, 0L, 0L, 0x10000L, 0L, 0L, 0L, 0x40000000L).fold(ByteArray(0)) { bytes, n -> bytes + u32(n) }
+                box("trak", box("tkhd", ByteArray(40) + identity + u32(width.toLong() shl 16) + u32(height.toLong() shl 16)))
+            } ?: ByteArray(0)
+            val moov = u32(65_536) + "moov".toByteArray() + mvhd + track + u32(60_000) + "trak".toByteArray()
             return (ftyp + moov).copyOf(4_096)
         }
 

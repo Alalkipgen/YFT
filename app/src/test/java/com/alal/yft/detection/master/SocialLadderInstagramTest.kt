@@ -166,7 +166,7 @@ class SocialLadderInstagramTest {
                 key,
             ),
         )
-        // X's and Facebook's lines as before: no tallest.
+        // X's line as before: no tallest; Facebook's no tallest either, but each side's heights (task 16, F6).
         val x = SocialLadder.trialSegment(
             listOf(row(X_FILE, X_KEY, 9_000, 720)),
             listOf(row(X_FILE, X_KEY, 9_000, 720)),
@@ -175,7 +175,7 @@ class SocialLadderInstagramTest {
         assertEquals("; trial: Master's rows 1, main's 1; the same item: yes; duration within 1 s: yes", x)
         val facebook = "facebook:1000000000000001"
         assertEquals(
-            "; trial: Master's rows 1, main's 1; the same video: yes; duration within 1 s: yes",
+            "; trial: Master's rows 1, main's 1; the same video: yes; duration within 1 s: yes; heights 720 vs 1080",
             SocialLadder.trialSegment(
                 listOf(row("https://video.fixture.fbcdn.net/v/a.mp4", facebook, 9_000, 720)),
                 listOf(row("https://video.fixture.fbcdn.net/v/b.mp4", facebook, 9_000, 1_080)),

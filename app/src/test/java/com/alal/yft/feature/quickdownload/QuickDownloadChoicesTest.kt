@@ -1,5 +1,6 @@
 package com.alal.yft.feature.quickdownload
 
+import com.alal.yft.core.model.media.MediaCandidate
 import com.alal.yft.core.model.media.MediaKind
 import com.alal.yft.core.model.media.MediaSizeAccuracy
 import com.alal.yft.core.model.settings.QualityPreference
@@ -577,6 +578,30 @@ class QuickDownloadChoicesTest {
         )
         // 252 s at 160 kbps.
         assertEquals("~${YftFormat.bytes(5_040_000)}", choices.audio.first().size)
+    }
+
+    @Test
+    fun aMasterRowThatStatesItsFilesOwnSizeIsNamedAsMainNamesThatSize() {
+        // Social plan task 16 (F6): Facebook link 1's Master rows showed "Quality unknown · As the
+        // page plays it" (the plugin player's answer names no size). Each now states its file's
+        // own, read from the bytes its check read, and the sheet names it through main's path.
+        fun master(index: Int, width: Int?, height: Int?) =
+            video(height, fps = null, label = null, videoId = "facebook:fixture", index = index, width = width)
+        fun sheet(rows: List<MediaCandidate>) =
+            QuickDownloadChoices.of(group(rows), rows.map { SheetSource(it, QuickDownloadMetadata.asset(it), false) })!!
+
+        val sized = sheet(listOf(master(1, 1280, 720), master(2, 640, 360)))
+        assertEquals(listOf("720p · HD", "360p"), sized.video.map(SheetOption::title))
+        assertEquals(listOf("1280 × 720 · MP4", "640 × 360 · MP4"), sized.video.map(SheetOption::detail))
+        assertEquals(listOf(720, 360), sized.video.map(SheetOption::rankHeight))
+        assertEquals(listOf("720p", "360p"), sized.video.map(SheetOption::quality))
+        // A portrait file is named after its short side, as the sites do (TikTok's 718 × 1276: 720p).
+        val portrait = sheet(listOf(master(3, 718, 1276))).video.single()
+        assertEquals(listOf("720p · HD", "718 × 1276 · MP4", "720p"), listOf(portrait.title, portrait.detail, portrait.quality))
+        // Two files at one height: one row per resolution, as for main's rows.
+        assertEquals(1, sheet(listOf(master(4, 1280, 720), master(5, 1280, 720))).video.size)
+        // A file whose start states no size: as before.
+        assertEquals("Quality unknown", sheet(listOf(master(6, null, null))).video.single().title)
     }
 
     @Test

@@ -50,6 +50,12 @@ import kotlinx.coroutines.withContext
  *   same bytes ([StartDuration]: the movie header, a fragmented file's length or its index), so
  *   the Facebook trial's line can compare it with main's (the plugin player's answer names none).
  *   A row's own length stays; bytes without one leave it unknown.
+ * - **Picture size** (task 16, F6): a picture row (its type `video/…`) that passes and states no
+ *   width and no height gets its file's own, from the same bytes ([StartPicture]: the picture
+ *   track's `tkhd`, else its visual sample entry in `stsd`; a turned track's swapped), so the sheet
+ *   names it as main names that size (the plugin player's answer names none). No other read, no
+ *   larger read, no new ask in the record. A row's own size stays (never overwritten); bytes
+ *   without one, and a sound-only file, leave it unknown, as before.
  *
  * Every other lookup: [validator] (the engine's own V), unchanged. Nothing is logged; a result
  * names a reason only, never an address, a header or a byte.
@@ -94,15 +100,25 @@ class SocialRowCheck(
         val total = InitCheck.totalOf(read.contentRange) ?: read.contentLength.takeIf { read.statusCode == HTTP_OK }
         val checked = InitCheck.check(type, row.contentLengthBytes, InitCheck.Observed(answerType(type, read.contentType), read.bytes, total))
         return when (checked.verdict) {
-            StreamCheck.Verdict.PASS -> ValidationResult.Valid(
-                row.copy(
-                    mimeType = row.mimeType ?: type,
-                    contentLengthBytes = row.contentLengthBytes ?: total,
-                    expiresAtEpochMs = expires,
-                    // S1a (10): the file's own length when the row states none (read, never asked).
-                    durationMillis = row.durationMillis ?: StartDuration.millis(read.bytes),
-                ),
-            )
+            StreamCheck.Verdict.PASS -> {
+                // Task 16 (F6): the file's own picture size when the row states none (read, never asked).
+                val picture = if (stated(row.width) == null && stated(row.height) == null && type.startsWith(VIDEO)) {
+                    StartPicture.of(read.bytes)
+                } else {
+                    null
+                }
+                ValidationResult.Valid(
+                    row.copy(
+                        mimeType = row.mimeType ?: type,
+                        contentLengthBytes = row.contentLengthBytes ?: total,
+                        expiresAtEpochMs = expires,
+                        // S1a (10): the file's own length when the row states none (read, never asked).
+                        durationMillis = row.durationMillis ?: StartDuration.millis(read.bytes),
+                        width = picture?.width ?: row.width,
+                        height = picture?.height ?: row.height,
+                    ),
+                )
+            }
             StreamCheck.Verdict.FAIL -> rejected(
                 if (checked.reason == InitCheck.Reason.ENCRYPTED) {
                     SiteExtractionFailure.DRM_PROTECTED
@@ -175,6 +191,10 @@ class SocialRowCheck(
         /** Never sent to a media host (S2), and the range is V's own. */
         private val UNSENT = setOf("cookie", "authorization", "proxy-authorization", "range")
         private val TYPES = setOf("video/mp4", "audio/mp4", "video/webm", "audio/webm")
+        private const val VIDEO = "video/"
+
+        /** A side a row states (above 0), else null. */
+        private fun stated(side: Int?): Int? = side?.takeIf { it > 0 }
 
         private fun rejected(reason: SiteExtractionFailure) = ValidationResult.Rejected(reason)
 

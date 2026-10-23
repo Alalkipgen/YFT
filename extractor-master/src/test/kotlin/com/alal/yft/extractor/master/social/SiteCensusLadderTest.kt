@@ -220,7 +220,20 @@ class SiteCensusLadderTest {
             compared.verdicts,
         )
         assertEquals(listOf(2, 1), listOf(compared.wrong, compared.unknown))
-        assertEquals("Master's rows 5, main's 1; the same video: no; duration within 1 s: no", compared.trialText())
+        assertEquals("Master's rows 5, main's 1; the same video: no; duration within 1 s: no; heights 720 vs 720", compared.trialText())
+        // Task 16 (F6): Facebook's line gives each side's heights, each once, tallest first (Master's,
+        // then main's); a side whose rows state none: unknown.
+        val sized = TrialCompare.compare(
+            listOf(
+                row(FB_FILE, page = FB_WATCH, key = facebook, height = 360),
+                row(FB_FILE, page = FB_WATCH, key = facebook),
+                row(FB_FILE, page = FB_WATCH, key = facebook, height = 0),
+            ),
+            mains + row(FB_FILE, page = FB_WATCH, key = facebook, height = 360) + row(FB_FILE, page = FB_WATCH, key = facebook),
+        ) { it }
+        assertTrue(sized.trialText(), sized.trialText().endsWith("; duration within 1 s: unknown; heights 720,360 vs 720,360"))
+        val unsized = TrialCompare.compare(listOf(row(FB_FILE, page = FB_WATCH, key = facebook, height = 0)), mains) { it }
+        assertTrue(unsized.trialText(), unsized.trialText().endsWith("; heights unknown vs 720"))
 
         // X: the item; a file on another host names none.
         val x = "x:1785999999999999999"

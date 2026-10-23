@@ -43,7 +43,8 @@ import org.junit.Test
  * the user's session, on the host the answer gave when it is a media host) and the init check on
  * the same bytes; `unknown` is never a pass; a row the bytes prove wrong is not offered; an
  * encryption marker is DRM (final); at most 8 files a lookup, each read once; the link's lifetime
- * (`oe`); S1a (10): a row that states no length gets its file's own from the same bytes. Every
+ * (`oe`); S1a (10): a row that states no length gets its file's own from the same bytes; task 16
+ * (F6): a row that states no picture size gets its file's own from them too. Every
  * other lookup: the engine's own V, unchanged. Main's real Facebook adapter over synthetic pages
  * and a fake file reader; no live calls.
  */
@@ -257,6 +258,49 @@ class FacebookLadderS6Test {
         assertEquals(2, success.result.candidates.size)
         success.result.candidates.forEach { assertEquals(23_891L, it.durationMillis) }
         assertEquals(2, files.asked.size)
+    }
+
+    @Test
+    fun `a row that states no picture size gets its file's own from the bytes read, and its own size stays`() = runTest {
+        // Task 16 (F6): the plugin player's rows state no size (Facebook link 1 on the phone, 2026-10-23:
+        // "Quality unknown" on both of Master's rows).
+        val hdStart = PictureBytes.progressive(PictureBytes.video(1_280, 720), PictureBytes.sound())
+        val sdStart = PictureBytes.progressive(PictureBytes.video(640, 360), PictureBytes.sound())
+        val files = Files { url -> start(bytes = if (url == sd(VIDEO)) sdStart else hdStart) }
+        val passed = checked(SocialRowCheck(RecordingValidator(), files), row()) as ValidationResult.Valid
+        assertEquals(1_280 to 720, passed.candidate.width to passed.candidate.height)
+        // The one read V makes, no larger.
+        assertEquals(listOf(SocialRowCheck.START_BYTES), files.asked.map { it.maxBytes })
+        // A turned file as it shows; a DASH file.
+        val turned = Files { start(bytes = PictureBytes.progressive(PictureBytes.video(1_920, 1_080, matrix = PictureBytes.TURN_90))) }
+        val portrait = checked(SocialRowCheck(RecordingValidator(), turned), row()) as ValidationResult.Valid
+        assertEquals(1_080 to 1_920, portrait.candidate.width to portrait.candidate.height)
+        val dash = Files { start(bytes = PictureBytes.fragmented(PictureBytes.video(854, 480))) }
+        val fragmented = checked(SocialRowCheck(RecordingValidator(), dash), row()) as ValidationResult.Valid
+        assertEquals(854 to 480, fragmented.candidate.width to fragmented.candidate.height)
+        // A row's own size stays, one side alone too; bytes without a size, a sound-only file and
+        // a sound row leave it unknown.
+        val own = checked(SocialRowCheck(RecordingValidator(), files), row().copy(width = 718, height = 1_276)) as ValidationResult.Valid
+        assertEquals(718 to 1_276, own.candidate.width to own.candidate.height)
+        val heightOnly = checked(SocialRowCheck(RecordingValidator(), files), row().copy(height = 480)) as ValidationResult.Valid
+        assertEquals(null to 480, heightOnly.candidate.width to heightOnly.candidate.height)
+        val none = checked(SocialRowCheck(RecordingValidator(), Files { start() }), row()) as ValidationResult.Valid
+        assertEquals(null to null, none.candidate.width to none.candidate.height)
+        val soundOnly = Files { start(bytes = PictureBytes.progressive(PictureBytes.sound())) }
+        val sound = checked(SocialRowCheck(RecordingValidator(), soundOnly), row()) as ValidationResult.Valid
+        assertEquals(null to null, sound.candidate.width to sound.candidate.height)
+        val audio = checked(SocialRowCheck(RecordingValidator(), files), row(mime = "audio/mp4")) as ValidationResult.Valid
+        assertEquals(null to null, audio.candidate.width to audio.candidate.height)
+
+        // In the lookup: each row Master offers states its own file's size; still one read a file.
+        val lookupFiles = Files { url -> start(bytes = if (url == sd(VIDEO)) sdStart else hdStart) }
+        val success = lookup(record(), lookupFiles) as MasterResult.Success
+        assertEquals(
+            mapOf(hd(VIDEO) to (1_280 to 720), sd(VIDEO) to (640 to 360)),
+            success.result.candidates.associate { it.mediaUrl to (it.width to it.height) },
+        )
+        assertEquals(setOf(hd(VIDEO), sd(VIDEO)), lookupFiles.urls.toSet())
+        assertEquals(2, lookupFiles.asked.size)
     }
 
     @Test

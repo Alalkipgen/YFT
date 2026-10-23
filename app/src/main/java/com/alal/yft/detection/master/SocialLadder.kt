@@ -366,7 +366,10 @@ internal object SocialLadder {
      * main's: Master's rows add the 360p files main drops, so not every row is one of main's), and
      * the line ends `; tallest: Master's H, main's H` (each side's tallest row, `unknown` when its
      * rows state no height). Task 6b: the comparison is [TrialCompare]'s (the site census's ladder
-     * part reads the same), the words unchanged.
+     * part reads the same), the words unchanged. Task 16 (F6): Facebook's line ends `; heights M vs
+     * N` (Master's rows' heights, then main's: each height once, tallest first, `720,360`; `unknown`
+     * when a side's rows state none), so a retest checks each of Master's heights against main's;
+     * Master's rows state their files' own sizes ([SocialRowCheck]). Numbers only.
      */
     fun trialSegment(rows: List<MediaCandidate>, mains: List<MediaCandidate>, video: (String?) -> String?): String =
         TRIAL_SEGMENT + TrialCompare.compare(rows, mains, video).trialText()
