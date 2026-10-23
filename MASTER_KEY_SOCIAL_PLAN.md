@@ -62,8 +62,9 @@ read and L3 never take a player's stand-in file, a site's build resource or the 
 debug only, behind the flag) built (2026-10-23; §7.3). The re-drill on task 18's APK (2026-10-23,
 `ac0dd2c`; §7.4): PASS. S5 (decision 26) on that APK: run 1 of 3 PASS on every site (2026-10-23
 17:27–17:31 UTC, version 7: wrong rows 0, NO CHANGE); next: its run 2, then its run 3 (§7.4).
-Decision 30 (the owner, 2026-10-23; §8): the signed release carries Master on, for 5–10 friends;
-after S5's gate, one release commit, Preview #12 (normal and trial), PR #2's merge, then P8.**
+Decision 30 (the owner, 2026-10-23; §8): the signed release carries Master on and shows no lookup
+details (a hidden Show details), for 5–10 friends; after S5's gate, one release commit, Preview #12
+(normal and trial), PR #2's merge, then P8.**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -118,6 +119,10 @@ after S5's gate, one release commit, Preview #12 (normal and trial), PR #2's mer
   main က site ကို မေးဆဲမို့ Master ဖတ်စရာ record ရှိ၊ main ရဲ့ row တွေကို ဘေးဖယ်ပြီး နှိုင်းယှဉ်)။
   Trial ကို debug နဲ့ preview မှာပဲ ခွင့်ပြု၊ release က ဘယ်တော့မှ မဖတ်။ Fail ရင် merge မတိုင်ခင်
   ပြင် (feature အသစ် မထည့်)။ ပြီးမှ PR #2 merge → P8 → install/upgrade စစ် → friend ၅–၁၀ ယောက်။
+  Release မှာ error detail မပြ: browser မှာ lookup notice နဲ့ Try again မပေါ်၊ Download Sheet မှာ
+  စာတစ်ကြောင်းပဲ (TikTok check ဆို "Show check"၊ capture ဆို "Download ပြန်နှိပ်")၊ Details နဲ့ Copy
+  details က About ရဲ့ version ကို ၇ ချက်နှိပ်ရင် ပွင့်တဲ့ ဖျောက်ထားတဲ့ "Show details" (default OFF)
+  နဲ့မှ။ Debug နဲ့ #12 trial မှာ အကုန်ပြ။ Friend က link ပဲ ပို့၊ ပြန်မဖြစ်မှ Show details ဖွင့်ခိုင်း။
 - **S0d (2026-10-20, §7.2):** ပိုင်ရှင်ရဲ့ phone run ၂ ခု။ Recoverable failure: Facebook 0/11၊
   TikTok 0/6၊ Instagram 0/7၊ X 2/6 (main မဖတ်တဲ့ card ထဲက video)။ Pilot: Facebook → TikTok →
   X → Instagram (ပိုင်ရှင် အတည်ပြုပြီး၊ 2026-10-20၊ §8 #1)။
@@ -2503,20 +2508,33 @@ decision, then its status):
   line ("YFT only contacts the sites you open and the media servers they point to.") names GitHub
   raw too, in the same commit. (iii) **The proof before the merge — two preview APKs of one release
   commit, side by side** (each its own app ID and name): **#12 normal**, the release's flags
-  exactly (main's lookups as before; downloads, sound, notifications, delete); **#12 trial**, the
-  same with the trials on (route B's for YouTube, the social one for the four sites): main's answer
-  off and Master on — main still asks, so its requests stay in the lookup's record that Master's
-  rungs and route B read (a main that asks nothing leaves them nothing to read: task 12; route B's
+  and look exactly (main's lookups as before; downloads, sound, notifications, delete; (v)'s quiet
+  sheet); **#12 trial**, the same with the trials on (route B's for YouTube, the social one for the
+  four sites) and every detail shown: main's answer off and Master on — main still asks, so its
+  requests stay in the lookup's record that Master's rungs and route B read (a main that asks nothing leaves them nothing to read: task 12; route B's
   "main asked nothing"), and its rows are set aside and compared — so Master answers every lookup
   on the shrunk (R8) build. The trials' rule "debug only, release and preview false" becomes "debug
   and preview only; the release never reads them". In both: when Master finds nothing too, the
   error comes in bounded time and Cancel works. A failure is fixed before the merge; nothing new
   joins (B+ and "all items" after the release). (iv) **The order:** S5's runs 2 and 3 → the gate →
   the release commit (the release's and the previews' flags, the key, R8 rules, the switch, the
-  privacy line; CI green; no site pack, engine or main lookup change, so S5's count stands and its
-  proof is #12) → #12 normal and #12 trial on the owner's phone → PR #2's merge (a merge commit) →
-  P8 (the tag, the signed APK, its install and upgrade on the owner's phone) → the friends (their
-  reports: the failure sheet's Details, copied or shared; data fixes by R9, code fixes in beta.5).
+  privacy line, (v)'s quiet release; CI green; no site pack, engine or main lookup change, so S5's
+  count stands and its proof is #12) → #12 normal and #12 trial on the owner's phone → PR #2's
+  merge (a merge commit) → P8 (the tag, the signed APK, its install and upgrade on the owner's
+  phone) → the friends (their reports: the link; Show details only when the owner asks, (v); data
+  fixes by R9, code fixes in beta.5). (v) **The quiet release: the debug and trial APKs find the
+  bugs; the release shows none of their tools.** The browser shows no lookup notice and no Try
+  again (a page that does not load says so, as in any browser). The download sheet, opened by the
+  user's Download, says one line and nothing else (no Details, Copy details, Master lines or Try
+  again): "Couldn't get this video." when nothing is found; TikTok's check, its line and one "Show
+  check" (a function: the user answers the check); the capture, "Play the video, then tap Download
+  again." — Download again looks up again, as Try again does; Home's lookups, the same one line in
+  its sheet. Details and Copy details anywhere (the sheet, Home, Downloads) only with a hidden "Show
+  details": the About screen's version line tapped 7 times turns it on or off; off by default, not
+  in Settings; on, the sheet shows them as the debug APK does. A failed download's retry stays (a
+  function). The debug APK and #12 trial show everything as now; #12 normal looks exactly as the
+  release. A friend sends the link; when the owner's phone does not show the failure, the owner
+  asks for Show details and its Copy details.
   *Status:* recorded (2026-10-23); nothing built; the release commit after S5's gate.
 
 Still open (the owner's answer is needed before the step that uses it): none.

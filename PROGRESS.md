@@ -12,7 +12,13 @@
   so Master's rungs have its record; its rows set aside and compared); the trials' rule becomes
   "debug and preview only; the release never reads them". Then the merge, P8 and 5–10 friends.
   Nothing built; S5 untouched (its runs 2 and 3 next; the release commit after the gate).
-- Docs: the plan (the status line, the Burmese summary, §8 decision 30) (docs only).
+- **Decision 30 (v), the quiet release** (the owner, 2026-10-23, in chat; plan §8): the browser
+  shows no lookup notice and no Try again; the download sheet says one line (TikTok's check with
+  "Show check"; the capture "Play the video, then tap Download again.", Download again looking up
+  again); Details and Copy details only with a hidden "Show details" (the About screen's version
+  line tapped 7 times; off by default); a failed download's retry stays; the debug APK and #12
+  trial show everything, #12 normal looks as the release; a friend sends the link. Nothing built.
+- Docs: the plan (the status line, the Burmese summary, §8 decision 30 and its (v)) (docs only).
 
 ## Social plan — the re-drill PASS on task 18's APK; S5's run 1 of 3 PASS on every site (2026-10-23)
 
