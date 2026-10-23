@@ -163,8 +163,12 @@ class InstagramLadder(
                     !probe.on() -> details += "$PROBE: off"
                     !probe.proof() -> details += "$PROBE: not asked (I2's rows)"
                     else -> {
-                        details += "$PROBE: I2's rows set aside (the rung's proof)"
+                        details += PROOF
+                        // Task 15 (F4): the proof tests the rung alone — when it gives no rows the
+                        // lookup ends without one (no capture of the tab: signed in, its playback's
+                        // file is none of main's, so its row said "the same item: no").
                         return rung(record, request, policy, code, mediaId, read, recipe, details)
+                            ?: proofStop(request, read, details)
                     }
                 }
                 SocialStage.Staged(
@@ -445,6 +449,16 @@ class InstagramLadder(
         return Found()
     }
 
+    /**
+     * Task 15 (F4): the rung's proof's stop for [request]'s page, read for [read]: I2's rows were set
+     * aside and the rung gave none, so the lookup ends with no row ([SocialStage.Staged.last]: no
+     * page data, no capture of the tab after it) and [PROOF_STOP] says why.
+     */
+    private fun proofStop(request: MasterRequest, read: MasterRequest, details: MutableList<String>): SocialStage.Staged {
+        details += PROOF_STOP
+        return SocialStage.Staged(MasterStage.PAGE_DATA, PageSnapshot(request.pageUrl, request.generation), read, last = true)
+    }
+
     /** A final answer [reason] for [request]'s page, read for [read] (main's answers, no request). */
     private fun final(request: MasterRequest, read: MasterRequest, reason: SiteExtractionFailure) =
         SocialStage.Staged(
@@ -463,6 +477,12 @@ class InstagramLadder(
         internal const val I2 = "master: instagram I2"
         /** The tab-fetch rung's line (S2d part 1's probe's label, decision 24's rung: its Details line). */
         const val PROBE = "master: instagram probe"
+
+        /** Decision 24: the rung's proof's line (debug): I2's rows set aside for the rung. */
+        const val PROOF = "$PROBE: I2's rows set aside (the rung's proof)"
+
+        /** Task 15 (F4): the proof's stop: I2's rows set aside, the rung gave none, so no row. */
+        const val PROOF_STOP = "$PROBE: no row (the proof set I2's rows aside and the rung gave none)"
         private const val WEB_HOST = "www.instagram.com"
         private const val BY_SHAPE = "by shape (key table changed)"
         private const val SESSION_COOKIE = "sessionid"

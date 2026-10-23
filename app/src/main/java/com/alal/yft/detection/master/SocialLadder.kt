@@ -256,6 +256,9 @@ internal object SocialLadder {
      * [Words.MAINS] (X's widget 404 or tombstone, Instagram's "no post", nothing read).
      */
     fun playbackWords(videoKey: String?, details: List<String>, tabVideo: Boolean): WordsPick {
+        // Task 15 (F4): the rung's proof left no row (debug): main's words (the trial's), as the
+        // proof gives none again on Try again; before the tab's video, which the proof never reads.
+        if (InstagramLadder.PROOF_STOP in details) return WordsPick(Words.MAINS, PROOF_WHY)
         if (tabVideo) return WordsPick(Words.PLAYBACK, "the tab shows a video")
         val lines = details.filter { it.startsWith(line(videoKey)) }
         lines.firstNotNullOfOrNull { line ->
@@ -274,6 +277,9 @@ internal object SocialLadder {
      * (X's age wall: main's reason is `NO_MEDIA_FOUND`) — the app's own words for that reason.
      */
     fun signInMessage(videoKey: String?): String = "Sign in to ${nameOf(videoKey)} on this page first, then try again."
+
+    /** Task 15 (F4): the words line's why when the rung's proof left no row. */
+    private const val PROOF_WHY = "the rung's proof: I2's rows set aside, the rung gave none"
 
     /** Task 14: the judge's classes of a read video (rows read, none kept; a video without files). */
     private val VIDEO_CLASSES = Regex("""\b(DIRECT|PARTIAL|VIDEO_WITHOUT_FILES)\b""")
@@ -371,14 +377,41 @@ internal object SocialLadder {
      * line; S2c: X's). Task 13 (observation f): with Instagram's tab-fetch rung's lines in the
      * answer ([InstagramLadder.PROBE]), its last too (its answer: its status, bytes, video, wall and
      * rows; else why it was not asked), on its own line after the trial's, so a lookup with rows
-     * shows it as well. Null for every other answer (no other build has one).
+     * shows it as well. Task 15 (F1): every lookup that ends with Master's rows — without the
+     * trial's comparison (main failed: no rows to compare), the site's ladder line (`master: <site>
+     * ladder after <reason>; …`) — and (F4) each of Instagram's probe lines ([probeLines]: the
+     * proof's line too). Null for an answer without a ladder site's line or a probe line (every
+     * other build and site).
      */
     fun trialNotice(outcome: SiteAdapterOutcome): String? {
         val details = (outcome as? SiteAdapterOutcome.Detected)?.details ?: return null
-        val trial = details.firstOrNull { detail ->
+        // Task 15 (F1): without the trial's comparison (main failed), the site's ladder line.
+        val site = details.firstOrNull { detail ->
             SITES.any { detail.startsWith("master: $it") } && TRIAL_SEGMENT in detail
-        }
-        val rung = details.lastOrNull { it.startsWith(InstagramLadder.PROBE + ":") }
-        return listOfNotNull(trial, rung).takeIf { it.isNotEmpty() }?.joinToString("\n")
+        } ?: details.firstOrNull { detail -> SITES.any { detail.startsWith("master: $it ladder") } }
+        return (listOfNotNull(site) + probeLines(details)).takeIf { it.isNotEmpty() }?.joinToString("\n")
     }
+
+    /**
+     * Task 15 (F4): the browser's notice of a failed lookup in which the rung's proof set I2's rows
+     * aside (debug, the census screen's box): [outcome]'s words, then Instagram's probe lines (the
+     * proof's, the rung's answer or why it was not asked, the proof's stop). Null for every other
+     * failure (its words alone, as before).
+     */
+    fun proofNotice(outcome: SiteAdapterOutcome.Failed): String? {
+        if (InstagramLadder.PROOF !in outcome.details) return null
+        return (listOf(outcome.message) + probeLines(outcome.details)).joinToString("\n")
+    }
+
+    /**
+     * Task 13 (observation f), task 15 (F1, F4): Instagram's probe lines in [details], in order — the
+     * rung's proof's (when it set I2's rows aside), the rung's (its answer: status, bytes, the post's
+     * video, wall and rows; else why it was not asked) and the proof's stop — the rung's own label
+     * and a colon only, never another of Instagram's lines; at most [MAX_PROBE_LINES].
+     */
+    private fun probeLines(details: List<String>): List<String> =
+        details.filter { it.startsWith(InstagramLadder.PROBE + ":") }.distinct().takeLast(MAX_PROBE_LINES)
+
+    /** The proof's line, the rung's and the proof's stop: one lookup's probe lines. */
+    private const val MAX_PROBE_LINES = 3
 }

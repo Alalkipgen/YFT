@@ -149,9 +149,12 @@ class SocialLadderTikTokTest {
         assertEquals("master: tiktok$segment", SocialLadder.trialNotice(tiktok))
         val facebook = detected(listOf("master: facebook$segment"))
         assertEquals("master: facebook$segment", SocialLadder.trialNotice(facebook))
-        // No ladder site's line, or no trial segment: null.
+        // No ladder site's line: null. Task 15 (F1): no trial segment (main failed): the ladder's line.
         assertNull(SocialLadder.trialNotice(detected(listOf("master: vimeo$segment"))))
-        assertNull(SocialLadder.trialNotice(detected(listOf("master: tiktok ladder after RESPONSE_CHANGED"))))
+        assertEquals(
+            "master: tiktok ladder after RESPONSE_CHANGED",
+            SocialLadder.trialNotice(detected(listOf("master: tiktok ladder after RESPONSE_CHANGED", "master: tiktok T1 embed player: x"))),
+        )
     }
 
     private fun detected(details: List<String>): SiteAdapterOutcome.Detected = SiteAdapterOutcome.Detected(

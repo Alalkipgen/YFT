@@ -329,13 +329,18 @@ class AndroidBrowserMasterFallback(
                         // route-B build shows its counts; every other answer: none, as before.
                         // F7: in the trial its line also compares the rows with main's set aside.
                         // S1a (9): in the Facebook trial, Facebook's line compares them so too
-                        // (S2b: TikTok's line, in a TikTok lookup).
+                        // (S2b: TikTok's line, in a TikTok lookup). Task 15 (F1): every other
+                        // social lookup's rows carry Master's lines too (main's failure: no trial
+                        // comparison), so the banner names the site's ladder line (and Instagram's
+                        // probe line) on every lookup that ends with Master's rows.
                         details = if (routeB) {
                             compared(DiagnosticTextSanitizer.details(result.result.details), kept, mains)
                         } else if (socialMains != null) {
                             socialCompared(
                                 DiagnosticTextSanitizer.details(result.result.details), kept, socialMains, lookupUrl, key,
                             )
+                        } else if (social) {
+                            DiagnosticTextSanitizer.details(result.result.details)
                         } else emptyList(),
                     )
                 }

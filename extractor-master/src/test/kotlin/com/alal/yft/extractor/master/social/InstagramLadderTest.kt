@@ -492,9 +492,49 @@ class InstagramLadderTest {
         val line = "$PROBE: HTTP 200, ${bytes(PROBE_VIDEO)} bytes; the post's video in the answer: yes; a wall on the page: no; rows 1 (DIRECT)"
         assertTrue(details.toString(), "$I2: DIRECT (GraphQL: rows 6 of the link's item, bound to the post); next: CHECK_ROWS" in details)
         assertTrue(details.toString(), details.indexOf(aside) in 0 until details.indexOf(line))
+        assertEquals(InstagramLadder.PROOF, aside)
         assertEquals(1, proof.asked.size)
         assertEquals(1, record.masterAsks)
-        assertBare(detailsOf(kept.result) + details)
+
+        // Task 15 (F4): signed in, the proof sets I2's rows aside and the rung is not asked (the
+        // signed-out query): no row — no capture of the tab after it (signed in, the tab's playback
+        // gave the phone's row, its file none of main's: "the same item: no") — and the proof's
+        // stop says why, the lookup's last line (no "supply a fresh capture").
+        val capture = CountingCapture()
+        val signedIn = lookup(REEL, reel, capture = capture, probe = Probe(proof = true) { error("not asked") }, cookie = SESSION)
+        val stopped = (signedIn.result as MasterResult.NeedsPlayback).details
+        assertEquals(0, capture.calls)
+        assertTrue(stopped.toString(), aside in stopped)
+        assertTrue(stopped.toString(), "$PROBE: not asked (signed in: the rung is the signed-out query)" in stopped)
+        assertEquals(stopped.toString(), InstagramLadder.PROOF_STOP, stopped.last { it.startsWith(PROBE) })
+        assertTrue(stopped.toString(), stopped.indexOf(aside) < stopped.indexOf(InstagramLadder.PROOF_STOP))
+        assertFalse(stopped.toString(), stopped.any { "capture" in it })
+        // Signed out, the rung's answer without the post: the same stop, no row, no capture.
+        val gone = lookup(REEL, reel, capture = capture, probe = Probe(proof = true) { answered(200, PROBE_NONE) })
+        val goneLines = (gone.result as MasterResult.NeedsPlayback).details
+        assertEquals(InstagramLadder.PROOF_STOP, goneLines.last { it.startsWith(PROBE) })
+        assertEquals(0, capture.calls)
+        // Without the proof, signed in: I2's rows, the rung not asked, as before.
+        val own = lookup(REEL, reel, probe = Probe { error("not asked") }, cookie = SESSION)
+        assertEquals(6, (own.result as MasterResult.Success).result.candidates.size)
+        assertFalse(InstagramLadder.PROOF_STOP in detailsOf(own.result))
+        assertBare(detailsOf(kept.result) + details + stopped + goneLines)
+    }
+
+    @Test
+    fun `the rung's row states its video's size when its file states none`() = runTest {
+        // Task 15 (F1): the phone's rung row had no height ("Quality unknown"); a file that states no
+        // size takes its video's own (`original_width`/`original_height`, else `dimensions`), as
+        // main's rows and I2's state one; a file's own size stays first.
+        for (answer in listOf(PROBE_NO_SIZE, PROBE_NO_SIZE.replace(ORIGINAL_SIZE, "\"dimensions\":{\"width\":720,\"height\":1280},"))) {
+            val found = lookup(REEL, embedNoFiles(), probe = Probe { answered(200, answer) })
+            val row = (found.result as MasterResult.Success).result.candidates.single()
+            assertTrue(row.mediaUrl, "/probe.mp4" in row.mediaUrl)
+            assertEquals(answer, 720, row.width)
+            assertEquals(answer, 1280, row.height)
+        }
+        val own = lookup(REEL, embedNoFiles(), probe = Probe { answered(200, PROBE_NO_SIZE.replace("\"type\":101,", "\"width\":540,\"height\":960,")) })
+        assertEquals(960, (own.result as MasterResult.Success).result.candidates.single().height)
     }
 
     @Test
@@ -941,6 +981,13 @@ class InstagramLadderTest {
         /** The probe's answer when the query shows the post signed out (yt-dlp's path), with a video's files. */
         val PROBE_VIDEO = """{"data":{"xig_polaris_media":{"if_not_gated_logged_out":{"code":"$REEL_CODE",""" +
             """"video_versions":[{"width":720,"height":1280,"url":"https://instagram.fxyz1-1.fna.fbcdn.net/o1/v/t16/f2/m86/probe.mp4"}]}}},"status":"ok"}"""
+
+        /** Task 15 (F1): the post's sizes in its own fields (the v1 item's), its file stating none. */
+        const val ORIGINAL_SIZE = "\"original_width\":720,\"original_height\":1280,"
+
+        /** Task 15 (F1): the probe's answer whose file states no size; the post states its own. */
+        val PROBE_NO_SIZE = """{"data":{"xig_polaris_media":{"if_not_gated_logged_out":{"code":"$REEL_CODE","media_type":2,$ORIGINAL_SIZE""" +
+            """"video_versions":[{"type":101,"url":"https://instagram.fxyz1-1.fna.fbcdn.net/o1/v/t16/f2/m86/probe.mp4"}]}}},"status":"ok"}"""
 
         /** The probe's answer without the post (gated or gone alike). */
         const val PROBE_NONE = """{"data":{"xig_polaris_media":{"if_not_gated_logged_out":null}},"status":"ok"}"""

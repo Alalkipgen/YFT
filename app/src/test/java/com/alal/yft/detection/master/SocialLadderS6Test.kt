@@ -56,6 +56,11 @@ class SocialLadderS6Test {
 
         val found = fixture.lookup() as SiteAdapterOutcome.Detected
         assertEquals(setOf(hd(VIDEO), sd(VIDEO)), found.candidates.map { it.mediaUrl }.toSet())
+        // Social plan task 15 (F1): Master's rows after main's failure carry its lines, so the
+        // browser's banner names Facebook's ladder line (no trial here: nothing to compare).
+        val notice = SocialLadder.trialNotice(found)
+        assertTrue(notice.toString(), notice?.startsWith("master: facebook ladder after RESPONSE_CHANGED") == true)
+        assertTrue(found.details.toString(), found.details.none { "://" in it })
         found.candidates.forEach { assertEquals(TOTAL, it.contentLengthBytes) }
         // Each file read once, never with the user's session; the engine's own check not asked.
         assertEquals(setOf(hd(VIDEO), sd(VIDEO)), fixture.files.asked.toSet())

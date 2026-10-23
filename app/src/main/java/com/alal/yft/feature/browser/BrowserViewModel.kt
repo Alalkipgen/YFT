@@ -928,8 +928,13 @@ class BrowserViewModel(
                     // One automatic retry per page; after that the user decides with Try again.
                     awaitingPlayback = outcome.retriesAfterPlayback && !autoRetried
                     // P46: TikTok's check is shown to the user; the browser's own words.
+                    // Social plan task 15 (F4): the rung's proof's lookup (debug) adds its probe lines.
                     val checkUrl = SiteCheck.urlFor(outcome, livePageUrl)
-                    val message = if (checkUrl != null) SiteCheck.NOTICE else outcome.message
+                    val message = if (checkUrl != null) {
+                        SiteCheck.NOTICE
+                    } else {
+                        SocialLadder.proofNotice(outcome) ?: outcome.message
+                    }
                     mutableUiState.update {
                         it.copy(
                             siteNotice = message.takeUnless {

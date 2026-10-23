@@ -258,10 +258,11 @@ class SocialTrialTest {
         // Each file's start read once (S6's own read, nothing more asked for the length).
         assertEquals(listOf(hd(VIDEO), sd(VIDEO)), fixture.reads.toList())
         assertTrue(SocialLadder.trialNotice(found)!!.endsWith("duration within 1 s: yes"))
-        // The ladder alone without the trial: the same rows and lengths, no line.
+        // The ladder alone without the trial: the same rows and lengths, no comparison — the
+        // ladder's own line (task 15, F1).
         val ladder = Fixture(WATCH, socialTrial = false, mainPage = PAGE_BODY).lookup() as SiteAdapterOutcome.Detected
         ladder.candidates.forEach { assertEquals(MASTER_MILLIS, it.durationMillis) }
-        assertNull(SocialLadder.trialNotice(ladder))
+        assertLadderLine(SocialLadder.trialNotice(ladder))
         // Flag off: the engine's own check, no file read, no length (as today).
         val off = Fixture(WATCH, socialLadder = false, socialTrial = false, mainPage = PAGE_BODY)
         val today = off.lookup() as SiteAdapterOutcome.Detected
@@ -412,12 +413,13 @@ class SocialTrialTest {
         val first = fixture.lookup() as SiteAdapterOutcome.Detected
         assertTrue(SocialLadder.trialNotice(first)!!.contains("; trial: Master's rows 2, main's 2;"))
 
-        // The next lookup: main's own failure, nothing set aside — Master's rows, no comparison.
+        // The next lookup: main's own failure, nothing set aside — Master's rows, no comparison
+        // (the banner: the ladder's own line; task 15, F1).
         fixture.mainPage = PAGE_BODY
         val second = fixture.lookup() as SiteAdapterOutcome.Detected
         assertEquals(listOf(hd(VIDEO), sd(VIDEO)), second.candidates.map { it.mediaUrl })
-        assertNull(SocialLadder.trialNotice(second))
-        assertTrue(second.details.isEmpty())
+        assertLadderLine(SocialLadder.trialNotice(second))
+        assertTrue(second.details.none { SocialLadder.TRIAL_SEGMENT in it })
 
         // A lookup that set rows aside and never reached Master (cancelled): its rows are not
         // another answer's — neither a recover of another answer's nor the next lookup's.
@@ -428,13 +430,13 @@ class SocialTrialTest {
         assertTrue(unfinished is SiteAdapterOutcome.Failed)
         val mainsOwn = SiteAdapterOutcome.Failed("facebook", SiteExtractionFailure.RESPONSE_CHANGED, "Main's words", true)
         val other = fixture.recover(mainsOwn) as SiteAdapterOutcome.Detected
-        assertNull(SocialLadder.trialNotice(other))
+        assertLadderLine(SocialLadder.trialNotice(other))
         fixture.mainPage = PAGE_BODY
         val next = fixture.lookup() as SiteAdapterOutcome.Detected
-        assertNull(SocialLadder.trialNotice(next))
+        assertLadderLine(SocialLadder.trialNotice(next))
         // The unfinished lookup's own answer after a later lookup started: nothing left for it either.
         val late = fixture.recover(unfinished) as SiteAdapterOutcome.Detected
-        assertNull(SocialLadder.trialNotice(late))
+        assertLadderLine(SocialLadder.trialNotice(late))
     }
 
     @Test
@@ -494,6 +496,17 @@ class SocialTrialTest {
             Thread.sleep(10)
         }
         fail("the lookup did not finish")
+    }
+
+    /**
+     * Task 15 (F1): Master's rows without the trial's comparison (main failed, or no rows set
+     * aside) — the banner reads Facebook's ladder line alone, never a comparison.
+     */
+    private fun assertLadderLine(notice: String?) {
+        val line = notice.orEmpty()
+        assertTrue(line, line.startsWith("master: facebook ladder after "))
+        assertFalse(line, SocialLadder.TRIAL_SEGMENT in line)
+        assertFalse(line, "\n" in line)
     }
 
     /** S8: no link, host, ID or page words in a line. */

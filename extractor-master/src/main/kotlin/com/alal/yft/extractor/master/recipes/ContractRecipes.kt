@@ -392,6 +392,15 @@ internal object ContractRecipes {
         ),
     )
 
+    /**
+     * Task 15 (F1): where an Instagram file states its size — its own `width`/`height`, else its
+     * video's (the node's `original_width`/`original_height`, else its `dimensions`).
+     */
+    private val INSTAGRAM_SIZE = ContractFields(
+        width = listOf("width", "original_width", "dimensions.width"),
+        height = listOf("height", "original_height", "dimensions.height"),
+    )
+
     /** Main's InstagramExtractor names its embed rows after the owner when there is no caption. */
     private fun owner(field: String, template: String) =
         listOf(listOf("user", field) to template, listOf("owner", field) to template)
@@ -425,7 +434,11 @@ internal object ContractRecipes {
         ),
         itemNumber = Regex("[?&]img_index=([0-9]{1,2})(?:&|$)"),
         media = listOf(
-            ContractMedia(listOf("video_versions", "*"), mime = MP4),
+            // Task 15 (F1): a file that states no size (the rung's answer's) takes its video's own
+            // (`original_width`/`original_height`, else `dimensions`), as main's rows and I2's state one.
+            ContractMedia(
+                listOf("video_versions", "*"), mime = MP4, metaPath = emptyList(), fields = INSTAGRAM_SIZE,
+            ),
             ContractMedia(listOf("video_url"), mime = MP4, metaPath = listOf("dimensions")),
             ContractMedia(listOf("video_dash_manifest"), inlineDash = true),
             ContractMedia(listOf("dash_info", "video_dash_manifest"), inlineDash = true),

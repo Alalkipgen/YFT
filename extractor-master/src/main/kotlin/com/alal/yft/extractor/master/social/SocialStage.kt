@@ -25,9 +25,18 @@ interface SocialStage {
     /**
      * A rung's answer: its [snapshot] (of the request's page and generation), read as [stage] for
      * [request] — the lookup's request with the video the rung asked about (a link main resolves
-     * first: the video main's resolved link names).
+     * first: the video main's resolved link names). Task 15 (F4): [last] — the ladder's last word
+     * for the lookup: after [snapshot] no other stage runs (no page data, no capture of the tab),
+     * and a lookup it leaves without rows needs the user's playback with the ladder's lines only
+     * (Instagram's rung proof, when it set I2's rows aside and the rung gave none). Every other
+     * answer: false, as before.
      */
-    class Staged(val stage: MasterStage, val snapshot: PageSnapshot, val request: MasterRequest)
+    class Staged(
+        val stage: MasterStage,
+        val snapshot: PageSnapshot,
+        val request: MasterRequest,
+        val last: Boolean = false,
+    )
 }
 
 /**

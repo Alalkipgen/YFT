@@ -114,14 +114,18 @@ class MasterFallbackEngine(
         val probes = ProbeSession(validator, request, policy.maxCandidates)
         // S1a (3): a lookup a social site's ladder claims (the social-ladder build only, else false).
         val claimed = social != null && social.claims(request)
+        // Task 15 (F4): the ladder's last word (its stage's [SocialStage.Staged.last]): no stage after it.
+        var last = false
 
         for (index in 0..2) {
+            if (last) break
             // S1a (3): a social rung's snapshot is read for the video it asked about.
             var read = request
             val stage = when (index) {
                 0 -> if (claimed) {
                     checkNotNull(social).stage(request, policy, details)?.let { staged ->
                         read = staged.request
+                        last = staged.last
                         staged.stage to staged.snapshot
                     }
                 } else {
@@ -219,6 +223,8 @@ class MasterFallbackEngine(
         return when {
             lastFailure != null -> failure(checkNotNull(lastFailure), details)
             ambiguous -> MasterResult.NeedsSelection(safeDetails)
+            // F4: the ladder's last word asked for no capture, so its lines end the answer.
+            last -> MasterResult.NeedsPlayback(safeDetails)
             else -> MasterResult.NeedsPlayback(
                 safeDetails + "Open the page, play its video, and supply a fresh capture.",
             )

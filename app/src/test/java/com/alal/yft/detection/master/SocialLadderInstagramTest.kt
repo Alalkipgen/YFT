@@ -18,6 +18,7 @@ import com.alal.yft.extractor.api.SiteExtractorRegistry
 import com.alal.yft.extractor.api.SitePageIdentity
 import com.alal.yft.extractor.master.MasterRequest
 import com.alal.yft.extractor.master.lookup.LookupRecord
+import com.alal.yft.extractor.master.social.InstagramLadder
 import com.alal.yft.extractor.master.social.MainPages
 import com.alal.yft.extractor.master.social.SocialCooldown
 import com.alal.yft.extractor.master.social.SocialStages
@@ -190,27 +191,61 @@ class SocialLadderInstagramTest {
         val ladder = "master: instagram ladder after RESPONSE_CHANGED; main's answers read, no new ask"
         val outcome = SiteAdapterOutcome.Detected("instagram", listOf(row(FILE_720, KEY, 9_000, 720)), listOf(ladder + segment))
         assertEquals(ladder + segment, SocialLadder.trialNotice(outcome))
+        // Task 15 (F1): rows without the trial's comparison (main failed) show the ladder's line.
         val none = SiteAdapterOutcome.Detected("instagram", listOf(row(FILE_720, KEY, 9_000, 720)), listOf(ladder))
-        assertNull(SocialLadder.trialNotice(none))
+        assertEquals(ladder, SocialLadder.trialNotice(none))
 
         // Task 13 (observation f): the tab-fetch rung's line too, on its own line, with rows.
         val rung = "master: instagram probe: HTTP 200, 2048 bytes; the post's video in the answer: yes; " +
             "a wall on the page: no; rows 1 (DIRECT)"
         val both = SiteAdapterOutcome.Detected("instagram", listOf(row(FILE_720, KEY, 9_000, 720)), listOf(ladder + segment, rung))
         assertEquals(ladder + segment + "\n" + rung, SocialLadder.trialNotice(both))
+        // F1: the rung's rows after main's LOGIN_REQUIRED (IG slot 5): the ladder's line and the rung's.
         val alone = SiteAdapterOutcome.Detected("instagram", listOf(row(FILE_720, KEY, 9_000, 720)), listOf(ladder, rung))
-        assertEquals(rung, SocialLadder.trialNotice(alone))
-        // The proof's lines: the rung's answer, its last.
+        assertEquals(ladder + "\n" + rung, SocialLadder.trialNotice(alone))
+        // F4: the proof's line too, before the rung's answer.
         val proof = SiteAdapterOutcome.Detected(
             "instagram", listOf(row(FILE_720, KEY, 9_000, 720)),
-            listOf(ladder, "master: instagram probe: I2's rows set aside (the rung's proof)", rung),
+            listOf(ladder, InstagramLadder.PROOF, rung),
         )
-        assertEquals(rung, SocialLadder.trialNotice(proof))
-        // Only the rung's own line (its label and a colon), never another of Instagram's.
+        assertEquals(ladder + "\n" + InstagramLadder.PROOF + "\n" + rung, SocialLadder.trialNotice(proof))
+        assertEquals("master: instagram probe: I2's rows set aside (the rung's proof)", InstagramLadder.PROOF)
+        // Only the rung's own lines (its label and a colon), never another of Instagram's.
         val other = SiteAdapterOutcome.Detected(
             "instagram", listOf(row(FILE_720, KEY, 9_000, 720)), listOf(ladder, "master: instagram I2: DIRECT (GraphQL: rows 1)"),
         )
-        assertNull(SocialLadder.trialNotice(other))
+        assertEquals(ladder, SocialLadder.trialNotice(other))
+        assertNull(SocialLadder.trialNotice(SiteAdapterOutcome.Detected("instagram", emptyList(), listOf("master: instagram I2: x"))))
+    }
+
+    @Test
+    fun theRungsProofLeavingNoRowKeepsMainsWordsAndTheBannerShowsItsLines() {
+        // Task 15 (F4): signed in, the proof set I2's rows aside and the rung was not asked: no row;
+        // main's (the trial's) words even with a video in the tab (Try again gives the same), and
+        // the banner shows the words, then the proof's lines.
+        val notAsked = "master: instagram probe: not asked (signed in: the rung is the signed-out query)"
+        val lines = listOf(
+            "master: instagram ladder after RESPONSE_CHANGED; main's answers read, no new ask",
+            "master: instagram I2: DIRECT (GraphQL: rows 6 of the link's item, bound to the post); next: CHECK_ROWS",
+            InstagramLadder.PROOF, notAsked, InstagramLadder.PROOF_STOP,
+        )
+        for (tabVideo in listOf(true, false)) {
+            val pick = SocialLadder.playbackWords(KEY, lines, tabVideo)
+            assertEquals(SocialLadder.Words.MAINS, pick.words)
+            assertEquals(
+                "master: instagram words: main's (the rung's proof: I2's rows set aside, the rung gave none)",
+                SocialLadder.wordsLine(KEY, pick),
+            )
+        }
+        val trial = SocialLadder.trialMessage(KEY)
+        val failed = SiteAdapterOutcome.Failed("instagram", SiteExtractionFailure.RESPONSE_CHANGED, trial, true, details = lines)
+        assertEquals(
+            listOf(trial, InstagramLadder.PROOF, notAsked, InstagramLadder.PROOF_STOP).joinToString("\n"),
+            SocialLadder.proofNotice(failed),
+        )
+        // Every other failure: its words alone (null here), as before.
+        assertNull(SocialLadder.proofNotice(failed.copy(details = lines - InstagramLadder.PROOF)))
+        assertEquals(SocialLadder.Words.PLAYBACK, SocialLadder.playbackWords(KEY, lines - InstagramLadder.PROOF_STOP, true).words)
     }
 
     @Test

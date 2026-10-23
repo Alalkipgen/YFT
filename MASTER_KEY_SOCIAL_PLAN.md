@@ -1224,8 +1224,19 @@ Instagram's `NO_MEDIA_FOUND` with its site's `PHOTO_ONLY` line ending in `FINAL`
 `SocialLadder.photosOnly`) is final (`SiteAdapterOutcome.Failed.final`, set only by Master's
 browser fallback in a social-ladder build): no Try again in the sheet or the banner — a small UI
 change outside main's adapters; Facebook's private answer keeps Try again; Home's lookups and every
-other build keep main's photos-only answer with Try again (`docs/SUPPORT_MATRIX.md`). To do, in
-this order: F1 and F4, F2, F5; then the retest (§7.4).
+other build keep main's photos-only answer with Try again (`docs/SUPPORT_MATRIX.md`). *Built (F1,
+F4):* every social lookup that ends with Master's rows carries Master's lines (main failed: no trial
+comparison), so the banner shows the site's ladder line ("master: instagram ladder after
+LOGIN_REQUIRED; …") and each of Instagram's probe lines (the proof's, the rung's answer); a file
+whose entry states no size takes its video's own (`original_width`/`original_height`, else
+`dimensions`; a file's own size first), so the rung's row has its height as I2's do. F4's row came
+from the tab's own playback (I3, the engine's capture after the rung gave none: signed in the tab
+plays the post, and its file is none of main's, so the item check, a shared file, said no): the
+proof now tests the rung alone — when it set I2's rows aside and the rung gives none, the lookup
+ends with no row and no capture (`SocialStage.Staged.last`), "master: instagram probe: no row (the
+proof set I2's rows aside and the rung gave none)", main's (the trial's) words with Try again, and
+the banner shows the words, then the proof's lines (`SocialLadder.proofNotice`); debug only
+(the proof's box). To do, in this order: F2, F5; then the retest (§7.4).
 Each site: a D7-style phone proof, wrong rows 0, no regression against B0.
 
 **S3 and S4** as in §7: W (≤ 1 min, ≤ 2 MB per site) with the diff and the runbook; R9 live (the
@@ -1656,7 +1667,8 @@ commits brings its step's words up to date, as built):**
 3. **Instagram slot 5, signed out, the rung on (F1).** "YFT site census" → tick "Instagram's
    tab-fetch rung (signed out)"; leave "Instagram rung proof: set I2's rows aside" unticked → YFT's
    browser → slot 5's link → **Download** once. Expected: a row on the first Download with its
-   height (not "Quality unknown"); the banner with Instagram's ladder line and the probe line
+   height (not "Quality unknown"); the banner with two lines: Instagram's ladder line ("master:
+   instagram ladder after LOGIN_REQUIRED; main's answers read, no new ask") and the probe line
    ("master: instagram probe: HTTP 200, N bytes; the post's video in the answer: yes; a wall on
    the page: no; rows N (DIRECT)"). Note the row's quality and both banner lines.
 4. **Instagram slot 5, the rung off (F2).** "YFT site census" → untick the rung's box → slot 5's
@@ -1674,10 +1686,12 @@ commits brings its step's words up to date, as built):**
    downloadable video.") and **no Try again** (a ladder's photos-only answer is final).
 7. **Instagram signed in, the rung and its proof on, slot 1 (F4).** VPN off → sign in to Instagram
    in YFT's browser → "YFT site census" → tick both boxes → slot 1's link → **Download**.
-   Expected: the banner with "master: instagram probe: I2's rows set aside (the rung's proof)" and
-   the rung's "not asked (signed in: the rung is the signed-out query)"; then no row, or a row
-   with "the same item: yes". Then Settings → **Clear browsing data** (signed out) → "YFT site
-   census" → untick both boxes.
+   Expected: **no row**; the trial's words ("Instagram trial: main's rows were set aside and
+   Master found none. Tap Try again.") in the banner, with three lines under them: "master:
+   instagram probe: I2's rows set aside (the rung's proof)", "master: instagram probe: not asked
+   (signed in: the rung is the signed-out query)" and "master: instagram probe: no row (the proof
+   set I2's rows aside and the rung gave none)". Then Settings → **Clear browsing data** (signed
+   out) → "YFT site census" → untick both boxes.
 8. **W without the VPN, signed out.** "YFT site census" → **Weekly check W (all sites)**.
    Expected: NO CHANGE (TikTok stops at 60 s without the VPN: not a failure).
 9. **W on VPN New York, signed out.** VPN on (New York) → **Weekly check W (all sites)**.
