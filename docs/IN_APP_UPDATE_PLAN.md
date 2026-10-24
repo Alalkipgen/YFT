@@ -1,88 +1,109 @@
-# In-app update — plan (U0–U4)
+# In-app update — plan (U0–U3)
 
-Status: **U0 done — the plan (docs only); no app code** until the owner says go (after his S5 run
-3). The owner's request: 2026-10-24, in chat. Branch `work/phase-in-app-update`, made from PR #2's
-head `8dc46ff` (`spike/master-extractor-backup`), as A (`work/phase-download-fixes`) and VK
-(`work/phase-vk-extractor`). Release: **v1.0.0**, the first stable release, with A and VK — U1 is
-its floor; U2 joins only on time (§8), else v1.0.1.
+Status: **U0 done — the plan, revised after the owner's review (2026-10-24); docs only, no app
+code** until the owner says go (after his S5 run 3). Then U1 and, without a stop, U2. Branch
+`work/phase-in-app-update`, made from PR #2's head `8dc46ff` (`spike/master-extractor-backup`), as A
+(`work/phase-download-fixes`) and VK (`work/phase-vk-extractor`). Release: **v1.0.0**, the first
+stable release — A, VK and this branch are merged into `spike/master-extractor-backup` in that
+order, only when the owner says, and the release commit goes on top (§5.6; no U4). U1 is v1.0.0's
+floor; U2 joins on time (§8), else v1.0.1.
 
 ## 0. အကျဉ်းချုပ် (ပိုင်ရှင်အတွက်)
 
-- **U1** (v1.0.0 ရဲ့ floor): Alalkipgen/YFT ရဲ့ release တွေထဲက draft မဟုတ်၊ prerelease မဟုတ်၊
-  versionCode ပိုမြင့်တဲ့ နောက်ဆုံး release ကို ရှာ → "Update available" + version + **Download**
-  (APK link ကို browser မှာ ဖွင့်)။ **U2**: APK ကို app ထဲမှာ download → release ရဲ့ `SHA256SUMS`
-  နဲ့ SHA-256 စစ် → signing cert ကို install ထားတဲ့ YFT နဲ့ စစ် → PackageInstaller (Android ရဲ့
-  ကိုယ်ပိုင် confirm၊ `REQUEST_INSTALL_PACKAGES`)။ ဘယ်အဆင့် fail ဖြစ်ဖြစ် အကြောင်းပြ + U1 link။ U2 က
-  U1 ပေါ်က commit သီးခြား — v1.0.1 ကို သီးသန့် ရွှေ့လို့ရ။
-- **SHA256SUMS — စစ်ပြီး၊ workflow မပြင်ရ:** main ရဲ့ `release-draft.yml` က draft ဆောက်ချိန်ရော
-  refresh ချိန်ရော APK + `SHA256SUMS` ကို upload လုပ် (`verify-release-apk.sh` က ရေး၊ မရှိရင် step
-  fail)။ Publish က draft flag ပဲ ပြောင်း။ လက်နဲ့ လုပ်တဲ့ release မှာပဲ SUMS မပါ → U2 ငြင်း + link။
-- **versionCode:** GitHub release မှာ versionCode မပါလို့ app က tag ကနေ တွက်: `vX.Y.Z` → X·1000000 +
-  Y·10000 + Z·100။ **v1.0.0 = 1000000** (beta.1 = 1၊ draft beta.2/beta.3 = 2/3 ထက် မြင့်)၊ v1.0.1 =
-  1000100။ Prerelease က သူ့ version အောက်က နံပါတ် ၉၉ ခုထဲက (ဥပမာ 1.0.1-beta.1 = 1000001)။ JVM test က
-  စစ် (release-prep.sh ကလည်း run)။ ⇒ v1.0.0 ရဲ့ release commit က `1.0.0` / `1000000` (+1 မဟုတ်)။
-- **ပိုင်ရှင့် default:** app ဖွင့်ချိန် တစ်ရက် အများဆုံး တစ်ခါ (background job မရှိ)၊ Settings
-  switch (default ON) + Settings → Check for updates၊ Home ထိပ်မှာ card သေး + Settings row၊ release
-  key နဲ့ release build ပဲ စစ်/ပြ၊ About › Privacy မှာ api.github.com request ကို နာမည်တပ်တဲ့ line
-  အသစ်။
-- **Preview/debug (test key) = test mode:** switch default OFF၊ ပိုင်ရှင် ဖွင့်မှ/နှိပ်မှ စစ်၊
-  prerelease ပါ၊ installed ကို 0 လို့ ယူ → ဒီနေ့ beta.1 ကို "(test)" နဲ့ ပြ။ Release မှာ test mode
-  မပါ (build-type source set)။
-- **ဖုန်း test (v1.0.0 မတိုင်ခင်၊ test-key preview):** card ပေါ် → Download က beta.1 APK link ကို
-  browser မှာ ဖွင့် → Update (U2) က download + SHA-256 OK → package/key မတူလို့ ငြင်း + link
-  (မှန်တဲ့ အဖြေ)။ "Reinstall this build (test)" (preview/debug ပဲ) က preview ကိုယ်တိုင်ကို
-  PackageInstaller နဲ့ ပြန်တင် → HyperOS ရဲ့ confirm ကို ဖုန်းမှာ တကယ် မြင်ရ။ Android confirm ကို
-  emulator ကလည်း စစ်။
-- **Release key နဲ့ အမှန် update test (အသက်သာဆုံး):** v1.0.0 publish မလုပ်ခင် release-key draft
-  `1.0.0-rc.1` (code 999901၊ publish မလုပ်) ကို ဖုန်းမှာ တင် → v1.0.0 publish → rc.1 က 1.0.0 ကို ပြ
-  → Update → confirm → 1.0.0 (settings မပျက်)။ Draft run တစ်ခု + doc line ၂ ကြောင်းပဲ ကုန်။ မလုပ်ရင်
-  ပထမ အမှန် test က v1.0.0 → v1.0.1။
-- **Tests:** JVM — version compare၊ asset ရွေး၊ prerelease/draft skip၊ checksum၊ signer၊ offline၊
-  rate limit၊ တစ်ရက်တစ်ခါ။ Emulator — local HTTPS server၊ PackageInstaller က Android confirm ပြတဲ့
-  အထိ၊ ပြီးရင် Cancel။
-- **A/VK နဲ့ ထိတဲ့ file:** code file မတူ — A ရဲ့ Home/D4 file (`HomeSite.kt`၊
-  `HomeSitesRepository.kt`၊ `HomeScreenTest.kt`) နဲ့ `FileNames.kt` ကို မထိ (`HomeScreen.kt` ကို A
-  မပြင်)။ တူတာ `docs/SESSION_STATE.md` (section ကိုယ်စီ) ပဲ။ PR #2 ရဲ့ release commit နဲ့ conflict
-  သေးသေး ဖြစ်နိုင်: `SettingsScreen.kt`၊ `AboutScreen.kt` — U4 မှာ ဖြေ။
-- **အချိန် (MMT):** U1 ≈ 4–6 h + CI → Oct 25 ညနေ green; U2 ≈ 8–10 h + CI (emulator ပါ) → Oct 26 ညနေ
-  green; preview + ပိုင်ရှင် ဖုန်း test Oct 26 ည–Oct 27။ U2 မမီရင် v1.0.0 = U1 ပဲ၊ U2 → v1.0.1။
-- **Rules:** ဒီ branch ပဲ၊ main/spike/recipes မထိ၊ PR/label မလုပ်၊ shared docs ကို PR #2 merge
-  ပြီးမှ၊ S5 run 3 count မဝင်မချင်း ဖုန်းမှာ APK မတင်၊ release/tag/Release draft run မလုပ်
-  (ပိုင်ရှင်ပဲ)။
+- **ပိုင်ရှင့် review (2026-10-24) အတိုင်း ပြင်ပြီး:** Home card မရှိ၊ About screen မပြင်၊ dialog
+  မရှိ (Snaptube လို၊ ပိုရိုး)။ Settings → About group: **Version** (title မပြောင်း၊ About ကို
+  ဖွင့်၊ version ကို ဒုတိယ line ကို ရွှေ့ — "1.0.0-beta.3-debug" စကားလုံးလယ်မှာ မကျိုးတော့) →
+  **Updates** (အသစ်) → **Licenses**။
+- **Updates row:** update ရှိရင် အနီရောင် **New** + "v1.0.1 available"၊ မရှိရင် "Up to date"။
+  ကျွန်တော့် ဖြည့်စွက်ချက်: GitHub ဆီက အဖြေမှန် တစ်ခါမှ မရသေးရင် "Not checked yet" (မသိသေးတာကို
+  "Up to date" လို့ မပြောအောင်)။
+- **Updates screen (တစ်ခုတည်း):** "YFT 1.0.0" (install ထားတဲ့ version)။ Update ရှိ —
+  "New version v1.0.1"၊ release notes (GitHub release body၊ plain text၊ scroll box)၊ **Download APK
+  to update** ခလုတ်ကြီး + security line။ မရှိ — "You have the latest version"၊ "Last checked …"၊
+  **Check now** (switch off လည်း ရ; "Checking…"၊ "No connection."၊
+  "GitHub is busy. Try again after 22:10.")။ အောက်ဆုံး — switch **Check automatically** (default on;
+  test mode မှာ off) + "Once a day when YFT opens. Asks GitHub (api.github.com)."
+- **ကိုယ်တိုင် ပွင့်:** app ဖွင့်ချိန် daily check က version အသစ် တွေ့ရင် version တစ်ခုကို တစ်ခါပဲ —
+  Home ပေါ်မှာ ရှိနေရင် ချက်ချင်း၊ မဟုတ်ရင် နောက်တစ်ခါ app ဖွင့်ချိန်။ Check now နဲ့ အရင်တွေ့တဲ့
+  version က ပွင့်ပြီးသားလို့ ယူ။ Back = နောက်မှ; New badge ကျန်။
+- **ခလုတ်:** U1 — APK link ကို browser မှာ ဖွင့်; U2 — app ထဲမှာ download (progress၊ Cancel) → စစ် →
+  Android installer။ **Security text (မှန်တာပဲ):** download မတိုင်ခင်
+  "Signed by YFT · checked before install" (U2 — YFT ရဲ့ စစ်ချက် ၃ ခု; U1 — key မတူတဲ့ update ကို
+  Android ကိုယ်တိုင် ငြင်း; U1 က "verified" ဘယ်တော့မှ မပြော)၊ U2 စစ်ချက် အားလုံး အောင်ရင်
+  "Verified: checksum and signature match"၊ fail ရင် ဘယ်အဆင့် fail + "Nothing was installed." +
+  **Download in browser**။ Reinstall test — "Test: this build's own APK, signature matches" (release
+  မဟုတ်လို့ checksum မပြော)။
+- **U2 စစ်ချက် အစဉ်:** SHA-256 (`SHA256SUMS`) → signature (install ထားတဲ့ YFT နဲ့) → package/version
+  (`getPackageArchiveInfo`: package `com.alal.yft` — test mode မှာ build ကိုယ်ပိုင်; versionCode =
+  tag ရဲ့ formula code ဖြစ်ပြီး installed ထက် မြင့်; test mode prerelease — formula code မရှိလို့
+  installed ထက် မနိမ့်ရုံ; reinstall test — တူ) → installer။ Tag ကို `v` ပါပါ မပါပါ လက်ခံ။
+- **SHA256SUMS — စစ်ပြီး၊ workflow မပြင်ရ** (§3)။ **versionCode:** tag ကနေ `vX.Y.Z` → X·1000000 +
+  Y·10000 + Z·100; **v1.0.0 = 1000000**၊ v1.0.1 = 1000100၊ prerelease က သူ့ version အောက်
+  (1.0.0-rc.1 = 999901)။ JVM test က စောင့်; release commit က `1.0.0` / `1000000`။
+- **Builds:** release key နဲ့ release ပဲ စစ်/ပြ; တခြား key — Updates row မရှိ။ Preview/debug = test
+  mode (switch off၊ prerelease ပါ၊ installed = 0၊ "(test)")၊ release မှာ test code မပါ။
+- **Merge (ပိုင်ရှင့် အစဉ်၊ ပိုင်ရှင် ပြောမှ):** A → VK → ဒီ branch ကို
+  `spike/master-extractor-backup` ထဲ merge commit နဲ့; ပြီးမှ release commit (`1.0.0` / `1000000`၊
+  shared docs) ကို အပေါ်မှာ → **U4 မရှိ**၊ main ကို ဒီ branch ထဲ မ merge၊ ဒီ branch က PR မရှိ၊
+  Settings/About conflict မရှိ။ မျှော်တဲ့ conflict: `docs/SESSION_STATE.md` ပဲ (section အားလုံး
+  ထား)။ U2 နောက်ကျရင် U1 cut ကနေ `work/phase-in-app-update-u1` ကို merge။
+- **ဖုန်း test (U3):** U2 green ပြီးတာနဲ့ (Oct 26–27)၊ A နဲ့ VK ရဲ့ preview test တွေ ပြီးနောက်; step
+  0 — preview အဟောင်း (`com.alal.yft.preview`) ဖြုတ်။ Checklist §5.4 (~30–45 min)။
+- **rc.1 release-key test:** release ချိန်မှာ ပိုင်ရှင် ရွေး (§5.5); မလုပ်ရင် ပထမ အမှန် test က
+  v1.0.0 → v1.0.1။
+- **About privacy (release commit အတွက်):** About ရဲ့ ပထမ line
+  "YFT only contacts the sites you open…" က update check ကြောင့် မမှန်တော့။ ဒီ branch က About
+  မပြင်လို့ release commit မှာ update check ကို ထည့်ရေးဖို့ (§11)။
+- **Tests:** JVM — version/tag (`v` ပါ/မပါ)၊ asset ရွေး၊ notes၊ offline၊ rate limit၊ တစ်ရက်တစ်ခါ၊
+  row/screen state၊ ကိုယ်တိုင်ပွင့်ပုံ၊ U2 စစ်ချက် ၃ ခုနဲ့ အစဉ်၊ security line။ Emulator — local
+  HTTPS server၊ Android installer window ပေါ်တဲ့အထိ → Cancel။
+- **A/VK နဲ့ ထိတဲ့ file:** code file မတူ (A/VK က Settings၊ nav၊ `YftApp.kt`၊ `MainActivity.kt`၊
+  manifest၊ Gradle ကို မထိ; U က Home ကို မထိတော့)။ တူတာ `docs/SESSION_STATE.md` ပဲ။
+- **အချိန် (MMT):** U1 ≈ 6–8 h (row/screen/ကိုယ်တိုင်ပွင့်ဖို့ +2 h) + CI → Oct 25 ည green → report
+  တို၊ U2 ဆက်; U2 ≈ 8–10 h + CI (emulator ပါ) → Oct 26 ညနေ; ဖုန်း Oct 26–27; merge ~30 min ပိုင်ရှင်
+  ပြောမှ။ Oct 26 24:00 မှာ U2 မ green ရင် v1.0.0 = U1 cut၊ U2 → v1.0.1။
+- **Rules:** ဒီ branch ပဲ (spike ထဲ merge တစ်ခုပဲ ခြွင်းချက်၊ ပိုင်ရှင် ပြောမှ)၊ main/recipes မထိ၊
+  PR/label မလုပ်၊ shared docs မပြင် (§11 က release commit အတွက်)၊ S5 run 3 count မဝင်မချင်း ဖုန်းမှာ
+  APK မတင်၊ release/tag/Release draft run မလုပ် (ပိုင်ရှင်ပဲ)။
 
 ## 1. Goal and scope
 
 **Goal:** a friend who installed YFT from a GitHub release learns that a newer release is out
-without asking the owner, and (U2) installs it from inside YFT with Android's own confirmation —
-never silently, never from anywhere but this repository's releases.
+without asking the owner — in Settings, and once per new version on a screen that opens by itself —
+and (U2) installs it from inside YFT after YFT's checks, with Android's own confirmation: never
+silently, never from anywhere but this repository's releases.
 
 **In scope:**
-- **U1 (v1.0.0's floor):** the check (§4.3) and "Update available" — the version and **Download**,
-  which opens the release's APK link in the browser — on Home and in Settings.
-- **U2:** the APK downloaded in YFT, its SHA-256 checked against the release's `SHA256SUMS`, its
-  signer against the installed app's, then `PackageInstaller` with Android's confirmation
-  (`REQUEST_INSTALL_PACKAGES`). Any failure says why and offers U1's link. U2 is separable: its own
-  commits on top of U1, no U1 file depends on it, it reads U1's stored state as is, so it can move
-  to v1.0.1 alone.
+- **U1 (v1.0.0's floor):** the check (§4.3); Settings → About's **Updates** row and the **Updates**
+  screen with the release notes (§4.5); the screen opening by itself once per new version;
+  **Download APK to update**, which opens the release's APK link in the browser.
+- **U2:** the same button downloads the APK in YFT; its SHA-256 is checked against the release's
+  `SHA256SUMS`, its signer against the installed app's, its package and versionCode against this app
+  and the tag; then `PackageInstaller` with Android's confirmation (`REQUEST_INSTALL_PACKAGES`). Any
+  failure says which check failed and offers **Download in browser** (U1's link). U2 is separable:
+  its own commits on top of U1, no U1 file depends on it, so it can move to v1.0.1 alone (the U1
+  cut, §5.6).
 
-**Not in scope** (§10): background checks or notifications, silent installs, update ownership, delta
-or resumable downloads, release notes in the card, a beta channel for friends, signing-key rotation,
-any server but GitHub.
+**Not in scope** (§10): a Home card, a dialog or any About change; background checks or
+notifications; silent installs; update ownership; delta or resumable downloads; Markdown in the
+notes; a beta channel for friends; signing-key rotation; any server but GitHub.
 
 ## 2. Hard rules
 
-1. **Branch** `work/phase-in-app-update` only. Never push to `main`, `spike/master-extractor-backup`
-   or another work branch; no pull request and no label until the owner says (after PR #2's merge:
-   `main` merged in with a merge commit, no rebase — U4); never run `master-recipes-publish`, never
-   touch the `recipes` branch.
-2. **No app code before the owner's go** (after his S5 run 3). Then U1 and U2 in their own commits
-   (`scripts/checkpoint.sh`), each with its tests.
-3. **Files:** the new `update` package, its tests and the small edits of §4.7. Any other file — core
-   modules, workflows, scripts, `gradle.properties`, Gradle beyond §4.7 — is an owner decision: ask
-   in Burmese and stop. No workflow change is needed (§3).
+1. **Branch** `work/phase-in-app-update` only (and `work/phase-in-app-update-u1`, made at the U1 cut
+   only when the owner says, §5.6). Never push to `main`, `spike/master-extractor-backup` or another
+   work branch — the one exception is this branch's merge into `spike/master-extractor-backup`
+   (§5.6), only when the owner says. No pull request and no label; `main` is never merged into this
+   branch; never run `master-recipes-publish`, never touch the `recipes` branch.
+2. **No app code before the owner's go** (after his S5 run 3). Then U1 and, without a stop, U2, in
+   their own commits (`scripts/checkpoint.sh`), each with its tests.
+3. **Files:** the new `update` package, its tests and the small edits of §4.7. `HomeScreen.kt` and
+   the other Home files and `AboutScreen.kt` are not touched. Any other file — core modules,
+   workflows, scripts, `gradle.properties`, Gradle beyond §4.7 — is an owner decision: ask in
+   Burmese and stop. No workflow change is needed (§3).
 4. **Shared docs** (`MASTER_KEY_SOCIAL_PLAN.md`, `PROGRESS.md`, `CHANGELOG.md`, `README.md`,
    `docs/RELEASE.md`, `docs/PHONE_TEST_NOTES.md`, `docs/TEST_MATRIX.md`, `docs/SUPPORT_MATRIX.md`):
-   not before U4; their lines wait in §11.
+   never edited on this branch; their lines wait in §11 for the release commit.
 5. **Main only:** no `extractor-master`, Master, R9, recipes or Backup finder dependency; the Backup
    finder switch does not gate updates (their own switch does).
 6. **Security (AGENTS.md):** HTTPS only and the system's CAs only (`network_security_config.xml`
@@ -91,11 +112,13 @@ any server but GitHub.
    every check fails closed.
 7. **Releases:** never publish a release, create or push a tag, run the Release draft workflow or
    change repository variables or secrets — the owner only.
-8. **The phone:** no APK on the owner's phone before he says S5's run 3 is counted; then only with
-   his OK.
+8. **The phone:** no APK on the owner's phone before he says S5's run 3 is counted; U3 then on his
+   schedule (§5.4).
 9. **Quiet release (decision 30 (v)):** test mode and its test action exist only in debug and
    preview builds (build-type source sets); the release carries none of them.
-10. **Reports** to the owner: Burmese, short. App text: English.
+10. **True claims only:** every text says only what YFT or Android really checked (§4.5); U1 never
+    says "verified".
+11. **Reports** to the owner: Burmese, short. App text: English.
 
 ## 3. What the code and the releases already give
 
@@ -116,19 +139,25 @@ any server but GitHub.
 - The release notes carry the APK's SHA-256 and the signing certificate's SHA-256 (public;
   repository variable `YFT_RELEASE_CERT_SHA256`):
   `3A:EB:30:64:91:E2:DD:6F:F7:6D:C5:A8:68:E6:FC:C9:D3:30:BB:99:85:BF:4D:15:B3:4A:67:04:EC:78:98:8F`.
-- **Build types** (`app/build.gradle.kts`): `debug` (`com.alal.yft.debug`), `release` (R8, the
-  owner's key), `preview` (`initWith(release)`, `com.alal.yft.preview`, a **fresh test key per CI
-  run** — a preview can update neither another preview nor the release). `gradle.properties`:
-  `1.0.0-beta.3` / `3`. minSdk 24, target 35.
+- **Build types** (`app/build.gradle.kts`): `debug` (`com.alal.yft.debug`, name suffix `-debug`),
+  `release` (R8, the owner's key), `preview` (`initWith(release)`, `com.alal.yft.preview`, suffix
+  `-preview.<run>`, a **fresh test key per CI run** — a preview can update neither another preview
+  nor the release). `gradle.properties`: `1.0.0-beta.3` / `3`. minSdk 24, target 35.
 - **Code:** one `OkHttpClient` (core-data `NetworkConfiguration`: follows redirects, no cookies);
   one preferences `DataStore` (`settings.preferences_pb`, `DataModule`); `BoundedJsonParser`
-  (`extractor-api`, plain Kotlin); Home is `HomeScreen.kt` (`HomeRoute`, a `LazyColumn`: header,
-  intro, link, sites, recent); Settings is `SettingsScreen.kt` (groups Appearance, Downloads,
-  Browser, Privacy, About; private `SettingsGroup`, `SettingsRow`, `ValueRow`, `SwitchRow`); About's
-  `PRIVACY` list (9 lines); `MainActivity` (Hilt; `storageJanitor.launchOnce()`). The manifest has
-  `INTERNET`, no `REQUEST_INSTALL_PACKAGES` and no web-link intent filter. `okhttp-mockwebserver`
-  and `okhttp-tls` are JVM test dependencies already; no instrumented test serves HTTP today (the
-  network rules forbid cleartext and user CAs).
+  (`extractor-api`, plain Kotlin). Settings is `SettingsScreen.kt` (`SettingsRoute`; its About
+  group: a `ValueRow` "Version" with the version as its trailing `value`, opening About, then
+  "Licenses"; `ValueRow` already has a `supporting` line; `SettingsGroup`, `SettingsRow`, `ValueRow`
+  and `SwitchRow` are private to the file). The navigation: `YftDestination` (entries that are not
+  tabs open full screen) and `YftNavHost` (a `settingsContent(onOpenAbout, onOpenLicenses)` slot;
+  `YftNavigationSmokeTest.kt` and `DesignRenderTest.kt` pass their own). `YftApp.kt` holds the
+  `navController`; `MainActivity` (Hilt; no `onStart` yet). The manifest has `INTERNET`, no
+  `REQUEST_INSTALL_PACKAGES` and no web-link intent filter. `okhttp-mockwebserver` and `okhttp-tls`
+  are JVM test dependencies already; no instrumented test serves HTTP today (the network rules
+  forbid cleartext and user CAs).
+- About's privacy list starts with "YFT only contacts the sites you open and the media servers they
+  point to." — untrue once the update check is on. This branch leaves About alone, so the line is
+  for the release commit (§11).
 - `scripts/release-prep.sh` runs `lintDebug testDebugUnitTest …` before the signed build, so a JVM
   test guards the version code rule at release time as well as on CI.
 
@@ -136,31 +165,35 @@ any server but GitHub.
 
 ### 4.1 Which builds check
 
-| Build | When it asks GitHub | Switch default | What it offers |
+| Build | When it asks GitHub | Check automatically | What it offers |
 |---|---|---|---|
-| release with the release key (the installed app's signer = the release certificate, checked at run time) | on app open, at most once a day, and on tap | on | non-draft, non-prerelease releases with a higher versionCode |
-| release with another key (CI's, a fork's) | never; no Updates rows | — | — |
-| debug and preview — **test mode** | only on tap, or on open once the owner turned the switch on | off | prereleases too; the installed versionCode counted as 0 (beta.1 today), shown with "(test)" |
+| release with the release key (the installed app's signer = the release certificate, checked at run time) | on app open, at most once a day; Check now | on | non-draft, non-prerelease releases with a higher versionCode |
+| release with another key (CI's, a fork's) | never; no Updates row, no screen | — | — |
+| debug and preview — **test mode** | Check now; on open only once the owner turned the switch on | off | prereleases too; the installed versionCode counted as 0 (beta.1 today), shown with "(test)" |
 
 - Test mode is one constant in a build-type source set (`UpdateBuild.TEST_MODE`: false in
   `src/release`, true in `src/debug` and `src/preview`), so the release has no test code (decision
-  30 (v)). Test mode also has "Reinstall this build (test)" (U2, §4.4 step 8).
+  30 (v)). Test mode also has **Reinstall this build (test)** (U2, §4.4 step 9).
 
 ### 4.2 The version code rule (v1.0.0 = 1000000)
 
 - GitHub's release data has no versionCode, so YFT computes it from the tag — no second request:
   stable `vX.Y.Z` → **X·1000000 + Y·10000 + Z·100** (Y, Z ≤ 99). **v1.0.0 = 1000000** — above beta.1
   (1), the beta.2/beta.3 drafts (2, 3) and any beta.4; v1.0.1 = 1000100, v1.1.0 = 1010000.
+- **Tags with or without `v`:** `v1.0.1` and `1.0.1` both read as 1.0.1 (the workflow's tags have
+  the `v`; one made by hand may not). The APK's name never has it (`video-downloader-1.0.1.apk`);
+  the screen always shows "v1.0.1".
 - A prerelease takes a code below its version's, preferably among the 99 just below it
-  (`1.0.1-beta.1` = 1000001, `1.0.0-rc.1` = 999901), so a test build fits between two releases.
-  Outside test mode a prerelease is never offered.
+  (`1.0.1-beta.1` = 1000001, `1.0.0-rc.1` = 999901), so a test build fits between two releases — a
+  convention, not a rule YFT can compute from the tag. Outside test mode a prerelease is never
+  offered.
 - Guard: `VersionCodeRuleTest` (JVM) fails when `yft.versionName` is stable and `yft.versionCode` is
   not the rule's, or a prerelease's code is not below its version's; CI and `release-prep.sh` run
-  it. The release commit sets `1.0.0` / `1000000` — the owner's (or the release pull request's), not
-  this branch's. `docs/RELEASE.md`'s "raise by one" changes at U4 (§11).
-- U2 also reads the downloaded APK's own versionCode (§4.4).
+  it. The release commit sets `1.0.0` / `1000000` — the owner's, not this branch's;
+  `docs/RELEASE.md`'s "raise by one" changes there too (§11).
+- U2 reads the downloaded APK's own versionCode and compares it with the tag's (§4.4 step 6).
 
-### 4.3 U1 — the check and "Update available"
+### 4.3 U1 — the check
 
 - **Request:** `GET https://api.github.com/repos/Alalkipgen/YFT/releases?per_page=10` with
   `Accept: application/vnd.github+json` and `X-GitHub-Api-Version: 2022-11-28`; no `Authorization`,
@@ -168,89 +201,140 @@ any server but GitHub.
   HTTPS → HTTP redirect, only the hosts of §4.6. The body is read up to 512 KB and parsed with
   `BoundedJsonParser`.
 - **The candidate:** `draft` false (unauthenticated lists never show drafts; checked anyway);
-  `prerelease` false (allowed in test mode); the tag gives the code (§4.2; a tag that does not parse
-  is skipped); the code above the installed `BuildConfig.VERSION_CODE` (0 in test mode); its APK is
-  the asset named exactly `video-downloader-<version>.apk`, state `uploaded`, its
-  `browser_download_url` under `https://github.com/Alalkipgen/YFT/releases/download/`. The highest
-  code wins (the newest `published_at` in test mode). A release without its APK is skipped; the
-  address of its `SHA256SUMS` asset is kept for U2.
+  `prerelease` false (allowed in test mode); the tag gives the version and, for a stable tag, the
+  code (§4.2; a tag that does not parse is skipped); that code above the installed
+  `BuildConfig.VERSION_CODE` — in test mode the installed code counts as 0, so every parsed release
+  qualifies, prereleases included; its APK is the asset named exactly
+  `video-downloader-<version>.apk`, state `uploaded`, its `browser_download_url` under
+  `https://github.com/Alalkipgen/YFT/releases/download/`. The highest code wins (the newest
+  `published_at` in test mode). A release without its APK is skipped; the address of its
+  `SHA256SUMS` asset is kept for U2; its `body` is kept as the notes (at most 20,000 characters, cut
+  at a line end).
 - **When:** `MainActivity.onStart` calls `UpdateController.onAppOpened()`. It asks GitHub when the
-  policy allows it (§4.1), the switch is on, no check is running, no rate limit is pending and
-  GitHub's last answer is 24 h old or more (or dated in the future: the clock went back). No
-  background job, no WorkManager, no notification. Settings' **Check for updates** asks at once;
-  only a pending rate limit stops it, and its line says until when.
-- **Results:** `UpToDate`; `Available(version, code, apkUrl, apkSize, sumsUrl)`; `Offline` (no
-  connection or a timeout: not counted, so the next open tries again); `RateLimited(until)` (403 or
-  429 with `x-ratelimit-remaining: 0` and `x-ratelimit-reset`, or `retry-after`; at most 24 h ahead;
-  no request before it); `Failed` (any other answer, bad or oversize JSON). Every answer from GitHub
-  starts the next 24 h, so on its own YFT asks at most once a day.
+  policy allows it (§4.1), **Check automatically** is on, no check is running, no rate limit is
+  pending and GitHub's last answer is 24 h old or more (or dated in the future: the clock went
+  back). No background job, no WorkManager, no notification. The screen's **Check now** asks at
+  once, with the switch on or off; only a pending rate limit stops it, and its line says until when.
+- **Results:** `UpToDate`; `Available(version, code, apkUrl, apkSize, sumsUrl, notes)`; `Offline`
+  (no connection or a timeout: not counted, so the next open tries again); `RateLimited(until)` (403
+  or 429 with `x-ratelimit-remaining: 0` and `x-ratelimit-reset`, or `retry-after`; at most 24 h
+  ahead; no request before it); `Failed` (any other answer, bad or oversize JSON). Every answer from
+  GitHub starts the next 24 h, so on its own YFT asks at most once a day.
 - **Kept** (`UpdateStore`: the app's preferences DataStore, keys `update_*`, no core-data change):
-  the switch, the time of GitHub's last answer, the found update (the card shows again without a
-  request), the rate limit's end and the version hidden by **Not now**. The found update is dropped
-  once the installed versionCode reaches it.
-- **The action (U1):** **Download** → `ACTION_VIEW` on the APK's `browser_download_url`: the user's
-  browser downloads it and Android's installer takes over from there. YFT has no web-link intent
-  filter, so this never opens YFT's own browser. No browser → "No app can open this link."
+  the switch (unset = the build's default); the time of GitHub's last answer (the 24 h gate); the
+  time of the last good answer (`UpToDate` or `Available`: "Last checked", and "Up to date" only
+  after one); the found update (the row and the screen show it again without a request); the rate
+  limit's end; `update_opened_code` (the last version the screen opened for, §4.5). The found update
+  is dropped once the installed versionCode reaches it.
+- **The action (U1):** **Download APK to update** → `ACTION_VIEW` on the APK's
+  `browser_download_url`: the user's browser downloads it and Android's installer takes over from
+  there. YFT has no web-link intent filter, so this never opens YFT's own browser. No browser →
+  "No app can open this link."
 
 ### 4.4 U2 — download, checks, Android's installer
 
-The card's and the row's button becomes **Update**; every failure shows its reason and **Download in
-browser** (U1's link). Steps, in order, all in `UpdateController`'s scope (it outlives the screens;
-Cancel stops it):
+The button stays **Download APK to update**; in U2 it runs these steps in order, in
+`UpdateController`'s scope (it outlives the screen; **Cancel** stops it). Every failure from step 2
+on shows which step failed, "Nothing was installed." and **Download in browser** (U1's link). The
+three checks run in the owner's order — checksum, signature, package and version — and only then the
+installer:
 
 1. **Allowed to install?** `canRequestPackageInstalls()` (API 26+) false → "Allow YFT to install
-   updates, then tap Update again." with **Open settings** (`ACTION_MANAGE_UNKNOWN_APP_SOURCES`,
-   `package:` URI). Nothing is downloaded yet. On API 24–25 Android's installer asks by itself.
-2. **Space:** free space ≥ twice the asset's size + 20 MB, else "Not enough free space for the
-   update."
+   updates, then tap Download APK to update again." with **Open settings**
+   (`ACTION_MANAGE_UNKNOWN_APP_SOURCES`, `package:` URI). Nothing is downloaded yet. On API 24–25
+   Android's installer asks by itself.
+2. **Space:** free space ≥ twice the asset's size + 20 MB, else
+   "Not enough free space for the update."
 3. **`SHA256SUMS`:** GET the asset (≤ 16 KB); take the line for exactly
    `video-downloader-<version>.apk` (two spaces or ` *`, CRLF, either hex case; two different lines
    → refuse). No file or no line → "This release has no checksum for its APK, so YFT can't check
    it."
-4. **Download:** `browser_download_url` → GitHub's redirect (HTTPS, §4.6's hosts) into
-   `cacheDir/updates/yft-update.apk` (one fixed name: no download queue, no MediaStore, no
-   `FileNames`); SHA-256 computed while writing; a % line and **Cancel**; the size must equal the
-   asset's `size` (≤ 100 MB). A different hash or size → the file deleted, "The download was damaged
-   (its SHA-256 doesn't match). Nothing was installed."
-5. **The APK itself:** `getPackageArchiveInfo` with its signing certificates (`GET_SIGNATURES` as
-   well on API 24–28): the package is this app's; the versionCode is the tag's (stable tags) and
-   above the installed one (test mode: not below); the SHA-256 set of its current signers equals the
-   installed app's. A mismatch, or nothing read → refused: "This file isn't an update for this YFT."
-   / "This update isn't signed like your YFT, so it wasn't installed."
-6. **Install:** a `PackageInstaller` session (`MODE_FULL_INSTALL`, `setAppPackageName`, `setSize`,
-   `setInstallReason(USER)` on 26+, `setRequireUserAction(USER_ACTION_REQUIRED)` on 31+), the
-   verified file written into it, committed with a mutable `PendingIntent` to the unexported
-   `InstallStatusReceiver`. `STATUS_PENDING_USER_ACTION` → its confirmation intent goes to
-   `UpdateController`; the visible activity starts it (Android's own screen; never from the
-   background — if YFT is not in front, at its next resume). `STATUS_SUCCESS` → Android replaces
-   YFT; settings and downloads stay. `STATUS_FAILURE_ABORTED` → "Update cancelled."; any other
-   status → "Android couldn't install the update (<status>)."; each with the link.
-7. **Cleanup:** the cached APK is deleted when its session ends; at the next start, a left-over file
-   and YFT's own stale sessions (`mySessions`) are removed.
-8. **Test mode only — "Reinstall this build (test)":** this build's own `base.apk` goes through
-   steps 5–6 (same package, signer and code), so the owner's phone shows HyperOS's real confirmation
-   before any release-key update exists. Never in the release.
+4. **Download; check 1 — the checksum:** `browser_download_url` → GitHub's redirect (HTTPS, §4.6's
+   hosts) into `cacheDir/updates/yft-update.apk` (one fixed name: no download queue, no MediaStore,
+   no `FileNames`); the SHA-256 computed while writing; a progress bar, "Downloading… 42%" and
+   **Cancel**; the size must equal the asset's `size` (≤ 100 MB). Another hash or size → the file
+   deleted, "Checksum doesn't match — the download was damaged or changed."
+5. **Check 2 — the signature:** `getPackageArchiveInfo` with its signing certificates
+   (`GET_SIGNING_CERTIFICATES` on 28+, `GET_SIGNATURES` on 24–27): the SHA-256 set of the APK's
+   current signers must equal the installed app's. Different, or nothing read →
+   "Signature doesn't match your YFT."
+6. **Check 3 — package and version** (the same `PackageInfo`): the package must be this app's own
+   (`com.alal.yft` in the release; the debug or preview build's own in test mode), else
+   "This file is a different app."; the versionCode: for a stable tag exactly the tag's code (§4.2)
+   and above the installed one; for a prerelease (test mode only; it has no rule code) not below the
+   installed one; else "This file isn't YFT v1.0.1." or "This file isn't newer than your YFT."
+7. **Install:** "Verified: checksum and signature match", then a `PackageInstaller` session
+   (`MODE_FULL_INSTALL`, `setAppPackageName`, `setSize`, `setInstallReason(USER)` on 26+,
+   `setRequireUserAction(USER_ACTION_REQUIRED)` on 31+), the checked file written into it, committed
+   with a mutable `PendingIntent` to the unexported `InstallStatusReceiver`.
+   `STATUS_PENDING_USER_ACTION` → its confirmation intent goes to `UpdateController`; YFT starts it
+   while it is in front (`UpdateAutoOpen` in `YftApp.kt`; Android's own screen; never from the
+   background — else at YFT's next resume). `STATUS_SUCCESS` → Android replaces YFT; settings and
+   downloads stay. `STATUS_FAILURE_ABORTED` → "Update cancelled."; any other status → "Android
+   couldn't install the update (<status>)."; each with "Nothing was installed." and the link.
+8. **Cleanup:** the cached APK is deleted when a check fails or its session ends; at the next start,
+   a left-over file and YFT's own stale sessions (`mySessions`) are removed.
+9. **Test mode only — "Reinstall this build (test)":** this build's own `base.apk` goes through
+   steps 5, 6 and 7's session (the same package and signer; its versionCode must equal the installed
+   one); instead of "Verified…" its line is "Test: this build's own APK, signature matches" — it is
+   no release, so no checksum is claimed. The owner's phone shows HyperOS's real confirmation before
+   any release-key update exists. Never in the release.
 
 The manifest changes only in U2: `REQUEST_INSTALL_PACKAGES` and the receiver. U1 changes no manifest
 line.
 
-### 4.5 Home, Settings, About
+### 4.5 The UI — Settings, the Updates screen
 
-- **Home:** `HomeScreen(…, updateCard: @Composable () -> Unit = {})` and one `item(key = "update")`
-  right under the header; `HomeRoute` passes the card (its own `UpdateViewModel`). No
-  `HomeViewModel` or `HomeUiState` change. The card: "Update available", "YFT 1.0.1", **Download**
-  (U1) or **Update** (U2), **Not now**; U2's % and failure lines in it.
-- **Settings:** a group **Updates** before About through a slot like Home's (no `SettingsViewModel`
-  change); `SettingsGroup`, `SettingsRow`, `ValueRow` and `SwitchRow` go from private to internal
-  (same look). Rows: "Update available" / "YFT 1.0.1" (only when found; the card's action); **Check
-  for updates** (its line: "Last checked today, 21:35" / "Checking…" / "YFT is up to date." / "No
-  connection." / "GitHub is busy. Try again after 22:10."); the switch **Check for updates when YFT
-  opens** ("At most once a day"), on by default (off in test mode).
-- **About › Privacy:** one new last line (U1): "With Check for updates on, YFT asks GitHub
-  (api.github.com) about its newest release at most once a day, when you open it. Nothing about you
-  or your downloads is sent." U2 adds: "Update downloads the new version from GitHub." PR #2's
-  release commit rewrites the list's first line (GitHub raw); this line is apart from it, and the
-  two are aligned at U4.
+The owner's choice (Snaptube as the model, simpler): no Home card, no dialog, no change to the About
+screen.
+
+**Settings → About** (no `SettingsViewModel` change):
+- The rows: **Version** (title unchanged; opens About as today; the version moves from the trailing
+  `value` to the `supporting` second line, so "1.0.0-beta.3-debug" no longer breaks in the middle) →
+  **Updates** (new; opens the Updates screen) → **Licenses** (unchanged).
+- The Updates row's second line: a red **New** badge (Coral, as `YftCountBadge`) and
+  "v1.0.1 available" when an update is known; "Up to date" after a good answer found none;
+  "Not checked yet" before GitHub's first good answer — so the row never claims more than YFT knows.
+  No row when the policy is off (§4.1).
+- How: `ValueRow` gets an optional badge; `SettingsScreen` gets `updates: UpdatesRow? = null` and
+  `onOpenUpdates: () -> Unit = {}` (defaults, so today's tests compile unchanged); `SettingsRoute`
+  reads the row from `UpdatesViewModel`; `YftNavHost`'s `settingsContent` gets a third parameter,
+  `onOpenUpdates`.
+
+**The Updates screen** (`YftDestination.UPDATES`, full screen with Back, as About):
+- Top: "YFT 1.0.0" — the installed version.
+- With an update: "New version v1.0.1" ("(test)" added in test mode); the release notes — the
+  release's body as plain text in a scrollable box (Markdown signs shown as they are; no link in it
+  is opened); the big **Download APK to update** button with its security line under it (the table
+  below).
+- Without: "You have the latest version" and "Last checked today, 21:35" after a good answer, or
+  "Not checked yet" before one; **Check now** — it works with the switch off; while it runs
+  "Checking…", then the result, or "No connection.", "GitHub is busy. Try again after 22:10." (the
+  phone's time format), "Couldn't check. Try again later.".
+- Bottom: the switch **Check automatically** — on by default, off in test mode — with "Once a day
+  when YFT opens. Asks GitHub (api.github.com)." In test mode, under it: **Reinstall this build
+  (test)** (U2).
+
+**It opens by itself** (`UpdateAutoOpen(navController)`, one line in `YftApp.kt`; in U2 it also
+starts Android's confirmation, §4.4 step 7):
+- Once per new version: when the app opens and the daily check finds — or has found — a version the
+  screen has not opened for: at once if Home is in front, else at the next app open. Never over
+  another screen, never as a dialog.
+- A version first seen on Check now counts as opened (the user is on the screen). The opened
+  version's code is stored (`update_opened_code`).
+- Back = not now: the screen does not open again for that version; the row's New badge stays until
+  the update is installed.
+
+**The button and its security line** (true claims only):
+
+| State | U1 (the link) | U2 (in YFT) |
+|---|---|---|
+| Before the download | "Signed by YFT · checked before install" — Android itself refuses an update signed with another key | the same — YFT's three checks (§4.4), then Android's |
+| Downloading | — (the browser downloads) | a progress bar, "Downloading… 42%", Cancel |
+| All three checks passed | — (U1 never says "verified") | "Verified: checksum and signature match" → Android's installer |
+| A check failed | — | which check, "Nothing was installed.", Download in browser |
+| Android's installer cancelled | — | "Update cancelled. Nothing was installed.", Download in browser |
+| Reinstall this build (test) | — | "Test: this build's own APK, signature matches" (no checksum: no release) |
 
 ### 4.6 Hosts and privacy
 
@@ -259,120 +343,170 @@ line.
   other host, or `http:`, is refused. Nothing else is asked.
 - GitHub allows 60 unauthenticated requests an hour per IP address; phones behind one carrier
   address share it — hence §4.3's rate limit handling and no retries.
+- The notes are text only: no HTML, no image, no link opened.
 - Logs: the step, the host and the status only — never a redirect address or a body.
 
 ### 4.7 Files
 
-- **New (U1):** `app/src/main/java/com/alal/yft/update/` — `ReleaseVersion.kt` (tag ↔ code),
-  `GitHubReleases.kt` (parse, candidate), `UpdateChecker.kt` (request, results), `UpdateStore.kt`,
-  `UpdateController.kt` (gate, state), `UpdatePolicy.kt` (the release certificate, which builds
-  check), `UpdateViewModel.kt`, `UpdateCard.kt`, `UpdateSettingsRows.kt`, `UpdateModule.kt` (Hilt);
+- **New (U1):** `app/src/main/java/com/alal/yft/update/` — `ReleaseVersion.kt` (tag ↔ version and
+  code), `GitHubReleases.kt` (parse, candidate, notes), `UpdateChecker.kt` (request, results),
+  `UpdateStore.kt`, `UpdateController.kt` (gate, state, auto-open bookkeeping), `UpdatePolicy.kt`
+  (the release certificate, which builds check), `UpdatesViewModel.kt`, `UpdatesScreen.kt`
+  (`UpdatesRoute`), `UpdateAutoOpen.kt`, `UpdateModule.kt` (Hilt);
   `app/src/{release,debug,preview}/java/com/alal/yft/update/UpdateBuild.kt`.
 - **New (U2):** `Sha256Sums.kt`, `UpdateDownloader.kt`, `ApkCheck.kt`, `UpdateInstaller.kt`,
   `InstallStatusReceiver.kt`.
-- **Edited (small):** `HomeScreen.kt` (slot, item), `SettingsScreen.kt` (slot, group, four `private`
-  → `internal`), `AboutScreen.kt` (one `PRIVACY` line), `MainActivity.kt` (inject; `onAppOpened()`;
-  U2: start the confirmation intent), `AndroidManifest.xml` (U2: the permission, the receiver),
-  `app/build.gradle.kts` (U2: `androidTestImplementation` of `okhttp-mockwebserver` and
-  `okhttp-tls`, already in the version catalog), this plan, this agent's `docs/SESSION_STATE.md`
-  section.
-- **Tests:** §6 (new files only).
+- **Edited (small):** `feature/settings/SettingsScreen.kt` (the Version row's version →
+  `supporting`; the Updates row; `ValueRow`'s optional badge; `SettingsScreen`'s two new parameters
+  with defaults; `SettingsRoute`), `ui/navigation/YftDestination.kt` (`UPDATES`),
+  `ui/navigation/YftNavHost.kt` (the route, an `updatesContent` slot with `UpdatesRoute` as its
+  default; `settingsContent`'s third parameter), `ui/YftApp.kt` (`UpdateAutoOpen(navController)`),
+  `MainActivity.kt` (inject; `onStart` → `onAppOpened()`), the two tests' `settingsContent` lambdas
+  (`YftNavigationSmokeTest.kt`, `DesignRenderTest.kt`: a third parameter), `AndroidManifest.xml`
+  (U2: the permission, the receiver), `app/build.gradle.kts` (U2: `androidTestImplementation` of
+  `okhttp-mockwebserver` and `okhttp-tls`, already in the version catalog), this plan, this agent's
+  `docs/SESSION_STATE.md` section.
+- **Not touched:** `HomeScreen.kt` and every Home file, `AboutScreen.kt`, the shared docs (§2.4).
+- **Tests:** §6 (new files, and the two lambdas).
 
 ## 5. Steps
 
-### 5.1 U0 — the plan (done, 2026-10-24)
+### 5.1 U0 — the plan (done, 2026-10-24; revised after the owner's review the same day)
 
 This file and the SESSION_STATE section, docs only (no CI run). STOP: the owner's go after his S5
 run 3.
 
-### 5.2 U1 — check and link
+### 5.2 U1 — the check, the Updates row and screen, the link
 
 1. §4.7's U1 files, the JVM and Compose tests (§6.1).
 2. CI's set (§7) green on the branch; checkpoint `checkpoint(phase-in-app-update): U1: …`. Its SHA
    is the **U1 cut**.
-3. Short Burmese report; U2 starts at once unless the owner says stop (the time box, §8).
+3. A short Burmese report (green, the U1 cut's SHA), then straight on to U2 — no stop, unless the
+   owner says so.
 
 ### 5.3 U2 — in-app install
 
 1. §4.7's U2 files on top of U1 (their own commits), the JVM tests and the emulator test (§6.2).
-2. CI green, the Emulator smoke included.
-3. STOP: short Burmese report.
+2. CI green, the Emulator smoke included; the branch's Preview APK for U3.
+3. STOP: a short Burmese report.
 
-### 5.4 U3 — preview and the owner's phone (after S5's run 3 is counted, with his OK)
+### 5.4 U3 — the owner's phone (after U2 and A's and VK's preview tests; 2026-10-26–27)
 
 - The branch's CI preview APK is `com.alal.yft.preview` with its own test key: Android installs it
-  only after the current `com.alal.yft.preview` is removed, so the owner picks the moment (after his
-  #12 checks), or U3 runs on the joint preview after PR #2's merge (U4).
-- Checklist (~30 min): (1) Settings → Updates: the switch off (test mode); Check for updates → "YFT
-  1.0.0-beta.1 (test)" on Home and in Settings. (2) Download opens beta.1's APK link in the browser
-  (not installed). (3) Update: downloaded, SHA-256 OK, then refused — beta.1 is `com.alal.yft` with
-  the release key, the preview a test key — with the reason and Download in browser: the expected
-  answer. (4) Reinstall this build (test): HyperOS's confirmation; Install → YFT restarts, settings
-  kept; Cancel → "Update cancelled." with the link. (5) Airplane mode → "No connection." (6) Not now
-  hides Home's card, Settings keeps the row; with the switch on, one check a day (the line's time).
-- **The cheapest real release-key update test:** before v1.0.0 is published, the owner's release-key
-  draft `1.0.0-rc.1` (versionCode 999901; his Release draft run on the release commit with the name
-  changed, `CHANGELOG.md` `## [1.0.0-rc.1]` and `docs/release/1.0.0-rc.1.md`; never published,
-  deleted after) installed on his phone → he publishes v1.0.0 → the rc's Check for updates offers
-  1.0.0 → Update → Android's confirmation → 1.0.0 installed, settings kept. Cost: one draft run and
-  two doc lines; it can be P8's upgrade check. Without it, the first real update is v1.0.0 → v1.0.1
-  (free, but after the friends have v1.0.0; the link stays the fallback).
+  only after the old preview is removed — the owner agreed, so that is step 0.
+- Checklist (~30–45 min, with internet unless a step says otherwise):
+  0. Uninstall the old YFT preview (`com.alal.yft.preview`); install this branch's preview APK.
+  1. Settings → About: Version shows the version on its second line; Updates says "Not checked yet".
+     Open Updates: "YFT 1.0.0-beta.3-preview…", "Not checked yet", Check now, Check automatically
+     off (test mode).
+  2. Airplane mode on → Check now → "No connection." → airplane mode off.
+  3. Check automatically on → Back → the Home tab → swipe YFT away and open it again → the Updates
+     screen opens by itself: "New version v1.0.0-beta.1 (test)", the notes, the button,
+     "Signed by YFT · checked before install". Back (to Home) → Settings → About: the Updates row
+     shows the red New and "v1.0.0-beta.1 available". Swipe away and open again → the screen does
+     not open again; the badge stays.
+  4. Updates → Download APK to update (if asked: Open settings → allow YFT → Back → tap again) → the
+     progress → "Signature doesn't match your YFT. Nothing was installed." — the expected answer:
+     beta.1's checksum passes, but it has the release key and the preview a test key. Download in
+     browser is there (don't install from it).
+  5. Reinstall this build (test) → "Test: this build's own APK, signature matches" → HyperOS's
+     installer: Cancel → "Update cancelled. Nothing was installed." with the link; again → Install →
+     YFT restarts, its settings kept.
+- The owner's results are recorded by the release commit (`docs/PHONE_TEST_NOTES.md`, §11).
 
-### 5.5 U4 — after PR #2's merge
+### 5.5 The release-key update test (rc.1) — the owner's choice at release time
 
-1. Merge `main` into `work/phase-in-app-update` (a merge commit, no rebase); resolve §9's expected
-   small conflicts keeping both sides; align the two privacy lines.
-2. CI green; the joint preview (A, VK, U) or U's own; the owner's checks (U3 if not done).
-3. The shared docs from §11; the pull request to `main` when the owner says (he merges). If U2 is
-   late (§8), v1.0.0's pull request comes from `work/phase-in-app-update-u1` (the U1 cut) and U2
-   waits for v1.0.1.
+Before v1.0.0 is published, a release-key draft `1.0.0-rc.1` (versionCode 999901; his Release draft
+run on the release commit with the name changed, `CHANGELOG.md` `## [1.0.0-rc.1]` and
+`docs/release/1.0.0-rc.1.md`; never published, so no friend sees it; deleted after) installed on his
+phone → he publishes v1.0.0 → the rc's Updates screen offers v1.0.0 (by itself at the next open) →
+Download APK to update → "Verified: checksum and signature match" → Android's confirmation → 1.0.0
+installed, settings kept. Cost: one draft run and two doc lines; it can be P8's upgrade check.
+Without it, the first real update is v1.0.0 → v1.0.1 (free, but after the friends have v1.0.0; the
+link stays the fallback).
+
+### 5.6 The merge — only when the owner says
+
+1. The owner's order: A (`work/phase-download-fixes`), then VK (`work/phase-vk-extractor`), then
+   this branch — each into `spike/master-extractor-backup` with a merge commit (no rebase, no
+   squash). This branch's merge is done only when the owner says, after A's and VK's.
+2. The expected conflict: `docs/SESSION_STATE.md` only (each branch appends its own section) — every
+   section kept. No code file is shared (§9; checked again right before the merge).
+3. CI's set green on `spike/master-extractor-backup` after the merge.
+4. Then the release commit on top: `1.0.0` / `1000000` and the shared docs (§11) — the owner's, not
+   this branch's. So there is no U4: `main` is never merged into this branch, this branch has no
+   pull request, and nothing in Settings or About is left to align.
+5. U2 late (§8): when the owner says, `work/phase-in-app-update-u1` is made at the U1 cut and merged
+   instead; U2 waits for v1.0.1.
 
 ## 6. Tests
 
 ### 6.1 JVM (`testDebugUnitTest`; no live network)
 
-- `ReleaseVersionTest`: tags → codes (`v1.0.0` = 1000000, `v1.2.3` = 1020300); bad tags (no `v`, a
-  part above 99, letters, extra parts); prereleases; compare.
+- `ReleaseVersionTest`: tags → versions and codes (`v1.0.0` and `1.0.0` = 1000000, `v1.2.3` =
+  1020300); bad tags (a part above 99, letters, extra or missing parts, `vv1.0.0`); prereleases (a
+  version, no rule code); compare; the asset name without the `v`.
 - `VersionCodeRuleTest`: `BuildConfig`'s name (without `-debug`) and code follow §4.2.
 - `GitHubReleasesTest` (a trimmed releases JSON fixture and variants): drafts skipped; prereleases
-  skipped, taken in test mode; an equal or lower code not offered; the highest of several; the APK
-  by its exact name (another APK, or state not `uploaded`, ignored); no APK → skipped; no
-  `SHA256SUMS` → offered with no checksum (U2 refuses); a link off GitHub or `http:` → skipped;
-  malformed and oversize JSON → `Failed`.
+  skipped, taken in test mode; an equal or lower code not offered; the highest of several; a tag
+  without `v`; the APK by its exact name (another APK, or state not `uploaded`, ignored); no APK →
+  skipped; no `SHA256SUMS` → offered with no checksum (U2 refuses); a link off GitHub or `http:` →
+  skipped; the body kept as the notes (cut at 20,000 characters, at a line end); malformed and
+  oversize JSON → `Failed`.
 - `UpdateCheckerTest` (MockWebServer, a fake clock): headers (Accept, API version; no Authorization,
   no Cookie); 200 → `Available` or `UpToDate`; offline (no server, `DISCONNECT_AT_START`) and a
   timeout → `Offline`, not counted; 403 with `x-ratelimit-remaining: 0` and a reset →
-  `RateLimited(until)` and no request before it, not even on tap; 429 with `retry-after`; 403
+  `RateLimited(until)` and no request before it, not even on Check now; 429 with `retry-after`; 403
   without rate headers and 5xx → `Failed`; once a day (23 h → no request, 24 h → one, the clock back
-  → one); the switch off → no request; the policy off (another signer) → no request and no rows.
-- `UpdateControllerTest`: the card's and the rows' states; Not now per version; the found update
-  dropped after an update; one check at a time.
+  → one); the switch off → no request on open, Check now still asks; the policy off (another signer)
+  → no request, no row.
+- `UpdateControllerTest`: the row's states ("Not checked yet"; "Up to date" only after a good
+  answer; New with the version); the screen's states and lines ("Checking…", "No connection.",
+  "GitHub is busy…" with its time, "Couldn't check…"); the auto-open bookkeeping (once per version;
+  the stored code; Check now counts as opened; the switch off → never); the found update dropped
+  after an update; one check at a time.
 - U2: `Sha256SumsTest` (formats, no line, two lines, bad hex); `UpdateDownloaderTest`
   (MockWebServer: OK; another hash → file deleted; short and long bodies; a redirect to an allowed
-  host OK, to `http:` or another host refused; over the cap; Cancel deletes); `ApkCheckTest`
-  (package, code, signer sets — equal, different, empty, other order — on fakes);
-  `InstallStatusTest` (each `PackageInstaller` status → its message and the link).
-- Compose (Robolectric), new files: `HomeUpdateCardTest` (the card under the header with the version
-  and the button; Download starts `ACTION_VIEW` with the exact link; Not now; no card without an
-  update); `SettingsUpdateRowsTest` (rows, switch, status lines; no rows when the policy is off).
-  A's `HomeScreenTest.kt` is not edited (the new parameter has a default).
+  host OK, to `http:` or another host refused; over the cap; Cancel deletes); `ApkCheckTest` on
+  fakes (the package; the code: a stable tag's exactly and above the installed, a test-mode
+  prerelease's not below, the reinstall test's equal; signer sets — equal, different, empty, other
+  order); `InstallStatusTest` (each `PackageInstaller` status → its text, "Nothing was installed."
+  and the link); `UpdateControllerTest`'s U2 cases: the order (a bad checksum stops before the APK
+  is read, a bad signature before the package check, any failure before a session) and the security
+  lines per state (never "Verified" before all three checks pass, never in U1, the reinstall test's
+  own line).
+- Compose (Robolectric), new files: `SettingsAboutUpdatesTest` (About's rows in order — Version with
+  the version on its second line, Updates, Licenses; the Updates row's three states and the New
+  badge; no row with the policy off; a tap opens Updates); `UpdatesScreenTest` (the installed
+  version; with an update: the title, the notes box scrolls, the button starts `ACTION_VIEW` with
+  the exact link (U1), the security line; without: the latest line and Last checked,
+  "Not checked yet", Check now and its lines; the switch and its text; "(test)");
+  `UpdateAutoOpenTest` (opens once per version from Home; not over another screen, then at the next
+  open; not again after Back; not after Check now). Edited: only the `settingsContent` lambdas of
+  `YftNavigationSmokeTest.kt` and `DesignRenderTest.kt` (a third parameter); `SettingsScreenTest`
+  passes as it is (the About row still has "Version" and the version).
 
 ### 6.2 Emulator (`connectedDebugAndroidTest`, the Emulator smoke, API 34)
 
-- `UpdateInstallInstrumentedTest`: a local **HTTPS** MockWebServer (a test-only certificate from
-  `okhttp-tls`; only the test's own client trusts it, the app's network rules stay as they are)
-  serves the releases JSON (the tag from the debug build's own version), `SHA256SUMS` and the app's
-  own `base.apk`; the debug build is in test mode with the switch off (the app itself asks GitHub
-  nothing), `MainActivity` in front:
-  1. check → found → download → SHA-256 and signer (the real PackageManager) OK → session →
+- `UpdateInstallInstrumentedTest` hosts `UpdatesScreen` and `UpdateAutoOpen`'s confirmation starter
+  in the test's own activity (`createAndroidComposeRule`) with a controller built by the test: its
+  client trusts a test-only certificate from `okhttp-tls` and talks to a local **HTTPS**
+  MockWebServer (the app's network rules stay as they are) that serves the releases JSON (a
+  prerelease tagged with the debug build's own version), `SHA256SUMS` and the app's own `base.apk`;
+  the debug build is in test mode with the switch off, so the app itself asks GitHub nothing:
+  1. Check now → found → Download APK to update → checksum, signature, package and version (the real
+     PackageManager) OK → "Verified: checksum and signature match" → a session →
      `STATUS_PENDING_USER_ACTION` → Android's installer window on screen
      (`com.android.packageinstaller` or `com.google.android.packageinstaller`) → **Cancel** (never
-     Install: it would replace the app under test) → "Update cancelled." with the link; the cached
-     APK gone. `appops set … REQUEST_INSTALL_PACKAGES allow` first.
-  2. one byte changed in the served APK → refused before any session (`mySessions` empty), the file
-     deleted.
-  3. installs from YFT not allowed (`appops … deny`) → the "Allow YFT…" state; nothing downloaded.
-  4. Reinstall this build (test) → the same confirmation → Cancel.
+     Install: it would replace the app under test) → "Update cancelled. Nothing was installed." with
+     the link; the cached APK gone. `appops set … REQUEST_INSTALL_PACKAGES allow` first.
+  2. One byte changed in the served APK → "Checksum doesn't match…" before any session (`mySessions`
+     empty), the file deleted.
+  3. The instrumentation APK served instead (`com.alal.yft.debug.test`, the same debug key, its own
+     `SHA256SUMS` line) → the checksum and the signature pass, the package check refuses:
+     "This file is a different app."
+  4. Installs from YFT not allowed (`appops … deny`) → the "Allow YFT…" state; nothing downloaded.
+  5. Reinstall this build (test) → the same confirmation → Cancel.
 - If TLS on the emulator proves flaky: P34's in-test OkHttp interceptor as the server, the same
   assertions.
 
@@ -388,58 +522,72 @@ run 3.
 ## 8. Release placement and time
 
 - The owner's time box: U1 + U2 CI green by **2026-10-26 (MMT)**, his phone test by **2026-10-27**;
-  else v1.0.0 ships U1 only and U2 moves to v1.0.1 (from the U1 cut; nothing else changes).
-- Estimates (agent work + CI; the go assumed on 2026-10-25 morning MMT, after S5's run 3):
+  else v1.0.0 ships the U1 cut and U2 moves to v1.0.1 (nothing else changes).
+- Estimates (agent work + CI; the go assumed on 2026-10-25 morning MMT, after S5's run 3), U1
+  re-estimated for the new UI:
 
 | Step | Work | CI | Green (MMT) |
 |---|---|---|---|
-| U1 | 4–6 h | 1–2 rounds (~40 min each) | 2026-10-25 evening |
-| U2 | 8–10 h | 2–3 rounds, the emulator included | 2026-10-26 evening |
-| U3 | the preview ~20 min; the owner's checks 30–45 min | — | 2026-10-26 night or 10-27 |
-| U4 | 1–2 h after PR #2's merge | 1 round | after PR #2's merge |
+| U1 | 6–8 h (+2 h: the Updates row and screen, the auto-open) | 1–2 rounds (~40 min each) | 2026-10-25 night |
+| U2 | 8–10 h, straight after U1 | 2–3 rounds, the emulator included | 2026-10-26 evening |
+| U3 | the preview ~20 min; the owner's checks 30–45 min | — | 2026-10-26 night or 10-27, after A's and VK's preview tests |
+| Merge | ~30 min, when the owner says (after A and VK) | 1 round on the spike | the owner's day |
 
-- Risk: the emulator's installer window (+½ day) still fits Oct 26, narrowly. Not green by
-  2026-10-26 24:00 MMT → a report, and v1.0.0 = U1.
+- Risk: U1's +2 h leaves less room — the emulator's installer window (+½ day) would push U2 past
+  Oct 26. Not green by 2026-10-26 24:00 MMT → a report, and v1.0.0 = the U1 cut.
 - v1.0.0's version line (`1.0.0` / `1000000`) belongs to the release commit, not to this branch.
 
-## 9. Files shared with A, VK and PR #2
+## 9. Files shared with A and VK
 
-- **A** (`work/phase-download-fixes`): no code file in common. A's Home/D4 files
-  (`core-model/.../settings/HomeSite.kt`, `core-data/.../HomeSitesRepository.kt`, their tests,
-  `app/src/test/.../feature/home/HomeScreenTest.kt`) and `core-model/.../download/FileNames.kt` are
-  not touched by U. U edits `HomeScreen.kt`, which A does not change (the new parameter has a
-  default, so A's test compiles as it is); U2 saves under one fixed cache name, without `FileNames`.
-- **VK** (`work/phase-vk-extractor`): none — U uses core-data's `OkHttpClient`, not
+- **A** (`work/phase-download-fixes`, `abac20e` when rechecked on a fresh clone, 2026-10-24): no
+  code file in common — A changes none of `SettingsScreen.kt`, the navigation files, `YftApp.kt`,
+  `MainActivity.kt`, the manifest, Gradle or the two tests U edits; U no longer touches Home (A's
+  Home/D4 files) nor `FileNames.kt` (U2 saves under one fixed cache name).
+- **VK** (`work/phase-vk-extractor`, `f2433a1`): none — U uses core-data's `OkHttpClient`, not
   `OkHttpExtractorClient`; `SiteAdapterModule.kt` untouched.
-- **All three:** `docs/SESSION_STATE.md` — each appends its own section at the end; a merge keeps
-  all of them.
-- **PR #2's release commit** (expected small conflicts at U4): `SettingsScreen.kt` (the Backup
-  finder switch), `AboutScreen.kt` (`PRIVACY`'s first line; U's line is the last),
-  `app/build.gradle.kts` (flags; U2 adds two dependency lines). U never edits `gradle.properties`.
+- **All three:** `docs/SESSION_STATE.md` — each appends its own section; the only expected conflict
+  at the merge (§5.6), every section kept.
+- **The release commit** comes after the three merges, on top of them: nothing to resolve with it.
 
 ## 10. Backlog (after v1.0.x)
 
+- A small Home card when an update is found (v1.0.0 has the Settings row and the screen only).
+- The notes with Markdown (headings, lists, links) instead of plain text.
 - Signing-key rotation: U2 compares the current signers strictly and refuses a rotated key (the link
   remains).
-- Release notes in the card; a beta channel for friends who opt in; resuming a broken download; a
-  mirror if GitHub is unreachable; update ownership (Android 14) — not wanted while Android's
-  confirmation comes every time.
+- A beta channel for friends who opt in; resuming a broken download; a mirror if GitHub is
+  unreachable; update ownership (Android 14) — not wanted while Android's confirmation comes every
+  time.
 - If YFT ever goes to Google Play, U2 goes (Play does not allow self-updates).
 
-## 11. Lines for the shared docs (written at U4)
+## 11. Lines for the release commit (not this branch)
 
 - `docs/RELEASE.md`: the version code rule (§4.2) instead of "raise by one"; every release from the
-  Release draft workflow (its `SHA256SUMS`); the update test (rc → stable).
+  Release draft workflow (its `SHA256SUMS`); the update test (rc → stable, §5.5) if the owner runs
+  it.
 - `CHANGELOG.md` (1.0.0) and `docs/release/1.0.0.md`: "YFT tells you when a new version is out
-  (Settings → Updates)" — with U2: "and installs it with Android's confirmation"; the privacy line.
+  (Settings → About → Updates), with its release notes" — with U2: "and installs it after checking
+  its checksum and signature, with Android's confirmation".
+- **About › Privacy** (`AboutScreen.kt`'s first line, which the release commit rewrites for the
+  Backup finder anyway): today's "YFT only contacts the sites you open and the media servers they
+  point to." is untrue with the update check on — it should name it, e.g. "With Check automatically
+  on, YFT also asks GitHub (api.github.com) about its newest release once a day; nothing about you
+  or your downloads is sent."
 - `PROGRESS.md`; `docs/TEST_MATRIX.md` (one row per step: commits, results);
   `docs/PHONE_TEST_NOTES.md` (the owner's U3); `README.md`'s privacy lines, if they list hosts.
 
 ## 12. Status
 
 - 2026-10-24: the owner's request: the in-app update in v1.0.0 (the first stable release) with A and
-  VK; U0 only. Plan recorded (docs only); branch made from `8dc46ff`. `SHA256SUMS` confirmed on
-  every workflow release (§3): no workflow change. Next: STOP — the owner's go after his S5 run 3.
+  VK; U0 only. Plan recorded (docs only, `5b5c31a`); branch made from `8dc46ff`. `SHA256SUMS`
+  confirmed on every workflow release (§3): no workflow change.
+- 2026-10-24, the owner's review: the Updates row and screen in Settings → About (no Home card, no
+  About change, no dialog), the screen opening by itself once per new version, the button's security
+  lines (true claims only); U2's package and version check, tags with or without `v`; the merge
+  order A → VK → this branch into the spike, then the release commit (no U4); U3 right after U2,
+  after A's and VK's preview tests, the old preview uninstalled first; rc.1 the owner's choice at
+  release time. Plan revised (docs only); U1 re-estimated at 6–8 h. Next: STOP — the owner's go
+  after his S5 run 3; then U1 → U2 without a stop.
 
 ## Appendix — the agent's prompt
 
@@ -450,16 +598,19 @@ Branch: work/phase-in-app-update (it exists; made from PR #2's head 8dc46ff). Wo
 
 Read first, in this order:
 1. AGENTS.md — the repository's rules (checkpoints with scripts/checkpoint.sh).
-2. docs/IN_APP_UPDATE_PLAN.md — your plan. Follow it step by step (U1 → U4). Its §2 hard rules
-   come first.
-3. app/src/main/java/com/alal/yft/feature/home/HomeScreen.kt, feature/settings/SettingsScreen.kt,
-   feature/about/AboutScreen.kt and MainActivity.kt.
+2. docs/IN_APP_UPDATE_PLAN.md — your plan. Follow it step by step (U1 → U2 → U3). Its §2 hard
+   rules come first.
+3. In app/src/main/java/com/alal/yft/: feature/settings/SettingsScreen.kt,
+   ui/navigation/YftDestination.kt, ui/navigation/YftNavHost.kt, ui/YftApp.kt, MainActivity.kt.
 
-Start U1 only after the owner's go (after his S5 run 3). Stop at every STOP and report to the
-owner in Burmese, short. App text in English.
+Start U1 only after the owner's go (after his S5 run 3). When U1 is green, send a short report
+and go on with U2 at once. Stop at every STOP and report to the owner in Burmese, short. App
+text in English; every text says only what YFT or Android really checked.
 
-Never: push to main, spike/master-extractor-backup or another work branch; open a pull request
-or add a label before the owner says; run master-recipes-publish or touch the recipes branch;
+Never: push to main, spike/master-extractor-backup or another work branch (the one exception:
+this branch's merge into spike/master-extractor-backup, after A's and VK's, only when the owner
+says); open a pull request or add a label; merge main into this branch; touch the Home files or
+AboutScreen.kt; edit the shared docs; run master-recipes-publish or touch the recipes branch;
 publish a release, push a tag or run the Release draft workflow; change a workflow, a script or
 gradle.properties; relax TLS or the network rules; send a token or a cookie; log or commit
 GitHub's signed download addresses; install or send an APK for the owner's phone before he says

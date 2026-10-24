@@ -779,21 +779,34 @@ Keep at least the heading and one blank line between sections, so Git merges the
   page's answers are read (e.g. `MediaMetadataProbe`'s non-media XML answers), so a VAST/VMAP
   body starts an ad break when the request's address says nothing.
 
-## In-app update agent — `work/phase-in-app-update` (U0–U4)
+## In-app update agent — `work/phase-in-app-update` (U0–U3)
 
 - Plan: `docs/IN_APP_UPDATE_PLAN.md` (the owner's request, 2026-10-24: the in-app update ships in
-  v1.0.0, the first stable release, with A and VK). Branch made from PR #2's head `8dc46ff`
-  (`spike/master-extractor-backup`); it never merges into PR #2; after PR #2's merge, `main` is
-  merged into it (U4).
+  v1.0.0, the first stable release, with A and VK; revised after his review the same day). Branch
+  made from PR #2's head `8dc46ff` (`spike/master-extractor-backup`).
 - State (2026-10-24): **U0 done** — the plan only (docs); no app code. Next: STOP — the owner's go
-  after his S5 run 3; then U1 (the check and the browser link, v1.0.0's floor) and U2 (download,
-  SHA-256, signer, PackageInstaller with Android's confirmation; v1.0.1 if late).
+  after his S5 run 3; then U1 (the check; Settings → About's Updates row and the Updates screen,
+  which opens by itself once per new version; Download APK to update opens the APK link in the
+  browser; v1.0.0's floor) and, without a stop, U2 (the download in YFT; checksum → signature →
+  package and version; Android's installer; v1.0.1 if late).
+- The owner's review: no Home card, no About change, no dialog; the Version row's version on its
+  second line; every text a true claim (U1 never says "verified").
+- Merge (the owner's order, only when he says): A → VK → this branch into
+  `spike/master-extractor-backup` with merge commits, then the release commit (`1.0.0` / `1000000`,
+  the shared docs) on top. No U4: `main` is never merged into this branch, no pull request. Expected
+  conflict: this file only (every section kept). U2 late → `work/phase-in-app-update-u1` (the U1
+  cut) instead.
+- Phone (U3): right after U2 is green, after A's and VK's preview tests; the old preview uninstalled
+  first (plan §5.4).
 - Found at U0: every release made by `release-draft.yml` carries `SHA256SUMS` (`release-prep.sh` →
   `verify-release-apk.sh`; uploaded on create and refresh), so no workflow change. Published today:
   only `v1.0.0-beta.1` (prerelease, versionCode 1); beta.2 and beta.3 are drafts.
-- Proposed (plan §4.2): the versionCode from the tag, `vX.Y.Z` → X·1000000 + Y·10000 + Z·100 (v1.0.0
-  = 1000000); the release commit sets it, a JVM test guards it.
-- Rules: the plan's §2 (no push to `main` or PR #2, no pull request or label until the owner says,
-  no `recipes` branch, no release or tag, no APK on the owner's phone before S5's run 3 is counted).
+- Version code rule (plan §4.2): from the tag, with or without `v`, `X.Y.Z` → X·1000000 + Y·10000 +
+  Z·100 (v1.0.0 = 1000000); the release commit sets it, a JVM test guards it.
+- For the release commit (plan §11): About's first privacy line
+  ("YFT only contacts the sites you open…") must name the update check.
+- Rules: the plan's §2 (no push to `main` or the spike except the merge the owner calls, no pull
+  request or label, no `recipes` branch, no release or tag, no APK on the owner's phone before S5's
+  run 3 is counted).
 - Validation: `./gradlew --no-daemon :app:testDebugUnitTest --tests 'com.alal.yft.update.*'`; before
   a push, CI's set (plan §7); U2 also the Emulator smoke.
