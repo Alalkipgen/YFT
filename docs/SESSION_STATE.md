@@ -784,11 +784,15 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - Plan: `docs/IN_APP_UPDATE_PLAN.md` (the owner's request, 2026-10-24: the in-app update ships in
   v1.0.0, the first stable release, with A and VK; revised after his review the same day). Branch
   made from PR #2's head `8dc46ff` (`spike/master-extractor-backup`).
-- State (2026-10-24): **U0 done** — the plan only (docs); no app code. Next: STOP — the owner's go
-  after his S5 run 3; then U1 (the check; Settings → About's Updates row and the Updates screen,
-  which opens by itself once per new version; Download APK to update opens the APK link in the
-  browser; v1.0.0's floor) and, without a stop, U2 (the download in YFT; checksum → signature →
-  package and version; Android's installer; v1.0.1 if late).
+- State (2026-10-25 MMT): **U1 done** — checkpoint `checkpoint(phase-in-app-update): U1: the check,
+  the Updates row and screen, the link` (its CI in the next checkpoint). The check (api.github.com,
+  at most once a day when YFT opens, and Check now; the release-key build only, test mode in debug
+  and preview), Settings → About's Updates row (a New badge) and the Updates screen (opens by itself
+  once per new version, from Home only), Download APK to update → the user's browser. The store: an
+  app-private `SharedPreferences` file (`update`). Next, without a stop: U2 (the download in YFT;
+  checksum → signature → package and version; Android's installer; Reinstall this build (test)),
+  then STOP with a short Burmese report. Time box: U2 not green by 2026-10-26 24:00 MMT → a report;
+  v1.0.0 takes the U1 cut.
 - The owner's review: no Home card, no About change, no dialog; the Version row's version on its
   second line; every text a true claim (U1 never says "verified").
 - Merge (the owner's order, only when he says): A → VK → this branch into

@@ -10,6 +10,7 @@ import com.alal.yft.feature.library.MediaDetailsSource
 import com.alal.yft.thumbnail.DownloadThumbnails
 import com.alal.yft.thumbnail.RemoteThumbnails
 import com.alal.yft.ui.YftApp
+import com.alal.yft.update.UpdateController
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -30,6 +31,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var downloadThumbnails: DownloadThumbnails
 
+    @Inject
+    lateinit var updateController: UpdateController
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // The manifest theme only styles the launch window; the app runs on Theme.Yft.
         setTheme(R.style.Theme_Yft)
@@ -46,5 +50,11 @@ class MainActivity : ComponentActivity() {
         // Started here rather than in Application.onCreate so tests and background-only starts
         // do no file work; it runs once per process on the download scope.
         storageJanitor.launchOnce()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // The daily update check, only when the build and Check automatically allow it.
+        updateController.onAppOpened()
     }
 }

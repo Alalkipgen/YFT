@@ -49,6 +49,7 @@ enum class YftDestination(
         "Licenses",
         "Open-source licenses for the code YFT bundles and uses.",
     ),
+    UPDATES("updates", "Updates", "The installed version and YFT's newest release."),
     PLAYER("player", "Player", "Watch a saved video full screen."),
     ;
 

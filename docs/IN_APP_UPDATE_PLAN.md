@@ -172,8 +172,9 @@ notes; a beta channel for friends; signing-key rotation; any server but GitHub.
 | debug and preview — **test mode** | Check now; on open only once the owner turned the switch on | off | prereleases too; the installed versionCode counted as 0 (beta.1 today), shown with "(test)" |
 
 - Test mode is one constant in a build-type source set (`UpdateBuild.TEST_MODE`: false in
-  `src/release`, true in `src/debug` and `src/preview`), so the release has no test code (decision
-  30 (v)). Test mode also has **Reinstall this build (test)** (U2, §4.4 step 9).
+  `src/release/kotlin` — not `src/release/java`, which the preview build compiles too — true in
+  `src/debug` and `src/preview`), so the release has no test code (decision 30 (v)). Test mode also
+  has **Reinstall this build (test)** (U2, §4.4 step 9).
 
 ### 4.2 The version code rule (v1.0.0 = 1000000)
 
@@ -197,9 +198,9 @@ notes; a beta channel for friends; signing-key rotation; any server but GitHub.
 
 - **Request:** `GET https://api.github.com/repos/Alalkipgen/YFT/releases?per_page=10` with
   `Accept: application/vnd.github+json` and `X-GitHub-Api-Version: 2022-11-28`; no `Authorization`,
-  no cookie, no account. A client derived from the shared one: connect 15 s, the whole call 30 s, no
-  HTTPS → HTTP redirect, only the hosts of §4.6. The body is read up to 512 KB and parsed with
-  `BoundedJsonParser`.
+  no cookie, no account. A client derived from the shared one: connect 15 s, the whole call 30 s,
+  redirects followed by hand (at most 5; each one HTTPS and on §4.6's host list), no cookie jar, no
+  cache. The body is read up to 512 KB and parsed with `BoundedJsonParser`.
 - **The candidate:** `draft` false (unauthenticated lists never show drafts; checked anyway);
   `prerelease` false (allowed in test mode); the tag gives the version and, for a stable tag, the
   code (§4.2; a tag that does not parse is skipped); that code above the installed
@@ -220,14 +221,16 @@ notes; a beta channel for friends; signing-key rotation; any server but GitHub.
   or 429 with `x-ratelimit-remaining: 0` and `x-ratelimit-reset`, or `retry-after`; at most 24 h
   ahead; no request before it); `Failed` (any other answer, bad or oversize JSON). Every answer from
   GitHub starts the next 24 h, so on its own YFT asks at most once a day.
-- **Kept** (`UpdateStore`: the app's preferences DataStore, keys `update_*`, no core-data change):
-  the switch (unset = the build's default); the time of GitHub's last answer (the 24 h gate); the
-  time of the last good answer (`UpToDate` or `Available`: "Last checked", and "Up to date" only
-  after one); the found update (the row and the screen show it again without a request); the rate
-  limit's end; `update_opened_code` (the last version the screen opened for, §4.5). The found update
-  is dropped once the installed versionCode reaches it.
-- **The action (U1):** **Download APK to update** → `ACTION_VIEW` on the APK's
-  `browser_download_url`: the user's browser downloads it and Android's installer takes over from
+- **Kept** (`UpdateStore`: an app-private `SharedPreferences` file, `update`, keys `update_*` — the
+  settings DataStore is core-data's, so no core-data change; a damaged value reads as unset): the
+  switch (unset = the build's default); the time of GitHub's last answer (the 24 h gate); the time
+  of the last good answer (`UpToDate` or `Available`: "Last checked", and "Up to date" only after
+  one); the found update (the row and the screen show it again without a request); the rate limit's
+  end; `update_opened_version` (the last version the screen opened for, §4.5). The found update is
+  dropped once the installed versionCode reaches it.
+- **The action (U1):** **Download APK to update** → `ACTION_VIEW` (category `BROWSABLE`) on the
+  APK's `browser_download_url` — no browser selector, which on a phone with two browsers would ask
+  which one every time: the user's browser downloads it and Android's installer takes over from
   there. YFT has no web-link intent filter, so this never opens YFT's own browser. No browser →
   "No app can open this link."
 
@@ -320,8 +323,8 @@ starts Android's confirmation, §4.4 step 7):
 - Once per new version: when the app opens and the daily check finds — or has found — a version the
   screen has not opened for: at once if Home is in front, else at the next app open. Never over
   another screen, never as a dialog.
-- A version first seen on Check now counts as opened (the user is on the screen). The opened
-  version's code is stored (`update_opened_code`).
+- A version first seen on Check now counts as opened (the user is on the screen). The opened version
+  is stored (`update_opened_version`; a prerelease has no code).
 - Back = not now: the screen does not open again for that version; the row's New badge stays until
   the update is installed.
 
@@ -349,11 +352,12 @@ starts Android's confirmation, §4.4 step 7):
 ### 4.7 Files
 
 - **New (U1):** `app/src/main/java/com/alal/yft/update/` — `ReleaseVersion.kt` (tag ↔ version and
-  code), `GitHubReleases.kt` (parse, candidate, notes), `UpdateChecker.kt` (request, results),
-  `UpdateStore.kt`, `UpdateController.kt` (gate, state, auto-open bookkeeping), `UpdatePolicy.kt`
-  (the release certificate, which builds check), `UpdatesViewModel.kt`, `UpdatesScreen.kt`
-  (`UpdatesRoute`), `UpdateAutoOpen.kt`, `UpdateModule.kt` (Hilt);
-  `app/src/{release,debug,preview}/java/com/alal/yft/update/UpdateBuild.kt`.
+  code), `GitHubReleases.kt` (parse, candidate, notes), `UpdateChecker.kt` (request, results;
+  `UpdateHttp`, the redirects by hand), `UpdateStore.kt`, `UpdateController.kt` (gate, state,
+  auto-open bookkeeping), `UpdatePolicy.kt` (the release certificate, which builds check),
+  `UpdatesViewModel.kt`, `UpdatesScreen.kt` (`UpdatesRoute`), `UpdateAutoOpen.kt`, `UpdateModule.kt`
+  (Hilt); `UpdateBuild.kt` in `app/src/debug/java/`, `app/src/preview/java/` and
+  `app/src/release/kotlin/` (§4.1) under `com/alal/yft/update/`.
 - **New (U2):** `Sha256Sums.kt`, `UpdateDownloader.kt`, `ApkCheck.kt`, `UpdateInstaller.kt`,
   `InstallStatusReceiver.kt`.
 - **Edited (small):** `feature/settings/SettingsScreen.kt` (the Version row's version →
@@ -362,12 +366,13 @@ starts Android's confirmation, §4.4 step 7):
   `ui/navigation/YftNavHost.kt` (the route, an `updatesContent` slot with `UpdatesRoute` as its
   default; `settingsContent`'s third parameter), `ui/YftApp.kt` (`UpdateAutoOpen(navController)`),
   `MainActivity.kt` (inject; `onStart` → `onAppOpened()`), the two tests' `settingsContent` lambdas
-  (`YftNavigationSmokeTest.kt`, `DesignRenderTest.kt`: a third parameter), `AndroidManifest.xml`
-  (U2: the permission, the receiver), `app/build.gradle.kts` (U2: `androidTestImplementation` of
-  `okhttp-mockwebserver` and `okhttp-tls`, already in the version catalog), this plan, this agent's
-  `docs/SESSION_STATE.md` section.
+  (`YftNavigationSmokeTest.kt`, `DesignRenderTest.kt`: a third parameter), `YftDestinationTest.kt`
+  (`UPDATES`: its title, full screen), `AndroidManifest.xml` (U2: the permission, the receiver),
+  `app/build.gradle.kts` (U2: `androidTestImplementation` of `okhttp-mockwebserver` and
+  `okhttp-tls`, already in the version catalog), this plan, this agent's `docs/SESSION_STATE.md`
+  section.
 - **Not touched:** `HomeScreen.kt` and every Home file, `AboutScreen.kt`, the shared docs (§2.4).
-- **Tests:** §6 (new files, and the two lambdas).
+- **Tests:** §6 (new files, the two lambdas, `YftDestinationTest.kt`).
 
 ## 5. Steps
 
@@ -457,14 +462,17 @@ link stays the fallback).
   no Cookie); 200 → `Available` or `UpToDate`; offline (no server, `DISCONNECT_AT_START`) and a
   timeout → `Offline`, not counted; 403 with `x-ratelimit-remaining: 0` and a reset →
   `RateLimited(until)` and no request before it, not even on Check now; 429 with `retry-after`; 403
-  without rate headers and 5xx → `Failed`; once a day (23 h → no request, 24 h → one, the clock back
-  → one); the switch off → no request on open, Check now still asks; the policy off (another signer)
-  → no request, no row.
+  without rate headers and 5xx → `Failed`; redirects only to the allowed HTTPS hosts, at most 5. The
+  gate's cases run in `UpdateControllerTest` on a fake check: once a day (23 h → no request, 24 h →
+  one, the clock back → one); the switch off → no request on open, Check now still asks; the policy
+  off (another signer) → no request, no row.
 - `UpdateControllerTest`: the row's states ("Not checked yet"; "Up to date" only after a good
   answer; New with the version); the screen's states and lines ("Checking…", "No connection.",
   "GitHub is busy…" with its time, "Couldn't check…"); the auto-open bookkeeping (once per version;
   the stored code; Check now counts as opened; the switch off → never); the found update dropped
-  after an update; one check at a time.
+  after an update; one check at a time. `PreferencesUpdateStoreTest` (Robolectric): every field
+  kept, cleared fields removed, a damaged or foreign value read as unset. Helpers:
+  `UpdateTestKit.kt` (an in-memory store, a fake check), `ReleaseFixtures.kt` (the releases JSON).
 - U2: `Sha256SumsTest` (formats, no line, two lines, bad hex); `UpdateDownloaderTest`
   (MockWebServer: OK; another hash → file deleted; short and long bodies; a redirect to an allowed
   host OK, to `http:` or another host refused; over the cap; Cancel deletes); `ApkCheckTest` on
@@ -482,9 +490,10 @@ link stays the fallback).
   the exact link (U1), the security line; without: the latest line and Last checked,
   "Not checked yet", Check now and its lines; the switch and its text; "(test)");
   `UpdateAutoOpenTest` (opens once per version from Home; not over another screen, then at the next
-  open; not again after Back; not after Check now). Edited: only the `settingsContent` lambdas of
-  `YftNavigationSmokeTest.kt` and `DesignRenderTest.kt` (a third parameter); `SettingsScreenTest`
-  passes as it is (the About row still has "Version" and the version).
+  open; not again after Back; not after Check now). Edited: the `settingsContent` lambdas of
+  `YftNavigationSmokeTest.kt` and `DesignRenderTest.kt` (a third parameter) and
+  `YftDestinationTest.kt` (`UPDATES`); `SettingsScreenTest` passes as it is (the About row still has
+  "Version" and the version).
 
 ### 6.2 Emulator (`connectedDebugAndroidTest`, the Emulator smoke, API 34)
 
@@ -516,8 +525,8 @@ link stays the fallback).
 - Before a push, CI's set: `./gradlew --no-daemon lintDebug testDebugUnitTest :core-model:test
   :extractor-api:test :extractor-generic:test :extractor-sites:test :app:assembleDebug
   :app:assembleRelease`; U2 also the Emulator smoke (`connectedDebugAndroidTest`, CI only).
-- The sandbox has no Android SDK yet; JDK 17 and the SDK (platform 35) can be fetched there for the
-  JVM runs, to save CI rounds. CI stays the proof.
+- The agent's sandbox has JDK 17 and the Android SDK (platform 35) outside the repo, for the JVM
+  runs and the builds before a push, to save CI rounds. CI stays the proof.
 
 ## 8. Release placement and time
 
@@ -588,6 +597,14 @@ link stays the fallback).
   after A's and VK's preview tests, the old preview uninstalled first; rc.1 the owner's choice at
   release time. Plan revised (docs only); U1 re-estimated at 6–8 h. Next: STOP — the owner's go
   after his S5 run 3; then U1 → U2 without a stop.
+- 2026-10-25 (MMT), the owner's go (S5 run 3 passed; the plan `1a354a3` approved as written, §11's
+  About line for the release commit): **U1** — §4.7's U1 files and §6.1's tests, checkpoint
+  `checkpoint(phase-in-app-update): U1: …` (its SHA, the U1 cut, and CI in the next entry). Where U1
+  differs from the plan as written: the store is an app-private `SharedPreferences` file
+  (`update_opened_version`, a prerelease having no code); the release's `UpdateBuild` in
+  `src/release/kotlin`; `YftDestinationTest.kt` edited for the new destination; the link without a
+  browser selector (§4.3). Next: U2 without a stop; U2 not green by 2026-10-26 24:00 MMT → a report,
+  and v1.0.0 takes the U1 cut.
 
 ## Appendix — the agent's prompt
 
