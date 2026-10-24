@@ -10,6 +10,8 @@ import com.alal.yft.core.model.download.DownloadFailureReason
 import com.alal.yft.core.model.download.DownloadFailureStage
 import com.alal.yft.core.model.download.DownloadSegment
 import com.alal.yft.core.model.download.DownloadTaskStatus
+import com.alal.yft.core.model.download.HlsTransferCheckpoint
+import com.alal.yft.core.model.download.StreamChunkCheckpoint
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
@@ -66,6 +68,69 @@ class RoomDownloadTaskStoreTest {
         assertEquals(DownloadFailureReason.EXPIRED_URL, restored.failureReason)
         assertNull(restored.failure)
     }
+
+    /** D1 follow-up 3: a remuxed HLS download keeps its MP4's size after a restart. */
+    @Test
+    fun aCompletedHlsTaskKeepsThePublishedFileSizeAfterARestart() = runBlocking {
+        val task = hlsTask(DownloadTaskStatus.COMPLETED, shownBytes = 8)
+
+        RoomDownloadTaskStore(dao).save(task)
+
+        assertEquals(8L, dao.records.getValue(ID).totalBytes)
+        assertEquals(8L, dao.records.getValue(ID).downloadedBytes)
+        val restored = RoomDownloadTaskStore(dao).loadAll().single()
+        assertEquals(task, restored)
+        assertEquals(10L, restored.checkpoint.downloadedBytes)
+    }
+
+    /** D1 follow-up 3: a task that is not a completed HLS one shows its checkpoint's bytes. */
+    @Test
+    fun anUnfinishedHlsTaskStillShowsItsCheckpointBytesAfterARestart() = runBlocking {
+        RoomDownloadTaskStore(dao).save(hlsTask(DownloadTaskStatus.COMPLETED, shownBytes = 8))
+        dao.upsert(dao.records.getValue(ID).copy(status = DownloadTaskStatus.FAILED.name))
+
+        val restored = RoomDownloadTaskStore(dao).loadAll().single()
+
+        assertEquals(DownloadTaskStatus.FAILED, restored.status)
+        assertEquals(10L, restored.downloadedBytes)
+        assertNull(restored.totalBytes)
+    }
+
+    /** D1 follow-up 3: a completed HLS task saved before keeps the pieces' size it showed. */
+    @Test
+    fun aCompletedHlsTaskSavedBeforeKeepsItsSize() = runBlocking {
+        RoomDownloadTaskStore(dao).save(hlsTask(DownloadTaskStatus.COMPLETED, shownBytes = 10))
+
+        val restored = RoomDownloadTaskStore(dao).loadAll().single()
+
+        assertEquals(10L, restored.downloadedBytes)
+        assertEquals(10L, restored.totalBytes)
+    }
+
+    private fun hlsTask(status: DownloadTaskStatus, shownBytes: Long) = StoredDownloadTask(
+        id = ID,
+        displayName = "clip.mp4",
+        status = status,
+        planType = DownloadPlanType.HLS,
+        totalBytes = shownBytes,
+        downloadedBytes = shownBytes,
+        mimeType = "video/mp4",
+        destinationKind = DownloadDestinationKind.MEDIA_STORE,
+        destinationUri = "content://media/external/video/media/1",
+        preferredSegmentCount = 1,
+        requiresLinkRefresh = false,
+        failureReason = null,
+        // The pieces: 10 bytes.
+        checkpoint = HlsTransferCheckpoint(
+            manifestFingerprint = "a".repeat(64),
+            chunks = listOf(
+                StreamChunkCheckpoint(0, 6, completed = true),
+                StreamChunkCheckpoint(1, 4, completed = true),
+            ),
+        ),
+        createdAtEpochMs = 1,
+        updatedAtEpochMs = 2,
+    )
 
     private fun task(
         failureReason: DownloadFailureReason?,

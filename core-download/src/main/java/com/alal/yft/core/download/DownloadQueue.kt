@@ -750,8 +750,14 @@ class DownloadQueue(
         val current = taskLocked(id) ?: return@withLock
         val publishedUri = runtimeTasks[id]?.destination?.publishedUri
         val checkpointBytes = result.checkpoint.downloadedBytes
-        val totalBytes = when (current.planType) {
-            DownloadPlanType.AUDIO_VIDEO_MUX -> null
+        // D1 follow-up 3: an HLS download shows the size of the file it published (the MP4 or
+        // M4A made from its pieces, or a kept .ts, .aac or .mp3), not the pieces': one size on
+        // every screen.
+        val publishedBytes = result.bytesWritten
+            .takeIf { current.planType.showsPublishedBytes(DownloadTaskStatus.COMPLETED) }
+        val totalBytes = when {
+            publishedBytes != null -> publishedBytes
+            current.planType == DownloadPlanType.AUDIO_VIDEO_MUX -> null
             else -> (current.totalBytes ?: result.bytesWritten)
                 .coerceAtLeast(checkpointBytes)
         }
@@ -762,7 +768,7 @@ class DownloadQueue(
             mimeType = published?.mimeType ?: current.mimeType,
             status = DownloadTaskStatus.COMPLETED,
             totalBytes = totalBytes,
-            downloadedBytes = checkpointBytes,
+            downloadedBytes = publishedBytes ?: checkpointBytes,
             requiresLinkRefresh = false,
             failureReason = null,
             failure = null,

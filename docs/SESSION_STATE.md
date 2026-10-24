@@ -792,9 +792,10 @@ Keep at least the heading and one blank line between sections, so Git merges the
   counted, then only with his OK.
 - State: D1 committed; D1 follow-up (`f5effc1`) red on Emulator smoke (its type rule wrong); D1
   follow-up 2 (`d1bd432`, either MPEG-TS type) green on CI, the bytes check included; D2
-  (`835af64`) and D3 (`cfa39c7`) green on CI; D4 committed (this checkpoint), the last item.
-  Next: D4's CI green, then the Burmese report with the phone checklist; no PR until the owner
-  says.
+  (`835af64`), D3 (`cfa39c7`) and D4 (`abac20e`) green on CI. The owner's phone test of
+  `abac20e`'s preview (2026-10-25): D1–D4 pass, one D1 bug (two sizes for a remuxed HLS
+  download); D1 follow-up 3 committed (this checkpoint). Next: its CI green, then a short Burmese
+  report; no merge, no PR, no phone APK (the owner checks it at #12).
 
 ### D1 — HLS saved as `.m3u8` (Pornhub, JAV)
 
@@ -827,9 +828,9 @@ Keep at least the heading and one blank line between sections, so Git merges the
   source (ffmpeg framemd5), AAC sample bytes equal ffmpeg's own remux, `elst` equal ffmpeg's.
 - Backlog (not in D1's scope): a site's container `matroska`/`quicktime` still taken as an
   extension; a direct (non-HLS) `.ts` link stays `.ts` (no remux); a task's total bytes after a
-  remux stay the pieces' bytes; HEVC or MP3 inside TS → kept `.ts`; packed MP3 pieces keep their
-  inner ID3 tags (as before); a crash between rename and commit may resume a renamed `.ts` row
-  under the planned name.
+  remux stay the pieces' bytes (fixed by D1 follow-up 3); HEVC or MP3 inside TS → kept `.ts`;
+  packed MP3 pieces keep their inner ID3 tags (as before); a crash between rename and commit may
+  resume a renamed `.ts` row under the planned name.
 - D1 validation (local, 2026-10-24): `:core-model:test :core-download:testDebugUnitTest` →
   core-download 265 tests, 0 failures after one D1 test's expectation was corrected (packed MP3
   pieces are joined whole); `:app:testDebugUnitTest :app:compileDebugAndroidTestKotlin` → 1118
@@ -985,8 +986,42 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `testDebugUnitTest -x :app:testDebugUnitTest` (core-model 142 = 138 + 4, core-data 35 =
   33 + 2, the other modules as in D3) and `:app:testDebugUnitTest` (1126, the HomeScreen logo
   test widened, 66 skipped) → 0 failures; `:app:assembleDebug :app:assembleRelease` → BUILD
-  SUCCESSFUL; no new line over 100 characters. CI: after the push.
+  SUCCESSFUL; no new line over 100 characters. CI (`abac20e`): checkpoint validation run
+  40100415386, Preview APK run 40100415355 and Emulator smoke run 40100415357 green.
 - Backlog: Home shows four tiles and scrolls sideways for the rest, so on the owner's phone
   (YouTube, Facebook, TikTok, VK) Instagram and X come fifth and sixth, after a sideways swipe;
   a version 1 list the user made without an old default is moved as before (not at all), so it
   gets neither.
+
+### D1 follow-up 3 — one size for a remuxed HLS download
+
+- Found (the owner's phone test of `abac20e`'s preview, 2026-10-25: D1–D4 pass, one D1 bug): an
+  HLS download remuxed to MP4 showed two sizes for the same file, the Downloads card "480p ·
+  223 MB" (the downloaded TS pieces) and Home's Recent card "480p · 213 MB" (the saved MP4); it
+  was in D1's backlog ("a task's total bytes after a remux stay the pieces' bytes").
+- Cause: `DownloadQueue.completeTask` set `totalBytes` to `(current.totalBytes ?: bytesWritten)
+  .coerceAtLeast(checkpoint.downloadedBytes)` and `downloadedBytes` to the checkpoint's, so the
+  pieces' size won over the published file's; Recent and Library read the saved file itself.
+- Fix: a completed HLS task's size is the file it published (`bytesWritten`: the MP4 or M4A
+  made from its pieces, or the kept `.ts`, `.aac` or `.mp3`), as both its total and its
+  downloaded bytes (downloaded ≤ total kept), so every screen that shows the task (the
+  Downloads card and details, the notifications) says what Home and Library say; its checkpoint
+  keeps the pieces' bytes. `StoredDownloadTask` accepts that for a completed HLS task only
+  (`showsPublishedBytes`; every other task still shows exactly its checkpoint's bytes) and
+  `RoomDownloadTaskStore` keeps it across a restart (a completed HLS row whose stored downloaded
+  bytes equal its total). Pieces that are only joined (fragmented MP4) write their own bytes, so
+  they show the same as before; DIRECT, DASH and merged downloads unchanged.
+- Tests: `StreamDownloadQueueTest` (+3: a remux, pieces 10 and MP4 8 → total and downloaded 8,
+  the checkpoint 10, the store the same; a kept `.ts` of 9 → 9 and 9; DASH and merged downloads
+  unchanged), `RoomDownloadTaskStoreTest` (+3: a completed HLS task keeps 8 after a restart; a
+  row that is not a completed HLS one shows its checkpoint's bytes; a completed HLS row saved
+  before keeps its size). Without the fix four of them fail (the two HLS queue tests and the
+  first two store tests).
+- Validation (local, 2026-10-25): `lintDebug` → 0 errors, no issue in a changed file;
+  `testDebugUnitTest -x :app:testDebugUnitTest` (core-download 274 = 268 + 6, the other modules
+  as in D4) and `:app:testDebugUnitTest` (1126, 66 skipped) → 0 failures; `:app:assembleDebug
+  :app:assembleRelease` → BUILD SUCCESSFUL; no new line over 100 characters. CI: after the push.
+- Backlog: a converted MP3 or a sound-only M4A (DIRECT, T18 and P3) shows its downloaded
+  source's size and a merged download its tracks' bytes, not the saved file's (other plan types
+  unchanged, as the owner said); a completed HLS task saved before this fix keeps the pieces'
+  size it showed (no migration).

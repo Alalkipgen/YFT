@@ -27,6 +27,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -104,6 +105,85 @@ class StreamDownloadQueueTest {
             assertEquals("video/mp2t", completed.mimeType)
             assertEquals(completed.displayName, store.loadAll().single().displayName)
             assertEquals("video/mp2t", store.loadAll().single().mimeType)
+        }
+
+    @Test
+    fun `D1 follow-up 3 an HLS download remuxed to MP4 shows the MP4 size not the pieces`() =
+        runTest {
+            // The pieces are 10 bytes, the MP4 made from them 8 (the owner's 223 MB and 213 MB).
+            val dispatcher = ControlledDispatcher(bytesWritten = 8)
+            val store = InMemoryStore()
+            val queue = DownloadQueue(
+                store = store,
+                transferDispatcher = dispatcher,
+                scope = backgroundScope,
+                maxConcurrentDownloads = 1,
+            )
+
+            queue.enqueue(hlsPlan("remuxed"), RecordingDestination())
+            runCurrent()
+            dispatcher.complete("remuxed")
+            runCurrent()
+
+            val completed = queue.tasks.value.single()
+            assertEquals(DownloadTaskStatus.COMPLETED, completed.status)
+            assertEquals(8L, completed.totalBytes)
+            assertEquals(8L, completed.downloadedBytes)
+            assertEquals(10L, completed.checkpoint.downloadedBytes)
+            assertEquals(completed, store.loadAll().single())
+        }
+
+    @Test
+    fun `D1 follow-up 3 an HLS download kept as TS shows the size of the kept file`() =
+        runTest {
+            val dispatcher = ControlledDispatcher(
+                publishedAs = PublishedFile("kept.ts", "video/mp2t"),
+                bytesWritten = 9,
+            )
+            val queue = DownloadQueue(
+                store = InMemoryStore(),
+                transferDispatcher = dispatcher,
+                scope = backgroundScope,
+                maxConcurrentDownloads = 1,
+            )
+
+            queue.enqueue(hlsPlan("kept"), RecordingDestination())
+            runCurrent()
+            dispatcher.complete("kept")
+            runCurrent()
+
+            val completed = queue.tasks.value.single()
+            assertEquals("kept.ts", completed.displayName)
+            assertEquals(9L, completed.totalBytes)
+            assertEquals(9L, completed.downloadedBytes)
+        }
+
+    @Test
+    fun `D1 follow-up 3 DASH and merged downloads keep the sizes they showed before`() =
+        runTest {
+            val dispatcher = ControlledDispatcher(bytesWritten = 8)
+            val queue = DownloadQueue(
+                store = InMemoryStore(),
+                transferDispatcher = dispatcher,
+                scope = backgroundScope,
+                maxConcurrentDownloads = 2,
+            )
+
+            queue.enqueue(dashPlan("dash", MediaTrackType.VIDEO), RecordingDestination())
+            queue.enqueue(muxPlan("mux"), RecordingDestination())
+            runCurrent()
+            dispatcher.complete("dash")
+            dispatcher.complete("mux")
+            runCurrent()
+
+            val dash = queue.tasks.value.single { it.id == "dash" }
+            assertEquals(DownloadTaskStatus.COMPLETED, dash.status)
+            assertEquals(10L, dash.totalBytes)
+            assertEquals(10L, dash.downloadedBytes)
+            val mux = queue.tasks.value.single { it.id == "mux" }
+            assertEquals(DownloadTaskStatus.COMPLETED, mux.status)
+            assertNull(mux.totalBytes)
+            assertEquals(10L, mux.downloadedBytes)
         }
 
     @Test
@@ -297,6 +377,8 @@ class StreamDownloadQueueTest {
         private val progressBytes: Long? = null,
         /** D1: the name and type a completed transfer reports it was published as. */
         private val publishedAs: PublishedFile? = null,
+        /** D1 follow-up 3: the bytes of the file a completed transfer published. */
+        private val bytesWritten: Long = 10,
     ) : DownloadTransferDispatcher {
         val active = AtomicInteger()
         val resumeCheckpoints = ConcurrentHashMap<String, TransferCheckpoint>()
@@ -322,7 +404,7 @@ class StreamDownloadQueueTest {
                 val completed = checkpoint(plan, bytes = 10, complete = true)
                 onCheckpoint(completed)
                 QueueTransferResult.Completed(
-                    bytesWritten = 10,
+                    bytesWritten = bytesWritten,
                     checkpoint = completed,
                     publishedAs = publishedAs,
                 )
