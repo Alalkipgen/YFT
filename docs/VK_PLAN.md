@@ -312,6 +312,7 @@ stay. A test fails if a fixture holds a real-looking signature or cookie.
 
 - 2026-10-24: plan recorded (docs only), branch made from `8dc46ff`. Next: VK0.
 - 2026-10-24: the owner — the agent finds public VK links itself; his sign-in link at VK3.
+- 2026-10-24: the owner's sign-in links (VK messenger channel posts) recorded in §5.1.
 
 ## Appendix — the agent's prompt
 
