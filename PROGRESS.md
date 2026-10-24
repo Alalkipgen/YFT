@@ -1,5 +1,25 @@
 # YFT Master Extractor backup
 
+## Social plan — S5's run 2 of 3 PASS on every site (2026-10-24)
+
+- **S5's run 2** (decision 26; the owner, 2026-10-24 01:14–01:18 UTC, 7 h 47–48 min after run 1;
+  `ac0dd2c`'s APK, no code change since; mobile data): **PASS on every site, counted** — TikTok
+  01:14 UTC (VPN on), Facebook 01:16, Instagram 01:17, X 01:18: wrong rows 0 on each (Master's
+  rows 6, 9, 6 and 6, each the same video or item, V pass), NO CHANGE against run 1 on each;
+  Instagram's slot 5 not as expected (main's known signed-out gap, as its baseline); Facebook's
+  slot 12 and Instagram's slot 10 ambiguous (no session).
+- **TikTok's notes** read `recipes: bundled (not asked yet)` (the other three: `remote version 7,
+  signed`): the census reads its notes when a run starts, before the screen's own ask on open had
+  answered; version 7 is `defaults` (no site and no rung changed), so the recipes were the same
+  either way and TikTok's parts match run 1. Run 3: RUN TIKTOK once the screen reads `remote
+  version 7, signed`.
+- Docs: the plan (the status lines, the Burmese summary, the S5 rows, the gate's state, §7.4's
+  results, decision 26's status), `docs/PHONE_TEST_NOTES.md` (S5's run 2), `docs/TEST_MATRIX.md`
+  (1 row) and this entry.
+- **Next:** S5's run 3 per site from 2026-10-24 17:27–17:31 UTC (24 h after run 1); the same way;
+  no label and no change to a site's pack, the engine or main meanwhile (it restarts that site's
+  count). Then decision 30's order (§8 (iv)).
+
 ## Social plan — decision 30: the signed release carries Master on (2026-10-23)
 
 - **Decision 30** (the owner, 2026-10-23, in chat after S5's run 1; plan §8): the signed

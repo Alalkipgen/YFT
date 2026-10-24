@@ -60,8 +60,9 @@ S6; debug only, behind the flag) built (2026-10-23; §7.3, §8). S4's phone sess
 Facebook plugin player's stand-in file and the video's own page) a bug, fixed by task 18 (the open
 read and L3 never take a player's stand-in file, a site's build resource or the video's own page;
 debug only, behind the flag) built (2026-10-23; §7.3). The re-drill on task 18's APK (2026-10-23,
-`ac0dd2c`; §7.4): PASS. S5 (decision 26) on that APK: run 1 of 3 PASS on every site (2026-10-23
-17:27–17:31 UTC, version 7: wrong rows 0, NO CHANGE); next: its run 2, then its run 3 (§7.4).
+`ac0dd2c`; §7.4): PASS. S5 (decision 26) on that APK: runs 1 and 2 of 3 PASS on every site
+(2026-10-23 17:27–17:31 UTC and 2026-10-24 01:14–01:18 UTC: wrong rows 0, NO CHANGE); next: its
+run 3, from 2026-10-24 17:27–17:31 UTC (§7.4).
 Decision 30 (the owner, 2026-10-23; §8): the signed release carries Master on and shows no lookup
 details (a hidden Show details), for 5–10 friends; after S5's gate, one release commit, Preview #12
 (normal and trial), PR #2's merge, then P8.**
@@ -376,9 +377,9 @@ details (a hidden Show details), for 5–10 friends; after S5's gate, one releas
   rows 3) က bug — task 18 မှာ ပြင်ပြီး (player ရဲ့ stand-in file၊ site ရဲ့ build resource (`/rsrc.php/`)၊
   video ရဲ့ ကိုယ်ပိုင် page ကို L3 နဲ့ open read က ဘယ်တော့မှ မယူ)။ task 18 ရဲ့ APK (`ac0dd2c`) နဲ့
   re-drill PASS (2026-10-23: key ပြောင်းထားချိန် "2 files by shape (key table changed)"၊ Master rows 2၊
-  duration yes; version 7 မှာ defaults ပြန်; B3 short set)။ S5 run 1/3 PASS (site ၄ ခုလုံး၊ 2026-10-23
-  17:27–17:31 UTC၊ version 7၊ wrong rows 0၊ NO CHANGE)။ နောက်တစ်ဆင့်: run 2 (run 1 ပြီး ၆ နာရီနောက်)၊
-  run 3 (run 2 ပြီး ၆ နာရီ၊ run 1 ပြီး ၂၄ နာရီနောက်)။ S5 ပြီးတဲ့အထိ site ရဲ့ pack၊ engine၊ main ကို
+  duration yes; version 7 မှာ defaults ပြန်; B3 short set)။ S5 run 1/3 နဲ့ 2/3 PASS (site ၄ ခုလုံး၊
+  2026-10-23 17:27–17:31 UTC နဲ့ 2026-10-24 01:14–01:18 UTC၊ wrong rows 0၊ NO CHANGE)။ နောက်တစ်ဆင့်:
+  run 3 (2026-10-24 17:27–17:31 UTC နောက်ပိုင်း၊ run 2 ပြီး ၆ နာရီ၊ run 1 ပြီး ၂၄ နာရီနောက်)။ S5 ပြီးတဲ့အထိ site ရဲ့ pack၊ engine၊ main ကို
   မပြောင်း (ပြောင်းရင် အဲဒီ site ရဲ့ count ပြန်စ)။
 
 ## 1. Audit — what exists today
@@ -709,7 +710,7 @@ With no adapter copies (B), the build is also about 4,700 lines smaller than the
 | **S2d** | M | Instagram's pack by the Instagram check's verdict (0.2); the owner's signed-in census first (§7.3) | the same — part 1 built (2026-10-22, behind the flag: I2 and the tab-fetch probe, off by default); the phone (2026-10-22, `36ec093`): A PASS on 3 sessions, wrong 0; the probe: slot 5 video yes, slot 9 no; part 2 (the probe's rung, decision 24): built (task 13, 2026-10-22; behind its own switch, off by default: decision 28), its phone proof (2026-10-23, `c3e9147`): slot 5 rescued, 2 of 2; tasks 12 and 14 built; task 15 built (F1–F5, F3b; §7.3); task 16 built (F6: a row without a stated size takes its file's own, every site's; §7.3); the retest next (§7.4) |
 | **S3** | S–M | Weekly check W for all four + runbook (each CHANGED / BREAKING line and its fix: a data change via R9, or code) | the owner's first W run — built (2026-10-22, debug only, a social-ladder build: the census's "Weekly check W"; its runbook §7.5); its first runs C1–C3 PASS (2026-10-22, `36ec093`; W's baselines per network and session: decision 25); 2026-10-23 (`c3e9147`): NO CHANGE but Instagram on New York (every ask walled: the exit's address; task 15's F5 built: such a run is never a baseline, the stored one set aside) |
 | **S4** | S | R9 live: the signed config hosted (§8 item 5, decided 2026-10-22: the agent makes the key and the hosting); kill switch per rung; one repair drill (a key changed by config on the phone, no APK) | drill passed — built (task 17, 2026-10-23, `2dcd0d1`; debug only, a social-ladder build: the key in the secret `YFT_RECIPE_KEY`, the config on the branch `recipes` by the `master-recipes-publish` workflow, `rungsOff`; §7.3); the drill: S4's phone session PASS (2026-10-23, steps 1–5; §7.4), its O1 fixed by task 18 (`ac0dd2c`); the re-drill PASS (2026-10-23, `ac0dd2c`'s APK, versions 6 and 7; §7.4) |
-| **S5** | — | Promote per site after 3 phone runs by decision 26's rule (each at least 6 h after the previous one, the first and the last at least 24 h apart, on an APK of the final code, only where Master ran) with 0 wrong rows and no regression against B0; then the release gate (§7.3): all four sites, the first W run and the R9 drill passed, the intended differences in `docs/SUPPORT_MATRIX.md` → PR #2 merged → P8 (beta.4) | the owner's go — run 1 of 3 PASS on every site (2026-10-23 17:27–17:31 UTC, `ac0dd2c`'s APK, version 7: wrong rows 0, NO CHANGE; §7.4) |
+| **S5** | — | Promote per site after 3 phone runs by decision 26's rule (each at least 6 h after the previous one, the first and the last at least 24 h apart, on an APK of the final code, only where Master ran) with 0 wrong rows and no regression against B0; then the release gate (§7.3): all four sites, the first W run and the R9 drill passed, the intended differences in `docs/SUPPORT_MATRIX.md` → PR #2 merged → P8 (beta.4) | the owner's go — runs 1 and 2 of 3 PASS on every site (2026-10-23 17:27–17:31 UTC and 2026-10-24 01:14–01:18 UTC, `ac0dd2c`'s APK: wrong rows 0, NO CHANGE; §7.4) |
 | **S1b** | M | After the release, on the owner's go: the rest of the kit — several request rungs per site with `SiteHealth` (the last good rung first) and self-healed values (L6). Needed only if X2 is allowed or Instagram's `doc_id` needs self-healing: Facebook, TikTok and Instagram each have one request rung in S1a–S2d | JVM tests; phone proof per site |
 | **S6** | M | **B+** (the owner's go, after the release and B's phone proof): when main's answer is weak by an objective signal (no HD row, no sound row), Master adds only the missing formats; main's rows stay (merge rule); budgeted | phone proof; **A** only if B+ is measured insufficient (decision 7) |
 
@@ -1470,20 +1471,20 @@ others get the app.
 
 **The gate's state** (after the phone sessions of 2026-10-22 and 2026-10-23 and tasks 12–16, the
 retest, all PASS on 2026-10-23, task 17 (S4) built, S4's phone session PASS (2026-10-23), task
-18 (its O1) built, its re-drill PASS and S5's run 1 of 3 PASS on every site (2026-10-23); kept
-current by each commit):
+18 (its O1) built, its re-drill PASS and S5's runs 1 and 2 of 3 PASS on every site (2026-10-23 and
+2026-10-24); kept current by each commit):
 
 | Site | Its pack and phone proof | W's first run (C) | Intended differences listed | S5 (decision 26) |
 | --- | --- | --- | --- | --- |
-| Facebook | S1a built; phone proof PASS (2026-10-21); A PASS (2026-10-22, `430da9f`); links 1 and 10 PASS (2026-10-23, `c3e9147`); task 16 built (F6: the rows' sizes from their files); the retest PASS (2026-10-23, `a87820e`: link 1's rows 720p · HD and 360p with their sizes, a download plays with sound); S4's phone session PASS (2026-10-23, `2dcd0d1`: the drill's key change read by shape, link 1's rows as before and playing; on the defaults again rows 2; links 1 and 10 as B3), its O1 (the open read's stand-in file and page link) fixed by task 18 (`ac0dd2c`); the re-drill PASS (2026-10-23, `ac0dd2c`: the key change read "2 files by shape", Master's rows 2, duration yes, a download plays with sound; on version 7 rows 2; link 10 as B3) | C1, C2 PASS; NO CHANGE on New York and without the VPN (2026-10-23) | Master's rows 2 against main's 3 (task 7; decision 29: intended, never a wrong row, not blocking S5) | run 1 of 3 PASS (2026-10-23 17:28 UTC: wrong rows 0, NO CHANGE) |
-| TikTok | S2b built; main PASS (`36ec093`); T1 proven on New York (rows 6 of 6, wrong 0); T2 untested; slots 1 and 6 PASS on New York (2026-10-23; again in S4's phone session and in the re-drill) | C1 PASS (VPN only: no network without it); NO CHANGE on New York (2026-10-23) | T1 one row, at most 1280 (decision 23) | run 1 of 3 PASS (2026-10-23 17:27 UTC, New York: wrong rows 0, NO CHANGE); its census run of 14:15 UTC on `2dcd0d1`'s APK not counted (task 18) |
-| X | S2c and task 0 built; A PASS (`36ec093`); task 12 built (the first lookup, X1's lines kept); task 14 built (the 404's and the tombstones' words: main's, with Try again; the empty tombstone's: the sign-in words); 2026-10-23 PASS: slot 6 3 = 3 on the first lookup, slots 7 and 8 task 14's words; S4's phone session (2026-10-23): slot 6 3 = 3 on the first lookup, slot 8 main's words; again in the re-drill | C1, C2 PASS; NO CHANGE on New York and without the VPN (2026-10-23) | `{}`, the notice tombstone, the 404 never final (decision 21) | run 1 of 3 PASS (2026-10-23 17:31 UTC: wrong rows 0, NO CHANGE) |
-| Instagram | S2d part 1 built; A PASS on 3 sessions; task 12 built (the first lookup, I2's lines kept); part 2 (decision 24) built (task 13: the rung, its own switch off by default, decision 28); the rung's phone proof PASS (2026-10-23: slot 5 rescued, 2 of 2); task 14 built (a wall's words: main's sign-in words, e.g. slot 9; seen 2026-10-23); task 15 built (F1–F5, F3b), task 16 built (F6); the retest PASS (2026-10-23, `a87820e`: F1, F2, F3, F3b, F4); S4's phone session (2026-10-23): the probe off by config not run (version 3), the rung's row on the first Download (version 4), slots 1 and 8 as B3, L3 seen; the re-drill: slots 1 and 8 as B3 | C1, C2, C3 PASS; NO CHANGE without the VPN, signed out and signed in (2026-10-23); on New York every ask walled (02:24 UTC: the exit's address; F5 built: never a baseline, the stored one set aside); the retest's W (2026-10-23, `a87820e`): NO CHANGE without the VPN and on New York, the walled baseline set aside (F5 seen) | the 360p file, never "removed" (decision 20) | run 1 of 3 PASS (2026-10-23 17:29 UTC, signed out: wrong rows 0, NO CHANGE; slot 5 main's known signed-out gap, as its baseline) |
+| Facebook | S1a built; phone proof PASS (2026-10-21); A PASS (2026-10-22, `430da9f`); links 1 and 10 PASS (2026-10-23, `c3e9147`); task 16 built (F6: the rows' sizes from their files); the retest PASS (2026-10-23, `a87820e`: link 1's rows 720p · HD and 360p with their sizes, a download plays with sound); S4's phone session PASS (2026-10-23, `2dcd0d1`: the drill's key change read by shape, link 1's rows as before and playing; on the defaults again rows 2; links 1 and 10 as B3), its O1 (the open read's stand-in file and page link) fixed by task 18 (`ac0dd2c`); the re-drill PASS (2026-10-23, `ac0dd2c`: the key change read "2 files by shape", Master's rows 2, duration yes, a download plays with sound; on version 7 rows 2; link 10 as B3) | C1, C2 PASS; NO CHANGE on New York and without the VPN (2026-10-23) | Master's rows 2 against main's 3 (task 7; decision 29: intended, never a wrong row, not blocking S5) | runs 1 and 2 of 3 PASS (2026-10-23 17:28 and 2026-10-24 01:16 UTC: wrong rows 0, NO CHANGE) |
+| TikTok | S2b built; main PASS (`36ec093`); T1 proven on New York (rows 6 of 6, wrong 0); T2 untested; slots 1 and 6 PASS on New York (2026-10-23; again in S4's phone session and in the re-drill) | C1 PASS (VPN only: no network without it); NO CHANGE on New York (2026-10-23) | T1 one row, at most 1280 (decision 23) | runs 1 and 2 of 3 PASS (2026-10-23 17:27 UTC, New York; 2026-10-24 01:14 UTC, VPN on: wrong rows 0, NO CHANGE; run 2's notes `recipes: bundled (not asked yet)`, §7.4); its census run of 14:15 UTC on `2dcd0d1`'s APK not counted (task 18) |
+| X | S2c and task 0 built; A PASS (`36ec093`); task 12 built (the first lookup, X1's lines kept); task 14 built (the 404's and the tombstones' words: main's, with Try again; the empty tombstone's: the sign-in words); 2026-10-23 PASS: slot 6 3 = 3 on the first lookup, slots 7 and 8 task 14's words; S4's phone session (2026-10-23): slot 6 3 = 3 on the first lookup, slot 8 main's words; again in the re-drill | C1, C2 PASS; NO CHANGE on New York and without the VPN (2026-10-23) | `{}`, the notice tombstone, the 404 never final (decision 21) | runs 1 and 2 of 3 PASS (2026-10-23 17:31 and 2026-10-24 01:18 UTC: wrong rows 0, NO CHANGE) |
+| Instagram | S2d part 1 built; A PASS on 3 sessions; task 12 built (the first lookup, I2's lines kept); part 2 (decision 24) built (task 13: the rung, its own switch off by default, decision 28); the rung's phone proof PASS (2026-10-23: slot 5 rescued, 2 of 2); task 14 built (a wall's words: main's sign-in words, e.g. slot 9; seen 2026-10-23); task 15 built (F1–F5, F3b), task 16 built (F6); the retest PASS (2026-10-23, `a87820e`: F1, F2, F3, F3b, F4); S4's phone session (2026-10-23): the probe off by config not run (version 3), the rung's row on the first Download (version 4), slots 1 and 8 as B3, L3 seen; the re-drill: slots 1 and 8 as B3 | C1, C2, C3 PASS; NO CHANGE without the VPN, signed out and signed in (2026-10-23); on New York every ask walled (02:24 UTC: the exit's address; F5 built: never a baseline, the stored one set aside); the retest's W (2026-10-23, `a87820e`): NO CHANGE without the VPN and on New York, the walled baseline set aside (F5 seen) | the 360p file, never "removed" (decision 20) | runs 1 and 2 of 3 PASS (2026-10-23 17:29 and 2026-10-24 01:17 UTC, signed out: wrong rows 0, NO CHANGE; slot 5 main's known signed-out gap, as its baseline) |
 
 Every site: S4 built (task 17, 2026-10-23: R9 live in a social-ladder build; L1 and L3 fixed); its
 drill passed (S4's phone session, 2026-10-23, §7.4), its O1 fixed by task 18, its re-drill passed
-(2026-10-23, §7.4); S5's run 1 of 3 passed on every site (2026-10-23); next: S5's runs 2 and 3,
-then PR #2's merge, P8. Task 12
+(2026-10-23, §7.4); S5's runs 1 and 2 of 3 passed on every site (2026-10-23,
+2026-10-24); next: S5's run 3, then PR #2's merge, P8. Task 12
 changed the engine for every site's claimed lookups (the capture's answer keeps the ladder's lines)
 and the trial's lookups (main asked every time), task 13 Instagram's pack (the rung), task 14 the
 words of every site's claimed lookups that need playback (words only), task 15 Instagram's pack
@@ -2106,6 +2107,26 @@ run 1 (from 2026-10-23 23:27–23:31 UTC), run 3 at least 6 h after run 2 and 24
 2026-10-24 17:27–17:31 UTC); the same way; no label and no change to a site's pack, the engine or
 main meanwhile (it restarts that site's count).
 
+**S5's run 2 (decision 26; the owner, 2026-10-24, 7 h 47–48 min after run 1; mobile data): PASS
+on every site, counted.** TikTok 01:14 UTC (VPN on): wrong rows 0 (Master's parts 9, rows 6, the
+same video 6, V pass 6), all 9 slots as expected, NO CHANGE against run 1 (2026-10-23 17:27 UTC).
+Facebook 01:16 UTC: wrong rows 0 (parts 13, rows 9, the same video 9, V pass 9; Master's rows 2
+against main's 3 on slots 1–8 and 11), not as expected 0, ambiguous 1 (slot 12, no session), NO
+CHANGE against run 1. Instagram 01:17 UTC: wrong rows 0 (parts 7, rows 6, the same item 6, V pass
+6), not as expected 1 (slot 5, main's known signed-out gap, as its baseline), ambiguous 1 (slot
+10), NO CHANGE against run 1. X 01:18 UTC: wrong rows 0 (parts 8, rows 6, the same item 6, V pass
+6), all 8 as expected, NO CHANGE against run 1. Main's V passed on every row it checked (6, 11, 6
+and 6; fail 0). *The recipes:* Facebook's, Instagram's and X's notes read `recipes: remote version
+7, signed`, TikTok's `recipes: bundled (not asked yet)`: the census reads its notes when a run
+starts, and the screen's own ask on open (bounded, in the background) had not answered yet.
+Version 7 is `defaults` (`extractor-master/recipes/configs/defaults.json`: no site and no rung
+changed), so TikTok's ladder read the same recipes either way, and its parts match run 1 (the same
+rows, rungs and answers). Counted: Master ran on every site; no code change since `ac0dd2c`.
+*Next:* run 3 per site from 2026-10-24 17:27–17:31 UTC (24 h after run 1; 6 h after run 2 already
+passed); the same way, RUN TIKTOK once the census screen reads `recipes: remote version 7, signed`;
+no label and no change to a site's pack, the engine or main meanwhile (it restarts that site's
+count).
+
 **For S2b (TikTok), noted now** (inputs to S2b's design, §7.3; not decided):
 
 - T2 before T1: T2 reads main's pages (`MainPages`, S1a (2)) with no fetch, so a success saves an
@@ -2437,8 +2458,9 @@ status):
   APK of the final code — a change to that site's pack, the engine or main restarts that site's
   count; a run where Master did not run (a 429, a cooldown, not reached) does not count. One
   session may run all four sites. Each counted run: wrong rows 0, no regression against the
-  site's baseline (as before). *Status:* started (2026-10-23): run 1 of 3 PASS on every site
-  (17:27–17:31 UTC, `ac0dd2c`'s APK, version 7; §7.4); runs 2 and 3 next. Before it: tasks 12–16
+  site's baseline (as before). *Status:* started (2026-10-23): runs 1 and 2 of 3 PASS on every site
+  (2026-10-23 17:27–17:31 UTC and 2026-10-24 01:14–01:18 UTC, `ac0dd2c`'s APK; §7.4); run 3 next
+  (from 2026-10-24 17:27–17:31 UTC). Before it: tasks 12–16
   change the engine and
   Instagram's and X's lookups (task 15 also W and the failure sheet; task 16 every site's Master
   rows without a stated size), and task 17 (S4) the engine and every site's pack; S4's phone

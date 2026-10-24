@@ -1,4 +1,4 @@
-# Phone test notes: the social plan (S1a phone proof; §7.4 A, B and C; the retests of tasks 12–14 and 15–16), 2026-10-21 to 2026-10-23
+# Phone test notes: the social plan (S1a phone proof; §7.4 A, B and C; the retests of tasks 12–14 and 15–16), 2026-10-21 to 2026-10-24
 
 The owner's phone sessions, logged while they ran and pushed as docs only. The test posts' links,
 post IDs and post words stay on the phone and are left out here.
@@ -773,3 +773,34 @@ published 17:02 and 17:11 UTC (`MASTER_KEY_SOCIAL_PLAN.md` §7.4).
   to the defaults, B3's short set.
 - S5: run 1 of 3 on every site; run 2 per site from 6 h later (2026-10-23 23:27–23:31 UTC), run 3
   from 2026-10-24 17:27–17:31 UTC and 6 h after run 2.
+
+## 2026-10-24 — S5's run 2 on `social-trial` ac0dd2c (run 39981426179)
+Rebuilt from the owner's census reports in the session; the phone's own notes, links and posts stay
+on the phone. 7 h 47–48 min after run 1; mobile data; signed out; the VPN for TikTok only.
+
+### S5's run 2 — the census, every site (mobile data) — PASS, counted
+- TikTok, VPN on, 01:14 UTC: 9 rows, 56 requests, 1.5 MB, 57 s; NO CHANGE against 2026-10-23 17:27
+  UTC (run 1); all 9 as expected; main's V pass 6; ladder: parts 9, rows 6, the same video 6, V pass
+  6, wrong 0, unknown 0 (as run 1: T1's rows on slots 1–5 and 10; slots 8 and 9 needs playback;
+  slot 6 route B NO_MEDIA_FOUND, T1 not run (final)).
+- Facebook, no VPN, 01:16 UTC: 13 rows, 73 requests, 5.5 MB, 58 s; NO CHANGE against 2026-10-23
+  17:28 UTC; not as expected 0, ambiguous 1 (slot 12 sign-in-only, no session); main's V pass 11;
+  ladder: parts 13, rows 9, the same video 9, V pass 9, wrong 0, unknown 0 (as run 1).
+- Instagram, no VPN, signed out, 01:17 UTC: 10 rows, 46 requests, 2.0 MB, 35 s; NO CHANGE against
+  2026-10-23 17:29 UTC; not as expected 1 (slot 5 reel LOGIN_REQUIRED [browser], = baseline,
+  main's known signed-out gap), ambiguous 1 (slot 10 removed, no session); main's V pass 6; ladder:
+  parts 7, rows 6, the same item 6, V pass 6, wrong 0, unknown 0 (as run 1).
+- X, no VPN, 01:18 UTC: 8 rows, 36 requests, 0.1 MB, 9 s; NO CHANGE against 2026-10-23 17:31 UTC;
+  all 8 as expected; main's V pass 6; ladder: parts 8, rows 6, the same item 6, V pass 6, wrong 0,
+  unknown 0 (as run 1).
+- Recipes: Facebook's, Instagram's and X's notes `recipes: remote version 7, signed`; TikTok's
+  `recipes: bundled (not asked yet)` — the census reads its notes when a run starts, and the
+  screen's own ask on open had not answered yet. Version 7 is `defaults` (no site and no rung
+  changed), so TikTok's ladder read the same recipes either way; its parts match run 1 (the same
+  rows, rungs and answers).
+- Counted for S5 (decision 26): Master ran on every site; no code change since `ac0dd2c`.
+
+### Verdict of S5's run 2
+- S5: runs 1 and 2 of 3 on every site; run 3 per site from 2026-10-24 17:27–17:31 UTC (24 h after
+  run 1). Before RUN TIKTOK, the census screen's line should read `recipes: remote version 7,
+  signed`.
