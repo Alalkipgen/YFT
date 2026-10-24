@@ -784,8 +784,10 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - Plan: `docs/VK_PLAN.md` (the owner's request, 2026-10-24). Branch made from PR #2's head
   `8dc46ff` (`spike/master-extractor-backup`); it never merges into PR #2; after PR #2's merge,
   `main` is merged into it (VK4).
-- State (2026-10-24): **VK1 + VK2 done** — next: CI green, then STOP for the owner. VK3 (CI,
-  preview APK, the phone) only with his OK; no VK APK on his phone before S5's run 3 is counted.
+- State (2026-10-25): **VK3 PASS** (the owner's phone, below). This branch's code (`f2433a1`)
+  passed VK3 and stays the fallback: nothing more on this branch. Next: VK5 (path D, public 18+
+  videos; the owner, 2026-10-25) on `work/phase-vk-path-d`, made from this record commit. VK4 is
+  now only a merge, at the owner's word (VK_PLAN on that branch).
 - VK0 (done): results in `docs/VK_PLAN.md` §11, sanitized fixtures in
   `extractor-sites/src/test/resources/fixtures/vk/` (README there). Found: the page (A) carries no
   player data (VK's login redirect + SPA shell); the embed `video_ext.php` (B) works without a
@@ -809,6 +811,26 @@ Keep at least the heading and one blank line between sections, so Git merges the
   fixtures' URL keys; the registration line in `SiteAdapterModule.kt`. Plan: §4 as built, §5.3
   the tests, §12 the owner's answers.
 - The owner's sign-in links (VK messenger channel posts, the plan's §5.1): only on his phone at VK3.
+- **VK3 (2026-10-25 MMT): PASS** — the owner's phone, `f2433a1`'s preview (Preview APK run #81).
+  - Public, signed out: links 1–5 found, Russian titles correct — `video-50883936_456244102` up
+    to 2160p; `video-18403220_456239696` 1080p/720p/480p; `clip30014565_456240946`
+    1080p/720p/480p; `video-140332_456239111` 720p MP4 + 480p HLS, no thumbnail;
+    `vkvideo.ru/video-18403220_456239696` the same as on `vk.com`.
+  - Downloads on the clip: 1080p, 480p and an Audio row play with sound. No other downloads (rows
+    0.5–3.5 GB on mobile data); no HLS download (this preview lacks the D1 fix on
+    `work/phase-download-fixes`; checked at #12).
+  - Sign-in part, with his own links instead of cmid=2/3: the VHS Video channel page
+    (`m.vk.ru/mail/channels/…`) has no video id, not claimed (§8); the generic finder shows
+    "Messenger · MP3 104 KB". Its video on `m.vkvideo.ru/video-5…`: VK's own page shows "Video
+    unavailable"; YFT `NO_MEDIA_FOUND` (B `vk.com` 200 not found, B2 `vk.ru` 200 not found), the
+    "isn't available" message and Try again — correct.
+  - 18+ videos (`video-215889201_456243439` and others): public, they play signed out on
+    `vkvideo.ru`, but the embed answers "may contain adult content … can't be viewed on external
+    sites"; YFT `NO_MEDIA_FOUND`, "isn't available". Expected for v1; VK5 (path D) handles them.
+  - TikTok, Facebook, Instagram, X: one lookup each, video rows as before; 4 Audio rows on each
+    (M4A + MP3 320/192/128), expected without D2 on `work/phase-download-fixes` (after the merge:
+    M4A + MP3 192).
+  - Later (no fix now): the finished live's thumbnail; the Messenger page's MP3 row.
 - Rules: the plan's §2 (no push to `main` or PR #2, no label, no `recipes` branch, no VK APK on
   the owner's phone before S5's run 3 is counted).
 - Validation: `./gradlew --no-daemon :extractor-sites:test` (VK only:
