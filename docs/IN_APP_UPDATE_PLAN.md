@@ -645,6 +645,14 @@ link stays the fallback).
   session that waits for Android; §6.2's GitHub an in-test interceptor, not MockWebServer, so
   `app/build.gradle.kts` is unchanged. Next: CI green (the Emulator smoke included; the branch's
   Preview APK for U3), then STOP with a short Burmese report.
+- 2026-10-25 (MMT): U2's checkpoint is `6883e4d`. Its CI: Work-branch checkpoint validation
+  40131269232 and Preview APK (test key) 40131269208 success; the Android emulator smoke 40131269200
+  failed in the new test only (59 tests, 2 failures): steps 2 and 5 waited for Android's installer
+  in UiAutomator, where Compose's test clock stands still, so the app's confirmation starter (a
+  composition) never ran — the state already held Android's confirmation, so the checks, the session
+  and its status all worked on API 34; steps 1, 3 and 4 passed. The test now waits through Compose
+  (`checkpoint(phase-in-app-update): U2: wait for Android's installer through Compose`; its SHA and
+  CI in the next entry). No app change.
 
 ## Appendix — the agent's prompt
 

@@ -786,17 +786,19 @@ Keep at least the heading and one blank line between sections, so Git merges the
   made from PR #2's head `8dc46ff` (`spike/master-extractor-backup`).
 - State (2026-10-25 MMT): **U1 green** — the U1 cut `e615a96` (CI all success: checkpoint validation
   40123514346, Emulator smoke 40123514304, Preview APK 40123514313). **U2 done** — checkpoint
-  `checkpoint(phase-in-app-update): U2: the download in YFT, the three checks, Android's installer`
-  (its SHA and CI in the next checkpoint): Download APK to update now runs in YFT
-  (`UpdateInstallFlow`, one for the process): allowed to install? → free space → the release's
-  `SHA256SUMS` line → the APK into the cache (check 1, the checksum) → check 2, the signature →
-  check 3, the package and version → Android's installer, where the user confirms (YFT never
-  installs by itself); Cancel; every failure says which step, "Nothing was installed." and Download
-  in browser; Reinstall this build (test) in debug and preview only. The manifest:
-  `REQUEST_INSTALL_PACKAGES` and the unexported `InstallStatusReceiver`. Beside the plan's letter:
-  plan §12's U2 entry. Next: CI green (the Emulator smoke runs `UpdateInstallInstrumentedTest`; the
-  Preview APK for U3), then STOP with a short Burmese report. Time box: U2 not green by 2026-10-26
-  24:00 MMT → a report; v1.0.0 takes the U1 cut.
+  `6883e4d` (`checkpoint(phase-in-app-update): U2: the download in YFT, the three checks, Android's
+  installer`): Download APK to update now runs in YFT (`UpdateInstallFlow`, one for the process):
+  allowed to install? → free space → the release's `SHA256SUMS` line → the APK into the cache (check
+  1, the checksum) → check 2, the signature → check 3, the package and version → Android's
+  installer, where the user confirms (YFT never installs by itself); Cancel; every failure says
+  which step, "Nothing was installed." and Download in browser; Reinstall this build (test) in debug
+  and preview only. The manifest: `REQUEST_INSTALL_PACKAGES` and the unexported
+  `InstallStatusReceiver`. Its CI: validation and Preview APK green; the Emulator smoke red in the
+  new test only (it waited for Android's installer outside Compose's test clock; plan §12) → the
+  test fixed in the next checkpoint (no app change; its CI in the next one). Beside the plan's
+  letter: plan §12's U2 entries. Next: CI green (the Emulator smoke runs
+  `UpdateInstallInstrumentedTest`; the Preview APK for U3), then STOP with a short Burmese report.
+  Time box: U2 not green by 2026-10-26 24:00 MMT → a report; v1.0.0 takes the U1 cut.
 - The owner's review: no Home card, no About change, no dialog; the Version row's version on its
   second line; every text a true claim (U1 never says "verified").
 - Merge (the owner's order, only when he says): A → VK → this branch into

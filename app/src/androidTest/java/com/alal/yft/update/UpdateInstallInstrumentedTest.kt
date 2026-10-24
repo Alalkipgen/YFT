@@ -273,9 +273,9 @@ class UpdateInstallInstrumentedTest {
 
     private fun cancelAndroidsInstaller() {
         val installer = By.pkg(INSTALLER)
-        check(device.wait(Until.hasObject(installer), WAIT_MILLIS)) {
-            "Android's installer did not open; ${flow.state.value}"
-        }
+        // Compose's test clock moves only while the test waits through Compose, and the app starts
+        // Android's confirmation from a composition: a wait in UiAutomator would stop it.
+        waitFor("Android's installer") { device.hasObject(installer) }
         val cancel = device.wait(
             Until.findObject(By.pkg(INSTALLER).res("android:id/button2")),
             5_000,
