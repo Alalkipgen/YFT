@@ -2,6 +2,8 @@ package com.alal.yft.update
 
 import android.app.Application
 import android.content.Intent
+import android.content.pm.PackageInstaller
+import android.provider.Settings
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
@@ -55,20 +57,29 @@ class UpdatesScreenTest {
     private val shown = mutableStateOf(
         UpdateState(mode = UpdateMode.RELEASE, installedName = "1.0.0", autoCheck = true),
     )
+    private val install = mutableStateOf<InstallState>(InstallState.Idle)
     private var checks = 0
     private val switched = mutableListOf<Boolean>()
     private var backs = 0
+    private val downloads = mutableListOf<String>()
+    private var cancels = 0
+    private var reinstalls = 0
 
-    private fun setContent(onDownload: ((FoundUpdate) -> Boolean)? = null) {
+    /** [onOpenLink] null: the screen's own link opener, as in the app. */
+    private fun setContent(onOpenLink: ((FoundUpdate) -> Boolean)? = null) {
         composeRule.setContent {
             YftTheme(themeMode = ThemeMode.LIGHT) {
-                if (onDownload == null) {
+                if (onOpenLink == null) {
                     UpdatesScreen(
                         state = shown.value,
                         onNavigateBack = { backs += 1 },
                         onCheckNow = { checks += 1 },
                         onAutoCheckChanged = { switched += it },
                         times = times,
+                        install = install.value,
+                        onDownload = { downloads += it.version.name },
+                        onCancel = { cancels += 1 },
+                        onReinstall = { reinstalls += 1 },
                     )
                 } else {
                     UpdatesScreen(
@@ -77,7 +88,11 @@ class UpdatesScreenTest {
                         onCheckNow = { checks += 1 },
                         onAutoCheckChanged = { switched += it },
                         times = times,
-                        onDownload = onDownload,
+                        install = install.value,
+                        onDownload = { downloads += it.version.name },
+                        onCancel = { cancels += 1 },
+                        onReinstall = { reinstalls += 1 },
+                        onOpenLink = onOpenLink,
                     )
                 }
             }
@@ -113,20 +128,107 @@ class UpdatesScreenTest {
         composeRule.onNodeWithTag("updates-download").assert(hasText("Download APK to update"))
         composeRule.onNodeWithTag("updates-security")
             .assert(hasText("Signed by YFT · checked before install"))
-        // U1 never says "verified", and has no Check now while an update waits.
+        // Nothing says "verified" before the checks passed; no Check now while an update waits.
         composeRule.onAllNodesWithText("Verified", substring = true, ignoreCase = true)
             .assertCountEquals(0)
         composeRule.onAllNodesWithTag("updates-check-now").assertCountEquals(0)
         composeRule.onAllNodesWithText("(test)", substring = true).assertCountEquals(0)
+        // The release has no reinstall test.
+        composeRule.onAllNodesWithTag("updates-test").assertCountEquals(0)
+
+        // The button runs the in-app update; nothing leaves YFT.
+        composeRule.onNodeWithTag("updates-download").performScrollTo().performClick()
+        assertEquals(listOf("1.0.1"), downloads)
+        assertNull(shadowOf(context).nextStartedActivity)
     }
 
     @Test
-    fun theButtonOpensTheExactApkLinkInTheBrowser() {
-        val update = found("v1.0.1")
-        shown.value = shown.value.copy(found = update)
+    fun downloadingShowsTheProgressAndCancel() {
+        shown.value = shown.value.copy(found = found("v1.0.1"))
+        install.value = InstallState.Downloading(percent = 42)
         setContent()
 
-        composeRule.onNodeWithTag("updates-download").performScrollTo().performClick()
+        composeRule.onNodeWithTag("updates-progress").assert(hasText("Downloading… 42%"))
+        composeRule.onAllNodesWithTag("updates-download").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Verified", substring = true, ignoreCase = true)
+            .assertCountEquals(0)
+        composeRule.onNodeWithTag("updates-cancel").performScrollTo().performClick()
+        assertEquals(1, cancels)
+    }
+
+    @Test
+    fun verifiedOnlyOnceEveryCheckPassed() {
+        shown.value = shown.value.copy(found = found("v1.0.1"))
+        install.value = InstallState.Installing(test = false)
+        setContent()
+
+        composeRule.onNodeWithTag("updates-security")
+            .assert(hasText("Verified: checksum and signature match"))
+        composeRule.onAllNodesWithTag("updates-download").assertCountEquals(0)
+        // Cancel also while Android's installer waits.
+        composeRule.onNodeWithTag("updates-cancel").performScrollTo().performClick()
+        assertEquals(1, cancels)
+    }
+
+    @Test
+    fun eachFailureSaysWhichStepThenNothingWasInstalled() {
+        shown.value = shown.value.copy(found = found("v1.0.1"))
+        install.value = InstallState.Failed(false, InstallFailure.NoSpace)
+        setContent()
+
+        val failures = listOf(
+            InstallFailure.NoSpace to "Not enough free space for the update.",
+            InstallFailure.NoChecksum to
+                "This release has no checksum for its APK, so YFT can't check it.",
+            InstallFailure.DownloadStopped to "The download stopped. Check the connection.",
+            InstallFailure.DownloadFailed to "Couldn't download the update.",
+            InstallFailure.ChecksumMismatch to
+                "Checksum doesn't match — the download was damaged or changed.",
+            InstallFailure.Check(ApkVerdict.SignatureMismatch) to
+                "Signature doesn't match your YFT.",
+            InstallFailure.Check(ApkVerdict.OtherApp) to "This file is a different app.",
+            InstallFailure.Check(ApkVerdict.NotThatVersion("v1.0.1")) to
+                "This file isn't YFT v1.0.1.",
+            InstallFailure.Check(ApkVerdict.NotNewer) to "This file isn't newer than your YFT.",
+            InstallFailure.Android(PackageInstaller.STATUS_FAILURE_CONFLICT) to
+                "Android couldn't install the update (conflict).",
+            InstallFailure.NoInstaller to "Android's installer didn't open.",
+        )
+        failures.forEach { (failure, text) ->
+            install.value = InstallState.Failed(test = false, failure = failure)
+            composeRule.onNodeWithTag("updates-problem-text").assert(hasText(text))
+            composeRule.onNodeWithTag("updates-nothing-installed")
+                .assert(hasText("Nothing was installed."))
+            composeRule.onNodeWithTag("updates-browser").assert(hasText("Download in browser"))
+            // The button stays: the user may try again.
+            composeRule.onNodeWithTag("updates-download").assertIsEnabled()
+            composeRule.onAllNodesWithText("Verified", substring = true, ignoreCase = true)
+                .assertCountEquals(0)
+        }
+    }
+
+    @Test
+    fun androidsStatusesInWords() {
+        val names = mapOf(
+            PackageInstaller.STATUS_FAILURE to "failed",
+            PackageInstaller.STATUS_FAILURE_BLOCKED to "blocked",
+            PackageInstaller.STATUS_FAILURE_INVALID to "invalid APK",
+            PackageInstaller.STATUS_FAILURE_CONFLICT to "conflict",
+            PackageInstaller.STATUS_FAILURE_STORAGE to "not enough storage",
+            PackageInstaller.STATUS_FAILURE_INCOMPATIBLE to "incompatible",
+            8 to "timed out",
+            -1 to "status -1",
+        )
+        names.forEach { (status, name) -> assertEquals(name, installStatusName(status)) }
+    }
+
+    @Test
+    fun downloadInBrowserOpensTheExactApkLink() {
+        shown.value = shown.value.copy(found = found("v1.0.1"))
+        install.value = InstallState.Failed(false, InstallFailure.DownloadStopped)
+        setContent()
+
+        composeRule.onNodeWithTag("updates-browser").performScrollTo().performClick()
 
         val intent = shadowOf(context).nextStartedActivity
         assertEquals(Intent.ACTION_VIEW, intent.action)
@@ -141,16 +243,74 @@ class UpdatesScreenTest {
     }
 
     @Test
-    fun noBrowserSaysSo() {
+    fun cancelledSaysSoAndNoBrowserSaysSo() {
         val opened = mutableListOf<FoundUpdate>()
         shown.value = shown.value.copy(found = found("v1.0.1"))
-        setContent(onDownload = { opened += it; false })
+        install.value = InstallState.Cancelled(test = false)
+        setContent(onOpenLink = { opened += it; false })
 
-        composeRule.onNodeWithTag("updates-download").performScrollTo().performClick()
+        composeRule.onNodeWithTag("updates-problem-text").assert(hasText("Update cancelled."))
+        composeRule.onNodeWithTag("updates-nothing-installed")
+            .assert(hasText("Nothing was installed."))
+        composeRule.onNodeWithTag("updates-browser").performScrollTo().performClick()
 
         composeRule.onNodeWithTag("updates-link-failed").performScrollTo()
             .assert(hasText("No app can open this link."))
         assertEquals(listOf("1.0.1"), opened.map { it.version.name })
+    }
+
+    @Test
+    fun notAllowedSendsToAndroidsSettingsForYft() {
+        shown.value = shown.value.copy(found = found("v1.0.1"))
+        install.value = InstallState.NotAllowed(test = false)
+        setContent()
+
+        composeRule.onNodeWithTag("updates-not-allowed")
+            .assert(hasText("Allow YFT to install updates, then tap Download APK to update again."))
+        // Nothing was downloaded, so nothing to say about an install.
+        composeRule.onAllNodesWithTag("updates-problem").assertCountEquals(0)
+        composeRule.onNodeWithTag("updates-open-settings").performScrollTo().performClick()
+
+        val intent = shadowOf(context).nextStartedActivity
+        assertEquals(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, intent.action)
+        assertEquals("package:${context.packageName}", intent.dataString)
+    }
+
+    @Test
+    fun testModeHasTheReinstallTest() {
+        shown.value = shown.value.copy(
+            mode = UpdateMode.TEST,
+            installedName = "1.0.0-beta.3-debug",
+            found = found("v1.0.0-beta.4"),
+        )
+        setContent()
+
+        composeRule.onNodeWithTag("updates-test").performScrollTo()
+            .assert(
+                hasAnyDescendant(hasText("Tries Android's installer with this build's own APK.")),
+            )
+        composeRule.onNodeWithTag("updates-reinstall")
+            .assert(hasText("Reinstall this build (test)"))
+            .performClick()
+        assertEquals(1, reinstalls)
+
+        install.value = InstallState.Installing(test = true)
+        composeRule.onNodeWithText("Test: this build's own APK, signature matches")
+            .assertExists()
+        // The release's card claims nothing for the test, and waits.
+        composeRule.onAllNodesWithText("Verified", substring = true, ignoreCase = true)
+            .assertCountEquals(0)
+        composeRule.onNodeWithTag("updates-download").assertIsNotEnabled()
+        composeRule.onNodeWithTag("updates-cancel").performScrollTo().performClick()
+        assertEquals(1, cancels)
+
+        install.value =
+            InstallState.Failed(true, InstallFailure.Check(ApkVerdict.SignatureMismatch))
+        composeRule.onNodeWithTag("updates-problem-text")
+            .assert(hasText("Signature doesn't match your YFT."))
+        // No release, so no link.
+        composeRule.onAllNodesWithTag("updates-browser").assertCountEquals(0)
+        composeRule.onNodeWithTag("updates-download").assertIsEnabled()
     }
 
     @Test

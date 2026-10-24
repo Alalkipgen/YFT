@@ -784,15 +784,19 @@ Keep at least the heading and one blank line between sections, so Git merges the
 - Plan: `docs/IN_APP_UPDATE_PLAN.md` (the owner's request, 2026-10-24: the in-app update ships in
   v1.0.0, the first stable release, with A and VK; revised after his review the same day). Branch
   made from PR #2's head `8dc46ff` (`spike/master-extractor-backup`).
-- State (2026-10-25 MMT): **U1 done** — checkpoint `checkpoint(phase-in-app-update): U1: the check,
-  the Updates row and screen, the link` (its CI in the next checkpoint). The check (api.github.com,
-  at most once a day when YFT opens, and Check now; the release-key build only, test mode in debug
-  and preview), Settings → About's Updates row (a New badge) and the Updates screen (opens by itself
-  once per new version, from Home only), Download APK to update → the user's browser. The store: an
-  app-private `SharedPreferences` file (`update`). Next, without a stop: U2 (the download in YFT;
-  checksum → signature → package and version; Android's installer; Reinstall this build (test)),
-  then STOP with a short Burmese report. Time box: U2 not green by 2026-10-26 24:00 MMT → a report;
-  v1.0.0 takes the U1 cut.
+- State (2026-10-25 MMT): **U1 green** — the U1 cut `e615a96` (CI all success: checkpoint validation
+  40123514346, Emulator smoke 40123514304, Preview APK 40123514313). **U2 done** — checkpoint
+  `checkpoint(phase-in-app-update): U2: the download in YFT, the three checks, Android's installer`
+  (its SHA and CI in the next checkpoint): Download APK to update now runs in YFT
+  (`UpdateInstallFlow`, one for the process): allowed to install? → free space → the release's
+  `SHA256SUMS` line → the APK into the cache (check 1, the checksum) → check 2, the signature →
+  check 3, the package and version → Android's installer, where the user confirms (YFT never
+  installs by itself); Cancel; every failure says which step, "Nothing was installed." and Download
+  in browser; Reinstall this build (test) in debug and preview only. The manifest:
+  `REQUEST_INSTALL_PACKAGES` and the unexported `InstallStatusReceiver`. Beside the plan's letter:
+  plan §12's U2 entry. Next: CI green (the Emulator smoke runs `UpdateInstallInstrumentedTest`; the
+  Preview APK for U3), then STOP with a short Burmese report. Time box: U2 not green by 2026-10-26
+  24:00 MMT → a report; v1.0.0 takes the U1 cut.
 - The owner's review: no Home card, no About change, no dialog; the Version row's version on its
   second line; every text a true claim (U1 never says "verified").
 - Merge (the owner's order, only when he says): A → VK → this branch into
@@ -813,4 +817,5 @@ Keep at least the heading and one blank line between sections, so Git merges the
   request or label, no `recipes` branch, no release or tag, no APK on the owner's phone before S5's
   run 3 is counted).
 - Validation: `./gradlew --no-daemon :app:testDebugUnitTest --tests 'com.alal.yft.update.*'`; before
-  a push, CI's set (plan §7); U2 also the Emulator smoke.
+  a push, CI's set (plan §7); U2 also the Emulator smoke (`UpdateInstallInstrumentedTest`, plan
+  §6.2: GitHub played by an in-test interceptor; Android's installer always cancelled).

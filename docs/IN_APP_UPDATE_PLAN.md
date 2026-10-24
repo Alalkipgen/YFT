@@ -55,8 +55,8 @@ floor; U2 joins on time (§8), else v1.0.1.
   "YFT only contacts the sites you open…" က update check ကြောင့် မမှန်တော့။ ဒီ branch က About
   မပြင်လို့ release commit မှာ update check ကို ထည့်ရေးဖို့ (§11)။
 - **Tests:** JVM — version/tag (`v` ပါ/မပါ)၊ asset ရွေး၊ notes၊ offline၊ rate limit၊ တစ်ရက်တစ်ခါ၊
-  row/screen state၊ ကိုယ်တိုင်ပွင့်ပုံ၊ U2 စစ်ချက် ၃ ခုနဲ့ အစဉ်၊ security line။ Emulator — local
-  HTTPS server၊ Android installer window ပေါ်တဲ့အထိ → Cancel။
+  row/screen state၊ ကိုယ်တိုင်ပွင့်ပုံ၊ U2 စစ်ချက် ၃ ခုနဲ့ အစဉ်၊ security line။ Emulator — GitHub
+  အတု (test ထဲက OkHttp interceptor၊ redirect ပါ)၊ Android installer window ပေါ်တဲ့အထိ → Cancel။
 - **A/VK နဲ့ ထိတဲ့ file:** code file မတူ (A/VK က Settings၊ nav၊ `YftApp.kt`၊ `MainActivity.kt`၊
   manifest၊ Gradle ကို မထိ; U က Home ကို မထိတော့)။ တူတာ `docs/SESSION_STATE.md` ပဲ။
 - **အချိန် (MMT):** U1 ≈ 6–8 h (row/screen/ကိုယ်တိုင်ပွင့်ဖို့ +2 h) + CI → Oct 25 ည green → report
@@ -236,11 +236,12 @@ notes; a beta channel for friends; signing-key rotation; any server but GitHub.
 
 ### 4.4 U2 — download, checks, Android's installer
 
-The button stays **Download APK to update**; in U2 it runs these steps in order, in
-`UpdateController`'s scope (it outlives the screen; **Cancel** stops it). Every failure from step 2
-on shows which step failed, "Nothing was installed." and **Download in browser** (U1's link). The
-three checks run in the owner's order — checksum, signature, package and version — and only then the
-installer:
+The button stays **Download APK to update**; in U2 it runs these steps in order in
+`UpdateInstallFlow` (one for the process, beside `UpdateController`: it outlives the screen;
+**Cancel** stops the download, or gives up the session while Android's confirmation waits). Every
+failure from step 2 on shows which step failed, "Nothing was installed." and **Download in browser**
+(U1's link). The three checks run in the owner's order — checksum, signature, package and version —
+and only then the installer:
 
 1. **Allowed to install?** `canRequestPackageInstalls()` (API 26+) false → "Allow YFT to install
    updates, then tap Download APK to update again." with **Open settings**
@@ -251,7 +252,8 @@ installer:
 3. **`SHA256SUMS`:** GET the asset (≤ 16 KB); take the line for exactly
    `video-downloader-<version>.apk` (two spaces or ` *`, CRLF, either hex case; two different lines
    → refuse). No file or no line → "This release has no checksum for its APK, so YFT can't check
-   it."
+   it." No connection, or it broke → "The download stopped. Check the connection."; another answer,
+   or an address off §4.6's hosts → "Couldn't download the update." (the same two in step 4).
 4. **Download; check 1 — the checksum:** `browser_download_url` → GitHub's redirect (HTTPS, §4.6's
    hosts) into `cacheDir/updates/yft-update.apk` (one fixed name: no download queue, no MediaStore,
    no `FileNames`); the SHA-256 computed while writing; a progress bar, "Downloading… 42%" and
@@ -270,13 +272,16 @@ installer:
    (`MODE_FULL_INSTALL`, `setAppPackageName`, `setSize`, `setInstallReason(USER)` on 26+,
    `setRequireUserAction(USER_ACTION_REQUIRED)` on 31+), the checked file written into it, committed
    with a mutable `PendingIntent` to the unexported `InstallStatusReceiver`.
-   `STATUS_PENDING_USER_ACTION` → its confirmation intent goes to `UpdateController`; YFT starts it
+   `STATUS_PENDING_USER_ACTION` → its confirmation intent goes to `UpdateInstallFlow`; YFT starts it
    while it is in front (`UpdateAutoOpen` in `YftApp.kt`; Android's own screen; never from the
    background — else at YFT's next resume). `STATUS_SUCCESS` → Android replaces YFT; settings and
    downloads stay. `STATUS_FAILURE_ABORTED` → "Update cancelled."; any other status → "Android
-   couldn't install the update (<status>)."; each with "Nothing was installed." and the link.
-8. **Cleanup:** the cached APK is deleted when a check fails or its session ends; at the next start,
-   a left-over file and YFT's own stale sessions (`mySessions`) are removed.
+   couldn't install the update (<status>)."; a confirmation that doesn't open → "Android's installer
+   didn't open." (the session given up); each with "Nothing was installed." and the link.
+8. **Cleanup:** the cached APK is deleted when a check fails, and as soon as it is written into the
+   session (the session holds its own copy); at the next start, a left-over file and YFT's own stale
+   sessions (`mySessions`) are removed; a status for a session nothing waits for any more gives it
+   up.
 9. **Test mode only — "Reinstall this build (test)":** this build's own `base.apk` goes through
    steps 5, 6 and 7's session (the same package and signer; its versionCode must equal the installed
    one); instead of "Verified…" its line is "Test: this build's own APK, signature matches" — it is
@@ -359,7 +364,11 @@ starts Android's confirmation, §4.4 step 7):
   (Hilt); `UpdateBuild.kt` in `app/src/debug/java/`, `app/src/preview/java/` and
   `app/src/release/kotlin/` (§4.1) under `com/alal/yft/update/`.
 - **New (U2):** `Sha256Sums.kt`, `UpdateDownloader.kt`, `ApkCheck.kt`, `UpdateInstaller.kt`,
-  `InstallStatusReceiver.kt`.
+  `InstallStatusReceiver.kt`, `UpdateInstallFlow.kt` (the steps and their state, one for the
+  process). Edited in U2: `UpdateChecker.kt` (`UpdateHttp.execute` hands out each hop's call, so
+  Cancel stops the one in flight), `UpdateModule.kt` (the shared environment; the flow),
+  `UpdatesViewModel.kt`, `UpdatesScreen.kt` (§4.5's U2 column), `UpdateAutoOpen.kt` (the
+  confirmation).
 - **Edited (small):** `feature/settings/SettingsScreen.kt` (the Version row's version →
   `supporting`; the Updates row; `ValueRow`'s optional badge; `SettingsScreen`'s two new parameters
   with defaults; `SettingsRoute`), `ui/navigation/YftDestination.kt` (`UPDATES`),
@@ -368,9 +377,8 @@ starts Android's confirmation, §4.4 step 7):
   `MainActivity.kt` (inject; `onStart` → `onAppOpened()`), the two tests' `settingsContent` lambdas
   (`YftNavigationSmokeTest.kt`, `DesignRenderTest.kt`: a third parameter), `YftDestinationTest.kt`
   (`UPDATES`: its title, full screen), `AndroidManifest.xml` (U2: the permission, the receiver),
-  `app/build.gradle.kts` (U2: `androidTestImplementation` of `okhttp-mockwebserver` and
-  `okhttp-tls`, already in the version catalog), this plan, this agent's `docs/SESSION_STATE.md`
-  section.
+  `app/build.gradle.kts` unchanged (§6.2 needs no new library), this plan, this agent's
+  `docs/SESSION_STATE.md` section.
 - **Not touched:** `HomeScreen.kt` and every Home file, `AboutScreen.kt`, the shared docs (§2.4).
 - **Tests:** §6 (new files, the two lambdas, `YftDestinationTest.kt`).
 
@@ -473,16 +481,27 @@ link stays the fallback).
   after an update; one check at a time. `PreferencesUpdateStoreTest` (Robolectric): every field
   kept, cleared fields removed, a damaged or foreign value read as unset. Helpers:
   `UpdateTestKit.kt` (an in-memory store, a fake check), `ReleaseFixtures.kt` (the releases JSON).
-- U2: `Sha256SumsTest` (formats, no line, two lines, bad hex); `UpdateDownloaderTest`
-  (MockWebServer: OK; another hash → file deleted; short and long bodies; a redirect to an allowed
-  host OK, to `http:` or another host refused; over the cap; Cancel deletes); `ApkCheckTest` on
-  fakes (the package; the code: a stable tag's exactly and above the installed, a test-mode
-  prerelease's not below, the reinstall test's equal; signer sets — equal, different, empty, other
-  order); `InstallStatusTest` (each `PackageInstaller` status → its text, "Nothing was installed."
-  and the link); `UpdateControllerTest`'s U2 cases: the order (a bad checksum stops before the APK
-  is read, a bad signature before the package check, any failure before a session) and the security
-  lines per state (never "Verified" before all three checks pass, never in U1, the reinstall test's
-  own line).
+- U2: `Sha256SumsTest` (both modes and cases, CRLF; only the APK's own line; two lines must agree;
+  bad hex or spacing); `UpdateDownloaderTest` (a local HTTPS MockWebServer: the list's own line, no
+  Authorization or Cookie; no list or no line → no checksum; an oversize list, another answer or no
+  server; the APK written and hashed as it comes; another hash or size → damaged, no file; redirects
+  only to the allowed HTTPS hosts; over the cap; a broken connection and Cancel leave no file);
+  `ApkCheckTest` on fakes (the release's own APK; signer sets — equal, different, empty, other
+  order; the signature before the package; a stable tag's code exactly and above the installed one;
+  a prerelease only in test mode and not below; the reinstall test's equal code);
+  `UpdateInstallFlowTest` on fakes (a start removes what an earlier run left; the owner's order,
+  then Android's installer; not allowed → nothing downloaded; no space; no checksum → no download; a
+  bad checksum stops before the APK is read, a bad signature before the package check, any failure
+  before a session; the progress and Cancel; Cancel while Android waits gives the session up;
+  Android's answers; an earlier run's session given up; a session that can't be written; a
+  confirmation that can't open; Reinstall this build only in test mode, with its own APK and code; a
+  build that never checks never installs); `UpdatesScreenTest`'s U2 cases (the button starts the
+  flow, no browser; the progress and Cancel; "Verified…" only once every check passed; each
+  failure's line, then "Nothing was installed."; Android's statuses in words; Download in browser
+  opens the exact APK link; "Update cancelled."; not allowed → Android's "Install unknown apps" page
+  for YFT; the reinstall test's line); `UpdateAutoOpenTest` (Android's confirmation started once the
+  checks passed). Planned as `InstallStatusTest` and `UpdateControllerTest`'s U2 cases: the steps
+  live in `UpdateInstallFlow`, so their tests do too.
 - Compose (Robolectric), new files: `SettingsAboutUpdatesTest` (About's rows in order — Version with
   the version on its second line, Updates, Licenses; the Updates row's three states and the New
   badge; no row with the policy off; a tap opens Updates); `UpdatesScreenTest` (the installed
@@ -497,27 +516,34 @@ link stays the fallback).
 
 ### 6.2 Emulator (`connectedDebugAndroidTest`, the Emulator smoke, API 34)
 
-- `UpdateInstallInstrumentedTest` hosts `UpdatesScreen` and `UpdateAutoOpen`'s confirmation starter
-  in the test's own activity (`createAndroidComposeRule`) with a controller built by the test: its
-  client trusts a test-only certificate from `okhttp-tls` and talks to a local **HTTPS**
-  MockWebServer (the app's network rules stay as they are) that serves the releases JSON (a
-  prerelease tagged with the debug build's own version), `SHA256SUMS` and the app's own `base.apk`;
-  the debug build is in test mode with the switch off, so the app itself asks GitHub nothing:
-  1. Check now → found → Download APK to update → checksum, signature, package and version (the real
-     PackageManager) OK → "Verified: checksum and signature match" → a session →
-     `STATUS_PENDING_USER_ACTION` → Android's installer window on screen
-     (`com.android.packageinstaller` or `com.google.android.packageinstaller`) → **Cancel** (never
-     Install: it would replace the app under test) → "Update cancelled. Nothing was installed." with
-     the link; the cached APK gone. `appops set … REQUEST_INSTALL_PACKAGES allow` first.
-  2. One byte changed in the served APK → "Checksum doesn't match…" before any session (`mySessions`
+- `UpdateInstallInstrumentedTest` (U2) runs the debug build's in-app update (test mode) with the
+  real `PackageManager` reading the APK and Android's real installer: the app's own `UpdatesRoute`
+  and `UpdateAutoOpen` (its confirmation starter) in the test's activity
+  (`createAndroidComposeRule`), the production `UpdateDownloader`, `PackageApkReader` and
+  `PackageInstallSystem`, and a controller whose check finds a prerelease (`v1.0.0-beta.3`, no rule
+  code) on Check now — the app itself asks GitHub nothing. GitHub is played by an OkHttp interceptor
+  on its own hosts and paths (`github.com`'s 302 to `release-assets.githubusercontent.com`, so
+  `UpdateHttp`'s host and redirect rules run as in the release); the APK streams from its file and
+  nothing leaves the device. The planned local HTTPS MockWebServer is not used: it holds each body
+  in memory (the debug APK is tens of MB), and its TLS on the emulator was the risk this section
+  named. Android's statuses come to the test's own receiver (`PackageInstallSystem`'s status intent,
+  then `InstallStatusReceiver.deliver`), as the app's flow is not the test's. In order:
+  1. Installs from YFT not allowed (a fresh install's default; skipped if already allowed) → the
+     "Allow YFT…" state with Open settings; nothing asked, nothing downloaded. Never taken back
+     later: Android may end the app then.
+  2. `appops set … REQUEST_INSTALL_PACKAGES allow`; the app's own `base.apk` → the checksum, the
+     signature, the package and version pass → "Verified: checksum and signature match" → a session
+     → `STATUS_PENDING_USER_ACTION` → Android's installer on screen (`com.android.packageinstaller`
+     or `com.google.android.packageinstaller`) → **Cancel** (never Install: it would replace the app
+     under test) → "Update cancelled." and "Nothing was installed." with the link; the cached APK
+     gone, no session left; only the list and the APK asked, each through the redirect.
+  3. One byte changed in the served APK → "Checksum doesn't match…" before any session (`mySessions`
      empty), the file deleted.
-  3. The instrumentation APK served instead (`com.alal.yft.debug.test`, the same debug key, its own
+  4. The instrumentation APK served instead (`com.alal.yft.debug.test`, the same debug key, its own
      `SHA256SUMS` line) → the checksum and the signature pass, the package check refuses:
      "This file is a different app."
-  4. Installs from YFT not allowed (`appops … deny`) → the "Allow YFT…" state; nothing downloaded.
-  5. Reinstall this build (test) → the same confirmation → Cancel.
-- If TLS on the emulator proves flaky: P34's in-test OkHttp interceptor as the server, the same
-  assertions.
+  5. Reinstall this build (test) → "Test: this build's own APK, signature matches" → the same
+     confirmation → Cancel; GitHub not asked; the build's own APK kept.
 
 ## 7. Validation
 
@@ -605,6 +631,20 @@ link stays the fallback).
   `src/release/kotlin`; `YftDestinationTest.kt` edited for the new destination; the link without a
   browser selector (§4.3). Next: U2 without a stop; U2 not green by 2026-10-26 24:00 MMT → a report,
   and v1.0.0 takes the U1 cut.
+- 2026-10-25 (MMT): **U1 green** — the U1 cut is `e615a96` (`checkpoint(phase-in-app-update): U1:
+  the check, the Updates row and screen, the link`); its CI all success: Work-branch checkpoint
+  validation 40123514346, Android emulator smoke 40123514304, Preview APK (test key) 40123514313.
+  Straight on to U2.
+- 2026-10-25 (MMT): **U2** — §4.7's U2 files and §6's U2 tests, checkpoint
+  `checkpoint(phase-in-app-update): U2: …` (its SHA and CI in the next entry). Where U2 differs from
+  the plan as written: the steps in `UpdateInstallFlow`, not `UpdateController` (so the planned
+  `InstallStatusTest` and `UpdateControllerTest` U2 cases are `UpdateInstallFlowTest`'s and
+  `UpdatesScreenTest`'s); the cached APK deleted as soon as the session holds its copy; the
+  download's own lines ("The download stopped. Check the connection.",
+  "Couldn't download the update.") and "Android's installer didn't open."; Cancel also gives up a
+  session that waits for Android; §6.2's GitHub an in-test interceptor, not MockWebServer, so
+  `app/build.gradle.kts` is unchanged. Next: CI green (the Emulator smoke included; the branch's
+  Preview APK for U3), then STOP with a short Burmese report.
 
 ## Appendix — the agent's prompt
 

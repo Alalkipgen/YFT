@@ -1,5 +1,6 @@
 package com.alal.yft.update
 
+import java.io.File
 import kotlinx.coroutines.CompletableDeferred
 
 /** The record in memory only; [writes] counts what the controller saved. */
@@ -65,4 +66,98 @@ internal object Updates {
 
     fun off() =
         UpdateEnvironment(UpdateMode.OFF, installedCode = 1_000_000, installedName = "1.0.0")
+}
+
+/** The release's checksum and APK from memory; [gate] holds the download until it completes. */
+internal class FakeApkSource(
+    var sums: SumsResult = SumsResult.Found(Installs.SHA256),
+    var download: DownloadResult? = null,
+    var file: File = File("yft-update.apk"),
+) : ApkSource {
+    val events = mutableListOf<String>()
+    var progress = listOf(0, 42)
+    var gate: CompletableDeferred<Unit>? = null
+
+    override suspend fun checksum(update: FoundUpdate): SumsResult {
+        events += "checksum ${update.version.apkName}"
+        return sums
+    }
+
+    override suspend fun download(
+        update: FoundUpdate,
+        sha256: String,
+        onProgress: (percent: Int) -> Unit,
+    ): DownloadResult {
+        events += "download $sha256"
+        progress.forEach(onProgress)
+        gate?.await()
+        return download ?: DownloadResult.Done(file)
+    }
+
+    override fun discard() {
+        events += "discard"
+    }
+}
+
+/** Android's answer about a file: [facts] for every file; [read] lists the files asked about. */
+internal class FakeApkReader(var facts: ApkFacts? = Installs.releaseApk()) : ApkReader {
+    val read = mutableListOf<String>()
+
+    override fun read(file: File): ApkFacts? {
+        read += file.name
+        return facts
+    }
+}
+
+/** Android's side from memory: [events] lists sessions made, committed and given up. */
+internal class FakeInstallSystem(
+    var allowed: Boolean = true,
+    var free: Long = Long.MAX_VALUE,
+    var installed: InstalledApp = Installs.release(),
+    val own: File = File("base.apk"),
+) : InstallSystem {
+    val events = mutableListOf<String>()
+    var nextSession = 7
+    var commitFailure: Exception? = null
+
+    override fun canInstall(): Boolean = allowed
+
+    override fun freeBytes(): Long = free
+
+    override fun installed(): InstalledApp = installed
+
+    override fun ownApk(): File = own
+
+    override fun createSession(size: Long): Int {
+        events += "create"
+        return nextSession
+    }
+
+    override fun commit(sessionId: Int, file: File) {
+        commitFailure?.let { throw it }
+        events += "commit $sessionId ${file.name}"
+    }
+
+    override fun abandon(sessionId: Int) {
+        events += "abandon $sessionId"
+    }
+
+    override fun abandonAll() {
+        events += "abandonAll"
+    }
+}
+
+internal object Installs {
+    const val SHA256 = "5F0C6A0A0D4C7A3B2E9F1D8C7B6A5F4E3D2C1B0A9F8E7D6C5B4A3F2E1D0C9B8A"
+    const val RELEASE_KEY = UpdatePolicy.RELEASE_CERT_SHA256
+    const val OTHER_KEY = "0000000000000000000000000000000000000000000000000000000000000000"
+
+    fun release(code: Long = 1_000_000) =
+        InstalledApp("com.alal.yft", versionCode = code, signers = setOf(RELEASE_KEY))
+
+    fun debug(code: Long = 3) =
+        InstalledApp("com.alal.yft.debug", versionCode = code, signers = setOf(OTHER_KEY))
+
+    fun releaseApk(code: Long = 1_000_100, packageName: String = "com.alal.yft") =
+        ApkFacts(packageName, versionCode = code, signers = setOf(RELEASE_KEY))
 }

@@ -6,6 +6,7 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.Call
 import okhttp3.CookieJar
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -158,11 +159,14 @@ internal class UpdateHttp(client: OkHttpClient, private val allowedHosts: Set<St
 
     fun allows(url: HttpUrl): Boolean = url.isHttps && url.host in allowedHosts
 
-    fun execute(request: Request): Response {
+    /** [onCall] sees each hop's call, so a cancelled download can stop the one in flight. */
+    fun execute(request: Request, onCall: (Call) -> Unit = {}): Response {
         var current = request
         repeat(MAX_REDIRECTS + 1) {
             if (!allows(current.url)) throw Refused("host ${current.url.host}")
-            val response = client.newCall(current).execute()
+            val call = client.newCall(current)
+            onCall(call)
+            val response = call.execute()
             if (!response.isRedirect) return response
             val next = response.header("Location")?.let { current.url.resolve(it) }
             response.close()

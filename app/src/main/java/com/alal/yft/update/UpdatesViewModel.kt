@@ -5,12 +5,16 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.StateFlow
 
-/** The Updates screen's, the Settings row's and the auto-open's view of [UpdateController]. */
+/** The Updates screen's, the Settings row's and the auto-open's view of the updater. */
 @HiltViewModel
 class UpdatesViewModel @Inject constructor(
     private val controller: UpdateController,
+    private val installFlow: UpdateInstallFlow,
 ) : ViewModel() {
     val state: StateFlow<UpdateState> = controller.state
+
+    /** The in-app download, checks and Android's installer (U2). */
+    val install: StateFlow<InstallState> = installFlow.state
 
     fun checkNow() = controller.checkNow()
 
@@ -19,6 +23,16 @@ class UpdatesViewModel @Inject constructor(
     fun markOpened(version: String) = controller.markOpened(version)
 
     fun deferAutoOpen() = controller.deferAutoOpen()
+
+    fun download(update: FoundUpdate) = installFlow.download(update)
+
+    fun cancelInstall() = installFlow.cancel()
+
+    fun reinstallThisBuild() = installFlow.reinstallThisBuild()
+
+    fun confirmStarted(sessionId: Int) = installFlow.confirmStarted(sessionId)
+
+    fun confirmFailed(sessionId: Int) = installFlow.confirmFailed(sessionId)
 }
 
 /** Settings → About's Updates row: its second line and the New badge (§4.5). */
