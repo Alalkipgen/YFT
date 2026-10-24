@@ -785,9 +785,9 @@ Keep at least the heading and one blank line between sections, so Git merges the
   `8dc46ff` (`spike/master-extractor-backup`); it never merges into PR #2; after PR #2's merge,
   `main` is merged into it (VK4).
 - State (2026-10-24): plan only (docs); no code.
-- Next: VK0 — the owner's VK links (a public video, a clip, an embed link, a sign-in one), live
-  checks (`scripts/live-check.sh`, public pages only), sanitized fixtures; STOP and report in
-  Burmese.
+- Next: VK0 — public VK links found by the agent (a video, a clip, an embed link; the owner's
+  sign-in link at VK3), live checks (`scripts/live-check.sh`, public pages only), sanitized
+  fixtures; STOP and report in Burmese.
 - Rules: the plan's §2 (no push to `main` or PR #2, no label, no `recipes` branch, no VK APK on
   the owner's phone before S5's run 3 is counted).
 - Validation: `./gradlew --no-daemon :extractor-sites:test`.

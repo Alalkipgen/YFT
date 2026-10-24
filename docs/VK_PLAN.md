@@ -202,9 +202,10 @@ Names may change if VK0 shows a better split; "new files plus one line" may not.
 
 ### 5.1 VK0 — recon (no app code)
 
-1. **Links:** ask the owner (Burmese) for 3–4: a public video, a clip, an embed link
-   (`video_ext.php`) and one that needs sign-in (that one is tried only on his phone; no cookies
-   come to the agent). Add public sample links of your own (e.g. yt-dlp's VK test URLs).
+1. **Links:** find public ones yourself (the owner's word, 2026-10-24): a video, a clip and an
+   embed link (`video_ext.php`), on vk.com and vkvideo.ru (e.g. yt-dlp's VK test URLs, VK's own
+   public pages). A link that needs sign-in is the owner's: ask for it at VK3; it is tried only on
+   his phone (no cookies come to the agent).
 2. **Live checks** (`scripts/live-check.sh`, public pages only), for each link and host
    (vk.com, vkvideo.ru, m.*): status, final host, path and markers — player data (which keys)?
    embed hash? access text? captcha? Can A work without `al_video`? Does B need `hash`, and does A
@@ -215,7 +216,7 @@ Names may change if VK0 shows a better split; "new files plus one line" may not.
    reachable: login, private, deleted or region), a manifest with video, an audio-only manifest.
 5. **Code checks:** `BrowserMasterFallback` does nothing for an adapter id other than YouTube's and
    the four sites' (VK must not enter Master); the tab reader is TikTok's only (VK3 stays backlog);
-   what a VK page shows once VK is registered (§3 P12) and how often the owner's links reach no
+   what a VK page shows once VK is registered (§3 P12) and how often the links reach no
    path at all.
 6. **STOP — report** (Burmese): a table link × path (works / needs hash / access / changed), the
    v1 path list and, if A and B cannot carry v1, the `al_video` question (shared `postForm`,
@@ -245,8 +246,8 @@ The files of §4.7; the registration line last. `identify()` never touches the n
 - Checkpoints: `bash scripts/checkpoint.sh "…"` on `work/phase-vk-extractor` (your SESSION_STATE
   section each time). CI: `checkpoint-validation` green; `preview-apk` builds a release-flag
   preview (`com.alal.yft.preview`).
-- **The phone** (only after S5's run 3 is counted, with the owner's OK): the owner's links signed
-  out, the sign-in one also signed in to VK in YFT's browser by the owner, and one lookup each on
+- **The phone** (only after S5's run 3 is counted, with the owner's OK): the public links signed
+  out, the owner's sign-in link signed in to VK in YFT's browser by him, and one lookup each on
   TikTok, Facebook, Instagram and X (no change expected). He sends Copy details; the agent judges.
 - **STOP — report:** per link the rows (video heights, Audio), the path that answered and the
   time; the four sites unchanged.
@@ -262,7 +263,7 @@ stay. A test fails if a fixture holds a real-looking signature or cookie.
 1. Merge `main` into `work/phase-vk-extractor` (a merge commit, no rebase; PR #2 is merged with a
    merge commit, decision 30 (iv)). Conflicts are not expected (VK's files are new); resolve only
    in VK's own files.
-2. CI green; **Preview #13** (the release's flags, with VK): the owner's VK links plus one lookup
+2. CI green; **Preview #13** (the release's flags, with VK): the VK links plus one lookup
    per site.
 3. The shared docs from §9: `docs/SUPPORT_MATRIX.md`, `docs/TEST_MATRIX.md`, `PROGRESS.md`,
    `CHANGELOG.md`.
@@ -304,6 +305,7 @@ stay. A test fails if a fixture holds a real-looking signature or cookie.
 ## 10. Status
 
 - 2026-10-24: plan recorded (docs only), branch made from `8dc46ff`. Next: VK0.
+- 2026-10-24: the owner — the agent finds public VK links itself; his sign-in link at VK3.
 
 ## Appendix — the agent's prompt
 
@@ -318,8 +320,8 @@ Read first, in this order:
 3. docs/ARCHITECTURE.md, then the Vimeo adapter
    (extractor-sites/src/main/kotlin/com/alal/yft/extractor/sites/vimeo/) as your template.
 
-Start with VK0 (recon). If the owner's VK links are missing, ask for them first. Stop at every
-STOP in the plan and report to the owner in Burmese, short.
+Start with VK0 (recon). Find public VK links yourself; ask the owner only for a sign-in-only
+link, at VK3. Stop at every STOP in the plan and report to the owner in Burmese, short.
 
 Never: push to main or spike/master-extractor-backup; open a pull request before VK4; add a
 label; run master-recipes-publish or touch the recipes branch; change a file outside the plan's
