@@ -1,5 +1,19 @@
 # YFT Master Extractor backup
 
+## Social plan — decision 30 (vi): R9 after PR #2's merge, the owner's Run workflow (2026-10-24)
+
+- **Decision 30 (vi)** (the owner, 2026-10-24, in chat after S5's run 2; plan §8): until PR #2's
+  merge, R9's configs are published as now (the owner's label `recipes:<name>` on PR #2). After the
+  merge (PR #2 closed, the workflow on the default branch): the config committed on `main`, then
+  Actions → "Master recipes publish (spike)" → Run workflow → branch `main`, the config's name
+  (`defaults` by default). R9's first Run workflow, once, after the merge and before P8: `defaults`
+  (version 8, the same recipes as version 7), then `recipes: remote version 8, signed` on the
+  census screen; a red run, and P8 waits. No label and no Run workflow before S5's run 3 is
+  counted; after the merge, no `recipes:` label on another pull request. Version 7 expires
+  2027-10-23 (a Run workflow renews it; none: the bundled recipes). Nothing built; S5 untouched.
+- Docs: the plan (the status line, the Burmese summary, the S5 row, R9's hosting, the release
+  gate, §7.5's data fix, decisions 5 and 30) (docs only).
+
 ## Social plan — S5's run 2 of 3 PASS on every site (2026-10-24)
 
 - **S5's run 2** (decision 26; the owner, 2026-10-24 01:14–01:18 UTC, 7 h 47–48 min after run 1;

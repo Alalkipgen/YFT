@@ -65,7 +65,8 @@ debug only, behind the flag) built (2026-10-23; §7.3). The re-drill on task 18'
 run 3, from 2026-10-24 17:27–17:31 UTC (§7.4).
 Decision 30 (the owner, 2026-10-23; §8): the signed release carries Master on and shows no lookup
 details (a hidden Show details), for 5–10 friends; after S5's gate, one release commit, Preview #12
-(normal and trial), PR #2's merge, then P8.**
+(normal and trial), PR #2's merge, R9's first Run workflow, then P8; after the merge, R9 publishes
+by the owner's Run workflow on `main` (decision 30 (vi), 2026-10-24).**
 
 ## 0. အကျဉ်းချုပ်
 
@@ -106,10 +107,12 @@ details (a hidden Show details), for 5–10 friends; after S5's gate, one releas
   0.3 Facebook access check evidence၊ 0.4 census fix + site census diff၊ 0.5 ပိုင်ရှင်ရဲ့ baseline
   B0) → **S1a** kit အနည်းဆုံး + Facebook pack (pilot) → **S2b** TikTok → **S2c** X → **S2d**
   Instagram → S3 weekly check → S4 remote recipe live → S5 site တစ်ခုစီ phone run ၃ ခါ (#26) →
-  release commit → Preview #12 (normal နဲ့ trial; #30) → PR #2 merge → P8 (beta.4၊ Master ON)။
+  release commit → Preview #12 (normal နဲ့ trial; #30) → PR #2 merge → R9 Run workflow စစ်
+  (#30 (vi)) → P8 (beta.4၊ Master ON)။
   release ပြီးမှ: S1b၊ X2၊ "item အားလုံး" feature၊ B+ (S6)၊ A။
 - **ဆုံးဖြတ်ပြီး:** §8 #1–#30 (#5: 2026-10-22 — R9 ရဲ့ key နဲ့ hosting ကို agent က လုပ်၊ #30:
-  2026-10-23 — signed release မှာ Master ON)။ **ကျန်:** မရှိ။
+  2026-10-23 — signed release မှာ Master ON၊ #30 (vi): 2026-10-24 — merge ပြီးရင် R9
+  ကို Run workflow နဲ့ publish)။ **ကျန်:** မရှိ။
 - **Release မှာ Master ON (ပိုင်ရှင်၊ 2026-10-23၊ §8 #30):** signed `1.0.0-beta.4` မှာ main နဲ့ fix
   အားလုံးအပြင် Master (YouTube route B၊ site ၄ ခုရဲ့ ladder၊ browser capture၊ R9 နဲ့ rung kill
   switch) ပါမယ်။ Master က main ကျမှပဲ ဝင်မယ် (#7)။ Trial၊ test hook၊ census၊ W၊ canary၊ stream
@@ -119,11 +122,21 @@ details (a hidden Show details), for 5–10 friends; after S5's gate, one releas
   ဘေးချင်းယှဉ်): **#12 normal** (release အတိုင်း) နဲ့ **#12 trial** (main ရဲ့ အဖြေ OFF၊ Master ON —
   main က site ကို မေးဆဲမို့ Master ဖတ်စရာ record ရှိ၊ main ရဲ့ row တွေကို ဘေးဖယ်ပြီး နှိုင်းယှဉ်)။
   Trial ကို debug နဲ့ preview မှာပဲ ခွင့်ပြု၊ release က ဘယ်တော့မှ မဖတ်။ Fail ရင် merge မတိုင်ခင်
-  ပြင် (feature အသစ် မထည့်)။ ပြီးမှ PR #2 merge → P8 → install/upgrade စစ် → friend ၅–၁၀ ယောက်။
+  ပြင် (feature အသစ် မထည့်)။ ပြီးမှ PR #2 merge → R9 Run workflow စစ် (အောက်မှာ) → P8 → install/upgrade
+  စစ် → friend ၅–၁၀ ယောက်။
   Release မှာ error detail မပြ: browser မှာ lookup notice နဲ့ Try again မပေါ်၊ Download Sheet မှာ
   စာတစ်ကြောင်းပဲ (TikTok check ဆို "Show check"၊ capture ဆို "Download ပြန်နှိပ်")၊ Details နဲ့ Copy
   details က About ရဲ့ version ကို ၇ ချက်နှိပ်ရင် ပွင့်တဲ့ ဖျောက်ထားတဲ့ "Show details" (default OFF)
   နဲ့မှ။ Debug နဲ့ #12 trial မှာ အကုန်ပြ။ Friend က link ပဲ ပို့၊ ပြန်မဖြစ်မှ Show details ဖွင့်ခိုင်း။
+- **R9 — merge ပြီးရင် Run workflow (ပိုင်ရှင်၊ 2026-10-24၊ §8 #30 (vi)):** PR #2 merge မတိုင်ခင်
+  အခုအတိုင်း PR #2 ပေါ်က label `recipes:<name>` နဲ့ publish။ Merge ပြီးရင် PR #2 ပိတ်သွားလို့ label
+  မရတော့ — config ကို `main` ပေါ် commit (CI green) ပြီး Actions → "Master recipes publish (spike)"
+  → **Run workflow** → branch `main`၊ config name (`defaults`) → Run။ Merge ပြီး P8 မတိုင်ခင် ပထမဆုံး
+  Run workflow ကို `defaults` နဲ့ တစ်ခါ (version 8၊ recipe မပြောင်း; census screen မှာ `recipes: remote
+  version 8, signed`; red ဆို P8 စောင့်)။ S5 run 3 count မဝင်မချင်း label ရော Run workflow ရော မလုပ်
+  (phone က version 7 ကို ဖတ်ရမယ်)။ Merge ပြီးရင် တခြား PR ပေါ် `recipes:` label မထည့် (အဲဒီ PR head
+  ရဲ့ config ကို publish လုပ်သွားမို့)။ Version 7 က 2027-10-23 မှာ သက်တမ်းကုန် — မကုန်ခင် Run workflow
+  တစ်ခါ (မလုပ်ရင် bundled recipes နဲ့ ဆက်အလုပ်လုပ်)။
 - **S0d (2026-10-20, §7.2):** ပိုင်ရှင်ရဲ့ phone run ၂ ခု။ Recoverable failure: Facebook 0/11၊
   TikTok 0/6၊ Instagram 0/7၊ X 2/6 (main မဖတ်တဲ့ card ထဲက video)။ Pilot: Facebook → TikTok →
   X → Instagram (ပိုင်ရှင် အတည်ပြုပြီး၊ 2026-10-20၊ §8 #1)။
@@ -365,7 +378,7 @@ details (a hidden Show details), for 5–10 friends; after S5's gate, one releas
   `YFT_RECIPE_KEY` ထဲ ထည့်ပြီး ပိုင်ရှင်ကို zip နဲ့ ပေး (agent ဘက်က copies ဖျက်ပြီး)၊ public key ကို
   commit (`extractor-master/recipes/master-recipes.pub.hex`)။ Config ကို `master-recipes-publish`
   workflow က sign ပြီး branch `recipes` ပေါ် တင် (PR #2 ပေါ်က ပိုင်ရှင်ရဲ့ label `recipes:<name>` နဲ့
-  စ)။ App က ladder စတိုင်း အချိန်ကျရင် တစ်ခါ မေး (1.5 s; answer ရရင် 6 နာရီ တစ်ခါ; census screen
+  စ; merge ပြီးရင် `main` ပေါ်က Run workflow နဲ့၊ #30 (vi))။ App က ladder စတိုင်း အချိန်ကျရင် တစ်ခါ မေး (1.5 s; answer ရရင် 6 နာရီ တစ်ခါ; census screen
   ဖွင့်ရင် ချက်ချင်း)၊ lookup ရဲ့ ask မဟုတ်။ Rung တစ်ခုစီ kill switch (`rungsOff`): off ဆို မ run၊ line
   "…: off (config); not run"; capture rung off ဆို tab capture မလုပ်။ Census screen မှာ "recipes:
   remote version N, signed"; key table က file မတွေ့ပဲ shape နဲ့ တွေ့ရင် rows ရဲ့ banner မှာ "…files by
@@ -710,7 +723,7 @@ With no adapter copies (B), the build is also about 4,700 lines smaller than the
 | **S2d** | M | Instagram's pack by the Instagram check's verdict (0.2); the owner's signed-in census first (§7.3) | the same — part 1 built (2026-10-22, behind the flag: I2 and the tab-fetch probe, off by default); the phone (2026-10-22, `36ec093`): A PASS on 3 sessions, wrong 0; the probe: slot 5 video yes, slot 9 no; part 2 (the probe's rung, decision 24): built (task 13, 2026-10-22; behind its own switch, off by default: decision 28), its phone proof (2026-10-23, `c3e9147`): slot 5 rescued, 2 of 2; tasks 12 and 14 built; task 15 built (F1–F5, F3b; §7.3); task 16 built (F6: a row without a stated size takes its file's own, every site's; §7.3); the retest next (§7.4) |
 | **S3** | S–M | Weekly check W for all four + runbook (each CHANGED / BREAKING line and its fix: a data change via R9, or code) | the owner's first W run — built (2026-10-22, debug only, a social-ladder build: the census's "Weekly check W"; its runbook §7.5); its first runs C1–C3 PASS (2026-10-22, `36ec093`; W's baselines per network and session: decision 25); 2026-10-23 (`c3e9147`): NO CHANGE but Instagram on New York (every ask walled: the exit's address; task 15's F5 built: such a run is never a baseline, the stored one set aside) |
 | **S4** | S | R9 live: the signed config hosted (§8 item 5, decided 2026-10-22: the agent makes the key and the hosting); kill switch per rung; one repair drill (a key changed by config on the phone, no APK) | drill passed — built (task 17, 2026-10-23, `2dcd0d1`; debug only, a social-ladder build: the key in the secret `YFT_RECIPE_KEY`, the config on the branch `recipes` by the `master-recipes-publish` workflow, `rungsOff`; §7.3); the drill: S4's phone session PASS (2026-10-23, steps 1–5; §7.4), its O1 fixed by task 18 (`ac0dd2c`); the re-drill PASS (2026-10-23, `ac0dd2c`'s APK, versions 6 and 7; §7.4) |
-| **S5** | — | Promote per site after 3 phone runs by decision 26's rule (each at least 6 h after the previous one, the first and the last at least 24 h apart, on an APK of the final code, only where Master ran) with 0 wrong rows and no regression against B0; then the release gate (§7.3): all four sites, the first W run and the R9 drill passed, the intended differences in `docs/SUPPORT_MATRIX.md` → PR #2 merged → P8 (beta.4) | the owner's go — runs 1 and 2 of 3 PASS on every site (2026-10-23 17:27–17:31 UTC and 2026-10-24 01:14–01:18 UTC, `ac0dd2c`'s APK: wrong rows 0, NO CHANGE; §7.4) |
+| **S5** | — | Promote per site after 3 phone runs by decision 26's rule (each at least 6 h after the previous one, the first and the last at least 24 h apart, on an APK of the final code, only where Master ran) with 0 wrong rows and no regression against B0; then the release gate (§7.3): all four sites, the first W run and the R9 drill passed, the intended differences in `docs/SUPPORT_MATRIX.md` → PR #2 merged → R9's first Run workflow (decision 30 (vi)) → P8 (beta.4) | the owner's go — runs 1 and 2 of 3 PASS on every site (2026-10-23 17:27–17:31 UTC and 2026-10-24 01:14–01:18 UTC, `ac0dd2c`'s APK: wrong rows 0, NO CHANGE; §7.4) |
 | **S1b** | M | After the release, on the owner's go: the rest of the kit — several request rungs per site with `SiteHealth` (the last good rung first) and self-healed values (L6). Needed only if X2 is allowed or Instagram's `doc_id` needs self-healing: Facebook, TikTok and Instagram each have one request rung in S1a–S2d | JVM tests; phone proof per site |
 | **S6** | M | **B+** (the owner's go, after the release and B's phone proof): when main's answer is weak by an objective signal (no HD row, no sound row), Master adds only the missing formats; main's rows stay (merge rule); budgeted | phone proof; **A** only if B+ is measured insufficient (decision 7) |
 
@@ -1385,8 +1398,9 @@ A social-ladder debug build (`yft.socialLadder` with `yft.masterCapture`) carrie
 recipes, no ask). *The hosting:* `master-recipes.json` on the branch `recipes`
 (raw.githubusercontent.com; `yft.masterRecipeUrl`'s default), written only by
 `.github/workflows/master-recipes-publish.yml` on the owner's label `recipes:<name>` on PR #2
-(another label, person or repository: skipped; runs never overlap): the committed config
-`extractor-master/recipes/configs/<name>.json` at the PR's head, the next version (the live one
+(after its merge, the owner's Run workflow on `main`: decision 30 (vi); another label, person or
+repository: skipped; runs never overlap): the committed config
+`extractor-master/recipes/configs/<name>.json` at the PR's head (a Run workflow: at `main`'s), the next version (the live one
 plus one), an expiry a year on, the schema's and the reader's checks
 (`scripts/master-recipes-publish.py`), the secret's key against the committed one, the signature
 (`scripts/master-recipe-sign.sh`) verified with the committed key, then one new commit on
@@ -1466,8 +1480,8 @@ drill's only. *The re-drill:* §7.4 — PASS (2026-10-23).
 after the previous one, the first and the last at least 24 h apart, counted only on an APK of the
 final code — a change to the site's pack, the engine or main restarts its count — and only where
 Master ran; wrong rows 0, no regression against B0), the first W run passed, the R9 drill passed,
-the intended differences listed in `docs/SUPPORT_MATRIX.md` → PR #2 merged → P8 (beta.4) →
-others get the app.
+the intended differences listed in `docs/SUPPORT_MATRIX.md` → PR #2 merged → R9's first Run
+workflow (decision 30 (vi)) → P8 (beta.4) → others get the app.
 
 **The gate's state** (after the phone sessions of 2026-10-22 and 2026-10-23 and tasks 12–16, the
 retest, all PASS on 2026-10-23, task 17 (S4) built, S4's phone session PASS (2026-10-23), task
@@ -2206,7 +2220,8 @@ a runbook, `MASTER_KEY_PHASE1_2_PLAN.md` §6's numbered steps — with no YouTub
 site's recipe keys and paths, its endpoint's path and query (the same host), its headers, its DRM,
 no-video and wall paths (only added) and a rung's kill switch (`rungsOff`) change by config, with
 no APK — the config in `extractor-master/recipes/configs/<name>.json` (a commit on the work branch;
-the JVM tests read the committed configs), then the owner's label `recipes:<name>` on PR #2 (the
+the JVM tests read the committed configs), then the owner's label `recipes:<name>` on PR #2 (after its
+merge: the config committed on `main`, then the owner's Run workflow, decision 30 (vi); the
 `master-recipes-publish` workflow signs and publishes the next version; §7.4's S4 session: how);
 the app takes it at a ladder's start within six hours, at once on the census screen's open (its
 `recipes:` line names the version). *Code:* a commit on the work branch (JVM tests, the census, W
@@ -2504,15 +2519,16 @@ Decided (the owner, 2026-10-23, in task 16's brief; recorded in task 16's commit
   deleted; never committed, printed or logged); the public key committed
   (`extractor-master/recipes/master-recipes.pub.hex`), carried by a social-ladder build only. The
   hosting: `master-recipes.json` on the branch `recipes` (raw.githubusercontent.com), written only
-  by the `master-recipes-publish` workflow on the owner's label `recipes:<name>` on PR #2 (a
-  committed config, the next version, a year's expiry, signed, verified with the committed key;
+  by the `master-recipes-publish` workflow on the owner's label `recipes:<name>` on PR #2 (after its
+  merge, the owner's Run workflow on `main`: decision 30 (vi); a committed config, the next version,
+  a year's expiry, signed, verified with the committed key;
   never forced). A new key (lost or leaked): a new pair by the same steps, the secret replaced,
   the new public key committed (a code commit: its APK carries it); the new APK refuses the old
   key's configs (the bundled recipes until the new key's first). *Status:* built in task 17
   (2026-10-23; §7.3); its drill: S4's phone session (§7.4).
 
-Decided (the owner, 2026-10-23, in chat after S5's run 1; recorded docs only, nothing built; the
-decision, then its status):
+Decided (the owner, 2026-10-23, in chat after S5's run 1; its (vi) 2026-10-24, after S5's run 2;
+recorded docs only, nothing built; the decision, then its status):
 
 - **30 — The signed release carries Master on; 5–10 of the owner's friends use it.** Decision 12's
   gate stays (S0–S5 on the four sites first); the release is no longer main alone. The signed
@@ -2542,8 +2558,9 @@ decision, then its status):
   the release commit (the release's and the previews' flags, the key, R8 rules, the switch, the
   privacy line, (v)'s quiet release; CI green; no site pack, engine or main lookup change, so S5's
   count stands and its proof is #12) → #12 normal and #12 trial on the owner's phone → PR #2's
-  merge (a merge commit) → P8 (the tag, the signed APK, its install and upgrade on the owner's
-  phone) → the friends (their reports: the link; Show details only when the owner asks, (v); data
+  merge (a merge commit) → R9's first Run workflow ((vi)) → P8 (the tag, the signed APK, its
+  install and upgrade on the owner's phone) → the friends (their reports: the link; Show details
+  only when the owner asks, (v); data
   fixes by R9, code fixes in beta.5). (v) **The quiet release: the debug and trial APKs find the
   bugs; the release shows none of their tools.** The browser shows no lookup notice and no Try
   again (a page that does not load says so, as in any browser). The download sheet, opened by the
@@ -2556,8 +2573,25 @@ decision, then its status):
   in Settings; on, the sheet shows them as the debug APK does. A failed download's retry stays (a
   function). The debug APK and #12 trial show everything as now; #12 normal looks exactly as the
   release. A friend sends the link; when the owner's phone does not show the failure, the owner
-  asks for Show details and its Copy details.
-  *Status:* recorded (2026-10-23); nothing built; the release commit after S5's gate.
+  asks for Show details and its Copy details. (vi) **R9 after the merge: the owner's Run workflow
+  on `main`** (the owner, 2026-10-24, in chat after S5's run 2). Until PR #2's merge, a config is
+  published as now: the owner's label `recipes:<name>` on PR #2. The merge closes PR #2 and puts
+  `master-recipes-publish.yml` on the default branch, where GitHub shows its Run workflow; from
+  then, a data fix (§7.5's two kinds) is the config committed on `main`
+  (`extractor-master/recipes/configs/<name>.json`; CI green), then **Actions → "Master recipes
+  publish (spike)" → Run workflow → branch `main`, the config's name (`defaults` by default) → Run
+  workflow**: the same job as a label run (the owner only; the config at the run's commit; the next
+  version, a year's expiry, the schema's, the reader's and the key's checks; never forced), green,
+  then wait 5 minutes (the raw host's cache) and the debug APK's census screen names the new
+  version. A red run: its log; nothing published. **R9's first Run workflow, once:** after the
+  merge and before P8, `defaults` (version 8, the same recipes as version 7: no override, no rung
+  off), then `recipes: remote version 8, signed` on the census screen; a red run, and P8 waits. No
+  label and no Run workflow before S5's run 3 is counted (the phone's run 3 reads version 7); after
+  the merge, no `recipes:` label on any other pull request (a label run publishes that pull
+  request's head). Version 7 (`defaults`, 2026-10-23) expires 2027-10-23: a Run workflow before
+  then renews it for a year; none, and the apps fall back to the bundled recipes (no failure).
+  *Status:* recorded (2026-10-23; (vi) 2026-10-24); nothing built; the release commit after S5's
+  gate; (vi)'s first Run workflow after the merge.
 
 Still open (the owner's answer is needed before the step that uses it): none.
 
